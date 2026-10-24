@@ -50,6 +50,29 @@
  * conflicting Dependabot PR really has no gates running, and excluding it would
  * be this exact blindness in a smaller costume. The fix is to rebase the PR.
  *
+ * ONE EXCEPTION, OWNER-DECIDED (Ricky, 2026-10-24: "Skip docs-only, list the
+ * rest"): a CONFLICTING DOCS-ONLY WORKER PR is SKIPPED. Worker means the head
+ * ref starts with `claude/`; a human or Dependabot docs PR is still judged, and
+ * drafts get no special case. Only a CONFLICTING one: a MERGEABLE docs PR with
+ * an empty board is still a NO_GATES_RAN failure, because the docs-only
+ * workflows keep their jobs running and H2 is the durable half. Docs-only means
+ * EVERY changed file passes the repo's ONE docs-only definition,
+ * scripts/ci/docs-only.mjs (under `docs/`, `.claude/rules/` or `plans/`, or a
+ * Markdown file outside the trees that ship or drive code -- `.md` at the repo
+ * root counts, `.md` under src/ scripts/ .github/ and the rest does not), or
+ * lives under `briefs/`; no file was RENAMED or COPIED (GraphQL shows only the
+ * new path, so moving code into docs/ would read as docs); and the whole list
+ * was read (an integer totalCount equal to the paths fetched, at least one
+ * file). A list longer than the page is NOT docs-only, never a guess. Files are
+ * read only for conflicting claude/ PRs, in a separate query, so the detail
+ * query does not grow back toward the 504. A skipped PR is never silent and
+ * never OK: one `SKIPPED docs-only #N <head>` line each and a
+ * `skipped docs-only: K` total; it is out of the ok tally and the pass line's
+ * judged count, gets NO commit status (this script publishes only success /
+ * failure / pending; there is no neutral state), and does not move the exit
+ * code. Files lost to an outage leave the PR NOT JUDGED, the same as any other
+ * outage; any other read error exits 2.
+ *
  * WHY THIS IS NOT A pull_request WORKFLOW. It cannot be. A pull_request
  * workflow is precisely what does not queue on a conflicting PR, so a guard
  * wired that way would go silent in the exact case it exists to catch -- the
@@ -79,6 +102,7 @@
  * 2. See OUTAGE_EXIT.
  */
 import { execFileSync } from 'node:child_process';
+import { isDocsOnly as isDocsOnlyPaths } from './ci/docs-only.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
 
 const API = 'https://api.github.com/graphql';
@@ -149,6 +173,24 @@ const VERCEL_STATUS_PREFIX = 'vercel';
 /** The App that publishes our gates. See isGateContext for why this is an
  *  inclusion list and not an exclusion list. */
 const GATE_APP_SLUG = 'github-actions';
+
+/** The docs-only exception. See the header for the owner decision. */
+const WORKER_HEAD_PREFIX = 'claude/';
+const BRIEFS_DIR = 'briefs/';
+const FILES_PAGE_SIZE = 100;
+/** A rename or copy shows only its new path, so only these are judged by path. */
+const PATH_ONLY_CHANGE_TYPES = new Set(['ADDED', 'MODIFIED', 'DELETED', 'CHANGED']);
+
+export function isDocsPath(path) {
+  return typeof path === 'string' && (path.startsWith(BRIEFS_DIR) || isDocsOnlyPaths([path]));
+}
+
+/** `files` is a GraphQL connection: { totalCount, nodes: [{ path, changeType }] }. */
+export function isDocsOnly(files) {
+  if (!files || !Array.isArray(files.nodes) || files.nodes.length === 0) return false;
+  if (!Number.isInteger(files.totalCount) || files.totalCount !== files.nodes.length) return false;
+  return files.nodes.every((node) => PATH_ONLY_CHANGE_TYPES.has(node.changeType) && isDocsPath(node.path));
+}
 
 // ---------------------------------------------------------------------------
 // Pure evaluation. Everything below the fetch boundary is data in, verdict out,
@@ -414,7 +456,7 @@ const ROLLUP_FIELDS = `
 `;
 
 const PR_FIELDS = `
-  number state isDraft title createdAt mergeable mergeStateStatus
+  number state isDraft title headRefName createdAt mergeable mergeStateStatus
   commits(last: 1) { nodes { commit { oid committedDate ${ROLLUP_FIELDS} } } }
 `;
 
@@ -596,6 +638,7 @@ function shapePr(node) {
   return {
     number: node.number,
     state: node.state,
+    headRefName: node.headRefName ?? '',
     createdAt: node.createdAt,
     mergeable: node.mergeable,
     mergeStateStatus: node.mergeStateStatus,
@@ -753,6 +796,62 @@ async function fetchPrs(ctx, repo, { number = null } = {}) {
   }
   unjudged.sort((a, b) => numbers.indexOf(a) - numbers.indexOf(b));
   return { prs, unjudged, outage, listComplete };
+}
+
+/**
+ * The PRs among `candidates` whose changed files are docs-only, read in the
+ * same DETAIL_BATCH_SIZE batches as fetchPrDetails. At the first outage the
+ * rest are returned as `unread`, the same stop fetchPrDetails makes; any other
+ * error (401, a bad query) is thrown, because it is a broken guard.
+ */
+async function fetchDocsOnly(ctx, repo, candidates) {
+  const docsOnly = new Set();
+  for (let at = 0; at < candidates.length; at += ctx.batchSize) {
+    const batch = candidates.slice(at, at + ctx.batchSize);
+    const fields = batch
+      .map(
+        (n) =>
+          'f' + n + ':pullRequest(number:' + n + '){files(first:' + FILES_PAGE_SIZE + '){totalCount nodes{path changeType}}}',
+      )
+      .join(' ');
+    let data;
+    try {
+      data = await graphql(
+        ctx,
+        'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + fields + '}}',
+        repo,
+      );
+    } catch (error) {
+      if (!error.outage) throw error;
+      return { docsOnly, unread: candidates.slice(at), outage: 'reading changed files: ' + error.message };
+    }
+    for (const n of batch) {
+      if (isDocsOnly(data?.repository?.['f' + n]?.files)) docsOnly.add(n);
+    }
+  }
+  return { docsOnly, unread: [], outage: null };
+}
+
+/**
+ * Split off the conflicting docs-only worker PRs. Prints the SKIPPED lines and
+ * the total; returns the verdicts still judged, plus the PRs an outage left
+ * unread (unjudged, never OK and never a verdict).
+ */
+async function skipDocsOnly(ctx, repo, prs, verdicts) {
+  const heads = new Map(prs.map((pr) => [pr.number, pr.headRefName]));
+  const candidates = verdicts
+    .filter((v) => v.mergeable === 'CONFLICTING' && heads.get(v.number).startsWith(WORKER_HEAD_PREFIX))
+    .map((v) => v.number);
+  const { docsOnly, unread, outage } =
+    candidates.length > 0
+      ? await fetchDocsOnly(ctx, repo, candidates)
+      : { docsOnly: new Set(), unread: [], outage: null };
+  for (const n of candidates) {
+    if (docsOnly.has(n)) console.log('  SKIPPED docs-only #' + n + ' ' + heads.get(n));
+  }
+  console.log('  skipped docs-only: ' + docsOnly.size + ' (of ' + candidates.length + ' conflicting claude/ PR(s) checked)');
+  const dropped = new Set([...docsOnly, ...unread]);
+  return { verdicts: verdicts.filter((v) => !dropped.has(v.number)), skipped: docsOnly.size, unread, outage };
 }
 
 async function fetchCommit(ctx, repo, oid) {
@@ -1219,13 +1318,16 @@ async function selfTest() {
     text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
   });
   const rollupOf = (pr) =>
-    pr.ownStatus
+    pr.empty
+      ? INCIDENT_CONTEXTS
+      : pr.ownStatus
       ? [...HEALTHY_CONTEXTS, { __typename: 'StatusContext', context: STATUS_CONTEXT, ...pr.ownStatus }]
       : HEALTHY_CONTEXTS;
   const prNode = (pr) => ({
     number: pr.number,
     state: pr.state ?? 'OPEN',
     isDraft: false,
+    headRefName: pr.head ?? 'feature/fixture',
     title: 'fixture',
     createdAt: OLD,
     mergeable: pr.mergeable ?? 'MERGEABLE',
@@ -1284,6 +1386,11 @@ async function selfTest() {
         reads[pr.number] = (reads[pr.number] ?? 0) + 1;
         const lazy = reads[pr.number] <= (unknownReads[pr.number] ?? 0);
         repository['p' + pr.number] = prNode(lazy ? { ...pr, mergeable: 'UNKNOWN' } : pr);
+      }
+      for (const pr of prs) {
+        if (!query.includes('f' + pr.number + ':pullRequest(')) continue;
+        const files = (pr.files ?? ['src/app.ts']).map((f) => (typeof f === 'string' ? { path: f, changeType: 'MODIFIED' } : f));
+        repository['f' + pr.number] = { files: { totalCount: 'fileTotal' in pr ? pr.fileTotal : files.length, nodes: files } };
       }
       return reply(200, { data: { repository } });
     };
@@ -1492,6 +1599,138 @@ async function selfTest() {
     '1/5/NOT JUDGED (4): #3, #4, #5, #6',
   );
 
+  // --- DOCS-ONLY WORKER PRs (owner, 2026-10-24: "Skip docs-only, list the rest") ---
+  // 73 open PRs were CONFLICTING, about half of them docs-only claude/ worker
+  // branches. Those are skipped VISIBLY: a line each and a total, never in the
+  // ok tally, never published to. Everything else stays judged.
+  const DOCS = { mergeable: 'CONFLICTING', head: 'claude/docs-x', files: ['docs/a.md', 'briefs/b.md', 'plans/c.md'] };
+  const skipShape = (r) =>
+    [
+      r.code,
+      r.out.split(NL).filter((line) => line.startsWith('  SKIPPED docs-only #')).join('|'),
+      (r.out.split(NL).find((line) => line.startsWith('  skipped docs-only: ')) ?? '  skipped docs-only: none').split(' ')[4],
+    ].join('/');
+  add(
+    'docs-only: a conflicting claude/ docs PR is SKIPPED by name, exit 0, not in the ok tally, not published to',
+    async () => {
+      const r = await drive(['--publish-status'], fakeGitHub(board(2, { 1: DOCS })));
+      return [
+        skipShape(r),
+        judgedOrder(r.out),
+        r.posts.join(','),
+        r.out.includes('guard passed: 1 PR(s) judged') && r.out.includes('1 conflicting docs-only PR(s) SKIPPED'),
+      ].join('/');
+    },
+    '0/  SKIPPED docs-only #1 claude/docs-x/1/2/abc2/true',
+  );
+  add(
+    'docs-only: the same PR with one src/ file is judged and FAILs',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: [...DOCS.files, 'src/x.tsx'] } })))),
+    '1//0',
+  );
+  add(
+    'docs-only: a docs/ Markdown file plus one .ts is not docs-only',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: ['docs/a.md', 'scripts/x.ts'] } })))),
+    '1//0',
+  );
+  add(
+    'docs-only: a Dependabot head is judged even when every file is docs',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, head: 'dependabot/npm_and_yarn/x' } })))),
+    '1//0',
+  );
+  add(
+    'docs-only: a human branch is judged even when every file is docs',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, head: 'ricky/notes' } })))),
+    '1//0',
+  );
+  add(
+    'docs-only: Markdown at the repo root only is docs-only',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: ['README.md', 'CLAUDE.md'] } })))),
+    '0/  SKIPPED docs-only #1 claude/docs-x/1',
+  );
+  add(
+    'docs-only: a non-Markdown file under docs/ is docs-only',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: ['docs/diagram.png'] } })))),
+    '0/  SKIPPED docs-only #1 claude/docs-x/1',
+  );
+  add(
+    'docs-only: a file list longer than the page fetched is never guessed docs-only',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, fileTotal: 150 } })))),
+    '1//0',
+  );
+  add(
+    'docs-only: a PR with no changed files is not docs-only',
+    async () => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, files: [] } })))),
+    '1//0',
+  );
+  const skipsWith = async (overrides) => skipShape(await drive([], fakeGitHub(board(1, { 1: { ...DOCS, ...overrides } }))));
+  add('docs-only: a non-Markdown file under briefs/ is docs-only', () => skipsWith({ files: ['briefs/x.json'] }), '0/  SKIPPED docs-only #1 claude/docs-x/1');
+  add('docs-only: a non-Markdown file under plans/ is docs-only', () => skipsWith({ files: ['plans/x.json'] }), '0/  SKIPPED docs-only #1 claude/docs-x/1');
+  add('docs-only: an upper-case .MD at the root is docs-only', () => skipsWith({ files: ['NOTES.MD'] }), '0/  SKIPPED docs-only #1 claude/docs-x/1');
+  add('docs-only: Markdown under src/ is code, not docs', () => skipsWith({ files: ['src/modules/event-page/CLAUDE.md'] }), '1//0');
+  add('docs-only: Markdown under .github/ is code, not docs', () => skipsWith({ files: ['.github/pull_request_template.md'] }), '1//0');
+  add(
+    'docs-only: a RENAMED file is never judged by its new path (code moved into docs/)',
+    () => skipsWith({ files: [{ path: 'docs/archive/check-foo.mjs', changeType: 'RENAMED' }] }),
+    '1//0',
+  );
+  add('docs-only: a missing totalCount is not a whole list', () => skipsWith({ fileTotal: null }), '1//0');
+  add(
+    'docs-only: a MERGEABLE docs PR with an empty board still FAILs NO_GATES_RAN, files never read',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, mergeable: 'MERGEABLE', empty: true } })));
+      return [skipShape(r), r.out.includes('NO_GATES_RAN'), r.calls.some((c) => c.query.includes('files('))].join('/');
+    },
+    '1//0/true/false',
+  );
+  add(
+    'docs-only: a healthy docs PR stays ok and its files are never read',
+    async () => {
+      const r = await drive([], fakeGitHub(board(1, { 1: { ...DOCS, mergeable: 'MERGEABLE' } })));
+      return [skipShape(r), judgedOrder(r.out), r.calls.some((c) => c.query.includes('files('))].join('/');
+    },
+    '0//0/1/false',
+  );
+  add(
+    'docs-only: --pr on a skipped PR says SKIPPED, not that it is mergeable',
+    async () => {
+      const r = await drive(['--pr', '1'], fakeGitHub(board(1, { 1: DOCS })));
+      return [skipShape(r), r.out.includes('0 PR(s) judged') && r.out.includes('1 conflicting docs-only PR(s) SKIPPED')].join('/');
+    },
+    '0/  SKIPPED docs-only #1 claude/docs-x/1/true',
+  );
+  add(
+    'docs-only: files lost to an outage leave the PR NOT JUDGED, never a verdict and never a pass',
+    async () => {
+      const github = fakeGitHub(board(2, { 1: DOCS }), { plan: [undefined, undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504] });
+      const r = await drive([], github);
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [skipShape(r), notJudged, judgedOrder(r.out), r.out.includes('guard passed')].join('/');
+    },
+    '0//0/NOT JUDGED (1): #1/2/false',
+  );
+  add(
+    'docs-only: a partial outage keeps the batch already read, and only the rest go unjudged',
+    async () => {
+      const github = fakeGitHub(board(3, { 1: DOCS, 2: { ...DOCS, files: ['src/x.ts'] }, 3: DOCS }), {
+        plan: [undefined, undefined, undefined, undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504],
+      });
+      const r = await drive([], github, { batchSize: 2 });
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [skipShape(r), notJudged].join('/');
+    },
+    '1/  SKIPPED docs-only #1 claude/docs-x/1/NOT JUDGED (1): #3',
+  );
+  add(
+    'docs-only: a 401 on the files read is a broken guard (exit 2), not a silent judge',
+    async () => {
+      const github = fakeGitHub(board(1, { 1: DOCS }), { plan: [undefined, undefined, reply(401, { message: 'Bad credentials' })] });
+      const r = await drive([], github);
+      return [r.code, r.out.includes('cannot run')].join('/');
+    },
+    '2/true',
+  );
+
   let failed = 0;
   for (const item of cases) {
     let got;
@@ -1580,15 +1819,26 @@ export async function run(
     return { ok: false, infra: true };
   }
 
-  const { prs, unjudged, outage, listComplete } = fetched;
+  const { prs, listComplete } = fetched;
+  const unjudged = [...fetched.unjudged];
+  let outage = fetched.outage;
   let scope = number ? 'PR #' + number : prs.length + ' open PR(s)';
   if (outage) scope += ', ' + unjudged.length + ' NOT judged' + (listComplete ? '' : ', list incomplete');
   console.log('PR mergeable guard -- ' + label + ', ' + scope + ', credential from ' + auth.source + '.');
 
   const nowMs = now();
-  const verdicts = prs.map((each) => evaluatePr(each, { nowMs, minAgeMinutes }));
+  let skip;
+  try {
+    skip = await skipDocsOnly(ctx, repo, prs, prs.map((each) => evaluatePr(each, { nowMs, minAgeMinutes })));
+  } catch (error) {
+    console.error('PR mergeable guard cannot run: ' + error.message);
+    return { ok: false, infra: true };
+  }
+  const verdicts = skip.verdicts;
+  unjudged.push(...skip.unread);
+  outage = outage ?? skip.outage;
   const tally = reportVerdicts(verdicts);
-  if (outage) reportOutage({ outage, unjudged, listComplete, judged: verdicts.length, env });
+  if (outage) reportOutage({ outage, unjudged, listComplete, judged: prs.length - skip.unread.length, env });
   // Publishing is opt-in, and deliberately unreachable from --sha mode: that
   // mode is the live canary, and a canary that writes to the repo it is
   // checking is not a canary.
@@ -1653,7 +1903,8 @@ export async function run(
     NL +
       'PR mergeable guard passed: ' +
       (verdicts.length - tally.deferred) +
-      ' PR(s) judged, every one MERGEABLE with at least one gate that ran.',
+      ' PR(s) judged, every one MERGEABLE with at least one gate that ran' +
+      (skip.skipped > 0 ? '; ' + skip.skipped + ' conflicting docs-only PR(s) SKIPPED, not judged.' : '.'),
   );
   return { ok: true };
 }
