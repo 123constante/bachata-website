@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useListImpressions } from '@/lib/listImpressions';
 import {
   Calendar, Building2, GraduationCap, Music, User, MapPin, ShoppingBag, Globe,
   SlidersHorizontal, Search as SearchIcon,
@@ -85,10 +86,12 @@ type ResultCardProps = {
   telemetryKind?: SearchKind;
   /** v7 people: let a long name wrap in full instead of clamping to two lines. */
   wrapTitle?: boolean;
+  /** list-impression ref (events only) */
+  trackRef?: (el: Element | null) => void;
 };
 
-const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge, nationalityCode, ariaLabel, telemetryKind, wrapTitle }: ResultCardProps) => (
-  <Link to={to} aria-label={ariaLabel} onClick={() => recordSearchResultClick({ query, kind: telemetryKind ?? kind, id })} className="group block">
+const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge, nationalityCode, ariaLabel, telemetryKind, wrapTitle, trackRef }: ResultCardProps) => (
+  <Link ref={trackRef} to={to} aria-label={ariaLabel} onClick={() => recordSearchResultClick({ query, kind: telemetryKind ?? kind, id })} className="group block">
     <Card className="h-full overflow-hidden border-primary/15 transition-colors hover:border-primary/40">
       <div className="relative aspect-[4/3] bg-muted/50">
         {image ? (
@@ -163,6 +166,7 @@ const SectionGrid = ({ children }: { children: React.ReactNode }) => (
 );
 
 const SearchResults = () => {
+  const trackImpression = useListImpressions('search');
   useSeo(buildSeoForRoute('search'));
   const [params, setParams] = useSearchParams();
   const { citySlug } = useCity();
@@ -347,7 +351,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<Calendar className="h-4 w-4 text-primary" />} title="Events" count={data.events.length} />
                 <SectionGrid>
                   {data.events.map((e) => (
-                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={levelsOn ? <LevelBadge level={e.derived_level} /> : undefined} />
+                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} trackRef={trackImpression(e.id)} query={query} badge={levelsOn ? <LevelBadge level={e.derived_level} /> : undefined} />
                   ))}
                 </SectionGrid>
               </section>

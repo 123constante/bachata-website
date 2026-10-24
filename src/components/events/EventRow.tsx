@@ -25,6 +25,8 @@ export interface EventRowProps {
   chip?: string;
   /** when present, row renders as a button (opens a sheet) instead of a Link */
   onClick?: () => void;
+  /** list-impression ref (useListImpressions(...).track(id)); attached to the row root */
+  impressionRef?: (el: Element | null) => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export default function EventRow({
   fallbackIndex = 0,
   chip,
   onClick,
+  impressionRef,
 }: EventRowProps) {
   const fallback =
     EVENT_ROW_POSTER_FALLBACKS[fallbackIndex % EVENT_ROW_POSTER_FALLBACKS.length];
@@ -112,14 +115,14 @@ export default function EventRow({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={rowClass} style={rowStyle}>
+      <button type="button" ref={impressionRef} onClick={onClick} className={rowClass} style={rowStyle}>
         {content}
       </button>
     );
   }
 
   return (
-    <Link to={href} className={rowClass} style={rowStyle}>
+    <Link to={href} ref={impressionRef} className={rowClass} style={rowStyle}>
       {content}
     </Link>
   );

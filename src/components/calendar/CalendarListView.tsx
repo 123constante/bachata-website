@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
+import { useListImpressions } from '@/lib/listImpressions';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { goingCountText } from '@/modules/going/goingCopy';
@@ -96,9 +97,10 @@ type EventRowProps = {
   delayIndex: number;
   userLocation: UserLocation | null;
   selectedCategory: Category;
+  trackRef: (el: Element | null) => void;
 };
 
-const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRowProps) => {
+const EventRow = ({ event, delayIndex, userLocation, selectedCategory, trackRef }: EventRowProps) => {
   // goingCount is set only for a night the going read answered for (EventCalendar);
   // unset = unknown (a legacy occurrence id), so no count shows. 0 shows nothing either,
   // and neither does a cancelled night (owner, 2026-10-23).
@@ -112,6 +114,7 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
       style={{ display: 'flex', justifyContent: 'center' }}
     >
       <Link
+        ref={trackRef}
         to={event.eventLink}
         style={{
           display: 'flex',
@@ -241,6 +244,7 @@ export const CalendarListView = ({
   onClearFilters,
   userLocation,
 }: CalendarListViewProps) => {
+  const trackImpression = useListImpressions('calendar');
   const monthStart = new Date(currentYear, currentMonth, 1);
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   monthEnd.setHours(23, 59, 59, 999);
@@ -334,6 +338,7 @@ export const CalendarListView = ({
                       delayIndex={thisIndex}
                       userLocation={userLocation ?? null}
                       selectedCategory={selectedCategory}
+                      trackRef={trackImpression(event.id)}
                     />
                   );
                 })}
@@ -359,6 +364,7 @@ export const CalendarListView = ({
           delayIndex={i}
           userLocation={userLocation ?? null}
           selectedCategory={selectedCategory}
+          trackRef={trackImpression(event.id)}
         />
       ))}
     </motion.div>

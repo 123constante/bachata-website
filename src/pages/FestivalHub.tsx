@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ScrollReveal";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { useListImpressions } from '@/lib/listImpressions';
 import { FESTIVALS_LIST_QUERY_KEY, fetchPublicFestivalsList, filterUpcomingFestivals, type FestivalListItem } from "@/lib/festivalsList";
 import { londonTodayKey } from "@/lib/londonDate";
 import { AuthPromptModal } from "@/components/AuthPromptModal";
@@ -40,6 +41,7 @@ const ConfettiParticle = ({ delay, startX }: { delay: number; startX: number }) 
 );
 
 const FestivalHubInner = () => {
+  const trackImpression = useListImpressions('festivals');
   // No useSeo() here: FestivalHub renders only under app/routes/festivals.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
   // useSeo returns before touching the head. That route's meta() owns it, from the
@@ -178,6 +180,7 @@ const FestivalHubInner = () => {
             return (
               <StaggerItem key={festival.id}>
                 <motion.div
+                  ref={trackImpression(festival.id)}
                   whileHover={{ scale: 1.02, y: -4 }}
                   whileTap={{ scale: 0.98 }}
                 >
