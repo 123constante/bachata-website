@@ -62,7 +62,7 @@ describe('/djs wall: person shape table', () => {
     expect(t.getAttribute('href')).toBe(want.href);
     expect(within(t).getByTestId('tile-name').textContent).toBe(want.name);
     expect(chips(t)).toEqual(want.chips);
-    expect(within(t).queryByTestId('tile-date')?.textContent?.replace('Next gig ', '') ?? null).toBe(want.date);
+    expect(within(t).queryByTestId('tile-date')?.textContent?.replace(', next gig ', '') ?? null).toBe(want.date);
     expect(!!within(t).queryByRole('img', { name: /Nationality/ })).toBe(want.flag);
   });
 

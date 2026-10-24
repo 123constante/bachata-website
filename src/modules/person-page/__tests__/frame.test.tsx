@@ -160,7 +160,7 @@ describe('sharePage', () => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: () => Promise.reject(Object.assign(new Error('x'), { name })) });
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-    await sharePage('Morcilla on Bachata Calendar');
+    await sharePage('Morcilla on Bachata Calendar', 'dj', 'morcilla');
     expect(writeText).toHaveBeenCalledTimes(copies);
   });
 });

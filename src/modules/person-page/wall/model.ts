@@ -7,7 +7,7 @@ import { hrefForRole, linkFor, linkRoleFor, roleTagsFor, type BadgeOpts, type Pe
 import type { PersonRole } from '@/lib/searchEntities';
 import { isRealDateKey, londonTodayKey, weekdayOfKey } from '@/lib/londonDate';
 import { flags } from '@/lib/featureFlags';
-import { hrefFor } from '@/lib/searchEntities';
+import { hrefFor, ROLE_ORDER } from '@/lib/searchEntities';
 
 export type WallList = 'djs' | 'dancers';
 export type WallFilter = 'all' | PersonRole;
@@ -23,8 +23,11 @@ export type WallPerson = {
   lead: PersonRole;
   /** "Friday 23 October", only for a DJ with an upcoming gig. */
   dateLabel: string | null;
-  profileType: 'dj' | 'dancer';
+  /** The profile type a click opens (emitProfileView): the strongest world under S5, else the list's own. */
+  profileType: PersonRole;
 };
+
+type WallProfileType = 'dj' | 'dancer';
 
 // Full weekday, never "Fri" (owner copy rule, 2026-10-23), and the month.
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
@@ -57,6 +60,23 @@ export const firstPhoto = (p: string | string[] | null | undefined): string | nu
 export const tileHref = (id: string, rolePage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null =>
   rolePage && flags.personHub && badge?.roles.some((r) => hrefForRole(r, id, opts)) ? hrefFor('person', id) : rolePage;
 
+/**
+ * People arc S5 (flags.personWorlds): a tile opens the person's STRONGEST world, the same rule as
+ * the /people/:id canonical (strongestRole: Teacher, then DJ, then Dancer, a role counting only when
+ * its page is open), so a DJ who also dances lands in the DJ world from /dancers too. No badge (read
+ * failed or missing) or flag off = the list's own page, as before.
+ */
+export function worldRole(id: string, listRole: WallProfileType, badge: PersonBadge | undefined, opts: BadgeOpts): PersonRole | null {
+  if (!flags.personWorlds || !badge) return null;
+  // The list's own role always counts: every /djs row is a DJ even when the badge row lags.
+  return ROLE_ORDER.find((role) => (role === listRole || badge.roles.includes(role)) && hrefForRole(role, id, opts)) ?? null;
+}
+
+export function worldHref(id: string, listRole: WallProfileType, listPage: string | null, badge: PersonBadge | undefined, opts: BadgeOpts): string | null {
+  const role = worldRole(id, listRole, badge, opts);
+  return role ? hrefForRole(role, id, opts) : listPage;
+}
+
 export type DjWallRow = DjListRow & {
   photo_url?: string | string[] | null;
   nationality_code?: string | null;
@@ -78,11 +98,11 @@ export function djWallPerson(row: DjWallRow, resolvedName: string, badge: Person
     name: bareStage(t.name),
     photo: firstPhoto(row.photo_url),
     flagCode: row.nationality_code,
-    href: tileHref(row.id, t.href, badge, opts),
+    href: tileHref(row.id, worldHref(row.id, 'dj', t.href, badge, opts), badge, opts),
     tags: t.tags,
     lead: linkRoleFor(asBadge, opts) ?? 'dj',
     dateLabel: row.has_upcoming_gig === true ? wallDateLabel(row.next_gig_date) : null,
-    profileType: 'dj',
+    profileType: worldRole(row.id, 'dj', badge, opts) ?? 'dj',
   };
 }
 
@@ -100,11 +120,11 @@ export function dancerWallPerson(
     name: resolvedName,
     photo: firstPhoto(row.avatar_url),
     flagCode,
-    href: tileHref(row.id, dancerHref(row.id, teacherPagesOpen) ?? linkFor(badge, opts), badge, opts),
+    href: tileHref(row.id, worldHref(row.id, 'dancer', dancerHref(row.id, teacherPagesOpen) ?? linkFor(badge, opts), badge, opts), badge, opts),
     tags: badge ? roleTagsFor(badge, opts) : [],
     lead: linkRoleFor(badge, opts) ?? 'dancer',
     dateLabel: badge && badge.roles.includes('dj') ? wallDateLabel(badge.nextGigDate) : null,
-    profileType: 'dancer',
+    profileType: worldRole(row.id, 'dancer', badge, opts) ?? 'dancer',
   };
 }
 
