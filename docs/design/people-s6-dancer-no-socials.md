@@ -16,8 +16,8 @@ Brief: `briefs/PEOPLE-S6-dancer-socials-removal-brief.md` on `brief/people-arc` 
 - `lowerHalf(previews)` returns `{ heading: 'Coming up', items }` or `null`. Nothing else. No heading without an item.
 - `useDancerLower(id, slug)` returns `{ roles, half, reserve }`. `reserve` is true only while a person who holds
   teacher and/or DJ (and has a slug, which a preview needs) waits for those dates. Roles still unknown = no reserve
-  (159 of 189 by the brief's count, 36 of 174 by mine below, hold no other role -- either way a reserve there is a
-  box most pages would lose).
+  (36 of 174 hold no other role -- re-measured by the Stage 5 critique with the anon key, row for row; the
+  brief's "159 of 189" does not reproduce. With teacher pages closed, 134 of 174 behave as dancer-only today).
 - A failed or empty date read = `half` null = just the invite (never a stuck box).
 - The page-level loading skeleton (`DancerWorldSkeleton`) holds the card and the invite room only (no week of rows).
 - Deleted (no importer left, grep-proved): `socialsThisWeek`, `CalendarLike`, `SocialRow`, `SocialsDay`,
@@ -116,3 +116,12 @@ role-tab bar arriving (~0.12) plus the reserve settling.
   `src/pages/AccountSettings.tsx` CRUMB_TAP_CSS with `"`); a shared inline-style helper or a guard would close the class.
 - Stays (owner D8''): a signed-in viewer on a dancer-only page with no contacts sees the card alone (no invite, no
   lower half). Flagged for the owner/critique; no copy added here.
+
+## Stage 5 critique (2026-10-24, separate worker)
+
+Record: [`people-s6-critique.md`](people-s6-critique.md). No code change. Re-measured on prod (anon): 174 live dancer
+rows, dancer-only 36, teacher 98, DJ 14, teacher + DJ 26 (the numbers above stand). The walk was re-run on the same
+build: all 24 renders match `checks-after.json` (CLS, contrast 5.06, 0 taps under 44, invite last, no filler). Frame
+boxes identical on the dancer, DJ and teacher worlds (390: Back L10 T113 63x44, Share L310 T113 70x44, tabs T163 H52,
+W370). Owner calls raised: the role-tab push on DJ holders' dancer pages (0.12 of their 0.13-0.16; recommendation:
+dehydrate the roles read in the `/dancers/:id` loader), the reserve's heading gap, the raw website label.
