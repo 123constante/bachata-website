@@ -69,7 +69,7 @@ describe('#1 no card swap after first paint when the wall already knows the gig'
     if (slot) {
       expect(slot.getAttribute('href')).toBeNull();
       expect(slot.getAttribute('aria-busy')).toBe('true');
-      expect(slot.textContent).toBe('Go to their next event · Fri 23');
+      expect(slot.textContent).toBe('Go to their next event · Friday 23 October');
     }
     cleanup();
     mount(roles, { wall: badge(roles, gig), appearances: timeline(gig) });

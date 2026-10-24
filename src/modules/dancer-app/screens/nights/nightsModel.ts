@@ -1,132 +1,111 @@
-import { DANCER_TABS } from '../../shell/routes';
-import { addDaysToKey, keyToUtcNoon, londonDaysBetweenKeys } from '@/lib/londonDate';
+import { addDaysToKey, londonDaysBetweenKeys } from '@/lib/londonDate';
+import { GOING_COPY, goingNightStatus, nightLine, type GoingNightStatus, type MyGoing, type MyGoingNight } from '@/modules/going';
 
 /**
- * ONE mapper for get_my_event_attendance_v2 (the read MyAttendance.tsx consumes).
- * Home and Nights both go through mapNights, so the same night reads the same on
- * both. `event_id` is the SERIES id: the event page passes it to the level vote
- * as `seriesId`, so a vote is keyed by `seriesId`, never by the occurrence date.
+ * ONE mapper for get_my_going_v1 (the going module's useMyGoing). Home, Nights
+ * and /account/attendance all go through mapMyGoing, so the same night reads
+ * the same everywhere. Going is ONE night (an occurrence); there is no
+ * "Interested" any more. Upcoming vs past is the RPC's own split (past = the
+ * night has ended), never a client clock.
+ *
+ * `seriesId` is the event's public id (public_event_id): the level vote is keyed
+ * by it, never by the occurrence date. `starts_at_local` is a London wall clock
+ * with no zone: it is rendered through the module's nightLine, never new Date().
  */
-export type AttendanceRow = {
-  event_id: string;
-  status: string;
-  updated_at: string | null;
-  name: string | null;
-  occurrence_date: string | null;
-  city_name: string | null;
-  start_time: string | null;
-  type: string | null;
-  is_active?: boolean;
-};
-
-export type NightStatus = 'going' | 'interested' | 'other';
-
 export type Night = {
-  seriesId: string;
+  occurrenceId: string;
+  /** public_event_id; null = the night has no public event (no link, no vote). */
+  seriesId: string | null;
   name: string;
-  /** London-calendar YYYY-MM-DD, or null when the row has no date. */
+  /** London-calendar YYYY-MM-DD, or null when the night has no date. */
   date: string | null;
-  city: string | null;
-  /** HH:MM or null. */
-  time: string | null;
-  status: NightStatus;
-  /** The status as the server said it, lower-cased (for the label of an `other`). */
-  rawStatus: string;
-  isFestival: boolean;
-  /** Where "See event" goes (leaves the app). */
-  href: string;
+  venue: string | null;
+  /** "Thursday 29 Oct \u00B7 9 PM" from starts_at_local as stored; null when unreadable. */
+  when: string | null;
+  /** live / ended / cancelled / not_live (the module's night status). */
+  status: GoingNightStatus;
+  /** Where "See event" goes (leaves the app); null = no public event. */
+  href: string | null;
   past: boolean;
-  /** false = the event is no longer listed (series inactive): never the hero, never counted or nudged. */
+  /** The event (series) is live: only a listed night is the hero, nudged or voted on. */
   listed: boolean;
-};
-
-const NIGHTS_PATH = DANCER_TABS.find((t) => t.id === 'nights')?.path ?? '/app/nights';
-const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
-
-const statusOf = (raw: string): NightStatus => {
-  const s = raw.toLowerCase();
-  return s === 'going' || s === 'interested' ? s : 'other';
-};
-
-/**
- * Every RSVP status, in words (review S3). The live CHECK on event_attendance.status is
- * going / interested / not_going (read-only, 2026-10-15); registered / attended /
- * cancelled are the older vocabulary MyAttendance.tsx still labels. Anything else
- * says so plainly; no status ever reads "Saved".
- */
-export const STATUS_LABELS: Readonly<Record<string, string>> = {
-  going: 'Going',
-  interested: 'Interested',
-  not_going: 'Not going',
-  registered: 'Registered',
-  attended: 'Attended',
-  cancelled: 'Cancelled',
-};
-export const STATUS_UNKNOWN = 'Status unknown';
-
-/** Audit L3: a night that has happened reads in the past tense. Other statuses read the same either way. */
-export const PAST_STATUS_LABELS: Readonly<Record<string, string>> = {
-  going: 'Went',
-  interested: 'Was interested',
-};
-
-export const statusLabel = (n: Pick<Night, 'status' | 'rawStatus'> & { past?: boolean }): string =>
-  (n.past ? PAST_STATUS_LABELS[n.rawStatus] : undefined) ?? STATUS_LABELS[n.rawStatus] ?? STATUS_UNKNOWN;
-
-/** The night counts as a plan: Going or Interested, and the event is still listed. */
-const isPlan = (n: Night): boolean => n.listed && (n.status === 'going' || n.status === 'interested');
-
-export const mapNight = (row: AttendanceRow, todayKey: string): Night => {
-  const date = row.occurrence_date && DATE_KEY.test(row.occurrence_date.slice(0, 10)) ? row.occurrence_date.slice(0, 10) : null;
-  const isFestival = (row.type ?? '').toLowerCase() === 'festival';
-  return {
-    seriesId: row.event_id,
-    name: row.name?.trim() || 'Untitled event',
-    date,
-    city: row.city_name,
-    time: row.start_time && /^\d{2}:\d{2}/.test(row.start_time) ? row.start_time.slice(0, 5) : null,
-    status: statusOf(row.status ?? ''),
-    rawStatus: (row.status ?? '').toLowerCase(),
-    isFestival,
-    href: isFestival ? `/festival/${row.event_id}` : `/event/${row.event_id}`,
-    // A night with no date is never "past": it cannot be rated or nudged.
-    past: date !== null && date < todayKey,
-    listed: row.is_active !== false,
-  };
 };
 
 export type MappedNights = { upcoming: Night[]; past: Night[] };
 
-/** Upcoming soonest first (undated last); past most recent first. */
-export const mapNights = (rows: readonly AttendanceRow[], todayKey: string): MappedNights => {
-  const nights = rows.map((r) => mapNight(r, todayKey));
-  const upcoming = nights
-    .filter((n) => !n.past)
-    .sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999') || a.name.localeCompare(b.name));
-  const past = nights.filter((n) => n.past).sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-  return { upcoming, past };
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}/;
+
+export const mapMyNight = (n: MyGoingNight, past: boolean): Night => {
+  const listed = n.event_lifecycle === 'live';
+  const status: GoingNightStatus = past
+    ? (n.is_cancelled ? 'cancelled' : 'ended')
+    // The RPC already says it has not ended: no clock here (now = null never calls a night ended).
+    : goingNightStatus({ startsAtLocal: n.starts_at_local, isCancelled: n.is_cancelled, eventLive: listed }, null);
+  return {
+    occurrenceId: n.occurrence_id,
+    seriesId: n.public_event_id,
+    name: n.event_title?.trim() || 'Untitled event',
+    date: n.occurrence_date && DATE_KEY.test(n.occurrence_date) ? n.occurrence_date.slice(0, 10) : null,
+    venue: n.venue_name?.trim() || null,
+    when: nightLine(n.starts_at_local),
+    status,
+    href: n.public_event_id ? `/event/${n.public_event_id}` : null,
+    past,
+    listed,
+  };
 };
 
-/** The hero: the next upcoming night the person is Going to or Interested in. */
-export const nextNight = (upcoming: readonly Night[]): Night | null =>
-  upcoming.find((n) => n.date !== null && isPlan(n)) ?? null;
+/**
+ * The RPC's lists, in the RPC's order (upcoming soonest first, past most recent
+ * first). THE one rule for "Nights you went to" (Nights screen and
+ * /account/attendance both read it): a cancelled past night is left out --
+ * nobody went to it -- so it is never listed, voted on or nudged. An upcoming
+ * cancelled night stays, tagged Cancelled, so the person can see it is off.
+ */
+export const mapMyGoing = (mine: MyGoing | undefined): MappedNights => ({
+  upcoming: (mine?.upcoming ?? []).map((n) => mapMyNight(n, false)),
+  past: (mine?.past ?? []).filter((n) => !n.is_cancelled).map((n) => mapMyNight(n, true)),
+});
 
-/** Going + Interested upcoming count of the LIST. Not the Home tile: since review F7 that reads my_dancer_stats_v1. */
-export const countCommitted = (upcoming: readonly Night[]): number =>
-  upcoming.filter(isPlan).length;
+/** The tag on a row: Going / Went / Cancelled (module words, one mapping). */
+export const statusLabel = (n: Pick<Night, 'status' | 'past'>): string => {
+  if (n.status === 'cancelled') return GOING_COPY.tagCancelled;
+  return n.past ? GOING_COPY.tagWent : GOING_COPY.tagGoing;
+};
+
+/** The night's lifecycle in the module's words; null for an ordinary night. */
+export const nightNote = (n: Pick<Night, 'status' | 'past'>): string | null => {
+  if (n.status === 'cancelled') return GOING_COPY.cancelled;
+  if (n.status === 'not_live' && !n.past) return GOING_COPY.notLive;
+  return null;
+};
+
+/** The hero: the next upcoming night that is going ahead (not cancelled, event live). */
+export const nextNight = (upcoming: readonly Night[]): Night | null =>
+  upcoming.find((n) => n.date !== null && n.status === 'live') ?? null;
+
+/**
+ * THE upcoming going count (Home tile and the strip's Going cell read only this):
+ * every upcoming night the person is going to that is not cancelled.
+ */
+export const goingUpcomingCount = (upcoming: readonly Night[]): number =>
+  upcoming.filter((n) => n.status !== 'cancelled').length;
+
+/** Kept name for older callers: the same count. */
+export const countCommitted = goingUpcomingCount;
 
 export const NUDGE_WINDOW_DAYS = 7;
 
 /**
- * Past nights the person was Going to within the last 7 days (not festivals: no
- * level vote there), most recent first, one per series. Whether the series is
- * already rated is read per series by the nudge (useSeriesLevelRating).
+ * Past nights the person went to within the last 7 days, most recent first, one
+ * per series, the event still listed. Whether the series is already rated is read
+ * per series by the nudge (useSeriesLevelRating).
  */
 export const nudgeCandidates = (past: readonly Night[], todayKey: string): Night[] => {
   const seen = new Set<string>();
   const out: Night[] = [];
   for (const n of past) {
-    if (n.status !== 'going' || !n.listed || n.isFestival || n.date === null || seen.has(n.seriesId)) continue;
+    if (n.status !== 'ended' || !n.listed || n.seriesId === null || n.date === null || seen.has(n.seriesId)) continue;
     const ago = londonDaysBetweenKeys(n.date, todayKey);
     if (ago < 1 || ago > NUDGE_WINDOW_DAYS) continue;
     seen.add(n.seriesId);
@@ -135,41 +114,8 @@ export const nudgeCandidates = (past: readonly Night[], todayKey: string): Night
   return out;
 };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const FULL_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-export type DateParts = { weekday: string; fullWeekday: string; day: number; month: string };
-
-export const dateParts = (key: string): DateParts => {
-  const d = new Date(keyToUtcNoon(key));
-  return { weekday: DAYS[d.getUTCDay()], fullWeekday: FULL_DAYS[d.getUTCDay()], day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] };
-};
-
-/** "Saturday 18 Oct" (D119: the weekday is always spelled out). */
-export const fullDate = (key: string | null): string => {
-  if (!key) return 'Date to be confirmed';
-  const p = dateParts(key);
-  return `${p.fullWeekday} ${p.day} ${p.month}`;
-};
-
-/** Kept for the callers that already import it; the weekday is spelled out now (D119). */
-export const shortDate = fullDate;
-
-/** "in 4 days", "tonight", "tomorrow". */
-export const inDaysLabel = (key: string, todayKey: string): string => {
-  const n = londonDaysBetweenKeys(todayKey, key);
-  if (n <= 0) return 'tonight';
-  if (n === 1) return 'tomorrow';
-  return `in ${n} days`;
-};
-
-/** "Camden \u00B7 21:00" with whatever is known. */
-export const placeAndTime = (n: Pick<Night, 'city' | 'time'>): string =>
-  [n.city, n.time].filter(Boolean).join(' \u00B7 ');
-
-/** /app/nights with one series focused (the Home nudge's target). */
-export const nightsPath = (focusSeriesId?: string): string =>
-  focusSeriesId ? `${NIGHTS_PATH}?focus=${encodeURIComponent(focusSeriesId)}` : NIGHTS_PATH;
-
+// The pure date / path helpers live in nightsDates.ts (no going import, so the /app/*
+// first load can read them while the going switch is off); re-exported here so every
+// caller of the one nights mapping keeps one import.
+export * from './nightsDates';
 export { addDaysToKey };

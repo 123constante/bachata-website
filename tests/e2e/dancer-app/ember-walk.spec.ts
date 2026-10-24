@@ -23,10 +23,18 @@ const PROFILE = {
   achievements: [], other_roles: [], is_active: true, erase_requested_at: null, linked_from_admin: false, complete: true,
   strength: { pct: 70, next_step: 'started_year', missing: ['started_year', 'styles', 'bio_social'] },
 };
-const night = (id: string, name: string, offset: number, status = 'going') => ({
-  event_id: id, status, updated_at: null, name, occurrence_date: dayKey(offset), city_name: 'Camden', start_time: '21:00:00', type: 'party', is_active: true,
+/** One get_my_going_v1 night (Going P2): series (public event) `id`, `offset` days out, 9 PM London, no zone. */
+const night = (id: string, name: string, offset: number) => ({
+  occurrence_id: `occ-${id}-${offset}`, public_event_id: id, event_title: name, occurrence_date: dayKey(offset),
+  starts_at_local: `${dayKey(offset)}T21:00:00`, venue_id: 'v1', venue_name: 'Camden', event_lifecycle: 'live', night_lifecycle: 'scheduled', is_cancelled: false,
 });
-const NIGHTS = [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9, 'interested'), night('s3', 'Sensual Sundays', -3), night('s4', 'Brixton Bachata', -17, 'interested')];
+type GoingNight = ReturnType<typeof night>;
+/** The RPC's split: upcoming soonest first, past (ended) most recent first. */
+const mine = (rows: GoingNight[]) => ({
+  upcoming: rows.filter((r) => r.occurrence_date >= dayKey(0)).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date)),
+  past: rows.filter((r) => r.occurrence_date < dayKey(0)).sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date)),
+});
+const NIGHTS = [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9), night('s3', 'Sensual Sundays', -3), night('s4', 'Brixton Bachata', -17)];
 const PEOPLE = {
   total: 3,
   people: [
@@ -38,7 +46,7 @@ const PEOPLE = {
 const STATS = { profile_id: PROFILE.profile_id, member_since: '2026-09-01T10:00:00Z', nights_going_upcoming: 1, nights_went: 2, interested_upcoming: 1, level_votes: 1, views_30_days: 4, views_total: 9 };
 const VIEWS = { profile_id: PROFILE.profile_id, total: 9, last_7_days: 3, last_30_days: 4, previous_30_days: 1, last_viewed_at: null };
 
-type State = { id: string; path: string; profile?: Record<string, unknown> | 'none'; rows?: unknown[]; lineup?: 'ok' | 'empty' | 'error'; primary?: string; contrast?: string; act?: (p: Page) => Promise<void> };
+type State = { id: string; path: string; profile?: Record<string, unknown> | 'none'; rows?: GoingNight[]; lineup?: 'ok' | 'empty' | 'error'; primary?: string; contrast?: string; act?: (p: Page) => Promise<void> };
 const STATES: State[] = [
   { id: 'home-filled', path: '/app/home', rows: NIGHTS, primary: '[data-testid="home-hero"] a' },
   { id: 'home-empty', path: '/app/home', rows: [], lineup: 'empty' },
@@ -74,7 +82,7 @@ async function install(page: Page, s: State) {
   await page.route(rpc('dancer_area_gate_v1'), (r) => json(r, { open: false, allowed: true }));
   await page.route(rpc('my_dancer_edit_v1'), (r) =>
     s.profile === 'none' ? r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'no_profile', code: 'P0001' }) }) : json(r, s.profile ?? PROFILE));
-  await page.route(rpc('get_my_event_attendance_v2'), (r) => json(r, s.rows ?? []));
+  await page.route(rpc('get_my_going_v1'), (r) => json(r, mine(s.rows ?? [])));
   await page.route(rpc('get_calendar_events_v2'), (r) => json(r, []));
   await page.route(rpc('my_dancer_stats_v1'), (r) => json(r, STATS));
   await page.route(rpc('my_profile_views_v1'), (r) => json(r, VIEWS));

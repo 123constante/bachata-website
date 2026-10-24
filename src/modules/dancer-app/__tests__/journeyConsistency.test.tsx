@@ -10,20 +10,23 @@
  *   d. avatars only through PersonAvatar, the no-photo disc never black / see-through.
  *
  * Shapes are the prod ones from the 2026-10-15 survey (api/fixtures DANCER_SHAPES)
- * crossed with the attendance shapes (0 nights, past-only, upcoming + past).
+ * crossed with the going shapes (get_my_going_v1: 0 nights, past-only, upcoming + past,
+ * a cancelled night, an event not live). Going P2: the going switch is ON here (every
+ * going word is on screen); the off state is covered in screens/nights and screens/home.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, screen, waitFor } from '@testing-library/react';
 
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true }));
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 
 const h = vi.hoisted(() => {
   const s = {
-    rows: [] as Record<string, unknown>[],
+    reply: { upcoming: [], past: [] } as MyGoingReply,
     rpc: async (fn: string, args?: Record<string, unknown>): Promise<unknown> => {
-      if (fn === 'get_my_event_attendance_v2') return { data: s.rows, error: null };
+      if (fn === 'get_my_going_v1') return { data: s.reply, error: null };
       if (fn === 'series_level_summary_p5_v1') {
         return { data: { series_id: String(args?.p_series_id), vote_count: 0, threshold: 7, counts: null, derived_level: null, my_level: null }, error: null };
       }
@@ -46,24 +49,23 @@ vi.mock('@/hooks/useCalendarEventsRpc', () => ({ useCalendarEvents: () => ({ dat
 import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInShell';
 import { DANCER_SHAPES } from '@/modules/dancer-app/api/fixtures';
 import type { MyDancerEdit } from '@/modules/dancer-app/api/types';
-import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
+import { cancelled, night as goingNight, notLive, type MyGoingReply } from '@/modules/dancer-app/screens/nights/__tests__/goingShapes';
 import { avatars, disabled, emptyStates, pointers } from './journeyChecks';
 import { organiserHomeKey } from '@/modules/dancer-app/screens/options/NoProfileWayOut';
 
-const today = londonTodayKey();
-const night = (id: string, n: number, status = 'going') => ({
-  event_id: id, status, updated_at: null, name: `Night ${id}`, occurrence_date: addDaysToKey(today, n), city_name: 'London', start_time: '21:00:00', type: 'party', is_active: true,
-});
+const night = (id: string, n: number) => goingNight(id, `Night ${id}`, n);
+const NONE: MyGoingReply = { upcoming: [], past: [] };
 
-type Shape = { label: string; profile: MyDancerEdit | null; rows: Record<string, unknown>[] };
+type Shape = { label: string; profile: MyDancerEdit | null; reply: MyGoingReply };
 const SHAPES: Shape[] = [
-  { label: 'no profile', profile: null, rows: [] },
-  { label: 'empty profile (sign-up stub)', profile: DANCER_SHAPES.emptyStub.profile, rows: [] },
-  { label: 'complete, upcoming + past nights', profile: DANCER_SHAPES.fourFieldComplete.profile, rows: [night('u', 3), night('p', -2)] },
-  { label: 'complete, no nights', profile: DANCER_SHAPES.fourFieldComplete.profile, rows: [] },
-  { label: 'complete, past-only nights', profile: DANCER_SHAPES.fourFieldComplete.profile, rows: [night('p1', -2), night('p2', -9, 'interested')] },
-  { label: 'hidden profile', profile: DANCER_SHAPES.paused.profile, rows: [night('u', 3)] },
-  { label: 'no photo', profile: DANCER_SHAPES.noPhoto.profile, rows: [night('u', 3)] },
+  { label: 'no profile', profile: null, reply: NONE },
+  { label: 'empty profile (sign-up stub)', profile: DANCER_SHAPES.emptyStub.profile, reply: NONE },
+  { label: 'complete, upcoming + past nights', profile: DANCER_SHAPES.fourFieldComplete.profile, reply: { upcoming: [night('u', 3)], past: [night('p', -2)] } },
+  { label: 'complete, no nights', profile: DANCER_SHAPES.fourFieldComplete.profile, reply: NONE },
+  { label: 'complete, past-only nights', profile: DANCER_SHAPES.fourFieldComplete.profile, reply: { upcoming: [], past: [night('p1', -2), night('p2', -9)] } },
+  { label: 'complete, cancelled + event not live', profile: DANCER_SHAPES.fourFieldComplete.profile, reply: { upcoming: [cancelled('c', 'Night c', 3), notLive('n', 'Night n', 5)], past: [] } },
+  { label: 'hidden profile', profile: DANCER_SHAPES.paused.profile, reply: { upcoming: [night('u', 3)], past: [] } },
+  { label: 'no photo', profile: DANCER_SHAPES.noPhoto.profile, reply: { upcoming: [night('u', 3)], past: [] } },
 ];
 
 const SCREENS = [
@@ -77,12 +79,12 @@ const SCREENS = [
   ['options', '/app/options'],
 ] as const;
 
-beforeEach(() => { h.rows = []; localStorage.clear(); sessionStorage.clear(); });
+beforeEach(() => { h.reply = NONE; localStorage.clear(); sessionStorage.clear(); });
 afterEach(() => { cleanup(); resetShell(); });
 
 /** Lands, then waits until nothing on screen is still loading. */
 const land = async (path: string, shape: Shape) => {
-  h.rows = shape.rows;
+  h.reply = shape.reply;
   renderInShell({ path, backend: { profile: shape.profile } });
   const settled = () => {
     const text = document.body.textContent ?? '';

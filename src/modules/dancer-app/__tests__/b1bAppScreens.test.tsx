@@ -86,7 +86,10 @@ describe('numbers: one mapping, every screen x every stats shape', () => {
   it('huge counts are grouped, normal strip shows four cells', async () => {
     renderInShell({ path: '/app/home', backend: { statsShape: 'huge' } });
     expect((await screen.findByTestId('tile-views-count')).textContent).toBe('54,321');
-    expect(screen.getByTestId('stat-went-value').textContent).toBe('2,400');
+    expect(screen.getByTestId('stat-votes-value').textContent).toBe('321');
+    // Switch on here: Went is the going list's past count (this backend's get_my_going_v1 has none),
+    // never stats.nights_went (2,400) -- the same list the Nights screen shows.
+    await waitFor(() => expect(screen.getByTestId('stat-went-value').textContent).toBe('0'));
   });
 
   it('the parsers turn null, NaN, text and negatives into 0', () => {

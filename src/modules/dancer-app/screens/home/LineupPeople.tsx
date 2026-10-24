@@ -6,7 +6,7 @@ import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '@/modules/organiser/ui';
 import { fetchLineupPeople, type LineupPerson } from '../../api/lineupPeople';
 import { FIND_A_NIGHT } from '../../copy/sharedCopy';
-import { fullDate } from '../nights/nightsModel';
+import { fullDate } from '../nights/nightsDates';
 import { SectionTitle } from '../blocks';
 import { HeadphonesArt } from '../art';
 

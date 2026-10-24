@@ -18,10 +18,18 @@ const dayKey = (offset: number) => {
   d.setUTCDate(d.getUTCDate() + offset);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 };
-const night = (id: string, name: string, offset: number, status = 'going') => ({
-  event_id: id, status, updated_at: null, name, occurrence_date: dayKey(offset), city_name: 'Camden', start_time: '21:00:00', type: 'party', is_active: true,
+/** One get_my_going_v1 night (Going P2): series (public event) `id`, `offset` days out, 9 PM London, no zone. */
+const night = (id: string, name: string, offset: number) => ({
+  occurrence_id: `occ-${id}-${offset}`, public_event_id: id, event_title: name, occurrence_date: dayKey(offset),
+  starts_at_local: `${dayKey(offset)}T21:00:00`, venue_id: 'v1', venue_name: 'Camden', event_lifecycle: 'live', night_lifecycle: 'scheduled', is_cancelled: false,
 });
-const ROWS = [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9, 'interested'), night('s3', 'Brixton Bachata Night', -3)];
+type GoingNight = ReturnType<typeof night>;
+/** The RPC's split: upcoming soonest first, past (ended) most recent first. */
+const mine = (rows: GoingNight[]) => ({
+  upcoming: rows.filter((r) => r.occurrence_date >= dayKey(0)).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date)),
+  past: rows.filter((r) => r.occurrence_date < dayKey(0)).sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date)),
+});
+const ROWS = [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9), night('s3', 'Brixton Bachata Night', -3)];
 
 const base = DANCER_SHAPES.fourFieldComplete.profile!;
 const extras = DANCER_SHAPES.completeAllExtras.profile!;
@@ -67,7 +75,7 @@ async function open(page: Page, path: string, shape: (typeof SHAPES)[number]) {
   await page.route('**/legacy-cdn.example.net/**', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: SVG }));
   await page.route(rpc('dancer_area_gate_v1'), (r) => json(r, { open: false, allowed: true }));
   await page.route(rpc('my_dancer_edit_v1'), (r) => json(r, shape.profile));
-  await page.route(rpc('get_my_event_attendance_v2'), (r) => json(r, shape.rows));
+  await page.route(rpc('get_my_going_v1'), (r) => json(r, mine(shape.rows)));
   await page.route(rpc('get_calendar_events_v2'), (r) => json(r, []));
   await page.route(rpc('series_level_summary_p5_v1'), (r) => {
     const id = JSON.parse(r.request().postData() ?? '{}').p_series_id as string;

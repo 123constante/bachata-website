@@ -129,7 +129,7 @@ describe.each(Object.entries(SHAPES))('%s', (_name, row) => {
       h.mode = mode;
       const out = await callLoader(row.slug!);
       if (out.kind === 'response') continue;
-      if (mode === 'open') expect(out.publicPage, mode).toEqual({ extrasOk: true, extras: { bio: 'Hi', languages: ['English'], whatsapp: null } });
+      if (mode === 'open') expect(out.publicPage, mode).toEqual({ extrasOk: true, extras: { bio: 'Hi', languages: ['English'], whatsapp: null, goingNext: [] } });
       else expect(out.publicPage, mode).toBeNull();
     }
   });

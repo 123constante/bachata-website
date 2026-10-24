@@ -1,3 +1,5 @@
+import type { GoingNextNight } from '@/modules/going/goingRpc';
+
 /**
  * The shapes of the dancer-area RPCs (briefs/dancer-rebuild-INTERFACE.md
  * sections 1 and 3). Server: admin repo PR A1. These types are the ONLY
@@ -37,6 +39,11 @@ export type MyDancerEdit = {
   /** Only for a person with another profile type (other_roles non-empty); else null. */
   whatsapp: string | null;
   show_whatsapp_publicly: boolean;
+  /**
+   * Going P2: "Show my photo when I'm going" (OFF by default). The first name always
+   * shows on nights the person is going to; this adds the photo. _my_dancer_edit_shape_v1.
+   */
+  show_going_photo: boolean;
   avatar_url: string | null;
   dance_started_year: number | null;
   favorite_styles: string[];
@@ -75,6 +82,7 @@ export const SAVE_KEYS = [
   'favorite_styles',
   'favorite_songs',
   'achievements',
+  'show_going_photo',
 ] as const;
 export type SaveKey = (typeof SAVE_KEYS)[number];
 
@@ -84,8 +92,11 @@ export type SaveKey = (typeof SAVE_KEYS)[number];
  */
 export type DancerDelta = Partial<Pick<MyDancerEdit, SaveKey>>;
 
-/** get_public_dancer_extras_v1(id): null for a hidden / paused / archived / unknown profile. */
-export type PublicDancerExtras = { bio: string | null; languages: string[]; whatsapp: string | null } | null;
+/**
+ * get_public_dancer_extras_v1(id): null for a hidden / paused / archived / unknown profile.
+ * `goingNext` = its going_next (max 3, the going module's parseGoingNext).
+ */
+export type PublicDancerExtras = { bio: string | null; languages: string[]; whatsapp: string | null; goingNext?: GoingNextNight[] } | null;
 
 /**
  * Every error the dancer-area RPCs raise (INTERFACE section 3 table and its
@@ -136,9 +147,9 @@ export type DancerErrorField = SaveKey | null;
 export type MyDancerStats = {
   profile_id: string;
   member_since: string | null;
+  /** Not shown: the going count is get_my_going_v1's (nights/useMyNights). Its interested_upcoming sibling is not read (no Interested). */
   nights_going_upcoming: number;
   nights_went: number;
-  interested_upcoming: number;
   level_votes: number;
   views_30_days: number;
   views_total: number;

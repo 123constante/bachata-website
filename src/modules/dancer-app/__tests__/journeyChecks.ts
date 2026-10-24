@@ -64,7 +64,7 @@ const blockText = (el: Element): string => {
   return parts.join('').replace(/\s+/g, ' ').trim();
 };
 
-// "tap Show my profile again in Account settings", "Press Try again above", "Tap I'm Going or Interested on any event".
+// "tap Show my profile again in Account settings", "Press Try again above", "Open a night and tap I'm going on its page".
 const VERB = /\b(?:[Tt]ap|[Pp]ress|[Cc]lick|[Uu]se|[Cc]hoose|[Ss]elect|[Hh]it)\s+(?:the\s+)?["\u201c\u2018]?([A-Z][^.,;:!?"\u201d]*?)["\u201d\u2019]?(?:\s+(?:button|link|tab|row))?(?:\s+(in|on|from|at)\s+(?:the\s+)?([^.,;:!?]+?))?(?=\s+(?:above|below|to|and|then)\b|[.,;:!?]|$)/g;
 
 /** (a) No text points at a control that is not on screen. */
@@ -80,8 +80,12 @@ export const pointers = (root: ParentNode): string[] => {
     for (const m of line.matchAll(VERB)) {
       const [, target, prep, place] = m;
       if (place) {
-        // A control on ANOTHER page: the way to that page must be here.
-        const ok = /any event|an event|the event/i.test(place) ? hasControl(root, /browse events|events/i) : hasControl(root, place.trim());
+        // A control on ANOTHER page: the way to that page must be here. An event / night page
+        // ("its page" = the night's own event page, Going P2) is reached from /app through the
+        // Bachata Calendar home link (D130: no Browse button in /app), or a Browse events control elsewhere.
+        const ok = /any event|an event|the event|its page/i.test(place)
+          ? hasControl(root, /browse events|events|bachata calendar home/i)
+          : hasControl(root, place.trim());
         if (!ok) problems.push(`"${line}" sends the person ${prep} "${place.trim()}", which no control on screen opens`);
       } else if (!hasControl(root, target.trim())) {
         problems.push(`"${line}" names "${target.trim()}", which is not a control on screen`);

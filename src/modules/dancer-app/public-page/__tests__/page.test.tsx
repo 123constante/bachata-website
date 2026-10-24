@@ -19,18 +19,19 @@ const h = vi.hoisted(() => ({
   authStatus: 'ready' as string,
   persona: null as string | null,
   rpcCalls: [] as string[],
+  on: true,
 }));
+vi.mock('@/lib/goingCheckin', () => ({ get GOING_CHECKIN_ENABLED() { return h.on; } }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: h.user, isLoading: h.authStatus === 'resolving', authStatus: h.authStatus }),
 }));
 vi.mock('@/hooks/useMyPersonaId', () => ({ useMyPersonaId: () => h.persona }));
-const PLANS = [{ event_id: 'e1', status: 'going', updated_at: null, name: 'Friday Social', occurrence_date: '2027-03-05', city_name: 'London', country: 'UK', city_slug: 'london-gb', start_time: '2027-03-05T20:00:00Z', type: 'standard', is_active: true }];
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: async (name: string) => {
       h.rpcCalls.push(name);
-      return { data: name === 'get_my_event_attendance_v2' ? PLANS : null, error: null };
+      return { data: null, error: null };
     },
     from: () => ({}),
   },
@@ -74,6 +75,7 @@ beforeEach(() => {
   h.authStatus = 'ready';
   h.persona = null;
   h.rpcCalls = [];
+  h.on = true;
   window.innerWidth = 390;
   window.innerHeight = 844;
 });
@@ -85,7 +87,7 @@ afterEach(() => {
 });
 
 describe.each(Object.keys(SHAPES) as ShapeKey[])('%s', (key) => {
-  it.each(VIEWERS)('flag open, $name: v2 with its name, Share, Join only when signed out, plans only for the owner', async ({ user, self }) => {
+  it.each(VIEWERS)('flag open, $name: v2 with its name, Share, Join only when signed out, no "Your plans" for anyone', async ({ user, self }) => {
     h.user = user;
     h.persona = self ? SHAPES[key].id : null;
     mount(key, { extrasOk: true, extras: NO_EXTRAS });
@@ -95,7 +97,10 @@ describe.each(Object.keys(SHAPES) as ShapeKey[])('%s', (key) => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(name);
     expect(q('dancer-share')).not.toBeNull();
     expect(q('dancer-join') !== null).toBe(user === null);
-    expect(screen.queryByText('Your plans') !== null).toBe(self);
+    // Going P2 (owner decision): the owner-only "Your plans" block is gone for everyone, and the page
+    // reads no attendance of the viewer's own.
+    expect(screen.queryByText('Your plans')).toBeNull();
+    expect(h.rpcCalls.filter((n) => /attendance|going/.test(n))).toEqual([]);
     // F13: no appearances list, no gallery, no description.
     expect(screen.queryByText('Event appearances')).toBeNull();
     expect(q('dancer-gallery')).toBeNull();
@@ -275,5 +280,42 @@ describe('views and names', () => {
     mount('long name', { extrasOk: true, extras: EXTRAS.full });
     await settle();
     expect(q('dancer-name')!.className).toContain('break-words');
+  });
+});
+
+describe('Going next through the real /dancers/:id page (going_next 0 / 1 / 2 / 3, hidden)', () => {
+  const nights = (n: number) => Array.from({ length: n }, (_, i) => ({
+    occurrence_id: `o${i}`, public_event_id: `e${i}`, event_title: `Night ${i}`, occurrence_date: `2099-01-0${i + 1}`, starts_at_local: `2099-01-0${i + 1}T21:00:00`,
+  }));
+  it.each([
+    [0, 0, false],
+    [1, 1, false],
+    [2, 2, false],
+    [3, 2, true],
+  ] as const)('%i nights: %i cards, See all %s, for every viewer', async (n, cards, seeAll) => {
+    for (const v of VIEWERS) {
+      h.user = v.user;
+      mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, goingNext: nights(n) } });
+      await settle();
+      expect(screen.queryAllByTestId('dancer-going-card'), v.name).toHaveLength(cards);
+      expect(q('dancer-going') !== null, v.name).toBe(n > 0);
+      expect(q('dancer-going-see-all') !== null, v.name).toBe(seeAll);
+      cleanup();
+    }
+  });
+  it('hidden page (extras NULL -> the loader gives NO_EXTRAS) and a failed extras read: no section', async () => {
+    mount('photoless', { extrasOk: true, extras: NO_EXTRAS });
+    await settle();
+    expect(q('dancer-going')).toBeNull();
+    cleanup();
+    mount('photoless', { extrasOk: false, extras: NO_EXTRAS });
+    await settle();
+    expect(q('dancer-going')).toBeNull();
+  });
+  it('switch off: no section, even with nights', async () => {
+    h.on = false;
+    mount('photoless', { extrasOk: true, extras: { ...NO_EXTRAS, goingNext: nights(3) } });
+    await settle();
+    expect(q('dancer-going')).toBeNull();
   });
 });

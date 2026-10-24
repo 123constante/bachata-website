@@ -32,6 +32,8 @@ interface Props {
   /** The create refusal that has no page to ask to join: back to the search with the name. */
   onFindPage: (name: string) => void;
   onHome: () => void;
+  /** The login, so the new page's city step can offer the sign-up city. */
+  userId?: string;
 }
 
 /**
@@ -39,7 +41,7 @@ interface Props {
  * when the session has not proved the mailbox), ask to join, or create (name,
  * then city). Views swap inside it; nothing nests.
  */
-export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onClaimed, onRequested, onCreated, onFindPage, onHome }: Props) {
+export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onClaimed, onRequested, onCreated, onFindPage, onHome, userId }: Props) {
   const [step, setStep] = useState<NewPageStep>('name');
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<SelfServeErrorCopy | null>(null);
@@ -199,6 +201,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
         name={name}
         onName={setName}
         email={email || null}
+        userId={userId}
         onCreated={(page) => {
           setName('');
           onCreated(page);

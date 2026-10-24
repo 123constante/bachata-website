@@ -9,7 +9,9 @@ import { shownSteps, stepKey } from '../../../wizard/wizardModel';
 import type { WizardSources } from '../../../wizard/registry';
 import { WIZARD_STEPS } from '../../../wizard/registry';
 import { PROFILE_WIZARD_PATH } from '@/modules/organiser/shared/profileProgress';
+import { DEFAULT_AREA_PATHS } from '@/modules/areas/shared/paths';
 import { goLiveFixHref, goLiveLabel, withReturnTo, type GoLiveCheck } from '@/modules/organiser/shared/goLiveCheck';
+import { eventBlockers, roleGapText } from '@/modules/organiser/shared/goLiveKeys';
 
 export const ALMOST_LIVE_TITLE = 'Almost live';
 export const ALL_SET_TITLE = 'All set';
@@ -106,10 +108,15 @@ const humanise = (f: string) => f.replace(/_/g, ' ');
  * names what to do; a link only where a screen fixes it. Never a bare refusal.
  */
 export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: string | null): GoLiveGap[] {
-  const gaps: GoLiveGap[] = check.eventMissing.map((m) => ({ key: `event:${m.code}`, text: goLiveLabel(m.code), href: goLiveFixHref(m.section, seriesId) }));
+  const gaps: GoLiveGap[] = eventBlockers(check.eventMissing).map((m) => ({ key: `event:${m.code}`, text: goLiveLabel(m.code), href: goLiveFixHref(m.section, seriesId) }));
   if (!check.profileRuleApplies) return gaps;
   const back = goLivePath(seriesId, organiserId);
   for (const p of check.profileMissing) {
+    if (p.area === 'teacher' || p.area === 'dj') {
+      const role = p.area;
+      for (const f of p.fields) gaps.push({ key: `${role}::${f}`, text: roleGapText(role, f), href: withReturnTo(DEFAULT_AREA_PATHS[role].profile, back) });
+      continue;
+    }
     for (const f of p.fields) {
       const entry = WIZARD_STEPS.get(`${p.area}:${f}`);
       const what = entry ? entry.title.replace(/\?$/, '') : `Add your ${p.area === 'dancer' ? '' : 'page '}${humanise(f)}`;
@@ -118,6 +125,9 @@ export function goLiveGaps(check: GoLiveCheck, seriesId: string, organiserId: st
   }
   return gaps;
 }
+
+/** A role gap (A1's teacher / DJ keys), linking to that role's editor: its words are the one mapping's (goLiveKeys). */
+export { roleGapText };
 
 export const ALMOST_THERE_TITLE = 'Almost there';
 export const FINISH_LIST_REASON = 'Finish the list above first.';

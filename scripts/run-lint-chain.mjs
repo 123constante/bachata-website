@@ -132,6 +132,8 @@ export const LINKS = [
   "check:mojibake",
   "check:legacy-tables",
   "check:legacy-program-rpcs",
+  "check:going-legacy-rpcs:self-test",
+  "check:going-legacy-rpcs",
   "check:no-social-word",
   "lint:architecture",
   "check:route-boundaries",

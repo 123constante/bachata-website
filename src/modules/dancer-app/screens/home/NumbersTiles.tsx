@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card } from '@/modules/organiser/ui';
 import { TILE_CLASS } from '../blocks';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
-import { fmt, numbersCanRetry, numbersErrorCopy, stripCells, STRIP_EMPTY_HELP, viewsDetail, VIEWS_WEEK_LABEL, type Numbers } from '../../api/numbersModel';
+import { fmt, numbersCanRetry, numbersErrorCopy, stripCells, STRIP_EMPTY_HELP, viewsDetail, VIEWS_WEEK_LABEL, type Numbers, type StripGoing } from '../../api/numbersModel';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { linkStyle } from '../nights/nightsStyles';
 
@@ -12,12 +12,17 @@ const PAGE_PATH = '/app/page';
 const TILES = ['da-tile-violet', 'da-tile-gold', 'da-tile-rose', 'da-tile-teal'];
 const cell: CSSProperties = { minWidth: 0, textAlign: 'center', display: 'grid', gap: 2 };
 
-/** The same tiles, from an already-mapped `Numbers` (tests render this table-driven). */
-export const NumbersView = ({ n, hasPhoto }: { n: Numbers; hasPhoto: boolean }) => {
-  // Going / Interested cells (and the "say you are going" hint) go with the check-in switch.
-  const cells = stripCells(n).filter((c) => GOING_CHECKIN_ENABLED || (c.id !== 'going' && c.id !== 'interested'));
-  const stripEmpty = GOING_CHECKIN_ENABLED ? n.allZero : cells.every((c) => c.value === 0);
-  const showStrip = GOING_CHECKIN_ENABLED || !stripEmpty;
+/**
+ * The same tiles, from an already-mapped `Numbers` (tests render this table-driven).
+ * `going` = the Going cell: the module's tag + useMyNights().goingCount over get_my_going_v1
+ * (Home builds it from its going feed, homeGoing.tsx); null = no Going cell.
+ * `goingOn` = the going switch (default: GOING_CHECKIN_ENABLED): the Going cell and the
+ * "say you are going" hint show only while it is on.
+ */
+export const NumbersView = ({ n, hasPhoto, going = null, goingOn = GOING_CHECKIN_ENABLED }: { n: Numbers; hasPhoto: boolean; going?: StripGoing | null; goingOn?: boolean }) => {
+  const cells = stripCells(n, goingOn ? going : null);
+  const stripEmpty = cells.every((c) => c.value === 0);
+  const showStrip = goingOn || !stripEmpty;
   return (
   <>
     <Link to={PAGE_PATH} data-testid="tile-views" className={`${TILE_CLASS} da-tile-teal grid gap-[2px]`}>
@@ -45,8 +50,11 @@ export const NumbersView = ({ n, hasPhoto }: { n: Numbers; hasPhoto: boolean }) 
   );
 };
 
-/** Home's two number tiles: loading and error are words, never NaN or a blank. */
-export const NumbersTiles = ({ hasPhoto }: { hasPhoto: boolean }) => {
+/**
+ * Home's two number tiles: loading and error are words, never NaN or a blank. `going` /
+ * `goingOn` come from Home's going feed (null / false while the switch is off).
+ */
+export const NumbersTiles = ({ hasPhoto, going, goingOn }: { hasPhoto: boolean; going: StripGoing | null; goingOn: boolean }) => {
   const q = useMyNumbers();
   if (q.isLoading) return <Card variant="padded" role="status" testId="numbers-loading" className="text-[14px] text-[var(--mut)]">Loading your numbers&hellip;</Card>;
   if (q.isError || !q.data) {
@@ -61,5 +69,5 @@ export const NumbersTiles = ({ hasPhoto }: { hasPhoto: boolean }) => {
       </Card>
     );
   }
-  return <NumbersView n={q.data} hasPhoto={hasPhoto} />;
+  return <NumbersView n={q.data} hasPhoto={hasPhoto} going={going} goingOn={goingOn} />;
 };

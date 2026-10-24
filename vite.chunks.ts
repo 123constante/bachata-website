@@ -355,10 +355,22 @@ export const LIB_EVENT_RULES_MODULES = [
 // ratchet 59 vs 58). accountRouting is in the first load of every one of those
 // importers already; among the budgeted routes only dancer-app loads it, so the
 // pairing moves ~0.6 KB gz onto no budgeted route that did not already pay it.
+//
+// src/modules/dancer-app/screens/nights/nightsDates.ts (2026-10-23, Going P2): the PURE
+// half of the nights model (dates, the nights path, the switch-off line). The /app/*
+// first load reads it (Home's lineup and nudge, the date blocks, the switch-off Nights
+// screen) and so does /account/attendance (through nightsModel, the one nights
+// mapping), so rollup cut it into a chunk of its own: one more first-load request on
+// /app/* (53 vs 52). Both importers already load lib-account (accountRouting), so the
+// pairing adds no request anywhere. It brings its one unassigned dep along,
+// src/modules/dancer-app/shell/routes.ts (import-free, the dancer tab paths): ~0.9 KB gz
+// in all, moved onto the lazy account pages only; no budgeted route except /app/* loads
+// lib-account. Re-measure every route before moving it out again.
 export const LIB_ACCOUNT_MODULES = [
   "/src/lib/accountRouting.ts",
   "/src/components/account/profiles/PersonAvatar.tsx",
   "/src/components/account/profiles/avatarFallback.ts",
+  "/src/modules/dancer-app/screens/nights/nightsDates.ts",
 ];
 
 // The THIRD first-party group (2026-10-21, W1 people surfaces S3): the people
@@ -400,7 +412,29 @@ export const LIB_ORG_UI_MODULES = [
   "/src/modules/organiser/ui/States.tsx",
   "/src/modules/organiser/ui/SummaryRow.tsx",
   "/src/modules/organiser/ui/useKeyboardInset.ts",
+  // Invite W2 (2026-10-23): the ONE Instagram field and its rule. Imported by the
+  // dancer app and the organiser screens, which load this group already; alone
+  // they were more first-load chunks on /app/*.
+  "/src/components/forms/InstagramInput.tsx",
+  "/src/lib/instagramHandle.ts",
+  // ...and the ONE phone rule (no imports), read statically by the same importers.
+  "/src/lib/phoneRules.ts",
 ];
+
+// The FIFTH first-party group (2026-10-23, invite W2): the ONE phone field
+// (src/components/forms/PhoneInput.tsx, extracted from the raffle) and the country
+// list only it imports. The raffle, the dancer edit screen and the organiser
+// screens share it, and the raffle and the dancer edit screen load it LAZILY (it
+// is not in /event's or /app's first load); this group keeps it ONE chunk.
+// Its rule, src/lib/phoneRules.ts, is NOT here: the dancer app reads it
+// statically, so it rides lib-org-ui above (the country list must not).
+export const LIB_PHONE_MODULES = [
+  "/src/components/forms/PhoneInput.tsx",
+  "/src/lib/countryDialCodes.ts",
+];
+
+const isLibPhoneModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_PHONE_MODULES.some((needle) => id.endsWith(needle));
 
 const isLibOrgUiModule = (id: string): boolean =>
   !id.includes("node_modules") && LIB_ORG_UI_MODULES.some((needle) => id.endsWith(needle));
@@ -466,6 +500,7 @@ export function classifyChunk(id: string): string | undefined {
   if (isLibAccountModule(id)) return "lib-account";
   if (isLibPeopleModule(id)) return "lib-people";
   if (isLibOrgUiModule(id)) return "lib-org-ui";
+  if (isLibPhoneModule(id)) return "lib-phone";
   const pinned = singleModulePin(id);
   if (pinned) return pinned;
   if (!id.includes("node_modules")) return undefined;

@@ -39,6 +39,10 @@ export const flags = {
   // card per role page; wall tiles open it. OFF = the tabbed /people/:id page and the wall links
   // exactly as before. Turn on with VITE_ENABLE_PERSON_HUB=true (Vercel env) -- no code change.
   personHub:           import.meta.env.VITE_ENABLE_PERSON_HUB === 'true',
+  // The three people worlds (teacher timetable, DJ sleeve, dancer card) built on
+  // src/modules/person-page/{facts,frame,worlds}. OFF = every role page exactly as before.
+  // Turn on with VITE_ENABLE_PERSON_WORLDS=true (Vercel env) -- no code change.
+  personWorlds:        import.meta.env.VITE_ENABLE_PERSON_WORLDS === 'true',
   // Self-owned RUM (web-vitals -> record_web_vital_v1, see lib/webVitals.ts).
   // OFF until the admin-repo migration ships the RPC; flipping this in Vercel
   // env enables reporting with no code change.
