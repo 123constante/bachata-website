@@ -8,6 +8,9 @@ import { teacherTag } from './app/cacheTags';
 import { edgeCacheControl } from './app/edgeCacheControl';
 import { truncate } from './app/truncate';
 import { sameHostImage } from './app/sameHostImage';
+// The per-role person card rule (people arc S5): a pure, import-free leaf shared with
+// buildSeoForRoute, so this bot card and the SSR route's card are one mapping.
+import { PERSON_CARD_OG_TYPE, personCardDescription, personCardPhoto, personCardTitle } from './src/lib/seo/personCard';
 // Same dependency-free-leaf rule as the two imports above: the city canonical
 // rule and the OG copy for self-canonical city subpages live in app/ so they
 // can be imported by the Edge bundle AND covered by a spec (app/cityCanonical.test.ts).
@@ -140,15 +143,6 @@ function ogNormalizedImage(rawUrl: string | null | undefined): string {
 // sameHostImage (og:image onto the fetched host, media host excluded) lives in
 // the dependency-free leaf app/sameHostImage.ts, shared with app/detailLoader.ts.
 
-function firstString(val: unknown): string | null {
-  if (Array.isArray(val)) {
-    const first = val.find((v) => typeof v === 'string' && v.trim());
-    return typeof first === 'string' ? first : null;
-  }
-  if (typeof val === 'string' && val.trim()) return val;
-  return null;
-}
-
 async function supabaseFetch(path: string, init?: RequestInit): Promise<Response | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3000);
@@ -199,22 +193,21 @@ async function fetchTeacherMeta(id: string, url: string): Promise<OgMeta | null>
   const t = Array.isArray(rows) ? rows[0] : null;
   if (!t) return null;
 
-  const nameRaw = `${t.first_name ?? ''} ${t.surname ?? ''}`.replace(/\s+/g, ' ').trim();
-  const title = truncate(nameRaw || 'Bachata Teacher', 90);
+  // People arc S5: the SAME per-role card rule the SSR route's buildSeoForRoute('teacher.detail')
+  // reads (src/lib/seo/personCard.ts), with the same " | Bachata Calendar" suffix seoInputToMeta
+  // adds, so a bot gets the card a person gets once the teacher pages open. Before S5 this title
+  // was the bare name (no role) and the description its own template.
+  const card = {
+    name: `${t.first_name ?? ''} ${t.surname ?? ''}`,
+    slug: null,
+    city: typeof t.city === 'string' ? t.city : null,
+  };
+  const title = truncate(`${personCardTitle('teacher', card)} | Bachata Calendar`, 90);
+  const description = truncate(personCardDescription('teacher', card), 160);
 
-  let base = 'Bachata teacher';
-  if (t.city) base += ` in ${t.city}`;
-  if (Array.isArray(t.teaching_styles) && t.teaching_styles.length > 0) {
-    base += ' \u2014 ' + t.teaching_styles.slice(0, 3).join(', ');
-  }
-  if (typeof t.years_teaching === 'number' && t.years_teaching > 0) {
-    base += ` \u00b7 ${t.years_teaching} years`;
-  }
-  const description = truncate(base, 160);
+  const image = ogNormalizedImage(personCardPhoto(null, t.photo_url));
 
-  const image = ogNormalizedImage(firstString(t.photo_url));
-
-  return { title, description, image, type: 'profile', url };
+  return { title, description, image, type: PERSON_CARD_OG_TYPE, url };
 }
 
 // `selfListing` is the self-canonical city subpage this URL is (from
@@ -329,6 +322,9 @@ export default async function middleware(request: Request): Promise<Response> {
       meta = ref ? await fetchTeacherMeta(ref.id, canonicalUrl) : null;
       if (meta && ref) {
         meta.canonicalHref = `${SITE_URL}/teachers/${ref.slug || ref.id}`;
+        // S5: og:url is the canonical, as the SSR route emits it -- never request.url with its
+        // ?utm_source / ?fbclid, which split the card's share count across query variants.
+        meta.url = meta.canonicalHref;
         cacheTag = teacherTag(ref.id);
       }
       break;

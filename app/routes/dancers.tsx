@@ -2,6 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
+import { personCardPhoto } from "@/lib/seo/personCard";
 import { DANCER_PUBLIC_COLS, attachPublicDancerName, mapDancerPublicProfile } from "@/modules/profile/dancerPublicProfile";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { flags } from "@/lib/featureFlags";
@@ -85,10 +86,12 @@ export const loader = withSsrLoaderTimeout("dancer-loader", async function loade
       // existing link into a thin profile still resolves.
       entityName: view.displayName ?? undefined,
       entitySlug: ref.slug ?? params.id,
+      // S5: the person's own city on the card (was always London).
+      entityCity: view.city ?? null,
       // Phase 5 — normalize og:image through /api/og/card?kind=image (letterboxed
       // JPEG) so WebP/oversized avatars still render as social link-preview cards.
       // Mirrors middleware.ts's ogNormalizedImage; lets the /dancers matcher be retired.
-      ogImage: normalizeOgImage({ rawUrl: dancer.avatar_url as string | null, request, fallbackImage: DEFAULT_OG_IMAGE }),
+      ogImage: normalizeOgImage({ rawUrl: personCardPhoto(null, dancer.avatar_url), request, fallbackImage: DEFAULT_OG_IMAGE }),
     },
     stampDancer(ref.id),
     // A failed flag / extras read is cached briefly, never for the full edge TTL.
@@ -107,6 +110,7 @@ export const meta: Route.MetaFunction = ({ data }) =>
       entityName: data?.entityName,
       entitySlug: data?.entitySlug,
       ogImage: data?.ogImage,
+      cityDisplay: data?.entityCity,
     }),
   );
 
