@@ -48,6 +48,9 @@ export const flags = {
   // external storage (Vercel KV / S3). Re-enable after Phase 2 completes.
   // Default: true in dev, false in prod until Phase 2 migration lands.
   enableEventTracking: import.meta.env.VITE_ENABLE_EVENT_TRACKING !== 'false',
+  // "Seen in lists" impressions (src/lib/listImpressions.ts -> record_list_impressions_v1).
+  // ON unless the env var is exactly 'false' (the off switch); also honours enableEventTracking.
+  listImpressions: import.meta.env.VITE_ENABLE_LIST_IMPRESSIONS !== 'false',
   enableProfileTracking: import.meta.env.VITE_ENABLE_PROFILE_TRACKING !== 'false',
   // Organiser self-serve (Lever 2: /account, onboarding, organiser home).
   // OFF in production until launch; the route redirects home and the header

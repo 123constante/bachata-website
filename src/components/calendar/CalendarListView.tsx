@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
+import { useListImpressions } from '@/lib/listImpressions';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
@@ -95,9 +96,10 @@ type EventRowProps = {
   delayIndex: number;
   userLocation: UserLocation | null;
   selectedCategory: Category;
+  trackRef: (el: Element | null) => void;
 };
 
-const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRowProps) => {
+const EventRow = ({ event, delayIndex, userLocation, selectedCategory, trackRef }: EventRowProps) => {
   const goingCount = GOING_CHECKIN_ENABLED ? (event.goingCount ?? 0) : 0;
   const delay = Math.min(delayIndex * 0.04, 0.4);
   return (
@@ -108,6 +110,7 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
       style={{ display: 'flex', justifyContent: 'center' }}
     >
       <Link
+        ref={trackRef}
         to={event.eventLink}
         style={{
           display: 'flex',
@@ -236,6 +239,7 @@ export const CalendarListView = ({
   onClearFilters,
   userLocation,
 }: CalendarListViewProps) => {
+  const trackImpression = useListImpressions('calendar');
   const monthStart = new Date(currentYear, currentMonth, 1);
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   monthEnd.setHours(23, 59, 59, 999);
@@ -329,6 +333,7 @@ export const CalendarListView = ({
                       delayIndex={thisIndex}
                       userLocation={userLocation ?? null}
                       selectedCategory={selectedCategory}
+                      trackRef={trackImpression(event.id)}
                     />
                   );
                 })}
@@ -354,6 +359,7 @@ export const CalendarListView = ({
           delayIndex={i}
           userLocation={userLocation ?? null}
           selectedCategory={selectedCategory}
+          trackRef={trackImpression(event.id)}
         />
       ))}
     </motion.div>
