@@ -81,6 +81,8 @@ const PROD_UPSERT_KEYS = [
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
   'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url',
+  // ER AD1 (20261129880000): How to pay; check_owner_command_allowlist_v1 on prod lists it (2026-10-24).
+  'payment_methods',
 ];
 const PROD_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
 const PROD_CANCEL_KEYS = ['cancelled', 'reason'];

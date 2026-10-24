@@ -1,6 +1,11 @@
 // The ONE role field registry (teacher + DJ). Built from the pinned
 // save_my_role_v1 writable-key list; a test asserts the key sets are equal.
-// Every field is optional (owner decision: "offered in full, all optional").
+// Every field is optional (owner decision: "offered in full, all optional"), EXCEPT the
+// go-live keys (invite A1, owner 2026-10-23): those are named by the one go-live mapping
+// (organiser/shared/goLiveKeys) and say so in the same words as every required step.
+import { isRoleGoLiveField } from '@/modules/organiser/shared/goLiveKeys';
+
+export { REQUIRED_HINT } from '@/modules/organiser/shared/goLiveKeys';
 
 export type Role = 'teacher' | 'dj';
 export const ROLES: readonly Role[] = ['teacher', 'dj'];
@@ -46,6 +51,15 @@ export const ROLE_FIELDS: Record<Role, readonly RoleField[]> = {
     { key: 'mixcloud', label: 'Mixcloud link', question: 'What is your Mixcloud link?', kind: 'link', max: 300, group: 'Links and pricing' },
     { key: 'pricing', label: 'Pricing', question: 'How do you price a booking?', kind: 'longtext', max: 280, group: 'Links and pricing', help: 'Up to 280 characters. New lines are fine.' },
   ],
+};
+
+/** True when the field must be filled before the person's events can go live (the one mapping). */
+export const isGoLiveField = (role: Role, key: string): boolean => isRoleGoLiveField(role, key);
+
+/** The line over the details: which ones go live needs, then that the rest are optional (W2 walk fix 3). */
+export const ROLE_REQUIRED_LEAD: Record<Role, string> = {
+  teacher: 'The styles you teach are needed before your events can go live. Every other detail is optional.',
+  dj: 'Your DJ name and the music you play are needed before your events can go live. Every other detail is optional.',
 };
 
 export function roleFieldKeys(role: Role): string[] {

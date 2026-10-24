@@ -7,12 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, screen, within } from '@testing-library/react';
 
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // S8 renders the Nights lists (behind the going switch)
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 
-const h = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[] }));
+const h = vi.hoisted(() => ({ reply: { upcoming: [], past: [] } as unknown }));
 const rpc = async (fn: string, args?: Record<string, unknown>) => {
-  if (fn === 'get_my_event_attendance_v2') return { data: h.rows, error: null };
+  if (fn === 'get_my_going_v1') return { data: h.reply, error: null };
   if (fn === 'series_level_summary_p5_v1') {
     return { data: { series_id: String(args?.p_series_id), vote_count: 0, threshold: 7, counts: null, derived_level: null, my_level: null }, error: null };
   }
@@ -30,14 +31,12 @@ vi.mock('@/components/account/profiles/useProfileSides', () => ({
 }));
 
 import { renderInShell, resetShell } from '../shell/renderInShell';
-import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
+import { GOING_COPY } from '@/modules/going';
+import { night } from '../screens/nights/__tests__/goingShapes';
 import type { DancerShapeName } from '../api/fixtures';
 
-const row = (id: string, n: number) => ({
-  event_id: id, status: 'going', updated_at: null, name: `Night ${id}`, occurrence_date: addDaysToKey(londonTodayKey(), n), city_name: 'London', start_time: '21:00:00', type: 'party', is_active: true,
-});
 
-beforeEach(() => { h.rows = []; localStorage.clear(); sessionStorage.clear(); });
+beforeEach(() => { h.reply = { upcoming: [], past: [] }; localStorage.clear(); sessionStorage.clear(); });
 afterEach(() => { cleanup(); resetShell(); });
 
 describe('S6: every dancer screen titles itself through ScreenTitle (28px/800)', () => {
@@ -59,10 +58,10 @@ describe('S6: every dancer screen titles itself through ScreenTitle (28px/800)',
 });
 
 describe('S8: section labels are sentence case 15px/700 (SectionTitle), not the organiser UPPERCASE label', () => {
-  it('Nights: Upcoming and Past', async () => {
-    h.rows = [row('a', 2), row('b', -6)];
+  it('Nights: the upcoming and past titles (going module words)', async () => {
+    h.reply = { upcoming: [night('a', 'Night a', 2)], past: [night('b', 'Night b', -6)] };
     renderInShell({ path: '/app/nights' });
-    for (const text of ['Upcoming', 'Past']) {
+    for (const text of [GOING_COPY.myUpcomingTitle, GOING_COPY.myPastTitle]) {
       const label = await screen.findByText(text);
       expect(label.hasAttribute('data-section-title'), text).toBe(true);
       expect(label.className).not.toContain('uppercase');

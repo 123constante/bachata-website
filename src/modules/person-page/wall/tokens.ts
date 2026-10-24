@@ -33,8 +33,8 @@ export const TILE: Record<WallRole, TileTokens> = {
 /** Keyboard focus on every wall control: a 2px ring in WALL.text (the site has no global focus style). */
 export const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FBEBDD]';
 
-/** Dark pill with gold text and a gold edge: holds on a gold tile and on a photo. */
-export const DATE_CHIP: ChipTokens = { bg: '#1E1410', text: '#FFD479', border: '#FFD479' };
+/** The DJ's next-gig date: a gold line under the name on WALL.page (owner pick B), never on the face. */
+export const DATE_LINE = { text: '#FFD479' } as const;
 
 /** `#RRGGBB` -> the same colour at alpha 0. */
 const clearOf = (hex: string) => {
@@ -81,6 +81,8 @@ export const SIZE = {
   nameLine: 14,
   chip: 10,
   chipLine: 13,
+  dateLine: 10,
+  dateLineHeight: 13,
   /** Pills, the Organisers link, the coming-soon buttons: 44px tall AND wide (tap target). */
   filterHeight: 44,
   filterPadX: 10,

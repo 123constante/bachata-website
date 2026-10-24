@@ -12362,6 +12362,15 @@ export type Database = {
         }
         Returns: Json
       }
+      record_list_impressions_v1: {
+        Args: {
+          p_event_ids: string[]
+          p_surface: string
+          p_user_agent?: string
+          p_viewer_session_id: string
+        }
+        Returns: Json
+      }
       record_organiser_card_click_v1: {
         Args: {
           p_event_id: string

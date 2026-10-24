@@ -52,7 +52,7 @@ const page = (s: HomeSeriesFull[], over: Partial<HomeOrganiser> = {}): HomeOrgan
 const request: IncomingAccessRequest = { requestId: 'r1', userId: 'u2', requesterEmail: 'maya@example.com', message: null, createdAt: daysAgoIso(1) };
 
 /** D83: the short chip each Home problem row stands for (the long Home words live in PROBLEM_COPY). */
-const CHIP_OF: Record<string, string> = { no_dates_left: 'Needs dates', no_cover: 'Needs a flyer', stale_draft: 'Not live yet' };
+const CHIP_OF: Record<string, string> = { no_dates_left: 'Needs dates', no_cover: 'Needs a flyer', go_live: 'Not live yet' };
 
 const kinds = (jobs: Job[]) => jobs.map((j) => j.kind);
 
@@ -96,17 +96,21 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     expect(jobs[1]).toMatchObject({ n: 2, title: 'Add dates: Sundays', sub: 'No coming dates, so dancers see nothing', to: ORG_PATHS.addEvent(s.id) });
   });
 
-  it('draft 9 days old -> stale_draft; draft 2 days old -> none', () => {
+  // W2 walk fix 4: every draft gets ONE go_live row (stale or not); only a stale one is a problem until its check loads.
+  it('draft 9 days old -> go_live problem; draft 2 days old -> plain go_live', () => {
     const old = series({ name: 'Old draft', lifecycle_status: 'draft', created_at: daysAgoIso(9), upcoming_count: 0, next_dates: [] });
     const fresh = series({ name: 'New draft', lifecycle_status: 'draft', created_at: daysAgoIso(2), upcoming_count: 0, next_dates: [] });
     const jobs = homeJobs(page([series(), old, fresh]), [], today());
-    expect(kinds(jobs)).toEqual(['change', 'add', 'cancel', 'stale_draft']);
-    expect(jobs[3]).toEqual({ kind: 'stale_draft', n: 4, title: 'Finish and go live: Old draft', sub: 'Not live yet, started 9 days ago', to: ORG_PATHS.event(old.id), tone: 'problem' });
+    expect(kinds(jobs)).toEqual(['change', 'add', 'cancel', 'go_live', 'go_live']);
+    expect(jobs[3]).toEqual({ kind: 'go_live', n: 4, title: 'Finish and go live: Old draft', sub: 'Not live yet, started 9 days ago', to: ORG_PATHS.event(old.id), tone: 'problem' });
+    expect(jobs[4]).toEqual({ kind: 'go_live', n: 5, title: 'Finish and go live: New draft', sub: 'Not live yet', to: ORG_PATHS.event(fresh.id), tone: 'plain' });
   });
 
   it('a draft exactly 7 days old is not stale yet (older than 7 days)', () => {
     const s = series({ lifecycle_status: 'draft', created_at: daysAgoIso(7), upcoming_count: 0, next_dates: [] });
-    expect(kinds(homeJobs(page([series(), s]), [], today()))).toEqual(['change', 'add', 'cancel']);
+    const jobs = homeJobs(page([series(), s]), [], today());
+    expect(kinds(jobs)).toEqual(['change', 'add', 'cancel', 'go_live']);
+    expect(jobs[3]).toMatchObject({ sub: 'Not live yet', tone: 'plain' });
   });
 
   it('live with no cover -> no_cover', () => {
@@ -130,7 +134,7 @@ describe('homeJobs: the Home matrix (4.5)', () => {
       [request],
       today(),
     );
-    expect(jobs.map((j) => `${j.n}:${j.kind}`)).toEqual(['1:change', '2:add', '3:cancel', '4:no_dates_left', '5:join_request', '6:stale_draft', '7:no_cover']);
+    expect(jobs.map((j) => `${j.n}:${j.kind}`)).toEqual(['1:change', '2:add', '3:cancel', '4:no_dates_left', '5:join_request', '6:go_live', '7:no_cover']);
   });
 
   it('45 series of which 40 archived -> 5 listed (R3-4), archived never a row', () => {
@@ -158,13 +162,14 @@ describe('homeJobs: the Home matrix (4.5)', () => {
     }
   };
 
-  it('drafts only (one 9 days, one 2 days) -> add + stale_draft; no change/cancel, no first steps', () => {
+  it('drafts only (one 9 days, one 2 days) -> add + a go_live row each; no change/cancel, no first steps', () => {
     const old = series({ name: 'Old draft', lifecycle_status: 'draft', created_at: daysAgoIso(9), upcoming_count: 0, next_dates: [] });
     const fresh = series({ name: 'New draft', lifecycle_status: 'draft', created_at: daysAgoIso(2), upcoming_count: 0, next_dates: [] });
     const jobs = homeJobs(page([old, fresh]), [], today());
     expect(jobs.map((j) => [j.n, j.kind, j.title, j.sub, j.to, j.tone])).toEqual([
       [1, 'add', 'Add a date', undefined, ORG_PATHS.add, 'plain'],
-      [2, 'stale_draft', 'Finish and go live: Old draft', 'Not live yet, started 9 days ago', ORG_PATHS.event(old.id), 'problem'],
+      [2, 'go_live', 'Finish and go live: Old draft', 'Not live yet, started 9 days ago', ORG_PATHS.event(old.id), 'problem'],
+      [3, 'go_live', 'Finish and go live: New draft', 'Not live yet', ORG_PATHS.event(fresh.id), 'plain'],
     ]);
     expect(seriesChip(old, today())).toEqual({ label: 'Not live yet', tone: 'bad' });
     expect(seriesChip(fresh, today())).toEqual({ label: 'Draft, 2 days', tone: 'n' });

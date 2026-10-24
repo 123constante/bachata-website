@@ -294,6 +294,8 @@ interface RowProps {
   onSelect: (occId: string) => void;
   onHover?: (occId: string | null) => void;
   className?: string;
+  /** list-impression ref (useListImpressions(...).track(event_id)) */
+  trackRef?: (el: Element | null) => void;
 }
 
 const rowBase = cn(
@@ -347,6 +349,7 @@ export const EventRow = memo(function EventRow({
   today,
   distanceMi,
   className,
+  trackRef,
 }: RowProps & {
   showFreshness?: boolean;
   /** The reader's pinned London day key. REQUIRED: the LiveBadge mount below
@@ -373,6 +376,7 @@ export const EventRow = memo(function EventRow({
   const mi = distanceMi ?? null;
   return (
     <a
+      ref={trackRef}
       href={rowHref(event)}
       data-occ={event.occurrence_id}
       onClick={(e) => {

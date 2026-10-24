@@ -15,8 +15,10 @@ import {
   withReturnTo,
   type GoLiveCheck,
 } from '@/modules/organiser/shared/goLiveCheck';
+import { eventBlockers } from '@/modules/organiser/shared/goLiveKeys';
 import { PROFILE_WIZARD_PATH } from '@/modules/organiser/shared/profileProgress';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { DEFAULT_AREA_PATHS } from '@/modules/areas/shared/paths';
 import type { EventWorkspace } from './eventModel';
 
 /** Going live from a draft waits on the admin A1 migration; plain words, no jargon. */
@@ -64,7 +66,8 @@ export function goLiveList(check: GoLiveCheck, seriesId: string, linked = true):
   const line = (recommended: boolean) => ({ code, section }: { code: string; section: string }): GoLiveLine =>
     ({ code, label: goLiveLabel(code), href: linked ? goLiveFixHref(section, seriesId) : null, recommended });
   return {
-    missing: check.eventMissing.map(line(false)),
+    // One row per fact (the one mapping): no_flyer is cover's twin and shows once.
+    missing: eventBlockers(check.eventMissing).map(line(false)),
     recommended: check.recommended.map(line(true)),
     profile: showsProfileRow(check)
       ? { label: profileRowLabel(profileFieldsLeft(check)), href: withReturnTo(profileFixPath(check), ORG_PATHS.event(seriesId)) }
@@ -80,11 +83,15 @@ export function goLiveList(check: GoLiveCheck, seriesId: string, linked = true):
  * page that happened to be selected and Go live stayed blocked.
  */
 export function profileFixPath(check: GoLiveCheck): string {
+  // Only a role (A1's teacher / DJ entries) left: that role's own editor fixes it, not the profile wizard.
+  const left = check.profileMissing.filter((p) => p.fields.length > 0);
+  const role = left[0]?.area;
+  if (left.length > 0 && left.every((p) => p.area === role) && (role === 'teacher' || role === 'dj')) return DEFAULT_AREA_PATHS[role].profile;
   const page = check.profileMissing.find((p) => p.area === 'organiser' && p.organiserId && p.fields.length > 0)?.organiserId;
   return page ? `${PROFILE_WIZARD_PATH}?o=${encodeURIComponent(page)}` : PROFILE_WIZARD_PATH;
 }
 
-/** D82: required items left = event rows + the profile row (one). */
+/** D82: required items left = event rows + the profile row (one); equal to goLiveKeys.goLiveLeft, which Home quotes. */
 export const leftCount = (list: GoLiveList): number => list.missing.length + (list.profile ? 1 : 0);
 
 /** True when the list holds something that blocks (a recommended item never does). */

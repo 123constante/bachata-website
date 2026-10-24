@@ -1224,6 +1224,16 @@ jobs:
           node scripts/check-image-refs-live.mjs --self-test
           node scripts/check-image-refs-live.mjs
 
+      - name: Run going RPC contract check (Going P2)
+        if: always()
+        timeout-minutes: 3
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-going-rpcs.mjs --self-test
+          node scripts/check-going-rpcs.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job

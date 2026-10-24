@@ -24,6 +24,8 @@ import type { WizardWriters } from '../wizardApi';
 
 const QUESTION = 'What is your WhatsApp number?';
 const NUMBER = '+44 7700 900123';
+/** What is saved: the ONE phone rule's E.164 (invite W2); the box keeps the digits after the picked +44. */
+const E164 = '+447700900123';
 
 /** The server's D76 rule: another active role, OR an active owner/manager seat. `d76: false` = a server without it. */
 type Who = { otherRoles: string[]; seat: 'owner' | 'manager' | null; d76: boolean };
@@ -94,7 +96,7 @@ describe('phone_or_whatsapp: who can save a WhatsApp number (D76)', () => {
     who = w;
     await answerNumber();
     await waitFor(() => expect(question()).not.toBe(QUESTION));
-    expect(saved).toEqual([{ whatsapp: NUMBER }]);
+    expect(saved).toEqual([{ whatsapp: E164 }]);
     expect(screen.queryByTestId('step-error')).toBeNull();
   });
 });
@@ -107,14 +109,14 @@ describe('a server that still answers whatsapp_not_allowed: a way to reach the t
     vi.stubEnv('VITE_SUPPORT_EMAIL', 'help@example.com');
     await answerNumber();
     await waitFor(() => expect(screen.getByTestId('step-error').textContent).toBe(WHATSAPP_NOT_ALLOWED_COPY));
-    expect(saved).toEqual([{ whatsapp: NUMBER }]);
+    expect(saved).toEqual([{ whatsapp: E164 }]);
     const wa = screen.getByRole('link', { name: 'WhatsApp us' });
     const mail = screen.getByRole('link', { name: 'Email us' });
     expect(wa.getAttribute('href')).toBe('https://wa.me/440000000000');
     expect(mail.getAttribute('href')).toBe('mailto:help@example.com');
     for (const a of [wa, mail]) expect(a.className).toMatch(/min-h-\[(4[4-9]|[5-9]\d)px\]/);
     expect(question()).toBe(QUESTION);
-    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe(NUMBER);
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('7700900123');
     expect(screen.queryByText(SKIP_LABEL)).toBeNull();
   });
 

@@ -7,7 +7,8 @@ import { withNormalizedProtocol } from '@/lib/organiserProfileUpdate';
 // other non-page paths) added so a facebook.com/share/... link -- what
 // Facebook's own Share button hands out -- is not announced as "@share".
 
-const IG_NON_HANDLE_PATHS = ['p', 'reel', 'reels', 'tv', 'explore', 'stories'];
+/** instagram.com paths that are not a profile (a post, reel, story...): never read as a name. */
+export const IG_NON_HANDLE_PATHS = ['p', 'reel', 'reels', 'tv', 'explore', 'stories'];
 
 const FB_NON_HANDLE_PATHS = new Set([
   'profile.php', 'people', 'pages', 'groups', 'pg', 'sharer', 'login',

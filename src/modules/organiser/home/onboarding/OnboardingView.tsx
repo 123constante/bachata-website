@@ -12,6 +12,7 @@ import { ORG_PATHS } from '../../shell/paths';
 import { goDone } from '../../flows/doneState';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
 import { SignOutLine } from './SignOutLine';
+import { BETA_NOTE } from '../../flows/newpage/cannotCreate';
 
 export interface OnboardingViewProps {
   user: { id: string; email: string | null };
@@ -119,6 +120,8 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
 
       <div>
         <h2 className="text-[20px] font-bold text-[var(--fg)]">{firstRun ? 'Find your page' : 'Add another page'}</h2>
+        {/* W2 walk fix 8: the beta up front, before any name or city. */}
+        <p className="mt-[4px] text-[13px] text-[var(--mut)]" data-testid="onboarding-beta-note">{BETA_NOTE}</p>
       </div>
 
       <SearchField value={query} onChange={setQuery} aria-label="Search pages by name" placeholder="Search pages by name" testId="onboarding-search" />
@@ -221,6 +224,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
         task={task}
         onTaskChange={setTask}
         email={user.email ?? ''}
+        userId={user.id}
         mailboxProven={mailboxProven}
         onClaimed={finish}
         onRequested={requested}

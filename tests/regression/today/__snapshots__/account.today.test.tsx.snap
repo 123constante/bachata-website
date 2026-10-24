@@ -68,6 +68,7 @@ text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
 heading "Find your page" level=2
+text "During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you."
 searchbox "Search pages by name"
 status
 button "Create a new page"
@@ -227,6 +228,7 @@ text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
 heading "Find your page" level=2
+text "During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you."
 searchbox "Search pages by name"
 status
 button "Create a new page"
@@ -277,6 +279,7 @@ text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
 heading "Find your page" level=2
+text "During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you."
 searchbox "Search pages by name"
 status
 button "Create a new page"
@@ -379,6 +382,7 @@ text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
 heading "Find your page" level=2
+text "During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you."
 searchbox "Search pages by name"
 status
 button "Create a new page"
@@ -538,6 +542,7 @@ text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
 heading "Find your page" level=2
+text "During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you."
 searchbox "Search pages by name"
 status
 button "Create a new page"
@@ -588,6 +593,7 @@ text "Signed in as ana@example.com ."
 text "Not you?"
 button "Sign out of ana@example.com"
 heading "Find your page" level=2
+text "During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you."
 searchbox "Search pages by name"
 status
 button "Create a new page"

@@ -9,14 +9,15 @@
 // (useKeyboardInset), so Done stays above the phone keyboard; 16px inputs; a
 // modal dialog with focus in the phone box on open, Tab trapped, Escape and the
 // overlay close it, and the caller returns focus to the "Edit contact details" row.
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useKeyboardInset } from '@/modules/organiser/ui/useKeyboardInset';
 import { CONTACT_COPY, contactDraftsFor, contactItems, contactWillSave, type ContactItem, type StoredContact } from './contactModel';
 import type { Drafts } from './draftModel';
 import { checkField } from './fieldRules';
 import { inBody } from './layers';
 import { CREAM, GOLD, INK } from './parts';
-import { btn, inputStyle, sheetFrame, trapTab } from './sheetStyles';
+import { PHONE_FIELD_TOKENS, btn, inputStyle, sheetFrame, trapTab } from './sheetStyles';
+import { PhoneInput } from '@/components/forms/PhoneInput';
 
 export interface ContactSheetProps {
   stored: StoredContact;
@@ -68,9 +69,7 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
   const phoneId = useId();
   const emailId = useId();
   const emailNoteId = useId();
-  const errorId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
-  const phoneRef = useRef<HTMLInputElement>(null);
   const { inset, height } = useKeyboardInset(true);
   const initialPhone = drafts.contact_phone ?? stored.phone ?? '';
   const [phone, setPhone] = useState(initialPhone);
@@ -83,11 +82,10 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
     [stored, phone, showPhone, showEmail],
   );
   const check = useMemo(() => checkField('contact_phone', phone), [phone]);
-  const showError = (touched || phone !== initialPhone) && !check.ok ? check.error : null;
-
-  useEffect(() => {
-    phoneRef.current?.focus();
-  }, []);
+  // A stored number saved before the one phone rule (no '+') is kept as it is until it is changed: never a blocked Done.
+  const phoneOk = check.ok || phone === (stored.phone ?? '');
+  // An edited number is the field's to explain, at once, since Done is off ("Looks short. ..."); the sheet speaks only for an untouched stored draft it refuses (one message, never two).
+  const showError = touched && phone === initialPhone && !phoneOk ? check.error : null;
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') {
@@ -100,7 +98,7 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
 
   const done = () => {
     setTouched(true);
-    if (!check.ok) return;
+    if (!phoneOk) return;
     onDone(contactDraftsFor(stored, { phone, showPhone, showEmail }));
   };
 
@@ -115,22 +113,10 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
         <p id={subId} style={{ margin: '0 0 4px', fontSize: 13, color: 'rgba(246,241,234,0.75)' }}>{CONTACT_COPY.sub}</p>
 
         <label htmlFor={phoneId} style={label}>Phone</label>
-        <input
-          id={phoneId}
-          ref={phoneRef}
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          enterKeyHint="done"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); done(); } }}
-          placeholder="e.g. +44 7700 900123"
-          aria-invalid={!!showError}
-          aria-describedby={showError ? errorId : undefined}
-          style={inputStyle}
-        />
-        {showError && <p id={errorId} role="alert" style={{ margin: '6px 0 0', fontSize: 13, color: '#FF8A70' }}>{showError}</p>}
+        {/* The ONE phone field (country first, saved as E.164). The sheet sits in document.body, so it carries the theme itself. */}
+        <div className="org-theme" style={{ ...PHONE_FIELD_TOKENS, background: 'transparent' } as CSSProperties} data-testid="eip-contact-phone">
+          <PhoneInput inputId={phoneId} value={phone} stored={stored.phone ?? ''} onChange={(e164) => setPhone(e164)} autoFocus error={showError} feedbackTestId="eip-phone-feedback" showShort={phone !== initialPhone && !phoneOk} onEnter={done} />
+        </div>
         <SwitchRow item={items.phone} onToggle={() => setShowPhone(!items.phone.isPublic)} />
 
         <label htmlFor={emailId} style={label}>Email</label>
@@ -154,7 +140,7 @@ export default function ContactSheet({ stored, drafts, onDone, onClose }: Contac
           <button type="button" onClick={onClose} style={{ ...btn, background: 'none', border: '1px solid rgba(246,241,234,0.25)', color: CREAM }}>
             Cancel
           </button>
-          <button type="button" onClick={done} disabled={!check.ok} aria-disabled={!check.ok} style={{ ...btn, background: GOLD, color: INK, border: 'none', opacity: check.ok ? 1 : 0.5 }}>
+          <button type="button" onClick={done} disabled={!phoneOk} aria-disabled={!phoneOk} style={{ ...btn, background: GOLD, color: INK, border: 'none', opacity: phoneOk ? 1 : 0.5 }}>
             Done
           </button>
         </div>

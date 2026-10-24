@@ -250,3 +250,57 @@ export const postLoginDecision = (input: {
   if (input.skipped || input.pathname === FINISH_PROFILE_PATH) return "clear";
   return needsFinishing(input) ? "redirect" : "clear";
 };
+
+/**
+ * The /account dashboard completion score: the SAME five steps, in the same
+ * order and with the same tests, as main's DancerDashboard (before Going P2).
+ *
+ * Step 3 ("activity") was main's "has any night in my list". Main read it from
+ * the retired attendance list (going OR interested); here it reads
+ * the viewer's nights from get_my_going_v1 (upcoming + past), the one going
+ * list the Website keeps. While the going switch is off that read never runs,
+ * so the step is not met -- exactly what main showed a dancer with no rows.
+ * Oracle: tests/client/dancerCompletion.test.ts runs main's code over every shape.
+ */
+export type CompletionProfile = {
+  first_name?: string | null;
+  based_city_id?: string | null;
+  photo_url?: string | null;
+  looking_for_partner?: boolean | null;
+  dance_role?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  whatsapp?: string | null;
+  website?: string | null;
+} | null | undefined;
+
+export type DancerCompletion = {
+  hasIdentity: boolean;
+  hasMedia: boolean;
+  hasActivity: boolean;
+  hasEngagement: boolean;
+  hasSocial: boolean;
+  count: number;
+  total: number;
+  percent: number;
+};
+
+export const dancerCompletion = (profile: CompletionProfile, nightsInMyList: number): DancerCompletion => {
+  const hasIdentity = Boolean(profile?.first_name?.trim()) && Boolean(profile?.based_city_id);
+  const hasMedia = Boolean(profile?.photo_url?.trim());
+  const hasActivity = nightsInMyList > 0;
+  const hasEngagement = Boolean(profile?.looking_for_partner) || Boolean(profile?.dance_role);
+  const hasSocial = Boolean(profile?.instagram || profile?.facebook || profile?.whatsapp || profile?.website);
+  const steps = [hasIdentity, hasMedia, hasActivity, hasEngagement, hasSocial];
+  const count = steps.filter(Boolean).length;
+  return {
+    hasIdentity,
+    hasMedia,
+    hasActivity,
+    hasEngagement,
+    hasSocial,
+    count,
+    total: steps.length,
+    percent: Math.round((count / steps.length) * 100),
+  };
+};
