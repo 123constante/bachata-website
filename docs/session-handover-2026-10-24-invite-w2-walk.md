@@ -58,3 +58,25 @@ All six "Not done" items above are closed.
 5. **PR body** rewritten: walk fixes table, per-job table, Phone QA, Verified on real data (both body checks pass locally).
 
 Still open for the owner: fix 8 "Become an organiser" and fix 9 photo step (dancer-app, isolation rule; proposed words above); a prod-data browser walk of fixes 1-9; the Vercel preview.
+
+## Session 3 (dispatch dt_48fe0e679749): walk fix 10, event editors honour returnTo after Save
+
+Brief: `brief/invite-w2-phone-ig-golive:briefs/invite-journey/W2-walk-fix-10.md` (sha fca1fff).
+
+**The one rule (picked for every editor): via the Done screen.** An editor opened with `?returnTo=` (every "Before you go live" row, `goLiveFixHref`) ends on Done as before (the "Saved" line stays, and Add a date's "the time was NOT saved" warning is not lost), but Done's PRIMARY button is "Back to <event name>" and goes to the sanitised returnTo; "Back to Home" is second. Without a returnTo, Done is unchanged. Chosen over a direct jump so the confirmation and the add-date time warning survive.
+
+| Where | What |
+|---|---|
+| `flows/doneState.ts` | `DoneState.back`; `goDone(navigate, state, returnTo)`; `readReturnTo(search)` / `keepReturnTo(to, search)` (sanitizeReturnTo, Done itself excluded); `readDoneState` re-sanitises `back` (a crafted router state cannot point off-site). `withReturnTo`, `backToEventLabel`, `returnToSeriesId` now live here once (goLiveCheck and ProfileWizard re-export). |
+| `flows/Done.tsx` | `back` -> primary `org-done-back` "Back to <event name>" (a non-event returnTo reads "Go back", never a name the button does not go to); a `next` equal to `back` (the cover fix's "Back to the event") is not shown twice. |
+| `useEventSend` | every details editor (name, venue/city/country, about, tickets, payment, music), programme, organisers: passes the screen's returnTo to Done. |
+| `CoverFlow`, add a date (`WhichDay` -> `Time`) | the same; the day list and the Details list carry the returnTo onto the screen they open. |
+| Backs | Payment, Music, text-detail editors, Programme, Organisers keep the returnTo on Back to Details; Cover and the day list go Back to the returnTo. |
+
+Tests (red first, `a41ad28`): `shared/__tests__/goLiveSaveBack.matrix.test.tsx`, table over EVERY `GO_LIVE_BLOCKERS` code (15): follow its link, save, Done's primary is "Back to Friday Social", tap -> the event. Plus no returnTo / external URL / `//evil` / `/\evil` -> unchanged; crafted state dropped; the details list and the day list keep it; review-fix tests (Backs, "Go back", Done excluded). 18 red against the unfixed code; the 9 review-fix tests 5 + 1 red against the pre-review fix; 34/34 green. Programme and organisers save through a probe on the real `useEventSend` at their real link (their sheets need a people world), and a source check pins that both save via `useEventSend` and keep the returnTo on Back.
+
+Review (/code-review medium, 9 findings): fixed the Back paths (Payment, Music, Programme, Organisers, Cover), Done's label for a non-event returnTo, and Done excluded as a returnTo. Not fixed, with reasons: the lock refusals on Add a date still say "Back to Home" (go-live rows appear only on drafts, which Add allows, so no go-live link reaches them); carrying returnTo by hand per link (a shell-level mechanism would cover the class; a follow-up, the matrix covers today's links); the re-exports of the moved helpers (kept to avoid churn in 3 importers); `TimeForm` reading the location again.
+
+**Optional item 3 NOT done:** Home's "Add a date" row is the generic action row (`homeJobs.ts:171`, `canAdd` counts live events too), not a per-event to-do, so hiding it is a product call, not one shared mapping. Proposed: hide it only when every addable series is a draft that already shows a "Finish and go live" row.
+
+Still open for the owner: fixes 8 and 9 (dancer-app isolation, unchanged), a prod-data browser walk, the Vercel preview.

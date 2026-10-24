@@ -30,21 +30,13 @@ import { WizardEnvContext } from './wizardEnv';
 import { UNLOCK_LINE, levelOf, milestoneBetween, nextOpenStep, shownSteps, stepKey } from './wizardModel';
 import { sanitizeReturnTo } from '@/lib/authRouting';
 import { askOrder } from '@/modules/organiser/shared/goLiveKeys';
+import { backToEventLabel, returnToSeriesId } from '@/modules/organiser/flows/doneState';
 import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
 
 export const FINISH_LATER_LABEL = 'Finish later';
 export const KEEP_GOING_LABEL = 'Keep going';
-/** The end screens' way back to the event the wizard was opened from; the name once the event has loaded. */
-export const backToEventLabel = (name: string | null | undefined): string => `Back to ${name?.trim() || 'your event'}`;
-
-/** The event a returnTo points at: One event (and its sub-screens) or the Go live flow (`?series=`). */
-export function returnToSeriesId(returnTo: string | null): string | null {
-  if (!returnTo) return null;
-  const own = returnTo.match(/^\/account\/o\/events\/([^/?#]+)/);
-  if (own) return decodeURIComponent(own[1]);
-  if (/^\/account\/o\/go-live(?:[?#]|$)/.test(returnTo)) return new URLSearchParams(returnTo.split('?')[1]?.split('#')[0] ?? '').get('series');
-  return null;
-}
+// The end screens' way back to the event (its name, its id from a returnTo): one copy, shared with Done (W2 walk fix 10).
+export { backToEventLabel, returnToSeriesId };
 
 function TopBar({ onBack, onFinishLater }: { onBack: () => void; onFinishLater: () => void }) {
   return (

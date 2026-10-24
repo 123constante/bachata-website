@@ -6,7 +6,7 @@ import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
 import { GhostButton, PrimaryButton } from '@/modules/organiser/ui';
 import { useEventWorkspace } from '@/modules/organiser/events/eventsApi';
 import { lifecycleRows } from '@/modules/organiser/events/lifecycleModel';
-import { NEXT_LABEL, readDoneState } from './doneState';
+import { GO_BACK_LABEL, NEXT_LABEL, backToEventLabel, readDoneState, returnToSeriesId } from './doneState';
 import { ItsLiveOffer } from './ItsLiveOffer';
 
 /** C38: the public page of the event this flow changed: a link when live, off with the reason for a draft. */
@@ -30,10 +30,28 @@ function SeeItLive({ seriesId }: { seriesId: string }) {
 }
 
 /**
+ * W2 walk fix 10: the primary way back to where the editor was opened from: an
+ * event by its name; any other organiser screen as plain "Go back", never a name
+ * the button does not go to.
+ */
+function BackToEvent({ back }: { back: string }) {
+  const navigate = useNavigate();
+  const target = returnToSeriesId(back);
+  const ws = useEventWorkspace(target ?? undefined);
+  return (
+    <PrimaryButton testId="org-done-back" onClick={() => navigate(back, { replace: true })}>
+      {target ? backToEventLabel(ws.data?.series.name) : GO_BACK_LABEL}
+    </PrimaryButton>
+  );
+}
+
+/**
  * The one Done screen every flow ends on (D29, D51): the confirmation line and
  * ONE button "Back to Home", plus the `next` button when the flow gives one
  * (D61), and "See it live" when the flow names an event (C38). No Undo (D49).
- * A reload has no router state, so it goes Home.
+ * A reload has no router state, so it goes Home. Opened with a returnTo (`back`,
+ * W2 walk fix 10), "Back to <event name>" is the primary and Home comes second;
+ * a `next` to that same place is not shown twice.
  */
 export default function Done() {
   const location = useLocation();
@@ -47,10 +65,19 @@ export default function Done() {
           <CheckCircle2 aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--ok-fg)]" />
           {state.message}
         </p>
-        <PrimaryButton testId="org-done-home" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
-          Back to Home
-        </PrimaryButton>
-        {state.next && (
+        {state.back ? (
+          <>
+            <BackToEvent back={state.back} />
+            <GhostButton testId="org-done-home" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
+              Back to Home
+            </GhostButton>
+          </>
+        ) : (
+          <PrimaryButton testId="org-done-home" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
+            Back to Home
+          </PrimaryButton>
+        )}
+        {state.next && state.next !== state.back && (
           <GhostButton testId="org-done-next" onClick={() => navigate(state.next as string, { replace: true })}>
             {state.nextLabel ?? NEXT_LABEL}
           </GhostButton>

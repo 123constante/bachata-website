@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { londonTodayKey } from '@/lib/londonDate';
@@ -9,6 +9,7 @@ import { firstListedDate, upcomingDates } from '@/modules/organiser/shared/serie
 import { eventLock } from '@/modules/organiser/shared/eventState';
 import { commandErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { useFlowHome } from '@/modules/organiser/flows/add/useFlow';
+import { keepReturnTo } from '@/modules/organiser/flows/doneState';
 import { EDIT_PARAM, EventConflict, EventStepShell, SendButton, StepError, detailEditPath, useEventSend } from '@/modules/organiser/flows/event';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { Card, ErrorState, FIELD_CLASS, SkeletonRows } from '../ui';
@@ -41,6 +42,7 @@ const readField = (raw: string | null): TextDetail | null => TEXT_FIELDS.find((f
 /** One field, one box, one Save (C37 tap-to-edit): Save stays off until the value differs. */
 function DetailEdit({ ws, field }: { ws: EventWorkspace; field: TextDetail }) {
   const seriesId = ws.series.id;
+  const { search } = useLocation();
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
   const [typed, setTyped] = useState(() => detailValue(ws, field));
   const changed = detailChanged(ws, field, typed);
@@ -54,7 +56,7 @@ function DetailEdit({ ws, field }: { ws: EventWorkspace; field: TextDetail }) {
     onChange: (e: { target: { value: string } }) => setTyped(e.target.value),
   };
   return (
-    <EventStepShell seriesId={seriesId} title={DETAIL_LABEL[field]} back={ORG_PATHS.eventDetails(seriesId)}>
+    <EventStepShell seriesId={seriesId} title={DETAIL_LABEL[field]} back={keepReturnTo(ORG_PATHS.eventDetails(seriesId), search)}>
       {conflict ? <EventConflict seriesId={seriesId} /> : (
         <>
           {field === 'about'
@@ -79,6 +81,8 @@ function shown(ws: EventWorkspace, field: TextDetail): string {
 /** The rows; the venue row opens the event-truth editor sheet, unchanged (4.2). */
 function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
   const seriesId = ws.series.id;
+  // Opened from a Go live row (`?returnTo=`): every editor this list opens keeps it, so its Save comes back (W2 walk fix 10).
+  const { search } = useLocation();
   const closedReason = eventLock(ws.series.lifecycle_status);
   // C14: unfinished profiles lock the details, the programme and the flyer the same read-only way, with the reason above them.
   const profile = useEventLock(ws);
@@ -171,7 +175,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
       <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
     </div>
   ) : (
-    <Link key={key} to={to} data-testid={`org-detail-${key}`} className={ROW}>
+    <Link key={key} to={keepReturnTo(to, search)} data-testid={`org-detail-${key}`} className={ROW}>
       <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{label}</span>
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{value}</span>
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
@@ -183,7 +187,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
       <span className="min-w-0 flex-1 truncate text-[15px]">{value === 'Add' ? 'None' : value}</span>
     </div>
   ) : (
-    <Link key={field} to={detailEditPath(seriesId, field)} data-testid={`org-detail-${field}`} className={ROW}
+    <Link key={field} to={keepReturnTo(detailEditPath(seriesId, field), search)} data-testid={`org-detail-${field}`} className={ROW}
       onClick={field === 'venue' ? (e) => { e.preventDefault(); setSheet('venue'); } : undefined}>
       <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{DETAIL_LABEL[field]}</span>
       <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{value}</span>
@@ -213,7 +217,7 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
             <span className="min-w-0 flex-1 truncate text-[15px]">{ws.series.default_cover_image_url ? 'Set' : 'None'}</span>
           </div>
         ) : (
-          <Link to={ORG_PATHS.cover(seriesId)} data-testid="org-detail-cover" className={ROW}>
+          <Link to={keepReturnTo(ORG_PATHS.cover(seriesId), search)} data-testid="org-detail-cover" className={ROW}>
             <span className="w-[88px] shrink-0 text-[14px] text-[var(--mut)]">{FLYER_LABEL}</span>
             <span className="min-w-0 flex-1 truncate text-[15px] text-[var(--fg)]">{ws.series.default_cover_image_url ? 'Change' : 'Add'}</span>
             <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />

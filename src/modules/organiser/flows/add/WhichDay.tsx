@@ -1,5 +1,6 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { keepReturnTo, readReturnTo } from '@/modules/organiser/flows/doneState';
 import { addDays, addableSeries, findSeries, seriesLock } from './addModel';
 import { useFlowHome, useSeriesWorkspace } from './useFlow';
 import { Failed, Loading, Missing, Refusal, Step, StepList, StepRow } from './parts';
@@ -12,13 +13,15 @@ import { Failed, Loading, Missing, Refusal, Step, StepList, StepRow } from './pa
  */
 export default function WhichDay() {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const { seriesId = '' } = useParams();
   const home = useFlowHome();
   const one = findSeries(home.data, seriesId);
   const lock = one ? seriesLock(one.lifecycle_status, 'add') : null;
   const ws = useSeriesWorkspace(seriesId, !!one && !lock);
   // The one-event organiser came straight here: back goes Home, not to a one-row list.
-  const back = addableSeries(home.data).length === 1 ? ORG_PATHS.home : ORG_PATHS.add;
+  // Opened from the event's Go live list (`?returnTo=`): back goes there, and the day keeps it (W2 walk fix 10).
+  const back = readReturnTo(search) ?? (addableSeries(home.data).length === 1 ? ORG_PATHS.home : ORG_PATHS.add);
 
   return (
     <Step title={one?.name ?? 'Which day?'} back={back}>
@@ -40,7 +43,7 @@ export default function WhichDay() {
               testId="add-day-row"
               label={d.label}
               reason={d.reason}
-              onClick={() => navigate(ORG_PATHS.addDate(seriesId, d.date))}
+              onClick={() => navigate(keepReturnTo(ORG_PATHS.addDate(seriesId, d.date), search))}
             />
           ))}
         </StepList>

@@ -29,7 +29,7 @@ import Details from '@/modules/organiser/events/Details';
 import AddFlow from '@/modules/organiser/flows/add';
 import CoverFlow from '@/modules/organiser/flows/fix';
 import Done from '@/modules/organiser/flows/Done';
-import { readDoneState } from '@/modules/organiser/flows/doneState';
+import { GO_BACK_LABEL, readDoneState } from '@/modules/organiser/flows/doneState';
 import { useEventSend } from '@/modules/organiser/flows/event';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
@@ -100,6 +100,7 @@ const routes = (
     <Route path="/account/o/add/:seriesId/:date" element={<AddFlow step="time" />} />
     <Route path="/account/o/cover/:seriesId" element={<CoverFlow />} />
     <Route path="/account/o/done" element={<Done />} />
+    <Route path="/account/o/events" element={<p data-testid="events-page" />} />
   </>
 );
 
@@ -134,8 +135,8 @@ const SAVE: Record<string, () => Promise<void>> = {
   cover: async () => {
     fireEvent.change(await screen.findByTestId('cover-input'), { target: { files: [new File(['x'], 'cover.png', { type: 'image/png' })] } });
   },
-  programme: async () => fireEvent.click(await screen.findByTestId('probe-save')),
-  organisers: async () => fireEvent.click(await screen.findByTestId('probe-save')),
+  programme: async () => { fireEvent.click(await screen.findByTestId('probe-save')); },
+  organisers: async () => { fireEvent.click(await screen.findByTestId('probe-save')); },
 };
 
 const doneButtons = () => within(screen.getByTestId('org-done')).getAllByRole('button').map((b) => b.textContent);
@@ -161,6 +162,36 @@ describe('every go-live row: follow its link, save, come back to the event (fix 
     fireEvent.click(back);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(EVENT));
     expect(screen.getByTestId('event-page')).toBeTruthy();
+  });
+});
+
+/** The screens a go-live link opens directly (programme and organisers: the source check below). */
+const BACK_SECTIONS: [string, string][] = [
+  ['venue', 'org-detail-venue'], ['basics', 'org-detail-name'], ['about', 'org-detail-save'], ['tickets', 'org-detail-save'],
+  ['payment', 'org-detail-save'], ['dates', 'add-day-row'], ['cover', 'cover-input'],
+];
+
+describe('Back on the editor a go-live row opens keeps the way to the event (review fix)', () => {
+  it.each(BACK_SECTIONS)('%s', async (section, loaded) => {
+    mount(goLiveFixHref(section, A) as string, routes);
+    // The screen itself, not its loading frame.
+    await screen.findAllByTestId(loaded);
+    const back = (await screen.findByTestId('org-back')).getAttribute('href') ?? '';
+    expect(back === EVENT || back.includes(`returnTo=${encodeURIComponent(EVENT)}`)).toBe(true);
+  });
+});
+
+describe('Done names only where its button goes', () => {
+  it('a returnTo that is not an event reads "Go back" and goes there', async () => {
+    mount(withReturnTo(detailEditPath(A, 'about'), ORG_PATHS.events), routes);
+    await type('A friendly social with a class first.');
+    await save();
+    const back = await screen.findByTestId('org-done-back', {}, { timeout: 3000 });
+    expect(back.textContent).toBe(GO_BACK_LABEL);
+  });
+
+  it('Done itself is never the way back', () => {
+    expect(readDoneState({ title: 'Saved', message: 'Saved', seriesId: A, back: ORG_PATHS.done })).not.toHaveProperty('back');
   });
 });
 
@@ -206,5 +237,7 @@ describe('the programme and organisers screens save through the one send', () =>
     const src = readFileSync(file, 'utf8');
     expect(src).toMatch(/useEventSend\(/);
     expect(src).not.toMatch(/goDone\(/);
+    // Its Back keeps the returnTo too.
+    expect(src).toMatch(/keepReturnTo\(ORG_PATHS\.eventDetails\(seriesId\), search\)/);
   });
 });

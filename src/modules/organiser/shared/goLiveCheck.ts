@@ -10,6 +10,7 @@ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { requiredLeftText } from './profileProgress';
 import { GO_LIVE_BLOCKERS } from './goLiveKeys';
+import { withReturnTo } from '@/modules/organiser/flows/doneState';
 
 // series_go_live_check_v1 is not in the generated Database type yet: string-named boundary (check:rpc-typing).
 type UntypedRpc = {
@@ -66,7 +67,7 @@ export function goLiveFixHref(section: string, seriesId: string): string | null 
   return to ? withReturnTo(to, ORG_PATHS.event(seriesId)) : null;
 }
 
-export const withReturnTo = (to: string, back: string) => `${to}${to.includes('?') ? '&' : '?'}returnTo=${encodeURIComponent(back)}`;
+export { withReturnTo };
 
 const item = (v: unknown): GoLiveItem => {
   const r = (v ?? {}) as Record<string, unknown>;
