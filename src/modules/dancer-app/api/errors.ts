@@ -35,7 +35,7 @@ const COPY: Record<DancerErrorCode, string> = {
   invalid_handle: 'That does not look like a valid handle. Use letters, numbers, dots or underscores.',
   invalid_url: 'That link must start with http:// or https://.',
   invalid_whatsapp: 'That does not look like a WhatsApp number. Use the full number with the country code, like +44 7700 900123.',
-  invalid_phone: 'That number needs its country. Pick the country, then type the number, like 7700 900123.',
+  invalid_phone: 'That number is not complete. Check the country and the digits, like 7700 900123.',
   invalid_instagram: 'That Instagram name cannot be saved. Use up to 30 letters, numbers, dots or underscores, with no dot at the start or end.',
   invalid_list: 'One of your lists could not be saved. Keep each item short and try again.',
   invalid_body: 'Write a message of 1 to 2000 characters.',
@@ -80,7 +80,7 @@ const DETAIL_COPY: Partial<Record<DancerErrorCode, (field: SaveKey) => string>> 
       ? 'Your photo link is not valid. Upload the photo again.'
       : `Your ${FIELD_LABEL[f]} must start with http:// or https://.`,
   invalid_list: (f) => `Your ${FIELD_LABEL[f]} could not be saved. Keep each item short and try again.`,
-  invalid_phone: (f) => `Your ${FIELD_LABEL[f]} needs its country. Pick the country, then type the number, like 7700 900123.`,
+  invalid_phone: (f) => `Your ${FIELD_LABEL[f]} is not complete. Check the country and the digits, like 7700 900123.`,
 };
 
 /** Which field a code is about when no DETAIL names one (null = the whole screen). */

@@ -101,6 +101,14 @@ describe('errors.ts: one map, every code', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
+  // The save-time phone line must be true for short, long AND missing-country numbers.
+  it('invalid_phone copy is true for every cause (never claims the country is missing)', () => {
+    for (const copy of [copyFor('invalid_phone'), copyFor('invalid_phone', 'whatsapp')]) {
+      expect(copy).not.toMatch(/needs its country|pick the country/i);
+      expect(copy).toMatch(/not complete/i);
+    }
+  });
+
   it('fields point at real save keys', () => {
     for (const code of DANCER_ERROR_CODES) {
       const f = fieldFor(code);
