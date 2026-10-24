@@ -421,8 +421,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* ================= LABELS: every user-visible word for a shared thing ================= */
   var L = {
     cancelOne: 'Cancel this date', cancelMany: 'Cancel these dates', cancelled: 'Cancelled', bringBack: 'Bring it back',
-    cancelledTonight: 'Cancelled tonight', live: 'Live', paused: 'Paused', ended: 'Finished', noDates: 'No dates coming up',
-    moved: 'Moved', pause: 'Pause this event', turnOn: 'Turn back on', views: 'views',
+    cancelledTonight: 'Cancelled tonight', live: 'Live', paused: 'Hidden', ended: 'Finished', noDates: 'No dates coming up',
+    moved: 'Moved', pause: 'Hide from the calendar', turnOn: 'Show it again', views: 'views',
     preview: 'See what dancers see', back: 'Back', lineup: 'Line-up', changeLineup: 'Change line&#8209;up',
     thisOnly: 'This date only', thisLater: 'This and later ones', notSet: 'Not set yet &mdash; add it',
     savesSoon: 'Saves are coming soon.', askUs: 'Want it gone for good? Ask us', nothingChanged: 'Nothing changed yet',
@@ -439,7 +439,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     moreOpts: 'More options', askCity: 'Ask us to change the city', askOrg: 'Ask us to change it', pickDates: 'Pick dates', checkedSoon: 'We check new venues within a day.',
     sessKind: [['class', 'Class'], ['workshop', 'Workshop'], ['social', 'Party'], ['show', 'Show']],
     roles: [['teach', 'Teaches'], ['dj', 'DJs'], ['perform', 'Performs']],
-    /* the role as a noun after a name: "Marco &amp; Sofia, teachers" / "DJ Kizzy, DJ" */
+    /* the role as a noun after a name: "Marco &amp; Elena, teachers" / "DJ Kizzy, DJ" */
     roleNoun: { teach: ['teacher', 'teachers'], dj: ['DJ', 'DJs'], perform: ['performer', 'performers'] },
     lvls: ['Beginners', 'Improvers', 'Intermediate', 'Advanced', 'All levels'],
     music: ['Bachata', 'Sensual', 'Dominican', 'Moderna', 'Fusion', 'Salsa', 'Kizomba', 'Zouk'],
@@ -475,7 +475,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function ev(o) { o.pay = o.pay || []; o.lineup = o.lineup || []; o.status = o.status || 'live'; return o; }
   var EV = {
     fri: ev({ name: 'Sensual Fridays', kind: 'weekly', wd: 5, time: '20:00', place: 'Colab Tower', ph: 'ph1', views: 300, ticket: 'https://tickets.example/sensual-fridays',
-      dates: weekly('2026-10-23', 16), lineup: [['DJ Kizzy', 'DJ', 'a4', 1], ['Marco &amp; Sofia', 'Teachers', 'a3', 1]] }),
+      dates: weekly('2026-10-23', 16), lineup: [['DJ Kizzy', 'DJ', 'a4', 1], ['Marco &amp; Elena', 'Teachers', 'a3', 1]] }),
     halloween: ev({ name: 'Ronald &amp; Alba &ndash; Halloween Edition &ndash; Sensual Vibes', kind: 'oneoff', time: '21:00', place: 'BPM Dance Studios', ph: 'ph5', views: 150, ticket: 'https://tickets.example/halloween',
       dates: list(['2026-10-23']), lineup: [['Ronald &amp; Alba', 'Teachers', 'a1', 1]] }),
     sat: ev({ name: 'Sensual Saturdays', kind: 'weekly', wd: 6, time: '20:00', place: 'Studio 68', ph: 'ph2', views: 190, ticket: 'https://tickets.example/sensual-saturdays',
@@ -504,7 +504,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     leeds: { name: 'Bachata Nights Leeds', ids: ['leeds1'], views: 0 }
   };
   var org = 'llb';
-  var PEOPLE = [['Marco &amp; Sofia', 'Teachers', 'a3'], ['DJ Kizzy', 'DJ', 'a4'], ['DJ Tropical', 'DJ', 'a5'], ['Sofia Ramos', 'Teacher', 'a2'], ['Sofie Lane', 'Teacher, performer', 'a1'], ['Ronald &amp; Alba', 'Teachers', 'a1']];
+  var PEOPLE = [['Marco &amp; Elena', 'Teachers', 'a3'], ['DJ Kizzy', 'DJ', 'a4'], ['DJ Tropical', 'DJ', 'a5'], ['Sofia Ramos', 'Teacher', 'a2'], ['Lena Ortiz', 'Teacher, performer', 'a1'], ['Ronald &amp; Alba', 'Teachers', 'a1']];
   var PLACES = ['Colab Tower', 'Studio 68', 'Waterloo Action Centre', 'BPM Dance Studios', 'Marlborough Primary School', 'The Vault'];
   var team = [{ name: 'You', st: 'in' }, { name: 'Jess', st: 'in' }];
 
@@ -515,7 +515,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   var SID = 0;
   function S(k, t, s, e, o) { o = o || {}; return { id: 's' + (++SID), k: k, t: t, s: s, e: e, room: o.room || '', lv: o.lv || [], ppl: o.ppl || [] }; }
   function P(n, role, av, prof) { return [n, role, av, prof === undefined ? 1 : prof]; }
-  EV.fri.sess = [S('class', 'Class', '20:00', '21:00', { lv: ['All levels'], ppl: [P('Marco &amp; Sofia', 'teach', 'a3')] }), S('social', 'Party', '21:00', '01:00', { ppl: [P('DJ Kizzy', 'dj', 'a4')] })];
+  EV.fri.sess = [S('class', 'Class', '20:00', '21:00', { lv: ['All levels'], ppl: [P('Marco &amp; Elena', 'teach', 'a3')] }), S('social', 'Party', '21:00', '01:00', { ppl: [P('DJ Kizzy', 'dj', 'a4')] })];
   EV.sat.sess = [S('class', 'Bachata Sensual / Fusion', '20:00', '21:00', { lv: ['Beginners', 'Improvers', 'Intermediate'] }), S('social', 'Social', '21:00', '01:00', { ppl: [P('DJ Tropical', 'dj', 'a5')] })];
   EV.halloween.sess = [S('workshop', 'Ronald y Alba MasterClass', '21:00', '23:00', { lv: ['All levels'], ppl: [P('Ronald &amp; Alba', 'teach', 'a1')] }), S('social', 'Party', '23:00', '05:00')];
   EV.wedc.sess = [S('class', '', '18:45', '19:45'), S('class', '', '19:45', '20:45')];
@@ -524,7 +524,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     S('class', 'Salsa &mdash; Beginners / Improvers', '20:00', '21:00', { room: 'Salsa Room', lv: ['Beginners', 'Improvers'] }),
     S('class', 'Salsa &mdash; Intermediate / Advanced', '20:00', '21:00', { room: 'Salsa Room', lv: ['Intermediate', 'Advanced'] }),
     S('class', 'Bachata &mdash; Beginners', '20:00', '21:00', { room: 'Bachata Room', lv: ['Beginners'], ppl: [P('Sofia Ramos', 'teach', 'a2')] }),
-    S('class', 'Bachata &mdash; Improvers', '20:00', '21:00', { room: 'Bachata Room', lv: ['Improvers'], ppl: [P('Marco &amp; Sofia', 'teach', 'a3')] }),
+    S('class', 'Bachata &mdash; Improvers', '20:00', '21:00', { room: 'Bachata Room', lv: ['Improvers'], ppl: [P('Marco &amp; Elena', 'teach', 'a3')] }),
     S('social', 'Salsa Room', '21:00', '01:00', { room: 'Salsa Room' }),
     S('social', 'Bachata Room', '21:00', '01:00', { room: 'Bachata Room', ppl: [P('DJ Kizzy', 'dj', 'a4')] })];
   EV.nye.sess = [S('social', 'STRICTLY CAPPED AT 250 DANCERS', '21:30', '05:00')];
@@ -546,7 +546,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* per-date changes on Sensual Fridays (real shapes: one-date added class, a cancelled session, a session time change) */
   (function () {
     var f = EV.fri, cls = f.sess[0], party = f.sess[1];
-    f.dates[1].extra = [S('workshop', 'Masterclass with Sofie Lane', '19:00', '20:00', { lv: ['Intermediate'], ppl: [P('Sofie Lane', 'teach', 'a1')] })];
+    f.dates[1].extra = [S('workshop', 'Masterclass with Lena Ortiz', '19:00', '20:00', { lv: ['Intermediate'], ppl: [P('Lena Ortiz', 'teach', 'a1')] })];
     f.dates[2].so = {}; f.dates[2].so[cls.id] = { cx: 1 };
     f.dates[3].so = {}; f.dates[3].so[party.id] = { s: '21:30', e: '02:00' };
     EV.mambo.dates[2].own = { place: 'The Vault' };
@@ -577,10 +577,10 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   EV.fri.hist = [
     { who: 'Jess', what: 'Changed the party time on Fri 13 Nov to 9:30pm', when: 'Today, 10:12', undo: 1 },
     { who: 'You', what: 'Cancelled the class on Fri 6 Nov (the party still runs)', when: 'Yesterday, 18:40', undo: 1 },
-    { who: 'You', what: 'Added &ldquo;Masterclass with Sofie Lane&rdquo; to Fri 30 Oct only', when: 'Yesterday, 18:31', undo: 1 },
+    { who: 'You', what: 'Added &ldquo;Masterclass with Lena Ortiz&rdquo; to Fri 30 Oct only', when: 'Yesterday, 18:31', undo: 1 },
     { who: 'Jess', what: 'Changed the cover photo', when: 'Mon 19 Oct, 21:05', undo: 0, why: 'Photos can&rsquo;t be undone: the old photo is deleted when you save a new one.' },
     { who: 'You', what: 'Changed the place to Colab Tower', when: 'Sun 4 Oct, 12:20', undo: 0, why: 'Older than a day. Change it back by hand from Where.' }];
-  EV.fest.artists = [['Ronald &amp; Alba', 'teach', 1, 1, 'Bachata Sensual'], ['Marco &amp; Sofia', 'teach', 1, 1, ''], ['Daniel y Tom', 'teach', 1, 1, 'Dominican'], ['Korke &amp; Judith', 'teach', 1, 0, ''], ['DJ Kizzy', 'dj', 1, 0, ''], ['DJ Tropical', 'dj', 0, 0, ''], ['Sofie Lane', 'teach', 0, 0, ''], ['Alex &amp; Desiree', 'teach', 1, 0, '']];
+  EV.fest.artists = [['Ronald &amp; Alba', 'teach', 1, 1, 'Bachata Sensual'], ['Marco &amp; Elena', 'teach', 1, 1, ''], ['Daniel y Tom', 'teach', 1, 1, 'Dominican'], ['Korke &amp; Judith', 'teach', 1, 0, ''], ['DJ Kizzy', 'dj', 1, 0, ''], ['DJ Tropical', 'dj', 0, 0, ''], ['Lena Ortiz', 'teach', 0, 0, ''], ['Alex &amp; Desiree', 'teach', 1, 0, '']];
   EV.fest.music = ['Bachata'];
   EV.fest.fsess = [
     [S('workshop', 'Welcome workshop', '19:00', '20:00'), S('social', 'Opening party', '20:00', '03:00')],
@@ -613,7 +613,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   function chip(e) { var s = status(e); return '<span class="tag ' + s[0] + '">' + (s[0] === 'live' ? '<span class="dot"></span>' : '') + s[1] + '</span>'; }
   function openEnded(e) { return e.kind === 'weekly' || e.kind === 'monthly'; }
   function cadence(e, long) {
-    var t = startPhrase(e.sess, e.time, long), sp = long && t.indexOf(' from ') > -1 ? ' &middot; ' : ', ';
+    var t = startPhrase(e.sess, e.time, long, e), sp = long && t.indexOf(' from ') > -1 ? ' &middot; ' : ', ';
     if (e.kind === 'weekly') return 'Every ' + WDL[e.wd] + sp + t;
     if (e.kind === 'monthly') return 'First ' + WDL[e.wd] + ' of the month' + sp + t;
     if (e.kind === 'festival') return fmt(e.dates[0].d) + ' to ' + fmt(add(e.dates[0].d, e.days - 1)) + ' &middot; ' + e.days + ' days';
@@ -671,16 +671,26 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
   /* ONE start-time phrase for an event, derived from its sessions (never a stored string).
    * short: the earliest start ("8:30pm"). long: when the main session (the party) starts later than the first one,
    * both are named: "Party 9pm, class from 8pm". */
-  function startPhrase(list, fb, long) {
+  function startPhrase(list, fb, long, e) {
+    var later = '';
+    if (e && e.kind !== 'oneoff' && list && list.length) {   /* read the sessions as they apply to the NEXT live date */
+      var nd = liveDates(e)[0];
+      if (nd) {
+        var ch = {};
+        list.forEach(function (m) { (m.from || []).forEach(function (g) { if (g.d > nd.d && g.p.s !== undefined && g.p.s !== m.s) (ch[+g.d] = ch[+g.d] || { d: g.d, t: [] }).t.push(tm(g.p.s)); }); });
+        if (long) later = Object.keys(ch).sort().map(function (k) { var c = ch[k], u = c.t.filter(function (v, i) { return c.t.indexOf(v) === i; }); return ' (' + u.join(', ') + ' from ' + fmt(c.d) + ')'; }).join('');
+        list = list.map(function (m) { var o = {}; for (var k0 in m) o[k0] = m[k0]; (m.from || []).forEach(function (g) { if (g.d <= nd.d) for (var k1 in g.p) o[k1] = g.p[k1]; }); return o; });
+      }
+    }
     var srt = (list || []).filter(function (m) { return !m.cx; }).slice().sort(bySt);
     if (!srt.length) return tm(fb);
     var first = srt[0], main = srt.filter(function (m) { return m.k === 'social'; })[0];
-    if (!long || !main || main.s === first.s) return tm(first.s);
-    return kindLbl(main.k) + ' ' + tm(main.s) + ', ' + kindLbl(first.k).toLowerCase() + ' from ' + tm(first.s);
+    if (!long || !main || main.s === first.s) return tm(first.s) + later;
+    return kindLbl(main.k) + ' ' + tm(main.s) + ', ' + kindLbl(first.k).toLowerCase() + ' from ' + tm(first.s) + later;
   }
   function kindLbl(k) { return L.sessKind.filter(function (x) { return x[0] === k; })[0][1]; }
   function roleLbl(r) { return L.roles.filter(function (x) { return x[0] === r; })[0][1]; }
-  /* a pair or a group ("Marco &amp; Sofia", "Daniel y Tom", "Pao Pao Army") takes the plural noun */
+  /* a pair or a group ("Marco &amp; Elena", "Daniel y Tom", "Pao Pao Army") takes the plural noun */
   function isGroup(n) { return /&amp;|&| y | and |Army|Crew|Company/.test(n); }
   function roleNoun(n, r) { var w = L.roleNoun[r] || L.roleNoun.teach; return w[isGroup(n) ? 1 : 0]; }
   function pplText(ppl) { return ppl.map(function (p) { return p[0] + ', ' + roleNoun(p[0], p[1]); }).join(' &middot; '); }
@@ -775,7 +785,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       if (s[0] === 'cancel') h += '<div class="card pad" style="margin-top:12px"><div style="display:flex;gap:8px;align-items:center">' + chip(e) + '<span class="small mut">' + fmt(TODAY) + '</span></div>' +
         '<div class="t" style="font-weight:600;margin-top:8px">' + e.name + '</div><p class="small mut" style="margin:2px 0 10px">Dancers see &ldquo;' + L.cancelled + '&rdquo;. Your other dates stay as they are.</p>' +
         '<button class="btn quiet" data-restore="' + k + '">' + L.bringBack + '</button></div>';
-      if (s[0] === 'paused') h += '<div class="card pad" style="margin-top:12px">' + chip(e) + '<div class="t" style="font-weight:600;margin-top:8px">' + e.name + '</div><p class="small mut" style="margin:2px 0 10px">Dancers can&rsquo;t see it until you turn it back on.</p>' +
+      if (s[0] === 'paused') h += '<div class="card pad" style="margin-top:12px">' + chip(e) + '<div class="t" style="font-weight:600;margin-top:8px">' + e.name + '</div><p class="small mut" style="margin:2px 0 10px">Dancers can&rsquo;t see it until you show it again.</p>' +
         '<button class="btn quiet" data-unpause="' + k + '">' + L.turnOn + '</button></div>';
     });
     var n = nextUp(), hasBar = !!R.home.bar();
@@ -788,7 +798,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         '<div class="mut small" style="margin-top:2px">' + (npText || 'No line-up yet') + '</div>' +
         /* GoingNightSummary variant="compact" (src/modules/going/) renders here behind the Going flag */
         (e.going ? '<!-- GoingNightSummary variant="compact" --><button class="link" data-going="' + n.k + '" data-gi="' + n.i + '" style="padding:0">' + e.going + ' ' + L.going + ' &middot; see who</button>' : '') +
-        '<div class="qa"><button class="btn' + (hasBar ? ' quiet' : '') + '" data-lineup-next="' + n.k + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4"/></svg>' + L.lineup + '</button>' +
+        '<div class="qa"><button class="btn' + (hasBar ? ' quiet' : '') + '" data-lineup-next="' + n.k + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4"/></svg>' + L.changeLineup + '</button>' +
         '<button class="btn quiet" data-preview="' + n.k + '" data-pi="' + n.i + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>' + L.preview + '</button></div>' +
         '<div class="under"><button class="link danger" data-cancelnext="' + n.k + '" data-ci="' + n.i + '">' + L.cancelOne + '</button></div></div></div>';
     }
@@ -951,13 +961,13 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var h = BACK + '<div class="ev2"><div><div class="card hero"><div class="cover ' + (e.ph || 'nophoto') + '">' + (e.ph ? '' : 'No photo yet') + chip(e) +
       '<button class="chg" data-photo="' + cur + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>' + (e.ph ? 'Change photo' : 'Add a photo') + '</button></div>' +
       '<div class="pad"><div class="when">' + L.kind[e.kind] + (kindWord(e) !== L.kind[e.kind] ? ' &middot; ' + kindWord(e) : '') + '</div><button class="link" data-go="details" style="padding:0;color:var(--fg);text-align:left"><span class="big" style="font-size:24px;margin:4px 0">' + e.name + '</span></button><button class="link" data-tosess style="padding:0;color:var(--mut);text-align:left;font:inherit;display:block">' + cadence(e, true) + ' &middot; ' + (e.place || 'No place yet') + '</button>' +
-      '<div class="small mut" style="margin-top:4px">' + (e.sess.length ? 'Starts ' + tm(span(e.sess).s) + ' (from the first session), ends ' + tm(span(e.sess).e) + (span(e.sess).nd ? ' the next day' : '') : 'Times come from your sessions. Add one below.') + '</div></div></div>';
-    var stSub = e.life === 'draft' ? 'Put it live, or keep it as a draft' : e.life === 'ended' ? 'Make a copy to run it again' : e.status === 'paused' ? 'Turn it back on, or end it' : 'Pause or end it';
+      '<div class="small mut" style="margin-top:4px">' + (e.sess.length ? 'Ends ' + tm(span(e.sess).e) + (span(e.sess).nd ? ' the next day' : '') : 'Times come from your sessions. Add one below.') + '</div></div></div>';
+    var stSub = e.life === 'draft' ? 'Put it live, or keep it as a draft' : e.life === 'ended' ? 'Make a copy to run it again' : e.status === 'paused' ? 'Show it again, or end it' : 'Hide or end it';
     h += '<div class="card" style="margin-top:12px"><button class="row" data-sheet="status"><div class="grow"><div class="t">' + s[1] + ' &middot; ' + stSub + '</div><div class="s">Status</div></div>' + CHEV + '</button>' +
       '</div>';
     if (e.life === 'ended') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">This has finished. It ran until ' + fmt(e.dates[e.dates.length - 1].d) + '.</div><p class="small mut" style="margin:4px 0 12px">It stays here so you can look back or copy it. Dancers see it as finished.</p><button class="btn quiet" data-go="copy">' + L.makeCopy + '</button></div>';
     if (e.life === 'draft') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Draft &middot; only you see it</div><p class="small mut" style="margin:4px 0 0">' + draftBlock(e) + '</p></div>';
-    if (s[0] === 'paused') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Paused &middot; dancers can&rsquo;t see it</div><div class="small mut">Your dates are kept. Turn it back on and they show again.</div></div>';
+    if (s[0] === 'paused') h += '<div class="card pad" style="margin-top:12px"><div style="font-weight:600">Hidden &middot; dancers can&rsquo;t see it</div><div class="small mut">Your dates are kept. Show it again and they appear again.</div></div>';
     if (rw) h += '<div class="note warn" style="margin-top:12px">' + rw + (e.kind === 'course' ? '. The last class was ' + fmt(e.dates[e.dates.length - 1].d) + '. ' : '. ') + '<button class="link" data-sheet="' + (e.kind === 'course' ? 'status' : 'adddate') + '" style="min-height:44px">' + (e.kind === 'course' ? 'Add classes or end it' : 'Add a date') + '</button></div>';
     h += '<h2>Coming up</h2>';
     var shown = e.kind === 'course' ? e.dates : up;
@@ -998,7 +1008,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       h += '<button class="btn line" style="margin-top:10px" data-addsess="next">' + L.addNext + '</button><div class="hint">Starts when the last one ends, same length' + (roomsOf(e).length > 1 ? ' and room' : '') + '.</div>';
     }
     var cs = cast(e);
-    h += '<div class="card" style="margin-top:12px"><button class="row" data-lineup-ask="' + cur + '"><div class="grow"><div class="t">' + L.lineup + ' &middot; ' + cs.length + (cs.length === 1 ? ' person' : ' people') + '</div><div class="s' + (cs.length ? '' : ' todo-s') + '">' + (cs.length ? cs.map(function (p) { return p[0]; }).join(', ') : L.notSet) + '</div></div>' + CHEV + '</button></div>';
+    h += '<div class="card" style="margin-top:12px"><button class="row" data-lineup-ask="' + cur + '"><div class="grow"><div class="t">' + L.changeLineup + '</div><div class="s' + (cs.length ? '' : ' todo-s') + '">' + (cs.length ? cs.length + (cs.length === 1 ? ' person' : ' people') + ': ' + cs.map(function (p) { return p[0]; }).join(', ') : L.notSet) + '</div></div>' + CHEV + '</button></div>';
     h += '</div><div>';
     /* details */
     var v = VENUES[e.place];
@@ -1081,7 +1091,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       else h += (past ? '<div class="row">' : '<button class="row" data-date="' + i + '">') + '<div class="grow"><div class="t">' + fmt(x.d) + '</div><div class="s">' + sub + '</div></div>' + tag + (past ? '</div>' : CHEV + '</button>');
     });
     h += '</div>';
-    if (openEnded(e)) h += '<p class="small mut" style="margin-top:12px">And ' + (e.kind === 'monthly' ? 'the first ' : 'every ') + WDL[e.wd] + ' after that. There is no end date &mdash; pause it any time.</p>';
+    if (openEnded(e)) h += '<p class="small mut" style="margin-top:12px">And ' + (e.kind === 'monthly' ? 'the first ' : 'every ') + WDL[e.wd] + ' after that. There is no end date &mdash; hide it any time.</p>';
     return h;
   };
   R.alldates.bar = function () {
@@ -1095,10 +1105,23 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     var e = EV[lu.k], x = lu.di > -1 ? e.dates[lu.di] : null;
     return (x ? dsess(e, x) : e.sess.slice().sort(bySt).map(function (m) { var c = {}; for (var key in m) c[key] = m[key]; c.base = m; return c; })).filter(function (m) { return !m.cx; });
   }
+  var luTarget = '';   /* session to open on, set by the door that knows it */
+  /* ONE way in to "Change line-up": every door lands on the same first sheet (lineupscope), pre-set to where the
+     person came from. Only an event with nothing to choose between (one live date, or none) skips straight on. */
+  function openLineup(k, di, sc, tgt) {
+    cur = k; var e = EV[k]; dateIdx = di; scope = sc; action = 'lineup'; luTarget = tgt || '';
+    if (di < 0) { startLineup(k, 'every date'); go('lineup'); return; }
+    if (e.kind === 'oneoff' || laterCount(e, di) <= 1) {
+      if (sc === 'later' && e.kind !== 'oneoff') { var l = liveDates(e); startLineup(k, 'every class left (' + l.map(function (x) { return fmtDM(x.d); }).join(', ') + ')', di, 'later'); go('lineup'); return; }
+      scope = 'one'; scopeGo(); return;
+    }
+    openSheet('lineupscope');
+  }
   function startLineup(k, label, di, sc) {
     lu = { k: k, label: label, di: di === undefined ? -1 : di, scope: sc || 'all', map: {}, orig: {}, target: '' };
     luSessions().forEach(function (m) { lu.map[m.id] = m.ppl.map(function (p) { return p.slice(); }); lu.orig[m.id] = m.ppl.map(function (p) { return p[0] + ':' + p[1]; }).sort().join('|'); });
     var ss = luSessions(); lu.target = ss.length ? ss[0].id : '';
+    if (luTarget && ss.some(function (m) { return m.id === luTarget; })) lu.target = luTarget; luTarget = '';
     lu.list = []; /* C2 field kept for the self-check script */
   }
   function luChanged() {   /* compares the SET of people (and roles) per session, not counts */
@@ -1333,7 +1356,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
         (flow.kind === 'festival' ? row('Ticket link', esc(flow.fticket), idx('fticket'), 'Not set yet') : '') +
         (idx('pay') > -1 ? row('How to pay', flow.pay.map(function (k) { return L.payOpts.filter(function (o) { return o[0] === k; })[0][1]; }).join(' &middot; '), idx('pay'), 'Not set yet &mdash; dancers see nothing here') : '') +
         (flow.kind === 'course' ? row('Who is it for', flow.level, idx('level'), 'Not set yet') : '') + '</div>' +
-        '<p class="small mut" style="margin-top:12px">' + (flow.kind === 'course' ? 'Teachers' : 'Line-up') + ': add them after it&rsquo;s live, from the event page. It goes live straight away. You can pause it any time.</p>';
+        '<p class="small mut" style="margin-top:12px">' + (flow.kind === 'course' ? 'Teachers' : 'Line-up') + ': add them after it&rsquo;s live, from the event page. It goes live straight away. You can hide it any time.</p>';
     }
     return h;
   };
@@ -1435,6 +1458,11 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       d: { k: base.k, t: base.t, s: base.s, e: base.e, room: base.room, lv: base.lv.slice(), ppl: cl(base.ppl) }, o: { k: base.k, t: base.t, s: base.s, e: base.e, room: base.room, lv: base.lv.slice(), ppl: cl(base.ppl) }, note: preset && preset.note };
     openSheet('sess');
   }
+  /* the button says "Save" when a "Which dates?" step will follow, so it never promises before it asks */
+  function sessSaveLabel() {
+    if (ss.di < 0) { var w = !ss.isNew && whichOpts(EV[ss.k]); return w && (w.from || w.just) ? 'Save' : L.saveAll; }
+    return ss.extra ? L.saveOne : 'Save';
+  }
   function ssChanged() { return JSON.stringify(ss.d) !== JSON.stringify(ss.o); }
   function ssWhat() {
     var w = []; if (ss.d.s !== ss.o.s || ss.d.e !== ss.o.e) w.push('time'); if (ss.d.t !== ss.o.t) w.push('name'); if (ss.d.k !== ss.o.k) w.push('kind');
@@ -1455,7 +1483,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     h += '<label class="f">' + L.lineup + '</label><div class="card">' + (d.ppl.length ? d.ppl.map(function (p) { return '<div class="row" style="min-height:56px"><div class="av ' + p[2] + '">' + initials(p[0]) + '</div><div class="grow"><div class="t">' + p[0] + '</div><div class="s">' + roleNoun(p[0], p[1]) + (p[3] ? '' : ' &middot; name only') + '</div></div></div>'; }).join('') : '<div class="pad small mut">Nobody yet.</div>') + '</div>' +
       (ss.isNew ? '<div class="hint">Add people after you add the session.</div>' : '<div style="margin-top:8px"><button class="btn line" data-sspeople>' + L.changeLineup + '</button></div>');
     var ch = ssChanged() || ss.isNew;
-    h += '<div style="margin-top:16px" class="stack"><button class="btn" data-sssave' + (ch ? '' : ' disabled') + '>' + (!ch ? L.nothingChanged : ss.isNew ? 'Add this session' : ss.di < 0 ? L.saveAll : ss.extra ? L.saveOne : 'Save') + '</button>' + (ss.isNew ? '<button class="btn quiet" data-close>Don&rsquo;t add it</button>' : '');
+    h += '<div style="margin-top:16px" class="stack"><button class="btn" data-sssave' + (ch ? '' : ' disabled') + '>' + (!ch ? L.nothingChanged : ss.isNew ? 'Add this session' : sessSaveLabel()) + '</button>' + (ss.isNew ? '<button class="btn quiet" data-close>Don&rsquo;t add it</button>' : '');
     if (!ss.isNew) {
       if (ss.di < 0) h += '<button class="btn quiet" data-sscopy>' + L.copySess + '</button><button class="link danger" data-sheet="removeall" style="justify-content:center;width:100%">' + L.removeAll + '</button>';
       else if (ss.extra) h += '<button class="link danger" data-ssremove1 style="justify-content:center;width:100%">' + L.removeOne + '</button>';
@@ -1584,12 +1612,12 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       var o = function (attr, t, sub, dis) { return '<button class="choice" ' + (dis ? 'disabled style="opacity:1"' : attr) + '><span class="grow"><b' + (dis ? ' class="mut"' : '') + '>' + t + '</b><br><span class="small mut">' + (dis || sub) + '</span></span></button>'; };
       return '<h3 id="sheettitle">Status: ' + status(e)[1] + '</h3><p class="mut">Only the moves that work right now. Greyed ones say why.</p><div class="stack">' +
         (e.life === 'draft' ? o('id="golive2"', 'Put it live', 'Dancers can find it straight away', e.sess.length && e.place ? '' : draftBlock(e)) : '') +
-        (e.life === 'live' && e.status !== 'paused' ? o('data-sheet="pause"', L.pause, 'Hidden until you turn it back on. Dates kept.') : '') +
+        (e.life === 'live' && e.status !== 'paused' ? o('data-sheet="pause"', L.pause, 'Dancers can&rsquo;t see it until you show it again. Dates kept.') : '') +
         (e.status === 'paused' ? o('data-unpause="' + cur + '"', L.turnOn, 'Dancers see it again') : '') +
         (e.life === 'live' ? o('data-dodraft', L.backDraft, 'Only you see it. Put it live again any time.') : '') +
         (e.life === 'live' ? o('data-sheet="endit"', L.finished, 'It moves to Finished. Dancers see it as finished.', e.runs || e.dates.some(function (x) { return x.d <= TODAY; }) ? '' : 'It hasn&rsquo;t run yet, so it can&rsquo;t end. Take it off the calendar instead.') : '') +
         (rep && e.life === 'live' ? o('data-sheet="stoprep"', L.stopRepeat, 'Keep the dates you choose, then add more one by one') : '') +
-        (e.life === 'ended' ? o('', 'Turn it back on', '', 'Finished events stay finished. Make a copy to run it again.') : '') +
+        (e.life === 'ended' ? o('', 'Show it again', '', 'Finished events stay finished. Make a copy to run it again.') : '') +
         '</div><p class="small mut" style="text-align:center;margin-top:8px"><button class="link" data-sheet="help">' + L.askUs + '</button></p>';
     },
     endit: function () {
@@ -1620,7 +1648,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     },
     leave: function () { return '<h3 id="sheettitle">Leave without saving?</h3><p class="mut">These changes are not saved yet:</p><div class="card">' + pendingList().map(function (r) { return '<div class="row" style="min-height:52px"><div class="grow">' + r + '</div></div>'; }).join('') + '</div><div class="stack" style="margin-top:14px"><button class="btn" data-close>Keep editing</button><button class="btn quiet" data-leavego>Leave and lose them</button></div>'; },
     bulkmore: function () {
-      return '<h3 id="sheettitle">' + pick.length + ' dates picked</h3><div class="stack"><button class="choice" data-bulk="lineup"><span class="grow"><b>Change the line-up on these dates</b><br><span class="small mut">Same people on each picked date</span></span></button>' +
+      return '<h3 id="sheettitle">' + pick.length + ' dates picked</h3><div class="stack"><button class="choice" data-bulk="lineup"><span class="grow"><b>' + L.changeLineup + '</b><br><span class="small mut">Same people on each picked date</span></span></button>' +
         '<details class="fold"><summary>Move by a number of days</summary><label class="f" for="shiftn">Move each date by</label><input class="in" id="shiftn" type="number" min="-30" max="30" value="7"><div class="hint">7 = a week later. Repeating events keep their pattern; only picked dates move.</div><button class="btn" style="margin-top:10px" data-bulk="shift">Move these dates</button></details>' +
         '<div class="note">Picking more than 500 dates at once? That&rsquo;s too many dates at once (max 500) &mdash; pick fewer.</div></div>';
     },
@@ -1889,14 +1917,14 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     lineupscope: function () {
       var e = EV[cur], x = e.dates[dateIdx];
       return '<h3 id="sheettitle">Change the line-up for which dates?</h3><p class="mut">' + e.name + '</p><div role="radiogroup" aria-label="Which dates">' +
-        '<button class="choice" role="radio" data-scope="one" aria-checked="' + (scope === 'one') + '"><span class="radio"></span><span class="grow"><b>' + L.thisOnly + '</b><br><span class="small mut">' + fmt(x.d) + ' (the next one)</span></span></button>' +
-        '<button class="choice" role="radio" data-scope="later" aria-checked="' + (scope === 'later') + '"><span class="radio"></span><span class="grow"><b>' + L.thisLater + '</b><br><span class="small mut">' + laterText(e, dateIdx) + '</span></span></button></div>' +
+        '<button class="choice" role="radio" data-scope="one" aria-checked="' + (scope === 'one') + '"><span class="radio"></span><span class="grow"><b>Just ' + fmt(x.d) + '</b><br><span class="small mut">Every other date stays as it is</span></span></button>' +
+        '<button class="choice" role="radio" data-scope="later" aria-checked="' + (scope === 'later') + '"><span class="radio"></span><span class="grow"><b>' + (dateIdx === e.dates.indexOf(liveDates(e)[0]) ? 'Every date' : L.thisLater) + '</b><br><span class="small mut">' + laterText(e, dateIdx) + '</span></span></button></div>' +
         '<div class="note" id="sscons" aria-live="polite">' + consLine(e, dateIdx, 'line-up', scope) + '</div>' +
         '<div style="margin-top:16px"><button class="btn" data-lineup-go>Next</button></div>';
     },
     pause: function () {
-      return '<h3 id="sheettitle">Pause ' + EV[cur].name + '?</h3><p class="mut">It disappears from the calendar until you turn it back on. Your dates and line-up are kept.</p>' +
-        '<div class="stack"><button class="btn" data-dopause>Pause it</button><button class="btn quiet" data-close>Keep it live</button></div>';
+      return '<h3 id="sheettitle">Hide ' + EV[cur].name + '?</h3><p class="mut">It disappears from the calendar until you show it again. Your dates and line-up are kept.</p>' +
+        '<div class="stack"><button class="btn" data-dopause>Hide it</button><button class="btn quiet" data-close>Keep it live</button></div>';
     },
     addnew: function () {
       return '<h3 id="sheettitle">What are you adding?</h3><div class="stack">' +
@@ -1935,7 +1963,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
       return '<h3 id="sheettitle">Help</h3><div class="card">' +
         '<div class="row"><div class="grow"><div class="t">Do my changes go live straight away?</div><div class="s">Yes. Dancers see them as soon as you tap Save.</div></div></div>' +
         '<div class="row"><div class="grow"><div class="t">Can I undo?</div><div class="s">Right after a change, tap Undo. For changes from today, open History on the event.</div></div></div>' +
-        '<div class="row"><div class="grow"><div class="t">Want an event gone for good?</div><div class="s">Only we can delete events. Message us and we&rsquo;ll do it the same day. Until then, Pause hides it.</div></div></div>' +
+        '<div class="row"><div class="grow"><div class="t">Want an event gone for good?</div><div class="s">Only we can delete events. Message us and we&rsquo;ll do it the same day. Until then, Hide keeps it off the calendar.</div></div></div>' +
         '<div class="row"><div class="grow"><div class="t">Wrong city, or wrong organiser?</div><div class="s">The city comes from the place, and only we can change who runs an event. Message us and we fix it within a day.</div></div></div></div>' +
         '<div style="margin-top:16px"><a class="btn" href="' + WA + '" target="_blank" rel="noopener">' + L.whatsapp + '</a></div><p class="small mut" style="margin-top:8px;text-align:center">A real person answers, usually within the hour.</p>';
     }
@@ -2008,16 +2036,10 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.cancelnext) { cur = d.cancelnext; dateIdx = +d.ci; openSheet('cancelnext'); return; }
     if (d.docancel !== undefined) { doCancel(d.docancel === '1'); return; }
     if (d.restore) { var e0 = EV[d.restore], x0 = upcoming(e0)[0]; x0.st = 'on'; refresh(); toast('Tonight is back on. Dancers see it now.'); return; }
-    if (d.unpause) { EV[d.unpause].status = 'live'; refresh(); toast(EV[d.unpause].name + ' is live again. Dancers see it now.'); return; }
-    if (d.lineupNext) { var e1 = EV[d.lineupNext], x1 = liveDates(e1)[0]; startLineup(d.lineupNext, fmt(x1.d) + ' only', e1.dates.indexOf(x1), 'one'); go('lineup'); return; }
-    if (d.lineupAll) { var e2 = EV[d.lineupAll], l2 = liveDates(e2); startLineup(d.lineupAll, 'every class left (' + l2.map(function (x) { return fmtDM(x.d); }).join(', ') + ')', e2.dates.indexOf(l2[0]), 'later'); go('lineup'); return; }
-    if (d.lineupAsk) {
-      cur = d.lineupAsk; var e3 = EV[cur], l3 = liveDates(e3);
-      if (!l3.length) { startLineup(cur, 'every date'); go('lineup'); return; }
-      dateIdx = e3.dates.indexOf(l3[0]); scope = 'one';
-      if (e3.kind === 'oneoff' || l3.length === 1) { startLineup(cur, fmt(l3[0].d), dateIdx, 'one'); go('lineup'); return; }
-      openSheet('lineupscope'); return;
-    }
+    if (d.unpause) { EV[d.unpause].status = 'live'; refresh(); toast(EV[d.unpause].name + ' is showing again. Dancers see it now.'); return; }
+    if (d.lineupNext) { var e1 = EV[d.lineupNext]; openLineup(d.lineupNext, e1.dates.indexOf(liveDates(e1)[0]), 'one'); return; }
+    if (d.lineupAll) { var e2 = EV[d.lineupAll]; openLineup(d.lineupAll, e2.dates.indexOf(liveDates(e2)[0]), 'later'); return; }
+    if (d.lineupAsk) { var e3 = EV[d.lineupAsk], l3 = liveDates(e3); openLineup(d.lineupAsk, l3.length ? e3.dates.indexOf(l3[0]) : -1, 'later'); return; }
     if (d.lineupGo !== undefined) { var e4 = EV[cur]; startLineup(cur, scope === 'one' ? fmt(e4.dates[dateIdx].d) + ' only' : laterText(e4, dateIdx).replace(/^Every/, 'every'), dateIdx, scope); go('lineup'); return; }
     if (d.preview) { cur = d.preview; previewIdx = +d.pi; go('preview'); return; }
     /* event page / dates */
@@ -2025,12 +2047,13 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.restoredate !== undefined) { var e5 = EV[cur], s5 = snap(e5); e5.dates[dateIdx].st = 'on'; closeSheet(); refresh(); toast(fmt(e5.dates[dateIdx].d) + ' is back on. Dancers see it now.', function () { restore(e5, s5); }); return; }
     if (d.act) {
       action = d.act; var e6 = EV[cur];
+      if (d.act === 'lineup') { openLineup(cur, dateIdx, 'one'); return; }
       if (e6.kind === 'oneoff' || laterCount(e6, dateIdx) <= 1) { scope = 'one'; return scopeGo(); }
       openSheet('scope'); return;
     }
     if (d.scope) { scope = d.scope; $$('[data-scope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); var cn = $('#sscons'); if (cn) cn.innerHTML = curSheet === 'lineupscope' ? consLine(EV[cur], dateIdx, 'line-up', scope) : actLine(EV[cur], dateIdx, scope); return; }
     if (d.scopeGo !== undefined) { scopeGo(); return; }
-    if (d.dopause !== undefined) { var e7 = EV[cur], s7 = snap(e7); e7.status = 'paused'; closeSheet(); refresh(); toast('Paused. Dancers can&rsquo;t see it now.', function () { restore(e7, s7); }); return; }
+    if (d.dopause !== undefined) { var e7 = EV[cur], s7 = snap(e7); e7.status = 'paused'; closeSheet(); refresh(); toast('Hidden. Dancers can&rsquo;t see it now.', function () { restore(e7, s7); }); return; }
     if (d.doadddate !== undefined) {
       var v = $('#adate').value; if (!v) return; var e8 = EV[cur], s8 = snap(e8);
       e8.dates.push({ d: D(v), st: 'on' }); e8.dates.sort(function (a, b) { return a.d - b.d; });
@@ -2205,7 +2228,7 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (d.ssremoveall !== undefined) { var e6 = EV[ss.k], sn6 = snap2(e6), gone = e6.sess.filter(function (m) { return m.id === ss.sid; })[0]; e6.sess = e6.sess.filter(function (m) { return m.id !== ss.sid; }); e6.dates.forEach(function (x) { if (x.so) delete x.so[ss.sid]; }); removedSess = [{ s: gone, snap: sn6, k: ss.k }]; closeSheet(); refresh(); toast('Removed from every date. Dancers see it now.', function () { restore2(e6, sn6); removedSess = []; }); return; }
     if (d.unremove !== undefined) { var r0 = removedSess.pop(); restore2(EV[r0.k], r0.snap); refresh(); toast('Back on every date.'); return; }
     if (d.sscopy !== undefined) { var e7 = EV[ss.k], b7 = e7.sess.filter(function (m) { return m.id === ss.sid; })[0], c7 = S(b7.k, b7.t ? b7.t + ' (copy)' : '', b7.s, b7.e, { room: b7.room, lv: b7.lv.slice(), ppl: cl(b7.ppl) }); e7.sess.push(c7); closeSheet(); refresh(); toast('Copied. Change its level or name for the next group.', function () { e7.sess = e7.sess.filter(function (m) { return m !== c7; }); }); return; }
-    if (d.sspeople !== undefined) { var e8 = EV[ss.k], di8 = ss.di, sid8 = ss.sid; closeSheet(); startLineup(ss.k, di8 > -1 ? fmt(e8.dates[di8].d) + ' only' : 'every date', di8, di8 > -1 ? 'one' : 'all'); lu.target = sid8; go('lineup'); return; }
+    if (d.sspeople !== undefined) { var e8 = EV[ss.k], di8 = ss.di, sid8 = ss.sid; closeSheet(); var l8 = liveDates(e8); openLineup(ss.k, di8 > -1 ? di8 : l8.length ? e8.dates.indexOf(l8[0]) : -1, di8 > -1 ? 'one' : 'later', sid8); return; }
     /* date sheet actions */
     if (d.dodtime !== undefined) {
       var x9 = e.dates[dateIdx], p9 = span(dsess(e, x9)), nv = $('#dtst').value; if (!p9 || !nv) return;
@@ -2343,8 +2366,8 @@ table.tb td.n, table.tb th.n { text-align: right; white-space: nowrap; }
     if (t.id === 'movedate') { mv.date = t.value; $('#movehint').innerHTML = moveHint(); setBar(); }
     if (t.id === 'wsearch') { var q = t.value; if (flow && stack[stack.length - 1] === 'step') flow.q = q; else edit.q = q; $('#wlist').innerHTML = wList(flow && stack[stack.length - 1] === 'step' ? flow.place : edit.val, q); }
     if (t.id === 'tlink') { edit.val = t.value.trim(); $('#terr').style.display = 'none'; t.classList.remove('bad'); setBar(); }
-    if (t.id === 'ssname' && ss) { ss.d.t = t.value; var sb = $('[data-sssave]'); if (sb && !ss.flow) { var ch = ssChanged() || ss.isNew; sb.disabled = !ch; sb.textContent = !ch ? L.nothingChanged.replace('&mdash;', '\u2014') : ss.isNew ? 'Add this session' : ss.di < 0 ? 'Save for all dates' : ss.extra ? 'Save for this date' : 'Save'; } }
-    if ((t.id === 'sss' || t.id === 'sse') && ss) { if (t.value) ss.d[t.id === 'sss' ? 's' : 'e'] = t.value; var nd0 = $('#ssnd'); nd0.hidden = !nextDay(ss.d); nd0.innerHTML = nextDay(ss.d) ? 'Ends the next day (' + tm(ss.d.e) + ').' : ''; var sb2 = $('[data-sssave]'); if (sb2 && !ss.flow) { sb2.disabled = !(ssChanged() || ss.isNew); if (!sb2.disabled && !ss.isNew) sb2.textContent = ss.di < 0 ? 'Save for all dates' : ss.extra ? 'Save for this date' : 'Save'; } }
+    if (t.id === 'ssname' && ss) { ss.d.t = t.value; var sb = $('[data-sssave]'); if (sb && !ss.flow) { var ch = ssChanged() || ss.isNew; sb.disabled = !ch; sb.textContent = !ch ? L.nothingChanged.replace('&mdash;', '\u2014') : ss.isNew ? 'Add this session' : sessSaveLabel(); } }
+    if ((t.id === 'sss' || t.id === 'sse') && ss) { if (t.value) ss.d[t.id === 'sss' ? 's' : 'e'] = t.value; var nd0 = $('#ssnd'); nd0.hidden = !nextDay(ss.d); nd0.innerHTML = nextDay(ss.d) ? 'Ends the next day (' + tm(ss.d.e) + ').' : ''; var sb2 = $('[data-sssave]'); if (sb2 && !ss.flow) { sb2.disabled = !(ssChanged() || ss.isNew); if (!sb2.disabled && !ss.isNew) sb2.textContent = sessSaveLabel(); } }
     if (t.id === 'dtst') { var e0 = EV[cur], x0 = e0.dates[dateIdx], p0 = span(dsess(e0, x0)); if (p0 && t.value) { var dl = mins(t.value) - mins(p0.s); $('#dthint').textContent = 'New times: ' + tm(shiftTime(p0.s, dl)) + ' to ' + tm(shiftTime(p0.e, dl)) + ' (every session moves ' + (dl >= 0 ? 'later' : 'earlier') + ' by ' + Math.abs(dl) + ' minutes).'; } }
     if (t.id === 'adq') { adq = t.value; var pos = t.selectionStart; refresh(); var q2 = $('#adq'); q2.focus(); q2.setSelectionRange(pos, pos); }
     if (t.id === 'dtname' || t.id === 'dtdesc') { dt[t.id === 'dtname' ? 'name' : 'desc'] = t.value; var tray = $('#s-details .pending'), pl = pendingList().length; setBar(); if (t.id === 'dtname') { t.classList.toggle('bad', !t.value.trim()); } if (!tray && pl || tray && !pl) { var pos2 = t.selectionStart, id2 = t.id; refresh(); var el = $('#' + id2); el.focus(); el.setSelectionRange(pos2, pos2); } else if (tray) tray.querySelector('.grow').innerHTML = L.notSaved + ' &middot; ' + pl + (pl === 1 ? ' change' : ' changes') + ' (tap to see)'; }

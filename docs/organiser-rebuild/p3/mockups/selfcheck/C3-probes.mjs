@@ -80,7 +80,7 @@ probe('R15', '#15 long course: legend, Repeats row and All dates all say 8 class
   return [ok, leg + ' | ' + rep.replace(/\n/g, ' ') + ' | ' + cls.join(',')];
 }, 1);
 probe('R17', '#17 Needs you "Add the teachers" ticks done after adding one', async () => {
-  await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-all="wedc"]');
+  await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-all="wedc"]'); await tap('[data-lineup-go]');
   await setVal('#psearch', 'Sofia R'); await tap('#presults [data-add]'); await tap('#savelineup');
   await B({ 'data-tab-go': 'home' }); const open0 = await ev(() => [...document.querySelectorAll('#s-home .todo:not(.done)')].some((b) => /Add the teachers/.test(b.innerText)));
   return [!open0, 'still open: ' + open0];
@@ -95,8 +95,8 @@ probe('F1', '#1 session title and detail sit on separate lines', async () => {
   await open('fri'); const r = await ev(() => [...document.querySelectorAll('#s-event .ses')].every((s) => { const t = s.querySelector('.t').getBoundingClientRect(), d = s.querySelector('.s').getBoundingClientRect(); return d.top >= t.bottom - 1; }));
   return [r, String(r)];
 });
-probe('F2', '#2 roles read as nouns: "Marco & Sofia, teachers", "DJ Kizzy, DJ"', async () => {
-  await open('fri'); const t = await txt(on('event') + ' .tl'); return [/Marco & Sofia, teachers/.test(t) && /DJ Kizzy, DJ/.test(t) && !/\(djs\)|\(teaches\)/.test(t), t.replace(/\n/g, ' / ').slice(0, 160)];
+probe('F2', '#2 roles read as nouns: "Marco & Elena, teachers", "DJ Kizzy, DJ"', async () => {
+  await open('fri'); const t = await txt(on('event') + ' .tl'); return [/Marco & Elena, teachers/.test(t) && /DJ Kizzy, DJ/.test(t) && !/\(djs\)|\(teaches\)/.test(t), t.replace(/\n/g, ' / ').slice(0, 160)];
 });
 probe('F3', '#3 Where does not repeat the place name', async () => {
   await open('fri'); const t = await txt(on('event') + ' [data-edit="where"]'); return [!/Colab Tower[\s\S]*Colab Tower/.test(t), t.replace(/\n/g, ' / ')];
@@ -129,8 +129,8 @@ probe('F12', '#12 date sheet: 2 choices up front, the rest in "More for this dat
   await open('fri'); await B({ 'data-date': '4' }); const r = await ev(() => { const s = document.querySelector('#sheetbody'); const top = [...s.querySelectorAll(':scope > .stack .choice')].length; const fold = [...s.querySelectorAll('details.fold .choice')].map((c) => c.innerText.split('\n')[0]); return [top, fold]; });
   return [r[0] === 2 && r[1].length === 4, JSON.stringify(r)];
 });
-probe('F13', '#13 event page: ONE status row "Live · Pause or end it" (no second Pause row, sim fix 9)', async () => {
-  await open('fri'); const t = await txt(on('event') + ' .ev2 > div:first-child'); return [/Live · Pause or end it/.test(t) && !/Pause this event/.test(t), t.slice(0, 200).replace(/\n/g, ' / ')];
+probe('F13', '#13 event page: ONE status row "Live · Hide or end it" (no second row, sim fix 9; Pause became Hide, R-pol-hide)', async () => {
+  await open('fri'); const t = await txt(on('event') + ' .ev2 > div:first-child'); return [/Live · Hide or end it/.test(t) && !/Hide from the calendar/.test(t), t.slice(0, 200).replace(/\n/g, ' / ')];
 });
 probe('F19', '#19 first day screen counts the 9 real events', async () => {
   await fresh(); const t = await txt(on('welcome')); return [/We found your 9 events/.test(t), (t.match(/We found your \d+ events/) || [''])[0]];
@@ -149,18 +149,18 @@ probe('#1b', 'weekly scope says "no end date"', async () => { await open('fri');
 probe('#2a', 'move later hint: "From Thu 12 Nov ... last Thu 7 Jan 2027"', async () => { await open('long'); await B({ 'data-date': '1' }); await B({ 'data-act': 'move' }); await tap('[data-scope="later"]'); await tap('[data-scope-go]'); await tap('[data-mwd="4"]'); const h = await txt('#movehint'); return [/From Thu 12 Nov/.test(h) && /last Thu 7 Jan 2027/.test(h), h]; });
 probe('#2b', 'move later toast + Moved chips', async () => { await open('long'); await B({ 'data-date': '1' }); await B({ 'data-act': 'move' }); await tap('[data-scope="later"]'); await tap('[data-scope-go]'); await tap('[data-mwd="4"]'); await tap('#domove'); const t = await toastT(); const st = await all(on('event') + ' .date .st'); return [/last Thu 7 Jan 2027/.test(t) && st.filter((s) => s === 'Moved').length >= 3, t]; });
 probe('#2c', 'move one date: "Moved to Sat 21 Nov, 8pm" (time from the sessions)', async () => { await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-act': 'move' }); await tap('[data-scope="one"]'); await tap('[data-scope-go]'); const h = await txt('#movehint'); return [/Moved to Sat 21 Nov, 8pm/.test(h), h]; });
-probe('#3a', 'Home line-up header "Sensual Fridays · Fri 23 Oct only"', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); const t = await txt(on('lineup') + ' .when'); return [/Sensual Fridays · Fri 23 Oct only/i.test(t), t]; });
-probe('#3b', 'course header "every class left (28 Oct)"', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-all="wedc"]'); const t = await txt(on('lineup') + ' .when'); return [/every class left \(28 Oct\)/i.test(t), t]; });
+probe('#3a', 'Home line-up header "Sensual Fridays · Fri 23 Oct only"', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await tap('[data-lineup-go]'); const t = await txt(on('lineup') + ' .when'); return [/Sensual Fridays · Fri 23 Oct only/i.test(t), t]; });
+probe('#3b', 'course header "every class left (28 Oct)"', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-all="wedc"]'); await tap('[data-lineup-go]'); const t = await txt(on('lineup') + ' .when'); return [/every class left \(28 Oct\)/i.test(t), t]; });
 probe('#3c', 'later header "every Friday from ..."', async () => { await open('fri'); await B({ 'data-lineup-ask': 'fri' }); await tap('[data-scope="later"]'); await tap('[data-lineup-go]'); const t = await txt(on('lineup') + ' .when'); return [/every Friday from/i.test(t), t]; });
 probe('#4', 'cancel this and later: "Cancel these dates?"', async () => { await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-act': 'cancel' }); await tap('[data-scope="later"]'); await tap('[data-scope-go]'); const t = await txt('#sheettitle'); return [/Cancel these dates\?/.test(t), t]; });
 probe('#5', 'disabled Next says why', async () => { await B({ 'data-flow': 'weekly' }); const t = await txt('#bb'); return [/Type a name to carry on/.test(t), t]; });
 probe('#8a', 'Home: Cancelled tonight card + Bring it back', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-cancelnext]'); await tap('[data-reason]'); await tap('[data-docancel]'); const t = await txt(on('home')); return [/Cancelled tonight/.test(t) && /Bring it back/.test(t), 'ok?']; });
 probe('#8b', 'then Next up is the 9pm Halloween party', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-cancelnext]'); await tap('[data-reason]'); await tap('[data-docancel]'); const t = await txt(on('home') + ' .hero'); return [/Tonight, 9pm/i.test(t) && /Halloween/.test(t), t.slice(0, 120)]; });
-probe('#8c', 'pause: Paused chip + Turn back on on the page', async () => { await open('fri'); await B({ 'data-sheet': 'pause' }); await tap('[data-dopause]'); const t = await txt(on('event')); const b = await txt('#bb'); return [/Paused/.test(t) && /Turn back on/.test(b), b]; });
-probe('#8d', 'pause: Home shows Paused + Turn back on', async () => { await open('fri'); await B({ 'data-sheet': 'pause' }); await tap('[data-dopause]'); await B({ 'data-tab-go': 'home' }); const t = await txt(on('home')); return [/Turn back on/.test(t), 'ok?']; });
+probe('#8c', 'hide: Hidden chip + Show it again on the page (was Paused / Turn back on, R-pol-hide)', async () => { await open('fri'); await B({ 'data-sheet': 'pause' }); await tap('[data-dopause]'); const t = await txt(on('event')); const b = await txt('#bb'); return [/Hidden/.test(t) && /Show it again/.test(b), b]; });
+probe('#8d', 'hide: Home shows Hidden + Show it again (was Paused / Turn back on, R-pol-hide)', async () => { await open('fri'); await B({ 'data-sheet': 'pause' }); await tap('[data-dopause]'); await B({ 'data-tab-go': 'home' }); const t = await txt(on('home')); return [/Show it again/.test(t) && /Hidden/.test(t), 'ok?']; });
 probe('#9', 'toast sits above the bottom bar, bar button clickable', async () => { await open('fri'); await B({ 'data-share': '' }); const r = await ev(() => [document.querySelector('#toast').getBoundingClientRect().bottom, document.querySelector('#bb').getBoundingClientRect().top]); return [r[0] <= r[1], JSON.stringify(r)]; });
-probe('#10', 'keyboard: the tab bar hides while typing, the bottom bar NEVER does (sim fix M2)', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await page.focus('#psearch'); const r = await ev(() => [getComputedStyle(document.querySelector('#bb')).display, getComputedStyle(document.querySelector('#tabs')).display]); return [r[0] !== 'none' && r[1] === 'none', r.join()]; });
-probe('#11', 'swap the DJ: Save line-up enabled', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await tap('[data-rm]'); const d = await ev(() => document.querySelector('#savelineup').disabled); return [!d, 'disabled=' + d]; });
+probe('#10', 'keyboard: the tab bar hides while typing, the bottom bar NEVER does (sim fix M2)', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await tap('[data-lineup-go]'); await page.focus('#psearch'); const r = await ev(() => [getComputedStyle(document.querySelector('#bb')).display, getComputedStyle(document.querySelector('#tabs')).display]); return [r[0] !== 'none' && r[1] === 'none', r.join()]; });
+probe('#11', 'swap the DJ: Save line-up enabled', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await tap('[data-lineup-go]'); await tap('[data-rm]'); const d = await ev(() => document.querySelector('#savelineup').disabled); return [!d, 'disabled=' + d]; });
 probe('#12', 'Where, How to pay and Ticket link are rows on the event page', async () => { await open('fri'); const r = await ev(() => ['where', 'pay', 'ticket'].every((k) => document.querySelector('#s-event [data-edit="' + k + '"]'))); return [r, String(r)]; });
 probe('#13', 'preview: empty How to pay shows the organiser-only box', async () => { await open('fri'); await B({ 'data-preview': 'fri', 'data-pi': '0' }); const t = await txt(on('preview') + ' [data-edit="pay"]'); return [/Not set yet/.test(t), t]; });
 probe('#14', 'far-year chips carry 2027', async () => { await open('long'); const t = await all(on('event') + ' .date .y'); return [t.includes('2027'), t.join()]; });
@@ -171,7 +171,7 @@ probe('#19a', 'Back returns to the event page', async () => { await open('fri');
 probe('#19b', 'old C/C2 words gone from the file', async () => { const src = await ev(() => document.documentElement.outerHTML); const bad = ['See page', 'Take it off the calendar?', 'Jan 27', 'updates every hour']; return [!bad.some((b) => src.includes(b)), bad.filter((b) => src.includes(b)).join()]; });
 probe('#22', 'Help has a real WhatsApp button', async () => { await B({ 'data-sheet': 'help' }); const h = await ev(() => document.querySelector('#sheet a.btn').href); return [/wa\.me/.test(h), h]; });
 probe('#24', 'the two Sensual Wednesdays have different second lines', async () => { await B({ 'data-tab-go': 'events' }); const r = await ev(() => ['wedc', 'wedsep'].map((k) => document.querySelector('#s-events [data-open="' + k + '"] .s').innerText)); return [r[0] !== r[1], r.join(' | ')]; });
-probe('B3', 'no profile: "Add their name instead"', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await setVal('#psearch', 'Zed Nobody'); const t = await txt('#presults'); return [/Add their name instead/.test(t), 'ok?']; });
+probe('B3', 'no profile: "Add their name instead"', async () => { await B({ 'data-tab-go': 'home' }); await tap('[data-lineup-next]'); await tap('[data-lineup-go]'); await setVal('#psearch', 'Zed Nobody'); const t = await txt('#presults'); return [/Add their name instead/.test(t), 'ok?']; });
 
 /* ---------- C3's 27 session probes (rebuilt) ---------- */
 probe('S1', 'Add the next session starts at the last end', async () => { await open('fri'); await B({ 'data-addsess': 'next' }); const v = await ev(() => document.querySelector('#sss').value); return [v === '01:00', v]; });
@@ -229,7 +229,7 @@ probe('R-fwd-undo', 'Undo on the toast returns the row to "8pm to 9pm" with no "
   return [/From Fri 20 Nov/.test(pre) && /8pm/.test(r) && !/From /.test(r), 'before: ' + pre.slice(0, 90) + ' | after: ' + r.slice(0, 90)];
 }, 1);
 probe('R-fwd-lineup', 'line-up "This and later" from 20 Nov gives a "From Fri 20 Nov" line, not a date list', async () => {
-  await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-act': 'lineup' }); await tap('[data-scope="later"]'); await tap('[data-scope-go]');
+  await open('fri'); await B({ 'data-date': '4' }); await B({ 'data-act': 'lineup' }); await tap('[data-scope="later"]'); await tap('[data-lineup-go]');
   await setVal('#psearch', 'Sofia R'); await tap('#presults [data-add]'); await tap('#savelineup');
   const r = await classRow(); const r2 = await ev(() => [...document.querySelectorAll('#s-event [data-sess]')].map((e) => e.innerText).join(' / ')).then((z) => z.replace(/\n/g, ' '));
   return [/From Fri 20 Nov/.test(r2) && !/Different on \d+ dates/.test(r2), r2.slice(0, 260)];
@@ -307,8 +307,8 @@ probe('R-sim-stats-sum', 'stats: the date-by-date rows add up to the "By event" 
   const dom = await ev(() => { const rows = [...document.querySelectorAll('#s-stats h2')].find((h) => /date by date/.test(h.textContent)).nextElementSibling.querySelectorAll('tbody tr'); let sum = 0; rows.forEach((tr) => { sum += +tr.children[1].textContent; }); const by = document.querySelector('#s-stats [data-open="fri"] .s').textContent.match(/(\d+) views/); return [sum, by && +by[1]]; });
   return [r.length >= 2 && r.every((x) => x[1] === x[2]) && dom[0] === dom[1], JSON.stringify(r) + ' dom=' + dom.join('/')];
 }, 1);
-probe('R-sim-s1-people', 'small 1: Home card names the roles: "Teaching: Marco & Sofia · DJ: Kizzy"', async () => {
-  await B({ 'data-tab-go': 'home' }); const t = await txt('#s-home .hero'); return [/Teaching: Marco & Sofia · DJ: Kizzy/.test(t), t.replace(/\n/g, ' / ').slice(0, 200)];
+probe('R-sim-s1-people', 'small 1: Home card names the roles: "Teaching: Marco & Elena · DJ: Kizzy"', async () => {
+  await B({ 'data-tab-go': 'home' }); const t = await txt('#s-home .hero'); return [/Teaching: Marco & Elena · DJ: Kizzy/.test(t), t.replace(/\n/g, ' / ').slice(0, 200)];
 }, 1);
 probe('R-sim-s3-classname', 'small 3: a class added with "Add a class before" is named Class, never "No name yet"', async () => {
   await monthlyTo9pm(); await B({ 'data-fstep': '2' }); const t = await txt(on('step')); return [/Class/.test(t) && !/No name yet/.test(t), t.replace(/\n/g, ' / ').slice(0, 220)];
@@ -342,6 +342,67 @@ probe('R-sim-s11-order', 'small 11: "Different on N dates" lists the date just c
   await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '4' }); await B({ 'data-dsess': c }); await setVal('#ssname', 'Foo'); await tap('[data-sssave]'); await tap('[data-sscope-go]');
   const row = await txt(on('event') + ' [data-sess="' + c + '"]'); const m = row.match(/Different on (\d+) dates?: ([^\n]*)/);
   return [!!m && /^20 Nov/.test(m[2]), m ? m[0] : row.replace(/\n/g, ' / ').slice(0, 160)];
+}, 1);
+
+/* ---------- polish pass (R-C3-polish): every R-pol-* fails on 276ada3 and passes after ---------- */
+probe('R-pol-w1', 'W1 after class 8:30pm "From Fri 30 Oct on": header names the change; Events and Home rows show the next date (8pm)', async () => {
+  await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await setVal('#sss', '20:30'); await tap('[data-sssave]'); await tap('[data-sswhich="later"]'); await tap('[data-sswhich-go]');
+  const h = await txt(on('event') + ' .when + *'); const hd = await txt(on('event') + ' .ev2');
+  await B({ 'data-tab-go': 'events' }); const evs = await txt(on('events')); await B({ 'data-tab-go': 'home' }); const hm = await txt(on('home'));
+  const ok = /Every Friday · Party 9pm, class from 8pm \(8:30pm from Fri 30 Oct\)/.test(hd) && /Every Friday, 8pm/.test(evs) && !/Every Friday, 8:30pm/.test(evs);
+  return [ok, hd.replace(/\n/g, ' / ').slice(0, 200) + ' || ' + (evs.match(/Every Friday[^\n]*/) || [''])[0]];
+}, 1);
+probe('R-pol-w2', 'W2 the session sheet button says "Save" when "Which dates?" follows, "Save for all dates" only when nothing follows', async () => {
+  await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await setVal('#sss', '20:30'); const b1 = await txt('[data-sssave]');
+  await tap('[data-sssave]'); const asks = /for which dates\?/.test(await sheet());
+  return [b1.trim() === 'Save' && asks, 'button=' + b1.trim() + ' asks=' + asks];
+}, 1);
+probe('R-pol-w3', 'W3 the third header line is only "Ends 1am the next day" (no repeated start)', async () => {
+  await open('fri'); const t = await txt(on('event') + ' .ev2');
+  return [/Ends 1am the next day/.test(t) && !/Starts 8pm/.test(t) && !/from the first session/.test(t), t.replace(/\n/g, ' / ').slice(0, 200)];
+}, 1);
+probe('R-pol-names', 'B1 no two distinct people in the data share a first name', async () => {
+  const names = await ev(() => { const E = window.__c2.EV, out = new Set(), add = (n) => n && out.add(String(n).replace(/&amp;/g, '&'));
+    Object.values(E).forEach((e) => { (e.lineup || []).forEach((p) => add(p[0])); (e.sess || []).forEach((m) => (m.ppl || []).forEach((p) => add(p[0]))); (e.artists || []).forEach((p) => add(p[0]));
+      (e.dates || []).forEach((x) => { Object.values(x.so || {}).forEach((o) => (o.ppl || []).forEach((p) => add(p[0]))); (x.extra || []).forEach((m) => (m.ppl || []).forEach((p) => add(p[0]))); }); });
+    return [...out]; });
+  const people = new Map();
+  names.forEach((n) => n.replace(/^DJ /, '').split(/ & | y /).forEach((x, i) => { const f = x.trim().split(' ')[0]; if (!people.has(f)) people.set(f, new Set()); people.get(f).add(n); }));
+  const clash = [...people].filter(([f, set]) => set.size > 1 || false).map(([f, set]) => f + ':' + [...set].join('/'));
+  /* "Marco & Elena" gives first names Marco and Elena; a person listed alone and inside a pair also counts as a clash */
+  const lone = names.filter((n) => !/ & | y /.test(n)).map((n) => n.replace(/^DJ /, '').split(' ')[0]);
+  const pairs = names.filter((n) => / & | y /.test(n)).flatMap((n) => n.split(/ & | y /).map((x) => x.trim().split(' ')[0]));
+  const dup = lone.filter((f, i) => lone.indexOf(f) !== i || pairs.includes(f));
+  return [!clash.length && !dup.length, 'clash=' + clash.join(',') + ' dup=' + dup.join(',') + ' | ' + names.join('; ')];
+}, 1);
+probe('R-pol-lineup', 'B2 every door to "Change line-up" opens the same first sheet, pre-set to where you came from', async () => {
+  const doors = [];
+  const grab = async (name, go) => { await fresh(); await go(); const t = await sheet(); const id = await ev(() => window.__c2.state().cur && document.querySelector('#sheet.on [data-lineup-go]') ? 'lineupscope' : 'other');
+    const pre = await ev(() => { const c = document.querySelector('#sheet.on [aria-checked="true"]'); return c ? c.innerText.replace(/\n/g, ' ').slice(0, 40) : ''; });
+    doors.push({ name, id, title: (t.match(/Change the line-up for which dates\?/) || [''])[0], pre }); };
+  await grab('event row', async () => { await open('fri'); await B({ 'data-lineup-ask': 'fri' }); });
+  await grab('date sheet', async () => { await open('fri'); await B({ 'data-date': '1' }); await B({ 'data-act': 'lineup' }); });
+  await grab('session (event)', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-sess': c }); await B({ 'data-sspeople': c }); });
+  await grab('session (date)', async () => { await open('fri'); const c = await sid('fri', 0); await B({ 'data-date': '1' }); await B({ 'data-dsess': c }); await B({ 'data-sspeople': c }); });
+  await grab('home next up', async () => { await B({ 'data-tab-go': 'home' }); await B({ 'data-lineup-next': 'fri' }); });
+  const same = doors.every((d) => d.id === 'lineupscope' && d.title);
+  const pre = doors.map((d) => d.pre).join(' | ');
+  const preOk = /Every date/.test(doors[0].pre) && /Just Fri 30 Oct/.test(doors[1].pre) && /Every date/.test(doors[2].pre) && /Just Fri 30 Oct/.test(doors[3].pre) && /Just Fri 23 Oct/.test(doors[4].pre);
+  const labels = await (async () => { await fresh(); await open('fri'); const a = await txt(on('event') + ' [data-lineup-ask]'); await B({ 'data-date': '1' }); const b = await sheet(); await tap('[data-close]'); await B({ 'data-tab-go': 'home' }); const c = await txt('[data-lineup-next]'); return /Change line.up/.test(a) && /Change line.up/.test(b) && /Change line.up/.test(c); })();
+  return [same && preOk && labels, 'same=' + same + ' labels=' + labels + ' pre=' + pre];
+}, 1);
+probe('R-pol-hide', 'B3 "Pause" is gone: Hide wording on every screen state, sheet and toast; Show it again turns it back', async () => {
+  const seen = []; const all = async () => { seen.push(await ev(() => document.body.innerText + ' ' + [...document.querySelectorAll('[aria-label],[placeholder]')].map((e) => e.getAttribute('aria-label') + ' ' + e.getAttribute('placeholder')).join(' '))); };
+  await open('fri'); await all(); const st = await ev(() => (document.querySelector('#s-event.on .ev2') || document.body).innerText);
+  await B({ 'data-sheet': 'status' }); const status = await sheet(); await all();
+  await B({ 'data-sheet': 'pause' }); const hs = await sheet(); await all();
+  await tap('[data-dopause]'); const tt = await toastT(); await all(); const hidden = await txt(on('event'));
+  await B({ 'data-tab-go': 'home' }); await all(); await B({ 'data-tab-go': 'events' }); const evl = await txt(on('events')); await all();
+  await B({ 'data-open': 'fri' }); await tap('[data-unpause]'); const t2 = await toastT(); await all();
+  const bad = seen.filter((t) => /pause/i.test(t)).length;
+  const ok = bad === 0 && /Live · Hide or end it/.test(st) && /Hide from the calendar/.test(status) && /Dancers can.t see it until you show it again\. Dates kept\./.test(status)
+    && /Hide Sensual Fridays\?/.test(hs) && /Hide it/.test(hs) && /Hidden/.test(tt) && /Hidden · dancers can.t see it/.test(hidden) && /Show it again/.test(hidden) && /Hidden/.test(evl) && /showing again/.test(t2);
+  return [ok, 'bad=' + bad + ' | ' + st.slice(-40).replace(/\n/g, ' ') + ' | ' + tt.replace(/\n/g, ' ') + ' | ' + t2.replace(/\n/g, ' ')];
 }, 1);
 
 let pass = 0, fail = 0;
