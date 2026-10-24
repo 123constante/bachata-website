@@ -5,18 +5,25 @@ import type { DuplicatePair, PausedJoin } from './duplicatesModel';
 
 export const alertTitle = (n: number) => `${n} possible duplicate${n === 1 ? '' : 's'}`;
 
+export const NO_NAME_REF = 'a profile with no name yet';
+/** A name as it reads inside a sentence. */
+export const nameOr = (name: string | null, fallback: string): string => name ?? fallback;
+
 /** The one line under the alert title, and the lead on "Same person?". */
 export function pairSentence(p: DuplicatePair): string {
   const team = p.organiserName ? `the ${p.organiserName} team list` : 'a team list';
-  return `${p.foldName} signed up and is on ${team} next to ${p.keepName}, a profile you made.`;
+  const keep = nameOr(p.keepName, NO_NAME_REF);
+  return p.foldName === null
+    ? `Someone who signed up is on ${team} next to ${keep}, a profile you made.`
+    : `${p.foldName} signed up and is on ${team} next to ${keep}, a profile you made.`;
 }
 
 /** A paused join (redeem not_linked) is its own row, never a pair. */
 export function pausedSentence(n: PausedJoin): string {
   const next = n.pair
-    ? ` It matches the pair with ${n.pair.foldName}: review it to join them.`
+    ? ` It matches the pair with ${nameOr(n.pair.foldName, 'someone who signed up')}: review it to join them.`
     : ' Nothing can be joined yet; it shows here so you know they tried.';
-  return `${n.personLabel} tried to join ${n.organiserName ?? 'a page'}; the join is paused.${next}`;
+  return `${nameOr(n.personLabel, 'Someone')} tried to join ${n.organiserName ?? 'a page'}; the join is paused.${next}`;
 }
 
 export const DUP_COPY = {
@@ -28,11 +35,13 @@ export const DUP_COPY = {
   unavailable:
     'It needs the server update that adds the duplicate check, which is not applied yet. Until then nothing here can join profiles, and nothing is changed.',
   sameTitle: 'Same person?',
+  noNameCard: 'No name yet',
+  signedUpCard: 'Someone who signed up',
   keep: 'Keep',
   fold: 'Fold in',
   keepFact: 'Made by an admin. No one has signed in to it.',
   foldFact: 'Made when they signed up.',
-  sameLead: (p: DuplicatePair) => `After joining, they sign in with their own email and see one profile: ${p.keepName}, with everything on it.`,
+  sameLead: (p: DuplicatePair) => `After joining, they sign in with their own email and see one profile${p.keepName === null ? ' with no name yet' : `: ${p.keepName}`}, with everything on it.`,
   showChanges: 'Show what will change',
   notSame: 'Not the same person',
   notSameNote: 'This hides the pair for good. Nothing else changes.',
@@ -47,7 +56,7 @@ export const DUP_COPY = {
   joining: 'Joining',
   cancel: 'Cancel',
   back: 'Back',
-  joined: (p: DuplicatePair) => `Joined. ${p.keepName} is one profile now, owned by their login.`,
+  joined: (p: DuplicatePair) => p.keepName === null ? 'Joined. This profile has no name yet and is one profile now, owned by their login.' : `Joined. ${p.keepName} is one profile now, owned by their login.`,
   close: 'Close',
 } as const;
 
