@@ -3,10 +3,14 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import type { GroundPalette } from '@/components/layout/pageGrounds';
 import type { BreadcrumbItemType } from '@/components/PageBreadcrumb';
 import type { PersonRole } from '../personRoles';
-import { WORLD } from '../worlds/tokens';
+import { TEACHER_PAPER, WORLD } from '../worlds/tokens';
 
 /** The page ground under each world (S4 added the teacher grid). */
 const GROUND: Record<PersonRole, GroundPalette> = { dj: 'dj', dancer: 'dancer', teacher: 'teacher' };
+
+/** The teacher world's timetable grid, on the page box (a lazy chunk) rather than in pageGrounds (every first load). */
+const line = (deg: number) => `repeating-linear-gradient(${deg}deg, ${TEACHER_PAPER.grid} 0 1px, transparent 1px 28px)`;
+export const TEACHER_GRID = { backgroundImage: `${line(0)}, ${line(90)}` } as const;
 
 /**
  * The page box around PersonFrame, ONE for every world (S3b). The owner saw Back move 4px right
@@ -34,7 +38,7 @@ export function WorldPage({ world, breadcrumbs, backHref, head, children }: {
   return (
     <GlobalLayout breadcrumbs={breadcrumbs} backHref={backHref} showSubheader={false} gradientPalette={GROUND[world]} fitContent>
       {head}
-      <div data-testid="world-page" data-world={world} className={WORLD_PAGE.page} style={{ color: WORLD[world].ink }}>
+      <div data-testid="world-page" data-world={world} className={WORLD_PAGE.page} style={{ color: WORLD[world].ink, ...(world === 'teacher' ? TEACHER_GRID : null) }}>
         <div data-testid="world-page-slot" className={WORLD_PAGE.slot}>
           {children}
         </div>

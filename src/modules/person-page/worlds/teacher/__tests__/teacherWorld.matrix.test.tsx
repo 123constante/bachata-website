@@ -18,6 +18,7 @@ import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { PAGE_GROUNDS } from '@/components/layout/pageGrounds';
 import { TEACHER_PAPER, WORLD } from '../../tokens';
 import { WORLD_PAGE, WorldPage } from '../../../frame';
+import { TEACHER_GRID } from '../../../frame/WorldPage';
 import type { PersonRole } from '../../../personRoles';
 import { CLASSES_LABEL, INVITE_LABEL, teacherWorldView, type TeacherClass, type TeacherWorldInput } from '../model';
 
@@ -297,11 +298,12 @@ describe('the one world shell: DJ, dancer and teacher', () => {
       const page = screen.getByTestId('world-page');
       expect(screen.getByTestId('layout').getAttribute('data-palette')).toBe(world);
       shapes.push(`${page.className}|${screen.getByTestId('world-page-slot').className}`);
+      expect(page.style.backgroundImage.includes('repeating-linear-gradient')).toBe(world === 'teacher');
       unmount();
     }
     expect(new Set(shapes).size).toBe(1);
     expect(shapes[0]).toBe(`${WORLD_PAGE.page}|${WORLD_PAGE.slot}`);
     expect(PAGE_GROUNDS.teacher.base).toBe(WORLD.teacher.ground);
-    expect(String(PAGE_GROUNDS.teacher.wash.backgroundImage)).toContain(TEACHER_PAPER.grid);
+    expect(TEACHER_GRID.backgroundImage).toContain(TEACHER_PAPER.grid);
   });
 });

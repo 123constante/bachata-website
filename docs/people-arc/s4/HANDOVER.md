@@ -63,7 +63,7 @@ Screenshots: `docs/people-arc/s4/shots/<slug>-390.png` and `-360.png` (360x800),
 - `worlds/teacher/`: `TeacherWorld`, `teacherWorldView` (pure), `TeacherWorldPage` / `TeacherWorldLoading` /
   `TeacherWorldMissing`, `CLASSES_LABEL`, `DEFAULT_CITY`, `INVITE_LABEL`.
 - `worlds/tokens.ts`: `TEACHER_PAPER` (band, rules, grid, row inks).
-- `pageGrounds.ts`: `'teacher'` ground (dark violet grid); `frame/WorldPage` maps the teacher world to it.
+- `pageGrounds.ts`: `'teacher'` ground (solid dark violet; first load). `frame/WorldPage` maps the teacher world to it and draws the timetable grid itself (`TEACHER_GRID`), so the grid stays out of every route's first load (/event is at 380.8 of 381 KB).
 
 ## Not verified
 
