@@ -33,3 +33,10 @@ Branch `claude/seen-in-lists-web`. Ticket dt_b47c23db6b86.
   Next worker: run the walk in an environment with enough memory.
 - NOT done: remaining CI jobs (lint chain, pre-ship, check:* scripts) were not run locally; tsc shows no new errors
   in touched files; eslint clean on new files.
+
+## W1b continuation (2026-10-24, dt_3f139e5db1e2)
+- Merged origin/main (e32b223); conflicts in CalendarListView.tsx and FestivalHub.tsx resolved keeping main's changes plus the impression ref/hook.
+- 23 impression tests pass after the merge. Zero-call tests for `listImpressions` flag off and `enableEventTracking` off already existed (listImpressions.test.ts, `makes zero calls`).
+- Decision recorded: `profile` covers DJ only (TeacherProfile has no upcoming list); `city` = SEO city list (`LiveEventsSection`).
+- CI steps run locally: see PR body table. Phone e2e at 390x844 NOT run; the orchestrator walks the preview.
+- Test runs rewrote some `__snapshots__` files in the working tree (line endings); those were deliberately not committed.
