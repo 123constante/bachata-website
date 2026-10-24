@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`festival hub at '390x844' > 'signed in, going' 1`] = `
+exports[`festival hub at '390x844' > 'signed in, finished, going' 1`] = `
 "text "Upcoming bachata festivals and congresses - weekend intensives, international line-ups, and travel-worthy events across the UK and Europe. Looking for weekly socials instead? See the ."
 link "parties listing" href=/parties
 text "1 upcoming festival"
@@ -9,21 +9,19 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "“ Going"
-button "‘€ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+button "You’re going · Undo" [pressed=true]
+text "Changed your mind? Tap the button again to undo."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
 text "We're adding new festivals every week""
 `;
 
-exports[`festival hub at '390x844' > 'signed in, interested' 1`] = `
+exports[`festival hub at '390x844' > 'signed in, finished, not going' 1`] = `
 "text "Upcoming bachata festivals and congresses - weekend intensives, international line-ups, and travel-worthy events across the UK and Europe. Looking for weekly socials instead? See the ."
 link "parties listing" href=/parties
 text "1 upcoming festival"
@@ -32,21 +30,18 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "‹ I'm Going"
-button "“ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+button "I’m going" [pressed=false]
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
 text "We're adding new festivals every week""
 `;
 
-exports[`festival hub at '390x844' > 'signed in, no status' 1`] = `
+exports[`festival hub at '390x844' > 'signed in, unfinished (photo missing)' 1`] = `
 "text "Upcoming bachata festivals and congresses - weekend intensives, international line-ups, and travel-worthy events across the UK and Europe. Looking for weekly socials instead? See the ."
 link "parties listing" href=/parties
 text "1 upcoming festival"
@@ -55,14 +50,12 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "‹ I'm Going"
-button "‘€ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+link "Finish your profile" href=/finish-profile?returnTo=%2Ffestivals
+text "Add your photo to say you’re going."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
@@ -78,31 +71,29 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "‹ I'm Going"
-button "‘€ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+button "Sign in to say you’re going"
+text "It’s free: sign in, finish your dancer profile, and your first name shows here."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
 text "We're adding new festivals every week""
 `;
 
-exports[`festival hub at '390x844' > signed-out Going: no RPC, the sign-in prompt opens 1`] = `
-"dialog "Sign in required"
-  heading "Sign in required" level=2
-  text "Sign in to view attendee profiles and update attendance."
+exports[`festival hub at '390x844' > signed-out tap: no write, the sign-in prompt opens 1`] = `
+"dialog "Say you’re going"
+  heading "Say you’re going" level=2
+  text "Sign in or create a free account. Your first name shows on the nights you’re going to."
   button "Sign in"
   button "Create account"
   button "Continue browsing"
   button "Close""
 `;
 
-exports[`festival hub at 'desktop' > 'signed in, going' 1`] = `
+exports[`festival hub at 'desktop' > 'signed in, finished, going' 1`] = `
 "text "Upcoming bachata festivals and congresses - weekend intensives, international line-ups, and travel-worthy events across the UK and Europe. Looking for weekly socials instead? See the ."
 link "parties listing" href=/parties
 text "1 upcoming festival"
@@ -111,21 +102,19 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "“ Going"
-button "‘€ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+button "You’re going · Undo" [pressed=true]
+text "Changed your mind? Tap the button again to undo."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
 text "We're adding new festivals every week""
 `;
 
-exports[`festival hub at 'desktop' > 'signed in, interested' 1`] = `
+exports[`festival hub at 'desktop' > 'signed in, finished, not going' 1`] = `
 "text "Upcoming bachata festivals and congresses - weekend intensives, international line-ups, and travel-worthy events across the UK and Europe. Looking for weekly socials instead? See the ."
 link "parties listing" href=/parties
 text "1 upcoming festival"
@@ -134,21 +123,18 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "‹ I'm Going"
-button "“ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+button "I’m going" [pressed=false]
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
 text "We're adding new festivals every week""
 `;
 
-exports[`festival hub at 'desktop' > 'signed in, no status' 1`] = `
+exports[`festival hub at 'desktop' > 'signed in, unfinished (photo missing)' 1`] = `
 "text "Upcoming bachata festivals and congresses - weekend intensives, international line-ups, and travel-worthy events across the UK and Europe. Looking for weekly socials instead? See the ."
 link "parties listing" href=/parties
 text "1 upcoming festival"
@@ -157,14 +143,12 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "‹ I'm Going"
-button "‘€ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+link "Finish your profile" href=/finish-profile?returnTo=%2Ffestivals
+text "Add your photo to say you’re going."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
@@ -180,24 +164,22 @@ heading "Costa Bachata Congress" level=3
 text "20 Dec 2026 · Alicante"
 text "65d 12h"
 text "Festival"
-text "‹Going: 5"
-text "‘€Interested: 3"
-text "8 attending"
-text "WhatsApp Group8/10"
-progressbar "WhatsApp group: 8 of 10 attending"
-text "”“ 2 more needed for WhatsApp group!"
-button "‹ I'm Going"
-button "‘€ Interested"
+text "5 going"
+link "Ana, dancer page" href=/dancers/d1
+text "BBen"
+text "+3moreand 3 more people"
+button "Sign in to say you’re going"
+text "It’s free: sign in, finish your dancer profile, and your first name shows here."
 text "View details & find crew"
 text "Š"
 heading "More festivals coming soon!" level=3
 text "We're adding new festivals every week""
 `;
 
-exports[`festival hub at 'desktop' > signed-out Going: no RPC, the sign-in prompt opens 1`] = `
-"dialog "Sign in required"
-  heading "Sign in required" level=2
-  text "Sign in to view attendee profiles and update attendance."
+exports[`festival hub at 'desktop' > signed-out tap: no write, the sign-in prompt opens 1`] = `
+"dialog "Say you’re going"
+  heading "Say you’re going" level=2
+  text "Sign in or create a free account. Your first name shows on the nights you’re going to."
   button "Sign in"
   button "Create account"
   button "Continue browsing"

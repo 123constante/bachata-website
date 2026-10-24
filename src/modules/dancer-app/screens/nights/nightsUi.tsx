@@ -1,4 +1,4 @@
-import { dateParts } from './nightsModel';
+import { dateParts } from './nightsDates';
 /** The accent each weekday block takes (D121): Sat/Sun violet, Mon/Thu teal, Tue/Wed gold, Fri rose. */
 const WEEKDAY_TONE: Record<string, string> = {
   Sun: 'da-tone-violet', Sat: 'da-tone-violet', Mon: 'da-tone-teal', Thu: 'da-tone-teal', Tue: 'da-tone-gold', Wed: 'da-tone-gold', Fri: 'da-tone-rose',
@@ -26,7 +26,5 @@ export const DateBlock = ({ dateKey }: { dateKey: string | null }) => {
   );
 };
 
-/** Status colours (D121): Going teal, Interested gold, Went violet, Was interested rose, the rest grey. */
-const STATUS_TONE: Record<string, string> = { Going: 'da-tone-teal', Interested: 'da-tone-gold', Went: 'da-tone-violet', 'Was interested': 'da-tone-rose' };
-
-export const StatusPill = ({ label }: { label: string }) => <span className={`da-tag ${STATUS_TONE[label] ?? 'da-tone-grey'}`}>{label}</span>;
+/** The row's tag; `tone` is nightsGoing.tsx's statusTone (D121), keyed by the going module's tags. */
+export const StatusPill = ({ label, tone }: { label: string; tone: string }) => <span className={`da-tag ${tone}`}>{label}</span>;

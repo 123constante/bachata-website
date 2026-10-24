@@ -6,7 +6,6 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { SITE_ORIGIN } from '@/lib/seo';
 import { useEventPage } from '@/modules/event-page/useEventPage';
-import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import { useRecordEventView } from '@/modules/event-page/useRecordEventView';
 import { useEventGuestList } from '@/modules/event-page/hooks/useEventGuestList';
 import { useGuestListRealtime } from '@/modules/event-page/hooks/useGuestListRealtime';
@@ -85,9 +84,9 @@ const ERROR_COPY: Record<
   },
 };
 
-// Lazy, behind a same-size placeholder, to keep the RSVP's hook and copy out of
+// Lazy, behind a same-size placeholder, to keep the going module out of
 // /event/:id's first-load JS budget. RsvpBlock must not import anything that
-// lives only in this route's chunk (see useOccurrenceRsvp's snapshotQueryKey).
+// lives only in this route's chunk (see RsvpBlockPlaceholder).
 const importRsvpBlock = () =>
   import('@/modules/event-page/bento/blocks/RsvpBlock').then((m) => ({ default: m.RsvpBlock }));
 const RsvpBlock = lazyWithRetry(importRsvpBlock);
@@ -118,34 +117,29 @@ if (typeof document !== 'undefined') {
 }
 
 type RsvpSlotProps = {
-  eventId: string;
   publicEventId: string | null;
   occurrenceId: string | null;
   occurrence: EventPageSnapshotOccurrence | null;
   seriesLifecycle: string | null;
-  goingCountLabel: string | null;
 };
 
 // memo + primitive/referentially stable props: an ordinary BentoPage re-render
-// during hydration must not hand the dehydrated <Suspense> new props. Build the
-// query key INSIDE (a fresh array literal from the parent defeats the memo).
+// during hydration must not hand the dehydrated <Suspense> new props.
+// The "Who's going" tile (design A): count, people and the button come from
+// src/modules/going (get_nights_going_v1 / set_my_going_v1), not the snapshot.
 const RsvpSlot = memo(function RsvpSlot({
-  eventId,
   publicEventId,
   occurrenceId,
   occurrence,
   seriesLifecycle,
-  goingCountLabel,
 }: RsvpSlotProps) {
   return (
-    <Suspense fallback={<RsvpBlockPlaceholder goingCountLabel={goingCountLabel} />}>
+    <Suspense fallback={<RsvpBlockPlaceholder />}>
       <RsvpBlock
-        snapshotQueryKey={eventPageQueryKey(eventId).slice(0, 2)}
         publicEventId={publicEventId}
         occurrenceId={occurrenceId}
         occurrence={occurrence}
         seriesLifecycle={seriesLifecycle}
-        goingCountLabel={goingCountLabel}
       />
     </Suspense>
   );
@@ -763,16 +757,14 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           <GroupChatBlock url={pageModel.actions.whatsappLink} eventId={eventId} />
         )}
 
-        {/* "I'm Going" RSVP for the night on screen -- via the
-            set/get_my_occurrence_attendance_p5_v1 RPCs, never the table. */}
+        {/* "Who's going" for the night on screen (Going P2, design A) -- via
+            the going module's set_my_going_v1 / get_nights_going_v1, never a table. */}
         {GOING_CHECKIN_ENABLED && state === 'ready' && snapshot?.eventId && snapshot.occurrenceId && (
           <RsvpSlot
-            eventId={eventId}
             publicEventId={snapshot.eventId}
             occurrenceId={snapshot.occurrenceId}
             occurrence={occurrence}
             seriesLifecycle={snapshot.event.lifecycleStatus}
-            goingCountLabel={pageModel.attendance.goingCountLabel}
           />
         )}
 

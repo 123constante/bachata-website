@@ -64,12 +64,14 @@ describe.each(SURFACES)('%s', (_name, mount) => {
   });
 });
 
-describe('RSVP buttons', () => {
-  it('are 44px tall in px', () => {
-    render(<RsvpBlockPlaceholder goingCountLabel="3 going" />);
+describe('the going button', () => {
+  // Going P2: one "I'm going" button, 48px in explicit px (at least 44).
+  const atLeast44 = (el: Element) => /(^|\s)(min-)?h-\[(4[4-9]|[5-9]\d)px\]/.test(el.getAttribute('class') ?? '');
+  it('is at least 44px tall in px', () => {
+    render(<RsvpBlockPlaceholder />);
     const buttons = screen.getAllByRole('button');
-    expect(buttons.length).toBeGreaterThanOrEqual(2);
-    for (const b of buttons) expect(has44(b)).toBe(true);
+    expect(buttons.length).toBe(1);
+    for (const b of buttons) expect(atLeast44(b)).toBe(true);
   });
 });
 

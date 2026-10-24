@@ -58,8 +58,9 @@ const MeScreen = () => {
           <p data-testid="me-next-step" className="mb-0 mt-[8px] text-[14px] text-[var(--mut)]">
             {nextStepCopy(p)}
           </p>
-          {/* Audit M24: no "Going and Interested unlock at 70%" line. The RSVP RPC
-              (set_my_occurrence_attendance_p5_v1) checks only sign-in and the night, never the profile. */}
+          {/* Audit M24 / Going P2: no "unlock at 70%" line. Saying I'm going needs a FINISHED
+              profile (set_my_going_v1 refuses profile_incomplete), and the event page's going tile
+              names what is missing and links to it; the next step above already leads there. */}
         </div>
 
         <Link to={action.href} className={LINK_PRIMARY} data-testid="me-main-action">

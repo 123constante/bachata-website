@@ -58,6 +58,7 @@ export const FIELD_LABEL: Record<SaveKey, string> = {
   website_url: 'website',
   whatsapp: 'WhatsApp number',
   show_whatsapp_publicly: 'WhatsApp visibility',
+  show_going_photo: 'going photo setting',
   hide_surname_publicly: 'surname visibility',
   avatar_url: 'photo',
   dance_started_year: 'year you started dancing',

@@ -1,35 +1,38 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import { useAuth } from '@/hooks/useAuth';
+import { useCallback, useMemo } from 'react';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { londonTodayKey } from '@/lib/londonDate';
-import { mapNights, type AttendanceRow, type MappedNights } from './nightsModel';
+import { useMyGoing } from '@/modules/going';
+import { goingUpcomingCount, mapMyGoing, type MappedNights } from './nightsModel';
 
-export const ATTENDANCE_RPC = 'get_my_event_attendance_v2';
-export const myNightsQueryKey = (userId: string | undefined) => ['dancer-app', 'my-nights', userId ?? null] as const;
-
-/** Thin wrapper over the EXISTING attendance read (no new RPC). */
-export const fetchMyNights = async (): Promise<AttendanceRow[]> => {
-  const { data, error } = await rpcLoose(ATTENDANCE_RPC);
-  if (error) throw new Error(error.message);
-  return Array.isArray(data) ? (data as AttendanceRow[]) : [];
-};
-
+/**
+ * The signed-in person's nights, from the going module's useMyGoing
+ * (get_my_going_v1). Behind the going switch: while it is off no RPC runs,
+ * `on` is false and the lists are empty.
+ */
 export const useMyNights = (): {
+  /** The going switch is on (the lists can hold anything). */
+  on: boolean;
   isLoading: boolean;
   isError: boolean;
   retry: () => void;
   todayKey: string;
   nights: MappedNights;
+  /** THE upcoming going count (goingUpcomingCount); null until the list has loaded. */
+  goingCount: number | null;
 } => {
-  const { user } = useAuth();
+  const q = useMyGoing();
   const todayKey = londonTodayKey();
-  const q = useQuery({
-    queryKey: myNightsQueryKey(user?.id),
-    queryFn: fetchMyNights,
-    enabled: Boolean(user?.id),
-    staleTime: 2 * 60_000,
-  });
-  const nights = useMemo(() => mapNights(q.data ?? [], todayKey), [q.data, todayKey]);
-  return { isLoading: q.isLoading, isError: q.isError, retry: () => void q.refetch(), todayKey, nights };
+  const nights = useMemo(() => mapMyGoing(q.data), [q.data]);
+  // Stable across renders, so the Home and Nights going feeds can memo their values on it.
+  const { refetch } = q;
+  const retry = useCallback(() => void refetch(), [refetch]);
+  return {
+    on: GOING_CHECKIN_ENABLED,
+    isLoading: GOING_CHECKIN_ENABLED && q.isLoading,
+    isError: GOING_CHECKIN_ENABLED && q.isError,
+    retry,
+    todayKey,
+    nights,
+    goingCount: q.data ? goingUpcomingCount(nights.upcoming) : null,
+  };
 };
