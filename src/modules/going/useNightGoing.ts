@@ -42,17 +42,21 @@ export const goingKeys = {
   event: (userId: string | null | undefined, publicEventId: string | null | undefined) =>
     ['going', 'event', userId ?? null, publicEventId ?? null] as const,
   eventPrefix: ['going', 'event'] as const,
+  /** get_my_organiser_going_total_v1 (the Stats total), per viewer. */
+  organiserTotal: (userId: string | null | undefined) => ['going', 'organiserTotal', userId ?? null] as const,
+  organiserTotalPrefix: ['going', 'organiserTotal'] as const,
 };
 
 /** Does a nights key cover this occurrence? */
 const nightsKeyHas = (key: QueryKey, occurrenceId: string): boolean =>
   key[0] === 'going' && key[1] === 'nights' && key.slice(3).includes(occurrenceId);
 
-/** Invalidate every nights read that covers this occurrence, the viewer's own list and the organiser reads. */
+/** Invalidate every nights read that covers this occurrence, the viewer's own list and the organiser reads (incl. the total). */
 export const invalidateGoing = (qc: QueryClient, occurrenceId: string): Promise<void> =>
   Promise.all([
     qc.invalidateQueries({ predicate: (q) => nightsKeyHas(q.queryKey, occurrenceId) }),
     qc.invalidateQueries({ queryKey: goingKeys.minePrefix }),
+    qc.invalidateQueries({ queryKey: goingKeys.organiserTotalPrefix }),
     // Only the organiser reads that hold this night (or have not loaded yet).
     qc.invalidateQueries({
       queryKey: goingKeys.eventPrefix,

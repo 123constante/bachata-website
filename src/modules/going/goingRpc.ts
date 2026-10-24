@@ -12,6 +12,8 @@
  *   get_public_dancer_extras_v1(p_profile_id) -> {..., going_next: [...]} | null
  *   get_my_event_going_v1(p_public_event_id uuid)   (Going P3, owner/manager only)
  *     -> {public_event_id, nights: [MyEventGoingNight]}   upcoming nights, cancelled included
+ *   get_my_organiser_going_total_v1()   (admin #988, signed in only; no seat = {0,0,0})
+ *     -> {going_total, nights, events}   upcoming, NOT-cancelled nights; going_total counts taps
  *
  * `starts_at_local` is a London wall clock with NO zone: render as is, never
  * `new Date()` it.
@@ -25,6 +27,7 @@ export const GOING_RPC = {
   mine: 'get_my_going_v1',
   dancerExtras: 'get_public_dancer_extras_v1',
   myEvent: 'get_my_event_going_v1',
+  myTotal: 'get_my_organiser_going_total_v1',
 } as const;
 
 /** The database's cap on ids per get_nights_going_v1 call. */
@@ -258,3 +261,29 @@ export const parseMyEventGoing = (v: unknown, publicEventId: string): MyEventGoi
  */
 export const fetchMyEventGoing = async (publicEventId: string): Promise<MyEventGoing> =>
   parseMyEventGoing(await call(GOING_RPC.myEvent, { p_public_event_id: publicEventId }), publicEventId);
+
+// ---------------------------------------------------------------- organiser total (Stats)
+
+/**
+ * get_my_organiser_going_total_v1: the caller's UPCOMING, not-cancelled nights
+ * across every event they own or manage. `going_total` counts going TAPS, not
+ * people (one dancer going to 3 nights counts 3); it equals get_my_event_going_v1
+ * summed over the caller's events' NOT-cancelled nights (that read lists the
+ * cancelled ones too). No owner/manager seat is {0,0,0}, not an error.
+ */
+export type MyOrganiserGoingTotal = { going_total: number; nights: number; events: number };
+
+/** A finite non-negative INTEGER, else 0 (a string, float, negative or NaN is 0, never coerced). */
+const count = (v: unknown): number => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : 0);
+
+export const parseMyOrganiserGoingTotal = (v: unknown): MyOrganiserGoingTotal => {
+  const r = isRecord(v) ? v : {};
+  return { going_total: count(r.going_total), nights: count(r.nights), events: count(r.events) };
+};
+
+/**
+ * The signed-in caller's going total for the Stats screen.
+ * Refusals (GoingRpcError.code): not_signed_in; failures: network / unknown.
+ */
+export const fetchMyOrganiserGoingTotal = async (): Promise<MyOrganiserGoingTotal> =>
+  parseMyOrganiserGoingTotal(await call(GOING_RPC.myTotal));
