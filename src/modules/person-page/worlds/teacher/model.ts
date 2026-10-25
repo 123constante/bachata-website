@@ -75,7 +75,7 @@ export function teacherWorldView(p: TeacherWorldInput): TeacherWorldView {
   const name = resolvePublicName({ id: p.row.entity_id, first_name: p.row.first_name, surname: p.row.surname });
   const { big } = worldNames({ name }, 'teacher');
   // No name at all: the h1 says "Teacher" (worldNames), but "Learn with Teacher" reads like a bug.
-  const first = (publicName(p.row.first_name) ?? publicName(name))?.split(' ')[0] ?? null;
+  const first = publicName(p.row.first_name) ?? publicName(name) ?? null;
   const city = cityLabel(p.row.city);
   const langs = languageLine(p.row.languages);
   const lines = [city ? `Teaches in ${city}` : null, langs ? `Speaks ${langs}` : null].filter((l): l is string => !!l);
