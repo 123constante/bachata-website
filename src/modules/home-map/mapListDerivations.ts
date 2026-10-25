@@ -494,13 +494,6 @@ export function festivalRangeLabel(dates: string[]): string | null {
   return `${first.d} ${MONTHS[first.mo - 1]} ${DASH} ${last.d} ${MONTHS[last.mo - 1]}`;
 }
 
-/**
- * Collapse multi-day festivals to a single representative row (earliest day),
- * stamping festivalDateRange so flat lists show the festival ONCE with a date
- * range instead of one row per spanned day. Non-festival rows pass through
- * unchanged; single-day festivals get no range badge. The calendar grid keeps
- * per-day rows (it needs a dot per day) -- this is for flat list surfaces only.
- */
 /** Representative-row preference for a collapsed festival: a non-cancelled
  *  day wins over a cancelled one, then the earliest instance_date. Keeps a
  *  festival shown as live unless EVERY day is cancelled, so a cancelled first
@@ -510,8 +503,8 @@ function preferFestivalRep(a: MapEvent, b: MapEvent): boolean {
   return (a.instance_date ?? '9999-99-99') < (b.instance_date ?? '9999-99-99');
 }
 
-export function collapseFestivals(events: MapEvent[]): MapEvent[] {
-  const rep = new Map<string, MapEvent>();
+/** event_id -> its festivalRangeLabel over every listed day (null: one day). */
+function festivalRangesByEvent(events: MapEvent[]): Map<string, string | null> {
   const dates = new Map<string, string[]>();
   for (const e of events) {
     if (!isFestivalFormat(e)) continue;
@@ -519,6 +512,27 @@ export function collapseFestivals(events: MapEvent[]): MapEvent[] {
     const ds = dates.get(e.event_id);
     if (ds) ds.push(d);
     else dates.set(e.event_id, [d]);
+  }
+  const ranges = new Map<string, string | null>();
+  for (const [id, ds] of dates) ranges.set(id, festivalRangeLabel(ds));
+  return ranges;
+}
+
+/**
+ * Collapse multi-day festivals to a single representative row (earliest day),
+ * stamping festivalDateRange so flat lists show the festival ONCE with a date
+ * range instead of one row per spanned day. Non-festival rows pass through
+ * unchanged; single-day festivals get no range badge. The calendar grid keeps
+ * per-day rows (it needs a dot per day) -- this is for flat list surfaces only.
+ * The day-grouped local feed must NOT use it (a festival is listed on every day
+ * it runs: localFeedGroups). "Festivals further afield" keeps it as a guard:
+ * today its rows are one synthetic remote- row per festival, so nothing folds.
+ */
+export function collapseFestivals(events: MapEvent[]): MapEvent[] {
+  const rep = new Map<string, MapEvent>();
+  const ranges = festivalRangesByEvent(events);
+  for (const e of events) {
+    if (!isFestivalFormat(e)) continue;
     const cur = rep.get(e.event_id);
     if (!cur || preferFestivalRep(e, cur)) rep.set(e.event_id, e);
   }
@@ -532,10 +546,33 @@ export function collapseFestivals(events: MapEvent[]): MapEvent[] {
     if (emitted.has(e.event_id)) continue;
     emitted.add(e.event_id);
     const r = rep.get(e.event_id) ?? e;
-    const range = festivalRangeLabel(dates.get(e.event_id) ?? []);
+    const range = ranges.get(e.event_id);
     out.push(range ? { ...r, festivalDateRange: range } : r);
   }
   return out;
+}
+
+/**
+ * Stamp festivalDateRange on EVERY day-row of a multi-day festival, dropping
+ * none. For day-grouped lists: each day keeps its own row (and its own
+ * is_cancelled), and the badge says the row is one day of a longer festival.
+ */
+export function stampFestivalRanges(events: MapEvent[]): MapEvent[] {
+  const ranges = festivalRangesByEvent(events);
+  return events.map((e) => {
+    if (!isFestivalFormat(e)) return e;
+    const range = ranges.get(e.event_id);
+    return range ? { ...e, festivalDateRange: range } : e;
+  });
+}
+
+/**
+ * The local All-Events feed's day groups. A festival is listed on every day it
+ * runs (owner 2026-10-25): collapseFestivals here kept only its first day, so
+ * Pulse Festival (30 Oct - 1 Nov) vanished from Saturday and Sunday.
+ */
+export function localFeedGroups(events: MapEvent[]): DateGroup[] {
+  return groupByDate(stampFestivalRanges(events));
 }
 
 // ---- colocated events: one map pin per venue-coordinate -------------------

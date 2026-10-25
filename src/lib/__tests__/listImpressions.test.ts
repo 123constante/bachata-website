@@ -83,6 +83,19 @@ describe('listImpressions controller', () => {
     expect(send.mock.calls[0][1]).toEqual(['a']);
   });
 
+  it('keeps every row of a repeated id observed when each passes its own slot', () => {
+    // A multi-day festival lists one row per day, all with the same event id.
+    const c = setup();
+    const fri = mk();
+    const sat = mk();
+    c.track('pulse', '2026-10-30')(fri);
+    c.track('pulse', '2026-10-31')(sat);
+    see(fri, 1); vi.advanceTimersByTime(VISIBLE_MS);
+    c.flush();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][1]).toEqual(['pulse']);
+  });
+
   it('chunks at 60 ids per call', () => {
     const c = setup();
     for (let i = 0; i < 130; i++) {

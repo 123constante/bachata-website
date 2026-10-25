@@ -50,7 +50,10 @@ function gate(): string | null {
 }
 
 export type ImpressionController = {
-  track: (id: string | null | undefined) => (el: Element | null) => void;
+  /** `slot` tells apart rows that share one id (a festival listed once per day);
+   *  without it a second row's ref would detach the first. The id is still what
+   *  is recorded. */
+  track: (id: string | null | undefined, slot?: string) => (el: Element | null) => void;
   start: () => void;
   dispose: () => void;
   flush: () => void;
@@ -134,9 +137,10 @@ export function createImpressionController(
     observer?.unobserve(el);
   };
 
-  const track = (id: string | null | undefined) => {
+  const track = (id: string | null | undefined, slot = '') => {
     if (!id) return () => undefined;
-    let ref = refs.get(id);
+    const refKey = `${id}\u0000${slot}`;
+    let ref = refs.get(refKey);
     if (!ref) {
       let current: Element | null = null;
       ref = (el: Element | null) => {
@@ -144,7 +148,7 @@ export function createImpressionController(
         current = el;
         if (el) attach(el, id);
       };
-      refs.set(id, ref);
+      refs.set(refKey, ref);
     }
     return ref;
   };
