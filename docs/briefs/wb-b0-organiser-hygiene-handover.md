@@ -146,7 +146,24 @@ returning 400 `{code:'P0001', message:<server text>}`:
 
 ## Gates
 
-See the PR body for the per-job table (every CI step run in the sandbox).
+Every PR-triggered CI step run in the sandbox on 252ed69 (HEAD^1 = origin/main). No failure is
+caused by this branch.
+
+| workflow / job | result |
+|---|---|
+| typecheck (rpc-typing, wallclock-brand) | pass |
+| unit-tests: test:unit | the 6 changed organiser files pass (113 tests). 19 of 597 files fail in the sandbox: 4 contract files hit the sandbox DB ("Invalid API key", not prod); the other 15 fail the same way on origin/main, or pass when run alone (load flakes) |
+| unit-tests: timing, New_York / Sydney tz legs, dancer-area isolation | pass |
+| architecture-guard: integrity (check-integrity, legacy guards, lint:architecture, check:images AUDIT_STRICT=1, widths, plan-hygiene, artifact policy, mojibake, entry-point, going-legacy) | pass |
+| e2e-smoke: test:e2e | 146 pass. 2 fail, identically on origin/main: organiser-home.spec.ts:55 and organiser-layout.spec.ts:171 |
+| perf-budget: canaries, build, bundle budget, first-load requests, chunk cycles | pass (lighthouse is skipped for `claude/*`) |
+| workflow-lint (bom, masking, notification) | pass |
+| db-contract-check: gate, migration stamps, rollover, script conventions | pass. The live checks are env-blocked: the sandbox key is not prod, and no contract script imports the changed files |
+| phone-qa: phone suite (348 pass) and build-smoke (73 pass) | pass |
+| phone-qa-section | needs the `## Phone QA` section in the PR body (added) |
+| types-drift, seo, og, synthetic, live-qa, prod-smoke | skipped: path filter, or preview / prod only |
+| `npm run typecheck` | 95 errors on the branch, 95 on main, none in the changed files |
+| eslint on the changed files | 0 errors |
 
 ## Left / next steps
 
