@@ -172,6 +172,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
             city: dancerView.city,
             danceRole: dancerView.partnerRole,
             languages: extras.languages,
+            yearsDancing: dancerView.yearsDancing,
             contacts: worldModel.contacts,
           }}
           shareTitle={worldModel.shareTitle}

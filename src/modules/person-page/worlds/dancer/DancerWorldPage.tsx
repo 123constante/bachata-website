@@ -27,10 +27,10 @@ export function DancerWorldPage({ id, slug, input, shareTitle, inviteHref, owner
   ownerPlans?: ReactNode;
   breadcrumbs: BreadcrumbItemType[];
 }) {
-  const { name, photo, nationality, city, danceRole, languages, contacts } = input;
+  const { name, photo, nationality, city, danceRole, languages, yearsDancing, contacts } = input;
   const card = useMemo(
-    () => dancerCard({ name, photo, nationality, city, danceRole, languages, contacts }),
-    [name, photo, nationality, city, danceRole, languages, contacts],
+    () => dancerCard({ name, photo, nationality, city, danceRole, languages, yearsDancing, contacts }),
+    [name, photo, nationality, city, danceRole, languages, yearsDancing, contacts],
   );
   const lower = useDancerLower(id, slug);
   return (

@@ -37,6 +37,8 @@ function Card({ card }: { card: DancerCard }) {
         {card.name}
       </h1>
       {card.sub ? <p data-testid="dancer-world-sub" className="mt-1" style={{ fontSize: 15, color: T.card.muted }}>{card.sub}</p> : null}
+      {/* Owner 2026-10-25: years only, the sub line's style; absent = nothing, no gap. */}
+      {card.years ? <p data-testid="dancer-world-years" className="mt-1" style={{ fontSize: 15, color: T.card.muted }}>{card.years}</p> : null}
       {card.languages ? (
         <div data-testid="dancer-world-languages">
           <div aria-hidden style={{ height: 1, background: T.card.border, margin: '12px 0 10px' }} />

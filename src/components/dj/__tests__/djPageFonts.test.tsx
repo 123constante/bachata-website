@@ -44,7 +44,7 @@ describe('useDjPageFonts', () => {
   // S2 critique: a dancer page whose lower half previews the DJ world draws "Next gig ..." in the DJ
   // serif, so it loads the font too (it fell back to Georgia); a teacher-only preview does not.
   const preview = (role: 'dj' | 'teacher'): Preview => ({ role, kicker: role.toUpperCase(), href: `/${role}s/x`, line: 'Next gig Friday 6 November', detail: null });
-  const card = { name: 'Elias', photo: null, flag: null, sub: null, languages: null, contacts: [] };
+  const card = { name: 'Elias', photo: null, flag: null, sub: null, years: null, languages: null, contacts: [] };
   it.each([
     ['a DJ preview', [preview('dj')], 1],
     ['a DJ and a teacher preview', [preview('teacher'), preview('dj')], 1],
