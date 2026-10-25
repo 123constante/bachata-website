@@ -32,3 +32,6 @@ email, coded error under its field, already-exists link, send / toggle / resolve
 ## Checks
 Unit tests, typecheck, eslint on the module, build: see the PR body table. Browser walk at 390x844 and 360: see the
 PR body (Not verified if no screenshots are attached).
+
+Browser walk: done on the phone fake at 390x844 and 360x640, every screen x every shape, with findings and fixes:
+[`1033.md`](1033.md).
