@@ -172,3 +172,25 @@ caused by this branch.
    static test in `moveNotRemove.matrix.test.ts` will then need its expectation changed to `[]`).
 3. If a screen ever calls `savePlan` again, it must run through `useRunCommands` (which routes
    DateSteps), never straight through `runSeriesCommand`.
+
+## Phone render check (follow-up job dt_b321152e059f)
+
+Spec: `tests/e2e-phone/organiser-refusal-copy.phone.spec.ts` (phone suite, runs in `phone-qa.yml`).
+Real component: the change flow's "Take this date off" step (`flows/change/TakeOff.tsx`, `change-error-message`,
+button `change-off-confirm`), reached at `/account/o/change/:series/:date/off` with the go-live fake Supabase
+and `series_command_p5` answered with a P0001 refusal carrying each row's server text.
+
+- Rows come from the exported `COMMAND_COPY` (a sample server message is built from each row's pattern and must
+  map back to that row through `commandErrorMessage`, or the spec throws). 57 distinct sentences covered by the
+  count assertion (>= 25; includes the 25 wave B0 lines); the version-conflict row is skipped (its own screen).
+- Per sentence, at 390x844 and 360x640: note box not wider than itself (scrollWidth), no sideways page scroll,
+  no ellipsis, no clipping ancestor, note inside the viewport, confirm button >= 44 px tall, inside the viewport,
+  and the element at its centre (elementFromPoint); text contrast >= 4.5:1 against the composited background.
+- Red first: before the fix the longest title row (80-character title with no spaces) overflowed its box
+  (735 px of text in a 338 px box at 390 wide). Fix: `break-words` on the four `change-error-message` lines
+  (TakeOff, Copy, Pick, parts). After the fix all 56 checked sentences pass at both widths.
+- A second probe (a 400-character message) was tried, but it went through the real mapping and became the generic
+  sentence, so it proved nothing about layout; the real overflow failure above is the red evidence.
+- NOT verified: other screens that show these sentences (Details city error, DateSheet cancel/uncancel, NewFlow,
+  CoverFlow) are not rendered by this spec; they share the same text style but are not measured. Chromium only,
+  no safe-area inset, no real device.
