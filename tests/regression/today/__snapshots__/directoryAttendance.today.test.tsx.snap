@@ -43,7 +43,6 @@ link "Rate the dancing level" href=/event/past1#level-rating"
 exports[`directory + attendance at '390x844' > /dancers: empty > signed in, with plans 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
@@ -56,7 +55,6 @@ button "Find Partners""
 exports[`directory + attendance at '390x844' > /dancers: empty > signed out 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
@@ -69,7 +67,6 @@ button "Find Partners""
 exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed in, with plans 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
@@ -94,7 +91,6 @@ button "Find Partners""
 exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed out 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
@@ -159,7 +155,6 @@ link "Rate the dancing level" href=/event/past1#level-rating"
 exports[`directory + attendance at 'desktop' > /dancers: empty > signed in, with plans 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
@@ -172,7 +167,6 @@ button "Find Partners""
 exports[`directory + attendance at 'desktop' > /dancers: empty > signed out 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
@@ -185,7 +179,6 @@ button "Find Partners""
 exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed in, with plans 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
@@ -210,7 +203,6 @@ button "Find Partners""
 exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed out 1`] = `
 "heading "Find Practice Partners" level=3
 heading "Create a Profile" level=3
-heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
   img
