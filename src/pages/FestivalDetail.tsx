@@ -70,6 +70,7 @@ import {
 } from "@/lib/time/wallClock";
 
 import { resolveTransportMode } from "@/lib/transportMode";
+import { SHOW_PUBLIC_TIMETABLE } from "@/lib/festivalTimetable";
 
 import { FestivalStoriesCover } from "@/components/festival/FestivalStoriesCover";
 
@@ -3111,7 +3112,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
       {/* PROGRAMME / SCHEDULE */}
 
-      {days.length > 0 && hasTimedSession && (
+      {SHOW_PUBLIC_TIMETABLE && days.length > 0 && hasTimedSession && (
         <section className="program">
           <div className="program-wrap">
             <div className="section-h">

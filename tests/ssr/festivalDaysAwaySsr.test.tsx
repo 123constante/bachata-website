@@ -23,6 +23,7 @@
  * rather than the assertion being lenient.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+vi.mock('@/lib/festivalTimetable', () => ({ SHOW_PUBLIC_TIMETABLE: true })); // these specs exercise the schedule section
 import { renderToString } from 'react-dom/server';
 import { StaticRouter, Routes, Route } from 'react-router';
 
