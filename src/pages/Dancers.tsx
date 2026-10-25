@@ -7,6 +7,7 @@ import { usePeopleBadges } from '@/modules/person-page/badges';
 import { DancersWall, MEDIA_BOOKING_HREF } from '@/modules/person-page/wall/lists';
 import { HOME_ANNOUNCE_HREF } from '@/lib/homeAnnounceBanner';
 import { flags } from '@/lib/featureFlags';
+import { VIDEOGRAPHERS_PATH, isPathPublic } from '@/lib/videographersPublic';
 import { dancerHref, dancerTags, onlyDancers } from '@/components/dancers/dancerListModel';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { emitProfileView } from '@/lib/profileViewEmit';
@@ -155,19 +156,21 @@ const Dancers = () => {
                 <h3 className="font-bold text-xs md:text-sm text-foreground">Create a Profile</h3>
               </motion.div>
 
-              {/* Book Media Widget */}
-              <motion.div
-                onClick={() => (flags.peopleWall ? navigate(MEDIA_BOOKING_HREF) : navigate('/photographers'))}
-                className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 backdrop-blur-sm rounded-2xl border border-blue-500/30 shadow-lg w-[140px] md:w-[160px]"
-                whileHover={{ 
-                  scale: 1.05, 
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Camera className="w-7 h-7 md:w-9 md:h-9 mb-2 text-blue-400" aria-hidden="true" />
-                <h3 className="font-bold text-xs md:text-sm text-foreground">Book a Photoshoot</h3>
-              </motion.div>
+              {/* Book Media Widget: hidden while the /videographers page is hidden (no card may point at it) */}
+              {isPathPublic(VIDEOGRAPHERS_PATH) ? (
+                <motion.div
+                  onClick={() => (flags.peopleWall ? navigate(MEDIA_BOOKING_HREF) : navigate('/photographers'))}
+                  className="cursor-pointer p-4 md:p-5 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 backdrop-blur-sm rounded-2xl border border-blue-500/30 shadow-lg w-[140px] md:w-[160px]"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Camera className="w-7 h-7 md:w-9 md:h-9 mb-2 text-blue-400" aria-hidden="true" />
+                  <h3 className="font-bold text-xs md:text-sm text-foreground">Book a Photoshoot</h3>
+                </motion.div>
+              ) : null}
             </div>
           </ScrollReveal>
 

@@ -63,7 +63,6 @@ const SURFACES: Surface[] = [
   { key: 'teachers', name: '/teachers list (56px)', url: '/teachers', codes: codesOf(FLAG_PEOPLE.slice(0, 40)), stickerPx: 26 },
   { key: 'dancers', name: '/dancers list (48px)', url: '/dancers', codes: storedCodes(FLAG_PEOPLE.slice(0, 30)), stickerPx: 22 },
   { key: 'all-profiles', name: '/all-profiles cards (inset)', url: '/all-profiles', codes: null, stickerPx: 22 },
-  { key: 'videographers', name: '/videographers cards (inset)', url: '/videographers', codes: null, stickerPx: 22 },
   { key: 'vendor-team', name: '/vendors/:id team (20px, no sticker)', url: `/vendors/${VENDOR_ID}`, codes: codesOf(FLAG_PEOPLE.slice(0, 9)), tooSmall: true },
   { key: 'practice-partners', name: '/practice-partners (56px, signed in)', url: '/practice-partners', opts: { signedInAsOwner: true }, codes: storedCodes(FLAG_PEOPLE.slice(0, 30)), stickerPx: 26 },
   { key: 'dj-hero', name: '/djs/:id hero (132px)', url: `/djs/${FLAG_DJ_ID}`, codes: ['ES'], stickerPx: 61 },

@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
 import { isRoutable } from '@/lib/__tests__/routeTable';
 
-const h = vi.hoisted(() => ({ nav: [] as string[], dancers: [] as unknown[], names: [] as unknown[], badges: [] as unknown[], badgesError: false, djs: [] as unknown[] }));
+const h = vi.hoisted(() => ({ nav: [] as string[], dancers: [] as unknown[], names: [] as unknown[], badges: [] as unknown[], badgesError: false, djs: [] as unknown[], videographers: false }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: null, isLoading: false, authStatus: 'ready' }),
@@ -22,6 +22,12 @@ vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useNavigate: () => (to: string) => { h.nav.push(to); },
+}));
+// The videographers page is hidden by one constant; the card on /dancers follows it. isPathPublic is
+// re-implemented over the test's switch so both states render from the same Dancers code.
+vi.mock('@/lib/videographersPublic', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/videographersPublic')>()),
+  isPathPublic: (p: string) => h.videographers || p !== '/videographers',
 }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({
@@ -159,12 +165,15 @@ describe('flags.peopleWall', () => {
   // The hero cards on /dancers: ON they open REAL routes; OFF they keep today's targets (both unrouted,
   // a separate follow-up, not fixed here).
   it.each([
-    ['Create a Profile', true, '/auth?mode=signup&userType=dancer'],
-    ['Book a Photoshoot', true, '/videographers'],
-    ['Create a Profile', false, '/create-dancers-profile'],
-    ['Book a Photoshoot', false, '/photographers'],
-  ] as const)('/dancers hero card "%s", flag ON=%s -> %s', async (card, on, target) => {
+    ['Create a Profile', true, true, '/auth?mode=signup&userType=dancer'],
+    ['Create a Profile', true, false, '/auth?mode=signup&userType=dancer'],
+    ['Create a Profile', false, true, '/create-dancers-profile'],
+    ['Create a Profile', false, false, '/create-dancers-profile'],
+    ['Book a Photoshoot', true, true, '/videographers'],
+    ['Book a Photoshoot', false, true, '/photographers'],
+  ] as const)('/dancers hero card "%s", flag ON=%s, videographers page public=%s -> %s', async (card, on, vg, target) => {
     setWall(on);
+    h.videographers = vg;
     mount(<Dancers />); await wait();
     // The card is a motion.div: call the onClick React holds for it (a synthetic click through
     // framer-motion's tap gesture never returns under jsdom).
@@ -173,6 +182,15 @@ describe('flags.peopleWall', () => {
     (el as unknown as Record<string, { onClick: () => void }>)[key].onClick();
     expect(h.nav).toEqual([target]);
     expect(isRoutable(target)).toBe(on);
+  });
+
+  // While the page is hidden the card is absent in BOTH flag states: no copy points at a hidden page.
+  it.each([[true], [false]] as const)('/dancers: "Book a Photoshoot" is absent while /videographers is hidden (flag ON=%s)', async (on) => {
+    setWall(on);
+    h.videographers = false;
+    mount(<Dancers />); await wait();
+    expect(screen.queryByText('Book a Photoshoot')).toBeNull();
+    expect(screen.getByText('Create a Profile')).toBeTruthy();
   });
 
   // Flag OFF: the whole rendered page equals the snapshot taken from origin/main's pages (written in a

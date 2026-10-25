@@ -201,7 +201,7 @@ export const PUBLIC_ROUTES = [
  */
 export const FLAG_ROUTES = [
   '/djs', `/djs/${FLAG_DJ_ID}`, `/vendors/${VENDOR_ID}`, '/search?q=a', `/organisers/${ORG3_SLUG}`, '/teachers', '/dancers', `/dancers/${FLAG_DANCER_ID}`,
-  '/all-profiles', '/videographers', '/practice-partners', `/event/${FLAG_EVENT_SLUG}`, `/festival/${FLAG_FESTIVAL_SLUG}`, '/account',
+  '/all-profiles', '/practice-partners', `/event/${FLAG_EVENT_SLUG}`, `/festival/${FLAG_FESTIVAL_SLUG}`, '/account',
 ] as const;
 
 /** Signed in as the owner, with one drafted field so the Save bar is showing. */

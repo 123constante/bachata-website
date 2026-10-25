@@ -9,6 +9,7 @@ import type { PersonBadge } from '@/modules/person-page/badges';
 import { djWallPerson, dancerWallPerson, type DjWallRow } from './model';
 import { PeopleWall, WallSkeleton } from './PeopleWall';
 import { WALL } from './tokens';
+import { VIDEOGRAPHERS_PATH } from '@/lib/videographersPublic';
 
 type DjRow = DjWallRow & { display_name: string | null; first_name?: string | null; surname?: string | null };
 
@@ -41,7 +42,7 @@ export function DjsWall({ djs, isLoading, badges, badgesFailed, teacherPagesOpen
  * (= SITE_IA.videographers.path, pinned by wall.test; today's /photographers is unrouted). Literal for
  * the same chunk reason as ORGANISERS_HREF in PeopleWall.tsx.
  */
-export const MEDIA_BOOKING_HREF = '/videographers';
+export const MEDIA_BOOKING_HREF = VIDEOGRAPHERS_PATH;
 
 type DancerRow = { id: string; avatar_url: string | null; nationality?: string | null };
 
