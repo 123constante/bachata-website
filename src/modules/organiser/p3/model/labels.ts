@@ -54,6 +54,13 @@ export const L = {
   backDraft: 'Take it off the calendar (back to draft)',
   stopRepeat: 'Stop repeating, I will add dates myself',
   allDone: 'All classes done',
+  draftTag: 'Draft',
+  noDatesYet: 'No dates yet',
+  today: 'Today',
+  tonight: 'Tonight',
+  tomorrow: 'Tomorrow',
+  views: 'views',
+  going: 'going',
 
   // save
   saveOne: 'Save for this date',
