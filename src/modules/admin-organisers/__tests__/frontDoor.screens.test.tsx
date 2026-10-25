@@ -100,6 +100,7 @@ describe('Add organiser', () => {
     fireEvent.submit(screen.getByTestId('add-organiser'));
     expect((await screen.findByTestId('add-open-organiser')).getAttribute('href')).toBe('/organisers/o9');
     h.rpc.mockImplementationOnce(() => Promise.reject(new Error('net')));
+    fill(); // the form emptied after the answer (#1033 critique C4)
     fireEvent.change(screen.getByTestId('add-organiser-name'), { target: { value: 'Other' } });
     fireEvent.submit(screen.getByTestId('add-organiser'));
     expect((await screen.findByTestId('add-error-form')).textContent).toMatch(/not added/);

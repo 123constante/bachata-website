@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NEEDS_YOU_KEY, fetchNeedsYou, resolveClaim, type Decision, type NeedsItem } from './frontDoorApi';
 import {
-  NEEDS_EMPTY, NEEDS_LOAD_ERROR, REASON_HELP, REASON_LABEL, canResolve, groupItems, resolveMessage,
+  NEEDS_EMPTY, NEEDS_LOAD_ERROR, REASON_HELP, REASON_LABEL, canResolve, groupItems, itemNote, resolveMessage,
 } from './needsYouModel';
 import { NETWORK_ERROR_TEXT } from './frontDoorListModel';
 import { BTN, BTN_PRIMARY, organiserHref } from './frontDoorUi';
@@ -32,6 +32,7 @@ function Item({ item }: { item: NeedsItem }) {
         )}
         {item.organiserId && <a className={BTN} href={organiserHref(item.organiserId)} data-testid="needs-open">Open the page</a>}
       </div>
+      {itemNote(item) && <p className="text-xs text-muted-foreground" data-testid="needs-no-page">{itemNote(item)}</p>}
       {note && <p role={note.ok ? 'status' : 'alert'} className={`text-sm ${note.ok ? '' : 'text-destructive'}`} data-testid="needs-note">{note.text}</p>}
     </li>
   );

@@ -6,7 +6,7 @@ import {
   CHIP_HELP, CHIP_LABEL, LIST_EMPTY, LIST_LOAD_ERROR, NETWORK_ERROR_TEXT, chipCounts, filterRows,
   inviteStateText, runByUsControl, runByUsMessage, sendControl, sendMessage,
 } from './frontDoorListModel';
-import { BTN, BTN_PRIMARY, organiserHref } from './frontDoorUi';
+import { BTN, BTN_PRIMARY, organiserHref, switchLabel } from './frontDoorUi';
 
 function Row({ row }: { row: FrontDoorRow }) {
   const queryClient = useQueryClient();
@@ -48,7 +48,7 @@ function Row({ row }: { row: FrontDoorRow }) {
           aria-describedby={sc.disabledReason ? sendReason : undefined}
           onClick={() => { if (busy.current) return; busy.current = true; setNote(null); send.mutate(); }}
         >{send.isPending ? 'Sending…' : sc.label}</button>
-        <label className="flex min-h-[44px] items-center gap-2 text-sm">
+        <label className={switchLabel(rb.disabledReason !== null)}>
           <input
             type="checkbox" role="switch" className="h-6 w-6" checked={rb.on} data-testid="fd-run-by-us"
             disabled={rb.disabledReason !== null || pending}

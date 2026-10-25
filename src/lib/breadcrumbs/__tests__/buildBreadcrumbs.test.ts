@@ -244,10 +244,10 @@ describe('buildBreadcrumbs — flow routes', () => {
 });
 
 describe('buildBreadcrumbs — admin front door (#1033 critique)', () => {
-  it('admin.organisers.frontDoor -> [Organiser access (link), Add and manage organisers]', () => {
+  it('admin.organisers.frontDoor -> [Organiser access (link), Add and manage]', () => {
     expect(buildBreadcrumbs('admin.organisers.frontDoor')).toEqual([
       { label: 'Organiser access', path: '/admin/organisers' },
-      { label: 'Add and manage organisers' },
+      { label: 'Add and manage' },
     ]);
   });
   it('admin.organisers alone is still one unlinked crumb', () => {

@@ -27,7 +27,7 @@ export function sendControl(row: FrontDoorRow): SendControl {
     return { show: true, label: 'Send invite', disabledReason: 'Already joined, so there is nothing to send.' };
   }
   if (row.chip === 'run_by_us' && row.inviteStatus === 'none') {
-    return { show: true, label: 'Send invite', disabledReason: 'Run by us. Switch Run by us off first to prepare an invite.' };
+    return { show: true, label: 'Send invite', disabledReason: 'We run this page, so there is no invite. Switch Run by us off first to prepare one.' };
   }
   switch (row.inviteStatus) {
     case 'none':

@@ -104,9 +104,20 @@ test.describe('Organisers list', () => {
   test('prod: All 48 = Run by us 42, Invited 0, Joined 2, Live 4', async ({ page }) => {
     only390('main');
     await page.addInitScript(() => {
-      const w = window as unknown as { __cls: number };
+      // Two sums: every shift, and only shifts of boxes INSIDE the front-door screen. The site shell's own
+      // shifts (footer, the fake-only dancer-profile banner pushing <main> down) are not this screen's.
+      type Shift = { value: number; hadRecentInput: boolean; sources?: { node?: Node | null }[] };
+      const w = window as unknown as { __cls: number; __clsScreen: number };
       w.__cls = 0;
-      new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__cls += e.value; })
+      w.__clsScreen = 0;
+      const inScreen = (n?: Node | null) => !!n && !!(n instanceof Element ? n : n.parentElement)?.closest('[data-testid="front-door"]');
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries() as unknown as Shift[]) {
+          if (e.hadRecentInput) continue;
+          w.__cls += e.value;
+          if ((e.sources ?? []).some((x) => inScreen(x.node))) w.__clsScreen += e.value;
+        }
+      })
         .observe({ type: 'layout-shift', buffered: true });
     });
     await open(page, { list: PROD_LIST, needs: PROD_NEEDS }, 'list');
@@ -128,13 +139,15 @@ test.describe('Organisers list', () => {
     await expect(page.getByTestId('fd-back')).toHaveAttribute('href', '/admin/organisers');
     const crumbs = page.getByRole('navigation', { name: /breadcrumb/i });
     await expect(crumbs.getByRole('link', { name: 'Organiser access' })).toHaveAttribute('href', '/admin/organisers');
-    await expect(crumbs).toContainText('Add and manage organisers');
+    // The last crumb is short enough to show whole at 360 (the long form was cut to "Add and manage organi...").
+    const last = crumbs.getByText('Add and manage', { exact: true });
+    expect(await last.evaluate((el) => el.scrollWidth <= el.clientWidth), 'last crumb shown whole').toBe(true);
     await screenChecks(page, 'list prod');
     // Late data (the list, then the Needs you badge) must not push the page about: CLS, logged for the record.
     await expect(page.getByTestId('needs-badge')).toHaveText('23');
-    const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
-    console.log(`[1033] layout shift after the list and badge arrive (${test.info().project.name}): ${cls.toFixed(4)}`);
-    expect(cls, 'layout shift < 0.1').toBeLessThan(0.1);
+    const [all, screen] = await page.evaluate(() => { const w = window as unknown as { __cls: number; __clsScreen: number }; return [w.__cls, w.__clsScreen]; });
+    console.log(`[1033] layout shift (${test.info().project.name}): inside the screen ${screen.toFixed(4)}, whole page ${all.toFixed(4)}`);
+    expect(screen, 'the screen itself does not shift as the list and badge arrive').toBeLessThan(0.01);
     await shot(page, `organisers-prod${size()}`, false);
   });
 
@@ -328,6 +341,7 @@ test.describe('Add', () => {
       await fill(page, f);
       await page.getByTestId('add-submit').click();
       await expect(page.getByTestId('add-outcome')).toContainText(words);
+      await expect(page.getByTestId('add-outcome'), 'the answer is on screen, not under the fold (#1033 critique C18)').toBeInViewport({ ratio: 0.9 });
       await expect(page.getByTestId('add-open-organiser')).toBeVisible();
       // Done means done: the form empties so a second tap cannot add it again (#1033 critique C4).
       await expect(page.getByTestId('add-organiser-name')).toHaveValue('');
@@ -349,6 +363,7 @@ test.describe('Add', () => {
       await fill(page, { email: code === 'EMAIL_INVALID' ? 'agapi@' : undefined });
       await page.getByTestId('add-submit').click();
       await expect(page.getByTestId(`add-error-${field ?? 'form'}`)).toHaveText(text);
+      await expect(page.getByTestId(`add-error-${field ?? 'form'}`), 'the error is on screen (#1033 critique C18)').toBeInViewport();
       await expect(page.getByTestId('add-outcome')).toHaveCount(0);
       await screenChecks(page, `add ${code}`);
       await shot(page, `add-error-${code.toLowerCase().replace(/_/g, '-')}`);

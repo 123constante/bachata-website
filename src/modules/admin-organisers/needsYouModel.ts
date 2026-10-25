@@ -26,6 +26,10 @@ export function groupItems(items: readonly NeedsItem[]) {
   return REASON_ORDER.map((reason) => ({ reason, items: items.filter((i) => i.reason === reason) })).filter((g) => g.items.length > 0);
 }
 
+/** An item with nothing to open says so in words, never a bare label (#1033 critique C6). */
+export const NO_PAGE_TEXT = 'No page is linked to this one, so there is nothing to open.';
+export const itemNote = (item: NeedsItem): string | null => (item.organiserId ? null : NO_PAGE_TEXT);
+
 export const NEEDS_EMPTY = {
   title: 'Nothing needs you right now',
   body: 'You can add an organiser, or open the organisers list to check on invites.',

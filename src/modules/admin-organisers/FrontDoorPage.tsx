@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,7 +28,9 @@ function FrontDoorBody() {
     <div className="mx-auto max-w-2xl space-y-3 px-3 pb-24 pt-3" data-testid="front-door">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">Add and manage organisers</h1>
-        <a href="/admin/organisers" className={BTN} data-testid="fd-back">Access</a>
+        <a href="/admin/organisers" className={BTN} aria-label="Back to Organiser access" data-testid="fd-back">
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />Back
+        </a>
       </div>
       <div role="tablist" className="flex gap-1.5">
         {tabBtn('add', 'Add')}
@@ -43,7 +46,7 @@ function FrontDoorBody() {
 
 function Gate() {
   const admin = useIsAdmin();
-  if (admin.isAdmin) return <GlobalLayout breadcrumbs={buildBreadcrumbs('admin.organisers')}><FrontDoorBody /></GlobalLayout>;
+  if (admin.isAdmin) return <GlobalLayout breadcrumbs={buildBreadcrumbs('admin.organisers.frontDoor')}><FrontDoorBody /></GlobalLayout>;
   return (
     <GlobalLayout>
       {admin.isPending ? (

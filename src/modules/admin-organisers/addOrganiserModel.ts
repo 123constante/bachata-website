@@ -64,7 +64,7 @@ export function outcomeFor(r: Exclude<AddResult, { kind: 'error' }>): AddOutcome
     };
   }
   const lines: string[] = [];
-  if (r.inviteQueued) lines.push('Page is live. An invite is ready; nothing is sent until you tap Send.');
+  if (r.inviteQueued) lines.push('Page is live. An invite is ready; nothing is sent until you tap Send invite.');
   else if (r.runByUs) lines.push('Page is live and run by us. No invite was prepared.');
   else lines.push('Page is live.');
   if (r.personReused) lines.push('An existing person with this email was used as the contact, so no duplicate was made.');

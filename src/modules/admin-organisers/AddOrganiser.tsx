@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { addOrganiser, FRONT_DOOR_LIST_KEY, type AddResult } from './frontDoorApi';
@@ -13,13 +13,19 @@ export function AddOrganiser({ onOpenList }: { onOpenList: () => void }) {
   const [form, setForm] = useState<AddForm>(EMPTY_FORM);
   const [result, setResult] = useState<AddResult | null>(null);
   const inFlight = useRef(false);
+  const answer = useRef<HTMLElement | null>(null);
+  // The answer (card or form-level error) sits under the submit button, below the fold on a phone: bring it on screen (#1033 critique C18).
+  useEffect(() => { if (result) answer.current?.scrollIntoView?.({ block: 'nearest' }); }, [result]);
   const set = <K extends keyof AddForm>(k: K, v: AddForm[K]) => { setForm((f) => ({ ...f, [k]: v })); setResult(null); };
 
   const add = useMutation({
     mutationFn: () => addOrganiser(form),
     onSuccess: (r) => {
       setResult(r);
-      if (r.kind !== 'error') void queryClient.invalidateQueries({ queryKey: FRONT_DOOR_LIST_KEY });
+      if (r.kind === 'error') return;
+      // Added (or already there): empty the form so the armed submit cannot add it twice (#1033 critique C4).
+      setForm(EMPTY_FORM);
+      void queryClient.invalidateQueries({ queryKey: FRONT_DOOR_LIST_KEY });
     },
     onError: () => setResult({ kind: 'error', code: 'NETWORK', field: null }),
     onSettled: () => { inFlight.current = false; },
@@ -76,9 +82,9 @@ export function AddOrganiser({ onOpenList }: { onOpenList: () => void }) {
         {add.isPending ? 'Adding…' : 'Add organiser'}
       </button>
       {blocked && <p id="add-blocked" className="text-xs text-muted-foreground" data-testid="add-blocked">{blocked}</p>}
-      {err && !err.field && <p role="alert" className="text-sm text-destructive" data-testid="add-error-form">{err.text || ADD_ERROR_FALLBACK}</p>}
+      {err && !err.field && <p ref={(el) => { answer.current = el; }} role="alert" className="text-sm text-destructive" data-testid="add-error-form">{err.text || ADD_ERROR_FALLBACK}</p>}
       {outcome && (
-        <div role="status" data-testid="add-outcome" data-kind={result?.kind} className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+        <div ref={(el) => { answer.current = el; }} role="status" data-testid="add-outcome" data-kind={result?.kind} className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
           <p className="text-sm font-semibold">{outcome.title}</p>
           {outcome.lines.map((l) => <p key={l} className="text-sm">{l}</p>)}
           <div className="flex flex-wrap gap-2">

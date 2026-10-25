@@ -7,7 +7,7 @@ export function FrontDoorEntry() {
   const badge = badgeText(useNeedsYouCount());
   return (
     <a href="/admin/organisers/front-door" className={`${BTN_PRIMARY} w-full`} data-testid="front-door-entry">
-      Add organiser and Needs you
+      Add and manage organisers
       {badge && <span className={BADGE} data-testid="entry-badge">{badge}</span>}
     </a>
   );
