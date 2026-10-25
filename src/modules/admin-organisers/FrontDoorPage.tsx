@@ -10,7 +10,7 @@ import { FrontDoorList } from './FrontDoorList';
 import { NeedsYou } from './NeedsYou';
 import { useNeedsYouCount } from './useNeedsYouCount';
 import { badgeText } from './needsYouModel';
-import { BTN } from './frontDoorUi';
+import { BADGE, BTN } from './frontDoorUi';
 
 type Tab = 'add' | 'list' | 'needs';
 
@@ -20,7 +20,7 @@ function FrontDoorBody() {
   const tabBtn = (t: Tab, label: string, extra?: string | null) => (
     <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} data-testid={`fd-tab-${t}`}
       className={`min-h-[44px] flex-1 rounded-lg px-2 text-sm font-medium ${tab === t ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-      {label}{extra && <span className="ml-1 rounded-full bg-destructive px-1.5 py-0.5 text-xs text-destructive-foreground" data-testid="needs-badge">{extra}</span>}
+      {label}{extra && <span className={BADGE} data-testid="needs-badge">{extra}</span>}
     </button>
   );
   return (

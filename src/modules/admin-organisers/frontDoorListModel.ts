@@ -31,11 +31,15 @@ export function sendControl(row: FrontDoorRow): SendControl {
   }
   switch (row.inviteStatus) {
     case 'none':
-      return { show: true, label: 'Send invite', disabledReason: 'No invite is prepared. Switch Run by us off to prepare one.' };
+      // Only a row that is NOT run by us gets here, so its switch is already off.
+      return { show: true, label: 'Send invite', disabledReason: 'No invite is prepared. Switch Run by us on, then off again, to prepare one; it needs their email.' };
     case 'sent':
       return { show: true, label: 'Invite sent', disabledReason: 'The invite has already been sent.' };
     case 'skipped':
-      return { show: true, label: 'Send invite', disabledReason: 'The invite was skipped because the page changed. Switch Run by us off and on again, or add a new organiser.' };
+      return {
+        show: true, label: 'Send invite',
+        disabledReason: `The invite was skipped because the page changed. Switch Run by us ${row.chip === 'run_by_us' ? 'off and on' : 'on, then off'} again, or add a new organiser.`,
+      };
     case 'failed':
       return { show: true, label: 'Send invite again', disabledReason: null };
     case 'queued':

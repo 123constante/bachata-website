@@ -34,7 +34,10 @@ function Row({ row }: { row: FrontDoorRow }) {
   return (
     <li className="space-y-2 p-3" data-testid="fd-row" data-chip={row.chip}>
       <div className="flex items-start justify-between gap-2">
-        <a href={organiserHref(row.organiserId)} className="min-w-0 flex-1 break-words text-sm font-medium underline-offset-2 hover:underline">{row.name}</a>
+        <a href={organiserHref(row.organiserId)} className="flex min-h-[44px] min-w-0 flex-1 items-center text-sm font-medium underline-offset-2 hover:underline">
+          {/* the text is its own flex item so a long unbroken name can shrink and wrap (#1033 walk) */}
+          <span className="min-w-0 break-words">{row.name}</span>
+        </a>
         <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-xs font-medium" data-testid="fd-chip">{CHIP_LABEL[row.chip]}</span>
       </div>
       {state && <p className="text-xs text-muted-foreground" data-testid="fd-invite-state">{state}</p>}
