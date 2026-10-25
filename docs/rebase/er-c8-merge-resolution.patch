@@ -1,0 +1,600 @@
+diff --git a/src/modules/organiser/__tests__/parity-matrix.test.ts b/src/modules/organiser/__tests__/parity-matrix.test.ts
+index 511afc6..b7c0629 100644
+--- a/src/modules/organiser/__tests__/parity-matrix.test.ts
++++ b/src/modules/organiser/__tests__/parity-matrix.test.ts
+@@ -264,10 +264,7 @@ export const PARITY: Row[] = [
+     shows: [['events/ProgrammeSheet.tsx', 'prog-add-person'], ['events/ProgrammeSheet.tsx', 'prog-recent']] },
+   { id: 'C13', capability: 'See + edit the sessions inside one date', verdict: 'MATCH', screen: LINEUP, from: TO_LINEUP,
+     sends: [SAVE_PROGRAMME], shows: [['shared/selfServeApi.ts', "programmeRpc('organiser_get_occurrence_programme_v1'"], [SHEET, 'label="Type"']] },
+-  { id: 'C14', capability: 'Usual start / end time', verdict: 'MATCH', screen: DETAILS, from: [[DETAILS, 'detailEditPath']],
+-    sends: [
+-      upsert(['name', 'default_local_start_time'], () => detailCommand(ws, 'time', '21:00'), DETAILS, 'detailCommand('),
+-    ] },
++  { id: 'C14', capability: 'Usual start / end time', verdict: 'DROPPED-BY-DECISION', decision: 'ER rule 1 (time comes from the sessions)' },
+   { id: 'C15', capability: 'Repeat rule (weekly)', verdict: 'MATCH', screen: ONE, from: TO_STEP,
+     sends: [
+       { in: 'flows/event/EventStep.tsx', token: 'dayChangeCommand(', kind: 'series.set_recurrence', keys: ['mode', 'weekdays', 'interval', 'end'], build: () => dayChangeCommand(ws.series.recurrence_rule, 3) },
+@@ -543,7 +540,7 @@ describe('organiser parity matrix', () => {
+   it('the counts: MATCH / PARTIAL / admin-only / dropped, nothing left to fill', () => {
+     const count = (v: Verdict) => PARITY.filter((r) => r.verdict === v).length;
+     expect({ match: count('MATCH'), partial: count('PARTIAL'), adminOnly: count('MISSING-ADMIN-ONLY'), dropped: count('DROPPED-BY-DECISION') })
+-      .toEqual({ match: 43, partial: 9, adminOnly: 8, dropped: 11 });
++      .toEqual({ match: 42, partial: 9, adminOnly: 8, dropped: 12 });
+   });
+ });
+ 
+diff --git a/src/modules/organiser/events/__tests__/er-c8.fix2.page.test.tsx b/src/modules/organiser/events/__tests__/er-c8.fix2.page.test.tsx
+new file mode 100644
+index 0000000..c6c6f2e
+--- /dev/null
++++ b/src/modules/organiser/events/__tests__/er-c8.fix2.page.test.tsx
+@@ -0,0 +1,307 @@
++// @vitest-environment jsdom
++// ER-FIX2-S5: the rebuilt event page after the audit, rendered (EP-1..EP-10, the per-event switch).
++// The server is faked; every test here ran RED on the unfixed page first (handover ER-FIX2-S5).
++import { createElement, type ReactNode } from 'react';
++import { MemoryRouter, Route, RouterProvider, Routes, createMemoryRouter } from 'react-router-dom';
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
++import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { parseEventWorkspace } from '../eventModel';
++import { ORG_PATHS } from '../../shell';
++import { RebuildSwitchContext } from '../../shell/rebuildSwitch';
++import { TODAY, rawWorkspace } from './fixtures';
++
++const h = vi.hoisted(() => ({
++  send: vi.fn(),
++  error: null as string | null,
++  done: vi.fn(),
++  role: 'owner' as 'owner' | 'manager' | null,
++  ws: { data: undefined as unknown, isError: false, isFetching: false, refetch: vi.fn(), error: null },
++  check: undefined as unknown,
++}));
++
++vi.mock('@/modules/organiser/flows/add/useFlow', () => ({
++  useFlowSend: () => ({ send: h.send, run: async (w: () => Promise<void>) => w(), busy: false, conflict: false, error: h.error }),
++  useFlowHome: () => ({ data: undefined, isError: false, isFetching: false, refetch: vi.fn() }),
++}));
++vi.mock('@/modules/organiser/flows/doneState', async (orig) => ({
++  ...(await orig<typeof import('@/modules/organiser/flows/doneState')>()),
++  goDone: (...a: unknown[]) => h.done(...a),
++}));
++vi.mock('@/modules/organiser/shared/publicVenues', async (orig) => ({
++  ...(await orig<typeof import('@/modules/organiser/shared/publicVenues')>()),
++  useVenueOptions: () => ({ data: [{ id: 'v1', name: 'Studio One', neighbourhood: 'Soho', city_name: 'London', address: null, postcode: null }], isError: false, isFetching: false, refetch: vi.fn() }),
++}));
++vi.mock('@/modules/organiser/shared/goLiveCheck', async (orig) => ({
++  ...(await orig<object>()),
++  useGoLiveCheck: () => ({ data: h.check, isError: false }),
++}));
++vi.mock('../programmeSeriesApi', () => ({ useSeriesRole: () => ({ role: h.role, loading: false, myPages: [] }) }));
++vi.mock('../EventList', () => ({ EventList: () => null }));
++vi.mock('@/modules/organiser/venue', () => ({ VenuePicker: () => null }));
++vi.mock('../../dates/peoplePicker', () => ({ searchPickerRows: vi.fn(async () => []) }));
++vi.mock('../../shared/useOrganiserSeries', async (orig) => ({ ...(await orig<object>()), useOrganiserSeries: () => ({ state: 'found' }) }));
++vi.mock('../eventsApi', async (orig) => ({ ...(await orig<object>()), useEventWorkspace: () => h.ws }));
++vi.mock('../ProfileLock', async (orig) => ({ ...(await orig<object>()), useEventLock: () => ({ locked: false, reason: null }) }));
++
++import { EventPage } from '../EventPage';
++import OneEvent from '../OneEvent';
++
++const item = (id: string, start: string, end: string) => ({ item: { id, type: 'party', title: 'Party', start_time: start, end_time: end, level_keys: [] }, people: [] });
++const PROGRAM = [{ day: { id: 'd1', day_index: 0 }, sections: [{ section: { id: 's1', kind: 'party' }, items: [item('i1', '21:00', '23:30')] }] }];
++const dates = (n: number, from = 1) => Array.from({ length: n }, (_, i) => {
++  const d = new Date(Date.UTC(2026, 10, from + i));
++  return { id: `o${i}`, occurrence_date: d.toISOString().slice(0, 10), lifecycle_status: 'scheduled', version: 1 };
++});
++
++function ws(over: Record<string, unknown> = {}, occurrences: unknown[] = dates(3)) {
++  const raw = rawWorkspace({ default_ticket_url: 'https://t.example/x', ...over }, occurrences);
++  (raw.series as { program: unknown }).program = PROGRAM;
++  return parseEventWorkspace(raw);
++}
++
++const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
++function mount(w: ReturnType<typeof ws>) {
++  const wrap = ({ children }: { children?: ReactNode }) => createElement(QueryClientProvider, { client: client() }, createElement(MemoryRouter, null, children));
++  return render(createElement(EventPage, { ws: w, today: TODAY }), { wrapper: wrap });
++}
++/** The page under a data router, so leaving through any link can be seen (EP-5). */
++function mountRouted(w: ReturnType<typeof ws>) {
++  const router = createMemoryRouter([
++    { path: ORG_PATHS.event('s1'), element: createElement(EventPage, { ws: w, today: TODAY }) },
++    { path: '*', element: createElement('div', { 'data-testid': 'elsewhere' }) },
++  ], { initialEntries: [ORG_PATHS.event('s1')] });
++  render(createElement(QueryClientProvider, { client: client() }, createElement(RouterProvider, { router })));
++  return router;
++}
++/** The whole route (OneEvent -> RebuiltEvent -> EventPage), switch context given. */
++function mountRoute(raw: string | undefined, on = false) {
++  const value = { raw, on, pending: false };
++  const qc = client();
++  // A fresh element each time, so a rerender really renders OneEvent again (a new read of the event).
++  const tree = () => createElement(QueryClientProvider, { client: qc }, createElement(RebuildSwitchContext.Provider, { value },
++    createElement(MemoryRouter, { initialEntries: ['/e/s1'] }, createElement(Routes, null, createElement(Route, { path: '/e/:seriesId', element: createElement(OneEvent) })))));
++  const out = render(tree());
++  return { ...out, again: () => out.rerender(tree()) };
++}
++
++const testId = (id: string) => screen.queryByTestId(id);
++async function rename(name: string) {
++  fireEvent.click(screen.getByTestId('org-event-title'));
++  fireEvent.change(await screen.findByTestId('org-rename-input'), { target: { value: name } });
++  fireEvent.click(screen.getByTestId('org-rename-done'));
++  await waitFor(() => expect(testId('org-rename-input')).toBeNull());
++}
++
++beforeEach(() => {
++  h.send.mockReset().mockResolvedValue({ ok: true, new_version: 9 });
++  h.done.mockReset();
++  h.error = null;
++  h.role = 'owner';
++  h.check = undefined;
++  h.ws = { data: undefined, isError: false, isFetching: false, refetch: vi.fn(), error: null };
++});
++afterEach(cleanup);
++
++describe('EP-1: owner and co-organiser get the same actions', () => {
++  it.each([
++    ['live', 'recurring', ['pause', 'stop']],
++    ['paused', 'recurring', ['end', 'resume']],
++    ['draft', 'recurring', ['delete']],
++  ] as const)('%s %s', (status, format, expected) => {
++    for (const role of ['owner', null] as const) {
++      h.role = role;
++      mount(ws({ lifecycle_status: status, format }));
++      for (const a of ['pause', 'end', 'stop', 'delete', 'resume']) expect(!!testId(`org-action-${a}`), `${role} ${a}`).toBe((expected as readonly string[]).includes(a));
++      cleanup();
++    }
++  });
++});
++
++describe('EP-2: a new read of the event keeps the person’s changes', () => {
++  it('a refetch with a new version (another save) keeps the pending rename and its Update', async () => {
++    h.ws.data = ws();
++    const r = mountRoute('*');
++    await rename('Renamed night');
++    expect(screen.getByTestId('org-update')).toBeTruthy();
++    h.ws.data = ws({ version: 4, default_description: 'Changed by the other organiser' });
++    r.again();
++    expect(screen.getByTestId('org-event-title').textContent).toContain('Renamed night');
++    expect(screen.getByTestId('org-update')).toBeTruthy();
++  });
++
++  it('half a save went through: the error and Try again stay, the landed part stops being pending', async () => {
++    h.ws.data = ws();
++    const r = mountRoute('*');
++    await rename('Saved name');
++    fireEvent.click(screen.getByTestId('org-detail-pay'));
++    fireEvent.click(await screen.findByTestId('org-pay-cash'));
++    fireEvent.click(screen.getByTestId('org-pay-done'));
++    // The name landed on the server, the rest failed.
++    h.error = 'The update did not go through.';
++    h.ws.data = ws({ version: 4, name: 'Saved name' });
++    r.again();
++    expect(screen.getByTestId('org-update-failed')).toBeTruthy();
++    expect(screen.getByTestId('org-update-retry')).toBeTruthy();
++    fireEvent.click(screen.getByTestId('org-update-retry'));
++    await waitFor(() => expect(h.send).toHaveBeenCalled());
++    const [, version, cmd] = h.send.mock.calls[0];
++    expect(version).toBe(4);
++    expect(h.send).toHaveBeenCalledTimes(1);
++    expect(cmd.payload.payment_methods).toBe('ticket_link,cash');
++  });
++});
++
++describe('EP-3: a ticket link as the way to pay needs the link', () => {
++  it('picking Ticket link with no URL shows the Ticket link row and holds the save with the reason', async () => {
++    mount(ws({ default_ticket_url: null, payment_methods: 'cash' }));
++    fireEvent.click(screen.getByTestId('org-detail-pay'));
++    fireEvent.click(await screen.findByTestId('org-pay-ticket_link'));
++    fireEvent.click(screen.getByTestId('org-pay-done'));
++    expect(screen.getByTestId('org-detail-ticket').textContent).toContain('Add the ticket link');
++    expect((screen.getByTestId('org-update') as HTMLButtonElement).disabled).toBe(true);
++    expect(screen.getByTestId('org-update-reason').textContent).toBe('Add the ticket link');
++    fireEvent.click(screen.getByTestId('org-detail-ticket'));
++    fireEvent.change(await screen.findByTestId('org-ticket-input'), { target: { value: 'https://tickets.example/night' } });
++    expect((screen.getByTestId('org-update') as HTMLButtonElement).disabled).toBe(false);
++  });
++
++  it('no ticket link chosen: no Ticket link row', () => {
++    mount(ws({ default_ticket_url: null, payment_methods: 'cash' }));
++    expect(testId('org-detail-ticket')).toBeNull();
++  });
++});
++
++describe('EP-4: the organisers are reachable from the page, for everyone on it', () => {
++  it.each(['owner', null] as const)('role %s', (role) => {
++    h.role = role;
++    mount(ws());
++    expect(screen.getByTestId('org-detail-organisers').getAttribute('href')).toBe(ORG_PATHS.eventOrganisers('s1'));
++  });
++});
++
++describe('EP-5: leaving through ANY link with pending changes asks first', () => {
++  it('a date row: the leave sheet opens and the page stays; Discard then goes', async () => {
++    const router = mountRouted(ws());
++    await rename('Not saved yet');
++    fireEvent.click(screen.getAllByTestId('org-date')[0]);
++    expect(await screen.findByTestId('org-leave-discard')).toBeTruthy();
++    expect(router.state.location.pathname).toBe(ORG_PATHS.event('s1'));
++    fireEvent.click(screen.getByTestId('org-leave-discard'));
++    await waitFor(() => expect(router.state.location.pathname).toBe(ORG_PATHS.changeDate('s1', 'o0')));
++  });
++
++  it('Keep editing stays with the changes', async () => {
++    const router = mountRouted(ws());
++    await rename('Not saved yet');
++    fireEvent.click(screen.getByTestId('org-date-add'));
++    fireEvent.click(await screen.findByTestId('org-leave-keep'));
++    expect(router.state.location.pathname).toBe(ORG_PATHS.event('s1'));
++    expect(screen.getByTestId('org-update')).toBeTruthy();
++  });
++
++  it('nothing pending: a link just goes', async () => {
++    const router = mountRouted(ws());
++    fireEvent.click(screen.getAllByTestId('org-date')[0]);
++    await waitFor(() => expect(router.state.location.pathname).toBe(ORG_PATHS.changeDate('s1', 'o0')));
++  });
++});
++
++describe('EP-7: Pause, End, Resume are sheets on the page; a one-off says Cancel the event', () => {
++  it('Pause asks, then sends set_lifecycle paused', async () => {
++    mount(ws());
++    fireEvent.click(screen.getByTestId('org-action-pause'));
++    fireEvent.click(await screen.findByTestId('org-pause-confirm'));
++    await waitFor(() => expect(h.done).toHaveBeenCalled());
++    expect(h.send.mock.calls[0][2]).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'paused' } });
++  });
++
++  it('End (a course) shows the v7 line and sends the end command', async () => {
++    mount(ws({ format: 'course' }));
++    fireEvent.click(screen.getByTestId('org-action-end'));
++    expect((await screen.findByTestId('org-end-line')).textContent).toBe('Coming dates come off the calendar. Past dates stay.');
++    fireEvent.click(screen.getByTestId('org-end-confirm'));
++    await waitFor(() => expect(h.done).toHaveBeenCalled());
++    expect(h.send.mock.calls[0][2]).toEqual({ kind: 'series.end_run', payload: {} });
++  });
++
++  it('a one-off: "Cancel the event" is shown, off, with Not available yet, and sends nothing', async () => {
++    mount(ws({ format: 'one_off', recurrence_rule: null }, dates(1)));
++    const end = screen.getByTestId('org-action-end');
++    expect(end.textContent).toContain('Cancel the event');
++    expect(end.getAttribute('aria-disabled')).toBe('true');
++    expect(screen.getByTestId('org-action-end-reason').textContent).toBe('Not available yet');
++    fireEvent.click(end);
++    expect(testId('org-end-confirm')).toBeNull();
++    expect(h.send).not.toHaveBeenCalled();
++  });
++
++  it('a pending rename is saved before Pause (never lost)', async () => {
++    mount(ws());
++    await rename('Renamed');
++    fireEvent.click(screen.getByTestId('org-action-pause'));
++    fireEvent.click(await screen.findByTestId('org-pause-confirm'));
++    await waitFor(() => expect(h.send).toHaveBeenCalledTimes(2));
++    expect(h.send.mock.calls[0][2].kind).toBe('series.upsert');
++    expect(h.send.mock.calls[1][2]).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'paused' } });
++  });
++
++  it('Resume sends set_lifecycle live', async () => {
++    mount(ws({ lifecycle_status: 'paused' }));
++    fireEvent.click(screen.getByTestId('org-action-resume'));
++    await waitFor(() => expect(h.done).toHaveBeenCalled());
++    expect(h.send.mock.calls[0][2]).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'live' } });
++  });
++});
++
++describe('EP-8: Stop repeating offers every coming date', () => {
++  it('20 coming dates: 20 last nights to pick from', async () => {
++    mount(ws({}, dates(20)));
++    fireEvent.click(screen.getByTestId('org-action-stop'));
++    await screen.findByTestId('org-stop-confirm');
++    expect(screen.getAllByTestId('org-stop-night')).toHaveLength(20);
++  });
++});
++
++describe('EP-9: the status tag is the shared lifecycle tag', () => {
++  it.each([['live', 'Live'], ['paused', 'Paused'], ['draft', 'Draft'], ['rejected', 'Changes needed'], ['pending_review', 'In review'], ['ended', 'Ended']])('%s reads %s', (status, word) => {
++    mount(ws({ lifecycle_status: status }));
++    expect(screen.getByTestId('org-event-status').textContent).toBe(word);
++  });
++});
++
++describe('EP-10: live with no coming date', () => {
++  it('ONE Add a date, and End beside it (prototype v7)', () => {
++    mount(ws({ format: 'course', recurrence_rule: null }, [{ id: 'p1', occurrence_date: '2026-09-01', lifecycle_status: 'scheduled', version: 1 }]));
++    const card = screen.getByTestId('org-no-coming');
++    expect(screen.getAllByText('Add a date')).toHaveLength(1);
++    expect(within(card).getByTestId('org-no-coming-end').textContent).toContain('End event');
++  });
++});
++
++describe('EP-13: the server go-live check can hold Publish', () => {
++  it('client says ready, server says description: Publish off with Write a description', () => {
++    h.check = { ready: false, eventMissing: [{ code: 'description', section: 'details' }], recommended: [], profileRuleApplies: false, profileMissing: [] };
++    mount(ws({ lifecycle_status: 'draft', default_cover_image_url: 'https://cdn.example/f.webp', payment_methods: 'ticket_link' }));
++    expect((screen.getByTestId('org-publish') as HTMLButtonElement).disabled).toBe(true);
++    expect(screen.getByTestId('org-publish-reason').textContent).toBe('Write a description');
++  });
++});
++
++describe('decision 2: the rebuilt page is chosen PER EVENT', () => {
++  it.each([
++    ['owner page on the allowlist', 'pA', ['pA', 'pB'], true],
++    ['a co page only on the allowlist', 'pB', ['pA', 'pB'], false],
++    ['*', '*', ['pA'], true],
++    ['unset', undefined, ['pA'], false],
++  ] as const)('%s', (_n, raw, ids, rebuilt) => {
++    const w = ws();
++    h.ws.data = { ...w, organiserIds: [...ids] };
++    // The login-level answer is deliberately the opposite: only the event's own owner page decides.
++    mountRoute(raw, !rebuilt);
++    expect(!!testId('org-event-page')).toBe(rebuilt);
++  });
++});
++
++// act is imported for React's warnings in rerender paths.
++void act;
+diff --git a/src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx b/src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx
+index 5e5b8c4..d3bd26b 100644
+--- a/src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx
++++ b/src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx
+@@ -31,11 +31,11 @@ const WIZARD = '/account/o/complete';
+ 
+ /** D49: the words, written out here so a change to the one map is red in every render below. */
+ const SIX: Array<[code: string, section: string, word: string, screen: (id: string) => string]> = [
+-  ['venue', 'venue', 'Add a venue', (id) => ORG_PATHS.eventDetails(id)],
++  ['venue', 'venue', 'Pick a venue', (id) => ORG_PATHS.eventDetails(id)],
+   ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id)],
+   ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id)],
+   ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id)],
+-  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id)],
++  ['cover', 'cover', 'Add a flyer', (id) => ORG_PATHS.cover(id)],
+   ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`],
+ ];
+ 
+@@ -142,7 +142,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
+     refusal = { message: `permission_denied: series.set_lifecycle draft -> live needs a ready series: ${JSON.stringify(notReady('cover', 'cover'))}`, details: null, code: 'P0001' };
+     mount(ORG_PATHS.event(DRAFT), routes);
+     fireEvent.click(await screen.findByTestId('org-life-golive'));
+-    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('Upload a flyer');
++    expect(words(await screen.findByTestId('org-life-item-cover'))).toBe('Add a flyer');
+   });
+ 
+   it('mutating the one map changes the Go live list AND the refusal render', async () => {
+@@ -174,11 +174,11 @@ describe('Go live renders the server list, one label per code (D49)', () => {
+  * names (owner rule: no text points at a control that is not on screen).
+  */
+ const NINE: Array<[code: string, section: string, word: string, to: (id: string) => string, control: string]> = [
+-  ['venue', 'venue', 'Add a venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
++  ['venue', 'venue', 'Pick a venue', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+   ['city', 'venue', 'Add a city', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+   ['upcoming_date', 'dates', 'Add a date', (id) => ORG_PATHS.addEvent(id), 'landed-dates'],
+   ['session', 'programme', 'Add a session with a title, start and end', (id) => ORG_PATHS.eventProgramme(id), 'landed'],
+-  ['cover', 'cover', 'Upload a flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
++  ['cover', 'cover', 'Add a flyer', (id) => ORG_PATHS.cover(id), 'landed-cover'],
+   ['description', 'about', 'Write a description', (id) => `${ORG_PATHS.eventDetails(id)}?edit=about`, 'org-detail-input'],
+   ['name', 'basics', 'Add an event name', (id) => ORG_PATHS.eventDetails(id), 'org-detail-name'],
+   ['country', 'venue', 'Pick a city with a country', (id) => ORG_PATHS.eventDetails(id), 'org-detail-venue'],
+@@ -344,7 +344,8 @@ describe('D82: the Go live card, every state', () => {
+ 
+ // The controls C14 turns off on One event (series A: live, weekly) and the draft's Go live.
+ const LOCKED_ON_EVENT = ['org-event-pause', 'org-event-end', 'org-event-day', 'org-event-stop', 'org-coming-sessions'];
+-const LOCKED_ON_DETAILS = ['org-detail-name', 'org-detail-venue', 'org-detail-time', 'org-detail-music', 'org-detail-tickets', 'org-detail-about',
++// ER-C8 removed the usual-time row from Details (ER rule 1: time comes from the sessions).
++const LOCKED_ON_DETAILS = ['org-detail-name', 'org-detail-venue', 'org-detail-music', 'org-detail-tickets', 'org-detail-about',
+   'org-detail-programme', 'org-detail-organisers', 'org-detail-cover', 'org-detail-gallery', 'org-detail-videos'];
+ const REASON = 'Finish your profiles first, 4 answers left';
+ 
+diff --git a/src/modules/organiser/events/eventModel.ts b/src/modules/organiser/events/eventModel.ts
+index da829a1..4e03b7d 100644
+--- a/src/modules/organiser/events/eventModel.ts
++++ b/src/modules/organiser/events/eventModel.ts
+@@ -39,6 +39,8 @@ export interface EventWorkspace extends SeriesWorkspace {
+   program: unknown;
+   /** The organiser pages linked to the event, in order (linkedOrganiserIds). */
+   organiserIds: string[];
++  /** event_series_p5.payment_methods: comma list of codes (ER-INTERFACE 1); null until the server returns it. */
++  paymentMethods: string | null;
+ }
+ 
+ const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
+@@ -56,6 +58,7 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
+     level: typeof row.default_level === 'string' && row.default_level.trim() ? row.default_level : null,
+     program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
+     organiserIds: linkedOrganiserIds(row),
++    paymentMethods: typeof row.payment_methods === 'string' && row.payment_methods.trim() ? row.payment_methods : null,
+   };
+ }
+ 
+@@ -381,21 +384,19 @@ export const stopKeepingCommand = (ws: EventWorkspace, today: string): OwnerComm
+   stopRepeatingCommand(wsComing(ws, today).map((d) => d.id));
+ 
+ /** The C37 rows; venue goes through the existing editor sheet, cover to its own screen, How to pay to its chips (paymentModel). */
+-export type DetailField = 'name' | 'venue' | 'time' | 'level' | 'music' | 'tickets' | 'instagram' | 'about' | 'payment';
++export type DetailField = 'name' | 'venue' | 'level' | 'music' | 'tickets' | 'about' | 'payment';
+ export type TextDetail = Exclude<DetailField, 'venue' | 'payment'>;
+ 
+ export const DETAIL_KEY: Record<TextDetail, string> = {
+   name: 'name',
+-  time: 'default_local_start_time',
+   level: 'default_level',
+   music: 'default_music_styles',
+   tickets: 'default_ticket_url',
+-  instagram: 'instagram_url',
+   about: 'default_description',
+ };
+ 
+ export const DETAIL_LABEL: Record<DetailField, string> = {
+-  name: 'Name', venue: 'Venue', time: 'Time', level: 'Level', music: 'Music', tickets: 'Tickets', instagram: 'Instagram', about: 'About', payment: 'How to pay',
++  name: 'Name', venue: 'Venue', level: 'Level', music: 'Music', tickets: 'Tickets', about: 'About', payment: 'How to pay',
+ };
+ 
+ const styleList = (typed: string) => typed.split(',').map((s) => s.trim()).filter(Boolean);
+@@ -405,24 +406,18 @@ export function detailValue(ws: EventWorkspace, field: TextDetail): string {
+   const s = ws.series;
+   switch (field) {
+     case 'name': return s.name;
+-    case 'time': return s.default_local_start_time?.slice(0, 5) ?? '';
+     case 'level': return ws.level ?? '';
+     case 'music': return ws.musicStyles.join(', ');
+     case 'tickets': return s.default_ticket_url ?? '';
+-    case 'instagram': return s.instagram_url ?? '';
+     case 'about': return s.default_description ?? '';
+   }
+ }
+ 
+-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+-
+ /** Why the typed value cannot be saved; null when it can. */
+ export function detailProblem(field: TextDetail, typed: string): string | null {
+   const v = typed.trim();
+   if (field === 'name') return v ? null : 'Add a name';
+-  if (field === 'time') return TIME_RE.test(v) ? null : 'Use a time like 20:00';
+   if (field === 'tickets') return linkProblem('ticket', v);
+-  if (field === 'instagram') return linkProblem('instagram', v);
+   return null;
+ }
+ 
+diff --git a/src/modules/organiser/flows/add/Time.tsx b/src/modules/organiser/flows/add/Time.tsx
+index d63c81e..ec85f58 100644
+--- a/src/modules/organiser/flows/add/Time.tsx
++++ b/src/modules/organiser/flows/add/Time.tsx
+@@ -9,9 +9,12 @@ import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
+ import { goDone, keepReturnTo, readReturnTo } from '@/modules/organiser/flows/doneState';
+ import { FIELD_CLASS, PrimaryButton } from '@/modules/organiser/ui';
+ import { cn } from '@/lib/utils';
+-import { addDayGate, addDoneMessage, type DayGate, findSeries, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
++import { addDayGate, addDoneMessage, type DayGate, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
+ import { useFlowHome, useFlowSend, useSeriesWorkspace } from './useFlow';
+-import { ErrorLine, Failed, Loading, Missing, Refusal, Step } from './parts';
++import { ErrorLine, Failed, Loading, Refusal, Step } from './parts';
++import { useOrganiserSeries } from '@/modules/organiser/shared/useOrganiserSeries';
++import { notFoundLine, notFoundText } from './notFoundText';
++import { lookupMessages } from '@/modules/organiser/shared/eventRules';
+ import { EventConflict } from '../event/parts';
+ 
+ /** C9: the time of the new date, prefilled with the event's usual time; Save adds it (C10 Done, no Undo). */
+@@ -19,7 +22,8 @@ export default function Time() {
+   const { seriesId = '', date = '' } = useParams();
+   const { search } = useLocation();
+   const home = useFlowHome();
+-  const one = findSeries(home.data, seriesId);
++  const lookup = useOrganiserSeries(seriesId);
++  const one = lookup.state === 'found' ? lookup.series : null;
+   const lock = one ? seriesLock(one.lifecycle_status, 'add') : null;
+   const ws = useSeriesWorkspace(seriesId, !!one && !lock);
+   const today = home.data?.today ?? '';
+@@ -31,12 +35,13 @@ export default function Time() {
+ 
+   return (
+     <Step title={one?.name ?? 'Add a date'} back={keepReturnTo(ORG_PATHS.addEvent(seriesId), search)}>
+-      {home.isError || ws.isError ? (
++      {/* A refused workspace read is the lookup's answer (gone / no access), not a failure: only a real error retries. */}
++      {home.isError || lookup.state === 'error' || (one && ws.isError) ? (
+         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
+-      ) : !home.data ? (
++      ) : !home.data || lookup.state === 'loading' ? (
+         <Loading flow="add" />
+       ) : !one ? (
+-        <Missing flow="add" />
++        <Refusal flow="add" text={notFoundText(lookup.state)} line={notFoundLine(lookup.state)} back={ORG_PATHS.home} backLabel={lookupMessages.back} />
+       ) : lock ? (
+         <Refusal flow="add" text={lock} back={ORG_PATHS.home} backLabel="Back to Home" />
+       ) : !ws.data || !gate ? (
+diff --git a/src/modules/organiser/flows/add/WhichDay.tsx b/src/modules/organiser/flows/add/WhichDay.tsx
+index d1a0ed6..f3964ac 100644
+--- a/src/modules/organiser/flows/add/WhichDay.tsx
++++ b/src/modules/organiser/flows/add/WhichDay.tsx
+@@ -1,9 +1,12 @@
+ import { useLocation, useNavigate, useParams } from 'react-router-dom';
+ import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+ import { keepReturnTo, readReturnTo } from '@/modules/organiser/flows/doneState';
+-import { addDays, addableSeries, findSeries, seriesLock } from './addModel';
++import { addDays, addableSeries, seriesLock } from './addModel';
+ import { useFlowHome, useSeriesWorkspace } from './useFlow';
+-import { Failed, Loading, Missing, Refusal, Step, StepList, StepRow } from './parts';
++import { Failed, Loading, Refusal, Step, StepList, StepRow } from './parts';
++import { useOrganiserSeries } from '@/modules/organiser/shared/useOrganiserSeries';
++import { notFoundLine, notFoundText } from './notFoundText';
++import { lookupMessages } from '@/modules/organiser/shared/eventRules';
+ 
+ /**
+  * C8: which day (also C15, the Home "no dates left" row: the same screen with
+@@ -16,7 +19,8 @@ export default function WhichDay() {
+   const { search } = useLocation();
+   const { seriesId = '' } = useParams();
+   const home = useFlowHome();
+-  const one = findSeries(home.data, seriesId);
++  const lookup = useOrganiserSeries(seriesId);
++  const one = lookup.state === 'found' ? lookup.series : null;
+   const lock = one ? seriesLock(one.lifecycle_status, 'add') : null;
+   const ws = useSeriesWorkspace(seriesId, !!one && !lock);
+   // The one-event organiser came straight here: back goes Home, not to a one-row list.
+@@ -25,12 +29,13 @@ export default function WhichDay() {
+ 
+   return (
+     <Step title={one?.name ?? 'Which day?'} back={back}>
+-      {home.isError || ws.isError ? (
++      {/* A refused workspace read is the lookup's answer (gone / no access), not a failure: only a real error retries. */}
++      {home.isError || lookup.state === 'error' || (one && ws.isError) ? (
+         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
+-      ) : !home.data ? (
++      ) : !home.data || lookup.state === 'loading' ? (
+         <Loading flow="add" />
+       ) : !one ? (
+-        <Missing flow="add" />
++        <Refusal flow="add" text={notFoundText(lookup.state)} line={notFoundLine(lookup.state)} back={ORG_PATHS.home} backLabel={lookupMessages.back} />
+       ) : lock ? (
+         <Refusal flow="add" text={lock} back={ORG_PATHS.home} backLabel="Back to Home" />
+       ) : !ws.data ? (
+diff --git a/src/modules/organiser/shared/goLiveKeys.ts b/src/modules/organiser/shared/goLiveKeys.ts
+index 502a76e..986b3bf 100644
+--- a/src/modules/organiser/shared/goLiveKeys.ts
++++ b/src/modules/organiser/shared/goLiveKeys.ts
+@@ -1,11 +1,12 @@
+ // The ONE go-live mapping (W2 walk fixes 1, 3, 4, 5). Every screen that names,
+ // links, counts or asks a go-live key reads it from here: the Go live list on
+ // the event, the Go live flow's "Still to do", Home's to-do row, the profile
+-// wizard, and the teacher / DJ details editors. Pure and import-free (types
+-// only), so the areas module and Home's jobs read it without the api client.
++// wizard, and the teacher / DJ details editors. Pure: types plus the pure
++// event-rules.json reader, so the areas module and Home's jobs read it without the api client.
+ // The codes and sections are the server's (_series_go_live_check_p5, prod
+ // 2026-10-24); a code missing here still shows, as UNKNOWN_ITEM_LABEL.
+ import type { GoLiveCheck, GoLiveItem } from './goLiveCheck';
++import { EVENT_RULES, serverCodeBlocker } from './eventRules';
+ 
+ /** The required-step reason, the same words on every screen that asks a go-live key. */
+ export const REQUIRED_HINT = 'Needed before your events can go live.';
+@@ -22,8 +23,8 @@ export interface BlockerDef {
+   sameAs?: string;
+ }
+ 
+-/** Every event code the server sends (event_missing), in its order, plus the recommended ticket link. */
+-export const GO_LIVE_BLOCKERS: Readonly<Record<string, BlockerDef>> = {
++/** The server's codes with their sections; RULE_WORDS below overrides a label event-rules.json owns. */
++const BLOCKERS: Readonly<Record<string, BlockerDef>> = {
+   venue: { label: 'Add a venue', section: 'venue' },
+   city: { label: 'Add a city', section: 'venue' },
+   upcoming_date: { label: 'Add a date', section: 'dates' },
+@@ -41,6 +42,18 @@ export const GO_LIVE_BLOCKERS: Readonly<Record<string, BlockerDef>> = {
+   ticket_link: { label: 'Add a ticket link', section: 'tickets' },
+ };
+ 
++/** ER-FIX2 S1: a code event-rules.json knows (name, venue, the AD1 codes + cover) reads its v7 word, never a second copy. */
++const RULE_WORDS: Record<string, string> = {
++  name: EVENT_RULES.blockers.name,
++  venue: EVENT_RULES.blockers.venue,
++  ...Object.fromEntries(Object.values(EVENT_RULES.serverCodes).flat().map((code) => [code, EVENT_RULES.blockers[serverCodeBlocker(code)!]])),
++};
++
++/** Every event code the server sends (event_missing), in its order, plus the recommended ticket link. */
++export const GO_LIVE_BLOCKERS: Readonly<Record<string, BlockerDef>> = Object.fromEntries(
++  Object.entries(BLOCKERS).map(([code, def]) => [code, RULE_WORDS[code] ? { ...def, label: RULE_WORDS[code] } : def]),
++);
++
+ /** Every section the server names; each one has a screen that fixes it (goLiveFixHref). */
+ export const GO_LIVE_SECTIONS: readonly string[] = ['venue', 'basics', 'about', 'tickets', 'dates', 'programme', 'cover', 'organisers', 'payment'];
+ 
