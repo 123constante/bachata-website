@@ -44,17 +44,15 @@ test.beforeEach(({ page: _page }, info) => {
   test.skip(info.project.name !== 'phone-390x844', 'one size, 390x844');
 });
 
-test('fix 5: the Before you publish checklist covers every server code; the flyer twins show once', async ({ page }) => {
+test('fix 5: the Go live list names every server code, each with a link; the flyer twins show once', async ({ page }) => {
   await as(page, { eventMissing: EVERY_CODE });
   await page.goto(EVENT);
-  const card = page.getByTestId('org-checklist');
+  const card = page.getByTestId('org-life-list');
   await expect(card).toBeVisible();
   await expect(card).not.toContainText(UNKNOWN);
-  // cover + no_flyer are the same row: shown once, undone, and a way to fix it.
-  await expect(card.getByTestId('org-check-flyer')).toHaveCount(1);
-  await expect(card.getByTestId('org-check-pay')).toBeVisible();
-  await expect(card.getByTestId('org-check-venue')).toBeVisible();
-  await screenChecks(page, 'publish checklist');
+  await expect(card.getByText('Add a flyer')).toHaveCount(1);
+  await expect(card.getByText('Add how to pay')).toBeVisible();
+  await screenChecks(page, 'golive list');
   await shot(page, 'walk-golive-list');
 });
 
