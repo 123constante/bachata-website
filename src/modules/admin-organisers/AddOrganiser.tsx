@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { addOrganiser, FRONT_DOOR_LIST_KEY, type AddResult } from './frontDoorApi';
 import {
-  ADD_ERROR_FALLBACK, EMPTY_FORM, RUN_BY_US_LABEL, RUN_BY_US_WHY, SEND_HINT,
+  ADD_ERROR_FALLBACK, EMPTY_FORM, RUN_BY_US_LABEL, runByUsHint, SEND_HINT,
   errorFor, outcomeFor, submitBlockedReason, type AddForm,
 } from './addOrganiserModel';
 import { BTN, BTN_PRIMARY, FIELD, organiserHref } from './frontDoorUi';
@@ -63,7 +63,7 @@ export function AddOrganiser({ onOpenList }: { onOpenList: () => void }) {
         />
         {RUN_BY_US_LABEL}
       </label>
-      <p id="add-rbu-why" className="text-xs text-muted-foreground" data-testid="add-rbu-why">{RUN_BY_US_WHY}</p>
+      <p id="add-rbu-why" className="text-xs text-muted-foreground" data-testid="add-rbu-why">{runByUsHint(form.runByUs)}</p>
       <label className="block space-y-1 text-sm font-medium">
         Contact email (optional)
         <input

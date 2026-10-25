@@ -4,6 +4,10 @@ import type { AddField, AddResult } from './frontDoorApi';
 
 export const RUN_BY_US_WHY =
   'We run this page for them, so no invite is prepared and no email is kept. Switch off to add their email and prepare an invite.';
+export const RUN_BY_US_OFF_WHY =
+  'Add their email to prepare an invite; nothing is sent until you tap Send invite on the list. Without an email no invite is prepared.';
+/** The hint under the Run by us switch always describes the state the switch is in now. */
+export const runByUsHint = (on: boolean) => (on ? RUN_BY_US_WHY : RUN_BY_US_OFF_WHY);
 export const RUN_BY_US_LABEL = 'Run by us (no email)';
 
 export interface AddForm {
