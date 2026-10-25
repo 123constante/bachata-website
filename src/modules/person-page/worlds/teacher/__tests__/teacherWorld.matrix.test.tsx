@@ -332,6 +332,7 @@ describe('S4 critique: owner decisions the world must keep', () => {
     ['no first name, no surname', { first_name: null, surname: null }, 'Teacher', 'Learn more'],
     ['blank first name, a surname', { first_name: ' ', surname: 'Ruiz' }, 'Ruiz', 'Learn with Ruiz'],
     ['a first name', { first_name: 'Ana', surname: null }, 'Ana', 'Learn with Ana'],
+    ['a duo (display name as first name)', { first_name: 'Nacho & Silvia', surname: null }, 'Nacho & Silvia', 'Learn with Nacho & Silvia'],
   ] as const)('names: %s -> the h1 is never empty, the contact never "Learn with Teacher"', (_n, names, big, label) => {
     const v = view({ ...base, ...names });
     expect(v.big).toBe(big);
