@@ -134,7 +134,7 @@ export function LookalikeCards({ state, onNo, busy }: { state: LookalikeState; o
       <ul className="flex flex-col gap-2">
         {state.items.map((it) => (
           <li key={it.organiserId} className="flex items-center gap-3" data-testid="door-lookalike-card">
-            {it.logoUrl ? <img src={it.logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" /> : <span className="h-10 w-10 rounded-full bg-muted" aria-hidden="true" />}
+            {it.logoUrl ? <img src={it.logoUrl} alt="" className="h-10 w-10 rounded-full object-cover" loading="lazy" /> : <span className="h-10 w-10 rounded-full bg-muted" aria-hidden="true" />}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{it.name}</p>
               {it.city && <p className="truncate text-[13px] text-muted-foreground">{it.city}</p>}
