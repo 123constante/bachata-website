@@ -71,6 +71,10 @@ const RULES = [
       // Invite W2 walk: the Go live x every screen matrix feeds the same server answer.
       'src/modules/organiser/shared/__tests__/goLiveWalk.matrix.test.tsx',
       'src/modules/admin-organisers/inviteModel.ts',
+      // S4 front door RPCs (admin PR #1007) answer organiser_id; the typed boundary parser and its specs read it.
+      'src/modules/admin-organisers/frontDoorApi.ts',
+      'src/modules/admin-organisers/__tests__/frontDoor.models.test.ts',
+      'src/modules/admin-organisers/__tests__/frontDoor.screens.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',

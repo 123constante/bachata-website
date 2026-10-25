@@ -50,6 +50,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/t/*',
   '/account/dj/*',
   '/admin/organisers',
+  '/admin/organisers/front-door',
   '/invite',
   '/invite/:token',
   '/auth',

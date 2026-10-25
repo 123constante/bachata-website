@@ -51,6 +51,7 @@ const OrganiserP3Area = lazyWithRetry(() => import("@/modules/organiser/p3/shell
 const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
 const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/AdminOrganisersPage"));
+const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
@@ -253,6 +254,7 @@ export const AnimatedRoutes = () => {
             <Route path="/account/dj/*" element={<AreaRoutes area="dj" />} />
 
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
+            <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
 
