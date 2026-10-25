@@ -125,9 +125,11 @@ All in `scripts/check-*.mjs`, enforced by CI.
   lands the check runs only by hand. As anon it asserts the exact key sets at
   every level of `get_nights_going_v1` and `get_public_dancer_extras_v1`,
   `people.length <= p_limit`, the anon refusals of `set_my_going_v1` /
-  `get_my_going_v1`, and that no account key appears anywhere. **Its green is
-  anon-only**: the workflow has no signed-in test account, so the signed-in
-  shapes are a printed SKIP on every run, never a pass. Non-vacuous (no P5 ids
+  `get_my_going_v1` / `get_my_organiser_going_total_v1`, and that no account
+  key appears anywhere. **Its green is anon-only**: the workflow has no
+  signed-in test account, so the signed-in shapes (including the
+  `get_my_organiser_going_total_v1` success shape) are a printed SKIP on every
+  run, never a pass. Non-vacuous (no P5 ids
   or no public profile to read is exit 2).
 
 `scripts/check-going-legacy-rpcs.mjs` (`npm run check:going-legacy-rpcs`, Going

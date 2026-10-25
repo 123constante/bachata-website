@@ -59,5 +59,5 @@ const goingTotal = useMyOrganiserGoingTotal();
 - **No 390x844 look, because nothing mounts it.** The organiser lane's mount PR owns the browser walk.
 - Not run against a signed-in prod session (the connector is read-only SQL; the RPC needs `auth.uid()`).
 - The `e2e` / `phone-qa` suites were not run locally (no route changes).
-- Not done (outside this brief's scope): a live contract check for this RPC in `scripts/check-going-rpcs.mjs` (anon refusal). Suggested follow-up.
+- Done in #1022: a live contract check for this RPC in `scripts/check-going-rpcs.mjs` (anon refusal).
 - Not touched (outside scope, noted in review): `useMyEventGoing` has the same "refusal on a re-read is kept as refreshFailed" behaviour that this hook now avoids.
