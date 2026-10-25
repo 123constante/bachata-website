@@ -5,7 +5,7 @@ import {
 } from '../frontDoorApi';
 import { ADD_ERROR_TEXT, EMPTY_FORM, errorFor, outcomeFor, submitBlockedReason, RUN_BY_US_WHY } from '../addOrganiserModel';
 import { CHIP_LABEL, chipCounts, filterRows, runByUsControl, runByUsMessage, sendControl, sendMessage } from '../frontDoorListModel';
-import { REASON_LABEL, badgeText, canResolve, groupItems, resolveMessage } from '../needsYouModel';
+import { NO_PAGE_TEXT, REASON_LABEL, badgeText, canResolve, groupItems, itemNote, resolveMessage } from '../needsYouModel';
 
 const RAW = /^[a-z_]+$/;
 const created = (o: Record<string, unknown> = {}) => parseAddResult({ success: true, organiser_id: 'o1', person_reused: false, invite_queued: true, run_by_us: false, already_exists: false, warnings: [], ...o });
@@ -16,7 +16,7 @@ describe('add organiser: result x email', () => {
       const r = created({ invite_queued: email, run_by_us: !email });
       if (r.kind !== 'created') throw new Error('kind');
       const o = outcomeFor(r);
-      expect(o.lines[0]).toBe(email ? 'Page is live. An invite is ready; nothing is sent until you tap Send.' : 'Page is live and run by us. No invite was prepared.');
+      expect(o.lines[0]).toBe(email ? 'Page is live. An invite is ready; nothing is sent until you tap Send invite.' : 'Page is live and run by us. No invite was prepared.');
       expect(o.organiserId).toBe('o1');
     });
   }
@@ -140,6 +140,12 @@ describe('needs you: reason x count', () => {
     it(`reason ${r}`, () => {
       expect(REASON_LABEL[r]).not.toMatch(RAW);
       expect(canResolve({ id: 'x', reason: r, organiserId: null, label: '', detail: null, since: null, nextActions: [] })).toBe(r === 'email_mismatch_claim');
+    });
+  }
+  // #1033 critique C6: an item with no organiser has no action, so it says so in words.
+  for (const [organiserId, note] of [[null, NO_PAGE_TEXT], ['o1', null]] as const) {
+    it(`item with organiser ${organiserId}: note ${note === null ? 'none' : 'shown'}`, () => {
+      expect(itemNote({ id: 'n1', reason: 'quiet_30_days', organiserId, label: 'x', detail: null, since: null, nextActions: [] })).toBe(note);
     });
   }
   it('resolve codes become sentences, never approve_drafts_only', () => {

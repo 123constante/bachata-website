@@ -5,6 +5,7 @@ import {
   ADD_OK, EVERY_GROUP, LONG_NAMES, MANY_ROWS, ONE_ROW, PROD_LIST, PROD_NEEDS, STATUS_MATRIX, addError, asAdmin, type Call, type Rpcs,
 } from './frontDoorFake';
 import { ADD_ERROR_TEXT, ADD_ERROR_FALLBACK, RUN_BY_US_WHY, RUN_BY_US_OFF_WHY } from '../../src/modules/admin-organisers/addOrganiserModel';
+import * as needsModel from '../../src/modules/admin-organisers/needsYouModel';
 
 /**
  * #1033 S4 front-door screens (Add, Organisers, Needs you) walked on a PHONE, every
@@ -64,8 +65,19 @@ async function screenChecks(page: Page, label: string) {
     // Text wider than its own box is cut off or runs under its neighbour (a long unbroken name).
     const clipped = [...root.querySelectorAll('a, p, h1, h2, span, button')].filter(visible)
       .filter((el) => getComputedStyle(el).display !== 'inline' && el.scrollWidth > el.clientWidth + 1).map(name);
-    return { small, reasonless, wrongSwitch, dangling, clipped };
+    // A greyed control must not look like the live one beside it (#1033 critique C1): no fill,
+    // a dashed edge and muted words; a switch that cannot change has muted words next to it.
+    const looksLive = controls.filter((el) => el instanceof HTMLButtonElement && el.disabled).filter((el) => {
+      const s = getComputedStyle(el);
+      return s.backgroundColor !== 'rgba(0, 0, 0, 0)' || s.borderStyle !== 'dashed' || Number(s.opacity) < 1;
+    }).map(name);
+    const liveText = getComputedStyle(root).color;
+    const loudLabels = [...root.querySelectorAll<HTMLInputElement>('label input[type="checkbox"]:disabled')]
+      .filter((el) => getComputedStyle(el.closest('label')!).color === liveText).map(name);
+    return { small, reasonless, wrongSwitch, dangling, clipped, looksLive, loudLabels };
   }, SCOPE);
+  expect(report.looksLive, `${label}: a greyed button does not look tappable`).toEqual([]);
+  expect(report.loudLabels, `${label}: a locked switch's words are greyed too`).toEqual([]);
   expect(report.clipped, `${label}: no text wider than its box`).toEqual([]);
   expect(report.small, `${label}: taps >= 44px`).toEqual([]);
   expect(report.reasonless, `${label}: every disabled control says why`).toEqual([]);
@@ -91,6 +103,12 @@ const size = () => (test.info().project.name === 'phone-360x640' ? '-360' : '');
 test.describe('Organisers list', () => {
   test('prod: All 48 = Run by us 42, Invited 0, Joined 2, Live 4', async ({ page }) => {
     only390('main');
+    await page.addInitScript(() => {
+      const w = window as unknown as { __cls: number };
+      w.__cls = 0;
+      new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__cls += e.value; })
+        .observe({ type: 'layout-shift', buffered: true });
+    });
     await open(page, { list: PROD_LIST, needs: PROD_NEEDS }, 'list');
     await expect(page.getByTestId('fd-filter-all')).toHaveText('All 48');
     await expect(page.getByTestId('fd-filter-run_by_us')).toHaveText('Run by us 42');
@@ -103,9 +121,20 @@ test.describe('Organisers list', () => {
     await expect(a2b.getByTestId('fd-run-by-us')).toBeDisabled();
     const agapi = page.getByTestId('fd-row').filter({ hasText: 'Agapi Musicality Dance Project' });
     await expect(agapi.getByTestId('fd-send')).toBeDisabled();
-    await expect(agapi.getByTestId('fd-send-reason')).toContainText('Run by us.');
+    await expect(agapi.getByTestId('fd-send-reason')).toHaveText('We run this page, so there is no invite. Switch Run by us off first to prepare one.');
     await expect(page.getByTestId('fd-row')).toHaveCount(48);
+    // The way back says where it goes, and the crumbs name this page (#1033 critique C2, C3).
+    await expect(page.getByTestId('fd-back')).toHaveAccessibleName('Back to Organiser access');
+    await expect(page.getByTestId('fd-back')).toHaveAttribute('href', '/admin/organisers');
+    const crumbs = page.getByRole('navigation', { name: /breadcrumb/i });
+    await expect(crumbs.getByRole('link', { name: 'Organiser access' })).toHaveAttribute('href', '/admin/organisers');
+    await expect(crumbs).toContainText('Add and manage organisers');
     await screenChecks(page, 'list prod');
+    // Late data (the list, then the Needs you badge) must not push the page about: CLS, logged for the record.
+    await expect(page.getByTestId('needs-badge')).toHaveText('23');
+    const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+    console.log(`[1033] layout shift after the list and badge arrive (${test.info().project.name}): ${cls.toFixed(4)}`);
+    expect(cls, 'layout shift < 0.1').toBeLessThan(0.1);
     await shot(page, `organisers-prod${size()}`, false);
   });
 
@@ -200,7 +229,9 @@ test.describe('Needs you', () => {
     const order = await page.locator('[data-testid^="needs-group-"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(order).toEqual(['needs-group-email_mismatch_claim', 'needs-group-join_request', 'needs-group-access_request', 'needs-group-quiet_30_days']);
     await expect(page.getByTestId('needs-approve')).toHaveCount(2);
-    await expect(page.getByTestId('needs-item').filter({ hasText: 'Unnamed organiser' }).getByTestId('needs-open')).toHaveCount(0);
+    const orphan = page.getByTestId('needs-item').filter({ hasText: 'Unnamed organiser' });
+    await expect(orphan.getByTestId('needs-open')).toHaveCount(0);
+    await expect(orphan.getByTestId('needs-no-page')).toHaveText(needsModel.NO_PAGE_TEXT); // #1033 critique C6
     await screenChecks(page, 'needs every group');
     await shot(page, 'needs-every-group');
     await page.getByTestId('needs-approve').first().click();
@@ -283,7 +314,7 @@ test.describe('Add', () => {
   });
 
   const OUTCOMES: [keyof typeof ADD_OK, string, { runByUs?: boolean; email?: string }][] = [
-    ['invite_queued', 'An invite is ready; nothing is sent until you tap Send.', { email: 'hello@agapi.example' }],
+    ['invite_queued', 'An invite is ready; nothing is sent until you tap Send invite.', { email: 'hello@agapi.example' }],
     ['run_by_us', 'Page is live and run by us. No invite was prepared.', { runByUs: true }],
     ['no_email', 'Page is live.', {}],
     ['already_exists', 'Nothing was changed. You can open the existing page below.', { email: 'hello@agapi.example' }],
@@ -298,6 +329,9 @@ test.describe('Add', () => {
       await page.getByTestId('add-submit').click();
       await expect(page.getByTestId('add-outcome')).toContainText(words);
       await expect(page.getByTestId('add-open-organiser')).toBeVisible();
+      // Done means done: the form empties so a second tap cannot add it again (#1033 critique C4).
+      await expect(page.getByTestId('add-organiser-name')).toHaveValue('');
+      await expect(page.getByTestId('add-submit')).toBeDisabled();
       await screenChecks(page, `add ${kind}`);
       await shot(page, `add-outcome-${kind.replace(/_/g, '-')}`);
     });
@@ -327,6 +361,7 @@ test('entry point on /admin/organisers carries the Needs you count', async ({ pa
   await asAdmin(page, { needs: PROD_NEEDS });
   await page.goto('/admin/organisers');
   await expect(page.getByTestId('entry-badge')).toHaveText('23');
+  await expect(page.getByTestId('front-door-entry')).toContainText('Add and manage organisers'); // same name as the page it opens
   expect(await checkOverflow(page), 'entry: no sideways scroll').toEqual([]);
   const h = await page.getByTestId('front-door-entry').evaluate((el) => el.getBoundingClientRect().height);
   expect(h).toBeGreaterThanOrEqual(44);

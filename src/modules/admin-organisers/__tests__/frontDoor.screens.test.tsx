@@ -59,6 +59,23 @@ describe('Add organiser', () => {
     await screen.findByTestId('add-outcome');
     expect(h.rpc.mock.calls[0][1].p_payload).not.toHaveProperty('contact_email');
   });
+  // #1033 critique C4: after any answer that added (or found) the organiser the form empties, so the
+  // armed submit cannot add it a second time; after an error the typing stays for a fix.
+  for (const [answer, empties] of [
+    [{ success: true, organiser_id: 'o1', invite_queued: false, run_by_us: false, warnings: [] }, true],
+    [{ success: true, organiser_id: 'o1', already_exists: true, warnings: [] }, true],
+    [{ success: false, code: 'PERMISSION_DENIED' }, false],
+  ] as const) {
+    it(`after ${'code' in answer ? answer.code : 'already_exists' in answer ? 'already exists' : 'created'} the form ${empties ? 'empties' : 'keeps its values'}`, async () => {
+      h.rpc.mockImplementation(() => ok(answer));
+      wrap(<AddOrganiser onOpenList={() => {}} />);
+      fill();
+      fireEvent.submit(screen.getByTestId('add-organiser'));
+      await screen.findByTestId(empties ? 'add-outcome' : 'add-error-form');
+      expect((screen.getByTestId('add-organiser-name') as HTMLInputElement).value).toBe(empties ? '' : 'Salsa Co');
+      expect((screen.getByTestId('add-submit') as HTMLButtonElement).disabled).toBe(empties);
+    });
+  }
   it('the hint under Run by us describes the state the switch is in now', () => {
     wrap(<AddOrganiser onOpenList={() => {}} />);
     const hint = () => screen.getByTestId('add-rbu-why').textContent ?? '';

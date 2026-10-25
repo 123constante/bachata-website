@@ -243,6 +243,18 @@ describe('buildBreadcrumbs — flow routes', () => {
   });
 });
 
+describe('buildBreadcrumbs — admin front door (#1033 critique)', () => {
+  it('admin.organisers.frontDoor -> [Organiser access (link), Add and manage organisers]', () => {
+    expect(buildBreadcrumbs('admin.organisers.frontDoor')).toEqual([
+      { label: 'Organiser access', path: '/admin/organisers' },
+      { label: 'Add and manage organisers' },
+    ]);
+  });
+  it('admin.organisers alone is still one unlinked crumb', () => {
+    expect(buildBreadcrumbs('admin.organisers')).toEqual([{ label: 'Organiser access' }]);
+  });
+});
+
 describe('buildBreadcrumbs — invariants', () => {
   it('every output array has at least 1 item', () => {
     const sampleRoutes = [
