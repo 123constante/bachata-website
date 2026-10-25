@@ -25,11 +25,11 @@ describe('G5: a recurring event with no rule and at most one date', () => {
     expect(v.repeatsReason).toBeNull();
   });
 
-  it('one date: moving it adds the new date and takes the old one off', () => {
+  it('one date: moving it moves the date (wave B0: never a remove)', () => {
     const { ws, draft } = load('draft-norule-one');
     expect(draft.shape).toBe('single');
     const plan = savePlan(draft, { ...draft, startDate: '2026-10-24' }, ws, TODAY);
-    expect(kinds(plan)).toEqual(['series.upsert', 'series.add_date', 'series.remove_date']);
+    expect(kinds(plan)).toEqual(['series.upsert', 'occurrence.move_date']);
   });
 
   it('one date: going weekly again sends the weekly rule from that date', () => {

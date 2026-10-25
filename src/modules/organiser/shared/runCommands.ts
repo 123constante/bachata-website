@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ORGANISER_HOME_KEY, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
-import { envelope, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
+import { ORGANISER_HOME_KEY, runOccurrenceCommand, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { envelope, type DateStep, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { parseEventWorkspace, type EventWorkspace } from '@/modules/organiser/events/eventModel';
 
 // Moved from events/eventsApi.ts with the same signatures (plan 4.3 #11, the
@@ -30,7 +30,9 @@ export function useEventWorkspace(seriesId: string | undefined) {
 /**
  * Sends owner commands one after another through series_command_p5, each against
  * the version the previous one returned, then reloads everything they touch.
- * Returns the last version.
+ * Returns the last version. A DateStep goes through occurrence_command_p5 against
+ * its date's own version; it bumps the series version too (a move rewrites
+ * removed_dates), so the next series command re-reads the version first.
  */
 export function useRunCommands(seriesId: string) {
   const queryClient = useQueryClient();
@@ -39,13 +41,23 @@ export function useRunCommands(seriesId: string) {
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
   };
-  return async (commands: OwnerCommand[], version: number | null) => {
+  return async (commands: Array<OwnerCommand | DateStep>, version: number | null) => {
     let v = version;
+    let stale = false;
     try {
       for (const command of commands) {
+        if ('occurrence' in command) {
+          const { occurrence, ...dateCommand } = command;
+          await runOccurrenceCommand(envelope(occurrence.id, occurrence.version, dateCommand));
+          stale = true;
+          continue;
+        }
+        if (stale) v = (await fetchEventWorkspace(seriesId)).series.version;
+        stale = false;
         const res = await runSeriesCommand(envelope(seriesId, v, command));
         if (typeof res?.new_version === 'number') v = res.new_version;
       }
+      if (stale) v = (await fetchEventWorkspace(seriesId)).series.version;
     } finally {
       if (commands.length) reload();
     }

@@ -245,7 +245,6 @@ export function withSeriesName(command: OwnerCommand, seriesName: string): Owner
 // ---- the date list (W4) --------------------------------------------------------
 
 export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.add_date', payload: { date } });
-export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
 /** Pause / resume (`{to}`, 4.11). There is no review step (D4): the UI never sends pending_review. */
@@ -259,6 +258,16 @@ export const cancelCommand = (reason: string): OwnerCommand => ({ kind: 'occurre
 export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: false } });
 /** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */
 export const moveDateCommand = (toDate: string): OwnerCommand => ({ kind: 'occurrence.move_date', payload: { to_date: toDate } });
+/**
+ * A command aimed at ONE date (occurrence_command_p5), not the series, inside a list
+ * the series runner sends (useRunCommands): it goes against the date's own version.
+ */
+export interface DateStep extends OwnerCommand {
+  occurrence: { id: string; version: number };
+}
+/** Organisers never delete a date (owner answer 20, wave B0): a one-date event's date MOVES. */
+export const moveDateStep = (date: { id: string; version: number }, toDate: string): DateStep =>
+  ({ ...moveDateCommand(toDate), occurrence: { id: date.id, version: date.version } });
 
 /** London wall-clock HH:MM digits, sent as typed; an empty end lets the server keep the length. */
 export const setTimeCommand = (start: string, end: string | null): OwnerCommand => ({
