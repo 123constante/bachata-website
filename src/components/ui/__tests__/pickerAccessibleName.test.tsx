@@ -180,6 +180,8 @@ const ROWS: Row[] = [
   { file: 'src/modules/admin-organisers/AdminOrganisersPage.tsx', picker: 'CityPicker', id: 'link-city' },
   // W1 (PR #978): About you inline on /invite; <label htmlFor="join-city"> names it.
   { file: 'src/modules/admin-organisers/join/AboutStep.tsx', picker: 'CityPicker', id: 'join-city' },
+  // S5 door: Start your page; <label htmlFor="door-city"> names it.
+  { file: 'src/modules/organiser-door/DoorScreens.tsx', picker: 'CityPicker', id: 'door-city' },
 ];
 
 const ROOT = path.resolve(__dirname, '../../../..');

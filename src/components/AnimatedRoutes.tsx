@@ -50,6 +50,8 @@ const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes")
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
 const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/AdminOrganisersPage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
+// The S5 public door ("I run events"): ships closed unless VITE_ORGANISER_DOOR=on.
+const OrganiserDoor = lazyWithRetry(() => import("@/modules/organiser-door/DoorPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 // /account: the dancer home, or on to the organiser home (lib/accountRouting).
@@ -245,6 +247,7 @@ export const AnimatedRoutes = () => {
             <Route path="/account/dj/*" element={<AreaRoutes area="dj" />} />
 
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
+            <Route path="/run-events" element={<PageTransition><OrganiserDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
 

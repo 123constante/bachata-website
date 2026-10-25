@@ -80,6 +80,7 @@ export const SITE_IA = {
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access' },
   'invite.redeem':    { label: 'Join organiser team' },
+  'organiser.door':   { label: 'I run events' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,

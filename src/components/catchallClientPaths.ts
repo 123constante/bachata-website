@@ -50,6 +50,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/dj/*',
   '/admin/organisers',
   '/invite',
+  '/run-events',
   '/invite/:token',
   '/auth',
   '/auth/callback',

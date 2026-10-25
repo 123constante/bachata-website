@@ -70,6 +70,9 @@ const RULES = [
       'src/modules/organiser/shared/__tests__/goLiveCheck.roles.test.ts',
       // Invite W2 walk: the Go live x every screen matrix feeds the same server answer.
       'src/modules/organiser/shared/__tests__/goLiveWalk.matrix.test.tsx',
+      // S5 door: doorParse.ts is the boundary parser for organiser_start_v1 / organiser_lookalikes_v1; the spec feeds it server answers.
+      'src/modules/organiser-door/doorParse.ts',
+      'src/modules/organiser-door/__tests__/doorModel.table.test.ts',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
