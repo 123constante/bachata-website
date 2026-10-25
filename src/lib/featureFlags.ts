@@ -60,6 +60,11 @@ export const flags = {
   // OFF in production until launch; the route redirects home and the header
   // shows no account entry while false.
   organiserSelfServe:  import.meta.env.VITE_ENABLE_ORGANISER_SELF_SERVE === 'true',
+  // The P3 organiser redesign (mockup C3, docs/organiser-rebuild/p3/CONTRACT.md):
+  // the /account/p3 area. OFF = no P3 route exists and every organiser screen is
+  // exactly as before. Separate from parityGate's AW1_APPLIED (a code constant).
+  // Turn on with VITE_ENABLE_ORGANISER_P3=true (Vercel env) -- no code change.
+  organiserP3:         import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
