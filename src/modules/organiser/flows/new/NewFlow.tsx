@@ -5,7 +5,7 @@ import { useLondonToday } from '@/hooks/useLondonToday';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { createBlock } from '@/modules/organiser/shared/createModel';
 import { resolveCreateCityId } from '@/modules/organiser/shared/createCity';
-import { envelope, newIdempotencyKey, newSeriesId } from '@/modules/organiser/shared/seriesCommands';
+import { envelope, newIdempotencyKey, newSeriesId, withSeriesName } from '@/modules/organiser/shared/seriesCommands';
 import { commandErrorMessage, isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { useVenueOptions, type VenueOption } from '@/modules/organiser/shared/publicVenues';
@@ -15,6 +15,7 @@ import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
 import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths';
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
+import { PICK_DATE_WORDS, prefillCommands, readCopy } from '../copy/copyModel';
 import {
   DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
@@ -116,7 +117,9 @@ function NameStep({ format }: { format: NewEventFormat }) {
   const queryClient = useQueryClient();
   const { home, selected } = useOrganiserChoice();
   const [params] = useSearchParams();
-  const [name, setName] = useState('');
+  // A copy (S7) arrives as router state: the name is pre-filled, the rest rides one upsert after the normal create.
+  const copy = readCopy(useLocation().state);
+  const [name, setName] = useState(copy?.name ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The draft id is chosen once per screen. The key is per name + format (A-N3, as Cover keys by URL):
@@ -134,9 +137,21 @@ function NameStep({ format }: { format: NewEventFormat }) {
       const sig = JSON.stringify([name, format]);
       if (draft.current.sig !== sig) draft.current = { ...draft.current, sig, key: newIdempotencyKey() };
       await runSeriesCommand(envelope(draft.current.seriesId, null, draftCommand(name, format, selected.id), draft.current.key));
+      let copied = false;
+      if (copy) {
+        const { series } = await fetchSeriesWorkspace(draft.current.seriesId);
+        let version = series.version;
+        for (const bare of prefillCommands(copy)) {
+          const command = withSeriesName(bare, name);
+          const res = await runSeriesCommand(envelope(draft.current.seriesId, version, command, newIdempotencyKey()));
+          if (typeof res?.new_version === 'number') version = res.new_version;
+          copied = true;
+        }
+      }
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      // replace: Back must not return here and create a second draft.
-      navigate(ORG_PATHS.newVenue(draft.current.seriesId), { replace: true });
+      void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(draft.current.seriesId) });
+      // replace: Back must not return here and create a second draft. A copy skips the venue it already has and asks only for the new date.
+      navigate(copied && copy?.venueId ? ORG_PATHS.newDate(draft.current.seriesId) : ORG_PATHS.newVenue(draft.current.seriesId), { replace: true, state: copied ? { copied: true } : undefined });
     } catch (err) {
       setError(commandErrorMessage(err));
       setBusy(false);
@@ -227,6 +242,7 @@ function DateStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
   const today = useLondonToday();
   const draft = useDraft(seriesId);
+  const copied = !!(useLocation().state as { copied?: boolean } | null)?.copied;
   const { send, busy, error, conflict } = useNewSend(seriesId);
   const back = ORG_PATHS.newVenue(seriesId);
   if (draft.isPending) return <Frame title={STEP_TITLE.date} back={back}><SkeletonRows count={4} label="Loading" /></Frame>;
@@ -239,6 +255,7 @@ function DateStep({ seriesId }: { seriesId: string }) {
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
     <Frame title={STEP_TITLE.date} back={back}>
+      {copied && <p className="text-[15px] font-semibold text-[var(--fg)]" data-testid="org-new-pick-date">{PICK_DATE_WORDS}</p>}
       <StepError message={error} />
       <div className="flex flex-col gap-[8px]" data-testid="org-new-date-list">
         {firstDateChoices(today).map((d) => (

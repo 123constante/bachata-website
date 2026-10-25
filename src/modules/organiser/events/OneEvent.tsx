@@ -23,6 +23,7 @@ import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { nothingComingUp } from '@/modules/organiser/shared/lifeLabel';
 import { upcomingDates } from '@/modules/organiser/shared/seriesModel';
+import { CopyButton } from '@/modules/organiser/flows/copy';
 import { LifecycleActions } from './LifecycleActions';
 import { goLiveLeads } from './lifecycleModel';
 import { LockedRow, LockedScreen, LockNote, useEventLock, type EventLock } from './ProfileLock';
@@ -245,6 +246,7 @@ export default function OneEvent() {
       <DatesTakenOff series={ws.data.series} dates={ws.data.dates} today={today} lock={eventLock(ws.data.series.lifecycle_status)}
         dirty={false} canChooseEnd={!!ownerWeeklyRule(ws.data.series)} />
       <Actions ws={ws.data} today={today} lock={lock} />
+      <CopyButton seriesId={seriesId} testId="org-event-copy" />
       {!goLiveLeads(ws.data) && <LifecycleActions ws={ws.data} today={today} lock={lock} />}
     </>
   );

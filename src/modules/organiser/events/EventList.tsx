@@ -6,6 +6,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { lifeChip } from '@/modules/organiser/jobs/homeJobs';
 import { seriesLife, type Life } from '@/modules/organiser/shared/lifeLabel';
 import { useOrganiserChoice } from '@/modules/organiser/switch/useOrganiserChoice';
+import { CopyButton, COPY_TEXT } from '../flows/copy';
 import { ORG_PATHS } from '../shell';
 import { Card, EmptyState, ErrorState, PrimaryButton, SkeletonRows } from '../ui';
 import { listedSeries, useOrganiserHome, type ListedSeries } from './eventsApi';
@@ -23,12 +24,15 @@ function EventRow({ series, today }: { series: ListedSeries; today: string }) {
   // The chip is Home's own mapping (jobs/homeJobs lifeChip): a fact never reads differently on two screens.
   const chip = lifeChip(series, today);
   return (
-    <Link to={ORG_PATHS.event(series.id)} data-testid="org-event-row" data-series-id={series.id}
-      className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]">
-      <span className="line-clamp-2 min-w-0 flex-1 break-words text-[15px] font-semibold leading-[19px] text-[var(--fg)]">{series.name}</span>
-      <span data-testid="org-event-chip" className={cn('shrink-0 rounded-full px-[8px] py-[2px] text-[12px] font-semibold', TONE[chip.tone])}>{chip.label}</span>
-      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-    </Link>
+    <div>
+      <Link to={ORG_PATHS.event(series.id)} data-testid="org-event-row" data-series-id={series.id}
+        className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]">
+        <span className="line-clamp-2 min-w-0 flex-1 break-words text-[15px] font-semibold leading-[19px] text-[var(--fg)]">{series.name}</span>
+        <span data-testid="org-event-chip" className={cn('shrink-0 rounded-full px-[8px] py-[2px] text-[12px] font-semibold', TONE[chip.tone])}>{chip.label}</span>
+        <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
+      </Link>
+      <div className="px-[16px] pb-[8px]"><CopyButton seriesId={series.id} size="sm" testId="org-event-row-copy" /></div>
+    </div>
   );
 }
 
@@ -63,7 +67,7 @@ export function EventList({ activeId }: { activeId?: string } = {}) {
       <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> New event
     </PrimaryButton>
   );
-  if (series.length === 0) return <EmptyState testId="org-events-empty" title="No events yet" action={newButton} />;
+  if (series.length === 0) return <EmptyState testId="org-events-empty" title="No events yet" body={COPY_TEXT.noEvents} action={newButton} />;
   return (
     <div data-testid="org-event-list" className="flex flex-col gap-3">
       {current.length === 0 ? (
