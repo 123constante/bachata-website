@@ -19,7 +19,7 @@ Seed these AND the other shapes: empty list; one row; 150 rows (over the 100-row
 5. Run every CI job step that applies (read `.github/workflows`; unit suites under Node 22, `check:images`, lint chain, phone suite) and put a per-job table in the PR body.
 
 ## Hard limits
-Never connect to the real database or any real credential; the fake only. Do not add `run-ci`-style labels. ONE push to the branch (fetch and rebase on main immediately before it). No `gh api`. Never merge or approve. Vercel deploy cap: one push only.
+Never connect to the real database or any real credential; the fake only. Do NOT add any label to #1033 (not `automerge-ok`, not `run-ci`): it is a feature PR and only the orchestrator merges it. ONE push to the branch (fetch and rebase on main immediately before it). No `gh api`. Never merge or approve. Vercel deploy cap: one push only.
 
 ## Done =
 One push to `claude/s4-add-organiser-screens`; last commit subject ends `[worker-done <ticket>]`; report head SHA, the findings list, per-job table, Verified / Not verified.
