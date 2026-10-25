@@ -146,10 +146,11 @@ describe('Go live renders the server list, one label per code (D49)', () => {
   });
 
   it('mutating the one map changes the Go live list AND the refusal render', async () => {
-    const { GO_LIVE_LABEL } = await import('@/modules/organiser/shared/goLiveCheck');
-    const map = GO_LIVE_LABEL as Record<string, string>;
-    const was = map.venue;
-    map.venue = 'MUTANT';
+    // The one map is GO_LIVE_BLOCKERS (W2 walk fix 5); GO_LIVE_LABEL is derived from it.
+    const { GO_LIVE_BLOCKERS } = await import('@/modules/organiser/shared/goLiveKeys');
+    const venue = GO_LIVE_BLOCKERS.venue as { label: string };
+    const was = venue.label;
+    venue.label = 'MUTANT';
     try {
       check = { data: notReady('venue', 'venue'), error: null };
       mount(ORG_PATHS.event(DRAFT), routes);
@@ -162,7 +163,7 @@ describe('Go live renders the server list, one label per code (D49)', () => {
       fireEvent.click(await screen.findByTestId('org-life-golive'));
       expect(words(await screen.findByTestId('org-life-item-venue'))).toBe('MUTANT');
     } finally {
-      map.venue = was;
+      venue.label = was;
     }
   });
 });
@@ -329,13 +330,13 @@ describe('D82: the Go live card, every state', () => {
 
   it('every code the parser accepts has an action label (none falls back to the generic line)', async () => {
     const { GO_LIVE_LABEL, goLiveLabel, UNKNOWN_ITEM_LABEL } = await import('@/modules/organiser/shared/goLiveCheck');
-    const { EVENT_RULES } = await import('@/modules/organiser/shared/eventRules');
-    // ER-FIX-W2 S1: plus every go-live code event-rules.json knows (the five AD1 codes + cover).
-    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link', ...Object.values(EVENT_RULES.serverCodes).flat()];
+    // W2 walk fix 5: every prod code (incl. the ones the server added later) has words.
+    const LATER = ['no_session_first_date', 'first_date_past', 'bad_session_times', 'no_payment', 'no_flyer'];
+    const codes = [...SIX.map(([c]) => c), ...NINE.map(([c]) => c), 'ticket_link', ...LATER];
     for (const code of codes) {
       expect(GO_LIVE_LABEL[code], code).toBeTruthy();
       expect(goLiveLabel(code), code).not.toBe(UNKNOWN_ITEM_LABEL);
-      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Fix) /);
+      expect(goLiveLabel(code), code).toMatch(/^(Add|Upload|Write|Pick|Link|Give|Move|Fix|Say) /);
     }
     expect(Object.keys(GO_LIVE_LABEL).sort()).toEqual([...new Set(codes)].sort());
   });

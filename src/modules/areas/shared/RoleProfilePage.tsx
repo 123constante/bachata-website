@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { sanitizeReturnTo } from '@/lib/authRouting';
 import { useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { isAreaShown } from '../home/areaStatus';
 import { fetchMyRoles, myRolesQueryKey } from '../home/rolesApi';
@@ -9,7 +10,7 @@ import { fetchMyRoleDetails, roleDetailsQueryKey, saveMyRole, type RoleDetails }
 import { AreaFrame } from './AreaFrame';
 import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { ROLE_ERROR_COPY, roleErrorCode, roleErrorMessage, type RoleErrorCode } from './errorCopy';
-import { ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, type Role } from './fieldRegistry';
+import { REQUIRED_HINT, ROLE_FIELDS, ROLE_NAME, ROLE_NOUN, ROLE_REQUIRED_LEAD, isGoLiveField, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
 import { useLeaveGuard } from './leaveGuard';
 import { SavedToast } from './SavedToast';
@@ -17,6 +18,8 @@ import { diffPatch, toDraft, validatePatch, withPendingDraft, type Details, type
 
 export const NOTHING_CHANGED = 'Nothing changed yet';
 export const SAVED = 'Saved';
+/** Back's label when the page was opened from a task (a Go live gap) that it returns to. */
+export const BACK_TO_TASK = 'Back';
 
 export interface RoleProfileFormProps {
   role: Role;
@@ -27,7 +30,7 @@ export interface RoleProfileFormProps {
   serverError: string | null;
 }
 
-/** Every role field, grouped, each marked optional. Untouched = Save disabled, with the reason on screen. */
+/** Every role field, grouped: a go-live key says it is needed, every other one is marked optional. Untouched = Save disabled, with the reason on screen. */
 export function RoleProfileForm({ role, details, saving, onSave, serverError }: RoleProfileFormProps) {
   const [draft, setDraft] = useState<Draft>(() => toDraft(role, details));
   const [errors, setErrors] = useState<Record<string, RoleErrorCode>>({});
@@ -67,18 +70,19 @@ export function RoleProfileForm({ role, details, saving, onSave, serverError }: 
         submit();
       }}
     >
-      <p className="px-[4px] text-[14px] text-[var(--mut)]">Every detail is optional. Fill in what you like and leave the rest.</p>
+      <p className="px-[4px] text-[14px] text-[var(--mut)]" data-testid="role-required-lead">{ROLE_REQUIRED_LEAD[role]}</p>
       {groups.map((g) => (
         <Card key={g.name} label={g.name} variant="padded">
           <div className="space-y-[16px]">
             {g.fields.map((f) => {
               const id = `${role}-${f.key}`;
+              const needed = isGoLiveField(role, f.key);
               return (
                 <Field
                   key={f.key}
-                  label={`${f.label} (optional)`}
+                  label={needed ? f.label : `${f.label} (optional)`}
                   htmlFor={f.kind === 'yesno' ? undefined : id}
-                  help={f.help}
+                  help={needed ? [REQUIRED_HINT, f.help].filter(Boolean).join(' ') : f.help}
                   error={errors[f.key] ? ROLE_ERROR_COPY[errors[f.key]] : null}
                   testId={`field-${f.key}`}
                 >
@@ -133,11 +137,14 @@ export function RoleProfilePage({ role, areaPath, blocked }: { role: Role; areaP
   const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
   const progress = useProfileProgress(null);
   const name = ROLE_NAME[role];
+  // A Go live gap link opens this page with ?returnTo= (the event or the Go live flow): Back goes there.
+  const [params] = useSearchParams();
+  const returnTo = sanitizeReturnTo(params.get('returnTo'));
   if (roles.status === 'success' && progress.status !== 'pending' && !isAreaShown(role, roles.data.find((r) => r.role === role), progress.data)) {
     return <Navigate to={areaPath} replace />;
   }
   return (
-    <AreaFrame title={`${name} details`} back={{ to: areaPath, label: name }} testId={`${role}-profile`}>
+    <AreaFrame title={`${name} details`} back={returnTo ? { to: returnTo, label: BACK_TO_TASK } : { to: areaPath, label: name }} testId={`${role}-profile`}>
       <AnnounceRegion message={announcement} />
       <SavedToast show={toast} onDone={hideToast} />
       {details.status === 'pending' || roles.status === 'pending' || progress.status === 'pending' ? (

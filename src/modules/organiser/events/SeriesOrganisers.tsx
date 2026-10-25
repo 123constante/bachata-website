@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
+import { keepReturnTo } from '@/modules/organiser/flows/doneState';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
@@ -89,9 +90,10 @@ function OrganisersBody({ ws }: { ws: EventWorkspace }) {
  */
 export default function SeriesOrganisers() {
   const { seriesId = '' } = useParams();
+  const { search } = useLocation();
   const ws = useEventWorkspace(seriesId);
   return (
-    <OrganiserShell title="Organisers" back={{ to: ORG_PATHS.eventDetails(seriesId), label: 'Back' }} testId="org-page-organisers">
+    <OrganiserShell title="Organisers" back={{ to: keepReturnTo(ORG_PATHS.eventDetails(seriesId), search), label: 'Back' }} testId="org-page-organisers">
       <div className="flex flex-col gap-3 p-3">
         {ws.isError && isAccessRefusal(ws.error) ? <NoAccess />
           : ws.isError ? <ErrorState onRetry={() => void ws.refetch()} retrying={ws.isFetching} testId="org-organisers-error" />

@@ -18,6 +18,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { eventHref } from '@/lib/seo/eventHref';
+import { useListImpressions } from '@/lib/listImpressions';
 import type { CalendarEventRow } from '@/integrations/supabase/eventRpcs';
 import { type WallClock, formatWallClockLocalIntl } from '@/lib/time/wallClock';
 import { SEO_LANDING_WINDOWS, useSeoLandingEvents } from '@/lib/seoLandingEvents';
@@ -73,6 +74,7 @@ const LiveEventsSection = ({
   id,
   serverTodayKey,
 }: LiveEventsSectionProps) => {
+  const trackImpression = useListImpressions('city');
   // Pinned for the first render, reactive afterwards (long-lived tabs roll over
   // at London midnight rather than freezing on the server's day).
   const todayKey = useLondonToday(serverTodayKey);
@@ -121,7 +123,7 @@ const LiveEventsSection = ({
                 key={`${e.event_id}-${e.instance_date}`}
                 className="rounded border border-border/60 p-3 hover:bg-primary/5 transition"
               >
-                <Link to={eventHref(e)} className="block">
+                <Link ref={trackImpression(e.event_id)} to={eventHref(e)} className="block">
                   <div className="font-semibold text-base">{e.name}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     {e.location}

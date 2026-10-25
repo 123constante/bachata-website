@@ -2,7 +2,7 @@
 /** Round-1 fix-up: redeem refreshes Home (F1), the one-time link survives a collapse (F2), a row whose reads fail says so and retries (F3). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
@@ -29,8 +29,6 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
-import InviteRedeemPage from '../InviteRedeemPage';
-import { organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 
 const ok = (data: unknown) => Promise.resolve({ data, error: null });
 const ORGS = [
@@ -66,34 +64,7 @@ afterEach(cleanup);
 
 const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-describe('F1 redeem refreshes the organiser home before navigating', () => {
-  function HomeProbe({ fetchHome }: { fetchHome: () => Promise<unknown> }) {
-    useQuery({ queryKey: organiserHomeQueryKey('u1'), queryFn: fetchHome, staleTime: 60_000 });
-    return <p data-testid="landed">home</p>;
-  }
-  it.each(['redeemed', 'already_member'])('%s: a fresh cached "no organisers" home is refetched', async (status) => {
-    h.rpc.mockImplementation((fn: string) => (fn === 'redeem_organiser_invite_v1' ? ok({ ok: true, status, organiser_id: 'o1', member_role: 'owner' }) : Promise.reject(new Error(fn))));
-    const qc = client();
-    qc.setQueryData(organiserHomeQueryKey('u1'), { today: '', organisers: [] });
-    const fetchHome = vi.fn().mockResolvedValue({ today: '', organisers: [{ id: 'o1' }] });
-    render(
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[`/invite/${TOKEN}`]}>
-          <Routes>
-            <Route path="/invite/:token" element={<InviteRedeemPage />} />
-            <Route path="/account/o" element={<HomeProbe fetchHome={fetchHome} />} />
-            {/* Arc 1 7c: a new seat lands on the welcome (1d for a first page, 7c for another). */}
-            <Route path="/account/o/welcome" element={<HomeProbe fetchHome={fetchHome} />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    // M57: the link is used once the person presses Join on the joining-as card.
-    fireEvent.click(await screen.findByTestId('invite-join'));
-    await screen.findByTestId('landed');
-    await waitFor(() => expect(fetchHome).toHaveBeenCalledTimes(1));
-  });
-});
+// F1 (redeem refreshes the organiser home) moved to join/__tests__/joinJourney.test.tsx with the Option B journey (W1).
 
 function mountAdmin() {
   return render(

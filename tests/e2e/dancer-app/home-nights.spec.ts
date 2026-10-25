@@ -24,25 +24,34 @@ const PROFILE = {
   achievements: [], other_roles: [], is_active: true, erase_requested_at: null, linked_from_admin: false, complete: false,
   strength: { pct: 55, next_step: 'photo', missing: ['photo', 'started_year', 'styles', 'bio_social'] },
 };
-const night = (id: string, name: string, offset: number, status = 'going') => ({
-  event_id: id, status, updated_at: null, name, occurrence_date: dayKey(offset), city_name: 'Camden', start_time: '21:00:00', type: 'party', is_active: true,
+/** One get_my_going_v1 night (Going P2): series (public event) `id`, `offset` days out, 9 PM London, no zone. */
+const night = (id: string, name: string, offset: number) => ({
+  occurrence_id: `occ-${id}-${offset}`, public_event_id: id, event_title: name, occurrence_date: dayKey(offset),
+  starts_at_local: `${dayKey(offset)}T21:00:00`, venue_id: 'v1', venue_name: 'Camden', event_lifecycle: 'live', night_lifecycle: 'scheduled', is_cancelled: false,
+});
+type GoingNight = ReturnType<typeof night>;
+/** The RPC's split: upcoming soonest first, past (ended) most recent first. */
+const mine = (rows: GoingNight[]) => ({
+  upcoming: rows.filter((r) => r.occurrence_date >= dayKey(0)).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date)),
+  past: rows.filter((r) => r.occurrence_date < dayKey(0)).sort((a, b) => b.occurrence_date.localeCompare(a.occurrence_date)),
 });
 
-// B1b: Home also reads my_dancer_stats_v1 / my_profile_views_v1 (the views tile, the strip and,
-// since review F7, the "Upcoming nights" number) and my_feature_interest_v1 (the partner tile).
-const stats = (going: number, went: number, interested: number) => ({
-  profile_id: PROFILE.profile_id, member_since: '2026-09-01T10:00:00Z', nights_going_upcoming: going, nights_went: went,
-  interested_upcoming: interested, level_votes: 0, views_30_days: 0, views_total: 0,
+// B1b: Home also reads my_dancer_stats_v1 / my_profile_views_v1 (the views tile, the strip) and
+// my_feature_interest_v1 (the partner tile). Going P2: the "Upcoming nights" number and the strip's
+// Going cell are the count over get_my_going_v1's upcoming list, not the stats.
+const stats = (went: number) => ({
+  profile_id: PROFILE.profile_id, member_since: '2026-09-01T10:00:00Z', nights_going_upcoming: 0, nights_went: went,
+  level_votes: 0, views_30_days: 0, views_total: 0,
 });
 const VIEWS = { profile_id: PROFILE.profile_id, total: 0, last_7_days: 0, last_30_days: 0, previous_30_days: 0, last_viewed_at: null };
 
-type Shape = { name: string; profile: Record<string, unknown>; rows: unknown[]; stats: ReturnType<typeof stats> };
+type Shape = { name: string; profile: Record<string, unknown>; rows: GoingNight[]; stats: ReturnType<typeof stats> };
 const SHAPES: Shape[] = [
-  { name: 'empty', profile: PROFILE, rows: [], stats: stats(0, 0, 0) },
+  { name: 'empty', profile: PROFILE, rows: [], stats: stats(0) },
   // A real 70% shape has a photo (review B1: the old row was 70% with avatar_url null, which the server never returns).
-  { name: 'upcoming-going', profile: { ...PROFILE, avatar_url: 'https://img.example/a.jpg', complete: true, strength: { pct: 70, next_step: 'started_year', missing: ['started_year', 'styles', 'bio_social'] } }, rows: [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9, 'interested')], stats: stats(1, 0, 1) },
-  { name: 'past-unrated-nudge', profile: PROFILE, rows: [night('s3', 'Last Night Party', -1), night('s1', 'Soho Sensual Thursdays', 6)], stats: stats(1, 1, 0) },
-  { name: 'paused-linked', profile: { ...PROFILE, is_active: false, linked_from_admin: true }, rows: [night('s1', 'Soho Sensual Thursdays', 4)], stats: stats(1, 0, 0) },
+  { name: 'upcoming-going', profile: { ...PROFILE, avatar_url: 'https://img.example/a.jpg', complete: true, strength: { pct: 70, next_step: 'started_year', missing: ['started_year', 'styles', 'bio_social'] } }, rows: [night('s1', 'Soho Sensual Thursdays', 4), night('s2', 'Camden Social', 9)], stats: stats(0) },
+  { name: 'past-unrated-nudge', profile: PROFILE, rows: [night('s3', 'Last Night Party', -1), night('s1', 'Soho Sensual Thursdays', 6)], stats: stats(1) },
+  { name: 'paused-linked', profile: { ...PROFILE, is_active: false, linked_from_admin: true }, rows: [night('s1', 'Soho Sensual Thursdays', 4)], stats: stats(0) },
 ];
 
 async function open(page: Page, path: string, shape: Shape) {
@@ -51,7 +60,7 @@ async function open(page: Page, path: string, shape: Shape) {
   await fake.install(page);
   await page.route(rpc('dancer_area_gate_v1'), (r) => json(r, { open: false, allowed: true }));
   await page.route(rpc('my_dancer_edit_v1'), (r) => json(r, shape.profile));
-  await page.route(rpc('get_my_event_attendance_v2'), (r) => json(r, shape.rows));
+  await page.route(rpc('get_my_going_v1'), (r) => json(r, mine(shape.rows)));
   await page.route(rpc('get_calendar_events_v2'), (r) => json(r, []));
   await page.route(rpc('my_dancer_stats_v1'), (r) => json(r, shape.stats));
   await page.route(rpc('my_profile_views_v1'), (r) => json(r, VIEWS));
@@ -79,14 +88,14 @@ test.describe('dancer app home + nights 390x844', () => {
       // whose title "Partner search: coming soon" is the approved copy. Audit L12 still holds:
       // no dead placeholder that says only "Coming soon".
       await expect(page.getByTestId('tile-views')).toBeVisible();
-      // The strip carries Going / Interested cells; with the check-in switch off only the other two
+      // The strip carries a Going cell only while the going switch is on; off, only the other two
       // remain, so a shape with no nights been to and no levels rated shows no strip at all.
       const stripShown = GOING_CHECKIN_ENABLED || shape.stats.nights_went > 0;
       await expect(page.getByTestId('stats-strip')).toHaveCount(stripShown ? 1 : 0);
       await expect(page.getByTestId('tile-partner')).toContainText('Partner search: coming soon');
       await expect(page.getByText(/^Coming soon\.?$/)).toHaveCount(0);
       // Review F7: the "Upcoming nights" tile and the strip's Going cell are ONE number.
-      const going = String(shape.stats.nights_going_upcoming);
+      const going = String(mine(shape.rows).upcoming.length);
       if (GOING_CHECKIN_ENABLED) {
         await expect(page.getByTestId('tile-going-count')).toHaveText(going);
         if (shape.name !== 'empty') await expect(page.getByTestId('stat-going-value')).toHaveText(going);
@@ -100,13 +109,16 @@ test.describe('dancer app home + nights 390x844', () => {
       await page.screenshot({ path: `${SHOTS}/home-${shape.name}.png`, fullPage: true });
       await page.getByTestId('dancer-app-tab-nights').click();
       // Slice B: no nights at all shows ONE empty state (what you can do), not empty sections.
-      await expect(page.getByTestId(shape.rows.length === 0 ? 'nights-empty' : 'nights-upcoming')).toBeVisible();
+      // Going P2: with the going switch off no going read runs, so Nights is always that empty state.
+      await expect(page.getByTestId(shape.rows.length === 0 || !GOING_CHECKIN_ENABLED ? 'nights-empty' : 'nights-upcoming')).toBeVisible();
       await expectNoHorizontalScroll(page);
       await page.screenshot({ path: `${SHOTS}/nights-${shape.name}.png`, fullPage: true });
     });
   }
 
   test('the nudge leads to Nights, the vote sticks, the nudge clears', async ({ page }) => {
+    // The nudge is built from the going list (get_my_going_v1), which only runs while the going switch is on.
+    test.skip(!GOING_CHECKIN_ENABLED, 'the going switch is off: no going read, so no past night to nudge');
     await open(page, '/app/home', SHAPES[2]);
     await page.getByTestId('rate-nudge').click();
     await expect(page).toHaveURL(/\/app\/nights\?focus=s3$/);

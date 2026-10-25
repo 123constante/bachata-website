@@ -24,7 +24,10 @@ vi.mock('@/modules/organiser/flows/add/useFlow', () => ({
   useFlowSend: () => ({ send: h.send, run: async (w: () => Promise<void>) => w(), busy: false, conflict: false, error: h.error }),
   useFlowHome: () => ({ data: undefined, isError: false, isFetching: false, refetch: vi.fn() }),
 }));
-vi.mock('@/modules/organiser/flows/doneState', () => ({ goDone: (...a: unknown[]) => h.done(...a) }));
+vi.mock('@/modules/organiser/flows/doneState', async (orig) => ({
+  ...(await orig<typeof import('@/modules/organiser/flows/doneState')>()),
+  goDone: (...a: unknown[]) => h.done(...a),
+}));
 vi.mock('@/modules/organiser/shared/publicVenues', async (orig) => ({
   ...(await orig<typeof import('@/modules/organiser/shared/publicVenues')>()),
   useVenueOptions: () => ({ data: [{ id: 'v1', name: 'Studio One', neighbourhood: 'Soho', city_name: 'London', address: null, postcode: null }], isError: false, isFetching: false, refetch: vi.fn() }),

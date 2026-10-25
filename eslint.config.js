@@ -30,6 +30,9 @@ const ALLOWED_BARE_AVATAR_FILES = [
   // Auth + onboarding flows — the avatar shown is the signed-in user's own.
   "src/components/auth/ProfileEntryFlow.tsx",
   "src/components/MagicLinkConfirmation.tsx",
+  // The /invite join (Option B): the "Hi <first name>" card shows the invited person THEIR OWN pre-made
+  // profile photo (a person-bound invite), never someone to discover.
+  "src/modules/admin-organisers/join/JoinScreens.tsx",
   // Decorative / non-person uses — bottom nav, brand assets.
   "src/components/BottomNav.tsx",
   "src/components/HeroCarousel.tsx",

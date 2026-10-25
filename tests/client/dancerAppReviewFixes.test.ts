@@ -12,39 +12,43 @@ import { buildDelta, draftFromProfile, profileName } from '@/modules/dancer-app/
 import { DANCER_SHAPES, makeProfile, CITY_LONDON } from '@/modules/dancer-app/api/fixtures';
 import { parseMyDancerEdit, saveMyDancerProfile, setFakeBackend } from '@/modules/dancer-app/api/rpc';
 import { diffDelta } from '@/modules/dancer-app/api/delta';
-import { countCommitted, mapNights, nextNight, nudgeCandidates, statusLabel, type AttendanceRow } from '@/modules/dancer-app/screens/nights/nightsModel';
+import { countCommitted, mapMyGoing, nextNight, nudgeCandidates, statusLabel } from '@/modules/dancer-app/screens/nights/nightsModel';
+import { cancelled, night, notLive } from '@/modules/dancer-app/screens/nights/__tests__/goingShapes';
 import { renderPublicName } from '@/lib/publicName';
-import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
+import { londonTodayKey } from '@/lib/londonDate';
 import { STRENGTH_STEPS, type DancerStrength } from '@/modules/dancer-app/api/types';
 // Dynamic: on the unfixed head this module did not exist, and a static import would hide every other red.
 const loadNextStep = () => import('@/modules/dancer-app/api/nextStep');
 
 const ROOT = path.resolve(__dirname, '../..');
 const today = londonTodayKey();
-const row = (over: Partial<AttendanceRow>): AttendanceRow => ({
-  event_id: 'e1', status: 'going', updated_at: null, name: 'Night', occurrence_date: addDaysToKey(today, 3),
-  city_name: 'London', start_time: null, type: 'party', is_active: true, ...over,
-});
 
-describe('S3: Nights / Home honour is_active and every RSVP status', () => {
-  it('an unlisted (is_active false) night is never the hero, never counted, never nudged', () => {
-    const n = mapNights([row({ is_active: false })], today);
+// Going P2: the nights are get_my_going_v1's (going only, no RSVP status vocabulary any more).
+describe('S3: Nights / Home honour the event lifecycle and the night lifecycle', () => {
+  it('a night of an event that is not live is never the hero, never nudged; it still counts (the person is going)', () => {
+    const n = mapMyGoing({ upcoming: [notLive('a', 'A', 3)], past: [] } as never);
     expect(nextNight(n.upcoming)).toBeNull();
-    expect(countCommitted(n.upcoming)).toBe(0);
-    const past = mapNights([row({ is_active: false, occurrence_date: addDaysToKey(today, -2) })], today);
+    expect(countCommitted(n.upcoming)).toBe(1);
+    const past = mapMyGoing({ upcoming: [], past: [notLive('b', 'B', -2, 'ended')] } as never);
     expect(nudgeCandidates(past.past, today)).toEqual([]);
   });
 
   it.each([
-    ['going', 'Going'], ['interested', 'Interested'], ['not_going', 'Not going'], ['cancelled', 'Cancelled'],
-    ['registered', 'Registered'], ['attended', 'Attended'], ['', 'Status unknown'], ['weird_new', 'Status unknown'],
-  ])('status %j reads %j (never "Saved")', (status, label) => {
-    const n = mapNights([row({ status })], today).upcoming[0];
-    expect(statusLabel(n)).toBe(label);
+    ['upcoming live', false, night('a', 'A', 3), 'Going'],
+    ['upcoming cancelled', false, cancelled('b', 'B', 3), 'Cancelled'],
+    ['upcoming, event paused', false, notLive('c', 'C', 3), 'Going'],
+    ['past', true, night('d', 'D', -3), 'Went'],
+  ] as const)('%s reads %j (never "Saved", never "Interested")', (_n, isPast, row, label) => {
+    const m = mapMyGoing((isPast ? { upcoming: [], past: [row] } : { upcoming: [row], past: [] }) as never);
+    expect(statusLabel((isPast ? m.past : m.upcoming)[0])).toBe(label);
   });
 
-  it('not_going / cancelled rows are never the hero or counted', () => {
-    const n = mapNights([row({ status: 'not_going' }), row({ event_id: 'e2', status: 'cancelled' })], today);
+  it('a past cancelled night is left out of "Nights you went to" (nobody went to it)', () => {
+    expect(mapMyGoing({ upcoming: [], past: [cancelled('e', 'E', -3)] } as never).past).toEqual([]);
+  });
+
+  it('a cancelled night is never the hero or counted', () => {
+    const n = mapMyGoing({ upcoming: [cancelled('a', 'A', 2), cancelled('b', 'B', 4)], past: [] } as never);
     expect(nextNight(n.upcoming)).toBeNull();
     expect(countCommitted(n.upcoming)).toBe(0);
   });

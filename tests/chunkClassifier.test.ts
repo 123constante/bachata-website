@@ -147,6 +147,7 @@ describe("classifyChunk -- the second first-party group (lib-account)", () => {
       "/src/lib/accountRouting.ts",
       "/src/components/account/profiles/PersonAvatar.tsx",
       "/src/components/account/profiles/avatarFallback.ts",
+      "/src/modules/dancer-app/screens/nights/nightsDates.ts",
     ]);
     expect(classifyChunk("/repo/src/components/account/profiles/__tests__/avatarFallback.test.ts")).toBeUndefined();
     expect(classifyChunk("/repo/node_modules/x/src/lib/accountRouting.ts")).toBeUndefined();
@@ -204,7 +205,7 @@ describe("classifyChunk -- the one first-party group (lib-event-rules)", () => {
   });
 
   it("holds exactly the named modules -- a sibling in src/lib keeps rollup's chunking", () => {
-    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts", "/src/lib/focusMode.ts", "/src/lib/accountPaths.ts", "/src/lib/authRouting.ts", "/src/modules/dancer-app/gate/useDancerArea.ts", "/src/lib/utils.ts", "/src/lib/goingCheckin.ts"]);
+    expect(LIB_EVENT_RULES_MODULES).toEqual(["/src/lib/eventCategory.ts", "/src/lib/londonDate.ts", "/src/lib/focusMode.ts", "/src/lib/accountPaths.ts", "/src/lib/authRouting.ts", "/src/modules/dancer-app/gate/useDancerArea.ts", "/src/lib/utils.ts", "/src/lib/goingCheckin.ts", "/src/lib/listImpressions.ts"]);
     expect(classifyChunk("/repo/src/modules/dancer-app/gate/useGoingLock.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/__tests__/focusMode.test.ts")).toBeUndefined();
     expect(classifyChunk("/repo/src/lib/eventCategoryLabels.ts")).toBeUndefined();

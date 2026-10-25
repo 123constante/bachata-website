@@ -11,12 +11,12 @@ exports[`/dancers/:id route, by shape (requested by slug) > admin-made, surname 
   "entitySlug": "eli-gomez",
   "head": {
     "canonical": "https://www.bachatacalendar.co.uk/dancers/eli-gomez",
-    "description": "Eli Gomez - profile on Bachata Calendar London.",
+    "description": "Eli Gomez - profile on Bachata Calendar.",
     "jsonLd": 0,
     "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
     "ogType": "profile",
     "robots": null,
-    "title": "Eli Gomez - Bachata Dancer, London | Bachata Calendar",
+    "title": "Eli Gomez - Bachata Dancer | Bachata Calendar",
   },
   "tag": "dancer-00000000-0000-4000-8000-000000000006,dancers",
 }
@@ -33,12 +33,12 @@ exports[`/dancers/:id route, by shape (requested by slug) > admin-made, unclaime
   "entitySlug": "dani",
   "head": {
     "canonical": "https://www.bachatacalendar.co.uk/dancers/dani",
-    "description": "Dani - profile on Bachata Calendar London.",
+    "description": "Dani - profile on Bachata Calendar.",
     "jsonLd": 0,
     "ogImage": "https://www.bachatacalendar.co.uk/og-image.jpg",
     "ogType": "profile",
     "robots": null,
-    "title": "Dani - Bachata Dancer, London | Bachata Calendar",
+    "title": "Dani - Bachata Dancer | Bachata Calendar",
   },
   "tag": "dancer-00000000-0000-4000-8000-000000000005,dancers",
 }
@@ -55,12 +55,12 @@ exports[`/dancers/:id route, by shape (requested by slug) > complete + all extra
   "entitySlug": "carla-ruiz",
   "head": {
     "canonical": "https://www.bachatacalendar.co.uk/dancers/carla-ruiz",
-    "description": "Carla Ruiz - profile on Bachata Calendar London.",
+    "description": "Carla Ruiz - profile on Bachata Calendar Manchester.",
     "jsonLd": 0,
     "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
     "ogType": "profile",
     "robots": null,
-    "title": "Carla Ruiz - Bachata Dancer, London | Bachata Calendar",
+    "title": "Carla Ruiz - Bachata Dancer, Manchester | Bachata Calendar",
   },
   "tag": "dancer-00000000-0000-4000-8000-000000000004,dancers",
 }
@@ -106,12 +106,12 @@ exports[`/dancers/:id route, by shape (requested by slug) > hidden surname (RPC 
   "entitySlug": "fay",
   "head": {
     "canonical": "https://www.bachatacalendar.co.uk/dancers/fay",
-    "description": "Fay - profile on Bachata Calendar London.",
+    "description": "Fay - profile on Bachata Calendar.",
     "jsonLd": 0,
     "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
     "ogType": "profile",
     "robots": null,
-    "title": "Fay - Bachata Dancer, London | Bachata Calendar",
+    "title": "Fay - Bachata Dancer | Bachata Calendar",
   },
   "tag": "dancer-00000000-0000-4000-8000-000000000007,dancers",
 }
@@ -150,12 +150,12 @@ exports[`/dancers/:id route, by shape (requested by slug) > names RPC returns no
   "entitySlug": "gus",
   "head": {
     "canonical": "https://www.bachatacalendar.co.uk/dancers/gus",
-    "description": "Gus - profile on Bachata Calendar London.",
+    "description": "Gus - profile on Bachata Calendar.",
     "jsonLd": 0,
     "ogImage": "https://www.bachatacalendar.co.uk/og-image.jpg",
     "ogType": "profile",
     "robots": null,
-    "title": "Gus - Bachata Dancer, London | Bachata Calendar",
+    "title": "Gus - Bachata Dancer | Bachata Calendar",
   },
   "tag": "dancer-00000000-0000-4000-8000-000000000008,dancers",
 }

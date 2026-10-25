@@ -26,6 +26,7 @@ import {
 import { distanceMiles } from '../mapTypes';
 import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
+import { useListImpressions } from '@/lib/listImpressions';
 import { focusRing } from './controls';
 
 /** Date-group header. Today's group is dominant (amber TODAY pill + foreground
@@ -167,6 +168,7 @@ export function AllEventsList({
   // discard the server tree. state.today is pinned to the server's day for the
   // first render, then rolls over (see useMapList / homeClock).
   const today = state.today;
+  const trackImpression = useListImpressions('home');
   const [nearest, setNearest] = useState(false);
   const coords = state.geo.coords;
   const tomorrow = addDaysToKey(today, 1);
@@ -322,6 +324,7 @@ export function AllEventsList({
               <EventRow
                 key={e.occurrence_id}
                 event={e}
+                trackRef={trackImpression(e.event_id)}
                 selected={state.selected === e.occurrence_id}
                 onSelect={state.fromCard}
                 onHover={state.setHovered}

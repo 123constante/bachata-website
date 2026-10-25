@@ -1,42 +1,42 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`directory + attendance at '390x844' > /account/attendance: cancelled night > renders 1`] = `
+"heading "My Event Attendance" level=1
+heading "Nights you’re going to" level=2
+button "Friday Social Cancelled Friday 2 Jan · 9 PMCamden Club The organiser cancelled this night.""
+`;
+
 exports[`directory + attendance at '390x844' > /account/attendance: empty > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "No event attendance yet."
-text "Tap “I’m Going” or “Interested” on any event page and it will show up here."
+text "You haven’t said you’re going to any nights yet."
+text "Find a night on the calendar, then tap I’m going on its page."
 button "Browse events""
 `;
 
 exports[`directory + attendance at '390x844' > /account/attendance: future party > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "1 event"
-button "Friday Social Going 02 Jan 2099London""
+text "1 night"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club""
 `;
 
 exports[`directory + attendance at '390x844' > /account/attendance: mixed > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "3 events"
-button "Costa Congress Going 02 Jun 2099London"
-button "Friday Social Interested 02 Jan 2099London"
-button "Friday Social Going 02 Jan 2026London"
+text "2 nights"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club"
+button "Costa Congress Going Tuesday 2 Jun · 9 PMCamden Club This event isn’t taking names right now."
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
 link "Rate the dancing level" href=/event/past1#level-rating"
-`;
-
-exports[`directory + attendance at '390x844' > /account/attendance: past festival > renders 1`] = `
-"heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "1 event"
-button "Friday Social Going 02 Jan 2026London""
 `;
 
 exports[`directory + attendance at '390x844' > /account/attendance: past party > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "1 event"
-button "Friday Social Going 02 Jan 2026London"
+text "You haven’t said you’re going to any nights yet. Find a night on the calendar, then tap I’m going on its page."
+link "Browse events" href=/city/london-gb/calendar
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
 link "Rate the dancing level" href=/event/past1#level-rating"
 `;
 
@@ -47,17 +47,6 @@ heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
-heading "YourPlans" level=2
-heading "Events" level=3
-text "1 saved"
-text "Next: Friday Social • 02 Jan"
-text "Going: 1 · Interested: 0"
-button "Friday Social GB 866 months 18 days"
-heading "Festivals" level=3
-text "0 saved"
-text "Next: No upcoming festivals"
-text "Going: 0 · Interested: 0"
-text "No upcoming festivals yet."
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
@@ -71,15 +60,6 @@ heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
-heading "YourPlans" level=2
-heading "Events" level=3
-text "0 saved"
-text "Sign in to track your events."
-button "Sign in"
-heading "Festivals" level=3
-text "0 saved"
-text "Sign in to track your festivals."
-button "Sign in"
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
@@ -105,17 +85,6 @@ link "EG Eli Gomez ,Teacher" href=/dancers/d3
 link "D Dancer" href=/dancers/d5
   text "D"
   heading "Dancer" level=3
-heading "YourPlans" level=2
-heading "Events" level=3
-text "1 saved"
-text "Next: Friday Social • 02 Jan"
-text "Going: 1 · Interested: 0"
-button "Friday Social GB 866 months 18 days"
-heading "Festivals" level=3
-text "0 saved"
-text "Next: No upcoming festivals"
-text "Going: 0 · Interested: 0"
-text "No upcoming festivals yet."
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
@@ -141,58 +110,49 @@ link "EG Eli Gomez ,Teacher" href=/dancers/d3
 link "D Dancer" href=/dancers/d5
   text "D"
   heading "Dancer" level=3
-heading "YourPlans" level=2
-heading "Events" level=3
-text "0 saved"
-text "Sign in to track your events."
-button "Sign in"
-heading "Festivals" level=3
-text "0 saved"
-text "Sign in to track your festivals."
-button "Sign in"
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
 button "Find Partners""
 `;
 
+exports[`directory + attendance at 'desktop' > /account/attendance: cancelled night > renders 1`] = `
+"heading "My Event Attendance" level=1
+heading "Nights you’re going to" level=2
+button "Friday Social Cancelled Friday 2 Jan · 9 PMCamden Club The organiser cancelled this night.""
+`;
+
 exports[`directory + attendance at 'desktop' > /account/attendance: empty > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "No event attendance yet."
-text "Tap “I’m Going” or “Interested” on any event page and it will show up here."
+text "You haven’t said you’re going to any nights yet."
+text "Find a night on the calendar, then tap I’m going on its page."
 button "Browse events""
 `;
 
 exports[`directory + attendance at 'desktop' > /account/attendance: future party > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "1 event"
-button "Friday Social Going 02 Jan 2099London""
+text "1 night"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club""
 `;
 
 exports[`directory + attendance at 'desktop' > /account/attendance: mixed > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "3 events"
-button "Costa Congress Going 02 Jun 2099London"
-button "Friday Social Interested 02 Jan 2099London"
-button "Friday Social Going 02 Jan 2026London"
+text "2 nights"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club"
+button "Costa Congress Going Tuesday 2 Jun · 9 PMCamden Club This event isn’t taking names right now."
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
 link "Rate the dancing level" href=/event/past1#level-rating"
-`;
-
-exports[`directory + attendance at 'desktop' > /account/attendance: past festival > renders 1`] = `
-"heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "1 event"
-button "Friday Social Going 02 Jan 2026London""
 `;
 
 exports[`directory + attendance at 'desktop' > /account/attendance: past party > renders 1`] = `
 "heading "My Event Attendance" level=1
-text "Events you have marked as going or interested."
-text "1 event"
-button "Friday Social Going 02 Jan 2026London"
+text "You haven’t said you’re going to any nights yet. Find a night on the calendar, then tap I’m going on its page."
+link "Browse events" href=/city/london-gb/calendar
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
 link "Rate the dancing level" href=/event/past1#level-rating"
 `;
 
@@ -203,17 +163,6 @@ heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
-heading "YourPlans" level=2
-heading "Events" level=3
-text "1 saved"
-text "Next: Friday Social • 02 Jan"
-text "Going: 1 · Interested: 0"
-button "Friday Social GB 866 months 18 days"
-heading "Festivals" level=3
-text "0 saved"
-text "Next: No upcoming festivals"
-text "Going: 0 · Interested: 0"
-text "No upcoming festivals yet."
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
@@ -227,15 +176,6 @@ heading "Book a Photoshoot" level=3
 heading "BrowseDancers" level=2
 text "No dancers yet. Be the first to join!"
 button "Create Your Profile"
-heading "YourPlans" level=2
-heading "Events" level=3
-text "0 saved"
-text "Sign in to track your events."
-button "Sign in"
-heading "Festivals" level=3
-text "0 saved"
-text "Sign in to track your festivals."
-button "Sign in"
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
@@ -261,17 +201,6 @@ link "EG Eli Gomez ,Teacher" href=/dancers/d3
 link "D Dancer" href=/dancers/d5
   text "D"
   heading "Dancer" level=3
-heading "YourPlans" level=2
-heading "Events" level=3
-text "1 saved"
-text "Next: Friday Social • 02 Jan"
-text "Going: 1 · Interested: 0"
-button "Friday Social GB 866 months 18 days"
-heading "Festivals" level=3
-text "0 saved"
-text "Next: No upcoming festivals"
-text "Going: 0 · Interested: 0"
-text "No upcoming festivals yet."
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"
@@ -297,15 +226,6 @@ link "EG Eli Gomez ,Teacher" href=/dancers/d3
 link "D Dancer" href=/dancers/d5
   text "D"
   heading "Dancer" level=3
-heading "YourPlans" level=2
-heading "Events" level=3
-text "0 saved"
-text "Sign in to track your events."
-button "Sign in"
-heading "Festivals" level=3
-text "0 saved"
-text "Sign in to track your festivals."
-button "Sign in"
 heading "Find ADance Partner" level=2
 text "Connect with dancers looking for practice partners"
 text "200+ looking for partners"

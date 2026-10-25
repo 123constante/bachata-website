@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { dayLabel } from '@/modules/organiser/shared/dateList';
 import { fetchDateDetail, fetchSeriesWorkspace } from '@/modules/organiser/shared/selfServeApi';
 import { addDateCommand, setTimeCommand } from '@/modules/organiser/shared/seriesCommands';
 import type { HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
 import type { SeriesWorkspace } from '@/modules/organiser/shared/seriesModel';
-import { goDone } from '@/modules/organiser/flows/doneState';
+import { goDone, keepReturnTo, readReturnTo } from '@/modules/organiser/flows/doneState';
 import { FIELD_CLASS, PrimaryButton } from '@/modules/organiser/ui';
 import { cn } from '@/lib/utils';
 import { addDayGate, addDoneMessage, type DayGate, seriesLock, timeNotSavedMessage, usualTime } from './addModel';
@@ -20,6 +20,7 @@ import { EventConflict } from '../event/parts';
 /** C9: the time of the new date, prefilled with the event's usual time; Save adds it (C10 Done, no Undo). */
 export default function Time() {
   const { seriesId = '', date = '' } = useParams();
+  const { search } = useLocation();
   const home = useFlowHome();
   const lookup = useOrganiserSeries(seriesId);
   const one = lookup.state === 'found' ? lookup.series : null;
@@ -33,7 +34,7 @@ export default function Time() {
   const gate = held ?? live;
 
   return (
-    <Step title={one?.name ?? 'Add a date'} back={ORG_PATHS.addEvent(seriesId)}>
+    <Step title={one?.name ?? 'Add a date'} back={keepReturnTo(ORG_PATHS.addEvent(seriesId), search)}>
       {/* A refused workspace read is the lookup's answer (gone / no access), not a failure: only a real error retries. */}
       {home.isError || lookup.state === 'error' || (one && ws.isError) ? (
         <Failed flow="add" error={ws.error} onRetry={() => { void home.refetch(); void ws.refetch(); }} />
@@ -46,7 +47,7 @@ export default function Time() {
       ) : !ws.data || !gate ? (
         <Loading flow="add" />
       ) : gate.kind === 'refused' ? (
-        <Refusal flow="add" text={gate.text} back={ORG_PATHS.addEvent(seriesId)} backLabel="Other days" />
+        <Refusal flow="add" text={gate.text} back={keepReturnTo(ORG_PATHS.addEvent(seriesId), search)} backLabel="Other days" />
       ) : (
         <TimeForm series={one} ws={ws.data} date={date} onSend={() => setHeld(gate)} />
       )}
@@ -56,6 +57,7 @@ export default function Time() {
 
 function TimeForm({ series, ws, date, onSend }: { series: HomeSeriesFull; ws: SeriesWorkspace; date: string; onSend: () => void }) {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const usual = usualTime(series, ws);
   const [value, setValue] = useState(usual);
   const { send, run, busy, conflict, error } = useFlowSend(series.id);
@@ -80,7 +82,7 @@ function TimeForm({ series, ws, date, onSend }: { series: HomeSeriesFull; ws: Se
         ? addDoneMessage(date, value)
         : timeNotSavedMessage(date, usual, value);
     }
-    goDone(navigate, { title: 'Added', message, seriesId: series.id });
+    goDone(navigate, { title: 'Added', message, seriesId: series.id }, readReturnTo(search));
   });
 
   return (

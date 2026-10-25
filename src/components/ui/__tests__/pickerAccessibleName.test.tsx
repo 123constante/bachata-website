@@ -178,6 +178,8 @@ const ROWS: Row[] = [
   { file: 'src/pages/VendorDashboardPage.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/pages/VendorPortal.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/modules/admin-organisers/AdminOrganisersPage.tsx', picker: 'CityPicker', id: 'link-city' },
+  // W1 (PR #978): About you inline on /invite; <label htmlFor="join-city"> names it.
+  { file: 'src/modules/admin-organisers/join/AboutStep.tsx', picker: 'CityPicker', id: 'join-city' },
 ];
 
 const ROOT = path.resolve(__dirname, '../../../..');

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { useListImpressions } from '@/lib/listImpressions';
 
 export interface VenueWhatsOnEvent {
   event_id: string;
@@ -64,6 +65,7 @@ export default function VenueWhatsOnList({
   venueName,
   onSeeAll,
 }: VenueWhatsOnListProps) {
+  const track = useListImpressions('venue');
   if (events.length === 0) return null;
   const visible = events.slice(0, 3);
 
@@ -84,6 +86,7 @@ export default function VenueWhatsOnList({
           return (
             <Link
               key={ev.occurrence_id}
+              ref={track(ev.event_id)}
               to={buildHref(ev)}
               className="flex items-center gap-3 rounded-2xl border p-2.5 no-underline"
               style={{

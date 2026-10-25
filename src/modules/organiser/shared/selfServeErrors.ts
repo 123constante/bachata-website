@@ -83,7 +83,7 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'The contact email must be the one you signed in with.',
     next: null,
   },
-  invalid_instagram: { message: 'Enter an Instagram handle or a full https:// link.', next: null },
+  invalid_instagram: { message: 'Use your Instagram name, like yourname or @yourname, or your profile link.', next: null },
   invalid_website: { message: 'Enter a full website address starting with https://.', next: null },
   organiser_name_taken: {
     message: 'An organiser with this name is already listed. Find it above and claim it or request access.',

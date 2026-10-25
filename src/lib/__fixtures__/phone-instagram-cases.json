@@ -1,0 +1,232 @@
+{
+  "$comment": "Shared phone / Instagram cases (organiser-invite journey, A1 + W2). ONE file, two copies that must be byte-identical: bachata-admin supabase/fixtures/phone-instagram-cases.json (the self-verify of 20261205100000 runs every case against normalize_phone_e164_v1 / normalize_instagram_handle_strict_v1) and bachata-website src/lib/__fixtures__/phone-instagram-cases.json (the unit test of phoneRules / instagramHandle runs the same cases). A case is {input, expect} (the stored value; null = cleared) or {input, error} (the refusal code). Phone rule: strip spaces, dots, dashes and brackets, 00 prefix -> +, the UK (0) trunk marker after +44 is dropped, then ^\\+[1-9][0-9]{7,14}$ (8 to 15 digits). Instagram rule: @, protocol, www., instagram.com/ and anything from the first / or ? are stripped, lowercased, then ^[a-z0-9._]{1,30}$ with no dot at the start or end, no double dot and not a reserved path segment (p, reel, reels, tv, explore, stories, accounts).",
+  "phone": [
+    {
+      "input": "+447700900123",
+      "expect": "+447700900123",
+      "note": "already E.164"
+    },
+    {
+      "input": "+44 7700 900123",
+      "expect": "+447700900123",
+      "note": "spaces"
+    },
+    {
+      "input": "+44-7700-900123",
+      "expect": "+447700900123",
+      "note": "dashes"
+    },
+    {
+      "input": "+44 (7700) 900123",
+      "expect": "+447700900123",
+      "note": "brackets"
+    },
+    {
+      "input": "+44 (0) 7700 900123",
+      "expect": "+447700900123",
+      "note": "UK trunk marker after the dial code is dropped"
+    },
+    {
+      "input": "+33.6.12.34.56.78",
+      "expect": "+33612345678",
+      "note": "dots"
+    },
+    {
+      "input": "0044 7700 900123",
+      "expect": "+447700900123",
+      "note": "00 international prefix becomes +"
+    },
+    {
+      "input": "  +12125551234  ",
+      "expect": "+12125551234",
+      "note": "outer whitespace"
+    },
+    {
+      "input": "+29012345",
+      "expect": "+29012345",
+      "note": "8 digits, the minimum"
+    },
+    {
+      "input": "+123456789012345",
+      "expect": "+123456789012345",
+      "note": "15 digits, the maximum"
+    },
+    {
+      "input": "",
+      "expect": null,
+      "note": "empty clears"
+    },
+    {
+      "input": "   ",
+      "expect": null,
+      "note": "blank clears"
+    },
+    {
+      "input": null,
+      "expect": null,
+      "note": "null stays null"
+    },
+    {
+      "input": "07700 900123",
+      "error": "invalid_phone",
+      "note": "national form, no +"
+    },
+    {
+      "input": "447700900123",
+      "error": "invalid_phone",
+      "note": "no +"
+    },
+    {
+      "input": "+0123456789",
+      "error": "invalid_phone",
+      "note": "a country code never starts with 0"
+    },
+    {
+      "input": "+2901234",
+      "error": "invalid_phone",
+      "note": "7 digits, too short"
+    },
+    {
+      "input": "+1234567890123456",
+      "error": "invalid_phone",
+      "note": "16 digits, too long"
+    },
+    {
+      "input": "+44 7700 90012a",
+      "error": "invalid_phone",
+      "note": "a letter"
+    },
+    {
+      "input": "++447700900123",
+      "error": "invalid_phone",
+      "note": "double +"
+    },
+    {
+      "input": "12345678",
+      "error": "invalid_phone",
+      "note": "the legacy 8-digit shape (dancer.whatsapp): passes unchanged, refused when changed to"
+    },
+    {
+      "input": "1234567",
+      "error": "invalid_phone",
+      "note": "the legacy 7-digit shape (organiser.contact_phone): passes unchanged, refused when changed to"
+    }
+  ],
+  "instagram": [
+    {
+      "input": "ritmo.bachata",
+      "expect": "ritmo.bachata",
+      "note": "bare name"
+    },
+    {
+      "input": "@ritmo.bachata",
+      "expect": "ritmo.bachata",
+      "note": "@ form"
+    },
+    {
+      "input": "@Ritmo_Bachata",
+      "expect": "ritmo_bachata",
+      "note": "lowercased"
+    },
+    {
+      "input": "https://www.instagram.com/ritmo.bachata/",
+      "expect": "ritmo.bachata",
+      "note": "URL with www and trailing slash"
+    },
+    {
+      "input": "https://instagram.com/ritmo.bachata?hl=en",
+      "expect": "ritmo.bachata",
+      "note": "URL with a query string"
+    },
+    {
+      "input": "http://www.instagram.com/Ritmo.Bachata/?igsh=abc",
+      "expect": "ritmo.bachata",
+      "note": "http, mixed case, query"
+    },
+    {
+      "input": "instagram.com/ritmo.bachata",
+      "expect": "ritmo.bachata",
+      "note": "URL without a protocol"
+    },
+    {
+      "input": "  @ritmo  ",
+      "expect": "ritmo",
+      "note": "outer whitespace"
+    },
+    {
+      "input": "a",
+      "expect": "a",
+      "note": "1 character, the minimum"
+    },
+    {
+      "input": "abcdefghij0123456789abcdefghij",
+      "expect": "abcdefghij0123456789abcdefghij",
+      "note": "30 characters, the maximum"
+    },
+    {
+      "input": "",
+      "expect": null,
+      "note": "empty clears"
+    },
+    {
+      "input": "   ",
+      "expect": null,
+      "note": "blank clears"
+    },
+    {
+      "input": null,
+      "expect": null,
+      "note": "null stays null"
+    },
+    {
+      "input": "abcdefghij0123456789abcdefghijk",
+      "error": "invalid_instagram",
+      "note": "31 characters"
+    },
+    {
+      "input": "abcdefghij0123456789abcdefghijklmn",
+      "error": "invalid_instagram",
+      "note": "the legacy 34-character shape (dancer.instagram): passes unchanged, refused when changed to"
+    },
+    {
+      "input": ".ritmo",
+      "error": "invalid_instagram",
+      "note": "leading dot"
+    },
+    {
+      "input": "ritmo.",
+      "error": "invalid_instagram",
+      "note": "trailing dot"
+    },
+    {
+      "input": "rit..mo",
+      "error": "invalid_instagram",
+      "note": "double dot"
+    },
+    {
+      "input": "ritmo bachata",
+      "error": "invalid_instagram",
+      "note": "a space"
+    },
+    {
+      "input": "ritmo-bachata",
+      "error": "invalid_instagram",
+      "note": "a hyphen"
+    },
+    {
+      "input": "https://www.instagram.com/",
+      "error": "invalid_instagram",
+      "note": "a URL with no name"
+    },
+    {
+      "input": "@",
+      "error": "invalid_instagram",
+      "note": "@ alone"
+    },
+    {
+      "input": "https://www.instagram.com/p/Cabc123/",
+      "error": "invalid_instagram",
+      "note": "a post link, not a profile"
+    }
+  ]
+}

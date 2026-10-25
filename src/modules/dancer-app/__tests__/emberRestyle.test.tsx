@@ -22,7 +22,7 @@ vi.mock('@/integrations/supabase/rpcLoose', () => ({
       expect(args).toBeUndefined();
       return h.lineup();
     }
-    if (fn === 'get_my_event_attendance_v2') return { data: [], error: null };
+    if (fn === 'get_my_going_v1') return { data: { upcoming: [], past: [] }, error: null };
     return { data: null, error: { message: `unexpected rpc ${fn}` } };
   },
 }));

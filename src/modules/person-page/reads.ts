@@ -25,6 +25,14 @@ export type PersonSnapshot = {
   heldRoles?: PersonRole[];
   /** First DJ photo, for the og:image when the person has no avatar. */
   djPhoto: string | null;
+  /**
+   * People arc S7c: true when a read this snapshot swallows failed, so the answer may be missing a role
+   * tab or the DJ photo: the DJ read when the tab or the photo could show, or the teacher RPC when the
+   * roles are INFERRED (with the roles from get_public_person_roles_v1 the teacher answer is not used). A missing function is a deploy
+   * gap, not a failure. Present ONLY then (a complete answer has the same shape as before). The page
+   * still renders; the loaders bound its edge TTL and the seed marks it stale.
+   */
+  partial?: true;
 };
 
 type RolesRpc = (
@@ -74,6 +82,9 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
     },
     staleTime: 5 * 60 * 1000,
   });
+  // S7c: the swallowing catches below record that they swallowed, so the answer can say it is partial.
+  let djFailed = false;
+  let teacherFailed = false;
   const djP = qc.fetchQuery({
     queryKey: ['dj-profile', id],
     queryFn: async () => {
@@ -82,12 +93,21 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
       return (data as unknown as Record<string, unknown> | null) ?? null;
     },
     staleTime: 5 * 60 * 1000,
-  }).catch(() => null); // a DJ-read hiccup hides the DJ tab; it must not take the person page down
+  }).catch((err: { code?: string }) => {
+    djFailed = !isMissingFunction(err ?? {});
+    return null; // a DJ-read hiccup hides the DJ tab; it must not take the person page down
+  });
   const rolesP = fetchPublicRoles(id);
   const teacherP = flags.teacherDetail
     ? Promise.resolve(supabase.rpc('get_public_teacher_detail_v1', { p_entity_id: id }))
-        .then(({ data, error }) => !error && ((data ?? []) as unknown[]).length > 0)
-        .catch(() => false)
+        .then(({ data, error }) => {
+          if (error && !isMissingFunction(error)) throw error;
+          return !error && ((data ?? []) as unknown[]).length > 0;
+        })
+        .catch(() => {
+          teacherFailed = true;
+          return false;
+        })
     : Promise.resolve(false);
 
   const [dancer, dj, isTeacher, publicRoles] = await Promise.all([dancerP, djP, teacherP, rolesP]);
@@ -114,5 +134,11 @@ export async function loadPersonSnapshot(qc: QueryClient, id: string): Promise<P
     roles,
     heldRoles: publicRoles ?? roles,
     djPhoto: ((Array.isArray(djPhoto) ? djPhoto[0] : djPhoto) as string | null | undefined) ?? null,
+    // A failed DJ read loses something only when it could show: the DJ tab (inferred roles, or the DB
+    // says dj) or the DJ photo standing in for a missing avatar.
+    ...((djFailed && (publicRoles === null || publicRoles.includes('dj') || !view.avatarUrl)) ||
+    (teacherFailed && publicRoles === null)
+      ? { partial: true as const }
+      : {}),
   };
 }

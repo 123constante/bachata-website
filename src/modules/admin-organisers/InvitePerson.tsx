@@ -27,6 +27,38 @@ const leaderNote = (leader: PageLeader | undefined): string => {
 };
 
 /**
+ * The ready message with the link, Copy, WhatsApp and Done. Shared by "Invite person" and
+ * "Who is this for?". The link lives in the caller's component state only.
+ */
+export function InviteResult({ title, invite, message, onDone }: { title: string; invite: PersonInvite; message: string; onDone: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div data-testid="invite-person-result" className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+      <p className="text-sm font-medium">{title}</p>
+      <textarea readOnly rows={8} value={message} aria-label="Invite message" onFocus={(e) => e.currentTarget.select()} className="w-full rounded border border-border bg-background px-2 py-2 text-xs" data-testid="invite-person-message" />
+      {isNoPageInvite(invite) ? (
+        <p className="text-xs text-muted-foreground" data-testid="invite-person-no-page">Their profile now has this email. Send them the message: when they sign in with that email, the profile is theirs.</p>
+      ) : (
+        <p className="text-xs text-muted-foreground" data-testid="invite-person-once">This is the only time the link is shown. Once you tap Done it is gone; invite them again if you need a new one.</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={BTN} onClick={() => void copy()} data-testid="invite-person-copy"><Copy className="h-4 w-4" aria-hidden="true" /> {copied ? 'Copied' : 'Copy'}</button>
+        <a className={BTN} href={shareHref(message)} target="_blank" rel="noopener noreferrer" data-testid="invite-person-whatsapp"><MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp</a>
+        <button type="button" className={BTN_PRIMARY} onClick={onDone} data-testid="invite-person-done">Done</button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Invite a person (an organiser, or a teacher or DJ with no page) by email. The person is prefilled
  * from the chosen page's Leader when it has one, otherwise searched. The result is a ready message with
  * the link: held in component state only, never in the query cache, storage or a log.
@@ -40,7 +72,6 @@ export function InvitePerson({ organisers, fixedOrganiser }: { organisers: reado
   const [search, setSearch] = useState('');
   const [email, setEmail] = useState('');
   const [result, setResult] = useState<{ invite: PersonInvite; message: string } | null>(null);
-  const [copied, setCopied] = useState(false);
   const organiser = organisers.find((o) => o.id === organiserId) ?? null;
 
   const leader = useQuery({ queryKey: pageLeaderQueryKey(organiserId || null), queryFn: () => fetchPageLeader(organiserId), enabled: open && !!organiserId, staleTime: 60_000, retry: false });
@@ -63,44 +94,17 @@ export function InvitePerson({ organisers, fixedOrganiser }: { organisers: reado
         pageUrl: organiser ? `${window.location.origin}/organisers/${organiser.id}` : null,
       });
       setResult({ invite: inv, message });
-      setCopied(false);
     },
   });
 
   const blocked = inviteBlockedReason(person?.id ?? null, email);
-  const copy = async () => {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.message);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
   const reset = () => { setResult(null); setPicked(null); setUnpicked(false); setSearch(''); setEmail(''); setOrganiserId(fixedOrganiser?.id ?? ''); invite.reset(); };
 
   if (!open) {
     return <button type="button" className={`${BTN} w-full`} onClick={() => setOpen(true)} data-testid="invite-person-open"><UserPlus className="h-4 w-4" aria-hidden="true" /> Invite person</button>;
   }
 
-  if (result) {
-    return (
-      <div data-testid="invite-person-result" className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-        <p className="text-sm font-medium">Invite ready for {result.invite.email}</p>
-        <textarea readOnly rows={8} value={result.message} aria-label="Invite message" onFocus={(e) => e.currentTarget.select()} className="w-full rounded border border-border bg-background px-2 py-2 text-xs" data-testid="invite-person-message" />
-        {isNoPageInvite(result.invite) ? (
-          <p className="text-xs text-muted-foreground" data-testid="invite-person-no-page">Their profile now has this email. Send them the message: when they sign in with that email, the profile is theirs.</p>
-        ) : (
-          <p className="text-xs text-muted-foreground" data-testid="invite-person-once">This is the only time the link is shown. Once you tap Done it is gone; invite them again if you need a new one.</p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={BTN} onClick={() => void copy()} data-testid="invite-person-copy"><Copy className="h-4 w-4" aria-hidden="true" /> {copied ? 'Copied' : 'Copy'}</button>
-          <a className={BTN} href={shareHref(result.message)} target="_blank" rel="noopener noreferrer" data-testid="invite-person-whatsapp"><MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp</a>
-          <button type="button" className={BTN_PRIMARY} onClick={reset} data-testid="invite-person-done">Done</button>
-        </div>
-      </div>
-    );
-  }
+  if (result) return <InviteResult title={`Invite ready for ${result.invite.email}`} invite={result.invite} message={result.message} onDone={reset} />;
 
   return (
     <form data-testid="invite-person" className="space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); if (!blocked && !invite.isPending) invite.mutate(); }}>

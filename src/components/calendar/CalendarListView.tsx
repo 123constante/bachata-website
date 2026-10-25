@@ -4,7 +4,10 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { CalendarEventItem, Category } from '@/components/calendar/calendarUtils';
 import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
+import { useListImpressions } from '@/lib/listImpressions';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { goingCountText } from '@/modules/going/goingCopy';
 import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
 
@@ -94,9 +97,14 @@ type EventRowProps = {
   delayIndex: number;
   userLocation: UserLocation | null;
   selectedCategory: Category;
+  trackRef: (el: Element | null) => void;
 };
 
-const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRowProps) => {
+const EventRow = ({ event, delayIndex, userLocation, selectedCategory, trackRef }: EventRowProps) => {
+  // goingCount is set only for a night the going read answered for (EventCalendar);
+  // unset = unknown (a legacy occurrence id), so no count shows. 0 shows nothing either,
+  // and neither does a cancelled night (owner, 2026-10-23).
+  const goingCount = GOING_CHECKIN_ENABLED && !event.isCancelled ? (event.goingCount ?? 0) : 0;
   const delay = Math.min(delayIndex * 0.04, 0.4);
   return (
     <motion.div
@@ -106,6 +114,7 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
       style={{ display: 'flex', justifyContent: 'center' }}
     >
       <Link
+        ref={trackRef}
         to={event.eventLink}
         style={{
           display: 'flex',
@@ -142,15 +151,16 @@ const EventRow = ({ event, delayIndex, userLocation, selectedCategory }: EventRo
             at {event.venueName}
           </div>
 
-          {((event.goingCount ?? 0) > 0 || (userLocation && event.venueLat != null)) && (
+          {(goingCount > 0 || (userLocation && event.venueLat != null)) && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
-              {(event.goingCount ?? 0) > 0 && (
+              {goingCount > 0 && (
                 <span style={{
-                  fontSize: 10, fontWeight: 700, color: '#6b4c2a',
+                  // INK, not the old #6b4c2a: that read 4.32:1 on the chip (Going P2 stage 4 needs 4.5).
+                  fontSize: 10, fontWeight: 700, color: INK,
                   background: 'rgba(58,36,24,0.10)', borderRadius: 999,
                   padding: '2px 8px',
                 }}>
-                  {event.goingCount} going
+                  {goingCountText(goingCount)}
                 </span>
               )}
               {userLocation && event.venueLat != null && (
@@ -234,6 +244,7 @@ export const CalendarListView = ({
   onClearFilters,
   userLocation,
 }: CalendarListViewProps) => {
+  const trackImpression = useListImpressions('calendar');
   const monthStart = new Date(currentYear, currentMonth, 1);
   const monthEnd = new Date(currentYear, currentMonth + 1, 0);
   monthEnd.setHours(23, 59, 59, 999);
@@ -327,6 +338,7 @@ export const CalendarListView = ({
                       delayIndex={thisIndex}
                       userLocation={userLocation ?? null}
                       selectedCategory={selectedCategory}
+                      trackRef={trackImpression(event.id)}
                     />
                   );
                 })}
@@ -352,6 +364,7 @@ export const CalendarListView = ({
           delayIndex={i}
           userLocation={userLocation ?? null}
           selectedCategory={selectedCategory}
+          trackRef={trackImpression(event.id)}
         />
       ))}
     </motion.div>
