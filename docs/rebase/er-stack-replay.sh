@@ -4,7 +4,7 @@
 # that has docs/rebase/er-c8-merge-resolution.patch (branch claude/rebase-er-stack).
 set -e
 PATCH=${PATCH:-docs/rebase/er-c8-merge-resolution.patch}
-cp "$PATCH" /tmp/er-c8-merge-resolution.patch
+tr -d '\r' < "$PATCH" > /tmp/er-c8-merge-resolution.patch   # a checkout gives the patch CRLF (.gitattributes); the blobs have none
 git fetch origin main claude/er-c8-eventpage
 test "$(git rev-parse origin/claude/er-c8-eventpage)" = 94a7e5eabf859eecc7f4637f00b15ade4479ab03
 test "$(git rev-parse origin/main)" = 4791d9f276584094e5078618ce3f4d502d992dd1
