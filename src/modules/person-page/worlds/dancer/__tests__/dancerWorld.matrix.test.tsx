@@ -133,7 +133,7 @@ describe('dancerCard: every fact comes from facts/, empty facts hide', () => {
     const { row, languages } = SHAPES[key];
     const card = dancerCard({
       name: row.display_name as string | null, photo: row.avatar_url as string | null, nationality: row.nationality as string | null,
-      city: (row.cities as { name: string } | null)?.name ?? null, danceRole: row.dance_role as string | null, languages, contacts: [],
+      city: (row.cities as { name: string } | null)?.name ?? null, danceRole: row.dance_role as string | null, languages, yearsDancing: null, contacts: [],
     });
     expect(card.name.trim()).not.toBe('');
     if (!row.display_name) expect(card.name).toBe('Dancer');
@@ -192,7 +192,7 @@ describe('D6 lower half (S6: previews or nothing)', () => {
   });
 
   it('the photo is resized through the image CDN, never the original', () => {
-    const card = dancerCard({ name: 'A', photo: 'https://media.example.test/a.jpg', nationality: null, city: null, danceRole: null, languages: [], contacts: [] });
+    const card = dancerCard({ name: 'A', photo: 'https://media.example.test/a.jpg', nationality: null, city: null, danceRole: null, languages: [], yearsDancing: null, contacts: [] });
     expect(card.photo).not.toBeNull();
   });
 
@@ -353,6 +353,86 @@ const expectInShell = (inner: HTMLElement) => {
     expect(el.style.minHeight).toBe('');
   }
 };
+
+/**
+ * Owner 2026-10-25: the dancer world shows "N years dancing" and nothing else about experience
+ * (no Level, no Veteran / Experienced). Survey 2026-10-25 (173 live): no years 154; this year (0) 2;
+ * exactly 1 year 3; 2-7 years 3; 8+ years 11; future 0. Junk / empty strings can only reach the model.
+ */
+const NO_LEVEL = /\bLevel\b|Veteran|Experienced|Beginner|Intermediate|Advanced/i;
+const YEARS: { raw: string | null | undefined; line: string | null }[] = [
+  { raw: undefined, line: null },
+  { raw: null, line: null },
+  { raw: '', line: null },
+  { raw: '0', line: null },
+  { raw: '-2', line: null },
+  { raw: 'abc', line: null },
+  { raw: '1', line: '1 year dancing' },
+  { raw: '4', line: '4 years dancing' },
+  { raw: '11', line: '11 years dancing' },
+];
+const SUBS = [{ danceRole: 'Leader', city: 'London' }, { danceRole: null, city: null }];
+const LANGS = [[], ['es', 'English']];
+
+describe('dancerCard: years dancing (owner 2026-10-25)', () => {
+  for (const s of SUBS) for (const langs of LANGS) {
+    it.each(YEARS)(`sub ${s.danceRole ? 'on' : 'off'} / languages ${langs.length ? 'on' : 'off'} / years %o`, ({ raw, line }) => {
+      const card = dancerCard({ name: 'Eli', photo: null, nationality: null, ...s, languages: langs, contacts: [], yearsDancing: raw });
+      expect(card.years).toBe(line);
+      expect(card.sub).toBe(s.danceRole ? 'Leader ' + String.fromCharCode(0xb7) + ' London' : null);
+    });
+  }
+});
+
+/** The DOM rows: years come from dancing_role_details.dance_started_year (the joined row, as prod stores it). */
+const NOW_YEAR = new Date().getFullYear();
+const DOM_YEARS: { label: string; started: number | null; line: string | null }[] = [
+  { label: 'no years', started: null, line: null },
+  { label: 'this year (0)', started: NOW_YEAR, line: null },
+  { label: 'future year', started: NOW_YEAR + 1, line: null },
+  { label: '1 year', started: NOW_YEAR - 1, line: '1 year dancing' },
+  { label: '4 years', started: NOW_YEAR - 4, line: '4 years dancing' },
+  { label: '11 years', started: NOW_YEAR - 11, line: '11 years dancing' },
+];
+
+describe('flag ON: the years line on the card, every years shape x sub x languages', () => {
+  const base: Record<'sub' | 'nosub', Record<string, unknown>> = {
+    sub: { dance_role: 'Leader', cities: { name: 'London' } },
+    nosub: {},
+  };
+  for (const sub of ['sub', 'nosub'] as const) for (const langs of LANGS) {
+    it.each(DOM_YEARS)(`${sub} / languages ${langs.length ? 'on' : 'off'} / %o`, async ({ started, line }) => {
+      setWorlds(true);
+      const key = 'thin, one name, no photo, no city';
+      const saved = SHAPES[key];
+      SHAPES[key] = { row: rec({ id: 'id-y', first_name: 'Yo', display_name: 'Yo', dancing_role_details: started === null ? null : [{ dance_started_year: started }], ...base[sub] }), languages: langs };
+      try {
+        mount(key);
+        await settle();
+        await settle();
+      } finally {
+        SHAPES[key] = saved;
+      }
+      const card = q('dancer-world-card')!;
+      const years = q('dancer-world-years');
+      if (line) {
+        expect(years?.textContent).toBe(line);
+        expect(card.contains(years)).toBe(true);
+        expect((years as HTMLElement).style.fontSize).toBe('15px');
+        // Directly under the sub line (or the name when there is no sub line).
+        const above = sub === 'sub' ? q('dancer-world-sub') : q('dancer-world-name');
+        expect(years?.previousElementSibling).toBe(above);
+      } else {
+        // Absent: nothing rendered, so no empty gap.
+        expect(years).toBeNull();
+      }
+      const text = card.textContent ?? '';
+      expect(text).not.toMatch(/\b0 years?\b|-\d+ years?|NaN|undefined|null/);
+      expect(text).not.toMatch(NO_LEVEL);
+      if (line === '1 year dancing') expect(text).not.toMatch(/1 years/);
+    });
+  }
+});
 
 describe('flag ON: one shell for every state (the DJ world\'s)', () => {
   it.each(KEYS)('full page: %s', async (key) => {

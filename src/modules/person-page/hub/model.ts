@@ -16,6 +16,7 @@ import { mapDancerPublicProfile } from '@/modules/profile/dancerPublicProfile';
 import { londonTodayKey } from '@/lib/londonDate';
 import type { PersonRole } from '@/lib/searchEntities';
 import type { PersonSnapshot } from '../reads';
+import { plural, yearsDancingLine } from '../facts';
 
 /** The DJ read (get_public_dj_v1, cached by the loader under ['dj-profile', id]): only the fields the hub shows. */
 export type HubDjRow = {
@@ -69,20 +70,17 @@ export function cardOrder(badge: PersonBadge): PersonRole[] {
   return out;
 }
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
 /** Facts that exist, nothing else. Level has no public read today, so it never shows. */
 export function factsOf(yearsDancing: string | null, languages: readonly string[] | null | undefined): string[] {
-  const years = Number(yearsDancing);
   return [
-    yearsDancing && Number.isFinite(years) && years > 0 ? `${plural(years, 'year')} dancing` : null,
+    yearsDancingLine(yearsDancing),
     languages && languages.length ? languages.join(', ') : null,
   ].filter((x): x is string => !!x);
 }
 
 function cardLine(role: PersonRole, gig: { count: number } | null, facts: { years: string | null }): string {
   if (role === 'dj') return !gig ? 'Their DJ page' : gig.count > 0 ? `${plural(gig.count, 'gig')} coming up` : 'Gigs coming up';
-  if (role === 'dancer') return facts.years && Number(facts.years) > 0 ? `${plural(Number(facts.years), 'year')} dancing` : 'Their dancer page';
+  if (role === 'dancer') return yearsDancingLine(facts.years) ?? 'Their dancer page';
   return 'Their teacher page';
 }
 

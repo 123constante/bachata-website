@@ -66,6 +66,18 @@ export const londonDayOf = (raw: string | null | undefined): string | null => {
 /** "Friday 23 October": the one date label on every world. Reuses londonDate (no second copy). */
 export const dateLabel = (raw: string | null | undefined): string | null => formatKeyDayLabel(londonDayOf(raw));
 
+/** "1 year" / "4 years": the one plural rule for counted facts. */
+export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/**
+ * "4 years dancing" from the stored years string (dancerView.yearsDancing). Only a finite
+ * number above 0 shows; null, "", "0", a negative (a future start year) or junk -> null, never "0 years".
+ */
+export const yearsDancingLine = (raw: string | null | undefined): string | null => {
+  const years = Number(raw);
+  return raw && Number.isFinite(years) && years > 0 ? `${plural(years, 'year')} dancing` : null;
+};
+
 /** "3 gigs coming up": a count is shown only from 2 (owner rule); 0 and 1 -> null. */
 export const countLabel = (n: number | null | undefined, noun: string): string | null =>
   typeof n === 'number' && Number.isFinite(n) && n >= 2 ? `${Math.floor(n)} ${noun}` : null;

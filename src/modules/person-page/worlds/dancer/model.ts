@@ -3,7 +3,7 @@
 // only decides WHICH facts show and which lower half the page gets (owner D3/D6/D8).
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 import { londonWallClockToInstant } from '@/lib/londonDate';
-import { cityLabel, flagCode, gigDateLabel, languageLine, wallDayOf, worldNames } from '../../facts';
+import { cityLabel, flagCode, gigDateLabel, languageLine, wallDayOf, worldNames, yearsDancingLine } from '../../facts';
 import { ROLE_LABEL, rolePagePath, type PersonRole } from '../../personRoles';
 
 /** The card photo's diameter (px); the photo is fetched at 2x this through the image CDN. */
@@ -31,6 +31,8 @@ export type DancerWorldInput = {
   danceRole: string | null | undefined;
   /** dancer_profiles.languages as stored (codes or English names). */
   languages: readonly unknown[] | null | undefined;
+  /** dancerView.yearsDancing as the page has it ("4"; null = no start year). */
+  yearsDancing: string | null | undefined;
   contacts: readonly WorldContact[];
 };
 
@@ -41,6 +43,8 @@ export type DancerCard = {
   flag: string | null;
   /** "Leader &middot; London"; null = no line. */
   sub: string | null;
+  /** Owner 2026-10-25: "4 years dancing", the only experience fact (no Level); null = no line. */
+  years: string | null;
   /** "Spanish, English"; null = no Speaks block. */
   languages: string | null;
   contacts: { kicker: string; href: string; label: string; external: boolean }[];
@@ -56,6 +60,7 @@ export function dancerCard(input: DancerWorldInput): DancerCard {
     photo: clean(input.photo) ? optimizedImageUrl(clean(input.photo) as string, srcWidthFor(FACE_PX * 2)) : null,
     flag: flagCode(input.nationality),
     sub: sub || null,
+    years: yearsDancingLine(input.yearsDancing),
     languages: languageLine(input.languages),
     contacts: input.contacts.map((c) => ({ kicker: CONTACT_KICKER[c.kind], href: c.href, label: c.label, external: c.kind !== 'email' })),
   };
