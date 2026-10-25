@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { londonTodayKey } from '@/lib/londonDate';
 import {
   fetchIncomingAccessRequests,
@@ -7,7 +7,8 @@ import {
   myAccessRequestsQueryKey,
 } from '@/modules/organiser/shared/selfServeApi';
 import { isListedSeries } from '@/modules/organiser/shared/homeModel';
-import { homeJobs } from '@/modules/organiser/jobs/homeJobs';
+import { homeJobs, type GoLiveChecks } from '@/modules/organiser/jobs/homeJobs';
+import { fetchGoLiveCheck, goLiveCheckQueryKey } from '@/modules/organiser/shared/goLiveCheck';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
 import { readsRequests } from './homeView';
 
@@ -31,7 +32,13 @@ export function useHomeData() {
   // when absent), so a phone with a wrong clock agrees with the server (N4).
   const today = home.data?.today || londonTodayKey();
   const page = selected ? { ...selected, series: (selected.series ?? []).filter(isListedSeries) } : null;
-  // A join-request row is a nudge: it waits for its read and never blocks the list.
-  const jobs = page ? homeJobs(page, incoming.data ?? [], today) : [];
+  // W2 walk fix 4: each draft's Go live list, the same read (and cache) as the event's own card.
+  const draftIds = (page?.series ?? []).filter((s) => s.lifecycle_status === 'draft').map((s) => s.id);
+  const goLive = useQueries({
+    queries: draftIds.map((id) => ({ queryKey: goLiveCheckQueryKey(id), queryFn: () => fetchGoLiveCheck(id), staleTime: 60_000 })),
+  });
+  const checks: GoLiveChecks = Object.fromEntries(draftIds.map((id, i) => [id, goLive[i]?.data]));
+  // A join-request row and a draft's count are nudges: each waits for its read and never blocks the list.
+  const jobs = page ? homeJobs(page, incoming.data ?? [], today, checks) : [];
   return { user, home, organisers, selected, jobs, mine, today };
 }

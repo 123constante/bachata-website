@@ -3,7 +3,7 @@ import { Check, ChevronRight } from 'lucide-react';
 import { TILE_CLASS } from '../blocks';
 import { useSeriesLevelRating } from '@/hooks/useSeriesLevelRating';
 import type { Night } from '../nights/nightsModel';
-import { nightsPath, shortDate } from '../nights/nightsModel';
+import { nightsPath, shortDate } from '../nights/nightsDates';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
 
 /**

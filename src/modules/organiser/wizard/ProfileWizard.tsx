@@ -1,11 +1,13 @@
 // /account/o/complete -- "Complete your profile" (C15, C16, D26, D27, D50).
-// One question per screen, in the server's order (my_profile_progress_v1
-// `steps`), resuming at the first unanswered step. Every answer saves at once
-// through the existing writers; an unchanged answer sends nothing; a failed
-// save keeps the answer on screen with the error. Back goes to the previous
-// question, "Finish later" leaves to Home (the answers are already saved).
+// One question per screen: the server's steps (my_profile_progress_v1), every
+// REQUIRED one first, resuming at the first unanswered step (W2 walk fix 1).
+// Opened from an event (`?returnTo=`), it asks ONLY the required ones, and
+// Finish later, Back and the end screens go back to that event (fix 2). Every
+// answer saves at once through the existing writers; an unchanged answer sends
+// nothing; a failed save keeps the answer on screen with the error. Back goes to
+// the previous question; "Finish later" leaves (the answers are already saved).
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft } from 'lucide-react';
 import { fetchOwnOrganiserEntity, ownOrganiserEntityQueryKey } from '@/modules/profile/organiserPublicProfile';
@@ -26,8 +28,15 @@ import { WIZARD_STEPS, isRegistered, type WizardSources } from './registry';
 import { REAL_WRITERS, invalidateAfterAnswer, saveAnswer, type WizardWriters } from './wizardApi';
 import { WizardEnvContext } from './wizardEnv';
 import { UNLOCK_LINE, levelOf, milestoneBetween, nextOpenStep, shownSteps, stepKey } from './wizardModel';
+import { sanitizeReturnTo } from '@/lib/authRouting';
+import { askOrder } from '@/modules/organiser/shared/goLiveKeys';
+import { backToEventLabel, returnToSeriesId } from '@/modules/organiser/flows/doneState';
+import { useEventWorkspace } from '@/modules/organiser/shared/runCommands';
 
 export const FINISH_LATER_LABEL = 'Finish later';
+export const KEEP_GOING_LABEL = 'Keep going';
+// The end screens' way back to the event (its name, its id from a returnTo): one copy, shared with Done (W2 walk fix 10).
+export { backToEventLabel, returnToSeriesId };
 
 function TopBar({ onBack, onFinishLater }: { onBack: () => void; onFinishLater: () => void }) {
   return (
@@ -61,6 +70,12 @@ export interface ProfileWizardProps {
 function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId: string | null; userId: string } & Required<ProfileWizardProps>) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [search] = useSearchParams();
+  // An explicit returnTo wins (D37); a non-site value, or this screen itself, is ignored.
+  const returnTo = sanitizeReturnTo(search.get('returnTo'), { exclude: PROFILE_WIZARD_PATH });
+  const eventWs = useEventWorkspace(returnToSeriesId(returnTo) ?? undefined);
+  // From an event: the required questions only, until the person taps Keep going (fix 1).
+  const [requiredOnly, setRequiredOnly] = useState(!!returnTo);
   const progress = useProfileProgress(organiserId);
   const dancer = useQuery({ queryKey: wizardDancerQueryKey(userId), queryFn: fetchWizardDancer });
   const entity = useQuery({ queryKey: ownOrganiserEntityQueryKey(organiserId ?? undefined), queryFn: () => fetchOwnOrganiserEntity(organiserId!), enabled: !!organiserId });
@@ -89,16 +104,24 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
 
   const env = useMemo(() => ({
     uploadLogo: organiserId ? (file: File) => uploadLogo(organiserId, file) : null,
-    returnTo: PROFILE_WIZARD_PATH,
-  }), [organiserId, uploadLogo]);
+    // The photo screen comes back here, still carrying the event's returnTo (fix 2).
+    returnTo: returnTo ? `${PROFILE_WIZARD_PATH}?returnTo=${encodeURIComponent(returnTo)}` : PROFILE_WIZARD_PATH,
+  }), [organiserId, uploadLogo, returnTo]);
 
   const p: ProfileProgress | undefined = progress.data;
-  const steps = p ? shownSteps(p.steps, isRegistered) : [];
+  const allSteps = p ? askOrder(shownSteps(p.steps, isRegistered)) : [];
+  const steps = requiredOnly ? askOrder(allSteps, true) : allSteps;
   const open = nextOpenStep(steps, handled);
   const step = (cursor && steps.find((s) => stepKey(s) === cursor)) || open;
+  // Optional questions still open beyond the required-only list (Keep going asks them).
+  const moreOptional = !!nextOpenStep(allSteps, handled);
 
-  const goHome = () => navigate(ORG_PATHS.home);
+  const goHome = () => navigate(returnTo ?? ORG_PATHS.home);
   const finishLater = () => { markFinishLater(userId); goHome(); };
+  const keepGoing = () => { setRequiredOnly(false); setMilestone(false); };
+  const backToEvent = returnTo ? (
+    <PrimaryButton testId="wizard-back-to-event" onClick={goHome}>{backToEventLabel(eventWs.data?.series.name)}</PrimaryButton>
+  ) : null;
 
   const advance = (left: ProgressStep) => {
     const key = stepKey(left);
@@ -155,10 +178,20 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
           <Celebration level="ready" />
           <LevelTrack percent={p.percent} publishReady={p.publishReady} />
           <p className="text-[15px] text-[var(--fg)]" data-testid="wizard-unlock">{UNLOCK_LINE.ready}</p>
-          {nextUp ? (
+          {backToEvent ? (
+            <>
+              {backToEvent}
+              {moreOptional && (
+                <>
+                  <p className="text-[14px] text-[var(--mut)]">The rest is optional. Each answer makes your profiles fuller.</p>
+                  <GhostButton testId="wizard-milestone-continue" onClick={keepGoing}>{KEEP_GOING_LABEL}</GhostButton>
+                </>
+              )}
+            </>
+          ) : nextUp ? (
             <>
               <p className="text-[14px] text-[var(--mut)]">The rest is optional. Each answer makes your profiles fuller.</p>
-              <PrimaryButton testId="wizard-milestone-continue" onClick={() => setMilestone(false)}>Keep going</PrimaryButton>
+              <PrimaryButton testId="wizard-milestone-continue" onClick={() => setMilestone(false)}>{KEEP_GOING_LABEL}</PrimaryButton>
             </>
           ) : (
             <PrimaryButton testId="wizard-home" onClick={goHome}>Back to Home</PrimaryButton>
@@ -181,12 +214,13 @@ function WizardBody({ organiserId, userId, writers, uploadLogo }: { organiserId:
         <Celebration level="full" />
         <LevelTrack percent={p.percent} publishReady={p.publishReady} />
         <p className="text-[15px] text-[var(--fg)]" data-testid="wizard-unlock">{UNLOCK_LINE.full}</p>
-        <PrimaryButton testId="wizard-home" onClick={goHome}>Back to Home</PrimaryButton>
+        {backToEvent ?? <PrimaryButton testId="wizard-home" onClick={goHome}>Back to Home</PrimaryButton>}
       </Panel>
     ) : (
       <Panel heading={`Your profile is ${p.percent}% complete`} testId="wizard-end">
         <LevelTrack percent={p.percent} publishReady={p.publishReady} />
-        <PrimaryButton testId="wizard-home" onClick={goHome}>Back to Home</PrimaryButton>
+        {backToEvent ?? <PrimaryButton testId="wizard-home" onClick={goHome}>Back to Home</PrimaryButton>}
+        {requiredOnly && moreOptional && <GhostButton testId="wizard-milestone-continue" onClick={keepGoing}>{KEEP_GOING_LABEL}</GhostButton>}
         {skipped && <GhostButton testId="wizard-reopen" onClick={() => reopen(null)}>Answer the questions you skipped</GhostButton>}
       </Panel>
     );

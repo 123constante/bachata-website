@@ -14,6 +14,21 @@ export const OPEN_REQUESTED = {
   home: 'Back to Home',
 } as const;
 
+/**
+ * W2 walk fix 8: the beta said UP FRONT (Find your page, Page name, Become an
+ * organiser), not only after a name and a city. The server decides per login
+ * (_organiser_create_allowed_v1, not callable from the browser), so the words
+ * say what may happen and what the person can do then.
+ */
+export const BETA_NOTE = 'During the beta, new pages are approved by hand. Find your page first; if you create a new one, we may need to open it for you.';
+
+/** W2 walk fix 9: what the Page name box wants, and why Next is off while it is empty. */
+export const PAGE_NAME_HINT = 'The name dancers know you by: your school, brand or event series.';
+export const PAGE_NAME_NEXT_REASON = 'Type the page name first.';
+
+/** The city step's one-tap answer: the city the person gave at sign-up. */
+export const signupCityLabel = (city: string) => `Use ${city}`;
+
 /** request_signup_access_v1's rate_limited, worded as everywhere else in Arc 1. */
 export const TRY_LATER = 'Try again later.';
 export const NOT_SENT = 'That did not send. Check your connection and try again.';

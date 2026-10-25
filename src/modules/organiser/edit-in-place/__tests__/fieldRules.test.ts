@@ -81,14 +81,14 @@ describe('checkYear', () => {
 
 describe('checkInstagram', () => {
   it.each([
-    // [typed, draft value, we will save, display]
-    ['@ritmo.latino', '@ritmo.latino', '@ritmo.latino', '@ritmo.latino'],
-    ['ritmo_latino', '@ritmo_latino', '@ritmo_latino', '@ritmo_latino'],
-    ['  @abc  ', '@abc', '@abc', '@abc'],
-    ['https://www.instagram.com/ritmo/', 'https://www.instagram.com/ritmo/', 'https://www.instagram.com/ritmo/', '@ritmo'],
-    ['instagram.com/ritmo', 'instagram.com/ritmo', 'https://instagram.com/ritmo', '@ritmo'],
-    ['HTTPS://instagram.com/Ritmo?igsh=x', 'HTTPS://instagram.com/Ritmo?igsh=x', 'https://instagram.com/Ritmo?igsh=x', '@Ritmo'],
-    ['https://instagram.com/p/C0ffee', 'https://instagram.com/p/C0ffee', 'https://instagram.com/p/C0ffee', 'Instagram'],
+    // [typed, draft value, we will save, display] -- invite journey W2: every way of typing it saves the bare name.
+    ['@ritmo.latino', 'ritmo.latino', 'ritmo.latino', '@ritmo.latino'],
+    ['ritmo_latino', 'ritmo_latino', 'ritmo_latino', '@ritmo_latino'],
+    ['  @abc  ', 'abc', 'abc', '@abc'],
+    ['https://www.instagram.com/ritmo/', 'ritmo', 'ritmo', '@ritmo'],
+    ['instagram.com/ritmo', 'ritmo', 'ritmo', '@ritmo'],
+    ['HTTPS://instagram.com/Ritmo?igsh=x', 'ritmo', 'ritmo', '@ritmo'],
+    ['@Ritmo.Latino', 'ritmo.latino', 'ritmo.latino', '@ritmo.latino'],
   ])('accepts %j', (typed, value, willSave, display) => {
     const c = checkInstagram(typed);
     expect(c.ok).toBe(true);
@@ -105,8 +105,11 @@ describe('checkInstagram', () => {
     ['https://instagram.com', INSTAGRAM_COPY.refuse],
     ['https://instagram.com.evil.tk/ritmo', INSTAGRAM_COPY.refuse],
     ['https://bit.ly/x?ref=instagram.com', INSTAGRAM_COPY.refuse],
-    ['ritmo latino', INSTAGRAM_COPY.refuse],
-    ['ritmo!', INSTAGRAM_COPY.refuse],
+    ['https://instagram.com/p/C0ffee', INSTAGRAM_COPY.post],
+    ['ritmo latino', INSTAGRAM_COPY.characters],
+    ['ritmo!', INSTAGRAM_COPY.characters],
+    ['.ritmo', INSTAGRAM_COPY.dots],
+    ['ritmo..latino', INSTAGRAM_COPY.dots],
     ['@' + 'a'.repeat(31), INSTAGRAM_COPY.tooLong],
   ])('refuses %j', (typed, error) => {
     const c = checkInstagram(typed);
@@ -319,14 +322,15 @@ describe('the contact keys (admin #771 split): phone, and one switch each for ph
   it('none is a "Complete your page" prompt', () => {
     for (const k of ['contact_phone', 'show_phone_publicly', 'show_email_publicly']) expect(PROMPTED_FIELDS.map((p) => p.key)).not.toContain(k);
   });
-  // The repo's existing phone rule (contactValidation.normalizePhoneDigits: 7-15 digits,
-  // punctuation allowed) and the server's (contact_phone: <= 40 characters, one line).
+  // The ONE stored phone rule (invite journey W2: E.164, lib/phoneRules, the server's by fixture)
+  // and the RPC's own (contact_phone: <= 40 characters, one line). The sheet's PhoneInput sends E.164.
   it.each([
     ['', true, ''],
     ['   ', true, ''],
-    ['+44 7700 900123', true, '+44 7700 900123'],
-    ['  07700 900123 ', true, '07700 900123'],
-    ['0113.496.0000', true, '0113.496.0000'],
+    ['+44 7700 900123', true, '+447700900123'],
+    ['+447700900123', true, '+447700900123'],
+    ['  07700 900123 ', false, '07700 900123'],
+    ['0113.496.0000', false, '0113.496.0000'],
     ['123456', false, '123456'],
     ['1234567890123456', false, '1234567890123456'],
     ['07700\n900123', false, '07700\n900123'],

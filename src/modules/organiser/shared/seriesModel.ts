@@ -34,6 +34,8 @@ export interface WorkspaceSeries {
   default_start_date: string | null;
   /** The Instagram link (event_series_p5.instagram_url). */
   instagram_url: string | null;
+  /** How to pay as stored: a comma list of ticket_link, door, bank_transfer, cash, free (event_series_p5.payment_methods). */
+  payment_methods?: string | null;
   /** The price list as stored (event_series_p5.passes); shape not trusted. */
   passes: unknown;
   created_at: string | null;
@@ -98,6 +100,7 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     default_cover_image_url: str(s.default_cover_image_url),
     default_start_date: str(s.default_start_date),
     instagram_url: str(s.instagram_url),
+    payment_methods: str(s.payment_methods),
     passes: s.passes ?? null,
     created_at: str(s.created_at),
     recurrence_rule: s.recurrence_rule ?? null,

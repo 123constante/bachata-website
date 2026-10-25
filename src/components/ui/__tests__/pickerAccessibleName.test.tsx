@@ -179,6 +179,8 @@ const ROWS: Row[] = [
   { file: 'src/pages/VendorPortal.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/modules/admin-organisers/AdminOrganisersPage.tsx', picker: 'CityPicker', id: 'link-city' },
   { file: 'src/modules/admin-organisers/AddOrganiser.tsx', picker: 'CityPicker', id: 'add-city' },
+  // W1 (PR #978): About you inline on /invite; <label htmlFor="join-city"> names it.
+  { file: 'src/modules/admin-organisers/join/AboutStep.tsx', picker: 'CityPicker', id: 'join-city' },
 ];
 
 const ROOT = path.resolve(__dirname, '../../../..');

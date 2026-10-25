@@ -98,7 +98,7 @@ export function SaveButton({ ready, reason, busy, error, onSave }: {
 }) {
   return (
     <div className="flex flex-col gap-2">
-      {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
+      {error && <p role="alert" className="break-words text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
       <PrimaryButton
         testId="change-save"
         aria-disabled={!ready || undefined}

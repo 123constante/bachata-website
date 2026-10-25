@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { routeStampCalls } from "./routeStampCalls";
 import {
   REVALIDATABLE_ENTITY_TYPES,
   type EntityType,
@@ -67,6 +68,26 @@ describe("cache-tag invalidation contract", () => {
         `purgeTagsFor("${t}") must include its own detail tag ${entityTag(t as EntityType, ID)}`,
       ).toContain(entityTag(t as EntityType, ID));
     }
+  });
+
+  // S7c: the contract above reads ALL_ROUTE_STAMPS, a hand-kept list. Every stamp call a route
+  // module really makes (an id-taking helper; a second argument is a flag, so both its values) must
+  // be on that list, or a route could stamp a tag kind the contract never sees.
+  it("lists in ALL_ROUTE_STAMPS every id-keyed stamp a route module makes (not stampHome or zero-argument stamps), flag ON and OFF", () => {
+    const listed = new Set(ALL_ROUTE_STAMPS);
+    const calls = routeStampCalls();
+    expect([...new Set(calls.filter((c) => c.flagged).map((c) => c.file))].sort()).toEqual([
+      "routes/dancers.tsx",
+      "routes/people.tsx",
+    ]);
+    const missing = calls.flatMap(({ file, stamp, flagged }) =>
+      (flagged ? [false, true] : [false])
+        .map((on) => stamp(ID, on))
+        // stampHome takes a city slug, listed under its own placeholder: not an id-keyed page.
+        .filter((s) => !s.includes("city-") && !listed.has(s))
+        .map((s) => `${file}: ${s}`),
+    );
+    expect(missing).toEqual([]);
   });
 
   it("has no duplicate entity types", () => {

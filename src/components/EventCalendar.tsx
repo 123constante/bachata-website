@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, ChevronLeft, ChevronRight, List, Rss, Check, Copy, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,9 +13,14 @@ import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { CalendarListView } from '@/components/calendar/CalendarListView';
 import { DayDetailModal } from '@/components/calendar/DayDetailModal';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useQuery } from '@tanstack/react-query';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
-import { supabase } from '@/integrations/supabase/client';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import type { CalendarGoingCounts } from '@/modules/going/CalendarGoingFeed';
+
+// Lazy, and mounted only while the going switch is on: a static import of the
+// going module put it into the first load of /parties and /classes (+3 requests,
+// perf-budget chunk ratchet). See CalendarGoingFeed.
+const CalendarGoingFeed = lazyWithRetry(() => import('@/modules/going/CalendarGoingFeed'));
 
 const CalendarSkeleton = ({ view, month, year }: { view: ViewType; month: number; year: number }) => {
   if (view === 'list') {
@@ -126,7 +131,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
   // London-calendar month window. Browser-local month-midnight Dates shifted
   // the RPC's half-open bound by the visitor's offset — east-of-London month
   // grids silently dropped the last day of the month.
-  const { queryStart, queryEnd, monthFromKey, monthToKey } = useMemo(() => {
+  const { queryStart, queryEnd } = useMemo(() => {
     const firstKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const { start, end } = londonDayRangeUtc(firstKey, daysInMonth);
@@ -149,37 +154,27 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
     [rawEvents],
   );
 
-  // Fetch attendance counts in parallel with calendar query (no dependency on eventIds).
-  // Uses date range instead of explicit event IDs so both queries fire simultaneously.
-  const { data: attendanceCounts } = useQuery({
-    queryKey: ['calendar-attendance-counts', queryStart.toISOString(), queryEnd.toISOString(), citySlug ?? ''],
-    queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)(
-        'get_event_attendance_counts_by_range',
-        {
-          p_from: monthFromKey,
-          p_to: monthToKey,
-          p_city_slug: citySlug ?? null,
-        },
-      );
-      if (error || !data) return {} as Record<string, number>;
-      const map: Record<string, number> = {};
-      (data as Array<{ event_id: string; going_count: number }>).forEach((row) => {
-        map[row.event_id] = row.going_count;
-      });
-      return map;
-    },
-    enabled: GOING_CHECKIN_ENABLED,
-    staleTime: 1000 * 60 * 2,
-  });
+  // Going count per NIGHT (Going P2), from the going module: ONE batched
+  // get_nights_going_v1 read (chunked at 200 ids) for the month's rows, and only
+  // while the going switch is on (off = no request, no count). get_calendar_events_v2
+  // returns COALESCE(legacy_occurrence_id, p5 id) -- mostly legacy ids, which
+  // get_nights_going_v1 silently drops -- so a row the reply leaves out has NO
+  // count (nightGoingKnown), never a made-up "0 going".
+  // transformCalendarEvents is a 1:1 map of rawEvents, so row i is night i.
+  const occurrenceIds = useMemo(
+    () => (rawEvents ?? []).map((r) => r.occurrence_id).filter((id): id is string => Boolean(id)),
+    [rawEvents],
+  );
+  const [goingCounts, setGoingCounts] = useState<CalendarGoingCounts | null>(null);
 
   const events = useMemo(() => {
-    if (!attendanceCounts) return baseEvents;
-    return baseEvents.map((e) => ({
-      ...e,
-      goingCount: attendanceCounts[e.id] ?? 0,
-    }));
-  }, [baseEvents, attendanceCounts]);
+    if (!GOING_CHECKIN_ENABLED || !goingCounts || !rawEvents) return baseEvents;
+    return baseEvents.map((e, i) => {
+      const occurrenceId = rawEvents[i]?.occurrence_id;
+      const count = occurrenceId ? goingCounts[occurrenceId] : undefined;
+      return count === undefined ? e : { ...e, goingCount: count };
+    });
+  }, [baseEvents, rawEvents, goingCounts]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentDate((prev) => {
@@ -239,6 +234,11 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
 
   return (
     <section className="py-6 sm:py-12 px-4">
+      {GOING_CHECKIN_ENABLED && occurrenceIds.length > 0 && (
+        <Suspense fallback={null}>
+          <CalendarGoingFeed occurrenceIds={occurrenceIds} onCounts={setGoingCounts} />
+        </Suspense>
+      )}
       <div className="max-w-4xl mx-auto">
         <div
           className="bg-card border border-[hsl(42_90%_50%/0.22)] rounded-3xl overflow-hidden relative shadow-[0_0_0_1px_hsl(42_90%_50%/0.06),_0_8px_48px_hsl(42_90%_50%/0.07)]"

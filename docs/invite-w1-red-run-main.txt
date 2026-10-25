@@ -1,0 +1,60 @@
+    [36m>[39m
+      [36m<h1[39m
+        [33mclass[39m=[32m"text-lg font-semibold"[39m
+        [33mdata-testid[39m=[32m"invite-title"[39m
+      [36m>[39m
+        [0mThis link is for a different email[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-sm text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"invite-body"[39m
+      [36m>[39m
+        [0mYou are signed in as ana@example.com. Sign in with the email this link was sent to.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-2"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-sm font-medium"[39m
+          [33mdata-testid[39m=[32m"invite-email-hint"[39m
+        [36m>[39m
+          [0mThis invite is for [0m
+          [0mz***@other.com[0m
+          [0m.[0m
+        [36m</p>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"[39m
+          [33mdata-testid[39m=[32m"invite-switch-account"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mSign in with that email[0m
+        [36m</button>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex min-h-[44px] items-center justify-center rounded-lg border border-border px-4 py-2 text-sm font-medium"[39m
+          [33mdata-discover[39m=[32m"true"[39m
+          [33mdata-testid[39m=[32m"invite-home"[39m
+          [33mhref[39m=[32m"/"[39m
+        [36m>[39m
+          [0mGo to Bachata Calendar[0m
+        [36m</a>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/modules/admin-organisers/join/__tests__/joinMachine.table.test.tsx:108:31
+    106|     });
+    107|     mount(row.url ?? `/invite/${TOKEN}`);
+    108|     const step = await screen.findByTestId('join-step', {}, { timeout:…
+       |                               ^
+    109|     expect(step.getAttribute('data-step')).toBe(row.expect[person]);
+    110|     // Server truth only: nothing is redeemed without a Join tap (the …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/36]⎯
+
+ Test Files  1 failed (1)
+      Tests  36 failed (36)
+   Start at  12:25:51
+   Duration  155.68s (transform 421ms, setup 34ms, collect 1.06s, tests 144.23s, environment 4.65s, prepare 120ms)
+

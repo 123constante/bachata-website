@@ -1,5 +1,9 @@
 import type { DancerPublicViewModel } from '@/modules/profile/dancerPublicProfile';
 import { buildSignInHref } from '@/lib/authRouting';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { nightLine } from '@/modules/going/goingCopy';
+import type { GoingNextNight } from '@/modules/going/goingRpc';
+import { linkText } from '@/modules/person-page/worlds/dj/model';
 
 /**
  * Public dancer page v2 (W2f / B1b S2): everything the page SHOWS, as plain data,
@@ -12,7 +16,13 @@ import { buildSignInHref } from '@/lib/authRouting';
  * HTML and the first paint agree. `null` = today's page, byte-for-byte: the flag
  * is closed, or the flag read failed.
  */
-export type PublicPageExtras = { bio: string | null; languages: string[]; whatsapp: string | null };
+export type PublicPageExtras = {
+  bio: string | null;
+  languages: string[];
+  whatsapp: string | null;
+  /** get_public_dancer_extras_v1 going_next (max 3); absent = none. */
+  goingNext?: readonly GoingNextNight[];
+};
 /** `extrasOk` false = the extras read failed: the page then claims nothing about contacts it could not read. */
 export type PublicPageV2Data = { extras: PublicPageExtras; extrasOk: boolean };
 
@@ -159,11 +169,53 @@ export const facebookLabel = (url: string | null): string | null => {
 /** `label` is what the row shows (the handle or address); `copyText` is the FULL text the Copy button copies. */
 export type ContactLink = { kind: 'instagram' | 'facebook' | 'website' | 'email' | 'whatsapp'; href: string; label: string; copyText: string };
 
-/** One "Going next" card. Built from the dancer's own opt-in list; see GoingNextInput. */
-export type GoingNextEvent = { id: string; date: string; name: string; venue: string | null };
-export type GoingNextInput = { optIn: boolean; events: readonly GoingNextEvent[] };
-/** 1 event = one full-width card, 2 = side by side, more = the first two plus "See all N events". */
-export type GoingNextModel = { shown: GoingNextEvent[]; total: number; seeAll: boolean };
+// First path segments that are not a profile (a post, a reel, a group...): no handle is guessed from them.
+const IG_NOT_PROFILE = new Set(['p', 'reel', 'reels', 'tv', 'explore', 'stories', 'accounts', 'direct']);
+const FB_NOT_PROFILE = new Set(['profile.php', 'people', 'groups', 'pages', 'events', 'share', 'sharer', 'sharer.php', 'watch', 'p', 'photo', 'photo.php', 'story.php', 'permalink.php', 'login']);
+
+const parseUrl = (url: string | null): URL | null => {
+  if (!url?.trim()) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`);
+  } catch {
+    return null;
+  }
+};
+
+/** The handle of a PROFILE url on `site` (bare, www. or m.): exactly one path segment, not a post/reel/group. */
+const profileHandle = (u: URL | null, site: 'instagram' | 'facebook', notProfile: ReadonlySet<string>): string | null => {
+  if (!u || !new RegExp(`^(?:(?:www|m)\\.)?${site}\\.com$`).test(u.hostname)) return null;
+  const segs = u.pathname.split('/').filter(Boolean);
+  return segs.length === 1 && /^[\w.]+$/.test(segs[0]) && !notProfile.has(segs[0].toLowerCase()) ? segs[0] : null;
+};
+
+const sameText = (a: string, b: string | null): boolean => b !== null && a.toLowerCase() === b.toLowerCase();
+
+/**
+ * People S8: the stored "website" as a contact row (the flag-OFF page and the dancer world
+ * both read it). An Instagram or Facebook PROFILE url is filed under that kind with that
+ * kind's label; null when the dancer's own Instagram/Facebook link already shows the same
+ * handle (one row, not two). Anything else stays a website, labelled without scheme, www.,
+ * query, hash or trailing slash (linkText, the DJ and teacher worlds' own rule). The href is
+ * always the stored url.
+ */
+export const websiteContact = (website: string, links: { instagram: string | null; facebook: string | null }): ContactLink | null => {
+  const u = parseUrl(website);
+  const ig = profileHandle(u, 'instagram', IG_NOT_PROFILE);
+  if (ig) return sameText(`@${ig}`, instagramLabel(links.instagram)) ? null : { kind: 'instagram', href: website, label: `@${ig}`, copyText: `@${ig}` };
+  const fb = profileHandle(u, 'facebook', FB_NOT_PROFILE);
+  if (fb) return sameText(`facebook.com/${fb}`, facebookLabel(links.facebook)) ? null : { kind: 'facebook', href: website, label: `facebook.com/${fb}`, copyText: website };
+  return { kind: 'website', href: website, label: linkText(u ? `${u.host}${u.pathname}` : website.trim()), copyText: website };
+};
+
+/** One "Going next" card: one NIGHT (an occurrence). `href` null = no public event, no link. */
+export type GoingNextEvent = { id: string; date: string; name: string; href: string | null };
+/**
+ * F13 layout: 1 night = one full-width card, 2 = side by side, 3 = the first two plus
+ * "See all 3", which opens the rest IN PLACE (the RPC sends at most 3, so the page
+ * already holds them all: no other page to send the visitor to).
+ */
+export type GoingNextModel = { shown: GoingNextEvent[]; rest: GoingNextEvent[]; total: number; seeAll: boolean };
 
 /**
  * F13 teal card facts. A column exists only when its value does; none = no row.
@@ -186,10 +238,25 @@ export const practiceGoalText = (goals: readonly string[]): string | null => {
   return picked.length ? picked.join(' and ') : null;
 };
 
-export const goingNextModel = (input: GoingNextInput | undefined): GoingNextModel | null => {
-  // Going is private and beta-only today: OFF unless the dancer opted in.
-  if (!input?.optIn || input.events.length === 0) return null;
-  return { shown: input.events.slice(0, 2), total: input.events.length, seeAll: input.events.length > 2 };
+/** "Thursday 29 Oct \u00b7 9 PM" from starts_at_local AS STORED (never new Date()). */
+const goingNextCard = (n: GoingNextNight): GoingNextEvent => ({
+  id: n.occurrence_id,
+  // The time is held together ("9 PM" with a no-break space): in the 2-up cards the
+  // line wraps, and a plain space let "PM" fall onto a line of its own.
+  date: nightLine(n.starts_at_local)?.replace(/ (AM|PM)$/, '\u00a0$1') ?? nightLine(n.occurrence_date) ?? 'Date to be confirmed',
+  name: n.event_title?.trim() || 'Untitled event',
+  href: n.public_event_id ? `/event/${n.public_event_id}` : null,
+});
+
+/**
+ * Going P2 (owner decision 5): "Going next" ALWAYS shows on a public page while the going
+ * switch is on -- there is no opt-in. A hidden page has no extras (SQL NULL), so no section;
+ * no nights = no section (nothing to show a visitor, and no control a visitor could use).
+ */
+export const goingNextModel = (nights: readonly GoingNextNight[] | undefined, on: boolean = GOING_CHECKIN_ENABLED): GoingNextModel | null => {
+  if (!on || !nights || nights.length === 0) return null;
+  const cards = nights.map(goingNextCard);
+  return { shown: cards.slice(0, 2), rest: cards.slice(2), total: cards.length, seeAll: cards.length > 2 };
 };
 
 export type PublicDancerPageModel = {
@@ -236,7 +303,6 @@ export const buildPublicDancerPage = (
   view: DancerPublicViewModel,
   extras: PublicPageExtras,
   galleryUrls: readonly unknown[] = [],
-  goingNext?: GoingNextInput,
 ): PublicDancerPageModel => {
   const name = view.displayName ?? 'Dancer';
   const years = view.yearsDancing !== null ? Number(view.yearsDancing) : NaN;
@@ -248,7 +314,8 @@ export const buildPublicDancerPage = (
   if (links.instagram && ig) contacts.push({ kind: 'instagram', href: links.instagram, label: ig, copyText: ig });
   const fb = facebookLabel(links.facebook);
   if (links.facebook && fb) contacts.push({ kind: 'facebook', href: links.facebook, label: fb, copyText: links.facebook });
-  if (links.website) contacts.push({ kind: 'website', href: links.website, label: links.website.replace(/^https?:\/\//, '').replace(/\/$/, ''), copyText: links.website });
+  const site = links.website ? websiteContact(links.website, links) : null;
+  if (site) contacts.push(site);
   if (links.email) contacts.push({ kind: 'email', href: `mailto:${links.email}`, label: links.email, copyText: links.email });
 
   const hasPractice =
@@ -278,7 +345,7 @@ export const buildPublicDancerPage = (
       style: clean(view.favoriteStyles).join(', ') || null,
     },
     stamp: view.lookingForPartner ? { goal: practiceGoalText(clean(view.partnerPracticeGoals)) } : null,
-    goingNext: goingNextModel(goingNext),
+    goingNext: goingNextModel(extras.goingNext),
     practice: hasPractice
       ? {
           status: view.lookingForPartner ? 'Up for practice' : 'Not right now',

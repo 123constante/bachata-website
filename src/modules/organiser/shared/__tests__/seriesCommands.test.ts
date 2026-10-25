@@ -11,8 +11,8 @@ import {
   envelope,
   hasBasicsChanges,
   lifecycleCommand,
+  moveDateStep,
   overrideCommand,
-  removeDateCommand,
   resetTimeCommand,
   setTimeCommand,
   skipDateCommand,
@@ -45,6 +45,8 @@ const SERVER_UPSERT_KEYS = [
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
   'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url',
+  // ER AD1 (20261129880000): How to pay, on prod's v_owner_upsert_keys (2026-10-24).
+  'payment_methods',
 ];
 // v_owner_create_keys is this list plus 'format' and the organiser key; the
 // organiser key is the legacy name the architecture lint bans in src/, so the
@@ -148,7 +150,7 @@ describe('basicsPayload', () => {
 
 describe('date commands', () => {
   it('builds the exact payloads the owner gate checks', () => {
-    expect(removeDateCommand('o-1')).toEqual({ kind: 'series.remove_date', payload: { occurrence_id: 'o-1' } });
+    expect(moveDateStep({ id: 'o-1', version: 3 }, '2026-10-27')).toEqual({ kind: 'occurrence.move_date', payload: { to_date: '2026-10-27' }, occurrence: { id: 'o-1', version: 3 } });
     expect(skipDateCommand('o-1')).toEqual({ kind: 'series.skip_date', payload: { occurrence_id: 'o-1' } });
     expect(unskipDateCommand('2026-10-20')).toEqual({ kind: 'series.unskip_date', payload: { date: '2026-10-20' } });
     expect(lifecycleCommand('archived')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'archived' } });

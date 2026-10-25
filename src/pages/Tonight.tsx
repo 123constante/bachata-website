@@ -8,6 +8,7 @@ import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
 import { useCity } from '@/contexts/CityContext';
 import { resolveEventImage } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
+import { useListImpressions } from '@/lib/listImpressions';
 import { eventHref } from '@/lib/seo/eventHref';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { haversineKm } from '@/lib/geo/haversineKm';
@@ -95,6 +96,7 @@ const computeCountdown = (
 };
 
 const Tonight = () => {
+  const trackImpression = useListImpressions('tonight');
   useSeo(buildSeoForRoute('tonight'));
   const navigate = useNavigate();
   const { citySlug } = useCity();
@@ -339,6 +341,7 @@ const Tonight = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(index * 0.04, 0.4) }}
                   className="group relative"
+                  ref={trackImpression(event.id)}
                 >
                   <Card
                     role="link"

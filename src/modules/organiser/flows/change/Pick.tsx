@@ -127,7 +127,7 @@ export default function Pick() {
               ))}
             </div>
           )}
-          {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
+          {error && <p role="alert" className="break-words text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
           <PrimaryButton testId="change-pick-confirm" loading={busy} onClick={() => { if (!busy) void run(stage.command); }}>
             {cancel ? `Cancel ${count} date${count === 1 ? '' : 's'}` : `Move ${count} date${count === 1 ? '' : 's'}`}
           </PrimaryButton>

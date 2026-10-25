@@ -11,7 +11,7 @@
  *   bachata-admin-11april/supabase/migrations/
  *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
  * and this check GATES on a hand-maintained ceiling
- * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/7).
+ * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/8).
  * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
  * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
  * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct
@@ -90,8 +90,11 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 // event_program_people mirror. Measured live after the C7b apply: 33 teachers /
 // 7 DJs unassigned (legacy read 36/7). The P5 line-up credits more people, so the
 // ceiling falls; nothing gained or lost an assignment.
+//
+// 2026-10-24: DJ ceiling 7 -> 8 (owner call). Live read 33/8: one more active DJ with
+// no P5 line-up credit -- ordinary roster growth, red on main too, not a lost assignment.
 const BASELINE_TEACHERS_UNASSIGNED = 33; // active teachers with no P5 line-up credit
-const BASELINE_DJS_UNASSIGNED = 7;       // active DJs with no P5 line-up credit
+const BASELINE_DJS_UNASSIGNED = 8;       // active DJs with no P5 line-up credit
 
 function loadEnv() {
   const env = { ...process.env };

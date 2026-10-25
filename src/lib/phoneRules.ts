@@ -53,9 +53,42 @@ export const PHONE_RULES: Record<string, CountryPhoneRule> = {
   JP: { min: 9, max: 10, trunkZero: true },
 };
 
-/** E.164: leading '+', 8–15 digits total. (Moved from RafflePhoneInput.) */
+/**
+ * E.164: leading '+', a non-zero first digit, 8-15 digits total. (Moved from
+ * RafflePhoneInput.) Equal to the server's normalize_phone_e164_v1 pattern
+ * `^\+[1-9][0-9]{7,14}$`; no country dial code starts with 0.
+ */
 export function isValidE164(e164: string): boolean {
-  return /^\+\d{8,15}$/.test(e164);
+  return /^\+[1-9]\d{7,14}$/.test(e164);
+}
+
+/** The server's refusal code for a phone that breaks the stored rule (agreed name, A1). */
+export const INVALID_PHONE = 'invalid_phone';
+
+export type E164Result = { ok: true; value: string | null } | { ok: false; code: typeof INVALID_PHONE };
+
+/**
+ * The server's _phone_punct_strip_v1, step for step: drop whitespace (incl.
+ * no-break and thin spaces), dots and dashes (incl. the Unicode dashes and the
+ * minus sign); after +44 / 0044 drop the UK "(0)" trunk marker; drop the
+ * remaining brackets; a 00 international prefix becomes +. Not a validator.
+ */
+export function stripPhonePunct(raw: string): string {
+  const s1 = raw.replace(/[\s\u00A0\u2000-\u200B\u202F\u205F\u3000.\u2010-\u2015\u2212-]/g, '');
+  const s3 = s1.replace(/^((\+|00)44)\(0\)/, '$1').replace(/[()]/g, '');
+  return /^00[1-9]/.test(s3) ? `+${s3.slice(2)}` : s3;
+}
+
+/**
+ * The ONE stored-phone rule, mirrored by the server's normalize_phone_e164_v1
+ * and pinned by src/lib/__fixtures__/phone-instagram-cases.json: stripPhonePunct,
+ * then it must be E.164. Empty is a clear (null). A number without its '+' (or
+ * 00) is refused, never guessed: the country is unknown.
+ */
+export function normalizePhoneE164(raw: string | null | undefined): E164Result {
+  if (raw == null || raw.trim() === '') return { ok: true, value: null };
+  const t = stripPhonePunct(raw);
+  return isValidE164(t) ? { ok: true, value: t } : { ok: false, code: INVALID_PHONE };
 }
 
 /** Strip exactly one leading trunk zero where the country uses one. */

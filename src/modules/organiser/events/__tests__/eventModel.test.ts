@@ -44,11 +44,11 @@ describe('eventModel', () => {
     ]);
   });
 
-  it('moving a one-date event adds the new date and removes the old one', () => {
+  it('moving a one-date event moves its date (never removes one)', () => {
     const single = { ...base, shape: 'single' as const, until: null };
     const plan = savePlan(single, { ...single, startDate: '2026-10-20' }, ws, TODAY);
-    expect(plan.map((c) => c.kind)).toEqual(['series.upsert', 'series.add_date', 'series.remove_date']);
-    expect(plan[2].payload).toEqual({ occurrence_id: 'o1' });
+    expect(plan.map((c) => c.kind)).toEqual(['series.upsert', 'occurrence.move_date']);
+    expect(plan[1]).toEqual({ kind: 'occurrence.move_date', payload: { to_date: '2026-10-20' }, occurrence: { id: 'o1', version: 1 } });
   });
 
   it('refuses a save past 30 upcoming dates, and other plain problems', () => {

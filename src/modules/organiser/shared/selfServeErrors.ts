@@ -83,7 +83,7 @@ const COPY: Record<string, SelfServeErrorCopy> = {
     message: 'The contact email must be the one you signed in with.',
     next: null,
   },
-  invalid_instagram: { message: 'Enter an Instagram handle or a full https:// link.', next: null },
+  invalid_instagram: { message: 'Use your Instagram name, like yourname or @yourname, or your profile link.', next: null },
   invalid_website: { message: 'Enter a full website address starting with https://.', next: null },
   organiser_name_taken: {
     message: 'An organiser with this name is already listed. Find it above and claim it or request access.',
@@ -157,6 +157,29 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
+  // Admin waves A1-A3 (er-p4-a1/a2/a3 handovers): stable codes after "permission_denied: ". Anchored and
+  // before every loose rule below, because their detail text names keys those rules match on.
+  { match: /^permission_denied: city_follows_venue/, message: 'The city comes from the venue, so it cannot be set on its own. Choose the venue and its city is filled in for you.' },
+  { match: /^permission_denied: slug_admin_only/, message: 'Only the Bachata Calendar team can change the web address of an event. Ask them if it needs to change.' },
+  { match: /^permission_denied: category_admin_only/, message: 'That kind of event cannot be set here. Ask the Bachata Calendar team.' },
+  { match: /^permission_denied: occurrence_cancelled/, message: 'This date is cancelled, so its name, music, photos and prices cannot be changed. Put the date back first if it is on again.' },
+  { match: /^permission_denied: forward_from_past/, message: 'Changes to this and later dates must start today or later. Pick a date from today on.' },
+  { match: /^permission_denied: format_festival_admin_only/, message: 'Only the Bachata Calendar team can turn an event into a festival, or a festival into something else. Ask them.' },
+  { match: /^permission_denied: format_needs_collapse/, message: 'A repeating event cannot become one date here. Ask the Bachata Calendar team.' },
+  { match: /^permission_denied: format_course_needs_rule/, message: 'A course needs its repeat pattern before it can change. Ask the Bachata Calendar team to set it.' },
+  { match: /^permission_denied: course_total_needs_course/, message: 'The number of sessions is only for a course. Leave it empty for this event.' },
+  { match: /^permission_denied: collapse_needs_repeating/, message: 'This event already has one date, so there is nothing to cut down.' },
+  { match: /^permission_denied: collapse_survivor_past/, message: 'The date you keep must be today or later. Pick an upcoming date.' },
+  { match: /on an ended series is admin-only/, message: 'This event has ended, so it cannot be changed here. Ask the Bachata Calendar team.' },
+  { match: /^permission_denied: series\.set_group_chat/, message: 'Enter a group chat link starting with https://, or leave it empty.' },
+  { match: /^permission_denied: occurrence\.set_override title/, message: 'Give this date a name of up to 80 characters, or leave it empty to use the event name.' },
+  { match: /^permission_denied: occurrence\.set_override music_styles/, message: 'Choose up to 20 music styles, each up to 40 characters.' },
+  { match: /^permission_denied: occurrence\.set_override gallery/, message: 'Add up to 30 photos, each a full link starting with https://.' },
+  // occurrence.move_date (_cmd_occurrence_move_date_p5): the day is taken (a cancelled date counts), or the date is not on.
+  { match: /date_taken/, message: 'This event already has a date on that day (a cancelled one counts too). Pick another day.' },
+  { match: /move_date needs a scheduled date/, message: 'This date is cancelled or already over, so it cannot be moved. Reload the page to see it as it is now.' },
+  { match: /move_date is not supported for festivals/, message: 'Festival days are set by the Bachata Calendar team. Ask them to move a day.' },
+  { match: /to_date required/, message: 'Choose a date.' },
   { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
@@ -164,7 +187,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   // D8: a reason only goes with a cancelled date (an un-cancel in another tab, then a stale reason save).
   { match: /cancellation_reason_label needs a cancelled date/, message: 'A reason only shows on a cancelled date. This date is not cancelled, so there is nothing to explain.' },
   // D8: the price list and the Instagram link (series.upsert default_passes / instagram_url).
-  { match: /series\.upsert default_passes/, message: 'Check the prices: up to 10, each with a name and a price like 12 or 12.50.' },
+  { match: /series\.upsert default_passes|occurrence\.set_override passes/, message: 'Check the prices: up to 10, each with a name and a price like 12 or 12.50.' },
   { match: /instagram_url must be blank or an instagram\.com link/, message: 'Enter an Instagram link, like https://www.instagram.com/yourname.' },
   { match: /must be blank or an http\(s\) URL|must be null or an array of http\(s\) URLs/, message: 'Enter a full link starting with https://.' },
   { match: /description is longer than/, message: 'Keep the note under 4,000 characters.' },

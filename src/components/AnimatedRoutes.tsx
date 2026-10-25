@@ -45,6 +45,8 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 // The organiser area (/account/o). Its AuthGuard lives inside this chunk; the
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
+// The P3 organiser area (mockup C3): its own lazy chunk, mounted only while flags.organiserP3 is on.
+const OrganiserP3Area = lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
 // The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
 const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
@@ -240,6 +242,12 @@ export const AnimatedRoutes = () => {
                 ? <OrganiserArea />
                 : <Navigate to="/" replace />
             } />
+            {/* P3 organiser area: no route at all while flags.organiserP3 is off,
+                so every URL above behaves exactly as before. Path = P3_BASE
+                (modules/organiser/p3/shell/paths.ts; a test pins the two together). */}
+            {flags.organiserP3 && flags.organiserSelfServe ? (
+              <Route path="/account/p3/*" element={<OrganiserP3Area />} />
+            ) : null}
 
             <Route path="/account/areas" element={<AreaRoutes area="areas" />} />
             <Route path="/account/t/*" element={<AreaRoutes area="teacher" />} />

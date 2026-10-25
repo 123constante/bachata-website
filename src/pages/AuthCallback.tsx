@@ -38,6 +38,7 @@ import {
   parseRoleIntentResult,
   readSignupRoles,
   shouldHonorReturnTo,
+  isTaskReturnTo,
   showsAlreadyListedStep,
   signupIntentLanding,
   type SignupRole,
@@ -288,7 +289,10 @@ const AuthCallback = () => {
           const claimPath = claimLanding();
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
-          if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
+          // W2 walk fix 7: an Organiser sign-up from a plain public page goes on to the organiser onboarding.
+          const organiserSignup = !!signupRoles?.includes('organiser') || (normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type)) === 'organiser';
+          const honours = (rt: string) => shouldHonorReturnTo({ returnTo: rt, isSignupFlow, organiserSelfServe: flags.organiserSelfServe, organiserSignup });
+          if (safeReturnTo && honours(safeReturnTo)) {
             land(safeReturnTo);
             return;
           }
@@ -296,8 +300,10 @@ const AuthCallback = () => {
           const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
           if (pendingReturnTo) {
             localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-            land(pendingReturnTo);
-            return;
+            if (!isSignupFlow || !organiserSignup || isTaskReturnTo(pendingReturnTo)) {
+              land(pendingReturnTo);
+              return;
+            }
           }
 
           // No returnTo: lib/auth-otp-routing decides. A sign-in (and a dancer
@@ -307,7 +313,8 @@ const AuthCallback = () => {
           // Pages claimed at this sign-in land where they are managed.
           // A sign-up's roles then move it: an organiser seat keeps this landing, else Teacher,
           // else DJ, else this landing (lib/auth-otp-routing signupIntentLanding).
-          const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
+          // An Organiser ticked in the sign-up's multi-select counts as the organiser role (fix 7), even with Dancer kept as the entry role.
+          const landingRole = isSignupFlow && organiserSignup ? 'organiser' : normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
           const todays = claimPath ?? landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow });
           land(signupIntentLanding({ roles: signupRoles, holdsOrganiserSeat, todays }));
           localStorage.removeItem("pending_profile_role");

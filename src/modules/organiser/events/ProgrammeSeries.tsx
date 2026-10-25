@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { keepReturnTo } from '@/modules/organiser/flows/doneState';
 import { Plus, Trash2 } from 'lucide-react';
 import { SeriesLockGate } from './ProfileLock';
 import { cn } from '@/lib/utils';
@@ -193,11 +194,12 @@ export default function ProgrammeSeries() {
 
 function ProgrammeSeriesScreen() {
   const { seriesId = '' } = useParams();
+  const { search } = useLocation();
   const home = useFlowHome();
   const ws = useEventWorkspace(seriesId);
   const today = home.data?.today ?? londonTodayKey();
   return (
-    <OrganiserShell title="Programme" back={{ to: ORG_PATHS.eventDetails(seriesId), label: 'Back' }} testId="org-page-programme">
+    <OrganiserShell title="Programme" back={{ to: keepReturnTo(ORG_PATHS.eventDetails(seriesId), search), label: 'Back' }} testId="org-page-programme">
       <div className="flex flex-col gap-3 p-3">
         {ws.isError && isAccessRefusal(ws.error) ? <NoAccess />
           : ws.isError ? <ErrorState onRetry={() => void ws.refetch()} retrying={ws.isFetching} testId="org-programme-error" />

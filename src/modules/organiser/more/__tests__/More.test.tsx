@@ -125,7 +125,7 @@ describe('a contact-only save after a quick return', () => {
   it('lands on Done "Saved" when the contact read was already cached', async () => {
     homeAs('owner');
     serve([member('u1', 'owner')], 'owner');
-    window.localStorage.setItem(draftStorageKey('org-1'), JSON.stringify({ v: 1, fields: { contact_phone: '07700 900123' } }));
+    window.localStorage.setItem(draftStorageKey('org-1'), JSON.stringify({ v: 1, fields: { contact_phone: '+44 7700 900123' } }));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(organiserContactSettingsQueryKey('org-1', 'u1'), CONTACT);
     mount(ORG_PATHS.more, client);

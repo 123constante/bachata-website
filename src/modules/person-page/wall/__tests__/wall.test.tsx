@@ -50,7 +50,7 @@ describe('/djs wall: person shape table', () => {
   const badges = badgeMap(B('three', ['teacher', 'dj', 'dancer']), B('gig', ['dj']), B('stage', ['dj'], { djName: 'DJ El Rugido' }));
 
   it.each([
-    ['gig', { name: 'Bisket', date: 'Fri 23', chips: ['DJ'], flag: true, href: '/djs/gig' }],
+    ['gig', { name: 'Bisket', date: 'Friday 23 October', chips: ['DJ'], flag: true, href: '/djs/gig' }],
     ['nogig', { name: 'Roger', date: null, chips: ['DJ'], flag: false, href: '/djs/nogig' }],
     ['stage', { name: 'El Rugido', date: null, chips: ['DJ'], flag: false, href: '/djs/stage' }],
     ['long', { name: 'Carlos De La Cruz', date: null, chips: ['DJ'], flag: false, href: '/djs/long' }],
@@ -62,7 +62,7 @@ describe('/djs wall: person shape table', () => {
     expect(t.getAttribute('href')).toBe(want.href);
     expect(within(t).getByTestId('tile-name').textContent).toBe(want.name);
     expect(chips(t)).toEqual(want.chips);
-    expect(within(t).queryByTestId('date-chip')?.textContent?.replace('Next gig ', '') ?? null).toBe(want.date);
+    expect(within(t).queryByTestId('tile-date')?.textContent?.replace(', next gig ', '') ?? null).toBe(want.date);
     expect(!!within(t).queryByRole('img', { name: /Nationality/ })).toBe(want.flag);
   });
 
@@ -153,13 +153,21 @@ describe('/dancers wall: person shape table', () => {
     expect(within(t).getByTestId('tile-name').textContent).toBe(want.name);
     expect(chips(t)).toEqual(want.chips);
     expect(t.getAttribute('data-lead')).toBe(want.lead);
-    expect(within(t).queryByTestId('date-chip')).toBeNull();
+    expect(within(t).queryByTestId('tile-date')).toBeNull();
   });
 
   it('only dancers with the Dancer role are the page\'s business: the page filters, the wall shows what it is given; a gig date shows for a DJ-dancer only', () => {
     mountDancers(rows, names, badges);
-    expect(within(tile('djgig')).getByTestId('date-chip').textContent).toContain('Fri 23');
-    expect(within(tile('plain')).queryByTestId('date-chip')).toBeNull();
+    expect(within(tile('djgig')).getByTestId('tile-date').textContent).toContain('Friday 23 October');
+    expect(within(tile('plain')).queryByTestId('tile-date')).toBeNull();
+  });
+
+  it('the date is not inside wall-face and sits after tile-name (owner pick B: the face stays clear)', () => {
+    mountDancers(rows, names, badges);
+    const t = tile('djgig');
+    const date = within(t).getByTestId('tile-date');
+    expect(within(t).getByTestId('wall-face').parentElement?.contains(date)).toBe(false);
+    expect(within(t).getByTestId('tile-name').nextElementSibling).toBe(date);
   });
 
   it('no photo -> initials tile, never a broken image', () => {
@@ -212,13 +220,13 @@ describe('small helpers', () => {
     expect(initialsOf('Sobolewska')).toBe('S');
     expect(initialsOf('')).toBe('?');
   });
-  it('wallDateLabel: Fri 23, hidden when past, empty or garbage', () => {
-    expect(wallDateLabel('2099-10-23')).toBe('Fri 23');
-    expect(wallDateLabel('2099-10-23T19:00:00+00')).toBe('Fri 23');
+  it('wallDateLabel: Friday 23 October, hidden when past, empty or garbage', () => {
+    expect(wallDateLabel('2099-10-23')).toBe('Friday 23 October');
+    expect(wallDateLabel('2099-10-23T19:00:00+00')).toBe('Friday 23 October');
     expect(wallDateLabel('2020-10-23')).toBeNull();
     expect(wallDateLabel(null)).toBeNull();
     expect(wallDateLabel('soon')).toBeNull();
-    expect(wallDateLabel('2026-10-23', '2026-10-23')).toBe('Fri 23'); // today still shows
+    expect(wallDateLabel('2026-10-23', '2026-10-23')).toBe('Friday 23 October'); // today still shows
   });
 });
 

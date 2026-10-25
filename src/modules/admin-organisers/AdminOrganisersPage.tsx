@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Copy, MessageCircle, Search, UserPlus } from 'lucide-react';
+import { Copy, MessageCircle, Search, UserPlus } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,7 +39,6 @@ import {
 import {
   ANOTHER_OWNER_NOTE,
   EMAIL_HELP,
-  INVITE_CHOICES,
   LOAD_FAILED_NOTE,
   ISSUE_REFUSAL,
   NO_EMAIL_NOTE,
@@ -57,6 +56,8 @@ import {
 } from './senderModel';
 
 import { InvitePerson } from './InvitePerson';
+import { InvitePersonWho } from './InvitePersonWho';
+import { DuplicatesAlert } from './duplicates/DuplicatesAlert';
 import { InviteRequests } from './InviteRequests';
 import { FrontDoorEntry } from './FrontDoorEntry';
 import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
@@ -205,28 +206,12 @@ function LinkForm({ organiser, status, replaces, startEmail, onIssued, onCancel 
   );
 }
 
-/** Invite sheet (5b): one Invite button opens these three choices. */
-function InviteChoices({ organiser, onPick, onCancel }: { organiser: AdminOrganiser; onPick: (c: InviteChoice) => void; onCancel: () => void }) {
-  return (
-    <div data-testid="invite-choices" className="space-y-2 rounded-lg border border-border p-3">
-      <p className="text-sm font-medium">Invite to {organiser.name}</p>
-      {INVITE_CHOICES.map((c) => (
-        <button key={c.choice} type="button" className="flex min-h-[48px] w-full items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 text-left" onClick={() => onPick(c.choice)} data-testid={`choice-${c.choice}`}>
-          <span><span className="block text-sm font-medium">{c.title}</span><span className="block text-xs text-muted-foreground">{c.hint}</span></span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        </button>
-      ))}
-      <button type="button" className={BTN} onClick={onCancel} data-testid="choices-cancel">Cancel</button>
-    </div>
-  );
-}
-
 export type RowMode = 'idle' | 'choose' | InviteChoice;
 
-function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError, startMode, startEmail, onIssued, onDone, onRetry }: {
+function RowDetail({ organiser, status, invites, fresh, issued, held, warn, loadError, startMode, startEmail, onIssued, onHold, onDone, onRetry }: {
   organiser: AdminOrganiser; status: AccessStatus | null; invites: readonly InviteRow[]; fresh: boolean;
-  issued: IssuedLinkView | undefined; warn: boolean; loadError: boolean; startMode: RowMode; startEmail: string;
-  onIssued: (v: IssuedLinkView) => void; onDone: () => void; onRetry: () => void;
+  issued: IssuedLinkView | undefined; held: boolean; warn: boolean; loadError: boolean; startMode: RowMode; startEmail: string;
+  onIssued: (v: IssuedLinkView) => void; onHold: (held: boolean) => void; onDone: () => void; onRetry: () => void;
 }) {
   const queryClient = useQueryClient();
   const actions = senderActions(status, invites, loadError);
@@ -254,13 +239,18 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
       {issued ? (
         <OneTimeLink organiser={organiser.name} issued={issued} onDone={() => { setMode('idle'); onDone(); }} />
       ) : mode === 'choose' ? (
-        <InviteChoices organiser={organiser} onPick={setMode} onCancel={back} />
+        <InvitePersonWho
+          organiser={organiser}
+          notes={[status === 'managed' ? ANOTHER_OWNER_NOTE : null, actions.replacesLiveLink ? REPLACES_NOTE : null].filter((n): n is string => n !== null)}
+          onSomeoneNew={() => setMode('link')} onExistingAccount={() => setMode('existing')}
+          // The named-person link is shown once too: the row cannot close until Done, like OneTimeLink.
+          onLinkShown={() => onHold(true)}
+          onCancel={() => { setMode('idle'); if (held) { onHold(false); onDone(); } }}
+        />
       ) : mode === 'link' ? (
         <LinkForm organiser={organiser} status={status} replaces={actions.replacesLiveLink} startEmail={startEmail} onIssued={onIssued} onCancel={back} />
       ) : mode === 'existing' ? (
         <div className="space-y-2"><AddPerson organiser={organiser} /><button type="button" className={BTN} onClick={back} data-testid="mode-back">Back</button></div>
-      ) : mode === 'email' ? (
-        <div className="space-y-2"><InvitePerson organisers={[organiser]} fixedOrganiser={organiser} /><button type="button" className={BTN} onClick={back} data-testid="mode-back">Back</button></div>
       ) : (
         <>
           <div className="flex flex-wrap gap-2">
@@ -270,7 +260,7 @@ function RowDetail({ organiser, status, invites, fresh, issued, warn, loadError,
           {actions.primaryDisabled && !loadError && <p id={noteId} className="text-xs text-muted-foreground" data-testid="primary-note">{actions.primaryDisabled}</p>}
         </>
       )}
-      {issued && warn && <p role="alert" className="text-sm text-destructive" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
+      {(issued || held) && warn && <p role="alert" className="text-sm text-destructive" data-testid="link-close-warning">Copy the link first: it is shown once.</p>}
       {revoke.isError && <p role="alert" className="text-sm text-destructive" data-testid="invite-error">{adminErrorMessage(revoke.error)}</p>}
     </div>
   );
@@ -286,12 +276,14 @@ function AdminOrganisersBody() {
   const [startMode, setStartMode] = useState<RowMode>('idle');
   const [startEmail, setStartEmail] = useState('');
   const [warned, setWarned] = useState(false);
+  // The row whose "Who is this for?" is showing its one-time link (held in that component, never here).
+  const [held, setHeld] = useState<string | null>(null);
   const queryClient = useQueryClient();
   // Ownership changes behind the page's back (a link is redeemed elsewhere), so the open row re-reads it.
   const refreshOwnership = (id: string) => void queryClient.invalidateQueries({ queryKey: adminOwnershipQueryKey(id) });
   const toggleRow = (id: string) => {
     // A row holding an unseen link cannot be closed or left until the admin taps Done.
-    if (open !== null && issued[open]) { setWarned(true); return; }
+    if (open !== null && (issued[open] || held === open)) { setWarned(true); return; }
     setWarned(false);
     if (open !== id) refreshOwnership(id);
     setStartMode('idle');
@@ -300,7 +292,7 @@ function AdminOrganisersBody() {
   };
   /** From a link request: show that organiser's row with the link form open. */
   const sendNewLink = (o: { id: string; name: string; inviteEmail: string | null }) => {
-    if (open !== null && issued[open]) { setWarned(true); return; }
+    if (open !== null && (issued[open] || held === open)) { setWarned(true); return; }
     setWarned(false);
     setQuery(o.name);
     setLimit(PAGE_SIZE);
@@ -345,6 +337,7 @@ function AdminOrganisersBody() {
     <div className="mx-auto max-w-2xl space-y-3 px-3 pb-24 pt-3" data-testid="admin-organisers">
       <h1 className="text-lg font-semibold">Organiser access</h1>
       <FrontDoorEntry />
+      <DuplicatesAlert />
       <InviteRequests onSendNewLink={sendNewLink} />
       <InvitePerson organisers={list.data ?? []} />
       <label className="relative block">
@@ -377,7 +370,7 @@ function AdminOrganisersBody() {
                 <RowDetail
                   organiser={organiser} status={status} invites={invites} fresh={fresh}
                   key={`${organiser.id}-${startMode}-${startEmail}`}
-                  issued={issued[organiser.id]} warn={warned} startMode={startMode} startEmail={startEmail}
+                  issued={issued[organiser.id]} held={held === organiser.id} onHold={(h) => setHeld(h ? organiser.id : null)} warn={warned} startMode={startMode} startEmail={startEmail}
                   loadError={retry !== null} onRetry={() => retry?.()}
                   onIssued={(v) => setIssued((m) => ({ ...m, [organiser.id]: v }))}
                   onDone={() => forget(organiser.id)}

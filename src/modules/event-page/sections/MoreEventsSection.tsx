@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useListImpressions } from '@/lib/listImpressions';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
@@ -244,8 +245,9 @@ const eventHref = (e: MoreEvent) => {
   return e.occurrenceId ? `/event/${key}?occurrenceId=${e.occurrenceId}` : `/event/${key}`;
 };
 
-const EventCard = ({ ev }: { ev: MoreEvent }) => (
+const EventCard = ({ ev, trackRef }: { ev: MoreEvent; trackRef?: (el: Element | null) => void }) => (
   <Link
+    ref={trackRef}
     to={eventHref(ev)}
     className="flex flex-col overflow-hidden rounded-lg border no-underline transition-transform hover:-translate-y-px"
     style={{
@@ -336,6 +338,7 @@ export const MoreEventsSection = ({
   fallbackSectionLabel,
   pillIsTheWayOut = false,
 }: Props) => {
+  const trackImpression = useListImpressions('more_events');
   // All three queries run on EVERY instance, whatever `blocks` says -- hooks
   // cannot be conditional, and it costs no extra network: both instances share
   // react-query keys, so each RPC is fetched once. It is also load-bearing: the
@@ -399,7 +402,7 @@ export const MoreEventsSection = ({
           <div className="flex justify-center gap-1.5">
             {organiserEvents.map((ev) => (
               <div key={ev.id} className="w-[calc((100%-1.125rem)/4)]">
-                <EventCard ev={ev} />
+                <EventCard ev={ev} trackRef={trackImpression(ev.id)} />
               </div>
             ))}
           </div>
@@ -422,7 +425,7 @@ export const MoreEventsSection = ({
           <SectionTitle>Don&rsquo;t miss this week{cityName ? ` in ${cityName}` : ''}</SectionTitle>
           <div className="grid grid-cols-4 gap-1.5">
             {thisWeekEvents.map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
+              <EventCard key={ev.id} ev={ev} trackRef={trackImpression(ev.id)} />
             ))}
           </div>
         </div>

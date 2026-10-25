@@ -3,7 +3,7 @@ import { test, expect, devices, type Browser, type BrowserContext, type Page } f
 import AxeBuilder from '@axe-core/playwright';
 import { expectNoHorizontalScroll } from '../e2e/helpers/organiserFake';
 import { JOURNEYS, type Journey } from '../journeys/publicEntryJourneys';
-import { Backend, CODE, codeStep, isWelcome, onboarding, pathQuery, pressBack, signinForm, signupForm, trailOf, wire, nextStage, type Shot } from './helpers/journeyHarness';
+import { Backend, CODE, aboutInline, codeStep, isWelcome, onboarding, pathQuery, pressBack, signinForm, signupForm, trailOf, wire, nextStage, type Shot } from './helpers/journeyHarness';
 
 // Every public way into an account (tests/journeys/publicEntryJourneys.ts, the SAME
 // rows the routing-model spec walks) driven through the real UI of the PRODUCTION
@@ -29,7 +29,8 @@ const END: Record<string, { testId: string; label?: string }> = {
   '/account/continue': { testId: 'continue-as' },
   '/app/nights': { testId: 'dancer-screen-nights' },
   '/organisers/bachata-playground-phone-qa?claim=1': { testId: 'public-claim-card', label: 'Continue' },
-  '/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0': { testId: 'invite-card', label: 'Next: join the team' },
+  // Option B (PR #978): a finished dancer on an open invite sees the join step ("Join <org>" button), never a redirect.
+  '/invite/0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0': { testId: 'invite-join', label: 'Next: join the team' },
 };
 
 /**
@@ -42,7 +43,7 @@ const END_BY_ROW: Record<string, { testId: string; absent?: string; label?: stri
   'organiser-link-organiser-signed-in': { testId: 'home-jobs', absent: 'org-onboarding' },
   'organiser-link-open-request-signed-in': { testId: 'onboarding-pending-row' },
   'signin-unfinished-dancer-with-organiser': { testId: 'home-jobs', absent: 'org-onboarding', label: 'Next: set up your organiser page' },
-  'team-invite-existing-dancer': { testId: 'org-page-welcome', absent: 'org-onboarding' },
+  'team-invite-existing-dancer': { testId: 'home-jobs', absent: 'org-onboarding' },
   // M71: the end card's own button (only the 'in' and 'nice' cards carry it), never a question card.
   'bookmark-app-welcome-finished': { testId: 'onboarding-home', text: 'Go to Home' },
 };
@@ -149,7 +150,12 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
     await page.locator('[data-testid^="continue-as-organiser"]').first().click({ timeout: 15_000 });
   }
 
-  if (incomplete) {
+  // Option B (PR #978): a RETURNING unfinished dancer whose END is the invite's join step finishes the profile inline
+  // there (no gate hop). A fresh sign-up still gets the one-time first-sign-in hop to onboarding (auth-otp-routing), whose
+  // end button reads "Next: join the team" and lands on the join step.
+  const inline = incomplete && end.testId === 'invite-join' && backend.returning;
+  if (inline) await aboutInline(page, shot);
+  if (incomplete && !inline) {
     await page.waitForURL((u) => isWelcome(u), { timeout: 30_000 });
     await nextStage(page, null);
     const first = await page.locator('section[data-testid^="onboarding-"]').first().getAttribute('data-testid');
@@ -188,13 +194,16 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
   }
 
   if (row.then === 'join-team') {
-    // Joining may ask first (a card with a join button) or redeem straight away; either way, on to the organiser Home.
-    const join = page.getByTestId('invite-card').getByRole('button', { name: /join/i });
-    await expect(page.getByTestId(end.testId).or(join)).toBeVisible({ timeout: 30_000 });
-    if (await join.isVisible()) {
-      await shot('invite-join', 'invite card: join the team');
-      await join.click();
-    }
+    // Option B (PR #978): the join step's one tap redeems; the done screen stays on /invite with the token gone from the
+    // address bar, and its "Open your organiser home" link leads on to the organiser Home (never the Arc 1 welcome page).
+    const join = page.getByTestId('invite-join');
+    await expect(join).toBeVisible({ timeout: 30_000 });
+    await shot('invite-join', 'join step: "Join <org>"');
+    await join.click();
+    await expect(page.getByTestId('join-done')).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL((u) => u.pathname === '/invite');
+    await shot('invite-done', 'done: on the team; the token is gone from the address bar');
+    await page.getByTestId('join-done-home').click();
   }
 
   const want = row.end.path;
@@ -212,7 +221,8 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
 
   // The onward destination rode every onboarding hop (the owner's 2026-10-15 failure).
   const welcomes = trail.map((t) => new URL(t)).filter(isWelcome);
-  if (incomplete) expect(welcomes.length, 'onboarding ran').toBeGreaterThan(0);
+  if (incomplete && !inline) expect(welcomes.length, 'onboarding ran').toBeGreaterThan(0);
+  if (inline) expect(welcomes.length, 'no onboarding hop: About you was inline on /invite').toBe(0);
   if (want === '/account/o') {
     for (const w of welcomes) expect(w.searchParams.get('returnTo'), `onboarding hop ${pathQuery(w)}`).toBe('/account/o');
   }

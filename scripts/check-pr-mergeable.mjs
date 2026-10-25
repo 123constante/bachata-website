@@ -71,7 +71,12 @@
  *
  * Auth: GITHUB_TOKEN or GH_TOKEN, else `gh auth token`. Read-only scope.
  *
- * Exit: 0 pass, 1 contract violated, 2 the guard could not run.
+ * Exit: 0 pass, 1 contract violated, 2 the guard could not run -- with ONE
+ * owner-decided exception: GITHUB-OUTAGE (GitHub still 5xx / unreachable
+ * after retries) exits 0 WITHOUT the pass line, every unjudged PR named and an
+ * Actions warning raised, so an outage alone does not red main. A judged
+ * conflict still exits 1 first; PR_GUARD_OUTAGE_STRICT=1 makes an outage exit
+ * 2. See OUTAGE_EXIT.
  */
 import { execFileSync } from 'node:child_process';
 import { isEntryPoint } from './lib/entry-point.mjs';
@@ -92,6 +97,50 @@ const DEFAULT_MIN_AGE_MINUTES = 15;
 /** GraphQL reports mergeable lazily; the first read only triggers the job. */
 const MERGEABLE_POLL_ATTEMPTS = 6;
 const MERGEABLE_POLL_MS = 2500;
+
+/**
+ * The sweep is two light steps, never one heavy one. Until 2026-10-24 a single
+ * query asked for every open PR WITH its rollup -- first:100 PRs x
+ * contexts(first:100), ~10,100 nodes -- and GitHub answered HTTP 504 about 11 s
+ * in on every hourly run. 136 PRs were open by then, so that page could not
+ * have covered the board even when it answered. Now the PR list is paged on
+ * numbers alone (LIST_PAGE_SIZE nodes per call, a handful of bytes each), and
+ * the full fields are read DETAIL_BATCH_SIZE PRs at a time by number: ~20 x 101
+ * = ~2,020 nodes per call, a fifth of what timed out, and a size that does not
+ * grow with the board.
+ */
+const LIST_PAGE_SIZE = 100;
+const DETAIL_BATCH_SIZE = 20;
+/** A cursor that never ends is a bug, not a big repo: 50 x 100 PRs open. */
+const MAX_LIST_PAGES = 50;
+
+/**
+ * Transient failures are retried; everything else is not. 502/503/504 and a
+ * network error (including our own per-request timeout) get 3 attempts in all,
+ * 2 s then 5 s apart. A 4xx or a GraphQL `errors` body is a wrong token or a
+ * wrong query: retrying it only delays the same answer, so it is never retried
+ * and still exits 2. FETCH_BUDGET_MS caps the retrying across the whole run, so
+ * a flapping API cannot walk the job into its 6-minute timeout and lose the
+ * verdict entirely -- past the budget a failure is reported at once.
+ */
+const RETRY_DELAYS_MS = [2000, 5000];
+const TRANSIENT_HTTP = new Set([502, 503, 504]);
+const REQUEST_TIMEOUT_MS = 30000;
+const FETCH_BUDGET_MS = 180000;
+
+/**
+ * GitHub still unreachable after the retries is GITHUB-OUTAGE: not a verdict
+ * on any PR, and not a reason to red main (owner, 2026-10-24: "make the sweep
+ * lighter / retry on 504 so a real conflict still fails but an outage does not
+ * red main"). pr-mergeable-guard.yml reds on ANY non-zero exit from the sweep
+ * step, so 0 is the only code it maps to not-red. What keeps that from being a
+ * silent pass: the PASS line is never printed, every PR not judged is NAMED,
+ * nothing is published for them, an Actions ::warning:: annotation is raised,
+ * and a conflict that WAS judged still exits 1 first. PR_GUARD_OUTAGE_STRICT=1
+ * makes an outage exit 2 instead.
+ */
+const OUTAGE_EXIT = 0;
+const OUTAGE_STRICT_ENV = 'PR_GUARD_OUTAGE_STRICT';
 
 /** Contexts owned by the deploy preview, which runs off the head commit. */
 const VERCEL_APP_SLUGS = new Set(['vercel']);
@@ -358,7 +407,7 @@ const ROLLUP_FIELDS = `
       nodes {
         __typename
         ... on CheckRun { name status conclusion checkSuite { app { slug } } }
-        ... on StatusContext { context state }
+        ... on StatusContext { context state description }
       }
     }
   }
@@ -369,8 +418,8 @@ const PR_FIELDS = `
   commits(last: 1) { nodes { commit { oid committedDate ${ROLLUP_FIELDS} } } }
 `;
 
-function resolveToken() {
-  const fromEnv = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+function resolveToken(env) {
+  const fromEnv = env.GITHUB_TOKEN || env.GH_TOKEN;
   if (fromEnv) return { token: fromEnv, source: 'env' };
   try {
     const out = execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
@@ -395,8 +444,8 @@ export function parseRepoSlug(remoteUrl) {
   return { owner: parts[parts.length - 2], name: parts[parts.length - 1] };
 }
 
-function resolveRepo() {
-  const fromEnv = process.env.GITHUB_REPOSITORY;
+function resolveRepo(env) {
+  const fromEnv = env.GITHUB_REPOSITORY;
   if (fromEnv && fromEnv.includes('/')) {
     const [owner, name] = fromEnv.split('/');
     if (owner && name) return { owner, name };
@@ -407,17 +456,62 @@ function resolveRepo() {
   return parsed;
 }
 
-async function graphql(token, query, variables) {
-  const response = await fetch(API, {
+/**
+ * One HTTP request, retried only when the failure is GitHub's and transient.
+ * Any answer that is not transient -- a success or a 4xx -- is returned for the
+ * caller to judge. A transient failure that survives the retries is thrown with
+ * `outage` set, which the sweep turns into "not judged" for the PRs it
+ * covered, never into a verdict. The budget counts only time spent on failed
+ * attempts and the waits between them, so a long healthy sweep never spends it.
+ */
+async function requestWithRetry(ctx, url, init) {
+  let last = '';
+  let attempt = 0;
+  for (;;) {
+    attempt += 1;
+    const startedMs = ctx.now();
+    let response = null;
+    let text = '';
+    try {
+      response = await ctx.fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      text = await response.text();
+    } catch (error) {
+      response = null;
+      // undici says "fetch failed" for every network fault; the cause is what
+      // tells a runner-side DNS or proxy problem from a GitHub reset.
+      const cause = error.cause?.code ?? error.cause?.message;
+      last = 'network error: ' + error.message + (cause ? ' (' + cause + ')' : '');
+    }
+    if (response && !TRANSIENT_HTTP.has(response.status)) return { response, text };
+    // The body of a 504 is GitHub's HTML "Unicorn!" page; the status says it all.
+    if (response) last = 'GitHub API HTTP ' + response.status;
+    ctx.retrySpentMs += ctx.now() - startedMs;
+    const delay = RETRY_DELAYS_MS[attempt - 1];
+    if (delay === undefined) break;
+    if (ctx.retrySpentMs + delay > FETCH_BUDGET_MS) {
+      last += ' (retry budget of ' + FETCH_BUDGET_MS / 1000 + ' s spent)';
+      break;
+    }
+    ctx.retrySpentMs += delay;
+    console.log('  transient: ' + last + '; attempt ' + (attempt + 1) + ' in ' + delay / 1000 + ' s');
+    await ctx.sleep(delay);
+  }
+  const error = new Error(last + ', ' + attempt + ' attempt(s)');
+  error.outage = true;
+  throw error;
+}
+
+/** One GraphQL call. A 4xx or an `errors` body is thrown plain: exit 2. */
+async function graphql(ctx, query, variables) {
+  const { response, text } = await requestWithRetry(ctx, API, {
     method: 'POST',
     headers: {
-      authorization: 'bearer ' + token,
+      authorization: 'bearer ' + ctx.token,
       'content-type': 'application/json',
       'user-agent': 'check-pr-mergeable',
     },
     body: JSON.stringify({ query, variables }),
   });
-  const text = await response.text();
   if (!response.ok) {
     throw new Error('GitHub API HTTP ' + response.status + ': ' + text.slice(0, 400));
   }
@@ -433,10 +527,10 @@ async function graphql(token, query, variables) {
 const STATUS_CONTEXT = 'pr-mergeable-guard';
 
 /** The Actions run this verdict came from, so the status links back to it. */
-function runUrl() {
-  const server = process.env.GITHUB_SERVER_URL;
-  const repository = process.env.GITHUB_REPOSITORY;
-  const runId = process.env.GITHUB_RUN_ID;
+function runUrl(env) {
+  const server = env.GITHUB_SERVER_URL;
+  const repository = env.GITHUB_REPOSITORY;
+  const runId = env.GITHUB_RUN_ID;
   if (!server || !repository || !runId) return undefined;
   return server + '/' + repository + '/actions/runs/' + runId;
 }
@@ -446,14 +540,15 @@ function runUrl() {
  * a guard that silently fails to publish is back to being invisible, which is
  * the defect, not a degraded mode of it.
  */
-async function publishStatus(token, repo, sha, verdict) {
+async function publishStatus(ctx, repo, sha, verdict) {
   const { state, description } = statusForVerdict(verdict);
-  const response = await fetch(
+  const { response, text } = await requestWithRetry(
+    ctx,
     'https://api.github.com/repos/' + repo.owner + '/' + repo.name + '/statuses/' + sha,
     {
       method: 'POST',
       headers: {
-        authorization: 'bearer ' + token,
+        authorization: 'bearer ' + ctx.token,
         'content-type': 'application/json',
         accept: 'application/vnd.github+json',
         'user-agent': 'check-pr-mergeable',
@@ -464,12 +559,11 @@ async function publishStatus(token, repo, sha, verdict) {
         state,
         description: description.slice(0, 140),
         context: STATUS_CONTEXT,
-        target_url: runUrl(),
+        target_url: runUrl(ctx.env),
       }),
     },
   );
   if (!response.ok) {
-    const text = await response.text();
     throw new Error(
       'cannot publish the status to ' + sha.slice(0, 7) + ': HTTP ' + response.status + ' ' + text.slice(0, 200),
     );
@@ -482,8 +576,8 @@ async function publishStatus(token, repo, sha, verdict) {
  * a page, and the ordering of a rollup is unspecified -- so a board whose first
  * hundred entries happened to be Vercel and SKIPPED would be judged on a
  * partial view while printing a `total` that was not the total. The PR-LIST
- * query already refused a short page; this is the same refusal one level down,
- * which is where it was missing. Live PRs already carry 24-28 contexts.
+ * list is paged to the end for the same reason; this is the same refusal one
+ * level down, which is where it was missing. Live PRs already carry 24-28 contexts.
  */
 function assertWholeRollup(rollup, label) {
   if (rollup && rollup.totalCount > rollup.nodes.length) {
@@ -513,49 +607,160 @@ function shapePr(node) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Every open PR number, oldest first, paged by cursor. Numbers only: this is
+ * the cheap half of the sweep, and the half that has to see the whole board.
+ * A PR the list re-serves across a page boundary (the list shifted between
+ * calls) is kept once. An outage mid-list keeps what was listed and says so --
+ * those PRs are still judged, and the reader is told the rest are unknown.
+ */
+async function listOpenPrNumbers(ctx, repo) {
+  const query =
+    'query($owner:String!,$name:String!,$first:Int!,$after:String){repository(owner:$owner,name:$name){' +
+    'pullRequests(states:OPEN,first:$first,after:$after,orderBy:{field:CREATED_AT,direction:ASC}){' +
+    'totalCount pageInfo{hasNextPage endCursor} nodes{number}}}}';
+  const numbers = [];
+  const seen = new Set();
+  let after = null;
+  for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+    let data;
+    try {
+      data = await graphql(ctx, query, { ...repo, first: ctx.listPageSize, after });
+    } catch (error) {
+      if (!error.outage) throw error;
+      return { numbers, outage: 'listing open PRs: ' + error.message, listComplete: false };
+    }
+    const connection = data.repository?.pullRequests;
+    if (!connection) throw new Error('the repository returned no pullRequests connection');
+    for (const node of connection.nodes) {
+      if (seen.has(node.number)) continue;
+      seen.add(node.number);
+      numbers.push(node.number);
+    }
+    if (!connection.pageInfo?.hasNextPage) {
+      // The cursor says done; the count must agree. Fewer numbers than GitHub
+      // reports open means the list moved under the cursor (a PR reopened
+      // behind it): a short read, refused rather than judged as the board.
+      if (numbers.length < connection.totalCount) {
+        throw new Error(
+          'the sweep listed ' + numbers.length + ' of ' + connection.totalCount + ' open PRs; rerun before trusting it',
+        );
+      }
+      return { numbers, outage: null, listComplete: true };
+    }
+    const next = connection.pageInfo.endCursor;
+    if (!next || next === after) throw new Error('the PR list did not advance past cursor ' + String(after));
+    after = next;
+  }
+  throw new Error('the PR list ran past ' + MAX_LIST_PAGES + ' pages; refusing to trust an endless cursor');
+}
+
+/**
+ * Full fields for the given PR numbers, DETAIL_BATCH_SIZE per call, each PR an
+ * alias (p123: pullRequest(number:123)). Numbers are integers from GitHub or a
+ * validated --pr flag, so splicing them into the query is safe. At the first
+ * outage the remaining batches are not attempted -- hammering an API that has
+ * just failed three times buys nothing -- and every PR not read is returned BY
+ * NUMBER as unjudged.
+ */
+async function fetchPrDetails(ctx, repo, numbers) {
+  const byNumber = new Map();
+  const unjudged = [];
+  let outage = null;
+  for (let at = 0; at < numbers.length; at += ctx.batchSize) {
+    const batch = numbers.slice(at, at + ctx.batchSize);
+    if (outage) {
+      unjudged.push(...batch);
+      continue;
+    }
+    const fields = batch.map((n) => 'p' + n + ':pullRequest(number:' + n + '){' + PR_FIELDS + '}').join(' ');
+    let data;
+    try {
+      data = await graphql(
+        ctx,
+        'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){' + fields + '}}',
+        repo,
+      );
+    } catch (error) {
+      if (!error.outage) throw error;
+      outage = 'reading PR details: ' + error.message;
+      unjudged.push(...batch);
+      continue;
+    }
+    for (const n of batch) {
+      const node = data.repository?.['p' + n];
+      if (!node) throw new Error('no such pull request: #' + n);
+      byNumber.set(n, shapePr(node));
+    }
+  }
+  return { byNumber, unjudged, outage };
+}
+
+/**
  * Read PRs, re-reading any whose mergeable is still UNKNOWN. The first read is
  * what asks GitHub to compute the merge ref at all, so a single query reports
  * UNKNOWN for every PR in the repo -- measured, not assumed -- and a guard that
  * did not poll would report MERGEABLE_UNRESOLVED for the whole board forever.
+ * Only the PRs still UNKNOWN are re-read, not the whole board.
+ *
+ * Returns the PRs it could judge plus `unjudged` (numbers) and `outage` (the
+ * reason, or null). A PR still UNKNOWN when an outage cut the polling short is
+ * moved to unjudged: it was never decided, and the outage is why.
  */
-async function fetchPrs(token, repo, { number = null } = {}) {
-  const query = number
-    ? 'query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){' +
-      PR_FIELDS +
-      '}}}'
-    : 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){pullRequests(states:OPEN,first:100){totalCount nodes{' +
-      PR_FIELDS +
-      '}}}}';
-
-  let prs = [];
-  for (let attempt = 1; attempt <= MERGEABLE_POLL_ATTEMPTS; attempt++) {
-    const data = await graphql(token, query, { ...repo, ...(number ? { number } : {}) });
-    if (number) {
-      const node = data.repository?.pullRequest;
-      if (!node) throw new Error('no such pull request: #' + number);
-      prs = [shapePr(node)];
-    } else {
-      const page = data.repository?.pullRequests;
-      if (!page) throw new Error('the repository returned no pullRequests connection');
-      if (page.totalCount > page.nodes.length) {
-        throw new Error(
-          'the sweep saw ' + page.nodes.length + ' of ' + page.totalCount + ' open PRs; paginate before trusting it',
-        );
-      }
-      prs = page.nodes.map(shapePr);
-    }
-    if (!prs.some((each) => each.mergeable === 'UNKNOWN')) return prs;
-    if (attempt < MERGEABLE_POLL_ATTEMPTS) await sleep(MERGEABLE_POLL_MS);
+async function fetchPrs(ctx, repo, { number = null } = {}) {
+  let numbers = [number];
+  let outage = null;
+  let listComplete = true;
+  if (!number) {
+    const listed = await listOpenPrNumbers(ctx, repo);
+    numbers = listed.numbers;
+    outage = listed.outage;
+    listComplete = listed.listComplete;
   }
-  return prs;
+  const first = await fetchPrDetails(ctx, repo, numbers);
+  const unjudged = [...first.unjudged];
+  outage = outage ?? first.outage;
+  const byNumber = first.byNumber;
+
+  for (let attempt = 2; attempt <= MERGEABLE_POLL_ATTEMPTS; attempt++) {
+    // A PR that closed mid-sweep stays UNKNOWN forever; polling it is waste.
+    const pending = numbers.filter((n) => {
+      const pr = byNumber.get(n);
+      return pr?.mergeable === 'UNKNOWN' && (number || pr.state === 'OPEN');
+    });
+    if (pending.length === 0 || outage) break;
+    await ctx.sleep(MERGEABLE_POLL_MS);
+    const again = await fetchPrDetails(ctx, repo, pending);
+    for (const [n, pr] of again.byNumber) byNumber.set(n, pr);
+    if (again.outage) outage = again.outage;
+  }
+  // Whatever an outage left UNKNOWN was never decided, and the outage is why:
+  // it is unjudged, not "could not decide" (exit 2) and certainly not OK.
+  if (outage) {
+    for (const n of numbers) {
+      if (byNumber.get(n)?.mergeable !== 'UNKNOWN') continue;
+      byNumber.delete(n);
+      if (!unjudged.includes(n)) unjudged.push(n);
+    }
+  }
+  let prs = numbers.filter((n) => byNumber.has(n)).map((n) => byNumber.get(n));
+  if (!number) {
+    // Listed as open, closed or merged before its details were read. Not a PR
+    // the sweep is about, and never one to publish to.
+    for (const pr of prs) {
+      if (pr.state !== 'OPEN') console.log('  #' + pr.number + ' became ' + pr.state + ' during the sweep; skipped');
+    }
+    prs = prs.filter((pr) => pr.state === 'OPEN');
+  }
+  unjudged.sort((a, b) => numbers.indexOf(a) - numbers.indexOf(b));
+  return { prs, unjudged, outage, listComplete };
 }
 
-async function fetchCommit(token, repo, oid) {
+async function fetchCommit(ctx, repo, oid) {
   const query =
     'query($owner:String!,$name:String!,$oid:String!){repository(owner:$owner,name:$name){object(expression:$oid){... on Commit{oid committedDate' +
     ROLLUP_FIELDS +
     '}}}}';
-  const data = await graphql(token, query, { ...repo, oid });
+  const data = await graphql(ctx, query, { ...repo, oid });
   const node = data.repository?.object;
   if (!node || !node.oid) throw new Error('no such commit in this repository: ' + oid);
   const rollup = node.statusCheckRollup?.contexts ?? null;
@@ -653,6 +858,57 @@ function reportVerdicts(verdicts) {
   return { failing: failing.length, unresolved: unresolved.length, deferred: deferred.length };
 }
 
+/**
+ * GITHUB-OUTAGE, loud on every surface the run has: stderr (so the step
+ * summary carries it), an Actions ::warning:: annotation on the run page, and
+ * every PR not judged by number. It is printed AFTER the verdicts, so the PRs
+ * that were judged keep their lines and a conflict among them still exits 1.
+ */
+function reportOutage({ outage, unjudged, listComplete, judged, env }) {
+  const strict = env[OUTAGE_STRICT_ENV] === '1';
+  console.error(NL + 'GITHUB-OUTAGE: GitHub stayed unreachable after retries -- ' + outage);
+  console.error('NOT JUDGED (' + unjudged.length + '): ' + (unjudged.map((n) => '#' + n).join(', ') || '(none listed)'));
+  if (!listComplete) {
+    console.error(
+      'The open-PR list itself stopped early: any PR beyond the ' +
+        (judged + unjudged.length) +
+        ' listed was not judged and its number is unknown.',
+    );
+  }
+  console.error('This run says NOTHING about the PRs above: they are not OK, only unread, and no');
+  console.error('status was published to them. The next sweep (hourly) judges them again.');
+  console.error(
+    strict
+      ? OUTAGE_STRICT_ENV + '=1: exiting 2.'
+      : 'Exit ' + OUTAGE_EXIT + ' so an outage alone does not red main; ' + OUTAGE_STRICT_ENV + '=1 exits 2.',
+  );
+  console.error('');
+  annotate(
+    env,
+    (listComplete
+      ? 'PR mergeable guard could not judge ' + unjudged.length + ' PR(s)'
+      : 'PR mergeable guard could not read the open-PR list; ' + unjudged.length + ' listed PR(s) not judged, the rest unknown') +
+      ' (' +
+      outage.slice(0, 200) +
+      ').',
+  );
+}
+
+/** An Actions warning on the run page; a no-op outside Actions. */
+function annotate(env, text) {
+  if (env.GITHUB_ACTIONS === 'true') console.log('::warning title=GITHUB-OUTAGE::' + text + ' Not a pass. See the run summary.');
+}
+
+/**
+ * The run result as an exit code: 0 pass, 1 violated, 2 could not run -- and
+ * the one exception, GITHUB-OUTAGE, which is OUTAGE_EXIT (see there).
+ */
+export function exitCodeFor(result, env = process.env) {
+  if (result.ok) return 0;
+  if (result.outage) return env[OUTAGE_STRICT_ENV] === '1' ? 2 : OUTAGE_EXIT;
+  return result.infra ? 2 : 1;
+}
+
 // ---------------------------------------------------------------------------
 // Self-test -- both halves proven in both directions, on the real recorded
 // shape of the incident. A guard with no proof it can fail is not a guard.
@@ -693,7 +949,7 @@ function fixturePr(overrides) {
 
 const codesOf = (verdict) => verdict.failures.map((f) => f.code).join(',');
 
-function selfTest() {
+async function selfTest() {
   const cases = [];
   const add = (name, fn, expected) => cases.push({ name, fn, expected });
   const evalPr = (overrides, opts) => evaluatePr(fixturePr(overrides), { nowMs: NOW_MS, ...opts });
@@ -947,11 +1203,300 @@ function selfTest() {
     '{"owner":"123constante","name":"bachata-website"}',
   );
 
+  // --- THE SWEEP AGAINST A FAILING GITHUB, driven through main() ---
+  // 2026-10-24: every hourly run went red on "GitHub API HTTP 504" because ONE
+  // query asked for 100 PRs x 100 rollup contexts (~10,100 nodes) and GitHub
+  // timed it out at ~11 s -- and 136 PRs were open, so a first:100 page could
+  // not have covered the board even on a good day. These cases drive the real
+  // exit owner, main(), against a fake GitHub: sealed (no token, no network --
+  // the global fetch is swapped too, so a code path that forgets the injected
+  // one still cannot reach api.github.com), and each pins WHICH branch fired,
+  // not just the code, because the outage, the 401 and the bad query must stay
+  // three different answers.
+  const reply = (status, body) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
+  });
+  const rollupOf = (pr) =>
+    pr.ownStatus
+      ? [...HEALTHY_CONTEXTS, { __typename: 'StatusContext', context: STATUS_CONTEXT, ...pr.ownStatus }]
+      : HEALTHY_CONTEXTS;
+  const prNode = (pr) => ({
+    number: pr.number,
+    state: pr.state ?? 'OPEN',
+    isDraft: false,
+    title: 'fixture',
+    createdAt: OLD,
+    mergeable: pr.mergeable ?? 'MERGEABLE',
+    mergeStateStatus: pr.mergeable === 'CONFLICTING' ? 'DIRTY' : 'CLEAN',
+    commits: {
+      nodes: [
+        {
+          commit: {
+            oid: 'abc' + pr.number,
+            committedDate: OLD,
+            statusCheckRollup: { contexts: { totalCount: rollupOf(pr).length, nodes: rollupOf(pr) } },
+          },
+        },
+      ],
+    },
+  });
+  // `plan` scripts the first GraphQL calls (a reply, or 'net' for a thrown
+  // network error); after it runs out the fake serves the board. `overlap`
+  // re-serves the last PR of each page at the top of the next one, the shift a
+  // PR opening or closing mid-sweep can cause. `latencyMs` advances the fake
+  // clock per call; `extraOpen` reports PRs open that the list never serves.
+  // A REST status POST is recorded in `posts` and answered 201.
+  const fakeGitHub = (prs, { plan = [], overlap = false, unknownReads = {}, latencyMs = 0, extraOpen = 0 } = {}) => {
+    const calls = [];
+    const posts = [];
+    const reads = {};
+    let clock = NOW_MS;
+    const fetchFake = async (url, init) => {
+      clock += latencyMs;
+      if (url !== API) {
+        posts.push(url.split('/statuses/')[1]);
+        return reply(201, {});
+      }
+      const request = JSON.parse(init.body);
+      calls.push(request);
+      const scripted = plan[calls.length - 1];
+      if (scripted === 'net') throw new Error('socket hang up');
+      if (scripted) return scripted;
+      const query = request.query;
+      const variables = request.variables ?? {};
+      const repository = {};
+      if (query.includes('pullRequests(')) {
+        const first = variables.first ?? 100;
+        let start = variables.after ? Number(variables.after.slice(1)) : 0;
+        if (overlap && start > 0) start -= 1;
+        const page = prs.slice(start, start + first);
+        const end = start + page.length;
+        repository.pullRequests = {
+          totalCount: prs.length + extraOpen,
+          pageInfo: { hasNextPage: end < prs.length, endCursor: 'c' + end },
+          nodes: page.map(prNode),
+        };
+      }
+      for (const pr of prs) {
+        if (!query.includes('p' + pr.number + ':pullRequest(')) continue;
+        reads[pr.number] = (reads[pr.number] ?? 0) + 1;
+        const lazy = reads[pr.number] <= (unknownReads[pr.number] ?? 0);
+        repository['p' + pr.number] = prNode(lazy ? { ...pr, mergeable: 'UNKNOWN' } : pr);
+      }
+      return reply(200, { data: { repository } });
+    };
+    return { calls, posts, fetchFake, now: () => clock };
+  };
+  const drive = async (argv, github, extraDeps = {}) => {
+    const lines = [];
+    const realLog = console.log;
+    const realError = console.error;
+    const realFetch = globalThis.fetch;
+    console.log = (...parts) => lines.push(parts.join(' '));
+    console.error = (...parts) => lines.push(parts.join(' '));
+    globalThis.fetch = github.fetchFake;
+    let code;
+    try {
+      code = await main(argv, {
+        fetch: github.fetchFake,
+        sleep: async () => {},
+        now: github.now,
+        env: { GITHUB_TOKEN: 'fixture-token', GITHUB_REPOSITORY: 'fixture/repo' },
+        ...extraDeps,
+      });
+    } finally {
+      console.log = realLog;
+      console.error = realError;
+      globalThis.fetch = realFetch;
+    }
+    return { code, out: lines.join(NL), calls: github.calls, posts: github.posts };
+  };
+  const board = (count, overrides = {}) =>
+    Array.from({ length: count }, (_, index) => ({ number: index + 1, ...(overrides[index + 1] ?? {}) }));
+  const judgedOrder = (out) =>
+    out
+      .split(NL)
+      .filter((line) => line.startsWith('  ok') || line.startsWith('  FAIL'))
+      .map((line) => line.split('#')[1].trim().split(' ')[0])
+      .join(',');
+  const GATEWAY_504 = reply(504, '<!DOCTYPE html><title>Unicorn! - GitHub</title>');
+
+  add(
+    'retry: one 504 then 200 passes, in exactly 2 calls',
+    async () => {
+      const r = await drive(['--pr', '1'], fakeGitHub(board(1), { plan: [GATEWAY_504] }));
+      return [r.code, r.calls.length, r.out.includes('guard passed')].join('/');
+    },
+    '0/2/true',
+  );
+  add(
+    'retry: a network error is retried like a 504',
+    async () => {
+      const r = await drive(['--pr', '1'], fakeGitHub(board(1), { plan: ['net'] }));
+      return [r.code, r.calls.length].join('/');
+    },
+    '0/2',
+  );
+  add(
+    'outage: 504 x3 on the PR list says GITHUB-OUTAGE, never passes, stops at 3 calls',
+    async () => {
+      const r = await drive([], fakeGitHub(board(2), { plan: [GATEWAY_504, GATEWAY_504, GATEWAY_504] }));
+      return [r.code, r.calls.length, r.out.includes('GITHUB-OUTAGE'), r.out.includes('guard passed')].join('/');
+    },
+    '0/3/true/false',
+  );
+  add(
+    'outage: PRs whose details never arrived are NAMED as not judged, never counted OK',
+    async () => {
+      const r = await drive([], fakeGitHub(board(2), { plan: [undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504] }));
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [r.code, notJudged, judgedOrder(r.out), r.out.includes('guard passed')].join('/');
+    },
+    '0/NOT JUDGED (2): #1, #2/' + '/false',
+  );
+  add(
+    'outage: PR_GUARD_OUTAGE_STRICT=1 turns the outage into exit 2',
+    async () => {
+      const r = await drive([], fakeGitHub(board(2), { plan: [GATEWAY_504, GATEWAY_504, GATEWAY_504] }), {
+        env: { GITHUB_TOKEN: 'fixture-token', GITHUB_REPOSITORY: 'fixture/repo', PR_GUARD_OUTAGE_STRICT: '1' },
+      });
+      return [r.code, r.out.includes('GITHUB-OUTAGE')].join('/');
+    },
+    '2/true',
+  );
+  add(
+    'budget: retrying stops once failed attempts and waits pass the budget',
+    async () => {
+      const github = fakeGitHub(board(2), { plan: [GATEWAY_504, GATEWAY_504, GATEWAY_504], latencyMs: 100000 });
+      const r = await drive([], github);
+      return [r.code, r.calls.length, r.out.includes('retry budget'), r.out.includes('GITHUB-OUTAGE')].join('/');
+    },
+    '0/2/true/true',
+  );
+  add(
+    'budget: a long HEALTHY sweep does not spend it -- a late 504 still gets its retry',
+    async () => {
+      const github = fakeGitHub(board(6), { plan: [undefined, undefined, undefined, GATEWAY_504], latencyMs: 60000 });
+      const r = await drive([], github, { batchSize: 2 });
+      return [r.code, r.calls.length, r.out.includes('guard passed')].join('/');
+    },
+    '0/5/true',
+  );
+  add(
+    'outage: a PR still UNKNOWN when the outage hit is NOT JUDGED, not exit 2',
+    async () => {
+      const github = fakeGitHub(board(4), {
+        plan: [undefined, undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504],
+        unknownReads: { 1: 9 },
+      });
+      const r = await drive([], github, { batchSize: 2 });
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [r.code, notJudged, r.out.includes('MERGEABLE_UNRESOLVED')].join('/');
+    },
+    '0/NOT JUDGED (3): #1, #3, #4/false',
+  );
+  add(
+    'paging: a list shorter than the open count GitHub reports is refused, exit 2',
+    async () => {
+      const r = await drive([], fakeGitHub(board(2), { extraOpen: 1 }));
+      return [r.code, r.out.includes('listed 2 of 3')].join('/');
+    },
+    '2/true',
+  );
+  add(
+    'publish: an unchanged status is not re-posted; a changed or missing one is',
+    async () => {
+      const prs = board(3, {
+        1: { ownStatus: { state: 'SUCCESS', description: '2 gate(s) ran, mergeable' } },
+        2: { ownStatus: { state: 'PENDING', description: 'no contexts yet; judged on the next sweep' } },
+      });
+      const r = await drive(['--publish-status'], fakeGitHub(prs));
+      return [r.code, r.posts.join(',')].join('/');
+    },
+    '0/abc2,abc3',
+  );
+  add(
+    'publish: a status write lost to an outage keeps the verdicts, names the PRs, never passes',
+    async () => {
+      const github = fakeGitHub(board(2));
+      const realFetch = github.fetchFake;
+      github.fetchFake = async (url, init) => (url === API ? realFetch(url, init) : GATEWAY_504);
+      const r = await drive(['--publish-status'], github);
+      const line = r.out.split(NL).find((l) => l.startsWith('STATUS NOT PUBLISHED')) ?? '';
+      return [r.code, line, r.out.includes('guard passed')].join('/');
+    },
+    '0/STATUS NOT PUBLISHED (2): #1, #2/false',
+  );
+  add(
+    'no retry: a 401 is answered once and exits 2, not as an outage',
+    async () => {
+      const r = await drive([], fakeGitHub(board(2), { plan: [reply(401, { message: 'Bad credentials' })] }));
+      return [r.code, r.calls.length, r.out.includes('HTTP 401'), r.out.includes('GITHUB-OUTAGE')].join('/');
+    },
+    '2/1/true/false',
+  );
+  add(
+    'no retry: a GraphQL errors body is answered once and exits 2, not as an outage',
+    async () => {
+      const r = await drive([], fakeGitHub(board(2), { plan: [reply(200, { errors: [{ message: 'Field x is unknown' }] })] }));
+      return [r.code, r.calls.length, r.out.includes('GitHub API errors'), r.out.includes('GITHUB-OUTAGE')].join('/');
+    },
+    '2/1/true/false',
+  );
+  add(
+    'paging: 3 list pages, cursor passed through, every PR judged once and in order',
+    async () => {
+      const r = await drive([], fakeGitHub(board(7)), { listPageSize: 3, batchSize: 3 });
+      const cursors = r.calls.filter((c) => c.query.includes('pullRequests(')).map((c) => String(c.variables.after));
+      return [r.code, cursors.join(','), judgedOrder(r.out)].join('/');
+    },
+    '0/null,c3,c6/1,2,3,4,5,6,7',
+  );
+  add(
+    'paging: a PR re-served across a page boundary is judged once, not twice',
+    async () => {
+      const r = await drive([], fakeGitHub(board(7), { overlap: true }), { listPageSize: 3, batchSize: 3 });
+      return [r.code, judgedOrder(r.out)].join('/');
+    },
+    '0/1,2,3,4,5,6,7',
+  );
+  add(
+    'poll: only the PR still UNKNOWN is re-read, and it is judged once it resolves',
+    async () => {
+      const r = await drive([], fakeGitHub(board(3), { unknownReads: { 2: 2 } }));
+      const rereads = r.calls.slice(2).map((c) => c.query.split(':pullRequest(').length - 1);
+      return [r.code, r.calls.length, rereads.join(','), r.calls[3].query.includes('p2:pullRequest('), judgedOrder(r.out)].join('/');
+    },
+    '0/4/1,1/true/1,2,3',
+  );
+  add(
+    'paging: a conflicting PR on page 2 still exits 1',
+    async () => {
+      const r = await drive([], fakeGitHub(board(7, { 5: { mergeable: 'CONFLICTING' } })), { listPageSize: 3, batchSize: 3 });
+      return [r.code, r.out.includes('#5:')].join('/');
+    },
+    '1/true',
+  );
+  add(
+    'outage: a conflict already judged still exits 1 when a later batch is lost, and no batch is tried after it',
+    async () => {
+      const github = fakeGitHub(board(6, { 1: { mergeable: 'CONFLICTING' } }), {
+        plan: [undefined, undefined, GATEWAY_504, GATEWAY_504, GATEWAY_504],
+      });
+      const r = await drive([], github, { listPageSize: 100, batchSize: 2 });
+      const notJudged = r.out.split(NL).find((line) => line.startsWith('NOT JUDGED')) ?? '';
+      return [r.code, r.calls.length, notJudged].join('/');
+    },
+    '1/5/NOT JUDGED (4): #3, #4, #5, #6',
+  );
+
   let failed = 0;
   for (const item of cases) {
     let got;
     try {
-      got = item.fn();
+      got = await item.fn();
     } catch (error) {
       got = 'threw: ' + error.message;
     }
@@ -971,13 +1516,12 @@ function selfTest() {
 
 // ---------------------------------------------------------------------------
 
-export async function run({
-  number = null,
-  sha = null,
-  minAgeMinutes = DEFAULT_MIN_AGE_MINUTES,
-  publish = false,
-} = {}) {
-  const auth = resolveToken();
+export async function run(
+  { number = null, sha = null, minAgeMinutes = DEFAULT_MIN_AGE_MINUTES, publish = false } = {},
+  deps = {},
+) {
+  const env = deps.env ?? process.env;
+  const auth = resolveToken(env);
   if (!auth.token) {
     console.error('PR mergeable guard cannot run: no GitHub credential.');
     console.error('Set GITHUB_TOKEN or GH_TOKEN, or authenticate the gh CLI.');
@@ -987,17 +1531,30 @@ export async function run({
 
   let repo;
   try {
-    repo = resolveRepo();
+    repo = resolveRepo(env);
   } catch (error) {
     console.error('PR mergeable guard cannot run: ' + error.message);
     return { ok: false, infra: true };
   }
   const label = repo.owner + '/' + repo.name;
+  const now = deps.now ?? Date.now;
+  const ctx = {
+    token: auth.token,
+    fetch: deps.fetch ?? globalThis.fetch,
+    sleep: deps.sleep ?? sleep,
+    now,
+    retrySpentMs: 0,
+    env,
+    listPageSize: deps.listPageSize ?? LIST_PAGE_SIZE,
+    batchSize: deps.batchSize ?? DETAIL_BATCH_SIZE,
+  };
 
   if (sha) {
     let commit;
     try {
-      commit = await fetchCommit(auth.token, repo, sha);
+      // An outage here stays exit 2, never the outage code: this is the live
+      // canary, and the workflow reads its 0 as "the guard has gone blind".
+      commit = await fetchCommit(ctx, repo, sha);
     } catch (error) {
       console.error('PR mergeable guard cannot run: ' + error.message);
       return { ok: false, infra: true };
@@ -1015,27 +1572,36 @@ export async function run({
     return { ok: false };
   }
 
-  let prs;
+  let fetched;
   try {
-    prs = await fetchPrs(auth.token, repo, { number });
+    fetched = await fetchPrs(ctx, repo, { number });
   } catch (error) {
     console.error('PR mergeable guard cannot run: ' + error.message);
     return { ok: false, infra: true };
   }
 
-  const scope = number ? 'PR #' + number : prs.length + ' open PR(s)';
+  const { prs, unjudged, outage, listComplete } = fetched;
+  let scope = number ? 'PR #' + number : prs.length + ' open PR(s)';
+  if (outage) scope += ', ' + unjudged.length + ' NOT judged' + (listComplete ? '' : ', list incomplete');
   console.log('PR mergeable guard -- ' + label + ', ' + scope + ', credential from ' + auth.source + '.');
 
-  const nowMs = Date.now();
+  const nowMs = now();
   const verdicts = prs.map((each) => evaluatePr(each, { nowMs, minAgeMinutes }));
   const tally = reportVerdicts(verdicts);
-
+  if (outage) reportOutage({ outage, unjudged, listComplete, judged: verdicts.length, env });
   // Publishing is opt-in, and deliberately unreachable from --sha mode: that
   // mode is the live canary, and a canary that writes to the repo it is
   // checking is not a canary.
   const publishErrors = [];
+  let publishOutage = null;
+  const unpublished = [];
+  const prByNumber = new Map(prs.map((pr) => [pr.number, pr]));
   if (publish) {
     for (const verdict of verdicts) {
+      if (publishOutage) {
+        unpublished.push(verdict.number);
+        continue;
+      }
       if (!verdict.headOid) {
         publishErrors.push('#' + verdict.number + ': no head commit to attach a status to');
         continue;
@@ -1044,12 +1610,35 @@ export async function run({
         console.log('  not publishing to #' + verdict.number + ': state is ' + verdict.state + ', not OPEN');
         continue;
       }
+      // Unchanged since the last sweep: no write. The whole board is ~136 PRs
+      // swept hourly AND on every push to main, and GITHUB_TOKEN gets ~1,000
+      // REST calls an hour per repo -- re-posting identical statuses would
+      // spend that and red the job on a 403 that says nothing about any PR.
+      const wanted = statusForVerdict(verdict);
+      const current = (prByNumber.get(verdict.number)?.contexts ?? []).find(
+        (c) => c.__typename === 'StatusContext' && c.context === STATUS_CONTEXT,
+      );
+      if (current && current.state === wanted.state.toUpperCase() && current.description === wanted.description.slice(0, 140)) {
+        console.log('  unchanged ' + STATUS_CONTEXT + '=' + wanted.state + ' on #' + verdict.number + '; not re-posted');
+        continue;
+      }
       try {
-        const state = await publishStatus(auth.token, repo, verdict.headOid, verdict);
+        const state = await publishStatus(ctx, repo, verdict.headOid, verdict);
         console.log('  published ' + STATUS_CONTEXT + '=' + state + ' to #' + verdict.number);
       } catch (error) {
-        publishErrors.push(error.message);
+        if (!error.outage) {
+          publishErrors.push(error.message);
+          continue;
+        }
+        publishOutage = error.message;
+        unpublished.push(verdict.number);
       }
+    }
+    if (publishOutage) {
+      // The verdicts above stand; only the board write was lost.
+      console.error(NL + 'GITHUB-OUTAGE: statuses could not be written -- ' + publishOutage);
+      console.error('STATUS NOT PUBLISHED (' + unpublished.length + '): ' + unpublished.map((n) => '#' + n).join(', '));
+      annotate(env, 'PR mergeable guard could not publish to ' + unpublished.length + ' PR(s) (' + publishOutage.slice(0, 200) + ').');
     }
     for (const message of publishErrors) console.error('  publish failed -- ' + message);
   }
@@ -1059,6 +1648,7 @@ export async function run({
   if (tally.failing > 0) return { ok: false };
   if (publishErrors.length > 0) return { ok: false, infra: true };
   if (tally.unresolved > 0) return { ok: false, infra: true };
+  if (outage || publishOutage) return { ok: false, outage: true };
   console.log(
     NL +
       'PR mergeable guard passed: ' +
@@ -1079,7 +1669,7 @@ export async function run({
  * reader unable to tell which case broke. We develop on Windows and gate on
  * Linux, so the defect is invisible exactly where it is introduced.
  */
-async function main(argv) {
+export async function main(argv, deps = {}) {
   const KNOWN_FLAGS = ['--pr', '--sha', '--min-age-minutes', '--self-test', '--publish-status'];
   const VALUE_FLAGS = ['--pr', '--sha', '--min-age-minutes'];
   const valueOf = (flag) => {
@@ -1112,7 +1702,7 @@ async function main(argv) {
     }
   }
 
-  if (argv.includes('--self-test')) return selfTest() ? 0 : 1;
+  if (argv.includes('--self-test')) return (await selfTest()) ? 0 : 1;
 
   // Numeric arguments are validated rather than coerced. Number('abc') is NaN
   // and every comparison against NaN is false, so a typo in --min-age-minutes
@@ -1133,7 +1723,8 @@ async function main(argv) {
   };
 
   const prFlag = valueOf('--pr');
-  const ageFlag = valueOf('--min-age-minutes') ?? process.env.PR_GUARD_MIN_AGE_MINUTES;
+  const env = deps.env ?? process.env;
+  const ageFlag = valueOf('--min-age-minutes') ?? env.PR_GUARD_MIN_AGE_MINUTES;
   const shaFlag = valueOf('--sha');
   const wantsPublish = argv.includes('--publish-status');
 
@@ -1149,8 +1740,8 @@ async function main(argv) {
   const minAgeMinutes = ageFlag ? numericFlag('--min-age-minutes', ageFlag, 0) : DEFAULT_MIN_AGE_MINUTES;
   if (invalid) return 2;
 
-  const result = await run({ number, sha: shaFlag, minAgeMinutes, publish: wantsPublish });
-  return result.ok ? 0 : result.infra ? 2 : 1;
+  const result = await run({ number, sha: shaFlag, minAgeMinutes, publish: wantsPublish }, deps);
+  return exitCodeFor(result, env);
 }
 
 // Realpath-to-realpath (scripts/lib/entry-point.mjs). The string compare it

@@ -10,7 +10,7 @@ import { fetchMyLineup, fetchMyRoleDetails, lineupQueryKey, roleDetailsQueryKey 
 import { AreaFrame } from './AreaFrame';
 import { BlockedState, blockedCode, type BlockedPaths } from './BlockedState';
 import { roleErrorCode, roleErrorMessage } from './errorCopy';
-import { ROLE_NAME, ROLE_NOUN, type Role } from './fieldRegistry';
+import { ROLE_NAME, ROLE_NOUN, ROLE_REQUIRED_LEAD, type Role } from './fieldRegistry';
 import { LineupList } from './LineupList';
 import { completeness, completenessLine } from './roleModel';
 
@@ -55,7 +55,7 @@ export function CompletenessMeter({ role, filled, total, percent, complete }: { 
       >
         <div className="h-full rounded-full bg-[var(--gold)]" style={{ width: `${percent}%` }} />
       </div>
-      <p className="text-[13px] text-[var(--mut)]">Every detail is optional. Add as many or as few as you like.</p>
+      <p className="text-[13px] text-[var(--mut)]" data-testid="role-required-lead">{ROLE_REQUIRED_LEAD[role]}</p>
     </div>
   );
 }
