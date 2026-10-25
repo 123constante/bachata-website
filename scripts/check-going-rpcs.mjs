@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-going-rpcs.mjs -- the live contract of the four "I'm going" RPCs the
+ * check-going-rpcs.mjs -- the live contract of the six "I'm going" RPCs the
  * Website reads (Going P2; database side is admin Going P1, migrations
  * 20261204520000 / 20261204530000, handover docs/handovers/going-p1-db.md).
  *
@@ -86,7 +86,8 @@ const PEOPLE_LIMIT = 8;
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
 export const SIGNED_IN_SKIP =
-  'SKIP signed-in shapes (set_my_going_v1 success, get_my_going_v1 {upcoming, past}): ' +
+  'SKIP signed-in shapes (set_my_going_v1 success, get_my_going_v1 {upcoming, past}, ' +
+  'get_my_organiser_going_total_v1 success): ' +
   'db-contract-check.yml holds only the anon publishable key and no signed-in test ' +
   'account, so those shapes are NOT verified by this check.';
 
