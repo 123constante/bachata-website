@@ -12,9 +12,14 @@ vi.mock('@/hooks/useAuth', async (importOriginal) =>
   (await import('@/modules/dancer-app/shell/testAuth')).authModuleMock(importOriginal));
 
 const h = vi.hoisted(() => ({
-  rows: [] as Record<string, unknown>[],
+  reply: { upcoming: [], past: [] } as unknown,
+  going: 'ok' as 'ok' | 'never' | 'error',
   rpc: async (fn: string): Promise<unknown> => {
-    if (fn === 'get_my_event_attendance_v2') return { data: h.rows, error: null };
+    if (fn === 'get_my_going_v1') {
+      if (h.going === 'never') return new Promise(() => {});
+      if (h.going === 'error') return { data: null, error: { message: 'Failed to fetch' } };
+      return { data: h.reply, error: null };
+    }
     return { data: null, error: null };
   },
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { slug: 'london-gb' }, error: null }) }) }) }),
@@ -29,69 +34,66 @@ vi.mock('@/hooks/useCalendarEventsRpc', () => ({ useCalendarEvents: () => ({ dat
 
 import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInShell';
 import { createFakeBackend } from '@/modules/dancer-app/api/fakeBackend';
-import { STATS_SHAPES, type StatsShapeName } from '@/modules/dancer-app/api/statsFixtures';
-import { fmt } from '@/modules/dancer-app/api/numbersModel';
+import type { StatsShapeName } from '@/modules/dancer-app/api/statsFixtures';
 import { copyFor } from '@/modules/dancer-app/api/errors';
-import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
+import { cancelled, night, notLive } from '@/modules/dancer-app/screens/nights/__tests__/goingShapes';
 import { FEEDBACK_CLOSED, sendDisabledReason } from '@/modules/dancer-app/screens/options/feedbackModel';
 import { optionsRows } from '@/modules/dancer-app/screens/options/optionsModel';
 
-beforeEach(() => { h.rows = []; localStorage.clear(); sessionStorage.clear(); });
+beforeEach(() => { h.reply = { upcoming: [], past: [] }; h.going = 'ok'; localStorage.clear(); sessionStorage.clear(); });
 afterEach(() => { cleanup(); resetShell(); vi.restoreAllMocks(); });
 
-const today = londonTodayKey();
-const row = (id: string, n: number, status = 'going', over: Record<string, unknown> = {}) => ({
-  event_id: id, status, updated_at: null, name: `Night ${id}`, occurrence_date: addDaysToKey(today, n), city_name: 'London', start_time: '21:00:00', type: 'party', is_active: true, ...over,
-});
 const never = <T,>(): Promise<T> => new Promise<T>(() => {});
 
 /* ------------------------------------------------------------------ F7 */
-describe('F7: Home shows ONE "going" number (my_dancer_stats_v1) on the tile and the strip', () => {
-  const shapes: Array<{ name: string; stats: StatsShapeName; rows: () => Record<string, unknown>[] }> = [
-    // The attendance list still says Going (it has no cancelled check); the stats do not count it.
-    { name: 'going to a cancelled night', stats: 'cancelledNight', rows: () => [row('c1', 3)] },
-    // The series is no longer listed (is_active false) but its night is still scheduled.
-    { name: 'going to a night of an ended series', stats: 'endedSeries', rows: () => [row('e1', 5, 'going', { is_active: false })] },
-    { name: 'zero', stats: 'zero', rows: () => [] },
-    { name: 'normal (3 going + 2 interested in the list)', stats: 'normal', rows: () => [row('a', 1), row('b', 2), row('c', 3), row('d', 4, 'interested'), row('e', 5, 'interested')] },
-    // The list stops at its 100-row API cap; the stats count all 1500.
-    { name: 'huge (999+)', stats: 'over999', rows: () => Array.from({ length: 100 }, (_, i) => row(`h${i}`, i + 1)) },
+// Going P2: the ONE number is now the count over get_my_going_v1's upcoming list (the
+// Nights list itself), never my_dancer_stats_v1.nights_going_upcoming. The full shape
+// table lives in screens/home/__tests__/homeAudit.test.tsx; here: tile === strip, and the
+// tile's loading / failed words.
+describe('F7: Home shows ONE "going" number (get_my_going_v1) on the tile and the strip', () => {
+  const shapes: Array<{ name: string; stats: StatsShapeName; reply: () => unknown; want: string }> = [
+    { name: 'going to a cancelled night', stats: 'cancelledNight', reply: () => ({ upcoming: [cancelled('c1', 'C', 3)], past: [] }), want: '0' },
+    { name: 'going to a night of an ended series', stats: 'endedSeries', reply: () => ({ upcoming: [notLive('e1', 'E', 5, 'ended')], past: [] }), want: '1' },
+    { name: 'zero', stats: 'zero', reply: () => ({ upcoming: [], past: [] }), want: '0' },
+    { name: 'normal (3 going)', stats: 'normal', reply: () => ({ upcoming: [night('a', 'A', 1), night('b', 'B', 2), night('c', 'C', 3)], past: [] }), want: '3' },
   ];
 
   it.each(shapes)('$name: tile === strip', async (s) => {
-    h.rows = s.rows();
+    h.reply = s.reply();
     renderInShell({ path: '/app/home', backend: { statsShape: s.stats } });
-    const fixture = STATS_SHAPES[s.stats];
-    if ('error' in fixture) throw new Error('not a payload shape');
-    const want = fmt(fixture.stats.nights_going_upcoming);
     await screen.findByTestId('stats-strip');
-    // Let the attendance list land too: the old tile counted that list.
-    await waitFor(() => expect(screen.getByTestId('home-hero').textContent).not.toMatch(/Loading/));
-    const tile = screen.getByTestId('tile-going-count').textContent;
+    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(s.want));
     const stripCell = screen.queryByTestId('stat-going-value');
-    if (stripCell) expect(tile).toBe(stripCell.textContent);
+    if (stripCell) expect(stripCell.textContent).toBe(s.want);
     else expect(screen.getByTestId('stats-strip-empty')).toBeTruthy();
-    expect(tile).toBe(want);
   });
 
-  it('while the numbers load, the tile says Loading, not a number', async () => {
-    const backend = createFakeBackend({ statsShape: 'normal' });
-    backend.fetchMyStats = never;
-    h.rows = [row('a', 1)];
-    renderInShell({ path: '/app/home', backend });
-    await screen.findByTestId('numbers-loading');
-    await waitFor(() => expect(screen.getByTestId('home-hero').textContent).toMatch(/Night a/));
+  it('while the nights load, the tile says Loading, not a number', async () => {
+    h.going = 'never';
+    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
+    await screen.findByTestId('stats-strip');
     expect(screen.getByTestId('tile-going-count').textContent).toBe('Loading\u2026');
   });
 
-  it('when the numbers fail, the tile says so in words, not a number from another source', async () => {
-    h.rows = [row('a', 1), row('b', 2)];
-    renderInShell({ path: '/app/home', backend: { statsShape: 'error' } });
-    await screen.findByTestId('numbers-error');
-    await waitFor(() => expect(screen.getByTestId('home-hero').textContent).toMatch(/Night a/));
-    const tile = screen.getByTestId('tile-going-count').textContent ?? '';
-    expect(tile).not.toMatch(/\d/);
-    expect(tile).toBe('Could not load');
+  it('when the nights read fails, the tile says so in words, not a number from another source', async () => {
+    h.going = 'error';
+    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
+    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('Could not load'));
+  });
+});
+
+// Review: the strip's Went came from my_dancer_stats_v1.nights_went, which disagrees with
+// get_my_going_v1.past. Once the going list has loaded, Went is mapMyGoing's past list
+// (cancelled past nights left out), the same list the Nights screen shows.
+describe('Went reads the same going list as the Going cell', () => {
+  it.each([
+    { name: 'two past, one cancelled', past: () => [night('c', 'C', -3), night('d', 'D', -20), cancelled('y', 'Y', -4)], want: '2' },
+    { name: 'no past nights (stats say 12)', past: () => [], want: '0' },
+  ])('$name: Went = $want', async (s) => {
+    h.reply = { upcoming: [night('a', 'A', 1)], past: s.past() };
+    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
+    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe('1'));
+    expect(screen.getByTestId('stat-went-value').textContent).toBe(s.want);
   });
 });
 

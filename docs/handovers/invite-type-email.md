@@ -1,25 +1,34 @@
-# Handover: /invite "type your email" step (job F, Website half)
+# Handover: /invite "type your email" step + self-bound gate (old PR #959)
 
-Brief: bachata-admin `docs/briefs/auto-join/web-invite-email.md` (sha 57b6268).
-**Needs admin PR #952 applied first** (`bind_organiser_invite_email_v1`). Until then the step answers "This isn't available yet. Please try again later." and offers the plain sign-in.
+Brief: `brief/invite-type-email` `docs/briefs/invite-type-email-rebase.md` (sha 64f55cc).
+Ticket dt_cb66bb355032, 2026-10-25.
 
-## Done
-- `bindEmailModel.ts`: one copy map (`bindCopy`), typed-email check (trim, printable ASCII only), mask, `interpretBind` (function-missing -> unavailable).
-- `BindEmailStep.tsx`: type -> confirm ("We'll send your sign-in link to a***@x.com. Is that right?") -> RPC from the browser (anon key, never server) -> sign-in returning to `/invite/<token>`. Never redeems.
-- `InviteRedeemPage.tsx`: signed-out + open + unbound preview shows the step. Everything else unchanged; redeem still runs only from the Join button click.
-- Tests: `bindEmailStep.test.tsx` (statuses x viewers, zero-redeem-until-click); four older tests updated for the new signed-out unbound screen.
+## Outcome: superseded by main, NOT rebased
 
-## Notes
-- The route is `/invite/:token` (path param), not `?token=`; kept as is.
-- Preview with a full/garbled hint counts as unbound, so it also gets the step.
-- Pre-existing eslint error in InviteRedeemPage (`react-hooks/refs`, tokenRef) is not from this change.
+The old branch head was `224506e4883f96e141504bf97813ff9a56b27501` (2 commits on base `ca75415`;
+still reachable from closed PR #959). Rebasing it onto main (`36d3cea`) conflicts in 5 files, and
+"keep main's behaviour" leaves nothing of it, because #978 (W1, Option B join) already folded both
+halves in:
 
-## Left
-Phone walk at 390x844 and a wider size once #952 is applied; owner applies the migration.
+| #959 piece | Where main has it |
+|---|---|
+| `BindEmailStep` + `bindEmailModel` (type email, bind, then sign in) | `join/JoinPage.tsx` `send()` calls `bindInviteEmail` before the code is sent; `join/joinModel.ts` has `checkTypedEmail` and `interpretBind` ("ported from #959"); `join/joinApi.ts` `bindInviteEmail` |
+| `bindOrganiserInviteEmail` in `inviteRedeemApi.ts` | `join/joinApi.ts` `bindInviteEmail` (same RPC `bind_organiser_invite_email_v1`, `p_token`, `p_email`) |
+| Self-bound links go through `DancerProfileGate` | Deliberately reversed: `InviteRedeemPage.tsx` says "No DancerProfileGate here"; the dancer questions are asked inline (`join/AboutStep.tsx`). `join/__tests__/inviteGate.test.tsx` is "Folded from PR #959's inviteSelfBoundGate.test.tsx (superseded by W1)" and asserts the gate NEVER redirects /invite |
+| `InvitePreview.selfBound` parse | Not needed on main: nothing branches on it now that the gate never applies to /invite |
 
-## Continuation 2026-10-22: self-bound gate
+Re-applying the branch would add `BindEmailStep.tsx` with no importer (main's `InviteRedeemPage`
+renders only `JoinPage`) and a gate rule that the main test suite forbids. So main was merged in
+taking main's side for every file (history kept, no force-push); this note is the only diff vs main.
 
-**Done.** `InvitePreview.selfBound` (`r.self_bound === true`); `InviteRedeemPage` skips DancerProfileGate only for an admin-bound link (`emailHint != null && selfBound !== true`). Self-bound and unbound links finish the dancer profile first. Redeem is still only from the Join click.
-Tests: parser table (true/false/absent/null/"true") in `invitePreview.test.tsx`; `inviteSelfBoundGate.test.tsx` (unbound / admin-bound / self-bound / key-absent x profile complete / incomplete, signed in, no redeem without Join). All 430 admin-organisers tests, `tsc --noEmit` and eslint on the folder pass.
-**Left.** PR body edit (Self-bound paragraph); admin #956 must be applied before the path is live.
-**Not verified.** The self-bound path cannot be walked on prod until #956 is applied. No browser walk, and the CI job steps were not all run locally.
+## Verified
+- `npx vitest run src/modules/admin-organisers` on main: 22 files, 622 tests pass.
+- Conflicts reproduced locally (`InviteRedeemPage.tsx`, `invitePreview.test.tsx`,
+  `inviteReasons.test.tsx`, `routes.matrix.test.tsx`; `inviteWalkthrough.test.tsx` deleted on main).
+
+## Not verified
+- No browser walk (no code change). No prod shape survey (no code change).
+
+## Left / next
+- Owner: close this out; nothing to reopen. If a #959 behaviour is still wanted, it is a fresh
+  design question against W1 (`join/`), not a rebase.

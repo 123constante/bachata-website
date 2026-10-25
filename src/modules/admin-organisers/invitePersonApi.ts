@@ -15,20 +15,29 @@ export interface PersonHit {
   name: string;
   /** For the message greeting; null when the profile has no first or display name. */
   firstName: string | null;
+  /** The profile is already joined to a login (claimed_by set). Unknown (undefined) for a Leader prefill. */
+  hasLogin?: boolean;
+}
+
+/** One person on a page's team list, for "Who is this for?". */
+export interface TeamPerson extends PersonHit {
+  isLeader: boolean;
 }
 
 /** A page's Leader: none, exactly one (prefilled), or several (nobody is guessed). */
 export type PageLeader = { kind: 'none' } | { kind: 'one'; person: PersonHit } | { kind: 'several' };
 
-type NameRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null };
+type NameRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; claimed_by?: string | null };
 const toPersonHit = (r: NameRow): PersonHit => ({
   id: r.id,
   name: [r.first_name, r.surname].filter(Boolean).join(' ').trim() || r.display_name || 'Unnamed person',
   firstName: r.first_name?.trim() || r.display_name?.trim() || null,
+  ...(r.claimed_by !== undefined ? { hasLogin: r.claimed_by !== null } : {}),
 });
 
 export const personSearchQueryKey = (q: string) => ['admin-invite-person-search', q] as const;
 export const pageLeaderQueryKey = (organiserId: string | null) => ['admin-invite-page-leader', organiserId] as const;
+export const pageTeamQueryKey = (organiserId: string) => ['admin-invite-page-team', organiserId] as const;
 export const pageUpcomingQueryKey = (organiserId: string | null) => ['admin-invite-page-upcoming', organiserId] as const;
 
 /** admin_search_people_v1 (typed, admin only). Two letters minimum so a keystroke is not a query. */
@@ -62,6 +71,40 @@ export async function fetchPageLeader(organiserId: string): Promise<PageLeader> 
   if (pe) throw pe;
   if (!p) return { kind: 'none' };
   return { kind: 'one', person: toPersonHit(p) };
+}
+
+const TEAM_LIMIT = 20;
+
+/**
+ * The page's public team list (organiser_team_members, active), Leaders first, for "Who is this for?".
+ * 52 people sit on team lists and 49 have no login (2026-10-23), so these are the usual invitees.
+ */
+export async function fetchPageTeam(organiserId: string): Promise<TeamPerson[]> {
+  const { data: rows, error } = await supabase
+    .from('organiser_team_members')
+    .select('member_profile_id, is_leader')
+    .eq('organiser_profile_id', organiserId)
+    .eq('is_active', true)
+    .order('is_leader', { ascending: false })
+    .order('created_at')
+    .limit(TEAM_LIMIT);
+  if (error) throw error;
+  const ids = [...new Set((rows ?? []).map((r) => r.member_profile_id).filter((id): id is string => !!id))];
+  if (ids.length === 0) return [];
+  const { data: people, error: pe } = await supabase
+    .from('dancer_profiles')
+    // Never claimed_by: a private column (no SELECT for authenticated; dancerProfilePrivateColumns test).
+    // Whether a team member has a login is unknown here; the admin search RPC returns it.
+    .select('id, first_name, surname, display_name')
+    .in('id', ids)
+    .is('archived_at', null);
+  if (pe) throw pe;
+  const byId = new Map((people ?? []).map((p) => [p.id, p] as const));
+  const leaders = new Set((rows ?? []).filter((r) => r.is_leader).map((r) => r.member_profile_id));
+  return ids.flatMap((id) => {
+    const p = byId.get(id);
+    return p ? [{ ...toPersonHit(p), isLeader: leaders.has(id) }] : [];
+  });
 }
 
 /** Upcoming dates for the message, from the same public feed the organiser page uses. */

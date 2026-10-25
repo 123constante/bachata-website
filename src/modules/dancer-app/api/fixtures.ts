@@ -70,6 +70,7 @@ const blank: MyDancerEdit = {
   website_url: null,
   whatsapp: null,
   show_whatsapp_publicly: true,
+  show_going_photo: false,
   avatar_url: null,
   dance_started_year: null,
   favorite_styles: [],

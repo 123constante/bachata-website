@@ -6,9 +6,12 @@
  *
  * Strength is NEVER computed here: it is `profile.strength` from the server.
  */
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { diffDelta } from '../../api/delta';
 // Client-side refusals read the SAME copy the DB's refusal maps to (one mapping, api/errors.ts).
 import { copyFor } from '../../api/errors';
+import { checkInstagramField } from '@/lib/instagramHandle';
+import { normalizePhoneE164 } from '@/lib/phoneRules';
 import type { DancerDelta, DanceRole, MyDancerEdit, SaveKey } from '../../api/types';
 import { EDIT_PATH, nextStepFor, nextStepLine, roleLabel, type EditFocus, type NextStepProfile } from '../../api/nextStep';
 import { ownPublicName } from '../../api/publicName';
@@ -133,6 +136,8 @@ export type EditDraft = {
   website_url: string;
   whatsapp: string;
   show_whatsapp_publicly: boolean;
+  /** Going P2: "Show my photo when I'm going" (default OFF). Sent only while the going switch is on and it changed. */
+  show_going_photo: boolean;
 };
 
 export const draftFromProfile = (p: MyDancerEdit): EditDraft => ({
@@ -153,6 +158,7 @@ export const draftFromProfile = (p: MyDancerEdit): EditDraft => ({
   website_url: p.website_url ?? '',
   whatsapp: p.whatsapp ?? '',
   show_whatsapp_publicly: p.show_whatsapp_publicly,
+  show_going_photo: p.show_going_photo,
 });
 
 export type FieldMessages = Partial<Record<FormFieldId, string>>;
@@ -171,19 +177,15 @@ const ruleFindings = (d: EditDraft, p: Pick<MyDancerEdit, 'other_roles' | 'first
   const bioLen = d.bio.length;
   if (bioLen > BIO_MAX) e.bio = `Your bio can be up to ${BIO_MAX} characters. Remove ${bioLen - BIO_MAX} to save.`;
   else if (BIO_LINK_RE.test(d.bio)) e.bio = copyFor('bio_has_link');
-  for (const k of ['instagram', 'facebook'] as const) {
-    const v = d[k].trim();
-    if (v !== '' && !HANDLE_RE.test(v)) e[k] = copyFor('invalid_handle', k);
-  }
+  // Instagram: the ONE stored rule (lib/instagramHandle, the server's own by fixture). Facebook keeps the handle rule.
+  const ig = checkInstagramField(d.instagram);
+  if ('error' in ig) e.instagram = ig.error;
+  const fb = d.facebook.trim();
+  if (fb !== '' && !HANDLE_RE.test(fb)) e.facebook = copyFor('invalid_handle', 'facebook');
   const url = d.website_url.trim();
   if (url !== '' && !/^https?:\/\/\S+$/i.test(url)) e.website_url = copyFor('invalid_url', 'website_url');
-  if (p.other_roles.length > 0) {
-    const wa = d.whatsapp.trim();
-    const digits = wa.replace(/\D/g, '');
-    if (wa !== '' && (!/^[0-9+()\s-]+$/.test(wa) || digits.length < 7 || digits.length > 15)) {
-      e.whatsapp = 'Enter your number with the country code, for example +44 7700 900123.';
-    }
-  }
+  // WhatsApp: the ONE stored phone rule (E.164, lib/phoneRules). An untouched legacy number only gets a hint.
+  if (p.other_roles.length > 0 && !normalizePhoneE164(d.whatsapp).ok) e.whatsapp = copyFor('invalid_phone', 'whatsapp');
   return e;
 };
 
@@ -202,7 +204,7 @@ export const validateDraft = (d: EditDraft, p: MyDancerEdit): FieldMessages => {
 export const STORED_VALUE_HINT: FieldMessages = {
   display_name: 'Change this to a name without links or @ next time you save it.',
   bio: 'Take the link out of your bio and keep it under 280 characters so it can be saved again.',
-  instagram: 'Use just your handle here, for example your.handle, so this works as a link.',
+  instagram: 'Change this to your Instagram name, like @yourname, next time you save it.',
   facebook: 'Use just your handle here, for example your.handle, so this works as a link.',
   website_url: 'Add https:// at the start so this works as a link.',
   whatsapp: 'Add your country code, for example +44 7700 900123, so people can reach you.',
@@ -218,6 +220,24 @@ export const storedValueHints = (d: EditDraft, p: MyDancerEdit): FieldMessages =
 };
 
 const text = (v: string): string | null => (v.trim() === '' ? null : v.trim());
+
+/**
+ * Instagram is saved as the bare name (papacito.dj), but only once it is edited:
+ * an untouched stored value (a legacy link or @name) stays as it is, so it is
+ * never re-sent. A value the rule refuses goes as typed (validateDraft blocks it).
+ */
+const instagramValue = (stored: string | null, typed: string): string | null => {
+  if (typed === (stored ?? '')) return stored;
+  const ig = checkInstagramField(typed);
+  return 'handle' in ig ? ig.handle : text(typed);
+};
+
+/** WhatsApp is stored as E.164 once edited; an untouched legacy number stays as it is. */
+const phoneValue = (stored: string | null, typed: string): string | null => {
+  if (typed === (stored ?? '')) return stored;
+  const r = normalizePhoneE164(typed);
+  return 'value' in r ? r.value : text(typed);
+};
 
 /**
  * The draft -> the keys that changed, nothing else. Built on api/delta's diffDelta
@@ -239,14 +259,17 @@ export const buildDelta = (current: MyDancerEdit, d: EditDraft): DancerDelta => 
     favorite_songs: d.favorite_songs,
     achievements: d.achievements,
     bio: text(d.bio),
-    instagram: text(d.instagram),
+    instagram: instagramValue(current.instagram, d.instagram),
     facebook: text(d.facebook),
     website_url: text(d.website_url),
   };
   if (current.other_roles.length > 0) {
-    candidate.whatsapp = text(d.whatsapp);
+    candidate.whatsapp = phoneValue(current.whatsapp, d.whatsapp);
     candidate.show_whatsapp_publicly = d.show_whatsapp_publicly;
   }
+  // Every going surface sits behind the going switch: while it is off this key is never sent.
+  // diffDelta drops it when untouched (absent = unchanged in save_my_dancer_profile_v2).
+  if (GOING_CHECKIN_ENABLED) candidate.show_going_photo = d.show_going_photo;
   return diffDelta(current, candidate);
 };
 
@@ -263,4 +286,4 @@ export const saveDisabledReason = (delta: DancerDelta, errors: Partial<Record<Fo
 
 /** The delta key -> the form field that shows its server error. */
 export const fieldForKey = (key: SaveKey): FormFieldId | null =>
-  key === 'hide_surname_publicly' || key === 'show_whatsapp_publicly' ? null : (key as FormFieldId);
+  key === 'hide_surname_publicly' || key === 'show_whatsapp_publicly' || key === 'show_going_photo' ? null : (key as FormFieldId);

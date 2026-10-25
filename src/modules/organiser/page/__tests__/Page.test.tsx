@@ -134,13 +134,13 @@ describe('Save (the layer\'s one)', () => {
 
 // SH-1 / SH-2: the save writes two cache keys (the row and the contact read); Done comes once,
 // and never while the layer still holds drafts and its "came back different" warning.
-const draftBioAndPhone = () => window.localStorage.setItem(draftStorageKey('org-1'), JSON.stringify({ v: 1, fields: { bio: 'We dance on Tuesdays.', contact_phone: '07700 900123' } }));
+const draftBioAndPhone = () => window.localStorage.setItem(draftStorageKey('org-1'), JSON.stringify({ v: 1, fields: { bio: 'We dance on Tuesdays.', contact_phone: '+44 7700 900123' } }));
 
 describe('Save -> Done, exactly once and only when nothing is left', () => {
   it.each([
     { name: 'a page field and a contact field saved together', comesBack: (p: Record<string, unknown>) => p, toDone: 1 },
     { name: 'a value that comes back different', comesBack: (p: Record<string, unknown>) => ({ ...p, bio: 'We dance on Mondays.' }), toDone: 0 },
-    { name: 'a contact value that comes back different', comesBack: (p: Record<string, unknown>) => ({ ...p, contact_phone: '+447700900123' }), toDone: 0 },
+    { name: 'a contact value that comes back different', comesBack: (p: Record<string, unknown>) => ({ ...p, contact_phone: '+447700900999' }), toDone: 0 },
   ])('$name', async ({ comesBack, toDone }) => {
     draftBioAndPhone();
     api.rpc.mockImplementation(async (name: string, args: { p_patch?: Record<string, unknown> }) => {

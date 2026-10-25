@@ -66,13 +66,21 @@ const RULES = [
       'src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx',
       'src/modules/organiser/events/__tests__/goLive.profilePage.test.tsx',
       'src/modules/organiser/shared/__tests__/goLiveCheck.parse.test.ts',
+      // Invite W2: the same server answer with A1's teacher / DJ entries.
+      'src/modules/organiser/shared/__tests__/goLiveCheck.roles.test.ts',
+      // Invite W2 walk: the Go live x every screen matrix feeds the same server answer.
+      'src/modules/organiser/shared/__tests__/goLiveWalk.matrix.test.tsx',
       'src/modules/admin-organisers/inviteModel.ts',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',
       'src/modules/admin-organisers/__tests__/fixup1.test.tsx',
-      'src/modules/admin-organisers/__tests__/inviteWalkthrough.test.tsx',
-      'src/modules/admin-organisers/__tests__/inviteJoiningAs.test.tsx',
+      // W1 (Option B join, PR #978): join/joinModel.ts is the redeem answer's parser on /invite; its specs
+      // feed it server answers.
+      'src/modules/admin-organisers/join/joinModel.ts',
+      'src/modules/admin-organisers/join/__tests__/joinModel.test.ts',
+      'src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx',
+      'src/modules/admin-organisers/join/__tests__/joinMachine.table.test.tsx',
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
@@ -83,6 +91,10 @@ const RULES = [
       'src/modules/admin-organisers/senderModel.ts',
       'src/modules/admin-organisers/__tests__/senderModel.test.ts',
       'src/modules/admin-organisers/__tests__/senderPage.test.tsx',
+      // check_invitee_duplicates_v1 (invite journey A2) answers pairs[] / not_linked[] with the same key;
+      // the duplicates model is its boundary parser, and this spec feeds it server answers.
+      'src/modules/admin-organisers/duplicates/duplicatesModel.ts',
+      'src/modules/admin-organisers/duplicates/__tests__/duplicates.matrix.test.tsx',
     ]),
   },
   {

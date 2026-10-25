@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams, type NavigateFunction } from 'react-router-dom';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { APP_HOME_PATH, RETURN_TO_PARAM, onboardingEnd, onboardingEndLabel } from '@/lib/accountRouting';
@@ -71,6 +71,17 @@ const OnboardingCards = () => {
 
   useEffect(() => {
     if (stage) trackDancerEvent('onboarding_step', { step: stage });
+  }, [stage]);
+  // Funnel counter: the setup is finished when the person reaches an end card ("You're in" / "Nice work"),
+  // once per visit. The photo hand-off re-opens this page on the end card, so an arrival there counts too; a profile
+  // that was already 100% redirects before any card and does not.
+  const finishRecorded = useRef(false);
+  useEffect(() => {
+    if ((stage === 'in' || stage === 'nice') && !finishRecorded.current) {
+      finishRecorded.current = true;
+      // Loaded on demand: a static import made it a chunk of its own in /app/*'s first load (bundle-budget).
+      void import('@/lib/trackAuthStep').then((m) => m.trackAuthStep({ step: 'onboarding_end', outcome: 'ok' }), () => undefined);
+    }
   }, [stage]);
   // D121: confetti on "You're in" (a no-op under reduced motion).
   useEffect(() => {

@@ -326,12 +326,30 @@ describe('L24: legal pages say the date in words', () => {
   ])('formatLongDate(%s) = %s', (v, out) => {
     expect(formatLongDate(v)).toBe(out);
   });
-  for (const at of ['/privacy', '/terms']) {
-    it(`${at}: Last updated 16 October 2026`, () => {
+  // /privacy was re-dated 24 October 2026 when it started describing the Going list; /terms is unchanged.
+  for (const [at, said] of [['/privacy', '24 October 2026'], ['/terms', '16 October 2026']]) {
+    it(`${at}: Last updated ${said}`, () => {
       mount(at);
-      expect(screen.getByText('Last updated 16 October 2026')).toBeTruthy();
+      expect(screen.getByText(`Last updated ${said}`)).toBeTruthy();
     });
   }
+});
+
+describe('/privacy tells the truth about Going', () => {
+  it('says what a going list shows and which switch controls the photo', () => {
+    mount('/privacy');
+    const t = document.body.textContent ?? '';
+    expect(t).toMatch(/anyone looking at that night can see your first name/);
+    expect(t).toMatch(/your photo only if you switch on/);
+    expect(t).toMatch(/links to your page only if your profile is public/);
+  });
+  it('no longer says nights are private or anonymous, or mentions interested', () => {
+    mount('/privacy');
+    const t = document.body.textContent ?? '';
+    expect(t).not.toMatch(/private to you/);
+    expect(t).not.toMatch(/anonymous totals/);
+    expect(t).not.toMatch(/interested/i);
+  });
 });
 
 describe('terms and privacy are live: no "not published" text left', () => {

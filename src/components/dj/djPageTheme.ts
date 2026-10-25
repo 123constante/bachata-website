@@ -32,18 +32,25 @@ const FONT_LINK_ID = 'dj-page-fonts';
 const FONT_HREF =
   'https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Archivo:wght@400;500;600;700;800;900&family=Caveat:wght@500;600;700&display=swap';
 
-// Client-only: inject the Google Fonts stylesheet once, clean up on unmount.
+// How many mounted users want the fonts: the DJ page and the DJ world (S3b) can be on screen at
+// once, so the link goes when the LAST one unmounts, not the first.
+let fontUsers = 0;
+
+// Client-only: inject the Google Fonts stylesheet once, clean up when the last user unmounts.
 export function useDjPageFonts() {
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    if (document.getElementById(FONT_LINK_ID)) return;
-    const link = document.createElement('link');
-    link.id = FONT_LINK_ID;
-    link.rel = 'stylesheet';
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
+    fontUsers += 1;
+    if (!document.getElementById(FONT_LINK_ID)) {
+      const link = document.createElement('link');
+      link.id = FONT_LINK_ID;
+      link.rel = 'stylesheet';
+      link.href = FONT_HREF;
+      document.head.appendChild(link);
+    }
     return () => {
-      document.getElementById(FONT_LINK_ID)?.remove();
+      fontUsers -= 1;
+      if (fontUsers === 0) document.getElementById(FONT_LINK_ID)?.remove();
     };
   }, []);
 }

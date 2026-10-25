@@ -3,7 +3,7 @@ import { Chip, PrimaryButton } from '@/modules/organiser/ui';
 import type { WizardStepDef, WizardStepProps } from '../wizardStep';
 import { saveMyRole, setMyRoleDeclined } from './areaApi';
 import { ROLE_ERROR_COPY } from './errorCopy';
-import { ROLE_FIELDS, roleField, type Role } from './fieldRegistry';
+import { REQUIRED_HINT, ROLE_FIELDS, roleField, type Role } from './fieldRegistry';
 import { FieldInput } from './inputs';
 import { sameValue, toDraftValue, toServerValue, validateValue, withPending, type DraftValue } from './roleModel';
 
@@ -14,6 +14,8 @@ export const SKIP_LABEL = 'Skip for now';
 // D26: the shell's heading is the question, so each step keeps its field label
 // for screen readers only and puts "Optional" on the hint line. An empty step
 // shows ONE quiet "Skip for now"; Continue appears once something is entered.
+// A go-live key the wizard asks as REQUIRED (W2 walk fix 1) says the required
+// words instead, offers no Skip, and its empty Continue is off with that reason.
 
 /** The one quiet text button an empty optional step shows. */
 function SkipButton({ onSkip, disabled }: { onSkip: () => void; disabled: boolean }) {
@@ -44,7 +46,7 @@ function isEmpty(v: unknown): boolean {
 
 function makeFieldStep(role: Role, key: string) {
   const field = roleField(role, key)!;
-  function RoleFieldStep({ value, saving, error, onAnswer, onSkip }: WizardStepProps) {
+  function RoleFieldStep({ value, required, saving, error, onAnswer, onSkip }: WizardStepProps) {
     const [draft, setDraft] = useState<DraftValue>(() => toDraftValue(field, value));
     const [pending, setPending] = useState('');
     const [localError, setLocalError] = useState<string | null>(null);
@@ -53,7 +55,8 @@ function makeFieldStep(role: Role, key: string) {
     const effective = field.kind === 'list' ? withPending(Array.isArray(draft) ? draft : [], pending) : draft;
     const sent = toServerValue(field, effective);
     const changed = !sameValue(sent, held);
-    const hint = <p id={`${id}-help`} className="text-[13px] text-[var(--mut)]">{field.help ? `Optional. ${field.help}` : 'Optional.'}</p>;
+    const words = required ? [field.help, REQUIRED_HINT] : ['Optional.', field.help];
+    const hint = <p id={`${id}-help`} className="text-[13px] text-[var(--mut)]" data-testid="step-hint">{words.filter(Boolean).join(' ')}</p>;
     // An untouched answer sends nothing (finding 5): it moves on as a Skip.
     const send = (v: unknown) => {
       if (sameValue(v, held)) {
@@ -98,6 +101,8 @@ function makeFieldStep(role: Role, key: string) {
         <StepError error={localError ?? error} />
         {!isEmpty(sent) || changed ? (
           <PrimaryButton testId="step-continue" loading={saving} onClick={() => send(sent)}>Continue</PrimaryButton>
+        ) : required ? (
+          <PrimaryButton testId="step-continue" disabled aria-describedby={`${id}-help`}>Continue</PrimaryButton>
         ) : (
           onSkip && <SkipButton onSkip={onSkip} disabled={saving} />
         )}

@@ -52,8 +52,9 @@ export interface MapEvent {
   is_cancelled: boolean;
   cancellation_reason_label: string | null;
   slug?: string | null;
-  /** Client-derived by collapseFestivals(): a "19-21 June" range stamped on
-   *  the representative row of a collapsed multi-day festival. Not from the RPC. */
+  /** Client-derived: a "19-21 June" range on a multi-day festival's row -- on
+   *  EVERY day-row in the local feed (stampFestivalRanges), on the one
+   *  representative row where collapseFestivals() folds it. Not from the RPC. */
   festivalDateRange?: string;
 }
 

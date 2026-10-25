@@ -5,13 +5,16 @@ import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 import { PersonAvatar } from '@/components/account/profiles/PersonAvatar';
 import { useAuth } from '@/hooks/useAuth';
-import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type PublicDancerPageModel, type ShareOutcome } from './model';
+import { flags } from '@/lib/featureFlags';
+import { GOING_COPY } from '@/modules/going/goingCopy';
+import { SHARE_MESSAGES, joinHref, shareDancerPage, type ContactLink, type GoingNextEvent, type GoingNextModel, type PublicDancerPageModel, type ShareOutcome } from './model';
 
 /**
  * /dancers/:id, v2 (portrait first). Shown only when the loader said the flag is
  * open; app/routes/dancers.tsx owns the head, so nothing here touches it.
- * Every section today's page has is here (inventory: docs/handover/dancer-rebuild-b1b-s2-public.md);
- * the owner's "Your plans" block is passed in by src/pages/DancerProfile.tsx, unchanged.
+ * Every section today's page has is here (inventory: docs/handover/dancer-rebuild-b1b-s2-public.md).
+ * Going P2: the owner-only "Your plans" block is gone for everyone; "Going next" (from the
+ * extras' going_next) is the one going section, the same for every viewer.
  * Records no view: the page never did, and the brief adds no recorder.
  */
 export type PublicDancerPageV2Props = {
@@ -22,14 +25,17 @@ export type PublicDancerPageV2Props = {
   profileId: string;
   /** The path to share and to come back to after Join, e.g. "/dancers/ana-lopez". */
   pathname: string;
-  /** Owner-only block (today's "Your plans"), or null. */
-  ownerPlans?: ReactNode;
   /**
    * The Dancing tab of /people/:id. Drops ONLY the DANCER label, photo and name (the person
    * page shows them once) and the Back link (the person page has its own). Stats, languages,
    * contacts, share, achievements and the rest stay.
    */
   embedded?: boolean;
+  /**
+   * false = the role bar above the page already shows "Back to <name>" (flags.personHub), so the
+   * page's own Back is dropped: one Back on screen, never two. Default true (today's page).
+   */
+  back?: boolean;
 };
 
 /**
@@ -46,6 +52,13 @@ const TEAL = {
 } as const;
 
 const TAP = { minHeight: 44 } as const;
+/**
+ * The hero's small labels (DANCER, Dancing / Level / Style, SPEAKS) with flags.personHub ON: >= 4.5
+ * even on the hero's LIGHTEST stop (#1C7D93: 4.62; today's #BFE9EE is 3.66, #CFF3F6 4.04). Flag OFF
+ * keeps today's colours byte for byte.
+ */
+const LABEL_AA = '#F5FDFE';
+const labelColor = (today: string) => (flags.personHub ? LABEL_AA : today);
 const PORTRAIT_PX = 116;
 /** NationalityFlag sizes the sticker from the photo: 91px photo -> 42px flag (brief: 42px). */
 const FLAG_BASIS_PX = 91;
@@ -56,7 +69,7 @@ const SectionTitle = ({ children }: { children: ReactNode }) => (
 
 const Fact = ({ label, value }: { label: string; value: string }) => (
   <div className="min-w-0 px-1 py-3 text-center">
-    <div className="text-[11px] tracking-[2px] uppercase" style={{ color: '#BFE9EE' }}>{label}</div>
+    <div className="text-[11px] tracking-[2px] uppercase" style={{ color: labelColor('#BFE9EE') }}>{label}</div>
     <div className="mt-1 text-[15px] font-extrabold leading-tight break-words">{value}</div>
   </div>
 );
@@ -138,7 +151,53 @@ const CopyButton = ({ kind, text }: { kind: ContactLink['kind']; text: string })
   );
 };
 
-export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlans, embedded = false }: PublicDancerPageV2Props) {
+const GoingCard = ({ e }: { e: GoingNextEvent }) => {
+  const inner = (
+    <>
+      <div className="text-[12px] font-extrabold uppercase tracking-[.5px]" style={{ color: TEAL.amber }}>{e.date}</div>
+      <div className="mt-1 text-[15px] font-bold leading-tight break-words">{e.name}</div>
+    </>
+  );
+  const box = { background: TEAL.card, border: `1px solid ${TEAL.border}`, color: TEAL.text } as const;
+  return e.href ? (
+    <Link to={e.href} className="block flex-1 min-w-0 rounded-2xl p-3.5" style={{ ...box, ...TAP }} data-testid="dancer-going-card">{inner}</Link>
+  ) : (
+    <div className="flex-1 min-w-0 rounded-2xl p-3.5" style={box} data-testid="dancer-going-card">{inner}</div>
+  );
+};
+
+/** F13 "Going next": 1 card full width, 2 side by side, 3 = two + "See all 3" (opens the third here). */
+const GoingNext = ({ going }: { going: GoingNextModel }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <section aria-label={GOING_COPY.goingNextTitle} data-testid="dancer-going">
+      <SectionTitle>{GOING_COPY.goingNextTitle}</SectionTitle>
+      <div className="flex gap-2.5" data-testid="dancer-going-row">
+        {going.shown.map((e) => <GoingCard key={e.id} e={e} />)}
+      </div>
+      {open && going.rest.length > 0 && (
+        <div className="mt-2.5 flex flex-col gap-2.5" id="dancer-going-rest" data-testid="dancer-going-rest">
+          {going.rest.map((e) => <GoingCard key={e.id} e={e} />)}
+        </div>
+      )}
+      {going.seeAll && !open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={false}
+          aria-controls="dancer-going-rest"
+          className="mt-2 inline-flex items-center text-[14px] font-bold underline"
+          style={{ ...TAP, color: TEAL.accent, background: 'transparent' }}
+          data-testid="dancer-going-see-all"
+        >
+          {GOING_COPY.seeAll(going.total)}
+        </button>
+      )}
+    </section>
+  );
+};
+
+export function PublicDancerPageV2({ model, extrasOk = true, pathname, embedded = false, back = true }: PublicDancerPageV2Props) {
   const { user, authStatus } = useAuth();
   // Signed-out only, and only once auth has settled (no flash for a signed-in dancer).
   const showJoin = authStatus !== 'resolving' && (!user || user.is_anonymous === true);
@@ -154,9 +213,9 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
 
   return (
     <div data-profile="dancer" data-testid="dancer-page-v2" className="relative z-10 rounded-[14px] overflow-hidden px-4 pb-6 pt-3" style={{ background: TEAL.page, color: TEAL.text, isolation: 'isolate' }}>
-      <div className={`flex items-center ${embedded ? 'justify-end' : 'justify-between'}`} style={TAP}>
-        {/* Embedded: the person page owns Back, so a second one here would be a duplicate control. */}
-        {!embedded && (
+      <div className={`flex items-center ${embedded || !back ? 'justify-end' : 'justify-between'}`} style={TAP}>
+        {/* Embedded: the person page owns Back; !back: the role bar above shows it. A second one would be a duplicate control. */}
+        {!embedded && back && (
           <Link to="/dancers" className="inline-flex items-center gap-2 text-[15px] font-bold" style={{ ...TAP, color: TEAL.text }} data-testid="dancer-back">
             <ArrowLeft className="w-4 h-4" aria-hidden /> Back
           </Link>
@@ -168,7 +227,7 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
         {/* Embedded: label, photo and name come from the person page (shown once). */}
         {!embedded && (
           <>
-        <div className="text-[11px] tracking-[2px]" style={{ color: '#CFF3F6' }}>DANCER</div>
+        <div className="text-[11px] tracking-[2px]" style={{ color: labelColor('#CFF3F6') }}>DANCER</div>
         <div className="relative mx-auto mt-3.5" style={{ width: PORTRAIT_PX, height: PORTRAIT_PX }}>
           <div className="w-full h-full rounded-full box-border flex items-center justify-center overflow-hidden" style={{ border: `4px solid ${TEAL.accent}`, background: '#06303B' }} data-testid={model.avatarUrl ? undefined : 'dancer-portrait-placeholder'}>
             <PersonAvatar photoUrl={model.avatarUrl ? optimizedImageUrl(model.avatarUrl, srcWidthFor(PORTRAIT_PX * 2)) : null} name={model.name} size={PORTRAIT_PX - 8} loading="eager" alt={model.name} />
@@ -186,7 +245,7 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
         )}
         {model.languages.length > 0 && (
           <div className="px-1 py-3" style={{ borderTop: '1px solid rgba(255,255,255,.28)', marginTop: factItems.length ? 0 : 16 }} data-testid="dancer-languages">
-            <div className="text-[11px] tracking-[2px]" style={{ color: '#BFE9EE' }}>SPEAKS</div>
+            <div className="text-[11px] tracking-[2px]" style={{ color: labelColor('#BFE9EE') }}>SPEAKS</div>
             <div className="mt-1 text-[15px] font-extrabold break-words">{model.languages.join(', ')}</div>
           </div>
         )}
@@ -201,23 +260,7 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
         </div>
       )}
 
-      {going && (
-        <section aria-label="Going next" data-testid="dancer-going">
-          <SectionTitle>Going next</SectionTitle>
-          <div className="flex gap-2.5">
-            {going.shown.map((e) => (
-              <div key={e.id} className="flex-1 min-w-0 rounded-2xl p-3.5" style={{ background: TEAL.card, border: `1px solid ${TEAL.border}` }}>
-                <div className="text-[12px] font-extrabold uppercase tracking-[.5px]" style={{ color: TEAL.amber }}>{e.date}</div>
-                <div className="mt-1 text-[15px] font-bold leading-tight break-words">{e.name}</div>
-                {e.venue && <div className="mt-1 text-[12px] break-words" style={{ color: TEAL.muted }}>{e.venue}</div>}
-              </div>
-            ))}
-          </div>
-          {going.seeAll && (
-            <Link to={pathname} className="mt-2 inline-flex items-center text-[14px] font-bold underline" style={{ ...TAP, color: TEAL.accent }}>See all {going.total} events</Link>
-          )}
-        </section>
-      )}
+      {going && <GoingNext going={going} />}
 
       {model.contacts.length > 0 && (
         <section aria-label="Contact" data-testid="dancer-connect">
@@ -253,8 +296,6 @@ export function PublicDancerPageV2({ model, extrasOk = true, pathname, ownerPlan
           </ul>
         </section>
       )}
-
-      {ownerPlans && <div className="mt-6">{ownerPlans}</div>}
 
       {showJoin && (
         <p className="pt-6 text-center text-[13px]" style={{ color: TEAL.muted }} data-testid="dancer-join">

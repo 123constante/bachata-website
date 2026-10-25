@@ -6,6 +6,8 @@ let dancerRow: Record<string, unknown> | null = null;
 let djRow: unknown = null;
 let teacherRows: unknown[] = [];
 let djError: unknown = null;
+// S7c: the teacher RPC answering an error, or the call itself throwing.
+let teacherFail: 'error' | 'throw' | 'missing' | null = null;
 let rolesResult: { data: unknown; error: { code?: string; message?: string } | null } = { data: null, error: { code: '42883' } };
 const rolesCall = vi.fn();
 const names = vi.fn();
@@ -20,7 +22,10 @@ vi.mock('@/integrations/supabase/client', () => ({
     },
     rpc: async (fn: string, args?: unknown) => {
       if (fn === 'get_public_person_roles_v1') { rolesCall(args); return rolesResult; }
-      return fn === 'get_public_dj_v1' ? { data: djRow, error: djError } : { data: teacherRows, error: null };
+      if (fn === 'get_public_dj_v1') return { data: djRow, error: djError };
+      if (teacherFail === 'throw') throw new Error('network');
+      if (teacherFail === 'missing') return { data: null, error: { code: 'PGRST202' } };
+      return { data: teacherRows, error: teacherFail === 'error' ? { code: '57014' } : null };
     },
   },
 }));
@@ -38,7 +43,7 @@ const load = () => loadPersonSnapshot(new QueryClient(), 'p1');
 
 beforeEach(() => {
   dancerRow = { ...base };
-  djRow = null; teacherRows = []; djError = null; flag.teacherDetail = true;
+  djRow = null; teacherRows = []; djError = null; teacherFail = null; flag.teacherDetail = true;
   rolesResult = { data: null, error: { code: '42883' } }; rolesCall.mockClear();
   names.mockReturnValue({ surname: null, display_name: 'Ana' });
 });
@@ -138,5 +143,61 @@ describe('loadPersonSnapshot: roles from the database', () => {
     rolesResult = { data: null, error: { code: '57014', message: 'statement timeout' } };
     teacherRows = [{ entity_id: 'p1' }];
     await expect(load()).rejects.toMatchObject({ code: '57014' });
+  });
+});
+
+// S7c: a swallowed role read still answers (the page stays up), but says it is partial, so the
+// loaders bound the edge TTL instead of caching a page that lost a tab for the full hour.
+describe('loadPersonSnapshot: partial answers', () => {
+  const ROWS: { name: string; dj: boolean; teacher: 'error' | 'throw' | 'missing' | null; teacherDetail?: boolean; partial: boolean }[] = [
+    { name: 'neither fails', dj: false, teacher: null, partial: false },
+    { name: 'DJ read fails', dj: true, teacher: null, partial: true },
+    { name: 'teacher RPC answers an error', dj: false, teacher: 'error', partial: true },
+    { name: 'teacher RPC throws', dj: false, teacher: 'throw', partial: true },
+    { name: 'both fail', dj: true, teacher: 'error', partial: true },
+    { name: 'teacher RPC not deployed (a deploy gap, not a failure)', dj: false, teacher: 'missing', partial: false },
+    { name: 'teacher pages closed: the teacher RPC is not called, so it cannot fail', dj: false, teacher: 'throw', teacherDetail: false, partial: false },
+  ];
+  it.each(ROWS)('$name -> partial $partial, the person still answers', async (r) => {
+    djRow = { id: 'p1' }; teacherRows = [{ entity_id: 'p1' }];
+    if (r.dj) djError = new Error('boom');
+    teacherFail = r.teacher;
+    flag.teacherDetail = r.teacherDetail ?? true;
+    const p = await load();
+    expect(p).not.toBeNull();
+    expect(p?.partial === true).toBe(r.partial);
+    // Only a partial answer carries the flag: a complete one is the same object shape as before.
+    expect('partial' in (p as object)).toBe(r.partial);
+  });
+
+  it('roles from the database: a failed teacher RPC is NOT partial (its answer is not used)', async () => {
+    rolesResult = { data: ['teacher', 'dancer'], error: null };
+    teacherFail = 'error';
+    const p = await load();
+    expect(p?.roles).toEqual(['teacher', 'dancer']);
+    expect(p && 'partial' in p).toBe(false);
+  });
+
+  it.each([
+    ['DB says no dj, avatar set: nothing lost', ['dancer'], 'https://cdn.example.test/a.jpg', false],
+    ['DB says no dj, no avatar: the DJ photo stand-in is lost', ['dancer'], null, true],
+  ])('roles from the database, DJ read fails, %s -> partial %s', async (_n, roles, avatar, partial) => {
+    rolesResult = { data: roles, error: null };
+    dancerRow = { ...base, avatar_url: avatar };
+    djError = new Error('boom');
+    expect((await load())?.partial === true).toBe(partial);
+  });
+
+  it('DJ function not deployed (PGRST202): a deploy gap, not partial', async () => {
+    djError = { code: 'PGRST202' };
+    expect('partial' in ((await load()) as object)).toBe(false);
+  });
+
+  it('roles from the database: a failed DJ read is still partial (the DJ tab can show)', async () => {
+    rolesResult = { data: ['dj', 'dancer'], error: null };
+    djError = new Error('boom');
+    const p = await load();
+    expect(p?.roles).toEqual(['dj', 'dancer']);
+    expect(p?.partial).toBe(true);
   });
 });

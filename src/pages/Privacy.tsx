@@ -36,7 +36,11 @@ const Privacy = () => {
             city, role, photo, bio and the links you added.
           </li>
           <li>WhatsApp is shown publicly only if you switch &ldquo;show WhatsApp publicly&rdquo; on. Your e-mail is never shown.</li>
-          <li>Your nights (going or interested) are private to you. Only anonymous totals per event are shown to others.</li>
+          <li>
+            When you mark a night as going, anyone looking at that night can see your first name in its list of who is
+            going. Only your first name is shown, and your photo only if you switch on &ldquo;Show my photo when I&rsquo;m
+            going&rdquo;. Your name links to your page only if your profile is public.
+          </li>
           <li>
             You can hide your whole profile at any time, and show it again whenever you like. While it is {HIDDEN_STATE_WORD},
             only you can see it.
@@ -50,7 +54,7 @@ const Privacy = () => {
             Profile views: when someone opens a profile we count a view (profile, a random per-visit id, the page it
             came from and the browser name). It is used for simple totals.
           </li>
-          <li>Nights: which events you marked as going or interested, and any party-level ratings you give.</li>
+          <li>Nights: which events you marked as going, and any party-level ratings you give.</li>
           <li>
             Feedback messages you send us, and sign-ups you make to be told about new features, with the e-mail of your account.
           </li>

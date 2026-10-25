@@ -265,7 +265,7 @@ export function safeEmailHint(v: unknown): string | null {
 }
 
 export type PreviewStatus = 'open' | 'used' | 'revoked' | 'expired';
-export interface InvitePreview { status: PreviewStatus; organiserName: string; inviterFirstName: string | null; emailHint: string | null; selfBound: boolean }
+export interface InvitePreview { status: PreviewStatus; organiserName: string; inviterFirstName: string | null; emailHint: string | null }
 
 /** organiser_invite_preview_v1: `{}` (malformed/unknown) and anything unreadable -> null. */
 export function parsePreview(raw: unknown): InvitePreview | null {
@@ -276,7 +276,7 @@ export function parsePreview(raw: unknown): InvitePreview | null {
   // The pre-arc-1 server answers {email_hint, organiser_name} with no status: treat it as open and let redeem decide.
   const status = r.status === undefined ? 'open' : r.status;
   if (!['open', 'used', 'revoked', 'expired'].includes(status as string)) return null;
-  return { status: status as PreviewStatus, organiserName, inviterFirstName: str(r.inviter_first_name), emailHint: safeEmailHint(r.email_hint), selfBound: r.self_bound === true };
+  return { status: status as PreviewStatus, organiserName, inviterFirstName: str(r.inviter_first_name), emailHint: safeEmailHint(r.email_hint) };
 }
 
 /** Reasons whose fix is a NEW link from the sender (not a garbled link, not a sign-in problem). */

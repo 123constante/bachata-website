@@ -6,8 +6,10 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const h = vi.hoisted(() => ({ rpc: vi.fn() }));
+const h = vi.hoisted(() => ({ rpc: vi.fn(), goingOn: false }));
 vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: (...a: unknown[]) => h.rpc(...a) }));
+// The going switch, off as in production unless a spec turns it on (public extras' going_next).
+vi.mock('@/lib/goingCheckin', () => ({ get GOING_CHECKIN_ENABLED() { return h.goingOn; } }));
 
 import { DANCER_ERROR_CODES, SAVE_KEYS, STRENGTH_STEPS, type DancerErrorCode } from '@/modules/dancer-app/api/types';
 import { DancerApiError, codeFromMessage, copyFor, fieldFor, toDancerError } from '@/modules/dancer-app/api/errors';
@@ -56,6 +58,9 @@ const INTERFACE_CODES = [
   'invalid_url',
   'invalid_whatsapp',
   'invalid_list',
+  // Invite journey A1: the phone / Instagram triggers on dancer_profiles (agreed names).
+  'invalid_phone',
+  'invalid_instagram',
 ];
 
 /** Codes the DB raises with a DETAIL naming the field, and the DETAIL values it can send. */
@@ -75,6 +80,7 @@ const DETAIL_CASES: Array<[DancerErrorCode, string, string]> = [
   ['invalid_list', 'favorite_songs', 'favourite songs'],
   ['invalid_list', 'achievements', 'achievements'],
   ['invalid_list', 'languages', 'languages'],
+  ['invalid_phone', 'whatsapp', 'WhatsApp number'],
 ];
 
 describe('errors.ts: one map, every code', () => {
@@ -93,6 +99,14 @@ describe('errors.ts: one map, every code', () => {
   it('no two codes share copy (each tells the person something different)', () => {
     const all = DANCER_ERROR_CODES.map(copyFor);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  // The save-time phone line must be true for short, long AND missing-country numbers.
+  it('invalid_phone copy is true for every cause (never claims the country is missing)', () => {
+    for (const copy of [copyFor('invalid_phone'), copyFor('invalid_phone', 'whatsapp')]) {
+      expect(copy).not.toMatch(/needs its country|pick the country/i);
+      expect(copy).toMatch(/not complete/i);
+    }
   });
 
   it('fields point at real save keys', () => {
@@ -210,7 +224,20 @@ describe('rpc.ts wrappers over the real backend (rpcLoose mocked)', () => {
     h.rpc.mockResolvedValueOnce({ data: null, error: null });
     await expect(fetchPublicExtras('x')).resolves.toBeNull();
     h.rpc.mockResolvedValueOnce({ data: { bio: 'b', languages: ['en'], whatsapp: null }, error: null });
-    await expect(fetchPublicExtras('x')).resolves.toEqual({ bio: 'b', languages: ['en'], whatsapp: null });
+    await expect(fetchPublicExtras('x')).resolves.toEqual({ bio: 'b', languages: ['en'], whatsapp: null, goingNext: [] });
+    // Going P2: going_next (max 3) is parsed by the going module; a row with no occurrence id is dropped.
+    // The parser loads only while the going switch is on; off, nothing going is parsed (or shown).
+    const night = { occurrence_id: 'o1', public_event_id: 'e1', event_title: 'Friday', occurrence_date: '2099-01-02', starts_at_local: '2099-01-02T21:00:00' };
+    const withGoing = { data: { bio: null, languages: [], whatsapp: null, going_next: [night, { event_title: 'no id' }] }, error: null };
+    h.rpc.mockResolvedValueOnce(withGoing);
+    await expect(fetchPublicExtras('x')).resolves.toEqual({ bio: null, languages: [], whatsapp: null, goingNext: [] });
+    h.goingOn = true;
+    try {
+      h.rpc.mockResolvedValueOnce(withGoing);
+      await expect(fetchPublicExtras('x')).resolves.toEqual({ bio: null, languages: [], whatsapp: null, goingNext: [night] });
+    } finally {
+      h.goingOn = false;
+    }
     expect(h.rpc).toHaveBeenLastCalledWith(DANCER_RPC.publicExtras, { p_profile_id: 'x' });
   });
 });

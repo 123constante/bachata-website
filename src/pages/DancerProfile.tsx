@@ -1,10 +1,8 @@
-import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Calendar, Star, Image } from "lucide-react";
+import { ArrowLeft, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
@@ -18,38 +16,17 @@ import {
 } from "@/modules/profile/dancerPublicProfile";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useMyPersonaId } from "@/hooks/useMyPersonaId";
-import { isMyProfile } from "@/lib/myPersona";
 import { useEmbeddedProfile } from "@/lib/embeddedProfile";
 import { AlsoRoles } from "@/modules/person-page/AlsoRoles";
+import { flags } from "@/lib/featureFlags";
+import { useAuth } from "@/hooks/useAuth";
+import { DancerRoleBar } from "@/modules/dancer-app/public-page/DancerRoleBar";
+import { useDancerRoleBar } from "@/modules/dancer-app/public-page/roleBarModel";
 import { PublicDancerPageV2 } from "@/modules/dancer-app/public-page/PublicDancerPageV2";
-import { buildPublicDancerPage, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
-
-type AttendanceRow = {
-  event_id: string;
-  status: "going" | "interested";
-  updated_at: string | null;
-  name: string | null;
-  occurrence_date: string | null;
-  city_name: string | null;
-  country: string | null;
-  city_slug: string | null;
-  start_time: string | null;
-  type: "festival" | "standard";
-  is_active: boolean;
-};
-
-type AttendanceItem = {
-  id: string;
-  name: string;
-  city: string | null;
-  country: string | null;
-  date: string | null;
-  start_time: string | null;
-  type: "festival" | "standard";
-  status: "going" | "interested";
-};
+import { NO_EXTRAS, buildPublicDancerPage, joinHref, type PublicPageV2Data } from "@/modules/dancer-app/public-page/model";
+import { DancerWorldLoading, DancerWorldMissing, DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
+import { showsJoinInvite } from "@/modules/person-page/facts";
+import { buildBreadcrumbs } from "@/lib/breadcrumbs";
 
 type DancerProfileProps = {
   /** From the route loader: v2 when the dancer area is open, else null/absent = today's page. */
@@ -64,6 +41,10 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   const { id: routeParam } = useParams<{ id: string }>();
   const resolved = useEntitySlugOrId(routeParam, 'dancer_profiles');
   const id = resolved.id ?? undefined;
+  // flags.personHub: the role bar shows "Back to <name>"; while it is on screen the public page
+  // drops its own Back (one Back, never two). Null with the flag OFF, embedded, or off the public page.
+  // flags.personWorlds (not embedded) renders the frame's role tabs instead: no bar, so no bar read.
+  const roleBar = useDancerRoleBar(id, resolved.slug, embedded || !publicPage || flags.personWorlds);
   useCanonicalReplaceState({
     arrivedViaUuid: resolved.arrivedViaUuid,
     slug: resolved.slug,
@@ -90,7 +71,6 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
   });
-  const { user } = useAuth();
   const dancerView = dancer ? mapDancerPublicProfile(dancer) : null;
   // No useSeo() here: DancerProfile renders only under app/routes/dancers.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
@@ -99,135 +79,20 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
   // already fetched. Which useSeo calls are inert and which are live is a census,
   // not a rule of thumb -- see BentoPage.tsx before deleting another (arc W22).
 
+  // The world shell's join invite reads the viewer (signed-out / anonymous only).
+  const { user } = useAuth();
   const error = dancerError ? (dancerError as Error).message || "Failed to load dancer profile" : null;
-  // OWNERSHIP, not authorship. This was keyed on `created_by`, which records who
-  // AUTHORED the row -- so for the one admin account that authored ten other
-  // people's profiles, isSelfView was true on ten strangers' public pages and
-  // rendered the admin's own attendance under their names. Mine = the viewed id
-  // is my RESOLVED persona (a linked admin-made profile; the write side's
-  // `resolve_my_person_id_v1` resolves the same), or my account's own row (the
-  // stub, archived once linked, whose URL is still mine). lib/myPersona.
-  const dancerOwnerId = dancer?.id ?? null;
-  const myPersonaId = useMyPersonaId();
-  const isSelfView = Boolean(user?.id) && isMyProfile({ viewedId: dancerOwnerId, personaId: myPersonaId, accountId: user?.id });
-
-  // Attendance is private: get_my_event_attendance_v2 only returns the caller's own
-  // rows. Only fetch when the viewer is the profile owner, otherwise we'd render
-  // the viewer's attendance under someone else's profile.
-  const { data: attendanceRows = [] } = useQuery({
-    queryKey: ["dancer-public-attendance", dancerOwnerId, user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_my_event_attendance_v2");
-      if (error) throw error;
-      return (data || [])
-        .filter((r: any) => r.status === "going" || r.status === "interested")
-        .map((r: any) => ({
-          event_id: r.event_id as string,
-          status: r.status as "going" | "interested",
-          updated_at: r.updated_at as string | null,
-          name: r.name as string | null,
-          occurrence_date: r.occurrence_date as string | null,
-          city_name: r.city_name as string | null,
-          country: r.country as string | null,
-          city_slug: r.city_slug as string | null,
-          start_time: r.start_time as string | null,
-          type: r.type as "festival" | "standard",
-          is_active: r.is_active as boolean,
-        }));
-    },
-    enabled: isSelfView,
-    staleTime: 1000 * 20,
-  });
-
-  const attendanceItems = useMemo(() => {
-    if (!attendanceRows.length) return [] as AttendanceItem[];
-    return attendanceRows
-      .map((row) => ({
-        id: row.event_id,
-        name: row.name ?? "Untitled event",
-        city: row.city_name,
-        country: row.country,
-        date: row.occurrence_date,
-        start_time: row.start_time,
-        type: row.type,
-        status: row.status,
-      } satisfies AttendanceItem))
-      .filter(Boolean) as AttendanceItem[];
-  }, [attendanceRows]);
-
-  const now = new Date();
-  const toEventDate = (item: AttendanceItem) => {
-    const raw = item.date || item.start_time;
-    return raw ? new Date(raw) : null;
-  };
-  const isUpcoming = (item: AttendanceItem) => {
-    const date = toEventDate(item);
-    return date ? date >= now : false;
-  };
-
-  const upcomingEvents = useMemo(
-    () => attendanceItems.filter((item) => item.type === "standard" && isUpcoming(item)),
-    [attendanceItems]
-  );
-  const upcomingFestivals = useMemo(
-    () => attendanceItems.filter((item) => item.type === "festival" && isUpcoming(item)),
-    [attendanceItems]
-  );
-
-  const getNextUpcoming = (items: AttendanceItem[]) => {
-    const sorted = [...items].sort((a, b) => {
-      const aDate = toEventDate(a)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const bDate = toEventDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      return aDate - bDate;
-    });
-    return sorted[0] ?? null;
-  };
-
-  const nextEvent = getNextUpcoming(upcomingEvents);
-  const nextFestival = getNextUpcoming(upcomingFestivals);
-
-  const formatEventDate = (item: AttendanceItem | null) => {
-    if (!item) return "Date TBA";
-    const date = toEventDate(item);
-    if (!date) return "Date TBA";
-    return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-  };
-
-  const formatCountdown = (item: AttendanceItem) => {
-    const date = toEventDate(item);
-    if (!date) return "Date TBA";
-
-    const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const startOfEvent = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-    if (startOfEvent <= startOfToday) return "Happening now";
-
-    let months = (startOfEvent.getFullYear() - startOfToday.getFullYear()) * 12
-      + (startOfEvent.getMonth() - startOfToday.getMonth());
-    let anchor = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), startOfToday.getDate());
-    anchor.setMonth(anchor.getMonth() + months);
-
-    if (anchor > startOfEvent) {
-      months -= 1;
-      anchor = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), startOfToday.getDate());
-      anchor.setMonth(anchor.getMonth() + months);
-    }
-
-    const msPerDay = 24 * 60 * 60 * 1000;
-    const days = Math.max(0, Math.floor((startOfEvent.getTime() - anchor.getTime()) / msPerDay));
-
-    const monthLabel = months === 1 ? "month" : "months";
-    const dayLabel = days === 1 ? "day" : "days";
-
-    if (months <= 0) return `${days} ${dayLabel}`;
-    if (days <= 0) return `${months} ${monthLabel}`;
-    return `${months} ${monthLabel} ${days} ${dayLabel}`;
-  };
-
-  const openAttendanceItem = (item: AttendanceItem) => {
-    navigate(item.type === "festival" ? `/festival/${item.id}` : `/event/${item.id}`);
-  };
+  // People arc S2b (flags.personWorlds, not embedded): every state in the one world shell, so the
+  // frame sits where the DJ world's does. OFF (and embedded) = the states below, unchanged.
+  const worlds = flags.personWorlds && !embedded;
+  const worldCrumbs = worlds
+    ? buildBreadcrumbs('dancer.detail', { entityName: dancerView?.displayName ?? undefined, isLoading: isLoading || resolved.isLoading })
+    : [];
+  if (worlds && (isLoading || resolved.isLoading)) return <DancerWorldLoading breadcrumbs={worldCrumbs} invite={showsJoinInvite(user)} />;
+  if (worlds && (error || !dancer || !dancerView)) {
+    if (dancerError) console.error('DancerProfile error:', dancerError);
+    return <DancerWorldMissing breadcrumbs={worldCrumbs} />;
+  }
 
   if (isLoading) {
     return (
@@ -286,88 +151,35 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     );
   }
 
-  const ownerPlans = (
-        <div className="mt-8">
-          <h2 className="text-base font-semibold text-foreground mb-3">Your plans</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Card className="p-3 bg-gradient-to-br from-card via-card to-primary/10 border-primary/20">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  <h3 className="text-base font-semibold text-foreground">Events</h3>
-                </div>
-                <span className="text-xs text-muted-foreground">{upcomingEvents.length} saved</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Next: {nextEvent ? `${nextEvent.name} • ${formatEventDate(nextEvent)}` : "No upcoming events"}
-              </p>
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-xs text-muted-foreground">
-                  Going: {upcomingEvents.filter((item) => item.status === "going").length} · Interested: {upcomingEvents.filter((item) => item.status === "interested").length}
-                </span>
-              </div>
-              <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1">
-                {upcomingEvents.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No upcoming events yet.</p>
-                ) : (
-                  upcomingEvents.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => openAttendanceItem(item)}
-                      className="w-full text-left rounded-lg border border-border/60 px-3 py-2 hover:border-primary/50 transition"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.country || "Country TBA"}</p>
-                        <p className="text-xs text-muted-foreground">{formatCountdown(item)}</p>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </Card>
-
-            <Card className="p-3 bg-gradient-to-br from-card via-card to-festival-pink/20 border-festival-pink/30">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-festival-pink" />
-                  <h3 className="text-base font-semibold text-foreground">Festivals</h3>
-                </div>
-                <span className="text-xs text-muted-foreground">{upcomingFestivals.length} saved</span>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Next: {nextFestival ? `${nextFestival.name} • ${formatEventDate(nextFestival)}` : "No upcoming festivals"}
-              </p>
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-xs text-muted-foreground">
-                  Going: {upcomingFestivals.filter((item) => item.status === "going").length} · Interested: {upcomingFestivals.filter((item) => item.status === "interested").length}
-                </span>
-              </div>
-              <div className="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1">
-                {upcomingFestivals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No upcoming festivals yet.</p>
-                ) : (
-                  upcomingFestivals.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => openAttendanceItem(item)}
-                      className="w-full text-left rounded-lg border border-border/60 px-3 py-2 hover:border-festival-pink/60 transition"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.country || "Country TBA"}</p>
-                        <p className="text-xs text-muted-foreground">{formatCountdown(item)}</p>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </Card>
-          </div>
-        </div>
-  );
+  // People arc S2 (flags.personWorlds): the shared frame + the dancer world. The Dancing tab of
+  // /people/:id (embedded) keeps today's page. OFF = everything below, unchanged.
+  if (worlds) {
+    const extras = publicPage?.extras ?? NO_EXTRAS;
+    const worldModel = buildPublicDancerPage(dancerView, extras);
+    // Owner D8'': signed-out (or anonymous) visitors only, the DJ world's rule too (facts/).
+    const showInvite = showsJoinInvite(user);
+    const worldPath = resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`;
+    return (
+        <DancerWorldPage
+          // The route-resolved id, like the role bar: a linked profile's canonical row id differs
+          // and has no roles of its own (prod: teacher pages showed no tabs and no next class).
+          id={id ?? dancerView.id}
+          slug={resolved.slug}
+          input={{
+            name: dancerView.displayName,
+            photo: dancerView.avatarUrl,
+            nationality: dancerView.nationality,
+            city: dancerView.city,
+            danceRole: dancerView.partnerRole,
+            languages: extras.languages,
+            contacts: worldModel.contacts,
+          }}
+          shareTitle={worldModel.shareTitle}
+          inviteHref={showInvite ? joinHref(worldPath) : null}
+          breadcrumbs={worldCrumbs}
+        />
+    );
+  }
 
   if (publicPage) {
     const gallery = (dancer as { gallery_urls?: unknown }).gallery_urls;
@@ -375,14 +187,16 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
     return (
       <GlobalLayout showSubheader={false} backHref="/dancers" gradientPalette="dancer">
         <div className={`container max-w-xl mx-auto px-4 pt-3${embedded ? '' : ' pb-24'}`}>
-          <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />
+          {flags.personHub
+            ? roleBar && <DancerRoleBar model={roleBar} className="-mx-4 px-4" />
+            : <AlsoRoles current="dancer" id={id} slug={resolved.slug} className="pb-2" />}
           <PublicDancerPageV2
             model={buildPublicDancerPage(dancerView, publicPage.extras, galleryList)}
             extrasOk={publicPage.extrasOk}
             profileId={dancerView.id}
             pathname={resolved.slug ? `/dancers/${resolved.slug}` : `/dancers/${routeParam ?? dancerView.id}`}
-            ownerPlans={isSelfView ? ownerPlans : null}
             embedded={embedded}
+            back={!roleBar}
           />
         </div>
       </GlobalLayout>
@@ -437,9 +251,6 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
             </div>
           );
         })()}
-
-        {/* Self-view only: the profile owner's own attendance plans */}
-        {isSelfView && ownerPlans}
       </div>
     </GlobalLayout>
   );

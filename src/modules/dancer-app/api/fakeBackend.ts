@@ -208,7 +208,7 @@ export const createFakeBackend = (opts: FakeBackendOptions = {}): FakeDancerBack
       if (opts.publicExtras && profileId in opts.publicExtras) return opts.publicExtras[profileId];
       if (!profile || profile.profile_id !== profileId || !profile.is_active) return null;
       const whatsapp = profile.show_whatsapp_publicly && profile.other_roles.length > 0 ? profile.whatsapp : null;
-      return { bio: profile.bio, languages: profile.languages, whatsapp };
+      return { bio: profile.bio, languages: profile.languages, whatsapp, goingNext: [] };
     },
 
     async fetchMyStats() {

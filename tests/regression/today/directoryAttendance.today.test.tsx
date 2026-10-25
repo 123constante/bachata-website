@@ -8,6 +8,8 @@
  * brief's "inline level-vote prompt in MyAttendance": today MyAttendance has NO inline
  * prompt, only a "Rate the dancing level" LINK to `/event/:id#level-rating`; that
  * link is what is pinned. Date is pinned (clock-derived labels).
+ * Going P2: /account/attendance reads get_my_going_v1 (going only, upcoming / past from
+ * the RPC); the attendance pins were re-recorded on purpose for that change.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the check-in surfaces
@@ -23,9 +25,17 @@ const h = vi.hoisted(() => ({
   user: null as null | { id: string },
   dancers: [] as unknown[],
   names: [] as unknown[],
-  attendance: [] as unknown[],
+  attendance: { upcoming: [], past: [] } as unknown,
   badges: [] as unknown[],
+  rpc: async (name: string): Promise<{ data: unknown; error: null }> => {
+    if (name === 'get_public_dancer_names_v1') return { data: h.names, error: null };
+    if (name === 'get_public_people_badges_v1') return { data: h.badges, error: null };
+    if (name === 'get_my_going_v1') return { data: h.attendance, error: null };
+    return { data: null, error: null };
+  },
 }));
+// The going module reads through rpcLoose (the lazy client): the same fake answers it.
+vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: (name: string) => h.rpc(name) }));
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
   useAuth: () => ({ user: h.user, isLoading: false, authStatus: 'ready' }),
@@ -47,12 +57,7 @@ vi.mock('@/integrations/supabase/client', () => {
   return {
     supabase: {
       from: () => builder(),
-      rpc: async (name: string) => {
-        if (name === 'get_public_dancer_names_v1') return { data: h.names, error: null };
-        if (name === 'get_public_people_badges_v1') return { data: h.badges, error: null };
-        if (name === 'get_my_event_attendance_v2') return { data: h.attendance, error: null };
-        return { data: null, error: null };
-      },
+      rpc: (name: string) => h.rpc(name),
     },
   };
 });
@@ -96,27 +101,33 @@ const BADGES = [
   // d5: the nameless shape (no first_name, no public name row) WITH the Dancer role, so it is listed
   { id: 'd5', roles: ['dancer'], dj_name: null, next_gig_date: null, dj_has_upcoming: false },
 ];
-const row = (o: Record<string, unknown>) => ({
-  event_id: 'ev1', status: 'going', updated_at: null, name: 'Friday Social', occurrence_date: '2026-10-02',
-  city_name: 'London', country: 'GB', city_slug: 'london', start_time: null, type: 'party', is_active: true, ...o,
-});
-const ATTENDANCE: Record<string, unknown[]> = {
-  empty: [],
-  'past party': [row({ event_id: 'past1', occurrence_date: '2026-01-02' })],
-  'future party': [row({ event_id: 'fut1', occurrence_date: '2099-01-02' })],
-  'past festival': [row({ event_id: 'fest1', occurrence_date: '2026-01-02', type: 'festival' })],
-  mixed: [
-    row({ event_id: 'past1', occurrence_date: '2026-01-02' }),
-    row({ event_id: 'fut1', occurrence_date: '2099-01-02', status: 'interested' }),
-    row({ event_id: 'fest1', occurrence_date: '2099-06-02', type: 'festival', name: 'Costa Congress' }),
-  ],
+/** One get_my_going_v1 night (London wall clock, no zone). */
+const row = (o: Record<string, unknown>) => {
+  const date = String(o.occurrence_date ?? '2026-10-02');
+  return {
+    occurrence_id: `occ-${String(o.public_event_id ?? 'ev1')}-${date}`, public_event_id: 'ev1', event_title: 'Friday Social', occurrence_date: date,
+    starts_at_local: `${date}T21:00:00`, venue_id: 'v1', venue_name: 'Camden Club', event_lifecycle: 'live', night_lifecycle: 'scheduled', is_cancelled: false, ...o,
+  };
+};
+const ATTENDANCE: Record<string, unknown> = {
+  empty: { upcoming: [], past: [] },
+  'past party': { upcoming: [], past: [row({ public_event_id: 'past1', occurrence_date: '2026-01-02' })] },
+  'future party': { upcoming: [row({ public_event_id: 'fut1', occurrence_date: '2099-01-02' })], past: [] },
+  'cancelled night': { upcoming: [row({ public_event_id: 'can1', occurrence_date: '2099-01-02', is_cancelled: true, night_lifecycle: 'cancelled' })], past: [] },
+  mixed: {
+    upcoming: [
+      row({ public_event_id: 'fut1', occurrence_date: '2099-01-02' }),
+      row({ public_event_id: 'fest1', occurrence_date: '2099-06-02', event_title: 'Costa Congress', event_lifecycle: 'paused' }),
+    ],
+    past: [row({ public_event_id: 'past1', occurrence_date: '2026-01-02' })],
+  },
 };
 
 beforeEach(() => {
   installJsdomPolyfills();
   vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-15T12:00:00Z') });
   h.user = null;
-  h.attendance = [];
+  h.attendance = { upcoming: [], past: [] };
 });
 afterEach(() => {
   cleanup();
@@ -137,7 +148,7 @@ describe.each(VIEWPORTS)('directory + attendance at $name', (vp) => {
       // d1 dancer+dj+teacher, d2 dancer, d3 dancer+teacher, d4 teacher only (not listed on /dancers),
       // d5 nameless dancer (listed, rendered with the nameless fallback)
       h.badges = shape.dancers.length ? BADGES : [];
-      h.attendance = user ? [row({ event_id: 'fut1', occurrence_date: '2099-01-02', type: 'standard' })] : [];
+      h.attendance = user ? { upcoming: [row({ public_event_id: 'fut1', occurrence_date: '2099-01-02' })], past: [] } : { upcoming: [], past: [] };
       mount(<Dancers />, '/dancers');
       await wait();
       expect(a11yTree()).toMatchSnapshot();

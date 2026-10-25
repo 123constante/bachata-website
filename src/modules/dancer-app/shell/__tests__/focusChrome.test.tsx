@@ -49,7 +49,9 @@ describe('shellChrome (the mapping)', () => {
     ['?returnTo=%2Fevents%2Fx', '/events/x'],
     ['?returnTo=https%3A%2F%2Fevil.example', '/'],
     ['?returnTo=%2Faccount%2Fo', '/'],
-    ['?returnTo=%2Finvite%2Fabc', '/'],
+    // W1 (Option B, PR #978): /invite is no longer dancer-gated and asks the dancer questions inline, so Not now
+    // returns to the invite instead of losing it (the 2026-10-23 walk's "Not now loses the invite for good").
+    ['?returnTo=%2Finvite%2Fabc', '/invite/abc'],
     ['?return=%2Fapp%2Fwelcome', '/'],
     ['?return=%2Fapp%2Fwelcome%3FreturnTo%3D%252Fevents%252Fx', '/events/x'],
   ])('Not now from %s goes to %s', (search, to) => {

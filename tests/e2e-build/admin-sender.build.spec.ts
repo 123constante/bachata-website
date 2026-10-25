@@ -56,6 +56,8 @@ async function install(page: Page, calls: { fn: string; body: Record<string, unk
             { id: 'a1', email: 'new.organiser@example.com', note: 'I run Sunday socials in Leeds.', requested_at: '2026-10-21T07:00:00Z', status: 'pending' },
             { id: 'a2', email: 'old@example.com', note: null, requested_at: '2026-10-19T07:00:00Z', status: 'dismissed' },
           ]);
+        // A2 not applied yet: the duplicate check is missing, so the alert says "available soon".
+        case 'check_invitee_duplicates_v1': return json(route, { code: 'PGRST202', message: 'Could not find the function public.check_invitee_duplicates_v1' }, 404);
         case 'admin_resolve_invite_request_v1': return json(route, { ok: true });
         case 'admin_resolve_signup_access_request_v1': return json(route, { ok: false, reason: 'already_handled' });
         default: return json(route, null);
@@ -100,7 +102,7 @@ test('sender: every status, the Invite sheet, the link form and both request lis
   await expect(page.getByTestId('row-primary')).toHaveText('Invite');
   await shot(page, '02-unclaimed-5a');
   await page.getByTestId('row-primary').click();
-  await expect(page.getByTestId('invite-choices')).toContainText('They already have an account');
+  await expect(page.getByTestId('invite-who')).toContainText('They already have an account');
   await shot(page, '03-choices-5b');
 
   // The link form: a returned refusal under its field, then a bound link shown once (5c).

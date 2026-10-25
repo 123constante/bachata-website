@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, seriesWorkspaceQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { envelope, newIdempotencyKey, withSeriesName } from '@/modules/organiser/shared/seriesCommands';
@@ -9,7 +9,7 @@ import { uploadEventPicture } from '../../events/media';
 import { OrganiserShell } from '../../shell';
 import { ORG_PATHS } from '../../shell/paths';
 import { ErrorState, SkeletonRows } from '../../ui';
-import { goDone } from '../doneState';
+import { goDone, readReturnTo } from '../doneState';
 import { SeriesLockGate } from '../../events/ProfileLock';
 import { EventConflict } from '../event/parts';
 import { FLYER_WORD } from '../../shared/flyerLabel';
@@ -28,6 +28,7 @@ export default function CoverFlow() {
 function CoverFlowScreen() {
   const { seriesId = '' } = useParams();
   const navigate = useNavigate();
+  const { search } = useLocation();
   const queryClient = useQueryClient();
   // One key per uploaded photo: the server replays a stored answer for (actor, key)
   // without comparing the payload, so a retry of the SAME photo is safe and a
@@ -60,7 +61,7 @@ function CoverFlowScreen() {
       await runSeriesCommand(envelope(seriesId, fresh.version, command, key.current.key));
       void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      goDone(navigate, coverDone(seriesId));
+      goDone(navigate, coverDone(seriesId), readReturnTo(search));
     } catch (err) {
       // R3-7: someone changed the event first; else never the raw message ("Failed to fetch").
       if (isVersionConflict(err)) setConflict(true);
@@ -71,7 +72,7 @@ function CoverFlowScreen() {
   };
 
   return (
-    <OrganiserShell title={COVER_TITLE} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-cover">
+    <OrganiserShell title={COVER_TITLE} back={readReturnTo(search) ? { to: readReturnTo(search) as string, label: 'Back' } : { to: ORG_PATHS.home, label: 'Home' }} testId="org-page-cover">
       {conflict ? (
         <div className="p-3"><EventConflict seriesId={seriesId} /></div>
       ) : workspace.isPending ? (

@@ -56,7 +56,7 @@ const CASES: { kind: JobKind; build: () => HomeOrganiser; requests?: IncomingAcc
   { kind: 'add', build: () => page([series('Salsa Fri')]) },
   { kind: 'cancel', build: () => page([series('Salsa Fri')]) },
   { kind: 'no_dates_left', build: () => page([series('Salsa Fri', { upcoming_count: 0, next_dates: [] })]), event: 'Salsa Fri' },
-  { kind: 'stale_draft', build: () => page([series('Old Draft', { lifecycle_status: 'draft', created_at: daysAgoIso(9) })]), event: 'Old Draft' },
+  { kind: 'go_live', build: () => page([series('Old Draft', { lifecycle_status: 'draft', created_at: daysAgoIso(9) })]), event: 'Old Draft' },
   { kind: 'no_cover', build: () => page([series('Bare One', { default_cover_image_url: null })]), event: 'Bare One' },
   { kind: 'join_request', build: () => page([series('Salsa Fri')]), requests: [request] },
   { kind: 'create_first_event', build: () => page([]) },
@@ -72,19 +72,19 @@ describe('D83: every job title is an action (and names its event)', () => {
   });
 
   it('covers every JobKind', () => {
-    const all: JobKind[] = ['change', 'add', 'cancel', 'no_dates_left', 'join_request', 'stale_draft', 'no_cover', 'create_first_event', 'add_manager'];
+    const all: JobKind[] = ['change', 'add', 'cancel', 'no_dates_left', 'join_request', 'go_live', 'no_cover', 'create_first_event', 'add_manager'];
     expect(CASES.map((c) => c.kind).sort()).toEqual([...all].sort());
   });
 
   it.each([[8, 'Not live yet, started 8 days ago'], [9, 'Not live yet, started 9 days ago'], [287, 'Not live yet, started 287 days ago']])('stale draft of %i days: sub "%s"', (age, sub) => {
     const jobs = homeJobs(page([series('D', { lifecycle_status: 'draft', created_at: daysAgoIso(age) })]), [], today());
-    expect(jobs.find((j) => j.kind === 'stale_draft')!.sub).toBe(sub);
+    expect(jobs.find((j) => j.kind === 'go_live')!.sub).toBe(sub);
   });
 
   it('the stale-draft age counts London days, not 24 h blocks', () => {
     // 23:30 UTC the evening before is already "yesterday + 1" in London (BST) when created at 00:30 London.
     const createdAt = `${addDaysToKey(today(), -9)}T23:30:00+00:00`; // 00:30 London on day -8
-    const sub = homeJobs(page([series('D', { lifecycle_status: 'draft', created_at: createdAt })]), [], today()).find((j) => j.kind === 'stale_draft')!.sub;
+    const sub = homeJobs(page([series('D', { lifecycle_status: 'draft', created_at: createdAt })]), [], today()).find((j) => j.kind === 'go_live')!.sub;
     expect(sub).toBe('Not live yet, started 8 days ago');
   });
 

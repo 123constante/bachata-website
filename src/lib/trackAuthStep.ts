@@ -35,6 +35,8 @@ export type AuthFunnelCall =
  */
 export function trackAuthStep(call: AuthFunnelCall): void {
   try {
+    // Automation (Playwright build specs, Puppeteer) must not write to the live counter. Real phones never set this.
+    if (typeof navigator !== 'undefined' && navigator.webdriver === true) return;
     if (call.step !== 'landing' && !(AUTH_FUNNEL_OUTCOMES as readonly string[]).includes(call.outcome)) return;
     const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, string>) => PromiseLike<unknown>;
     void Promise.resolve(rpc.call(supabase, 'record_auth_funnel_step_v1', { p_step: call.step, p_outcome: call.outcome })).then(

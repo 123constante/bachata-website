@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import type { UseMapListResult } from '../useMapList';
 import {
   groupByDate,
+  localFeedGroups,
   collapseFestivals,
   partitionRemote,
   windowGroups,
@@ -26,6 +27,7 @@ import {
 import { distanceMiles } from '../mapTypes';
 import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
+import { useListImpressions } from '@/lib/listImpressions';
 import { focusRing } from './controls';
 
 /** Date-group header. Today's group is dominant (amber TODAY pill + foreground
@@ -167,16 +169,17 @@ export function AllEventsList({
   // discard the server tree. state.today is pinned to the server's day for the
   // first render, then rolls over (see useMapList / homeClock).
   const today = state.today;
+  const trackImpression = useListImpressions('home');
   const [nearest, setNearest] = useState(false);
   const coords = state.geo.coords;
   const tomorrow = addDaysToKey(today, 1);
-  // Memoised: partitionRemote -> collapseFestivals -> groupByDate is real work
+  // Memoised: partitionRemote -> localFeedGroups is real work
   // over the whole feed (up to ~380 rows), and this component re-renders on
   // every hover/selection change. state.listEvents is already identity-stable
   // (only changes when the query result changes), so keying on it here skips
   // the chain on every hover-driven render.
   const { local, remote } = useMemo(() => partitionRemote(state.listEvents), [state.listEvents]);
-  const groups = useMemo(() => groupByDate(collapseFestivals(local)), [local]);
+  const groups = useMemo(() => localFeedGroups(local), [local]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
   // client's FIRST render must agree exactly or React #421 blanks the page, so the
@@ -322,6 +325,7 @@ export function AllEventsList({
               <EventRow
                 key={e.occurrence_id}
                 event={e}
+                trackRef={trackImpression(e.event_id, g.key)}
                 selected={state.selected === e.occurrence_id}
                 onSelect={state.fromCard}
                 onHover={state.setHovered}

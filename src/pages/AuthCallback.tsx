@@ -18,6 +18,7 @@ import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { trackAuthStep, type AuthFunnelOutcome } from "@/lib/trackAuthStep";
 import { acceptTerms } from "@/lib/termsConsent";
 import {
   ALREADY_LISTED_BODY,
@@ -37,6 +38,7 @@ import {
   parseRoleIntentResult,
   readSignupRoles,
   shouldHonorReturnTo,
+  isTaskReturnTo,
   showsAlreadyListedStep,
   signupIntentLanding,
   type SignupRole,
@@ -95,6 +97,19 @@ const AuthCallback = () => {
   const queryClient = useQueryClient();
   const [error] = useState<string | null>(null);
   const resolved = useRef(false);
+  // Funnel counter: callback and landing each record at most once per page load (a ref survives the
+  // StrictMode double effect). Fire-and-forget; carries no e-mail or id.
+  const funnelDone = useRef<{ callback: boolean; landing: boolean }>({ callback: false, landing: false });
+  const recordCallback = (outcome: AuthFunnelOutcome) => {
+    if (funnelDone.current.callback) return;
+    funnelDone.current.callback = true;
+    trackAuthStep({ step: "callback", outcome });
+  };
+  const recordLanding = () => {
+    if (funnelDone.current.landing) return;
+    funnelDone.current.landing = true;
+    trackAuthStep({ step: "landing", outcome: "ok" });
+  };
 
   const safeReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   const callbackMode = searchParams.get("mode");
@@ -129,6 +144,7 @@ const AuthCallback = () => {
     const claimed = claimedRef.current;
     if (shouldToastClaim(claimed, claimNoticeShown.current, path)) toast(claimToastProps(claimed));
     if (claimed.length > 0) claimNoticeShown.current = true;
+    recordLanding();
     navigate(path, { replace: true });
   };
 
@@ -140,6 +156,7 @@ const AuthCallback = () => {
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
+    recordCallback(reason === "timeout" ? "timeout" : "error");
     const returnToParam = safeReturnTo ? `&returnTo=${encodeURIComponent(safeReturnTo)}` : "";
     navigate(`/auth?mode=signin&callbackError=${reason}${returnToParam}`, { replace: true });
   };
@@ -172,6 +189,7 @@ const AuthCallback = () => {
 
       resolved.current = true;
       clearTimeout(timeout);
+      recordCallback("ok");
 
       const user = session.user;
       // Self-claim FIRST (every sign-in; never throws, never holds the sign-in
@@ -189,6 +207,7 @@ const AuthCallback = () => {
       const restoreTo = await signInDeletionTarget(safeReturnTo ?? sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)));
       if (restoreTo) {
         localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        recordLanding();
         navigate(restoreTo, { replace: true });
         return;
       }
@@ -270,7 +289,10 @@ const AuthCallback = () => {
           const claimPath = claimLanding();
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
-          if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
+          // W2 walk fix 7: an Organiser sign-up from a plain public page goes on to the organiser onboarding.
+          const organiserSignup = !!signupRoles?.includes('organiser') || (normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type)) === 'organiser';
+          const honours = (rt: string) => shouldHonorReturnTo({ returnTo: rt, isSignupFlow, organiserSelfServe: flags.organiserSelfServe, organiserSignup });
+          if (safeReturnTo && honours(safeReturnTo)) {
             land(safeReturnTo);
             return;
           }
@@ -278,8 +300,10 @@ const AuthCallback = () => {
           const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
           if (pendingReturnTo) {
             localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-            land(pendingReturnTo);
-            return;
+            if (!isSignupFlow || !organiserSignup || isTaskReturnTo(pendingReturnTo)) {
+              land(pendingReturnTo);
+              return;
+            }
           }
 
           // No returnTo: lib/auth-otp-routing decides. A sign-in (and a dancer
@@ -289,7 +313,8 @@ const AuthCallback = () => {
           // Pages claimed at this sign-in land where they are managed.
           // A sign-up's roles then move it: an organiser seat keeps this landing, else Teacher,
           // else DJ, else this landing (lib/auth-otp-routing signupIntentLanding).
-          const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
+          // An Organiser ticked in the sign-up's multi-select counts as the organiser role (fix 7), even with Dancer kept as the entry role.
+          const landingRole = isSignupFlow && organiserSignup ? 'organiser' : normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
           const todays = claimPath ?? landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow });
           land(signupIntentLanding({ roles: signupRoles, holdsOrganiserSeat, todays }));
           localStorage.removeItem("pending_profile_role");

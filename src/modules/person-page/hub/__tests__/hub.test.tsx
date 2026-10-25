@@ -204,7 +204,7 @@ describe('model rules', () => {
     expect(nextGigOf([], TODAY)).toBeNull();
     expect(nextGigOf(undefined, TODAY)).toBeNull();
     expect(nextGigOf([{ event_id: 'b', event_start_time: FUTURE }, { event_id: 'a', event_start_time: '2026-10-22T20:00:00Z' }], TODAY))
-      .toEqual({ eventId: 'a', dateLabel: 'Thu 22', count: 2 });
+      .toEqual({ eventId: 'a', dateLabel: 'Thursday 22 October', count: 2 });
   });
 
   it('factsOf: empty when nothing exists', () => {

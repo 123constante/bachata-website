@@ -380,9 +380,9 @@ export function dayChangeCommand(rule: unknown, weekday: number): OwnerCommand {
 export const stopKeepingCommand = (ws: EventWorkspace, today: string): OwnerCommand =>
   stopRepeatingCommand(wsComing(ws, today).map((d) => d.id));
 
-/** The C37 rows; venue goes through the existing editor sheet, cover to its own screen. */
-export type DetailField = 'name' | 'venue' | 'time' | 'level' | 'music' | 'tickets' | 'instagram' | 'about';
-export type TextDetail = Exclude<DetailField, 'venue'>;
+/** The C37 rows; venue goes through the existing editor sheet, cover to its own screen, How to pay to its chips (paymentModel). */
+export type DetailField = 'name' | 'venue' | 'time' | 'level' | 'music' | 'tickets' | 'instagram' | 'about' | 'payment';
+export type TextDetail = Exclude<DetailField, 'venue' | 'payment'>;
 
 export const DETAIL_KEY: Record<TextDetail, string> = {
   name: 'name',
@@ -395,7 +395,7 @@ export const DETAIL_KEY: Record<TextDetail, string> = {
 };
 
 export const DETAIL_LABEL: Record<DetailField, string> = {
-  name: 'Name', venue: 'Venue', time: 'Time', level: 'Level', music: 'Music', tickets: 'Tickets', instagram: 'Instagram', about: 'About',
+  name: 'Name', venue: 'Venue', time: 'Time', level: 'Level', music: 'Music', tickets: 'Tickets', instagram: 'Instagram', about: 'About', payment: 'How to pay',
 };
 
 const styleList = (typed: string) => typed.split(',').map((s) => s.trim()).filter(Boolean);

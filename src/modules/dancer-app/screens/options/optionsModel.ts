@@ -30,6 +30,8 @@ export type OptionsRow = {
   label: string;
   /** Route or external URL; set for rows that navigate. */
   href?: string;
+  /** One short quiet line under the label (LinkRow's sublabel slot). */
+  sublabel?: string;
   /** Present exactly when the row is disabled. */
   disabledReason?: string;
 };
@@ -72,6 +74,8 @@ export const HELP_MESSAGE = PROFILE_HELP_MESSAGE;
 export const HIDDEN_SHARE_REASON = `${HIDDEN_STATE_LINE} To share it, tap ${SHOW_AGAIN_LABEL} in ${ACCOUNT_SETTINGS_LABEL}.`;
 /** A dancer who runs no events: a quiet way into today's organiser request flow (owner workflow 2026-10-15). */
 export const BECOME_ORGANISER_LABEL = 'Run events? Become an organiser';
+/** The beta gate, told up front on the way in (owner walk 2026-10-24, finding 8). */
+export const BECOME_ORGANISER_BETA_NOTE = 'During the beta, new organiser pages are approved by hand.';
 export const TERMS_PATH = '/terms';
 export const PRIVACY_PATH = '/privacy';
 
@@ -98,7 +102,7 @@ export const optionsRows = (profile: Pick<MyDancerEdit, 'other_roles' | 'is_acti
   rows.push(
     types.organising
       ? { id: 'switch-organiser', label: 'I run events', href: ORGANISER_AREA_PATH }
-      : { id: 'switch-organiser', label: BECOME_ORGANISER_LABEL, href: ORGANISER_AREA_PATH },
+      : { id: 'switch-organiser', label: BECOME_ORGANISER_LABEL, sublabel: BECOME_ORGANISER_BETA_NOTE, href: ORGANISER_AREA_PATH },
   );
   rows.push({ id: 'terms', label: 'Terms', href: TERMS_PATH });
   rows.push({ id: 'privacy', label: 'Privacy policy', href: PRIVACY_PATH });

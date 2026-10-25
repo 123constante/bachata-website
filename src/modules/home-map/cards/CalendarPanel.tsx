@@ -3,7 +3,7 @@
 // New UI (not the exempt DayDetailModal) so density rules apply. Used by both the
 // home shell's Calendar tab (HomeMapShell), lazily -- see the note there.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { focusRing } from './controls';
@@ -16,6 +16,7 @@ import { DayDetailModal } from '@/components/calendar/DayDetailModal';
 import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { transformCalendarEvents } from '@/components/calendar/calendarUtils';
 import { useCity } from '@/contexts/CityContext';
+import { londonMonthRangeUtc } from '@/lib/londonDate';
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -53,8 +54,16 @@ export function CalendarPanel({ state }: { state: UseMapListResult }) {
   const grid = buildMonthCells(view.y, view.m, state.calendarDays, today, state.day);
 
   // Fetch rich event data for the displayed month (powers DayDetailModal).
-  const rangeStart = new Date(view.y, view.m, 1);
-  const rangeEnd = new Date(view.y, view.m + 1, 0, 23, 59, 59);
+  // London month bounds (see londonMonthRangeUtc): a browser-local 23:59:59 end
+  // dropped the month's last day from the day sheet. The end is padded one day
+  // because get_calendar_events_v2 cuts range_end at a DATE in the city's (or
+  // festival's) own timezone: west of London, the London month end is still the
+  // last day there, and it would be excluded again. The sheet filters by day, so
+  // the extra day's rows are never shown in this month.
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    const { start, end } = londonMonthRangeUtc(view.y, view.m);
+    return { rangeStart: start, rangeEnd: new Date(end.getTime() + 86_400_000) };
+  }, [view.y, view.m]);
   const { data: rawEvents = [], isLoading: eventsLoading } = useCalendarEvents({
     rangeStart,
     rangeEnd,

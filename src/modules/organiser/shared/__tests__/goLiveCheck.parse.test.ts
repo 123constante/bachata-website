@@ -42,7 +42,7 @@ describe('parseGoLiveCheck: one bad key, the rest valid', () => {
     ['profile_rule_applies "true" (string)', { profile_rule_applies: 'true' }],
     ['profile_rule_applies missing', { profile_rule_applies: undefined }],
     ['profile_missing not an array', { profile_missing: null }],
-    ['profile_missing with a bad area', { profile_missing: [{ area: 'teacher', organiser_id: null, fields: ['bio'] }] }],
+    ['profile_missing with a bad area (teacher and dj are A1 areas now)', { profile_missing: [{ area: 'venue', organiser_id: null, fields: ['bio'] }] }],
     ['profile_missing with no area', { profile_missing: [{ organiser_id: ORG, fields: ['bio'] }] }],
     ['profile_missing organiser_id a number', { profile_missing: [{ area: 'organiser', organiser_id: 7, fields: ['bio'] }] }],
     ['profile_missing fields not an array', { profile_missing: [{ area: 'organiser', organiser_id: ORG, fields: 'bio' }] }],
