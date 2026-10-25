@@ -75,6 +75,15 @@ describe('list: chip x invite state', () => {
       expect(rb.on).toBe(chip === 'run_by_us');
     });
   }
+  // #1033 walk: an Invited row said "Switch Run by us off" while its switch was already off.
+  for (const chip of CHIPS) for (const st of INVITES) {
+    it(`${chip}/${st}: copy naming the Run by us switch matches the switch`, () => {
+      const rb = runByUsControl(row(chip, st));
+      const reason = sendControl(row(chip, st)).disabledReason ?? '';
+      if (/Switch Run by us off/.test(reason)) expect(rb.on && rb.disabledReason === null).toBe(true);
+      if (/Switch Run by us on/.test(reason)) expect(!rb.on && rb.disabledReason === null).toBe(true);
+    });
+  }
   it('counts and filter', () => {
     const rows = [row('live', 'none'), row('invited', 'queued'), row('invited', 'sent')];
     expect(chipCounts(rows)).toEqual({ run_by_us: 0, invited: 2, joined: 0, live: 1 });
