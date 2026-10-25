@@ -8,6 +8,7 @@ import {
   weekdayOfKey,
   addDaysToKey,
   londonDayRangeUtc,
+  londonMonthRangeUtc,
   londonWallClockToInstant,
   isRealDateKey,
   clampRangeEndKey,
@@ -79,6 +80,22 @@ describe('addDaysToKey', () => {
     expect(addDaysToKey('2026-03-28', 1)).toBe('2026-03-29'); // into the 23h spring-forward day
     expect(addDaysToKey('2026-07-02', 28)).toBe('2026-07-30');
     expect(addDaysToKey('2026-07-02', -1)).toBe('2026-07-01');
+  });
+});
+
+describe('londonMonthRangeUtc', () => {
+  // 2026-10-25: CalendarPanel's browser-local month end dropped Saturday 31
+  // October from the day sheet ("No events found" while four events ran).
+  it.each([
+    [2026, 9, '2026-09-30T23:00:00.000Z', '2026-11-01T00:00:00.000Z'], // BST -> GMT inside the month
+    [2026, 10, '2026-11-01T00:00:00.000Z', '2026-12-01T00:00:00.000Z'], // GMT all month
+    [2026, 6, '2026-06-30T23:00:00.000Z', '2026-07-31T23:00:00.000Z'], // BST all month
+    [2027, 1, '2027-02-01T00:00:00.000Z', '2027-03-01T00:00:00.000Z'], // February
+    [2026, 11, '2026-12-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z'], // year end
+  ])('%i-%i covers the whole London month, last day included', (y, m, start, end) => {
+    const r = londonMonthRangeUtc(y, m);
+    expect(r.start.toISOString()).toBe(start);
+    expect(r.end.toISOString()).toBe(end);
   });
 });
 

@@ -359,6 +359,16 @@ export const londonDayRangeUtc = (key: string, days = 1): { start: Date; end: Da
 });
 
 /**
+ * londonDayRangeUtc over one whole London calendar month (`month` 0-based), the
+ * last day included. A browser-local `new Date(y, m + 1, 0, 23, 59, 59)` end fell
+ * inside the RPC's half-open bound and dropped the month's last day.
+ */
+export const londonMonthRangeUtc = (year: number, month: number): { start: Date; end: Date } => {
+  const firstKey = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  return londonDayRangeUtc(firstKey, new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+};
+
+/**
  * Seconds from `now` until `dayKey` stops being "today" on `timeZone`'s
  * calendar. Zero once it already has.
  *
