@@ -59,6 +59,16 @@ describe('Add organiser', () => {
     await screen.findByTestId('add-outcome');
     expect(h.rpc.mock.calls[0][1].p_payload).not.toHaveProperty('contact_email');
   });
+  it('the hint under Run by us describes the state the switch is in now', () => {
+    wrap(<AddOrganiser onOpenList={() => {}} />);
+    const hint = () => screen.getByTestId('add-rbu-why').textContent ?? '';
+    expect(hint()).toMatch(/Add their email/);
+    expect(hint()).not.toMatch(/We run this page/);
+    fireEvent.click(screen.getByTestId('add-run-by-us'));
+    expect(hint()).toMatch(/We run this page for them/);
+    fireEvent.click(screen.getByTestId('add-run-by-us'));
+    expect(hint()).toMatch(/Add their email/);
+  });
   it('coded error lands under its field', async () => {
     h.rpc.mockImplementation(() => ok({ success: false, code: 'EMAIL_INVALID', errors: [{ code: 'EMAIL_INVALID', field: 'contact_email' }] }));
     wrap(<AddOrganiser onOpenList={() => {}} />);
