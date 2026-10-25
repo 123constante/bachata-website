@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, Star, Heart, Music, Sparkles, Search, X,
-  ChevronDown, Check, MapPin, Users, User, Instagram, Globe,
+  ChevronDown, Check, MapPin, Users, User, Instagram, Globe, RefreshCw,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -18,10 +18,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import ListingRequestForm from '@/components/ListingRequestForm';
 import { cn } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
-import { useCity } from '@/contexts/CityContext';
+import {
+  DEFAULT_TEACHERS_CITY, TELL_US_LABEL, resolveTeachersCity, teachersCityCopy, teachersPath, type CityRow,
+} from '@/modules/teachers-directory/teachersCity';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
@@ -44,19 +48,64 @@ type Teacher = {
   city: { name: string } | null;
 };
 
-type FilterType = 'all' | 'name' | 'style' | 'city';
+type FilterType = 'all' | 'name' | 'style';
+
+// 44px tap height in px, not rem: the phone html font-size is ~13.5px.
+const TAP = 'min-h-[44px]';
 
 const Teachers = () => {
-  useSeo(buildSeoForRoute('teachers'));
   const navigate = useNavigate();
-  const { citySlug } = useCity();
-  const classesPath = buildCityPath(citySlug, 'classes');
+  const { slug } = useParams<{ slug: string }>();
+  const wantedSlug = (slug ?? '').toLowerCase();
 
-  const { data: teachers = [], isLoading } = useQuery({
-    queryKey: ['teacher-profiles-directory'],
+  // The switcher's list and the "is this slug active" test are one read:
+  // cities with is_active = true (anon SELECT, policy "Public read").
+  const activeCitiesQuery = useQuery({
+    queryKey: ['teachers-directory-active-cities'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cities')
+        .select('name, slug')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as CityRow[];
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+  const activeCities = activeCitiesQuery.data;
+  const isActiveSlug = !!activeCities?.some((c) => c.slug === wantedSlug);
+
+  // Only for a slug that is not active: its name, so the note can say "Madrid".
+  const requestedQuery = useQuery({
+    queryKey: ['teachers-directory-city-name', wantedSlug],
+    enabled: !!activeCities && !isActiveSlug && !!wantedSlug,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cities')
+        .select('name, slug')
+        .eq('slug', wantedSlug)
+        .limit(1);
+      if (error) throw error;
+      return ((data ?? [])[0] ?? null) as CityRow | null;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const citiesSettled = !!activeCities && (isActiveSlug || !wantedSlug || !requestedQuery.isLoading);
+  const view = citiesSettled
+    ? resolveTeachersCity(wantedSlug, activeCities ?? [], requestedQuery.data ?? null)
+    : null;
+
+  // Fetched IN PARALLEL with the cities read, on the URL's own slug (almost
+  // always an active city, so the key does not change when the view settles).
+  // An inactive or unknown slug then switches the key to London's list.
+  const listSlug = view?.listSlug ?? (wantedSlug || DEFAULT_TEACHERS_CITY.slug);
+  const teachersQuery = useQuery({
+    queryKey: ['teacher-profiles-directory', listSlug],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_public_teachers_list_v1', {
-        p_city_slug: null,
+        p_city_slug: listSlug,
         p_limit: 200,
         p_offset: 0,
       });
@@ -98,20 +147,28 @@ const Teachers = () => {
     },
     staleTime: 5 * 60 * 1000,
   });
+  const teachers = useMemo(() => teachersQuery.data ?? [], [teachersQuery.data]);
+  const isLoading = !view || teachersQuery.isLoading;
+  const loadError = activeCitiesQuery.isError || requestedQuery.isError || teachersQuery.isError;
+  const retry = () => {
+    if (activeCitiesQuery.isError) void activeCitiesQuery.refetch();
+    if (requestedQuery.isError) void requestedQuery.refetch();
+    if (teachersQuery.isError) void teachersQuery.refetch();
+  };
+
+  const copy = view ? teachersCityCopy(view, teachersQuery.isSuccess ? teachers.length : null) : null;
+  useSeo(buildSeoForRoute('teachers', copy?.seo ?? { canonicalPath: teachersPath(DEFAULT_TEACHERS_CITY.slug) }));
+  const classesPath = buildCityPath(listSlug, 'classes');
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [tellUsOpen, setTellUsOpen] = useState(false);
 
   // Filter state
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchName, setSearchName] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
   const uniqueStyles = useMemo(
     () => [...new Set(teachers.flatMap((t) => t.teaching_styles || []))].sort(),
-    [teachers],
-  );
-
-  const uniqueCities = useMemo(
-    () => [...new Set(teachers.map((t) => t.city?.name).filter(Boolean) as string[])].sort(),
     [teachers],
   );
 
@@ -124,18 +181,14 @@ const Teachers = () => {
       if (activeFilter === 'style' && selectedStyle) {
         return t.teaching_styles?.includes(selectedStyle);
       }
-      if (activeFilter === 'city' && selectedCity) {
-        return t.city?.name === selectedCity;
-      }
       return true;
     });
-  }, [teachers, activeFilter, searchName, selectedStyle, selectedCity]);
+  }, [teachers, activeFilter, searchName, selectedStyle]);
 
   const clearFilters = () => {
     setActiveFilter('all');
     setSearchName('');
     setSelectedStyle(null);
-    setSelectedCity(null);
   };
 
   const getDisplayName = (t: Teacher) =>
@@ -151,7 +204,6 @@ const Teachers = () => {
     { value: 'all', label: 'All', icon: '✨' },
     { value: 'name', label: 'Name', icon: '🔍' },
     { value: 'style', label: 'Style', icon: '💃' },
-    { value: 'city', label: 'City', icon: '🏙️' },
   ];
 
   return (
@@ -169,10 +221,9 @@ const Teachers = () => {
     >
       <section className="mx-auto max-w-3xl px-4 pt-3">
         <p className="text-sm sm:text-base leading-relaxed text-muted-foreground">
-          Bachata teachers in London - find an instructor, browse their classes,
-          learn their style. Use the filters below to narrow by neighbourhood or
-          style. New to bachata? Start with the{' '}
-          <Link to="/classes" className="text-primary underline">classes page</Link>{' '}
+          {copy?.subtitle ?? 'Bachata teachers - find an instructor, browse their classes, learn their style.'}{' '}
+          Use the filters below to narrow by name or style. New to bachata? Start with the{' '}
+          <Link to={classesPath} className="text-primary underline">classes page</Link>{' '}
           for beginner-friendly rooms.
         </p>
       </section>
@@ -206,16 +257,88 @@ const Teachers = () => {
       {/* Directory */}
       <section id="directory" className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
-          <h2 className="text-3xl md:text-4xl font-black text-center mb-6">
-            <span className="text-foreground">Browse </span>
-            <span className="text-primary">Teachers</span>
+          <h2 className="text-2xl md:text-4xl font-black text-center mb-2" data-testid="teachers-city-heading">
+            {copy ? copy.heading : 'Bachata Teachers'}
           </h2>
         </ScrollReveal>
+        <div className="flex justify-center mb-4">
+          <Button
+            variant="outline"
+            onClick={() => setSwitcherOpen(true)}
+            disabled={!activeCities}
+            className={cn(TAP, 'rounded-full px-3 text-sm')}
+            data-testid="teachers-city-switcher"
+          >
+            <MapPin className="w-4 h-4 mr-1" />
+            {view ? view.cityName : 'Loading cities'}
+            <span className="ml-1 text-muted-foreground">&middot; Change city</span>
+            <ChevronDown className="h-4 w-4 ml-1 opacity-60" />
+          </Button>
+        </div>
+
+        <Sheet open={switcherOpen} onOpenChange={setSwitcherOpen}>
+          <SheetContent side="bottom" className="p-3 max-h-[80vh] overflow-y-auto" data-testid="teachers-city-sheet">
+            <SheetHeader className="text-left">
+              <SheetTitle className="text-base">Choose a city</SheetTitle>
+              <SheetDescription className="text-sm">
+                Teacher directories we list. More cities are on the way.
+              </SheetDescription>
+            </SheetHeader>
+            <ul className="mt-3 space-y-1">
+              {(activeCities ?? []).map((c) => {
+                const current = view?.mode === 'active' && view.listSlug === c.slug;
+                return (
+                  <li key={c.slug}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSwitcherOpen(false);
+                        if (!current) navigate(teachersPath(c.slug));
+                      }}
+                      aria-current={current ? 'page' : undefined}
+                      className={cn(
+                        TAP,
+                        'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
+                        current ? 'bg-primary/15 text-foreground font-semibold' : 'hover:bg-muted text-foreground',
+                      )}
+                    >
+                      <Check className={cn('h-4 w-4 shrink-0', current ? 'opacity-100 text-primary' : 'opacity-0')} />
+                      {c.name}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </SheetContent>
+        </Sheet>
+
+        {copy?.note && (
+          <div className="max-w-md mx-auto mb-4 rounded-lg border border-primary/30 bg-surface/60 p-3 text-sm" data-testid="teachers-city-note">
+            <p className="text-foreground">
+              {copy.note}{' '}
+              {!tellUsOpen && (
+                <button
+                  type="button"
+                  onClick={() => setTellUsOpen(true)}
+                  className={cn(TAP, 'inline-flex items-center font-semibold text-primary underline px-1')}
+                >
+                  {TELL_US_LABEL}
+                </button>
+              )}
+            </p>
+            {copy.fallbackLine && <p className="mt-1 text-muted-foreground">{copy.fallbackLine}</p>}
+            {tellUsOpen && (
+              <div className="mt-3">
+                <ListingRequestForm section="teachers_directory" />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filter Tabs */}
         <div className="max-w-7xl mx-auto mb-6 px-2">
           <motion.div
-            className="grid grid-cols-4 md:flex md:justify-center gap-2"
+            className="grid grid-cols-3 md:flex md:justify-center gap-2"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -234,10 +357,9 @@ const Teachers = () => {
                     setActiveFilter(tab.value);
                     if (tab.value !== 'name') setSearchName('');
                     if (tab.value !== 'style') setSelectedStyle(null);
-                    if (tab.value !== 'city') setSelectedCity(null);
                   }}
                   className={cn(
-                    'w-full rounded-full text-xs md:text-sm transition-all duration-300',
+                    TAP, 'w-full rounded-full text-xs md:text-sm transition-all duration-300',
                     activeFilter === tab.value &&
                       'ring-2 ring-primary/50 ring-offset-1 ring-offset-background shadow-lg shadow-primary/20',
                   )}
@@ -326,51 +448,6 @@ const Teachers = () => {
               </motion.div>
             )}
 
-            {activeFilter === 'city' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mt-4 flex justify-center"
-              >
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full max-w-xs justify-between rounded-full">
-                      {selectedCity ? (
-                        <span className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4" />
-                          {selectedCity}
-                        </span>
-                      ) : (
-                        'Select a city...'
-                      )}
-                      <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72 p-0" align="center">
-                    <Command>
-                      <CommandInput placeholder="Search cities..." />
-                      <CommandList>
-                        <CommandEmpty>No city found.</CommandEmpty>
-                        <CommandGroup>
-                          {uniqueCities.map((city) => (
-                            <CommandItem
-                              key={city}
-                              onSelect={() => setSelectedCity(selectedCity === city ? null : city)}
-                              className="cursor-pointer"
-                            >
-                              <Check className={cn('h-4 w-4 mr-2', selectedCity === city ? 'opacity-100' : 'opacity-0')} />
-                              <MapPin className="w-4 h-4 mr-1 text-muted-foreground" />
-                              {city}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </motion.div>
-            )}
           </AnimatePresence>
 
           {/* Results count & clear */}
@@ -387,7 +464,16 @@ const Teachers = () => {
         </div>
 
         {/* Teacher Cards */}
-        {isLoading ? (
+        {loadError ? (
+          <div className="text-center py-10" data-testid="teachers-load-error">
+            <p className="text-muted-foreground text-sm mb-3">
+              We couldn&rsquo;t load the teachers. Check your connection and try again.
+            </p>
+            <Button variant="outline" onClick={retry} className={cn(TAP, 'px-3')}>
+              <RefreshCw className="w-4 h-4 mr-1" /> Try again
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-2">
             {[...Array(6)].map((_, i) => (
               <Card key={i} className="p-5 bg-surface/50 border-primary/20">
@@ -405,17 +491,22 @@ const Teachers = () => {
               </Card>
             ))}
           </div>
+        ) : teachers.length === 0 ? (
+          // The empty-city note above already carries the "Tell us" action; this
+          // offers the other way on: a city that has teachers.
+          <div className="text-center py-8" data-testid="teachers-empty">
+            <GraduationCap className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <Button variant="outline" onClick={() => setSwitcherOpen(true)} className={cn(TAP, 'px-3')}>
+              <MapPin className="w-4 h-4 mr-1" /> See another city
+            </Button>
+          </div>
         ) : filteredTeachers.length === 0 ? (
-          <div className="text-center py-20">
-            <GraduationCap className="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
-            <p className="text-muted-foreground text-lg mb-4">
-              {teachers.length === 0 ? 'No teachers listed yet. Be the first!' : 'No teachers match your filters.'}
-            </p>
-            {teachers.length === 0 ? null : (
-              <Button variant="outline" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            )}
+          <div className="text-center py-10">
+            <GraduationCap className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-muted-foreground text-sm mb-3">No teachers match your filters.</p>
+            <Button variant="outline" onClick={clearFilters} className={cn(TAP, 'px-3')}>
+              Clear filters
+            </Button>
           </div>
         ) : (
           <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-2">
@@ -426,6 +517,7 @@ const Teachers = () => {
                 <StaggerItem key={teacher.id}>
                   <motion.div whileHover={{ y: -6, scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.25 }}>
                     <Card
+                      data-testid="teacher-card"
                       className="p-5 h-full bg-gradient-to-br from-surface to-background border-primary/20 hover:border-primary/50 transition-all duration-300 cursor-pointer group"
                       onClick={() => {
                         emitProfileView({ personId: teacher.id, profileType: 'teacher', context: 'listing:teachers' });

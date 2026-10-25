@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { LegacyAccountRedirect } from "@/modules/organiser/shell/LegacyRedirect";
 import { AnimatePresence } from "framer-motion";
@@ -29,6 +29,8 @@ const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
 const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
 const Dancers = lazyWithRetry(() => import("../pages/Dancers"));
 const Teachers = lazyWithRetry(() => import("../pages/Teachers"));
+// Lazy, not static: the app shell's first-load graph (perf-budgets.json) has no room for it.
+const TeachersCityRedirect = lazyWithRetry(() => import("@/modules/teachers-directory/TeachersCityRedirect"));
 const DJs = lazyWithRetry(() => import("../pages/DJs"));
 // DancerProfile, TeacherProfile, DJProfile are framework routes now
 // (app/routes/{dancers,teachers,djs}.tsx).
@@ -78,6 +80,11 @@ const RouteFallback = () => (
       <Skeleton className="h-28 w-full rounded-xl" />
     </div>
   </div>
+);
+
+/** The teachers directory's one gate, shared by /teachers and /city/:slug/teachers. */
+const teachersGate = (page: ReactNode) => (
+  <ComingSoonGate enabled={flags.teachersDirectory} title="Teachers" section="teachers_directory">{page}</ComingSoonGate>
 );
 
 /** Redirect bare slash to /city/<slug> so the city is always visible in the URL. */
@@ -152,15 +159,10 @@ export const AnimatedRoutes = () => {
                 Vercel project env). When gated, page component never mounts --
                 the gate renders GlobalLayout placeholder + ListingRequestForm
                 and sets noindex,nofollow on the document head. */}
-            <Route path="/teachers" element={
-              <ComingSoonGate
-                enabled={flags.teachersDirectory}
-                title="Teachers"
-                section="teachers_directory"
-              >
-                <PageTransition><Teachers /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* One directory per ACTIVE city; bare /teachers sends the visitor
+                to their own city (else London). Both behind the same gate. */}
+            <Route path="/teachers" element={teachersGate(<TeachersCityRedirect />)} />
+            <Route path="/city/:slug/teachers" element={teachersGate(<PageTransition><Teachers /></PageTransition>)} />
             {/* /teachers/:id is a framework route (app/routes/teachers.tsx),
                 which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />

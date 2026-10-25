@@ -24,6 +24,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/choreography',
   '/dancers',
   '/teachers',
+  '/city/:slug/teachers',
   '/all-profiles',
   '/djs',
   '/venues',

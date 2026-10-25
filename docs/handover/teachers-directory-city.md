@@ -1,0 +1,40 @@
+# Handover: multi-city teachers directory, Website half (claude/teachers-directory-city)
+
+Brief: branch `brief/teachers-directory-city`, file `brief/teachers-directory-city.md`.
+Design record: [`docs/design/teachers-directory-city.md`](../design/teachers-directory-city.md).
+
+## Done
+- `/city/:slug/teachers` route inside the SAME `teachersDirectory` gate; bare `/teachers` redirects (lazy chunk) to
+  `/city/<visitor city or london-gb>/teachers`. `catchallClientPaths.ts` lists the new path.
+- `vercel.json`: `/:slug-xx/teachers` now 308s to `/city/:slug/teachers` (no loop: the source is one segment).
+- `Teachers.tsx`: slug from the URL, `p_city_slug` passed, client City filter dropped; heading, subtitle and
+  document title follow the city name read from `cities`; unknown or inactive slug shows London plus the note.
+- Switcher sheet (active cities, name only; 44 px rows). Empty city note + "Tell us" (ListingRequestForm).
+  Error state with Try again; filters-match-nothing with Clear filters.
+- `buildSeoForRoute('teachers')` canonical is `/city/<slug>/teachers`.
+- Sitemap: one URL per active city, only behind the flag (`tests/sitemapTeachersCities.test.ts`, red on the
+  unfixed loader: it emitted `/teachers`).
+- `tests/e2e-phone/fakeSupabase.mjs`: London 46 / Manchester 5 / Leeds 0 / Madrid inactive / unknown slug.
+  `people-nationality-flag` teachers surface now visits `/city/london-gb/teachers` with 46 codes.
+- Tests: `src/modules/teachers-directory/__tests__/teachersCity.matrix.test.tsx` (pure mapping + page, city x shape,
+  redirects, sitemap paths), `tests/e2e-phone/teachers-city.phone.spec.ts` (contrast, 44 px, no sideways scroll).
+- `perf-budgets.json`: dancer-app 373 -> 374 KB (main had 0.1 KB headroom; +76 B gz in the AnimatedRoutes chunk).
+
+## Review (one /code-review round, high; the orchestrator's independent critique follows)
+Fixed: the RPC no longer waits on the cities read (parallel on the URL slug); heading/subtitle now come from
+`buildSeoForRoute('teachers')` (one copy); the heading is back to h2 (PageHero owns the h1); `DEFAULT_TEACHERS_CITY`
+instead of a `'london-gb'` literal; the loading canonical is London's. Kept, with reasons:
+- Inactive/unknown slugs answer HTTP 404 (app/catchallGate.ts; prod `is_valid_city_slug` requires `is_active`), while
+  the client still renders London + the note. Same gate as every `/city/:slug/*` listing; never a blank page.
+- `/teachers` is a client-side redirect (it needs the visitor's city); internal links still say `/teachers`.
+- CityContext trusts the URL slug in memory, so after an unknown slug `/teachers` returns there for that tab
+  (pre-existing; not persisted).
+- The sitemap would list an active city with 0 teachers (today only London is active, 46 teachers).
+- No breadcrumbs on this page (pre-existing `showSubheader={false}`).
+
+## Left / next steps
+- Orchestrator: independent critique (stage 5) and 390x844 walk on the preview (stage 6).
+- Owner: flip `VITE_ENABLE_TEACHERS_DIRECTORY` when ready (not this PR).
+- Small, not done: the "Tell us" form stays open if the visitor switches city in the sheet (same component instance).
+- The teacher card grid is still 1 column on phones (pre-existing; the 3-column density rule is a separate change).
+- Public API `/api/v1/teachers` also lost inactive-city rows after admin #1039 (pack note; Worker B's area).
