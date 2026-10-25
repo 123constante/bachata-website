@@ -11,8 +11,8 @@ import {
   envelope,
   hasBasicsChanges,
   lifecycleCommand,
+  moveDateStep,
   overrideCommand,
-  removeDateCommand,
   resetTimeCommand,
   setTimeCommand,
   skipDateCommand,
@@ -150,7 +150,7 @@ describe('basicsPayload', () => {
 
 describe('date commands', () => {
   it('builds the exact payloads the owner gate checks', () => {
-    expect(removeDateCommand('o-1')).toEqual({ kind: 'series.remove_date', payload: { occurrence_id: 'o-1' } });
+    expect(moveDateStep({ id: 'o-1', version: 3 }, '2026-10-27')).toEqual({ kind: 'occurrence.move_date', payload: { to_date: '2026-10-27' }, occurrence: { id: 'o-1', version: 3 } });
     expect(skipDateCommand('o-1')).toEqual({ kind: 'series.skip_date', payload: { occurrence_id: 'o-1' } });
     expect(unskipDateCommand('2026-10-20')).toEqual({ kind: 'series.unskip_date', payload: { date: '2026-10-20' } });
     expect(lifecycleCommand('archived')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'archived' } });
