@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { useListImpressions } from '@/lib/listImpressions';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
@@ -86,8 +87,11 @@ type OrganiserOccurrenceRow = {
   next_start: string;
 };
 
-const useOrganiserEvents = (organiserId: string | null, currentEventId: string | null) =>
-  useQuery({
+// Query options are factories, not inline in the hooks, so the /event/:id
+// loader can prefetch the ended page's door with the SAME keys and fetchers
+// (prefetchEndedDoor below).
+const organiserEventsQuery = (organiserId: string | null, currentEventId: string | null) =>
+  queryOptions({
     queryKey: ['more-events:organiser-flagship-v2', organiserId, currentEventId],
     enabled: !!organiserId && !!currentEventId,
     staleTime: 5 * 60 * 1000,
@@ -132,15 +136,19 @@ const useOrganiserEvents = (organiserId: string | null, currentEventId: string |
 
 // Fallback when the current event's organiser has no other upcoming events:
 // surface other active organisers in the same city, picked at random.
-const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string | null) =>
-  useQuery({
+const otherOrganisersQuery = (currentOrganiserId: string | null, citySlug: string | null) =>
+  queryOptions({
     queryKey: ['more-events:other-organisers', currentOrganiserId, citySlug],
     enabled: !!citySlug,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<OtherOrganiser[]> => {
-      const { data: countsData } = await supabase.rpc('get_organiser_event_counts' as never, {
+      // Throw on error: an empty result here would be cached (and dehydrated
+      // into the edge-cached HTML by prefetchEndedDoor) as a real "no other
+      // organisers", hiding the door for every visitor. Errors are not dehydrated.
+      const { data: countsData, error: countsError } = await supabase.rpc('get_organiser_event_counts' as never, {
         p_city_slug: citySlug,
       } as never);
+      if (countsError) throw countsError;
 
       type CountRow = { entity_id: string; event_count: number };
       const eligible = (((countsData as unknown) as CountRow[]) ?? [])
@@ -154,11 +162,12 @@ const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string 
       if (picked.length === 0) return [];
 
       const ids = picked.map((r) => r.entity_id);
-      const { data: orgData } = await supabase
+      const { data: orgData, error: orgError } = await supabase
         .from('organiser_profiles')
         .select('id, name, avatar_url')
         .in('id', ids)
         .not('is_active', 'is', false);
+      if (orgError) throw orgError;
 
       type OrgRow = { id: string; name: string; avatar_url: string | null };
       const byId: Record<string, OrgRow> = Object.fromEntries(
@@ -236,8 +245,9 @@ const eventHref = (e: MoreEvent) => {
   return e.occurrenceId ? `/event/${key}?occurrenceId=${e.occurrenceId}` : `/event/${key}`;
 };
 
-const EventCard = ({ ev }: { ev: MoreEvent }) => (
+const EventCard = ({ ev, trackRef }: { ev: MoreEvent; trackRef?: (el: Element | null) => void }) => (
   <Link
+    ref={trackRef}
     to={eventHref(ev)}
     className="flex flex-col overflow-hidden rounded-lg border no-underline transition-transform hover:-translate-y-px"
     style={{
@@ -291,6 +301,32 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
+const useOrganiserEvents = (organiserId: string | null, currentEventId: string | null) =>
+  useQuery(organiserEventsQuery(organiserId, currentEventId));
+const useOtherOrganisers = (currentOrganiserId: string | null, citySlug: string | null) =>
+  useQuery(otherOrganisersQuery(currentOrganiserId, citySlug));
+
+// Server-side prefetch for the ended page's door (the 'organiser' block that
+// BentoPage renders ABOVE the bento grid). Fetched on the client only, the door
+// arrived seconds after first paint and pushed the whole grid down 120-176px
+// (CLS ~0.12 at 390x844). Prefetched, it is in the server HTML and the
+// dehydrated cache, so it renders in the first paint. Same `enabled` gates as
+// the hooks -- prefetchQuery ignores `enabled`. Errors are swallowed by
+// prefetchQuery (the client fetches as before). This-week is not prefetched: it
+// renders only in the bottom strip, below the grid, where it moves nothing.
+export const prefetchEndedDoor = (
+  qc: QueryClient,
+  { currentEventId, organiserId, citySlug }: {
+    currentEventId: string;
+    organiserId: string | null;
+    citySlug: string | null;
+  },
+): Promise<unknown> =>
+  Promise.all([
+    organiserId ? qc.prefetchQuery(organiserEventsQuery(organiserId, currentEventId)) : null,
+    citySlug ? qc.prefetchQuery(otherOrganisersQuery(organiserId, citySlug)) : null,
+  ]);
+
 export const MoreEventsSection = ({
   currentEventId,
   organiserId,
@@ -302,6 +338,7 @@ export const MoreEventsSection = ({
   fallbackSectionLabel,
   pillIsTheWayOut = false,
 }: Props) => {
+  const trackImpression = useListImpressions('more_events');
   // All three queries run on EVERY instance, whatever `blocks` says -- hooks
   // cannot be conditional, and it costs no extra network: both instances share
   // react-query keys, so each RPC is fetched once. It is also load-bearing: the
@@ -365,7 +402,7 @@ export const MoreEventsSection = ({
           <div className="flex justify-center gap-1.5">
             {organiserEvents.map((ev) => (
               <div key={ev.id} className="w-[calc((100%-1.125rem)/4)]">
-                <EventCard ev={ev} />
+                <EventCard ev={ev} trackRef={trackImpression(ev.id)} />
               </div>
             ))}
           </div>
@@ -388,7 +425,7 @@ export const MoreEventsSection = ({
           <SectionTitle>Don&rsquo;t miss this week{cityName ? ` in ${cityName}` : ''}</SectionTitle>
           <div className="grid grid-cols-4 gap-1.5">
             {thisWeekEvents.map((ev) => (
-              <EventCard key={ev.id} ev={ev} />
+              <EventCard key={ev.id} ev={ev} trackRef={trackImpression(ev.id)} />
             ))}
           </div>
         </div>

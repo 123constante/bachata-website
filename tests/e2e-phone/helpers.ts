@@ -1,5 +1,7 @@
 import type { Page, Route } from '@playwright/test';
-import { answer, FAKE_ORIGIN, FAKE_REF, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG } from './fakeSupabase.mjs';
+import {
+  answer, FAKE_ORIGIN, FAKE_REF, goLiveRpcs, FLAG_DANCER_ID, FLAG_DJ_ID, FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG, ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG3_SLUG, VENDOR_ID,
+} from './fakeSupabase.mjs';
 
 export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
 
@@ -13,7 +15,10 @@ const b64url = (value: unknown) =>
  * The browser half of the fake (the server half is fakeSupabasePreload.mjs): every
  * call to the Supabase origin is answered by the same answer(). Writes are refused there.
  */
-export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean } = {}) {
+export type GoLiveScenario = Parameters<typeof goLiveRpcs>[0];
+
+export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean; realClock?: boolean; asDancer?: string; goLive?: GoLiveScenario; contactPhone?: string | null; raffle?: boolean } = {}) {
+  const goLive = opts.goLive ? goLiveRpcs(opts.goLive) : null;
   // One fixed "now" in the browser, so date-driven UI (calendar day cells,
   // "today") renders the same every run. Mid-month ON PURPOSE: the calendar's
   // past days include two-digit numbers, and axe reports single-character text
@@ -33,6 +38,36 @@ export async function fakeSupabase(page: Page, opts: { signedInAsOwner?: boolean
     const req = route.request();
     if (opts.signedInAsOwner && new URL(req.url()).pathname === '/auth/v1/user') {
       return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(USER) });
+    }
+    // `asDancer`: the signed-in user is this dancer, with a complete profile (/account
+    // dancer home). Browser side only: those pages are client-rendered.
+    const path = new URL(req.url()).pathname;
+    if (opts.asDancer && path === '/rest/v1/rpc/_my_dancer_profile_id_v1') {
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(opts.asDancer) });
+    }
+    if (opts.asDancer && path === '/rest/v1/rpc/profile_complete_v1') {
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: 'true' });
+    }
+    // `goLive`: the "Almost live" / Go live reads for one scenario (fakeSupabase.mjs goLiveRpcs).
+    const rpcName = path.startsWith('/rest/v1/rpc/') ? path.slice('/rest/v1/rpc/'.length) : null;
+    // `contactPhone`: the stored contact phone of every organiser (e.g. a legacy number saved without its '+').
+    if (opts.contactPhone !== undefined && rpcName === 'get_organiser_contact_settings_v1') {
+      const body = { contact_phone: opts.contactPhone, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null };
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    // `raffle`: every event has an open raffle (the entry dialog; submit is never pressed).
+    if (opts.raffle && rpcName === 'get_event_raffle') {
+      const body = {
+        enabled: true, config_source: 'custom', entry_count: 3, total_winners: 0, prize_text: 'A free pass', draw_date: null,
+        cutoff_at: '2099-11-20T19:00:00.000Z', cutoff_offset_minutes: null, cutoff_time: '19:00', cutoff_passed: false,
+        consent_version: 'v1', winner_display: null, my_status: null,
+      };
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    if (goLive && rpcName && Object.prototype.hasOwnProperty.call(goLive, rpcName)) {
+      let args: Record<string, unknown> = {};
+      try { args = JSON.parse(req.postData() || '{}'); } catch { /* no body */ }
+      return route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(goLive[rpcName](args)) });
     }
     const res = answer({ method: req.method(), url: req.url(), headers: req.headers(), body: req.postData() });
     return route.fulfill(res);
@@ -157,6 +192,16 @@ export const PUBLIC_ROUTES = [
   '/learn-bachata-london',
   '/bachata-parties-london',
   '/auth',
+] as const;
+
+/**
+ * The routes people-nationality-flag.phone.spec.ts visits. Not in PUBLIC_ROUTES (the
+ * contrast ratchet walks those); the warm-up loads them too, so a cold dependency
+ * optimiser cannot reload a page mid-test.
+ */
+export const FLAG_ROUTES = [
+  '/djs', `/djs/${FLAG_DJ_ID}`, `/vendors/${VENDOR_ID}`, '/search?q=a', `/organisers/${ORG3_SLUG}`, '/teachers', '/dancers', `/dancers/${FLAG_DANCER_ID}`,
+  '/all-profiles', '/videographers', '/practice-partners', `/event/${FLAG_EVENT_SLUG}`, `/festival/${FLAG_FESTIVAL_SLUG}`, '/account',
 ] as const;
 
 /** Signed in as the owner, with one drafted field so the Save bar is showing. */

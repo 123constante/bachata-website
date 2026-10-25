@@ -144,7 +144,7 @@ describe('healthy responses carry no marker', () => {
   // regression that marked its success path would red the guard for all of
   // them, and no event-shaped case above would notice.
   it('a kind=image passthrough is unmarked and cached for a year', async () => {
-    const res = await get('kind=image&src=https%3A%2F%2Fx.example%2Fa.jpg');
+    const res = await get('kind=image&src=https%3A%2F%2Fmedia.bachatacalendar.co.uk%2Fa.jpg');
     expect(res.status).toBe(200);
     expect(res.headers.get(HEADER)).toBeNull();
     expect(res.headers.get('cache-control')).toMatch(LONG_CACHE);
@@ -250,7 +250,12 @@ describe('redirect degrades name their reason and still redirect', () => {
     ['missing-id', 'kind=event&v=abc', () => {}],
     ['unresolvable-id', 'kind=event&id=ghost&v=abc', () => { io.resolveId = null; }],
     ['image-missing-src', 'kind=image', () => {}],
-    ['image-source-unfetchable', 'kind=image&src=https%3A%2F%2Fx.example%2Fa.jpg', () => { io.imageBytes = null; }],
+    ['image-source-unfetchable', 'kind=image&src=https%3A%2F%2Fmedia.bachatacalendar.co.uk%2Fa.jpg', () => { io.imageBytes = null; }],
+    // SSRF allow-list: a refused src never reaches fetchImageBytes (whose mock
+    // here would happily return bytes -- so a loader that skipped the check
+    // would serve a 200 card, not this redirect).
+    ['image-source-disallowed', 'kind=image&src=http%3A%2F%2F169.254.169.254%2Flatest%2Fmeta-data%2F', () => {}],
+    ['image-source-disallowed', 'kind=image&src=https%3A%2F%2Fx.example%2Fa.jpg', () => {}],
     ['render-error', 'kind=event&id=evt-1&v=abc', () => { io.throwOnResolve = true; }],
   ])('%s', async (reason, query, arrange) => {
     arrange();

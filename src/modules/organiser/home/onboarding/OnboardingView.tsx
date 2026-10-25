@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
+import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
-import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, StatusTag, useDebounced } from '../../ui';
-import { HINT_TEXT, NO_HINT_TEXT, askedOn, rowAction } from './onboardingModel';
+import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
+import { askedOn, rowAction } from './onboardingModel';
+import { askedToJoinDone, hintRowText } from './claimStates';
+import { ORG_PATHS } from '../../shell/paths';
+import { goDone } from '../../flows/doneState';
 import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
 import { SignOutLine } from './SignOutLine';
+import { BETA_NOTE } from '../../flows/newpage/cannotCreate';
 
 export interface OnboardingViewProps {
   user: { id: string; email: string | null };
@@ -34,6 +39,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   const searched = term.trim().length >= 2;
   const [task, setTask] = useState<SheetTask | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const navigate = useNavigate();
   const doneRef = useRef<HTMLParagraphElement>(null);
 
   const search = useQuery({
@@ -66,9 +72,27 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
     setDone(confirmation);
     onChanged(confirmation);
   };
+  // Ask to join ends on the shared Done screen (D29); a new page lands on Home (C1b).
+  const requested = (org: ClaimCandidate) => {
+    const done = askedToJoinDone(org.name);
+    setTask(null);
+    onChanged(done.title);
+    goDone(navigate, { ...done, seriesId: null });
+  };
+  const created = (page: { name: string }) => {
+    setTask(null);
+    onChanged(`${page.name} created`);
+    navigate(ORG_PATHS.home);
+  };
+  const findPage = (name: string) => {
+    setTask(null);
+    setQuery(name);
+  };
 
+  // Every row opens its claim screen (6a-6e) in the sheet; the sheet's buttons act.
   const startClaim = (org: ClaimCandidate) => setTask({ kind: 'claim', org });
-  const startRequest = (org: ClaimCandidate) => setTask({ kind: 'request', org });
+  const startRequest = (org: ClaimCandidate, hint: ClaimHint | null) => setTask({ kind: 'request', org, hint });
+  const openYours = (org: ClaimCandidate) => setTask({ kind: 'yours', org });
   const startCreate = () => setTask({ kind: 'create', name: query.trim() });
   const searchFailed = searched && !search.isFetching && !search.data && (search.isError || search.isPaused);
 
@@ -95,13 +119,12 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
       )}
 
       <div>
-        <h2 className="text-[20px] font-bold text-[var(--fg)]">{firstRun ? 'Which organiser are you?' : 'Add another organiser'}</h2>
-        <p className="mt-[4px] text-[14px] text-[var(--mut)]">
-          We&rsquo;ve probably listed you already. Find your name, or create a new organiser.
-        </p>
+        <h2 className="text-[20px] font-bold text-[var(--fg)]">{firstRun ? 'Find your page' : 'Add another page'}</h2>
+        {/* W2 walk fix 8: the beta up front, before any name or city. */}
+        <p className="mt-[4px] text-[13px] text-[var(--mut)]" data-testid="onboarding-beta-note">{BETA_NOTE}</p>
       </div>
 
-      <SearchField value={query} onChange={setQuery} aria-label="Search organisers by name" placeholder="Search organisers by name" testId="onboarding-search" />
+      <SearchField value={query} onChange={setQuery} aria-label="Search pages by name" placeholder="Search pages by name" testId="onboarding-search" />
 
       <p className="sr-only" role="status" data-testid="onboarding-search-status">
         {searched && search.data ? (results.length === 1 ? '1 organiser found' : `${results.length} organisers found`) : ''}
@@ -136,7 +159,7 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
             <div key={org.id} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-result" data-org={org.id}>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 break-words text-[15px] font-semibold text-[var(--fg)]">{org.name}</p>
-                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hint ? HINT_TEXT[hint] : NO_HINT_TEXT}</p>
+                <p className="text-[13px] text-[var(--mut)]" data-testid="onboarding-hint">{hintRowText(hint)}</p>
               </div>
               {action === 'claim' && (
                 <GhostButton size="sm" block={false} onClick={() => startClaim(org)} testId="onboarding-claim">
@@ -144,20 +167,24 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
                 </GhostButton>
               )}
               {action === 'request' && (
-                <GhostButton size="sm" block={false} onClick={() => startRequest(org)} testId="onboarding-request">
+                <GhostButton size="sm" block={false} onClick={() => startRequest(org, hint)} testId="onboarding-request">
                   Ask to join
                 </GhostButton>
               )}
-              {action === 'requested' && <StatusTag tone="neutral" testId="onboarding-requested">Asked</StatusTag>}
+              {action === 'home' && (
+                <GhostButton size="sm" block={false} onClick={() => openYours(org)} testId="onboarding-home">
+                  Home
+                </GhostButton>
+              )}
+              {action === 'requested' && <span className="shrink-0 text-[13px] text-[var(--mut)]" data-testid="onboarding-requested">Asked</span>}
             </div>
           ))}
         </Card>
       )}
 
       <PrimaryButton onClick={startCreate} testId="onboarding-create">
-        <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Create a new organiser
+        <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> Create a new page
       </PrimaryButton>
-      <p className="-mt-[8px] text-center text-[13px] text-[var(--mut)]">Name and city. The team checks new organisers within a day.</p>
 
       {open.length > 0 && (
         <Card label="Waiting for an answer" testId="onboarding-pending">
@@ -165,9 +192,8 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
             <div key={r.requestId} className="flex items-center gap-[12px] px-[16px] py-[12px]" data-testid="onboarding-pending-row">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] text-[var(--fg)]">{r.organiserName ?? 'An organiser'}</p>
-                <p className="text-[13px] text-[var(--mut)]">Asked {askedOn(r.createdAt)}. The team usually replies within a day.</p>
+                <p className="text-[13px] text-[var(--mut)]">Asked {askedOn(r.createdAt)}</p>
               </div>
-              <StatusTag tone="draft">Waiting</StatusTag>
             </div>
           ))}
         </Card>
@@ -198,8 +224,13 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
         task={task}
         onTaskChange={setTask}
         email={user.email ?? ''}
+        userId={user.id}
         mailboxProven={mailboxProven}
-        onDone={finish}
+        onClaimed={finish}
+        onRequested={requested}
+        onCreated={created}
+        onFindPage={findPage}
+        onHome={() => navigate(ORG_PATHS.home)}
       />
     </div>
   );

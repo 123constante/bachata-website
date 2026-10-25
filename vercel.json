@@ -165,7 +165,8 @@
     "sizes": [96, 160, 320, 480, 640, 960, 1280],
     "remotePatterns": [
       { "protocol": "https", "hostname": "pub-07f606224cac4f2596903c44df723644.r2.dev" },
-      { "protocol": "https", "hostname": "pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev" }
+      { "protocol": "https", "hostname": "pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev" },
+      { "protocol": "https", "hostname": "media.bachatacalendar.co.uk" }
     ],
     "formats": ["image/webp"],
     "minimumCacheTTL": 2678400,
@@ -173,6 +174,14 @@
   },
   "framework": "react-router",
   "buildCommand": "npm run build",
-  "ignoreCommand": "sh scripts/vercel-ignore-build.sh"
+  "ignoreCommand": "sh scripts/vercel-ignore-build.sh",
+  "git": {
+    "deploymentEnabled": {
+      "arc/briefs-*": false,
+      "claude/*": false,
+      "main": true,
+      "feat/*": true
+    }
+  }
 }
 

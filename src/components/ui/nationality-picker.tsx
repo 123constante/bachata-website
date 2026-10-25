@@ -22,6 +22,10 @@ export interface NationalityPickerProps {
   onChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  /** Audit M17: the trigger is the combobox, so it carries the id a <label htmlFor> targets, or a name. */
+  id?: string;
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 }
 
 const FlagIcon = ({ country, className }: { country: Country; className?: string }) => {
@@ -46,7 +50,15 @@ const FlagIcon = ({ country, className }: { country: Country; className?: string
   );
 };
 
-export function NationalityPicker({ value, onChange, className, disabled }: NationalityPickerProps) {
+export function NationalityPicker({
+  value,
+  onChange,
+  className,
+  disabled,
+  id,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
+}: NationalityPickerProps) {
   const [open, setOpen] = React.useState(false);
   const [countries, setCountries] = React.useState<Country[]>(getLoadedCountries);
 
@@ -69,6 +81,9 @@ export function NationalityPicker({ value, onChange, className, disabled }: Nati
         <Button
           variant='outline'
           role='combobox'
+          id={id}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           aria-expanded={open}
           className={cn('w-full justify-between', className)}
           disabled={disabled}

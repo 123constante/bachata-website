@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { reactRouter } from "@react-router/dev/vite";
 import path from "path";
-import { classifyChunk } from "./vite.chunks";
+import { classifyChunk, vendorChunkCycleGuard } from "./vite.chunks";
 // lovable-tagger (componentTagger) is intentionally NOT restored under framework
 // mode: it's a dev-only Lovable annotation, non-essential, and untested against
 // the reactRouter() dev plugin. Re-add later behind a dev guard if wanted.
@@ -15,6 +15,16 @@ import { classifyChunk } from "./vite.chunks";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ isSsrBuild }) => ({
+  // The going switch's preview-only override (src/lib/goingCheckin.ts) needs to
+  // know a build is a Vercel PREVIEW. VERCEL_ENV is set by Vercel at build time
+  // (production / preview / development); anywhere else it is "" and the switch
+  // stays off. Same value in the client and server builds, so SSR and hydration agree.
+  // VITE_ENABLE_GOING_PREVIEW is defined too (the per-build flag the preview tool passes) so both
+  // reads become string literals and no import.meta.env object is inlined.
+  define: {
+    "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(process.env.VERCEL_ENV ?? ""),
+    "import.meta.env.VITE_ENABLE_GOING_PREVIEW": JSON.stringify(process.env.VITE_ENABLE_GOING_PREVIEW ?? ""),
+  },
   server: {
     host: "::",
     port: 8080,
@@ -23,6 +33,9 @@ export default defineConfig(({ isSsrBuild }) => ({
     // reactRouter() owns the React transform in framework mode. vitest cannot
     // load the RR plugin, so fall back to plugin-react-swc under VITEST.
     process.env.VITEST ? react() : reactRouter(),
+    // Fails the build on a static import cycle through a vendor chunk (#747);
+    // see vite.chunks.ts. The server build is one chunk, so it never trips there.
+    vendorChunkCycleGuard(),
     // SERVER BUILD ONLY. react-router-dom is a pure re-export shim in React Router 7
     // (every name this app imports from it also exists in react-router). Left external,
     // its CommonJS entry require()s react-router/dom, whose CJS file

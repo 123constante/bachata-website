@@ -1,4 +1,5 @@
 import { expect, type Page, type Route } from '@playwright/test';
+import { deriveCategories, storedCategory } from '../../../src/lib/eventCategory';
 
 // One STATEFUL fake of every RPC / table the new organiser area (/account/o, W0-W5) reads or
 // writes, for the organiser-*.spec.ts smoke specs. Like the old organiser specs it answers
@@ -9,7 +10,18 @@ import { expect, type Page, type Route } from '@playwright/test';
 // Shapes follow the parsers in src/modules/organiser/shared (selfServeApi, programmeModel,
 // teamModel) and the unit-test fixtures of each screen.
 
-export const projectRef = 'stsdtacfauprzrdebmzg';
+// supabase-js keys the stored session as sb-<ref>-auth-token, <ref> = the first label of the
+// VITE_SUPABASE_URL host the DEV SERVER was built with. Playwright starts that server from this
+// same process env, so read the ref from it: a sandbox pointed at another project (the E2E one)
+// otherwise stored the session under the prod key and every signed-in spec landed on /auth.
+export const projectRefFromUrl = (url: string | undefined): string | null => {
+  try {
+    return url ? new URL(url).host.split('.')[0] || null : null;
+  } catch {
+    return null;
+  }
+};
+export const projectRef = projectRefFromUrl(process.env.VITE_SUPABASE_URL) ?? 'stsdtacfauprzrdebmzg';
 export const ME = '11111111-1111-4111-8111-111111111111';
 export const EMAIL = 'diego@ritmo.example';
 /** Thursday 8 Oct 2026, noon in London. */
@@ -66,7 +78,8 @@ export interface FakeSeries {
   name: string;
   slug: string;
   format: string;
-  category: string;
+  /** Derived from the sessions, as the server's trigger does (event-truth P1): null until a date holds one. */
+  category: string | null;
   lifecycle_status: string;
   version: number;
   default_venue_id: string | null;
@@ -83,6 +96,13 @@ export interface FakeSeries {
   removed_dates: string[];
   extra_dates: string[];
   cancelled: Record<string, string>;
+  /**
+   * The series programme (event_series_program_item_p5), the series_item_id rows every date
+   * shows. Fixed at creation (addSeries, from the category the fixture names): the organiser
+   * writer never edits it, a per-date removal is an override row. A series made in this run
+   * (the create: category null) has none, so its dates read empty until a session is saved.
+   */
+  series_items: Session[];
   /** Stable index, part of every occurrence id of this series. */
   n: number;
 }
@@ -177,11 +197,20 @@ export class OrganiserFake {
 
   addSeries(org: FakeOrganiser, over: Partial<FakeSeries> & { id: string; name: string }): FakeSeries {
     this.seriesCount += 1;
+    const category = 'category' in over ? over.category ?? null : 'class';
+    // The series programme the fixture's category stands for: a party series holds one party
+    // item, a class series a class and a party, a series with no category (made in this run) none.
+    const series_items: Session[] = category === null ? [] : category === 'party'
+      ? [{ series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '01:00', ends_next_day: true, level_keys: [], removed: false }]
+      : [
+          { series_item_id: ITEM_CLASS, type: 'class', title: 'Beginners', start_time: '20:00', end_time: '21:00', ends_next_day: false, level_keys: ['beginner'], removed: false },
+          { series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '23:30', ends_next_day: false, level_keys: [], removed: false },
+        ];
     const s: FakeSeries = {
       slug: over.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), format: 'recurring', category: 'class', lifecycle_status: 'live',
       version: 3, default_venue_id: VENUES[0].id, default_city_id: CITY.id, default_start_date: TODAY, default_description: 'Friendly night.',
       default_ticket_url: null, default_music_styles: ['Bachata'], gallery: [], video_urls: [], recurrence_rule: null,
-      removed_dates: [], extra_dates: [], cancelled: {}, n: this.seriesCount, ...over,
+      removed_dates: [], extra_dates: [], cancelled: {}, series_items, n: this.seriesCount, ...over,
     };
     this.series.set(s.id, s);
     org.series.push(s.id);
@@ -221,22 +250,34 @@ export class OrganiserFake {
     let p = this.programmes.get(occurrenceId);
     if (p) return p;
     const found = this.findOccurrence(occurrenceId);
-    const party = found?.s.category === 'party';
     const empty = found ? this.emptyLineup.has(found.date) : false;
-    const sessions: Session[] = party
-      ? [{ series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '01:00', ends_next_day: true, level_keys: [], removed: false }]
-      : [
-          { series_item_id: ITEM_CLASS, type: 'class', title: 'Beginners', start_time: '20:00', end_time: '21:00', ends_next_day: false, level_keys: ['beginner'], removed: false },
-          { series_item_id: ITEM_PARTY, type: 'party', title: 'Party', start_time: '21:00', end_time: '23:30', ends_next_day: false, level_keys: [], removed: false },
-        ];
+    // Every date shows the series programme (its own copies of the series_item_id rows).
+    const sessions: Session[] = (found?.s.series_items ?? []).map((x) => ({ ...x, level_keys: [...(x.level_keys as string[])] }));
     const people = new Map<string, { profile_id: string; display_name: string; role: string }[]>();
-    if (!empty && !party) {
+    if (!empty && sessions.some((x) => x.series_item_id === ITEM_CLASS)) {
       people.set(ITEM_CLASS, [{ profile_id: PEOPLE[0].id, display_name: 'Ana Ruiz', role: 'teaching' }]);
       people.set(ITEM_PARTY, [{ profile_id: PEOPLE[3].id, display_name: 'DJ Sol', role: 'djing' }]);
     }
     p = { version: 1, sessions, people };
     this.programmes.set(occurrenceId, p);
     return p;
+  }
+
+  /**
+   * The server's trigger (event-truth P1 / P3, admin #780): event_series_p5.category follows
+   * the UNION of the series programme and EVERY date's date-only sessions (a removed row is a
+   * per-date override, not in the union), keep-if-agrees, through the lib's one mapping. The
+   * server's union carries date-only kind AND type; the fake's rows carry the type, which the
+   * writer maps to the kind (class -> classes, party -> party), so the genres are the same.
+   */
+  deriveCategory(s: FakeSeries): string | null {
+    const types = s.series_items.map((x) => String(x.type));
+    const prefix = this.occId(s, '0000-00-00').slice(0, 24); // every occurrence id of this series
+    for (const [occurrenceId, p] of this.programmes) {
+      if (!occurrenceId.startsWith(prefix)) continue;
+      for (const x of p.sessions) if (x.added_session_id && x.removed !== true) types.push(String(x.type));
+    }
+    return storedCategory(s.category, deriveCategories(s.format, [], types).set);
   }
 
   homeRead() {
@@ -256,7 +297,7 @@ export class OrganiserFake {
             upcoming_count: up.length, latest_decision: null, version: s.version,
             next_dates: up.slice(0, 3).map((d) => ({
               occurrence_id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled',
-              materialised_start_utc: `${d}T19:00:00+00:00`, has_own_changes: false, version: 1,
+              materialised_start_utc: `${d}T20:00:00+00:00`, has_own_changes: false, version: 1,
               venue_name: VENUES.find((v) => v.id === s.default_venue_id)?.name ?? null,
             })),
           };
@@ -266,17 +307,19 @@ export class OrganiserFake {
   }
 
   workspace(s: FakeSeries) {
-    const { n: _n, extra_dates: _e, cancelled: _c, gallery, video_urls, default_music_styles, ...series } = s;
+    const { n: _n, extra_dates: _e, cancelled: _c, series_items: _items, gallery, video_urls, default_music_styles, ...series } = s;
     return {
       meta: { version: s.version, has_more: false },
       series: {
         series: { ...series, default_local_start_time: '20:00:00', default_duration: null, default_level: null, default_cover_image_url: null,
           instagram_url: null, passes: null, created_at: '2026-09-01T10:00:00+00:00', gallery, video_urls, default_music_styles },
-        program: [],
+        // As admin_event_workspace_p5 answers: the series programme, and per date the date-only sessions it holds.
+        program: s.series_items.length ? [{ sections: [{ items: s.series_items.map((x) => ({ item: { type: x.type, start_time: x.start_time } })) }] }] : [],
       },
       occurrences: [...this.dates(s)].reverse().map((d) => ({
         id: this.occId(s, d), occurrence_date: d, lifecycle_status: s.cancelled[d] ? 'cancelled' : 'scheduled', version: 1,
-        has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: `${d}T19:00:00+00:00`,
+        has_override: false, session_overrides_count: 0, materialised_start_utc: `${d}T20:00:00+00:00`,
+        added_sessions_count: (this.programmes.get(this.occId(s, d))?.sessions ?? []).filter((x) => x.added_session_id && x.removed !== true).length,
       })),
     };
   }
@@ -291,7 +334,7 @@ export class OrganiserFake {
       program: [],
       schedule: { timezone: 'Europe/London', local_start_time: '20:00:00', local_end_time: '23:30:00' },
       occurrence: { id: this.occId(s, date), date, version: 1, series_id: s.id, lifecycle_status: s.cancelled[date] ? 'cancelled' : 'scheduled',
-        materialised_start_utc: `${date}T19:00:00+00:00` },
+        materialised_start_utc: `${date}T20:00:00+00:00` },
       added_sessions: [],
     };
   }
@@ -325,6 +368,9 @@ export class OrganiserFake {
     p.sessions = sessions;
     p.people = people;
     p.version += 1;
+    // The server's trigger: the mirror follows the union over the series programme and every date.
+    const owner = this.findOccurrence(occurrenceId)?.s;
+    if (owner) owner.category = this.deriveCategory(owner);
     return { ok: true, changed: true, version: p.version, sessions };
   }
 
@@ -354,7 +400,8 @@ export class OrganiserFake {
       const org = this.organisers.find((o) => ids.includes(o.id));
       if (!org) return { refusal: 'permission_denied: series.upsert (create)' };
       s = this.addSeries(org, {
-        id: env.target_id, name: String(payload.name), category: String(payload.category ?? 'class'),
+        // Category is derived from the sessions (event-truth P1): a sent value is ignored, as the server does.
+        id: env.target_id, name: String(payload.name), category: null,
         format: String(payload.format ?? 'recurring'), lifecycle_status: 'draft', version: 0,
         default_start_date: String(payload.default_start_date ?? TODAY), default_venue_id: null,
         default_city_id: (payload.default_city_id as string | undefined) ?? null, default_description: null, default_music_styles: [],
@@ -372,6 +419,8 @@ export class OrganiserFake {
       }
     } else if (kind === 'series.set_recurrence') {
       s.recurrence_rule = payload as unknown as Rule;
+    } else if (kind === 'series.set_lifecycle') {
+      s.lifecycle_status = String(payload.to);
     } else if (kind === 'series.stop_repeating') {
       s.recurrence_rule = null;
     } else if (kind === 'series.add_date') {
@@ -386,7 +435,9 @@ export class OrganiserFake {
       if (hit) s.removed_dates.push(hit.date);
     }
     s.version += 1;
-    return { ok: true, data: {}, audit_id: 'a', new_version: s.version };
+    // _cmd_series_add_date_p5 answers the date it listed (the New event page seeds that date).
+    const data = kind === 'series.add_date' ? { occurrence_id: this.occId(s, String(payload.date)) } : {};
+    return { ok: true, data, audit_id: 'a', new_version: s.version };
   }
 
   async install(page: Page) {
@@ -494,7 +545,7 @@ export class OrganiserFake {
           const r = o.requests.find((x) => x.request_id === body.p_request_id);
           if (!r) continue;
           o.requests = o.requests.filter((x) => x !== r);
-          if (body.p_decision === 'grant') o.team.push({ user_id: r.user_id, member_role: 'manager', is_primary: false, email: r.requester_email, display_name: null });
+          if (body.p_decision === 'grant' && !o.team.some((m) => m.user_id === r.user_id)) o.team.push({ user_id: r.user_id, member_role: 'manager', is_primary: false, email: r.requester_email, display_name: null });
           return json(route, { request_id: r.request_id, user_id: r.user_id, decision: body.p_decision, member_role: body.p_decision === 'grant' ? 'manager' : null });
         }
         return refuse(route, 'request_not_open');
@@ -515,6 +566,20 @@ export class OrganiserFake {
         o.team = o.team.filter((x) => x !== m);
         return json(route, { user_id: m.user_id, member_role: m.member_role, removed_rows: 1, self_removed: m.user_id === ME, primary_passed_to: null, audit_id: 'a' });
       }
+      case 'organiser_team_add_member_by_profile_v1': {
+        const o = org(body.p_organiser_id);
+        if (!o) return refuse(route, 'not_authorised');
+        const req = o.requests.find((x) => x.user_id === body.p_profile_id);
+        o.team.push({ user_id: String(body.p_profile_id), member_role: 'manager', is_primary: false, email: req?.requester_email ?? `${String(body.p_profile_id).slice(0, 4)}@faces.example`, display_name: null });
+        // Prod derives a request's status from membership: once they are a member it is no longer 'open'.
+        if (req) o.requests = o.requests.filter((x) => x !== req);
+        return json(route, { changed: true, member_role: 'manager' });
+      }
+      case 'organiser_team_browse_people_v1':
+        return json(route, [
+          { profile_id: '66666666-6666-4666-8666-666666666666', display_name: 'Priya Sharma', photo_url: null, fact: 'attended:3', can_add: true },
+          { profile_id: '77777777-7777-4777-8777-777777777777', display_name: 'Lena Voss', photo_url: null, fact: null, can_add: false },
+        ]);
       case 'claim_organiser_v1': {
         const c = this.claimable.find((x) => x.id === body.p_organiser_id);
         if (!c) return refuse(route, 'not_found');
@@ -530,10 +595,10 @@ export class OrganiserFake {
       }
       case 'create_organiser_profile_v1': {
         const id = 'a0000000-0000-4000-8000-0000000000aa';
-        this.organisers.push({ id, name: String(body.p_name), lifecycle_status: 'draft', role: 'owner', city_id: (body.p_city_id as string) ?? null,
+        this.organisers.push({ id, name: String(body.p_name), lifecycle_status: 'live', role: 'owner', city_id: (body.p_city_id as string) ?? null,
           latest_decision: null, series: [], team: [{ user_id: ME, member_role: 'owner', is_primary: true, email: EMAIL, display_name: null }],
           requests: [], instagram: null, website: null, bio: null, contact_email: EMAIL });
-        return json(route, { organiser_id: id, slug: null, lifecycle_status: 'draft', member_role: 'owner', is_primary: true });
+        return json(route, { organiser_id: id, slug: null, lifecycle_status: 'live', member_role: 'owner', is_primary: true });
       }
       case 'submit_organiser_profile_v1': {
         const o = org(body.p_organiser_id);
@@ -550,7 +615,8 @@ export class OrganiserFake {
         o.website = (patch.website as string | null) ?? null;
         o.bio = (patch.bio as string | null) ?? null;
         o.city_id = (patch.city_id as string | null) ?? o.city_id;
-        return json(route, { ok: true });
+        // The real RPC hands back the stored row (`profile`); the edit layer reads it to confirm the save.
+        return json(route, { ok: true, changed_keys: Object.keys(patch), profile: { id: o.id, name: o.name, bio: o.bio, instagram: o.instagram, website: o.website, city_id: o.city_id, avatar_url: null, socials: null, organisation_category: null, founded_year: null } });
       }
       case 'search_cities':
         return json(route, [{ city_id: CITY.id, city_name: 'London', city_slug: 'london', country_name: 'United Kingdom', display_name: 'London, United Kingdom' }]);
@@ -641,7 +707,15 @@ export async function setKeyboard(page: Page, px: number) {
 }
 
 /** No page-level horizontal scroll. */
+/**
+ * Every route change slides the page in (PageTransition: x 30px -> 0 over 0.25s), and while it
+ * slides the document is up to 30px wider than the screen. Measuring in that window read 14 and
+ * 8 on a slow CI runner. So: wait for the settled state, then confirm it holds. A page that is
+ * really too wide never settles at 0 and still fails.
+ */
 export async function expectNoHorizontalScroll(page: Page) {
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow).toBeLessThanOrEqual(0);
+  const measure = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  await expect.poll(measure, { message: 'document is wider than the screen after the page transition settled' }).toBeLessThanOrEqual(0);
+  await page.waitForTimeout(300);
+  expect(await measure()).toBeLessThanOrEqual(0);
 }

@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 
 import { useEntitySlugOrId, SITE_ORIGIN } from "@/lib/seo";
 
-import { VideoEmbed } from "@/components/VideoEmbed";
+import { VideoFrame } from "@/components/VideoFrame";
 
 import { pickPlayableVideo } from "@/lib/parseVenueVideoUrl";
 
@@ -88,6 +88,7 @@ import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 import { formatPassAmount } from "@/modules/event-page/formatPassAmount";
+import { NationalityFlag, TILE_FLAG_SIZE } from "@/components/people/NationalityFlag";
 
 type FestivalEvent = {
 
@@ -3071,6 +3072,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                   <div className="nl-img no-photo"><span className="initial">{initial}</span></div>
                 )}
                 <div className="nl-scrim" />
+                <NationalityFlag code={teacher.nationalityCode} size={TILE_FLAG_SIZE} placement="inset" />
                 <div className="nl-meta">
                   <div className="nl-name">{teacher.displayName ?? "Artist"}</div>
                   <div className="nl-style">{styleLabel}</div>
@@ -3096,13 +3098,14 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
             <h2 className="nl-title">Aftermovie</h2>
             <hr className="neon-rule" />
           </div>
-          <div className="mx-auto aspect-video w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black">
-            <VideoEmbed
-              video={festivalVideo}
-              poster={posterUrl}
-              title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
-            />
-          </div>
+          <VideoFrame
+            video={festivalVideo}
+            poster={posterUrl}
+            title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
+            boxClassName="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-black"
+            hugClassName="max-w-3xl overflow-hidden rounded-xl border border-white/10"
+            hugChrome="2px"
+          />
         </section>
       )}
 

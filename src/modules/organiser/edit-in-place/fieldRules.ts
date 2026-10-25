@@ -12,7 +12,8 @@ import {
   type OrganiserProfileEditForm,
 } from '@/lib/organiserProfileUpdate';
 import { extractDomain, extractIgHandle, facebookDisplayLabel } from '@/lib/organiserLinkLabels';
-import { normalizePhoneDigits } from '@/lib/contactValidation';
+import { INSTAGRAM_NOT_PROFILE_LINK, INSTAGRAM_POST_LINK, INSTAGRAM_PROBLEM_COPY, checkInstagramField, instagramProfileUrl } from '@/lib/instagramHandle';
+import { normalizePhoneE164 } from '@/lib/phoneRules';
 
 export type FieldKey =
   | 'name'
@@ -48,7 +49,7 @@ export const FIELD_KEYS: readonly FieldKey[] = [
 export const FIELD_LABEL: Record<FieldKey, string> = {
   name: 'Name',
   city: 'City',
-  avatar_url: 'Photo',
+  avatar_url: 'Organisation logo',
   founded_year: 'Year started',
   instagram: 'Instagram',
   bio: 'About',
@@ -182,33 +183,26 @@ export function checkYear(raw: string, nowYear: number = new Date().getFullYear(
 
 // ---- instagram ---------------------------------------------------------------------------
 
+// The ONE stored-Instagram rule (lib/instagramHandle, the server's normalize_instagram_handle_v1
+// by shared fixture): a new value is saved as the bare name, lower case (papacito.dj), whether it
+// was typed as @name, a name or a pasted profile link. organiser_profile_update_p5_v1 already takes
+// a bare name (^@?[A-Za-z0-9._]{1,30}$), and only a CHANGED key is written, so a stored legacy link
+// is untouched until the owner edits it.
 export const INSTAGRAM_COPY = {
-  refuse: 'Use your Instagram name, like @yourname, or an instagram.com link.',
-  tooLong: 'An Instagram name is at most 30 letters, numbers, dots or underscores.',
+  refuse: INSTAGRAM_NOT_PROFILE_LINK,
+  post: INSTAGRAM_POST_LINK,
+  tooLong: INSTAGRAM_PROBLEM_COPY.too_long,
+  characters: INSTAGRAM_PROBLEM_COPY.characters,
+  dots: INSTAGRAM_PROBLEM_COPY.dots,
 };
-const IG_HANDLE = /^@?[A-Za-z0-9._]{1,30}$/;
 
 export function checkInstagram(raw: string): FieldCheck {
   const t = raw.trim();
   if (!t) return ok('', null);
-  if (IG_HANDLE.test(t)) {
-    const value = t.startsWith('@') ? t : `@${t}`;
-    return ok(value, patchValue('instagram', value) as string, `https://instagram.com/${value.slice(1)}`);
-  }
-  if (/^@?[A-Za-z0-9._]{31,}$/.test(t)) return bad(t, INSTAGRAM_COPY.tooLong);
-  if (/\s/.test(t) || !hostMatchesDomain(t, 'instagram.com')) return bad(t, INSTAGRAM_COPY.refuse);
-  // The server takes only instagram.com / www.instagram.com, http(s), with a path.
-  const url = withNormalizedProtocol(t, 'instagram.com');
-  try {
-    const u = new URL(url);
-    const host = u.hostname.toLowerCase();
-    if ((host !== 'instagram.com' && host !== 'www.instagram.com') || u.pathname.replace(/\/+$/, '') === '') {
-      return bad(t, INSTAGRAM_COPY.refuse);
-    }
-  } catch {
-    return bad(t, INSTAGRAM_COPY.refuse);
-  }
-  return ok(t, patchValue('instagram', t) as string, url);
+  const c = checkInstagramField(t);
+  if ('error' in c) return bad(t, c.error);
+  if (!c.handle) return ok('', null);
+  return ok(c.handle, patchValue('instagram', c.handle) as string, instagramProfileUrl(c.handle));
 }
 
 /** The public display: '@handle' (a pasted profile link is shown as its handle), else 'Instagram'. */
@@ -347,13 +341,13 @@ export function checkPhotoUrl(raw: string): FieldCheck {
 
 // ---- contact (the Contact details sheet) -------------------------------------------------
 
-// The repo's phone rule (contactValidation.normalizePhoneDigits: 7 to 15 digits,
-// any punctuation, the rule the WhatsApp link uses) plus the server's
-// (organiser_profile_update_p5_v1: contact_phone at most 40 characters, one line).
-// The value is stored as typed, trimmed (buildOrganiserProfilePatch: trim() || null).
+// The ONE stored-phone rule (lib/phoneRules normalizePhoneE164, the server's normalize_phone_e164_v1
+// by shared fixture): E.164, so +44 7700 900123 is saved as +447700900123. The field is a
+// PhoneInput (country first), so a new value arrives as E.164; a legacy value saved without its
+// '+' is only checked once it is changed. Plus the RPC's own: at most 40 characters, one line.
 export const PHONE_MAX = 40;
 export const PHONE_COPY = {
-  digits: 'Use a phone number with 7 to 15 digits, like +44 7700 900123.',
+  digits: 'Pick the country, then type the number, like 7700 900123.',
   tooLong: `A phone number can be at most ${PHONE_MAX} characters.`,
   oneLine: 'Keep the phone number on one line.',
 };
@@ -364,8 +358,9 @@ export function checkPhone(raw: string): FieldCheck {
   // eslint-disable-next-line no-control-regex -- the server's single-line rule
   if (/[\x00-\x1f\x7f]/.test(t)) return bad(t, PHONE_COPY.oneLine);
   if (Array.from(t).length > PHONE_MAX) return bad(t, PHONE_COPY.tooLong);
-  if (normalizePhoneDigits(t) === null) return bad(t, PHONE_COPY.digits);
-  return ok(t, t);
+  const e164 = normalizePhoneE164(t);
+  if (!('value' in e164) || !e164.value) return bad(t, PHONE_COPY.digits);
+  return ok(e164.value, e164.value);
 }
 
 /** A switch's draft is 'true' or 'false' (the server takes booleans only). */

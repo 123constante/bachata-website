@@ -84,7 +84,10 @@ export const ORGANISERS = "organisers";
 export const stampEvent = (id: string) => [eventTag(id), EVENTS].join(",");
 export const stampFestival = (id: string) =>
   [festivalTag(id), eventTag(id), FESTIVALS, EVENTS].join(",");
-export const stampDancer = (id: string) => [dancerTag(id), DANCERS].join(",");
+// withRoleTags (flags.personWorlds): /dancers/:id also serves the person's DJ / teacher tabs, so a
+// DJ or teacher write (dj-<id> / teacher-<id>, the same dancer_profiles id) must purge it too.
+export const stampDancer = (id: string, withRoleTags = false) =>
+  [dancerTag(id), ...(withRoleTags ? [djTag(id), teacherTag(id)] : []), DANCERS].join(",");
 export const stampDj = (id: string) => [djTag(id), DJS].join(",");
 export const stampTeacher = (id: string) => [teacherTag(id), TEACHERS].join(",");
 export const stampVenue = (id: string) => [venueTag(id), VENUES].join(",");
@@ -104,6 +107,7 @@ export const ALL_ROUTE_STAMPS: string[] = [
   stampEvent(STAMP_PLACEHOLDER_ID),
   stampFestival(STAMP_PLACEHOLDER_ID),
   stampDancer(STAMP_PLACEHOLDER_ID),
+  stampDancer(STAMP_PLACEHOLDER_ID, true),
   stampDj(STAMP_PLACEHOLDER_ID),
   stampTeacher(STAMP_PLACEHOLDER_ID),
   stampVenue(STAMP_PLACEHOLDER_ID),

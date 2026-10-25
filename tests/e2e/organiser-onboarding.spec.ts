@@ -41,7 +41,7 @@ test('a mailbox-proven session claims, and Home then shows the organiser', async
   // The home re-read lists the organiser, so onboarding gives way to Home, which announces it.
   await expect(page.getByTestId('org-page-home')).toContainText('Ritmo Latino Leeds is yours');
   expect(fake.sent('claim_organiser_v1')).toEqual([{ p_organiser_id: LEEDS }]);
-  await expect(page.getByTestId('home-empty')).toBeVisible();
+  await expect(page.getByTestId('home-jobs')).toBeVisible();
   await expect(page.getByTestId('org-onboarding')).toHaveCount(0);
 });
 
@@ -67,10 +67,9 @@ test('a refused claim turns into a request with the reason shown', async ({ page
   await expect(page.getByTestId('onboarding-sheet-error')).not.toContainText('email_mismatch');
   await page.getByTestId('onboarding-request-note').fill('I run the Tuesday classes');
   await page.getByTestId('onboarding-request-send').click();
-  await expect(page.getByTestId('onboarding-done')).toContainText('Request sent');
+  // Ask to join ends on the shared Done screen.
+  await expect(page.getByTestId('org-done-message')).toHaveText('We will check your request and the page team will be in touch.');
   expect(fake.sent('request_organiser_access_v1')).toEqual([{ p_organiser_id: LEEDS, p_message: 'I run the Tuesday classes' }]);
-  // The open request is listed as waiting for an answer.
-  await expect(page.getByTestId('onboarding-pending-row')).toContainText('Ritmo Latino Leeds');
 });
 
 test('ask to join another organiser sends the note', async ({ page }) => {
@@ -78,29 +77,24 @@ test('ask to join another organiser sends the note', async ({ page }) => {
   await result(page, 'Ritmo Manchester').getByTestId('onboarding-request').click();
   await page.getByTestId('onboarding-request-note').fill('I teach there on Mondays');
   await page.getByTestId('onboarding-request-send').click();
-  await expect(page.getByTestId('onboarding-done')).toContainText('Request sent');
+  await expect(page.getByTestId('org-done-message')).toHaveText('We will check your request and the page team will be in touch.');
   expect(fake.sent('request_organiser_access_v1')).toEqual([{ p_organiser_id: MANCHESTER, p_message: 'I teach there on Mondays' }]);
 });
 
-test('create: name and a city picked in a view of the same sheet, then Home', async ({ page }) => {
+test('create: name, then the city picked is the create, then Home', async ({ page }) => {
   const fake = await openOrganiser(page, '/account/o', { noOrganiser: true });
   await page.getByTestId('onboarding-create').click();
-  const submit = page.getByTestId('onboarding-create-submit');
-  await expect(submit).toBeDisabled();
-  await expect(page.getByTestId('onboarding-create-missing')).toContainText('the organiser name and the city');
+  await expect(page.getByTestId('onboarding-create-next')).toBeDisabled();
   await page.getByTestId('onboarding-create-name').fill('Salsa & Bachata Leeds');
-  await page.getByTestId('onboarding-create-city').click();
+  await page.getByTestId('onboarding-create-next').click();
   await page.getByTestId('onboarding-city-search').fill('Lon');
+  expect(fake.sent('create_organiser_profile_v1')).toEqual([]);
   await page.getByTestId('onboarding-city-option').first().click();
-  await expect(page.getByTestId('onboarding-create-city')).toContainText('London');
-  await expect(page.getByTestId('onboarding-create-name')).toHaveValue('Salsa & Bachata Leeds');
-  await expect(page.getByTestId('onboarding-sheet')).toHaveCount(1);
-  await submit.click();
   await expect.poll(() => fake.sent('create_organiser_profile_v1')).toEqual([
-    { p_name: 'Salsa & Bachata Leeds', p_city_id: CITY.id, p_contact_email: EMAIL },
+    { p_name: 'Salsa & Bachata Leeds', p_city_id: CITY.id },
   ]);
-  await expect(page.getByTestId('org-page-home')).toContainText('Salsa & Bachata Leeds is saved as a draft');
-  await expect(page.getByTestId('home-empty')).toBeVisible();
+  await expect(page.getByTestId('org-page-home')).toContainText('Salsa & Bachata Leeds created');
+  await expect(page.getByTestId('home-jobs')).toBeVisible();
 });
 
 test('a declined request is shown with the answer', async ({ page }) => {
@@ -111,7 +105,7 @@ test('a declined request is shown with the answer', async ({ page }) => {
 });
 
 test('the first-time screen has a way out: Signed in as <email>, Not you? Sign out, asked first', async ({ page }) => {
-  await openOrganiser(page, '/account/o', { noOrganiser: true });
+  const fake = await openOrganiser(page, '/account/o', { noOrganiser: true });
   const line = page.getByTestId('onboarding-signedin-line');
   await expect(line).toContainText(`Signed in as ${EMAIL}`);
   await expect(line).toContainText('Not you?');
@@ -128,10 +122,12 @@ test('the first-time screen has a way out: Signed in as <email>, Not you? Sign o
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('onboarding-signout-yes')).toHaveCount(0);
   await expect(page.getByTestId('org-onboarding')).toBeVisible();
-  // Confirming signs out; the guard then sends the now signed-out visitor to the sign-in page.
+  // Confirming signs out through useSignOutToHome. Where it lands (the site home, never the
+  // sign-in form, audit H10) is pinned by signOutEntryPoints.test.tsx: here the init script
+  // re-plants the session on any document load, so the landing is not this spec's to read.
   await btn.click();
   await page.getByTestId('onboarding-signout-yes').click();
-  await expect(page).toHaveURL(/\/auth\?mode=signin/);
+  await expect.poll(() => fake.calls.some((c) => c.rpc === 'auth:logout')).toBe(true);
   await expect(page.getByTestId('org-onboarding')).toHaveCount(0);
 });
 

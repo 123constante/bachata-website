@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ROLE_LABEL } from '@/lib/searchEntities';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
 import { formatWallClockTime, wallClockDateKey, wallClockExactDateKey } from '@/lib/time/wallClock';
 import type { EventPageModel, FestivalScheduleItem } from '@/modules/event-page/types';
+
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 // Exported so the new bento ScheduleBlock can reuse this hook without
@@ -24,6 +26,12 @@ export type Person = {
    *  (default behaviour preserved). When non-null, RankCard groups people by
    *  level so each level row shows its own teacher/DJ. */
   level: SessionLevel | null;
+  /** ISO alpha-2 for the flag on the photo, or null: `nationality_code` on each
+   *  person of event_view_p5 legacy_compat (admin #774/#799), passed through as
+   *  emitted. NationalityFlag applies the one rule (components/people/nationality)
+   *  when it renders, so this route's first load does not carry that module
+   *  (perf-budgets.json). */
+  nationalityCode?: string | null;
 };
 
 export type SessionLevel = 'beginner' | 'improver' | 'intermediate' | 'advanced' | 'open_level';
@@ -180,9 +188,9 @@ const hrefFor = (profileType: string | null, profileId: string | null): string |
 };
 
 const roleLabel = (profileType: string | null): string => {
-  if (profileType === 'teacher') return 'Teacher';
-  if (profileType === 'dj') return 'DJ';
-  if (profileType === 'dancer') return 'Dancer';
+  // A person's role word is the ONE vocabulary's (W1 review M5): ROLE_LABEL, the same source
+  // the people-badges tags read, so the same words as every other people surface.
+  if (profileType === 'teacher' || profileType === 'dj' || profileType === 'dancer') return ROLE_LABEL[profileType];
   if (profileType === 'videographer') return 'Videographer';
   if (profileType === 'vendor') return 'Vendor';
   return '';
@@ -278,6 +286,9 @@ type RpcPerson = {
   avatar_url: string | null;
   sort_order: number | null;
   level: string | null;
+  /** Two-letter code or null on every person (admin #774/#799). Optional only so
+   *  a payload from before that change still parses (no flag). */
+  nationality_code?: string | null;
 };
 export type RpcItem = {
   id: string;
@@ -369,6 +380,7 @@ export function parseProgramItems(data: unknown): ScheduleSession[] {
             role: roleLabel(r.profile_type),
             profileType: r.profile_type,
             level: lvl,
+            nationalityCode: typeof r.nationality_code === 'string' ? r.nationality_code : null,
           };
         })
         .filter((x): x is Person => x !== null);

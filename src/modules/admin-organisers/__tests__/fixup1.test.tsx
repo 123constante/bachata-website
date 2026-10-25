@@ -2,7 +2,7 @@
 /** Round-1 fix-up: redeem refreshes Home (F1), the one-time link survives a collapse (F2), a row whose reads fail says so and retries (F3). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
@@ -29,8 +29,6 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
-import InviteRedeemPage from '../InviteRedeemPage';
-import { organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 
 const ok = (data: unknown) => Promise.resolve({ data, error: null });
 const ORGS = [
@@ -52,7 +50,9 @@ beforeEach(() => {
       case 'admin_is_admin': return ok(true);
       case 'organiser_ownership_v1': return failOwnership.has(id) ? Promise.reject(new Error('boom')) : ok({ is_managed: false });
       case 'admin_list_organiser_invites_v1': return failInvites.has(id) ? Promise.reject(new Error('boom')) : ok(id === 'o-in' ? [sent] : []);
-      case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
+      case 'admin_issue_organiser_invite_v1': return ok({ ok: true, invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', email_bound: false, revoked_previous: [] });
+      case 'admin_list_invite_requests_v1': return ok([]);
+      case 'admin_list_signup_access_requests_v1': return ok([]);
       case 'redeem_organiser_invite_v1': return ok({ ok: true, status: 'redeemed', organiser_id: 'o1', member_role: 'owner' });
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
     }
@@ -64,30 +64,7 @@ afterEach(cleanup);
 
 const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-describe('F1 redeem refreshes the organiser home before navigating', () => {
-  function HomeProbe({ fetchHome }: { fetchHome: () => Promise<unknown> }) {
-    useQuery({ queryKey: organiserHomeQueryKey('u1'), queryFn: fetchHome, staleTime: 60_000 });
-    return <p data-testid="landed">home</p>;
-  }
-  it.each(['redeemed', 'already_member'])('%s: a fresh cached "no organisers" home is refetched', async (status) => {
-    h.rpc.mockImplementation((fn: string) => (fn === 'redeem_organiser_invite_v1' ? ok({ ok: true, status, organiser_id: 'o1', member_role: 'owner' }) : Promise.reject(new Error(fn))));
-    const qc = client();
-    qc.setQueryData(organiserHomeQueryKey('u1'), { today: '', organisers: [] });
-    const fetchHome = vi.fn().mockResolvedValue({ today: '', organisers: [{ id: 'o1' }] });
-    render(
-      <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[`/invite/${TOKEN}`]}>
-          <Routes>
-            <Route path="/invite/:token" element={<InviteRedeemPage />} />
-            <Route path="/account/o" element={<HomeProbe fetchHome={fetchHome} />} />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    await screen.findByTestId('landed');
-    await waitFor(() => expect(fetchHome).toHaveBeenCalledTimes(1));
-  });
-});
+// F1 (redeem refreshes the organiser home) moved to join/__tests__/joinJourney.test.tsx with the Option B journey (W1).
 
 function mountAdmin() {
   return render(
@@ -100,6 +77,12 @@ function mountAdmin() {
 }
 const rowOf = async (name: string) => (await screen.findAllByText(name))[0].closest('li') as HTMLElement;
 const toggle = (row: HTMLElement) => fireEvent.click(row.querySelector('button')!);
+/** Invite -> Send a link -> Make link (an unbound link). */
+const makeLink = () => {
+  fireEvent.click(screen.getByTestId('row-primary'));
+  fireEvent.click(screen.getByTestId('choice-link'));
+  fireEvent.click(screen.getByTestId('link-submit'));
+};
 
 describe('F2 the one-time link survives a collapse until Done', () => {
   it('collapsing is refused with a warning, the link stays, Done clears it', async () => {
@@ -107,7 +90,7 @@ describe('F2 the one-time link survives a collapse until Done', () => {
     const row = await rowOf('Alpha Unclaimed');
     await waitFor(() => expect(row.getAttribute('data-status')).toBe('unclaimed'));
     toggle(row);
-    fireEvent.click(screen.getByTestId('generate-invite'));
+    makeLink();
     await screen.findByTestId('one-time-link');
     toggle(row);
     expect(screen.getByTestId('link-field')).toBeTruthy();
@@ -129,7 +112,7 @@ describe('F2 the one-time link survives a collapse until Done', () => {
     const row = await rowOf('Alpha Unclaimed');
     await waitFor(() => expect(row.getAttribute('data-status')).toBe('unclaimed'));
     toggle(row);
-    fireEvent.click(screen.getByTestId('generate-invite'));
+    makeLink();
     await screen.findByTestId('one-time-link');
     fireEvent.change(screen.getByTestId('admin-search'), { target: { value: 'brav' } });
     fireEvent.change(screen.getByTestId('admin-search'), { target: { value: '' } });
@@ -148,13 +131,13 @@ describe('F3 a row whose reads fail says so and can retry', () => {
     await screen.findAllByTestId('organiser-row');
     toggle(row);
     const err = await screen.findByTestId('row-load-error');
-    expect(err.textContent).toContain('Could not load this organiser’s invite status');
-    expect((screen.getByTestId('generate-invite') as HTMLButtonElement).disabled).toBe(true);
+    expect(err.textContent).toContain('This organiser\u2019s links did not load. Tap Retry.');
+    expect((screen.getByTestId('row-primary') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByText('Loading this organiser’s links.')).toBeNull();
     (which === 'ownership' ? failOwnership : failInvites).delete(id);
     fireEvent.click(screen.getByTestId('row-retry'));
     await waitFor(() => expect(row.getAttribute('data-status')).not.toBe('loading'));
     expect(screen.queryByTestId('row-load-error')).toBeNull();
-    expect((screen.getByTestId('generate-invite') as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId('row-primary') as HTMLButtonElement).disabled).toBe(false);
   });
 });

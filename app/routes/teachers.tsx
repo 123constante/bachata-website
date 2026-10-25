@@ -3,6 +3,7 @@ import ComingSoonGate from "@/components/ComingSoonGate";
 import { flags } from "@/lib/featureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
+import { personCardPhoto } from "@/lib/seo/personCard";
 import { resolvePublicName } from "@/lib/publicName";
 import TeacherProfile from "@/pages/TeacherProfile";
 import { createServerQueryClient } from "@/App";
@@ -47,8 +48,8 @@ export const loader = withSsrLoaderTimeout("teacher-loader", async function load
   const row = ((data ?? []) as Array<Record<string, unknown>>)[0];
   if (!row) throwDetailNotFound("Teacher");
 
-  const photo = row.photo_url;
-  const rawPhoto = (Array.isArray(photo) ? photo[0] : photo) as string | null | undefined;
+  // S5 card rule: the teacher's own photo, then the avatar (the RPC's photo_url is the avatar today).
+  const rawPhoto = personCardPhoto(null, row.photo_url);
   return taggedData(
     {
       locked: false as const,
@@ -65,6 +66,8 @@ export const loader = withSsrLoaderTimeout("teacher-loader", async function load
         surname: row.surname as string | null,
       }) ?? undefined,
       entitySlug: ref.slug ?? params.id,
+      // S5: the person's own city on the card (was always London).
+      entityCity: (row.city as string | null | undefined) ?? null,
       // Phase 5 prep — normalize og:image through /api/og/card?kind=image so
       // WebP/oversized teacher photos render as social cards. Mirrors
       // middleware.ts's fetchTeacherMeta ogNormalizedImage. NOTE: /teachers is
@@ -90,11 +93,14 @@ export const meta: Route.MetaFunction = ({ data }) => {
       { name: "robots", content: "noindex,nofollow" },
     ];
   }
+  // The typegen'd union does not narrow on `locked` (a pre-existing TS2339 here); say it once.
+  const open = data as Extract<typeof data, { locked: false }>;
   return seoInputToMeta(
     buildSeoForRoute("teacher.detail", {
-      entityName: data.entityName,
-      entitySlug: data.entitySlug,
-      ogImage: data.ogImage,
+      entityName: open.entityName,
+      entitySlug: open.entitySlug,
+      ogImage: open.ogImage,
+      cityDisplay: open.entityCity,
     }),
   );
 };

@@ -113,7 +113,7 @@ describe('Auth sign-in with an email that has no account', () => {
     });
     mount('/auth?mode=signup&userType=dancer');
     // Walk the three sign-up steps: role, first name + city + dance role, email.
-    fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
     fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
     fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Follower' }));
@@ -122,7 +122,7 @@ describe('Auth sign-in with an email that has no account', () => {
     await screen.findByLabelText(/email/i);
     await sendMagicLink('stranger@example.com');
 
-    await waitFor(() => expect(screen.getByText(/Sign-up is invite-only for now/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/We can.t create an account for this email yet/)).toBeTruthy());
     expect(screen.queryByText(/couldn.t send your email/i)).toBeNull();
     expect(signInWithOtp.mock.calls[0][0]).toMatchObject({ options: { shouldCreateUser: true } });
   });

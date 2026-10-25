@@ -35,6 +35,12 @@ export interface SeriesShape {
   videos: string[];
   /** The next upcoming date has sessions (and people on them). */
   sessionsOnNext: boolean;
+  /**
+   * The series programme holds a session (admin_event_workspace_p5 series.program), so every
+   * date runs it. Prod 2026-10-13 (FIX-6): every live, paused and ended non-festival, non-course
+   * series has one; 4 of the 5 drafts have none (the F-b shape). Defaults from the lifecycle.
+   */
+  seriesProgramme: boolean;
   /** event_series_p5.category ('party' unless the shape says otherwise). */
   category?: string;
   /** Tombstoned dates (breaks, removed dates). */
@@ -72,6 +78,7 @@ export function shape(s: Partial<SeriesShape> & Pick<SeriesShape, 'key' | 'about
     gallery: [],
     videos: [],
     sessionsOnNext: true,
+    seriesProgramme: s.lifecycle === 'live' || s.lifecycle === 'paused' || s.lifecycle === 'ended',
     ...s,
   };
 }
@@ -238,7 +245,7 @@ export function workspaceOf(s: SeriesShape) {
         recurrence_rule: s.rule, removed_dates: s.removedDates ?? [], default_music_styles: s.styles, gallery: s.gallery,
         video_urls: s.videos, ended_on: s.endedOn, is_template: false,
       },
-      program: [],
+      program: s.seriesProgramme ? [{ sections: [{ kind: 'classes', items: [{ item: { type: 'class', start_time: '20:00:00' } }] }] }] : [],
     },
     occurrences: page.map((d) => ({
       id: d.id, occurrence_date: d.date, lifecycle_status: d.status, version: 1, has_override: d.status === 'cancelled',

@@ -1,18 +1,28 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, MapPin, Loader2 } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
+import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import { GOING_COPY, useMyGoing } from '@/modules/going';
+// The dancer app's ONE night mapping (Home, Nights and this page read the same tags and lines).
+import {
+  NIGHTS_OFF_LINE,
+  mapMyGoing,
+  nightNote,
+  fullDate,
+  goingUpcomingCount,
+  statusLabel,
+  type Night,
+} from '@/modules/dancer-app/screens/nights/nightsModel';
 // NOT LevelRatingPrompt: importing it here (a lazy chunk) would split it out of
 // the /event/:id route chunk, one more first-load request on every event page.
 // A past night links to the event's own rating card instead.
@@ -20,95 +30,80 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 // /account/dancer, not /account: /account sends an organiser on to the organiser home.
 import { DANCER_HOME_PATH } from '@/lib/accountRouting';
 
-type AttendanceRow = {
-  event_id: string;
-  status: string;
-  updated_at: string | null;
-  name: string | null;
-  occurrence_date: string | null;
-  city_name: string | null;
-  country: string | null;
-  city_slug: string | null;
-  start_time: string | null;
-  type: string | null;
-  is_active: boolean;
-};
-
-type AttendanceCard = {
-  event_id: string;
-  name: string;
-  date: string | null;
-  city: string | null;
-  type: string | null;
-  status: string;
-  updated_at: string | null;
-};
-
-/** = LEVEL_RATING_ANCHOR (LevelRatingPrompt; equality asserted in MyAttendance.test.tsx). */
+/** = LEVEL_RATING_ANCHOR (LevelRatingPrompt; equality asserted in tests/client/myAttendance.test.tsx). */
 export const RATE_ANCHOR = 'level-rating';
 
-const formatDate = (value?: string | null) => {
-  if (!value) return 'Date TBA';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'Date TBA';
-  return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const statusBadgeClass = (n: Night) => {
+  if (n.status === 'cancelled') return 'border-red-400/40 bg-red-500/15 text-red-100';
+  if (n.past) return 'border-slate-500/40 bg-slate-700/30 text-slate-200';
+  return 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100';
 };
 
-const isPastDate = (value?: string | null) => {
-  if (!value) return false;
-  const parsed = new Date(value);
-  return !Number.isNaN(parsed.getTime()) && parsed.getTime() < Date.now() - 24 * 3600_000;
+/** A past night that went ahead, on a still-listed event, offers its event page's rating card. */
+const canRate = (n: Night) => n.past && n.status === 'ended' && n.listed && n.href !== null;
+
+const NightCard = ({ night }: { night: Night }) => {
+  const navigate = useNavigate();
+  const note = nightNote(night);
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-foreground line-clamp-2 leading-tight">{night.name}</p>
+        <Badge className={`text-[10px] border shrink-0 ${statusBadgeClass(night)}`}>{statusLabel(night)}</Badge>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <CalendarDays className="h-3 w-3" />
+          {night.when ?? fullDate(night.date)}
+        </span>
+        {night.venue && (
+          <span className="inline-flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            {night.venue}
+          </span>
+        )}
+      </div>
+      {note && <p className="mt-1 text-[11px] text-muted-foreground" data-testid="attendance-note">{note}</p>}
+    </>
+  );
+  return (
+    <div
+      data-testid="attendance-night"
+      data-status={night.status}
+      className="rounded-xl border border-slate-700 bg-slate-900/65 p-3 hover:border-cyan-300/45 hover:bg-slate-900/85 transition-colors"
+    >
+      {night.href ? (
+        <button
+          type="button"
+          onClick={() => navigate(night.href!)}
+          className="block w-full min-h-[44px] text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
+        >
+          {body}
+        </button>
+      ) : (
+        <div>{body}</div>
+      )}
+      {canRate(night) && (
+        <Link
+          to={`${night.href}#${RATE_ANCHOR}`}
+          className="mt-1 inline-flex min-h-[44px] items-center text-[13px] font-semibold text-primary underline underline-offset-2"
+          data-testid="attendance-rate"
+        >
+          Rate the dancing level
+        </Link>
+      )}
+    </div>
+  );
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  going: 'Going',
-  interested: 'Interested',
-  registered: 'Registered',
-  attended: 'Attended',
-  cancelled: 'Cancelled',
-};
-
-const statusBadgeClass = (status: string) => {
-  const key = status.toLowerCase();
-  if (key === 'going' || key === 'attended') {
-    return 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100';
-  }
-  if (key === 'interested' || key === 'registered') {
-    return 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100';
-  }
-  if (key === 'cancelled') {
-    return 'border-red-400/40 bg-red-500/15 text-red-100';
-  }
-  return 'border-slate-500/40 bg-slate-700/30 text-slate-200';
-};
-
-const renderStatusLabel = (status: string) => {
-  const key = status.toLowerCase();
-  return STATUS_LABEL[key] ?? (status ? status[0].toUpperCase() + status.slice(1) : 'Unknown');
-};
-
-const fetchMyAttendance = async (): Promise<AttendanceCard[]> => {
-  // v2's card fields are P5-native (name/occurrence_date/city_name/type come from
-  // event_series_p5/event_occurrence_p5, not a legacy `events` join), so unlike v1
-  // this no longer needs -- or can silently drop rows via -- a second `events` query.
-  // Residual, accepted: if a series' legacy_event_id ever points at a hard-deleted
-  // legacy row, the card still renders (name/date/city resolve from P5) but its
-  // click-through 404s, instead of the row vanishing outright as v1's join did.
-  const { data: rows, error } = await supabase.rpc('get_my_event_attendance_v2');
-  if (error) throw error;
-
-  const attendance = (rows ?? []) as AttendanceRow[];
-
-  return attendance.map((row) => ({
-    event_id: row.event_id,
-    name: row.name ?? 'Untitled event',
-    date: row.occurrence_date,
-    city: row.city_name,
-    type: row.type,
-    status: row.status,
-    updated_at: row.updated_at,
-  }));
-};
+const NightList = ({ title, nights, testId }: { title: string; nights: Night[]; testId: string }) => (
+  <section aria-label={title} data-testid={testId} className="space-y-2">
+    <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      {nights.map((n) => <NightCard key={n.occurrenceId} night={n} />)}
+    </div>
+  </section>
+);
 
 const MyAttendance = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -117,41 +112,19 @@ const MyAttendance = () => {
 
   useSeo({
     title: 'My event attendance',
-    description: 'View the Bachata Calendar events you have marked as going or interested.',
+    description: 'The Bachata Calendar nights you said you are going to.',
     noindex: true,
   });
 
-  const attendanceQueryKey = ['my-event-attendance', user?.id];
+  // get_my_going_v1 through the going module (behind the going switch: off = no read at all).
+  const { data, isLoading, isError, refetch, isFetching } = useMyGoing();
+  const nights = useMemo(() => mapMyGoing(data), [data]);
+  const total = nights.upcoming.length + nights.past.length;
+  // THE upcoming going count (the same one the dancer app's Home tile shows).
+  const goingCount = goingUpcomingCount(nights.upcoming);
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AttendanceCard[]>({
-    queryKey: attendanceQueryKey,
-    queryFn: fetchMyAttendance,
-    enabled: Boolean(user?.id),
-    // Phase 3 (IO optimization arc, resumed): 60s -> 2min, not the originally
-    // planned 5min -- no RSVP mutation invalidates this key (useAttendance.ts
-    // only invalidates the per-event status/engagement keys), so a user who
-    // RSVPs on an event page and immediately navigates here in the same tab
-    // relies entirely on this staleTime to see the update. No refetchInterval:
-    // round 2 of review found that a periodic timer here is a net IO INCREASE
-    // over the true pre-PR baseline for any continuously-focused tab (there
-    // was never a poll at all); the app-wide refetchOnWindowFocus default
-    // (src/App.tsx) already covers tab-return refreshes, gated by staleTime.
-    staleTime: 2 * 60_000,
-  });
-
-  const sorted = useMemo(() => {
-    if (!data) return [];
-    return [...data].sort((a, b) => {
-      const aTime = a.date ? new Date(a.date).getTime() : 0;
-      const bTime = b.date ? new Date(b.date).getTime() : 0;
-      if (aTime !== bTime) return bTime - aTime;
-      const aUpd = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-      const bUpd = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-      return bUpd - aUpd;
-    });
-  }, [data]);
-
-  const showLoading = isAuthLoading || (Boolean(user?.id) && isLoading);
+  const showLoading = isAuthLoading || (GOING_CHECKIN_ENABLED && Boolean(user?.id) && isLoading);
+  const failed = GOING_CHECKIN_ENABLED && isError;
   const calendarPath = citySlug ? buildCityPath(citySlug, 'calendar') : '/parties';
 
   return (
@@ -161,13 +134,10 @@ const MyAttendance = () => {
           <div className="flex items-end justify-between gap-3">
             <div>
               <h1 className="text-lg font-semibold text-foreground">My Event Attendance</h1>
-              <p className="text-xs text-muted-foreground">
-                Events you have marked as going or interested.
-              </p>
             </div>
-            {data && data.length > 0 && (
-              <Badge className="border border-cyan-400/35 bg-cyan-500/10 text-cyan-100">
-                {data.length} {data.length === 1 ? 'event' : 'events'}
+            {goingCount > 0 && (
+              <Badge className="border border-cyan-400/35 bg-cyan-500/10 text-cyan-100" data-testid="attendance-count">
+                {goingCount} {goingCount === 1 ? 'night' : 'nights'}
               </Badge>
             )}
           </div>
@@ -181,39 +151,37 @@ const MyAttendance = () => {
             </div>
           )}
 
-          {!showLoading && isError && (
+          {!showLoading && failed && (
             <Card className="border border-red-400/40 bg-red-950/40">
               <CardContent className="p-3 flex flex-col gap-2">
-                <p className="text-sm text-red-100">
-                  Failed to load attendance: {error instanceof Error ? error.message : 'Unknown error'}
-                </p>
+                <p className="text-sm text-red-100">We couldn&rsquo;t load your nights. Check your connection and try again.</p>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="self-start border-red-400/40 bg-red-950/30 hover:bg-red-900/40 text-red-100"
+                  className="self-start min-h-[44px] border-red-400/40 bg-red-950/30 hover:bg-red-900/40 text-red-100"
                   onClick={() => void refetch()}
                   disabled={isFetching}
                 >
                   {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                  Retry
+                  {GOING_COPY.retry}
                 </Button>
               </CardContent>
             </Card>
           )}
 
-          {!showLoading && !isError && sorted.length === 0 && (
-            <Card className="border border-dashed border-slate-700 bg-slate-900/40">
+          {!showLoading && !failed && total === 0 && (
+            <Card className="border border-dashed border-slate-700 bg-slate-900/40" data-testid="attendance-empty">
               <CardContent className="p-4 flex flex-col items-center text-center gap-2">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80">
                   <CalendarDays className="h-4 w-4 text-slate-400" />
                 </span>
-                <p className="text-sm text-foreground">No event attendance yet.</p>
-                <p className="text-xs text-muted-foreground max-w-xs">
-                  Tap &ldquo;I&rsquo;m Going&rdquo; or &ldquo;Interested&rdquo; on any event page and it will show up here.
-                </p>
+                <p className="text-sm text-foreground">{GOING_CHECKIN_ENABLED ? GOING_COPY.myUpcomingEmpty : NIGHTS_OFF_LINE}</p>
+                {GOING_CHECKIN_ENABLED && (
+                  <p className="text-xs text-muted-foreground max-w-xs">{GOING_COPY.myUpcomingEmptyHow}</p>
+                )}
                 <Button
                   size="sm"
-                  className="mt-1 bg-primary hover:bg-primary/90"
+                  className="mt-1 min-h-[44px] bg-primary hover:bg-primary/90"
                   onClick={() => navigate(calendarPath)}
                 >
                   Browse events
@@ -222,55 +190,22 @@ const MyAttendance = () => {
             </Card>
           )}
 
-          {!showLoading && !isError && sorted.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-              {sorted.map((item, index) => {
-                const targetPath =
-                  (item.type ?? '').toLowerCase() === 'festival'
-                    ? `/festival/${item.event_id}`
-                    : `/event/${item.event_id}`;
-                return (
-                  <div
-                    key={`${item.event_id}-${item.date ?? 'no-date'}-${index}`}
-                    className="rounded-xl border border-slate-700 bg-slate-900/65 p-3 hover:border-cyan-300/45 hover:bg-slate-900/85 transition-colors"
-                  >
-                  <button
-                    type="button"
-                    onClick={() => navigate(targetPath)}
-                    className="block w-full text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground line-clamp-2 leading-tight">
-                        {item.name}
-                      </p>
-                      <Badge className={`text-[10px] border shrink-0 ${statusBadgeClass(item.status)}`}>
-                        {renderStatusLabel(item.status)}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <CalendarDays className="h-3 w-3" />
-                        {formatDate(item.date)}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {item.city || 'City TBA'}
-                      </span>
-                    </div>
-                  </button>
-                  {isPastDate(item.date) && (item.type ?? '').toLowerCase() !== 'festival' && (
-                    <Link
-                      to={`${targetPath}#${RATE_ANCHOR}`}
-                      className="mt-1 inline-flex min-h-[44px] items-center text-[13px] font-semibold text-primary underline underline-offset-2"
-                      data-testid="attendance-rate"
-                    >
-                      Rate the dancing level
-                    </Link>
-                  )}
-                  </div>
-                );
-              })}
-            </div>
+          {!showLoading && !failed && total > 0 && (
+            <>
+              {nights.upcoming.length > 0 ? (
+                <NightList title={GOING_COPY.myUpcomingTitle} nights={nights.upcoming} testId="attendance-upcoming" />
+              ) : (
+                <p className="text-xs text-muted-foreground" data-testid="attendance-upcoming-empty">
+                  {GOING_COPY.myUpcomingEmpty} {GOING_COPY.myUpcomingEmptyHow}{' '}
+                  <Link to={calendarPath} className="inline-flex min-h-[44px] items-center font-semibold text-primary underline underline-offset-2">
+                    Browse events
+                  </Link>
+                </p>
+              )}
+              {nights.past.length > 0 && (
+                <NightList title={GOING_COPY.myPastTitle} nights={nights.past} testId="attendance-past" />
+              )}
+            </>
           )}
         </div>
       </div>

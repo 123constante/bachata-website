@@ -132,6 +132,8 @@ export const LINKS = [
   "check:mojibake",
   "check:legacy-tables",
   "check:legacy-program-rpcs",
+  "check:going-legacy-rpcs:self-test",
+  "check:going-legacy-rpcs",
   "check:no-social-word",
   "lint:architecture",
   "check:route-boundaries",
@@ -143,6 +145,10 @@ export const LINKS = [
   "check:wallclock-brand",
   "check:workflow-artifact-policy:self-test",
   "check:workflow-artifact-policy",
+  "check:no-preview-prefixes:self-test",
+  "check:no-preview-prefixes",
+  "check:journey-grid:self-test",
+  "check:journey-grid",
 ];
 
 /**

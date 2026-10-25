@@ -11,14 +11,19 @@ import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-
 import { getAuthStepperStage } from "@/lib/auth-signup-resolver";
 import {
   DANCE_ROLE_REQUIRED_ERROR,
+  OTP_RESEND_COOLDOWN_SECONDS,
+  SIGNUP_HELP_WHATSAPP_URL,
   SIGNUP_INVITE_ONLY_DESCRIPTION,
   SIGNUP_INVITE_ONLY_TITLE,
   armPostLoginPrompt,
   isFirstSignIn,
   isSignupAllowlistRefusal,
+  SIGNED_IN_LANDING_PATH,
 } from "@/lib/auth-otp-routing";
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
+import { claimOrganisersAtSignIn } from "@/lib/claimMyOrganisers";
+import { claimLandingPath, claimToastProps, shouldToastClaim } from "@/lib/claimSignInLanding";
+import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting";
 import { useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +48,7 @@ type AuthStepperProps = {
 };
 
 const emailPattern = /\S+@\S+\.\S+/;
-const OTP_RESEND_COOLDOWN_SECONDS = 30;
+// OTP_RESEND_COOLDOWN_SECONDS: the one shared value (lib/auth-otp-routing, audit H7).
 const SIGNUPS_DISABLED_HINT = "Signups are disabled for OTP. Contact support or use an existing account.";
 
 export const AuthStepper = ({
@@ -144,6 +149,9 @@ export const AuthStepper = ({
     // Self-claim as /auth/callback does, before anything reads the persona
     // (every sign-in; never throws, never holds the sign-in past its timeout).
     const claim = await claimAtSignIn(queryClient);
+    // Then the organiser pages an admin recorded this email against, as /auth/callback does (one
+    // shared step: lib/claimMyOrganisers). Never throws, never holds the sign-in; empty on failure.
+    const claimedPages = await claimOrganisersAtSignIn(session.user.id);
     // Signed in without passing through /auth/callback: arm the one-time
     // Finish-your-profile prompt here as the callback does (first sign-in only,
     // and not on the sign-in that just linked an admin-made profile) -- unless
@@ -160,13 +168,35 @@ export const AuthStepper = ({
       });
     }
 
+    // Where the claim lands when nothing else says: an explicit returnTo, then the stashed one, win
+    // (as in /auth/callback, D37). The notice is stashed for Home; elsewhere a short toast says it.
+    let claimTarget: string | null = null;
+    if (claimedPages.length > 0) {
+      const claimHome = claimLandingPath(claimedPages, false);
+      let landsAt = claimHome;
+      if (!onAuthenticated && !returnTo) {
+        const pending = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
+        if (pending) localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        claimTarget = pending ?? claimHome;
+        landsAt = claimTarget;
+      } else if (returnTo) {
+        landsAt = returnTo;
+      }
+      if (shouldToastClaim(claimedPages, false, landsAt ?? "")) toast(claimToastProps(claimedPages));
+    }
+
     if (onAuthenticated) {
       onAuthenticated();
       return;
     }
 
+    if (claimTarget) {
+      navigate(claimTarget);
+      return;
+    }
+
     if (intent === "new" && userType) {
-      navigate("/profile");
+      navigate(SIGNED_IN_LANDING_PATH);
       return;
     }
 
@@ -293,7 +323,7 @@ export const AuthStepper = ({
           description: (
             <>
               {SIGNUP_INVITE_ONLY_DESCRIPTION}{" "}
-              <a href={WHATSAPP_GET_LISTED_URL} target="_blank" rel="noopener noreferrer" className="underline">
+              <a href={SIGNUP_HELP_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="underline">
                 Message us on WhatsApp
               </a>
               .
@@ -568,13 +598,14 @@ export const AuthStepper = ({
             />
           </div>
           <div className="space-y-2">
-            <Label className={fieldErrors.city ? "text-destructive" : undefined}>
+            <Label htmlFor="stepper-city" className={fieldErrors.city ? "text-destructive" : undefined}>
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
                 Your city
               </span>
             </Label>
             <CityPicker
+              id="stepper-city"
               value={cityId}
               onChange={(val, cityOption) => {
                 setCityId(val);

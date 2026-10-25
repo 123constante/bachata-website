@@ -1,7 +1,9 @@
 import { createContext, startTransition, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import type { User, Session } from "@supabase/supabase-js";
+import { QueryClientContext } from "@tanstack/react-query";
 import { getSupabase } from "@/integrations/supabase/getSupabase";
-import type { ProfileCompletionStatus, RatingGate } from "@/lib/profileCompletion";
+import type { ProfileCompletionStatus, ProfileField, RatingGate } from "@/lib/profileCompletion";
+import { clearPersonScopedStorage } from "@/lib/personScopedStorage";
 import {
   startAuthResolution,
   AUTH_RESOLVE_TIMEOUT_MS,
@@ -32,9 +34,23 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   authStatus: AuthStatus;
-  signOut: () => Promise<SignOutOutcome>;
+  /** This device only (owner decision D6); `{ everywhere: true }` is settings' "Sign out of all devices". */
+  signOut: (opts?: SignOutOptions) => Promise<SignOutOutcome>;
   retryAuth: () => void;
 };
+
+export type SignOutOptions = {
+  everywhere?: boolean;
+  /**
+   * Runs after the person's data has left this browser's storage and BEFORE `user` turns
+   * null (useSignOutToHome navigates home here: audit H10, #789 storage race). Not run when
+   * nothing was signed out (the client never loaded).
+   */
+  leave?: () => Promise<void>;
+};
+
+/** Upper bound on waiting for the server revoke; the device is cleared whatever happens. */
+const SIGN_OUT_SERVER_WAIT_MS = 3000;
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -63,6 +79,8 @@ export const useAuth = () => useContext(AuthContext);
  */
 export type ProfileGateValue = {
   status: ProfileCompletionStatus;
+  /** The required fields still empty, in profile order (the Going lock reads these, never the reason text). */
+  missing: readonly ProfileField[];
   gateFor: (returnTo: string) => RatingGate;
   /** The gate to show when rate_series_level_p5_v1 refuses with `profile_incomplete` (the server is the authority). */
   refusedGateFor: (returnTo: string) => RatingGate;
@@ -133,46 +151,81 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * (offline, 5xx) sailed straight through the happy path.
    *
    * Structured as three explicit outcomes; see SignOutOutcome. */
-  const signOut = async (): Promise<SignOutOutcome> => {
+  /* D1: the person's cached server reads go with them too (the next person on this
+   * browser must not see A's sides or profile for a frame). The context, not
+   * useQueryClient(): a provider rendered without a QueryClient must not throw. */
+  const queryClient = useContext(QueryClientContext);
+  const forgetPerson = () => {
+    clearPersonScopedStorage();
+    queryClient?.clear();
+  };
+
+  const signOut = async (opts?: SignOutOptions): Promise<SignOutOutcome> => {
     let supabase: Awaited<ReturnType<typeof getSupabase>>;
     try {
       // getSupabase() is a runtime fetch (the arc deferred this client off the
       // first-load graph), so it has a rejection path a static import did not.
       supabase = await getSupabase();
-    } catch (err) {
+    } catch {
       // Nothing local changed and no request was sent: the user is still signed
       // in, and must be told so.
-            return "failed";
+      return "failed";
     }
 
-    /* BOTH failure shapes, one path. supabase-js normally RESOLVES with { error },
-     * but the call can still THROW (a fetch-layer failure, an aborted request).
-     * The old body caught only the thrown shape and let the returned one through;
-     * catching only the returned shape would just invert the same bug, so a throw
-     * is funnelled into `error` and treated identically. */
-    let error: unknown = null;
-    try {
-      ({ error } = await supabase.auth.signOut());
-    } catch (err) {
-      error = err;
-    }
-    if (!error) return "signed-out";
-    
-    /* The global revoke did not land. Clearing the LOCAL session is a different
-     * operation -- storage, not network -- so it can still succeed, and on a
-     * shared device it is the half that actually protects the user. Wrapped
-     * because scope:"local" can still throw on a storage failure (Safari private
-     * mode, a full quota), which is exactly the case that must not read as
-     * success. */
-    try {
-      const { error: localError } = await supabase.auth.signOut({ scope: "local" });
-      if (localError) {
-                return "failed";
+    /* #789 sign-out storage race. FOUR steps, in this order, whatever the network does:
+     *  1. SERVER: revoke the session, bounded by SIGN_OUT_SERVER_WAIT_MS. The token is the
+     *     provider's own `session` (no getSession(): that takes the auth lock and can sit on
+     *     a refresh). supabase-js normally RESOLVES with { error } but can THROW; both are
+     *     the same "not revoked", and so is the cap running out.
+     *  2. DEVICE: every person-scoped key leaves this browser's storage -- the Supabase
+     *     session included (lib/personScopedStorage) -- on success, failure AND timeout.
+     *  3. LEAVE: the caller's step (useSignOutToHome navigates home). `user` is still set in
+     *     memory here, so AuthGuard cannot win the navigation with /auth (audit H10); and
+     *     nothing of the person is left in storage when the URL changes.
+     *  4. MEMORY: supabase-js finds no stored session, so this sends NO request and only
+     *     emits SIGNED_OUT (user -> null, other tabs told). Then storage again (anything
+     *     re-written during the leave) and the query cache.
+     * D6: an ordinary sign-out is THIS device only (scope "local"); `everywhere` is global. */
+    const scope = opts?.everywhere ? "global" : "local";
+    const accessToken = session?.access_token;
+    const revoke = async (): Promise<boolean> => {
+      if (!accessToken) return true; // no session to revoke
+      try {
+        const { error } = await supabase.auth.admin.signOut(accessToken, scope);
+        // 401/403/404: the session or user is already gone server-side (supabase-js treats them so too).
+        const status = (error as { status?: number } | null)?.status;
+        return !error || status === 401 || status === 403 || status === 404;
+      } catch {
+        return false;
       }
-    } catch (err) {
-            return "failed";
+    };
+    const revoked = await Promise.race([
+      revoke(),
+      new Promise<boolean>((done) => setTimeout(() => done(false), SIGN_OUT_SERVER_WAIT_MS)),
+    ]);
+
+    clearPersonScopedStorage();
+
+    if (opts?.leave) {
+      try {
+        await opts.leave();
+      } catch {
+        /* the leave is the caller's; the person is signed out regardless */
+      }
     }
-    return "signed-out-locally";
+
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) return "failed";
+    } catch {
+      // A storage failure (Safari private mode, a full quota) must not read as success.
+      return "failed";
+    }
+    forgetPerson();
+    /* Ordinary sign-out: the device is clean, and an unrevoked token nobody holds any more
+     * is not a session anyone can use from here. `everywhere`: other devices may still be
+     * signed in, and the UI says so (SignOutOutcome). */
+    return revoked || scope === "local" ? "signed-out" : "signed-out-locally";
   };
 
   return (

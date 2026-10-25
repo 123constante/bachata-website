@@ -74,7 +74,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first SIXTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
+ * The first EIGHTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
  * order. NOT "the npm-run links of the lint chain" any more, and not followed
  * by "a bare `eslint .`": as of 2026-08-26 `lint` is `node
  * scripts/run-lint-chain.mjs`, which owns LINKS plus TAIL (`lint:eslint`), and
@@ -135,6 +135,10 @@ export const CHECKS = [
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
   ["check:legacy-program-rpcs", "no references to retired program RPCs"],
+  // Canary BEFORE the check (fixture-only: it builds its own tree, so a live
+  // violation cannot red it ahead of the guard).
+  ["check:going-legacy-rpcs:self-test", "the retired attendance RPC names are still detected"],
+  ["check:going-legacy-rpcs", "no Website caller of the retired attendance RPCs (Going P2)"],
   ["check:no-social-word", "banned-copy scan"],
   ["lint:architecture", "runtime architecture lint"],
   ["check:route-boundaries", "every route has an error boundary"],
@@ -208,12 +212,12 @@ export const CHECKS = [
   //
   //   check:mojibake:self-test  (link 2)   .claude/settings.local.json is
   //     collected -- see the note at that entry; tracked-file dependent.
-  //   check:script-conventions:self-test  (link 12)   R5 run over the live
+  //   check:script-conventions:self-test  (link 14)   R5 run over the live
   //     source of scripts/check-ci-budget.mjs -- check-script-conventions.mjs
   //     :1191 reads it, :1630 asserts r5(referenceSource) is clean. Refactor
   //     that file's exit tail into a shape R5 scores differently and the canary
   //     reds ahead of its check.
-  //   check:workflow-artifact-policy:self-test  (link 15)   A5 fan-out measured
+  //   check:workflow-artifact-policy:self-test  (link 17)   A5 fan-out measured
   //     over the live .github/workflows -- check-workflow-artifact-policy.mjs
   //     :4560. See that entry below.
   //
@@ -262,8 +266,8 @@ export const CHECKS = [
   // the live directory at check-workflow-artifact-policy.mjs:4560 and asserts
   // `unreadable === 0 && max <= FANOUT_CAP_LEGS`. So one live-subject
   // assertion still gates this check: a workflow whose matrix expands past the
-  // cap, or one this parser cannot read, reds the CANARY at link 15 and the
-  // check at link 16 never runs. That case defends itself in its own comment --
+  // cap, or one this parser cannot read, reds the CANARY at link 17 and the
+  // check at link 18 never runs. That case defends itself in its own comment --
   // it "cannot red on ordinary work, because the only way past it is the rule
   // genuinely firing, and then the guard is red anyway and names the upload" --
   // and that is precisely the fallacy: the guard names the upload only if it is
@@ -284,6 +288,10 @@ export const CHECKS = [
   // figure is not the number recorded.
   ["check:workflow-artifact-policy:self-test", "upload steps are still recognised, and the policy still rejects"],
   ["check:workflow-artifact-policy", "every workflow artifact upload is cost-bounded"],
+  ["check:no-preview-prefixes:self-test", "the preview-job prefix drift guard can still fail"],
+  ["check:no-preview-prefixes", "preview jobs exclude exactly the Vercel no-preview prefixes"],
+  ["check:journey-grid:self-test", "every journey-grid rule still fails its own mutant"],
+  ["check:journey-grid", "every account journey-grid row is covered or in the reasoned baseline"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to
@@ -335,6 +343,11 @@ export const CHECKS = [
   // already had its review round.
   ["check:bundle-budget", "first-load JS budgets + puller/chunk ratchets (SSR routes included)"],
   ["check:first-load-requests", "first-load REQUEST-count ratchet (prerendered routes)"],
+  // The check reads the same fresh build. Its canary is buildless (CI runs it
+  // before the build); it sits here beside its check only so the pair reads as
+  // one decision, and it costs well under a second.
+  ["check:chunk-cycles:self-test", "the chunk-cycle rules are still proven in both directions"],
+  ["check:chunk-cycles", "no static import cycle between chunks (PR #746 TypeError class)"],
 ];
 
 /** Where CI declares the env the perf build is designed to run under. */

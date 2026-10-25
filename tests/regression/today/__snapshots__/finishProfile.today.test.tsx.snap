@@ -1,0 +1,505 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/finish-profile at '390x844' > 'complete (done)' 1`] = `
+"heading "Finish your profile" level=1
+text "Your profile is complete. You can rate parties now."
+button "Continue"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'error' 1`] = `
+"heading "Finish your profile" level=1
+text "We couldn’t check your profile just now. Check your connection and try again."
+button "Try again"
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'loading' 1`] = `
+"heading "Finish your profile" level=1
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: photo. Everything else on the site works without it."
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing based_city_id' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing based_city_id+avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city, photo. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing based_city_id+dance_role' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city, dance role. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing based_city_id+dance_role+avat…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city, dance role, photo. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing dance_role' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: dance role. Everything else on the site works without it."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing dance_role+avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: dance role, photo. Everything else on the site works without it."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+based_city_id' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+based_city_id+avat…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+based_city_id+danc…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city, dance role. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+based_city_id+danc…' 2`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city, dance role, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+dance_role' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, dance role. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'missing first_name+dance_role+avatar_…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, dance role, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at '390x844' > 'no profile' 1`] = `
+"heading "Set up your dancer profile" level=1
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+text "You can still browse events in the meantime."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
+button "Not now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'complete (done)' 1`] = `
+"heading "Finish your profile" level=1
+text "Your profile is complete. You can rate parties now."
+button "Continue"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'error' 1`] = `
+"heading "Finish your profile" level=1
+text "We couldn’t check your profile just now. Check your connection and try again."
+button "Try again"
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'loading' 1`] = `
+"heading "Finish your profile" level=1
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: photo. Everything else on the site works without it."
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing based_city_id' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing based_city_id+avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city, photo. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing based_city_id+dance_role' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city, dance role. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing based_city_id+dance_role+avat…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: city, dance role, photo. Everything else on the site works without it."
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing dance_role' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: dance role. Everything else on the site works without it."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing dance_role+avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: dance role, photo. Everything else on the site works without it."
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+avatar_url' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+based_city_id' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+based_city_id+avat…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+based_city_id+danc…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city, dance role. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+based_city_id+danc…' 2`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, city, dance role, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Your city"
+button "Pick city"
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+dance_role' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, dance role. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'missing first_name+dance_role+avatar_…' 1`] = `
+"heading "Finish your profile" level=1
+text "Still to add: first name, dance role, photo. Everything else on the site works without it."
+text "First name"
+textbox "First name" value=""
+text "Dance role"
+radiogroup "Dance role"
+  radio "Leader" [checked=false]
+  radio "Follower" [checked=false]
+  radio "Both" [checked=false]
+text "Photo"
+button "Upload photo"
+button "Save" [disabled]
+text "Fill in at least one field above to save."
+button "Skip for now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;
+
+exports[`/finish-profile at 'desktop' > 'no profile' 1`] = `
+"heading "Set up your dancer profile" level=1
+text "Your account does not have a dancer profile yet. Message us and we’ll set one up for you."
+text "You can still browse events in the meantime."
+link "Message us on WhatsApp" href=https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F
+button "Not now"
+link "Account settings (sign out or delete account)" href=/account/settings"
+`;

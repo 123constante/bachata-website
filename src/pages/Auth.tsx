@@ -1,14 +1,17 @@
+import { RequestAccess } from "@/components/auth/RequestAccess";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, Calendar, Camera, Check, ChevronDown, GraduationCap, Mail, Music, ShoppingBag, Sparkles, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, Calendar, Check, GraduationCap, Mail, Music, Sparkles, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CityPicker } from "@/components/ui/city-picker";
+import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { checkAccountExistsByEmail, getEmailLookupTransition } from "@/lib/auth-intent";
 import {
@@ -19,29 +22,58 @@ import {
   callbackErrorCopy,
   isOtpSignupDisabledError,
   isSignupAllowlistRefusal,
+  SIGNED_IN_LANDING_PATH,
+  OTP_RATE_LIMITED_MESSAGE,
+  SIGNUP_HELP_WHATSAPP_URL,
+  SIGN_IN_SUB,
+  isOtpRateLimitedError,
+  DEFAULT_SIGNUP_ROLES,
+  PENDING_ROLE_INTENT_KEY,
+  ROLE_INTENT_META_KEY,
+  SIGNUP_ROLES_REQUIRED_ERROR,
+  SIGNUP_ROLE_OPTIONS,
+  parseSignupRoles,
+  signupUserType,
+  toggleSignupRole,
+  type SignupRole,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
-import MagicLinkConfirmation from "@/components/MagicLinkConfirmation";
+import { trackAuthStep } from "@/lib/trackAuthStep";
+import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
+import { TermsAcceptCard } from "@/components/auth/TermsAcceptCard";
+import MagicLinkConfirmation, { forgetCodeStep, readCodeStep, rememberCodeStep, type ResendOutcome } from "@/components/MagicLinkConfirmation";
+import { ConsentLine } from "@/components/auth/ConsentLine";
+import { AUTH_ACTION_LABELS } from "@/lib/auth-labels";
 import authLogo from "@/assets/bachata-calendar-logo-auth.png";
 import { AuthFormProvider, useAuthForm, type EntryRole } from "@/contexts/AuthFormContext";
 import GlobalLayout from "@/components/layout/GlobalLayout";
+import { EmberWorld, PrimaryButton } from "@/modules/organiser/ui";
 import { flags } from "@/lib/featureFlags";
 import { SIGNUP_STEPS, getNextStep, getPreviousStep, getStepIndex, type SignupStep } from "@/lib/auth-signup-resolver";
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
 import { DanceRolePicker } from "@/components/profile/DanceRolePicker";
 
-const ROLE_OPTIONS: { label: string; icon: typeof Sparkles; value: EntryRole; description: string }[] = [
-  { label: "Dancer", icon: Sparkles, value: "dancer", description: "Find classes, partners, and events" },
-  { label: "Organiser", icon: Calendar, value: "organiser", description: "Manage and promote your events" },
-  { label: "Teacher", icon: GraduationCap, value: "teacher", description: "Reach students and share your schedule" },
-  { label: "DJ", icon: Music, value: "dj", description: "Showcase mixes and get bookings" },
-  { label: "Videographer", icon: Camera, value: "videographer", description: "Share your work and connect with organisers" },
-  { label: "Vendor", icon: ShoppingBag, value: "vendor", description: "Sell products to the dance community" },
+// The roles a ?userType= link (or a stored older choice) may name. Only the four
+// "What do you do?" choices are offered on screen (SIGNUP_ROLE_OPTIONS).
+const ROLE_OPTIONS: { value: EntryRole }[] = [
+  { value: "dancer" },
+  { value: "organiser" },
+  { value: "teacher" },
+  { value: "dj" },
+  { value: "videographer" },
+  { value: "vendor" },
 ];
 
-const DANCER_ROLE = ROLE_OPTIONS[0];
-const OTHER_ROLES = ROLE_OPTIONS.slice(1);
+const SIGNUP_ROLE_ICONS: Record<SignupRole, typeof Sparkles> = {
+  dancer: Sparkles,
+  organiser: Calendar,
+  teacher: GraduationCap,
+  dj: Music,
+};
+
+/** Dancer on by default, plus the role a link or a stored choice named when it is one of the four. */
+const initialSignupRoles = (role: EntryRole | null | undefined): SignupRole[] =>
+  parseSignupRoles([...DEFAULT_SIGNUP_ROLES, role]) ?? [...DEFAULT_SIGNUP_ROLES];
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
@@ -79,16 +111,34 @@ const AuthContent = () => {
 
   const explicitReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   // With organiser self-serve on, a sign-in with no destination lands on
-  // /account (Lever 2 W1) instead of the homepage.
-  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? "/account" : "/");
+  // /account/continue (the person's sides: straight on, or "Continue as...").
+  const returnTo = explicitReturnTo || (flags.organiserSelfServe ? SIGNED_IN_LANDING_PATH : "/");
+  // H9: "Continue browsing" is for someone who is NOT signed in, so it never goes
+  // to the signed-in landing (a guarded page that bounces straight back here).
+  const browseTo = explicitReturnTo || "/";
   const userType = searchParams.get("userType");
   const mode = searchParams.get("mode") || "signup";
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  // D7: a reload within 10 minutes of the send reopens the code box for the same
+  // e-mail and the same step (this /auth mode), instead of the e-mail form.
+  const [restoredStep] = useState(() => readCodeStep(mode));
+  const [magicLinkSent, setMagicLinkSent] = useState(() => Boolean(restoredStep));
+  const [codeEmail, setCodeEmail] = useState(restoredStep?.email ?? "");
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const callbackNotice = mode === "signin" ? callbackErrorCopy(searchParams.get("callbackError")) : null;
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Already signed in (e.g. the organiser launch link opened in a browser that
+  // has a session): no sign-up form to fill in again -- straight on to the
+  // link's returnTo, or the signed-in landing. Never once an e-mail was sent or a
+  // send is running: the code step hands over to /auth/callback itself.
+  const { user: signedInUser, isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    // An anonymous session (dev auth bypass) is not a sign-in: keep the form, like every other signed-in check.
+    if (authLoading || !signedInUser || signedInUser.is_anonymous || magicLinkSent || isSubmitting) return;
+    navigate(returnTo, { replace: true });
+  }, [authLoading, signedInUser, magicLinkSent, isSubmitting, navigate, returnTo]);
 
   const [stepDirection, setStepDirection] = useState(1);
   const [step2Touched, setStep2Touched] = useState(false);
@@ -100,18 +150,12 @@ const AuthContent = () => {
   const validRole = ROLE_OPTIONS.find((r) => r.value === userType)?.value;
   const selectedRoleValue = selectedRole && ROLE_OPTIONS.some((r) => r.value === selectedRole) ? selectedRole : null;
 
-  // The role step shows Dancer pre-selected. The choice is only committed to
-  // the form (and the URL) on Continue, so the pre-selection does not skip
-  // the step the way a stored role would.
-  const [roleDraft, setRoleDraft] = useState<EntryRole>(selectedRoleValue ?? "dancer");
-  const [otherRolesOpen, setOtherRolesOpen] = useState(Boolean(selectedRoleValue && selectedRoleValue !== "dancer"));
-
-  useEffect(() => {
-    if (selectedRoleValue) {
-      setRoleDraft(selectedRoleValue);
-      if (selectedRoleValue !== "dancer") setOtherRolesOpen(true);
-    }
-  }, [selectedRoleValue]);
+  // "What do you do?": a multi-select with Dancer on. The choice is only committed
+  // to the form (and the URL) on Continue, so the pre-selection does not skip the
+  // step the way a stored role would. The single role committed is the older
+  // `user_type` (organiser when Organiser is ticked, else dancer); the full list
+  // rides to /auth/callback beside it and only changes where the account lands.
+  const [rolesDraft, setRolesDraft] = useState<SignupRole[]>(() => initialSignupRoles(selectedRoleValue ?? validRole));
 
   useEffect(() => {
     if (validRole && validRole !== selectedRole) {
@@ -124,7 +168,11 @@ const AuthContent = () => {
     trackAnalyticsEvent("auth_viewed", { mode: mode === "signin" ? "signin" : "signup", source: "auth_page" });
   }, [mode]);
 
-  const autoStep = getNextStep(formState);
+  // M15: the details step is left only by its Continue, never the moment its
+  // third field is filled. A form that arrives already filled starts past it.
+  const [detailsDone, setDetailsDone] = useState(() => getNextStep(formState) === "email");
+  const resolvedStep = getNextStep(formState);
+  const autoStep: SignupStep = resolvedStep === "email" && !detailsDone ? "details" : resolvedStep;
   const activeStep = manualStep ?? autoStep;
   const activeStepIndex = getStepIndex(activeStep);
   const progressPercent = mode === "signup" ? Math.round(((activeStepIndex + 1) / SIGNUP_STEPS.length) * 100) : 0;
@@ -141,6 +189,10 @@ const AuthContent = () => {
     setStepDirection(nextDir);
     setLastStep(activeStep);
   }, [activeStep, lastStep]);
+
+  useEffect(() => {
+    trackAuthStep({ step: "auth_view", outcome: "ok" });
+  }, []);
 
   useEffect(() => {
     if (mode === "signin") {
@@ -172,8 +224,10 @@ const AuthContent = () => {
   };
 
   const handleRoleContinue = () => {
-    setRole(roleDraft);
-    persistRoleSelection(roleDraft);
+    if (rolesDraft.length === 0) return;
+    const role = signupUserType(rolesDraft);
+    setRole(role);
+    persistRoleSelection(role);
     setFieldErrors((prev) => ({ ...prev, role: undefined }));
     if (mode === "signup") {
       setManualStep(null);
@@ -198,26 +252,29 @@ const AuthContent = () => {
     setFieldErrors((prev) => ({ ...prev, email: undefined, send: undefined }));
   };
 
-  const handleSendMagicLink = async () => {
-    const normalizedEmail = normalizeEmail(email);
+  // Resolves with what happened, so the code box can say it (H7) instead of resetting silently.
+  // A resend goes to the address the code box shows: after a reload the form is empty, and the
+  // account already exists (the first send created it), so the sign-up fields are not re-checked.
+  const handleSendMagicLink = async ({ resend = false }: { resend?: boolean } = {}): Promise<ResendOutcome> => {
+    const normalizedEmail = normalizeEmail(resend ? codeEmail || email : email);
     if (!isValidEmail(normalizedEmail)) {
       setFieldErrors({ email: "Enter a valid email, like name@example.com." });
-      return;
+      return "failed";
     }
-    if (mode === "signup" && !selectedRole) {
+    if (!resend && mode === "signup" && !selectedRole) {
       setFieldErrors({ role: "Choose a role to continue." });
       setManualStep("role");
-      return;
+      return "failed";
     }
-    if (mode === "signup" && (!firstName.trim() || !cityId || !danceRole)) {
+    if (!resend && mode === "signup" && (!firstName.trim() || !cityId || !danceRole)) {
       setStep2Touched(true);
       setFieldErrors({});
       setManualStep("details");
-      return;
+      return "failed";
     }
     setFieldErrors({});
     const emailUpdate = updateEmail(normalizedEmail);
-    if (emailUpdate.changed) {
+    if (emailUpdate.changed && !resend) {
       setMagicLinkSent(false);
       setAuthNotice(null);
     }
@@ -232,14 +289,16 @@ const AuthContent = () => {
       transition.analytics.forEach((event) => trackAnalyticsEvent(event.event, event.payload));
       if (transition.nextIntent === "new") {
         switchToSignup(transition.notice || null);
-        return;
+        return "failed";
       }
     }
     const isCreateAccount = mode === "signup";
     if (isCreateAccount) {
       localStorage.setItem("pending_profile_role", selectedRole as EntryRole);
+      localStorage.setItem(PENDING_ROLE_INTENT_KEY, JSON.stringify(rolesDraft));
     } else {
       localStorage.removeItem("pending_profile_role");
+      localStorage.removeItem(PENDING_ROLE_INTENT_KEY);
     }
     setIsSubmitting(true);
     try {
@@ -261,15 +320,26 @@ const AuthContent = () => {
             // The stored value (Leader / Follower / Lead and Follow); /auth/callback
             // writes it to the profile stub with the name and city.
             dance_role: danceRole,
+            // "What do you do?" (Dancer / Organiser / Teacher / DJ). Recorded by /auth/callback; grants nothing.
+            [ROLE_INTENT_META_KEY]: rolesDraft,
           } : undefined,
         },
       });
       if (error) throw error;
+      trackAuthStep({ step: "code_sent", outcome: "ok" });
+      rememberCodeStep(normalizedEmail, mode);
+      setCodeEmail(normalizedEmail);
       setMagicLinkSent(true);
       localStorage.setItem("auth_last_email", normalizedEmail);
       trackAnalyticsEvent("auth_viewed", { mode: isCreateAccount ? "signup" : "signin", source: "magic_link_sent" });
+      return "sent";
     } catch (error: any) {
       const isSignupDisabled = isOtpSignupDisabledError(error);
+      // A sign-in for an email with no account is not a refusal (it moves on to "Create account"): "fallback".
+      trackAuthStep({
+        step: "code_sent",
+        outcome: isSignupDisabled && !isCreateAccount ? "fallback" : isSignupDisabled || isSignupAllowlistRefusal(error, isCreateAccount) ? "refused" : "error",
+      });
       // Sign-in for an email with no account. The pre-lookup above can't catch
       // it (account_exists_by_email is not anon-callable, so it answers
       // "unknown"), and this 422 is the first time we learn it. Move to
@@ -277,19 +347,24 @@ const AuthContent = () => {
       if (isSignupDisabled && !isCreateAccount) {
         trackAnalyticsEvent("auth_auto_switched_to_signup", { source: "auth_page", reason: "email_not_found" });
         switchToSignup(OTP_NO_ACCOUNT_NOTICE);
-        return;
+        return "failed";
       }
       // Production answers an unlisted sign-up with 403 "Sign-up is limited to
       // approved organisers." -- say so instead of "try again".
       if (isSignupAllowlistRefusal(error, isCreateAccount)) {
         setFieldErrors({ send: `${SIGNUP_INVITE_ONLY_TITLE}. ${SIGNUP_INVITE_ONLY_DESCRIPTION}`, sendInviteOnly: true });
-        return;
+        return "failed";
+      }
+      if (isOtpRateLimitedError(error)) {
+        setFieldErrors({ send: OTP_RATE_LIMITED_MESSAGE });
+        return "wait";
       }
       setFieldErrors({
         send: isSignupDisabled
           ? "We can't create new accounts right now. If you already have an account, sign in instead."
           : "We couldn't send your email. Please try again in a moment.",
       });
+      return "failed";
     } finally {
       setIsSubmitting(false);
     }
@@ -298,12 +373,41 @@ const AuthContent = () => {
   // A verified code leaves a session behind, exactly as the emailed link does.
   // Hand over to /auth/callback so both routes share one post-login resolution
   // (returnTo, pending role, profile stub) instead of a second copy of it here.
-  const handleCodeVerified = () => {
+  const continueToCallback = () => {
+    forgetCodeStep();
     const callbackUrl = new URLSearchParams({ mode: mode === "signup" ? "signup" : "signin" });
     if (explicitReturnTo) {
       callbackUrl.set("returnTo", explicitReturnTo);
     }
     navigate(`/auth/callback?${callbackUrl.toString()}`, { replace: true });
+  };
+
+  // D8. Sign-UP: the clickwrap under the code box is the consent, recorded once now that a session
+  // exists. Sign-IN: an account with no acceptance on file gets the one-tap card first. Neither a
+  // failed record nor a failed check holds the person back.
+  const [needsAccept, setNeedsAccept] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const handleCodeVerified = async () => {
+    if (mode === "signup") {
+      // Tell /auth/callback (which records for the e-mailed-link path) that this record already landed.
+      if (await acceptTerms()) {
+        try { sessionStorage.setItem("terms_recorded_this_signup", "1"); } catch { /* callback records again: harmless */ }
+      }
+      continueToCallback();
+      return;
+    }
+    if (await hasAcceptedTerms()) {
+      continueToCallback();
+      return;
+    }
+    // The code is spent: nothing may reopen its box once the card is up (H8).
+    forgetCodeStep();
+    setNeedsAccept(true);
+  };
+  const handleAccept = async () => {
+    setAccepting(true);
+    await acceptTerms();
+    continueToCallback();
   };
 
   const handleDevQuickLogin = async (destination: string) => {
@@ -337,6 +441,20 @@ const AuthContent = () => {
     }
   };
 
+  if (needsAccept) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <div className="w-full max-w-md">
+          <Card className="shadow-none">
+            <CardContent className="pt-6">
+              <TermsAcceptCard busy={accepting} onAccept={() => void handleAccept()} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   if (magicLinkSent) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 bg-background">
@@ -344,11 +462,18 @@ const AuthContent = () => {
           <Card className="shadow-none">
             <CardContent className="pt-6">
               <MagicLinkConfirmation
-                email={email}
-                onResend={handleSendMagicLink}
-                onChangeEmail={() => setMagicLinkSent(false)}
+                email={codeEmail || email}
+                onResend={() => handleSendMagicLink({ resend: true })}
+                resendError={fieldErrors.send}
+                onChangeEmail={() => {
+                  forgetCodeStep();
+                  clearEmailFeedback();
+                  setMagicLinkSent(false);
+                }}
                 onVerified={handleCodeVerified}
-                extraAction={{ label: "Continue browsing", onClick: () => navigate(returnTo) }}
+                showConsent={mode === "signup"}
+                // Sign-up runs in focus mode: its one exit is "Not now" in the top bar.
+                extraAction={mode === "signin" ? { label: "Continue browsing", onClick: () => navigate(browseTo) } : undefined}
               />
             </CardContent>
           </Card>
@@ -358,7 +483,6 @@ const AuthContent = () => {
   }
 
   const stepLabelIndex = activeStepIndex + 1;
-  const draftRoleLabel = ROLE_OPTIONS.find((role) => role.value === roleDraft)?.label ?? "Dancer";
 
   const primaryButtonClass = "w-full min-h-[44px] rounded-full font-semibold";
   const emailErrorId = "auth-email-error";
@@ -368,7 +492,7 @@ const AuthContent = () => {
       <FieldError id={SEND_ERROR_ID} message={fieldErrors.send} />
       {fieldErrors.send && fieldErrors.sendInviteOnly && (
         <a
-          href={WHATSAPP_GET_LISTED_URL}
+          href={SIGNUP_HELP_WHATSAPP_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex min-h-[44px] items-center text-sm font-medium text-primary underline underline-offset-2"
@@ -376,6 +500,7 @@ const AuthContent = () => {
           Message us on WhatsApp
         </a>
       )}
+      {fieldErrors.send && fieldErrors.sendInviteOnly && <RequestAccess initialEmail={email} />}
     </>
   );
   const danceRoleMissing = step2Touched && !danceRole;
@@ -389,7 +514,7 @@ const AuthContent = () => {
     ) : null;
 
   return (
-    <GlobalLayout showSubheader={false}>
+    <GlobalLayout showSubheader={false} showGradientBg={false}>
     <MotionConfig reducedMotion="user">
     <div className="min-h-screen flex flex-col items-center justify-start pt-8 sm:pt-12 pb-24 px-4 bg-background">
       <div className="w-full max-w-md space-y-6">
@@ -406,7 +531,7 @@ const AuthContent = () => {
             {mode === "signin" ? "Welcome back" : "Join the community"}
           </h1>
           <p className="text-sm text-muted-foreground text-center">
-            {mode === "signin" ? "Sign in with a link or a code." : "Create your account in 3 easy steps."}
+            {mode === "signin" ? SIGN_IN_SUB : "Three quick steps, then we email you a code."}
           </p>
         </div>
 
@@ -422,7 +547,7 @@ const AuthContent = () => {
             }`}
             onClick={() => navigate(signInAuthUrl)}
           >
-            Sign in
+            {AUTH_ACTION_LABELS.signin}
           </button>
           <button
             type="button"
@@ -434,7 +559,7 @@ const AuthContent = () => {
             }`}
             onClick={() => navigate(signUpAuthUrl)}
           >
-            Create account
+            {AUTH_ACTION_LABELS.signup}
           </button>
         </div>
 
@@ -500,9 +625,16 @@ const AuthContent = () => {
                     id="signin-email"
                     type="email"
                     autoComplete="email"
+                    enterKeyHint="send"
                     placeholder="you@example.com"
                     className="min-h-[44px] pl-10"
                     value={email}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isSubmitting) {
+                        e.preventDefault();
+                        void handleSendMagicLink();
+                      }
+                    }}
                     {...invalidProps(emailErrorId, fieldErrors.email)}
                     onChange={(e) => {
                       const update = updateEmail(e.target.value);
@@ -518,10 +650,10 @@ const AuthContent = () => {
               </div>
               <Button
                 className={primaryButtonClass}
-                onClick={handleSendMagicLink}
+                onClick={() => void handleSendMagicLink()}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Sending\u2026" : "Email me a sign-in link"}
+                {isSubmitting ? "Sending\u2026" : callbackNotice && searchParams.get("callbackError") === "expired" ? "Send a new link" : "Email me a sign-in link"}
               </Button>
               {sendError}
               <Button type="button" variant="ghost" className="w-full min-h-[44px] text-muted-foreground" onClick={() => navigate(signUpAuthUrl)}>
@@ -553,85 +685,62 @@ const AuthContent = () => {
                   exit="exit"
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                 >
-                  <CardHeader className="space-y-1 p-3 pb-3">
-                    <CardTitle className="text-lg">What brings you here?</CardTitle>
-                    <p className="text-sm text-muted-foreground">You can always add more roles later.</p>
-                  </CardHeader>
-                  <CardContent className="space-y-3 p-3 pt-0">
-                    {[DANCER_ROLE].map((role) => {
-                      const Icon = role.icon;
-                      const isActive = roleDraft === role.value;
-                      return (
-                        <button
-                          key={role.value}
-                          type="button"
-                          className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-3 transition-colors ${
-                            isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
-                          }`}
-                          aria-pressed={isActive}
-                          onClick={() => setRoleDraft(role.value)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                              <Icon className="w-4 h-4" aria-hidden="true" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{role.label}</p>
-                              <p className="text-sm text-muted-foreground">{role.description}</p>
-                            </div>
-                            {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-
-                    <button
-                      type="button"
-                      className="flex w-full min-h-[44px] items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:text-foreground"
-                      aria-expanded={otherRolesOpen}
-                      aria-controls="other-roles"
-                      onClick={() => setOtherRolesOpen((open) => !open)}
-                    >
-                      <span>I&rsquo;m also an organiser / teacher / DJ / videographer / vendor</span>
-                      <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${otherRolesOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-                    </button>
-
-                    {otherRolesOpen && (
-                      <div id="other-roles" className="space-y-2">
-                        {OTHER_ROLES.map((role) => {
-                          const Icon = role.icon;
-                          const isActive = roleDraft === role.value;
-                          return (
-                            <button
-                              key={role.value}
-                              type="button"
-                              className={`w-full min-h-[44px] text-left rounded-xl border px-3 py-3 transition-colors ${
-                                isActive ? "border-primary bg-secondary" : "bg-card hover:bg-secondary"
-                              }`}
-                              aria-pressed={isActive}
-                              onClick={() => setRoleDraft(isActive ? DANCER_ROLE.value : role.value)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center bg-secondary ${isActive ? "text-primary" : "text-muted-foreground"}`}>
-                                  <Icon className="w-4 h-4" aria-hidden="true" />
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{role.label}</p>
-                                  <p className="text-sm text-muted-foreground">{role.description}</p>
-                                </div>
-                                {isActive && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
+                  <EmberWorld className="space-y-[16px] p-[16px]" data-testid="signup-roles-step">
+                    <div className="space-y-[4px]">
+                      <h2 className="text-[22px] font-bold text-[var(--fg)]">What do you do?</h2>
+                      <p className="text-[15px] text-[var(--mut)]">Choose all that fit. You can change this later.</p>
+                    </div>
+                    <div role="group" aria-label="What do you do?" className="space-y-[8px]">
+                      {SIGNUP_ROLE_OPTIONS.map((role) => {
+                        const Icon = SIGNUP_ROLE_ICONS[role.value];
+                        const isActive = rolesDraft.includes(role.value);
+                        return (
+                          <button
+                            key={role.value}
+                            type="button"
+                            className={`min-h-[64px] w-full rounded-[var(--r-card)] border px-[14px] py-[10px] text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)] ${
+                              isActive ? "border-[var(--gold)] bg-[var(--card2)]" : "border-[var(--line)] bg-[var(--card)]"
+                            }`}
+                            aria-pressed={isActive}
+                            onClick={() => {
+                              setRolesDraft((current) => toggleSignupRole(current, role.value));
+                              setFieldErrors((prev) => ({ ...prev, role: undefined }));
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--card2)] ${isActive ? "text-[var(--gold)]" : "text-[var(--mut)]"}`}>
+                                <Icon className="w-4 h-4" aria-hidden="true" />
                               </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                              <div className="flex-1">
+                                <p className="text-[16px] font-semibold text-[var(--fg)]">{role.label}</p>
+                                <p className="text-[14px] text-[var(--mut)]">{role.description}</p>
+                              </div>
+                              <span
+                                className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border ${isActive ? "border-[var(--btn)] bg-[var(--btn)] text-[var(--btnfg)]" : "border-[var(--line-strong)]"}`}
+                                aria-hidden="true"
+                              >
+                                {isActive && <Check className="h-4 w-4" />}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
 
                     <FieldError id="auth-role-error" message={fieldErrors.role} />
-                    <Button className={primaryButtonClass} onClick={handleRoleContinue}>
-                      Continue as {draftRoleLabel}
-                    </Button>
-                  </CardContent>
+                    <div className="space-y-[8px]">
+                      <PrimaryButton
+                        onClick={handleRoleContinue}
+                        disabled={rolesDraft.length === 0}
+                        aria-describedby={rolesDraft.length === 0 ? "auth-roles-required" : undefined}
+                      >
+                        Continue
+                      </PrimaryButton>
+                      {rolesDraft.length === 0 && (
+                        <p id="auth-roles-required" className="text-center text-[13px] text-[var(--mut)]">{SIGNUP_ROLES_REQUIRED_ERROR}</p>
+                      )}
+                    </div>
+                  </EmberWorld>
                 </motion.div>
               )}
 
@@ -672,9 +781,10 @@ const AuthContent = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">City</Label>
+                      <Label htmlFor="signup-city" className="text-sm font-medium">City</Label>
                       <div>
                         <CityPicker
+                          id="signup-city"
                           value={cityId}
                           onChange={(id, obj) => {
                             setCityId(id);
@@ -686,6 +796,18 @@ const AuthContent = () => {
                         />
                       </div>
                       <FieldError id="signup-city-error" message={step2Touched && !cityId ? "City is required." : undefined} />
+                      {/* Audit M28: the same link and prefill as the dancer setup and Edit city fields. */}
+                      <p className="text-sm text-muted-foreground">
+                        City not in the list?{" "}
+                        <a
+                          href={dancerMessageUsUrl(ADD_CITY_MESSAGE)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-[44px] items-center underline underline-offset-2"
+                        >
+                          Message us to add your city
+                        </a>
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -708,7 +830,10 @@ const AuthContent = () => {
                         className="flex-1 min-h-[44px] rounded-full font-semibold"
                         onClick={() => {
                           setStep2Touched(true);
-                          if (firstName.trim() && cityId && danceRole) setManualStep(null);
+                          if (firstName.trim() && cityId && danceRole) {
+                            setDetailsDone(true);
+                            setManualStep(null);
+                          }
                         }}
                       >
                         Continue
@@ -741,9 +866,16 @@ const AuthContent = () => {
                           id="signup-email"
                           type="email"
                           autoComplete="email"
+                          enterKeyHint="send"
                           placeholder="you@example.com"
                           className="min-h-[44px] pl-10"
                           value={email}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !isSubmitting) {
+                              e.preventDefault();
+                              void handleSendMagicLink();
+                            }
+                          }}
                           {...invalidProps(emailErrorId, fieldErrors.email)}
                           onChange={(e) => {
                             const update = updateEmail(e.target.value);
@@ -758,13 +890,16 @@ const AuthContent = () => {
                       <FieldError id={emailErrorId} message={fieldErrors.email} />
                     </div>
 
+                    {/* M7: the clickwrap sits where the account is created, worded for the button that does it. */}
+                    <ConsentLine lead="By tapping Email me a link you agree to our" />
+
                     <div className="flex gap-2 pt-1">
                       <Button variant="ghost" className="flex-1 min-h-[44px] rounded-full text-muted-foreground" onClick={() => setManualStep(getPreviousStep(activeStep))}>
                         <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" /> Back
                       </Button>
                       <Button
                         className="flex-1 min-h-[44px] rounded-full font-semibold"
-                        onClick={handleSendMagicLink}
+                        onClick={() => void handleSendMagicLink()}
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? "Sending\u2026" : "Email me a link"}
@@ -784,9 +919,12 @@ const AuthContent = () => {
           </Card>
         )}
 
-        <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={() => navigate(returnTo)}>
-          Continue browsing
-        </Button>
+        {/* Sign-up runs in focus mode: its one exit is "Not now" in the top bar. */}
+        {mode === "signin" && (
+          <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={() => navigate(browseTo)}>
+            Continue browsing
+          </Button>
+        )}
       </div>
     </div>
     </MotionConfig>

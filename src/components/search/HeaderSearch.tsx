@@ -1,5 +1,5 @@
 import {
-  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
   type KeyboardEvent, type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -10,12 +10,16 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+// The header is in every page's first load (perf-budgets.json chunk ratchet): the flag
+// loads only when a result with a nationality shows.
+const NationalityFlag = lazy(() => import('@/components/people/NationalityFlag'));
 import { usePublicSearch } from '@/hooks/usePublicSearch';
 import { getSupabase } from '@/integrations/supabase/getSupabase';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import type { SearchKind } from '@/lib/searchRpc';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { personAriaLabel } from '@/lib/searchEntities';
 
 // Inline header omnibox (approach: omnibox typeahead). Lives in GlobalHeader;
 // the magnifier expands into a field that fills the bar, and a typeahead panel
@@ -29,13 +33,13 @@ const ELLIPSIS = '...';
 
 const KIND_ICON: Record<SearchKind, LucideIcon> = {
   event: Calendar, venue: MapPin, organiser: Building2,
-  teacher: GraduationCap, dj: Music, dancer: User, vendor: ShoppingBag, city: Globe,
+  teacher: GraduationCap, dj: Music, dancer: User, person: User, vendor: ShoppingBag, city: Globe,
 };
 const KIND_LABEL: Record<SearchKind, string> = {
   event: 'Event', venue: 'Venue', organiser: 'Organiser',
-  teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer', vendor: 'Vendor', city: 'City',
+  teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer', person: 'Person', vendor: 'Vendor', city: 'City',
 };
-const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer'];
+const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer', 'person'];
 
 function usePrefersReducedMotion(): boolean {
   const [reduce, setReduce] = useState(false);
@@ -228,7 +232,7 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
         className={cn(
           'flex items-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           // mobile: a search pill that fills the bar (GlobalHeader hides its spacer < md)
-          'ml-2 h-9 min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-primary/30 bg-primary/[0.04] px-3 shadow-[0_0_0_3px_hsl(var(--primary)/0.07)] hover:border-primary/50 hover:bg-primary/[0.07]',
+          'ml-2 h-[44px] min-w-0 max-w-xs flex-1 gap-2 rounded-full border border-primary/30 bg-primary/[0.04] px-3 shadow-[0_0_0_3px_hsl(var(--primary)/0.07)] hover:border-primary/50 hover:bg-primary/[0.07]',
           // desktop (md+): collapse back to the icon-only circle
           'md:ml-auto md:h-9 md:w-9 md:max-w-none md:flex-none md:justify-center md:gap-0 md:rounded-full md:border-0 md:bg-transparent md:px-0 md:shadow-none md:hover:bg-primary/10',
         )}
@@ -325,22 +329,31 @@ export const HeaderSearch = ({ expanded, onExpandedChange }: HeaderSearchProps) 
                         key={`${r.kind}-${r.id}`}
                         id={`omnibox-opt-${idx}`}
                         role="option"
+                        aria-label={r.kind === 'person' ? personAriaLabel(r.title, r.roles) : undefined}
                         aria-selected={activeIndex === idx}
                         type="button"
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => goTo(r.href, q.trim())}
                         className={cn('flex w-full items-center gap-3 px-3 py-2 text-left', activeIndex === idx && 'bg-primary/10')}
                       >
-                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
-                          {r.imageUrl
-                            ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
-                            : <Icon className="h-4 w-4 text-muted-foreground" />}
+                        {/* mr: room for the sticker that stands out past the photo's top-right. */}
+                        <span className="relative mr-[5px] shrink-0">
+                          <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-surface-hover', round)}>
+                            {r.imageUrl
+                              ? <img src={optimizedImageUrl(r.imageUrl, 96)} alt="" loading="lazy" className="h-full w-full object-cover" />
+                              : <Icon className="h-4 w-4 text-muted-foreground" />}
+                          </span>
+                          {r.nationalityCode ? (
+                            <Suspense fallback={null}>
+                              <NationalityFlag code={r.nationalityCode} size={36} />
+                            </Suspense>
+                          ) : null}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-foreground">{highlight(r.title, term)}</span>
                           {r.subtitle ? <span className="block truncate text-xs text-muted-foreground">{r.subtitle}</span> : null}
                         </span>
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{KIND_LABEL[r.kind]}</span>
+                        {r.kind === 'person' ? null : <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{KIND_LABEL[r.kind]}</span>}
                       </button>
                     );
                   })}

@@ -5,6 +5,7 @@ import { MapPin, Mail, Globe, Instagram } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { buildSeoForRoute, useSeo } from '@/lib/seo';
+import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 
 const roleColors: Record<string, string> = {
   dancer: 'bg-pink-100 text-pink-800',
@@ -137,10 +138,13 @@ export default function AllProfiles() {
                   <CardContent className="space-y-3">
                     {/* Photo */}
                     {profile.photo_url && (
-                      <img
-                        src={optimizedImageUrl(profile.photo_url, 960)}
-                        alt={profile.display_name}
-                        className="w-full h-40 object-cover rounded" loading="lazy"/>
+                      <div className="relative overflow-hidden rounded">
+                        <img
+                          src={optimizedImageUrl(profile.photo_url, 960)}
+                          alt={profile.display_name}
+                          className="w-full h-40 object-cover rounded" loading="lazy"/>
+                        <NationalityFlag code={profile.nationality_code} size={TILE_FLAG_SIZE} placement="inset" />
+                      </div>
                     )}
 
                     {/* Location */}

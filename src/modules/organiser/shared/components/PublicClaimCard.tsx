@@ -251,7 +251,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
           </Link>
         ) : autoBusy ? (
           <Button size="sm" disabled className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-auto-busy">
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Claiming&hellip;
+            <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Claiming&hellip;
           </Button>
         ) : panel === 'closed' && !claimPanelOpen ? (
           <Button size="sm" className="rounded-full font-bold min-h-[44px]" style={primary} onClick={() => { quietFocus.current = false; setPanel(kind === 'claim' ? 'claim' : 'request'); setFailure(null); }} data-testid="public-claim-open">
@@ -284,7 +284,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
           {mailboxProven ? (
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={busy} onClick={() => void claim(organiser.id)} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-claim-confirm">
-                {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Yes, claim it
+                {busy && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Yes, claim it
               </Button>
               <Button size="sm" variant="ghost" className={`${GHOST_HOVER} min-h-[44px]`} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
                 Not me
@@ -327,7 +327,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
           />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" disabled={busy} onClick={() => void request()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-request-send">
-              {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Request access
+              {busy && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Request access
             </Button>
             <Button size="sm" variant="ghost" className={`${GHOST_HOVER} min-h-[44px]`} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
               Cancel

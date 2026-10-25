@@ -1,0 +1,181 @@
+import type { GoingNextNight } from '@/modules/going/goingRpc';
+
+/**
+ * The shapes of the dancer-area RPCs (briefs/dancer-rebuild-INTERFACE.md
+ * sections 1 and 3). Server: admin repo PR A1. These types are the ONLY
+ * client statement of them; wave-2 screens import from here.
+ */
+
+/** dancer_area_gate_v1() */
+export type DancerGate = { open: boolean; allowed: boolean };
+
+/** dancer_profiles.dance_role CHECK set (verified read-only on prod 2026-10-15). */
+export const DANCE_ROLES = ['Leader', 'Follower', 'Lead and Follow'] as const;
+export type DanceRole = (typeof DANCE_ROLES)[number];
+
+/** strength.missing vocabulary, in priority order; next_step = the first missing item. */
+export const STRENGTH_STEPS = ['first_name', 'city', 'role', 'photo', 'started_year', 'styles', 'bio_social'] as const;
+export type StrengthStep = (typeof STRENGTH_STEPS)[number];
+
+export type DancerStrength = { pct: number; next_step: StrengthStep | null; missing: StrengthStep[] };
+
+/** my_dancer_edit_v1(), and what save_my_dancer_profile_v2 returns after a save. */
+export type MyDancerEdit = {
+  profile_id: string;
+  user_id: string;
+  display_name: string | null;
+  first_name: string | null;
+  surname: string | null;
+  hide_surname_publicly: boolean;
+  based_city_id: string | null;
+  city_name: string | null;
+  dance_role: DanceRole | null;
+  nationality: string | null;
+  languages: string[];
+  bio: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  website_url: string | null;
+  /** Only for a person with another profile type (other_roles non-empty); else null. */
+  whatsapp: string | null;
+  show_whatsapp_publicly: boolean;
+  /**
+   * Going P2: "Show my photo when I'm going" (OFF by default). The first name always
+   * shows on nights the person is going to; this adds the photo. _my_dancer_edit_shape_v1.
+   */
+  show_going_photo: boolean;
+  avatar_url: string | null;
+  dance_started_year: number | null;
+  favorite_styles: string[];
+  favorite_songs: string[];
+  achievements: string[];
+  /** Active person_roles other than 'dancing', e.g. ['teaching', 'djing']. */
+  other_roles: string[];
+  /** false = paused via my_profile_disable_v1. */
+  is_active: boolean;
+  /** Always null in release 1a. */
+  erase_requested_at: string | null;
+  linked_from_admin: boolean;
+  /** = profile_complete_v1(profile). */
+  complete: boolean;
+  strength: DancerStrength;
+};
+
+/** The keys save_my_dancer_profile_v2 accepts. Anything else is refused with `unknown_key`. */
+export const SAVE_KEYS = [
+  'display_name',
+  'first_name',
+  'surname',
+  'based_city_id',
+  'dance_role',
+  'nationality',
+  'languages',
+  'bio',
+  'instagram',
+  'facebook',
+  'website_url',
+  'whatsapp',
+  'show_whatsapp_publicly',
+  'hide_surname_publicly',
+  'avatar_url',
+  'dance_started_year',
+  'favorite_styles',
+  'favorite_songs',
+  'achievements',
+  'show_going_photo',
+] as const;
+export type SaveKey = (typeof SAVE_KEYS)[number];
+
+/**
+ * A save payload: ABSENT key = leave as is; null / "" / [] = clear (except
+ * first_name, based_city_id, avatar_url: replace-only). Send only what changed.
+ */
+export type DancerDelta = Partial<Pick<MyDancerEdit, SaveKey>>;
+
+/**
+ * get_public_dancer_extras_v1(id): null for a hidden / paused / archived / unknown profile.
+ * `goingNext` = its going_next (max 3, the going module's parseGoingNext).
+ */
+export type PublicDancerExtras = { bio: string | null; languages: string[]; whatsapp: string | null; goingNext?: GoingNextNight[] } | null;
+
+/**
+ * Every error the dancer-area RPCs raise (INTERFACE section 3 table and its
+ * "Round-2 additions", from the SQL of PR A1), and `unknown` for anything else
+ * (network, a message we do not know). PostgreSQL's own "permission denied for
+ * function" (42501, a signed-out caller reaching a member RPC) maps to
+ * `not_signed_in`. The admin-only codes (`admin_only`, `invalid_email`,
+ * `invalid_note`, `invalid_argument`) are not here: no Website wrapper calls an
+ * admin RPC. api/errors.ts must give each one copy; TypeScript refuses a code
+ * here without an entry there, and tests/client/dancerAppApi.test.tsx refuses
+ * it at runtime too.
+ */
+export const DANCER_ERROR_CODES = [
+  'area_closed',
+  'not_signed_in',
+  'no_profile',
+  'profile_mismatch',
+  'rate_limited',
+  'whatsapp_not_allowed',
+  'invalid_payload',
+  'unknown_key',
+  'invalid_type',
+  'first_name_required',
+  'city_required',
+  'photo_required',
+  'invalid_display_name',
+  'invalid_text',
+  'invalid_role',
+  'invalid_year',
+  'bio_too_long',
+  'bio_has_link',
+  'invalid_handle',
+  'invalid_url',
+  'invalid_whatsapp',
+  // The stored phone / Instagram rule (invite journey A1 triggers; agreed names).
+  'invalid_phone',
+  'invalid_instagram',
+  'invalid_list',
+  'invalid_body',
+  'invalid_kind',
+  'invalid_page',
+  'invalid_feature',
+  'unknown',
+] as const;
+export type DancerErrorCode = (typeof DANCER_ERROR_CODES)[number];
+
+/** The field a code belongs to, so an Edit screen can put the message under the right input. */
+export type DancerErrorField = SaveKey | null;
+
+/** my_dancer_stats_v1() (admin migration 20261121140000). All counts are whole numbers >= 0. */
+export type MyDancerStats = {
+  profile_id: string;
+  member_since: string | null;
+  /** Not shown: the going count is get_my_going_v1's (nights/useMyNights). Its interested_upcoming sibling is not read (no Interested). */
+  nights_going_upcoming: number;
+  nights_went: number;
+  level_votes: number;
+  views_30_days: number;
+  views_total: number;
+};
+
+/** my_profile_views_v1() (same migration). */
+export type MyProfileViews = {
+  profile_id: string;
+  total: number;
+  last_7_days: number;
+  last_30_days: number;
+  previous_30_days: number;
+  last_viewed_at: string | null;
+};
+
+/** submit_feedback_v1: the kinds and the body limit the RPC enforces. */
+export const FEEDBACK_KINDS = ['general', 'bug', 'idea', 'praise'] as const;
+export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
+export const FEEDBACK_MAX_LENGTH = 2000;
+export const FEEDBACK_DAILY_LIMIT = 5;
+export type FeedbackReceipt = { id: string; kind: FeedbackKind; created_at: string };
+
+/** The feature keys register_feature_interest_v1 accepts; the app uses only partner_search. */
+export type FeatureKey = 'partner_search' | 'classes' | 'badges' | 'year_in_review';
+/** my_feature_interest_v1(): the features this person has asked to hear about. */
+export type MyFeatureInterest = { registered: FeatureKey[] };

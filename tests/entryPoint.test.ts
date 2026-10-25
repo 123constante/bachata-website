@@ -138,13 +138,18 @@ describe('the entry-point prover is actually invoked', () => {
    * -- override it with something lacking `-e` and the step's status becomes the
    * LAST command's, so a failing canary no longer stops the job.
    */
+  // The ONE `if:` a gate may carry: the docs-only skip (scripts/ci/docs-only.mjs).
+  // It is false only on a PR that changes nothing but docs, where the prover has
+  // nothing to prove; any other condition still disqualifies the step.
+  const DOCS_ONLY_IF = "steps.changes.outputs.docs_only != 'true'";
+
   const liveScripts = (doc: Workflow): string[][] => {
     const scripts: string[][] = [];
     for (const job of Object.values(doc.jobs ?? {})) {
       if (job.if !== undefined || job.needs !== undefined || absolved(job)) continue;
       for (const step of job.steps ?? []) {
         if (typeof step.run !== 'string') continue;
-        if (step.if !== undefined || step.shell !== undefined || absolved(step)) continue;
+        if ((step.if !== undefined && step.if !== DOCS_ONLY_IF) || step.shell !== undefined || absolved(step)) continue;
         scripts.push(step.run.split('\n').map((l) => l.trim()).filter((l) => l !== ''));
       }
     }
@@ -327,6 +332,10 @@ describe('the entry-point prover is actually invoked', () => {
       '        continue-on-error: ${{ github.event_name == \'push\' }}',
       '      - run: npm run conditional-gate',
       '        if: github.event_name == "never"',
+      "      - run: npm run docs-only-gate",
+      "        if: steps.changes.outputs.docs_only != 'true'",
+      "      - run: npm run inverted-docs-only-gate",
+      "        if: steps.changes.outputs.docs_only == 'true'",
       '      - run: npm run unshelled-gate',
       '        shell: bash --noprofile --norc {0}',
       '  gated-job:',
@@ -366,8 +375,12 @@ describe('the entry-point prover is actually invoked', () => {
       // `continue-on-error: false` at BOTH levels is still a gate, and a job
       // with no `needs:` is not disqualified by the needs rule. Without this
       // row `absolved = () => true` passes every assertion in this file.
+      ['npm run docs-only-gate'],
       ['npm run explicit-gate'],
     ]);
+    // The docs-only skip is the one `if:` a gate may carry; its inverse is not.
+    expect(scripts.flat()).toContain('npm run docs-only-gate');
+    expect(scripts.flat()).not.toContain('npm run inverted-docs-only-gate');
     expect(scripts.flat()).not.toContain('npm run commented-gate');
   });
 

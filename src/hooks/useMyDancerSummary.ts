@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { MY_DANCER_SUMMARY_ROOT, myPersonaIdForReads } from "@/lib/myPersona";
+import { normaliseNationalityCode } from "@/components/people/nationality";
 
 // The root lives in lib/myPersona (PERSONA_DERIVED_QUERY_ROOTS invalidates it at a
 // sign-in link); the Finish screen invalidates it after a save.
@@ -15,6 +16,8 @@ export type MyDancerSummary = {
   cityName: string | null;
   danceRole: string | null;
   avatarUrl: string | null;
+  /** The flag on the person's own photo (optional: absent reads as no flag). */
+  nationalityCode?: string | null;
 };
 
 const text = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -28,7 +31,7 @@ export const fetchMyDancerSummary = async (resolvePersona: () => Promise<string 
   if (!id) return null;
   const { data, error } = await supabase
     .from("dancer_profiles")
-    .select("id, first_name, dance_role, avatar_url, city:cities!dancer_profiles_based_city_id_fkey(name)")
+    .select("id, first_name, dance_role, avatar_url, nationality, city:cities!dancer_profiles_based_city_id_fkey(name)")
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -40,6 +43,7 @@ export const fetchMyDancerSummary = async (resolvePersona: () => Promise<string 
     cityName: text(row.city?.name),
     danceRole: text(row.dance_role),
     avatarUrl: text(row.avatar_url),
+    nationalityCode: normaliseNationalityCode(row.nationality),
   };
 };
 

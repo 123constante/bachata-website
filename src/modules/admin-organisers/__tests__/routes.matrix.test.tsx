@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** {signed out, non-admin, admin} x {/admin/organisers, /invite/:token}, plus the row/invite-state matrix. */
+/** {signed out, non-admin, admin} x /admin/organisers, plus the row/invite-state matrix. The /invite journey is in join/__tests__/joinJourney.test.tsx (W1, Option B). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -36,7 +36,6 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
-import InviteRedeemPage from '../InviteRedeemPage';
 
 const ok = (data: unknown) => Promise.resolve({ data, error: null });
 let managedIds: Set<string>;
@@ -48,10 +47,13 @@ function rpcImpl(isAdmin: boolean) {
       case 'admin_is_admin': return ok(isAdmin);
       case 'organiser_ownership_v1': return ok({ is_managed: managedIds.has(args.p_organiser_id as string) });
       case 'admin_list_organiser_invites_v1': return ok(invitesFor[args.p_organiser_id as string] ?? []);
-      case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
+      case 'admin_issue_organiser_invite_v1': return ok({ ok: true, invite_id: 'i9', organiser_id: args.p_organiser_id, token: TOKEN, expires_at: '2026-10-18T10:00:00Z', email_bound: false, revoked_previous: [] });
+      case 'admin_list_invite_requests_v1': return ok([]);
+      case 'admin_list_signup_access_requests_v1': return ok([]);
       case 'admin_revoke_organiser_invite_v1': return ok({ revoked: 1 });
       case 'admin_add_entity_member_v1': return ok({ id: 'm1' });
-      case 'redeem_organiser_invite_v1': return ok({ ok: true, status: 'redeemed', organiser_id: 'o1', member_role: 'owner' });
+      case 'admin_search_people_v1': return ok([{ id: 'p-ana', first_name: 'Ana', surname: 'Perez', display_name: null, claimed_by: null }]);
+      case 'admin_invite_person_v1': return ok({ invite_id: 'i8', token: TOKEN, email: args.p_email, link_path: `/invite/${TOKEN}`, message: `Hello Ana! https://bachatacalendar.co.uk/invite/${TOKEN}` });
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
     }
   });
@@ -66,9 +68,9 @@ function mount(path: string) {
         <Where />
         <Routes>
           <Route path="/admin/organisers" element={<AdminOrganisersPage />} />
-          <Route path="/invite/:token" element={<InviteRedeemPage />} />
-          <Route path="/invite" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
+          {/* Arc 1 7c: a new seat lands on the welcome (1d for a first page, 7c for another). */}
+          <Route path="/account/o/welcome" element={<p data-testid="landed">dashboard</p>} />
           <Route path="/auth" element={<p data-testid="auth">sign in</p>} />
         </Routes>
       </MemoryRouter>
@@ -91,7 +93,6 @@ beforeEach(() => {
   managedIds = new Set(['o-mg']);
   invitesFor = { 'o-in': [sent], 'o-ex': [expired] };
   h.rpc.mockReset();
-  window.history.replaceState(null, '', `/invite/${TOKEN}`);
 });
 afterEach(cleanup);
 
@@ -100,7 +101,7 @@ describe('/admin/organisers x viewer', () => {
     rpcImpl(true);
     mount('/admin/organisers');
     expect(await screen.findByTestId('auth')).toBeTruthy();
-    expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
   });
 
   it('signed in, not an admin: a plain page that names nothing about the screen', async () => {
@@ -158,30 +159,40 @@ describe('row actions x invite state', () => {
     fireEvent.click(row.querySelector('button')!);
     return row;
   };
+  const issueCalls = () => h.rpc.mock.calls.filter((c) => c[0] === 'admin_issue_organiser_invite_v1');
 
+  // One button per row (5a, 5d, 5e, 5f); Withdraw only beside a live link; a live link is replaced only after the form says so.
   it.each([
-    ['Alpha Unclaimed', { revokeDisabled: true, confirms: false }],
-    ['Bravo Invited', { revokeDisabled: false, confirms: true }],
-    ['Charlie Expired', { revokeDisabled: true, confirms: false }],
-    ['Delta Managed', { revokeDisabled: true, confirms: false }],
+    ['Alpha Unclaimed', { primary: 'Invite', choose: true, withdraw: false, replaces: false }],
+    ['Bravo Invited', { primary: 'Copy new link', choose: false, withdraw: true, replaces: true }],
+    ['Charlie Expired', { primary: 'Send a new link', choose: false, withdraw: false, replaces: false }],
+    ['Delta Managed', { primary: 'Add another person', choose: true, withdraw: false, replaces: false }],
   ])('%s', async (name, want) => {
     await open(name);
-    expect((screen.getByTestId('revoke-invite') as HTMLButtonElement).disabled).toBe(want.revokeDisabled);
-    if (want.revokeDisabled) expect(screen.getByTestId('revoke-note').textContent).toMatch(/no live link/);
-    fireEvent.click(screen.getByTestId('generate-invite'));
-    if (want.confirms) {
-      expect(screen.getByTestId('replace-confirm').textContent).toContain('A new one replaces it');
-      expect(h.rpc.mock.calls.some((c) => c[0] === 'admin_issue_organiser_invite_v1')).toBe(false);
-      fireEvent.click(screen.getByTestId('replace-yes'));
+    const primary = screen.getByTestId('row-primary') as HTMLButtonElement;
+    expect(primary.textContent).toBe(want.primary);
+    expect(primary.disabled).toBe(false);
+    expect(screen.queryByTestId('withdraw-invite') !== null).toBe(want.withdraw);
+    fireEvent.click(primary);
+    if (want.choose) {
+      expect(screen.getByTestId('invite-who').textContent).toContain('Who is this for?');
+      fireEvent.click(screen.getByTestId('choice-link'));
     }
+    expect(screen.queryByTestId('link-replaces-note') !== null).toBe(want.replaces);
+    expect(issueCalls()).toHaveLength(0);
+    fireEvent.click(screen.getByTestId('link-submit'));
     expect((await screen.findByTestId('link-field') as HTMLInputElement).value).toBe(`${window.location.origin}/invite/${TOKEN}`);
+    expect(issueCalls()[0][1]).toEqual({ p_organiser_id: ORGS.find((o) => o.name === name)!.id, p_email: null, p_first_name: null, p_city_id: null });
   });
 
-  it('shows the link once with a WhatsApp message; Done drops it and the token is nowhere else', async () => {
+  it('shows the link once with a WhatsApp message; Copy is the primary; Done drops it and the token is nowhere else', async () => {
     await open('Alpha Unclaimed');
-    fireEvent.click(screen.getByTestId('generate-invite'));
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-link'));
+    fireEvent.click(screen.getByTestId('link-submit'));
     await screen.findByTestId('one-time-link');
-    expect(screen.getByTestId('link-once-note').textContent).toMatch(/only time the link is shown/);
+    expect(screen.getByTestId('link-once-note').textContent).toBe('Shown once. Works once, runs out in 7 days.');
+    expect(screen.getByTestId('copy-link').className).toContain('bg-primary');
     const wa = screen.getByTestId('whatsapp-link') as HTMLAnchorElement;
     expect(wa.href.startsWith('https://wa.me/?text=')).toBe(true);
     expect(decodeURIComponent(wa.href)).toContain(TOKEN);
@@ -192,14 +203,35 @@ describe('row actions x invite state', () => {
     expect(JSON.stringify(Object.entries(localStorage))).not.toContain(TOKEN);
   });
 
-  it('revokes a live link', async () => {
+  it('Who is this for?: the named-person link is shown once; the row cannot close until Done', async () => {
+    const row = await open('Alpha Unclaimed');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.change(screen.getByTestId('who-search'), { target: { value: 'Ana' } });
+    fireEvent.click(await screen.findByText('Ana Perez'));
+    fireEvent.click(screen.getByTestId('who-next'));
+    fireEvent.change(screen.getByTestId('who-email-input'), { target: { value: 'ana@example.com' } });
+    fireEvent.click(screen.getByTestId('who-submit'));
+    await screen.findByTestId('invite-person-result');
+    expect(h.rpc).toHaveBeenCalledWith('admin_invite_person_v1', { p_dancer_profile_id: 'p-ana', p_email: 'ana@example.com', p_organiser_id: 'o-un' });
+    fireEvent.click(row.querySelector('button')!);
+    expect(screen.getByTestId('link-close-warning').textContent).toMatch(/Copy the link first/);
+    expect(screen.getByTestId('invite-person-result')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('invite-person-done'));
+    expect(screen.queryByTestId('invite-person-result')).toBeNull();
+    fireEvent.click(row.querySelector('button')!);
+    expect(screen.queryByTestId('row-detail')).toBeNull();
+  });
+
+  it('withdraws a live link', async () => {
     await open('Bravo Invited');
-    fireEvent.click(screen.getByTestId('revoke-invite'));
+    fireEvent.click(screen.getByTestId('withdraw-invite'));
     await waitFor(() => expect(h.rpc.mock.calls.some((c) => c[0] === 'admin_revoke_organiser_invite_v1')).toBe(true));
   });
 
-  it('add person: disabled with a reason until an email is entered, then calls the RPC and shows a refusal in plain words', async () => {
+  it('add person ("They already have an account"): disabled with a reason until an email is entered, then calls the RPC', async () => {
     await open('Alpha Unclaimed');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-existing'));
     expect((screen.getByTestId('add-submit') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('add-note').textContent).toMatch(/Enter their email/);
     fireEvent.change(screen.getByTestId('add-email'), { target: { value: 'ana@example.com' } });
@@ -211,96 +243,12 @@ describe('row actions x invite state', () => {
 
   it('add person: a refusal reads in plain English', async () => {
     await open('Alpha Unclaimed');
+    fireEvent.click(screen.getByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-existing'));
     const base = h.rpc.getMockImplementation()!;
     h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'admin_add_entity_member_v1' ? Promise.resolve({ data: null, error: { message: 'user_not_found' } }) : base(fn, a)));
     fireEvent.change(screen.getByTestId('add-email'), { target: { value: 'ghost@example.com' } });
     fireEvent.click(screen.getByTestId('add-submit'));
     expect((await screen.findByTestId('add-error')).textContent).toMatch(/No account has that email address/);
-  });
-});
-
-describe('/invite/:token x viewer', () => {
-  it('signed out: explains and offers sign in that returns here; no redeem call', async () => {
-    rpcImpl(true);
-    mount(`/invite/${TOKEN}`);
-    const link = (await screen.findByTestId('invite-sign-in')) as HTMLAnchorElement;
-    expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain(`returnTo=/invite/${TOKEN}`);
-    expect(h.rpc).not.toHaveBeenCalled();
-  });
-
-  it('signed in (a non-admin is fine): redeems once, strips the token, lands on the dashboard', async () => {
-    h.auth.user = { id: 'u1' };
-    rpcImpl(false);
-    mount(`/invite/${TOKEN}`);
-    expect(await screen.findByTestId('landed')).toBeTruthy();
-    expect(h.rpc.mock.calls.filter((c) => c[0] === 'redeem_organiser_invite_v1')).toHaveLength(1);
-    expect(h.rpc).toHaveBeenCalledWith('redeem_organiser_invite_v1', { p_token: TOKEN });
-    expect(window.location.pathname).not.toContain(TOKEN);
-  });
-
-  it('admin: same as any signed-in person', async () => {
-    h.auth.user = { id: 'a1' };
-    rpcImpl(true);
-    mount(`/invite/${TOKEN}`);
-    expect(await screen.findByTestId('landed')).toBeTruthy();
-  });
-
-  it('a double mount (StrictMode) makes one redeem call', async () => {
-    h.auth.user = { id: 'u1' };
-    rpcImpl(false);
-    const { StrictMode } = await import('react');
-    const client = new QueryClient();
-    render(
-      <StrictMode><QueryClientProvider client={client}><MemoryRouter initialEntries={[`/invite/${TOKEN}`]}><Routes>
-        <Route path="/invite/:token" element={<InviteRedeemPage />} />
-        <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
-      </Routes></MemoryRouter></QueryClientProvider></StrictMode>,
-    );
-    await screen.findByTestId('landed');
-    expect(h.rpc.mock.calls.filter((c) => c[0] === 'redeem_organiser_invite_v1')).toHaveLength(1);
-  });
-
-  it.each(['sign_in_required', 'unconfirmed_account', 'rate_limited', 'invalid', 'used', 'revoked', 'expired'])('%s shows its own message', async (reason) => {
-    h.auth.user = { id: 'u1' };
-    rpcImpl(false);
-    const base = h.rpc.getMockImplementation()!;
-    h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'redeem_organiser_invite_v1' ? ok({ ok: false, reason }) : base(fn, a)));
-    mount(`/invite/${TOKEN}`);
-    const { REDEEM_COPY } = await import('../inviteModel');
-    expect((await screen.findByTestId('invite-title')).textContent).toBe(REDEEM_COPY[reason].title);
-    expect(screen.getByTestId('invite-body').textContent).toBe(REDEEM_COPY[reason].body);
-    // every control the message could lean on is the one on screen
-    expect(screen.queryByTestId('invite-sign-in') !== null).toBe(REDEEM_COPY[reason].action === 'sign_in');
-    expect(screen.queryByTestId('invite-home') !== null).toBe(REDEEM_COPY[reason].action !== 'retry');
-    const terminal = REDEEM_COPY[reason].terminal;
-    expect(window.location.pathname === '/invite').toBe(terminal);
-  });
-
-  it('a malformed token never reaches the server', async () => {
-    h.auth.user = { id: 'u1' };
-    rpcImpl(false);
-    mount('/invite/not-a-token');
-    expect((await screen.findByTestId('invite-title')).textContent).toBe('This link does not work');
-    expect(h.rpc).not.toHaveBeenCalled();
-  });
-
-  it('a network failure offers Try again and keeps the token', async () => {
-    h.auth.user = { id: 'u1' };
-    rpcImpl(false);
-    const base = h.rpc.getMockImplementation()!;
-    let first = true;
-    h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'redeem_organiser_invite_v1' && first ? ((first = false), Promise.reject(new Error('Failed to fetch'))) : base(fn, a)));
-    mount(`/invite/${TOKEN}`);
-    fireEvent.click(await screen.findByTestId('invite-retry'));
-    expect(await screen.findByTestId('landed')).toBeTruthy();
-  });
-
-  it('sets a no-referrer policy while mounted and removes it after', async () => {
-    h.auth.user = { id: 'u1' };
-    rpcImpl(false);
-    const view = mount(`/invite/${TOKEN}`);
-    expect(document.head.querySelector('meta[name="referrer"][content="no-referrer"]')).toBeTruthy();
-    view.unmount();
-    expect(document.head.querySelector('meta[name="referrer"]')).toBeNull();
   });
 });

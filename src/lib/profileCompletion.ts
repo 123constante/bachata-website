@@ -1,5 +1,5 @@
 import { sanitizeReturnTo } from "@/lib/authRouting";
-import { WHATSAPP_GET_LISTED_URL } from "@/lib/contactLinks";
+import { NO_PROFILE_MESSAGE, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { isAccountPath } from "@/lib/accountRouting";
 
 /**
@@ -83,7 +83,7 @@ export const RATE_BLOCKED_REASON = "Finish your profile to rate";
 export const PROFILE_COMPLETE_TEXT = "Your profile is complete. You can rate parties now.";
 export const NO_PROFILE_REASON = "Your account has no dancer profile yet, so it can\u2019t rate";
 export const NO_PROFILE_TEXT =
-  "Your account has no dancer profile yet, so you can\u2019t rate parties. Message us and we\u2019ll set it up.";
+  "Your account does not have a dancer profile yet. Message us and we\u2019ll set one up for you.";
 
 export const completenessFact = (c: Pick<ProfileCompletion, "status" | "missing">): CompletenessFact => {
   if (c.status === "incomplete") {
@@ -124,7 +124,8 @@ export const finishProfileHref = (returnTo?: string | null): string => {
 };
 
 export const NO_PROFILE_CONTACT_LABEL = "Message us on WhatsApp";
-export const NO_PROFILE_CONTACT_URL = WHATSAPP_GET_LISTED_URL;
+// The dancer prefill (lib/contactLinks), never the organiser "list my events" one (audit H6).
+export const NO_PROFILE_CONTACT_URL = dancerMessageUsUrl(NO_PROFILE_MESSAGE);
 
 // One flat shape, not a union on `allowed`: this repo compiles without
 // strictNullChecks, where a boolean discriminant does not narrow.
@@ -148,10 +149,13 @@ export const profileGateValue = (
   c: ProfileCompletion,
 ): {
   status: ProfileCompletionStatus;
+  missing: readonly ProfileField[];
   gateFor: (returnTo: string) => RatingGate;
   refusedGateFor: (returnTo: string) => RatingGate;
 } => ({
   status: c.status,
+  // The fields themselves, so a reader (the Going lock) never parses the reason text.
+  missing: c.missing,
   gateFor: (returnTo: string) => ratingGate(c, returnTo),
   // The server refused the vote for an incomplete profile (it can know before this
   // cached answer does): the SAME gate as "incomplete", whatever this copy says.
@@ -167,8 +171,14 @@ export type BannerModel = {
 
 // The account pages state the fact themselves (the dancer home's line, the organiser
 // home's row) and the organiser frame covers the banner anyway: one copy per screen.
+// /app is the dancer area (modules/dancer-app): it has its own onboarding, so the reminder banner never draws over it.
 const BANNER_HIDDEN_ON = (pathname: string) =>
-  pathname === FINISH_PROFILE_PATH || pathname === "/auth" || pathname.startsWith("/auth/") || isAccountPath(pathname);
+  pathname === FINISH_PROFILE_PATH ||
+  pathname === "/auth" ||
+  pathname.startsWith("/auth/") ||
+  isAccountPath(pathname) ||
+  pathname.toLowerCase() === "/app" ||
+  pathname.toLowerCase().startsWith("/app/");
 
 /** The reminder banner. `dismissed` is per page view; it never outlives a navigation. */
 export const bannerModel = (
@@ -239,4 +249,58 @@ export const postLoginDecision = (input: {
   if (input.status === "loading" || input.status === "signed_out") return "wait";
   if (input.skipped || input.pathname === FINISH_PROFILE_PATH) return "clear";
   return needsFinishing(input) ? "redirect" : "clear";
+};
+
+/**
+ * The /account dashboard completion score: the SAME five steps, in the same
+ * order and with the same tests, as main's DancerDashboard (before Going P2).
+ *
+ * Step 3 ("activity") was main's "has any night in my list". Main read it from
+ * the retired attendance list (going OR interested); here it reads
+ * the viewer's nights from get_my_going_v1 (upcoming + past), the one going
+ * list the Website keeps. While the going switch is off that read never runs,
+ * so the step is not met -- exactly what main showed a dancer with no rows.
+ * Oracle: tests/client/dancerCompletion.test.ts runs main's code over every shape.
+ */
+export type CompletionProfile = {
+  first_name?: string | null;
+  based_city_id?: string | null;
+  photo_url?: string | null;
+  looking_for_partner?: boolean | null;
+  dance_role?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  whatsapp?: string | null;
+  website?: string | null;
+} | null | undefined;
+
+export type DancerCompletion = {
+  hasIdentity: boolean;
+  hasMedia: boolean;
+  hasActivity: boolean;
+  hasEngagement: boolean;
+  hasSocial: boolean;
+  count: number;
+  total: number;
+  percent: number;
+};
+
+export const dancerCompletion = (profile: CompletionProfile, nightsInMyList: number): DancerCompletion => {
+  const hasIdentity = Boolean(profile?.first_name?.trim()) && Boolean(profile?.based_city_id);
+  const hasMedia = Boolean(profile?.photo_url?.trim());
+  const hasActivity = nightsInMyList > 0;
+  const hasEngagement = Boolean(profile?.looking_for_partner) || Boolean(profile?.dance_role);
+  const hasSocial = Boolean(profile?.instagram || profile?.facebook || profile?.whatsapp || profile?.website);
+  const steps = [hasIdentity, hasMedia, hasActivity, hasEngagement, hasSocial];
+  const count = steps.filter(Boolean).length;
+  return {
+    hasIdentity,
+    hasMedia,
+    hasActivity,
+    hasEngagement,
+    hasSocial,
+    count,
+    total: steps.length,
+    percent: Math.round((count / steps.length) * 100),
+  };
 };

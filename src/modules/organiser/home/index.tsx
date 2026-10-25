@@ -1,60 +1,67 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Plus, UserRound, Users } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { useId } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { ORGANISER_HOME_KEY, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
+import { ORGANISER_HOME_KEY, incomingAccessRequestsQueryKey, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
+import { supportLinks } from '@/modules/organiser/shared/support';
+import type { Job } from '@/modules/organiser/jobs/homeJobs';
+import { cn } from '@/lib/utils';
 import { OrganiserShell, ORG_PATHS } from '../shell';
-import {
-  AttentionStrip,
-  Card,
-  DateChip,
-  EmptyState,
-  ErrorState,
-  PrimaryButton,
-  SectionLabel,
-  SkeletonRows,
-  StatusTag,
-  useAnnounce,
-} from '../ui';
-import { isClosed } from '@/modules/organiser/shared/eventState';
-import { hasAnyEvent, newEventBlock, noLineupText, shortDate, type NextDate } from './homeView';
-import { useHomeStrips, useOrganiserHome } from './useHomeData';
+import { ErrorState, GhostButton, PrimaryButton, SkeletonRows, useAnnounce } from '../ui';
+import { SMALL_BUTTONS, TODO_EMPTY, TODO_HEADING, isFirstSteps, newEventBlock } from './homeView';
+import { useHomeData } from './useHomeData';
 import { OnboardingView } from './onboarding/OnboardingView';
-import { OrganiserStatusCard } from './OrganiserStatusCard';
-// Layout D (2026-10-11): the dancer side of a person who organises -- one account-menu entry.
-// No "finish your dancer profile" row: the dancer-first gate keeps an unfinished profile off this page.
-import { AccountMenu } from '@/components/account/OrganiserHomeDancer';
+import { ProfileButton } from './ProfileButton';
+import { ClaimNotice } from './ClaimNotice';
 
-/** One upcoming date: chip, event name, venue, status. Opens the date editor. */
-function DateRow({ d, today }: { d: NextDate; today: string }) {
+const BADGE: Record<Job['tone'], string> = {
+  gold: 'bg-[var(--gold)] text-[var(--btnfg)]',
+  plain: 'bg-[var(--card2)] text-[var(--fg)]',
+  problem: 'bg-[var(--warn-bg)] text-[var(--warn-fg)]',
+};
+
+/** One numbered job (D37): a button, never a link styled as text; the tap goes into the job. */
+function JobRow({ job }: { job: Job }) {
+  const navigate = useNavigate();
   return (
-    <Link
-      to={ORG_PATHS.date(d.seriesId, d.occurrenceId)}
-      data-testid="home-date-row"
-      data-occurrence={d.occurrenceId}
-      className="flex min-h-[68px] items-center gap-[12px] px-[16px] py-[8px]"
-    >
-      <DateChip date={d.date} today={today} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{d.seriesName}</span>
-        <span className="block truncate text-[13px] text-[var(--mut)]">{d.venueName ?? 'Venue not set'}</span>
-      </span>
-      <StatusTag tone={d.tag.tone}>{d.tag.label}</StatusTag>
-    </Link>
+    <li>
+      <button
+        type="button"
+        onClick={() => navigate(job.to)}
+        data-testid="home-job"
+        data-kind={job.kind}
+        data-tone={job.tone}
+        className="flex min-h-[56px] w-full items-center gap-[12px] border-b border-[var(--line)] px-[16px] py-[8px] text-left"
+      >
+        <span
+          data-testid="home-job-n"
+          aria-hidden="true"
+          className={cn('flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full text-[15px] font-bold', BADGE[job.tone])}
+        >
+          {job.n}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span data-testid="home-job-title" className="line-clamp-2 break-words text-[16px] font-semibold leading-[20px] text-[var(--fg)]">{job.title}</span>
+          {job.sub && <span data-testid="home-job-sub" className="block truncate text-[13px] text-[var(--warn-fg)]">{job.sub}</span>}
+        </span>
+      </button>
+    </li>
   );
 }
 
-function NewEventButton({ block }: { block: string | null }) {
+/** `pageId`: the page on screen when the login has two or more (New event then keeps it in ?o=). */
+function NewEventButton({ block, pageId }: { block: string | null; pageId: string | null }) {
   const navigate = useNavigate();
   const reasonId = useId();
   return (
     <div className="space-y-[8px]">
       <PrimaryButton
-        onClick={() => navigate(ORG_PATHS.newEvent)}
+        onClick={() => navigate(ORG_PATHS.newWhatFor(pageId))}
         disabled={!!block}
         aria-describedby={block ? reasonId : undefined}
+        className="bg-[var(--gold)] text-[var(--btnfg)]"
         testId="home-new-event"
       >
         <Plus aria-hidden="true" className="h-[20px] w-[20px]" /> New event
@@ -64,48 +71,53 @@ function NewEventButton({ block }: { block: string | null }) {
   );
 }
 
+/** Support rows (D7) on the first-steps page; a row whose value is not set is not drawn. */
+function SupportRows() {
+  const { whatsapp, email } = supportLinks();
+  if (!whatsapp && !email) return null;
+  const row = 'flex min-h-[44px] items-center justify-center rounded-[12px] bg-[var(--card2)] px-[12px] text-[15px] font-semibold text-[var(--fg)]';
+  return (
+    <div className="grid grid-cols-2 gap-[8px]" data-testid="home-support">
+      {whatsapp && <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={row} data-testid="home-support-whatsapp">WhatsApp us</a>}
+      {email && <a href={`mailto:${email}`} className={row} data-testid="home-support-email">Email us</a>}
+    </div>
+  );
+}
+
 /**
- * /account/o -- Home. With no organiser yet it is the onboarding (find and
- * claim, request access, or create). Otherwise: strips only when something
- * needs the organiser, the big New event button, and the next dates.
+ * /account/o -- Home under rule 2 (C1 running page, C1b brand-new page). With
+ * no organiser yet it is the onboarding (S9's). Otherwise: the page name (a
+ * link to Switch with 2+ pages), the numbered jobs from homeJobs() in its
+ * order, gold New event, then Team - My page, My events - More. No section
+ * labels (D22), no sentences (D28), no Tonight card (D37).
  */
 export default function HomePage() {
-  const { user, session } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [message, announce] = useAnnounce();
-  const { home, requests } = useOrganiserHome(user?.id);
-  const strips = useHomeStrips(home.data);
-  const { organisers, dates, teamRequests, runway, noLineup, lineupChecked } = strips;
-  const lineupText = noLineupText(noLineup.length, lineupChecked);
+  const { user, home, organisers, selected, jobs, mine } = useHomeData();
   const adding = params.get('add') === '1';
-  const eventBlock = newEventBlock(organisers);
-  const notLive = organisers.filter((o) => o.lifecycle_status !== 'live');
-  const counts = {
-    organiserCount: organisers.length,
-    openRequestCount: (requests.data ?? []).filter((r) => r.status === 'open').length,
-  };
 
   const onChanged = (confirmation: string) => {
     announce(confirmation);
     if (adding) setParams({}, { replace: true });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     void queryClient.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user?.id) });
+    void queryClient.invalidateQueries({ queryKey: incomingAccessRequestsQueryKey(selected?.id) });
   };
 
   if (!user) return null;
 
   const loading = home.isPending && !home.isPaused;
   const failed = (home.isError || (home.isPending && home.isPaused)) && !home.data;
-  const showOnboarding = !!home.data && (organisers.length === 0 || adding);
 
-  if (showOnboarding) {
+  if (home.data && (organisers.length === 0 || adding)) {
     return (
       <OrganiserShell
-        title={adding ? 'Add an organiser' : 'Welcome'}
+        title={adding ? 'Add a page' : 'Welcome'}
         back={adding ? { to: ORG_PATHS.home, label: 'Home' } : undefined}
-        topBarEnd={adding ? undefined : <AccountMenu {...counts} />}
         testId="org-page-home"
       >
         {/* No announce region here: OnboardingView shows the confirmation itself in a
@@ -114,7 +126,7 @@ export default function HomePage() {
           user={{ id: user.id, email: user.email ?? null }}
           mailboxProven={isMailboxProvenToken(session?.access_token)}
           myOrganiserIds={new Set(organisers.map((o) => o.id))}
-          requests={requests.data ?? []}
+          requests={mine.data ?? []}
           firstRun={organisers.length === 0}
           onChanged={onChanged}
         />
@@ -122,8 +134,17 @@ export default function HomePage() {
     );
   }
 
+  const title = !selected ? 'Home' : organisers.length > 1 ? (
+    <Link to={ORG_PATHS.switch} data-testid="home-switch" className="inline-flex min-h-[44px] max-w-full items-center gap-[4px]">
+      <span data-testid="home-page-name" className="truncate">{selected.name}</span>
+      <ChevronDown aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--gold)]" />
+    </Link>
+  ) : (
+    <span data-testid="home-page-name">{selected.name}</span>
+  );
+
   return (
-    <OrganiserShell title="Home" topBarEnd={<AccountMenu {...counts} />} testId="org-page-home">
+    <OrganiserShell title={title} testId="org-page-home">
       {/* Shows and announces a confirmation that arrives here (a claim or create that
           moved Home out of onboarding); one element, so it is never said twice. */}
       <p
@@ -135,86 +156,35 @@ export default function HomePage() {
       >
         {message}
       </p>
+      {/* Pages claimed at this sign-in: an in-flow line with its own Close, never over the rows. */}
+      <ClaimNotice />
       {loading ? (
-        <SkeletonRows count={4} label="Loading your dates" testId="home-loading" />
+        <SkeletonRows count={4} label="Loading your jobs" testId="home-loading" />
       ) : failed ? (
         <ErrorState
-          title={home.isPaused ? <>You&rsquo;re offline</> : 'Your dates did not load'}
+          title={home.isPaused ? <>You&rsquo;re offline</> : 'Home did not load'}
           onRetry={() => void home.refetch()}
           retrying={home.isFetching}
           testId="home-error"
         />
       ) : (
-        <div className="space-y-[16px]">
-          {notLive.map((o) => (
-            <OrganiserStatusCard key={o.id} organiser={o} primary={!!eventBlock} onSent={announce} />
-          ))}
-          {(teamRequests > 0 || runway || lineupText) && (
-            <div className="space-y-[8px]" data-testid="home-strips">
-              {teamRequests > 0 && (
-                <AttentionStrip icon={<Users />} onPress={() => navigate(ORG_PATHS.team)} testId="home-strip-team">
-                  {teamRequests === 1 ? '1 team request is waiting' : `${teamRequests} team requests are waiting`}
-                </AttentionStrip>
-              )}
-              {runway && (
-                <AttentionStrip
-                  icon={<CalendarClock />}
-                  actionLabel="Extend"
-                  onPress={() => navigate(ORG_PATHS.event(runway.seriesId))}
-                  testId="home-strip-runway"
-                >
-                  {runway.seriesName}: dates listed until {shortDate(runway.lastDate, home.data?.today ?? '')}.
-                  {runway.others > 0 && ` ${runway.others === 1 ? '1 more event' : `${runway.others} more events`} also running short.`}
-                </AttentionStrip>
-              )}
-              {lineupText && (
-                <AttentionStrip
-                  icon={<UserRound />}
-                  onPress={() => navigate(ORG_PATHS.date(noLineup[0].seriesId, noLineup[0].occurrenceId))}
-                  testId="home-strip-lineup"
-                >
-                  {lineupText}
-                </AttentionStrip>
-              )}
-            </div>
-          )}
-
-          {dates.length === 0 ? (
-            <EmptyState
-              title={hasAnyEvent(organisers) ? 'No dates coming up' : 'No events yet'}
-              body={
-                eventBlock
-                  ? 'Your events go here once your organiser is approved.'
-                  : !hasAnyEvent(organisers)
-                  ? 'Add your first event. You can keep it as a draft until it is ready.'
-                  : organisers.every((o) => (o.series ?? []).every((s) => isClosed(s.lifecycle_status)))
-                    ? 'Your events have ended. Add a new event to list new dates.'
-                    : 'Your events have no upcoming dates. Open one in Events to see its dates, or add a new event.'
-              }
-              action={<NewEventButton block={eventBlock} />}
-              testId="home-empty"
-            />
+        <div className="space-y-[12px]">
+          <ProfileButton key={selected?.id ?? 'none'} organiserId={selected?.id ?? null} userId={user.id} />
+          <h2 data-testid="home-todo-heading" className="px-[4px] text-[15px] font-bold text-[var(--fg)]">{TODO_HEADING}</h2>
+          {jobs.length === 0 ? (
+            <p data-testid="home-todo-empty" className="rounded-[16px] border border-[var(--line)] bg-[var(--card)] px-[16px] py-[12px] text-[14px] text-[var(--mut)]">{TODO_EMPTY}</p>
           ) : (
-            <>
-              <NewEventButton block={eventBlock} />
-              <section aria-labelledby="home-next-dates">
-                <SectionLabel id="home-next-dates">Next dates</SectionLabel>
-                <Card testId="home-dates">
-                  {dates.map((d) => (
-                    <DateRow key={d.occurrenceId} d={d} today={home.data?.today ?? ''} />
-                  ))}
-                </Card>
-              </section>
-            </>
+            <ol data-testid="home-jobs" className="overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--card)] [&>li:last-child>button]:border-b-0">
+              {jobs.map((job) => <JobRow key={`${job.kind}-${job.n}`} job={job} />)}
+            </ol>
           )}
-
-          <Link
-            to={`${ORG_PATHS.home}?add=1`}
-            data-testid="home-add-organiser"
-            className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--gold)]"
-          >
-            Add another organiser
-          </Link>
+          <NewEventButton block={newEventBlock(selected)} pageId={organisers.length > 1 ? selected?.id ?? null : null} />
+          <div className="grid grid-cols-2 gap-[8px]" data-testid="home-small-buttons">
+            {SMALL_BUTTONS.map((b) => (
+              <GhostButton key={b.to} size="sm" onClick={() => navigate(b.to)} testId="home-small">{b.label}</GhostButton>
+            ))}
+          </div>
+          {isFirstSteps(jobs) && <SupportRows />}
         </div>
       )}
     </OrganiserShell>

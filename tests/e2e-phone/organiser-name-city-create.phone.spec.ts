@@ -168,7 +168,7 @@ async function assertCreateEvent(page: Page, label: string) {
   await scrollTo(page, 'bottom');
   const end = await box(page, sel);
   if (end.y + end.height > 0 && end.y < vp.height) {
-    expect(intersects(end, await box(page, '#app-nav')), `${label}: under the BottomNav at full scroll`).toBe(false);
+    // The section row is sticky at the TOP now; a control scrolled past it is ordinary scrolling, not a clash.
     if (await page.getByTestId('eip-bar').count()) {
       expect(intersects(end, await box(page, '[data-testid="eip-bar"]')), `${label}: under the Save bar at full scroll`).toBe(false);
     }
@@ -184,7 +184,7 @@ for (const withDraft of [false, true]) {
     if (withDraft) await draftWebsite(page);
     const link = page.getByTestId('eip-create-event');
     await expect(link).toHaveText('Create event');
-    await expect(link).toHaveAttribute('href', `/account/o/events/new?o=${ORG2_ID}`);
+    await expect(link).toHaveAttribute('href', `/account/o/new/what?o=${ORG2_ID}`);
     const b = await assertCreateEvent(page, `upcoming row, ${when}`);
     // In the heading row, overlapping neither the heading nor the count.
     await page.getByTestId('eip-create-event').evaluate((el) => el.scrollIntoView({ block: 'center' }));
@@ -203,7 +203,7 @@ for (const withDraft of [false, true]) {
     if (withDraft) await draftWebsite(page);
     const link = page.getByTestId('eip-create-event');
     await expect(link).toHaveText('Create your first event');
-    await expect(link).toHaveAttribute('href', `/account/o/events/new?o=${ORG_ID}`);
+    await expect(link).toHaveAttribute('href', `/account/o/new/what?o=${ORG_ID}`);
     await assertCreateEvent(page, `empty state, ${when}`);
   });
 }
@@ -211,7 +211,7 @@ for (const withDraft of [false, true]) {
 test('Create event opens the existing create flow with this organiser preselected (nothing is created)', async ({ page }) => {
   await openAsOwner(page, ORG2_SLUG);
   await page.getByTestId('eip-create-event').click();
-  await expect(page).toHaveURL(new RegExp(`/account/o/events/new\\?o=${ORG2_ID}$`));
+  await expect(page).toHaveURL(new RegExp(`/account/o/new/what\\?o=${ORG2_ID}$`));
 });
 
 for (const slug of [ORG_SLUG, ORG2_SLUG]) {
@@ -223,6 +223,6 @@ for (const slug of [ORG_SLUG, ORG2_SLUG]) {
     await page.waitForTimeout(500);
     await expect(page.getByTestId('eip-create-event')).toHaveCount(0);
     await expect(page.locator('[data-eip-pencil]')).toHaveCount(0);
-    await expect(page.locator('a[href^="/account/o/events/new"]')).toHaveCount(0);
+    await expect(page.locator('a[href^="/account/o/new/what"]')).toHaveCount(0);
   });
 }

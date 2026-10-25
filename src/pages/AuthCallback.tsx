@@ -2,30 +2,93 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { rpcLoose } from "@/integrations/supabase/rpcLoose";
 import { fetchMyPersonaId } from "@/lib/myPersona";
+import { claimOrganisersAtSignIn, type ClaimedOrganiser } from "@/lib/claimMyOrganisers";
+import { claimLandingPath, claimToastProps, shouldToastClaim } from "@/lib/claimSignInLanding";
+import { toast } from "@/hooks/use-toast";
+import { ORG_PATHS } from "@/modules/organiser/shell/paths";
 import { claimAtSignIn, shouldArmFinishHop } from "@/lib/claimMyDancerProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { resolveCanonicalCity } from "@/lib/city-canonical";
 import { AUTH_PENDING_RETURN_TO_KEY, sanitizeReturnTo } from "@/lib/authRouting";
+import { signInDeletionTarget } from "@/lib/accountDeletion";
 import { hasDancerProfileBasics, inferOnboardingStatusFromDancer } from "@/lib/onboardingStatus";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 import { flags } from "@/lib/featureFlags";
+import { trackAuthStep, type AuthFunnelOutcome } from "@/lib/trackAuthStep";
+import { acceptTerms } from "@/lib/termsConsent";
 import {
+  ALREADY_LISTED_BODY,
+  ALREADY_LISTED_LINK_LABEL,
+  ALREADY_LISTED_TITLE,
+  ALREADY_LISTED_URL,
+  PENDING_ROLE_INTENT_KEY,
+  ROLE_INTENT_META_KEY,
+  SET_MY_ROLE_INTENT_RPC,
   armPostLoginPrompt,
+  choseTeacherOrDj,
+  holdsSeatFromOrganiserHome,
   isDanceRoleValue,
   isFirstSignIn,
   landingPathAfterAuth,
-  needsOrganiserLookup,
   normalizeLandingRole,
+  parseRoleIntentResult,
+  readSignupRoles,
   shouldHonorReturnTo,
+  isTaskReturnTo,
+  showsAlreadyListedStep,
+  signupIntentLanding,
+  type SignupRole,
 } from "@/lib/auth-otp-routing";
-import { fetchOrganiserHome } from "@/modules/organiser-self-serve/selfServeApi";
 
 const VALID_ROLES: Record<string, string> = {
   organiser: "/create-organiser-profile",
   videographer: "/create-videographer-profile",
+};
+
+/** Neither sign-up read below holds a sign-in longer than this. */
+const SIGNUP_READ_TIMEOUT_MS = 4000;
+
+const withTimeout = async <T,>(work: PromiseLike<T>): Promise<T | "timeout"> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<"timeout">((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), SIGNUP_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+// The sign-up's "What do you do?" answer, recorded ONCE. Never throws and never holds the
+// sign-up: while set_my_role_intent_v1 is not on the database (or on any failure) the
+// account still lands. Logs no roles and no account detail.
+const recordRoleIntent = async (roles: SignupRole[]) => {
+  try {
+    const result = await withTimeout(rpcLoose(SET_MY_ROLE_INTENT_RPC, { p_roles: roles }));
+    if (result === "timeout" || result.error || !parseRoleIntentResult(result.data)) {
+      console.debug("[set_my_role_intent] not recorded");
+    }
+  } catch {
+    console.debug("[set_my_role_intent] not recorded");
+  }
+};
+
+// Does this account hold an owner/manager seat (C12)? null when it cannot be told.
+const readHoldsOrganiserSeat = async (): Promise<boolean | null> => {
+  try {
+    const result = await withTimeout(supabase.rpc("organiser_home_v1"));
+    if (result === "timeout" || result.error) return null;
+    return holdsSeatFromOrganiserHome(result.data);
+  } catch {
+    return null;
+  }
 };
 
 const AuthCallback = () => {
@@ -34,6 +97,19 @@ const AuthCallback = () => {
   const queryClient = useQueryClient();
   const [error] = useState<string | null>(null);
   const resolved = useRef(false);
+  // Funnel counter: callback and landing each record at most once per page load (a ref survives the
+  // StrictMode double effect). Fire-and-forget; carries no e-mail or id.
+  const funnelDone = useRef<{ callback: boolean; landing: boolean }>({ callback: false, landing: false });
+  const recordCallback = (outcome: AuthFunnelOutcome) => {
+    if (funnelDone.current.callback) return;
+    funnelDone.current.callback = true;
+    trackAuthStep({ step: "callback", outcome });
+  };
+  const recordLanding = () => {
+    if (funnelDone.current.landing) return;
+    funnelDone.current.landing = true;
+    trackAuthStep({ step: "landing", outcome: "ok" });
+  };
 
   const safeReturnTo = sanitizeReturnTo(searchParams.get("returnTo"));
   const callbackMode = searchParams.get("mode");
@@ -43,13 +119,44 @@ const AuthCallback = () => {
   // 2026-09-12 -- so a successful sign-in ended on "Page not found". The reason
   // was only ever read by that page. Carry on to where they were heading
   // (returnTo, then a stashed one), else home.
+  const claimedRef = useRef<ClaimedOrganiser[]>([]);
+  const claimNoticeShown = useRef(false);
+  // C13: armed by a Teacher/DJ sign-up the dancer claim found no person for. The first landing
+  // then shows "Already listed?" instead, and its Continue lands where that landing was going.
+  const alreadyListedPending = useRef(false);
+  const [alreadyListedTo, setAlreadyListedTo] = useState<string | null>(null);
+
+  // Pages claimed at this sign-in: kept for organiser Home, which draws the notice in its own
+  // flow with a 44 px Close until it is closed ("Tell us" is the only way to undo a claim that
+  // skipped the confirm screen). Returns where to land when there is no return path: /account/o
+  // after a claim, else null.
+  const claimLanding = (): string | null => claimLandingPath(claimedRef.current, claimNoticeShown.current);
+
+  // Every signed-in landing goes through here. On Home the notice is Home's own line, so no toast
+  // covers its rows (review finding 7). Anywhere else (a return path wins, D37) a SHORT toast says
+  // it on that page too; never Infinity, because the shared toast sits mid-screen.
+  const land = (path: string) => {
+    if (alreadyListedPending.current) {
+      alreadyListedPending.current = false;
+      setAlreadyListedTo(path);
+      return;
+    }
+    const claimed = claimedRef.current;
+    if (shouldToastClaim(claimed, claimNoticeShown.current, path)) toast(claimToastProps(claimed));
+    if (claimed.length > 0) claimNoticeShown.current = true;
+    recordLanding();
+    navigate(path, { replace: true });
+  };
+
   const navigateToSignedInFallback = () => {
+    const claimPath = claimLanding();
     const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
     localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-    navigate(safeReturnTo ?? pendingReturnTo ?? "/", { replace: true });
+    land(safeReturnTo ?? pendingReturnTo ?? claimPath ?? "/");
   };
 
   const navigateToSignInFallback = (reason: "expired" | "invalid" | "manual" | "timeout") => {
+    recordCallback(reason === "timeout" ? "timeout" : "error");
     const returnToParam = safeReturnTo ? `&returnTo=${encodeURIComponent(safeReturnTo)}` : "";
     navigate(`/auth?mode=signin&callbackError=${reason}${returnToParam}`, { replace: true });
   };
@@ -82,6 +189,7 @@ const AuthCallback = () => {
 
       resolved.current = true;
       clearTimeout(timeout);
+      recordCallback("ok");
 
       const user = session.user;
       // Self-claim FIRST (every sign-in; never throws, never holds the sign-in
@@ -93,9 +201,51 @@ const AuthCallback = () => {
       // sign-in that just linked an admin-made profile: it may be complete already.
       if (shouldArmFinishHop({ firstSignIn: isFirstSignIn(user), claim })) armPostLoginPrompt();
 
+      // A deleted (= hidden) account restores BEFORE anything else: before any returnTo is followed
+      // and before the profile read (a hidden profile reads as missing). The returnTo rides along
+      // so the restore page's Continue still gets there. A failed read carries on (lib/accountDeletion).
+      const restoreTo = await signInDeletionTarget(safeReturnTo ?? sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY)));
+      if (restoreTo) {
+        localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
+        recordLanding();
+        navigate(restoreTo, { replace: true });
+        return;
+      }
+
+      // Then, and only for an account that is not hidden (review finding 15), the organiser pages an
+      // admin recorded this email against (automatic, no confirm screen). Never throws and never
+      // holds the sign-in; empty on any failure.
+      claimedRef.current = await claimOrganisersAtSignIn(user.id);
+
       try {
         const pendingRole = localStorage.getItem("pending_profile_role");
         const isSignupFlow = callbackMode === "signup" || (callbackMode !== "signin" && Boolean(pendingRole));
+        // "What do you do?" (B-WEB4): a sign-up only, after both claims. Recorded once; it changes
+        // where the account lands and nothing else (Organiser grants nothing, C12). The seat is
+        // read only when a Teacher/DJ landing depends on it; claimed pages are a seat already.
+        let pendingRoles: string | null = null;
+        try {
+          pendingRoles = localStorage.getItem(PENDING_ROLE_INTENT_KEY);
+          localStorage.removeItem(PENDING_ROLE_INTENT_KEY);
+        } catch { /* unreadable: the metadata still carries them */ }
+        const signupRoles = isSignupFlow ? readSignupRoles(pendingRoles, user.user_metadata?.[ROLE_INTENT_META_KEY]) : null;
+        let holdsOrganiserSeat: boolean | null = claimedRef.current.length > 0 ? true : null;
+        if (signupRoles) {
+          // Only the account's FIRST sign-in records: set_my_role_intent_v1 replaces the stored roles, and the
+          // sign-up form used again on an existing account must not overwrite what it chose then.
+          if (isFirstSignIn(user)) await recordRoleIntent(signupRoles);
+          if (holdsOrganiserSeat === null && choseTeacherOrDj(signupRoles)) holdsOrganiserSeat = await readHoldsOrganiserSeat();
+          alreadyListedPending.current = showsAlreadyListedStep({ roles: signupRoles, claimStatus: claim.status });
+        }
+        // An e-mailed-link sign-up saw the clickwrap but never passed the typed-code screen, so record the
+        // consent here (idempotent server-side, so a typed-code sign-up that already did is harmless).
+        // Not awaited: it never holds the person back; acceptTerms has its own timeout and never throws.
+        let alreadyRecorded = false;
+        try {
+          alreadyRecorded = sessionStorage.getItem("terms_recorded_this_signup") === "1";
+          sessionStorage.removeItem("terms_recorded_this_signup");
+        } catch { /* unreadable: record again, harmless */ }
+        if (callbackMode === "signup" && !alreadyRecorded) void acceptTerms();
         const meta = user.user_metadata || {};
         // Called for its side effect (it persists a metadata role); routing reads the role itself.
         resolveRolePreference(pendingRole, meta.user_type);
@@ -135,38 +285,38 @@ const AuthCallback = () => {
         // The routing tail, which used to be spelled out twice -- once per
         // branch -- and had to be kept in step by hand.
         const routeOnwards = async () => {
+          // An explicit returnTo, then the stashed path, still wins over the claim landing (D37).
+          const claimPath = claimLanding();
           // A sign-up honours returnTo too once self-serve is on, so "Sign in
           // to claim" -> new account lands back on the claim card (Lever 2 B3).
-          if (safeReturnTo && shouldHonorReturnTo({ returnTo: safeReturnTo, isSignupFlow, organiserSelfServe: flags.organiserSelfServe })) {
-            navigate(safeReturnTo, { replace: true });
+          // W2 walk fix 7: an Organiser sign-up from a plain public page goes on to the organiser onboarding.
+          const organiserSignup = !!signupRoles?.includes('organiser') || (normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type)) === 'organiser';
+          const honours = (rt: string) => shouldHonorReturnTo({ returnTo: rt, isSignupFlow, organiserSelfServe: flags.organiserSelfServe, organiserSignup });
+          if (safeReturnTo && honours(safeReturnTo)) {
+            land(safeReturnTo);
             return;
           }
 
           const pendingReturnTo = sanitizeReturnTo(localStorage.getItem(AUTH_PENDING_RETURN_TO_KEY));
           if (pendingReturnTo) {
             localStorage.removeItem(AUTH_PENDING_RETURN_TO_KEY);
-            navigate(pendingReturnTo, { replace: true });
-            return;
-          }
-
-          // With self-serve on, only organiser-type roles land on /account
-          // (its first run asks "Which organiser are you?"); a dancer goes
-          // home. A sign-in with no role at all (older accounts) goes to
-          // /account only if the user already manages an organiser.
-          const landingRole = normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
-          let managesOrganiser: boolean | null = null;
-          if (needsOrganiserLookup({ organiserSelfServe: flags.organiserSelfServe, role: landingRole })) {
-            try {
-              managesOrganiser = (await fetchOrganiserHome()).organisers.length > 0;
-            } catch {
-              // A failed lookup is not "no organiser": /account handles its own load error.
-              managesOrganiser = null;
+            if (!isSignupFlow || !organiserSignup || isTaskReturnTo(pendingReturnTo)) {
+              land(pendingReturnTo);
+              return;
             }
           }
-          navigate(
-            landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, managesOrganiser }),
-            { replace: true },
-          );
+
+          // No returnTo: lib/auth-otp-routing decides. A sign-in (and a dancer
+          // sign-up) goes to /account/continue, which reads the person's sides
+          // and goes straight to the only one or shows "Continue as..."; an
+          // organiser-type sign-up goes to the organiser onboarding as before.
+          // Pages claimed at this sign-in land where they are managed.
+          // A sign-up's roles then move it: an organiser seat keeps this landing, else Teacher,
+          // else DJ, else this landing (lib/auth-otp-routing signupIntentLanding).
+          // An Organiser ticked in the sign-up's multi-select counts as the organiser role (fix 7), even with Dancer kept as the entry role.
+          const landingRole = isSignupFlow && organiserSignup ? 'organiser' : normalizeLandingRole(pendingRole) ?? normalizeLandingRole(meta.user_type);
+          const todays = claimPath ?? landingPathAfterAuth({ organiserSelfServe: flags.organiserSelfServe, role: landingRole, isSignup: isSignupFlow });
+          land(signupIntentLanding({ roles: signupRoles, holdsOrganiserSeat, todays }));
           localStorage.removeItem("pending_profile_role");
         };
 
@@ -310,7 +460,7 @@ const AuthCallback = () => {
 
   if (error) {
     return (
-      <GlobalLayout showSubheader={false}>
+      <GlobalLayout showSubheader={false} showGradientBg={false}>
         <div className="pt-20 px-4">
           <div className="max-w-sm mx-auto text-center space-y-4">
             <h1 className="text-xl font-semibold text-foreground">Authentication failed</h1>
@@ -324,13 +474,37 @@ const AuthCallback = () => {
     );
   }
 
+  if (alreadyListedTo) {
+    return (
+      <GlobalLayout showSubheader={false} showGradientBg={false}>
+        <div className="pt-20 px-4">
+          <section className="max-w-sm mx-auto space-y-3 rounded-xl border bg-card p-3" aria-labelledby="already-listed-title">
+            <h1 id="already-listed-title" className="text-lg font-semibold text-foreground">{ALREADY_LISTED_TITLE}</h1>
+            <p className="text-sm text-muted-foreground">{ALREADY_LISTED_BODY}</p>
+            <a
+              href={ALREADY_LISTED_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-full border border-primary px-3 text-[15px] font-semibold text-primary"
+            >
+              {ALREADY_LISTED_LINK_LABEL}
+            </a>
+            <Button className="w-full min-h-[44px] rounded-full font-semibold" onClick={() => land(alreadyListedTo)}>
+              Continue
+            </Button>
+          </section>
+        </div>
+      </GlobalLayout>
+    );
+  }
+
   return (
-    <GlobalLayout showSubheader={false}>
+    <GlobalLayout showSubheader={false} showGradientBg={false}>
       <div className="pt-20 px-4">
         <div className="max-w-md mx-auto space-y-4">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-64 w-full" />
-          <p className="text-center text-sm text-muted-foreground">Signing you in…</p>
+          <p className="text-center text-sm text-muted-foreground">Signing you in&hellip;</p>
         </div>
       </div>
     </GlobalLayout>

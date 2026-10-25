@@ -148,6 +148,7 @@ const Onboarding = () => {
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
                 <CityPicker 
+                  id="onboarding-city"
                   value={cityId} 
                   onChange={(id, obj) => {
                     setCityId(id);

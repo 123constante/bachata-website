@@ -21,6 +21,7 @@ export default [
   // Detail routes — on-demand SSR loaders (not prerendered; dynamic entities).
   route("dancers/:id", "routes/dancers.tsx"),
   route("djs/:id", "routes/djs.tsx"),
+  route("people/:id", "routes/people.tsx"),
   route("teachers/:id", "routes/teachers.tsx"),
   route("festival/:id", "routes/festival.tsx"),
   // /vendors/:id stays on the catchall (client-only) until a public vendor exists

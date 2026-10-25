@@ -23,18 +23,32 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.docs_only != 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       - name: Make scripts executable
+        if: steps.changes.outputs.docs_only != 'true'
         run: chmod +x bin/*.sh
 
       # PyYAML is a HARD requirement here as of the could-not-run change. The
@@ -45,6 +59,7 @@ jobs:
       # happens to ship: an unpinned parser is how a guard goes quiet without
       # anyone noticing, which is the defect being closed.
       - name: Ensure PyYAML (the integrity guard's YAML parser)
+        if: steps.changes.outputs.docs_only != 'true'
         run: |
           if python3 -c "import yaml" 2>/dev/null; then
             echo "PyYAML present"
@@ -56,21 +71,26 @@ jobs:
           fi
 
       - name: Run integrity guard (sealed wrapper)
+        if: steps.changes.outputs.docs_only != 'true'
         run: bin/check-integrity.sh
 
       - name: Run legacy-tables guardrail (event_profile_links*)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:legacy-tables
 
       - name: Run legacy-program-RPC guardrail (Phase 5.6 cutover)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:legacy-program-rpcs
 
       - name: Run runtime architecture guard
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run lint:architecture
 
       # a11y + lazy-load guard: every <img> in src/**/*.tsx must carry
       # alt= and loading=. Script-only, zero deps. AUDIT_STRICT=1 makes a
       # missing attribute a hard fail (backlog swept to zero 2026-06-13).
       - name: Image-attribute audit (alt + loading)
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           AUDIT_STRICT: '1'
         run: npm run check:images
@@ -87,6 +107,7 @@ jobs:
       # nothing, and reads as coverage that is not there. Found while auditing
       # which canaries have real callers (rule R4, check #63).
       - name: Image-width contract
+        if: steps.changes.outputs.docs_only != 'true'
         run: |
           npm run check:image-widths:self-test
           npm run check:image-widths
@@ -98,6 +119,7 @@ jobs:
       # even though the lint itself is a local-only gate, which is the half of
       # this guard CI can honestly own.
       - name: Plan-hygiene rules (canary only -- the lint is pre-ship-local)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:plan-hygiene:self-test
 
       # Workflow artifact policy: what an upload in .github/workflows is
@@ -116,6 +138,7 @@ jobs:
       # proves nothing, and this guard's whole job is to not be silently blind.
       # Static -- no network, no secrets, no DB.
       - name: Workflow artifact policy (canary, then the guard)
+        if: steps.changes.outputs.docs_only != 'true'
         run: |
           npm run check:workflow-artifact-policy:self-test
           npm run check:workflow-artifact-policy
@@ -125,6 +148,8 @@ jobs:
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was
       # swept clean on 2026-05-18; .editorconfig (charset = utf-8) tells
       # modern editors to never re-encode, so any new hit is a regression.
+      # Runs on docs-only PRs too (node builtins + git grep, no npm ci): markdown is
+      # where FUSE mojibake lands and no other check scans it in time.
       # The canary runs first, per the same rule as the image-width guard above.
       # It proves the DETECTION rules against fixtures and needs no checkout
       # state, so it still reports if the grep below is the thing that broke.
@@ -190,7 +215,15 @@ jobs:
       #
       # Canary first, same rule as the guards above.
       - name: Entry-point dispatch proof (canary, then the sweep)
+        if: steps.changes.outputs.docs_only != 'true'
         timeout-minutes: 2
         run: |
           npm run prove:entry-point:self-test
           npm run prove:entry-point
+
+      - name: Going legacy-RPC guard (canary, then the guard)
+        if: steps.changes.outputs.docs_only != 'true'
+        timeout-minutes: 2
+        run: |
+          node scripts/check-going-legacy-rpcs.mjs --self-test
+          npm run check:going-legacy-rpcs

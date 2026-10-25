@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hintMatchesEmail,
+  ownPageForName,
+  reasonScreen,
   ACCESS_LABEL,
   ADD_PERSON_CODES,
   ADMIN_COPY,
@@ -117,11 +120,11 @@ describe('redeem: every reason has its own message', () => {
   });
   it.each(REASONS)('%s: says what the person can do, and never points at a control that is not on screen', (reason) => {
     const c = REDEEM_COPY[reason];
-    expect(c.body.length).toBeGreaterThan(20);
+    if (!c.terminal) expect(c.body.length).toBeGreaterThan(20);
     // The screen only ever has a Sign in link, a Try again button and a home link, and the body names none of them.
     expect(c.body).not.toMatch(/\b(tap|click|press|button|menu|tab)\b/i);
-    // Finished-with links say who to ask; recoverable ones say what to do.
-    if (c.terminal) expect(c.body).toMatch(/Ask the admin who sent it for a new link|ask the admin/i);
+    // Finished-with links: the ask button is the way on (mockups 2a-2c); a garbled link has nobody to ask (2f).
+    if (c.terminal) expect(reasonScreen(reason).offerNewLink).toBe(reason !== 'invalid');
     if (c.action === 'sign_in') expect(c.body).toMatch(/[Ss]ign in/);
   });
   it('terminal reasons strip the token; recoverable ones keep it for the retry', () => {
@@ -129,8 +132,8 @@ describe('redeem: every reason has its own message', () => {
     expect(['sign_in_required', 'unconfirmed_account', 'rate_limited', 'authentication_required'].every((r) => !REDEEM_COPY[r].terminal)).toBe(true);
   });
   it('interprets the RPC answers', () => {
-    expect(interpretRedeem({ ok: true, status: 'redeemed', organiser_id: 'o1' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: false });
-    expect(interpretRedeem({ ok: true, status: 'already_member', organiser_id: 'o1', member_role: 'manager' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: true });
+    expect(interpretRedeem({ ok: true, status: 'redeemed', organiser_id: 'o1' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: false, prefill: null });
+    expect(interpretRedeem({ ok: true, status: 'already_member', organiser_id: 'o1', member_role: 'manager' }, null)).toEqual({ kind: 'redeemed', organiserId: 'o1', alreadyMember: true, prefill: null });
     for (const r of REASONS.filter((x) => x !== 'authentication_required')) {
       const out = interpretRedeem({ ok: false, reason: r }, null);
       expect(out).toMatchObject({ kind: 'refused', reason: r });
@@ -160,4 +163,56 @@ describe('admin write refusals', () => {
     expect(adminErrorMessage({ message: 'some_future_code' })).toBe('Something went wrong. Please try again.');
     expect(adminErrorMessage(null)).toBe('Something went wrong. Please try again.');
   });
+});
+
+describe('redeem: team_full (S-MERGE) -- the server reason has its own terminal entry, never the generic fallback', () => {
+  // Every reason redeem_organiser_invite_v1 can return in its {ok:false} answer, plus the raised ones.
+  const SERVER_REASONS = ['sign_in_required', 'unconfirmed_account', 'rate_limited', 'invalid', 'used', 'revoked', 'expired', 'team_full', 'authentication_required'];
+  it.each(SERVER_REASONS.filter((r) => r !== 'authentication_required'))('%s maps to its own copy, not the fallback', (reason) => {
+    const out = interpretRedeem({ ok: false, reason }, null);
+    expect(out.kind).toBe('refused');
+    if (out.kind === 'refused') {
+      expect(out.copy).not.toBe(REDEEM_FALLBACK);
+      expect(out.copy.title).not.toBe(REDEEM_FALLBACK.title);
+    }
+  });
+  it('team_full is terminal: no retry control, its action leads home (the route that exists), the token leaves the URL', () => {
+    const c = REDEEM_COPY.team_full;
+    expect(c.terminal).toBe(true);
+    expect(c.action).toBe('home');
+    expect(c.action).not.toBe('retry');
+    expect(c.title).toBe('This team is full');
+  });
+  it('team_full copy states the cap and who to ask, and names no control that is not on screen (no Remove, Add, tap, button)', () => {
+    const body = REDEEM_COPY.team_full.body;
+    expect(body).toContain('20');
+    expect(body).toMatch(/ask the Bachata Calendar team/i);
+    expect(body).not.toMatch(/\b(remove|add|tap|click|press|button|menu|tab|try again)\b/i);
+  });
+});
+
+describe('hintMatchesEmail: can the signed-in email be the one a masked hint stands for', () => {
+  it.each([
+    ['z...@example.test', 'zed@example.test', true],
+    ['z***@example.test', 'zed@example.test', true],
+    ['Z...@Example.Test', 'zed@example.test', true],
+    ['z...@example.test', 'ZED+club@EXAMPLE.test', true],
+    ['z...@example.test', 'zed@other.test', false],
+    ['z...@example.test', 'amy@example.test', false],
+    [null, 'zed@example.test', false],
+    ['z...@example.test', null, false],
+    ['z...@example.test', '', false],
+  ])('%s vs %s -> %s', (hint, email, expected) => {
+    expect(hintMatchesEmail(hint, email)).toBe(expected);
+  });
+});
+
+describe('ownPageForName', () => {
+  const list = [{ name: 'Salsa Norte', id: 'o1' }, { name: 'Other', id: 'o2' }];
+  it.each([
+    ['Salsa Norte', 'o1'], ['  salsa norte ', 'o1'], ['Salsa Norte 2', null], ['', null], [null, null],
+  ])('%j -> %s', (name, id) => {
+    expect(ownPageForName(list, name)?.id ?? null).toBe(id);
+  });
+  it('no list', () => { expect(ownPageForName(null, 'Salsa Norte')).toBeNull(); });
 });

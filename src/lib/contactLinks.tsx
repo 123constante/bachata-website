@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 
@@ -24,6 +25,51 @@ const WHATSAPP_LISTING_MESSAGE = "Hi! I'd like to list my events on Bachata Cale
 // Direct chat with a prefilled "list my events" message.
 export const WHATSAPP_GET_LISTED_URL =
   `https://wa.me/${WHATSAPP_LISTING_NUMBER}?text=${encodeURIComponent(WHATSAPP_LISTING_MESSAGE)}`;
+
+/**
+ * "Message us" links for dancers: the same direct WhatsApp chat with a DANCER message,
+ * not the organiser "list my events" prefill. Here, not in a module of its own: this
+ * file already rides the chunk every route loads (GlobalHeader, BottomNav), so the
+ * builder costs no extra first-load request (perf-budgets chunk ratchet). The dancer
+ * app (modules/dancer-app/api/messageUs), Auth and lib/profileCompletion share it.
+ */
+export const dancerMessageUsUrl = (text: string): string =>
+  `https://wa.me/${WHATSAPP_LISTING_NUMBER}?text=${encodeURIComponent(text)}`;
+
+export const NOT_ME_MESSAGE = 'Hi! The dancer profile linked to my Bachata Calendar account is not me.';
+export const ADD_CITY_MESSAGE = 'Hi! Please add my city to Bachata Calendar. My city is: ';
+export const NO_PROFILE_MESSAGE = 'Hi! My Bachata Calendar account has no dancer profile yet. Please can you set one up?';
+export const PROFILE_HELP_MESSAGE = 'Hi! I need help with my Bachata Calendar dancer profile.';
+
+export const REPORT_PROBLEM_MESSAGE = 'Hi! Something is wrong on this Bachata Calendar page: ';
+
+/** The WhatsApp link for "Report a problem", with the page address in the message. */
+export const reportProblemUrl = (pageUrl: string | null): string =>
+  dancerMessageUsUrl(`${REPORT_PROBLEM_MESSAGE}${pageUrl ?? ''}`.trimEnd());
+
+/**
+ * "Something wrong on this page? Tell us": the last line of every event page and organiser
+ * page. There is no review step before a page goes live, so this is how a wrong page gets
+ * reported. The address is read after mount (this renders on the server too).
+ */
+const subscribeNever = () => () => {};
+
+export function ReportProblemLink({ className = '' }: { className?: string }) {
+  const pageUrl = useSyncExternalStore(subscribeNever, () => window.location.href, () => null);
+  return (
+    <p className={`py-3 text-center text-sm ${className}`}>
+      <a
+        href={reportProblemUrl(pageUrl)}
+        target="_blank"
+        rel="noopener noreferrer"
+        data-testid="report-problem"
+        className="inline-flex min-h-[44px] items-center px-2 text-sm underline underline-offset-2 opacity-80"
+      >
+        Something wrong on this page? Tell us<span className="sr-only"> (opens WhatsApp in a new tab)</span>
+      </a>
+    </p>
+  );
+}
 
 /**
  * The site's footer link block: Fatsoma-style headed columns + copyright line.
@@ -74,6 +120,8 @@ const SECTIONS: FooterSection[] = [
     links: [
       { label: 'WhatsApp', href: WHATSAPP_GROUP_URL },
       { label: 'Instagram', href: INSTAGRAM_URL },
+      { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
     ],
   },
 ];

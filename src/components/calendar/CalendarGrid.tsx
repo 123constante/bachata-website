@@ -61,7 +61,9 @@ export const CalendarGrid = ({
                 key={`past-${day}`}
                 className="aspect-square rounded-xl flex items-center justify-center"
               >
-                <span className="text-sm text-muted-foreground/60">{day}</span>
+                {/* /80, not /60: #8c8c8c on the #121212 card = 5.6:1 (AA); /60 was
+                    3.67:1 (phone suite axe baseline). Colour only, no layout. */}
+                <span className="text-sm text-muted-foreground/80">{day}</span>
               </div>
             );
           }

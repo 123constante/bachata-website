@@ -25,10 +25,16 @@
  *
  * WHY. When two agent sessions edit the same repo simultaneously, in-flight writes can
  * be silently truncated (the 2026-04-26 corruption incident), and two sessions applying
- * migrations at once is how the 2026-07-26 prod collision happened. The lock is
- * ADVISORY: it never blocks a prompt, never fails a hook, never stops a write. It makes
- * the collision VISIBLE, by session and by branch, with the fix (a separate worktree)
+ * migrations at once is how the 2026-07-26 prod collision happened. The lock makes the
+ * collision VISIBLE, by session and by branch, with the fix (a separate worktree)
  * spelled out.
+ *
+ * CONTRACT. acquire / heartbeat / release are ADVISORY: they never block a prompt and
+ * never fail a hook. `guard-write` (PreToolUse) is the one part that can stop work, and
+ * only a WRITE by the second session in the same checkout: advisory in `warn` mode (the
+ * default: logs what it would have refused), write-refusing in `enforce` mode. Reads and
+ * prompts are never blocked, and any internal error fails open. See the write-guard
+ * section for the rules and the rollout file.
  *
  * LIFECYCLE (operating-model-v2 Phase 6, revised across two review rounds):
  *   SessionStart      -> acquire --warn-only --hook   (take the lock, or warn if held)
@@ -60,16 +66,17 @@
  *   session-lock.mjs release   [--force] [--hook]
  *   session-lock.mjs check         # exit 1 if held by another live session
  *   session-lock.mjs status
+ *   session-lock.mjs guard-write --hook   # PreToolUse: hook payload on stdin; exit 2 = blocked
  *   session-lock.mjs --self-test
  * Flags are position-independent. --stale-hours H is the shell-era spelling of
  * --stale-minutes (H*60). Exit codes: 0 everywhere except check (1 = foreign live
- * lock) and a usage error (1).
+ * lock), a usage error (1) and guard-write in enforce mode (2 = write refused).
  */
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { isEntryPoint } from "../lib/entry-point.mjs";
 
@@ -373,13 +380,18 @@ function publishPresence(ctx, now = new Date()) {
  * hook (stdout captured), print to BOTH - stdout becomes injected context, stderr is
  * what the harness surfaces in the terminal - and no user ever sees it twice.
  */
+/** The holder's host, flagged when it is another machine (a worktree here is not that fix). */
+function hostLabel(lock) {
+  return lock.host && lock.host !== os.hostname() ? `${lock.host} (NOT this machine)` : lock.host || "unknown";
+}
+
 function foreignWarning(ctx, lock) {
   const wtName = `${ctx.repoName}-wt`;
   // `host` is reported (not decided on): on a shared mount the other session can be on
   // another machine entirely, where a worktree in THIS checkout is not the fix. Written
   // and never read was the previous state - see the isStale() note for why `pid` stays
   // unreported and undecided-on.
-  const otherHost = lock.host && lock.host !== os.hostname() ? `${lock.host} (NOT this machine)` : lock.host || "unknown";
+  const otherHost = hostLabel(lock);
   const msg =
     "session-lock: WARNING - another Claude session is live in this repo.\n" +
     `  its branch : ${lock.branch || "unknown"}\n` +
@@ -508,6 +520,191 @@ function status(ctx) {
   process.stdout.write("session-lock: held\n" + JSON.stringify(lock, null, 2) + "\n");
   if (isStale(lock)) process.stdout.write("(stale - would be cleared on next acquire or heartbeat)\n");
   return 0;
+}
+
+/* -------------------------------------------------------------- write guard */
+
+/**
+ * guard-write -- the PreToolUse half of the lock: the SECOND session in a checkout is
+ * refused WRITES, never prompts and never reads.
+ *
+ * Why a refusal and not another warning: the advisory text above fires on every prompt and
+ * is routinely ignored while five windows share one folder. The collision it names is a
+ * truncated file or a doubled migration, so the write itself is the right place to stop.
+ *
+ * What is guarded: Edit / Write / NotebookEdit, and Bash whose command runs a git WRITE
+ * verb or scripts/apply-migration. Everything else (reads, git status/diff/log/fetch/
+ * branch, `git worktree add` -- the fix itself -- and every other tool) is allowed.
+ * Only targets INSIDE this checkout are judged: ~/.claude/plans and scratch writes keep
+ * working, and a nested worktree is a different checkout with its own lock.
+ *
+ * Decision: no lock, a stale lock, or a lock held by THIS session id is allowed; a LIVE
+ * lock held by any other id (a blank id included) is a collision. Allowed regardless: a
+ * session with no stable id (it cannot be told from the holder) and a payload carrying a
+ * subagent marker (agent_id / agent_type). The marker rule exists because nothing here
+ * proves a subagent's session_id equals its parent's; without it a subagent could be
+ * refused inside its own parent's checkout. The cost is that a subagent of the SECOND
+ * session is not stopped -- stated, not hidden.
+ *
+ * Rollout: .claude/session-lock-mode holds one word. `enforce` exits 2 (the harness
+ * blocks the call and shows stderr to the agent). Anything else, or no file, is `warn`:
+ * the same message prefixed WOULD REFUSE (shadow mode), exit 0, one line appended to
+ * .claude/.session-lock-would-refuse.log so the owner can read what enforcement would
+ * have done before flipping it. Any internal error fails OPEN (exit 0).
+ */
+const GUARD_MODE_FILE = "session-lock-mode";
+const GUARD_LOG_FILE = ".session-lock-would-refuse.log";
+const GUARDED_TOOLS = new Set(["Edit", "Write", "NotebookEdit"]);
+const GIT_WRITE_VERBS = [
+  "commit", "push", "merge", "rebase", "reset", "checkout", "switch", "stash",
+  "cherry-pick", "am", "apply", "add", "rm", "mv", "pull", "clean", "restore", "revert", "update-ref",
+];
+// `git`, any global options (-C <dir>, -c k=v, --flag[=v]), then a write verb as a whole word.
+const GIT_WRITE_RE = new RegExp(
+  String.raw`(?:^|[\s;&|(])git(?:\s+(?:-[Cc]\s+(?:"[^"]*"|'[^']*'|\S+)|--[\w-]+(?:=\S+)?))*\s+(${GIT_WRITE_VERBS.join("|")})(?=\s|$|[;&|)])`
+);
+const MIGRATION_RE = /scripts[\\/]apply-migration/;
+
+function bashWritesGit(cmd) {
+  if (MIGRATION_RE.test(cmd)) return true;
+  for (const m of cmd.matchAll(new RegExp(GIT_WRITE_RE.source, "g"))) {
+    const rest = cmd.slice(m.index + m[0].length);
+    if (m[1] === "stash" && /^\s+(list|show)\b/.test(rest)) continue; // the read forms of stash
+    return true;
+  }
+  return false;
+}
+
+/** Where a Bash call acts: its cwd, or the directory named by the first `git -C <dir>`. */
+function bashTargetDir(cmd, cwd) {
+  const m = cmd.match(/(?:^|[\s;&|(])git\s+-C\s+("[^"]*"|'[^']*'|\S+)/);
+  const dir = m ? m[1].replace(/^["']|["']$/g, "") : "";
+  return dir ? path.resolve(cwd, dir) : cwd;
+}
+
+/** realpath of the nearest existing ancestor plus the not-yet-existing tail (a Write may create the file). */
+function realpathLoose(p) {
+  let cur = path.resolve(p);
+  const tail = [];
+  for (;;) {
+    try {
+      return path.join(fs.realpathSync(cur), ...tail.reverse());
+    } catch {
+      const parent = path.dirname(cur);
+      if (parent === cur) return path.resolve(p);
+      tail.push(path.basename(cur));
+      cur = parent;
+    }
+  }
+}
+
+function sameOrInside(root, p) {
+  const fold = (x) => (process.platform === "win32" ? x.toLowerCase() : x);
+  const r = fold(root);
+  const q = fold(p);
+  return q === r || q.startsWith(r.endsWith(path.sep) ? r : r + path.sep);
+}
+
+/** True when `target` lands in THIS checkout and not in a nested worktree or clone under it. */
+function insideCheckout(ctx, target) {
+  const root = realpathLoose(ctx.root);
+  const real = realpathLoose(target);
+  if (!sameOrInside(root, real)) return false;
+  let dir = real;
+  while (!(fs.existsSync(dir) && fs.statSync(dir).isDirectory())) {
+    const parent = path.dirname(dir);
+    if (parent === dir) return true;
+    dir = parent;
+  }
+  const top = git(["rev-parse", "--show-toplevel"], dir);
+  if (!top) return true; // not a git dir (fixtures): containment alone decides
+  const topReal = realpathLoose(top);
+  return sameOrInside(root, topReal) && sameOrInside(topReal, root);
+}
+
+/** "enforce" only when the mode file says so (case-insensitively); everything else is shadow mode. */
+function resolveGuardMode(ctx) {
+  try {
+    const word = fs.readFileSync(path.join(ctx.root, ".claude", GUARD_MODE_FILE), "utf8").trim().toLowerCase();
+    return word === "enforce" ? "enforce" : "warn";
+  } catch {
+    return "warn";
+  }
+}
+
+/** Pure decision: { action: "allow" | "refuse", why, lock? }. Never writes. */
+function guardDecision(ctx, payload) {
+  const allow = (why) => ({ action: "allow", why });
+  const tool = payload.tool_name;
+  const input = payload.tool_input && typeof payload.tool_input === "object" ? payload.tool_input : {};
+  const base = typeof payload.cwd === "string" && payload.cwd ? payload.cwd : ctx.root;
+  let target;
+  if (GUARDED_TOOLS.has(tool)) {
+    const file = input.file_path || input.notebook_path;
+    if (typeof file !== "string" || !file) return allow("no target path");
+    target = path.resolve(base, file);
+  } else if (tool === "Bash") {
+    const cmd = typeof input.command === "string" ? input.command : "";
+    if (!bashWritesGit(cmd)) return allow("not a write");
+    target = bashTargetDir(cmd, base);
+  } else {
+    return allow("tool is not guarded");
+  }
+  if (!ctx.identified) return allow("no stable session id");
+  if (payload.agent_id || payload.agent_type) return allow("subagent call");
+  if (!insideCheckout(ctx, target)) return allow("outside this checkout");
+  const lock = readLock(ctx);
+  if (!lock || isStale(lock)) return allow("no live lock");
+  if (lock.session_id === ctx.sessionId) return allow("own lock");
+  return { action: "refuse", why: "a live lock is held by another session", lock, tool, target };
+}
+
+function guardMessage(ctx, lock, enforce) {
+  const head = enforce
+    ? "session-lock: REFUSED"
+    : "session-lock: WOULD REFUSE (shadow mode - nothing was blocked; flip .claude/session-lock-mode to enforce)";
+  return (
+    `${head} - another Claude session is live in this checkout and this write would race it.\n` +
+    `  its branch : ${lock.branch || "unknown"}\n` +
+    `  its session: ${lock.session_id || "unknown"} (started ${lock.started_at_iso || "unknown"})\n` +
+    `  its host   : ${hostLabel(lock)}\n` +
+    `  this session is on branch: ${ctx.branch}\n` +
+    "  Give this session its own checkout on a NEW branch, then work there (reads stay unblocked):\n" +
+    `      git worktree add ../${ctx.repoName}-wt -b <new-branch-name>\n` +
+    "  OWNER ONLY (not for the agent): if the other session has crashed, `node scripts/hooks/session-lock.mjs release --force`\n" +
+    "  frees this checkout; a crashed holder also expires on its own after 90 minutes."
+  );
+}
+
+function appendWouldRefuse(ctx, decision) {
+  try {
+    const line = JSON.stringify({
+      at: new Date().toISOString(),
+      session: ctx.sessionId,
+      holder: decision.lock.session_id || "",
+      holder_branch: decision.lock.branch || "",
+      tool: decision.tool,
+      target: decision.target,
+    });
+    fs.mkdirSync(path.join(ctx.root, ".claude"), { recursive: true });
+    fs.appendFileSync(path.join(ctx.root, ".claude", GUARD_LOG_FILE), line + "\n");
+  } catch {
+    // shadow logging is evidence, not behaviour: never let it fail the call
+  }
+}
+
+/** Exit code for a PreToolUse hook: 2 = block (enforce only), 0 = proceed. */
+function guardWrite(ctx, payload, { mode } = {}) {
+  if (!payload || typeof payload !== "object") {
+    process.stderr.write("session-lock: guard-write could not read the hook payload; allowing (fail open)\n");
+    return 0;
+  }
+  const decision = guardDecision(ctx, payload);
+  if (decision.action !== "refuse") return 0;
+  const enforce = (mode || resolveGuardMode(ctx)) === "enforce";
+  process.stderr.write(guardMessage(ctx, decision.lock, enforce) + "\n");
+  if (!enforce) appendWouldRefuse(ctx, decision);
+  return enforce ? 2 : 0;
 }
 
 /* ---------------------------------------------------------------- self-test */
@@ -887,6 +1084,151 @@ function selfTest() {
     const lastIdx = parseArgv(["release", "--id", "x"]);
     if (lastIdx.error || lastIdx.id !== "x") fail("a valued flag at last index was wrongly rejected");
     if (parseArgv(["--stale-hours", "2", "acquire"]).staleHours !== "2") fail("stale-hours payload lost after guard");
+    if (parseArgv(["guard-write", "--hook"]).cmd !== "guard-write") fail("guard-write is not a known subcommand");
+
+    // 11. WRITE GUARD (guard-write). Every case runs against a LIVE lock held by A and a
+    //     caller B, because "allowed" is only evidence when a refusal was available. The
+    //     allow table runs in ENFORCE mode for the same reason: a wrongly refused call
+    //     exits 2 there, where warn mode would hide it behind exit 0.
+    const gRoot = A.root;
+    const modeFile = path.join(gRoot, ".claude", GUARD_MODE_FILE);
+    const logFile = path.join(gRoot, ".claude", GUARD_LOG_FILE);
+    const inside = path.join(gRoot, "src", "app.ts");
+    const elsewhere = path.join(tmp, "not-the-checkout", "notes.md");
+    const resetGuard = () => {
+      fs.rmSync(A.lockPath, { force: true });
+      fs.rmSync(logFile, { force: true });
+      fs.rmSync(modeFile, { force: true });
+      mute();
+      heartbeat(A);
+      unmute();
+    };
+    const gEdit = (file) => ({ tool_name: "Edit", tool_input: { file_path: file }, cwd: gRoot });
+    const gBash = (command, cwd = gRoot) => ({ tool_name: "Bash", tool_input: { command }, cwd });
+    const guard = (c, payload, mode) => {
+      mute();
+      const rc = guardWrite(c, payload, { mode });
+      unmute();
+      return rc;
+    };
+
+    resetGuard();
+    // (a) a foreign live lock + an Edit inside the checkout is REFUSED in enforce mode.
+    if (guard(B, gEdit(inside), "enforce") !== 2) fail("guard: foreign live lock + Edit was not refused in enforce mode");
+    // (f) fidelity: the refusal names the holder and spells out the fix.
+    if (!/REFUSED/.test(captured)) fail("guard: the enforce message does not say REFUSED");
+    if (!captured.includes("branch-of-A")) fail("guard: the refusal does not name the holder's branch");
+    if (!captured.includes("its session: A")) fail("guard: the refusal does not name the holder's session");
+    if (!captured.includes(`its host   : ${os.hostname()}`)) fail("guard: the refusal does not name the holder's host");
+    if (!captured.includes("git worktree add ../fixture-repo-wt -b")) fail("guard: the refusal has no runnable worktree command");
+    if (!/release --force/.test(captured)) fail("guard: the refusal does not tell the owner about release --force");
+    if (fs.existsSync(logFile)) fail("guard: an ENFORCED refusal wrote the shadow log");
+
+    // (b) warn mode: same call, never exit 2, says so, and logs one line.
+    if (guard(B, gEdit(inside), "warn") !== 0) fail("guard: warn mode exited non-zero");
+    if (!/WOULD REFUSE \(shadow mode/.test(captured)) fail("guard: warn mode did not print WOULD REFUSE (shadow mode)");
+    const logLines = fs.existsSync(logFile) ? fs.readFileSync(logFile, "utf8").trim().split("\n") : [];
+    if (logLines.length !== 1 || !/"holder":"A"/.test(logLines[0]) || !/"session":"B"/.test(logLines[0]))
+      fail("guard: warn mode did not append exactly one log line naming holder and caller");
+
+    // (c)(d) ALLOWED in enforce mode, silently: own lock, no stable id, outside the
+    //        checkout, read verbs, the worktree fix itself, unrelated tools, a subagent
+    //        marker, malformed inputs.
+    const allowed = [
+      ["own lock", A, gEdit(inside)],
+      ["no stable session id", { ...B, identified: false }, gEdit(inside)],
+      ["Edit outside the checkout", B, gEdit(elsewhere)],
+      ["Bash git commit with cwd outside the checkout", B, gBash("git commit -m x", path.dirname(elsewhere))],
+      ["git status", B, gBash("git status")],
+      ["git log", B, gBash("git log -3 --oneline")],
+      ["git diff", B, gBash("git diff --stat")],
+      ["git fetch", B, gBash("git fetch origin main")],
+      ["git branch", B, gBash("git branch -a")],
+      ["git stash list", B, gBash("git stash list")],
+      ["git worktree add (the fix itself)", B, gBash("git worktree add ../fixture-repo-wt -b other")],
+      ["plain shell", B, gBash("ls -la")],
+      ["Read", B, { tool_name: "Read", tool_input: { file_path: inside }, cwd: gRoot }],
+      ["Grep", B, { tool_name: "Grep", tool_input: { pattern: "x" }, cwd: gRoot }],
+      ["subagent marker", B, { ...gEdit(inside), agent_id: "sub-1" }],
+      ["Edit with no tool_input", B, { tool_name: "Edit", cwd: gRoot }],
+      ["Edit with null tool_input", B, { tool_name: "Edit", tool_input: null, cwd: gRoot }],
+      ["Bash with no command", B, { tool_name: "Bash", tool_input: {}, cwd: gRoot }],
+    ];
+    for (const [label, c, payload] of allowed) {
+      if (guard(c, payload, "enforce") !== 0) fail(`guard: ${label} was refused`);
+      else if (captured !== "") fail(`guard: ${label} was allowed but not silently: ${captured.trim()}`);
+    }
+
+    // (d) REFUSED in enforce mode: every guarded tool and every git write shape.
+    const gRefused = [
+      ["Write", { tool_name: "Write", tool_input: { file_path: inside }, cwd: gRoot }],
+      ["NotebookEdit", { tool_name: "NotebookEdit", tool_input: { notebook_path: inside }, cwd: gRoot }],
+      ["Edit by relative path", { tool_name: "Edit", tool_input: { file_path: "src/app.ts" }, cwd: gRoot }],
+      ["git commit", gBash("git commit -m x")],
+      ["git push", gBash("git push origin HEAD")],
+      ["git -C <here> push", gBash("git -C . push origin HEAD")],
+      ["git --no-pager add", gBash("git --no-pager add -A")],
+      ["git add after cd &&", gBash("cd src && git add -A")],
+      ["git checkout", gBash("git checkout -b x")],
+      ["git stash push", gBash("git stash push -m x")],
+      ["git restore", gBash("git restore .")],
+      ["git revert", gBash("git revert HEAD")],
+      ["git update-ref", gBash("git update-ref -d refs/heads/x")],
+      ["git -C with a quoted path", gBash('git -C "src dir" commit -m x')],
+      ["apply-migration", gBash("node scripts/apply-migration.mjs 20261201000000_x.sql")],
+    ];
+    for (const [label, payload] of gRefused) {
+      if (guard(B, payload, "enforce") !== 2) fail(`guard: ${label} was not refused`);
+    }
+    const blankLock = readLock(A);
+    fs.writeFileSync(A.lockPath, JSON.stringify({ ...blankLock, session_id: "" }));
+    if (guard(B, gEdit(inside), "enforce") !== 2) fail("guard: a live lock with a BLANK session_id was treated as not foreign");
+    fs.writeFileSync(A.lockPath, JSON.stringify(blankLock));
+
+    // (c) a STALE lock and NO lock are allowed.
+    fs.writeFileSync(A.lockPath, JSON.stringify({ ...blankLock, stale_after_iso: "2020-01-01T00:00:00Z" }));
+    if (guard(B, gEdit(inside), "enforce") !== 0) fail("guard: a stale lock refused a write");
+    fs.rmSync(A.lockPath, { force: true });
+    if (guard(B, gEdit(inside), "enforce") !== 0) fail("guard: a missing lock refused a write");
+
+    // (e) FAIL OPEN: an unreadable payload exits 0 with one line saying so.
+    for (const bad of [null, undefined, "not an object", 42]) {
+      if (guard(B, bad, "enforce") !== 0) fail(`guard: an unreadable payload (${String(bad)}) did not fail open`);
+      else if (!/fail open/.test(captured)) fail("guard: failing open was silent");
+    }
+
+    // MODE FILE: missing or anything but "enforce" is warn; the default path reads it.
+    resetGuard();
+    if (resolveGuardMode(A) !== "warn") fail("guard: a missing mode file was not warn");
+    fs.writeFileSync(modeFile, "enforce\n");
+    if (resolveGuardMode(A) !== "enforce") fail("guard: 'enforce' was not read");
+    if (guard(B, gEdit(inside)) !== 2) fail("guard: the mode file was not consulted by default");
+    fs.writeFileSync(modeFile, "Enforce");
+    if (resolveGuardMode(A) !== "enforce") fail("guard: the mode word was not read case-insensitively");
+    for (const junk of ["warn", "yes", "", "enforced", "enforce now"]) {
+      fs.writeFileSync(modeFile, junk);
+      if (resolveGuardMode(A) !== "warn") fail(`guard: mode '${junk}' did not resolve to warn`);
+    }
+    fs.rmSync(modeFile, { force: true });
+    if (guard(B, gEdit(inside)) !== 0) fail("guard: with no mode file the default was not warn");
+
+    // END TO END through the CLI: the stdin payload, the session id and the exit code
+    // travel together, which no in-process call above exercises.
+    resetGuard();
+    const cli = (payload) =>
+      spawnSync(process.execPath, [fileURLToPath(import.meta.url), "guard-write", "--hook"], {
+        input: typeof payload === "string" ? payload : JSON.stringify(payload),
+        encoding: "utf8",
+        env: { ...process.env, SESSION_LOCK_ROOT: gRoot },
+      });
+    fs.writeFileSync(modeFile, "enforce");
+    const cliRefused = cli({ ...gEdit(inside), session_id: "B" });
+    if (cliRefused.status !== 2) fail(`guard CLI: foreign session exited ${cliRefused.status}, not 2`);
+    if (!/branch-of-A/.test(cliRefused.stderr)) fail("guard CLI: the refusal did not reach stderr");
+    if (cli({ ...gEdit(inside), session_id: "A" }).status !== 0) fail("guard CLI: the lock owner was refused");
+    if (cli({ ...gEdit(inside), session_id: "" }).status !== 0) fail("guard CLI: a payload with no session id was refused");
+    if (cli("this is not json").status !== 0) fail("guard CLI: garbage on stdin did not fail open");
+    if (cli({ ...gBash("git status"), session_id: "B" }).status !== 0) fail("guard CLI: a read verb was refused");
   } finally {
     unmute();
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -912,18 +1254,18 @@ function selfTest() {
  * stdin (CI, agent Bash tools) would block forever on readFileSync(0), and a human
  * typing --hook at a real terminal would sit waiting for Ctrl+D.
  */
-function sessionIdFromStdin() {
+function payloadFromStdin() {
   try {
-    const raw = fs.readFileSync(0, "utf8");
-    return JSON.parse(raw).session_id || "";
+    const parsed = JSON.parse(fs.readFileSync(0, "utf8"));
+    return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    return "";
+    return null;
   }
 }
 
 const BOOL_FLAGS = new Set(["--warn-only", "--force", "--quiet", "--hook", "--self-test"]);
 const VALUE_FLAGS = new Set(["--id", "--stale-minutes", "--stale-hours"]);
-const COMMANDS = new Set(["acquire", "heartbeat", "release", "check", "status"]);
+const COMMANDS = new Set(["acquire", "heartbeat", "release", "check", "status", "guard-write"]);
 
 /** Position-independent argv parse; a valued flag's payload is never mistaken for the verb. */
 function parseArgv(argv) {
@@ -976,7 +1318,7 @@ if (isEntryPoint(import.meta.url)) {
     // swallowing behind an unrelated flag.
     process.stderr.write(
       `session-lock: ${args.error}\n` +
-        "usage: session-lock.mjs {acquire|heartbeat|release|check|status} " +
+        "usage: session-lock.mjs {acquire|heartbeat|release|check|status|guard-write} " +
         "[--id X] [--stale-minutes N] [--stale-hours H] [--warn-only] [--force] [--quiet] [--hook]\n"
     );
     process.exitCode = 1;
@@ -987,9 +1329,11 @@ if (isEntryPoint(import.meta.url)) {
     process.exitCode = selfTest();
   } else {
     const hookMode = Boolean(args.hook);
+    // stdin is read ONCE: the id comes from it, and guard-write judges the rest of it.
+    const stdinPayload = hookMode && !process.stdin.isTTY ? payloadFromStdin() : null;
     const namedId =
       args.id ||
-      (hookMode && !process.stdin.isTTY ? sessionIdFromStdin() : "") ||
+      (stdinPayload && stdinPayload.session_id) ||
       process.env.COWORK_SESSION_ID ||
       process.env.CLAUDE_SESSION_ID ||
       "";
@@ -1029,6 +1373,9 @@ if (isEntryPoint(import.meta.url)) {
         case "check":
           code = check(ctx);
           break;
+        case "guard-write":
+          code = guardWrite(ctx, stdinPayload);
+          break;
         default:
           code = status(ctx);
       }
@@ -1057,5 +1404,8 @@ export {
   check,
   status,
   parseArgv,
+  guardWrite,
+  guardDecision,
+  resolveGuardMode,
   selfTest,
 };

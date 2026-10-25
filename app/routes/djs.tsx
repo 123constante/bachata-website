@@ -2,6 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { buildSeoForRoute, DEFAULT_OG_IMAGE } from "@/lib/seo";
+import { personCardPhoto } from "@/lib/seo/personCard";
 import DJProfile from "@/pages/DJProfile";
 import { InitialVisiblePageTransition } from "../InitialVisiblePageTransition";
 import {
@@ -42,8 +43,9 @@ export const loader = withSsrLoaderTimeout("dj-loader", async function loaderImp
   });
   if (!dj) throwDetailNotFound("DJ");
 
-  const photo = dj.photo_url;
-  const rawPhoto = (Array.isArray(photo) ? photo[0] : photo) as string | null | undefined;
+  // S5 card rule: the DJ's own photo, then the avatar. get_public_dj_v1's photo_url IS
+  // dancer_profiles.avatar_url (no DJ photo column exists), so it is the avatar argument.
+  const rawPhoto = personCardPhoto(null, dj.photo_url);
   return taggedData(
     {
       dehydratedState: dehydrate(qc),
@@ -54,6 +56,8 @@ export const loader = withSsrLoaderTimeout("dj-loader", async function loaderImp
       // returns null there, which noindexes the page instead. Mirrors DJProfile.
       entityName: resolvePublicName(dj as Parameters<typeof resolvePublicName>[0]) ?? undefined,
       entitySlug: ref.slug ?? params.id,
+      // S5: the person's own city on the card (was always London).
+      entityCity: (dj.city_name as string | null | undefined) ?? null,
       // Phase 5 — normalize og:image through /api/og/card?kind=image (letterboxed
       // JPEG) so WebP/oversized DJ photos still render as social link-preview
       // cards. Mirrors middleware.ts's ogNormalizedImage; lets the /djs matcher
@@ -75,6 +79,7 @@ export const meta: Route.MetaFunction = ({ data }) =>
       entityName: data?.entityName,
       entitySlug: data?.entitySlug,
       ogImage: data?.ogImage,
+      cityDisplay: data?.entityCity,
     }),
   );
 

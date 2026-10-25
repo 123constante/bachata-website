@@ -17,14 +17,17 @@ import {
   useShake,
 } from '../ui';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { SeriesLockGate } from '@/modules/organiser/events/ProfileLock';
 import { newSession, notEditableCopy, type DraftSession } from '@/modules/organiser/shared/programmeModel';
 import { fetchCancellationReasons } from '@/modules/organiser/shared/selfServeApi';
 import { cancelCommand, skipDateCommand, uncancelCommand } from '@/modules/organiser/shared/seriesCommands';
 import { UNSAVED_MESSAGE, saveBarState } from '@/modules/organiser/shared/editorGuards';
+import { TAKE_OFF } from '@/modules/organiser/shared/copy';
 import { cancelledLabel } from '@/modules/organiser/shared/cancelLabel';
-import { dateLabel as labelOf, isRuleDate } from '@/modules/organiser/shared/seriesModel';
+import { dateLabel as labelOf, isRuleDate, upcomingDates } from '@/modules/organiser/shared/seriesModel';
 import { calendarDate } from '@/modules/organiser/shared/homeModel';
 import { dateLock, dateTag } from '@/modules/organiser/shared/eventState';
+import { seriesLife } from '@/modules/organiser/shared/lifeLabel';
 import { useVenueOptions, venueName } from '@/modules/organiser/shared/publicVenues';
 import { londonTodayKey } from '@/lib/londonDate';
 import { DateSheet, type SheetState } from './DateSheet';
@@ -39,7 +42,12 @@ const cancellationReasonsQueryKey = ['cancellation-reasons'] as const;
  * SCHEDULE (sessions with their people), break week and cancel. Every editor is
  * a view of one SheetView; the only primary button is Save in the PreviewBar.
  */
+/** C14: a date's line-up is locked while profiles are unfinished (changing the date itself is not). */
 export default function DatePage() {
+  return <SeriesLockGate title="Sessions"><DateEditorPage /></SeriesLockGate>;
+}
+
+function DateEditorPage() {
   const { seriesId = '', occurrenceId = '' } = useParams();
   const navigate = useNavigate();
   const ed = useDateEditor(seriesId, occurrenceId);
@@ -78,7 +86,7 @@ export default function DatePage() {
   const lock = date && series ? dateLock(series.lifecycle_status, date, today) : null;
   const lockShort = !lock ? null : date && date < today ? 'This date has already happened.'
     : series?.lifecycle_status === 'ended' ? 'This event has ended.' : 'This event is archived.';
-  const tag = cancelled ? dateTag('', 'cancelled') : series ? dateTag(series.lifecycle_status, 'scheduled') : null;
+  const tag = cancelled ? dateTag('', 'cancelled') : series ? seriesLife(series, upcomingDates(ed.workspace.data?.dates ?? [], today).length).tag : null;
 
   const updateRow = (key: string, fn: (r: DraftSession) => DraftSession) => {
     ed.setRows((rows) => rows.map((r) => (r.key === key ? fn(r) : r)));
@@ -192,7 +200,8 @@ export default function DatePage() {
       </Card>
 
       <section aria-labelledby="schedule-label" className="space-y-[8px]">
-        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Schedule</h2>
+        {/* PAR-B N1: one word with the rows and One event's "Sessions" link. */}
+        <h2 id="schedule-label" className="px-[4px] text-[13px] font-semibold uppercase tracking-[.04em] text-[var(--mut)]">Sessions</h2>
         {!editable && ed.base && !lock && (
           <p className="px-[4px] text-[13px] text-[var(--mut)]" data-testid="date-readonly-note">{notEditableCopy(ed.base.notEditableReason)}</p>
         )}
@@ -236,7 +245,7 @@ export default function DatePage() {
         ) : (
           <>
             {ruleDate && (
-              <SummaryRow icon={<Coffee />} label="Break this week" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Skip this date. No cancellation shows.')}
+              <SummaryRow icon={<Coffee />} label={TAKE_OFF.label} sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : TAKE_OFF.sub)}
                 disabled={ed.dirty || !!lock} onPress={() => { setCommandError(null); setSheet({ view: 'break' }); }} testId="date-break" />
             )}
             <SummaryRow icon={<Ban />} label="Cancel this date" sublabel={lockShort ?? (ed.dirty ? 'Save your changes first.' : 'Dancers see Cancelled and your reason.')}
@@ -295,7 +304,7 @@ export default function DatePage() {
         onRetryReasons={() => void reasons.refetch()}
         onCancelDate={(reason) => void command('occurrence', cancelCommand(reason), `${label} is cancelled.`)}
         onUncancelDate={() => void command('occurrence', uncancelCommand(), `${label} is back on.`)}
-        onBreak={() => void command('series', skipDateCommand(occurrenceId), `${label} is a break.`, () => navigate(ORG_PATHS.event(seriesId)))}
+        onBreak={() => void command('series', skipDateCommand(occurrenceId), TAKE_OFF.done(label), () => navigate(ORG_PATHS.event(seriesId)))}
         commandBusy={ed.commandBusy}
         commandError={commandError}
       />
@@ -309,7 +318,8 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
   const body = (
     <span className={`flex min-w-0 flex-1 flex-col gap-[4px] text-left ${row.removed ? 'opacity-[.72]' : ''}`}>
       <span className="flex min-w-0 items-center gap-[8px]">
-        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className="shrink-0" testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
+        {/* On a faded (removed) row the neutral chip's --mut falls under AA (3.79:1), so it switches to --fg too (B-S11). */}
+        {showsTypeChip(row) && <StatusTag tone={typeTone(row.type)} className={row.removed ? 'shrink-0 text-[var(--fg)]' : 'shrink-0'} testId="session-row-type">{typeLabel(row.type)}</StatusTag>}
         <span className={`truncate text-[15px] font-semibold text-[var(--fg)] ${row.removed ? 'line-through' : ''}`} data-testid="session-row-name">{sessionName(row)}</span>
       </span>
       {/* A faded row's muted text would fall under 4.5:1, so it switches to --fg. */}
@@ -319,7 +329,7 @@ function SessionRow({ row, problem, onOpen, onUndo }: { row: DraftSession; probl
           {people ?? (row.type === 'performance' ? 'Performers added by the team' : row.type === 'party' ? 'No DJ yet' : 'No teacher yet')}
         </span>
       )}
-      {row.removed && <span className="text-[13px] text-[var(--fg)]">Comes off this date when you save</span>}
+      {row.removed && <span className="text-[13px] text-[var(--fg)]">{row.original?.removed === true ? 'Removed from this date' : 'Comes off this date when you save'}</span>}
       {problem && !row.removed && <span className="text-[13px] text-[var(--danger)]" data-testid="session-row-problem">Needs a fix before saving</span>}
     </span>
   );

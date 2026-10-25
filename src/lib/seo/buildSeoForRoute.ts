@@ -10,6 +10,7 @@
 
 import { SITE_ORIGIN, type SeoInput } from './useSeo';
 import { VIDEOGRAPHERS_PUBLIC_ENABLED } from '../videographersPublic';
+import { PERSON_CARD_OG_TYPE, personCardDescription, personCardPath, personCardTitle, type PersonCardRole } from './personCard';
 
 const CITY_DEFAULT = 'London';
 
@@ -32,6 +33,14 @@ interface Spec {
   ogType?: 'website' | 'article' | 'profile';
   noindex?: boolean;
 }
+
+const personCtx = (c: SeoContext) => ({ name: c.entityName, slug: c.entitySlug, city: c.cityDisplay });
+const personSpec = (role: PersonCardRole): Spec => ({
+  title: (c) => personCardTitle(role, personCtx(c)),
+  description: (c) => personCardDescription(role, personCtx(c)),
+  path: (c) => personCardPath(role, c.entitySlug),
+  ogType: PERSON_CARD_OG_TYPE,
+});
 
 const SPECS: Record<string, Spec> = {
   home: {
@@ -171,23 +180,11 @@ const SPECS: Record<string, Spec> = {
     // retirement (2026-07-06); fixed alongside this one below.
     ogType: 'profile',
   },
-  'teacher.detail': {
-    title: (c) => `${c.entityName ?? 'Teacher'} - Bachata Teacher, ${city(c)}`,
-    description: (c) => `${c.entityName ?? 'This teacher'} teaches bachata in ${city(c)}. Classes, schedule and styles.`,
-    path: (c) => `/teachers/${c.entitySlug ?? ''}`,
-  },
-  'dj.detail': {
-    title: (c) => `${c.entityName ?? 'DJ'} - Bachata DJ, ${city(c)}`,
-    description: (c) => `${c.entityName ?? 'This DJ'} plays bachata in ${city(c)}. Upcoming sets and where to hear them.`,
-    path: (c) => `/djs/${c.entitySlug ?? ''}`,
-    ogType: 'profile',
-  },
-  'dancer.detail': {
-    title: (c) => `${c.entityName ?? 'Dancer'} - Bachata Dancer, ${city(c)}`,
-    description: (c) => `${c.entityName ?? 'This dancer'} - profile on Bachata Calendar ${city(c)}.`,
-    path: (c) => `/dancers/${c.entitySlug ?? ''}`,
-    ogType: 'profile',
-  },
+  // People arc S5: the three person cards come from the ONE per-role rule middleware.ts also
+  // reads (./personCard). Their city is the person's own (cityDisplay), never CITY_DEFAULT.
+  'teacher.detail': personSpec('teacher'),
+  'dj.detail': personSpec('dj'),
+  'dancer.detail': personSpec('dancer'),
   'festival.detail': {
     title: (c) => `${c.entityName ?? 'Festival'} - Bachata Festival`,
     description: (c) => `${c.entityName ?? 'This festival'} - dates, line-up, location and tickets.`,

@@ -23,6 +23,12 @@ const A2 = '44444444-4444-4444-8444-444444444444';
 const P = (n: number) => `0000000${n}-0000-4000-8000-000000000000`;
 const DATE = '2026-10-15'; // a Thursday, never "Tonight" in this suite
 
+// Freeze Date so DATE stays in the future (2026-10-01 is not 10-15, so never "Tonight").
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-01T12:00:00Z'));
+});
+
 const sessions = () => [
   { series_item_id: S1, type: 'class', title: 'Bachata Basics', start_time: '19:00', end_time: '20:00', ends_next_day: false, level_keys: ['beginner'], removed: false },
   { series_item_id: S2, type: 'party', title: 'Party', start_time: '22:00', end_time: '02:00', ends_next_day: true, level_keys: [], removed: false },
@@ -254,7 +260,11 @@ describe('cancel and break', () => {
     fireEvent.click(screen.getByTestId('cancel-ack'));
     fireEvent.click(screen.getByTestId('date-cancel-confirm'));
     await waitFor(() => expect(calls('occurrence_command_p5')).toHaveLength(1));
-    await waitFor(() => expect(client.getQueryState(['org-event-workspace', 's1'])?.isInvalidated).toBe(true));
+    // The C14 lock gate (A-WEB1a) observes that entry, so the invalidation refetches it at once: stale, or already re-read.
+    await waitFor(() => {
+      const st = client.getQueryState(['org-event-workspace', 's1']);
+      expect(!!st?.isInvalidated || (st?.dataUpdateCount ?? 0) + (st?.errorUpdateCount ?? 0) > 1).toBe(true);
+    });
   });
 
   it('a daily-cap refusal shows the plain copy', async () => {

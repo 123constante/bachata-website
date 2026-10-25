@@ -4,7 +4,8 @@
 // sends, from the old command builders, and only for the fields that changed.
 
 import { weekdayOfKey } from '@/lib/londonDate';
-import { dateLabel } from '@/modules/organiser/shared/homeModel';
+import { dateLabel, localAsZTime, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { comingDates, dayLabel, type DateRow } from '@/modules/organiser/shared/dateList';
 import { linkProblem } from '@/modules/organiser/shared/linkRules';
 import {
   addDateCommand,
@@ -12,13 +13,15 @@ import {
   upsertCommand,
   type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
+import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
 import {
   parseWorkspace,
   upcomingDates,
   type SeriesWorkspace,
   type WorkspaceDate,
 } from '@/modules/organiser/shared/seriesModel';
-import { eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { endedOnLabel, eventLock, ownerWeeklyRule } from '@/modules/organiser/shared/eventState';
+import { linkedOrganiserIds } from '@/modules/organiser/shared/selfServeApi';
 import { MAX_UPCOMING, endWithinCap, type CapInput } from './dateCap';
 import { ownerOneDate, scheduleView } from './schedule';
 
@@ -30,6 +33,12 @@ export interface EventWorkspace extends SeriesWorkspace {
   endedOn: string | null;
   /** The read holds only the newest 100 dates (admin_event_workspace_p5 meta.has_more). */
   hasMore: boolean;
+  /** event_series_p5.default_level (free text; null on every prod series, 2026-10-17). */
+  level: string | null;
+  /** The programme tree as the read returns it (series.program): the series-level editor round-trips it. */
+  program: unknown;
+  /** The organiser pages linked to the event, in order (linkedOrganiserIds). */
+  organiserIds: string[];
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
@@ -44,6 +53,9 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     videoUrls: strings(row.video_urls),
     endedOn: typeof row.ended_on === 'string' ? row.ended_on : null,
     hasMore: root?.meta?.has_more === true,
+    level: typeof row.default_level === 'string' && row.default_level.trim() ? row.default_level : null,
+    program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
+    organiserIds: linkedOrganiserIds(row),
   };
 }
 
@@ -112,7 +124,7 @@ export function draftFromWorkspace(ws: EventWorkspace, today: string): EventDraf
 export type DraftField = keyof EventDraft;
 export const FIELD_LABEL: Record<DraftField, string> = {
   name: 'the name', description: 'the description', venueId: 'the place', ticketUrl: 'the ticket link',
-  coverUrl: 'the cover', gallery: 'the gallery', videos: 'the videos', styles: 'the music styles',
+  coverUrl: `the ${FLYER_WORD}`, gallery: 'the gallery', videos: 'the videos', styles: 'the music styles',
   startDate: 'the start date', shape: 'how it repeats', until: 'how long it is listed',
 };
 
@@ -279,3 +291,157 @@ export function cardPreview(draft: EventDraft, ws: EventWorkspace, today: string
     where: venueName,
   };
 }
+
+// ---- S5: one event (C36), its steps (C42-C44) and its details (C37) ----------
+
+const byDate = (a: WorkspaceDate, b: WorkspaceDate) => a.occurrence_date.localeCompare(b.occurrence_date);
+
+/** The coming SCHEDULED dates the workspace read holds (today included), soonest first. */
+export const wsComing = (ws: EventWorkspace, today: string): WorkspaceDate[] =>
+  ws.dates.filter((d) => d.lifecycle_status === 'scheduled' && d.occurrence_date >= today).sort(byDate);
+
+/** The coming CANCELLED dates (C45: each shown with Put it back). */
+export const wsCancelledComing = (ws: EventWorkspace, today: string): WorkspaceDate[] =>
+  ws.dates.filter((d) => d.lifecycle_status === 'cancelled' && d.occurrence_date >= today).sort(byDate);
+
+/**
+ * The read is ORDER BY occurrence_date DESC LIMIT 100: when it is full and
+ * holds no past date, the SOONEST coming dates are the ones missing, so no
+ * count or keep list can be built from it (REVIEW-S5 SHOULD-1).
+ */
+export const readIsFull = (ws: EventWorkspace, today: string): boolean =>
+  ws.hasMore && ws.dates.every((d) => d.occurrence_date >= today);
+
+/** The lines a closed (ended / archived) event shows under its title, on the one-event screen and on Details. */
+export const closedLines = (ws: EventWorkspace, today: string): { lock: string | null; endedOn: string | null } => ({
+  lock: eventLock(ws.series.lifecycle_status),
+  endedOn: endedOnLabel(ws.series.lifecycle_status, ws.endedOn, today),
+});
+
+/**
+ * The "N more" line under the dates Home lists (4.11: read from the workspace).
+ * admin_event_workspace_p5 returns at most 100 dates; when it is full and every
+ * date in it is still to come, the real count is past what it can say: "100+"
+ * (R3-20). Before the workspace answers, Home's scheduled-only count stands in.
+ */
+export function moreLabel(ws: EventWorkspace | undefined, shown: number, homeCount: number, today: string): string | null {
+  if (!ws) return homeCount - shown > 0 ? `${homeCount - shown} more` : null;
+  if (readIsFull(ws, today)) return '100+';
+  const n = wsComing(ws, today).length - shown;
+  return n > 0 ? `${n} more` : null;
+}
+
+/**
+ * The Coming dates card: its rows and its "N more" from the SAME dates, so it
+ * never reads "1 more" above "No coming dates" (RELEASE-A-WEB fix pass). Home's
+ * next_dates (with their times) lead; when Home lists none but the workspace
+ * holds coming dates (a draft Home lists with no next_dates, or Home not yet
+ * refetched after a date was added) the rows come from the workspace, soonest
+ * first. A count only ever shows under at least one row.
+ */
+export function comingCard(home: HomeSeriesFull | null, ws: EventWorkspace | undefined, today: string, limit = 14): { shown: DateRow[]; more: string | null } {
+  let shown = home ? comingDates(home, today, limit) : [];
+  if (!shown.length && ws && !readIsFull(ws, today)) {
+    shown = wsComing(ws, today).slice(0, limit).map((d) => ({
+      occurrenceId: d.id, date: d.occurrence_date, time: localAsZTime(d.materialised_start_utc), label: dayLabel(d.occurrence_date),
+    }));
+  }
+  const more = shown.length ? moreLabel(ws, shown.length, home?.upcoming_count ?? 0, today) : null;
+  return { shown, more };
+}
+
+/** London today holds a date that is not cancelled: series.end_run then needs today_session. */
+export const tonightDate = (ws: EventWorkspace, today: string): WorkspaceDate | null =>
+  ws.dates.find((d) => d.occurrence_date === today && d.lifecycle_status !== 'cancelled') ?? null;
+
+export type TodaySession = 'ran' | 'not_running';
+
+/**
+ * series.end_run (C42c). Measured on the server body (_cmd_series_end_run_p5,
+ * 2026-10-17): every coming date is removed (or cancelled when booked), past
+ * dates are never touched, and a date today needs the organiser's answer.
+ */
+export const endRunCommand = (todaySession: TodaySession | null): OwnerCommand => ({
+  kind: 'series.end_run',
+  payload: todaySession ? { today_session: todaySession } : {},
+});
+
+/** C43: the same rule on another weekday (its end and interval kept). */
+export function dayChangeCommand(rule: unknown, weekday: number): OwnerCommand {
+  const base = rule && typeof rule === 'object' ? (rule as Record<string, unknown>) : { mode: 'weekly', interval: 1, end: { kind: 'none' } };
+  return { kind: 'series.set_recurrence', payload: { ...base, weekdays: [weekday] } };
+}
+
+/**
+ * C44: stop repeating, keeping every coming date already listed. Without the
+ * keep list the server deletes every unbooked date after today
+ * (_cmd_series_stop_repeating_p5), which is not what "stop repeating" says.
+ */
+export const stopKeepingCommand = (ws: EventWorkspace, today: string): OwnerCommand =>
+  stopRepeatingCommand(wsComing(ws, today).map((d) => d.id));
+
+/** The C37 rows; venue goes through the existing editor sheet, cover to its own screen, How to pay to its chips (paymentModel). */
+export type DetailField = 'name' | 'venue' | 'time' | 'level' | 'music' | 'tickets' | 'instagram' | 'about' | 'payment';
+export type TextDetail = Exclude<DetailField, 'venue' | 'payment'>;
+
+export const DETAIL_KEY: Record<TextDetail, string> = {
+  name: 'name',
+  time: 'default_local_start_time',
+  level: 'default_level',
+  music: 'default_music_styles',
+  tickets: 'default_ticket_url',
+  instagram: 'instagram_url',
+  about: 'default_description',
+};
+
+export const DETAIL_LABEL: Record<DetailField, string> = {
+  name: 'Name', venue: 'Venue', time: 'Time', level: 'Level', music: 'Music', tickets: 'Tickets', instagram: 'Instagram', about: 'About', payment: 'How to pay',
+};
+
+const styleList = (typed: string) => typed.split(',').map((s) => s.trim()).filter(Boolean);
+
+/** The field as the edit box shows it. */
+export function detailValue(ws: EventWorkspace, field: TextDetail): string {
+  const s = ws.series;
+  switch (field) {
+    case 'name': return s.name;
+    case 'time': return s.default_local_start_time?.slice(0, 5) ?? '';
+    case 'level': return ws.level ?? '';
+    case 'music': return ws.musicStyles.join(', ');
+    case 'tickets': return s.default_ticket_url ?? '';
+    case 'instagram': return s.instagram_url ?? '';
+    case 'about': return s.default_description ?? '';
+  }
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Why the typed value cannot be saved; null when it can. */
+export function detailProblem(field: TextDetail, typed: string): string | null {
+  const v = typed.trim();
+  if (field === 'name') return v ? null : 'Add a name';
+  if (field === 'time') return TIME_RE.test(v) ? null : 'Use a time like 20:00';
+  if (field === 'tickets') return linkProblem('ticket', v);
+  if (field === 'instagram') return linkProblem('instagram', v);
+  return null;
+}
+
+/** True when the typed value differs from the stored one (Save stays off until then). */
+export function detailChanged(ws: EventWorkspace, field: TextDetail, typed: string): boolean {
+  if (field === 'music') return styleList(typed).join('\n') !== ws.musicStyles.join('\n');
+  return typed.trim() !== detailValue(ws, field).trim();
+}
+
+/**
+ * ONE series.upsert carrying `name` (the handler needs it) and the ONE changed
+ * field; null when nothing changed, so an untouched Save sends nothing.
+ */
+export function detailCommand(ws: EventWorkspace, field: TextDetail, typed: string): OwnerCommand | null {
+  if (!detailChanged(ws, field, typed)) return null;
+  const value = field === 'music' ? styleList(typed) : typed.trim();
+  return upsertCommand({ name: field === 'name' ? value : ws.series.name, [DETAIL_KEY[field]]: value });
+}
+
+/** The venue row's write: the new venue and, when known, its city (city is automatic). */
+export const venueCommand = (ws: EventWorkspace, venueId: string, cityId: string | null): OwnerCommand =>
+  upsertCommand({ name: ws.series.name, default_venue_id: venueId, ...(cityId ? { default_city_id: cityId } : {}) });

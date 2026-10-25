@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { stashPendingReturnTo } from "@/lib/authRouting";
+import { AUTH_ACTION_LABELS, DIALOG_CLOSE_44 } from "@/lib/auth-labels";
 
 interface AuthPromptModalProps {
   open: boolean;
@@ -39,7 +40,7 @@ const AuthPromptModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md p-6">
+      <DialogContent className={`sm:max-w-md p-6 ${DIALOG_CLOSE_44}`}>
         <DialogHeader className="text-center space-y-2">
           <DialogTitle className="text-2xl font-bold text-foreground">
             {title}
@@ -52,24 +53,24 @@ const AuthPromptModal = ({
         <div className="flex flex-col gap-3 mt-6">
           <Button
             size="lg"
-            className="w-full h-11 font-semibold"
+            className="w-full h-auto min-h-[44px] font-semibold"
             onClick={() => {
               handleNavigate("signin");
             }}
           >
-            Log In
+            {AUTH_ACTION_LABELS.signin}
           </Button>
           <Button
             variant="outline"
             size="lg"
-            className="w-full h-11 font-semibold"
+            className="w-full h-auto min-h-[44px] font-semibold"
             onClick={() => {
               handleNavigate("signup");
             }}
           >
-            Sign Up
+            {AUTH_ACTION_LABELS.signup}
           </Button>
-          <Button variant="ghost" className="w-full h-10" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" className="w-full h-auto min-h-[44px]" onClick={() => onOpenChange(false)}>
             Continue browsing
           </Button>
         </div>

@@ -33,13 +33,15 @@ vi.mock('@/components/ui/city-picker', () => ({
 import Auth from '../Auth';
 import { AuthStepper } from '@/components/auth/AuthStepper';
 import { AuthFormProvider } from '@/contexts/AuthFormContext';
-import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
+import { SIGNUP_HELP_WHATSAPP_URL } from '@/lib/auth-otp-routing';
 import { installJsdomPolyfills } from '../../../tests/client/jsdomPolyfills';
 
 beforeEach(() => {
   installJsdomPolyfills();
   document.elementFromPoint = () => null;
   localStorage.clear();
+  // The code step is kept over a reload in sessionStorage (D7): each test starts on the form.
+  sessionStorage.clear();
   rpc.mockReset().mockResolvedValue({ data: null, error: { message: 'permission denied', code: '42501' } });
   signInWithOtp.mockReset().mockResolvedValue({ data: {}, error: null });
   toast.mockReset();
@@ -65,7 +67,7 @@ describe('/auth create account', () => {
 
   const toDetails = async () => {
     mount();
-    fireEvent.click(screen.getByRole('button', { name: /continue as dancer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continue$/i }));
     fireEvent.change(await screen.findByLabelText(/first name/i), { target: { value: 'Sam' } });
     fireEvent.click(screen.getByRole('button', { name: 'Pick city' }));
   };
@@ -100,9 +102,9 @@ describe('/auth create account', () => {
     if (cont) fireEvent.click(cont);
     fireEvent.change(await screen.findByLabelText(/^email$/i), { target: { value: 'stranger@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: /email me a link/i }));
-    await waitFor(() => expect(screen.getByText(/Sign-up is invite-only for now/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/We can.t create an account for this email yet/)).toBeTruthy());
     const link = screen.getByRole('link', { name: /message us on whatsapp/i });
-    expect(link.getAttribute('href')).toBe(WHATSAPP_GET_LISTED_URL);
+    expect(link.getAttribute('href')).toBe(SIGNUP_HELP_WHATSAPP_URL);
     expect(link.getAttribute('target')).toBe('_blank');
   });
 });

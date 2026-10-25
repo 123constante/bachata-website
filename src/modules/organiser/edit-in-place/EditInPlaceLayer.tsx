@@ -33,6 +33,7 @@ import {
   draftCount,
   draftMatchesStored,
   fieldInPatch,
+  sentValueWords,
   londonTime,
   overlayFor,
   prunedDrafts,
@@ -52,6 +53,7 @@ import { ContactCard } from './ContactCard';
 import { CONTACT_COPY, contactItems, isContactField, storedContactFromSettings } from './contactModel';
 import type { CityLookups } from './cityCheck';
 import { BAR_Z, BOTTOM_NAV_OFFSET, inBody } from './layers';
+import { trapTab } from './sheetStyles';
 import { uploadOrganiserPhoto } from './organiserPhotoUploadApi';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { addTeamMemberByProfile, fetchOrganiserTeam, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
@@ -78,7 +80,7 @@ export interface EditInPlaceLayerInternals {
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, dockZ = BAR_Z, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
   // Who may add people (owner or admin), from the server's own answer; a manager or
   // contributor gets no Team card and no picker. A failed read shows nothing.
@@ -324,7 +326,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
       const time = londonTime();
       if (outcome.unmatched.length > 0) {
         const names = outcome.unmatched.map((k) => FIELD_LABEL[k]).join(', ');
-        setNotice({ tone: 'error', text: `Saved at ${time}, but ${names} came back different from what you entered (we will show: ${outcome.unmatched.map((k) => String(fieldInPatch(sent, k) ?? 'empty')).join(', ')}). Check it and tap Save again.` });
+        setNotice({ tone: 'error', text: `Saved at ${time}, but ${names} came back different from what you entered (we will show: ${outcome.unmatched.map((k) => sentValueWords(sent, k, cityNames)).join(', ')}). Check it and tap Save again.` });
       } else {
         setNotice({ tone: 'ok', text: savedMessage(time) });
       }
@@ -416,15 +418,12 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
         />
       )}
       {dataRouter && <LeaveGuard active={count > 0} onSave={save} onDiscard={discard} />}
-      {/* Room at the very END of the page (after the footer and AppChrome's
-          64px + safe-area nav spacer), so at full scroll the bar and notice
-          cover nothing: their height plus what the bar's offset adds over 64px. */}
-      {room > 0 && inBody(<div aria-hidden="true" data-testid="eip-spacer" style={{ height: `calc(${room}px + var(--bottom-nav-h, 68px) - 64px)` }} />)}
-      {/* In document.body (see layers.tsx), sitting ON TOP of the BottomNav's
-          row, never under it: the nav is on every organiser page at every width
-          (AppChrome hides it only on the home map), so the offset is constant. */}
+      {/* Room at the very END of the page (after the footer), so at full scroll the
+          bar and notice cover nothing: their height. */}
+      {room > 0 && inBody(<div aria-hidden="true" data-testid="eip-spacer" style={{ height: `${room}px` }} />)}
+      {/* In document.body (see layers.tsx), at the real bottom edge (the section row is under the header now). */}
       {inBody(
-      <div ref={dockRef} data-testid="eip-dock" style={{ position: 'fixed', left: 0, right: 0, bottom: `calc(${BOTTOM_NAV_OFFSET})`, zIndex: BAR_Z, pointerEvents: 'none' }}>
+      <div ref={dockRef} data-testid="eip-dock" style={{ position: 'fixed', left: 0, right: 0, bottom: `calc(${BOTTOM_NAV_OFFSET})`, zIndex: dockZ, pointerEvents: 'none' }}>
         <div aria-live="polite" role="status" style={{ pointerEvents: 'auto' }}>
           {notice && (
             <div data-testid="eip-notice" data-tone={notice.tone} style={{ margin: '0 8px 6px', padding: '8px 12px', borderRadius: 12, fontSize: 13.5, lineHeight: 1.35, display: 'flex', gap: 8, alignItems: 'center', background: notice.tone === 'error' ? '#3A1712' : '#1E1A12', color: notice.tone === 'error' ? '#FFB4A2' : GOLD, border: `1px solid ${notice.tone === 'error' ? 'rgba(255,138,112,0.5)' : 'rgba(231,190,110,0.5)'}` }}>
@@ -496,13 +495,22 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
   );
   const blocker = useLeaveBlocker(shouldBlock);
   const firstRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // What had focus before the dialog: Stay here gives it back (B-S8 c).
+  const before = useRef<HTMLElement | null>(null);
   const [busy, setBusy] = useState(false);
   const blocked = blocker.state === 'blocked';
   useEffect(() => {
-    if (blocked) firstRef.current?.focus();
+    if (!blocked) return;
+    before.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    firstRef.current?.focus();
   }, [blocked]);
   if (!blocked) return null;
-  const stay = () => blocker.reset?.();
+  const stay = () => {
+    const back = before.current;
+    blocker.reset?.();
+    if (back?.isConnected) window.setTimeout(() => back.focus(), 0);
+  };
   return inBody(
     <>
       <div aria-hidden="true" onClick={stay} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.6)' }} />
@@ -512,7 +520,11 @@ function LeaveGuard({ active, onSave, onDiscard }: { active: boolean; onSave: ()
         aria-labelledby="eip-leave-title"
         aria-describedby="eip-leave-desc"
         data-testid="eip-leave"
-        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); stay(); } }}
+        ref={dialogRef}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { e.preventDefault(); stay(); return; }
+          trapTab(e, dialogRef.current);
+        }}
         style={{ position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom))', zIndex: 71, maxWidth: 440, margin: '0 auto', padding: 16, borderRadius: 16, background: '#17131A', color: CREAM, border: '1px solid rgba(231,190,110,0.4)' }}
       >
         <h2 id="eip-leave-title" style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>You have changes that are not saved</h2>

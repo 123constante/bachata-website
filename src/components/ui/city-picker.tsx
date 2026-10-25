@@ -43,6 +43,10 @@ export interface CityPickerProps {
   className?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** Audit M17: the trigger is the combobox, so it carries the id a <label htmlFor> targets, or a name. */
+  id?: string;
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 }
 
 interface CitySearchResult {
@@ -59,6 +63,9 @@ export function CityPicker({
   className,
   disabled,
   placeholder = 'Select city...',
+  id,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
 }: CityPickerProps) {
   const cityRequestsEnabled = import.meta.env.VITE_ENABLE_CITY_REQUESTS === 'true';
   const [open, setOpen] = React.useState(false);
@@ -225,6 +232,9 @@ export function CityPicker({
           <Button
             variant='outline'
             role='combobox'
+            id={id}
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
             aria-expanded={open}
             className={cn('w-full justify-between', className)}
             disabled={disabled}
@@ -235,7 +245,9 @@ export function CityPicker({
             <ChevronsUpDown className='ml-2 h-4 w-4 shrink-0 opacity-50' />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className='w-[min(320px,calc(100vw-2rem))] p-0' align="start">
+        {/* Review #789 S3: always below the trigger, the list shrinking to the room left. With a long
+            list Radix flipped it ABOVE the trigger and pushed the search box off the top of a phone. */}
+        <PopoverContent className='w-[min(320px,calc(100vw-2rem))] p-0' align="start" side="bottom" avoidCollisions={false}>
           <Command shouldFilter={false}>
             <CommandInput
               placeholder='Search city...'
@@ -243,7 +255,7 @@ export function CityPicker({
               value={query}
               onValueChange={setQuery}
             />
-            <CommandList>
+            <CommandList className='max-h-[min(300px,calc(var(--radix-popover-content-available-height)-48px))]'>
               {isSearching ? (
                  <div className="py-6 text-center text-sm text-muted-foreground">
                    <Loader2 className="mx-auto h-4 w-4 animate-spin mb-2" />

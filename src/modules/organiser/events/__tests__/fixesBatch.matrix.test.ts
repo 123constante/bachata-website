@@ -7,9 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { TODAY, shapeByKey, workspaceOf } from '../../__tests__/shapes/shapes';
 import { draftFromWorkspace, draftProblem, oneDateLoss, parseEventWorkspace, savePlan } from '../eventModel';
 import { scheduleView } from '../schedule';
-import { newEventCommands } from '../newEvent';
-import { EVENT_TYPES, categoryLabel } from '../eventType';
-import { eventReviewView } from '../reviewModel';
+import { categoryLabelFor } from '@/lib/eventCategory';
 import { confirmCopy, saveBarState } from '@/modules/organiser/shared/editorGuards';
 import { LINK_PROBLEM, linkProblem } from '@/modules/organiser/shared/linkRules';
 
@@ -89,60 +87,13 @@ describe('7: weekly -> One date says how many dates go, before Save', () => {
   });
 });
 
-describe('G2 + G4: what the create sends for each type', () => {
-  const cases = [
-    { type: 'class', category: 'class', minutes: 120, schedule: 'series.set_recurrence' },
-    { type: 'party', category: 'party', minutes: 300, schedule: 'series.add_date' },
-    { type: 'workshop', category: 'workshop', minutes: 120, schedule: 'series.add_date' },
-  ] as const;
-  it.each(cases)('$type', ({ type, category, minutes, schedule }) => {
-    const cmds = newEventCommands('Night', TODAY, 'org1', 'c1', type);
-    const p = cmds.create.payload;
-    expect(p.category).toBe(category);
-    // Owners may not create a course; recurring with no rule is the owner's one-date shape.
-    expect(p.format).toBe('recurring');
-    expect(p.default_duration_minutes).toBe(minutes);
-    expect(minutes).toBeGreaterThanOrEqual(1);
-    expect(minutes).toBeLessThanOrEqual(1200);
-    expect(cmds.schedule.kind).toBe(schedule);
-    if (schedule === 'series.add_date') expect(cmds.schedule.payload).toEqual({ date: p.default_start_date });
-  });
-  it('offers exactly Class, Party, Course or workshop (no festival)', () => {
-    expect(EVENT_TYPES.map((t) => t.label)).toEqual(['Class', 'Party', 'Course or workshop']);
-  });
-  it.each([['class', 'Class'], ['party', 'Party'], ['workshop', 'Course or workshop'], [null, 'Not set']] as const)('category %s reads %s', (c, label) => {
-    expect(categoryLabel(c)).toBe(label);
-  });
-});
-
-describe('G1: send for review', () => {
-  const ready = { missing: [], upcomingListed: 3, datesWithSessions: 3, hasCover: true, organisers: [{ name: 'Org', lifecycle_status: 'live' }], dirty: false };
-  it('a ready draft can be sent', () => {
-    const v = eventReviewView({ status: 'draft', ...ready });
-    expect(v).toMatchObject({ show: true, canSend: true, blockers: [] });
-  });
+describe('category label per stored format + category', () => {
   it.each([
-    [{ missing: ['venue', 'city'] }, /a venue/],
-    [{ missing: ['name'] }, /a name/],
-    [{ upcomingListed: 0 }, /an upcoming date/],
-    [{ organisers: [{ name: 'Org', lifecycle_status: 'pending_review' }] }, /Org is not live yet/],
-    [{ dirty: true }, /Save your changes first/],
-    [{ missing: null }, /Checking/],
-  ] as const)('blocked with a reason: %o', (over, reason) => {
-    const v = eventReviewView({ status: 'draft', ...ready, ...over });
-    expect(v.canSend).toBe(false);
-    expect(v.blockers.join(' ')).toMatch(reason);
-  });
-  it('in review: no button, says so', () => {
-    const v = eventReviewView({ status: 'pending_review', ...ready });
-    expect(v).toMatchObject({ show: true, canSend: false });
-    expect(v.sentence).toMatch(/team is checking/);
-  });
-  it('changes needed: can send again', () => {
-    expect(eventReviewView({ status: 'rejected', ...ready })).toMatchObject({ canSend: true, again: true });
-  });
-  it.each(['live', 'paused', 'ended', 'archived'])('%s: no review card', (status) => {
-    expect(eventReviewView({ status, ...ready }).show).toBe(false);
+    ['recurring', 'class', 'Class'], ['recurring', 'party', 'Night'], ['one_off', 'workshop', 'Class'],
+    ['recurring', 'masterclass', 'Masterclass'], ['recurring', null, 'Not set'],
+    ['course', 'party', 'Course'], ['festival', null, 'Festival'],
+  ] as const)('%s + category %s reads %s', (f, c, label) => {
+    expect(categoryLabelFor(f, c)).toBe(label);
   });
 });
 

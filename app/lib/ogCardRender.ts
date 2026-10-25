@@ -24,6 +24,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { supabase } from "@/integrations/supabase/client";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
+import { pickEventCoverSource } from "@/lib/eventCoverImage";
+import { wordForStored, type CategoryWord } from "@/lib/eventCategory";
+import { isAllowedOgImageSource } from "./ogImageSourceAllowlist";
 import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
 import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
@@ -203,18 +206,25 @@ function rgbHex(c: { r: number; g: number; b: number }): string {
  *  a different register again: it writes a sentence about a finished run.)
  *
  *  'standard' is deliberately absent, as is every unknown value: no pill at
- *  all, rather than a raw DB token shouted at a reader. */
-const PILL_LABELS: Record<string, string> = {
-  party: "PARTY",
+ *  all, rather than a raw DB token shouted at a reader.
+ *
+ *  Keyed on the ONE word (src/lib/eventCategory.ts wordForStored, the mapping
+ *  the event page's runNoun reads), never on the raw value (FIX-6 F-d): a
+ *  stored workshop reads CLASS here as it reads "class" on the page. The type
+ *  is either a format or a category, so it is passed as both. */
+const PILL_LABELS: Record<CategoryWord, string> = {
+  night: "PARTY",
   class: "CLASS",
-  workshop: "WORKSHOP",
+  masterclass: "MASTERCLASS",
   course: "COURSE",
   festival: "FESTIVAL",
 };
 
 export function ogPillLabel(eventType: string | null): string | null {
   if (!eventType) return null;
-  return PILL_LABELS[eventType.trim().toLowerCase()] ?? null;
+  const type = eventType.trim().toLowerCase();
+  const word = wordForStored(type, type);
+  return word ? PILL_LABELS[word] : null;
 }
 
 /** "<date> - <venue>", with the venue's "at " prefix stripped. venueLine is
@@ -571,11 +581,16 @@ export function formatOgDate(wc: WallClock | null): string | null {
   );
 }
 
+// The ONE server-side image fetch for both /api/og/card and /api/og/bake, so
+// the SSRF allow-list lives here: a refused source returns null without ever
+// calling fetch, and redirect "error" stops an allowed host bouncing the
+// request somewhere else (ogImageSourceAllowlist.ts).
 export async function fetchImageBytes(url: string): Promise<Buffer | null> {
+  if (!isAllowedOgImageSource(url)) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 5000);
   try {
-    const r = await fetch(url, { signal: ctrl.signal });
+    const r = await fetch(url, { signal: ctrl.signal, redirect: "error" });
     if (!r.ok) return null;
     const ab = await r.arrayBuffer();
     if (ab.byteLength > 12_000_000) return null;
@@ -635,7 +650,13 @@ export async function fetchEventCardData(id: string, occ: string | null): Promis
     title: snap.event.name ?? "Bachata Event",
     dateLine: formatOgDate(rawStart ? asWallClock(rawStart) : null),
     venueLine: venue?.name ? `at ${venue.name}` : null,
-    coverUrl: firstString(snap.event.cover_image_url) ?? firstString(venue?.image_url),
+    // Same cover-or-first-gallery-picture rule as the event page's imageUrl,
+    // so the share card shows the picture og:image is keyed on.
+    coverUrl:
+      pickEventCoverSource(
+        firstString(snap.event.cover_image_url) ?? firstString(snap.event.hero_image_url),
+        Array.isArray(snap.event.photo_urls) ? snap.event.photo_urls : [],
+      ) ?? firstString(venue?.image_url),
     // snake_case snapshot, but this key really is a bare `type` -- built by
     // _event_view_snapshot_compat_v1 from format/category (see PILL_LABELS).
     // The same key the page model reads (buildEventPageModel identity.eventType).

@@ -1,0 +1,137 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`reminder banner: incomplete profile, by path > / -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2F",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /accountant -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Faccountant",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /apps -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Fapps",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /authors -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Fauthors",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /dancers -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Fdancers",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /dancers/abc -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Fdancers%2Fabc",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /event/e1 -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Fevent%2Fe1",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /events -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Fevents",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: incomplete profile, by path > /festival/f1 -> shown=true 1`] = `
+{
+  "body": "Add your photo to rate parties.",
+  "cta": {
+    "href": "/finish-profile?returnTo=%2Ffestival%2Ff1",
+    "kind": "link",
+    "label": "Finish profile",
+  },
+  "title": "Finish your profile",
+}
+`;
+
+exports[`reminder banner: other states > no profile: the message-us banner on a normal page, hidden on /account 1`] = `
+{
+  "body": "Your account does not have a dancer profile yet. Message us and we’ll set one up for you.",
+  "cta": {
+    "href": "https://wa.me/447577576006?text=Hi!%20My%20Bachata%20Calendar%20account%20has%20no%20dancer%20profile%20yet.%20Please%20can%20you%20set%20one%20up%3F",
+    "kind": "external",
+    "label": "Message us on WhatsApp",
+  },
+  "title": "Your dancer profile is missing",
+}
+`;
+
+exports[`reminder banner: other states > the Finish link carries the page they were on as returnTo 1`] = `
+{
+  "href": "/finish-profile?returnTo=%2Fevent%2Fe1",
+  "kind": "link",
+  "label": "Finish profile",
+}
+`;
+
+exports[`reminder banner: other states > the Finish link carries the page they were on as returnTo 2`] = `
+{
+  "href": "/finish-profile?returnTo=%2Fevent%2Fe9",
+  "kind": "link",
+  "label": "Finish profile",
+}
+`;

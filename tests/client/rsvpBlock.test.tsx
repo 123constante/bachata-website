@@ -1,329 +1,453 @@
 // @vitest-environment jsdom
 /**
- * Gate for the event page "I'm Going" RSVP (RsvpBlock + useOccurrenceRsvp).
- * Covers: set going / clear, optimistic count + rollback on an RPC error, the
- * error-code copy, signed-out and anonymous taps opening sign-in without any
- * RPC, closed nights (cancelled / ended / non-live series) disabled, and the
- * exact RPC names and argument shapes. No network: supabase.rpc is mocked.
+ * Gate for the event page "Who's going" tile (design A, Going P2): RsvpBlock on
+ * the going module. Table-driven over every shape the brief names -- night
+ * (live / ended with an end time / ended with none / cancelled / event not
+ * live), going 0 / 1 / 3 / 8 / 9 / 200, person (photo / no photo / null id),
+ * viewer (signed out / anonymous / each missing field / finished / going /
+ * rate limited / network error) -- plus the optimistic write and its rollback,
+ * the exact RPC names and payloads, and the placeholder matching the tile.
  *
- * Every case mounts the block the way BentoPage does -- lazyWithRetry inside
- * Suspense with RsvpBlockPlaceholder as the fallback -- so the behaviours are
- * proven through the lazy boundary, and the placeholder is pinned to the same
- * box as the block (no layout shift when the chunk lands).
+ * Every case mounts the tile the way BentoPage does: lazyWithRetry inside
+ * Suspense with RsvpBlockPlaceholder as the fallback. No network: rpcLoose is mocked.
  */
 import { Suspense } from 'react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/lib/goingCheckin', () => ({ GOING_CHECKIN_ENABLED: true })); // these specs exercise the going surfaces
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
+type Rpc = (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 const h = vi.hoisted(() => ({
   user: null as null | { id: string; is_anonymous?: boolean },
-  rpc: vi.fn(),
-  toastError: vi.fn(),
+  rpc: null as unknown as import('vitest').Mock<Parameters<Rpc>, ReturnType<Rpc>>,
+}));
+h.rpc = vi.fn();
+
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+  useAuth: () => ({ user: h.user, isLoading: false }),
+}));
+vi.mock('@/integrations/supabase/rpcLoose', () => ({ rpcLoose: (fn: string, a?: Record<string, unknown>) => h.rpc(fn, a) }));
+vi.mock('@/lib/profileViewEmit', () => ({ emitProfileView: vi.fn() }));
+vi.mock('@/components/AuthPromptModal', () => ({
+  AuthPromptModal: ({ open, title, description }: { open: boolean; title: string; description: string }) =>
+    open ? <div data-testid="auth-prompt">{`${title} | ${description}`}</div> : null,
 }));
 
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: h.user, isLoading: false }) }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: h.rpc } }));
-vi.mock('sonner', () => ({ toast: { error: h.toastError } }));
-
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { ProfileGateContext } from '@/hooks/useAuth';
+import { profileGateValue, type ProfileField } from '@/lib/profileCompletion';
 import type { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
-import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
-import { rsvpErrorMessage } from '@/modules/event-page/hooks/useOccurrenceRsvp';
-import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
-import type { EventPageSnapshot, EventPageSnapshotOccurrence } from '@/modules/event-page/types';
+import * as Block from '@/modules/event-page/bento/blocks/RsvpBlock';
+import * as Placeholder from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
+import { GOING_COPY, goingCountText, type GoingPerson } from '@/modules/going';
+import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 
-const PAGE_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const { RsvpBlockPlaceholder } = Placeholder;
 const PUBLIC_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const OCC = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
-const future = (days: number) => {
-  const d = new Date(Date.now() + days * 86_400_000);
-  return d.toISOString().slice(0, 19) + '+00:00';
-};
+const FUTURE = '2099-10-29 21:00:00'; // a Thursday
+const PAST = '2020-01-02 21:00:00';
 
-// A naive London wall clock (how the snapshot stores starts_at/ends_at).
-const londonWall = (offsetMs: number) =>
-  new Date(Date.now() + offsetMs)
-    .toLocaleString('sv-SE', { timeZone: 'Europe/London', hour12: false })
-    .replace(' ', 'T');
+const occ = (over: Partial<Record<keyof EventPageSnapshotOccurrence, unknown>> = {}) =>
+  ({ occurrenceId: OCC, startsAt: FUTURE, endsAt: null, timezone: 'Europe/London', isCancelled: false, isPast: false, ...over }) as unknown as EventPageSnapshotOccurrence;
 
-const occ = (over: Partial<EventPageSnapshotOccurrence> = {}) =>
-  ({
-    occurrenceId: OCC,
-    startsAt: future(2),
-    endsAt: future(2.2),
-    timezone: 'Europe/London',
-    isCancelled: false,
-    isPast: false,
-    ...over,
-  }) as EventPageSnapshotOccurrence;
+const makeLazy = () =>
+  lazyWithRetry(() => import('@/modules/event-page/bento/blocks/RsvpBlock').then((m) => ({ default: m.RsvpBlock })));
+const LazyBlock = makeLazy();
 
-// Same boundary as BentoPage. React caches a resolved lazy(), so the placeholder
-// case builds a fresh one to see the fallback.
-const makeLazyRsvpBlock = () =>
-  lazyWithRetry(() =>
-    import('@/modules/event-page/bento/blocks/RsvpBlock').then((m) => ({ default: m.RsvpBlock })),
-  );
-const LazyRsvpBlock = makeLazyRsvpBlock();
+type Gate = { status: 'complete' | 'incomplete' | 'no_profile'; missing?: ProfileField[] } | null;
 
 let qc: QueryClient;
+let gate: Gate;
+let nights: { going_count: number; people: GoingPerson[] };
+let myGoing: boolean;
+let setReply: (args: { p_going: boolean }) => Promise<{ data: unknown; error: { message: string } | null }>;
 
-const seedSnapshot = (goingCount: number) =>
-  qc.setQueryData(eventPageQueryKey(PAGE_ID, null), {
-    eventId: PUBLIC_ID,
-    occurrenceId: OCC,
-    attendance: { goingCount, interestedCount: 0, currentUserStatus: null, preview: [] },
-  } as unknown as EventPageSnapshot);
-
-const snapshotGoing = () =>
-  qc.getQueryData<EventPageSnapshot>(eventPageQueryKey(PAGE_ID, null))?.attendance.goingCount;
-
-const tree = (props: Partial<Parameters<typeof RsvpBlock>[0]> = {}, Block = LazyRsvpBlock) => {
-  const goingCountLabel = `${snapshotGoing() ?? 4} going`;
+const tree = (props: Partial<Parameters<typeof RsvpBlock>[0]> = {}, Lazy = LazyBlock) => {
+  const inner = (
+    <Suspense fallback={<RsvpBlockPlaceholder />}>
+      <Lazy publicEventId={PUBLIC_ID} occurrenceId={OCC} occurrence={occ()} seriesLifecycle="live" {...props} />
+    </Suspense>
+  );
   return (
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/event/some-night?occurrenceId=' + OCC]}>
-        <Suspense fallback={<RsvpBlockPlaceholder goingCountLabel={goingCountLabel} />}>
-          <Block
-            snapshotQueryKey={eventPageQueryKey(PAGE_ID).slice(0, 2)}
-            publicEventId={PUBLIC_ID}
-            occurrenceId={OCC}
-            occurrence={occ()}
-            seriesLifecycle="live"
-            goingCountLabel={goingCountLabel}
-            {...props}
-          />
-        </Suspense>
+        {gate === null ? (
+          inner
+        ) : (
+          <ProfileGateContext.Provider value={profileGateValue({ status: gate.status, missing: gate.missing ?? [], profileId: 'p1' })}>
+            {inner}
+          </ProfileGateContext.Provider>
+        )}
       </MemoryRouter>
     </QueryClientProvider>
   );
 };
 
-// Resolves once the lazy chunk has replaced the placeholder.
 const mount = async (props: Partial<Parameters<typeof RsvpBlock>[0]> = {}) => {
   const view = render(tree(props));
   await screen.findByTestId('rsvp-block');
-  expect(screen.queryByTestId('rsvp-placeholder')).toBeNull();
   return view;
 };
 
-const statusSettled = () =>
+/** Waits until the tile has stopped loading (people read, own going read). */
+const settled = () =>
   waitFor(() => {
-    expect(h.rpc).toHaveBeenCalledWith('get_my_occurrence_attendance_p5_v1', expect.anything());
-    expect(screen.getByTestId('rsvp-block').getAttribute('aria-busy')).toBe('false');
+    expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).not.toBe('loading');
+    expect(screen.queryByTestId('going-people') ?? screen.queryByTestId('rsvp-people-error')).toBeTruthy();
   });
 
-const setCalls = () => h.rpc.mock.calls.filter(([name]) => name === 'set_my_occurrence_attendance_p5_v1');
+const callsOf = (fn: string) => h.rpc.mock.calls.filter(([name]) => name === fn);
+const btn = () => screen.getByTestId('rsvp-going') as HTMLButtonElement;
+// The line under the button is always there (stage 5, C6: no jump); empty = no words.
+const message = () => screen.queryByTestId('rsvp-going-message')?.textContent || null;
 
-let myStatus: string | null;
+const NAMES = ['Ana', 'Leo', 'Mia', 'Sam', 'Kai', 'Zoe', 'Raf', 'Bea'];
+const people = (n: number, over: Partial<GoingPerson> = {}): GoingPerson[] =>
+  Array.from({ length: Math.min(n, 8) }, (_, i) => ({ dancer_profile_id: `d${i}`, first_name: NAMES[i], photo_url: null, ...over }));
 
 beforeEach(() => {
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   h.user = { id: 'u1' };
-  h.toastError.mockReset();
-  myStatus = null;
+  gate = { status: 'complete' };
+  nights = { going_count: 0, people: [] };
+  myGoing = false;
+  setReply = async ({ p_going }) => {
+    myGoing = p_going;
+    nights = { going_count: nights.going_count + (p_going ? 1 : -1), people: nights.people };
+    return { data: { occurrence_id: OCC, going: p_going, changed: true, going_count: nights.going_count }, error: null };
+  };
   h.rpc.mockReset();
-  h.rpc.mockImplementation(async (name: string, args: { p_status?: string | null }) => {
-    if (name === 'get_my_occurrence_attendance_p5_v1') return { data: myStatus, error: null };
-    if (name === 'set_my_occurrence_attendance_p5_v1') {
-      myStatus = args.p_status ?? null;
-      return { data: { event_id: PUBLIC_ID, occurrence_id: OCC, status: myStatus, updated_at: null }, error: null };
+  h.rpc.mockImplementation(async (fn, args) => {
+    if (fn === 'dancer_area_gate_v1') return { data: { open: true, allowed: true }, error: null };
+    if (fn === 'get_nights_going_v1') {
+      const ids = (args?.p_occurrence_ids as string[]) ?? [];
+      return { data: ids.map((id) => ({ occurrence_id: id, ...nights })), error: null };
     }
-    // The snapshot refetch after invalidation: keep the seeded count stable.
+    if (fn === 'get_my_going_v1') {
+      return { data: { upcoming: myGoing ? [{ occurrence_id: OCC, is_cancelled: false }] : [], past: [] }, error: null };
+    }
+    if (fn === 'set_my_going_v1') return setReply(args as { p_going: boolean });
     return { data: null, error: null };
   });
-  seedSnapshot(4);
 });
 afterEach(cleanup);
 
-describe('RsvpBlock', () => {
-  it('reads the caller status with the exact RPC name and arguments', async () => {
-    myStatus = 'going';
+describe('the tile x night shape', () => {
+  it('live night: title, the night in full, "No one going yet", the invitation and the button', async () => {
     await mount();
-    expect((await screen.findByText("You're Going")).closest('button')?.getAttribute('aria-pressed')).toBe('true');
-    expect(h.rpc).toHaveBeenCalledWith('get_my_occurrence_attendance_p5_v1', {
-      p_public_event_id: PUBLIC_ID,
-      p_occurrence_id: OCC,
-    });
-  });
-
-  it('tap sets going, tap again clears, with the exact payload', async () => {
-    await mount();
-    await statusSettled();
-
-    fireEvent.click(screen.getByTestId('rsvp-going'));
-    await screen.findByText("You're Going");
-    expect(setCalls()[0]).toEqual([
-      'set_my_occurrence_attendance_p5_v1',
-      { p_public_event_id: PUBLIC_ID, p_occurrence_id: OCC, p_status: 'going' },
-    ]);
-
-    fireEvent.click(screen.getByTestId('rsvp-going'));
-    await screen.findByText("I'm Going");
-    expect(setCalls()[1]).toEqual([
-      'set_my_occurrence_attendance_p5_v1',
-      { p_public_event_id: PUBLIC_ID, p_occurrence_id: OCC, p_status: null },
-    ]);
-  });
-
-  it('interested sets and clears through the same RPC', async () => {
-    await mount();
-    await statusSettled();
-    fireEvent.click(screen.getByTestId('rsvp-interested'));
-    await waitFor(() => expect(screen.getByTestId('rsvp-interested').getAttribute('aria-pressed')).toBe('true'));
-    expect(setCalls()[0][1]).toEqual({ p_public_event_id: PUBLIC_ID, p_occurrence_id: OCC, p_status: 'interested' });
-  });
-
-  it('updates the page going count optimistically and rolls back on an RPC error', async () => {
-    let reject!: (v: unknown) => void;
-    h.rpc.mockImplementation(async (name: string) => {
-      if (name === 'get_my_occurrence_attendance_p5_v1') return { data: null, error: null };
-      if (name === 'set_my_occurrence_attendance_p5_v1') return new Promise((r) => { reject = r; });
-      return { data: null, error: null };
-    });
-    await mount();
-    await statusSettled();
-
-    fireEvent.click(screen.getByTestId('rsvp-going'));
-    await screen.findByText("You're Going");
-    expect(snapshotGoing()).toBe(5);
-
-    await act(async () => {
-      reject({ data: null, error: { code: 'P0001', message: 'occurrence_cancelled: this night is cancelled' } });
-    });
-    await screen.findByText("I'm Going");
-    expect(snapshotGoing()).toBe(4);
-    expect(h.toastError).toHaveBeenCalledWith('This night has been cancelled.');
+    await settled();
+    expect(screen.getByRole('heading').textContent).toBe(GOING_COPY.tileTitle);
+    expect(screen.getByTestId('rsvp-night').textContent).toBe('Thursday 29 Oct \u00b7 9 PM');
+    expect(screen.getByTestId('going-count').textContent).toBe('No one going yet');
+    expect(btn().textContent).toBe(GOING_COPY.go);
+    expect(btn().disabled).toBe(false);
+    expect(message()).toBe(GOING_COPY.beFirst);
   });
 
   it.each([
-    [{ code: '28000', message: 'anonymous_session: sign in with an account to RSVP' }, 'Sign in to RSVP.'],
-    [{ code: '22023', message: 'invalid_argument: x' }, 'Something went wrong with this event link. Please refresh.'],
-    [{ code: 'P0002', message: 'not_found: event or occurrence not found' }, "We couldn't find this night."],
-    [{ code: 'P0001', message: 'rsvp_closed: this event is not taking RSVPs' }, "This event isn't taking RSVPs right now."],
-    [{ code: 'P0001', message: 'occurrence_cancelled: this night is cancelled' }, 'This night has been cancelled.'],
-    [{ code: 'P0001', message: 'occurrence_ended: this night has already ended' }, 'This night has already ended.'],
-    [{ code: '57014', message: 'canceling statement' }, "Couldn't update your RSVP. Please try again."],
-  ])('maps %o to friendly copy', (err, copy) => {
-    expect(rsvpErrorMessage(err)).toBe(copy);
+    ['ended, with an end time', { startsAt: PAST, endsAt: '2020-01-03 02:00:00' }, 'live', 'night_ended'],
+    ['ended, no end time (past 04:00 next morning)', { startsAt: PAST, endsAt: null }, 'live', 'night_ended'],
+    ['cancelled', { isCancelled: true }, 'live', 'night_cancelled'],
+    ['event paused', {}, 'paused', 'event_not_live'],
+    ['event ended, future night', {}, 'ended', 'event_not_live'],
+  ] as const)('%s: disabled with the reason', async (_n, over, lifecycle, state) => {
+    nights = { going_count: 5, people: people(5) };
+    await mount({ occurrence: occ(over), seriesLifecycle: lifecycle });
+    await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe(state));
+    expect(btn().disabled).toBe(true);
+    expect(message()).toBeTruthy();
+    if (state === 'night_ended') {
+      expect(screen.getByRole('heading').textContent).toBe(GOING_COPY.tileTitlePast);
+      await waitFor(() => expect(screen.getByTestId('going-count').textContent).toBe('5 went'));
+    }
+    expect(callsOf('set_my_going_v1')).toHaveLength(0);
   });
 
+  it('a "time to be confirmed" night shows the date alone', async () => {
+    await mount({ occurrence: occ({ hasTimedSession: false }) });
+    expect(screen.getByTestId('rsvp-night').textContent).toBe('Thursday 29 Oct');
+  });
+
+  it('going on a cancelled night: can take the name off', async () => {
+    myGoing = true;
+    nights = { going_count: 1, people: people(1) };
+    await mount({ occurrence: occ({ isCancelled: true }) });
+    await waitFor(() => expect(btn().textContent).toBe(GOING_COPY.going));
+    expect(btn().disabled).toBe(false);
+    expect(message()).toBe(GOING_COPY.cancelledGoing);
+  });
+});
+
+describe('the tile x cancelled night x count (stage 5, C1: never "No one going yet", never "N going")', () => {
+  it.each([
+    [0, null],
+    [1, '1 had said they were going'],
+    [9, '9 had said they were going'],
+  ] as const)('cancelled, %i going', async (count, text) => {
+    nights = { going_count: count, people: people(count) };
+    await mount({ occurrence: occ({ isCancelled: true }) });
+    await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe('night_cancelled'));
+    await screen.findByTestId('going-people');
+    expect(screen.queryByTestId('going-count')?.textContent ?? null).toBe(text);
+    expect(screen.getByTestId('rsvp-block').textContent).not.toMatch(/going yet|\d going/);
+    expect(message()).toBe(GOING_COPY.cancelled);
+  });
+});
+
+describe('the tile x going count x person shape', () => {
+  it.each([
+    [0, 'No one going yet', 0, null],
+    [1, '1 going', 1, null],
+    [3, '3 going', 3, null],
+    [8, '8 going', 8, null],
+    [9, '9 going', 8, '+1'],
+    [200, '200 going', 8, '+192'],
+  ] as const)('%i going', async (count, text, shown, more) => {
+    nights = { going_count: count, people: people(count) };
+    await mount();
+    await settled();
+    expect(screen.getByTestId('going-count').textContent).toBe(text);
+    expect(screen.queryAllByTestId('going-person-link')).toHaveLength(shown);
+    if (more) expect(screen.getByTestId('going-more').textContent).toContain(more);
+    else expect(screen.queryByTestId('going-more')).toBeNull();
+    // The invitation only when nobody is going.
+    expect(message()).toBe(count === 0 ? GOING_COPY.beFirst : null);
+  });
+
+  it('photo / no photo / null id (hidden public page = name only, no link)', async () => {
+    nights = {
+      going_count: 3,
+      people: [
+        { dancer_profile_id: 'd1', first_name: 'Ana', photo_url: 'https://cdn.example/a.jpg' },
+        { dancer_profile_id: 'd2', first_name: 'Leo', photo_url: null },
+        { dancer_profile_id: null, first_name: 'Mia', photo_url: null },
+      ],
+    };
+    await mount();
+    await settled();
+    expect(screen.getAllByTestId('going-photo')).toHaveLength(1);
+    expect(screen.getAllByTestId('going-initial').map((e) => e.textContent)).toEqual(['L', 'M']);
+    expect(screen.getAllByTestId('going-person-link').map((a) => a.getAttribute('href'))).toEqual(['/dancers/d1', '/dancers/d2']);
+    expect(screen.getByTestId('going-person').textContent).toContain('Mia');
+  });
+
+  it('reads the night with ONE batched request of the exact shape; anonymous readers too', async () => {
+    h.user = null;
+    gate = null;
+    await mount();
+    await settled();
+    expect(callsOf('get_nights_going_v1')).toEqual([['get_nights_going_v1', { p_occurrence_ids: [OCC], p_limit: 8 }]]);
+    expect(callsOf('get_my_going_v1')).toHaveLength(0); // signed out: no own-list read
+  });
+
+  it('people read fails: says so and offers a retry', async () => {
+    h.rpc.mockImplementation(async (fn) =>
+      fn === 'get_nights_going_v1' ? { data: null, error: { message: 'boom' } } : { data: { upcoming: [], past: [] }, error: null },
+    );
+    await mount();
+    expect((await screen.findByTestId('rsvp-people-error')).textContent).toContain(GOING_COPY.peopleLoadFailed);
+    const retry = screen.getByRole('button', { name: GOING_COPY.retry });
+    expect(retry.className).toMatch(/min-h-\[44px\]/);
+  });
+
+  it('a save in flight: the count moves, the viewer is never shown as "+1 more"', async () => {
+    nights = { going_count: 3, people: people(3) };
+    setReply = () => new Promise(() => {});
+    await mount();
+    await settled();
+    await waitFor(() => expect(btn().disabled).toBe(false));
+    fireEvent.click(btn());
+    await waitFor(() => expect(screen.getByTestId('going-count').textContent).toBe('4 going'));
+    expect(screen.queryByTestId('going-more')).toBeNull();
+  });
+
+  it.each([
+    ['people read fails', { data: null, error: { message: 'boom' } }],
+    ['the database dropped the id', { data: [], error: null }],
+  ] as const)('%s: claims no count (no "Be the first", no "No one going yet"), offers a retry, the button still works', async (_n, reply) => {
+    h.rpc.mockImplementation(async (fn) => (fn === 'get_nights_going_v1' ? reply : { data: { upcoming: [], past: [] }, error: null }));
+    await mount();
+    await screen.findByTestId('rsvp-people-error');
+    await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe('can_tap'));
+    expect(message()).toBeNull();
+    expect(screen.getByTestId('rsvp-block').textContent).not.toContain(GOING_COPY.beFirst);
+    expect(screen.getByTestId('rsvp-block').textContent).not.toContain(goingCountText(0));
+    expect(btn().disabled).toBe(false);
+  });
+});
+
+describe('the tile x viewer', () => {
   it.each([
     ['signed out', null],
     ['anonymous', { id: 'anon', is_anonymous: true }],
-  ])('%s: tap opens sign-in and never calls an RPC', async (_label, user) => {
-    h.user = user;
+  ] as const)('%s: "Sign in to say you\u2019re going" opens the sign-in prompt, never the RPC', async (_n, user) => {
+    h.user = user as typeof h.user;
+    gate = null;
     await mount();
-    fireEvent.click(screen.getByTestId('rsvp-going'));
-    expect(await screen.findByText('Sign in to RSVP')).toBeTruthy();
-    expect(screen.getByText('Log In')).toBeTruthy();
-    expect(h.rpc).not.toHaveBeenCalled();
+    await waitFor(() => expect(btn().textContent).toBe(GOING_COPY.signIn));
+    fireEvent.click(btn());
+    expect((await screen.findByTestId('auth-prompt')).textContent).toBe(`${GOING_COPY.signInTitle} | ${GOING_COPY.signInBody}`);
+    expect(callsOf('set_my_going_v1')).toHaveLength(0);
+    expect(callsOf('get_my_going_v1')).toHaveLength(0);
   });
 
   it.each([
-    ['cancelled night', { occurrence: occ({ isCancelled: true }) }, 'This night is cancelled'],
-    ['ended night', { occurrence: occ({ startsAt: future(-1.2), endsAt: future(-1) }) }, 'This night has ended'],
-    ['paused series', { seriesLifecycle: 'paused' }, 'RSVPs are closed for this event'],
-    ['ended series', { seriesLifecycle: 'ended' }, 'RSVPs are closed for this event'],
-  ])('%s: disabled with a reason and never writes', async (_label, props, reason) => {
-    myStatus = 'going';
-    await mount(props);
-    expect((await screen.findByTestId('rsvp-meta')).textContent).toBe(reason);
-    // The caller's earlier RSVP still shows on a closed night.
-    await screen.findByText("You're Going");
-    const going = screen.getByTestId('rsvp-going') as HTMLButtonElement;
-    expect(going.disabled).toBe(true);
-    fireEvent.click(going);
-    expect(setCalls()).toHaveLength(0);
+    [['first_name'], 'first name'],
+    [['based_city_id'], 'city'],
+    [['dance_role'], 'dance role'],
+    [['avatar_url'], 'photo'],
+    [['dance_role', 'avatar_url'], 'dance role and photo'],
+  ] as const)('unfinished (%j): names it; the big control is Finish your profile (which comes back here)', async (missing, words) => {
+    gate = { status: 'incomplete', missing: [...missing] };
+    await mount();
+    await waitFor(() =>
+      expect(btn().getAttribute('href')).toBe(
+        `/finish-profile?returnTo=${encodeURIComponent('/event/some-night?occurrenceId=' + OCC)}`,
+      ),
+    );
+    expect(message()).toContain(`Add your ${words} to say you\u2019re going.`);
+    expect(btn().tagName).toBe('A');
+    expect(btn().textContent).toBe(GOING_COPY.finishLink);
+    expect(screen.queryByTestId('rsvp-going-link')).toBeNull();
   });
 
-  it('a tap after the night ends on an open page greys out instead of writing', async () => {
-    const endsSoon = occ({ startsAt: londonWall(-3_600_000), endsAt: londonWall(60_000) });
-    await mount({ occurrence: endsSoon });
-    await statusSettled();
-    expect(screen.getByTestId('rsvp-meta').textContent).toBe('4 going');
-    const realNow = Date.now;
-    Date.now = () => realNow() + 120_000;
+  it('finished, going: "You\u2019re going \u00b7 Undo" and how to undo', async () => {
+    myGoing = true;
+    nights = { going_count: 1, people: people(1) };
+    await mount();
+    await waitFor(() => expect(btn().textContent).toBe(GOING_COPY.going));
+    expect(btn().getAttribute('aria-pressed')).toBe('true');
+    expect(message()).toBe(GOING_COPY.goingUndoHint);
+  });
+
+  it('tap sets going with the exact payload, optimistically; tap again undoes', async () => {
+    let release: () => void = () => {};
+    const real = setReply;
+    setReply = (a) => new Promise((res) => (release = () => void real(a).then(res)));
+    await mount();
+    await settled();
+    fireEvent.click(btn());
+    await waitFor(() => expect(screen.getByTestId('going-count').textContent).toBe('1 going'));
+    expect(btn().disabled).toBe(true); // in flight
+    expect(message()).toBe(GOING_COPY.saving);
+    expect(callsOf('set_my_going_v1')).toEqual([['set_my_going_v1', { p_occurrence_id: OCC, p_going: true }]]);
+    await act(async () => release());
+    await waitFor(() => expect(btn().textContent).toBe(GOING_COPY.going));
+    await waitFor(() => expect(btn().disabled).toBe(false));
+
+    setReply = real;
+    fireEvent.click(btn());
+    await waitFor(() => expect(btn().textContent).toBe(GOING_COPY.go));
+    expect(callsOf('set_my_going_v1')[1]).toEqual(['set_my_going_v1', { p_occurrence_id: OCC, p_going: false }]);
+    await waitFor(() => expect(screen.getByTestId('going-count').textContent).toBe('No one going yet'));
+  });
+
+  it.each([
+    ['rate_limited', GOING_COPY.rateLimited, 'rate_limited'],
+    ['night_ended', GOING_COPY.ended, 'night_ended'],
+    ['profile_incomplete', GOING_COPY.unfinishedGeneral, 'profile_unfinished'],
+  ] as const)('refused with %s: rolls the count back and shows that state', async (code, words, state) => {
+    nights = { going_count: 2, people: people(2) };
+    setReply = async () => ({ data: null, error: { message: code } });
+    await mount();
+    await settled();
+    fireEvent.click(btn());
+    await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe(state));
+    expect(message()?.startsWith(words)).toBe(true);
+    expect(screen.getByTestId('going-count').textContent).toBe('2 going');
+    // profile_incomplete lands on the Finish link (stage 5, C4); the others keep the unpressed button.
+    if (state === 'profile_unfinished') expect(btn().tagName).toBe('A');
+    else expect(btn().getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('network error: rolls back, says check your connection, button still usable', async () => {
+    setReply = async () => {
+      throw new TypeError('Failed to fetch');
+    };
+    await mount();
+    await settled();
+    fireEvent.click(btn());
+    await waitFor(() => expect(message()).toBe(GOING_COPY.network));
+    expect(btn().disabled).toBe(false);
+    expect(screen.getByTestId('going-count').textContent).toBe('No one going yet');
+  });
+
+  it('a tap after the night ends on an open page turns into "Who went" instead of writing', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      fireEvent.click(screen.getByTestId('rsvp-going'));
-      expect((await screen.findByTestId('rsvp-meta')).textContent).toBe('This night has ended');
+      vi.setSystemTime(new Date('2026-10-29T22:00:00Z'));
+      await mount({ occurrence: occ({ startsAt: '2026-10-29 21:00:00', endsAt: '2026-10-29 23:00:00' }) });
+      await settled();
+      expect(btn().disabled).toBe(false);
+      vi.setSystemTime(new Date('2026-10-29T23:30:00Z'));
+      fireEvent.click(btn());
+      await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('data-state')).toBe('night_ended'));
+      expect(callsOf('set_my_going_v1')).toHaveLength(0);
     } finally {
-      Date.now = realNow;
+      vi.useRealTimers();
     }
-    expect(setCalls()).toHaveLength(0);
   });
+});
 
-  it('ignores a tap while the caller status is still loading', async () => {
-    let resolveGet!: (v: unknown) => void;
-    h.rpc.mockImplementation((name: string) =>
-      name === 'get_my_occurrence_attendance_p5_v1'
-        ? new Promise((r) => { resolveGet = r; })
-        : Promise.resolve({ data: null, error: null }),
-    );
-    await mount();
-    await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('get_my_occurrence_attendance_p5_v1', expect.anything()));
-    fireEvent.click(screen.getByTestId('rsvp-going'));
-    await act(async () => {});
-    expect(setCalls()).toHaveLength(0);
-    await act(async () => resolveGet({ data: 'going', error: null }));
-    await screen.findByText("You're Going");
-  });
-
-  it('a failed status read blocks the write and retries the read', async () => {
-    h.rpc.mockImplementation(async (name: string) =>
-      name === 'get_my_occurrence_attendance_p5_v1'
-        ? { data: null, error: { code: '57014', message: 'canceling statement' } }
-        : { data: null, error: null },
-    );
-    await mount();
-    await waitFor(() => expect(screen.getByTestId('rsvp-block').getAttribute('aria-busy')).toBe('false'));
-    const reads = () => h.rpc.mock.calls.filter(([n]) => n === 'get_my_occurrence_attendance_p5_v1').length;
-    const before = reads();
-    fireEvent.click(screen.getByTestId('rsvp-going'));
-    await act(async () => {});
-    expect(setCalls()).toHaveLength(0);
-    expect(h.toastError).toHaveBeenCalledWith("Couldn't load your RSVP. Please try again.");
-    await waitFor(() => expect(reads()).toBe(before + 1));
-  });
-
-  it('shows the page going count on an open night', async () => {
-    await mount();
-    expect((await screen.findByTestId('rsvp-meta')).textContent).toBe('4 going');
-  });
-
-  it('shows a disabled placeholder with the going count until the lazy chunk lands', async () => {
-    render(tree({}, makeLazyRsvpBlock()));
-    const placeholder = screen.getByTestId('rsvp-placeholder');
-    expect(placeholder.getAttribute('aria-busy')).toBe('true');
-    const buttons = placeholder.querySelectorAll('button');
-    expect(buttons).toHaveLength(2);
-    buttons.forEach((b) => expect(b.disabled).toBe(true));
-    expect(placeholder.textContent).toContain("I'm Going");
-    expect(placeholder.textContent).toContain('Interested');
-    expect(placeholder.textContent).toContain('4 going');
-    // No RPC before the real block mounts.
-    expect(h.rpc).not.toHaveBeenCalled();
+describe('the placeholder', () => {
+  it('shows a disabled stand-in until the lazy chunk lands', async () => {
+    render(tree({}, makeLazy()));
+    const ph = screen.getByTestId('rsvp-placeholder');
+    expect(ph.querySelector('button')?.disabled).toBe(true);
     await screen.findByTestId('rsvp-block');
     expect(screen.queryByTestId('rsvp-placeholder')).toBeNull();
   });
 
-  it('the placeholder is the same box as the block (no layout shift)', async () => {
-    // A paused series renders both real buttons in the ghost style, like the placeholder.
-    const { container: real } = await mount({ seriesLifecycle: 'paused' });
-    const { container: ph } = render(<RsvpBlockPlaceholder goingCountLabel="4 going" />);
-    const shape = (root: HTMLElement) => {
-      const section = root.querySelector('section') as HTMLElement;
-      const [going, interested] = Array.from(section.querySelectorAll('button'));
-      const meta = section.querySelector('p') as HTMLElement;
-      return [section, section.firstElementChild as HTMLElement, going, interested, meta].map((el) => [
-        el.className,
-        el.getAttribute('style'),
-      ]);
-    };
-    const realShape = shape(real);
-    expect(realShape[0][1]).toContain('border-color');
-    expect(shape(ph)).toEqual(realShape);
+  it('is the tile copied: same classes and the same words as GOING_COPY', () => {
+    expect(Placeholder.PLACEHOLDER_TITLE_CLASS).toBe(Block.TILE_TITLE_CLASS);
+    expect(Placeholder.PLACEHOLDER_BODY_CLASS).toBe(Block.TILE_BODY_CLASS);
+    expect(Placeholder.PLACEHOLDER_NIGHT_CLASS).toBe(Block.TILE_NIGHT_CLASS);
+    expect(Placeholder.PLACEHOLDER_WORDS).toEqual({ title: GOING_COPY.tileTitle, label: GOING_COPY.tileLabel, go: GOING_COPY.go });
+  });
+
+  it('imports nothing but the switch (a shared import would split the event route chunk)', () => {
+    const src = readFileSync(path.resolve(__dirname, '../../src/modules/event-page/bento/blocks/RsvpBlockPlaceholder.tsx'), 'utf8');
+    const imports = [...src.matchAll(/^import .* from '([^']+)';/gm)].map((m) => m[1]);
+    expect(imports).toEqual(['react', '@/lib/goingCheckin']);
+  });
+
+  it('the tile never offers "Interested"', async () => {
+    await mount();
+    await settled();
+    expect(screen.getByTestId('rsvp-block').textContent).not.toMatch(/interested/i);
+  });
+});
+
+describe('the viewer\'s own list failed (review R13)', () => {
+  it.each([
+    ['finished profile', { status: 'complete' } as Gate],
+    ['unfinished profile', { status: 'incomplete', missing: ['first_name'] } as Gate],
+  ])('%s: people + count stay, the button is off with its reason, Try again re-reads the own list', async (_n, g) => {
+    gate = g;
+    nights = { going_count: 3, people: people(3) };
+    myGoing = true;
+    let mineFails = true;
+    const base = h.rpc.getMockImplementation()!;
+    h.rpc.mockImplementation(async (fn, args) =>
+      fn === 'get_my_going_v1' && mineFails ? { data: null, error: { message: 'boom' } } : base(fn, args),
+    );
+    await mount();
+    await screen.findByTestId('rsvp-going-retry');
+    expect(screen.getByText(goingCountText(3))).toBeTruthy();
+    expect(screen.queryByTestId('rsvp-people-error')).toBeNull();
+    expect(message()).toContain(GOING_COPY.mineLoadFailed);
+    expect(btn().disabled).toBe(true);
+    expect(btn().textContent).not.toMatch(/Finish/);
+    mineFails = false;
+    fireEvent.click(screen.getByTestId('rsvp-going-retry'));
+    await waitFor(() => expect(btn().getAttribute('aria-pressed')).toBe('true'));
+    expect(screen.queryByTestId('rsvp-going-retry')).toBeNull();
   });
 });

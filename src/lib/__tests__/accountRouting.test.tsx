@@ -21,14 +21,13 @@ vi.mock('@/components/search/SearchTrigger', () => ({ SearchTrigger: () => null 
 import { GlobalHeader } from '@/components/GlobalHeader';
 import {
   ACCOUNT_HOME_PATH,
+  CONTINUE_AS_PATH,
   DANCER_HOME_PATH,
   ORGANISER_HOME_PATH,
   accountHome,
-  accountView,
   dancerGate,
   isDancerGatedPath,
   isDancerGatedTarget,
-  type DancerFactKind,
   type DancerGateStatus,
   isAccountPath,
   isLegacyAccountLink,
@@ -60,22 +59,6 @@ describe.each([
   it(`-> ${want}`, () => expect(accountHome(facts)).toBe(want));
 });
 
-// Layout D (owner decision 2026-10-11): the person has roles, not either/or.
-// No unfinished-profile row any more: the dancer-first gate keeps an unfinished profile out.
-describe.each([
-  // organisers, open requests, dancer fact -> landing, menu entry
-  [0, 0, 'complete', 'dancer', false],
-  [1, 0, 'complete', 'organiser', true],
-  [2, 0, 'unknown', 'organiser', false],
-  [0, 1, 'complete', 'organiser', true],
-] as [number, number, DancerFactKind, AccountHome, boolean][])(
-  'accountView(organisers %i, open requests %i, dancer %s)',
-  (organiserCount, openRequestCount, dancer, landing, menuDancerEntry) => {
-    it(`-> ${landing}, menu entry ${menuDancerEntry}`, () => {
-      expect(accountView({ organiserCount, openRequestCount, dancer })).toEqual({ landing, menuDancerEntry });
-    });
-  },
-);
 
 // Dancer first, then organiser (owner decision 2026-10-11).
 describe.each([
@@ -100,9 +83,14 @@ describe.each([
   ['/account/series/s1', true],
   ['/account/team/o1', true],
   ['/Account/O', true],
-  ['/invite', true],
-  ['/invite/abc', true],
+  // W1 (Option B): the invite page asks the dancer questions inline and is open signed out, so it is never gated.
+  ['/invite', false],
+  ['/invite/abc', false],
   ['/account/attendance', false],
+  ['/account/settings', false],
+  ['/account/settings/ownership', false],
+  ['/account/settings/delete', false],
+  ['/account/deleted', false],
   ['/', false],
   ['/event/e1', false],
   ['/organiser/salsa-nights', false],
@@ -151,9 +139,8 @@ describe('paths', () => {
     expect(ORGANISER_HOME_PATH).toBe(ORG_PATHS.home);
   });
 
-  it('the sign-in landing: a known organiser goes straight home, an unknown one through /account', () => {
-    expect(landingPathAfterAuth({ organiserSelfServe: true, role: null, managesOrganiser: true })).toBe(ORGANISER_HOME_PATH);
-    expect(landingPathAfterAuth({ organiserSelfServe: true, role: null, managesOrganiser: null })).toBe(ACCOUNT_HOME_PATH);
+  it('the sign-in landing is the Continue-as page, one copy of its path', () => {
+    expect(landingPathAfterAuth({ organiserSelfServe: true, role: null, isSignup: false })).toBe(CONTINUE_AS_PATH);
   });
 
   it.each([
@@ -190,5 +177,28 @@ describe('the header account icon', () => {
     auth.value = { user: null, isLoading: false, authStatus: 'ready' };
     mount('/');
     expect(icon()).toBeNull();
+  });
+});
+
+// Review #789 S2: the restated dancer-app base cannot drift from the app's own constant.
+describe('isSignedInOnlyTarget', () => {
+  it('DANCER_APP_PREFIX is the dancer app base', async () => {
+    const { DANCER_APP_PREFIX } = await import('@/lib/accountRouting');
+    const { DANCER_APP_BASE } = await import('@/modules/dancer-app/shell/routes');
+    expect(DANCER_APP_PREFIX).toBe(DANCER_APP_BASE);
+  });
+  it.each([
+    ['/account/o', true],
+    ['/account/settings?from=app', true],
+    ['/APP/home', true],
+    ['/app', true],
+    ['/invite/abc', false],
+    ['/organisers/x?claim=1', true],
+    ['/event/abc', false],
+    ['/apple', false],
+    ['/', false],
+  ])('%s -> %s', async (target, expected) => {
+    const { isSignedInOnlyTarget } = await import('@/lib/accountRouting');
+    expect(isSignedInOnlyTarget(target)).toBe(expected);
   });
 });

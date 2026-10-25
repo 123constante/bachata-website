@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useListImpressions } from '@/lib/listImpressions';
 import {
   Calendar, Building2, GraduationCap, Music, User, MapPin, ShoppingBag, Globe,
   SlidersHorizontal, Search as SearchIcon,
@@ -16,17 +17,21 @@ import { highlight } from '@/components/search/highlight';
 import { LevelBadge, LevelFilterChips, UnratedLine, parseLevelParam } from '@/components/search/LevelFilter';
 import { flags } from '@/lib/featureFlags';
 import { recordSearchResultClick } from '@/lib/searchClickTelemetry';
-import { hrefFor, type SearchKind } from '@/lib/searchEntities';
-import { normalizeGenreToken } from '@/lib/genreSynonyms';
+import { hrefFor, personAriaLabel, telemetryKindFor, type SearchKind } from '@/lib/searchEntities';
+import { usePeopleBadges, type PersonBadge } from '@/modules/person-page/badges';
+import { searchPersonView } from '@/modules/person-page/searchPerson';
+import { genreFilterTokens } from '@/lib/genreSynonyms';
 import { resolveEventImage } from '@/lib/utils';
 import { eventResultSubtitle } from '@/lib/searchEventSubtitle';
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { cn } from '@/lib/utils';
+import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 
 type PersonLike = { first_name: string | null; surname: string | null; display_name: string | null };
 const personName = (p: PersonLike) =>
   p.display_name || [p.first_name, p.surname].filter(Boolean).join(' ') || 'Profile';
 const firstVenuePhoto = (urls: string[] | null) => (urls && urls.length > 0 ? urls[0] : null);
+const OLD_PERSON_FACETS = ['teachers', 'djs', 'dancers'];
 
 // Reused TimeToggle chip styles (the live facet/filter chip language).
 const chipBase = 'text-sm px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap';
@@ -58,6 +63,7 @@ const FACETS = [
   { key: 'teachers', label: 'Teachers' },
   { key: 'djs', label: 'DJs' },
   { key: 'dancers', label: 'Dancers' },
+  { key: 'people', label: 'People' },
   { key: 'vendors', label: 'Vendors' },
   { key: 'cities', label: 'Cities' },
 ] as const;
@@ -72,10 +78,20 @@ type ResultCardProps = {
   id: string;
   query: string;
   badge?: React.ReactNode;
+  /** People only: nationality_code from the search read. */
+  nationalityCode?: string | null;
+  /** v7 people: the accessible name, "Name, Teacher, DJ". */
+  ariaLabel?: string;
+  /** Kind logged on click when it differs from `kind` (v7: primary_role). */
+  telemetryKind?: SearchKind;
+  /** v7 people: let a long name wrap in full instead of clamping to two lines. */
+  wrapTitle?: boolean;
+  /** list-impression ref (events only) */
+  trackRef?: (el: Element | null) => void;
 };
 
-const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge }: ResultCardProps) => (
-  <Link to={to} onClick={() => recordSearchResultClick({ query, kind, id })} className="group block">
+const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query, badge, nationalityCode, ariaLabel, telemetryKind, wrapTitle, trackRef }: ResultCardProps) => (
+  <Link ref={trackRef} to={to} aria-label={ariaLabel} onClick={() => recordSearchResultClick({ query, kind: telemetryKind ?? kind, id })} className="group block">
     <Card className="h-full overflow-hidden border-primary/15 transition-colors hover:border-primary/40">
       <div className="relative aspect-[4/3] bg-muted/50">
         {image ? (
@@ -83,17 +99,59 @@ const ResultCard = ({ to, image, title, subtitle, fallbackIcon, kind, id, query,
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">{fallbackIcon}</div>
         )}
+        <NationalityFlag code={nationalityCode} size={TILE_FLAG_SIZE} placement="inset" />
       </div>
       <div className="p-3">
-        <h3 className="line-clamp-2 text-sm font-bold text-foreground transition-colors group-hover:text-primary">
+        <h3 className={cn(wrapTitle ? 'break-words' : 'line-clamp-2', 'text-sm font-bold text-foreground transition-colors group-hover:text-primary')}>
           {highlight(title, query)}
         </h3>
-        {subtitle && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{subtitle}</p>}
+        {subtitle && <p className={cn('mt-1 text-xs text-muted-foreground', wrapTitle ? 'break-words' : 'line-clamp-1')}>{subtitle}</p>}
         {badge}
       </div>
     </Card>
   </Link>
 );
+
+type PersonRowData = {
+  id: string; name: string; image: string | null; roles: string[] | undefined;
+  primaryRole: string | undefined; nationalityCode: string | null | undefined;
+};
+
+// ONE full-width row per person. Tags, stage name and link come from the people-badges
+// mapping: roles are always public (the Teacher tag shows plain while the teacher pages are
+// closed) and the row links DJ page, else dancer page, else nowhere (owner decision: separate
+// role pages, not /people/:id). The header overlay row (searchRpc mapPersonV7) is the same answer.
+export const PersonRow = ({ p, query, badge }: { p: PersonRowData; query: string; badge: PersonBadge | undefined }) => {
+  const opts = { teacherPagesOpen: flags.teacherDetail };
+  const [imgFailed, setImgFailed] = useState(false);
+  // The search read carries the roles; the stage name arrives with the badges read. The ONE
+  // function the header overlay uses too (searchPerson.ts).
+  const { tags, href: to } = searchPersonView(p.id, p.roles, badge, opts);
+  const inner = (
+    <>
+      <span className="relative shrink-0">
+        <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-primary/30 bg-muted/50 text-lg font-semibold text-primary">
+          {p.image && !imgFailed ? <img src={optimizedImageUrl(p.image, 96)} alt="" width={48} height={48} className="h-full w-full object-cover" loading="lazy" onError={() => setImgFailed(true)} /> : <span aria-hidden="true">{(p.name.trim().charAt(0) || '?').toUpperCase()}</span>}
+        </span>
+        <NationalityFlag code={p.nationalityCode} size={48} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-sm font-bold text-foreground">{highlight(p.name, query)}</span>
+        {tags.length > 0 && (
+          <span className="mt-1 flex flex-wrap gap-1">
+            {tags.map((t) => <span key={t.role} data-person-tag={t.role} className="rounded-full border border-primary/40 px-2 py-0.5 text-[12px] font-semibold leading-tight text-foreground/90">{t.label}</span>)}
+          </span>
+        )}
+      </span>
+    </>
+  );
+  const cls = 'flex w-full items-center gap-3 rounded-lg border border-primary/15 bg-card p-3';
+  return to ? (
+    <Link to={to} data-person-id={p.id} aria-label={personAriaLabel(p.name, tags.map((t) => t.role))} onClick={() => recordSearchResultClick({ query, kind: telemetryKindFor(p.primaryRole, p.roles), id: p.id })} className={cn(cls, 'min-h-[56px] transition-colors hover:border-primary/40')}>{inner}</Link>
+  ) : (
+    <div data-person-row="plain" data-person-id={p.id} className={cls}>{inner}</div>
+  );
+};
 
 const SectionHeader = ({ icon, title, count }: { icon: React.ReactNode; title: string; count: number }) => (
   <div className="mb-3 flex items-center gap-2">
@@ -108,13 +166,17 @@ const SectionGrid = ({ children }: { children: React.ReactNode }) => (
 );
 
 const SearchResults = () => {
+  const trackImpression = useListImpressions('search');
   useSeo(buildSeoForRoute('search'));
   const [params, setParams] = useSearchParams();
   const { citySlug } = useCity();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const query = (params.get('q') ?? '').trim();
-  const facet = params.get('type') ?? 'all';
+  // v7 (review F6): teachers / DJs / dancers became ONE People facet, so an old shared or
+  // back-navigated ?type=teachers|djs|dancers link opens People instead of an empty page.
+  const rawFacet = params.get('type') ?? 'all';
+  const facet = flags.searchV7 && OLD_PERSON_FACETS.includes(rawFacet) ? 'people' : rawFacet;
   const time = params.get('time') === 'all' ? 'all' : 'upcoming';
   const eformat = (params.get('eformat') ?? '').split(',').filter(Boolean);
   const ecat = (params.get('ecat') ?? '').split(',').filter(Boolean);
@@ -123,20 +185,23 @@ const SearchResults = () => {
   const to = params.get('to') ?? '';
   const cityOverride = params.get('city');
   // Dancer-rated level (search_public_v6). Ignored entirely while the flag is off.
-  const levels = flags.searchV6 ? parseLevelParam(params.get('level')) : [];
+  const levelsOn = flags.searchV6 || flags.searchV7;
+  const levels = levelsOn ? parseLevelParam(params.get('level')) : [];
 
   const { data, isLoading, error } = useSearchResults(query, citySlug, {
     includePast: time === 'all',
     formats: eformat,
     // Fold legacy/synonym genre tokens (e.g. a bookmarked `ecat=social`) to the
-    // canonical category before it hits the RPC. dedupe in case the fold collides.
-    categories: Array.from(new Set(ecat.map(normalizeGenreToken))),
+    // canonical category, and widen Class to masterclass + workshop, before it
+    // hits the RPC (genreFilterTokens dedupes).
+    categories: genreFilterTokens(ecat),
     styles,
     dateFrom: from || null,
     dateTo: to || null,
     citySlugOverride: cityOverride,
-    ...(flags.searchV6 ? { levels } : {}),
+    ...(levelsOn ? { levels } : {}),
   });
+  const { badges: peopleBadges } = usePeopleBadges(useMemo(() => (data?.people ?? []).map((p) => p.id), [data]));
 
   const update = (mut: (p: URLSearchParams) => void) => {
     const p = new URLSearchParams(params);
@@ -163,6 +228,7 @@ const SearchResults = () => {
     teachers: data?.teachers.length ?? 0,
     djs: data?.djs.length ?? 0,
     dancers: data?.dancers.length ?? 0,
+    people: data?.people?.length ?? 0,
     vendors: data?.vendors.length ?? 0,
     cities: data?.cities.length ?? 0,
   };
@@ -170,6 +236,8 @@ const SearchResults = () => {
     (eformat.length ? 1 : 0) + (ecat.length ? 1 : 0) + (styles.length ? 1 : 0) + (from || to ? 1 : 0) + (time === 'all' ? 1 : 0) + (cityOverride ? 1 : 0);
   const showSection = (key: string) => facet === 'all' || facet === key;
   const facetCount = (key: string) => (key === 'all' ? total : counts[key] ?? 0);
+  // The chosen facet has no hits although others do (review F6): say so, and offer the rest.
+  const facetEmpty = facet !== 'all' && total > 0 && facetCount(facet) === 0;
 
   return (
     <GlobalLayout showSubheader={false}>
@@ -195,8 +263,9 @@ const SearchResults = () => {
               <div role="tablist" aria-label="Result type" className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
                 {FACETS.map((f) => {
                   const c = facetCount(f.key);
-                  if (f.key !== 'all' && c === 0) return null;
                   const active = facet === f.key;
+                  // The chosen facet stays on screen (selected) even at 0, so the empty state below has a selected tab.
+                  if (f.key !== 'all' && c === 0 && !active) return null;
                   return (
                     <button key={f.key} role="tab" aria-selected={active} onClick={() => setParam('type', f.key === 'all' ? null : f.key)} className={cn(chipBase, active ? chipOn : chipOff)}>
                       {f.label} <span className="opacity-70">{c}</span>
@@ -207,7 +276,7 @@ const SearchResults = () => {
             </div>
           )}
 
-          {flags.searchV6 && query && (facet === 'all' || facet === 'events') && (
+          {levelsOn && query && (facet === 'all' || facet === 'events') && (
             <div className="mt-3">
               <LevelFilterChips
                 selected={levels}
@@ -263,14 +332,26 @@ const SearchResults = () => {
           </div>
         )}
 
-        {query && data && total > 0 && (
+        {query && data && !isLoading && facetEmpty && (
+          <div className="px-6 py-16 text-center" data-testid="search-facet-empty">
+            <SearchIcon className="mx-auto h-8 w-8 text-muted-foreground/40" />
+            <p className="mt-4 text-base font-semibold text-foreground">
+              No {FACETS.find((f) => f.key === facet)?.label.toLowerCase() ?? 'results of this type'} for &ldquo;{query}&rdquo;
+            </p>
+            <button type="button" onClick={() => setParam('type', null)} className="mt-3 inline-flex min-h-[44px] items-center px-3 text-sm font-semibold text-primary underline">
+              Show all {total} {total === 1 ? 'result' : 'results'}
+            </button>
+          </div>
+        )}
+
+        {query && data && total > 0 && !facetEmpty && (
           <div className="space-y-8">
             {showSection('events') && data.events.length > 0 && (
               <section>
                 <SectionHeader icon={<Calendar className="h-4 w-4 text-primary" />} title="Events" count={data.events.length} />
                 <SectionGrid>
                   {data.events.map((e) => (
-                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} query={query} badge={flags.searchV6 ? <LevelBadge level={e.derived_level} /> : undefined} />
+                    <ResultCard key={e.id} to={hrefFor('event', e.id)} image={resolveEventImage(e.poster_url, null)} title={e.name} subtitle={eventResultSubtitle(e) ?? undefined} fallbackIcon={<Calendar className="h-8 w-8" />} kind="event" id={e.id} trackRef={trackImpression(e.id)} query={query} badge={levelsOn ? <LevelBadge level={e.derived_level} /> : undefined} />
                   ))}
                 </SectionGrid>
               </section>
@@ -295,12 +376,22 @@ const SearchResults = () => {
                 </SectionGrid>
               </section>
             )}
+            {showSection('people') && (data.people?.length ?? 0) > 0 && (
+              <section>
+                <SectionHeader icon={<User className="h-4 w-4 text-primary" />} title="People" count={data.people?.length ?? 0} />
+                <div className="flex flex-col gap-2">
+                  {(data.people ?? []).map((p) => (
+                    <PersonRow key={p.id} query={query} badge={peopleBadges.get(p.id)} p={{ id: p.id, name: personName(p), image: resolveEventImage(p.photo_url ?? p.avatar_url, null), roles: p.roles, primaryRole: p.primary_role, nationalityCode: p.nationality_code }} />
+                  ))}
+                </div>
+              </section>
+            )}
             {showSection('teachers') && data.teachers.length > 0 && (
               <section>
                 <SectionHeader icon={<GraduationCap className="h-4 w-4 text-primary" />} title="Teachers" count={data.teachers.length} />
                 <SectionGrid>
                   {data.teachers.map((t) => (
-                    <ResultCard key={t.id} to={hrefFor('teacher', t.id)} image={resolveEventImage(t.photo_url ?? t.avatar_url, null)} title={personName(t)} fallbackIcon={<GraduationCap className="h-8 w-8" />} kind="teacher" id={t.id} query={query} />
+                    <ResultCard key={t.id} to={hrefFor('teacher', t.id)} image={resolveEventImage(t.photo_url ?? t.avatar_url, null)} title={personName(t)} fallbackIcon={<GraduationCap className="h-8 w-8" />} kind="teacher" id={t.id} query={query} nationalityCode={t.nationality_code} />
                   ))}
                 </SectionGrid>
               </section>
@@ -310,7 +401,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<Music className="h-4 w-4 text-primary" />} title="DJs" count={data.djs.length} />
                 <SectionGrid>
                   {data.djs.map((d) => (
-                    <ResultCard key={d.id} to={hrefFor('dj', d.id)} image={resolveEventImage(d.photo_url ?? d.avatar_url, null)} title={personName(d)} fallbackIcon={<Music className="h-8 w-8" />} kind="dj" id={d.id} query={query} />
+                    <ResultCard key={d.id} to={hrefFor('dj', d.id)} image={resolveEventImage(d.photo_url ?? d.avatar_url, null)} title={personName(d)} fallbackIcon={<Music className="h-8 w-8" />} kind="dj" id={d.id} query={query} nationalityCode={d.nationality_code} />
                   ))}
                 </SectionGrid>
               </section>
@@ -320,7 +411,7 @@ const SearchResults = () => {
                 <SectionHeader icon={<User className="h-4 w-4 text-primary" />} title="Dancers" count={data.dancers.length} />
                 <SectionGrid>
                   {data.dancers.map((d) => (
-                    <ResultCard key={d.id} to={hrefFor('dancer', d.id)} image={resolveEventImage(d.avatar_url ?? d.photo_url, null)} title={personName(d)} fallbackIcon={<User className="h-8 w-8" />} kind="dancer" id={d.id} query={query} />
+                    <ResultCard key={d.id} to={hrefFor('dancer', d.id)} image={resolveEventImage(d.avatar_url ?? d.photo_url, null)} title={personName(d)} fallbackIcon={<User className="h-8 w-8" />} kind="dancer" id={d.id} query={query} nationalityCode={d.nationality_code} />
                   ))}
                 </SectionGrid>
               </section>

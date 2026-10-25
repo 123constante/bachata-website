@@ -1,3 +1,4 @@
+import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profile/HideSurnameSwitch';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -65,11 +66,15 @@ const EditProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [dancerId, setDancerId] = useState<string | null>(null);
+  // null = the switch could not be read (column not live yet, or a failed read): the
+  // toggle is disabled and the save never sends the key.
+  const [initialHideSurname, setInitialHideSurname] = useState<boolean | null>(null);
   const [initialFormSnapshot, setInitialFormSnapshot] = useState<string | null>(null);
   
   const [form, setForm] = useState({
     first_name: '',
     surname: '',
+    hide_surname_publicly: false,
     city: '',
     nationality: '',
     dancing_start_date: '',
@@ -157,6 +162,7 @@ const EditProfile = () => {
           const loadedForm = {
             first_name: data.first_name || '',
             surname: data.surname || '',
+            hide_surname_publicly: false,
             city: data.based_city_id || '',
             nationality: data.nationality || '',
             dancing_start_date: dateStringFromDanceStartedYear(sidecar?.dance_started_year ?? null),
@@ -179,6 +185,23 @@ const EditProfile = () => {
             website: data.website_url || '',
           };
 
+          // The switch is read on its own, off the person's own row (RLS), so a
+          // failed read (column not live yet) cannot take the whole form down.
+          let hideLoaded: boolean | null = null;
+          try {
+            const { data: hideRow, error: hideError } = await (supabase as any)
+              .from('dancer_profiles')
+              .select('hide_surname_publicly')
+              .eq('id', data.id)
+              .maybeSingle();
+            if (!hideError && hideRow && typeof hideRow.hide_surname_publicly === 'boolean') {
+              hideLoaded = hideRow.hide_surname_publicly;
+            }
+          } catch {
+            hideLoaded = null;
+          }
+          loadedForm.hide_surname_publicly = hideLoaded === true;
+          setInitialHideSurname(hideLoaded);
           setDancerId(data.id);
           setForm(loadedForm);
           setInitialFormSnapshot(JSON.stringify(loadedForm));
@@ -258,6 +281,11 @@ const EditProfile = () => {
       await saveMyDancerProfile({
         first_name: form.first_name,
         surname: form.surname,
+        // Only when the person changed it: an untouched switch sends nothing.
+        hide_surname_publicly:
+          initialHideSurname !== null && form.hide_surname_publicly !== initialHideSurname
+            ? form.hide_surname_publicly
+            : undefined,
         based_city_id: canonicalCity.cityId,
         nationality: form.nationality,
         dance_role: form.partner_role || null,
@@ -287,6 +315,7 @@ const EditProfile = () => {
         description: 'Your changes have been saved.',
       });
       setInitialFormSnapshot(JSON.stringify(form));
+      if (initialHideSurname !== null) setInitialHideSurname(form.hide_surname_publicly);
       navigate('/profile');
     } catch (error: any) {
       // saveMyDancerProfile self-reports only the missing-stub case; an
@@ -431,10 +460,21 @@ const EditProfile = () => {
                   className='h-9 text-sm'
                 />
               </div>
+              <HideSurnameSwitch
+                checked={form.hide_surname_publicly}
+                onChange={(hide_surname_publicly) => setForm({ ...form, hide_surname_publicly })}
+                disabledReason={hideSurnameDisabledReason({
+                  isSaving,
+                  firstName: form.first_name,
+                  cityId: form.city,
+                  switchReadable: initialHideSurname !== null,
+                })}
+              />
               <div className='grid grid-cols-2 gap-2'>
                 <div>
-                  <label className='text-xs text-muted-foreground mb-1 block'>City</label>
+                  <label htmlFor='edit-profile-city' className='text-xs text-muted-foreground mb-1 block'>City</label>
                   <CityPicker
+                    id='edit-profile-city'
                     value={form.city}
                     onChange={(city) => setForm({ ...form, city })}
                     placeholder='Select city...'
@@ -442,8 +482,9 @@ const EditProfile = () => {
                   />
                 </div>
                 <div>
-                  <label className='text-xs text-muted-foreground mb-1 block'>Nationality</label>
+                  <label htmlFor='edit-profile-nationality' className='text-xs text-muted-foreground mb-1 block'>Nationality</label>
                   <NationalityPicker
+                    id='edit-profile-nationality'
                     value={form.nationality}
                     onChange={(value) => setForm({ ...form, nationality: value })}
                     className='h-9 text-sm'

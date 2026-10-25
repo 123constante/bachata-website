@@ -6,6 +6,7 @@
 // offer what the RPC would refuse.
 
 import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
+import { TEAM_CAP } from '@/modules/organiser/shared/teamModel';
 
 export type InviteStatus = 'sent' | 'used' | 'revoked' | 'expired';
 
@@ -145,9 +146,41 @@ export function whatsappHref(organiserName: string, link: string): string {
 
 export const TOKEN_RE = /^[0-9a-f]{64}$/;
 
+/**
+ * Can this signed-in email be the one a masked hint ("z...@d.com" / "z***@d.com") stands for? First character
+ * and domain only; the server stays the authority.
+ */
+export function hintMatchesEmail(hint: string | null | undefined, email: string | null | undefined): boolean {
+  if (!hint || !email) return false;
+  const h = hint.trim().toLowerCase();
+  const e = email.trim().toLowerCase();
+  const hAt = h.lastIndexOf('@');
+  const eAt = e.lastIndexOf('@');
+  if (hAt < 1 || eAt < 1) return false;
+  return h[0] === e[0] && h.slice(hAt + 1) === e.slice(eAt + 1);
+}
+
+/** The organiser (from the person's own home list) a link's page name matches: trim + case-insensitive. */
+export function ownPageForName<T extends { name: string }>(organisers: readonly T[] | null | undefined, name: string | null | undefined): T | null {
+  const want = name?.trim().toLowerCase();
+  if (!want || !organisers) return null;
+  return organisers.find((o) => typeof o.name === 'string' && o.name.trim().toLowerCase() === want) ?? null;
+}
+
+/**
+ * Who a signed-in person joins the team as (M57: the link is bearer-style, so the
+ * card names the account BEFORE it is used): the dancer first name, else the
+ * display name, else the account e-mail.
+ */
+export function joiningAsName(row: { first_name?: string | null; display_name?: string | null } | null | undefined, email: string | null | undefined): string {
+  return row?.first_name?.trim() || row?.display_name?.trim() || email?.trim() || 'this account';
+}
+
 // ---- redeem ---------------------------------------------------------------------
 
-export type RedeemAction = 'sign_in' | 'retry' | 'home' | 'finish_profile' | null;
+/** switch_account: sign out (the shared signOut), then this invite's sign-in -- the 2d/2e way out. A plain
+ * sign_in link would loop: /auth sends a signed-in person straight back to the same refusal. */
+export type RedeemAction = 'sign_in' | 'switch_account' | 'retry' | 'home' | 'finish_profile' | null;
 
 export interface RedeemCopy {
   title: string;
@@ -158,8 +191,6 @@ export interface RedeemCopy {
   terminal: boolean;
 }
 
-const ASK_NEW = 'Ask the admin who sent it for a new link.';
-
 /** Every reason redeem_organiser_invite_v1 can return (4b), plus the raised authentication_required. */
 export const REDEEM_COPY: Record<string, RedeemCopy> = {
   sign_in_required: { title: 'Sign in to continue', body: 'This link is for a signed-in account. Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
@@ -168,17 +199,27 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   rate_limited: { title: 'Too many tries', body: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.', action: 'home', terminal: false },
   // The server refuses BEFORE consuming the link, so the token must stay in the URL for the way back.
   [PROFILE_INCOMPLETE_CODE]: { title: 'Finish your dancer profile first', body: 'Add your first name, city, dance role and photo, then you will come straight back here and the link is used.', action: 'finish_profile', terminal: false },
-  invalid: { title: 'This link does not work', body: `It may have been copied incompletely. ${ASK_NEW}`, action: 'home', terminal: true },
-  used: { title: 'This link was already used', body: `A link works once. If that was not you, ${ASK_NEW}`, action: 'home', terminal: true },
-  revoked: { title: 'This link was withdrawn', body: ASK_NEW, action: 'home', terminal: true },
-  expired: { title: 'This link has run out', body: `Links last 7 days. ${ASK_NEW}`, action: 'home', terminal: true },
+  // Mockup 2d. The server refuses BEFORE using the link, so it stays in the address bar for the way back.
+  // reasonScreen() swaps in the masked hint (D36); without one the body still reads whole.
+  email_mismatch: { title: 'This link is for a different email', body: 'It was sent to another email address.', action: 'switch_account', terminal: false },
+  // Mockup 2e (D56): the RIGHT email in a session that is not a proven mailbox (checked before email_mismatch, no hint).
+  email_unproven: { title: 'Use the email link to sign in', body: 'This link is for your email, but you signed in another way.', action: 'switch_account', terminal: false },
+  // Mockups 2f, 2b, 2c, 2a. The "ask for a new one" button carries the ask, so the bodies do not repeat it.
+  invalid: { title: 'This link does not work', body: 'It may have been copied incompletely.', action: 'home', terminal: true },
+  used: { title: 'This link was already used', body: 'If that was not you, ask for a new one.', action: 'home', terminal: true },
+  revoked: { title: 'This link was withdrawn', body: '', action: 'home', terminal: true },
+  expired: { title: 'This link has run out', body: 'Links last 7 days.', action: 'home', terminal: true },
+  // The page is at its cap (admin A1b). A joiner has no Remove control, so the shared TEAM_FULL_COPY ("Remove someone first") does not fit here: same cap, same support route, no absent control.
+  team_full: { title: 'This team is full', body: `This team already has ${TEAM_CAP} people, so you cannot join it yet. Ask the page owner to make room, or ask the Bachata Calendar team.`, action: 'home', terminal: true },
 };
 
 export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };
 
+export interface InvitePrefill { firstName: string | null; cityId: string | null }
+
 export type RedeemOutcome =
-  | { kind: 'redeemed'; organiserId: string; alreadyMember: boolean }
-  | { kind: 'refused'; reason: string; copy: RedeemCopy }
+  | { kind: 'redeemed'; organiserId: string; alreadyMember: boolean; prefill: InvitePrefill | null }
+  | { kind: 'refused'; reason: string; copy: RedeemCopy; emailHint: string | null }
   | { kind: 'failed'; copy: RedeemCopy };
 
 /** redeem_organiser_invite_v1's answer (or the raised error) -> what the landing does next. */
@@ -186,15 +227,106 @@ export function interpretRedeem(data: unknown, error: { message?: string } | nul
   if (error) {
     const msg = error.message ?? '';
     const code = /authentication_required/.test(msg) ? 'authentication_required' : msg.includes(PROFILE_INCOMPLETE_CODE) ? PROFILE_INCOMPLETE_CODE : null;
-    return code ? { kind: 'refused', reason: code, copy: REDEEM_COPY[code] } : { kind: 'failed', copy: REDEEM_FALLBACK };
+    return code ? { kind: 'refused', reason: code, copy: REDEEM_COPY[code], emailHint: null } : { kind: 'failed', copy: REDEEM_FALLBACK };
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member') && typeof row.organiser_id === 'string') {
-    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member' };
+    return { kind: 'redeemed', organiserId: row.organiser_id, alreadyMember: row.status === 'already_member', prefill: parseInvitePrefill(row.prefill) };
   }
   const reason = typeof row.reason === 'string' ? row.reason : '';
   const copy = REDEEM_COPY[reason];
-  return copy ? { kind: 'refused', reason, copy } : { kind: 'failed', copy: REDEEM_FALLBACK };
+  return copy ? { kind: 'refused', reason, copy, emailHint: safeEmailHint(row.invite_email_hint) } : { kind: 'failed', copy: REDEEM_FALLBACK };
+}
+
+/** redeem's `prefill` key; null when absent or empty, so nothing is stored for a link that carries none. */
+export function parseInvitePrefill(raw: unknown): InvitePrefill | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const firstName = str(r.first_name);
+  const cityId = str(r.city_id);
+  return firstName || cityId ? { firstName, cityId } : null;
+}
+
+// ---- preview + "ask for a new link": ONE reason -> screen mapping ----------------------
+
+/**
+ * D36: who an invite is for is only ever shown as a masked hint ("r...@ymail.com" / "j***@gmail.com").
+ * Both the preview's email_hint and redeem's invite_email_hint pass through here, so a server that
+ * regresses to a full address shows nothing (and the link is not treated as bound). Server masking
+ * is the primary control; this is defence in depth.
+ */
+export function safeEmailHint(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const hint = v.trim();
+  const at = hint.lastIndexOf('@');
+  if (at < 1 || at === hint.length - 1) return null;
+  const local = hint.slice(0, at);
+  return local.includes('...') || local.includes('*') ? hint : null;
+}
+
+export type PreviewStatus = 'open' | 'used' | 'revoked' | 'expired';
+export interface InvitePreview { status: PreviewStatus; organiserName: string; inviterFirstName: string | null; emailHint: string | null }
+
+/** organiser_invite_preview_v1: `{}` (malformed/unknown) and anything unreadable -> null. */
+export function parsePreview(raw: unknown): InvitePreview | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const organiserName = str(r.organiser_name);
+  if (!organiserName) return null;
+  // The pre-arc-1 server answers {email_hint, organiser_name} with no status: treat it as open and let redeem decide.
+  const status = r.status === undefined ? 'open' : r.status;
+  if (!['open', 'used', 'revoked', 'expired'].includes(status as string)) return null;
+  return { status: status as PreviewStatus, organiserName, inviterFirstName: str(r.inviter_first_name), emailHint: safeEmailHint(r.email_hint) };
+}
+
+/** Reasons whose fix is a NEW link from the sender (not a garbled link, not a sign-in problem). */
+export const NEW_LINK_REASONS: readonly string[] = ['used', 'revoked', 'expired', 'email_mismatch'];
+
+/** The label of the "ask for a new link" control: names the sender when the lookup knows them. */
+export const newLinkLabel = (inviter: string | null | undefined): string => (inviter ? `Ask ${inviter} for a new one` : 'Request a new link');
+
+export interface ReasonScreen extends RedeemCopy {
+  /** Show the "ask for a new link" control (request_new_invite_v1). */
+  offerNewLink: boolean;
+  newLinkLabel: string;
+  /** The label of the switch_account button (2d / 2e); null for every other reason. */
+  switchLabel: string | null;
+}
+
+/** Mockup 2d / 2e button words. */
+export const SWITCH_LABEL: Record<string, string> = { email_mismatch: 'Sign in with that email', email_unproven: 'Email me a sign-in link' };
+
+/**
+ * THE mapping from a redeem reason (or a preview status that is already broken) to what any screen
+ * says. The landing, the preview card and the post-Join refusal all call this; none keeps its own words.
+ */
+export function reasonScreen(reason: string, ctx: { organiserName?: string | null; inviterFirstName?: string | null; emailHint?: string | null } = {}): ReasonScreen {
+  const base = REDEEM_COPY[reason] ?? REDEEM_FALLBACK;
+  const hint = safeEmailHint(ctx.emailHint);
+  const body = reason === 'email_mismatch' && hint ? `It was sent to ${hint}.` : base.body;
+  return { ...base, body, offerNewLink: NEW_LINK_REASONS.includes(reason), newLinkLabel: newLinkLabel(ctx.inviterFirstName), switchLabel: SWITCH_LABEL[reason] ?? null };
+}
+
+/** request_new_invite_v1 answer -> one short line. Rate limit wording is the arc-wide one. */
+export const TRY_LATER_COPY = 'Try again later.';
+export function newLinkResultCopy(data: unknown, error: unknown): { ok: boolean; text: string } {
+  if (error) return { ok: false, text: GENERIC };
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r.ok === true) return { ok: true, text: 'Request sent. The admin will send you a new link.' };
+  if (r.reason === 'already_requested') return { ok: true, text: 'You already asked. The admin will send a new link.' };
+  if (r.reason === 'rate_limited') return { ok: false, text: TRY_LATER_COPY };
+  return { ok: false, text: 'This link cannot be renewed from here.' };
+}
+
+/** request_signup_access_v1 answer -> a line under the form. */
+export function accessResultCopy(data: unknown, error: unknown): { ok: boolean; text: string } {
+  if (error) return { ok: false, text: GENERIC };
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r.ok === true) return { ok: true, text: 'We will email you when you are in.' };
+  if (r.reason === 'rate_limited') return { ok: false, text: TRY_LATER_COPY };
+  if (r.reason === 'invalid_email') return { ok: false, text: 'Check the email address.' };
+  if (r.reason === 'invalid_note') return { ok: false, text: 'Keep the note under 300 characters.' };
+  return { ok: false, text: GENERIC };
 }
 
 // ---- admin writes: plain-English refusals ----------------------------------------
@@ -212,7 +344,7 @@ export const ADMIN_COPY: Record<string, string> = {
   organiser_not_found: 'That organiser no longer exists. Reload the page.',
   invalid_member_role: 'Choose Owner, Manager or Contributor.',
   ambassador_only_on_city: 'Ambassador is only for cities, not organisers.',
-  use_transfer: 'Add person only adds Managers and Contributors. To add an owner, tap Generate invite, or use Make owner on the organiser’s team screen.',
+  use_transfer: 'Add person only adds Managers and Contributors. To add an owner, tap Generate invite. Or add them as a Manager here; the owner can then open their name on Team and tap Hand the page over.',
   user_not_found: 'No account has that email address. Ask them to sign up to Bachata Calendar first, then add them.',
   unconfirmed_email: 'That account has not confirmed its email address yet. Ask them to confirm it, then add them.',
 };

@@ -75,6 +75,86 @@ const searchPeopleRows = (q, limit) => {
 
 const LONG = 'Weekly bachata socials and classes in central London. '.repeat(6).trim();
 
+// ---------------------------------------------------------------------------
+// People with a nationality flag (people-nationality-flag.phone.spec.ts).
+// Prod survey 2026-10-12 (read-only, counts only): of 166 dancer profiles 17 carry a
+// code (about 1 in 10), 11 codes in use (ES CO x4, AR x2, EC BO ZA IT VE GB DE CY x1);
+// the rest emit nationality_code null while some still store typed text. 120 DJs make
+// the 100+ list the performance check needs; every 8th has a code, cycling the codes
+// in use, and some have no photo or a long name.
+// ---------------------------------------------------------------------------
+const PROD_CODES = ['ES', 'CO', 'AR', 'EC', 'BO', 'ZA', 'IT', 'VE', 'GB', 'DE', 'CY', 'ES', 'CO', 'AR', 'CO', 'ES'];
+const FIRST = ['Lucia', 'Camila', 'Marco', 'Sofia', 'Tom', 'Jan', 'Eva', 'Luca', 'Ana', 'Diego', 'Nadia', 'Kofi', 'Mei', 'Omar', 'Ines', 'Raul'];
+const LAST = ['Moreno', 'Ruiz', 'Diaz', 'Vargas', 'Hughes', 'Kowalski', 'Condori', 'Bianchi', 'Silva', 'Torres', 'Haddad', 'Mensah', 'Chen', 'Farouk', 'Costa', 'Ortega'];
+export const FLAG_PEOPLE = Array.from({ length: 120 }, (_, i) => {
+  const coded = i % 8 === 0;
+  const longName = i % 37 === 5;
+  return {
+    id: `f0000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+    first_name: longName ? 'Maria Fernanda de los Angeles' : FIRST[i % 16],
+    surname: longName ? 'Rodriguez-Villanueva del Valle' : LAST[(i * 7) % 16],
+    photo_url: i % 5 === 3 ? null : PHOTO,
+    nationality_code: coded ? PROD_CODES[(i / 8) % PROD_CODES.length] : null,
+    // Typed text kept on an unmapped row: the read says null, so no flag.
+    nationality: coded ? PROD_CODES[(i / 8) % PROD_CODES.length] : i % 9 === 4 ? 'Kosovar' : null,
+  };
+});
+export const FLAG_DJ_ID = FLAG_PEOPLE[0].id; // ES
+export const FLAG_PEOPLE_CODED = FLAG_PEOPLE.filter((p) => p.nationality_code).length;
+const fullName = (p) => `${p.first_name} ${p.surname}`;
+const djListRow = (p) => ({
+  id: p.id, display_name: null, dj_name: null, first_name: p.first_name, surname: p.surname, photo_url: p.photo_url,
+  bio: null, genres: ['Bachata'], nationality: p.nationality, nationality_code: p.nationality_code,
+  city_id: CITY_ID, city_name: 'London', city_slug: 'london-gb', person_entity_id: null,
+});
+// The organiser whose public "Teachers & DJs" circles carry flags (a table read:
+// organiser_team_members + dancer_profiles.nationality, stored as alpha-2).
+export const ORG3_ID = 'a0000000-0000-4000-8000-0000000000a5';
+export const ORG3_SLUG = 'team-flags-phone-qa';
+const ORG3_TEAM = [0, 1, 8, 16, 24, 2];
+export const ORG3_TEAM_CODES = ORG3_TEAM.map((k) => FLAG_PEOPLE[k].nationality_code).filter(Boolean);
+export const VENDOR_ID = 'b0000000-0000-4000-8000-0000000000b1';
+// The rest of the person-photo surfaces (one fixture each, the same people and codes).
+const coded = (n) => FLAG_PEOPLE.filter((p) => p.nationality_code).slice(0, n);
+const mixed = (n) => FLAG_PEOPLE.slice(0, n);
+export const FLAG_DANCER_ID = FLAG_PEOPLE[0].id; // ES, stored alpha-2
+export const FLAG_EVENT_SLUG = 'flag-social-phone-qa';
+export const FLAG_EVENT_ID = 'e2000000-0000-4000-8000-000000000001';
+export const FLAG_FESTIVAL_SLUG = 'flag-festival-phone-qa';
+export const FLAG_FESTIVAL_ID = 'e2000000-0000-4000-8000-000000000002';
+const EVENT_REFS = { [FLAG_EVENT_SLUG]: FLAG_EVENT_ID, [FLAG_FESTIVAL_SLUG]: FLAG_FESTIVAL_ID };
+const lineupOf = (people) => people.map((p) => ({ id: p.id, display_name: fullName(p), avatar_url: p.photo_url, nationality_code: p.nationality_code }));
+// A night with a class (two teachers) and a party (two DJs). event_view_p5 legacy_compat carries
+// nationality_code on every person (admin #774/#799), so the programme needs no second read.
+const PROGRAMME_PEOPLE = [0, 8, 16, 1];
+const flagSnapshot = (id, format) => {
+  const occ = {
+    occurrence_id: `${id.slice(0, -1)}9`, starts_at: '2099-11-20T20:00:00.000Z', ends_at: '2099-11-21T02:00:00.000Z', local_date: '2099-11-20',
+    timezone: 'Europe/London', is_cancelled: false, is_live: false, is_past: false, is_upcoming: true,
+    lineup: { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] },
+  };
+  return {
+    event_id: id, occurrence_id: occ.occurrence_id,
+    event: {
+      name: format === 'festival' ? 'Flag Festival Phone QA' : 'Flag Social Phone QA', description: null, date: null, type: format === 'festival' ? 'festival' : 'party', format,
+      timezone: 'Europe/London', city_slug: 'london-gb', location: null, status: 'published', is_published: true, created_by: null,
+      cover_image_url: null, hero_image_url: null, poster_url: null, photo_urls: [], music_styles: ['Bachata'], payment_methods: null, key_times: null,
+      meta_data_public: {}, actions: { ticket_url: null, website_url: null, facebook_url: null, instagram_url: null, pricing: null },
+    },
+    organisers: [], occurrences: [occ], occurrence_effective: occ,
+    location_default: { city: { name: 'London', slug: 'london-gb' }, venue: null, timezone: 'Europe/London' },
+    attendance: { going_count: 0, interested_count: 0, current_user_status: null, preview: [] },
+  };
+};
+const FLAG_PROGRAMME = [
+  { id: 'p1', title: 'Bachata Sensual Improvers', type: 'class', start_time: '2099-11-20T20:00:00', end_time: '2099-11-20T21:00:00', day_event_date: '2099-11-20', sort_order: 1, levels: ['improver'], room: null,
+    people: PROGRAMME_PEOPLE.slice(0, 2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'teacher', level: null, sort_order: i, nationality_code: FLAG_PEOPLE[k].nationality_code })) },
+  { id: 'p2', title: 'Social', type: 'party', start_time: '2099-11-20T21:00:00', end_time: '2099-11-21T02:00:00', day_event_date: '2099-11-20', sort_order: 2, levels: [], room: null,
+    people: PROGRAMME_PEOPLE.slice(2).map((k, i) => ({ profile_id: FLAG_PEOPLE[k].id, display_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, profile_type: 'dj', level: null, sort_order: i, nationality_code: FLAG_PEOPLE[k].nationality_code })) },
+];
+export const FLAG_PROGRAMME_CODES = PROGRAMME_PEOPLE.map((k) => FLAG_PEOPLE[k].nationality_code).filter(Boolean);
+export const FLAG_FESTIVAL_HEADLINERS = [...coded(5), FLAG_PEOPLE[1]];
+
 /** Table rows, filtered by eq./is./in. query params. Shapes follow the public column lists. */
 const HERO_BASE = {
   first_name: null, surname: null, bio: 'Weekly socials.', short_bio: 'Weekly socials.', website: null, instagram: 'bachataplayground',
@@ -149,7 +229,30 @@ export const TABLES = {
       name: HERO_ORGS[1].name,
       organisation_name: HERO_ORGS[1].name,
     },
+    {
+      ...HERO_BASE,
+      id: ORG3_ID,
+      slug: ORG3_SLUG,
+      name: 'Team Flags Phone QA',
+      organisation_name: 'Team Flags Phone QA',
+    },
   ],
+  organiser_team_members: ORG3_TEAM.map((k, i) => ({
+    id: `e1000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, organiser_profile_id: ORG3_ID, member_profile_id: FLAG_PEOPLE[k].id,
+    role: i % 2 ? 'DJ' : 'Teacher', is_head: i === 0, is_leader: false, sort_order: i, is_active: true,
+  })),
+  dancer_profiles: FLAG_PEOPLE.slice(0, 30).map((p) => ({
+    id: p.id, first_name: p.first_name, surname: p.surname, display_name: fullName(p), avatar_url: p.photo_url, nationality: p.nationality,
+    is_active: true, dance_role: 'both', based_city_id: CITY_ID, cities: { name: 'London' }, city: { name: 'London' },
+    // /practice-partners filters on the embedded table (dancing_role_details!inner); the fake matches the dotted key.
+    dancing_role_details: { favorite_styles: ['Bachata'], looking_for_partner: true, dance_started_year: 2020 },
+    'dancing_role_details.looking_for_partner': true,
+  })),
+  videographers: mixed(8).map((p, i) => ({
+    id: p.id, first_name: p.first_name, surname: p.surname, business_name: i === 1 ? null : `${p.first_name} Films`, photo_url: p.photo_url ?? PHOTO, bio: null,
+    instagram: null, website: null, verified: i === 0, videography_styles: ['Socials'], nationality: i % 3 === 0 ? (p.nationality_code ?? 'CO') : p.nationality, is_active: true,
+    created_at: '2025-01-01T00:00:00Z',
+  })),
   cities: [
     { id: CITY_ID, name: 'London', slug: 'london-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
     { id: CITY2_ID, name: 'Manchester', slug: 'manchester-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
@@ -175,12 +278,136 @@ export const RPCS = {
     members: [{ user_id: '11111111-1111-4111-8111-111111111111', member_role: 'owner', is_primary: true, joined_at: '2026-01-01T00:00:00Z', is_me: true, email: 'owner@ritmo.example' }],
   }),
   organiser_team_search_people_v1: (args) => searchPeopleRows(args.p_query, args.p_limit),
+  // Nationality flags: the reads' prod shapes (admin #774), nationality_code additive.
+  list_public_djs_v1: () => FLAG_PEOPLE.map(djListRow),
+  get_public_dj_v1: (args) => {
+    const p = FLAG_PEOPLE.find((x) => x.id === args.p_dj_id) ?? null;
+    return p ? { ...djListRow(p), faq: null, pricing: null, website: null, facebook: null, mixcloud: null, cover_url: null, instagram: null, languages: [], soundcloud: null, achievements: [], gallery_urls: [], upcoming_events: [] } : null;
+  },
+  get_public_vendor_detail_v1: () => [{
+    id: VENDOR_ID, business_name: 'Flag Shoes Phone QA', city: 'London', team: FLAG_PEOPLE.slice(0, 9).map((p, i) => ({
+      dancer_id: p.id, name: fullName(p), avatar_url: p.photo_url, nationality_code: p.nationality_code, city: 'London', role: i === 0 ? 'Owner' : 'Staff', is_leader: i === 0,
+    })),
+    product_categories: [], products: [], faq: [],
+  }],
+  get_public_teachers_list_v1: () => mixed(40).map((p) => ({
+    entity_id: p.id, first_name: p.first_name, surname: p.surname, hide_surname: false, photo_url: p.photo_url, city: 'London', nationality: p.nationality,
+    nationality_code: p.nationality_code, years_teaching: 5, teaching_styles: ['Bachata'], offers_group: true, offers_private: false, languages: [], instagram: null, website: null,
+  })),
+  get_all_profiles_v1: () => mixed(24).map((p, i) => ({
+    profile_id: p.id, role: ['teacher', 'dj', 'dancer'][i % 3], display_name: fullName(p), photo_url: p.photo_url ?? PHOTO, city_name: 'London', country_code: 'GB',
+    bio: null, specialties: [], is_verified: false, nationality_code: p.nationality_code ?? (i % 3 === 1 ? 'CO' : null),
+  })),
+  // By slug or by id (/event/<uuid>, the link shape the build smoke opens).
+  resolve_public_event_ref_v1: (args) => {
+    const slug = EVENT_REFS[args.p_param] ? args.p_param : Object.keys(EVENT_REFS).find((s) => EVENT_REFS[s] === args.p_param);
+    return slug ? { id: EVENT_REFS[slug], slug } : null;
+  },
+  event_view_p5: (args) => {
+    const t = args.p_target ?? {};
+    const id = Object.values(EVENT_REFS).find((x) => x === t.series_id || (t.occurrence_id && t.occurrence_id === `${x.slice(0, -1)}9`));
+    if (!id) return null;
+    if (args.p_viewer?.shape === 'snapshot_compat') return flagSnapshot(id, id === FLAG_FESTIVAL_ID ? 'festival' : 'party');
+    return id === FLAG_EVENT_ID ? FLAG_PROGRAMME : [];
+  },
+  get_public_festival_detail_v2: (args) => (args.p_event_id === FLAG_FESTIVAL_ID ? {
+    event_id: FLAG_FESTIVAL_ID,
+    identity: { name: 'Flag Festival Phone QA', music_styles: ['Bachata'] },
+    dates: { starts_at: '2099-11-20T18:00:00Z', ends_at: '2099-11-22T23:00:00Z', local_start: '2099-11-20T18:00:00', local_end: '2099-11-22T23:00:00', timezone: 'Europe/London' },
+    links: {}, location: { city: { id: CITY_ID, name: 'London', slug: 'london-gb' } }, organiser: null,
+    lineup: { teachers: lineupOf(FLAG_FESTIVAL_HEADLINERS), djs: lineupOf(coded(3)), performers: [], mcs: [], photographers: [], videographers: [] },
+    schedule: [], passes: [], venues: [], hotels: [], competitions: [], promo_codes: [], publish: {},
+  } : null),
+  search_public_v4: (args) => {
+    const q = String(args.p_query ?? '').toLowerCase();
+    const rows = FLAG_PEOPLE.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, Number(args.p_section_limit) || 12)
+      .map((p) => ({ id: p.id, first_name: p.first_name, surname: p.surname, display_name: null, photo_url: p.photo_url, avatar_url: null, slug: null, nationality_code: p.nationality_code }));
+    return { query: q, events: [], organisers: [], teachers: rows.slice(0, 4), djs: rows.slice(4, 8), dancers: rows.slice(8), venues: [], vendors: [], cities: [], total_count: rows.length };
+  },
   // ORG2's nights: no dated occurrence rows, so the page lists them as upcoming
   // (the base-date fallback); every other organiser has none.
   get_organiser_public_events_v1: (args) => (args.p_organiser_id === ORG2_ID ? [
     { id: 'e0000000-0000-4000-8000-0000000000e1', name: 'Friday Salsa Social', date: '2099-01-02', start_time: '2099-01-02T20:00:00', is_active: true, poster_url: null, location: 'Studio One', city: 'London' },
     { id: 'e0000000-0000-4000-8000-0000000000e2', name: 'Saturday Bachata Party', date: '2099-01-03', start_time: '2099-01-03T21:00:00', is_active: true, poster_url: null, location: 'Studio One', city: 'London' },
   ] : []),
+};
+
+// ---------------------------------------------------------------------------
+// "Almost live" / Go live (/account/o/go-live?series=..., invite W2): the reads the
+// flow makes, per SCENARIO, served browser side only (helpers.ts `goLive`), so no
+// other spec's /account/o changes. Shapes copied from GoLiveRoles.test.tsx and
+// tests/e2e/helpers/organiserFake.ts. Go live itself (series_command_p5) answers ok
+// (and the role answers) ONLY in a scenario that sets `liveOk`; every other write stays refused.
+// ---------------------------------------------------------------------------
+export const GOLIVE_SERIES_ID = '5e000000-0000-4000-8000-0000000000f1';
+export const GOLIVE_EVENT_NAME = 'Friday Bachata Social';
+const GOLIVE_USER_ID = '11111111-1111-4111-8111-111111111111';
+const goLiveDancer = () => ({
+  profile_id: 'd0000000-0000-4000-8000-0000000000f1', user_id: GOLIVE_USER_ID, first_name: 'Ana', surname: 'Ruiz', based_city_id: CITY_ID,
+  dance_role: 'Follower', avatar_url: PHOTO, nationality: 'ES', languages: ['English'], instagram: 'ana.ruiz', whatsapp: null,
+  phone: '+447700900456', dance_started_year: 2019, other_roles: ['organiser'],
+});
+
+/**
+ * @param {{ steps?: [string, string][], contactPhone?: string | null, intent?: {roles: string[], declined: string[]},
+ *   missing?: {area: string, organiser_id: string | null, fields: string[]}[], liveOk?: boolean,
+ *   eventMissing?: [string, string][], progressSteps?: [string, string, boolean][], noPages?: boolean }} sc
+ * W2 walk fixes: `eventMissing` the check's event codes [code, section]; `progressSteps` the wizard's
+ * steps with their required flag [area, field, required]; `noPages` a login with no organiser page yet.
+ * @returns {Record<string, (args: Record<string, unknown>) => unknown>}
+ */
+export const goLiveRpcs = (sc) => {
+  const steps = sc.progressSteps
+    ? sc.progressSteps.map(([area, field, required]) => ({ area, field, required, done: false }))
+    : (sc.steps ?? []).map(([area, field]) => ({ area, field, required: true, done: false }));
+  const requiredLeft = steps.filter((st) => st.required).length;
+  const missing = sc.missing ?? [];
+  const eventMissing = (sc.eventMissing ?? []).map(([code, section]) => ({ code, section }));
+  // Go live flips the series to live, so the reads after it (Done's "See it live") say so.
+  let lifecycle = 'draft';
+  return {
+    organiser_home_v1: () => ({
+      today: '2026-10-23',
+      organisers: sc.noPages ? [] : [{
+        id: ORG_ID, name: 'Ritmo Phone QA', slug: ORG_SLUG, avatar_url: null, city_id: CITY_ID, lifecycle_status: 'live', role: 'owner',
+        is_primary: true, joined_at: '2026-01-01T00:00:00Z', latest_decision: null, team: [],
+        series: [{ id: GOLIVE_SERIES_ID, name: GOLIVE_EVENT_NAME, slug: 'friday-bachata-social', format: 'social', category: 'party', lifecycle_status: lifecycle,
+          default_local_start_time: '20:00:00', default_venue_name: 'Studio One', upcoming_count: 0, latest_decision: null, version: 3, next_dates: [] }],
+      }],
+    }),
+    // The dancer-first gate: a finished dancer profile.
+    _my_dancer_profile_id_v1: () => goLiveDancer().profile_id,
+    profile_complete_v1: () => true,
+    get_current_user_organiser_ids: () => (sc.noPages ? [] : [ORG_ID]),
+    my_profile_progress_v1: () => ({ percent: 60, required_left: requiredLeft, publish_ready: requiredLeft === 0, declined: [], steps }),
+    my_dancer_edit_v1: () => goLiveDancer(),
+    my_role_intent_v1: () => sc.intent ?? { roles: ['dancer', 'organiser'], declined: [] },
+    my_roles_v1: () => [],
+    get_organiser_contact_settings_v1: () => ({
+      contact_phone: sc.contactPhone ?? null, contact_email: 'hello@example.com', show_phone_publicly: true, show_email_publicly: false, show_contact_publicly: true, claim_email: null,
+    }),
+    series_go_live_check_v1: () => ({ ready: missing.length === 0 && eventMissing.length === 0, event_missing: eventMissing, recommended: [], profile_rule_applies: true, profile_missing: missing }),
+    // The role editors' reads (also outside liveOk): nothing filled yet.
+    my_role_details_v1: (a) => ({ role: a.p_role, person_id: 'p1', details: {} }),
+    admin_event_workspace_p5: () => ({
+      meta: { version: 3, has_more: false },
+      series: {
+        series: { id: GOLIVE_SERIES_ID, organiser_id: ORG_ID, name: GOLIVE_EVENT_NAME, slug: 'friday-bachata-social', format: 'social', category: 'party',
+          lifecycle_status: lifecycle, version: 3, default_venue_id: null, default_description: null, default_local_start_time: '20:00:00', default_duration: null,
+          default_level: null, default_cover_image_url: null, instagram_url: null, passes: null, created_at: '2026-10-01T10:00:00+00:00',
+          gallery: [], video_urls: [], default_music_styles: ['Bachata'] },
+        program: [],
+      },
+      occurrences: [],
+    }),
+    // `liveOk`: Go live and the role answers on the way succeed (echoing what was sent), so "It's live" can render.
+    ...(sc.liveOk ? {
+      series_command_p5: () => { lifecycle = 'live'; return { ok: true, data: {}, audit_id: 'a', new_version: 4 }; },
+      set_my_role_intent_v1: () => null,
+      my_role_details_v1: (a) => ({ role: a.p_role, person_id: 'p1', details: {} }),
+      save_my_role_v1: (a) => ({ role: a.p_role, person_id: 'p1', changed: true, changed_keys: Object.keys(a.p_patch ?? {}), details: a.p_patch ?? {} }),
+    } : {}),
+  };
 };
 
 /** RPCs that change state are refused, so an accidental Save can never "succeed" here. */

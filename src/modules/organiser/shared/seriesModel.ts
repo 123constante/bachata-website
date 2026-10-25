@@ -19,6 +19,8 @@ export interface WorkspaceSeries {
   name: string;
   slug: string | null;
   format: string | null;
+  /** Set when the series belongs to a festival (set_time refuses it, like format 'festival'). */
+  festival_id?: string | null;
   category: string | null;
   lifecycle_status: string;
   version: number;
@@ -32,6 +34,8 @@ export interface WorkspaceSeries {
   default_start_date: string | null;
   /** The Instagram link (event_series_p5.instagram_url). */
   instagram_url: string | null;
+  /** How to pay as stored: a comma list of ticket_link, door, bank_transfer, cash, free (event_series_p5.payment_methods). */
+  payment_methods?: string | null;
   /** The price list as stored (event_series_p5.passes); shape not trusted. */
   passes: unknown;
   created_at: string | null;
@@ -84,6 +88,7 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     name: String(s.name ?? ''),
     slug: str(s.slug),
     format: str(s.format),
+    festival_id: str(s.festival_id),
     category: str(s.category),
     lifecycle_status: String(s.lifecycle_status ?? ''),
     version: num(s.version),
@@ -95,6 +100,7 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     default_cover_image_url: str(s.default_cover_image_url),
     default_start_date: str(s.default_start_date),
     instagram_url: str(s.instagram_url),
+    payment_methods: str(s.payment_methods),
     passes: s.passes ?? null,
     created_at: str(s.created_at),
     recurrence_rule: s.recurrence_rule ?? null,
@@ -219,7 +225,7 @@ export function timeSpanWarning(start: string, end: string): TimeSpanWarning | n
 
 // ---- dates -------------------------------------------------------------------
 
-export const isCancelledDate = (d: WorkspaceDate) => d.lifecycle_status === 'cancelled';
+export const isCancelledDate = (d: Pick<WorkspaceDate, 'lifecycle_status'>) => d.lifecycle_status === 'cancelled';
 
 /**
  * A date that keeps its own changes when the series is edited: an override row
@@ -231,6 +237,15 @@ export const keepsOwnChanges = (d: WorkspaceDate) =>
 
 export function upcomingDates(dates: WorkspaceDate[], today: string): WorkspaceDate[] {
   return dates.filter((d) => d.occurrence_date >= today).sort((a, b) => a.occurrence_date.localeCompare(b.occurrence_date));
+}
+
+/**
+ * The earliest listed date from today on that is not cancelled (the programme writer
+ * refuses a past or cancelled date): the editor's `next`. A create no longer reads it:
+ * it seeds its first session on the date its add_date reply names (FIX-6 F-g).
+ */
+export function firstListedDate(dates: WorkspaceDate[], today: string): WorkspaceDate | null {
+  return upcomingDates(dates, today).find((d) => !isCancelledDate(d)) ?? null;
 }
 
 /** "2 dates keep their own changes: Tue 6 Oct (own changes) and Tue 13 Oct (cancelled)." */

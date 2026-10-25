@@ -8,7 +8,8 @@ import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, O
  *   - the card: each item tagged Public / Hidden with a masked value, and an
  *     "Edit contact details" row >= 44px; no sideways scroll;
  *   - the sheet: inside the screen, Done on screen and >= 44px, both switches
- *     >= 44x44 with role=switch and aria-checked, the phone box 16px; with the
+ *     >= 44x44 with role=switch and aria-checked, the phone box 16px and the
+ *     country picker >= 44px (the shared PhoneInput, invite W2); with the
  *     keyboard up (the viewport shrunk, as visualViewport does) Done stays on
  *     screen; a flipped switch updates its line and "We will save";
  *   - an organiser with no phone: the phone switch is disabled with its reason;
@@ -90,8 +91,16 @@ for (const vp of SIZES) {
       await expect(sheet).toContainText('How dancers can reach you. You choose what everyone sees.');
       const phone = sheet.getByLabel('Phone', { exact: true });
       await expect(phone).toBeFocused();
-      await expect(phone).toHaveValue('+44 7700 900123');
+      // The ONE PhoneInput (invite W2): the stored +44 number opens as the +44 picker plus the rest.
+      await expect(phone).toHaveValue('7700900123');
       expect(await phone.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
+      const country = sheet.getByRole('button', { name: /^Country: United Kingdom \+44$/ });
+      const c = await country.boundingBox();
+      expect(c!.height, 'country picker height').toBeGreaterThanOrEqual(44);
+      expect(c!.x + c!.width, 'country picker inside the sheet').toBeLessThanOrEqual(vp.width + 0.5);
+      const p = await phone.boundingBox();
+      expect(p!.height, 'phone box height').toBeGreaterThanOrEqual(44);
+      expect(p!.x + p!.width, 'phone box inside the screen').toBeLessThanOrEqual(vp.width + 0.5);
       for (const name of ['Phone on your page', 'Email on your page']) {
         const s = sheet.getByRole('switch', { name });
         const b = await s.boundingBox();

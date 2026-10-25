@@ -38,3 +38,14 @@ export function trapTab(e: { key: string; shiftKey: boolean; preventDefault: () 
     first.focus();
   }
 }
+
+/**
+ * The organiser theme tokens the shared PhoneInput reads. The public organiser page does not load
+ * ../theme.css, so without these every colour fell back to cream (a red "Looks short" read as plain
+ * text, #977 W2d). Same values as `.org-theme` in theme.css; ContactSheet.test.tsx pins them.
+ */
+export const PHONE_FIELD_TOKENS = {
+  '--card': '#1a1713', '--card2': '#231f19', '--line': '#2e2922', '--line-strong': '#776e60', '--fg': '#f6f1e7',
+  '--mut': '#a39a8b', '--ph': '#8f8678', '--gold': '#ffa600', '--danger': '#ff8a7a', '--ok-fg': '#8fe0b0',
+  '--warn-fg': '#ffd58a', '--r-ctl': '12px',
+} as const;

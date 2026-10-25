@@ -24,6 +24,7 @@ import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { optimizedImageUrl } from '@/lib/imageCdn';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
 
 type Teacher = {
   id: string;
@@ -38,6 +39,7 @@ type Teacher = {
   website: string | null;
   languages: string[] | null;
   nationality: string | null;
+  nationality_code: string | null;
   hide_surname: boolean | null;
   city: { name: string } | null;
 };
@@ -67,6 +69,7 @@ const Teachers = () => {
         photo_url: string | null;
         city: string | null;
         nationality: string | null;
+        nationality_code?: string | null;
         years_teaching: number | null;
         teaching_styles: string[] | null;
         offers_group: boolean | null;
@@ -88,6 +91,7 @@ const Teachers = () => {
         website: row.website,
         languages: row.languages,
         nationality: row.nationality,
+        nationality_code: row.nationality_code ?? null,
         hide_surname: row.hide_surname,
         city: row.city ? { name: row.city } : null,
       })) as Teacher[];
@@ -430,12 +434,15 @@ const Teachers = () => {
                     >
                       {/* Top row: avatar + name/meta */}
                       <div className="flex items-start gap-4 mb-3">
-                        <Avatar className="w-14 h-14 border-2 border-primary/20 group-hover:border-primary/60 transition-colors shrink-0">
-                          <AvatarImage src={optimizedImageUrl(teacher.photo_url || '', 160) || undefined} alt={name} />
-                          <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
-                            {(teacher.first_name ?? '?').charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="relative shrink-0">
+                          <Avatar className="w-14 h-14 border-2 border-primary/20 group-hover:border-primary/60 transition-colors shrink-0">
+                            <AvatarImage src={optimizedImageUrl(teacher.photo_url || '', 160) || undefined} alt={name} />
+                            <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
+                              {(teacher.first_name ?? '?').charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <NationalityFlag code={teacher.nationality_code} size={56} />
+                        </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors truncate">
                             {name}

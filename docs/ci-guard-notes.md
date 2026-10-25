@@ -118,6 +118,30 @@ All in `scripts/check-*.mjs`, enforced by CI.
   per-row timestamp, so five newer content errors can push parked transport
   errors out of the sample. Closing it needs a counter the RPC does not expose.
 
+- Going RPCs contract (`scripts/check-going-rpcs.mjs`, `npm run check:going-rpcs`,
+  Going P2, 2026-10-23) &mdash; **NOT YET A WORKFLOW STEP and so not numbered**:
+  this repo's agents cannot edit `.github/workflows/*`, so the step to add to
+  `db-contract-check.yml` is in `docs/handovers/going-p2-website.md`; until it
+  lands the check runs only by hand. As anon it asserts the exact key sets at
+  every level of `get_nights_going_v1` and `get_public_dancer_extras_v1`,
+  `people.length <= p_limit`, the anon refusals of `set_my_going_v1` /
+  `get_my_going_v1` / `get_my_organiser_going_total_v1`, and that no account
+  key appears anywhere. **Its green is anon-only**: the workflow has no
+  signed-in test account, so the signed-in shapes (including the
+  `get_my_organiser_going_total_v1` success shape) are a printed SKIP on every
+  run, never a pass. Non-vacuous (no P5 ids
+  or no public profile to read is exit 2).
+
+`scripts/check-going-legacy-rpcs.mjs` (`npm run check:going-legacy-rpcs`, Going
+P2) fails on any name of the retired interested/going attendance RPC family
+(`set_attendance`, `set_my_occurrence_attendance_p5_v1`,
+`get_my_event_attendance_v*`, `get_festival_attendance*`,
+`get_event_attendance_counts*`) anywhere under `src/`, generated type files
+excepted. It runs in the `npm run lint` chain and in `pre-ship` (canary first,
+fixture-only), and in **no workflow** &mdash; like the other lint-chain-only
+links, CI does not gate on it until a workflow step is added. Its scope is
+`src/` only by brief: `tests/` (including Playwright mocks) is not scanned.
+
 `check-og-images.mjs` validates OG image shape/size/format against the deployed site; run manually via `npm run check:og`. Not in `db-contract-check.yml` (wrong trigger context &mdash; needs a live deploy, not a DB connection).
 
 **Read its arms before trusting a green.** The `pull_request` arm probes the
@@ -369,6 +393,28 @@ check:pr-mergeable`.
 **not** a `pull_request` workflow — that trigger is what fails to queue on a
 conflicting PR in the first place.
 
+**Paging and retries (2026-10-24).** The sweep used to be ONE query for every
+open PR with its rollup (100 PRs x 100 contexts, ~10,100 nodes); GitHub
+answered HTTP 504 about 11 s in on every run, and 136 PRs were open, beyond
+that one page anyway. Now it is two light steps: PR numbers are listed by
+cursor (100 per call, numbers only), then full fields are read 20 PRs per call
+as aliases (~2,020 nodes), and only open PRs still `UNKNOWN` are re-polled. A
+list shorter than GitHub's open count is refused (exit 2). Status POSTs are
+skipped when the PR already carries the same state and description, which keeps
+~136 writes per sweep under `GITHUB_TOKEN`'s REST limit. Both GraphQL and the
+status POST retry 502/503/504 and network errors: 3 attempts (2 s, then 5 s),
+30 s per request, at most 180 s of failed attempts plus waits per run. A 4xx
+or a GraphQL `errors` body never retries and exits 2. If GitHub is still down
+after the retries, the guard prints `GITHUB-OUTAGE`, names every PR it could
+not judge (`NOT JUDGED (n): #...`) or publish to, publishes nothing for them,
+raises an Actions `::warning::`, never prints the pass line, and exits **0**.
+It exits 0 because the workflow reds on any non-zero exit, and an outage is not
+a verdict. `PR_GUARD_OUTAGE_STRICT=1` makes it exit 2 instead. A conflict that
+WAS judged still exits 1 first. **The `--sha` canary still exits 2 in an
+outage, and the workflow's canary-health step then reds the job.** Fixing that
+needs a workflow edit, which is in the record:
+`docs/guard-notes/mergeable-sweep-504/HANDOVER.md`.
+
 ---
 
 ## Workflow inventory
@@ -387,7 +433,7 @@ Moved here from the root CLAUDE.md (2026-10-02) so it loads on demand, not every
 | `post-merge-prod-alarm.yml` | `workflow_run` of Prod Smoke + `deployment_status` (Production) + dispatch | Probes a NEW production deployment's own URL (`/tonight`, `/city/london-gb`, bypass header) so a broken deploy behind a healthy pinned alias goes red; on Prod Smoke red / failed prod deploy / red probe it disables auto-merge on every open PR and opens one `post-merge-prod-red` issue. Cannot flip `AUTOMERGE_ENABLED` (no variables:write) or roll back |
 | `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |
 | `ci-budget-guard.yml` | daily + dispatch (+ push on its own files) | What this account's CI **costs**: held Actions artifact pool and minutes, account-wide. Lives here because this repo is public and therefore never metered, so it keeps running when a $0 budget pauses the private repos. Needs the `CI_BUDGET_GITHUB_TOKEN` secret; a missing or expired one is **exit 2, never a green 0-byte report** |
-| `phone-qa.yml` | PR on UI paths (`src/**` and `app/**` `.tsx`/`.css`, `tailwind.config.*`, `index.html`, `public/**`), `package.json`/lockfile, its own files; dispatch | The phone suite (`playwright.phone.config.ts`, `tests/e2e-phone/`) at 390x844 and 360x640: organiser Save bar (inside the screen, above the BottomNav, Save hit-testable, pinned on scroll; direct load AND in-app navigation), axe colour contrast as a shrink-only ratchet (`tests/e2e-phone/axe-contrast-baseline.json`), no horizontal scroll, no fixed bottom layer covering another's controls. **No secrets**: SSR routes render from a fake Supabase (Node `fetch` preload for the dev server + `page.route()` in the browser, one fixture module) |
+| `phone-qa.yml` | PR on UI paths (`src/**` and `app/**` `.tsx`/`.css`, `tailwind.config.*`, `index.html`, `public/**`), `package.json`/lockfile, `vite.config.ts`/`vite.chunks.ts`, `react-router.config.ts`, `scripts/_serve-build.mjs`, its own files and the build smoke's; dispatch | **Job `build-smoke`** (since #747, 2026-10-13): a PRODUCTION build with the fake Supabase baked in, served as Vercel serves it (`playwright.build.config.ts`, `tests/e2e-build/`); fails on an uncaught page error, a visible skeleton / "Loading..." after 8 s, or missing route content on `/parties`, `/event/<uuid>`, `/organisers/<slug>`. The chunk-cycle class itself is caught earlier and everywhere, by `vendorChunkCycleGuard` (`vite.chunks.ts`), which fails any client build (CI's perf-budget build on every PR, and Vercel's deploy) on a static import cycle through a vendor chunk. **Job `phone-qa`**: the phone suite (`playwright.phone.config.ts`, `tests/e2e-phone/`) at 390x844 and 360x640: organiser Save bar (inside the screen, above the BottomNav, Save hit-testable, pinned on scroll; direct load AND in-app navigation), axe colour contrast as a shrink-only ratchet (`tests/e2e-phone/axe-contrast-baseline.json`), no horizontal scroll, no fixed bottom layer covering another's controls. **No secrets**: SSR routes render from a fake Supabase (Node `fetch` preload for the dev server + `page.route()` in the browser, one fixture module) |
 | `phone-qa-section.yml` | PR (opened/edited/synchronize) | A UI-path PR body must carry `## Phone QA` with `Sizes checked` (a WxH), `Walked`, `Not verified`; non-UI PRs pass. Parsing and scope: `scripts/check-pr-phone-qa.mjs`, tests in `tests/phoneQaSection.test.ts` |
 
 ## Migration authority history

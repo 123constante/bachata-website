@@ -1,4 +1,6 @@
-﻿import React from 'react';
+﻿import { withPublicNames } from '@/lib/publicDancerNames';
+import { resolvePublicName } from '@/lib/publicName';
+import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -61,13 +63,23 @@ import {
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { organiserEmptyState } from '@/modules/profile/organiserEmptyState';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
+import { useListImpressions } from '@/lib/listImpressions';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
+import { ReportProblemLink } from '@/lib/contactLinks';
+import { useNoindexMeta } from '@/hooks/useNoindexMeta';
+import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { pickNationalityCode } from '@/components/people/nationality';
+import { usePeopleBadges, roleTagsFor, nameFor, linkRoleFor, hrefForRole, type PersonBadge } from '@/modules/person-page/badges';
+import { emitProfileView } from '@/lib/profileViewEmit';
+import { ROLE_LABEL } from '@/lib/searchEntities';
 import {
   type EventRow,
   type OrgOccRow,
   fetchOrganiserEntity,
+  fetchOrganiserFullProfile,
+  organiserFullProfileQueryKey,
   fetchOrganiserEvents,
   fetchOrganiserFutureOccEvents,
   fetchOrganiserPastOccEvents,
@@ -98,6 +110,7 @@ type TeamMember = {
   dancerId: string | null;
   name: string;
   avatarUrl: string | null;
+  nationalityCode: string | null;
   role: string | null;
   isHead: boolean | null;
   isLeader: boolean | null;
@@ -347,6 +360,16 @@ const AvatarCircle = ({
   </div>
 );
 
+/** Shown only when organiser_full_profile_v1 is true. Deliberately not the word "Verified". */
+const FullProfileMark = () => (
+  <span
+    data-testid="full-profile-mark"
+    style={{ fontSize: 11, fontWeight: 700, color: D.cream, padding: '2px 8px', borderRadius: 100, background: 'rgba(231,190,110,0.16)', border: '1px solid rgba(231,190,110,0.35)' }}
+  >
+    Full profile
+  </span>
+);
+
 const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
   const iconPx = size === 'sm' ? 10 : 12;
   return (
@@ -380,23 +403,56 @@ const BrowseNightsLink = () => (
   </Link>
 );
 
-const TeamCircle = ({ member }: { member: TeamMember }) => {
+// Name, tags and link come ONLY from the people-badges mapping (badges.ts): a team strip is
+// not a DJ thing, so the real name leads and the stage name shows in the DJ tag only (review
+// M2); the link is DJ page, else dancer page, else none (a teacher-only member is plain,
+// never a dead end). The organiser-authored title (organiser_team_members.role, e.g.
+// "Founder") shows beside the tags when set; no 'Team' default (review 7d), and not when it
+// only repeats a tag's word, nor when it is 'Leader': prod 2026-10-21 has every active team
+// row at role='Leader' (a system default, not a title anyone authored).
+// While the badges read loads or after it failed (`badgesState`), a member with a dancerId keeps
+// the dancer page link, as ScheduleBlock's feedFallback does; the title waits for the read
+// (loading: none, so it never flashes then hides on dedupe) and shows on error (no tags). A
+// click emits a profile view typed by the role the link opens (data-contracts rule).
+export const TeamCircle = ({ member, badge, badgesState = 'ready' }: { member: TeamMember; badge: PersonBadge | undefined; badgesState?: 'loading' | 'error' | 'ready' }) => {
+  const opts = { teacherPagesOpen: flags.teacherDetail };
+  const [imgFailed, setImgFailed] = useState(false);
+  const tags = badge ? roleTagsFor(badge, { ...opts, withStageName: true }) : [];
+  const shownName = nameFor('other', { name: member.name, djName: badge?.djName });
+  const rawTitle = badgesState === 'loading' ? '' : (member.role ?? '').trim();
+  const lowerTitle = rawTitle.toLowerCase();
+  const title = rawTitle && lowerTitle !== 'leader' && !tags.some((t) => ROLE_LABEL[t.role].toLowerCase() === lowerTitle) ? rawTitle : null;
+  const feedFallback = badgesState !== 'ready';
+  const linkId = badge?.id ?? (feedFallback ? member.dancerId : null);
+  const linkRole = badge ? linkRoleFor(badge, opts) : linkId ? 'dancer' : null;
+  const href = linkId && linkRole ? hrefForRole(linkRole, linkId, opts) : null;
   const inner = (
     <div className="text-center">
-      <div style={{ aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
+      <div style={{ position: 'relative', aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {member.avatarUrl ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" />
+          {member.avatarUrl && !imgFailed ? (
+            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" onError={() => setImgFailed(true)} />
           ) : (
             <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
           )}
         </div>
+        {/* The circle is fluid (about 100px on a phone); 80 keeps the flag inside the page gutter. */}
+        <NationalityFlag code={member.nationalityCode} size={80} />
       </div>
-      <div style={{ fontFamily: SERIF, fontSize: 'clamp(13px,1.5vw,18px)', fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{member.name}</div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 3 }}>{member.role || 'Team'}</div>
+      <div data-team-name style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{shownName}</div>
+      {(tags.length > 0 || title) && (
+        <div className="flex flex-wrap justify-center" style={{ gap: 4, marginTop: 4 }}>
+          {title && <span data-team-title style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: D.cream, padding: '2px 0', overflowWrap: 'anywhere' }}>{title}</span>}
+          {tags.map((t) => (
+            <span key={t.role} data-team-tag={t.role} style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: D.gold, border: '1px solid rgba(231,190,110,0.55)', borderRadius: 100, padding: '2px 8px' }}>{t.label}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
-  return member.dancerId ? <Link to={`/dancers/${member.dancerId}`}>{inner}</Link> : <div>{inner}</div>;
+  return href && linkId ? (
+    <Link to={href} onClick={() => emitProfileView({ personId: linkId, profileType: linkRole, context: 'organiser:team' })} style={{ display: 'block', minHeight: 44 }}>{inner}</Link>
+  ) : <div>{inner}</div>;
 };
 
 // 44px past rows make a busy year very tall; show the latest few per year.
@@ -591,6 +647,7 @@ const EditInPlaceLayer = lazyWithRetry(() => import('@/modules/organiser/edit-in
 
 const OrganiserProfile = () => {
   const { id: routeParam } = useParams<{ id: string }>();
+  const trackImpression = useListImpressions('organiser');
   const resolved = useEntitySlugOrId(routeParam, 'organiser_profiles');
   const id = resolved.id ?? undefined;
   useCanonicalReplaceState({
@@ -639,6 +696,17 @@ const OrganiserProfile = () => {
     queryFn: () => fetchOrganiserEntity(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // A page that is not found (retired, archived, or never existed) is kept out of search.
+  useNoindexMeta(!isLoading && (!!error || !entity));
+
+  const { data: fullProfile = false } = useQuery({
+    queryKey: organiserFullProfileQueryKey(id),
+    queryFn: () => fetchOrganiserFullProfile(id as string),
+    enabled: !!id && !!entity,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 
   // Ownership comes from entity_members through organiser_ownership_v1 (never the
@@ -722,14 +790,15 @@ const OrganiserProfile = () => {
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
         .from('dancer_profiles')
-        .select('id, first_name, surname, display_name, avatar_url')
+        .select('id, first_name, avatar_url, nationality')
         .in('id', memberIds);
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; avatar_url: string | null };
-      const dancerMap = new Map<string, DancerRow>((dancerRows as DancerRow[] | null ?? []).map((d) => [d.id, d]));
+      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
+      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
+      const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
       return teamRows.map((t) => {
         const d = dancerMap.get(t.member_profile_id);
-        const name = d?.display_name?.trim() || [d?.first_name, d?.surname].filter(Boolean).join(' ').trim() || 'Team member';
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, role: t.role, isHead: t.is_head, isLeader: t.is_leader };
+        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || 'Team member';
+        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), role: t.role, isHead: t.is_head, isLeader: t.is_leader };
       });
     },
     enabled: !!id,
@@ -740,6 +809,9 @@ const OrganiserProfile = () => {
     if (!teamMembers.length) return null;
     return teamMembers.find((m) => m.isHead) || teamMembers.find((m) => m.isLeader) || teamMembers[0];
   }, [teamMembers]);
+
+  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
+  const teamBadgesState = teamBadgesLoading ? 'loading' : teamBadgesError ? 'error' : 'ready';
 
   const orderedTeam = useMemo(
     () => (leader ? [leader, ...teamMembers.filter((m) => m.id !== leader.id)] : teamMembers),
@@ -1204,6 +1276,7 @@ const OrganiserProfile = () => {
               {metaLine && !eip && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
               {eip?.slot('meta')}
               {ep.is_verified && <VerifiedBadge size="sm" />}
+              {fullProfile && <FullProfileMark />}
               {facts.showBadge && <ManagedBadge size="sm" />}
             </div>
             {/* Static gold gradient, no shimmer sweep -- that mechanical
@@ -1239,6 +1312,7 @@ const OrganiserProfile = () => {
                   {metaLine && !eip && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
                   {eip?.slot('meta')}
                   {ep.is_verified && <VerifiedBadge size="md" />}
+                  {fullProfile && <FullProfileMark />}
                   {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...(eip ? { width: 'fit-content', maxWidth: '100%', marginBottom: 12 } : null) }}>
@@ -1264,14 +1338,16 @@ const OrganiserProfile = () => {
         {/* Brand colour fade &mdash; bleeds the hero tint into the body. Two
             stacked layers (default + sampled) so this crossfades the same way
             the hero overlay above does, instead of popping the moment a
-            colour sample lands. */}
-        <div style={{ pointerEvents: 'none', position: 'relative', height: '10vh', maxHeight: 80, marginTop: '-1px', zIndex: 0 }}>
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
+            colour sample lands. It takes NO height (2026-10-13): it was a 10vh /
+            80px empty band between the hero's EQ bars and the stats; the fade
+            now lies UNDER the stats strip (zIndex 1 there) instead. */}
+        <div aria-hidden style={{ pointerEvents: 'none', position: 'relative', height: 0, marginTop: '-1px', zIndex: 0 }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${DEFAULT_HERO_RGB[0]},${DEFAULT_HERO_RGB[1]},${DEFAULT_HERO_RGB[2]},0.18) 0%,transparent 100%)` }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
         </div>
 
         {/* Stats strip */}
-        <div className="flex justify-around py-3 px-5" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+        <div className="flex justify-around py-3 px-5" style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
           {[
             { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
             { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },
@@ -1395,10 +1471,11 @@ const OrganiserProfile = () => {
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
                 item.kind === 'single' ? (
-                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} {...buildEventRowProps(item.event, todayKey, i)} />
+                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildEventRowProps(item.event, todayKey, i)} />
                 ) : (
                   <EventRowCard
                     key={item.eventId}
+                    impressionRef={trackImpression(item.eventId)}
                     {...buildEventRowProps(item.dates[0], todayKey, i, {
                       name: item.name,
                       posterUrl: item.posterUrl,
@@ -1443,8 +1520,10 @@ const OrganiserProfile = () => {
               <h2 style={sectionH2}>Teachers &amp; DJs</h2>
               <span style={sectionCount}>{orderedTeam.length} {orderedTeam.length === 1 ? 'member' : 'members'}</span>
             </div>
-            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3' : 'grid grid-cols-3 gap-3 lg:grid-cols-8'}>
-              {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} /></div>)}
+            {/* px-3: the nationality sticker stands out past each circle's top-right, so the
+                last column needs room before the page's overflow-x-clip edge. */}
+            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3 px-3' : 'grid grid-cols-3 gap-3 px-3 lg:grid-cols-8'}>
+              {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} badge={teamBadges.get(m.dancerId ?? '')} badgesState={teamBadgesState} /></div>)}
             </div>
           </section>
         )}
@@ -1514,6 +1593,8 @@ const OrganiserProfile = () => {
         )}
       </article>
 
+      <div style={{ color: D.cream }}><ReportProblemLink /></div>
+
       {/* EDIT DIALOG */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
@@ -1537,7 +1618,7 @@ const OrganiserProfile = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="city">City</Label>
-              <CityPicker value={editForm.city} onChange={(city) => setEditForm({ ...editForm, city })} placeholder="Select city..." />
+              <CityPicker id="city" value={editForm.city} onChange={(city) => setEditForm({ ...editForm, city })} placeholder="Select city..." />
             </div>
             <div className="space-y-2">
               <Label htmlFor="bio">Bio</Label>

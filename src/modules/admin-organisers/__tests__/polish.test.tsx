@@ -30,8 +30,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 import AdminOrganisersPage from '../AdminOrganisersPage';
-import InviteRedeemPage from '../InviteRedeemPage';
-import { ADMIN_COPY, TOKEN_RE, lifecycleLabel, notLiveNote } from '../inviteModel';
+import { ADMIN_COPY, lifecycleLabel, notLiveNote } from '../inviteModel';
 import { LAST_OWNER_NOTE } from '@/modules/organiser/shared/teamModel';
 import { TEAM_COPY } from '@/modules/organiser/shared/selfServeErrors';
 
@@ -42,7 +41,9 @@ function rpcImpl(managed: boolean, invites: unknown[] = []) {
       case 'admin_is_admin': return ok(true);
       case 'organiser_ownership_v1': return ok({ is_managed: managed });
       case 'admin_list_organiser_invites_v1': return ok(invites);
-      case 'admin_issue_organiser_invite_v1': return ok({ invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', revoked_previous: [] });
+      case 'admin_issue_organiser_invite_v1': return ok({ ok: true, invite_id: 'i9', token: TOKEN, expires_at: '2026-10-18T10:00:00Z', email_bound: false, revoked_previous: [] });
+      case 'admin_list_invite_requests_v1': return ok([]);
+      case 'admin_list_signup_access_requests_v1': return ok([]);
       default: return Promise.reject(new Error(`unexpected rpc ${fn}`));
     }
   });
@@ -54,7 +55,6 @@ function mount(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/admin/organisers" element={<AdminOrganisersPage />} />
-          <Route path="/invite/:token" element={<InviteRedeemPage />} />
           <Route path="/account/o" element={<p data-testid="landed">dashboard</p>} />
         </Routes>
       </MemoryRouter>
@@ -96,7 +96,8 @@ describe('2. sole-owner copy: one wording, tells the person what they can do', (
   it('is one shared constant used in both places and no longer a dead end', () => {
     expect(TEAM_COPY.last_owner).toBe(LAST_OWNER_NOTE);
     expect(LAST_OWNER_NOTE).not.toMatch(/Ask the Bachata Calendar team to add another owner first/);
-    expect(LAST_OWNER_NOTE).toMatch(/Make owner/);
+    // R1: the owner steps down by handing the page over (team/Person.tsx); there is no Make owner row.
+    expect(LAST_OWNER_NOTE).toMatch(/hand the page over/);
   });
 });
 
@@ -104,7 +105,9 @@ describe('3. admin use_transfer copy is something an admin can act on', () => {
   it('does not tell an admin to sign in as an admin', () => {
     expect(ADMIN_COPY.use_transfer).not.toMatch(/Sign in with your admin account/);
     expect(ADMIN_COPY.use_transfer).toMatch(/Generate invite/);
-    expect(ADMIN_COPY.use_transfer).toMatch(/Make owner/);
+    // R1 has no Make owner control (B-N1): the owner hands the page over from their name on Team.
+    expect(ADMIN_COPY.use_transfer).not.toMatch(/Make owner/);
+    expect(ADMIN_COPY.use_transfer).toMatch(/Hand the page over/);
   });
 });
 
@@ -119,38 +122,16 @@ describe('4. organiser/** does not import admin-organisers/**', () => {
   });
 });
 
-describe('5. malformed token + breadcrumbs', () => {
-  it.each([
-    ['not-a-token', false], ['not-a-token', true],
-    ['ab'.repeat(31), false], ['AB'.repeat(32), true],
-    [TOKEN, false],
-  ])('token %s signedIn=%s', async (token, signedIn) => {
-    h.auth.user = signedIn ? { id: 'u1' } : null;
-    h.rpc.mockImplementation((fn: string) => Promise.reject(new Error(fn)));
-    mount(`/invite/${token}`);
-    if (!TOKEN_RE.test(token)) {
-      expect((await screen.findByTestId('invite-title')).textContent).toBe('This link does not work');
-      expect(screen.queryByTestId('invite-sign-in')).toBeNull();
-    } else {
-      expect(await screen.findByTestId('invite-sign-in')).toBeTruthy();
-    }
-    expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());
-  });
-  it('passes breadcrumbs from the central map', async () => {
-    h.auth.user = null;
-    mount(`/invite/${TOKEN}`);
-    await screen.findByTestId('invite-sign-in');
-    expect(screen.getByTestId('layout').getAttribute('data-crumbs')).not.toBe('');
-  });
-});
+// 5. malformed token + breadcrumbs: now in join/__tests__/joinJourney.test.tsx (W1, Option B).
 
 describe('6. red text uses the destructive token (the theme is black; dark: never applies)', () => {
-  it('none of the five red texts uses red-700 or dark:', () => {
+  it('none of the red texts uses red-700 or dark:', () => {
     const src = readFileSync('src/modules/admin-organisers/AdminOrganisersPage.tsx', 'utf8');
     expect(src).not.toMatch(/red-700/);
     expect(src).not.toMatch(/dark:text-red/);
     const lines = src.split('\n').filter((l) => /text-destructive/.test(l));
-    expect(lines.length).toBe(5);
+    // The chip tone, the link form's field error, the load error and the four alerts.
+    expect(lines.length).toBe(7);
     for (const l of lines) expect(l).not.toMatch(/red-700|dark:/);
   });
   it('the rendered link-close warning and add error carry text-destructive', async () => {
@@ -159,7 +140,9 @@ describe('6. red text uses the destructive token (the theme is black; dark: neve
     rpcImpl(false);
     mount('/admin/organisers');
     fireEvent.click(await screen.findByText('Alpha'));
-    fireEvent.click(await screen.findByTestId('generate-invite'));
+    fireEvent.click(await screen.findByTestId('row-primary'));
+    fireEvent.click(screen.getByTestId('choice-link'));
+    fireEvent.click(screen.getByTestId('link-submit'));
     await screen.findByTestId('one-time-link');
     fireEvent.click(screen.getByText('Alpha'));
     const warn = screen.queryByTestId('link-close-warning');

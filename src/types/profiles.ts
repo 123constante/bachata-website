@@ -11,6 +11,8 @@ export interface UnifiedProfile {
   specialties: string[];
   bio: string | null;
   nationality: string | null;
+  /** ISO alpha-2 from get_all_profiles_v1, or null (no flag). */
+  nationality_code?: string | null;
   instagram: string | null;
   website: string | null;
   is_verified: boolean;

@@ -106,6 +106,21 @@ export const VENDOR_UI_SHELL_PACKAGES = [
   "@radix-ui/react-compose-refs",
   "@radix-ui/react-context",
   "@radix-ui/react-dismissable-layer",
+  // NOT measured into the shell -- placed here to keep the two chunks
+  // ONE-DIRECTIONAL, which is a correctness rule and outranks the measurement.
+  // Radix Tooltip >= 1.4 imports `useFocusScopeBranch` from this package, so
+  // with it in the modal list `vendor-ui` imported `vendor-ui-modal` while
+  // `vendor-ui-modal` already imported `vendor-ui`: a static cycle, and on the
+  // PR #746 Vercel preview "TypeError: le is not a function" (the minified
+  // letter varies per build; one chunk ran top-level code against the other's
+  // unassigned keepNames `var`). With the
+  // lockfile's Tooltip 1.2 the shell routes pay its weight for nothing (the
+  // measured cost is in the PR #746 handover, not here, per the rule above;
+  // routes that already load the modal layer pay nothing and no route's chunk
+  // count moves). That is the price of the cycle being impossible on either
+  // Tooltip line. The rule: nothing in this list may import anything in the
+  // modal list. `npm run check:chunk-cycles` is what holds it.
+  "@radix-ui/react-focus-scope",
   "@radix-ui/react-id",
   "@radix-ui/react-popper",
   "@radix-ui/react-portal",
@@ -145,7 +160,8 @@ export const VENDOR_UI_MODAL_PACKAGES = [
   "@radix-ui/react-dialog",
   "@radix-ui/react-direction",
   "@radix-ui/react-focus-guards",
-  "@radix-ui/react-focus-scope",
+  // @radix-ui/react-focus-scope moved to the SHELL list -- see the note there.
+  // This chunk may import vendor-ui; vendor-ui must never import this chunk.
   "@radix-ui/react-roving-focus",
   "@radix-ui/react-toggle",
   "@radix-ui/react-toggle-group",
@@ -244,6 +260,221 @@ const RADIX_HOOK_NEEDLE = "node_modules/@radix-ui/react-use-";
 // ~50 KB), not this file.
 const COMMONJS_HELPERS_ID = "\0commonjsHelpers.js";
 
+// The ONE first-party group, and it exists for the chunk COUNT, not for bytes.
+//
+// src/lib/eventCategory.ts is the canonical event-category rule (byte-pinned
+// against its admin twin; see that file). It is a leaf -- it imports nothing --
+// and it is read from two sides of the app that share no other module of their
+// own: the public event page (endedRun.ts, inside the chunk the /event and
+// /festival routes share) and the organiser editor (eventType.ts, inside the
+// chunk the New event and Event editor pages share). Rollup files a module by
+// the SET of entry points that reach it, and the union of those two sets is a
+// set no other module has, so the lib got a chunk of its own: a few hundred
+// bytes, ONE MORE REQUEST on every /event view, and the chunk ratchet in
+// perf-budgets.json went red by exactly one -- the request-count regression
+// that ratchet exists to catch and the KB budget cannot see.
+//
+// A manual chunk holding the lib ALONE does not fix that: it is still a chunk
+// the route did not load before. The lib has to ride inside a chunk the route
+// already loads. src/lib/londonDate.ts is that chunk: a single-module leaf like
+// the lib itself, the site's calendar-time authority, and already in the
+// first load of EVERY entry that reaches eventCategory (and of others besides,
+// which pay the lib's few hundred bytes for nothing -- the cost of this
+// pairing, accepted because the alternative is a request). Both are pure rule
+// modules with no React and no imports, so neither drags anything into the
+// other's routes. Measured, not reasoned: with this group in place the chunk
+// counts of all eight budgeted routes and the request pins of the six
+// prerendered ones match main, and /event is back on its pin; the numbers are
+// in docs/handover/event-truth-p1p3-fix.md.
+//
+// The UNBUDGETED routes too (FIX-6 F-l, 2026-10-13): londonDate is in the root
+// route's static graph, so lib-event-rules is in the first load of EVERY client
+// entry -- all 83 route modules and lazy pages in the manifest -- and on each of
+// them the first-load chunk + stylesheet count equals the pre-pairing build
+// (merge-base 5e0ec4c), 83 of 83. Method and table:
+// docs/handover/event-truth-p1p3-fix6.md. Its limit: a count of the manifest's
+// static-import closure from entry.client + root + the entry, not a browser
+// request trace; a lazy page's parent route chunk is not added (constant
+// between the two builds).
+//
+// Bounded like the vendor needles, from the other side: the id must END with
+// the module path (so a nested `node_modules/<pkg>/src/lib/londonDate.ts` does
+// not match -- that copy belongs to its package), and it must not be under
+// node_modules at all. Adding a module here moves its bytes onto every route
+// that loads londonDate; re-measure with the command in the header first.
+//
+// src/lib/focusMode.ts (2026-10-16, dancer journey fixes) rides here too: the
+// sign-up focus mapping, a no-import leaf that the root AppChrome reads on EVERY
+// route, and that the lazy dancer-app shell and FinishProfile also import. Shared
+// by root and lazy chunks, rollup gave it a chunk of its own: +1 first-load
+// request on every budgeted route. Its bytes were already on every route (root),
+// so pairing it here costs no bytes and takes the request back.
+//
+// src/lib/accountPaths.ts and src/lib/authRouting.ts (2026-10-16, review #789
+// S6): import-free leaves the site header reads on EVERY route once
+// VITE_ENABLE_ORGANISER_SELF_SERVE is on (account icon, sign-in link). Left to
+// rollup, authRouting rode lib-account (accountRouting imports it), so the
+// header pulled the whole lib-account chunk -- the avatar with it, ~2.5 KB gz --
+// onto every public page. Here they cost ~0.5 KB gz on every route and no
+// request, flag on or off; re-measure both flag states before moving them.
+//
+// src/modules/dancer-app/gate/useDancerArea.ts (2026-10-17, B1b review F2): the
+// dancer-area gate hook. The going lock made RsvpBlock (event's lazy RSVP chunk)
+// and FestivalHub import it beside RedirectIfAllowed (AnimatedRoutes) and the
+// dancer-app shell, so rollup cut it into chunks of its own: auth 34 first-load
+// chunks vs an allowance of 33, dancer-app 59 vs 57.
+// PINNING ONE MODULE MOVES ITS UNASSIGNED STATIC DEPS TOO -- rollup adds them to
+// the manual group -- so this group now also holds gateRpc, rpcLoose, useAuth and
+// useAuth's leaves (getSupabase, lazyWithRetry, staleChunk, personScopedStorage,
+// authResolution). All of them were already in every budgeted route's first load
+// as separate small chunks, so the pin MEASURED -4 first-load chunks on every
+// route (-3 on /app/*) and 0.3-0.6 KB gz less on each; the ratchets were tightened
+// to match. Re-measure every route before moving it out again.
+export const LIB_EVENT_RULES_MODULES = [
+  "/src/lib/eventCategory.ts",
+  "/src/lib/londonDate.ts",
+  "/src/lib/focusMode.ts",
+  "/src/lib/accountPaths.ts",
+  "/src/lib/authRouting.ts",
+  "/src/modules/dancer-app/gate/useDancerArea.ts",
+  // `cn` (2026-10-21, D139): every route loads it from the root chunk. Pinned here
+  // ONLY so the lib-org-ui group below cannot swallow it -- a pinned group takes its
+  // unassigned static deps along, and then every route loaded lib-org-ui (+1 chunk
+  // on all eight budgeted routes, measured).
+  "/src/lib/utils.ts",
+  // One boolean read by the event page, festival hub and dancer app: alone it was
+  // its own chunk and one more first-load request on /event and /app.
+  "/src/lib/goingCheckin.ts",
+  // "Seen in lists" writer (2026-10-24): imported by every list surface (home feed, event
+  // page strips, tonight, festivals, organiser, venue, search, calendar), so alone it was
+  // its own 2 KB chunk and +1 first-load request on home, /event, /parties and /classes
+  // (chunk ratchet, measured). Its static deps (getSupabase, viewerSession, featureFlags)
+  // are already in the root graph; the Supabase client itself stays lazy.
+  "/src/lib/listImpressions.ts",
+];
+
+// The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar
+// (src/components/account/profiles/PersonAvatar.tsx + its pure avatarFallback.ts)
+// rides with src/lib/accountRouting.ts. The avatar is shared by the dancer-app
+// chunk and the lazy account pages (switcher, Continue as, /account, FinishProfile),
+// so rollup cut it into a chunk of its own: +1 first-load request on /app/* (chunk
+// ratchet 59 vs 58). accountRouting is in the first load of every one of those
+// importers already; among the budgeted routes only dancer-app loads it, so the
+// pairing moves ~0.6 KB gz onto no budgeted route that did not already pay it.
+//
+// src/modules/dancer-app/screens/nights/nightsDates.ts (2026-10-23, Going P2): the PURE
+// half of the nights model (dates, the nights path, the switch-off line). The /app/*
+// first load reads it (Home's lineup and nudge, the date blocks, the switch-off Nights
+// screen) and so does /account/attendance (through nightsModel, the one nights
+// mapping), so rollup cut it into a chunk of its own: one more first-load request on
+// /app/* (53 vs 52). Both importers already load lib-account (accountRouting), so the
+// pairing adds no request anywhere. It brings its one unassigned dep along,
+// src/modules/dancer-app/shell/routes.ts (import-free, the dancer tab paths): ~0.9 KB gz
+// in all, moved onto the lazy account pages only; no budgeted route except /app/* loads
+// lib-account. Re-measure every route before moving it out again.
+export const LIB_ACCOUNT_MODULES = [
+  "/src/lib/accountRouting.ts",
+  "/src/components/account/profiles/PersonAvatar.tsx",
+  "/src/components/account/profiles/avatarFallback.ts",
+  "/src/modules/dancer-app/screens/nights/nightsDates.ts",
+];
+
+// The THIRD first-party group (2026-10-21, W1 people surfaces S3): the people
+// badge lookup (src/modules/person-page/badges.ts) rides with the public-entity
+// slug resolver (src/lib/seo/useEntitySlugOrId.ts + resolvePublicEventRef.ts).
+// S3 made the event page's ScheduleBlock read badges.ts, which the people pages
+// and search already import; that importer set is unique, so rollup cut it into
+// a chunk of its own: /event/:id 44 first-load chunks vs an allowance of 43.
+// The resolver chunk is already in /event's first load, and every route that
+// loads it also loads every dependency badges.ts brings (vendor-query, the
+// Supabase client chunk, searchEntities), so the pairing adds no request
+// anywhere. Bytes move only onto unbudgeted entries: the badge lookup lands on
+// the festival / venue pages, the resolver on the people list and search pages.
+// No budgeted route except /event loads either module.
+export const LIB_PEOPLE_MODULES = [
+  "/src/lib/seo/useEntitySlugOrId.ts",
+  "/src/lib/seo/resolvePublicEventRef.ts",
+  "/src/modules/person-page/badges.ts",
+];
+
+// The FOURTH first-party group (2026-10-21, slice B fix pass, decision D139): the
+// organiser Ember `ui/` blocks the dancer app is built from. Each block has a
+// unique importer set (the organiser screens AND the lazy dancer-app chunk), so
+// rollup cut each into a chunk of its own: /app/* 59 first-load chunks vs an
+// allowance of 56, eight of them one-block chunks. One group, ONE request. Every
+// route that loads any of these blocks (the organiser screens and /app/*) already
+// loads nearly all of them, so the pairing moves only a few KB onto those routes
+// and no bytes onto any budgeted public route. Measured numbers and the per-route
+// table: docs/people-arc/HANDOVER-restyle-b.md "Fix pass", B1. Adding a module
+// here moves its bytes onto every route that loads any block; re-measure every
+// route (`npm run build && npm run check:bundle-budget && npm run
+// check:first-load-requests`) first.
+export const LIB_ORG_UI_MODULES = [
+  "/src/modules/organiser/ui/Card.tsx",
+  "/src/modules/organiser/ui/Chip.tsx",
+  "/src/modules/organiser/ui/Field.tsx",
+  "/src/modules/organiser/ui/SearchField.tsx",
+  "/src/modules/organiser/ui/Skeleton.tsx",
+  "/src/modules/organiser/ui/States.tsx",
+  "/src/modules/organiser/ui/SummaryRow.tsx",
+  "/src/modules/organiser/ui/useKeyboardInset.ts",
+  // Invite W2 (2026-10-23): the ONE Instagram field and its rule. Imported by the
+  // dancer app and the organiser screens, which load this group already; alone
+  // they were more first-load chunks on /app/*.
+  "/src/components/forms/InstagramInput.tsx",
+  "/src/lib/instagramHandle.ts",
+  // ...and the ONE phone rule (no imports), read statically by the same importers.
+  "/src/lib/phoneRules.ts",
+];
+
+// The FIFTH first-party group (2026-10-23, invite W2): the ONE phone field
+// (src/components/forms/PhoneInput.tsx, extracted from the raffle) and the country
+// list only it imports. The raffle, the dancer edit screen and the organiser
+// screens share it, and the raffle and the dancer edit screen load it LAZILY (it
+// is not in /event's or /app's first load); this group keeps it ONE chunk.
+// Its rule, src/lib/phoneRules.ts, is NOT here: the dancer app reads it
+// statically, so it rides lib-org-ui above (the country list must not).
+export const LIB_PHONE_MODULES = [
+  "/src/components/forms/PhoneInput.tsx",
+  "/src/lib/countryDialCodes.ts",
+];
+
+const isLibPhoneModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_PHONE_MODULES.some((needle) => id.endsWith(needle));
+
+const isLibOrgUiModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_ORG_UI_MODULES.some((needle) => id.endsWith(needle));
+
+// SINGLE-MODULE pins, and they exist ONLY to stop the group above from
+// swallowing them. Rollup adds every unassigned static dependency of a pinned
+// module to that module's group, so without these the Supabase client and
+// searchEntities (which root.tsx loads on EVERY route) would move into
+// lib-people: every route, the homepage included, would then load the badge
+// lookup and a direct vendor-supabase edge. Each pin holds exactly the one
+// module its old automatic chunk held, so no route's chunk set changes.
+export const SINGLE_MODULE_PINS: Record<string, string> = {
+  "/src/integrations/supabase/client.ts": "supabase-client",
+  "/src/lib/searchEntities.ts": "lib-search",
+};
+
+const isLibPeopleModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_PEOPLE_MODULES.some((needle) => id.endsWith(needle));
+
+const singleModulePin = (id: string): string | undefined => {
+  if (id.includes("node_modules")) return undefined;
+  for (const [needle, group] of Object.entries(SINGLE_MODULE_PINS)) {
+    if (id.endsWith(needle)) return group;
+  }
+  return undefined;
+};
+
+const isLibAccountModule = (id: string): boolean =>
+  !id.includes("node_modules") && LIB_ACCOUNT_MODULES.some((needle) => id.endsWith(needle));
+
+const isLibEventRulesModule = (id: string): boolean =>
+  !id.includes("node_modules") &&
+  LIB_EVENT_RULES_MODULES.some((needle) => id.endsWith(needle));
+
 /**
  * Rollup `manualChunks`: the group name a module id belongs to, or
  * undefined to leave it to rollup. Pure and total -- every branch is a
@@ -269,6 +500,15 @@ export function classifyChunk(id: string): string | undefined {
   // it to vendor-react is safe because vendor-react is already in every route's
   // first load, so the edge it creates costs nothing new.
   if (id.includes(COMMONJS_HELPERS_ID)) return "vendor-react";
+  // The SECOND branch ahead of the node_modules gate, and the only first-party
+  // one. LIB_EVENT_RULES_MODULES above says what it buys and how it is bounded.
+  if (isLibEventRulesModule(id)) return "lib-event-rules";
+  if (isLibAccountModule(id)) return "lib-account";
+  if (isLibPeopleModule(id)) return "lib-people";
+  if (isLibOrgUiModule(id)) return "lib-org-ui";
+  if (isLibPhoneModule(id)) return "lib-phone";
+  const pinned = singleModulePin(id);
+  if (pinned) return pinned;
   if (!id.includes("node_modules")) return undefined;
   // tslib rides with react, and it is FIRST, for a reason that is
   // not about react at all. DO NOT DELETE THIS BRANCH after
@@ -386,4 +626,65 @@ export function classifyChunk(id: string): string | undefined {
     return "vendor-ui-modal";
   }
   return undefined;
+}
+
+/**
+ * Every static import cycle that passes through a vendor-* chunk, as
+ * "a.js -> b.js -> a.js", given each chunk's static imports.
+ */
+export function findVendorChunkCycles(imports: Record<string, readonly string[]>): string[] {
+  const cycles: string[] = [];
+  const isVendor = (f: string) => /(^|\/)vendor-[^/]*$/.test(f);
+  for (const start of Object.keys(imports).filter(isVendor).sort()) {
+    const seen = new Set<string>();
+    const path = (from: string): string[] | null => {
+      for (const next of imports[from] ?? []) {
+        if (next === start) return [from, next];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        const rest = path(next);
+        if (rest) return [from, ...rest];
+      }
+      return null;
+    };
+    const loop = path(start);
+    if (loop) cycles.push(loop.join(" -> "));
+  }
+  return cycles;
+}
+
+/**
+ * Vite plugin: fail the CLIENT build when any static import cycle passes through
+ * a vendor chunk -- the "TypeError: le is not a function" class (#746/#747: one
+ * chunk of the cycle runs its top level against the other's unassigned keepNames
+ * `var`, and every lazy chunk behind it rejects, so pages sit on their loading
+ * state). scripts/check-chunk-cycles.mjs (#748) checks CI's build after the fact;
+ * this runs INSIDE every build, Vercel's included. That is the point: #747's
+ * preview built a different graph from the same commit (a newer Radix Tooltip
+ * than the lockfile's) while CI's build of it was clean, so only a check in the
+ * deploy's own build sees that graph. Such a deploy now fails, naming the cycle,
+ * instead of shipping.
+ */
+export function vendorChunkCycleGuard() {
+  return {
+    name: "vendor-chunk-cycle-guard",
+    apply: "build" as const,
+    generateBundle(
+      this: { error: (message: string) => never },
+      _options: unknown,
+      bundle: Record<string, { type: string; imports?: string[] }>,
+    ) {
+      const imports: Record<string, string[]> = {};
+      for (const [file, out] of Object.entries(bundle)) {
+        if (out.type === "chunk") imports[file] = out.imports ?? [];
+      }
+      const cycles = findVendorChunkCycles(imports);
+      if (cycles.length > 0) {
+        this.error(
+          `[chunks] static import cycle through a vendor chunk -- a chunk on it can run before the one it imports has finished ` +
+            `(PR #747: "TypeError: le is not a function", pages stuck loading). Fix the grouping in vite.chunks.ts:\n  ${cycles.join("\n  ")}`,
+        );
+      }
+    },
+  };
 }

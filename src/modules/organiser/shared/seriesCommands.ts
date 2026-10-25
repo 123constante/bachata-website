@@ -15,12 +15,16 @@ export const OWNER_COMMAND_KINDS = [
   'series.upsert', 'series.add_date', 'series.remove_date', 'occurrence.set_time',
   'series.set_lifecycle', 'occurrence.cancel', 'occurrence.set_override', 'series.skip_date',
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
+  // D39 (admin A1): apply_aggregate_write_p5 gains the move arm.
+  'occurrence.move_date',
 ] as const;
 
 /**
- * series.upsert keys an owner may send on an EXISTING series. `category` joined
- * the list with admin D7 (20261109130000_p5_owner_category_v1.sql); the server
- * refuses a category change on a live series, so the basics form never sends it.
+ * series.upsert keys an owner may send on an EXISTING series (a mirror of the
+ * server allowlist, pinned key for key by the mirror test). `category` is a
+ * SERVER-ONLY entry here: the server keeps it so an older client is never
+ * refused, but it DERIVES category from the sessions and ignores a sent value
+ * (event-truth P2), so this client never sends it (upsertCommand strips it).
  * `default_passes` (the price list) and `instagram_url` joined with admin D8
  * (20261109180000_p5_owner_writes_time_price_instagram_v1.sql).
  */
@@ -28,7 +32,7 @@ export const OWNER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
   'default_duration_minutes', 'default_start_date', 'default_level', 'default_ticket_url',
   'default_description', 'default_cover_image_url', 'default_music_styles', 'default_gallery',
-  'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url',
+  'default_video_urls', 'timezone', 'category', 'default_passes', 'instagram_url', 'payment_methods',
 ] as const;
 
 /**
@@ -41,11 +45,6 @@ export const OWNER_UPSERT_KEYS = [
  */
 export const OWNER_CREATE_KEYS = [...OWNER_UPSERT_KEYS, 'format'] as const;
 
-/** The categories an owner may create (admin D7): party, class, workshop. masterclass is admin-only. */
-export const OWNER_CATEGORIES = ['party', 'class', 'workshop'] as const;
-export type OwnerCategory = (typeof OWNER_CATEGORIES)[number];
-export const isOwnerCategory = (value: unknown): value is OwnerCategory =>
-  typeof value === 'string' && (OWNER_CATEGORIES as readonly string[]).includes(value);
 
 // ---- the price list (admin D8 _owner_passes_problem_p5) ------------------------
 
@@ -117,7 +116,7 @@ export const OWNER_OVERRIDE_KEYS = [
 
 export const OWNER_CANCEL_KEYS = ['cancelled', 'reason'] as const;
 
-export type OwnerCommandKind = (typeof OWNER_COMMAND_KINDS)[number];
+export type OwnerCommandKind = (typeof OWNER_COMMAND_KINDS)[number] | (typeof AW1_COMMAND_KINDS)[number];
 export type OwnerUpsertKey = (typeof OWNER_UPSERT_KEYS)[number];
 export type OwnerOverrideKey = (typeof OWNER_OVERRIDE_KEYS)[number];
 
@@ -221,16 +220,26 @@ export const hasBasicsChanges = (initial: BasicsDraft, draft: BasicsDraft) =>
   Object.keys(basicsPayload(initial, draft)).length > 1 || draft.name.trim() !== initial.name.trim();
 
 /**
- * series.upsert. `category` goes only when it is one of the three owner
- * categories: the server refuses anything else from an owner (admin D7, a
- * masterclass included, even echoed back unchanged), so a category the team
- * set (masterclass) is left out and the series keeps it.
+ * series.upsert. `category` never goes: the server derives it from the
+ * sessions (src/lib/eventCategory.ts and its SQL twin) and ignores a sent one,
+ * so sending it would only look like it set something.
  */
 export function upsertCommand(payload: Record<string, unknown>): OwnerCommand {
-  if (!('category' in payload) || isOwnerCategory(payload.category)) return { kind: 'series.upsert', payload };
-  const rest = { ...payload };
-  delete rest.category;
+  const { category: _serverDerived, ...rest } = payload;
   return { kind: 'series.upsert', payload: rest };
+}
+
+/**
+ * The ONE place an upsert on an EXISTING series gets its `name`. The handler
+ * requires it on every upsert (`invalid_payload: name required`), so the route
+ * steps (New event venue/date/time/flyer, the flyer page) build their command
+ * without it and every send passes it through here with the name from the
+ * fresh workspace read. Only a series.upsert that carries no name is touched;
+ * any other kind, or an upsert that already names the series, goes unchanged.
+ */
+export function withSeriesName(command: OwnerCommand, seriesName: string): OwnerCommand {
+  if (command.kind !== 'series.upsert' || String(command.payload.name ?? '').trim()) return command;
+  return { ...command, payload: { name: seriesName.trim(), ...command.payload } };
 }
 
 // ---- the date list (W4) --------------------------------------------------------
@@ -239,15 +248,17 @@ export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.a
 export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
-export const lifecycleCommand = (to: 'paused' | 'live' | 'archived' | 'pending_review'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
-/** Send a draft or returned series for review (W6; _owner_lifecycle_transition_allowed_p5 admits draft|rejected -> pending_review). */
-export const submitForReviewCommand = (): OwnerCommand => lifecycleCommand('pending_review');
+/** Pause / resume (`{to}`, 4.11). There is no review step (D4): the UI never sends pending_review. */
+export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
 
 // ---- one date (W5) -------------------------------------------------------------
 
 /** Cancel with a reason that is a cancellation_reasons label (required for owners). */
 export const cancelCommand = (reason: string): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: true, reason } });
+/** Put a CANCELLED date back (D46); a taken-off date uses unskipDateCommand. */
 export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: false } });
+/** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */
+export const moveDateCommand = (toDate: string): OwnerCommand => ({ kind: 'occurrence.move_date', payload: { to_date: toDate } });
 
 /** London wall-clock HH:MM digits, sent as typed; an empty end lets the server keep the length. */
 export const setTimeCommand = (start: string, end: string | null): OwnerCommand => ({
@@ -255,6 +266,19 @@ export const setTimeCommand = (start: string, end: string | null): OwnerCommand 
   payload: { new_local_start: start, new_local_end: end && end.trim() ? end : null },
 });
 export const resetTimeCommand = (): OwnerCommand => ({ kind: 'occurrence.set_time', payload: { reset: true } });
+
+/**
+ * Several dates at once (admin_bulk_occurrence_command_p5, which admits an
+ * owner/manager of the series: prod fn lines 75 + 127). Not an aggregate kind,
+ * so it is its own type; the envelope targets the SERIES at its version.
+ */
+export type BulkCommand =
+  | { kind: 'occurrence.bulk_cancel'; payload: { occurrence_ids: string[]; reason: string } }
+  | { kind: 'occurrence.bulk_shift'; payload: { occurrence_ids: string[]; shift_days: number } };
+export const bulkCancelCommand = (occurrenceIds: string[], reason: string): BulkCommand =>
+  ({ kind: 'occurrence.bulk_cancel', payload: { occurrence_ids: occurrenceIds, reason } });
+export const bulkShiftCommand = (occurrenceIds: string[], shiftDays: number): BulkCommand =>
+  ({ kind: 'occurrence.bulk_shift', payload: { occurrence_ids: occurrenceIds, shift_days: shiftDays } });
 
 /** One date's own changes. `null` for a key = back to the series. */
 export type OverridePatch = Partial<Record<OwnerOverrideKey, string | null>>;
@@ -289,7 +313,6 @@ export const SERIES_TIMEZONE = 'Europe/London';
 
 /** The create screen's draft: the basics plus what only a create may set. */
 export interface CreateDraft extends BasicsDraft {
-  category: OwnerCategory;
   format: OwnerFormat;
   /** The party's date, or the weekly class's first date (YYYY-MM-DD, London). */
   startDate: string;
@@ -300,8 +323,9 @@ const CREATE_TEXT_FIELDS = ['ticketUrl', 'coverImageUrl', 'description'] as cons
 
 /**
  * series.upsert payload for a create, WITHOUT the organiser key (see
- * OWNER_CREATE_KEYS). Always: name, format, category, the start date, the start
- * time and the time zone. Optional fields go only when set: a create with an
+ * OWNER_CREATE_KEYS). Always: name, format, the start date, the start time and
+ * the time zone; never category (derived from the sessions, see
+ * upsertCommand). Optional fields go only when set: a create with an
  * absent key lands NULL anyway, and a blank would echo through the handler's
  * NULLIF for nothing.
  *
@@ -313,7 +337,6 @@ export function createPayload(draft: CreateDraft, cityId?: string | null): Recor
   const payload: Record<string, unknown> = {
     name: draft.name.trim(),
     format: draft.format,
-    category: draft.category,
     default_start_date: draft.startDate,
     default_local_start_time: draft.startTime,
     timezone: SERIES_TIMEZONE,
@@ -329,6 +352,16 @@ export function createPayload(draft: CreateDraft, cityId?: string | null): Recor
 }
 
 /**
+ * series.upsert payload for the New event DRAFT (D44): created at the name
+ * step with only the name, the format from the URL and the zone; every later
+ * step upserts the rest. Without the organiser key, like createPayload
+ * (selfServeApi.createSeriesCommand attaches it).
+ */
+export function createDraftPayload(name: string, format: OwnerFormat): Record<string, unknown> {
+  return { name: name.trim(), format, timezone: SERIES_TIMEZONE };
+}
+
+/**
  * The one rule an owner may set (admin D3 _owner_weekly_rule_problem_p5): every
  * week on ONE weekday (0 = Sunday .. 6 = Saturday), open-ended. The rule
  * materialises from the series' default_start_date, so the create sends the
@@ -338,3 +371,17 @@ export const weeklyRuleCommand = (weekday: number): OwnerCommand => ({
   kind: 'series.set_recurrence',
   payload: { mode: 'weekly', weekdays: [weekday], end: { kind: 'none' } },
 });
+
+// ---- parity wave 1 (SW1): the series programme and the event's organisers -----------
+// Two kinds the server admits for an owner only once admin AW1 (migrations
+// 20261126220000 / 20261126230000) is on prod; every control that sends one sits
+// behind shared/parityGate.ts. They are NOT in OWNER_COMMAND_KINDS (that list mirrors
+// the prod v_owner_kinds snapshot the mirror test pins). The payloads are the ones the
+// admin editor sends: _cmd_series_set_program_p5 takes the COMPLETE tree {days:[...]}
+// (it deletes and re-inserts); the organisers builder lives in selfServeApi.ts, the one
+// file the architecture lint lets spell the organiser list key.
+export const AW1_COMMAND_KINDS = ['series.set_program', 'series.set_organisers'] as const;
+
+/** series.set_program: the whole programme tree, days > sections > items > people. */
+export const setProgramCommand = (days: unknown[]): OwnerCommand => ({ kind: 'series.set_program', payload: { days } });
+

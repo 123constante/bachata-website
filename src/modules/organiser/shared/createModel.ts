@@ -10,10 +10,8 @@ import { organiserStatus } from './organiserStatus';
 import { formToDraft, minutesBetween } from './seriesModel';
 import {
   addDateCommand,
-  submitForReviewCommand,
   weeklyRuleCommand,
   type CreateDraft,
-  type OwnerCategory,
   type OwnerCommand,
   type OwnerFormat,
 } from './seriesCommands';
@@ -25,12 +23,7 @@ export const EVENT_KINDS: Array<{ kind: EventKind; label: string; hint: string }
   { kind: 'party', label: 'Party', hint: 'One night. You can add more dates later.' },
 ];
 
-/**
- * The owner categories (admin D7) the two kinds map to. `workshop` is an owner
- * value too, but neither the plan (section 4) nor mockup 02 offers it, so this
- * screen does not: a workshop stays with the team until a slice asks for it.
- */
-export const KIND_CATEGORY: Record<EventKind, OwnerCategory> = { party: 'party', weekly_class: 'class' };
+/** A kind sets the format only; category is derived from the sessions (event-truth P2). */
 export const KIND_FORMAT: Record<EventKind, OwnerFormat> = { party: 'one_off', weekly_class: 'recurring' };
 
 export interface CreateForm {
@@ -103,9 +96,9 @@ export const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value.trim(
  * server checks the same things again (admin D3's payload arm); this list only
  * keeps the buttons honest.
  *
- * `forSubmit` adds the venue (Lever 2 B2): "Save draft" works without one, but the
- * admin's approval refuses a series with no venue (event_publish_readiness_v1,
- * "publish_blocked: missing a venue"), so "Submit for review" needs it.
+ * `forSubmit` adds the venue (Lever 2 B2): "Save draft" works without one, but
+ * going live refuses a series with no venue (event_publish_readiness_v1,
+ * "publish_blocked: missing a venue").
  */
 export function createProblems(form: CreateForm, today: string, { forSubmit = false }: { forSubmit?: boolean } = {}): string[] {
   const problems: string[] = [];
@@ -135,14 +128,14 @@ export function problemsSentence(problems: string[]): string | null {
 }
 
 /**
- * The line under the buttons: what "Submit for review" still needs, saying when only
+ * The line under the buttons: what going live still needs, saying when only
  * the venue stands between the form and a draft. Null when both buttons are ready.
  */
 export function submitHint(form: CreateForm, today: string): string | null {
   const draft = createProblems(form, today);
   const submit = createProblems(form, today, { forSubmit: true });
   if (submit.length === 0) return null;
-  if (draft.length === 0) return 'To submit for review, add a venue. You can save a draft without one.';
+  if (draft.length === 0) return 'To go live, add a venue. You can save a draft without one.';
   return `${problemsSentence(submit)}${submit.length > draft.length ? ' A draft can be saved without a venue.' : ''}`;
 }
 
@@ -160,7 +153,6 @@ export function createBlock(organiser: { name: string; lifecycle_status: string 
 export function createDraft(form: CreateForm): CreateDraft {
   return {
     ...formToDraft(form),
-    category: KIND_CATEGORY[form.kind],
     format: KIND_FORMAT[form.kind],
     startDate: form.date,
   };
@@ -168,12 +160,11 @@ export function createDraft(form: CreateForm): CreateDraft {
 
 /**
  * The commands after the create lands, in order: the schedule (the party's
- * one date, or the class's weekly rule on the first date's weekday), then the
- * submit when asked. Each needs the version the previous one returned.
+ * one date, or the class's weekly rule on the first date's weekday). There is
+ * no review step to send (D4).
  */
-export function followUpCommands(form: CreateForm, submit: boolean): OwnerCommand[] {
-  const schedule = form.kind === 'party' ? addDateCommand(form.date) : weeklyRuleCommand(weekdayOf(form.date));
-  return submit ? [schedule, submitForReviewCommand()] : [schedule];
+export function followUpCommands(form: CreateForm): OwnerCommand[] {
+  return [form.kind === 'party' ? addDateCommand(form.date) : weeklyRuleCommand(weekdayOf(form.date))];
 }
 
 // ---- the preview ----------------------------------------------------------------

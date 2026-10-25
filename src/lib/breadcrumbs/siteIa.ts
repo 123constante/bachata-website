@@ -62,12 +62,20 @@ export const SITE_IA = {
   // The same home for anyone, organisers included (/account would redirect them).
   dancerProfile:    { label: 'Your dancer profile', path: '/account/dancer' },
   'dancerProfile.attendance': { label: 'My attendance', parent: 'dancerProfile' },
+  // Signed-in, noindex. Not behind the dancer-first gate (an unfinished profile can still leave).
+  accountSettings:  { label: 'Account settings', path: '/account/settings', parent: 'dancerHome' },
+  'accountSettings.ownership': { label: 'Account ownership', path: '/account/settings/ownership', parent: 'accountSettings' },
+  'accountSettings.delete': { label: 'Delete account', parent: 'accountSettings' },
+  accountDeleted:   { label: 'Account deleted' },
+  accountRestore:   { label: 'Your account' },
   // Signed-in, noindex (Lever 2 W1); never reaches a crawler's BreadcrumbList.
   account:          { label: 'Your account',      path: '/account/o' },
   'account.new':    { label: 'New event',         parent: 'account' },
   accountTeam:      { label: 'Team',              path: '/account/o/team', parent: 'account' },
   search:           { label: 'Search',            path: '/search' },
   faq:              { label: 'FAQ',               path: '/faq' },
+  privacy:          { label: 'Privacy',           path: '/privacy' },
+  terms:            { label: 'Terms of use',      path: '/terms' },
   notFound:         { label: 'Page not found' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access' },
@@ -102,6 +110,9 @@ export const SITE_IA = {
                         detailPath: (id: string) => `/organisers/${id}` },
   'teacher.detail':   { label: 'Teacher',   parent: 'teachers',   entity: true,
                         detailPath: (id: string) => `/teachers/${id}` },
+  // /people/:id: one page per person, roles as tabs. Hangs off Search (where people are found).
+  'person.detail':    { label: 'Person',    parent: 'search',     entity: true,
+                        detailPath: (id: string) => `/people/${id}` },
   'vendor.detail':    { label: 'Vendor',    parent: 'vendors',    entity: true,
                         detailPath: (id: string) => `/vendors/${id}` },
   'festival.detail':  { label: 'Festival',  parent: 'festivals',  entity: true,

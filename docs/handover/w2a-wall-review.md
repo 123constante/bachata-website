@@ -1,0 +1,22 @@
+# W2-A independent review (fix pass, 2026-10-21)
+
+Reviewer: a fresh worker, not the author. Read `git diff origin/main...1e17290c` (wall module, DJs.tsx,
+Dancers.tsx, featureFlags.ts, tests) BEFORE editing. Each finding with its verdict.
+
+| # | Hunted for | Finding | Verdict |
+|---|---|---|---|
+| R1 | Filter chips hiding everyone | /dancers: when the badges read SUCCEEDS but returns an empty map (the page's own "broken payload" rule, `shownDancers` shows everyone unfiltered), `isError` is false, so `filtersWork` stayed true and the Dancers / DJs chips were offered while every tile had zero tags: tapping "Dancers" on /dancers emptied the wall ("No dancers match this filter"). Same for any chip whose role nobody on the list has. | **Fixed**: role filters are offered only when role data is actually present (badges read ok AND at least one tile has a role tag); otherwise only All, so the wall never offers a chip that would empty it for lack of data. A real "nobody is a Teacher" filter still gets the "No DJs match this filter. Show everyone" sentence. Test: `wall.test.tsx` "badges read ok but EMPTY" (red on the unfixed code, see handover). |
+| R2 | a11y: focus ring | The tile link and the filter buttons had no focus style of their own; the site has no global `:focus-visible` rule (only `.gl-input`), so keyboard focus relied on the browser default outline, weak on the warm dark base. | **Fixed**: 2px `focus-visible` outline in the wall's text colour (`#FBEBDD`, >= 3:1 on `#1E1410`) on tiles, filter chips, the "Show everyone" button and the new Join row. |
+| R3 | Wrong link targets | DJ tile href = `djTile().href` (same as flag OFF `tile.href`); dancer tile href = `dancerHref(id, teacherPagesOpen)` (same as flag OFF). `linkRoleFor` only picks the colour. Page test asserts `/djs/j1`, `/dancers/d1`. | Not a bug. |
+| R4 | Second copy of role vocabulary/order | Chips come from `roleTagsFor` (ROLE_ORDER/ROLE_LABEL). `FILTERS` labels ("DJs", "Dancers", "Teachers") are plural filter words, not role labels; `bareStage` mirrors `stageLabel`'s regex (a name rule, not vocabulary). | Not a bug. |
+| R5 | Clipped names | `overflowWrap: anywhere`, no clamp, no `overflow:hidden` on the name; browser report `namesClipped 0`. A name could run to 3 lines (never clipped); the brief's "never clipped" wins over "2 lines max". | Not a bug. |
+| R6 | Broken-image fallback | `onError` -> initials tile, keyed by URL so a new URL retries; empty/whitespace URL -> initials (`firstPhoto`). Mutant test exists. | Not a bug. |
+| R7 | Date chip for past/null dates or non-DJs | DJ list: only `has_upcoming_gig === true` and a real, not-past key. Dancer list: only when the badge has the `dj` role. Tests cover past/null. | Not a bug. |
+| R8 | Flag OFF changed | DJs.tsx: early return after every hook (hook order identical ON/OFF). Dancers.tsx: only JSX conditionals; `isError` is read but unused when OFF. Existing `w1PeopleListsPage` tests unchanged and green. The one new import per page pulls the wall module into the /djs and /dancers chunks even with the flag OFF. | Not a bug (bundle budgets pass; see R12). |
+| R9 | Hidden people when badges read fails | /dancers shows everyone (page rule); /djs always shows every DJ (`djTile` assumes the role). Test exists. | Not a bug. |
+| R10 | Telemetry | `emitProfileView` with `listing:djs` / `listing:dancers` and the same profileType as flag OFF on every linked tile. | Not a bug. |
+| R11 | Teachers chip while teacher pages closed | Filter is hidden when `teacherPagesOpen` is false; the Teacher role CHIP still shows as plain text (same rule as `roleTagsFor` everywhere). | Not a bug. |
+| R12 | Bundle impact | Wall module is statically imported (~5 KB min) into the two route chunks. `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` green. | Not a bug (accepted; lazy-loading it would add a request when ON). |
+| R13 | Tile readable name / one link | Tile is one `<Link>`; accessible name = name + ", DJ" chips + "Next gig Fri 23"; img `alt=""` (name is in the link text). | Not a bug. |
+| R14 | Chip contrast | `wallContrast.test.tsx` asserts text >= 4.5 and chip edge >= 3 from computed styles. | Not a bug. |
+| R15 | Old /dancers widgets lost with flag ON | "Create a Profile" and "Book a Photoshoot" were gone with the flag ON. Both old targets are UNROUTABLE: `/create-dancers-profile` and `/photographers` (both in `navigateTargetsRoutable` KNOWN list). | **Fixed by owner change 1**: Join row under the wall (see handover). |

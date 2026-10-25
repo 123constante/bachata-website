@@ -21,8 +21,11 @@ export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean 
     // dropped when CARTO started watermarking keyless tiles). A basemap swap is
     // not just EventMap's TILE_URL: miss this line and every tile is silently
     // CSP-blocked, which renders as an empty map with no failed request.
-    "img-src 'self' data: blob: https://pub-07f606224cac4f2596903c44df723644.r2.dev https://*.r2.dev https://*.supabase.co https://flagcdn.com https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://server.arcgisonline.com",
-    "media-src 'self' blob: https://*.r2.dev https://*.supabase.co",
+    // media.bachatacalendar.co.uk is the custom address on the same R2 bucket
+    // as the r2.dev host; new uploads return it once R2_PUBLIC_DOMAIN flips.
+    // Stored rows keep r2.dev, so both stay: remove neither.
+    "img-src 'self' data: blob: https://pub-07f606224cac4f2596903c44df723644.r2.dev https://*.r2.dev https://media.bachatacalendar.co.uk https://*.supabase.co https://flagcdn.com https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev https://server.arcgisonline.com",
+    "media-src 'self' blob: https://*.r2.dev https://media.bachatacalendar.co.uk https://*.supabase.co",
     // The three arcgis hosts are the VECTOR basemap, and they belong here
     // rather than in img-src because MapLibre fetches every part of a vector
     // map -- style, TileJSON, .pbf tiles, glyph ranges and the sprite sheet --

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import routes from "./routes";
+import { routeStampCalls } from "./routeStampCalls";
 import {
   REVALIDATABLE_ENTITY_TYPES,
   ALL_ROUTE_STAMPS,
@@ -52,6 +53,8 @@ function resolver(over: Partial<CfPurgeResolver> = {}): CfPurgeResolver {
 }
 
 const page = (p: string) => [`${O}${p}`, `${O}${p}.data`];
+// One person page under a base path: uuid + slug URL, each with its .data twin.
+const person = (base: string) => [...page(`${base}/${DANCER}`), ...page(`${base}/jane-doe`)];
 
 // ── Conformance ─────────────────────────────────────────────────────────────
 const stampedKinds = new Set(ALL_ROUTE_STAMPS.flatMap((s) => s.split(",")));
@@ -83,10 +86,45 @@ describe("Cloudflare URL mapping conformance", () => {
 
   it("points every entity/city rule at a real :param route", () => {
     for (const [k, r] of Object.entries(CF_URL_RULES)) {
-      const base = r.kind === "entity" ? r.basePath : r.kind === "city" || r.kind === "active-cities" ? "/city" : null;
-      if (!base) continue;
-      expect(routePaths.some((p) => p.path === `${base}/:id` || p.path === `${base}/:slug`), `${k} -> ${base}/:param`).toBe(true);
+      const bases = r.kind === "entity" ? r.basePaths : r.kind === "city" || r.kind === "active-cities" ? ["/city"] : [];
+      for (const base of bases) {
+        expect(routePaths.some((p) => p.path === `${base}/:id` || p.path === `${base}/:slug`), `${k} -> ${base}/:param`).toBe(true);
+      }
     }
+  });
+
+  // S7c: every (entity tag kind x page) pair a route REALLY stamps, read from the route modules. A
+  // stamp call with a second argument (a flag: stampDancer(id, flags.personWorlds)) is run with it
+  // ON, so the pairs a flag flip adds are covered before the flip. A page that carries a tag must be
+  // purged from Cloudflare when that tag is, or Cloudflare keeps the old page after Vercel's purge.
+  const stampedPages = routeStampCalls().flatMap(({ path, file, stamp, flagged }) => {
+    const m = /^(\/[^/:]+)\/:(id|slug)$/.exec(path);
+    if (!m) return [];
+    return stamp(ID, flagged)
+      .split(",")
+      .filter((kind) => CF_URL_RULES[kind]?.kind === "entity")
+      .map((kind) => ({ kind, base: m[1], file }));
+  });
+
+  it("finds the role-tag pages (the route scan cannot silently match nothing)", () => {
+    const pairs = stampedPages.map((p) => `${p.kind} ${p.base}`);
+    for (const kind of [`dancer-${ID}`, `dj-${ID}`, `teacher-${ID}`]) {
+      for (const base of ["/dancers", "/people"]) expect(pairs).toContain(`${kind} ${base}`);
+    }
+    expect(pairs).toContain(`dj-${ID} /djs`);
+    expect(pairs).toContain(`teacher-${ID} /teachers`);
+  });
+
+  // Reviewed pairs Cloudflare does not purge by this tag, with the reason. Not S7c's to change.
+  const NOT_PURGED_HERE: Record<string, string> = {
+    [`event-${ID} /festival`]:
+      "every festival write sends festival-<id> too (purgeTagsFor), which purges /festival; pre-existing",
+  };
+
+  it.each(stampedPages)("$kind stamped on $base/:id ($file): Cloudflare purges $base too", ({ kind, base }) => {
+    if (NOT_PURGED_HERE[`${kind} ${base}`]) return;
+    const rule = CF_URL_RULES[kind];
+    expect(rule.kind === "entity" ? rule.basePaths : []).toContain(base);
   });
 
   // The static page sets are re-derived from the route modules that call the
@@ -165,16 +203,28 @@ describe("planCloudflarePurge", () => {
       warm: [`${O}/city/london-gb`],
     },
     {
-      name: "dancer",
+      name: "dancer (the person page /people carries the tag too)",
       tags: purgeTagsFor("dancer", DANCER),
-      urls: [...page(`/dancers/${DANCER}`), ...page("/dancers/jane-doe")],
-      warm: [`${O}/dancers/jane-doe`],
+      urls: [...person("/dancers"), ...person("/people")],
+      warm: [`${O}/dancers/jane-doe`, `${O}/people/jane-doe`],
     },
     {
-      name: "dj / teacher share dancer_profiles slugs",
-      tags: [...purgeTagsFor("dj", DANCER), ...purgeTagsFor("teacher", DANCER)],
-      urls: [...page(`/djs/${DANCER}`), ...page("/djs/jane-doe"), ...page(`/teachers/${DANCER}`), ...page("/teachers/jane-doe")],
-      warm: [`${O}/djs/jane-doe`, `${O}/teachers/jane-doe`],
+      name: "dj write: its own page, and /dancers + /people that serve the DJ tab (S7c)",
+      tags: purgeTagsFor("dj", DANCER),
+      urls: [...person("/djs"), ...person("/dancers"), ...person("/people")],
+      warm: [`${O}/djs/jane-doe`, `${O}/dancers/jane-doe`, `${O}/people/jane-doe`],
+    },
+    {
+      name: "teacher write: its own page, and /dancers + /people that serve the Teaching tab (S7c)",
+      tags: purgeTagsFor("teacher", DANCER),
+      urls: [...person("/teachers"), ...person("/dancers"), ...person("/people")],
+      warm: [`${O}/teachers/jane-doe`, `${O}/dancers/jane-doe`, `${O}/people/jane-doe`],
+    },
+    {
+      name: "all three roles in one write (dj / teacher / dancer share dancer_profiles slugs)",
+      tags: [...purgeTagsFor("dancer", DANCER), ...purgeTagsFor("dj", DANCER), ...purgeTagsFor("teacher", DANCER)],
+      urls: [...person("/dancers"), ...person("/djs"), ...person("/teachers"), ...person("/people")],
+      warm: ["/dancers", "/djs", "/teachers", "/people"].map((b) => `${O}${b}/jane-doe`),
     },
     {
       name: "venue",
@@ -201,6 +251,14 @@ describe("planCloudflarePurge", () => {
     expect(plan.prefixes.sort()).toEqual(
       urls.filter((u) => !u.endsWith(".data")).map((u) => u.replace("https://", "")).sort(),
     );
+  });
+
+  it(`a person with all three roles fits one Cloudflare call per pass (<= ${CF_MAX_URLS_PER_CALL} URLs)`, async () => {
+    const tags = [...purgeTagsFor("dancer", DANCER), ...purgeTagsFor("dj", DANCER), ...purgeTagsFor("teacher", DANCER)];
+    const plan = await planCloudflarePurge(tags, resolver(), { log: () => {} });
+    // 4 base paths x (uuid + slug) x (page + .data) = 16.
+    expect(plan.urls).toHaveLength(16);
+    expect(plan.urls.length).toBeLessThanOrEqual(CF_MAX_URLS_PER_CALL);
   });
 
   it("logs and skips an unknown tag", async () => {

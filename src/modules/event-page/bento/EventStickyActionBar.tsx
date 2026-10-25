@@ -57,7 +57,7 @@ const PRIMARY_CLASS =
   'flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
 const SECONDARY_CLASS =
   'flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
-const ICON_CLASS = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-full';
+const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full';
 
 /**
  * Sticky bottom action bar for the bento event page.
@@ -70,7 +70,7 @@ const ICON_CLASS = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-
  * When the event has no ticket link, Directions is promoted into the primary
  * slot (gold) so the bar always leads with a real call to action.
  *
- * Fixed above the BottomNav (58px) with a gradient fade so scrolling content
+ * Fixed to the bottom edge with a gradient fade so scrolling content
  * dissolves beneath it. Rendered via a body portal to escape framer-motion
  * transform ancestors (same reason as the old StickyTicketButton).
  */
@@ -135,7 +135,7 @@ export const EventStickyActionBar = ({
       // GlobalFooter clearance: index.css adds bottom padding to .site-footer
       // while any [data-sticky-action-bar] is mounted.
       data-sticky-action-bar="always"
-      style={{ bottom: 'calc(58px + env(safe-area-inset-bottom))' }}
+      style={{ bottom: 'env(safe-area-inset-bottom)' }}
     >
       <div
         className="mx-auto w-full max-w-[430px] px-3 pb-2 pt-7"

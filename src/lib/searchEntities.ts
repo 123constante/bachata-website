@@ -8,25 +8,25 @@ import {
 // searchRpc.ts and HeaderSearch.tsx. Vendors link by id (/vendors/:id); cities
 // by slug (/city/:slug). Keep this in sync with the RPC's entity_type whitelist.
 export type SearchKind =
-  | 'event' | 'venue' | 'organiser' | 'teacher' | 'dj' | 'dancer' | 'vendor' | 'city';
+  | 'event' | 'venue' | 'organiser' | 'teacher' | 'dj' | 'dancer' | 'person' | 'vendor' | 'city';
 
 export const KIND_ICON: Record<SearchKind, LucideIcon> = {
   event: Calendar, venue: MapPin, organiser: Building2, teacher: GraduationCap,
-  dj: Music, dancer: User, vendor: ShoppingBag, city: Globe,
+  dj: Music, dancer: User, person: User, vendor: ShoppingBag, city: Globe,
 };
 
 export const KIND_LABEL: Record<SearchKind, string> = {
   event: 'Event', venue: 'Venue', organiser: 'Organiser', teacher: 'Teacher',
-  dj: 'DJ', dancer: 'Dancer', vendor: 'Vendor', city: 'City',
+  dj: 'DJ', dancer: 'Dancer', person: 'Person', vendor: 'Vendor', city: 'City',
 };
 
 export const KIND_LABEL_PLURAL: Record<SearchKind, string> = {
   event: 'Events', venue: 'Venues', organiser: 'Organisers', teacher: 'Teachers',
-  dj: 'DJs', dancer: 'Dancers', vendor: 'Vendors', city: 'Cities',
+  dj: 'DJs', dancer: 'Dancers', person: 'People', vendor: 'Vendors', city: 'Cities',
 };
 
 // People kinds render with round avatars; everything else a square thumb/glyph.
-export const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer'];
+export const CIRCLE_KINDS: SearchKind[] = ['organiser', 'teacher', 'dj', 'dancer', 'person'];
 
 // Route for a result row. Cities resolve by slug (id is unused for them);
 // every other kind by id. Festival events are special-cased to /festival/:id at
@@ -38,8 +38,57 @@ export function hrefFor(kind: SearchKind, id: string, slug?: string | null): str
     case 'teacher':   return `/teachers/${id}`;
     case 'dj':        return `/djs/${id}`;
     case 'dancer':    return `/dancers/${id}`;
+    case 'person':    return `/people/${id}`;
     case 'vendor':    return `/vendors/${id}`;
     case 'city':      return `/city/${slug ?? id}`;
     default:          return `/event/${id}`;
   }
+}
+
+// THE person-role vocabulary (review F1+F2): role order, labels, the role line and the
+// teacher-visibility rule. Search (the header omnibox, the overlay, /search, through the
+// badges mapping) and /people/:id (chips, tabs, the "Also" row, via
+// modules/person-page/personRoles.ts) all read it from here; there is no second copy.
+// Lives here (not its own module): a new file is a new first-load chunk on every route
+// (chunk ratchet).
+export type PersonRole = 'teacher' | 'dj' | 'dancer';
+
+/** Tab order, chip order and role-line order. */
+export const ROLE_ORDER: readonly PersonRole[] = ['teacher', 'dj', 'dancer'];
+/** The role as a noun: chips, the role line, "Also: DJ". */
+export const ROLE_LABEL: Record<PersonRole, string> = { teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer' };
+
+/** Known roles only, in the fixed order Teacher, DJ, Dancer, de-duplicated. */
+export function orderedRoles(roles: readonly string[] | null | undefined): PersonRole[] {
+  const have = new Set(roles ?? []);
+  return ROLE_ORDER.filter((r) => have.has(r));
+}
+
+/**
+ * The roles a visitor may see: `teacher` only while the teacher pages are open
+ * (flags.teacherDetail; closed, /teachers/:id is a coming-soon gate). The ONE rule
+ * for the person page's chips and tabs and the "Also" row. (A search person row is
+ * person-page/searchPerson's answer: badges tags, and a DJ/dancer/teacher page link,
+ * never /people/.)
+ */
+export function visibleRoles(roles: readonly string[] | null | undefined, teacherPagesOpen: boolean): PersonRole[] {
+  return orderedRoles(roles).filter((r) => r !== 'teacher' || teacherPagesOpen);
+}
+
+/** "Teacher · DJ · Dancer" (middle dot), or '' when there is no role. */
+export function roleLine(roles: readonly string[] | null | undefined): string {
+  return orderedRoles(roles).map((r) => ROLE_LABEL[r]).join(' \u00b7 ');
+}
+
+
+/** "Carlos Mendez, Teacher, DJ, Dancer" for aria-label. */
+export function personAriaLabel(name: string, roles: readonly string[] | null | undefined): string {
+  const labels = orderedRoles(roles).map((r) => ROLE_LABEL[r]);
+  return labels.length ? `${name}, ${labels.join(', ')}` : name;
+}
+
+/** Old entity kind logged to record_search_result_click_v1 (no new entity_type). */
+export function telemetryKindFor(primary: string | null | undefined, roles?: readonly string[] | null): PersonRole {
+  if (primary === 'teacher' || primary === 'dj' || primary === 'dancer') return primary;
+  return orderedRoles(roles)[0] ?? 'dancer';
 }

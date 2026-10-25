@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { withPublicNames } from '@/lib/publicDancerNames';
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Users, Lock, MessageCircle, Sparkles, Heart, Music, Star, Zap, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ import { saveMyDancerProfile } from "@/lib/saveMyDancerProfile";
 import { hasDancerProfileBasics } from "@/lib/onboardingStatus";
 import { myPersonaIdForReads } from "@/lib/myPersona";
 import { optimizedImageUrl } from "@/lib/imageCdn";
+import { NationalityFlag } from "@/components/people/NationalityFlag";
+import { pickNationalityCode } from "@/components/people/nationality";
 
 type Dancer = {
   id: string;
@@ -27,6 +30,7 @@ type Dancer = {
   dance_role: string | null;
   cities: { name: string } | null;
   avatar_url: string | null;
+  nationality?: string | null;
   looking_for_partner: boolean | null;
 };
 
@@ -48,12 +52,13 @@ const PracticePartners = () => {
       try {
         const { data, error } = await supabase
           .from('dancer_profiles')
-          .select('id, first_name, surname, based_city_id, dance_role, avatar_url, cities!based_city_id(name), dancing_role_details!inner(favorite_styles, looking_for_partner)')
+          .select('id, first_name, based_city_id, dance_role, avatar_url, nationality, cities!based_city_id(name), dancing_role_details!inner(favorite_styles, looking_for_partner)')
           .eq('dancing_role_details.looking_for_partner', true)
           .order('created_at', { ascending: false });
         
         if (error) throw error;
-        setPartners((data || []).map((row) => ({
+        const masked = await withPublicNames(data || []);
+        setPartners(masked.map((row) => ({
           ...row,
           favorite_styles: row.dancing_role_details?.favorite_styles ?? null,
           looking_for_partner: row.dancing_role_details?.looking_for_partner ?? null,
@@ -78,7 +83,7 @@ const PracticePartners = () => {
       const { data } = personaId
         ? await supabase
             .from('dancer_profiles')
-            .select('id, first_name, surname, based_city_id, dance_role, avatar_url, cities!based_city_id(name), dancing_role_details(favorite_styles, looking_for_partner)')
+            .select('id, first_name, surname, based_city_id, dance_role, avatar_url, nationality, cities!based_city_id(name), dancing_role_details(favorite_styles, looking_for_partner)')
             .eq('id', personaId)
             .maybeSingle()
         : { data: null };
@@ -247,18 +252,21 @@ const PracticePartners = () => {
                   >
                     <Card className="p-3 bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/30 transition-all h-full">
                       <div className="flex flex-col items-center text-center">
-                        {/* Avatar */}
-                        <motion.div
-                          whileHover={{ rotate: [0, -5, 5, 0] }}
-                          transition={{ duration: 0.3 }}
-                          className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/20 flex items-center justify-center mb-2 relative overflow-hidden"
-                        >
-                          {isLoggedIn ? (
-                            getAvatarContent(partner)
-                          ) : (
-                            <Lock className="w-5 h-5 text-muted-foreground" />
-                          )}
-                        </motion.div>
+                        {/* Avatar (the flag sits outside the clipped circle; signed-out visitors see neither) */}
+                        <div className="relative w-14 h-14 mb-2">
+                          <motion.div
+                            whileHover={{ rotate: [0, -5, 5, 0] }}
+                            transition={{ duration: 0.3 }}
+                            className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/20 flex items-center justify-center relative overflow-hidden"
+                          >
+                            {isLoggedIn ? (
+                              getAvatarContent(partner)
+                            ) : (
+                              <Lock className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </motion.div>
+                          {isLoggedIn ? <NationalityFlag code={pickNationalityCode(partner)} size={56} /> : null}
+                        </div>
                         
                         {/* Name */}
                         <h3 className="font-medium text-foreground text-sm truncate w-full">

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { buildSignInHref, stashPendingReturnTo } from '@/lib/authRouting';
+import { AUTH_ACTION_LABELS, DIALOG_CLOSE_44 } from '@/lib/auth-labels';
 
 type LevelRatingSignInSheetProps = {
   open: boolean;
@@ -30,7 +31,7 @@ const LevelRatingSignInSheet = ({ open, onOpenChange, tappedLabel, returnTo }: L
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="level-rating-signin-sheet">
+      <DialogContent data-testid="level-rating-signin-sheet" className={DIALOG_CLOSE_44}>
         <DialogHeader>
           <DialogTitle>Sign in to save it</DialogTitle>
           <DialogDescription>
@@ -44,7 +45,7 @@ const LevelRatingSignInSheet = ({ open, onOpenChange, tappedLabel, returnTo }: L
             onClick={rememberPage}
             className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#f5a60a] px-4 text-sm font-extrabold text-[#1a1200]"
           >
-            Log in
+            {AUTH_ACTION_LABELS.signin}
           </Link>
           <Link
             to={buildSignInHref(returnTo, 'signup')}
@@ -52,7 +53,7 @@ const LevelRatingSignInSheet = ({ open, onOpenChange, tappedLabel, returnTo }: L
             onClick={rememberPage}
             className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-white/30 px-4 text-sm font-bold text-foreground"
           >
-            Sign up
+            {AUTH_ACTION_LABELS.signup}
           </Link>
         </div>
       </DialogContent>

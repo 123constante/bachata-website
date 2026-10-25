@@ -43,6 +43,25 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The preview job(s) below are SKIPPED on the no-preview branches (vercel.json
+  # git.deploymentEnabled turns their deployment off; scripts/vercel-ignore-build.sh
+  # skips the build). This job runs on exactly those branches so the skip carries
+  # an explicit reason instead of a bare "skipped". check-no-preview-prefixes.mjs
+  # keeps its prefix list equal to the preview jobs' exclusions.
+  no-preview-reason:
+    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'bot/') || startsWith(github.head_ref, 'dependabot/') || startsWith(github.head_ref, 'arc/briefs-') || startsWith(github.head_ref, 'claude/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Explain the skipped preview job(s)
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          msg="Preview checks in this workflow are SKIPPED by design for branch '$HEAD_REF': claude/* and arc/briefs-* get no Vercel deployment, bot/* and dependabot/* skip preview checks (docs/pr-batching-policy.md, Vercel build budget). A slice PR's evidence is the worker's sandbox table; preview checks run on PRs from feat/* and other branches."
+          echo "::notice title=No preview by design::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+
   bundle-budget:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -59,15 +78,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+      # required check keeps its name and reports success. Fail-safe: any error
+      # means docs_only=false (scripts/ci/docs-only.mjs).
+      - name: Detect docs-only PR
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.docs_only != 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm install -g npm@11
 
       - name: Install dependencies
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
 
       # BEFORE the build, deliberately. The canary drives the graph and
@@ -78,15 +110,23 @@ jobs:
       # self-test with no caller proves nothing and reads as coverage that is
       # not there (the lesson check-image-widths taught in architecture-guard).
       - name: Bundle-budget canary (no build required)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:bundle-budget:self-test
 
       # Same placement, same reason: it drives main() and every rule against
       # fixtures and a fake filesystem, so it still reports in exactly the runs
       # where the build is what broke.
       - name: First-load request canary (no build required)
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:first-load-requests:self-test
 
+      # Same placement, same reason as the two canaries above.
+      - name: Chunk import-cycle canary (no build required)
+        if: steps.changes.outputs.docs_only != 'true'
+        run: npm run check:chunk-cycles:self-test
+
       - name: Build client + server
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           # Same rationale as e2e-smoke.yml: supabase-js validates the URL shape
           # at module init, so a valid-shaped placeholder is required for the
@@ -96,6 +136,7 @@ jobs:
         run: npm run build
 
       - name: First-load JS budgets
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:bundle-budget
 
       # AFTER the KB budgets, and a separate step on purpose: these two answer
@@ -103,14 +144,29 @@ jobs:
       # can pass one while failing the other. Sharing a step would let the
       # first failure hide the second.
       - name: First-load request count
+        if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:first-load-requests
+
+      # Its own step for the same reason: a third question off the same build.
+      # Two chunks that statically import each other evaluate in load order, so
+      # one runs against the other's unassigned vars -- PR #746's "TypeError:
+      # <minified helper> is not a function", which every KB and request check
+      # above saw as green.
+      # `!cancelled()` so a red KB or request budget ABOVE cannot skip it: a
+      # Radix bump can break both at once, and the cycle is the one that crashes
+      # the page. It does not reach back past the build: if a pre-build canary
+      # or the build itself failed, this exits 2 (no build), red but unnamed.
+      - name: Chunk import cycles
+        if: ${{ (!cancelled()) && steps.changes.outputs.docs_only != 'true' }}
+        run: npm run check:chunk-cycles
 
   lighthouse:
     # Previews only exist for PRs; skip on push (nothing to point Lighthouse at).
-    # vercel.json ignoreCommand skips builds for bot/* + dependabot/*, so no
-    # preview is ever published for them; previewProbe polls 600s then THROWS.
-    # Keep this list in sync with that ignoreCommand.
-    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/')
+    # scripts/vercel-ignore-build.sh (vercel.json ignoreCommand) never builds a
+    # preview for its no-preview prefixes, so previewProbe would poll 600s then
+    # THROW. Keep this list in sync with DIFF_RULE_PREFIXES +
+    # ALWAYS_SKIP_PREFIXES there: npm run check:no-preview-prefixes fails on drift.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'arc/briefs-') && !startsWith(github.head_ref, 'claude/')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # NOT continue-on-error: an infra failure here must be a loud red. Budget
@@ -140,10 +196,11 @@ jobs:
 
   doc-weight:
     # Measures the rendered homepage's on-the-wire brotli bytes on the PR preview.
-    # vercel.json ignoreCommand skips builds for bot/* + dependabot/*, so no
-    # preview is ever published for them; previewProbe polls 600s then THROWS.
-    # Keep this list in sync with that ignoreCommand.
-    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/')
+    # scripts/vercel-ignore-build.sh (vercel.json ignoreCommand) never builds a
+    # preview for its no-preview prefixes, so previewProbe would poll 600s then
+    # THROW. Keep this list in sync with DIFF_RULE_PREFIXES +
+    # ALWAYS_SKIP_PREFIXES there: npm run check:no-preview-prefixes fails on drift.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') && !startsWith(github.head_ref, 'arc/briefs-') && !startsWith(github.head_ref, 'claude/')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # NOT continue-on-error: same anti-masking rule as lighthouse.

@@ -1,16 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import GlobalLayout from '@/components/layout/GlobalLayout';
-import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
+import { buildBreadcrumbs, renderBreadcrumbListJsonLd } from '@/lib/breadcrumbs';
+import { useEntitySlugOrId, useCanonicalReplaceState, SITE_ORIGIN } from '@/lib/seo';
+import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
+import { useAuth } from '@/hooks/useAuth';
 import { londonTodayKey } from '@/lib/londonDate';
 import { resolvePublicName } from '@/lib/publicName';
+import { AlsoRoles } from '@/modules/person-page/AlsoRoles';
+import { flags } from '@/lib/featureFlags';
+import { DjRolePage } from '@/components/dj/DjRolePage';
+import { djRoleFields } from '@/components/dj/djRoleModel';
+import { HUB, WALL, WALL_FADE } from '@/modules/person-page/wall/tokens';
+import { SHARE_MESSAGES, shareDancerPage, type ShareOutcome } from '@/modules/dancer-app/public-page/model';
+import { splitInstagramWebsite } from '@/components/dj/djContacts';
 import { djInkTheme, useDjPageFonts } from '@/components/dj/djPageTheme';
 import {
   DjHero,
@@ -24,6 +33,10 @@ import {
   DjGuestbookStub,
   type DjGig,
 } from '@/components/dj/DjTiles';
+import { PersonFrame, WorldPage } from '@/modules/person-page/frame';
+import { DjWorld, djWorldView } from '@/modules/person-page/worlds/dj';
+import { WORLD } from '@/modules/person-page/worlds/tokens';
+import { usePersonSnapshot } from '@/modules/person-page/usePersonRoles';
 
 type DJRow = {
   id: string;
@@ -36,6 +49,7 @@ type DJRow = {
   bio: string | null;
   genres: string[] | null;
   nationality: string | null;
+  nationality_code?: string | null;
   city_id: string | null;
   city_name: string | null;
   city_slug: string | null;
@@ -46,6 +60,8 @@ type DJRow = {
   soundcloud: string | null;
   mixcloud: string | null;
   pricing: string | null;
+  // Prod 2026-10-22: faq is `[]` for 21 of 40 DJs, not a string. The W2-C page reads every field through
+  // djRoleFields; this type stays as today's page reads it.
   faq: string | null;
   gallery_urls: string[] | null;
   languages: string[] | null;
@@ -68,6 +84,47 @@ const dateKey = (iso: string | null): string | null => {
   return m ? m[1] : null;
 };
 
+const GOLD = '#E7BE6E';
+
+const DjShare = ({ title, path }: { title: string; path: string }) => {
+  const [outcome, setOutcome] = useState<ShareOutcome | null>(null);
+  const url = typeof window === 'undefined' ? path : `${window.location.origin}${path}`;
+  const onShare = async () => {
+    const nav = typeof navigator === 'undefined' ? undefined : navigator;
+    setOutcome(await shareDancerPage(
+      {
+        share: nav?.share ? (d) => nav.share(d) : undefined,
+        writeText: nav?.clipboard?.writeText ? (t) => nav.clipboard.writeText(t) : undefined,
+      },
+      title,
+      url,
+    ));
+  };
+  const message = outcome ? SHARE_MESSAGES[outcome] : null;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        {message ? <span role="status" aria-live="polite" className="text-[13px]" style={{ color: GOLD }}>{message}</span> : null}
+        <button type="button" onClick={() => void onShare()} className="inline-flex items-center gap-2 px-2 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-share">
+          <Share2 className="h-4 w-4" aria-hidden /> Share
+        </button>
+      </div>
+      {/* 'manual' = no share sheet, no clipboard: the copy above points at this link. */}
+      {outcome === 'manual' ? (
+        <input
+          readOnly
+          value={url}
+          aria-label="Link to this page"
+          onFocus={(e) => e.currentTarget.select()}
+          className="w-[260px] max-w-full rounded-[10px] px-2 text-[14px]"
+          style={{ minHeight: 44, background: 'rgba(246,241,234,0.06)', color: 'var(--dj-cream)' }}
+          data-testid="dj-share-link"
+        />
+      ) : null}
+    </div>
+  );
+};
+
 const DJProfile = () => {
   useDjPageFonts();
   const { id: routeParam } = useParams<{ id: string }>();
@@ -79,6 +136,13 @@ const DJProfile = () => {
     buildPath: (s) => `/djs/${s}`,
   });
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // D8'': the world's invite is for signed-out visitors (reading it renders nothing on the flag-OFF page).
+  const { user } = useAuth();
+  const embedded = useEmbeddedProfile();
+  // People arc S3: the DJ world on the shared frame (flags.personWorlds), never inside a /people/:id tab.
+  const worlds = flags.personWorlds && !embedded;
+  const person = usePersonSnapshot(worlds ? id : undefined);
 
   const { data: dj, isLoading, error } = useQuery({
     queryKey: ['dj-profile', id],
@@ -99,7 +163,7 @@ const DJProfile = () => {
   // first client render are identical, then it fetches client-side.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const { data: appearances } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
+  const { data: appearances, isFetched: appearancesFetched, isError: appearancesFailed, refetch: refetchAppearances } = useProfileProgramAppearances('dj', mounted ? id : undefined, 1000);
 
   // `dj.display_name` is NOT trustworthy as a name: get_public_dj_v1 builds it
   // as COALESCE(dj_name, first+surname, dp.id::text), so for a profile whose
@@ -150,9 +214,53 @@ const DJProfile = () => {
     return { upcoming: up, past: pastGigs, isLive: live };
   }, [appearances]);
 
+  if (isLoading && worlds) {
+    // The DJ ground and the frame's boxes in the world shell, so the page arrives without a jump.
+    return (
+      <WorldPage world="dj" breadcrumbs={djBreadcrumbs} backHref="/djs">
+        <div className="space-y-3" data-testid="dj-world-loading">
+          <Skeleton className="h-11 w-full rounded-[12px]" style={{ background: WORLD.dj.section.background }} />
+          <Skeleton className="h-80 w-full rounded-[22px]" style={{ background: WORLD.dj.section.background }} />
+        </div>
+      </WorldPage>
+    );
+  }
+
+  if (worlds && (error || !dj)) {
+    return (
+      <WorldPage world="dj" breadcrumbs={djBreadcrumbs} backHref="/djs">
+        <div className="flex flex-col items-center gap-3 py-10 text-center" data-testid="dj-world-missing">
+          <p className="m-0" style={{ fontSize: 15, color: WORLD.dj.card.muted }}>This DJ profile doesn&rsquo;t exist or has been removed.</p>
+          <Link
+            to="/djs"
+            className="inline-flex items-center gap-2 rounded-full px-4 font-bold"
+            style={{ minHeight: 44, fontSize: 14, color: WORLD.dj.accent, border: `1px solid ${WORLD.dj.avatar.ring}` }}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Back to DJs
+          </Link>
+        </div>
+      </WorldPage>
+    );
+  }
+
+  if (isLoading && flags.personHub && !embedded) {
+    // W2-C: the placeholder paints the warm ground the page arrives on (no dark-to-warm flash).
+    return (
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="wall">
+        <div style={{ ...WALL_FADE, minHeight: HUB.groundMinHeight }} className="px-3 pt-2">
+          <div className="mx-auto w-full max-w-xl space-y-3">
+            <Skeleton className="h-11 w-48 rounded-[12px]" style={{ background: WALL.card }} />
+            <Skeleton className="h-72 w-full rounded-[24px]" style={{ background: WALL.card }} />
+            <Skeleton className="h-40 w-full rounded-[14px]" style={{ background: WALL.card }} />
+          </div>
+        </div>
+      </GlobalLayout>
+    );
+  }
+
   if (isLoading) {
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showGradientBg={false}>
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" gradientPalette="dj">
         <div style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', fontFamily: 'var(--dj-body)' }} className="min-h-screen pb-24">
           <div className="mx-auto w-full max-w-6xl space-y-4 px-3 pt-4 sm:px-5 md:px-8">
             <Skeleton className="h-52 w-full rounded-[22px]" style={{ background: 'rgba(246,241,234,0.06)' }} />
@@ -168,7 +276,7 @@ const DJProfile = () => {
 
   if (error || !dj) {
     return (
-      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showGradientBg={false}>
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" gradientPalette="dj">
         <div style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', color: 'var(--dj-cream)' }} className="flex min-h-[60vh] items-center justify-center px-4">
           <div className="text-center">
             <p className="mb-6" style={{ color: 'rgba(246,241,234,0.6)' }}>This DJ profile doesn&rsquo;t exist or has been removed.</p>
@@ -181,20 +289,117 @@ const DJProfile = () => {
     );
   }
 
+  // showSubheader={false} drops PageBreadcrumb, which is what normally emits the
+  // BreadcrumbList JSON-LD, so emit it here (same canonical origin). Embedded as a
+  // /people/:id tab, the person page owns the head and the breadcrumbs.
+  const sharePath = resolved.slug ? `/djs/${resolved.slug}` : `/djs/${routeParam ?? dj.id}`;
+  const breadcrumbJsonLd = embedded
+    ? null
+    : renderBreadcrumbListJsonLd({ crumbs: djBreadcrumbs, origin: SITE_ORIGIN, currentUrl: SITE_ORIGIN + sharePath });
+
+  // People arc S3 (flags.personWorlds ON): PersonFrame (Back, Share, role tabs) and the DJ world.
+  // Flag OFF, and in a /people/:id tab, everything below is unchanged.
+  if (worlds) {
+    const f = djRoleFields(dj as unknown as Record<string, unknown>);
+    const view = djWorldView({
+      row: dj,
+      cityName: f.cityName,
+      nationalityCode: f.nationalityCode,
+      links: f.links,
+      upcoming,
+      past,
+      pathname,
+      viewer: user,
+    });
+    return (
+      <WorldPage
+        world="dj"
+        breadcrumbs={djBreadcrumbs}
+        backHref="/djs"
+        head={breadcrumbJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} /> : null}
+      >
+        <PersonFrame
+          backHref="/djs"
+          shareTitle={`${view.big} on Bachata Calendar`}
+          roles={person.snapshot?.roles ?? []}
+          current="dj"
+          slug={resolved.slug}
+          rolesPending={!person.answered}
+        >
+          <DjWorld
+            view={view}
+            photo={f.photoUrl}
+            bio={f.bio}
+            dates={appearancesFailed ? 'failed' : appearancesFetched ? 'ready' : 'loading'}
+            onRetry={() => void refetchAppearances()}
+          />
+        </PersonFrame>
+      </WorldPage>
+    );
+  }
+
+  // W2-C (flags.personHub ON): the D-C page on the hub's warm ground, with the Back row + role
+  // switcher. Flag OFF, and in a /people/:id tab, the page below is unchanged.
+  if (flags.personHub && !embedded) {
+    // Every field through ONE boundary (djRoleFields): the RPC hands back arrays where the type says
+    // string (faq), so this page never reads `dj.*` text raw. It sits above today's reads, which assume strings.
+    const f = djRoleFields(dj as unknown as Record<string, unknown>);
+    // The warm `wall` ground under the page too: its bottom fade otherwise lands on the site's graphite
+    // default (measured: rgb(30,20,16) -> rgb(14,18,21) below Share, docs/design/w2c-build.md).
+    return (
+      <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="wall">
+        {breadcrumbJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
+        ) : null}
+        <DjRolePage
+          id={id}
+          slug={resolved.slug}
+          name={displayName}
+          photoUrl={f.photoUrl}
+          nationalityCode={f.nationalityCode}
+          cityName={f.cityName}
+          bio={f.bio}
+          isLive={isLive}
+          upcoming={upcoming}
+          datesLoading={!appearancesFetched}
+          datesFailed={appearancesFailed}
+          gallery={f.gallery}
+          links={f.links}
+          faq={f.faq}
+          pricing={f.pricing}
+          share={<DjShare title={`${displayName} on Bachata Calendar`} path={sharePath} />}
+        />
+      </GlobalLayout>
+    );
+  }
+
   const genres = Array.isArray(dj.genres) ? dj.genres.filter(Boolean) : [];
   const gallery = Array.isArray(dj.gallery_urls) ? dj.gallery_urls.filter(Boolean) : [];
   const photoUrl = firstPhoto(dj.photo_url);
   const totalGigs = (appearances ?? []).filter((a) => a.event_id).length;
 
-  const hasContact = !!(dj.instagram || dj.website || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
+  const { instagram: igLink, website: webLink } = splitInstagramWebsite(dj.instagram, dj.website);
+  const hasContact = !!(igLink || webLink || dj.soundcloud || dj.mixcloud || dj.facebook || dj.phone);
   const hasListen = !!(dj.soundcloud || dj.mixcloud);
 
   return (
-    <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showGradientBg={false}>
+    <GlobalLayout breadcrumbs={djBreadcrumbs} backHref="/djs" showSubheader={false} gradientPalette="dj">
+      {breadcrumbJsonLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
+      ) : null}
       <div
         className="min-h-screen pb-24"
         style={{ ...(djInkTheme as React.CSSProperties), background: 'var(--dj-bg)', color: 'var(--dj-cream)', fontFamily: 'var(--dj-body)' }}
       >
+        <div className="mx-auto w-full max-w-6xl px-3 pt-3 sm:px-5 md:px-8">
+          <div className="flex items-center justify-between" style={{ minHeight: 44 }} data-testid="dj-head">
+            <Link to="/djs" className="inline-flex items-center gap-2 px-1 text-[15px] font-bold" style={{ minHeight: 44, color: GOLD }} data-testid="dj-back">
+              <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+            </Link>
+            <DjShare title={`${displayName} on Bachata Calendar`} path={sharePath} />
+          </div>
+          <AlsoRoles current="dj" id={id} slug={resolved.slug} className="pt-1" />
+        </div>
         <div className="dj-bento mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 md:px-8 md:pt-6">
           <section className="dj-hero">
             <DjHero
@@ -202,6 +407,7 @@ const DJProfile = () => {
               photoUrl={photoUrl}
               cityName={dj.city_name}
               nationality={dj.nationality}
+              nationalityCode={dj.nationality_code}
               bio={dj.bio}
               isLive={isLive}
               stats={{ gigs: totalGigs || null, upcoming: upcoming.length || null, genres: genres.length || null }}
@@ -212,8 +418,8 @@ const DJProfile = () => {
             <section className="dj-contact">
               <DjContactPanel
                 name={displayName}
-                instagram={dj.instagram}
-                website={dj.website}
+                instagram={igLink}
+                website={webLink}
                 soundcloud={dj.soundcloud}
                 mixcloud={dj.mixcloud}
                 facebook={dj.facebook}

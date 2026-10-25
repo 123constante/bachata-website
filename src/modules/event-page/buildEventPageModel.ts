@@ -134,7 +134,7 @@ const buildReadyPageModel = (snapshot: EventPageSnapshot, canEdit: boolean): Eve
       snapshot.event.imageUrl,
       snapshot.organisers[0]?.avatarUrl ?? null,
       snapshot.locationDefault.venue?.image_url ?? null,
-    ) ?? snapshot.event.posterUrl ?? snapshot.event.galleryUrls[0] ?? null;
+    ) ?? snapshot.event.posterUrl ?? null;
 
   return {
     page: {

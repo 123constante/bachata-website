@@ -1,0 +1,233 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`directory + attendance at '390x844' > /account/attendance: cancelled night > renders 1`] = `
+"heading "My Event Attendance" level=1
+heading "Nights you’re going to" level=2
+button "Friday Social Cancelled Friday 2 Jan · 9 PMCamden Club The organiser cancelled this night.""
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: empty > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "You haven’t said you’re going to any nights yet."
+text "Find a night on the calendar, then tap I’m going on its page."
+button "Browse events""
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: future party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "1 night"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club""
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: mixed > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "2 nights"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club"
+button "Costa Congress Going Tuesday 2 Jun · 9 PMCamden Club This event isn’t taking names right now."
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at '390x844' > /account/attendance: past party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "You haven’t said you’re going to any nights yet. Find a night on the calendar, then tap I’m going on its page."
+link "Browse events" href=/city/london-gb/calendar
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: empty > signed in, with plans 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: empty > signed out 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed in, with plans 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
+  img
+  heading "Ana Lopez" level=3
+  text ", Teacher, DJ"
+link "F Fay" href=/dancers/d2
+  text "F"
+  heading "Fay" level=3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
+  text "EG"
+  heading "Eli Gomez" level=3
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at '390x844' > /dancers: mixed shapes > signed out 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
+  img
+  heading "Ana Lopez" level=3
+  text ", Teacher, DJ"
+link "F Fay" href=/dancers/d2
+  text "F"
+  heading "Fay" level=3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
+  text "EG"
+  heading "Eli Gomez" level=3
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: cancelled night > renders 1`] = `
+"heading "My Event Attendance" level=1
+heading "Nights you’re going to" level=2
+button "Friday Social Cancelled Friday 2 Jan · 9 PMCamden Club The organiser cancelled this night.""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: empty > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "You haven’t said you’re going to any nights yet."
+text "Find a night on the calendar, then tap I’m going on its page."
+button "Browse events""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: future party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "1 night"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club""
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: mixed > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "2 nights"
+heading "Nights you’re going to" level=2
+button "Friday Social Going Friday 2 Jan · 9 PMCamden Club"
+button "Costa Congress Going Tuesday 2 Jun · 9 PMCamden Club This event isn’t taking names right now."
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at 'desktop' > /account/attendance: past party > renders 1`] = `
+"heading "My Event Attendance" level=1
+text "You haven’t said you’re going to any nights yet. Find a night on the calendar, then tap I’m going on its page."
+link "Browse events" href=/city/london-gb/calendar
+heading "Nights you went to" level=2
+button "Friday Social Went Friday 2 Jan · 9 PMCamden Club"
+link "Rate the dancing level" href=/event/past1#level-rating"
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: empty > signed in, with plans 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: empty > signed out 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+text "No dancers yet. Be the first to join!"
+button "Create Your Profile"
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed in, with plans 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
+  img
+  heading "Ana Lopez" level=3
+  text ", Teacher, DJ"
+link "F Fay" href=/dancers/d2
+  text "F"
+  heading "Fay" level=3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
+  text "EG"
+  heading "Eli Gomez" level=3
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;
+
+exports[`directory + attendance at 'desktop' > /dancers: mixed shapes > signed out 1`] = `
+"heading "Find Practice Partners" level=3
+heading "Create a Profile" level=3
+heading "Book a Photoshoot" level=3
+heading "BrowseDancers" level=2
+link "Ana Lopez ,Teacher,DJ" href=/dancers/d1
+  img
+  heading "Ana Lopez" level=3
+  text ", Teacher, DJ"
+link "F Fay" href=/dancers/d2
+  text "F"
+  heading "Fay" level=3
+link "EG Eli Gomez ,Teacher" href=/dancers/d3
+  text "EG"
+  heading "Eli Gomez" level=3
+  text ", Teacher"
+link "D Dancer" href=/dancers/d5
+  text "D"
+  heading "Dancer" level=3
+heading "Find ADance Partner" level=2
+text "Connect with dancers looking for practice partners"
+text "200+ looking for partners"
+button "Find Partners""
+`;

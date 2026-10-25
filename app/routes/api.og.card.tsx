@@ -27,6 +27,7 @@ import {
   resolveOgEventId,
   type OgCardData,
 } from "../lib/ogCardRender";
+import { isAllowedOgImageSource } from "../lib/ogImageSourceAllowlist";
 import type { Route } from "./+types/api.og.card";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
@@ -72,6 +73,7 @@ const FALLBACK_HEADER = "X-OG-Fallback";
 type FallbackReason =
   | "image-missing-src" //        kind=image with no src param
   | "image-source-unfetchable" // kind=image, source fetch failed or was too big
+  | "image-source-disallowed" //  kind=image, src not on the SSRF allow-list (never fetched)
   | "missing-id" //               no id param
   | "unresolvable-id" //          slug/uuid resolved to nothing
   | "card-data-unavailable" //    RPC failed or returned nothing -- GENERIC card
@@ -156,6 +158,10 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
       const etag = makeEtag(kind, idParam, src, occ, v);
       if (ifNoneMatch === etag) return new Response(null, { status: 304 });
       if (!src) return redirectToStatic("image-missing-src");
+      // Checked here as well as inside fetchImageBytes only to NAME the
+      // refusal: a refused src must read as a policy decision, not as a dead
+      // origin. fetchImageBytes refuses it regardless.
+      if (!isAllowedOgImageSource(src)) return redirectToStatic("image-source-disallowed");
       const bytes = await fetchImageBytes(src);
       if (!bytes) return redirectToStatic("image-source-unfetchable");
       return imageResponse(await buildImageCard(bytes), etag);
@@ -213,13 +219,13 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     const coverBytes = hasCoverUrl ? await fetchImageBytes(cardData.coverUrl as string) : null;
     // BOTH cover paths are marked, and the no-cover one is the subtle case.
     // For a DIRECT hit on this endpoint it is the designed flyer-less output.
-    // Through a real og:image it is a resolver disagreement: the page's cover
-    // is `cover_image_url ?? hero_image_url` (useEventPageQuery) while this
-    // endpoint's is `cover_image_url ?? venue.image_url` (ogCardRender), so a
-    // hero-only event at a photo-less venue emits a card URL whose card has no
-    // hero in it -- the page promises a picture, the share gets text. Measured
-    // across all 67 live series on 2026-08-10: ZERO are in that shape, so this
-    // reds nothing today and is a tripwire for the day one appears. The two
+    // Through a real og:image it is a resolver disagreement. Both sides now
+    // pick the cover with pickEventCoverSource(cover ?? hero, photo_urls)
+    // (useEventPageQuery and ogCardRender), this endpoint then falling back to
+    // venue.image_url, so a page that promises a picture should never get a
+    // card without one. Kept as a tripwire for the day the two resolvers drift
+    // apart again (they did until 2026-10-20: hero and gallery were page-only).
+    // The two
     // reasons stay distinct because they need different diagnoses: a dead URL
     // is a storage problem, an absent one a resolver problem.
     if (!coverBytes) {

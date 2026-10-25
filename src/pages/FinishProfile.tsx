@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { clearInvitePrefill, readInvitePrefill } from "@/lib/invitePrefill";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -13,8 +14,9 @@ import { AuthGuard } from "@/components/auth/AuthGuard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { sanitizeReturnTo } from "@/lib/authRouting";
 import { MY_DANCER_SUMMARY_ROOT } from "@/lib/myPersona";
-import { DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
+import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH, DANCER_GATE_REASON, isDancerGatedTarget } from "@/lib/accountRouting";
 import type { DanceRoleValue } from "@/lib/auth-otp-routing";
+import { FOCUS_NOT_NOW_LABEL } from "@/lib/focusMode";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
@@ -27,6 +29,8 @@ import {
   type ProfileField,
 } from "@/lib/profileCompletion";
 import { saveMyDancerProfile, type SaveMyDancerProfileInput } from "@/lib/saveMyDancerProfile";
+import { Dancer4Flow } from "@/modules/organiser/home/onboarding/dancer4/Dancer4Flow";
+import { useAuth } from "@/hooks/useAuth";
 
 type Draft = { first_name: string; based_city_id: string; dance_role: DanceRoleValue | ""; avatar_url: string };
 
@@ -47,7 +51,6 @@ export const buildFinishProfileSave = (fields: readonly ProfileField[], draft: D
 };
 
 const PILL = "w-full min-h-[44px] rounded-full font-semibold";
-
 /** The screen itself; exported for tests. The route renders the guarded default export. */
 export const FinishProfileScreen = () => {
   const completion = useProfileCompletion();
@@ -60,13 +63,25 @@ export const FinishProfileScreen = () => {
   // wanted is an account / organiser page. Then the screen says why, and has no
   // Skip -- skipping would only bounce them straight back here.
   const gated = isDancerGatedTarget(returnTo);
+  // An invited person's sender may have pre-filled the name and city (lib/invitePrefill, this person's only).
+  const { user } = useAuth();
+  // Keyed on the user: auth may resolve after the first render, and the store is only that person's to read.
+  const prefill = useMemo(() => readInvitePrefill(user?.id), [user?.id]);
 
-  const [draft, setDraft] = useState<Draft>({ first_name: "", based_city_id: "", dance_role: "", avatar_url: "" });
+  // What the person typed wins; until they type, the invite's prefill (which may arrive after the first render) shows.
+  const [edits, setEdits] = useState<Partial<Draft>>({});
+  const draft: Draft = {
+    first_name: edits.first_name ?? prefill?.firstName ?? "",
+    based_city_id: edits.based_city_id ?? prefill?.cityId ?? "",
+    dance_role: edits.dance_role ?? "",
+    avatar_url: edits.avatar_url ?? "",
+  };
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const mode = finishScreenMode(completion);
+  const noProfile = mode.kind === "no_profile";
   const fields = mode.kind === "form" ? mode.fields : [];
   const pending = buildFinishProfileSave(fields, draft);
 
@@ -83,6 +98,7 @@ export const FinishProfileScreen = () => {
     setNotice(null);
     try {
       await saveMyDancerProfile(pending);
+      clearInvitePrefill();
       // The dancer home's summary (name, city, role, photo) read the row before this save.
       void queryClient.invalidateQueries({ queryKey: [MY_DANCER_SUMMARY_ROOT] });
       // The SAME cache the rating card's gate is published from (ProfileCompletionChrome):
@@ -100,7 +116,7 @@ export const FinishProfileScreen = () => {
     }
   };
 
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setEdits((prev) => ({ ...prev, [key]: value }));
 
   let body;
   if (mode.kind === "loading") {
@@ -133,9 +149,17 @@ export const FinishProfileScreen = () => {
       </div>
     );
   } else if (mode.kind === "no_profile") {
+    // Audit H6. The site cannot create the profile: my_dancer_edit_v1 and save_my_dancer_profile_v2 raise
+    // no_profile, and only the sign-up trigger (trg_handle_new_dancer_profile) makes the stub. So this page is
+    // the real next step, not /app/welcome (that would be the same dead end in another skin). The fact and
+    // the contact link stay the ONE shared ones (completenessFact / NO_PROFILE_CONTACT_URL, the matrix in
+    // DancerFirstGate.matrix.test.tsx): their wording lives in lib/profileCompletion.ts.
     body = (
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">{completenessFact(completion).text}</p>
+        <p className="text-sm text-muted-foreground" data-testid="finish-profile-no-profile">{completenessFact(completion).text}</p>
+        {!gated && (
+          <p className="text-sm text-muted-foreground">You can still browse events in the meantime.</p>
+        )}
         <a
           href={NO_PROFILE_CONTACT_URL}
           target="_blank"
@@ -151,11 +175,14 @@ export const FinishProfileScreen = () => {
           </Link>
         ) : (
           <Button variant="ghost" className="w-full min-h-[44px] rounded-full text-muted-foreground" onClick={goBack}>
-            Continue
+            {FOCUS_NOT_NOW_LABEL}
           </Button>
         )}
       </div>
     );
+  } else if (gated && completion.profileId) {
+    // Arc 1 dancer 4: behind the dancer-first gate the four questions come one per screen.
+    body = <Dancer4Flow key={prefill ? "prefill" : "none"} missing={fields} profileId={completion.profileId} prefill={{ first_name: prefill?.firstName ?? null, city_id: prefill?.cityId ?? null }} refetch={completion.refetch} onDone={goBack} />;
   } else {
     body = (
       <form
@@ -189,8 +216,9 @@ export const FinishProfileScreen = () => {
 
         {fields.includes("based_city_id") && (
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Your city</Label>
+            <Label htmlFor="finish-city" className="text-sm font-medium">Your city</Label>
             <CityPicker
+              id="finish-city"
               value={draft.based_city_id}
               onChange={(id) => set("based_city_id", id)}
               placeholder="Select your city&hellip;"
@@ -217,7 +245,7 @@ export const FinishProfileScreen = () => {
               value={draft.avatar_url}
               onChange={(url) => set("avatar_url", url)}
               userId={completion.profileId}
-              initials={(draft.first_name.trim()[0] ?? "?").toUpperCase()}
+              name={draft.first_name.trim() || null}
             />
           </div>
         )}
@@ -251,18 +279,27 @@ export const FinishProfileScreen = () => {
   // No breadcrumb: a sign-in step like Auth / AuthCallback / Onboarding
   // (.claude/rules/breadcrumbs.md), so showSubheader={false}.
   return (
-    <GlobalLayout showSubheader={false}>
+    // L7 (review #789 S4): a task page; no floating decoration over "Not now" or the settings link.
+    <GlobalLayout showSubheader={false} showGradientBg={false}>
       {/* No background and no min-height here: GlobalLayout paints the page wash
           (fixed, full screen). An opaque bg-background block 70vh tall used to sit
           on top of it, so the page read as a black block with the wash showing
           below it as a purple band. */}
       <div className="px-4 pb-24 pt-6">
         <div className="mx-auto w-full max-w-md space-y-3">
-          <h1 className="text-lg font-bold text-foreground">Finish your profile</h1>
+          <h1 className="text-lg font-bold text-foreground">{noProfile ? "Set up your dancer profile" : "Finish your profile"}</h1>
           {gated && (
             <p className="text-sm text-foreground" data-testid="finish-profile-gate-reason">{DANCER_GATE_REASON}</p>
           )}
           <div className="rounded-xl border border-border bg-card p-3">{body}</div>
+          {/* Never a trap: sign out, hide or delete the account without finishing. */}
+          <Link
+            to={ACCOUNT_SETTINGS_PATH}
+            className="flex min-h-[44px] items-center justify-center text-[14px] font-semibold text-primary underline underline-offset-2"
+            data-testid="finish-profile-settings"
+          >
+            {ACCOUNT_SETTINGS_LABEL} (sign out or delete account)
+          </Link>
         </div>
       </div>
     </GlobalLayout>

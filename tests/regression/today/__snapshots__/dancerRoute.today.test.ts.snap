@@ -1,0 +1,198 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`/dancers/:id route, by shape (requested by slug) > admin-made, surname inside display_name 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Eli Gomez",
+  "entitySlug": "eli-gomez",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/eli-gomez",
+    "description": "Eli Gomez - profile on Bachata Calendar.",
+    "jsonLd": 0,
+    "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Eli Gomez - Bachata Dancer | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000006,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > admin-made, unclaimed, photoless 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Dani",
+  "entitySlug": "dani",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/dani",
+    "description": "Dani - profile on Bachata Calendar.",
+    "jsonLd": 0,
+    "ogImage": "https://www.bachatacalendar.co.uk/og-image.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Dani - Bachata Dancer | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000005,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > complete + all extras 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Carla Ruiz",
+  "entitySlug": "carla-ruiz",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/carla-ruiz",
+    "description": "Carla Ruiz - profile on Bachata Calendar Manchester.",
+    "jsonLd": 0,
+    "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Carla Ruiz - Bachata Dancer, Manchester | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000004,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > deactivated (is_active=false) 1`] = `
+{
+  "robots": "noindex",
+  "status": 404,
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > four-field complete 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Ana Lopez",
+  "entitySlug": "ana-lopez",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/ana-lopez",
+    "description": "Ana Lopez - profile on Bachata Calendar London.",
+    "jsonLd": 0,
+    "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Ana Lopez - Bachata Dancer, London | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000003,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > hidden surname (RPC masks it) 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Fay",
+  "entitySlug": "fay",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/fay",
+    "description": "Fay - profile on Bachata Calendar.",
+    "jsonLd": 0,
+    "ogImage": "https://example.test/api/og/card?kind=image&src=https%3A%2F%2Fcdn.example.test%2Fana.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Fay - Bachata Dancer | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000007,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > name + city only 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Bea",
+  "entitySlug": "bea",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/bea",
+    "description": "Bea - profile on Bachata Calendar London.",
+    "jsonLd": 0,
+    "ogImage": "https://www.bachatacalendar.co.uk/og-image.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Bea - Bachata Dancer, London | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000002,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by shape (requested by slug) > names RPC returns no row (fails closed to first name) 1`] = `
+{
+  "cdnKeys": [
+    "Cache-Control",
+    "Vercel-CDN-Cache-Control",
+    "Vercel-Cache-Tag",
+  ],
+  "entityName": "Gus",
+  "entitySlug": "gus",
+  "head": {
+    "canonical": "https://www.bachatacalendar.co.uk/dancers/gus",
+    "description": "Gus - profile on Bachata Calendar.",
+    "jsonLd": 0,
+    "ogImage": "https://www.bachatacalendar.co.uk/og-image.jpg",
+    "ogType": "profile",
+    "robots": null,
+    "title": "Gus - Bachata Dancer | Bachata Calendar",
+  },
+  "tag": "dancer-00000000-0000-4000-8000-000000000008,dancers",
+}
+`;
+
+exports[`/dancers/:id route, by uuid and misses > deactivated profile -> 404 + noindex 1`] = `
+{
+  "kind": "response",
+  "location": null,
+  "robots": "noindex",
+  "status": 404,
+}
+`;
+
+exports[`/dancers/:id route, by uuid and misses > malformed uuid prefix -> 404 + noindex 1`] = `
+{
+  "kind": "response",
+  "location": null,
+  "robots": "noindex",
+  "status": 404,
+}
+`;
+
+exports[`/dancers/:id route, by uuid and misses > unknown slug -> 404 + noindex 1`] = `
+{
+  "kind": "response",
+  "location": null,
+  "robots": "noindex",
+  "status": 404,
+}
+`;
+
+exports[`/dancers/:id route, by uuid and misses > uuid with a canonical slug -> 301 to the slug, query string kept 1`] = `
+{
+  "kind": "response",
+  "location": "/dancers/ana-lopez?x=1",
+  "robots": null,
+  "status": 301,
+}
+`;

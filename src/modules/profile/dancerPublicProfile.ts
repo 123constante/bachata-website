@@ -1,6 +1,8 @@
 import type { Database } from "@/integrations/supabase/types";
 import { resolvePublicName } from "@/lib/publicName";
+import { withPublicNames } from "@/lib/publicDancerNames";
 import { getPhotoUrl, parsePartnerDetails } from "@/lib/utils";
+import { normaliseNationalityCode } from "@/components/people/nationality";
 
 type DancerRow = Database["public"]["Tables"]["dancer_profiles"]["Row"];
 type DancingRoleDetails = Database["public"]["Tables"]["dancing_role_details"]["Row"];
@@ -67,7 +69,17 @@ export type DancerPublicQueryRecord = Pick<
 // it here rather than at each call site is the whole point -- the cast this
 // replaced is what let the two copies drift in the first place.
 export const DANCER_PUBLIC_COLS =
-  "id, display_name, first_name, surname, nationality, dance_role, instagram, facebook, avatar_url, website_url, gallery_urls, cities!based_city_id(name), dancing_role_details(*)" as const;
+  "id, first_name, nationality, dance_role, instagram, facebook, avatar_url, website_url, gallery_urls, cities!based_city_id(name), dancing_role_details(*)" as const;
+
+/**
+ * `surname` / `display_name` are NOT in DANCER_PUBLIC_COLS: a direct column read
+ * bypasses "Hide my surname from the public". The masked names come from
+ * get_public_dancer_names_v1 and are merged here, so the row handed to
+ * mapDancerPublicProfile carries the same fields as before, already masked.
+ * Never throws: on an RPC failure the page shows the first name only.
+ */
+export const attachPublicDancerName = async <T extends { id: string }>(row: T) =>
+  (await withPublicNames([row]))[0];
 
 export type DancerPublicViewModel = {
   id: string;
@@ -78,6 +90,8 @@ export type DancerPublicViewModel = {
   avatarUrl: string | null;
   city: string | null;
   nationality: string | null;
+  /** ISO alpha-2 for the flag on the photo, or null (no flag); see components/people/nationality. */
+  nationalityCode: string | null;
   yearsDancing: string | null;
   dancingStartDate: string | null;
   favoriteStyles: string[];
@@ -175,6 +189,7 @@ export const mapDancerPublicProfile = (record: DancerPublicRecord | DancerPublic
     avatarUrl: getPhotoUrl(canonicalRecord.avatar_url),
     city: canonicalRecord.cities?.name || null,
     nationality: canonicalRecord.nationality,
+    nationalityCode: normaliseNationalityCode(canonicalRecord.nationality),
     yearsDancing,
     dancingStartDate: null,
     favoriteStyles: normalizeStringArray(canonicalRecord.favorite_styles),

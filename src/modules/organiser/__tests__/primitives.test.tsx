@@ -111,7 +111,7 @@ describe('DateChip', () => {
   });
   it('gives screen readers the full date', () => {
     render(<DateChip date="2026-10-09" testId="d" />);
-    expect(screen.getByTestId('d').textContent).toContain('Fri 9 October');
+    expect(screen.getByTestId('d').textContent).toContain('Friday 9 October');
   });
 });
 
@@ -154,7 +154,7 @@ describe('Cover / AttentionStrip / SearchField', () => {
     const { rerender } = render(<Cover alt="" testId="c" />);
     expect(screen.queryByTestId('c-change')).toBeNull();
     rerender(<Cover alt="" onChange={onChange} testId="c" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Change cover' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change flyer' }));
     expect(onChange).toHaveBeenCalled();
   });
   it('strip is one button with its action word', () => {
