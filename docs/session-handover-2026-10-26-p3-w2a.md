@@ -42,3 +42,17 @@ Sandbox note: run hooks and vitest with `NODE_PATH=` (the container's global NOD
 4. Fill the PR body (template: Verified on real data + Phone QA sections) and the per-job CI table from GitHub.
 5. Known gaps (documented, not bugs): stored role `mc` not shown; per-date session changes not drawn (W2b);
    a broken cover URL leaves an empty 16:9 box.
+
+## Continuation session (2026-10-26, ticket dt_4f0ba0b7cc73, brief `briefs/p3-w2a-cont.md`)
+- **Item 1:** the 3 red e2e specs on `origin/main` (worktree, CI env) gave 3 flaky (fail, then pass on retry) and 16 passed.
+  They are pre-existing timing flakes, not this diff. On the branch: 1 flaky, 18 passed.
+- **Item 2:** the phone suite was RED on 1fd2970 (`organiser-refusal-copy.phone.spec.ts`). The new COMMAND_COPY rows used
+  `\w+` / `[a-z_]+`, which the spec's sample builder cannot fill. They now use `\S+` (5fa142e). After the fix: 405 passed,
+  1 flaky (invite raffle phone field), 128 skipped. Build smoke (CI env): 73 passed.
+- **Item 3:** walk done, 27 PNGs + `metrics.jsonl` in `docs/handover/p3-w2a-walk/`. The walk spec `.txt` now waits for the
+  page to render and measures a checkbox's label row as its tap target. Design record stage 4 is filled, with the
+  prod shape survey counts.
+- **Item 4:** PR body filled (Verified on real data, Phone QA, per-job CI table); `[skip preview]` dropped from the title.
+- **Item 5:** cover-box gap left as documented (not cheap enough to fix safely here).
+- **Next:** owner review of the PNGs and the phone check; confirm `phone-qa`, `real-data-verified` and `phone-qa-section`
+  go green on the final head.

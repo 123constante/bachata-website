@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { readFileSync } from 'node:fs';
+import { readFileSync, appendFileSync } from 'node:fs';
 import { checkOverflow, fakeSupabase, frames } from './helpers';
 import { FAKE_ORIGIN } from './fakeSupabase.mjs';
 
@@ -19,16 +19,24 @@ async function open(page: Page, shape: string, scheme: 'light' | 'dark' = 'light
       : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SHAPES[shape]) }));
   await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/series_command_p5`, (r) => { sent.push(r.request().postDataJSON()); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, new_version: 8 }) }); });
   await page.goto(`/account/p3/events/${id}`);
+  await page.locator('[data-testid=p3-open-status],[data-testid=p3-event-notfound]').first().waitFor();
 }
 
 async function checks(page: Page, label: string, scope = '.p3-frame') {
   expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
   const small = await page.evaluate((s) => [...document.querySelectorAll(`${s} button, ${s} a[href], ${s} input`)]
-    .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+    .map((el) => el.closest('label') ?? el).filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
     .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? '').trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) }))
     .filter((x) => x.h < 44), scope);
   expect(small, `${label}: taps >= 44px`).toEqual([]);
   const axe = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  const clip = await page.evaluate((s) => [...document.querySelectorAll(`${s} *`)]
+    .filter((el) => { const c = getComputedStyle(el); return el.children.length === 0 && (el.textContent ?? '').trim() && el.scrollWidth > el.clientWidth + 1 && c.overflow !== 'visible' && el.clientWidth > 0; })
+    .map((el) => (el.textContent ?? '').trim().slice(0, 40)), scope);
+  const taps = await page.evaluate((s) => [...document.querySelectorAll(`${s} button, ${s} a[href], ${s} input`)]
+    .map((el) => (el.closest('label') ?? el).getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => Math.round(r.height)), scope);
+  const contrast = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  appendFileSync(`${OUT}/metrics.jsonl`, JSON.stringify({ label, sideways: (await checkOverflow(page)).length, taps: taps.length, minTap: Math.min(...taps), clipped: clip, contrastViolations: contrast.violations.length, contrastPasses: contrast.passes.flatMap((v) => v.nodes).length }) + '\n');
   expect(axe.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast`).toEqual([]);
 }
 
@@ -124,3 +132,15 @@ test('course + ended + no sessions + not found', async ({ page }) => {
   await expect(page.getByTestId('p3-event-notfound')).toBeVisible();
   await shot(page, '16-not-found-light');
 });
+
+for (const [shape, scheme] of [['oneoff', 'dark'], ['paused', 'light'], ['ended', 'light'], ['course', 'dark']] as const) {
+  test(`${shape} page ${scheme}`, async ({ page }) => {
+    await open(page, shape, scheme);
+    await expect(page.getByTestId('p3-event-name')).toBeVisible();
+    await checks(page, `${shape} page`);
+    await shot(page, `17-${shape}-page-${scheme}`);
+    await sheet(page);
+    await checks(page, `${shape} sheet`, '.p3-sheet');
+    await shot(page, `18-status-sheet-${shape}-${scheme}`);
+  });
+}
