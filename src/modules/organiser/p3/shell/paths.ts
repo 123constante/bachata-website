@@ -9,7 +9,9 @@ export const P3_PATHS = {
   events: `${P3_BASE}/events`,
   stats: `${P3_BASE}/stats`,
   you: `${P3_BASE}/you`,
+  /** One event's page (W2a). */
+  event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,
 } as const;
 
-export type P3Tab = keyof typeof P3_PATHS;
+export type P3Tab = 'home' | 'events' | 'stats' | 'you';
 export const P3_TABS: readonly P3Tab[] = ['home', 'events', 'stats', 'you'];

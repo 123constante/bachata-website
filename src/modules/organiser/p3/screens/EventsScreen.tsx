@@ -45,7 +45,7 @@ export function EventsScreen() {
         </section>
       )}
       <p className="p3-note">
-        Opening an event here comes next. Until then: <ChangeItLink>change or add an event in the current organiser area</ChangeItLink>.
+        Tap an event to open it. To change or add one: <ChangeItLink>use the current organiser area</ChangeItLink>.
       </p>
     </div>
   );

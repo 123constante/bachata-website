@@ -196,6 +196,13 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /must be a HH:MM time|must be blank or a HH:MM time/, message: 'Enter the time as hours and minutes, like 19:30.' },
   { match: /date must be a YYYY-MM-DD date/, message: 'Choose a date.' },
   { match: /is not an owner transition|^lifecycle_transition_denied/, message: 'That status change is not available for this event right now.' },
+  // P3 W2a, the Status sheet: series.end_run and series.stop_repeating refusals (_cmd_series_end_run_p5,
+  // _cmd_series_stop_repeating_p5 as read on prod 2026-10-26). Anchored: the server text names ids and formats.
+  { match: /^invalid_payload: today_session_required/, message: 'This event has a date today. Say whether tonight happened, then end it.' },
+  { match: /^invalid_transition: series \S+ has no night this platform can evidence/, message: 'We have no record of a night this event ran, so it cannot be ended. Remove it instead, or ask the Bachata Calendar team.' },
+  { match: /^invalid_transition: course \S+ is (live|paused)\. A course must keep a schedule/, message: 'A course keeps its dates while it runs. End it when the last class is done.' },
+  { match: /^invalid_transition: series \S+ is '[a-z_]+'\. Only a live or paused series can be ended/, message: 'Only a live or hidden event can be ended. Reload the page to see it as it is now.' },
+  { match: /^invalid_transition: series \S+ (is not a ruled recurring series|has format)/, message: 'This event does not repeat, so there is nothing to stop. Reload the page to see it as it is now.' },
   { match: /is not a date the recurrence rule/, message: 'The weekly pattern changed since this date was taken off, so it cannot be put back as a break. Add it as a date instead.' },
   { match: /is not a break on series/, message: 'That date is already back on the list. Reload the page.' },
   { match: /^publish_blocked/, message: 'This event needs more details before it can go live again. Ask the Bachata Calendar team.' },
