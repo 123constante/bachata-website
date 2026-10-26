@@ -69,3 +69,24 @@ Done:
 
 Hand-off for the owner: flip `VITE_ENABLE_TEACHERS_DIRECTORY` only after this PR merges, and redeploy. The edge reads
 the same env var at runtime, so the flip also lifts the edge `noindex`.
+
+Review round 2 (/code-review high, last round under the two-round rule for a user-facing change):
+- Fixed: the edge reads the flag env var by a STATIC key (`process.env.VITE_ENABLE_TEACHERS_DIRECTORY`), not as a
+  computed lookup on `process.env`. A spec pins the var name to `src/lib/featureFlags.ts` and to `middleware.ts`. The
+  stale "takes the slug" header comment in `citySubpageSeo` is corrected.
+- Not fixed, with reasons:
+  - With the flag ON, Googlebot still gets the edge OG stub, not the SPA list. This is the same deliberate treatment as
+    `/city/:slug/map`: `next()` would serve a zero-byte document, because the catchall renders null on the server.
+    The real fix is an SSR route, queued in `queued-city-map-ssr-route.md`; it applies to both pages.
+  - The N1/N2 reset never fires in production (Routes is keyed by pathname). This is stated above; the brief asked
+    for it.
+  - Flag set via `.env.production` would leave the edge noindexed: no such file exists. Flags live in Vercel project
+    env, which the edge reads.
+  - The 5-minute TTL on the noindex answer contradicts round 1's finding. It is kept as cheap insurance for the
+    flip (bot-only traffic, flag OFF).
+  - The gate test's absence check uses a sleep. The mutation (gate removed) proved it red; the "gate renders both"
+    case is hypothetical.
+- No review stamp was minted: the forked reviewer reported findings as text, not via ReportFindings. `ship-gate`
+  is GREEN on the soft (advisory) tier.
+
+Local CI on the final tree: see the PR body's "Per-job CI" table.

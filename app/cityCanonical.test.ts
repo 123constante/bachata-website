@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   CLEAN_LISTINGS,
@@ -95,6 +96,16 @@ describe('/city/:slug/teachers is its own canonical (B1)', () => {
 
   it('map keeps the slug-derived name even when a DB name is passed', () => {
     expect(citySubpageSeo('map', 'stoke-on-trent-gb', 'Stoke-on-Trent')!.title).toBe('Bachata Map of Stoke On Trent');
+  });
+
+  it('reads the SAME env var the SPA flag is built from (src/lib/featureFlags.ts)', () => {
+    // A rename on one side only would noindex a live directory forever.
+    const src = readFileSync('src/lib/featureFlags.ts', 'utf8');
+    const m = src.match(/teachersDirectory:\s*import\.meta\.env\.(\w+)\s*===\s*'true'/);
+    expect(m, 'featureFlags.ts teachersDirectory line changed shape').not.toBeNull();
+    expect(citySubpageNoindex('teachers', { [m![1]]: 'true' })).toBe(false);
+    expect(citySubpageNoindex('teachers', { [m![1]]: 'false' })).toBe(true);
+    expect(readFileSync('middleware.ts', 'utf8')).toContain(`process.env.${m![1]}`);
   });
 
   it('is noindex at the edge unless VITE_ENABLE_TEACHERS_DIRECTORY is exactly "true"', () => {

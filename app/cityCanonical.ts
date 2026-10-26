@@ -144,7 +144,11 @@ export function citySelfCanonicalListing(segments: string[]): string | null {
  * `listing` is expected to come from citySelfCanonicalListing(), so the
  * 3-segment rule is applied once rather than restated here.
  *
- * TAKES THE SLUG, NOT THE CITY NAME, and that is the finding it exists to
+ * WHICH NAME is per entry (`nameFrom`): each subpage takes the name its SPA
+ * page titles from. /teachers uses `dbCityName` (src/pages/Teachers.tsx titles
+ * from the cities row); /map takes the slug, for the reason below.
+ *
+ * /map TAKES THE SLUG, NOT THE CITY NAME, and that is the finding it exists to
  * answer. The middleware has `cities.name` from the DB in hand and it is the
  * better string ("Stoke-on-Trent"); src/pages/CityMap.tsx titles the SAME URL
  * from cityDisplayFromSlug(slug) ("Stoke On Trent"), because CityContext

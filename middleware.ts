@@ -383,7 +383,10 @@ export default async function middleware(request: Request): Promise<Response> {
         // Read per request, not at module load, so the env the deploy carries
         // is the one that answers. Flag OFF -> the SPA shows a coming-soon gate
         // here, so the card stays shareable but the URL is not indexed.
-        if (citySubpageNoindex(selfListing, process.env)) meta.noindex = true;
+        // A STATIC key, like every other env read in this file: an edge bundler
+        // may inline process.env.X while offering no full process.env object.
+        const gateEnv = { VITE_ENABLE_TEACHERS_DIRECTORY: process.env.VITE_ENABLE_TEACHERS_DIRECTORY };
+        if (citySubpageNoindex(selfListing, gateEnv)) meta.noindex = true;
       }
       break;
     }
