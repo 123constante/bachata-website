@@ -30,14 +30,39 @@ the app shell's first-load graph does not carry the rest).
 |---|---|---|---|
 | Active city with teachers (London 46, a 5-teacher city) | Bachata Teachers in <city> | none | cards; Change city |
 | Active city with 0 | Bachata Teachers in <city> | No teachers listed in <city> yet. Know one? | **Tell us** (ListingRequestForm, section `teachers_directory`); See another city |
-| Inactive slug | Bachata Teachers in London | No teachers listed in Madrid yet. Know one? Showing teachers in London instead. | Tell us; London's cards |
-| Unknown slug | Bachata Teachers in London | No teachers listed in that city yet. Know one? Showing ... London instead. | Tell us; London's cards |
+| Inactive slug | Bachata Teachers in London | No teachers listed in Madrid yet. Know one? Showing teachers in London instead. | Tell us; London's cards. Document answers HTTP 404 (`app/catchallGate.ts`), non-indexable |
+| Unknown slug | Bachata Teachers in London | No teachers listed in that city yet. Know one? Showing ... London instead. | Tell us; London's cards. Document answers HTTP 404, non-indexable |
 | Loading | Bachata Teachers | -- | skeleton cards; switcher disabled ("Loading cities"); canonical London |
 | Read error (cities or teachers) | -- | We couldn't load the teachers. Check your connection and try again. | **Try again** |
 | Filters match nothing | -- | No teachers match your filters. | Clear filters |
 
+Changing city closes "Tell us" and clears the Name/Style filters (a new city is a new list).
+
 The client-side City filter tab is gone (the list is narrowed on the server by `p_city_slug`); filter tabs are now
 All / Name / Style in a 3-column row.
+
+## Redirect from the bare `/<slug>/teachers` form (vercel.json)
+`/<inactive>-xx/teachers` (e.g. `/madrid-es/teachers`) permanently 308s to `/city/<inactive>/teachers`, which answers
+HTTP 404 by design (`is_valid_city_slug` is false for an inactive city); a person still sees London's list and the
+note. This is intended: an inactive city has no directory, so crawlers should drop the URL. Do NOT revert the rule to
+`/teachers` -- that would send an active city's bare URL away from its own page. Active slugs (`/london-gb/teachers`)
+land on their real page. No loop: the source is one segment, and `city` cannot match `[a-z-]+-[a-z]{2}`.
+
+## What bots read at the edge (middleware.ts)
+`/city/:slug/teachers` is a SELF-canonical subpage (`SELF_CANONICAL_SUBPAGES` in `app/cityCanonical.ts`, beside
+`map`): bot UAs get `<link rel="canonical">` = `/city/<slug>/teachers` and a card titled "Bachata Teachers in <city>",
+the copy pinned to `buildSeoForRoute('teachers', ...)` by `app/cityCanonical.test.ts`. The city name is `cities.name`
+(the row the page itself titles from), not the slug-derived name `/map` uses, so "Stoke-on-Trent" reads the same to bots and people. It used to sit in
+`CLEAN_LISTINGS`, which told bots the canonical was `/teachers` (a URL that client-redirects back here).
+`/city/:slug/classes` and the other clean listings still consolidate as before.
+
+Flag OFF: before this PR a bot already got edge HTML for this URL (city card, canonical `/teachers`, indexable). Now
+it gets the teachers card with the self canonical AND `noindex` (`<meta name="robots">` + `X-Robots-Tag`): the edge
+reads `VITE_ENABLE_TEACHERS_DIRECTORY` from the runtime env (Vercel gives middleware the project env) with the SPA's
+`=== 'true'` rule (`citySubpageNoindex`). The flip therefore needs a redeploy (it does for the SPA anyway); a
+redeploy also drops the edge-cached noindex copy, and the noindex answer is cached for only 5 minutes (`s-maxage=300`),
+not the city card's hour + week of stale-while-revalidate. With the flag ON, an active city with 0 teachers is still
+indexable (critique N5, left as judged: only London is active today).
 
 ## Tokens
 No new tokens or colours. Reuses the page's existing shadcn tokens: `Button` outline (switcher, Try again, See another

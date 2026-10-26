@@ -261,3 +261,40 @@ describe('Teachers page, city x shape', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(to));
   });
 });
+
+// N1 / N2 (critique of PR #1049): a city change is a new list. The page stays
+// mounted across the switch here (one <Route> element), which is the shape in
+// which state used to leak.
+describe('state resets when the city changes', () => {
+  const pick = async (name: string) => {
+    fireEvent.click(screen.getByTestId('teachers-city-switcher'));
+    await screen.findByTestId('teachers-city-sheet');
+    fireEvent.click(screen.getByRole('button', { name }));
+  };
+
+  it('N1: "Tell us" opened on an inactive city is closed after switching city', async () => {
+    renderAt('/city/madrid-es/teachers');
+    await waitFor(() => expect(screen.getByTestId('teachers-city-note').textContent).toContain('Madrid'));
+    fireEvent.click(screen.getByRole('button', { name: TELL_US_LABEL }));
+    expect(await screen.findByRole('button', { name: /submit|send/i })).toBeTruthy();
+    await pick('Leeds');
+    await waitFor(() => expect(screen.getByTestId('teachers-city-heading').textContent).toBe('Bachata Teachers in Leeds'));
+    // Leeds (active, 0) also shows the note: it must open CLOSED.
+    await waitFor(() => expect(screen.getByTestId('teachers-city-note').textContent).toContain('Leeds'));
+    expect(screen.getByRole('button', { name: TELL_US_LABEL })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /submit|send/i })).toBeNull();
+  });
+
+  it('N2: a Name filter set in London is cleared when switching to Manchester', async () => {
+    renderAt('/city/london-gb/teachers');
+    await waitFor(() => expect(cardCount()).toBe(46));
+    fireEvent.click(screen.getByRole('button', { name: /Name$/ }));
+    fireEvent.change(await screen.findByPlaceholderText('Search by name...'), { target: { value: 'zzz' } });
+    await waitFor(() => expect(screen.getByText('No teachers match your filters.')).toBeTruthy());
+    await pick('Manchester');
+    await waitFor(() => expect(screen.getByTestId('teachers-city-heading').textContent).toBe('Bachata Teachers in Manchester'));
+    await waitFor(() => expect(cardCount()).toBe(5));
+    expect(screen.queryByText('No teachers match your filters.')).toBeNull();
+    await waitFor(() => expect(screen.queryByPlaceholderText('Search by name...')).toBeNull());
+  });
+});

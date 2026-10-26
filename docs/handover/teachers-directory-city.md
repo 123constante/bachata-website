@@ -38,3 +38,34 @@ instead of a `'london-gb'` literal; the loading canonical is London's. Kept, wit
 - Small, not done: the "Tell us" form stays open if the visitor switches city in the sheet (same component instance).
 - The teacher card grid is still 1 column on phones (pre-existing; the 3-column density rule is a separate change).
 - Public API `/api/v1/teachers` also lost inactive-city rows after admin #1039 (pack note; Worker B's area).
+
+## Fixes round (critique of 2026-10-25, verdict FIX-THEN-MERGE)
+Continuation worker, same branch, brief `brief/teachers-directory-city-fixes.md`. Flag still OFF; no migration.
+
+Done:
+- **B1** `app/cityCanonical.ts`: `teachers` moved from `CLEAN_LISTINGS` to `SELF_CANONICAL_SUBPAGES`. Bots get canonical
+  `/city/<slug>/teachers` and a "Bachata Teachers in <city>" card. The copy is pinned to `buildSeoForRoute('teachers')`.
+  Each table entry now declares `nameFrom` (`map` uses the slug; `teachers` uses `cities.name`, as `Teachers.tsx` does)
+  and `gateEnv`. While `VITE_ENABLE_TEACHERS_DIRECTORY` is not `'true'` the edge emits `noindex` (meta + `X-Robots-Tag`)
+  on a 5-minute cache (`citySubpageNoindex`). `/city/<slug>/classes` still consolidates onto `/classes`. Proof:
+  `tests/middlewareCityCanonical.test.ts` (Googlebot request, self canonical, not `/teachers`, classes unchanged,
+  noindex off/on) and `app/cityCanonical.test.ts`. 8 of these tests were red with `teachers` put back in
+  `CLEAN_LISTINGS`, and 2 were red with `nameFrom` set to `'slug'`.
+- **S1** `src/modules/teachers-directory/__tests__/teachersGate.routes.test.tsx`: renders the real `AnimatedRoutes`
+  with the flag OFF at `/teachers` and `/city/london-gb/teachers`. Red with `teachersGate(...)` removed from the new
+  route, green once it was restored.
+- **S2/S3** design record: the HTTP 404 note is in the states table, plus a paragraph on the `vercel.json` 308
+  (do NOT revert it to `/teachers`) and a section on what bots read at the edge, flag OFF and ON.
+- **N1/N2** `Teachers.tsx`: a city change closes "Tell us" and the switcher sheet, and clears the Name/Style filters
+  (state is reset during render, not in an effect). Matrix tests N1 and N2 were red with the reset disabled.
+  Honest note: in the real app `AnimatedRoutes` keys `<Routes>` by pathname, so a city change already remounts the
+  page. The leak showed only where the page stays mounted (the test harness, or a future change to that key). The
+  reset makes the page correct on its own.
+- N3/N4/N5 left alone, as the brief says.
+
+/code-review findings not fixed, with reasons:
+- With the flag ON, an active city with 0 teachers is indexable (a thin page). This is critique N5, which the brief
+  says to leave; only London is active today.
+
+Hand-off for the owner: flip `VITE_ENABLE_TEACHERS_DIRECTORY` only after this PR merges, and redeploy. The edge reads
+the same env var at runtime, so the flip also lifts the edge `noindex`.

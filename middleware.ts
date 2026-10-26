@@ -19,6 +19,7 @@ import {
   CLEAN_LISTINGS,
   cityCanonicalPath,
   citySelfCanonicalListing,
+  citySubpageNoindex,
   citySubpageSeo,
 } from './app/cityCanonical';
 
@@ -106,6 +107,9 @@ interface OgMeta {
   type: string;
   url: string;
   canonicalHref?: string;
+  // Set only for a self-canonical city subpage whose feature flag is OFF
+  // (citySubpageNoindex): emitted as <meta name="robots"> AND X-Robots-Tag.
+  noindex?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -232,10 +236,11 @@ async function fetchCityMeta(
   const c = Array.isArray(rows) ? rows[0] : null;
   if (!c || !c.name) return null;
 
-  // The SLUG, not c.name: src/pages/CityMap.tsx titles this same URL from
-  // cityDisplayFromSlug(slug), and the two must not disagree. citySubpageSeo's
-  // header carries the full reasoning and the copy this gives up.
-  const sub = citySubpageSeo(selfListing, slug);
+  // Each subpage takes the city name its SPA page uses (nameFrom in
+  // app/cityCanonical.ts): /map the SLUG, because src/pages/CityMap.tsx titles
+  // from cityDisplayFromSlug(slug); /teachers c.name, because src/pages/Teachers.tsx
+  // titles from the cities row. citySubpageSeo's header carries the reasoning.
+  const sub = citySubpageSeo(selfListing, slug, c.name);
 
   const title = truncate(sub ? sub.title : `Bachata in ${c.name}`, 90);
 
@@ -258,7 +263,7 @@ async function fetchCityMeta(
 // ─── HTML renderer ────────────────────────────────────────────────────────────
 
 function buildMetaHtml(meta: OgMeta): string {
-  const { title, description, image, type, url, canonicalHref } = meta;
+  const { title, description, image, type, url, canonicalHref, noindex } = meta;
 
   const descForMeta = description || title;
   const canonicalTag = canonicalHref
@@ -272,6 +277,7 @@ function buildMetaHtml(meta: OgMeta): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(descForMeta)}" />
+  ${noindex ? '<meta name="robots" content="noindex" />' : ''}
   ${canonicalTag}
   <meta property="og:site_name" content="Bachata Calendar" />
   <meta property="og:type" content="${escapeHtml(type)}" />
@@ -374,6 +380,10 @@ export default async function middleware(request: Request): Promise<Response> {
       meta = await fetchCityMeta(id, canonicalUrl, selfListing);
       if (meta) {
         meta.canonicalHref = `${SITE_URL}${cityCanonicalPath(segments)}`;
+        // Read per request, not at module load, so the env the deploy carries
+        // is the one that answers. Flag OFF -> the SPA shows a coming-soon gate
+        // here, so the card stays shareable but the URL is not indexed.
+        if (citySubpageNoindex(selfListing, process.env)) meta.noindex = true;
       }
       break;
     }
@@ -437,6 +447,13 @@ export default async function middleware(request: Request): Promise<Response> {
     headers['Cache-Control'] = 'public, s-maxage=300, stale-while-revalidate=600';
   } else {
     headers['Cache-Control'] = 'public, s-maxage=3600, stale-while-revalidate=604800';
+  }
+
+  if (meta.noindex) {
+    headers['X-Robots-Tag'] = 'noindex';
+    // Short-lived, like the 404s above: a cached noindex must not outlive the
+    // flag flip by the untagged regime's hour + week of stale-while-revalidate.
+    headers['Cache-Control'] = 'public, max-age=0, s-maxage=300';
   }
 
   return new Response(buildMetaHtml(meta), { headers });

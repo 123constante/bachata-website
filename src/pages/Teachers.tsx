@@ -167,6 +167,20 @@ const Teachers = () => {
   const [searchName, setSearchName] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
 
+  // A city change is a new list: close the sheet and "Tell us", drop the Name/Style
+  // filters, so Manchester never opens on London's choice. Reset during render
+  // (React's "adjust state when a prop changes" pattern), not in an effect, so
+  // the new city never paints one frame with the old state.
+  const [stateSlug, setStateSlug] = useState(wantedSlug);
+  if (stateSlug !== wantedSlug) {
+    setStateSlug(wantedSlug);
+    setSwitcherOpen(false);
+    setTellUsOpen(false);
+    setActiveFilter('all');
+    setSearchName('');
+    setSelectedStyle(null);
+  }
+
   const uniqueStyles = useMemo(
     () => [...new Set(teachers.flatMap((t) => t.teaching_styles || []))].sort(),
     [teachers],

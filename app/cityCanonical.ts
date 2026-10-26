@@ -16,7 +16,7 @@
 // prerendered clean pages instead of splitting across the /city/* variants.
 export const CLEAN_LISTINGS = new Set([
   'parties', 'classes', 'tonight', 'venues', 'discounts', 'practice-partners',
-  'choreography', 'dancers', 'festivals', 'teachers', 'djs', 'organisers',
+  'choreography', 'dancers', 'festivals', 'djs', 'organisers',
   'cities', 'videographers', 'vendors', 'search',
 ]);
 
@@ -61,14 +61,62 @@ function cityDisplayFromSlug(slug: string | null | undefined): string | null {
  * homepage with the Calendar tab open, so '/' is the correct canonical for it
  * and it stays on the fallback arm below.
  */
-const SELF_CANONICAL_SUBPAGES = new Map<string, (cityName: string) => CitySubpageSeo>([
-  ['map', (cityName) => ({
-    title: `Bachata Map of ${cityName}`,
-    description:
-      `Every bachata venue in ${cityName} on one map - find what's on near you, ` +
-      `see each venue's regular nights, and filter by parties, classes or courses.`,
-  })],
+interface SelfCanonicalSubpage {
+  /**
+   * Which city name the SPA titles this URL with, so the edge uses the same one.
+   * 'slug': cityDisplayFromSlug(slug) (src/pages/CityMap.tsx). 'db': cities.name
+   * (src/pages/Teachers.tsx, via resolveTeachersCity's active-city rows).
+   */
+  nameFrom: 'slug' | 'db';
+  /**
+   * The env var behind the SPA flag that gates this page, if any. While it is
+   * not exactly 'true' the SPA renders a coming-soon gate, so the edge answers
+   * noindex (citySubpageNoindex). Declared HERE so a new gated subpage cannot
+   * be added to the table and forgotten in a second hard-coded branch.
+   */
+  gateEnv?: string;
+  build: (cityName: string) => CitySubpageSeo;
+}
+
+const SELF_CANONICAL_SUBPAGES = new Map<string, SelfCanonicalSubpage>([
+  ['map', {
+    nameFrom: 'slug',
+    build: (cityName) => ({
+      title: `Bachata Map of ${cityName}`,
+      description:
+        `Every bachata venue in ${cityName} on one map - find what's on near you, ` +
+        `see each venue's regular nights, and filter by parties, classes or courses.`,
+    }),
+  }],
+  // /city/:slug/teachers is the per-city teachers directory (src/pages/Teachers.tsx),
+  // canonical per city (docs/design/teachers-directory-city.md). It USED to sit
+  // in CLEAN_LISTINGS, which told bots its canonical was /teachers -- a URL that
+  // client-redirects back here. Pinned to buildSeoForRoute('teachers', ...).
+  ['teachers', {
+    nameFrom: 'db',
+    gateEnv: 'VITE_ENABLE_TEACHERS_DIRECTORY',
+    build: (cityName) => ({
+      title: `Bachata Teachers in ${cityName}`,
+      description:
+        `Bachata teachers in ${cityName} - find an instructor, browse their classes, learn their style.`,
+    }),
+  }],
 ]);
+
+/**
+ * True when the edge must mark a self-canonical city subpage `noindex` because
+ * the feature behind it is still OFF. The edge cannot see the SPA's build-time
+ * flags, but Vercel hands the same project env to the middleware at runtime, so
+ * it reads the env var the SPA's flag is built from (src/lib/featureFlags.ts,
+ * same `=== 'true'` rule). `env` is a parameter so the spec can drive both states.
+ */
+export function citySubpageNoindex(
+  listing: string | null | undefined,
+  env: Record<string, string | undefined>,
+): boolean {
+  const gateEnv = listing ? SELF_CANONICAL_SUBPAGES.get(listing)?.gateEnv : undefined;
+  return !!gateEnv && env[gateEnv] !== 'true';
+}
 
 export const CITY_SELF_CANONICAL = new Set(SELF_CANONICAL_SUBPAGES.keys());
 
@@ -119,11 +167,15 @@ export function citySelfCanonicalListing(segments: string[]): string | null {
 export function citySubpageSeo(
   listing: string | null | undefined,
   citySlug: string | null | undefined,
+  // cities.name, used only by an entry with nameFrom 'db' (the page it mirrors
+  // titles itself from the DB row); a missing one falls back to the slug.
+  dbCityName?: string | null,
 ): CitySubpageSeo | null {
   if (!listing) return null;
-  const build = SELF_CANONICAL_SUBPAGES.get(listing);
-  if (!build) return null;
-  const cityName = cityDisplayFromSlug(citySlug);
+  const entry = SELF_CANONICAL_SUBPAGES.get(listing);
+  if (!entry) return null;
+  const { build } = entry;
+  const cityName = (entry.nameFrom === 'db' && dbCityName) || cityDisplayFromSlug(citySlug);
   // No derivable name: fall back to the CITY card rather than titling a page
   // "Bachata Map of null".
   //
