@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import ListingRequestForm from '@/components/ListingRequestForm';
+import { listingFormCopy, teacherListingLink } from '@/components/listingRequestCopy';
 import { cn } from '@/lib/utils';
 import { buildFullName } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
@@ -345,8 +346,8 @@ const Teachers = () => {
               <div className="mt-3">
                 <ListingRequestForm
                   section="teachers_directory"
-                  variant="teacher"
-                  cityName={view && view.mode !== 'unknown' ? view.requestedName : null}
+                  copy={listingFormCopy('teacher', view && view.mode !== 'unknown' ? view.requestedName : null)}
+                  linkRule={teacherListingLink}
                 />
               </div>
             )}

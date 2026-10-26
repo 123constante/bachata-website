@@ -50,7 +50,7 @@ import { LocateControl } from './cards/LocateControl';
 import { FooterLinks } from '@/components/layout/FooterLinks';
 import { MAP_PLACEHOLDERS } from './mapPlaceholders';
 import { resolvePageCity } from '@/lib/pageCity';
-import EmptyCityNote from '@/components/listing/EmptyCityNote';
+import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
 // The tile provider's required credit, for the pre-mount still. Safe to import
 // into this EAGER, server-rendered shell: basemapTiles.ts has no imports of its
 // own and pulls in nothing -- which is the whole reason it was split out of

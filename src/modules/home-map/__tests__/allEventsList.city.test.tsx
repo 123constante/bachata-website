@@ -6,7 +6,7 @@
  * London keeps "Festivals further afield" and its own empty copy.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AllEventsList } from '../cards/AllEventsList';
 import type { UseMapListResult } from '../useMapList';
@@ -34,9 +34,11 @@ const stateFor = (citySlug: string | null, listEvents: MapEvent[]) =>
     listRef: { current: null },
   }) as unknown as UseMapListResult;
 
-const show = (citySlug: string | null, rows: MapEvent[]) => {
+const show = async (citySlug: string | null, rows: MapEvent[]) => {
   installJsdomPolyfills();
   render(<MemoryRouter><AllEventsList state={stateFor(citySlug, rows)} /></MemoryRouter>);
+  // The note is lazy on the home feed (LazyEmptyCityNote): let it resolve.
+  await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
 };
 afterEach(cleanup);
 
@@ -53,8 +55,8 @@ describe('home feed x city x shape', () => {
     { label: 'London, 0 rows', city: 'london-gb', rows: [], note: false, heading: null },
     { label: 'London, many', city: 'london-gb', rows: [londonSocial, londonFest, budaFest], note: false, heading: null },
     { label: 'no city, many', city: null, rows: [londonSocial, londonFest], note: false, heading: null },
-  ])('$label', ({ city, rows, note, heading }) => {
-    show(city, rows);
+  ])('$label', async ({ city, rows, note, heading }) => {
+    await show(city, rows);
     const n = screen.queryByTestId('empty-city-note');
     expect(!!n).toBe(note);
     if (n) {

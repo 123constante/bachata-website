@@ -6,20 +6,19 @@ import { useState, type FormEvent } from 'react';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { toast } from '@/hooks/use-toast';
 import type { ListingSection } from '@/lib/featureFlags';
-import { listingFormCopy, listingSourceUrl, normalizeListingLink, type ListingFormVariant } from './listingRequestCopy';
+import { EVENT_LISTING_COPY, eventListingLink, listingSourceUrl, type ListingFormCopy, type ListingLinkRule } from './listingFormBase';
 
 interface ListingRequestFormProps {
   section: ListingSection;
-  /** 'event' (default) for every gate and empty-city note; 'teacher' for a teacher tip. */
-  variant?: ListingFormVariant;
-  /** The city the tip is about, for the teacher heading. */
-  cityName?: string | null;
+  /** The event copy (default) for every gate and empty-city note; the teachers page passes its own (listingRequestCopy.ts). */
+  copy?: ListingFormCopy;
+  /** What is sent as event_link; the event rule by default. A non-default rule also makes the box a text input. */
+  linkRule?: ListingLinkRule;
   /** The page city's slug, added to source_url when the path does not name it. */
   citySlug?: string | null;
 }
 
-export default function ListingRequestForm({ section, variant = 'event', cityName = null, citySlug = null }: ListingRequestFormProps) {
-  const copy = listingFormCopy(variant, cityName);
+export default function ListingRequestForm({ section, copy = EVENT_LISTING_COPY, linkRule, citySlug = null }: ListingRequestFormProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventLink, setEventLink] = useState('');
@@ -39,7 +38,7 @@ export default function ListingRequestForm({ section, variant = 'event', cityNam
     }
     // The RPC requires ^https?:// -- the teacher variant turns an Instagram
     // handle or a bare domain into a URL first (its hint says so).
-    const link = normalizeListingLink(variant, eventLink);
+    const link = await (linkRule ?? eventListingLink)(eventLink);
     if (!link) {
       setErrorMessage(copy.invalidLink);
       return;
@@ -79,7 +78,7 @@ export default function ListingRequestForm({ section, variant = 'event', cityNam
           return;
         }
         if (result?.error === 'invalid_section') {
-          setErrorMessage('Form configuration error — please refresh and try again.');
+          setErrorMessage('Form configuration error \u2014 please refresh and try again.');
           return;
         }
         // Unknown server error
@@ -149,7 +148,7 @@ export default function ListingRequestForm({ section, variant = 'event', cityNam
       <label className="block">
         <span className="block text-sm font-medium text-slate-900 mb-1">{copy.linkLabel}</span>
         <input
-          type={variant === 'teacher' ? 'text' : 'url'}
+          type={linkRule ? 'text' : 'url'}
           required
           inputMode="url"
           placeholder={copy.placeholder}

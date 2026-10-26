@@ -14,7 +14,10 @@ import { Suspense, useState, type ReactNode } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { ListingSection } from '@/lib/featureFlags';
 
-const ListingRequestForm = lazyWithRetry(() => import('@/components/ListingRequestForm'));
+// Through ComingSoonGate, not the form's own module: see the re-export there.
+const ListingRequestForm = lazyWithRetry(() =>
+  import('@/components/ComingSoonGate').then((m) => ({ default: m.ListingRequestForm })),
+);
 
 export const EMPTY_CITY_TELL_US = 'Tell us';
 

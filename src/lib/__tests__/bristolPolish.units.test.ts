@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { cityHasNoRows, resolvePageCity, rowsForCity } from '@/lib/pageCity';
 import { cityBounds, cityCentre } from '@/lib/cityCentre';
+import { normalizeInstagramHandle } from '@/lib/instagramHandle';
 import { buildSeoForRoute } from '@/lib/seo/buildSeoForRoute';
 import { isOffCityFestival, partitionRemote } from '@/modules/home-map/mapListDerivations';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
@@ -171,7 +172,7 @@ describe('normalizeListingLink', () => {
     { variant: 'teacher', raw: 'maria dance', out: null },
     { variant: 'teacher', raw: '@bad!name', out: null },
   ] as const)('$variant: "$raw" -> $out', ({ variant, raw, out }) => {
-    const got = normalizeListingLink(variant, raw);
+    const got = normalizeListingLink(variant, raw, normalizeInstagramHandle);
     expect(got).toBe(out);
     // The RPC only takes ^https?:// -- anything we send must pass it.
     if (got) expect(got).toMatch(/^https?:\/\//);

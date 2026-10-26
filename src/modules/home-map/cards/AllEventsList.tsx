@@ -30,7 +30,7 @@ import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { useListImpressions } from '@/lib/listImpressions';
 import { focusRing } from './controls';
 import { resolvePageCity } from '@/lib/pageCity';
-import EmptyCityNote from '@/components/listing/EmptyCityNote';
+import EmptyCityNote from '@/components/listing/LazyEmptyCityNote';
 
 /** Date-group header. Today's group is dominant (amber TODAY pill + foreground
  *  label + amber rule/count); every later day is muted, so the eye lands on

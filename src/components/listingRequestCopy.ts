@@ -1,44 +1,29 @@
 /**
  * The ONE copy map for ListingRequestForm, per variant. Every gate and
- * empty-city note uses 'event'; the teachers page "Tell us" uses 'teacher'.
+ * empty-city note uses 'event' (EVENT_LISTING_COPY, which the form defaults
+ * to); the teachers page "Tell us" passes the 'teacher' copy and link rule.
  * The payload key stays event_link (the RPC column) for both.
+ *
+ * Only the teachers page (and tests) import this module; see listingFormBase.ts
+ * for why the form itself does not.
  */
-import { normalizeInstagramHandle } from '@/lib/instagramHandle';
+import type { InstagramResult } from '@/lib/instagramHandle';
+import { EVENT_LISTING_COPY, LISTING_URL_RE, eventListingLink, type ListingFormCopy, type ListingLinkRule } from './listingFormBase';
+
+export { listingSourceUrl, type ListingFormCopy } from './listingFormBase';
 
 export type ListingFormVariant = 'event' | 'teacher';
 
-export type ListingFormCopy = {
-  heading: string | null;
-  linkLabel: string;
-  placeholder: string;
-  hint: string;
-  missing: string;
-  invalidLink: string;
-  success: string;
-};
-
-const URL_RE = /^https?:\/\//i;
-
 export function listingFormCopy(variant: ListingFormVariant, cityName?: string | null): ListingFormCopy {
-  if (variant === 'teacher') {
-    return {
-      heading: cityName ? `Know a teacher in ${cityName}?` : 'Know a teacher?',
-      linkLabel: 'Their profile or Instagram link',
-      placeholder: '@name or https://',
-      hint: 'Paste their Instagram, Facebook or website link. An Instagram name like @name works too.',
-      missing: 'Please fill in name, phone, and their link.',
-      invalidLink: 'Use their @name or a link starting with http:// or https://',
-      success: 'Thanks — we’ll look them up and add them.',
-    };
-  }
+  if (variant !== 'teacher') return EVENT_LISTING_COPY;
   return {
-    heading: null,
-    linkLabel: 'Event link',
-    placeholder: 'https://',
-    hint: 'Paste a link to your event — your Facebook event, Eventbrite, Instagram post, your own site, anything.',
-    missing: 'Please fill in name, phone, and event link.',
-    invalidLink: 'Event link must start with http:// or https://',
-    success: 'Thanks — I’ll call you soon.',
+    heading: cityName ? `Know a teacher in ${cityName}?` : 'Know a teacher?',
+    linkLabel: 'Their profile or Instagram link',
+    placeholder: '@name or https://',
+    hint: 'Paste their Instagram, Facebook or website link. An Instagram name like @name works too.',
+    missing: 'Please fill in name, phone, and their link.',
+    invalidLink: 'Use their @name or a link starting with http:// or https://',
+    success: 'Thanks — we’ll look them up and add them.',
   };
 }
 
@@ -46,29 +31,31 @@ export function listingFormCopy(variant: ListingFormVariant, cityName?: string |
  * What the form sends as event_link, or null when it cannot be sent.
  * event: the typed link as is, only when it already starts with http(s)://.
  * teacher: also accepts an Instagram name (@name / name) and a bare domain,
- * turned into a URL here because the RPC only takes ^https?://.
+ * turned into a URL here because the RPC only takes ^https?://. The Instagram
+ * rule is passed in (normalizeInstagramHandle); without it a name is refused.
  */
-export function normalizeListingLink(variant: ListingFormVariant, raw: string): string | null {
+export function normalizeListingLink(
+  variant: ListingFormVariant,
+  raw: string,
+  normalizeHandle?: (raw: string) => InstagramResult,
+): string | null {
+  if (variant !== 'teacher') return eventListingLink(raw);
   const v = raw.trim();
   if (!v) return null;
-  if (URL_RE.test(v)) return v;
-  if (variant !== 'teacher') return null;
+  if (LISTING_URL_RE.test(v)) return v;
   if (/\s/.test(v) || /^(www\.)?instagram\.com\/?$/i.test(v)) return null;
   const isInstagram = v.startsWith('@') || /^(www\.)?instagram\.com\//i.test(v);
   // Anything else with a dot reads as a website (www.x.com, linktr.ee/x).
   if (!isInstagram && /^[^@/]+\.[a-z]{2,}(\/.*)?$/i.test(v)) return `https://${v}`;
-  const ig = normalizeInstagramHandle(v);
+  if (!normalizeHandle) return null;
+  const ig = normalizeHandle(v);
   return ig.ok && ig.handle ? `https://instagram.com/${ig.handle}` : null;
 }
 
 /**
- * The page path + query the receiver sees as "Submitted from". A bare route
- * (/djs) does not name the city a stored-city visitor was looking at, so the
- * slug is added as ?city=<slug> unless the path already carries /city/<slug>/.
+ * The teacher link rule the teachers page hands the form. The Instagram rule
+ * loads on submit: @/lib/instagramHandle rides lib-org-ui (vite.chunks.ts), and
+ * a static edge would put that group in the teachers page's first load.
  */
-export function listingSourceUrl(pathname: string, search: string, citySlug?: string | null): string {
-  if (!citySlug || pathname.startsWith(`/city/${citySlug}`)) return pathname + search;
-  const q = new URLSearchParams(search);
-  q.set('city', citySlug);
-  return `${pathname}?${q.toString()}`;
-}
+export const teacherListingLink: ListingLinkRule = async (raw) =>
+  normalizeListingLink('teacher', raw, (await import('./teacherInstagram')).teacherInstagramHandle);

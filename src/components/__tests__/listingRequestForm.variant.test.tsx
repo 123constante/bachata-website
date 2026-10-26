@@ -17,6 +17,7 @@ vi.mock('@/integrations/supabase/rpcLoose', () => ({
 vi.mock('@/hooks/use-toast', () => ({ toast: vi.fn() }));
 
 import ListingRequestForm from '@/components/ListingRequestForm';
+import { listingFormCopy, teacherListingLink } from '@/components/listingRequestCopy';
 
 function fill(link: string) {
   const [name] = screen.getAllByRole('textbox');
@@ -26,7 +27,8 @@ function fill(link: string) {
   fireEvent.change(linkBox, { target: { value: link } });
   fireEvent.click(screen.getByRole('button', { name: 'Send my details' }));
 }
-const flush = () => new Promise((r) => setTimeout(r, 0));
+// The teacher rule loads its Instagram module on submit: give it a few ticks.
+const flush = () => new Promise((r) => setTimeout(r, 50));
 
 beforeEach(() => {
   h.calls = [];
@@ -36,7 +38,7 @@ afterEach(cleanup);
 
 describe('ListingRequestForm variants', () => {
   it('teacher: @name is sent as an Instagram URL; section and source_url as today', async () => {
-    render(<ListingRequestForm section="teachers_directory" variant="teacher" cityName="Bristol" />);
+    render(<ListingRequestForm section="teachers_directory" copy={listingFormCopy('teacher', 'Bristol')} linkRule={teacherListingLink} />);
     expect(screen.getByTestId('listing-form-heading').textContent).toBe('Know a teacher in Bristol?');
     fill('@maria.dance');
     await flush();
@@ -51,7 +53,7 @@ describe('ListingRequestForm variants', () => {
   });
 
   it('teacher: a link that cannot become a URL is refused before any RPC call', async () => {
-    render(<ListingRequestForm section="teachers_directory" variant="teacher" />);
+    render(<ListingRequestForm section="teachers_directory" copy={listingFormCopy('teacher')} linkRule={teacherListingLink} />);
     fill('maria dance');
     await flush();
     expect(h.calls).toHaveLength(0);

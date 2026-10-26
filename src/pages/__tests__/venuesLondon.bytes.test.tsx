@@ -24,7 +24,7 @@ vi.mock('@/lib/seo', async (importOriginal) => ({
 const v = (id: string, city: string, over: Record<string, unknown> = {}) => ({
   id, slug: id, name: `Venue ${id}`, neighbourhood: null, cover_image: null, city_name: city, capacity: 120, floor_type: 'wood',
   description: null, bar_available: true, cloakroom_available: false, has_parking: false, facilities_new: [],
-  upcoming_event_count: 2, next_event_iso: '2026-10-27T20:00:00', next_event_name: 'Social', nearest_station: 'Bank',
+  upcoming_event_count: 2, next_event_iso: '2026-10-27T20:00:00', next_event_name: 'Friday Party', nearest_station: 'Bank',
   nearest_station_minutes: 4, nearest_station_mode: 'metro', day_pattern: ['Tuesday'], address: '1 Road', postcode: 'EC2R 8AH', ...over,
 });
 const FIXTURE = [
