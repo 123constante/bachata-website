@@ -56,6 +56,9 @@ const PAIRS: Array<[string, string[]]> = [
   ['--gold-fg', ['--card']], ['--gold-fg', ['--bg']], ['--gold-fg', ['--tab']],
   ['--btnfg', ['--btn']], ['--danger-fg', ['--danger']],
   ['--cancel-fg', ['--cancel-bg', '--card']], ['--ok-fg', ['--ok-bg', '--card']], ['--warn-fg', ['--warn-bg', '--card']],
+  // W2a: the Status sheet (greyed rows, refusals, warnings), the cancelled-date tag and the toast
+  ['--mut', ['--sheet']], ['--gold-fg', ['--sheet']], ['--cancel-fg', ['--cancel-bg', '--sheet']], ['--warn-fg', ['--warn-bg', '--sheet']],
+  ['--bg', ['--fg']],
 ];
 
 describe.each([['light', light], ['dark (phone setting)', darkMedia], ['dark (forced)', darkForced]] as const)('%s', (_n, T0) => {
