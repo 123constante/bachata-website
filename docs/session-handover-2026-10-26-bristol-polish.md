@@ -1,4 +1,28 @@
-# Session handover: Bristol polish (2026-10-26) -- PARTIAL
+# Session handover: Bristol polish (2026-10-26)
+
+## Continuation (worker 2, brief `docs/briefs/bristol-polish-2.md`)
+
+- **Bundle budgets: fixed, no budget or pin raised.** Cause (measured by diffing each route's manifest graph
+  against a build of main): `listingRequestCopy.ts` imported `@/lib/instagramHandle`, which rides `lib-org-ui`, so
+  `lib-org-ui` + `vendor-ui-modal` landed in the first load of every ComingSoonGate route (auth, /app); the lazy
+  form import in EmptyCityNote split the form into its own chunk (+1 there too); and EmptyCityNote itself was a
+  new shared chunk on home (+1). Fixes: the teacher copy and link rule left the form (the teachers page passes
+  `copy`/`linkRule`; `listingFormBase.ts` holds the event half; Instagram loads on submit via
+  `teacherInstagram.ts`); EmptyCityNote loads the form through ComingSoonGate's chunk (re-export there); the home
+  feed loads the note lazily (`LazyEmptyCityNote.tsx`). The pageCity pin in `lib-event-rules` stays (un-pinning it
+  costs /parties and /classes a request). Measured: home 209.2 KB / 37, auth 295.8 / 27, dancer-app 373.7 / 49,
+  event 377.1 / 41, parties+classes 268.7 / 42 (44 requests), faq/landings 24; all at or under their pins.
+- **no-social-word:** fixture renamed to 'Friday Party'; golden regenerated on a main worktree (London HTML still
+  byte-identical to main).
+- Unit suite: the only failures are the ones main has in this sandbox (three `*.contract.test.ts`, no live-DB creds;
+  `tests/integrityCouldNotRun.test.ts`). `festivalClientState.test.tsx` passes.
+- Re-walk at 390x844 on prod data (dev server, anon key): `/djs` with stored Bristol -> Tell us -> event form
+  ("Event link", Send 44px); `/city/bristol-gb/teachers` -> "Know a teacher in Bristol?", `@bad!name` refused after
+  the lazy Instagram rule loaded, 0 RPC writes; no sideways scroll. `/city/bristol-gb` home answers 404 (inactive),
+  so the lazy home note is covered by `allEventsList.city.test.tsx` only.
+
+## Original handover (worker 1, PARTIAL)
+
 
 Branch `claude/bristol-polish` (from `main` 899f85e). Brief: `brief/bristol-polish` `docs/briefs/bristol-polish.md`.
 Design record + walk pictures: `docs/design/bristol-polish.md`, `docs/design/bristol-polish/`.
