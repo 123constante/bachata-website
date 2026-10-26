@@ -143,6 +143,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const [sheet, setSheet] = useState(false);
   const [toast, setToast] = useState<Done | null>(null);
   const close = useCallback(() => setToast(null), []);
+  const closeSheet = useCallback(() => setSheet(false), []);
   const undo = async (cmd: OwnerCommand, version: number | null | undefined) => {
     setToast(null);
     try {
@@ -157,7 +158,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
     <div className="p3-stack" data-testid="p3-event" data-kind={v.kind}>
       <Link className="p3-link" to={P3_PATHS.events}>&larr; {L.allEvents}</Link>
       <div className="p3-card p3-head" data-testid="p3-event-head">
-        {v.cover && <img className="p3-cover" src={v.cover} alt="" />}
+        {v.cover && <img className="p3-cover" src={v.cover} alt="" loading="eager" decoding="async" />}
         <h2 className="p3-name" data-testid="p3-event-name">{v.name}</h2>
         <div className="p3-row-tags">
           <span className="p3-chip" data-testid="p3-kind">{v.kindWord}</span>
@@ -180,7 +181,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       <Coming v={v} />
       <About v={v} />
       {sheet && (
-        <StatusSheet ws={ws} today={today} status={v.status} send={send} onClose={() => setSheet(false)}
+        <StatusSheet ws={ws} today={today} status={v.status} send={send} onClose={closeSheet}
           onDone={(d) => { setSheet(false); setToast(d); }} />
       )}
       {toast && <Toast done={toast} onClose={close} onUndo={() => toast.undo && void undo(toast.undo, toast.version)} />}

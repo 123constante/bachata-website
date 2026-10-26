@@ -1,0 +1,126 @@
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync } from 'node:fs';
+import { checkOverflow, fakeSupabase, frames } from './helpers';
+import { FAKE_ORIGIN } from './fakeSupabase.mjs';
+
+// THROWAWAY walk for the W2a design record (not committed): every shot at 390x844.
+const SHAPES = JSON.parse(readFileSync(process.env.SHAPES_JSON!, 'utf8'));
+const OUT = process.env.SHOTS!;
+const sent: unknown[] = [];
+
+async function open(page: Page, shape: string, scheme: 'light' | 'dark' = 'light', id = 'ser-1') {
+  await page.emulateMedia({ colorScheme: scheme });
+  await fakeSupabase(page, { signedInAsOwner: true, realClock: true });
+  await page.clock.setFixedTime(new Date('2026-10-25T12:00:00Z'));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) =>
+    shape === 'notfound'
+      ? r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'P0001', message: 'series_not_found: x' }) })
+      : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(SHAPES[shape]) }));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/series_command_p5`, (r) => { sent.push(r.request().postDataJSON()); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, new_version: 8 }) }); });
+  await page.goto(`/account/p3/events/${id}`);
+}
+
+async function checks(page: Page, label: string, scope = '.p3-frame') {
+  expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
+  const small = await page.evaluate((s) => [...document.querySelectorAll(`${s} button, ${s} a[href], ${s} input`)]
+    .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+    .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? '').trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) }))
+    .filter((x) => x.h < 44), scope);
+  expect(small, `${label}: taps >= 44px`).toEqual([]);
+  const axe = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  expect(axe.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast`).toEqual([]);
+}
+
+const shot = async (page: Page, name: string) => { await frames(page); await page.screenshot({ path: `${OUT}/${name}.png` }); };
+const sheet = async (page: Page) => { await page.getByTestId('p3-open-status').click(); await expect(page.getByTestId('p3-sheet')).toBeVisible(); };
+
+test.beforeEach(({ page: _p }, info) => { test.skip(info.project.name !== 'phone-390x844', 'one size'); });
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`weekly page + status sheet ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', scheme);
+    await expect(page.getByTestId('p3-event-name')).toHaveText('Sensual Fridays');
+    await checks(page, 'weekly page');
+    await shot(page, `01-weekly-${scheme}`);
+    await page.getByTestId('p3-coming').scrollIntoViewIfNeeded();
+    await shot(page, `02-weekly-coming-about-${scheme}`);
+    await sheet(page);
+    await checks(page, 'weekly sheet', '.p3-sheet');
+    await shot(page, `03-status-sheet-weekly-${scheme}`);
+  });
+}
+
+test('hide -> toast with Undo', async ({ page }) => {
+  await open(page, 'weekly');
+  await sheet(page);
+  await page.getByTestId('p3-status-row-hide').click();
+  await expect(page.getByTestId('p3-toast')).toContainText('Hidden');
+  await checks(page, 'toast');
+  await shot(page, '04-hide-toast-light');
+  expect(sent.length).toBeGreaterThan(0);
+});
+
+test('131 dates: 100 of 131', async ({ page }) => {
+  await open(page, 'over100', 'dark');
+  await page.getByTestId('p3-partial').scrollIntoViewIfNeeded();
+  await expect(page.getByTestId('p3-partial')).toHaveText('This page lists the newest 100 of 131 dates.');
+  await shot(page, '05-over100-dark');
+});
+
+test('one-off not run: cancel slot greyed', async ({ page }) => {
+  await open(page, 'oneoff');
+  await sheet(page);
+  await checks(page, 'oneoff sheet', '.p3-sheet');
+  await shot(page, '06-status-sheet-oneoff-light');
+});
+
+test('end it with a date today', async ({ page }) => {
+  await open(page, 'tonight', 'dark');
+  await sheet(page);
+  await page.getByTestId('p3-status-row-end').click();
+  await expect(page.getByTestId('p3-end-confirm')).toBeDisabled();
+  await checks(page, 'end sheet', '.p3-sheet');
+  await shot(page, '07-end-it-tonight-dark');
+  await page.getByText('Yes, it ran').click();
+  await shot(page, '08-end-it-answered-dark');
+});
+
+test('stop repeating', async ({ page }) => {
+  await open(page, 'weekly');
+  await sheet(page);
+  await page.getByTestId('p3-status-row-stop').click();
+  await page.getByLabel('Friday 13 November').click();
+  await checks(page, 'stop sheet', '.p3-sheet');
+  await shot(page, '09-stop-repeating-light');
+});
+
+test('festival days', async ({ page }) => {
+  await open(page, 'festival');
+  await page.getByTestId('p3-sessions').scrollIntoViewIfNeeded();
+  await checks(page, 'festival');
+  await shot(page, '10-festival-light');
+});
+
+test('draft empty', async ({ page }) => {
+  await open(page, 'draft', 'dark');
+  await checks(page, 'draft');
+  await shot(page, '11-draft-empty-dark');
+  await sheet(page);
+  await shot(page, '12-status-sheet-draft-dark');
+});
+
+test('course + ended + no sessions + not found', async ({ page }) => {
+  await open(page, 'course');
+  await sheet(page);
+  await shot(page, '13-status-sheet-course-light');
+  await open(page, 'ended', 'dark');
+  await sheet(page);
+  await shot(page, '14-status-sheet-ended-dark');
+  await open(page, 'noSessions');
+  await checks(page, 'no sessions');
+  await shot(page, '15-no-sessions-light');
+  await open(page, 'notfound');
+  await expect(page.getByTestId('p3-event-notfound')).toBeVisible();
+  await shot(page, '16-not-found-light');
+});

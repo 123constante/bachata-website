@@ -85,7 +85,7 @@ export const SHAPES = {
   tonight: wsRaw({ name: 'Sunday Social' }, PARTY, weekly(addDaysToKey(TODAY, -14), 6).map((d) => occ(d))),
   paused: wsRaw({ lifecycle_status: 'paused' }, TWO, futureFri.map((d) => occ(d))),
   draft: wsRaw({ name: '', format: 'one_off', lifecycle_status: 'draft', recurrence_rule: null, default_description: null, default_ticket_url: null, default_music_styles: [] }, [], []),
-  draftReady: wsRaw({ name: 'New Thursdays', lifecycle_status: 'draft' }, PARTY, weekly('2026-10-29', 4).map((d) => occ(d))),
+  draftReady: wsRaw({ name: 'New Thursdays', lifecycle_status: 'draft', default_cover_image_url: 'https://example.test/cover.jpg' }, PARTY, weekly('2026-10-29', 4).map((d) => occ(d))),
   ended: wsRaw({ name: 'Old Wednesdays', lifecycle_status: 'ended', recurrence_rule: null }, PARTY, weekly('2026-06-03', 10).map((d) => occ(d))),
   archived: wsRaw({ name: 'Gone Nights', lifecycle_status: 'archived', recurrence_rule: null }, [], []),
   noSessions: wsRaw({ name: 'Empty Mondays' }, [], weekly('2026-10-26', 4).map((d) => occ(d))),

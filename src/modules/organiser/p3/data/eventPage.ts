@@ -201,6 +201,7 @@ export const STATUS_COPY = {
   stopSub: 'Keep the dates you choose, then add more one by one.',
   removeSub: 'It leaves your events and the calendar. Only the Bachata Calendar team can bring it back.',
   noComingDate: 'Add a date coming up first.',
+  noCover: 'Add a cover photo first. Dancers see it before anything else.',
   backDraftWhy: 'A live event can\u2019t go back to draft. Hide it instead: dancers stop seeing it and every date is kept.',
   neverRan: 'It hasn\u2019t run yet, so it can\u2019t end. Hide it or remove it instead.',
   courseStop: 'A course keeps its dates while it runs. End it when the last class is done.',
@@ -229,7 +230,8 @@ export function statusRows(ws: EventWorkspace, today: IsoDate): StatusRow[] {
 
   if (lc === 'draft' || lc === 'rejected') {
     const coming = ws.dates.some((d) => d.lifecycle_status !== 'cancelled' && d.occurrence_date >= today);
-    const why = !coming ? STATUS_COPY.noComingDate : !ws.hasSessions ? NO_SESSION_REASON : null;
+    // the server's go-live gate also wants a cover (apply_aggregate_write_p5); the rest it names in its refusal
+    const why = !coming ? STATUS_COPY.noComingDate : !s.default_cover_image_url ? STATUS_COPY.noCover : !ws.hasSessions ? NO_SESSION_REASON : null;
     const out = [row('live', L.putLive, STATUS_COPY.liveSub, why)];
     if (lc === 'draft') out.push(row('remove', L.remove, STATUS_COPY.removeSub));
     return out;

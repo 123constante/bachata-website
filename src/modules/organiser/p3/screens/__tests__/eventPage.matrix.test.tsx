@@ -164,6 +164,11 @@ describe('Status sheet rows x every shape', () => {
     expect(statusRows({ ...w, hasSessions: false }, TODAY)[0].reason).toBe(NO_SESSION_REASON);
   });
 
+  it('a draft with dates and sessions but no cover says to add one (the server go-live gate needs it)', () => {
+    const w = ws('draftReady');
+    expect(statusRows({ ...w, series: { ...w.series, default_cover_image_url: null } }, TODAY)[0].reason).toBe(STATUS_COPY.noCover);
+  });
+
   it('a weekly read holding only coming dates cannot offer the keep list', () => {
     const w = ws('over100');
     const rows = statusRows({ ...w, dates: w.dates.filter((d) => d.occurrence_date >= TODAY) }, TODAY);
@@ -406,6 +411,7 @@ describe('each refusal reads as plain copy, never server text', () => {
     ['invalid_transition: series 0b6c is not a ruled recurring series (format=recurring, has_rule=false)', 'This event does not repeat, so there is nothing to stop. Reload the page to see it as it is now.'],
     ['invalid_transition: series 0b6c has format one_off. Only a recurring series or a course follows a recurrence rule.', 'This event does not repeat, so there is nothing to stop. Reload the page to see it as it is now.'],
     ['lifecycle_transition_denied: live -> draft', 'That status change is not available for this event right now.'],
+    ['permission_denied: series.set_lifecycle draft -> live needs a ready series: readiness ok, a cover image and an upcoming scheduled date', 'It is not ready to go live yet: it needs a cover photo, a date coming up and its details. Add them in the current organiser area, then put it live.'],
     ['publish_blocked: missing venue', 'This event needs more details before it can go live again. Ask the Bachata Calendar team.'],
     ['version_conflict: expected 7 got 9', VERSION_CONFLICT],
   ];
