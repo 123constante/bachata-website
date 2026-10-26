@@ -3,11 +3,18 @@
  * ("Coming soon" + "Tell us", owner decision 2026-10-26). Home feed, Tonight,
  * Venues, Organisers, Dancers, DJs and search all render it, so the copy and
  * the action cannot drift between screens. "Tell us" opens ListingRequestForm
- * inline; its source_url (the page path) tells the receiver which city.
+ * inline; its source_url (the page path, plus ?city= on a bare route) tells
+ * the receiver which city.
+ *
+ * The form is LAZY: the note renders in the home feed's first load, and the
+ * form (with the toast and the Supabase RPC path) cost the home route +20 KB
+ * first-load JS and 5 chunks, over its budget. It loads on the "Tell us" tap.
  */
-import { useState, type ReactNode } from 'react';
-import ListingRequestForm from '@/components/ListingRequestForm';
+import { Suspense, useState, type ReactNode } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { ListingSection } from '@/lib/featureFlags';
+
+const ListingRequestForm = lazyWithRetry(() => import('@/components/ListingRequestForm'));
 
 export const EMPTY_CITY_TELL_US = 'Tell us';
 
@@ -66,7 +73,9 @@ export default function EmptyCityNote({
       </div>
       {open && (
         <div className="mt-3 rounded-md bg-white p-3">
-          <ListingRequestForm section={section} citySlug={citySlug} />
+          <Suspense fallback={<p className="text-sm text-slate-600">Loading&hellip;</p>}>
+            <ListingRequestForm section={section} citySlug={citySlug} />
+          </Suspense>
         </div>
       )}
     </div>

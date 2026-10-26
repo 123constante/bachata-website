@@ -6,11 +6,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
 import { useCity } from '@/contexts/CityContext';
-import { usePageCity } from '@/hooks/usePageCity';
+import { resolvePageCity } from '@/lib/pageCity';
 import { buildCityPath } from '@/lib/cityPath';
 import EmptyCityNote from '@/components/listing/EmptyCityNote';
 import { resolveEventImage } from '@/lib/utils';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useListImpressions } from '@/lib/listImpressions';
 import { eventHref } from '@/lib/seo/eventHref';
 import { useGeolocation } from '@/hooks/useGeolocation';
@@ -101,8 +101,10 @@ const computeCountdown = (
 const Tonight = () => {
   const trackImpression = useListImpressions('tonight');
   const navigate = useNavigate();
+  // The page's city: the /city/:slug URL, else the visitor's stored city.
+  const { slug: urlSlug } = useParams<{ slug?: string }>();
   const { citySlug } = useCity();
-  const city = usePageCity();
+  const city = resolvePageCity(urlSlug ?? citySlug);
   useSeo(buildSeoForRoute('tonight', { cityDisplay: city.name }));
   const {
     status: locStatus,

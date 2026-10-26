@@ -1,15 +1,17 @@
 import { Star, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { EventCalendar } from '@/components/EventCalendar';
 import ListingIntro from '@/components/listing/ListingIntro';
-import { usePageCity } from '@/hooks/usePageCity';
+import { resolvePageCity } from '@/lib/pageCity';
 
 const Classes = () => {
-  // urlOnly: bare /classes is prerendered and stays London.
-  const city = usePageCity({ urlOnly: true });
+  // Only a /city/:slug URL names the city: bare /classes is prerendered and stays
+  // London, and its static HTML never meets a stored city at hydration.
+  const { slug } = useParams<{ slug?: string }>();
+  const city = resolvePageCity(slug);
   useSeo(buildSeoForRoute('classes', { cityDisplay: city.name }));
   return (
     <GlobalLayout

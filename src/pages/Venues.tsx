@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Building2, ChevronDown, Layers, Lightbulb, MapPin, Music, Users } from 'lucide-react';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { londonDateKey, londonDaysBetweenKeys, londonWallClockToInstant } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { rowsForCity } from '@/lib/pageCity';
-import { usePageCity } from '@/hooks/usePageCity';
+import { resolvePageCity, rowsForCity } from '@/lib/pageCity';
+import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
 import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
@@ -480,7 +480,10 @@ const VenuesSkeleton = () => (
 );
 
 const Venues = () => {
-  const city = usePageCity();
+  // The page's city: the /city/:slug URL, else the visitor's stored city.
+  const { slug: urlSlug } = useParams<{ slug?: string }>();
+  const { citySlug } = useCity();
+  const city = resolvePageCity(urlSlug ?? citySlug);
   useSeo(buildSeoForRoute('venues', { cityDisplay: city.name }));
   const {
     data: allVenues = [],

@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X, CalendarDays, MapPin, Star, Building2, Music } from 'lucide-react';
@@ -12,8 +12,8 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
 import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCity';
-import { usePageCity } from '@/hooks/usePageCity';
+import { cityHasNoRows, resolvePageCity, SHOWING_EVERYONE } from '@/lib/pageCity';
+import { useCity } from '@/contexts/CityContext';
 import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -257,7 +257,10 @@ const formatLastSeen = (dateStr: string | undefined): string => {
 };
 
 const Organisers = () => {
-  const city = usePageCity();
+  // The page's city: the /city/:slug URL, else the visitor's stored city.
+  const { slug: urlSlug } = useParams<{ slug?: string }>();
+  const { citySlug } = useCity();
+  const city = resolvePageCity(urlSlug ?? citySlug);
   useSeo(buildSeoForRoute('organisers', { cityDisplay: city.name }));
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');

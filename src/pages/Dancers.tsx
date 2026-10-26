@@ -2,7 +2,7 @@ import { withPublicNames } from '@/lib/publicDancerNames';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Music, Star, Sparkles, Users, UserCheck, UserPlus, Loader2, Camera } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { usePeopleBadges } from '@/modules/person-page/badges';
 import { DancersWall, MEDIA_BOOKING_HREF } from '@/modules/person-page/wall/lists';
 import { HOME_ANNOUNCE_HREF } from '@/lib/homeAnnounceBanner';
@@ -21,8 +21,7 @@ import { renderPublicName } from '@/lib/publicName';
 import { getInitials } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
-import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCity';
-import { usePageCity } from '@/hooks/usePageCity';
+import { cityHasNoRows, resolvePageCity, SHOWING_EVERYONE } from '@/lib/pageCity';
 import EmptyCityNote from '@/components/listing/EmptyCityNote';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { pickNationalityCode } from '@/components/people/nationality';
@@ -42,10 +41,12 @@ type Dancer = {
 };
 
 const Dancers = () => {
-  const city = usePageCity();
+  // The page's city: the /city/:slug URL, else the visitor's stored city.
+  const { slug: urlSlug } = useParams<{ slug?: string }>();
+  const { citySlug } = useCity();
+  const city = resolvePageCity(urlSlug ?? citySlug);
   useSeo(buildSeoForRoute('dancers', { cityDisplay: city.name }));
   const navigate = useNavigate();
-  const { citySlug } = useCity();
   const { toast } = useToast();
     const practicePartnersPath = buildCityPath(citySlug, 'practice-partners');
   const [dancers, setDancers] = useState<Dancer[]>([]);

@@ -5,7 +5,7 @@ import { flags } from '@/lib/featureFlags';
 import { usePeopleBadges } from '@/modules/person-page/badges';
 import { DjsWall } from '@/modules/person-page/wall/lists';
 import { djTile, sortDjsUpcomingFirst } from '@/components/dj/djListModel';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { emitProfileView } from '@/lib/profileViewEmit';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,8 +16,8 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { renderPublicName } from '@/lib/publicName';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
-import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCity';
-import { usePageCity } from '@/hooks/usePageCity';
+import { cityHasNoRows, resolvePageCity, SHOWING_EVERYONE } from '@/lib/pageCity';
+import { useCity } from '@/contexts/CityContext';
 import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
 type DJCard = {
@@ -40,7 +40,10 @@ type DJCard = {
 };
 
 const DJs = () => {
-  const city = usePageCity();
+  // The page's city: the /city/:slug URL, else the visitor's stored city.
+  const { slug: urlSlug } = useParams<{ slug?: string }>();
+  const { citySlug } = useCity();
+  const city = resolvePageCity(urlSlug ?? citySlug);
   useSeo(buildSeoForRoute('djs', { cityDisplay: city.name }));
   const { data: djs = [], isLoading } = useQuery({
     queryKey: ['dj-profiles-directory'],

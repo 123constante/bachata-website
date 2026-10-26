@@ -185,7 +185,7 @@ describe('empty-city note action', () => {
     mount(<DJs />, '/djs', '/djs');
     await wait();
     fireEvent.click(screen.getByRole('button', { name: 'Tell us' }));
-    expect(screen.getByText('Event link')).toBeTruthy();
+    expect(await screen.findByText('Event link')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Send my details' })).toBeTruthy();
   });
 });

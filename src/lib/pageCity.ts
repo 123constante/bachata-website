@@ -8,8 +8,10 @@
  * No slug (a bare /parties prerender, a first visit) is the site default:
  * London, the same fallback buildSeoForRoute's CITY_DEFAULT uses.
  *
- * Pure on purpose (no React, no Supabase): the home feed derivations import it.
- * The hook is in src/hooks/usePageCity.ts.
+ * Pure on purpose (no React, no Supabase): the home feed derivations import it,
+ * and it rides the lib-event-rules chunk (vite.chunks.ts). Pages pass it the
+ * /city/:slug URL segment, else the stored city (useCity); prerendered bare
+ * /parties and /classes pass only the URL segment.
  */
 import { cityDisplayFromSlug } from '@/lib/cityDisplayName';
 
@@ -25,14 +27,24 @@ export type PageCity = {
   isLondon: boolean;
 };
 
+const cache = new Map<string, PageCity>();
+
+/** Same slug, same object: safe as a hook dependency without a useMemo per page. */
 export function resolvePageCity(slug: string | null | undefined): PageCity {
   const s = (slug ?? '').trim().toLowerCase() || null;
+  const key = s ?? '';
+  const hit = cache.get(key);
+  if (hit) return hit;
+  let city: PageCity;
   if (!s || s === DEFAULT_CITY_SLUG) {
-    return { slug: s, name: DEFAULT_CITY_NAME, isLondon: true };
+    city = { slug: s, name: DEFAULT_CITY_NAME, isLondon: true };
+  } else {
+    const name = cityDisplayFromSlug(s) ?? DEFAULT_CITY_NAME;
+    // By name, not slug: a bare 'london' slug (older links, fixtures) is London too.
+    city = { slug: s, name, isLondon: name === DEFAULT_CITY_NAME };
   }
-  const name = cityDisplayFromSlug(s) ?? DEFAULT_CITY_NAME;
-  // By name, not slug: a bare 'london' slug (older links, fixtures) is London too.
-  return { slug: s, name, isLondon: name === DEFAULT_CITY_NAME };
+  cache.set(key, city);
+  return city;
 }
 
 
