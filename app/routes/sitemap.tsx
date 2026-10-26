@@ -6,6 +6,7 @@ import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { NOT_PUBLIC_LIFECYCLE } from "@/modules/profile/organiserPublicProfile";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
+import { teachersSitemapPaths, type CityRow } from "@/modules/teachers-directory/teachersCity";
 
 // Live /sitemap.xml resource route (loader-only, no component) - replaces the
 // dead build-time scripts/generate-sitemap.mjs, which `react-router build`
@@ -205,6 +206,14 @@ async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
   }));
 }
 
+// cities with is_active = true: the teachers directory has one page per active
+// city (/city/<slug>/teachers), and an inactive city has none to submit.
+async function fetchActiveCities(): Promise<CityRow[]> {
+  const { data, error } = await db.from("cities").select("slug, name").eq("is_active", true).limit(500);
+  if (error) throw error;
+  return (data ?? []) as CityRow[];
+}
+
 export const loader = withSsrLoaderTimeout("sitemap-loader", async function loaderImpl() {
   let xml: string;
   try {
@@ -214,17 +223,20 @@ export const loader = withSsrLoaderTimeout("sitemap-loader", async function load
     // Feature-gated directory listings render noindex while off - keep them out
     // of the sitemap until the flag flips, else GSC logs "submitted URL marked
     // noindex". Same source of truth as the app (src/lib/featureFlags.ts).
-    if (flags.teachersDirectory) staticRoutes.push({ path: "/teachers", changefreq: "weekly", priority: "0.7" });
     if (flags.organisersDirectory) staticRoutes.push({ path: "/organisers", changefreq: "weekly", priority: "0.7" });
     if (flags.rafflesPage) staticRoutes.push({ path: "/raffles", changefreq: "weekly", priority: "0.5" });
 
-    const [events, venueUrls, dancerRows, organiserUrls, teacherIds] = await Promise.all([
+    const [events, venueUrls, dancerRows, organiserUrls, teacherIds, activeCities] = await Promise.all([
       fetchEvents(),
       flags.venueDetail ? fetchVenues() : Promise.resolve([] as UrlRow[]),
       fetchDancerProfiles(),
       flags.organiserDetail ? fetchOrganiserProfiles() : Promise.resolve([] as UrlRow[]),
       flags.teacherDetail ? fetchTeacherProfileIds() : Promise.resolve(new Set<string>()),
+      flags.teachersDirectory ? fetchActiveCities() : Promise.resolve([] as CityRow[]),
     ]);
+    for (const path of teachersSitemapPaths(activeCities)) {
+      staticRoutes.push({ path, changefreq: "weekly", priority: "0.7" });
+    }
 
     const dancerUrls: UrlRow[] = dancerRows.map((d) => ({
       loc: `${BASE_URL}/dancers/${d.slug || d.id}`,
@@ -268,7 +280,7 @@ export const loader = withSsrLoaderTimeout("sitemap-loader", async function load
       "</urlset>",
     ].join("\n");
   } catch (error) {
-    // Log the CAUSE before discarding it. Five fetchers feed this try block, and
+    // Log the CAUSE before discarding it. Six fetchers feed this try block, and
     // a bare rethrow tells neither the server log nor Sentry which one failed --
     // so a live /sitemap.xml 500 leaves no record at all, and in tests the
     // failure is an opaque `Response { status: 500 }`.

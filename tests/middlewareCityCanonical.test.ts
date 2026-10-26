@@ -168,10 +168,70 @@ describe('the rest of the city rule is unchanged', () => {
     expect(body).toContain('<title>Not found</title>');
   });
 
+  it('still consolidates /city/:slug/classes onto /classes', async () => {
+    const { body, robots } = await get('/city/london-gb/classes', GOOGLEBOT);
+    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/classes');
+    expect(titleOf(body)).toBe('Bachata in London');
+    expect(robots).toBeNull();
+    expect(body).not.toContain('name="robots"');
+  });
+
   it('returns a noindex 404 for a deeper city path', async () => {
     const { body, status, robots } = await get('/city/london-gb/map/anything', GOOGLEBOT);
     expect(status).toBe(404);
     expect(robots).toBe('noindex');
     expect(body).toContain('<title>Not found</title>');
+  });
+});
+
+// B1 (critique of PR #1049): the per-city teachers directory is a DISTINCT
+// page. A bot must read the self canonical and the teachers card -- never
+// /teachers, which client-redirects back to /city/<slug>/teachers.
+describe('/city/:slug/teachers is served as ITSELF', () => {
+  const FLAG = 'VITE_ENABLE_TEACHERS_DIRECTORY';
+  let prior: string | undefined;
+  beforeEach(() => {
+    prior = process.env[FLAG];
+    delete process.env[FLAG];
+  });
+  afterEach(() => {
+    if (prior === undefined) delete process.env[FLAG];
+    else process.env[FLAG] = prior;
+  });
+
+  it('gives Googlebot the self canonical, NOT /teachers', async () => {
+    const { body } = await get('/city/london-gb/teachers', GOOGLEBOT);
+    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/city/london-gb/teachers');
+    expect(canonicalOf(body)).not.toBe('https://www.bachatacalendar.co.uk/teachers');
+  });
+
+  it('emits the TEACHERS card, not the city card', async () => {
+    const { body } = await get('/city/london-gb/teachers', WHATSAPP);
+    expect(titleOf(body)).toBe('Bachata Teachers in London');
+    expect(body).not.toContain(CITY_ROW.description);
+  });
+
+  it('titles the card from the DB row, as the page does', async () => {
+    // The stub answers name: 'London' for every slug. /map titles from the slug
+    // ("New York"); teachers must take the row, like src/pages/Teachers.tsx.
+    const { body } = await get('/city/new-york-us/teachers', GOOGLEBOT);
+    expect(titleOf(body)).toBe('Bachata Teachers in London');
+  });
+
+  it('is noindex while the flag is OFF (env unset), on a short cache', async () => {
+    const res = await middleware(
+      new Request('https://www.bachatacalendar.co.uk/city/london-gb/teachers', { headers: { 'user-agent': GOOGLEBOT } }),
+    );
+    expect(res.headers.get('x-robots-tag')).toBe('noindex');
+    expect(res.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=300');
+    expect(await res.text()).toContain('<meta name="robots" content="noindex" />');
+  });
+
+  it('is indexable once the flag is ON', async () => {
+    process.env[FLAG] = 'true';
+    const { body, robots } = await get('/city/london-gb/teachers', GOOGLEBOT);
+    expect(robots).toBeNull();
+    expect(body).not.toContain('name="robots"');
+    expect(canonicalOf(body)).toBe('https://www.bachatacalendar.co.uk/city/london-gb/teachers');
   });
 });

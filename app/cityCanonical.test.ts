@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   CLEAN_LISTINGS,
   CITY_SELF_CANONICAL,
   cityCanonicalPath,
   citySelfCanonicalListing,
+  citySubpageNoindex,
   citySubpageSeo,
   __cityDisplayFromSlugTwin,
 } from './cityCanonical';
@@ -62,6 +64,57 @@ describe('cityCanonicalPath', () => {
     // Bot-facing soft-404 -- known, deliberately unchanged here, queued in
     // queued-city-subpath-soft-404.md.
     expect(cityCanonicalPath(seg('/city/london-gb/not-a-route'))).toBe('/');
+  });
+});
+
+describe('/city/:slug/teachers is its own canonical (B1)', () => {
+  it('self-canonicals instead of consolidating onto /teachers', () => {
+    expect(cityCanonicalPath(seg('/city/london-gb/teachers'))).toBe('/city/london-gb/teachers');
+    expect(cityCanonicalPath(seg('/city/madrid-es/teachers'))).toBe('/city/madrid-es/teachers');
+    expect(CLEAN_LISTINGS.has('teachers')).toBe(false);
+  });
+
+  it('leaves /city/:slug/classes consolidating as before', () => {
+    expect(cityCanonicalPath(seg('/city/london-gb/classes'))).toBe('/classes');
+  });
+
+  // Fed the cities.name the page itself uses (src/pages/Teachers.tsx titles from
+  // the cities row via resolveTeachersCity), NOT a slug-derived name: the slug
+  // gives "Stoke On Trent" where the row says "Stoke-on-Trent".
+  it.each([
+    ['london-gb', 'London'],
+    ['new-york-us', 'New York'],
+    ['stoke-on-trent-gb', 'Stoke-on-Trent'],
+  ])('copy matches buildSeoForRoute for %s (DB name %s)', (slug, dbName) => {
+    const edge = citySubpageSeo('teachers', slug, dbName);
+    const app = buildSeoForRoute('teachers', { cityDisplay: dbName });
+    expect(edge).not.toBeNull();
+    expect(edge!.title).toBe(app.title);
+    expect(edge!.description).toBe(app.description);
+    expect(edge!.title).toBe(`Bachata Teachers in ${dbName}`);
+  });
+
+  it('map keeps the slug-derived name even when a DB name is passed', () => {
+    expect(citySubpageSeo('map', 'stoke-on-trent-gb', 'Stoke-on-Trent')!.title).toBe('Bachata Map of Stoke On Trent');
+  });
+
+  it('reads the SAME env var the SPA flag is built from (src/lib/featureFlags.ts)', () => {
+    // A rename on one side only would noindex a live directory forever.
+    const src = readFileSync('src/lib/featureFlags.ts', 'utf8');
+    const m = src.match(/teachersDirectory:\s*import\.meta\.env\.(\w+)\s*===\s*'true'/);
+    expect(m, 'featureFlags.ts teachersDirectory line changed shape').not.toBeNull();
+    expect(citySubpageNoindex('teachers', { [m![1]]: 'true' })).toBe(false);
+    expect(citySubpageNoindex('teachers', { [m![1]]: 'false' })).toBe(true);
+    expect(readFileSync('middleware.ts', 'utf8')).toContain(`process.env.${m![1]}`);
+  });
+
+  it('is noindex at the edge unless VITE_ENABLE_TEACHERS_DIRECTORY is exactly "true"', () => {
+    expect(citySubpageNoindex('teachers', {})).toBe(true);
+    expect(citySubpageNoindex('teachers', { VITE_ENABLE_TEACHERS_DIRECTORY: '' })).toBe(true);
+    expect(citySubpageNoindex('teachers', { VITE_ENABLE_TEACHERS_DIRECTORY: 'false' })).toBe(true);
+    expect(citySubpageNoindex('teachers', { VITE_ENABLE_TEACHERS_DIRECTORY: 'true' })).toBe(false);
+    expect(citySubpageNoindex('map', {})).toBe(false);
+    expect(citySubpageNoindex(null, {})).toBe(false);
   });
 });
 

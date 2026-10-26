@@ -256,7 +256,18 @@ export const TABLES = {
   cities: [
     { id: CITY_ID, name: 'London', slug: 'london-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
     { id: CITY2_ID, name: 'Manchester', slug: 'manchester-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
+    // Teachers directory shapes: an active city with no teachers, and an inactive one.
+    { id: 'c1000000-0000-4000-8000-000000000003', name: 'Leeds', slug: 'leeds-gb', country_code: 'GB', is_active: true, timezone: 'Europe/London' },
+    { id: 'c1000000-0000-4000-8000-000000000004', name: 'Madrid', slug: 'madrid-es', country_code: 'ES', is_active: false, timezone: 'Europe/Madrid' },
   ],
+};
+
+/** get_public_teachers_list_v1 rows per city slug: [person, city name]. */
+export const TEACHER_CITY_COUNTS = { 'london-gb': 46, 'manchester-gb': 5, 'leeds-gb': 0 };
+const TEACHER_CITY_ROWS = {
+  'london-gb': mixed(46).map((p) => [p, 'London']),
+  'manchester-gb': FLAG_PEOPLE.slice(46, 51).map((p) => [p, 'Manchester']),
+  'leeds-gb': [],
 };
 
 /** RPC answers by name. Anything unlisted answers [], unless it looks like a write. */
@@ -290,8 +301,11 @@ export const RPCS = {
     })),
     product_categories: [], products: [], faq: [],
   }],
-  get_public_teachers_list_v1: () => mixed(40).map((p) => ({
-    entity_id: p.id, first_name: p.first_name, surname: p.surname, hide_surname: false, photo_url: p.photo_url, city: 'London', nationality: p.nationality,
+  // Admin #1039 shape: only ACTIVE cities' teachers, narrowed by p_city_slug.
+  // London 46 (prod, 2026-10-25), Manchester 5, Leeds 0 (active, empty); an
+  // inactive (madrid-es) or unknown slug answers [], as prod does.
+  get_public_teachers_list_v1: (args) => (TEACHER_CITY_ROWS[args.p_city_slug ?? 'london-gb'] ?? []).map(([p, city]) => ({
+    entity_id: p.id, first_name: p.first_name, surname: p.surname, hide_surname: false, photo_url: p.photo_url, city, nationality: p.nationality,
     nationality_code: p.nationality_code, years_teaching: 5, teaching_styles: ['Bachata'], offers_group: true, offers_private: false, languages: [], instagram: null, website: null,
   })),
   get_all_profiles_v1: () => mixed(24).map((p, i) => ({
