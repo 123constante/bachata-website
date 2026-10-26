@@ -343,7 +343,11 @@ const Teachers = () => {
             {copy.fallbackLine && <p className="mt-1 text-muted-foreground">{copy.fallbackLine}</p>}
             {tellUsOpen && (
               <div className="mt-3">
-                <ListingRequestForm section="teachers_directory" />
+                <ListingRequestForm
+                  section="teachers_directory"
+                  variant="teacher"
+                  cityName={view && view.mode !== 'unknown' ? view.requestedName : null}
+                />
               </div>
             )}
           </div>

@@ -11,6 +11,10 @@ import { cn } from '@/lib/utils';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { londonDateKey, londonDaysBetweenKeys, londonWallClockToInstant } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { rowsForCity } from '@/lib/pageCity';
+import { usePageCity } from '@/hooks/usePageCity';
+import { buildCityPath } from '@/lib/cityPath';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
 // ---------------------------------------------------------------------------
 // "Tonight First" venues directory (approved mockup 4, 2026-06-12).
@@ -476,9 +480,10 @@ const VenuesSkeleton = () => (
 );
 
 const Venues = () => {
-  useSeo(buildSeoForRoute('venues'));
+  const city = usePageCity();
+  useSeo(buildSeoForRoute('venues', { cityDisplay: city.name }));
   const {
-    data: venues = [],
+    data: allVenues = [],
     isLoading,
     isError,
     refetch,
@@ -487,6 +492,8 @@ const Venues = () => {
     queryFn: fetchPublicVenuesList,
     staleTime: 5 * 60 * 1000,
   });
+  // The RPC takes no city: cut the list to the page city here (London unchanged).
+  const venues = useMemo(() => rowsForCity(allVenues, city), [allVenues, city]);
 
   const [area, setArea] = useState<'All' | AreaKey>('All');
   const [day, setDay] = useState<string | null>(null);
@@ -563,8 +570,9 @@ const Venues = () => {
     >
       <section className="mx-auto max-w-3xl px-4 pb-1 pt-3 text-center">
         <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
-          Every bachata venue in London &mdash; filter by area or by night, or check{' '}
-          <Link to="/tonight" className="font-semibold underline" style={{ color: ACCENT_WARM }}>
+          {/* One text node, as before: the London HTML stays byte-identical. */}
+          {`Every bachata venue in ${city.name} — filter by area or by night, or check`}{' '}
+          <Link to={city.isLondon ? '/tonight' : buildCityPath(city.slug, 'tonight')} className="font-semibold underline" style={{ color: ACCENT_WARM }}>
             what&rsquo;s on tonight
           </Link>
           .
@@ -585,6 +593,10 @@ const Venues = () => {
           >
             Try again
           </button>
+        </div>
+      ) : venues.length === 0 && !city.isLondon ? (
+        <div className="px-4 py-8">
+          <EmptyCityNote cityName={city.name} citySlug={city.slug} section="venue_detail" text={`No venues listed in ${city.name} yet. Run a night or know a room?`} />
         </div>
       ) : venues.length === 0 ? (
         <div className="py-14 text-center">

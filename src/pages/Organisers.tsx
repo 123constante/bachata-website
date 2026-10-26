@@ -12,6 +12,9 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
 import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCity';
+import { usePageCity } from '@/hooks/usePageCity';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -254,7 +257,8 @@ const formatLastSeen = (dateStr: string | undefined): string => {
 };
 
 const Organisers = () => {
-  useSeo(buildSeoForRoute('organisers'));
+  const city = usePageCity();
+  useSeo(buildSeoForRoute('organisers', { cityDisplay: city.name }));
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const searchFilter = searchParams.get('search')?.trim() || null;
@@ -430,6 +434,12 @@ const Organisers = () => {
   };
 
   const isEmpty = !isLoading && upcoming.length + recentlyActive.length + dormant.length === 0;
+  // Global list: when no organiser is in the page city, say so and offer "Tell us".
+  const cityNote = !isLoading && cityHasNoRows(organisers, city, (o) => o.cities?.name) ? (
+    <div style={{ marginBottom: 12 }}>
+      <EmptyCityNote cityName={city.name} citySlug={city.slug} footnote={organisers.length > 0 ? SHOWING_EVERYONE : undefined} />
+    </div>
+  ) : null;
   const totalFiltered = upcoming.length + recentlyActive.length + dormant.length;
 
   return (
@@ -559,7 +569,7 @@ const Organisers = () => {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1 }}>Organisers</div>
               <div style={{ fontSize: 11, fontWeight: 500, color: '#5b5a60', marginTop: 2 }}>
-                {totalFiltered} in London &middot; soonest first
+                {totalFiltered} {city.isLondon ? 'in London' : 'everywhere'} &middot; soonest first
               </div>
             </div>
 
@@ -602,6 +612,7 @@ const Organisers = () => {
 
           {/* Scrollable content */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '28px 28px 40px' }}>
+            {cityNote}
             {isLoading ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -747,6 +758,7 @@ const Organisers = () => {
           </div>
 
           <section className="px-4 pb-20">
+            {cityNote}
             {isLoading ? (
               <div className="grid grid-cols-2 gap-2">
                 {Array.from({ length: 6 }).map((_, i) => (

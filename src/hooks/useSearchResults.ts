@@ -97,6 +97,9 @@ export interface SearchFilterOpts {
 type RpcResult = { data: Partial<SearchResultsPayload> | null; error: { message: string } | null };
 type RpcCaller = (fn: string, args: Record<string, unknown>) => Promise<RpcResult>;
 
+/** ?city=all: search every city (the RPC's p_city_slug NULL). */
+export const ALL_CITIES = 'all';
+
 export function useSearchResults(
   query: string,
   citySlug: string | null,
@@ -104,7 +107,7 @@ export function useSearchResults(
 ) {
   const term = query.trim();
   const includePast = opts.includePast ?? false;
-  const city = opts.citySlugOverride ?? citySlug;
+  const city = opts.citySlugOverride === ALL_CITIES ? null : (opts.citySlugOverride ?? citySlug);
   const etype = opts.eventTypes && opts.eventTypes.length ? opts.eventTypes : null;
   const formats = opts.formats && opts.formats.length ? opts.formats : null;
   const categories = opts.categories && opts.categories.length ? opts.categories : null;

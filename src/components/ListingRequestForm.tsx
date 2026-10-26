@@ -6,14 +6,20 @@ import { useState, type FormEvent } from 'react';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { toast } from '@/hooks/use-toast';
 import type { ListingSection } from '@/lib/featureFlags';
+import { listingFormCopy, listingSourceUrl, normalizeListingLink, type ListingFormVariant } from './listingRequestCopy';
 
 interface ListingRequestFormProps {
   section: ListingSection;
+  /** 'event' (default) for every gate and empty-city note; 'teacher' for a teacher tip. */
+  variant?: ListingFormVariant;
+  /** The city the tip is about, for the teacher heading. */
+  cityName?: string | null;
+  /** The page city's slug, added to source_url when the path does not name it. */
+  citySlug?: string | null;
 }
 
-const URL_RE = /^https?:\/\//i;
-
-export default function ListingRequestForm({ section }: ListingRequestFormProps) {
+export default function ListingRequestForm({ section, variant = 'event', cityName = null, citySlug = null }: ListingRequestFormProps) {
+  const copy = listingFormCopy(variant, cityName);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventLink, setEventLink] = useState('');
@@ -28,18 +34,21 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
     setErrorMessage(null);
 
     if (!name.trim() || !phone.trim() || !eventLink.trim()) {
-      setErrorMessage('Please fill in name, phone, and event link.');
+      setErrorMessage(copy.missing);
       return;
     }
-    if (!URL_RE.test(eventLink.trim())) {
-      setErrorMessage('Event link must start with http:// or https://');
+    // The RPC requires ^https?:// -- the teacher variant turns an Instagram
+    // handle or a bare domain into a URL first (its hint says so).
+    const link = normalizeListingLink(variant, eventLink);
+    if (!link) {
+      setErrorMessage(copy.invalidLink);
       return;
     }
 
     setSubmitting(true);
     try {
       const sourceUrl = typeof window !== 'undefined'
-        ? window.location.pathname + window.location.search
+        ? listingSourceUrl(window.location.pathname, window.location.search, citySlug)
         : null;
 
       const { data, error } = await rpcLoose('submit_listing_request_v1', {
@@ -47,7 +56,7 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
           section,
           name: name.trim(),
           phone: phone.trim(),
-          event_link: eventLink.trim(),
+          event_link: link,
           source_url: sourceUrl,
           field_url_check: fieldUrlCheck,
         },
@@ -62,15 +71,15 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
           return;
         }
         if (result?.error === 'invalid_event_link') {
-          setErrorMessage('Event link must start with http:// or https://');
+          setErrorMessage(copy.invalidLink);
           return;
         }
         if (result?.error === 'missing_required_fields') {
-          setErrorMessage('Please fill in name, phone, and event link.');
+          setErrorMessage(copy.missing);
           return;
         }
         if (result?.error === 'invalid_section') {
-          setErrorMessage('Form configuration error &mdash; please refresh and try again.');
+          setErrorMessage('Form configuration error — please refresh and try again.');
           return;
         }
         // Unknown server error
@@ -98,13 +107,16 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
         role="status"
         className="rounded-lg border border-orange-300 bg-orange-50 p-3 text-sm text-orange-900"
       >
-        Thanks &mdash; I&rsquo;ll call you soon.
+        {copy.success}
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3" noValidate>
+      {copy.heading && (
+        <p className="text-sm font-semibold text-slate-900" data-testid="listing-form-heading">{copy.heading}</p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="block text-sm font-medium text-slate-900 mb-1">Your name</span>
@@ -135,21 +147,18 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
       </div>
 
       <label className="block">
-        <span className="block text-sm font-medium text-slate-900 mb-1">Event link</span>
+        <span className="block text-sm font-medium text-slate-900 mb-1">{copy.linkLabel}</span>
         <input
-          type="url"
+          type={variant === 'teacher' ? 'text' : 'url'}
           required
           inputMode="url"
-          placeholder="https://"
+          placeholder={copy.placeholder}
           value={eventLink}
           onChange={(e) => setEventLink(e.target.value)}
           disabled={submitting}
           className="w-full rounded-md border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:bg-slate-100"
         />
-        <span className="block text-xs text-slate-600 mt-1">
-          Paste a link to your event &mdash; your Facebook event, Eventbrite, Instagram post,
-          your own site, anything.
-        </span>
+        <span className="block text-xs text-slate-600 mt-1">{copy.hint}</span>
       </label>
 
       {/* Honeypot &mdash; visually hidden but still focusable for bots that scan the DOM. */}
@@ -173,9 +182,10 @@ export default function ListingRequestForm({ section }: ListingRequestFormProps)
       <button
         type="submit"
         disabled={submitting}
+        style={{ minHeight: 44 }}
         className="inline-flex items-center justify-center rounded-md bg-orange-500 py-2 px-4 text-sm font-medium text-white hover:bg-orange-600 disabled:bg-orange-300 disabled:cursor-not-allowed"
       >
-        {submitting ? 'Sending&hellip;' : 'Send my details'}
+        {submitting ? 'Sending…' : 'Send my details'}
       </button>
     </form>
   );

@@ -29,6 +29,8 @@ import { addDaysToKey } from '@/lib/londonDate';
 import { EventRow, EmptyState, RemoteFestivalRow } from './cards';
 import { useListImpressions } from '@/lib/listImpressions';
 import { focusRing } from './controls';
+import { resolvePageCity } from '@/lib/pageCity';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
 /** Date-group header. Today's group is dominant (amber TODAY pill + foreground
  *  label + amber rule/count); every later day is muted, so the eye lands on
@@ -90,7 +92,7 @@ function GroupHeader({
  *  never moves it. The label and count are load-bearing -- without them the
  *  jump from July to November reads as "nothing is on in between", and
  *  RemoteFestivalRow's only travel signal is a 12px pin. */
-function FurtherAfield({ remote }: { remote: UseMapListResult['listEvents'] }) {
+function FurtherAfield({ remote, label }: { remote: UseMapListResult['listEvents']; label: string }) {
   // Grouped unconditionally now (no open/closed state to defer behind), but
   // still memoised: this sits inside the feed, so it re-renders whenever a
   // sibling row is hovered.
@@ -100,7 +102,7 @@ function FurtherAfield({ remote }: { remote: UseMapListResult['listEvents'] }) {
     <section className="pt-1">
       <header className="flex items-center gap-2 px-1 py-2">
         <Globe className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <h2 className="text-xs font-bold text-foreground">Festivals further afield</h2>
+        <h2 className="text-xs font-bold text-foreground">{label}</h2>
         <span className="text-[11px] font-bold tabular-nums text-muted-foreground">
           {remote.length}
         </span>
@@ -178,7 +180,9 @@ export function AllEventsList({
   // every hover/selection change. state.listEvents is already identity-stable
   // (only changes when the query result changes), so keying on it here skips
   // the chain on every hover-driven render.
-  const { local, remote } = useMemo(() => partitionRemote(state.listEvents), [state.listEvents]);
+  const citySlug = state.citySlug ?? null;
+  const city = useMemo(() => resolvePageCity(citySlug), [citySlug]);
+  const { local, remote } = useMemo(() => partitionRemote(state.listEvents, citySlug), [state.listEvents, citySlug]);
   const groups = useMemo(() => localFeedGroups(local), [local]);
 
   // Windowed SSR (see mapListDerivations.INITIAL_FEED_DAYS). The server and the
@@ -283,7 +287,13 @@ export function AllEventsList({
 
   // Both empty, not just the local stream: a feed carrying only remote
   // festivals still has something to show.
+  // A new city with nothing of its own: say so with an action (owner: "Coming
+  // soon" + "Tell us"), then any festivals elsewhere below it.
+  const cityNote = !city.isLondon && groups.length === 0 && !state.q ? (
+    <EmptyCityNote cityName={city.name} citySlug={city.slug} />
+  ) : null;
   if (groups.length === 0 && remote.length === 0) {
+    if (cityNote) return cityNote;
     return (
       <EmptyState>
         {state.q && showSearchEmpty ? 'No events match your search.' : 'Nothing on right now.'}
@@ -293,6 +303,7 @@ export function AllEventsList({
 
   return (
     <div className="space-y-3">
+      {cityNote}
       {state.geo.status === 'idle' && <LocationStrip onUse={state.geo.request} />}
       {coords && hasDistances && (
         <div className="flex items-center justify-end gap-1.5 text-[11px] font-bold">
@@ -340,7 +351,7 @@ export function AllEventsList({
       {hasMore && <div ref={sentinelRef} aria-hidden="true" className="h-px w-full" />}
       {/* AFTER the sentinel deliberately: growing the window appends day-groups
           above this point, so the section never moves under the reader. */}
-      <FurtherAfield remote={remote} />
+      <FurtherAfield remote={remote} label={city.isLondon ? 'Festivals further afield' : 'Festivals elsewhere'} />
     </div>
   );
 }

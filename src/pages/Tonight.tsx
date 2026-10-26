@@ -6,6 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getCalendarEvents } from '@/integrations/supabase/eventRpcs';
 import { useCity } from '@/contexts/CityContext';
+import { usePageCity } from '@/hooks/usePageCity';
+import { buildCityPath } from '@/lib/cityPath';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 import { resolveEventImage } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
 import { useListImpressions } from '@/lib/listImpressions';
@@ -97,9 +100,10 @@ const computeCountdown = (
 
 const Tonight = () => {
   const trackImpression = useListImpressions('tonight');
-  useSeo(buildSeoForRoute('tonight'));
   const navigate = useNavigate();
   const { citySlug } = useCity();
+  const city = usePageCity();
+  useSeo(buildSeoForRoute('tonight', { cityDisplay: city.name }));
   const {
     status: locStatus,
     reason: locReason,
@@ -279,12 +283,12 @@ const Tonight = () => {
         <div className="relative z-10 max-w-6xl mx-auto px-4 pt-6">
 
           <p className="max-w-2xl mx-auto mb-6 text-sm leading-relaxed text-gray-300">
-            What's on for bachata dancers in London tonight - socials, classes,
+            What's on for bachata dancers in {city.name} tonight - socials, classes,
             warm-ups and after-parties happening in the next few hours.
             Use Near Me to sort by distance, or browse the full{' '}
-            <Link to="/parties" className="text-primary underline">parties listing</Link>{' '}
+            <Link to={city.isLondon ? '/parties' : buildCityPath(city.slug, 'parties')} className="text-primary underline">parties listing</Link>{' '}
             and{' '}
-            <Link to="/classes" className="text-primary underline">classes</Link>.
+            <Link to={city.isLondon ? '/classes' : buildCityPath(city.slug, 'classes')} className="text-primary underline">classes</Link>.
           </p>
 
           <div className="max-w-md mx-auto mb-6">
@@ -311,14 +315,22 @@ const Tonight = () => {
             </div>
           )}
 
-          {events.length === 0 && (
+          {events.length === 0 && !city.isLondon && (
+            <div className="mb-8" data-testid="tonight-empty-city">
+              <h3 className="text-white/70 text-base font-bold mb-2 text-center">No events tonight</h3>
+              <EmptyCityNote cityName={city.name} citySlug={city.slug} />
+            </div>
+          )}
+
+          {events.length === 0 && city.isLondon && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <Clock className="w-8 h-8 text-white/30" />
               </div>
               <h3 className="text-white/70 text-xl font-bold mb-2">No events tonight</h3>
               <p className="text-white/40 text-sm max-w-xs">
-                There are no events scheduled in your city tonight. Check back later or switch city.
+                There are no events scheduled in your city tonight. Check back later or browse the{' '}
+                <Link to="/parties" className="text-primary underline">parties listing</Link>.
               </p>
             </div>
           )}

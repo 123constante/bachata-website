@@ -49,6 +49,8 @@ import { AllEventsList } from './cards/AllEventsList';
 import { LocateControl } from './cards/LocateControl';
 import { FooterLinks } from '@/components/layout/FooterLinks';
 import { MAP_PLACEHOLDERS } from './mapPlaceholders';
+import { resolvePageCity } from '@/lib/pageCity';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 // The tile provider's required credit, for the pre-mount still. Safe to import
 // into this EAGER, server-rendered shell: basemapTiles.ts has no imports of its
 // own and pulls in nothing -- which is the whole reason it was split out of
@@ -157,7 +159,9 @@ function TonightBody({ state }: { state: UseMapListResult }) {
   return (
     <div className="space-y-3">
       <LocateControl geo={state.geo} />
-      {events.length === 0 ? (
+      {events.length === 0 && !resolvePageCity(state.citySlug).isLondon ? (
+        <EmptyCityNote cityName={resolvePageCity(state.citySlug).name} citySlug={state.citySlug} />
+      ) : events.length === 0 ? (
         <EmptyState>Nothing listed for today yet.</EmptyState>
       ) : (
         events.map((e) => (

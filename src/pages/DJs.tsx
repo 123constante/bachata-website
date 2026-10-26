@@ -16,6 +16,9 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { renderPublicName } from '@/lib/publicName';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
+import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCity';
+import { usePageCity } from '@/hooks/usePageCity';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 
 type DJCard = {
   id: string;
@@ -37,7 +40,8 @@ type DJCard = {
 };
 
 const DJs = () => {
-  useSeo(buildSeoForRoute('djs'));
+  const city = usePageCity();
+  useSeo(buildSeoForRoute('djs', { cityDisplay: city.name }));
   const { data: djs = [], isLoading } = useQuery({
     queryKey: ['dj-profiles-directory'],
     queryFn: async () => {
@@ -62,10 +66,18 @@ const DJs = () => {
     subtitle: 'Discover the DJs behind the music — sensual, traditional, and everything in between.',
   };
 
+  // Global list: when nobody is in the page city, say so and offer "Tell us".
+  const cityNote = !isLoading && cityHasNoRows(djs, city, (d) => d.city_name) ? (
+    <div className="max-w-6xl mx-auto px-4 mb-3">
+      <EmptyCityNote cityName={city.name} citySlug={city.slug} footnote={djs.length > 0 ? SHOWING_EVERYONE : undefined} />
+    </div>
+  ) : null;
+
   // flags.peopleWall: today's hero stays, the face wall replaces the grid. OFF = the page below, unchanged.
   if (flags.peopleWall) {
     return (
       <GlobalLayout showSubheader={false} gradientPalette="dj" hero={hero}>
+        {cityNote}
         <DjsWall djs={djs} isLoading={isLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
       </GlobalLayout>
     );
@@ -77,6 +89,7 @@ const DJs = () => {
       gradientPalette="dj"
       hero={hero}
     >
+      {cityNote}
       <div className="max-w-6xl mx-auto px-4">
         {/* Grid */}
         {isLoading ? (
