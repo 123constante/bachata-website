@@ -307,6 +307,37 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     expect(screen.queryByTestId('tix-toast')).toBeNull();
   });
 
+  it('F6: Escape inside "Close sales for good?" means Keep selling; the next Escape closes the sheet', () => {
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(within(screen.getByTestId('tix-type-t-sell')).getByTestId('tix-edit'));
+    fireEvent.click(screen.getByTestId('tix-next'));
+    fireEvent.click(screen.getByTestId('tix-next'));
+    fireEvent.click(screen.getByTestId('tix-close'));
+    expect(screen.getByTestId('tix-close-keep')).toBeTruthy();
+    esc();
+    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
+    expect([screen.queryByTestId('tix-close-keep'), !!screen.queryByTestId('tix-close')]).toEqual([null, true]);
+    esc();
+    expect(layers()).toEqual(['tix-tall']);
+    expect(api.setTicketStatus).not.toHaveBeenCalled();
+  });
+
+  it('F5: while sales are loading the price waits with "Checking sales", it never unlocks first', () => {
+    // A type with nothing reserved: only the sales and orders reads can say whether it has sold.
+    load(SHAPES.survey);
+    q.summary = pending();
+    q.orders = ok([]);
+    const view = show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(within(screen.getByTestId('tix-type-t-paid')).getByTestId('tix-edit'));
+    expect((screen.getByTestId('tix-form-price') as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByTestId('tix-price-help').textContent).toBe('Checking sales\u2026');
+    load(SHAPES.survey);
+    view.again();
+    expect(screen.getByTestId('tix-price-help').textContent).not.toBe('Checking sales\u2026');
+  });
+
   it('F4: one switch success keeps another row\'s refusal on screen', async () => {
     const answers: Array<(v: unknown) => void> = [];
     api.setTicketStatus.mockImplementation(() => new Promise((r) => answers.push(r)));

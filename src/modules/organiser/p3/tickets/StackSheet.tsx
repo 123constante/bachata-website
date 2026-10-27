@@ -22,6 +22,7 @@ export function StackSheet({
   title,
   onClose,
   onBack,
+  onEscape,
   viewKey,
   full,
   footer,
@@ -32,6 +33,8 @@ export function StackSheet({
   onClose: () => void;
   /** An inner view of this same layer (Orders, a step): Back goes there, never closes the layer. */
   onBack?: () => void;
+  /** An inner confirm is open: Escape steps out of it instead of closing the layer (review r1 F6). */
+  onEscape?: () => void;
   /** Changes with the layer's view or step: focus moves into the new view. */
   viewKey?: string;
   full?: boolean;
@@ -47,7 +50,7 @@ export function StackSheet({
   const top = useSyncExternalStore(subscribe, topOf, topOf) === id;
   const closeRef = useRef(onClose);
   useLayoutEffect(() => {
-    closeRef.current = onClose;
+    closeRef.current = onEscape ?? onClose;
   });
 
   useLayoutEffect(() => {
@@ -115,7 +118,7 @@ export function StackSheet({
         data-testid={testId}
         data-top={top}
       >
-        <div className="p3-sheet-head">
+        <div className="p3-sheet-head p3-stack-head">
           {onBack ? (
             <button type="button" className="p3-link" onClick={onBack} data-testid={`${testId}-back`}>
               &larr; Back

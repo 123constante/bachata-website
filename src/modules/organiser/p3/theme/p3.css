@@ -257,3 +257,19 @@
 .p3-theme .p3-tick[data-done="true"] { background: var(--gold); border-color: var(--gold); }
 .p3-theme .p3-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .p3-theme .p3-prompt { border: 1px solid var(--gold-fg); }
+/* W-T fix 1 (review r1). D1: a stacked title in a status row beats the row's inline spans. */
+.p3-theme .p3-status-row .p3-row-t.p3-block { display: block; }
+/* D10: the loading Tickets row is not a control. */
+.p3-theme div.p3-status-row { cursor: default; }
+/* D2: the edit button sits inside a row that already pads it. */
+.p3-theme .p3-type .p3-date-btn { padding: 0; }
+/* D5: Back and Close stay on screen on a long sheet (the footer is sticky the same way). D3: Close is 44 x 44. */
+.p3-theme .p3-stack-head { position: sticky; top: -12px; z-index: 1; margin: -12px -16px 0; padding: 12px 16px 0; background: var(--sheet); }
+.p3-theme .p3-stack-head .p3-link { min-width: var(--tap); padding: 0 8px; justify-content: center; }
+/* D4: money figures fit a half-width tile at 390px ("\00A3 12,345.00"). */
+.p3-theme .p3-stat-n.p3-money { font-size: 22px; overflow-wrap: anywhere; }
+/* D6: the knob turns light when ON, as in mockup C. */
+.p3-theme .p3-switch[aria-checked="true"] i { background: var(--card); }
+/* D9: the Orders heading at the mockup's 16px; the Get paid kicker is a tag. */
+.p3-theme .p3-h2.p3-h2-s { font-size: 16px; }
+.p3-theme .p3-self-start { align-self: flex-start; }

@@ -35,6 +35,8 @@ export interface TypeSheetProps {
   seriesId: string;
   ctx: MoveContext;
   hasOrders: boolean;
+  /** Sales or orders are still loading: the price waits rather than unlocking then locking (review r1 F5). */
+  checking?: boolean;
   /** A one-off's start: the default "Sales close" for a new ticket (eventStartOf). */
   eventStart: string | null;
   /** inFlight: closed while a save was still running (the parent drops the draft so it cannot be sent twice). */
@@ -50,7 +52,7 @@ export interface TypeSheetProps {
  * dress): 1 name + price with the Buyer pays box, 2 places and the sales window, 3 review.
  * Back goes one step and keeps every value. An untouched edit sends nothing.
  */
-export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, eventStart, onClose, onLate, onSaved }: TypeSheetProps) {
+export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, checking, eventStart, onClose, onLate, onSaved }: TypeSheetProps) {
   const { form, step, openMode, closeMode } = draft;
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -198,6 +200,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       full
       title={type ? 'Edit ticket' : 'Add a ticket'}
       onClose={() => onClose(saving !== null)}
+      onEscape={confirmClose ? () => setConfirmClose(false) : undefined}
       viewKey={String(step)}
       onBack={step > 1 && !saving ? () => patch({ step: (step - 1) as Step }) : undefined}
       testId="tix-sheet"
@@ -229,12 +232,12 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               {...input('price', {
                 inputMode: 'decimal',
                 placeholder: '0.00',
-                disabled: !!locked || !!lockedPrice,
+                disabled: !!locked || !!lockedPrice || !!checking,
                 onChange: (e: ChangeEvent<HTMLInputElement>) => patch({ form: { ...form, price: e.target.value, paid: paidOf(e.target.value) } }),
               })}
             />
             {err('price')}
-            <p id={`${id}-price-help`} className="p3-note" data-testid="tix-price-help">{lockedPrice ?? 'Leave empty or 0 for a free ticket.'}</p>
+            <p id={`${id}-price-help`} className="p3-note" data-testid="tix-price-help">{lockedPrice ?? (checking ? 'Checking sales\u2026' : 'Leave empty or 0 for a free ticket.')}</p>
             <div className="p3-buyer" data-testid="tix-buyer-pays" aria-live="polite">
               <span className="p3-row-s">Buyer pays</span>
               {total === null ? (

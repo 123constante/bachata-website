@@ -51,7 +51,7 @@ export function MoneySoFar({ types }: { types: readonly TypeSales[] }) {
         </div>
         <div className="p3-card p3-stat" data-testid="tix-money-gross">
           <span className="p3-stat-l">Sales</span>
-          <span className="p3-stat-n">{formatPence(t.grossPence)}</span>
+          <span className="p3-stat-n p3-money">{formatPence(t.grossPence)}</span>
         </div>
       </div>
       <p className="p3-note" data-testid="tix-money-note">
@@ -209,7 +209,7 @@ function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: 'none' | 'started
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
   return (
     <section className="p3-card p3-stack-s p3-prompt" aria-label="Get paid" data-testid="tix-prompt" data-state={stripe}>
-      <span className="p3-row-s">Get paid</span>
+      <span className={`${TONE_CLASS.party} p3-self-start`} data-testid="tix-prompt-kicker">Get paid</span>
       <strong data-testid="tix-prompt-title">{PROMPT_TITLE[stripe]}</strong>
       <p className="p3-note">{PROMPT_BODY[stripe]}</p>
       {switchedOff ? (

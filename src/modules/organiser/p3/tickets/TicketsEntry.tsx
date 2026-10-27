@@ -236,7 +236,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     body = (
       <div className="p3-card p3-state" data-testid="tix-types-empty">
         <strong>No tickets yet</strong>
-        <p>{why ? `No tickets on this event yet. ${why}` : 'Tap Add a ticket below. Free tickets work straight away; paid ones need payments connected.'}</p>
+        {/* The reason sits once, by Add a ticket (or in the role note at the top): review r1 D7, D8. */}
+        <p>{why ? 'No tickets on this event yet.' : 'Tap Add a ticket below. Free tickets work straight away; paid ones need payments connected.'}</p>
       </div>
     );
   } else {
@@ -258,20 +259,22 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             ))}
           </ul>
         </div>
-        <h4 className="p3-h2">Orders</h4>
+        <h4 className="p3-h2 p3-h2-s">Orders</h4>
         <div className="p3-card p3-tight" data-testid="tix-orders">{ordersCard(false)}</div>
       </>
     );
   }
 
   const addId = `tix-add-why-${series.id}`;
+  const roleId = `tix-role-why-${series.id}`;
+  const roleWhy = why === NOT_MANAGER;
   const listFooter =
     view === 'list' ? (
       <div className="p3-stack-s">
-        <button type="button" className="p3-btn" disabled={!!why} aria-describedby={why ? addId : undefined} onClick={() => openEditor(null)} data-testid="tix-add">
+        <button type="button" className="p3-btn" disabled={!!why} aria-describedby={why ? (roleWhy ? roleId : addId) : undefined} onClick={() => openEditor(null)} data-testid="tix-add">
           Add a ticket
         </button>
-        {why && list.length > 0 && <p id={addId} className="p3-note" data-testid="tix-add-reason">{why}</p>}
+        {why && !roleWhy && <p id={addId} className="p3-note" data-testid="tix-add-reason">{why}</p>}
       </div>
     ) : undefined;
 
@@ -299,7 +302,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               <p className="p3-note" data-testid="tix-event-rules">
                 {eventDateLine(series)}. Buyers pay a {feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to {MAX_PER_ORDER} tickets an order.
               </p>
-              {!manager && <p className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
+              {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
               {body}
             </div>
           ) : (
@@ -317,6 +320,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           ctx={ctx}
           eventStart={eventStart}
           hasOrders={hasOrdersOf(editing.type, sales, orders.data ?? [])}
+          checking={!!editing.type && (summary.isPending || orders.isPending)}
           onClose={(saving) => {
             closeEditor();
             // Closed mid-save: the save lands on its own (toast); the draft must not be sent again.

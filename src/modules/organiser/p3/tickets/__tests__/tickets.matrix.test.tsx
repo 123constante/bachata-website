@@ -92,9 +92,13 @@ describe.each(SHAPE_KEYS)('shape %s', (k) => {
     const live = s.lifecycle === 'live';
     expect(add.disabled).toBe(!manager || !live);
     if (add.disabled) {
-      const why = s.types.length ? screen.getByTestId('tix-add-reason').textContent : screen.getByTestId('tix-types-empty').textContent;
-      expect(why).toContain(!manager ? NOT_MANAGER : 'Put this event live before adding tickets.');
+      // Review r1 D7: the described-by target exists in every shape, empty list included.
+      const why = document.getElementById(add.getAttribute('aria-describedby') ?? '')?.textContent;
+      expect(why).toBe(!manager ? NOT_MANAGER : 'Put this event live before adding tickets.');
     }
+    // Review r1 D8: the role reason is said once in the sheet, not twice.
+    const sheet = screen.getByTestId('tix-tall').textContent ?? '';
+    expect(sheet.split(NOT_MANAGER).length - 1).toBe(manager ? 0 : 1);
   });
 
   it('no line points at a screen P3 has not got', () => {
