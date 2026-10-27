@@ -1,0 +1,15 @@
+# Brief: get main's bundle-budget green again (dancer-app first-load 374.1 KB vs 374 KB pin) -- 2026-10-27
+
+Repo 123constante/bachata-website. Branch `claude/main-bundle-trim` from current `origin/main` (dd8112f9c, #1056 Bristol polish merged). Lane: normal (Website only, no DB, no migration). Opus, medium effort. Smallest possible change; this unblocks W3a (#1082), W-T (#1079), W4a (#1080) and ambassador #1086, all red only because main is red.
+
+## The fact (measured by others, re-measure yourself)
+`Perf Budget` on main at dd8112f9c FAILED: dancer-app (`/app/*`) first-load about 374.09-374.1 KB across 49 files against the 374 KB pin in `perf-budgets.json` (~90-150 B over). main at 4c683ce (just before #1056) was green. #1056's own PR head 428e717 was reported at 373.7 KB (green) before it merged, so the two numbers differ for a reason you must find (the merge result, a chunk-hash or dedupe change, or a later commit in #1056).
+
+## Do
+1. Build `4c683ce` and `dd8112f9c` (git worktrees; `npm ci` then `npm run build`) and run `npm run check:bundle-budget` on each. Diff the dancer-app first-load chunk lists (the script prints them per route; `vite.config.ts` header says how to re-measure). Name the exact chunk(s) that grew and the static import that pulls them in. Candidates from #1056: `src/lib/instagramHandle`, `listingRequestCopy.ts`, `ComingSoonGate`, `EmptyCityNote`, `resolvePageCity`, `vite.chunks.ts` / `tests/chunkClassifier.test.ts` edits (read the diff of #1056, commit dd8112f9c, files under src/lib, src/components, vite.chunks.ts).
+2. Remove at least ~250 B from the /app first load by moving that import out of the static graph (lazy import, or split the helper so /app does not pull the part it never uses). Do NOT raise `perf-budgets.json`, do NOT touch the pin, do NOT change behaviour of any page. London output must stay byte-identical (the venues golden test must stay green).
+3. Prove it: `npm run check:bundle-budget` after the build shows dancer-app under 374 KB, every other route at or under its pin, chunk and puller ratchets ok. Paste before / after numbers in the PR body.
+4. Run every CI job step that applies (read `.github/workflows`): at least `npm run lint`, `npm run test:unit` (the Bristol matrix and golden tests), `npm run typecheck` ratchet, `npm run check:bundle-budget`, `check:first-load-requests` and `check:chunk-cycles` (names as in pre-ship). `--maxWorkers=3` if memory kills a run. Per-job table in the PR body, with `## Verified on real data` (EXACTLY the lines `- Shapes surveyed:`, `- Checks run:`, `- NOT verified:`) and `## Phone QA` (`- Sizes checked:`, `- Walked:`, `- Not verified:`). A change with no visible UI change: say so and walk `/`, `/venues`, `/djs` at 390x844 once to show nothing moved.
+
+## Do NOT
+Raise or edit any budget pin, touch `perf-budgets.json`, change page behaviour, touch the density-excluded calendar files, write to prod, or touch other branches (others have open PRs on P3 files; stay out of `src/modules/organiser/`). One push; stop at 50% context with a PARTIAL marker. Final commit subject ends with the done marker from your prompt.
