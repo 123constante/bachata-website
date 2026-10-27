@@ -12,11 +12,12 @@ const ago = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString(
 const mk = (id: string, type: 'organiser' | 'series', name: string, d: number, extra: Record<string, unknown> = {}) => ({
   target_type: type, target_id: id, name, city_id: CITY, city_name: 'Bristol', lifecycle_status: 'pending_review',
   submitted_at: ago(d), organiser_ids: [], submitter_email: 'private.person@example.com', public_slug: id,
-  organiser_names: [name], next_occurrence_dates: [], future_occurrence_count: 0, venue_name: null,
-  price_min: null, price_max: null, price_currency: 'GBP', has_flyer: false, ...extra,
+  // The live organiser shape: every series-only field is NULL.
+  organiser_names: null, next_occurrence_dates: null, future_occurrence_count: null, venue_name: null,
+  price_min: null, price_max: null, price_currency: null, has_flyer: null, ...extra,
 });
 const series = (id: string, name: string, d: number, extra: Record<string, unknown> = {}) =>
-  mk(id, 'series', name, d, { next_occurrence_dates: ['2026-10-29', '2026-11-05', '2026-11-12'], future_occurrence_count: 13, venue_name: 'The Lantern Rooms', price_min: 8, price_max: 8, has_flyer: true, ...extra });
+  mk(id, 'series', name, d, { organiser_names: [], price_currency: 'GBP', next_occurrence_dates: ['2026-10-29', '2026-11-05', '2026-11-12'], future_occurrence_count: 13, venue_name: 'The Lantern Rooms', price_min: 8, price_max: 8, has_flyer: true, ...extra });
 const ITEMS = [
   series('s1', 'Thursday Bachata at The Lantern', 9),
   mk('o2', 'organiser', 'Harbourside Dance Collective', 6),
@@ -47,10 +48,17 @@ async function install(page: Page, opts: { selfApprove?: string[] } = {}) {
   await page.route('**/auth/v1/**', (route) => (route.request().url().includes('/auth/v1/user') ? json(route, user) : json(route, {})));
   await page.route('**/rest/v1/**', (route) => {
     const req = route.request();
-    const rpc = new URL(req.url()).pathname.match(/\/rpc\/([a-z0-9_]+)$/)?.[1];
+    const url = new URL(req.url());
+    const rpc = url.pathname.match(/\/rpc\/([a-z0-9_]+)$/)?.[1];
+    // The city list: the user's own city-ambassador rows in entity_members, then those cities.
+    if (url.pathname.endsWith('/entity_members')) {
+      const q = url.searchParams;
+      const mine = q.get('entity_type') === 'eq.city' && q.get('member_role') === 'eq.ambassador' && q.get('user_id') === `eq.${ME}`;
+      return json(route, mine ? [{ entity_id: CITY }] : []);
+    }
+    if (url.pathname.endsWith('/cities')) return json(route, [{ id: CITY, name: 'Bristol', slug: 'bristol' }]);
     if (!rpc) return json(route, []);
     const body = (req.postDataJSON?.() ?? {}) as Record<string, unknown>;
-    if (rpc === 'admin_get_my_city_scopes') return json(route, [{ city_id: CITY, city_name: 'Bristol', city_slug: 'bristol' }]);
     if (rpc === 'admin_list_pending_review_v1') return json(route, body.p_offset === 0 ? queue : []);
     if (rpc === 'admin_approve_entity_v1' || rpc === 'admin_reject_entity_v1') {
       sent.push({ fn: rpc, body });

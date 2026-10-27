@@ -5,19 +5,23 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
+import { useAuth } from '@/hooks/useAuth';
+import { buildSignInHref } from '@/lib/authRouting';
 import {
-  SCOPES_KEY,
   approveEntity,
   fetchCityScopes,
   fetchQueuePage,
   queueKey,
   rejectEntity,
+  scopesKey,
   type QueuePage,
 } from './ambassadorApi';
 import {
   decisionError,
   decisionToast,
   itemKey,
+  loadErrorKind,
+  moreText,
   reviewPath,
   sortOldestFirst,
   type DecisionError,
@@ -25,7 +29,7 @@ import {
   type TargetType,
 } from './ambassadorModel';
 import { ApproveSheet, RejectSheet } from './DecisionSheets';
-import { CaughtUpState, ErrorState, LoadingState, NoAccessState, QueueList, ReviewView } from './QueueViews';
+import { CaughtUpState, ErrorState, LoadingState, NoAccessState, QueueList, ReviewView, SignedOutState } from './QueueViews';
 
 type Sheet = { kind: 'approve' | 'reject'; key: string } | null;
 
@@ -44,6 +48,8 @@ function Queue() {
   const navigate = useNavigate();
   const location = useLocation();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? '';
   const [now] = useState(() => new Date());
   const [party, setParty] = useState<ReadonlySet<string>>(new Set());
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -52,7 +58,7 @@ function Queue() {
   const scrollRef = useRef(0);
   const review = parseReviewPath(location.pathname);
 
-  const scopes = useQuery({ queryKey: SCOPES_KEY, queryFn: fetchCityScopes });
+  const scopes = useQuery({ queryKey: scopesKey(userId), enabled: !!userId, queryFn: () => fetchCityScopes(userId) });
   const cityIds = useMemo(() => (scopes.data ?? []).map((s) => s.id), [scopes.data]);
   const key = queueKey(cityIds);
   const queue = useInfiniteQuery({
@@ -102,18 +108,22 @@ function Queue() {
     setSheetError(null);
   };
 
+  const takeOff = (item: QueueItem) => {
+    qc.setQueryData<InfiniteData<QueuePage, number>>(key, (old) =>
+      old && { ...old, pages: old.pages.map((p) => ({ ...p, items: p.items.filter((i) => i.key !== item.key) })) },
+    );
+    closeSheet();
+    if (review) backToList();
+  };
+
   const decide = useMutation({
     mutationFn: async (v: { item: QueueItem; reason?: string }) => {
       if (v.reason === undefined) await approveEntity(v.item.targetType, v.item.targetId);
       else await rejectEntity(v.item.targetType, v.item.targetId, v.reason);
     },
     onSuccess: (_d, v) => {
-      qc.setQueryData<InfiniteData<QueuePage, number>>(key, (old) =>
-        old && { ...old, pages: old.pages.map((p) => ({ ...p, items: p.items.filter((i) => i.key !== v.item.key) })) },
-      );
+      takeOff(v.item);
       setToast(decisionToast(v.reason === undefined ? 'Approved' : 'Rejected', v.item.name, items.length - 1));
-      closeSheet();
-      if (review) backToList();
     },
     onError: (err, v) => {
       const e = decisionError(err);
@@ -122,18 +132,33 @@ function Queue() {
         closeSheet();
         return;
       }
+      if (e.kind === 'gone') {
+        // Nothing left to decide: off the list, the same as a decision that went through.
+        takeOff(v.item);
+        setToast(e.message);
+        return;
+      }
       setSheetError(e);
     },
   });
 
   const cityNames = (scopes.data ?? []).map((s) => s.name).join(' and ');
+  const signInHref = buildSignInHref(`${location.pathname}${location.search}`);
+  const lastPage = queue.data?.pages[queue.data.pages.length - 1];
+  const fullCityNames = (scopes.data ?? []).filter((s) => lastPage?.fullCityIds.includes(s.id)).map((s) => s.name);
+  const failed = (err: unknown, retry: () => void) => {
+    const kind = loadErrorKind(err);
+    if (kind === 'access') return <NoAccessState />;
+    if (kind === 'auth') return <SignedOutState signInHref={signInHref} />;
+    return <ErrorState onRetry={retry} />;
+  };
 
   let body: React.ReactNode;
   if (scopes.isPending) body = <LoadingState />;
-  else if (scopes.isError) body = <ErrorState onRetry={() => void scopes.refetch()} />;
+  else if (scopes.isError) body = failed(scopes.error, () => void scopes.refetch());
   else if (cityIds.length === 0) body = <NoAccessState />;
   else if (queue.isPending) body = <LoadingState />;
-  else if (queue.isError && items.length === 0) body = <ErrorState onRetry={() => void queue.refetch()} />;
+  else if (queue.isError && items.length === 0) body = failed(queue.error, () => void queue.refetch());
   else if (items.length === 0 && !review) body = <CaughtUpState cityNames={cityNames} />;
   else {
     body = (
@@ -144,7 +169,7 @@ function Queue() {
             party={party}
             now={now}
             showCity={cityIds.length > 1}
-            more={queue.hasNextPage ? { loading: queue.isFetchingNextPage, error: queue.isFetchNextPageError, onMore: () => void queue.fetchNextPage() } : null}
+            more={queue.hasNextPage && lastPage ? { text: moreText(lastPage.offset, fullCityNames), loading: queue.isFetchingNextPage, error: queue.isFetchNextPageError, onMore: () => void queue.fetchNextPage() } : null}
             onOpen={openReview}
           />
         </div>
@@ -187,10 +212,10 @@ function Queue() {
       </header>
       {body}
       {sheet && sheetItem && sheet.kind === 'approve' && (
-        <ApproveSheet item={sheetItem} busy={decide.isPending} error={sheetError} onCancel={closeSheet} onConfirm={() => decide.mutate({ item: sheetItem })} />
+        <ApproveSheet item={sheetItem} busy={decide.isPending} error={sheetError} signInHref={signInHref} onCancel={closeSheet} onConfirm={() => decide.mutate({ item: sheetItem })} />
       )}
       {sheet && sheetItem && sheet.kind === 'reject' && (
-        <RejectSheet item={sheetItem} busy={decide.isPending} error={sheetError} onCancel={closeSheet} onSubmit={(reason) => decide.mutate({ item: sheetItem, reason })} />
+        <RejectSheet item={sheetItem} busy={decide.isPending} error={sheetError} signInHref={signInHref} onCancel={closeSheet} onSubmit={(reason) => decide.mutate({ item: sheetItem, reason })} />
       )}
       {toast && (
         <div role="status" className="fixed bottom-24 left-1/2 z-[70] w-max max-w-[calc(100%-24px)] -translate-x-1/2 rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] text-foreground shadow-lg" data-testid="toast">

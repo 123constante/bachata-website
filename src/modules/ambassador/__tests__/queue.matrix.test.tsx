@@ -4,12 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { SHAPES, agoIso, hundred, newestFirst, row, twelve } from './fixtures';
-import { Page, answer, h } from './harness';
+import { BATH, BRISTOL, Page, USER_ID, answer, from, h, pinNow } from './harness';
 import AmbassadorQueuePage from '../AmbassadorQueuePage';
 
 vi.mock('@/integrations/supabase/client', async () => {
-  const { h } = await import('./harness');
-  return { supabase: { rpc: (fn: string, args?: Record<string, unknown>) => h.rpc(fn, args) } };
+  const { h, from } = await import('./harness');
+  return { supabase: { rpc: (fn: string, args?: Record<string, unknown>) => h.rpc(fn, args), from } };
+});
+vi.mock('@/hooks/useAuth', async () => {
+  const { USER_ID } = await import('./harness');
+  return { useAuth: () => ({ user: { id: USER_ID } }) };
 });
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/components/auth/AuthGuard', () => ({ AuthGuard: ({ children }: { children: ReactNode }) => <>{children}</> }));
@@ -25,11 +29,25 @@ const settle = () => new Promise((r) => setTimeout(r, 25));
 const rows = () => screen.queryAllByTestId('queue-row');
 
 beforeEach(() => {
-  window.scrollTo = vi.fn();
+  pinNow();
+  window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
   h.rpc.mockReset();
-  h.scopes = [{ city_id: 'c-bristol', city_name: 'Bristol', city_slug: 'bristol' }];
+  h.members = [{ entity_id: BRISTOL.id }];
+  h.membersError = null;
+  h.reads = [];
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+const listCalls = () => h.rpc.mock.calls.filter(([fn]) => fn === 'admin_list_pending_review_v1');
+const reachDecision = async (raw = SHAPES.one) => {
+  await waitFor(() => expect(rows()).toHaveLength(1));
+  fireEvent.click(rows()[0]);
+  fireEvent.click(await screen.findByTestId('approve-open'));
+  fireEvent.click(await screen.findByTestId('approve-confirm'));
+  return raw;
+};
 
 describe('list screen x queue shapes', () => {
   it('12 items: oldest first, count 12, oldest-waiting bar, no RPC decision on open', async () => {
@@ -73,7 +91,7 @@ describe('list screen x queue shapes', () => {
     open();
     await waitFor(() => expect(rows()).toHaveLength(2));
     const [old, fresh] = screen.getAllByTestId('age-chip');
-    expect(old.textContent).toBe('⚠ Waiting 9 days');
+    expect(old.textContent).toBe('\u26A0 Waiting 9 days');
     expect(old.getAttribute('data-old')).toBe('true');
     expect(fresh.textContent).toBe('Waiting since today');
     expect(fresh.getAttribute('data-old')).toBe('false');
@@ -83,7 +101,7 @@ describe('list screen x queue shapes', () => {
     answer({ list: [], pages: { 0: hundred(), 100: [row('x1', 'Page two organiser', { ago: 8 })] } });
     open();
     await waitFor(() => expect(rows()).toHaveLength(100));
-    expect(screen.getByTestId('queue-more').textContent).toContain('There may be more');
+    expect(screen.getByTestId('queue-more').textContent).toContain('This shows the first 100 in Bristol. There may be more');
     fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
     await waitFor(() => expect(rows()).toHaveLength(101));
     expect(rows()[0].textContent).toContain('Page two organiser'); // re-sorted oldest first across pages
@@ -123,21 +141,76 @@ describe('list screen x queue shapes', () => {
     await waitFor(() => expect(rows()).toHaveLength(1));
   });
 
-  it('no city scopes: calm no-access state with something to do, and the queue is never requested', async () => {
-    h.scopes = [];
+  it('no ambassador rows: calm no-access state with something to do, and the queue is never requested', async () => {
+    h.members = [];
     answer({ list: [SHAPES.one] });
     open();
     const e = await screen.findByTestId('queue-no-access');
     expect(e.textContent).toContain('ask an admin');
+    // no copy pointing at a control that is not there
+    expect(e.textContent).not.toContain('signed in with the right account');
     expect(within(e).getByRole('link', { name: 'Back to the site' })).toBeTruthy();
-    expect(h.rpc.mock.calls.some(([fn]) => fn === 'admin_list_pending_review_v1')).toBe(false);
+    expect(listCalls()).toHaveLength(0);
   });
 
-  it('scopes error is a retryable error, not "no access"', async () => {
-    h.rpc.mockImplementation(async () => ({ data: null, error: { message: 'down' } }));
+  it('scope read error is a retryable error, not "no access"', async () => {
+    h.membersError = { message: 'Failed to fetch' };
+    answer({ list: [SHAPES.one] });
     open();
     expect(await screen.findByTestId('queue-error')).toBeTruthy();
     expect(screen.queryByTestId('queue-no-access')).toBeNull();
+  });
+});
+
+describe('access: the city list comes from entity_members, never the manager-scope table', () => {
+  it('Bristol ambassador row: reads own city-ambassador rows, then the city, then the Bristol queue', async () => {
+    answer({ list: [SHAPES.one] });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    const [members, cities] = h.reads;
+    expect(members).toMatchObject({ table: 'entity_members', eq: { entity_type: 'city', member_role: 'ambassador', user_id: USER_ID } });
+    expect(cities).toMatchObject({ table: 'cities', in: { id: [BRISTOL.id] } });
+    expect(listCalls().map(([, a]) => (a as { p_city_id: string }).p_city_id)).toEqual([BRISTOL.id]);
+    expect(h.rpc.mock.calls.some(([fn]) => fn === 'admin_get_my_city_scopes')).toBe(false);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Bristol');
+  });
+
+  it.each(['admin_only', 'not_authorized', 'not_authorised'])('list RPC refuses with %s: no-access state, not "check your connection"', async (code) => {
+    answer({ list: new Error(code) });
+    open();
+    const e = await screen.findByTestId('queue-no-access');
+    expect(e.textContent).not.toContain(code);
+    expect(screen.queryByTestId('queue-error')).toBeNull();
+    expect(document.body.textContent).not.toContain('Check your connection');
+  });
+
+  it.each(['authentication_required', 'JWT expired'])('list RPC says %s: signed-out state with a Sign in link back here', async (code) => {
+    answer({ list: new Error(code) });
+    open();
+    const e = await screen.findByTestId('queue-signed-out');
+    expect(within(e).getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/auth?mode=signin&returnTo=%2Fambassador');
+  });
+
+  it('two cities: both are queried, rows from both are shown with their city, oldest first', async () => {
+    h.members = [{ entity_id: BRISTOL.id }, { entity_id: BATH.id }];
+    const bath = { city_id: BATH.id, city_name: BATH.name };
+    answer({ list: (city) => (city === BATH.id ? [row('ob', 'Bath Bachata Club', { ago: 12, city: bath })] : [SHAPES.one]) });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(listCalls().map(([, a]) => (a as { p_city_id: string }).p_city_id).sort()).toEqual([BATH.id, BRISTOL.id].sort());
+    expect(rows()[0].textContent).toContain('Bath Bachata Club');
+    expect(rows()[0].textContent).toContain('Bath');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Bath and Bristol');
+  });
+
+  it('two cities, only one has a full page: the "first N" copy names that city and counts its page, not the total', async () => {
+    h.members = [{ entity_id: BRISTOL.id }, { entity_id: BATH.id }];
+    const bath = { city_id: BATH.id, city_name: BATH.name };
+    answer({ list: (city) => (city === BATH.id ? Array.from({ length: 30 }, (_, i) => row(`b${i}`, `Bath ${i}`, { ago: 2, city: bath })) : hundred()) });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(130));
+    expect(screen.getByTestId('queue-more').textContent).toContain('This shows the first 100 in Bristol.');
+    expect(screen.getByTestId('queue-more').textContent).not.toContain('130');
   });
 });
 
@@ -155,7 +228,7 @@ describe('review screen x item shapes', () => {
     expect(v.textContent).toContain('Thursday 29 October');
     expect(v.textContent).toContain('+ 10 more (13 in all)');
     expect(v.textContent).toContain('Next dates');
-    expect(v.textContent).toContain('£8');
+    expect(v.textContent).toContain('\u00a38');
     expect(v.textContent).toContain('Uploaded');
     expect(v.textContent).toContain('Last changed 9 days ago');
   });
@@ -167,7 +240,7 @@ describe('review screen x item shapes', () => {
   });
 
   it('price range, plural organisers, single date wording', async () => {
-    expect((await reviewOf(SHAPES.longName)).textContent).toContain('£5–£12');
+    expect((await reviewOf(SHAPES.longName)).textContent).toContain('\u00a35\u2013\u00a312');
     cleanup();
     h.rpc.mockReset();
     const v = await reviewOf(SHAPES.one);
@@ -175,18 +248,37 @@ describe('review screen x item shapes', () => {
     expect(v.textContent).not.toContain('more (');
   });
 
-  it('organiser with no extras: says so and shows no series-only rows', async () => {
+  it('organiser, live shape (every series field NULL): no fact rows, says what is known and that there is nothing more, decisions still usable', async () => {
     const v = await reviewOf(SHAPES.organiserBare);
-    expect(screen.getByTestId('no-extras').textContent).toContain('No extra details were submitted');
-    for (const w of ['Flyer', 'Price', 'Venue', 'Next dates']) expect(v.textContent).not.toContain(w);
-    // the copy points at a control that is on screen
-    expect(screen.getByRole('link', { name: /Preview public page/ })).toBeTruthy();
+    expect(SHAPES.organiserBare).toMatchObject({ organiser_names: null, next_occurrence_dates: null, future_occurrence_count: null, has_flyer: null, price_currency: null });
+    expect(v.querySelectorAll('dt')).toHaveLength(0);
+    const note = screen.getByTestId('no-extras').textContent ?? '';
+    expect(note).toContain('the name, the city (Bristol) and that it has waited 6 days');
+    expect(note).toContain('nothing more to show');
+    for (const w of ['Flyer', 'Price', 'Venue', 'Next dates', 'Organiser:']) expect(v.textContent).not.toContain(w);
+    // the pending page 404s on the public site (no session on the server loader): no link to it, no copy sending them there
+    expect(screen.queryByRole('link', { name: /Preview public page/ })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/public page/i);
+    expect((screen.getByTestId('approve-open') as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId('reject-open') as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('no preview sentence when there is no preview link (series have none)', async () => {
-    await reviewOf(SHAPES.series13);
-    expect(screen.queryByRole('link', { name: /Preview public page/ })).toBeNull();
-    expect(screen.queryByText(/Open the public page/)).toBeNull();
+  it('organiser that arrived today says so', async () => {
+    await reviewOf(SHAPES.today);
+    expect(screen.getByTestId('no-extras').textContent).toContain('arrived today');
+  });
+
+  it.each([
+    ['GBP', 8, 8, '\u00a38'],
+    ['EUR', 15, 15, '\u20ac15'],
+    ['USD', 10, 20, '$10\u2013$20'],
+    ['PLN', 30, 30, 'PLN 30'],
+    [null, 8, 15, '8\u201315 (mixed currencies)'],
+    [null, 0, 0, 'Free'],
+  ])('price in %s (%s to %s) reads "%s"', async (cur, pmin, pmax, text) => {
+    const v = await reviewOf(row('sp', 'Priced series', { type: 'series', dates: ['2026-11-08'], count: 1, pmin, pmax, cur }));
+    expect(v.textContent).toContain(`Price${text}`);
+    if (cur !== 'GBP') expect(v.textContent).not.toContain('\u00a3');
   });
 
   it('opening a review sends no decision; Back returns to the list with the row still there', async () => {
@@ -309,10 +401,44 @@ describe('approve confirm and reject sheet', () => {
     expect(rows()[0].textContent).toContain('Needs an admin');
   });
 
+  it.each(['target_not_found', 'not_pending_review'])('%s: the item is taken off the list, as the toast says, and is not re-sent', async (code) => {
+    answer({ list: newestFirst([SHAPES.one, SHAPES.today]), decide: () => ({ error: { message: code } }) });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    fireEvent.click(rows()[0]);
+    fireEvent.click(await screen.findByTestId('approve-open'));
+    fireEvent.click(await screen.findByTestId('approve-confirm'));
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toContain('no longer waiting');
+    expect(toast.textContent).toContain('It has been taken off your list.');
+    expect(toast.textContent).not.toContain(code);
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByTestId('review-view')).toBeNull();
+    expect(rows()[0].textContent).not.toContain('Bachata Fundamentals Workshop');
+    expect(decisions()).toHaveLength(1);
+  });
+
   it.each([
-    ['target_not_found', 'no longer waiting'],
-    ['not_pending_review', 'no longer waiting'],
+    [{ message: 'authentication_required' }],
+    [{ message: 'JWT expired', code: 'PGRST301' }],
+    [{ message: 'Unauthorized', status: 401 }],
+  ])('signed out (%o): says so with a Sign in link back to this review, never "check your connection"', async (error) => {
+    answer({ list: [SHAPES.one], decide: () => ({ error }) });
+    open();
+    await reachDecision();
+    const err = await screen.findByTestId('decision-error');
+    expect(err.textContent).toContain('You are signed out. Sign in again');
+    expect(err.textContent).not.toContain('connection');
+    expect(within(err).getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe(
+      `/auth?mode=signin&returnTo=${encodeURIComponent('/ambassador/review/series/s9')}`,
+    );
+    expect(rows()).toHaveLength(1);
+  });
+
+  it.each([
     ['42501 permission denied', 'do not have access'],
+    ['not_authorised', 'do not have access'],
     ['something_unmapped_xyz', 'did not go through'],
   ])('error %s becomes readable copy with Try again, never the raw code, and the item stays', async (code, copy) => {
     answer({ list: [SHAPES.one], decide: () => ({ error: { message: code } }) });

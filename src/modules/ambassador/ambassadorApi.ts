@@ -3,19 +3,33 @@ import { PAGE_SIZE, parseQueueRows, softRefusal, type QueueItem, type TargetType
 
 export interface CityScope { id: string; name: string; slug: string }
 
-export const SCOPES_KEY = ['ambassador', 'scopes'] as const;
+export const scopesKey = (userId: string) => ['ambassador', 'scopes', userId] as const;
 export const queueKey = (cityIds: readonly string[]) => ['ambassador', 'queue', ...cityIds] as const;
 
-/** The signed-in ambassador's cities. Empty = not an ambassador (or an admin who is not one). */
-export async function fetchCityScopes(): Promise<CityScope[]> {
-  const { data, error } = await supabase.rpc('admin_get_my_city_scopes');
+/**
+ * The cities the signed-in user is ambassador for. Empty = not an ambassador.
+ * Ambassadors are `entity_members` rows (entity_type 'city', member_role 'ambassador'), the same
+ * test every queue RPC makes; policy `entity_members_select` lets a user read their own rows.
+ * Two reads: the generated types carry no entity_members -> cities relationship to join on.
+ */
+export async function fetchCityScopes(userId: string): Promise<CityScope[]> {
+  const { data: members, error } = await supabase
+    .from('entity_members')
+    .select('entity_id')
+    .eq('entity_type', 'city')
+    .eq('member_role', 'ambassador')
+    .eq('user_id', userId);
   if (error) throw error;
-  return (data ?? []).map((r) => ({ id: r.city_id, name: r.city_name, slug: r.city_slug }));
+  const ids = [...new Set((members ?? []).map((m) => m.entity_id))];
+  if (ids.length === 0) return [];
+  const { data: cities, error: citiesError } = await supabase.from('cities').select('id, name, slug').in('id', ids);
+  if (citiesError) throw citiesError;
+  return (cities ?? []).map((c) => ({ id: c.id, name: c.name, slug: c.slug })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export interface QueuePage { items: QueueItem[]; offset: number; full: boolean }
+/** One page (offset) of the pending queue across every scope city. `fullCityIds` = the cities that filled the page, so may have more. */
+export interface QueuePage { items: QueueItem[]; offset: number; full: boolean; fullCityIds: string[] }
 
-/** One page (offset) of the pending queue across every scope city. `full` = some city filled the page, so there may be more. */
 export async function fetchQueuePage(cityIds: readonly string[], offset: number): Promise<QueuePage> {
   const results = await Promise.all(
     cityIds.map(async (cityId) => {
@@ -25,10 +39,11 @@ export async function fetchQueuePage(cityIds: readonly string[], offset: number)
         p_offset: offset,
       });
       if (error) throw error;
-      return parseQueueRows(data);
+      return { cityId, rows: parseQueueRows(data) };
     }),
   );
-  return { items: results.flat(), offset, full: results.some((r) => r.length >= PAGE_SIZE) };
+  const fullCityIds = results.filter((r) => r.rows.length >= PAGE_SIZE).map((r) => r.cityId);
+  return { items: results.flatMap((r) => r.rows), offset, full: fullCityIds.length > 0, fullCityIds };
 }
 
 /** Throws the RPC's error (or a soft refusal as an Error) so `decisionError` can read it. */

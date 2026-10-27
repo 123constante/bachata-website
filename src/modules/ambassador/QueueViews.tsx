@@ -3,10 +3,10 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   OLD_AFTER_DAYS,
+  ageText,
   changedText,
   dateLabel,
   isOld,
-  previewHref,
   priceText,
   reviewPath,
   typeLabel,
@@ -24,7 +24,7 @@ export function Chips({ item, party, now }: { item: QueueItem; party: boolean; n
     <span className="flex flex-wrap gap-1">
       <span className={cn(CHIP, 'text-foreground')}>{typeLabel(item.targetType)}</span>
       <span className={cn(CHIP, isOld(days) && 'border-primary font-semibold text-primary')} data-testid="age-chip" data-old={isOld(days)}>
-        {isOld(days) ? '⚠ ' : ''}{waitingChip(days)}
+        {isOld(days) && <>&#9888;{' '}</>}{waitingChip(days)}
       </span>
       {party && <span className={cn(CHIP, 'border-primary text-primary')}>Needs an admin</span>}
     </span>
@@ -62,8 +62,17 @@ export function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 export function NoAccessState() {
   return (
-    <EmptyState testId="queue-no-access" title="No access to this queue" text="This account is not an ambassador for any city, so the queue is hidden. Check you are signed in with the right account, or ask an admin to add you.">
+    <EmptyState testId="queue-no-access" title="No access to this queue" text="This account is not an ambassador for any city, so the queue is hidden. If you should have access, ask an admin to add you.">
       <Link to="/" className={cn(BTN_PLAIN, 'no-underline')}>Back to the site</Link>
+    </EmptyState>
+  );
+}
+
+/** The session ended (expired token, signed out elsewhere): sign in and come back here. */
+export function SignedOutState({ signInHref }: { signInHref: string }) {
+  return (
+    <EmptyState testId="queue-signed-out" title="You are signed out" text="Sign in again to see the queue. Nothing has been approved or rejected.">
+      <Link to={signInHref} className={cn(BTN_OK, 'no-underline')}>Sign in</Link>
     </EmptyState>
   );
 }
@@ -81,7 +90,7 @@ interface ListProps {
   party: ReadonlySet<string>;
   now: Date;
   showCity: boolean;
-  more: { loading: boolean; error: boolean; onMore: () => void } | null;
+  more: { text: string; loading: boolean; error: boolean; onMore: () => void } | null;
   onOpen: (item: QueueItem) => void;
 }
 
@@ -115,7 +124,7 @@ export function QueueList({ items, party, now, showCity, more, onOpen }: ListPro
       {more && (
         <div className="space-y-2 px-3 pb-4" data-testid="queue-more">
           <p className="m-0 text-[13px] text-muted-foreground">
-            This shows the first {items.length}. There may be more waiting.
+            {more.text}
           </p>
           {more.error && <p role="alert" className="m-0 text-[13px] text-destructive">Could not load more. Try again.</p>}
           <button type="button" className={cn(BTN_PLAIN, 'w-full')} disabled={more.loading} onClick={more.onMore}>
@@ -161,7 +170,6 @@ interface ReviewProps {
 
 export function ReviewView({ item, party, now, onBack, onApprove, onReject }: ReviewProps) {
   const rows = facts(item);
-  const href = previewHref(item);
   const days = waitingDays(item, now);
   return (
     <>
@@ -182,13 +190,11 @@ export function ReviewView({ item, party, now, onBack, onApprove, onReject }: Re
             </div>
           ))}
         </dl>
-        {item.targetType === 'organiser' && rows.length <= 1 && (
+        {item.targetType === 'organiser' && rows.length === 0 && (
           <p className="m-0 text-[12px] text-muted-foreground" data-testid="no-extras">
-            No extra details were submitted.{href ? ' Open the public page to check it before you decide.' : ''}
+            What is known: the name{item.cityName ? `, the city (${item.cityName})` : ''} and that it {days <= 0 ? 'arrived today' : `has waited ${ageText(days)}`}.
+            No other details were submitted, so there is nothing more to show.
           </p>
-        )}
-        {href && (
-          <Link to={href} className="inline-flex min-h-[44px] items-center text-[12px] text-primary">Preview public page &rarr;</Link>
         )}
         {days >= OLD_AFTER_DAYS && <span className="sr-only">This has been waiting a week or more.</span>}
       </div>

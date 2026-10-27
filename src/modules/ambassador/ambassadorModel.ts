@@ -19,6 +19,8 @@ export interface QueueItem {
   venueName: string | null;
   priceMin: number | null;
   priceMax: number | null;
+  /** Upper-case ISO code; null when the series mixes currencies (or has no priced pass). */
+  priceCurrency: string | null;
   hasFlyer: boolean;
   publicSlug: string | null;
 }
@@ -54,6 +56,7 @@ export function parseQueueRow(raw: unknown): QueueItem | null {
     venueName: str(r.venue_name),
     priceMin: num(r.price_min),
     priceMax: num(r.price_max),
+    priceCurrency: str(r.price_currency)?.trim().toUpperCase() ?? null,
     hasFlyer: r.has_flyer === true,
     publicSlug: str(r.public_slug),
   };
@@ -97,14 +100,19 @@ export function dateLabel(key: string): string {
   return `${WEEKDAYS[weekdayOfKey(key)]} ${Number(key.slice(8, 10))} ${MONTHS[month] ?? ''}`.trim();
 }
 
-export function priceText(i: Pick<QueueItem, 'priceMin' | 'priceMax'>): string {
-  const { priceMin: lo, priceMax: hi } = i;
+const SYMBOLS: Record<string, string> = { GBP: '\u00a3', EUR: '\u20ac', USD: '$' };
+
+/** The price in the series' own currency. A null currency means the passes mix currencies: amounts only, and it says so. */
+export function priceText(i: Pick<QueueItem, 'priceMin' | 'priceMax' | 'priceCurrency'>): string {
+  const { priceMin: lo, priceMax: hi, priceCurrency: cur } = i;
   if (lo == null && hi == null) return 'Price not given';
   const a = lo ?? hi ?? 0;
   const b = hi ?? lo ?? 0;
   if (a === 0 && b === 0) return 'Free';
-  const money = (n: number) => `£${Number.isInteger(n) ? n : n.toFixed(2)}`;
-  return a === b ? money(a) : `${money(a)}–${money(b)}`;
+  const amount = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2)}`;
+  const money = (n: number) => (cur ? (SYMBOLS[cur] ? `${SYMBOLS[cur]}${amount(n)}` : `${cur} ${amount(n)}`) : amount(n));
+  const range = a === b ? money(a) : `${money(a)}\u2013${money(b)}`;
+  return cur ? range : `${range} (mixed currencies)`;
 }
 
 /** Name shortened for a toast. */
@@ -123,32 +131,57 @@ export function checkReason(text: string): ReasonCheck {
   return { ok: true, error: null, length, message: '' };
 }
 
-export type DecisionErrorKind = 'party' | 'gone' | 'access' | 'reason' | 'other';
+export type DecisionErrorKind = 'party' | 'gone' | 'access' | 'auth' | 'reason' | 'other';
 export interface DecisionError { kind: DecisionErrorKind; message: string }
+
+function errorText(err: unknown): string {
+  if (typeof err === 'string') return err.toLowerCase();
+  if (err && typeof err === 'object') {
+    const e = err as { message?: unknown; code?: unknown; details?: unknown; status?: unknown };
+    return [e.message, e.code, e.details, e.status === 401 ? '401' : null].filter((x) => typeof x === 'string').join(' ').toLowerCase();
+  }
+  return '';
+}
+
+/** `_moderate_entity` raises authentication_required; PostgREST answers an expired session with 401 / "JWT expired" (PGRST301/303). */
+const SIGNED_OUT = /authentication_required|auth_required|jwt expired|pgrst30[13]|\b401\b/;
+/** The list RPC raises admin_only, the decision RPCs not_authorized / not_authorised. */
+const NO_ACCESS = /42501|forbidden|not_authori|admin_only|permission|city_scope|not_in_scope/;
+
+export const SIGNED_OUT_MESSAGE = 'You are signed out. Sign in again, then try again.';
 
 /** Every error code the decision RPCs raise, as something a volunteer can read. Never the raw code. */
 export function decisionError(err: unknown): DecisionError {
-  const text = (() => {
-    if (typeof err === 'string') return err;
-    if (err && typeof err === 'object') {
-      const e = err as { message?: unknown; code?: unknown; details?: unknown };
-      return [e.message, e.code, e.details].filter((x) => typeof x === 'string').join(' ');
-    }
-    return '';
-  })().toLowerCase();
+  const text = errorText(err);
   if (text.includes(SELF_APPROVAL_CODE)) {
     return { kind: 'party', message: 'You are part of this one, so an admin has to decide it.' };
   }
+  if (SIGNED_OUT.test(text)) return { kind: 'auth', message: SIGNED_OUT_MESSAGE };
   if (/not_found|not_pending|already|invalid_state|not_in_review|wrong_state/.test(text)) {
-    return { kind: 'gone', message: 'This one is no longer waiting. Someone else may have decided it. Refresh the list to see what is left.' };
+    // The page takes a gone item off the list, the same as a decision that went through.
+    return { kind: 'gone', message: 'This one is no longer waiting. Someone else may have decided it. It has been taken off your list.' };
   }
   if (/reason/.test(text)) {
     return { kind: 'reason', message: 'The reason was not accepted. Add a little more detail and try again.' };
   }
-  if (/42501|forbidden|not_authori|admin_only|permission|city_scope|not_in_scope/.test(text)) {
+  if (NO_ACCESS.test(text)) {
     return { kind: 'access', message: 'You do not have access to decide this one. Ask an admin to check your city.' };
   }
   return { kind: 'other', message: 'That did not go through. Nothing was changed. Check your connection and try again.' };
+}
+
+/** Why the queue (or the city list) could not load: a refusal is "no access", never "check your connection". */
+export function loadErrorKind(err: unknown): 'auth' | 'access' | 'other' {
+  const text = errorText(err);
+  if (SIGNED_OUT.test(text)) return 'auth';
+  if (NO_ACCESS.test(text)) return 'access';
+  return 'other';
+}
+
+/** "This shows the first 100 in Bristol." for each city whose last page was full. */
+export function moreText(offset: number, cityNames: readonly string[]): string {
+  const where = cityNames.length ? ` in ${cityNames.join(' and ')}` : '';
+  return `This shows the first ${offset + PAGE_SIZE}${where}. There may be more waiting.`;
 }
 
 /** The decision RPCs return Json; a soft refusal can arrive as data instead of an error. */
@@ -161,9 +194,3 @@ export function softRefusal(data: unknown): string | null {
 
 export const reviewPath = (i: Pick<QueueItem, 'targetType' | 'targetId'>) => `/ambassador/review/${i.targetType}/${encodeURIComponent(i.targetId)}`;
 
-/** Public page for the preview link, or null when the item has no slug yet. */
-export function previewHref(i: Pick<QueueItem, 'targetType' | 'publicSlug' | 'targetId'>): string | null {
-  if (!i.publicSlug) return null;
-  // Series have no public page of their own yet, so only organisers get a preview link.
-  return i.targetType === 'organiser' ? `/organisers/${encodeURIComponent(i.targetId)}` : null;
-}

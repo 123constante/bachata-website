@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { MIN_REASON_LENGTH, checkReason, typeNoun, type DecisionError, type QueueItem } from './ambassadorModel';
 
@@ -42,19 +43,33 @@ interface SheetProps {
   item: QueueItem;
   busy: boolean;
   error: DecisionError | null;
+  /** Where "Sign in" goes when the session has ended; back to this screen afterwards. */
+  signInHref: string;
   onCancel: () => void;
 }
 
-export function ApproveSheet({ item, busy, error, onCancel, onConfirm }: SheetProps & { onConfirm: () => void }) {
+function DecisionErrorLine({ error, signInHref }: { error: DecisionError; signInHref: string }) {
+  return (
+    <p role="alert" className="m-0 text-[13px] text-destructive" data-testid="decision-error">
+      {error.message}
+      {error.kind === 'auth' && (
+        <>
+          {' '}
+          <Link to={signInHref} className="inline-flex min-h-[44px] items-center font-semibold text-primary underline">Sign in</Link>
+        </>
+      )}
+    </p>
+  );
+}
+
+export function ApproveSheet({ item, busy, error, signInHref, onCancel, onConfirm }: SheetProps & { onConfirm: () => void }) {
   return (
     <SheetShell title={`Approve this ${item.targetType}?`} label="Approve" busy={busy} onClose={onCancel}>
       <p className="m-0 text-[15px] font-semibold [overflow-wrap:anywhere]">{item.name}</p>
       <p className="m-0 text-[14px] text-muted-foreground">
         It goes live on the public {item.cityName || 'city'} pages straight away.
       </p>
-      {error && (
-        <p role="alert" className="m-0 text-[13px] text-destructive" data-testid="decision-error">{error.message}</p>
-      )}
+      {error && <DecisionErrorLine error={error} signInHref={signInHref} />}
       <div className="flex gap-2">
         <button type="button" autoFocus className={cn(BTN_PLAIN, 'flex-1')} disabled={busy} onClick={onCancel}>Cancel</button>
         <button type="button" className={cn(BTN_OK, 'flex-1')} disabled={busy} data-testid="approve-confirm" onClick={onConfirm}>
@@ -65,7 +80,7 @@ export function ApproveSheet({ item, busy, error, onCancel, onConfirm }: SheetPr
   );
 }
 
-export function RejectSheet({ item, busy, error, onCancel, onSubmit }: SheetProps & { onSubmit: (reason: string) => void }) {
+export function RejectSheet({ item, busy, error, signInHref, onCancel, onSubmit }: SheetProps & { onSubmit: (reason: string) => void }) {
   const [text, setText] = useState('');
   const [tried, setTried] = useState(false);
   const check = checkReason(text);
@@ -100,7 +115,7 @@ export function RejectSheet({ item, busy, error, onCancel, onSubmit }: SheetProp
       <div id="reject-reason-error" role="alert" className="text-[13px] text-destructive" data-testid="reject-reason-error">
         {showInvalid ? check.message : ''}
       </div>
-      {error && <p role="alert" className="m-0 text-[13px] text-destructive" data-testid="decision-error">{error.message}</p>}
+      {error && <DecisionErrorLine error={error} signInHref={signInHref} />}
       <div className="flex justify-between text-[12px] text-muted-foreground">
         <span>At least {MIN_REASON_LENGTH} characters</span>
         <span>{check.length}</span>

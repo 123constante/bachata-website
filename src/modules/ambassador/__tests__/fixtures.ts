@@ -3,28 +3,34 @@ export const CITY = { city_id: 'c-bristol', city_name: 'Bristol', city_slug: 'br
 const LONG = 'The Annual Bristol Bachata Sensual and Dominican Social Weekender Warm-Up Series with Guest Teachers from Around Europe';
 const weekly = (start: string, n: number) =>
   Array.from({ length: n }, (_, i) => new Date(Date.parse(`${start}T12:00:00Z`) + i * 7 * 86_400_000).toISOString().slice(0, 10));
-export const agoIso = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+/** The pinned "now" (the harness sets the clock to it): ages are counted from here, not from the wall clock. */
+export const NOW = new Date('2026-10-27T12:00:00Z');
+export const agoIso = (days: number) => new Date(NOW.getTime() - days * 86_400_000).toISOString();
 
-interface Opts { type?: 'organiser' | 'series'; ago?: number; orgs?: string[]; dates?: string[]; count?: number; venue?: string | null; pmin?: number | null; pmax?: number | null; flyer?: boolean }
-export const row = (id: string, name: string, o: Opts = {}) => ({
+interface Opts { type?: 'organiser' | 'series'; ago?: number; orgs?: string[]; dates?: string[]; count?: number; venue?: string | null; pmin?: number | null; pmax?: number | null; flyer?: boolean; cur?: string | null; city?: { city_id: string; city_name: string } }
+/** Organiser rows carry the LIVE shape: every series-only field is NULL (`CASE WHEN rs.id IS NOT NULL ...`). */
+export const row = (id: string, name: string, o: Opts = {}) => {
+  const series = o.type === 'series';
+  return {
   target_type: o.type ?? 'organiser',
   target_id: id,
   name,
-  city_id: CITY.city_id,
-  city_name: CITY.city_name,
+  city_id: o.city?.city_id ?? CITY.city_id,
+  city_name: o.city?.city_name ?? CITY.city_name,
   lifecycle_status: 'pending_review',
   submitted_at: agoIso(o.ago ?? 1),
   submitter_email: 'someone.private@example.com',
   public_slug: `slug-${id}`,
-  organiser_names: o.orgs ?? [name],
-  next_occurrence_dates: o.dates ?? [],
-  future_occurrence_count: o.count ?? 0,
+  organiser_names: series ? o.orgs ?? [] : null,
+  next_occurrence_dates: series ? o.dates ?? [] : null,
+  future_occurrence_count: series ? o.count ?? 0 : null,
   venue_name: o.venue ?? null,
   price_min: o.pmin ?? null,
   price_max: o.pmax ?? null,
-  price_currency: 'GBP',
-  has_flyer: o.flyer ?? false,
-});
+  price_currency: series ? (o.cur === undefined ? 'GBP' : o.cur) : null,
+  has_flyer: series ? o.flyer ?? false : null,
+  };
+};
 
 export const SHAPES = {
   series13: row('s1', 'Thursday Bachata at The Lantern', { type: 'series', ago: 9, orgs: ['Lantern Social'], dates: weekly('2026-10-29', 3), count: 13, venue: 'The Lantern Rooms', pmin: 8, pmax: 8, flyer: true }),
@@ -42,4 +48,4 @@ export const twelve = () => [
 ];
 // The RPC returns NEWEST first.
 export const newestFirst = (rows: ReturnType<typeof row>[]) => [...rows].sort((a, b) => b.submitted_at.localeCompare(a.submitted_at));
-export const hundred = () => Array.from({ length: 100 }, (_, i) => row(`h${i}`, `Organiser ${i}`, { ago: 1 + (i % 5) }));
+export const hundred = (city?: Opts['city']) => Array.from({ length: 100 }, (_, i) => row(`h${city?.city_id ?? ''}${i}`, `Organiser ${i}`, { ago: 1 + (i % 5), city }));
