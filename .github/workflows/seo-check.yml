@@ -91,6 +91,7 @@ jobs:
       - name: Run SEO guard
         env:
           SEO_CHECK_BASE: https://www.bachatacalendar.co.uk
+          CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
         run: npm run check:seo
 
       # Failure-notification pattern copied from db-contract-check.yml (see its
