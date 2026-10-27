@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
-import { useEventWorkspace, useRunCommands } from '../../shared/runCommands';
+import { useEventWorkspace, useRunCommands, useSendOnce } from '../../shared/runCommands';
 import { commandErrorMessage, isAccessRefusal } from '../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -12,6 +12,7 @@ import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { ChangeItLink, RetryButton, StateCard } from './parts';
 import { StatusSheet, type Done, type Send } from './StatusSheet';
+import type { SendOnce } from './CancelEventSheet';
 
 /** The second half of the status row (C3 "Live \u00b7 Hide or end it"). */
 const STATUS_HINT: Record<string, string> = {
@@ -130,7 +131,7 @@ function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onCl
   return (
     <div className="p3-toast" role="status" data-testid="p3-toast">
       <span className="p3-grow">{done.text}</span>
-      {done.undo && <button type="button" className="p3-link p3-toast-act" onClick={onUndo} data-testid="p3-undo">Undo</button>}
+      {done.undo && <button type="button" className="p3-link p3-toast-act" onClick={onUndo} data-testid="p3-undo">{done.undoLabel ?? 'Undo'}</button>}
     </div>
   );
 }
@@ -140,6 +141,8 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const v = eventPageOf(ws, today);
   const run = useRunCommands(ws.series.id);
   const send: Send = (commands, version) => run(commands, version);
+  const once = useSendOnce(ws.series.id);
+  const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const [sheet, setSheet] = useState(false);
   const [toast, setToast] = useState<Done | null>(null);
   const close = useCallback(() => setToast(null), []);
@@ -181,7 +184,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       <Coming v={v} />
       <About v={v} />
       {sheet && (
-        <StatusSheet ws={ws} today={today} status={v.status} send={send} onClose={closeSheet}
+        <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
           onDone={(d) => { setSheet(false); setToast(d); }} />
       )}
       {toast && <Toast done={toast} onClose={close} onUndo={() => toast.undo && void undo(toast.undo, toast.version)} />}

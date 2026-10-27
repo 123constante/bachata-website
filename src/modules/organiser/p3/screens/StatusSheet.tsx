@@ -1,18 +1,22 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import type { EventWorkspace, TodaySession } from '../../events/eventModel';
 import { L } from '../model';
 import type { P3Status } from '../model';
 import {
-  ONE_TAP, STATUS_COPY, endCommand, endPlan, keepable, lastNight, removeCommand, statusRows, stopCommand,
+  ONE_TAP, STATUS_COPY, cancelPlan, endCommand, endPlan, keepable, lastNight, removeCommand, statusRows, stopCommand,
   type StatusMove, type StatusRow,
 } from '../data/eventPage';
+import { CancelEventSheet, type SendOnce } from './CancelEventSheet';
+import { Sheet } from './Sheet';
 
 /** What the page does with a finished move: the toast, and the command that undoes it (if any). */
 export interface Done {
   text: string;
   undo: OwnerCommand | null;
+  /** The undo button's words when it is not "Undo" (Cancel the event: "Bring it back"). */
+  undoLabel?: string;
   /** The version the move left the event at (what Undo is sent against). */
   version?: number | null;
 }
@@ -20,28 +24,7 @@ export interface Done {
 /** Sends commands one after another (useRunCommands); resolves to the new version. */
 export type Send = (commands: OwnerCommand[], version: number | null) => Promise<number | null>;
 
-type Step = 'list' | 'end' | 'stop' | 'remove';
-
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    box.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', esc);
-    return () => document.removeEventListener('keydown', esc);
-  }, [onClose, title]);
-  return (
-    <div className="p3-scrim" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="p3-sheet" role="dialog" aria-modal="true" aria-labelledby="p3-sheet-title" ref={box} data-testid="p3-sheet">
-        <div className="p3-sheet-head">
-          <h3 id="p3-sheet-title">{title}</h3>
-          <button type="button" className="p3-link" onClick={onClose}>Close</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
+type Step = 'list' | 'end' | 'stop' | 'remove' | 'cancel';
 
 function Choice({ row, busy, onPick }: { row: StatusRow; busy: boolean; onPick: (m: StatusMove) => void }) {
   const off = row.reason !== null;
@@ -63,13 +46,15 @@ function Choice({ row, busy, onPick }: { row: StatusRow; busy: boolean; onPick: 
 /**
  * C3 Status sheet: only the moves the server takes now, greyed ones say why. Hide /
  * Show / Put it live send at once (Hide and Show come back with Undo); End it, Stop
- * repeating and Remove ask first. Closing it, at any step, sends nothing.
+ * repeating, Remove and Cancel the event ask first. Closing it, at any step, sends nothing.
  */
-export function StatusSheet({ ws, today, status, send, onDone, onClose }: {
+export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose }: {
   ws: EventWorkspace;
   today: string;
   status: P3Status;
   send: Send;
+  /** Cancel the event's send: one command under a key the sheet keeps (a retry is not a second write). */
+  sendOnce: SendOnce;
   onDone: (d: Done) => void;
   onClose: () => void;
 }) {
@@ -97,7 +82,7 @@ export function StatusSheet({ ws, today, status, send, onDone, onClose }: {
   const pick = (m: StatusMove) => {
     const tap = ONE_TAP[m];
     if (tap) return void run(tap.command, { text: tap.done, undo: tap.undo });
-    if (m === 'end' || m === 'stop' || m === 'remove') { setError(null); setStep(m); }
+    if (m === 'end' || m === 'stop' || m === 'remove' || m === 'cancel') { setError(null); setStep(m); }
   };
 
   const err = error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>;
@@ -172,6 +157,11 @@ export function StatusSheet({ ws, today, status, send, onDone, onClose }: {
         </div>
       </Sheet>
     );
+  }
+
+  const cancelAt = step === 'cancel' ? cancelPlan(ws, today) : null;
+  if (cancelAt) {
+    return <CancelEventSheet name={ws.series.name.trim() || L.noName} plan={cancelAt} send={sendOnce} onDone={onDone} onClose={onClose} />;
   }
 
   if (step === 'remove') {

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES, SHAPE_KEYS, TODAY, ws, type ShapeKey } from './wsFixtures';
 import { STATUS_COPY, endPlan, eventPageOf, statusRows } from '../../data/eventPage';
-import { L } from '../../model';
+import { CANCEL_WHY, L } from '../../model';
 import { NO_SESSION_REASON } from '../../../events/lifecycleModel';
 import { commandErrorMessage } from '../../../shared/selfServeErrors';
 import { VERSION_CONFLICT } from '../../../shared/copy';
@@ -28,6 +28,7 @@ vi.mock('../../../shared/runCommands', () => ({
     if (sent.fail) throw sent.fail;
     return sent.next;
   },
+  useSendOnce: () => async () => { throw new Error('Cancel the event is covered in cancelOneOff.matrix.test.tsx'); },
 }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
 
@@ -84,8 +85,8 @@ const ROWS: Record<ShapeKey, Array<[string, string | null]>> = {
   course: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', null], ['stop', STATUS_COPY.courseStop], ['remove', null]],
   courseDone: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', null], ['stop', STATUS_COPY.courseStop], ['remove', null]],
   festival: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', STATUS_COPY.neverRan], ['remove', null]],
-  oneoff: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', STATUS_COPY.neverRan], ['cancel', STATUS_COPY.cancelWhy], ['remove', null]],
-  oneoffPast: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', null], ['remove', null]],
+  oneoff: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', STATUS_COPY.neverRanOneOff], ['cancel', null], ['remove', null]],
+  oneoffPast: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', null], ['cancel', CANCEL_WHY.passed], ['remove', null]],
   tonight: [['hide', null], ['draft', STATUS_COPY.backDraftWhy], ['end', null], ['stop', null], ['remove', null]],
   paused: [['show', null], ['end', STATUS_COPY.neverRan], ['stop', null], ['remove', null]],
   draft: [['live', STATUS_COPY.noComingDate], ['remove', null]],
