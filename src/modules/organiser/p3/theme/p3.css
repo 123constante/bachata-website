@@ -228,3 +228,32 @@
 .p3-theme .p3-seg2 { grid-template-columns: repeat(2, 1fr); }
 .p3-theme .p3-btn-sm { width: auto; min-width: 88px; padding: 0 12px; flex: none; }
 .p3-theme .p3-pad { margin: 0; padding: 12px; }
+/* W-T ticketing (mockup C): the tall Tickets sheet, sheets stacked over it, the add-ticket steps, the Selling switch, Get paid */
+.p3-theme .p3-sheet-full { height: 94vh; max-height: 94vh; }
+.p3-theme .p3-sheet-body { flex: 1; min-height: 0; }
+.p3-theme .p3-sheet-foot { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom, 0px)); margin: 0 -16px calc(-16px - env(safe-area-inset-bottom, 0px)); padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--sheet); border-top: 1px solid var(--line); }
+.p3-theme .p3-sheet-foot .p3-btn { width: 100%; }
+.p3-theme .p3-block { display: block; }
+.p3-theme .p3-pad-y { padding: 12px 0; }
+.p3-theme .p3-step-head { display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-small); color: var(--mut); }
+.p3-theme .p3-step-head strong { color: var(--fg); }
+.p3-theme .p3-steps { display: flex; gap: 6px; }
+.p3-theme .p3-steps i { flex: 1; height: 5px; border-radius: var(--r-chip); background: var(--line); }
+.p3-theme .p3-steps i[data-on="true"] { background: var(--gold); }
+.p3-theme .p3-buyer { display: flex; flex-direction: column; gap: 2px; padding: 12px; border: 1px dashed var(--gold-fg); border-radius: var(--r-ctl); }
+.p3-theme .p3-type { display: flex; align-items: center; gap: 12px; }
+.p3-theme .p3-switch-wrap { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.p3-theme .p3-switch { position: relative; width: 64px; height: var(--tap); flex: none; border-radius: var(--r-chip); border: 1px solid var(--line-strong); background: var(--card2); cursor: pointer; }
+.p3-theme .p3-switch i { position: absolute; top: 5px; left: 5px; width: 32px; height: 32px; border-radius: 50%; background: var(--fg); transition: left 0.3s; }
+.p3-theme .p3-switch[aria-checked="true"] { background: var(--gold); border-color: var(--gold); }
+.p3-theme .p3-switch[aria-checked="true"] i { left: 27px; }
+.p3-theme .p3-switch:disabled { opacity: 0.6; cursor: default; }
+.p3-theme .p3-switch:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .p3-theme .p3-switch i { transition: none; } }
+.p3-theme .p3-order { align-items: center; }
+.p3-theme .p3-toast-top { z-index: 90; }
+.p3-theme .p3-setup { align-items: center; color: var(--fg); }
+.p3-theme .p3-tick { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid var(--line-strong); }
+.p3-theme .p3-tick[data-done="true"] { background: var(--gold); border-color: var(--gold); }
+.p3-theme .p3-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.p3-theme .p3-prompt { border: 1px solid var(--gold-fg); }

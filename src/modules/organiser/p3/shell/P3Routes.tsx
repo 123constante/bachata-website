@@ -7,7 +7,7 @@ import { EventPage } from '../screens/EventPage';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
-import { P3Placeholder } from './placeholders';
+import { youRoutes } from './youTickets';
 import { P3_PATHS } from './paths';
 
 /**
@@ -25,7 +25,7 @@ export default function P3Routes() {
           <Route path="events/:seriesId" element={<EventPage />} />
           <Route path="events/:seriesId/dates" element={<AllDatesScreen />} />
           <Route path="stats" element={<StatsScreen />} />
-          <Route path="you" element={<P3Placeholder tab="you" />} />
+          {youRoutes()}
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
         </Route>
       </Routes>
