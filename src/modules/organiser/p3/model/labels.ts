@@ -125,7 +125,7 @@ export const L = {
     resetNormal: [RESET_DATE, 'Where, about, ticket link, photo and time go back to usual. Sessions stay as they are.'],
     skip: [SKIP, 'Not running that week. No notice, the date just isn\u2019t there'],
     unskip: [UNSKIP, 'Dancers see this date again'],
-    remove: ['Remove this date', 'It goes for good'],
+    remove: ['Remove this date', 'Take it off the list for good'],
   } as Record<'cancel' | 'cancelEvent' | 'bringBack' | 'move' | 'time' | 'resetTime' | 'details' | 'resetNormal' | 'skip' | 'unskip' | 'remove', readonly [string, string]>,
   datePick: {
     choose: 'Choose a date.',

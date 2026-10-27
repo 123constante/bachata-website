@@ -24,11 +24,11 @@ import type { Done } from './StatusSheet';
 /** Which date sheet is open: a stored date, a break, or "Add a date". */
 export type DateOpen = { kind: 'date'; id: string } | { kind: 'break'; date: string } | { kind: 'add' } | null;
 
-type Step = 'list' | 'cancel' | 'move' | 'time' | 'details' | 'skip' | 'remove' | 'resetNormal'
+type Step = 'list' | 'cancel' | 'move' | 'time' | 'details' | 'skip' | 'resetNormal'
   | 'edit-where' | 'edit-about' | 'edit-ticket' | 'edit-photo';
 
 const CONFIRM_STEP: Partial<Record<DateAction, Step>> = {
-  cancel: 'cancel', move: 'move', time: 'time', details: 'details', skip: 'skip', remove: 'remove', resetNormal: 'resetNormal',
+  cancel: 'cancel', move: 'move', time: 'time', details: 'details', skip: 'skip', resetNormal: 'resetNormal',
 };
 
 /** One write from a sheet: keys kept per plan (a retry is the same write), the error as plain copy. */
@@ -216,23 +216,22 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
       </Sheet>
     );
   }
-  if (step === 'skip' || step === 'remove' || step === 'resetNormal') {
-    const plan = step === 'skip' ? PLAN.skip(d) : step === 'remove' ? PLAN.remove(d) : resetNormalPlan(d, detail, facts.ownTime);
-    const title = step === 'skip' ? DATE_COPY.skipTitle(day) : step === 'remove' ? DATE_COPY.removeTitle(day) : DATE_COPY.resetTitle;
-    const words = step === 'skip' ? DATE_COPY.done.skip : step === 'remove' ? DATE_COPY.done.remove : DATE_COPY.done.resetNormal;
+  if (step === 'skip' || step === 'resetNormal') {
+    const plan = step === 'skip' ? PLAN.skip(d) : resetNormalPlan(d, detail, facts.ownTime);
+    const title = step === 'skip' ? DATE_COPY.skipTitle(day) : DATE_COPY.resetTitle;
+    const words = step === 'skip' ? DATE_COPY.done.skip : DATE_COPY.done.resetNormal;
     return (
       <Sheet title={title} onClose={onClose}>
         {backLink}
         {step === 'skip' && <p className="p3-note">{DATE_COPY.skipBody}</p>}
         {step === 'skip' && (facts.ownDetails || facts.ownTime) && <p className="p3-warn">{DATE_COPY.skipOwn}</p>}
         {step === 'skip' && <p className="p3-note">{DATE_COPY.skipHint}</p>}
-        {step === 'remove' && <p className="p3-note">{DATE_COPY.removeBody}</p>}
         {step === 'resetNormal' && <p className="p3-note">{DATE_COPY.resetBody(day)}</p>}
         <Err error={error} />
         <Buttons>
-          <button type="button" className={`p3-btn ${step === 'remove' ? 'p3-btn-danger' : ''}`} disabled={!plan || busy} data-testid={`p3-${step}-go`}
+          <button type="button" className="p3-btn" disabled={!plan || busy} data-testid={`p3-${step}-go`}
             onClick={() => plan && void go(plan, done(step, words))}>
-            {step === 'skip' ? DATE_COPY.skipGo : step === 'remove' ? DATE_COPY.removeGo : DATE_COPY.resetGo}
+            {step === 'skip' ? DATE_COPY.skipGo : DATE_COPY.resetGo}
           </button>
           <button type="button" className="p3-btn p3-btn-line" onClick={back}>{step === 'resetNormal' ? DATE_COPY.keepMine : DATE_COPY.keepIt}</button>
         </Buttons>

@@ -8,8 +8,9 @@ import type { IsoDate, P3Kind } from './types';
  * prod handlers read 2026-10-27 (_cmd_occurrence_cancel/move_date/set_time/set_override,
  * _cmd_series_skip_date/unskip_date/add_date/remove_date and the dispatcher's owner
  * rules): a past date and an ended event are admin-only, a festival refuses set_time and
- * move_date, a break exists only on the weekly rule's own cadence, and remove_date on a
- * scheduled date only cancels it (no reason), so Remove is offered on a cancelled date.
+ * move_date, and a break exists only on the weekly rule's own cadence. Remove is listed but
+ * never sent: organisers never delete a date (owner answer 20, wave B0, pinned by
+ * events/__tests__/moveNotRemove.matrix.test.ts), so it says to cancel instead.
  * Every action is listed; one that cannot work says why (never hidden).
  */
 
@@ -67,9 +68,8 @@ export const DATE_WHY = {
   noPattern: 'Only a weekly pattern has break weeks. Cancel this date instead, so dancers see why.',
   offRule: 'This date was added or moved, so it is not part of the weekly pattern and can\u2019t be a break. Cancel it instead.',
   unskipOffRule: 'The weekly pattern changed since this break, so it can\u2019t come back as a break. Add it as a date instead.',
-  ruleRemove: 'This date is part of the weekly pattern. Skip this week instead, or cancel it so dancers see why.',
   oneOffRemove: 'A one-off keeps its one date. Move it to another day, or cancel the event.',
-  removeCancelFirst: 'Cancel this date first. A cancelled date you added can then be removed for good.',
+  noDelete: 'Dates are never deleted here, so dancers who saved one can see what happened. Cancel it instead.',
   oneOffAdd: 'A one-off has one date. Move it, or make a new event for another night.',
   cap: `No date can be added or brought back while ${DATE_CAP} or more dates are coming up. Cancel or remove one first.`,
   notLive: 'It isn\u2019t on the calendar yet, so there is nothing to cancel.',
@@ -112,11 +112,7 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
     : base ?? onFirst ?? (d.ruleDate ? null : DATE_WHY.offRule);
   out.push(row('skip', skipWhy));
 
-  const removeWhy = oneoff ? DATE_WHY.oneOffRemove
-    : fest ? DATE_WHY.festivalOne
-    : d.ruleDate ? DATE_WHY.ruleRemove
-    : base ?? (cancelled ? null : DATE_WHY.removeCancelFirst);
-  out.push(row('remove', removeWhy));
+  out.push(row('remove', oneoff ? DATE_WHY.oneOffRemove : DATE_WHY.noDelete));
   return out;
 }
 

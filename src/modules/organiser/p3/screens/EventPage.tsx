@@ -7,7 +7,7 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
 import { eventPageOf, type EventPageView } from '../data/eventPage';
 import { L, addDateWhy, peopleText, sessionKindLabel, sessionTitle, timeWord } from '../model';
-import { seriesFactsOf } from '../data/dates';
+import { seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { ChangeItLink, RetryButton, StateCard } from './parts';
@@ -62,15 +62,6 @@ function Sessions({ v }: { v: EventPageView }) {
       )}
     </section>
   );
-}
-
-/** A tag's colour: the same tag words as All dates (model dateMarks). */
-export function tagClass(tag: string): string {
-  if (tag === L.cancelled) return 'p3-tag p3-tag-cancel';
-  if (tag === L.skipped) return 'p3-tag p3-tag-hidden';
-  if (tag === L.done) return 'p3-tag p3-tag-finished';
-  if (tag === L.notUsualDay) return 'p3-tag p3-tag-warn';
-  return 'p3-chip';
 }
 
 function Coming({ v, onOpen, addWhy, onAdd }: { v: EventPageView; onOpen: (id: string) => void; addWhy: string | null; onAdd: () => void }) {
@@ -149,8 +140,8 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const [sheet, setSheet] = useState(false);
   const [date, setDate] = useState<DateOpen>(null);
-  const closeSheet = useCallback(() => setSheet(false), []);
-  const closeDate = useCallback(() => setDate(null), []);
+  const closeSheet = useCallback(() => setSheet(false), [setSheet]);
+  const closeDate = useCallback(() => setDate(null), [setDate]);
   const addWhy = addDateWhy(seriesFactsOf(ws, today));
   const hint = STATUS_HINT[v.lifecycle] ?? (v.lifecycle === 'ended' ? 'It has finished' : 'See what you can do');
   return (

@@ -4,10 +4,10 @@ import { londonTodayKey } from '@/lib/londonDate';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, addDateWhy } from '../model';
 import { partialOf } from '../data/eventPage';
-import { allDatesOf, seriesFactsOf, type DateEntry, type DateFilter } from '../data/dates';
+import { allDatesOf, seriesFactsOf, tagClass, type DateEntry, type DateFilter } from '../data/dates';
 import { P3_PATHS } from '../shell/paths';
 import { DateSheets, type DateOpen } from './DateSheet';
-import { WorkspaceGate, tagClass } from './EventPage';
+import { WorkspaceGate } from './EventPage';
 import { useToast } from './Toast';
 
 /** What an empty filter says, and what the person can do. */
@@ -37,7 +37,7 @@ function AllDates({ ws }: { ws: EventWorkspace }) {
   const [filter, setFilter] = useState<DateFilter>('coming');
   const [open, setOpen] = useState<DateOpen>(null);
   const toast = useToast(ws.series.id, ws.series.version);
-  const close = useCallback(() => setOpen(null), []);
+  const close = useCallback(() => setOpen(null), [setOpen]);
   const view = allDatesOf(ws, today, filter);
   const addWhy = addDateWhy(seriesFactsOf(ws, today));
   const partial = partialOf(ws);

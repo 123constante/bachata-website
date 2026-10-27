@@ -6,7 +6,7 @@ import {
   type CommandResponse,
 } from '../../shared/selfServeApi';
 import {
-  addDateCommand, cancelCommand, envelope, moveDateCommand, newIdempotencyKey, overrideCommand, removeDateCommand, resetTimeCommand,
+  addDateCommand, cancelCommand, envelope, moveDateCommand, newIdempotencyKey, overrideCommand, resetTimeCommand,
   setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand, type OverridePatch, type OwnerCommand,
 } from '../../shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
@@ -88,6 +88,15 @@ export function allDatesOf(ws: EventWorkspace, today: IsoDate, filter: DateFilte
   return { rows: filter === 'past' ? rows.reverse() : rows, counts };
 }
 
+/** A tag's CSS class, for the tag words of dateMarks (Coming rows and All dates alike). */
+export function tagClass(tag: string): string {
+  if (tag === L.cancelled) return 'p3-tag p3-tag-cancel';
+  if (tag === L.skipped) return 'p3-tag p3-tag-hidden';
+  if (tag === L.done) return 'p3-tag p3-tag-finished';
+  if (tag === L.notUsualDay) return 'p3-tag p3-tag-warn';
+  return 'p3-chip';
+}
+
 /** Days "Move" and "Add" cannot land on: every stored date (a cancelled one counts too). */
 export const takenDays = (ws: EventWorkspace): Set<string> => new Set(ws.dates.map((d) => d.occurrence_date));
 
@@ -113,7 +122,6 @@ export const PLAN = {
   details: (d: D, patch: OverridePatch) => onDate(d, overrideCommand(patch)),
   skip: (d: D) => onSeries(skipDateCommand(d.id)),
   unskip: (date: IsoDate) => onSeries(unskipDateCommand(date)),
-  remove: (d: D) => onSeries(removeDateCommand(d.id)),
   add: (date: IsoDate) => onSeries(addDateCommand(date)),
 } as const;
 
@@ -149,7 +157,6 @@ export const DATE_COPY = {
     resetNormal: 'Back to normal for this date.',
     skip: 'Skipped. Dancers won\u2019t see this week.',
     unskip: 'This week is back on.',
-    remove: 'Removed.',
     add: (day: string) => `Added ${day}.`,
   },
   cancelTitle: (name: string, day: string) => `Cancel ${name} on ${day}?`,
@@ -165,9 +172,6 @@ export const DATE_COPY = {
   skipHint: 'Already told dancers it\u2019s on? Cancel it instead, so they see why.',
   skipGo: 'Yes, skip this week',
   keepIt: 'Keep it',
-  removeTitle: (day: string) => `Remove ${day} for good?`,
-  removeBody: 'It leaves the list and the calendar. To have it again, add it as a new date.',
-  removeGo: 'Yes, remove it',
   moveTitle: (day: string) => `Move ${day} to another day`,
   moveHint: 'The sessions keep their times. Pick a day from today on.',
   moveGo: 'Move it',
