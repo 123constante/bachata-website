@@ -26,6 +26,8 @@ import {
   refundBlock,
   refundable,
   soldLine,
+  takenLine,
+  SHOWN_ORDER,
   windowLine,
   type MemberRole,
   type Order,
@@ -67,6 +69,7 @@ export default function SeriesTickets() {
   });
   const summary = useSalesSummary(organiserId);
   const { state: stripe } = useStripeState(organiserId);
+  const stripeKnown = stripe ?? 'unknown';
 
   const shell = (children: ReactNode, footer?: ReactNode) => (
     <OrganiserShell
@@ -141,7 +144,8 @@ export default function SeriesTickets() {
         orders={(orders.data ?? []).filter((o) => o.typeId === t.id)}
         ordersLoading={orders.isLoading}
         role={role}
-        stripe={stripe ?? 'none'}
+        stripe={stripeKnown}
+        seriesLive={seriesLive}
         moving={moving}
         error={moveError?.id === t.id ? moveError.text : null}
         onMove={(to) => void move(t, to)}
@@ -191,6 +195,7 @@ export default function SeriesTickets() {
 
 /** The server freezes the price once ANY order row exists (pending and expired included). */
 export const hasOrders = (t: TicketType | null, sales: Map<string, TypeSales>, orders: readonly Order[]): boolean => {
+  // orders holds every status (fetchOrders), expired included.
   if (!t) return false;
   const s = sales.get(t.id);
   const counted = s ? s.ordersPaid + s.ordersPending + s.ordersRefunded + s.ordersDisputed > 0 : false;
@@ -216,6 +221,7 @@ export function TypeCard({
   ordersLoading,
   role,
   stripe,
+  seriesLive,
   moving,
   error,
   onMove,
@@ -227,7 +233,8 @@ export function TypeCard({
   orders: readonly Order[];
   ordersLoading: boolean;
   role: MemberRole;
-  stripe: StripeState;
+  stripe: StripeState | 'unknown';
+  seriesLive: boolean;
   moving: string | null;
   error: string | null;
   onMove: (to: TicketStatus) => void;
@@ -235,7 +242,6 @@ export function TypeCard({
   onRefund: (o: Order) => void;
 }) {
   const baseId = useId();
-  const sold = sales?.ticketsSold ?? 0;
   const moves = NEXT_STATUS[t.status];
   const editBlocked = editLock(t, role);
   return (
@@ -245,7 +251,7 @@ export function TypeCard({
           <div className="min-w-0">
             <p className="truncate text-[15px] font-semibold">{t.name}</p>
             <p className="text-[14px] text-[var(--mut)]" data-testid="tix-type-line">
-              {priceLabel(t.pricePence)} &middot; {soldLine(sold, t.capacity)}
+              {priceLabel(t.pricePence)} &middot; {sales ? soldLine(sales.ticketsSold, t.capacity) : takenLine(t.reserved, t.capacity)}
             </p>
             <p className="text-[13px] text-[var(--mut)]">{windowLine(t.salesOpenAt, t.salesCloseAt)}</p>
           </div>
@@ -253,7 +259,7 @@ export function TypeCard({
         </div>
         <div className="grid grid-cols-2 gap-[8px]">
           {moves.map((to) => {
-            const blocked = moveBlock(t, to, { role, stripe });
+            const blocked = moveBlock(t, to, { role, stripe, seriesLive });
             return (
               <div key={to} className="space-y-[2px]">
                 <GhostButton
@@ -297,7 +303,8 @@ export function TypeCard({
 function Orders({ orders, loading, role, onRefund }: { orders: readonly Order[]; loading: boolean; role: MemberRole; onRefund: (o: Order) => void }) {
   const id = useId();
   if (loading) return <SkeletonRows count={1} label="Loading orders" />;
-  if (orders.length === 0) {
+  const shown = orders.filter((o) => SHOWN_ORDER.includes(o.status));
+  if (shown.length === 0) {
     return (
       <p className="text-[13px] text-[var(--mut)]" data-testid="tix-orders-empty">
         No orders yet. Orders show here once someone buys.
@@ -308,8 +315,8 @@ function Orders({ orders, loading, role, onRefund }: { orders: readonly Order[];
   return (
     <div className="space-y-[4px] border-t border-[var(--line)] pt-[8px]" data-testid="tix-orders">
       <p className="text-[13px] font-semibold text-[var(--mut)]">Orders</p>
-      <Reason id={id} testId="tix-refund-reason">{orders.some(refundable) ? blocked : null}</Reason>
-      {orders.map((o) => {
+      <Reason id={id} testId="tix-refund-reason">{shown.some(refundable) ? blocked : null}</Reason>
+      {shown.map((o) => {
         const tag = orderTag(o.status);
         return (
           <div key={o.id} className="flex min-h-[44px] items-center gap-[8px]" data-testid={`tix-order-${o.id}`}>

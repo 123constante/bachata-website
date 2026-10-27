@@ -105,7 +105,7 @@ describe('event tickets: status x orders x Stripe x role', () => {
                 expect(btn).toBeNull();
                 continue;
               }
-              const why = moveBlock(t, to, { role, stripe });
+              const why = moveBlock(t, to, { role, stripe, seriesLive: true });
               await waitFor(() => expect((btn as HTMLButtonElement).disabled).toBe(why !== null));
               expect(btn?.textContent).toContain(MOVE_LABEL[to]);
               if (why) expect(c.getByTestId(`tix-move-${to}-reason`).textContent).toBe(why);
@@ -146,6 +146,28 @@ describe('event tickets: empty and edge states', () => {
     choice.value = page('owner', [series('s1', 'draft')]);
     mount('/account/tickets/events/s1');
     expect((await screen.findByTestId('tix-add-reason')).textContent).toMatch(/Put this event live/);
+  });
+  it('a non-live series disables Put on sale with the reason', async () => {
+    choice.value = page('owner', [series('s1', 'ended')]);
+    api.fetchSeriesTypes.mockResolvedValue([type('draft', { pricePence: 0 })]);
+    mount('/account/tickets/events/s1');
+    expect((await screen.findByTestId('tix-move-on_sale-reason')).textContent).toMatch(/Put this event live/);
+  });
+  it('an unreadable sales summary shows tickets taken, never a made-up 0 sold', async () => {
+    choice.value = page('owner');
+    api.fetchSeriesTypes.mockResolvedValue([type('on_sale', { reserved: 7 })]);
+    api.fetchSalesSummary.mockRejectedValue(new Error('down'));
+    mount('/account/tickets/events/s1');
+    await waitFor(() => expect(screen.getByTestId('tix-type-line').textContent).toContain('7 of 100 taken'));
+  });
+  it('an expired-only order still locks the price (the server freezes it)', async () => {
+    choice.value = page('owner');
+    api.fetchSeriesTypes.mockResolvedValue([type('on_sale')]);
+    api.fetchOrders.mockResolvedValue([order('x', 'expired')]);
+    mount('/account/tickets/events/s1');
+    expect((await screen.findByTestId('tix-orders-empty')).textContent).toMatch(/No orders yet/);
+    fireEvent.click(screen.getByTestId('tix-edit'));
+    expect((await screen.findByTestId('tix-form-pricelock')).textContent).toMatch(/cannot change/);
   });
   it('a server refusal on a move shows its words, never a crash', async () => {
     choice.value = page('owner');
@@ -253,8 +275,8 @@ describe('tickets home', () => {
     api.fetchSalesSummary.mockResolvedValue(summary([type('on_sale')], true));
     mount('/account/tickets');
     expect((await screen.findByTestId('tix-sales-sold')).textContent).toContain('2');
-    expect(screen.getByTestId('tix-sales-gross').textContent).toContain('£24.00');
-    expect(screen.getByTestId('tix-sales-fees').textContent).toContain('£1.00');
+    expect(screen.getByTestId('tix-sales-gross').textContent).toContain('\u00A324.00');
+    expect(screen.getByTestId('tix-sales-fees').textContent).toContain('\u00A31.00');
     expect(screen.getByTestId('tix-event-s1').textContent).toContain('1 ticket type');
   });
 });

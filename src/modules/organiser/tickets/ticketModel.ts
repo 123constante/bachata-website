@@ -124,7 +124,9 @@ export interface TypeSales {
   refundedPence: number;
 }
 
-export type OrderStatus = 'paid' | 'refunded' | 'disputed' | string;
+export type OrderStatus = 'pending' | 'expired' | 'paid' | 'refunded' | 'disputed' | string;
+/** The orders the list shows; pending / expired rows still freeze the price (hasOrders). */
+export const SHOWN_ORDER: readonly string[] = ['paid', 'refunded', 'disputed'];
 export interface Order {
   id: string;
   typeId: string;
@@ -145,14 +147,14 @@ export const strOrNull = (v: unknown): string | null => (typeof v === 'string' &
 
 export const BOOKING_FEE_PENCE = 50;
 export const MAX_PER_ORDER = 20;
-const POUND = '£';
+const POUND = '\u00A3';
 
 export const formatPence = (pence: number): string => `${POUND}${(pence / 100).toFixed(2)}`;
 export const priceLabel = (pence: number): string => (pence === 0 ? 'Free' : formatPence(pence));
 
-/** "12", "12.5", "12.50", "£12.50" -> pence; anything else (or over the server's 1,000,000p cap) -> null. */
+/** "12", "12.5", "12.50", "\u00A312.50" -> pence; anything else (or over the server's 1,000,000p cap) -> null. */
 export const penceOf = (text: string): number | null => {
-  const t = text.trim().replace(/^£/, '');
+  const t = text.trim().replace(/^\u00A3/, '');
   if (!/^\d{1,5}(\.\d{1,2})?$/.test(t)) return null;
   const [whole, frac = ''] = t.split('.');
   const pence = Number(whole) * 100 + Number(frac.padEnd(2, '0'));
@@ -188,18 +190,25 @@ export const totalsOf = (rows: readonly TypeSales[]): SalesTotals =>
   );
 
 export const soldLine = (sold: number, capacity: number): string => `${sold} of ${capacity} sold`;
+/** When the sales summary is not readable: held tickets (paid + waiting for payment), never a made-up 0 sold. */
+export const takenLine = (reserved: number, capacity: number): string => `${reserved} of ${capacity} taken`;
 
 // ---- Status moves ------------------------------------------------------------------
 
 export interface MoveContext {
   role: MemberRole | null | undefined;
-  stripe: StripeState;
+  /** 'unknown' while the account row is loading or could not be read. */
+  stripe: StripeState | 'unknown';
+  /** event_series_p5.lifecycle_status === 'live': the server refuses on_sale otherwise. */
+  seriesLive: boolean;
 }
 
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
 export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
   if (!canManage(ctx.role)) return NOT_MANAGER;
+  if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return 'Set up payments under Get paid before selling paid tickets.';
   return null;
 };
@@ -338,8 +347,9 @@ export const editLock = (t: TicketType | null, role: MemberRole | null | undefin
 
 /** Why the Refund button is disabled, or null. Only a paid order shows the button at all (refundable). */
 export const refundBlock = (role: MemberRole | null | undefined): string | null => (canManage(role) ? null : NOT_MANAGER_REFUND);
-export const refundable = (o: Pick<Order, 'status'>): boolean => o.status === 'paid';
 export const refundAmount = (o: Pick<Order, 'totalPence' | 'refundedPence'>): number => Math.max(0, o.totalPence - o.refundedPence);
+/** A paid order with money left to give back (a free order, or one already refunded in full, has none). */
+export const refundable = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean => o.status === 'paid' && refundAmount(o) > 0;
 
 export const refundQuestion = (o: Order): { title: string; body: string } => ({
   title: `Refund ${formatPence(refundAmount(o))}?`,
@@ -372,7 +382,7 @@ const REASON: Record<string, string> = {
   closed: 'Sales are closed for this ticket, so it cannot be changed.',
   has_orders: 'The price cannot change once someone has bought a ticket.',
   capacity_below_reserved: 'More tickets are already taken than that number.',
-  bad_transition: 'That change is not possible from the ticket’s current state. Reload the page.',
+  bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
   organiser_not_onboarded: 'Set up payments under Get paid before selling paid tickets.',
 };

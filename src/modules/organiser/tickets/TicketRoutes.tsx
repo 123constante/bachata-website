@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import TicketsHome from './TicketsHome';
@@ -16,8 +16,14 @@ export default function TicketRoutes() {
       <Routes>
         <Route index element={<TicketsHome />} />
         <Route path="events/:seriesId" element={<SeriesTickets />} />
-        <Route path="*" element={<Navigate to={TICKETS_BASE} replace />} />
+        <Route path="*" element={<ToTicketsHome />} />
       </Routes>
     </AuthGuard>
   );
+}
+
+/** An unknown path goes to the ticket home, keeping ?o= (the page) so it never swaps page. */
+function ToTicketsHome() {
+  const { search } = useLocation();
+  return <Navigate to={`${TICKETS_BASE}${search}`} replace />;
 }

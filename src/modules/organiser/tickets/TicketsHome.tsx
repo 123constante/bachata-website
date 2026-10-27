@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { OrganiserShell } from '../shell/OrganiserShell';
@@ -14,16 +14,23 @@ const LINK = 'inline-flex min-h-[44px] items-center text-[15px] font-semibold te
 /** /account/tickets: Get paid, Sales (counts and sums), and the page's live events. */
 export default function TicketsHome() {
   const { home, selected } = useOrganiserChoice();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const stripeParam = params.get('stripe');
-  const back = stripeParam === 'return' || stripeParam === 'refresh' ? stripeParam : null;
+  // Read once on arrival, then dropped from the URL so a reload or a bookmark does not repeat the note.
+  const [back] = useState<'return' | 'refresh' | null>(stripeParam === 'return' || stripeParam === 'refresh' ? stripeParam : null);
   const summary = useSalesSummary(selected?.id);
   // Back from Stripe: read the account row again (the webhook may have landed meanwhile).
   useEffect(() => {
     if (back && selected?.id) void queryClient.invalidateQueries({ queryKey: ticketKeys.stripe(selected.id) });
   }, [back, selected?.id, queryClient]);
+  useEffect(() => {
+    if (!stripeParam) return;
+    const next = new URLSearchParams(params);
+    next.delete('stripe');
+    setParams(next, { replace: true });
+  }, [stripeParam, params, setParams]);
 
   const shell = (children: ReactNode) => (
     <OrganiserShell title="Tickets" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="tix-home">

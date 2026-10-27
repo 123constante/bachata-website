@@ -73,20 +73,23 @@ describe('status machine mirrors the server', () => {
 });
 
 const ROLES = ['owner', 'manager', 'contributor'] as const;
-const STRIPES: StripeState[] = ['none', 'started', 'connected'];
+const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'connected', 'unknown'];
 
-describe('moveBlock: every status x role x Stripe x free/paid x room left', () => {
+describe('moveBlock: every status x role x Stripe x free/paid x room left x series live', () => {
   for (const from of TICKET_STATUSES)
     for (const to of NEXT_STATUS[from])
       for (const role of ROLES)
         for (const stripe of STRIPES)
           for (const paid of [false, true])
-            for (const full of [false, true]) {
-              it(`${from}->${to} ${role} ${stripe} ${paid ? 'paid' : 'free'} ${full ? 'full' : 'room'}`, () => {
+            for (const full of [false, true])
+              for (const seriesLive of [true, false]) {
+              it(`${from}->${to} ${role} ${stripe} ${paid ? 'paid' : 'free'} ${full ? 'full' : 'room'} ${seriesLive ? 'live' : 'not-live'}`, () => {
                 const t = type({ status: from, pricePence: paid ? 1000 : 0, reserved: full ? 100 : 3 });
-                const got = moveBlock(t, to, { role, stripe });
+                const got = moveBlock(t, to, { role, stripe, seriesLive });
                 if (role === 'contributor') return expect(got).toBe(NOT_MANAGER);
+                if (to === 'on_sale' && !seriesLive) return expect(got).toMatch(/Put this event live/);
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
+                if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
                 if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(/Get paid/);
                 expect(got).toBeNull();
@@ -121,6 +124,8 @@ describe('Get paid', () => {
   });
   it.each([
     [404, null, 'not_configured'],
+    [404, { code: 'NOT_FOUND', message: 'Requested function was not found' }, 'not_configured'],
+    [404, { reason: 'not_found' }, 'failed'],
     [503, { error: 'not_configured' }, 'not_configured'],
     [200, { error: 'not_configured' }, 'not_configured'],
     [500, { error: 'stripe_down' }, 'failed'],
@@ -140,7 +145,7 @@ describe('money', () => {
     ['12', 1200],
     ['12.5', 1250],
     ['12.50', 1250],
-    ['£12.50', 1250],
+    ['\u00A312.50', 1250],
     ['0', 0],
     ['10000', 1_000_000],
     ['10000.01', null],
@@ -151,7 +156,7 @@ describe('money', () => {
   ])('penceOf(%j) = %j', (text, pence) => expect(penceOf(text)).toBe(pence));
   it('Free for 0, pounds otherwise', () => {
     expect(priceLabel(0)).toBe('Free');
-    expect(priceLabel(1250)).toBe('£12.50');
+    expect(priceLabel(1250)).toBe('\u00A312.50');
   });
   it('totals add every type', () => {
     const row = { id: 'a', seriesId: 's', name: 'n', status: 'on_sale' as const, pricePence: 1000, capacity: 10, reserved: 2 };
@@ -219,13 +224,15 @@ describe('refunds (Q5, Q9)', () => {
     expect(refundable(order)).toBe(true);
     expect(refundable({ ...order, status: 'refunded' })).toBe(false);
     expect(refundable({ ...order, status: 'disputed' })).toBe(false);
+    expect(refundable({ ...order, totalPence: 0 })).toBe(false); // a free order
+    expect(refundable({ ...order, refundedPence: 2100 })).toBe(false); // already refunded in full
   });
   it('the question names the amount and says the 50p fee is refunded too', () => {
     const q = refundQuestion(order);
-    expect(q.title).toBe('Refund £21.00?');
+    expect(q.title).toBe('Refund \u00A321.00?');
     expect(q.body).toMatch(/50p booking fee per ticket/);
-    expect(q.body).toMatch(/£1\.00/);
-    expect(refundQuestion({ ...order, refundedPence: 500 }).title).toBe('Refund £16.00?');
+    expect(q.body).toMatch(/\u00A31\.00/);
+    expect(refundQuestion({ ...order, refundedPence: 500 }).title).toBe('Refund \u00A316.00?');
   });
 });
 

@@ -120,6 +120,7 @@ export async function fetchSeriesTypes(organiserId: string, seriesId: string): P
       .eq('organiser_id', organiserId)
       .eq('event_series_id', seriesId)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
     const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
@@ -141,7 +142,7 @@ export const parseOrderRow = (r: Record<string, unknown>): Order => ({
   paidAt: strOrNull(r.paid_at),
 });
 
-/** Paid, refunded and disputed orders of these ticket types (pending / expired are not orders yet). No email, no Stripe ids. */
+/** Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids. */
 export async function fetchOrders(typeIds: readonly string[]): Promise<Order[]> {
   if (typeIds.length === 0) return [];
   const out: Order[] = [];
@@ -150,8 +151,8 @@ export async function fetchOrders(typeIds: readonly string[]): Promise<Order[]> 
       .from('ticket_orders')
       .select('id, ticket_type_id, buyer_name, quantity, subtotal_pence, booking_fee_pence, total_pence, refunded_pence, status, paid_at')
       .in('ticket_type_id', typeIds)
-      .in('status', ['paid', 'refunded', 'disputed'])
-      .order('paid_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
     const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
@@ -205,7 +206,10 @@ export type EdgeOutcome<T> = { kind: 'ok'; value: T } | { kind: 'not_configured'
 export const classifyEdge = (status: number | null, body: unknown): EdgeOutcome<unknown> => {
   const b = (body ?? {}) as { error?: unknown; reason?: unknown; code?: unknown };
   const word = [b.error, b.reason, b.code].find((v) => typeof v === 'string') as string | undefined;
-  if (status === 404 || status === 503 || word === 'not_configured') return { kind: 'not_configured' };
+  // A deployed function's own 404 carries a lowercase reason (not_found); the platform's
+  // "function not deployed" 404 carries none (or code NOT_FOUND).
+  const ownReason = [b.error, b.reason].find((v) => typeof v === 'string' && /^[a-z_]+$/.test(v)) as string | undefined;
+  if (status === 503 || word === 'not_configured' || (status === 404 && !ownReason)) return { kind: 'not_configured' };
   if (status === null || (status >= 200 && status < 300)) return { kind: 'ok', value: body };
   return { kind: 'failed', reason: word ?? null };
 };
@@ -219,8 +223,8 @@ async function invokeEdge(name: string, body: Record<string, unknown>): Promise<
       const parsed = await ctx.json().catch(() => null);
       return classifyEdge(ctx.status, parsed);
     }
-    // FunctionsRelayError / FunctionsFetchError: the function is not reachable at all.
-    return { kind: 'not_configured' };
+    // FunctionsFetchError / FunctionsRelayError: the network or relay failed; try again.
+    return { kind: 'failed', reason: null };
   } catch {
     return { kind: 'failed', reason: null };
   }
