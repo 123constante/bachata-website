@@ -34,3 +34,9 @@
 {"round":"r1","label":"details city lookup failed light","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":39}
 {"round":"r1","label":"details cover button dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
 {"round":"r1","label":"details city lookup failed dark","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":39}
+{"round":"r3","label":"details chat problem light","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":36}
+{"round":"r3","label":"details banner light","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":32}
+{"round":"r3","label":"prices profile lock light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}
+{"round":"r3","label":"details chat problem dark","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":36}
+{"round":"r3","label":"details banner dark","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":32}
+{"round":"r3","label":"prices profile lock dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}

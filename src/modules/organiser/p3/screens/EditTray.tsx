@@ -139,23 +139,22 @@ let blockerSeq = 0;
 function useRouterBlocker(): Blocker {
   const router = useContext(UNSAFE_DataRouterContext)?.router;
   const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
-  const [key, setKey] = useState('');
+  // one key per mounted tray, made once (no state set inside the effect)
+  const [key] = useState(() => `p3-leave-${++blockerSeq}`);
   const shouldBlock = useCallback<BlockerFunction>(
     ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname,
     [],
   );
   useEffect(() => {
     if (!router) return undefined;
-    const k = `p3-leave-${++blockerSeq}`;
-    setKey(k);
-    router.getBlocker(k, shouldBlock);
+    router.getBlocker(key, shouldBlock);
     setRouterGuard(true);
     return () => {
       setRouterGuard(false);
-      router.deleteBlocker(k);
+      router.deleteBlocker(key);
     };
-  }, [router, shouldBlock]);
-  return (key && blockers?.get(key)) || IDLE_BLOCKER;
+  }, [router, key, shouldBlock]);
+  return blockers?.get(key) ?? IDLE_BLOCKER;
 }
 
 /**

@@ -18,7 +18,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/l
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
 vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => ({ isAdmin: false, isPending: false }) }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'city-9' }) }));
-const progress = vi.hoisted(() => ({ current: { publishReady: true, requiredLeft: [] as string[] } }));
+const progress = vi.hoisted(() => ({ current: { publishReady: true, requiredLeft: 0 } }));
 vi.mock('../../../shared/profileProgress', async (orig) => ({
   ...(await orig<typeof import('../../../shared/profileProgress')>()),
   useProfileProgress: () => ({ data: progress.current }),
@@ -32,7 +32,7 @@ import { EventPage } from '../EventPage';
 import { DetailsScreen } from '../DetailsScreen';
 import { PricesScreen } from '../PricesScreen';
 
-afterEach(() => { cleanup(); rpc.mockReset(); progress.current = { publishReady: true, requiredLeft: [] }; });
+afterEach(() => { cleanup(); rpc.mockReset(); progress.current = { publishReady: true, requiredLeft: 0 }; });
 
 type Raw = Record<string, unknown>;
 let raw: Raw = SHAPES.weekly;
@@ -142,11 +142,11 @@ describe('r3 #5: Prices has the profile lock, as Details and the old area do', (
   it.each([[DETAILS, 'p3-details-lock', 'p3-d-name'], [PRICES, 'p3-prices-lock', 'p3-free-switch']] as const)(
     'an unfinished profile on %s: the lock shows with what to do, controls off, Save names why, nothing sent',
     async (path, lockId, controlId) => {
-      progress.current = { publishReady: false, requiredLeft: ['photo'] };
+      progress.current = { publishReady: false, requiredLeft: 2 };
       const envs = server(() => ({ data: { ok: true, new_version: 8 }, error: null }));
       show(path);
       await waitFor(() => screen.getByTestId(lockId));
-      expect(screen.getByTestId(lockId).textContent).toMatch(/Finish your profiles first/);
+      expect(screen.getByTestId(lockId).textContent).toContain('Finish your profiles first, 2 answers left');
       expect(within(screen.getByTestId(lockId)).getByText('Complete your profile')).toBeTruthy();
       expect((screen.getByTestId(controlId) as HTMLInputElement).disabled).toBe(true);
       expect(saveBtn().disabled).toBe(true);

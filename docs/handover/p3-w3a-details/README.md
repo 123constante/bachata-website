@@ -11,3 +11,8 @@
   `16-details-cover-*` (cover picker is now a normal button, r1 #7) and `17-details-city-fail-*` (the place's city
   lookup failed: plain words, Try again, Save held, r1 #3). 8 more metrics rows tagged `"round":"r1"`: 0 sideways,
   min tap 44px, 0 clipped, 0 contrast violations. The spec now has the r1 test.
+- Review round 3 (2026-10-27): re-walked at 390x844 light + dark only the states whose pixels changed:
+  `18-details-chat-problem-*` (a link the server's group-chat rule refuses, r3 #4), `19-details-banner-*` (the "someone else
+  saved" copy now says the save will be refused, r3 #3), `20-prices-profile-lock-*` (Prices profile lock, r3 #5). 6 more metrics
+  rows tagged `"round":"r3"`: 0 sideways, min tap 44px, 0 clipped, 0 contrast violations. Walk: `walk-r3.phone.spec.ts.txt`
+  (same harness and run line as `walk.phone.spec.ts.txt`).
