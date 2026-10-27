@@ -1,36 +1,44 @@
-{"label":"session sheet date light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":24}
-{"label":"weekly sessions light","sideways":0,"taps":19,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":46}
-{"label":"lineup date mc light","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":14}
-{"label":"session sheet every light","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":32}
-{"label":"new session light","sideways":0,"taps":19,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":31}
-{"label":"removeall light","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
-{"label":"lineup every light","sideways":0,"taps":9,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":16}
-{"label":"date sheet sessions light","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":20}
-{"label":"not running light","sideways":0,"taps":16,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":29}
-{"label":"multi-day greyed light","sideways":0,"taps":18,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":14}
-{"label":"cancelled date light","sideways":0,"taps":10,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":8}
-{"label":"festival light","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":44}
-{"label":"weekly sessions dark","sideways":0,"taps":19,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":46}
-{"label":"session sheet every dark","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":32}
-{"label":"course light","sideways":0,"taps":17,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":43}
-{"label":"removeall dark","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
-{"label":"lineup every dark","sideways":0,"taps":9,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":16}
-{"label":"oneoff sheet light","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":27}
-{"label":"no sessions light","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":39}
-{"label":"session sheet date dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":24}
-{"label":"lineup date mc dark","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":14}
-{"label":"untimed session light","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":25}
-{"label":"new session dark","sideways":0,"taps":19,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":31}
-{"label":"16 items light","sideways":0,"taps":33,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":101}
-{"label":"date sheet sessions dark","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":20}
-{"label":"16 items sheet light","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":36}
-{"label":"not running dark","sideways":0,"taps":16,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":29}
-{"label":"cancelled date dark","sideways":0,"taps":10,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":8}
-{"label":"multi-day greyed dark","sideways":0,"taps":18,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":14}
-{"label":"festival dark","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":44}
-{"label":"course dark","sideways":0,"taps":17,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":43}
-{"label":"oneoff sheet dark","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":27}
-{"label":"no sessions dark","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":39}
-{"label":"untimed session dark","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":25}
-{"label":"16 items dark","sideways":0,"taps":33,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":101}
-{"label":"16 items sheet dark","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":36}
+{"label": "session sheet date light", "sideways": 0, "taps": 13, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 24}
+{"label": "weekly sessions light", "sideways": 0, "taps": 19, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 46}
+{"label": "lineup date mc light", "sideways": 0, "taps": 7, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 14}
+{"label": "session sheet every light", "sideways": 0, "taps": 20, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 32}
+{"label": "new session light", "sideways": 0, "taps": 19, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 31}
+{"label": "removeall light", "sideways": 0, "taps": 3, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 4}
+{"label": "lineup every light", "sideways": 0, "taps": 9, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 16}
+{"label": "date sheet sessions light", "sideways": 0, "taps": 11, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 20}
+{"label": "not running light", "sideways": 0, "taps": 16, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 29}
+{"label": "multi-day greyed light", "sideways": 0, "taps": 18, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 14}
+{"label": "cancelled date light", "sideways": 0, "taps": 10, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 8}
+{"label": "festival light", "sideways": 0, "taps": 11, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 44}
+{"label": "weekly sessions dark", "sideways": 0, "taps": 19, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 46}
+{"label": "session sheet every dark", "sideways": 0, "taps": 20, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 32}
+{"label": "course light", "sideways": 0, "taps": 17, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 43}
+{"label": "removeall dark", "sideways": 0, "taps": 3, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 4}
+{"label": "lineup every dark", "sideways": 0, "taps": 9, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 16}
+{"label": "oneoff sheet light", "sideways": 0, "taps": 15, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 27}
+{"label": "no sessions light", "sideways": 0, "taps": 15, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 39}
+{"label": "session sheet date dark", "sideways": 0, "taps": 13, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 24}
+{"label": "lineup date mc dark", "sideways": 0, "taps": 7, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 14}
+{"label": "untimed session light", "sideways": 0, "taps": 15, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 25}
+{"label": "new session dark", "sideways": 0, "taps": 19, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 31}
+{"label": "16 items light", "sideways": 0, "taps": 33, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 101}
+{"label": "date sheet sessions dark", "sideways": 0, "taps": 11, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 20}
+{"label": "16 items sheet light", "sideways": 0, "taps": 20, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 36}
+{"label": "not running dark", "sideways": 0, "taps": 16, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 29}
+{"label": "cancelled date dark", "sideways": 0, "taps": 10, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 8}
+{"label": "multi-day greyed dark", "sideways": 0, "taps": 18, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 14}
+{"label": "festival dark", "sideways": 0, "taps": 11, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 44}
+{"label": "course dark", "sideways": 0, "taps": 17, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 43}
+{"label": "oneoff sheet dark", "sideways": 0, "taps": 15, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 27}
+{"label": "no sessions dark", "sideways": 0, "taps": 15, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 39}
+{"label": "untimed session dark", "sideways": 0, "taps": 15, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 25}
+{"label": "16 items dark", "sideways": 0, "taps": 33, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 101}
+{"label": "16 items sheet dark", "sideways": 0, "taps": 20, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 36}
+{"label": "lineup taken off light", "sideways": 0, "taps": 10, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 17}
+{"label": "lineup performance light", "sideways": 0, "taps": 17, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 30}
+{"label": "lineup taken off dark", "sideways": 0, "taps": 10, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 17}
+{"label": "lineup performance dark", "sideways": 0, "taps": 17, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 30}
+{"label": "new session name needed dark", "sideways": 0, "taps": 19, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 27}
+{"label": "new session name needed light", "sideways": 0, "taps": 19, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 27}
+{"label": "scope clears dark", "sideways": 0, "taps": 20, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 34}
+{"label": "scope clears light", "sideways": 0, "taps": 20, "minTap": 44, "small": [], "clipped": [], "contrastViolations": [], "contrastPasses": 34}

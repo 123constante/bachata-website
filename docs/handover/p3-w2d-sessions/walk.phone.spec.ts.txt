@@ -38,6 +38,7 @@ async function open(page: Page, shape: string, scheme: 'light' | 'dark', progOve
   await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) => r.fulfill(json(SHAPES[shape])));
   await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/organiser_get_occurrence_programme_v1`, (r) => r.fulfill(json(dateProg(r.request().postDataJSON().p_occurrence_id, progOver))));
   await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/organiser_search_people_v1`, (r) => r.fulfill(json([
+    { id: 'p-cls-0', display_name: 'Marco & Elena', dj_name: null, photo_url: null, city_name: 'Leeds', country_code: 'GB' },
     { id: 'n1', display_name: 'Maria Lopez', dj_name: null, photo_url: null, city_name: 'Leeds', country_code: 'GB' },
     { id: 'n2', display_name: 'Mario Rossi', dj_name: 'DJ Mario', photo_url: null, city_name: 'London', country_code: null }])));
   await page.route(`${FAKE_ORIGIN}/rest/v1/venue_rooms*`, (r) => r.fulfill(json([{ id: 'r1', name: 'Main room', sort_order: 0 }, { id: 'r2', name: 'Studio', sort_order: 1 }])));
@@ -173,5 +174,39 @@ for (const scheme of ['light', 'dark'] as const) {
     await page.getByTestId('p3-sess-rooms').waitFor();
     await checks(page, `16 items sheet ${scheme}`, '.p3-sheet');
     await shot(page, `20-sixteen-sheet-${scheme}`);
+  });
+  test(`review r1: taken-off person in the search, performance line-up note ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', scheme);
+    await firstSession(page);
+    await page.getByTestId('p3-sess-lineup-open').click();
+    await page.getByTestId('p3-lineup-toggle').first().click();
+    await page.getByTestId('p3-lineup-search').fill('Mar');
+    await page.getByTestId('p3-lineup-result').first().waitFor();
+    await expect(page.getByTestId('p3-lineup-result').first()).toBeDisabled();
+    await page.getByTestId('p3-lineup-results').scrollIntoViewIfNeeded();
+    await checks(page, `lineup taken off ${scheme}`, '.p3-sheet');
+    await shot(page, `21-lineup-takenoff-${scheme}`);
+    await page.getByTestId('p3-lineup-back').click();
+    await page.getByTestId('p3-sheet').getByText('Close').click();
+    await page.getByTestId('p3-open-date').nth(2).click();
+    await page.getByTestId('p3-date-session').first().waitFor();
+    await page.getByTestId('p3-open-date-session').nth(2).click();
+    await page.getByTestId('p3-sess-lineup-open').click();
+    await page.getByTestId('p3-lineup-teamonly').waitFor();
+    await checks(page, `lineup performance ${scheme}`, '.p3-sheet:last-of-type');
+    await shot(page, `22-lineup-performance-${scheme}`);
+    await open(page, 'weekly', scheme);
+    await page.getByTestId('p3-add-session').click();
+    await page.getByTestId('p3-why-name').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('p3-sess-save')).toBeDisabled();
+    await checks(page, `new session name needed ${scheme}`, '.p3-sheet');
+    await shot(page, `23-new-session-name-${scheme}`);
+    await page.getByTestId('p3-sheet').getByText('Close').click();
+    await firstSession(page);
+    await page.getByTestId('p3-sess-name').fill('Improvers class');
+    await page.getByTestId('p3-sess-scope').scrollIntoViewIfNeeded();
+    await page.getByTestId('p3-sess-scope-clears').waitFor();
+    await checks(page, `scope clears ${scheme}`, '.p3-sheet');
+    await shot(page, `24-scope-clears-${scheme}`);
   });
 }
