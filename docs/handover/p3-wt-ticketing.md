@@ -62,3 +62,33 @@ Touches:
   after deletion that lands on NotFound (flag is off in prod, test accounts only).
 - Docs that name the old route: `docs/organiser-ticketing-journey.md`,
   `docs/handover/ticketing-organiser-ui.md`.
+
+## Review rounds (stopping rule: user-facing + money = two rounds)
+- Round 1 (10 findings) fixed in e2b5680: focus per view/step, no default focus on Close,
+  per-row switch busy/error, refresh scoped to this event, dvh sheet height, closed+sold row.
+- Round 2 (10 findings on the round-1 fix) fixed in 965765c: the round-1 "no close while a
+  write runs" guard could trap the sheet on a hung request, so it was reverted: the sheet
+  always closes, a late refusal comes back as a toast, an add closed mid-save drops its
+  draft (no second save), a refund in flight locks that order's Refund button
+  ("Refunding..."), default focus is the marked field or the heading (never a commit or
+  money button), the refusal note takes focus, focus returns to the top sheet after a
+  refund removes its button.
+- Round-2 fixes are UNREVIEWED code (CLAUDE.md: fixes to findings are unreviewed).
+- Process note: the review fixes landed as follow-up commits because the branch was
+  pushed early (brief's push-early rule); CLAUDE.md prefers edits before commit.
+
+## Local CI parity (HEAD 29f28f5, before the review fixes; re-run on the final head NOT done)
+All architecture-guard, typecheck, perf-budget (build + budgets + chunk cycles), phone-qa
+(phone suite + build smoke), dancer-area isolation and unit timing/tz legs PASS.
+Failures: `test:unit:offline` B-N8 raw-Unicode test (CAUSED here, fixed in e2b5680; the
+organiser suite is 6470 passed after the fixes); `tests/integrityCouldNotRun.test.ts`
+(5, pre-existing on main); e2e `organiser-home.spec.ts:55` (pre-existing on main) plus
+flaky retries; `npm run lint` link `check:integrity` exit 126 (script mode 100644 locally,
+CI chmods; pre-existing). eslint p3: 0 errors, 3 react-refresh warnings (1 pre-existing).
+
+## Next (new session)
+1. Re-run the full local CI set on the final head; read PR #1079 checks per job.
+2. Review round on 965765c (the round-2 fixes are unreviewed).
+3. Orchestrator: browser walk at 390x844 as the walk test account, Design Gate stage 5
+   critique by a different worker, Verified / Not verified block, then delete old
+   `/account/tickets` (list above) in the same PR series.
