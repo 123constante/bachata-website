@@ -28,7 +28,7 @@ function tabOf(pathname: string): P3Tab {
 }
 
 /** A screen the You hub pushes (Team, Switch page...): it draws its own top bar, with the way back. */
-export function isPushed(pathname: string): boolean {
+function isPushed(pathname: string): boolean {
   return pathname.startsWith(`${P3_PATHS.you}/`) && pathname !== `${P3_PATHS.you}/`;
 }
 
