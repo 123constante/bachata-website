@@ -6,7 +6,7 @@ Owner decisions (fixed, do not reopen): slice order is W0 (merged) -> W1 (merged
 
 ## Read first (narrow reads: grep/headings before whole files)
 - The merged P3 code under `src/modules/organiser/p3/` and `docs/design/1057.md`, `docs/handover/p3-w2a-walk` (names only).
-- The P3 contract and mockups the W2a brief names: ask the file `BRIEF-p3-w2a-event-page-status.md` content via the repo's `docs/` copies if present (`git grep -il "CONTRACT" docs | head`); if the contract is not in the repo, say so and list what you could not read.
+- The P3 contract: `git fetch origin claude/p3-a0-contract` then `git show FETCH_HEAD:docs/organiser-rebuild/p3/CONTRACT.md`. Mockups C2/C3: `git fetch origin claude/er-p3-c3-test` then `docs/organiser-rebuild/p3/mockups/` (names and the C3 sheet list first). The W2a brief (what W2a was told to build) is `docs/briefs/p3-w2a-event-page-status.md` on branch `brief/p3-arc-plan` (this branch).
 - The W2c brief `docs/briefs/p3-cancel-one-off.md` on branch `brief/p3-cancel-one-off`.
 - Admin repo facts only through the Supabase read-only connector (RPC names, `series_command_p5` / `command_dispatch_p5` kinds) and the repo docs; never edit the admin repo.
 
