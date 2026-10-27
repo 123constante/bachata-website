@@ -71,3 +71,17 @@ Not verified:
   only the production origin may complete checkout.
 - The webhook-issued email arriving.
 - Desktop widths.
+
+## PR and CI
+
+PR #1063 (opened by the dispatcher; this worker filled the body). On head f1375f3 every
+GitHub job was green or skipped by design (lighthouse / doc-weight / og / seo / synthetic
+skip `claude/*`), except `real-data-verified` and `phone-qa-section`, which failed on the
+empty body and re-ran after the body was filled (both pass locally on that body). Local
+run of every job step: no failure caused by the branch (15 full-unit failures are the same
+on origin/main: live-DB tests without a secret, integrityCouldNotRun sandbox quirk).
+Vercel cap could not be checked: the sandbox proxy refuses api.vercel.com (403) even with
+VERCEL_TOKEN set.
+
+Local e2e / phone runs regenerate tracked review-pack PNGs as a side effect: never
+`git add -A` after them (one such commit was reverted in 40435d3).
