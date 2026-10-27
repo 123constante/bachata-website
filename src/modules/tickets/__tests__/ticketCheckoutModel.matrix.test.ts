@@ -159,9 +159,9 @@ describe('replies and every error reason', () => {
 });
 
 describe('thank-you copy never claims issuance from the redirect', () => {
-  it.each([[false, true], [false, false], [true, true]])('free=%s order=%s', (free, has) => {
-    const c = thanksCopy(free, has);
-    expect(c.title).toMatch(free ? /on their way/ : has ? /^Payment received, your tickets are being emailed$/ : /^Thanks for your order$/);
+  it.each([[false, 'confirmed'], [false, 'checking'], [false, 'none'], [true, 'checking']] as const)('free=%s order=%s', (free, state) => {
+    const c = thanksCopy(free, state);
+    expect(c.title).toMatch(free ? /on their way/ : state === 'confirmed' ? /^Payment received, your tickets are being emailed$/ : /^Checking your order$/);
     expect(`${c.title} ${c.body}`).not.toMatch(/issued|confirmed/i);
   });
 });

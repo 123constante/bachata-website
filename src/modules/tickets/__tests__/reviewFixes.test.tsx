@@ -64,18 +64,18 @@ afterEach(() => {
 
 describe('finding 2: no "Payment received" without an order id', () => {
   it('model', () => {
-    expect(thanksCopy(false, false).title).toBe('Thanks for your order');
-    expect(thanksCopy(false, false).body).toMatch(/^If you completed payment/);
+    expect(thanksCopy(false, 'none').title).toBe('Checking your order');
+    expect(thanksCopy(false, 'none').body).toMatch(/^If you completed payment/);
   });
   it('page with no id and nothing stored', () => {
     thanks('/tickets/thanks');
     const page = screen.getByTestId('tickets-thanks').textContent ?? '';
-    expect(page).toMatch(/Thanks for your order/);
+    expect(page).toMatch(/Checking your order/);
     expect(page).not.toMatch(/Payment received/);
   });
 });
 
-describe('finding 3: the checkout POST times out after 20s and lands as network', () => {
+describe('finding 3: the checkout POST times out after 20s and lands as timeout', () => {
   it('passes a 20s timeout signal on the send and on the guest retry', async () => {
     vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.co');
     vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'anon');
@@ -88,12 +88,12 @@ describe('finding 3: the checkout POST times out after 20s and lands as network'
     expect(init.signal).toBeInstanceOf(AbortSignal);
     timeout.mockRestore();
   });
-  it('a TimeoutError is reason network', async () => {
+  it('a TimeoutError is reason timeout (its own retry copy)', async () => {
     vi.stubEnv('VITE_SUPABASE_URL', 'https://x.supabase.co');
     vi.stubEnv('VITE_SUPABASE_PUBLISHABLE_KEY', 'anon');
     vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('timed out', 'TimeoutError'); }));
     expect(await realPost({ ticket_type_id: 't', quantity: 1, buyer_email: 'a@b.co', success_url: '', cancel_url: '' }))
-      .toEqual({ kind: 'error', reason: 'network', message: null });
+      .toEqual({ kind: 'error', reason: 'timeout', message: null });
   });
 });
 

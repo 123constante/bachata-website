@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
 import {
+  BOOKING_FEE_LABEL,
   CANCELLED_PARAM,
   THANKS_PATH,
   WAY_LABEL,
@@ -265,7 +266,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
             </div>
             {!sum.free && (
               <div className="flex justify-between" style={muted}>
-                <dt>+ 50p booking fee per ticket</dt>
+                <dt>+ {BOOKING_FEE_LABEL} booking fee per ticket</dt>
                 <dd>{formatPence(sum.feePence)}</dd>
               </div>
             )}

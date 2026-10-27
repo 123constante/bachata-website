@@ -3,11 +3,13 @@
  * ticket type shows, how many can be bought, the total lines, why Buy is disabled and
  * what each server refusal says. Pure; the block and the thank-you page only render it.
  */
+import { BOOKING_FEE_PENCE } from '@/lib/ticketBookingFee';
 
 /** Owner Q2: at most 20 tickets per order (the edge function's MAX_QUANTITY). */
 export const MAX_PER_ORDER = 20;
-/** Owner Q9: 50p booking fee per paid ticket, shown on its own line. */
-export const BOOKING_FEE_PENCE = 50;
+/** Owner Q9: the booking fee per paid ticket, shown on its own line. The one shared constant;
+ *  the server's value is env TICKET_BOOKING_FEE_PENCE (keep it unset = 50). */
+export { BOOKING_FEE_PENCE };
 /** The only origins the edge function accepts for success_url / cancel_url. */
 export const CHECKOUT_ORIGINS: readonly string[] = [
   'https://bachatacalendar.co.uk',
@@ -65,8 +67,13 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
 
 export function formatPence(pence: number): string {
   if (pence === 0) return 'Free';
-  return pence % 100 === 0 ? `\u00a3${pence / 100}` : `\u00a3${(pence / 100).toFixed(2)}`;
+  const digits = pence % 100 === 0 ? 0 : 2;
+  return `\u00a3${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 }
+
+/** "50p" under a pound, else as formatPence: how the fee line and the terms name the fee. */
+export const feeLabel = (pence: number): string => (pence < 100 ? `${pence}p` : formatPence(pence));
+export const BOOKING_FEE_LABEL = feeLabel(BOOKING_FEE_PENCE);
 
 export type Availability =
   | { kind: 'buyable'; label: string }
@@ -218,6 +225,8 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   invalid_request: { text: 'Something in the form was not accepted. Check your email and the number of tickets, then try again.', way: 'fix_form' },
   invalid_quantity: { text: 'That number of tickets was not accepted. Choose between 1 and 20, then try again.', way: 'fix_form' },
   invalid_email: { text: 'That email was not accepted. Check it, then try again.', way: 'fix_form' },
+  invalid_fee: { text: 'The booking could not be priced. You have not been charged. Try again; if it keeps happening, contact the organiser.', way: 'retry' },
+  refused: { text: 'Your tickets could not be reserved. You have not been charged. Try again.', way: 'retry' },
   rate_limited: { text: `Too many ticket requests. Please wait a while and try again. ${RATE_HELD}`, way: 'retry' },
   not_found: { text: 'This ticket is no longer available. Pick another ticket.', way: 'pick_another' },
   not_on_sale: { text: 'This ticket is not on sale right now. Pick another ticket.', way: 'pick_another' },
@@ -226,13 +235,22 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   organiser_not_onboarded: { text: 'The organiser cannot take payments yet. Contact the organiser for tickets.', way: 'contact_organiser' },
   stripe_error: { text: 'The payment page could not be opened. You have not been charged. Try again.', way: 'retry' },
   internal_error: { text: 'Something went wrong on our side. You have not been charged. Try again.', way: 'retry' },
+  // Free orders: the server closed the order as failed, so a fresh try is the way forward.
+  free_issue_failed: { text: 'Your free tickets could not be issued. Nothing was booked. Try again.', way: 'retry' },
+  not_free: { text: 'This ticket could not be booked as a free ticket. Nothing was booked. Try again.', way: 'retry' },
+  not_pending: { text: 'That booking ran out of time before it finished. Nothing was booked. Try again.', way: 'retry' },
+  stale: { text: 'That booking ran out of time before it finished. Nothing was booked. Try again.', way: 'retry' },
+  method_not_allowed: { text: 'The ticket service did not accept this request. You have not been charged. Refresh the page and try again.', way: 'retry' },
   not_configured: { text: 'Online tickets are not switched on yet. Contact the organiser for tickets.', way: 'contact_organiser' },
   unauthorised: { text: 'The ticket service did not accept this request. Refresh the page and try again; if it keeps happening, contact the organiser.', way: 'retry' },
   network: { text: 'Could not reach the ticket service. Check your connection and try again.', way: 'retry' },
+  // The POST gave up after CHECKOUT_TIMEOUT_MS: the buyer never reached Stripe.
+  timeout: { text: 'The ticket service took too long to answer. You have not been charged. Try again.', way: 'retry' },
 };
 
+/** The one lookup: an own key only, so "toString" or "__proto__" from a reply is unmapped. */
 export function reasonCopy(reason: string, message: string | null = null): ReasonCopy {
-  const known = REASON_COPY[reason];
+  const known = Object.prototype.hasOwnProperty.call(REASON_COPY, reason) ? REASON_COPY[reason] : undefined;
   if (known) return reason === 'rate_limited' && message ? { ...known, text: `${message} ${RATE_HELD}` } : known;
   return { text: 'Your tickets could not be booked. You have not been charged. Try again.', way: 'retry' };
 }
@@ -244,19 +262,33 @@ export const WAY_LABEL: Readonly<Record<WayForward, string>> = {
   fix_form: 'Check the form',
 };
 
+/**
+ * What the thank-you page knows about the order. 'confirmed' = the server said it is paid;
+ * 'checking' = we hold a well-formed order id but no server word on it (the Website has no
+ * public order read yet, so a paid return is always this); 'none' = no order id at all.
+ */
+export type ThanksOrderState = 'confirmed' | 'checking' | 'none';
+
 /** The thank-you page's words. Tickets are issued by the webhook, never by the redirect. */
-export function thanksCopy(free: boolean, hasOrder: boolean): { title: string; body: string } {
+export function thanksCopy(free: boolean, state: ThanksOrderState): { title: string; body: string } {
   if (free) {
     return {
       title: 'Your free tickets are on their way',
       body: 'We are emailing your tickets now. Each ticket has a code to show at the door.',
     };
   }
+  if (state === 'confirmed') {
+    return {
+      title: 'Payment received, your tickets are being emailed',
+      body: 'Your tickets will arrive by email in a few minutes, each with a code to show at the door. If nothing arrives within an hour, check your spam folder, then contact the organiser.',
+    };
+  }
+  // No server word on a payment: the page must not claim one.
   return {
-    // No order id = no evidence of a payment: the heading must not claim one.
-    title: hasOrder ? 'Payment received, your tickets are being emailed' : 'Thanks for your order',
-    body: hasOrder
-      ? 'Your tickets will arrive by email in a few minutes, each with a code to show at the door. If nothing arrives within an hour, check your spam folder, then contact the organiser.'
-      : 'If you completed payment, your tickets will arrive by email in a few minutes. If nothing arrives within an hour, check your spam folder, then contact the organiser.',
+    title: 'Checking your order',
+    body:
+      state === 'checking'
+        ? 'If your payment went through, your tickets will arrive by email in a few minutes, each with a code to show at the door. If nothing arrives within an hour, check your spam folder, then contact the organiser.'
+        : 'If you completed payment, your tickets will arrive by email in a few minutes. If nothing arrives within an hour, check your spam folder, then contact the organiser.',
   };
 }

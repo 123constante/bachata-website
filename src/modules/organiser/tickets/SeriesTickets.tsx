@@ -11,6 +11,7 @@ import { TypeSheet } from './TypeSheet';
 import { TICKET_PATHS } from './paths';
 import { fetchOrders, fetchSeriesTypes, setTicketStatus, ticketKeys } from './ticketsApi';
 import {
+  BOOKING_FEE_PENCE,
   MAX_PER_ORDER,
   NOT_MANAGER,
   NOT_MANAGER_REFUND,
@@ -20,6 +21,7 @@ import {
   canManage,
   countsLine,
   eventStartOf,
+  feeLabel,
   leftOf,
   moveBlock,
   orderLine,
@@ -185,7 +187,7 @@ export default function SeriesTickets() {
   return shell(
     <>
       <p className="text-[13px] text-[var(--mut)]" data-testid="tix-event-rules">
-        {eventDateLine(series)}. Buyers pay a 50p booking fee per paid ticket, up to {MAX_PER_ORDER} tickets an order.
+        {eventDateLine(series)}. Buyers pay a {feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to {MAX_PER_ORDER} tickets an order.
       </p>
       {!manager && <p className="text-[13px] text-[var(--mut)]" data-testid="tix-readonly">{NOT_MANAGER}</p>}
       {body}

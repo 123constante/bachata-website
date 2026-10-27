@@ -63,10 +63,12 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
     // the function runs, so no order exists yet: buying needs no sign-in, so retry once
     // as a guest with the publishable key. The function itself never answers 401.
     if (resp.status === 401 && token !== key) resp = await send(key);
-  } catch {
-    // Offline, or the timeout above fired (AbortError / TimeoutError): retrying is safe, an
-    // order the server made in the meantime expires on its own.
-    return { kind: 'error', reason: 'network', message: null };
+  } catch (e) {
+    // The timeout above fired (TimeoutError, or AbortError from the fallback), or offline.
+    // Never resent here: a retry is the buyer's own tap, one POST each, and an order the
+    // server made in the meantime expires on its own.
+    const name = (e as { name?: unknown } | null)?.name;
+    return { kind: 'error', reason: name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'network', message: null };
   }
   const json = await resp.json().catch(() => null);
   return parseCheckoutReply(json, resp.status);

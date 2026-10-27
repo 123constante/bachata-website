@@ -241,8 +241,9 @@ describe('cancel state and thank-you page', () => {
     await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledTimes(2));
   });
   it.each([
-    ['/tickets/thanks?o=abcdef12-0000-4000-8000-000000000000', /Payment received, your tickets are being emailed/, /abcdef12/],
-    ['/tickets/thanks', /Thanks for your order/, null],
+    // No server read of the order exists: a paid return is "checking", never "Payment received".
+    ['/tickets/thanks?o=abcdef12-0000-4000-8000-000000000000', /Checking your order/, /abcdef12/],
+    ['/tickets/thanks', /Checking your order/, null],
     ['/tickets/thanks?o=ff00ff00-1111-4222-8333-444455556666&free=1', /free tickets are on their way/, /ff00ff00/],
   ])('%s', (path, title, ref) => {
     render(<MemoryRouter initialEntries={[path]}><TicketThanksPage /></MemoryRouter>);
