@@ -514,3 +514,58 @@ describe('W4a fix 1 (c): Done in P3 is P3 and returns into P3', () => {
     expect(done.closest('[data-testid="p3-shell"]')).not.toBeNull();
   });
 });
+
+// ---- W4a fix 2 (the orchestrator's re-walk of 3319e20 at 390x844) -------------------------------
+
+describe('W4a fix 2: the page name, the first card and "Add a page" are readable and whole', () => {
+  const css = readFileSync(join(__dirname, '..', '..', 'theme', 'p3.css'), 'utf8').replace(/\r\n/g, '\n');
+  /** The custom properties (or declarations) of one P3 rule, exact selector. */
+  const tokens = (selector: string) => {
+    const at0 = css.indexOf(`${selector} {`);
+    expect(at0, selector).toBeGreaterThanOrEqual(0);
+    return Object.fromEntries(Array.from(css.slice(css.indexOf('{', at0) + 1, css.indexOf('}', at0)).matchAll(/([\w-]+):\s*([^;]+);/g), (m) => [m[1], m[2].trim()]));
+  };
+  const SCHEMES = [['light', tokens('.p3-theme')], ['dark', tokens('.p3-theme[data-theme="dark"]')]] as const;
+  const lum = (hex: string) => {
+    expect(hex, 'an opaque hex token').toMatch(/^#[0-9a-f]{6}$/i);
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  /** The P3 token an element's OWN class paints with (text-[var(--x)] / bg-[var(--x)]); null when it only inherits. */
+  const own = (el: Element, kind: 'text' | 'bg') => new RegExp(`(?:^|\\s)${kind}-\\[var\\((--[\\w-]+)\\)\\]`).exec(typeof el.className === 'string' ? el.className : '')?.[1] ?? null;
+  /** The ground under an element: the nearest ancestor that paints a token, else the frame's --bg. */
+  const ground = (el: Element) => { for (let n = el.parentElement; n; n = n.parentElement) { const t = own(n, 'bg'); if (t) return t; } return '--bg'; };
+
+  it.each([['test org'], [LONG]])('a. Organiser page: the name "%s" sets its own P3 colour (index.css paints every h2 the site foreground) and reads >= 3:1 on its card, light and dark', async (name) => {
+    pages = [page('org-1', name, 'owner')];
+    at(P3_PATHS.youPage);
+    // The first case pays for the lazy chunks' cold import.
+    const h2 = await screen.findByTestId('page-name', {}, { timeout: 5000 });
+    const fg = own(h2, 'text');
+    expect(fg, 'page-name carries text-[var(--token)]').not.toBeNull();
+    const bg = ground(h2);
+    expect(bg).toBe('--card');
+    for (const [scheme, T] of SCHEMES) expect(ratio(T[fg!], T[bg]), `${scheme}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each([['Organiser page', P3_PATHS.youPage, 'page-facts'], ['Team', P3_PATHS.youTeam, 'team-member'], ['Switch page', P3_PATHS.youSwitch, 'switch-add-page']])(
+    'b. %s: the pushed page sits in a main with top padding clear of the bar (>= 16px)',
+    async (_n, path, ready) => {
+      at(path);
+      const first = (await screen.findAllByTestId(ready))[0];
+      const main = first.closest('main')!;
+      expect(main.classList.contains('p3-main-pushed'), main.className).toBe(true);
+      expect(parseInt(tokens('.p3-theme .p3-main-pushed')['padding-top'] ?? '0', 10)).toBeGreaterThanOrEqual(16);
+    },
+  );
+
+  it('c. Switch page: "Add a page" is the terracotta text-link token, >= 4.5:1 on the page ground, light and dark, at a 44px tap height', async () => {
+    pages = [page('org-1', 'Bachata Sensual London', 'owner'), page('org-2', 'test org', 'manager')];
+    at(P3_PATHS.youSwitch);
+    const add = await screen.findByTestId('switch-add-page');
+    expect(own(add, 'text')).toBe('--gold-fg');
+    expect(add.className).toMatch(/min-h-\[(4[4-9]|[5-9]\d)px\]/);
+    for (const [scheme, T] of SCHEMES) expect(ratio(T['--gold-fg'], T[ground(add)]), `${scheme}: --gold-fg on ${ground(add)}`).toBeGreaterThanOrEqual(4.5);
+  });
+});

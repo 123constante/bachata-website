@@ -84,7 +84,8 @@ export default function SwitchPage() {
       <Link
         to={addPage}
         data-testid="switch-add-page"
-        className="mt-[12px] flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--gold)]"
+        // P3: the terracotta text-link token (--gold-fg), as P3's other text links; --gold is for fills (2.69:1 on cream).
+        className={`mt-[12px] flex min-h-[44px] items-center justify-center text-[15px] font-semibold ${kind === 'p3' ? 'text-[var(--gold-fg)]' : 'text-[var(--gold)]'}`}
       >
         Add a page
       </Link>

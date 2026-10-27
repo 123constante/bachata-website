@@ -71,7 +71,8 @@ export default function PageScreen() {
                 {bridge.slot('photo')}
               </div>
               <div className="flex max-w-full items-center">
-                <h2 className={p3 ? 'truncate text-[20px] font-bold leading-[28px]' : 'truncate text-[20px] font-bold'} data-testid="page-name">{name}</h2>
+                {/* Its own colour: the site's base `h2` rule (index.css, hsl(--foreground), near white) beats the card's inherited one. */}
+                <h2 className={p3 ? 'truncate text-[20px] font-bold leading-[28px] text-[var(--fg)]' : 'truncate text-[20px] font-bold'} data-testid="page-name">{name}</h2>
                 {bridge.slot('name')}
               </div>
               {bridge.slot('meta')}

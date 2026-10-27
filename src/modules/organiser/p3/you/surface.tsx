@@ -25,7 +25,7 @@ export function P3PushedShell({ title, back, topBarEnd, children, testId }: Orga
           {topBarEnd}
         </div>
       </header>
-      <main className="p3-main" data-testid={testId}>{children}</main>
+      <main className="p3-main p3-main-pushed" data-testid={testId}>{children}</main>
     </>
   );
 }
