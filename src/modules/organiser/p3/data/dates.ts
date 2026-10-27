@@ -11,7 +11,7 @@ import {
 } from '../../shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, canCancelOneOff, dateMarks, type DateAction, type DateFacts, type IsoDate, type SeriesFacts } from '../model';
+import { L, canCancelOneOff, dateMarks, timeWord, type DateAction, type DateFacts, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
 import { breakFactsOf, dateFactsOf, marksOf } from './dateFacts';
 
@@ -178,7 +178,7 @@ export const DATE_COPY = {
   timeTitle: (day: string) => `Change the time on ${day}`,
   timeBody: 'Every session on this date moves by the same amount. Other dates stay as usual.',
   startsAt: 'Starts at',
-  now: (t: string | null) => (t ? `Now ${t}.` : 'No start time yet.'),
+  now: (t: string | null) => (t ? `Now ${timeWord(t)}.` : 'No start time yet.'),
   resetTitle: `${L.resetDate}?`,
   resetBody: (day: string) => `Where, about, ticket link, photo and time on ${day} go back to usual. Sessions stay as they are.`,
   resetGo: 'Put it back',

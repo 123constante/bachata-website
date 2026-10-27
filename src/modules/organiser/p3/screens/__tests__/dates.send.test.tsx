@@ -84,6 +84,14 @@ async function openFirstDate() {
 const act = (a: string) => screen.getByTestId(`p3-date-act-${a}`) as HTMLButtonElement;
 
 describe('the date sheet writes through the real envelope', () => {
+  it('names the start in the same time words as the event page (8pm, never 20:00)', async () => {
+    show();
+    await openFirstDate();
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Friday 30 October, 8pm');
+    fireEvent.click(act('time'));
+    expect(screen.getByText('Now 8pm.')).toBeTruthy();
+  });
+
   it('Cancel this date: nothing until a reason; occurrence_command_p5 on the DATE at its version; the retry reuses the key; Bring it back in the toast', async () => {
     show();
     await openFirstDate();

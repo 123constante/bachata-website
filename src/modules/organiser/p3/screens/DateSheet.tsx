@@ -11,7 +11,7 @@ import { useSendOnce } from '../../shared/runCommands';
 import type { OverridePatch } from '../../shared/seriesCommands';
 import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, addDateWhy, dateActions, pickDayProblem, type DateAction, type DateRow } from '../model';
+import { L, addDateWhy, dateActions, pickDayProblem, timeWord, type DateAction, type DateRow } from '../model';
 import { cancelPlan } from '../data/eventPage';
 import {
   DATE_COPY, KeyRing, PLAN, breakFactsOf, dateFactsOf, resetNormalPlan, seriesFactsOf, takenDays, undoFor, useDateDetail, useSendPlan,
@@ -334,7 +334,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
 
   const cancelled = facts.state === 'cancelled';
   return (
-    <Sheet title={start && !cancelled ? `${day}, ${start}` : day} onClose={onClose}>
+    <Sheet title={start && !cancelled ? `${day}, ${timeWord(start)}` : day} onClose={onClose}>
       <p className="p3-note" data-testid="p3-date-state">
         {cancelled ? DATE_COPY.cancelledBody(detail?.cancellationReason ?? null) : facts.ownDetails || facts.ownTime ? L.ownChanges : L.sameUsual}
       </p>
