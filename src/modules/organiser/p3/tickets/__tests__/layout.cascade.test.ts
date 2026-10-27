@@ -73,6 +73,8 @@ describe('P3 ticketing layout in the cascade (review r1 D1 to D5)', () => {
     expect(resolve(head, 'background')).toBe('var(--sheet)');
     expect(resolve([...head, 'button.p3-link'], 'min-width')).toBe('var(--tap)');
     expect(css).toMatch(/--tap:\s*44px;/);
+    // The footer stays reachable: a shrinking body let a long list overflow past it (found on the 390px walk).
+    expect(resolve([...TALL, 'div.p3-sheet-body'], 'flex')).toBe('1 0 auto');
     // W2's sheets (screens/Sheet.tsx) keep their head as it was.
     expect(resolve([THEME, 'div.p3-scrim', 'div.p3-sheet', 'div.p3-sheet-head'], 'position')).toBeUndefined();
   });
