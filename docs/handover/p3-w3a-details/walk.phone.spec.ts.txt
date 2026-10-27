@@ -1,0 +1,132 @@
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, appendFileSync } from 'node:fs';
+import { checkOverflow, fakeSupabase, frames } from './helpers';
+import { FAKE_ORIGIN } from './fakeSupabase.mjs';
+
+// THROWAWAY walk for the W3a design record (W2a style, not committed as a spec): every shot at 390x844.
+// Run: copy to tests/e2e-phone/zz-w3a-walk.phone.spec.ts, then
+// VITE_ENABLE_ORGANISER_P3=true SHAPES_JSON=$PWD/docs/handover/p3-w3a-details/shapes.json SHOTS=<dir> \
+//   npx playwright test --config playwright.phone.config.ts zz-w3a-walk --project phone-390x844
+const SHAPES = JSON.parse(readFileSync(process.env.SHAPES_JSON!, 'utf8'));
+const OUT = process.env.SHOTS!;
+const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+const VENUES = [
+  { id: 'v1', name: 'Salsa Hall', neighbourhood: 'Headingley', city_name: 'Leeds', address: null, postcode: null },
+  { id: 'v2', name: 'Studio Two', neighbourhood: 'Soho', city_name: 'London', address: null, postcode: null },
+];
+
+async function open(page: Page, shape: string, path: 'details' | 'prices' | '', scheme: 'light' | 'dark') {
+  await page.emulateMedia({ colorScheme: scheme });
+  await fakeSupabase(page, { signedInAsOwner: true, realClock: true });
+  await page.clock.setFixedTime(new Date('2026-10-25T12:00:00Z'));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) => r.fulfill(json(SHAPES[shape])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/get_organiser_venue_options_v1`, (r) => r.fulfill(json(VENUES)));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/*_command_p5`, (r) => r.fulfill(json({ ok: true, new_version: 8 })));
+  await page.goto(`/account/p3/events/ser-1${path ? `/${path}` : ''}`);
+  await page.locator('[data-testid=p3-details],[data-testid=p3-prices],[data-testid=p3-event]').first().waitFor();
+}
+
+async function checks(page: Page, label: string, scope = '.p3-frame') {
+  expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
+  const sel = (s: string) => `${s} button, ${s} a[href], ${s} input, ${s} select, ${s} textarea`;
+  const taps = await page.evaluate((q) => [...document.querySelectorAll(q)]
+    .map((el) => el.closest('label') ?? el).filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+    .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? '').trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) })), sel(scope));
+  const clip = await page.evaluate((s) => [...document.querySelectorAll(`${s} *`)]
+    .filter((el) => { const c = getComputedStyle(el); return el.children.length === 0 && (el.textContent ?? '').trim() && el.scrollWidth > el.clientWidth + 1 && c.overflow !== 'visible' && el.clientWidth > 0; })
+    .map((el) => (el.textContent ?? '').trim().slice(0, 40)), scope);
+  const contrast = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  appendFileSync(`${OUT}/metrics.jsonl`, JSON.stringify({
+    label, sideways: (await checkOverflow(page)).length, taps: taps.length, minTap: Math.min(...taps.map((t) => t.h)),
+    small: taps.filter((t) => t.h < 44), clipped: clip, contrastViolations: contrast.violations.length,
+    contrastPasses: contrast.passes.flatMap((v) => v.nodes).length,
+  }) + '\n');
+  expect(taps.filter((t) => t.h < 44), `${label}: taps >= 44px`).toEqual([]);
+  expect(clip, `${label}: clipped text`).toEqual([]);
+  expect(contrast.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast`).toEqual([]);
+}
+
+const shot = async (page: Page, name: string, full = false) => { await frames(page); await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full }); };
+
+test.beforeEach(({ page: _p }, info) => { test.skip(info.project.name !== 'phone-390x844', 'one size'); });
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`event page rows + details untouched ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', '', scheme);
+    await page.getByTestId('p3-edit-rows').scrollIntoViewIfNeeded();
+    await checks(page, `event page rows ${scheme}`);
+    await shot(page, `01-event-rows-${scheme}`);
+    await page.getByTestId('p3-open-details').click();
+    await page.getByTestId('p3-details').waitFor();
+    await expect(page.getByTestId('p3-save')).toBeDisabled();
+    await checks(page, `details untouched ${scheme}`);
+    await shot(page, `02-details-top-${scheme}`);
+  });
+
+  test(`details dirty: tray, leave, undo ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', 'details', scheme);
+    await page.getByTestId('p3-d-name').fill('Friday Social');
+    await page.getByTestId('p3-d-description').fill('No partner needed. Class first, then the party.');
+    await expect(page.getByTestId('p3-pending')).toContainText('2 changes');
+    await checks(page, `details dirty ${scheme}`);
+    await shot(page, `03-details-dirty-${scheme}`);
+    await page.getByTestId('p3-save').scrollIntoViewIfNeeded();
+    await shot(page, `04-details-tray-${scheme}`);
+    await page.getByTestId('p3-edit-back').click();
+    await expect(page.getByTestId('p3-sheet')).toBeVisible();
+    await checks(page, `leave sheet ${scheme}`, '.p3-sheet');
+    await shot(page, `05-leave-sheet-${scheme}`);
+    await page.getByTestId('p3-keep-editing').click();
+    await page.getByTestId('p3-undo-mine').click();
+    await checks(page, `undo sheet ${scheme}`, '.p3-sheet');
+    await shot(page, `06-undo-sheet-${scheme}`);
+    await page.getByTestId('p3-undo-confirm').click();
+    await expect(page.getByTestId('p3-pending')).toHaveCount(0);
+  });
+
+  test(`details problems, place picker, locked ${scheme}`, async ({ page }) => {
+    await open(page, 'badTicket', 'details', scheme);
+    await page.getByTestId('p3-d-chat').fill('http://chat.example.test');
+    await page.getByTestId('p3-d-chat').blur();
+    await page.getByTestId('p3-field-ticket').scrollIntoViewIfNeeded();
+    await checks(page, `details problems ${scheme}`);
+    await shot(page, `07-details-problems-${scheme}`);
+    await page.getByTestId('p3-d-pick-place').click();
+    await page.getByTestId('p3-d-venues').waitFor();
+    await checks(page, `place sheet ${scheme}`, '.p3-sheet');
+    await shot(page, `08-place-sheet-${scheme}`);
+    await open(page, 'ended', 'details', scheme);
+    await page.getByTestId('p3-details-lock').waitFor();
+    await checks(page, `details ended ${scheme}`);
+    await shot(page, `09-details-ended-${scheme}`);
+    await open(page, 'festival', 'details', scheme);
+    await checks(page, `details festival long about ${scheme}`);
+    await shot(page, `10-details-festival-${scheme}`);
+  });
+
+  test(`prices ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', 'prices', scheme);
+    await page.getByTestId('p3-prices-empty').waitFor();
+    await checks(page, `prices empty ${scheme}`);
+    await shot(page, `11-prices-empty-${scheme}`);
+    await open(page, 'ownerPasses', 'prices', scheme);
+    await page.getByTestId('p3-price-add').click();
+    await page.getByTestId('p3-price-name').nth(1).fill('Party only');
+    await page.getByTestId('p3-price-amount').nth(1).fill('12.345');
+    await expect(page.getByTestId('p3-save-why')).toHaveText('Use a price like 12 or 12.50');
+    await checks(page, `prices bad amount ${scheme}`);
+    await shot(page, `12-prices-bad-${scheme}`, true);
+    await open(page, 'teamPasses', 'prices', scheme);
+    await page.getByTestId('p3-prices-rows-lock').waitFor();
+    await checks(page, `prices team list ${scheme}`);
+    await shot(page, `13-prices-team-${scheme}`);
+    await open(page, 'festival', 'prices', scheme);
+    await checks(page, `prices festival ${scheme}`);
+    await shot(page, `14-prices-festival-${scheme}`);
+    await open(page, 'weekly', 'prices', scheme);
+    await page.getByTestId('p3-free-switch').check();
+    await checks(page, `prices free ${scheme}`);
+    await shot(page, `15-prices-free-${scheme}`);
+  });
+}

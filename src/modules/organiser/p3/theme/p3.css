@@ -236,3 +236,4 @@
 .p3-theme .p3-tray-row { display: flex; justify-content: flex-end; }
 .p3-theme textarea.p3-in-short { min-height: 88px; }
 .p3-theme select.p3-in { min-height: var(--tap); }
+.p3-theme .p3-card > .p3-check:first-child { border-top: 0; }
