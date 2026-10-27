@@ -225,7 +225,7 @@ describe('One event x every shape', () => {
       for (const o of shown) {
         const row = within(await screen.findByTestId(`tix-order-${o.id}`));
         expect(row.getByTestId('tix-order-buyer').textContent).toBe(buyerNameOf(o));
-        expect(row.getByTestId('tix-order-line').textContent).toMatch(/^2 \u00D7 (\u00A310\.50|Free) \u00B7 (1|30) (Oct|Sep)$/);
+        expect(row.getByTestId('tix-order-line').textContent).toMatch(/^2 \u00D7 (\u00A310\.50|Free) \u00B7 (1|30) (October|September)$/);
         expect(!!row.queryByTestId('tix-refund')).toBe(canManage(s.role) && refundable(o));
       }
       if (!canManage(s.role)) {
@@ -439,6 +439,6 @@ describe('flows and edge states', () => {
     mount('/account/tickets');
     expect((await screen.findByTestId('tix-sales-sold')).textContent).toContain('2');
     expect(screen.getByTestId('tix-sales-gross').textContent).toContain('\u00A320.00');
-    expect(screen.getByTestId('tix-event-line').textContent).toBe('8 left of 20 \u00B7 Next Friday 6 November');
+    expect(screen.getByTestId('tix-event-line').textContent).toBe('8 left of 20 \u00B7 Next: Friday 6 November');
   });
 });

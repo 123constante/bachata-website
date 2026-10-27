@@ -220,11 +220,11 @@ export interface EventCardSeries {
   upcoming_count?: number;
 }
 
-/** "Friday 6 November", "Next Friday 6 November" for a series, or a plain word when no date is known. */
+/** "Friday 6 November", or "Next: Friday 6 November" for a series, or a plain word when no date is known. */
 export const eventDateLine = (s: EventCardSeries): string => {
   const first = s.next_dates?.[0]?.occurrence_date;
   if (!first) return 'No upcoming dates';
-  return (s.upcoming_count ?? 1) > 1 ? `Next ${fullDate(first)}` : fullDate(first);
+  return (s.upcoming_count ?? 1) > 1 ? `Next: ${fullDate(first)}` : fullDate(first);
 };
 
 /** One event on Home: name, chip, date and places left. With no tickets it can carry the Add tickets button. */

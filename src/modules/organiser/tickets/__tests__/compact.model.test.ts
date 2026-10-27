@@ -102,7 +102,7 @@ describe('order line and days', () => {
     ['2026-10-27T09:00:00Z', 'today'],
     ['2026-10-26T22:30:00Z', 'yesterday'],
     ['2026-10-27T00:30:00Z', 'today'], // GMT since 25 Oct: 00:30 London is still the 27th
-    ['2026-07-31T23:30:00Z', '1 Aug'], // BST: London is already 1 August
+    ['2026-07-31T23:30:00Z', '1 August'], // BST: London is already 1 August
     [null, ''],
   ])('%s -> %j', (iso, word) => {
     expect(dayWord(iso, today)).toBe(word);
@@ -122,7 +122,7 @@ describe('editor steps', () => {
   it('closes words', () => {
     expect(closesWords('', null)).toBe('When you stop selling');
     expect(closesWords('2026-11-06T20:00', '2026-11-06T20:00:00Z')).toBe('Event start');
-    expect(closesWords('2026-11-06T19:00', '2026-11-06T20:00:00Z')).toBe('6 Nov, 19:00');
+    expect(closesWords('2026-11-06T19:00', '2026-11-06T20:00:00Z')).toBe('6 November, 19:00');
   });
 });
 

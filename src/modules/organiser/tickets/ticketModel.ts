@@ -1,4 +1,5 @@
 import { instantToLondonWallClockStamp, londonWallClockToInstant } from '@/lib/londonDate';
+import { MONTH_NAMES } from '../shared/dateWords';
 import type { StatusTone } from '../ui/StatusTag';
 
 /**
@@ -525,8 +526,7 @@ const dayKeyBefore = (key: string): string => {
   const [y, m, d] = key.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 };
-const SHORT_MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-/** "today", "yesterday" or "6 Nov" for a paid_at instant, in London; '' when unknown. */
+/** "today", "yesterday" or "6 November" (the area's full month names, dateWords.ts) for a paid_at instant, in London; '' when unknown. */
 export const dayWord = (iso: string | null, todayKey: string): string => {
   const stamp = iso ? instantToLondonWallClockStamp(iso) : null;
   if (!stamp) return '';
@@ -534,7 +534,7 @@ export const dayWord = (iso: string | null, todayKey: string): string => {
   if (key === todayKey) return 'today';
   if (key === dayKeyBefore(todayKey)) return 'yesterday';
   const [, m, d] = key.split('-').map(Number);
-  return `${d} ${SHORT_MONTH[m - 1]}`;
+  return `${d} ${MONTH_NAMES[m - 1]}`;
 };
 /** "2 \u00D7 \u00A310.50 \u00B7 today": tickets, what each cost the buyer (fee in), and when. */
 export const orderLine = (o: Pick<Order, 'quantity' | 'totalPence' | 'paidAt'>, todayKey: string): string => {
@@ -562,7 +562,7 @@ export const eventStartOf = (s: { upcoming_count?: number; next_dates?: readonly
 const whenWords = (input: string): string => {
   const [date, time] = input.split('T');
   const [, m, d] = date.split('-').map(Number);
-  return `${d} ${SHORT_MONTH[m - 1]}, ${time}`;
+  return `${d} ${MONTH_NAMES[m - 1]}, ${time}`;
 };
 export const opensWords = (opensAt: string): string => (opensAt ? whenWords(opensAt) : 'Now');
 export const closesWords = (closesAt: string, eventStart: string | null): string =>

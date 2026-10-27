@@ -1,78 +1,71 @@
-# Handover: S3 organiser ticketing screens (Website)
+# Handover: organiser ticketing screens (Website), PR #1060
 
-Branch `claude/ticketing-organiser-ui` (from main a090c97). Brief: branch
-`brief/ticketing-organiser-ui`, `briefs/ticketing-organiser-ui.md` (blob 6a764ff).
-Journey map and shape survey: [`docs/organiser-ticketing-journey.md`](../organiser-ticketing-journey.md).
+Branch `claude/ticketing-organiser-ui`. Flag `organiserTicketing` stays OFF.
+Journey map and first shape survey: [`docs/organiser-ticketing-journey.md`](../organiser-ticketing-journey.md).
+Design record (S3b): [`docs/design/1060.md`](../design/1060.md).
 
-## Done
+## S3b redesign (brief `briefs/ticketing-organiser-redesign.md`, blob b5e3618; ticket dt_57ce27a0ca93)
 
-- New flag `organiserTicketing` (`VITE_ENABLE_ORGANISER_TICKETING === 'true'`), OFF by
-  default, copied from the `organiserP3` mechanism: one lazy route `/account/tickets/*`
-  inside `flags.organiserTicketing && flags.organiserSelfServe ? ... : null`, listed in
-  `catchallClientPaths.ts`; `__tests__/flagOff.test.ts` pins all of it.
-- `src/modules/organiser/tickets/`:
-  - `ticketModel.ts`: the ONE mapping for status words / tones, the server's status
-    machine, role rules (Q15 owner/manager), Get paid state, money (GBP, Q10), move and
-    refund reasons, the editor's diff (untouched save = null), server refusal words.
-  - `ticketsApi.ts`: the wire (UntypedRpc boundary; the ticketing RPCs/tables are not in
-    `types.ts` yet). Allow-listed in `lint-runtime-architecture.mjs` for `organiser_id`.
-  - Screens: `TicketsHome` (Get paid card, Sales counts and sums, live events),
-    `SeriesTickets` (ticket types, status moves, orders + Refund), `TypeSheet` (editor),
-    `RefundSheet` (confirm; says the 50p fee is refunded), `TicketRoutes`.
-  - Edge functions not deployed: 404 without a reason, 503, or `not_configured` read as
-    "Payments are not switched on yet" (never a crash); a network failure reads as
-    "try again", a deployed function's own 404 reason keeps its words.
-- Tests: table-driven model matrix (status machine vs live server CASE, every status x
-  role x Stripe x free/paid x capacity x series-live), wire parsers, and a screen matrix
-  (every status x orders present/absent x connected/not x owner/contributor) plus empty
-  states, untouched save, price lock, refund sheet, onboarding fallback.
-- Code review round 1 (high): 10 findings, all fixed in 82d8355. Round 2 NOT run
-  (context budget; CLAUDE.md asks two rounds for user-facing changes).
+Owner picked mockup **B, Compact** (<https://claude.ai/artifact/7NicJi37hDk21cUSG239ZD>). Presentation and
+flow changed; every S3 rule kept (roles, locked price, untouched save sends nothing, error states,
+Stripe not set up / not switched on, whole-order refund).
 
-## Notes for the orchestrator (DB / admin side, not files here)
+### Done
+- `ticketModel.ts`: new shared helpers, each the one source for its fact: `buyerTotal` (ticket + 50p =
+  total; free = "Free, no fee"), `paidOf` / `formPence`, `leftOf` / `countsLine`, `SWITCH_LABEL` /
+  `switchMove`, `eventSaleOf` / `EVENT_SALE` / `eventLeftLine`, `setupSteps` / `setupLine`, `nextStep`,
+  `dayWord` / `orderLine` (full month names, area rule G1), `STEP_FIELDS` / `stepErrors`, `eventStartOf`,
+  `reviewRows`, `buyerNameOf`; `refundQuestion` now returns the brief's words plus the confirm label;
+  `STRIPE_COPY` rewritten for the Next step card.
+- `ticketsApi.ts`: `writeResult` also keeps the new ticket's id from `ticket_type_upsert_v1`'s existing
+  `ticket_type` echo (no RPC or edge contract change).
+- Screens: `TicketsHome` (Next step card, setup bar, Sold / Sales, compact event cards with Add tickets,
+  "Paid out via Stripe" chip), `SeriesTickets` (ticket rows with the Selling switch, orders by buyer name,
+  `?add=1` opens the add sheet), `TypeSheet` (three steps: name + price with live Buyer pays; places and
+  sales window chips; review with sticky Put on sale / Save as draft; edits reuse it, Close sales for
+  good with a confirm on the review step), `RefundSheet` (brief copy, destructive Refund &pound;N).
+  `parts.tsx` holds `NextStepCard`, `SetupBar`, `NumberCards`, `EventCard`, `SellingSwitch`.
+- Tests: `screens.matrix.test.tsx` rewritten (64: every screen x 12 shapes + flows),
+  `compact.model.test.ts` new, `ticketModel.matrix.test.ts` copy updated. focusReturn list unchanged (no
+  new sheet files; both sheets keep `returnFocusRef`).
 
-1. **Edge-function contracts are ASSUMED** (admin repo was not readable from this session):
-   `stripe-connect-onboard` body `{ organiser_id, return_url, refresh_url }` -> `{ url }`
-   (https only); `ticket-refund` body `{ order_id }` -> `{ ok }`, refunds the whole
-   order incl. booking fee. Return URL `/account/tickets?o=<id>&stripe=return`, refresh
-   URL `...&stripe=refresh`. If S2 differs, only `ticketsApi.ts` changes.
-2. `organiser_home_v1` returns role `owner | manager` only; a `contributor` (which the
-   ticketing RLS lets read) never reaches the area today. Screens still handle it read-only.
-3. `ticket_sales_summary_v1` has no `orders_expired` count; the editor locks price from
-   reserved / any order row read via RLS (expired included) instead.
-4. `types.ts` lacks the ticketing tables/RPCs; types-drift will pick them up.
+### Notes for the orchestrator / data owner
+1. Buyer name: `ticket_orders.buyer_name` exists (nullable) and is already read; a null shows "Buyer".
+   Nothing needed unless checkout does not fill it.
+2. Manual "Mark sold out" is no longer offered (sold out happens at capacity). Say if it should come back.
+3. "Event start" as the close default is offered only for one-offs (a series has no single start).
+4. The S3 notes still hold: edge-function contracts ASSUMED (`stripe-connect-onboard`, `ticket-refund`);
+   `organiser_home_v1` never returns `contributor`; no `orders_expired` count; `types.ts` lacks ticketing.
 
-## Left / next steps
+### Left / next steps
+- Code review (two rounds for user-facing changes) was NOT run in this session: no reviewer here.
+- Flip the flag on a preview for the owner's phone test.
+- Entry link to `/account/tickets` from the organiser area (still deliberately absent while the flag is off).
+- Partial refunds and a per-date ticket picker remain out of scope.
 
-- Code review round 2; then flip the flag on a preview (`feat/*` branch) for a phone test.
-- Partial refunds (Q5) are not offered in the UI (whole-order refund only).
-- No per-date (occurrence) picker in the editor: new types are series-wide.
-- Wire an entry link from the organiser area Home/More to `/account/tickets` once the
-  flag is on (deliberately absent so flag-off changes nothing).
-
-## Verified / Not verified
-
+### Verified / Not verified (S3b)
 Verified:
-- Shape survey on prod (read-only, counts): 0 ticket_types, 0 ticket_orders, 0 tickets,
-  0 organiser_stripe_accounts; 15 owner / 46 manager memberships; max 7 live series per
-  organiser; max 50 organisers per user. RPC signatures and bodies read live.
-- Tests: tickets suite 1014 pass; organiser + components 6450 pass; full unit run's only
-  branch failure (focusReturn guard) fixed in the final commit; the other 15 full-run
-  failures also fail on origin/main (integrityCouldNotRun x5, live event contract tests x10).
-- Local CI steps: architecture-guard integrity (incl. AUDIT_STRICT=1 check:images), typecheck
-  job (rpc-typing, wallclock-brand), unit tz matrix + dancer-area-isolation, workflow-lint,
-  db-contract live-db-gate + no-DB steps, e2e-smoke (157 pass), perf-budget bundle-budget +
-  first-load-requests (TicketRoutes is a lazy chunk only), phone-qa + build-smoke: pass.
-  tsc: same 95 errors as main, none in new files. Build: pass.
-- Browser walk at 390x844 (fixtures shaped like the live RPCs, auth faked): 6 screens, no
-  horizontal scroll, no tap target under 44px, no console errors; one order-row layout bug
-  found and fixed (re-walked).
+- Shape survey on prod (read-only, counts): 0 ticket_types, 0 ticket_orders (0 without buyer_name),
+  0 organiser_stripe_accounts; 69 live series, 11 one-offs. Upsert RPC returns the row (id) read live.
+- Unit: tickets suite + focusReturn + organiser module 5814 pass. Full `test:unit`: 16242 pass, 15 fail,
+  the same 15 the S3 handover recorded on main (integrityCouldNotRun x5, live event contract tests x10).
+- Mutation: two planted bugs each turned the screen matrix red.
+- Lint chain: every link green except `check:integrity` exit 126 (exec bit in this checkout; the script
+  itself passes when run with bash; CI chmods). eslint on the module: 0 errors.
+- typecheck: same error count as main (113), none in the ticketing files. Build pass; bundle budget,
+  first-load requests, chunk cycles pass (TicketRoutes stays a lazy chunk).
+- Browser walk 390x844 and 360x640 (fake Supabase + ticket rows shaped like the live RPCs): 10 screens,
+  no sideways scroll, no control under 44px in the area, no page errors. Screenshots (390) in
+  `docs/handover/ticketing-organiser-ui/` (taken before the full-month-name fix: "20 Oct" there).
 
 Not verified:
-- Real Stripe onboarding and real refunds (edge functions not deployed; contracts assumed).
-- Real Supabase auth round trip and real RLS reads with a real organiser login.
-- ~50 prod-DB contract steps of db-contract-check (the sandbox refused prod reads for that agent).
-- Desktop widths; 360x640 only via the phone-qa suite, not the ticketing screens.
-- `npm run lint` link check:integrity fails locally only on the exec bit (CI chmods); pre-ship
-  red for the same reason plus the then-unfixed focusReturn test.
-- Code review round 2.
+- Real Stripe onboarding, real refunds, real checkout (edge functions not deployed; contracts assumed).
+- Real Supabase auth and RLS reads with a real organiser login; a contributor login.
+- `check:doc-weight` (needs a live preview; the workflow skips `claude/` branches) and the prod-DB contract
+  steps of db-contract-check.
+- Desktop widths. Light theme (the organiser area is dark only).
+- Code review rounds.
+
+## S3 (first build) history
+S3 built the four plain screens, the wire and the model (commits aab1501..135b5fb); its review round 1
+(10 findings) was fixed in 82d8355. Details of that round live in git history.
