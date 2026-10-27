@@ -1,5 +1,5 @@
 import { useId, useState, type ChangeEvent } from 'react';
-import { Chip, FIELD_CLASS, Field, PrimaryButton, SheetView, useShake } from '../ui';
+import { Chip, FIELD_CLASS, Field, PrimaryButton, SheetView, useOpenerRef, useShake } from '../ui';
 import { Reason } from './parts';
 import { upsertTicketType } from './ticketsApi';
 import {
@@ -34,6 +34,7 @@ export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, rol
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const opener = useOpenerRef(open);
   const { shake, shakeProps } = useShake();
   const id = useId();
   const locked = editLock(type, role);
@@ -84,6 +85,7 @@ export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, rol
   return (
     <SheetView
       open={open}
+      returnFocusRef={opener}
       onOpenChange={onOpenChange}
       fullHeight
       title={type ? 'Edit ticket' : 'Add a ticket type'}
