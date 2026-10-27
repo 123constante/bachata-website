@@ -166,9 +166,9 @@ describe('thank-you copy never claims issuance from the redirect', () => {
   });
 });
 
-describe('legal copy (DRAFT, owner approves)', () => {
-  it('is marked DRAFT and covers the brief points', () => {
-    expect(LEGAL_COPY_STATUS).toBe('DRAFT');
+describe('legal copy (owner approved 2026-10-27)', () => {
+  it('is marked APPROVED and covers the brief points', () => {
+    expect(LEGAL_COPY_STATUS).toBe('APPROVED');
     const all = `${TERMS_OF_SALE.join(' ')} ${PRIVACY_PARAGRAPH}`;
     for (const re of [/Stripe/, /50p/, /fee is ours/, /full refund, the booking fee is refunded/, /name/, /email/, /order/]) expect(all).toMatch(re);
     expect(all).not.toMatch(/[\u2013\u2014\u2018\u2019\u201c\u201d\u2026]/);

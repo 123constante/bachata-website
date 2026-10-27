@@ -1,10 +1,10 @@
 /**
- * DRAFT -- NOT APPROVED. Terms of sale and the ticket privacy paragraph for buyer
- * checkout (S4). Drafted by the build agent; the owner approves the wording by click
- * before publicTicketing is switched on anywhere real. Plain English, UK.
+ * APPROVED by the owner 2026-10-27 (50p fee, refund, 14-day and privacy wording). Terms of sale
+ * and the ticket privacy paragraph for buyer checkout (S4). Any wording change needs a fresh
+ * owner approval. Plain English, UK.
  * Edit the words here only: the block and its tests read this one file.
  */
-export const LEGAL_COPY_STATUS = 'DRAFT' as const;
+export const LEGAL_COPY_STATUS = 'APPROVED' as const;
 
 export const TERMS_CHECKBOX_LABEL = 'I accept the terms of sale and understand how my details are used.';
 
