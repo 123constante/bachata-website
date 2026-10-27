@@ -133,9 +133,8 @@ All in `scripts/check-*.mjs`, enforced by CI.
   or no public profile to read is exit 2).
 
 - Organiser directory hidden ids (#71) (`scripts/check-organiser-hidden-ids-contract.mjs`,
-  `npm run check:organiser-hidden-ids`, 2026-10-27) &mdash; **NOT YET A WORKFLOW
-  STEP**: the step YAML is in `docs/handovers/hidden-ids-rpc-guard.md`; until it
-  lands the check runs only by hand. As anon it calls
+  `npm run check:organiser-hidden-ids`, 2026-10-27) &mdash; step in
+  `db-contract-check.yml`. As anon it calls
   `organiser_directory_hidden_ids_v1()`, the one source of directory rule D3,
   which `/organisers`, the sitemap and the head count call and THROW on. Gates on
   the RPC missing, anon EXECUTE revoked, a NULL or non-array payload, a non-uuid
