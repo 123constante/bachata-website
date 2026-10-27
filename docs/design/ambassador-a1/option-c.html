@@ -1,0 +1,153 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ambassador queue, option C</title><style>:root{--bg:#000;--card:#121212;--card2:#1e1e1e;--fg:#fff;--muted:#ababab;--line:#333;--amber:#ffa500;--amber-fg:#000;--red:#f87171;--green:#4ade80;--r:12px}
+*{box-sizing:border-box}
+html{font-size:16px}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.app{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}
+a{color:var(--amber)}
+.sw{background:#1a1a2e;border-bottom:1px solid var(--line);padding:6px 12px;font-size:12px}
+.sw summary{cursor:pointer;color:var(--muted);padding:4px 0}
+.sw div{display:flex;flex-wrap:wrap;gap:4px;padding:6px 0}
+.sw button{background:#2a2a40;border:1px solid #44445f;border-radius:6px;padding:4px 8px;font-size:12px;color:#fff;min-height:28px}
+.sw button.on{background:var(--amber);color:#000;border-color:var(--amber)}
+.hd{padding:12px 12px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.hd h1{font-size:17px;margin:0;flex:1;line-height:1.2}
+.hd small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.count{background:var(--amber);color:#000;font-weight:700;border-radius:999px;min-width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;font-size:14px}
+.age-bar{padding:8px 12px;font-size:12px;color:var(--muted)}
+.age-bar b{color:var(--amber)}
+.main{flex:1;padding:12px;display:flex;flex-direction:column;gap:12px}
+.chip{display:inline-flex;align-items:center;border-radius:999px;font-size:12px;padding:2px 8px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chip.org{color:#c4b5fd;border-color:#6d5bd0}.chip.ser{color:#5eead4;border-color:#14b8a6}
+.chip.old{color:var(--amber);border-color:var(--amber);font-weight:600}
+.chip.adm{color:#fcd34d;border-color:#b45309}
+.nm{font-size:15px;font-weight:600;overflow-wrap:anywhere;margin:0}
+.meta{font-size:12px;color:var(--muted)}
+.facts{margin:0;padding:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.facts dt{color:var(--muted);font-size:12px;padding-top:1px}.facts dd{margin:0;overflow-wrap:anywhere}
+.btn{min-height:44px;min-width:44px;padding:8px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.ok{background:var(--amber);color:#000;border-color:var(--amber)}
+.btn.no{border-color:var(--red);color:var(--red);background:transparent}
+.btn.ghost{background:transparent}
+.acts{display:flex;gap:8px}.acts .btn{flex:1}
+.adm-note{background:#2a1f0a;border:1px solid #b45309;border-radius:10px;padding:8px 10px;font-size:13px;color:#fde68a}
+.empty{margin:auto;text-align:center;padding:24px 8px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.empty h2{font-size:17px;margin:0}.empty p{margin:0;color:var(--muted);max-width:300px}
+.empty .ic{font-size:32px}
+.sk{background:linear-gradient(90deg,#1a1a1a,#262626,#1a1a1a);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:var(--r);height:84px}
+@keyframes sh{to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){.sk{animation:none}}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:#161616;border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;width:100%;max-width:430px;padding:14px 12px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+.sheet h2{margin:0;font-size:16px}.sheet p{margin:0;color:var(--muted)}
+textarea{width:100%;min-height:96px;background:#0b0b0b;color:#fff;border:1px solid #666;border-radius:10px;padding:10px;font:inherit;resize:vertical}
+textarea.bad{border-color:var(--red)}
+.err{color:var(--red);font-size:13px}.hint{color:var(--muted);font-size:12px;display:flex;justify-content:space-between}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:#14351f;border:1px solid #1f7a3a;color:#bbf7d0;border-radius:10px;padding:10px 14px;z-index:30;max-width:calc(100% - 24px);width:max-content;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
+</style></head><body><div id="root"></div><script>const OPT={name:'Option C, One at a time',noAge:true,
+init(S){S.idx=0},
+main(S){const n=S.items.length;S.idx=Math.min(S.idx,n-1);const i=S.items[S.idx];
+ return '<div class="main"><div style="display:flex;align-items:center;gap:8px"><button class="btn ghost" data-a="prev" '+(S.idx===0?'disabled title="This is the first one"':'')+' aria-label="Previous">&lsaquo;</button><div style="flex:1;text-align:center"><b>'+(S.idx+1)+' of '+n+'</b><div class="meta">oldest first</div></div><button class="btn ghost" data-a="next" '+(S.idx===n-1?'disabled title="This is the last one"':'')+' aria-label="Next">&rsaquo;</button></div>'
+ +'<article class="card"><h2 class="nm" style="font-size:17px">'+esc(i.name)+'</h2><div style="display:flex;flex-wrap:wrap;gap:4px">'+typeChip(i)+ageChip(i)+admChip(i)+'</div><p class="meta" style="margin:0">Submitted '+ageTxt(i.ago)+'</p>'+details(i)+'</article>'
+ +(S.idx===n-1&&n>1?'<p class="meta" style="text-align:center;margin:0">That is the last one. Tap &lsaquo; to go back, or decide above.</p>':'')+'</div>'},
+act(a,id,S){if(a==='prev'&&S.idx>0){S.idx--;return true}if(a==='next'&&S.idx<S.items.length-1){S.idx++;return true}},
+bar(S){const i=S.items[S.idx];return '<div style="position:sticky;bottom:0;background:#0b0b0bf2;border-top:1px solid var(--line);padding:8px 12px calc(8px + env(safe-area-inset-bottom))">'+(i.party?'<div class="adm-note">An admin has to decide this one. Use &rsaquo; to move on.</div>':actBtns(i))+'</div>'}};
+
+const NOW=Date.UTC(2026,9,27),WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],MO=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fd=iso=>{const d=new Date(iso+'T00:00:00Z');return WD[d.getUTCDay()]+' '+d.getUTCDate()+' '+MO[d.getUTCMonth()]};
+const weekly=(start,n)=>Array.from({length:n},(_,i)=>new Date(Date.parse(start)+i*6048e5).toISOString().slice(0,10));
+const LONG='The Annual Bristol Bachata Sensual and Dominican Social Weekender Warm-Up Series with Guest Teachers from Around Europe';
+const I=(id,type,name,ago,o)=>Object.assign({id,type,name,ago,orgs:[],dates:[],count:0,venue:null,pmin:null,pmax:null,flyer:false,party:false,slug:id},o);
+const ALL=[
+I(1,'series','Thursday Bachata at The Lantern',9,{orgs:['Lantern Social'],dates:weekly('2026-10-29',3),count:13,venue:'The Lantern Rooms',pmin:8,pmax:8,flyer:true}),
+I(2,'organiser','Harbourside Dance Collective',6,{orgs:['Harbourside Dance Collective']}),
+I(3,'series','Sunday Social Sensual',5,{orgs:['Marlow Dance'],dates:weekly('2026-11-01',3),count:8,venue:'Old Fire Station Hall',pmin:0,pmax:0,flyer:false}),
+I(4,'series',LONG,4,{orgs:['Westbound Events','Guest Teachers Ltd'],dates:['2026-11-14','2026-11-15'],count:2,venue:'Clifton Assembly Rooms',pmin:5,pmax:12,flyer:true}),
+I(5,'organiser','Bristol Bachata Beginners',3,{orgs:['Bristol Bachata Beginners']}),
+I(6,'series','Tuesday Improvers Class',3,{orgs:['Ana Lowe'],dates:weekly('2026-11-03',3),count:6,venue:'St Paul\u2019s Community Hall',pmin:10,pmax:10,flyer:true,party:true}),
+I(7,'organiser','Moonlight Moderna Crew',2,{orgs:['Moonlight Moderna Crew']}),
+I(8,'series','Friday Latin Night',2,{orgs:['Casa Nova'],dates:weekly('2026-10-30',3),count:12,venue:'Casa Nova Bar',pmin:0,pmax:0,flyer:true}),
+I(9,'series','Bachata Fundamentals Workshop',1,{orgs:['Harbour Studio'],dates:['2026-11-08'],count:1,venue:'Harbour Studio',pmin:15,pmax:15,flyer:false}),
+I(10,'organiser','Redcliffe Sensual',1,{orgs:['Redcliffe Sensual']}),
+I(11,'series','Saturday Daytime Social',0,{orgs:['Marlow Dance'],dates:weekly('2026-11-07',3),count:4,venue:'Old Fire Station Hall',pmin:6,pmax:9,flyer:true}),
+I(12,'organiser','Southville Salsa and Bachata',0,{orgs:['Southville Salsa and Bachata']})];
+const SETS={q12:()=>ALL.slice(),one:()=>[ALL[1]],old:()=>[ALL[0],ALL[4],ALL[10]],edge:()=>[ALL[0],ALL[1],ALL[2],ALL[3],ALL[5],ALL[8]]};
+const ageTxt=n=>n===0?'today':n===1?'1 day ago':n+' days ago';
+const priceTxt=i=>i.pmin==null?'Price not given':(i.pmin===0&&i.pmax===0)?'Free':i.pmin===i.pmax?'&pound;'+i.pmin:'&pound;'+i.pmin+'&ndash;&pound;'+i.pmax;
+const typeChip=i=>'<span class="chip '+(i.type==='series'?'ser':'org')+'">'+(i.type==='series'?'Series':'Organiser')+'</span>';
+const ageChip=i=>'<span class="chip'+(i.ago>=7?' old':'')+'">'+(i.ago>=7?'&#9888; ':'')+'Waiting '+ageTxt(i.ago).replace(' ago','')+'</span>';
+const admChip=i=>i.party?'<span class="chip adm">Needs an admin</span>':'';
+function details(i){
+ const r=[];
+ if(i.orgs.length)r.push(['Organiser'+(i.orgs.length>1?'s':''),esc(i.orgs.join(', '))]);
+ if(i.type==='series'){
+  r.push([i.count>1?'Next dates':'Date',i.dates.map(fd).map(esc).join('<br>')+(i.count>i.dates.length?'<br><span class="meta">+ '+(i.count-i.dates.length)+' more ('+i.count+' in all)</span>':'')]);
+  if(i.venue)r.push(['Venue',esc(i.venue)]);
+  r.push(['Price',priceTxt(i)]);
+  r.push(['Flyer',i.flyer?'Uploaded':'<span class="meta">None uploaded</span>']);
+ }
+ let h='<dl class="facts">'+r.map(x=>'<dt>'+x[0]+'</dt><dd>'+x[1]+'</dd>').join('')+'</dl>';
+ if(i.type==='organiser'&&r.length<=1)h+='<p class="meta" style="margin:0">No extra details were submitted. Open the public page to check it before you decide.</p>';
+ return h+'<a href="#" class="meta" style="min-height:44px;display:inline-flex;align-items:center">Preview public page &rarr;</a>';
+}
+const adminNote=i=>'<div class="adm-note">You are part of this '+(i.type==='series'?'series':'page')+', so an admin has to decide it. Approve and Reject are off here. Nothing for you to do.</div>';
+const actBtns=i=>'<div class="acts"><button class="btn no" data-a="reject" data-id="'+i.id+'">Reject</button><button class="btn ok" data-a="approve" data-id="'+i.id+'">Approve</button></div>';
+// ---- state
+let S;
+const get=id=>S.items.find(x=>x.id==id);
+function load(key,extra){S=Object.assign({mode:'list',items:SETS[key]?SETS[key]():[],key,sheet:null,toast:null,open:null,view:null,idx:0},extra||{});if(S.items.length&&OPT.init)OPT.init(S);render()}
+const MODES={loading:1,error:1,paused:1,nocity:1};
+function pickOne(){return S.items.find(x=>!x.party)}
+const STATES=[['q12','12 items'],['one','1 item'],['empty','0 items'],['old','9 days old'],['edge','Edge shapes'],['loading','Loading'],['error','Error'],['paused','Paused'],['nocity','Wrong city'],['rej0','Reject: empty'],['rej1','Reject: too short'],['appr','Approve confirm'],['done','After decision']];
+function setState(k){
+ if(MODES[k])return load('none',{mode:k,items:[]});
+ if(k==='empty')return load('none',{mode:'list',items:[]});
+ if(k==='rej0'||k==='rej1'||k==='appr'||k==='done'){load('q12');const it=pickOne();
+  if(k==='appr')S.sheet={t:'approve',id:it.id};
+  if(k==='rej0')S.sheet={t:'reject',id:it.id,text:'',err:'empty'};
+  if(k==='rej1')S.sheet={t:'reject',id:it.id,text:'Not clear',err:'short'};
+  if(k==='done'){S.items=S.items.filter(x=>x.id!=it.id);S.toast='Approved: '+it.name.slice(0,34)+(it.name.length>34?'&hellip;':'');if(OPT.init)OPT.init(S)}
+  return render()}
+ load(k);S.cur=k}
+function shell(){
+ const n=S.items.length,old=S.items.reduce((m,x)=>Math.max(m,x.ago),0);
+ const sw='<details class="sw"><summary>Mockup states (not part of the design)</summary><div>'+STATES.map(s=>'<button data-sw="'+s[0]+'">'+s[1]+'</button>').join('')+'</div></details>';
+ let hd='<header class="hd"><h1>Pending review<small>Bristol &middot; '+OPT.name+'</small></h1>'+(S.mode==='list'&&n?'<span class="count" aria-label="'+n+' waiting">'+n+'</span>':'')+'</header>';
+ let body;
+ if(S.mode==='loading')body='<div class="main" aria-busy="true"><div class="sk"></div><div class="sk"></div><div class="sk"></div><p class="meta" style="text-align:center">Loading the queue&hellip;</p></div>';
+ else if(S.mode==='error')body=E('&#9888;','Could not load the queue','Check your connection and try again. Nothing has been approved or rejected by this problem.','<button class="btn ok" data-a="retry">Try again</button><a class="btn ghost" href="#" style="text-decoration:none">Message an admin</a>');
+ else if(S.mode==='paused')body=E('&#9208;','Your ambassador role is paused','You are not being asked to review anything right now, and nothing is waiting on you. If that is a surprise, ask an admin to switch it back on.','<a class="btn ghost" href="#" style="text-decoration:none">Message an admin</a>');
+ else if(S.mode==='nocity')body=E('&#128274;','No access to this queue','This account is not an ambassador for Bristol, so the queue is hidden. Check you are signed in with the right account, or ask an admin to add you.','<button class="btn ghost" data-a="retry">Sign in with another account</button><a class="btn ghost" href="#" style="text-decoration:none">Message an admin</a>');
+ else if(!n)body=E('&#10003;','All caught up','Nothing is waiting in Bristol. New organiser pages and series show up here as soon as they are submitted. You can close this page; nothing needs you.','<a class="btn ghost" href="#" style="text-decoration:none">View Bristol on the site</a>');
+ else body=(OPT.noAge?'':'<div class="age-bar">Oldest waiting <b>'+old+' day'+(old===1?'':'s')+'</b> &middot; oldest first</div>')+OPT.main(S);
+ return '<div class="app">'+sw+(S.mode==='list'&&!(OPT.hideHd&&OPT.hideHd(S))?hd:'<header class="hd"><h1>Pending review<small>Bristol &middot; '+OPT.name+'</small></h1></header>')+body+(OPT.bar&&S.mode==='list'&&n?OPT.bar(S):'')+sheetHtml()+(S.toast?'<div class="toast" role="status">'+S.toast+'</div>':'')+'</div>';
+}
+function E(ic,h,p,b){return '<div class="main"><div class="empty"><div class="ic" aria-hidden="true">'+ic+'</div><h2>'+h+'</h2><p>'+p+'</p><div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px">'+b+'</div></div></div>'}
+function sheetHtml(){
+ const s=S.sheet;if(!s)return '';const it=get(s.id);const nm=esc(it.name);
+ if(s.t==='approve')return '<div class="ov"><div class="sheet" role="dialog" aria-label="Approve"><h2>Approve this '+it.type+'?</h2><p class="nm" style="color:#fff">'+nm+'</p><p>It goes live on the public Bristol pages straight away. The organiser is told it was approved.</p><div class="acts"><button class="btn" data-a="cancel">Cancel</button><button class="btn ok" data-a="approve-yes">Yes, approve</button></div></div></div>';
+ const len=s.text.trim().length,msg=s.err==='empty'?'Say why, so the organiser knows what to fix.':s.err==='short'?'Add a little more detail ('+len+' of 10 characters so far).':'';
+ return '<div class="ov"><div class="sheet" role="dialog" aria-label="Reject"><h2>Reject this '+it.type+'?</h2><p class="nm" style="color:#fff">'+nm+'</p><label for="rs" class="meta">Reason (required). The organiser will see this.</label><textarea id="rs" class="'+(msg?'bad':'')+'" aria-invalid="'+(!!msg)+'" aria-describedby="re" placeholder="e.g. The flyer shows a different venue from the one entered.">'+esc(s.text)+'</textarea><div id="re" class="err" role="alert">'+msg+'</div><div class="hint"><span>At least 10 characters</span><span>'+len+'</span></div><div class="acts"><button class="btn" data-a="cancel">Cancel</button><button class="btn no" data-a="reject-yes">Reject and send reason</button></div></div></div>';
+}
+function remove(id,msg){S.items=S.items.filter(x=>x.id!=id);S.sheet=null;S.toast=msg;if(OPT.afterRemove)OPT.afterRemove(S,id);render();clearTimeout(window.__t);window.__t=setTimeout(()=>{S.toast=null;render()},3500)}
+function render(){const ae=document.activeElement&&document.activeElement.id;document.getElementById('root').innerHTML=shell();const ta=document.getElementById('rs');if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}document.querySelectorAll('[data-sw]').forEach(b=>b.classList.toggle('on',b.dataset.sw===S.cur))}
+document.addEventListener('click',e=>{
+ const sw=e.target.closest('[data-sw]');if(sw){S0=sw.dataset.sw;setState(S0);if(!MODES[S0]&&S0!=='empty')S.cur=S0;render();return}
+ const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=b.dataset.id;
+ if(a==='retry')return load('q12');
+ if(a==='approve')S.sheet={t:'approve',id};
+ else if(a==='reject')S.sheet={t:'reject',id,text:'',err:''};
+ else if(a==='cancel')S.sheet=null;
+ else if(a==='approve-yes'){const it=get(S.sheet.id);return remove(it.id,'Approved: '+esc(it.name.length>34?it.name.slice(0,34)+'\u2026':it.name)+'. '+(S.items.length-1)+' left.')}
+ else if(a==='reject-yes'){const t=S.sheet.text.trim();if(!t){S.sheet.err='empty'}else if(t.length<10){S.sheet.err='short'}else{const it=get(S.sheet.id);return remove(it.id,'Rejected: '+esc(it.name.length>34?it.name.slice(0,34)+'\u2026':it.name)+'. '+(S.items.length-1)+' left.')}}
+ else if(OPT.act&&OPT.act(a,id,S)){}
+ render();
+});
+document.addEventListener('input',e=>{if(e.target.id==='rs'&&S.sheet){S.sheet.text=e.target.value;S.sheet.err='';document.getElementById('re').textContent='';e.target.classList.remove('bad')}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S&&S.sheet){S.sheet=null;render()}});
+let S0;
+
+load("q12");</script></body></html>
