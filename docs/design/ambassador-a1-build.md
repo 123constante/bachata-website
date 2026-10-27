@@ -128,3 +128,17 @@ What landed in /app's first load:
 
 No change to `perf-budgets.json`, `vite.config.ts`, ratchets or the baseline. After: every
 budget `[ok]`, dancer-app 373.6 KB / 49 files / 4 pullers, every chunk ratchet at allowance.
+
+### Fix round 3 checks (run locally at this head)
+
+- `npm run check:bundle-budget`: exit 0, every budget and ratchet `[ok]`.
+- Ambassador unit matrix + breadcrumb tests: 100 pass (paging cases included).
+- Playwright `tests/e2e/ambassador-queue.spec.ts` at 390x844: 4 pass.
+- `npm run typecheck`: 97 errors, identical to main d14a58c; none in touched files.
+- `npm run lint`: 21 of 22 links green; `check:integrity` exits 126 only because
+  `bin/check-integrity.sh` is mode 644 in git (same on main); run with bash it is ok.
+- Not verified: a flag-on (`organiserP3`) build; the /code-review round for this fix.
+
+### Next steps
+
+Run /code-review on this round, then wait for CI (Perf Budget should now be green).
