@@ -22,8 +22,9 @@ Find every place organiser rows come out of these, and subtract hidden ids in JS
 `app/routes/organiser.tsx` (SSR loader) and `src/pages/OrganiserProfile.tsx`. A hidden id must not be served as a normal indexable page. Required: decide the response with the owner's rule in mind:
 - The organiser's own team (owner/admin/team member) must STILL see their own page (they are the people who need to finish it). Find how `OrganiserProfile` already knows the viewer is on the team; do not invent a new check.
 - Everyone else: not-found treatment, same as an unknown id (status 404 or the existing not-found view; pick what the route already does for a missing organiser and say which in the PR), plus `noindex`.
-- Fail closed on RPC error for the anonymous path? NO for page loads: an RPC outage must not take every organiser page down. Decide and state it: on RPC error serve the page with `noindex` and log; document this as the one deliberate fail-open and why.
-Open question for the orchestrator before the worker starts (owner click, one question): hidden page for a visitor = 404, or a soft "this page is not live yet" view? Default: 404.
+- DECIDED (owner clicks 2026-10-27): a hidden page for a visitor = **404, same as an unknown id** (plus `noindex`); the team still sees it.
+- DECIDED: on an RPC error during a profile page load, **serve the page with `noindex` and log**. This is the one deliberate fail-open (an outage must not take every organiser page down). Search and list reads still fail closed (the shared helper throws). State this in the PR.
+- DISPATCH: when the next organiser arc opens, not before.
 
 ## Real-data verification (binding, all five)
 1. Survey on prod, read-only counts: hidden ids now (expected 0, meta rows 0), organiser rows live, by city. Because there are 0 hidden organisers today, the tests and the walk need a FIXTURE hidden id; say so plainly. Do NOT create a prod hidden organiser.
