@@ -8,8 +8,11 @@ import {
   dayWord,
   eventLeftLine,
   eventSaleOf,
+  formatCount,
+  formatPence,
   nextStep,
   orderLine,
+  paymentsLink,
   paidOf,
   setupSteps,
   stepErrors,
@@ -55,10 +58,15 @@ describe('event state and places left', () => {
   it.each([
     [[], 'none', null],
     [[sale('closed')], 'none', null],
-    [[sale('draft')], 'not_selling', '20 left of 20'],
-    [[sale('paused', { reserved: 5 })], 'not_selling', '15 left of 20'],
-    [[sale('on_sale', { reserved: 12 }), sale('draft')], 'selling', '28 left of 40'],
+    // Places nobody can buy (a draft, a paused ticket) are not "left": the chip alone says it.
+    [[sale('draft')], 'not_selling', null],
+    [[sale('paused', { reserved: 5 })], 'not_selling', null],
+    [[sale('on_sale', { reserved: 12 }), sale('draft')], 'selling', '8 left of 20'],
     [[sale('sold_out', { reserved: 20 })], 'sold_out', '0 left of 20'],
+    // The critic's Friday Social: Early bird on sale (8 of 20), a paused 50 and a draft 100.
+    [[sale('on_sale', { reserved: 12 }), sale('paused', { capacity: 50 }), sale('draft', { capacity: 100 })], 'selling', '8 left of 20'],
+    [[sale('sold_out', { reserved: 20 }), sale('on_sale', { capacity: 30, reserved: 1 }), sale('paused', { capacity: 50 })], 'selling', '29 left of 50'],
+    [[sale('on_sale', { capacity: 3000, reserved: 978 })], 'selling', '2,022 left of 3,000'],
   ] as const)('%j', (types, state, left) => {
     expect(eventSaleOf(types)).toBe(state);
     expect(EVENT_SALE[state].label).toBeTruthy();
@@ -124,6 +132,48 @@ describe('editor steps', () => {
     expect(closesWords('2026-11-06T20:00', '2026-11-06T20:00:00Z')).toBe('Event start');
     expect(closesWords('2026-11-06T19:00', '2026-11-06T20:00:00Z')).toBe('6 November, 19:00');
   });
+});
+
+describe('thousands separators: the one money helper and the one count helper', () => {
+  it.each([
+    [0, '\u00A30.00'],
+    [1, '\u00A30.01'],
+    [123506, '\u00A31,235.06'],
+    [24017000, '\u00A3240,170.00'],
+    [100_000_000, '\u00A31,000,000.00'],
+  ])('formatPence(%i)', (pence, text) => expect(formatPence(pence)).toBe(text));
+  it.each([
+    [0, '0'],
+    [999, '999'],
+    [2022, '2,022'],
+    [1_234_567, '1,234,567'],
+  ])('formatCount(%i)', (n, text) => expect(formatCount(n)).toBe(text));
+});
+
+describe('the payments link under the number cards: every role x Stripe x ticket mix', () => {
+  const free = sale('on_sale', { pricePence: 0 });
+  const paid = sale('draft');
+  const MIXES = { 'all free': [free], mixed: [free, paid], none: [] } as const;
+  const live = [{ id: 's1', name: 'Friday Social' }];
+  for (const role of ['owner', 'manager', 'contributor'] as const) {
+    for (const stripe of ['none', 'started', 'connected'] as StripeState[]) {
+      for (const [mix, types] of Object.entries(MIXES)) {
+        it(`${role} | ${stripe} | ${mix}`, () => {
+          const step = nextStep(role, stripe, live, types);
+          const link = paymentsLink(role, stripe, step);
+          // Exactly one way to Connect / Finish connecting for a manager who is not connected: the card or this link.
+          const viaCard = step?.kind === 'connect';
+          const canAct = role !== 'contributor' && stripe !== 'connected';
+          expect(!!link).toBe(canAct && !viaCard);
+          expect(viaCard && !!link).toBe(false);
+          if (link) {
+            expect(link.lead).toBe(stripe === 'none' ? 'Payments not connected.' : null);
+            expect(link.action).toBe(stripe === 'none' ? 'Connect' : 'Finish connecting');
+          }
+        });
+      }
+    }
+  }
 });
 
 describe('writeResult keeps the new ticket id', () => {

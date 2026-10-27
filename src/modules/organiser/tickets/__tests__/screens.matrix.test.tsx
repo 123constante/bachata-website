@@ -14,7 +14,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi.fn(), from: vi.fn(), functions: { invoke: vi.fn() } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, session: null }) }));
-vi.mock('@/components/account/profiles/ProfileSwitcher', () => ({ default: () => null }));
+vi.mock('@/components/account/profiles/ProfileSwitcher', () => ({ default: () => <span data-testid="profile-switcher" /> }));
 
 const choice = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('@/modules/organiser/switch/useOrganiserChoice', () => ({ useOrganiserChoice: () => choice.value }));
@@ -42,6 +42,7 @@ import {
   eventSaleOf,
   moveBlock,
   nextStep,
+  paymentsLink,
   refundQuestion,
   refundable,
   setupSteps,
@@ -434,11 +435,153 @@ describe('flows and edge states', () => {
     expect((await screen.findByTestId('tix-no-live')).textContent).toMatch(/Put an event live first/);
     expect(screen.queryByTestId('tix-next')).toBeNull();
   });
+  it('Home: big numbers carry thousands separators (Sold, Sales, places left)', async () => {
+    arrange(SHAPES[4]);
+    const [row] = salesOf([type('on_sale', { capacity: 3000, reserved: 2022 })], []);
+    api.fetchSalesSummary.mockResolvedValue({ ok: true, reason: null, types: [{ ...row, ticketsSold: 2022, grossPence: 24017000, refundedPence: 123506 }] });
+    mount('/account/tickets');
+    expect((await screen.findByTestId('tix-sales-sold')).textContent).toBe('Sold2,022');
+    expect(screen.getByTestId('tix-sales-gross').textContent).toBe('Sales\u00A3240,170.00');
+    expect(screen.getByTestId('tix-sales-note').textContent).toContain('\u00A31,235.06 refunded');
+    expect(screen.getByTestId('tix-event-line').textContent).toBe('978 left of 3,000 \u00B7 Next: Friday 6 November');
+  });
   it('Home: Sold and Sales sum every ticket type', async () => {
     arrange(SHAPES[4]);
     mount('/account/tickets');
     expect((await screen.findByTestId('tix-sales-sold')).textContent).toContain('2');
     expect(screen.getByTestId('tix-sales-gross').textContent).toContain('\u00A320.00');
     expect(screen.getByTestId('tix-event-line').textContent).toBe('8 left of 20 \u00B7 Next: Friday 6 November');
+  });
+});
+
+describe('critique fixes (docs/review/ticketing-organiser-ui-1060.md)', () => {
+  it.each(['none', 'started', 'connected'] as StripeState[])('Home keeps the profile switcher (stripe %s); the paid-out chip sits on the page-name line', async (stripe) => {
+    arrange({ ...SHAPES[4], stripe });
+    mount('/account/tickets');
+    await screen.findByTestId('tix-event-chip');
+    expect(await screen.findByTestId('profile-switcher')).toBeTruthy();
+    const chip = screen.queryByTestId('tix-paidout');
+    expect(!!chip).toBe(stripe === 'connected');
+    if (chip) expect(screen.getByTestId('tix-page-line').contains(chip)).toBe(true);
+    expect(screen.getByTestId('tix-page-name').textContent).toBe('Ritmo');
+  });
+
+  describe('the payments link under the number cards: every stripe state x ticket mix', () => {
+    const MIXES: Record<string, TicketType[]> = {
+      'all free': [type('on_sale', { pricePence: 0 })],
+      mixed: [type('on_sale', { pricePence: 0 }), type('draft', { id: 't2' })],
+      none: [],
+    };
+    for (const role of ['owner', 'contributor']) {
+      for (const stripe of ['none', 'started', 'connected'] as StripeState[]) {
+        for (const [mix, types] of Object.entries(MIXES)) {
+          it(`${role} | ${stripe} | ${mix}`, async () => {
+            arrange({ name: mix, role, stripe, types, orders: [] });
+            mount('/account/tickets');
+            await screen.findByTestId('tix-event-chip');
+            const step = nextStep(role, stripe, [series('s1')], salesOf(types, []));
+            await waitFor(() => expect(screen.queryByTestId('tix-next')?.getAttribute('data-kind') ?? null).toBe(step?.kind ?? null));
+            const want = paymentsLink(role, stripe, step);
+            const link = screen.queryByTestId('tix-pay-link');
+            expect(!!link).toBe(!!want);
+            // One Connect / Finish connecting on the page at most (the card's button or this link).
+            expect(screen.queryAllByTestId('tix-getpaid-go').length + (link ? 1 : 0)).toBeLessThanOrEqual(1);
+            if (want && link) expect(link.textContent).toBe([want.lead, want.action].filter(Boolean).join(' '));
+          });
+        }
+      }
+    }
+    it('the link starts Stripe onboarding with the return and refresh addresses', async () => {
+      arrange({ name: 'free, pending', role: 'owner', stripe: 'started', types: MIXES['all free'], orders: [] });
+      api.startOnboarding.mockResolvedValue({ kind: 'error', reason: 'stripe_error' });
+      mount('/account/tickets');
+      fireEvent.click(await screen.findByTestId('tix-pay-go'));
+      await waitFor(() => expect(api.startOnboarding).toHaveBeenCalledTimes(1));
+      const [org, ret, refresh] = api.startOnboarding.mock.calls[0];
+      expect(org).toBe('org1');
+      expect(ret).toMatch(/\/account\/tickets\?o=org1&stripe=return$/);
+      expect(refresh).toMatch(/\/account\/tickets\?o=org1&stripe=refresh$/);
+      expect((await screen.findByTestId('tix-pay-note')).textContent).toBeTruthy();
+    });
+    it('the link says payments are not switched on when the function is not deployed', async () => {
+      arrange({ name: 'free, none', role: 'owner', stripe: 'none', types: MIXES['all free'], orders: [] });
+      api.startOnboarding.mockResolvedValue({ kind: 'not_configured' });
+      mount('/account/tickets');
+      fireEvent.click(await screen.findByTestId('tix-pay-go'));
+      expect((await screen.findByTestId('tix-pay-off')).textContent).toMatch(/not switched on yet/);
+      expect(screen.queryByTestId('tix-pay-go')).toBeNull();
+    });
+  });
+
+  it.each([
+    ['return', /Back from Stripe/],
+    ['refresh', /That Stripe link ran out/],
+  ])('back from Stripe (?stripe=%s) says where things stand', async (param, words) => {
+    arrange(SHAPES[1]);
+    mount(`/account/tickets?o=org1&stripe=${param}`);
+    expect((await screen.findByTestId('tix-getpaid-back')).textContent).toMatch(words);
+  });
+
+  it.each([
+    ['selling', SHAPES[4], /They show here, by buyer name/],
+    ['nothing selling', SHAPES[3], /Switch a ticket to Selling above/],
+  ] as const)('orders empty state (%s) says what happens next', async (_n, shape, words) => {
+    arrange({ ...shape, orders: [] });
+    mount('/account/tickets/events/s1');
+    expect((await screen.findByTestId('tix-orders-empty')).textContent).toMatch(words);
+  });
+
+  it('Close sales for good asks first; Keep selling backs out, Close sales closes', async () => {
+    arrange(SHAPES[4]);
+    api.setTicketStatus.mockResolvedValue({ ok: true, reason: null });
+    mount('/account/tickets/events/s1');
+    fireEvent.click(await screen.findByTestId('tix-edit'));
+    fireEvent.click(await screen.findByTestId('tix-next'));
+    fireEvent.click(screen.getByTestId('tix-next'));
+    fireEvent.click(screen.getByTestId('tix-close'));
+    expect(screen.getByTestId('tix-close-area').textContent).toMatch(/Close sales for good\? Nobody can buy this ticket again\. Cannot be undone\./);
+    fireEvent.click(screen.getByTestId('tix-close-keep'));
+    expect(screen.queryByTestId('tix-close-confirm')).toBeNull();
+    expect(api.setTicketStatus).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('tix-close'));
+    fireEvent.click(screen.getByTestId('tix-close-confirm'));
+    await waitFor(() => expect(api.setTicketStatus).toHaveBeenCalledWith('t1', 'closed'));
+  });
+
+  it.each([1, 2])('an edit can Save changes from step %i (no walk to the review)', async (at) => {
+    arrange(SHAPES[5]);
+    api.upsertTicketType.mockResolvedValue({ ok: true, reason: null, id: 't1' });
+    mount('/account/tickets/events/s1');
+    fireEvent.click(await screen.findByTestId('tix-edit'));
+    await screen.findByTestId('tix-step');
+    if (at === 2) fireEvent.click(screen.getByTestId('tix-next'));
+    expect(screen.getByTestId('tix-step').textContent).toBe(`${at} / 3`);
+    if (at === 2) fireEvent.change(screen.getByTestId('tix-form-capacity'), { target: { value: '30' } });
+    else fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Early bird plus' } });
+    expect(screen.getByTestId('tix-save').textContent).toBe('Save changes');
+    fireEvent.click(screen.getByTestId('tix-save'));
+    await waitFor(() => expect(api.upsertTicketType).toHaveBeenCalledTimes(1));
+    expect(api.upsertTicketType.mock.calls[0][0]).toMatchObject(at === 2 ? { capacity: 30 } : { name: 'Early bird plus' });
+  });
+
+  it('a new ticket keeps Continue only on steps 1 and 2 (no Save before the review)', async () => {
+    arrange(SHAPES[2]);
+    mount('/account/tickets/events/s1');
+    fireEvent.click(await screen.findByTestId('tix-add'));
+    await screen.findByTestId('tix-step');
+    expect(screen.queryByTestId('tix-save')).toBeNull();
+  });
+
+  it.each([
+    ['contributor (role reason, said once at the top)', SHAPES[9], [series('s1')]],
+    ['series not live (reason under the row)', SHAPES[5], [series('s1', 'ended')]],
+  ] as const)('the switch names only a reason that is on screen: %s', async (_n, shape, list) => {
+    arrange(shape, [...list]);
+    mount('/account/tickets/events/s1');
+    const sw = (await screen.findByRole('switch')) as HTMLButtonElement;
+    await waitFor(() => expect(sw.disabled).toBe(true));
+    const ref = sw.getAttribute('aria-describedby');
+    for (const id of (ref ?? '').split(' ').filter(Boolean)) expect(document.getElementById(id)).not.toBeNull();
+    if (shape.role !== 'contributor') expect(ref).toBeTruthy();
   });
 });

@@ -153,7 +153,11 @@ export const BOOKING_FEE_PENCE = 50;
 export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
 
-export const formatPence = (pence: number): string => `${POUND}${(pence / 100).toFixed(2)}`;
+/** "\u00A3240,170.00": the ONE money format on every screen (thousands separators, two decimals). */
+export const formatPence = (pence: number): string =>
+  `${POUND}${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** "2,022": the ONE format for a count shown on a card. */
+export const formatCount = (n: number): string => n.toLocaleString('en-GB');
 export const priceLabel = (pence: number): string => (pence === 0 ? 'Free' : formatPence(pence));
 
 /** "12", "12.5", "12.50", "\u00A312.50" -> pence; anything else (or over the server's 1,000,000p cap) -> null. */
@@ -468,13 +472,16 @@ export const EVENT_SALE: Record<EventSale, { label: string; tone: StatusTone }> 
   sold_out: { label: 'Sold out', tone: 'party' },
   not_selling: { label: 'Not selling', tone: 'draft' },
 };
-/** "8 left of 20" over the event's ticket types still in play; null when there are none. */
+/**
+ * "8 left of 20" over the places people can buy (on sale, or sold out); null when there are
+ * none, so the chip alone speaks. A draft or a paused ticket's places are not "left".
+ */
 export const eventLeftLine = (types: readonly Pick<TypeSales, 'status' | 'capacity' | 'reserved'>[]): string | null => {
-  const open = types.filter((t) => t.status !== 'closed');
+  const open = types.filter((t) => t.status === 'on_sale' || t.status === 'sold_out');
   if (open.length === 0) return null;
   const cap = open.reduce((n, t) => n + t.capacity, 0);
   const left = open.reduce((n, t) => n + leftOf(t), 0);
-  return `${left} left of ${cap}`;
+  return `${formatCount(left)} left of ${formatCount(cap)}`;
 };
 
 export interface SetupStep {
@@ -518,6 +525,20 @@ export const nextStep = (
     return withTypes ? { kind: 'sell', seriesId: withTypes.id, seriesName: withTypes.name } : { kind: 'add', seriesId: bare.id, seriesName: bare.name };
   }
   return null;
+};
+
+/**
+ * The one link under the number cards that still reaches Stripe once the Next step card is
+ * about something else (every ticket free, so payments count as done). null when payments
+ * are connected, when the card already carries Connect, or for a role that cannot act.
+ */
+export const paymentsLink = (
+  role: MemberRole | null | undefined,
+  stripe: StripeState,
+  step: NextStep | null,
+): { lead: string | null; action: string } | null => {
+  if (!canManage(role) || stripe === 'connected' || step?.kind === 'connect') return null;
+  return stripe === 'none' ? { lead: 'Payments not connected.', action: 'Connect' } : { lead: null, action: 'Finish connecting' };
 };
 
 // ---- Orders ----------------------------------------------------------------------

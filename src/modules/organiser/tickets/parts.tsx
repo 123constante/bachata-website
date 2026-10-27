@@ -12,6 +12,7 @@ import {
   SWITCH_LABEL,
   eventLeftLine,
   eventSaleOf,
+  formatCount,
   formatPence,
   reasonMessage,
   setupLine,
@@ -56,24 +57,11 @@ export function useSalesSummary(organiserId: string | undefined) {
   });
 }
 
-const HIGHLIGHT = 'border-[var(--gold)]';
-
-/** The ONE highlighted card on Home: connect payments, add the first ticket, or put it on sale. */
-export function NextStepCard({
-  step,
-  organiserId,
-  back,
-  addPath,
-  openPath,
-}: {
-  step: NextStep;
-  organiserId: string;
-  /** `?stripe=` on arrival: the person is back from Stripe. */
-  back: 'return' | 'refresh' | null;
-  /** Where Add tickets goes for an event (the event page with its add sheet open). */
-  addPath: (seriesId: string) => string;
-  openPath: (seriesId: string) => string;
-}) {
+/**
+ * Connect / Finish connecting: ask the edge function for a Stripe link and go there. Shared by
+ * the Next step card and the payments link, so both say the same thing when it fails.
+ */
+export function useStartOnboarding(organiserId: string) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [switchedOff, setSwitchedOff] = useState(false);
@@ -94,6 +82,28 @@ export function NextStepCard({
     if (out.kind === 'not_configured') setSwitchedOff(true);
     else setNote(reasonMessage(out.reason));
   };
+  return { go, busy, note, switchedOff };
+}
+
+const HIGHLIGHT = 'border-[var(--gold)]';
+
+/** The ONE highlighted card on Home: connect payments, add the first ticket, or put it on sale. */
+export function NextStepCard({
+  step,
+  organiserId,
+  back,
+  addPath,
+  openPath,
+}: {
+  step: NextStep;
+  organiserId: string;
+  /** `?stripe=` on arrival: the person is back from Stripe. */
+  back: 'return' | 'refresh' | null;
+  /** Where Add tickets goes for an event (the event page with its add sheet open). */
+  addPath: (seriesId: string) => string;
+  openPath: (seriesId: string) => string;
+}) {
+  const { go, busy, note, switchedOff } = useStartOnboarding(organiserId);
   let title: string;
   let body: string;
   let action: ReactNode;
@@ -190,16 +200,16 @@ export function SetupBar({ steps }: { steps: readonly SetupStep[] }) {
 export function NumberCards({ types }: { types: readonly TypeSales[] }) {
   const t = totalsOf(types);
   const extra = [
-    t.ordersPending > 0 ? `${t.ordersPending} waiting for payment` : null,
+    t.ordersPending > 0 ? `${formatCount(t.ordersPending)} waiting for payment` : null,
     t.refundedPence > 0 ? `${formatPence(t.refundedPence)} refunded` : null,
-    t.ordersDisputed > 0 ? `${t.ordersDisputed} disputed` : null,
+    t.ordersDisputed > 0 ? `${formatCount(t.ordersDisputed)} disputed` : null,
   ].filter(Boolean);
   return (
     <section aria-label="Sales" className="space-y-[6px]" data-testid="tix-sales">
       <div className="grid grid-cols-2 gap-[8px]">
         <Card variant="padded" testId="tix-sales-sold">
           <p className="text-[13px] text-[var(--mut)]">Sold</p>
-          <p className="text-[22px] font-semibold tabular-nums">{t.ticketsSold}</p>
+          <p className="text-[22px] font-semibold tabular-nums">{formatCount(t.ticketsSold)}</p>
         </Card>
         <Card variant="padded" testId="tix-sales-gross">
           <p className="text-[13px] text-[var(--mut)]">Sales</p>
@@ -210,6 +220,36 @@ export function NumberCards({ types }: { types: readonly TypeSales[] }) {
         Ticket money before Stripe&rsquo;s fees.{extra.length > 0 ? ` ${extra.join(', ')}.` : ''}
       </p>
     </section>
+  );
+}
+
+/**
+ * Under the number cards: the way to Connect / Finish connecting once the Next step card is
+ * about something else (paymentsLink decides when). One line, not a second highlighted card.
+ */
+export function PaymentsLink({ organiserId, link }: { organiserId: string; link: { lead: string | null; action: string } }) {
+  const { go, busy, note, switchedOff } = useStartOnboarding(organiserId);
+  if (switchedOff) {
+    return (
+      <p role="status" className="text-[13px] text-[var(--mut)]" data-testid="tix-pay-off">
+        {NOT_SWITCHED_ON}
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-[2px]">
+      <p className="flex flex-wrap items-center gap-x-[6px] text-[13px] text-[var(--mut)]" data-testid="tix-pay-link">
+        {link.lead && <span>{link.lead}</span>}{link.lead && ' '}
+        <button type="button" className={LINK} onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="tix-pay-go">
+          {link.action}
+        </button>
+      </p>
+      {note && (
+        <p role="alert" data-testid="tix-pay-note" className="text-[13px] text-[var(--fg)]">
+          {note}
+        </p>
+      )}
+    </div>
   );
 }
 

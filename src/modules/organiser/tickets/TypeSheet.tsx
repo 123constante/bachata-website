@@ -161,8 +161,23 @@ export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, ctx
   const total = pence === null ? null : buyerTotal(pence);
   const canClose = !!type && !locked && NEXT_STATUS[type.status].includes('closed');
 
+  const saveChanges = (
+    <PrimaryButton block testId="tix-save" onClick={() => void submit(false)} loading={saving === 'save'} loadingLabel="Saving" disabled={saving !== null}>
+      Save changes
+    </PrimaryButton>
+  );
   let footer;
-  if (step < 3) {
+  if (step < 3 && type && !locked) {
+    // An edit saves from any step: raising places is open, change, save (no walk to the review).
+    footer = (
+      <div className="space-y-[8px]">
+        {saveChanges}
+        <GhostButton block testId="tix-next" onClick={next}>
+          Continue
+        </GhostButton>
+      </div>
+    );
+  } else if (step < 3) {
     footer = (
       <PrimaryButton block testId="tix-next" onClick={next}>
         Continue
@@ -171,11 +186,7 @@ export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, ctx
   } else if (locked) {
     footer = <Reason id={`${id}-locked`} testId="tix-form-locked">{locked}</Reason>;
   } else if (type) {
-    footer = (
-      <PrimaryButton block testId="tix-save" onClick={() => void submit(false)} loading={saving === 'save'} loadingLabel="Saving" disabled={saving !== null}>
-        Save changes
-      </PrimaryButton>
-    );
+    footer = saveChanges;
   } else {
     footer = (
       <div className="space-y-[8px]">

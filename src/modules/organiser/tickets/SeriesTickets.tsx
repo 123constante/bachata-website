@@ -277,7 +277,8 @@ export function TypeRow({
             {priceLabel(t.pricePence)} &middot; {countsLine(sales ? sales.ticketsSold : null, leftOf(t))}
           </span>
         </button>
-        <SellingSwitch status={t.status} blocked={blocked} busy={busy} onMove={onMove} reasonId={`${id}-why`} />
+        {/* Name the reason only when it is rendered under this row (the role one is at the top). */}
+        <SellingSwitch status={t.status} blocked={blocked} busy={busy} onMove={onMove} reasonId={shownReason ? `${id}-why` : undefined} />
       </div>
       <Reason id={`${id}-why`} testId="tix-switch-reason">{shownReason}</Reason>
       {error && (

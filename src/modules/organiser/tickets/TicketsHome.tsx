@@ -5,10 +5,10 @@ import { OrganiserShell } from '../shell/OrganiserShell';
 import { ORG_PATHS } from '../shell/paths';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
 import { Card, EmptyState, ErrorState, SectionLabel, SkeletonRows, StatusTag } from '../ui';
-import { EventCard, LINK, NextStepCard, NumberCards, SetupBar, useSalesSummary, useStripeState } from './parts';
+import { EventCard, LINK, NextStepCard, NumberCards, PaymentsLink, SetupBar, useSalesSummary, useStripeState } from './parts';
 import { TICKET_PATHS } from './paths';
 import { ticketKeys } from './ticketsApi';
-import { NOT_MANAGER, STRIPE_COPY, canManage, nextStep, reasonMessage, setupSteps, type TypeSales } from './ticketModel';
+import { NOT_MANAGER, STRIPE_COPY, canManage, nextStep, paymentsLink, reasonMessage, setupSteps, type TypeSales } from './ticketModel';
 
 /**
  * /account/tickets (mockup B, docs/design/1060.md): ONE Next step card while setup is
@@ -34,8 +34,9 @@ export default function TicketsHome() {
     setParams(next, { replace: true });
   }, [stripeParam, params, setParams]);
 
-  const shell = (children: ReactNode, end?: ReactNode) => (
-    <OrganiserShell title="Tickets" back={{ to: ORG_PATHS.home, label: 'Home' }} topBarEnd={end} testId="tix-home">
+  // No topBarEnd: the top bar keeps the profile switcher on every state of this page.
+  const shell = (children: ReactNode) => (
+    <OrganiserShell title="Tickets" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="tix-home">
       <div className="space-y-[12px]">{children}</div>
     </OrganiserShell>
   );
@@ -78,6 +79,7 @@ export default function TicketsHome() {
   } else {
     const list = types ?? [];
     const steps = setupSteps(stripe, list);
+    const payLink = paymentsLink(selected.role, stripe, step);
     top = (
       <>
         {!manager && (
@@ -91,6 +93,7 @@ export default function TicketsHome() {
           <p className="text-[14px] text-[var(--mut)]" data-testid="tix-sales-refused">{reasonMessage(summary.data.reason)}</p>
         )}
         {list.length > 0 && <NumberCards types={list} />}
+        {payLink && <PaymentsLink organiserId={organiserId} link={payLink} />}
       </>
     );
   }
@@ -121,10 +124,12 @@ export default function TicketsHome() {
 
   return shell(
     <>
-      <p className="truncate text-[14px] text-[var(--mut)]" data-testid="tix-page-name">{selected.name}</p>
+      <div className="flex min-h-[24px] items-center justify-between gap-[8px]" data-testid="tix-page-line">
+        <p className="min-w-0 truncate text-[14px] text-[var(--mut)]" data-testid="tix-page-name">{selected.name}</p>
+        {stripe === 'connected' && <StatusTag tone="live" testId="tix-paidout">{STRIPE_COPY.connected.tag}</StatusTag>}
+      </div>
       {top}
       {events}
     </>,
-    stripe === 'connected' ? <StatusTag tone="live" testId="tix-paidout">{STRIPE_COPY.connected.tag}</StatusTag> : null,
   );
 }
