@@ -4,6 +4,7 @@ import { GoingTotalStat } from '@/modules/going/GoingTotalStat';
 import { useMyOrganiserGoingTotal } from '@/modules/going/useMyOrganiserGoingTotal';
 import { ORG_PATHS } from '../../shell/paths';
 import type { P3Row } from '../data/home';
+import { P3_PATHS } from '../shell/paths';
 
 /** Where a change is made until the P3 editor lands (the R1 area, untouched by P3). */
 const CHANGE_IT_PATH = ORG_PATHS.home;
@@ -34,19 +35,21 @@ export function Thumb({ row }: { row: P3Row }) {
   );
 }
 
-/** One event: photo, name, when and where, kind chip and status. Read-only in W1 (no event page yet). */
+/** One event: photo, name, when and where, kind chip and status. Opens the event page (W2a). */
 export function EventRow({ row }: { row: P3Row }) {
   return (
     <li className="p3-row" data-testid="p3-row" data-id={row.id}>
-      <Thumb row={row} />
-      <div className="p3-grow">
-        <div className="p3-row-t">{row.name}</div>
-        <div className="p3-row-s">{row.sub}</div>
-        <div className="p3-row-tags">
-          <KindChip row={row} />
-          <StatusTag row={row} />
+      <Link className="p3-row-link" to={P3_PATHS.event(row.id)}>
+        <Thumb row={row} />
+        <div className="p3-grow">
+          <div className="p3-row-t">{row.name}</div>
+          <div className="p3-row-s">{row.sub}</div>
+          <div className="p3-row-tags">
+            <KindChip row={row} />
+            <StatusTag row={row} />
+          </div>
         </div>
-      </div>
+      </Link>
     </li>
   );
 }

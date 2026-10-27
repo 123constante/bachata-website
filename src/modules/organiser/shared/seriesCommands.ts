@@ -17,6 +17,8 @@ export const OWNER_COMMAND_KINDS = [
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
   // D39 (admin A1): apply_aggregate_write_p5 gains the move arm.
   'occurrence.move_date',
+  // ER AD4 (admin 20261204180000): a one-off ends with a reason (cancels its one date; the series stays live).
+  'series.cancel_one_off',
 ] as const;
 
 /**
@@ -254,6 +256,14 @@ export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerComma
 
 /** Cancel with a reason that is a cancellation_reasons label (required for owners). */
 export const cancelCommand = (reason: string): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: true, reason } });
+/** series.cancel_one_off (ER AD4) accepts exactly this key; any other key is refused. */
+export const OWNER_CANCEL_ONE_OFF_KEYS = ['reason'] as const;
+/**
+ * Cancel a one-off: the server cancels its ONE date through the date-cancel writer and the
+ * series stays live. Aimed at the SERIES (series_command_p5). The reason is a
+ * cancellation_reasons label, as for cancelCommand; the undo is uncancelCommand on the date.
+ */
+export const cancelOneOffCommand = (reason: string): OwnerCommand => ({ kind: 'series.cancel_one_off', payload: { reason } });
 /** Put a CANCELLED date back (D46); a taken-off date uses unskipDateCommand. */
 export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: false } });
 /** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */

@@ -157,6 +157,21 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
+  // P3 W2b, the date sheet (handlers read on prod 2026-10-27). Anchored: the reason refusal lists every label.
+  { match: /^invalid_payload: cancellation reason must be one of/, message: 'That reason is no longer on the list. Reload the page, then pick a reason again.' },
+  { match: /^invalid_payload: per-date time is not supported for festivals/, message: 'Festival times are set for the whole festival, not one date. Ask the Bachata Calendar team.' },
+  { match: /^invalid_transition: festival_extra_date/, message: 'A festival holds one date. Ask the Bachata Calendar team to change its days.' },
+  { match: /^invalid_payload: (date|occurrence_id) required/, message: 'Choose a date.' },
+  { match: /^invalid_payload: new_local_start required/, message: 'Enter the new start time, like 19:30.' },
+  { match: /^invalid_payload: date_time_session_has_people/, message: 'This date\u2019s own time has people on its session, so it can\u2019t go back to the usual time. Change the time instead.' },
+  // ER AD4, series.cancel_one_off (_cmd_series_cancel_one_off_p5 and the dispatcher's payload rule, read on prod
+  // 2026-10-26). Anchored and before every loose rule: the reason refusal lists every label, and the token sits
+  // between the first and second colon.
+  { match: /^invalid_transition: cancel_one_off_started:/, message: 'It has already started, so it can\u2019t be cancelled. If it didn\u2019t happen, use End it tomorrow.' },
+  { match: /^invalid_transition: cancel_one_off_past:/, message: 'Its date has passed, so it can\u2019t be cancelled. Use End it instead.' },
+  { match: /^invalid_transition: cancel_one_off_not_live:/, message: 'Only an event that is showing can be cancelled. Show it again first, then cancel it.' },
+  { match: /^invalid_transition: cancel_one_off_(not_one_off|festival|dates):/, message: 'This event can\u2019t be cancelled this way. Reload the page to see it as it is now.' },
+  { match: /^invalid_payload: cancel_one_off_reason:|^permission_denied: series\.cancel_one_off (needs a reason that is a cancellation_reasons label|needs a JSON object|payload keys)/, message: 'That reason is no longer on the list. Reload the page, then pick a reason again.' },
   // Admin waves A1-A3 (er-p4-a1/a2/a3 handovers): stable codes after "permission_denied: ". Anchored and
   // before every loose rule below, because their detail text names keys those rules match on.
   { match: /^permission_denied: city_follows_venue/, message: 'The city comes from the venue, so it cannot be set on its own. Choose the venue and its city is filled in for you.' },
@@ -181,6 +196,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /move_date is not supported for festivals/, message: 'Festival days are set by the Bachata Calendar team. Ask them to move a day.' },
   { match: /to_date required/, message: 'Choose a date.' },
   { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
+  { match: /^has_bookings: .*cannot be made a break/, message: 'People have already booked this date, so it cannot be skipped. Cancel it instead, so they see why.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },
@@ -196,6 +212,14 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /must be a HH:MM time|must be blank or a HH:MM time/, message: 'Enter the time as hours and minutes, like 19:30.' },
   { match: /date must be a YYYY-MM-DD date/, message: 'Choose a date.' },
   { match: /is not an owner transition|^lifecycle_transition_denied/, message: 'That status change is not available for this event right now.' },
+  // P3 W2a, the Status sheet: series.end_run and series.stop_repeating refusals (_cmd_series_end_run_p5,
+  // _cmd_series_stop_repeating_p5 as read on prod 2026-10-26). Anchored: the server text names ids and formats.
+  { match: /^permission_denied: series\.set_lifecycle \S+ -> live needs a ready series/, message: 'It is not ready to go live yet: it needs a cover photo, a date coming up and its details. Add them in the current organiser area, then put it live.' },
+  { match: /^invalid_payload: today_session_required/, message: 'This event has a date today. Say whether tonight happened, then end it.' },
+  { match: /^invalid_transition: series \S+ has no night this platform can evidence/, message: 'We have no record of a night this event ran, so it cannot be ended. Remove it instead, or ask the Bachata Calendar team.' },
+  { match: /^invalid_transition: course \S+ is (live|paused)\. A course must keep a schedule/, message: 'A course keeps its dates while it runs. End it when the last class is done.' },
+  { match: /^invalid_transition: series \S+ is '\S+'\. Only a live or paused series can be ended/, message: 'Only a live or hidden event can be ended. Reload the page to see it as it is now.' },
+  { match: /^invalid_transition: series \S+ (is not a ruled recurring series|has format)/, message: 'This event does not repeat, so there is nothing to stop. Reload the page to see it as it is now.' },
   { match: /is not a date the recurrence rule/, message: 'The weekly pattern changed since this date was taken off, so it cannot be put back as a break. Add it as a date instead.' },
   { match: /is not a break on series/, message: 'That date is already back on the list. Reload the page.' },
   { match: /^publish_blocked/, message: 'This event needs more details before it can go live again. Ask the Bachata Calendar team.' },

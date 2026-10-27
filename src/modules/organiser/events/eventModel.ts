@@ -34,6 +34,8 @@ export interface EventWorkspace extends SeriesWorkspace {
   endedOn: string | null;
   /** The read holds only the newest 100 dates (admin_event_workspace_p5 meta.has_more). */
   hasMore: boolean;
+  /** Every date of the series, whatever the page holds (meta.total, P3 A2 R3); null on an older read. */
+  total: number | null;
   /** event_series_p5.default_level (free text; null on every prod series, 2026-10-17). */
   level: string | null;
   /** The programme tree as the read returns it (series.program): the series-level editor round-trips it. */
@@ -45,7 +47,7 @@ export interface EventWorkspace extends SeriesWorkspace {
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
 
 export function parseEventWorkspace(raw: unknown): EventWorkspace {
-  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown } } | null;
+  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown; total?: unknown } } | null;
   const row = (root?.series?.series ?? {}) as Record<string, unknown>;
   return {
     ...parseWorkspace(raw),
@@ -54,6 +56,7 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     videoUrls: strings(row.video_urls),
     endedOn: typeof row.ended_on === 'string' ? row.ended_on : null,
     hasMore: root?.meta?.has_more === true,
+    total: typeof root?.meta?.total === 'number' && Number.isFinite(root.meta.total) ? root.meta.total : null,
     level: typeof row.default_level === 'string' && row.default_level.trim() ? row.default_level : null,
     program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
     organiserIds: linkedOrganiserIds(row),
