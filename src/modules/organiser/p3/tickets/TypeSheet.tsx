@@ -1,4 +1,4 @@
-import { useId, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { setTicketStatus, upsertTicketType } from '../../tickets/ticketsApi';
 import {
   EDITOR_STEPS,
@@ -37,7 +37,10 @@ export interface TypeSheetProps {
   hasOrders: boolean;
   /** A one-off's start: the default "Sales close" for a new ticket (eventStartOf). */
   eventStart: string | null;
-  onClose: () => void;
+  /** inFlight: closed while a save was still running (the parent drops the draft so it cannot be sent twice). */
+  onClose: (inFlight: boolean) => void;
+  /** A refusal that arrives after the sheet was closed: the parent shows it. */
+  onLate: (text: string) => void;
   /** Saved (or nothing to save, changed=false): the parent drops the draft and says the words. */
   onSaved: (announcement: string, changed: boolean) => void;
 }
@@ -47,12 +50,16 @@ export interface TypeSheetProps {
  * dress): 1 name + price with the Buyer pays box, 2 places and the sales window, 3 review.
  * Back goes one step and keeps every value. An untouched edit sends nothing.
  */
-export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, eventStart, onClose, onSaved }: TypeSheetProps) {
+export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, eventStart, onClose, onLate, onSaved }: TypeSheetProps) {
   const { form, step, openMode, closeMode } = draft;
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [saving, setSaving] = useState<'sell' | 'save' | 'close' | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+  /** A refusal shows in the sheet, or as a toast once the sheet is gone. */
+  const refuse = (text: string) => (alive.current ? setServerError(text) : onLate(text));
   const id = useId();
   const locked = editLock(type, ctx.role);
   const lockedPrice = priceLock(hasOrders);
@@ -95,7 +102,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     try {
       const out = await upsertTicketType(upsert);
       if (!out.ok) {
-        setServerError(p3Reason(out.reason));
+        refuse(p3Reason(out.reason));
         return;
       }
       if (type) return onSaved('Ticket saved.', true);
@@ -104,9 +111,9 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       const st = await setTicketStatus(out.id, 'on_sale').catch(() => ({ ok: false, reason: null }));
       onSaved(st.ok ? 'Ticket added and on sale.' : `Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`, true);
     } catch {
-      setServerError(p3Reason(null));
+      refuse(p3Reason(null));
     } finally {
-      setSaving(null);
+      if (alive.current) setSaving(null);
     }
   };
 
@@ -117,11 +124,11 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     try {
       const out = await setTicketStatus(type.id, 'closed');
       if (out.ok) onSaved(`${type.name}: sales closed.`, true);
-      else setServerError(p3Reason(out.reason));
+      else refuse(p3Reason(out.reason));
     } catch {
-      setServerError(p3Reason(null));
+      refuse(p3Reason(null));
     } finally {
-      setSaving(null);
+      if (alive.current) setSaving(null);
     }
   };
 
@@ -188,10 +195,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     <StackSheet
       full
       title={type ? 'Edit ticket' : 'Add a ticket'}
-      onClose={() => {
-        // A save in flight finishes here: closing now would keep the draft and allow a second save.
-        if (!saving) onClose();
-      }}
+      onClose={() => onClose(saving !== null)}
       viewKey={String(step)}
       onBack={step > 1 && !saving ? () => patch({ step: (step - 1) as Step }) : undefined}
       testId="tix-sheet"

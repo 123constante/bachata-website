@@ -197,23 +197,23 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     expect(document.activeElement).toBe(screen.getByTestId('tix-refund-cancel'));
   });
 
-  it('a refund in flight cannot be dismissed; its refusal is shown', async () => {
+  it('a refund in flight: the sheet still closes, its Refund button waits, a late refusal comes back as a toast', async () => {
     let answer: (v: unknown) => void = () => {};
     api.refundOrder.mockReturnValue(new Promise((r) => { answer = r; }));
     show(<TicketsEntry seriesId="ser-1" />);
     tap(screen.getByTestId('tix-row'));
     tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
     fireEvent.click(screen.getByTestId('tix-refund-confirm'));
-    expect((screen.getByTestId('tix-refund-cancel') as HTMLButtonElement).disabled).toBe(true);
-    esc();
-    fireEvent.click(screen.getByTestId('tix-refund-sheet-close'));
-    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    fireEvent.click(screen.getByTestId('tix-refund-cancel'));
+    expect(layers()).toEqual(['tix-tall']);
+    const btn = within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund') as HTMLButtonElement;
+    expect([btn.disabled, btn.textContent]).toEqual([true, 'Refunding\u2026']);
     answer({ kind: 'failed', reason: null });
-    expect((await screen.findByTestId('tix-refund-note')).textContent).toBe('That did not work. Try again in a moment.');
+    expect((await screen.findByTestId('tix-toast')).textContent).toBe('That did not work. Try again in a moment.');
     expect(api.refundOrder).toHaveBeenCalledTimes(1);
   });
 
-  it('a save in flight cannot be dismissed, so the held draft cannot be saved twice', async () => {
+  it('a save in flight: the sheet still closes, the draft is dropped so it cannot be sent twice', async () => {
     let answer: (v: unknown) => void = () => {};
     api.upsertTicketType.mockReturnValue(new Promise((r) => { answer = r; }));
     show(<TicketsEntry seriesId="ser-1" />);
@@ -222,8 +222,10 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     toReview();
     fireEvent.click(screen.getByTestId('tix-save'));
     esc();
-    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
-    expect(screen.queryByTestId('tix-sheet-back')).toBeNull();
+    expect(layers()).toEqual(['tix-tall']);
+    tap(screen.getByTestId('tix-add'));
+    expect((screen.getByTestId('tix-form-name') as HTMLInputElement).value).toBe('');
+    esc();
     answer({ ok: true, reason: null, id: 'x' });
     expect(await screen.findByTestId('tix-toast')).toBeTruthy();
     expect(api.upsertTicketType).toHaveBeenCalledTimes(1);

@@ -84,8 +84,7 @@ export function StackSheet({
     return () => document.removeEventListener('keydown', esc);
   }, [top, id]);
 
-  // Focus on open and on each new view or step: the marked control, else the body's first
-  // control, else the footer's, never the header's Close first.
+  // Focus on open and on each new view or step.
   const shownView = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!top) return;
@@ -94,9 +93,8 @@ export function StackSheet({
     const moved = shownView.current !== `${title}|${viewKey ?? ''}`;
     shownView.current = `${title}|${viewKey ?? ''}`;
     if (!el || (!moved && el.contains(document.activeElement))) return;
-    const pick = (sel: string) => el.querySelector<HTMLElement>(sel);
-    const ctl = 'button:not([disabled]), input:not([disabled])';
-    (pick('[data-sheet-autofocus]:not([disabled])') ?? pick(`.p3-sheet-body :is(${ctl})`) ?? pick(`.p3-sheet-foot :is(${ctl})`) ?? pick(ctl))?.focus();
+    // The marked field, else the heading: never a commit or money button by default.
+    (el.querySelector<HTMLElement>('[data-sheet-autofocus]:not([disabled])') ?? el.querySelector<HTMLElement>('h3'))?.focus();
   }, [top, title, viewKey]);
 
   return (
@@ -123,7 +121,7 @@ export function StackSheet({
               &larr; Back
             </button>
           ) : null}
-          <h3 id={`${id}-t`} className="p3-grow">{title}</h3>
+          <h3 id={`${id}-t`} className="p3-grow" tabIndex={-1}>{title}</h3>
           <button type="button" className="p3-link" onClick={onClose} data-testid={`${testId}-close`}>
             Close
           </button>
@@ -133,4 +131,11 @@ export function StackSheet({
       </div>
     </div>
   );
+}
+
+/** After a write removes the focused control (a refunded order loses its Refund button), put focus back on the top layer. */
+export function refocusTop() {
+  const now = topOf();
+  const el = now ? scrims.get(now) : undefined;
+  if (el && !el.contains(document.activeElement)) el.querySelector<HTMLElement>('h3')?.focus();
 }

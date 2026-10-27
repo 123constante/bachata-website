@@ -84,8 +84,9 @@ export const ticketsRowOf = (
   const soldWord = soldN === null ? null : `${formatCount(soldN)} sold`;
   if (sale === 'none') {
     // Sales on closed tickets are a fact for every role; then what the person can do.
-    if (soldWord && soldN) return { chip, detail: soldWord };
-    return { chip, detail: why === NOT_MANAGER ? 'None yet' : why ?? 'Add a ticket' };
+    const next = why === NOT_MANAGER ? null : why ?? 'Add a ticket';
+    const parts = [soldN ? soldWord : null, next].filter(Boolean);
+    return { chip, detail: parts.length ? parts.join(' \u00B7 ') : 'None yet' };
   }
   if (sale === 'not_selling') {
     const word = types.some((t) => t.status === 'paused') ? 'Paused' : 'Not on sale yet';

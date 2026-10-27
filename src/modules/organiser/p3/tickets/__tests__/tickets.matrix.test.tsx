@@ -27,7 +27,7 @@ const ROW: Record<ShapeKey, [string, string]> = {
   survey: ['Not selling', 'Paused \u00B7 2 sold'],
   selling: ['Selling', '34 sold \u00B7 26 left of 60'],
   started: ['Not selling', 'Not on sale yet \u00B7 0 sold'],
-  closed: ['No tickets', '3 sold'],
+  closed: ['No tickets', '3 sold \u00B7 Add a ticket'],
   past: ['Not selling', 'Paused \u00B7 4 sold'],
   contributor: ['Selling', '26 left of 40'],
 };

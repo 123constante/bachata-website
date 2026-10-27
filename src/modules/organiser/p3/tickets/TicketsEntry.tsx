@@ -44,7 +44,7 @@ import {
   type TypeDraft,
 } from './model';
 import { RefundSheet } from './RefundSheet';
-import { StackSheet } from './StackSheet';
+import { StackSheet, refocusTop } from './StackSheet';
 import { TypeSheet } from './TypeSheet';
 
 /**
@@ -78,6 +78,15 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [refunding, setRefunding] = useState<Order | null>(null);
+  // Orders whose refund is on its way: their Refund button waits for the answer (never a second request).
+  const [inFlight, setInFlight] = useState<ReadonlySet<string>>(new Set());
+  const flight = (id: string, on: boolean) =>
+    setInFlight((s) => {
+      const n = new Set(s);
+      if (on) n.add(id);
+      else n.delete(id);
+      return n;
+    });
   // Per ticket type: two switches tapped in quick succession each keep their own busy and error.
   const [moving, setMoving] = useState<ReadonlySet<string>>(new Set());
   const [moveError, setMoveError] = useState<ReadonlyMap<string, string>>(new Map());
@@ -130,6 +139,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       const out = await setTicketStatus(t.id, to);
       if (out.ok) {
         setToast(`${t.name}: ${SWITCH_LABEL[to]}`);
+        setMoveError(new Map());
         await refresh();
       } else setMoveError((m) => with_(m, p3Reason(out.reason)));
     } catch {
@@ -160,8 +170,15 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               </div>
             </div>
             {manager && refundable(o) && (
-              <button type="button" className="p3-btn p3-btn-line p3-btn-sm" onClick={() => setRefunding(o)} data-testid="tix-refund">
-                Refund
+              <button
+                type="button"
+                className="p3-btn p3-btn-line p3-btn-sm"
+                onClick={() => setRefunding(o)}
+                disabled={inFlight.has(o.id)}
+                aria-busy={inFlight.has(o.id) || undefined}
+                data-testid="tix-refund"
+              >
+                {inFlight.has(o.id) ? 'Refunding\u2026' : 'Refund'}
               </button>
             )}
           </li>
@@ -262,7 +279,6 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           full
           title={`${view === 'orders' ? 'Orders' : 'Tickets'} \u00B7 ${series.name}`}
           onClose={() => setOpen(false)}
-          viewKey={view}
           onBack={view === 'orders' ? () => setView('list') : undefined}
           footer={listFooter}
           testId="tix-tall"
@@ -290,12 +306,20 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           ctx={ctx}
           eventStart={eventStart}
           hasOrders={hasOrdersOf(editing.type, sales, orders.data ?? [])}
-          onClose={closeEditor}
+          onClose={(saving) => {
+            closeEditor();
+            // Closed mid-save: the save lands on its own (toast); the draft must not be sent again.
+            if (saving) setDraft(null);
+          }}
+          onLate={setToast}
           onSaved={(text, changed) => {
             setEditing(null);
             setDraft(null);
             setToast(text);
-            if (changed) void refresh();
+            if (changed) {
+              setMoveError(new Map());
+              void refresh();
+            }
           }}
         />
       )}
@@ -305,10 +329,13 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           typeName={many ? typeName.get(refunding.typeId) ?? null : null}
           today={today}
           onClose={() => setRefunding(null)}
+          onLate={setToast}
+          onStart={() => flight(refunding.id, true)}
+          onSettled={() => flight(refunding.id, false)}
           onDone={(text) => {
             setRefunding(null);
             setToast(text);
-            void refresh();
+            void refresh().then(refocusTop);
           }}
         />
       )}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { refundOrder } from '../../tickets/ticketsApi';
 import { NOT_SWITCHED_ON, dayWord, orderLine, orderTag, refundQuestion, type Order } from '../../tickets/ticketModel';
 import { TONE_CLASS, p3Reason } from './model';
@@ -14,6 +14,9 @@ export function RefundSheet({
   today,
   onClose,
   onDone,
+  onLate,
+  onStart,
+  onSettled,
 }: {
   order: Order;
   /** The ticket type's name, or null when the event has one type. */
@@ -21,34 +24,45 @@ export function RefundSheet({
   today: string;
   onClose: () => void;
   onDone: (announcement: string) => void;
+  /** A refusal that arrives after the sheet was closed: the parent shows it. */
+  onLate: (text: string) => void;
+  /** The order's refund started (the parent locks its Refund button until the answer). */
+  onStart: () => void;
+  onSettled: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const q = refundQuestion(order);
   const tag = orderTag(order.status);
   const day = dayWord(order.paidAt, today);
+  const alive = useRef(true);
+  const noteRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => () => { alive.current = false; }, []);
+  // The refusal takes focus, so a keyboard or screen-reader user hears it inside the sheet.
+  useEffect(() => { if (note) noteRef.current?.focus(); }, [note]);
   const go = async () => {
     setBusy(true);
     setNote(null);
+    onStart();
     const out = await refundOrder(order.id);
+    onSettled();
+    if (out.kind === 'ok') return onDone('Refund started.');
+    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : p3Reason(out.reason);
+    if (!alive.current) return onLate(text);
     setBusy(false);
-    if (out.kind === 'ok') onDone('Refund started.');
-    else setNote(out.kind === 'not_configured' ? NOT_SWITCHED_ON : p3Reason(out.reason));
+    setNote(text);
   };
   return (
     <StackSheet
       title={q.title}
-      onClose={() => {
-        // A refund in flight answers here: closing now would lose a refusal and allow a second tap.
-        if (!busy) onClose();
-      }}
+      onClose={onClose}
       testId="tix-refund-sheet"
       footer={
         <div className="p3-stack-s">
           <button type="button" className="p3-btn p3-btn-danger" onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="tix-refund-confirm">
             {busy ? 'Refunding\u2026' : q.confirm}
           </button>
-          <button type="button" className="p3-btn p3-btn-line" onClick={onClose} disabled={busy} data-sheet-autofocus data-testid="tix-refund-cancel">Keep the order</button>
+          <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-sheet-autofocus data-testid="tix-refund-cancel">Keep the order</button>
         </div>
       }
     >
@@ -61,7 +75,7 @@ export function RefundSheet({
             <span className={TONE_CLASS[tag.tone]} data-testid="tix-refund-order-tag">{tag.label}{day ? ` ${day}` : ''}</span>
           </div>
         </div>
-        {note && <p role="alert" className="p3-warn" data-testid="tix-refund-note">{note}</p>}
+        {note && <p ref={noteRef} tabIndex={-1} role="alert" className="p3-warn" data-testid="tix-refund-note">{note}</p>}
       </div>
     </StackSheet>
   );
