@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { Link, Outlet } from 'react-router-dom';
+import { StateCard } from '../screens/parts';
 import type { OrganiserShellProps } from '../../shell/OrganiserShell';
 import { ORG_PATHS } from '../../shell/paths';
 import { OrgSurfaceProvider, type OrgSurface } from '../../shell/surface';
@@ -64,7 +66,10 @@ export const P3_SURFACE: OrgSurface = {
 export function P3YouSurface() {
   return (
     <OrgSurfaceProvider value={P3_SURFACE}>
-      <Outlet />
+      {/* The pushed screens are lazy (P3Routes): keep P3's frame while one arrives. */}
+      <Suspense fallback={<main className="p3-main" data-testid="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></main>}>
+        <Outlet />
+      </Suspense>
     </OrgSurfaceProvider>
   );
 }

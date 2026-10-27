@@ -7,16 +7,20 @@ import { EventPage } from '../screens/EventPage';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
-import TeamPage from '../../team';
-import TeamFlow from '../../team/TeamFlow';
-import HandoverFlow from '../../flows/handover';
-import SwitchPage from '../../switch';
-import WelcomePage from '../../switch/Welcome';
-import PageScreen from '../../page';
-import Done from '../../flows/Done';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { P3YouSurface } from '../you/surface';
 import { YouScreen } from '../you/YouScreen';
 import { P3_PATHS } from './paths';
+
+// The R1 screens the You hub pushes: lazy, as in OrganiserRoutes. Static imports here put every
+// one of their chunks in AnimatedRoutes' preload list for this area, which /app/* loads first.
+const TeamPage = lazyWithRetry(() => import('../../team'));
+const TeamFlow = lazyWithRetry(() => import('../../team/TeamFlow'));
+const HandoverFlow = lazyWithRetry(() => import('../../flows/handover'));
+const SwitchPage = lazyWithRetry(() => import('../../switch'));
+const WelcomePage = lazyWithRetry(() => import('../../switch/Welcome'));
+const PageScreen = lazyWithRetry(() => import('../../page'));
+const Done = lazyWithRetry(() => import('../../flows/Done'));
 
 /**
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while

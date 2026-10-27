@@ -60,9 +60,10 @@ describe('P3 shell: Home / Events / Stats / You (C3 tab bar)', () => {
     expect(screen.getByTestId('p3-shell').className).toContain('p3-theme');
   });
 
-  it('a screen You pushes draws ONE top bar: its title and the way back to You; the You tab stays current', () => {
+  it('a screen You pushes draws ONE top bar: its title and the way back to You; the You tab stays current', async () => {
     at(P3_PATHS.youTeam);
-    expect(screen.getByTestId('p3-screen-team')).toBeTruthy();
+    // The pushed screens are lazy chunks (P3Routes): wait for this one to arrive.
+    expect(await screen.findByTestId('p3-screen-team')).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Team']);
     expect(screen.getByTestId('org-back').getAttribute('href')).toBe(P3_PATHS.you);
     expect(screen.getByTestId('org-back').textContent).toContain('You');
