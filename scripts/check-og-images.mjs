@@ -23,6 +23,7 @@
 import { appendFileSync } from 'node:fs';
 import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
+import { PROD_HOST, ciBypassHeadersFor } from './lib/ciBypassHeader.mjs';
 
 const BASE = (process.env.OG_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.OG_CHECK_STRICT === '1';
@@ -80,7 +81,7 @@ const OG_API_RE = /\/api\/og\//i;
  * Pure, and canaried below, because a self-describing guard that describes
  * itself wrongly is worse than one that says nothing at all.
  */
-export const PROD_HOST = 'www.bachatacalendar.co.uk';
+export { PROD_HOST };
 
 export function measurementReport(base, { bypassInUse, isPreview }) {
   let host;
@@ -188,7 +189,7 @@ async function fetchText(url, opts = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const r = await fetch(url, { ...opts, headers: { ...(bypassFor(url) ?? {}), ...(opts.headers ?? {}) }, signal: ctrl.signal });
+    const r = await fetch(url, { ...opts, headers: { ...(bypassFor(url) ?? {}), ...ciBypassHeadersFor(url), ...(opts.headers ?? {}) }, signal: ctrl.signal });
     if (!r.ok) {
       // Unconsumed undici bodies keep the event loop alive for minutes
       // (measured -- see previewProbe.mjs); the !ok arm never reads the text.
@@ -206,7 +207,7 @@ async function headImage(url) {
   const t = setTimeout(() => ctrl.abort(), 12000);
   try {
     // GET (not HEAD): the card endpoint streams a generated image; HEAD may skip Content-Length.
-    const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: bypassFor(url) ?? undefined });
+    const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: (bypassFor(url) || Object.keys(ciBypassHeadersFor(url)).length) ? { ...(bypassFor(url) ?? {}), ...ciBypassHeadersFor(url) } : undefined });
     const ct = (r.headers.get('content-type') || '').toLowerCase();
     let bytes = Number(r.headers.get('content-length') || 0);
     if (!bytes && r.ok) bytes = (await r.arrayBuffer()).byteLength;

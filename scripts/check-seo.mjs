@@ -48,6 +48,7 @@
 
 import { assertMeasured, bypassHeaders, isPreviewHost, skipIfWalledPreview } from './lib/previewProbe.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
+import { ciBypassHeadersFor } from './lib/ciBypassHeader.mjs';
 
 const BASE = (process.env.SEO_CHECK_BASE ?? 'https://www.bachatacalendar.co.uk').replace(/\/$/, '');
 const STRICT = process.env.SEO_CHECK_STRICT === '1';
@@ -202,7 +203,7 @@ async function fetchText(url) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 15000);
   try {
-    const r = await fetch(url, { headers: { 'user-agent': UA, ...(BYPASS ?? {}) }, redirect: 'follow', signal: ctrl.signal });
+    const r = await fetch(url, { headers: { 'user-agent': UA, ...(BYPASS ?? {}), ...ciBypassHeadersFor(url) }, redirect: 'follow', signal: ctrl.signal });
     if (!r.ok) {
       // Unconsumed undici bodies keep the event loop alive for minutes
       // (measured -- see previewProbe.mjs); the !ok arm never reads the text.
