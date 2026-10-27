@@ -162,6 +162,18 @@ describe('RPC error propagates from every read', () => {
     h.hiddenError = { message: 'boom' };
     await expect(run()).rejects.toEqual({ message: 'boom' });
   });
+
+  it('sitemap answers 500 rather than submitting hidden URLs', async () => {
+    h.hiddenError = { message: 'boom' };
+    const { loader } = await import('../../../app/routes/sitemap');
+    let status: number | undefined;
+    try {
+      status = ((await loader()) as Response).status;
+    } catch (thrown) {
+      status = (thrown as Response).status;
+    }
+    expect(status).toBe(500);
+  });
 });
 
 describe('one rule, one helper', () => {

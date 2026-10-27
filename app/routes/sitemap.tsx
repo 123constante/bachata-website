@@ -184,7 +184,9 @@ async function fetchTeacherProfileIds(): Promise<Set<string>> {
 // organiser_profiles: /organisers/:id pages.
 async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
   // Hidden self-started pages (D3) come from the ONE shared helper and are
-  // dropped from the returned rows below; the limit stays 500.
+  // dropped from the returned rows below; the limit stays 500. This is one
+  // deliberate exception to "match organiser.tsx exactly": a hidden page still
+  // serves there, but D3 keeps it out of every directory read, this one included.
   const [{ data, error }, hiddenIds] = await Promise.all([db
     .from("organiser_profiles")
     .select("id, slug, updated_at, name")
