@@ -73,14 +73,20 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
   const has = (c: ProgrammeControl) => shown.includes(c);
 
   const base: SessForm = scope === 'date' && draft ? formOfDraft(draft) : item ? formOfItem(item) : emptyForm();
-  // Typing is kept until the STORED content changes: a background refetch of the same version keeps it, a new
-  // version (another save) starts again from what is stored. Switching scope starts again too, and says so (r1 #1, #7).
-  const baseKey = `${scope}|${scope === 'date' ? prog.data?.version ?? '' : ws.series.version}|${draft?.key ?? ''}`;
-  const [edit, setEdit] = useState<{ k: string; f: SessForm } | null>(null);
-  const form = edit && edit.k === baseKey ? edit.f : base;
-  const set = (patch: Partial<SessForm>) => setEdit({ k: baseKey, f: { ...form, ...patch } });
+  // Typing is kept while the sheet stays on the same session and scope; switching scope starts again, and says so
+  // (r1 #1, #7). A new stored version under the typing is someone else's save (this sheet closes on its own): the
+  // typing is KEPT and the sheet says so, with a way to start again from what is stored (W2d r2 nit A).
+  const baseKey = `${scope}|${draft?.key ?? ''}`;
+  const verKey = String(scope === 'date' ? prog.data?.version ?? '' : ws.series.version);
+  const [edit, setEdit] = useState<{ k: string; v: string; f: SessForm } | null>(null);
+  const mine = edit && edit.k === baseKey ? edit : null;
+  const form = mine ? mine.f : base;
+  const set = (patch: Partial<SessForm>) => setEdit({ k: baseKey, v: mine?.v ?? verKey, f: { ...form, ...patch } });
+  const elsewhere = !!mine && mine.v !== verKey && !sameForm(mine.f, base);
+  // the name's reason waits for the field to be left or a save to be tried (W2d r2 nit C)
+  const [nameTried, setNameTried] = useState(false);
   const dirty = open.key ? !sameForm(form, base) : true;
-  const typed = !!edit && edit.k === baseKey;
+  const typed = !!mine;
   // a NEW session needs a name in either scope (the date writer refuses one without); a stored untitled one stays as it is (r1 #2)
   const nameWhy = !open.key && !form.title.trim() ? titleProblem(form.title) : null;
   const name = open.key ? sessionTitle({ title: base.title }) : L.newSession;
@@ -189,7 +195,13 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
           )}
           <label className="p3-field" htmlFor="p3-sess-name">{L.sessName}</label>
           <input id="p3-sess-name" className="p3-in" value={form.title} disabled={fieldsOff} autoComplete="off" placeholder={L.namePlaceholder}
-            onChange={(e) => set({ title: e.target.value })} data-testid="p3-sess-name" />
+            onChange={(e) => set({ title: e.target.value })} onBlur={() => setNameTried(true)} data-testid="p3-sess-name" />
+          {elsewhere && (
+            <div className="p3-warn" role="status" data-testid="p3-sess-elsewhere">
+              <p className="p3-plain">{L.changedElsewhere}</p>
+              <button type="button" className="p3-link" onClick={() => setEdit(null)} data-testid="p3-sess-start-again">{L.startAgain}</button>
+            </div>
+          )}
           <div className="p3-pair">
             <div>
               <label className="p3-field" htmlFor="p3-sess-start">{L.starts}</label>
@@ -241,10 +253,11 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
           )}
           {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
           <div className="p3-stack-s p3-gap-t">
-            <button type="button" className="p3-btn" disabled={!dirty || !!nameWhy || !!rules.save || busy || (scope === 'date' && !drafts)} onClick={() => void save()} data-testid="p3-sess-save">
+            <button type="button" className="p3-btn" disabled={!dirty || !!rules.save || busy || (scope === 'date' && !drafts)}
+              onClick={() => { if (nameWhy) { setNameTried(true); return; } void save(); }} data-testid="p3-sess-save">
               {!open.key ? L.addThisSession : !dirty ? L.nothingChanged : scope === 'every' ? L.saveAll : L.saveOne}
             </button>
-            <Why why={rules.save ? null : nameWhy} testId="p3-why-name" />
+            <Why why={rules.save || !nameTried ? null : nameWhy} testId="p3-why-name" />
             {!open.key && <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-testid="p3-sess-dontadd">{L.dontAdd}</button>}
             {has('removeAll') && (
               <>

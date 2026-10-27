@@ -13,6 +13,10 @@ export const P3_PATHS = {
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,
   /** One event's All dates (W2b). */
   eventDates: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/dates`,
+  /** One event's Name and details (W3a). */
+  eventDetails: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/details`,
+  /** One event's Prices (W3a). */
+  eventPrices: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/prices`,
 } as const;
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';

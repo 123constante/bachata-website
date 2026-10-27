@@ -228,3 +228,11 @@
 .p3-theme .p3-seg2 { grid-template-columns: repeat(2, 1fr); }
 .p3-theme .p3-btn-sm { width: auto; min-width: 88px; padding: 0 12px; flex: none; }
 .p3-theme .p3-pad { margin: 0; padding: 12px; }
+/* W3a: the shared save model (tray, pending line) on Name and details and Prices */
+.p3-theme .p3-edit { padding-bottom: 8px; }
+.p3-theme .p3-pending { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); padding: 8px 12px; border: 0; border-radius: var(--r-ctl); background: var(--warn-bg); color: var(--warn-fg); font: inherit; font-size: var(--fs-small); text-align: left; cursor: pointer; }
+.p3-theme .p3-pending:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme .p3-tray { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px; margin: 0 -16px; padding: 8px 16px; background: var(--bg); border-top: 1px solid var(--line); }
+.p3-theme .p3-tray-row { display: flex; justify-content: flex-end; }
+.p3-theme textarea.p3-in-short { min-height: 88px; }
+.p3-theme select.p3-in { min-height: var(--tap); }

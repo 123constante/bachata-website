@@ -3,6 +3,8 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { P3Shell } from './P3Shell';
 import { AllDatesScreen } from '../screens/AllDatesScreen';
+import { DetailsScreen } from '../screens/DetailsScreen';
+import { PricesScreen } from '../screens/PricesScreen';
 import { EventPage } from '../screens/EventPage';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -24,6 +26,8 @@ export default function P3Routes() {
           <Route path="events" element={<EventsScreen />} />
           <Route path="events/:seriesId" element={<EventPage />} />
           <Route path="events/:seriesId/dates" element={<AllDatesScreen />} />
+          <Route path="events/:seriesId/details" element={<DetailsScreen />} />
+          <Route path="events/:seriesId/prices" element={<PricesScreen />} />
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3Placeholder tab="you" />} />
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
