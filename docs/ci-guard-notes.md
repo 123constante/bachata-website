@@ -132,6 +132,16 @@ All in `scripts/check-*.mjs`, enforced by CI.
   run, never a pass. Non-vacuous (no P5 ids
   or no public profile to read is exit 2).
 
+- Organiser directory hidden ids (#71) (`scripts/check-organiser-hidden-ids-contract.mjs`,
+  `npm run check:organiser-hidden-ids`, 2026-10-27) &mdash; step in
+  `db-contract-check.yml`. As anon it calls
+  `organiser_directory_hidden_ids_v1()`, the one source of directory rule D3,
+  which `/organisers`, the sitemap and the head count call and THROW on. Gates on
+  the RPC missing, anon EXECUTE revoked, a NULL or non-array payload, a non-uuid
+  element, a duplicate. **Empty is green** (0 hidden is the normal state), so on
+  most runs its green proves the call and the type, not the element arms; it says
+  so in its output. Counts only, never ids.
+
 `scripts/check-going-legacy-rpcs.mjs` (`npm run check:going-legacy-rpcs`, Going
 P2) fails on any name of the retired interested/going attendance RPC family
 (`set_attendance`, `set_my_occurrence_attendance_p5_v1`,
