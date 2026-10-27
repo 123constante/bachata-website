@@ -1,10 +1,20 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { GhostButton, PrimaryButton, SheetView } from '../ui';
 import { refundOrder } from './ticketsApi';
 import { NOT_SWITCHED_ON, reasonMessage, refundQuestion, type Order } from './ticketModel';
 
 /** Confirm, then refund one whole order through the ticket-refund edge function (owner / manager only). */
-export function RefundSheet({ order, onClose, onDone }: { order: Order; onClose: () => void; onDone: (announcement: string) => void }) {
+export function RefundSheet({
+  order,
+  onClose,
+  onDone,
+  returnFocusRef,
+}: {
+  order: Order;
+  onClose: () => void;
+  onDone: (announcement: string) => void;
+  returnFocusRef: RefObject<HTMLElement>;
+}) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const q = refundQuestion(order);
@@ -20,6 +30,7 @@ export function RefundSheet({ order, onClose, onDone }: { order: Order; onClose:
     <SheetView
       open
       onOpenChange={(o) => !o && onClose()}
+      returnFocusRef={returnFocusRef}
       title={q.title}
       testId="tix-refund-sheet"
       footer={

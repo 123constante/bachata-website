@@ -1,4 +1,4 @@
-import { useId, useState, type ChangeEvent } from 'react';
+import { useId, useState, type ChangeEvent, type RefObject } from 'react';
 import { Chip, FIELD_CLASS, Field, PrimaryButton, SheetView, useShake } from '../ui';
 import { Reason } from './parts';
 import { upsertTicketType } from './ticketsApi';
@@ -26,10 +26,12 @@ export interface TypeSheetProps {
   role: MemberRole;
   hasOrders: boolean;
   onSaved: (announcement: string) => void;
+  /** The control that opened the sheet (useOpenerRef in the parent). */
+  returnFocusRef: RefObject<HTMLElement>;
 }
 
 /** Create or edit one ticket type. An untouched edit sends nothing. */
-export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, role, hasOrders, onSaved }: TypeSheetProps) {
+export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, role, hasOrders, onSaved, returnFocusRef }: TypeSheetProps) {
   const [form, setForm] = useState<TypeForm>(() => formOf(type));
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -85,6 +87,7 @@ export function TypeSheet({ open, onOpenChange, type, organiserId, seriesId, rol
     <SheetView
       open={open}
       onOpenChange={onOpenChange}
+      returnFocusRef={returnFocusRef}
       fullHeight
       title={type ? 'Edit ticket' : 'Add a ticket type'}
       testId="tix-sheet"

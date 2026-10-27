@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { OrganiserShell } from '../shell/OrganiserShell';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
-import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, PrimaryButton, SkeletonRows, StatusTag, useAnnounce } from '../ui';
+import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, PrimaryButton, SkeletonRows, StatusTag, useAnnounce, useOpenerRef } from '../ui';
 import { Reason, useSalesSummary, useStripeState } from './parts';
 import { RefundSheet } from './RefundSheet';
 import { TypeSheet } from './TypeSheet';
@@ -55,6 +55,9 @@ export default function SeriesTickets() {
   const [refunding, setRefunding] = useState<Order | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<{ id: string; text: string } | null>(null);
+  // The sheets mount on tap, so the opener is remembered here (B-S8 focus return).
+  const editOpener = useOpenerRef(editing !== null);
+  const refundOpener = useOpenerRef(refunding !== null);
 
   const types = useQuery({
     queryKey: ticketKeys.types(organiserId, seriesId),
@@ -170,6 +173,7 @@ export default function SeriesTickets() {
           seriesId={series.id}
           role={role}
           hasOrders={hasOrders(editing.type, sales, orders.data ?? [])}
+          returnFocusRef={editOpener}
           onSaved={(text) => {
             setEditing(null);
             announce(text);
@@ -180,6 +184,7 @@ export default function SeriesTickets() {
       {refunding && (
         <RefundSheet
           order={refunding}
+          returnFocusRef={refundOpener}
           onClose={() => setRefunding(null)}
           onDone={(text) => {
             setRefunding(null);

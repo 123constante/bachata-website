@@ -52,4 +52,27 @@ Journey map and shape survey: [`docs/organiser-ticketing-journey.md`](../organis
 
 ## Verified / Not verified
 
-See the PR body's per-job table and "Verified on real data" block (copied below at the end of the run).
+Verified:
+- Shape survey on prod (read-only, counts): 0 ticket_types, 0 ticket_orders, 0 tickets,
+  0 organiser_stripe_accounts; 15 owner / 46 manager memberships; max 7 live series per
+  organiser; max 50 organisers per user. RPC signatures and bodies read live.
+- Tests: tickets suite 1014 pass; organiser + components 6450 pass; full unit run's only
+  branch failure (focusReturn guard) fixed in the final commit; the other 15 full-run
+  failures also fail on origin/main (integrityCouldNotRun x5, live event contract tests x10).
+- Local CI steps: architecture-guard integrity (incl. AUDIT_STRICT=1 check:images), typecheck
+  job (rpc-typing, wallclock-brand), unit tz matrix + dancer-area-isolation, workflow-lint,
+  db-contract live-db-gate + no-DB steps, e2e-smoke (157 pass), perf-budget bundle-budget +
+  first-load-requests (TicketRoutes is a lazy chunk only), phone-qa + build-smoke: pass.
+  tsc: same 95 errors as main, none in new files. Build: pass.
+- Browser walk at 390x844 (fixtures shaped like the live RPCs, auth faked): 6 screens, no
+  horizontal scroll, no tap target under 44px, no console errors; one order-row layout bug
+  found and fixed (re-walked).
+
+Not verified:
+- Real Stripe onboarding and real refunds (edge functions not deployed; contracts assumed).
+- Real Supabase auth round trip and real RLS reads with a real organiser login.
+- ~50 prod-DB contract steps of db-contract-check (the sandbox refused prod reads for that agent).
+- Desktop widths; 360x640 only via the phone-qa suite, not the ticketing screens.
+- `npm run lint` link check:integrity fails locally only on the exec bit (CI chmods); pre-ship
+  red for the same reason plus the then-unfixed focusReturn test.
+- Code review round 2.
