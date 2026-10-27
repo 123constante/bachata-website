@@ -80,10 +80,13 @@ const sigOf = (plan: readonly OwnerCommand[]) => JSON.stringify(plan);
  * The attempt to send for this plan: the held one when the plan is the same (a retry: same
  * keys, same versions, finished steps skipped), else a fresh one with new keys. The first
  * step goes against `version`; each later one gets its version when the one before it lands.
+ * A plan that is the held attempt's steps not yet landed is that same attempt too: a landed
+ * step joins the screen's base, so the retry's plan holds only what is left (PR #1082 r3 #2).
  */
 export function attemptFor(held: SaveAttempt | null, plan: readonly OwnerCommand[], version: number | null, newKey: () => string): SaveAttempt {
   const sig = sigOf(plan);
-  if (held && held.sig === sig && held.done < held.steps.length) return held;
+  if (held && held.done < held.steps.length
+    && (held.sig === sig || sigOf(held.steps.slice(held.done).map((s) => s.command)) === sig)) return held;
   return { sig, steps: plan.map((command, i) => ({ command, key: newKey(), version: i === 0 ? version : null })), done: 0 };
 }
 

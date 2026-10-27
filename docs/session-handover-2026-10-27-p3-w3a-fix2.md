@@ -31,3 +31,11 @@ dancer-app first-load JS (48 files, pin 374 KB = 382,976 B):
 ## Not done
 - No re-walk: no state's pixels changed (the banner only shows less often; the timeout lands on the existing
   17-details-city-fail state). No `/code-review` round on the r2 fixes.
+
+## UPDATE in fix round 3 (2026-10-27, dt_961964d663a9): the numbers above are superseded
+#1092 fixed main. perf-budget.yml env, exact gzip bytes of the 49 /app first-load files, pin 382,976 B:
+- main a5d4bb4: 382,954 B, 22 B under.
+- this PR at 70b1c75 (before the fix): 382,993 B, +39 B, 17 B over -- the red was this PR's alone.
+- after the round 3 fix (EditTray stops importing `useAreaLeaveBlocker`): 382,964 B, +10 B, 12 B under.
+`events/eventModel.ts` is not export-only: it adds `groupChatUrl` to `EventWorkspace` and its parse.
+See docs/session-handover-2026-10-27-p3-w3a-fix3.md.

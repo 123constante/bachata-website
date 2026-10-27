@@ -253,7 +253,7 @@ export const L = {
   detailsInstagramHint: 'Your Instagram handle, like @ritmoleeds, or a link to the page.',
   detailsChat: 'Group chat link',
   detailsChatHint: 'Dancers see a \u201cJoin the group\u201d button. Leave it empty for none.',
-  detailsChatBad: 'Enter a group chat link starting with https://, or leave it empty.',
+  detailsChatBad: 'Enter the whole group chat link, like https://chat.whatsapp.com/ and the code after it, or leave it empty.',
   detailsKind: 'What it is',
   detailsKindHint: 'Worked out from your sessions. Change a session to change it.',
   detailsSaved: 'Saved for every date. Dancers see it now.',
@@ -283,7 +283,7 @@ export const L = {
   leaveTitle: 'Leave without saving?',
   leaveBody: 'These changes are not saved yet:',
   leaveGo: 'Leave and lose them',
-  changedElsewhere: 'Someone else saved this event while you were editing. Your changes are still here: saving puts yours over theirs for the fields you changed.',
+  changedElsewhere: 'Someone else saved this event while you were editing. Your changes are still here, but saving them will be refused. To go on, copy anything you typed, then Start again from the saved version.',
   startAgain: 'Start again from the saved version',
   saving: 'Saving\u2026',
 } as const;

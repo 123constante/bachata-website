@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAreaLeaveBlocker } from '@/modules/areas/shared/useAreaLeaveBlocker';
-import { isLeaveDirty, requestLeave, useLeaveGuard, useRegisterLeaveAsk } from '@/modules/areas/shared/leaveGuard';
+import { useCallback, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { Link, UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, useNavigate, type Blocker, type BlockerFunction } from 'react-router-dom';
+import {
+  isFormDirty, isLeaveDirty, requestLeave, setRouterGuard, useLeaveGuard, useRegisterLeaveAsk,
+} from '@/modules/areas/shared/leaveGuard';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
+import { profileLock, useProfileProgress } from '../../shared/profileProgress';
+import { eventLock } from '../../shared/eventState';
 import { useSendOnce } from '../../shared/runCommands';
 import { commandErrorMessage, isVersionConflict } from '../../shared/selfServeErrors';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
@@ -41,11 +45,18 @@ export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace)
   /**
    * One step of a save landed at `version`: it is this screen's own (never "someone else saved"),
    * and the next attempt goes against it. Nothing else can have saved in between: the step went
-   * against the version before it (PR #1082 r1 #4).
+   * against the version before it (PR #1082 r1 #4). The fields that step saved (`keys`, all of
+   * them when left out) join the base, so Undo or a later save never sends back what was there
+   * before it (PR #1082 r3 #2). `draft` is the one the plan was made from: fields are off while saving.
    */
-  const landed = (version: number) => {
+  const landed = (version: number, keys?: ReadonlyArray<keyof D>) => {
     mine(version);
-    setOpened((o) => ({ ...o, version }));
+    setOpened((o) => {
+      if (!keys) return { base: draft, version };
+      const base = { ...o.base };
+      for (const k of keys) base[k] = draft[k];
+      return { base, version };
+    });
   };
   /** After a save landed: what was sent is now the base, and its version is this screen's own. */
   const saved = (version: number | null) => {
@@ -58,6 +69,20 @@ export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace)
 }
 
 /**
+ * Why nothing on an edit screen can change: an ended or archived event, or an unfinished
+ * organiser profile (the old area's locks). ONE lock for every P3 edit screen, so Details and
+ * Prices agree for the same person on the same event (PR #1082 r3 #5).
+ */
+export function useEditLock(ws: EventWorkspace): string | null {
+  const admin = useIsAdmin();
+  const progress = useProfileProgress(ws.organiserIds[0] ?? null);
+  const closed = eventLock(ws.series.lifecycle_status);
+  if (closed) return closed;
+  const profile = profileLock(admin.isPending ? undefined : progress.data, admin.isAdmin);
+  return profile.locked ? profile.reason : null;
+}
+
+/**
  * Sends a save plan, step by step. Each command keeps its idempotency key and the version it
  * first went against until it lands, so "Try again" after a failure is the same write; a step
  * that landed is never sent twice. Refusals come back as plain words (COMMAND_COPY).
@@ -67,7 +92,7 @@ export function useSaveRun(seriesId: string) {
   const held = useRef<SaveAttempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = async (plan: readonly OwnerCommand[], version: number | null, onLanded?: (version: number) => void): Promise<{ ok: boolean; version: number | null }> => {
+  const run = async (plan: readonly OwnerCommand[], version: number | null, onLanded?: (version: number, command: OwnerCommand) => void): Promise<{ ok: boolean; version: number | null }> => {
     if (!plan.length) return { ok: false, version };
     let a = attemptFor(held.current, plan, version, newIdempotencyKey);
     held.current = a;
@@ -81,7 +106,7 @@ export function useSaveRun(seriesId: string) {
         last = typeof res?.new_version === 'number' ? res.new_version : last;
         a = stepLanded(a, i, last);
         held.current = a;
-        if (typeof last === 'number') onLanded?.(last);
+        if (typeof last === 'number') onLanded?.(last, step.command);
       }
       held.current = null;
       return { ok: true, version: last };
@@ -102,13 +127,44 @@ export function useSaveRun(seriesId: string) {
 
 type Ask = { kind: 'undo' } | { kind: 'leave'; go: () => void } | { kind: 'list' } | null;
 
+const IDLE_BLOCKER = { state: 'unblocked', proceed: undefined, reset: undefined, location: undefined } as Blocker;
+let blockerSeq = 0;
+
+/**
+ * The router blocker, built exactly like areas/shared/useAreaLeaveBlocker (getBlocker on the data
+ * router, the leave store's dirty flag), and deliberately NOT imported from it: a second importer
+ * splits that module into a chunk of its own, which the areas route's preload list then names on
+ * every /app first load (+27 B gz, the 374 KB pin's margin is 22 B; PR #1082 r3 #1, measured).
+ */
+function useRouterBlocker(): Blocker {
+  const router = useContext(UNSAFE_DataRouterContext)?.router;
+  const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
+  const [key, setKey] = useState('');
+  const shouldBlock = useCallback<BlockerFunction>(
+    ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname,
+    [],
+  );
+  useEffect(() => {
+    if (!router) return undefined;
+    const k = `p3-leave-${++blockerSeq}`;
+    setKey(k);
+    router.getBlocker(k, shouldBlock);
+    setRouterGuard(true);
+    return () => {
+      setRouterGuard(false);
+      router.deleteBlocker(k);
+    };
+  }, [router, shouldBlock]);
+  return (key && blockers?.get(key)) || IDLE_BLOCKER;
+}
+
 /**
  * The leave guard: the router blocker (back, links, the tab bar under the data router), the
  * store's own asking for the Back link where there is no data router, and the tab-close warning.
  */
 function useLeave(dirty: boolean, setAsk: (a: Ask) => void) {
   useLeaveGuard(dirty);
-  const blocker = useAreaLeaveBlocker();
+  const blocker = useRouterBlocker();
   const open = useCallback((go: () => void) => setAsk({ kind: 'leave', go }), [setAsk]);
   useRegisterLeaveAsk(open);
   useEffect(() => {

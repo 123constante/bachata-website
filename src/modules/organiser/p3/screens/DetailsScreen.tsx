@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { PROFILE_WIZARD_PATH, profileLock, useProfileProgress } from '../../shared/profileProgress';
+import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import { eventLock } from '../../shared/eventState';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
@@ -9,23 +8,14 @@ import { uploadFlyer } from '../../shared/flyerUploadApi';
 import { MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
 import { L, kindWordStored } from '../model';
 import {
-  DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
+  DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
 } from '../data/details';
 import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { EditTray, GuardedBack, useBackToEvent, useEditForm, useSaveRun } from './EditTray';
+import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
 
-/** Why nothing here can change: an ended or archived event, or an unfinished organiser profile (the old screen's locks). */
-function useDetailsLock(ws: EventWorkspace): string | null {
-  const admin = useIsAdmin();
-  const progress = useProfileProgress(ws.organiserIds[0] ?? null);
-  const closed = eventLock(ws.series.lifecycle_status);
-  if (closed) return closed;
-  const profile = profileLock(admin.isPending ? undefined : progress.data, admin.isAdmin);
-  return profile.locked ? profile.reason : null;
-}
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
   return (
@@ -41,7 +31,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS);
   const save = useSaveRun(ws.series.id);
   const back = useBackToEvent(ws.series.id, form.dirty);
-  const lock = useDetailsLock(ws);
+  const lock = useEditLock(ws);
   const venues = useVenueOptions();
   const [picking, setPicking] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<DetailsField, boolean>>>({});
@@ -58,7 +48,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const off = !!lock || save.busy;
 
   const onSave = async () => {
-    const res = await save.run(plan, form.version, form.landed);
+    const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
     if (res.ok) { form.saved(res.version); back(L.detailsSaved); }
   };
 

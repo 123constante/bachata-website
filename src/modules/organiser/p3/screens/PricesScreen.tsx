@@ -1,6 +1,7 @@
 import { PAYMENT_LABEL, togglePayment } from '../../events/paymentModel';
 import { CURRENCIES, newPriceRow, type Currency, type PriceRow } from '../../events/seriesExtras';
 import { eventLock } from '../../shared/eventState';
+import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L } from '../model';
 import {
@@ -8,7 +9,7 @@ import {
 } from '../data/prices';
 import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { EditTray, GuardedBack, useBackToEvent, useEditForm, useSaveRun } from './EditTray';
+import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
 
 function PriceCard({ row, i, off, onChange, onRemove }: { row: PriceRow; i: number; off: boolean; onChange: (r: PriceRow) => void; onRemove: () => void }) {
@@ -40,11 +41,11 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws));
   const save = useSaveRun(ws.series.id);
   const back = useBackToEvent(ws.series.id, form.dirty);
-  const closed = eventLock(ws.series.lifecycle_status);
+  const lock = useEditLock(ws);
   const rowsLock = pricesLockOf(ws);
   const { draft, set } = form;
   const free = isFree(draft);
-  const off = !!closed || save.busy;
+  const off = !!lock || save.busy;
   const choices = payChoices(ws);
   const blocker = pricesBlocker(ws, form.base, draft);
   const plan = pricesPlan(ws, form.base, draft);
@@ -52,7 +53,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const setRow = (i: number, r: PriceRow) => set({ rows: draft.rows.map((x, j) => (j === i ? r : x)) });
 
   const onSave = async () => {
-    const res = await save.run(plan, form.version, form.landed);
+    const res = await save.run(plan, form.version, (v) => form.landed(v));
     if (res.ok) { form.saved(res.version); back(L.pricesSaved); }
   };
 
@@ -62,7 +63,12 @@ function Prices({ ws }: { ws: EventWorkspace }) {
       <p className="p3-row-s">{ws.series.name}</p>
       <h2 className="p3-name">{L.prices}</h2>
       <p className="p3-mut">{L.pricesIntro}</p>
-      {closed && <p className="p3-warn" data-testid="p3-prices-lock">{closed}</p>}
+      {lock && (
+        <div className="p3-warn" data-testid="p3-prices-lock">
+          <p className="p3-plain">{lock}</p>
+          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
+        </div>
+      )}
       {choices.length > 1 && (
         <div className="p3-card p3-tight">
           <label className="p3-check" data-testid="p3-free">
@@ -95,7 +101,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
             onClick={() => set({ methods: togglePayment(draft.methods, m) })} data-testid="p3-pay-chip">{PAYMENT_LABEL[m]}</button>
         ))}
       </div>
-      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={closed} busy={save.busy} error={save.error}
+      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
         onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); }} />
     </div>
   );

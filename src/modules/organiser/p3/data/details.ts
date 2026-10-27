@@ -2,7 +2,7 @@ import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { withNormalizedProtocol } from '@/lib/organiserProfileUpdate';
 import type { VenueOption } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
-import { linkProblem, publicUrlOk } from '../../shared/linkRules';
+import { linkProblem } from '../../shared/linkRules';
 import { groupChatCommand, upsertCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import { MAX_DESCRIPTION } from '../../events/EditorSheet';
 import { MUSIC_STYLES, MAX_VIDEOS, type EventWorkspace } from '../../events/eventModel';
@@ -61,14 +61,18 @@ export const toggleMusic = (picked: readonly string[], style: string): string[] 
 
 const sameList = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Music in one canonical order (the shared list's, then any other stored style), for comparing (PR #1082 r3 #8). */
+const musicInOrder = (picked: readonly string[]): string[] =>
+  [...MUSIC_STYLES.filter((m) => picked.includes(m)), ...picked.filter((m) => !MUSIC_STYLES.includes(m))];
+
 export const DETAILS_SPECS: ReadonlyArray<FieldSpec<DetailsDraft>> = [
   { key: 'name', line: (d) => `${L.detailsName}: ${d.name.trim() || L.notSet}` },
   { key: 'description', line: () => L.detailsAbout },
-  { key: 'music', line: (d) => `${L.music}: ${d.music.join(', ') || L.detailsNone}`, same: sameList },
+  { key: 'music', line: (d) => `${L.music}: ${d.music.join(', ') || L.detailsNone}`, same: (a, b) => sameList(musicInOrder(a as string[]), musicInOrder(b as string[])) },
   { key: 'venueId', line: () => L.detailsWhere },
   { key: 'ticket', line: () => L.ticket },
   { key: 'cover', line: () => L.detailsCover },
-  { key: 'instagram', line: () => L.instagram },
+  { key: 'instagram', line: () => L.instagram, same: (a, b) => instagramToSend(String(a)) === instagramToSend(String(b)) },
   { key: 'videos', line: (d) => `${L.detailsVideos}: ${videoList(d.videos).length}`, same: (a, b) => sameList(videoList(String(a)), videoList(String(b))) },
   { key: 'chat', line: () => L.detailsChat },
 ];
@@ -81,11 +85,8 @@ export function instagramToSend(typed: string): string {
   return /^https?:\/\//i.test(sent) ? sent : `https://www.instagram.com/${sent.replace(/^@/, '')}`;
 }
 
-/** The chat link rule (the dispatcher's owner arm): blank, or a public https:// link. */
-export const chatProblem = (typed: string): string | null => {
-  const v = typed.trim();
-  return !v || (publicUrlOk(v) && /^https:\/\//i.test(v)) ? null : L.detailsChatBad;
-};
+/** The chat link rule (the dispatcher's owner arm, shared/linkRules 'chat'): blank, or an https link with a dotted host. */
+export const chatProblem = (typed: string): string | null => (linkProblem('chat', typed) ? L.detailsChatBad : null);
 
 /**
  * What is wrong with each field, in plain words. Only a CHANGED field is held to its rule: a
@@ -143,6 +144,14 @@ export async function cityForVenue(venueId: string, venues: VenueOption[] | unde
  * An unchanged `name` is the one the screen opened with; the save goes against the version it
  * opened with too, so it can never overwrite someone else's rename (PR #1082 r1 #1).
  */
+/**
+ * The fields a landed step saved: the chat command saves the chat link, the upsert every other
+ * field. The screen folds them into its base, so after a half-landed save Undo and the next save
+ * keep what landed (PR #1082 r3 #2).
+ */
+export const detailsLandedKeys = (command: OwnerCommand): DetailsField[] =>
+  command.kind === 'series.set_group_chat' ? ['chat'] : DETAILS_SPECS.map((s) => s.key).filter((k) => k !== 'chat');
+
 export function detailsPlan(base: DetailsDraft, draft: DetailsDraft, cityId: string | null = null): OwnerCommand[] {
   const changed = new Set(changedKeys(DETAILS_SPECS, base, draft));
   if (!changed.size || detailsBlocker(base, draft)) return [];
