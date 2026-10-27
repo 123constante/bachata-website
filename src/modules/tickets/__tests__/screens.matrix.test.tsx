@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi.fn() } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: unknown }) => children }));
@@ -23,7 +23,7 @@ import { REASON_COPY, WAY_LABEL, type PublicTicketType } from '../ticketCheckout
 const NOW = new Date('2026-10-27T12:00:00Z');
 const PROD = 'https://www.bachatacalendar.co.uk';
 const mk = (id: string, p: Partial<PublicTicketType> = {}): PublicTicketType => ({
-  id, name: `Type ${id}`, pricePence: 1200, status: 'on_sale', remaining: 30, salesOpenAt: null, salesCloseAt: null, ...p,
+  id, occurrenceId: null, name: `Type ${id}`, pricePence: 1200, status: 'on_sale', remaining: 30, salesOpenAt: null, salesCloseAt: null, ...p,
 });
 
 function renderBlock(types: PublicTicketType[], opts: { origin?: string; path?: string; organiserId?: string | null } = {}) {
@@ -33,7 +33,7 @@ function renderBlock(types: PublicTicketType[], opts: { origin?: string; path?: 
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[opts.path ?? '/event/e1']}>
         <Routes>
-          <Route path="/event/:id" element={<TicketsBlock seriesId="e1" organiserId={'organiserId' in opts ? opts.organiserId ?? null : 'org1'} now={NOW} origin={opts.origin ?? PROD} />} />
+          <Route path="/event/:id" element={<TicketsBlock seriesId="e1" occurrenceId="n1" organiserId={'organiserId' in opts ? opts.organiserId ?? null : 'org1'} now={NOW} origin={opts.origin ?? PROD} />} />
           <Route path="/tickets/thanks" element={<TicketThanksPage />} />
         </Routes>
       </MemoryRouter>
@@ -74,13 +74,13 @@ describe('row states x free/paid', () => {
       renderBlock([mk('a', { ...patch, pricePence: price })]);
       const row = await screen.findByRole('button', { name: /Type a/ });
       expect(row.textContent).toMatch(re);
-      expect(row.textContent).toMatch(price ? /£12\.50/ : /Free/);
+      expect(row.textContent).toMatch(price ? /\u00a312\.50/ : /Free/);
       expect((row as HTMLButtonElement).disabled).toBe(!pickable);
       if (pickable) {
         // The only buyable type is picked for the buyer.
         expect(await screen.findByRole('button', { name: price ? 'Buy tickets' : 'Get free ticket' })).toBeTruthy();
         const totals = screen.getByTestId('ticket-totals').textContent ?? '';
-        if (price) expect(totals).toMatch(/\+ 50p booking fee per ticket.*£0\.50.*Total.*£13/);
+        if (price) expect(totals).toMatch(/\+ 50p booking fee per ticket.*\u00a30\.50.*Total.*\u00a313/);
         else expect(totals).not.toMatch(/booking fee/);
       } else {
         expect(screen.getByText(/No tickets can be bought right now/)).toBeTruthy();
@@ -88,6 +88,35 @@ describe('row states x free/paid', () => {
       }
     });
   }
+});
+
+describe('a pick that sells out after a refusal', () => {
+  it('drops the pick and keeps the alert and a way forward', async () => {
+    api.postTicketCheckout.mockResolvedValue({ kind: 'error', reason: 'sold_out', message: null });
+    renderBlock([mk('a'), mk('b')]);
+    fireEvent.click(await screen.findByRole('button', { name: /Type a/ }));
+    await fillAndBuy();
+    api.fetchPublicTicketTypes.mockResolvedValue([mk('a', { status: 'sold_out', remaining: 0 }), mk('b')]);
+    fireEvent.click(screen.getByRole('button', { name: 'Buy tickets' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Type a/ }).textContent).toMatch(/Sold out/));
+    // b is now the only buyable type, so it is picked; the alert still says what happened.
+    expect(screen.getByRole('alert').textContent).toMatch(/Not enough of this ticket left/);
+    expect(screen.getByRole('button', { name: /Type b/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('per-night types', () => {
+  it('a type for another night is not shown', async () => {
+    renderBlock([mk('a'), mk('b', { occurrenceId: 'n1' }), mk('c', { occurrenceId: 'n2' })]);
+    await screen.findByRole('button', { name: /Type a/ });
+    expect(screen.getByRole('button', { name: /Type b/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Type c/ })).toBeNull();
+  });
+  it('only other-night types = no block', async () => {
+    const { container } = renderBlock([mk('c', { occurrenceId: 'n2' })]);
+    await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalled());
+    expect(container.querySelector('[data-testid="tickets-block"]')).toBeNull();
+  });
 });
 
 describe('stepper caps at 20 and at remaining', () => {
@@ -98,7 +127,7 @@ describe('stepper caps at 20 and at remaining', () => {
     expect(screen.getByTestId('ticket-qty').textContent).toBe(String(max));
     expect((plus as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(note)).toBeTruthy();
-    expect(screen.getByTestId('ticket-totals').textContent).toContain(`£${(1200 * max + 50 * max) / 100}`);
+    expect(screen.getByTestId('ticket-totals').textContent).toContain(`\u00a3${(1200 * max + 50 * max) / 100}`);
   });
 });
 
@@ -171,6 +200,9 @@ describe('server replies', () => {
           const link = within(alert).queryByRole('link', { name: WAY_LABEL.contact_organiser });
           if (organiserId) expect(link?.getAttribute('href')).toBe('/organisers/org1');
           else expect(link).toBeNull();
+          // Trying again cannot work: Buy stays disabled with the reason.
+          expect((screen.getByRole('button', { name: 'Buy tickets' }) as HTMLButtonElement).disabled).toBe(true);
+          expect(screen.getByText(/not available for this event right now/)).toBeTruthy();
         } else {
           fireEvent.click(within(alert).getByRole('button', { name: WAY_LABEL[copy.way] }));
           expect(screen.queryByRole('alert')).toBeNull();
@@ -181,10 +213,29 @@ describe('server replies', () => {
 });
 
 describe('cancel state and thank-you page', () => {
-  it('cancelled return says nobody was charged, form ready', async () => {
-    renderBlock([mk('a')], { path: '/event/e1?tickets=cancelled' });
+  it('cancelled return says nobody was charged, form ready, and drops the param from the URL', async () => {
+    let loc = '';
+    const Spy = () => { loc = `${useLocation().pathname}${useLocation().search}`; return null; };
+    api.fetchPublicTicketTypes.mockResolvedValue([mk('a')]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/event/e1?occurrenceId=n1&tickets=cancelled']}>
+          <Routes><Route path="/event/:id" element={<><TicketsBlock seriesId="e1" occurrenceId="n1" organiserId="o" now={NOW} origin={PROD} /><Spy /></>} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
     expect(await screen.findByText(/Checkout cancelled. You have not been charged/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Buy tickets' })).toBeTruthy();
+    await waitFor(() => expect(loc).toBe('/event/e1?occurrenceId=n1'));
+  });
+  it('a sold_out refusal re-reads the list', async () => {
+    api.postTicketCheckout.mockResolvedValue({ kind: 'error', reason: 'sold_out', message: null });
+    renderBlock([mk('a')]);
+    await screen.findByRole('button', { name: 'Buy tickets' });
+    await fillAndBuy();
+    fireEvent.click(screen.getByRole('button', { name: 'Buy tickets' }));
+    await screen.findByRole('alert');
+    await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledTimes(2));
   });
   it.each([
     ['/tickets/thanks?o=abcdef12-0000', /Payment received, your tickets are being emailed/, /abcdef12/],
@@ -201,6 +252,9 @@ describe('cancel state and thank-you page', () => {
   it('falls back to the stored order id after the Stripe redirect', () => {
     window.sessionStorage.setItem('bc.ticketOrderId', '99887766-aaaa');
     render(<MemoryRouter initialEntries={['/tickets/thanks']}><TicketThanksPage /></MemoryRouter>);
+    expect(screen.getByText(/99887766/)).toBeTruthy();
+    // Moved into the URL (a refresh keeps it), then forgotten.
+    expect(window.sessionStorage.getItem('bc.ticketOrderId')).toBeNull();
     expect(screen.getByText(/99887766/)).toBeTruthy();
   });
 });

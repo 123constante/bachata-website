@@ -6,6 +6,8 @@ import {
   availability,
   buildCheckoutBody,
   buyLabel,
+  cancelReturnPath,
+  typesForNight,
   clampQuantity,
   disabledReason,
   formatPence,
@@ -26,7 +28,7 @@ const PROD = 'https://www.bachatacalendar.co.uk';
 
 type Window = 'open' | 'not_yet' | 'closed';
 const mk = (p: Partial<PublicTicketType> = {}): PublicTicketType => ({
-  id: '11111111-1111-1111-1111-111111111111', name: 'Early bird', pricePence: 1200, status: 'on_sale',
+  id: '11111111-1111-1111-1111-111111111111', occurrenceId: null, name: 'Early bird', pricePence: 1200, status: 'on_sale',
   remaining: 50, salesOpenAt: null, salesCloseAt: null, ...p,
 });
 const win = (w: Window) =>
@@ -88,7 +90,7 @@ describe('Buy disabled reasons (each says why)', () => {
 });
 
 describe('money (GBP only, Q10)', () => {
-  it.each([[0, 'Free'], [50, '£0.50'], [1200, '£12'], [1250, '£12.50']])('%s -> %s', (p, s) => expect(formatPence(p)).toBe(s));
+  it.each([[0, 'Free'], [50, '\u00a30.50'], [1200, '\u00a312'], [1250, '\u00a312.50']])('%s -> %s', (p, s) => expect(formatPence(p)).toBe(s));
   it('drops non-GBP rows and unknown statuses', () => {
     const rows = parsePublicTypes([
       { id: 'a', name: 'A', price_pence: 100, currency: 'gbp', status: 'on_sale', remaining: 3 },
@@ -101,9 +103,26 @@ describe('money (GBP only, Q10)', () => {
   });
 });
 
+describe('night and cancel return', () => {
+  it('shows series-wide types plus this night only', () => {
+    const list = [mk({ id: 'a' }), mk({ id: 'b', occurrenceId: 'n1' }), mk({ id: 'c', occurrenceId: 'n2' })];
+    expect(typesForNight(list, 'n1').map((t) => t.id)).toEqual(['a', 'b']);
+    expect(typesForNight(list, null).map((t) => t.id)).toEqual(['a']);
+  });
+  it('keeps ?occurrenceId on the cancel return', () => {
+    expect(cancelReturnPath('/event/abc', '?occurrenceId=X')).toBe('/event/abc?occurrenceId=X&tickets=cancelled');
+    expect(cancelReturnPath('/event/abc', '?tickets=cancelled')).toBe('/event/abc?tickets=cancelled');
+    expect(cancelReturnPath('/event/abc', '')).toBe('/event/abc?tickets=cancelled');
+  });
+  it('a 401 without a reason reads as an expired sign-in, not a retry loop of internal_error', () => {
+    expect(parseCheckoutReply({ code: 401, msg: 'Invalid JWT' }, 401)).toEqual({ kind: 'error', reason: 'unauthorised', message: null });
+    expect(reasonCopy('unauthorised').text).toMatch(/Refresh the page/);
+  });
+});
+
 describe('checkout body', () => {
   it('sends https site URLs, trims, omits a blank name', () => {
-    const b = buildCheckoutBody({ typeId: 't', quantity: 3, email: ' a@b.co ', name: '  ' }, PROD, '/event/abc');
+    const b = buildCheckoutBody({ typeId: 't', quantity: 3, email: ' a@b.co ', name: '  ' }, PROD, '/event/abc?tickets=cancelled');
     expect(b).toEqual({
       ticket_type_id: 't', quantity: 3, buyer_email: 'a@b.co',
       success_url: `${PROD}/tickets/thanks`, cancel_url: `${PROD}/event/abc?tickets=cancelled`,
@@ -152,6 +171,6 @@ describe('legal copy (DRAFT, owner approves)', () => {
     expect(LEGAL_COPY_STATUS).toBe('DRAFT');
     const all = `${TERMS_OF_SALE.join(' ')} ${PRIVACY_PARAGRAPH}`;
     for (const re of [/Stripe/, /50p/, /fee is ours/, /full refund, the booking fee is refunded/, /name/, /email/, /order/]) expect(all).toMatch(re);
-    expect(all).not.toMatch(/[–—‘’“”…]/);
+    expect(all).not.toMatch(/[\u2013\u2014\u2018\u2019\u201c\u201d\u2026]/);
   });
 });

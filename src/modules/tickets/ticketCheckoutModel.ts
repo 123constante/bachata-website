@@ -21,6 +21,8 @@ export type PublicTypeStatus = 'on_sale' | 'sold_out';
 
 export interface PublicTicketType {
   id: string;
+  /** Null = series-wide; otherwise the one night (occurrence) it admits to. */
+  occurrenceId: string | null;
   name: string;
   pricePence: number;
   status: PublicTypeStatus;
@@ -43,6 +45,7 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
     if (!id || !status || currency !== 'GBP') continue;
     out.push({
       id,
+      occurrenceId: str(r.occurrence_id),
       name: str(r.name) ?? 'Ticket',
       pricePence: int(r.price_pence),
       status,
@@ -56,7 +59,7 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
 
 export function formatPence(pence: number): string {
   if (pence === 0) return 'Free';
-  return pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`;
+  return pence % 100 === 0 ? `\u00a3${pence / 100}` : `\u00a3${(pence / 100).toFixed(2)}`;
 }
 
 export type Availability =
@@ -83,6 +86,11 @@ export function availability(t: PublicTicketType, now: Date): Availability {
   }
   if (t.salesCloseAt && new Date(t.salesCloseAt) <= now) return { kind: 'closed', label: 'Sales closed' };
   return { kind: 'buyable', label: t.remaining <= 20 ? `${t.remaining} left` : 'On sale' };
+}
+
+/** Types for the night on screen: series-wide ones plus those for this occurrence. */
+export function typesForNight(types: PublicTicketType[], occurrenceId: string | null): PublicTicketType[] {
+  return types.filter((t) => t.occurrenceId === null || t.occurrenceId === occurrenceId);
 }
 
 /** The stepper's ceiling: 20 per order and never more than remain. 0 = cannot buy. */
@@ -133,7 +141,7 @@ export function disabledReason(f: FormState, now: Date): string | null {
   if (!isEmail(f.email)) return 'That email does not look right.';
   if (!f.termsAccepted) return 'Tick the box to accept the terms of sale.';
   if (!checkoutOriginOk(f.origin)) return 'Checkout only works on bachatacalendar.co.uk, not on this preview.';
-  if (f.submitting) return 'Working on it…';
+  if (f.submitting) return 'Working on it\u2026';
   return null;
 }
 
@@ -148,10 +156,17 @@ export interface CheckoutBody {
   cancel_url: string;
 }
 
+/** The event page to come back to on cancel: same path and night (?occurrenceId), plus tickets=cancelled. */
+export function cancelReturnPath(pathname: string, search: string): string {
+  const q = new URLSearchParams(search);
+  q.set(CANCELLED_PARAM, 'cancelled');
+  return `${pathname}?${q.toString()}`;
+}
+
 export function buildCheckoutBody(
   f: { typeId: string; quantity: number; email: string; name: string },
   origin: string,
-  eventPath: string,
+  cancelPath: string,
 ): CheckoutBody {
   const name = f.name.trim();
   return {
@@ -160,7 +175,7 @@ export function buildCheckoutBody(
     buyer_email: f.email.trim(),
     ...(name ? { buyer_name: name.slice(0, 200) } : {}),
     success_url: `${origin}${THANKS_PATH}`,
-    cancel_url: `${origin}${eventPath}?${CANCELLED_PARAM}=cancelled`,
+    cancel_url: `${origin}${cancelPath}`,
   };
 }
 
@@ -175,7 +190,9 @@ export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutR
   if (b.ok === true && orderId && b.free === true) return { kind: 'free', orderId };
   const url = str(b.checkout_url);
   if (b.ok === true && orderId && url && /^https:\/\//.test(url)) return { kind: 'redirect', orderId, url };
-  const reason = str(b.reason) ?? (httpStatus === 404 || httpStatus === 503 ? 'not_configured' : 'internal_error');
+  const reason =
+    str(b.reason) ??
+    (httpStatus === 404 || httpStatus === 503 ? 'not_configured' : httpStatus === 401 ? 'unauthorised' : 'internal_error');
   return { kind: 'error', reason, message: str(b.message) };
 }
 
@@ -198,6 +215,7 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   stripe_error: { text: 'The payment page could not be opened. You have not been charged. Try again.', way: 'retry' },
   internal_error: { text: 'Something went wrong on our side. You have not been charged. Try again.', way: 'retry' },
   not_configured: { text: 'Online tickets are not switched on yet. Contact the organiser for tickets.', way: 'contact_organiser' },
+  unauthorised: { text: 'The ticket service did not accept this request. Refresh the page and try again; if it keeps happening, contact the organiser.', way: 'retry' },
   network: { text: 'Could not reach the ticket service. Check your connection and try again.', way: 'retry' },
 };
 

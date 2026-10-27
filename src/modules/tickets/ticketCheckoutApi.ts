@@ -38,13 +38,19 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
   } catch {
     /* signed out or storage blocked: the publishable key is the documented fallback */
   }
-  let resp: Response;
-  try {
-    resp = await fetch(`${url}/functions/v1/ticket-checkout`, {
+  const send = (bearer: string) =>
+    fetch(`${url}/functions/v1/ticket-checkout`, {
       method: 'POST',
-      headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: { apikey: key, Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+  let resp: Response;
+  try {
+    resp = await send(token);
+    // A stale session token is refused by the verify_jwt gateway (401, no reason) BEFORE
+    // the function runs, so no order exists yet: buying needs no sign-in, so retry once
+    // as a guest with the publishable key. The function itself never answers 401.
+    if (resp.status === 401 && token !== key) resp = await send(key);
   } catch {
     return { kind: 'error', reason: 'network', message: null };
   }

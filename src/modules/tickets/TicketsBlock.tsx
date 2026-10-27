@@ -1,23 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
 import {
   CANCELLED_PARAM,
-  ORDER_STORAGE_KEY,
   THANKS_PATH,
   WAY_LABEL,
   availability,
   buildCheckoutBody,
   buyLabel,
+  cancelReturnPath,
   clampQuantity,
   disabledReason,
   formatPence,
   maxQuantity,
   reasonCopy,
   totals,
+  typesForNight,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { saveOrderId } from './orderStorage';
 import { PRIVACY_PARAGRAPH, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
 
 /**
@@ -26,7 +28,12 @@ import { PRIVACY_PARAGRAPH, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalC
  * renders nothing until the series has a type on sale or sold out.
  */
 export interface TicketsBlockProps {
+  /** The page's PUBLIC event id. ticket_types_public_v1 is keyed on event_series_p5.id, so
+   *  where the two differ it answers no rows and the block stays hidden until the DB side
+   *  accepts the public id (docs/ticketing-buyer-journey.md, "DB note"). */
   seriesId: string;
+  /** The night on screen; per-occurrence types show only on their own night. */
+  occurrenceId: string | null;
   organiserId: string | null;
   /** Injected for tests; defaults to the real clock / window origin. */
   now?: Date;
@@ -41,15 +48,8 @@ const card = {
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
 const accentBg = { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' } as const;
 
-function saveOrderId(id: string) {
-  try {
-    window.sessionStorage.setItem(ORDER_STORAGE_KEY, id);
-  } catch {
-    /* storage blocked: the thank-you page still shows the paid copy without an order id */
-  }
-}
-
-export function TicketsBlock({ seriesId, organiserId, now: nowProp, origin: originProp }: TicketsBlockProps) {
+export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp, origin: originProp }: TicketsBlockProps) {
+  const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   const { data: types } = useQuery({
@@ -59,7 +59,9 @@ export function TicketsBlock({ seriesId, organiserId, now: nowProp, origin: orig
   });
   const now = nowProp ?? new Date();
   const origin = originProp ?? (typeof window !== 'undefined' ? window.location.origin : '');
-  const cancelled = new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled';
+  // Read ?tickets=cancelled once, then drop it from the URL so a reload or a later
+  // cancel_url never carries a stale cancel forward.
+  const [cancelled] = useState(() => new URLSearchParams(location.search).get(CANCELLED_PARAM) === 'cancelled');
 
   const [typeId, setTypeId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -70,30 +72,50 @@ export function TicketsBlock({ seriesId, organiserId, now: nowProp, origin: orig
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{ reason: string; message: string | null } | null>(null);
 
-  const list = types ?? [];
+  const list = typesForNight(types ?? [], occurrenceId);
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
   // One buyable type is picked for the buyer; otherwise they choose.
-  const selected: PublicTicketType | null =
-    list.find((t) => t.id === typeId) ?? (buyable.length === 1 ? buyable[0] : null);
+  // A pick that has since sold out or closed (the list re-reads after a refusal) is no pick.
+  const picked = buyable.find((t) => t.id === typeId) ?? null;
+  const selected: PublicTicketType | null = picked ?? (buyable.length === 1 ? buyable[0] : null);
   const max = selected ? maxQuantity(selected, now) : 0;
+  // The stepper only ever moves from qty, so the stored count never needs syncing.
   const qty = clampQuantity(quantity, max);
 
+  // Back from Stripe can restore this page from the bfcache with submitting still true.
   useEffect(() => {
-    if (quantity !== qty && qty > 0) setQuantity(qty);
-  }, [quantity, qty]);
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setSubmitting(false);
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
+  }, []);
+
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    if (!q.has(CANCELLED_PARAM)) return;
+    q.delete(CANCELLED_PARAM);
+    const rest = q.toString();
+    navigate(`${location.pathname}${rest ? `?${rest}` : ''}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   if (list.length === 0) return null;
 
-  const reason = disabledReason({ type: selected, quantity: qty, email, termsAccepted, origin, submitting }, now);
-  const sum = selected ? totals(selected, qty) : null;
   const err = error ? reasonCopy(error.reason, error.message) : null;
+
+  // An organiser-side refusal cannot be fixed by trying again: Buy stays off with the reason.
+  const reason =
+    err?.way === 'contact_organiser'
+      ? 'Online tickets are not available for this event right now.'
+      : disabledReason({ type: selected, quantity: qty, email, termsAccepted, origin, submitting }, now);
+  const sum = selected ? totals(selected, qty) : null;
 
   async function onBuy() {
     if (!selected || reason) return;
     setSubmitting(true);
     setError(null);
     const result = await postTicketCheckout(
-      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name }, origin, location.pathname),
+      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name }, origin, cancelReturnPath(location.pathname, location.search)),
     );
     if (result.kind === 'redirect') {
       saveOrderId(result.orderId);
@@ -107,6 +129,10 @@ export function TicketsBlock({ seriesId, organiserId, now: nowProp, origin: orig
       return;
     }
     setError({ reason: result.reason, message: result.message });
+    // A refusal about stock or status means the list on screen is stale: re-read it.
+    if (reasonCopy(result.reason).way === 'pick_another') {
+      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId) });
+    }
   }
 
   function onWayForward() {
@@ -163,6 +189,23 @@ export function TicketsBlock({ seriesId, organiserId, now: nowProp, origin: orig
         <p className="mt-2 text-[13px]" style={muted}>
           No tickets can be bought right now. Check back later or contact the organiser.
         </p>
+      )}
+
+      {err && (
+        <div className="mt-2 rounded-md px-3 py-2 text-[13px]" style={{ background: 'hsl(var(--bento-surface))' }} role="alert">
+          <p>{err.text}</p>
+          {err.way === 'contact_organiser' ? (
+            organiserId ? (
+              <Link to={`/organisers/${organiserId}`} className="mt-1 inline-flex min-h-[44px] items-center underline">
+                {WAY_LABEL.contact_organiser}
+              </Link>
+            ) : null
+          ) : (
+            <button type="button" onClick={onWayForward} className="mt-1 min-h-[44px] underline">
+              {WAY_LABEL[err.way]}
+            </button>
+          )}
+        </div>
       )}
 
       {selected && max > 0 && sum && (
@@ -267,23 +310,6 @@ export function TicketsBlock({ seriesId, organiserId, now: nowProp, origin: orig
               </div>
             )}
           </div>
-
-          {err && (
-            <div className="rounded-md px-3 py-2 text-[13px]" style={{ background: 'hsl(var(--bento-surface))' }} role="alert">
-              <p>{err.text}</p>
-              {err.way === 'contact_organiser' ? (
-                organiserId ? (
-                  <Link to={`/organisers/${organiserId}`} className="mt-1 inline-flex min-h-[44px] items-center underline">
-                    {WAY_LABEL.contact_organiser}
-                  </Link>
-                ) : null
-              ) : (
-                <button type="button" onClick={onWayForward} className="mt-1 min-h-[44px] underline">
-                  {WAY_LABEL[err.way]}
-                </button>
-              )}
-            </div>
-          )}
 
           <div>
             <button

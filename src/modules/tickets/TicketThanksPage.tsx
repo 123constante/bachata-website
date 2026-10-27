@@ -1,26 +1,33 @@
-import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
-import { ORDER_STORAGE_KEY, thanksCopy } from './ticketCheckoutModel';
+import { thanksCopy } from './ticketCheckoutModel';
+import { clearOrderId, readOrderId } from './orderStorage';
 
 /**
  * /tickets/thanks (S4). Stripe returns here after payment; free orders come here
  * directly. Tickets are issued by the payment webhook, never by this redirect, so the
  * page only ever says they are being emailed.
  */
-function storedOrderId(): string | null {
-  try {
-    return window.sessionStorage.getItem(ORDER_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
 
 export default function TicketThanksPage() {
   const [params] = useSearchParams();
   useSeo({ title: 'Your tickets', description: 'Your Bachata Calendar ticket order.', noindex: true });
-  const orderId = params.get('o') ?? storedOrderId();
+  const navigate = useNavigate();
+  const [stored] = useState(() => (typeof window === 'undefined' ? null : readOrderId()));
+  const orderId = params.get('o') ?? stored;
+  // Move the stored id into the URL (a refresh keeps the reference), then forget it so a
+  // later visit never shows an old, abandoned order.
+  useEffect(() => {
+    if (!params.get('o') && stored) {
+      const q = new URLSearchParams(params);
+      q.set('o', stored);
+      navigate(`?${q.toString()}`, { replace: true });
+    }
+    clearOrderId();
+  }, [params, stored, navigate]);
   const free = params.get('free') === '1';
   const copy = thanksCopy(free, Boolean(orderId));
   return (

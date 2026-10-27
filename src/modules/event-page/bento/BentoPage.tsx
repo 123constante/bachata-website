@@ -759,7 +759,11 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             bar's ticket link. Renders nothing until the series has a type on sale. */}
         {flags.publicTicketing && state === 'ready' && eventId && !over && !occurrence?.isCancelled && !pageModel.page.isPaused && (
           <Suspense fallback={null}>
-            <TicketsBlock seriesId={eventId} organiserId={snapshot?.organisers[0]?.id ?? null} />
+            <TicketsBlock
+              seriesId={eventId}
+              occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
+              organiserId={snapshot?.organisers[0]?.id ?? null}
+            />
           </Suspense>
         )}
 
