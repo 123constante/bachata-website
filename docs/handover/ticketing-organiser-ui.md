@@ -121,3 +121,25 @@ Not verified:
 ## S3 (first build) history
 S3 built the four plain screens, the wire and the model (commits aab1501..135b5fb); its review round 1
 (10 findings) was fixed in 82d8355. Details of that round live in git history.
+
+## Review round 2 fixes (N1 + N2, brief `docs/briefs/1060-n1.md`)
+Source: `docs/review/ticketing-organiser-ui-1060-r2.md` (branch `claude/review-1060-r2`).
+
+Done:
+- N1, one count format on every screen. `countsLine` (the One event row), the capacity error in
+  `validateForm` and `reviewRows` Places all go through `formatCount`. Dead `soldLine` / `takenLine`
+  removed. `screens.matrix.test.tsx` row expectation now builds from `formatCount`.
+- Red first: new test "One event + edit sheet: the same counts carry the same separators" (3,000 places,
+  2,022 sold) failed on 5dd9e40: expected "&pound;10.00 &middot; 2022 sold &middot; 978 left" to contain "2,022 sold &middot; 978 left".
+- N2 tests: "Save changes from step 1 with a step-2 error jumps to step 2" and "a double tap on the
+  payments link starts Stripe onboarding once".
+- Mutation (each reverted alone, then restored; ticketing suite, 1,161 tests): countsLine raw, capacity
+  error raw, review Places raw each turn the separators test red (1 red each); removing the jump line in
+  `TypeSheet.submit` (M7) reds the step-2 test; removing `disabled={busy}` on the payments link (M8) reds
+  the double-tap test.
+- No copy, layout or other behaviour changed. Edge functions untouched.
+
+Left / next:
+- Code review of this round (fixes to findings are unreviewed code).
+- The review's third N2 bullet (payments link above "No live events yet") still has no test either way;
+  the brief did not ask for one.
