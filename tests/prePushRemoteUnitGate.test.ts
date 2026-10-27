@@ -46,6 +46,8 @@ function git(cwd: string, ...args: string[]): string {
 type Row = {
   name: string;
   helper: number | 'absent';
+  /** exit codes by call number (the last repeats); overrides `helper` for the stub */
+  helperSeq?: number[];
   remoteTest?: string;
   refs: 1 | 2;
   local: 'green' | 'red' | null;
@@ -60,6 +62,9 @@ const ROWS: Row[] = [
   { name: 'helper red -> refused', helper: 1, refs: 1, local: null, expectExit: 1, expectHelper: true, expectLocal: false, expectLine: /unit gate on the side laptop/ },
   { name: 'helper 3 + local green -> local ran, allowed', helper: 3, refs: 1, local: 'green', expectExit: 0, expectHelper: true, expectLocal: true, expectLine: /unit gate here \(laptop off\/unreachable\)/ },
   { name: 'helper 3 + local red -> local ran, refused', helper: 3, refs: 1, local: 'red', expectExit: 1, expectHelper: true, expectLocal: true, expectLine: /unit gate here \(laptop off\/unreachable\)/ },
+  { name: 'helper 3 then 0 -> retried, allowed, local not run', helper: 3, helperSeq: [3, 0], refs: 1, local: null, expectExit: 0, expectHelper: true, expectLocal: false, expectLine: /unit gate on the side laptop/ },
+  { name: 'helper 3, 3, 0 -> third try passes, local not run', helper: 3, helperSeq: [3, 3, 0], refs: 1, local: null, expectExit: 0, expectHelper: true, expectLocal: false, expectLine: /unit gate on the side laptop/ },
+  { name: 'helper 3 then 1 -> retried, refused on the real failure', helper: 3, helperSeq: [3, 1], refs: 1, local: null, expectExit: 1, expectHelper: true, expectLocal: false, expectLine: /unit gate on the side laptop/ },
   { name: 'helper absent -> local ran, allowed', helper: 'absent', refs: 1, local: 'green', expectExit: 0, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(helper not installed\)/ },
   { name: 'REMOTE_TEST=off -> helper not called, local ran', helper: 0, remoteTest: 'off', refs: 1, local: 'green', expectExit: 0, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(REMOTE_TEST=off\)/ },
   { name: 'two different shas -> helper not called, local ran', helper: 0, refs: 2, local: 'green', expectExit: 0, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(several refs\)/ },
@@ -92,7 +97,11 @@ function runRow(row: Row) {
       join(home, '.claude', 'bin', 'remote-test.mjs'),
       `import { writeFileSync } from 'node:fs';\n` +
         `writeFileSync(${JSON.stringify(helperLog)}, JSON.stringify(process.argv.slice(2)));\n` +
-        `process.exit(${row.helper});\n`,
+        `import { readFileSync } from 'node:fs';\n` +
+        `const seq = ${JSON.stringify(row.helperSeq ?? [row.helper])};\n` +
+        `let n = 0; try { n = Number(readFileSync(${JSON.stringify(helperLog + '.n')}, 'utf8')); } catch {}\n` +
+        `writeFileSync(${JSON.stringify(helperLog + '.n')}, String(n + 1));\n` +
+        `process.exit(seq[Math.min(n, seq.length - 1)]);\n`,
     );
   }
   const npmShim = join(shims, 'npm');
@@ -112,6 +121,7 @@ function runRow(row: Row) {
     SHIP_GATE_ALLOW_UNSCOPED_REF: row.refs === 2 ? '1' : '',
   };
   delete env.REMOTE_TEST;
+  env.PREPUSH_RETRY_SLEEP = '0';
   if (row.remoteTest !== undefined) env.REMOTE_TEST = row.remoteTest;
 
   const result = runProcess('sh', [HOOK, 'origin', 'https://example.invalid/r.git'], {
@@ -122,6 +132,7 @@ function runRow(row: Row) {
   return {
     result,
     head,
+    helperCalls: existsSync(helperLog + '.n') ? Number(readFileSync(helperLog + '.n', 'utf8')) : 0,
     helperArgv: existsSync(helperLog) ? (JSON.parse(readFileSync(helperLog, 'utf8')) as string[]) : null,
     localRan: existsSync(localLog) ? readFileSync(localLog, 'utf8') : null,
   };
@@ -130,10 +141,13 @@ function runRow(row: Row) {
 describe('pre-push step 1: unit gate on the side laptop', () => {
   for (const row of ROWS) {
     it(row.name, () => {
-      const { result, head, helperArgv, localRan } = runRow(row);
+      const { result, head, helperArgv, helperCalls, localRan } = runRow(row);
       const out = result.stdout + result.stderr;
       expect(result.status, out).toBe(row.expectExit);
       expect(out).toMatch(row.expectLine);
+      // a helper that keeps answering 3 is asked 3 times before the local run; a sequence stops at its first non-3
+      if (row.helperSeq) expect(helperCalls).toBe(Math.min(row.helperSeq.findIndex((c) => c !== 3) + 1, 3));
+      else if (row.helper === 3) expect(helperCalls).toBe(3);
       if (row.expectHelper) {
         expect(helperArgv).toEqual(['website', head, '--', ...UNIT_CMD]);
       } else {
