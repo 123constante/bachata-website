@@ -157,6 +157,14 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
+  // ER AD4, series.cancel_one_off (_cmd_series_cancel_one_off_p5 and the dispatcher's payload rule, read on prod
+  // 2026-10-26). Anchored and before every loose rule: the reason refusal lists every label, and the token sits
+  // between the first and second colon.
+  { match: /^invalid_transition: cancel_one_off_started:/, message: 'It has already started, so it can\u2019t be cancelled. If it didn\u2019t happen, use End it tomorrow.' },
+  { match: /^invalid_transition: cancel_one_off_past:/, message: 'Its date has passed, so it can\u2019t be cancelled. Use End it instead.' },
+  { match: /^invalid_transition: cancel_one_off_not_live:/, message: 'Only an event that is showing can be cancelled. Show it again first, then cancel it.' },
+  { match: /^invalid_transition: cancel_one_off_(not_one_off|festival|dates):/, message: 'This event can\u2019t be cancelled this way. Reload the page to see it as it is now.' },
+  { match: /^invalid_payload: cancel_one_off_reason:|^permission_denied: series\.cancel_one_off (needs a reason that is a cancellation_reasons label|needs a JSON object|payload keys)/, message: 'That reason is no longer on the list. Reload the page, then pick a reason again.' },
   // Admin waves A1-A3 (er-p4-a1/a2/a3 handovers): stable codes after "permission_denied: ". Anchored and
   // before every loose rule below, because their detail text names keys those rules match on.
   { match: /^permission_denied: city_follows_venue/, message: 'The city comes from the venue, so it cannot be set on its own. Choose the venue and its city is filled in for you.' },

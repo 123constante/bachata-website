@@ -59,6 +59,8 @@ export const L = {
   show: 'Show it again',
   remove: 'Remove this event',
   cancelEvent: 'Cancel the event',
+  cancelEventWhy: 'It hasn\u2019t happened yet. Dancers see it as cancelled, with your reason.',
+  bringItBack: 'Bring it back',
   sheetHint: 'Only the moves that work right now. Greyed ones say why.',
 
   // the event page (C3 event page, W2a)

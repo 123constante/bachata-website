@@ -1,10 +1,10 @@
 import { fullDate } from '../../shared/dateWords';
-import { lifecycleCommand, type OwnerCommand } from '../../shared/seriesCommands';
+import { cancelOneOffCommand, lifecycleCommand, uncancelCommand, type DateStep, type OwnerCommand } from '../../shared/seriesCommands';
 import { endRunCommand, readIsFull, stopRepeatingCommand, type EventWorkspace, type TodaySession } from '../../events/eventModel';
 import { parseTree } from '../../events/programmeSeriesModel';
 import { NO_SESSION_REASON } from '../../events/lifecycleModel';
-import { L, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
-import type { DaySession, IsoDate, P3Date, P3Event, P3Kind, P3Person, P3Session, P3Status, RoleKey, SessionKind } from '../model';
+import { L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
+import type { CancelInput, DaySession, IsoDate, P3Date, P3Event, P3Kind, P3Person, P3Session, P3Status, RoleKey, SessionKind } from '../model';
 
 /**
  * admin_event_workspace_p5 (the R1 read, parseEventWorkspace) -> the P3 event page
@@ -204,9 +204,11 @@ export const STATUS_COPY = {
   noCover: 'Add a cover photo first. Dancers see it before anything else.',
   backDraftWhy: 'A live event can\u2019t go back to draft. Hide it instead: dancers stop seeing it and every date is kept.',
   neverRan: 'It hasn\u2019t run yet, so it can\u2019t end. Hide it or remove it instead.',
+  /** A one-off that can still be cancelled: End it points at the row that works (C3 `endit`). */
+  neverRanOneOff: 'It hasn\u2019t run yet, so it can\u2019t end. Cancel the event instead.',
   courseStop: 'A course keeps its dates while it runs. End it when the last class is done.',
   tooManyDates: 'This event has more dates coming up than this page can list, so the dates to keep can\u2019t be picked here. Ask the Bachata Calendar team.',
-  cancelWhy: 'To cancel it, cancel its date in the current organiser area, so dancers see why.',
+
   endedWhy: 'Finished events stay finished. Ask the Bachata Calendar team if it should run again.',
   archivedWhy: 'This event was removed. Ask the Bachata Calendar team if it should come back.',
   reviewWhy: 'The Bachata Calendar team is checking it, so its status can\u2019t change here.',
@@ -222,7 +224,14 @@ export function hasRun(ws: EventWorkspace, today: IsoDate): boolean {
  * _cmd_series_end_run_p5, _cmd_series_stop_repeating_p5, read on prod 2026-10-26), each
  * greyed one with its reason. "Back to draft" from live is not an owner transition (CONTRACT 2).
  */
-export function statusRows(ws: EventWorkspace, today: IsoDate): StatusRow[] {
+/** The workspace as canCancelOneOff reads it (every date the read holds). */
+export const cancelInputOf = (ws: EventWorkspace): CancelInput => ({
+  kind: kindOfWorkspace(ws),
+  lifecycle: ws.series.lifecycle_status,
+  dates: ws.dates.map((d) => ({ date: d.occurrence_date, cancelled: d.lifecycle_status === 'cancelled', startUtc: d.materialised_start_utc })),
+});
+
+export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new Date()): StatusRow[] {
   const s = ws.series;
   const lc = s.lifecycle_status;
   const kind = kindOfWorkspace(ws);
@@ -244,13 +253,14 @@ export function statusRows(ws: EventWorkspace, today: IsoDate): StatusRow[] {
   out.push(lc === 'live' ? row('hide', L.hide, STATUS_COPY.hideSub) : row('show', L.show, STATUS_COPY.showSub));
   if (lc === 'live') out.push(row('draft', L.backDraft, null, STATUS_COPY.backDraftWhy));
   const ran = hasRun(ws, today);
-  out.push(row('end', L.endIt, STATUS_COPY.endSub, ran ? null : STATUS_COPY.neverRan));
+  const cancel = canCancelOneOff(cancelInputOf(ws), today, now);
+  out.push(row('end', L.endIt, STATUS_COPY.endSub, ran ? null : cancel?.ok ? STATUS_COPY.neverRanOneOff : STATUS_COPY.neverRan));
   if (kind === 'course') out.push(row('stop', L.stopRepeat, null, STATUS_COPY.courseStop));
   else if ((kind === 'weekly' || kind === 'monthly') && hasRule(s.recurrence_rule)) {
     out.push(row('stop', L.stopRepeat, STATUS_COPY.stopSub, readIsFull(ws, today) ? STATUS_COPY.tooManyDates : null));
   }
-  // W2c mounts the one-off cancel here (BRIEF-p3-cancel-one-off.md): this one entry is its slot.
-  if (kind === 'oneoff' && !ran) out.push(row('cancel', L.cancelEvent, null, STATUS_COPY.cancelWhy));
+  // W2c: a one-off ends with a reason (series.cancel_one_off); greyed with what to do instead, never hidden.
+  if (cancel) out.push(row('cancel', L.cancelEvent, L.cancelEventWhy, cancel.reason));
   out.push(row('remove', L.remove, STATUS_COPY.removeSub));
   return out;
 }
@@ -263,6 +273,32 @@ export const ONE_TAP: Partial<Record<StatusMove, { command: OwnerCommand; undo: 
 };
 
 export const removeCommand = (): OwnerCommand => lifecycleCommand('archived');
+
+// ---- Cancel the event (a one-off, ER AD4) ------------------------------------------------
+
+export interface CancelPlan {
+  /** The one date's id (what Bring it back is aimed at). */
+  dateId: string;
+  /** 'Saturday 31 October' (fullDate words). */
+  day: string;
+}
+
+/** The one-off's one date; null when there is not exactly one (the row is greyed then). */
+export function cancelPlan(ws: EventWorkspace, today: IsoDate): CancelPlan | null {
+  if (ws.dates.length !== 1) return null;
+  const [d] = ws.dates;
+  return { dateId: d.id, day: fullDate(d.occurrence_date, today) };
+}
+
+/** THE command "Cancel the event" sends: series.cancel_one_off with one reason label. */
+export const cancelEventCommand = (reason: string): OwnerCommand => cancelOneOffCommand(reason);
+
+/**
+ * Bring it back (the AD4 undo): occurrence.cancel {cancelled:false} on the date, no new
+ * command. Sent with no expected version (the server checks one only when it is sent):
+ * the cancel just moved the date on and the page does not hold its new version.
+ */
+export const bringBackStep = (dateId: string): DateStep => ({ ...uncancelCommand(), occurrence: { id: dateId, version: 0 } });
 
 // ---- End it ------------------------------------------------------------------------------
 
