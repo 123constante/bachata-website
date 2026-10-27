@@ -1,0 +1,157 @@
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, appendFileSync } from 'node:fs';
+import { checkOverflow, fakeSupabase, frames } from './helpers';
+import { FAKE_ORIGIN } from './fakeSupabase.mjs';
+
+// THROWAWAY walk for the W2b design record (not committed): every shot at 390x844.
+const SHAPES = JSON.parse(readFileSync(process.env.SHAPES_JSON!, 'utf8'));
+const OUT = process.env.SHOTS!;
+const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+/** event_view_p5 for one date: its own details from the occurrence id. */
+function detail(id: string) {
+  const date = id.slice(2);
+  const own = date === '2026-11-13';
+  const cancelled = date === '2026-11-06';
+  return {
+    event: { venue_id: 'v1', ticket_url: 'https://tickets.example.test/sf', cover_image_url: null,
+      venue_id_override: own ? 'v2' : null, description_override: own ? 'Live band this week, doors at 19:30.' : null,
+      ticket_url_override: null, cover_image_url_override: null, cancellation_reason_label: cancelled ? 'Venue unavailable' : null },
+    occurrence: { id, date, version: 3, lifecycle_status: cancelled ? 'cancelled' : 'scheduled',
+      materialised_start_utc: date === '2026-11-20' ? `${date}T21:00:00Z` : `${date}T20:00:00Z` },
+    schedule: { local_start_time: date === '2026-11-20' ? '21:00:00' : '20:00:00', local_end_time: '02:00:00' },
+    program: [{ start_time: '21:00:00' }], added_sessions: [],
+  };
+}
+
+async function open(page: Page, shape: string, scheme: 'light' | 'dark' = 'light', sub = '') {
+  await page.emulateMedia({ colorScheme: scheme });
+  await fakeSupabase(page, { signedInAsOwner: true, realClock: true });
+  await page.clock.setFixedTime(new Date('2026-10-25T12:00:00Z'));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) => r.fulfill(json(SHAPES[shape])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/event_view_p5`, (r) => r.fulfill(json(detail(r.request().postDataJSON().p_target.occurrence_id))));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/get_organiser_venue_options_v1`, (r) => r.fulfill(json([
+    { id: 'v1', name: 'The Ballroom', neighbourhood: 'Soho', city_name: 'London', address: '1 Dean St', postcode: 'W1D 3RB' },
+    { id: 'v2', name: 'Salsa Club Central', neighbourhood: 'Camden', city_name: 'London', address: '2 High St', postcode: 'NW1 7JE' }])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/cancellation_reasons*`, (r) => r.fulfill(json([
+    { key: 'venue', label: 'Venue unavailable' }, { key: 'illness', label: 'Illness' }, { key: 'weather', label: 'Weather' }])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/*_command_p5`, (r) => r.fulfill(json({ ok: true, new_version: 8 })));
+  await page.goto(`/account/p3/events/ser-1${sub}`);
+  await page.locator('[data-testid=p3-open-status],[data-testid=p3-all-dates-screen]').first().waitFor();
+}
+
+async function checks(page: Page, label: string, scope = '.p3-frame') {
+  const sideways = await checkOverflow(page);
+  const taps = await page.evaluate((s) => [...document.querySelectorAll(`${s} button, ${s} a[href], ${s} input, ${s} textarea`)]
+    .map((el) => ({ el, r: (el.closest('label') ?? el).getBoundingClientRect() })).filter(({ r }) => r.width > 0 && r.height > 0)
+    .map(({ el, r }) => ({ t: (el.getAttribute('data-testid') ?? el.textContent ?? '').trim().slice(0, 40), h: Math.round(r.height) })), scope);
+  const clip = await page.evaluate((s) => [...document.querySelectorAll(`${s} *`)]
+    .filter((el) => { const c = getComputedStyle(el); return el.children.length === 0 && (el.textContent ?? '').trim() && el.scrollWidth > el.clientWidth + 1 && c.overflow !== 'visible' && el.clientWidth > 0; })
+    .map((el) => (el.textContent ?? '').trim().slice(0, 40)), scope);
+  const axe = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  const small = taps.filter((x) => x.h < 44);
+  appendFileSync(`${OUT}/metrics.jsonl`, JSON.stringify({ label, sideways: sideways.length, taps: taps.length, minTap: Math.min(...taps.map((x) => x.h)), small, clipped: clip, contrastViolations: axe.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), contrastPasses: axe.passes.flatMap((v) => v.nodes).length }) + '\n');
+  expect.soft(sideways, `${label}: no sideways scroll`).toEqual([]);
+  expect.soft(small, `${label}: taps >= 44px`).toEqual([]);
+  expect.soft(clip, `${label}: clipped`).toEqual([]);
+  expect.soft(axe.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast`).toEqual([]);
+}
+
+const shot = async (page: Page, name: string) => { await frames(page); await page.screenshot({ path: `${OUT}/${name}.png` }); };
+const sheetCheck = async (page: Page, label: string, name: string) => {
+  await expect(page.getByTestId('p3-sheet')).toBeVisible();
+  await page.getByTestId('p3-sheet').locator('.p3-note, button').first().waitFor();
+  await page.waitForTimeout(150);
+  await checks(page, label, '.p3-sheet');
+  await shot(page, name);
+};
+const openDate = async (page: Page, text: RegExp, filter?: string) => {
+  if (filter) await page.getByTestId(`p3-filter-${filter}`).click();
+  await page.getByTestId('p3-date-row').filter({ hasText: text }).first().locator('button').click();
+  await expect(page.getByTestId('p3-sheet')).toBeVisible();
+  await expect(page.getByTestId('p3-sheet').getByText('Loading', { exact: false })).toHaveCount(0);
+};
+const close = (page: Page) => page.keyboard.press('Escape');
+
+test.beforeEach(({ page: _p }, info) => { test.skip(info.project.name !== 'phone-390x844', 'one size'); });
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`weekly date states ${scheme}`, async ({ page }) => {
+    await open(page, 'dates', scheme);
+    await page.getByTestId('p3-coming').scrollIntoViewIfNeeded();
+    await checks(page, `event page coming ${scheme}`);
+    await shot(page, `01-event-coming-${scheme}`);
+    await page.getByTestId('p3-open-date').first().click();
+    await sheetCheck(page, `coming date ${scheme}`, `02-date-coming-${scheme}`);
+    await close(page);
+    await page.goto('/account/p3/events/ser-1/dates');
+    await page.getByTestId('p3-all-dates-screen').waitFor();
+    await checks(page, `all dates ${scheme}`);
+    await shot(page, `03-all-dates-${scheme}`);
+    for (const [re, label, f] of [[/13 November/, 'own-details', ''], [/20 November/, 'own-time', ''], [/25 November/, 'added', ''], [/6 November/, 'cancelled', 'cancelled'], [/27 November/, 'break', 'breaks'], [/23 October/, 'past', 'past']] as const) {
+      await openDate(page, re, f || undefined);
+      await sheetCheck(page, `${label} ${scheme}`, `04-date-${label}-${scheme}`);
+      await close(page);
+      if (f) await page.getByTestId('p3-filter-coming').click();
+    }
+    for (const f of ['past', 'cancelled', 'breaks', 'own']) {
+      await page.getByTestId(`p3-filter-${f}`).click();
+      await checks(page, `filter ${f} ${scheme}`);
+      await shot(page, `05-filter-${f}-${scheme}`);
+    }
+  });
+
+  test(`date sub-sheets ${scheme}`, async ({ page }) => {
+    await open(page, 'dates', scheme, '/dates');
+    const go = async (re: RegExp, act: string, label: string, after?: (p: Page) => Promise<void>) => {
+      await openDate(page, re);
+      await page.getByTestId(`p3-date-act-${act}`).click();
+      if (after) await after(page);
+      await sheetCheck(page, `${label} ${scheme}`, `06-${label}-${scheme}`);
+      await close(page);
+    };
+    await go(/30 October/, 'cancel', 'cancel-reason', async (p) => { await p.getByText('Venue unavailable').first().click(); });
+    await go(/30 October/, 'move', 'move', async (p) => { await p.getByTestId('p3-move-day').fill('2026-11-25'); });
+    await go(/30 October/, 'time', 'time', async (p) => { await p.getByTestId('p3-time-start').fill('21:30'); });
+    await go(/30 October/, 'skip', 'skip');
+    await go(/13 November/, 'details', 'details');
+    await go(/13 November/, 'resetNormal', 'reset-normal');
+    await openDate(page, /13 November/);
+    await page.getByTestId('p3-date-act-details').click();
+    await page.getByTestId('p3-dayown-edit').first().click().catch(() => {});
+    await page.locator('[data-testid$=-edit]').first().click().catch(() => {});
+    await sheetCheck(page, `edit where ${scheme}`, `06-edit-where-${scheme}`);
+    await close(page);
+    await page.getByTestId('p3-add-date').click();
+    await page.getByTestId('p3-add-day').fill('2026-10-30');
+    await sheetCheck(page, `add date taken ${scheme}`, `06-add-taken-${scheme}`);
+  });
+}
+
+for (const [shape, scheme] of [['oneoff', 'light'], ['festival', 'dark'], ['monthly', 'light'], ['custom', 'dark'], ['course', 'light'], ['ended', 'dark'], ['tonight', 'light']] as const) {
+  test(`${shape} date ${scheme}`, async ({ page }) => {
+    await open(page, shape, scheme, '/dates');
+    await checks(page, `${shape} all dates`);
+    await shot(page, `07-${shape}-all-dates-${scheme}`);
+    if (shape === 'ended') await page.getByTestId('p3-filter-past').click();
+    const rows = page.getByTestId('p3-date-row');
+    if (await rows.count()) {
+      await rows.first().locator('button').click();
+      await expect(page.getByTestId('p3-sheet').getByText('Loading', { exact: false })).toHaveCount(0);
+      await sheetCheck(page, `${shape} date sheet`, `08-${shape}-date-${scheme}`);
+      if (shape === 'oneoff') {
+        await page.getByTestId('p3-date-act-cancelEvent').click();
+        await sheetCheck(page, 'oneoff cancel event', `09-oneoff-cancel-event-${scheme}`);
+      }
+    }
+  });
+}
+
+for (const [shape, scheme] of [['over30', 'light'], ['over100', 'dark'], ['noDates', 'light'], ['few', 'dark']] as const) {
+  test(`list size ${shape}`, async ({ page }) => {
+    await open(page, shape, scheme, '/dates');
+    await checks(page, `${shape} all dates`);
+    await shot(page, `10-${shape}-${scheme}`);
+  });
+}

@@ -1,0 +1,60 @@
+{"label":"event page coming light","sideways":0,"taps":16,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":42}
+{"label":"cancel-reason light","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":7}
+{"label":"coming date light","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":12}
+{"label":"move light","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":4}
+{"label":"time light","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":7}
+{"label":"all dates light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":34}
+{"label":"skip light","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"own-details light","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":13}
+{"label":"details light","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":24}
+{"label":"reset-normal light","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"own-time light","sideways":0,"taps":9,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":17}
+{"label":"added light","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":11}
+{"label":"cancelled light","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":4}
+{"label":"break light","sideways":0,"taps":2,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"past light","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":3}
+{"label":"filter past light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":21}
+{"label":"filter cancelled light","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":19}
+{"label":"filter breaks light","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":19}
+{"label":"filter own light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":21}
+{"label":"event page coming dark","sideways":0,"taps":16,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":42}
+{"label":"coming date dark","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":12}
+{"label":"all dates dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":34}
+{"label":"own-details dark","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":13}
+{"label":"own-time dark","sideways":0,"taps":9,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":17}
+{"label":"added dark","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":11}
+{"label":"edit where light","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"cancelled dark","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":4}
+{"label":"add date taken light","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"break dark","sideways":0,"taps":2,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"past dark","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":3}
+{"label":"filter past dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":21}
+{"label":"cancel-reason dark","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":7}
+{"label":"filter cancelled dark","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":19}
+{"label":"filter breaks dark","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":19}
+{"label":"move dark","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":4}
+{"label":"filter own dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":21}
+{"label":"time dark","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":7}
+{"label":"skip dark","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"details dark","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":24}
+{"label":"oneoff all dates","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":17}
+{"label":"reset-normal dark","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"oneoff date sheet","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":11}
+{"label":"oneoff cancel event","sideways":0,"taps":6,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":6}
+{"label":"festival all dates","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":17}
+{"label":"festival date sheet","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"monthly all dates","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":19}
+{"label":"monthly date sheet","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":11}
+{"label":"custom all dates","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":18}
+{"label":"course all dates","sideways":0,"taps":16,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":24}
+{"label":"course date sheet","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":11}
+{"label":"edit where dark","sideways":0,"taps":4,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"add date taken dark","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":5}
+{"label":"ended all dates","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":17}
+{"label":"ended date sheet","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":3}
+{"label":"tonight all dates","sideways":0,"taps":15,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":25}
+{"label":"tonight date sheet","sideways":0,"taps":7,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":11}
+{"label":"over30 all dates","sideways":0,"taps":43,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":50}
+{"label":"over100 all dates","sideways":0,"taps":68,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":133}
+{"label":"noDates all dates","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":18}
+{"label":"few all dates","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":[],"contrastPasses":19}
