@@ -37,7 +37,8 @@ export default function TicketThanksPage() {
   }, [params, urlOk, stored, navigate]);
   // free=1 is only believed alongside a real order id (the block sends both together).
   const free = params.get('free') === '1' && urlOk;
-  const copy = thanksCopy(free, Boolean(orderId));
+  // No public order read exists yet, so a held order id is 'checking', never 'confirmed'.
+  const copy = thanksCopy(free, orderId ? 'checking' : 'none');
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('ticketsThanks')}>
       <div className="mx-auto w-full max-w-[430px] px-3 py-3">

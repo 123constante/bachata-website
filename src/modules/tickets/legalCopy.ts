@@ -4,6 +4,8 @@
  * owner approval. Plain English, UK.
  * Edit the words here only: the block and its tests read this one file.
  */
+import { BOOKING_FEE_LABEL } from './ticketCheckoutModel';
+
 export const LEGAL_COPY_STATUS = 'APPROVED' as const;
 
 export const TERMS_CHECKBOX_LABEL = 'I accept the terms of sale and understand how my details are used.';
@@ -11,7 +13,8 @@ export const TERMS_CHECKBOX_LABEL = 'I accept the terms of sale and understand h
 export const TERMS_OF_SALE: readonly string[] = [
   'You are buying tickets from the event organiser. Bachata Calendar runs the booking page; the organiser runs the event and is responsible for it.',
   'Payment is taken by Stripe and goes straight to the organiser. We never see or store your card details.',
-  'Paid tickets carry a booking fee of 50p per ticket. This fee is ours and pays for running the ticketing service. Free tickets have no fee.',
+  // The fee amount is the shared constant (approved at 50p); the words around it are unchanged.
+  `Paid tickets carry a booking fee of ${BOOKING_FEE_LABEL} per ticket. This fee is ours and pays for running the ticketing service. Free tickets have no fee.`,
   'Your tickets are emailed to the address you give, each with a code to show at the door. Tickets are only issued once payment is confirmed.',
   'Refunds are up to the organiser. If the organiser gives you a full refund, the booking fee is refunded too. If the event is cancelled, contact the organiser.',
   'You can buy up to 20 tickets in one order. Prices are in pounds sterling (GBP).',

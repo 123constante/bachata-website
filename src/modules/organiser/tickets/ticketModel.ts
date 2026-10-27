@@ -1,4 +1,5 @@
 import { instantToLondonWallClockStamp, londonWallClockToInstant } from '@/lib/londonDate';
+import { BOOKING_FEE_PENCE } from '@/lib/ticketBookingFee';
 import { MONTH_NAMES } from '../shared/dateWords';
 import type { StatusTone } from '../ui/StatusTag';
 
@@ -149,7 +150,8 @@ export const strOrNull = (v: unknown): string | null => (typeof v === 'string' &
 
 // ---- Money (GBP only, Q10) ---------------------------------------------------------
 
-export const BOOKING_FEE_PENCE = 50;
+// The one shared constant (server: env TICKET_BOOKING_FEE_PENCE, kept unset = 50).
+export { BOOKING_FEE_PENCE };
 export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
 
