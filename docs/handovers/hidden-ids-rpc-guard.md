@@ -1,7 +1,7 @@
 # Handover: organiser_directory_hidden_ids_v1 contract guard (Website)
 
 Brief: `brief/hidden-ids-rpc-guard:docs/briefs/hidden-ids-rpc-guard.md`.
-Branch `claude/hidden-ids-rpc-guard`. Class: GUARD-CI (one review round).
+Branch `claude/hidden-ids-rpc-guard`, PR #1069. Class: GUARD-CI (one review round).
 
 ## Done
 
