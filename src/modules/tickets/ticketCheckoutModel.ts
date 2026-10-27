@@ -133,7 +133,30 @@ export function totals(t: PublicTicketType, quantity: number): Totals {
 /** Same shape the edge function checks (it is the authority; this only avoids a round trip). */
 export const isEmail = (s: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim()) && s.trim().length <= 254;
 
-export const checkoutOriginOk = (origin: string) => CHECKOUT_ORIGINS.includes(origin);
+/**
+ * A Vercel PREVIEW build may also check out from one named origin (the stable walk alias), so the
+ * ticketing flow can be tested end to end before the live switch. It needs BOTH VERCEL_ENV=preview
+ * and VITE_TICKET_PREVIEW_ORIGIN set to a bare https origin; production builds fold it to ''.
+ * The edge function must accept the same origin (its TICKET_PREVIEW_ORIGIN secret).
+ */
+export const previewCheckoutOrigin = (vercelEnv: string | null | undefined, raw: string | null | undefined): string => {
+  const v = (raw ?? '').trim();
+  if (vercelEnv !== 'preview' || !v) return '';
+  try {
+    const u = new URL(v);
+    return u.protocol === 'https:' && u.origin === v ? v : '';
+  } catch {
+    return '';
+  }
+};
+
+const PREVIEW_ORIGIN = previewCheckoutOrigin(
+  import.meta.env?.VITE_VERCEL_ENV,
+  import.meta.env?.VITE_TICKET_PREVIEW_ORIGIN,
+);
+
+export const checkoutOriginOk = (origin: string, previewOrigin: string = PREVIEW_ORIGIN) =>
+  CHECKOUT_ORIGINS.includes(origin) || (previewOrigin !== '' && origin === previewOrigin);
 
 export interface FormState {
   type: PublicTicketType | null;
