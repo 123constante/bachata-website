@@ -8,3 +8,9 @@ Continue on `claude/p3-w4a-team-switch-page` (fetch it; head 3319e20; do NOT res
 4. Open follow-up the owner already decided: nothing new. Do not touch the Done-screen (R1 look) item; it stays queued.
 
 Push once coherent (subject ends [skip preview]); final push ends `[worker-done dt_<ticket>]` with NO [skip preview].
+
+## 5. Orchestrator re-walk of head 3319e20 at 390x844 found three defects (fix with tests, red first)
+Walk pictures were read by the orchestrator; the walker's own numbers agree.
+a. `/account/p3/you/page`: the organiser NAME is invisible. The pencil under the avatar has no name beside it, and the walker measures "test org" at contrast 1:1 (need 3). The name text takes the same colour as the card behind it in the P3 frame (an R1 token that P3 does not define, or white-on-white). Make it readable in light and dark, and add a contrast assertion for the name on this screen.
+b. Same screen: the top of the card is clipped under the sticky P3 header (the card's top edge starts above the viewport line at y about 112 of 844). Give the pushed shell content proper top padding so the first card is whole.
+c. `/account/p3/you/switch`: "Add a page" is plain orange text on cream, contrast 2.69 (need 4.5). Use the terracotta link token like the other P3 text links, at a 44px tap height.
