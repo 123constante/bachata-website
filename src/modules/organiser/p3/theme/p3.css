@@ -197,3 +197,20 @@
   background: var(--fg); color: var(--bg); font-size: var(--fs-small);
 }
 .p3-theme .p3-toast .p3-toast-act { color: var(--bg); padding: 0 12px; }
+/* W2b: the date sheets and All dates */
+.p3-theme .p3-row-btn { padding: 0; }
+.p3-theme .p3-date-btn {
+  display: flex; flex: 1; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; min-height: var(--tap); padding: 12px 0;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.p3-theme .p3-date-btn:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme .p3-btn-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.p3-theme .p3-gap-t { margin-top: 8px; }
+.p3-theme .p3-danger-t { color: var(--danger); }
+.p3-theme .p3-field { display: block; margin-top: 4px; font-size: var(--fs-small); font-weight: 600; color: var(--fg); }
+.p3-theme .p3-in {
+  box-sizing: border-box; width: 100%; min-height: var(--tap); padding: 8px 12px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-ctl); background: var(--sheet); color: var(--fg); font: inherit; font-size: var(--fs-body);
+}
+.p3-theme textarea.p3-in { min-height: 120px; resize: vertical; }
+.p3-theme .p3-in:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }

@@ -11,6 +11,8 @@ export const P3_PATHS = {
   you: `${P3_BASE}/you`,
   /** One event's page (W2a). */
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,
+  /** One event's All dates (W2b). */
+  eventDates: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/dates`,
 } as const;
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';

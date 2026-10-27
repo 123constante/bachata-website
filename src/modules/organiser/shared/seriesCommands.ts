@@ -249,6 +249,12 @@ export function withSeriesName(command: OwnerCommand, seriesName: string): Owner
 export const addDateCommand = (date: string): OwnerCommand => ({ kind: 'series.add_date', payload: { date } });
 export const skipDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.skip_date', payload: { occurrence_id: occurrenceId } });
 export const unskipDateCommand = (date: string): OwnerCommand => ({ kind: 'series.unskip_date', payload: { date } });
+/**
+ * series.remove_date (_cmd_series_remove_date_p5, read on prod 2026-10-27): on a SCHEDULED
+ * date it only cancels (no reason); on a cancelled date it deletes and tombstones it. So
+ * P3 sends it on a cancelled date only (model/dates.ts).
+ */
+export const removeDateCommand = (occurrenceId: string): OwnerCommand => ({ kind: 'series.remove_date', payload: { occurrence_id: occurrenceId } });
 /** Pause / resume (`{to}`, 4.11). There is no review step (D4): the UI never sends pending_review. */
 export const lifecycleCommand = (to: 'paused' | 'live' | 'archived'): OwnerCommand => ({ kind: 'series.set_lifecycle', payload: { to } });
 
