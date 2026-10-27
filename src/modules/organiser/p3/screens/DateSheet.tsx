@@ -19,6 +19,7 @@ import {
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
 import { Sheet } from './Sheet';
+import { DateSessions } from './SessionSheet';
 import type { Done } from './StatusSheet';
 
 /** Which date sheet is open: a stored date, a break, or "Add a date". */
@@ -342,6 +343,8 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
         {rows.map((r) => <ActionChoice key={r.action} row={r} busy={busy} onPick={pick} />)}
       </div>
       <Err error={error} />
+      {/* W2d: this date's sessions (organiser_get_occurrence_programme_v1), each opening the session sheet on "Just this date" */}
+      <DateSessions ws={ws} today={today} date={d} onDone={onDone} />
     </Sheet>
   );
 }

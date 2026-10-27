@@ -7,3 +7,4 @@ export * from './sessions';
 export * from './status';
 export * from './cancel';
 export * from './dates';
+export * from './programme';

@@ -14,6 +14,9 @@ import { ChangeItLink, RetryButton, StateCard } from './parts';
 import { StatusSheet, type Send } from './StatusSheet';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { useToast } from './Toast';
+import { SessionSheet, type SessionOpen } from './SessionSheet';
+import { factsOf } from '../data/sessions';
+import { programmeRules } from '../model/programme';
 import type { SendOnce } from './CancelEventSheet';
 
 /** The second half of the status row (C3 "Live \u00b7 Hide or end it"). */
@@ -28,37 +31,55 @@ const STATUS_HINT: Record<string, string> = {
 const isNotFound = (e: unknown) =>
   /^(not_found|series_not_found)|invalid input syntax for type uuid/.test(String((e as { message?: unknown } | null)?.message ?? ''));
 
-function SessionRow({ s }: { s: DaySession }) {
+function SessionRow({ s, onOpen }: { s: DaySession; onOpen: ((id: string) => void) | null }) {
   const sub = [sessionKindLabel(s.kind), ...(s.levels ?? [])].join(' \u00b7 ');
-  return (
-    <li className="p3-row" data-testid="p3-session">
+  const body = (
+    <>
       <span className="p3-time">{s.start ? timeWord(s.start) : L.noTime}</span>
       <div className="p3-grow">
         <div className="p3-row-t">{sessionTitle(s)}</div>
         <div className="p3-row-s">{sub}{s.end && s.start ? ` \u00b7 until ${timeWord(s.end)}` : ''}</div>
         <div className="p3-row-s" data-testid="p3-lineup">{s.people.length ? peopleText(s.people) : L.noLineup}</div>
       </div>
+    </>
+  );
+  // a festival's programme is the team's (read-only rows); every other kind opens the session sheet (W2d)
+  if (!onOpen) return <li className="p3-row" data-testid="p3-session">{body}</li>;
+  return (
+    <li className="p3-row p3-row-btn" data-testid="p3-session">
+      <button type="button" className="p3-date-btn" onClick={() => onOpen(s.id)} data-testid="p3-open-session">
+        {body}
+        <span aria-hidden="true">&rsaquo;</span>
+      </button>
     </li>
   );
 }
 
-function Sessions({ v }: { v: EventPageView }) {
+function Sessions({ v, ws, onOpen }: { v: EventPageView; ws: EventWorkspace; onOpen: (key: string | null) => void }) {
   const count = v.days.reduce((n, d) => n + d.sessions.length, 0);
+  const festival = v.kind === 'festival';
+  const addWhy = programmeRules(factsOf(ws, 'every', null, null)).add;
+  const open = festival ? null : (id: string) => onOpen(id);
   return (
     <section aria-label={L.sessions} data-testid="p3-sessions">
       <h2 className="p3-h2">{L.sessions}</h2>
       {count === 0 ? (
         <StateCard title={L.noSessions} testId="p3-sessions-empty">
-          <p>Dancers see what is on from the sessions: a class, a party or a show.</p>
-          <ChangeItLink>Add a session in the current organiser area</ChangeItLink>
+          <p>{addWhy ?? 'Dancers see what is on from the sessions: a class, a party or a show. Add the first one.'}</p>
         </StateCard>
       ) : (
         v.days.map((d, i) => (
           <div key={i} className="p3-card p3-tight">
             {d.label && <strong className="p3-day">{d.label}</strong>}
-            <ul className="p3-list p3-flush">{d.sessions.map((s) => <SessionRow key={s.id} s={s} />)}</ul>
+            <ul className="p3-list p3-flush">{d.sessions.map((s) => <SessionRow key={s.id} s={s} onOpen={open} />)}</ul>
           </div>
         ))
+      )}
+      {festival ? <p className="p3-note" data-testid="p3-sessions-ask">{L.festivalAsk}</p> : (
+        <>
+          <button type="button" className="p3-btn p3-btn-line p3-gap-t" disabled={!!addWhy} onClick={() => onOpen(null)} data-testid="p3-add-session">{L.addSession}</button>
+          {addWhy && count > 0 && <p className="p3-note" data-testid="p3-add-session-why">{addWhy}</p>}
+        </>
       )}
     </section>
   );
@@ -126,7 +147,7 @@ function About({ v }: { v: EventPageView }) {
         <AboutRow label={L.ticket}>{a.ticket ? <a className="p3-link" href={a.ticket} target="_blank" rel="noreferrer">{a.ticket}</a> : none}</AboutRow>
         <AboutRow label={L.instagram}>{a.instagram ? <a className="p3-link" href={a.instagram} target="_blank" rel="noreferrer">{a.instagram}</a> : none}</AboutRow>
       </div>
-      <p className="p3-note">To change sessions or details for every date: <ChangeItLink>use the current organiser area</ChangeItLink>.</p>
+      <p className="p3-note">To change details for every date: <ChangeItLink>use the current organiser area</ChangeItLink>.</p>
     </section>
   );
 }
@@ -140,6 +161,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const [sheet, setSheet] = useState(false);
   const [date, setDate] = useState<DateOpen>(null);
+  const [session, setSession] = useState<SessionOpen>(null);
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
   const closeDate = useCallback(() => setDate(null), [setDate]);
   const addWhy = addDateWhy(seriesFactsOf(ws, today));
@@ -167,7 +189,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         </span>
         <span aria-hidden="true">&rsaquo;</span>
       </button>
-      <Sessions v={v} />
+      <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
       <About v={v} />
       {sheet && (
@@ -175,6 +197,9 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
           onDone={(d) => { setSheet(false); toast.show(d); }} />
       )}
       <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />
+      {session && (
+        <SessionSheet ws={ws} today={today} open={session} onClose={() => setSession(null)} onDone={(d) => { setSession(null); toast.show(d); }} />
+      )}
       {toast.node}
     </div>
   );

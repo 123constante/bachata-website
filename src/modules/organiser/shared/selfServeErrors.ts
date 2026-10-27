@@ -154,6 +154,10 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
       : 'One of the sessions has changes on some dates, so only an admin can remove it. Keep it, or ask the Bachata Calendar team to remove it.';
   } },
   { match: /^invalid_payload: (this programme save carries no ids|a programme id )/, message: 'This programme changed since you opened it. Reload the page, then make your change and save again.' },
+  // P3 W2d, series.set_program for owners (_owner_program_problem_p5, read on prod 2026-10-27): a festival programme is
+  // the team's; any other shape refusal of the tree means the page is stale or the save is malformed: plain words only.
+  { match: /festival programmes are admin-only/, message: 'Festival sessions are set with the Bachata Calendar team. Ask us to change the programme.' },
+  { match: /^(invalid_payload|permission_denied): series\.set_program /, message: 'This programme could not be saved as it is. Reload the page, then make your change again.' },
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
