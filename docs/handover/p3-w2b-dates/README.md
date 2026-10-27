@@ -33,3 +33,16 @@ Branch `claude/p3-w2b-dates`, PR #1062. Briefs: `brief/p3-w2b-dates` `docs/brief
   show dd/mm/yyyy and 24h or 12h per the phone.
 - `/code-review` rounds: not run by this worker (CLAUDE.md: the owner types it).
 - Phone test by the owner: at the arc's end (flag goes ON after W3).
+
+## CI job steps run locally (sandbox, head before the final commit)
+| Job | Steps | Result |
+|---|---|---|
+| architecture-guard | integrity (via `bash`), legacy-tables, legacy-program-rpcs, lint:architecture, check:images `AUDIT_STRICT=1`, image-widths (+self-test), plan-hygiene self-test, artifact-policy (+self-test), mojibake (+self-test, git grep) | all pass |
+| typecheck | check:rpc-typing, check:wallclock-brand | pass (full `tsc`: 95 errors, all outside `p3/`, below the pre-ship baseline of 106) |
+| workflow-lint | docs-only self-test, masking, notification (+self-test), no-preview-prefixes (+self-test) | pass |
+| unit-tests | dancer-area-isolation (+self-test); `test:unit:offline --maxWorkers=3`; `test:unit:timing` | 607/608 files, 15296 passed; 5 fail in `tests/integrityCouldNotRun.test.ts` (sandbox: typescript resolves from /tmp, so the precondition breaks; this PR touches no tests/scripts/bin); timing pass |
+| perf-budget | self-tests, build, bundle-budget, first-load-requests, chunk-cycles | pass; doc-weight / lighthouse need the Vercel preview (CI only) |
+| e2e-smoke | `npm run test:e2e` | pass |
+| phone-qa | full phone suite (406 passed, 128 skipped), build suite | pass |
+| lint chain | `npm run lint` | 21/22 links pass; check:integrity exit 126 = lost exec bit in the sandbox (CI does `chmod +x`; passes via `bash`) |
+| pre-ship | `npm run pre-ship` | red only on check:integrity (exec bit) and test:unit (live-DB contract tests without keys + the sandbox test above); build, budgets, ratchets, typecheck ratchet pass |
