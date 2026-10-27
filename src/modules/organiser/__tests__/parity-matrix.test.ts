@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import {
-  AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_COMMAND_KINDS, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
+  AW1_COMMAND_KINDS, OWNER_CANCEL_KEYS, OWNER_CANCEL_ONE_OFF_KEYS, OWNER_COMMAND_KINDS, cancelOneOffCommand, OWNER_OVERRIDE_KEYS, OWNER_UPSERT_KEYS,
   addDateCommand, bulkCancelCommand, bulkShiftCommand, cancelCommand, lifecycleCommand, overrideCommand,
   resetTimeCommand, setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand,
   type BulkCommand, type OwnerCommand,
@@ -75,6 +75,9 @@ const PROD_OWNER_KINDS = [
   'series.upsert', 'series.add_date', 'series.remove_date', 'occurrence.set_time',
   'series.set_lifecycle', 'occurrence.cancel', 'occurrence.set_override', 'series.skip_date',
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
+  // ER AD4 (20261204180000): check_owner_command_allowlist_v1 c_expected and the dispatcher's owner kinds
+  // on prod list it (read 2026-10-26); its payload rule admits exactly `reason`.
+  'series.cancel_one_off',
 ];
 const PROD_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
@@ -86,8 +89,10 @@ const PROD_UPSERT_KEYS = [
 ];
 const PROD_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
 const PROD_CANCEL_KEYS = ['cancelled', 'reason'];
+const PROD_CANCEL_ONE_OFF_KEYS = ['reason'];
 const PROD_KEYS: Record<string, string[]> = {
   'series.upsert': PROD_UPSERT_KEYS, 'occurrence.set_override': PROD_OVERRIDE_KEYS, 'occurrence.cancel': PROD_CANCEL_KEYS,
+  'series.cancel_one_off': PROD_CANCEL_ONE_OFF_KEYS,
 };
 /** admin_bulk_occurrence_command_p5 kinds and payload keys (prod fn, read 2026-10-17 by P-DATES). */
 const PROD_BULK_KEYS: Record<string, string[]> = {
@@ -446,6 +451,8 @@ describe('organiser parity matrix', () => {
     expect([...OWNER_UPSERT_KEYS].sort()).toEqual([...PROD_UPSERT_KEYS].sort());
     expect([...OWNER_OVERRIDE_KEYS].sort()).toEqual([...PROD_OVERRIDE_KEYS].sort());
     expect([...OWNER_CANCEL_KEYS].sort()).toEqual([...PROD_CANCEL_KEYS].sort());
+    expect([...OWNER_CANCEL_ONE_OFF_KEYS]).toEqual(PROD_CANCEL_ONE_OFF_KEYS);
+    expect(Object.keys(cancelOneOffCommand('Other').payload)).toEqual(PROD_CANCEL_ONE_OFF_KEYS);
   });
 
   describe.each(PARITY.filter(isBuilt))('$id $capability ($verdict)', (row) => {

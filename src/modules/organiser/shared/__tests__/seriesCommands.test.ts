@@ -39,6 +39,8 @@ const SERVER_OWNER_KINDS = [
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
   // D39 (A1): apply_aggregate_write_p5 v_owner_kinds gains the move.
   'occurrence.move_date',
+  // ER AD4 (20261204180000, on prod 2026-10-26): a one-off ends with a reason.
+  'series.cancel_one_off',
 ];
 const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
