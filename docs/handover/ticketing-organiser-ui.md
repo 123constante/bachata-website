@@ -4,6 +4,58 @@ Branch `claude/ticketing-organiser-ui`. Flag `organiserTicketing` stays OFF.
 Journey map and first shape survey: [`docs/organiser-ticketing-journey.md`](../organiser-ticketing-journey.md).
 Design record (S3b): [`docs/design/1060.md`](../design/1060.md).
 
+## S3b critique fixes (brief `briefs/ticketing-organiser-ui-fixes.md`, blob de6fb45; ticket dt_1ddc6e8c89ca)
+
+Critique: `docs/review/ticketing-organiser-ui-1060.md` on branch `claude/ticketing-organiser-ui-critique`.
+**These fixes are unreviewed code** (no `/code-review` round has run on them).
+
+### Done (each red-first: the new tests ran on the unfixed code first, 65 failed)
+1. BLOCKING, profile switcher: `TicketsHome` no longer passes `topBarEnd`, so the shell keeps the
+   profile switcher in every state. The "Paid out via Stripe" chip sits on the page-name line
+   (`tix-page-line`, name left, chip right). Test: switcher present for stripe none / started / connected.
+2. `eventLeftLine` counts only `on_sale` and `sold_out` types; with none it returns null, so only the chip shows.
+   The critic's mixed shape (on sale + paused + draft gives "8 left of 20") and a sold out + on sale + paused shape are in
+   `compact.model.test.ts`. Draft-only and paused-only now show the chip alone (two old rows changed).
+3. Thousands separators in the ONE helper: `formatPence` uses `toLocaleString('en-GB', {min/max 2 decimals})`;
+   new `formatCount` for Sold, waiting / disputed counts and the event "N left of M" line. `poundsText`
+   (the price input's value) is unchanged, so a form never gets a comma.
+4. Payments link: `paymentsLink(role, stripe, step)` in `ticketModel.ts` decides; `PaymentsLink` in `parts.tsx`
+   renders one line under the number cards ("Payments not connected. Connect" / "Finish connecting") when a
+   manager is not connected and the Next step card is not `connect`. `go()` was moved out of `NextStepCard` into
+   `useStartOnboarding`, which both use (same not-switched-on and error words). Tests: role x stripe x
+   (all free, mixed, none) in the model, and owner/contributor x stripe x mix on the screen, plus the click
+   (return/refresh URLs, error note, not switched on).
+5. An edit sheet shows "Save changes" (primary) with "Continue" (ghost) on steps 1 and 2, so raising places takes
+   two taps instead of four. A new ticket still has only Continue before the review. The switch's `aria-describedby` is now set only when its
+   reason is rendered under the row. The role reason is shown once at the top, so the switch no longer points at a missing id.
+6. Coverage the critic listed: Close sales for good confirm (Keep selling backs out, Close sales sends `closed`),
+   back-from-Stripe notes (`?stripe=return|refresh`), orders empty-state words (selling / nothing selling).
+
+### Verified / Not verified (critique fixes)
+Verified:
+- Unit: tickets suite + focusReturn: 1170 pass (6 files).
+- `npm run lint`: 21 of 22 links green. `check:integrity` exits 126 here only because the exec bit is not set in this checkout. Run with
+  `bash bin/check-integrity.sh` it passes (2652 files, 0 issues), and CI runs chmod first. eslint on tickets/: 0 errors (6 old warnings).
+- `npx tsc --noEmit -p tsconfig.app.json`: 113 errors, the same count as main, none in tickets/.
+- architecture-guard steps: `AUDIT_STRICT=1 check:images`, plan-hygiene self-test: pass.
+- perf-budget: build, bundle-budget, first-load-requests, chunk-cycles (+ self-tests): pass.
+- e2e-smoke (`test:e2e`): 153 pass, 8 skipped, 4 failed on first run (account-settings x2, dancer home-nights,
+  organiser-onboarding sign-in link, all cold first-load timeouts in areas this diff does not touch). Re-run alone: 24/24 pass.
+- phone-qa (`playwright.phone.config.ts`): the full 534-test run did not finish inside the 10-minute local limit. The
+  organiser contact-sheet / hero specs that failed under that load pass when run alone (20/20). No phone spec covers tickets.
+- Full `test:unit`: 16391 pass and 15 fail. These are the same 15 as main (integrityCouldNotRun x5, live event contract tests x10).
+- Browser walk at 390x844 (dev server with the flag env vars on, the phone suite's fake Supabase, and ticket rows shaped like the live RPCs). There
+  were 6 states, all PASS: page and sheet scrollWidth 390, no tap under 44x44, sticky footers end at 844, 0 page errors. Screenshots
+  `11`..`16` are in `docs/handover/ticketing-organiser-ui/`:
+  - Connected Home: the profile switcher is at the top right (44x44), and the chip is on the page-name line, right-aligned.
+  - Free tickets with Stripe started: "Finish connecting" under the cards. With no Stripe: "Payments not connected. Connect".
+  - Mixed event: "8 left of 20". Edit step 2: Save changes plus Continue. Big numbers: "2,022" and the gross in pounds with commas, with no clipping.
+
+Not verified:
+- The full phone-qa run and the phone build config (`playwright.build.config.ts`) locally: left to CI.
+- Everything in the S3b "Not verified" list below still holds (real Stripe, real RLS logins, desktop, prod-DB contract steps).
+- Code review of these fixes.
+
 ## S3b redesign (brief `briefs/ticketing-organiser-redesign.md`, blob b5e3618; ticket dt_57ce27a0ca93)
 
 Owner picked mockup **B, Compact** (<https://claude.ai/artifact/7NicJi37hDk21cUSG239ZD>). Presentation and
