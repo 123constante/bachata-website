@@ -31,7 +31,7 @@ const STATES: Record<StateKey, DateFacts> = {
 /** Only a weekly rule (weekly, course) generates rule dates (seriesModel.isRuleDate). */
 const facts = (kind: P3Kind, s: StateKey): DateFacts => ({ ...STATES[s], ruleDate: (kind === 'weekly' || kind === 'course') && STATES[s].ruleDate });
 const series = (kind: P3Kind, upcoming = 10, extra: Partial<SeriesFacts> = {}): SeriesFacts =>
-  ({ kind, lifecycle: 'live', hasSessions: true, upcoming, ...(kind === 'oneoff' ? { oneOff: { ok: true, reason: null } } : {}), ...extra });
+  ({ kind, lifecycle: 'live', upcoming, ...(kind === 'oneoff' ? { oneOff: { ok: true, reason: null } } : {}), ...extra });
 const enabled = (s: SeriesFacts, d: DateFacts) => dateActions(s, d, TODAY).filter((r) => r.reason === null).map((r) => r.action).sort();
 
 const CORE: DateAction[] = ['bringBack', 'details', 'move', 'remove', 'skip', 'time'];
@@ -58,9 +58,11 @@ const EXPECT: Record<P3Kind, Record<StateKey, DateAction[]>> = {
     pastCancelled: [], skipped: [], moved: ['cancelEvent', 'details', 'move', 'time'], ownTime: ['cancelEvent', 'details', 'move', 'resetNormal', 'resetTime', 'time'],
     ownDetails: ['cancelEvent', 'details', 'move', 'resetNormal', 'time'], added: ['bringBack'],
   },
+  // A festival's date takes occurrence.cancel (no format rule in _cmd_occurrence_cancel_p5;
+  // the owner refusals are set_time and move_date only): review 1062 r1 finding 4.
   festival: {
-    coming: ['details'], today: ['details'], past: [], cancelled: ['bringBack'], pastCancelled: [], skipped: [], moved: ['details'],
-    ownTime: ['details', 'resetNormal'], ownDetails: ['details', 'resetNormal'], added: ['bringBack'],
+    coming: ['cancel', 'details'], today: ['cancel', 'details'], past: [], cancelled: ['bringBack'], pastCancelled: [], skipped: [], moved: ['cancel', 'details'],
+    ownTime: ['cancel', 'details', 'resetNormal'], ownDetails: ['cancel', 'details', 'resetNormal'], added: ['bringBack'],
   },
 };
 EXPECT.course = EXPECT.weekly;
@@ -102,7 +104,7 @@ describe('the greyed reasons say what to do instead', () => {
   it.each([
     ['festival', 'coming', 'time', DATE_WHY.festivalTime],
     ['festival', 'coming', 'move', DATE_WHY.festivalMove],
-    ['festival', 'coming', 'cancel', DATE_WHY.festivalCancel],
+
     ['weekly', 'past', 'cancel', DATE_WHY.past],
     ['weekly', 'cancelled', 'move', DATE_WHY.cancelledFirst],
     ['weekly', 'moved', 'skip', DATE_WHY.offRule],
@@ -115,8 +117,22 @@ describe('the greyed reasons say what to do instead', () => {
   ] as Array<[P3Kind, StateKey, DateAction, string]>)('%s x %s: %s', (kind, st, a, reason) => {
     expect(why(kind, st, a)).toBe(reason);
   });
-  it('no sessions: the time cannot move (no_sessions_for_time_override)', () => {
-    expect(why('weekly', 'coming', 'time', { hasSessions: false })).toBe(DATE_WHY.noSessions);
+  it('no programme times: Change the time has no series-wide grey (D8 makes the date its own time session; r1 finding 3)', () => {
+    for (const kind of ['weekly', 'monthly', 'course', 'custom', 'oneoff'] as P3Kind[]) expect(why(kind, 'coming', 'time')).toBeNull();
+    expect('noSessions' in DATE_WHY).toBe(false);
+    expect(Object.values(DATE_WHY).some((w) => /add a session/i.test(w))).toBe(false);
+  });
+  it('a break at the date cap cannot come back (unskip delegates to add_date; r1 finding 2)', () => {
+    expect(dateActions(series('weekly', DATE_CAP), STATES.skipped, TODAY)[0].reason).toBe(DATE_WHY.cap);
+    expect(dateActions(series('weekly', DATE_CAP - 1), STATES.skipped, TODAY)[0].reason).toBeNull();
+  });
+  it('recurring with recurrence_rule null (ruleDate n/a): no "Not the usual day", skip says no pattern (r1 finding 5)', () => {
+    const noRule: DateFacts = { ...STATES.coming, ruleDate: null };
+    for (const kind of ['weekly', 'course'] as P3Kind[]) {
+      expect(enabled(series(kind), noRule)).toEqual(['cancel', 'details', 'move', 'time']);
+      expect(dateActions(series(kind), noRule, TODAY).find((r) => r.action === 'skip')?.reason).toBe(DATE_WHY.noPattern);
+      expect(dateMarks(kind, noRule, { today: TODAY, hasOverride: false, sessionChanges: false }).tags).toEqual([]);
+    }
   });
   it('an ended or removed event: every date action is closed', () => {
     for (const lifecycle of ['ended', 'archived']) {

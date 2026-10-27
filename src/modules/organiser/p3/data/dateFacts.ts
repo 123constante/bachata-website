@@ -1,4 +1,4 @@
-import { isRuleDate, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
+import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
 import { hasOwnTime } from '../../flows/change/changeModel';
 import type { EventWorkspace } from '../../events/eventModel';
 import { dateMarks, kindOf, type DateFacts, type IsoDate } from '../model';
@@ -14,11 +14,15 @@ export function ownDetailsOf(d: WorkspaceDate, detail?: DateDetail | null): bool
   return d.has_override && d.lifecycle_status !== 'cancelled';
 }
 
+/** null when the series has no weekly rule at all (dateMarks and skip then do not judge the day). */
+const ruleDateOf = (ws: EventWorkspace, date: IsoDate): boolean | null =>
+  (weeklyRule(ws.series.recurrence_rule) ? isRuleDate(date, ws.series) : null);
+
 export function dateFactsOf(ws: EventWorkspace, d: WorkspaceDate, detail?: DateDetail | null): DateFacts {
   return {
     date: d.occurrence_date,
     state: d.lifecycle_status === 'cancelled' ? 'cancelled' : 'scheduled',
-    ruleDate: isRuleDate(d.occurrence_date, ws.series),
+    ruleDate: ruleDateOf(ws, d.occurrence_date),
     ownTime: hasOwnTime(d, ws.series.default_local_start_time),
     ownDetails: ownDetailsOf(d, detail),
   };
@@ -26,7 +30,7 @@ export function dateFactsOf(ws: EventWorkspace, d: WorkspaceDate, detail?: DateD
 
 /** A break: a tombstone on the weekly rule's cadence (removed_dates), not a stored date. */
 export const breakFactsOf = (ws: EventWorkspace, date: IsoDate): DateFacts =>
-  ({ date, state: 'skip', ruleDate: isRuleDate(date, ws.series), ownTime: false, ownDetails: false });
+  ({ date, state: 'skip', ruleDate: ruleDateOf(ws, date), ownTime: false, ownDetails: false });
 
 const ruleMode = (rule: unknown): string | null =>
   rule && typeof rule === 'object' && typeof (rule as { mode?: unknown }).mode === 'string' ? (rule as { mode: string }).mode : null;

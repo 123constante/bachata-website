@@ -121,6 +121,34 @@ describe('the date sheet writes through the real envelope', () => {
     expect(series).toEqual([{ target_id: 'ser-1', expected_version: 7, idempotency_key: series[0].idempotency_key, command: { kind: 'series.skip_date', payload: { occurrence_id: 'o-2026-10-30' } } }]);
   });
 
+  it('a skip that committed but lost its response: the sheet stays with the error; the retry replays the same key (r1 finding 7)', async () => {
+    show();
+    await openFirstDate();
+    fireEvent.click(act('skip'));
+    const inner = rpc.getMockImplementation()!;
+    let dropped = false;
+    rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      if (name === 'series_command_p5' && !dropped) {
+        dropped = true;
+        series.push(args.p_envelope as Env);
+        // committed: the reload no longer holds the date, it is a break now
+        const raw = shape as { series: { series: Env }; occurrences: Env[] };
+        shape = { ...raw, series: { ...raw.series, series: { ...raw.series.series, removed_dates: ['2026-10-30'] } },
+          occurrences: raw.occurrences.filter((o) => o.occurrence_date !== '2026-10-30') };
+        throw new TypeError('Failed to fetch');
+      }
+      return inner(name, args);
+    });
+    fireEvent.click(screen.getByTestId('p3-skip-go'));
+    await waitFor(() => screen.getByTestId('p3-sheet-error'));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByTestId('p3-sheet-error')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('p3-skip-go'));
+    await waitFor(() => screen.getByTestId('p3-toast'));
+    expect(series).toHaveLength(2);
+    expect(series[1].idempotency_key).toBe(series[0].idempotency_key);
+  });
+
   it('untouched Move and Change the time send nothing; a taken day is refused before sending', async () => {
     show();
     await openFirstDate();
@@ -201,6 +229,8 @@ describe('kinds on the event page', () => {
     expect(act('time').disabled).toBe(true);
     expect(act('time').textContent).toContain('Festival times are set for the whole festival');
     expect(act('details').disabled).toBe(false);
+    // r1 finding 4: the server takes occurrence.cancel on a festival date
+    expect(act('cancel').disabled).toBe(false);
   });
 });
 

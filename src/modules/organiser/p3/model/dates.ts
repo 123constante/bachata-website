@@ -8,7 +8,7 @@ import type { IsoDate, P3Kind } from './types';
  * prod handlers read 2026-10-27 (_cmd_occurrence_cancel/move_date/set_time/set_override,
  * _cmd_series_skip_date/unskip_date/add_date/remove_date and the dispatcher's owner
  * rules): a past date and an ended event are admin-only, a festival refuses set_time and
- * move_date, and a break exists only on the weekly rule's own cadence. Remove is listed but
+ * move_date (it takes occurrence.cancel like any date), and a break exists only on the weekly rule's own cadence. Remove is listed but
  * never sent: organisers never delete a date (owner answer 20, wave B0, pinned by
  * events/__tests__/moveNotRemove.matrix.test.ts), so it says to cancel instead.
  * Every action is listed; one that cannot work says why (never hidden).
@@ -24,8 +24,12 @@ export type DateState = 'scheduled' | 'cancelled' | 'skip';
 export interface DateFacts {
   date: IsoDate;
   state: DateState;
-  /** The series' own weekly rule makes this date (seriesModel.isRuleDate): only such a date can be a break. */
-  ruleDate: boolean;
+  /**
+   * The series' own weekly rule makes this date (seriesModel.isRuleDate): only such a date can
+   * be a break. null = the series has no weekly rule to measure against (monthly, dates I pick,
+   * or a recurring series whose rule is not stored), so "off the usual day" does not apply.
+   */
+  ruleDate: boolean | null;
   /** The date starts at another time than the series (changeModel.hasOwnTime). */
   ownTime: boolean;
   /** The date has its own Where, About, Ticket link or photo. */
@@ -35,8 +39,6 @@ export interface DateFacts {
 export interface SeriesFacts {
   kind: P3Kind;
   lifecycle: string;
-  /** At least one session with a start time (set_time refuses a date with none). */
-  hasSessions: boolean;
   /** Scheduled dates from today on: the server's date cap counts these. */
   upcoming: number;
   /** canCancelOneOff for a one-off (null when the event is not live or hidden). */
@@ -61,9 +63,7 @@ export const DATE_WHY = {
   cancelledFirst: 'This date is cancelled. Bring it back first.',
   festivalTime: 'Festival times are set for the whole festival, not one date. Ask the Bachata Calendar team.',
   festivalMove: 'Festival days are set by the Bachata Calendar team. Ask them to move a day.',
-  festivalCancel: 'A festival\u2019s date is set by the Bachata Calendar team. Ask them to cancel it.',
   festivalOne: 'A festival holds one date. Ask the Bachata Calendar team to change its days.',
-  noSessions: 'This date has no session times to move yet. Add a session first.',
   oneOffNoBreak: 'A one-off has one date, so it has no break weeks. Cancel the event instead.',
   noPattern: 'Only a weekly pattern has break weeks. Cancel this date instead, so dancers see why.',
   offRule: 'This date was added or moved, so it is not part of the weekly pattern and can\u2019t be a break. Cancel it instead.',
@@ -90,7 +90,8 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
   const fest = s.kind === 'festival';
   const oneoff = s.kind === 'oneoff';
 
-  if (d.state === 'skip') return [row('unskip', base ?? (d.ruleDate ? null : DATE_WHY.unskipOffRule))];
+  // unskip delegates to _cmd_series_add_date_p5, so the date cap refuses it like Add.
+  if (d.state === 'skip') return [row('unskip', base ?? (!d.ruleDate ? DATE_WHY.unskipOffRule : s.upcoming >= DATE_CAP ? DATE_WHY.cap : null))];
 
   const cancelled = d.state === 'cancelled';
   const onFirst = cancelled ? DATE_WHY.cancelledFirst : null;
@@ -98,17 +99,19 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
 
   if (cancelled) out.push(row('bringBack', base ?? (s.upcoming >= DATE_CAP ? DATE_WHY.cap : null)));
   else if (oneoff) out.push(row('cancelEvent', base ?? (s.oneOff === undefined || s.oneOff === null ? DATE_WHY.notLive : s.oneOff.reason)));
-  else out.push(row('cancel', base ?? (fest ? DATE_WHY.festivalCancel : null)));
+  else out.push(row('cancel', base));
 
   out.push(row('move', base ?? (fest ? DATE_WHY.festivalMove : onFirst)));
-  out.push(row('time', base ?? (fest ? DATE_WHY.festivalTime : onFirst ?? (s.hasSessions ? null : DATE_WHY.noSessions))));
+  // No programme time is no grey: D8 makes the date its own time session. A date whose own
+  // session set is empty is refused by the server (no_sessions_for_time_override, with copy).
+  out.push(row('time', base ?? (fest ? DATE_WHY.festivalTime : onFirst)));
   if (d.ownTime) out.push(row('resetTime', base ?? (fest ? DATE_WHY.festivalTime : onFirst)));
   out.push(row('details', base ?? onFirst));
   if (d.ownDetails || d.ownTime) out.push(row('resetNormal', base));
 
   const skipWhy = oneoff ? DATE_WHY.oneOffNoBreak
     : fest ? DATE_WHY.festivalOne
-    : s.kind === 'monthly' || s.kind === 'custom' ? DATE_WHY.noPattern
+    : s.kind === 'monthly' || s.kind === 'custom' || d.ruleDate === null ? DATE_WHY.noPattern
     : base ?? onFirst ?? (d.ruleDate ? null : DATE_WHY.offRule);
   out.push(row('skip', skipWhy));
 
@@ -145,6 +148,6 @@ export function dateMarks(kind: P3Kind, d: DateFacts, extra: { today: IsoDate; h
   const own = extra.hasOverride || extra.sessionChanges || d.ownTime;
   if (d.ownTime) tags.push(L.ownTime);
   else if (own) tags.push(L.ownChanges);
-  if ((kind === 'weekly' || kind === 'course') && !d.ruleDate) tags.push(L.notUsualDay);
+  if ((kind === 'weekly' || kind === 'course') && d.ruleDate === false) tags.push(L.notUsualDay);
   return { tags, own };
 }

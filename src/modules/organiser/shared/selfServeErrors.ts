@@ -163,6 +163,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^invalid_transition: festival_extra_date/, message: 'A festival holds one date. Ask the Bachata Calendar team to change its days.' },
   { match: /^invalid_payload: (date|occurrence_id) required/, message: 'Choose a date.' },
   { match: /^invalid_payload: new_local_start required/, message: 'Enter the new start time, like 19:30.' },
+  { match: /^invalid_payload: date_time_session_has_people/, message: 'This date\u2019s own time has people on its session, so it can\u2019t go back to the usual time. Change the time instead.' },
   // ER AD4, series.cancel_one_off (_cmd_series_cancel_one_off_p5 and the dispatcher's payload rule, read on prod
   // 2026-10-26). Anchored and before every loose rule: the reason refusal lists every label, and the token sits
   // between the first and second colon.
@@ -195,6 +196,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /move_date is not supported for festivals/, message: 'Festival days are set by the Bachata Calendar team. Ask them to move a day.' },
   { match: /to_date required/, message: 'Choose a date.' },
   { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
+  { match: /^has_bookings: .*cannot be made a break/, message: 'People have already booked this date, so it cannot be skipped. Cancel it instead, so they see why.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },

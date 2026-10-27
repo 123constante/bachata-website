@@ -4,20 +4,11 @@ import { londonTodayKey } from '@/lib/londonDate';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, addDateWhy } from '../model';
 import { partialOf } from '../data/eventPage';
-import { allDatesOf, seriesFactsOf, tagClass, type DateEntry, type DateFilter } from '../data/dates';
+import { allDatesOf, emptyDatesCopy, seriesFactsOf, tagClass, type DateEntry, type DateFilter } from '../data/dates';
 import { P3_PATHS } from '../shell/paths';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { WorkspaceGate } from './EventPage';
 import { useToast } from './Toast';
-
-/** What an empty filter says, and what the person can do. */
-const EMPTY: Record<DateFilter, string> = {
-  coming: 'No dates coming up. Add a date so dancers can find it.',
-  past: 'No past dates yet. Dates move here once they have happened.',
-  cancelled: 'No cancelled dates. A date you cancel shows here, with its reason.',
-  breaks: 'No break weeks. Skip a week from its date when it isn\u2019t running.',
-  own: 'No date has its own changes. Open a date to change its place, details or time.',
-};
 
 function DateRowButton({ e, onOpen }: { e: DateEntry; onOpen: (e: DateEntry) => void }) {
   const off = e.facts.state !== 'scheduled';
@@ -63,7 +54,7 @@ function AllDates({ ws }: { ws: EventWorkspace }) {
             ))}
           </ul>
         ) : (
-          <div className="p3-state" data-testid="p3-dates-empty"><p>{EMPTY[filter]}</p></div>
+          <div className="p3-state" data-testid="p3-dates-empty"><p>{emptyDatesCopy(ws, today, filter)}</p></div>
         )}
       </div>
       <button type="button" className="p3-btn" disabled={!!addWhy} onClick={() => setOpen({ kind: 'add' })} data-testid="p3-add-date">{L.addDate}</button>

@@ -14,7 +14,7 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { L, addDateWhy, dateActions, pickDayProblem, timeWord, type DateAction, type DateRow } from '../model';
 import { cancelPlan } from '../data/eventPage';
 import {
-  DATE_COPY, KeyRing, PLAN, breakFactsOf, dateFactsOf, resetNormalPlan, seriesFactsOf, takenDays, undoFor, useDateDetail, useSendPlan,
+  DATE_COPY, KeyRing, PLAN, PlanStepError, breakFactsOf, dateFactsOf, resetNormalPlan, seriesFactsOf, takenDays, undoFor, useDateDetail, useSendPlan,
   type DatePlan,
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
@@ -45,7 +45,7 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
       ring.current.forget(plan);
       onDone(done);
     } catch (e) {
-      setError(commandErrorMessage(e));
+      setError(e instanceof PlanStepError ? e.message : commandErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -349,10 +349,16 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
 function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent }: {
   ws: EventWorkspace; id: string; today: string; onDone: (d: Done) => void; onClose: () => void; onCancelEvent: () => void;
 }) {
-  const d = ws.dates.find((x) => x.id === id);
+  // A write that committed but lost its response (a skip removes the date) reloads the page
+  // under the error: keep the date the sheet opened on, so the error and its retry (the same
+  // keys, a replay) stay on screen instead of the sheet vanishing.
+  const live = ws.dates.find((x) => x.id === id);
+  const [seen, setSeen] = useState<WorkspaceDate | undefined>(live);
+  if (live && live !== seen) setSeen(live);
+  const d = live ?? (seen?.id === id ? seen : undefined);
   const detail = useDateDetail(d ? id : null);
   if (!d) return null;
-  if (detail.isPending || detail.isError) {
+  if (!detail.data && (detail.isPending || detail.isError)) {
     return (
       <Sheet title={fullDate(d.occurrence_date, today)} onClose={onClose}>
         {detail.isPending ? <p className="p3-note">{DATE_COPY.loading}</p> : (

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fullDate } from '../../shared/dateWords';
-import { isRuleDate, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
+import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
 import {
   ORGANISER_HOME_KEY, dateDetailQueryKey, fetchDateDetail, runOccurrenceCommand, runSeriesCommand, seriesWorkspaceQueryKey,
   type CommandResponse,
@@ -10,8 +10,9 @@ import {
   setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand, type OverridePatch, type OwnerCommand,
 } from '../../shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
+import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, canCancelOneOff, dateMarks, timeWord, type DateAction, type DateFacts, type IsoDate, type SeriesFacts } from '../model';
+import { L, addDateWhy, canCancelOneOff, dateMarks, timeWord, type DateAction, type DateFacts, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
 import { breakFactsOf, dateFactsOf, marksOf } from './dateFacts';
 
@@ -30,7 +31,6 @@ export function seriesFactsOf(ws: EventWorkspace, today: IsoDate, now: Date = ne
   return {
     kind,
     lifecycle: ws.series.lifecycle_status,
-    hasSessions: ws.hasSessions,
     upcoming: ws.dates.filter((d) => d.lifecycle_status === 'scheduled' && d.occurrence_date >= today).length,
     ...(kind === 'oneoff' ? { oneOff: canCancelOneOff(cancelInputOf(ws), today, now) } : {}),
   };
@@ -86,6 +86,34 @@ export function allDatesOf(ws: EventWorkspace, today: IsoDate, filter: DateFilte
   const counts = Object.fromEntries((Object.keys(IN) as DateFilter[]).map((f) => [f, all.filter((e) => IN[f](e, today)).length])) as Record<DateFilter, number>;
   const rows = all.filter((e) => IN[filter](e, today));
   return { rows: filter === 'past' ? rows.reverse() : rows, counts };
+}
+
+const EMPTY: Record<DateFilter, string> = {
+  coming: 'No dates coming up. Add a date so dancers can find it.',
+  past: 'No past dates yet. Dates move here once they have happened.',
+  cancelled: 'No cancelled dates. A date you cancel shows here, with its reason.',
+  breaks: 'No break weeks. Skip a week from its date when it isn\u2019t running.',
+  own: 'No date has its own changes. Open a date to change its place, details or time.',
+};
+
+/**
+ * What an empty filter says, and what the person can do: never a control that is greyed.
+ * Coming names why Add is off (as the event page does); Breaks says why this kind has none.
+ */
+export function emptyDatesCopy(ws: EventWorkspace, today: IsoDate, filter: DateFilter): string {
+  const s = seriesFactsOf(ws, today);
+  if (filter === 'coming') {
+    const why = addDateWhy(s);
+    return why ? `No dates coming up. ${why}` : EMPTY.coming;
+  }
+  if (filter === 'breaks') {
+    if (s.kind === 'oneoff') return 'No break weeks. A one-off has one date, so it has none.';
+    if (s.kind === 'festival') return 'No break weeks. A festival holds one date, so it has none.';
+    if ((s.kind !== 'weekly' && s.kind !== 'course') || !weeklyRule(ws.series.recurrence_rule)) {
+      return 'No break weeks. Only a weekly pattern has them; cancel a date instead, so dancers see why.';
+    }
+  }
+  return EMPTY[filter];
 }
 
 /** A tag's CSS class, for the tag words of dateMarks (Coming rows and All dates alike). */
@@ -197,6 +225,7 @@ export const DATE_COPY = {
   noVenues: 'The places didn\u2019t load. Check your connection, then try again.',
   usualPlace: 'The usual place',
   partialNote: 'Dates not in this list are not shown here.',
+  halfReset: 'The details went back to usual, but the time did not.',
 } as const;
 
 /** The toast's undo for a finished action, where one command undoes it. */
@@ -212,11 +241,17 @@ export function undoFor(action: DateAction, d: D | null, date: IsoDate): { undo:
  * The keys a plan goes under, kept while it has not gone through: a retry after a dropped
  * connection sends the same keys, so it is the same write, never a second one. A changed
  * plan (another reason, another day) is a new request. Forget it once it succeeds.
+ * Keyed WITHOUT the date version: a write that committed but lost its response reloads the
+ * workspace and moves the version, and the retry must still replay (the server answers a
+ * known key before its version check), not write again.
  */
+const ringId = (plan: DatePlan): string =>
+  JSON.stringify(plan.to === 'date' ? [plan.occurrenceId, plan.commands] : plan);
+
 export class KeyRing {
   private keys = new Map<string, string[]>();
   for(plan: DatePlan): string[] {
-    const id = JSON.stringify(plan);
+    const id = ringId(plan);
     let ks = this.keys.get(id);
     if (!ks) {
       ks = planCommands(plan).map(() => newIdempotencyKey());
@@ -224,7 +259,14 @@ export class KeyRing {
     }
     return ks;
   }
-  forget(plan: DatePlan) { this.keys.delete(JSON.stringify(plan)); }
+  forget(plan: DatePlan) { this.keys.delete(ringId(plan)); }
+}
+
+/** A plan's later call was refused after an earlier one went through: say what changed. */
+export class PlanStepError extends Error {
+  constructor(readonly step: number, readonly cause: unknown) {
+    super(`${DATE_COPY.halfReset} ${commandErrorMessage(cause)}`);
+  }
 }
 
 export type DateRunner = {
@@ -242,7 +284,12 @@ export async function sendPlan(plan: DatePlan, keys: string[], seriesVersion: nu
   let v: number | null = plan.version;
   let last: CommandResponse | null = null;
   for (let i = 0; i < plan.commands.length; i++) {
-    last = await run.date(plan.occurrenceId, v, plan.commands[i], keys[i]);
+    try {
+      last = await run.date(plan.occurrenceId, v, plan.commands[i], keys[i]);
+    } catch (e) {
+      // Only the composite (details, then time) has a second call.
+      throw i > 0 ? new PlanStepError(i, e) : e;
+    }
     v = typeof last?.new_version === 'number' ? last.new_version : null;
   }
   return last;

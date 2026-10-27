@@ -6,7 +6,7 @@ import { parseEventWorkspace } from '../../../events/eventModel';
 import { L } from '../../model';
 import { eventPageOf } from '../eventPage';
 import {
-  DATE_COPY, KeyRing, PLAN, allDatesOf, dateEntries, planCommands, resetNormalPlan, sendPlan, seriesFactsOf, takenDays, undoFor,
+  DATE_COPY, KeyRing, PLAN, PlanStepError, allDatesOf, emptyDatesCopy, dateEntries, planCommands, resetNormalPlan, sendPlan, seriesFactsOf, takenDays, undoFor,
   type DatePlan, type DateRunner,
 } from '../dates';
 import { TODAY, occ, weekly, ws, wsRaw } from '../../screens/__tests__/wsFixtures';
@@ -73,6 +73,39 @@ describe('sending: keys kept per plan, the date version chained', () => {
     ring.forget(PLAN.cancel(D, 'Illness'));
     expect(ring.for(PLAN.cancel(D, 'Illness'))).not.toEqual(a);
   });
+  it('a retry after a dropped-but-committed response replays: the version moved, the keys did not (r1 finding 7)', async () => {
+    const ring = new KeyRing();
+    const sent: string[] = [];
+    let attempt = 0;
+    const run: DateRunner = {
+      date: vi.fn(async (_id, _v, _c, k) => { sent.push(k); attempt += 1; if (attempt === 1) throw new TypeError('Failed to fetch'); return { ok: true, replayed: true }; }),
+      series: vi.fn(),
+    };
+    const first = PLAN.cancel(D, 'Illness');
+    await expect(sendPlan(first, ring.for(first), 7, run)).rejects.toThrow('Failed to fetch');
+    // the workspace reload after the committed write bumps the date's version
+    const retry = PLAN.cancel({ ...D, version: 4 }, 'Illness');
+    await sendPlan(retry, ring.for(retry), 7, run);
+    expect(sent[1]).toBe(sent[0]);
+    expect(ring.for(PLAN.cancel({ ...D, id: 'o-other' }, 'Illness'))).not.toEqual(ring.for(first));
+  });
+  it('the composite: a refused SECOND call says the details went back and the time did not (r1 finding 8)', async () => {
+    const plan = resetNormalPlan(D, detailRaw({ description_override: 'd' }), true)!;
+    const refusal = Object.assign(new Error('invalid_payload: date_time_session_has_people: reset would drop a session with people'), { code: 'P0001' });
+    const run: DateRunner = {
+      date: vi.fn(async (_id, v, c) => { if (c.kind === 'occurrence.set_time') throw refusal; return { ok: true, new_version: (v ?? 0) + 1 }; }),
+      series: vi.fn(),
+    };
+    const err = await sendPlan(plan, new KeyRing().for(plan), 7, run).catch((e) => e);
+    expect(err).toBeInstanceOf(PlanStepError);
+    expect(err.step).toBe(1);
+    expect(err.message).toBe(`${DATE_COPY.halfReset} ${commandErrorMessage(refusal)}`);
+    expect(commandErrorMessage(refusal)).not.toBe(commandErrorMessage(new Error('zz_unknown')));
+    // a refused FIRST call is the plain refusal (nothing changed)
+    const run1: DateRunner = { date: vi.fn(async () => { throw refusal; }), series: vi.fn() };
+    const err1 = await sendPlan(plan, ['a', 'b'], 7, run1).catch((e) => e);
+    expect(err1).toBe(refusal);
+  });
   it('a composite: one key per command; the second goes against the version the first returned', async () => {
     const plan = resetNormalPlan(D, detailRaw({ description_override: 'd' }), true)!;
     const keys = new KeyRing().for(plan);
@@ -112,6 +145,7 @@ describe('every date refusal reads as plain copy (handlers read on prod 2026-10-
     'past_date: occurrence x on 2026-10-01 is already past and cannot be made a break',
     'has_bookings: occurrence x on 2026-10-30 has attendance or guest-list entries and cannot be made a break (cancel it instead)',
     'has_bookings: occurrence x on 2026-10-30 has attendance or guest-list entries and cannot be deleted (cancel it instead)',
+    'invalid_payload: date_time_session_has_people: this date\'s own time session has people on it',
     'invalid_transition: 2026-11-13 is not a break on series x (nothing to restore)',
     'invalid_transition: 2026-11-14 is not a date the recurrence rule of series x generates -- the rule changed',
     'invalid_payload: cancellation reason must be one of: Illness, Weather',
@@ -157,6 +191,30 @@ describe('All dates: filters, breaks, the honest cap', () => {
   });
   it('a stored day (cancelled too) is taken for Move and Add', () => {
     expect(takenDays(ws('weekly')).has('2026-11-06')).toBe(true);
+  });
+  it('has_bookings on a skip says skipped, on a delete says removed (r1 finding 9)', () => {
+    const msg = (m: string) => commandErrorMessage(Object.assign(new Error(m), { code: 'P0001' }));
+    expect(msg('has_bookings: occurrence x on 2026-10-30 has attendance or guest-list entries and cannot be made a break (cancel it instead)')).toContain('cannot be skipped');
+    expect(msg('has_bookings: occurrence x on 2026-10-30 has attendance or guest-list entries and cannot be deleted (cancel it instead)')).toContain('cannot be removed');
+  });
+  it('recurring with recurrence_rule null: no date is tagged Not the usual day, skip says no pattern (r1 finding 5)', () => {
+    const w = parseEventWorkspace(wsRaw({ recurrence_rule: null }, [], weekly('2026-10-30', 3).map((d) => occ(d))));
+    const rows = allDatesOf(w, TODAY, 'coming').rows;
+    expect(rows).toHaveLength(3);
+    for (const r of rows) { expect(r.tags).toEqual([]); expect(r.facts.ruleDate).toBeNull(); }
+  });
+  it('empty states never point at a greyed control (r1 finding 6)', () => {
+    const oneoff = parseEventWorkspace(wsRaw({ format: 'one_off', recurrence_rule: null }, [], [occ('2026-10-16')]));
+    expect(emptyDatesCopy(oneoff, TODAY, 'coming')).not.toMatch(/Add a date so/);
+    expect(emptyDatesCopy(oneoff, TODAY, 'coming')).toContain('A one-off has one date');
+    expect(emptyDatesCopy(ws('weekly'), TODAY, 'coming')).toMatch(/Add a date so/);
+    expect(emptyDatesCopy(ws('weekly'), TODAY, 'breaks')).toMatch(/Skip a week/);
+    for (const series of [{ format: 'one_off', recurrence_rule: null }, { format: 'festival', recurrence_rule: null },
+      { recurrence_rule: { mode: 'monthly' } }, { recurrence_rule: { mode: 'custom' } }, { recurrence_rule: null }]) {
+      const w = parseEventWorkspace(wsRaw(series, [], [occ('2026-10-30')]));
+      expect(emptyDatesCopy(w, TODAY, 'breaks')).not.toMatch(/skip a week/i);
+      expect(emptyDatesCopy(w, TODAY, 'breaks')).toMatch(/^No break weeks\./);
+    }
   });
   it('the cancelled body names the reason dancers see', () => {
     expect(DATE_COPY.cancelledBody('Illness')).toContain('Cancelled: Illness');
