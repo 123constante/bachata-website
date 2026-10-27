@@ -105,6 +105,22 @@ for (const scheme of ['light', 'dark'] as const) {
     await shot(page, `10-details-festival-${scheme}`);
   });
 
+  // Review round 1 (PR #1082): the cover picker is a normal button (r1 #7); a failed city lookup holds Save (r1 #3)
+  test(`r1: cover button, city lookup fails ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', 'details', scheme);
+    await page.getByTestId('p3-field-cover').scrollIntoViewIfNeeded();
+    await checks(page, `details cover button ${scheme}`);
+    await shot(page, `16-details-cover-${scheme}`);
+    await page.route(`${FAKE_ORIGIN}/rest/v1/cities*`, (r) => r.fulfill({ status: 503, contentType: 'application/json', body: '{"message":"down"}' }));
+    await page.getByTestId('p3-d-pick-place').click();
+    await page.getByTestId('p3-d-venues').getByText('Studio Two').click();
+    await page.getByTestId('p3-d-city-fail').waitFor();
+    await expect(page.getByTestId('p3-save')).toBeDisabled();
+    await page.getByTestId('p3-d-city-fail').scrollIntoViewIfNeeded();
+    await checks(page, `details city lookup failed ${scheme}`);
+    await shot(page, `17-details-city-fail-${scheme}`);
+  });
+
   test(`prices ${scheme}`, async ({ page }) => {
     await open(page, 'weekly', 'prices', scheme);
     await page.getByTestId('p3-prices-empty').waitFor();

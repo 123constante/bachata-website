@@ -26,3 +26,11 @@
 {"label":"prices festival light","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}
 {"label":"prices free dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":18}
 {"label":"prices free light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":18}
+{"round":"r1","label":"event page rows light","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":44}
+{"round":"r1","label":"details cover button light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
+{"round":"r1","label":"details untouched light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"round":"r1","label":"event page rows dark","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":44}
+{"round":"r1","label":"details untouched dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"round":"r1","label":"details city lookup failed light","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":39}
+{"round":"r1","label":"details cover button dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
+{"round":"r1","label":"details city lookup failed dark","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":39}
