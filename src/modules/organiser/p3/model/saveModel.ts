@@ -95,7 +95,9 @@ export function stepLanded(a: SaveAttempt, i: number, newVersion: number | null)
 
 /**
  * Someone else saved since the screen opened: the stored version moved and it was not one of
- * this screen's own saves. The typing is kept; the screen says so (never a silent reset).
+ * this screen's own saves. The typing is kept; the screen says so (never a silent reset). A stored
+ * version BELOW the opened one is the workspace not yet refetched after this screen's own step
+ * landed, never someone else (PR #1082 r2 #3).
  */
 export const changedElsewhere = (openedAt: number, now: number, own: ReadonlySet<number>): boolean =>
-  now !== openedAt && !own.has(now);
+  now > openedAt && !own.has(now);

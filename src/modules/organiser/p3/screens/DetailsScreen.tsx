@@ -153,7 +153,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={form.restart} />
+        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
           {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}
@@ -178,6 +178,8 @@ function Details({ ws }: { ws: EventWorkspace }) {
  * or when the lookup failed, `problem` holds the save (never a save that leaves the old place's
  * city behind); a failed lookup can be tried again (PR #1082 r1 #3).
  */
+const CITY_LOOKUP_MS = 10_000;
+
 function useVenueCity(venueId: string | null, venues: VenueOption[] | undefined) {
   const [found, setFound] = useState<{ venueId: string; id: string | null; failed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -188,11 +190,13 @@ function useVenueCity(venueId: string | null, venues: VenueOption[] | undefined)
   useEffect(() => {
     if (!venueId || !ready) return undefined;
     let live = true;
+    // a lookup that never settles turns into the failed state, with Try again (PR #1082 r2 #7)
+    const slow = setTimeout(() => { if (live) setFound({ venueId, id: null, failed: true }); }, CITY_LOOKUP_MS);
     cityForVenue(venueId, list.current).then(
-      (id) => { if (live) setFound({ venueId, id, failed: false }); },
-      () => { if (live) setFound({ venueId, id: null, failed: true }); },
+      (id) => { clearTimeout(slow); if (live) setFound({ venueId, id, failed: false }); },
+      () => { clearTimeout(slow); if (live) setFound({ venueId, id: null, failed: true }); },
     );
-    return () => { live = false; };
+    return () => { live = false; clearTimeout(slow); };
   }, [venueId, ready, attempt]);
   const mine = venueId && found?.venueId === venueId ? found : null;
   const failed = !!mine?.failed;

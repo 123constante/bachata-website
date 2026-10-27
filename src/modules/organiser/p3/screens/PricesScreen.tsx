@@ -96,7 +96,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
         ))}
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={closed} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={form.restart} />
+        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); }} />
     </div>
   );
 }

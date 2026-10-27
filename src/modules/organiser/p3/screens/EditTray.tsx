@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAreaLeaveBlocker } from '@/modules/areas/shared/useAreaLeaveBlocker';
 import { isLeaveDirty, requestLeave, useLeaveGuard, useRegisterLeaveAsk } from '@/modules/areas/shared/leaveGuard';
 import { useSendOnce } from '../../shared/runCommands';
-import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isVersionConflict } from '../../shared/selfServeErrors';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L } from '../model/labels';
@@ -86,13 +86,18 @@ export function useSaveRun(seriesId: string) {
       held.current = null;
       return { ok: true, version: last };
     } catch (e) {
+      // a stale-version refusal ends the attempt: after "Start again" the same edit goes against the
+      // new version with new keys, never the refused version again (PR #1082 r2 #1)
+      if (isVersionConflict(e)) held.current = null;
       setError(commandErrorMessage(e));
       return { ok: false, version: last };
     } finally {
       setBusy(false);
     }
   };
-  return { run, busy, error, clearError: () => setError(null) };
+  /** "Start again": the held attempt was for the old version; the next save is a new one (r2 #1). */
+  const forget = () => { held.current = null; };
+  return { run, busy, error, clearError: () => setError(null), forget };
 }
 
 type Ask = { kind: 'undo' } | { kind: 'leave'; go: () => void } | { kind: 'list' } | null;

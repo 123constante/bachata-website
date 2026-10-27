@@ -228,6 +228,9 @@ describe('the save model: one key per command, a retry is the same write', () =>
     expect(changedElsewhere(7, 7, new Set())).toBe(false);
     expect(changedElsewhere(7, 8, new Set([8]))).toBe(false);
     expect(changedElsewhere(7, 9, new Set([8]))).toBe(true);
+    // r2 #3: own step landed at 8, workspace not refetched yet (still 7): not someone else
+    expect(changedElsewhere(8, 7, new Set([8]))).toBe(false);
+    expect(changedElsewhere(8, 9, new Set([8]))).toBe(true);
   });
   it('the Save button: a lock wins, then nothing changed, then the problem', () => {
     const labels = { save: 'Save', nothing: 'Nothing' };

@@ -387,3 +387,70 @@ describe('review round 1 (PR #1082)', () => {
     expect(envs[2].expected_version).toBe(8);
   });
 });
+
+describe('review round 2 (PR #1082)', () => {
+  it.each([[DETAILS, 'p3-d-description'], [PRICES, 'p3-free-switch']] as const)('r2 #1 %s: refused stale save, Start again, the same edit: sent at the NEW version with a NEW key, and it lands', async (path, id) => {
+    const envs = server((_e, n) => (n === 1 ? { data: null, error: { message: 'version_conflict: expected 7, got 8' } } : { data: { ok: true, new_version: 9 }, error: null }));
+    show(path);
+    await waitFor(() => screen.getByTestId(id));
+    const edit = () => { if (id === 'p3-free-switch') fireEvent.click(screen.getByTestId(id)); else type(id, 'Mine'); };
+    edit();
+    // someone else saves a DIFFERENT field (the name stays, so the plan is byte-identical after Start again)
+    raw = wsRaw({ version: 8, default_ticket_url: 'https://tickets.example.test/new' }, [], []);
+    await refetch();
+    await waitFor(() => screen.getByTestId('p3-changed-elsewhere'));
+    await press(saveBtn());
+    await waitFor(() => expect(screen.getByTestId('p3-save-error').textContent).toBe(VERSION_CONFLICT));
+    // r2 #6: the refusal reads as plain words, never the server's text
+    expect(screen.getByTestId('p3-save-error').textContent).not.toMatch(/version_conflict|expected/);
+    expect(envs[0].expected_version).toBe(7);
+    fireEvent.click(screen.getByTestId('p3-start-again'));
+    edit();
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(2));
+    expect(envs[1].command).toEqual(envs[0].command);
+    expect(envs[1].expected_version).toBe(8);
+    expect(envs[1].idempotency_key).not.toBe(envs[0].idempotency_key);
+    await waitFor(() => screen.getByTestId('p3-event'));
+  });
+
+  it('r2 #3 step 1 lands (own v8) while the workspace still reads v7: no "someone else saved"; a real v9 still shows it', async () => {
+    const envs = server((_e, n) => (n === 1 ? { data: { ok: true, new_version: 8 }, error: null } : new Promise(() => {})));
+    show(DETAILS);
+    await waitFor(() => screen.getByTestId('p3-d-chat'));
+    type('p3-d-chat', 'https://chat.whatsapp.com/abc');
+    type('p3-d-name', 'Friday Social');
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(2));
+    await refetch();
+    expect(screen.queryByTestId('p3-changed-elsewhere')).toBeNull();
+    raw = wsRaw({ version: 9, default_description: 'Changed elsewhere' }, [], []);
+    await refetch();
+    await waitFor(() => screen.getByTestId('p3-changed-elsewhere'));
+  });
+
+  it('r2 #4 a city lookup that never settles turns into the failed state after 10 s, with Try again', async () => {
+    city.mockImplementationOnce(() => new Promise(() => {}));
+    const envs = server();
+    show(DETAILS);
+    await waitFor(() => screen.getByTestId('p3-d-pick-place'));
+    fireEvent.click(screen.getByTestId('p3-d-pick-place'));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await act(async () => { fireEvent.click(within(screen.getByTestId('p3-d-venues')).getByText('Studio Two')); });
+      expect(screen.getByTestId('p3-save-why').textContent).toBe(L.detailsCityBusy);
+      await act(async () => { vi.advanceTimersByTime(9_999); });
+      expect(screen.queryByTestId('p3-d-city-retry')).toBeNull();
+      await act(async () => { vi.advanceTimersByTime(1); });
+      expect(screen.getByTestId('p3-save-why').textContent).toBe(L.detailsCityFail);
+      expect(saveBtn().disabled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+    await press(screen.getByTestId('p3-d-city-retry'));
+    await waitFor(() => expect(saveBtn().disabled).toBe(false));
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect((envs[0].command as Raw).payload).toEqual({ name: 'Sensual Fridays', default_venue_id: 'v2', default_city_id: 'city-9' });
+  });
+});
