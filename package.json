@@ -68,6 +68,8 @@
     "check:going-legacy-rpcs": "node scripts/check-going-legacy-rpcs.mjs",
     "check:going-rpcs:self-test": "node scripts/check-going-rpcs.mjs --self-test",
     "check:going-rpcs": "node scripts/check-going-rpcs.mjs",
+    "check:organiser-hidden-ids:self-test": "node scripts/check-organiser-hidden-ids-contract.mjs --self-test",
+    "check:organiser-hidden-ids": "node scripts/check-organiser-hidden-ids-contract.mjs",
     "preview": "vite preview",
     "test:unit": "vitest run --exclude \"**/*EdgeTtl.test.ts\"",
     "test:unit:offline": "vitest run --exclude \"**/*{EdgeTtl.test.ts,.contract.test.ts,.contract.test.tsx}\"",
