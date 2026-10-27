@@ -11,9 +11,9 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
 import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { cityHasNoRows, resolvePageCity, SHOWING_EVERYONE } from '@/lib/pageCity';
+import { resolvePageCity } from '@/lib/pageCity';
 import { useCity } from '@/contexts/CityContext';
-import EmptyCityNote from '@/components/listing/EmptyCityNote';
+import EmptyCityNote, { cityHasNoRows, SHOWING_EVERYONE } from '@/components/listing/EmptyCityNote';
 import { fetchDirectoryOrganisers, type OrgRow } from '@/lib/organiserDirectoryList';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

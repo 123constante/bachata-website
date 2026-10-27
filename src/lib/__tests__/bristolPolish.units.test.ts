@@ -5,13 +5,15 @@
  * a city with no display name (null slug) and 0 / 1 / many rows.
  */
 import { describe, expect, it } from 'vitest';
-import { cityHasNoRows, resolvePageCity, rowsForCity } from '@/lib/pageCity';
+import { resolvePageCity } from '@/lib/pageCity';
+import { cityHasNoRows, rowsForCity } from '@/components/listing/EmptyCityNote';
 import { cityBounds, cityCentre } from '@/lib/cityCentre';
 import { normalizeInstagramHandle } from '@/lib/instagramHandle';
 import { buildSeoForRoute } from '@/lib/seo/buildSeoForRoute';
 import { isOffCityFestival, partitionRemote } from '@/modules/home-map/mapListDerivations';
 import type { MapEvent } from '@/modules/home-map/mapTypes';
-import { listingFormCopy, listingSourceUrl, normalizeListingLink } from '@/components/listingRequestCopy';
+import { listingFormCopy, normalizeListingLink } from '@/components/listingRequestCopy';
+import { listingSourceUrl } from '@/components/listingSourceUrl';
 
 describe('resolvePageCity', () => {
   it.each([

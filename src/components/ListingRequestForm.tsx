@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react';
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
 import { toast } from '@/hooks/use-toast';
 import type { ListingSection } from '@/lib/featureFlags';
-import { EVENT_LISTING_COPY, eventListingLink, listingSourceUrl, type ListingFormCopy, type ListingLinkRule } from './listingFormBase';
+import { EVENT_LISTING_COPY, eventListingLink, type ListingFormCopy, type ListingLinkRule } from './listingFormBase';
 
 interface ListingRequestFormProps {
   section: ListingSection;
@@ -14,11 +14,11 @@ interface ListingRequestFormProps {
   copy?: ListingFormCopy;
   /** What is sent as event_link; the event rule by default. A non-default rule also makes the box a text input. */
   linkRule?: ListingLinkRule;
-  /** The page city's slug, added to source_url when the path does not name it. */
-  citySlug?: string | null;
+  /** source_url at submit; the page path + query by default. EmptyCityNote passes listingSourceUrl, which adds the page city. */
+  getSourceUrl?: () => string;
 }
 
-export default function ListingRequestForm({ section, copy = EVENT_LISTING_COPY, linkRule, citySlug = null }: ListingRequestFormProps) {
+export default function ListingRequestForm({ section, copy = EVENT_LISTING_COPY, linkRule, getSourceUrl }: ListingRequestFormProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventLink, setEventLink] = useState('');
@@ -47,7 +47,7 @@ export default function ListingRequestForm({ section, copy = EVENT_LISTING_COPY,
     setSubmitting(true);
     try {
       const sourceUrl = typeof window !== 'undefined'
-        ? listingSourceUrl(window.location.pathname, window.location.search, citySlug)
+        ? (getSourceUrl ? getSourceUrl() : window.location.pathname + window.location.search)
         : null;
 
       const { data, error } = await rpcLoose('submit_listing_request_v1', {
