@@ -327,7 +327,7 @@ function Orders({ orders, loading, role, onRefund }: { orders: readonly Order[];
               </p>
             </div>
             {refundable(o) ? (
-              <GhostButton size="sm" testId="tix-refund" disabled={!!blocked} aria-describedby={blocked ? id : undefined} onClick={() => onRefund(o)}>
+              <GhostButton size="sm" block={false} className="shrink-0" testId="tix-refund" disabled={!!blocked} aria-describedby={blocked ? id : undefined} onClick={() => onRefund(o)}>
                 Refund
               </GhostButton>
             ) : (

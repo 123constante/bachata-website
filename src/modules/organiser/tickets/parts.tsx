@@ -165,7 +165,7 @@ export function SalesCard({ organiserId }: { organiserId: string }) {
       <SummaryRow affordance="none" label="Tickets sold" value={String(t.ticketsSold)} testId="tix-sales-sold" />
       <SummaryRow affordance="none" label="Paid orders" value={String(t.ordersPaid)} testId="tix-sales-orders" />
       <SummaryRow affordance="none" label="Ticket money" sublabel="Before Stripe&rsquo;s fees" value={formatPence(t.grossPence)} testId="tix-sales-gross" />
-      <SummaryRow affordance="none" label="Booking fees" sublabel="Paid by buyers on top of the price, 50p a ticket" value={formatPence(t.bookingFeesPence)} testId="tix-sales-fees" />
+      <SummaryRow affordance="none" label="Booking fees" sublabel="Paid by buyers, 50p a ticket" value={formatPence(t.bookingFeesPence)} testId="tix-sales-fees" />
       <SummaryRow affordance="none" label="Refunded" value={`${formatPence(t.refundedPence)} (${t.ordersRefunded})`} testId="tix-sales-refunded" />
       {t.ordersPending > 0 && <SummaryRow affordance="none" label="Waiting for payment" value={String(t.ordersPending)} testId="tix-sales-pending" />}
       {t.ordersDisputed > 0 && <SummaryRow affordance="none" label="Disputed" value={String(t.ordersDisputed)} testId="tix-sales-disputed" />}
