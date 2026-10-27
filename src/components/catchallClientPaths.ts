@@ -40,6 +40,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/settings/delete',
   '/account/deleted',
   '/privacy',
+  '/tickets/thanks', // flags.publicTicketing; while off the client renders its NotFound
   '/terms',
   '/account/restore',
   '/account/new',

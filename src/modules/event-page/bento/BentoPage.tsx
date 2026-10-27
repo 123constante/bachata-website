@@ -56,6 +56,7 @@ import { getRaffleSessionId } from '@/lib/raffleSession';
 import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
 import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
+import { flags } from '@/lib/featureFlags';
 
 type BentoPageProps = {
   eventId: string | null;
@@ -100,6 +101,9 @@ const importDerivedLevelBadge = () =>
 const importLevelRatingPrompt = () =>
   import('@/components/LevelRatingPrompt').then((m) => ({ default: m.LevelRatingPrompt }));
 const DerivedLevelBadge = lazyWithRetry(importDerivedLevelBadge);
+// Buyer checkout (S4): its own lazy chunk, requested only while flags.publicTicketing is on,
+// so the flag-off /event/:id first load is unchanged.
+const TicketsBlock = lazyWithRetry(() => import('@/modules/tickets/TicketsBlock'));
 const LevelRatingPrompt = lazyWithRetry(importLevelRatingPrompt);
 
 // Pre-hydration chunk warm-up (same pattern as FestivalDetail in
@@ -750,6 +754,18 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         {state === 'ready' && !over && <TapHintSticker />}
 
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
+
+        {/* Tickets (S4): only on a bookable night -- same suppression as the sticky
+            bar's ticket link. Renders nothing until the series has a type on sale. */}
+        {flags.publicTicketing && state === 'ready' && eventId && !over && !occurrence?.isCancelled && !pageModel.page.isPaused && (
+          <Suspense fallback={null}>
+            <TicketsBlock
+              seriesId={eventId}
+              occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
+              organiserId={snapshot?.organisers[0]?.id ?? null}
+            />
+          </Suspense>
+        )}
 
         {/* Group-chat CTA — hidden on past/cancelled occurrences, matching the
             ticket pill in the sticky bar (a dead date must not advertise a chat). */}
