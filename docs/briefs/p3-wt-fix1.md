@@ -13,3 +13,6 @@ Source: independent Fable review `docs/review/pr-1079-r1.md` on branch `claude/r
 Rules: HTML entities / ASCII escapes, no raw Unicode punctuation in JSX; no density-exempt calendar files; no new tokens. After the fixes run every CI job step that applies (read .github/workflows), put a per-job table and Verified / Not verified in the PR #1079 body, update `docs/handover/p3-wt-ticketing.md`. These fixes are UNREVIEWED code: say so; the orchestrator will run a second independent review.
 
 Push once coherent (subject ends [skip preview]), then the final push with `[worker-done dt_<ticket>]` and NO [skip preview].
+
+## 0. FIRST: CI `bundle-budget` is RED on this PR (First-load JS budgets)
+The `dancer-app (/app/*, lazy chunk via catchall)` route is over its budget. The P3 tickets module must not ride in that chunk's first load: lazy-load the tickets sheets/GetPaid (see how `claude/p3-w3a-details` commit 46e4efc "load on their own, out of /app's route table" did it) and re-run `npm run check:bundle-budget` and `check:chunk-cycles` on a fresh build until green. Do NOT raise a budget or a puller/chunk allowance. Also `phone-qa` failed after 25 min: read its log, fix or say why it is infra.
