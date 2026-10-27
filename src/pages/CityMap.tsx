@@ -50,6 +50,7 @@ import { CATEGORY_COLORS, CATEGORY_LABEL } from '@/modules/home-map/mapTypes';
 import { SearchField, focusRing } from '@/modules/home-map/cards/controls';
 import { MapLocateButton } from '@/modules/home-map/cards/LocateControl';
 import '@/modules/home-map/cityMap.css';
+import { cityCentre } from '@/lib/cityCentre';
 
 // Leaflet touches `window` at module load and this route renders through the
 // catchall, which server-renders. Lazy + mount-gated, exactly as HomeMapShell
@@ -316,6 +317,7 @@ export default function CityMap() {
           {mounted && citySlug ? (
             <Suspense fallback={<div className="cmap-skeleton" aria-hidden="true" />}>
               <EventMap
+                center={cityCentre(citySlug)}
                 events={model.pins}
                 visible={model.visible}
                 glow={[]}

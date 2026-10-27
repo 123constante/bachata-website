@@ -8,7 +8,9 @@ import {
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { useCity } from '@/contexts/CityContext';
-import { useSearchResults } from '@/hooks/useSearchResults';
+import { ALL_CITIES, useSearchResults } from '@/hooks/useSearchResults';
+import { resolvePageCity } from '@/lib/pageCity';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Drawer, DrawerContent, DrawerClose, DrawerTitle } from '@/components/ui/drawer';
@@ -167,7 +169,6 @@ const SectionGrid = ({ children }: { children: React.ReactNode }) => (
 
 const SearchResults = () => {
   const trackImpression = useListImpressions('search');
-  useSeo(buildSeoForRoute('search'));
   const [params, setParams] = useSearchParams();
   const { citySlug } = useCity();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -184,6 +185,9 @@ const SearchResults = () => {
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
   const cityOverride = params.get('city');
+  const allCities = cityOverride === ALL_CITIES;
+  const city = useMemo(() => resolvePageCity(allCities ? null : (cityOverride ?? citySlug)), [allCities, cityOverride, citySlug]);
+  useSeo(buildSeoForRoute('search', { cityDisplay: city.name }));
   // Dancer-rated level (search_public_v6). Ignored entirely while the flag is off.
   const levelsOn = flags.searchV6 || flags.searchV7;
   const levels = levelsOn ? parseLevelParam(params.get('level')) : [];
@@ -317,7 +321,27 @@ const SearchResults = () => {
           </div>
         )}
 
-        {query && data && !isLoading && total === 0 && (
+        {query && data && !isLoading && total === 0 && !city.isLondon && !allCities && (
+          <div className="px-4 py-8" data-testid="search-empty-city">
+            <EmptyCityNote
+              cityName={city.name}
+              citySlug={city.slug}
+              text={`Nothing in ${city.name} yet for “${query}”. Run a night or know a teacher?`}
+              extraAction={
+                <button
+                  type="button"
+                  onClick={() => setParam('city', ALL_CITIES)}
+                  style={{ minHeight: 44 }}
+                  className="inline-flex items-center rounded-md border border-primary/40 px-3 py-2 text-sm font-semibold text-primary"
+                >
+                  Search all cities
+                </button>
+              }
+            />
+          </div>
+        )}
+
+        {query && data && !isLoading && total === 0 && (city.isLondon || allCities) && (
           <div className="px-6 py-16 text-center">
             <SearchIcon className="mx-auto h-8 w-8 text-muted-foreground/40" />
             <p className="mt-4 text-base font-semibold text-foreground">No results for &ldquo;{query}&rdquo;</p>
@@ -488,7 +512,7 @@ const SearchResults = () => {
             <div className="py-3">
               <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">City</div>
               <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5 text-sm">
-                <span className="flex items-center gap-2 text-foreground"><MapPin className="h-4 w-4 text-primary" /> {cityOverride ?? citySlug ?? 'All cities'}</span>
+                <span className="flex items-center gap-2 text-foreground"><MapPin className="h-4 w-4 text-primary" /> {allCities ? 'All cities' : (cityOverride ?? citySlug ?? 'All cities')}</span>
                 {cityOverride ? (
                   <button type="button" onClick={() => setParam('city', null)} className="text-xs font-medium text-primary">Reset</button>
                 ) : null}

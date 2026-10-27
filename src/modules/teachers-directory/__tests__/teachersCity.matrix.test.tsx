@@ -213,6 +213,10 @@ describe('Teachers page, city x shape', () => {
       // A real action: "Tell us" opens the listing request form.
       fireEvent.click(screen.getByRole('button', { name: TELL_US_LABEL }));
       expect(await screen.findByRole('button', { name: /submit|send/i })).toBeTruthy();
+      // Bristol polish: the TEACHER variant -- never "Event link" on a teacher tip.
+      expect(screen.getByText('Their profile or Instagram link')).toBeTruthy();
+      expect(screen.queryByText('Event link')).toBeNull();
+      expect(screen.getByTestId('listing-form-heading').textContent).toMatch(/^Know a teacher/);
     } else {
       expect(note).toBeNull();
     }

@@ -2,7 +2,7 @@ import { withPublicNames } from '@/lib/publicDancerNames';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Music, Star, Sparkles, Users, UserCheck, UserPlus, Loader2, Camera } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { usePeopleBadges } from '@/modules/person-page/badges';
 import { DancersWall, MEDIA_BOOKING_HREF } from '@/modules/person-page/wall/lists';
 import { HOME_ANNOUNCE_HREF } from '@/lib/homeAnnounceBanner';
@@ -21,6 +21,8 @@ import { renderPublicName } from '@/lib/publicName';
 import { getInitials } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
+import { cityHasNoRows, resolvePageCity, SHOWING_EVERYONE } from '@/lib/pageCity';
+import EmptyCityNote from '@/components/listing/EmptyCityNote';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { pickNationalityCode } from '@/components/people/nationality';
 
@@ -39,9 +41,12 @@ type Dancer = {
 };
 
 const Dancers = () => {
-  useSeo(buildSeoForRoute('dancers'));
-  const navigate = useNavigate();
+  // The page's city: the /city/:slug URL, else the visitor's stored city.
+  const { slug: urlSlug } = useParams<{ slug?: string }>();
   const { citySlug } = useCity();
+  const city = resolvePageCity(urlSlug ?? citySlug);
+  useSeo(buildSeoForRoute('dancers', { cityDisplay: city.name }));
+  const navigate = useNavigate();
   const { toast } = useToast();
     const practicePartnersPath = buildCityPath(citySlug, 'practice-partners');
   const [dancers, setDancers] = useState<Dancer[]>([]);
@@ -175,7 +180,14 @@ const Dancers = () => {
 
       {/* Browse Dancers Directory */}
       {flags.peopleWall ? (
+        <>
+        {!isLoading && cityHasNoRows(shownDancers, city, (d) => d.cities?.name) && (
+          <div className="px-4 mb-3">
+            <EmptyCityNote cityName={city.name} citySlug={city.slug} footnote={shownDancers.length > 0 ? SHOWING_EVERYONE : undefined} />
+          </div>
+        )}
         <DancersWall dancers={shownDancers} getName={getDisplayName} isLoading={isLoading || badgesLoading} badges={badges} badgesFailed={badgesFailed} teacherPagesOpen={teacherPagesOpen} />
+        </>
       ) : (
       <section id="directory" className="px-4 mb-16">
         <ScrollReveal animation="fadeUp">
@@ -189,6 +201,10 @@ const Dancers = () => {
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
+        ) : shownDancers.length === 0 && !city.isLondon ? (
+          <div className="px-2 py-8">
+            <EmptyCityNote cityName={city.name} citySlug={city.slug} />
+          </div>
         ) : shownDancers.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-muted-foreground text-lg mb-4">
@@ -199,6 +215,12 @@ const Dancers = () => {
             </Button>
           </div>
         ) : (
+          <>
+          {cityHasNoRows(shownDancers, city, (d) => d.cities?.name) && (
+            <div className="px-2 mb-3">
+              <EmptyCityNote cityName={city.name} citySlug={city.slug} footnote={SHOWING_EVERYONE} />
+            </div>
+          )}
           <StaggerContainer className="max-w-7xl mx-auto grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 px-2">
             {shownDancers.map((dancer) => {
               const badge = badges.get(dancer.id);
@@ -241,6 +263,7 @@ const Dancers = () => {
               );
             })}
           </StaggerContainer>
+          </>
         )}
       </section>
       )}

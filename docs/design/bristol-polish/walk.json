@@ -1,0 +1,135 @@
+[
+ {
+  "id": "bristol-djs",
+  "path": "/djs",
+  "city": "bristol-gb",
+  "title": "Bachata DJs in Bristol | Bachata Calendar",
+  "notePresent": true,
+  "noteOk": true,
+  "sideScroll": false,
+  "noteText": "COMING SOON Nothing listed in Bristol yet. Run a night or know a teacher? Showing everyone for now. Tell us",
+  "tapHeights": [
+   44
+  ],
+  "contrastViolations": [],
+  "formOpens": true,
+  "sideScrollOpen": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "bristol-dancers",
+  "path": "/dancers",
+  "city": "bristol-gb",
+  "title": "Bachata Dancers in Bristol | Bachata Calendar",
+  "notePresent": true,
+  "noteOk": true,
+  "sideScroll": false,
+  "noteText": "COMING SOON Nothing listed in Bristol yet. Run a night or know a teacher? Showing everyone for now. Tell us",
+  "tapHeights": [
+   44
+  ],
+  "contrastViolations": [],
+  "formOpens": true,
+  "sideScrollOpen": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "bristol-venues",
+  "path": "/venues",
+  "city": "bristol-gb",
+  "title": "Bachata Venues in Bristol | Bachata Calendar",
+  "notePresent": true,
+  "noteOk": true,
+  "sideScroll": false,
+  "noteText": "COMING SOON No venues listed in Bristol yet. Run a night or know a room? Tell us",
+  "tapHeights": [
+   44
+  ],
+  "contrastViolations": [],
+  "formOpens": true,
+  "sideScrollOpen": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "bristol-tonight",
+  "path": "/tonight",
+  "city": "bristol-gb",
+  "title": "Bachata Tonight in Bristol | Bachata Calendar",
+  "notePresent": true,
+  "noteOk": true,
+  "sideScroll": false,
+  "noteText": "COMING SOON Nothing listed in Bristol yet. Run a night or know a teacher? Tell us",
+  "tapHeights": [
+   44
+  ],
+  "contrastViolations": [],
+  "formOpens": true,
+  "sideScrollOpen": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "bristol-organisers",
+  "path": "/organisers",
+  "city": "bristol-gb",
+  "title": "Bachata Organisers in Bristol | Bachata Calendar",
+  "notePresent": true,
+  "noteOk": true,
+  "sideScroll": false,
+  "noteText": "COMING SOON Nothing listed in Bristol yet. Run a night or know a teacher? Showing everyone for now. Tell us",
+  "tapHeights": [
+   44
+  ],
+  "contrastViolations": [],
+  "formOpens": true,
+  "sideScrollOpen": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "bristol-search",
+  "path": "/search?q=zzqxv",
+  "city": "bristol-gb",
+  "title": "Search | Bachata Calendar",
+  "notePresent": true,
+  "noteOk": true,
+  "sideScroll": false,
+  "noteText": "COMING SOON Nothing in Bristol yet for “zzqxv”. Run a night or know a teacher? Tell us Search all cities",
+  "tapHeights": [
+   44,
+   44
+  ],
+  "contrastViolations": [],
+  "formOpens": true,
+  "sideScrollOpen": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "london-venues",
+  "path": "/venues",
+  "city": "london-gb",
+  "title": "Bachata Venues in London | Bachata Calendar",
+  "notePresent": false,
+  "noteOk": true,
+  "sideScroll": false,
+  "bodyHasInLondon": true
+ },
+ {
+  "id": "london-djs",
+  "path": "/djs",
+  "city": "london-gb",
+  "title": "Bachata DJs in London | Bachata Calendar",
+  "notePresent": false,
+  "noteOk": true,
+  "sideScroll": false,
+  "bodyHasInLondon": false
+ },
+ {
+  "id": "nocity-dancers",
+  "path": "/dancers",
+  "city": null,
+  "title": "Bachata Dancers in London | Bachata Calendar",
+  "notePresent": false,
+  "noteOk": true,
+  "sideScroll": false,
+  "bodyHasInLondon": false
+ }
+]
