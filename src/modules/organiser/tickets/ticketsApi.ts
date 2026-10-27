@@ -164,10 +164,13 @@ export async function fetchOrders(typeIds: readonly string[]): Promise<Order[]> 
 export interface WriteResult {
   ok: boolean;
   reason: string | null;
+  /** The ticket type's id when the server echoes the row (ticket_type_upsert_v1's `ticket_type`), else null. */
+  id?: string | null;
 }
-const writeResult = (data: unknown): WriteResult => {
-  const d = (data ?? {}) as { ok?: unknown; reason?: unknown };
-  return d.ok === true ? { ok: true, reason: null } : { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown' };
+export const writeResult = (data: unknown): WriteResult => {
+  const d = (data ?? {}) as { ok?: unknown; reason?: unknown; ticket_type?: { id?: unknown } | null };
+  if (d.ok !== true) return { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown' };
+  return { ok: true, reason: null, id: strOrNull(d.ticket_type?.id) };
 };
 
 /** ticket_type_upsert_v1's payload: every field, since the server overwrites them all on an edit. */

@@ -91,7 +91,7 @@ describe('moveBlock: every status x role x Stripe x free/paid x room left x seri
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
                 if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
-                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(/Get paid/);
+                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(/Connect payments/);
                 expect(got).toBeNull();
               });
             }
@@ -227,12 +227,14 @@ describe('refunds (Q5, Q9)', () => {
     expect(refundable({ ...order, totalPence: 0 })).toBe(false); // a free order
     expect(refundable({ ...order, refundedPence: 2100 })).toBe(false); // already refunded in full
   });
-  it('the question names the amount and says the 50p fee is refunded too', () => {
+  it('the question names the buyer and the amount, and says the booking fee goes back too', () => {
     const q = refundQuestion(order);
-    expect(q.title).toBe('Refund \u00A321.00?');
-    expect(q.body).toMatch(/50p booking fee per ticket/);
-    expect(q.body).toMatch(/\u00A31\.00/);
-    expect(refundQuestion({ ...order, refundedPence: 500 }).title).toBe('Refund \u00A316.00?');
+    expect(q.title).toBe('Refund Ana?');
+    expect(q.body).toBe('\u00A321.00 goes back, booking fee included. Their 2 tickets stop working and the places reopen. Cannot be undone.');
+    expect(q.confirm).toBe('Refund \u00A321.00');
+    expect(refundQuestion({ ...order, refundedPence: 500 }).confirm).toBe('Refund \u00A316.00');
+    expect(refundQuestion({ ...order, quantity: 1 }).body).toMatch(/Their ticket stops working and the place reopens/);
+    expect(refundQuestion({ ...order, buyerName: null }).title).toBe('Refund Buyer?');
   });
 });
 

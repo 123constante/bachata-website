@@ -34,13 +34,20 @@ export function RefundSheet({
       title={q.title}
       testId="tix-refund-sheet"
       footer={
-        <div className="grid grid-cols-2 gap-[8px]">
+        <div className="space-y-[8px]">
+          <PrimaryButton
+            block
+            testId="tix-refund-confirm"
+            className="bg-[var(--danger)] text-[var(--btnfg)]"
+            loading={busy}
+            loadingLabel="Refunding"
+            onClick={() => void go()}
+          >
+            {q.confirm}
+          </PrimaryButton>
           <GhostButton block testId="tix-refund-cancel" onClick={onClose}>
             Keep the order
           </GhostButton>
-          <PrimaryButton block testId="tix-refund-confirm" loading={busy} loadingLabel="Refunding" onClick={() => void go()}>
-            Refund
-          </PrimaryButton>
         </div>
       }
     >

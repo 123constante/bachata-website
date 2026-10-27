@@ -66,23 +66,26 @@ export interface StripeRow {
 export const stripeStateOf = (row: StripeRow | null | undefined): StripeState =>
   !row ? 'none' : row.charges_enabled === true ? 'connected' : 'started';
 
-export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; body: string; action: string | null }> = {
+export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; title: (eventName: string) => string; body: string; action: string | null }> = {
   none: {
-    tag: 'Not set up',
+    tag: 'Not connected',
     tone: 'neutral',
-    body: 'Connect a Stripe account to sell paid tickets. Free tickets work without one.',
-    action: 'Set up payments',
+    title: (eventName) => `Connect payments to sell ${eventName}`,
+    body: 'Stripe pays you directly. About 10 minutes, once.',
+    action: 'Connect payments',
   },
   started: {
     tag: 'Not finished',
     tone: 'draft',
-    body: 'Stripe still needs some details before you can sell paid tickets. Free tickets work meanwhile.',
-    action: 'Finish setting up',
+    title: () => 'Finish connecting payments',
+    body: 'Stripe still needs a few details before you can sell paid tickets. Free tickets work meanwhile.',
+    action: 'Finish connecting',
   },
   connected: {
-    tag: 'Connected',
+    tag: 'Paid out via Stripe',
     tone: 'live',
-    body: 'You can sell paid tickets. Stripe pays the money into your bank account.',
+    title: () => 'Payments connected',
+    body: 'Stripe pays the money into your bank account.',
     action: null,
   },
 };
@@ -209,7 +212,7 @@ export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'ca
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return 'Set up payments under Get paid before selling paid tickets.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return 'Connect payments on your Tickets home before selling paid tickets.';
   return null;
 };
 
@@ -351,12 +354,20 @@ export const refundAmount = (o: Pick<Order, 'totalPence' | 'refundedPence'>): nu
 /** A paid order with money left to give back (a free order, or one already refunded in full, has none). */
 export const refundable = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean => o.status === 'paid' && refundAmount(o) > 0;
 
-export const refundQuestion = (o: Order): { title: string; body: string } => ({
-  title: `Refund ${formatPence(refundAmount(o))}?`,
-  body:
-    `${o.buyerName ?? 'The buyer'} gets back ${formatPence(refundAmount(o))} for ${o.quantity} ${o.quantity === 1 ? 'ticket' : 'tickets'}, ` +
-    `including the 50p booking fee per ticket (${formatPence(o.bookingFeePence)}). Their tickets stop working. This cannot be undone.`,
-});
+/** The buyer's name as every screen shows it; the order row may not carry one. */
+export const buyerNameOf = (o: Pick<Order, 'buyerName'>): string => o.buyerName?.trim() || 'Buyer';
+
+export const refundQuestion = (o: Order): { title: string; body: string; confirm: string } => {
+  const amount = formatPence(refundAmount(o));
+  const one = o.quantity === 1;
+  return {
+    title: `Refund ${buyerNameOf(o)}?`,
+    body:
+      `${amount} goes back, booking fee included. ` +
+      `${one ? 'Their ticket stops' : `Their ${o.quantity} tickets stop`} working and the ${one ? 'place reopens' : 'places reopen'}. Cannot be undone.`,
+    confirm: `Refund ${amount}`,
+  };
+};
 
 export const ORDER_TAG: Record<string, { label: string; tone: StatusTone }> = {
   paid: { label: 'Paid', tone: 'live' },
@@ -384,7 +395,188 @@ const REASON: Record<string, string> = {
   capacity_below_reserved: 'More tickets are already taken than that number.',
   bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
-  organiser_not_onboarded: 'Set up payments under Get paid before selling paid tickets.',
+  organiser_not_onboarded: 'Connect payments on your Tickets home before selling paid tickets.',
 };
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';
+
+// ---- Compact screens (S3b, owner picked mockup B; docs/design/1060.md) ---------------
+
+const DOT = '\u00B7';
+const TIMES = '\u00D7';
+
+/** "50p" under a pound, "\u00A31.50" from a pound up. */
+export const feeLabel = (pence: number): string => (pence < 100 ? `${pence}p` : formatPence(pence));
+
+/** What a buyer pays for ONE ticket. The one sum behind the editor's live box, the review and the order lines. */
+export interface BuyerTotal {
+  free: boolean;
+  ticketPence: number;
+  feePence: number;
+  totalPence: number;
+  /** "\u00A310.00 ticket + 50p booking fee", or "Free, no fee". */
+  line: string;
+}
+export const buyerTotal = (pricePence: number): BuyerTotal =>
+  pricePence > 0
+    ? {
+        free: false,
+        ticketPence: pricePence,
+        feePence: BOOKING_FEE_PENCE,
+        totalPence: pricePence + BOOKING_FEE_PENCE,
+        line: `${formatPence(pricePence)} ticket + ${feeLabel(BOOKING_FEE_PENCE)} booking fee`,
+      }
+    : { free: true, ticketPence: 0, feePence: 0, totalPence: 0, line: 'Free, no fee' };
+
+/** One price box in the editor: empty or 0 is a free ticket, anything else is paid (and validated as a price). */
+export const paidOf = (priceText: string): boolean => priceText.trim() !== '' && penceOf(priceText) !== 0;
+/** The form's price in pence, or null while the typed text is not a price yet. */
+export const formPence = (f: Pick<TypeForm, 'paid' | 'price'>): number | null => (f.paid ? penceOf(f.price) : 0);
+
+/** Places still free: capacity less every held ticket (paid and waiting for payment). */
+export const leftOf = (t: { capacity: number; reserved: number }): number => Math.max(0, t.capacity - t.reserved);
+/** "12 sold \u00B7 8 left"; without the sales summary only the places left (never a made-up 0 sold). */
+export const countsLine = (sold: number | null, left: number): string => (sold === null ? `${left} left` : `${sold} sold ${DOT} ${left} left`);
+
+// ---- The Selling switch (replaces the Pause / Put on sale buttons) ------------------
+
+/** The switch's label states the state, so it reads right whichever way it is set. */
+export const SWITCH_LABEL: Record<TicketStatus, string> = {
+  draft: 'Not on sale',
+  on_sale: 'Selling',
+  paused: 'Paused',
+  sold_out: 'Sold out',
+  closed: 'Closed',
+};
+/** Where one tap on the switch moves the ticket, or null (closed has no switch). */
+export const switchMove = (s: TicketStatus): TicketStatus | null => (s === 'closed' ? null : s === 'on_sale' ? 'paused' : 'on_sale');
+
+// ---- Home: one event's state, setup progress, the Next step ------------------------
+
+export type EventSale = 'none' | 'selling' | 'sold_out' | 'not_selling';
+export const eventSaleOf = (types: readonly Pick<TypeSales, 'status'>[]): EventSale => {
+  const open = types.filter((t) => t.status !== 'closed');
+  if (types.length === 0 || open.length === 0) return 'none';
+  if (open.some((t) => t.status === 'on_sale')) return 'selling';
+  if (open.some((t) => t.status === 'sold_out')) return 'sold_out';
+  return 'not_selling';
+};
+export const EVENT_SALE: Record<EventSale, { label: string; tone: StatusTone }> = {
+  none: { label: 'No tickets', tone: 'neutral' },
+  selling: { label: 'Selling', tone: 'live' },
+  sold_out: { label: 'Sold out', tone: 'party' },
+  not_selling: { label: 'Not selling', tone: 'draft' },
+};
+/** "8 left of 20" over the event's ticket types still in play; null when there are none. */
+export const eventLeftLine = (types: readonly Pick<TypeSales, 'status' | 'capacity' | 'reserved'>[]): string | null => {
+  const open = types.filter((t) => t.status !== 'closed');
+  if (open.length === 0) return null;
+  const cap = open.reduce((n, t) => n + t.capacity, 0);
+  const left = open.reduce((n, t) => n + leftOf(t), 0);
+  return `${left} left of ${cap}`;
+};
+
+export interface SetupStep {
+  key: 'payments' | 'ticket' | 'on_sale';
+  label: string;
+  done: boolean;
+}
+/** The 3-part setup bar. Payments count as done when every ticket so far is free (free needs no Stripe). */
+export const setupSteps = (stripe: StripeState, types: readonly Pick<TypeSales, 'status' | 'pricePence' | 'ticketsSold'>[]): SetupStep[] => {
+  const allFree = types.length > 0 && types.every((t) => t.pricePence === 0);
+  return [
+    { key: 'payments', label: 'Payments connected', done: stripe === 'connected' || allFree },
+    { key: 'ticket', label: 'First ticket added', done: types.length > 0 },
+    { key: 'on_sale', label: 'On sale', done: types.some((t) => t.status === 'on_sale' || t.ticketsSold > 0) },
+  ];
+};
+export const setupLine = (steps: readonly SetupStep[]): string => `Setup ${steps.filter((s) => s.done).length} of ${steps.length} done`;
+
+export type NextStep =
+  | { kind: 'connect'; stripe: 'none' | 'started'; seriesId: string; seriesName: string }
+  | { kind: 'add'; seriesId: string; seriesName: string }
+  | { kind: 'sell'; seriesId: string; seriesName: string };
+
+/**
+ * The ONE highlighted card on Home: the first setup step not done, on the event it is about.
+ * null when setup is done, when there is no live event, or for a role that cannot act.
+ */
+export const nextStep = (
+  role: MemberRole | null | undefined,
+  stripe: StripeState,
+  live: readonly { id: string; name: string }[],
+  types: readonly Pick<TypeSales, 'seriesId' | 'status' | 'pricePence' | 'ticketsSold'>[],
+): NextStep | null => {
+  if (!canManage(role) || live.length === 0) return null;
+  const [payments, ticket, onSale] = setupSteps(stripe, types);
+  const bare = live.find((s) => !types.some((t) => t.seriesId === s.id)) ?? live[0];
+  if (!payments.done && stripe !== 'connected') return { kind: 'connect', stripe, seriesId: bare.id, seriesName: bare.name };
+  if (!ticket.done) return { kind: 'add', seriesId: bare.id, seriesName: bare.name };
+  if (!onSale.done) {
+    const withTypes = live.find((s) => types.some((t) => t.seriesId === s.id && t.status !== 'closed'));
+    return withTypes ? { kind: 'sell', seriesId: withTypes.id, seriesName: withTypes.name } : { kind: 'add', seriesId: bare.id, seriesName: bare.name };
+  }
+  return null;
+};
+
+// ---- Orders ----------------------------------------------------------------------
+
+const dayKeyBefore = (key: string): string => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+};
+const SHORT_MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "today", "yesterday" or "6 Nov" for a paid_at instant, in London; '' when unknown. */
+export const dayWord = (iso: string | null, todayKey: string): string => {
+  const stamp = iso ? instantToLondonWallClockStamp(iso) : null;
+  if (!stamp) return '';
+  const key = stamp.slice(0, 10);
+  if (key === todayKey) return 'today';
+  if (key === dayKeyBefore(todayKey)) return 'yesterday';
+  const [, m, d] = key.split('-').map(Number);
+  return `${d} ${SHORT_MONTH[m - 1]}`;
+};
+/** "2 \u00D7 \u00A310.50 \u00B7 today": tickets, what each cost the buyer (fee in), and when. */
+export const orderLine = (o: Pick<Order, 'quantity' | 'totalPence' | 'paidAt'>, todayKey: string): string => {
+  const each = o.quantity > 0 ? Math.round(o.totalPence / o.quantity) : o.totalPence;
+  const price = each === 0 ? 'Free' : formatPence(each);
+  const day = dayWord(o.paidAt, todayKey);
+  return `${o.quantity} ${TIMES} ${price}${day ? ` ${DOT} ${day}` : ''}`;
+};
+
+// ---- Editor steps and review -------------------------------------------------------
+
+export const EDITOR_STEPS = 3;
+/** The fields each step owns; Continue checks only these. */
+export const STEP_FIELDS: Record<1 | 2, readonly (keyof TypeForm)[]> = {
+  1: ['name', 'price'],
+  2: ['capacity', 'opensAt', 'closesAt'],
+};
+export const stepErrors = (errors: FormErrors, step: 1 | 2): FormErrors =>
+  Object.fromEntries(Object.entries(errors).filter(([k]) => STEP_FIELDS[step].includes(k as keyof TypeForm)));
+
+/** A one-off's start: the default "Sales close" for a new ticket. A series has no single start, so null. */
+export const eventStartOf = (s: { upcoming_count?: number; next_dates?: readonly { materialised_start_utc: string | null }[] } | null | undefined): string | null =>
+  s && s.upcoming_count === 1 && s.next_dates?.length === 1 ? s.next_dates[0].materialised_start_utc : null;
+
+const whenWords = (input: string): string => {
+  const [date, time] = input.split('T');
+  const [, m, d] = date.split('-').map(Number);
+  return `${d} ${SHORT_MONTH[m - 1]}, ${time}`;
+};
+export const opensWords = (opensAt: string): string => (opensAt ? whenWords(opensAt) : 'Now');
+export const closesWords = (closesAt: string, eventStart: string | null): string =>
+  !closesAt ? 'When you stop selling' : eventStart && closesAt === isoToLondonInput(eventStart) ? 'Event start' : whenWords(closesAt);
+
+/** Step 3 in plain words: price, places, on sale, closes, buyer total. */
+export const reviewRows = (f: TypeForm, eventStart: string | null): { key: string; label: string; value: string }[] => {
+  const pence = formPence(f) ?? 0;
+  const total = buyerTotal(pence);
+  return [
+    { key: 'price', label: 'Price', value: priceLabel(pence) },
+    { key: 'places', label: 'Places', value: f.capacity.trim() },
+    { key: 'opens', label: 'On sale', value: opensWords(f.opensAt) },
+    { key: 'closes', label: 'Closes', value: closesWords(f.closesAt, eventStart) },
+    { key: 'buyer', label: 'Buyer pays', value: total.free ? total.line : formatPence(total.totalPence) },
+  ];
+};
