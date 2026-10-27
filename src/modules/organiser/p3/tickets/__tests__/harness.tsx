@@ -2,7 +2,7 @@ import { vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, type ReactNode } from 'react';
 import { STRIPE, home, org, series, type Shape } from './fixtures';
 import { stripeStateOf } from '../../../tickets/ticketModel';
 
@@ -44,11 +44,14 @@ export const dataMock = async (orig: () => Promise<typeof import('../data')>) =>
 
 export function show(node: ReactNode, path = '/account/p3/events/ser-1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const tree = () => (
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
-        <div className="p3-theme">{node}</div>
+        <div className="p3-theme">{isValidElement(node) ? cloneElement(node) : node}</div>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const r = render(tree());
+  /** Render the same tree again (a parent re-render, or a query result landing). */
+  return { ...r, again: () => r.rerender(tree()) };
 }
