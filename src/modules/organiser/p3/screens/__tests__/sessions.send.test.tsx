@@ -294,7 +294,10 @@ describe('review r1 #3: the idempotency key belongs to one envelope', () => {
     expect(e[1].idempotency_key).not.toBe(e[0].idempotency_key);
   });
 
-  it('a dropped connection then a reload at a NEW version: the retry carries a fresh key and the new version', async () => {
+  // PR #1082 r1 #1: the retry goes against the version the typing BEGAN on, under the same key. If the first
+  // send landed, the server replays its stored answer (it looks a key up by actor and key alone); if someone
+  // else saved, it is refused (version_conflict) and "Start again" is the way forward, never a write over v9.
+  it('a dropped connection then a reload at a NEW version: the retry keeps the version the typing began on, and its key', async () => {
     let n = 0;
     let version = 7;
     const calls = server({
@@ -315,8 +318,8 @@ describe('review r1 #3: the idempotency key belongs to one envelope', () => {
     expect(e2cmd(calls)).toBe(true);
     const e = envs(calls);
     expect(e[0].expected_version).toBe(7);
-    expect(e[1].expected_version).toBe(9);
-    expect(e[1].idempotency_key).not.toBe(e[0].idempotency_key);
+    expect(e[1].expected_version).toBe(7);
+    expect(e[1].idempotency_key).toBe(e[0].idempotency_key);
   });
 });
 

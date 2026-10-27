@@ -34,6 +34,15 @@ export function pendingLines<D>(specs: ReadonlyArray<FieldSpec<D>>, base: D, dra
   return specs.filter((s) => changed.has(s.key)).map((s) => s.line(draft));
 }
 
+/**
+ * The tray's lines, checked against what a save would really send: changes the plan would not
+ * send (a value the builder normalises back to the stored one) read as no changes, so Save is
+ * off with "Nothing changed yet" and never a live button that sends nothing (PR #1082 r1 #2).
+ * A blocked change keeps its lines: the Save button names the problem instead.
+ */
+export const trayLines = (lines: string[], plan: readonly OwnerCommand[], problem: string | null): string[] =>
+  !problem && !plan.length ? [] : lines;
+
 /** What the Save button says and whether it can be pressed; `why` names what to do when it cannot. */
 export interface SaveButton {
   label: string;

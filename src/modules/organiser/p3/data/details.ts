@@ -1,3 +1,4 @@
+import { resolveCanonicalCity } from '@/lib/city-canonical';
 import { withNormalizedProtocol } from '@/lib/organiserProfileUpdate';
 import type { VenueOption } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
@@ -120,14 +121,27 @@ export function detailsBlocker(base: DetailsDraft, draft: DetailsDraft): string 
   return changed.map((k) => problems[k]).find(Boolean) ?? null;
 }
 
-/** The venue's city, resolved the way a date's own venue is (null when it cannot be). */
-export const cityForVenue = async (venueId: string, venues: VenueOption[] | undefined): Promise<string | null> =>
-  (await venueOverridePatch(venueId, venues)).city_id;
+/**
+ * The venue's city, resolved the way a date's own venue is: null when the place has no city
+ * that can be found. A lookup that FAILED throws instead of reading as "no city", so the
+ * screen can say so and hold the save (PR #1082 r1 #3).
+ */
+export async function cityForVenue(venueId: string, venues: VenueOption[] | undefined): Promise<string | null> {
+  let failed: unknown = null;
+  const patch = await venueOverridePatch(venueId, venues, async (name) => {
+    try { return await resolveCanonicalCity(name); } catch (e) { failed = e; throw e; }
+  });
+  if (failed) throw failed;
+  return patch.city_id;
+}
 
 /**
  * What ONE save sends: a series.upsert with `name` (the handler needs it) and ONLY the changed
  * keys, then, when the chat link changed, series.set_group_chat (the server keeps that link
- * behind its own command). [] when nothing changed or a changed field has a problem.
+ * behind its own command). [] when nothing changed or a changed field has a problem. A new
+ * place always carries its city, null included, so the old place's city is never left behind.
+ * An unchanged `name` is the one the screen opened with; the save goes against the version it
+ * opened with too, so it can never overwrite someone else's rename (PR #1082 r1 #1).
  */
 export function detailsPlan(base: DetailsDraft, draft: DetailsDraft, cityId: string | null = null): OwnerCommand[] {
   const changed = new Set(changedKeys(DETAILS_SPECS, base, draft));
@@ -137,7 +151,7 @@ export function detailsPlan(base: DetailsDraft, draft: DetailsDraft, cityId: str
   if (changed.has('music')) payload.default_music_styles = draft.music;
   if (changed.has('venueId') && draft.venueId) {
     payload.default_venue_id = draft.venueId;
-    if (cityId) payload.default_city_id = cityId;
+    payload.default_city_id = cityId;
   }
   if (changed.has('ticket')) payload.default_ticket_url = draft.ticket.trim();
   if (changed.has('cover')) payload.default_cover_image_url = draft.cover.trim();

@@ -4,8 +4,9 @@ import { eventLock } from '../../shared/eventState';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L } from '../model';
 import {
-  PRICES_SPECS, isFree, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, setFree, storedPriceCount,
+  isFree, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, pricesSpecs, setFree, storedPriceCount,
 } from '../data/prices';
+import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
 import { EditTray, GuardedBack, useBackToEvent, useEditForm, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
@@ -36,7 +37,7 @@ function PriceCard({ row, i, off, onChange, onRemove }: { row: PriceRow; i: numb
 }
 
 function Prices({ ws }: { ws: EventWorkspace }) {
-  const form = useEditForm(ws, pricesDraftOf, PRICES_SPECS);
+  const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws));
   const save = useSaveRun(ws.series.id);
   const back = useBackToEvent(ws.series.id, form.dirty);
   const closed = eventLock(ws.series.lifecycle_status);
@@ -45,11 +46,13 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const free = isFree(draft);
   const off = !!closed || save.busy;
   const choices = payChoices(ws);
-  const blocker = pricesBlocker(form.base, draft);
+  const blocker = pricesBlocker(ws, form.base, draft);
+  const plan = pricesPlan(ws, form.base, draft);
+  const lines = trayLines(form.lines, plan, blocker);
   const setRow = (i: number, r: PriceRow) => set({ rows: draft.rows.map((x, j) => (j === i ? r : x)) });
 
   const onSave = async () => {
-    const res = await save.run(pricesPlan(ws, form.base, draft), ws.series.version);
+    const res = await save.run(plan, form.version, form.landed);
     if (res.ok) { form.saved(res.version); back(L.pricesSaved); }
   };
 
@@ -92,7 +95,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
             onClick={() => set({ methods: togglePayment(draft.methods, m) })} data-testid="p3-pay-chip">{PAYMENT_LABEL[m]}</button>
         ))}
       </div>
-      <EditTray lines={form.lines} elsewhere={form.elsewhere} problem={blocker} lock={closed} busy={save.busy} error={save.error}
+      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={closed} busy={save.busy} error={save.error}
         onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={form.restart} />
     </div>
   );

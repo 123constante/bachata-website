@@ -98,8 +98,11 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
     setBusy(true);
     setError(null);
     try {
-      if ('command' in b) { if (b.command) await sendEvery(b.command); }
-      else if (b.payload && prog.data) await sendDate(prog.data.version, b.payload);
+      // typing that began before someone else's save goes against the version it began on, so the save is
+      // refused and "Start again" is the way forward, never a write over what the person did not see (PR #1082 r1 #1)
+      const began = mine && mine.v !== '' ? Number(mine.v) : null;
+      if ('command' in b) { if (b.command) await sendEvery(b.command, began ?? ws.series.version); }
+      else if (b.payload && prog.data) await sendDate(began ?? prog.data.version, b.payload);
       onDone({ text, undo: null });
     } catch (e) {
       setError(saveErrorCopy(e));

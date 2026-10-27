@@ -5,7 +5,7 @@ import { SHAPES, wsRaw } from '../../screens/__tests__/wsFixtures';
 import { L } from '../../model/labels';
 import { attemptFor, changedElsewhere, pendingLines, saveButton, stepLanded } from '../../model/saveModel';
 import { DETAILS_SPECS, detailsBlocker, detailsDraftOf, detailsPlan, instagramToSend, type DetailsDraft } from '../details';
-import { PRICES_SPECS, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, setFree, type PricesDraft } from '../prices';
+import { pricesSpecs, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, setFree, type PricesDraft } from '../prices';
 
 /*
  * W3a matrix: every lifecycle x kind shape the prod survey met (2026-10-27, counts only) x every
@@ -115,7 +115,8 @@ describe('Name and details: shape x edit -> the exact commands', () => {
     const w = DETAIL_SHAPES['live weekly'];
     const base = detailsDraftOf(w);
     expect(detailsPlan(base, { ...base, venueId: 'v2' }, 'city-9')).toEqual([up(w, { default_venue_id: 'v2', default_city_id: 'city-9' })]);
-    expect(detailsPlan(base, { ...base, venueId: 'v2' }, null)).toEqual([up(w, { default_venue_id: 'v2' })]);
+    // a city that cannot be found goes as null, never left as the old place's (PR #1082 r1 #3)
+    expect(detailsPlan(base, { ...base, venueId: 'v2' }, null)).toEqual([up(w, { default_venue_id: 'v2', default_city_id: null })]);
     expect(detailsBlocker(base, { ...base, venueId: null })).toBe(L.detailsWhereNeeded);
   });
 
@@ -159,7 +160,7 @@ describe('Prices: shape x edit -> the exact command', () => {
     const plan = (d: PricesDraft) => pricesPlan(w, base, d);
     it(`${shape} | untouched sends nothing`, () => {
       expect(plan(base)).toEqual([]);
-      expect(pendingLines(PRICES_SPECS, base, base)).toEqual([]);
+      expect(pendingLines(pricesSpecs(w), base, base)).toEqual([]);
     });
     it(`${shape} | the lock is ${locked ? 'shown with what to do' : 'off'}`, () => {
       expect(!!pricesLockOf(w)).toBe(locked);
@@ -181,10 +182,10 @@ describe('Prices: shape x edit -> the exact command', () => {
       });
       it(`${shape} | a price row with no name or a bad price blocks the save with the reason`, () => {
         const noName = { ...base, rows: [...base.rows, { id: UUID2, name: '', price: '5', currency: 'GBP' as const }] };
-        expect(pricesBlocker(base, noName)).toBe('Give every price a name');
+        expect(pricesBlocker(w, base, noName)).toBe('Give every price a name');
         expect(plan(noName)).toEqual([]);
         const bad = { ...base, rows: [...base.rows, { id: UUID2, name: 'X', price: '12.345', currency: 'GBP' as const }] };
-        expect(pricesBlocker(base, bad)).toBe('Use a price like 12 or 12.50');
+        expect(pricesBlocker(w, base, bad)).toBe('Use a price like 12 or 12.50');
       });
     }
   }

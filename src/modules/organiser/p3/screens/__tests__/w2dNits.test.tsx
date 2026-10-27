@@ -26,15 +26,18 @@ afterEach(() => { cleanup(); rpc.mockReset(); });
 
 let qc: QueryClient;
 let version = 7;
+let envs: Array<Record<string, unknown>> = [];
 function show() {
+  envs = [];
   version = 7;
   const chain: Record<string, unknown> = {};
   for (const m of ['select', 'eq', 'is']) chain[m] = () => chain;
   chain.order = async () => ({ data: [], error: null });
   from.mockReturnValue(chain);
   const calls: string[] = [];
-  rpc.mockImplementation(async (name: string) => {
+  rpc.mockImplementation(async (name: string, args?: { p_envelope?: Record<string, unknown> }) => {
     calls.push(name);
+    if (name === 'series_command_p5' && args?.p_envelope) envs.push(args.p_envelope);
     if (name === 'admin_event_workspace_p5') {
       const raw = structuredClone(SHAPES.weekly) as { series: { series: Record<string, unknown> } };
       raw.series.series.version = version;
@@ -69,6 +72,19 @@ describe('W2d nit A: another save keeps the typing', () => {
     fireEvent.click(screen.getByTestId('p3-sess-start-again'));
     expect((screen.getByTestId('p3-sess-name') as HTMLInputElement).value).not.toBe('My new name');
     expect(screen.queryByTestId('p3-sess-elsewhere')).toBeNull();
+  });
+
+  it('r1 #1 (PR #1082): saving after another save goes against the version the typing started on, so it is refused', async () => {
+    show();
+    await waitFor(() => screen.getAllByTestId('p3-open-session'));
+    fireEvent.click(screen.getAllByTestId('p3-open-session')[0]);
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'My new name' } });
+    version = 8;
+    await act(async () => { await qc.invalidateQueries({ queryKey: ['org-event-workspace', 'ser-1'] }); });
+    await waitFor(() => screen.getByTestId('p3-sess-elsewhere'));
+    await act(async () => { fireEvent.click(screen.getByTestId('p3-sess-save')); });
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect(envs[0].expected_version).toBe(7);
   });
 
   it('a refetch of the SAME version shows no note', async () => {

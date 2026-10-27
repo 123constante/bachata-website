@@ -22,11 +22,13 @@ import { Sheet } from './Sheet';
 export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace) => D, specs: ReadonlyArray<FieldSpec<D>>) {
   const [opened, setOpened] = useState(() => ({ base: initial(ws), version: ws.series.version }));
   const [draft, setDraft] = useState<D>(opened.base);
-  const own = useRef(new Set<number>());
+  // the versions this screen's own saves made (state, not a ref: render reads it)
+  const [own, setOwn] = useState<ReadonlySet<number>>(() => new Set());
+  const mine = (version: number) => setOwn((s) => new Set(s).add(version));
   const changed = changedKeys(specs, opened.base, draft);
   const lines = pendingLines(specs, opened.base, draft);
   // A version change that is not this screen's own save keeps the typing and says so (W2d review nit A).
-  const elsewhere = changed.length > 0 && changedElsewhere(opened.version, ws.series.version, own.current);
+  const elsewhere = changed.length > 0 && changedElsewhere(opened.version, ws.series.version, own);
   const set = (patch: Partial<D>) => setDraft((d) => ({ ...d, ...patch }));
   /** "Undo my changes": back to what the screen opened with; nothing is sent. */
   const undo = () => setDraft(opened.base);
@@ -36,12 +38,23 @@ export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace)
     setOpened({ base, version: ws.series.version });
     setDraft(base);
   };
+  /**
+   * One step of a save landed at `version`: it is this screen's own (never "someone else saved"),
+   * and the next attempt goes against it. Nothing else can have saved in between: the step went
+   * against the version before it (PR #1082 r1 #4).
+   */
+  const landed = (version: number) => {
+    mine(version);
+    setOpened((o) => ({ ...o, version }));
+  };
   /** After a save landed: what was sent is now the base, and its version is this screen's own. */
   const saved = (version: number | null) => {
-    if (typeof version === 'number') own.current.add(version);
+    if (typeof version === 'number') mine(version);
     setOpened({ base: draft, version: typeof version === 'number' ? version : ws.series.version });
   };
-  return { base: opened.base, draft, set, setDraft, changed, lines, dirty: changed.length > 0, elsewhere, undo, restart, saved };
+  // `version` is what the screen OPENED with (or its own last save): a save goes against it, so a save
+  // after someone else's is refused and "Start again" is the way forward (PR #1082 r1 #1).
+  return { base: opened.base, version: opened.version, draft, set, setDraft, changed, lines, dirty: changed.length > 0, elsewhere, undo, restart, saved, landed };
 }
 
 /**
@@ -54,7 +67,7 @@ export function useSaveRun(seriesId: string) {
   const held = useRef<SaveAttempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = async (plan: readonly OwnerCommand[], version: number | null): Promise<{ ok: boolean; version: number | null }> => {
+  const run = async (plan: readonly OwnerCommand[], version: number | null, onLanded?: (version: number) => void): Promise<{ ok: boolean; version: number | null }> => {
     if (!plan.length) return { ok: false, version };
     let a = attemptFor(held.current, plan, version, newIdempotencyKey);
     held.current = a;
@@ -68,6 +81,7 @@ export function useSaveRun(seriesId: string) {
         last = typeof res?.new_version === 'number' ? res.new_version : last;
         a = stepLanded(a, i, last);
         held.current = a;
+        if (typeof last === 'number') onLanded?.(last);
       }
       held.current = null;
       return { ok: true, version: last };

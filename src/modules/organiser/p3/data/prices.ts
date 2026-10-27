@@ -1,11 +1,11 @@
 import { upsertCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import type { EventWorkspace } from '../../events/eventModel';
 import {
-  PAYMENT_LABEL, parsePayment, paymentChoices, paymentCommand, togglePayment, type PaymentMethod,
+  PAYMENT_LABEL, parsePayment, paymentChoices, paymentCommand, toSend, togglePayment, type PaymentMethod,
 } from '../../events/paymentModel';
-import { priceLabel, priceRows, pricesCommand, pricesLock, pricesProblem, passCount, type PriceRow } from '../../events/seriesExtras';
+import { priceLabel, priceRows, pricesCommand, pricesLock, pricesProblem, passCount, toPass, type PriceRow } from '../../events/seriesExtras';
 import { L } from '../model/labels';
-import { changedKeys, sameValue, type FieldSpec } from '../model/saveModel';
+import { changedKeys, type FieldSpec } from '../model/saveModel';
 
 /**
  * "Prices" (P3 W3a, C3 `prices`): the price list and how dancers pay, with the shared save
@@ -32,10 +32,15 @@ export const setFree = (d: PricesDraft, on: boolean): PricesDraft =>
 /** How to pay without `free` (the switch carries it); a festival offers its ticket link only. */
 export const payChoices = (ws: EventWorkspace): PaymentMethod[] => paymentChoices(ws).filter((m) => m !== 'free');
 
-const sameRows = (a: unknown, b: unknown) => sameValue(a, b);
+/** Rows compared as the builder sends them: a trailing space or 15 typed as 15.0 is no change (PR #1082 r1 #2). */
+const sameRows = (a: unknown, b: unknown) => JSON.stringify((a as PriceRow[]).map(toPass)) === JSON.stringify((b as PriceRow[]).map(toPass));
 
-export const PRICES_SPECS: ReadonlyArray<FieldSpec<PricesDraft>> = [
-  { key: 'methods', line: (d) => `${L.payHow}: ${d.methods.map((m) => PAYMENT_LABEL[m]).join(', ') || L.detailsNone}`, same: (a, b) => sameValue(a, b) },
+/**
+ * The fields, compared the way the builders send them. How to pay is compared as sent for THIS
+ * event (a festival sends its ticket link only, so a stored door code is never a change).
+ */
+export const pricesSpecs = (ws: EventWorkspace): ReadonlyArray<FieldSpec<PricesDraft>> => [
+  { key: 'methods', line: (d) => `${L.payHow}: ${d.methods.map((m) => PAYMENT_LABEL[m]).join(', ') || L.detailsNone}`, same: (a, b) => toSend(ws, a as PaymentMethod[]) === toSend(ws, b as PaymentMethod[]) },
   { key: 'rows', line: (d) => `${L.prices}: ${d.rows.length ? d.rows.map((r) => `${r.name.trim() || L.noName} ${priceLabel(r)}`).join(' \u00b7 ') : L.detailsNone}`, same: sameRows },
 ];
 
@@ -46,8 +51,8 @@ export const pricesLockOf = (ws: EventWorkspace): string | null => pricesLock(ws
 export const storedPriceCount = passCount;
 
 /** The problem the Save button names: only a changed price list is held to the price rules. */
-export function pricesBlocker(base: PricesDraft, draft: PricesDraft): string | null {
-  return changedKeys(PRICES_SPECS, base, draft).includes('rows') ? pricesProblem(draft.rows) : null;
+export function pricesBlocker(ws: EventWorkspace, base: PricesDraft, draft: PricesDraft): string | null {
+  return changedKeys(pricesSpecs(ws), base, draft).includes('rows') ? pricesProblem(draft.rows) : null;
 }
 
 /**
@@ -57,8 +62,8 @@ export function pricesBlocker(base: PricesDraft, draft: PricesDraft): string | n
  * only) hold here too.
  */
 export function pricesPlan(ws: EventWorkspace, base: PricesDraft, draft: PricesDraft): OwnerCommand[] {
-  const changed = new Set(changedKeys(PRICES_SPECS, base, draft));
-  if (!changed.size || pricesBlocker(base, draft)) return [];
+  const changed = new Set(changedKeys(pricesSpecs(ws), base, draft));
+  if (!changed.size || pricesBlocker(ws, base, draft)) return [];
   const rows = changed.has('rows') && !pricesLock(ws) ? pricesCommand(ws, draft.rows) : null;
   const pay = changed.has('methods') ? paymentCommand(ws, draft.methods) : null;
   if (!rows && !pay) return [];

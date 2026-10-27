@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { PROFILE_WIZARD_PATH, profileLock, useProfileProgress } from '../../shared/profileProgress';
 import { eventLock } from '../../shared/eventState';
-import { useVenueOptions, venueName } from '../../shared/publicVenues';
+import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
@@ -11,6 +11,7 @@ import { L, kindWordStored } from '../model';
 import {
   DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
 } from '../data/details';
+import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
 import { EditTray, GuardedBack, useBackToEvent, useEditForm, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
@@ -46,20 +47,18 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const [touched, setTouched] = useState<Partial<Record<DetailsField, boolean>>>({});
   const [photo, setPhoto] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const { draft, set } = form;
+  const city = useVenueCity(form.changed.includes('venueId') ? draft.venueId : null, venues.data);
   const problems = detailsProblems(form.base, draft);
-  const blocker = detailsBlocker(form.base, draft);
+  const blocker = detailsBlocker(form.base, draft) ?? city.problem;
+  const plan = detailsPlan(form.base, draft, city.id);
+  const lines = trayLines(form.lines, plan, blocker);
   // a field's problem shows once it was touched or changed (a stored bad link shows too: it says what to fix)
   const shown = (f: DetailsField) => (touched[f] || form.changed.includes(f) || f === 'ticket' ? problems[f] ?? null : null);
   const touch = (f: DetailsField) => setTouched((t) => ({ ...t, [f]: true }));
   const off = !!lock || save.busy;
 
   const onSave = async () => {
-    let cityId: string | null = null;
-    if (form.changed.includes('venueId') && draft.venueId) {
-      try { cityId = await cityForVenue(draft.venueId, venues.data); } catch { cityId = null; }
-    }
-    const plan = detailsPlan(form.base, draft, cityId);
-    const res = await save.run(plan, ws.series.version);
+    const res = await save.run(plan, form.version, form.landed);
     if (res.ok) { form.saved(res.version); back(L.detailsSaved); }
   };
 
@@ -114,6 +113,12 @@ function Details({ ws }: { ws: EventWorkspace }) {
         </div>
         <button type="button" className="p3-btn p3-btn-line" disabled={off} onClick={() => setPicking(true)} data-testid="p3-d-pick-place">{L.detailsPickPlace}</button>
         {problems.venueId && <p className="p3-error" role="alert">{problems.venueId}</p>}
+        {city.failed && (
+          <div className="p3-warn" data-testid="p3-d-city-fail">
+            <p className="p3-plain">{L.detailsCityFail}</p>
+            <button type="button" className="p3-link" onClick={city.retry} data-testid="p3-d-city-retry">{L.detailsCityRetry}</button>
+          </div>
+        )}
       </div>
       <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
         <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
@@ -122,9 +127,11 @@ function Details({ ws }: { ws: EventWorkspace }) {
       <div className="p3-stack-s" data-testid="p3-field-cover">
         <span className="p3-field">{L.detailsCover}</span>
         {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
-        <label className="p3-field" htmlFor="p3-d-cover">{draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}</label>
-        <input id="p3-d-cover" className="p3-in" type="file" accept={FLYER_ACCEPT} disabled={off || photo.busy}
-          onChange={(e) => void upload(e.target.files?.[0])} data-testid="p3-d-cover" />
+        <label className="p3-btn p3-btn-line p3-file" htmlFor="p3-d-cover" data-testid="p3-d-cover-btn">
+          {draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}
+          <input id="p3-d-cover" type="file" accept={FLYER_ACCEPT} disabled={off || photo.busy}
+            onChange={(e) => void upload(e.target.files?.[0])} data-testid="p3-d-cover" />
+        </label>
         {photo.busy && <p className="p3-note">{L.detailsUploading}</p>}
         {photo.error && <p className="p3-error" role="alert">{photo.error}</p>}
       </div>
@@ -145,8 +152,8 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-row-t">{kindWordStored(ws.series.format, ws.series.category)}</p>
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
-      <EditTray lines={form.lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={form.restart} />
+      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
+        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={form.restart} />
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
           {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}
@@ -164,6 +171,34 @@ function Details({ ws }: { ws: EventWorkspace }) {
       )}
     </div>
   );
+}
+
+/**
+ * The city of a newly picked place, looked up as soon as it is picked. While it is being found,
+ * or when the lookup failed, `problem` holds the save (never a save that leaves the old place's
+ * city behind); a failed lookup can be tried again (PR #1082 r1 #3).
+ */
+function useVenueCity(venueId: string | null, venues: VenueOption[] | undefined) {
+  const [found, setFound] = useState<{ venueId: string; id: string | null; failed: boolean } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  // the latest list, without making a new list (each read of the venue query) a new lookup
+  const list = useRef(venues);
+  useEffect(() => { list.current = venues; });
+  const ready = !!venues;
+  useEffect(() => {
+    if (!venueId || !ready) return undefined;
+    let live = true;
+    cityForVenue(venueId, list.current).then(
+      (id) => { if (live) setFound({ venueId, id, failed: false }); },
+      () => { if (live) setFound({ venueId, id: null, failed: true }); },
+    );
+    return () => { live = false; };
+  }, [venueId, ready, attempt]);
+  const mine = venueId && found?.venueId === venueId ? found : null;
+  const failed = !!mine?.failed;
+  const problem = !venueId ? null : !mine ? L.detailsCityBusy : failed ? L.detailsCityFail : null;
+  const retry = () => { setFound(null); setAttempt((n) => n + 1); };
+  return { id: mine && !failed ? mine.id : null, failed, problem, retry };
 }
 
 /** C3 "Name and details" (P3 W3a): every field of the event, one save for all dates. */

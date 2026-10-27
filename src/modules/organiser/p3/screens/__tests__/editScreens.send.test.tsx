@@ -20,7 +20,8 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, auth: {}, fr
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-10-25' }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
 vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => ({ isAdmin: false, isPending: false }) }));
-vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'city-9' }) }));
+const city = vi.hoisted(() => vi.fn(async () => ({ cityId: 'city-9' }) as { cityId: string } | null));
+vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: city }));
 vi.mock('../../../shared/profileProgress', async (orig) => ({
   ...(await orig<typeof import('../../../shared/profileProgress')>()),
   useProfileProgress: () => ({ data: { publishReady: true, requiredLeft: [] } }),
@@ -37,7 +38,7 @@ import { EventPage } from '../EventPage';
 import { DetailsScreen } from '../DetailsScreen';
 import { PricesScreen } from '../PricesScreen';
 
-afterEach(() => { cleanup(); rpc.mockReset(); });
+afterEach(() => { cleanup(); rpc.mockReset(); city.mockReset(); city.mockImplementation(async () => ({ cityId: 'city-9' })); });
 
 type Raw = Record<string, unknown>;
 let raw: Raw = SHAPES.weekly;
@@ -105,6 +106,8 @@ describe('Name and details: the one save', () => {
     await waitFor(() => screen.getByTestId('p3-d-pick-place'));
     fireEvent.click(screen.getByTestId('p3-d-pick-place'));
     fireEvent.click(within(screen.getByTestId('p3-d-venues')).getByText('Studio Two'));
+    // the city is found as soon as the place is picked; Save waits for it (PR #1082 r1 #3)
+    await waitFor(() => expect(saveBtn().disabled).toBe(false));
     await press(saveBtn());
     await waitFor(() => expect(envs).toHaveLength(1));
     expect((envs[0].command as Raw).payload).toEqual({ name: 'Sensual Fridays', default_venue_id: 'v2', default_city_id: 'city-9' });
@@ -278,5 +281,109 @@ describe('the event page opens both screens (no copy pointing at the old area fo
     expect(screen.getByTestId('p3-open-details').getAttribute('href')).toBe(DETAILS);
     expect(screen.getByTestId('p3-open-prices').getAttribute('href')).toBe(PRICES);
     expect(screen.getByTestId('p3-about').textContent).not.toContain('use the current organiser area');
+  });
+});
+
+const UUID = '11111111-1111-4111-8111-111111111111';
+const refetch = async () => { await act(async () => { await qc.invalidateQueries({ queryKey: ['org-event-workspace', 'ser-1'] }); }); };
+
+describe('review round 1 (PR #1082)', () => {
+  it.each([[DETAILS, 'p3-d-description'], [PRICES, 'p3-free-switch']] as const)('r1 #1 %s: a save after someone else saved goes against the version the screen OPENED with, so it is refused', async (path, id) => {
+    const envs = server(() => ({ data: null, error: { message: 'version_conflict: expected 7 got 9' } }));
+    show(path);
+    await waitFor(() => screen.getByTestId(id));
+    if (id === 'p3-free-switch') fireEvent.click(screen.getByTestId(id)); else type(id, 'Mine');
+    raw = wsRaw({ version: 9, name: 'Renamed elsewhere' }, [], []);
+    await refetch();
+    await waitFor(() => screen.getByTestId('p3-changed-elsewhere'));
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect(envs[0].expected_version).toBe(7);
+    await waitFor(() => expect(screen.getByTestId('p3-save-error').textContent).toBe(VERSION_CONFLICT));
+    expect(screen.getByTestId('p3-changed-elsewhere')).toBeTruthy();
+  });
+
+  it.each([
+    ['a trailing space in a price name', 'p3-price-name', 'Class '],
+    ['15 typed as 15.0', 'p3-price-amount', '15.0'],
+    ['15 typed as 015', 'p3-price-amount', '015'],
+  ])('r1 #2 %s is no change: no tray, Save off ("Nothing changed yet"), nothing sent', async (_n, id, value) => {
+    const envs = server();
+    show(PRICES, wsRaw({ passes: [{ id: UUID, name: 'Class', price: 15, currency: 'GBP' }] }, [], []));
+    await waitFor(() => screen.getByTestId('p3-price-name'));
+    type(id, value);
+    expect(screen.queryByTestId('p3-pending')).toBeNull();
+    expect(saveBtn().disabled).toBe(true);
+    expect(saveBtn().textContent).toBe(L.nothingChanged);
+    await press(saveBtn());
+    expect(envs).toHaveLength(0);
+  });
+
+  it('r1 #3 a place whose city cannot be found sends default_city_id null (never the old city)', async () => {
+    city.mockImplementation(async () => null);
+    const envs = server();
+    show(DETAILS);
+    await waitFor(() => screen.getByTestId('p3-d-pick-place'));
+    fireEvent.click(screen.getByTestId('p3-d-pick-place'));
+    fireEvent.click(within(screen.getByTestId('p3-d-venues')).getByText('Studio Two'));
+    await waitFor(() => expect(saveBtn().disabled).toBe(false));
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect((envs[0].command as Raw).payload).toEqual({ name: 'Sensual Fridays', default_venue_id: 'v2', default_city_id: null });
+  });
+
+  it('r1 #3 a city lookup that fails: plain words, Save off until the lookup works', async () => {
+    city.mockImplementationOnce(async () => { throw new TypeError('Failed to fetch'); });
+    const envs = server();
+    show(DETAILS);
+    await waitFor(() => screen.getByTestId('p3-d-pick-place'));
+    fireEvent.click(screen.getByTestId('p3-d-pick-place'));
+    fireEvent.click(within(screen.getByTestId('p3-d-venues')).getByText('Studio Two'));
+    await waitFor(() => expect(screen.getByTestId('p3-save-why').textContent).toBe(L.detailsCityFail));
+    expect(saveBtn().disabled).toBe(true);
+    await press(screen.getByTestId('p3-d-city-retry'));
+    await waitFor(() => expect(saveBtn().disabled).toBe(false));
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect((envs[0].command as Raw).payload).toEqual({ name: 'Sensual Fridays', default_venue_id: 'v2', default_city_id: 'city-9' });
+  });
+
+  it('r1 #7 the cover picker is a button wrapping the file input; Undo my changes clears a photo problem', async () => {
+    server();
+    show(DETAILS);
+    await waitFor(() => screen.getByTestId('p3-d-cover'));
+    const btn = screen.getByTestId('p3-d-cover-btn');
+    expect(btn.tagName).toBe('LABEL');
+    expect(btn.className).toContain('p3-btn');
+    expect(btn.contains(screen.getByTestId('p3-d-cover'))).toBe(true);
+    type('p3-d-name', 'Friday Social');
+    await act(async () => { fireEvent.change(screen.getByTestId('p3-d-cover'), { target: { files: [new File(['x'], 'notes.txt', { type: 'text/plain' })] } }); });
+    const problem = within(screen.getByTestId('p3-field-cover')).getByRole('alert');
+    expect(problem.textContent).toBeTruthy();
+    fireEvent.click(screen.getByTestId('p3-undo-mine'));
+    fireEvent.click(screen.getByTestId('p3-undo-confirm'));
+    expect(within(screen.getByTestId('p3-field-cover')).queryByRole('alert')).toBeNull();
+  });
+
+  it('r1 #4 step 1 lands, step 2 fails: no "someone else saved"; Try again reuses the key and the landed version', async () => {
+    const envs = server((_e, n) => {
+      if (n === 1) { raw = wsRaw({ version: 8, name: 'Friday Social' }, [], []); return { data: { ok: true, new_version: 8 }, error: null }; }
+      if (n === 2) throw new TypeError('Failed to fetch');
+      return { data: { ok: true, new_version: 9 }, error: null };
+    });
+    show(DETAILS);
+    await waitFor(() => screen.getByTestId('p3-d-chat'));
+    type('p3-d-chat', 'https://chat.whatsapp.com/abc');
+    type('p3-d-name', 'Friday Social');
+    await press(saveBtn());
+    await waitFor(() => screen.getByTestId('p3-save-error'));
+    await refetch();
+    await waitFor(() => expect(rpc.mock.calls.filter((c) => c[0] === 'admin_event_workspace_p5').length).toBeGreaterThan(1));
+    expect(screen.queryByTestId('p3-changed-elsewhere')).toBeNull();
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(3));
+    expect((envs[2].command as Raw).kind).toBe('series.set_group_chat');
+    expect(envs[2].idempotency_key).toBe(envs[1].idempotency_key);
+    expect(envs[2].expected_version).toBe(8);
   });
 });
