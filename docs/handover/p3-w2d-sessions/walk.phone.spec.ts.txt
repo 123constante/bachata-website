@@ -1,0 +1,177 @@
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, appendFileSync } from 'node:fs';
+import { checkOverflow, fakeSupabase, frames } from './helpers';
+import { FAKE_ORIGIN } from './fakeSupabase.mjs';
+
+// THROWAWAY walk for the W2d design record (not committed): every shot at 390x844, light + dark.
+const SHAPES = JSON.parse(readFileSync(process.env.SHAPES_JSON!, 'utf8'));
+const OUT = process.env.SHOTS!;
+const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+
+/** organiser_get_occurrence_programme_v1 for one weekly date: 2 series sessions (+ an extra, a not-running one on 13 Nov). */
+function dateProg(id: string, over: Record<string, unknown> = {}) {
+  const date = id.slice(2);
+  const special = date === '2026-11-13';
+  const sessions: Record<string, unknown>[] = [
+    { series_item_id: 'cls', type: 'class', title: 'Bachata class', start_time: '20:00:00', end_time: '21:00:00', ends_next_day: false, level_keys: ['open_level'], removed: special },
+    { series_item_id: 'pty', type: 'party', title: 'Social', start_time: '21:00:00', end_time: '01:00:00', ends_next_day: true, level_keys: [], removed: false },
+  ];
+  if (special) sessions.push({ added_session_id: 'add1', type: 'performance', title: 'Guest show', start_time: '23:00:00', end_time: '23:20:00', ends_next_day: false, level_keys: [], removed: false });
+  return {
+    occurrence_id: id, series_id: 'ser-1', occurrence_date: date, version: 4,
+    editable: date >= '2026-10-25' && date !== '2026-11-06', not_editable_reason: date === '2026-11-06' ? 'date_cancelled' : date < '2026-10-25' ? 'past_date' : null,
+    sessions,
+    session_people: [
+      { series_item_id: 'cls', people: [{ profile_id: 'p-cls-0', display_name: 'Marco & Elena', role: 'teaching' }] },
+      { series_item_id: 'pty', people: [{ profile_id: 'p-pty-0', display_name: 'DJ Kizzy', role: 'djing' }, { profile_id: 'p-pty-1', display_name: 'Host Sam', role: 'mc' }] },
+      ...(special ? [{ added_session_id: 'add1', people: [] }] : []),
+    ],
+    ...over,
+  };
+}
+
+async function open(page: Page, shape: string, scheme: 'light' | 'dark', progOver: Record<string, unknown> = {}) {
+  await page.emulateMedia({ colorScheme: scheme });
+  await fakeSupabase(page, { signedInAsOwner: true, realClock: true });
+  await page.clock.setFixedTime(new Date('2026-10-25T12:00:00Z'));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) => r.fulfill(json(SHAPES[shape])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/organiser_get_occurrence_programme_v1`, (r) => r.fulfill(json(dateProg(r.request().postDataJSON().p_occurrence_id, progOver))));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/organiser_search_people_v1`, (r) => r.fulfill(json([
+    { id: 'n1', display_name: 'Maria Lopez', dj_name: null, photo_url: null, city_name: 'Leeds', country_code: 'GB' },
+    { id: 'n2', display_name: 'Mario Rossi', dj_name: 'DJ Mario', photo_url: null, city_name: 'London', country_code: null }])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/venue_rooms*`, (r) => r.fulfill(json([{ id: 'r1', name: 'Main room', sort_order: 0 }, { id: 'r2', name: 'Studio', sort_order: 1 }])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/event_view_p5`, (r) => r.fulfill(json({ event: {}, occurrence: {}, schedule: {}, program: [], added_sessions: [] })));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/*_command_p5`, (r) => r.fulfill(json({ ok: true, new_version: 8 })));
+  await page.goto('/account/p3/events/ser-1');
+  await page.getByTestId('p3-open-status').waitFor();
+}
+
+async function checks(page: Page, label: string, scope = '.p3-frame') {
+  expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
+  const small = await page.evaluate((s) => [...document.querySelectorAll(`${s} button, ${s} a[href], ${s} input`)]
+    .map((el) => el.closest('label') ?? el).filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+    .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? '').trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) }))
+    .filter((x) => x.h < 44), scope);
+  const clip = await page.evaluate((s) => [...document.querySelectorAll(`${s} *`)]
+    .filter((el) => { const c = getComputedStyle(el); return el.children.length === 0 && (el.textContent ?? '').trim() && el.scrollWidth > el.clientWidth + 1 && c.overflow !== 'visible' && el.clientWidth > 0; })
+    .map((el) => (el.textContent ?? '').trim().slice(0, 40)), scope);
+  const taps = await page.evaluate((s) => [...document.querySelectorAll(`${s} button, ${s} a[href], ${s} input`)]
+    .map((el) => (el.closest('label') ?? el).getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0).map((r) => Math.round(r.height)), scope);
+  const contrast = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  const sideways = (await checkOverflow(page)).length;
+  appendFileSync(`${OUT}/metrics.jsonl`, JSON.stringify({ label, sideways, taps: taps.length, minTap: taps.length ? Math.min(...taps) : null, small, clipped: clip, contrastViolations: contrast.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), contrastPasses: contrast.passes.flatMap((v) => v.nodes).length }) + '\n');
+  expect(small, `${label}: taps >= 44px`).toEqual([]);
+  expect(clip, `${label}: clipped`).toEqual([]);
+  expect(contrast.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast`).toEqual([]);
+}
+
+const shot = async (page: Page, name: string) => { await frames(page); await page.screenshot({ path: `${OUT}/${name}.png` }); };
+const firstSession = async (page: Page, i = 0) => { await page.getByTestId('p3-open-session').nth(i).click(); await expect(page.getByTestId('p3-sheet')).toBeVisible(); };
+
+test.beforeEach(({ page: _p }, info) => { test.skip(info.project.name !== 'phone-390x844', 'one size'); });
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`weekly: sessions, every-date sheet, line-up, removeall ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', scheme);
+    await page.getByTestId('p3-sessions').scrollIntoViewIfNeeded();
+    await checks(page, `weekly sessions ${scheme}`);
+    await shot(page, `01-sessions-weekly-${scheme}`);
+    await firstSession(page);
+    await page.getByTestId('p3-sess-rooms').waitFor();
+    await checks(page, `session sheet every ${scheme}`, '.p3-sheet');
+    await shot(page, `02-session-every-${scheme}`);
+    await page.getByTestId('p3-sess-name').fill('Improvers class');
+    await page.getByTestId('p3-sess-save').scrollIntoViewIfNeeded();
+    await shot(page, `03-session-every-dirty-${scheme}`);
+    await page.getByTestId('p3-sess-removeall').click();
+    await checks(page, `removeall ${scheme}`, '.p3-sheet');
+    await shot(page, `04-removeall-${scheme}`);
+    await page.getByTestId('p3-removeall-keep').click();
+    await page.getByTestId('p3-sess-lineup-open').click();
+    await page.getByTestId('p3-lineup-search').fill('Mar');
+    await page.getByTestId('p3-lineup-result').first().waitFor();
+    await checks(page, `lineup every ${scheme}`, '.p3-sheet');
+    await shot(page, `05-lineup-every-${scheme}`);
+  });
+
+  test(`weekly: just this date, not running, party line-up with mc ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', scheme);
+    await firstSession(page, 1);
+    await page.getByTestId('p3-scope-date').click();
+    await page.getByTestId('p3-sess-notrunning').waitFor();
+    await checks(page, `session sheet date ${scheme}`, '.p3-sheet');
+    await shot(page, `06-session-date-${scheme}`);
+    await page.getByTestId('p3-sess-lineup-open').click();
+    await checks(page, `lineup date mc ${scheme}`, '.p3-sheet');
+    await shot(page, `07-lineup-date-mc-${scheme}`);
+    await page.getByTestId('p3-lineup-back').click();
+    await page.getByTestId('p3-sheet').getByText('Close').click();
+    await page.getByTestId('p3-add-session').click();
+    await checks(page, `new session ${scheme}`, '.p3-sheet');
+    await shot(page, `08-new-session-${scheme}`);
+  });
+
+  test(`date sheet: per-date rows (extra, not running), cancelled date, past greyed ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', scheme);
+    // 13 Nov: own changes + an extra session + a not-running one
+    const rows = page.getByTestId('p3-open-date');
+    await rows.nth(2).click();
+    await page.getByTestId('p3-date-sessions').scrollIntoViewIfNeeded();
+    await page.getByTestId('p3-date-session').first().waitFor();
+    await checks(page, `date sheet sessions ${scheme}`, '.p3-sheet');
+    await shot(page, `09-date-sessions-${scheme}`);
+    await page.getByTestId('p3-open-date-session').first().click();
+    await page.getByTestId('p3-sess-off').waitFor();
+    await checks(page, `not running ${scheme}`, '.p3-sheet:last-of-type');
+    await shot(page, `10-not-running-${scheme}`);
+    await page.getByTestId('p3-sheet').last().getByText('Close').click();
+    await page.getByTestId('p3-open-date-session').nth(2).click();
+    await page.getByTestId('p3-sess-removeone').waitFor();
+    await shot(page, `11-extra-session-${scheme}`);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    // 6 Nov: cancelled
+    await rows.nth(1).click();
+    await page.getByTestId('p3-date-add-session-why').scrollIntoViewIfNeeded();
+    await checks(page, `cancelled date ${scheme}`, '.p3-sheet');
+    await shot(page, `12-cancelled-date-${scheme}`);
+  });
+
+  test(`multi-day reader, festival, course, one-off, 0 sessions, untimed, 16 items ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', scheme, { editable: false, not_editable_reason: 'multi_day' });
+    await firstSession(page);
+    await page.getByTestId('p3-scope-date').click();
+    await page.getByTestId('p3-sess-why').waitFor();
+    await checks(page, `multi-day greyed ${scheme}`, '.p3-sheet');
+    await shot(page, `13-multiday-greyed-${scheme}`);
+    await open(page, 'festival', scheme);
+    await page.getByTestId('p3-sessions-ask').scrollIntoViewIfNeeded();
+    await checks(page, `festival ${scheme}`);
+    await shot(page, `14-festival-${scheme}`);
+    await open(page, 'course', scheme);
+    await page.getByTestId('p3-sessions').scrollIntoViewIfNeeded();
+    await checks(page, `course ${scheme}`);
+    await shot(page, `15-course-${scheme}`);
+    await open(page, 'oneoff', scheme);
+    await firstSession(page);
+    await checks(page, `oneoff sheet ${scheme}`, '.p3-sheet');
+    await shot(page, `16-oneoff-session-${scheme}`);
+    await open(page, 'noSessions', scheme);
+    await page.getByTestId('p3-sessions').scrollIntoViewIfNeeded();
+    await checks(page, `no sessions ${scheme}`);
+    await shot(page, `17-no-sessions-${scheme}`);
+    await open(page, 'noTime', scheme);
+    await firstSession(page);
+    await checks(page, `untimed session ${scheme}`, '.p3-sheet');
+    await shot(page, `18-untimed-session-${scheme}`);
+    await open(page, 'many16', scheme);
+    await page.getByTestId('p3-sessions').scrollIntoViewIfNeeded();
+    await checks(page, `16 items ${scheme}`);
+    await shot(page, `19-sixteen-items-${scheme}`);
+    await firstSession(page);
+    await page.getByTestId('p3-sess-rooms').waitFor();
+    await checks(page, `16 items sheet ${scheme}`, '.p3-sheet');
+    await shot(page, `20-sixteen-sheet-${scheme}`);
+  });
+}

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { fullDate } from '../../shared/dateWords';
 import { LEVEL_KEYS, SESSION_TYPES, TYPE_LABEL, endsNextDay, type DraftPerson } from '../../shared/programmeModel';
-import { levelWord, roleWord, typeWord } from '../../events/programmeSeriesModel';
+import { roleWord, typeWord } from '../../events/programmeSeriesModel';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, PROGRAMME_WHY, liveDates, programmeRules, scopeWhy, sessionTitle, shownControls, timeWord, type ProgrammeControl, type Scope } from '../model';
-import { eventOf } from '../data/eventPage';
+import { eventOf, levelLabel } from '../data/eventPage';
 import {
   dateAdd, dateEdit, dateFactsFor, dateLineup, dateOff, datePeople, draftFor, draftsOf, emptyForm, everyAdd, everyEdit, everyLineup, everyRemove,
   factsOf, formOfDraft, formOfItem, isExtra, itemOf, levelsApply, peopleOfItem, sameForm, saveErrorCopy, seriesTree,
@@ -169,7 +169,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
           <button type="button" className="p3-btn" disabled={busy || !!rules.notRunning}
             onClick={() => drafts && draft && void run(dateOff(drafts, draft.key, false), L.backDate(day))} data-testid="p3-sess-bringback">{L.bringBackSess}</button>
           <Why why={rules.notRunning} testId="p3-why-notRunning" />
-          <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>{L.keepIt}</button>
+          <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>{L.leaveOff}</button>
         </div>
       ) : (
         <>
@@ -215,7 +215,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
               <div className="p3-chips" role="group" aria-label={L.level} data-testid="p3-sess-levels">
                 {LEVEL_KEYS.map((k) => (
                   <button key={k} type="button" aria-pressed={form.levels.includes(k)} disabled={fieldsOff}
-                    onClick={() => set({ levels: form.levels.includes(k) ? form.levels.filter((x) => x !== k) : [...form.levels, k] })}>{levelWord(k)}</button>
+                    onClick={() => set({ levels: form.levels.includes(k) ? form.levels.filter((x) => x !== k) : [...form.levels, k] })}>{levelLabel(k)}</button>
                 ))}
               </div>
             </>
@@ -302,8 +302,10 @@ export function DateSessions({ ws, today, date, onDone }: {
           ) : <p className="p3-note p3-pad">{addWhy ? L.noSessions : L.noSessionsDate}</p>}
         </div>
       )}
-      <button type="button" className="p3-btn p3-btn-line p3-gap-t" disabled={!!addWhy} onClick={() => setOpen({ key: null, scope: 'date', date: at })} data-testid="p3-date-add-session">{L.addSessOne}</button>
-      {addWhy && !prog.isPending && <p className="p3-note" data-testid="p3-date-add-session-why">{addWhy}</p>}
+      <div className="p3-stack-s p3-gap-t">
+        <button type="button" className="p3-btn p3-btn-line" disabled={!!addWhy} onClick={() => setOpen({ key: null, scope: 'date', date: at })} data-testid="p3-date-add-session">{L.addSessOne}</button>
+        {addWhy && !prog.isPending && <p className="p3-note" data-testid="p3-date-add-session-why">{addWhy}</p>}
+      </div>
       {open && <SessionSheet ws={ws} today={today} open={open} onClose={() => setOpen(null)} onDone={(d) => { setOpen(null); onDone(d); }} />}
     </section>
   );

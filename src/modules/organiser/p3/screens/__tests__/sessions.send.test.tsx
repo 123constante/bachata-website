@@ -46,7 +46,7 @@ const DATE_PROG = {
   occurrence_id: 'o-2026-10-30', series_id: 'ser-1', occurrence_date: '2026-10-30', version: 4, editable: true, not_editable_reason: null,
   sessions: [
     { series_item_id: 'cls', type: 'class', title: 'Bachata class', start_time: '20:00:00', end_time: '21:00:00', ends_next_day: false, level_keys: ['open_level'], removed: false },
-    { series_item_id: 'pty', type: 'party', title: 'Social', start_time: '21:00:00', end_time: '01:00:00', ends_next_day: true, level_keys: [], removed: false },
+    { series_item_id: 'pty', type: 'party', title: 'Night party', start_time: '21:00:00', end_time: '01:00:00', ends_next_day: true, level_keys: [], removed: false },
   ],
   session_people: [
     { series_item_id: 'cls', people: [{ profile_id: 'p-cls-0', display_name: 'Marco & Elena', role: 'teaching' }] },

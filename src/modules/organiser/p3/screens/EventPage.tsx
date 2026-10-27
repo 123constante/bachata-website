@@ -76,10 +76,10 @@ function Sessions({ v, ws, onOpen }: { v: EventPageView; ws: EventWorkspace; onO
         ))
       )}
       {festival ? <p className="p3-note" data-testid="p3-sessions-ask">{L.festivalAsk}</p> : (
-        <>
-          <button type="button" className="p3-btn p3-btn-line p3-gap-t" disabled={!!addWhy} onClick={() => onOpen(null)} data-testid="p3-add-session">{L.addSession}</button>
+        <div className="p3-stack-s p3-gap-t">
+          <button type="button" className="p3-btn p3-btn-line" disabled={!!addWhy} onClick={() => onOpen(null)} data-testid="p3-add-session">{L.addSession}</button>
           {addWhy && count > 0 && <p className="p3-note" data-testid="p3-add-session-why">{addWhy}</p>}
-        </>
+        </div>
       )}
     </section>
   );
