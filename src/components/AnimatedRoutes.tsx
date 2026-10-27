@@ -48,7 +48,11 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
 // The P3 organiser area (mockup C3): its own lazy chunk, mounted only while flags.organiserP3 is on.
-const OrganiserP3Area = lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
+// `@__PURE__`: with the flag off (prod today) the route folds away and rollup drops this dead
+// import too, about 0.35 KB gz off the chunk every catchall route loads first. The other
+// flag-gated lazies here were measured the same way and left alone: dropping them re-cuts
+// /event's chunks (Raffles) or saves under 20 B.
+const OrganiserP3Area = /* @__PURE__ */ lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
 // Organiser ticketing (S3): its own lazy chunk, mounted only while flags.organiserTicketing is on.
 const OrganiserTicketsArea = lazyWithRetry(() => import("@/modules/organiser/tickets/TicketRoutes"));
 // The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
@@ -103,9 +107,8 @@ const CityRedirect = () => {
 /** Every /app URL shares one key, so the dancer app's shell stays mounted across its tabs.
  *  Same for /ambassador: its list keeps state and scroll while a review is open. */
 const routesKey = (pathname: string) => {
-  const p = pathname.toLowerCase();
-  if (p === "/ambassador" || p.startsWith("/ambassador/")) return "/ambassador";
-  return p === "/app" || p.startsWith("/app/") ? "/app" : pathname;
+  const first = pathname.toLowerCase().split("/")[1];
+  return first === "app" || first === "ambassador" ? `/${first}` : pathname;
 };
 
 export const AnimatedRoutes = () => {

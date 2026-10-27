@@ -89,3 +89,42 @@ Brief: `docs/briefs/ambassador-a1-fix2.md` (branch `brief/ambassador-a1-build`).
 Fix round 2 checks (local): ambassador unit matrix 56 pass; `ambassador-queue.spec.ts` 4 pass (chromium, 390x844); `tsc -p tsconfig.app.json` no errors in the module or spec; eslint on the module and spec: the same pre-existing `react-hooks/static-components` error on the harness `Where` helper only; lint chain 21/22 green (`check:integrity` exit 126 is the mode-644 script on `main` too; `bash bin/check-integrity.sh` ok). `bundle-budget` and DB Contract Check not chased (red on `main`).
 
 Not verified: real iOS Safari / Android Chrome (Safari's handling of `filter` containing blocks matches Chromium's per spec, but not walked on a device); a live ambassador session (none exists on prod).
+
+## Fix round 3 (bundle-budget red on PR #1086: dancer-app 374.3 KB vs 374)
+
+Measured with a bare `npm run build` + `npm run check:bundle-budget` on main d14a58c and on
+this branch, gzip bytes per first-load file of the dancer-app row (entry.client, root,
+catchall, dancer-app; the same BFS the check runs). Main: 382,904 B (373.9 KB), 49 files.
+
+| File | main | branch before | branch after |
+|---|---:|---:|---:|
+| vendor-query | 14,001 | 14,290 (+289) | 13,990 (-11) |
+| AnimatedRoutes | 6,065 | 6,130 (+65) | 5,783 (-282) |
+| lib-event-rules | 13,894 | 13,895 | 13,824 (-70) |
+| others (hash-name noise, +/-4 B each) | | +-2 to +3 | |
+| **Total** | **382,904** | **383,260 (+356)** | **382,542 (-362)** |
+
+What landed in /app's first load:
+
+1. **vendor-query +289 B.** `AmbassadorQueuePage` was the app's ONLY `useInfiniteQuery`
+   caller, so the infinite observer and its paging behaviour joined the shared
+   `vendor-query` chunk that every route loads. Fix: the page pages by hand with `useQuery`
+   (same `InfiniteData` cache shape, so the remove-on-decide update is unchanged; a refetch
+   reloads every page already shown, as infiniteQueryBehavior does; "Show more" fetches the
+   next offset through `qc.fetchQuery` with the app's query retry default, not a mutation,
+   so a failure is not reported as `save_failed`). vendor-query is back to main's bytes.
+2. **AnimatedRoutes +65 B** (lazy import + preload-deps entry ~25 B, the Route ~11 B,
+   the routesKey branch ~14 B, gzip-measured by cutting each piece from the built chunk).
+   This is the route itself and cannot be moved into the lazy module. `routesKey` now reads
+   the first path segment (`/app`, `/ambassador`, same results as before for every path,
+   about 8 B smaller), and the cost is offset: `OrganiserP3Area`'s `lazyWithRetry` call is
+   marked `/* @__PURE__ */`, so with `flags.organiserP3` off (prod) the dead import is
+   dropped with its folded route (-0.35 KB on every catchall route; unchanged when the flag
+   is on). The other flag-gated lazies were measured too and left alone: Raffles re-cuts
+   /event's chunks (40 vs allowance 41, the ratchet fails UNDER), tickets ones save < 20 B.
+   An app-wide `#__NO_SIDE_EFFECTS__` on lazyWithRetry measured -5.5 KB but re-cuts chunks
+   on every route, so it is a separate perf PR, not this one.
+3. siteIa ids and `catchallClientPaths` are not in the dancer-app first load (no byte change).
+
+No change to `perf-budgets.json`, `vite.config.ts`, ratchets or the baseline. After: every
+budget `[ok]`, dancer-app 373.6 KB / 49 files / 4 pullers, every chunk ratchet at allowance.

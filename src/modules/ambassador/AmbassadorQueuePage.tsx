@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -62,13 +62,46 @@ function Queue() {
   const scopes = useQuery({ queryKey: scopesKey(userId), enabled: !!userId, queryFn: () => fetchCityScopes(userId) });
   const cityIds = useMemo(() => (scopes.data ?? []).map((s) => s.id), [scopes.data]);
   const key = queueKey(cityIds);
-  const queue = useInfiniteQuery({
+  // Paged by hand, not with useInfiniteQuery: this page is its only user, and it would pull the
+  // infinite observer into the shared vendor-query chunk that /app/* loads first (+0.3 KB gz).
+  // Same cache shape, and a refetch reloads every page already shown, as useInfiniteQuery does.
+  const queue = useQuery({
     queryKey: key,
     enabled: cityIds.length > 0,
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) => fetchQueuePage(cityIds, pageParam),
-    getNextPageParam: (last: QueuePage) => (last.full ? last.offset + 100 : undefined),
+    queryFn: async (): Promise<InfiniteData<QueuePage, number>> => {
+      const shown = qc.getQueryData<InfiniteData<QueuePage, number>>(key)?.pages.length || 1;
+      const pages: QueuePage[] = [];
+      let offset: number | undefined = 0;
+      while (offset !== undefined && pages.length < shown) {
+        const page = await fetchQueuePage(cityIds, offset);
+        pages.push(page);
+        offset = page.full ? page.offset + 100 : undefined;
+      }
+      return { pages, pageParams: pages.map((p) => p.offset) };
+    },
   });
+  const [more, setMore] = useState<'idle' | 'loading' | 'error'>('idle');
+  const fetchNextPage = async () => {
+    const last = queue.data?.pages[queue.data.pages.length - 1];
+    if (!last?.full || more === 'loading') return;
+    setMore('loading');
+    try {
+      const offset = last.offset + 100;
+      // A query of its own so the next page gets the app's retry default, like the rest of the list.
+      const page = await qc.fetchQuery({
+        queryKey: [...key, 'page', offset],
+        queryFn: () => fetchQueuePage(cityIds, offset),
+        retry: qc.getDefaultOptions().queries?.retry,
+        staleTime: 0,
+      });
+      qc.setQueryData<InfiniteData<QueuePage, number>>(key, (old) =>
+        old && { pages: [...old.pages, page], pageParams: [...old.pageParams, offset] },
+      );
+      setMore('idle');
+    } catch {
+      setMore('error');
+    }
+  };
 
   const items = useMemo(() => sortOldestFirst((queue.data?.pages ?? []).flatMap((p) => p.items)), [queue.data]);
   const current = review ? items.find((i) => i.key === itemKey(review.targetType, review.targetId)) ?? null : null;
@@ -170,7 +203,7 @@ function Queue() {
             party={party}
             now={now}
             showCity={cityIds.length > 1}
-            more={queue.hasNextPage && lastPage ? { text: moreText(lastPage.offset, fullCityNames), loading: queue.isFetchingNextPage, error: queue.isFetchNextPageError, onMore: () => void queue.fetchNextPage() } : null}
+            more={lastPage?.full ? { text: moreText(lastPage.offset, fullCityNames), loading: more === 'loading', error: more === 'error', onMore: () => void fetchNextPage() } : null}
             onOpen={openReview}
           />
         </div>
