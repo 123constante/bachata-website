@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { LegacyAccountRedirect } from "@/modules/organiser/shell/LegacyRedirect";
 import { AnimatePresence } from "framer-motion";
@@ -29,6 +29,8 @@ const Videographers = lazyWithRetry(() => import("../pages/Videographers"));
 const Choreography = lazyWithRetry(() => import("../pages/Choreography"));
 const Dancers = lazyWithRetry(() => import("../pages/Dancers"));
 const Teachers = lazyWithRetry(() => import("../pages/Teachers"));
+// Lazy, not static: the app shell's first-load graph (perf-budgets.json) has no room for it.
+const TeachersCityRedirect = lazyWithRetry(() => import("@/modules/teachers-directory/TeachersCityRedirect"));
 const DJs = lazyWithRetry(() => import("../pages/DJs"));
 // DancerProfile, TeacherProfile, DJProfile are framework routes now
 // (app/routes/{dancers,teachers,djs}.tsx).
@@ -45,10 +47,13 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 // The organiser area (/account/o). Its AuthGuard lives inside this chunk; the
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
+// The P3 organiser area (mockup C3): its own lazy chunk, mounted only while flags.organiserP3 is on.
+const OrganiserP3Area = lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
 // The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
 const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
 const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/AdminOrganisersPage"));
+const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
 // The S5 public door ("I run events"): ships closed unless VITE_ORGANISER_DOOR=on.
 const OrganiserDoor = lazyWithRetry(() => import("@/modules/organiser-door/DoorPage"));
@@ -78,6 +83,11 @@ const RouteFallback = () => (
       <Skeleton className="h-28 w-full rounded-xl" />
     </div>
   </div>
+);
+
+/** The teachers directory's one gate, shared by /teachers and /city/:slug/teachers. */
+const teachersGate = (page: ReactNode) => (
+  <ComingSoonGate enabled={flags.teachersDirectory} title="Teachers" section="teachers_directory">{page}</ComingSoonGate>
 );
 
 /** Redirect bare slash to /city/<slug> so the city is always visible in the URL. */
@@ -152,15 +162,10 @@ export const AnimatedRoutes = () => {
                 Vercel project env). When gated, page component never mounts --
                 the gate renders GlobalLayout placeholder + ListingRequestForm
                 and sets noindex,nofollow on the document head. */}
-            <Route path="/teachers" element={
-              <ComingSoonGate
-                enabled={flags.teachersDirectory}
-                title="Teachers"
-                section="teachers_directory"
-              >
-                <PageTransition><Teachers /></PageTransition>
-              </ComingSoonGate>
-            } />
+            {/* One directory per ACTIVE city; bare /teachers sends the visitor
+                to their own city (else London). Both behind the same gate. */}
+            <Route path="/teachers" element={teachersGate(<TeachersCityRedirect />)} />
+            <Route path="/city/:slug/teachers" element={teachersGate(<PageTransition><Teachers /></PageTransition>)} />
             {/* /teachers/:id is a framework route (app/routes/teachers.tsx),
                 which owns the ComingSoonGate + noindex-when-locked meta. */}
             <Route path="/all-profiles" element={<PageTransition><AllProfiles /></PageTransition>} />
@@ -241,12 +246,19 @@ export const AnimatedRoutes = () => {
                 ? <OrganiserArea />
                 : <Navigate to="/" replace />
             } />
+            {/* P3 organiser area: no route at all while flags.organiserP3 is off,
+                so every URL above behaves exactly as before. Path = P3_BASE
+                (modules/organiser/p3/shell/paths.ts; a test pins the two together). */}
+            {flags.organiserP3 && flags.organiserSelfServe ? (
+              <Route path="/account/p3/*" element={<OrganiserP3Area />} />
+            ) : null}
 
             <Route path="/account/areas" element={<AreaRoutes area="areas" />} />
             <Route path="/account/t/*" element={<AreaRoutes area="teacher" />} />
             <Route path="/account/dj/*" element={<AreaRoutes area="dj" />} />
 
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
+            <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/run-events" element={<PageTransition><OrganiserDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />

@@ -99,7 +99,7 @@ function CopyFrom({ seriesId, occurrenceId, ws, detail }: DateStepReady) {
       ) : (
         <p id="change-copy-same" className="text-[14px] text-[var(--mut)]" data-testid="change-copy-same">{hasOwnChanges(source.data) ? COPY_SAME : COPY_NONE_KEYS}</p>
       )}
-      {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
+      {error && <p role="alert" className="break-words text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
       <PrimaryButton testId="change-copy-confirm" loading={busy || running} aria-disabled={!ready || undefined}
         // PAR-B N3: an off button points at the line that says why.
         aria-describedby={ready ? undefined : patches.length ? 'change-copy-wait' : 'change-copy-same'}

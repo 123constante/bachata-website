@@ -60,7 +60,7 @@ type Surface = {
 
 const SURFACES: Surface[] = [
   { key: 'djs', name: '/djs list (64px)', url: '/djs', codes: codesOf(FLAG_PEOPLE), stickerPx: 29 },
-  { key: 'teachers', name: '/teachers list (56px)', url: '/teachers', codes: codesOf(FLAG_PEOPLE.slice(0, 40)), stickerPx: 26 },
+  { key: 'teachers', name: '/city/london-gb/teachers list (56px)', url: '/city/london-gb/teachers', codes: codesOf(FLAG_PEOPLE.slice(0, 46)), stickerPx: 26 },
   { key: 'dancers', name: '/dancers list (48px)', url: '/dancers', codes: storedCodes(FLAG_PEOPLE.slice(0, 30)), stickerPx: 22 },
   { key: 'all-profiles', name: '/all-profiles cards (inset)', url: '/all-profiles', codes: null, stickerPx: 22 },
   { key: 'videographers', name: '/videographers cards (inset)', url: '/videographers', codes: null, stickerPx: 22 },

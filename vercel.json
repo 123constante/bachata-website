@@ -17,7 +17,7 @@
     },
     {
       "source": "/:slug([a-z-]+-[a-z]{2})/teachers",
-      "destination": "/teachers",
+      "destination": "/city/:slug/teachers",
       "permanent": true
     },
     {

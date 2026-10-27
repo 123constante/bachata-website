@@ -59,6 +59,7 @@ import { InvitePerson } from './InvitePerson';
 import { InvitePersonWho } from './InvitePersonWho';
 import { DuplicatesAlert } from './duplicates/DuplicatesAlert';
 import { InviteRequests } from './InviteRequests';
+import { FrontDoorEntry } from './FrontDoorEntry';
 import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
 
 const PAGE_SIZE = 20;
@@ -335,6 +336,7 @@ function AdminOrganisersBody() {
   return (
     <div className="mx-auto max-w-2xl space-y-3 px-3 pb-24 pt-3" data-testid="admin-organisers">
       <h1 className="text-lg font-semibold">Organiser access</h1>
+      <FrontDoorEntry />
       <DuplicatesAlert />
       <InviteRequests onSendNewLink={sendNewLink} />
       <InvitePerson organisers={list.data ?? []} />

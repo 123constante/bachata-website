@@ -11,8 +11,8 @@ import {
   envelope,
   hasBasicsChanges,
   lifecycleCommand,
+  moveDateStep,
   overrideCommand,
-  removeDateCommand,
   resetTimeCommand,
   setTimeCommand,
   skipDateCommand,
@@ -39,6 +39,8 @@ const SERVER_OWNER_KINDS = [
   'series.unskip_date', 'series.set_recurrence', 'series.stop_repeating', 'series.end_run',
   // D39 (A1): apply_aggregate_write_p5 v_owner_kinds gains the move.
   'occurrence.move_date',
+  // ER AD4 (20261204180000, on prod 2026-10-26): a one-off ends with a reason.
+  'series.cancel_one_off',
 ];
 const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
@@ -150,7 +152,7 @@ describe('basicsPayload', () => {
 
 describe('date commands', () => {
   it('builds the exact payloads the owner gate checks', () => {
-    expect(removeDateCommand('o-1')).toEqual({ kind: 'series.remove_date', payload: { occurrence_id: 'o-1' } });
+    expect(moveDateStep({ id: 'o-1', version: 3 }, '2026-10-27')).toEqual({ kind: 'occurrence.move_date', payload: { to_date: '2026-10-27' }, occurrence: { id: 'o-1', version: 3 } });
     expect(skipDateCommand('o-1')).toEqual({ kind: 'series.skip_date', payload: { occurrence_id: 'o-1' } });
     expect(unskipDateCommand('2026-10-20')).toEqual({ kind: 'series.unskip_date', payload: { date: '2026-10-20' } });
     expect(lifecycleCommand('archived')).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'archived' } });

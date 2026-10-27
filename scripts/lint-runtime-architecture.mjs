@@ -74,6 +74,10 @@ const RULES = [
       'src/modules/organiser-door/doorParse.ts',
       'src/modules/organiser-door/__tests__/doorModel.table.test.ts',
       'src/modules/admin-organisers/inviteModel.ts',
+      // S4 front door RPCs (admin PR #1007) answer organiser_id; the typed boundary parser and its specs read it.
+      'src/modules/admin-organisers/frontDoorApi.ts',
+      'src/modules/admin-organisers/__tests__/frontDoor.models.test.ts',
+      'src/modules/admin-organisers/__tests__/frontDoor.screens.test.tsx',
       'src/modules/admin-organisers/__tests__/inviteModel.test.ts',
       'src/modules/admin-organisers/__tests__/inviteReasons.test.tsx',
       'src/modules/admin-organisers/__tests__/routes.matrix.test.tsx',

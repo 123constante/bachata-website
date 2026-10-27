@@ -78,7 +78,8 @@ export const SITE_IA = {
   terms:            { label: 'Terms of use',      path: '/terms' },
   notFound:         { label: 'Page not found' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
-  'admin.organisers': { label: 'Organiser access' },
+  'admin.organisers': { label: 'Organiser access', path: '/admin/organisers' },
+  'admin.organisers.frontDoor': { label: 'Add and manage', parent: 'admin.organisers' },
   'invite.redeem':    { label: 'Join organiser team' },
   'organiser.door':   { label: 'I run events' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },

@@ -37,7 +37,7 @@ vi.mock('../app/detailLoader', async (importOriginal) => {
 //
 // `unmocked` is asserted BEFORE the header, because a missing method throws out
 // of the loader and would otherwise end the test before the name is reported.
-const ALLOWED = new Set(['select', 'neq', 'order', 'limit', 'not']);
+const ALLOWED = new Set(['select', 'neq', 'order', 'limit', 'not', 'eq']);
 const unmocked = new Set<string>();
 
 const emptyQuery: Record<string, unknown> = new Proxy(
@@ -78,7 +78,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: mockClient,
 }));
 
-// Every flag ON, so all five fetchers actually run. Under the shipped defaults
+// Every flag ON, so all six fetchers actually run. Under the shipped defaults
 // three of them (fetchVenues, fetchOrganiserProfiles, fetchTeacherProfileIds)
 // are skipped, and a builder method missing from ALLOWED in any of those three
 // goes undetected: with the flags off, deleting 'neq' -- reached only by

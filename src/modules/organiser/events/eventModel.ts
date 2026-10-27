@@ -9,8 +9,9 @@ import { comingDates, dayLabel, type DateRow } from '@/modules/organiser/shared/
 import { linkProblem } from '@/modules/organiser/shared/linkRules';
 import {
   addDateCommand,
-  removeDateCommand,
+  moveDateStep,
   upsertCommand,
+  type DateStep,
   type OwnerCommand,
 } from '@/modules/organiser/shared/seriesCommands';
 import { FLYER_WORD } from '@/modules/organiser/shared/flyerLabel';
@@ -33,6 +34,8 @@ export interface EventWorkspace extends SeriesWorkspace {
   endedOn: string | null;
   /** The read holds only the newest 100 dates (admin_event_workspace_p5 meta.has_more). */
   hasMore: boolean;
+  /** Every date of the series, whatever the page holds (meta.total, P3 A2 R3); null on an older read. */
+  total: number | null;
   /** event_series_p5.default_level (free text; null on every prod series, 2026-10-17). */
   level: string | null;
   /** The programme tree as the read returns it (series.program): the series-level editor round-trips it. */
@@ -44,7 +47,7 @@ export interface EventWorkspace extends SeriesWorkspace {
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
 
 export function parseEventWorkspace(raw: unknown): EventWorkspace {
-  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown } } | null;
+  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown; total?: unknown } } | null;
   const row = (root?.series?.series ?? {}) as Record<string, unknown>;
   return {
     ...parseWorkspace(raw),
@@ -53,6 +56,7 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     videoUrls: strings(row.video_urls),
     endedOn: typeof row.ended_on === 'string' ? row.ended_on : null,
     hasMore: root?.meta?.has_more === true,
+    total: typeof root?.meta?.total === 'number' && Number.isFinite(root.meta.total) ? root.meta.total : null,
     level: typeof row.default_level === 'string' && row.default_level.trim() ? row.default_level : null,
     program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
     organiserIds: linkedOrganiserIds(row),
@@ -197,8 +201,12 @@ export const stopRepeatingCommand = (keepIds: string[]): OwnerCommand => ({
  * The commands a save sends, in order, each against the version the one before
  * returned. series.upsert carries `name` always (the handler needs it) plus ONLY
  * the changed fields. `cityId` is the new venue's city (city is automatic).
+ * A date is never deleted (owner answer 20): a one-date event's date MOVES
+ * (occurrence.move_date, a DateStep), and when it cannot move (past, cancelled)
+ * the new date is added beside it. The server refuses a move onto a day that
+ * already holds a date of the event, cancelled ones included (date_taken).
  */
-export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace, today: string, cityId?: string | null): OwnerCommand[] {
+export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace, today: string, cityId?: string | null): Array<OwnerCommand | DateStep> {
   // An ended or archived event takes no owner write (the server refuses them all).
   if (eventLock(ws.series.lifecycle_status)) return [];
   const view = scheduleView(ws.series, ws.dates);
@@ -209,7 +217,7 @@ export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace
   // Date fields this screen does not draw for this shape are never sent.
   if (mode === 'fixed') SCHEDULE_FIELDS.forEach((f) => changed.delete(f));
   if (mode === 'single' && !canRepeat) changed.delete('shape');
-  const cmds: OwnerCommand[] = [];
+  const cmds: Array<OwnerCommand | DateStep> = [];
   const payload: Record<string, unknown> = { name: draft.name.trim() };
   if (changed.has('description')) payload.default_description = draft.description.trim();
   if (changed.has('venueId') && draft.venueId) {
@@ -225,16 +233,18 @@ export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace
   if (Object.keys(payload).length > 1 || changed.has('name')) cmds.push(upsertCommand(payload));
 
   const upcoming = upcomingDates(ws.dates, today).filter((d) => d.lifecycle_status !== 'cancelled');
+  const dayTaken = (date: string) => ws.dates.some((d) => d.occurrence_date === date);
   if (mode === 'fixed') return cmds;
   // A one-date event (mode 'single') can only move its date, never start repeating here.
   if ((mode === 'weekly' || canRepeat) && draft.shape === 'weekly') {
     if (draft.until && (changed.has('shape') || changed.has('startDate') || changed.has('until'))) {
-      cmds.push(weeklyUntilCommand(draft.startDate, draft.until));
-      // One date -> weekly from a new start: the old date is off the rule's path, so it goes.
+      // One date -> weekly from a new start: the old date is off the rule's path, so it
+      // moves onto the start FIRST; the rule then finds that day already listed.
       const old = canRepeat ? upcoming.find((d) => d.occurrence_date === base.startDate) : undefined;
-      if (old && (old.occurrence_date < draft.startDate || weekdayOfKey(old.occurrence_date) !== weekdayOfKey(draft.startDate))) {
-        cmds.push(removeDateCommand(old.id));
+      if (old && (old.occurrence_date < draft.startDate || weekdayOfKey(old.occurrence_date) !== weekdayOfKey(draft.startDate)) && !dayTaken(draft.startDate)) {
+        cmds.push(moveDateStep(old, draft.startDate));
       }
+      cmds.push(weeklyUntilCommand(draft.startDate, draft.until));
     }
   } else if (changed.has('shape')) {
     // Weekly -> one date: keep the date it starts on if it is listed, else add it.
@@ -242,10 +252,10 @@ export function savePlan(base: EventDraft, draft: EventDraft, ws: EventWorkspace
     cmds.push(stopRepeatingCommand(keep ? [keep.id] : []));
     if (!keep && draft.startDate >= today) cmds.push(addDateCommand(draft.startDate));
   } else if (changed.has('startDate') && draft.startDate >= today) {
-    // One date moved: add the new date, then take the old one off.
+    // One date moved: the date itself moves. A past or cancelled date cannot move and
+    // stays as it is, so the new date is added. A day already taken gets neither.
     const old = upcoming.find((d) => d.occurrence_date === base.startDate);
-    if (!upcoming.some((d) => d.occurrence_date === draft.startDate)) cmds.push(addDateCommand(draft.startDate));
-    if (old) cmds.push(removeDateCommand(old.id));
+    if (!dayTaken(draft.startDate)) cmds.push(old ? moveDateStep(old, draft.startDate) : addDateCommand(draft.startDate));
   }
   return cmds;
 }

@@ -83,7 +83,7 @@ const SPECS: Record<string, Spec> = {
   teachers: {
     title: (c) => `Bachata Teachers in ${city(c)}`,
     description: (c) => `Bachata teachers in ${city(c)} - find an instructor, browse their classes, learn their style.`,
-    path: () => '/teachers',
+    path: (c) => `/city/${c.entitySlug ?? 'london-gb'}/teachers`,
   },
   djs: {
     title: (c) => `Bachata DJs in ${city(c)}`,

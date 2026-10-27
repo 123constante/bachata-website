@@ -10,7 +10,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 
 import * as fromEvents from '@/modules/organiser/events/eventsApi';
 import { useEventWorkspace, useRunCommands } from '../runCommands';
-import { lifecycleCommand } from '../seriesCommands';
+import { lifecycleCommand, moveDateStep, upsertCommand } from '../seriesCommands';
 
 const wrapper = (client: QueryClient) => ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -34,6 +34,35 @@ describe('shared/runCommands (4.3 #11)', () => {
       ['series_command_p5', 7],
       ['series_command_p5', 8],
     ]);
+  });
+
+  it('a DateStep goes to occurrence_command_p5 on the date\'s version; the next series command re-reads the series version', async () => {
+    const read = { data: { series: { series: { id: 's1', version: 12 } }, occurrences: [] }, error: null };
+    rpc.mockResolvedValueOnce({ data: { ok: true, new_version: 8 }, error: null })
+      .mockResolvedValueOnce({ data: { ok: true, new_version: 5 }, error: null })
+      .mockResolvedValueOnce(read)
+      .mockResolvedValueOnce({ data: { ok: true, new_version: 13 }, error: null });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useRunCommands('s1'), { wrapper: wrapper(client) });
+    const v = await result.current([upsertCommand({ name: 'X' }), moveDateStep({ id: 'o1', version: 4 }, '2026-10-24'), lifecycleCommand('live')], 7);
+    expect(v).toBe(13);
+    const sent = rpc.mock.calls.map((c) => [c[0], (c[1] as { p_envelope?: { target_id: string; expected_version: number; command: unknown } }).p_envelope]);
+    expect(sent.map(([fn, env]) => [fn, env?.target_id, env?.expected_version])).toEqual([
+      ['series_command_p5', 's1', 7],
+      ['occurrence_command_p5', 'o1', 4],
+      ['admin_event_workspace_p5', undefined, undefined],
+      ['series_command_p5', 's1', 12],
+    ]);
+    // The date command carries no runner-only field.
+    expect(sent[1][1]?.command).toEqual({ kind: 'occurrence.move_date', payload: { to_date: '2026-10-24' } });
+  });
+
+  it('a list that ends on a DateStep returns the re-read series version', async () => {
+    rpc.mockResolvedValueOnce({ data: { ok: true, new_version: 5 }, error: null })
+      .mockResolvedValueOnce({ data: { series: { series: { id: 's1', version: 9 } }, occurrences: [] }, error: null });
+    const client = new QueryClient();
+    const { result } = renderHook(() => useRunCommands('s1'), { wrapper: wrapper(client) });
+    expect(await result.current([moveDateStep({ id: 'o1', version: 4 }, '2026-10-24')], 8)).toBe(9);
   });
 
   it('useEventWorkspace reads admin_event_workspace_p5 for the series', async () => {

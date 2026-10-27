@@ -84,7 +84,7 @@ const page = (state: DehydratedState, qc: QueryClient) => (
         <DancerWorldPage
           id="p1"
           slug="ana-g"
-          input={{ name: 'Ana', photo: null, nationality: null, city: null, danceRole: null, languages: null, contacts: [] }}
+          input={{ name: 'Ana', photo: null, nationality: null, city: null, danceRole: null, languages: null, yearsDancing: null, contacts: [] }}
           shareTitle="Ana"
           inviteHref={null}
           breadcrumbs={[]}

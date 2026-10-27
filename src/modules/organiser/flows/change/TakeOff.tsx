@@ -34,7 +34,7 @@ function Confirm({ seriesId, occurrenceId, date, ws }: DateStepReady) {
       <p className="text-[16px] font-bold text-[var(--fg)]">{dayLabel(date.occurrence_date)}</p>
       <p className="text-[14px] text-[var(--mut)]">{TAKE_OFF.body}</p>
       <p className="text-[13px] text-[var(--mut)]" data-testid="change-off-undo">{TAKE_OFF.undo}</p>
-      {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
+      {error && <p role="alert" className="break-words text-[14px] text-[var(--danger)]" data-testid="change-error-message">{error}</p>}
       <PrimaryButton testId="change-off-confirm" loading={busy}
         onClick={() => void sendAll([skipDateCommand(occurrenceId)], ws.series.version, offDoneMessage(date.occurrence_date), 'series')}>
         {TAKE_OFF.confirm}
