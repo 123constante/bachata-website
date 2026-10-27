@@ -11,10 +11,10 @@ import { cn } from '@/lib/utils';
 import { fetchPublicVenuesList, type PublicVenueListItem } from '@/services/venuePublicService';
 import { londonDateKey, londonDaysBetweenKeys, londonWallClockToInstant } from '@/lib/londonDate';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { resolvePageCity, rowsForCity } from '@/lib/pageCity';
+import { resolvePageCity } from '@/lib/pageCity';
 import { useCity } from '@/contexts/CityContext';
 import { buildCityPath } from '@/lib/cityPath';
-import EmptyCityNote from '@/components/listing/EmptyCityNote';
+import EmptyCityNote, { rowsForCity } from '@/components/listing/EmptyCityNote';
 
 // ---------------------------------------------------------------------------
 // "Tonight First" venues directory (approved mockup 4, 2026-06-12).
