@@ -17,9 +17,8 @@ import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { renderPublicName } from '@/lib/publicName';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { resolvePageCity } from '@/lib/pageCity';
-import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCityRows';
 import { useCity } from '@/contexts/CityContext';
-import EmptyCityNote from '@/components/listing/EmptyCityNote';
+import EmptyCityNote, { cityHasNoRows, SHOWING_EVERYONE } from '@/components/listing/EmptyCityNote';
 
 type DJCard = {
   id: string;

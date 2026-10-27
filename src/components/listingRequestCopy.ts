@@ -11,7 +11,6 @@ import type { InstagramResult } from '@/lib/instagramHandle';
 import { EVENT_LISTING_COPY, LISTING_URL_RE, eventListingLink, type ListingFormCopy, type ListingLinkRule } from './listingFormBase';
 
 export { type ListingFormCopy } from './listingFormBase';
-export { listingSourceUrl } from './listingSourceUrl';
 
 export type ListingFormVariant = 'event' | 'teacher';
 

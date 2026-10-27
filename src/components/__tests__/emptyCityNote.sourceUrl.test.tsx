@@ -32,7 +32,10 @@ async function fillAndSend() {
 beforeEach(() => {
   h.calls = [];
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, '', '/');
+});
 
 describe('source_url per surface', () => {
   it.each([

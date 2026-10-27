@@ -22,8 +22,7 @@ import { getInitials } from '@/lib/name-utils';
 import { buildCityPath } from '@/lib/cityPath';
 import { useCity } from '@/contexts/CityContext';
 import { resolvePageCity } from '@/lib/pageCity';
-import { cityHasNoRows, SHOWING_EVERYONE } from '@/lib/pageCityRows';
-import EmptyCityNote from '@/components/listing/EmptyCityNote';
+import EmptyCityNote, { cityHasNoRows, SHOWING_EVERYONE } from '@/components/listing/EmptyCityNote';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { pickNationalityCode } from '@/components/people/nationality';
 
