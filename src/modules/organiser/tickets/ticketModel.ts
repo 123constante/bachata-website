@@ -197,9 +197,6 @@ export const totalsOf = (rows: readonly TypeSales[]): SalesTotals =>
     { ticketsSold: 0, ordersPaid: 0, ordersPending: 0, ordersRefunded: 0, ordersDisputed: 0, grossPence: 0, bookingFeesPence: 0, refundedPence: 0 },
   );
 
-export const soldLine = (sold: number, capacity: number): string => `${sold} of ${capacity} sold`;
-/** When the sales summary is not readable: held tickets (paid + waiting for payment), never a made-up 0 sold. */
-export const takenLine = (reserved: number, capacity: number): string => `${reserved} of ${capacity} taken`;
 
 // ---- Status moves ------------------------------------------------------------------
 
@@ -285,7 +282,7 @@ export const validateForm = (f: TypeForm, ctx: FormContext): FormErrors => {
   }
   const cap = /^\d{1,6}$/.test(f.capacity.trim()) ? Number(f.capacity.trim()) : NaN;
   if (!Number.isInteger(cap) || cap < 1 || cap > 100_000) e.capacity = 'Enter how many tickets, from 1 to 100,000.';
-  else if (cap < ctx.reserved) e.capacity = `${ctx.reserved} tickets are already taken, so it cannot go lower than that.`;
+  else if (cap < ctx.reserved) e.capacity = `${formatCount(ctx.reserved)} tickets are already taken, so it cannot go lower than that.`;
   if (f.opensAt && !londonInputToIso(f.opensAt)) e.opensAt = 'Pick a date and time.';
   if (f.closesAt && !londonInputToIso(f.closesAt)) e.closesAt = 'Pick a date and time.';
   const o = londonInputToIso(f.opensAt);
@@ -441,7 +438,7 @@ export const formPence = (f: Pick<TypeForm, 'paid' | 'price'>): number | null =>
 /** Places still free: capacity less every held ticket (paid and waiting for payment). */
 export const leftOf = (t: { capacity: number; reserved: number }): number => Math.max(0, t.capacity - t.reserved);
 /** "12 sold \u00B7 8 left"; without the sales summary only the places left (never a made-up 0 sold). */
-export const countsLine = (sold: number | null, left: number): string => (sold === null ? `${left} left` : `${sold} sold ${DOT} ${left} left`);
+export const countsLine = (sold: number | null, left: number): string => (sold === null ? `${formatCount(left)} left` : `${formatCount(sold)} sold ${DOT} ${formatCount(left)} left`);
 
 // ---- The Selling switch (replaces the Pause / Put on sale buttons) ------------------
 
@@ -595,7 +592,7 @@ export const reviewRows = (f: TypeForm, eventStart: string | null): { key: strin
   const total = buyerTotal(pence);
   return [
     { key: 'price', label: 'Price', value: priceLabel(pence) },
-    { key: 'places', label: 'Places', value: f.capacity.trim() },
+    { key: 'places', label: 'Places', value: formatCount(Number(f.capacity)) },
     { key: 'opens', label: 'On sale', value: opensWords(f.opensAt) },
     { key: 'closes', label: 'Closes', value: closesWords(f.closesAt, eventStart) },
     { key: 'buyer', label: 'Buyer pays', value: total.free ? total.line : formatPence(total.totalPence) },

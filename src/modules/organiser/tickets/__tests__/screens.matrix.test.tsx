@@ -40,6 +40,7 @@ import {
   buyerNameOf,
   canManage,
   eventSaleOf,
+  formatCount,
   moveBlock,
   nextStep,
   paymentsLink,
@@ -206,7 +207,7 @@ describe('One event x every shape', () => {
       for (const t of s.types) {
         const row = within(await screen.findByTestId(`tix-type-${t.id}`));
         const sold = sales.find((x) => x.id === t.id)?.ticketsSold ?? 0;
-        await waitFor(() => expect(row.getByTestId('tix-type-line').textContent).toContain(`${sold} sold \u00B7 ${Math.max(0, t.capacity - t.reserved)} left`));
+        await waitFor(() => expect(row.getByTestId('tix-type-line').textContent).toContain(`${formatCount(sold)} sold \u00B7 ${formatCount(Math.max(0, t.capacity - t.reserved))} left`));
         const to = switchMove(t.status);
         if (!to) {
           expect(row.queryByRole('switch')).toBeNull();
@@ -445,6 +446,26 @@ describe('flows and edge states', () => {
     expect(screen.getByTestId('tix-sales-note').textContent).toContain('\u00A31,235.06 refunded');
     expect(screen.getByTestId('tix-event-line').textContent).toBe('978 left of 3,000 \u00B7 Next: Friday 6 November');
   });
+  it('One event + edit sheet: the same counts carry the same separators (row, review, capacity error)', async () => {
+    arrange(SHAPES[4]);
+    const t = type('on_sale', { capacity: 3000, reserved: 2022 });
+    const [row] = salesOf([t], []);
+    api.fetchSeriesTypes.mockResolvedValue([t]);
+    api.fetchSalesSummary.mockResolvedValue({ ok: true, reason: null, types: [{ ...row, ticketsSold: 2022 }] });
+    mount('/account/tickets/events/s1');
+    const line = within(await screen.findByTestId('tix-type-t1'));
+    await waitFor(() => expect(line.getByTestId('tix-type-line').textContent).toContain('2,022 sold \u00B7 978 left'));
+    fireEvent.click(screen.getByTestId('tix-edit'));
+    fireEvent.click(await screen.findByTestId('tix-next'));
+    fireEvent.change(screen.getByTestId('tix-form-capacity'), { target: { value: '100' } });
+    fireEvent.click(screen.getByTestId('tix-next'));
+    expect(screen.getByTestId('tix-step').textContent).toBe('2 / 3');
+    expect(document.body.textContent).toContain('2,022 tickets are already taken, so it cannot go lower than that.');
+    fireEvent.change(screen.getByTestId('tix-form-capacity'), { target: { value: '3000' } });
+    fireEvent.click(screen.getByTestId('tix-next'));
+    expect(screen.getByTestId('tix-step').textContent).toBe('3 / 3');
+    expect(screen.getByTestId('tix-review-places').textContent).toBe('Places3,000');
+  });
   it('Home: Sold and Sales sum every ticket type', async () => {
     arrange(SHAPES[4]);
     mount('/account/tickets');
@@ -562,6 +583,37 @@ describe('critique fixes (docs/review/ticketing-organiser-ui-1060.md)', () => {
     fireEvent.click(screen.getByTestId('tix-save'));
     await waitFor(() => expect(api.upsertTicketType).toHaveBeenCalledTimes(1));
     expect(api.upsertTicketType.mock.calls[0][0]).toMatchObject(at === 2 ? { capacity: 30 } : { name: 'Early bird plus' });
+  });
+
+  it('Save changes from step 1 with a step-2 error jumps to step 2 and shows the error there', async () => {
+    arrange(SHAPES[5]);
+    mount('/account/tickets/events/s1');
+    fireEvent.click(await screen.findByTestId('tix-edit'));
+    fireEvent.click(await screen.findByTestId('tix-next'));
+    fireEvent.change(screen.getByTestId('tix-form-capacity'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByTestId('tix-step').textContent).toBe('1 / 3');
+    fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Early bird plus' } });
+    fireEvent.click(screen.getByTestId('tix-save'));
+    expect(screen.getByTestId('tix-step').textContent).toBe('2 / 3');
+    expect(screen.getByTestId('tix-form-capacity').getAttribute('aria-invalid')).toBe('true');
+    expect(document.body.textContent).toContain('Enter how many tickets, from 1 to 100,000.');
+    expect(api.upsertTicketType).not.toHaveBeenCalled();
+  });
+
+  it('a double tap on the payments link starts Stripe onboarding once', async () => {
+    arrange({ name: 'free, none', role: 'owner', stripe: 'none', types: [type('on_sale', { pricePence: 0 })], orders: [] });
+    let finish: (v: unknown) => void = () => {};
+    api.startOnboarding.mockReturnValue(new Promise((r) => { finish = r; }));
+    mount('/account/tickets');
+    const go = await screen.findByTestId('tix-pay-go');
+    fireEvent.click(go);
+    fireEvent.click(go);
+    await waitFor(() => expect((go as HTMLButtonElement).disabled).toBe(true));
+    expect(api.startOnboarding).toHaveBeenCalledTimes(1);
+    finish({ kind: 'error', reason: 'stripe_error' });
+    expect(await screen.findByTestId('tix-pay-note')).toBeTruthy();
+    expect(api.startOnboarding).toHaveBeenCalledTimes(1);
   });
 
   it('a new ticket keeps Continue only on steps 1 and 2 (no Save before the review)', async () => {
