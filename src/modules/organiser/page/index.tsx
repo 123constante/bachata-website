@@ -1,8 +1,7 @@
 import { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Users } from 'lucide-react';
-import { OrganiserShell } from '../shell';
-import { ORG_PATHS } from '../shell/paths';
+import { useOrgSurface } from '../shell/surface';
 import { EmptyState, ErrorState, SkeletonRows, StatusTag, initials } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
@@ -36,6 +35,7 @@ export function RequiredLine({ organiserId }: { organiserId: string }) {
  */
 export default function PageScreen() {
   const { home, selected, entity, bridge, layer } = useOwnPage();
+  const { Shell, paths, hub } = useOrgSurface();
   const live = selected?.lifecycle_status === 'live';
 
   // The stored row with any unsaved draft laid over it (the layer's overlay).
@@ -49,9 +49,9 @@ export default function PageScreen() {
   else if ((home.isError && !home.data) || entity.isError) {
     body = <ErrorState title="Your page did not load" onRetry={() => void (entity.isError ? entity.refetch() : home.refetch())} retrying={home.isFetching || entity.isFetching} testId="page-load-error" />;
   } else if (!selected) {
-    body = <EmptyState title="You don&rsquo;t run a page yet" body="Add a page from Home, then edit it here." testId="page-no-organiser" />;
+    body = <EmptyState title="You don&rsquo;t run a page yet" body={`Add a page from ${hub.label}, then edit it here.`} testId="page-no-organiser" />;
   } else if (!entity.data) {
-    body = <EmptyState title="This page is not available" body="You may no longer help run it. Pick another page from Home." testId="page-missing" />;
+    body = <EmptyState title="This page is not available" body={`You may no longer help run it. Pick another page from ${hub.label}.`} testId="page-missing" />;
   } else {
     body = (
       <div className="space-y-[12px]" data-testid="page-rows">
@@ -85,7 +85,7 @@ export default function PageScreen() {
           <SkeletonRows count={4} label="Loading your page" testId="page-loading" />
         )}
         <Link
-          to={ORG_PATHS.team}
+          to={paths.team}
           className="flex min-h-[52px] items-center gap-[12px] rounded-[12px] bg-[var(--card)] px-[16px] text-[15px] text-[var(--fg)]"
           data-testid="page-team-link"
         >
@@ -98,14 +98,14 @@ export default function PageScreen() {
   }
 
   return (
-    <OrganiserShell
+    <Shell
       title={selected?.name ?? 'Your page'}
-      back={{ to: ORG_PATHS.home, label: 'Home' }}
+      back={hub}
       topBarEnd={live ? <StatusTag tone="live" testId="page-live-chip">{lifecycleTag('live').label}</StatusTag> : undefined}
       testId="org-page-page"
     >
       {body}
       {layer}
-    </OrganiserShell>
+    </Shell>
   );
 }

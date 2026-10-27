@@ -5,10 +5,10 @@ import { Share2 } from 'lucide-react';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCode } from '@/modules/organiser/shared/selfServeErrors';
 import { addTeamMemberByProfile, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
-import { TEAM_FULL_REASON, shortName, teamIsFull } from '@/modules/organiser/shared/teamModel';
+import { ADD_ROLE_REASON, TEAM_FULL_REASON, shortName, teamIsFull } from '@/modules/organiser/shared/teamModel';
 import { MIN_QUERY, SEARCH_LIMIT, inviteShare, parsePeople, searchTerm } from '@/modules/organiser/edit-in-place/teamPickerModel';
 import { goDone } from '../flows/doneState';
-import { OrganiserShell, ORG_PATHS } from '../shell';
+import { useOrgSurface } from '../shell/surface';
 import { AnnounceRegion, ErrorState, GhostButton, SearchField, SkeletonRows, useAnnounce, useDebounced } from '../ui';
 import { Avatar } from './Avatar';
 import { BROWSE_PAGE, SHORT_WALL, browseQueryKey, factLabel, fetchBrowsePeople, inviteMessage, shortWallLine, type Face } from './browseApi';
@@ -23,6 +23,7 @@ import { useTeamContext } from './useTeamContext';
  */
 export default function AddSomeone() {
   const ctx = useTeamContext();
+  const { Shell, paths, doneBack } = useOrgSurface();
   const { organiser, members, viewerRole } = ctx;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -58,7 +59,7 @@ export default function AddSomeone() {
     onSuccess: (_r, p) => {
       void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser!.id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null });
+      goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null }, doneBack);
     },
     onError: (err) => {
       if (selfServeErrorCode(err) === 'team_full') setServerFull(true);
@@ -97,7 +98,7 @@ export default function AddSomeone() {
   const more = (browse.data?.length ?? 0) >= limit;
 
   return (
-    <OrganiserShell title="Add someone" back={{ to: ORG_PATHS.team, label: 'Team' }} testId="org-page-team-add">
+    <Shell title="Add someone" back={{ to: paths.team, label: 'Team' }} testId="org-page-team-add">
       <div className="flex flex-col gap-3 p-3">
         <AnnounceRegion message={message} />
         {ctx.loading ? (
@@ -105,9 +106,9 @@ export default function AddSomeone() {
         ) : ctx.failed ? (
           <ErrorState title="This did not load" onRetry={ctx.retry} testId="add-load-error" />
         ) : !organiser ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="add-no-page">Choose a page on Team first. <Link to={ORG_PATHS.team} className="underline">Go to Team</Link></p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="add-no-page">Choose a page on Team first. <Link to={paths.team} className="underline">Go to Team</Link></p>
         ) : !allowed ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">Only an owner or a manager adds people. <Link to={ORG_PATHS.team} className="underline">Back to the team</Link></p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">{ADD_ROLE_REASON} <Link to={paths.team} className="underline">Back to the team</Link></p>
         ) : (
           <>
             <SearchField value={query} onChange={setQuery} aria-label="Search dancers by name" placeholder="Search by name" testId="add-search" />
@@ -179,6 +180,6 @@ export default function AddSomeone() {
           </>
         )}
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }

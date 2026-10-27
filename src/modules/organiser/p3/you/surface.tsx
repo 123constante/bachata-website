@@ -1,0 +1,68 @@
+import { Link, Outlet } from 'react-router-dom';
+import type { OrganiserShellProps } from '../../shell/OrganiserShell';
+import { ORG_PATHS } from '../../shell/paths';
+import { OrgSurfaceProvider, type OrgSurface } from '../../shell/surface';
+import { P3_PATHS } from '../shell/paths';
+
+/**
+ * The P3 frame for a screen the You hub pushes: back link and title in P3's top bar, the page in
+ * P3's scrolling main (P3Shell leaves both to it, and keeps the tab bar). Same props as the R1
+ * OrganiserShell, so Team, Switch, the page editor and Welcome render here unchanged.
+ */
+export function P3PushedShell({ title, back, topBarEnd, children, testId }: OrganiserShellProps) {
+  return (
+    <>
+      <header className="p3-top">
+        <div className="p3-top-row">
+          {back && (
+            <Link to={back.to} className="p3-back" data-testid="org-back">
+              <span aria-hidden="true">&lsaquo;</span> {back.label ?? 'Back'}
+            </Link>
+          )}
+          <h1>{title}</h1>
+          {topBarEnd}
+        </div>
+      </header>
+      <main className="p3-main" data-testid={testId}>{children}</main>
+    </>
+  );
+}
+
+const YOU = { to: P3_PATHS.you, label: 'You' };
+
+/**
+ * Where the shared screens' links go in P3. Team, Switch, the page editor and Welcome are P3
+ * routes; Done, More (Account and help), the profile wizard and Add an event stay R1 screens,
+ * which come back here (Done's primary returns to the screen the change was made on).
+ */
+export const P3_SURFACE: OrgSurface = {
+  kind: 'p3',
+  Shell: P3PushedShell,
+  paths: {
+    ...ORG_PATHS,
+    home: P3_PATHS.home,
+    switch: P3_PATHS.youSwitch,
+    welcome: P3_PATHS.youWelcome,
+    team: P3_PATHS.youTeam,
+    teamAdd: P3_PATHS.youTeamAdd,
+    teamAddFor: P3_PATHS.youTeamAddFor,
+    teamPerson: P3_PATHS.youTeamPerson,
+    handover: P3_PATHS.youHandover,
+    handoverTo: P3_PATHS.youHandoverTo,
+    page: P3_PATHS.youPage,
+  },
+  hub: YOU,
+  handoverBack: { to: P3_PATHS.youTeam, label: 'Team' },
+  addPage: `${ORG_PATHS.home}?add=1`,
+  doneBack: P3_PATHS.youTeam,
+  pageDoneBack: P3_PATHS.youPage,
+};
+
+/** Layout route: every screen under /you reads its links and frame from P3_SURFACE. */
+export function P3YouSurface() {
+  return (
+    <OrgSurfaceProvider value={P3_SURFACE}>
+      <Outlet />
+    </OrgSurfaceProvider>
+  );
+}

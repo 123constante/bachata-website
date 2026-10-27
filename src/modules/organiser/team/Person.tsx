@@ -6,7 +6,7 @@ import { ROLE_HELP, teamErrorMessage } from '@/modules/organiser/shared/selfServ
 import { organiserTeamQueryKey, setTeamMember } from '@/modules/organiser/shared/teamRpcApi';
 import { ROLE_LABEL, canReceiveOwnership, memberLabel, memberShortName } from '@/modules/organiser/shared/teamModel';
 import { goDone } from '../flows/doneState';
-import { OrganiserShell, ORG_PATHS } from '../shell';
+import { useOrgSurface } from '../shell/surface';
 import { ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '../ui';
 import { Avatar } from './Avatar';
 import { useTeamContext } from './useTeamContext';
@@ -24,6 +24,7 @@ export const OWNER_ONLY_ROLE = 'Only the owner changes roles or removes people';
 export default function Person() {
   const { userId = '' } = useParams();
   const ctx = useTeamContext();
+  const { Shell, paths, doneBack } = useOrgSurface();
   const { organiser, members, viewerRole } = ctx;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -51,13 +52,13 @@ export default function Person() {
     mutationFn: () => removeOrganiserMember(organiser!.id, userId),
     onSuccess: () => {
       refresh();
-      goDone(navigate, { title: 'Removed', message: 'Removed from the team', seriesId: null, next: member?.displayName ? ORG_PATHS.teamAddFor(member.displayName) : ORG_PATHS.teamAdd, nextLabel: 'Add them back' });
+      goDone(navigate, { title: 'Removed', message: 'Removed from the team', seriesId: null, next: member?.displayName ? paths.teamAddFor(member.displayName) : paths.teamAdd, nextLabel: 'Add them back' }, doneBack);
     },
     onError: (e) => setError(teamErrorMessage(e)),
   });
   const promote = useMutation({
     mutationFn: () => setTeamMember(organiser!.id, member!.email ?? '', 'manager'),
-    onSuccess: () => { refresh(); goDone(navigate, { title: 'Role changed', message: `${memberShortName(member!)} is a Manager`, seriesId: null }); },
+    onSuccess: () => { refresh(); goDone(navigate, { title: 'Role changed', message: `${memberShortName(member!)} is a Manager`, seriesId: null }, doneBack); },
     onError: (e) => setError(teamErrorMessage(e)),
   });
 
@@ -66,14 +67,14 @@ export default function Person() {
   const canPromote = isOwner && !!member && !member.isSelf && member.role === 'contributor' && member.email !== null;
 
   return (
-    <OrganiserShell title={name} back={{ to: ORG_PATHS.team, label: 'Team' }} testId="org-page-team-person">
+    <Shell title={name} back={{ to: paths.team, label: 'Team' }} testId="org-page-team-person">
       <div className="flex flex-col gap-3 p-3">
         {ctx.loading ? (
           <SkeletonRows count={2} label="Loading" testId="person-loading" />
         ) : ctx.failed ? (
           <ErrorState title="This did not load" onRetry={ctx.retry} testId="person-load-error" />
         ) : !organiser || !member ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="person-missing">They are not on the team any more. <Link to={ORG_PATHS.team} className="underline">Back to the team</Link></p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="person-missing">They are not on the team any more. <Link to={paths.team} className="underline">Back to the team</Link></p>
         ) : (
           <>
             <div className="flex items-center gap-3">
@@ -91,10 +92,10 @@ export default function Person() {
             {canPromote && <GhostButton loading={promote.isPending} loadingLabel="Saving" onClick={() => { setError(null); promote.mutate(); }} testId="person-make-manager">Make Manager</GhostButton>}
             {error && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="person-error">{error}</p>}
             {isOwner && canReceiveOwnership(member) && (
-              <Link to={ORG_PATHS.handoverTo(userId)} data-testid="person-hand-over" className="flex h-[52px] w-full items-center justify-center rounded-[12px] bg-[var(--card2)] text-[16px] font-bold text-[var(--fg)]">Hand the page over</Link>
+              <Link to={paths.handoverTo(userId)} data-testid="person-hand-over" className="flex h-[52px] w-full items-center justify-center rounded-[12px] bg-[var(--card2)] text-[16px] font-bold text-[var(--fg)]">Hand the page over</Link>
             )}
             {member.isSelf && member.role !== 'owner' && (
-              <Link to={ORG_PATHS.more} data-testid="person-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
+              <Link to={paths.more} data-testid="person-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
             )}
             {canRemove && (asking ? (
               <div ref={confirmRef} role="group" tabIndex={-1} aria-label={`Remove ${name}?`} className="flex flex-col gap-2 outline-none" data-testid="person-remove-confirm">
@@ -108,6 +109,6 @@ export default function Person() {
           </>
         )}
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }

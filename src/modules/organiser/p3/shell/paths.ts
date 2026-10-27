@@ -13,6 +13,16 @@ export const P3_PATHS = {
   event: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}`,
   /** One event's All dates (W2b). */
   eventDates: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/dates`,
+  /** W4a: the screens the You hub pushes (back = You). */
+  youSwitch: `${P3_BASE}/you/switch`,
+  youPage: `${P3_BASE}/you/page`,
+  youTeam: `${P3_BASE}/you/team`,
+  youTeamAdd: `${P3_BASE}/you/team/add`,
+  youTeamAddFor: (name: string) => `${P3_BASE}/you/team/add?q=${encodeURIComponent(name)}`,
+  youTeamPerson: (userId: string) => `${P3_BASE}/you/team/${encodeURIComponent(userId)}`,
+  youHandover: `${P3_BASE}/you/handover`,
+  youHandoverTo: (userId: string) => `${P3_BASE}/you/handover/${encodeURIComponent(userId)}`,
+  youWelcome: (organiserId: string) => `${P3_BASE}/you/welcome?o=${encodeURIComponent(organiserId)}`,
 } as const;
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';

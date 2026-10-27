@@ -228,3 +228,19 @@
 .p3-theme .p3-seg2 { grid-template-columns: repeat(2, 1fr); }
 .p3-theme .p3-btn-sm { width: auto; min-width: 88px; padding: 0 12px; flex: none; }
 .p3-theme .p3-pad { margin: 0; padding: 12px; }
+
+/* W4a: the You hub and the screens it pushes (their own top bar: back + title). */
+.p3-theme .p3-top-row { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; }
+.p3-theme .p3-top-row h1 { flex: 1; min-width: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p3-theme .p3-back {
+  min-height: var(--tap); min-width: var(--tap); margin-left: -8px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-body); font-weight: 600; color: var(--gold-fg); text-decoration: none; flex: none;
+}
+.p3-theme .p3-navrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; color: var(--fg); text-decoration: none; }
+.p3-theme .p3-navrow + .p3-navrow { border-top: 1px solid var(--line); }
+.p3-theme .p3-chev { flex: none; color: var(--mut); }
+.p3-theme .p3-block { display: block; }
+.p3-theme .p3-count-warn { background: var(--warn-bg); color: var(--warn-fg); }
+.p3-theme .p3-you-page { display: flex; align-items: center; gap: 12px; color: var(--fg); }
+.p3-theme .p3-btn-link { display: inline-flex; align-items: center; justify-content: center; width: 100%; text-decoration: none; }
+.p3-theme .p3-back:focus-visible, .p3-theme .p3-navrow:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
