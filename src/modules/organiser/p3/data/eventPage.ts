@@ -21,10 +21,12 @@ const KINDS: readonly SessionKind[] = ['class', 'workshop', 'party', 'show', 'ma
 /** Stored role -> C3 role. `mc` (1 prod row) has no C3 role and is not shown. */
 const ROLE: Record<string, RoleKey> = { teaching: 'teach', djing: 'dj', performing: 'perform' };
 
-/** Stored level key -> C3's level word (L.lvls). */
+/** Stored level key -> C3's level word (L.lvls). ONE mapping: the page rows and the session sheet chips read it. */
 const LEVEL: Record<string, string> = {
   beginner: L.lvls[0], improver: L.lvls[1], intermediate: L.lvls[2], advanced: L.lvls[3], open_level: L.lvls[4],
 };
+
+export const levelLabel = (key: string): string => LEVEL[key] ?? key;
 
 export interface PageDay {
   /** A festival day's name ("Day 2" when it has none); null for a one-day programme. */

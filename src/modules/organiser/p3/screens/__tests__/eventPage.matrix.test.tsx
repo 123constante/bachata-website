@@ -209,7 +209,9 @@ describe('the page x every shape', () => {
     show();
     const e = screen.getByTestId('p3-sessions-empty');
     expect(e.textContent).toContain(L.noSessions);
-    expect(within(e).getByRole('link').textContent).toBe('Add a session in the current organiser area');
+    // W2d: the sessions are edited here now; the empty state says what to do and the Add button is on the page
+    expect(e.textContent).toContain('Add the first one.');
+    expect((screen.getByTestId('p3-add-session') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('an empty line-up reads "No line-up yet"; a session with no time reads "No time yet"', () => {
