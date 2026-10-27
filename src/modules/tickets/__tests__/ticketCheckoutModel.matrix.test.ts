@@ -1,0 +1,157 @@
+import { describe, expect, it } from 'vitest';
+import {
+  MAX_PER_ORDER,
+  REASON_COPY,
+  WAY_LABEL,
+  availability,
+  buildCheckoutBody,
+  buyLabel,
+  clampQuantity,
+  disabledReason,
+  formatPence,
+  maxQuantity,
+  parseCheckoutReply,
+  parsePublicTypes,
+  reasonCopy,
+  thanksCopy,
+  totals,
+  type PublicTicketType,
+} from '../ticketCheckoutModel';
+import { LEGAL_COPY_STATUS, PRIVACY_PARAGRAPH, TERMS_OF_SALE } from '../legalCopy';
+
+const NOW = new Date('2026-10-27T12:00:00Z');
+const PAST = '2026-10-01T12:00:00Z';
+const FUTURE = '2026-11-20T19:00:00Z';
+const PROD = 'https://www.bachatacalendar.co.uk';
+
+type Window = 'open' | 'not_yet' | 'closed';
+const mk = (p: Partial<PublicTicketType> = {}): PublicTicketType => ({
+  id: '11111111-1111-1111-1111-111111111111', name: 'Early bird', pricePence: 1200, status: 'on_sale',
+  remaining: 50, salesOpenAt: null, salesCloseAt: null, ...p,
+});
+const win = (w: Window) =>
+  w === 'not_yet' ? { salesOpenAt: FUTURE } : w === 'closed' ? { salesOpenAt: PAST, salesCloseAt: PAST } : { salesOpenAt: PAST, salesCloseAt: FUTURE };
+
+describe('every status x window x free/paid x remaining', () => {
+  const statuses = ['on_sale', 'sold_out'] as const;
+  const windows: Window[] = ['open', 'not_yet', 'closed'];
+  const prices = [0, 1200, 1250];
+  const remainings = [0, 1, 5, 20, 25];
+  for (const status of statuses) for (const w of windows) for (const price of prices) for (const remaining of remainings) {
+    const t = mk({ status, pricePence: price, remaining, ...win(w) });
+    it(`${status} ${w} ${price}p remaining=${remaining}`, () => {
+      const a = availability(t, NOW);
+      const expected = status === 'sold_out' || remaining === 0 ? 'sold_out' : w === 'not_yet' ? 'not_yet' : w === 'closed' ? 'closed' : 'buyable';
+      expect(a.kind).toBe(expected);
+      const max = maxQuantity(t, NOW);
+      expect(max).toBe(expected === 'buyable' ? Math.min(MAX_PER_ORDER, remaining) : 0);
+      expect(max).toBeLessThanOrEqual(20);
+      // Every label is words, never empty.
+      expect(a.label.length).toBeGreaterThan(0);
+      const reason = disabledReason({ type: t, quantity: 1, email: 'a@b.co', termsAccepted: true, origin: PROD, submitting: false }, NOW);
+      if (expected === 'buyable') expect(reason).toBeNull();
+      else expect(reason).toMatch(/cannot be bought right now/);
+      if (expected === 'buyable') {
+        const s = totals(t, max);
+        expect(s.free).toBe(price === 0);
+        expect(s.feePence).toBe(price === 0 ? 0 : 50 * max);
+        expect(s.totalPence).toBe(price * max + s.feePence);
+        expect(buyLabel(t)).toBe(price === 0 ? 'Get free ticket' : 'Buy tickets');
+      }
+    });
+  }
+});
+
+describe('quantity', () => {
+  it.each([[0, 5, 1], [1, 5, 1], [5, 5, 5], [9, 5, 5], [30, 20, 20], [3, 0, 0], [2.7, 5, 2]])('clamp(%s, max %s) = %s', (q, m, r) => {
+    expect(clampQuantity(q, m)).toBe(r);
+  });
+});
+
+describe('Buy disabled reasons (each says why)', () => {
+  const ok = { type: mk(), quantity: 2, email: 'a@b.co', termsAccepted: true, origin: PROD, submitting: false };
+  it.each([
+    ['no type', { type: null }, /Pick a ticket/],
+    ['quantity over max', { quantity: 21 }, /between 1 and 20/],
+    ['no email', { email: '  ' }, /Enter your email/],
+    ['bad email', { email: 'nope' }, /does not look right/],
+    ['terms', { termsAccepted: false }, /accept the terms/],
+    ['preview origin', { origin: 'https://bachata-website-git-x.vercel.app' }, /only works on bachatacalendar\.co\.uk/],
+    ['localhost', { origin: 'http://localhost:5173' }, /only works on bachatacalendar\.co\.uk/],
+    ['submitting', { submitting: true }, /Working on it/],
+  ])('%s', (_n, patch, re) => {
+    expect(disabledReason({ ...ok, ...patch }, NOW)).toMatch(re);
+  });
+  it('apex origin is allowed too', () => {
+    expect(disabledReason({ ...ok, origin: 'https://bachatacalendar.co.uk' }, NOW)).toBeNull();
+  });
+});
+
+describe('money (GBP only, Q10)', () => {
+  it.each([[0, 'Free'], [50, '£0.50'], [1200, '£12'], [1250, '£12.50']])('%s -> %s', (p, s) => expect(formatPence(p)).toBe(s));
+  it('drops non-GBP rows and unknown statuses', () => {
+    const rows = parsePublicTypes([
+      { id: 'a', name: 'A', price_pence: 100, currency: 'gbp', status: 'on_sale', remaining: 3 },
+      { id: 'b', name: 'B', price_pence: 100, currency: 'EUR', status: 'on_sale', remaining: 3 },
+      { id: 'c', name: 'C', price_pence: 100, currency: 'GBP', status: 'draft', remaining: 3 },
+      null,
+    ]);
+    expect(rows.map((r) => r.id)).toEqual(['a']);
+    expect(parsePublicTypes(null)).toEqual([]);
+  });
+});
+
+describe('checkout body', () => {
+  it('sends https site URLs, trims, omits a blank name', () => {
+    const b = buildCheckoutBody({ typeId: 't', quantity: 3, email: ' a@b.co ', name: '  ' }, PROD, '/event/abc');
+    expect(b).toEqual({
+      ticket_type_id: 't', quantity: 3, buyer_email: 'a@b.co',
+      success_url: `${PROD}/tickets/thanks`, cancel_url: `${PROD}/event/abc?tickets=cancelled`,
+    });
+    expect(buildCheckoutBody({ typeId: 't', quantity: 1, email: 'a@b.co', name: ' Ana ' }, PROD, '/e').buyer_name).toBe('Ana');
+  });
+});
+
+const SERVER_REASONS = ['invalid_request', 'rate_limited', 'not_found', 'not_on_sale', 'outside_sales_window', 'sold_out',
+  'organiser_not_onboarded', 'stripe_error', 'internal_error', 'not_configured'];
+
+describe('replies and every error reason', () => {
+  it('redirect / free / error', () => {
+    expect(parseCheckoutReply({ ok: true, order_id: 'o', checkout_url: 'https://checkout.stripe.com/x' }, 200)).toEqual({ kind: 'redirect', orderId: 'o', url: 'https://checkout.stripe.com/x' });
+    expect(parseCheckoutReply({ ok: true, order_id: 'o', free: true }, 200)).toEqual({ kind: 'free', orderId: 'o' });
+    expect(parseCheckoutReply({ ok: true, order_id: 'o', checkout_url: 'http://evil' }, 200).kind).toBe('error');
+    expect(parseCheckoutReply(null, 404)).toEqual({ kind: 'error', reason: 'not_configured', message: null });
+    expect(parseCheckoutReply(null, 500)).toEqual({ kind: 'error', reason: 'internal_error', message: null });
+  });
+  it.each(SERVER_REASONS)('%s has plain copy and a way forward', (r) => {
+    expect(REASON_COPY[r]).toBeDefined();
+    const c = reasonCopy(r);
+    expect(c.text).toMatch(/[A-Z].+\.$/);
+    expect(c.text).not.toMatch(/_/);
+    expect(WAY_LABEL[c.way]).toBeTruthy();
+  });
+  it('payment-side failures say nobody was charged', () => {
+    for (const r of ['stripe_error', 'internal_error']) expect(reasonCopy(r).text).toMatch(/not been charged/);
+  });
+  it('rate_limited uses the server message; unknown reasons fall back', () => {
+    expect(reasonCopy('rate_limited', 'Slow down.').text).toBe('Slow down.');
+    expect(reasonCopy('free_issue_failed').way).toBe('retry');
+  });
+});
+
+describe('thank-you copy never claims issuance from the redirect', () => {
+  it.each([[false, true], [false, false], [true, true]])('free=%s order=%s', (free, has) => {
+    const c = thanksCopy(free, has);
+    expect(c.title).toMatch(free ? /on their way/ : /^Payment received, your tickets are being emailed$/);
+    expect(`${c.title} ${c.body}`).not.toMatch(/issued|confirmed/i);
+  });
+});
+
+describe('legal copy (DRAFT, owner approves)', () => {
+  it('is marked DRAFT and covers the brief points', () => {
+    expect(LEGAL_COPY_STATUS).toBe('DRAFT');
+    const all = `${TERMS_OF_SALE.join(' ')} ${PRIVACY_PARAGRAPH}`;
+    for (const re of [/Stripe/, /50p/, /fee is ours/, /full refund, the booking fee is refunded/, /name/, /email/, /order/]) expect(all).toMatch(re);
+    expect(all).not.toMatch(/[–—‘’“”…]/);
+  });
+});

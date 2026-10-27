@@ -1,0 +1,231 @@
+/**
+ * Buyer checkout (S4, docs/ticketing-buyer-journey.md): the ONE mapping for what a
+ * ticket type shows, how many can be bought, the total lines, why Buy is disabled and
+ * what each server refusal says. Pure; the block and the thank-you page only render it.
+ */
+
+/** Owner Q2: at most 20 tickets per order (the edge function's MAX_QUANTITY). */
+export const MAX_PER_ORDER = 20;
+/** Owner Q9: 50p booking fee per paid ticket, shown on its own line. */
+export const BOOKING_FEE_PENCE = 50;
+/** The only origins the edge function accepts for success_url / cancel_url. */
+export const CHECKOUT_ORIGINS: readonly string[] = [
+  'https://bachatacalendar.co.uk',
+  'https://www.bachatacalendar.co.uk',
+];
+export const THANKS_PATH = '/tickets/thanks';
+export const CANCELLED_PARAM = 'tickets';
+export const ORDER_STORAGE_KEY = 'bc.ticketOrderId';
+
+export type PublicTypeStatus = 'on_sale' | 'sold_out';
+
+export interface PublicTicketType {
+  id: string;
+  name: string;
+  pricePence: number;
+  status: PublicTypeStatus;
+  remaining: number;
+  salesOpenAt: string | null;
+  salesCloseAt: string | null;
+}
+
+const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
+const int = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.trunc(v)) : 0);
+
+/** ticket_types_public_v1 rows -> types. Unknown statuses and non-GBP rows are dropped (Q10). */
+export function parsePublicTypes(data: unknown): PublicTicketType[] {
+  if (!Array.isArray(data)) return [];
+  const out: PublicTicketType[] = [];
+  for (const r of data as Record<string, unknown>[]) {
+    const id = str(r?.id);
+    const status = r?.status === 'on_sale' || r?.status === 'sold_out' ? r.status : null;
+    const currency = str(r?.currency)?.toUpperCase() ?? 'GBP';
+    if (!id || !status || currency !== 'GBP') continue;
+    out.push({
+      id,
+      name: str(r.name) ?? 'Ticket',
+      pricePence: int(r.price_pence),
+      status,
+      remaining: int(r.remaining),
+      salesOpenAt: str(r.sales_open_at),
+      salesCloseAt: str(r.sales_close_at),
+    });
+  }
+  return out;
+}
+
+export function formatPence(pence: number): string {
+  if (pence === 0) return 'Free';
+  return pence % 100 === 0 ? `£${pence / 100}` : `£${(pence / 100).toFixed(2)}`;
+}
+
+export type Availability =
+  | { kind: 'buyable'; label: string }
+  | { kind: 'sold_out'; label: string }
+  | { kind: 'not_yet'; label: string }
+  | { kind: 'closed'; label: string };
+
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleString('en-GB', {
+    timeZone: 'Europe/London',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+/** What one row says and whether it can be picked. `now` is injected for tests. */
+export function availability(t: PublicTicketType, now: Date): Availability {
+  if (t.status === 'sold_out' || t.remaining <= 0) return { kind: 'sold_out', label: 'Sold out' };
+  if (t.salesOpenAt && new Date(t.salesOpenAt) > now) {
+    return { kind: 'not_yet', label: `On sale ${shortDate(t.salesOpenAt)}` };
+  }
+  if (t.salesCloseAt && new Date(t.salesCloseAt) <= now) return { kind: 'closed', label: 'Sales closed' };
+  return { kind: 'buyable', label: t.remaining <= 20 ? `${t.remaining} left` : 'On sale' };
+}
+
+/** The stepper's ceiling: 20 per order and never more than remain. 0 = cannot buy. */
+export function maxQuantity(t: PublicTicketType, now: Date): number {
+  return availability(t, now).kind === 'buyable' ? Math.min(MAX_PER_ORDER, t.remaining) : 0;
+}
+
+export function clampQuantity(q: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.min(max, Math.max(1, Math.trunc(q) || 1));
+}
+
+export interface Totals {
+  free: boolean;
+  subtotalPence: number;
+  feePence: number;
+  totalPence: number;
+}
+
+export function totals(t: PublicTicketType, quantity: number): Totals {
+  const free = t.pricePence === 0;
+  const subtotalPence = t.pricePence * quantity;
+  const feePence = free ? 0 : BOOKING_FEE_PENCE * quantity;
+  return { free, subtotalPence, feePence, totalPence: subtotalPence + feePence };
+}
+
+/** Same shape the edge function checks (it is the authority; this only avoids a round trip). */
+export const isEmail = (s: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s.trim()) && s.trim().length <= 254;
+
+export const checkoutOriginOk = (origin: string) => CHECKOUT_ORIGINS.includes(origin);
+
+export interface FormState {
+  type: PublicTicketType | null;
+  quantity: number;
+  email: string;
+  termsAccepted: boolean;
+  origin: string;
+  submitting: boolean;
+}
+
+/** Null = Buy is enabled; otherwise the reason shown under the disabled button. */
+export function disabledReason(f: FormState, now: Date): string | null {
+  if (!f.type) return 'Pick a ticket first.';
+  const max = maxQuantity(f.type, now);
+  if (max === 0) return `${f.type.name} cannot be bought right now (${availability(f.type, now).label.toLowerCase()}).`;
+  if (f.quantity < 1 || f.quantity > max) return `Choose between 1 and ${max} tickets.`;
+  if (!f.email.trim()) return 'Enter your email so we can send your tickets.';
+  if (!isEmail(f.email)) return 'That email does not look right.';
+  if (!f.termsAccepted) return 'Tick the box to accept the terms of sale.';
+  if (!checkoutOriginOk(f.origin)) return 'Checkout only works on bachatacalendar.co.uk, not on this preview.';
+  if (f.submitting) return 'Working on it…';
+  return null;
+}
+
+export const buyLabel = (t: PublicTicketType | null) => (t && t.pricePence === 0 ? 'Get free ticket' : 'Buy tickets');
+
+export interface CheckoutBody {
+  ticket_type_id: string;
+  quantity: number;
+  buyer_email: string;
+  buyer_name?: string;
+  success_url: string;
+  cancel_url: string;
+}
+
+export function buildCheckoutBody(
+  f: { typeId: string; quantity: number; email: string; name: string },
+  origin: string,
+  eventPath: string,
+): CheckoutBody {
+  const name = f.name.trim();
+  return {
+    ticket_type_id: f.typeId,
+    quantity: f.quantity,
+    buyer_email: f.email.trim(),
+    ...(name ? { buyer_name: name.slice(0, 200) } : {}),
+    success_url: `${origin}${THANKS_PATH}`,
+    cancel_url: `${origin}${eventPath}?${CANCELLED_PARAM}=cancelled`,
+  };
+}
+
+export type CheckoutResult =
+  | { kind: 'redirect'; orderId: string; url: string }
+  | { kind: 'free'; orderId: string }
+  | { kind: 'error'; reason: string; message: string | null };
+
+export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutResult {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const orderId = str(b.order_id);
+  if (b.ok === true && orderId && b.free === true) return { kind: 'free', orderId };
+  const url = str(b.checkout_url);
+  if (b.ok === true && orderId && url && /^https:\/\//.test(url)) return { kind: 'redirect', orderId, url };
+  const reason = str(b.reason) ?? (httpStatus === 404 || httpStatus === 503 ? 'not_configured' : 'internal_error');
+  return { kind: 'error', reason, message: str(b.message) };
+}
+
+export type WayForward = 'retry' | 'pick_another' | 'contact_organiser' | 'fix_form';
+
+export interface ReasonCopy {
+  text: string;
+  way: WayForward;
+}
+
+/** Every refusal the edge function can send, in plain English, each with a way forward. */
+export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
+  invalid_request: { text: 'Something in the form was not accepted. Check your email and the number of tickets, then try again.', way: 'fix_form' },
+  rate_limited: { text: 'Too many ticket requests. Please wait a while and try again.', way: 'retry' },
+  not_found: { text: 'This ticket is no longer available. Pick another ticket.', way: 'pick_another' },
+  not_on_sale: { text: 'This ticket is not on sale right now. Pick another ticket.', way: 'pick_another' },
+  outside_sales_window: { text: 'Sales for this ticket are not open right now. Pick another ticket or come back later.', way: 'pick_another' },
+  sold_out: { text: 'Not enough of this ticket left. Pick fewer or another ticket.', way: 'pick_another' },
+  organiser_not_onboarded: { text: 'The organiser cannot take payments yet. Contact the organiser for tickets.', way: 'contact_organiser' },
+  stripe_error: { text: 'The payment page could not be opened. You have not been charged. Try again.', way: 'retry' },
+  internal_error: { text: 'Something went wrong on our side. You have not been charged. Try again.', way: 'retry' },
+  not_configured: { text: 'Online tickets are not switched on yet. Contact the organiser for tickets.', way: 'contact_organiser' },
+  network: { text: 'Could not reach the ticket service. Check your connection and try again.', way: 'retry' },
+};
+
+export function reasonCopy(reason: string, message: string | null = null): ReasonCopy {
+  const known = REASON_COPY[reason];
+  if (known) return reason === 'rate_limited' && message ? { ...known, text: message } : known;
+  return { text: 'Your tickets could not be booked. You have not been charged. Try again.', way: 'retry' };
+}
+
+export const WAY_LABEL: Readonly<Record<WayForward, string>> = {
+  retry: 'Try again',
+  pick_another: 'Pick another ticket',
+  contact_organiser: 'Contact the organiser',
+  fix_form: 'Check the form',
+};
+
+/** The thank-you page's words. Tickets are issued by the webhook, never by the redirect. */
+export function thanksCopy(free: boolean, hasOrder: boolean): { title: string; body: string } {
+  if (free) {
+    return {
+      title: 'Your free tickets are on their way',
+      body: 'We are emailing your tickets now. Each ticket has a code to show at the door.',
+    };
+  }
+  return {
+    title: 'Payment received, your tickets are being emailed',
+    body: hasOrder
+      ? 'Your tickets will arrive by email in a few minutes, each with a code to show at the door. If nothing arrives within an hour, check your spam folder, then contact the organiser.'
+      : 'If you completed payment, your tickets will arrive by email in a few minutes. If nothing arrives within an hour, check your spam folder, then contact the organiser.',
+  };
+}

@@ -1,0 +1,53 @@
+import { supabase } from '@/integrations/supabase/client';
+import {
+  parseCheckoutReply,
+  parsePublicTypes,
+  type CheckoutBody,
+  type CheckoutResult,
+  type PublicTicketType,
+} from './ticketCheckoutModel';
+
+/**
+ * The buyer wire (S4). ticket_types_public_v1 is not in the generated types.ts yet,
+ * so it goes through an untyped rpc boundary. ticket-checkout is called with fetch
+ * (not functions.invoke) so a refusal's JSON body -- its `reason` -- is always read.
+ * No Stripe key lives here or anywhere in the Website: the edge function holds it.
+ */
+type Untyped = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
+
+export const publicTicketKeys = {
+  types: (seriesId: string | null) => ['public-ticket-types', seriesId] as const,
+};
+
+export async function fetchPublicTicketTypes(seriesId: string): Promise<PublicTicketType[]> {
+  const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_types_public_v1', {
+    p_event_series_id: seriesId,
+  });
+  if (error) throw new Error(error.message);
+  return parsePublicTypes(data);
+}
+
+export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutResult> {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  if (!url || !key) return { kind: 'error', reason: 'not_configured', message: null };
+  let token = key;
+  try {
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token ?? key;
+  } catch {
+    /* signed out or storage blocked: the publishable key is the documented fallback */
+  }
+  let resp: Response;
+  try {
+    resp = await fetch(`${url}/functions/v1/ticket-checkout`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { kind: 'error', reason: 'network', message: null };
+  }
+  const json = await resp.json().catch(() => null);
+  return parseCheckoutReply(json, resp.status);
+}
