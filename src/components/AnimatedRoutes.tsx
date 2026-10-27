@@ -56,6 +56,7 @@ const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes")
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
 const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/AdminOrganisersPage"));
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
+const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
@@ -99,9 +100,11 @@ const CityRedirect = () => {
   return <Navigate to={buildCityPath(slug)} replace />;
 };
 
-/** Every /app URL shares one key, so the dancer app's shell stays mounted across its tabs. */
+/** Every /app URL shares one key, so the dancer app's shell stays mounted across its tabs.
+ *  Same for /ambassador: its list keeps state and scroll while a review is open. */
 const routesKey = (pathname: string) => {
   const p = pathname.toLowerCase();
+  if (p === "/ambassador" || p.startsWith("/ambassador/")) return "/ambassador";
   return p === "/app" || p.startsWith("/app/") ? "/app" : pathname;
 };
 
@@ -269,6 +272,7 @@ export const AnimatedRoutes = () => {
             <Route path="/account/dj/*" element={<AreaRoutes area="dj" />} />
 
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
+            <Route path="/ambassador/*" element={<PageTransition><AmbassadorQueue /></PageTransition>} />
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
