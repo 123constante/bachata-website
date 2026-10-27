@@ -4,6 +4,7 @@
 // is keyed by occurrence_id (string), never array index.
 
 import type { MapEvent, MapCategory, MapTab } from './mapTypes';
+import { resolvePageCity } from '@/lib/pageCity';
 import {
   matchesQuery,
   distanceMiles,
@@ -221,6 +222,20 @@ export function windowGroups(
 }
 
 /**
+ * A festival the CITY query itself returned (get_calendar_events_v2 lets every
+ * festival through) that is physically in another city. Outside London these
+ * join the remote section, labelled "Festivals elsewhere", instead of filling
+ * "What's on in Bristol" with London and Budapest rows. London is unchanged
+ * (owner question in docs/design/bristol-polish.md).
+ */
+export const isOffCityFestival = (e: MapEvent, citySlug: string | null | undefined): boolean =>
+  citySlug != null &&
+  !resolvePageCity(citySlug).isLondon &&
+  isFestivalFormat(e) &&
+  e.city_slug != null &&
+  e.city_slug !== citySlug;
+
+/**
  * Split the flat list into local rows and remote festival rows (isRemoteRow --
  * festivals merged in from the sitewide feed because the city-scoped 90-day
  * query did not return them).
@@ -238,11 +253,14 @@ export function windowGroups(
  *   - The default stream sits under a "What's on in {city}" h1, which a
  *     far-future festival abroad does not answer.
  */
-export function partitionRemote(events: MapEvent[]): { local: MapEvent[]; remote: MapEvent[] } {
+export function partitionRemote(
+  events: MapEvent[],
+  citySlug: string | null = null,
+): { local: MapEvent[]; remote: MapEvent[] } {
   const local: MapEvent[] = [];
   const remote: MapEvent[] = [];
   for (const e of events) {
-    if (isRemoteRow(e)) remote.push(e);
+    if (isRemoteRow(e) || isOffCityFestival(e, citySlug)) remote.push(e);
     else local.push(e);
   }
   return { local, remote };

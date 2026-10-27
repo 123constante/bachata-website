@@ -4,6 +4,12 @@ import GlobalLayout from '@/components/layout/GlobalLayout';
 import ListingRequestForm from '@/components/ListingRequestForm';
 import type { ListingSection } from '@/lib/featureFlags';
 
+// Re-exported for EmptyCityNote's lazy import: loading the form THROUGH this
+// module keeps it inside the ComingSoonGate chunk. A dynamic import of the form
+// itself split it into a chunk of its own, +1 first-load request on every
+// route that loads the gate (auth, /app).
+export { ListingRequestForm };
+
 interface ComingSoonGateProps {
   /** When true, render the real page (children). When false, render the placeholder. */
   enabled: boolean;

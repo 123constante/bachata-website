@@ -27,14 +27,11 @@ import type { UseMapListResult } from './useMapList';
 import { focusRing } from './cards/controls';
 import EventMap from './EventMap';
 
-// Constrain the teaser to Greater London so a fling rubber-bands back rather
-// than drifting to empty ocean (EventMap applies maxBoundsViscosity). The card
-// cannot zoom out, so without this a hard drag strands it on blank sea with no
-// way back except reloading.
-const GREATER_LONDON: [[number, number], [number, number]] = [
-  [51.25, -0.55],
-  [51.72, 0.34],
-];
+// Constrain the teaser to the city (Greater London for London) so a fling
+// rubber-bands back rather than drifting to empty ocean (EventMap applies
+// maxBoundsViscosity). The card cannot zoom out, so without this a hard drag
+// strands it on blank sea with no way back except reloading.
+import { cityBounds, cityCentre } from '@/lib/cityCentre';
 
 const noop = () => {};
 
@@ -147,7 +144,8 @@ export default function HomeMapCard({
         onTeaserTap={openMap}
         popupMode="none"
         compact
-        maxBounds={GREATER_LONDON}
+        center={cityCentre(citySlug)}
+        maxBounds={cityBounds(citySlug)}
         minZoom={10}
       />
 

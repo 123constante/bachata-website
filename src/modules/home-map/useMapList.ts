@@ -61,6 +61,8 @@ export interface UseMapListResult {
    *  the feed's own "today" reads come from the SAME hydration-pinned source as
    *  these derivations, instead of each calling todayStr() at render time. */
   today: string;
+  /** The page city the feed was built for (null: none named). */
+  citySlug?: string | null;
   apiRef: React.MutableRefObject<MapApi | null>;
   /** EventMap calls this with its API on mount and with NULL on teardown. */
   onMapReady: (api: MapApi | null) => void;
@@ -242,6 +244,7 @@ export function useMapList(
     calendarDays,
     stats,
     today,
+    citySlug,
     apiRef,
     onMapReady,
     listRef,
