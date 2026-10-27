@@ -65,6 +65,10 @@ export const flags = {
   // exactly as before. Separate from parityGate's AW1_APPLIED (a code constant).
   // Turn on with VITE_ENABLE_ORGANISER_P3=true (Vercel env) -- no code change.
   organiserP3:         import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true',
+  // Organiser ticketing (S3, docs/organiser-ticketing-journey.md): the /account/tickets
+  // area -- Get paid, ticket types, sales, refunds. OFF = no route at all. Turn on with
+  // VITE_ENABLE_ORGANISER_TICKETING=true (Vercel env) -- no code change.
+  organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.

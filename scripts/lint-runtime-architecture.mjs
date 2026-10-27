@@ -63,6 +63,10 @@ const RULES = [
     allowFiles: new Set([
       'src/modules/organiser/shared/selfServeApi.ts',
       'src/modules/organiser/shared/goLiveCheck.ts',
+      // Organiser ticketing (S3): the ticketing RPCs, tables and edge functions key rows by
+      // organiser_id; ticketsApi.ts is their one boundary, and its spec feeds it server rows.
+      'src/modules/organiser/tickets/ticketsApi.ts',
+      'src/modules/organiser/tickets/__tests__/ticketsApi.wire.test.ts',
       'src/modules/organiser/events/__tests__/goLive.webA1a.test.tsx',
       'src/modules/organiser/events/__tests__/goLive.profilePage.test.tsx',
       'src/modules/organiser/shared/__tests__/goLiveCheck.parse.test.ts',

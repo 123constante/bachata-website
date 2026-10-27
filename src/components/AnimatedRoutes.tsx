@@ -49,6 +49,8 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
 // The P3 organiser area (mockup C3): its own lazy chunk, mounted only while flags.organiserP3 is on.
 const OrganiserP3Area = lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
+// Organiser ticketing (S3): its own lazy chunk, mounted only while flags.organiserTicketing is on.
+const OrganiserTicketsArea = lazyWithRetry(() => import("@/modules/organiser/tickets/TicketRoutes"));
 // The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
 const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
@@ -255,6 +257,11 @@ export const AnimatedRoutes = () => {
                 (modules/organiser/p3/shell/paths.ts; a test pins the two together). */}
             {flags.organiserP3 && flags.organiserSelfServe ? (
               <Route path="/account/p3/*" element={<OrganiserP3Area />} />
+            ) : null}
+            {/* Organiser ticketing: no route at all while flags.organiserTicketing is off.
+                Path = TICKETS_BASE (modules/organiser/tickets/paths.ts; a test pins them together). */}
+            {flags.organiserTicketing && flags.organiserSelfServe ? (
+              <Route path="/account/tickets/*" element={<OrganiserTicketsArea />} />
             ) : null}
 
             <Route path="/account/areas" element={<AreaRoutes area="areas" />} />
