@@ -151,6 +151,7 @@ jobs:
       - name: Run OG image guard
         env:
           OG_CHECK_BASE: https://www.bachatacalendar.co.uk
+          CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
         run: npm run check:og
 
       # Failure-notification pattern copied from db-contract-check.yml (see its

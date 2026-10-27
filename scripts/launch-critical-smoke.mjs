@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { ciBypassHeaders, isProductionUrl } from './lib/ciBypassHeader.mjs';
 
 const baseUrl = process.env.SMOKE_BASE_URL || 'http://localhost:8083';
 
@@ -100,6 +101,18 @@ const run = async () => {
       'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 '
       + '(KHTML, like Gecko) Mobile/15E148 bachatacalendar-smoke-bot/1.0',  // 'bot' => server view-tracking RPCs skip it
   });
+  // Cloudflare WAF bypass: attached per request, production host ONLY (never
+  // Supabase, fonts, analytics or a preview). No route is registered when the
+  // secret is absent, so requests are unchanged then.
+  const ciHeaders = ciBypassHeaders();
+  if (Object.keys(ciHeaders).length) {
+    await context.route('**/*', (route) => {
+      const req = route.request();
+      return isProductionUrl(req.url())
+        ? route.continue({ headers: { ...req.headers(), ...ciHeaders } })
+        : route.continue();
+    });
+  }
   const page = await context.newPage();
 
   let current = null;

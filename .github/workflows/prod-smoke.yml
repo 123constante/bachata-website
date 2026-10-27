@@ -87,6 +87,7 @@ jobs:
       - name: Smoke live production
         env:
           SMOKE_BASE_URL: https://www.bachatacalendar.co.uk
+          CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
         run: |
           set -o pipefail
           node scripts/launch-critical-smoke.mjs | tee smoke-report.json

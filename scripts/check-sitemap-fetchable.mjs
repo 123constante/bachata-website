@@ -57,6 +57,7 @@
  * CI:     SITEMAP_CHECK_BASE overrides the base URL (default production).
  */
 import { isEntryPoint } from './lib/entry-point.mjs';
+import { ciBypassHeadersFor } from './lib/ciBypassHeader.mjs';
 
 export const DEFAULT_BASE = 'https://www.bachatacalendar.co.uk';
 
@@ -237,7 +238,7 @@ export async function probeLive(base, { ua = PROBE_UA, timeoutMs = TIMEOUT_MS, f
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetchImpl(url, {
-      headers: { 'user-agent': ua, accept: 'application/xml,text/xml,*/*' },
+      headers: { 'user-agent': ua, accept: 'application/xml,text/xml,*/*', ...ciBypassHeadersFor(url) },
       redirect: 'follow',
       signal: ctrl.signal,
     });

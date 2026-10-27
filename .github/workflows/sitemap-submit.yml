@@ -79,6 +79,7 @@ jobs:
         env:
           SITEMAP_CHECK_BASE: ${{ env.SITEMAP_TARGET }}
           GSC_CHECK_BASE: ${{ env.SITEMAP_TARGET }}
+          CI_BYPASS_HEADER: ${{ secrets.CI_BYPASS_HEADER }}
         run: node scripts/check-sitemap-fetchable.mjs
 
       # No npm install: check-gsc.mjs imports only node built-ins.
