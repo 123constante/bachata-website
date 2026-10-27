@@ -90,7 +90,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   // Per ticket type: two switches tapped in quick succession each keep their own busy and error.
   const [moving, setMoving] = useState<ReadonlySet<string>>(new Set());
   const [moveError, setMoveError] = useState<ReadonlyMap<string, string>>(new Map());
-  const [toast, setToast] = useState<string | null>(null);
+  // A refusal that lands after its sheet closed is an alert that stays until dismissed (review r1 F3).
+  const [toast, setToast] = useState<{ text: string; alert: boolean } | null>(null);
+  const say = useCallback((text: string) => setToast({ text, alert: false }), [setToast]);
   const closeToast = useCallback(() => setToast(null), [setToast]);
 
   const types = useSeriesTypes(org.id, series.id);
@@ -120,6 +122,15 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const row = types.isSuccess ? ticketsRowOf(list, sold, why) : null;
   const detail = types.isError ? 'Could not load' : row ? row.detail : 'Loading\u2026';
 
+  /**
+   * An outcome that lands after its sheet closed (review r1 F1, F2): it never touches the sheet
+   * or draft open NOW. A success says so and refreshes; a refusal stays on screen as an alert.
+   */
+  const late = (text: string, landed: boolean) => {
+    setToast({ text, alert: !landed });
+    if (landed) void refresh().then(refocusTop);
+  };
+
   const openEditor = (type: TicketType | null) => {
     setDraft((held) => draftFor(held, type, eventStart));
     setEditing({ type });
@@ -138,8 +149,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     try {
       const out = await setTicketStatus(t.id, to);
       if (out.ok) {
-        setToast(`${t.name}: ${SWITCH_LABEL[to]}`);
-        setMoveError(new Map());
+        say(`${t.name}: ${SWITCH_LABEL[to]}`);
+        setMoveError((m) => with_(m, null));
         await refresh();
       } else setMoveError((m) => with_(m, p3Reason(out.reason)));
     } catch {
@@ -311,11 +322,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             // Closed mid-save: the save lands on its own (toast); the draft must not be sent again.
             if (saving) setDraft(null);
           }}
-          onLate={setToast}
+          onLate={late}
           onSaved={(text, changed) => {
             setEditing(null);
             setDraft(null);
-            setToast(text);
+            say(text);
             if (changed) {
               setMoveError(new Map());
               void refresh();
@@ -329,27 +340,33 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           typeName={many ? typeName.get(refunding.typeId) ?? null : null}
           today={today}
           onClose={() => setRefunding(null)}
-          onLate={setToast}
+          onLate={late}
           onStart={() => flight(refunding.id, true)}
           onSettled={() => flight(refunding.id, false)}
           onDone={(text) => {
             setRefunding(null);
-            setToast(text);
+            say(text);
             void refresh().then(refocusTop);
           }}
         />
       )}
-      {toast && <TicketToast text={toast} onClose={closeToast} />}
+      {toast && <TicketToast text={toast.text} alert={toast.alert} onClose={closeToast} />}
     </>
   );
 }
 
-function TicketToast({ text, onClose }: { text: string; onClose: () => void }) {
+function TicketToast({ text, alert, onClose }: { text: string; alert: boolean; onClose: () => void }) {
   useEffect(() => {
+    if (alert) return;
     const t = window.setTimeout(onClose, 8000);
     return () => window.clearTimeout(t);
-  }, [text, onClose]);
-  return <div className="p3-toast p3-toast-top" role="status" data-testid="tix-toast">{text}</div>;
+  }, [text, alert, onClose]);
+  return (
+    <div className="p3-toast p3-toast-top" role={alert ? 'alert' : 'status'} data-testid="tix-toast">
+      <span>{text}</span>
+      {alert && <button type="button" className="p3-link p3-toast-act" onClick={onClose} data-testid="tix-toast-dismiss">Dismiss</button>}
+    </div>
+  );
 }
 
 /** One ticket type: name and counts (tap to edit), and the Selling switch. */

@@ -24,8 +24,8 @@ export function RefundSheet({
   today: string;
   onClose: () => void;
   onDone: (announcement: string) => void;
-  /** A refusal that arrives after the sheet was closed: the parent shows it. */
-  onLate: (text: string) => void;
+  /** An answer that arrives after the sheet was closed (landed = refund started): the parent shows it. */
+  onLate: (text: string, landed: boolean) => void;
   /** The order's refund started (the parent locks its Refund button until the answer). */
   onStart: () => void;
   onSettled: () => void;
@@ -46,9 +46,10 @@ export function RefundSheet({
     onStart();
     const out = await refundOrder(order.id);
     onSettled();
-    if (out.kind === 'ok') return onDone('Refund started.');
+    // Closed before the answer: another order's sheet may be open now, so never close it (review r1 F2).
+    if (out.kind === 'ok') return alive.current ? onDone('Refund started.') : onLate('Refund started.', true);
     const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : p3Reason(out.reason);
-    if (!alive.current) return onLate(text);
+    if (!alive.current) return onLate(text, false);
     setBusy(false);
     setNote(text);
   };

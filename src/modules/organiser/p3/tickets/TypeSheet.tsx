@@ -39,8 +39,8 @@ export interface TypeSheetProps {
   eventStart: string | null;
   /** inFlight: closed while a save was still running (the parent drops the draft so it cannot be sent twice). */
   onClose: (inFlight: boolean) => void;
-  /** A refusal that arrives after the sheet was closed: the parent shows it. */
-  onLate: (text: string) => void;
+  /** An answer that arrives after the sheet was closed (landed = saved): the parent shows it. */
+  onLate: (text: string, landed: boolean) => void;
   /** Saved (or nothing to save, changed=false): the parent drops the draft and says the words. */
   onSaved: (announcement: string, changed: boolean) => void;
 }
@@ -59,7 +59,9 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
   /** A refusal shows in the sheet, or as a toast once the sheet is gone. */
-  const refuse = (text: string) => (alive.current ? setServerError(text) : onLate(text));
+  const refuse = (text: string) => (alive.current ? setServerError(text) : onLate(text, false));
+  /** A save that lands after the sheet closed never touches the sheet open now (review r1 F1). */
+  const landed = (text: string) => (alive.current ? onSaved(text, true) : onLate(text, true));
   const id = useId();
   const locked = editLock(type, ctx.role);
   const lockedPrice = priceLock(hasOrders);
@@ -105,11 +107,11 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
         refuse(p3Reason(out.reason));
         return;
       }
-      if (type) return onSaved('Ticket saved.', true);
-      if (!sell) return onSaved('Ticket saved as a draft. Switch it to Selling when you are ready.', true);
-      if (!out.id) return onSaved('Ticket saved as a draft. Switch it to Selling to put it on sale.', true);
+      if (type) return landed('Ticket saved.');
+      if (!sell) return landed('Ticket saved as a draft. Switch it to Selling when you are ready.');
+      if (!out.id) return landed('Ticket saved as a draft. Switch it to Selling to put it on sale.');
       const st = await setTicketStatus(out.id, 'on_sale').catch(() => ({ ok: false, reason: null }));
-      onSaved(st.ok ? 'Ticket added and on sale.' : `Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`, true);
+      landed(st.ok ? 'Ticket added and on sale.' : `Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`);
     } catch {
       refuse(p3Reason(null));
     } finally {
@@ -123,7 +125,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     setServerError(null);
     try {
       const out = await setTicketStatus(type.id, 'closed');
-      if (out.ok) onSaved(`${type.name}: sales closed.`, true);
+      if (out.ok) landed(`${type.name}: sales closed.`);
       else refuse(p3Reason(out.reason));
     } catch {
       refuse(p3Reason(null));

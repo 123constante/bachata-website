@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { SHAPES } from './fixtures';
 import { dataMock, load, pending, q, show, ok } from './harness';
 
@@ -209,7 +209,7 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     const btn = within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund') as HTMLButtonElement;
     expect([btn.disabled, btn.textContent]).toEqual([true, 'Refunding\u2026']);
     answer({ kind: 'failed', reason: null });
-    expect((await screen.findByTestId('tix-toast')).textContent).toBe('That did not work. Try again in a moment.');
+    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe('That did not work. Try again in a moment.');
     expect(api.refundOrder).toHaveBeenCalledTimes(1);
   });
 
@@ -246,5 +246,80 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     expect([sw('t-free').disabled, sw('t-paid').disabled]).toEqual([false, true]);
     answers[1]({ ok: false, reason: 'bad_transition' });
     await waitFor(() => expect(screen.getAllByTestId('tix-move-error')).toHaveLength(2));
+  });
+});
+
+describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3, F4)', () => {
+  beforeEach(() => load(SHAPES.selling));
+
+  it('F2: a late refund success for order A leaves the Refund sheet open for order B', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.refundOrder.mockReturnValueOnce(new Promise((r) => { answer = r; }));
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
+    fireEvent.click(screen.getByTestId('tix-refund-confirm'));
+    fireEvent.click(screen.getByTestId('tix-refund-cancel'));
+    tap(within(screen.getByTestId('tix-order-o1')).getByTestId('tix-refund'));
+    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    await act(async () => answer({ kind: 'ok' }));
+    expect(await screen.findByTestId('tix-toast')).toBeTruthy();
+    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    expect(api.refundOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('F1: a late save success leaves the second add sheet open with its draft', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.upsertTicketType.mockReturnValueOnce(new Promise((r) => { answer = r; }));
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(screen.getByTestId('tix-add'));
+    toReview();
+    fireEvent.click(screen.getByTestId('tix-save'));
+    esc();
+    tap(screen.getByTestId('tix-add'));
+    fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Second ticket' } });
+    await act(async () => answer({ ok: true, reason: null, id: 'x' }));
+    expect(await screen.findByTestId('tix-toast')).toBeTruthy();
+    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
+    expect((screen.getByTestId('tix-form-name') as HTMLInputElement).value).toBe('Second ticket');
+  });
+
+  it('F3: a late refusal is an alert that stays until dismissed (44px Dismiss)', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.refundOrder.mockReturnValueOnce(new Promise((r) => { answer = r; }));
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
+    fireEvent.click(screen.getByTestId('tix-refund-confirm'));
+    fireEvent.click(screen.getByTestId('tix-refund-cancel'));
+    await act(async () => answer({ kind: 'failed', reason: null }));
+    const toast = await screen.findByTestId('tix-toast');
+    expect(toast.getAttribute('role')).toBe('alert');
+    vi.useFakeTimers();
+    try {
+      act(() => { vi.advanceTimersByTime(60_000); });
+      expect(screen.queryByTestId('tix-toast')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+    fireEvent.click(screen.getByTestId('tix-toast-dismiss'));
+    expect(screen.queryByTestId('tix-toast')).toBeNull();
+  });
+
+  it('F4: one switch success keeps another row\'s refusal on screen', async () => {
+    const answers: Array<(v: unknown) => void> = [];
+    api.setTicketStatus.mockImplementation(() => new Promise((r) => answers.push(r)));
+    load(SHAPES.survey);
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    const row = (id: string) => screen.getByTestId(`tix-type-${id}`);
+    fireEvent.click(within(row('t-paid')).getByTestId('tix-switch'));
+    await act(async () => answers[0]({ ok: false, reason: 'bad_transition' }));
+    expect(within(row('t-paid')).getByTestId('tix-move-error')).toBeTruthy();
+    fireEvent.click(within(row('t-free')).getByTestId('tix-switch'));
+    await act(async () => answers[1]({ ok: true, reason: null }));
+    expect(await screen.findByTestId('tix-toast')).toBeTruthy();
+    expect(within(row('t-paid')).queryByTestId('tix-move-error')).toBeTruthy();
   });
 });
