@@ -26,6 +26,33 @@ Branch `claude/p3-w2b-dates`, PR #1062. Briefs: `brief/p3-w2b-dates` `docs/brief
    `organiser_flyers_insert_own_series`, 15 objects); `cover_image_url` is an owner override key.
 5. Owner call recorded: Remove stays always greyed (`DATE_WHY.noDelete`); `series.remove_date` not built.
 
+## Review round 1 fixes (ticket dt_6ea1cc7eac91, brief `docs/briefs/p3-w2b-fixes.md`)
+Review: `claude/review-1062-r1` `docs/reviews/1062-r1.md`. Each code fix had its test row written and seen
+RED on the unfixed code first (model matrix: 8 rows red; data tests: 5 red; the sheet test red against the
+old `DateSheet.tsx`), except finding 5's data row, written after the model fix had landed (its model row
+was red first).
+1. **Fixed (BLOCKER):** b37f588 had rewritten 351 PNGs from other arcs (346 modified, 5 added). Restored
+   to `main`'s blobs / removed; `git diff --stat origin/main...HEAD` now lists only W2b files.
+2. **Fixed:** "Put this week back" greyed at the date cap (`DATE_WHY.cap`); unskip delegates to add_date.
+3. **Fixed:** no series-wide grey on "Change the time" (`hasSessions` and `DATE_WHY.noSessions` removed);
+   the server's `no_sessions_for_time_override` copy stays.
+4. **Fixed:** "Cancel this date" enabled on a festival date (same sheet, `occurrence.cancel`).
+5. **Fixed:** `ruleDate` is null when the series has no weekly rule: no "Not the usual day", skip says
+   `DATE_WHY.noPattern`.
+6. **Fixed:** All dates empty states (`emptyDatesCopy`): Coming names why Add is off; Breaks gives the
+   kind's reason.
+7. **Fixed:** `KeyRing` keyed on `occurrenceId` + commands (no version), so a retry after a committed but
+   lost response replays; the date sheet keeps the date it opened on, so the error and its retry stay.
+8. **Fixed:** `COMMAND_COPY` row for `date_time_session_has_people`; a refused second call of the
+   composite says "The details went back to usual, but the time did not." (`PlanStepError`).
+9. **Fixed (nit):** `has_bookings` on a skip says "cannot be skipped" (delete keeps "removed").
+10. **Not fixed (nit, by design):** breaks on a non-weekly series are not listed; written into
+    `docs/design/1062.md` "Known limits" and the PR body's Not verified.
+
+Walk re-run (390x844, 15 tests, 60 rows in `metrics.jsonl`, all 0 sideways / min tap 44 / 0 clipped /
+0 contrast). Replaced only the touched shots: `08-festival-date-dark.png` (Cancel enabled) and
+`07-ended-all-dates-dark.png` (Coming empty state names why Add is off).
+
 ## Not verified
 - No real upload or command against prod (read-only rule); cover upload never exercised end to end.
 - Venue picker only against a stand-in list in the walk.
