@@ -92,3 +92,46 @@ CI chmods; pre-existing). eslint p3: 0 errors, 3 react-refresh warnings (1 pre-e
 3. Orchestrator: browser walk at 390x844 as the walk test account, Design Gate stage 5
    critique by a different worker, Verified / Not verified block, then delete old
    `/account/tickets` (list above) in the same PR series.
+
+---
+
+# Fix 1, 2026-10-27 (brief `docs/briefs/p3-wt-fix1.md`, review `docs/review/pr-1079-r1.md`)
+
+UNREVIEWED code: every fix below needs the second independent review the orchestrator runs.
+
+## Done
+- Merged `origin/main` (dd8112f) into the branch.
+- **F2 + F1 (money):** a save or refund whose sheet was closed before the answer now reports
+  through ONE parent handler, `late(text, landed)` in `TicketsEntry.tsx`: a success toasts and
+  refreshes, and never touches `editing` / `draft` / `refunding` (the sheet open NOW). Both
+  review probes are tests (`stack.draft.test.tsx`, "a late outcome never touches...").
+- **F3:** a late refusal is `role="alert"`, never auto-dismisses, and has a 44px Dismiss.
+- **F4:** a switch success clears only its own row's error.
+- **D1** You > Get paid row stacks (more specific `.p3-status-row .p3-row-t.p3-block`).
+  **D2** type rows pad once. **D5** the stacked sheet head is sticky (`.p3-stack-head`, scoped
+  to `StackSheet` so W2's `Sheet.tsx` is unchanged). **D3** Close min-width 44px.
+  **D4** money figures 22px + `overflow-wrap: anywhere` (`.p3-money`).
+- **Nits:** F5 the price waits with "Checking sales..." while the sales / orders reads load;
+  F6 Escape inside "Close sales for good?" = Keep selling (`StackSheet` `onEscape`);
+  D6 ON knob is `var(--card)`; D7 Add a ticket's `aria-describedby` target always exists;
+  D8 the contributor reason is said once; D9 Orders heading 16px, Home kicker is a warn tag;
+  D10 the loading row has `cursor: default`.
+- **Found on the 390px walk (not in the review):** `.p3-sheet-body { flex: 1; min-height: 0 }`
+  shrank, so a long list overflowed past the sticky footer and Add a ticket scrolled away.
+  Now `flex: 1 0 auto`; measured footer pinned at y 775-844 after a 1200px scroll.
+- Tests: `layout.cascade.test.ts` resolves the p3.css cascade (specificity, order) for D1 to
+  D5 and the footer; red on the old CSS (4/4). F1 to F6 and D7/D8 tests red on the unfixed TSX.
+
+## CI notes
+- `bundle-budget` is red ON MAIN: main dd8112f measures 374.088 KB on `/app/*` vs the 374
+  pin (#1056 Bristol polish). This branch measures 374.085 KB (3 bytes under main): the P3
+  tickets code is not in `/app`'s first load, so lazy-loading it changes nothing. Budget
+  NOT raised (brief). Needs an owner decision on main (raise with measurement, or trim #1056).
+- `phone-qa` was CANCELLED by its 25-minute job timeout, no test failed in the log. The suite
+  is 534 tests; locally it passed 406, skipped 128, failed 0 in 14.3 min with 2 workers; other PRs hit the same cancel today.
+  Infra (suite length vs timeout), not this PR.
+
+## Left / next
+1. Second independent review of the fix-1 diff (`git diff 84567dd..HEAD -- src`).
+2. Owner walk on a phone with the walk account (D1 row, a three-type event, a long list).
+3. Owner call on the main bundle-budget overage and the phone-qa timeout.
