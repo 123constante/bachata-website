@@ -283,6 +283,19 @@ export interface CancelPlan {
   day: string;
 }
 
+/** The Cancel the event sheet's words (C3 `cancelnext`, one-off wording). */
+export const CANCEL_COPY = {
+  title: (name: string, day: string) => `Cancel ${name} on ${day}?`,
+  body: (day: string) => `Dancers will see \u2018Cancelled\u2019 on ${day}. You can bring it back any time.`,
+  pick: 'Pick a reason to carry on',
+  go: 'Yes, cancel the event',
+  keep: 'Don\u2019t cancel',
+  done: 'Cancelled.',
+  already: (reason: string | null) => (reason ? `It was already cancelled. Dancers see: ${reason}.` : 'It was already cancelled.'),
+  loading: 'Loading the reasons\u2026',
+  noReasons: 'The reasons didn\u2019t load. Check your connection, then try again.',
+} as const;
+
 /** The one-off's one date; null when there is not exactly one (the row is greyed then). */
 export function cancelPlan(ws: EventWorkspace, today: IsoDate): CancelPlan | null {
   if (ws.dates.length !== 1) return null;

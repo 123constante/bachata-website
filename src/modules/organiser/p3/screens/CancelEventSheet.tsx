@@ -4,24 +4,12 @@ import { fetchCancellationReasons, type CommandResponse } from '../../shared/sel
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import { L } from '../model';
-import { bringBackStep, cancelEventCommand, type CancelPlan } from '../data/eventPage';
+import { CANCEL_COPY, bringBackStep, cancelEventCommand, type CancelPlan } from '../data/eventPage';
 import { Sheet } from './Sheet';
 import type { Done } from './StatusSheet';
 
 /** One series command under a key the sheet keeps (shared/runCommands useSendOnce). */
 export type SendOnce = (command: OwnerCommand, key: string) => Promise<CommandResponse>;
-
-export const CANCEL_COPY = {
-  title: (name: string, day: string) => `Cancel ${name} on ${day}?`,
-  body: (day: string) => `Dancers will see \u2018Cancelled\u2019 on ${day}. You can bring it back any time.`,
-  pick: 'Pick a reason to carry on',
-  go: 'Yes, cancel the event',
-  keep: 'Don\u2019t cancel',
-  done: 'Cancelled.',
-  already: (reason: string | null) => (reason ? `It was already cancelled. Dancers see: ${reason}.` : 'It was already cancelled.'),
-  loading: 'Loading the reasons\u2026',
-  noReasons: 'The reasons didn\u2019t load. Check your connection, then try again.',
-} as const;
 
 /**
  * C3 `cancelnext`, one-off wording: "Cancel the event" (series.cancel_one_off, ER AD4).
