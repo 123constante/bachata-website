@@ -1,19 +1,21 @@
+import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { P3Shell } from './P3Shell';
-import { AllDatesScreen } from '../screens/AllDatesScreen';
-import { EventPage } from '../screens/EventPage';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { P3YouSurface } from '../you/surface';
-import { YouScreen } from '../you/YouScreen';
 import { P3_PATHS } from './paths';
 
-// The R1 screens the You hub pushes: lazy, as in OrganiserRoutes. Static imports here put every
-// one of their chunks in AnimatedRoutes' preload list for this area, which /app/* loads first.
+// The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
+// every one of their chunks in AnimatedRoutes' preload list for this area, which /app/* loads first.
+const YouScreen = lazyWithRetry(() => import('../you/YouScreen').then((m) => ({ default: m.YouScreen })));
+// One event's page and All dates load on their own too, as W3a's edit screens do (PR #1082).
+const EventPage = lazyWithRetry(() => import('../screens/EventPage').then((m) => ({ default: m.EventPage })));
+const AllDatesScreen = lazyWithRetry(() => import('../screens/AllDatesScreen').then((m) => ({ default: m.AllDatesScreen })));
 const TeamPage = lazyWithRetry(() => import('../../team'));
 const TeamFlow = lazyWithRetry(() => import('../../team/TeamFlow'));
 const HandoverFlow = lazyWithRetry(() => import('../../flows/handover'));
@@ -34,8 +36,8 @@ export default function P3Routes() {
         <Route element={<P3Shell />}>
           <Route index element={<HomeScreen />} />
           <Route path="events" element={<EventsScreen />} />
-          <Route path="events/:seriesId" element={<EventPage />} />
-          <Route path="events/:seriesId/dates" element={<AllDatesScreen />} />
+          <Route path="events/:seriesId" element={<Suspense fallback={null}><EventPage /></Suspense>} />
+          <Route path="events/:seriesId/dates" element={<Suspense fallback={null}><AllDatesScreen /></Suspense>} />
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />

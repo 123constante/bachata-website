@@ -33,9 +33,10 @@ function at(entry: string) {
 }
 
 describe('P3 shell: Home / Events / Stats / You (C3 tab bar)', () => {
-  it.each(P3_TABS.map((t) => [t, P3_PATHS[t]] as const))('%s at %s: its screen, its title, its tab current', (tab, path) => {
+  it.each(P3_TABS.map((t) => [t, P3_PATHS[t]] as const))('%s at %s: its screen, its title, its tab current', async (tab, path) => {
     at(path);
-    expect(screen.getByTestId(`p3-screen-${tab}`)).toBeTruthy();
+    // You is a lazy chunk (P3Routes): wait for it to arrive.
+    expect(await screen.findByTestId(`p3-screen-${tab}`)).toBeTruthy();
     const nav = screen.getByRole('navigation', { name: 'Main' });
     const links = [...nav.querySelectorAll('a')];
     expect(links.map((a) => a.textContent)).toEqual(['Home', 'Events', 'Stats', 'You']);
