@@ -12,7 +12,8 @@ Branch `claude/hidden-ids-rpc-guard`. Class: GUARD-CI (one review round).
   Empty array is GREEN and says it compared nothing. 57014 / network blips retry
   once and are exit 2 if they persist. Prints counts only, never ids.
 - Pure `check(payload)` core; `main(argv, deps)` owns the exit code (R5) and is
-  driven by the canary through every branch; `isEntryPoint` (R6). 39 canary cases.
+  driven by the canary through every branch; `isEntryPoint` (R6), listed in
+  `scripts/prove-entry-point-dispatch.mjs` TARGETS. 42 canary cases.
 - `npm run check:organiser-hidden-ids` / `check:organiser-hidden-ids:self-test`.
 - `docs/ci-guard-notes.md` entry (#71, marked NOT YET A WORKFLOW STEP).
 - `check-script-conventions.mjs`: green with no allowlist entry (nothing owed).
@@ -65,6 +66,14 @@ entry. Count steps with
   (non-array arm reverted) first survived with ZERO fail lines (the canary
   crashed on the throw); fixed by recording a throw in the exit-code drive as a
   failure.
+
+## Review (one round, CI-guard rule; reviewer: a different model)
+
+No material defect. Applied: (1) our own 20s abort (`AbortError`) is now
+transient and retried once; (2) a 42501 raised INSIDE the body is no longer
+reported as a revoked grant (still exit 1). Not applied: `.env` single quotes
+(same as every sibling, local-only). The two fixes are UNREVIEWED code; the
+mutation run was re-run after them (all killed) and the canary grew to 42 cases.
 
 ## Next steps
 

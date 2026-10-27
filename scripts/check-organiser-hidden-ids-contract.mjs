@@ -75,7 +75,10 @@ export function isTransient(err) {
     msg.includes('fetch failed') ||
     msg.includes('econnreset') ||
     msg.includes('etimedout') ||
-    msg.includes('network')
+    msg.includes('network') ||
+    // Our own RPC_TIMEOUT_MS abort: postgrest-js returns it as an error
+    // ({ code: '', message: 'AbortError: ...' }) rather than throwing.
+    msg.includes('aborterror')
   );
 }
 
@@ -206,9 +209,14 @@ export async function main(argv = [], deps = {}) {
       return 1;
     }
     if (isPermissionDenied(error)) {
-      err(`FAIL: anon may no longer execute ${RPC} (${error.code ?? '?'}: ${error.message}).\n` +
+      // Either way anon cannot use the RPC, so both are exit 1; only the
+      // remediation differs (a body reading a table anon cannot read is not a revoke).
+      const revoked = /permission denied for function/i.test(String(error.message || ''));
+      err(`FAIL: anon ${revoked ? 'may no longer execute' : 'hits a permission error inside'} ${RPC} (${error.code ?? '?'}: ${error.message}).\n` +
         '      Every public caller is anon, so /organisers errors and the sitemap 500s.\n' +
-        '      Restore the anon EXECUTE grant in the ADMIN repo.');
+        (revoked
+          ? '      Restore the anon EXECUTE grant in the ADMIN repo.'
+          : '      The function body reads something anon cannot (SECURITY DEFINER lost?); fix it in the ADMIN repo.'));
       return 1;
     }
     err(`Transport/unexpected error: ${error.code ?? '?'}: ${error.message}`);
@@ -256,6 +264,7 @@ export async function selfTest(log = console.log) {
 
   // --- error classification, both directions ---
   add('57014 is transient', () => isTransient({ code: '57014', message: 'x' }), true);
+  add('our own abort timeout is transient', () => isTransient({ code: '', message: 'AbortError: This operation was aborted' }), true);
   add('a genuine SQL error is NOT transient', () => isTransient({ code: '42883', message: 'operator does not exist' }), false);
   add('PGRST202 is function-missing', () => isFunctionMissing({ code: 'PGRST202', message: 'x' }), true);
   add('a 42883 naming the RPC is function-missing', () => isFunctionMissing({ code: '42883', message: `function public.${RPC}() does not exist` }), true);
@@ -294,7 +303,9 @@ export async function selfTest(log = console.log) {
     ['non-uuid element is 1', [{ data: ['x'], error: null }], 1, 'not uuid strings'],
     ['duplicate is 1', [{ data: [A, A], error: null }], 1, 'duplicate'],
     ['missing RPC is 1', [{ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } }], 1, 'not found as anon'],
-    ['revoked grant is 1', [{ data: null, error: { code: '42501', message: 'permission denied' } }], 1, 'may no longer execute'],
+    ['revoked grant is 1', [{ data: null, error: { code: '42501', message: `permission denied for function ${RPC}` } }], 1, 'may no longer execute'],
+    ['a body permission error is 1, not called a revoke', [{ data: null, error: { code: '42501', message: 'permission denied for table organisers' } }], 1, 'inside'],
+    ['abort timeout twice is 2', [{ data: null, error: { code: '', message: 'AbortError: This operation was aborted' } }], 2, 'retrying once'],
     ['unknown DB error is 2', [{ data: null, error: { code: 'XX000', message: 'internal' } }], 2, 'Transport/unexpected error: XX000'],
     ['transient twice is 2', [{ data: null, error: { code: '57014', message: 'canceling statement due to statement timeout' } }], 2, 'retrying once'],
     ['transient then green is 0', [{ data: null, error: { code: '57014', message: 'canceling statement' } }, { data: [], error: null }], 0, 'contract: ok'],
