@@ -10,6 +10,8 @@ import {
   typesForNight,
   clampQuantity,
   disabledReason,
+  checkoutOriginOk,
+  previewCheckoutOrigin,
   formatPence,
   maxQuantity,
   parseCheckoutReply,
@@ -86,6 +88,27 @@ describe('Buy disabled reasons (each says why)', () => {
   });
   it('apex origin is allowed too', () => {
     expect(disabledReason({ ...ok, origin: 'https://bachatacalendar.co.uk' }, NOW)).toBeNull();
+  });
+});
+
+describe('preview checkout origin (walk alias, preview builds only)', () => {
+  const WALK = 'https://bachata-walk.vercel.app';
+  it.each([
+    ['preview + bare https origin', 'preview', WALK, WALK],
+    ['production build ignores it', 'production', WALK, ''],
+    ['no VERCEL_ENV ignores it', '', WALK, ''],
+    ['unset', 'preview', '', ''],
+    ['http is refused', 'preview', 'http://bachata-walk.vercel.app', ''],
+    ['a path is refused', 'preview', `${WALK}/x`, ''],
+    ['not a URL', 'preview', 'walk', ''],
+  ])('%s', (_n, env, raw, want) => {
+    expect(previewCheckoutOrigin(env, raw)).toBe(want);
+  });
+  it('only the named origin is allowed, the real domains still are, others are not', () => {
+    expect(checkoutOriginOk(WALK, WALK)).toBe(true);
+    expect(checkoutOriginOk('https://bachatacalendar.co.uk', WALK)).toBe(true);
+    expect(checkoutOriginOk('https://bachata-website-git-x.vercel.app', WALK)).toBe(false);
+    expect(checkoutOriginOk(WALK, '')).toBe(false);
   });
 });
 

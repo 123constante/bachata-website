@@ -24,6 +24,7 @@ export default defineConfig(({ isSsrBuild }) => ({
   define: {
     "import.meta.env.VITE_VERCEL_ENV": JSON.stringify(process.env.VERCEL_ENV ?? ""),
     "import.meta.env.VITE_ENABLE_GOING_PREVIEW": JSON.stringify(process.env.VITE_ENABLE_GOING_PREVIEW ?? ""),
+    "import.meta.env.VITE_TICKET_PREVIEW_ORIGIN": JSON.stringify(process.env.VITE_TICKET_PREVIEW_ORIGIN ?? ""),
   },
   server: {
     host: "::",
