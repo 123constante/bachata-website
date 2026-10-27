@@ -345,6 +345,12 @@ export const LIB_EVENT_RULES_MODULES = [
   // One boolean read by the event page, festival hub and dancer app: alone it was
   // its own chunk and one more first-load request on /event and /app.
   "/src/lib/goingCheckin.ts",
+  // The page-city mapping (2026-10-26, Bristol polish): a pure leaf (it imports only
+  // cityDisplayName) read by /parties, /classes, the home feed and the listing pages.
+  // Alone it was a chunk of its own: +1 first-load request on /parties and /classes
+  // (measured 46 vs a pin of 44 with a hook module beside it; the pages now call
+  // useParams/useCity themselves, so there is no hook module to cut).
+  "/src/lib/pageCity.ts",
   // "Seen in lists" writer (2026-10-24): imported by every list surface (home feed, event
   // page strips, tonight, festivals, organiser, venue, search, calendar), so alone it was
   // its own 2 KB chunk and +1 first-load request on home, /event, /parties and /classes
