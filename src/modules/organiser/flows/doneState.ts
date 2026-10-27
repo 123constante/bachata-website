@@ -55,10 +55,11 @@ export const keepReturnTo = (to: string, search: string): string => {
 /**
  * Every flow ends on Done. `returnTo` (the editor's sanitised `?returnTo=`, W2 walk
  * fix 10): Done's primary goes back there instead of Home. Without one, unchanged.
+ * `donePath`: the surface's own Done (P3's, W4a fix 1); R1's by default.
  */
-export function goDone(navigate: NavigateFunction | ((to: string, opts: { state: DoneState }) => void), state: DoneState, returnTo?: string | null): void {
-  const back = sanitizeReturnTo(returnTo ?? null, { exclude: ORG_PATHS.done });
-  navigate(ORG_PATHS.done, { state: back ? { ...state, back } : state });
+export function goDone(navigate: NavigateFunction | ((to: string, opts: { state: DoneState }) => void), state: DoneState, returnTo?: string | null, donePath: string = ORG_PATHS.done): void {
+  const back = sanitizeReturnTo(returnTo ?? null, { exclude: donePath });
+  navigate(donePath, { state: back ? { ...state, back } : state });
 }
 
 /** Router state -> DoneState, or null (a reload, a stale link): the screen then goes Home. */

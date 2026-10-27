@@ -32,8 +32,9 @@ const YOU = { to: P3_PATHS.you, label: 'You' };
 
 /**
  * Where the shared screens' links go in P3. Team, Switch, the page editor and Welcome are P3
- * routes; Done, More (Account and help), the profile wizard and Add an event stay R1 screens,
- * which come back here (Done's primary returns to the screen the change was made on).
+ * routes, and so is Done (W4a fix 1: P3's frame, its primary back to the screen the change was
+ * made on, its second back to You); More (Account and help), the profile wizard and Add an event
+ * stay R1 screens, which come back here.
  */
 export const P3_SURFACE: OrgSurface = {
   kind: 'p3',
@@ -50,6 +51,7 @@ export const P3_SURFACE: OrgSurface = {
     handover: P3_PATHS.youHandover,
     handoverTo: P3_PATHS.youHandoverTo,
     page: P3_PATHS.youPage,
+    done: P3_PATHS.youDone,
   },
   hub: YOU,
   handoverBack: { to: P3_PATHS.youTeam, label: 'Team' },

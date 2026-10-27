@@ -231,7 +231,8 @@
 
 /* W4a: the You hub and the screens it pushes (their own top bar: back + title). */
 .p3-theme .p3-top-row { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; }
-.p3-theme .p3-top-row h1 { flex: 1; min-width: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* line-height: index.css gives h1 1.1, and with overflow hidden that cut the top off the title's glyphs (fix 1). */
+.p3-theme .p3-top-row h1 { flex: 1; min-width: 0; font-size: 20px; line-height: 28px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p3-theme .p3-back {
   min-height: var(--tap); min-width: var(--tap); margin-left: -8px; padding: 0 8px; display: inline-flex; align-items: center; gap: 4px;
   font-size: var(--fs-body); font-weight: 600; color: var(--gold-fg); text-decoration: none; flex: none;
@@ -244,3 +245,10 @@
 .p3-theme .p3-you-page { display: flex; align-items: center; gap: 12px; color: var(--fg); }
 .p3-theme .p3-btn-link { display: inline-flex; align-items: center; justify-content: center; width: 100%; text-decoration: none; }
 .p3-theme .p3-back:focus-visible, .p3-theme .p3-navrow:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+/* W4a fix 1: the page editor's on-page pieces (edit-in-place parts) read --eip-* with R1 fallbacks;
+ * inside P3 they are these tokens, so the editor is a P3 card, not a black block. No new values. */
+.p3-theme .p3-eip {
+  --eip-accent: var(--gold-fg); --eip-accent-bg: var(--btn); --eip-ink: var(--btnfg); --eip-fg: var(--fg);
+  --eip-mut: var(--mut); --eip-line: var(--line); --eip-line-strong: var(--line-strong); --eip-chip-bg: var(--card2);
+  --eip-chip-line: var(--line); --eip-accent-soft: var(--warn-bg); --eip-danger: var(--danger);
+}

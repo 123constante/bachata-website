@@ -35,7 +35,7 @@ export default function Confirm() {
         title: 'Handed over',
         message: `${memberShortName(member!)} is the Owner - you are a Manager. Only ${firstName(memberLabel(member!))} can hand it back.`,
         seriesId: null,
-      }, doneBack);
+      }, doneBack, paths.done);
     },
     onError: (e) => setError(transferErrorMessage(e, firstName(memberLabel(member!)))),
   });

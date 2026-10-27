@@ -59,7 +59,7 @@ export default function AddSomeone() {
     onSuccess: (_r, p) => {
       void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser!.id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null }, doneBack);
+      goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null }, doneBack, paths.done);
     },
     onError: (err) => {
       if (selfServeErrorCode(err) === 'team_full') setServerFull(true);

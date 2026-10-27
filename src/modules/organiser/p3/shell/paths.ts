@@ -23,6 +23,8 @@ export const P3_PATHS = {
   youHandover: `${P3_BASE}/you/handover`,
   youHandoverTo: (userId: string) => `${P3_BASE}/you/handover/${encodeURIComponent(userId)}`,
   youWelcome: (organiserId: string) => `${P3_BASE}/you/welcome?o=${encodeURIComponent(organiserId)}`,
+  /** Done after a team change or a page save, in P3's frame (W4a fix 1). */
+  youDone: `${P3_BASE}/you/done`,
 } as const;
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';

@@ -13,6 +13,7 @@ import HandoverFlow from '../../flows/handover';
 import SwitchPage from '../../switch';
 import WelcomePage from '../../switch/Welcome';
 import PageScreen from '../../page';
+import Done from '../../flows/Done';
 import { P3YouSurface } from '../you/surface';
 import { YouScreen } from '../you/YouScreen';
 import { P3_PATHS } from './paths';
@@ -42,6 +43,7 @@ export default function P3Routes() {
             <Route path="team/:userId" element={<TeamFlow step="person" />} />
             <Route path="handover" element={<HandoverFlow step="to" />} />
             <Route path="handover/:userId" element={<HandoverFlow step="confirm" />} />
+            <Route path="done" element={<Done />} />
           </Route>
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
         </Route>

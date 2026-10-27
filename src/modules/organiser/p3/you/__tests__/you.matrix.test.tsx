@@ -33,6 +33,8 @@ import { ADD_ROLE_REASON, ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON } from '@/modul
 import { INVITE_REQUIRED_COPY } from '@/modules/organiser/shared/selfServeErrors';
 import { NO_PROFILE_NOTE } from '../../../team/PublicToggle';
 import { YOU, YOU_ROWS, youRows } from '../youRows';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 type Role = 'owner' | 'manager' | 'contributor';
 const page = (id: string, name: string, role: 'owner' | 'manager', lifecycle = 'live') => ({
@@ -71,7 +73,7 @@ function Where() {
   const l = useLocation();
   return <p data-testid="where">{l.pathname}{l.search}</p>;
 }
-function at(path: string) {
+function at(path: string | { pathname: string; state: unknown }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -349,5 +351,166 @@ describe('Switch page, Organiser page, Welcome in P3', () => {
     expect((await screen.findByTestId('org-welcome-sub')).textContent).toBe('You also manage Bachata Sensual London. Switch any time from You.');
     fireEvent.click(screen.getByTestId('org-welcome-home'));
     expect(await screen.findByTestId('p3-screen-home')).toBeTruthy();
+  });
+});
+
+// ---- W4a fix 1 (the orchestrator's 390x844 walk) ----------------------------------------------
+
+/** A colour literal outside a var() fallback: R1's black and gold (or any hex) painted inside P3. */
+function literalColour(value: string): string | null {
+  let v = value;
+  for (let prev = ''; prev !== v;) { prev = v; v = v.replace(/var\([^()]*(\([^()]*\))?[^()]*\)/g, 'TOKEN'); }
+  return /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.exec(v)?.[0] ?? null;
+}
+/** Every painted surface/text under the P3 frame that is not a P3 token (inline style or a Tailwind hex class). */
+function nonTokenPaint(root: HTMLElement): string[] {
+  const out: string[] = [];
+  for (const el of [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]) {
+    if (el.closest('svg')) continue;
+    const style = el.getAttribute('style') ?? '';
+    for (const decl of style.split(';')) {
+      const [prop, ...rest] = decl.split(':');
+      if (!/^\s*(background|background-color|color|border|border-color|border-top|border-bottom|outline)\s*$/i.test(prop ?? '')) continue;
+      const hit = literalColour(rest.join(':'));
+      if (hit) out.push(`${el.dataset.testid ?? el.tagName}: ${prop.trim()} ${hit}`);
+    }
+    const cls = typeof el.className === 'string' ? el.className : '';
+    const hex = /(?:^|\s)(?:bg|text|border|from|to)-\[#[0-9a-f]+\]/i.exec(cls);
+    if (hex) out.push(`${el.dataset.testid ?? el.tagName}: ${hex[0].trim()}`);
+  }
+  return out;
+}
+
+const DONE_STATES = [
+  ['Remove', { title: 'Removed', message: 'Removed from the team', seriesId: null, next: P3_PATHS.youTeamAddFor('Tom Okafor'), nextLabel: 'Add them back', back: P3_PATHS.youTeam }],
+  ['Make Manager', { title: 'Role changed', message: 'Tom is a Manager', seriesId: null, back: P3_PATHS.youTeam }],
+  ['Hand over', { title: 'Handed over', message: 'Priya is the Owner - you are a Manager.', seriesId: null, back: P3_PATHS.youTeam }],
+  ['Add', { title: 'Added', message: 'Priya is a Manager', seriesId: null, back: P3_PATHS.youTeam }],
+  ['page Save', { title: 'Saved', message: 'Saved', seriesId: null, back: P3_PATHS.youPage }],
+] as const;
+
+describe('W4a fix 1 (a): every surface under the P3 frame paints with P3 tokens', () => {
+  it.each([
+    ['Organiser page (owner, published)', () => at(P3_PATHS.youPage), 'page-facts'],
+    ['Organiser page (draft, required left)', () => { pages = [page('org-1', 'test org', 'owner', 'draft')]; left = 2; at(P3_PATHS.youPage); }, 'page-facts'],
+    ['Team', () => at(P3_PATHS.youTeam), 'team-member'],
+    ['Person', () => { members = [ME('owner'), member('tom', 'contributor', { display_name: 'Tom Okafor' })]; at(P3_PATHS.youTeamPerson('tom')); }, 'person-remove'],
+    ...DONE_STATES.map(([n, s]) => [`Done after ${n}`, () => at({ pathname: P3_PATHS.youDone, state: s }), 'org-done'] as const),
+  ] as const)('%s', async (_n, open, ready) => {
+    open();
+    await screen.findAllByTestId(ready);
+    const shell = screen.getByTestId('p3-shell');
+    expect(shell.querySelector('.org-theme'), 'no R1 frame inside P3').toBeNull();
+    expect(nonTokenPaint(shell)).toEqual([]);
+  });
+});
+
+describe('W4a fix 1 (walk item 2): the Organiser page has ONE Team entry', () => {
+  it('owner (the role that got the editor Team card): no "Add a person" card, one link to Team', async () => {
+    members = [ME('owner'), member('o2', 'owner'), member('o3', 'owner'), member('m1', 'manager')];
+    at(P3_PATHS.youPage);
+    await screen.findByTestId('page-facts');
+    // The editor's Team card waits on organiser_team_v1: let that read land before asserting it is absent.
+    await waitFor(() => expect(sent).toContain('organiser_team_v1'));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('eip-team')).toBeNull();
+    const shell = screen.getByTestId('p3-shell');
+    const teamLinks = Array.from(shell.querySelectorAll('a')).filter((a) => a.getAttribute('href') === P3_PATHS.youTeam);
+    expect(teamLinks.map((a) => a.dataset.testid)).toEqual(['page-team-link']);
+    expect(within(shell).queryAllByText(/^Team$/)).toHaveLength(1);
+  });
+});
+
+describe('W4a fix 1 (b): no title is clipped under the top bar', () => {
+  const css = readFileSync(join(__dirname, '..', '..', 'theme', 'p3.css'), 'utf8').replace(/\r\n/g, '\n');
+  /** The declarations of one P3 rule (exact selector). */
+  const rule = (selector: string) => {
+    const at0 = css.indexOf(`${selector} {`);
+    return at0 < 0 ? '' : css.slice(css.indexOf('{', at0) + 1, css.indexOf('}', at0));
+  };
+  it('the pushed top bar title clips its overflow, so it sets a line-height tall enough for its glyphs (index.css gives h1 1.1)', () => {
+    const body = rule('.p3-theme .p3-top-row h1');
+    expect(body).toMatch(/overflow:\s*hidden/);
+    const lh = /line-height:\s*([\d.]+)(px)?/.exec(body);
+    expect(lh, 'line-height on .p3-top-row h1').not.toBeNull();
+    expect(lh![2] ? Number(lh![1]) / 20 : Number(lh![1])).toBeGreaterThanOrEqual(1.3);
+  });
+
+  /** Inline or class offsets that pull a box up under the bar. */
+  const negativeOffset = (el: HTMLElement) =>
+    /(?:^|;)\s*(margin(-top)?|top)\s*:\s*-/.test(el.getAttribute('style') ?? '') || /(?:^|\s)-(m|mt|my|top|inset|translate-y)-/.test(typeof el.className === 'string' ? el.className : '');
+
+  it.each([
+    ['Organiser page', P3_PATHS.youPage, 'page-name'],
+    ['Team', P3_PATHS.youTeam, 'team-member'],
+    ['You', P3_PATHS.you, 'p3-you-page-name'],
+  ])('%s: the title sits in the top bar row, never in a negative-offset container', async (_n, path, ready) => {
+    at(path);
+    await screen.findAllByTestId(ready);
+    const shell = screen.getByTestId('p3-shell');
+    for (const h of Array.from(shell.querySelectorAll<HTMLElement>('h1, h2'))) {
+      for (let el: HTMLElement | null = h; el && el !== shell; el = el.parentElement) expect(negativeOffset(el), `${h.textContent} in ${el.tagName}.${el.className}`).toBe(false);
+    }
+  });
+
+  it('Organiser page: the page name (a clipped, truncating heading) carries its own line-height', async () => {
+    pages = [page('org-1', 'test org', 'owner')];
+    at(P3_PATHS.youPage);
+    const name = await screen.findByTestId('page-name');
+    expect(name.className).toMatch(/leading-\[(2[4-9]|3\d)px\]/);
+  });
+});
+
+describe('W4a fix 1 (c): Done in P3 is P3 and returns into P3', () => {
+  it.each(DONE_STATES)('Done after %s: P3 frame, and every button lands in P3', async (_n, state) => {
+    at({ pathname: P3_PATHS.youDone, state });
+    const done = await screen.findByTestId('org-done');
+    expect(done.closest('.p3-theme')).not.toBeNull();
+    const buttons = within(done).getAllByRole('button');
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const i of buttons.keys()) {
+      cleanup();
+      at({ pathname: P3_PATHS.youDone, state });
+      fireEvent.click(within(await screen.findByTestId('org-done')).getAllByRole('button')[i]);
+      await waitFor(() => expect(screen.queryByTestId('org-done')).toBeNull());
+      expect(screen.queryByTestId('where'), 'an R1 path').toBeNull();
+      expect(screen.getByTestId('p3-shell')).toBeTruthy();
+    }
+  });
+
+  it('Done in P3 says where its second button goes: back to You, not R1 Home', async () => {
+    at({ pathname: P3_PATHS.youDone, state: DONE_STATES[1][1] });
+    const home = await screen.findByTestId('org-done-home');
+    expect(home.textContent).toBe('Back to You');
+    fireEvent.click(home);
+    expect(await screen.findByTestId('p3-you-page-name')).toBeTruthy();
+  });
+
+  it('a reload of P3 Done (no router state) goes to You, not R1 Home', async () => {
+    at(P3_PATHS.youDone);
+    expect(await screen.findByTestId('p3-you-page-name')).toBeTruthy();
+  });
+
+  it.each([
+    ['Remove', 'person-remove', 'person-remove-yes', 'remove_organiser_member_v1'],
+    ['Make Manager', 'person-make-manager', null, 'organiser_team_set_member_v1'],
+  ] as const)('%s from P3 Person lands on P3 Done, primary back to P3 Team', async (_n, open, confirm, rpc) => {
+    members = [ME('owner'), member('tom', 'contributor', { display_name: 'Tom Okafor' })];
+    at(P3_PATHS.youTeamPerson('tom'));
+    fireEvent.click(await screen.findByTestId(open));
+    if (confirm) fireEvent.click(screen.getByTestId(confirm));
+    const done = await screen.findByTestId('org-done');
+    expect(sent).toContain(rpc);
+    expect(done.closest('[data-testid="p3-shell"]')).not.toBeNull();
+    fireEvent.click(screen.getByTestId('org-done-back'));
+    expect(await screen.findAllByTestId('team-member')).not.toHaveLength(0);
+  });
+
+  it('Hand over from P3 lands on P3 Done', async () => {
+    members = [ME('owner'), member('pri', 'manager', { display_name: 'Priya Sharma' })];
+    at(P3_PATHS.youHandoverTo('pri'));
+    fireEvent.click(await screen.findByTestId('handover-send'));
+    const done = await screen.findByTestId('org-done');
+    expect(done.closest('[data-testid="p3-shell"]')).not.toBeNull();
   });
 });

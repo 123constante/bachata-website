@@ -68,7 +68,7 @@ function useSavedSignal(keys: ReadonlyArray<readonly unknown[]>, seeded: Readonl
  */
 export function useOwnPage() {
   const navigate = useNavigate();
-  const { pageDoneBack } = useOrgSurface();
+  const { pageDoneBack, paths } = useOrgSurface();
   const queryClient = useQueryClient();
   const { user, home, organisers, selected, choose } = useOrganiserChoice();
   const [bridge, setBridge] = useState<EipBridge | null>(null);
@@ -112,8 +112,8 @@ export function useOwnPage() {
     pending.current = null;
     if (!bridge || hasDrafts(bridge)) return;
     // A tick later, or the layer's leave guard would still see the old drafts.
-    window.setTimeout(() => goDone(navigate, { title: 'Saved', message: 'Saved', seriesId: null }, pageDoneBack), 0);
-  }, [bridge, navigate, pageDoneBack]);
+    window.setTimeout(() => goDone(navigate, { title: 'Saved', message: 'Saved', seriesId: null }, pageDoneBack, paths.done), 0);
+  }, [bridge, navigate, pageDoneBack, paths.done]);
 
   const layer: ReactNode = id && entity.data ? (
     <Suspense fallback={null}>

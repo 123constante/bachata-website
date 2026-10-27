@@ -52,13 +52,13 @@ export default function Person() {
     mutationFn: () => removeOrganiserMember(organiser!.id, userId),
     onSuccess: () => {
       refresh();
-      goDone(navigate, { title: 'Removed', message: 'Removed from the team', seriesId: null, next: member?.displayName ? paths.teamAddFor(member.displayName) : paths.teamAdd, nextLabel: 'Add them back' }, doneBack);
+      goDone(navigate, { title: 'Removed', message: 'Removed from the team', seriesId: null, next: member?.displayName ? paths.teamAddFor(member.displayName) : paths.teamAdd, nextLabel: 'Add them back' }, doneBack, paths.done);
     },
     onError: (e) => setError(teamErrorMessage(e)),
   });
   const promote = useMutation({
     mutationFn: () => setTeamMember(organiser!.id, member!.email ?? '', 'manager'),
-    onSuccess: () => { refresh(); goDone(navigate, { title: 'Role changed', message: `${memberShortName(member!)} is a Manager`, seriesId: null }, doneBack); },
+    onSuccess: () => { refresh(); goDone(navigate, { title: 'Role changed', message: `${memberShortName(member!)} is a Manager`, seriesId: null }, doneBack, paths.done); },
     onError: (e) => setError(teamErrorMessage(e)),
   });
 
