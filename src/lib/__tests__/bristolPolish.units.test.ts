@@ -5,7 +5,8 @@
  * a city with no display name (null slug) and 0 / 1 / many rows.
  */
 import { describe, expect, it } from 'vitest';
-import { cityHasNoRows, resolvePageCity, rowsForCity } from '@/lib/pageCity';
+import { resolvePageCity } from '@/lib/pageCity';
+import { cityHasNoRows, rowsForCity } from '@/lib/pageCityRows';
 import { cityBounds, cityCentre } from '@/lib/cityCentre';
 import { normalizeInstagramHandle } from '@/lib/instagramHandle';
 import { buildSeoForRoute } from '@/lib/seo/buildSeoForRoute';

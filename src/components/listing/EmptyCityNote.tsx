@@ -13,6 +13,7 @@
 import { Suspense, useState, type ReactNode } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { ListingSection } from '@/lib/featureFlags';
+import { listingSourceUrl } from '@/components/listingSourceUrl';
 
 // Through ComingSoonGate, not the form's own module: see the re-export there.
 const ListingRequestForm = lazyWithRetry(() =>
@@ -77,7 +78,10 @@ export default function EmptyCityNote({
       {open && (
         <div className="mt-3 rounded-md bg-white p-3">
           <Suspense fallback={<p className="text-sm text-slate-600">Loading&hellip;</p>}>
-            <ListingRequestForm section={section} citySlug={citySlug} />
+            <ListingRequestForm
+              section={section}
+              getSourceUrl={() => listingSourceUrl(window.location.pathname, window.location.search, citySlug)}
+            />
           </Suspense>
         </div>
       )}
