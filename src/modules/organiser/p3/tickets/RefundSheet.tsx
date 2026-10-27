@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { refundOrder } from '../../tickets/ticketsApi';
-import { NOT_SWITCHED_ON, dayWord, orderLine, orderTag, refundQuestion, type Order } from '../../tickets/ticketModel';
+import { NOT_SWITCHED_ON, buyerNameOf, dayWord, orderLine, orderTag, refundQuestion, type Order } from '../../tickets/ticketModel';
 import { TONE_CLASS, p3Reason } from './model';
 import { StackSheet } from './StackSheet';
 
@@ -46,10 +46,12 @@ export function RefundSheet({
     onStart();
     const out = await refundOrder(order.id);
     onSettled();
-    // Closed before the answer: another order's sheet may be open now, so never close it (review r1 F2).
-    if (out.kind === 'ok') return alive.current ? onDone('Refund started.') : onLate('Refund started.', true);
+    // Closed before the answer: another order's sheet may be open now, so never close it (review r1 F2),
+    // and the late words name this order, so they never read as the open one's (review r2 R2).
+    const whose = `${buyerNameOf(order)}'s order`;
+    if (out.kind === 'ok') return alive.current ? onDone('Refund started.') : onLate(`Refund started for ${whose}.`, true);
     const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : p3Reason(out.reason);
-    if (!alive.current) return onLate(text, false);
+    if (!alive.current) return onLate(`Refund for ${whose} did not start. ${text}`, false);
     setBusy(false);
     setNote(text);
   };

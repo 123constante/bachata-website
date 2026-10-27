@@ -42,7 +42,8 @@ export interface TypeSheetProps {
   /** inFlight: closed while a save was still running (the parent drops the draft so it cannot be sent twice). */
   onClose: (inFlight: boolean) => void;
   /** An answer that arrives after the sheet was closed (landed = saved): the parent shows it. */
-  onLate: (text: string, landed: boolean) => void;
+  /** `savedTypeId`: a write to this type landed, so its row's old switch reason is stale (review r2 R4). */
+  onLate: (text: string, landed: boolean, savedTypeId?: string) => void;
   /** Saved (or nothing to save, changed=false): the parent drops the draft and says the words. */
   onSaved: (announcement: string, changed: boolean) => void;
 }
@@ -60,10 +61,16 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const [confirmClose, setConfirmClose] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
-  /** A refusal shows in the sheet, or as a toast once the sheet is gone. */
-  const refuse = (text: string) => (alive.current ? setServerError(text) : onLate(text, false));
-  /** A save that lands after the sheet closed never touches the sheet open now (review r1 F1). */
-  const landed = (text: string) => (alive.current ? onSaved(text, true) : onLate(text, true));
+  /** Late words name the ticket as the list shows it (a new one by its typed name), so they never read as the sheet open now (review r2 R2). */
+  const named = (text: string) => `"${type?.name ?? (form.name.trim() || 'New ticket')}": ${text}`;
+  /** A refusal shows in the sheet, or as an alert once the sheet is gone. */
+  const refuse = (text: string, lead = 'not saved.') => (alive.current ? setServerError(text) : onLate(named(`${lead} ${text}`), false));
+  /**
+   * A save that lands after the sheet closed never touches the sheet open now (review r1 F1).
+   * `whole: false` is a save whose second half was refused (saved, not on sale): late, an alert.
+   */
+  const landed = (text: string, whole = true, lateText = named(text)) =>
+    alive.current ? onSaved(text, true) : onLate(lateText, whole, type?.id);
   const id = useId();
   const locked = editLock(type, ctx.role);
   const lockedPrice = priceLock(hasOrders);
@@ -113,7 +120,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       if (!sell) return landed('Ticket saved as a draft. Switch it to Selling when you are ready.');
       if (!out.id) return landed('Ticket saved as a draft. Switch it to Selling to put it on sale.');
       const st = await setTicketStatus(out.id, 'on_sale').catch(() => ({ ok: false, reason: null }));
-      landed(st.ok ? 'Ticket added and on sale.' : `Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`);
+      if (st.ok) landed('Ticket added and on sale.');
+      else landed(`Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`, false);
     } catch {
       refuse(p3Reason(null));
     } finally {
@@ -127,10 +135,10 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     setServerError(null);
     try {
       const out = await setTicketStatus(type.id, 'closed');
-      if (out.ok) landed(`${type.name}: sales closed.`);
-      else refuse(p3Reason(out.reason));
+      if (out.ok) landed(`${type.name}: sales closed.`, true, named('sales closed.'));
+      else refuse(p3Reason(out.reason), 'sales not closed.');
     } catch {
-      refuse(p3Reason(null));
+      refuse(p3Reason(null), 'sales not closed.');
     } finally {
       if (alive.current) setSaving(null);
     }
@@ -200,7 +208,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       full
       title={type ? 'Edit ticket' : 'Add a ticket'}
       onClose={() => onClose(saving !== null)}
-      onEscape={confirmClose ? () => setConfirmClose(false) : undefined}
+      // Mid-close, Escape leaves "Closing..." in place: the block must not claim nothing is running (review r2 R5).
+      onEscape={confirmClose ? () => { if (!busy) setConfirmClose(false); } : undefined}
       viewKey={String(step)}
       onBack={step > 1 && !saving ? () => patch({ step: (step - 1) as Step }) : undefined}
       testId="tix-sheet"
@@ -308,7 +317,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
                   <>
                     <p className="p3-row-t p3-plain">Close sales for good? Nobody can buy this ticket again. Cannot be undone.</p>
                     <div className="p3-pair">
-                      <button type="button" className="p3-btn p3-btn-line" onClick={() => setConfirmClose(false)} data-testid="tix-close-keep">Keep selling</button>
+                      <button type="button" className="p3-btn p3-btn-line" onClick={() => setConfirmClose(false)} disabled={busy} data-testid="tix-close-keep">Keep selling</button>
                       <button type="button" className="p3-btn p3-btn-danger" onClick={() => void closeForGood()} disabled={busy} data-testid="tix-close-confirm">
                         {saving === 'close' ? 'Closing\u2026' : 'Close sales'}
                       </button>

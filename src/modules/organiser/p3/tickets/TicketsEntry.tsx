@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
@@ -91,9 +91,14 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const [moving, setMoving] = useState<ReadonlySet<string>>(new Set());
   const [moveError, setMoveError] = useState<ReadonlyMap<string, string>>(new Map());
   // A refusal that lands after its sheet closed is an alert that stays until dismissed (review r1 F3).
-  const [toast, setToast] = useState<{ text: string; alert: boolean } | null>(null);
-  const say = useCallback((text: string) => setToast({ text, alert: false }), [setToast]);
-  const closeToast = useCallback(() => setToast(null), [setToast]);
+  // Alerts are their own queue: a status toast never clears one, and two stay readable (review r2 R1).
+  // Each toast carries a fresh id: the same words said twice are a new node with a new timer.
+  const [status, setStatus] = useState<{ id: number; text: string } | null>(null);
+  const [alerts, setAlerts] = useState<ReadonlyArray<{ id: number; text: string }>>([]);
+  const toastSeq = useRef(0);
+  const say = useCallback((text: string) => setStatus({ id: ++toastSeq.current, text }), [setStatus]);
+  const closeStatus = useCallback(() => setStatus(null), [setStatus]);
+  const dismiss = (id: number) => setAlerts((a) => a.filter((x) => x.id !== id));
 
   const types = useSeriesTypes(org.id, series.id);
   const list = types.data ?? [];
@@ -125,10 +130,17 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   /**
    * An outcome that lands after its sheet closed (review r1 F1, F2): it never touches the sheet
    * or draft open NOW. A success says so and refreshes; a refusal stays on screen as an alert.
+   * The sheet names its subject in the late text (review r2 R2), so it never reads as the open one's.
    */
-  const late = (text: string, landed: boolean) => {
-    setToast({ text, alert: !landed });
-    if (landed) void refresh().then(refocusTop);
+  const late = (text: string, landed: boolean, savedTypeId?: string) => {
+    if (savedTypeId) setMoveError((m) => without(m, savedTypeId));
+    if (!landed) {
+      const id = ++toastSeq.current;
+      setAlerts((a) => [...a, { id, text }]);
+      return;
+    }
+    say(text);
+    void refresh().then(refocusTop);
   };
 
   const openEditor = (type: TicketType | null) => {
@@ -328,11 +340,13 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           }}
           onLate={late}
           onSaved={(text, changed) => {
+            // Only the saved type's switch reason is stale; another row's refusal stays (review r2 R4).
+            const saved = editing.type?.id;
             setEditing(null);
             setDraft(null);
             say(text);
             if (changed) {
-              setMoveError(new Map());
+              if (saved) setMoveError((m) => without(m, saved));
               void refresh();
             }
           }}
@@ -354,10 +368,27 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           }}
         />
       )}
-      {toast && <TicketToast text={toast.text} alert={toast.alert} onClose={closeToast} />}
+      {/*
+        Rendered after the sheets, outside their aria-modal dialogs (review r2 R6, kept): the
+        alert is announced as a live region and Tab reaches Dismiss (no focus trap), but a screen
+        reader that confines browse mode to the dialog reaches Dismiss only once the sheet closes.
+        Each toast is its own node, keyed, so an alert is never a status node changing role (R7).
+      */}
+      {(status !== null || alerts.length > 0) && (
+        <div className="p3-toast-stack">
+          {alerts.map((a) => <TicketToast key={`alert-${a.id}`} text={a.text} alert onClose={() => dismiss(a.id)} />)}
+          {status !== null && <TicketToast key={`status-${status.id}`} text={status.text} alert={false} onClose={closeStatus} />}
+        </div>
+      )}
     </>
   );
 }
+
+const without = <V,>(m: ReadonlyMap<string, V>, k: string) => {
+  const n = new Map(m);
+  n.delete(k);
+  return n;
+};
 
 function TicketToast({ text, alert, onClose }: { text: string; alert: boolean; onClose: () => void }) {
   useEffect(() => {
@@ -366,7 +397,7 @@ function TicketToast({ text, alert, onClose }: { text: string; alert: boolean; o
     return () => window.clearTimeout(t);
   }, [text, alert, onClose]);
   return (
-    <div className="p3-toast p3-toast-top" role={alert ? 'alert' : 'status'} data-testid="tix-toast">
+    <div className="p3-toast" role={alert ? 'alert' : 'status'} data-testid="tix-toast">
       <span>{text}</span>
       {alert && <button type="button" className="p3-link p3-toast-act" onClick={onClose} data-testid="tix-toast-dismiss">Dismiss</button>}
     </div>

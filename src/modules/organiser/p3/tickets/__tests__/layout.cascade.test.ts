@@ -7,6 +7,10 @@ import { describe, expect, it } from 'vitest';
  * A small resolver over theme/p3.css: descendant selectors of tag.class compounds, the winner
  * by specificity then source order (rules with pseudo-classes or attributes are left out).
  * D1 was exactly this: a three-class `display: inline` beat the two-class `.p3-block`.
+ *
+ * What it CANNOT see (review r2 R8): `!important`, a longhand against a shorthand (a later
+ * `padding-top` against `padding`), and any rule with `:`, `[`, `>`, `+`, `~` or `*`. The two
+ * raw-text checks at the end close the first two for the rules this file pins.
  */
 const css = readFileSync(join(__dirname, '..', '..', 'theme', 'p3.css'), 'utf8')
   .replace(/\r\n/g, '\n')
@@ -83,5 +87,16 @@ describe('P3 ticketing layout in the cascade (review r1 D1 to D5)', () => {
     expect(src('GetPaid.tsx')).toContain('<span className="p3-stat-n p3-money">{formatPence(t.grossPence)}</span>');
     const money = [THEME, 'div.p3-pair', 'div.p3-card.p3-stat', 'span.p3-stat-n.p3-money'];
     expect([resolve(money, 'font-size'), resolve(money, 'overflow-wrap')]).toEqual(['22px', 'anywhere']);
+  });
+
+  it('R1: toasts stack in one fixed column above the sheets, each toast in the flow', () => {
+    expect([resolve([THEME, 'div.p3-toast-stack'], 'position'), resolve([THEME, 'div.p3-toast-stack'], 'z-index')]).toEqual(['fixed', '90']);
+    expect(resolve([THEME, 'div.p3-toast-stack', 'div.p3-toast'], 'position')).toBe('static');
+  });
+
+  it('R8: what the resolver cannot see is not there: no !important, no longhand re-pad of a date button', () => {
+    expect(css).not.toContain('!important');
+    const datePad = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => m[1].includes('.p3-date-btn') && /padding-(top|bottom)/.test(m[2]));
+    expect(datePad.map((m) => m[1].trim())).toEqual([]);
   });
 });
