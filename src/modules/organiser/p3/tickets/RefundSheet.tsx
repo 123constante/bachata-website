@@ -38,14 +38,17 @@ export function RefundSheet({
   return (
     <StackSheet
       title={q.title}
-      onClose={onClose}
+      onClose={() => {
+        // A refund in flight answers here: closing now would lose a refusal and allow a second tap.
+        if (!busy) onClose();
+      }}
       testId="tix-refund-sheet"
       footer={
         <div className="p3-stack-s">
           <button type="button" className="p3-btn p3-btn-danger" onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="tix-refund-confirm">
-            {busy ? 'Refunding…' : q.confirm}
+            {busy ? 'Refunding\u2026' : q.confirm}
           </button>
-          <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-testid="tix-refund-cancel">Keep the order</button>
+          <button type="button" className="p3-btn p3-btn-line" onClick={onClose} disabled={busy} data-sheet-autofocus data-testid="tix-refund-cancel">Keep the order</button>
         </div>
       }
     >
@@ -53,7 +56,7 @@ export function RefundSheet({
         <p className="p3-row-t p3-plain" data-testid="tix-refund-body">{q.body}</p>
         <div className="p3-card p3-inset" data-testid="tix-refund-order">
           <div className="p3-row-s">Order</div>
-          <div className="p3-row-t">{orderLine({ ...order, paidAt: null }, today)}{typeName ? ` · ${typeName}` : ''}</div>
+          <div className="p3-row-t">{orderLine({ ...order, paidAt: null }, today)}{typeName ? ` \u00B7 ${typeName}` : ''}</div>
           <div className="p3-row-tags">
             <span className={TONE_CLASS[tag.tone]} data-testid="tix-refund-order-tag">{tag.label}{day ? ` ${day}` : ''}</span>
           </div>

@@ -12,3 +12,53 @@ Branch `claude/p3-wt-ticketing`. Brief `brief/p3-wt-ticketing`.
 1. Owner picks A, B or C (and OKs the two copy changes in the design doc).
 2. Prod shape survey (SELECT only), then build per the brief's Phase B list.
 3. Delete old `/account/tickets` in the same PR series once the walk passes.
+
+---
+
+# Phase B (build), 2026-10-27, owner pick C "one tall sheet"
+
+Brief `docs/briefs/p3-wt-ticketing-phase-b.md` on `brief/p3-wt-ticketing`. PR #1079 (draft).
+
+## Done
+- Prod shape survey (read-only, counts): table in the PR body; fixtures in
+  `src/modules/organiser/p3/tickets/__tests__/fixtures.ts`.
+- New module `src/modules/organiser/p3/tickets/` (behind `organiserP3` + `organiserTicketing`):
+  - `TicketsEntry.tsx`: the event page Tickets row (word, detail, chip) opening ONE tall
+    sheet: types with the Selling switch, the latest 2 orders, "See all N orders" (an
+    orders view in the same layer, with Back), Add a ticket in the footer.
+  - `TypeSheet.tsx` (add / edit, 3 steps) and `RefundSheet.tsx` (with an order summary)
+    open OVER the tall sheet through `StackSheet.tsx` (only the top layer hears Escape
+    and its scrim; lower layers are inert; closing a layer focuses the control that
+    opened it).
+  - `GetPaid.tsx`: You > Get paid screen (route `you/get-paid`), You's Get paid row,
+    Home's ONE Get paid prompt, Home's tickets-sold tile.
+  - `model.ts`: the P3 layer over `tickets/ticketModel.ts` (reused unchanged): the
+    approved copy swap (`p3Words`: "Tickets home" -> "You > Get paid"), the Home prompt
+    title, the one tone -> P3 tag class map, the Tickets row, the order preview, the held
+    draft.
+- Defects folded in: the add / edit draft is held by `TicketsEntry` (above every sheet);
+  the order state tag is always shown and Refund is a separate button.
+- Wiring: `EventPage.tsx` (+1 line), `HomeScreen.tsx` (+2 lines), `P3Routes.tsx` (the
+  you route line -> `{youRoutes()}`), CSS appended to `theme/p3.css` (no new tokens).
+- **W4a merge point:** `src/modules/organiser/p3/shell/youTickets.tsx` is the ONLY You
+  wiring. W4a replaces `YouScreen` with its hub and mounts `<GetPaidRow />` as a row;
+  the `you/get-paid` route stays.
+
+## Deleting old `/account/tickets` (NOT done; after the walk passes)
+Touches:
+- `src/components/AnimatedRoutes.tsx`: the `OrganiserTicketsArea` lazy import and the
+  `flags.organiserTicketing && flags.organiserSelfServe` route block.
+- `src/components/catchallClientPaths.ts`: `'/account/tickets/*'`.
+- `src/modules/organiser/tickets/`: `TicketRoutes.tsx`, `TicketsHome.tsx`,
+  `SeriesTickets.tsx`, `TypeSheet.tsx`, `RefundSheet.tsx`, `parts.tsx`, `paths.ts`, and
+  tests `__tests__/screens.matrix.test.tsx`, `__tests__/flagOff.test.ts`.
+  KEEP `ticketModel.ts`, `ticketsApi.ts` and their tests (`ticketModel.matrix`,
+  `compact.model`, `ticketsApi.wire`): P3 reuses them.
+- Then the copy swap can move into `ticketModel.ts` (moveBlock + `organiser_not_onboarded`
+  say "You > Get paid") and `p3Words` / `OLD_PAYMENTS_WHERE` go; the two small facts
+  duplicated from `SeriesTickets.tsx` / `parts.tsx` (`hasOrdersOf`, `eventDateLine` in
+  `p3/tickets/model.ts`) become the only copies.
+- Any Stripe onboarding link minted by the old screens returns to `/account/tickets?...`;
+  after deletion that lands on NotFound (flag is off in prod, test accounts only).
+- Docs that name the old route: `docs/organiser-ticketing-journey.md`,
+  `docs/handover/ticketing-organiser-ui.md`.

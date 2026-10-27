@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { SHAPES } from './fixtures';
 import { dataMock, load, pending, q, show, ok } from './harness';
 
@@ -73,7 +73,7 @@ describe('stacked sheets', () => {
     const refund = within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund');
     tap(refund);
     expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
-    expect(screen.getByTestId('tix-refund-order').textContent).toContain('2 × £12.50');
+    expect(screen.getByTestId('tix-refund-order').textContent).toContain('2 \u00D7 \u00A312.50');
     fireEvent.click(screen.getByTestId('tix-refund-cancel'));
     expect(layers()).toEqual(['tix-tall']);
     expect(document.activeElement).toBe(refund);
@@ -172,5 +172,77 @@ describe('the add-ticket draft is held above the sheets (defect fix, red-first)'
     fireEvent.click(within(screen.getByTestId('tix-type-t-out')).getByTestId('tix-edit'));
     expect((screen.getByTestId('tix-form-name') as HTMLInputElement).value).toBe('Early bird');
     expect(screen.getByTestId('tix-sheet').querySelector('h3')?.textContent).toBe('Edit ticket');
+  });
+});
+
+describe('focus inside a layer, and no close while a write is in flight (review round 1)', () => {
+  beforeEach(() => load(SHAPES.selling));
+
+  it('the add sheet opens on Name, step 2 on Places, Back lands inside the sheet (never on Close, never on body)', () => {
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(screen.getByTestId('tix-add'));
+    expect(document.activeElement).toBe(screen.getByTestId('tix-form-name'));
+    fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Door' } });
+    tap(screen.getByTestId('tix-next'));
+    expect(document.activeElement).toBe(screen.getByTestId('tix-form-capacity'));
+    tap(screen.getByTestId('tix-sheet-back'));
+    expect(document.activeElement).toBe(screen.getByTestId('tix-form-name'));
+  });
+
+  it('the Refund sheet opens on Keep the order, not on the money button', () => {
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
+    expect(document.activeElement).toBe(screen.getByTestId('tix-refund-cancel'));
+  });
+
+  it('a refund in flight cannot be dismissed; its refusal is shown', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.refundOrder.mockReturnValue(new Promise((r) => { answer = r; }));
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
+    fireEvent.click(screen.getByTestId('tix-refund-confirm'));
+    expect((screen.getByTestId('tix-refund-cancel') as HTMLButtonElement).disabled).toBe(true);
+    esc();
+    fireEvent.click(screen.getByTestId('tix-refund-sheet-close'));
+    expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
+    answer({ kind: 'failed', reason: null });
+    expect((await screen.findByTestId('tix-refund-note')).textContent).toBe('That did not work. Try again in a moment.');
+    expect(api.refundOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('a save in flight cannot be dismissed, so the held draft cannot be saved twice', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.upsertTicketType.mockReturnValue(new Promise((r) => { answer = r; }));
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    tap(screen.getByTestId('tix-add'));
+    toReview();
+    fireEvent.click(screen.getByTestId('tix-save'));
+    esc();
+    expect(layers()).toEqual(['tix-tall', 'tix-sheet']);
+    expect(screen.queryByTestId('tix-sheet-back')).toBeNull();
+    answer({ ok: true, reason: null, id: 'x' });
+    expect(await screen.findByTestId('tix-toast')).toBeTruthy();
+    expect(api.upsertTicketType).toHaveBeenCalledTimes(1);
+  });
+
+  it('two switches tapped quickly each stay busy until their own answer', async () => {
+    const answers: Array<(v: unknown) => void> = [];
+    api.setTicketStatus.mockImplementation(() => new Promise((r) => answers.push(r)));
+    load(SHAPES.survey);
+    show(<TicketsEntry seriesId="ser-1" />);
+    tap(screen.getByTestId('tix-row'));
+    const sw = (id: string) => within(screen.getByTestId(`tix-type-${id}`)).getByTestId('tix-switch') as HTMLButtonElement;
+    fireEvent.click(sw('t-free'));
+    fireEvent.click(sw('t-paid'));
+    expect([sw('t-free').disabled, sw('t-paid').disabled]).toEqual([true, true]);
+    answers[0]({ ok: false, reason: 'bad_transition' });
+    expect(await screen.findByTestId('tix-move-error')).toBeTruthy();
+    expect([sw('t-free').disabled, sw('t-paid').disabled]).toEqual([false, true]);
+    answers[1]({ ok: false, reason: 'bad_transition' });
+    await waitFor(() => expect(screen.getAllByTestId('tix-move-error')).toHaveLength(2));
   });
 });

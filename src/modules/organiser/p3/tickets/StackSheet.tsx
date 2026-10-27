@@ -15,11 +15,14 @@ const subscribe = (f: () => void) => {
   return () => subs.delete(f);
 };
 const topOf = () => stack[stack.length - 1] ?? null;
+/** Each layer's scrim, so a closing layer can lift inert from the layer that is top again. */
+const scrims = new Map<string, HTMLElement & { inert: boolean }>();
 
 export function StackSheet({
   title,
   onClose,
   onBack,
+  viewKey,
   full,
   footer,
   children,
@@ -29,6 +32,8 @@ export function StackSheet({
   onClose: () => void;
   /** An inner view of this same layer (Orders, a step): Back goes there, never closes the layer. */
   onBack?: () => void;
+  /** Changes with the layer's view or step: focus moves into the new view. */
+  viewKey?: string;
   full?: boolean;
   footer?: ReactNode;
   children: ReactNode;
@@ -41,21 +46,33 @@ export function StackSheet({
   const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
   const top = useSyncExternalStore(subscribe, topOf, topOf) === id;
   const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  useLayoutEffect(() => {
+    closeRef.current = onClose;
+  });
 
   useLayoutEffect(() => {
+    if (scrim.current) scrims.set(id, scrim.current as HTMLElement & { inert: boolean });
     stack = [...stack, id];
     emit();
     const back = opener.current;
     return () => {
       stack = stack.filter((s) => s !== id);
+      scrims.delete(id);
+      // The layer that is top again must not be inert when focus goes back into it
+      // (its own effect only runs after the next render; a browser refuses focus on inert).
+      const now = topOf();
+      const under = now ? scrims.get(now) : undefined;
+      if (under) under.inert = false;
       emit();
       if (back && back.isConnected) back.focus();
     };
   }, [id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (scrim.current) (scrim.current as HTMLElement & { inert: boolean }).inert = !top;
+  }, [top]);
+
+  useEffect(() => {
     if (!top) return;
     const esc = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && topOf() === id) {
@@ -67,13 +84,20 @@ export function StackSheet({
     return () => document.removeEventListener('keydown', esc);
   }, [top, id]);
 
-  // Focus the first control on open and on each new view of the layer (title changes with the view).
+  // Focus on open and on each new view or step: the marked control, else the body's first
+  // control, else the footer's, never the header's Close first.
+  const shownView = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!top) return;
     const el = box.current;
-    if (!el || el.contains(document.activeElement)) return;
-    el.querySelector<HTMLElement>('[data-sheet-autofocus], button:not([disabled])')?.focus();
-  }, [top, title]);
+    // A new view or step always takes focus; otherwise only when focus is not already inside.
+    const moved = shownView.current !== `${title}|${viewKey ?? ''}`;
+    shownView.current = `${title}|${viewKey ?? ''}`;
+    if (!el || (!moved && el.contains(document.activeElement))) return;
+    const pick = (sel: string) => el.querySelector<HTMLElement>(sel);
+    const ctl = 'button:not([disabled]), input:not([disabled])';
+    (pick('[data-sheet-autofocus]:not([disabled])') ?? pick(`.p3-sheet-body :is(${ctl})`) ?? pick(`.p3-sheet-foot :is(${ctl})`) ?? pick(ctl))?.focus();
+  }, [top, title, viewKey]);
 
   return (
     <div

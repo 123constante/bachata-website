@@ -24,11 +24,11 @@ afterEach(cleanup);
 
 const ROW: Record<ShapeKey, [string, string]> = {
   bare: ['No tickets', 'Add a ticket'],
-  survey: ['Not selling', 'Paused · 2 sold'],
-  selling: ['Selling', '34 sold · 26 left of 60'],
-  started: ['Not selling', 'Not on sale yet · 0 sold'],
-  closed: ['No tickets', 'Add a ticket'],
-  past: ['Not selling', 'Paused · 4 sold'],
+  survey: ['Not selling', 'Paused \u00B7 2 sold'],
+  selling: ['Selling', '34 sold \u00B7 26 left of 60'],
+  started: ['Not selling', 'Not on sale yet \u00B7 0 sold'],
+  closed: ['No tickets', '3 sold'],
+  past: ['Not selling', 'Paused \u00B7 4 sold'],
   contributor: ['Selling', '26 left of 40'],
 };
 
@@ -42,7 +42,7 @@ describe.each(SHAPE_KEYS)('shape %s', (k) => {
   it('the row: chip and detail', () => {
     show(<TicketsEntry seriesId="ser-1" />);
     expect(screen.getByTestId('tix-row-chip').textContent).toBe(ROW[k][0]);
-    expect(screen.getByTestId('tix-row-detail').textContent).toBe(` · ${ROW[k][1]}`);
+    expect(screen.getByTestId('tix-row-detail').textContent).toBe(` \u00B7 ${ROW[k][1]}`);
   });
 
   it('the sheet: rules line, one row per type, the read-only note only for a contributor', () => {

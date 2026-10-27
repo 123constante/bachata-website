@@ -229,7 +229,7 @@
 .p3-theme .p3-btn-sm { width: auto; min-width: 88px; padding: 0 12px; flex: none; }
 .p3-theme .p3-pad { margin: 0; padding: 12px; }
 /* W-T ticketing (mockup C): the tall Tickets sheet, sheets stacked over it, the add-ticket steps, the Selling switch, Get paid */
-.p3-theme .p3-sheet-full { height: 94vh; max-height: 94vh; }
+.p3-theme .p3-sheet-full { height: 94vh; max-height: 94vh; height: 94dvh; max-height: 94dvh; }
 .p3-theme .p3-sheet-body { flex: 1; min-height: 0; }
 .p3-theme .p3-sheet-foot { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom, 0px)); margin: 0 -16px calc(-16px - env(safe-area-inset-bottom, 0px)); padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--sheet); border-top: 1px solid var(--line); }
 .p3-theme .p3-sheet-foot .p3-btn { width: 100%; }

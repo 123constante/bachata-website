@@ -33,7 +33,7 @@ import { fullDate } from '../../shared/dateWords';
 
 /** The shipped words name the old Tickets home, which P3 does not have. */
 export const OLD_PAYMENTS_WHERE = 'Connect payments on your Tickets home before selling paid tickets.';
-export const PAYMENTS_WHERE = 'Connect payments in You › Get paid before selling paid tickets.';
+export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
 /** Every ticketing line a P3 screen shows passes through here, so no line points at a screen P3 has not got. */
 export const p3Words = <T extends string | null>(text: T): T => (text === OLD_PAYMENTS_WHERE ? (PAYMENTS_WHERE as T) : text);
 export const p3MoveBlock = (...args: Parameters<typeof moveBlock>): string | null => p3Words(moveBlock(...args));
@@ -61,7 +61,7 @@ export const TONE_CLASS: Record<StatusTone, string> = {
 
 export interface TicketsRowView {
   chip: { label: string; tone: StatusTone };
-  /** The second half of the row: "34 sold · 26 left of 70", "Paused · 14 sold", "Add a ticket". */
+  /** The second half of the row, for example "34 sold, 26 left of 70" or "Paused, 14 sold" (dot-separated), or "Add a ticket". */
   detail: string;
 }
 
@@ -83,14 +83,15 @@ export const ticketsRowOf = (
   const soldN = sold ? types.reduce((n, t) => n + (sold.get(t.id) ?? 0), 0) : null;
   const soldWord = soldN === null ? null : `${formatCount(soldN)} sold`;
   if (sale === 'none') {
-    if (why === NOT_MANAGER) return { chip, detail: soldWord && soldN ? soldWord : 'None yet' };
-    return { chip, detail: why ?? 'Add a ticket' };
+    // Sales on closed tickets are a fact for every role; then what the person can do.
+    if (soldWord && soldN) return { chip, detail: soldWord };
+    return { chip, detail: why === NOT_MANAGER ? 'None yet' : why ?? 'Add a ticket' };
   }
   if (sale === 'not_selling') {
     const word = types.some((t) => t.status === 'paused') ? 'Paused' : 'Not on sale yet';
-    return { chip, detail: [word, soldWord].filter(Boolean).join(' · ') };
+    return { chip, detail: [word, soldWord].filter(Boolean).join(' \u00B7 ') };
   }
-  return { chip, detail: [soldWord, eventLeftLine(types)].filter(Boolean).join(' · ') };
+  return { chip, detail: [soldWord, eventLeftLine(types)].filter(Boolean).join(' \u00B7 ') };
 };
 
 // ---- Orders: the latest two in the sheet, every one behind See all ------------------

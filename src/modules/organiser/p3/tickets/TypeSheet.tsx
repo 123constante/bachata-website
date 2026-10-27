@@ -38,8 +38,8 @@ export interface TypeSheetProps {
   /** A one-off's start: the default "Sales close" for a new ticket (eventStartOf). */
   eventStart: string | null;
   onClose: () => void;
-  /** Saved (or nothing to save): the parent drops the draft and says the words. */
-  onSaved: (announcement: string) => void;
+  /** Saved (or nothing to save, changed=false): the parent drops the draft and says the words. */
+  onSaved: (announcement: string, changed: boolean) => void;
 }
 
 /**
@@ -88,7 +88,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     }
     const upsert = buildUpsert(form, type, { organiserId, seriesId });
     if (!upsert) {
-      onSaved('Nothing changed, so nothing was saved.');
+      onSaved('Nothing changed, so nothing was saved.', false);
       return;
     }
     setSaving(sell ? 'sell' : 'save');
@@ -98,11 +98,11 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
         setServerError(p3Reason(out.reason));
         return;
       }
-      if (type) return onSaved('Ticket saved.');
-      if (!sell) return onSaved('Ticket saved as a draft. Switch it to Selling when you are ready.');
-      if (!out.id) return onSaved('Ticket saved as a draft. Switch it to Selling to put it on sale.');
+      if (type) return onSaved('Ticket saved.', true);
+      if (!sell) return onSaved('Ticket saved as a draft. Switch it to Selling when you are ready.', true);
+      if (!out.id) return onSaved('Ticket saved as a draft. Switch it to Selling to put it on sale.', true);
       const st = await setTicketStatus(out.id, 'on_sale').catch(() => ({ ok: false, reason: null }));
-      onSaved(st.ok ? 'Ticket added and on sale.' : `Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`);
+      onSaved(st.ok ? 'Ticket added and on sale.' : `Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`, true);
     } catch {
       setServerError(p3Reason(null));
     } finally {
@@ -116,7 +116,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     setServerError(null);
     try {
       const out = await setTicketStatus(type.id, 'closed');
-      if (out.ok) onSaved(`${type.name}: sales closed.`);
+      if (out.ok) onSaved(`${type.name}: sales closed.`, true);
       else setServerError(p3Reason(out.reason));
     } catch {
       setServerError(p3Reason(null));
@@ -145,7 +145,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
 
   const saveChanges = (
     <button type="button" className="p3-btn" onClick={() => void submit(false)} disabled={busy} aria-busy={saving === 'save' || undefined} data-testid="tix-save">
-      {saving === 'save' ? 'Saving…' : 'Save changes'}
+      {saving === 'save' ? 'Saving\u2026' : 'Save changes'}
     </button>
   );
   let footer;
@@ -174,11 +174,11 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
           aria-busy={saving === 'sell' || undefined}
           data-testid="tix-sell"
         >
-          {saving === 'sell' ? 'Putting on sale…' : 'Put on sale'}
+          {saving === 'sell' ? 'Putting on sale\u2026' : 'Put on sale'}
         </button>
         {sellBlock && <p id={`${id}-sell`} className="p3-note" data-testid="tix-sell-reason">{sellBlock}</p>}
         <button type="button" className="p3-btn p3-btn-line" onClick={() => void submit(false)} disabled={busy} data-testid="tix-save">
-          {saving === 'save' ? 'Saving…' : 'Save as draft'}
+          {saving === 'save' ? 'Saving\u2026' : 'Save as draft'}
         </button>
       </>
     );
@@ -188,8 +188,12 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     <StackSheet
       full
       title={type ? 'Edit ticket' : 'Add a ticket'}
-      onClose={onClose}
-      onBack={step > 1 ? () => patch({ step: (step - 1) as Step }) : undefined}
+      onClose={() => {
+        // A save in flight finishes here: closing now would keep the draft and allow a second save.
+        if (!saving) onClose();
+      }}
+      viewKey={String(step)}
+      onBack={step > 1 && !saving ? () => patch({ step: (step - 1) as Step }) : undefined}
       testId="tix-sheet"
       footer={
         <div className="p3-stack-s">
@@ -297,7 +301,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
                     <div className="p3-pair">
                       <button type="button" className="p3-btn p3-btn-line" onClick={() => setConfirmClose(false)} data-testid="tix-close-keep">Keep selling</button>
                       <button type="button" className="p3-btn p3-btn-danger" onClick={() => void closeForGood()} disabled={busy} data-testid="tix-close-confirm">
-                        {saving === 'close' ? 'Closing…' : 'Close sales'}
+                        {saving === 'close' ? 'Closing\u2026' : 'Close sales'}
                       </button>
                     </div>
                   </>

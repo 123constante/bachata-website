@@ -50,11 +50,11 @@ describe('one tone map covers every tag ticketing shows', () => {
 /** Each shape's Tickets row: [chip, detail]. */
 const ROW: Record<ShapeKey, [string, string]> = {
   bare: ['No tickets', 'Add a ticket'],
-  survey: ['Not selling', 'Paused · 2 sold'],
-  selling: ['Selling', '34 sold · 26 left of 60'],
-  started: ['Not selling', 'Not on sale yet · 0 sold'],
-  closed: ['No tickets', 'Add a ticket'],
-  past: ['Not selling', 'Paused · 4 sold'],
+  survey: ['Not selling', 'Paused \u00B7 2 sold'],
+  selling: ['Selling', '34 sold \u00B7 26 left of 60'],
+  started: ['Not selling', 'Not on sale yet \u00B7 0 sold'],
+  closed: ['No tickets', '3 sold'],
+  past: ['Not selling', 'Paused \u00B7 4 sold'],
   contributor: ['Selling', '26 left of 40'],
 };
 

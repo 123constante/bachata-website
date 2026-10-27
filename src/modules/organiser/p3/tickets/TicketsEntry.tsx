@@ -78,10 +78,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [refunding, setRefunding] = useState<Order | null>(null);
-  const [moving, setMoving] = useState<string | null>(null);
-  const [moveError, setMoveError] = useState<{ id: string; text: string } | null>(null);
+  // Per ticket type: two switches tapped in quick succession each keep their own busy and error.
+  const [moving, setMoving] = useState<ReadonlySet<string>>(new Set());
+  const [moveError, setMoveError] = useState<ReadonlyMap<string, string>>(new Map());
   const [toast, setToast] = useState<string | null>(null);
-  const closeToast = useCallback(() => setToast(null), []);
+  const closeToast = useCallback(() => setToast(null), [setToast]);
 
   const types = useSeriesTypes(org.id, series.id);
   const list = types.data ?? [];
@@ -95,14 +96,20 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const sales = new Map<string, TypeSales>((summary.data?.ok ? summary.data.types : []).map((t) => [t.id, t]));
   const sold = summary.data?.ok ? new Map([...sales].map(([k, v]) => [k, v.ticketsSold])) : null;
   const why = addWhy(org.role, seriesLive);
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+  /** This event's types and orders, and this page's sales summary: what a write here can change. */
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ticketKeys.types(org.id, series.id) }),
+      queryClient.invalidateQueries({ queryKey: ticketKeys.orders(org.id, series.id) }),
+      queryClient.invalidateQueries({ queryKey: ticketKeys.summary(org.id) }),
+    ]);
   const shown = shownOrders(orders.data ?? []);
   const eventStart = eventStartOf(series);
   const typeName = new Map(list.map((t) => [t.id, t.name]));
   const many = list.length > 1;
 
   const row = types.isSuccess ? ticketsRowOf(list, sold, why) : null;
-  const detail = types.isError ? 'Could not load' : row ? row.detail : 'Loading…';
+  const detail = types.isError ? 'Could not load' : row ? row.detail : 'Loading\u2026';
 
   const openEditor = (type: TicketType | null) => {
     setDraft((held) => draftFor(held, type, eventStart));
@@ -111,18 +118,28 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const closeEditor = () => setEditing(null);
 
   const move = async (t: TicketType, to: TicketStatus) => {
-    setMoving(t.id);
-    setMoveError(null);
+    const with_ = <T,>(m: ReadonlyMap<string, T>, v: T | null) => {
+      const n = new Map(m);
+      if (v === null) n.delete(t.id);
+      else n.set(t.id, v);
+      return n;
+    };
+    setMoving((s) => new Set(s).add(t.id));
+    setMoveError((m) => with_(m, null));
     try {
       const out = await setTicketStatus(t.id, to);
       if (out.ok) {
         setToast(`${t.name}: ${SWITCH_LABEL[to]}`);
         await refresh();
-      } else setMoveError({ id: t.id, text: p3Reason(out.reason) });
+      } else setMoveError((m) => with_(m, p3Reason(out.reason)));
     } catch {
-      setMoveError({ id: t.id, text: p3Reason(null) });
+      setMoveError((m) => with_(m, p3Reason(null)));
     } finally {
-      setMoving(null);
+      setMoving((s) => {
+        const n = new Set(s);
+        n.delete(t.id);
+        return n;
+      });
     }
   };
 
@@ -136,7 +153,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               <div className="p3-row-t" data-testid="tix-order-buyer">{buyerNameOf(o)}</div>
               <div className="p3-row-s" data-testid="tix-order-line">
                 {orderLine(o, today)}
-                {many ? ` · ${typeName.get(o.typeId) ?? ''}` : ''}
+                {many ? ` \u00B7 ${typeName.get(o.typeId) ?? ''}` : ''}
               </div>
               <div className="p3-row-tags">
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
@@ -205,8 +222,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 type={t}
                 sales={sales.get(t.id) ?? null}
                 ctx={ctx}
-                busy={moving === t.id}
-                error={moveError?.id === t.id ? moveError.text : null}
+                busy={moving.has(t.id)}
+                error={moveError.get(t.id) ?? null}
                 onMove={(to) => void move(t, to)}
                 onEdit={() => openEditor(t)}
               />
@@ -235,7 +252,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       <button type="button" className="p3-card p3-status-row" onClick={() => { setView('list'); setOpen(true); }} data-testid="tix-row">
         <span className="p3-grow">
           <span className="p3-row-t">Tickets</span>
-          <span className="p3-row-s" data-testid="tix-row-detail">{` · ${detail}`}</span>
+          <span className="p3-row-s" data-testid="tix-row-detail">{` \u00B7 ${detail}`}</span>
         </span>
         {row && <span className={TONE_CLASS[row.chip.tone]} data-testid="tix-row-chip">{row.chip.label}</span>}
         <span aria-hidden="true">&rsaquo;</span>
@@ -243,8 +260,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       {open && (
         <StackSheet
           full
-          title={`${view === 'orders' ? 'Orders' : 'Tickets'} · ${series.name}`}
+          title={`${view === 'orders' ? 'Orders' : 'Tickets'} \u00B7 ${series.name}`}
           onClose={() => setOpen(false)}
+          viewKey={view}
           onBack={view === 'orders' ? () => setView('list') : undefined}
           footer={listFooter}
           testId="tix-tall"
@@ -273,11 +291,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           eventStart={eventStart}
           hasOrders={hasOrdersOf(editing.type, sales, orders.data ?? [])}
           onClose={closeEditor}
-          onSaved={(text) => {
+          onSaved={(text, changed) => {
             setEditing(null);
             setDraft(null);
             setToast(text);
-            void refresh();
+            if (changed) void refresh();
           }}
         />
       )}

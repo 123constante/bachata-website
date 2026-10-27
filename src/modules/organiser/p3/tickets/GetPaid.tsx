@@ -147,7 +147,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
             onClick={() => void go()}
             data-testid="tix-getpaid-go"
           >
-            {busy ? 'Opening Stripe…' : STRIPE_COPY[state].action}
+            {busy ? 'Opening Stripe\u2026' : STRIPE_COPY[state].action}
           </button>
         )}
         {note && <p role="alert" className="p3-error" data-testid="tix-getpaid-note">{note}</p>}
@@ -216,7 +216,7 @@ function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: 'none' | 'started
         <p className="p3-warn" role="status" data-testid="tix-prompt-off">{NOT_SWITCHED_ON}</p>
       ) : (
         <button type="button" className="p3-btn" onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="tix-prompt-go">
-          {busy ? 'Opening Stripe…' : STRIPE_COPY[stripe].action}
+          {busy ? 'Opening Stripe\u2026' : STRIPE_COPY[stripe].action}
         </button>
       )}
       {note && <p role="alert" className="p3-error" data-testid="tix-prompt-note">{note}</p>}

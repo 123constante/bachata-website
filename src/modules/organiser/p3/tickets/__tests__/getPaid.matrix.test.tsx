@@ -88,7 +88,7 @@ describe('Get paid states', () => {
     // survey: connected, 2 types, 2 sold, none on sale now -> 2 of 3 (On sale counts a sale)
     expect(screen.queryByTestId('tix-setup')).toBeNull();
     expect(screen.getByTestId('tix-money-sold').textContent).toBe('Sold2');
-    expect(screen.getByTestId('tix-money-note').textContent).toBe('Ticket money before Stripe’s fees. £10.50 refunded.');
+    expect(screen.getByTestId('tix-money-note').textContent).toBe('Ticket money before Stripe\u2019s fees. \u00A310.50 refunded.');
     cleanup();
     load(SHAPES.bare);
     show(<GetPaidScreen />, GP());
@@ -125,7 +125,7 @@ describe('Home: the ONE Get paid prompt', () => {
   it('tickets-sold tile only once anything has sold', () => {
     load(SHAPES.selling);
     show(<TicketsSoldTile />, '/account/p3');
-    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold · £328.00');
+    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold \u00B7 \u00A3328.00');
     cleanup();
     load(SHAPES.bare);
     show(<TicketsSoldTile />, '/account/p3');
