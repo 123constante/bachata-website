@@ -53,6 +53,11 @@ Walk re-run (390x844, 15 tests, 60 rows in `metrics.jsonl`, all 0 sideways / min
 0 contrast). Replaced only the touched shots: `08-festival-date-dark.png` (Cancel enabled) and
 `07-ended-all-dates-dark.png` (Coming empty state names why Add is off).
 
+**Trap (the cause of finding 1):** `npm run test:e2e` re-writes the screenshots under
+`docs/handover/dancer-rebuild-*` (`tests/e2e/dancer-app/*.spec.ts` save there). After running the e2e gate,
+`git checkout -- docs/handover/dancer-rebuild-*` and never `git add -A docs`. This round's first final commit
+(ec27e97) picked up 26 of them again; the next commit restores them to `main`.
+
 ## Not verified
 - No real upload or command against prod (read-only rule); cover upload never exercised end to end.
 - Venue picker only against a stand-in list in the walk.
