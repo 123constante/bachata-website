@@ -71,3 +71,5 @@ Tests: the matrix harness answers the new source (a small PostgREST builder for 
 - F4: server-side `noindex` for `/ambassador*` (the meta is still added client-side only).
 - F7: state notes (cache only local until stale, offline/timeout half-state, no focus trap or focus return on the sheets).
 - Minor items: an admin with no ambassador row still sees "No access" (the RPCs would serve them); the "needs an admin" chip cannot show before the first tap (the list RPC returns no party flag: an A2 data gap); `now` is captured at mount; the next `p_offset` is still sent to a city that was already exhausted; the toast colours drift from the mockup; "All caught up" links to `/`, not `/city/<slug>`; the pre-existing `react-hooks/static-components` lint error on the harness `Where` helper.
+
+Fix round 1 checks (local): ambassador unit matrix 51 pass; `ambassador-queue.spec.ts` 3 pass; lint chain 21/22 green (integrity is the mode-644 script, ok under `bash`); no typecheck errors in the module. Perf Budget `vendor-supabase` and DB Contract og-render are red on `main` already.
