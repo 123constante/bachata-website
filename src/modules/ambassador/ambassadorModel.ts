@@ -102,7 +102,7 @@ export function dateLabel(key: string): string {
 
 const SYMBOLS: Record<string, string> = { GBP: '\u00a3', EUR: '\u20ac', USD: '$' };
 
-/** The price in the series' own currency. A null currency means the passes mix currencies: amounts only, and it says so. */
+/** The price in the series' own currency. A null currency (passes disagree, or none names one): amounts only, and it says so. */
 export function priceText(i: Pick<QueueItem, 'priceMin' | 'priceMax' | 'priceCurrency'>): string {
   const { priceMin: lo, priceMax: hi, priceCurrency: cur } = i;
   if (lo == null && hi == null) return 'Price not given';
@@ -112,11 +112,11 @@ export function priceText(i: Pick<QueueItem, 'priceMin' | 'priceMax' | 'priceCur
   const amount = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2)}`;
   const money = (n: number) => (cur ? (SYMBOLS[cur] ? `${SYMBOLS[cur]}${amount(n)}` : `${cur} ${amount(n)}`) : amount(n));
   const range = a === b ? money(a) : `${money(a)}\u2013${money(b)}`;
-  return cur ? range : `${range} (mixed currencies)`;
+  return cur ? range : `${range} (currency not given)`;
 }
 
 /** Name shortened for a toast. */
-export const shortName = (name: string) => (name.length > 34 ? `${name.slice(0, 34)}…` : name);
+export const shortName = (name: string) => (name.length > 34 ? `${name.slice(0, 34)}\u2026` : name);
 
 export const leftText = (n: number) => (n === 0 ? 'None left.' : `${n} left.`);
 export const decisionToast = (verb: 'Approved' | 'Rejected', name: string, left: number) => `${verb}: ${shortName(name)}. ${leftText(left)}`;
@@ -146,7 +146,10 @@ function errorText(err: unknown): string {
 /** `_moderate_entity` raises authentication_required; PostgREST answers an expired session with 401 / "JWT expired" (PGRST301/303). */
 const SIGNED_OUT = /authentication_required|auth_required|jwt expired|pgrst30[13]|\b401\b/;
 /** The list RPC raises admin_only, the decision RPCs not_authorized / not_authorised. */
-const NO_ACCESS = /42501|forbidden|not_authori|admin_only|permission|city_scope|not_in_scope/;
+const NO_ACCESS = /42501|forbidden|not_authori|admin_only|city_scope|not_in_scope/;
+/** A missing table/function grant is a fault on our side, not a fact about the account: "did not go through", never "no access". */
+const GRANT_FAILURE = /permission denied for (table|relation|view|schema|sequence|function)/;
+const isNoAccess = (text: string) => NO_ACCESS.test(text) && !GRANT_FAILURE.test(text);
 
 export const SIGNED_OUT_MESSAGE = 'You are signed out. Sign in again, then try again.';
 
@@ -164,7 +167,7 @@ export function decisionError(err: unknown): DecisionError {
   if (/reason/.test(text)) {
     return { kind: 'reason', message: 'The reason was not accepted. Add a little more detail and try again.' };
   }
-  if (NO_ACCESS.test(text)) {
+  if (isNoAccess(text)) {
     return { kind: 'access', message: 'You do not have access to decide this one. Ask an admin to check your city.' };
   }
   return { kind: 'other', message: 'That did not go through. Nothing was changed. Check your connection and try again.' };
@@ -174,13 +177,13 @@ export function decisionError(err: unknown): DecisionError {
 export function loadErrorKind(err: unknown): 'auth' | 'access' | 'other' {
   const text = errorText(err);
   if (SIGNED_OUT.test(text)) return 'auth';
-  if (NO_ACCESS.test(text)) return 'access';
+  if (isNoAccess(text)) return 'access';
   return 'other';
 }
 
-/** "This shows the first 100 in Bristol." for each city whose last page was full. */
+/** "This shows the first 100 in Bristol." naming each city whose last page was full ("in each of" when more than one). */
 export function moreText(offset: number, cityNames: readonly string[]): string {
-  const where = cityNames.length ? ` in ${cityNames.join(' and ')}` : '';
+  const where = cityNames.length > 1 ? ` in each of ${cityNames.join(' and ')}` : cityNames.length ? ` in ${cityNames[0]}` : '';
   return `This shows the first ${offset + PAGE_SIZE}${where}. There may be more waiting.`;
 }
 

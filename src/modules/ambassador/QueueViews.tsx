@@ -128,7 +128,7 @@ export function QueueList({ items, party, now, showCity, more, onOpen }: ListPro
           </p>
           {more.error && <p role="alert" className="m-0 text-[13px] text-destructive">Could not load more. Try again.</p>}
           <button type="button" className={cn(BTN_PLAIN, 'w-full')} disabled={more.loading} onClick={more.onMore}>
-            {more.loading ? 'Loading…' : 'Show more'}
+            {more.loading ? <>Loading&hellip;</> : 'Show more'}
           </button>
         </div>
       )}
@@ -180,7 +180,7 @@ export function ReviewView({ item, party, now, onBack, onApprove, onReject }: Re
         <h2 className="m-0 text-[17px] font-semibold [overflow-wrap:anywhere]">{item.name}</h2>
         <Chips item={item} party={party} now={now} />
         <p className="m-0 text-[12px] text-muted-foreground">
-          {changedText(days)}{item.cityName ? ` · ${item.cityName}` : ''}
+          {changedText(days)}{item.cityName && <> &middot; {item.cityName}</>}
         </p>
         <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px]">
           {rows.map(([k, v]) => (

@@ -35,12 +35,14 @@ const ITEMS = [
 
 const b64url = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-async function install(page: Page, opts: { selfApprove?: string[] } = {}) {
+async function install(page: Page, opts: { selfApprove?: string[]; flowingClock?: boolean } = {}) {
   const queue = [...ITEMS].reverse(); // the RPC returns newest first
   const sent: { fn: string; body: Record<string, unknown> }[] = [];
   const user = { id: ME, aud: 'authenticated', role: 'authenticated', email: 'jan@bristol.example', user_metadata: {} };
   const token = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: ME, role: 'authenticated', amr: [{ method: 'otp', timestamp: 1 }] })}.sig`;
-  await page.clock.setFixedTime(NOW);
+  // A fixed clock freezes PageTransition's blur; a flowing one leaves `filter` on the route shell, as on a phone.
+  if (opts.flowingClock) await page.clock.install({ time: NOW });
+  else await page.clock.setFixedTime(NOW);
   await page.addInitScript(
     ({ value, ref }) => localStorage.setItem(`sb-${ref}-auth-token`, JSON.stringify(value)),
     { value: { access_token: token, token_type: 'bearer', expires_in: 3600, expires_at: 4102444800, refresh_token: 'r', user }, ref: projectRef },
@@ -120,6 +122,64 @@ test('an item the ambassador is part of turns into "needs an admin" and stays li
   await page.getByTestId('review-back').click();
   await expect(page.getByTestId('queue-row')).toHaveCount(12);
   await expect(page.getByTestId('queue-row').first()).toContainText('Needs an admin');
+});
+
+test('with a flowing clock the sheets cover the screen, opening one does not scroll, and the toast is on screen', async ({ page }) => {
+  await install(page, { flowingClock: true, selfApprove: ['s1'] });
+  await page.goto('/ambassador');
+  const rows = page.getByTestId('queue-row');
+  await expect(rows).toHaveCount(12);
+  const inView = async (testId: string) => {
+    const box = await page.getByTestId(testId).boundingBox();
+    expect(box).not.toBeNull();
+    return box!;
+  };
+  const coversViewport = async () => {
+    const o = await inView('decision-overlay');
+    expect(o.x).toBeLessThanOrEqual(0);
+    expect(o.y).toBeLessThanOrEqual(0);
+    expect(o.x + o.width).toBeGreaterThanOrEqual(PHONE.width);
+    expect(o.y + o.height).toBeGreaterThanOrEqual(PHONE.height);
+  };
+  const fullyOnScreen = (b: { y: number; height: number }) => {
+    expect(b.y).toBeGreaterThanOrEqual(0);
+    expect(b.y + b.height).toBeLessThanOrEqual(PHONE.height);
+  };
+
+  // The party item: the refusal must not leave the page scrolled away from "Back to the list".
+  await rows.first().click();
+  await expect(page.getByTestId('review-view')).toBeVisible();
+  let before = await page.evaluate(() => window.scrollY);
+  await page.getByTestId('approve-open').click();
+  await expect(page.getByTestId('approve-confirm')).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  await coversViewport();
+  fullyOnScreen(await inView('approve-confirm'));
+  await page.getByTestId('approve-confirm').click();
+  await expect(page.getByTestId('party-note')).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  fullyOnScreen(await inView('review-back'));
+  await page.getByTestId('review-back').click();
+
+  // A normal item: the reject sheet behaves the same, then approve goes through and the toast lands inside the viewport.
+  await rows.nth(1).click();
+  await expect(page.getByTestId('review-view')).toBeVisible();
+  before = await page.evaluate(() => window.scrollY);
+  await page.getByTestId('reject-open').click();
+  await expect(page.getByTestId('reject-submit')).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  await coversViewport();
+  fullyOnScreen(await inView('reject-submit'));
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('decision-overlay')).toHaveCount(0);
+  await page.getByTestId('approve-open').click();
+  await expect(page.getByTestId('approve-confirm')).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  await coversViewport();
+  fullyOnScreen(await inView('approve-confirm'));
+  await page.getByTestId('approve-confirm').click();
+  await expect(page.getByTestId('toast')).toContainText('Approved: Harbourside Dance Collective.');
+  fullyOnScreen(await inView('toast'));
 });
 
 test('Back from a review returns to the list at the same scroll position; taps are at least 44px; no sideways scroll', async ({ page }) => {

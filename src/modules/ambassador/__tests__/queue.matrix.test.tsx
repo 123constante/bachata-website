@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { SHAPES, agoIso, hundred, newestFirst, row, twelve } from './fixtures';
 import { BATH, BRISTOL, Page, USER_ID, answer, from, h, pinNow } from './harness';
 import AmbassadorQueuePage from '../AmbassadorQueuePage';
+import { decisionError, loadErrorKind, moreText } from '../ambassadorModel';
 
 vi.mock('@/integrations/supabase/client', async () => {
   const { h, from } = await import('./harness');
@@ -212,6 +213,11 @@ describe('access: the city list comes from entity_members, never the manager-sco
     expect(screen.getByTestId('queue-more').textContent).toContain('This shows the first 100 in Bristol.');
     expect(screen.getByTestId('queue-more').textContent).not.toContain('130');
   });
+
+  it('two full cities: "the first 100 in each of", so it never reads as 100 in total', () => {
+    expect(moreText(0, ['Bath', 'Bristol'])).toBe('This shows the first 100 in each of Bath and Bristol. There may be more waiting.');
+    expect(moreText(0, ['Bristol'])).toBe('This shows the first 100 in Bristol. There may be more waiting.');
+  });
 });
 
 describe('review screen x item shapes', () => {
@@ -273,7 +279,7 @@ describe('review screen x item shapes', () => {
     ['EUR', 15, 15, '\u20ac15'],
     ['USD', 10, 20, '$10\u2013$20'],
     ['PLN', 30, 30, 'PLN 30'],
-    [null, 8, 15, '8\u201315 (mixed currencies)'],
+    [null, 8, 15, '8\u201315 (currency not given)'],
     [null, 0, 0, 'Free'],
   ])('price in %s (%s to %s) reads "%s"', async (cur, pmin, pmax, text) => {
     const v = await reviewOf(row('sp', 'Priced series', { type: 'series', dates: ['2026-11-08'], count: 1, pmin, pmax, cur }));
@@ -440,6 +446,7 @@ describe('approve confirm and reject sheet', () => {
     ['42501 permission denied', 'do not have access'],
     ['not_authorised', 'do not have access'],
     ['something_unmapped_xyz', 'did not go through'],
+    ['permission denied for table entity_members', 'did not go through'],
   ])('error %s becomes readable copy with Try again, never the raw code, and the item stays', async (code, copy) => {
     answer({ list: [SHAPES.one], decide: () => ({ error: { message: code } }) });
     open();
@@ -455,6 +462,23 @@ describe('approve confirm and reject sheet', () => {
     answer({ list: [SHAPES.one] });
     fireEvent.click(screen.getByTestId('approve-confirm'));
     expect((await screen.findByTestId('toast')).textContent).toContain('Approved');
+  });
+});
+
+describe('a missing grant is not "not an ambassador"', () => {
+  it.each([
+    [{ code: '42501', message: 'permission denied for table entity_members' }],
+    [{ code: '42501', message: 'permission denied for function admin_list_pending_review_v1' }],
+  ])('%o: list and decision both fall to the generic copy', (err) => {
+    expect(loadErrorKind(err)).toBe('other');
+    expect(decisionError(err).kind).toBe('other');
+  });
+
+  it('a bare 42501 and the RPC refusals stay "no access"; the word "permission" alone does not', () => {
+    expect(loadErrorKind({ code: '42501', message: 'permission denied' })).toBe('access');
+    expect(loadErrorKind({ message: 'admin_only' })).toBe('access');
+    expect(decisionError({ message: 'not_authorized' }).kind).toBe('access');
+    expect(loadErrorKind({ message: 'missing permission on a cache' })).toBe('other');
   });
 });
 

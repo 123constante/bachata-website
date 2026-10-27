@@ -73,3 +73,19 @@ Tests: the matrix harness answers the new source (a small PostgREST builder for 
 - Minor items: an admin with no ambassador row still sees "No access" (the RPCs would serve them); the "needs an admin" chip cannot show before the first tap (the list RPC returns no party flag: an A2 data gap); `now` is captured at mount; the next `p_offset` is still sent to a city that was already exhausted; the toast colours drift from the mockup; "All caught up" links to `/`, not `/city/<slug>`; the pre-existing `react-hooks/static-components` lint error on the harness `Where` helper.
 
 Fix round 1 checks (local): ambassador unit matrix 51 pass; `ambassador-queue.spec.ts` 3 pass; lint chain 21/22 green (integrity is the mode-644 script, ok under `bash`); no typecheck errors in the module. Perf Budget `vendor-supabase` and DB Contract og-render are red on `main` already.
+
+## Fix round 2 (review r2 on PR #1086, verdict BLOCK on r1 F2)
+
+Brief: `docs/briefs/ambassador-a1-fix2.md` (branch `brief/ambassador-a1-build`). Review: `docs/reviews/review-1086-r2.md` (branch `claude/review-1086-r2`), overlay finding r1 F2 in `docs/reviews/review-1086-r1.md`.
+
+- **Blocker: overlay geometry (r1 F2).** `PageTransition` leaves `filter: blur(0px)` on `.route-shell`, which makes the shell the containing block for anything `fixed` inside it. `SheetShell` (`DecisionSheets.tsx`) and the success toast (`AmbassadorQueuePage.tsx`) are now `createPortal`-ed to `document.body`. The Approve sheet's `autoFocus` on Cancel became a ref plus `focus({ preventScroll: true })`; the Reject textarea's focus also passes `preventScroll`.
+  - New e2e case in `tests/e2e/ambassador-queue.spec.ts`, 390x844, **flowing** clock (`page.clock.install`, not `setFixedTime`): the overlay box covers the viewport, the confirm/submit button is inside it, `scrollY` is unchanged by opening either sheet, after a `self_approval_not_allowed` refusal `scrollY` is unchanged and "Back to the list" is on screen, and after a successful approve the toast box is inside 0..844.
+  - Red first against `88cfcec`: `scrollY` 0 -> 661 on opening the Approve sheet. Mutation after the fix (toast portal reverted, sheet fix kept): toast bottom at 1038 > 844, red. Both green with the fix.
+- **Raw Unicode.** `Approving&hellip;`, `Sending&hellip;`, `Loading&hellip;` and the review meta `&middot;` are JSX entities; `shortName` uses `…`. No raw `…` or `·` left in the module.
+- **NULL `price_currency`.** Copy is "(currency not given)": the only NULL shape prod produces today is "no priced pass names a currency".
+- **`NO_ACCESS`.** The bare word `permission` is gone from the pattern, and `permission denied for table|function|...` (a grant fault, which also carries 42501) is excluded, so it falls to the generic "did not go through" / "Could not load" copy instead of "not an ambassador". A bare `42501 permission denied`, `admin_only` and `not_authori*` stay "no access".
+- **100-cap copy.** Two or more full cities read "the first 100 in each of Bath and Bristol".
+
+Fix round 2 checks (local): ambassador unit matrix 56 pass; `ambassador-queue.spec.ts` 4 pass (chromium, 390x844); `tsc -p tsconfig.app.json` no errors in the module or spec; eslint on the module and spec: the same pre-existing `react-hooks/static-components` error on the harness `Where` helper only; lint chain 21/22 green (`check:integrity` exit 126 is the mode-644 script on `main` too; `bash bin/check-integrity.sh` ok). `bundle-budget` and DB Contract Check not chased (red on `main`).
+
+Not verified: real iOS Safari / Android Chrome (Safari's handling of `filter` containing blocks matches Chromium's per spec, but not walked on a device); a live ambassador session (none exists on prod).

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -217,11 +218,14 @@ function Queue() {
       {sheet && sheetItem && sheet.kind === 'reject' && (
         <RejectSheet item={sheetItem} busy={decide.isPending} error={sheetError} signInHref={signInHref} onCancel={closeSheet} onSubmit={(reason) => decide.mutate({ item: sheetItem, reason })} />
       )}
-      {toast && (
-        <div role="status" className="fixed bottom-24 left-1/2 z-[70] w-max max-w-[calc(100%-24px)] -translate-x-1/2 rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] text-foreground shadow-lg" data-testid="toast">
-          {toast}
-        </div>
-      )}
+      {/* Portalled to <body>, as the sheets are: `filter` on .route-shell would pin a `fixed` toast to the shell, below the fold. */}
+      {toast &&
+        createPortal(
+          <div role="status" className="fixed bottom-24 left-1/2 z-[70] w-max max-w-[calc(100%-24px)] -translate-x-1/2 rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] text-foreground shadow-lg" data-testid="toast">
+            {toast}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

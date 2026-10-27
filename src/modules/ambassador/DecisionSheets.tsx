@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { MIN_REASON_LENGTH, checkReason, typeNoun, type DecisionError, type QueueItem } from './ambassadorModel';
@@ -24,7 +25,9 @@ function SheetShell({ title, label, busy, onClose, children }: ShellProps) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [busy, onClose]);
-  return (
+  // Portalled to <body>: PageTransition leaves `filter` on .route-shell, which would make the
+  // shell (not the viewport) the containing block of anything `fixed` inside it.
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70" data-testid="decision-overlay">
       <div
         role="dialog"
@@ -35,7 +38,8 @@ function SheetShell({ title, label, busy, onClose, children }: ShellProps) {
         <h2 className="m-0 text-[16px] font-semibold">{title}</h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -63,6 +67,9 @@ function DecisionErrorLine({ error, signInHref }: { error: DecisionError; signIn
 }
 
 export function ApproveSheet({ item, busy, error, signInHref, onCancel, onConfirm }: SheetProps & { onConfirm: () => void }) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // Not autoFocus: that scrolls the page to the focused control.
+  useEffect(() => cancelRef.current?.focus({ preventScroll: true }), []);
   return (
     <SheetShell title={`Approve this ${item.targetType}?`} label="Approve" busy={busy} onClose={onCancel}>
       <p className="m-0 text-[15px] font-semibold [overflow-wrap:anywhere]">{item.name}</p>
@@ -71,9 +78,9 @@ export function ApproveSheet({ item, busy, error, signInHref, onCancel, onConfir
       </p>
       {error && <DecisionErrorLine error={error} signInHref={signInHref} />}
       <div className="flex gap-2">
-        <button type="button" autoFocus className={cn(BTN_PLAIN, 'flex-1')} disabled={busy} onClick={onCancel}>Cancel</button>
+        <button type="button" ref={cancelRef} className={cn(BTN_PLAIN, 'flex-1')} disabled={busy} onClick={onCancel}>Cancel</button>
         <button type="button" className={cn(BTN_OK, 'flex-1')} disabled={busy} data-testid="approve-confirm" onClick={onConfirm}>
-          {busy ? 'Approving…' : error ? 'Try again' : 'Yes, approve'}
+          {busy ? <>Approving&hellip;</> : error ? 'Try again' : 'Yes, approve'}
         </button>
       </div>
     </SheetShell>
@@ -86,7 +93,7 @@ export function RejectSheet({ item, busy, error, signInHref, onCancel, onSubmit 
   const check = checkReason(text);
   const showInvalid = tried && !check.ok;
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => ref.current?.focus(), []);
+  useEffect(() => ref.current?.focus({ preventScroll: true }), []);
   const submit = () => {
     if (!check.ok) {
       setTried(true);
@@ -123,7 +130,7 @@ export function RejectSheet({ item, busy, error, signInHref, onCancel, onSubmit 
       <div className="flex gap-2">
         <button type="button" className={cn(BTN_PLAIN, 'flex-1')} disabled={busy} onClick={onCancel}>Cancel</button>
         <button type="button" className={cn(BTN_NO, 'flex-1')} disabled={busy} data-testid="reject-submit" onClick={submit}>
-          {busy ? 'Sending…' : error ? 'Try again' : 'Reject and send reason'}
+          {busy ? <>Sending&hellip;</> : error ? 'Try again' : 'Reject and send reason'}
         </button>
       </div>
     </SheetShell>
