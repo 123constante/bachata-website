@@ -157,6 +157,13 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
+  // P3 W2b, the date sheet (handlers read on prod 2026-10-27). Anchored: the reason refusal lists every label.
+  { match: /^invalid_payload: cancellation reason must be one of/, message: 'That reason is no longer on the list. Reload the page, then pick a reason again.' },
+  { match: /^invalid_payload: per-date time is not supported for festivals/, message: 'Festival times are set for the whole festival, not one date. Ask the Bachata Calendar team.' },
+  { match: /^invalid_transition: festival_extra_date/, message: 'A festival holds one date. Ask the Bachata Calendar team to change its days.' },
+  { match: /^invalid_payload: (date|occurrence_id) required/, message: 'Choose a date.' },
+  { match: /^invalid_payload: new_local_start required/, message: 'Enter the new start time, like 19:30.' },
+  { match: /^invalid_payload: date_time_session_has_people/, message: 'This date\u2019s own time has people on its session, so it can\u2019t go back to the usual time. Change the time instead.' },
   // ER AD4, series.cancel_one_off (_cmd_series_cancel_one_off_p5 and the dispatcher's payload rule, read on prod
   // 2026-10-26). Anchored and before every loose rule: the reason refusal lists every label, and the token sits
   // between the first and second colon.
@@ -189,6 +196,7 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /move_date is not supported for festivals/, message: 'Festival days are set by the Bachata Calendar team. Ask them to move a day.' },
   { match: /to_date required/, message: 'Choose a date.' },
   { match: /on a past date is admin-only|^past_date/, message: 'This date has already happened, so it can no longer be changed.' },
+  { match: /^has_bookings: .*cannot be made a break/, message: 'People have already booked this date, so it cannot be skipped. Cancel it instead, so they see why.' },
   { match: /^has_bookings/, message: 'People have already booked this date, so it cannot be removed. Cancel it instead, so they see why.' },
   { match: /^no_sessions_for_time_override/, message: 'This date has no session times to move yet. Ask the Bachata Calendar team to set up the class times.' },
   { match: /cancellation_reasons label/, message: 'Choose a reason. Dancers see it.' },

@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
-import { useEventWorkspace, useRunCommands, useSendOnce } from '../../shared/runCommands';
-import { commandErrorMessage, isAccessRefusal } from '../../shared/selfServeErrors';
-import type { OwnerCommand } from '../../shared/seriesCommands';
+import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
+import { isAccessRefusal } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
 import { eventPageOf, type EventPageView } from '../data/eventPage';
-import { L, peopleText, sessionKindLabel, sessionTitle, timeWord } from '../model';
+import { L, addDateWhy, peopleText, sessionKindLabel, sessionTitle, timeWord } from '../model';
+import { seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { ChangeItLink, RetryButton, StateCard } from './parts';
-import { StatusSheet, type Done, type Send } from './StatusSheet';
+import { StatusSheet, type Send } from './StatusSheet';
+import { DateSheets, type DateOpen } from './DateSheet';
+import { useToast } from './Toast';
 import type { SendOnce } from './CancelEventSheet';
 
 /** The second half of the status row (C3 "Live \u00b7 Hide or end it"). */
@@ -62,7 +64,7 @@ function Sessions({ v }: { v: EventPageView }) {
   );
 }
 
-function Coming({ v }: { v: EventPageView }) {
+function Coming({ v, onOpen, addWhy, onAdd }: { v: EventPageView; onOpen: (id: string) => void; addWhy: string | null; onAdd: () => void }) {
   return (
     <section aria-label={L.comingUp} data-testid="p3-coming">
       <h2 className="p3-h2">{L.comingUp}</h2>
@@ -70,10 +72,12 @@ function Coming({ v }: { v: EventPageView }) {
         {v.coming.length ? (
           <ul className="p3-list p3-flush">
             {v.coming.map((c) => (
-              <li key={c.id} className="p3-row" data-testid="p3-coming-row">
-                <span className={`p3-grow p3-row-t ${c.cancelled ? 'p3-struck' : ''}`}>{c.label}</span>
-                {c.cancelled && <span className="p3-tag p3-tag-cancel">{L.cancelled}</span>}
-                {!c.cancelled && c.changed && <span className="p3-chip">{L.ownChanges}</span>}
+              <li key={c.id} className="p3-row p3-row-btn" data-testid="p3-coming-row">
+                <button type="button" className="p3-date-btn" onClick={() => onOpen(c.id)} data-testid="p3-open-date">
+                  <span className={`p3-grow p3-row-t ${c.cancelled ? 'p3-struck' : ''}`}>{c.label}</span>
+                  {c.tags.map((t) => <span key={t} className={tagClass(t)}>{t}</span>)}
+                  <span aria-hidden="true">&rsaquo;</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -83,8 +87,7 @@ function Coming({ v }: { v: EventPageView }) {
               <strong>{L.noComing}</strong>
               {v.status.key === 'finished' ? <p>This has finished. Its past dates stay in your history.</p> : (
                 <>
-                  <p>Add a date so dancers can find it, or end it if it has finished.</p>
-                  <ChangeItLink>Add a date in the current organiser area</ChangeItLink>
+                  <p>{addWhy ?? 'Add a date so dancers can find it, or end it if it has finished.'}</p>
                 </>
               )}
             </div>
@@ -92,6 +95,11 @@ function Coming({ v }: { v: EventPageView }) {
         )}
         {v.comingMore && <p className="p3-note" data-testid="p3-coming-more">{v.comingMore}</p>}
         {v.partial && <p className="p3-note" data-testid="p3-partial">{v.partial}</p>}
+        <div className="p3-pair p3-gap-t">
+          <Link className="p3-btn p3-btn-line p3-btn-link" to={P3_PATHS.eventDates(v.id)} data-testid="p3-all-dates">{L.seeAllDates}</Link>
+          <button type="button" className="p3-btn p3-btn-line" disabled={!!addWhy} onClick={onAdd} data-testid="p3-add-date">{L.addDate}</button>
+        </div>
+        {addWhy && v.coming.length > 0 && <p className="p3-note" data-testid="p3-add-why">{addWhy}</p>}
       </div>
     </section>
   );
@@ -118,44 +126,23 @@ function About({ v }: { v: EventPageView }) {
         <AboutRow label={L.ticket}>{a.ticket ? <a className="p3-link" href={a.ticket} target="_blank" rel="noreferrer">{a.ticket}</a> : none}</AboutRow>
         <AboutRow label={L.instagram}>{a.instagram ? <a className="p3-link" href={a.instagram} target="_blank" rel="noreferrer">{a.instagram}</a> : none}</AboutRow>
       </div>
-      <p className="p3-note">To change sessions, dates or details: <ChangeItLink>use the current organiser area</ChangeItLink>.</p>
+      <p className="p3-note">To change sessions or details for every date: <ChangeItLink>use the current organiser area</ChangeItLink>.</p>
     </section>
-  );
-}
-
-function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onClose: () => void }) {
-  useEffect(() => {
-    const t = window.setTimeout(onClose, 8000);
-    return () => window.clearTimeout(t);
-  }, [done, onClose]);
-  return (
-    <div className="p3-toast" role="status" data-testid="p3-toast">
-      <span className="p3-grow">{done.text}</span>
-      {done.undo && <button type="button" className="p3-link p3-toast-act" onClick={onUndo} data-testid="p3-undo">{done.undoLabel ?? 'Undo'}</button>}
-    </div>
   );
 }
 
 function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const today = londonTodayKey();
   const v = eventPageOf(ws, today);
-  const run = useRunCommands(ws.series.id);
-  const send: Send = (commands, version) => run(commands, version);
+  const toast = useToast(ws.series.id, ws.series.version);
+  const send: Send = (commands, version) => toast.run(commands, version);
   const once = useSendOnce(ws.series.id);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const [sheet, setSheet] = useState(false);
-  const [toast, setToast] = useState<Done | null>(null);
-  const close = useCallback(() => setToast(null), []);
-  const closeSheet = useCallback(() => setSheet(false), []);
-  const undo = async (cmd: OwnerCommand, version: number | null | undefined) => {
-    setToast(null);
-    try {
-      await send([cmd], version ?? ws.series.version);
-      setToast({ text: 'Undone.', undo: null });
-    } catch (e) {
-      setToast({ text: commandErrorMessage(e), undo: null });
-    }
-  };
+  const [date, setDate] = useState<DateOpen>(null);
+  const closeSheet = useCallback(() => setSheet(false), [setSheet]);
+  const closeDate = useCallback(() => setDate(null), [setDate]);
+  const addWhy = addDateWhy(seriesFactsOf(ws, today));
   const hint = STATUS_HINT[v.lifecycle] ?? (v.lifecycle === 'ended' ? 'It has finished' : 'See what you can do');
   return (
     <div className="p3-stack" data-testid="p3-event" data-kind={v.kind}>
@@ -181,19 +168,20 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         <span aria-hidden="true">&rsaquo;</span>
       </button>
       <Sessions v={v} />
-      <Coming v={v} />
+      <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
       <About v={v} />
       {sheet && (
         <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
-          onDone={(d) => { setSheet(false); setToast(d); }} />
+          onDone={(d) => { setSheet(false); toast.show(d); }} />
       )}
-      {toast && <Toast done={toast} onClose={close} onUndo={() => toast.undo && void undo(toast.undo, toast.version)} />}
+      <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />
+      {toast.node}
     </div>
   );
 }
 
-/** C3 event page, W2a: reads the R1 workspace, and the Status sheet is its only write. */
-export function EventPage() {
+/** The workspace read with its loading, not-yours, not-found and error states (event page and All dates). */
+export function WorkspaceGate({ children }: { children: (ws: EventWorkspace, place: string | null) => ReactNode }) {
   const { seriesId } = useParams<{ seriesId: string }>();
   const ws = useEventWorkspace(seriesId);
   const home = useP3Home();
@@ -225,5 +213,10 @@ export function EventPage() {
     );
   }
   const row = home.data?.organisers.flatMap((o) => o.series).find((s) => s.id === ws.data.series.id) as { default_venue_name?: string | null } | undefined;
-  return <Page ws={ws.data} place={row?.default_venue_name ?? null} />;
+  return <>{children(ws.data, row?.default_venue_name ?? null)}</>;
+}
+
+/** C3 event page: reads the R1 workspace; the Status sheet (W2a) and the date sheets (W2b) are its writes. */
+export function EventPage() {
+  return <WorkspaceGate>{(ws, place) => <Page ws={ws} place={place} />}</WorkspaceGate>;
 }
