@@ -213,6 +213,7 @@ const TARGETS = [
   { rel: 'scripts/rework-share.mjs' },
   { rel: 'scripts/run-lint-chain.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
+  { rel: 'scripts/walk-seed.mjs' },
 ];
 
 /** Generous: nothing here runs a target's real work, so this only catches hangs. */
