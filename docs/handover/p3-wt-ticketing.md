@@ -135,3 +135,73 @@ UNREVIEWED code: every fix below needs the second independent review the orchest
 1. Second independent review of the fix-1 diff (`git diff 84567dd..HEAD -- src`).
 2. Owner walk on a phone with the walk account (D1 row, a three-type event, a long list).
 3. Owner call on the main bundle-budget overage and the phone-qa timeout.
+
+---
+
+# Fix 2, 2026-10-27 (brief `docs/briefs/p3-wt-fix2.md`, review `docs/review/pr-1079-r2.md`)
+
+UNREVIEWED code: these are fixes to findings. Round 2 of 2 was the last review round under the
+stopping rule, so the orchestrator decides whether this diff (`git diff ceb8a22..HEAD -- src`) gets
+a read before the flag goes on. One in-session `/code-review` (high) ran on it; its findings are
+listed at the end.
+
+## Done (every item with a test red first on the unfixed code)
+- **R2 + R1, one toast model** (`TicketsEntry.tsx`): a status slot (`say`, 8 s) and an alert QUEUE
+  (`late(text, false)`), rendered in one `.p3-toast-stack` column (alerts first). A status never
+  clears an alert; two late refusals both stay, each with its own Dismiss. Late texts name their
+  subject only when late: `Refund started for Buyer X's order.`, `Refund for Buyer X's order did not
+  start. <reason>`, `"<ticket>": Ticket saved.`, `"<ticket>": sales closed.`; the in-sheet words are
+  unchanged. Ticket subject = the saved type's name (a new ticket: its typed name).
+- **R7**: every toast is its own keyed node (`alert-<id>`, `status-<id>`), so an alert is never a
+  status node changing role, and the same words said twice restart the 8 s.
+- **R3**: the F3 test installs fake timers BEFORE mount, advances 8001 ms, asserts the alert stays
+  AND the status is gone. Mutant M3 (`if (alert) return;` removed): RED (was green).
+- **R4**: `onSaved` clears only the saved type's switch reason (also Close sales); a save that lands
+  late clears its own row through `late(..., savedTypeId)`. Probe P6 is a test.
+- **R5**: Escape while "Close sales" is in flight keeps "Closing..." (Escape is a no-op then) and
+  Keep selling is disabled while busy. Probe P9 is a test.
+- **R6**: kept as a documented choice (comment at the toast render in `TicketsEntry.tsx`): the
+  alert is a live region and Tab reaches Dismiss; a screen reader confining browse mode to the
+  aria-modal sheet reaches Dismiss only after the sheet closes. Owner call if that is not OK.
+- **R8**: `layout.cascade.test.ts` header says what the resolver cannot see; two raw-text checks:
+  no `!important` in p3.css, no `padding-top/bottom` rule on `.p3-date-btn`.
+- **R9**: note only (pre-existing, server-guarded), unchanged.
+- From the in-session `/code-review`: a late "Put on sale" whose save landed but whose on-sale was
+  refused is now an ALERT (was an 8 s status); the toast column is capped at `40dvh` and scrolls.
+  Mutants for these three (partial save as success, late save not clearing its row, constant status
+  key) each turn exactly one new test red.
+
+## Not fixed from the in-session review (owner notes)
+- Two orders with NO buyer name would both read "Buyer's order" late (prod: 0 such orders).
+- Late wording is built in each sheet (TypeSheet `named`, RefundSheet `whose`), not in one parent
+  formatter: a refactor for later, not this fix round.
+- Alerts still sit above the open sheet's footer until dismissed (capped column, scrollable).
+
+## Left / next
+1. Orchestrator: read of the fix-2 diff (unreviewed), then the owner walk on a phone.
+2. Owner calls: bundle-budget on main, phone-qa timeout, R6 (toast outside the dialog).
+
+## CI (fix 2)
+PR checks on `7b7df95` (the code head; the final commit adds only this doc):
+
+| Job | Result |
+|---|---|
+| integrity, bom-check, masking-check, notification-check, wallclock-brand | success |
+| unit (Europe/London, full) | success: the `festivalClientState.test.tsx:735` flake from fix 1 did not repeat (also 8/8 locally) |
+| unit (America/New_York), unit (Australia/Sydney), dancer-area-isolation | success |
+| e2e-smoke, phone-qa (finished inside its timeout this time), build-smoke | success |
+| live-db-gate, real-data-verified, phone-qa-section, decide, open-pr, no-preview-reason x4 | success |
+| bundle-budget | **failure**, red on main: `/app/*` 374.1 KB vs 374 (dancer-app chunk; P3 code not in it). Budget not touched (brief) |
+| contract-check, seo-*, og-*, synthetic*, lighthouse, doc-weight, enable | skipped (path filters) |
+
+Run locally on the fix-2 code: architecture-guard steps (integrity, legacy-tables,
+legacy-program-rpcs, lint:architecture, check:images AUDIT_STRICT=1, image-widths, plan-hygiene,
+workflow-artifact-policy, mojibake) PASS; dancer-area-isolation PASS; `test:unit:offline` London
+17388 passed, 5 failed = `tests/integrityCouldNotRun.test.ts`, sandbox-only (passes 67/67 with
+`NODE_PATH=` cleared, as fix 1 recorded); `test:unit:timing` 65/65; NY tz list 218/218; perf
+self-tests + build + first-load-requests + chunk-cycles PASS; bundle-budget same as main; build
+smoke 73/73; `test:e2e` 150 passed / 7 failed under load, re-run of the 7: 6 pass,
+`organiser-home.spec.ts:55` fails again (logged as pre-existing on main in the fix-1 notes; CI
+e2e-smoke is green). Local phone suite stopped once CI phone-qa came back green. tsc
+(tsconfig.app.json): 172 lines before and after, none in the touched files. eslint p3/tickets:
+0 errors, 1 pre-existing react-refresh warning. Organiser suite: 6488 passed.
