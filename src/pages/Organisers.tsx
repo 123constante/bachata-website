@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X, CalendarDays, MapPin, Star, Building2, Music } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useSeo, buildSeoForRoute } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +11,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { londonDaysBetweenKeys } from '@/lib/londonDate';
 import { WHATSAPP_GET_LISTED_URL } from '@/lib/contactLinks';
 import { useLondonToday } from '@/hooks/useLondonToday';
+import { fetchDirectoryOrganisers, type OrgRow } from '@/lib/organiserDirectoryList';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -53,17 +53,6 @@ const avatarColor = (id: string) => `hsl(${hueFromId(id)} 55% 62%)`;
 
 const initials = (name: string) =>
   name.split(' ').slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase();
-
-type OrgRow = {
-  id: string;
-  slug: string | null;
-  name: string;
-  avatar_url: string | null;
-  bio: string | null;
-  organisation_category: string | null;
-  city_id?: string;
-  cities?: { name: string } | null;
-};
 
 type UpcomingOrg = OrgRow & { daysUntil: number; nextLabel: string };
 
@@ -266,33 +255,7 @@ const Organisers = () => {
 
   const { data: organisers = [], isLoading } = useQuery({
     queryKey: ['entities-organisers'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('organiser_profiles')
-        .select('id, slug, name, avatar_url, bio, organisation_category, city_id')
-        .not(...NOT_DEACTIVATED)
-        .order('name');
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const cityIds = [...new Set((data as any[]).map((o) => o.city_id).filter(Boolean))];
-        let cityMap: Record<string, { name: string }> = {};
-        if (cityIds.length > 0) {
-          const { data: cities } = await supabase
-            .from('cities')
-            .select('id, name')
-            .in('id', cityIds);
-          if (cities) {
-            cityMap = Object.fromEntries((cities as any[]).map((c) => [c.id, { name: c.name }]));
-          }
-        }
-        return (data as any[]).map((org) => ({
-          ...org,
-          cities: org.city_id ? cityMap[org.city_id] : null,
-        })) as OrgRow[];
-      }
-      return (data ?? []) as unknown as OrgRow[];
-    },
+    queryFn: fetchDirectoryOrganisers,
     staleTime: 5 * 60 * 1000,
   });
 

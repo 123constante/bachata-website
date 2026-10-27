@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { NOT_DEACTIVATED } from '@/lib/notDeactivatedFilter';
+import { fetchOrganiserDirectoryHiddenIds, hiddenIdsNotFilter } from '@/lib/organiserDirectoryHiddenIds';
 
 // Live directory counts for the homepage News-tab brand-card stat strip:
 // public teachers and active organisers. Each mirrors the EXACT filter of its
@@ -26,11 +27,16 @@ async function fetchTeacherCount(): Promise<number> {
   return data?.length ?? 0;
 }
 
-async function fetchOrganiserCount(): Promise<number> {
-  const { count, error } = await supabase
+// Hidden self-started pages (D3) are excluded IN the query, so the count stays
+// head-only; an empty hidden list adds no filter.
+export async function fetchOrganiserCount(): Promise<number> {
+  const hiddenNot = hiddenIdsNotFilter(await fetchOrganiserDirectoryHiddenIds(supabase));
+  let query = supabase
     .from('organiser_profiles')
     .select('id', { count: 'exact', head: true })
     .not(...NOT_DEACTIVATED);
+  if (hiddenNot) query = query.not(...hiddenNot);
+  const { count, error } = await query;
   if (error) throw error;
   return count ?? 0;
 }

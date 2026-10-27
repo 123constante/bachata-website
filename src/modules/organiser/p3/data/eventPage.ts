@@ -4,6 +4,7 @@ import { endRunCommand, readIsFull, stopRepeatingCommand, type EventWorkspace, t
 import { parseTree } from '../../events/programmeSeriesModel';
 import { NO_SESSION_REASON } from '../../events/lifecycleModel';
 import { L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
+import { dateFactsOf, marksOf } from './dateFacts';
 import type { CancelInput, DaySession, IsoDate, P3Date, P3Event, P3Kind, P3Person, P3Session, P3Status, RoleKey, SessionKind } from '../model';
 
 /**
@@ -36,8 +37,10 @@ export interface ComingRow {
   date: IsoDate;
   label: string;
   cancelled: boolean;
-  /** The date has its own changes (details, sessions or an extra session). */
+  /** The date has its own changes (details, time, sessions or an extra session). */
   changed: boolean;
+  /** Its tags (model dateMarks, the same as All dates). */
+  tags: string[];
 }
 
 export interface EventPageView {
@@ -111,6 +114,11 @@ export function eventOf(ws: EventWorkspace): P3Event {
   };
 }
 
+/** The read holds only the newest dates (the workspace cap, CONTRACT A2 R3): said honestly, never paged from a second read. */
+export const partialOf = (ws: EventWorkspace): string | null => (ws.hasMore
+  ? ws.total !== null ? `This page lists the newest ${ws.dates.length} of ${ws.total} dates.` : `This page lists the newest ${ws.dates.length} dates; older ones are not shown.`
+  : null);
+
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function eventPageOf(ws: EventWorkspace, today: IsoDate, cover?: string | null): EventPageView {
@@ -136,21 +144,21 @@ export function eventPageOf(ws: EventWorkspace, today: IsoDate, cover?: string |
   const all = upcoming(event, today);
   const coming: ComingRow[] = full ? [] : all.slice(0, COMING_SHOWN).map((x) => {
     const d = byDate.get(x.date)!;
+    const marks = marksOf(ws, d, dateFactsOf(ws, d), today);
     return {
       id: d.id,
       date: x.date,
       label: dayWord(x.date, today),
       cancelled: x.status === 'cancelled',
-      changed: d.has_override || d.session_overrides_count > 0 || d.added_sessions_count > 0,
+      changed: marks.own,
+      tags: marks.tags,
     };
   });
   const left = all.length - coming.length;
   const comingMore = full
     ? `More than ${ws.dates.length} dates are coming up, more than this page can list.`
     : left > 0 ? `and ${plural(left, 'more date', 'more dates')} coming up` : null;
-  const partial = ws.hasMore
-    ? ws.total !== null ? `This page lists the newest ${ws.dates.length} of ${ws.total} dates.` : `This page lists the newest ${ws.dates.length} dates; older ones are not shown.`
-    : null;
+  const partial = partialOf(ws);
 
   const byId = new Map(daySessions(event, next ?? null).map((m) => [m.id, m]));
   const days = prog.days.map((d) => ({ label: d.label, sessions: d.ids.map((id) => byId.get(id)!).filter(Boolean) }));

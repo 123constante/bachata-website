@@ -1234,6 +1234,25 @@ jobs:
           node scripts/check-going-rpcs.mjs --self-test
           node scripts/check-going-rpcs.mjs
 
+      # 71. ORGANISER DIRECTORY HIDDEN IDS (2026-10-27). organiser_directory_hidden_ids_v1()
+      #     (admin migration 20270304210000; anon EXECUTE; uuid[], never NULL)
+      #     is the one source of directory rule D3. /organisers, the sitemap and
+      #     the homepage head count call it through
+      #     src/lib/organiserDirectoryHiddenIds.ts and THROW on an RPC error, so
+      #     a rename or a revoked grant errors /organisers and 500s the sitemap.
+      #     Gates on: RPC missing, anon EXECUTE revoked, NULL or non-array
+      #     payload, a non-uuid element, a duplicate. Empty is green (0 hidden
+      #     is the normal state). Counts only, never ids. Canary first.
+      - name: Run organiser hidden-ids contract check
+        if: always()
+        timeout-minutes: 2
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-organiser-hidden-ids-contract.mjs --self-test
+          node scripts/check-organiser-hidden-ids-contract.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job

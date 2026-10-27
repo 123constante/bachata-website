@@ -25,7 +25,6 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
   onDone: (d: Done) => void;
   onClose: () => void;
 }) {
-  const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
   const [pick, setPick] = useState<{ reason: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,26 +60,7 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
   return (
     <Sheet title={CANCEL_COPY.title(name, plan.day)} onClose={onClose}>
       <p className="p3-note" data-testid="p3-cancel-body">{CANCEL_COPY.body(plan.day)}</p>
-      <fieldset className="p3-ask" data-testid="p3-cancel-reasons">
-        <legend>{L.cancelWhy}</legend>
-        {reasons.isPending && <p className="p3-note">{CANCEL_COPY.loading}</p>}
-        {reasons.isError && (
-          <div className="p3-stack-s">
-            <p className="p3-error" role="alert">{CANCEL_COPY.noReasons}</p>
-            <button type="button" className="p3-btn p3-btn-line" onClick={() => void reasons.refetch()}>Try again</button>
-          </div>
-        )}
-        {reasons.data && (
-          <div className="p3-pair" role="group" aria-label={L.cancelWhy}>
-            {reasons.data.map((r) => (
-              <button key={r.key} type="button" className={`p3-btn ${pick?.reason === r.label ? '' : 'p3-btn-line'}`}
-                aria-pressed={pick?.reason === r.label} disabled={busy} onClick={() => choose(r.label)}>
-                {r.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </fieldset>
+      <ReasonPick picked={pick?.reason ?? null} busy={busy} onPick={choose} />
       {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
       <div className="p3-stack-s">
         <button type="button" className="p3-btn p3-btn-danger" disabled={!pick || busy} data-testid="p3-cancel-confirm" onClick={() => void go()}>
@@ -89,5 +69,35 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
         <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>{CANCEL_COPY.keep}</button>
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * The ONE reason picker (cancellation_reasons through fetchCancellationReasons): "Cancel the
+ * event" and the date sheet's "Cancel this date" both pick from it.
+ */
+export function ReasonPick({ picked, busy, onPick }: { picked: string | null; busy: boolean; onPick: (label: string) => void }) {
+  const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
+  return (
+    <fieldset className="p3-ask" data-testid="p3-cancel-reasons">
+      <legend>{L.cancelWhy}</legend>
+      {reasons.isPending && <p className="p3-note">{CANCEL_COPY.loading}</p>}
+      {reasons.isError && (
+        <div className="p3-stack-s">
+          <p className="p3-error" role="alert">{CANCEL_COPY.noReasons}</p>
+          <button type="button" className="p3-btn p3-btn-line" onClick={() => void reasons.refetch()}>Try again</button>
+        </div>
+      )}
+      {reasons.data && (
+        <div className="p3-pair" role="group" aria-label={L.cancelWhy}>
+          {reasons.data.map((r) => (
+            <button key={r.key} type="button" className={`p3-btn ${picked === r.label ? '' : 'p3-btn-line'}`}
+              aria-pressed={picked === r.label} disabled={busy} onClick={() => onPick(r.label)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </fieldset>
   );
 }

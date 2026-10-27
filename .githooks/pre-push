@@ -146,8 +146,18 @@ elif [ -n "$unscoped" ] || [ -z "$HEAD_SHA" ] || [ "$heads_pushed" -lt 1 ]; then
     unit_reason="several refs"
 else
     echo "> pre-push: unit gate on the side laptop ($(printf '%.8s' "$HEAD_SHA"))"
-    node "$HOME/.claude/bin/remote-test.mjs" website "$HEAD_SHA" -- npm run test:unit:offline -- --reporter=dot
-    rc=$?
+    # Exit 3 can be a transient timeout (the laptop busy or waking): ask again, 3 tries in all,
+    # PREPUSH_RETRY_SLEEP seconds apart (default 20), before falling through to the local run.
+    remote_try=1
+    while :; do
+        node "$HOME/.claude/bin/remote-test.mjs" website "$HEAD_SHA" -- npm run test:unit:offline -- --reporter=dot
+        rc=$?
+        [ "$rc" -ne 3 ] && break
+        [ "$remote_try" -ge 3 ] && break
+        echo "> pre-push: side laptop unreachable (try $remote_try of 3); asking again in ${PREPUSH_RETRY_SLEEP:-20} s"
+        sleep "${PREPUSH_RETRY_SLEEP:-20}"
+        remote_try=$((remote_try + 1))
+    done
     if [ "$rc" -eq 0 ]; then
         unit_where="laptop"
     elif [ "$rc" -eq 3 ]; then

@@ -68,6 +68,8 @@ const MyAttendance = lazyWithRetry(() => import("../pages/MyAttendance"));
 const AccountSettings = lazyWithRetry(() => import("../pages/AccountSettings"));
 const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
 const Privacy = lazyWithRetry(() => import("../pages/Privacy"));
+// Buyer checkout return page (S4): its own lazy chunk, mounted only while flags.publicTicketing is on.
+const TicketThanksPage = lazyWithRetry(() => import("@/modules/tickets/TicketThanksPage"));
 const Terms = lazyWithRetry(() => import("../pages/Terms"));
 const AccountRestore = lazyWithRetry(() => import("../pages/AccountRestore"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
@@ -221,6 +223,10 @@ export const AnimatedRoutes = () => {
             <Route path="/account/settings/ownership" element={<PageTransition><AccountSettings view="ownership" /></PageTransition>} />
             <Route path="/account/settings/delete" element={<PageTransition><AccountSettings view="delete" /></PageTransition>} />
             <Route path="/privacy" element={<PageTransition><Privacy /></PageTransition>} />
+            {/* Buyer checkout return: no route at all while flags.publicTicketing is off. */}
+            {flags.publicTicketing ? (
+              <Route path="/tickets/thanks" element={<TicketThanksPage />} />
+            ) : null}
             <Route path="/terms" element={<PageTransition><Terms /></PageTransition>} />
             <Route path="/account/deleted" element={<PageTransition><AccountDeleted /></PageTransition>} />
             <Route path="/account/restore" element={<PageTransition><AccountRestore /></PageTransition>} />

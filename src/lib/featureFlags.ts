@@ -69,6 +69,10 @@ export const flags = {
   // area -- Get paid, ticket types, sales, refunds. OFF = no route at all. Turn on with
   // VITE_ENABLE_ORGANISER_TICKETING=true (Vercel env) -- no code change.
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
+  // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
+  // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
+  // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.
+  publicTicketing:     import.meta.env.VITE_ENABLE_PUBLIC_TICKETING === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the

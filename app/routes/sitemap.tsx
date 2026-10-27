@@ -5,6 +5,7 @@ import { edgeCacheControl } from "../detailLoader";
 import { resolvePublicName, type PublicNameSource } from "@/lib/publicName";
 import { NOT_DEACTIVATED } from "@/lib/notDeactivatedFilter";
 import { NOT_PUBLIC_LIFECYCLE } from "@/modules/profile/organiserPublicProfile";
+import { fetchOrganiserDirectoryHiddenIds, withoutHiddenOrganisers } from "@/lib/organiserDirectoryHiddenIds";
 import { withSsrLoaderTimeout } from "../lib/ssrLoaderTimeout";
 import { teachersSitemapPaths, type CityRow } from "@/modules/teachers-directory/teachersCity";
 
@@ -182,7 +183,11 @@ async function fetchTeacherProfileIds(): Promise<Set<string>> {
 
 // organiser_profiles: /organisers/:id pages.
 async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
-  const { data, error } = await db
+  // Hidden self-started pages (D3) come from the ONE shared helper and are
+  // dropped from the returned rows below; the limit stays 500. This is one
+  // deliberate exception to "match organiser.tsx exactly": a hidden page still
+  // serves there, but D3 keeps it out of every directory read, this one included.
+  const [{ data, error }, hiddenIds] = await Promise.all([db
     .from("organiser_profiles")
     .select("id, slug, updated_at, name")
     // Must match app/routes/organiser.tsx's own visibility gate exactly. That
@@ -194,9 +199,9 @@ async function fetchOrganiserProfiles(): Promise<UrlRow[]> {
     .not(...NOT_DEACTIVATED)
     .not(...NOT_PUBLIC_LIFECYCLE)
     .order("updated_at", { ascending: false })
-    .limit(500);
+    .limit(500), fetchOrganiserDirectoryHiddenIds(db)]);
   if (error) throw error;
-  return ((data ?? []) as Array<ProfileRow & PublicNameSource>)
+  return withoutHiddenOrganisers((data ?? []) as Array<ProfileRow & PublicNameSource>, hiddenIds)
     .filter((o) => resolvePublicName(o) !== null)
     .map((o) => ({
     loc: `${BASE_URL}/organisers/${o.slug || o.id}`,

@@ -22,7 +22,7 @@
  *     - app/routes/dancers.tsx                         SSR loader
  *     - src/pages/DancerProfile.tsx                    client query, same cache key
  *     - src/hooks/useDirectoryCounts.ts                organiser head-count
- *     - src/pages/Organisers.tsx                       organiser directory
+ *     - src/lib/organiserDirectoryList.ts              organiser directory (/organisers)
  *
  *   NOT using it, deliberately:
  *     - src/modules/profile/organiserPublicProfile.ts  fetchOwnOrganiserEntity:

@@ -222,12 +222,12 @@ describe('the page x every shape', () => {
     expect(screen.getByTestId('p3-session').textContent).toContain(L.noTime);
   });
 
-  it('nothing coming up on a live event: add a date or end it, with the link', () => {
+  it('nothing coming up on a live event: add a date or end it, with the Add a date control (W2b: in P3, not a link out)', () => {
     wsQ.value = ok('custom');
     show();
     const e = screen.getByTestId('p3-coming-empty');
     expect(e.textContent).toContain('Add a date so dancers can find it, or end it');
-    expect(within(e).getByRole('link')).toBeTruthy();
+    expect((screen.getByTestId('p3-add-date') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('a finished event says its past dates stay (no "add a date" nag)', () => {

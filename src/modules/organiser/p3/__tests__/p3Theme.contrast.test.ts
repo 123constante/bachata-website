@@ -59,13 +59,22 @@ const PAIRS: Array<[string, string[]]> = [
   // W2a: the Status sheet (greyed rows, refusals, warnings), the cancelled-date tag and the toast
   ['--mut', ['--sheet']], ['--gold-fg', ['--sheet']], ['--cancel-fg', ['--cancel-bg', '--sheet']], ['--warn-fg', ['--warn-bg', '--sheet']],
   ['--bg', ['--fg']],
+  // W2b: a danger action's title (.p3-danger-t) on the date sheet and a card; the typed value in .p3-in (fg on its sheet ground, above)
+  ['--danger', ['--sheet']], ['--danger', ['--card']],
 ];
+
+// Non-text edges, WCAG 1.4.11 (3:1): the .p3-in box edge against the sheet it sits on.
+const EDGES: Array<[string, string[]]> = [['--line-strong', ['--sheet']]];
 
 describe.each([['light', light], ['dark (phone setting)', darkMedia], ['dark (forced)', darkForced]] as const)('%s', (_n, T0) => {
   const T = { ...light, ...T0 };
   it.each(PAIRS)('%s on %j >= 4.5', (fg, ground) => {
     const r = ratio(composite(T, [fg]), composite(T, ground));
     expect(r, `${fg} on ${ground.join(' over ')} = ${r.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+  });
+  it.each(EDGES)('edge %s on %j >= 3', (edge, ground) => {
+    const r = ratio(composite(T, [edge, ...ground]), composite(T, ground));
+    expect(r, `${edge} on ${ground.join(' over ')} = ${r.toFixed(2)}`).toBeGreaterThanOrEqual(3);
   });
 });
 
