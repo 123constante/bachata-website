@@ -150,9 +150,12 @@ describe('Buy is disabled with a reason until valid', () => {
   it('on a preview origin it says why and never calls the server', async () => {
     renderBlock([mk('a')], { origin: 'https://bachata-website-git-x.vercel.app' });
     await screen.findByRole('button', { name: 'Buy tickets' });
+    // Said before any field is filled (review finding 4), and still said after.
+    expect(screen.getByText(/only works on bachatacalendar\.co\.uk/)).toBeTruthy();
     await fillAndBuy();
     expect((screen.getByRole('button', { name: 'Buy tickets' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/only works on bachatacalendar\.co\.uk/)).toBeTruthy();
+    expect(api.postTicketCheckout).not.toHaveBeenCalled();
   });
   it('terms text opens and is the draft copy', async () => {
     renderBlock([mk('a')]);
@@ -177,13 +180,13 @@ describe('server replies', () => {
     expect(window.sessionStorage.getItem('bc.ticketOrderId')).toBe('ord-1');
   });
   it('free: goes to the thank-you state without Stripe', async () => {
-    api.postTicketCheckout.mockResolvedValue({ kind: 'free', orderId: 'ord-free-123' });
+    api.postTicketCheckout.mockResolvedValue({ kind: 'free', orderId: 'ff00ff00-1111-4222-8333-444455556666' });
     renderBlock([mk('a', { pricePence: 0 })]);
     await screen.findByRole('button', { name: 'Get free ticket' });
     await fillAndBuy();
     fireEvent.click(screen.getByRole('button', { name: 'Get free ticket' }));
     expect(await screen.findByText('Your free tickets are on their way')).toBeTruthy();
-    expect(screen.getByText(/ord-free/)).toBeTruthy();
+    expect(screen.getByText(/ff00ff00/)).toBeTruthy();
   });
   for (const reason of [...Object.keys(REASON_COPY), 'something_new']) {
     for (const organiserId of ['org1', null]) {
@@ -238,9 +241,9 @@ describe('cancel state and thank-you page', () => {
     await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledTimes(2));
   });
   it.each([
-    ['/tickets/thanks?o=abcdef12-0000', /Payment received, your tickets are being emailed/, /abcdef12/],
-    ['/tickets/thanks', /Payment received, your tickets are being emailed/, null],
-    ['/tickets/thanks?o=ff00ff00-1&free=1', /free tickets are on their way/, /ff00ff00/],
+    ['/tickets/thanks?o=abcdef12-0000-4000-8000-000000000000', /Payment received, your tickets are being emailed/, /abcdef12/],
+    ['/tickets/thanks', /Thanks for your order/, null],
+    ['/tickets/thanks?o=ff00ff00-1111-4222-8333-444455556666&free=1', /free tickets are on their way/, /ff00ff00/],
   ])('%s', (path, title, ref) => {
     render(<MemoryRouter initialEntries={[path]}><TicketThanksPage /></MemoryRouter>);
     const page = screen.getByTestId('tickets-thanks');
@@ -250,7 +253,7 @@ describe('cancel state and thank-you page', () => {
     else expect(page.textContent).not.toMatch(/Order reference/);
   });
   it('falls back to the stored order id after the Stripe redirect', () => {
-    window.sessionStorage.setItem('bc.ticketOrderId', '99887766-aaaa');
+    window.sessionStorage.setItem('bc.ticketOrderId', '99887766-aaaa-4bbb-8ccc-dddddddddddd');
     render(<MemoryRouter initialEntries={['/tickets/thanks']}><TicketThanksPage /></MemoryRouter>);
     expect(screen.getByText(/99887766/)).toBeTruthy();
     // Moved into the URL (a refresh keeps it), then forgotten.

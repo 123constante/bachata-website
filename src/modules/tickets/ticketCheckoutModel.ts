@@ -16,6 +16,12 @@ export const CHECKOUT_ORIGINS: readonly string[] = [
 export const THANKS_PATH = '/tickets/thanks';
 export const CANCELLED_PARAM = 'tickets';
 export const ORDER_STORAGE_KEY = 'bc.ticketOrderId';
+/** Stripe's hosted checkout: the only place a reply may send the buyer. */
+export const STRIPE_CHECKOUT_PREFIX = 'https://checkout.stripe.com/';
+
+/** The edge function's own UUID check; an order id that fails it is no order. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isOrderId = (s: string | null | undefined): s is string => typeof s === 'string' && UUID.test(s);
 
 export type PublicTypeStatus = 'on_sale' | 'sold_out';
 
@@ -134,13 +140,14 @@ export interface FormState {
 /** Null = Buy is enabled; otherwise the reason shown under the disabled button. */
 export function disabledReason(f: FormState, now: Date): string | null {
   if (!f.type) return 'Pick a ticket first.';
+  // Before any field: a preview can never complete checkout, so do not ask for an email first.
+  if (!checkoutOriginOk(f.origin)) return 'Checkout only works on bachatacalendar.co.uk, not on this preview.';
   const max = maxQuantity(f.type, now);
   if (max === 0) return `${f.type.name} cannot be bought right now (${availability(f.type, now).label.toLowerCase()}).`;
   if (f.quantity < 1 || f.quantity > max) return `Choose between 1 and ${max} tickets.`;
   if (!f.email.trim()) return 'Enter your email so we can send your tickets.';
   if (!isEmail(f.email)) return 'That email does not look right.';
   if (!f.termsAccepted) return 'Tick the box to accept the terms of sale.';
-  if (!checkoutOriginOk(f.origin)) return 'Checkout only works on bachatacalendar.co.uk, not on this preview.';
   if (f.submitting) return 'Working on it\u2026';
   return null;
 }
@@ -189,7 +196,7 @@ export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutR
   const orderId = str(b.order_id);
   if (b.ok === true && orderId && b.free === true) return { kind: 'free', orderId };
   const url = str(b.checkout_url);
-  if (b.ok === true && orderId && url && /^https:\/\//.test(url)) return { kind: 'redirect', orderId, url };
+  if (b.ok === true && orderId && url && url.startsWith(STRIPE_CHECKOUT_PREFIX)) return { kind: 'redirect', orderId, url };
   const reason =
     str(b.reason) ??
     (httpStatus === 404 || httpStatus === 503 ? 'not_configured' : httpStatus === 401 ? 'unauthorised' : 'internal_error');
@@ -203,10 +210,15 @@ export interface ReasonCopy {
   way: WayForward;
 }
 
+/** A cancelled or abandoned Stripe session keeps its tickets until it expires (32 min). */
+const RATE_HELD = 'If you cancelled a checkout just now, those tickets are held for about 30 minutes.';
+
 /** Every refusal the edge function can send, in plain English, each with a way forward. */
 export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   invalid_request: { text: 'Something in the form was not accepted. Check your email and the number of tickets, then try again.', way: 'fix_form' },
-  rate_limited: { text: 'Too many ticket requests. Please wait a while and try again.', way: 'retry' },
+  invalid_quantity: { text: 'That number of tickets was not accepted. Choose between 1 and 20, then try again.', way: 'fix_form' },
+  invalid_email: { text: 'That email was not accepted. Check it, then try again.', way: 'fix_form' },
+  rate_limited: { text: `Too many ticket requests. Please wait a while and try again. ${RATE_HELD}`, way: 'retry' },
   not_found: { text: 'This ticket is no longer available. Pick another ticket.', way: 'pick_another' },
   not_on_sale: { text: 'This ticket is not on sale right now. Pick another ticket.', way: 'pick_another' },
   outside_sales_window: { text: 'Sales for this ticket are not open right now. Pick another ticket or come back later.', way: 'pick_another' },
@@ -221,7 +233,7 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
 
 export function reasonCopy(reason: string, message: string | null = null): ReasonCopy {
   const known = REASON_COPY[reason];
-  if (known) return reason === 'rate_limited' && message ? { ...known, text: message } : known;
+  if (known) return reason === 'rate_limited' && message ? { ...known, text: `${message} ${RATE_HELD}` } : known;
   return { text: 'Your tickets could not be booked. You have not been charged. Try again.', way: 'retry' };
 }
 
@@ -241,7 +253,8 @@ export function thanksCopy(free: boolean, hasOrder: boolean): { title: string; b
     };
   }
   return {
-    title: 'Payment received, your tickets are being emailed',
+    // No order id = no evidence of a payment: the heading must not claim one.
+    title: hasOrder ? 'Payment received, your tickets are being emailed' : 'Thanks for your order',
     body: hasOrder
       ? 'Your tickets will arrive by email in a few minutes, each with a code to show at the door. If nothing arrives within an hour, check your spam folder, then contact the organiser.'
       : 'If you completed payment, your tickets will arrive by email in a few minutes. If nothing arrives within an hour, check your spam folder, then contact the organiser.',

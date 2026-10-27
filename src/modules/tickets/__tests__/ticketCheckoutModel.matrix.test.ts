@@ -132,7 +132,7 @@ describe('checkout body', () => {
 });
 
 const SERVER_REASONS = ['invalid_request', 'rate_limited', 'not_found', 'not_on_sale', 'outside_sales_window', 'sold_out',
-  'organiser_not_onboarded', 'stripe_error', 'internal_error', 'not_configured'];
+  'organiser_not_onboarded', 'stripe_error', 'internal_error', 'not_configured', 'invalid_quantity', 'invalid_email'];
 
 describe('replies and every error reason', () => {
   it('redirect / free / error', () => {
@@ -153,7 +153,7 @@ describe('replies and every error reason', () => {
     for (const r of ['stripe_error', 'internal_error']) expect(reasonCopy(r).text).toMatch(/not been charged/);
   });
   it('rate_limited uses the server message; unknown reasons fall back', () => {
-    expect(reasonCopy('rate_limited', 'Slow down.').text).toBe('Slow down.');
+    expect(reasonCopy('rate_limited', 'Slow down.').text).toMatch(/^Slow down\. If you cancelled a checkout just now/);
     expect(reasonCopy('free_issue_failed').way).toBe('retry');
   });
 });
@@ -161,7 +161,7 @@ describe('replies and every error reason', () => {
 describe('thank-you copy never claims issuance from the redirect', () => {
   it.each([[false, true], [false, false], [true, true]])('free=%s order=%s', (free, has) => {
     const c = thanksCopy(free, has);
-    expect(c.title).toMatch(free ? /on their way/ : /^Payment received, your tickets are being emailed$/);
+    expect(c.title).toMatch(free ? /on their way/ : has ? /^Payment received, your tickets are being emailed$/ : /^Thanks for your order$/);
     expect(`${c.title} ${c.body}`).not.toMatch(/issued|confirmed/i);
   });
 });

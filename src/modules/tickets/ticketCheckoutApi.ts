@@ -27,6 +27,17 @@ export async function fetchPublicTicketTypes(seriesId: string): Promise<PublicTi
   return parsePublicTypes(data);
 }
 
+/** A stalled phone connection must not hold "Working on it" forever. */
+export const CHECKOUT_TIMEOUT_MS = 20_000;
+
+/** AbortSignal.timeout where the browser has it (Safari < 16 does not), else the same by hand. */
+function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), ms);
+  return c.signal;
+}
+
 export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutResult> {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -43,6 +54,7 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
       method: 'POST',
       headers: { apikey: key, Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: timeoutSignal(CHECKOUT_TIMEOUT_MS),
     });
   let resp: Response;
   try {
@@ -52,6 +64,8 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
     // as a guest with the publishable key. The function itself never answers 401.
     if (resp.status === 401 && token !== key) resp = await send(key);
   } catch {
+    // Offline, or the timeout above fired (AbortError / TimeoutError): retrying is safe, an
+    // order the server made in the meantime expires on its own.
     return { kind: 'error', reason: 'network', message: null };
   }
   const json = await resp.json().catch(() => null);

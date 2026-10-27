@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useSeo } from '@/lib/seo';
-import { thanksCopy } from './ticketCheckoutModel';
+import { isOrderId, thanksCopy } from './ticketCheckoutModel';
 import { clearOrderId, readOrderId } from './orderStorage';
 
 /**
@@ -16,19 +16,27 @@ export default function TicketThanksPage() {
   const [params] = useSearchParams();
   useSeo({ title: 'Your tickets', description: 'Your Bachata Calendar ticket order.', noindex: true });
   const navigate = useNavigate();
-  const [stored] = useState(() => (typeof window === 'undefined' ? null : readOrderId()));
-  const orderId = params.get('o') ?? stored;
+  const [stored] = useState(() => {
+    const s = typeof window === 'undefined' ? null : readOrderId();
+    return isOrderId(s) ? s : null;
+  });
+  // Only an id shaped like the server's is an order; anything else (typed, garbled, empty)
+  // falls back to the stored one, or to no order at all.
+  const fromUrl = params.get('o');
+  const urlOk = isOrderId(fromUrl);
+  const orderId = urlOk ? fromUrl : stored;
   // Move the stored id into the URL (a refresh keeps the reference), then forget it so a
   // later visit never shows an old, abandoned order.
   useEffect(() => {
-    if (!params.get('o') && stored) {
+    if (!urlOk && stored) {
       const q = new URLSearchParams(params);
       q.set('o', stored);
       navigate(`?${q.toString()}`, { replace: true });
     }
     clearOrderId();
-  }, [params, stored, navigate]);
-  const free = params.get('free') === '1';
+  }, [params, urlOk, stored, navigate]);
+  // free=1 is only believed alongside a real order id (the block sends both together).
+  const free = params.get('free') === '1' && urlOk;
   const copy = thanksCopy(free, Boolean(orderId));
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('ticketsThanks')}>

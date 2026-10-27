@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
@@ -19,8 +19,8 @@ import {
   typesForNight,
   type PublicTicketType,
 } from './ticketCheckoutModel';
-import { saveOrderId } from './orderStorage';
-import { PRIVACY_PARAGRAPH, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
+import { clearOrderId, saveOrderId } from './orderStorage';
+import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
 
 /**
  * The Tickets block on /event/:id (S4, docs/ticketing-buyer-journey.md). Mounted by
@@ -70,6 +70,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Holds a second tap or Return even before React re-renders Buy as disabled.
+  const inFlight = useRef(false);
   const [error, setError] = useState<{ reason: string; message: string | null } | null>(null);
 
   const list = typesForNight(types ?? [], occurrenceId);
@@ -85,7 +87,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   // Back from Stripe can restore this page from the bfcache with submitting still true.
   useEffect(() => {
     const onShow = (e: PageTransitionEvent) => {
-      if (e.persisted) setSubmitting(false);
+      if (e.persisted) {
+        inFlight.current = false;
+        setSubmitting(false);
+      }
     };
     window.addEventListener('pageshow', onShow);
     return () => window.removeEventListener('pageshow', onShow);
@@ -94,6 +99,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   useEffect(() => {
     const q = new URLSearchParams(location.search);
     if (!q.has(CANCELLED_PARAM)) return;
+    // That checkout was not paid: never show its reference on a later thank-you page.
+    clearOrderId();
     q.delete(CANCELLED_PARAM);
     const rest = q.toString();
     navigate(`${location.pathname}${rest ? `?${rest}` : ''}`, { replace: true });
@@ -111,7 +118,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const sum = selected ? totals(selected, qty) : null;
 
   async function onBuy() {
-    if (!selected || reason) return;
+    if (!selected || reason || inFlight.current) return;
+    inFlight.current = true;
     setSubmitting(true);
     setError(null);
     const result = await postTicketCheckout(
@@ -122,6 +130,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
       window.location.assign(result.url);
       return;
     }
+    inFlight.current = false;
     setSubmitting(false);
     if (result.kind === 'free') {
       saveOrderId(result.orderId);
@@ -209,7 +218,14 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
       )}
 
       {selected && max > 0 && sum && (
-        <div className="mt-3 space-y-3">
+        <form
+          className="mt-3 space-y-3"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            void onBuy();
+          }}
+        >
           <div className="flex items-center justify-between gap-3">
             <span>Quantity</span>
             <div className="flex items-center gap-2" role="group" aria-label="Quantity">
@@ -306,15 +322,18 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 <ul className="list-disc space-y-1 pl-4">
                   {TERMS_OF_SALE.map((line) => <li key={line}>{line}</li>)}
                 </ul>
-                <p>{PRIVACY_PARAGRAPH}</p>
+                <p>
+                  {PRIVACY_PARAGRAPH} {PRIVACY_POLICY_LINE.lead}{' '}
+                  <Link to={PRIVACY_POLICY_LINE.path} className="underline">{PRIVACY_POLICY_LINE.linkText}</Link>{' '}
+                  {PRIVACY_POLICY_LINE.tail}
+                </p>
               </div>
             )}
           </div>
 
           <div>
             <button
-              type="button"
-              onClick={onBuy}
+              type="submit"
               disabled={reason !== null}
               aria-describedby={reason ? 'tickets-buy-reason' : undefined}
               className="min-h-[48px] w-full rounded-md px-3 py-2 text-[15px] font-semibold disabled:opacity-50"
@@ -326,7 +345,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
               <p id="tickets-buy-reason" className="mt-1 text-[12px]" style={muted}>{reason}</p>
             )}
           </div>
-        </div>
+        </form>
       )}
 
       {!selected && buyable.length > 1 && (

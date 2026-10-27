@@ -21,5 +21,12 @@ export const TERMS_OF_SALE: readonly string[] = [
 export const PRIVACY_PARAGRAPH =
   'To issue your tickets we store your name (if you give it), your email address and your order (ticket type, number of tickets, amount paid and its status). ' +
   'We share these with the event organiser so they can check you in and contact you about the event, and with Stripe to take payment. ' +
-  'We use your email only for your tickets and messages about this order, never for marketing. ' +
-  'See our privacy policy at /privacy for how long we keep data and how to ask us to delete it.';
+  'We use your email only for your tickets and messages about this order, never for marketing.';
+
+/** The last sentence of the privacy paragraph; the block renders `linkText` as a link to `path`. */
+export const PRIVACY_POLICY_LINE = {
+  lead: 'See our',
+  linkText: 'privacy policy',
+  path: '/privacy',
+  tail: 'for how long we keep data and how to ask us to delete it.',
+} as const;
