@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { fullDate } from '../../shared/dateWords';
-import { LEVEL_KEYS, SESSION_TYPES, TYPE_LABEL, endsNextDay, type DraftPerson } from '../../shared/programmeModel';
-import { roleWord, typeWord } from '../../events/programmeSeriesModel';
+import { LEVEL_KEYS, SESSION_TYPES, TYPE_LABEL, endsNextDay, titleProblem, type DraftPerson } from '../../shared/programmeModel';
+import { CHANGED_SESSION_REMOVE_CONFIRM, roleWord, typeWord } from '../../events/programmeSeriesModel';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, PROGRAMME_WHY, liveDates, programmeRules, scopeWhy, sessionTitle, shownControls, timeWord, type ProgrammeControl, type Scope } from '../model';
 import { eventOf, levelLabel } from '../data/eventPage';
@@ -73,11 +73,16 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
   const has = (c: ProgrammeControl) => shown.includes(c);
 
   const base: SessForm = scope === 'date' && draft ? formOfDraft(draft) : item ? formOfItem(item) : emptyForm();
-  const baseKey = `${scope}|${prog.dataUpdatedAt}|${draft?.key ?? ''}`;
+  // Typing is kept until the STORED content changes: a background refetch of the same version keeps it, a new
+  // version (another save) starts again from what is stored. Switching scope starts again too, and says so (r1 #1, #7).
+  const baseKey = `${scope}|${scope === 'date' ? prog.data?.version ?? '' : ws.series.version}|${draft?.key ?? ''}`;
   const [edit, setEdit] = useState<{ k: string; f: SessForm } | null>(null);
   const form = edit && edit.k === baseKey ? edit.f : base;
   const set = (patch: Partial<SessForm>) => setEdit({ k: baseKey, f: { ...form, ...patch } });
   const dirty = open.key ? !sameForm(form, base) : true;
+  const typed = !!edit && edit.k === baseKey;
+  // a NEW session needs a name in either scope (the date writer refuses one without); a stored untitled one stays as it is (r1 #2)
+  const nameWhy = !open.key && !form.title.trim() ? titleProblem(form.title) : null;
   const name = open.key ? sessionTitle({ title: base.title }) : L.newSession;
   const where = scope === 'every' ? L.everyDate : `${day}${extra ? ` \u00b7 ${L.extra}` : ''}`;
 
@@ -122,6 +127,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
     return (
       <Sheet title={L.removeAllTitle(name)} onClose={onClose}>
         <p className="p3-mut" data-testid="p3-removeall-body">{L.removeAllBody(n)}</p>
+        <p className="p3-note" data-testid="p3-removeall-changed">{CHANGED_SESSION_REMOVE_CONFIRM}</p>
         <p className="p3-note">{L.removeAllHint}</p>
         {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
         <div className="p3-stack-s">
@@ -157,6 +163,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
           <span className="p3-row-s">{dateWhy ?? L.justDateSub}</span>
         </button>
       </div>
+      {typed && <p className="p3-note" data-testid="p3-sess-scope-clears">{L.scopeClears}</p>}
       {scopeOff && !loading && <p className="p3-warn" data-testid="p3-sess-why">{scopeOff}</p>}
       {loading ? <p className="p3-note" data-testid="p3-sess-loading">{L.loadingSessions}</p> : prog.isError && scope === 'date' ? (
         <div className="p3-stack-s"><p className="p3-error" role="alert">{L.sessionsLoadFail}</p><RetryButton onClick={() => void prog.refetch()} /></div>
@@ -234,9 +241,10 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
           )}
           {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
           <div className="p3-stack-s p3-gap-t">
-            <button type="button" className="p3-btn" disabled={!dirty || !!rules.save || busy || (scope === 'date' && !drafts)} onClick={() => void save()} data-testid="p3-sess-save">
+            <button type="button" className="p3-btn" disabled={!dirty || !!nameWhy || !!rules.save || busy || (scope === 'date' && !drafts)} onClick={() => void save()} data-testid="p3-sess-save">
               {!open.key ? L.addThisSession : !dirty ? L.nothingChanged : scope === 'every' ? L.saveAll : L.saveOne}
             </button>
+            <Why why={rules.save ? null : nameWhy} testId="p3-why-name" />
             {!open.key && <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-testid="p3-sess-dontadd">{L.dontAdd}</button>}
             {has('removeAll') && (
               <>

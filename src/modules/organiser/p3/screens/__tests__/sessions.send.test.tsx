@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
 import { L } from '../../model';
 import { PROGRAMME_WHY } from '../../model/programme';
+import { CHANGED_SESSION_REMOVE_CONFIRM } from '../../../events/programmeSeriesModel';
 
 /*
  * W2d through the REAL send paths: session sheet -> data/sessions -> useSendOnce ->
@@ -20,6 +21,7 @@ vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/l
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
 
 import { EventPage } from '../EventPage';
+import { LineupSheet } from '../LineupSheet';
 
 const ROOMS = [{ id: 'r1', name: 'Main room', sort_order: 0 }, { id: 'r2', name: 'Studio', sort_order: 1 }];
 beforeEach(() => {
@@ -30,8 +32,9 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); rpc.mockReset(); });
 
+let qc: QueryClient;
 function show() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/account/p3/events/ser-1']}>
@@ -212,6 +215,154 @@ describe('session sheet, Just this date (organiser_set_occurrence_programme_v1)'
     expect(screen.getByTestId('p3-sess-why').textContent).toBe(PROGRAMME_WHY.multiDay);
     expect((screen.getByTestId('p3-sess-notrunning') as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId('p3-sess-save') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+/** Refetch every query and let React Query's batched notify reach the screen (it flushes after a tick). */
+const refetchAll = () => act(async () => { await qc.refetchQueries(); await new Promise((r) => setTimeout(r, 0)); });
+/** The two sends carry the same command: only the version (and so the key) differs. */
+const e2cmd = (calls: Array<[string, Record<string, unknown>]>) => JSON.stringify(envs(calls)[0].command) === JSON.stringify(envs(calls)[1].command);
+const nameOf = () => (screen.getByTestId('p3-sess-name') as HTMLInputElement).value;
+const saveOf = () => screen.getByTestId('p3-sess-save') as HTMLButtonElement;
+
+describe('review r1 #1: typing survives a background refetch of the same stored content', () => {
+  it('Just this date: a refetch with the same version keeps the typing; a NEW version resets it', async () => {
+    let version = 4;
+    server({ organiser_get_occurrence_programme_v1: () => ({ data: { ...DATE_PROG, version }, error: null }) });
+    show();
+    await openFirstSession();
+    fireEvent.click(screen.getByTestId('p3-scope-date'));
+    await waitFor(() => screen.getByTestId('p3-sess-name'));
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Typed name' } });
+    await refetchAll();
+    expect(nameOf()).toBe('Typed name');
+    expect(saveOf().disabled).toBe(false);
+    version = 5;
+    await refetchAll();
+    await waitFor(() => expect(nameOf()).toBe('Bachata class'));
+  });
+
+  it('Every date: a workspace refetch with the same version keeps the typing', async () => {
+    server();
+    show();
+    await openFirstSession();
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Typed name' } });
+    await refetchAll();
+    expect(nameOf()).toBe('Typed name');
+  });
+});
+
+describe('review r1 #2: a NEW session needs a name in both scopes', () => {
+  for (const scope of ['every', 'date'] as const) {
+    it(`${scope}: "Add this session" is off on an empty form with the reason; a name turns it on`, async () => {
+      const calls = server();
+      show();
+      await waitFor(() => screen.getByTestId('p3-add-session'));
+      fireEvent.click(screen.getByTestId('p3-add-session'));
+      if (scope === 'date') fireEvent.click(screen.getByTestId('p3-scope-date'));
+      await waitFor(() => screen.getByTestId('p3-sess-name'));
+      expect(saveOf().disabled).toBe(true);
+      expect(screen.getByTestId('p3-why-name').textContent).toBe('Give this session a name.');
+      fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: '   ' } });
+      expect(saveOf().disabled).toBe(true);
+      fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Late social' } });
+      expect(saveOf().disabled).toBe(false);
+      expect(screen.queryByTestId('p3-why-name')).toBeNull();
+      expect(envs(calls)).toHaveLength(0);
+    });
+  }
+});
+
+describe('review r1 #3: the idempotency key belongs to one envelope', () => {
+  it('after a definitive refusal the next tap carries a fresh key', async () => {
+    let n = 0;
+    const calls = server({ series_command_p5: () => { n += 1; return n === 1 ? { data: null, error: { message: 'version_conflict: expected 7 got 9' } } : { data: { ok: true, new_version: 8 }, error: null }; } });
+    show();
+    await openFirstSession();
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Improvers class' } });
+    await act(async () => { fireEvent.click(saveOf()); });
+    await waitFor(() => screen.getByTestId('p3-sheet-error'));
+    await act(async () => { fireEvent.click(saveOf()); });
+    await waitFor(() => screen.getByTestId('p3-toast'));
+    const e = envs(calls);
+    expect(e).toHaveLength(2);
+    expect(e[1].idempotency_key).not.toBe(e[0].idempotency_key);
+  });
+
+  it('a dropped connection then a reload at a NEW version: the retry carries a fresh key and the new version', async () => {
+    let n = 0;
+    let version = 7;
+    const calls = server({
+      admin_event_workspace_p5: () => ({ data: { ...SHAPES.weekly, series: { ...SHAPES.weekly.series, series: { ...SHAPES.weekly.series.series, version } } }, error: null }),
+      series_command_p5: () => { n += 1; if (n === 1) { version = 9; throw new TypeError('Failed to fetch'); } return { data: { ok: true, new_version: 10 }, error: null }; },
+    });
+    show();
+    await openFirstSession();
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Improvers class' } });
+    await act(async () => { fireEvent.click(saveOf()); });
+    await waitFor(() => screen.getByTestId('p3-sheet-error'));
+    await refetchAll();
+    // a new stored version starts the form again (#1); the same words typed again build the same command
+    expect(nameOf()).toBe('Bachata class');
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Improvers class' } });
+    await act(async () => { fireEvent.click(saveOf()); });
+    await waitFor(() => expect(envs(calls)).toHaveLength(2));
+    expect(e2cmd(calls)).toBe(true);
+    const e = envs(calls);
+    expect(e[0].expected_version).toBe(7);
+    expect(e[1].expected_version).toBe(9);
+    expect(e[1].idempotency_key).not.toBe(e[0].idempotency_key);
+  });
+});
+
+describe('review r1 nits', () => {
+  it('#4: a stored person taken off cannot be re-added from the search; the row says to use Keep them on', async () => {
+    server({ organiser_search_people_v1: () => ({ data: [{ id: 'p-cls-0', display_name: 'Marco & Elena', dj_name: null, photo_url: null, city_name: 'Leeds', country_code: 'GB' }], error: null }) });
+    show();
+    await openFirstSession();
+    fireEvent.click(screen.getByTestId('p3-sess-lineup-open'));
+    fireEvent.click(screen.getAllByTestId('p3-lineup-toggle')[0]);
+    fireEvent.change(screen.getByTestId('p3-lineup-search'), { target: { value: 'Marco' } });
+    await waitFor(() => screen.getByTestId('p3-lineup-result'));
+    const r = screen.getByTestId('p3-lineup-result') as HTMLButtonElement;
+    expect(r.disabled).toBe(true);
+    expect(r.textContent).toContain(L.useKeepOn);
+  });
+
+  it('#5: a performance line-up says who adds performers and the MC; a class line-up does not', () => {
+    for (const type of ['performance', 'class']) {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <LineupSheet name="Show" where={L.everyDate} type={type} initial={[]} why={null} busy={false} error={null} onSave={() => undefined} onBack={() => undefined} />
+        </QueryClientProvider>,
+      );
+      const note = screen.queryByTestId('p3-lineup-teamonly');
+      if (type === 'performance') expect(note?.textContent).toBe('Performers and the MC are added by the Bachata Calendar team.');
+      else expect(note).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('#6: the remove-from-every-date confirm warns about per-date changes before the tap', async () => {
+    server();
+    show();
+    await openFirstSession();
+    fireEvent.click(screen.getByTestId('p3-sess-removeall'));
+    expect(screen.getByTestId('p3-sheet').textContent).toContain(CHANGED_SESSION_REMOVE_CONFIRM);
+    expect(L.removeAllBody(0)).not.toMatch(/\b0 dates/);
+  });
+
+  it('#7: typing then switching scope says plainly that it clears, and it does', async () => {
+    server();
+    show();
+    await openFirstSession();
+    expect(screen.queryByTestId('p3-sess-scope-clears')).toBeNull();
+    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Typed name' } });
+    expect(screen.getByTestId('p3-sess-scope-clears').textContent).toBe(L.scopeClears);
+    fireEvent.click(screen.getByTestId('p3-scope-date'));
+    await waitFor(() => screen.getByTestId('p3-sess-name'));
+    expect(nameOf()).toBe('Bachata class');
+    expect(screen.queryByTestId('p3-sess-scope-clears')).toBeNull();
   });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseProgramme } from '../../../shared/programmeModel';
 import { parseTree, validateTree, addSession, updateItem } from '../../../events/programmeSeriesModel';
+import { commandErrorMessage } from '../../../shared/selfServeErrors';
 import {
   dateAdd, dateEdit, dateLineup, dateOff, draftFor, draftsOf, emptyForm, everyAdd, everyEdit, everyLineup, everyRemove,
   formOfDraft, formOfItem, isExtra, itemOf, peopleOfItem, sameForm,
@@ -173,4 +174,45 @@ describe('just this date: organiser_set_occurrence_programme_v1 x items x line-u
       expect(dateLineup(drafts, 's:item-0', ppl).payload).toBeNull();
     });
   }
+});
+
+const NAME = 'Give this session a name.';
+
+describe('review r1 #2: a name for a NEW session, both scopes; stored untitled sessions stay lenient (#25)', () => {
+  const tree = parseTree(programFor(2, 'noTime', 'empty'));
+  const [untitled, titled] = [itemOf(tree, 'i:00000000-0000-4000-8000-000000000000')!, itemOf(tree, 'i:00000000-0000-4000-8000-000000000001')!];
+  const drafts = draftsOf(dateProgramme(2, 'empty'));
+  const timed = { start: '20:00', end: '21:00' };
+  const cases: Array<[string, () => { problem: string | null }, string | null]> = [
+    ['every / new / untitled', () => everyAdd(tree, emptyForm('class')), NAME],
+    ['every / new / blank spaces', () => everyAdd(tree, { ...emptyForm('class'), title: '   ' }), NAME],
+    ['every / new / titled', () => everyAdd(tree, { ...emptyForm('class'), title: 'Class' }), null],
+    ['every / stored / untitled, times set', () => everyEdit(tree, untitled.key, { ...formOfItem(untitled), ...timed }), null],
+    ['every / stored / titled, renamed', () => everyEdit(tree, titled.key, { ...formOfItem(titled), title: 'Renamed' }), null],
+    ['date / new / untitled', () => dateAdd(drafts, emptyForm('class')), NAME],
+    ['date / new / untitled, timed', () => dateAdd(drafts, { ...emptyForm('class'), ...timed }), NAME],
+    ['date / new / titled', () => dateAdd(drafts, { ...emptyForm('class'), title: 'Class', ...timed }), null],
+    ['date / stored / untitled, renamed', () => dateEdit(drafts, 's:item-0', { ...formOfDraft(drafts[0]), title: 'Named now' }), null],
+    ['date / stored / titled, times set', () => dateEdit(drafts, 's:item-1', { ...formOfDraft(drafts[1]), ...timed, start: '19:00' }), null],
+  ];
+  for (const [name, run, want] of cases) it(name, () => expect(run().problem).toBe(want));
+  it('the new-session check is on the unsaved item only: a stored untitled item never blocks adding a named one', () => {
+    expect(untitled.title).toBe('');
+    expect(everyAdd(tree, { ...emptyForm('party'), title: 'Late social' }).command).not.toBeNull();
+  });
+});
+
+describe('review r1 #8: the series.set_program caps say what to remove', () => {
+  const copy = (m: string) => commandErrorMessage({ code: 'P0001', message: m });
+  it.each([
+    ['invalid_payload: series.set_program holds at most 60 sessions', /60 sessions/],
+    ['invalid_payload: series.set_program a session holds at most 20 people', /20 people/],
+    ['invalid_payload: series.set_program holds at most 300 line-up entries', /300/],
+  ])('%s', (server, words) => {
+    expect(copy(server)).toMatch(words);
+    expect(copy(server)).not.toMatch(/Reload the page/);
+  });
+  it('any other set_program shape refusal still reads as a reload', () => {
+    expect(copy('invalid_payload: series.set_program item keys are not programme item keys')).toMatch(/Reload the page/);
+  });
 });

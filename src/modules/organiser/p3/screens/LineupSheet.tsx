@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { isEditableRole, type DraftPerson, type PeopleRole } from '../../shared/programmeModel';
 import { PEOPLE_SEARCH_MIN, searchPeople, searchPeopleQueryKey } from '../../shared/selfServeApi';
-import { addRoleFor, roleWord } from '../../events/programmeSeriesModel';
+import { addRoleFor, roleWord, whyCannotAddPerson, type PItem } from '../../events/programmeSeriesModel';
 import { L } from '../model';
 import { lineupChanged } from '../data/sessions';
 import { Sheet } from './Sheet';
@@ -38,6 +38,8 @@ export function LineupSheet({ name, where, type, initial, why, busy, error, onSa
     enabled: !why && q.length >= PEOPLE_SEARCH_MIN,
   });
   const changed = lineupChanged(people);
+  // a performance takes no organiser role: the old screen's sentence, from its one copy (review r1 #5)
+  const teamOnly = addRoleFor(type) === null ? whyCannotAddPerson({ type, people: [] } as Pick<PItem, 'type' | 'people'> as PItem) : null;
   const toggle = (i: number) => setPeople((list) => {
     const p = list[i];
     if (!p || !isEditableRole(p.role)) return list;
@@ -73,6 +75,7 @@ export function LineupSheet({ name, where, type, initial, why, busy, error, onSa
       </div>
       {!why && (
         <>
+          {teamOnly && <p className="p3-note" data-testid="p3-lineup-teamonly">{teamOnly}</p>}
           <span className="p3-field">{L.addAs}</span>
           <div className="p3-seg p3-seg2" role="group" aria-label={L.addAs}>
             {ADD_ROLES.map((r) => (
@@ -90,10 +93,12 @@ export function LineupSheet({ name, where, type, initial, why, busy, error, onSa
             <div className="p3-stack-s" data-testid="p3-lineup-results">
               {(results.data ?? []).map((r) => {
                 const on = people.some((p) => p.id === r.id && !p.removed);
+                // a stored person taken off comes back with their row's button, never as a second entry (review r1 #4)
+                const off = people.some((p) => p.id === r.id && p.origin === 'stored' && p.removed);
                 return (
-                  <button key={r.id} type="button" className="p3-choice" disabled={on || busy} onClick={() => add(r)} data-testid="p3-lineup-result">
+                  <button key={r.id} type="button" className="p3-choice" disabled={on || off || busy} onClick={() => add(r)} data-testid="p3-lineup-result">
                     <span className="p3-row-t">{r.name}</span>
-                    <span className="p3-row-s">{on ? L.alreadyOn(roleWord(people.find((p) => p.id === r.id)?.role ?? null)) : r.place ?? roleWord(role)}</span>
+                    <span className="p3-row-s">{on ? L.alreadyOn(roleWord(people.find((p) => p.id === r.id)?.role ?? null)) : off ? L.useKeepOn : r.place ?? roleWord(role)}</span>
                   </button>
                 );
               })}

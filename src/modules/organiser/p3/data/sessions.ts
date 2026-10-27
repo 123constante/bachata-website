@@ -10,7 +10,7 @@ import {
   type DraftPerson, type DraftSession, type PeopleRole, type Programme, type SessionType,
 } from '../../shared/programmeModel';
 import { fetchOccurrenceProgramme, occurrenceProgrammeQueryKey, saveOccurrenceProgramme } from '../../shared/selfServeApi';
-import { commandErrorMessage, programmeErrorCopy } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isNetworkFailure, programmeErrorCopy } from '../../shared/selfServeErrors';
 import { eventWorkspaceQueryKey, useSendOnce } from '../../shared/runCommands';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import { AW1_APPLIED } from '../../shared/parityGate';
@@ -91,17 +91,18 @@ export const itemIdOf = (key: string): string | null => (key.startsWith('i:') ? 
 export interface Built { command: OwnerCommand | null; problem: string | null }
 
 /**
- * #25: a session with a name and no time (or no name, or nobody on it) is still a
- * session: it saves and renders ("No time yet", "No name yet"), never dropped as
- * "empty". So a blank name and a blank PAIR of times pass here (239 / 223 prod items
- * are like that); a half-filled time or a bad name is still stopped before the send.
+ * #25: a session with a name and no time (or nobody on it) is still a session: it
+ * saves and renders ("No time yet"), never dropped as "empty". So a blank PAIR of
+ * times passes here (223 prod items are like that); a half-filled time is still
+ * stopped before the send. A stored untitled item (239 on prod) passes because
+ * validateTree checks a name only when it changes; a NEW session needs a name, the
+ * same rule as Just this date (review r1 #2: the server would store a nameless one).
  */
 function problemsOf(draft: PTree, tree: PTree) {
   const byKey = new Map(allItems(draft).map((i) => [i.key, i]));
   return validateTree(draft, tree).filter((p) => {
     const it = byKey.get(p.key);
     if (!it) return true;
-    if (p.field === 'title') return it.title.trim() !== '';
     if (p.field === 'times') return !!(it.start || it.end);
     return true;
   });
@@ -237,17 +238,27 @@ export const levelsApply = (type: string | null) => (LEVEL_TYPES as readonly str
 
 /**
  * Every-date send: ONE series.set_program per tap under a key kept for that exact
- * command until it lands, so a retry after a dropped connection is the same write.
+ * envelope (command AND expected_version) until it lands, so a retry after a dropped
+ * connection is the same write. The server (apply_aggregate_write_p5, read on prod
+ * 2026-10-27) looks a key up by actor and key alone and replays the stored answer,
+ * whatever the envelope; it stores one only on success. So a key never outlives its
+ * version (a reload at a new version mints a fresh one), and a definitive refusal
+ * drops it: only a network failure keeps it for the retry (review r1 #3).
  */
 export function useEverySend(ws: EventWorkspace) {
   const once = useSendOnce(ws.series.id);
   const keys = useRef(new Map<string, string>());
   return async (command: OwnerCommand): Promise<void> => {
-    const id = JSON.stringify(command);
+    const id = `${ws.series.version}|${JSON.stringify(command)}`;
     const key = keys.current.get(id) ?? newIdempotencyKey();
     keys.current.set(id, key);
-    await once(command, ws.series.version, key);
-    keys.current.delete(id);
+    try {
+      await once(command, ws.series.version, key);
+      keys.current.delete(id);
+    } catch (e) {
+      if (!isNetworkFailure(e)) keys.current.delete(id);
+      throw e;
+    }
   };
 }
 

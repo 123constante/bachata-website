@@ -180,8 +180,10 @@ export const L = {
   notRunningBody: (day: string) => `This session is not running on ${day}. Dancers see it struck through. The other dates keep it.`,
   notRunningNote: 'Not running keeps it on the list, struck through, so dancers know.',
   removeAllTitle: (name: string) => `Remove \u201c${name}\u201d from every date?`,
-  removeAllBody: (n: number) => `It comes off ${n === 1 ? 'the 1 date' : `all ${n} dates`} coming up. Dancers stop seeing it.`,
+  removeAllBody: (n: number) => (n === 0 ? 'It comes off the programme. Dancers stop seeing it.' : `It comes off ${n === 1 ? 'the 1 date' : `all ${n} dates`} coming up. Dancers stop seeing it.`),
   removeAllHint: 'Only skipping it once? Open that date and choose \u201cNot running this date\u201d instead.',
+  /** Under the scope picker once something is typed: switching scope starts again from that scope's stored session. */
+  scopeClears: 'Changing which dates clears what you typed here.',
   removeAllYes: 'Yes, remove from every date',
   keepIt: 'Keep it',
   leaveOff: 'Leave it off',
@@ -202,6 +204,8 @@ export const L = {
   addAs: 'Add as',
   takeOff: 'Take off',
   putBack: 'Keep them on',
+  /** A stored person taken off shows in the search too: putting them back is the row's button, not a second add. */
+  useKeepOn: 'Taken off above. Tap \u201cKeep them on\u201d to put them back.',
   readOnlyPerson: 'Set by the Bachata Calendar team',
   festivalAsk: 'Festival sessions are set with the Bachata Calendar team. Ask us to change the programme.',
   askUs: 'Ask us to change the programme',
