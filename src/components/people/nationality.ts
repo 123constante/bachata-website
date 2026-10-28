@@ -36,10 +36,14 @@ function regionNames(): Intl.DisplayNames | null {
   return names;
 }
 
+/** ISO 3166-2 home nations stored beside GB (countries.ts HOME_NATIONS); they show the GB flag artwork. */
+const HOME_NATION_NAMES: Readonly<Record<string, string>> = { ENG: 'England', NIR: 'Northern Ireland', SCT: 'Scotland', WLS: 'Wales' };
+
 /** The alpha-2 code to show a flag for, or null for no flag. Accepts any input shape. */
 export function normaliseNationalityCode(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const code = raw.trim().toUpperCase();
+  if (/^GB-(ENG|NIR|SCT|WLS)$/.test(code)) return code;
   if (!/^[A-Z]{2}$/.test(code)) return null;
   if (NOT_A_NATIONALITY.has(code) || isPrivateUse(code)) return null;
   return nationalityCountryName(code) ? code : null;
@@ -47,6 +51,7 @@ export function normaliseNationalityCode(raw: unknown): string | null {
 
 /** The country's English name ("Spain"), or null when Intl does not know the code. */
 export function nationalityCountryName(code: string): string | null {
+  if (code.startsWith('GB-')) return HOME_NATION_NAMES[code.slice(3)] ?? null;
   const dn = regionNames();
   if (!dn) return null;
   try {

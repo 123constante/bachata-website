@@ -125,4 +125,5 @@ export const genericFlagArt = (code: string) =>
 export const hasFlagArt = (code: string) => Object.prototype.hasOwnProperty.call(FLAG_ART, code);
 
 /** The inner SVG markup for the code (its artwork, or the generic flag), on the 30x20 viewBox. */
-export const flagArtMarkup = (code: string): string => (hasFlagArt(code) ? FLAG_ART[code] : genericFlagArt(code));
+export const flagArtMarkup = (code: string): string =>
+  hasFlagArt(code) ? FLAG_ART[code] : code.startsWith('GB-') ? FLAG_ART.GB : genericFlagArt(code);
