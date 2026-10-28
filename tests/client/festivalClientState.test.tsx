@@ -175,6 +175,35 @@ async function mountFestival(
   // equivalent, and the key it returns still sits on an element whose parent
   // re-renders on a param change -- which is what makes the remount happen.
   const { default: FestivalRoute } = await import('../../app/routes/festival');
+
+  // LOAD THE PageTransition CHUNK BEFORE ANYTHING CAN SUSPEND ON IT -- the
+  // 2026-10-28 CI flake (`expected +0 to be 2` on the setup click of the
+  // window case, four times in one morning, never locally).
+  //
+  // InitialVisiblePageTransition's Suspense fallback is `plain`, a DIFFERENT
+  // tree position from `<PageTransition>{children}</PageTransition>`. When the
+  // lazy chunk resolves, React swaps one for the other and REMOUNTS the whole
+  // page, so every pick made on the fallback is discarded. The first lazy
+  // render is the control case's navigateTo, and an async act() drains
+  // microtasks only: a module import is real I/O (vite-node transforms
+  // PageTransition and framer-motion), so on a loaded CI runner it was still
+  // pending when the NEXT case mounted, and resolved in the middle of that
+  // case's user.click. Reproduced deterministically by gating the import and
+  // releasing it just before the click: openDay reads 0.
+  //
+  // Awaiting the module here makes lazy()'s own import() of it a cache hit, a
+  // short microtask chain that settles inside navigateTo's async act() -- the
+  // drain that actually carries it, since nothing suspends on a first mount.
+  // That is measured, not guaranteed by React: with the import artificially
+  // delayed 0/300/2000ms the control case's navigation lands on the resolved
+  // tree every time, where before it ended on the fallback. It also supersedes
+  // the "mount landing in that state" scenario in the SETTLE note below: with
+  // the chunk loaded first, no mount here can land on a pending boundary.
+  // Not waitFor: a poll on the DOM cannot
+  // tell the fallback from the resolved tree (both are .route-shell), and a
+  // poll that passes early is the same race with a longer fuse.
+  if (opts?.throughRoute) await import('@/components/PageTransition');
+
   const RouteAdapter = () => {
     const params = useParams();
     return (FestivalRoute as unknown as (p: unknown) => JSX.Element)({
