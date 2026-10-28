@@ -61,8 +61,11 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const [confirmClose, setConfirmClose] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
-  /** Late words name the ticket as the list shows it (a new one by its typed name), so they never read as the sheet open now (review r2 R2). */
-  const named = (text: string) => `"${type?.name ?? (form.name.trim() || 'New ticket')}": ${text}`;
+  /**
+   * Late words name the ticket as the list shows it, so they never read as the sheet open now (review r2 R2):
+   * the saved name first, which is what the refreshed list shows after a rename (review r3 N1).
+   */
+  const named = (text: string) => `"${form.name.trim() || type?.name || 'New ticket'}": ${text}`;
   /** A refusal shows in the sheet, or as an alert once the sheet is gone. */
   const refuse = (text: string, lead = 'not saved.') => (alive.current ? setServerError(text) : onLate(named(`${lead} ${text}`), false));
   /**
@@ -208,8 +211,9 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       full
       title={type ? 'Edit ticket' : 'Add a ticket'}
       onClose={() => onClose(saving !== null)}
-      // Mid-close, Escape leaves "Closing..." in place: the block must not claim nothing is running (review r2 R5).
-      onEscape={confirmClose ? () => { if (!busy) setConfirmClose(false); } : undefined}
+      // Mid-close, Escape never drops the block to claim nothing is running (review r2 R5): it closes the
+      // layer, as Close and the scrim do, and the landing goes through `landed` (review r3 N2).
+      onEscape={confirmClose ? () => { if (busy) onClose(true); else setConfirmClose(false); } : undefined}
       viewKey={String(step)}
       onBack={step > 1 && !saving ? () => patch({ step: (step - 1) as Step }) : undefined}
       testId="tix-sheet"
