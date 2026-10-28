@@ -143,7 +143,7 @@ SHEETS = [
 def numbered(frames, start): return [(f'{start + i}. {n}', h, note) for i, (n, h, note) in enumerate(frames)]
 
 # ---------- Shape 1: brand-new account ----------
-A_INTRO = ('<h1>Brand-new account &middot; A: Quiet steps</h1><p>Today&rsquo;s one-scroll screen, tidied: the search is the first thing under the heading, '
+A_INTRO = ('<h1>Brand-new account &middot; A: Quiet steps &mdash; CHOSEN (owner, 2026-10-28)</h1><p>Today&rsquo;s one-scroll screen, tidied: the search is the first thing under the heading, '
            'create sits under it, nothing is hidden. Every step of the flow, top to bottom.</p><p><a class="lnk" href="index.html">&lsaquo; All options</a></p>')
 new_a = [
     ('1. First visit (empty)', welcome(STEPS + WHO + '<div><p class="h">Find your page</p>' + BETA + '</div>' + SEARCH_EMPTY + CREATE + BROWSE), 'Same controls as today, same order.'),
@@ -159,7 +159,7 @@ new_a = [
     ('11. Sign out sheet', welcome(STEPS + WHO) + SIGNOUT, ''),
 ] + numbered(SHEETS, 12)
 
-B_INTRO = ('<h1>Brand-new account &middot; B: One card</h1><p>One question first: is your page already listed? Two big answers. '
+B_INTRO = ('<h1>Brand-new account &middot; B: One card &mdash; not chosen</h1><p>One question first: is your page already listed? Two big answers. '
            'The search and the create each get a screen to themselves.</p><p><a class="lnk" href="index.html">&lsaquo; All options</a></p>')
 CHOOSE = ('<div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r-card);padding:12px"><p class="h" style="font-size:18px">Is your page already on Bachata Calendar?</p>'
           '<p class="mut" style="margin-top:4px">Most organisers are. Claim yours instead of making a copy.</p></div>'
@@ -195,7 +195,7 @@ new_b = [
 FIN_CARD = ('<div class="warn"><b style="font-size:15px">Finish your dancer profile first, then you can set up your organiser page.</b>'
             '<p style="margin:4px 0 0">Still to add: first name, city, dance role, photo.</p></div>')
 FIN_BTN = '<button class="btn">Finish your profile</button>'
-NO_PROFILE = ('<div class="warn"><b style="font-size:15px">Finish your dancer profile first, then you can set up your organiser page.</b>'
+NO_PROFILE = ('<p class="mut"><b>Account has no dancer row (2 of 42 prod accounts, rare)</b> &mdash; To be replaced when Finish profile can create the row (server change queued).</p><div class="warn"><b style="font-size:15px">Finish your dancer profile first, then you can set up your organiser page.</b>'
               '<p style="margin:4px 0 0">Your account does not have a dancer profile yet. Message us and we&rsquo;ll set one up for you.</p></div>'
               '<button class="btn">Message us on WhatsApp</button>')
 OFF_WHY = 'Finish your dancer profile first.'
@@ -204,15 +204,17 @@ RESULTS_OFF = ('<div class="card">'
     '<div class="row"><div class="t"><p class="n">Bachata Social Leeds</p><p class="s">Has a team</p></div><button class="dis sm" disabled>Ask to join</button></div>'
     '</div><p class="why">Claim and Ask to join open once your profile is finished.</p>')
 CREATE_OFF = f'<div><button class="dis" disabled>+ Create a new page</button><p class="why">{OFF_WHY}</p></div>'
-NA_INTRO = ('<h1>Profile not finished (no city) &middot; A: Finish first</h1><p>The screen says up front what is missing and links to the finish screen. '
+NA_INTRO = ('<h1>Profile not finished (no city) &middot; A: Finish first &mdash; not chosen</h1><p>The screen says up front what is missing and links to the finish screen. '
             'Search still works so people can look; the buttons that would be refused are off, with the reason.</p><p><a class="lnk" href="index.html">&lsaquo; All options</a></p>')
+FIN_CARD2 = FIN_CARD.replace('first name, city, dance role, photo', 'city, photo')
 nc_a = [
     ('1. First visit: what is missing', welcome(STEPS + WHO + FIN_CARD + FIN_BTN + '<p class="h" style="font-size:18px">Find your page</p>' + BETA + SEARCH_EMPTY + CREATE_OFF + BROWSE), 'Today: no word about the profile until a button is refused.'),
+    ('1b. Row exists, only city and photo missing', welcome(STEPS + WHO + FIN_CARD2 + FIN_BTN + '<p class="h" style="font-size:18px">Find your page</p>' + BETA + SEARCH_EMPTY + CREATE_OFF + BROWSE), 'Normal unfinished profile: the missing items are named and the primary button goes to Finish profile. No Message us.'),
     ('2. Searching (loading)', welcome(STEPS + WHO + FIN_CARD + FIN_BTN + BETA + search('Bachata Leeds') + SKEL + BROWSE), 'Beta note and Browse stay on every state.'),
     ('3. Results, actions disabled with reason', welcome(STEPS + WHO + FIN_CARD + FIN_BTN + BETA + search('Bachata Leeds') + RESULTS_OFF + BROWSE), 'Row words unchanged; only the buttons are off.'),
     ('4. Search failed (error)', welcome(STEPS + WHO + FIN_CARD + FIN_BTN + BETA + search('Bachata Leeds', False) + SEARCH_ERR + BROWSE), ''),
     ('5. Back from Finish profile (done)', welcome(STEPS + WHO + '<div><p class="h">Find your page</p>' + BETA + '</div>' + SEARCH_EMPTY + CREATE + BROWSE), 'The gated Finish screen says &ldquo;Saved.&rdquo; and goes back to /account/o by itself; Welcome is then today&rsquo;s screen (card gone, buttons on, search empty). No extra line: nothing carries one.'),
-    ('6. No dancer profile at all', welcome(STEPS + WHO + NO_PROFILE + '<p class="h" style="font-size:18px">Find your page</p>' + BETA + SEARCH_EMPTY + CREATE_OFF + BROWSE), '2 of the 10 accounts: /finish-profile has no form for them, so the button is the existing WhatsApp link.'),
+    ('6. Account has no dancer row (2 of 42 prod accounts, rare)', welcome(STEPS + WHO + NO_PROFILE + '<p class="h" style="font-size:18px">Find your page</p>' + BETA + SEARCH_EMPTY + CREATE_OFF + BROWSE), 'Today&rsquo;s NO_PROFILE_TEXT, kept only in this rare frame (2 of 42 prod accounts, 2 of the 10 unfinished). To be replaced when Finish profile can create the row (server change queued). Every other unfinished-profile frame sends the person to Finish profile.'),
     ('7. Completeness unknown (read failed)', welcome(STEPS + WHO + '<p class="h">Find your page</p>' + BETA + SEARCH_EMPTY + CREATE + BROWSE), 'If the shared completeness fact (useProfileCompletion / ProfileGateContext) is status error, the screen falls back to today&rsquo;s: buttons on, the server decides (profile_incomplete still routes to Finish profile).'),
 ]
 GATE = ('<p class="p">Finish your dancer profile first, then you can set up your organiser page.</p><p class="mut">Still to add: first name, city, dance role, photo.</p>'
@@ -220,7 +222,7 @@ GATE = ('<p class="p">Finish your dancer profile first, then you can set up your
         '<p class="mut">When you are done you come back to Welcome; search for your page again.</p>')
 GATE_NEW = ('<p class="p">Finish your dancer profile first, then you can set up your organiser page.</p><p class="mut">Still to add: first name, city, dance role, photo.</p>'
             + FIN_BTN + '<p class="mut">When you are done you come back to Welcome; search for your page again.</p>')
-NB_INTRO = ('<h1>Profile not finished (no city) &middot; B: Look first, finish on the tap</h1><p>The screen looks like a brand-new account&rsquo;s. The first organiser tap opens one sheet '
+NB_INTRO = ('<h1>Profile not finished (no city) &middot; B: Look first, finish on the tap &mdash; CHOSEN (owner, 2026-10-28)</h1><p>The screen looks like a brand-new account&rsquo;s. The first organiser tap opens one sheet '
             'that says what is missing, BEFORE any typing. Today the return is to Welcome; resuming the same task is stage-3 work (frame 5).</p><p><a class="lnk" href="index.html">&lsaquo; All options</a></p>')
 nc_b = [
     ('1. First visit (as a new account)', welcome(STEPS + WHO + '<div><p class="h">Find your page</p>' + BETA + '</div>' + SEARCH_EMPTY + CREATE + BROWSE), 'Nothing says the profile is unfinished yet.'),
@@ -228,7 +230,7 @@ nc_b = [
     ('3. Tap Ask to join: one thing first', welcome(STEPS) + sheet('Bachata Social Leeds', GATE), 'Ask to join is off with the reason until the profile is done. The return line is what exists today (the gated Finish screen goes back to /account/o); &ldquo;we bring you back to this screen&rdquo; needs the stage-3 carry. If the completeness fact is status error, the tap opens today&rsquo;s sheet and the server decides.'),
     ('4. Tap Create: asked before the name', welcome(STEPS) + sheet('New page', GATE_NEW, full=True), 'Today the refusal comes after the name and the city.'),
     ('4b. Tap Claim: same gate', welcome(STEPS) + sheet('Bachata Nights Leeds', GATE.replace('>Ask to join<', '>Claim it<')), 'claim_organiser_v1 raises profile_incomplete too.'),
-    ('4c. No dancer profile at all', welcome(STEPS) + sheet('New page', NO_PROFILE, full=True), '2 of the 10: no form to finish, so the existing WhatsApp link.'),
+    ('4c. Account has no dancer row (2 of 42 prod accounts, rare)', welcome(STEPS) + sheet('New page', NO_PROFILE, full=True), 'Today&rsquo;s NO_PROFILE_TEXT, only here. To be replaced when Finish profile can create the row (server change queued).'),
     ('5. Back from Finish profile: task resumed (ONLY with the stage-3 carry)', welcome(STEPS) + sheet('Bachata Social Leeds', '<p class="ok" role="status">&check; Profile finished.</p><p class="p">You can ask to join the team.</p><div><p class="lbl">Who are you? (optional)</p><div class="field ph-t" style="min-height:88px;align-items:flex-start;padding-top:12px">I run the Tuesday classes with Ana</div></div><button class="btn">Ask to join</button><button class="ghost">Not this one</button>'), 'Stage 3, conditional: without the carry, the person lands on frame 1 (Welcome, search empty), as the gate sheet says. returnTo restores the URL only; carrying the sheet task and note back is new work.'),
     ('6. Search failed (error)', welcome(STEPS + WHO + '<p class="h">Find your page</p>' + search('Bachata Leeds', False) + SEARCH_ERR + CREATE), ''),
 ]
@@ -252,13 +254,13 @@ INDEX_CSS = CSS + """
 """
 def col(f, h, p): return f'<div class="col"><h2><a class="lnk" href="{f}">{h}</a></h2><p>{p}</p><iframe src="{f}" title="{h}"></iframe></div>'
 idx = (f'<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P3 W4b Mockups</title><style>{INDEX_CSS}</style></head><body>'
-       '<div class="intro" style="max-width:none"><h1>P3 W4b stage 2: onboarding mockups</h1><p>Two shapes, two options each. Each frame is 390&times;844. Pick one per shape; nothing is built until then.</p></div>'
+       '<div class="intro" style="max-width:none"><h1>P3 W4b stage 2: onboarding mockups</h1><p>Two shapes, two options each. Each frame is 390&times;844. Owner picks (2026-10-28): new account = A, unfinished profile = B. Not-chosen options stay for reference.</p></div>'
        '<h2 class="shape">Shape 1: brand-new account</h2><div class="gal">'
-       + col('new-account-A.html', 'A: Quiet steps', 'Today&rsquo;s screen, tidied. Search first, create under it.')
-       + col('new-account-B.html', 'B: One card', 'One question first, then a screen for find and one for create.')
+       + col('new-account-A.html', 'A: Quiet steps (chosen)', 'Today&rsquo;s screen, tidied. Search first, create under it.')
+       + col('new-account-B.html', 'B: One card (not chosen)', 'One question first, then a screen for find and one for create.')
        + '</div><h2 class="shape">Shape 2: dancer profile not finished (no city)</h2><div class="gal">'
-       + col('no-city-A.html', 'A: Finish first', 'Says what is missing up front; refused buttons are off with the reason.')
-       + col('no-city-B.html', 'B: Look first, finish on the tap', 'Looks like a new account; the first organiser tap says what is missing.')
+       + col('no-city-A.html', 'A: Finish first (not chosen)', 'Says what is missing up front; refused buttons are off with the reason.')
+       + col('no-city-B.html', 'B: Look first, finish on the tap (chosen)', 'Looks like a new account; the first organiser tap says what is missing.')
        + '</div></body></html>')
 with open(os.path.join(HERE, 'index.html'), 'w', encoding='ascii', newline='\r\n') as f:
     f.write(idx)
