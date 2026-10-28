@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -11,18 +11,19 @@ import { buildSignInHref } from '@/lib/authRouting';
 import {
   approveEntity,
   fetchCityScopes,
-  fetchQueuePage,
+  fetchQueue,
   queueKey,
   rejectEntity,
   scopesKey,
-  type QueuePage,
+  type QueueData,
 } from './ambassadorApi';
 import {
+  CHANGED_MESSAGE,
+  capText,
   decisionError,
   decisionToast,
   itemKey,
   loadErrorKind,
-  moreText,
   reviewPath,
   sortOldestFirst,
   type DecisionError,
@@ -51,7 +52,12 @@ function Queue() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id ?? '';
-  const [now] = useState(() => new Date());
+  // Ticks so the "Waiting N days" chips and the age bar stay true on a page left open.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const [party, setParty] = useState<ReadonlySet<string>>(new Set());
   const [sheet, setSheet] = useState<Sheet>(null);
   const [sheetError, setSheetError] = useState<DecisionError | null>(null);
@@ -62,48 +68,12 @@ function Queue() {
   const scopes = useQuery({ queryKey: scopesKey(userId), enabled: !!userId, queryFn: () => fetchCityScopes(userId) });
   const cityIds = useMemo(() => (scopes.data ?? []).map((s) => s.id), [scopes.data]);
   const key = queueKey(cityIds);
-  // Paged by hand, not with useInfiniteQuery: this page is its only user, and it would pull the
-  // infinite observer into the shared vendor-query chunk that /app/* loads first (+0.3 KB gz).
-  // Same cache shape, and a refetch reloads every page already shown, as useInfiniteQuery does.
-  const queue = useQuery({
-    queryKey: key,
-    enabled: cityIds.length > 0,
-    queryFn: async (): Promise<InfiniteData<QueuePage, number>> => {
-      const shown = qc.getQueryData<InfiniteData<QueuePage, number>>(key)?.pages.length || 1;
-      const pages: QueuePage[] = [];
-      let offset: number | undefined = 0;
-      while (offset !== undefined && pages.length < shown) {
-        const page = await fetchQueuePage(cityIds, offset);
-        pages.push(page);
-        offset = page.full ? page.offset + 100 : undefined;
-      }
-      return { pages, pageParams: pages.map((p) => p.offset) };
-    },
-  });
-  const [more, setMore] = useState<'idle' | 'loading' | 'error'>('idle');
-  const fetchNextPage = async () => {
-    const last = queue.data?.pages[queue.data.pages.length - 1];
-    if (!last?.full || more === 'loading') return;
-    setMore('loading');
-    try {
-      const offset = last.offset + 100;
-      // A query of its own so the next page gets the app's retry default, like the rest of the list.
-      const page = await qc.fetchQuery({
-        queryKey: [...key, 'page', offset],
-        queryFn: () => fetchQueuePage(cityIds, offset),
-        retry: qc.getDefaultOptions().queries?.retry,
-        staleTime: 0,
-      });
-      qc.setQueryData<InfiniteData<QueuePage, number>>(key, (old) =>
-        old && { pages: [...old.pages, page], pageParams: [...old.pageParams, offset] },
-      );
-      setMore('idle');
-    } catch {
-      setMore('error');
-    }
-  };
+  // Every page before the list shows (the RPC pages newest first, so the oldest come last): the
+  // skeleton stays up until then, and "oldest first" and the age bar are true over the whole queue.
+  const queue = useQuery({ queryKey: key, enabled: cityIds.length > 0, queryFn: () => fetchQueue(cityIds) });
+  const refreshQueue = () => void qc.invalidateQueries({ queryKey: key });
 
-  const items = useMemo(() => sortOldestFirst((queue.data?.pages ?? []).flatMap((p) => p.items)), [queue.data]);
+  const items = useMemo(() => sortOldestFirst(queue.data?.items ?? []), [queue.data]);
   const current = review ? items.find((i) => i.key === itemKey(review.targetType, review.targetId)) ?? null : null;
   const sheetItem = sheet ? items.find((i) => i.key === sheet.key) ?? null : null;
 
@@ -143,9 +113,7 @@ function Queue() {
   };
 
   const takeOff = (item: QueueItem) => {
-    qc.setQueryData<InfiniteData<QueuePage, number>>(key, (old) =>
-      old && { ...old, pages: old.pages.map((p) => ({ ...p, items: p.items.filter((i) => i.key !== item.key) })) },
-    );
+    qc.setQueryData<QueueData>(key, (old) => old && { ...old, items: old.items.filter((i) => i.key !== item.key) });
     closeSheet();
     if (review) backToList();
   };
@@ -164,6 +132,8 @@ function Queue() {
       if (e.kind === 'party') {
         setParty((p) => new Set(p).add(v.item.key));
         closeSheet();
+        // Party is checked before "still pending": if someone else already decided it, the refetch drops it.
+        refreshQueue();
         return;
       }
       if (e.kind === 'gone') {
@@ -172,14 +142,21 @@ function Queue() {
         setToast(e.message);
         return;
       }
+      if (e.kind === 'access' && items.some((i) => i.key === v.item.key)) {
+        // The list served it, so the refusal means it was deleted or moved out of this person's cities
+        // (not_authorised comes before target_not_found for a non-admin). Gone from their queue either way.
+        takeOff(v.item);
+        setToast(CHANGED_MESSAGE);
+        refreshQueue();
+        return;
+      }
       setSheetError(e);
     },
   });
 
   const cityNames = (scopes.data ?? []).map((s) => s.name).join(' and ');
   const signInHref = buildSignInHref(`${location.pathname}${location.search}`);
-  const lastPage = queue.data?.pages[queue.data.pages.length - 1];
-  const fullCityNames = (scopes.data ?? []).filter((s) => lastPage?.fullCityIds.includes(s.id)).map((s) => s.name);
+  const cappedNames = (scopes.data ?? []).filter((s) => queue.data?.cappedCityIds.includes(s.id)).map((s) => s.name);
   const failed = (err: unknown, retry: () => void) => {
     const kind = loadErrorKind(err);
     if (kind === 'access') return <NoAccessState />;
@@ -203,7 +180,8 @@ function Queue() {
             party={party}
             now={now}
             showCity={cityIds.length > 1}
-            more={lastPage?.full ? { text: moreText(lastPage.offset, fullCityNames), loading: more === 'loading', error: more === 'error', onMore: () => void fetchNextPage() } : null}
+            capped={cappedNames.length ? capText(cappedNames) : null}
+            stale={queue.isError ? { retrying: queue.isFetching, onRetry: () => void queue.refetch() } : null}
             onOpen={openReview}
           />
         </div>
@@ -219,9 +197,9 @@ function Queue() {
         )}
         {review && !current && (
           <div className="flex flex-col items-center gap-2 px-3 py-8 text-center" data-testid="review-gone">
-            <h2 className="m-0 text-[17px] font-semibold">No longer waiting</h2>
+            <h2 className="m-0 text-[17px] font-semibold">Not in your queue</h2>
             <p className="m-0 max-w-[300px] text-[14px] text-muted-foreground">
-              This one is not in your queue any more. It may have been decided already. Go back to the list to see what is left.
+              This one is not in your queue. Go back to the list to see what is waiting for you.
             </p>
             <button type="button" className="min-h-[44px] rounded-[10px] border border-border bg-secondary px-3.5 py-2 text-[14px] font-semibold" onClick={backToList}>Back to the list</button>
           </div>

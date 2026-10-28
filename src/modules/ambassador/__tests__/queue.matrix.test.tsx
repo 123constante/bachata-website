@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
-/** Ambassador A1 (option B): every screen x every shape from the mockup switcher. New code, so no unfixed-code run exists. */
+/** Ambassador A1 (option B): every screen x every shape from the mockup switcher. The A1 follow-up cases
+ *  (F1-F5, review r3 of #1086) were run red against the unfixed page first. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { focusManager } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { SHAPES, agoIso, hundred, newestFirst, row, twelve } from './fixtures';
 import { BATH, BRISTOL, Page, USER_ID, answer, from, h, pinNow } from './harness';
 import AmbassadorQueuePage from '../AmbassadorQueuePage';
-import { decisionError, loadErrorKind, moreText } from '../ambassadorModel';
+import { CHANGED_MESSAGE, MAX_ROWS_PER_CITY, capText, decisionError, loadErrorKind } from '../ambassadorModel';
 
 vi.mock('@/integrations/supabase/client', async () => {
   const { h, from } = await import('./harness');
@@ -57,7 +59,7 @@ describe('list screen x queue shapes', () => {
     await waitFor(() => expect(rows()).toHaveLength(12));
     expect(rows()[0].textContent).toContain('Thursday Bachata at The Lantern');
     expect(screen.getByTestId('queue-count').textContent).toBe('12');
-    expect(screen.getByTestId('age-bar').textContent).toBe('Oldest waiting 9 days · oldest first');
+    expect(screen.getByTestId('age-bar').textContent).toBe('Oldest waiting 9 days \u00b7 oldest first');
     expect(decisions()).toHaveLength(0);
   });
 
@@ -98,17 +100,57 @@ describe('list screen x queue shapes', () => {
     expect(fresh.getAttribute('data-old')).toBe('false');
   });
 
-  it('a list of exactly 100 says there may be more and pages with p_offset (never silently capped)', async () => {
-    answer({ list: [], pages: { 0: hundred(), 100: [row('x1', 'Page two organiser', { ago: 8 })] } });
+  // F1: the RPC pages NEWEST first, so the oldest item of a 101-row queue is on page 2. Every page is
+  // loaded before the list shows, so the oldest is on top and the bar is true without a tap.
+  it('101 rows, the 30-day item on page 2: skeleton until both pages are in, then it is on top and the bar says 30 days', async () => {
+    let releasePage2: () => void = () => undefined;
+    const page2 = new Promise<void>((r) => (releasePage2 = r));
+    const pages: Record<number, unknown[]> = { 0: hundred(), 100: [row('x1', 'Page two organiser', { ago: 30 })] };
+    h.rpc.mockImplementation(async (fn: string, args: Record<string, unknown> = {}) => {
+      if (fn !== 'admin_list_pending_review_v1') return { data: null, error: { message: 'unexpected' } };
+      const off = Number(args.p_offset ?? 0);
+      if (off === 100) await page2;
+      return { data: pages[off] ?? [], error: null };
+    });
+    open();
+    await waitFor(() => expect(listCalls()).toHaveLength(2));
+    expect(screen.getByTestId('queue-loading')).toBeTruthy();
+    expect(rows()).toHaveLength(0);
+    releasePage2();
+    await waitFor(() => expect(rows()).toHaveLength(101));
+    expect(rows()[0].textContent).toContain('Page two organiser');
+    expect(rows()[0].textContent).toContain('Waiting 30 days');
+    expect(screen.getByTestId('age-bar').textContent).toBe('Oldest waiting 30 days \u00b7 oldest first');
+    expect(screen.getByTestId('queue-count').textContent).toBe('101');
+    expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+    expect(screen.queryByTestId('queue-more')).toBeNull();
+    expect(listCalls().map(([, a]) => (a as { p_offset: number }).p_offset)).toEqual([0, 100]);
+  });
+
+  it('exactly 100 rows: asks once more (empty page), shows all 100 with no "may be more" claim', async () => {
+    answer({ list: [], pages: { 0: hundred() } });
     open();
     await waitFor(() => expect(rows()).toHaveLength(100));
-    expect(screen.getByTestId('queue-more').textContent).toContain('This shows the first 100 in Bristol. There may be more');
-    fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
-    await waitFor(() => expect(rows()).toHaveLength(101));
-    expect(rows()[0].textContent).toContain('Page two organiser'); // re-sorted oldest first across pages
     expect(screen.queryByTestId('queue-more')).toBeNull();
-    expect(h.rpc.mock.calls.some(([fn, a]) => fn === 'admin_list_pending_review_v1' && (a as { p_offset: number }).p_offset === 100)).toBe(true);
+    expect(screen.queryByTestId('queue-capped')).toBeNull();
+    expect(listCalls().map(([, a]) => (a as { p_offset: number }).p_offset)).toEqual([0, 100]);
   });
+
+  it(`${MAX_ROWS_PER_CITY} rows or more: stops at the cap and says honestly that older ones are not shown`, async () => {
+    h.rpc.mockImplementation(async (fn: string, args: Record<string, unknown> = {}) =>
+      fn === 'admin_list_pending_review_v1'
+        ? { data: hundred().map((r) => ({ ...r, target_id: `${r.target_id}-${String(args.p_offset)}` })), error: null }
+        : { data: null, error: { message: 'unexpected' } },
+    );
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(MAX_ROWS_PER_CITY));
+    expect(listCalls()).toHaveLength(MAX_ROWS_PER_CITY / 100);
+    const note = screen.getByTestId('queue-capped').textContent ?? '';
+    expect(note).toBe(capText(['Bristol']));
+    expect(note).toContain('any older ones are not shown');
+    expect(screen.getByTestId('age-bar').textContent).toContain('Oldest loaded');
+    expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+  }, 20_000);
 
   it('99 rows do not claim there is more', async () => {
     answer({ list: hundred().slice(0, 99) });
@@ -204,19 +246,23 @@ describe('access: the city list comes from entity_members, never the manager-sco
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Bath and Bristol');
   });
 
-  it('two cities, only one has a full page: the "first N" copy names that city and counts its page, not the total', async () => {
+  it('two cities, only one has a full page: each city pages on its own, all 130 show, nothing claims more', async () => {
     h.members = [{ entity_id: BRISTOL.id }, { entity_id: BATH.id }];
     const bath = { city_id: BATH.id, city_name: BATH.name };
-    answer({ list: (city) => (city === BATH.id ? Array.from({ length: 30 }, (_, i) => row(`b${i}`, `Bath ${i}`, { ago: 2, city: bath })) : hundred()) });
+    answer({ list: (city, off) => (off > 0 ? [] : city === BATH.id ? Array.from({ length: 30 }, (_, i) => row(`b${i}`, `Bath ${i}`, { ago: 2, city: bath })) : hundred()) });
     open();
     await waitFor(() => expect(rows()).toHaveLength(130));
-    expect(screen.getByTestId('queue-more').textContent).toContain('This shows the first 100 in Bristol.');
-    expect(screen.getByTestId('queue-more').textContent).not.toContain('130');
+    expect(screen.queryByTestId('queue-more')).toBeNull();
+    expect(screen.queryByTestId('queue-capped')).toBeNull();
+    const asked = listCalls().map(([, a]) => `${(a as { p_city_id: string }).p_city_id}@${(a as { p_offset: number }).p_offset}`).sort();
+    expect(asked).toEqual([`${BATH.id}@0`, `${BRISTOL.id}@0`, `${BRISTOL.id}@100`]);
   });
 
-  it('two full cities: "the first 100 in each of", so it never reads as 100 in total', () => {
-    expect(moreText(0, ['Bath', 'Bristol'])).toBe('This shows the first 100 in each of Bath and Bristol. There may be more waiting.');
-    expect(moreText(0, ['Bristol'])).toBe('This shows the first 100 in Bristol. There may be more waiting.');
+  it('the cap note names each capped city and never reads as a total', () => {
+    expect(capText(['Bristol'])).toBe(
+      `At least ${MAX_ROWS_PER_CITY} are waiting in Bristol. Only the ${MAX_ROWS_PER_CITY} most recent are here, so any older ones are not shown. Ask an admin to clear the rest.`,
+    );
+    expect(capText(['Bath', 'Bristol'])).toContain(`waiting in each of Bath and Bristol. Only the ${MAX_ROWS_PER_CITY} most recent in each`);
   });
 });
 
@@ -295,11 +341,13 @@ describe('review screen x item shapes', () => {
     expect(rows()).toHaveLength(1);
   });
 
-  it('a deep link to an item that is not in the queue says so and offers the list', async () => {
+  // F4: an item outside the ambassador's cities is simply absent from the list RPC: say only that.
+  it('a deep link to an item that is not in the queue says so neutrally (no "decided" guess) and offers the list', async () => {
     answer({ list: [SHAPES.one] });
     open('/ambassador/review/series/gone-id');
     const g = await screen.findByTestId('review-gone');
-    expect(g.textContent).toContain('No longer waiting');
+    expect(g.textContent).toContain('This one is not in your queue.');
+    expect(g.textContent).not.toMatch(/decided|no longer waiting/i);
     expect(within(g).getByRole('button', { name: 'Back to the list' })).toBeTruthy();
   });
 
@@ -407,6 +455,53 @@ describe('approve confirm and reject sheet', () => {
     expect(rows()[0].textContent).toContain('Needs an admin');
   });
 
+  // F3: the server checks party before "still pending", so a party item someone else decided reads
+  // as "Needs an admin". A refetch after the refusal drops it from the list if it is gone.
+  it('a party refusal refetches the list, so a party item someone else already decided drops off', async () => {
+    let decided = false;
+    answer({
+      list: () => (decided ? [] : [SHAPES.one]),
+      decide: () => ((decided = true), { error: { message: 'self_approval_not_allowed' } }),
+    });
+    open();
+    await reachDecision();
+    await screen.findByTestId('party-note').catch(() => undefined);
+    await waitFor(() => expect(listCalls()).toHaveLength(2));
+    expect(await screen.findByTestId('review-gone')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the list' }));
+    expect(await screen.findByTestId('queue-empty')).toBeTruthy();
+  });
+
+  // F2: for a non-admin the live _moderate_entity raises not_authorised BEFORE target_not_found, so a
+  // deleted or moved item the list served comes back as "no access". It is gone from this person's
+  // queue either way: say so honestly, take it off, refetch.
+  it.each([
+    [{ message: 'not_authorised' }],
+    [{ message: 'not_authorized' }],
+    [{ code: '42501', message: 'permission denied' }],
+  ])('%o on an item the list served: "changed, no longer yours", sheet closed, row off, list refetched', async (error) => {
+    let changed = false;
+    answer({
+      list: () => (changed ? [SHAPES.today] : newestFirst([SHAPES.one, SHAPES.today])),
+      decide: () => ((changed = true), { error }),
+    });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    fireEvent.click(rows()[0]);
+    fireEvent.click(await screen.findByTestId('approve-open'));
+    fireEvent.click(await screen.findByTestId('approve-confirm'));
+    const toast = await screen.findByTestId('toast');
+    expect(toast.textContent).toBe(CHANGED_MESSAGE);
+    expect(toast.textContent).toBe('This one has changed and is no longer yours to decide. It has been taken off your list.');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByTestId('decision-error')).toBeNull();
+    expect(screen.queryByTestId('review-view')).toBeNull();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(rows()[0].textContent).not.toContain('Bachata Fundamentals Workshop');
+    await waitFor(() => expect(listCalls()).toHaveLength(2));
+    expect(decisions()).toHaveLength(1);
+  });
+
   it.each(['target_not_found', 'not_pending_review'])('%s: the item is taken off the list, as the toast says, and is not re-sent', async (code) => {
     answer({ list: newestFirst([SHAPES.one, SHAPES.today]), decide: () => ({ error: { message: code } }) });
     open();
@@ -443,8 +538,6 @@ describe('approve confirm and reject sheet', () => {
   });
 
   it.each([
-    ['42501 permission denied', 'do not have access'],
-    ['not_authorised', 'do not have access'],
     ['something_unmapped_xyz', 'did not go through'],
     ['permission denied for table entity_members', 'did not go through'],
   ])('error %s becomes readable copy with Try again, never the raw code, and the item stays', async (code, copy) => {
@@ -462,6 +555,42 @@ describe('approve confirm and reject sheet', () => {
     answer({ list: [SHAPES.one] });
     fireEvent.click(screen.getByTestId('approve-confirm'));
     expect((await screen.findByTestId('toast')).textContent).toContain('Approved');
+  });
+});
+
+// F5: ages tick while the page is open, and a failed background refetch says so instead of going quiet.
+describe('a list left open', () => {
+  it('the age chips and the bar move on every minute', async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    vi.setSystemTime(new Date('2026-10-27T12:00:00Z'));
+    answer({ list: [SHAPES.one] });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(screen.getByTestId('age-chip').textContent).toBe('Waiting 1 day');
+    vi.setSystemTime(new Date('2026-11-03T12:00:00Z'));
+    act(() => void vi.advanceTimersByTime(60_000));
+    expect(screen.getByTestId('age-chip').textContent).toBe('\u26A0 Waiting 8 days');
+    expect(screen.getByTestId('age-bar').textContent).toContain('Oldest waiting 8 days');
+  });
+
+  it('a failed refetch with rows on screen keeps the rows and says "Could not refresh"; a good one clears it', async () => {
+    answer({ list: [SHAPES.one] });
+    open();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(screen.queryByTestId('queue-stale')).toBeNull();
+    answer({ list: new Error('Failed to fetch') });
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    const stale = await screen.findByTestId('queue-stale');
+    expect(stale.textContent).toContain('Could not refresh. Showing the last list.');
+    expect(rows()).toHaveLength(1);
+    answer({ list: [SHAPES.one] });
+    fireEvent.click(within(stale).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(screen.queryByTestId('queue-stale')).toBeNull());
+    act(() => focusManager.setFocused(undefined));
   });
 });
 
