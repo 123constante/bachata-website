@@ -1,6 +1,7 @@
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import { fullDate, WEEKDAY_NAMES } from '../../shared/dateWords';
+import { kindOf } from './kind';
 import type { IsoDate } from './types';
 
 /**
@@ -53,6 +54,12 @@ export type RepeatFailCode = keyof typeof REPEAT_FAIL;
 
 /** The sentence for a failed preview or save: the five rule codes first, then the shared copy (version conflict, not permitted, offline). */
 export function repeatFailure(error: unknown): string {
+  const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
+  if (typeof message === 'string') {
+    const hit = message.match(/invalid_recurrence_payload: (count_over_cap|interval_out_of_range|until_too_far|mode_not_allowed)/)
+      ?? message.match(/(course_needs_count)/);
+    if (hit) return REPEAT_FAIL[hit[1] as RepeatFailCode];
+  }
   return commandErrorMessage(error);
 }
 
@@ -84,7 +91,16 @@ export interface RepeatFacts {
 
 const OPEN = new Set(['live', 'paused', 'draft']);
 
-export function repeatAccess(_f: RepeatFacts): RepeatAccess {
+export function repeatAccess(f: RepeatFacts): RepeatAccess {
+  const kind = kindOf(f.format, ruleModeOf(f.rule));
+  if (f.lifecycle === 'ended') return { mode: 'readonly', why: REPEAT_WHY.ended };
+  if (f.lifecycle === 'archived') return { mode: 'readonly', why: REPEAT_WHY.archived };
+  if (!OPEN.has(f.lifecycle)) return { mode: 'readonly', why: REPEAT_WHY.review };
+  if (kind === 'festival') return { mode: 'none', why: REPEAT_WHY.festival };
+  if (kind === 'oneoff') return { mode: 'none', why: REPEAT_WHY.oneoff };
+  if (kind === 'course') return { mode: 'disabled', why: REPEAT_WHY.course };
+  if (kind === 'custom') return { mode: 'readonly', why: REPEAT_WHY.custom };
+  if (f.rule != null && !draftOfRule(f.rule)) return { mode: 'readonly', why: REPEAT_WHY.adminOnly };
   return { mode: 'edit', why: null };
 }
 
@@ -197,8 +213,7 @@ export function repeatProblem(d: RepeatDraft, today: IsoDate): string | null {
 
 /** What a save sends: nothing when the editor is not open here, nothing changed, or the draft has a problem. */
 export function repeatPlan(access: RepeatAccess, base: RepeatDraft, draft: RepeatDraft, today: IsoDate): OwnerCommand[] {
-  if (repeatProblem(draft, today)) return [];
-  void access; void base;
+  if (access.mode !== 'edit' || draftSig(base) === draftSig(draft) || repeatProblem(draft, today)) return [];
   return [{ kind: 'series.set_recurrence', payload: rulePayload(draft) }];
 }
 
