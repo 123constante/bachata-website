@@ -1,0 +1,570 @@
+{
+ "weekly": {
+  "series": {
+   "series": {
+    "id": "ser-1",
+    "name": "Sensual Fridays",
+    "slug": "sensual-fridays",
+    "format": "recurring",
+    "category": "party",
+    "lifecycle_status": "live",
+    "version": 7,
+    "default_venue_id": "v1",
+    "default_local_start_time": "20:00:00",
+    "default_description": "Two rooms, one class.",
+    "default_ticket_url": "https://tickets.example.test/sf",
+    "default_cover_image_url": null,
+    "instagram_url": null,
+    "default_music_styles": [
+     "Bachata",
+     "Sensual Bachata"
+    ],
+    "recurrence_rule": {
+     "mode": "weekly",
+     "weekdays": [
+      5
+     ],
+     "interval": 1,
+     "end": {
+      "kind": "none"
+     }
+    },
+    "removed_dates": []
+   },
+   "program": [
+    {
+     "day": {
+      "id": "day0",
+      "label": null
+     },
+     "sections": [
+      {
+       "section": {
+        "id": "sec0",
+        "kind": "party"
+       },
+       "items": [
+        {
+         "item": {
+          "id": "cls",
+          "type": "class",
+          "title": "Bachata class",
+          "start_time": "20:00:00",
+          "end_time": "21:00:00",
+          "level_keys": [
+           "open_level"
+          ]
+         },
+         "people": [
+          {
+           "profile_id": "p-cls-0",
+           "display_name": "Marco & Elena",
+           "profile_type": "teacher",
+           "role": "teaching"
+          }
+         ]
+        },
+        {
+         "item": {
+          "id": "pty",
+          "type": "party",
+          "title": "Social",
+          "start_time": "21:00:00",
+          "end_time": "01:00:00",
+          "level_keys": []
+         },
+         "people": [
+          {
+           "profile_id": "p-pty-0",
+           "display_name": "DJ Kizzy",
+           "profile_type": "dj",
+           "role": "djing"
+          },
+          {
+           "profile_id": "p-pty-1",
+           "display_name": "Host Sam",
+           "profile_type": "teacher",
+           "role": "mc"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "occurrences": [
+   {
+    "id": "o-2027-01-01",
+    "occurrence_date": "2027-01-01",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-12-25",
+    "occurrence_date": "2026-12-25",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-12-18",
+    "occurrence_date": "2026-12-18",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-12-11",
+    "occurrence_date": "2026-12-11",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-12-04",
+    "occurrence_date": "2026-12-04",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-11-27",
+    "occurrence_date": "2026-11-27",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-11-20",
+    "occurrence_date": "2026-11-20",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-11-13",
+    "occurrence_date": "2026-11-13",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": true,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-11-06",
+    "occurrence_date": "2026-11-06",
+    "lifecycle_status": "cancelled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-10-30",
+    "occurrence_date": "2026-10-30",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-10-23",
+    "occurrence_date": "2026-10-23",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-10-16",
+    "occurrence_date": "2026-10-16",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   }
+  ],
+  "program_forward": [],
+  "meta": {
+   "has_more": false,
+   "total": 12
+  }
+ },
+ "ended": {
+  "series": {
+   "series": {
+    "id": "ser-1",
+    "name": "Old Wednesdays",
+    "slug": "sensual-fridays",
+    "format": "recurring",
+    "category": "party",
+    "lifecycle_status": "ended",
+    "version": 7,
+    "default_venue_id": "v1",
+    "default_local_start_time": "20:00:00",
+    "default_description": "Two rooms, one class.",
+    "default_ticket_url": "https://tickets.example.test/sf",
+    "default_cover_image_url": null,
+    "instagram_url": null,
+    "default_music_styles": [
+     "Bachata",
+     "Sensual Bachata"
+    ],
+    "recurrence_rule": null,
+    "removed_dates": []
+   },
+   "program": [
+    {
+     "day": {
+      "id": "day0",
+      "label": null
+     },
+     "sections": [
+      {
+       "section": {
+        "id": "sec0",
+        "kind": "party"
+       },
+       "items": [
+        {
+         "item": {
+          "id": "pty",
+          "type": "party",
+          "title": null,
+          "start_time": "21:00:00",
+          "end_time": "02:00:00",
+          "level_keys": []
+         },
+         "people": [
+          {
+           "profile_id": "p-pty-0",
+           "display_name": "DJ Kizzy",
+           "profile_type": "dj",
+           "role": "djing"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "occurrences": [
+   {
+    "id": "o-2026-08-05",
+    "occurrence_date": "2026-08-05",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-07-29",
+    "occurrence_date": "2026-07-29",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-07-22",
+    "occurrence_date": "2026-07-22",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-07-15",
+    "occurrence_date": "2026-07-15",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-07-08",
+    "occurrence_date": "2026-07-08",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-07-01",
+    "occurrence_date": "2026-07-01",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-06-24",
+    "occurrence_date": "2026-06-24",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-06-17",
+    "occurrence_date": "2026-06-17",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-06-10",
+    "occurrence_date": "2026-06-10",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   },
+   {
+    "id": "o-2026-06-03",
+    "occurrence_date": "2026-06-03",
+    "lifecycle_status": "scheduled",
+    "version": 3,
+    "has_override": false,
+    "session_overrides_count": 0,
+    "added_sessions_count": 0,
+    "materialised_start_utc": null
+   }
+  ],
+  "program_forward": [],
+  "meta": {
+   "has_more": false,
+   "total": 10
+  }
+ },
+ "festival": {
+  "series": {
+   "series": {
+    "id": "ser-1",
+    "name": "Winter Festival",
+    "slug": "sensual-fridays",
+    "format": "festival",
+    "category": null,
+    "lifecycle_status": "live",
+    "version": 7,
+    "default_venue_id": "v1",
+    "default_local_start_time": "20:00:00",
+    "default_description": "A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. A long weekend of classes and parties. ",
+    "default_ticket_url": "https://tickets.example.test/sf",
+    "default_cover_image_url": null,
+    "instagram_url": null,
+    "default_music_styles": [
+     "Bachata",
+     "Sensual Bachata"
+    ],
+    "recurrence_rule": null,
+    "removed_dates": [],
+    "payment_methods": "ticket_link"
+   },
+   "program": []
+  },
+  "occurrences": [],
+  "program_forward": [],
+  "meta": {
+   "has_more": false,
+   "total": 0
+  }
+ },
+ "badTicket": {
+  "series": {
+   "series": {
+    "id": "ser-1",
+    "name": "Leeds Thursdays",
+    "slug": "sensual-fridays",
+    "format": "recurring",
+    "category": "party",
+    "lifecycle_status": "live",
+    "version": 7,
+    "default_venue_id": "v1",
+    "default_local_start_time": "20:00:00",
+    "default_description": "Two rooms, one class.",
+    "default_ticket_url": "www.tickets.example.test/x y",
+    "default_cover_image_url": null,
+    "instagram_url": "https://instagram.com/ritmo",
+    "default_music_styles": [
+     "Bachata",
+     "Sensual Bachata"
+    ],
+    "recurrence_rule": {
+     "mode": "weekly",
+     "weekdays": [
+      5
+     ],
+     "interval": 1,
+     "end": {
+      "kind": "none"
+     }
+    },
+    "removed_dates": [],
+    "group_chat_url": "https://chat.whatsapp.com/abc",
+    "video_urls": [
+     "https://youtu.be/a"
+    ]
+   },
+   "program": []
+  },
+  "occurrences": [],
+  "program_forward": [],
+  "meta": {
+   "has_more": false,
+   "total": 0
+  }
+ },
+ "ownerPasses": {
+  "series": {
+   "series": {
+    "id": "ser-1",
+    "name": "Sensual Fridays",
+    "slug": "sensual-fridays",
+    "format": "recurring",
+    "category": "party",
+    "lifecycle_status": "live",
+    "version": 7,
+    "default_venue_id": "v1",
+    "default_local_start_time": "20:00:00",
+    "default_description": "Two rooms, one class.",
+    "default_ticket_url": "https://tickets.example.test/sf",
+    "default_cover_image_url": null,
+    "instagram_url": null,
+    "default_music_styles": [
+     "Bachata",
+     "Sensual Bachata"
+    ],
+    "recurrence_rule": {
+     "mode": "weekly",
+     "weekdays": [
+      5
+     ],
+     "interval": 1,
+     "end": {
+      "kind": "none"
+     }
+    },
+    "removed_dates": [],
+    "passes": [
+     {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Class and party",
+      "price": 15,
+      "currency": "GBP"
+     }
+    ]
+   },
+   "program": []
+  },
+  "occurrences": [],
+  "program_forward": [],
+  "meta": {
+   "has_more": false,
+   "total": 0
+  }
+ },
+ "teamPasses": {
+  "series": {
+   "series": {
+    "id": "ser-1",
+    "name": "Sensual Fridays",
+    "slug": "sensual-fridays",
+    "format": "recurring",
+    "category": "party",
+    "lifecycle_status": "live",
+    "version": 7,
+    "default_venue_id": "v1",
+    "default_local_start_time": "20:00:00",
+    "default_description": "Two rooms, one class.",
+    "default_ticket_url": "https://tickets.example.test/sf",
+    "default_cover_image_url": null,
+    "instagram_url": null,
+    "default_music_styles": [
+     "Bachata",
+     "Sensual Bachata"
+    ],
+    "recurrence_rule": {
+     "mode": "weekly",
+     "weekdays": [
+      5
+     ],
+     "interval": 1,
+     "end": {
+      "kind": "none"
+     }
+    },
+    "removed_dates": [],
+    "passes": [
+     {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Early bird",
+      "price": 30,
+      "tier": 1,
+      "quantity": 50
+     }
+    ]
+   },
+   "program": []
+  },
+  "occurrences": [],
+  "program_forward": [],
+  "meta": {
+   "has_more": false,
+   "total": 0
+  }
+ }
+}

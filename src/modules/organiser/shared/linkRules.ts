@@ -11,12 +11,16 @@
 //  - _owner_instagram_url_ok_p5: that rule AND an instagram.com host with a path;
 //    organiser_profile_update_p5_v1 also takes a bare handle ^@?[A-Za-z0-9._]{1,30}$.
 //  - facebook in socials: a page name ^@?[A-Za-z0-9._-]{1,50}$ or a public URL.
+//  - the group chat link (apply_aggregate_write_p5 owner arm, series.set_group_chat;
+//    read 2026-10-27): the public rule AND, on btrim, case-insensitive
+//    ^https://[a-z0-9-]+(\.[a-z0-9-]+)+(:[0-9]{1,5})?([/?#]|$) -- a dotted host,
+//    no userinfo, no trailing dot, no IP literal (PR #1082 r3 #4).
 // The profile save normalises the value first (withNormalizedProtocol), so the
 // check runs on what is actually sent.
 
 import { withNormalizedProtocol } from '@/lib/organiserProfileUpdate';
 
-export type LinkKind = 'ticket' | 'video' | 'instagram' | 'website' | 'facebook';
+export type LinkKind = 'ticket' | 'video' | 'instagram' | 'website' | 'facebook' | 'chat';
 
 const MAX_URL = 2048;
 // eslint-disable-next-line no-control-regex
@@ -24,6 +28,7 @@ const PUBLIC_URL = /^https?:\/\/[^\s\u0000-\u001f\u007f]+$/i;
 const INSTAGRAM_URL = /^https?:\/\/(www[.])?instagram[.]com\/\S*$/i;
 const INSTAGRAM_HANDLE = /^@?[A-Za-z0-9._]{1,30}$/;
 const FACEBOOK_NAME = /^@?[A-Za-z0-9._-]{1,50}$/;
+const CHAT_URL = /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+(:[0-9]{1,5})?([/?#]|$)/i;
 
 /** The server's public-link rule (_owner_public_url_ok_p5); blank passes. */
 export const publicUrlOk = (value: string) => {
@@ -37,6 +42,7 @@ export const LINK_PROBLEM: Record<LinkKind, string> = {
   instagram: 'Enter your Instagram handle, like @ritmoleeds, or a link to your instagram.com page.',
   website: 'Enter your website as an address, like ritmo.example or https://ritmo.example',
   facebook: 'Enter your Facebook page name or a full https:// link.',
+  chat: 'Enter the whole group chat link, like https://chat.whatsapp.com/ and the code after it.',
 };
 
 /** What is wrong with one link, in plain words; null when it can be saved. A blank link is fine (it clears). */
@@ -56,6 +62,9 @@ export function linkProblem(kind: LinkKind, value: string): string | null {
     }
     case 'website':
       ok = publicUrlOk(withNormalizedProtocol(v));
+      break;
+    case 'chat':
+      ok = publicUrlOk(v) && CHAT_URL.test(v);
       break;
     case 'facebook': {
       const sent = withNormalizedProtocol(v, 'facebook.com');
