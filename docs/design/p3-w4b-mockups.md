@@ -52,7 +52,12 @@ page**). Nothing on the client decides a "no city" shape: the server does (secti
 | Create: name (C40) | "Page name" + hint, **Next** disabled with "Type the page name first." | nothing |
 | Create: city (C40b) | name row (pencil back), **Use &lt;sign-up city&gt;** (only when the dancer profile has one, read by `my_dancer_edit_v1`), "Search cities" | `search_cities`; a tap on a city IS the create: `create_organiser_profile_v1` |
 | Create refusals | name taken (**Ask to join X** / **Find your page**), 3-a-day cap, invite required (**Ask us to open it** = `request_signup_access_v1`, **Back to Home**), other (**Try again**) | as named |
-| Any action refused `profile_incomplete` | none: navigates to `/finish-profile?next=` | |
+| Any action refused `profile_incomplete` | none: navigates to `/finish-profile?returnTo=` (`finishProfileHref`) | |
+| Invite refusal, login with no email | support rows (**WhatsApp us** / **Email us**, or "Our contact details are not available here yet") and **Back to Home** | links |
+
+The Finish screen reached from here is **gated** (`isDancerGatedTarget('/account/o')`): it shows `DANCER_GATE_REASON`, hides Skip, says "Saved." and on a save that completes the profile goes back to `/account/o` by itself. That is the Welcome screen with no sheet open and an empty search box: today's return.
+
+**One completeness source (stage 3).** The client fact already exists and is mounted site-wide: `useProfileCompletion` -> `ProfileCompletionChrome` (`AppChrome.tsx`) -> `ProfileGateContext` (`hooks/useAuth.tsx`), with `completenessFact`, `stillToAddText`, `NO_PROFILE_TEXT` and `ratingGate` ("Finish your profile"). Both no-city options read it; neither adds a new read.
 
 `citySearch.ts`: `search_cities(p_query, p_limit 12)`. `claimStates.ts`: the one hint-to-words map (unchanged by every option here).
 
@@ -100,9 +105,10 @@ Who writes the fields: dancer city `save_my_dancer_profile_v1` (the finish scree
 | Optimises | Speed for people who know their page: type at once | Avoiding duplicate pages: "is it listed?" is asked before anything |
 | Costs | Create sits one thumb away from search, so a person may create a copy | One extra tap before the search; two more screens to build |
 | Keeps | Every control in section 1, same order | Every control; search, results, no-match, error and create each move to their own screen; "Not listed? Create a new page" link on the find screen |
-| Drops | Nothing | Nothing. The beta note moves under the card (still before any name or city) |
-| Changes copy | None | New: the card's question and two answer lines |
-| Shared frames | Both options end with the same unchanged strip: claim 6c (proven and code step, with the disabled Resend timer), claim refused, ask to join 6b + Done, yours 6a, city list states, refusals (name taken, 3 a day, ask-us-to-open sent), offline, sign-out failed | same |
+| Drops | Nothing (beta note and Browse stay on every search state) | Nothing. The beta note moves under the card (still before any name or city) |
+| Changes copy | None | New: the card's question and two answer lines ("Most organisers are" is a proposal: 46 of 48 pages are admin-made and 0 duplicate names, but nothing measures unlisted ones). Declined card: "search for it above" becomes "tap Yes, find it" (no search box on screen 1) |
+| Shared frames | Both options end with the same unchanged strip, today's strings: claim 6c (proven and code step, disabled "Resend in Ns"), claim refused, **claimed: Home with "X is yours. You can now manage it."**, ask to join 6b + Done, yours 6a (the `?add=1` variant only), city step titled "City" with its list states, refusals headed "New organiser page" (name taken, 3 a day, "We are checking" sent), offline, sign-out failed. The create end is today's Home (confirmation, "Your to-do list", New event, the four small buttons) | same |
+| Pending / declined cards | Where they are today, under Create | Under the choice card on screen 1 (frame 12b) |
 
 **Recommendation: A.** 20 of the 30 no-page accounts already have a complete profile and the
 claim hints already steer the row's one action; B adds a tap for everyone to prevent a
@@ -115,15 +121,19 @@ duplicate pages are a problem the owner has seen.
 |---|---|---|
 | Optimises | Honesty: says up front what is missing, nothing is typed for nothing | Calm first look: the screen is the same as a new account's |
 | Costs | A warning card on the first screen; Claim, Ask to join and Create shown off | The surprise still comes, but at the first tap, before any typing |
-| Keeps | Search, results, error, sign out, browse; all actions back after Finish profile | Every control; the task resumes after Finish profile |
-| Drops | Nothing; the actions are disabled with the reason instead of refused. Back from Finish profile the search box starts empty (as today) | Nothing |
-| New behaviour | The screen reads completeness (`my_dancer_edit_v1`) before first paint; if that read fails it falls back to today (buttons on, the server decides) | The tap checks completeness before opening the name step; resuming the task after Finish profile needs it carried through `finishProfileHref(returnTo)` (today the URL only): stage 3, conditional |
+| Keeps | Search, results, error, sign out, beta note, Browse (every frame); all actions back after Finish profile | Every control |
+| Drops | Nothing; the actions are disabled with the reason instead of refused. Back from Finish profile: today's Welcome, search empty, no extra line (the Finish screen already said "Saved.") | Nothing |
+| New behaviour | The card, button, reasons and no-profile branch read `ProfileGateContext` (the one fact above); `status: 'error'` = frame 7, today's screen (buttons on, the server decides) | The tap reads the same `ProfileGateContext` fact before opening the sheet; `status: 'error'` = open today's sheet, the server decides |
+| Return copy | Needs none (the card is gone once complete) | **Ships as drawn:** "When you are done you come back to Welcome; search for your page again." (true today). Only if stage 3 builds the carry (sheet task + note through `returnTo`, frame 5) may it say "we bring you back to this screen" |
 | Writes | None new | None new |
 
-**Recommendation: B.** 10 of 30 no-page accounts are in this shape (4 without a city); B leaves the screen the same for
+**Recommendation: B, with the honest return copy.** 10 of 30 no-page accounts are in this shape (4 without a city); B leaves the screen the same for
 everyone and moves today's refusal from after the typing to before it, which is the actual
 fault. A puts a warning on the first screen for a gap the person may not care about yet
-(they may only be looking).
+(they may only be looking). S1 does not change this (A now keeps the beta note and Browse, so it
+drops nothing). S2 weakens B: without the stage-3 carry the person finishes, lands on Welcome and
+re-finds the page, a two-trip path that A avoids by saying it up front. If the owner will not fund
+the carry, A becomes the closer call; with the carry, B stands.
 
 ---
 
@@ -135,14 +145,17 @@ content is cut at 844px, and page width. Text dimmed under a sheet's scrim is sk
 
 | File | Min contrast light / dark | Controls | Under 44px | Cut frames | Page width |
 |---|---|---|---|---|---|
-| new-account-A | 5.35 / 5.06 | 36 | 0 | 0 | 390 |
-| new-account-B | 5.35 / 5.06 | 36 | 0 | 0 | 390 |
-| no-city-A | 5.35 / 5.06 | 24 | 0 | 0 | 390 |
-| no-city-B | 5.35 / 5.06 | 21 | 0 | 0 | 390 |
+| new-account-A | 5.35 / 5.06 | 85 | 0 | 0 | 390 |
+| new-account-B | 5.35 / 5.06 | 86 | 0 | 0 | 390 |
+| no-city-A | 5.35 / 5.06 | 34 | 0 | 0 | 390 |
+| no-city-B | 5.35 / 5.06 | 26 | 0 | 0 | 390 |
 | index | 5.35 / 6.40 | 4 | 0 | 0 | 390 |
 
 Mutation: a copy of `no-city-A` with 30px buttons, `#bbb` muted text and a 420px body
-failed (contrast 1.92, 5 small controls, width 420), so the check can go red.
+failed (contrast 1.92, 5 small controls, width 420), so the check can go red. A frame also
+counts as cut when any `.sheet` top sits above the frame top (a bottom-anchored sheet grows
+upward, which `scrollHeight` never sees). Mutation: 40 filler lines in no-city-B frame 3 now
+FAIL (cutFrames 1, light and dark); the previous check passed the same copy.
 
 ---
 
@@ -153,9 +166,9 @@ section 2 by SELECT on prod (no write); the four mockups and the gallery render 
 with the numbers above; ASCII only.
 
 **Not verified:** a human eye on a real phone; the mockups' copy with the owner;
-whether `finishProfileHref(returnTo)` can carry a sheet task back (needed by no-city B; stage 3
-question); the pending and declined cards (they render only with requests, out of this
-round's two shapes, unchanged by every option); the `Add another page` (`?add=1`) variant.
+whether `finishProfileHref(returnTo)` can carry a sheet task back (only no-city B's frame 5 needs it;
+the shipped copy does not); the pending and declined cards and the `?add=1` variant against live
+requests; 360x640; `index.html` on a wide screen.
 
 ## 6. Review round (one Fable review, one fix round, per the brief's stopping rule)
 
@@ -171,7 +184,17 @@ offline and sign-out-failed frames added; B's find error keeps the create link; 
 re-run after the fixes: all 10 renders PASS with the numbers in section 4 (controls now
 72 / 73 / 28 / 26 / 4).
 
+## 7. Fix round 2 (Fable review `docs/review/pr-1114-r1.md`, the ONE fix round)
+
+S1 beta note + Browse on no-city A frames 1-6; S2 gate sheets say what exists, return copy row
+added; S3 "Profile finished" line removed; S4 `ProfileGateContext` named as the one source;
+S5 shared strip uses today's strings (title "City", refusals "New organiser page", no invented
+resend line, Home frame = today's Home); S6 note fixed, counts, `returnTo`, `MISSING` deleted;
+S7 pending/declined placed (B frame 12b); S8 claim end frame in both options; S9 sheet-top check
++ mutation; N1, N2, N4, N5 done. Not done: N3 (optional).
+
 ## Handover
 
-Done: steps 1 to 6 of the brief. Left: one Fable review, one fix round, then the owner picks
-(brief's stopping rule). Next: stage 3 tokens for the chosen options.
+Done: brief steps 1 to 6, review, both fix rounds. Left: the owner picks one option per shape
+(and, for no-city B, whether stage 3 builds the return carry). Next: stage 3 tokens for the
+chosen options.

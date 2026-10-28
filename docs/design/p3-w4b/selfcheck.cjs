@@ -43,7 +43,10 @@ async function audit(page) {
       if (box.height < 44 || box.width < 44) small.push(`${el.tagName}:${(el.textContent || el.type).trim().slice(0, 24)} ${Math.round(box.width)}x${Math.round(box.height)}`);
     }
     // A frame whose content runs past 844px would hide a control below the fold.
-    const cut = [...document.querySelectorAll('.ph')].filter((e) => e.scrollHeight > e.clientHeight).length;
+    // A bottom-anchored sheet grows UPWARD, which scrollHeight never sees: its top (title,
+    // Close) must sit inside the frame too.
+    const sheetOut = (ph) => [...ph.querySelectorAll('.sheet')].some((s) => s.getBoundingClientRect().top < ph.getBoundingClientRect().top);
+    const cut = [...document.querySelectorAll('.ph')].filter((e) => e.scrollHeight > e.clientHeight || sheetOut(e)).length;
     return { texts, minContrast: Math.round(minC * 100) / 100, worst, controls, small, cut, scrollWidth: document.documentElement.scrollWidth };
   });
 }
