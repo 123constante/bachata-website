@@ -173,6 +173,16 @@ describe('W3b-2 Name', () => {
     expect(screen.getByTestId('p3-dayown')).toBeTruthy();
     expect(dates).toHaveLength(0);
   });
+
+  it('typing keeps the focus in the name box (the guarded Close is stable, so the sheet does not re-focus)', async () => {
+    show();
+    await openOwn('name');
+    const input = screen.getByTestId('p3-own-name-text') as HTMLInputElement;
+    input.focus();
+    fireEvent.change(input, { target: { value: 'Halloween' } });
+    fireEvent.change(input, { target: { value: 'Halloween Fridays' } });
+    expect(document.activeElement).toBe(input);
+  });
 });
 
 describe('W3b-2 Photos', () => {
@@ -210,6 +220,47 @@ describe('W3b-2 Photos', () => {
     fireEvent.click(save());
     await waitFor(() => screen.getByTestId('p3-toast'));
     expect(sent()[0].command).toEqual({ kind: 'occurrence.set_override', payload: { gallery: [] } });
+  });
+});
+
+describe('W3b-2 review round 1', () => {
+  it('Close while a photo is still uploading asks first (it would be lost), Save waits for it', async () => {
+    let finish: (u: string) => void = () => {};
+    upload.mockImplementationOnce(() => new Promise<string>((r) => { finish = r; }));
+    show();
+    await openOwn('photos');
+    fireEvent.change(screen.getByTestId('p3-photos-file'), { target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] } });
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    expect(save().disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByTestId('p3-field-ask')).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByTestId('p3-field-ask-stay'));
+    fireEvent.click(screen.getByTestId('p3-field-ask-stay'));
+    finish('https://img.example.test/new.jpg');
+    await waitFor(() => expect(save().disabled).toBe(false));
+  });
+
+  it('at 30 photos Add is gone and the note says why', async () => {
+    shape = withSeries({ gallery: Array.from({ length: 30 }, (_, i) => `https://img.example.test/${i}.jpg`) });
+    show();
+    await openOwn('photos');
+    expect(screen.queryByTestId('p3-photos-add')).toBeNull();
+    expect(screen.getByTestId('p3-photos-max').textContent).toMatch(/^30 photos is the most/);
+  });
+
+  it('the empty states point at a control on screen (Add), not at one a step back', async () => {
+    shape = withSeries({ gallery: [] });
+    show();
+    await openOwn('photos');
+    expect(screen.getByTestId('p3-photos-empty').textContent).not.toMatch(/usual/);
+    expect(screen.getByTestId('p3-photos-add')).toBeTruthy();
+  });
+
+  it('the W3b-2 sources carry no raw non-ASCII (entities and escapes only)', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const f of ['../DateFieldSheets.tsx', '../PriceCard.tsx', '../../data/dateFields.ts', './w3b2.send.test.tsx', '../../data/__tests__/w3b2.matrix.test.ts']) {
+      expect([...readFileSync(new URL(f, import.meta.url), 'utf8')].some((c) => c.charCodeAt(0) > 127), f).toBe(false);
+    }
   });
 });
 

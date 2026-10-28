@@ -78,4 +78,4 @@ export function datePricesPatch(ws: EventWorkspace, detail: DateDetail | null, r
 }
 
 export const pricesWord = (rows: PriceRow[]) =>
-  (rows.length ? rows.map((r) => `${r.name.trim() || L.noName} ${priceLabel(r)}`).join(' · ') : L.datePricesNone);
+  (rows.length ? rows.map((r) => `${r.name.trim() || L.noName} ${priceLabel(r)}`).join(' \u00b7 ') : L.datePricesNone);

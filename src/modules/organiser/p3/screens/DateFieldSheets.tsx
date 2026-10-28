@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { MAX_GALLERY, type EventWorkspace } from '../../events/eventModel';
 import { uploadEventPicture } from '../../events/media';
 import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
@@ -32,16 +32,23 @@ interface FieldProps {
  * a save that sends only a real change (the builder's patch, null = nothing to send), a leave
  * guard on Back and Close, and "Undo my changes" behind a confirm.
  */
-function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, error, onSave, onBack, onClose, children }: {
+function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, uploading = false, error, onSave, onBack, onClose, children }: {
   title: string; base: T; draft: T; setDraft: (v: T) => void; patch: OverridePatch | null; problem: string | null;
+  /** Photos still uploading: leaving asks first (they would be lost), saving waits. */
+  uploading?: boolean;
   children: ReactNode;
 } & Omit<FieldProps, 'ws' | 'detail'>) {
   const [ask, setAsk] = useState<null | 'leave' | 'close' | 'undo'>(null);
   const dirty = !sameValue(base, draft);
-  const guard = (to: 'leave' | 'close', go: () => void) => () => (dirty && !busy ? setAsk(to) : go());
+  const guard = (to: 'leave' | 'close', go: () => void) => () => ((dirty || uploading) && !busy ? setAsk(to) : go());
   const why = !dirty || patch ? null : problem;
+  // Sheet re-runs its focus effect when onClose changes: keep ONE function, reading the latest guard,
+  // so typing never moves the focus out of the field.
+  const closeNow = useRef(onClose);
+  useLayoutEffect(() => { closeNow.current = guard('close', onClose); });
+  const close = useCallback(() => closeNow.current(), []);
   return (
-    <Sheet title={title} onClose={guard('close', onClose)}>
+    <Sheet title={title} onClose={close}>
       <button type="button" className="p3-link" onClick={guard('leave', onBack)} data-testid="p3-field-back">&larr; Back</button>
       {children}
       {ask && (
@@ -51,16 +58,16 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, err
             onClick={() => { const a = ask; setAsk(null); if (a === 'undo') setDraft(base); else (a === 'close' ? onClose : onBack)(); }}>
             {ask === 'undo' ? L.dateUndoGo : L.dateLeaveGo}
           </button>
-          <button type="button" className="p3-btn p3-btn-line" onClick={() => setAsk(null)} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
+          <button type="button" className="p3-btn p3-btn-line" autoFocus onClick={() => setAsk(null)} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
         </div>
       )}
       {why && <p className="p3-warn" role="alert" data-testid="p3-field-why">{why}</p>}
       {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
       <div className="p3-stack-s">
-        <button type="button" className="p3-btn" disabled={!patch || busy} data-testid="p3-own-save" onClick={() => patch && onSave(patch)}>
+        <button type="button" className="p3-btn" disabled={!patch || busy || uploading} data-testid="p3-own-save" onClick={() => patch && onSave(patch)}>
           {patch || (dirty && problem) ? L.saveOne : L.dateNothing}
         </button>
-        {dirty && <button type="button" className="p3-link" disabled={busy} onClick={() => setAsk('undo')} data-testid="p3-field-undo">{L.dateUndo}</button>}
+        {dirty && <button type="button" className="p3-link" disabled={busy || uploading} onClick={() => setAsk('undo')} data-testid="p3-field-undo">{L.dateUndo}</button>}
       </div>
     </Sheet>
   );
@@ -83,7 +90,7 @@ function PhotosSheet(p: FieldProps) {
   const base = dateGalleryOf(p.ws, p.detail);
   const [photos, setPhotos] = useState(base);
   const latest = useRef(photos);
-  latest.current = photos;
+  useLayoutEffect(() => { latest.current = photos; }, [photos]);
   const [uploading, setUploading] = useState(false);
   const [upError, setUpError] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
@@ -103,15 +110,15 @@ function PhotosSheet(p: FieldProps) {
     }
   };
   return (
-    <FieldSheet title={L.datePhotos} base={base} draft={photos} setDraft={setPhotos} patch={uploading ? null : dateGalleryPatch(p.ws, p.detail, photos)}
-      problem={null} {...p} busy={p.busy || uploading}>
+    <FieldSheet title={L.datePhotos} base={base} draft={photos} setDraft={setPhotos} patch={dateGalleryPatch(p.ws, p.detail, photos)}
+      problem={null} {...p} uploading={uploading}>
       <p className="p3-note">{L.datePhotosHint}</p>
       {photos.length === 0 && <p className="p3-note" data-testid="p3-photos-empty">{L.datePhotosEmpty}</p>}
       <div role="list" className="p3-photos" data-testid="p3-photos">
         {photos.map((url, i) => (
           <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-photo">
             <img src={url} alt="" loading="lazy" />
-            <button type="button" className="p3-photo-x" aria-label={L.datePhotosRemove} disabled={p.busy || uploading}
+            <button type="button" className="p3-photo-x" aria-label={`${L.datePhotosRemove} ${i + 1}`} disabled={p.busy || uploading}
               onClick={() => setPhotos(photos.filter((_, j) => j !== i))} data-testid="p3-photo-remove">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -125,6 +132,7 @@ function PhotosSheet(p: FieldProps) {
           {uploading ? L.detailsUploading : L.datePhotosAdd}
         </button>
       )}
+      {photos.length >= MAX_GALLERY && <p className="p3-note" data-testid="p3-photos-max">{L.datePhotosMax(MAX_GALLERY)}</p>}
       {upError && <p className="p3-error" role="alert" data-testid="p3-photos-error">{upError}</p>}
     </FieldSheet>
   );
