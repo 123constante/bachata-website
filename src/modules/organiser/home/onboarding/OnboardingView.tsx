@@ -15,6 +15,7 @@ import { OrganiserSheet, type DoorTask, type SheetTask } from './OrganiserSheet'
 import { tapGate } from './profileGate';
 import { SignOutLine } from './SignOutLine';
 import { BETA_NOTE } from '../../flows/newpage/cannotCreate';
+import { cn } from '@/lib/utils';
 
 export interface OnboardingViewProps {
   user: { id: string; email: string | null };
@@ -175,7 +176,13 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
       {searched && search.data && results.length === 0 && (
         <p className="text-[14px] text-[var(--mut)]" data-testid="onboarding-no-match">
           No organiser matches &ldquo;{term.trim()}&rdquo;. Check the spelling, or{' '}
-          <button type="button" onClick={startCreate} className="font-semibold text-[var(--gold)] underline underline-offset-2" data-testid="onboarding-create-from-search">
+          <button
+            type="button"
+            onClick={startCreate}
+            // P3: a 44px tap inside the sentence (the walk measured 23px); R1 unchanged.
+            className={cn('font-semibold text-[var(--gold)] underline underline-offset-2', p3 && '-my-[12px] inline-flex min-h-[44px] items-center')}
+            data-testid="onboarding-create-from-search"
+          >
             create it as a new organiser
           </button>
           .

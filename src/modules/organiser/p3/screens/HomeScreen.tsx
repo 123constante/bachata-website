@@ -46,7 +46,14 @@ export function HomeScreen() {
   }
 
   // W4b: no page yet is P3's Welcome (find, claim or create), not an empty Home.
-  if (home.data.organisers.length === 0) return <Navigate to={P3_PATHS.youAdd} replace />;
+  if (home.data.organisers.length === 0) {
+    // A claim or create lands here while the home read is still refetching: wait for it, or the
+    // stale "no page" answer would send the person straight back to Welcome (walk, W4b).
+    if (confirmation && home.isFetching) {
+      return <StateCard title="Loading your events&hellip;" testId="p3-home-loading">This takes a second.</StateCard>;
+    }
+    return <Navigate to={P3_PATHS.youAdd} replace />;
+  }
 
   // A claim or a create that just landed here says so (W4b), and so do pages claimed at sign-in.
   const said = (

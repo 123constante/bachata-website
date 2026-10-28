@@ -153,6 +153,12 @@ describe('P3 Home', () => {
     expect(line.textContent).toBe('Page a is yours. You can now manage it.');
     expect(line.getAttribute('role')).toBe('status');
   });
+  it('a claim landing before the home read refetched waits, never bounces back to Welcome', () => {
+    h.home = { ...h.home, isFetching: true, data: { today: '2026-10-28', organisers: [] } } as typeof h.home;
+    mount(P3_PATHS.home, { confirmation: 'Page a is yours. You can now manage it.' });
+    expect(screen.getByTestId('p3-home-loading')).toBeTruthy();
+    expect(screen.queryByTestId('p3-add-page')).toBeNull();
+  });
   it('no confirmation without one', () => {
     h.home = { ...h.home, data: { today: '2026-10-28', organisers: [page('a')] } };
     mount(P3_PATHS.home);
