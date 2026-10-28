@@ -1,8 +1,7 @@
 import { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Users } from 'lucide-react';
-import { OrganiserShell } from '../shell';
-import { ORG_PATHS } from '../shell/paths';
+import { useOrgSurface } from '../shell/surface';
 import { EmptyState, ErrorState, SkeletonRows, StatusTag, initials } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
@@ -36,6 +35,10 @@ export function RequiredLine({ organiserId }: { organiserId: string }) {
  */
 export default function PageScreen() {
   const { home, selected, entity, bridge, layer } = useOwnPage();
+  const { kind, Shell, paths, hub } = useOrgSurface();
+  // P3 (W4a fix 1): the facts card is a P3 card (.p3-eip maps the editor's colours to P3 tokens)
+  // and Team is the ONE Team link below it; R1 keeps its black and gold card and Team card.
+  const p3 = kind === 'p3';
   const live = selected?.lifecycle_status === 'live';
 
   // The stored row with any unsaved draft laid over it (the layer's overlay).
@@ -49,15 +52,15 @@ export default function PageScreen() {
   else if ((home.isError && !home.data) || entity.isError) {
     body = <ErrorState title="Your page did not load" onRetry={() => void (entity.isError ? entity.refetch() : home.refetch())} retrying={home.isFetching || entity.isFetching} testId="page-load-error" />;
   } else if (!selected) {
-    body = <EmptyState title="You don&rsquo;t run a page yet" body="Add a page from Home, then edit it here." testId="page-no-organiser" />;
+    body = <EmptyState title="You don&rsquo;t run a page yet" body={`Add a page from ${hub.label}, then edit it here.`} testId="page-no-organiser" />;
   } else if (!entity.data) {
-    body = <EmptyState title="This page is not available" body="You may no longer help run it. Pick another page from Home." testId="page-missing" />;
+    body = <EmptyState title="This page is not available" body={`You may no longer help run it. Pick another page from ${hub.label}.`} testId="page-missing" />;
   } else {
     body = (
       <div className="space-y-[12px]" data-testid="page-rows">
         <RequiredLine organiserId={selected.id} />
         {bridge ? (
-          <div className="overflow-hidden rounded-[12px] bg-[#0C0A0D] pt-[16px] text-[#F6F1EA]" data-testid="page-facts">
+          <div className={p3 ? 'p3-eip overflow-hidden rounded-[var(--r-card)] bg-[var(--card)] pt-[16px] text-[var(--fg)]' : 'overflow-hidden rounded-[12px] bg-[#0C0A0D] pt-[16px] text-[#F6F1EA]'} data-testid="page-facts">
             <div className="flex flex-col items-center gap-[8px] px-[16px] pb-[16px]">
               <div className="relative h-[88px] w-[88px]" data-testid="page-photo">
                 {avatar ? (
@@ -68,7 +71,8 @@ export default function PageScreen() {
                 {bridge.slot('photo')}
               </div>
               <div className="flex max-w-full items-center">
-                <h2 className="truncate text-[20px] font-bold" data-testid="page-name">{name}</h2>
+                {/* Its own colour: the site's base `h2` rule (index.css, hsl(--foreground), near white) beats the card's inherited one. */}
+                <h2 className={p3 ? 'truncate text-[20px] font-bold leading-[28px] text-[var(--fg)]' : 'truncate text-[20px] font-bold'} data-testid="page-name">{name}</h2>
                 {bridge.slot('name')}
               </div>
               {bridge.slot('meta')}
@@ -79,13 +83,13 @@ export default function PageScreen() {
             </div>
             {bridge.slot('links')}
             {bridge.slot('contact')}
-            {bridge.slot('team')}
+            {!p3 && bridge.slot('team')}
           </div>
         ) : (
           <SkeletonRows count={4} label="Loading your page" testId="page-loading" />
         )}
         <Link
-          to={ORG_PATHS.team}
+          to={paths.team}
           className="flex min-h-[52px] items-center gap-[12px] rounded-[12px] bg-[var(--card)] px-[16px] text-[15px] text-[var(--fg)]"
           data-testid="page-team-link"
         >
@@ -98,14 +102,14 @@ export default function PageScreen() {
   }
 
   return (
-    <OrganiserShell
+    <Shell
       title={selected?.name ?? 'Your page'}
-      back={{ to: ORG_PATHS.home, label: 'Home' }}
+      back={hub}
       topBarEnd={live ? <StatusTag tone="live" testId="page-live-chip">{lifecycleTag('live').label}</StatusTag> : undefined}
       testId="org-page-page"
     >
       {body}
       {layer}
-    </OrganiserShell>
+    </Shell>
   );
 }

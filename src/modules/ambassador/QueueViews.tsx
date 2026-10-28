@@ -90,17 +90,29 @@ interface ListProps {
   party: ReadonlySet<string>;
   now: Date;
   showCity: boolean;
-  more: { text: string; loading: boolean; error: boolean; onMore: () => void } | null;
+  /** `capText` when a city hit the row cap: its oldest are not loaded, so the bar says "loaded", not "waiting". */
+  capped: string | null;
+  /** A background refetch failed with rows on screen: they are the last good list. */
+  stale: { retrying: boolean; onRetry: () => void } | null;
   onOpen: (item: QueueItem) => void;
 }
 
-export function QueueList({ items, party, now, showCity, more, onOpen }: ListProps) {
+export function QueueList({ items, party, now, showCity, capped, stale, onOpen }: ListProps) {
   const oldest = items.reduce((m, i) => Math.max(m, waitingDays(i, now)), 0);
   return (
     <div data-testid="queue-list">
+      {stale && (
+        <p role="status" className="m-0 flex items-center gap-2 px-3 pt-2 text-[12px] text-destructive" data-testid="queue-stale">
+          <span className="flex-1">Could not refresh. Showing the last list.</span>
+          <button type="button" className="min-h-[44px] bg-transparent px-2 text-[12px] font-semibold text-foreground underline" disabled={stale.retrying} onClick={stale.onRetry}>
+            {stale.retrying ? <>Trying&hellip;</> : 'Try again'}
+          </button>
+        </p>
+      )}
       <p className="m-0 px-3 py-2 text-[12px] text-muted-foreground" data-testid="age-bar">
-        Oldest waiting <b className="text-primary">{oldest} day{oldest === 1 ? '' : 's'}</b> &middot; oldest first
+        Oldest {capped ? 'loaded' : 'waiting'} <b className="text-primary">{oldest} day{oldest === 1 ? '' : 's'}</b> &middot; oldest first
       </p>
+      {capped && <p className="m-0 px-3 pb-2 text-[13px] text-muted-foreground" data-testid="queue-capped">{capped}</p>}
       <ul className="m-0 list-none px-3 pb-3">
         {items.map((i) => (
           <li key={i.key} className="border-b border-border">
@@ -121,17 +133,7 @@ export function QueueList({ items, party, now, showCity, more, onOpen }: ListPro
           </li>
         ))}
       </ul>
-      {more && (
-        <div className="space-y-2 px-3 pb-4" data-testid="queue-more">
-          <p className="m-0 text-[13px] text-muted-foreground">
-            {more.text}
-          </p>
-          {more.error && <p role="alert" className="m-0 text-[13px] text-destructive">Could not load more. Try again.</p>}
-          <button type="button" className={cn(BTN_PLAIN, 'w-full')} disabled={more.loading} onClick={more.onMore}>
-            {more.loading ? <>Loading&hellip;</> : 'Show more'}
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }

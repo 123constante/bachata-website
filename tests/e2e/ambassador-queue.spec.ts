@@ -35,7 +35,7 @@ const ITEMS = [
 
 const b64url = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-async function install(page: Page, opts: { selfApprove?: string[]; flowingClock?: boolean } = {}) {
+async function install(page: Page, opts: { selfApprove?: string[]; changed?: string[]; flowingClock?: boolean } = {}) {
   const queue = [...ITEMS].reverse(); // the RPC returns newest first
   const sent: { fn: string; body: Record<string, unknown> }[] = [];
   const user = { id: ME, aud: 'authenticated', role: 'authenticated', email: 'jan@bristol.example', user_metadata: {} };
@@ -66,6 +66,12 @@ async function install(page: Page, opts: { selfApprove?: string[]; flowingClock?
       sent.push({ fn: rpc, body });
       if (opts.selfApprove?.includes(String(body.p_target_id))) return json(route, { code: 'P0001', message: 'self_approval_not_allowed', details: null, hint: null }, 400);
       const at = queue.findIndex((q) => q.target_id === body.p_target_id);
+      // Deleted or moved out of the city after the list loaded: the live _moderate_entity answers a
+      // non-admin with not_authorised (it checks scope before existence), and the list no longer has it.
+      if (opts.changed?.includes(String(body.p_target_id))) {
+        if (at >= 0) queue.splice(at, 1);
+        return json(route, { code: 'P0001', message: 'not_authorised', details: null, hint: null }, 400);
+      }
       if (at >= 0) queue.splice(at, 1);
       return json(route, { ok: true });
     }
@@ -122,6 +128,24 @@ test('an item the ambassador is part of turns into "needs an admin" and stays li
   await page.getByTestId('review-back').click();
   await expect(page.getByTestId('queue-row')).toHaveCount(12);
   await expect(page.getByTestId('queue-row').first()).toContainText('Needs an admin');
+});
+
+test('an item that changed after the list loaded (not_authorised) is taken off with honest copy, not "no access"', async ({ page }) => {
+  const sent = await install(page, { changed: ['s1'] });
+  await page.goto('/ambassador');
+  const rows = page.getByTestId('queue-row');
+  await expect(rows).toHaveCount(12);
+  await rows.first().click();
+  await page.getByTestId('approve-open').click();
+  await page.getByTestId('approve-confirm').click();
+  await expect(page.getByTestId('toast')).toHaveText('This one has changed and is no longer yours to decide. It has been taken off your list.');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByTestId('decision-error')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/ambassador$/);
+  await expect(rows).toHaveCount(11);
+  await expect(page.getByTestId('queue-row').first()).not.toContainText('Thursday Bachata at The Lantern');
+  await expect(page.getByTestId('queue-count')).toHaveText('11');
+  expect(sent).toEqual([{ fn: 'admin_approve_entity_v1', body: { p_target_type: 'series', p_target_id: 's1' } }]);
 });
 
 test('with a flowing clock the sheets cover the screen, opening one does not scroll, and the toast is on screen', async ({ page }) => {

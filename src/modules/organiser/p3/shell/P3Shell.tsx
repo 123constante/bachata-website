@@ -27,18 +27,29 @@ function tabOf(pathname: string): P3Tab {
   return hit ?? 'home';
 }
 
+/** A screen the You hub pushes (Team, Switch page...): it draws its own top bar, with the way back. */
+function isPushed(pathname: string): boolean {
+  return pathname.startsWith(`${P3_PATHS.you}/`) && pathname !== `${P3_PATHS.you}/`;
+}
+
 /** The P3 frame: top bar (the tab's name), the page, and the Home / Events / Stats / You tab bar. */
 export function P3Shell() {
   const { pathname } = useLocation();
   const tab = tabOf(pathname);
   return (
     <div className="p3-theme p3-frame" data-testid="p3-shell">
-      <header className="p3-top">
-        <h1>{L.tabs[tab]}</h1>
-      </header>
-      <main className="p3-main">
+      {isPushed(pathname) ? (
         <Outlet />
-      </main>
+      ) : (
+        <>
+          <header className="p3-top">
+            <h1>{L.tabs[tab]}</h1>
+          </header>
+          <main className="p3-main">
+            <Outlet />
+          </main>
+        </>
+      )}
       <nav className="p3-tabs" aria-label="Main">
         {P3_TABS.map((t) => (
           <NavLink key={t} to={P3_PATHS[t]} end={t === 'home'} className="p3-tab" data-tab={t}>

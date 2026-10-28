@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
-import { OrganiserShell, ORG_PATHS } from '../shell';
+import { useOrgSurface } from '../shell/surface';
 import { Card, Chip, ErrorState, SkeletonRows } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { rememberChoice, useOrganiserChoice } from './useOrganiserChoice';
@@ -26,6 +26,9 @@ export function OrganiserSwitcher({ organisers, selectedId, onChoose }: {
   );
 }
 
+/** P3's mark on the page You shows. */
+export const SHOWING = 'Showing';
+
 const ROLE: Record<HomeOrganiser['role'], string> = { owner: 'Owner', manager: 'Manager' };
 
 /**
@@ -34,14 +37,15 @@ const ROLE: Record<HomeOrganiser['role'], string> = { owner: 'Owner', manager: '
  */
 export default function SwitchPage() {
   const navigate = useNavigate();
+  const { kind, Shell, hub, addPage } = useOrgSurface();
   const { user, home, organisers, selected } = useOrganiserChoice();
   const choose = (id: string) => {
     rememberChoice(user?.id, id);
-    navigate(`${ORG_PATHS.home}?o=${encodeURIComponent(id)}`);
+    navigate(`${hub.to}?o=${encodeURIComponent(id)}`);
   };
   const failed = (home.isError || (home.isPending && home.isPaused)) && !home.data;
   return (
-    <OrganiserShell title="Switch page" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-switch">
+    <Shell title="Switch page" back={hub} testId="org-page-switch">
       {home.isPending && !home.isPaused ? (
         <SkeletonRows count={2} label="Loading your pages" testId="switch-loading" />
       ) : failed ? (
@@ -69,17 +73,22 @@ export default function SwitchPage() {
               {o.lifecycle_status === 'live' && (
                 <span className="rounded-[8px] bg-[var(--ok-bg)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--ok-fg)]">{lifecycleTag('live').label}</span>
               )}
+              {/* P3: Switch decides which page You, Team and the page editor show; say which one that is. */}
+              {kind === 'p3' && o.id === selected?.id && (
+                <span className="rounded-[8px] bg-[var(--btn)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--btnfg)]" data-testid="switch-showing">{SHOWING}</span>
+              )}
             </button>
           ))}
         </Card>
       )}
       <Link
-        to={`${ORG_PATHS.home}?add=1`}
+        to={addPage}
         data-testid="switch-add-page"
-        className="mt-[12px] flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--gold)]"
+        // P3: the terracotta text-link token (--gold-fg), as P3's other text links; --gold is for fills (2.69:1 on cream).
+        className={`mt-[12px] flex min-h-[44px] items-center justify-center text-[15px] font-semibold ${kind === 'p3' ? 'text-[var(--gold-fg)]' : 'text-[var(--gold)]'}`}
       >
         Add a page
       </Link>
-    </OrganiserShell>
+    </Shell>
   );
 }

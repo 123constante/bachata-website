@@ -26,6 +26,9 @@ export interface QueueItem {
 }
 
 export const PAGE_SIZE = 100;
+/** The list RPC pages NEWEST first, so every page is loaded before the list shows (the oldest are on the last page).
+ *  Stop here per city: past it the oldest are not loaded, and `capText` says so. */
+export const MAX_ROWS_PER_CITY = 1000;
 /** A decision on an item the ambassador is party to is refused with this code. */
 export const SELF_APPROVAL_CODE = 'self_approval_not_allowed';
 export const MIN_REASON_LENGTH = 10;
@@ -132,6 +135,9 @@ export function checkReason(text: string): ReasonCheck {
 }
 
 export type DecisionErrorKind = 'party' | 'gone' | 'access' | 'auth' | 'reason' | 'other';
+/** For a non-admin `_moderate_entity` raises not_authorised BEFORE target_not_found, so an item the list served that was
+ *  deleted or moved out of the person's cities comes back as "no access". The page shows this instead and takes it off. */
+export const CHANGED_MESSAGE = 'This one has changed and is no longer yours to decide. It has been taken off your list.';
 export interface DecisionError { kind: DecisionErrorKind; message: string }
 
 function errorText(err: unknown): string {
@@ -181,10 +187,12 @@ export function loadErrorKind(err: unknown): 'auth' | 'access' | 'other' {
   return 'other';
 }
 
-/** "This shows the first 100 in Bristol." naming each city whose last page was full ("in each of" when more than one). */
-export function moreText(offset: number, cityNames: readonly string[]): string {
-  const where = cityNames.length > 1 ? ` in each of ${cityNames.join(' and ')}` : cityNames.length ? ` in ${cityNames[0]}` : '';
-  return `This shows the first ${offset + PAGE_SIZE}${where}. There may be more waiting.`;
+/** Only when a city hit MAX_ROWS_PER_CITY: the list then holds that city's most recent rows, never its oldest. */
+export function capText(cityNames: readonly string[]): string {
+  const many = cityNames.length > 1;
+  const where = many ? ` in each of ${cityNames.join(' and ')}` : cityNames.length ? ` in ${cityNames[0]}` : '';
+  // "At least": a city that returned exactly the cap reads the same as one with more (no extra probe for it).
+  return `At least ${MAX_ROWS_PER_CITY} are waiting${where}. Only the ${MAX_ROWS_PER_CITY} most recent${many ? ' in each' : ''} are here, so any older ones are not shown. Ask an admin to clear the rest.`;
 }
 
 /** The decision RPCs return Json; a soft refusal can arrive as data instead of an error. */
