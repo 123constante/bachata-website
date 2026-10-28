@@ -96,9 +96,8 @@ export function SheetView({
     if (!open) return;
     bodyRef.current?.scrollTo?.({ top: 0 });
     const target = contentRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus]');
-    (target ?? titleRef.current)?.focus(focusOpts);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- focusOpts follows the look, which never changes while open
-  }, [viewKey, open]);
+    (target ?? titleRef.current)?.focus(p3 ? { preventScroll: true } : undefined);
+  }, [viewKey, open, p3]);
 
   const cap = height !== null ? `${Math.max(0, height - 12)}px` : '100dvh';
   // Keyboard up on a short screen (e.g. 390x500 landscape-ish): the grabber
