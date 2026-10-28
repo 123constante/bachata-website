@@ -44,3 +44,28 @@ encoded mock-only behaviour and were updated (contributor remove -> manager; pag
 - F12 note: P3 Done's primary reads "Go back" (acceptable; handover wording was optimistic).
 - Not done: browser walk at 390x844 (no walk account in this sandbox); no new overlays were added, so the
   overlay-geometry e2e has nothing new to assert.
+
+## Round 2 (review `docs/review/pr-1107-r2.md`, ticket dt_f549e8b17a2e)
+
+Done:
+- **R2-1** `more/index.tsx`: the team read now runs for every role (`enabled: !!selected`). A non-owner's Leave
+  follows `canLeave(team.data.members)` (`shared/teamRules.ts`): disabled + `GateReason` (`leaveLast` /
+  `leaveContributor`, Message us), same words as Team. While the read is pending Leave is refused with no
+  reason; if the read FAILS a non-owner's Leave stays refused with `LEAVE_UNCHECKED` + Message us (unlike the
+  owner path, the RPC would not stop an orphaned page). The confirm sheet's `open` is `confirmLeave && !leaveRefused`,
+  so it cannot be reached (or stay open) while refused. The owner's `soleOwner` / `HAND_OVER_FIRST` path is untouched.
+- **R2-4** `canDecline(role, team, full)`: on a full team the owner-present reason is `DECLINE_WHEN_FULL`
+  ("Only the owner can decline a request."), without pointing at the disabled Add as Manager. `team/index.tsx` passes `full`.
+- Red first, replayable: commit `bd21182` holds only the new tests (4 failed on the unfixed code: sole manager,
+  contributor, read-fails, full-team decline); `d250947` is the fix.
+- One existing More test changed: "manager: ... Leave enabled" now serves a team (owner + manager) and waits for
+  the read, because a manager's Leave now waits for it.
+- Walk: `tests/e2e/walk-p3-w4a-fix3-r2.spec.ts` (390x844, organiser fake; NOT in the `test:e2e` gate list).
+- R2-2 decision: apply to R1 too, per handover. R2-3 (admin mapped to manager) and R2-6 (dead `acceptedInviteLanding`) stay as notes.
+
+Data source (prod, read-only, 2026-10-28): `remove_organiser_member_v1` exists once, its body guards `last_owner`
+and has no last-manager guard; it writes `public.entity_members` (deletes the member row). Shapes: 51 pages,
+39 sole manager no owner, 0 ownerless with 2+ managers, 7 owned with a manager, 0 contributors.
+
+Left / next: the server-side last-manager guard is the admin repo's. `organiser_home_v1` lists owner/manager only,
+so the contributor row on More is latent (covered by the unit matrix only).
