@@ -189,6 +189,10 @@ test('Back from a review returns to the list at the same scroll position; taps a
   await expect(rows).toHaveCount(12);
   const heights = await rows.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
   expect(heights.filter((x) => x < 44)).toEqual([]);
+  // Let the page transition settle first. A click on a still-moving row makes Playwright retry, and
+  // each retry scrolls the row to a different edge (end, center, start), so the list would no longer
+  // be where `before` says it was when the row is tapped. A trial click waits without clicking.
+  await rows.nth(9).click({ trial: true });
   await page.evaluate(() => window.scrollTo(0, 220));
   const before = await page.evaluate(() => window.scrollY);
   await rows.nth(9).click();
