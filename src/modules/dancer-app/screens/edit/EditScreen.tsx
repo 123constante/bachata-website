@@ -45,6 +45,7 @@ import { Avatar, QueryGate } from '../me/ui';
 import { ChipChoice, ChipListInput, Field, INPUT_CLASS, TextInput } from './fields';
 import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
 
+const LanguagePicker = lazyWithRetry(() => import('./LanguagePicker'));
 const GoingPhotoSwitch = lazyWithRetry(() => import('./GoingPhotoSwitch'));
 
 type ServerErrors = Partial<Record<FormFieldId, string>>;
@@ -293,8 +294,10 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
           <NationalityPicker id="nationality" value={draft.nationality || undefined} onChange={(pick) => set('nationality', nationalityCodeForPick(pick))} className="min-h-[48px] w-full" />
         </Field>
 
-        <Field id="languages" label="Languages" hint="(separate with commas)" error={shown('languages')}>
-          <TextInput id="languages" value={draft.languages} placeholder="English, Spanish" onChange={(v) => set('languages', v)} error={shown('languages')} />
+        <Field id="languages" label="Languages" error={shown('languages')}>
+          <Suspense fallback={<div className="min-h-[48px]" aria-hidden="true" />}>
+            <LanguagePicker id="languages" value={draft.languages} onChange={(v) => set('languages', v)} />
+          </Suspense>
         </Field>
 
         <Field id="dance_started_year" label="Dancing since" error={shown('dance_started_year')}>
