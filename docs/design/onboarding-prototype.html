@@ -51,6 +51,8 @@
 /* Text-amount variants: .tx-l = extra sentence shown only in "explained" */
 :root[data-text="short"] .tx-l { display: none; }
 :root[data-ts="130"] { --ts: 1.3; }
+/* The hidden attribute always wins over a class or inline style that sets display (review r1, fix 1) */
+[hidden] { display: none !important; }
 
 /* ===== Desk (outside the phone) ===== */
 * { box-sizing: border-box; }
@@ -119,6 +121,9 @@ p.m { margin: 0; font-size: var(--fs-small); line-height: 1.4; color: var(--mut)
 .btn-line { background: transparent; color: var(--fg); border: 1px solid var(--line-strong); }
 .btn-sm { min-height: var(--tap); font-size: var(--fs-small); padding: 0 14px; }
 .why { margin: 0; font-size: var(--fs-small); color: var(--mut); text-align: center; overflow-wrap: anywhere; }
+.why.why-err { color: var(--danger); font-weight: 600; }
+.why svg { width: 16px; height: 16px; vertical-align: -3px; }
+.ava.sq, .crop.sq { border-radius: var(--r-tile); }
 .lnk { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 4px; background: none; border: 0; font: inherit; font-size: var(--fs-small); font-weight: 700; color: var(--gold-fg); text-decoration: underline; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
 .btn:focus-visible, .lnk:focus-visible, .tile:focus-visible, .chip:focus-visible, .back:focus-visible, .inp:focus-visible, .row-btn:focus-visible, .seg button:focus-visible, .sw:focus-visible, .mood:focus-visible, .ava-btn:focus-visible, .x:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
 
@@ -161,7 +166,7 @@ textarea.inp { min-height: 120px; padding: 12px 14px; resize: vertical; line-hei
 .chip[aria-pressed="true"] { background: var(--warn-bg); border-color: var(--gold); color: var(--fg); }
 .chip .x { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--card2); align-items: center; justify-content: center; border: 0; color: var(--fg); cursor: pointer; font: inherit; }
 .chip .x svg { width: 12px; height: 12px; }
-.chip-flag { font-size: 18px; line-height: 1; }
+.chip-flag { font-size: calc(18px * var(--ts)); line-height: 1; }
 
 /* Avatar */
 .ava-row { display: flex; align-items: center; gap: 14px; }
@@ -232,7 +237,7 @@ textarea.inp { min-height: 120px; padding: 12px 14px; resize: vertical; line-hei
 .grabber { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 0 auto; }
 .mix { display: grid; grid-template-columns: 1fr; gap: 2px; }
 .mix .row-btn { min-height: var(--tap); }
-.flag { font-size: 22px; line-height: 1; width: 30px; text-align: center; flex: none; }
+.flag { font-size: calc(22px * var(--ts)); line-height: 1; width: calc(30px * var(--ts)); text-align: center; flex: none; }
 .sect { font-size: calc(12px * var(--ts)); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--mut); padding: 10px 4px 4px; }
 
 /* Skeleton / loading / nice-one */
@@ -351,7 +356,10 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
       <button data-set="state" data-val="normal" aria-pressed="true">Normal</button>
       <button data-set="state" data-val="loading">Loading</button>
       <button data-set="state" data-val="error">Error</button>
-      <button data-set="state" data-val="empty">Empty</button></div>
+      <button data-set="state" data-val="empty">Empty</button>
+      <button data-set="state" data-val="savefail">Save failed</button>
+      <button data-set="state" data-val="graceover">Grace ended</button>
+      <button data-set="state" data-val="alreadylive">Already live</button></div>
     <div class="drow"><span>Checks</span>
       <button data-set="ts" data-val="130" aria-pressed="false">Text 130%</button>
       <button data-set="rm" data-val="true" aria-pressed="false">Reduced motion</button>
@@ -451,17 +459,50 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm" id="ct-phone-yes">Yes, that&rsquo;s right</button><button class="btn btn-sm btn-line" id="ct-phone-change">Change</button></div>
         </div>
         <div class="fld" data-ct-pane="phone" id="ct-phone-edit" hidden><label class="lbl" for="ct-phone">Phone number</label><input class="inp" id="ct-phone" type="tel" inputmode="tel" placeholder="07&hellip;" autocomplete="tel"><p class="err" id="ct-phone-err"></p></div>
-        <div class="fld" data-ct-pane="email" hidden><label class="lbl" for="ct-email">Contact email</label><input class="inp" id="ct-email" type="email" inputmode="email" placeholder="hello@yourpage.com" autocomplete="off"><p class="err" id="ct-email-err"></p><p class="m tx-l">This is the public one. Your sign-in email stays private (step 6).</p></div>
+        <div class="fld" data-ct-pane="email" hidden><label class="lbl" for="ct-email">Contact email</label><input class="inp" id="ct-email" type="email" inputmode="email" placeholder="hello@yourpage.com" autocomplete="off"><p class="err" id="ct-email-err"></p><p class="m tx-l">This is the public one. Your sign-in email stays private (we ask later).</p></div>
         <div class="row"><div class="grow"><strong>Show on WhatsApp too</strong><span class="sub">Same number, one-tap chat</span></div><button class="sw" role="switch" aria-checked="true" aria-label="Show on WhatsApp"></button></div>
-        <p class="devnote">A6 in the plan. Phone pre-filled from the held value; &ldquo;Yes&rdquo; is one tap and saves nothing new. Contact email: the plan says it is set by the team and never asked. Here the Email tab is a DESIGN ASSUMPTION for pages with no number (see .md). Public switches unchanged.</p>
+        <p class="devnote">A6 in the plan. Phone pre-filled from the held value; &ldquo;Yes, that&rsquo;s right&rdquo; is ONE tap: it saves and moves on (A6). Continue stays for the Change and Email paths. Contact email: the plan says it is set by the team and never asked. Here the Email tab is a DESIGN ASSUMPTION for pages with no number (see .md). Public switches unchanged.</p>
       </div>
     </div>
-    <div class="foot"><p class="why" id="ct-why"></p><button class="btn" id="ct-next" data-go="you" data-nice>Continue</button></div>
+    <div class="foot"><p class="why" id="ct-why"></p><button class="btn" id="ct-next" data-go="page" data-nice>Continue</button></div>
   </section>
 
-  <!-- 3. WHO YOU ARE -->
-  <section class="scr" data-id="you" data-title="3. Who you are">
+  <!-- 3. YOUR PAGE (A5) -->
+  <section class="scr" data-id="page" data-title="3. Your page (category, link, logo)">
     <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="3"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
+    <div class="main">
+      <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:76px"></div><div class="skel" style="height:52px"></div><div class="skel" style="height:88px;width:88px"></div></div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your page. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:14px">
+        <h1 class="t">Your page</h1>
+        <p class="p tx-l">What dancers see first on the calendar. Three quick things.</p>
+        <div class="card"><div class="row"><div class="grow"><strong data-org>Bachata Nights Leeds</strong><span class="sub" id="pg-city">In Leeds</span></div><button class="lnk" id="pg-rename">Change name</button></div></div>
+        <div class="fld"><span class="lbl" id="pg-cat-lbl">What is it?</span>
+          <div class="tiles two" role="radiogroup" aria-labelledby="pg-cat-lbl">
+            <button class="tile" role="radio" aria-checked="false" data-cat="Dance School"><strong>Dance School</strong><span>Classes and courses</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+            <button class="tile" role="radio" aria-checked="false" data-cat="Event Brand"><strong>Event Brand</strong><span>Parties and socials</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+            <button class="tile" role="radio" aria-checked="false" data-cat="Community Group"><strong>Community Group</strong><span>Run by dancers, for dancers</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+            <button class="tile" role="radio" aria-checked="false" data-cat="Promoter"><strong>Promoter</strong><span>Puts on nights and tours</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+            <button class="tile" role="radio" aria-checked="false" data-cat="Festival Brand"><strong>Festival Brand</strong><span>Weekenders and festivals</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          </div>
+          <p class="err" id="pg-cat-err"></p>
+        </div>
+        <div class="fld"><label class="lbl" for="pg-link">One link</label><input class="inp" id="pg-link" type="text" inputmode="url" placeholder="yourpage.com or @yourpage" autocomplete="url"><p class="err" id="pg-link-err"></p><p class="m tx-l">Website, Instagram or Facebook. One is enough; you can add more later.</p></div>
+        <div class="fld"><span class="lbl" id="pg-logo-lbl">Logo</span>
+          <div class="ava-row"><div class="ava sq" id="pg-logo" aria-labelledby="pg-logo-lbl"><svg><use href="#i-img"/></svg></div>
+            <div style="display:flex;flex-direction:column;gap:8px"><button class="ava-btn" data-photo="logo"><svg><use href="#i-img"/></svg>Choose a logo</button></div></div>
+          <p class="m tx-l">Square works best. Shown beside your name on the calendar.</p>
+          <p class="err" id="pg-logo-err"></p>
+        </div>
+        <p class="devnote">A5 in the plan: logo, one link (website, Instagram or Facebook; at least one), city, category (<code>CATEGORY_OPTIONS</code>, five values, one tap). Name shown; &ldquo;Change name&rdquo; opens today&rsquo;s name field. City is held from Create or from the claimed page. A manager sees the same screen. Saves via <code>organiser_profile_update_p5_v1</code>; all three are rows in <code>missing[]</code>.</p>
+      </div>
+    </div>
+    <div class="foot"><p class="why" id="pg-why"></p><button class="btn" id="pg-next" aria-disabled="true" data-go="you" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 4. WHO YOU ARE -->
+  <section class="scr" data-id="you" data-title="4. Who you are">
+    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="4"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
     <div class="main">
       <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:88px;width:88px;border-radius:50%"></div><div class="skel" style="height:52px"></div><div class="skel" style="height:76px"></div></div>
       <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your details. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
@@ -485,7 +526,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
             <button class="tile assume" role="checkbox" aria-checked="false" data-role="unsure"><svg><use href="#i-q"/></svg><strong>Not sure yet</strong><span>Decide later <span class="badge-a">needs decision</span></span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
           </div>
           <p class="err" id="y-role-err"></p>
-          <p class="devnote">Stored values: <code>Leader</code>, <code>Follower</code>, <code>Lead and Follow</code> (shown as &ldquo;Both&rdquo;). &ldquo;Not sure yet&rdquo; is a DESIGN ASSUMPTION: no stored value exists. Needs a product + DB decision (new enum value, or null + a flag). Until then the card cannot ship.</p>
+          <p class="devnote">Stored values: <code>Leader</code>, <code>Follower</code>, <code>Lead and Follow</code> (shown as &ldquo;Both&rdquo;). &ldquo;Not sure yet&rdquo; is a DESIGN ASSUMPTION: no stored value exists. Needs a product + DB decision (new enum value, or null + a flag + a status-RPC change in admin). Review lists &ldquo;Not sure yet&rdquo; as still missing, because <code>organiser_onboarding_status_v1</code> would too.</p>
         </div>
         <div class="fld"><span class="lbl">Nationality</span>
           <div id="y-nat-chip"></div>
@@ -502,9 +543,9 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     <div class="foot"><p class="why" id="y-why"></p><button class="btn" id="y-next" aria-disabled="true" data-go="teach" data-nice>Continue</button></div>
   </section>
 
-  <!-- 4. TEACHING LEVELS -->
-  <section class="scr" data-id="teach" data-title="4. Do you teach? Levels">
-    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="4"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
+  <!-- 5. TEACHING LEVELS -->
+  <section class="scr" data-id="teach" data-title="5. Do you teach? Levels">
+    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="5"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
     <div class="main">
       <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:76px"></div><div class="skel" style="height:76px"></div></div>
       <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your details. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
@@ -535,9 +576,9 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     <div class="foot"><p class="why" id="tc-why">Pick yes or no.</p><button class="btn" id="tc-next" aria-disabled="true" data-go="about" data-nice>Continue</button></div>
   </section>
 
-  <!-- 4b. ABOUT (skippable) -->
-  <section class="scr" data-id="about" data-title="4b. About (skippable)">
-    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="5"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
+  <!-- 5b. ABOUT (skippable) -->
+  <section class="scr" data-id="about" data-title="5b. About (skippable)">
+    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="6"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
     <div class="main">
       <h1 class="t">About <span data-org>Bachata Nights Leeds</span> <span class="opt">optional</span></h1>
       <p class="p">A sentence or two for the top of your page.<span class="tx-l"> We wrote a starter from what you&rsquo;ve told us. Use it, change it, or skip.</span></p>
@@ -548,9 +589,9 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     <div class="foot"><button class="btn" id="ab-next" data-go="email" data-nice>Save and continue</button><button class="lnk" data-go="email" style="align-self:center">Skip for now</button></div>
   </section>
 
-  <!-- 5. SIGN-IN EMAIL -->
-  <section class="scr" data-id="email" data-title="5. Sign-in email (private)">
-    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="6"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
+  <!-- 6. SIGN-IN EMAIL -->
+  <section class="scr" data-id="email" data-title="6. Sign-in email (private)">
+    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="7"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
     <div class="main">
       <h1 class="t">Your sign-in email</h1>
       <div class="card"><div class="row"><svg style="width:22px;height:22px;color:var(--gold-fg);flex:none"><use href="#i-lock"/></svg><div class="grow"><strong>Private. Never shown on your page.</strong><span class="sub">Only used to sign you in and for the odd important message.</span></div></div></div>
@@ -561,9 +602,9 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     <div class="foot"><button class="btn" id="em-next" data-go="review" data-nice>Continue</button></div>
   </section>
 
-  <!-- 6. REVIEW -->
-  <section class="scr" data-id="review" data-title="6. Review and go live">
-    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="7"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
+  <!-- 7. REVIEW -->
+  <section class="scr" data-id="review" data-title="7. Review and go live">
+    <div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><span class="top-sp"></span><div class="dots" data-step="8"></div><span class="top-sp"></span><span class="stepline" data-stepline></span></div>
     <div class="main">
       <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:56px"></div><div class="skel" style="height:56px"></div><div class="skel" style="height:56px"></div></div>
       <div class="readfail alert" role="alert"><span>We couldn&rsquo;t check your page. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
@@ -577,27 +618,27 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     <div class="foot"><p class="why" id="rv-why"></p><button class="btn" id="rv-next" data-go="live">Go live</button></div>
   </section>
 
-  <!-- 7. LIVE -->
-  <section class="scr" data-id="live" data-title="7. You&rsquo;re live">
+  <!-- 8. LIVE -->
+  <section class="scr" data-id="live" data-title="8. You&rsquo;re live">
     <canvas class="confetti" id="confetti"></canvas>
     <div class="top"><span class="top-sp"></span></div>
     <div class="main">
       <div class="celebrate">
         <div class="big"><svg><use href="#i-tick"/></svg></div>
-        <h1 class="t">You&rsquo;re live</h1>
-        <p class="p"><span data-org>Bachata Nights Leeds</span> is on the calendar.<span class="tx-l"> Dancers can find you now. Next: add your first event.</span></p>
+        <h1 class="t" id="lv-title">You&rsquo;re live</h1>
+        <p class="p" id="lv-sub"><span data-org>Bachata Nights Leeds</span> is on the calendar.<span class="tx-l"> Dancers can find you now. Next: add your first event.</span></p>
       </div>
-      <p class="devnote">Draft organiser after S6. Live organiser sees &ldquo;All done. You can create and edit events now.&rdquo; with Add an event. Ambassador city (Q2a) sees &ldquo;Sent for review&rdquo;. Share uses the Web Share API when present, else copies the link.</p>
+      <p class="devnote">Draft organiser after S6. Live organiser sees &ldquo;All done. You can create and edit events now.&rdquo; with Add an event. Ambassador city (Q2a) sees &ldquo;Sent for review&rdquo;. Drawer state &ldquo;Already live&rdquo; shows the live-organiser copy. View my page opens the public page (<code>/organisers/:id</code>, not drawn). Share uses the Web Share API when present, else copies the link.</p>
     </div>
-    <div class="foot"><button class="btn" data-go="home" data-nice>View my page</button><button class="btn btn-line" id="share-btn">Share</button></div>
+    <div class="foot"><button class="btn" id="lv-view" data-sheet="viewpage">View my page</button><button class="btn" id="lv-add" hidden>Add an event</button><button class="btn btn-line" id="share-btn">Share</button><button class="btn btn-line" data-go="home">Go to Home</button></div>
   </section>
 
-  <!-- 8. HOME with grace banner -->
-  <section class="scr" data-id="home" data-title="8. Home: grace banner + finish your page">
+  <!-- 9. HOME with grace banner -->
+  <section class="scr" data-id="home" data-title="9. Home: grace banner + finish your page">
     <div class="top" style="padding:0 16px"><h2 class="h">Home</h2><span class="top-sp"></span><button class="back" aria-label="Settings" data-sheet="settings"><svg><use href="#i-cog"/></svg></button></div>
     <div class="main">
       <div class="banner" id="grace" role="status">
-        <div class="grow"><strong>Finish your page to add events</strong><p>A few details left. <span class="tx-l">You only do this once. </span>Free to look around until then.</p><div class="row" style="min-height:auto;margin-top:8px;flex-wrap:wrap"><span class="days" id="grace-days">12 days left</span><button class="btn btn-sm" data-go="review">Finish your page</button></div></div>
+        <div class="grow"><strong>Finish your details to create and edit events.</strong><p id="grace-p">From Monday 16 November you&rsquo;ll need them.<span class="tx-l"> Until then everything works as usual.</span></p><div class="row" style="min-height:auto;margin-top:8px;flex-wrap:wrap"><span class="days" id="grace-days">12 days left</span><button class="btn btn-sm" data-go="review">Finish your page</button></div></div>
         <button class="x" aria-label="Hide for today" id="grace-x"><svg><use href="#i-x"/></svg></button>
       </div>
       <div class="ok" id="home-done" hidden>All done. You can create and edit events now.</div>
@@ -608,10 +649,10 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
         <div class="stat3"><div class="stat"><b>0</b><span>Events</span></div><div class="stat"><b>0</b><span>Going</span></div><div class="stat"><b>0</b><span>Views</span></div></div>
         <div class="card" style="padding:4px 12px"><div class="list" id="home-list"></div></div>
         <div class="card" id="home-empty"><div class="empty"><svg><use href="#i-cal"/></svg><strong>No events yet</strong><p class="m">Your first party or class goes here.</p><button class="btn btn-sm" id="home-add">Add an event</button></div></div>
-        <p class="devnote">A0 banner: shown while <code>!complete</code>, hidden for admins. &ldquo;Hide for today&rdquo; is per device (local). Days left = grace end minus today; at 0 the banner turns to the gate (A1) on every create/edit tap. Add an event while incomplete opens the gate sheet.</p>
+        <p class="devnote">A0 banner: shown while <code>!complete</code>, hidden for admins. &ldquo;Hide for today&rdquo; is per device (local). Days left = grace end minus today. During grace (plan section 5, stages 1 and 2) Add an event still goes through. After the grace end (drawer: Grace ended) every create/edit tap opens the gate (A1).</p>
       </div>
     </div>
-    <div class="tabs"><button class="tab" aria-current="page" id="tab-home"><svg><use href="#i-home"/></svg>Home</button><button class="tab" data-sheet="tabs"><svg><use href="#i-cal"/></svg>Events</button><button class="tab" data-sheet="tabs"><svg><use href="#i-pound"/></svg>Money</button><button class="tab" data-sheet="tabs"><svg><use href="#i-cog"/></svg>Settings</button></div>
+    <div class="tabs"><button class="tab" aria-current="page" id="tab-home"><svg><use href="#i-home"/></svg>Home</button><button class="tab" data-sheet="tabs"><svg><use href="#i-cal"/></svg>Events</button><button class="tab" data-sheet="tabs"><svg><use href="#i-pound"/></svg>Money</button><button class="tab" data-sheet="settings"><svg><use href="#i-cog"/></svg>Settings</button></div>
   </section>
 
   </div><!-- stage -->
@@ -625,8 +666,8 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
 (function () {
   'use strict';
   var root = document.documentElement, $ = function (s, c) { return (c || document).querySelector(s); }, $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
-  var ORG = 'Bachata Nights Leeds', STEPS = 7, STEP_NAMES = ['Page', 'Contact', 'You', 'Teaching', 'About', 'Email', 'Review'];
-  var S = { arrive: 'invite', page: null, pageMode: null, contactMode: 'phone', phoneOk: false, phone: '07700 900123', email: '', name: 'Sam', photo: null, role: null, nat: null, langs: ['English'], teach: null, levels: [], styles: [], years: '', about: '', signinEmail: '', graceHidden: false, graceDays: 12 };
+  var ORG = 'Bachata Nights Leeds', STEPS = 8, STEP_NAMES = ['Page', 'Contact', 'Your page', 'You', 'Teaching', 'About', 'Email', 'Review'];
+  var S = { arrive: 'invite', page: null, pageMode: null, contactMode: 'phone', phoneOk: false, phone: '07700 900123', email: '', name: 'Sam', photo: null, role: null, nat: null, langs: ['English'], teach: null, levels: [], styles: [], years: '', about: '', signinEmail: '', graceHidden: false, graceDays: 12, graceOver: false, cat: null, link: '', logo: null, photoTarget: 'you', alreadyLive: false };
   var hist = [];
   function rm() { return root.getAttribute('data-rm') === 'true' || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
@@ -652,15 +693,16 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     to.classList.remove('in-r', 'in-l'); if (!rm()) { void to.offsetWidth; to.classList.add(dir === 'back' ? 'in-l' : 'in-r'); }
     var m = $('.main', to); if (m) m.scrollTop = 0;
     $('#jump').value = id; syncDrawer('state', 'normal');
-    if (to.getAttribute('data-id') === 'live') confetti();
-    if (id === 'review') buildReview(); if (id === 'home') buildHome(); if (id === 'find') buildFind(); if (id === 'welcome') buildWelcome();
+    $$('.why-err', to).forEach(function (w) { w.classList.remove('why-err'); });
+    if (id === 'live') { S.alreadyLive = false; renderLive(); confetti(); }
+    if (id === 'review') buildReview(); if (id === 'home') { buildHome(); if (S.graceOver) syncDrawer('state', 'graceover'); } if (id === 'find') buildFind(); if (id === 'welcome') buildWelcome(); if (id === 'page') validatePage();
     var h = $('h1, h2', to); if (h && document.activeElement && document.activeElement !== document.body) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
   }
   function back() { if ($('#scrim').getAttribute('data-open') === 'true') { closeSheet(); return; } var prev = hist.pop(); if (prev) show(prev, 'back'); else if (cur().getAttribute('data-id') !== 'mood') show('mood', 'back'); }
   function nice(btn, then) { if (btn && btn.getAttribute('aria-disabled') === 'true') { showWhy(btn); return; } vibrate(12); if (rm()) { then(); return; } if (btn) { btn.classList.remove('bounce'); void btn.offsetWidth; btn.classList.add('bounce'); } var n = $('#nice'); n.setAttribute('data-on', 'true'); setTimeout(function () { n.setAttribute('data-on', 'false'); then(); }, 380); }
   function showWhy(btn) { var why = btn.parentNode && $('.why', btn.parentNode); if (why && why.textContent) { toast(why.textContent); } }
   var toastT; function toast(msg) { var t = $('#toast'); t.textContent = msg; t.setAttribute('data-on', 'true'); clearTimeout(toastT); toastT = setTimeout(function () { t.setAttribute('data-on', 'false'); }, 2400); }
-  function setBtn(btn, ok, why, whyEl) { btn.setAttribute('aria-disabled', ok ? 'false' : 'true'); if (whyEl) whyEl.textContent = ok ? '' : why; }
+  function setBtn(btn, ok, why, whyEl) { btn.setAttribute('aria-disabled', ok ? 'false' : 'true'); if (whyEl) whyEl.textContent = ok ? '' : why; var w = btn.parentNode && $('.why', btn.parentNode); if (w) w.classList.remove('why-err'); }
   function errAt(id, msg) { var e = $('#' + id + '-err'), i = $('#' + id); if (e) e.innerHTML = msg ? '<svg><use href="#i-warn"/></svg><span>' + msg + '</span>' : ''; if (i) { if (msg) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); } }
 
   /* ---------- dots + steplines ---------- */
@@ -693,15 +735,27 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   }); });
   function setMood(v) { root.setAttribute('data-mood', v); syncDrawer('mood', v); $$('.mood').forEach(function (m) { m.setAttribute('aria-pressed', m.getAttribute('data-mood') === v); }); buildWelcome(); }
   $$('.mood').forEach(function (m) { m.addEventListener('click', function () { setMood(m.getAttribute('data-mood')); vibrate(8); }); });
+  function revalidate(id) { var f = { create: validateCreate, contact: validateContact, page: validatePage, you: validateYou, teach: validateTeach, review: buildReview }[id]; if (f) f(); else { var w = $('.scr[data-id="' + id + '"] .foot .why'); if (w) w.innerHTML = ''; } }
   function applyState(val) {
     var sc = cur(), id = sc.getAttribute('data-id');
+    if (val === 'savefail') {
+      var foot = $('.foot', sc), nb = foot && $('.btn', foot);
+      if (!nb || id === 'mood' || id === 'live' || id === 'find') { toast('This screen saves nothing, so it has no save error.'); syncDrawer('state', 'normal'); return; }
+      var why = $('.why', foot); if (!why) { why = document.createElement('p'); why.className = 'why'; foot.insertBefore(why, foot.firstChild); }
+      why.classList.add('why-err'); why.innerHTML = '<svg aria-hidden="true"><use href="#i-warn"/></svg> ' + (id === 'review' ? 'Couldn&rsquo;t go live. Check your connection and try again.' : 'Couldn&rsquo;t save. Check your connection and try again.');
+      nb.setAttribute('aria-disabled', 'false'); sc.setAttribute('data-state', 'normal'); syncDrawer('state', 'savefail'); return;
+    }
+    if (val === 'graceover') { if (id !== 'home') { toast('Grace ended applies to Home: jump there first.'); syncDrawer('state', 'normal'); return; } S.graceOver = true; S.graceDays = 0; S.graceHidden = false; sc.setAttribute('data-state', 'normal'); buildHome(); syncDrawer('state', 'graceover'); toast('Grace ended: Add an event now opens the gate.'); return; }
+    if (val === 'alreadylive') { if (id !== 'live') { toast('Already live applies to the You&rsquo;re live screen.'); syncDrawer('state', 'normal'); return; } S.alreadyLive = true; S.live = true; renderLive(); syncDrawer('state', 'alreadylive'); return; }
+    if (val === 'normal') { if (id === 'home' && S.graceOver) { S.graceOver = false; S.graceDays = 12; buildHome(); } if (id === 'live' && S.alreadyLive) { S.alreadyLive = false; renderLive(); } $$('.why-err', sc).forEach(function (w) { w.classList.remove('why-err'); }); revalidate(id); }
     if (val === 'empty') {
       sc.setAttribute('data-state', 'normal'); syncDrawer('state', 'empty');
       if (id === 'find') { $('#find-q').value = 'Bachta Leds'; buildFind(); }
-      else if (id === 'review') { S.photo = null; S.role = null; S.nat = null; S.teach = null; S.phoneOk = false; S.about = ''; buildReview(); toast('Showing Review with everything still to do.'); }
-      else if (id === 'home') { S.photo = null; S.role = null; S.nat = null; S.teach = null; S.phoneOk = false; S.graceHidden = false; buildHome(); toast('Showing Home with no events and the page unfinished.'); }
+      else if (id === 'review') { S.photo = null; S.role = null; S.nat = null; S.teach = null; S.phoneOk = false; S.about = ''; S.cat = null; S.link = ''; S.logo = null; buildReview(); toast('Showing Review with everything still to do.'); }
+      else if (id === 'home') { S.photo = null; S.role = null; S.nat = null; S.teach = null; S.phoneOk = false; S.cat = null; S.link = ''; S.logo = null; S.graceHidden = false; buildHome(); toast('Showing Home with no events and the page unfinished.'); }
       else if (id === 'you') { S.langs = []; S.nat = null; renderLangs(); renderNat(); toast('Languages and nationality cleared.'); }
       else if (id === 'teach') { S.teach = null; S.levels = []; S.styles = []; renderTeach(); }
+      else if (id === 'page') { S.cat = null; $('#pg-link').value = ''; $$('[data-cat]').forEach(function (o) { o.setAttribute('aria-checked', 'false'); }); validatePage(); toast('Category and link cleared.'); }
       else if (id === 'create') { $('#cr-name').value = ''; $('#cr-city').value = ''; S.city = null; validateCreate(); }
       else toast('This screen has no empty state: it always has something to show.');
       return;
@@ -738,7 +792,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     var picked = !!S.page && S.pageMode !== 'invite'; setBtn($('#find-next'), picked, 'Pick your page, or create one.', $('#find-why')); if (picked) $('#find-why').textContent = '';
   }
   $('#find-next').addEventListener('click', function () { if (this.getAttribute('aria-disabled') === 'true') return; nice(this, function () { show('contact'); }); });
-  function validateCreate() { var n = $('#cr-name').value.trim(), c = $('#cr-city').value.trim(); var ok = n.length >= 3 && !!S.city; errAt('cr-name', n.length && n.length < 3 ? 'A bit longer, please: three letters or more.' : ''); errAt('cr-city', c.length && !S.city ? 'Pick a city from the list.' : ''); setBtn($('#cr-next'), ok, !n ? 'Type the page name first.' : n.length < 3 ? 'The name needs three letters or more.' : 'Pick a city to continue.', $('#cr-why')); if (ok) { S.page = n; S.pageMode = 'create'; } }
+  function validateCreate() { var n = $('#cr-name').value.trim(), c = $('#cr-city').value.trim(); var ok = n.length >= 3 && !!S.city; errAt('cr-name', n.length && n.length < 3 ? 'The name needs three letters or more.' : ''); errAt('cr-city', c.length && !S.city ? 'Pick a city from the list.' : ''); setBtn($('#cr-next'), ok, !n ? 'Type the page name first.' : n.length < 3 ? 'The name needs three letters or more.' : 'Pick a city to continue.', $('#cr-why')); if (ok) { S.page = n; S.pageMode = 'create'; } }
   $('#cr-name').addEventListener('input', validateCreate);
   $('#cr-city').addEventListener('input', function () { var q = this.value.trim().toLowerCase(); S.city = null; var box = $('#cr-city-sugg'); box.innerHTML = q.length ? CITIES.filter(function (c) { return c.toLowerCase().indexOf(q) === 0; }).slice(0, 4).map(function (c) { return '<button class="chip" data-city="' + c + '">' + c + '</button>'; }).join('') || '<p class="m">No city matches. Check the spelling.</p>' : ''; $$('[data-city]', box).forEach(function (b) { b.addEventListener('click', function () { S.city = b.getAttribute('data-city'); $('#cr-city').value = S.city; box.innerHTML = ''; validateCreate(); vibrate(8); }); }); validateCreate(); });
 
@@ -746,7 +800,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   function renderContact() { $$('[data-ct]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-ct') === S.contactMode); }); $$('[data-ct-pane]').forEach(function (p) { var mine = p.getAttribute('data-ct-pane') === S.contactMode; if (p.id === 'ct-phone-held') p.hidden = !mine || S.phoneEditing; else if (p.id === 'ct-phone-edit') p.hidden = !mine || !S.phoneEditing; else p.hidden = !mine; }); validateContact(); }
   function validateContact() { var ok, why = ''; if (S.contactMode === 'phone') { if (S.phoneEditing) { var v = $('#ct-phone').value.replace(/\s+/g, ''); ok = /^(\+?44|0)7\d{9}$/.test(v) || /^\+\d{8,15}$/.test(v); errAt('ct-phone', v.length && !ok ? 'That doesn&rsquo;t look like a phone number. Try 07&hellip; or +44&hellip;' : ''); if (!ok) why = v.length ? 'Fix the phone number to continue.' : 'Add a phone number to continue.'; } else { ok = S.phoneOk; why = ok ? '' : 'Tap &ldquo;Yes, that&rsquo;s right&rdquo; or Change.'; } } else { var e = $('#ct-email').value.trim(); ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); errAt('ct-email', e.length && !ok ? 'That doesn&rsquo;t look like an email. Check for a missing @ or dot.' : ''); if (!ok) why = e.length ? 'Fix the email to continue.' : 'Add a contact email to continue.'; } setBtn($('#ct-next'), ok, '', null); $('#ct-why').innerHTML = why; }
   $$('[data-ct]').forEach(function (b) { b.addEventListener('click', function () { S.contactMode = b.getAttribute('data-ct'); renderContact(); }); });
-  $('#ct-phone-yes').addEventListener('click', function () { S.phoneOk = true; vibrate(10); this.innerHTML = '<svg style="width:18px;height:18px"><use href="#i-tick"/></svg>That&rsquo;s right'; validateContact(); });
+  $('#ct-phone-yes').addEventListener('click', function () { S.phoneOk = true; this.innerHTML = '<svg style="width:18px;height:18px"><use href="#i-tick"/></svg>That&rsquo;s right'; validateContact(); nice(this, function () { show('page'); }); });
   $('#ct-phone-change').addEventListener('click', function () { S.phoneEditing = true; S.phoneOk = false; renderContact(); $('#ct-phone').value = S.phone; $('#ct-phone').focus(); });
   $('#ct-phone').addEventListener('input', function () { S.phone = this.value; validateContact(); });
   $('#ct-email').addEventListener('input', validateContact);
@@ -756,16 +810,24 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   /* ---------- you ---------- */
   function validateYou() { var n = $('#y-name').value.trim(); errAt('y-name', !n ? 'Tell us your first name.' : ''); var why = !n ? 'Add your first name to continue.' : !S.photo ? 'Add a photo to continue. It&rsquo;s the one thing we must have.' : !S.role ? 'Pick how you dance to continue.' : !S.nat ? 'Choose your nationality to continue.' : ''; setBtn($('#y-next'), !why, '', null); $('#y-why').innerHTML = why; }
   $('#y-name').addEventListener('input', validateYou);
-  $$('[data-role]').forEach(function (t) { t.setAttribute('role', 'radio'); t.addEventListener('click', function () { S.role = t.getAttribute('data-role'); $$('[data-role]').forEach(function (o) { o.setAttribute('aria-checked', o === t); }); vibrate(8); errAt('y-role', ''); if (S.role === 'unsure') errAt('y-role', 'Design assumption: there is no stored value for &ldquo;Not sure yet&rdquo; today. Product and DB decision needed before this card can ship.'); validateYou(); }); });
+  $$('[data-role]').forEach(function (t) { t.setAttribute('role', 'radio'); t.addEventListener('click', function () { S.role = t.getAttribute('data-role'); $$('[data-role]').forEach(function (o) { o.setAttribute('aria-checked', o === t); }); vibrate(8); errAt('y-role', ''); if (S.role === 'unsure') errAt('y-role', 'Design assumption: there is no stored value for &ldquo;Not sure yet&rdquo; yet, so Review will list this as still missing. Product and DB decision needed before it can ship.'); validateYou(); }); });
   $$('[data-role]')[0].parentNode.setAttribute('role', 'radiogroup');
-  $$('[data-photo]').forEach(function (b) { b.addEventListener('click', function () { var f = $('#y-file'); if (b.getAttribute('data-photo') === 'camera') f.setAttribute('capture', 'user'); else f.removeAttribute('capture'); f.value = ''; f.click(); openSheet('photo'); }); });
+  $$('[data-photo]').forEach(function (b) { b.addEventListener('click', function () { S.photoTarget = b.getAttribute('data-photo') === 'logo' ? 'logo' : 'you'; var f = $('#y-file'); if (b.getAttribute('data-photo') === 'camera') f.setAttribute('capture', 'user'); else f.removeAttribute('capture'); f.value = ''; f.click(); openSheet('photo'); }); });
   $('#y-file').addEventListener('change', function () { var file = this.files && this.files[0]; if (!file) return; var r = new FileReader(); r.onload = function () { openSheet('crop', r.result); }; r.readAsDataURL(file); });
-  function samplePhoto() { var c = document.createElement('canvas'); c.width = c.height = 320; var x = c.getContext('2d'); var g = x.createLinearGradient(0, 0, 320, 320); g.addColorStop(0, '#f0703a'); g.addColorStop(1, '#a8461a'); x.fillStyle = g; x.fillRect(0, 0, 320, 320); x.fillStyle = '#fff'; x.font = 'bold 150px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('S', 160, 170); return c.toDataURL('image/png'); }
-  function setPhoto(dataUrl) { S.photo = dataUrl; var a = $('#y-ava'); a.innerHTML = '<img alt="Your photo" src="' + dataUrl + '">'; a.setAttribute('data-has', 'true'); $('#home-ava').innerHTML = '<img alt="" src="' + dataUrl + '">'; errAt('y-photo', ''); $$('[data-photo]')[0].innerHTML = '<svg><use href="#i-cam"/></svg>Retake'; $$('[data-photo]')[1].innerHTML = '<svg><use href="#i-img"/></svg>Change'; validateYou(); }
+  function samplePhoto() { var c = document.createElement('canvas'); c.width = c.height = 320; var x = c.getContext('2d'); var g = x.createLinearGradient(0, 0, 320, 320); g.addColorStop(0, '#f0703a'); g.addColorStop(1, '#a8461a'); x.fillStyle = g; x.fillRect(0, 0, 320, 320); x.fillStyle = '#fff'; x.font = 'bold 150px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(S.photoTarget === 'logo' ? 'B' : 'S', 160, 170); return c.toDataURL('image/png'); }
+  function setPhoto(dataUrl) { if (S.photoTarget === 'logo') { S.logo = dataUrl; var l = $('#pg-logo'); l.innerHTML = '<img alt="Your logo" src="' + dataUrl + '">'; l.setAttribute('data-has', 'true'); $('[data-photo="logo"]').innerHTML = '<svg><use href="#i-img"/></svg>Change logo'; errAt('pg-logo', ''); validatePage(); return; } S.photo = dataUrl; var a = $('#y-ava'); a.innerHTML = '<img alt="Your photo" src="' + dataUrl + '">'; a.setAttribute('data-has', 'true'); $('#home-ava').innerHTML = '<img alt="" src="' + dataUrl + '">'; errAt('y-photo', ''); $('[data-photo="camera"]').innerHTML = '<svg><use href="#i-cam"/></svg>Retake'; $('[data-photo="gallery"]').innerHTML = '<svg><use href="#i-img"/></svg>Change'; validateYou(); }
   function renderNat() { var box = $('#y-nat-chip'); if (!S.nat) { box.innerHTML = ''; $('#y-nat-btn').textContent = 'Choose country'; $('#y-nat-btn').style.display = ''; return; } box.innerHTML = '<div class="chips"><button class="chip" aria-pressed="true" data-sheet="nat"><span class="chip-flag" aria-hidden="true">' + flag(S.nat[0]) + '</span>' + esc(S.nat[1]) + '<span class="x" aria-hidden="true"><svg><use href="#i-chev"/></svg></span></button></div>'; $('#y-nat-btn').style.display = 'none'; validateYou(); }
   function renderLangs() { var box = $('#y-langs'), set = {}; S.langs.forEach(function (l) { set[l] = 1; }); var shown = LANG_FEW.slice(); S.langs.forEach(function (l) { if (shown.indexOf(l) < 0) shown.push(l); }); box.innerHTML = shown.map(function (l) { var on = !!set[l]; return '<button class="chip" aria-pressed="' + on + '" data-lang="' + esc(l) + '">' + esc(l) + (on ? '<span class="x" aria-hidden="true"><svg><use href="#i-x"/></svg></span>' : '') + '</button>'; }).join('') + '<button class="chip" data-sheet="langs"><svg style="width:16px;height:16px"><use href="#i-plus"/></svg>More languages</button>'; $$('[data-lang]', box).forEach(function (b) { b.addEventListener('click', function () { toggleLang(b.getAttribute('data-lang')); }); }); }
   function toggleLang(l) { var i = S.langs.indexOf(l); if (i >= 0) S.langs.splice(i, 1); else S.langs.push(l); vibrate(8); renderLangs(); }
   renderLangs(); renderNat(); validateYou();
+
+  /* ---------- your page (A5) ---------- */
+  function linkOk(v) { v = v.trim(); if (!v) return false; if (/^@[A-Za-z0-9._]{2,30}$/.test(v)) return true; return /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(v); }
+  function validatePage() { var v = $('#pg-link').value.trim(), lOk = linkOk(v); errAt('pg-link', v && !lOk ? 'That doesn&rsquo;t look like a link. Try yourpage.com or @yourpage.' : ''); S.link = lOk ? v : ''; var why = !S.cat ? 'Pick what your page is to continue.' : !lOk ? (v ? 'Fix the link to continue.' : 'Add one link to continue.') : !S.logo ? 'Add a logo to continue.' : ''; setBtn($('#pg-next'), !why, '', null); $('#pg-why').innerHTML = why; }
+  $$('[data-cat]').forEach(function (t) { t.addEventListener('click', function () { S.cat = t.getAttribute('data-cat'); $$('[data-cat]').forEach(function (o) { o.setAttribute('aria-checked', o === t); }); vibrate(8); errAt('pg-cat', ''); validatePage(); }); });
+  $('#pg-link').addEventListener('input', validatePage);
+  $('#pg-rename').addEventListener('click', function () { toast('Not in this prototype: the existing page-name field opens here.'); });
+  validatePage();
 
   /* ---------- teach ---------- */
   function renderTeach() { $$('[data-teach]').forEach(function (t) { t.setAttribute('aria-checked', t.getAttribute('data-teach') === S.teach); }); $('#teach-more').hidden = S.teach !== 'yes'; $$('[data-level]').forEach(function (t) { t.setAttribute('aria-checked', S.levels.indexOf(t.getAttribute('data-level')) >= 0); }); $('#sty-chips').innerHTML = STYLES.map(function (s) { return '<button class="chip" aria-pressed="' + (S.styles.indexOf(s) >= 0) + '" data-style="' + esc(s) + '">' + esc(s) + '</button>'; }).join(''); $$('[data-style]').forEach(function (b) { b.addEventListener('click', function () { var s = b.getAttribute('data-style'), i = S.styles.indexOf(s); if (i >= 0) S.styles.splice(i, 1); else S.styles.push(s); vibrate(8); renderTeach(); }); }); validateTeach(); }
@@ -776,16 +838,16 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   renderTeach();
 
   /* ---------- about / email ---------- */
-  function starter() { var sty = S.styles.length ? S.styles.slice(0, 2).join(' and ').toLowerCase() : 'bachata'; return S.page + ' runs ' + sty + ' classes and socials in ' + (S.city || 'Leeds') + '.'; }
+  function starter() { var sty = S.styles.length ? S.styles.slice(0, 2).join(' and ').toLowerCase() : 'bachata'; return S.page + (S.cat ? ', a ' + S.cat.toLowerCase() + ',' : '') + ' runs ' + sty + ' classes and socials in ' + (S.city || 'Leeds') + '.'; }
   $('#ab-use').addEventListener('click', function () { $('#ab-text').value = starter(); $('#ab-text').dispatchEvent(new Event('input')); $('#ab-text').focus(); });
   $('#ab-text').addEventListener('input', function () { S.about = this.value; $('#ab-count').textContent = this.value.length + ' / 500'; });
   $('#em').addEventListener('input', function () { var e = this.value.trim(), ok = !e || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); errAt('em', ok ? '' : 'That doesn&rsquo;t look like an email. Check for a missing @ or dot.'); setBtn($('#em-next'), ok, 'Fix the email, or leave it empty.', null); S.signinEmail = ok ? e : ''; });
 
   /* ---------- review ---------- */
-  function missing() { var m = []; if (!S.page) m.push(['find', 'Your page', 'Find, claim or create it']); if (!S.phoneOk && !(S.contactMode === 'email' && $('#ct-email').value) && !(S.phoneEditing && $('#ct-next').getAttribute('aria-disabled') === 'false')) m.push(['contact', 'Contact', 'A phone number or email']); if (!$('#y-name').value.trim()) m.push(['you', 'First name', '']); if (!S.photo) m.push(['you', 'Your photo', 'The one thing we must have']); if (!S.role) m.push(['you', 'How you dance', 'Leader, Follower or Both']); if (!S.nat) m.push(['you', 'Nationality', '']); if (!S.teach) m.push(['teach', 'Do you teach?', 'Yes or no is enough']); else if (S.teach === 'yes' && (!S.levels.length || !S.styles.length)) m.push(['teach', 'Teaching levels and styles', 'At least one each']); return m; }
+  function missing() { var m = []; if (!S.page) m.push(['find', 'Your page', 'Find, claim or create it']); if (!S.phoneOk && !(S.contactMode === 'email' && $('#ct-email').value) && !(S.phoneEditing && $('#ct-next').getAttribute('aria-disabled') === 'false')) m.push(['contact', 'Contact', 'A phone number or email']); if (!S.cat) m.push(['page', 'What your page is', 'School, event brand, group, promoter or festival']); if (!S.link) m.push(['page', 'One link', 'Website, Instagram or Facebook']); if (!S.logo) m.push(['page', 'Logo', 'Shown beside your name']); if (!$('#y-name').value.trim()) m.push(['you', 'First name', '']); if (!S.photo) m.push(['you', 'Your photo', 'The one thing we must have']); if (!S.role || S.role === 'unsure') m.push(['you', 'How you dance', S.role === 'unsure' ? 'Not sure yet can&rsquo;t be saved yet (needs decision)' : 'Leader, Follower or Both']); if (!S.nat) m.push(['you', 'Nationality', '']); if (!S.teach) m.push(['teach', 'Do you teach?', 'Yes or no is enough']); else if (S.teach === 'yes' && (!S.levels.length || !S.styles.length)) m.push(['teach', 'Teaching levels and styles', 'At least one each']); return m; }
   function rowHtml(go, title, sub, cls, icon) { return '<button class="row-btn" data-go="' + go + '"><span class="st ' + cls + '"><svg><use href="#' + icon + '"/></svg></span><span class="grow"><strong>' + title + '</strong>' + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</span><svg class="chev"><use href="#i-chev"/></svg></button>'; }
   function buildReview() { var m = missing(), h = ''; m.forEach(function (r) { h += rowHtml(r[0], r[1], r[2], 'st-no', 'i-warn'); });
-    var done = []; if (S.page) done.push(['find', S.page, S.pageMode === 'invite' ? 'Invited by Ana' : S.pageMode === 'create' ? 'New page in ' + (S.city || '') : 'Claimed']); if (S.phoneOk || S.phoneEditing) done.push(['contact', 'Contact', S.phone + (S.contactMode === 'phone' ? '' : '')]); else if (S.contactMode === 'email' && $('#ct-email').value) done.push(['contact', 'Contact', $('#ct-email').value]); if (S.photo && S.role && S.nat && $('#y-name').value.trim()) done.push(['you', $('#y-name').value.trim(), (S.role === 'Lead and Follow' ? 'Both' : S.role === 'unsure' ? 'Not sure yet' : S.role) + ', ' + S.nat[1] + (S.langs.length ? ', ' + S.langs.join(', ') : '')]); if (S.teach === 'no') done.push(['teach', 'Teaching', 'No, just organising']); else if (S.teach === 'yes' && S.levels.length && S.styles.length) done.push(['teach', 'Teaching', S.levels.join(', ')]);
+    var done = []; if (S.page) done.push(['find', S.page, S.pageMode === 'invite' ? 'Invited by Ana' : S.pageMode === 'create' ? 'New page in ' + (S.city || '') : 'Claimed']); if (S.phoneOk || S.phoneEditing) done.push(['contact', 'Contact', S.phone + (S.contactMode === 'phone' ? '' : '')]); else if (S.contactMode === 'email' && $('#ct-email').value) done.push(['contact', 'Contact', $('#ct-email').value]); if (S.cat && S.link && S.logo) done.push(['page', 'Your page', S.cat + ', ' + S.link + ', logo added']); if (S.photo && S.role && S.role !== 'unsure' && S.nat && $('#y-name').value.trim()) done.push(['you', $('#y-name').value.trim(), (S.role === 'Lead and Follow' ? 'Both' : S.role) + ', ' + S.nat[1] + (S.langs.length ? ', ' + S.langs.join(', ') : '')]); if (S.teach === 'no') done.push(['teach', 'Teaching', 'No, just organising']); else if (S.teach === 'yes' && S.levels.length && S.styles.length) done.push(['teach', 'Teaching', S.levels.join(', ')]);
     done.forEach(function (r) { h += rowHtml(r[0], esc(r[1]), esc(r[2]), 'st-ok', 'i-tick'); });
     h += rowHtml('about', 'About <span class="opt">optional</span>', S.about ? esc(S.about.slice(0, 60)) + (S.about.length > 60 ? '&hellip;' : '') : 'Not added. Fine to skip', S.about ? 'st-ok' : 'st-opt', S.about ? 'i-tick' : 'i-plus');
     h += rowHtml('email', 'Personal email <span class="opt">optional</span>', S.signinEmail ? esc(S.signinEmail) : 'Not added. Private if you do', S.signinEmail ? 'st-ok' : 'st-opt', S.signinEmail ? 'i-tick' : 'i-plus');
@@ -793,14 +855,16 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   $('#rv-next').addEventListener('click', function (ev) { ev.stopImmediatePropagation(); if (this.getAttribute('aria-disabled') === 'true') { showWhy(this); return; } var b = this; b.innerHTML = '<span class="spin" aria-hidden="true"></span>Going live&hellip;'; b.setAttribute('aria-disabled', 'true'); setTimeout(function () { b.innerHTML = 'Go live'; b.setAttribute('aria-disabled', 'false'); S.live = true; vibrate([10, 40, 20]); show('live'); }, 700); }, true);
 
   /* ---------- live ---------- */
+  function renderLive() { var a = S.alreadyLive; $('#lv-title').innerHTML = a ? 'All done' : 'You&rsquo;re live'; $('#lv-sub').innerHTML = a ? 'You can create and edit events now.<span class="tx-l"> Your page was live already; nothing else changes.</span>' : esc(ORG) + ' is on the calendar.<span class="tx-l"> Dancers can find you now. Next: add your first event.</span>'; $('#lv-view').hidden = a; $('#lv-add').hidden = !a; if (a) { var c = $('#confetti'); c.getContext('2d').clearRect(0, 0, c.width, c.height); } }
+  $('#lv-add').addEventListener('click', function () { toast('Not in this prototype: the event wizard is W4b.'); });
   function confetti() { if (rm()) return; var c = $('#confetti'), x = c.getContext('2d'), W = c.width = c.clientWidth, H = c.height = c.clientHeight, cols = ['#f0703a', '#a8461a', '#17663f', '#f5c86a', '#ffffff'], ps = []; for (var i = 0; i < 90; i++) ps.push({ x: W / 2 + (Math.random() - .5) * 60, y: H * .45, vx: (Math.random() - .5) * 9, vy: -Math.random() * 11 - 4, r: 4 + Math.random() * 5, c: cols[i % cols.length], a: Math.random() * 6, s: (Math.random() - .5) * .3 }); var t0 = performance.now(); function f(t) { var dt = t - t0; x.clearRect(0, 0, W, H); ps.forEach(function (p) { p.vy += .25; p.x += p.vx; p.y += p.vy; p.a += p.s; x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.globalAlpha = Math.max(0, 1 - dt / 1900); x.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * .6); x.restore(); }); if (dt < 1900) requestAnimationFrame(f); else x.clearRect(0, 0, W, H); } requestAnimationFrame(f); }
-  $('#share-btn').addEventListener('click', function () { var url = 'https://bachatacalendar.com/organiser/bachata-nights-leeds'; if (navigator.share) { navigator.share({ title: S.page, url: url }).catch(function () {}); } else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function () { toast('Link copied. Paste it anywhere.'); }, function () { toast('Copy this link: ' + url); }); } else toast('Copy this link: ' + url); });
+  $('#share-btn').addEventListener('click', function () { var url = 'https://bachatacalendar.com/organisers/bachata-nights-leeds'; if (navigator.share) { navigator.share({ title: S.page, url: url }).catch(function () {}); } else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function () { toast('Link copied. Paste it anywhere.'); }, function () { toast('Copy this link: ' + url); }); } else toast('Copy this link: ' + url); });
 
   /* ---------- home ---------- */
   $('#tab-home').addEventListener('click', function () { $('.scr[data-id="home"] .main').scrollTop = 0; toast('You are on Home already.'); });
   $('#grace-x').addEventListener('click', function () { S.graceHidden = true; buildHome(); toast('Hidden for today. It comes back tomorrow.'); });
-  $('#home-add').addEventListener('click', function () { if (missing().length) openSheet('gate'); else toast('Not in this prototype: the event wizard is W4b.'); });
-  function buildHome() { var m = missing(), inc = m.length > 0; $('#grace').hidden = !inc || S.graceHidden; $('#home-done').hidden = inc || !S.live; $('#grace-days').textContent = S.graceDays + ' day' + (S.graceDays === 1 ? '' : 's') + ' left'; $('#home-status').textContent = S.live ? 'Live' : 'Draft. Not on the calendar yet'; var h = ''; m.forEach(function (r) { h += rowHtml(r[0], r[1], r[2], 'st-no', 'i-warn'); }); if (!inc) h += rowHtml('review', 'Page details', 'All done', 'st-ok', 'i-tick'); h += rowHtml('about', 'About', S.about ? 'Added' : 'Optional, not added', S.about ? 'st-ok' : 'st-opt', S.about ? 'i-tick' : 'i-plus'); $('#home-list').innerHTML = h; }
+  $('#home-add').addEventListener('click', function () { if (missing().length && S.graceOver) openSheet('gate'); else toast('Not in this prototype: the event wizard is W4b.' + (missing().length ? ' During the grace period you can still add events.' : '')); });
+  function buildHome() { var m = missing(), inc = m.length > 0; $('#grace').hidden = !inc || S.graceHidden; $('#home-done').hidden = inc || !S.live; $('#grace-days').textContent = S.graceOver ? 'Grace ended' : S.graceDays + ' day' + (S.graceDays === 1 ? '' : 's') + ' left'; $('#grace-p').innerHTML = S.graceOver ? 'The grace period has ended, so Add an event asks for them first.' : 'From Monday 16 November you&rsquo;ll need them.<span class="tx-l"> Until then everything works as usual.</span>'; $('#home-status').textContent = S.live ? 'Live' : 'Draft. Not on the calendar yet'; var h = ''; m.forEach(function (r) { h += rowHtml(r[0], r[1], r[2], 'st-no', 'i-warn'); }); if (!inc) h += rowHtml('review', 'Page details', 'All done', 'st-ok', 'i-tick'); h += rowHtml('about', 'About', S.about ? 'Added' : 'Optional, not added', S.about ? 'st-ok' : 'st-opt', S.about ? 'i-tick' : 'i-plus'); $('#home-list').innerHTML = h; }
 
   /* ---------- sheets ---------- */
   var sheetBody = $('#sheet-body'), sheetTitle = $('#sheet-title'), lastFocus = null;
@@ -814,12 +878,12 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     else if (kind === 'nat') { t = 'Nationality'; h = '<div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="nat-q" type="search" placeholder="Type to jump: Spa&hellip;" autocomplete="off"></div><div class="mix" id="nat-list"></div>'; }
     else if (kind === 'langs') { t = 'More languages'; h = '<div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="lang-q" type="search" placeholder="Search languages" autocomplete="off"></div><div class="chips" id="lang-picked"></div><div class="mix" id="lang-list"></div>'; }
     else if (kind === 'photo') { t = 'Add a photo'; h = '<p class="p">Your phone&rsquo;s camera or gallery should have opened.<span class="tx-l"> If nothing happened, your browser blocked it, which is fine in a prototype.</span></p><button class="btn btn-line" data-act="sample">Use a sample photo (prototype)</button><button class="btn btn-line" data-close>Cancel</button>'; }
-    else if (kind === 'crop') { t = 'Looking good?'; h = '<p class="m" style="text-align:center">Drag to move, slide to zoom.</p><div class="crop" id="crop"><img id="crop-img" alt="" src="' + arg + '"></div><label class="lbl" for="zoom">Zoom</label><input class="slider" id="zoom" type="range" min="1" max="3" step="0.01" value="1"><button class="btn" data-act="usecrop">Use this photo</button><button class="btn btn-line" data-act="retry-photo">Choose another</button>'; }
+    else if (kind === 'crop') { t = 'Looking good?'; h = '<p class="m" style="text-align:center">Drag to move, slide to zoom.</p><div class="crop' + (S.photoTarget === 'logo' ? ' sq' : '') + '" id="crop"><img id="crop-img" alt="" src="' + arg + '"></div><label class="lbl" for="zoom">Zoom</label><input class="slider" id="zoom" type="range" min="1" max="3" step="0.01" value="1"><button class="btn" data-act="usecrop">Use this photo</button><button class="btn btn-line" data-act="retry-photo">Choose another</button>'; }
     else if (kind === 'teachmore') { t = 'More about your teaching'; h = '<div class="row"><div class="grow"><strong>Private lessons</strong><span class="sub">Shown as a badge on your teacher page</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Private lessons"></button></div><div class="fld"><label class="lbl" for="where">Where you teach <span class="opt">optional</span></label><input class="inp" id="where" placeholder="Studio name or area"></div><button class="btn" data-close>Done</button>'; }
     else if (kind === 'gate') { t = 'A few details first'; h = '<p class="p">We ask everyone who runs a page.<span class="tx-l"> It takes about five minutes and you only do it once.</span></p><div class="card" style="padding:4px 12px"><div class="list">' + missing().map(function (r) { return '<div class="row-btn" style="cursor:default"><span class="st st-no"><svg><use href="#i-warn"/></svg></span><span class="grow"><strong>' + r[1] + '</strong>' + (r[2] ? '<span class="sub">' + r[2] + '</span>' : '') + '</span></div>'; }).join('') + '</div></div><button class="btn" data-act="go" data-to="review">Continue</button><button class="btn btn-line" data-close>Not now</button>'; }
     else if (kind === 'settings') { t = 'Settings'; h = '<div class="row"><div class="grow"><strong>Dark mode</strong><span class="sub">True black, easier on the eyes at night</span></div><button class="sw" id="theme-sw" role="switch" aria-checked="' + effectiveDark() + '" aria-label="Dark mode"></button></div><div class="row"><div class="grow"><strong>Signed in as sam@example.com</strong><span class="sub">Sign-out lives here too</span></div></div><button class="btn btn-line" data-act="go" data-to="review">Edit my details</button><button class="btn" data-close>Done</button>'; }
     else if (kind === 'viewpage') { t = 'Public page'; h = '<p class="p">Not in this prototype: the public organiser page already exists on the site and is unchanged by onboarding.</p><button class="btn" data-close>OK</button>'; }
-    else if (kind === 'tabs') { t = 'Not in this prototype'; h = '<p class="p">Events, Money and Settings tabs are the existing P3 screens. They are not drawn here; only the banner on Home changes.</p><button class="btn" data-close>OK</button>'; }
+    else if (kind === 'tabs') { t = 'Not in this prototype'; h = '<p class="p">The Events and Money tabs are the existing P3 screens. They are not drawn here; only the banner on Home changes.</p><button class="btn" data-close>OK</button>'; }
     sheetTitle.innerHTML = t; sheetBody.innerHTML = h; lastFocus = document.activeElement; $('#scrim').setAttribute('data-open', 'true');
     $$('.sw', sheetBody).forEach(function (sw) { sw.addEventListener('click', function () { sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true'); vibrate(8); if (sw.id === 'theme-sw') setTheme(sw.getAttribute('aria-checked') === 'true' ? 'dark' : 'light'); }); });
     $$('[data-close]', sheetBody).forEach(function (b) { b.addEventListener('click', closeSheet); });
@@ -832,7 +896,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
       else if (a === 'retry-photo') { closeSheet(); $('#y-file').value = ''; $('#y-file').click(); openSheet('photo'); }
       else if (a === 'usecrop') { setPhoto(cropResult()); closeSheet(); toast('Nice one.'); vibrate(12); }
     }); });
-    if (kind === 'nat') { renderNatList(''); $('#nat-q').addEventListener('input', function () { renderNatList(this.value); }); setTimeout(function () { $('#nat-q').focus(); }, 50); }
+    if (kind === 'nat') { renderNatList(''); $('#nat-q').addEventListener('input', function () { renderNatList(this.value); }); setTimeout(function () { var q = $('#nat-q'); if (q) q.focus(); }, 50); }
     if (kind === 'langs') { renderLangList(''); $('#lang-q').addEventListener('input', function () { renderLangList(this.value); }); }
     if (kind === 'crop') initCrop();
     var first = $('input, button', sheetBody); if (first && kind !== 'nat') first.focus();
@@ -851,7 +915,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   /* ---------- init ---------- */
   $$('[data-org]').forEach(function (el) { el.textContent = ORG; });
   buildWelcome(); buildFind(); validateCreate(); $('#jump').value = 'mood';
-  window.__proto = { show: show, state: S, missing: missing, openSheet: openSheet };
+  window.__proto = { show: show, state: S, missing: missing, openSheet: openSheet, applyState: applyState };
 })();
 </script>
 </body>
