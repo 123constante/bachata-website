@@ -38,3 +38,25 @@ stays OFF; R1 (`/account/o`) keeps today's behaviour, proven by tests.
   (integrity temp-repo + live-DB contract suites, environment). `/app/*` first load 373.6 KB on both.
 - Next steps: the orchestrator walk on the preview with `organiserP3` on, one independent review,
   one fix round.
+
+## Fix round 1 (brief `docs/briefs/p3-w4b-fix1.md`, review `docs/review/pr-1118-r1.md`)
+
+- **S1 (CI red on `32b6a78`):** `draftOrganiser.matrix`, `switch/Switch` and `consistency.render.matrix`
+  mocks of `@/hooks/useAuth` now export `ProfileGateContext: createContext(null)`.
+  `AccountOrganiserAction.test.tsx` spreads `importOriginal`, so it already had it. Full
+  `npm run test:unit` (TZ Europe/London): **0 unhandled errors**; 16 failed in 5 files, all
+  sandbox-only: 15 in 4 files fail identically on `main` here (live-DB contract suites with no key,
+  integrity temp-repo), and `ogBrandedCardLayout` timed out under full-parallel load and passes alone
+  (22/22). `test:unit:offline`: only `integrityCouldNotRun` (5, same on main). `test:unit:timing`: 65/65.
+- **S2 (admin exempt, option a):** `ProfileGateValue.isAdmin?`; `tapGate` returns `open` for an
+  admin; P3 Add a page merges `useIsAdmin()` into the gate (`profileGate.withAdmin`; admin read
+  pending = `'loading'` = today's sheet). AppChrome's value leaves it unset (no admin read on every
+  page), so only P3's tap gate uses it. RED FIRST: 6 new rows (admin no row / admin unfinished x 3
+  taps) failed on the unfixed code, then green; the 7 completeness rows are unchanged. 4 `withAdmin`
+  unit cases.
+- **S3 (recorded, not fixed):** the walk is not protected in any CI job; the PR body says so.
+  `e2e-smoke.yml` env unchanged (owner's call).
+- Bundle: `/app/*` 373.7 KB on main (`48087d5`) and branch; every route identical, only hashes move.
+
+### Next
+- Orchestrator walk on the preview with `organiserP3` on. N2-N5 from the review are notes, not built.
