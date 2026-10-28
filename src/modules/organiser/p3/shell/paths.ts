@@ -29,6 +29,8 @@ export const P3_PATHS = {
   eventDetails: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/details`,
   /** One event's Prices (W3a). */
   eventPrices: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/prices`,
+  /** One event's History, read only (W3b-1). */
+  eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
 } as const;
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';

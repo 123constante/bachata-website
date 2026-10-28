@@ -159,6 +159,10 @@ function About({ v }: { v: EventPageView }) {
           <span className="p3-grow"><span className="p3-row-t">{L.prices}</span><br /><span className="p3-row-s">{L.pricesRowSub}</span></span>
           <span aria-hidden="true">&rsaquo;</span>
         </Link>
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventHistory(v.id)} data-testid="p3-open-history">
+          <span className="p3-grow"><span className="p3-row-t">{L.history}</span><br /><span className="p3-row-s">{L.historyRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
       </div>
     </section>
   );
@@ -219,6 +223,16 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   );
 }
 
+/** The refusal copy every P3 event screen shows when the read is not this person's (W3b-1 History reuses it). */
+export function NotYoursCard() {
+  return (
+    <StateCard title="This event isn&rsquo;t one of yours" testId="p3-event-notyours">
+      <p>Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team.</p>
+      <Link className="p3-link" to={P3_PATHS.events}>See your events</Link>
+    </StateCard>
+  );
+}
+
 /** The workspace read with its loading, not-yours, not-found and error states (event page and All dates). */
 export function WorkspaceGate({ children }: { children: (ws: EventWorkspace, place: string | null) => ReactNode }) {
   const { seriesId } = useParams<{ seriesId: string }>();
@@ -228,14 +242,7 @@ export function WorkspaceGate({ children }: { children: (ws: EventWorkspace, pla
     return <StateCard title="Loading the event&hellip;" testId="p3-event-loading">This takes a second.</StateCard>;
   }
   if (ws.isError) {
-    if (isAccessRefusal(ws.error)) {
-      return (
-        <StateCard title="This event isn&rsquo;t one of yours" testId="p3-event-notyours">
-          <p>Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team.</p>
-          <Link className="p3-link" to={P3_PATHS.events}>See your events</Link>
-        </StateCard>
-      );
-    }
+    if (isAccessRefusal(ws.error)) return <NotYoursCard />;
     if (isNotFound(ws.error)) {
       return (
         <StateCard title="We can&rsquo;t find this event" testId="p3-event-notfound">

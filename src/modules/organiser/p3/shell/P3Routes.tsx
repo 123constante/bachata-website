@@ -28,6 +28,7 @@ const Done = lazyWithRetry(() => import('../../flows/Done'));
 // chunks the app's route table names for the P3 area, which /app's first load carries.
 const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').then((m) => ({ default: m.DetailsScreen })));
 const PricesScreen = lazyWithRetry(() => import('../screens/PricesScreen').then((m) => ({ default: m.PricesScreen })));
+const HistoryScreen = lazyWithRetry(() => import('../screens/HistoryScreen').then((m) => ({ default: m.HistoryScreen })));
 
 /**
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while
@@ -45,6 +46,7 @@ export default function P3Routes() {
           <Route path="events/:seriesId/dates" element={<Suspense fallback={null}><AllDatesScreen /></Suspense>} />
           <Route path="events/:seriesId/details" element={<Suspense fallback={null}><DetailsScreen /></Suspense>} />
           <Route path="events/:seriesId/prices" element={<Suspense fallback={null}><PricesScreen /></Suspense>} />
+          <Route path="events/:seriesId/history" element={<Suspense fallback={null}><HistoryScreen /></Suspense>} />
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />
