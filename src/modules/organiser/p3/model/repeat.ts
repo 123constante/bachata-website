@@ -318,6 +318,19 @@ export function previewLines(p: RepeatPreview): PreviewLine[] {
   return out;
 }
 
+/** The sheet's own words (RepeatSheet.tsx). */
+export const REPEAT_COPY = {
+  title: 'Repeat',
+  checking: 'Checking which dates change\u2026',
+  save: 'Save the new pattern',
+  nothing: 'Nothing changed yet',
+  saved: 'Saved. The dates follow the new pattern.',
+  next: 'The next dates',
+  undo: 'Undo my changes',
+  retry: 'Check again',
+  noRule: 'It doesn\u2019t repeat yet. Pick the days to make it repeat.',
+} as const;
+
 export const PREVIEW_EMPTY = 'No dates are coming up with this pattern. Pick other days, or a later last date.';
 
 // ---- a course: class n of N and the last class (workspace meta.class_count / last_class_date) --------

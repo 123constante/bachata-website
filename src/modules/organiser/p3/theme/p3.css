@@ -288,6 +288,9 @@
 .p3-theme .p3-tick { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2px solid var(--line-strong); }
 .p3-theme .p3-tick[data-done="true"] { background: var(--gold); border-color: var(--gold); }
 .p3-theme .p3-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* W3c-1: a sheet portalled to document.body is its own theme root, so it carries the frame's type and ink. */
+.p3-theme.p3-portal { font-family: var(--font-ui); font-size: var(--fs-body); line-height: 1.4; color: var(--fg); }
+.p3-theme .p3-plain-list { margin: 0; padding: 0 0 0 18px; font-size: var(--fs-small); color: var(--fg); }
 .p3-theme .p3-prompt { border: 1px solid var(--gold-fg); }
 /* W-T fix 1 (review r1). D1: a stacked title in a status row beats the row's inline spans. */
 .p3-theme .p3-status-row .p3-row-t.p3-block { display: block; }
