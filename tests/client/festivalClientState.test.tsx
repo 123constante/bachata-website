@@ -191,10 +191,15 @@ async function mountFestival(
   // case's user.click. Reproduced deterministically by gating the import and
   // releasing it just before the click: openDay reads 0.
   //
-  // Awaiting the module here makes lazy()'s own import() of it a cache hit,
-  // which DOES settle inside the act() drains below and in navigateTo -- so
-  // every throughRoute case asserts over the resolved tree, never a fallback
-  // that is about to be thrown away. Not waitFor: a poll on the DOM cannot
+  // Awaiting the module here makes lazy()'s own import() of it a cache hit, a
+  // short microtask chain that settles inside navigateTo's async act() -- the
+  // drain that actually carries it, since nothing suspends on a first mount.
+  // That is measured, not guaranteed by React: with the import artificially
+  // delayed 0/300/2000ms the control case's navigation lands on the resolved
+  // tree every time, where before it ended on the fallback. It also supersedes
+  // the "mount landing in that state" scenario in the SETTLE note below: with
+  // the chunk loaded first, no mount here can land on a pending boundary.
+  // Not waitFor: a poll on the DOM cannot
   // tell the fallback from the resolved tree (both are .route-shell), and a
   // poll that passes early is the same race with a longer fuse.
   if (opts?.throughRoute) await import('@/components/PageTransition');
