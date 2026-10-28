@@ -37,7 +37,8 @@ export const togglePayment = (picked: readonly PaymentMethod[], m: PaymentMethod
 export const paymentText = (picked: readonly PaymentMethod[]): string => picked.map((m) => PAYMENT_LABEL[m]).join(', ');
 
 /** What a save sends: the picked methods this event may offer, in screen order (a festival's stored "door" is dropped, never resent). */
-const toSend = (ws: EventWorkspace, picked: readonly PaymentMethod[]): string =>
+/** The codes as sent: only the ones this event may offer, in list order (P3 W3a compares drafts with it). */
+export const toSend = (ws: EventWorkspace, picked: readonly PaymentMethod[]): string =>
   paymentChoices(ws).filter((m) => picked.includes(m)).join(',');
 
 export function paymentChanged(ws: EventWorkspace, picked: readonly PaymentMethod[]): boolean {

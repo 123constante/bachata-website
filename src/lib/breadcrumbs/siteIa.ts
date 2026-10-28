@@ -82,6 +82,9 @@ export const SITE_IA = {
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access', path: '/admin/organisers' },
   'admin.organisers.frontDoor': { label: 'Add and manage', parent: 'admin.organisers' },
+  // Signed-in, noindex, linked from nowhere yet (A4 links it).
+  ambassador:       { label: 'Pending review', path: '/ambassador' },
+  'ambassador.review': { label: 'Review', parent: 'ambassador' },
   'invite.redeem':    { label: 'Join organiser team' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },

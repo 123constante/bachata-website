@@ -41,6 +41,8 @@ const SERVER_OWNER_KINDS = [
   'occurrence.move_date',
   // ER AD4 (20261204180000, on prod 2026-10-26): a one-off ends with a reason.
   'series.cancel_one_off',
+  // P3 W3a: the group chat link (prod allowlist c_expected, read 2026-10-27).
+  'series.set_group_chat',
 ];
 const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',

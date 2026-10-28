@@ -73,9 +73,10 @@ export function LineupSheet({ name, where, type, initial, why, busy, error, onSa
           <p className="p3-note p3-pad" data-testid="p3-lineup-empty">{L.nobodyYet}</p>
         )}
       </div>
-      {!why && (
+      {/* a session no organiser role can join (show, performance...) offers no role toggle and no search (W2d r2 nit B) */}
+      {!why && teamOnly && <p className="p3-note" data-testid="p3-lineup-teamonly">{teamOnly}</p>}
+      {!why && !teamOnly && (
         <>
-          {teamOnly && <p className="p3-note" data-testid="p3-lineup-teamonly">{teamOnly}</p>}
           <span className="p3-field">{L.addAs}</span>
           <div className="p3-seg p3-seg2" role="group" aria-label={L.addAs}>
             {ADD_ROLES.map((r) => (

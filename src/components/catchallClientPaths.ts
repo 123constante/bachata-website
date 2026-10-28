@@ -52,6 +52,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/areas',
   '/account/t/*',
   '/account/dj/*',
+  '/ambassador/*',
   '/admin/organisers',
   '/admin/organisers/front-door',
   '/invite',
