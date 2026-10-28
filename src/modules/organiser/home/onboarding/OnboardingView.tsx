@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ProfileGateContext } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
-import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, useDebounced } from '../../ui';
+import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SheetLookProvider, SkeletonRows, useDebounced, type SheetLook } from '../../ui';
 import { askedOn, rowAction } from './onboardingModel';
 import { askedToJoinDone, hintRowText } from './claimStates';
-import { ORG_PATHS } from '../../shell/paths';
+import { useOrgSurface } from '../../shell/surface';
 import { goDone } from '../../flows/doneState';
-import { OrganiserSheet, type SheetTask } from './OrganiserSheet';
+import { OrganiserSheet, type DoorTask, type SheetTask } from './OrganiserSheet';
+import { tapGate } from './profileGate';
 import { SignOutLine } from './SignOutLine';
 import { BETA_NOTE } from '../../flows/newpage/cannotCreate';
 
@@ -25,6 +27,12 @@ export interface OnboardingViewProps {
   firstRun: boolean;
   /** After a claim, request or create, with the line to confirm it. */
   onChanged: (confirmation: string) => void;
+  /**
+   * The area's look; defaults to the surface's (R1 at /account/o). P3 (W4b) paints the sheets in
+   * P3's tokens, checks an unfinished profile at the tap (owner pick no-city B), and lands a claim
+   * on P3 Home with its confirmation.
+   */
+  look?: SheetLook;
 }
 
 
@@ -33,11 +41,26 @@ export interface OnboardingViewProps {
  * probably already list and claim it or ask to join, or create a new one.
  * Requests waiting for an answer, and recent declines, show underneath.
  */
-export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, firstRun, onChanged }: OnboardingViewProps) {
+export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, firstRun, onChanged, look: lookProp }: OnboardingViewProps) {
+  const surface = useOrgSurface();
+  const look = lookProp ?? surface.kind;
+  const p3 = look === 'p3';
+  const profileGate = useContext(ProfileGateContext);
+  const { pathname, search: here } = useLocation();
   const [query, setQuery] = useState('');
   const term = useDebounced(query, 250);
   const searched = term.trim().length >= 2;
   const [task, setTask] = useState<SheetTask | null>(null);
+  // P3: an unfinished profile hears it at the tap, before any typing; nothing is sent.
+  const openTask = (next: DoorTask) => {
+    const gate = p3 && next.kind !== 'yours' ? tapGate(profileGate) : { kind: 'open' as const };
+    if (gate.kind === 'open' || !profileGate || profileGate === 'loading') {
+      setTask(next);
+      return;
+    }
+    const finishLabel = profileGate.gateFor(`${pathname}${here}`).linkLabel;
+    setTask({ kind: 'gate', gate: gate.kind, missing: gate.kind === 'finish' ? gate.missing : [], finishLabel, then: next });
+  };
   const [done, setDone] = useState<string | null>(null);
   const navigate = useNavigate();
   const doneRef = useRef<HTMLParagraphElement>(null);
@@ -64,25 +87,30 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   );
 
   useEffect(() => {
-    if (done) doneRef.current?.focus({ preventScroll: false });
-  }, [done]);
+    if (done) doneRef.current?.focus({ preventScroll: p3 });
+  }, [done, p3]);
 
   const finish = (confirmation: string) => {
     setTask(null);
     setDone(confirmation);
     onChanged(confirmation);
+    // R1's Home swaps itself in when the home read sees the page; P3's Welcome is its own route.
+    if (p3) navigate(surface.paths.home, { state: { confirmation } });
   };
   // Ask to join ends on the shared Done screen (D29); a new page lands on Home (C1b).
   const requested = (org: ClaimCandidate) => {
     const done = askedToJoinDone(org.name);
     setTask(null);
     onChanged(done.title);
-    goDone(navigate, { ...done, seriesId: null });
+    // P3: its own Done, whose first button comes back to this Welcome.
+    if (p3) goDone(navigate, { ...done, seriesId: null }, `${pathname}${here}`, surface.paths.done);
+    else goDone(navigate, { ...done, seriesId: null });
   };
   const created = (page: { name: string }) => {
     setTask(null);
-    onChanged(`${page.name} created`);
-    navigate(ORG_PATHS.home);
+    const confirmation = `${page.name} created`;
+    onChanged(confirmation);
+    navigate(surface.paths.home, p3 ? { state: { confirmation } } : undefined);
   };
   const findPage = (name: string) => {
     setTask(null);
@@ -90,14 +118,15 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
   };
 
   // Every row opens its claim screen (6a-6e) in the sheet; the sheet's buttons act.
-  const startClaim = (org: ClaimCandidate) => setTask({ kind: 'claim', org });
-  const startRequest = (org: ClaimCandidate, hint: ClaimHint | null) => setTask({ kind: 'request', org, hint });
-  const openYours = (org: ClaimCandidate) => setTask({ kind: 'yours', org });
-  const startCreate = () => setTask({ kind: 'create', name: query.trim() });
+  const startClaim = (org: ClaimCandidate) => openTask({ kind: 'claim', org });
+  const startRequest = (org: ClaimCandidate, hint: ClaimHint | null) => openTask({ kind: 'request', org, hint });
+  const openYours = (org: ClaimCandidate) => openTask({ kind: 'yours', org });
+  const startCreate = () => openTask({ kind: 'create', name: query.trim() });
   const searchFailed = searched && !search.isFetching && !search.data && (search.isError || search.isPaused);
 
   return (
-    <div className="space-y-[16px]" data-testid="org-onboarding">
+    <SheetLookProvider value={look}>
+    <div className={p3 ? 'p3-onb space-y-[16px]' : 'space-y-[16px]'} data-testid="org-onboarding" data-look={look}>
       {firstRun && (
         <ol className="flex flex-wrap items-center gap-[8px] text-[13px] text-[var(--mut)]" aria-label="Steps">
           <li className="flex items-center gap-[4px] text-[var(--gold)]">
@@ -230,8 +259,9 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
         onRequested={requested}
         onCreated={created}
         onFindPage={findPage}
-        onHome={() => navigate(ORG_PATHS.home)}
+        onHome={() => navigate(surface.paths.home)}
       />
     </div>
+    </SheetLookProvider>
   );
 }

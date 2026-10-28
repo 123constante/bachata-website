@@ -24,6 +24,7 @@ const SwitchPage = lazyWithRetry(() => import('../../switch'));
 const WelcomePage = lazyWithRetry(() => import('../../switch/Welcome'));
 const PageScreen = lazyWithRetry(() => import('../../page'));
 const Done = lazyWithRetry(() => import('../../flows/Done'));
+const AddPageScreen = lazyWithRetry(() => import('../you/AddPageScreen'));
 // W3a's edit screens load on their own (PR #1082 r1 #8): their shared modules stay out of the list of
 // chunks the app's route table names for the P3 area, which /app's first load carries.
 const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').then((m) => ({ default: m.DetailsScreen })));
@@ -59,6 +60,7 @@ export default function P3Routes() {
             <Route path="handover" element={<HandoverFlow step="to" />} />
             <Route path="handover/:userId" element={<HandoverFlow step="confirm" />} />
             <Route path="done" element={<Done />} />
+            <Route path="add" element={<AddPageScreen />} />
           </Route>
           {youGetPaidRoute()}
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
