@@ -1,6 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import {
   parseCheckoutReply,
+  parseOrderStatus,
+  UNKNOWN_READING,
+  type OrderStatusReading,
   parsePublicTypes,
   type CheckoutBody,
   type CheckoutResult,
@@ -18,6 +21,21 @@ type Untyped = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ 
 export const publicTicketKeys = {
   types: (seriesId: string | null) => ['public-ticket-types', seriesId] as const,
 };
+
+/**
+ * Public read of one order (thank-you page). A normal POST rpc: the function is VOLATILE,
+ * never a GET/head call. Any error (including the RPC not being applied yet) or odd reply
+ * reads as `unknown`, so the page keeps its neutral copy. The id goes nowhere else.
+ */
+export async function readOrderStatus(orderId: string): Promise<OrderStatusReading> {
+  try {
+    const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_order_public_status_v1', { p_ref: orderId });
+    if (error) return UNKNOWN_READING;
+    return parseOrderStatus(data);
+  } catch {
+    return UNKNOWN_READING;
+  }
+}
 
 export async function fetchPublicTicketTypes(seriesId: string): Promise<PublicTicketType[]> {
   const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_types_public_v1', {

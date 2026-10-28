@@ -290,10 +290,78 @@ export const WAY_LABEL: Readonly<Record<WayForward, string>> = {
  * 'checking' = we hold a well-formed order id but no server word on it (the Website has no
  * public order read yet, so a paid return is always this); 'none' = no order id at all.
  */
-export type ThanksOrderState = 'confirmed' | 'checking' | 'none';
+export type ThanksOrderState = 'confirmed' | 'checking' | 'none' | 'paid' | 'failed' | 'processing';
+
+/** What ticket_order_public_status_v1 says about an order. `unknown` is also every odd reply. */
+export type OrderStatus = 'paid' | 'pending' | 'failed' | 'unknown';
+export interface OrderStatusReading {
+  status: OrderStatus;
+  ticketCount: number | null;
+  eventTitle: string | null;
+  eventDate: string | null;
+  retryLater: boolean;
+}
+export const UNKNOWN_READING: OrderStatusReading = {
+  status: 'unknown', ticketCount: null, eventTitle: null, eventDate: null, retryLater: false,
+};
+
+/** Defensive parse: anything that is not the documented shape reads as `unknown`, never as `paid`. */
+export function parseOrderStatus(raw: unknown): OrderStatusReading {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return UNKNOWN_READING;
+  const o = raw as Record<string, unknown>;
+  const status: OrderStatus =
+    o.status === 'paid' || o.status === 'pending' || o.status === 'failed' ? o.status : 'unknown';
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const n = typeof o.ticket_count === 'number' && Number.isInteger(o.ticket_count) && o.ticket_count > 0 ? o.ticket_count : null;
+  return {
+    status,
+    ticketCount: status === 'paid' ? n : null,
+    eventTitle: status === 'paid' || status === 'failed' ? str(o.event_title) : null,
+    eventDate: status === 'paid' ? str(o.event_date) : null,
+    retryLater: o.retry_later === true,
+  };
+}
+
+/** Polls wait 2, 4, 8 s, then 15 s; at most 8 (the RPC allows 120 calls per IP per hour). */
+export const MAX_ORDER_POLLS = 8;
+export const pollDelayMs = (pollIndex: number): number => [2000, 4000, 8000][pollIndex] ?? 15000;
+
+export interface ThanksDetail {
+  ticketCount?: number | null;
+  eventTitle?: string | null;
+  eventDate?: string | null;
+}
 
 /** The thank-you page's words. Tickets are issued by the webhook, never by the redirect. */
-export function thanksCopy(free: boolean, state: ThanksOrderState): { title: string; body: string } {
+export function thanksCopy(
+  free: boolean,
+  state: ThanksOrderState,
+  detail: ThanksDetail = {},
+): { title: string; body: string } {
+  // Server word first. Only `paid` may say Confirmed.
+  if (state === 'paid') {
+    const n = detail.ticketCount;
+    const what = [n ? `${n} ${n === 1 ? 'ticket' : 'tickets'}` : null, detail.eventTitle ? `for ${detail.eventTitle}` : null]
+      .filter(Boolean)
+      .join(' ');
+    const parts = [what || null, detail.eventDate ?? null].filter(Boolean);
+    return {
+      title: 'Confirmed. Your tickets are in your email.',
+      body: `${parts.length ? `${parts.join(', ')}. ` : ''}Each ticket has a code to show at the door. If nothing arrives within an hour, check your spam folder, then contact the organiser.`,
+    };
+  }
+  if (state === 'failed') {
+    return {
+      title: "Payment didn't go through",
+      body: `No tickets were issued${detail.eventTitle ? ` for ${detail.eventTitle}` : ''}. You can go back and try again.`,
+    };
+  }
+  if (state === 'processing') {
+    return {
+      title: 'Still processing',
+      body: 'Your order is still processing. Check your email in a few minutes. If nothing arrives within an hour, check your spam folder, then contact the organiser.',
+    };
+  }
   if (free) {
     return {
       title: 'Your free tickets are on their way',
