@@ -759,3 +759,28 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
     expect(sub.textContent).not.toContain('are on You');
   });
 });
+
+// R2-4: on a FULL team the join card's Add as Manager is disabled too, so the decline reason must not point at it.
+describe('W4a fix 3 r2: the decline reason never points at a disabled Add', () => {
+  it(`manager, owned page, full (${TEAM_CAP}), a join request: Decline says owner only, without "add them as a Manager"`, async () => {
+    pages = [page('org-1', 'Ritmo', 'manager')];
+    myRole = 'manager';
+    members = [member('own', 'owner'), ME('manager'), ...others(TEAM_CAP - 2)];
+    requests = [REQUEST];
+    at(P3_PATHS.youTeam);
+    expect(((await screen.findByTestId('join-request-add')) as HTMLButtonElement).disabled).toBe(true);
+    const why = screen.getByTestId('join-request-decline-reason');
+    expect(why.textContent).toBe('Only the owner can decline a request.');
+    expect(why.textContent).not.toMatch(/add them as a Manager/i);
+  });
+
+  it('manager, owned page, room on the team: the reason still offers Add as Manager (which works)', async () => {
+    pages = [page('org-1', 'Ritmo', 'manager')];
+    myRole = 'manager';
+    members = [member('own', 'owner'), ME('manager')];
+    requests = [REQUEST];
+    at(P3_PATHS.youTeam);
+    expect(((await screen.findByTestId('join-request-add')) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('join-request-decline-reason').textContent).toBe(TEAM_REASONS.decline);
+  });
+});
