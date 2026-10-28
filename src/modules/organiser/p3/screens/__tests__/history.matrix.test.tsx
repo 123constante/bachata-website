@@ -4,7 +4,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { histItem, histItems, histPage, ws } from './wsFixtures';
-import { WHO_OF, historyDays, historyRowOf, parseHistory, parseHistoryItem, whoWord } from '../../data/history';
+import { readFileSync } from 'node:fs';
+import { act } from 'react';
+import { WHO_OF, historyDays, historyRowOf, isHistoryRefusal, parseHistory, parseHistoryItem, whoWord } from '../../data/history';
 import { L } from '../../model';
 import { P3_PATHS } from '../../shell/paths';
 
@@ -40,8 +42,13 @@ const serve = (all: Array<Record<string, unknown>>) => (a: Record<string, unknow
   return { data: histPage(page, rest.length > page.length), error: null };
 };
 
+/** The middle dot the sub line joins with, written as an escape (no raw Unicode in source). */
+const DOT = ' \u00b7 ';
+let lastQc: QueryClient;
+
 function show(path = P3_PATHS.eventHistory('ser-1')) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  lastQc = qc;
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[path]}>
@@ -128,9 +135,43 @@ describe('History screen x shape', () => {
     expect(screen.getByTestId('p3-history-more')).toBeTruthy();
   });
 
+  it('a failed background re-read keeps the rows already shown (fix 1, finding 5)', async () => {
+    rpc.reply = serve(histItems(3));
+    show();
+    expect(await screen.findAllByTestId('p3-history-row')).toHaveLength(3);
+    rpc.reply = () => ({ data: null, error: { message: 'fetch failed' } });
+    await act(() => lastQc.refetchQueries());
+    // the re-read really failed (the query is in error with its old pages still held)
+    await waitFor(() => expect(lastQc.getQueryCache().find({ queryKey: ['p3-history'], exact: false })?.state.status).toBe('error'));
+    expect(rpc.calls).toHaveLength(2);
+    expect(screen.queryByTestId('p3-history-error')).toBeNull();
+    expect(screen.getAllByTestId('p3-history-row')).toHaveLength(3);
+  });
+
+  it('page 1 says more but every row on it is malformed: Show older changes is still offered (fix 1, finding 3)', async () => {
+    const older = histItems(2, '2026-10-20T10:00:00Z');
+    rpc.reply = (a) => (a.p_before
+      ? { data: histPage(older, false), error: null }
+      : { data: { series_id: 'ser-1', items: ['junk', { label: '' }], has_more: true, next_before: '2026-10-21T10:00:00Z' }, error: null });
+    show();
+    const more = await screen.findByTestId('p3-history-more');
+    expect(screen.queryByTestId('p3-history-empty')).toBeNull();
+    fireEvent.click(more);
+    expect(await screen.findAllByTestId('p3-history-row')).toHaveLength(2);
+    expect(rpc.calls[1].args.p_before).toBe('2026-10-21T10:00:00Z');
+    expect(screen.queryByTestId('p3-history-more')).toBeNull();
+  });
+
+  it('signed out (not_signed_in) is not "not yours": it reads as an error with Try again, as the shared rule says (fix 1, finding 2)', async () => {
+    rpc.reply = () => ({ data: null, error: { message: 'not_signed_in', code: '42501' } });
+    show();
+    expect(await screen.findByTestId('p3-history-error')).toBeTruthy();
+    expect(screen.queryByTestId('p3-event-notyours')).toBeNull();
+  });
+
   it.each([
     ['not_a_member', '42501'],
-    ['not_signed_in', '42501'],
+    ['permission_denied', undefined],
   ])('refusal %s: the same copy as every other P3 event screen', async (message, code) => {
     rpc.reply = () => ({ data: null, error: { message, code } });
     show();
@@ -164,6 +205,10 @@ describe('History row words x who x date x fields', () => {
     ['a co-host', 'A co-host'],
     ['the Bachata team', 'The Bachata team'],
     ['somebody new', 'Someone'],
+    // inherited Object properties are not who words (fix 1, finding 1)
+    ['constructor', 'Someone'],
+    ['toString', 'Someone'],
+    ['__proto__', 'Someone'],
     [undefined, 'Someone'],
   ];
   const DATES: Array<[unknown, string | null]> = [[null, null], ['2026-03-06', 'for Friday 6 March'], ['06/03/2026', null]];
@@ -175,13 +220,32 @@ describe('History row words x who x date x fields', () => {
           // 18:05 UTC on 25 Oct 2026 is 18:05 in London (BST ended 01:00 UTC that day)
           const x = parseHistoryItem({ at: '2026-10-25T18:05:00Z', kind: 'series.add_date', label: 'Added a date', who, date, fields })!;
           const r = historyRowOf(x);
-          expect(r.sub).toBe([whoW, '18:05', dateW].filter(Boolean).join(' · '));
+          expect(r.sub).toBe([whoW, '18:05', dateW].filter(Boolean).join(DOT));
           expect(r.changed).toBe(fieldsW);
         });
 
   it('one shared mapping: every RPC who word has its screen word', () => {
     expect(Object.keys(WHO_OF).sort()).toEqual(['a co-host', 'the Bachata team', 'you']);
     for (const w of Object.values(WHO_OF)) expect(whoWord(w)).toBe(L.historyWho[w]);
+  });
+});
+
+describe('History refusal: one mapping, built on the shared isAccessRefusal (fix 1, finding 2)', () => {
+  it.each<[string, unknown, boolean]>([
+    ['RPC not_a_member', { code: '42501', message: 'not_a_member' }, true],
+    ['workspace permission_denied', { code: 'P0001', message: 'permission_denied' }, true],
+    ['RPC not_signed_in (signed out)', { code: '42501', message: 'not_signed_in' }, false],
+    ['workspace signed out', { code: 'P0001', message: 'permission_denied: authentication_required' }, false],
+    ['a bare 42501 with another message', { code: '42501', message: 'permission denied for table x' }, false],
+    ['network', { message: 'fetch failed' }, false],
+    ['nothing', null, false],
+  ])('%s', (_n, e, want) => expect(isHistoryRefusal(e)).toBe(want));
+});
+
+describe('History source hygiene (fix 1, finding 4)', () => {
+  it.each(['../../data/history.ts', '../HistoryScreen.tsx', './history.matrix.test.tsx'])('%s has no raw non-ASCII', (rel) => {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8');
+    expect([...src].filter((c) => c.charCodeAt(0) > 0x7f)).toEqual([]);
   });
 });
 
@@ -200,6 +264,21 @@ describe('History grouping (London days)', () => {
       ['Sunday 25 October', 'CB'],
       ['Saturday 24 October', 'A'],
       ['Wednesday 31 December 2025', 'D'],
+    ]);
+  });
+
+  it('BST start: 23:00 UTC on 29 March 2026 is already 30 March in London (fix 1, finding 7)', () => {
+    const days = historyDays(
+      [
+        parseHistoryItem(histItem('2026-03-29T22:59:00Z', { label: 'A' }))!, // 23:59 BST, Sun 29
+        parseHistoryItem(histItem('2026-03-29T23:00:00Z', { label: 'B' }))!, // 00:00 BST, Mon 30
+        parseHistoryItem(histItem('2026-03-29T00:30:00Z', { label: 'C' }))!, // 00:30 GMT, Sun 29 (before the 01:00 UTC change)
+      ],
+      '2026-10-25',
+    );
+    expect(days.map((d) => [d.title, d.rows.map((r) => r.label).join('')])).toEqual([
+      ['Monday 30 March', 'B'],
+      ['Sunday 29 March', 'AC'],
     ]);
   });
 
@@ -230,10 +309,10 @@ describe('History x real prod payloads (walk test user, read 28 Oct 2026)', () =
     const days = historyDays(p.items, '2026-10-28');
     expect(days.map((d) => d.title)).toEqual(['Tuesday 27 October']);
     expect(days[0].rows.map((r) => [r.label, r.sub, r.changed])).toEqual([
-      ['Skipped a date', 'You · 11:36 · for Tuesday 10 November', 'Changed: Dates'],
-      ['Cancelled a date', 'You · 11:36 · for Tuesday 3 November', 'Changed: Cancellation reason, Status'],
-      ['Changed how it repeats', 'You · 11:36', 'Changed: Dates'],
-      ['Created the event', 'You · 11:36', null],
+      ['Skipped a date', 'You \u00b7 11:36 \u00b7 for Tuesday 10 November', 'Changed: Dates'],
+      ['Cancelled a date', 'You \u00b7 11:36 \u00b7 for Tuesday 3 November', 'Changed: Cancellation reason, Status'],
+      ['Changed how it repeats', 'You \u00b7 11:36', 'Changed: Dates'],
+      ['Created the event', 'You \u00b7 11:36', null],
     ]);
   });
 

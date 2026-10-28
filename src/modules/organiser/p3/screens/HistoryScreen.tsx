@@ -16,6 +16,7 @@ export function useP3History(seriesId: string) {
     queryFn: ({ pageParam }) => fetchHistory(seriesId, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (last: HistoryPage) => (last.hasMore ? last.nextBefore : undefined),
+    // no user = no read; unreachable in practice, the organiser area is behind the sign-in gate
     enabled: !!user?.id,
     staleTime: 30_000,
   });
@@ -35,8 +36,8 @@ function History({ ws }: { ws: EventWorkspace }) {
   if (q.isPending) {
     return <div className="p3-stack" data-testid="p3-history">{head}<StateCard title={L.historyLoading} testId="p3-history-loading">{null}</StateCard></div>;
   }
-  // a failed older page keeps the rows already shown (its own note below), only a failed first read is the error card
-  if (q.isError && !q.isFetchNextPageError) {
+  // a failed older page or background re-read keeps the rows already shown; only a failed first read is the error card
+  if (q.isError && !q.isFetchNextPageError && !q.data) {
     if (isHistoryRefusal(q.error)) return <NotYoursCard />;
     return (
       <div className="p3-stack" data-testid="p3-history">
@@ -49,7 +50,8 @@ function History({ ws }: { ws: EventWorkspace }) {
     );
   }
   const days = historyDays((q.data?.pages ?? []).flatMap((p) => p.items));
-  if (!days.length) {
+  // a first page whose rows were all dropped can still have older ones: offer those, not the empty card
+  if (!days.length && !q.hasNextPage) {
     return (
       <div className="p3-stack" data-testid="p3-history">
         {head}

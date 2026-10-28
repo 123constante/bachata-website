@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { LONDON_TZ, formatKeyDayLabel, londonDateKey } from '@/lib/londonDate';
+import { isAccessRefusal } from '../../shared/selfServeErrors';
 import { L, type IsoDate } from '../model';
 
 /**
@@ -47,7 +48,8 @@ export function parseHistoryItem(v: unknown): HistoryItem | null {
     at: o.at,
     kind: typeof o.kind === 'string' ? o.kind : '',
     label,
-    who: (typeof o.who === 'string' && WHO_OF[o.who]) || 'someone',
+    // own keys only: "constructor", "toString" or "__proto__" are not who words
+    who: typeof o.who === 'string' && Object.prototype.hasOwnProperty.call(WHO_OF, o.who) ? WHO_OF[o.who] : 'someone',
     date: typeof o.date === 'string' && DATE_RE.test(o.date) ? o.date : null,
     fields: (Array.isArray(o.fields) ? o.fields : []).filter((f): f is string => typeof f === 'string' && f.trim() !== '').map((f) => f.trim()),
   };
@@ -89,14 +91,16 @@ export async function fetchHistory(seriesId: string, before: string | null): Pro
 
 export const historyKey = (userId: string | undefined, seriesId: string | undefined) => ['p3-history', userId, seriesId] as const;
 
-/** The reader's refusal (not signed in, not on this event's team). */
-export const isHistoryRefusal = (e: unknown): boolean => {
-  const x = (e && typeof e === 'object' ? e : {}) as { code?: unknown; message?: unknown };
-  return x.code === '42501' || /^(not_a_member|not_signed_in|permission_denied)/.test(String(x.message ?? ''));
-};
+/**
+ * "Not yours": the shared isAccessRefusal plus the reader's own 42501 not_a_member. Its 42501
+ * not_signed_in is a signed-out caller, which (as in the shared rule) signing in may fix, so it
+ * reads as an error with Try again, never as "not yours"; 42501 alone cannot tell the two apart.
+ */
+export const isHistoryRefusal = (e: unknown): boolean =>
+  isAccessRefusal(e) || (!!e && typeof e === 'object' && /^not_a_member/.test(String((e as { message?: unknown }).message ?? '')));
 
 export interface HistoryRow extends HistoryItem {
-  /** "You · 14:32 · for Friday 6 March" */
+  /** "You, 14:32, for Friday 6 March" joined by a middle dot */
   sub: string;
   /** "Changed: Name, Price", or null when the row names no field. */
   changed: string | null;
@@ -112,7 +116,7 @@ const timeFmt = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON_TZ, hour: '2
 
 export function historyRowOf(x: HistoryItem): HistoryRow {
   const forDay = x.date ? formatKeyDayLabel(x.date) : null;
-  const sub = [whoWord(x.who), timeFmt.format(new Date(x.at)), forDay ? L.historyFor(forDay) : null].filter(Boolean).join(' · ');
+  const sub = [whoWord(x.who), timeFmt.format(new Date(x.at)), forDay ? L.historyFor(forDay) : null].filter(Boolean).join(' \u00b7 ');
   return { ...x, sub, changed: x.fields.length ? L.historyChanged(x.fields) : null };
 }
 
