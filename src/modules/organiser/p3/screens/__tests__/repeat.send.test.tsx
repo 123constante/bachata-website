@@ -130,6 +130,28 @@ describe('W3c-1 Repeat sheet, real send path', () => {
     expect(sent).toEqual([]);
   });
 
+  it.each([
+    ['answers permission_denied', () => ({ error: { code: '42501', message: 'permission_denied: series.set_recurrence is not allowed here' } })],
+    ['throws Failed to fetch (offline)', () => { throw new TypeError('Failed to fetch'); }],
+  ] as const)('RED FIRST (review F2): a dry run that %s keeps Save disabled; Check again is the way on', async (_label, fail) => {
+    serve(SHAPES.weekly, fail);
+    show();
+    await openRepeat();
+    fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
+    await screen.findByTestId('p3-repeat-preview-error');
+    const save = screen.getByTestId('p3-repeat-save') as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    expect((screen.getByTestId('p3-repeat-save-why')).textContent).toContain(REPEAT_COPY.retry);
+    fireEvent.click(save);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sent.every((e) => e.command.payload.dry_run === true)).toBe(true);
+
+    serve(SHAPES.weekly);
+    fireEvent.click(screen.getByRole('button', { name: REPEAT_COPY.retry }));
+    await screen.findByTestId('p3-repeat-line-removed');
+    expect((screen.getByTestId('p3-repeat-save') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('RED FIRST: a refused dry run and a refused save each show their one sentence', async () => {
     serve(SHAPES.weekly, () => ({ error: { code: '22023', message: 'invalid_recurrence_payload: count_over_cap: the rule makes more than 500 dates' } }));
     show();
