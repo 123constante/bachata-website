@@ -94,6 +94,13 @@ describe('P3 ticketing layout in the cascade (review r1 D1 to D5)', () => {
     expect(resolve([THEME, 'div.p3-toast-stack', 'div.p3-toast'], 'position')).toBe('static');
   });
 
+  it('r3 S1: the toast column is anchored at the top, under the top bar, never over a sheet footer', () => {
+    const stack = [THEME, 'div.p3-toast-stack'];
+    expect(resolve(stack, 'bottom')).toBe('auto');
+    expect(resolve(stack, 'top')).toBe('calc(var(--top-h) + 12px + env(safe-area-inset-top, 0px))');
+    // The geometry itself (1, 3 and 6 toasts against the Refund and add sheets) is tests/e2e/p3-toast-geometry.spec.ts.
+  });
+
   it('R8: what the resolver cannot see is not there: no !important, no longhand re-pad of a date button', () => {
     expect(css).not.toContain('!important');
     const datePad = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => m[1].includes('.p3-date-btn') && /padding-(top|bottom)/.test(m[2]));
