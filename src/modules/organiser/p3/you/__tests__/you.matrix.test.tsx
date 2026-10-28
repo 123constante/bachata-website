@@ -27,12 +27,14 @@ vi.mock('../../screens/EventsScreen', () => ({ EventsScreen: () => <div data-tes
 vi.mock('../../screens/StatsScreen', () => ({ StatsScreen: () => <div data-testid="p3-screen-stats" /> }));
 
 import P3Routes from '../../shell/P3Routes';
-import { P3_BASE, P3_PATHS } from '../../shell/paths';
+import { P3_BASE, P3_PATHS, acceptedInviteLanding } from '../../shell/paths';
 import { ORG_PATHS } from '../../../shell/paths';
 import { ADD_ROLE_REASON, ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON } from '@/modules/organiser/shared/teamModel';
 import { INVITE_REQUIRED_COPY } from '@/modules/organiser/shared/selfServeErrors';
 import { NO_PROFILE_NOTE } from '../../../team/PublicToggle';
 import { YOU, YOU_ROWS, youRows } from '../youRows';
+import { NO_OWNER_REASON, NO_PAGE, TEAM_REASONS } from '@/modules/organiser/shared/teamRules';
+import { TEAM_COPY, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -231,7 +233,7 @@ describe('Team in P3 x shape', () => {
     expect((await screen.findByTestId('join-request-blocked')).textContent).toBe(TEAM_FULL_REASON);
     expect((screen.getByTestId('join-request-add') as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId('team-add') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('team-full').textContent).toBe(TEAM_FULL_REASON);
+    expect(screen.getByTestId('team-add-reason').textContent).toBe(TEAM_FULL_REASON);
   });
 
   it('manager: Add links, Leave is offered', async () => {
@@ -248,10 +250,10 @@ describe('Team in P3 x shape', () => {
     myRole = 'contributor';
     members = [member('own', 'owner'), ME('contributor')];
     at(P3_PATHS.youTeam);
-    await waitFor(() => expect(screen.getByTestId('team-full').textContent).toBe(ADD_ROLE_REASON));
+    await waitFor(() => expect(screen.getByTestId('team-add-reason').textContent).toBe(ADD_ROLE_REASON));
     const add = screen.getByTestId('team-add') as HTMLButtonElement;
     expect(add.disabled).toBe(true);
-    expect(add.getAttribute('aria-describedby')).toBe('team-full');
+    expect(add.getAttribute('aria-describedby')).toBe('team-add-reason');
   });
 
   it('no dancer profile: the public switch is disabled with the shared reason', async () => {
@@ -276,8 +278,9 @@ describe('Team in P3 x shape', () => {
 });
 
 describe('Person, Add, Hand over in P3', () => {
-  it('owner viewing a contributor: back = Team (P3), remove confirm, Keep returns', async () => {
-    members = [ME('owner'), member('tom', 'contributor', { display_name: 'Tom Okafor' })];
+  // Fix 3 (F4): a contributor cannot be removed by the real RPC (not_a_member), so the confirm row is a Manager's.
+  it('owner viewing a manager: back = Team (P3), remove confirm, Keep returns', async () => {
+    members = [ME('owner'), member('tom', 'manager', { display_name: 'Tom Okafor' })];
     at(P3_PATHS.youTeamPerson('tom'));
     fireEvent.click(await screen.findByTestId('person-remove'));
     expect(screen.getByTestId('person-remove-confirm').textContent).toContain('Remove Tom Okafor?');
@@ -339,10 +342,11 @@ describe('Switch page, Organiser page, Welcome in P3', () => {
     expect(sent.filter((f) => WRITES.includes(f))).toEqual([]);
   });
 
-  it('Organiser page with no page: the empty state points at You', async () => {
+  // Fix 3 (F6): "from You" pointed at an add You does not show at 0 pages; the shared no-page copy instead.
+  it('Organiser page with no page: the shared no-page copy with Message us', async () => {
     pages = [];
     at(P3_PATHS.youPage);
-    expect((await screen.findByTestId('page-no-organiser')).textContent).toContain('from You');
+    expect((await screen.findByTestId('page-no-organiser')).textContent).toContain(NO_PAGE.body);
   });
 
   it('Welcome 7c: "Switch any time from You" (owner pick)', async () => {
@@ -495,7 +499,8 @@ describe('W4a fix 1 (c): Done in P3 is P3 and returns into P3', () => {
     ['Remove', 'person-remove', 'person-remove-yes', 'remove_organiser_member_v1'],
     ['Make Manager', 'person-make-manager', null, 'organiser_team_set_member_v1'],
   ] as const)('%s from P3 Person lands on P3 Done, primary back to P3 Team', async (_n, open, confirm, rpc) => {
-    members = [ME('owner'), member('tom', 'contributor', { display_name: 'Tom Okafor' })];
+    // Fix 3 (F4): the remove RPC takes a Manager, Make Manager a Contributor; the same Person screen shows each.
+    members = [ME('owner'), member('tom', rpc === 'remove_organiser_member_v1' ? 'manager' : 'contributor', { display_name: 'Tom Okafor' })];
     at(P3_PATHS.youTeamPerson('tom'));
     fireEvent.click(await screen.findByTestId(open));
     if (confirm) fireEvent.click(screen.getByTestId(confirm));
@@ -567,5 +572,190 @@ describe('W4a fix 2: the page name, the first card and "Add a page" are readable
     expect(own(add, 'text')).toBe('--gold-fg');
     expect(add.className).toMatch(/min-h-\[(4[4-9]|[5-9]\d)px\]/);
     for (const [scheme, T] of SCHEMES) expect(ratio(T['--gold-fg'], T[ground(add)]), `${scheme}: --gold-fg on ${ground(add)}`).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+/**
+ * W4a fix 3: the UI offers only what the live RPC accepts (prod bodies read 2026-10-28), on the
+ * prod shapes: 39 of 51 pages have ONE manager and NO owner; 0 contributors (latent shape).
+ */
+describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the real RPC rules)', () => {
+  const NAMES_AN_OWNER = /ask (an|the) owner|only (an|the) owner/i;
+  const soleManager = () => { pages = [page('org-1', 'Ritmo', 'manager')]; myRole = 'manager'; members = [ME('manager')]; };
+  const reasonWithMessageUs = (id: string, text: string) => {
+    const el = screen.getByTestId(id);
+    expect(el.textContent).toContain(text);
+    expect(within(el).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(ORG_PATHS.help);
+  };
+
+  it('F1+F2 sole manager, no owner, a join request: Decline disabled, says nobody but us can, Message us; Add as Manager works', async () => {
+    soleManager();
+    requests = [REQUEST];
+    at(P3_PATHS.youTeam);
+    const decline = (await screen.findByTestId('join-request-decline')) as HTMLButtonElement;
+    expect(decline.disabled).toBe(true);
+    reasonWithMessageUs('join-request-decline-reason', NO_OWNER_REASON(TEAM_REASONS.declineWhat));
+    expect(screen.getByTestId('join-request-decline-reason').textContent).not.toMatch(NAMES_AN_OWNER);
+    expect(decline.getAttribute('aria-describedby')).toBe(screen.getByTestId('join-request-decline-reason').id);
+    expect((screen.getByTestId('join-request-add') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('F1 manager on a page WITH an owner: Decline disabled with the owner reason (no Message us needed)', async () => {
+    pages = [page('org-1', 'Ritmo', 'manager')];
+    myRole = 'manager';
+    members = [member('own', 'owner'), ME('manager')];
+    requests = [REQUEST];
+    at(P3_PATHS.youTeam);
+    expect(((await screen.findByTestId('join-request-decline')) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('join-request-decline-reason').textContent).toBe(TEAM_REASONS.decline);
+  });
+
+  it('F1 owner: Decline is offered', async () => {
+    requests = [REQUEST];
+    at(P3_PATHS.youTeam);
+    expect(((await screen.findByTestId('join-request-decline')) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('join-request-decline-reason')).toBeNull();
+  });
+
+  it('F3 sole manager, no owner: Leave is disabled on Team and on your own row, with why and Message us', async () => {
+    soleManager();
+    at(P3_PATHS.youTeam);
+    const leave = (await screen.findByTestId('team-leave')) as HTMLButtonElement;
+    expect(leave.tagName).toBe('BUTTON');
+    expect(leave.disabled).toBe(true);
+    reasonWithMessageUs('team-leave-reason', TEAM_REASONS.leaveLast);
+    cleanup();
+    at(P3_PATHS.youTeamPerson('me'));
+    expect(((await screen.findByTestId('person-leave')) as HTMLButtonElement).disabled).toBe(true);
+    reasonWithMessageUs('person-leave-reason', TEAM_REASONS.leaveLast);
+  });
+
+  it('F3 two managers, no owner: Leave stays a link (someone still runs the page)', async () => {
+    soleManager();
+    members = [ME('manager'), member('pri', 'manager')];
+    at(P3_PATHS.youTeam);
+    expect((await screen.findByTestId('team-leave')).getAttribute('href')).toBe(ORG_PATHS.more);
+  });
+
+  it('F2 manager viewing a colleague on an ownerless page: the role reason names no owner and offers Message us', async () => {
+    soleManager();
+    members = [ME('manager'), member('pri', 'manager', { display_name: 'Priya Sharma' })];
+    at(P3_PATHS.youTeamPerson('pri'));
+    await screen.findByTestId('person-role-reason');
+    reasonWithMessageUs('person-role-reason', NO_OWNER_REASON(TEAM_REASONS.rolesWhat));
+    expect(screen.getByTestId('person-role-reason').textContent).not.toMatch(NAMES_AN_OWNER);
+    expect(screen.queryByTestId('person-remove')).toBeNull();
+    expect(screen.queryByTestId('person-hand-over')).toBeNull();
+  });
+
+  it('F2 hand over on an ownerless page: says only we can, Message us; on an owned page the owner line', async () => {
+    soleManager();
+    at(P3_PATHS.youHandover);
+    await screen.findByTestId('handover-owner-only');
+    reasonWithMessageUs('handover-owner-only', NO_OWNER_REASON(TEAM_REASONS.handoverWhat));
+    cleanup();
+    members = [member('own', 'owner'), ME('manager')];
+    at(P3_PATHS.youHandoverTo('own'));
+    expect((await screen.findByTestId('handover-owner-only')).textContent).toBe(TEAM_REASONS.handover);
+  });
+
+  it('F4 owner viewing a contributor: Remove is disabled with why (the RPC answers not_a_member), Make Manager stays', async () => {
+    members = [ME('owner'), member('tom', 'contributor', { display_name: 'Tom Okafor' })];
+    at(P3_PATHS.youTeamPerson('tom'));
+    const remove = (await screen.findByTestId('person-remove')) as HTMLButtonElement;
+    expect(remove.disabled).toBe(true);
+    reasonWithMessageUs('person-remove-reason', TEAM_REASONS.removeContributor);
+    expect(screen.getByTestId('person-make-manager')).toBeTruthy();
+  });
+
+  it('F4 contributor: Leave is disabled with why (the RPC answers not_authorised)', async () => {
+    pages = [page('org-1', 'Ritmo', 'manager')];
+    myRole = 'contributor';
+    members = [member('own', 'owner'), ME('contributor')];
+    at(P3_PATHS.youTeam);
+    expect(((await screen.findByTestId('team-leave')) as HTMLButtonElement).disabled).toBe(true);
+    reasonWithMessageUs('team-leave-reason', TEAM_REASONS.leaveContributor);
+  });
+
+  it('F6 no page: You, Team and the page editor say the same thing, each with Message us', async () => {
+    pages = [];
+    for (const [path, id] of [[P3_PATHS.you, 'p3-you-no-page'], [P3_PATHS.youTeam, 'team-no-organiser'], [P3_PATHS.youPage, 'page-no-organiser']] as const) {
+      at(path);
+      const box = await screen.findByTestId(id);
+      expect(box.textContent, path).toContain(NO_PAGE.title);
+      expect(box.textContent, path).toContain(NO_PAGE.body);
+      expect(within(box).getByRole('link', { name: 'Message us' }).getAttribute('href'), path).toBe(ORG_PATHS.help);
+      expect(box.textContent, path).not.toMatch(/from (You|Home)|Add one first/);
+      cleanup();
+    }
+  });
+
+  it('F7 a late Remove answer after leaving the screen does not yank you to Done', async () => {
+    members = [ME('owner'), member('pri', 'manager', { display_name: 'Priya Sharma' })];
+    let answer: (v: unknown) => void = () => {};
+    h.rpc.mockImplementation(async (fn: string) => {
+      sent.push(fn);
+      if (fn === 'remove_organiser_member_v1') return new Promise((r) => { answer = r; });
+      if (fn === 'organiser_team_v1') return { data: { my_role: myRole, members }, error: null };
+      if (fn === 'list_organiser_access_requests_v1') return { data: [], error: null };
+      return { data: null, error: null };
+    });
+    at(P3_PATHS.youTeamPerson('pri'));
+    fireEvent.click(await screen.findByTestId('person-remove'));
+    fireEvent.click(screen.getByTestId('person-remove-yes'));
+    await waitFor(() => expect(sent).toContain('remove_organiser_member_v1'));
+    fireEvent.click(screen.getByTestId('org-back'));
+    await screen.findByTestId('org-page-team');
+    answer({ data: { user_id: 'pri', member_role: 'manager' }, error: null });
+    // The option-level onSuccess runs a few awaits after the answer: give it time to (wrongly) land.
+    await new Promise((r) => setTimeout(r, 400));
+    expect(screen.queryByTestId('org-done')).toBeNull();
+    expect(screen.getByTestId('org-page-team')).toBeTruthy();
+  });
+
+  it('F8 already_member and the lookup cap have their own words, not "Something went wrong"', () => {
+    expect(teamErrorMessage(new Error('already_member'))).toBe(TEAM_COPY.already_member);
+    expect(teamErrorMessage(new Error('permission_denied: lookup_cap: 200 per 24h'))).toBe(TEAM_COPY.lookup_cap);
+    expect(TEAM_COPY.already_member).toBeTruthy();
+    expect(TEAM_COPY.lookup_cap).toBeTruthy();
+  });
+
+  it('F9 the Add reason has a neutral hook (it is not only "full")', async () => {
+    pages = [page('org-1', 'Ritmo', 'manager')];
+    myRole = 'contributor';
+    members = [member('own', 'owner'), ME('contributor')];
+    at(P3_PATHS.youTeam);
+    await waitFor(() => expect(screen.getByTestId('team-add-reason').textContent).toBe(ADD_ROLE_REASON));
+    expect(screen.getByTestId('team-add').getAttribute('aria-describedby')).toBe('team-add-reason');
+  });
+
+  it.each([
+    [true, true, P3_PATHS.youWelcome('org 1')],
+    [true, false, ORG_PATHS.welcome('org 1')],
+    [false, true, ORG_PATHS.welcome('org 1')],
+    [false, false, ORG_PATHS.welcome('org 1')],
+  ])('F5 accepted-invite landing: organiserP3=%s organiserSelfServe=%s -> %s', (organiserP3, organiserSelfServe, to) => {
+    expect(acceptedInviteLanding('org 1', { organiserP3, organiserSelfServe })).toBe(to);
+  });
+
+  it('F11 a pushed screen still loading keeps the P3 top bar (back to You)', async () => {
+    const { P3YouSurface } = await import('../surface');
+    const { lazy } = await import('react');
+    const Never = lazy(() => new Promise<never>(() => {}));
+    render(
+      <MemoryRouter initialEntries={['/x']}>
+        <Routes><Route element={<P3YouSurface />}><Route path="/x" element={<Never />} /></Route></Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId('p3-you-route-loading-card')).toBeTruthy();
+    expect(screen.getByTestId('org-back').getAttribute('href')).toBe(P3_PATHS.you);
+    expect(document.querySelector('header.p3-top')).not.toBeNull();
+  });
+
+  it('F10 Welcome when Home fails in P3 does not read "Your pages are on You."', async () => {
+    h.home.mockReset().mockRejectedValue(new Error('boom'));
+    at(P3_PATHS.youWelcome('org-1'));
+    const sub = await screen.findByTestId('org-welcome-sub');
+    expect(sub.textContent).not.toContain('are on You');
   });
 });

@@ -1,5 +1,6 @@
 import { requiredLeftText } from '@/modules/organiser/shared/profileProgress';
 import { P3_PATHS } from '../shell/paths';
+import { NO_PAGE } from '@/modules/organiser/shared/teamRules';
 
 /**
  * The You hub's rows (mockup p3-w4a A), as data: ONE entry per row, in order. A new row (e.g.
@@ -38,11 +39,12 @@ export const YOU = {
   pageRequired: (n: number) => `Required to publish: ${requiredLeftText(n)}`,
   team: 'Team',
   teamSub: (n: number) => (n === 1 ? 'Just you' : `${n} people`),
-  teamNoPage: 'A team belongs to a page. Add one first.',
+  // Says why, never "add one": at 0 pages there is no add here; the no-page card above has Message us.
+  teamNoPage: 'A team belongs to a page, and you don\u2019t run one yet.',
   addPage: 'Add another page',
   account: 'Account and help',
   accountSub: 'Sign out, help, leave a page',
-  noPage: 'You don\u2019t run a page yet',
+  noPage: NO_PAGE.title,
   messageUs: 'Message us',
   loading: 'Loading your pages\u2026',
   failed: 'Your pages did not load',

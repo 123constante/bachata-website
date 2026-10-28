@@ -4,6 +4,8 @@ import { useOrgSurface } from '../../shell/surface';
 import { Card, EmptyState, ErrorState, SkeletonRows } from '../../ui';
 import { Avatar } from '../../team/Avatar';
 import { useTeamContext } from '../../team/useTeamContext';
+import { GateReason } from '../../team/GateReason';
+import { NO_PAGE, canHandOver } from '@/modules/organiser/shared/teamRules';
 
 /** C30 /handover: hand the page over to whom. Only members the server can hand to (a confirmed email). */
 export default function ToWhom() {
@@ -17,8 +19,10 @@ export default function ToWhom() {
           <SkeletonRows count={3} label="Loading your team" testId="handover-loading" />
         ) : failed ? (
           <ErrorState title="Your team did not load" onRetry={retry} testId="handover-load-error" />
-        ) : !organiser || viewerRole !== 'owner' ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="handover-owner-only">Only the owner can hand the page over.</p>
+        ) : !organiser ? (
+          <p className="text-[14px] text-[var(--mut)]" data-testid="handover-owner-only">{NO_PAGE.title}</p>
+        ) : viewerRole !== 'owner' ? (
+          <GateReason gate={canHandOver(viewerRole, members)} id="handover-owner-only" testId="handover-owner-only" />
         ) : options.length === 0 ? (
           <EmptyState
             title="No one can take over yet"

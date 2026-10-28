@@ -123,7 +123,8 @@ describe('S4 / N3 one person', () => {
   });
   it('a manager viewing another member: one reason covers role AND remove', async () => {
     myRole = 'manager'; homeRole = 'manager';
-    members = [row('me', 'manager', { is_self: true }), row('ana', 'manager')];
+    // A page WITH an owner (fix 3: an ownerless page gets the no-owner reason, in you.matrix).
+    members = [row('own', 'owner'), row('me', 'manager', { is_self: true }), row('ana', 'manager')];
     mountAt(ORG_PATHS.teamPerson('ana'), routes);
     expect((await screen.findByTestId('person-role-reason')).textContent).toBe('Only the owner changes roles or removes people');
   });

@@ -66,8 +66,8 @@ export const P3_SURFACE: OrgSurface = {
 export function P3YouSurface() {
   return (
     <OrgSurfaceProvider value={P3_SURFACE}>
-      {/* The pushed screens are lazy (P3Routes): keep P3's frame while one arrives. */}
-      <Suspense fallback={<main className="p3-main" data-testid="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></main>}>
+      {/* The pushed screens are lazy (P3Routes): keep P3's frame, top bar included, while one arrives. */}
+      <Suspense fallback={<P3PushedShell title="" back={YOU} testId="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
         <Outlet />
       </Suspense>
     </OrgSurfaceProvider>
