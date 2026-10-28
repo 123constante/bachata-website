@@ -18,3 +18,6 @@ Branch `claude/p3-w3b1-history`. Flag `organiserP3` stays OFF.
 ## Next steps
 1. Run the review on PR #1098; apply findings as edits.
 2. Orchestrator walk: open `/account/p3/events/<WALK weekly-cancelled-date id>/history` with flags on; expect one day "Tuesday 27 October" with 4 rows (Skipped a date / Cancelled a date / Changed how it repeats / Created the event).
+
+## Status
+DONE for the builder lane: code, tests, design record and PR body (#1098) in place; waits on the independent review and the orchestrator walk.
