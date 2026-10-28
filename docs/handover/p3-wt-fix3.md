@@ -22,3 +22,7 @@ No data path changes: no query, RPC, payload or read changed; `ticketsApi.ts` an
 ## Next steps
 
 One independent review, one fix round, then the orchestrator walk (brief stopping rule).
+
+## PR and checks
+
+PR #1106. Every PR CI job step was run locally (per-job table in the PR body): all green except environment-only failures that reproduce identically on origin/main (sandbox Supabase is not prod; `bin/check-integrity.sh` mode 644 without CI's chmod). `/app` first load 373.7 KB on main and on the branch (limit 374 KB).
