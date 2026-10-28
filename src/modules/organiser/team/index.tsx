@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, UserPlus } from 'lucide-react';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
-import { ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON, memberLabel, type TeamMember } from '@/modules/organiser/shared/teamModel';
+import { ADD_ROLE_REASON, ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON, memberLabel, type TeamMember } from '@/modules/organiser/shared/teamModel';
 import { JoinRequestCard } from '../flows/fix/JoinRequest';
-import { OrganiserShell, ORG_PATHS } from '../shell';
+import { useOrgSurface } from '../shell/surface';
 import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, SkeletonRows, useAnnounce } from '../ui';
 import { OrganiserSwitcher } from '../profile/OrganiserSwitcher';
 import { Avatar } from './Avatar';
@@ -17,9 +17,10 @@ import { useTeamContext } from './useTeamContext';
  * added them (R3-11) and links to Leave (C29, More). A row opens that person (C26), keyed by user_id.
  */
 function MemberRow({ m }: { m: TeamMember }) {
+  const { paths } = useOrgSurface();
   const name = memberLabel(m);
   return (
-    <Link to={ORG_PATHS.teamPerson(m.userId)} data-testid="team-member" data-role={m.role} data-self={m.isSelf ? 'true' : 'false'} className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]">
+    <Link to={paths.teamPerson(m.userId)} data-testid="team-member" data-role={m.role} data-self={m.isSelf ? 'true' : 'false'} className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]">
       <Avatar name={name} photoUrl={m.photoUrl} size={40} />
       <span className="min-w-0 flex-1 text-left">
         <span className="block text-[15px] text-[var(--fg)] [overflow-wrap:anywhere]">{name}{m.isSelf ? ' (you)' : ''}</span>
@@ -34,6 +35,7 @@ function MemberRow({ m }: { m: TeamMember }) {
 export default function TeamPage() {
   const ctx = useTeamContext();
   const { organiser, members, viewerRole } = ctx;
+  const { kind, Shell, paths, hub } = useOrgSurface();
   const [message, announce] = useAnnounce();
   const requests = useQuery({
     queryKey: incomingAccessRequestsQueryKey(organiser?.id),
@@ -43,11 +45,14 @@ export default function TeamPage() {
   const full = members.length >= TEAM_CAP;
   const canAdd = viewerRole === 'owner' || viewerRole === 'manager';
   const me = members.find((m) => m.isSelf);
+  // P3 shows a Contributor the control with its reason (W4a owner pick); R1 keeps it hidden.
+  const addReason = !canAdd ? ADD_ROLE_REASON : full ? TEAM_FULL_REASON : null;
 
   return (
-    <OrganiserShell title="Team" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-team">
+    <Shell title="Team" back={hub} testId="org-page-team">
       <div className="flex flex-col gap-3 p-3">
-        <OrganiserSwitcher organisers={ctx.organisers} selectedId={organiser?.id ?? null} onChoose={ctx.choose} />
+        {/* P3 picks the page on Switch page (You), so the chips are R1's alone. */}
+        {kind === 'r1' && <OrganiserSwitcher organisers={ctx.organisers} selectedId={organiser?.id ?? null} onChoose={ctx.choose} />}
         <AnnounceRegion message={message} />
         {ctx.loading ? (
           <SkeletonRows count={3} label="Loading your team" testId="team-loading" />
@@ -72,24 +77,24 @@ export default function TeamPage() {
                 <PublicToggle organiserId={organiser.id} profileId={me.profileId ?? null} onChanged={announce} />
               </Card>
             )}
-            {canAdd && (
-              full ? (
+            {(canAdd || kind === 'p3') && (
+              addReason ? (
                 <>
                   <GhostButton disabled testId="team-add" aria-describedby="team-full"><UserPlus aria-hidden="true" className="h-[18px] w-[18px]" /> Add someone</GhostButton>
-                  <p id="team-full" className="text-[13px] text-[var(--mut)]" data-testid="team-full">{TEAM_FULL_REASON}</p>
+                  <p id="team-full" className="text-[13px] text-[var(--mut)]" data-testid="team-full">{addReason}</p>
                 </>
               ) : (
-                <Link to={ORG_PATHS.teamAdd} data-testid="team-add" className="inline-flex h-[52px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[var(--btn)] text-[16px] font-bold text-[var(--btnfg)]">
+                <Link to={paths.teamAdd} data-testid="team-add" className="inline-flex h-[52px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[var(--btn)] text-[16px] font-bold text-[var(--btnfg)]">
                   <UserPlus aria-hidden="true" className="h-[18px] w-[18px]" /> Add someone
                 </Link>
               )
             )}
             {me && me.role !== 'owner' && (
-              <Link to={ORG_PATHS.more} data-testid="team-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
+              <Link to={paths.more} data-testid="team-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
             )}
           </>
         )}
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }

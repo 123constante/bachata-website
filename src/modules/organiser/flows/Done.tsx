@@ -1,8 +1,7 @@
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { londonTodayKey } from '@/lib/londonDate';
-import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
+import { useOrgSurface } from '@/modules/organiser/shell/surface';
 import { GhostButton, PrimaryButton } from '@/modules/organiser/ui';
 import { useEventWorkspace } from '@/modules/organiser/events/eventsApi';
 import { lifecycleRows } from '@/modules/organiser/events/lifecycleModel';
@@ -52,14 +51,18 @@ function BackToEvent({ back }: { back: string }) {
  * A reload has no router state, so it goes Home. Opened with a returnTo (`back`,
  * W2 walk fix 10), "Back to <event name>" is the primary and Home comes second;
  * a `next` to that same place is not shown twice.
+ * The frame and the hub ("Back to Home") come from the surface: in P3 (W4a fix 1)
+ * Done is P3's frame and its hub button is "Back to You".
  */
 export default function Done() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { Shell, hub } = useOrgSurface();
   const state = readDoneState(location.state);
-  if (!state) return <Navigate to={ORG_PATHS.home} replace />;
+  if (!state) return <Navigate to={hub.to} replace />;
+  const toHub = () => navigate(hub.to, { replace: true });
   return (
-    <OrganiserShell title={state.title}>
+    <Shell title={state.title}>
       <div className="flex flex-col gap-3 p-3" data-testid="org-done">
         <p className="flex items-center gap-2 text-[16px] font-bold" role="status" data-testid="org-done-message">
           <CheckCircle2 aria-hidden="true" className="h-[20px] w-[20px] shrink-0 text-[var(--ok-fg)]" />
@@ -68,13 +71,13 @@ export default function Done() {
         {state.back ? (
           <>
             <BackToEvent back={state.back} />
-            <GhostButton testId="org-done-home" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
-              Back to Home
+            <GhostButton testId="org-done-home" onClick={toHub}>
+              Back to {hub.label}
             </GhostButton>
           </>
         ) : (
-          <PrimaryButton testId="org-done-home" onClick={() => navigate(ORG_PATHS.home, { replace: true })}>
-            Back to Home
+          <PrimaryButton testId="org-done-home" onClick={toHub}>
+            Back to {hub.label}
           </PrimaryButton>
         )}
         {state.next && state.next !== state.back && (
@@ -85,6 +88,6 @@ export default function Done() {
         {state.seriesId && <SeeItLive seriesId={state.seriesId} />}
         {state.offer && <ItsLiveOffer roles={state.offer} />}
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }
