@@ -178,7 +178,10 @@ const BANNER_HIDDEN_ON = (pathname: string) =>
   pathname.startsWith("/auth/") ||
   isAccountPath(pathname) ||
   pathname.toLowerCase() === "/app" ||
-  pathname.toLowerCase().startsWith("/app/");
+  pathname.toLowerCase().startsWith("/app/") ||
+  // The ambassador queue is the job on that page; reviewing needs no dancer profile.
+  pathname === "/ambassador" ||
+  pathname.startsWith("/ambassador/");
 
 /** The reminder banner. `dismissed` is per page view; it never outlives a navigation. */
 export const bannerModel = (
