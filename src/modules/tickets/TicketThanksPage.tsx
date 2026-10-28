@@ -96,7 +96,7 @@ export default function TicketThanksPage() {
             </p>
           )}
           <Link to="/" className="inline-flex min-h-[44px] items-center underline">
-            {state === 'failed' || state === 'processing' ? 'Back' : 'Back to what’s on'}
+            {state === 'failed' || state === 'processing' ? 'Back' : 'Back to what\u2019s on'}
           </Link>
         </section>
       </div>
