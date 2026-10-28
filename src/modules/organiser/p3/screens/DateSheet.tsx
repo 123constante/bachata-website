@@ -4,6 +4,7 @@ import { localAsZTime } from '../../shared/homeModel';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { useVenueOptions, venueName } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
+import { passCount } from '../../events/seriesExtras';
 import { ticketProblem } from '../../flows/change/changeModel';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
@@ -13,11 +14,13 @@ import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, addDateWhy, dateActions, pickDayProblem, timeWord, type DateAction, type DateRow } from '../model';
 import { cancelPlan } from '../data/eventPage';
+import { dateFieldsWhy, dateGalleryOf, datePriceRows, datePricesLock, photosWord, pricesWord } from '../data/dateFields';
 import {
   DATE_COPY, KeyRing, PLAN, PlanStepError, breakFactsOf, dateFactsOf, resetNormalPlan, seriesFactsOf, takenDays, undoFor, useDateDetail, useSendPlan,
   type DatePlan,
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
+import { DateFieldSheet, type FieldStep } from './DateFieldSheets';
 import { Sheet } from './Sheet';
 import { DateSessions } from './SessionSheet';
 import type { Done } from './StatusSheet';
@@ -26,7 +29,7 @@ import type { Done } from './StatusSheet';
 export type DateOpen = { kind: 'date'; id: string } | { kind: 'break'; date: string } | { kind: 'add' } | null;
 
 type Step = 'list' | 'cancel' | 'move' | 'time' | 'details' | 'skip' | 'resetNormal'
-  | 'edit-where' | 'edit-about' | 'edit-ticket' | 'edit-photo';
+  | 'edit-where' | 'edit-about' | 'edit-ticket' | 'edit-photo' | FieldStep;
 
 const CONFIRM_STEP: Partial<Record<DateAction, Step>> = {
   cancel: 'cancel', move: 'move', time: 'time', details: 'details', skip: 'skip', resetNormal: 'resetNormal',
@@ -115,12 +118,15 @@ function BreakSheet({ ws, date, today, onDone, onClose }: { ws: EventWorkspace; 
   );
 }
 
-/** A Where / About / Ticket / Photo row of C3 `dayown`: this date's own value, or the usual one. */
-function OwnRow({ label, own, usual, testId, busy, onEdit, onUsual }: {
-  label: string; own: string | null; usual: string | null; testId: string; busy: boolean; onEdit: () => void; onUsual: () => void;
+/**
+ * A row of C3 `dayown`: this date's own value, or the usual one. `why` (W3b-2): the row cannot
+ * change here, said instead of a live link (a festival's name, photos, price; a team-set list).
+ */
+function OwnRow({ label, own, usual, testId, busy, why = null, onEdit, onUsual }: {
+  label: string; own: string | null; usual: string | null; testId: string; busy: boolean; why?: string | null; onEdit: () => void; onUsual: () => void;
 }) {
   return (
-    <div className="p3-row p3-row-col" data-testid={testId}>
+    <div className="p3-row p3-row-col" data-testid={testId} data-enabled={!why}>
       <span className="p3-row-t">{label} <span className="p3-chip">{own ? L.onlyThis : L.sameUsual}</span></span>
       <span className="p3-row-s p3-plain">{own ?? usual ?? L.notSet}</span>
       {own && (
@@ -128,7 +134,8 @@ function OwnRow({ label, own, usual, testId, busy, onEdit, onUsual }: {
           <button type="button" className="p3-link" disabled={busy} onClick={onUsual} data-testid={`${testId}-usual`}>{L.useUsual}</button>
         </span>
       )}
-      <button type="button" className="p3-link" disabled={busy} onClick={onEdit} data-testid={`${testId}-edit`}>{L.changeForDate}</button>
+      {why ? <span className="p3-row-s" data-testid={`${testId}-why`}>{why}</span>
+        : <button type="button" className="p3-link" disabled={busy} onClick={onEdit} data-testid={`${testId}-edit`}>{L.changeForDate}</button>}
     </div>
   );
 }
@@ -228,6 +235,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
         {step === 'skip' && (facts.ownDetails || facts.ownTime) && <p className="p3-warn">{DATE_COPY.skipOwn}</p>}
         {step === 'skip' && <p className="p3-note">{DATE_COPY.skipHint}</p>}
         {step === 'resetNormal' && <p className="p3-note">{DATE_COPY.resetBody(day)}</p>}
+        {step === 'resetNormal' && detail?.cancelled && fieldsOwned(detail) && <p className="p3-warn" data-testid="p3-reset-cancelled">{L.dateFieldsCancelled}</p>}
         <Err error={error} />
         <Buttons>
           <button type="button" className="p3-btn" disabled={!plan || busy} data-testid={`p3-${step}-go`}
@@ -242,6 +250,9 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
   if (step === 'details') {
     const usualPlace = venueName(venues.data, s.default_venue_id);
     const ownPlace = detail?.venueOverride ? venueName(venues.data, detail.venueOverride) ?? detail.venueOverride : null;
+    const fieldsWhy = dateFieldsWhy(ws);
+    const usualPrices = datePricesLock(ws, null) ? L.pricesLockedCount(passCount(ws)) : pricesWord(datePriceRows(ws, null));
+    const ownPrices = datePricesLock(ws, detail) ? L.pricesLockedCount(detail?.passesOverride?.length ?? 0) : pricesWord(datePriceRows(ws, detail));
     return (
       <Sheet title={DATE_COPY.detailsTitle(day)} onClose={onClose}>
         {backLink}
@@ -255,6 +266,14 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
             onEdit={() => to('edit-ticket', detail?.ticketUrlOverride ?? '')} onUsual={() => saveDetail({ ticket_url: null })} />
           <OwnRow label={L.photo} own={detail?.coverImageOverride ? L.onlyThis : null} usual={s.default_cover_image_url ? L.sameUsual : null} testId="p3-own-photo" busy={busy}
             onEdit={() => to('edit-photo')} onUsual={() => saveDetail({ cover_image_url: null })} />
+          {/* W3b-2: name, photos, price (occurrence.set_override title / gallery / passes) */}
+          <OwnRow label={L.dateName} own={detail?.titleOverride ?? null} usual={s.name.trim() || L.noName} testId="p3-own-name" busy={busy} why={fieldsWhy}
+            onEdit={() => to('edit-name')} onUsual={() => saveDetail({ title: null })} />
+          <OwnRow label={L.datePhotos} own={detail?.galleryOverride != null ? photosWord(detail.galleryOverride.length) : null}
+            usual={photosWord(dateGalleryOf(ws, null).length)} testId="p3-own-photos" busy={busy} why={fieldsWhy}
+            onEdit={() => to('edit-photos')} onUsual={() => saveDetail({ gallery: null })} />
+          <OwnRow label={L.datePrice} own={detail?.passesOverride != null ? ownPrices : null} usual={usualPrices} testId="p3-own-price" busy={busy}
+            why={fieldsWhy ?? datePricesLock(ws, detail)} onEdit={() => to('edit-price')} onUsual={() => saveDetail({ passes: null })} />
         </div>
         <Err error={error} />
       </Sheet>
@@ -303,6 +322,9 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
       </Sheet>
     );
   }
+  if (step === 'edit-name' || step === 'edit-photos' || step === 'edit-price') {
+    return <DateFieldSheet step={step} ws={ws} detail={detail} busy={busy} error={error} onSave={saveDetail} onBack={back} onClose={onClose} />;
+  }
   if (step === 'edit-photo') {
     const upload = async (file: File | undefined) => {
       if (!file) return;
@@ -348,6 +370,9 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
     </Sheet>
   );
 }
+
+/** A cancelled date still holding its own name, photos or price: the owner arm refuses those keys until it is back. */
+const fieldsOwned = (d: DateDetail) => d.titleOverride !== null || d.galleryOverride !== null || d.passesOverride !== null;
 
 function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent }: {
   ws: EventWorkspace; id: string; today: string; onDone: (d: Done) => void; onClose: () => void; onCancelEvent: () => void;

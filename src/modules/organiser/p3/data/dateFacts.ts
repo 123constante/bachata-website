@@ -10,7 +10,10 @@ import { dateMarks, kindOf, type DateFacts, type IsoDate } from '../model';
 
 /** The date has its own Where / About / Ticket link / photo (a cancellation reason is not one). */
 export function ownDetailsOf(d: WorkspaceDate, detail?: DateDetail | null): boolean {
-  if (detail) return !!(detail.venueOverride || detail.descriptionOverride || detail.ticketUrlOverride || detail.coverImageOverride);
+  if (detail) {
+    return !!(detail.venueOverride || detail.descriptionOverride || detail.ticketUrlOverride || detail.coverImageOverride)
+      || detail.titleOverride !== null || detail.galleryOverride !== null || detail.passesOverride !== null;
+  }
   return d.has_override && d.lifecycle_status !== 'cancelled';
 }
 
