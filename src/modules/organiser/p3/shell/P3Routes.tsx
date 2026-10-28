@@ -10,7 +10,7 @@ import { EventPage } from '../screens/EventPage';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
-import { P3Placeholder } from './placeholders';
+import { youRoutes } from './youTickets';
 import { P3_PATHS } from './paths';
 
 // W3a's edit screens load on their own (PR #1082 r1 #8): their shared modules stay out of the list of
@@ -35,7 +35,7 @@ export default function P3Routes() {
           <Route path="events/:seriesId/details" element={<Suspense fallback={null}><DetailsScreen /></Suspense>} />
           <Route path="events/:seriesId/prices" element={<Suspense fallback={null}><PricesScreen /></Suspense>} />
           <Route path="stats" element={<StatsScreen />} />
-          <Route path="you" element={<P3Placeholder tab="you" />} />
+          {youRoutes()}
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
         </Route>
       </Routes>

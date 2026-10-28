@@ -19,6 +19,8 @@ import { SessionSheet, type SessionOpen } from './SessionSheet';
 import { factsOf } from '../data/sessions';
 import { programmeRules } from '../model/programme';
 import type { SendOnce } from './CancelEventSheet';
+import { flags } from '@/lib/featureFlags';
+import { TicketsEntry } from '../tickets/TicketsEntry';
 
 /** The second half of the status row (C3 "Live \u00b7 Hide or end it"). */
 const STATUS_HINT: Record<string, string> = {
@@ -200,6 +202,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         </span>
         <span aria-hidden="true">&rsaquo;</span>
       </button>
+      {flags.organiserTicketing && <TicketsEntry seriesId={ws.series.id} />}
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
       <About v={v} />
