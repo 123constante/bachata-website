@@ -377,7 +377,7 @@ onboarding, admin UI for the audit table.
 
 | Item | State 2026-10-28 |
 |---|---|
-| Plan | written (this doc), awaiting Fable read and owner answers Q1-Q4 |
+| Plan | written (this doc, PR #1120), awaiting Fable read and owner answers Q1-Q4 |
 | S1, S2, S6, S7, S8 | not started |
 | S3 | merged (#1113, #1117) |
 | S4 | admin #1101/#1103 open (not verifiable from here) |
