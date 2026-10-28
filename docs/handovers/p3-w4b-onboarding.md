@@ -29,3 +29,12 @@ stays OFF; R1 (`/account/o`) keeps today's behaviour, proven by tests.
 - Orchestrator walk on the Vercel preview; one independent review + one fix round (brief's stopping rule).
 - Not built (owner decisions): return task-carry through `returnTo`; server auto-create of a missing
   dancer row; go-live, role question, Dancer4 (next cluster).
+
+## State at hand-off
+
+- PR #1118 (bot-opened, body rewritten with the literal "Verified on real data" / "Phone QA" lines
+  and the per-job table). Not docs-only, so no automerge label. Never merged or approved here.
+- Sandbox CI: every step green except 17 unit tests in 5 files that fail identically on `main` here
+  (integrity temp-repo + live-DB contract suites, environment). `/app/*` first load 373.6 KB on both.
+- Next steps: the orchestrator walk on the preview with `organiserP3` on, one independent review,
+  one fix round.
