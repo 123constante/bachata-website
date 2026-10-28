@@ -131,6 +131,15 @@ describe.each(SHAPES)('$name: every surface reads the same fact', ({ c }) => {
       expect(bannerModel(c, { dismissed: false, pathname })).toBeNull();
     }
   });
+
+  it('the banner is hidden on /ambassador and everything under it, but not on look-alike paths', () => {
+    for (const pathname of ['/ambassador', '/ambassador/', '/ambassador/review/abc']) {
+      expect(bannerModel(c, { dismissed: false, pathname })).toBeNull();
+    }
+    for (const pathname of ['/ambassadors', '/ambassadors-x', '/organisers']) {
+      expect(bannerModel(c, { dismissed: false, pathname }) !== null).toBe(unfinished);
+    }
+  });
 });
 
 describe.each(NOT_KNOWN)('$name: no surface claims anything', ({ c }) => {

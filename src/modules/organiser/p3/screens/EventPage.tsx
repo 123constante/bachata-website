@@ -10,10 +10,11 @@ import { L, addDateWhy, peopleText, sessionKindLabel, sessionTitle, timeWord } f
 import { seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
-import { ChangeItLink, RetryButton, StateCard } from './parts';
+import { RetryButton, StateCard } from './parts';
 import { StatusSheet, type Send } from './StatusSheet';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { useToast } from './Toast';
+import { useSavedToast } from './savedToast';
 import { SessionSheet, type SessionOpen } from './SessionSheet';
 import { factsOf } from '../data/sessions';
 import { programmeRules } from '../model/programme';
@@ -147,7 +148,16 @@ function About({ v }: { v: EventPageView }) {
         <AboutRow label={L.ticket}>{a.ticket ? <a className="p3-link" href={a.ticket} target="_blank" rel="noreferrer">{a.ticket}</a> : none}</AboutRow>
         <AboutRow label={L.instagram}>{a.instagram ? <a className="p3-link" href={a.instagram} target="_blank" rel="noreferrer">{a.instagram}</a> : none}</AboutRow>
       </div>
-      <p className="p3-note">To change details for every date: <ChangeItLink>use the current organiser area</ChangeItLink>.</p>
+      <div className="p3-card p3-tight p3-list p3-gap-t" data-testid="p3-edit-rows">
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventDetails(v.id)} data-testid="p3-open-details">
+          <span className="p3-grow"><span className="p3-row-t">{L.detailsTitle}</span><br /><span className="p3-row-s">{L.detailsRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventPrices(v.id)} data-testid="p3-open-prices">
+          <span className="p3-grow"><span className="p3-row-t">{L.prices}</span><br /><span className="p3-row-s">{L.pricesRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+      </div>
     </section>
   );
 }
@@ -156,6 +166,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const today = londonTodayKey();
   const v = eventPageOf(ws, today);
   const toast = useToast(ws.series.id, ws.series.version);
+  useSavedToast(toast.show);
   const send: Send = (commands, version) => toast.run(commands, version);
   const once = useSendOnce(ws.series.id);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);

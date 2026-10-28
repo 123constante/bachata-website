@@ -25,6 +25,10 @@ export const P3_PATHS = {
   youWelcome: (organiserId: string) => `${P3_BASE}/you/welcome?o=${encodeURIComponent(organiserId)}`,
   /** Done after a team change or a page save, in P3's frame (W4a fix 1). */
   youDone: `${P3_BASE}/you/done`,
+  /** One event's Name and details (W3a). */
+  eventDetails: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/details`,
+  /** One event's Prices (W3a). */
+  eventPrices: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/prices`,
 } as const;
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';

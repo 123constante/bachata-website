@@ -254,3 +254,17 @@
   --eip-mut: var(--mut); --eip-line: var(--line); --eip-line-strong: var(--line-strong); --eip-chip-bg: var(--card2);
   --eip-chip-line: var(--line); --eip-accent-soft: var(--warn-bg); --eip-danger: var(--danger);
 }
+/* W3a: the shared save model (tray, pending line) on Name and details and Prices */
+.p3-theme .p3-edit { padding-bottom: 8px; }
+.p3-theme .p3-pending { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); padding: 8px 12px; border: 0; border-radius: var(--r-ctl); background: var(--warn-bg); color: var(--warn-fg); font: inherit; font-size: var(--fs-small); text-align: left; cursor: pointer; }
+.p3-theme .p3-pending:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme .p3-tray { position: sticky; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 4px; margin: 0 -16px; padding: 8px 16px; background: var(--bg); border-top: 1px solid var(--line); }
+.p3-theme .p3-tray-row { display: flex; justify-content: flex-end; }
+.p3-theme textarea.p3-in-short { min-height: 88px; }
+.p3-theme select.p3-in { min-height: var(--tap); }
+.p3-theme .p3-card > .p3-check:first-child { border-top: 0; }
+/* W3a r1 #7: the cover photo picker is a normal button; the file input fills it, unseen but focusable */
+.p3-theme .p3-file { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.p3-theme .p3-file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.p3-theme .p3-file:focus-within { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme .p3-file:has(input:disabled) { color: var(--mut); cursor: default; }

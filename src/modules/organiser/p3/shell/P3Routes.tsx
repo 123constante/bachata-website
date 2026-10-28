@@ -1,12 +1,12 @@
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { P3Shell } from './P3Shell';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { P3YouSurface } from '../you/surface';
 import { P3_PATHS } from './paths';
 
@@ -23,6 +23,10 @@ const SwitchPage = lazyWithRetry(() => import('../../switch'));
 const WelcomePage = lazyWithRetry(() => import('../../switch/Welcome'));
 const PageScreen = lazyWithRetry(() => import('../../page'));
 const Done = lazyWithRetry(() => import('../../flows/Done'));
+// W3a's edit screens load on their own (PR #1082 r1 #8): their shared modules stay out of the list of
+// chunks the app's route table names for the P3 area, which /app's first load carries.
+const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').then((m) => ({ default: m.DetailsScreen })));
+const PricesScreen = lazyWithRetry(() => import('../screens/PricesScreen').then((m) => ({ default: m.PricesScreen })));
 
 /**
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while
@@ -38,6 +42,8 @@ export default function P3Routes() {
           <Route path="events" element={<EventsScreen />} />
           <Route path="events/:seriesId" element={<Suspense fallback={null}><EventPage /></Suspense>} />
           <Route path="events/:seriesId/dates" element={<Suspense fallback={null}><AllDatesScreen /></Suspense>} />
+          <Route path="events/:seriesId/details" element={<Suspense fallback={null}><DetailsScreen /></Suspense>} />
+          <Route path="events/:seriesId/prices" element={<Suspense fallback={null}><PricesScreen /></Suspense>} />
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />

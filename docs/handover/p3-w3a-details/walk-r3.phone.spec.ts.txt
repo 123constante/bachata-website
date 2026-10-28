@@ -1,0 +1,82 @@
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, appendFileSync } from 'node:fs';
+import { checkOverflow, fakeSupabase, frames } from './helpers';
+import { FAKE_ORIGIN } from './fakeSupabase.mjs';
+
+// THROWAWAY walk, review round 3 (PR #1082): only the states whose pixels changed. Same harness as walk.phone.spec.ts.txt.
+const SHAPES = JSON.parse(readFileSync(process.env.SHAPES_JSON!, 'utf8'));
+const OUT = process.env.SHOTS!;
+const json = (body: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+const PROGRESS_UNFINISHED = { percent: 60, required_left: 2, publish_ready: false, steps: [], declined: [] };
+
+async function open(page: Page, shape: string, path: 'details' | 'prices', scheme: 'light' | 'dark', progress?: unknown) {
+  await page.emulateMedia({ colorScheme: scheme });
+  await fakeSupabase(page, { signedInAsOwner: true, realClock: true });
+  await page.clock.setFixedTime(new Date('2026-10-25T12:00:00Z'));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) => r.fulfill(json(SHAPES[shape])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/get_organiser_venue_options_v1`, (r) => r.fulfill(json([])));
+  await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/*_command_p5`, (r) => r.fulfill(json({ ok: true, new_version: 8 })));
+  if (progress) await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/my_profile_progress_v1`, (r) => r.fulfill(json(progress)));
+  await page.goto(`/account/p3/events/ser-1/${path}`);
+  await page.locator('[data-testid=p3-details],[data-testid=p3-prices]').first().waitFor();
+}
+
+async function checks(page: Page, label: string, scope = '.p3-frame') {
+  expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
+  const sel = (s: string) => `${s} button, ${s} a[href], ${s} input, ${s} select, ${s} textarea`;
+  const taps = await page.evaluate((q) => [...document.querySelectorAll(q)]
+    .map((el) => el.closest('label') ?? el).filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+    .map((el) => ({ el: (el.getAttribute('data-testid') ?? el.textContent ?? '').trim().slice(0, 40), h: Math.round(el.getBoundingClientRect().height) })), sel(scope));
+  const clip = await page.evaluate((s) => [...document.querySelectorAll(`${s} *`)]
+    .filter((el) => { const c = getComputedStyle(el); return el.children.length === 0 && (el.textContent ?? '').trim() && el.scrollWidth > el.clientWidth + 1 && c.overflow !== 'visible' && el.clientWidth > 0; })
+    .map((el) => (el.textContent ?? '').trim().slice(0, 40)), scope);
+  const contrast = await new AxeBuilder({ page }).include(scope).withRules(['color-contrast']).analyze();
+  appendFileSync(`${OUT}/metrics.jsonl`, JSON.stringify({
+    round: 'r3', label, sideways: (await checkOverflow(page)).length, taps: taps.length, minTap: Math.min(...taps.map((t) => t.h)),
+    small: taps.filter((t) => t.h < 44), clipped: clip, contrastViolations: contrast.violations.length,
+    contrastPasses: contrast.passes.flatMap((v) => v.nodes).length,
+  }) + '\n');
+  expect(taps.filter((t) => t.h < 44), `${label}: taps >= 44px`).toEqual([]);
+  expect(clip, `${label}: clipped text`).toEqual([]);
+  expect(contrast.violations.flatMap((v) => v.nodes.map((n) => n.target.join(' '))), `${label}: contrast`).toEqual([]);
+}
+
+const shot = async (page: Page, name: string) => { await frames(page); await page.screenshot({ path: `${OUT}/${name}.png` }); };
+
+test.beforeEach(({ page: _p }, info) => { test.skip(info.project.name !== 'phone-390x844', 'one size'); });
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`r3: banner, chat problem, Prices profile lock ${scheme}`, async ({ page }) => {
+    await open(page, 'weekly', 'details', scheme);
+    await page.getByTestId('p3-d-chat').fill('https://localhost/x');
+    await page.getByTestId('p3-d-chat').blur();
+    await expect(page.getByTestId('p3-problem-chat')).toBeVisible();
+    await expect(page.getByTestId('p3-save')).toBeDisabled();
+    await page.getByTestId('p3-field-chat').scrollIntoViewIfNeeded();
+    await checks(page, `details chat problem ${scheme}`);
+    await shot(page, `18-details-chat-problem-${scheme}`);
+    // someone else saves: the next workspace read is at a newer version
+    await page.getByTestId('p3-d-chat').fill('');
+    await page.unroute(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`);
+    const newer = JSON.parse(JSON.stringify(SHAPES.weekly));
+    newer.series.series.version = 9;
+    await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/admin_event_workspace_p5`, (r) => r.fulfill(json(newer)));
+    await page.unroute(`${FAKE_ORIGIN}/rest/v1/rpc/*_command_p5`);
+    await page.route(`${FAKE_ORIGIN}/rest/v1/rpc/*_command_p5`, (r) => r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'version_conflict: expected 7, got 9' }) }));
+    await page.getByTestId('p3-d-description').fill('Mine');
+    // the refused save reloads the workspace (useSendOnce), which now reads v9
+    await page.getByTestId('p3-save').click();
+    await page.getByTestId('p3-save-error').waitFor();
+    await page.getByTestId('p3-changed-elsewhere').waitFor();
+    await expect(page.getByTestId('p3-changed-elsewhere')).toContainText('will be refused');
+    await page.getByTestId('p3-changed-elsewhere').scrollIntoViewIfNeeded();
+    await checks(page, `details banner ${scheme}`);
+    await shot(page, `19-details-banner-${scheme}`);
+    await open(page, 'weekly', 'prices', scheme, PROGRESS_UNFINISHED);
+    await page.getByTestId('p3-prices-lock').waitFor();
+    await expect(page.getByTestId('p3-save')).toBeDisabled();
+    await checks(page, `prices profile lock ${scheme}`);
+    await shot(page, `20-prices-profile-lock-${scheme}`);
+  });
+}

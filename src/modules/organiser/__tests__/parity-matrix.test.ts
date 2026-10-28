@@ -78,6 +78,8 @@ const PROD_OWNER_KINDS = [
   // ER AD4 (20261204180000): check_owner_command_allowlist_v1 c_expected and the dispatcher's owner kinds
   // on prod list it (read 2026-10-26); its payload rule admits exactly `reason`.
   'series.cancel_one_off',
+  // P3 W3a: c_expected lists series.set_group_chat for owners and managers (read 2026-10-27); payload exactly `url`.
+  'series.set_group_chat',
 ];
 const PROD_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',

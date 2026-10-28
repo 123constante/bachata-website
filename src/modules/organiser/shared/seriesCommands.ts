@@ -19,6 +19,8 @@ export const OWNER_COMMAND_KINDS = [
   'occurrence.move_date',
   // ER AD4 (admin 20261204180000): a one-off ends with a reason (cancels its one date; the series stays live).
   'series.cancel_one_off',
+  // P3 W3a: the event's group chat link (owner and manager; check_owner_command_allowlist_v1 lists it, read 2026-10-27).
+  'series.set_group_chat',
 ] as const;
 
 /**
@@ -266,6 +268,9 @@ export const OWNER_CANCEL_ONE_OFF_KEYS = ['reason'] as const;
 export const cancelOneOffCommand = (reason: string): OwnerCommand => ({ kind: 'series.cancel_one_off', payload: { reason } });
 /** Put a CANCELLED date back (D46); a taken-off date uses unskipDateCommand. */
 export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel', payload: { cancelled: false } });
+
+/** The event's group chat link (series.set_group_chat takes exactly `url`, a string or null; blank clears). */
+export const groupChatCommand = (url: string): OwnerCommand => ({ kind: 'series.set_group_chat', payload: { url: url.trim() || null } });
 /** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */
 export const moveDateCommand = (toDate: string): OwnerCommand => ({ kind: 'occurrence.move_date', payload: { to_date: toDate } });
 /**

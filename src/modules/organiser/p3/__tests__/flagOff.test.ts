@@ -29,7 +29,7 @@ describe('flag off: old routes unchanged', () => {
     const hits = [...routes.matchAll(/\/account\/p3/g)];
     expect(hits).toHaveLength(1);
     expect(routes).toMatch(/\{flags\.organiserP3 && flags\.organiserSelfServe \? \(\n\s+<Route path="\/account\/p3\/\*" element=\{<OrganiserP3Area \/>\} \/>\n\s+\) : null\}/);
-    expect(routes).toMatch(/const OrganiserP3Area = lazyWithRetry\(\(\) => import\("@\/modules\/organiser\/p3\/shell\/P3Routes"\)\);/);
+    expect(routes).toMatch(/const OrganiserP3Area = (?:\/\* @__PURE__ \*\/ )?lazyWithRetry\(\(\) => import\("@\/modules\/organiser\/p3\/shell\/P3Routes"\)\);/);
   });
   it('the route literal is P3_BASE and the catchall list knows it', () => {
     expect(routes.includes(`path="${P3_BASE}/*"`)).toBe(true);

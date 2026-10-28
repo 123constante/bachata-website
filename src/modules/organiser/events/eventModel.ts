@@ -42,6 +42,8 @@ export interface EventWorkspace extends SeriesWorkspace {
   program: unknown;
   /** The organiser pages linked to the event, in order (linkedOrganiserIds). */
   organiserIds: string[];
+  /** event_series_p5.group_chat_url (series.set_group_chat writes it; P3 W3a). */
+  groupChatUrl: string | null;
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
@@ -60,6 +62,7 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     level: typeof row.default_level === 'string' && row.default_level.trim() ? row.default_level : null,
     program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
     organiserIds: linkedOrganiserIds(row),
+    groupChatUrl: typeof row.group_chat_url === 'string' && row.group_chat_url.trim() ? row.group_chat_url : null,
   };
 }
 
