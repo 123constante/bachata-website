@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES, occ, program, item, weekly, wsRaw } from './wsFixtures';
 import { REPEAT_COPY, REPEAT_FAIL, REPEAT_WHY } from '../../model/repeat';
+import { OFFLINE_SAVE_MESSAGE } from '../../../shared/selfServeErrors';
 
 /*
  * P3 W3c-1 Repeat through the REAL page and send path (EventPage -> RepeatSheet -> data/repeat
@@ -141,7 +142,7 @@ describe('W3c-1 Repeat sheet, real send path', () => {
     await screen.findByTestId('p3-repeat-preview-error');
     const save = screen.getByTestId('p3-repeat-save') as HTMLButtonElement;
     expect(save.disabled).toBe(true);
-    expect((screen.getByTestId('p3-repeat-save-why')).textContent).toContain(REPEAT_COPY.retry);
+    expect((screen.getByTestId('p3-repeat-save-why')).textContent).toBe(REPEAT_COPY.previewNeeded);
     fireEvent.click(save);
     await new Promise((r) => setTimeout(r, 50));
     expect(sent.every((e) => e.command.payload.dry_run === true)).toBe(true);
@@ -150,6 +151,48 @@ describe('W3c-1 Repeat sheet, real send path', () => {
     fireEvent.click(screen.getByRole('button', { name: REPEAT_COPY.retry }));
     await screen.findByTestId('p3-repeat-line-removed');
     expect((screen.getByTestId('p3-repeat-save') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('a dry run that drops says the dates could not be checked, never the save-offline line (review F4)', async () => {
+    serve(SHAPES.weekly, () => { throw new TypeError('Failed to fetch'); });
+    show();
+    await openRepeat();
+    fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
+    const line = (await screen.findByTestId('p3-repeat-preview-error')).textContent ?? '';
+    expect(line).toBe(REPEAT_COPY.previewOffline);
+    expect(line).not.toContain(OFFLINE_SAVE_MESSAGE);
+  });
+
+  it('a save whose connection dropped is retried under the SAME key; a changed draft gets a new one (review F6)', async () => {
+    serve(SHAPES.weekly, (e) => {
+      if (e.command.payload.dry_run) return { data: { ok: true, new_version: 7, data: DRY } };
+      throw new TypeError('Failed to fetch');
+    });
+    show();
+    await openRepeat();
+    fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
+    await screen.findByTestId('p3-repeat-line-removed');
+    fireEvent.click(screen.getByTestId('p3-repeat-save'));
+    expect((await screen.findByTestId('p3-sheet-error')).textContent).toContain(OFFLINE_SAVE_MESSAGE);
+    const saves = () => sent.filter((e) => !e.command.payload.dry_run);
+    await waitFor(() => expect((screen.getByTestId('p3-repeat-save') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('p3-repeat-save'));
+    await waitFor(() => expect(saves()).toHaveLength(2));
+    expect(saves()[1].idempotency_key).toBe(saves()[0].idempotency_key);
+    expect(saves()[1].command).toEqual(saves()[0].command);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tuesday' }));
+    await waitFor(() => expect(sent.filter((e) => e.command.payload.dry_run).length).toBeGreaterThan(1));
+    await screen.findByTestId('p3-repeat-line-removed');
+    await waitFor(() => expect((screen.getByTestId('p3-repeat-save') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('p3-repeat-save'));
+    await waitFor(() => expect(saves()).toHaveLength(3));
+    expect(saves()[2].idempotency_key).not.toBe(saves()[0].idempotency_key);
+
+    serve(SHAPES.weekly, () => ({ data: { ok: true, new_version: 8, data: {} } }));
+    fireEvent.click(screen.getByTestId('p3-repeat-save'));
+    await waitFor(() => expect(screen.queryByTestId('p3-sheet')).toBeNull());
+    expect(sent.filter((e) => !e.command.payload.dry_run)).toHaveLength(1);
   });
 
   it('RED FIRST: a refused dry run and a refused save each show their one sentence', async () => {
@@ -179,6 +222,8 @@ describe('W3c-1 Repeat sheet, real send path', () => {
     expect((monday as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(monday);
     expect((screen.getByTestId('p3-repeat-save') as HTMLButtonElement).disabled).toBe(true);
+    // review F7: the greyed editor's button never reads as if something could change
+    expect(screen.getByTestId('p3-repeat-save').textContent).toBe(REPEAT_COPY.cantHere);
     await new Promise((r) => setTimeout(r, 450));
     expect(sent).toEqual([]);
   });

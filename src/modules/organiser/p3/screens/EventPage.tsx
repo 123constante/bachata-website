@@ -227,7 +227,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
           onDone={(d) => { setSheet(false); toast.show(d); }} />
       )}
       {repeat && (
-        <RepeatSheet ws={ws} today={today} send={send} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
+        <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
           onClose={closeRepeat} onDone={(d) => { setRepeat(false); toast.show(d); }} />
       )}
       <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />

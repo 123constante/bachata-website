@@ -1,4 +1,4 @@
-import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isNetworkFailure } from '../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import { fullDate, WEEKDAY_NAMES } from '../../shared/dateWords';
 import { kindOf } from './kind';
@@ -49,18 +49,37 @@ export const REPEAT_FAIL = {
   until_too_far: 'The last date can be at most 2 years from today. Pick an earlier date, or choose Keeps going.',
   mode_not_allowed: 'That pattern can only be set by the Bachata Calendar team. Pick Every week or Every month, or ask us to set it.',
   course_needs_count: 'A course needs a set number of classes, so it cannot repeat without an end. Change its dates directly, or ask the Bachata Calendar team.',
+  until_before_start: 'Pick a last date on or after the first date.',
+  start_too_old: 'This event started more than a year ago, so a last date can\u2019t be set here. Choose Stops after a number of times, or ask the Bachata Calendar team.',
 } as const;
 export type RepeatFailCode = keyof typeof REPEAT_FAIL;
 
-/** The sentence for a failed preview or save: the five rule codes first, then the shared copy (version conflict, not permitted, offline). */
+/**
+ * The two end.date refusals apply_aggregate_write_p5 raises for series.set_recurrence (read on
+ * prod 2026-10-28; dry runs too). Matched BEFORE the shared copy, whose set_recurrence line is
+ * the R1 one-weekday screen's and points at a "first date" control this sheet has not got.
+ */
+const END_DATE_FAIL: Array<[RegExp, RepeatFailCode]> = [
+  [/end\.date must not be before the start date/, 'until_before_start'],
+  [/end\.date needs a start date no earlier than 12 months ago/, 'start_too_old'],
+];
+
+/** The sentence for a failed preview or save: the rule codes first, then the shared copy (version conflict, not permitted, offline). */
 export function repeatFailure(error: unknown): string {
   const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
   if (typeof message === 'string') {
     const hit = message.match(/invalid_recurrence_payload: (count_over_cap|interval_out_of_range|until_too_far|mode_not_allowed)/)
-      ?? message.match(/(course_needs_count)/);
+      ?? message.match(/invalid_transition: (course_needs_count)/);
     if (hit) return REPEAT_FAIL[hit[1] as RepeatFailCode];
+    const end = END_DATE_FAIL.find(([re]) => re.test(message));
+    if (end) return REPEAT_FAIL[end[1]];
   }
   return commandErrorMessage(error);
+}
+
+/** The sentence for a failed dry run: it saved nothing, so offline never reads like the save-offline line. */
+export function previewFailure(error: unknown): string {
+  return isNetworkFailure(error) ? REPEAT_COPY.previewOffline : repeatFailure(error);
 }
 
 // ---- what can be changed here, and why not --------------------------------------------
@@ -193,8 +212,12 @@ export const REPEAT_PROBLEM = {
   pastUntil: 'Pick a last date from today on.',
 } as const;
 
-/** What stops this draft being sent, as one sentence saying what to do; null = it can be sent. */
-export function repeatProblem(d: RepeatDraft, today: IsoDate): string | null {
+/**
+ * What stops this draft being sent, as one sentence saying what to do; null = it can be sent.
+ * `start` is the series' first date, COALESCE(default_start_date, created_at), when the
+ * workspace carries it: a last date before it is refused by the server (repeatFailure).
+ */
+export function repeatProblem(d: RepeatDraft, today: IsoDate, start: IsoDate | null = null): string | null {
   if (d.freq === 'weekly' && !d.weekdays.length) return REPEAT_PROBLEM.noDay;
   if (d.freq === 'monthly' && d.monthBy === 'day' && !(Number.isInteger(d.day) && d.day >= 1 && d.day <= 31)) return REPEAT_PROBLEM.badDay;
   if (d.freq === 'monthly' && d.monthBy === 'nth' && !d.nths.length) return REPEAT_PROBLEM.noWeek;
@@ -206,14 +229,19 @@ export function repeatProblem(d: RepeatDraft, today: IsoDate): string | null {
   if (d.end === 'until_date') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d.until)) return REPEAT_PROBLEM.noUntil;
     if (d.until < today) return REPEAT_PROBLEM.pastUntil;
+    if (start && d.until < start) return REPEAT_FAIL.until_before_start;
     if (d.until > addMonthsKey(today, REPEAT_MAX.months)) return REPEAT_FAIL.until_too_far;
   }
   return null;
 }
 
+/** The series' first date as the server reads it, COALESCE(default_start_date, created_at) (as isRuleDate). */
+export const repeatStart = (s: { default_start_date: string | null; created_at: string | null }): IsoDate | null =>
+  s.default_start_date ?? s.created_at?.slice(0, 10) ?? null;
+
 /** What a save sends: nothing when the editor is not open here, nothing changed, or the draft has a problem. */
-export function repeatPlan(access: RepeatAccess, base: RepeatDraft, draft: RepeatDraft, today: IsoDate): OwnerCommand[] {
-  if (access.mode !== 'edit' || draftSig(base) === draftSig(draft) || repeatProblem(draft, today)) return [];
+export function repeatPlan(access: RepeatAccess, base: RepeatDraft, draft: RepeatDraft, today: IsoDate, start: IsoDate | null = null): OwnerCommand[] {
+  if (access.mode !== 'edit' || draftSig(base) === draftSig(draft) || repeatProblem(draft, today, start)) return [];
   return [{ kind: 'series.set_recurrence', payload: rulePayload(draft) }];
 }
 
@@ -324,6 +352,9 @@ export const REPEAT_COPY = {
   checking: 'Checking which dates change\u2026',
   save: 'Save the new pattern',
   nothing: 'Nothing changed yet',
+  cantHere: 'Can\u2019t change here',
+  previewNeeded: 'The dates could not be checked yet. Tap Check again, then save.',
+  previewOffline: 'Your phone seems to be offline, so the dates could not be checked. Check your connection, then tap Check again.',
   saved: 'Saved. The dates follow the new pattern.',
   next: 'The next dates',
   undo: 'Undo my changes',

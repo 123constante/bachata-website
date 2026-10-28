@@ -5,12 +5,14 @@ import { fullDate, WEEKDAY_NAMES } from '../../shared/dateWords';
 import { saveButton } from '../model';
 import {
   NTH_CHOICES, PREVIEW_EMPTY, REPEAT_COPY, REPEAT_MAX, WEEK_ORDER, addMonthsKey, blankDraft, courseFacts, courseLine, defaultWeekday,
-  draftOfRule, draftSig, parsePreview, previewCommand, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem,
-  repeatSentence, storedRuleWords, type RepeatDraft, type RepeatEnd, type RepeatPreview,
+  draftOfRule, draftSig, parsePreview, previewCommand, previewFailure, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem,
+  repeatSentence, repeatStart, storedRuleWords, type RepeatDraft, type RepeatEnd, type RepeatPreview,
 } from '../model/repeat';
 import type { PreviewRepeat } from '../data/repeat';
+import { newIdempotencyKey } from '../../shared/seriesCommands';
 import { Sheet } from './Sheet';
-import type { Done, Send } from './StatusSheet';
+import type { SendOnce } from './CancelEventSheet';
+import type { Done } from './StatusSheet';
 
 /** The sheet and its scrim go to document.body, inside their own p3-theme (the frame's light or dark). */
 function OnBody({ children }: { children: ReactNode }) {
@@ -122,7 +124,8 @@ function Editor({ d, set, today, off }: { d: RepeatDraft; set: (p: Partial<Repea
 export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   ws: EventWorkspace;
   today: string;
-  send: Send;
+  /** The one-command save goes under a key held per draft (as the Status sheet's cancel): a retry after a dropped connection is the same write. */
+  send: SendOnce;
   preview: PreviewRepeat;
   onDone: (d: Done) => void;
   onClose: () => void;
@@ -137,11 +140,13 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const seq = useRef(0);
+  const held = useRef<{ sig: string; key: string } | null>(null);
 
   const sig = draftSig(draft);
   const changed = sig !== draftSig(base);
-  const problem = repeatProblem(draft, today);
-  const plan = repeatPlan(access, base, draft, today);
+  const start = repeatStart(s);
+  const problem = repeatProblem(draft, today, start);
+  const plan = repeatPlan(access, base, draft, today, start);
   const wantPreview = access.mode === 'edit' && changed && !problem;
 
   // What the preview answers is keyed by the draft's meaning and the retry count: an answer for an
@@ -153,7 +158,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
     const t = setTimeout(() => {
       preview(previewCommand(draft)).then(
         (raw) => { if (seq.current === mine) setPv({ key, state: 'ok', data: parsePreview(raw) }); },
-        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: repeatFailure(e) }); },
+        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: previewFailure(e) }); },
       );
     }, 350);
     return () => { clearTimeout(t); seq.current += 1; };
@@ -164,21 +169,26 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const set = (p: Partial<RepeatDraft>) => { setError(null); setDraft((d) => ({ ...d, ...p })); };
   const shown = wantPreview && pv && pv.key === key ? pv : null;
   const checking = wantPreview && !shown;
+  // Save waits for a GOOD answer: a failed dry run (refused, or the phone offline) never showed
+  // what the change removes, so Check again is the way on (review F2).
+  const failed = shown?.state === 'error';
   const btn = saveButton({
     changed: plan.length || (changed && problem) ? 1 : 0,
-    problem: problem ?? (checking ? REPEAT_COPY.checking : null),
+    problem: problem ?? (checking ? REPEAT_COPY.checking : failed ? REPEAT_COPY.previewNeeded : null),
     lock: access.mode === 'edit' ? null : access.why,
     busy,
-    labels: { save: REPEAT_COPY.save, nothing: REPEAT_COPY.nothing },
+    labels: { save: REPEAT_COPY.save, nothing: access.mode === 'disabled' ? REPEAT_COPY.cantHere : REPEAT_COPY.nothing },
   });
 
   const save = async () => {
-    if (!plan.length) return;
+    if (!plan.length || checking || failed) return;
     setBusy(true);
     setError(null);
+    if (held.current?.sig !== sig) held.current = { sig, key: newIdempotencyKey() };
     try {
-      const v = await send(plan, s.version);
-      onDone({ text: REPEAT_COPY.saved, undo: null, version: v });
+      const res = await send(plan[0], held.current.key);
+      held.current = null;
+      onDone({ text: REPEAT_COPY.saved, undo: null, version: typeof res?.new_version === 'number' ? res.new_version : null });
     } catch (e) {
       setError(repeatFailure(e));
     } finally {

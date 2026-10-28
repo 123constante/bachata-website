@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { commandErrorMessage } from '../../../shared/selfServeErrors';
+import { OFFLINE_SAVE_MESSAGE, commandErrorMessage } from '../../../shared/selfServeErrors';
 import { L } from '../labels';
 import {
-  REPEAT_FAIL, REPEAT_PROBLEM, REPEAT_WHY, addMonthsKey, blankDraft, courseFacts, courseLine, draftOfRule, parsePreview,
-  previewCommand, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem, repeatSentence, rulePayload,
+  REPEAT_COPY, REPEAT_FAIL, REPEAT_PROBLEM, REPEAT_WHY, addMonthsKey, blankDraft, courseFacts, courseLine, draftOfRule, parsePreview,
+  previewCommand, previewFailure, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem, repeatSentence, repeatStart, rulePayload,
   storedRuleWords, type RepeatDraft, type RepeatFacts,
 } from '../repeat';
 
@@ -138,19 +138,57 @@ describe('RED FIRST: each failure code is one sentence saying what to do', () =>
     ['until_too_far', 'invalid_recurrence_payload: until_too_far'],
     ['mode_not_allowed', 'invalid_recurrence_payload: mode_not_allowed'],
     ['course_needs_count', 'invalid_transition: course_needs_count'],
+    // apply_aggregate_write_p5's two end.date gates, verbatim from prod (read 2026-10-28; dry runs too)
+    ['until_before_start', 'permission_denied: series.set_recurrence end.date must not be before the start date'],
+    ['start_too_old', 'permission_denied: series.set_recurrence end.date needs a start date no earlier than 12 months ago'],
   ] as const)('%s <- "%s"', (code, message) => {
-    const text = repeatFailure(err(message, code === 'course_needs_count' ? 'P0001' : '22023'));
+    const text = repeatFailure(err(message, code.endsWith('_count') || code.startsWith('until_b') || code.startsWith('start') ? 'P0001' : '22023'));
     expect(text).toBe(REPEAT_FAIL[code]);
     expect(text).not.toMatch(/invalid_|_/);
-    expect(text).toMatch(/\b(Pick|Change|Ask)\b/);
+    expect(text).toMatch(/\b(Pick|Change|Ask|Choose|ask)\b/);
+    // never the shared R1 one-weekday line, which points at a "first date" control this sheet has not got
+    expect(text).not.toMatch(/one weekday/);
+    expect(text).not.toBe(commandErrorMessage(err(message, 'P0001')));
   });
-  it('the five sentences are all different', () => {
-    expect(new Set(Object.values(REPEAT_FAIL)).size).toBe(5);
+  it('the seven sentences are all different', () => {
+    expect(new Set(Object.values(REPEAT_FAIL)).size).toBe(7);
+  });
+  it('course_needs_count is matched only as its anchored code (review F9)', () => {
+    const e = err('something about course_needs_count', 'P0001');
+    expect(repeatFailure(e)).toBe(commandErrorMessage(e));
   });
   it('a version conflict and a refusal keep the shared copy', () => {
     for (const e of [err('version_conflict: expected 7, found 8', 'P0001'), err('permission_denied: series.set_recurrence', 'P0001'), new TypeError('Failed to fetch')]) {
       expect(repeatFailure(e)).toBe(commandErrorMessage(e));
     }
+  });
+  it('a failed dry run never says the save-offline line; a refusal keeps its sentence (review F4)', () => {
+    const offline = new TypeError('Failed to fetch');
+    expect(previewFailure(offline)).toBe(REPEAT_COPY.previewOffline);
+    expect(previewFailure(offline)).not.toBe(OFFLINE_SAVE_MESSAGE);
+    expect(REPEAT_COPY.previewOffline).toContain(REPEAT_COPY.retry);
+    const refused = err('invalid_recurrence_payload: until_too_far');
+    expect(previewFailure(refused)).toBe(REPEAT_FAIL.until_too_far);
+    expect(repeatFailure(offline)).toBe(OFFLINE_SAVE_MESSAGE);
+  });
+});
+
+describe('a last date before the first date is said before anything is sent (review F3)', () => {
+  const d: RepeatDraft = { ...blankDraft(5), weekdays: [5], end: 'until_date', until: '2026-12-01' };
+  it.each([
+    ['future first date, last date before it', { default_start_date: '2026-12-10', created_at: '2026-10-01T10:00:00Z' }, REPEAT_FAIL.until_before_start],
+    ['future first date, last date on it', { default_start_date: '2026-12-01', created_at: null }, null],
+    ['past first date', { default_start_date: '2026-09-01', created_at: null }, null],
+    ['no default_start_date: created_at is the anchor', { default_start_date: null, created_at: '2026-12-05T23:30:00Z' }, REPEAT_FAIL.until_before_start],
+    ['neither carried', { default_start_date: null, created_at: null }, null],
+  ] as const)('%s', (_n, s, want) => {
+    const start = repeatStart(s);
+    expect(repeatProblem(d, TODAY, start)).toBe(want);
+    const base = blankDraft(5);
+    expect(repeatPlan({ mode: 'edit', why: null }, base, d, TODAY, start)).toHaveLength(want ? 0 : 1);
+  });
+  it('a past last date still says pastUntil first', () => {
+    expect(repeatProblem({ ...d, until: '2026-10-01' }, TODAY, '2026-12-10')).toBe(REPEAT_PROBLEM.pastUntil);
   });
 });
 
