@@ -8,6 +8,7 @@ import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
 import { P3YouSurface } from '../you/surface';
+import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
@@ -57,6 +58,7 @@ export default function P3Routes() {
             <Route path="handover/:userId" element={<HandoverFlow step="confirm" />} />
             <Route path="done" element={<Done />} />
           </Route>
+          {youGetPaidRoute()}
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />
         </Route>
       </Routes>

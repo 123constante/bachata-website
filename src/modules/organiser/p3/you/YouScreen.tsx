@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { YouTicketsRow } from '../shell/youTickets';
 import { useQuery } from '@tanstack/react-query';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { INVITE_REQUIRED_COPY } from '@/modules/organiser/shared/selfServeErrors';
@@ -111,6 +112,7 @@ export function YouScreen() {
           <Link to={ORG_PATHS.help} className="p3-btn p3-btn-link" data-testid="p3-you-message-us">{YOU.messageUs}</Link>
         </StateCard>
       )}
+      <YouTicketsRow />
       <section className="p3-card p3-list" data-testid="p3-you-rows">
         {rows.map((r) => <NavRow key={r.id} r={r} />)}
       </section>

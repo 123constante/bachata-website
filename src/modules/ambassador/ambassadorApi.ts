@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { PAGE_SIZE, parseQueueRows, softRefusal, type QueueItem, type TargetType } from './ambassadorModel';
+import { MAX_ROWS_PER_CITY, PAGE_SIZE, parseQueueRows, softRefusal, type QueueItem, type TargetType } from './ambassadorModel';
 
 export interface CityScope { id: string; name: string; slug: string }
 
@@ -27,23 +27,30 @@ export async function fetchCityScopes(userId: string): Promise<CityScope[]> {
   return (cities ?? []).map((c) => ({ id: c.id, name: c.name, slug: c.slug })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** One page (offset) of the pending queue across every scope city. `fullCityIds` = the cities that filled the page, so may have more. */
-export interface QueuePage { items: QueueItem[]; offset: number; full: boolean; fullCityIds: string[] }
+/** The whole pending queue of every scope city. `cappedCityIds` = cities that hit MAX_ROWS_PER_CITY (their oldest are missing). */
+export interface QueueData { items: QueueItem[]; cappedCityIds: string[] }
 
-export async function fetchQueuePage(cityIds: readonly string[], offset: number): Promise<QueuePage> {
-  const results = await Promise.all(
-    cityIds.map(async (cityId) => {
-      const { data, error } = await supabase.rpc('admin_list_pending_review_v1', {
-        p_city_id: cityId,
-        p_limit: PAGE_SIZE,
-        p_offset: offset,
-      });
-      if (error) throw error;
-      return { cityId, rows: parseQueueRows(data) };
-    }),
-  );
-  const fullCityIds = results.filter((r) => r.rows.length >= PAGE_SIZE).map((r) => r.cityId);
-  return { items: results.flatMap((r) => r.rows), offset, full: fullCityIds.length > 0, fullCityIds };
+/** One city, every page. The RPC pages NEWEST first, so the oldest only arrive on the last page:
+ *  read until a page is not full (or the cap) before anything is shown. Cities page in parallel. */
+async function fetchCityQueue(cityId: string): Promise<{ cityId: string; items: QueueItem[]; capped: boolean }> {
+  const items: QueueItem[] = [];
+  for (let offset = 0; offset < MAX_ROWS_PER_CITY; offset += PAGE_SIZE) {
+    const { data, error } = await supabase.rpc('admin_list_pending_review_v1', {
+      p_city_id: cityId,
+      p_limit: PAGE_SIZE,
+      p_offset: offset,
+    });
+    if (error) throw error;
+    const rows = parseQueueRows(data);
+    items.push(...rows);
+    if (rows.length < PAGE_SIZE) return { cityId, items, capped: false };
+  }
+  return { cityId, items, capped: true };
+}
+
+export async function fetchQueue(cityIds: readonly string[]): Promise<QueueData> {
+  const results = await Promise.all(cityIds.map(fetchCityQueue));
+  return { items: results.flatMap((r) => r.items), cappedCityIds: results.filter((r) => r.capped).map((r) => r.cityId) };
 }
 
 /** Throws the RPC's error (or a soft refusal as an Error) so `decisionError` can read it. */

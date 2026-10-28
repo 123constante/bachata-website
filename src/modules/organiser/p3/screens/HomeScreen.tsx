@@ -4,6 +4,8 @@ import { viewsTotal } from '../data/stats';
 import { useP3Home, useP3Views } from '../data/useP3Data';
 import { L } from '../model';
 import { P3_PATHS } from '../shell/paths';
+import { flags } from '@/lib/featureFlags';
+import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
 import { ChangeItLink, EventList, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
 
 /** Why there is no Next up, and what the person can do about it (the state decides the words). */
@@ -74,6 +76,8 @@ export function HomeScreen() {
         </StateCard>
       )}
 
+      {flags.organiserTicketing && <GetPaidPrompt />}
+
       {needs.length > 0 && (
         <section aria-label="Needs you">
           <h2 className="p3-h2">
@@ -113,6 +117,7 @@ export function HomeScreen() {
             </StateCard>
           )}
           <GoingTile />
+          {flags.organiserTicketing && <TicketsSoldTile />}
         </div>
       </section>
 
