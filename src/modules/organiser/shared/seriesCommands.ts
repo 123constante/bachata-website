@@ -116,6 +116,7 @@ export type OwnerFormat = 'one_off' | 'recurring';
 /** occurrence.set_override keys an owner may send (one date's own changes). */
 export const OWNER_OVERRIDE_KEYS = [
   'venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description',
+  'title', 'gallery', 'passes',
 ] as const;
 
 export const OWNER_CANCEL_KEYS = ['cancelled', 'reason'] as const;
@@ -304,16 +305,28 @@ export const bulkCancelCommand = (occurrenceIds: string[], reason: string): Bulk
 export const bulkShiftCommand = (occurrenceIds: string[], shiftDays: number): BulkCommand =>
   ({ kind: 'occurrence.bulk_shift', payload: { occurrence_ids: occurrenceIds, shift_days: shiftDays } });
 
-/** One date's own changes. `null` for a key = back to the series. */
-export type OverridePatch = Partial<Record<OwnerOverrideKey, string | null>>;
+/** The array keys of a date's own changes (W3b-2): [] is a value the date owns, null = back to the series. */
+type OverrideListKey = 'gallery' | 'passes';
+export type OverridePass = { id: string; name: string; price: number | null; currency?: OwnerCurrency; description?: string | null };
 
-/** occurrence.set_override, filtered to the owner keys; refuses to build an empty patch. */
+/** One date's own changes. `null` for a key = back to the series. */
+export type OverridePatch = Partial<Record<Exclude<OwnerOverrideKey, OverrideListKey>, string | null>> & {
+  gallery?: string[] | null;
+  passes?: OverridePass[] | null;
+};
+
+/**
+ * occurrence.set_override, filtered to the owner keys; refuses to build an empty patch. A text
+ * key is trimmed, blank = null; an array key goes as it is (the handler stores [] as owned,
+ * JSON null as inherit: _cmd_occurrence_set_override_p5 via _occurrence_override_json_text_array_v1).
+ */
 export function overrideCommand(patch: OverridePatch): OwnerCommand {
-  const payload: Record<string, string | null> = {};
+  const payload: Record<string, unknown> = {};
   for (const key of OWNER_OVERRIDE_KEYS) {
     if (!(key in patch)) continue;
     const value = patch[key];
-    payload[key] = typeof value === 'string' && value.trim() ? value.trim() : null;
+    if (key === 'gallery' || key === 'passes') payload[key] = Array.isArray(value) ? value : null;
+    else payload[key] = typeof value === 'string' && value.trim() ? value.trim() : null;
   }
   if (Object.keys(payload).length === 0) throw new Error('overrideCommand: empty patch');
   return { kind: 'occurrence.set_override', payload };

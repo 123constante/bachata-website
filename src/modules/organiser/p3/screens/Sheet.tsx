@@ -4,7 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    box.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+    box.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus({ preventScroll: true });
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', esc);
     return () => document.removeEventListener('keydown', esc);

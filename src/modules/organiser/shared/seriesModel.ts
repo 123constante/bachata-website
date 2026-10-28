@@ -134,6 +134,10 @@ export interface DateDetail {
   descriptionOverride: string | null;
   coverImageOverride: string | null;
   ticketUrlOverride: string | null;
+  /** W3b-2: this date's own name / photos / price list (null = the series'; [] is owned: none). */
+  titleOverride: string | null;
+  galleryOverride: string[] | null;
+  passesOverride: unknown[] | null;
   /** The effective values (override, else the series). */
   venueId: string | null;
   ticketUrl: string | null;
@@ -162,6 +166,9 @@ export function parseDateDetail(raw: unknown): DateDetail {
     descriptionOverride: str(e.description_override),
     coverImageOverride: str(e.cover_image_url_override),
     ticketUrlOverride: str(e.ticket_url_override),
+    titleOverride: str(e.title_override),
+    galleryOverride: Array.isArray(e.gallery_override) ? e.gallery_override.filter((g): g is string => typeof g === 'string') : null,
+    passesOverride: Array.isArray(e.passes_override) ? e.passes_override : null,
     venueId: str(e.venue_id),
     ticketUrl: str(e.ticket_url),
     coverImageUrl: str(e.cover_image_url),

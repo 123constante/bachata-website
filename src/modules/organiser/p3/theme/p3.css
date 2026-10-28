@@ -321,3 +321,9 @@
 .p3-theme .p3-file:has(input:disabled) { color: var(--mut); cursor: default; }
 /* W-T fix 3 (review r3 S1): the toast column sits under the top bar, off every sheet footer, so an alert's Dismiss is never over "Refund" or "Put on sale". */
 .p3-theme .p3-toast-stack { top: calc(var(--top-h) + 12px + env(safe-area-inset-top, 0px)); bottom: auto; }
+/* W3b-2: a date's own photos, 3 across (design-density), each with a 44px remove tap. */
+.p3-theme .p3-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.p3-theme .p3-photo { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--r-date); background: var(--card2); }
+.p3-theme .p3-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p3-theme .p3-photo-x { position: absolute; top: 0; right: 0; width: var(--tap); height: var(--tap); display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--fg); font-size: 18px; cursor: pointer; }
+.p3-theme .p3-photo-x span { width: 28px; height: 28px; border-radius: 999px; background: var(--sheet); display: flex; align-items: center; justify-content: center; }
