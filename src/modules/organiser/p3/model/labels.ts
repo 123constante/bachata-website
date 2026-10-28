@@ -286,6 +286,20 @@ export const L = {
   changedElsewhere: 'Someone else saved this event while you were editing. Your changes are still here, but saving them will be refused. To go on, copy anything you typed, then Start again from the saved version.',
   startAgain: 'Start again from the saved version',
   saving: 'Saving\u2026',
+  historyRowSub: 'Every change, who made it and when',
+  historyIntro: 'Every change, who made it and when.',
+  historyWho: { you: 'You', 'co-host': 'A co-host', team: 'The Bachata team', someone: 'Someone' },
+  historyFor: (day: string) => `for ${day}`,
+  historyChanged: (fields: readonly string[]) => `Changed: ${fields.join(', ')}`,
+  historyEmptyTitle: 'Nothing has changed yet',
+  historyEmptyBody: 'When you edit this event, it shows here.',
+  historyBack: 'Back to the event',
+  historyLoading: 'Loading the history\u2026',
+  historyError: 'We couldn\u2019t load the history',
+  historyErrorBody: 'Check your connection, then try again.',
+  historyMore: 'Show older changes',
+  historyMoreLoading: 'Loading older changes\u2026',
+  historyMoreError: 'We couldn\u2019t load older changes. Try again.',
 } as const;
 
 export function sessionKindLabel(k: SessionKind): string {
