@@ -13,3 +13,15 @@ Shapes the screen must cover: no rule, weekly none/until/after_count, monthly no
 
 ## Stage 4 checks (self-running)
 contrast >= 4.5, taps >= 44px, no clipping at 390x844, no sideways scroll, every empty/loading/error state actionable, untouched save sends nothing, failure codes (count_over_cap, interval_out_of_range, until_too_far, mode_not_allowed, course_needs_count) each map to a sentence saying what to do.
+
+## Chosen mockup and build notes (W3c-1 build, 2026-10-28)
+- Mockup: C3 Repeat screen (origin/claude/er-p3-mock-c3, docs/organiser-rebuild/p3/mockups/C3.md rows 23-28, 33, 52 and 29-30): Every week / Every month; multi-day buttons; first/second/third/fourth/last chips (several at once); Keeps going / Stops after N times / Stops on a date; Every N in More options; one-sentence summary + next 8 dates; red "This removes N dates already on the calendar"; "N dates keep their own changes". Not built here: "First date" in More options (needs series.upsert default_start_date; out of W3c-1 scope).
+- Entry: a "Repeats" row on the P3 event page under the status row (C3's Repeats row), showing the stored pattern in words. Stop repeating stays in the Status sheet unchanged.
+- Data proven on prod (read-only, 2026-10-28): `_cmd_series_set_recurrence_p5` (dry run rolls back inside the handler; returns recurrence_rule, materialise null, dry_run, date_cap, dates_considered, will_add, will_remove, will_cancel_booked, keeps_own_changes, next_8), `apply_aggregate_write_p5` (dry run returns before version bump and audit), `_owner_rule_problem_p5` (owner rule), `_command_failure_code_p5` (the five codes), `admin_event_workspace_p5` meta.class_count / last_class_date (event_occurrence_p5 not cancelled and not in event_series_p5.removed_dates). Writer of recurrence_rule: series.set_recurrence only (event_series_p5.recurrence_rule).
+- Stored rule key shapes on prod: weekly {end, interval, mode, weekdays} 42, weekly without interval 9, monthly nth_weekday 6, monthly day_of_month 1, monthly weekday_except_last 1, custom {dates, mode} 1.
+
+## Self-check numbers (walk-w3c-1-repeat.spec.ts, 390x844, html 13.5px, light and dark)
+- Sheet, Save button and toast boxes inside the viewport: yes (both themes); page scrollY 0 after open.
+- Taps: every control >= 44px (day chips, segments, inputs, select, More options, Save, Undo, Close).
+- Contrast: every text node in the sheet >= 4.5:1 (both themes; danger lines on --cancel-bg included).
+- No clipping, no sideways scroll (document and sheet).
