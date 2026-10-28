@@ -2,7 +2,7 @@
 
 **Open `docs/design/onboarding-prototype.html` on a phone** (or in a desktop browser: it shows a
 390x844 phone frame, scaled up on tall screens). One file, inline CSS and JS, no network, no fonts,
-109 KB. Nothing is saved or sent. Branch `claude/p3-onboarding-prototype`. Brief:
+109 KB. Nothing is saved or sent. Branch `claude/p3-onboarding-prototype`, PR #1124. Brief:
 `briefs/p3-onboarding-prototype.md` on `brief/p3-onboarding-prototype`.
 
 The owner only needs to: tap through from the first screen, try the **Design options** drawer
