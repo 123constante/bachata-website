@@ -60,3 +60,35 @@ Environmental only: `tests/integrityCouldNotRun.test.ts` (5, global `typescript`
 doc-weight and lighthouse need a preview. e2e: `organiser-home.spec.ts:55` and `organiser-layout.spec.ts:171`
 fail the same way on `main` here; the other 9 failures under load pass when re-run alone.
 Organiser unit suite on the final head: 192 files, 7250 pass.
+
+## Fix round 1 (review `docs/reviews/1110-r1.md`, brief `brief/p3-w3b2-fix1`; the only fix round)
+What the check would have caught: a locked row that still carried a live "use usual", and a held reason
+pointing at a control not on the sheet, are the Definition of done's "a control that cannot work is disabled
+with a reason" and "no copy that points at a control that is not on screen". The class now has table-driven
+tests in `w3b2.send.test.tsx` ("fix round 1" describes).
+
+| # | Finding | Outcome | Test (red first against 2c811db, then green) |
+|---|---|---|---|
+| 1 | "use usual" live on a festival / team-list row | fixed: `OwnRow` greys it when `why` is set (`aria-describedby` the reason) | "a row with a reason never has a live write control" x plain, festival, team list on the date, team list on the series, cancelled (own name), past: red on festival and team list on the date |
+| 2 | `dateNameBlank` named "use the usual name" | fixed: "Give this date a name" | "every held reason names only controls on its sheet" (Name blank/long, Price nameless/bad amount, Photos none): red on Name |
+| 6 | cancelled date owning only name/photos/price: reset row live, Go disabled | fixed: `data/dates.ts` `dateRowsOf` greys the row with `L.dateFieldsCancelled` when the plan is null (`dateActions` itself unchanged) | "a cancelled date owning only a name greys..." red; "...with its own About as well keeps it live" green both sides. Prod: the 1 cancelled row with a title also owns another field, so on prod its row stays live (0 rows hit the grey today) |
+| 7 | "photo" beside "photos" | fixed: "cover photo, name, photos, price" (`labels.ts`, `data/dates.ts` `resetBody`) | copy only |
+| 4 | e2e `window.scrollY === 0` could not go red | fixed: assertion dropped with a comment saying why. The mirror was also wrong: it nested `.p3-frame` under `.p3-theme`, but `position: fixed` is on `.p3-theme.p3-frame` (one element, as `P3Shell` mounts it), so the frame was not fixed in the spec. Now mounted as the shell does | mutant: `.p3-main` pre-scrolled to 200 + sheet scrollTop asserted, `preventScroll` removed: 12/12 stayed green (the focused button is the header Close; `.p3-main` is not its ancestor), so per the brief it was dropped |
+| 8 | doc drift | fixed: `dateFields.ts` header (event_view_p5 emits `event.name`, `event.gallery`, `event.passes`); this handover's `v_owner_override_keys` (a plpgsql constant in `apply_aggregate_write_p5`) and `COMMAND_COPY` claims. Queued: `parity-matrix.test.ts:92` wording (outside this round's files) and the pre-existing `selfServeErrors.ts:199` "leave it empty" copy | docs |
+| 9 | "Nothing changed yet" on a dirty-but-equivalent draft | fixed (one line): `dirty` also needs a patch or a problem, so a trailing space is no change | "a trailing space on a price name is no change" red, then green |
+| 3 | orphan uploads on abandon | not changed (PR body "Known limits") | - |
+| 5 | sheets not portalled | not changed (PR body "Known limits") | - |
+
+Bundle `/app` first load (this sandbox, exact gzip bytes): main 70b4ae0 382,541 B; PR head before this round
+2c811db 382,545 B; this round's head 382,545 B. This round adds 0 B; the PR as a whole is +4 B here (the
+earlier CI figure was -2 B), under the 374 KB budget. `perf-budgets.json` / `vite.config.ts` untouched.
+
+Local CI this round: `npm run lint` 21/22 (check:integrity exit 126 until `chmod +x bin/*.sh`, as CI does; then
+`integrity-guard: ok`); `AUDIT_STRICT=1 check:images` pass; eslint on touched files 0 errors; `typecheck` 99
+errors, none in touched files; organiser unit suite 192 files, 7262 pass; `test:e2e` 177 pass, 3 fail under load
+(`account-settings.spec.ts:64,75`, `organiser-onboarding.spec.ts:143`, outside P3), all 20 pass re-run alone;
+merges cleanly with current `origin/main`. Edits were made by script in a cloud container (no FUSE mount), not
+through `safe-edit.py`; `check:integrity` is clean.
+
+Not verified: a browser walk of the live React tree with prod-shaped data (orchestrator walk); Vercel preview
+checks; `real-data-verified` / `phone-qa-section` on GitHub after the body edit.
