@@ -740,8 +740,8 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
 
   it('F11 a pushed screen still loading keeps the P3 top bar (back to You)', async () => {
     const { P3YouSurface } = await import('../surface');
-    const { lazy } = await import('react');
-    const Never = lazy(() => new Promise<never>(() => {}));
+    // A screen whose chunk never arrives: it suspends forever, so the layout's fallback shows.
+    const Never = (): null => { throw new Promise<never>(() => {}); };
     render(
       <MemoryRouter initialEntries={['/x']}>
         <Routes><Route element={<P3YouSurface />}><Route path="/x" element={<Never />} /></Route></Routes>
