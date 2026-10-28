@@ -2,6 +2,8 @@
  * Every URL in the P3 organiser area (flag organiserP3). A separate base from
  * the R1 area (/account/o), so nothing there changes while P3 is built.
  */
+import { ORG_PATHS } from '../../shell/paths';
+
 export const P3_BASE = '/account/p3';
 
 export const P3_PATHS = {
@@ -32,6 +34,13 @@ export const P3_PATHS = {
   /** One event's History, read only (W3b-1). */
   eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
 } as const;
+
+/**
+ * Where an accepted invite lands (review 1080 F5, owner decision 2026-10-28): P3's Welcome when
+ * organiserP3 AND organiserSelfServe are on, else R1's, unchanged. The ONE answer for any caller.
+ */
+export const acceptedInviteLanding = (organiserId: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }): string =>
+  flags.organiserP3 && flags.organiserSelfServe ? P3_PATHS.youWelcome(organiserId) : ORG_PATHS.welcome(organiserId);
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';
 export const P3_TABS: readonly P3Tab[] = ['home', 'events', 'stats', 'you'];

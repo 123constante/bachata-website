@@ -214,7 +214,7 @@ const OFF_ROWS: OffRow[] = [
     path: () => ORG_PATHS.team,
     setup: () => { team.members = Array.from({ length: TEAM_CAP }, (_, i) => member(i ? `m${i}` : 'u1', i ? 'manager' : 'owner', i ? {} : { is_self: true })); },
     control: () => screen.findByTestId('team-add'),
-    reason: () => screen.queryByTestId('team-full'),
+    reason: () => screen.queryByTestId('team-add-reason'),
     says: () => TEAM_FULL_REASON,
   },
   // S-POLISH: the invite-link share row on a full team STAYS enabled (it writes nothing); the faces are the Add controls.

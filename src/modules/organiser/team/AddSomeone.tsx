@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Share2 } from 'lucide-react';
 import { ORGANISER_HOME_KEY } from '@/modules/organiser/shared/selfServeApi';
-import { selfServeErrorCode } from '@/modules/organiser/shared/selfServeErrors';
+import { TEAM_COPY, selfServeErrorCode, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { addTeamMemberByProfile, organiserTeamQueryKey, searchTeamPeople } from '@/modules/organiser/shared/teamRpcApi';
 import { ADD_ROLE_REASON, TEAM_FULL_REASON, shortName, teamIsFull } from '@/modules/organiser/shared/teamModel';
 import { MIN_QUERY, SEARCH_LIMIT, inviteShare, parsePeople, searchTerm } from '@/modules/organiser/edit-in-place/teamPickerModel';
@@ -56,10 +56,9 @@ export default function AddSomeone() {
 
   const add = useMutation({
     mutationFn: (p: { profileId: string; name: string }) => addTeamMemberByProfile(organiser!.id, p.profileId, 'manager', null),
-    onSuccess: (_r, p) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: organiserTeamQueryKey(organiser!.id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-      goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null }, doneBack, paths.done);
     },
     onError: (err) => {
       if (selfServeErrorCode(err) === 'team_full') setServerFull(true);
@@ -93,9 +92,12 @@ export default function AddSomeone() {
     if (full || add.isPending) return;
     if (!serverFull) setError(null);
     if (f.canAdd === false) void share(invite(f.name));
-    else add.mutate({ profileId: f.profileId, name: f.name });
+    // Done rides mutate()'s own callback: TanStack drops it once this screen unmounts (a late answer stays put).
+    else add.mutate({ profileId: f.profileId, name: f.name }, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null }, doneBack, paths.done) });
   };
   const more = (browse.data?.length ?? 0) >= limit;
+  // The lookup cap (permission_denied: lookup_cap) says what to do instead of "did not load" (W4a fix 3, F8).
+  const capped = (e: unknown) => teamErrorMessage(e) === TEAM_COPY.lookup_cap;
 
   return (
     <Shell title="Add someone" back={{ to: paths.team, label: 'Team' }} testId="org-page-team-add">
@@ -119,7 +121,7 @@ export default function AddSomeone() {
               <ul className="flex flex-col" data-testid="add-results" aria-busy={search.isFetching}>
                 {search.isError && (
                   <li role="alert" className="flex items-center gap-3 text-[14px] text-[var(--mut)]" data-testid="add-search-error">
-                    <span className="min-w-0 flex-1">We could not search just now.</span>
+                    <span className="min-w-0 flex-1">{capped(search.error) ? TEAM_COPY.lookup_cap : 'We could not search just now.'}</span>
                     <button type="button" onClick={() => void search.refetch()} className="min-h-[44px] min-w-[44px] shrink-0 rounded-[12px] bg-[var(--card2)] px-[12px] text-[15px] font-semibold text-[var(--fg)]" data-testid="add-search-retry">Retry</button>
                   </li>
                 )}
@@ -142,7 +144,7 @@ export default function AddSomeone() {
                 {browse.isPending ? (
                   <SkeletonRows count={3} label="Loading dancers" testId="add-wall-loading" />
                 ) : browse.isError ? (
-                  <ErrorState title="The dancers did not load" onRetry={() => void browse.refetch()} quiet testId="add-wall-error" />
+                  <ErrorState title={capped(browse.error) ? TEAM_COPY.lookup_cap : 'The dancers did not load'} onRetry={() => void browse.refetch()} quiet testId="add-wall-error" />
                 ) : (
                   <>
                     {faces.length > 0 && (

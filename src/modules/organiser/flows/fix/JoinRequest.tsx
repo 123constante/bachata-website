@@ -5,6 +5,8 @@ import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { addErrorMessage } from '@/modules/organiser/team/teamErrors';
 import { addTeamMemberByProfile, organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import { instantDateLabel, type IncomingAccessRequest } from '@/modules/organiser/shared/teamModel';
+import type { Gate } from '@/modules/organiser/shared/teamRules';
+import { GateReason } from '@/modules/organiser/team/GateReason';
 import { Avatar } from '@/modules/organiser/team/Avatar';
 import { GhostButton, PrimaryButton, useShake } from '@/modules/organiser/ui';
 
@@ -13,12 +15,14 @@ import { GhostButton, PrimaryButton, useShake } from '@/modules/organiser/ui';
  * ONE organiser_team_add_member_by_profile_v1 and nothing else: the server derives the request's
  * status from membership, so the add closes it (REVIEW-S6 S1). The requester's user id stands in
  * for their profile id until A1 sends profile_id on the incoming-requests read (S2). "Decline" is
- * the existing resolve call. `blockedReason` disables both (team full).
+ * the existing resolve call. `blockedReason` disables both (team full). `declineGate` (teamRules)
+ * disables Decline with its reason: the resolve RPC is owner-only, the list is owner + manager.
  */
-export function JoinRequestCard({ organiserId, request, blockedReason, onAnswered }: {
+export function JoinRequestCard({ organiserId, request, blockedReason, declineGate, onAnswered }: {
   organiserId: string;
   request: IncomingAccessRequest;
   blockedReason: string | null;
+  declineGate: Gate;
   onAnswered: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -44,6 +48,7 @@ export function JoinRequestCard({ organiserId, request, blockedReason, onAnswere
   });
   const pending = add.isPending || decline.isPending;
   const asked = instantDateLabel(request.createdAt);
+  const declineReasonId = `join-request-decline-reason-${request.requestId}`;
 
   return (
     <div data-testid="join-request" className={`space-y-[8px] p-[16px] ${shakeProps.className ?? ''}`} onAnimationEnd={shakeProps.onAnimationEnd}>
@@ -61,9 +66,10 @@ export function JoinRequestCard({ organiserId, request, blockedReason, onAnswere
         <PrimaryButton size="sm" disabled={!!blockedReason || pending} loading={add.isPending} loadingLabel="Adding" onClick={() => { setError(null); add.mutate(); }} testId="join-request-add">
           Add as Manager
         </PrimaryButton>
-        <GhostButton size="sm" disabled={pending} loading={decline.isPending} loadingLabel="Declining" onClick={() => { setError(null); decline.mutate(); }} testId="join-request-decline">
+        <GhostButton size="sm" disabled={pending || !declineGate.ok} aria-describedby={declineGate.ok ? undefined : declineReasonId} loading={decline.isPending} loadingLabel="Declining" onClick={() => { setError(null); decline.mutate(); }} testId="join-request-decline">
           Decline
         </GhostButton>
+        <GateReason gate={declineGate} id={declineReasonId} testId="join-request-decline-reason" />
       </div>
     </div>
   );

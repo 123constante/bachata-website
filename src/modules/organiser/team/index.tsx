@@ -2,12 +2,15 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, UserPlus } from 'lucide-react';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
-import { ADD_ROLE_REASON, ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON, memberLabel, type TeamMember } from '@/modules/organiser/shared/teamModel';
+import { ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON, memberLabel, type TeamMember } from '@/modules/organiser/shared/teamModel';
+import { MESSAGE_US, NO_PAGE, canAdd as addGate, canDecline, canLeave } from '@/modules/organiser/shared/teamRules';
+import { ORG_PATHS } from '../shell/paths';
 import { JoinRequestCard } from '../flows/fix/JoinRequest';
 import { useOrgSurface } from '../shell/surface';
 import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, SkeletonRows, useAnnounce } from '../ui';
 import { OrganiserSwitcher } from '../profile/OrganiserSwitcher';
 import { Avatar } from './Avatar';
+import { GateReason } from './GateReason';
 import { PublicToggle } from './PublicToggle';
 import { useTeamContext } from './useTeamContext';
 
@@ -46,7 +49,10 @@ export default function TeamPage() {
   const canAdd = viewerRole === 'owner' || viewerRole === 'manager';
   const me = members.find((m) => m.isSelf);
   // P3 shows a Contributor the control with its reason (W4a owner pick); R1 keeps it hidden.
-  const addReason = !canAdd ? ADD_ROLE_REASON : full ? TEAM_FULL_REASON : null;
+  const addReason = addGate(viewerRole, members).reason;
+  // What the RPCs accept, from the ONE mapping (teamRules): Decline is owner-only, Leave never orphans a page.
+  const declineGate = canDecline(viewerRole, members, full);
+  const leaveGate = canLeave(members);
 
   return (
     <Shell title="Team" back={hub} testId="org-page-team">
@@ -59,13 +65,17 @@ export default function TeamPage() {
         ) : ctx.failed ? (
           <ErrorState title="Your team did not load" onRetry={ctx.retry} testId="team-load-error" />
         ) : !organiser ? (
-          <EmptyState title="You don&rsquo;t have a page yet" body="A team belongs to a page. Claim yours or add one from Home, then your team shows here." testId="team-no-organiser" />
+          kind === 'p3' ? (
+            <EmptyState title={NO_PAGE.title} body={NO_PAGE.body} action={<Link to={ORG_PATHS.help} className="font-semibold underline" data-testid="team-message-us">{MESSAGE_US}</Link>} testId="team-no-organiser" />
+          ) : (
+            <EmptyState title="You don&rsquo;t have a page yet" body="A team belongs to a page. Claim yours or add one from Home, then your team shows here." testId="team-no-organiser" />
+          )
         ) : (
           <>
             {(requests.data ?? []).length > 0 && (
               <Card label="Wants to join" testId="requests-card">
                 {(requests.data ?? []).map((r) => (
-                  <JoinRequestCard key={r.requestId} organiserId={organiser.id} request={r} blockedReason={full ? TEAM_FULL_REASON : null} onAnswered={announce} />
+                  <JoinRequestCard key={r.requestId} organiserId={organiser.id} request={r} blockedReason={full ? TEAM_FULL_REASON : null} declineGate={declineGate} onAnswered={announce} />
                 ))}
               </Card>
             )}
@@ -80,8 +90,8 @@ export default function TeamPage() {
             {(canAdd || kind === 'p3') && (
               addReason ? (
                 <>
-                  <GhostButton disabled testId="team-add" aria-describedby="team-full"><UserPlus aria-hidden="true" className="h-[18px] w-[18px]" /> Add someone</GhostButton>
-                  <p id="team-full" className="text-[13px] text-[var(--mut)]" data-testid="team-full">{addReason}</p>
+                  <GhostButton disabled testId="team-add" aria-describedby="team-add-reason"><UserPlus aria-hidden="true" className="h-[18px] w-[18px]" /> Add someone</GhostButton>
+                  <p id="team-add-reason" className="text-[13px] text-[var(--mut)]" data-testid="team-add-reason">{addReason}</p>
                 </>
               ) : (
                 <Link to={paths.teamAdd} data-testid="team-add" className="inline-flex h-[52px] w-full items-center justify-center gap-[8px] rounded-[12px] bg-[var(--btn)] text-[16px] font-bold text-[var(--btnfg)]">
@@ -89,8 +99,14 @@ export default function TeamPage() {
                 </Link>
               )
             )}
-            {me && me.role !== 'owner' && (
+            {leaveGate?.ok && (
               <Link to={paths.more} data-testid="team-leave" className="flex min-h-[44px] items-center justify-center text-[15px] font-semibold text-[var(--mut)]">Leave this page</Link>
+            )}
+            {leaveGate && !leaveGate.ok && (
+              <>
+                <GhostButton disabled testId="team-leave" aria-describedby="team-leave-reason">Leave this page</GhostButton>
+                <GateReason gate={leaveGate} id="team-leave-reason" testId="team-leave-reason" />
+              </>
             )}
           </>
         )}
