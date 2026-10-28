@@ -210,3 +210,38 @@ describe('History grouping (London days)', () => {
     expect(parseHistory({ items: [histItem('2026-10-25T10:00:00Z'), { label: '' }, 3], has_more: false }).dropped).toBe(2);
   });
 });
+
+describe('History x real prod payloads (walk test user, read 28 Oct 2026)', () => {
+  // organiser_series_history_v1 as the RPC answered for WALK weekly-cancelled-date and WALK course (page 1 of limit 2)
+  const CANCELLED = { series_id: '599f42c5-f27b-5c19-be1c-bbb52f329d3c', has_more: false, next_before: null, items: [
+    { at: '2026-10-27T11:36:11.359259+00:00', who: 'you', date: '2026-11-10', kind: 'series.skip_date', label: 'Skipped a date', fields: ['Dates'] },
+    { at: '2026-10-27T11:36:11.234575+00:00', who: 'you', date: '2026-11-03', kind: 'occurrence.cancel', label: 'Cancelled a date', fields: ['Cancellation reason', 'Status'] },
+    { at: '2026-10-27T11:36:11.092453+00:00', who: 'you', date: null, kind: 'series.set_recurrence', label: 'Changed how it repeats', fields: ['Dates'] },
+    { at: '2026-10-27T11:36:10.94939+00:00', who: 'you', date: null, kind: 'series.upsert', label: 'Created the event', fields: [] },
+  ] };
+  const COURSE_P1 = { series_id: 'ee8f8090-ade5-55ec-9e53-7dbf7dfd06b6', has_more: true, next_before: '2026-10-27T11:36:10.719792+00:00', items: [
+    { at: '2026-10-27T11:36:10.84337+00:00', who: 'you', date: null, kind: 'series.set_program', label: 'Changed the line-up', fields: ['Line-up', 'Times'] },
+    { at: '2026-10-27T11:36:10.719792+00:00', who: 'you', date: null, kind: 'series.upsert', label: 'Changed the details', fields: ['Dates', 'Event type'] },
+  ] };
+
+  it('microsecond times parse, keep server order, and group as one London day', () => {
+    const p = parseHistory(CANCELLED);
+    expect(p.dropped).toBe(0);
+    const days = historyDays(p.items, '2026-10-28');
+    expect(days.map((d) => d.title)).toEqual(['Tuesday 27 October']);
+    expect(days[0].rows.map((r) => [r.label, r.sub, r.changed])).toEqual([
+      ['Skipped a date', 'You · 11:36 · for Tuesday 10 November', 'Changed: Dates'],
+      ['Cancelled a date', 'You · 11:36 · for Tuesday 3 November', 'Changed: Cancellation reason, Status'],
+      ['Changed how it repeats', 'You · 11:36', 'Changed: Dates'],
+      ['Created the event', 'You · 11:36', null],
+    ]);
+  });
+
+  it('the next-page cursor goes back to the server unchanged (microseconds kept)', async () => {
+    rpc.reply = (a) => ({ data: a.p_before ? { ...CANCELLED, items: [] } : COURSE_P1, error: null });
+    show();
+    fireEvent.click(await screen.findByTestId('p3-history-more'));
+    await waitFor(() => expect(rpc.calls).toHaveLength(2));
+    expect(rpc.calls[1].args.p_before).toBe('2026-10-27T11:36:10.719792+00:00');
+  });
+});
