@@ -63,6 +63,8 @@ const PAIRS: Array<[string, string[]]> = [
   ['--danger', ['--sheet']], ['--danger', ['--card']],
   // W3b-1 History: the day heading and row title (fg), who/time/date and Changed lines (mut) on a card; the intro note on the page
   ['--fg', ['--card']], ['--mut', ['--card']], ['--mut', ['--bg']], ['--gold-fg', ['--bg']],
+  // W3b-2: a date's own photos (the remove x, fg on its sheet-colour chip), the leave / undo ask card (fg on card, danger button), the held-save reason (warn)
+  ['--fg', ['--sheet']], ['--fg', ['--card']], ['--danger-fg', ['--danger']], ['--warn-fg', ['--warn-bg', '--sheet']], ['--mut', ['--sheet']],
 ];
 
 // Non-text edges, WCAG 1.4.11 (3:1): the .p3-in box edge against the sheet it sits on.
