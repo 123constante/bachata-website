@@ -30,7 +30,7 @@ export async function wizardCountries(): Promise<WizardCountry[]> {
 
 /** Words people type for a country that neither its name nor its demonym holds. */
 const ALSO: Readonly<Record<string, readonly string[]>> = {
-  GB: ['UK', 'Great Britain'],
+  GB: ['UK', 'English', 'Scottish', 'Welsh', 'Northern Irish', 'Great Britain', 'England', 'Scotland', 'Wales'],
   US: ['USA', 'America'],
   AE: ['UAE', 'Emirati'],
   NL: ['Holland'],
