@@ -63,7 +63,7 @@ Nothing blocks merge. F1-F6 of r3 are closed as described, the new matrix cases 
 - F3: `refreshQueue()` after the party refusal (`:136`); matrix case shows the second list call and the item dropping to `review-gone` then "All caught up". The `findByTestId('party-note').catch(() => undefined)` in that case is swallowed, but the assertions after it carry the test, so it cannot pass vacuously.
 - F4: "Not in your queue" / "This one is not in your queue. Go back to the list to see what is waiting for you." + Back to the list (`:198-205`); the matrix asserts the absence of "decided" and "no longer waiting".
 - F5: `setInterval(60_000)` in a mount effect with `clearInterval` cleanup (`:57-60`); `now` flows to `QueueList` (bar recount over `items`) and `Chips` (per row) and `ReviewView`. The `queue-stale` line renders only inside `QueueList`, i.e. only with rows on screen (`:184`, `:104-111`); Try again is `disabled={stale.retrying}` with `queue.isFetching`, label "Trying..." while disabled; `min-h-[44px]`. The matrix tick case fakes `Date` + `setInterval`, advances 60 s and asserts the chip goes from "Waiting 1 day" to the warning + "Waiting 8 days" and the bar to 8: red on the unfixed page (the handover's mutation record agrees).
-- F6: `grep -P '[^\x00-\x7F]'` over the module, its tests and the spec: no hits. The middle dot and the warning sign are `·` / `⚠` escapes.
+- F6: `grep -P '[^\x00-\x7F]'` over the module, its tests and the spec: no hits. The middle dot and the warning sign are backslash-u00b7 / backslash-u26A0 escapes.
 
 ### 4. Regressions vs #1086: none found
 
