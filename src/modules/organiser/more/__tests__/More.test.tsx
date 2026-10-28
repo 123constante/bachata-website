@@ -169,9 +169,11 @@ describe('roles x Leave / Hand over', () => {
 
   it('manager: Hand over absent; Leave enabled, confirms, sends ONE remove for themself and lands on Done', async () => {
     homeAs('manager');
+    // R2-1: a manager's Leave waits for the team read (someone else must still run the page).
+    serve([member('u2', 'owner'), member('u1', 'manager')], 'manager');
     mount();
     const leave = await screen.findByTestId('more-leave');
-    expect(leave.getAttribute('aria-disabled')).toBeNull();
+    await waitFor(() => expect(leave.getAttribute('aria-disabled')).toBeNull());
     expect(screen.queryByTestId('more-hand-over')).toBeNull();
     expect(screen.queryByTestId('more-leave-reason')).toBeNull();
     fireEvent.click(leave);

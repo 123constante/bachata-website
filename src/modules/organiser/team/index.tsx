@@ -51,7 +51,7 @@ export default function TeamPage() {
   // P3 shows a Contributor the control with its reason (W4a owner pick); R1 keeps it hidden.
   const addReason = addGate(viewerRole, members).reason;
   // What the RPCs accept, from the ONE mapping (teamRules): Decline is owner-only, Leave never orphans a page.
-  const declineGate = canDecline(viewerRole, members);
+  const declineGate = canDecline(viewerRole, members, full);
   const leaveGate = canLeave(members);
 
   return (

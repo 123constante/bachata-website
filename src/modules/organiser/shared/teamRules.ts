@@ -50,8 +50,9 @@ export function canAdd(viewerRole: TeamRole | null, team: readonly TeamMember[])
   if (viewerRole !== 'owner' && viewerRole !== 'manager') return no(ADD_ROLE_REASON);
   return team.length >= TEAM_CAP ? no(TEAM_FULL_REASON) : OK;
 }
-export const canDecline = (viewerRole: TeamRole | null, team: readonly TeamMember[]) =>
-  ownerOnly(viewerRole, team, TEAM_REASONS.decline, TEAM_REASONS.declineWhat);
+/** `full`: the join card's Add as Manager is disabled too, so the reason must not point at it (R2-4). */
+export const canDecline = (viewerRole: TeamRole | null, team: readonly TeamMember[], full = false) =>
+  ownerOnly(viewerRole, team, full ? DECLINE_WHEN_FULL : TEAM_REASONS.decline, TEAM_REASONS.declineWhat);
 export const canHandOver = (viewerRole: TeamRole | null, team: readonly TeamMember[]) =>
   ownerOnly(viewerRole, team, TEAM_REASONS.handover, TEAM_REASONS.handoverWhat);
 /** Change role / remove on someone else, when the viewer is not the owner: ONE reason line on Person. */
@@ -74,3 +75,8 @@ export function canLeave(team: readonly TeamMember[]): Gate | null {
   const othersRunning = team.some((m) => !m.isSelf && (m.role === 'owner' || m.role === 'manager'));
   return othersRunning ? OK : no(TEAM_REASONS.leaveLast, true);
 }
+
+/** The decline reason when the team is full: Add as Manager is disabled then, so it is not offered. */
+export const DECLINE_WHEN_FULL = 'Only the owner can decline a request.';
+/** More's Leave for a non-owner when the team read failed: the RPC would not stop an orphaned page. */
+export const LEAVE_UNCHECKED = 'We could not check who else runs this page, so Leave is off for now. Try again later.';
