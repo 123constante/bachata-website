@@ -1,6 +1,6 @@
 # Design record: Languages tick list (dancer edit) + nationality search height
 
-Named for the branch because the PR number does not exist until the PR is opened. The design-record Stop hook is not written yet: the stages below were applied by hand.
+Lives in docs/handover/ (not docs/design/) because the dancer-area isolation check allows only named files in docs/design/; adding a seam is an orchestrator decision. Named for the branch because the PR number did not exist at write time. The design-record Stop hook is not written yet: stages applied by hand.
 
 - Mockup (owner-chosen, Option A): https://claude.ai/artifact/RyHVnR22AYtK2BjHLk72eZ (OptionA.dc.html)
 - Tokens: the dancer edit screen's own: `FIELD_CLASS` input at 48px, `Chip` (44px, gold selected + check), `--fg`, `--mut`, `--card`, `--card2`, `--line-strong`, `--r-chip`. Explicit px sizes (html is ~13.5px on phones).
