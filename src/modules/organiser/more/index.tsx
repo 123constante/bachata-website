@@ -5,9 +5,11 @@ import { ChevronRight, CircleHelp, FileText, LogOut, Mail, MessageCircle, Plus, 
 import { ORGANISER_HOME_KEY, removeOrganiserMember } from '@/modules/organiser/shared/selfServeApi';
 import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { memberAction } from '@/modules/organiser/shared/teamModel';
+import { LEAVE_UNCHECKED, canLeave, type Gate } from '@/modules/organiser/shared/teamRules';
 import { fetchOrganiserTeam, organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import { supportLinks } from '@/modules/organiser/shared/support';
 import { goDone } from '../flows/doneState';
+import { GateReason } from '../team/GateReason';
 import { useOwnPage } from '../page/useOwnPage';
 import { OrganiserShell } from '../shell';
 import { ORG_PATHS } from '../shell/paths';
@@ -52,10 +54,11 @@ export default function MorePage() {
   const isOwner = selected?.role === 'owner';
   // The server refuses only the LAST owner (remove_organiser_member_v1 last_owner), so a
   // co-owner may leave. The count is the layer's own team read (same key, one request).
+  // Everyone else reads it too: the RPC lets the LAST manager of an ownerless page leave (R2-1).
   const team = useQuery({
     queryKey: organiserTeamQueryKey(selected?.id),
     queryFn: () => fetchOrganiserTeam(selected!.id),
-    enabled: !!selected && isOwner,
+    enabled: !!selected,
     staleTime: 60 * 1000,
     retry: false,
   });
@@ -63,6 +66,14 @@ export default function MorePage() {
   // fails, the server decides, and its last_owner copy shows in the confirm sheet.
   const self = team.data?.members.find((m) => m.isSelf);
   const soleOwner = isOwner && !team.isError && !(self && team.data && memberAction(self, 'owner', team.data.members)?.enabled);
+  // A non-owner follows Team's canLeave (teamRules). Here the server does NOT catch an orphaned page,
+  // so until the read answers, and if it fails, Leave stays refused (the safe side).
+  const leaveGate: Gate | null = !selected || isOwner ? null
+    : team.isError ? { ok: false, reason: LEAVE_UNCHECKED, messageUs: true }
+    : team.data ? canLeave(team.data.members)
+    : { ok: false, reason: null, messageUs: false };
+  const leaveRefused = soleOwner || (leaveGate !== null && !leaveGate.ok);
+  const leaveReason = soleOwner || !!leaveGate?.reason;
 
   const leave = useMutation({
     mutationFn: () => removeOrganiserMember(selected!.id, user!.id),
@@ -94,16 +105,17 @@ export default function MorePage() {
             <div>
               <button
                 type="button"
-                className={`${ROW} ${soleOwner ? 'cursor-not-allowed opacity-60' : ''}`}
-                aria-disabled={soleOwner ? true : undefined}
-                aria-describedby={soleOwner ? 'more-leave-reason' : undefined}
-                onClick={() => { if (!soleOwner) setConfirmLeave(true); }}
+                className={`${ROW} ${leaveRefused ? 'cursor-not-allowed opacity-60' : ''}`}
+                aria-disabled={leaveRefused ? true : undefined}
+                aria-describedby={leaveReason ? 'more-leave-reason' : undefined}
+                onClick={() => { if (!leaveRefused) setConfirmLeave(true); }}
                 data-testid="more-leave"
               >
                 <LogOut aria-hidden="true" className={ICON} />
                 <span className="flex-1">Leave this page</span>
               </button>
               {soleOwner && <p id="more-leave-reason" className="px-[16px] pb-[12px] text-[13px] text-[var(--mut)]" data-testid="more-leave-reason">{HAND_OVER_FIRST}</p>}
+              {!soleOwner && leaveGate && <div className="px-[16px] pb-[12px]"><GateReason gate={leaveGate} id="more-leave-reason" testId="more-leave-reason" /></div>}
             </div>
           )}
         </Card>
@@ -125,7 +137,7 @@ export default function MorePage() {
         </Card>
       </div>
 
-      <SheetView open={confirmLeave} returnFocusRef={leaveOpener} onOpenChange={(o) => { if (!o) setConfirmLeave(false); }} title="Leave this page" testId="more-leave-sheet">
+      <SheetView open={confirmLeave && !leaveRefused} returnFocusRef={leaveOpener} onOpenChange={(o) => { if (!o) setConfirmLeave(false); }} title="Leave this page" testId="more-leave-sheet">
         <div className="space-y-[12px] p-[16px]">
           <p className="text-[15px] text-[var(--fg)]">Leave {selected?.name}? You can ask to join again later.</p>
           {leave.isError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="more-leave-error">{teamErrorMessage(leave.error)}</p>}

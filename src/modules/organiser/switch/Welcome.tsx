@@ -12,7 +12,7 @@ import { joinedWelcome } from './welcomeModel';
  */
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { Shell, paths, hub } = useOrgSurface();
+  const { kind, Shell, paths, hub } = useOrgSurface();
   const [params] = useSearchParams();
   const { user, home, organisers } = useOrganiserChoice();
   const joinedId = params.get('o');
@@ -41,7 +41,7 @@ export default function WelcomePage() {
           </>
         ) : (
           // Home did not load: the button below still leads on.
-          <p className="text-[15px] text-[var(--fg)]" data-testid="org-welcome-sub">You joined the team. Your pages are on {hub.label}.</p>
+          <p className="text-[15px] text-[var(--fg)]" data-testid="org-welcome-sub">{kind === 'p3' ? `You joined the team. Switch pages any time from ${hub.label}.` : `You joined the team. Your pages are on ${hub.label}.`}</p>
         )}
         {copy?.screen === '1d' ? (
           <>
