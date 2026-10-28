@@ -8,7 +8,11 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc, from: vi.fn() } }));
 const auth = vi.hoisted(() => ({ user: { id: 'u1', email: 'me@x.example' } }));
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: auth.user, session: null }) }));
+vi.mock('@/hooks/useAuth', async () => ({
+  useAuth: () => ({ user: auth.user, session: null }),
+  // OnboardingView reads the completeness fact (P3 W4b tap gate); no provider = today.
+  ProfileGateContext: (await import('react')).createContext(null),
+}));
 
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import HomePage from '@/modules/organiser/home';

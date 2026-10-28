@@ -23,6 +23,7 @@ import { NO_PROFILE_TEXT, profileGateValue, type ProfileCompletion } from '@/lib
 import { DANCER_GATE_REASON } from '@/lib/accountRouting';
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
 import { OnboardingView } from '../onboarding/OnboardingView';
+import { withAdmin } from '../onboarding/profileGate';
 
 const org = (id: string, name: string, hint: ClaimHint | null) => ({ id, name, slug: id, avatar_url: null, city_id: null, hint });
 const gate = (c: ProfileCompletion): ProfileGateValue => profileGateValue(c);
@@ -133,6 +134,39 @@ describe.each(SHAPES)('P3 Welcome, shape: $name', (shape) => {
     expect(api.claim).not.toHaveBeenCalled();
     expect(api.request).not.toHaveBeenCalled();
     expect(api.create).not.toHaveBeenCalled();
+  });
+});
+
+// The server's _require_complete_dancer_profile_v1 returns early for is_admin(): an admin is
+// never refused for the profile, so the tap must not stop one either (prod: 2 admins, no row).
+const ADMIN_SHAPES: Shape[] = [
+  { name: 'admin, no dancer row', value: { ...SHAPES[3].value as ProfileGateValue, isAdmin: true }, gated: null },
+  { name: 'admin, unfinished', value: { ...SHAPES[2].value as ProfileGateValue, isAdmin: true }, gated: null },
+];
+
+describe.each(ADMIN_SHAPES)('P3 Welcome, $name', (shape) => {
+  it.each(TAPS)('tap $tap opens today’s sheet', async (t) => {
+    mount(shape.value);
+    await tap(t);
+    expect(await screen.findByTestId(t.todays)).toBeTruthy();
+    expect(screen.queryByTestId('onboarding-gate')).toBeNull();
+  });
+});
+
+describe('withAdmin (P3 Add a page merges the admin read into the gate)', () => {
+  const unfinished = SHAPES[2].value as ProfileGateValue;
+  it('admin: carries isAdmin, so the tap opens', () => {
+    expect(withAdmin(unfinished, { isAdmin: true, isPending: false })).toMatchObject({ status: 'incomplete', isAdmin: true });
+  });
+  it('not admin: the same fact, still gated', () => {
+    expect(withAdmin(unfinished, { isAdmin: false, isPending: false })).toBe(unfinished);
+  });
+  it('admin read pending: loading (opens today; the server decides)', () => {
+    expect(withAdmin(unfinished, { isAdmin: false, isPending: true })).toBe('loading');
+  });
+  it('no fact yet: unchanged', () => {
+    expect(withAdmin(null, { isAdmin: true, isPending: false })).toBeNull();
+    expect(withAdmin('loading', { isAdmin: true, isPending: false })).toBe('loading');
   });
 });
 

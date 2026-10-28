@@ -1,8 +1,11 @@
+import { useContext } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
+import { ProfileGateContext, useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { ORGANISER_HOME_KEY, fetchMyAccessRequests, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { OnboardingView } from '../../home/onboarding/OnboardingView';
+import { withAdmin } from '../../home/onboarding/profileGate';
 import { useP3Home } from '../data/useP3Data';
 import { RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS } from '../shell/paths';
@@ -21,6 +24,8 @@ export default function AddPageScreen() {
   const organisers = home.data?.organisers ?? [];
   const firstRun = !!home.data && organisers.length === 0;
   const back = firstRun ? undefined : { to: P3_PATHS.you, label: 'You' };
+  // The server exempts an admin from the profile check; the tap gate reads the same (S2, PR #1118).
+  const gate = withAdmin(useContext(ProfileGateContext), useIsAdmin());
 
   if (!user) return null;
 
@@ -40,15 +45,17 @@ export default function AddPageScreen() {
           <RetryButton onClick={() => void home.refetch()} />
         </StateCard>
       ) : (
-        <OnboardingView
-          user={{ id: user.id, email: user.email ?? null }}
-          mailboxProven={isMailboxProvenToken(session?.access_token)}
-          myOrganiserIds={new Set(organisers.map((o) => o.id))}
-          requests={mine.data ?? []}
-          firstRun={firstRun}
-          onChanged={onChanged}
-          look="p3"
-        />
+        <ProfileGateContext.Provider value={gate}>
+          <OnboardingView
+            user={{ id: user.id, email: user.email ?? null }}
+            mailboxProven={isMailboxProvenToken(session?.access_token)}
+            myOrganiserIds={new Set(organisers.map((o) => o.id))}
+            requests={mine.data ?? []}
+            firstRun={firstRun}
+            onChanged={onChanged}
+            look="p3"
+          />
+        </ProfileGateContext.Provider>
       )}
     </P3PushedShell>
   );
