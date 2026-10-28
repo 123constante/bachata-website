@@ -16,7 +16,7 @@ import { L, addDateWhy, dateActions, pickDayProblem, timeWord, type DateAction, 
 import { cancelPlan } from '../data/eventPage';
 import { dateFieldsWhy, dateGalleryOf, datePriceRows, datePricesLock, photosWord, pricesWord } from '../data/dateFields';
 import {
-  DATE_COPY, KeyRing, PLAN, PlanStepError, breakFactsOf, dateFactsOf, resetNormalPlan, seriesFactsOf, takenDays, undoFor, useDateDetail, useSendPlan,
+  DATE_COPY, KeyRing, PLAN, PlanStepError, breakFactsOf, dateFactsOf, dateRowsOf, resetNormalPlan, seriesFactsOf, takenDays, undoFor, useDateDetail, useSendPlan,
   type DatePlan,
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
@@ -121,6 +121,7 @@ function BreakSheet({ ws, date, today, onDone, onClose }: { ws: EventWorkspace; 
 /**
  * A row of C3 `dayown`: this date's own value, or the usual one. `why` (W3b-2): the row cannot
  * change here, said instead of a live link (a festival's name, photos, price; a team-set list).
+ * It greys "use usual" too: clearing the value is a change (fix round 1).
  */
 function OwnRow({ label, own, usual, testId, busy, why = null, onEdit, onUsual }: {
   label: string; own: string | null; usual: string | null; testId: string; busy: boolean; why?: string | null; onEdit: () => void; onUsual: () => void;
@@ -131,10 +132,11 @@ function OwnRow({ label, own, usual, testId, busy, why = null, onEdit, onUsual }
       <span className="p3-row-s p3-plain">{own ?? usual ?? L.notSet}</span>
       {own && (
         <span className="p3-row-s">{L.usually}: {usual ?? DATE_COPY.usuallyNothing} &middot;{' '}
-          <button type="button" className="p3-link" disabled={busy} onClick={onUsual} data-testid={`${testId}-usual`}>{L.useUsual}</button>
+          <button type="button" className="p3-link" disabled={busy || !!why} aria-describedby={why ? `${testId}-why` : undefined} onClick={onUsual}
+            data-testid={`${testId}-usual`}>{L.useUsual}</button>
         </span>
       )}
-      {why ? <span className="p3-row-s" data-testid={`${testId}-why`}>{why}</span>
+      {why ? <span className="p3-row-s" id={`${testId}-why`} data-testid={`${testId}-why`}>{why}</span>
         : <button type="button" className="p3-link" disabled={busy} onClick={onEdit} data-testid={`${testId}-edit`}>{L.changeForDate}</button>}
     </div>
   );
@@ -151,7 +153,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
   const { go, busy, error, setError } = useGo(ws, onDone);
   const venues = useVenueOptions();
   const facts = dateFactsOf(ws, d, detail);
-  const rows = dateActions(seriesFactsOf(ws, today), facts, today);
+  const rows = dateRowsOf(ws, d, detail, facts, today);
   const day = fullDate(d.occurrence_date, today);
   const start = localAsZTime(d.materialised_start_utc) ?? detail?.start ?? null;
   const done = (action: DateAction, words: string): Done => ({ text: words, ...undoFor(action, d, d.occurrence_date) });

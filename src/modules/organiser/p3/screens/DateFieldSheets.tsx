@@ -39,7 +39,8 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
   children: ReactNode;
 } & Omit<FieldProps, 'ws' | 'detail'>) {
   const [ask, setAsk] = useState<null | 'leave' | 'close' | 'undo'>(null);
-  const dirty = !sameValue(base, draft);
+  // Dirty only when the draft differs in what a save compares (trimmed, as sent): a trailing space is no change.
+  const dirty = !sameValue(base, draft) && (patch !== null || problem !== null);
   const guard = (to: 'leave' | 'close', go: () => void) => () => ((dirty || uploading) && !busy ? setAsk(to) : go());
   const why = !dirty || patch ? null : problem;
   // Sheet re-runs its focus effect when onClose changes: keep ONE function, reading the latest guard,

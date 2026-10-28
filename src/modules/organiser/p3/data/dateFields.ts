@@ -9,7 +9,7 @@ import { L } from '../model/labels';
  * `passes`), pure. Each builder answers the patch a save sends, or null when it would send
  * nothing (untouched, or typed back to what the date already shows). Typed back to the
  * series' value on a date that owns one = null for that key, the handler's inherit value.
- * Read back by event_view_p5 (event.name, photo_urls, meta_data_public.tickets); the calendar
+ * Read back by event_view_p5 (event.name, event.gallery, event.passes); the calendar
  * reads the name only.
  */
 

@@ -11,7 +11,7 @@ Branch `claude/p3-w3b2-date-fields` from `main` 70b4ae0. Flag `organiserP3` stay
 | `gallery` | same, via `_occurrence_override_json_text_array_v1` (order kept) | array of <= 30 non-blank http(s) strings (`_owner_public_url_ok_p5`); `[]` = owned, no photos | JSON null | event page `event.photo_urls` (`useEventPageQuery` galleryUrls). Calendar: not shown |
 | `passes` | same (array or null, else `invalid_payload`) | `_owner_passes_problem_p5`: <= 10 objects {id uuid unique, name 1-120, price number <= 6 digits 2 dp or null, currency GBP/EUR/USD?, description <= 500?}; `[]` = owned, no prices | JSON null | event page `meta_data_public.tickets` (`useEventPageQuery` tickets). Calendar: not shown |
 
-Owner allowlist (`v_owner_override_keys`, ER P4 A3 20261225010000): venue_id, city_id, cancellation_reason_label,
+Owner allowlist (`v_owner_override_keys`, a plpgsql constant inside `apply_aggregate_write_p5`, not a relation; ER P4 A3 20261225010000): venue_id, city_id, cancellation_reason_label,
 cover_image_url, ticket_url, description, title, music_styles, gallery, passes. JSON null always allowed.
 Cancelled date: owner refused when the payload CONTAINS title / music_styles / gallery / passes (even null:
 `c_a3_cancel`). Per-date read keys: `event_view_p5` -> `event.title_override`, `gallery_override`, `passes_override`.
@@ -41,8 +41,9 @@ Series gallery max 3; the series editor cap is `MAX_GALLERY` 30 (= server), no 3
   under `.p3-theme`, which carries the theme tokens). Portalling means wrapping in a `.p3-theme` with the
   page's `data-theme`; left for the owner to decide.
 - Per-date music (A2 R4), "Different on N dates" (#63), bulk edits: out of scope.
-- No new `COMMAND_COPY` rows for the title / gallery / passes owner refusals (the client holds those values
-  before sending; `occurrence_cancelled` already has copy); a stray refusal shows the generic copy.
+- `COMMAND_COPY` already has rows for the title / gallery / passes owner refusals (`selfServeErrors.ts`
+  `occurrence_cancelled`, title, gallery, passes), so no generic fallback arises. The title row says "or leave it
+  empty to use the event name", a path the client never offers (pre-existing, outside this PR's files: queued).
 
 ## Review and fix round (stopping rule: one review, one fix round, then the orchestrator walk)
 Independent review (a different model): no blockers. Fixed: raw U+00B7 in `dateFields.ts` (now an escape,

@@ -12,7 +12,7 @@ import {
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, addDateWhy, canCancelOneOff, dateMarks, timeWord, type DateAction, type DateFacts, type IsoDate, type SeriesFacts } from '../model';
+import { L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
 import { breakFactsOf, dateFactsOf, marksOf } from './dateFacts';
 
@@ -160,6 +160,16 @@ export const PLAN = {
  * The programme call of the composite is not sent: C3 `resetdate` says sessions stay
  * (per-date sessions are W2d). null when there is nothing to put back.
  */
+/**
+ * The date sheet's rows: model/dates dateActions, with "Put this date back to normal" greyed on a
+ * cancelled date when nothing it owns can go back yet (only a name, photos or price: the
+ * owner arm refuses those there), so the row says why instead of a confirm whose Go is off.
+ */
+export function dateRowsOf(ws: EventWorkspace, d: D, detail: DateDetail | null, facts: DateFacts, today: IsoDate): DateRow[] {
+  return dateActions(seriesFactsOf(ws, today), facts, today).map((r) =>
+    (r.action === 'resetNormal' && !r.reason && !resetNormalPlan(d, detail, facts.ownTime) ? { ...r, reason: L.dateFieldsCancelled } : r));
+}
+
 export function resetNormalPlan(d: D, detail: DateDetail | null | undefined, ownTime: boolean): DatePlan | null {
   const patch: OverridePatch = {};
   if (detail?.venueOverride) { patch.venue_id = null; patch.city_id = null; }
@@ -216,7 +226,7 @@ export const DATE_COPY = {
   startsAt: 'Starts at',
   now: (t: string | null) => (t ? `Now ${timeWord(t)}.` : 'No start time yet.'),
   resetTitle: `${L.resetDate}?`,
-  resetBody: (day: string) => `Where, about, ticket link, photo, name, photos, price and time on ${day} go back to usual. Sessions stay as they are.`,
+  resetBody: (day: string) => `Where, about, ticket link, cover photo, name, photos, price and time on ${day} go back to usual. Sessions stay as they are.`,
   resetGo: 'Put it back',
   keepMine: 'Keep my changes',
   detailsTitle: (day: string) => `Different details on ${day}`,

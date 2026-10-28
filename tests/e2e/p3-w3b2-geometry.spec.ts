@@ -4,8 +4,8 @@ import { join } from 'node:path';
 
 // W3b-2: a date's own Photos and Price sheets (DateFieldSheets.tsx), static markup class for class,
 // styled by the REAL theme/p3.css, at 390x844 and 360x640, light and dark (jsdom has no layout).
-// Asserts: the sheet sits inside the viewport over a fixed scrim, the page does not scroll when
-// it opens (Sheet focuses with preventScroll), no sideways scroll, the photos are 3 across, and
+// Mounted as the shell mounts it (P3Shell: one "p3-theme p3-frame" element, the sheet inside it).
+// Asserts: the sheet sits inside the viewport over a fixed scrim, no sideways scroll, the photos are 3 across, and
 // every tap (remove x, Add photos, Save, Back, the ask buttons) is at least 44px high.
 
 const css = readFileSync(join(process.cwd(), 'src/modules/organiser/p3/theme/p3.css'), 'utf8');
@@ -39,8 +39,8 @@ const PRICE = `<div class="p3-scrim"><div class="p3-sheet" role="dialog" aria-mo
 async function mount(page: Page, sheet: string, theme: 'light' | 'dark') {
   await page.setContent(`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
     <style>*, ::before, ::after { box-sizing: border-box; } html { font-size: 13.5px; } body { margin: 0; } ${css}</style></head>
-    <body><div class="p3-theme" data-theme="${theme}"><div class="p3-frame"><header class="p3-top"><h1>Event</h1></header>
-    <main class="p3-main">${'<p>row</p>'.repeat(80)}</main><nav class="p3-tabs"></nav></div>${sheet}</div></body></html>`);
+    <body><div class="p3-theme p3-frame" data-theme="${theme}"><header class="p3-top"><h1>Event</h1></header>
+    <main class="p3-main">${'<p>row</p>'.repeat(80)}</main><nav class="p3-tabs"></nav>${sheet}</div></body></html>`);
   await page.evaluate(() => document.querySelector<HTMLElement>('[role="dialog"] button')?.focus({ preventScroll: true }));
 }
 
@@ -49,7 +49,7 @@ for (const view of VIEWS) {
     test.describe(`${view.width}x${view.height} ${theme}`, () => {
       test.use({ viewport: view });
       for (const [name, sheet, n] of [['Photos (1)', PHOTOS(1), 1], ['Photos (many)', PHOTOS(7), 7], ['Price', PRICE, 0]] as const) {
-        test(`${name}: inside the viewport, no page scroll, no sideways scroll, 44px taps`, async ({ page }) => {
+        test(`${name}: inside the viewport, no sideways scroll, 44px taps`, async ({ page }) => {
           await mount(page, sheet, theme);
           const geo = await page.evaluate(() => {
             const r = (el: Element) => { const b = el.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, w: b.width, h: b.height }; };
@@ -60,7 +60,6 @@ for (const view of VIEWS) {
               taps: [...document.querySelectorAll('[data-testid="tap"], [data-testid="p3-photo-remove"]')].map((el) => ({ h: r(el).h, w: r(el).w, t: el.textContent })),
               firstRow: tiles.filter((t) => Math.abs(t.top - (tiles[0]?.top ?? 0)) < 1).length,
               tiles,
-              scrollY: window.scrollY,
               overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
               sheetOverflowX: (document.querySelector('[role="dialog"]') as HTMLElement).scrollWidth - (document.querySelector('[role="dialog"]') as HTMLElement).clientWidth,
               bg: getComputedStyle(document.querySelector('[role="dialog"]')!).backgroundColor,
@@ -71,7 +70,11 @@ for (const view of VIEWS) {
           expect(geo.sheet.top).toBeGreaterThanOrEqual(0);
           expect(geo.sheet.right).toBeLessThanOrEqual(view.width + 0.5);
           expect(geo.sheet.bottom).toBeLessThanOrEqual(view.height + 0.5);
-          expect(geo.scrollY).toBe(0);
+          // No "page does not scroll" assertion (review 1110-r1 finding 4): nothing here can move.
+          // The frame is position: fixed (the window never scrolls), the sheet is not inside the
+          // scroller .p3-main, and the button Sheet focuses is the header Close at the top of the
+          // sheet. Fix round 1 asserted .p3-main scrollTop unchanged (pre-scrolled to 200) and the
+          // sheet's scrollTop 0, then removed preventScroll: all 12 stayed green, so it was dropped.
           expect(geo.overflowX).toBeLessThanOrEqual(0);
           expect(geo.sheetOverflowX).toBeLessThanOrEqual(0);
           for (const t of geo.taps) expect(t.h, `tap "${t.t}" height`).toBeGreaterThanOrEqual(44);

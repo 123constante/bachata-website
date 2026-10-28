@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { REASONS } from './cancelFixtures';
 import { SHAPES } from './wsFixtures';
+import { L } from '../../model';
 
 /*
  * W3b-2 (a date's own Name, Photos, Price) through the REAL send path, the W2b harness: data/dates
@@ -57,7 +58,7 @@ beforeEach(() => {
     if (name === 'admin_event_workspace_p5') return { data: shape, error: null };
     if (name === 'event_view_p5') {
       const id = (args.p_target as { occurrence_id: string }).occurrence_id;
-      return { data: { event: detail, occurrence: { id, date: id.slice(2), version: 3, lifecycle_status: 'scheduled', materialised_start_utc: `${id.slice(2)}T20:00:00Z` }, schedule: {} }, error: null };
+      return { data: { event: detail, occurrence: { id, date: id.slice(2), version: 3, lifecycle_status: id === 'o-2026-11-06' ? 'cancelled' : 'scheduled', materialised_start_utc: `${id.slice(2)}T20:00:00Z` }, schedule: {} }, error: null };
     }
     if (name === 'series_command_p5' || name === 'occurrence_command_p5') {
       (name === 'series_command_p5' ? series : dates).push(args.p_envelope as Env);
@@ -311,5 +312,136 @@ describe('W3b-2 rows on the dayown sheet', () => {
     fireEvent.click(screen.getByTestId('p3-resetNormal-go'));
     await waitFor(() => screen.getByTestId('p3-toast'));
     expect(sent()).toEqual([{ target: 'o-2026-10-30', v: 3, command: { kind: 'occurrence.set_override', payload: { title: null, gallery: null, passes: null } } }]);
+  });
+});
+
+/*
+ * Fix round 1 (review 1110-r1, findings 1, 2, 6). The class: a row that says why it cannot be
+ * done must not carry a live control, and a held reason must name only controls on its sheet
+ * (Definition of done: "no copy that points at a control that is not on screen", "a control
+ * that cannot work is disabled with a reason").
+ */
+const OWN_ALL = { title_override: 'Halloween Fridays', gallery_override: G, passes_override: [PASS] };
+const TEAM_PASS = { ...PASS, tier: 'vip' };
+
+/** Every element marked data-enabled="false" is a disabled button or holds only disabled buttons. Returns how many. */
+function noLiveControlWithReason(root: HTMLElement): number {
+  const off = Array.from(root.querySelectorAll<HTMLElement>('[data-enabled="false"]'));
+  for (const el of off) {
+    const id = el.getAttribute('data-testid');
+    if (el instanceof HTMLButtonElement) expect(el.disabled, `${id} is greyed but live`).toBe(true);
+    for (const b of Array.from(el.querySelectorAll('button'))) expect(b.disabled, `${id}: "${b.textContent}" is live on a row with a reason`).toBe(true);
+    expect(el.textContent?.trim(), `${id} says why`).toBeTruthy();
+  }
+  return off.length;
+}
+
+type LockCase = { name: string; ws: () => Record<string, unknown>; detail: Record<string, unknown>; open: 'event' | 'cancelled' | 'past'; dayown: boolean; greyRows: string[] };
+const LOCKS: LockCase[] = [
+  { name: 'plain', ws: () => SHAPES.weekly, detail: OWN_ALL, open: 'event', dayown: true, greyRows: [] },
+  { name: 'festival', ws: () => SHAPES.festival, detail: OWN_ALL, open: 'event', dayown: true, greyRows: ['name', 'photos', 'price'] },
+  { name: 'team list on the date', ws: () => SHAPES.weekly, detail: { passes_override: [TEAM_PASS] }, open: 'event', dayown: true, greyRows: ['price'] },
+  { name: 'team list on the series', ws: () => withSeries({ passes: [TEAM_PASS] }), detail: OWN_ALL, open: 'event', dayown: true, greyRows: [] },
+  { name: 'cancelled (own name, the prod shape)', ws: () => SHAPES.weekly, detail: { title_override: 'Halloween Fridays' }, open: 'cancelled', dayown: false, greyRows: [] },
+  { name: 'past', ws: () => SHAPES.weekly, detail: OWN_ALL, open: 'past', dayown: false, greyRows: [] },
+];
+
+async function openCase(c: LockCase) {
+  if (c.open === 'event') return openFirstDate();
+  await waitFor(() => screen.getByTestId(`p3-filter-${c.open}`));
+  fireEvent.click(screen.getByTestId(`p3-filter-${c.open}`));
+  await waitFor(() => screen.getAllByTestId('p3-date-row'));
+  fireEvent.click(within(screen.getAllByTestId('p3-date-row')[0]).getByRole('button'));
+  await waitFor(() => screen.getByTestId('p3-date-actions'));
+}
+
+describe('W3b-2 fix round 1: a row with a reason never has a live write control', () => {
+  for (const c of LOCKS) {
+    it(c.name, async () => {
+      shape = c.ws();
+      detail = c.detail;
+      show(c.open === 'event' ? undefined : '/account/p3/events/ser-1/dates');
+      await openCase(c);
+      noLiveControlWithReason(screen.getByTestId('p3-date-actions'));
+      expect(act('details').disabled).toBe(!c.dayown);
+      if (!c.dayown) return;
+      fireEvent.click(act('details'));
+      await waitFor(() => screen.getByTestId('p3-dayown'));
+      const sheet = screen.getByTestId('p3-dayown');
+      expect(noLiveControlWithReason(sheet)).toBe(c.greyRows.length);
+      for (const r of ['where', 'about', 'ticket', 'photo', 'name', 'photos', 'price']) {
+        const why = screen.queryByTestId(`p3-own-${r}-why`);
+        expect(!!why, `${r} greyed`).toBe(c.greyRows.includes(r));
+        if (why) expect(screen.queryByTestId(`p3-own-${r}-edit`)).toBeNull();
+      }
+      expect(dates).toHaveLength(0);
+    });
+  }
+
+  it('a cancelled date owning only a name greys "Put this date back to normal" with the reason (nothing it could send)', async () => {
+    detail = { title_override: 'Halloween Fridays' };
+    show('/account/p3/events/ser-1/dates');
+    await openCase(LOCKS[4]);
+    expect(act('resetNormal').disabled).toBe(true);
+    expect(act('resetNormal').textContent).toContain(L.dateFieldsCancelled);
+  });
+
+  it('a cancelled date with its own About as well keeps "Put this date back to normal" live (About still goes back)', async () => {
+    detail = { title_override: 'Halloween Fridays', description_override: 'Our own night' };
+    show('/account/p3/events/ser-1/dates');
+    await openCase(LOCKS[4]);
+    expect(act('resetNormal').disabled).toBe(false);
+  });
+});
+
+/** Words a reason could use to point at a control; each one a reason names must be a button on the sheet. */
+const CONTROL_WORDS = [L.useUsual, 'use the usual', 'usual name', L.changeForDate, L.datePhotosAdd, L.pricesAdd, L.dateUndo, L.saveOne, 'bring it back', 'back to usual'];
+
+function reasonNamesOnlyControlsOnScreen() {
+  const why = screen.getByTestId('p3-field-why').textContent ?? '';
+  const buttons = screen.getAllByRole('button').map((b) => (b.textContent ?? '').toLowerCase());
+  for (const w of CONTROL_WORDS) {
+    if (why.toLowerCase().includes(w.toLowerCase())) expect(buttons.some((b) => b.includes(w.toLowerCase())), `"${why}" names "${w}"`).toBe(true);
+  }
+}
+
+describe('W3b-2 fix round 1: every held reason names only controls on its sheet', () => {
+  it('Name: blank and too long', async () => {
+    show();
+    await openOwn('name');
+    for (const bad of ['', 'x'.repeat(81)]) {
+      fireEvent.change(screen.getByTestId('p3-own-name-text'), { target: { value: bad } });
+      reasonNamesOnlyControlsOnScreen();
+    }
+  });
+
+  it('Price: a nameless price and a bad amount', async () => {
+    show();
+    await openOwn('price');
+    fireEvent.click(screen.getByTestId('p3-price-add'));
+    fireEvent.change(screen.getByTestId('p3-price-amount'), { target: { value: '5.555' } });
+    reasonNamesOnlyControlsOnScreen();
+    fireEvent.change(screen.getByTestId('p3-price-amount'), { target: { value: '5' } });
+    reasonNamesOnlyControlsOnScreen();
+  });
+
+  it('Photos: holds nothing (no problem rule), so there is no reason to point anywhere', async () => {
+    shape = withSeries({ gallery: G });
+    show();
+    await openOwn('photos');
+    fireEvent.click(screen.getAllByTestId('p3-photo-remove')[0]);
+    expect(screen.queryByTestId('p3-field-why')).toBeNull();
+  });
+});
+
+describe('W3b-2 fix round 1: finding 9', () => {
+  it('a trailing space on a price name is no change: "Nothing changed yet", no Undo, nothing to send', async () => {
+    shape = withSeries({ passes: [PASS] });
+    show();
+    await openOwn('price');
+    fireEvent.change(screen.getByTestId('p3-price-name'), { target: { value: 'Entry ' } });
+    expect(save().disabled).toBe(true);
+    expect(save().textContent).toBe(L.dateNothing);
+    expect(screen.queryByTestId('p3-field-undo')).toBeNull();
   });
 });
