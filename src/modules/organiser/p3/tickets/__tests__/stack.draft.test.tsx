@@ -336,8 +336,9 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     expect(screen.getByTestId('tix-toast').textContent).toContain('Buyer o1');
   });
 
-  it('R5 / P9: Escape while "Close sales" is in flight keeps "Closing\u2026" (no false Close sales for good)', async () => {
-    api.setTicketStatus.mockReturnValueOnce(new Promise(() => {}));
+  it('R5 / P9 / r3 N2: Escape while "Close sales" is in flight closes the layer, as Close does; the landing comes back as a toast', async () => {
+    let answer: (v: unknown) => void = () => {};
+    api.setTicketStatus.mockReturnValueOnce(new Promise((r) => { answer = r; }));
     show(<TicketsEntry seriesId="ser-1" />);
     tap(screen.getByTestId('tix-row'));
     tap(within(screen.getByTestId('tix-type-t-sell')).getByTestId('tix-edit'));
@@ -346,11 +347,41 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     fireEvent.click(screen.getByTestId('tix-close'));
     fireEvent.click(screen.getByTestId('tix-close-confirm'));
     expect(screen.getByTestId('tix-close-confirm').textContent).toBe('Closing\u2026');
+    // Never the silent no-op r3 N2 found, and never a block that claims nothing is running (R5): the layer goes.
     esc();
-    expect(screen.getByTestId('tix-close-confirm').textContent).toBe('Closing\u2026');
-    expect(screen.queryByTestId('tix-close')).toBeNull();
-    expect((screen.getByTestId('tix-close-keep') as HTMLButtonElement).disabled).toBe(true);
+    expect(layers()).toEqual(['tix-tall']);
+    expect(screen.queryByTestId('tix-close-confirm')).toBeNull();
     expect(api.setTicketStatus).toHaveBeenCalledTimes(1);
+    await act(async () => answer({ ok: false, reason: null }));
+    expect(screen.getByTestId('tix-toast').getAttribute('role')).toBe('alert');
+    expect(layers()).toEqual(['tix-tall']);
+  });
+
+  it('P10 / r3 N3: the same order refused twice is two alerts with the same words, each dismissed alone', async () => {
+    const answers: Array<(v: unknown) => void> = [];
+    api.refundOrder.mockImplementation(() => new Promise((r) => answers.push(r)));
+    const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      show(<TicketsEntry seriesId="ser-1" />);
+      tap(screen.getByTestId('tix-row'));
+      for (const n of [0, 1]) {
+        tap(within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund'));
+        fireEvent.click(screen.getByTestId('tix-refund-confirm'));
+        fireEvent.click(screen.getByTestId('tix-refund-cancel'));
+        await act(async () => answers[n]({ kind: 'failed', reason: null }));
+      }
+      const shown = screen.getAllByTestId('tix-toast');
+      expect(shown.map((t) => t.getAttribute('role'))).toEqual(['alert', 'alert']);
+      expect(shown[0].textContent).toBe(shown[1].textContent);
+      fireEvent.click(within(shown[0]).getByTestId('tix-toast-dismiss'));
+      expect(screen.getAllByTestId('tix-toast')).toEqual([shown[1]]);
+      fireEvent.click(within(shown[1]).getByTestId('tix-toast-dismiss'));
+      expect(screen.queryByTestId('tix-toast')).toBeNull();
+      // Keys by text would collide here: React says so on console.error.
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes('same key'))).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('F6: Escape inside "Close sales for good?" means Keep selling; the next Escape closes the sheet', () => {
@@ -433,7 +464,8 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     fireEvent.click(screen.getByTestId('tix-save'));
     esc();
     await act(async () => answer({ ok: true, reason: null, id: 't-free' }));
-    expect(screen.getByTestId('tix-toast').textContent).toBe('"Door": Ticket saved.');
+    // Review r3 N1: named as the refreshed list shows it, by the saved name.
+    expect(screen.getByTestId('tix-toast').textContent).toBe('"Door renamed": Ticket saved.');
     expect([!!within(row('t-paid')).queryByTestId('tix-move-error'), !!within(row('t-free')).queryByTestId('tix-move-error')]).toEqual([true, false]);
   });
 

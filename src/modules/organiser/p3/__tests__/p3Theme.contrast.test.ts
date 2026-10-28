@@ -61,6 +61,8 @@ const PAIRS: Array<[string, string[]]> = [
   ['--bg', ['--fg']],
   // W2b: a danger action's title (.p3-danger-t) on the date sheet and a card; the typed value in .p3-in (fg on its sheet ground, above)
   ['--danger', ['--sheet']], ['--danger', ['--card']],
+  // W3b-1 History: the day heading and row title (fg), who/time/date and Changed lines (mut) on a card; the intro note on the page
+  ['--fg', ['--card']], ['--mut', ['--card']], ['--mut', ['--bg']], ['--gold-fg', ['--bg']],
 ];
 
 // Non-text edges, WCAG 1.4.11 (3:1): the .p3-in box edge against the sheet it sits on.
