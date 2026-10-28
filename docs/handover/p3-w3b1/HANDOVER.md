@@ -21,3 +21,13 @@ Branch `claude/p3-w3b1-history`. Flag `organiserP3` stays OFF.
 
 ## Status
 DONE for the builder lane: code, tests, design record and PR body (#1098) in place; waits on the independent review and the orchestrator walk.
+
+## Fix round 1 (brief `p3-w3b1-fix1`, review r1)
+
+Done: findings 1-7 of `docs/reviews/1098-r1.md`, each with a test (table and RED/GREEN notes in `docs/design/1098.md`, "Fix round 1"). Files: `data/history.ts`, `screens/HistoryScreen.tsx`, `screens/__tests__/history.matrix.test.tsx`; no other file, 0 bytes to `/app`.
+
+Behaviour change to note: a signed-out caller (`42501 not_signed_in`) now gets the History error card with Try again instead of "not yours", matching the shared `isAccessRefusal` rule.
+
+Gates (local): history matrix + p3Theme contrast 221/221; all 184 `src/modules/organiser` test files, 6,776 passed, 2 skipped (run in parts); `npm run lint` 21/22 links, `check:integrity` exit 126 = sandbox exec bit, `bash bin/check-integrity.sh` passes (2762 files, 0 issues); eslint on the three files 0 errors (1 pre-existing warning); bundle budget with the perf-budget.yml env on `origin/main` (8b171b4) and the branch: `/app` 373.7 KB across 49 files on both (budget 374 KB), the listed top-10 chunks byte-identical (1,010,740 B each), the History RPC appears in neither build (flag off), request pins and chunk cycles pass.
+
+Left: the orchestrator walk (unchanged from above); round 2 review if wanted. The branch is 3 commits behind main, no conflict.
