@@ -21,7 +21,7 @@ describe('parse: valid bodies', () => {
     ['template hint plus real text', section('events and venues rows (read-only, counts)')],
     ['section valid, comment elsewhere', `<!-- note -->\n${section()}`],
   ])('%s', (_n, body) => {
-    expect(parse(body)).toEqual({ ok: true, problems: [] });
+    expect(parse(body)).toEqual({ ok: true, pending: false, problems: [] });
   });
 });
 
@@ -118,7 +118,99 @@ describe('PR template', () => {
       .replace(/^- Shapes surveyed.*$/m, `- Shapes surveyed: ${S}`)
       .replace(/^- Checks run.*$/m, `- Checks run: ${C}`)
       .replace(/^- NOT verified.*$/m, `- NOT verified: ${N}`);
-    expect(parse(filled)).toEqual({ ok: true, problems: [] });
+    expect(parse(filled)).toEqual({ ok: true, pending: false, problems: [] });
     expect(parse(template).ok).toBe(false);
+  });
+});
+
+// The bot (.github/workflows/bot-pr.yml) opens every claude/** PR with the
+// section pre-filled with the TO FILL marker. That is PENDING (exit 3, a
+// non-failing notice), never a pass: parse().ok stays false so no merge path
+// that reads parse() (scripts/automerge-classify.mjs) can treat it as done.
+describe('TO FILL marker: pending, not a violation and not a pass', () => {
+  const M = 'TO FILL';
+  const OLD_STUB =
+    'Opened by the bot for cloud branch `claude/x` so the owner can approve it. The session fills in this description.\n\nRaised by .github/workflows/bot-pr.yml.';
+  const fence = (s: string) => '```\n' + s + '\n```';
+
+  it.each([
+    ['marker on one line', section(M), true],
+    ['marker on two lines', section(M, M), true],
+    ['marker on three lines', section(M, M, M), true],
+    ['marker mixed with real text', section(`${S} ${M}`), true],
+    ['marker lowercase is not the marker (short text, violation)', section('to fill'), false],
+    ['marker on one line, another line missing', `## Verified on real data\n- Shapes surveyed: ${M}\n- Checks run: ${C}`, false],
+    ['marker on one line, another a placeholder', section(M, 'n/a'), false],
+  ])('%s', (_n, body, pending) => {
+    const r = parse(body);
+    expect(r.ok).toBe(false);
+    expect(r.pending).toBe(pending);
+    expect(main([], { PR_BODY: body }, quiet)).toBe(pending ? 3 : 1);
+  });
+
+  it('names every marker line in the problems', () => {
+    const r = parse(section(M, C, M));
+    expect(r.problems).toHaveLength(2);
+    expect(r.problems.join('\n')).toMatch(/Shapes surveyed.*TO FILL/);
+    expect(r.problems.join('\n')).toMatch(/NOT verified.*TO FILL/);
+  });
+
+  it('a marker only inside a fenced code block is not the section (the real one outside decides)', () => {
+    expect(parse(`${fence(section(M, M, M))}\n\n${section()}`)).toEqual({ ok: true, pending: false, problems: [] });
+    expect(parse(`${section()}\n\nExample:\n${fence('- Shapes surveyed: ' + M)}`)).toEqual({ ok: true, pending: false, problems: [] });
+    const onlyFenced = parse(fence(section(M, M, M)));
+    expect(onlyFenced.ok).toBe(false);
+    expect(onlyFenced.pending).toBe(false);
+    expect(onlyFenced.problems[0]).toMatch(/missing/);
+  });
+
+  it('a filled body passes (exit 0)', () => {
+    expect(parse(section())).toEqual({ ok: true, pending: false, problems: [] });
+    expect(main([], { PR_BODY: section() }, quiet)).toBe(0);
+  });
+
+  it('the OLD bot stub stays a violation (red, exit 1)', () => {
+    const r = parse(OLD_STUB);
+    expect(r).toMatchObject({ ok: false, pending: false });
+    expect(main([], { PR_BODY: OLD_STUB }, quiet)).toBe(1);
+  });
+
+  it('the body bot-pr.yml writes today is pending (exit 3)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const yml = readFileSync(new URL('../.github/workflows/bot-pr.yml', import.meta.url), 'utf8');
+    const m = /const body = (\[[\s\S]*?\])\.join\("\\n"\);/.exec(yml);
+    expect(m, 'bot-pr.yml must build the body as [ ... ].join("\\n")').not.toBeNull();
+    const body = (new Function('process', `return ${m![1]}.join("\\n");`) as (p: unknown) => string)({
+      env: { BRANCH: 'claude/x' },
+    });
+    expect(body).toContain('Opened by the bot');
+    expect(parse(body)).toMatchObject({ ok: false, pending: true });
+    expect(main([], { PR_BODY: body }, quiet)).toBe(3);
+  });
+
+  it('a pending body does NOT qualify for bot auto-merge', async () => {
+    // @ts-expect-error -- plain .mjs script, no types
+    const { classify, BOT_LOGIN, LABEL_OK } = await import('../scripts/automerge-classify.mjs');
+    const files = [{ filename: 'docs/a.md', status: 'modified', additions: 3, deletions: 1 }];
+    const pr = {
+      state: 'open', draft: false, user: BOT_LOGIN, headRef: 'claude/x', headRepo: 'o/r', baseRepo: 'o/r',
+      baseRef: 'main', labels: [LABEL_OK], additions: 3, deletions: 1, changedFiles: 1,
+    };
+    const go = (body: string) =>
+      classify({ pr: { ...pr, body }, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false });
+    expect(go(section()).qualifies).toBe(true);
+    expect(go(section(M)).qualifies).toBe(false);
+  });
+});
+
+describe('real-data-verified.yml wiring', () => {
+  it('keeps the docs-only skip and turns ONLY exit 3 into a non-failing notice', async () => {
+    const { readFileSync } = await import('node:fs');
+    const yml = readFileSync(new URL('../.github/workflows/real-data-verified.yml', import.meta.url), 'utf8').replace(/\r/g, '');
+    // PRs touching no src/, app/ or api/ are skipped exactly as before.
+    expect(yml).toContain('/^(src|app|api)\\//.test(n)');
+    expect(yml).toContain("core.setOutput('skip', 'true');");
+    // Pending is exit 3 -> notice + exit 0; any other code is passed through (red).
+    expect(yml).toMatch(/if \[ "\$code" = "3" \]; then\n\s+echo "::notice [^\n]*\n[^\n]*\n\s+exit 0\n\s+fi\n\s+exit "\$code"/);
   });
 });
