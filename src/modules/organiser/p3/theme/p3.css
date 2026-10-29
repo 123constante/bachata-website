@@ -330,3 +330,11 @@
 .p3-theme .p3-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .p3-theme .p3-photo-x { position: absolute; top: 0; right: 0; width: var(--tap); height: var(--tap); display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--fg); font-size: 18px; cursor: pointer; }
 .p3-theme .p3-photo-x span { width: 28px; height: 28px; border-radius: 999px; background: var(--sheet); display: flex; align-items: center; justify-content: center; }
+
+/* W4b: Welcome / Add a page. The onboarding screens and their portalled sheets are R1 parts in
+ * P3's tokens: links and the step tick read --gold, which in P3 is a fill colour (3:1 on white),
+ * so inside them it is the text-safe --gold-fg; the three R1-only tokens map onto P3's own. */
+.p3-theme.p3-onb, .p3-theme .p3-onb { --gold: var(--gold-fg); --ph: var(--mut); --skel-a: var(--card2); --skel-b: var(--line); }
+.p3-theme.org-sheet { color: var(--fg); font-family: var(--font-ui); font-size: var(--fs-body); line-height: 1.4; }
+.p3-theme.p3-sheet-scrim { background: var(--scrim); }
+.p3-theme .p3-ok { margin: 0; padding: 8px 12px; border-radius: var(--r-ctl); background: var(--ok-bg); color: var(--ok-fg); font-size: var(--fs-small); }

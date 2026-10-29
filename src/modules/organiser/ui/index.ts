@@ -13,6 +13,7 @@ export { londonDateParts } from './londonDate';
 export { Cover, type CoverProps } from './Cover';
 export { TitleInput, type TitleInputProps } from './TitleInput';
 export { SheetView, NESTED_SHEET_ERROR, type SheetViewProps } from './SheetView';
+export { SheetLookProvider, useSheetLook, type SheetLook } from './sheetLook';
 export { SearchField, type SearchFieldProps } from './SearchField';
 export { PersonRow, type PersonRowProps } from './PersonRow';
 export { initials } from './initials';

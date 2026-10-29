@@ -143,7 +143,7 @@ describe('You hub x shape', () => {
     expect(screen.getByTestId('p3-you-page-status').textContent).toBe('Live');
     await waitFor(() => expect(within(screen.getByTestId('p3-you-team')).getByText('5 people')).toBeTruthy());
     expect(rowIds()).toEqual(['page', 'team', 'add-page']);
-    expect(screen.getByTestId('p3-you-add-page').getAttribute('href')).toBe(`${ORG_PATHS.home}?add=1`);
+    expect(screen.getByTestId('p3-you-add-page').getAttribute('href')).toBe(P3_PATHS.youAdd);
     expect(screen.getByTestId('p3-you-account').getAttribute('href')).toBe(ORG_PATHS.more);
   });
 
@@ -329,7 +329,7 @@ describe('Switch page, Organiser page, Welcome in P3', () => {
     at(P3_PATHS.youSwitch);
     const rows = await screen.findAllByTestId('switch-row');
     expect(rows.map((r) => r.textContent)).toEqual([`Bachata Sensual London${ROLE_LABEL.owner}LiveShowing`, `${LONG}${ROLE_LABEL.manager}`]);
-    expect(screen.getByTestId('switch-add-page').getAttribute('href')).toBe(`${ORG_PATHS.home}?add=1`);
+    expect(screen.getByTestId('switch-add-page').getAttribute('href')).toBe(P3_PATHS.youAdd);
     fireEvent.click(rows[1]);
     expect(await screen.findByTestId('p3-you-page-name')).toHaveProperty('textContent', LONG);
   });

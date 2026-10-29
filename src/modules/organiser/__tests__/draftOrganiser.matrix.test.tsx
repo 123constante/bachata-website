@@ -46,7 +46,11 @@ vi.mock('@/integrations/supabase/client', () => {
   };
   return { supabase: { auth: {}, rpc: db.rpc, from } };
 });
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null, signOut: vi.fn() }) }));
+vi.mock('@/hooks/useAuth', async () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, session: null, signOut: vi.fn() }),
+  // OnboardingView reads the completeness fact (P3 W4b tap gate); no provider = today.
+  ProfileGateContext: (await import('react')).createContext(null),
+}));
 vi.mock('@/hooks/useLondonToday', () => ({ useLondonToday: () => '2026-10-09' }));
 
 import HomePage from '../home';
