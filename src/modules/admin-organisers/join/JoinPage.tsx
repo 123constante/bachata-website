@@ -260,7 +260,9 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     const s = stop;
     setStop(null);
     if (s.kind === 'network' && s.from === 'join') return join();
-    if (s.kind === 'rate_limited' && s.from === 'join') return join();
+    // Only a retryable refusal (the unknown-reason fallback, login audit L4) shows Try again; it redeems again.
+    // A redeem rate limit shows it disabled (L6), so it never retries from here.
+    if (s.kind === 'refused') return join();
     // A code/bind/send failure returns to the email box (the typed email is kept in the box); a verify failure to the code box.
     if (s.kind === 'network' && s.from === 'verify') return;
     clearStep();

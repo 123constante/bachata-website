@@ -284,7 +284,10 @@ test.describe('error screens (no prototype: the owner reviews these shots)', () 
     await openInvite(page, { signedIn: true, redeem: { ok: false, reason: 'rate_limited' } });
     await page.getByTestId('invite-join').click();
     await expectStep(page, 'join', 'rate_limited');
-    await screenOk(page, 'E8-rate-limited-join', 'join-retry');
+    // Login audit L6: Try again is disabled with its reason (a retry now would only fail again); home is the way on.
+    await expect(page.getByTestId('join-retry')).toBeDisabled();
+    await expect(page.getByTestId('join-retry-why')).toHaveText('Please wait an hour before trying again.');
+    await screenOk(page, 'E8-rate-limited-join', 'invite-home');
   });
 
   test('E9 network failure on Join: try again', async ({ page }) => {
