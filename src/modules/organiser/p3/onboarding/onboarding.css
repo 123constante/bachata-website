@@ -1,0 +1,188 @@
+/*
+ * P3 onboarding shell (W4b build 2), ported from the APPROVED prototype
+ * docs/design/onboarding-prototype.html (owner, 2026-10-29). Scoped under .p3-ob
+ * (the full-screen shell) and .p3-ob-layer (its portalled sheets and toast); the
+ * colours come from ../theme/p3.css (.p3-theme) and only the TRUE BLACK dark set,
+ * the pill radii and the onboarding type scale are redefined here.
+ *
+ * Owner picks: mood PLAYFUL (gold title), corners PILL, light by default (the
+ * shell carries data-theme="light" unless the person chose dark), true black dark.
+ * Every size is px (CLAUDE.md trap: html is ~13.5px on phones). --ts is the text
+ * scale the geometry spec sets to 1.3; the phone's own setting needs nothing.
+ * Height: 100dvh, never 100vh; while a field is focused ObShell sets the height to
+ * visualViewport.height, and the fit steps below are container queries on it.
+ */
+.p3-ob, .p3-ob-layer {
+  --r-card: 24px; --r-ctl: 999px; --r-inp: 999px; --r-chip: 999px; --r-sheet: 32px; --r-tile: 20px;
+  --ts: 1;
+  --fs-body: calc(17px * var(--ts)); --fs-small: calc(14px * var(--ts)); --fs-title: calc(24px * var(--ts)); --fs-h2: calc(19px * var(--ts));
+  --dur: 260ms;
+}
+.p3-ob[data-theme="dark"], .p3-ob-layer[data-theme="dark"] {
+  --bg: #000000; --card: #141414; --card2: #212121; --sheet: #141414;
+  --line: #2f2f2f; --line-strong: #8f8f8f; --fg: #f1f2f4; --mut: #b3b3b3;
+  --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03;
+  --danger: #ff7a6b; --cancel-bg: #3a1d19; --cancel-fg: #ffa59a;
+  --ok-bg: #0f2a1d; --ok-fg: #7be6b4; --warn-bg: #3a2113; --warn-fg: #ff9a6a;
+  --scrim: rgba(0, 0, 0, 0.7); --shadow: none;
+  color-scheme: dark;
+}
+
+.p3-ob {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 60;
+  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: var(--fs-body); line-height: 1.4;
+  container-type: size; container-name: ob;
+}
+.p3-ob *, .p3-ob-layer * { box-sizing: border-box; }
+.p3-ob-scr { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+.p3-ob-scr[data-dir="fwd"] { animation: p3ObInR var(--dur) ease-out; }
+.p3-ob-scr[data-dir="back"] { animation: p3ObInL var(--dur) ease-out; }
+@keyframes p3ObInR { from { transform: translateX(40px); opacity: .2; } to { transform: none; opacity: 1; } }
+@keyframes p3ObInL { from { transform: translateX(-40px); opacity: .2; } to { transform: none; opacity: 1; } }
+
+/* Top strip: Back, the progress bar with its percentage (owner change 2). */
+.p3-ob-top { height: 56px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 8px; background: var(--bg); }
+.p3-ob-back { width: 44px; height: 44px; border: 0; background: transparent; color: var(--fg); border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0; }
+.p3-ob-back svg { width: 24px; height: 24px; }
+.p3-ob-prog { flex: 1; display: flex; align-items: center; gap: 8px; margin: 0 4px 0 8px; min-width: 0; }
+.p3-ob-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.p3-ob-bar i { display: block; height: 100%; background: var(--gold); border-radius: 2px; transition: width 240ms ease; }
+.p3-ob-pct { flex: none; min-width: 44px; text-align: right; font-size: var(--fs-small); font-weight: 700; color: var(--gold-fg); font-variant-numeric: tabular-nums; }
+
+.p3-ob-main { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.p3-ob-foot { flex: none; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.p3-ob-foot .p3-ob-lnk { align-self: center; }
+
+.p3-ob-t { margin: 4px 0 0; font-size: var(--fs-title); font-weight: 800; line-height: 1.2; color: var(--gold-fg); overflow-wrap: anywhere; }
+.p3-ob-t:focus { outline: none; }
+.p3-ob-m { margin: 0; font-size: var(--fs-small); line-height: 1.4; color: var(--mut); overflow-wrap: anywhere; }
+.p3-ob-opt { font-size: var(--fs-small); font-weight: 600; color: var(--mut); background: var(--card2); border-radius: var(--r-chip); padding: 2px 8px; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+.p3-ob-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px; display: flex; gap: 12px; align-items: center; }
+.p3-ob-card strong { display: block; font-size: var(--fs-body); }
+.p3-ob-card svg { width: 22px; height: 22px; color: var(--gold-fg); flex: none; }
+.p3-ob-scrollbox { flex: 1; min-height: 52px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+
+.p3-ob-btn { min-height: 52px; padding: 0 18px; border-radius: var(--r-ctl); border: 0; background: var(--btn); color: var(--btnfg); font: inherit; font-size: var(--fs-body); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; overflow-wrap: anywhere; text-align: center; transition: transform 120ms ease; }
+.p3-ob-btn:active { transform: scale(.97); }
+.p3-ob-btn[data-bounce="true"] { animation: p3ObBounce 320ms ease; }
+@keyframes p3ObBounce { 0% { transform: scale(1); } 40% { transform: scale(.94); } 70% { transform: scale(1.03); } 100% { transform: scale(1); } }
+.p3-ob-btn[aria-disabled="true"] { background: var(--card2); color: var(--mut); cursor: not-allowed; }
+.p3-ob-btn-line { background: transparent; color: var(--fg); border: 1px solid var(--line-strong); }
+.p3-ob-btn-sm { min-height: 44px; font-size: var(--fs-small); padding: 0 14px; align-self: flex-start; }
+.p3-ob-why { margin: 0; font-size: var(--fs-small); color: var(--mut); text-align: center; overflow-wrap: anywhere; }
+.p3-ob-err { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--danger); overflow-wrap: anywhere; }
+.p3-ob-lnk { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; background: none; border: 0; font: inherit; font-size: var(--fs-small); font-weight: 700; color: var(--gold-fg); text-decoration: underline; cursor: pointer; text-align: left; }
+.p3-ob :focus-visible, .p3-ob-layer :focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+
+.p3-ob-inp { width: 100%; min-height: 52px; padding: 0 20px; border-radius: var(--r-inp); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-body); }
+.p3-ob-inp::placeholder { color: var(--mut); opacity: 1; }
+textarea.p3-ob-inp { min-height: 120px; padding: 12px 18px; resize: none; line-height: 1.4; border-radius: var(--r-card); }
+.p3-ob-years { max-width: 160px; }
+.p3-ob-search { position: relative; }
+.p3-ob-search .p3-ob-inp { padding-left: 48px; }
+.p3-ob-search svg { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--mut); pointer-events: none; }
+
+/* Tap cards: 2x2; three across for the roles on the wide screen. */
+.p3-ob-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.p3-ob-tiles[data-three="true"] { grid-template-columns: repeat(3, 1fr); }
+.p3-ob-tile { min-height: 72px; padding: 10px 12px; border-radius: var(--r-tile); border: 2px solid var(--line); background: var(--card); color: var(--fg); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; text-align: left; position: relative; overflow-wrap: anywhere; min-width: 0; transition: transform 120ms ease, border-color 120ms ease; }
+.p3-ob-tile:active { transform: scale(.97); }
+.p3-ob-tile strong { font-size: var(--fs-body); font-weight: 700; line-height: 1.2; padding-right: 20px; }
+.p3-ob-tile span { font-size: var(--fs-small); color: var(--mut); line-height: 1.3; }
+.p3-ob-tile[aria-checked="true"] { border-color: var(--gold); background: var(--warn-bg); }
+.p3-ob-tick { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--btnfg); display: none; align-items: center; justify-content: center; }
+.p3-ob-tick svg { width: 14px; height: 14px; }
+.p3-ob-tile[aria-checked="true"] .p3-ob-tick { display: inline-flex; animation: p3ObPop 220ms ease; }
+@keyframes p3ObPop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+/* Chips (popular picks are .big). */
+.p3-ob-chips { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.p3-ob-chip { min-height: 48px; padding: 0 16px; border-radius: var(--r-chip); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; overflow-wrap: anywhere; text-align: left; }
+.p3-ob-chip[aria-pressed="true"], .p3-ob-chip[aria-checked="true"] { background: var(--warn-bg); border-color: var(--gold); }
+.p3-ob-chip-x { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--card2); align-items: center; justify-content: center; flex: none; }
+.p3-ob-chip-x svg { width: 12px; height: 12px; }
+.p3-ob-flag { width: 24px; height: 18px; flex: none; border-radius: 3px; object-fit: cover; background: var(--card2); display: inline-block; }
+.p3-ob-flag[data-failed="true"] { visibility: hidden; }
+
+/* Photo */
+.p3-ob-ava-row { display: flex; align-items: center; gap: 14px; }
+.p3-ob-ava { width: 88px; height: 88px; border-radius: 50%; background: var(--card2); border: 2px dashed var(--line-strong); display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none; color: var(--mut); }
+.p3-ob-ava svg { width: 34px; height: 34px; }
+.p3-ob-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p3-ob-ava[data-has="true"] { border: 2px solid var(--gold); }
+.p3-ob-ava-btns { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.p3-ob-ava-btn { min-height: 44px; padding: 0 16px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-small); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.p3-ob-ava-btn svg { width: 20px; height: 20px; color: var(--gold-fg); flex: none; }
+.p3-ob-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Sheets and the toast: portalled to body (.p3-ob-layer), fixed to the viewport. */
+.p3-ob-layer { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; background: var(--scrim); font-family: var(--font-ui); color: var(--fg); }
+.p3-ob-layer[data-kind="toast"] { inset: auto 16px 96px 16px; background: none; align-items: stretch; pointer-events: none; }
+.p3-ob-sheet { width: 100%; max-height: 92dvh; background: var(--sheet); border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; overflow: hidden; animation: p3ObUp var(--dur) ease-out; }
+.p3-ob-sheet-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.p3-ob-sheet-h h2 { margin: 0; font-size: var(--fs-h2); font-weight: 700; overflow-wrap: anywhere; }
+.p3-ob-sheet-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.p3-ob-close { width: 44px; height: 44px; flex: none; border: 0; background: var(--card2); border-radius: 50%; color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.p3-ob-close svg { width: 18px; height: 18px; }
+.p3-ob-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 4px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; width: 100%; overflow-wrap: anywhere; }
+.p3-ob-row:first-child { border-top: 0; }
+.p3-ob-row[aria-checked="true"], .p3-ob-row[aria-pressed="true"] { font-weight: 700; color: var(--gold-fg); }
+.p3-ob-sect { font-size: var(--fs-small); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--mut); padding: 10px 4px 4px; }
+.p3-ob-toast { padding: 12px 16px; border-radius: var(--r-card); background: var(--fg); color: var(--bg); font-size: var(--fs-small); font-weight: 700; overflow-wrap: anywhere; animation: p3ObUp 200ms ease-out; }
+@keyframes p3ObUp { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+
+.p3-ob-skel { border-radius: var(--r-inp); background: var(--card2); min-height: 52px; }
+
+/* ===== Fit steps (prototype section 1), on the shell's own height = the visible height. ===== */
+@container ob (max-height: 700px) {
+  .p3-ob-top { height: 48px; }
+  .p3-ob-main { gap: 8px; padding-bottom: 10px; }
+  .p3-ob-t { font-size: calc(21px * var(--ts)); }
+  .p3-ob-tile { min-height: 64px; }
+  .p3-ob-foot { padding: 8px 16px 12px; gap: 6px; }
+  .p3-ob-ava { width: 72px; height: 72px; }
+  textarea.p3-ob-inp { min-height: 88px; }
+  .p3-ob-chip { min-height: 44px; padding: 0 14px; }
+  .p3-ob-chips { gap: 6px; }
+}
+@container ob (max-width: 370px) {
+  .p3-ob-tiles[data-three="true"] { grid-template-columns: repeat(2, 1fr); }
+  .p3-ob-tiles[data-three="true"] > .p3-ob-tile:nth-child(3) { grid-column: span 2; }
+  .p3-ob-tile strong { font-size: calc(15px * var(--ts)); padding-right: 18px; }
+}
+/* Keyboard open: title shrinks, helper lines and secondary links collapse; field + Continue stay above the keyboard. */
+@container ob (max-height: 520px) {
+  .p3-ob-top { height: 40px; }
+  .p3-ob-t { font-size: calc(18px * var(--ts)); margin: 0; }
+  .p3-ob-main { padding-top: 0; padding-bottom: 4px; gap: 6px; }
+  .p3-ob-main > .p3-ob-m, .p3-ob-kbhide { display: none !important; }
+  textarea.p3-ob-inp { min-height: 48px; height: 48px; padding: 8px 18px; }
+  .p3-ob-foot { padding: 6px 16px 8px; gap: 4px; }
+  .p3-ob-foot .p3-ob-lnk { display: none; }
+}
+@container ob (max-height: 480px) {
+  .p3-ob-top { height: 40px; }
+  .p3-ob-t { font-size: calc(18px * var(--ts)); margin: 0; }
+  .p3-ob-main { padding-top: 0; padding-bottom: 6px; gap: 6px; }
+  .p3-ob-tile { min-height: 56px; padding: 8px 10px; }
+  .p3-ob-foot { padding: 6px 16px 10px; gap: 4px; }
+  .p3-ob-ava { width: 64px; height: 64px; }
+}
+@container ob (max-height: 320px) {
+  .p3-ob-top { height: 36px; }
+  .p3-ob-t { font-size: calc(16px * var(--ts)); }
+  .p3-ob-main { padding-bottom: 0; gap: 4px; }
+  .p3-ob-main .p3-ob-m { display: none !important; }
+  .p3-ob-inp { min-height: 48px; }
+  textarea.p3-ob-inp { min-height: 44px; height: 44px; }
+  .p3-ob-opt { display: none; }
+  .p3-ob-btn { min-height: 48px; }
+  .p3-ob-foot { padding: 4px 16px 8px; gap: 2px; }
+  .p3-ob-foot .p3-ob-why { display: none; }
+}
+
+/* Motion off-switch: the phone's reduced-motion setting. No slide, no pop, no bounce. */
+@media (prefers-reduced-motion: reduce) {
+  .p3-ob-scr, .p3-ob-btn, .p3-ob-tile, .p3-ob-tick, .p3-ob-sheet, .p3-ob-toast, .p3-ob-bar i { animation: none !important; transition: none !important; }
+}

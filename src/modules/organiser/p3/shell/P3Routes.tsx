@@ -25,6 +25,8 @@ const WelcomePage = lazyWithRetry(() => import('../../switch/Welcome'));
 const PageScreen = lazyWithRetry(() => import('../../page'));
 const Done = lazyWithRetry(() => import('../../flows/Done'));
 const AddPageScreen = lazyWithRetry(() => import('../you/AddPageScreen'));
+// W4b build 2: the onboarding person screens draw their own full-screen shell (no tab bar), lazy like the rest.
+const PersonFlow = lazyWithRetry(() => import('../onboarding/PersonFlow'));
 // W3a's edit screens load on their own (PR #1082 r1 #8): their shared modules stay out of the list of
 // chunks the app's route table names for the P3 area, which /app's first load carries.
 const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').then((m) => ({ default: m.DetailsScreen })));
@@ -40,6 +42,7 @@ export default function P3Routes() {
   return (
     <AuthGuard>
       <Routes>
+        <Route path="you/details" element={<Suspense fallback={null}><PersonFlow /></Suspense>} />
         <Route element={<P3Shell />}>
           <Route index element={<HomeScreen />} />
           <Route path="events" element={<EventsScreen />} />
