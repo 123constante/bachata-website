@@ -65,6 +65,9 @@ const PAIRS: Array<[string, string[]]> = [
   ['--fg', ['--card']], ['--mut', ['--card']], ['--mut', ['--bg']], ['--gold-fg', ['--bg']],
   // W3b-2: a date's own photos (the remove x, fg on its sheet-colour chip), the leave / undo ask card (fg on card, danger button), the held-save reason (warn)
   ['--fg', ['--sheet']], ['--fg', ['--card']], ['--danger-fg', ['--danger']], ['--warn-fg', ['--warn-bg', '--sheet']], ['--mut', ['--sheet']],
+  // Door scanner: the four result bands (solid fills, --danger-fg text), the In chip, the camera box words, the counter chip
+  ['--danger-fg', ['--ok-fg']], ['--danger-fg', ['--amber']], ['--danger-fg', ['--danger']], ['--danger-fg', ['--mut']],
+  ['--cam-fg', ['--cam']], ['--fg', ['--tab']], ['--mut', ['--tab']], ['--amber', ['--card']],
 ];
 
 // Non-text edges, WCAG 1.4.11 (3:1): the .p3-in box edge against the sheet it sits on.
