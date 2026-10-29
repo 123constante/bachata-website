@@ -112,11 +112,18 @@ export interface PersonScreensProps {
   initialStep?: PersonStep;
   /** Tests stub the upload. */
   upload?: (file: File) => Promise<string>;
+  /**
+   * The bar's percentage for a person step. Default: the person steps alone. The full onboarding flow
+   * passes the FULL path (page screens ... person ... Review), review r1 S6, so About never reads 100%.
+   */
+  percentOf?: (step: PersonStep, path: readonly PersonStep[]) => number;
+  /** The last person step's button: 'Done' here alone; 'Continue' when Review follows. */
+  lastLabel?: string;
 }
 
 type Sheet = 'nat' | 'langs' | 'styles' | null;
 
-export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload }: PersonScreensProps) {
+export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done' }: PersonScreensProps) {
   const qc = useQueryClient();
   const [held, setHeld] = useState<PersonDraft>(heldIn);
   const [d, setD] = useState<PersonDraft>({ ...EMPTY_DRAFT, ...heldIn });
@@ -206,7 +213,7 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   const copy = STEP_COPY[step];
   const reason = blockedReason(step, d);
   const isLast = nextStep(step, path) === null;
-  const primaryLabel = saving ? 'Saving\u2026' : step === 'about' && d.about.trim() ? 'Save and continue' : isLast ? 'Done' : 'Continue';
+  const primaryLabel = saving ? 'Saving\u2026' : step === 'about' && d.about.trim() ? 'Save and continue' : isLast ? lastLabel : 'Continue';
   const skippable = step === 'langs' || step === 'about';
   const title = step === 'about' && organiser?.name ? `About ${organiser.name}` : copy.title;
 
@@ -229,7 +236,7 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   );
 
   return (
-    <ObShell screen={step} dir={dir} percent={progressPercent(step, path)} onBack={back} backLabel="Back" onEscape={escape} theme={theme} foot={foot}>
+    <ObShell screen={step} dir={dir} percent={percentOf(step, path)} onBack={back} backLabel="Back" onEscape={escape} theme={theme} foot={foot}>
       <h1 className="p3-ob-t" id="p3-ob-title" tabIndex={-1} data-testid="p3-ob-title">
         {title}
         {copy.optional && <span className="p3-ob-opt">optional</span>}

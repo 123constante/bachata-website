@@ -7,6 +7,7 @@ import { L } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { flags } from '@/lib/featureFlags';
 import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
+import { GraceBanner } from './GraceBanner';
 import { ChangeItLink, EventList, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
 
 /** Why there is no Next up, and what the person can do about it (the state decides the words). */
@@ -60,6 +61,7 @@ export function HomeScreen() {
     <>
       {confirmation && <p className="p3-ok" role="status" data-testid="p3-home-confirmation">{confirmation}</p>}
       <ClaimNotice />
+      <GraceBanner />
     </>
   );
 
