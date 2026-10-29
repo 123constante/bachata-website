@@ -1,246 +1,349 @@
-# Onboarding prototype (P3, design only)
+# Onboarding prototype (P3, design only), round 2
 
 **Open `docs/design/onboarding-prototype.html` on a phone** (or in a desktop browser: it shows a
-390x844 phone frame, scaled up on tall screens). One file, inline CSS and JS, no network, no fonts,
-121 KB. Nothing is saved or sent. Branch `claude/p3-onboarding-prototype`, PR #1124. Brief:
-`briefs/p3-onboarding-prototype.md` on `brief/p3-onboarding-prototype`. Fix round 1 (the only one) applied
-the independent critique `docs/review/onboarding-prototype-r1.md` (branch `claude/review-onboarding-prototype`):
-section 8 lists what changed per fix.
+390x844 phone frame; the Design options drawer switches it to 360x640 and 320x568 and can open a
+simulated keyboard). One file, inline CSS and JS, no network, no fonts, 132 KB. Nothing is saved or
+sent. Branch `claude/p3-onboarding-prototype`, PR #1124. Briefs: `briefs/p3-onboarding-prototype.md`
+(round 1) and `briefs/p3-onboarding-prototype-r2.md` (round 2, owner picks + the no-scroll rule).
+Round-1 critique: `docs/review/onboarding-prototype-r1.md` (all 11 fixes applied in round 1; the
+list is in section 8 of the previous version of this file, `git show c47a391:docs/design/onboarding-prototype.md`).
 
-The owner only needs to: tap through from the first screen, try the **Design options** drawer
-(corners, text amount, mood, light/dark), and say which variants to keep. The decisions this file
-asks for are in section 5.
+The owner only needs to: tap through from Welcome, try the three phone sizes and "Keyboard open" in
+the drawer, and say if anything feels long. The picks from round 2 are the defaults and are marked
+"Chosen" in the drawer.
 
 ---
 
-## 1. What is in it (screen list)
+## 1. Round-2 decisions, applied
 
-Every screen is reachable by tapping from the start. The **Jump to a screen** list at the top is a
-reviewer shortcut, not part of the product.
+| Owner pick | Where it landed |
+|---|---|
+| Corners = pill | Default `data-corners="pill"`: buttons and inputs fully rounded (999px), cards 24px, tap cards 20px, sheets 32px. Textareas use the card radius (a pill textarea looks wrong). Soft / Round stay in the drawer for comparison. |
+| Text = short | Default `data-text="short"`: title + control + at most one helper line per screen. The extra sentence of each helper (`.tx-l`) and the one-line explanations on category, role, teach and WhatsApp cards show only in Explained. Level cards keep their explanation in both (round-1 brief). |
+| Mood = calm | Default `data-mood="calm"`. The round-1 mood-picker screen is gone; Welcome is screen 1. Playful / Bold stay in the drawer. |
+| No "Not sure yet" | Dance role = Leader, Follower, Both (stored `Lead and Follow`). Assumption 1 from round 1 is closed. |
+| One question per screen | 22 onboarding screens (was 8). Every multi-question screen is split: Create = name, city. Contact = held number (one tap), phone, contact email, WhatsApp. Your page = category, link, logo. You = first name, photo, role, nationality, languages. Teaching = teach?, levels, styles, years. Then About, personal email, Review. One primary button per screen; Back on every one; optional ones (languages, about, email) have Skip. |
+| Thin progress bar | 4px bar in the top strip, width = position in the 22-screen order (`aria-valuenow`, "Step n of 22" for screen readers). No visible count, so 22 screens still read as quick. |
+| Nationality / languages | Search box + six popular big chips on the screen; typing filters to six matches; "All countries" / "More languages" open the full list in a sheet (the sheet scrolls internally). The chosen value shows as a pressed chip with a clear button. Styles you teach use the same pattern (14 styles did not fit as plain chips). |
+| Tap cards, max 4, 2x2 | Roles 3 (three across on 390, 2x2 with Both spanning on 360/320), levels 4 (2x2), teach 2, WhatsApp 2. Category has FIVE cards because `CATEGORY_OPTIONS` has five values; measured to fit on every size in Short text (see section 3). Merging two values is a product call (Parked). |
+| Review fits one page | "N things left", a counts line (done / to do / optional added), the single next missing item as a tappable row, and "Show all" opening the full list in a sheet. |
+| No scrolling | Every onboarding screen measured at 390x844, 360x640, 320x568, at 100% and 130% text, and with the keyboard open where the screen has a text field: no page scroll, no clipped text (section 3). Home and Settings are not onboarding and may scroll; both say so in their developer note. |
 
-| # | Screen (`data-id`) | What it shows | States drawn |
+How the screens fit (what a developer builds): the stage is a CSS size container, so three
+`@container` rules do the work and map 1:1 to viewport media queries in the app:
+
+- `max-height: 700px` (360x640, 320x568): top strip 48px, 8px rhythm, title 21px, cards 64px,
+  celebration tick 92px, popular chips 44px, textarea 88px. Text sizes never go below 14px.
+- `max-width: 370px`: the three role cards go 2x2 with the third spanning.
+- `max-height: 520px` (keyboard open: 508 / 370 / 308 px of visual viewport): top strip 40px, title
+  18px, helper lines and secondary links/buttons (`.kbhide`, the Skip links, About's counter and
+  starter link, the lock card on Personal email) collapse, textarea 48px. The field and the primary
+  button stay above the keyboard because the frame is a flex column and the keyboard is its last
+  child. On a real phone this is `visualViewport.height`; iOS needs `interactive-widget=resizes-content`
+  or a `visualViewport` resize listener.
+- The one region allowed to scroll inside an onboarding screen is a picker list (`.scrollbox`): the
+  search results on Find, the city chips, and the chip rows on nationality / languages / styles. They
+  only need to when the keyboard is open (section 3 lists exactly when).
+
+## 2. Screens (24) and flow
+
+| # | id | Question | Fits by |
 |---|---|---|---|
-| 0 | `mood` | Three moods (Calm / Playful / Bold) as mini previews of the welcome screen. Tap one, it applies live. | prototype only |
-| 1 | `welcome` | Invite-aware welcome: "Ana invited you to help run Bachata Nights Leeds", signed-in line, one big button. Direct arrival (no invite) drops the card and goes to Find your page. | loading, read-error, not-my-page sheet, sign-out sheet |
-| 1b | `find` | Search pages by name; rows say Claim / Ask to join / Asked (today's `claimStates.ts` words); "Not listed yet? Create". | typing (skeleton), no match (with Create), offline error, claim sheet with 6-digit code (+ wrong-code error), ask-to-join sheet, asked confirmation |
-| 1c | `create` | Page name + city (type-ahead chips). Button disabled with a reason until both are there. | name-too-short error, no-city error, name-taken refusal (Error state) |
-| 2 | `contact` | "How can dancers reach Bachata Nights Leeds?" Phone pre-filled with "Is this the best number? Yes / Change"; **Yes saves and moves on in one tap** (A6); Continue stays for Change and Email; WhatsApp switch. | held number, editing number (format error), email (format error), loading, read-error, save failed |
-| 3 | `page` | **Your page (A5)**: name shown with "Change name", city held, category as five tap cards (`CATEGORY_OPTIONS`: Dance School, Event Brand, Community Group, Promoter, Festival Brand), one link (website or `@handle`, inline validation), logo upload (gallery, square crop, sample). Button disabled with a reason until all three are there. | no category, bad link, no logo, loading, read-error, empty, save failed |
-| 4 | `you` | First name, **photo (required)** with camera / gallery / round crop sheet, dance role tap cards (Leader / Follower / Both / Not sure yet*), nationality (flags, popular first, type-to-jump, shown back as a chip), languages (chip row + More languages search sheet, ticked ones removable). | name empty, photo missing, nationality missing, no language, no match in either search, loading, read-error, save failed |
-| 5 | `teach` | "Do you teach?" two cards; if yes: level cards (Beginner / Improver / Intermediate / Advanced, tick several, one-line explanations), style chips, years teaching, "More (optional)" sheet (private lessons, where you teach). | no answer, no level, no style, years out of range, loading, read-error, save failed |
-| 5b | `about` | Optional About with a starter sentence built from what was answered; Save or Skip for now. | empty, counter, save failed |
-| 6 | `email` | Sign-in email explanation: private, never shown, why we ask; optional personal email with inline validation. | format error, save failed |
-| 7 | `review` | "N things left" checklist; missing rows first (amber), done rows (green), optional rows (grey). Every row deep-links to its step. Go live disabled with a reason until nothing is missing. "Not sure yet" counts as missing (section 3). | all done, some missing, everything missing (Empty state), loading, read-error, saving spinner, go-live failed |
-| 8 | `live` | Confetti + "You're live" + View my page (opens the public-page sheet) + Share (Web Share API, else copies the link) + Go to Home. | reduced motion: no confetti; **Already live**: "All done. You can create and edit events now." + Add an event (A8) |
-| 9 | `home` | Home with the grace banner (A0 copy, "From Monday 16 November you'll need them", days-left pill, Finish your page, dismiss for today), draft/live status, page-completion rows (incl. category, link, logo), empty events card. **During grace "Add an event" goes through** (plan section 5, stages 1-2); after the grace end it opens the gate sheet (A1). Settings icon and Settings tab open the same sheet (dark-mode switch). | banner, banner hidden, **grace ended** (pill "Grace ended", gate on Add an event), all done, no events, loading, read-error, gate sheet |
-| 10 | all | Dark mode (true black `#000`) via the top toggle or the in-app Settings switch. Light by default; the choice is remembered on the device. | |
+| 1 | welcome | Is this you? (invite card, signed-in line) | one card + title + two short lines |
+| 2 | find | Find your page (search, claim / ask rows) | results list scrolls internally; primary = Create a page |
+| 3 | create-name | Name your page | one field |
+| 4 | create-city | Which city? (search + chips) | chips, max 4 |
+| 5 | contact | Is this the best number? (one tap) | primary Yes; links Change number / Use an email instead |
+| 5b | contact-phone | Phone number | one field |
+| 5c | contact-email | Contact email (design assumption, pages with no number) | one field |
+| 6 | whatsapp | Show on WhatsApp too? | 2 cards |
+| 7 | cat | What kind of page? | 5 cards, 2 columns |
+| 8 | link | One link | one field |
+| 9 | logo | Your logo | preview + one button |
+| 10 | name | Your first name | one field |
+| 11 | photo | Your photo (required) | preview + two buttons |
+| 12 | role | How do you dance? | 3 cards |
+| 13 | nat | Nationality | search + 6 chips + All countries |
+| 14 | langs | Languages (optional) | search + 6 chips + More languages, Skip |
+| 15 | teach | Do you teach? | 2 cards; No skips 16 to 18 |
+| 16 | levels | Which levels? | 4 cards 2x2 |
+| 17 | styles | Styles you teach | search + 6 chips + More styles |
+| 18 | years | Years teaching (+ More sheet) | one field |
+| 19 | about | About (optional) | textarea 120 / 88 / 48 px |
+| 20 | email | Personal email (optional) | one field, lock card collapses under keyboard |
+| 21 | review | N things left / All set | counts + next item + Show all sheet |
+| 22 | live | You're live | celebration, 3 buttons |
+| 23 | home | Home with grace banner (MAY SCROLL) | not onboarding |
+| (sheet) | settings | Dark mode, sign-out, page name (MAY SCROLL) | not onboarding |
 
-\* "Not sure yet" is a design assumption, see section 3.
+Paths: invite arrival goes Welcome, Contact, ... (Find / Create skipped); direct arrival goes
+Welcome, Find, then Claim (sheet, 6-digit code) or Ask to join (sheet) or Create name, city. "Use an
+email instead" skips WhatsApp. Teach = No skips levels, styles, years. Back and Esc go one step back
+everywhere (and close an open sheet first). Drawer states per screen: Loading, Error, Empty, Save
+failed, All done (fills everything), Grace ended (Home), Already live (Live).
 
-**Sheets** (bottom sheets inside the frame): sign out, not my page, claim (code), ask to join, asked,
-nationality, more languages, add a photo, crop, more about teaching, gate, settings, public page
-(not drawn), other tabs (not drawn). The last two say so in words.
+## 3. Checks run on the file (measured, not asserted)
 
-**Flow order and progress** (dots at the top, 8 steps, "3 of 8" beside them): Page, Contact, Your page,
-You, Teaching, About, Email, Review. The real app counts only the steps a person still has to see (plan
-Appendix A), so the dots shrink for someone who already has most answers.
+Method: Playwright + Chromium, offline, 2026-10-29. The file exposes `window.__proto.audit()`
+(open the console on the prototype and run it for any screen + drawer setting). A driver reloads
+the page for every screen x state, sets size (390x844 / 360x640 / 320x568), text scale (100% /
+130%), keyboard (only on screens with a text field, like a real phone) and theme, shows the screen
+and records: `room` = px left below the lowest item in the content area before the page would scroll
+(negative = scroll); clipped text (any text box that leaves its clipping ancestor, or whose own box
+overflows when it clips); horizontal overflow; tap targets (every visible button / link / input,
+44x44 min); contrast (every visible text node and every placeholder against its composited
+background, 4.5 for normal text, 3.0 for large); smallest font size; reduced motion (with
+`data-rm`: no screen animation, confetti hidden). Developer notes off (they add height when on).
 
-## 2. Decisions taken (the owner's brief, applied)
-
-- **Mood** clean and calm, voice playful, audience confident. Headings are short and direct
-  ("A bit about you", "Nearly there", "You're live"). The mood switch changes only heading weight,
-  button shape and a few words; tokens, spacing and layout never change.
-- **Quick**: one question group per screen; the held phone number is confirmed in ONE tap (Yes saves and
-  moves on); the minimum per screen (3: name, photo, role,
-  nationality, languages is the most, because they are one "you" card and the plan's A2 groups them).
-  Every optional item is labelled "optional" and skippable; About has a dedicated Skip.
-- **Back everywhere**: top-left arrow on every step, Esc on a keyboard. Back never loses what was
-  ticked on earlier screens (state lives outside the screens).
-- **One big full-width button stuck at the bottom** on every step; a disabled button says why in a
-  line above it ("Add a photo to continue. It's the one thing we must have.") and tapping it shows
-  that line as a toast.
-- **Errors beside the field** in plain words, with a small warning icon, and the field gets a 2 px
-  red border. Read failures are a card with Try again. Save failures (not drawn as a separate
-  state) use the same line beside the button.
-- **Nice one**: a tick pops in the middle for 380 ms, the button bounces, `navigator.vibrate(12)` on
-  Android. Not promised on iPhone (Safari has no Vibration API). Reduced motion: no pop, no bounce,
-  instant step change, no confetti, no shimmer, no sheet slide (checked, section 4).
-- **Progress**: dots with the current one stretched, plus "3 of 7" so it survives colour-blindness.
-- **Photo required**: the one hard stop. Camera or gallery (`<input type=file accept=image/*>`,
-  `capture=user` for camera), round preview, a crop sheet with drag + zoom slider, a "sample photo"
-  button so the flow can be tried where the file picker is blocked.
-- **Dance role as cards**, single choice: Leader / Follower / Both (stored `Lead and Follow`).
-- **Nationality**: flag + name, Popular first (UK, England, Scotland, Wales, Northern Ireland, Spain,
-  Dominican Republic, Italy, Poland, Brazil, Portugal, France, Romania, Ireland, Colombia, Cuba) then
-  the rest, type-to-jump search, chosen value shown as a chip that reopens the sheet. Flags are
-  built from ISO codes at runtime (no images); Windows shows two letters instead of a flag, which
-  is acceptable and the name is always beside it.
-- **Languages**: six likely chips (English, Spanish, Portuguese, Italian, Polish, French), "More
-  languages" opens a searchable sheet, ticked ones appear as removable chips in the row; values are
-  English names.
-- **Grace banner** (A0): amber card on Home, "Finish your details to create and edit events. From Monday
-  16 November you'll need them.", "12 days left" pill, Finish your page, hide-for-today cross. Hidden for
-  admins and when complete. During grace, creating and editing still work (plan section 5, stages 1-2);
-  after the grace end (drawer state "Grace ended") every create/edit tap opens the gate sheet (A1).
-- **Your page** (A5): category as tap cards (one tap), one link (website, Instagram or Facebook; `@handle`
-  accepted), logo with a square crop. All three are rows in `missing[]`, so Review and Home list them and
-  Go live waits for them.
-- **Dark mode = true black** background, cards `#141414`, lines `#2f2f2f`; the accent stays
-  `#f0703a`. Light is the default; the toggle is remembered per device.
-- **Accent unchanged** (`--gold #f0703a`, `--gold-fg #a8461a` light / `#f5865a` dark).
-- **Density**: tap cards are 2-across (labels like "Intermediate" with an explanation do not fit
-  3-across at 320 px), stats are 3-across, padding 10-12 px, body 17 px. The brief's "text comfortably
-  large" wins over `text-sm` on this flow; the rest of P3 is unchanged.
-- **Longer words**: every label uses `overflow-wrap: anywhere`; checked at 130% text scale with no
-  clipping (section 4). German-length labels in a later language would wrap, not clip.
-- **Tap sizes are explicit px** (44 minimum, main button 52) because the site's html font-size is
-  about 13.5 px on phones and rem would shrink them.
-
-## 3. Assumptions (need a decision before build)
-
-1. **"Not sure yet" dance role (kept by the owner, still an assumption).** Drawn as a dashed card with a
-   "needs decision" badge. There is no stored value for it: `DANCE_ROLE_VALUES = ['Leader', 'Follower',
-   'Lead and Follow']` (`src/modules/organiser/wizard/dancerApi.ts`). Options: (a) new enum value in
-   admin's migration, (b) `dance_role = null` plus a `role_undecided` flag, which ALSO needs
-   `organiser_onboarding_status_v1` changed in the admin repo (otherwise `missing[]` keeps listing the role
-   and the person can never go live), (c) drop the card for launch (the reviewer's recommendation). Until
-   decided the card cannot ship. The prototype never shows a state the backend cannot produce: tapping
-   the card shows an inline note, and Review and Home list "How you dance" as still missing.
-2. **Contact by email.** The plan (A6) says the contact email is set by the team and never asked. The
-   brief says "phone or email, plain wording", so an Email tab is drawn for pages with no number.
-   Decide: ask for a contact email when there is no phone, or phone only.
-3. **Claim code.** The claim sheet shows the existing email-code proof (6 digits to the mailbox on
-   the page), as today. If the page has no mailbox the real app falls back to Ask to join; not drawn.
-4. **Grace length** is drawn as 14 days from the day the screens ship (owner's brief, plan Q1 still
-   open). The pill reads "N days left"; the copy for the last day is "Last day" (not drawn).
-5. **Go-live in an ambassador city** (plan Q2) is not drawn; the celebration would read "Sent for
-   review" with the same layout.
-6. **DJ question** (plan A4) is not drawn separately: same two cards as Teaching, then genre chips.
-7. **City** is asked on Create (new page) and not on the You screen; a person claiming an existing
-   page keeps the page's city. Instagram handle (A2) is parked (section 7).
-8. **Sign-in email** screen is explanation + optional personal email. It never changes the login
-   email itself (that is an auth flow, out of scope).
-
-## 4. Checks run on the file (Playwright + Chromium, offline, 2026-10-28, after fix round 1)
-
-Script: `check.cjs` (scratch, not committed). Every screen x every drawer state (normal, loading, error,
-empty, save failed, grace ended, already live) x light and true-black dark x 390 and 320 px x 100% and
-130% text scale = 728 screen/state combos per variant, plus every sheet, then a real tap walk at 390 px.
-Fix 1 (`[hidden] { display: none !important }`) was applied FIRST and the whole sweep re-run with the
-hidden parts really hidden; the checker was proved against the pre-fix file (it reports `ct-phone-edit`,
-the Contact email field, `teach-more` and `grace` there, and nothing after the fix) and against a
-mutated `--mut` colour (the contrast rule fires at 1.11).
+Summary of all 748 audits (24 screens x their states x 12 size/text/keyboard combos, plus dark
+theme at 390):
 
 | Check | Result |
 |---|---|
-| Every `[hidden]` element has no client rect, every screen x state x variant | pass (0; was 3 before fix 1) |
-| Contrast >= 4.5 for every visible text node, light and dark, composited against the real ancestor background, all screens, states, sheets and the toast | pass, 0 failures |
-| Tap targets >= 44 px (buttons, inputs, switches, sheet controls; `<label for>` text excluded, its input is 44+) | pass |
-| No horizontal scroll (stage, screen, main, sheet) at 390 and 320, 100% and 130% | pass |
-| No clipped text (overflow other than visible with scrollWidth > clientWidth) | pass (only the `.sr` span, intended) |
-| Reduced motion | unchanged from round 0 (`animation-name: none`, confetti `display: none`) |
-| Keyboard focus visible | pass: 2 px solid outline on the first 8 Tab stops on Your page |
-| Tap walk from the start | pass: mood > welcome > contact (Yes = one tap, lands on Your page) > page (category, bad link rejected, `@handle` accepted, logo via sheet > sample > square crop) > you (photo via gallery > sample > crop; logo and photo stay separate; Not sure yet; nationality) > teach (Yes shows levels, No hides them) > about (starter names the category) > email > review ("How you dance" listed as missing with Not sure yet, Go live disabled; Leader picked, Go live enabled) > live (View my page opens the public-page sheet; Go to Home) > home (banner A0 copy + days pill; Add an event during grace shows the toast, NOT the gate; Grace ended: Add an event opens the gate, pill reads "Grace ended"; Normal restores 12 days; Hide for today really hides the banner; Settings tab opens the Settings sheet) |
-| Contact hidden panes (`ct-phone-edit`, email field) have no client rect on the Phone tab | pass |
-| Back chain from Review (Esc) | email > about > teach > you > page > contact > welcome > mood |
-| Dots and stepline | 8 dots on every step; Review reads "8 of 8" |
-| JS errors on load and through the sweep and the walk | none |
-| ASCII-only source | pass |
-| Size | 121,094 bytes (limit 600 KB), fully offline |
+| Page scroll on an onboarding screen | 0 of 748 (Home excluded: it may scroll, worst -1209 px at 320 / 130%) |
+| Clipped text | 0 |
+| Horizontal overflow | 0 |
+| Tap targets under 44x44 | 0 |
+| Contrast, light | min 5.35 (accent text on the page background); 0 below threshold |
+| Contrast, dark (true black) | min 6.46 (button text on the accent); 0 below threshold |
+| Smallest text | 14 px (tab labels on Home raised from 12) |
+| Reduced motion | 24 of 24 screens: no slide, no pop, confetti hidden |
+| Explained text at 320 / 130% | cat would scroll by 107 px (five cards with their explanations). Explained is not the chosen variant; in Short it fits with +64 px to spare. |
+| Click-through | Welcome to Home on the invite path, teach = No path, direct path with Claim, Ask and Create, Change number and Use an email paths; 25 distinct screens reached by taps; Back and Esc work; a disabled Continue does not move; 0 page errors. |
 
-**How the 130% check works.** The drawer's "Text 130%" sets `--ts: 1.3`, which multiplies every
-`calc(... * var(--ts))` size: the `--fs-*` tokens, the stepline, tile explanations, chips, badges, stats,
-tabs, devnotes, and (since this round) the flag glyphs (`.flag`, `.chip-flag`). It is not the OS font
-scaling: Android's setting scales every px size, including the ones here that are layout (tap minimums,
-the 88 px avatar, the 240 px crop circle). The claim is therefore "no clipped text when every text size is
-1.3x", checked by the sweep above, not "checked with Android font scaling".
+Fixes made because the measurement failed (each a re-split or a collapse, never text under 14 px):
+About overflowed at 320 / 130% (textarea 88 px on compact phones) and with a two-line save error
+under the keyboard (textarea 48 px, counter and starter link collapse); the six nationality chips
+did not fit at 320 (popular chips 44 px, 6 px gaps on compact phones).
 
-Not verified: a real phone (vibration, camera capture, Web Share), Windows flag rendering, VoiceOver and
-TalkBack reading order (roles and labels are set; not listened to), Android OS font scaling (see above),
-and **320 px / 130% with the Outfit font**: the file uses system-ui only (no network), and P3 renders in
-`"Outfit", system-ui` (`p3.css`), whose metrics are wider; the build must re-run the clipping sweep with
-Outfit loaded. Also not verified: contrast of the true-black token set on the other P3 screens (section 6).
+### Table: room left in px, worst state per screen (negative would mean scroll; n/a = no text field, so no keyboard)
 
-## 5. What the owner is asked to pick
+Columns: size, then "kb" = keyboard open, "130%" = text at 130%. `+0` on the picker screens means
+the chip region takes the remaining space by design (it is the `.scrollbox`).
 
-1. Corners: Soft / Round (today's P3) / Pill.
-2. Text amount: Short / Explained.
-3. Mood: Calm / Playful / Bold (brief says clean and calm; the three are there to compare).
-4. Section 3 items 1 and 2 (Not sure yet; contact by email).
-5. Whether "Add an event" should stay open during the 14 days (drawn per the plan: yes) and whether the
-   page details (category, link, logo) belong before Go live (drawn per the plan: yes).
+| Screen (worst state) | 390 | 390 130% | 390 kb | 390 kb 130% | 360 | 360 130% | 360 kb | 360 kb 130% | 320 | 320 130% | 320 kb | 320 kb 130% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| welcome <br><small>normal</small> | +482 | +410 | n/a | n/a | +237 | +192 | n/a | n/a | +133 | +108 | n/a | n/a |
+| find <br><small>normal</small> | +618 | +602 | +347 | +340 | +386 | +373 | +177 | +171 | +314 | +301 | +115 | +109 |
+| create-name <br><small>savefail</small> | +572 | +545 | +306 | +287 | +346 | +297 | +139 | +123 | +274 | +225 | +77 | +61 |
+| create-city <br><small>empty</small> | +593 | +573 | +298 | +281 | +365 | +326 | +132 | +95 | +293 | +254 | +70 | +33 |
+| contact <br><small>savefail</small> | +444 | +376 | n/a | n/a | +226 | +203 | n/a | n/a | +154 | +73 | n/a | n/a |
+| contact-phone <br><small>normal</small> | +572 | +545 | +306 | +287 | +346 | +323 | +139 | +123 | +274 | +251 | +77 | +61 |
+| contact-email <br><small>savefail</small> | +572 | +545 | +306 | +287 | +346 | +323 | +139 | +123 | +274 | +251 | +77 | +61 |
+| whatsapp <br><small>savefail</small> | +550 | +482 | n/a | n/a | +334 | +278 | n/a | n/a | +262 | +206 | n/a | n/a |
+| cat <br><small>savefail</small> | +378 | +335 | n/a | n/a | +184 | +124 | n/a | n/a | +112 | +25 | n/a | n/a |
+| link <br><small>savefail</small> | +572 | +545 | +306 | +287 | +346 | +323 | +139 | +123 | +274 | +251 | +77 | +61 |
+| logo <br><small>savefail</small> | +532 | +505 | n/a | n/a | +326 | +303 | n/a | n/a | +254 | +231 | n/a | n/a |
+| name <br><small>empty</small> | +569 | +543 | +261 | +237 | +335 | +313 | +99 | +77 | +263 | +241 | +37 | +15 |
+| photo <br><small>normal</small> | +524 | +497 | n/a | n/a | +302 | +277 | n/a | n/a | +230 | +205 | n/a | n/a |
+| role <br><small>savefail</small> | +564 | +530 | n/a | n/a | +277 | +247 | n/a | n/a | +205 | +149 | n/a | n/a |
+| nat <br><small>normal</small> | +2 | +2 | +306 | +287 | +0 | +0 | +139 | +123 | +0 | +0 | +77 | +61 |
+| langs <br><small>normal</small> | +2 | +2 | +306 | +287 | +0 | +0 | +139 | +95 | +0 | +0 | +77 | +33 |
+| teach <br><small>savefail</small> | +585 | +564 | n/a | n/a | +362 | +331 | n/a | n/a | +289 | +259 | n/a | n/a |
+| levels <br><small>normal</small> | +448 | +366 | n/a | n/a | +221 | +160 | n/a | n/a | +146 | +38 | n/a | n/a |
+| styles <br><small>normal</small> | +2 | +2 | +306 | +287 | +0 | +0 | +139 | +123 | +0 | +0 | +77 | +61 |
+| years <br><small>normal</small> | +510 | +483 | +306 | +287 | +294 | +271 | +139 | +123 | +222 | +199 | +77 | +61 |
+| about <br><small>savefail</small> | +319 | +248 | +291 | +226 | +157 | +95 | +104 | +67 | +85 | +23 | +42 | +5 |
+| email <br><small>savefail</small> | +482 | +455 | +306 | +287 | +268 | +245 | +139 | +123 | +196 | +115 | +77 | +61 |
+| review <br><small>normal</small> | +502 | +466 | n/a | n/a | +277 | +217 | n/a | n/a | +205 | +123 | n/a | n/a |
+| live <br><small>normal</small> | +2 | +2 | n/a | n/a | +0 | +0 | n/a | n/a | +0 | +0 | n/a | n/a |
+| home (may scroll) <br><small>empty</small> | **-488** | **-686** | n/a | n/a | **-669** | **-953** | n/a | n/a | **-813** | **-1209** | n/a | n/a |
 
-## 6. What a developer needs (per screen)
+Picker regions that scroll internally (the page itself never does). None without the keyboard
+except the Find results list at 320 / 130% with four results, which is a list by nature:
 
-Primitives: existing P3 `SheetView`, `Field`, `PrimaryButton`, `GhostButton`, `EmptyState`,
-`ErrorState`, `AvatarUpload`, `LanguagePicker`, nationality picker, `citySearch`. New pieces:
-**TapCard** (tile with tick, single or multi), **ProgressDots**, **StickyFooter** (button + why-line),
-**NiceOne** (tick pop + vibrate), **GraceBanner**, **Confetti** (canvas, 90 particles, 1.9 s, skipped
-under reduced motion), **CropSheet** (pointer drag + zoom, 320 px JPEG out; round for the photo, square for
-the logo). Keep Confetti and CropSheet behind a dynamic import in the onboarding route, never in the app
-shell, and ship the nationality and language lists with the sheet chunk (no new manual chunk; see
-`vite.config.ts` and `perf-budgets.json`).
+  nat 360 kb 130% (box 139, content 244);
+  nat 320 kb 100% (box 88, content 244);
+  nat 320 kb 130% (box 77, content 244);
+  langs 360 kb 130% (box 137, content 144);
+  langs 320 kb 100% (box 109, content 144);
+  langs 320 kb 130% (box 75, content 144);
+  styles 360 kb 130% (box 139, content 194);
+  styles 320 kb 100% (box 88, content 194);
+  styles 320 kb 130% (box 55, content 194);
+  find 360 kb 100% (box 171, content 215);
+  find 360 kb 130% (box 165, content 326);
+  find 320 130% (box 293, content 422);
+  find 320 kb 100% (box 109, content 248);
+  find 320 kb 130% (box 103, content 422);
+  create-city 320 kb 100% (box 88, content 94);
+  create-city 320 kb 130% (box 77, content 94)
 
-Reads/writes (all existing or in the plan, none new here): `organiser_onboarding_status_v1`
-(missing[] drives the dots, Review rows, Home rows and the gate), `searchClaimableOrganisers` +
-`organiser_claim_hints_v1`, `claim_organiser_v1` (+ OTP proof), `request_organiser_access_v1`,
-`create_organiser_profile_v1`, `search_cities`, `organiser_profile_update_p5_v1` (contact; category, one
-link and logo on Your page, A5, fields not yet checked against the schema),
-`save_my_role_v1` (teach/DJ), `levels_taught` + private sign-in email + audit (S1),
-`complete_organiser_onboarding_v1` (S6). Every Continue saves; Back never loses saved answers.
+<details><summary>Every screen x state (same columns)</summary>
 
-Tokens (one token set, binding owner decision): the prototype's true-black dark block
-(`[data-theme="dark"]` in the HTML: `--bg #000`, `--card #141414`, `--card2 #212121`, `--line #2f2f2f`,
-opaque tints `--warn-bg #3a2113`, `--ok-bg #0f2a1d`, `--cancel-bg #3a1d19`) **replaces P3's dark block
-(`--bg #202226 / --card #2a2d32`, rgba tints, `p3.css` lines 30-44) for every P3 surface**, not only the
-onboarding screens, so there is no colour change at the step from onboarding to Home. The build re-runs
-the contrast sweep on all P3 screens with the new block. Light is P3's block unchanged.
+| Screen | State | 390 | 390 130% | 390 kb | 390 kb 130% | 360 | 360 130% | 360 kb | 360 kb 130% | 320 | 320 130% | 320 kb | 320 kb 130% |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| welcome | normal | +482 | +410 | n/a | n/a | +237 | +192 | n/a | n/a | +133 | +108 | n/a | n/a |
+| welcome | loading | +542 | +542 | n/a | n/a | +307 | +307 | n/a | n/a | +235 | +235 | n/a | n/a |
+| welcome | error | +586 | +575 | n/a | n/a | +347 | +315 | n/a | n/a | +275 | +243 | n/a | n/a |
+| find | normal | +618 | +602 | +347 | +340 | +386 | +373 | +177 | +171 | +314 | +301 | +115 | +109 |
+| find | loading | +618 | +602 | +347 | +340 | +386 | +373 | +177 | +171 | +314 | +301 | +115 | +109 |
+| find | error | +618 | +602 | +347 | +340 | +386 | +373 | +177 | +171 | +314 | +301 | +115 | +109 |
+| find | empty | +618 | +602 | +347 | +340 | +386 | +373 | +177 | +171 | +314 | +301 | +115 | +109 |
+| create-name | normal | +591 | +569 | +324 | +312 | +363 | +319 | +156 | +145 | +291 | +247 | +94 | +83 |
+| create-name | savefail | +572 | +545 | +306 | +287 | +346 | +297 | +139 | +123 | +274 | +225 | +77 | +61 |
+| create-city | normal | +626 | +611 | +324 | +312 | +391 | +378 | +156 | +145 | +319 | +306 | +94 | +83 |
+| create-city | error | +626 | +611 | +324 | +312 | +391 | +378 | +156 | +145 | +319 | +306 | +94 | +83 |
+| create-city | empty | +593 | +573 | +298 | +281 | +365 | +326 | +132 | +95 | +293 | +254 | +70 | +33 |
+| create-city | savefail | +607 | +586 | +306 | +287 | +374 | +356 | +139 | +123 | +302 | +284 | +77 | +61 |
+| contact | normal | +491 | +434 | n/a | n/a | +266 | +253 | n/a | n/a | +194 | +123 | n/a | n/a |
+| contact | loading | +509 | +509 | n/a | n/a | +279 | +279 | n/a | n/a | +207 | +207 | n/a | n/a |
+| contact | error | +547 | +517 | n/a | n/a | +314 | +287 | n/a | n/a | +225 | +215 | n/a | n/a |
+| contact | savefail | +444 | +376 | n/a | n/a | +226 | +203 | n/a | n/a | +154 | +73 | n/a | n/a |
+| contact-phone | normal | +591 | +569 | +324 | +312 | +363 | +345 | +156 | +145 | +291 | +251 | +94 | +61 |
+| contact-phone | savefail | +572 | +545 | +306 | +287 | +346 | +323 | +139 | +123 | +274 | +251 | +77 | +61 |
+| contact-email | normal | +591 | +569 | +324 | +312 | +363 | +345 | +156 | +145 | +291 | +273 | +94 | +83 |
+| contact-email | savefail | +572 | +545 | +306 | +287 | +346 | +323 | +139 | +123 | +274 | +251 | +77 | +61 |
+| whatsapp | normal | +596 | +539 | n/a | n/a | +374 | +328 | n/a | n/a | +302 | +256 | n/a | n/a |
+| whatsapp | savefail | +550 | +482 | n/a | n/a | +334 | +278 | n/a | n/a | +262 | +206 | n/a | n/a |
+| cat | normal | +397 | +359 | n/a | n/a | +201 | +146 | n/a | n/a | +129 | +47 | n/a | n/a |
+| cat | loading | +532 | +526 | n/a | n/a | +298 | +293 | n/a | n/a | +226 | +221 | n/a | n/a |
+| cat | error | +634 | +599 | n/a | n/a | +391 | +359 | n/a | n/a | +302 | +287 | n/a | n/a |
+| cat | empty | +397 | +359 | n/a | n/a | +201 | +146 | n/a | n/a | +129 | +47 | n/a | n/a |
+| cat | savefail | +378 | +335 | n/a | n/a | +184 | +124 | n/a | n/a | +112 | +25 | n/a | n/a |
+| link | normal | +591 | +569 | +324 | +312 | +363 | +345 | +156 | +145 | +291 | +273 | +94 | +83 |
+| link | savefail | +572 | +545 | +306 | +287 | +346 | +323 | +139 | +123 | +274 | +251 | +77 | +61 |
+| logo | normal | +551 | +530 | n/a | n/a | +343 | +325 | n/a | n/a | +271 | +253 | n/a | n/a |
+| logo | savefail | +532 | +505 | n/a | n/a | +326 | +303 | n/a | n/a | +254 | +231 | n/a | n/a |
+| name | normal | +623 | +607 | +310 | +297 | +382 | +369 | +144 | +131 | +310 | +297 | +82 | +69 |
+| name | loading | +654 | +654 | +329 | +329 | +407 | +407 | +161 | +161 | +335 | +335 | +99 | +99 |
+| name | error | +662 | +632 | +337 | +307 | +414 | +387 | +168 | +141 | +325 | +315 | +89 | +79 |
+| name | empty | +569 | +543 | +261 | +237 | +335 | +313 | +99 | +77 | +263 | +241 | +37 | +15 |
+| name | savefail | +576 | +549 | +269 | +244 | +342 | +319 | +106 | +83 | +270 | +247 | +44 | +21 |
+| photo | normal | +524 | +497 | n/a | n/a | +302 | +277 | n/a | n/a | +230 | +205 | n/a | n/a |
+| photo | savefail | +524 | +497 | n/a | n/a | +302 | +277 | n/a | n/a | +230 | +205 | n/a | n/a |
+| role | normal | +583 | +554 | n/a | n/a | +294 | +269 | n/a | n/a | +222 | +171 | n/a | n/a |
+| role | savefail | +564 | +530 | n/a | n/a | +277 | +247 | n/a | n/a | +205 | +149 | n/a | n/a |
+| nat | normal | +2 | +2 | +324 | +312 | +0 | +0 | +156 | +145 | +0 | +0 | +94 | +83 |
+| nat | empty | +2 | +2 | +324 | +312 | +0 | +0 | +156 | +145 | +0 | +0 | +94 | +83 |
+| nat | savefail | +2 | +2 | +306 | +287 | +0 | +0 | +139 | +123 | +0 | +0 | +77 | +61 |
+| langs | normal | +2 | +2 | +347 | +340 | +0 | +0 | +177 | +143 | +0 | +0 | +115 | +81 |
+| langs | empty | +2 | +2 | +347 | +340 | +0 | +0 | +177 | +143 | +0 | +0 | +115 | +81 |
+| langs | savefail | +2 | +2 | +306 | +287 | +0 | +0 | +139 | +95 | +0 | +0 | +77 | +33 |
+| teach | normal | +604 | +589 | n/a | n/a | +379 | +353 | n/a | n/a | +306 | +281 | n/a | n/a |
+| teach | empty | +604 | +589 | n/a | n/a | +379 | +353 | n/a | n/a | +306 | +281 | n/a | n/a |
+| teach | savefail | +585 | +564 | n/a | n/a | +362 | +331 | n/a | n/a | +289 | +259 | n/a | n/a |
+| levels | normal | +467 | +391 | n/a | n/a | +238 | +182 | n/a | n/a | +163 | +38 | n/a | n/a |
+| levels | savefail | +448 | +366 | n/a | n/a | +221 | +160 | n/a | n/a | +146 | +38 | n/a | n/a |
+| styles | normal | +2 | +2 | +324 | +312 | +0 | +0 | +156 | +145 | +0 | +0 | +94 | +61 |
+| styles | empty | +2 | +2 | +324 | +312 | +0 | +0 | +156 | +145 | +0 | +0 | +94 | +61 |
+| styles | savefail | +2 | +2 | +306 | +287 | +0 | +0 | +139 | +123 | +0 | +0 | +77 | +61 |
+| years | normal | +529 | +483 | +324 | +287 | +311 | +271 | +156 | +123 | +239 | +199 | +94 | +61 |
+| years | savefail | +510 | +483 | +306 | +287 | +294 | +271 | +139 | +123 | +222 | +199 | +77 | +61 |
+| about | normal | +365 | +305 | +332 | +279 | +197 | +145 | +142 | +115 | +125 | +73 | +80 | +53 |
+| about | savefail | +319 | +248 | +291 | +226 | +157 | +95 | +104 | +67 | +85 | +23 | +42 | +5 |
+| email | normal | +528 | +512 | +347 | +340 | +308 | +295 | +177 | +171 | +236 | +165 | +115 | +109 |
+| email | savefail | +482 | +455 | +306 | +287 | +268 | +245 | +139 | +123 | +196 | +115 | +77 | +61 |
+| review | normal | +520 | +490 | n/a | n/a | +294 | +239 | n/a | n/a | +222 | +123 | n/a | n/a |
+| review | loading | +589 | +584 | n/a | n/a | +350 | +345 | n/a | n/a | +278 | +251 | n/a | n/a |
+| review | error | +634 | +599 | n/a | n/a | +391 | +359 | n/a | n/a | +302 | +265 | n/a | n/a |
+| review | empty | +520 | +490 | n/a | n/a | +294 | +239 | n/a | n/a | +222 | +123 | n/a | n/a |
+| review | savefail | +502 | +466 | n/a | n/a | +277 | +217 | n/a | n/a | +205 | +123 | n/a | n/a |
+| review | done | +548 | +523 | n/a | n/a | +317 | +219 | n/a | n/a | +228 | +147 | n/a | n/a |
+| live | normal | +2 | +2 | n/a | n/a | +0 | +0 | n/a | n/a | +0 | +0 | n/a | n/a |
+| live | done | +2 | +2 | n/a | n/a | +0 | +0 | n/a | n/a | +0 | +0 | n/a | n/a |
+| live | alreadylive | +2 | +2 | n/a | n/a | +0 | +0 | n/a | n/a | +0 | +0 | n/a | n/a |
+| home | normal | **-376** | **-565** | n/a | n/a | **-563** | **-836** | n/a | n/a | **-707** | **-1070** | n/a | n/a |
+| home | loading | +424 | +358 | n/a | n/a | +198 | +138 | n/a | n/a | +88 | +18 | n/a | n/a |
+| home | error | +496 | +400 | n/a | n/a | +263 | +176 | n/a | n/a | +136 | +56 | n/a | n/a |
+| home | empty | **-488** | **-686** | n/a | n/a | **-669** | **-953** | n/a | n/a | **-813** | **-1209** | n/a | n/a |
+| home | done | +169 | +100 | n/a | n/a | **-55** | **-136** | n/a | n/a | **-127** | **-208** | n/a | n/a |
+| home | graceover | **-376** | **-565** | n/a | n/a | **-601** | **-858** | n/a | n/a | **-724** | **-1070** | n/a | n/a |
 
-Deliberate token deltas in the prototype versus `p3.css` (decide: onboarding-only or P3-wide; the
-prototype assumes onboarding-only for the sizes and P3-wide for dark):
+</details>
 
-| Token | P3 today | Prototype | Why |
-|---|---|---|---|
-| font | `"Outfit", system-ui` | system-ui only | no network in the file; the build keeps Outfit and re-checks clipping |
-| `--fs-body` | 16 px | 17 px | brief: "text comfortably large" |
-| `--fs-title` | 22 px | 24 px | same |
-| `--fs-h2` | (none) | 19 px | sheet and Home titles |
-| `--r-tile` | (none) | 12 / 8 / 16 px per corner set | tap cards |
-| `--tab`, `--danger-fg` | present | dropped | not used on these screens; keep them in P3 |
+Re-run: `node drive.js docs/design/onboarding-prototype.html audit.json` with the driver below
+(kept out of the repo on purpose; the audit itself lives in the HTML):
 
-Variants: corner tokens `--r-card / --r-ctl / --r-sheet / --r-tile` per the chosen set; "explained"
-sentences are the `.tx-l` spans, drop them for "short".
+```js
+const { chromium } = require('playwright'); const path = require('path');
+(async () => { const b = await chromium.launch(); const pg = await b.newPage();
+  await pg.goto('file://' + path.resolve(process.argv[2]));
+  for (const s of await pg.evaluate(() => window.__proto.screens()))
+    for (const size of ['390','360','320']) for (const ts of ['100','130']) for (const kb of (s.field ? [false,true] : [false])) {
+      await pg.reload();
+      console.log(JSON.stringify(await pg.evaluate(([id,size,ts,kb]) => { const P = window.__proto; P.setCheck(size, ts, kb); P.show(id); return P.audit(); }, [s.id,size,ts,kb])));
+    }
+  await b.close(); })();
+```
 
-Copy is in the HTML as-is (British English, entities). Per-screen developer notes are inside the
-file: Design options > Developer notes.
+## 4. Assumptions (need a decision before build)
 
-## 7. Parked ideas (not in the brief, not built)
+1. **Contact by email.** The plan (A6) says the contact email is set by the team and never asked.
+   "Use an email instead" is drawn for pages with no number. Decide: ask when there is no phone, or
+   phone only (then drop screen 5c).
+2. **Five category cards.** The brief caps tap cards at four; the data has five values. Drawn as
+   five and measured to fit everywhere in Short text. Alternative: merge Promoter and Festival Brand
+   (product + data decision), or make the fifth a "More" sheet (worse: hides a real value).
+3. **Claim code.** The claim sheet shows the existing email-code proof (6 digits to the mailbox on
+   the page). If the page has no mailbox the real app falls back to Ask to join; not drawn.
+4. **Grace length** is drawn as 14 days from the day the screens ship (plan Q1 still open). "Last
+   day" wording not drawn.
+5. **Go-live in an ambassador city** (plan Q2) not drawn; the celebration would read "Sent for
+   review" with the same layout.
+6. **DJ question** (plan A4) not drawn separately: same two cards as Teaching, then genre chips.
+7. **City** is asked on Create and not asked again; a person claiming a page keeps the page's city.
+8. **Sign-in email** screen never changes the login email itself (auth flow, out of scope).
+9. **Keyboard heights** are simulated: 336 / 270 / 260 px for the three sizes (iPhone 14 with the
+   QuickType bar, a typical Android, iPhone SE 1st gen). Real heights vary by keyboard; the rule that
+   matters is the `max-height: 520px` breakpoint on the visual viewport.
+10. **Rename** is not on the category screen any more (it was "Change name" on round-1's Your page).
+    It lives in Settings as today's page-name field. Fine for onboarding; flagging the move.
 
-- Instagram handle on the You screen (plan A2). (Logo and one link are now drawn on Your page, A5.)
-- More than one link on Your page (the plan says "at least one"; the prototype asks for one).
-- A "Go to Home" shortcut inside the public-page sheet.
-- "Last day" and "today" wording for the grace pill; a push/email reminder at 3 days.
+## 5. What a developer needs
+
+- Tokens: light = `src/modules/organiser/p3/theme/p3.css`; dark = the TRUE BLACK block in the
+  file head (one token set for every P3 surface, round-1 fix 7). Type: `--fs-body` 17px,
+  `--fs-small` 14px, `--fs-title` 24px (21 on compact, 18 under the keyboard), `--fs-h2` 19px; the
+  font is system-ui in the prototype (P3 uses Outfit; re-measure 320 / 130% with Outfit, see Not
+  verified). Radii: `--r-ctl` / `--r-inp` 999px, `--r-card` 24px, `--r-tile` 20px, `--r-sheet` 32px.
+- Layout per screen: `.scr` = flex column (`.top` 56/48/40, `.main` flex 1 with `overflow-y: auto`
+  as a safety net only, `.foot` with the single primary button). Content never scrolls on the
+  measured sizes; keep `overflow-y: auto` on `.main` so an unmeasured device degrades to a scroll,
+  not a clip.
+- Progress: `ORDER` (22 ids) in the script; width = (index + 1) / 22.
+- RPCs and tables per screen are in each screen's developer note (drawer: Developer notes):
+  `searchClaimableOrganisers` + `organiser_claim_hints_v1`, `claim_organiser_v1`,
+  `request_organiser_access_v1`, `create_organiser_profile_v1`, `search_cities`,
+  `organiser_profile_update_p5_v1` (category, link, logo), `AvatarUpload` (photo, logo with square
+  crop), `save_my_role_v1`, `levels_taught`, `organiser_onboarding_status_v1().missing[]` (Review,
+  Home list, gate sheet), `complete_organiser_onboarding_v1`.
+- Pickers: on-screen search filters to six chips; the sheet has the full list (nationality = ISO +
+  four home nations, popular first; languages 38; styles 14). Stored as English names.
+- Success feedback: tick pop + button bounce + `navigator.vibrate` (Android only; no haptics
+  promised on iPhone). All motion off under `prefers-reduced-motion` or the drawer switch.
+- Keyboard: when a field is focused, size the screen to `visualViewport.height` (iOS) or use
+  `interactive-widget=resizes-content` (Chrome); the `max-height: 520px` rules then apply.
+
+## 6. Parked ideas (not in the brief, not built)
+
+- Merge Promoter + Festival Brand so category is four cards (product + data decision).
+- "Change name" on the category screen (moved to Settings this round).
+- The round-1 mood picker as a first screen (owner chose Calm).
+- Instagram handle on a You screen (plan A2); more than one link.
+- "Last day" / "today" wording for the grace pill; a reminder at 3 days.
 - Pre-filling nationality from the device locale.
-- Animated flag/emoji fallback image set for Windows.
-- Letting the inviter see "Sam finished the page" on their Home.
+- Flag image fallback for Windows.
+- The inviter seeing "Sam finished the page" on their Home.
 - A "Preview my page" sheet before Go live.
 - Haptics on iPhone via a native wrapper (not possible on the web).
+- A visible "step n of 22" next to the bar (owner asked for the bar alone).
 
-## 8. Fix round 1 (review `onboarding-prototype-r1.md`, all 11 applied)
+## 7. Round history
 
-| Fix | What changed |
-|---|---|
-| 1 BLOCK | `[hidden] { display: none !important; }` next to the variant rules. Contact's edit pane and email field, Teach's levels after "No", and the banner after "Hide for today" are now really hidden. Whole sweep re-run (section 4). |
-| 2 | Banner copy is A0 ("Finish your details to create and edit events. From Monday 16 November you'll need them.") with the days pill kept. During grace, Add an event goes through (toast). New drawer state "Grace ended": pill "Grace ended", Add an event opens the gate (A1). |
-| 3 | New step 3 "Your page" (A5): five category cards, one link, logo with square crop, name + "Change name", held city. Rows added to Review and Home via `missing[]`; dots are 8. Later steps renumbered. |
-| 4 | "Not sure yet" card KEPT (owner), marked in section 3 as an assumption that also needs the status RPC changed in admin for option (b); Review and Home treat it as missing, so no state the backend cannot produce is shown. |
-| 5 | "Yes, that's right" saves and moves on in one tap (A6); Continue stays for Change and Email. |
-| 6 | "View my page" opens the public-page sheet; "Go to Home" ghost button under Share. Share link uses the real route shape `/organisers/:id`. |
-| 7 | Section 6: the true-black block replaces P3's dark block for every P3 surface (one token set); the build re-runs contrast on all P3 screens. |
-| 8 | Section 6: token deltas table (font, `--fs-body`, `--fs-title`, `--fs-h2`, `--r-tile`, dropped `--tab` / `--danger-fg`); "320 px / 130% with Outfit" under Not verified. |
-| 9 | (a) one wording for the short name ("The name needs three letters or more."); (b) "(step 6)" is now "(we ask later)"; (c) the Settings tab opens the same Settings sheet as the icon. |
-| 10 | Drawer states "Save failed" (every saving step: error line beside the button, input kept, Continue stays enabled) and "Already live" (A8 live-organiser copy + Add an event). |
-| 11 | Flag glyph sizes follow `--ts`; section 4 says exactly how the 130% check works and what it does not cover. |
+- Round 1: prototype + independent critique, 11 fixes applied (commit `c47a391`).
+- Round 2 (this commit): owner picks as defaults, Not sure yet dropped, 8 screens split into 22,
+  thin bar, search + chips + sheet pickers, Review with Show all, size / keyboard simulator, the
+  measured no-scroll sweep above.
 
-Not in scope and not done (ideas went to section 7): no other changes.
+## Verified / Not verified
 
+Verified: everything in section 3, on this file, in Chromium, offline, with the system-ui font;
+file size 132 KB (< 600 KB); no non-ASCII characters in the source; JS parses; 0 page errors across
+748 audits and the click-through.
+
+Not verified: a real phone keyboard (the heights are simulated); the Outfit font at 320 / 130%
+(system-ui measured); Safari and Firefox (container queries need Safari 16+, Firefox 110+); the
+sheets' own content heights at 130% on 320x568 (sheets may scroll by the brief, so not measured);
+Home's content against real event data (it may scroll); the Vercel preview (docs-only, no build
+impact; no Vercel token in this environment).
