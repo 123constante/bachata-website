@@ -12,6 +12,9 @@ import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { RetryButton, StateCard } from './parts';
 import { StatusSheet, type Send } from './StatusSheet';
+import { RepeatSheet } from './RepeatSheet';
+import { previewRepeat } from '../data/repeat';
+import { storedRuleWords } from '../model/repeat';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { useToast } from './Toast';
 import { useSavedToast } from './savedToast';
@@ -177,6 +180,8 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const once = useSendOnce(ws.series.id);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const [sheet, setSheet] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const closeRepeat = useCallback(() => setRepeat(false), [setRepeat]);
   const [date, setDate] = useState<DateOpen>(null);
   const [session, setSession] = useState<SessionOpen>(null);
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
@@ -206,6 +211,13 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         </span>
         <span aria-hidden="true">&rsaquo;</span>
       </button>
+      <button type="button" className="p3-card p3-status-row" onClick={() => setRepeat(true)} data-testid="p3-open-repeat">
+        <span className="p3-grow">
+          <span className="p3-row-t">Repeats</span><br />
+          <span className="p3-row-s" data-testid="p3-repeat-row">{storedRuleWords(ws.series.recurrence_rule, today)}</span>
+        </span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </button>
       {flags.organiserTicketing && <TicketsEntry seriesId={ws.series.id} />}
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
@@ -213,6 +225,10 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       {sheet && (
         <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
           onDone={(d) => { setSheet(false); toast.show(d); }} />
+      )}
+      {repeat && (
+        <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
+          onClose={closeRepeat} onDone={(d) => { setRepeat(false); toast.show(d); }} />
       )}
       <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />
       {session && (

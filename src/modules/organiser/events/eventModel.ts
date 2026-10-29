@@ -44,12 +44,16 @@ export interface EventWorkspace extends SeriesWorkspace {
   organiserIds: string[];
   /** event_series_p5.group_chat_url (series.set_group_chat writes it; P3 W3a). */
   groupChatUrl: string | null;
+  /** meta.class_count (P3 A2 R1): dates that run, not cancelled and not a break; null on an older read. */
+  classCount: number | null;
+  /** meta.last_class_date (P3 A2 R1): the last of those dates, YYYY-MM-DD; null when none or an older read. */
+  lastClassDate: string | null;
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
 
 export function parseEventWorkspace(raw: unknown): EventWorkspace {
-  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown; total?: unknown } } | null;
+  const root = raw as { series?: { series?: Record<string, unknown> }; meta?: { has_more?: unknown; total?: unknown; class_count?: unknown; last_class_date?: unknown } } | null;
   const row = (root?.series?.series ?? {}) as Record<string, unknown>;
   return {
     ...parseWorkspace(raw),
@@ -63,6 +67,8 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     program: (raw as { series?: { program?: unknown } } | null)?.series?.program ?? null,
     organiserIds: linkedOrganiserIds(row),
     groupChatUrl: typeof row.group_chat_url === 'string' && row.group_chat_url.trim() ? row.group_chat_url : null,
+    classCount: typeof root?.meta?.class_count === 'number' && Number.isInteger(root.meta.class_count) ? root.meta.class_count : null,
+    lastClassDate: typeof root?.meta?.last_class_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(root.meta.last_class_date) ? root.meta.last_class_date : null,
   };
 }
 
