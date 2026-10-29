@@ -9,7 +9,8 @@ name: Bot PR for cloud branches
 # A PAT-opened PR fires the normal pull_request checks. The cloud session pushes and never
 # opens the PR itself; it may edit the body afterwards with `gh api -X PATCH`.
 # The body carries a `## Verified on real data` section set to TO FILL: real-data-verified
-# reports that as PENDING (a notice), not red, and no merge path accepts it.
+# reports that as PENDING (a notice), not red, and no merge path accepts it. Sessions
+# REPLACE the three TO FILL lines; a second section is red ("appears 2 times").
 
 on:
   push:
@@ -57,6 +58,7 @@ jobs:
             // tests/realDataVerified.test.ts evaluates this array, so keep the [ ... ].join shape.
             const body = [
               "Opened by the bot for cloud branch `" + process.env.BRANCH + "` so the owner can approve it. The session fills in this description.",
+              "Replace each TO FILL below in place; do not add a second Verified on real data section.",
               "",
               "## Verified on real data",
               "- Shapes surveyed: TO FILL",

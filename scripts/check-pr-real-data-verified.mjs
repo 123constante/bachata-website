@@ -22,7 +22,9 @@
  * been written yet. Pending is NEVER a pass -- parse().ok stays false, so every
  * merge path that reads parse() (scripts/automerge-classify.mjs) refuses it; the
  * workflow only turns exit 3 into a notice instead of a red run. Marker lines plus
- * any genuine violation (a missing line, a placeholder) stay exit 1.
+ * any genuine violation (a missing line, a placeholder) stay exit 1. The marker
+ * counts on ANY line of the section, not only the first line per label, and a
+ * label given on two real lines is a violation (no first-wins).
  *
  * Fenced code blocks are removed like HTML comments: a section (or a marker)
  * quoted inside ``` is an example, not the PR's own section.
@@ -88,13 +90,13 @@ function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function labelValue(lines, label) {
+/** Every value given for `label` in `lines`, in order (empty when the line is missing). */
+function labelValues(lines, label) {
   const re = new RegExp(
     '^[ \\t]*(?:[-*+][ \\t]+)?(?:\\*\\*|__)?' + escapeRe(label) + '(?:\\*\\*|__)?[ \\t]*:(?:\\*\\*|__)?(.*)$',
     'i',
   );
-  const hits = lines.map((l) => re.exec(l)).filter(Boolean);
-  return hits.length ? hits[0][1].trim() : null;
+  return lines.map((l) => re.exec(l)).filter(Boolean).map((m) => m[1].trim());
 }
 
 function contentProblem(label, raw) {
@@ -151,15 +153,27 @@ export function parse(body) {
   }
   const section = lines.slice(from, to);
   const problems = [];
-  let markers = 0;
+  // A marker on ANY section line is pending, whether it is a label line or not
+  // and wherever it sits: filled lines pasted above the bot's marker lines must
+  // not pass (review r1, finding 1). Marker lines are then left out of the label
+  // checks below, so the leftover copy of a label is not also a duplicate.
+  const markerLines = section.filter((l) => l.includes(MARKER));
+  const rest = section.filter((l) => !l.includes(MARKER));
+  for (const l of markerLines) {
+    const hit = LABELS.find((label) => labelValues([l], label).length);
+    problems.push((hit || 'section line "' + l.trim() + '"') + ': still "' + MARKER + '" (the description has not been filled in)');
+  }
+  const markers = problems.length;
   for (const label of LABELS) {
-    const raw = labelValue(section, label);
-    if (raw !== null && raw.includes(MARKER)) {
-      markers++;
-      problems.push(label + ': still "' + MARKER + '" (the description has not been filled in)');
+    const values = labelValues(rest, label);
+    // A label with only marker lines is already reported above.
+    if (values.length === 0 && markerLines.some((l) => labelValues([l], label).length)) continue;
+    // Two real lines for one label: refuse rather than pick one (review r1, finding 2).
+    if (values.length > 1) {
+      problems.push(label + ': line appears ' + values.length + ' times; keep exactly one');
       continue;
     }
-    const p = contentProblem(label, raw);
+    const p = contentProblem(label, values.length ? values[0] : null);
     if (p) problems.push(p);
   }
   // Pending only when EVERY problem is a marker line: a real violation beside a
@@ -210,6 +224,8 @@ function selfTest(log) {
     ['CRLF body passes', FILLED.replace(/\n/g, '\r\n'), true],
     ['marker body is not a pass', PENDING_BODY, false],
     ['fenced-only section fails', '```\n' + FILLED + '\n```', false],
+    ['filled lines above leftover markers are not a pass', FILLED + '\n' + PENDING_BODY.split('\n').slice(1).join('\n'), false],
+    ['a label given twice fails', FILLED + '\n- Checks run: matrix tests plus a browser walk again', false],
   ];
   let failed = 0;
   for (const [name, body, want] of cases) {
@@ -226,6 +242,7 @@ function selfTest(log) {
     ['bad body is a violation (1)', main([], { PR_BODY: 'nothing here' }, quiet), 1],
     ['good body passes (0)', main([], { PR_BODY: FILLED }, quiet), 0],
     ['marker body is pending (3)', main([], { PR_BODY: PENDING_BODY }, quiet), 3],
+    ['filled lines above leftover markers are pending (3)', main([], { PR_BODY: FILLED + '\n' + PENDING_BODY.split('\n').slice(1).join('\n') }, quiet), 3],
     ['marker beside a violation is a violation (1)', main([], { PR_BODY: PENDING_BODY.replace(/- Checks run.*/, '- Checks run: n/a') }, quiet), 1],
   ];
   for (const [name, got, want] of exits) {

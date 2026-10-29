@@ -231,3 +231,55 @@ describe('fenced code blocks', () => {
     expect(parse('```\n' + section()).ok).toBe(false);
   });
 });
+
+// Review r1 (docs/reviews/pr-stub-body-no-red-r1.md) finding 1: the parser read
+// only the FIRST line per label, so filled lines pasted ABOVE the bot's marker
+// lines passed and auto-merge qualified. A marker on ANY line of the stripped
+// section is pending; finding 2: a label given twice with real text is refused.
+describe('leftover markers anywhere in the section, and duplicate labels', () => {
+  const M = 'TO FILL';
+  const markers = ['Shapes surveyed', 'Checks run', 'NOT verified'].map((l) => `- ${l}: ${M}`).join('\n');
+  const filled = section().split('\n').slice(1).join('\n');
+  const H = '## Verified on real data';
+
+  it.each([
+    ['filled lines ABOVE the marker lines', `${H}\n${filled}\n${markers}`, 3, 3],
+    ['filled lines BELOW the marker lines', `${H}\n${markers}\n${filled}`, 3, 3],
+    ['marker on a non-label section line', `${H}\n${filled}\n- Browser walk: ${M}`, 3, 1],
+    ['marker in free text under the lines', `${section()}\n\nStill ${M} before merge.`, 3, 1],
+    ['marker beside a duplicated real label', `${H}\n${filled}\n- Checks run: unit and e2e suites again\n- NOT verified: ${M}`, 1, null],
+  ])('%s', (_n, body, exit, markerProblems) => {
+    const r = parse(body);
+    expect(r.ok).toBe(false);
+    expect(r.pending).toBe(exit === 3);
+    expect(main([], { PR_BODY: body }, quiet)).toBe(exit);
+    if (markerProblems !== null) expect(r.problems.filter((p) => p.includes(M))).toHaveLength(markerProblems);
+  });
+
+  it('filled-above-markers does NOT qualify for bot auto-merge', async () => {
+    // @ts-expect-error -- plain .mjs script, no types
+    const { classify, BOT_LOGIN, LABEL_OK } = await import('../scripts/automerge-classify.mjs');
+    const files = [{ filename: 'docs/a.md', status: 'modified', additions: 3, deletions: 1 }];
+    const pr = {
+      state: 'open', draft: false, user: BOT_LOGIN, headRef: 'claude/x', headRepo: 'o/r', baseRepo: 'o/r',
+      baseRef: 'main', labels: [LABEL_OK], additions: 3, deletions: 1, changedFiles: 1,
+      body: `${H}\n${filled}\n${markers}`,
+    };
+    expect(classify({ pr, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false }).qualifies).toBe(false);
+  });
+
+  it.each([
+    ['placeholder first, real second', `${H}\n- Shapes surveyed: ${S}\n- Checks run: n/a\n- Checks run: ${C}\n- NOT verified: ${N}`],
+    ['real first, placeholder second', `${H}\n- Shapes surveyed: ${S}\n- Checks run: ${C}\n- Checks run: n/a\n- NOT verified: ${N}`],
+    ['real twice', `${H}\n- Shapes surveyed: ${S}\n- Shapes surveyed: ${S}\n- Checks run: ${C}\n- NOT verified: ${N}`],
+  ])('a label given twice is a violation either way round: %s', (_n, body) => {
+    const r = parse(body);
+    expect(r).toMatchObject({ ok: false, pending: false });
+    expect(r.problems.join('\n')).toMatch(/appears 2 times/);
+    expect(main([], { PR_BODY: body }, quiet)).toBe(1);
+  });
+
+  it('a marker OUTSIDE the section (e.g. in the summary) does not make a filled section pending', () => {
+    expect(parse(`## Summary\nreplaced the ${M} lines\n\n${section()}`)).toEqual({ ok: true, pending: false, problems: [] });
+  });
+});

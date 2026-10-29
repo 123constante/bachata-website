@@ -64,9 +64,10 @@ of 20.
   `Label:` with the colon right after the label, so the template's own line
   shape is "line is missing". Owner decision: either the parser accepts
   `Label (hint): value`, or the template moves the hint after the colon.
-- `bundle-budget` (a REQUIRED check) is red on `main` itself (dancer-app
-  374.1 KB vs 374 KB budget). This PR changes no src/, so it inherits it. No
-  fix PR found.
+- `bundle-budget`: a LOCAL build here measures dancer-app at 374.1 KB vs a
+  374 KB budget, but the CI `bundle-budget` run on PR head `40ad7a9` was
+  success. This PR changes no src/; the 0.1 KB is a sandbox build difference.
+  (Corrects the earlier "red on main" note.)
 
 ## Next steps
 
@@ -86,3 +87,32 @@ of 20.
   "marker mixed with real text" test.
 - KEPT: pending is a green run; the workflow comment says it must become red
   if the check is ever made required.
+
+## Fix round r1 (`docs/reviews/pr-stub-body-no-red-r1.md` on `claude/review-pr-stub-body-no-red`)
+
+- FIXED finding 1 (BLOCK): a marker on ANY line of the comment- and
+  fence-stripped section is now a marker problem (label line or not), so
+  filled lines pasted ABOVE the bot's marker lines are exit 3 pending and
+  `automerge-classify` does not qualify. Marker lines are left out of the
+  label checks, so the leftover copy of a label is not also a duplicate.
+- FIXED finding 2: a label on two non-marker lines is a violation
+  ("line appears 2 times; keep exactly one"), either order. No first-wins.
+- FIXED finding 3: `docs/ci-guard-notes.md` records that a green
+  `real-data-verified` now means filled OR pending, and that exit 3 must turn
+  red before the check is ever made required.
+- FIXED finding 4: bot-pr.yml header and the bot body itself say to replace
+  each TO FILL in place and not add a second section.
+- KEPT findings 5 and 6 (nits, pre-existing / acceptable as the review says).
+- Red first: 8 of the new rows failed on `40ad7a9` (filled-above-markers,
+  marker on a non-label line, marker in free text, marker beside a
+  duplicated label, the auto-merge row, three duplicate-label rows).
+  Filled-below-markers was already pending there, as the review found.
+- Mutations, each reverted: M1 marker scan removed -> 12 tests + self-test
+  fail; M2 duplicate check removed -> 5 + self-test; M3 marker lines kept in
+  the label checks -> 8 + self-test; M4 marker counted on label lines only
+  -> 2 tests fail (the non-label rows).
+- Real data: last 20 bot PRs (#1131..#1154): verdict differs from main's
+  parser on 0; the duplicate-label rule hits 0 of the last 60 PRs.
+- CI steps rerun locally: all green except the 5 `integrityCouldNotRun`
+  unit cases (same failures on origin/main in this sandbox) and the local
+  bundle-budget 0.1 KB (above). e2e-smoke 159/159 (6 skipped).

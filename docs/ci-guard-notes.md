@@ -206,6 +206,16 @@ structural fetch/parse failures. See buildEventJsonLd.ts's inline comment
 trail and queued-p5b-review-round3-deferred.md (F2) for the full history of
 why the demotion happened.
 
+`real-data-verified` (`real-data-verified.yml`, parser
+`scripts/check-pr-real-data-verified.mjs`) has a green that means TWO things since
+PR #1149: the section is filled in (exit 0), OR it still carries the bot&rsquo;s
+`TO FILL` marker on some line (exit 3, PENDING). A `run:` step cannot publish a
+`neutral` conclusion, so pending is a green run whose `::notice` annotation and
+step-summary line are what tell the two apart. Pending is never a pass where it
+matters: `parse().ok` stays false, so `scripts/automerge-classify.mjs` refuses the PR.
+The check is not in the `main checks` ruleset; if it is ever added there, exit 3
+must become red first, or a forgotten body would satisfy the required check.
+
 ### The git hooks themselves have NO guard, and here is the defect they carry
 
 **Git for Windows reports a hook that DIED FROM A SIGNAL as a hook that PASSED.**
