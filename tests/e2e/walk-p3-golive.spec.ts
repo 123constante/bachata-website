@@ -102,6 +102,7 @@ for (const size of SIZES) {
         await page.getByTestId('p3-ob-continue').click();
         await expect(page.getByTestId('p3-ob-golive-err')).toBeVisible();
         await expect(page.getByTestId('p3-ob-review-org_logo')).toBeVisible();
+        expect(Number(await page.getByTestId('p3-ob-progress').getAttribute('aria-valuenow'))).toBeLessThan(100);
         await check(page, 'review-incomplete', size, theme);
       });
 

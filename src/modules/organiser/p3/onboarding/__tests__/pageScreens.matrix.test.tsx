@@ -361,7 +361,8 @@ describe('Review and Live', () => {
     mount({ shape: 'noPhone', at: 'review', person: ['photo'] });
     await onStep('review');
     expect(title()).toBe('5 things left');
-    expect(pct()).toEqual({ now: '100', shown: '100%' });
+    // review r1: done steps over all steps (15 on this path, 5 missing + Review itself not done), never 100 with things left.
+    expect(pct()).toEqual({ now: '60', shown: '60%' });
     fireEvent.click(screen.getByTestId('p3-ob-review-all'));
     const sheet = await screen.findByTestId('p3-ob-sheet-review');
     expect(sheet.querySelectorAll('.p3-ob-row')).toHaveLength(5);

@@ -29,6 +29,7 @@ import {
   goLiveState,
   liveCopy,
   reviewCopy,
+  reviewPercent,
   reviewRow,
   type GoLiveRefusal,
   type ReviewStatus,
@@ -69,7 +70,7 @@ function mount(o: { lifecycle?: string; missing?: string[]; goLive?: GoLiveApi; 
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { reads };
+  return { reads, qc };
 }
 
 const cont = () => screen.getByTestId('p3-ob-continue');
@@ -77,7 +78,8 @@ const title = () => screen.getByTestId('p3-ob-title').textContent ?? '';
 const shownStep = () => screen.getByTestId('p3-ob-shell').getAttribute('data-screen');
 const onStep = async (s: string) => waitFor(() => expect(shownStep()).toBe(s));
 const ok = (data: unknown) => ({ data, error: null });
-const raised = (message: string) => ({ data: null, error: { message } });
+const raised = (message: string, code?: string) => ({ data: null, error: { message, ...(code ? { code } : {}) } });
+const progress = () => Number(screen.getByTestId('p3-ob-progress').getAttribute('aria-valuenow'));
 
 beforeEach(() => {
   rpc.mockReset();
@@ -118,7 +120,12 @@ describe('goLiveOutcomeFrom / goLiveRefusalOfMessage: every answer of the live b
     ['authentication_required', 'signed-out'],
     ['not_found', 'not-owner'],
     ['Failed to fetch', 'failed'],
-    ['permission denied for function complete_organiser_onboarding_v1', 'failed'],
+    // A real signed-out browser never reaches the RAISE: PostgREST refuses first (review r1 should-fix).
+    ['permission denied for function complete_organiser_onboarding_v1', 'signed-out'],
+    ['JWT expired', 'signed-out'],
+    ['PGRST301 JWT expired', 'signed-out'],
+    ['PGRST301', 'signed-out'],
+    ['permission denied for table organiser_profiles', 'failed'],
   ])('raised %s -> %s', (m, r) => expect(goLiveRefusalOfMessage(m)).toBe(r));
 
   it('every refusal has text and one next action', () => {
@@ -288,5 +295,102 @@ describe('Go live: every server answer on a ready draft', () => {
     await onStep('live');
     expect(screen.getAllByTestId('p3-ob-title')).toHaveLength(1);
     expect(screen.queryByTestId('p3-ob-golive-err')).toBeNull();
+  });
+});
+
+// ---- review r1: a real signed-out answer, a stale refusal, progress that tells the truth ----
+
+describe('signed out as PostgREST really says it (anon / expired token) -> Sign in again', () => {
+  it.each([
+    ['anon: permission denied (42501)', raised('permission denied for function complete_organiser_onboarding_v1', '42501')],
+    ['expired token (401, PGRST301)', raised('JWT expired', 'PGRST301')],
+    ['PGRST301 with another message', raised('No suitable key or wrong key type', 'PGRST301')],
+  ])('%s', async (_n, answer) => {
+    rpc.mockResolvedValue(answer);
+    mount();
+    await onStep('review');
+    fireEvent.click(cont());
+    expect((await screen.findByTestId('p3-ob-golive-err')).textContent).toBe(goLiveRefusalCopy('signed-out').text);
+    expect(cont().textContent).toBe('Sign in again');
+  });
+});
+
+describe('a refusal is cleared when the status read brings new missing items', () => {
+  it('failed -> status now says 1 thing left: the disabled reason shows, not Try again', async () => {
+    rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+    const missing: string[] = [];
+    const { qc } = mount({ missing });
+    await onStep('review');
+    fireEvent.click(cont());
+    expect(await screen.findByTestId('p3-ob-golive-err')).toBeTruthy();
+    expect(cont().textContent).toBe('Try again');
+    missing.push('org_logo');
+    await qc.invalidateQueries({ queryKey: ['p3-ob-status'] });
+    await waitFor(() => expect(title()).toBe('1 thing left'));
+    expect(screen.queryByTestId('p3-ob-golive-err')).toBeNull();
+    expect(cont().textContent).toBe('Go live');
+    expect(cont().getAttribute('aria-disabled')).toBe('true');
+    expect(screen.getByTestId('p3-ob-why').textContent).toBe('Finish the 1 thing left to go live.');
+  });
+});
+
+describe('progress tells the truth: done steps over all steps, 100% only when nothing is left', () => {
+  it.each([
+    [10, 0, 100],
+    [10, 1, 80],
+    [10, 2, 70],
+    [10, 9, 0],
+    [10, 12, 0],
+    [14, 1, 86],
+    [1, 0, 100],
+  ])('reviewPercent(%i steps, %i missing) = %i', (total, n, pct) => expect(reviewPercent(total, n)).toBe(pct));
+
+  it('never 100 while anything is missing', () => {
+    for (let total = 1; total <= 30; total++) for (let n = 1; n <= 5; n++) expect(reviewPercent(total, n)).toBeLessThan(100);
+  });
+
+  const STATES = LIFECYCLES.flatMap((lifecycle) => MISSING.map((missing) => ({ lifecycle, missing: [...missing] })));
+  it.each(STATES)('Review $lifecycle missing=$missing: the bar matches what is left', async ({ lifecycle, missing }) => {
+    mount({ lifecycle, missing, goLive: { deployed: true, complete: vi.fn(async () => 'live' as const) } });
+    await onStep('review');
+    const bar = screen.getByTestId('p3-ob-progress');
+    expect(screen.getByTestId('p3-ob-pct').textContent).toBe(`${bar.getAttribute('aria-valuenow')}%`);
+    if (missing.length === 0) expect(progress()).toBe(100);
+    else expect(progress()).toBeLessThan(100);
+  });
+
+  it('more missing reads lower', async () => {
+    const at = async (missing: string[]) => {
+      mount({ missing });
+      await onStep('review');
+      const v = progress();
+      cleanup();
+      return v;
+    };
+    const one = await at(['org_logo']);
+    const two = await at(['org_logo', 'photo']);
+    expect(two).toBeLessThan(one);
+  });
+
+  it('an incomplete refusal from the server drops the bar below 100 at once', async () => {
+    rpc.mockResolvedValue(ok({ ok: false, reason: 'incomplete', missing: ['org_logo'] }));
+    mount();
+    await onStep('review');
+    expect(progress()).toBe(100);
+    fireEvent.click(cont());
+    await screen.findByTestId('p3-ob-golive-err');
+    expect(progress()).toBeLessThan(100);
+  });
+
+  it.each([
+    ['live', { ok: true, changed: true, lifecycle: 'live', review: false }, 'live'],
+    ['review variant', { ok: true, changed: true, lifecycle: 'pending_review', review: true }, 'live-review'],
+  ])('Live (%s) is 100%%', async (_n, data, step) => {
+    rpc.mockResolvedValue(ok(data));
+    mount();
+    await onStep('review');
+    fireEvent.click(cont());
+    await onStep(step);
+    expect(progress()).toBe(100);
   });
 });

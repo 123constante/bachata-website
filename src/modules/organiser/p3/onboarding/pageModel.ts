@@ -45,6 +45,17 @@ export const flowPercent = (step: FlowStep, groups: readonly (readonly FlowStep[
   return Math.round(((i + 1) / groups.length) * 100);
 };
 
+/**
+ * Review's bar (review r1): done steps over all steps, so it reads below 100 while anything is left. `total` = the
+ * full path's groups (Review included); each missing item is one step not done, and Review itself is not done until
+ * nothing is missing. 100 only with nothing missing (All set / All done); Live is 100.
+ */
+export const reviewPercent = (total: number, missing: number): number => {
+  if (missing <= 0) return 100;
+  if (total <= 0) return 0;
+  return Math.min(99, Math.round((Math.max(0, total - missing - 1) / total) * 100));
+};
+
 /** Five cards, stored Title Case, shown sentence case (prototype fix 9, catLabel). */
 export const CATEGORIES = CATEGORY_OPTIONS.map((value) => ({
   value,
@@ -401,7 +412,9 @@ export class GoLiveError extends Error {
 
 /** The RPC's raised error message -> a refusal (only the two RAISEs are named; everything else is a failure to retry). */
 export function goLiveRefusalOfMessage(message: string): GoLiveRefusal {
-  if (/\bauthentication_required\b/.test(message)) return 'signed-out';
+  // A signed-out browser never reaches the RAISE: PostgREST refuses first, as anon (EXECUTE is authenticated only:
+  // 42501 "permission denied for function ...") or with an expired token (401 PGRST301 "JWT expired").
+  if (/\bauthentication_required\b|permission denied for function|JWT expired|\bPGRST301\b/.test(message)) return 'signed-out';
   if (/\bnot_found\b/.test(message)) return 'not-owner';
   return 'failed';
 }

@@ -16,7 +16,7 @@ import { claimOrganiser, createOrganiserProfile, requestOrganiserAccess, searchC
 import { searchCities, type CityResult } from '../../home/onboarding/citySearch';
 import { GoLiveError, goLiveOutcomeFrom, goLiveRefusalOfMessage, type GoLiveOutcome, type PageCommand } from './pageModel';
 
-type UntypedRpc = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
+type UntypedRpc = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }> };
 const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as unknown as UntypedRpc).rpc(fn, args);
 
 const must = async <T = unknown>(p: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T> => {
@@ -63,13 +63,15 @@ export const GO_LIVE_NOT_DEPLOYED: GoLiveApi = {
 export const REAL_GO_LIVE: GoLiveApi = {
   deployed: true,
   complete: async (organiserId) => {
-    let data: unknown;
+    let answer: { data: unknown; error: { message: string; code?: string } | null };
     try {
-      data = await must(rpc('complete_organiser_onboarding_v1', { p_organiser_id: organiserId }));
+      answer = await rpc('complete_organiser_onboarding_v1', { p_organiser_id: organiserId });
     } catch (e) {
       throw new GoLiveError(goLiveRefusalOfMessage(e instanceof Error ? e.message : String(e)));
     }
-    return goLiveOutcomeFrom(data);
+    // The code rides with the message: an expired token is PGRST301 whatever its wording.
+    if (answer.error) throw new GoLiveError(goLiveRefusalOfMessage(`${answer.error.code ?? ''} ${answer.error.message}`));
+    return goLiveOutcomeFrom(answer.data);
   },
 };
 

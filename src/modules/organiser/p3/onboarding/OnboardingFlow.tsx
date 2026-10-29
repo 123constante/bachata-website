@@ -29,6 +29,7 @@ import {
   draftFrom,
   e164Of,
   flowPercent,
+  reviewPercent,
   fullPath,
   pageBlocked,
   pageCommandFor,
@@ -250,7 +251,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         orgId={orgId}
         theme={theme}
         dir={dir}
-        percent={percentAt('review')}
+        steps={groups(personPath(teach, true)).length}
         refreshing={status.isFetching}
         onBack={() => {
           void qc.invalidateQueries({ queryKey: ['p3-ob'] });
@@ -780,8 +781,8 @@ function ClaimSheet({ page, theme, writes, onClose, onClaimed, onAsked, onHome, 
   );
 }
 
-function ReviewScreen({ status, goLive, orgId, theme, dir, percent, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome }: {
-  status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; percent: number; refreshing: boolean;
+function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome }: {
+  status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; steps: number; refreshing: boolean;
   onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: () => void;
 }) {
   const [all, setAll] = useState(false);
@@ -798,6 +799,15 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, percent, refreshing, 
   const rows = shown.missing.map(reviewRow);
   const c = reviewCopy(shown, goLive.deployed);
   const state = goLiveState(shown, goLive.deployed);
+  // New missing items from the status read outrank an earlier refusal: the disabled reason shows, not "Try again".
+  const missingKey = status.missing.join(',');
+  const seenMissing = useRef(missingKey);
+  useEffect(() => {
+    if (seenMissing.current === missingKey) return;
+    seenMissing.current = missingKey;
+    setRefused(null);
+  }, [missingKey]);
+  const percent = reviewPercent(steps, shown.missing.length);
   const fail = refused ? goLiveRefusalCopy(refused) : null;
   const primaryLabel = fail?.action === 'home' ? 'Go to Home' : fail?.action === 'sign-in' ? 'Sign in again' : fail?.action === 'retry' ? 'Try again' : c.primary;
   const primary = async () => {

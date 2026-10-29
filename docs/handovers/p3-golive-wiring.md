@@ -73,3 +73,19 @@ e2e-smoke had 182 pass and 2 R1 specs that failed under 4 workers and passed alo
 the Review x lifecycle x missing x deployed matrix; double tap; the browser walk at 390x844 and 320x568, light and dark.
 **Not verified:** a real Go live (never called, by rule); the real review path (0 of 319 cities); real-device keyboard behaviour;
 360x640 and 130% text for these states; the Vercel preview; the owner phone test.
+
+## Fix round r1 (independent review: PASS with should-fix)
+
+1. **Signed out, as PostgREST really says it.** `goLiveRefusalOfMessage` now maps `permission denied for function`
+   (anon, 42501), `JWT expired` and `PGRST301` to signed-out (as well as `authentication_required`). `REAL_GO_LIVE` now
+   passes the error code along with the message, so a PGRST301 with any wording reads as signed out.
+2. **Stale refusal.** When the status read brings new missing items, Review clears the earlier refusal. The disabled
+   reason ("Finish the 1 thing left to go live.") shows, not "Try again".
+3. **Truthful progress.** Review's bar is `reviewPercent(steps, missing)`: done steps over all steps (each missing
+   item is one step not done, and Review itself is not done). It reads below 100 while anything is left: 88% with one
+   thing left on the walk's path. It is 100 only on All set / All done and Live. The old pageScreens row that pinned
+   Review at 100% with 5 things left now expects 60%. The `review-incomplete-*` screenshots were re-taken, and the
+   walk asserts the bar is below 100 there.
+
+Red first: 28 of the 95 tests in `goLive.matrix.test.tsx` failed before the fix (model rows, signed-out screens, the
+stale refusal, the progress table); after the fix all pass.
