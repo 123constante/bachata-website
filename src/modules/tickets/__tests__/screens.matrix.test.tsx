@@ -80,7 +80,7 @@ describe('row states x free/paid', () => {
         // The only buyable type is picked for the buyer.
         expect(await screen.findByRole('button', { name: price ? 'Buy tickets' : 'Get free ticket' })).toBeTruthy();
         const totals = screen.getByTestId('ticket-totals').textContent ?? '';
-        if (price) expect(totals).toMatch(/\+ 50p booking fee per ticket.*\u00a30\.50.*Total.*\u00a313/);
+        if (price) expect(totals).toBe('1 \u00d7 Type a\u00a312.50Total\u00a312.50');
         else expect(totals).not.toMatch(/booking fee/);
       } else {
         expect(screen.getByText(/No tickets can be bought right now/)).toBeTruthy();
@@ -127,7 +127,7 @@ describe('stepper caps at 20 and at remaining', () => {
     expect(screen.getByTestId('ticket-qty').textContent).toBe(String(max));
     expect((plus as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(note)).toBeTruthy();
-    expect(screen.getByTestId('ticket-totals').textContent).toContain(`\u00a3${(1200 * max + 50 * max) / 100}`);
+    expect(screen.getByTestId('ticket-totals').textContent).toContain(`Total\u00a3${(1200 * max) / 100}`);
   });
 });
 
@@ -160,7 +160,8 @@ describe('Buy is disabled with a reason until valid', () => {
   it('terms text opens and is the draft copy', async () => {
     renderBlock([mk('a')]);
     fireEvent.click(await screen.findByRole('button', { name: 'Read the terms of sale' }));
-    expect(screen.getByTestId('terms-text').textContent).toMatch(/50p per ticket/);
+    expect(screen.getByTestId('terms-text').textContent).toMatch(/Refunds are up to the organiser\./);
+    expect(screen.getByTestId('terms-text').textContent).not.toMatch(/fee/i);
   });
 });
 

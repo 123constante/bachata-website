@@ -7,8 +7,8 @@ import { BOOKING_FEE_PENCE } from '@/lib/ticketBookingFee';
 
 /** Owner Q2: at most 20 tickets per order (the edge function's MAX_QUANTITY). */
 export const MAX_PER_ORDER = 20;
-/** Owner Q9: the booking fee per paid ticket, shown on its own line. The one shared constant;
- *  the server's value is env TICKET_BOOKING_FEE_PENCE (keep it unset = 50). */
+/** Owner Q9: the booking fee per paid ticket, shown on its own line while non-zero. The one shared
+ *  constant (0 since the owner order of 2026-10-29); the server's value is env TICKET_BOOKING_FEE_PENCE (set to 0). */
 export { BOOKING_FEE_PENCE };
 /** The only origins the edge function accepts for success_url / cancel_url. */
 export const CHECKOUT_ORIGINS: readonly string[] = [

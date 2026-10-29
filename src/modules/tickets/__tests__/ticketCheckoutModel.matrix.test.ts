@@ -58,7 +58,7 @@ describe('every status x window x free/paid x remaining', () => {
       if (expected === 'buyable') {
         const s = totals(t, max);
         expect(s.free).toBe(price === 0);
-        expect(s.feePence).toBe(price === 0 ? 0 : 50 * max);
+        expect(s.feePence).toBe(0); // no booking fee (owner order 2026-10-29)
         expect(s.totalPence).toBe(price * max + s.feePence);
         expect(buyLabel(t)).toBe(price === 0 ? 'Get free ticket' : 'Buy tickets');
       }
@@ -193,7 +193,9 @@ describe('legal copy (owner approved 2026-10-27)', () => {
   it('is marked APPROVED and covers the brief points', () => {
     expect(LEGAL_COPY_STATUS).toBe('APPROVED');
     const all = `${TERMS_OF_SALE.join(' ')} ${PRIVACY_PARAGRAPH}`;
-    for (const re of [/Stripe/, /50p/, /fee is ours/, /full refund, the booking fee is refunded/, /name/, /email/, /order/]) expect(all).toMatch(re);
+    for (const re of [/Stripe/, /Refunds are up to the organiser\./, /name/, /email/, /order/]) expect(all).toMatch(re);
+    // No booking fee (owner order 2026-10-29): no fee sentence, no fee refund.
+    expect(all).not.toMatch(/50p|booking fee|fee is ours/);
     expect(all).not.toMatch(/[\u2013\u2014\u2018\u2019\u201c\u201d\u2026]/);
   });
 });

@@ -150,7 +150,7 @@ export const strOrNull = (v: unknown): string | null => (typeof v === 'string' &
 
 // ---- Money (GBP only, Q10) ---------------------------------------------------------
 
-// The one shared constant (server: env TICKET_BOOKING_FEE_PENCE, kept unset = 50).
+// The one shared constant (server: env TICKET_BOOKING_FEE_PENCE, set to 0 since 2026-10-29).
 export { BOOKING_FEE_PENCE };
 export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
@@ -367,7 +367,7 @@ export const refundQuestion = (o: Order): { title: string; body: string; confirm
   return {
     title: `Refund ${buyerNameOf(o)}?`,
     body:
-      `${amount} goes back, booking fee included. ` +
+      `${amount} goes back${o.bookingFeePence > 0 ? ', booking fee included' : ''}. ` +
       `${one ? 'Their ticket stops' : `Their ${o.quantity} tickets stop`} working and the ${one ? 'place reopens' : 'places reopen'}. Cannot be undone.`,
     confirm: `Refund ${amount}`,
   };
@@ -418,7 +418,7 @@ export interface BuyerTotal {
   ticketPence: number;
   feePence: number;
   totalPence: number;
-  /** "\u00A310.00 ticket + 50p booking fee", or "Free, no fee". */
+  /** "\u00A310.00 ticket + 50p booking fee" while there is a fee, "The ticket price, nothing added" at 0, or "Free". */
   line: string;
 }
 export const buyerTotal = (pricePence: number): BuyerTotal =>
@@ -428,9 +428,18 @@ export const buyerTotal = (pricePence: number): BuyerTotal =>
         ticketPence: pricePence,
         feePence: BOOKING_FEE_PENCE,
         totalPence: pricePence + BOOKING_FEE_PENCE,
-        line: `${formatPence(pricePence)} ticket + ${feeLabel(BOOKING_FEE_PENCE)} booking fee`,
+        line:
+          BOOKING_FEE_PENCE > 0
+            ? `${formatPence(pricePence)} ticket + ${feeLabel(BOOKING_FEE_PENCE)} booking fee`
+            : 'The ticket price, nothing added',
       }
-    : { free: true, ticketPence: 0, feePence: 0, totalPence: 0, line: 'Free, no fee' };
+    : { free: true, ticketPence: 0, feePence: 0, totalPence: 0, line: BOOKING_FEE_PENCE > 0 ? 'Free, no fee' : 'Free' };
+
+/** The event's rules line after the date, on every organiser tickets screen. The fee clause only while there is a fee. */
+export const buyerRulesLine = (): string =>
+  BOOKING_FEE_PENCE > 0
+    ? `Buyers pay a ${feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to ${MAX_PER_ORDER} tickets an order.`
+    : `Buyers pay the ticket price, up to ${MAX_PER_ORDER} tickets an order.`;
 
 /** One price box in the editor: empty or 0 is a free ticket, anything else is paid (and validated as a price). */
 export const paidOf = (priceText: string): boolean => priceText.trim() !== '' && penceOf(priceText) !== 0;

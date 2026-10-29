@@ -3,16 +3,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
 import {
-  BOOKING_FEE_PENCE,
-  MAX_PER_ORDER,
   NOT_MANAGER,
   NOT_MANAGER_REFUND,
   SWITCH_LABEL,
   buyerNameOf,
+  buyerRulesLine,
   canManage,
   countsLine,
   eventStartOf,
-  feeLabel,
   leftOf,
   orderLine,
   orderTag,
@@ -312,7 +310,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           {view === 'list' ? (
             <div className="p3-stack-s" data-testid="tix-list-view">
               <p className="p3-note" data-testid="tix-event-rules">
-                {eventDateLine(series)}. Buyers pay a {feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to {MAX_PER_ORDER} tickets an order.
+                {eventDateLine(series)}. {buyerRulesLine()}
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
               {body}
