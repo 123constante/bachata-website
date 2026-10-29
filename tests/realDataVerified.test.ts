@@ -214,3 +214,20 @@ describe('real-data-verified.yml wiring', () => {
     expect(yml).toMatch(/if \[ "\$code" = "3" \]; then\n\s+echo "::notice [^\n]*\n[^\n]*\n\s+exit 0\n\s+fi\n\s+exit "\$code"/);
   });
 });
+
+describe('fenced code blocks', () => {
+  const ok = { ok: true, pending: false, problems: [] };
+  it.each([
+    ['inline triple-backtick span is not a fence', '```npm test``` passes\n\n' + section()],
+    ['~~~ fence is stripped', '~~~\n' + section('TO FILL') + '\n~~~\n\n' + section()],
+    ['fence with an info string is stripped', '```md\n' + section('TO FILL') + '\n```\n\n' + section()],
+    ['indented (3 spaces) fence is stripped', '   ```\n' + section('TO FILL') + '\n   ```\n\n' + section()],
+    ['shorter closing run does not close a longer fence', '````\n```\n' + section('TO FILL') + '\n````\n\n' + section()],
+  ])('%s', (_n, body) => {
+    expect(parse(body)).toEqual(ok);
+  });
+
+  it('an unclosed fence runs to the end and hides a section after it (CommonMark)', () => {
+    expect(parse('```\n' + section()).ok).toBe(false);
+  });
+});

@@ -71,7 +71,9 @@ function stripFences(lines) {
   for (const l of lines) {
     const m = FENCE_RE.exec(l);
     if (open === null) {
-      if (m) open = m[1];
+      // CommonMark: a backtick fence's info string has no backtick, so
+      // "```npm test``` passes" is an inline span, not a fence.
+      if (m && !(m[1][0] === '`' && l.slice(l.indexOf(m[1]) + m[1].length).includes('`'))) open = m[1];
       else out.push(l);
     } else if (m && m[1][0] === open[0] && m[1].length >= open.length && l.trim() === m[1].trim()) {
       open = null;

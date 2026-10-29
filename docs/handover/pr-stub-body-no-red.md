@@ -73,3 +73,16 @@ of 20.
 - Owner: approve at PR head (hard tier: workflow + scripts), then merge.
 - After merge, the next bot PR should show real-data-verified as a notice
   ("PENDING") until its session edits the body.
+
+## Independent review (different model, one round -- CI-guard stopping rule)
+
+- FIXED: an inline span like "```npm test``` passes" opened a fence and hid a
+  filled section (exit 1). Opening backtick fences now reject a backtick in the
+  info string (CommonMark). Red-first test added, plus ~~~, info-string,
+  indented and longer-fence cases.
+- KEPT: an unclosed fence runs to the end (CommonMark); fail-closed.
+- KEPT: `TO FILL` anywhere in a line = pending (fail-closed; a real line
+  naming a "TO FILL column" stays pending until reworded). Pinned by the
+  "marker mixed with real text" test.
+- KEPT: pending is a green run; the workflow comment says it must become red
+  if the check is ever made required.
