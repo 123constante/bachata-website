@@ -214,7 +214,7 @@ describe('Review: organiser_onboarding_status_v1().missing[]', () => {
     const c = reviewCopy(s, deployed);
     expect([c.title, c.primary, c.reason]).toEqual([title, primary, reason]);
   });
-  it('go live is never "ready" while the RPC is not deployed', () => {
+  it('go live is never "ready" while go-live is not wired (deployed: false)', () => {
     expect(goLiveState(S([], 'draft'), false)).toBe('not-yet');
     expect(goLiveState(S([], 'draft'), true)).toBe('ready');
     expect(goLiveState(S(['x'], 'draft'), true)).toBe('blocked');

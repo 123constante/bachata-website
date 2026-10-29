@@ -171,6 +171,24 @@ export const draftFrom = (h: PageHeld): PageDraft => ({
   logo: h.logo,
 });
 
+/**
+ * The create answers (name, city) kept across the Finish-profile detour (create_organiser_profile_v1 refuses
+ * `profile_incomplete` for a person with no dancer profile yet). They ride in the return URL, like `o` and
+ * `at`; the flow drops them from the URL once the page is created.
+ */
+export const KEPT_PARAMS = ['name', 'city', 'cityLabel'] as const;
+
+export function keptCreateHref(start: string, d: PageDraft): string {
+  const q = new URLSearchParams({ at: 'create-name', name: d.name, city: d.cityId, cityLabel: d.cityLabel });
+  return `${start}?${q.toString()}`;
+}
+
+export function keptCreateDraft(params: URLSearchParams): PageDraft | null {
+  const [name, cityId, cityLabel] = KEPT_PARAMS.map((k) => params.get(k) ?? '');
+  if (!name && !cityId) return null;
+  return { ...draftFrom(EMPTY_PAGE), name, cityId, cityLabel: cityId ? cityLabel : '' };
+}
+
 export type PageCopy = { title: string; helper: string | null; reason: string | null };
 
 export const PAGE_COPY: Record<PageStep, PageCopy> = {
@@ -330,8 +348,8 @@ export function reviewStatusFrom(raw: unknown, organiserId: string): ReviewStatu
 export type GoLiveState = 'blocked' | 'ready' | 'not-yet' | 'live';
 
 /**
- * Review's one primary button. `goLiveDeployed` = complete_organiser_onboarding_v1 exists (it does NOT on prod
- * 2026-10-29: the S6 admin slice): until then a draft page's button is disabled with the reason, never a
+ * Review's one primary button. `goLiveDeployed` = complete_organiser_onboarding_v1 is wired in (deployed in admin #1119;
+ * intentionally not wired in this PR, `deployed: false` until the go-live slice): until then a draft page's button is disabled with the reason, never a
  * fake success. A live page has nothing to go live; it goes Home.
  */
 export function goLiveState(s: ReviewStatus, goLiveDeployed: boolean): GoLiveState {

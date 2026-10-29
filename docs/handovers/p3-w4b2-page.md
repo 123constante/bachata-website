@@ -18,7 +18,7 @@ Stopped at the owner's cloud context gate (30%). The CODE and its tests are done
   (`uploadToR2('avatars')`) via `organiser_profile_update_p5_v1`. Diff-first everywhere: an untouched screen sends nothing.
 - **Review** from `organiser_onboarding_status_v1(p_organiser_id)`: person.missing + this page's missing; "N things left", the next row,
   Show all sheet. Every one of the 18 codes `_onboarding_missing_v1` returns has a row (unknown future codes still show).
-- **Go live**: `complete_organiser_onboarding_v1` is NOT deployed on prod (checked 2026-10-29). `pageApi.GoLiveApi` + the stub
+- **Go live**: `complete_organiser_onboarding_v1` is deployed in admin #1119 (merged 2026-10-29); intentionally not wired in this PR, `deployed: false` until the go-live slice. `pageApi.GoLiveApi` + the stub
   `GO_LIVE_NOT_DEPLOYED` (`deployed: false`): a draft page with nothing left sees Go live DISABLED with "Going live opens soon. Everything you
   added is saved." Never a fake "You're live". A live page (all 49 on prod) sees "All done" / Go to Home. Live screen + confetti (off under
   reduced motion) is reachable only with a deployed implementation (tested with a fake).

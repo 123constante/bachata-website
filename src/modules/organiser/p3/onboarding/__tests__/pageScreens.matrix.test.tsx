@@ -4,7 +4,7 @@
  * reads / writes (no network). Asserts per page screen: one question, aria-valuenow = the % shown and on
  * the FULL path, an untouched Continue sends nothing (diff-first), a change sends one command; Find / claim
  * (sheet portalled to body) / create and its refusals; Review from missing[] (Go live disabled WITH the
- * reason while complete_organiser_onboarding_v1 is not deployed); Live (confetti) only via a deployed
+ * reason while complete_organiser_onboarding_v1 is not wired in, deployed: false); Live (confetti) only via a deployed
  * go-live; the Settings sheet (dark switch writes p3-ob-theme); the Home grace banner.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi
 vi.mock('@/modules/organiser/wizard/wizardCountries', () => ({ wizardCountries: () => Promise.resolve([]) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'sam@example.com' } }) }));
 vi.mock('@/components/account/profiles/signOutToHome', () => ({ SIGN_OUT_FAILED: 'failed', useSignOutToHome: () => ({ signOutToHome: vi.fn(async () => 'ok'), busy: false }) }));
-const home = vi.hoisted(() => ({ organisers: [{ id: 'o1' }] as { id: string }[] }));
+const home = vi.hoisted(() => ({ organisers: [{ id: 'o1' }] as { id: string }[], teach: 'yes' as 'yes' | 'no' }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ data: { organisers: home.organisers }, isPending: false, isError: false, refetch: vi.fn() }) }));
 
 import OnboardingFlow from '../OnboardingFlow';
@@ -39,7 +39,7 @@ const statusOf = (s: Shape, person: string[] = [], id = 'o1') => ({ v: 1, is_adm
 
 const PERSON_READS: PersonReads = {
   dancer: async () => ({ first_name: 'Sam', avatar_url: 'https://img/a.jpg', dance_role: 'Follower', nationality: 'GB', languages: ['English'] }),
-  intent: async () => ({ roles: ['teacher'], declined: [] }) as never,
+  intent: async () => (home.teach === 'no' ? { roles: [], declined: ['teacher'] } : { roles: ['teacher'], declined: [] }) as never,
   teacher: async () => ({ teaching_styles: ['Moderna'], years_teaching: 3 }),
   organiser: async () => ({ id: 'o1', name: 'Leeds Nights', bio: '', category: 'Promoter', city: 'Leeds' }),
 };
@@ -49,7 +49,7 @@ function Where() {
   return <span data-testid="where">{l.pathname + l.search}</span>;
 }
 
-function mount(opts: { shape?: string; at?: string; person?: string[]; goLive?: GoLiveApi; fail?: string; createFail?: string; claimFail?: string; noPage?: boolean } = {}) {
+function mount(opts: { shape?: string; at?: string; person?: string[]; goLive?: GoLiveApi; fail?: string; createFail?: string; claimFail?: string; noPage?: boolean; url?: string } = {}) {
   const shape = SHAPES[opts.shape ?? 'e164Confirmed'];
   home.organisers = opts.noPage ? [] : [{ id: 'o1' }];
   const sent: PageCommand[] = [];
@@ -81,7 +81,7 @@ function mount(opts: { shape?: string; at?: string; person?: string[]; goLive?: 
   };
   const personWrites: PersonWrites = { run: vi.fn(async () => undefined), skipAbout: vi.fn(async () => undefined) };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const url = `/account/p3/start${opts.at ? `?at=${opts.at}` : ''}`;
+  const url = opts.url ?? `/account/p3/start${opts.at ? `?at=${opts.at}` : ''}`;
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[url]}>
@@ -106,6 +106,7 @@ const onStep = async (s: string) => waitFor(() => expect(shownStep()).toBe(s));
 
 beforeEach(() => {
   window.localStorage.clear();
+  home.teach = 'yes';
 });
 afterEach(() => {
   cleanup();
@@ -287,6 +288,74 @@ describe('Welcome, Find, claim, create (no page yet)', () => {
   });
 });
 
+describe('S2: the % never dips while a number is typed (WhatsApp counts once Continue has run)', () => {
+  const createThenPhone = async () => {
+    await onStep('create-name');
+    fireEvent.change(screen.getByTestId('p3-ob-page-name'), { target: { value: 'Bachata Nights Harrogate' } });
+    fireEvent.click(cont());
+    await onStep('create-city');
+    fireEvent.change(screen.getByTestId('p3-ob-city-q'), { target: { value: 'Harro' } });
+    fireEvent.click(await screen.findByTestId('p3-ob-city-c1'));
+    fireEvent.click(cont());
+  };
+  it.each([
+    ['has-page', 'yes'],
+    ['has-page', 'no'],
+    ['no-page', 'yes'],
+    ['no-page', 'no'],
+  ] as const)('%s, teach %s: aria-valuenow is the same before and after typing a valid number', async (arrival, teach) => {
+    home.teach = teach;
+    if (arrival === 'has-page') mount({ shape: 'noPhone', at: 'contact' });
+    else {
+      mount({ noPage: true, at: 'create-name', shape: 'noPhone' });
+      await createThenPhone();
+    }
+    await onStep('contact-phone');
+    const before = pct().now;
+    fireEvent.change(screen.getByTestId('p3-ob-phone'), { target: { value: '07700 900999' } });
+    expect(pct().now).toBe(before);
+    fireEvent.click(cont());
+    await onStep('whatsapp');
+    expect(Number(pct().now)).toBeGreaterThan(Number(before));
+  });
+});
+
+describe('S3: a create refused for an unfinished dancer profile keeps the typed answers', () => {
+  it('no-profile persona: refusal -> Finish your profile (return URL keeps name + city) -> back on create-name, prefilled -> Create', async () => {
+    mount({ noPage: true, at: 'create-name', createFail: 'profile_incomplete' });
+    await onStep('create-name');
+    fireEvent.change(screen.getByTestId('p3-ob-page-name'), { target: { value: 'Bachata Nights Harrogate' } });
+    fireEvent.click(cont());
+    await onStep('create-city');
+    fireEvent.change(screen.getByTestId('p3-ob-city-q'), { target: { value: 'Harro' } });
+    fireEvent.click(await screen.findByTestId('p3-ob-city-c1'));
+    fireEvent.click(cont());
+    await screen.findByTestId('p3-ob-error');
+    fireEvent.click(screen.getByRole('button', { name: 'Finish your profile' }));
+    const where = (await screen.findByTestId('where')).textContent ?? '';
+    const returnTo = new URLSearchParams(where.split('?')[1] ?? '').get('returnTo') ?? '';
+    expect(returnTo.startsWith('/account/p3/start?')).toBe(true);
+    cleanup();
+    // The profile is finished; the Finish screen sends them back to returnTo.
+    const { writes } = mount({ noPage: true, url: returnTo, shape: 'noPhone' });
+    await onStep('create-name');
+    expect((screen.getByTestId('p3-ob-page-name') as HTMLInputElement).value).toBe('Bachata Nights Harrogate');
+    fireEvent.click(cont());
+    await onStep('create-city');
+    expect(screen.getByTestId('p3-ob-city-chosen').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('p3-ob-city-chosen').textContent).toContain('Harrogate');
+    expect(cont().textContent).toBe('Create page');
+    fireEvent.click(cont());
+    await waitFor(() => expect(writes.create).toHaveBeenCalledWith('Bachata Nights Harrogate', 'c1'));
+    await onStep('contact-phone');
+  });
+  it('a plain arrival (no kept answers in the URL) starts empty', async () => {
+    mount({ noPage: true, at: 'create-name' });
+    await onStep('create-name');
+    expect((screen.getByTestId('p3-ob-page-name') as HTMLInputElement).value).toBe('');
+  });
+});
+
 describe('Review and Live', () => {
   it('N things left from missing[]; the next row jumps to its screen; Show all lists every row in a sheet', async () => {
     mount({ shape: 'noPhone', at: 'review', person: ['photo'] });
@@ -305,7 +374,7 @@ describe('Review and Live', () => {
     fireEvent.click(screen.getByTestId('p3-ob-review-dj_answer'));
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/returnTo=.*at%3Dreview/));
   });
-  it('a draft page with nothing left: Go live is disabled WITH the reason while the RPC is not deployed', async () => {
+  it('a draft page with nothing left: Go live is disabled WITH the reason while go-live is not wired (deployed: false)', async () => {
     const SH = { ...SHAPES.e164Confirmed, lifecycle: 'draft' };
     SHAPES.draftDone = SH;
     mount({ shape: 'draftDone', at: 'review' });

@@ -41,10 +41,10 @@ export interface PageWrites {
 }
 
 /**
- * Go live (screen 22). The S6 RPC complete_organiser_onboarding_v1 is a separate admin slice and is NOT
- * deployed on prod (checked 2026-10-29). This is the interface the flow calls; GO_LIVE_NOT_DEPLOYED is the
+ * Go live (screen 22). The S6 RPC complete_organiser_onboarding_v1 is deployed in admin #1119; it is
+ * intentionally not wired in this PR (`deployed: false` until the go-live slice). This is the interface the flow calls; GO_LIVE_NOT_DEPLOYED is the
  * stub: `deployed: false`, so Review disables Go live with the reason and never shows a fake "You're live".
- * When the RPC ships, swap in an implementation that calls it and set `deployed: true`.
+ * The go-live slice swaps in an implementation that calls it and sets `deployed: true`.
  */
 export interface GoLiveApi {
   deployed: boolean;

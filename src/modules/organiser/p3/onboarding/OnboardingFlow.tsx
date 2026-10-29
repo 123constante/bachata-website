@@ -14,11 +14,12 @@ import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
 import { PersonScreens } from './PersonFlow';
-import { heldFrom, personPath, type PersonStep } from './personModel';
+import { PERSON_ORDER, heldFrom, personPath, type PersonStep } from './personModel';
 import { GO_LIVE_NOT_DEPLOYED, PAGE_STALE_KEYS, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
   CATEGORIES,
   EMPTY_PAGE,
+  KEPT_PARAMS,
   NAME_MAX,
   PAGE_COPY,
   afterContact,
@@ -36,6 +37,8 @@ import {
   reviewRow,
   reviewStatusFrom,
   goLiveState,
+  keptCreateDraft,
+  keptCreateHref,
   type Arrival,
   type FlowStep,
   type PageDraft,
@@ -50,8 +53,7 @@ const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWi
 const SEARCH = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>;
 const CHEV = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} aria-hidden="true"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
-const PERSON_STEPS: readonly string[] = ['name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about'];
-const isPersonStep = (s: string): s is PersonStep => PERSON_STEPS.includes(s);
+const isPersonStep = (s: string): s is PersonStep => (PERSON_ORDER as readonly string[]).includes(s);
 const PAGE_STEPS: readonly string[] = ['welcome', 'find', 'create-name', 'create-city', 'contact', 'contact-phone', 'whatsapp', 'cat', 'link', 'logo'];
 const isPageStep = (s: string): s is PageStep => PAGE_STEPS.includes(s);
 /** The page screens that need the page's own reads (a page exists by then). */
@@ -86,7 +88,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const home = useP3Home();
   const uid = user?.id;
   const firstOrg = params.get('o') ?? home.data?.organisers[0]?.id ?? null;
@@ -126,7 +128,8 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   const rs = orgId && status.data ? reviewStatusFrom(status.data, orgId) : null;
   // Held page values: taken ONCE per page when its reads land (the draft must not reset under the person's typing).
   const [held, setHeld] = useState<PageHeld | null>(null);
-  const [d, setD] = useState<PageDraft | null>(null);
+  // A no-page arrival back from Finish profile gets its create answers back (keptCreateDraft).
+  const [d, setD] = useState<PageDraft | null>(() => keptCreateDraft(params));
   const heldFor = useRef<string | null>(null);
   useEffect(() => {
     if (!orgId || heldFor.current === orgId || !page.isSuccess || !phone.isSuccess || !status.isSuccess) return;
@@ -142,7 +145,9 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   );
   const [teachNow, setTeachNow] = useState<'yes' | 'no' | null>(null);
   const teach = teachNow ?? personHeld?.teach ?? null;
-  const waPhone = !!(d && (e164Of(d.phone) ?? phoneE164(d.phone)));
+  // The WhatsApp step counts on the % from the HELD number (set on arrival, updated when the phone screen's
+  // Continue saves), never the live draft: typing a number must not move the bar backwards.
+  const waPhone = !!(held && (e164Of(held.phone) ?? phoneE164(held.phone)));
   const groups = (person: readonly PersonStep[]) => fullPath({ arrival: arrival ?? 'has-page', waPhone }, person);
   const percentAt = (step: FlowStep) => flowPercent(step, groups(personPath(teach, true)));
 
@@ -305,9 +310,16 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         setD(null);
         setOrgId(id);
         invalidate();
+        if (KEPT_PARAMS.some((k) => params.has(k))) {
+          setParams((p) => {
+            const q = new URLSearchParams(p);
+            for (const k of [...KEPT_PARAMS, 'at']) q.delete(k);
+            return q;
+          }, { replace: true });
+        }
       }}
       onAsked={(name) => go({ kind: 'asked', name })}
-      onFinishProfile={() => navigate(finishProfileHref(P3_PATHS.start))}
+      onFinishProfile={() => navigate(finishProfileHref(orgId || !d ? P3_PATHS.start : keptCreateHref(P3_PATHS.start, d)))}
       onFullClaim={() => navigate(P3_PATHS.youAdd)}
       invalidate={invalidate}
     />
