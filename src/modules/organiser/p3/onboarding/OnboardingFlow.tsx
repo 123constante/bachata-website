@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { buildSignInHref } from '@/lib/authRouting';
+import { flags } from '@/lib/featureFlags';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
@@ -15,7 +17,7 @@ import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
 import { PersonScreens } from './PersonFlow';
 import { PERSON_ORDER, heldFrom, personPath, type PersonStep } from './personModel';
-import { GO_LIVE_NOT_DEPLOYED, PAGE_STALE_KEYS, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
+import { PAGE_STALE_KEYS, REAL_GO_LIVE, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
   CATEGORIES,
   EMPTY_PAGE,
@@ -27,6 +29,7 @@ import {
   draftFrom,
   e164Of,
   flowPercent,
+  reviewPercent,
   fullPath,
   pageBlocked,
   pageCommandFor,
@@ -37,6 +40,11 @@ import {
   reviewRow,
   reviewStatusFrom,
   goLiveState,
+  goLiveRefusalCopy,
+  liveCopy,
+  GoLiveError,
+  type GoLiveOutcome,
+  type GoLiveRefusal,
   keptCreateDraft,
   keptCreateHref,
   type Arrival,
@@ -63,7 +71,7 @@ type Stage =
   | { kind: 'page'; step: PageStep }
   | { kind: 'person'; step: PersonStep }
   | { kind: 'review' }
-  | { kind: 'live' }
+  | { kind: 'live'; outcome: GoLiveOutcome }
   | { kind: 'asked'; name: string };
 
 const FIND_MIN = 2;
@@ -74,6 +82,8 @@ export interface OnboardingFlowProps {
   personReads?: PersonReads;
   personWrites?: PersonWrites;
   goLive?: GoLiveApi;
+  /** The public organiser page exists (flags.organiserDetail); Live's View / Share depend on it. Tests set it. */
+  organiserDetail?: boolean;
   /** Tests stub the upload. */
   upload?: (file: File) => Promise<string>;
 }
@@ -84,7 +94,7 @@ export interface OnboardingFlowProps {
  * screens 5-9, slice 1's person screens 10-19 (PersonScreens, reused), Review (21) and Live (22). `at` opens
  * a step directly (Home's banner, Review's rows).
  */
-export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_PAGE_WRITES, personReads = REAL_READS, personWrites = REAL_WRITES, goLive = GO_LIVE_NOT_DEPLOYED, upload }: OnboardingFlowProps) {
+export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_PAGE_WRITES, personReads = REAL_READS, personWrites = REAL_WRITES, goLive = REAL_GO_LIVE, organiserDetail = flags.organiserDetail, upload }: OnboardingFlowProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -241,7 +251,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         orgId={orgId}
         theme={theme}
         dir={dir}
-        percent={percentAt('review')}
+        steps={groups(personPath(teach, true)).length}
         refreshing={status.isFetching}
         onBack={() => {
           void qc.invalidateQueries({ queryKey: ['p3-ob'] });
@@ -253,16 +263,18 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           else if (r.step && isPageStep(r.step)) go({ kind: 'page', step: r.step === 'contact' && held ? contactEntry(held) : r.step });
           else navigate(r.elsewhere === 'page' ? P3_PATHS.youPage : finishProfileHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`));
         }}
-        onLive={() => {
+        onLive={(outcome) => {
           invalidate();
-          go({ kind: 'live' });
+          go({ kind: 'live', outcome });
         }}
+        onIncomplete={() => void qc.invalidateQueries({ queryKey: ['p3-ob-status'] })}
+        onSignIn={() => navigate(buildSignInHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`))}
         onHome={exit}
       />
     );
   }
   if (stage.kind === 'live' && orgId) {
-    return <LiveScreen name={held?.name ?? organiser.data?.name ?? ''} orgId={orgId} theme={theme} onHome={exit} />;
+    return <LiveScreen outcome={stage.outcome} name={held?.name || organiser.data?.name || ''} orgId={orgId} organiserDetail={organiserDetail} theme={theme} onHome={exit} onPage={() => navigate(P3_PATHS.youPage)} />;
   }
   if (stage.kind === 'asked') {
     return shell(
@@ -769,31 +781,57 @@ function ClaimSheet({ page, theme, writes, onClose, onClaimed, onAsked, onHome, 
   );
 }
 
-function ReviewScreen({ status, goLive, orgId, theme, dir, percent, refreshing, onBack, onRow, onLive, onHome }: {
-  status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; percent: number; refreshing: boolean;
-  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: () => void; onHome: () => void;
+function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome }: {
+  status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; steps: number; refreshing: boolean;
+  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: () => void;
 }) {
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [refused, setRefused] = useState<GoLiveRefusal | null>(null);
+  // What the server said is still missing (an incomplete refusal), shown at once, before the status read catches up.
+  const [serverMissing, setServerMissing] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const clearToast = useCallback(() => setToast(null), []);
-  const rows = status.missing.map(reviewRow);
-  const c = reviewCopy(status, goLive.deployed);
-  const state = goLiveState(status, goLive.deployed);
+  // Double-tap safe: a ref, not state, so a second tap in the same frame cannot start a second call; it stays set
+  // after a success (the screen is leaving), so one Go live shows one result.
+  const inFlight = useRef(false);
+  const shown = useMemo(() => ({ ...status, missing: [...status.missing, ...serverMissing.filter((m) => !status.missing.includes(m))] }), [status, serverMissing]);
+  const rows = shown.missing.map(reviewRow);
+  const c = reviewCopy(shown, goLive.deployed);
+  const state = goLiveState(shown, goLive.deployed);
+  // New missing items from the status read outrank an earlier refusal: the disabled reason shows, not "Try again".
+  const missingKey = status.missing.join(',');
+  const seenMissing = useRef(missingKey);
+  useEffect(() => {
+    if (seenMissing.current === missingKey) return;
+    seenMissing.current = missingKey;
+    setRefused(null);
+  }, [missingKey]);
+  const percent = reviewPercent(steps, shown.missing.length);
+  const fail = refused ? goLiveRefusalCopy(refused) : null;
+  const primaryLabel = fail?.action === 'home' ? 'Go to Home' : fail?.action === 'sign-in' ? 'Sign in again' : fail?.action === 'retry' ? 'Try again' : c.primary;
   const primary = async () => {
-    if (state === 'live') return onHome();
+    if (state === 'live' || state === 'in-review' || state === 'closed' || fail?.action === 'home') return onHome();
+    if (fail?.action === 'sign-in') return onSignIn();
     if (c.reason) return setToast(c.reason);
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
-    setErr(null);
+    setRefused(null);
     try {
-      await goLive.complete(orgId);
-      onLive();
-    } catch {
-      setErr('Couldn\u2019t go live. Check your connection and try again.');
-    } finally {
-      setBusy(false);
+      const outcome = await goLive.complete(orgId);
+      onLive(outcome);
+      return;
+    } catch (e) {
+      const r: GoLiveRefusal = e instanceof GoLiveError ? e.refusal : 'failed';
+      if (e instanceof GoLiveError && r === 'incomplete') {
+        setServerMissing(e.missing);
+        onIncomplete();
+      }
+      setRefused(r);
+      inFlight.current = false;
     }
+    setBusy(false);
   };
   const rowBtn = (r: ReviewRow) => (
     <button key={r.code} type="button" className="p3-ob-row" onClick={() => { setAll(false); onRow(r); }} data-testid={`p3-ob-review-${r.code}`}>
@@ -805,9 +843,9 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, percent, refreshing, 
     <ObShell screen="review" dir={dir} percent={percent} onBack={onBack} backLabel="Back" onEscape={() => (all ? setAll(false) : onBack())} theme={theme}
       foot={
         <>
-          {err ? <p className="p3-ob-err" role="alert">{err}</p> : c.reason ? <p className="p3-ob-why" id="p3-ob-why" data-testid="p3-ob-why">{c.reason}</p> : null}
-          <button type="button" className="p3-ob-btn" aria-disabled={c.reason || busy ? 'true' : undefined} aria-describedby={c.reason ? 'p3-ob-why' : undefined} onClick={() => void primary()} data-testid="p3-ob-continue">
-            {busy ? 'Saving\u2026' : c.primary}
+          {fail ? <p className="p3-ob-err" role="alert" data-testid="p3-ob-golive-err">{fail.text}</p> : c.reason ? <p className="p3-ob-why" id="p3-ob-why" data-testid="p3-ob-why">{c.reason}</p> : null}
+          <button type="button" className="p3-ob-btn" aria-disabled={(c.reason && fail?.action !== 'home' && fail?.action !== 'sign-in') || busy ? 'true' : undefined} aria-describedby={c.reason && !fail ? 'p3-ob-why' : undefined} onClick={() => void primary()} data-testid="p3-ob-continue">
+            {busy ? 'Going live\u2026' : primaryLabel}
           </button>
         </>
       }>
@@ -829,10 +867,13 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, percent, refreshing, 
   );
 }
 
-/** Screen 22. Only reached after goLive.complete resolved (never with the not-deployed stub). */
-function LiveScreen({ name, orgId, theme, onHome }: { name: string; orgId: string; theme: 'light' | 'dark'; onHome: () => void }) {
+/** Screen 22. Only reached after goLive.complete resolved; `pending_review` is the review variant (liveCopy), never "You're live". */
+function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPage }: {
+  outcome: GoLiveOutcome; name: string; orgId: string; organiserDetail: boolean; theme: 'light' | 'dark'; onHome: () => void; onPage: () => void;
+}) {
   const [note, setNote] = useState<string | null>(null);
   const clearNote = useCallback(() => setNote(null), []);
+  const c = liveCopy(outcome, name, organiserDetail);
   const href = `/organisers/${encodeURIComponent(orgId)}`;
   const share = async () => {
     const url = `${window.location.origin}${href}`;
@@ -846,20 +887,27 @@ function LiveScreen({ name, orgId, theme, onHome }: { name: string; orgId: strin
       /* the person closed the share sheet */
     }
   };
+  const first = c.actions[0];
+  const line = (a: string) => (a === first ? 'p3-ob-btn' : 'p3-ob-btn p3-ob-btn-line');
   return (
-    <ObShell screen="live" dir="fwd" percent={100} onBack={onHome} backLabel="Go to Home" onEscape={onHome} theme={theme}
+    <ObShell screen={outcome === 'live' ? 'live' : 'live-review'} dir="fwd" percent={100} onBack={onHome} backLabel="Go to Home" onEscape={onHome} theme={theme}
       foot={
         <>
-          <a className="p3-ob-btn" href={href} data-testid="p3-ob-live-view">View my page</a>
-          <button type="button" className="p3-ob-btn p3-ob-btn-line" onClick={() => void share()} data-testid="p3-ob-live-share">Share</button>
-          <button type="button" className="p3-ob-btn p3-ob-btn-line" onClick={onHome} data-testid="p3-ob-live-home">Go to Home</button>
+          {c.actions.includes('view') &&
+            (c.publicView ? (
+              <a className={line('view')} href={href} data-testid="p3-ob-live-view">View my page</a>
+            ) : (
+              <button type="button" className={line('view')} onClick={onPage} data-testid="p3-ob-live-view">View my page</button>
+            ))}
+          {c.actions.includes('share') && <button type="button" className={line('share')} onClick={() => void share()} data-testid="p3-ob-live-share">Share</button>}
+          <button type="button" className={line('home')} onClick={onHome} data-testid="p3-ob-live-home">Go to Home</button>
         </>
       }>
-      <Confetti />
+      {c.celebrate && <Confetti />}
       <div className="p3-ob-celebrate">
         <div className="p3-ob-bigtick">{TICK}</div>
-        <h1 className="p3-ob-t" id="p3-ob-title" tabIndex={-1} data-testid="p3-ob-title">You&rsquo;re live</h1>
-        <p className="p3-ob-m">{name || 'Your page'} is on the calendar.</p>
+        <h1 className="p3-ob-t" id="p3-ob-title" tabIndex={-1} data-testid="p3-ob-title">{c.title}</h1>
+        <p className="p3-ob-m" data-testid="p3-ob-live-sub">{c.sub}</p>
       </div>
       {note && <ObToast text={note} theme={theme} onDone={clearNote} />}
     </ObShell>
