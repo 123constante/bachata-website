@@ -25,6 +25,8 @@ export const P3_PATHS = {
   youHandover: `${P3_BASE}/you/handover`,
   youHandoverTo: (userId: string) => `${P3_BASE}/you/handover/${encodeURIComponent(userId)}`,
   youWelcome: (organiserId: string) => `${P3_BASE}/you/welcome?o=${encodeURIComponent(organiserId)}`,
+  /** Welcome (no page yet) and Add a page: find, claim or ask to join, or create (W4b). */
+  youAdd: `${P3_BASE}/you/add`,
   /** Done after a team change or a page save, in P3's frame (W4a fix 1). */
   youDone: `${P3_BASE}/you/done`,
   /** One event's Name and details (W3a). */

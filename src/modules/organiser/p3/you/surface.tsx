@@ -57,7 +57,8 @@ export const P3_SURFACE: OrgSurface = {
   },
   hub: YOU,
   handoverBack: { to: P3_PATHS.youTeam, label: 'Team' },
-  addPage: `${ORG_PATHS.home}?add=1`,
+  // W4b: P3's own Welcome / Add a page, not R1 Home's add sheet.
+  addPage: P3_PATHS.youAdd,
   doneBack: P3_PATHS.youTeam,
   pageDoneBack: P3_PATHS.youPage,
 };

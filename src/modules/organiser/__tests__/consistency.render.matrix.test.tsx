@@ -17,7 +17,11 @@ vi.mock('@/integrations/supabase/client', () => ({
     from: () => ({ select: () => ({ is: () => ({ order: async () => ({ data: [], error: null }) }) }) }),
   },
 }));
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: vi.fn() }) }));
+vi.mock('@/hooks/useAuth', async () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: vi.fn() }),
+  // OnboardingView reads the completeness fact (P3 W4b tap gate); no provider = today.
+  ProfileGateContext: (await import('react')).createContext(null),
+}));
 // Admin A1 applied, as on prod (the Move row no longer exists at all: C20).
 vi.mock('@/modules/organiser/shared/a1Gate', () => ({ A1_APPLIED: true }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: null }) }));

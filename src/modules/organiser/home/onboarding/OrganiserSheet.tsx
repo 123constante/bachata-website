@@ -1,7 +1,8 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { finishProfileHref } from '@/lib/profileCompletion';
+import { DANCER_GATE_REASON } from '@/lib/accountRouting';
+import { NO_PROFILE_CONTACT_LABEL, NO_PROFILE_CONTACT_URL, NO_PROFILE_TEXT, finishProfileHref, stillToAddText, type ProfileField } from '@/lib/profileCompletion';
 import { claimOrganiser, requestOrganiserAccess, type ClaimCandidate } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { EmailCodeProof } from '../../shared/components/EmailCodeProof';
@@ -10,13 +11,29 @@ import { NewPageFlow, type NewPageStep } from '../../flows/newpage';
 import { newPageSheetTitle, type NewPageRefusalKind } from '../../flows/newpage/model';
 import type { ClaimHint } from '../../shared/claimHint';
 import { NOT_THIS_ONE, claimScreen } from './claimStates';
+import { GATE_OFF_REASON, GATE_RETURN_TEXT } from './profileGate';
 
 /** Claim, ask to join and your own page carry the database's hint: it words the screen (6a-6e). */
-export type SheetTask =
+export type DoorTask =
   | { kind: 'yours'; org: ClaimCandidate }
   | { kind: 'claim'; org: ClaimCandidate }
   | { kind: 'request'; org: ClaimCandidate; hint?: ClaimHint | null }
   | { kind: 'create'; name: string };
+
+/**
+ * P3 W4b (no-city B): the tap met an unfinished profile, so the sheet says what is missing
+ * BEFORE any typing. `then` is the task that was tapped; nothing of it is sent from here.
+ * `finishLabel` comes from the shared ratingGate ("Finish your profile").
+ */
+export type GateTask = {
+  kind: 'gate';
+  gate: 'finish' | 'no_row';
+  missing: readonly ProfileField[];
+  finishLabel: string;
+  then: DoorTask;
+};
+
+export type SheetTask = DoorTask | GateTask;
 
 interface Props {
   task: SheetTask | null;
@@ -55,7 +72,8 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   const { pathname, search } = useLocation();
 
   const kind = task?.kind ?? null;
-  const orgId = task && task.kind !== 'create' ? task.org.id : null;
+  const door = task?.kind === 'gate' ? task.then : task;
+  const orgId = door && door.kind !== 'create' ? door.org.id : null;
   const prefill = task?.kind === 'create' ? task.name : '';
 
   // A new task starts on its first view; create keeps what was typed, else takes the searched name.
@@ -113,8 +131,8 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   let footer: ReactNode = undefined;
 
   // 6a-6e: the one line under the title, from the shared mapping.
-  const screen = task && task.kind !== 'create'
-    ? claimScreen(task.kind === 'yours' ? 'yours' : task.kind === 'claim' ? 'email_matches' : task.hint ?? null, task.org.name)
+  const screen = door && door.kind !== 'create'
+    ? claimScreen(door.kind === 'yours' ? 'yours' : door.kind === 'claim' ? 'email_matches' : door.hint ?? null, door.org.name)
     : null;
   // The header truncates (page names reach 34 characters on prod), so the sentence that
   // decides ("... already has an owner") wraps in the body; the header names the page.
@@ -134,7 +152,48 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
     </div>
   );
 
-  if (task?.kind === 'yours' && screen) {
+  if (task?.kind === 'gate') {
+    const offId = `${ids}-gate-off`;
+    title = task.then.kind === 'create' ? newPageSheetTitle('name', null) : task.then.org.name;
+    body = (
+      <div className="space-y-[12px]" data-testid="onboarding-gate" data-gate={task.gate}>
+        <p className="text-[15px] font-semibold text-[var(--fg)]">{DANCER_GATE_REASON}</p>
+        {task.gate === 'finish' ? (
+          <>
+            <p className="text-[14px] text-[var(--mut)]" data-testid="onboarding-gate-missing">{stillToAddText(task.missing)}</p>
+            <PrimaryButton
+              onClick={() => navigate(finishProfileHref(`${pathname}${search}`))}
+              testId="onboarding-gate-finish"
+              data-sheet-autofocus
+            >
+              {task.finishLabel}
+            </PrimaryButton>
+            {screen && task.then.kind !== 'yours' && (
+              <div>
+                <PrimaryButton disabled aria-describedby={offId} testId="onboarding-gate-off">{screen.primaryLabel}</PrimaryButton>
+                <p id={offId} className="mt-[4px] text-[14px] text-[var(--mut)]">{GATE_OFF_REASON}</p>
+              </div>
+            )}
+            <p className="text-[14px] text-[var(--mut)]" data-testid="onboarding-gate-return">{GATE_RETURN_TEXT}</p>
+          </>
+        ) : (
+          <>
+            {/* No dancer row (2 of 42 prod accounts): Finish profile has no form for it yet. */}
+            <p className="text-[14px] text-[var(--mut)]">{NO_PROFILE_TEXT}</p>
+            <a
+              href={NO_PROFILE_CONTACT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="onboarding-gate-contact"
+              className="flex min-h-[48px] w-full items-center justify-center rounded-[var(--r-ctl,12px)] bg-[var(--btn)] px-[20px] text-[16px] font-bold text-[var(--btnfg)]"
+            >
+              {NO_PROFILE_CONTACT_LABEL}
+            </a>
+          </>
+        )}
+      </div>
+    );
+  } else if (task?.kind === 'yours' && screen) {
     title = task.org.name;
     body = sub;
     footer = (
@@ -229,7 +288,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
       title={title || 'Organiser'}
       viewKey={`${kind ?? 'none'}:${orgId ?? ''}:${step}`}
       onBack={kind === 'create' && step === 'city' && !refusalKind ? () => setStep('name') : undefined}
-      fullHeight={kind === 'create'}
+      fullHeight={door?.kind === 'create'}
       footer={footer}
       testId="onboarding-sheet"
     >

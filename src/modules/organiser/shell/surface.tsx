@@ -20,7 +20,7 @@ export interface OrgSurface {
   hub: { to: string; label: string };
   /** Hand over's way back: R1 More (where it is opened), P3 Team. */
   handoverBack: { to: string; label: string };
-  /** Add a page: Home's add sheet in R1 (P3 has none of its own). */
+  /** Add a page: Home's add sheet in R1, P3's own Welcome / Add a page (W4b). */
   addPage: string;
   /** Done's way back after a team change; null keeps Done's own "Back to Home". */
   doneBack: string | null;
