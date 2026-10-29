@@ -74,11 +74,15 @@ body { background: var(--desk); color: var(--desk-fg); font-family: var(--font-u
 .drawer select { min-height: 36px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: 13px; padding: 0 8px; max-width: 100%; }
 .dnote { font-size: 12px; color: var(--mut); margin: 0; }
 
-/* ===== Phone frame: 390x844 by default; 360x640 and 320x568 from the drawer; the keyboard is a simulated reduced visual viewport ===== */
+/* ===== Phone frame: 390x844 by default; 360x640 and 320x568 from the drawer; plus the three BROWSER viewports (what Safari / Chrome leave after their bars: 390x664, 360x560, 320x460); the keyboard is a simulated reduced visual viewport ===== */
 .frame-wrap { width: 100%; display: flex; justify-content: center; }
 .frame { width: 390px; height: 844px; --kb-h: 336px; max-width: 100%; background: var(--bg); color: var(--fg); border-radius: 36px; border: 1px solid var(--desk-line); box-shadow: 0 20px 60px rgba(0,0,0,.18); overflow: hidden; position: relative; transform-origin: top center; display: flex; flex-direction: column; }
 :root[data-size="360"] .frame { width: 360px; height: 640px; --kb-h: 270px; border-radius: 22px; }
 :root[data-size="320"] .frame { width: 320px; height: 568px; --kb-h: 260px; border-radius: 18px; }
+/* Browser viewports (round-3 fix 1): visible height with the browser bars, keyboard leaves 410 / 290 / 244 px */
+:root[data-size="390b"] .frame { width: 390px; height: 664px; --kb-h: 254px; border-radius: 22px; }
+:root[data-size="360b"] .frame { width: 360px; height: 560px; --kb-h: 270px; border-radius: 18px; }
+:root[data-size="320b"] .frame { width: 320px; height: 460px; --kb-h: 216px; border-radius: 18px; }
 @media (max-width: 420px) { .frame { border-radius: 0; height: calc(100vh - 70px); height: calc(100dvh - 70px); min-height: 560px; border-left: 0; border-right: 0; } .desk { padding-top: 6px; } }
 @media (min-width: 900px) and (min-height: 1000px) { :root[data-size="390"] .frame { transform: scale(1.1); margin-bottom: 84px; } }
 @media (min-width: 900px) and (min-height: 1150px) { :root[data-size="390"] .frame { transform: scale(1.25); margin-bottom: 211px; } }
@@ -120,7 +124,7 @@ p.m { margin: 0; font-size: var(--fs-small); line-height: 1.4; color: var(--mut)
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; }
 .row { display: flex; gap: 12px; align-items: center; min-height: var(--tap); }
 .grow { flex: 1; min-width: 0; }
-.scrollbox { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.scrollbox { flex: 1; min-height: 52px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 
 /* Buttons */
 .btn { min-height: 52px; padding: 0 18px; border-radius: var(--r-ctl); border: 0; background: var(--btn); color: var(--btnfg); font: inherit; font-size: var(--fs-body); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: transform 120ms ease; overflow-wrap: anywhere; text-align: center; }
@@ -188,7 +192,7 @@ textarea.inp { min-height: 120px; padding: 12px 18px; resize: vertical; line-hei
 .ava-btn svg { width: 20px; height: 20px; color: var(--gold-fg); }
 .crop { width: 240px; height: 240px; border-radius: 50%; margin: 0 auto; overflow: hidden; background: var(--card2); position: relative; touch-action: none; border: 2px solid var(--gold); }
 .crop img { position: absolute; left: 50%; top: 50%; transform-origin: center; user-select: none; -webkit-user-drag: none; pointer-events: none; }
-.slider { width: 100%; accent-color: var(--gold); min-height: var(--tap); }
+.slider { width: 100%; accent-color: var(--gold-fg); min-height: var(--tap); }
 
 /* Rows (lists, review) */
 .list { display: flex; flex-direction: column; }
@@ -237,7 +241,7 @@ textarea.inp { min-height: 120px; padding: 12px 18px; resize: vertical; line-hei
 .sheet-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sheet-h h3 { margin: 0; font-size: var(--fs-h2); font-weight: 700; overflow-wrap: anywhere; }
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-.sheet-close { width: var(--tap); height: var(--tap); border: 0; background: var(--card2); border-radius: 50%; color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.sheet-close { width: var(--tap); height: var(--tap); flex: none; border: 0; background: var(--card2); border-radius: 50%; color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .sheet-close svg { width: 18px; height: 18px; }
 @keyframes up { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
 .grabber { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 0 auto; }
@@ -294,16 +298,43 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
 @container phone (max-width: 370px) {
   .tiles.three { grid-template-columns: repeat(2, 1fr); }
   .tiles.three > .tile:nth-child(3) { grid-column: span 2; }
+  /* 320 wide, two columns: a 15px label keeps "Community group" on two lines at 130% (was a mid-word break into three) */
+  .tile strong { font-size: calc(15px * var(--ts)); padding-right: 18px; }
 }
 /* Keyboard open (visual viewport 508 / 370 / 308 px): the title shrinks, helper lines and secondary links collapse, field + Continue stay above the keyboard */
 @container phone (max-height: 520px) {
   .top { height: 40px; }
   h1.t { font-size: calc(18px * var(--ts)); margin: 0; }
   .main { padding-top: 0; padding-bottom: 4px; gap: 6px; }
-  .main > p.m, .main .fld > p.m, .kbhide { display: none !important; }
+  .main > p.m, .main .fld > p.m, .main .live-content > p.m, .kbhide { display: none !important; }
   textarea.inp { min-height: 48px; padding: 8px 18px; }
   .foot { padding: 6px 16px 8px; gap: 4px; }
   .foot .lnk { display: none; }
+}
+/* Browser viewports without the keyboard (390x664, 360x560, 320x460; round-3 fix 1): top strip 40, title 18, tap cards 56 (fix 7: five category cards fit at 320x460 / 130%) */
+@container phone (max-height: 480px) {
+  .top { height: 40px; }
+  h1.t { font-size: calc(18px * var(--ts)); margin: 0; }
+  .main { padding-top: 0; padding-bottom: 6px; gap: 6px; }
+  .tile { min-height: 56px; padding: 8px 10px; }
+  .celebrate .big { width: 72px; height: 72px; }
+  .celebrate .big svg { width: 36px; height: 36px; }
+  .foot { padding: 6px 16px 10px; gap: 4px; }
+  .ava { width: 64px; height: 64px; }
+}
+/* 320-wide phones with the keyboard up (320x568 leaves 308, 320x460 Safari leaves 244; round-3 fix 1): field, picker row and Continue still fit; the disabled-button reason moves to the tap (showWhy toasts it), a save error still shows inline; the (optional) pill and the Skip link go, so the title stays one line */
+@container phone (max-height: 320px) {
+  .top { height: 36px; }
+  h1.t { font-size: calc(16px * var(--ts)); }
+  .main { padding-bottom: 0; gap: 4px; }
+  .main p.m { display: none !important; }
+  .inp { min-height: 48px; }
+  textarea.inp { min-height: 44px; height: 44px; }
+  .opt { display: none; }
+  .main p.err:not(:empty) + .scrollbox { min-height: 0; } /* a no-match message replaces the (empty) list */
+  .btn { min-height: 48px; }
+  .foot { padding: 4px 16px 8px; gap: 2px; }
+  .foot .why:not(.why-err) { display: none; }
 }
 
 /* Developer notes (toggle) */
@@ -378,7 +409,10 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
     <div class="drow"><span>Phone size</span>
       <button data-set="size" data-val="390" aria-pressed="true">390x844</button>
       <button data-set="size" data-val="360">360x640</button>
-      <button data-set="size" data-val="320">320x568</button></div>
+      <button data-set="size" data-val="320">320x568</button>
+      <button data-set="size" data-val="390b">390 in Safari (664)</button>
+      <button data-set="size" data-val="360b">360 in Chrome (560)</button>
+      <button data-set="size" data-val="320b">320 in Safari (460)</button></div>
     <div class="drow"><span>This screen</span>
       <button data-set="state" data-val="normal" aria-pressed="true">Normal</button>
       <button data-set="state" data-val="loading">Loading</button>
@@ -517,13 +551,13 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
         <h1 class="t" id="pg-cat-lbl">What kind of page?</h1>
         <p class="m"><span data-org>Bachata Nights Leeds</span><span id="pg-city">, in Leeds</span></p>
         <div class="tiles" role="radiogroup" aria-labelledby="pg-cat-lbl">
-          <button class="tile" role="radio" aria-checked="false" data-cat="Dance School"><strong>Dance School</strong><span class="tx-l">Classes and courses</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
-          <button class="tile" role="radio" aria-checked="false" data-cat="Event Brand"><strong>Event Brand</strong><span class="tx-l">Parties and socials</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
-          <button class="tile" role="radio" aria-checked="false" data-cat="Community Group"><strong>Community Group</strong><span class="tx-l">By dancers, for dancers</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Dance School"><strong>Dance school</strong><span class="tx-l">Classes and courses</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Event Brand"><strong>Event brand</strong><span class="tx-l">Parties and socials</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Community Group"><strong>Community group</strong><span class="tx-l">By dancers, for dancers</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
           <button class="tile" role="radio" aria-checked="false" data-cat="Promoter"><strong>Promoter</strong><span class="tx-l">Nights and tours</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
-          <button class="tile" role="radio" aria-checked="false" data-cat="Festival Brand"><strong>Festival Brand</strong><span class="tx-l">Weekenders and festivals</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Festival Brand"><strong>Festival brand</strong><span class="tx-l">Weekenders and festivals</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
         </div>
-        <p class="devnote">A5: category = <code>CATEGORY_OPTIONS</code>, five values, one tap. The brief says max 4 cards; the data has 5 values, so 5 cards are drawn and MEASURED to fit (see .md). Merging two values is a product decision (Parked). Saves via <code>organiser_profile_update_p5_v1</code>. Rename lives in today&rsquo;s page-name field (Settings), not here.</p>
+        <p class="devnote">A5: category = <code>CATEGORY_OPTIONS</code>, five values, one tap (owner, round 3: five cards accepted; 56 px tall on compact and browser-viewport heights so the screen never scrolls). Display labels are sentence case (<code>catLabel</code>); the stored value stays Title Case. Saves via <code>organiser_profile_update_p5_v1</code>.</p>
       </div>
     </div>
     <div class="foot"><p class="why" id="pg-why"></p><button class="btn" id="pg-next" aria-disabled="true" data-go="link" data-nice>Continue</button></div>
@@ -671,7 +705,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
       <h1 class="t" id="yrs-h">Years teaching</h1>
       <p class="m">0 is fine.</p>
       <div class="fld"><input class="inp" id="yrs" type="number" inputmode="numeric" min="0" max="60" placeholder="0 to 60" style="max-width:160px" aria-labelledby="yrs-h"><p class="err" id="yrs-err"></p></div>
-      <button class="lnk kbhide" data-sheet="teachmore">More (optional): private lessons, where you teach</button>
+      <button class="lnk kbhide" data-sheet="teachmore">Add more (optional)</button>
     </div>
     <div class="foot"><p class="why" id="yy-why"></p><button class="btn" id="yy-next" aria-disabled="true" data-go="about" data-nice>Continue</button></div>
   </section>
@@ -790,9 +824,12 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   var CITIES = ['Leeds', 'London', 'Manchester', 'Bristol', 'Birmingham', 'Harrogate', 'Sheffield', 'Liverpool', 'Glasgow', 'Edinburgh', 'Nottingham', 'Cardiff'];
 
   /* ---------- top bars + progress ---------- */
-  var TOP = '<div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + ORDER.length + '"><i></i></div><span class="top-end"></span></div>';
+  var TOP = '<div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="18"><i></i></div><span class="top-end"></span></div>';
   $$('.scr[data-top]').forEach(function (s) { s.insertAdjacentHTML('afterbegin', TOP); });
-  function paintProg(sc) { var p = $('.prog', sc); if (!p) return; var i = ORDER.indexOf(sc.getAttribute('data-id')); $('i', p).style.width = ((i + 1) / ORDER.length * 100) + '%'; p.setAttribute('aria-valuenow', i + 1); p.setAttribute('aria-label', 'Step ' + (i + 1) + ' of ' + ORDER.length); }
+  /* Progress (fix 8): the bar counts the path actually ahead. Alternatives are one step (find / create = one, held number / phone / email = one); WhatsApp drops off the email path, levels / styles / years drop off when teach = No, the page step is not on the invite path. */
+  var STEPS = [['find', 'create-name', 'create-city'], ['contact', 'contact-phone', 'contact-email'], ['whatsapp'], ['cat'], ['link'], ['logo'], ['name'], ['photo'], ['role'], ['nat'], ['langs'], ['teach'], ['levels'], ['styles'], ['years'], ['about'], ['email'], ['review']];
+  function path() { return STEPS.filter(function (g) { if (g[0] === 'find' && S.arrive === 'invite') return false; if (g[0] === 'whatsapp' && S.contactMode === 'email') return false; if ((g[0] === 'levels' || g[0] === 'styles' || g[0] === 'years') && S.teach === 'no') return false; return true; }); }
+  function paintProg(sc) { var p = $('.prog', sc); if (!p) return; var id = sc.getAttribute('data-id'), pth = path(), i = -1; pth.forEach(function (g, k) { if (g.indexOf(id) >= 0) i = k; }); if (i < 0) return; var n = pth.length; $('i', p).style.width = ((i + 1) / n * 100) + '%'; p.setAttribute('aria-valuemax', n); p.setAttribute('aria-valuenow', i + 1); p.setAttribute('aria-label', 'Step ' + (i + 1) + ' of ' + n); }
   function scr(id) { return $('.scr[data-id="' + id + '"]'); }
   function hasField(sc) { return sc.hasAttribute('data-field'); }
   function paintKb() { var sc = cur(); root.setAttribute('data-kbon', S.kb && sc && hasField(sc) ? 'true' : 'false'); }
@@ -936,7 +973,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   /* ---------- you: name, photo, role, nationality, languages ---------- */
   function validateName() { var n = $('#y-name').value.trim(); S.name = n; errAt('y-name', !n ? 'Tell us your first name.' : ''); gate('name', n ? '' : 'Add your first name to continue.'); }
   VALIDATE.name = validateName; $('#y-name').addEventListener('input', validateName);
-  function validatePhoto() { gate('photo', S.photo ? '' : 'Add a photo to continue. It&rsquo;s the one thing we must have.'); }
+  function validatePhoto() { gate('photo', S.photo ? '' : 'Add a photo to continue. Dancers like to see who they&rsquo;re meeting.'); }
   VALIDATE.photo = validatePhoto;
   function validateRole() { gate('role', S.role ? '' : 'Pick one to continue.'); }
   VALIDATE.role = validateRole;
@@ -978,8 +1015,9 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
   VALIDATE.email = validateSignin; $('#em').addEventListener('input', validateSignin);
 
   /* ---------- review ---------- */
-  function missing() { var m = []; if (!S.page) m.push(['find', 'Your page', 'Find, claim or create it']); if (!contactOk()) m.push(['contact', 'Contact', 'A phone number or email']); if (!S.cat) m.push(['cat', 'What kind of page', 'School, event brand, group, promoter or festival']); if (!S.link) m.push(['link', 'One link', 'Website, Instagram or Facebook']); if (!S.logo) m.push(['logo', 'Logo', 'Shown beside your name']); if (!$('#y-name').value.trim()) m.push(['name', 'First name', '']); if (!S.photo) m.push(['photo', 'Your photo', 'The one thing we must have']); if (!S.role) m.push(['role', 'How you dance', 'Leader, Follower or Both']); if (!S.nat) m.push(['nat', 'Nationality', '']); if (!S.teach) m.push(['teach', 'Do you teach?', 'Yes or no is enough']); else if (S.teach === 'yes') { if (!S.levels.length) m.push(['levels', 'Teaching levels', 'At least one']); if (!S.styles.length) m.push(['styles', 'Styles you teach', 'At least one']); if (!yearsOk()) m.push(['years', 'Years teaching', '0 is fine']); } return m; }
-  function doneRows() { var d = []; if (S.page) d.push(['find', S.page, S.pageMode === 'invite' ? 'Invited by Ana' : S.pageMode === 'create' ? 'New page in ' + (S.city || '') : 'Claimed']); if (contactOk()) d.push(['contact', 'Contact', S.contactMode === 'phone' ? S.phone + (S.wa === 'yes' ? ', WhatsApp' : '') : S.email]); if (S.cat) d.push(['cat', 'What kind of page', S.cat]); if (S.link) d.push(['link', 'One link', S.link]); if (S.logo) d.push(['logo', 'Logo', 'Added']); if ($('#y-name').value.trim()) d.push(['name', 'First name', $('#y-name').value.trim()]); if (S.photo) d.push(['photo', 'Your photo', 'Added']); if (S.role) d.push(['role', 'How you dance', S.role === 'Lead and Follow' ? 'Both' : S.role]); if (S.nat) d.push(['nat', 'Nationality', S.nat[1]]); if (S.teach === 'no') d.push(['teach', 'Teaching', 'No, just organising']); else if (S.teach === 'yes') { if (S.levels.length) d.push(['levels', 'Teaching levels', S.levels.join(', ')]); if (S.styles.length) d.push(['styles', 'Styles', S.styles.join(', ')]); if (yearsOk()) d.push(['years', 'Years teaching', $('#yrs').value]); } return d; }
+  function catLabel(v) { return v ? v.charAt(0) + v.slice(1).toLowerCase() : v; } /* fix 9: Title Case data values read as sentence case on cards; stored values unchanged */
+  function missing() { var m = []; if (!S.page) m.push(['find', 'Your page', 'Find, claim or create it']); if (!contactOk()) m.push(['contact', 'Contact', 'A phone number or email']); if (!S.cat) m.push(['cat', 'What kind of page', 'School, event brand, group, promoter or festival']); if (!S.link) m.push(['link', 'One link', 'Website, Instagram or Facebook']); if (!S.logo) m.push(['logo', 'Logo', 'Shown beside your name']); if (!$('#y-name').value.trim()) m.push(['name', 'First name', '']); if (!S.photo) m.push(['photo', 'Your photo', 'Add one to continue']); if (!S.role) m.push(['role', 'How you dance', 'Leader, Follower or Both']); if (!S.nat) m.push(['nat', 'Nationality', '']); if (!S.teach) m.push(['teach', 'Do you teach?', 'Yes or no is enough']); else if (S.teach === 'yes') { if (!S.levels.length) m.push(['levels', 'Teaching levels', 'At least one']); if (!S.styles.length) m.push(['styles', 'Styles you teach', 'At least one']); if (!yearsOk()) m.push(['years', 'Years teaching', '0 is fine']); } return m; }
+  function doneRows() { var d = []; if (S.page) d.push(['find', S.page, S.pageMode === 'invite' ? 'Invited by Ana' : S.pageMode === 'create' ? 'New page in ' + (S.city || '') : 'Claimed']); if (contactOk()) d.push(['contact', 'Contact', S.contactMode === 'phone' ? S.phone + (S.wa === 'yes' ? ', WhatsApp' : '') : S.email]); if (S.cat) d.push(['cat', 'What kind of page', catLabel(S.cat)]); if (S.link) d.push(['link', 'One link', S.link]); if (S.logo) d.push(['logo', 'Logo', 'Added']); if ($('#y-name').value.trim()) d.push(['name', 'First name', $('#y-name').value.trim()]); if (S.photo) d.push(['photo', 'Your photo', 'Added']); if (S.role) d.push(['role', 'How you dance', S.role === 'Lead and Follow' ? 'Both' : S.role]); if (S.nat) d.push(['nat', 'Nationality', S.nat[1]]); if (S.teach === 'no') d.push(['teach', 'Teaching', 'No, just organising']); else if (S.teach === 'yes') { if (S.levels.length) d.push(['levels', 'Teaching levels', S.levels.join(', ')]); if (S.styles.length) d.push(['styles', 'Styles', S.styles.join(', ')]); if (yearsOk()) d.push(['years', 'Years teaching', $('#yrs').value]); } return d; }
   function optRows() { return [['langs', 'Languages', S.langs.length ? S.langs.join(', ') : 'Not added. Fine to skip', !!S.langs.length], ['about', 'About', S.about ? S.about.slice(0, 60) + (S.about.length > 60 ? '&hellip;' : '') : 'Not added. Fine to skip', !!S.about], ['email', 'Personal email', S.signinEmail || 'Not added. Private if you do', !!S.signinEmail]]; }
   function rowHtml(go, title, sub, cls, icon, act) { return '<button class="row-btn" ' + (act ? 'data-act="go" data-to="' + go + '"' : 'data-go="' + go + '"') + '><span class="st ' + cls + '"><svg><use href="#' + icon + '"/></svg></span><span class="grow"><strong>' + title + '</strong>' + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</span><svg class="chev"><use href="#i-chev"/></svg></button>'; }
   function buildReview() { var m = missing(), d = doneRows(), o = optRows(), n = m.length, oAdded = o.filter(function (r) { return r[3]; }).length; $('#rv-title').innerHTML = n ? (n === 1 ? 'One thing left' : n + ' things left') : 'All set'; $('#rv-sub').innerHTML = d.length + ' done &middot; ' + n + ' to do &middot; ' + oAdded + ' of 3 optional added'; $('#rv-next-item').innerHTML = n ? rowHtml(m[0][0], m[0][1], m[0][2] || 'Next up', 'st-no', 'i-warn') : rowHtml('review', esc(S.page || ORG), 'Everything is in. Tap Go live.', 'st-ok', 'i-tick'); gate('review', n ? (n === 1 ? 'Add the missing item to go live.' : 'Add the ' + n + ' missing items to go live.') : ''); }
@@ -1081,6 +1119,7 @@ canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; point
       if (e.matches('button, a, input, textarea, select, [role="button"], [role="switch"]') && e.type !== 'file') { if (b.width < 44 || b.height < 44) r.taps.push(desc(e) + ' ' + Math.round(b.width) + 'x' + Math.round(b.height)); }
     });
     r.contrastMin = +r.contrastMin.toFixed(2); if (r.minFont === 999) r.minFont = null;
+    r.box = null; $$('.scrollbox', sc).forEach(function (b) { if (!vis(b)) return; var h = Math.round(b.getBoundingClientRect().height); if (r.box === null || h < r.box) r.box = h; }); /* smallest visible picker region (fix 2: must be >= 52) */
     r.rmOk = rm() ? (getComputedStyle(sc).animationName === 'none' && (!$('canvas.confetti', sc) || getComputedStyle($('canvas.confetti', sc)).display === 'none')) : null;
     return r;
   }
