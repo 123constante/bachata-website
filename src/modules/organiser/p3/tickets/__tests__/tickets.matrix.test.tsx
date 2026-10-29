@@ -50,7 +50,8 @@ describe.each(SHAPE_KEYS)('shape %s', (k) => {
     open();
     const sheet = screen.getByTestId('tix-tall');
     expect(within(sheet).getByTestId('tix-event-rules').textContent).toBe(
-      'Next: Sunday 1 November. Buyers pay a 50p booking fee per paid ticket, up to 20 tickets an order.',
+      // No booking fee (owner order 2026-10-29): the line names no fee.
+      'Next: Sunday 1 November. Buyers pay the ticket price, up to 20 tickets an order.',
     );
     expect(within(sheet).queryByTestId('tix-readonly')?.textContent ?? null).toBe(manager ? null : NOT_MANAGER);
     for (const t of s.types) {

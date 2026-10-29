@@ -435,6 +435,12 @@ export const buyerTotal = (pricePence: number): BuyerTotal =>
       }
     : { free: true, ticketPence: 0, feePence: 0, totalPence: 0, line: BOOKING_FEE_PENCE > 0 ? 'Free, no fee' : 'Free' };
 
+/** The event's rules line after the date, on every organiser tickets screen. The fee clause only while there is a fee. */
+export const buyerRulesLine = (): string =>
+  BOOKING_FEE_PENCE > 0
+    ? `Buyers pay a ${feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to ${MAX_PER_ORDER} tickets an order.`
+    : `Buyers pay the ticket price, up to ${MAX_PER_ORDER} tickets an order.`;
+
 /** One price box in the editor: empty or 0 is a free ticket, anything else is paid (and validated as a price). */
 export const paidOf = (priceText: string): boolean => priceText.trim() !== '' && penceOf(priceText) !== 0;
 /** The form's price in pence, or null while the typed text is not a price yet. */

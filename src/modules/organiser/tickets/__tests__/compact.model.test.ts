@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EVENT_SALE,
   TICKET_STATUSES,
+  buyerRulesLine,
   buyerTotal,
   closesWords,
   countsLine,
@@ -191,5 +192,8 @@ describe('fee zero: buyerTotal x price is the ticket price, no fee words', () =>
     expect(t.feePence).toBe(0);
     expect(t.totalPence).toBe(p);
     expect(t.line).not.toMatch(/50p|booking fee|\bfee\b/i);
+  });
+  it('the rules line names no fee', () => {
+    expect(buyerRulesLine()).toBe('Buyers pay the ticket price, up to 20 tickets an order.');
   });
 });

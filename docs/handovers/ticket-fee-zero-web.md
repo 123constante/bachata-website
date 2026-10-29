@@ -18,6 +18,9 @@ Branch: `claude/ticket-fee-zero-web`. Ticket `dt_744be76ecc3a`.
   "Buyers pay the ticket price, up to 20 tickets an order."; refund question says
   "booking fee included" only for an order that actually carried a fee (prod has 3 such
   refunded orders from the 50p era).
+- P3 organiser tickets (`p3/tickets/TicketsEntry.tsx`, landed on main mid-run): CI caught it
+  printing "a 0p booking fee". Both organiser screens now read ONE shared
+  `buyerRulesLine()` from `ticketModel.ts`; its P3 test and a 75p non-zero check added.
 - Tests: new `src/modules/tickets/__tests__/feeZero.matrix.test.tsx` (real constant, no mock:
   totals over 6 prices x 4 quantities, buyer block x paid 1/2/20/capped/free/mixed/sold out,
   terms), plus fee-zero blocks in organiser `screens.matrix.test.tsx` and `compact.model.test.ts`.
