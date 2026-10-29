@@ -2,8 +2,5 @@
   "_comment": "Ratchet for scripts/check-event-truth-v1.mjs. category_drift is EMPTY since admin #780 (event-truth P3, 2026-10-13): the stored category mirror is derived from the sessions (series programme + date-only sessions) and #780 repaired every live series, so the guard gates at 0 and fails on ANY drifting live series -- do not add an id here to make a run pass; repair the mirror. course_without_length is NOT repaired by #780 and keeps its ratchet: the guard fails on a NEW id and on a listed id that has been fixed (remove it here in the same PR). This file only shrinks. Repairs are owner decisions via the admin 'Needs attention' list (event-truth arc, plan in-the-admin-dashboard-peaceful-tide.md).",
   "recorded_on": "2026-10-13",
   "category_drift": {},
-  "course_without_length": {
-    "b4093913-3f12-4cd3-94f1-c4cc786ebe52": "Klau Ladies Team (live course, course_total_sessions NULL)",
-    "6263f109-58f5-4e3b-8e28-c124ba3a4a8e": "Sensual Wednesdays (live course, course_total_sessions NULL)"
-  }
+  "course_without_length": {}
 }
