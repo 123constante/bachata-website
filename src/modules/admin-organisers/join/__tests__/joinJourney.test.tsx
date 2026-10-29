@@ -44,6 +44,10 @@ vi.mock('@/hooks/useProfileCompletion', () => ({
   },
   profileCompletionQueryKey: (id: string | null) => ['profile-completion', id],
 }));
+vi.mock('@/lib/featureFlags', async (orig) => {
+  const real = await orig<typeof import('@/lib/featureFlags')>();
+  return { ...real, flags: { ...real.flags, organiserSelfServe: true } };
+});
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/components/layout/GlobalLayout', () => ({
   default: ({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: { label: string }[] }) => (

@@ -54,14 +54,14 @@ export const ProfileEntryFlow = ({
     {
       label: "Organiser",
       description: "Publish events and manage tickets.",
-      route: "/create-organiser-profile",
+      route: "/",
       icon: Calendar,
       value: "organiser" as const,
     },
     {
       label: "Videographer",
       description: "Share work and get booked.",
-      route: "/create-videographer-profile",
+      route: "/",
       icon: Camera,
       value: "videographer" as const,
     },

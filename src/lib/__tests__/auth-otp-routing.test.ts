@@ -120,10 +120,10 @@ describe("landingPathAfterAuth (no returnTo)", () => {
     expect(landingPathAfterAuth({ ...on, role, isSignup: true })).toBe("/account/o");
   });
 
-  it("keeps the legacy routes with the flag off", () => {
+  it("lands every role home with the flag off (the create-* pages are retired)", () => {
     const off = { organiserSelfServe: false };
-    expect(landingPathAfterAuth({ ...off, role: "organiser" })).toBe("/create-organiser-profile");
-    expect(landingPathAfterAuth({ ...off, role: "videographer" })).toBe("/create-videographer-profile");
+    expect(landingPathAfterAuth({ ...off, role: "organiser" })).toBe("/");
+    expect(landingPathAfterAuth({ ...off, role: "videographer" })).toBe("/");
     // /profile was unrouted 2026-09-12 (a 404): the rest land home.
     expect(landingPathAfterAuth({ ...off, role: "dancer" })).toBe("/");
     expect(landingPathAfterAuth({ ...off, role: "dj" })).toBe("/");

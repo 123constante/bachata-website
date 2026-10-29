@@ -13,8 +13,8 @@ import { trackAnalyticsEvent } from '@/lib/analytics';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const ROLE_CREATE_ROUTES: Record<string, string> = {
-  organiser: '/create-organiser-profile',
-  videographer: '/create-videographer-profile',
+  organiser: '/',
+  videographer: '/',
 };
 
 interface ProfileEntryRouterProps {

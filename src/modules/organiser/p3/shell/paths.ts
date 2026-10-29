@@ -38,6 +38,8 @@ export const P3_PATHS = {
   eventDetails: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/details`,
   /** One event's Prices (W3a). */
   eventPrices: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/prices`,
+  /** One event's door scanner (ticketing): full screen, no tab bar. */
+  eventDoor: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/door`,
   /** One event's History, read only (W3b-1). */
   eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
 } as const;

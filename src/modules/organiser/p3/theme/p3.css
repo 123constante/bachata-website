@@ -17,6 +17,8 @@
   --gold: #f0703a; --gold-fg: #a8461a; --btn: #f0703a; --btnfg: #1d0a03;
   --danger: #b3261e; --danger-fg: #ffffff; --cancel-bg: #fbe4e1; --cancel-fg: #b3261e;
   --ok-bg: #e2f4ea; --ok-fg: #17663f; --warn-bg: #fde8dc; --warn-fg: #8a3510;
+  /* Door scanner: ALREADY IN (owner-approved #ffc061 in dark); the camera box is dark in both sets. */
+  --amber: #8a5a00; --cam: #0b0c0e; --cam-fg: #f1f2f4;
   --scrim: rgba(29, 10, 3, 0.45);
   --shadow: 0 1px 2px rgba(29, 10, 3, 0.06), 0 6px 20px rgba(29, 10, 3, 0.06);
   --r-card: 20px; --r-ctl: 15px; --r-chip: 999px; --r-date: 12px; --r-sheet: 28px;
@@ -32,6 +34,7 @@
     --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03;
     --danger: #ff7a6b; --danger-fg: #1d0a03; --cancel-bg: rgba(255, 122, 107, 0.14); --cancel-fg: #ffa59a;
     --ok-bg: rgba(62, 207, 142, 0.14); --ok-fg: #7be6b4; --warn-bg: rgba(240, 112, 58, 0.14); --warn-fg: #ff9a6a;
+    --amber: #ffc061;
     --scrim: rgba(0, 0, 0, 0.6); --shadow: none; color-scheme: dark;
   }
 }
@@ -41,6 +44,7 @@
   --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03;
   --danger: #ff7a6b; --danger-fg: #1d0a03; --cancel-bg: rgba(255, 122, 107, 0.14); --cancel-fg: #ffa59a;
   --ok-bg: rgba(62, 207, 142, 0.14); --ok-fg: #7be6b4; --warn-bg: rgba(240, 112, 58, 0.14); --warn-fg: #ff9a6a;
+  --amber: #ffc061;
   --scrim: rgba(0, 0, 0, 0.6); --shadow: none; color-scheme: dark;
 }
 

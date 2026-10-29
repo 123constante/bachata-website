@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
+import { flags } from '@/lib/featureFlags';
 import { P3Shell } from './P3Shell';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -33,6 +34,8 @@ const OnboardingFlow = lazyWithRetry(() => import('../onboarding/OnboardingFlow'
 const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').then((m) => ({ default: m.DetailsScreen })));
 const PricesScreen = lazyWithRetry(() => import('../screens/PricesScreen').then((m) => ({ default: m.PricesScreen })));
 const HistoryScreen = lazyWithRetry(() => import('../screens/HistoryScreen').then((m) => ({ default: m.HistoryScreen })));
+// The door scanner (ticketing) loads on its own; its QR reader fallback (jsQR) loads only from inside it.
+const DoorScreen = lazyWithRetry(() => import('../door/DoorScreen').then((m) => ({ default: m.DoorScreen })));
 
 /**
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while
@@ -45,6 +48,7 @@ export default function P3Routes() {
       <Routes>
         <Route path="you/details" element={<Suspense fallback={null}><PersonFlow /></Suspense>} />
         <Route path="start" element={<Suspense fallback={null}><OnboardingFlow /></Suspense>} />
+        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={<Suspense fallback={null}><DoorScreen /></Suspense>} />}
         <Route element={<P3Shell />}>
           <Route index element={<HomeScreen />} />
           <Route path="events" element={<EventsScreen />} />
