@@ -1,0 +1,224 @@
+[
+ {
+  "id": "welcome",
+  "title": "Hi Sam, welcome",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "null/18",
+  "flags": 6,
+  "sc": "AR Ana invited you to help run Bachata Nights Leeds Hi Sam, welcome A few quick questions and the page is yours to edit. Signed in as sam@example.com. Not you? Yes, that’s me That’s not my page"
+ },
+ {
+  "id": "find",
+  "title": "Find your page",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "null/18",
+  "flags": 6,
+  "sc": "Find your page Your organiser, school or party. Type two or more letters. Not listed? Create a page"
+ },
+ {
+  "id": "create-name",
+  "title": "Name your page",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "null/18",
+  "flags": 6,
+  "sc": "Name your page The name dancers see on the calendar. Type the page name first. Continue"
+ },
+ {
+  "id": "create-city",
+  "title": "Which city?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "null/18",
+  "flags": 6,
+  "sc": "Which city? Leeds London Manchester Bristol Pick a city to continue. Create page"
+ },
+ {
+  "id": "contact",
+  "title": "Is this the best number?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "1/17",
+  "flags": 6,
+  "sc": "Is this the best number? Shown on Bachata Nights Leeds 07700 900123 Yes, that’s right Change number Use an email instead"
+ },
+ {
+  "id": "contact-phone",
+  "title": "Phone number",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "1/17",
+  "flags": 6,
+  "sc": "Phone number Shown on your page. Add a phone number to continue. Continue"
+ },
+ {
+  "id": "contact-email",
+  "title": "Contact email",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "1/17",
+  "flags": 6,
+  "sc": "Contact email Public, shown on your page. Add a contact email to continue. Continue"
+ },
+ {
+  "id": "whatsapp",
+  "title": "Show on WhatsApp too?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "2/17",
+  "flags": 6,
+  "sc": "Show on WhatsApp too? Same number, one-tap chat. Yes No Continue"
+ },
+ {
+  "id": "cat",
+  "title": "What kind of page?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "3/17",
+  "flags": 6,
+  "sc": "What kind of page? Bachata Nights Leeds, in Leeds Dance school Event brand Community group Promoter Festival brand Pick one to continue. Continue"
+ },
+ {
+  "id": "link",
+  "title": "One link",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "4/17",
+  "flags": 6,
+  "sc": "One link Website, Instagram or Facebook. Add one link to continue. Continue"
+ },
+ {
+  "id": "logo",
+  "title": "Your logo",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "5/17",
+  "flags": 6,
+  "sc": "Your logo Square works best. Choose a logo Add a logo to continue. Continue"
+ },
+ {
+  "id": "name",
+  "title": "Your first name",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "6/17",
+  "flags": 6,
+  "sc": "Your first name Goes on your dancer card. Continue"
+ },
+ {
+  "id": "photo",
+  "title": "Your photo",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "7/17",
+  "flags": 6,
+  "sc": "Your photo A clear face shot. Take a photo Choose from gallery Add a photo to continue. Dancers like to see who they’re meeting. Continue"
+ },
+ {
+  "id": "role",
+  "title": "How do you dance?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "8/17",
+  "flags": 6,
+  "sc": "How do you dance? Leader Follower Both Pick one to continue. Continue"
+ },
+ {
+  "id": "nat",
+  "title": "Nationality",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "9/17",
+  "flags": 6,
+  "sc": "Nationality 🇬🇧 United Kingdom 🇪🇸 Spain 🇩🇴 Dominican Republic 🇮🇹 Italy 🇵🇱 Poland 🇧🇷 Brazil All countries Pick your nationality to continue. Continue"
+ },
+ {
+  "id": "langs",
+  "title": "Languages you speak optional",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "10/17",
+  "flags": 6,
+  "sc": "Languages you speak optional English Spanish Portuguese Italian Polish French More languages Continue Skip for now"
+ },
+ {
+  "id": "teach",
+  "title": "Do you teach?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "11/17",
+  "flags": 6,
+  "sc": "Do you teach? Yes, I teach No Pick yes or no. Continue"
+ },
+ {
+  "id": "levels",
+  "title": "Which levels?",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "12/17",
+  "flags": 6,
+  "sc": "Which levels? Tick all that apply. Beginner First steps and basics Improver Knows the basics Intermediate Adding style Advanced Dances with confidence Tick at least one level to continue. Continue"
+ },
+ {
+  "id": "styles",
+  "title": "Styles you teach",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "13/17",
+  "flags": 6,
+  "sc": "Styles you teach Bachata sensual Dominican bachata Traditional Moderna Fusion Salsa More styles Tick at least one style to continue. Continue"
+ },
+ {
+  "id": "years",
+  "title": "Years teaching",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "14/17",
+  "flags": 6,
+  "sc": "Years teaching 0 is fine. Add more (optional) Add years teaching to continue (0 is fine). Continue"
+ },
+ {
+  "id": "about",
+  "title": "About Bachata Nights Leeds optional",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "15/17",
+  "flags": 6,
+  "sc": "About Bachata Nights Leeds optional A sentence or two for the top of your page. 0 / 500 Use the starter sentence Save and continue Skip for now"
+ },
+ {
+  "id": "email",
+  "title": "Personal email optional",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "16/17",
+  "flags": 6,
+  "sc": "Personal email optional Private. Never shown on your page. You sign in as sam@example.com. Continue"
+ },
+ {
+  "id": "review",
+  "title": "8 things left",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "17/17",
+  "flags": 6,
+  "sc": "8 things left 2 done · 8 to do · 1 of 3 optional added Contact A phone number or email Show all Add the 8 missing items to go live. Go live"
+ },
+ {
+  "id": "live",
+  "title": "You’re live",
+  "tc": "rgb(168, 70, 26)",
+  "pct": [],
+  "bar": "null/18",
+  "flags": 6,
+  "sc": "You’re live Bachata Nights Leeds is on the calendar. View my page Share Go to Home"
+ },
+ {
+  "id": "home",
+  "pct": [],
+  "bar": "null/18",
+  "flags": 6
+ }
+]
