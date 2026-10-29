@@ -226,7 +226,7 @@ const nameOf = () => (screen.getByTestId('p3-sess-name') as HTMLInputElement).va
 const saveOf = () => screen.getByTestId('p3-sess-save') as HTMLButtonElement;
 
 describe('review r1 #1: typing survives a background refetch of the same stored content', () => {
-  it('Just this date: a refetch with the same version keeps the typing; a NEW version resets it', async () => {
+  it('Just this date: a refetch with the same version keeps the typing; a NEW version keeps it too and says so (W3a nit A)', async () => {
     let version = 4;
     server({ organiser_get_occurrence_programme_v1: () => ({ data: { ...DATE_PROG, version }, error: null }) });
     show();
@@ -239,7 +239,10 @@ describe('review r1 #1: typing survives a background refetch of the same stored 
     expect(saveOf().disabled).toBe(false);
     version = 5;
     await refetchAll();
-    await waitFor(() => expect(nameOf()).toBe('Bachata class'));
+    await waitFor(() => screen.getByTestId('p3-sess-elsewhere'));
+    expect(nameOf()).toBe('Typed name');
+    fireEvent.click(screen.getByTestId('p3-sess-start-again'));
+    expect(nameOf()).toBe('Bachata class');
   });
 
   it('Every date: a workspace refetch with the same version keeps the typing', async () => {
@@ -254,17 +257,19 @@ describe('review r1 #1: typing survives a background refetch of the same stored 
 
 describe('review r1 #2: a NEW session needs a name in both scopes', () => {
   for (const scope of ['every', 'date'] as const) {
-    it(`${scope}: "Add this session" is off on an empty form with the reason; a name turns it on`, async () => {
+    it(`${scope}: an empty name sends nothing; its reason shows on Add (W3a nit C), a name clears it`, async () => {
       const calls = server();
       show();
       await waitFor(() => screen.getByTestId('p3-add-session'));
       fireEvent.click(screen.getByTestId('p3-add-session'));
       if (scope === 'date') fireEvent.click(screen.getByTestId('p3-scope-date'));
       await waitFor(() => screen.getByTestId('p3-sess-name'));
-      expect(saveOf().disabled).toBe(true);
+      expect(screen.queryByTestId('p3-why-name')).toBeNull();
+      await act(async () => { fireEvent.click(saveOf()); });
       expect(screen.getByTestId('p3-why-name').textContent).toBe('Give this session a name.');
       fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: '   ' } });
-      expect(saveOf().disabled).toBe(true);
+      await act(async () => { fireEvent.click(saveOf()); });
+      expect(screen.getByTestId('p3-why-name').textContent).toBe('Give this session a name.');
       fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Late social' } });
       expect(saveOf().disabled).toBe(false);
       expect(screen.queryByTestId('p3-why-name')).toBeNull();
@@ -289,7 +294,10 @@ describe('review r1 #3: the idempotency key belongs to one envelope', () => {
     expect(e[1].idempotency_key).not.toBe(e[0].idempotency_key);
   });
 
-  it('a dropped connection then a reload at a NEW version: the retry carries a fresh key and the new version', async () => {
+  // PR #1082 r1 #1: the retry goes against the version the typing BEGAN on, under the same key. If the first
+  // send landed, the server replays its stored answer (it looks a key up by actor and key alone); if someone
+  // else saved, it is refused (version_conflict) and "Start again" is the way forward, never a write over v9.
+  it('a dropped connection then a reload at a NEW version: the retry keeps the version the typing began on, and its key', async () => {
     let n = 0;
     let version = 7;
     const calls = server({
@@ -302,16 +310,16 @@ describe('review r1 #3: the idempotency key belongs to one envelope', () => {
     await act(async () => { fireEvent.click(saveOf()); });
     await waitFor(() => screen.getByTestId('p3-sheet-error'));
     await refetchAll();
-    // a new stored version starts the form again (#1); the same words typed again build the same command
-    expect(nameOf()).toBe('Bachata class');
-    fireEvent.change(screen.getByTestId('p3-sess-name'), { target: { value: 'Improvers class' } });
+    // a new stored version keeps the typing and says so (W3a nit A); the retry builds the same command
+    await waitFor(() => screen.getByTestId('p3-sess-elsewhere'));
+    expect(nameOf()).toBe('Improvers class');
     await act(async () => { fireEvent.click(saveOf()); });
     await waitFor(() => expect(envs(calls)).toHaveLength(2));
     expect(e2cmd(calls)).toBe(true);
     const e = envs(calls);
     expect(e[0].expected_version).toBe(7);
-    expect(e[1].expected_version).toBe(9);
-    expect(e[1].idempotency_key).not.toBe(e[0].idempotency_key);
+    expect(e[1].expected_version).toBe(7);
+    expect(e[1].idempotency_key).toBe(e[0].idempotency_key);
   });
 });
 

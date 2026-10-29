@@ -452,6 +452,7 @@ export const EventCalendar = ({ defaultCategory = 'all' }: EventCalendarProps) =
                     events={events}
                     onClearFilters={() => setSelectedCategory('all')}
                     userLocation={userLocation}
+                    citySlug={citySlug}
                   />
                 )}
               </div>

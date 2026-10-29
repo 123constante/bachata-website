@@ -7,6 +7,8 @@ import { MONTHS, matchesCategory } from '@/components/calendar/calendarUtils';
 import { useListImpressions } from '@/lib/listImpressions';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
+import LazyEmptyCityNote from '@/components/listing/LazyEmptyCityNote';
+import { resolvePageCity } from '@/lib/pageCity';
 import { goingCountText } from '@/modules/going/goingCopy';
 import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
 import { CancelledRedStrip } from '@/modules/event-page/bento/blocks/CancelledRedStrip';
@@ -20,6 +22,8 @@ interface CalendarListViewProps {
   events: CalendarEventItem[];
   onClearFilters: () => void;
   userLocation?: UserLocation | null;
+  /** The active city; a non-London city with no events shows "Coming soon" + "Tell us". */
+  citySlug?: string | null;
 }
 
 const haversineMiles = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -243,6 +247,7 @@ export const CalendarListView = ({
   events,
   onClearFilters,
   userLocation,
+  citySlug = null,
 }: CalendarListViewProps) => {
   const trackImpression = useListImpressions('calendar');
   const monthStart = new Date(currentYear, currentMonth, 1);
@@ -288,13 +293,24 @@ export const CalendarListView = ({
   }, [filtered, userLocation]);
 
   if (filtered.length === 0) {
+    const city = resolvePageCity(citySlug);
+    const filterOn = selectedCategory !== 'all';
+    if (!city.isLondon && events.length === 0 && !filterOn) {
+      return (
+        <div className="py-6" data-testid="calendar-empty-city">
+          <LazyEmptyCityNote cityName={city.name} citySlug={city.slug} />
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
         <p className="text-4xl mb-2">🏜️</p>
         <p>No events found for {MONTHS[currentMonth]}</p>
-        <button onClick={onClearFilters} className="text-sm text-primary hover:underline mt-2">
-          Clear filters
-        </button>
+        {filterOn && (
+          <button onClick={onClearFilters} className="text-sm text-primary hover:underline mt-2">
+            Clear filters
+          </button>
+        )}
       </div>
     );
   }

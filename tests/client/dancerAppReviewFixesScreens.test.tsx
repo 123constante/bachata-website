@@ -5,6 +5,7 @@
  * Harness: the same mocks as dancerAppHomeNights.test.tsx (Home reads nights and
  * the calendar; the profile goes through the fake backend via renderInShell).
  */
+import { setLanguages } from './languagesTick';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -88,7 +89,7 @@ describe('S1: Edit "Try again" sends the CURRENT delta and keeps unsent input', 
     await screen.findByTestId('dancer-screen-edit');
     const type = (id: string, v: string) => fireEvent.change(document.getElementById(id)!, { target: { value: v } });
     backend.failNextWith('rate_limited');
-    type('languages', 'French');
+    await setLanguages('French');
     fireEvent.click(screen.getByTestId('edit-save'));
     await screen.findByTestId('edit-top-error');
     type('bio', 'A newer bio');

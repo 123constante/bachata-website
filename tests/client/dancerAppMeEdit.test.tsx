@@ -5,6 +5,7 @@
  * request; exact delta keys; null to clear; replace-only fields refuse empty inline;
  * pure dancers never send WhatsApp; the same fact reads the same on Me and Edit.
  */
+import { setLanguages } from './languagesTick';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 
@@ -114,7 +115,7 @@ describe('Edit: untouched = nothing sent', () => {
 describe('Edit: exact delta keys', () => {
   it('one text change sends exactly that key', async () => {
     const { backend } = await openEdit('completeAllExtras');
-    type('languages', 'French');
+    await setLanguages('French');
     expect(saveBtn().disabled).toBe(false);
     fireEvent.click(saveBtn());
     await waitFor(() => expect(backend.writes).toBe(1));
@@ -138,7 +139,7 @@ describe('Edit: exact delta keys', () => {
     fireEvent.click(screen.getByTestId('dance_role-Leader'));
     fireEvent.click(screen.getByTestId('favorite_styles-Kizomba'));
     type('favorite_songs', 'Propuesta'); fireEvent.click(screen.getByTestId('favorite_songs-add'));
-    type('languages', 'English, Spanish, French');
+    await setLanguages('English, Spanish, French');
     fireEvent.click(screen.getByTestId('dance_started_year-one-two'));
     fireEvent.click(saveBtn());
     await waitFor(() => expect(backend.writes).toBe(1));
@@ -226,7 +227,7 @@ describe('Edit: WhatsApp (D2)', () => {
     const { backend } = await openEdit(shape);
     expect(screen.queryByTestId('edit-whatsapp')).toBeNull();
     expect(document.getElementById('whatsapp')).toBeNull();
-    type('languages', 'Spanish');
+    await setLanguages('Spanish');
     fireEvent.click(saveBtn());
     await waitFor(() => expect(backend.writes).toBe(1));
     const sent = saves(backend)[0].args as Record<string, unknown>;
@@ -255,7 +256,7 @@ describe('Edit: errors', () => {
   it('every dancer error code has copy, and a field code appears next to its field', async () => {
     for (const code of DANCER_ERROR_CODES) expect(copyFor(code).length).toBeGreaterThan(10);
     const { backend } = await openEdit('fourFieldComplete');
-    type('languages', 'French');
+    await setLanguages('French');
     backend.failNextWith('invalid_display_name');
     fireEvent.click(saveBtn());
     expect((await screen.findByTestId('error-display_name')).textContent).toBe(copyFor('invalid_display_name'));
@@ -263,7 +264,7 @@ describe('Edit: errors', () => {
   });
   it('a code the client did not predict shows at the top with Retry, and Retry resends the current delta (unchanged form = the same keys)', async () => {
     const { backend } = await openEdit('fourFieldComplete');
-    type('languages', 'French');
+    await setLanguages('French');
     backend.failNextWith('rate_limited');
     fireEvent.click(saveBtn());
     expect((await screen.findByTestId('edit-top-error')).textContent).toMatch(copyFor('rate_limited'));

@@ -1,9 +1,13 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
+import { ClaimNotice } from '../../home/ClaimNotice';
 import { needsOf, nextUpView, rowsOf, type P3Row } from '../data/home';
 import { viewsTotal } from '../data/stats';
 import { useP3Home, useP3Views } from '../data/useP3Data';
 import { L } from '../model';
 import { P3_PATHS } from '../shell/paths';
+import { flags } from '@/lib/featureFlags';
+import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
+import { GraceBanner } from './GraceBanner';
 import { ChangeItLink, EventList, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
 
 /** Why there is no Next up, and what the person can do about it (the state decides the words). */
@@ -14,10 +18,17 @@ function noNextCopy(rows: readonly P3Row[]): string {
   return 'Nothing is on the calendar right now. Add an event and its next date shows here.';
 }
 
+/** Welcome's claim / create line, carried in the router state (P3 W4b). */
+function confirmationOf(state: unknown): string | null {
+  const c = (state as { confirmation?: unknown } | null)?.confirmation;
+  return typeof c === 'string' && c.trim() ? c : null;
+}
+
 /** C3 Home: Next up, Needs you, the last 30 days' views, the first four events. Reads only. */
 export function HomeScreen() {
   const home = useP3Home();
   const views = useP3Views();
+  const confirmation = confirmationOf(useLocation().state);
 
   if (home.isPending) {
     return (
@@ -35,13 +46,35 @@ export function HomeScreen() {
     );
   }
 
+  // W4b: no page yet is P3's Welcome (find, claim or create), not an empty Home.
+  if (home.data.organisers.length === 0) {
+    // A claim or create lands here while the home read is still refetching: wait for it, or the
+    // stale "no page" answer would send the person straight back to Welcome (walk, W4b).
+    if (confirmation && home.isFetching) {
+      return <StateCard title="Loading your events&hellip;" testId="p3-home-loading">This takes a second.</StateCard>;
+    }
+    return <Navigate to={P3_PATHS.youAdd} replace />;
+  }
+
+  // A claim or a create that just landed here says so (W4b), and so do pages claimed at sign-in.
+  const said = (
+    <>
+      {confirmation && <p className="p3-ok" role="status" data-testid="p3-home-confirmation">{confirmation}</p>}
+      <ClaimNotice />
+      <GraceBanner />
+    </>
+  );
+
   const rows = rowsOf(home.data);
   if (!rows.length) {
     return (
-      <StateCard title="No events here yet" testId="p3-home-empty">
-        <p>When you run an event on Bachata Calendar it shows here. You can add one now.</p>
-        <ChangeItLink>Add an event in the current organiser area</ChangeItLink>
-      </StateCard>
+      <div className="p3-stack">
+        {said}
+        <StateCard title="No events here yet" testId="p3-home-empty">
+          <p>When you run an event on Bachata Calendar it shows here. You can add one now.</p>
+          <ChangeItLink>Add an event in the current organiser area</ChangeItLink>
+        </StateCard>
+      </div>
     );
   }
 
@@ -53,6 +86,7 @@ export function HomeScreen() {
 
   return (
     <div className="p3-stack" data-testid="p3-home">
+      {said}
       {next ? (
         <section className="p3-card p3-hero" data-testid="p3-nextup" aria-label="Next up">
           <div className="p3-hero-top">
@@ -73,6 +107,8 @@ export function HomeScreen() {
           <ChangeItLink>Do it in the current organiser area</ChangeItLink>
         </StateCard>
       )}
+
+      {flags.organiserTicketing && <GetPaidPrompt />}
 
       {needs.length > 0 && (
         <section aria-label="Needs you">
@@ -113,6 +149,7 @@ export function HomeScreen() {
             </StateCard>
           )}
           <GoingTile />
+          {flags.organiserTicketing && <TicketsSoldTile />}
         </div>
       </section>
 

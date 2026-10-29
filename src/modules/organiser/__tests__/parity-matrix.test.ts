@@ -78,6 +78,8 @@ const PROD_OWNER_KINDS = [
   // ER AD4 (20261204180000): check_owner_command_allowlist_v1 c_expected and the dispatcher's owner kinds
   // on prod list it (read 2026-10-26); its payload rule admits exactly `reason`.
   'series.cancel_one_off',
+  // P3 W3a: c_expected lists series.set_group_chat for owners and managers (read 2026-10-27); payload exactly `url`.
+  'series.set_group_chat',
 ];
 const PROD_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
@@ -87,7 +89,12 @@ const PROD_UPSERT_KEYS = [
   // ER AD1 (20261129880000): How to pay; check_owner_command_allowlist_v1 on prod lists it (2026-10-24).
   'payment_methods',
 ];
-const PROD_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
+// ER P4 A3 (20261225010000): title, music_styles, gallery, passes are an owner's too (apply_aggregate_write_p5
+// v_owner_override_keys, read on prod 2026-10-28). The Website sends all but music_styles (per-date music waits
+// for admin A2 R4, the calendar reader): PROD_OVERRIDE_DEFERRED.
+const PROD_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description',
+  'title', 'music_styles', 'gallery', 'passes'];
+const PROD_OVERRIDE_DEFERRED = ['music_styles'];
 const PROD_CANCEL_KEYS = ['cancelled', 'reason'];
 const PROD_CANCEL_ONE_OFF_KEYS = ['reason'];
 const PROD_KEYS: Record<string, string[]> = {
@@ -449,7 +456,7 @@ describe('organiser parity matrix', () => {
   it('the prod owner snapshot matches the client mirror (A1 kinds aside)', () => {
     expect([...OWNER_COMMAND_KINDS].filter((k) => !A1_KINDS.includes(k)).sort()).toEqual([...PROD_OWNER_KINDS].sort());
     expect([...OWNER_UPSERT_KEYS].sort()).toEqual([...PROD_UPSERT_KEYS].sort());
-    expect([...OWNER_OVERRIDE_KEYS].sort()).toEqual([...PROD_OVERRIDE_KEYS].sort());
+    expect([...OWNER_OVERRIDE_KEYS].sort()).toEqual(PROD_OVERRIDE_KEYS.filter((k) => !PROD_OVERRIDE_DEFERRED.includes(k)).sort());
     expect([...OWNER_CANCEL_KEYS].sort()).toEqual([...PROD_CANCEL_KEYS].sort());
     expect([...OWNER_CANCEL_ONE_OFF_KEYS]).toEqual(PROD_CANCEL_ONE_OFF_KEYS);
     expect(Object.keys(cancelOneOffCommand('Other').payload)).toEqual(PROD_CANCEL_ONE_OFF_KEYS);

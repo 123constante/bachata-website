@@ -14,14 +14,14 @@ export interface JoinedWelcome {
   sub: string;
 }
 
-/** 1d with no other page; 7c replaces it when the joined page is not the first. */
-export function joinedWelcome(joinedName: string, otherNames: readonly string[]): JoinedWelcome {
+/** 1d with no other page; 7c replaces it when the joined page is not the first. `switchFrom`: where Switch lives (R1 Home, P3 You). */
+export function joinedWelcome(joinedName: string, otherNames: readonly string[], switchFrom = 'Home'): JoinedWelcome {
   if (otherNames.length === 0) {
     return { screen: '1d', title: `You manage ${joinedName}`, sub: 'Add your first event whenever you are ready.' };
   }
   return {
     screen: '7c',
     title: `You now manage ${joinedName}`,
-    sub: `You also manage ${namesList(otherNames)}. Switch any time from Home.`,
+    sub: `You also manage ${namesList(otherNames)}. Switch any time from ${switchFrom}.`,
   };
 }

@@ -97,3 +97,12 @@ export type ShapeKey = keyof typeof SHAPES;
 export const SHAPE_KEYS = Object.keys(SHAPES) as ShapeKey[];
 
 export const ws = (k: ShapeKey): EventWorkspace => parseEventWorkspace(SHAPES[k]);
+
+/* W3b-1 History: organiser_series_history_v1 payloads in the live shape (pg_get_functiondef 28 Oct 2026). */
+export const histItem = (at: string, extra: Raw = {}): Raw => ({ at, kind: 'series.upsert', label: 'Changed the details', who: 'you', date: null, fields: [], ...extra });
+/** n rows, one per hour back from `from` (newest first), as the RPC orders them. */
+export const histItems = (n: number, from = '2026-10-25T18:00:00+00:00'): Raw[] =>
+  Array.from({ length: n }, (_, i) => histItem(new Date(Date.parse(from) - i * 3_600_000).toISOString()));
+export const histPage = (items: unknown[], more = false, seriesId = 'ser-1'): Raw => ({
+  series_id: seriesId, items, has_more: more, next_before: more ? (items[items.length - 1] as Raw).at : null,
+});

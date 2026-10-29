@@ -359,9 +359,18 @@ export const TEAM_COPY: Record<string, string> = {
   invalid_arguments: 'Something went wrong. Please try again.',
   profile_required: PROFILE_REQUIRED_NOTE,
   not_on_team: 'You are no longer on this team. Reload the page.',
+  // organiser_team_add_member_by_profile_v1 when the person is already on the team (any role).
+  already_member: 'They are already on this team.',
+  // The people lookup cap (200 a day): raised as `permission_denied: lookup_cap: ...`, read by teamErrorMessage.
+  lookup_cap: 'You have looked up a lot of people today. Try again tomorrow, or share the invite link instead.',
 };
 
+/** The people-lookup RPCs' cap refusal is prefixed, not a bare code. */
+const LOOKUP_CAP = /^permission_denied:\s*lookup_cap\b/;
+
 export function teamErrorMessage(error: unknown): string {
+  const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
+  if (typeof message === 'string' && LOOKUP_CAP.test(message.trim())) return TEAM_COPY.lookup_cap;
   const code = selfServeErrorCode(error);
   return (code && TEAM_COPY[code]) || GENERIC.message;
 }

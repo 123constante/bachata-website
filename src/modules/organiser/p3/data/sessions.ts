@@ -248,12 +248,13 @@ export const levelsApply = (type: string | null) => (LEVEL_TYPES as readonly str
 export function useEverySend(ws: EventWorkspace) {
   const once = useSendOnce(ws.series.id);
   const keys = useRef(new Map<string, string>());
-  return async (command: OwnerCommand): Promise<void> => {
-    const id = `${ws.series.version}|${JSON.stringify(command)}`;
+  // `version` is the one the typing started on when the sheet has typing (PR #1082 r1 #1), else the stored one
+  return async (command: OwnerCommand, version: number = ws.series.version): Promise<void> => {
+    const id = `${version}|${JSON.stringify(command)}`;
     const key = keys.current.get(id) ?? newIdempotencyKey();
     keys.current.set(id, key);
     try {
-      await once(command, ws.series.version, key);
+      await once(command, version, key);
       keys.current.delete(id);
     } catch (e) {
       if (!isNetworkFailure(e)) keys.current.delete(id);

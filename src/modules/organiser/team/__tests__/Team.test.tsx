@@ -119,7 +119,7 @@ describe('C25 Team', () => {
     requests = [{ request_id: 'r1', user_id: 'u9', requester_email: 'c@x.example', created_at: '2026-10-01T10:00:00Z' }];
     mountAt('/account/o/team', routes);
     expect(((await screen.findByTestId('team-add')) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('team-full').textContent).toBe('This team is full (20)');
+    expect(screen.getByTestId('team-add-reason').textContent).toBe('This team is full (20)');
     expect((screen.getByTestId('join-request-add') as HTMLButtonElement).disabled).toBe(true);
   });
 });

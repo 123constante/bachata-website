@@ -10,6 +10,12 @@ vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('../../screens/HomeScreen', () => ({ HomeScreen: () => <div data-testid="p3-screen-home" /> }));
 vi.mock('../../screens/EventsScreen', () => ({ EventsScreen: () => <div data-testid="p3-screen-events" /> }));
 vi.mock('../../screens/StatsScreen', () => ({ StatsScreen: () => <div data-testid="p3-screen-stats" /> }));
+vi.mock('../../you/YouScreen', () => ({ YouScreen: () => <div data-testid="p3-screen-you" /> }));
+// A pushed screen (W4a): draws the frame the surface gives it, as the real Team screen does.
+vi.mock('../../../team', async () => {
+  const { useOrgSurface } = await import('../../../shell/surface');
+  return { default: function Team() { const { Shell, hub } = useOrgSurface(); return <Shell title="Team" back={hub}><div data-testid="p3-screen-team" /></Shell>; } };
+});
 
 import P3Routes from '../P3Routes';
 import { P3_BASE, P3_PATHS, P3_TABS } from '../paths';
@@ -27,9 +33,10 @@ function at(entry: string) {
 }
 
 describe('P3 shell: Home / Events / Stats / You (C3 tab bar)', () => {
-  it.each(P3_TABS.map((t) => [t, P3_PATHS[t]] as const))('%s at %s: its screen, its title, its tab current', (tab, path) => {
+  it.each(P3_TABS.map((t) => [t, P3_PATHS[t]] as const))('%s at %s: its screen, its title, its tab current', async (tab, path) => {
     at(path);
-    expect(screen.getByTestId(tab === 'you' ? 'p3-placeholder-you' : `p3-screen-${tab}`)).toBeTruthy();
+    // You is a lazy chunk (P3Routes): wait for it to arrive.
+    expect(await screen.findByTestId(`p3-screen-${tab}`)).toBeTruthy();
     const nav = screen.getByRole('navigation', { name: 'Main' });
     const links = [...nav.querySelectorAll('a')];
     expect(links.map((a) => a.textContent)).toEqual(['Home', 'Events', 'Stats', 'You']);
@@ -49,10 +56,19 @@ describe('P3 shell: Home / Events / Stats / You (C3 tab bar)', () => {
     expect(screen.getByTestId('p3-screen-home')).toBeTruthy();
   });
 
-  it('the frame carries the P3 theme; You is still a placeholder', () => {
+  it('the frame carries the P3 theme', () => {
     at(P3_PATHS.you);
-    const shell = screen.getByTestId('p3-shell');
-    expect(shell.className).toContain('p3-theme');
-    expect(shell.textContent).toContain('Coming soon');
+    expect(screen.getByTestId('p3-shell').className).toContain('p3-theme');
+  });
+
+  it('a screen You pushes draws ONE top bar: its title and the way back to You; the You tab stays current', async () => {
+    at(P3_PATHS.youTeam);
+    // The pushed screens are lazy chunks (P3Routes): wait for this one to arrive.
+    expect(await screen.findByTestId('p3-screen-team')).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Team']);
+    expect(screen.getByTestId('org-back').getAttribute('href')).toBe(P3_PATHS.you);
+    expect(screen.getByTestId('org-back').textContent).toContain('You');
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    expect([...nav.querySelectorAll('a')].filter((a) => a.getAttribute('aria-current') === 'page').map((a) => a.dataset.tab)).toEqual(['you']);
   });
 });

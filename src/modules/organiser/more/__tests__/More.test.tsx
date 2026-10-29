@@ -169,9 +169,11 @@ describe('roles x Leave / Hand over', () => {
 
   it('manager: Hand over absent; Leave enabled, confirms, sends ONE remove for themself and lands on Done', async () => {
     homeAs('manager');
+    // R2-1: a manager's Leave waits for the team read (someone else must still run the page).
+    serve([member('u2', 'owner'), member('u1', 'manager')], 'manager');
     mount();
     const leave = await screen.findByTestId('more-leave');
-    expect(leave.getAttribute('aria-disabled')).toBeNull();
+    await waitFor(() => expect(leave.getAttribute('aria-disabled')).toBeNull());
     expect(screen.queryByTestId('more-hand-over')).toBeNull();
     expect(screen.queryByTestId('more-leave-reason')).toBeNull();
     fireEvent.click(leave);
@@ -269,5 +271,68 @@ describe('Help (C41)', () => {
 
   it('has exactly the pinned rows', () => {
     expect(HELP_ROWS.map((r) => r.id)).toEqual(['change', 'add', 'cancel', 'new', 'page', 'team', 'handover']);
+  });
+});
+
+// R2-1: Leave here is the control that calls remove_organiser_member_v1, and the RPC guards the last
+// OWNER only. So a non-owner's Leave follows Team's canLeave (teamRules): the last one running an
+// ownerless page (39 of 51 prod pages) is refused with the same words and Message us.
+describe('R2-1 a non-owner leaves only when someone else still runs the page (canLeave)', () => {
+  const LEAVE_LAST = 'You are the only one running this page, so leaving would leave it with nobody. To stop running it, tell the Bachata Calendar team.';
+  const LEAVE_CONTRIBUTOR = 'Contributors leave through the Bachata Calendar team for now.';
+  type Role = 'owner' | 'manager' | 'contributor';
+  const row = (userId: string, role: Role) => ({ user_id: userId, member_role: role, is_self: userId === 'u1' });
+  const as = (role: Role, members: ReturnType<typeof row>[]) => {
+    api.home.mockResolvedValue({ today: '2026-10-07', organisers: [{ ...ORG('manager'), role }] });
+    api.rpc.mockImplementation(async (name: string) =>
+      name === 'organiser_team_v1' ? { data: { my_role: role, members }, error: null } : { data: null, error: { message: `unmocked ${name}` } });
+  };
+
+  it.each([
+    { shape: 'sole manager, no owner', role: 'manager' as const, members: [row('u1', 'manager')], reason: LEAVE_LAST },
+    { shape: 'contributor on an owned page', role: 'contributor' as const, members: [row('u2', 'owner'), row('u1', 'contributor')], reason: LEAVE_CONTRIBUTOR },
+  ])('$shape: Leave disabled, says why with Message us, and the confirm sheet never opens', async ({ role, members, reason }) => {
+    as(role, members);
+    mount();
+    const leave = await screen.findByTestId('more-leave');
+    const why = await screen.findByTestId('more-leave-reason');
+    expect(leave.getAttribute('aria-disabled')).toBe('true');
+    expect(why.textContent).toContain(reason);
+    expect(within(why).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(ORG_PATHS.help);
+    expect(leave.getAttribute('aria-describedby')).toBe(why.id);
+    fireEvent.click(leave);
+    expect(screen.queryByTestId('more-leave-sheet')).toBeNull();
+    expect(screen.queryByTestId('more-leave-yes')).toBeNull();
+    expect(api.remove).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { shape: 'two managers, no owner', members: [row('u1', 'manager'), row('u2', 'manager')] },
+    { shape: 'manager on an owned page', members: [row('u2', 'owner'), row('u1', 'manager')] },
+  ])('$shape: Leave enabled once the team read answers, and sends ONE remove', async ({ members }) => {
+    as('manager', members);
+    mount();
+    const leave = await screen.findByTestId('more-leave');
+    await waitFor(() => expect(api.rpc.mock.calls.some(([n]) => n === 'organiser_team_v1')).toBe(true));
+    await waitFor(() => expect(leave.getAttribute('aria-disabled')).toBeNull());
+    expect(screen.queryByTestId('more-leave-reason')).toBeNull();
+    fireEvent.click(leave);
+    fireEvent.click(await screen.findByTestId('more-leave-yes'));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledTimes(1));
+    expect(api.remove).toHaveBeenCalledWith('org-1', 'u1');
+  });
+
+  it('manager, team read fails: Leave stays refused (the RPC would not stop an orphaned page), says why', async () => {
+    as('manager', []);
+    api.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+    mount();
+    const leave = await screen.findByTestId('more-leave');
+    await waitFor(() => expect(api.rpc.mock.calls.some(([n]) => n === 'organiser_team_v1')).toBe(true));
+    const why = await screen.findByTestId('more-leave-reason');
+    expect(leave.getAttribute('aria-disabled')).toBe('true');
+    expect(why.textContent).not.toBe('');
+    fireEvent.click(leave);
+    expect(screen.queryByTestId('more-leave-sheet')).toBeNull();
+    expect(api.remove).not.toHaveBeenCalled();
   });
 });

@@ -135,7 +135,8 @@ export function pricesProblem(rows: PriceRow[]): string | null {
   return null;
 }
 
-const toPass = (r: PriceRow) => ({
+/** A row as sent (trimmed, the price a number); P3 W3a compares drafts with it. */
+export const toPass = (r: PriceRow) => ({
   id: r.id, name: r.name.trim(), price: r.price.trim() ? Number(r.price.trim()) : null, currency: r.currency,
   ...(r.description?.trim() ? { description: r.description.trim() } : {}),
 });

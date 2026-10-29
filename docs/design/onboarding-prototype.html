@@ -1,0 +1,1136 @@
+<!doctype html>
+<html lang="en-GB" data-theme="auto" data-corners="pill" data-text="short" data-mood="calm" data-ts="100" data-size="390" data-kb="false" data-kbon="false">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onboarding prototype r2 &mdash; Bachata Calendar</title>
+<meta name="description" content="Clickable phone-size prototype of the organiser onboarding flow, round 2: one question per screen, no page scroll. Design only, no app code, no network.">
+<style>
+/* ===== Tokens: copied from src/modules/organiser/p3/theme/p3.css (light). Dark = TRUE BLACK (owner decision). ===== */
+:root {
+  --bg: #f7f3ef; --card: #ffffff; --card2: #f1ebe5; --sheet: #ffffff;
+  --line: #e4dbd2; --line-strong: #8a7d71; --fg: #1d0a03; --mut: #5f5248;
+  --gold: #f0703a; --gold-fg: #a8461a; --btn: #f0703a; --btnfg: #1d0a03;
+  --danger: #b3261e; --cancel-bg: #fbe4e1; --cancel-fg: #b3261e;
+  --ok-bg: #e2f4ea; --ok-fg: #17663f; --warn-bg: #fde8dc; --warn-fg: #8a3510;
+  --scrim: rgba(29, 10, 3, 0.45);
+  --shadow: 0 1px 2px rgba(29, 10, 3, 0.06), 0 6px 20px rgba(29, 10, 3, 0.06);
+  --desk: #e9e2db; --desk-fg: #1d0a03; --desk-line: #d4cabe;
+  --r-card: 24px; --r-ctl: 999px; --r-inp: 999px; --r-chip: 999px; --r-sheet: 32px; --r-tile: 20px;
+  --tap: 44px; --top-h: 56px;
+  --ts: 1; /* text scale multiplier: 1 or 1.3 for the clipping check */
+  --fs-body: calc(17px * var(--ts)); --fs-small: calc(14px * var(--ts)); --fs-title: calc(24px * var(--ts)); --fs-h2: calc(19px * var(--ts));
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --dur: 260ms;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #000000; --card: #141414; --card2: #212121; --sheet: #141414;
+  --line: #2f2f2f; --line-strong: #8f8f8f; --fg: #f1f2f4; --mut: #b3b3b3;
+  --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03;
+  --danger: #ff7a6b; --cancel-bg: #3a1d19; --cancel-fg: #ffa59a;
+  --ok-bg: #0f2a1d; --ok-fg: #7be6b4; --warn-bg: #3a2113; --warn-fg: #ff9a6a;
+  --scrim: rgba(0, 0, 0, 0.7); --shadow: none;
+  --desk: #0a0a0a; --desk-fg: #f1f2f4; --desk-line: #2a2a2a;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #000000; --card: #141414; --card2: #212121; --sheet: #141414;
+  --line: #2f2f2f; --line-strong: #8f8f8f; --fg: #f1f2f4; --mut: #b3b3b3;
+  --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03;
+  --danger: #ff7a6b; --cancel-bg: #3a1d19; --cancel-fg: #ffa59a;
+  --ok-bg: #0f2a1d; --ok-fg: #7be6b4; --warn-bg: #3a2113; --warn-fg: #ff9a6a;
+  --scrim: rgba(0, 0, 0, 0.7); --shadow: none;
+  --desk: #0a0a0a; --desk-fg: #f1f2f4; --desk-line: #2a2a2a;
+  color-scheme: dark;
+}
+/* Corner-roundness variants (design option). CHOSEN by the owner (round 2): pill. */
+:root[data-corners="soft"]  { --r-card: 10px; --r-ctl: 8px;   --r-inp: 8px;   --r-sheet: 14px; --r-tile: 8px; }
+:root[data-corners="round"] { --r-card: 20px; --r-ctl: 15px;  --r-inp: 15px;  --r-sheet: 28px; --r-tile: 12px; }
+:root[data-corners="pill"]  { --r-card: 24px; --r-ctl: 999px; --r-inp: 999px; --r-sheet: 32px; --r-tile: 20px; }
+/* Text-amount variants: .tx-l = extra words shown only in "explained". CHOSEN: short. */
+:root[data-text="short"] .tx-l { display: none; }
+:root[data-ts="130"] { --ts: 1.3; }
+/* The hidden attribute always wins over a class or inline style that sets display (review r1, fix 1) */
+[hidden] { display: none !important; }
+
+/* ===== Desk (outside the phone) ===== */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: var(--desk); color: var(--desk-fg); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+.desk { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0 24px; }
+.bar { width: 100%; max-width: 390px; display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 0 16px; }
+.bar-l { display: flex; gap: 8px; align-items: center; }
+.dbtn { min-height: var(--tap); min-width: var(--tap); padding: 0 12px; border-radius: 12px; border: 1px solid var(--desk-line); background: var(--card); color: var(--fg); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.dbtn svg { width: 18px; height: 18px; }
+.dbtn:focus-visible, .drawer button:focus-visible, .drawer select:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.drawer { width: 100%; max-width: 390px; margin: 0 16px; background: var(--card); color: var(--fg); border: 1px solid var(--desk-line); border-radius: 14px; padding: 12px; display: none; flex-direction: column; gap: 10px; font-size: 14px; }
+.drawer[data-open="true"] { display: flex; }
+.drow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.drow > span:first-child { min-width: 92px; font-weight: 700; }
+.drow button { min-height: 36px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--fg); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.drow button[aria-pressed="true"] { background: var(--btn); color: var(--btnfg); border-color: var(--btn); }
+.drow button[data-chosen] { border-width: 2px; border-color: var(--gold-fg); }
+.drawer select { min-height: 36px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: 13px; padding: 0 8px; max-width: 100%; }
+.dnote { font-size: 12px; color: var(--mut); margin: 0; }
+
+/* ===== Phone frame: 390x844 by default; 360x640 and 320x568 from the drawer; plus the three BROWSER viewports (what Safari / Chrome leave after their bars: 390x664, 360x560, 320x460); the keyboard is a simulated reduced visual viewport ===== */
+.frame-wrap { width: 100%; display: flex; justify-content: center; }
+.frame { width: 390px; height: 844px; --kb-h: 336px; max-width: 100%; background: var(--bg); color: var(--fg); border-radius: 36px; border: 1px solid var(--desk-line); box-shadow: 0 20px 60px rgba(0,0,0,.18); overflow: hidden; position: relative; transform-origin: top center; display: flex; flex-direction: column; }
+:root[data-size="360"] .frame { width: 360px; height: 640px; --kb-h: 270px; border-radius: 22px; }
+:root[data-size="320"] .frame { width: 320px; height: 568px; --kb-h: 260px; border-radius: 18px; }
+/* Browser viewports (round-3 fix 1): visible height with the browser bars, keyboard leaves 410 / 290 / 244 px */
+:root[data-size="390b"] .frame { width: 390px; height: 664px; --kb-h: 254px; border-radius: 22px; }
+:root[data-size="360b"] .frame { width: 360px; height: 560px; --kb-h: 270px; border-radius: 18px; }
+:root[data-size="320b"] .frame { width: 320px; height: 460px; --kb-h: 216px; border-radius: 18px; }
+@media (max-width: 420px) { .frame { border-radius: 0; height: calc(100vh - 70px); height: calc(100dvh - 70px); min-height: 560px; border-left: 0; border-right: 0; } .desk { padding-top: 6px; } }
+@media (min-width: 900px) and (min-height: 1000px) { :root[data-size="390"] .frame { transform: scale(1.1); margin-bottom: 84px; } }
+@media (min-width: 900px) and (min-height: 1150px) { :root[data-size="390"] .frame { transform: scale(1.25); margin-bottom: 211px; } }
+/* Simulated on-screen keyboard: only drawn when the active screen has a text field (data-kbon), like a real phone */
+.kb { display: none; flex: none; height: var(--kb-h); background: var(--card2); border-top: 1px solid var(--line); padding: 8px 4px; flex-direction: column; justify-content: flex-start; gap: 8px; }
+:root[data-kbon="true"] .kb { display: flex; }
+.kb .r { display: flex; gap: 5px; justify-content: center; height: 40px; }
+.kb .r i { display: block; flex: 1; max-width: 34px; border-radius: 6px; background: var(--card); box-shadow: 0 1px 0 var(--line-strong); }
+.kb .r i.w { max-width: 52px; background: var(--line); }
+.kb .r i.sp { max-width: 180px; }
+
+/* ===== Screens ===== */
+.stage { position: relative; flex: 1; min-height: 0; overflow: hidden; container-type: size; container-name: phone; }
+.scr { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--bg); }
+.scr[data-active="true"] { display: flex; }
+.scr.in-r { animation: inR var(--dur) ease-out; }
+.scr.in-l { animation: inL var(--dur) ease-out; }
+@keyframes inR { from { transform: translateX(40px); opacity: .2; } to { transform: none; opacity: 1; } }
+@keyframes inL { from { transform: translateX(-40px); opacity: .2; } to { transform: none; opacity: 1; } }
+.top { height: var(--top-h); flex: none; display: flex; align-items: center; gap: 4px; padding: 0 8px; background: var(--bg); }
+.back { width: var(--tap); height: var(--tap); border: 0; background: transparent; color: var(--fg); border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font: inherit; flex: none; }
+.back svg { width: 24px; height: 24px; }
+.back:active { background: var(--card2); }
+.top-sp { flex: 1; }
+.top-end { width: var(--tap); flex: none; }
+/* Progress: a thin bar (owner, round 2). 22 onboarding screens still read as quick. */
+.prog { flex: 1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin: 0 12px; }
+.prog i { display: block; height: 100%; width: 0; background: var(--gold); border-radius: 2px; transition: width 240ms ease; }
+.main { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px; -webkit-overflow-scrolling: touch; }
+.foot { flex: none; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.foot .btn { width: 100%; }
+.foot .lnk { align-self: center; }
+h1.t { margin: 4px 0 0; font-size: var(--fs-title); font-weight: 800; line-height: 1.2; color: var(--fg); overflow-wrap: anywhere; }
+h2.h { margin: 0; font-size: var(--fs-h2); font-weight: 700; line-height: 1.25; color: var(--fg); overflow-wrap: anywhere; }
+h1.t:focus, h2.h:focus { outline: none; }
+p.p { margin: 0; font-size: var(--fs-body); line-height: 1.45; color: var(--fg); overflow-wrap: anywhere; }
+p.m { margin: 0; font-size: var(--fs-small); line-height: 1.4; color: var(--mut); overflow-wrap: anywhere; }
+.opt { font-size: var(--fs-small); font-weight: 600; color: var(--mut); background: var(--card2); border-radius: var(--r-chip); padding: 2px 8px; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; gap: 12px; align-items: center; min-height: var(--tap); }
+.grow { flex: 1; min-width: 0; }
+.scrollbox { flex: 1; min-height: 52px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+
+/* Buttons */
+.btn { min-height: 52px; padding: 0 18px; border-radius: var(--r-ctl); border: 0; background: var(--btn); color: var(--btnfg); font: inherit; font-size: var(--fs-body); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: transform 120ms ease; overflow-wrap: anywhere; text-align: center; }
+.btn:active { transform: scale(.97); }
+.btn.bounce { animation: bounce 320ms ease; }
+@keyframes bounce { 0% { transform: scale(1); } 40% { transform: scale(.94); } 70% { transform: scale(1.03); } 100% { transform: scale(1); } }
+.btn[aria-disabled="true"] { background: var(--card2); color: var(--mut); cursor: not-allowed; }
+.btn-line { background: transparent; color: var(--fg); border: 1px solid var(--line-strong); }
+.btn-sm { min-height: var(--tap); font-size: var(--fs-small); padding: 0 14px; }
+.why { margin: 0; font-size: var(--fs-small); color: var(--mut); text-align: center; overflow-wrap: anywhere; }
+.why:empty { display: none; }
+.why.why-err { color: var(--danger); font-weight: 600; }
+.why svg { width: 16px; height: 16px; vertical-align: -3px; }
+.ava.sq, .crop.sq { border-radius: var(--r-tile); }
+.lnk { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 4px; background: none; border: 0; font: inherit; font-size: var(--fs-small); font-weight: 700; color: var(--gold-fg); text-decoration: underline; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.btn:focus-visible, .lnk:focus-visible, .tile:focus-visible, .chip:focus-visible, .back:focus-visible, .inp:focus-visible, .row-btn:focus-visible, .sw:focus-visible, .ava-btn:focus-visible, .x:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+
+/* Fields */
+.fld { display: flex; flex-direction: column; gap: 6px; }
+.lbl { font-size: var(--fs-small); font-weight: 700; color: var(--fg); }
+.inp { width: 100%; min-height: 52px; padding: 0 20px; border-radius: var(--r-inp); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-body); }
+.inp::placeholder { color: var(--mut); opacity: 1; }
+textarea.inp { min-height: 120px; padding: 12px 18px; resize: vertical; line-height: 1.4; border-radius: var(--r-card); }
+.inp[aria-invalid="true"] { border: 2px solid var(--danger); }
+.err { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--danger); display: flex; gap: 6px; align-items: flex-start; overflow-wrap: anywhere; }
+.err:empty { display: none; }
+.err svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.search { position: relative; }
+.search .inp { padding-left: 48px; }
+.search svg { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--mut); }
+.alert { margin: 0; padding: 10px 14px; border-radius: var(--r-card); background: var(--cancel-bg); color: var(--cancel-fg); font-size: var(--fs-small); font-weight: 600; display: flex; flex-direction: column; gap: 8px; overflow-wrap: anywhere; }
+.alert .btn { align-self: flex-start; }
+.ok { margin: 0; padding: 10px 14px; border-radius: var(--r-card); background: var(--ok-bg); color: var(--ok-fg); font-size: var(--fs-small); font-weight: 700; overflow-wrap: anywhere; }
+
+/* Tap cards (tiles): 2x2 by default; three-across for the three dance roles on the wide frame */
+.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.tiles.three { grid-template-columns: repeat(3, 1fr); }
+.tile { min-height: 72px; padding: 10px 12px; border-radius: var(--r-tile); border: 2px solid var(--line); background: var(--card); color: var(--fg); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; text-align: left; position: relative; transition: transform 120ms ease, border-color 120ms ease; overflow-wrap: anywhere; min-width: 0; }
+.tile:active { transform: scale(.97); }
+.tile strong { font-size: var(--fs-body); font-weight: 700; line-height: 1.2; padding-right: 20px; }
+.tile span { font-size: var(--fs-small); color: var(--mut); line-height: 1.3; }
+.tile svg { width: 22px; height: 22px; color: var(--gold-fg); }
+.tile[aria-pressed="true"], .tile[aria-checked="true"] { border-color: var(--gold); background: var(--warn-bg); }
+.tile .tick { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--btnfg); display: none; align-items: center; justify-content: center; }
+.tile .tick svg { width: 14px; height: 14px; color: var(--btnfg); }
+.tile[aria-pressed="true"] .tick, .tile[aria-checked="true"] .tick { display: inline-flex; animation: pop 220ms ease; }
+@keyframes pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+/* Chips. .big = the popular picks on the nationality / languages / styles screens */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.chip { min-height: var(--tap); padding: 0 14px; border-radius: var(--r-chip); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-small); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.chips.big .chip { min-height: 48px; font-size: var(--fs-body); padding: 0 16px; }
+.chip[aria-pressed="true"] { background: var(--warn-bg); border-color: var(--gold); color: var(--fg); }
+.chip .x { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--card2); align-items: center; justify-content: center; border: 0; color: var(--fg); font: inherit; }
+.chip .x svg { width: 12px; height: 12px; }
+.chip-flag { font-size: calc(18px * var(--ts)); line-height: 1; }
+
+/* Avatar */
+.ava-row { display: flex; align-items: center; gap: 14px; }
+.ava { width: 88px; height: 88px; border-radius: 50%; background: var(--card2); border: 2px dashed var(--line-strong); display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none; color: var(--mut); }
+.ava svg { width: 34px; height: 34px; }
+.ava img, .ava canvas { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ava[data-has="true"] { border: 2px solid var(--gold); }
+.ava-btn { min-height: var(--tap); padding: 0 16px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-small); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.ava-btn svg { width: 20px; height: 20px; color: var(--gold-fg); }
+.crop { width: 240px; height: 240px; border-radius: 50%; margin: 0 auto; overflow: hidden; background: var(--card2); position: relative; touch-action: none; border: 2px solid var(--gold); }
+.crop img { position: absolute; left: 50%; top: 50%; transform-origin: center; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.slider { width: 100%; accent-color: var(--gold-fg); min-height: var(--tap); }
+
+/* Rows (lists, review) */
+.list { display: flex; flex-direction: column; }
+.row-btn { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--fg); font: inherit; font-size: var(--fs-body); text-align: left; cursor: pointer; width: 100%; overflow-wrap: anywhere; }
+.list .row-btn:first-child { border-top: 0; }
+.row-btn svg.chev { width: 20px; height: 20px; color: var(--mut); flex: none; }
+.st { width: 26px; height: 26px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.st svg { width: 15px; height: 15px; }
+.st-ok { background: var(--ok-bg); color: var(--ok-fg); }
+.st-no { background: var(--warn-bg); color: var(--warn-fg); }
+.st-opt { background: var(--card2); color: var(--mut); }
+.sub { font-size: var(--fs-small); color: var(--mut); display: block; }
+
+/* Switch */
+.sw { width: 60px; height: 44px; border-radius: 999px; border: 0; background: transparent; position: relative; cursor: pointer; flex: none; padding: 0; }
+.sw::before { content: ""; position: absolute; top: 6px; left: 4px; width: 52px; height: 32px; border-radius: 999px; background: var(--line-strong); }
+.sw::after { content: ""; position: absolute; top: 10px; left: 8px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left 160ms ease; }
+.sw[aria-checked="true"]::before { background: var(--gold); }
+.sw[aria-checked="true"]::after { left: 28px; }
+
+/* Banner (grace) */
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-card); background: var(--warn-bg); color: var(--warn-fg); }
+.banner strong { display: block; font-size: var(--fs-body); color: var(--fg); overflow-wrap: anywhere; }
+.banner p { margin: 2px 0 0; font-size: var(--fs-small); color: var(--warn-fg); overflow-wrap: anywhere; }
+.banner .x { width: var(--tap); height: var(--tap); margin: -8px -8px 0 0; flex: none; border: 0; background: transparent; color: var(--warn-fg); border-radius: 50%; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.banner .x svg { width: 18px; height: 18px; }
+.days { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: var(--r-chip); background: var(--card); color: var(--warn-fg); font-size: var(--fs-small); font-weight: 800; white-space: nowrap; }
+
+/* Home bits (Home is not onboarding: it may scroll) */
+.tabs { flex: none; height: 64px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--card); }
+.tab { border: 0; background: transparent; color: var(--mut); font: inherit; font-size: var(--fs-small); font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; min-height: var(--tap); }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-current="page"] { color: var(--gold-fg); }
+.tab:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: -2px; }
+.stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-height: var(--tap); }
+.stat b { font-size: calc(24px * var(--ts)); line-height: 1.1; }
+.stat span { font-size: var(--fs-small); color: var(--mut); }
+.empty { padding: 16px 12px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.empty svg { width: 36px; height: 36px; color: var(--mut); }
+
+/* Sheets (a sheet may scroll internally: owner, round 2) */
+.sheet-scrim { position: absolute; inset: 0; background: var(--scrim); display: none; align-items: flex-end; z-index: 20; }
+.sheet-scrim[data-open="true"] { display: flex; }
+.sheet { width: 100%; max-height: 92%; background: var(--sheet); color: var(--fg); border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; animation: up var(--dur) ease-out; overflow: hidden; }
+.sheet-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sheet-h h3 { margin: 0; font-size: var(--fs-h2); font-weight: 700; overflow-wrap: anywhere; }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.sheet-close { width: var(--tap); height: var(--tap); flex: none; border: 0; background: var(--card2); border-radius: 50%; color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.sheet-close svg { width: 18px; height: 18px; }
+@keyframes up { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+.grabber { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); margin: 0 auto; }
+.mix { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.mix .row-btn { min-height: var(--tap); }
+.flag { font-size: calc(22px * var(--ts)); line-height: 1; width: calc(30px * var(--ts)); text-align: center; flex: none; }
+.sect { font-size: var(--fs-small); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--mut); padding: 10px 4px 4px; }
+
+/* Skeleton / loading / nice-one */
+.skel { border-radius: var(--r-inp); background: linear-gradient(90deg, var(--card2), var(--card), var(--card2)); background-size: 200% 100%; animation: sh 1.2s linear infinite; min-height: 20px; }
+@keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.scr[data-state="loading"] .live-content { display: none !important; }
+.scr:not([data-state="loading"]) .skeleton { display: none !important; }
+.scr:not([data-state="error"]) .readfail { display: none !important; }
+.scr[data-state="error"] .live-content { display: none !important; }
+.skeleton { display: flex; flex-direction: column; gap: 10px; }
+.spin { width: 18px; height: 18px; border: 3px solid rgba(0,0,0,.2); border-top-color: currentColor; border-radius: 50%; animation: rot .8s linear infinite; display: inline-block; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.nice { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; z-index: 30; }
+.nice[data-on="true"] { display: flex; }
+.nice div { width: 72px; height: 72px; border-radius: 50%; background: var(--gold); color: var(--btnfg); display: flex; align-items: center; justify-content: center; animation: pop 320ms ease; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+.nice svg { width: 36px; height: 36px; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 90px; z-index: 40; padding: 12px 16px; border-radius: var(--r-card); background: var(--fg); color: var(--bg); font-size: var(--fs-small); font-weight: 700; display: none; overflow-wrap: anywhere; }
+.toast[data-on="true"] { display: block; animation: up 200ms ease-out; }
+canvas.confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 25; }
+.celebrate { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; flex: 1; padding: 0 8px; }
+.celebrate .big { width: 120px; height: 120px; border-radius: 50%; background: var(--ok-bg); color: var(--ok-fg); display: flex; align-items: center; justify-content: center; animation: pop 420ms ease; flex: none; }
+.celebrate .big svg { width: 60px; height: 60px; }
+
+/* Mood (design option; CHOSEN: calm). Kept so the owner can compare. */
+:root[data-mood="playful"] h1.t { color: var(--gold-fg); }
+:root[data-mood="bold"] h1.t { font-size: calc(30px * var(--ts)); font-weight: 900; letter-spacing: -.01em; }
+:root[data-mood="bold"] .btn:not(.btn-line):not([aria-disabled="true"]) { background: var(--fg); color: var(--bg); }
+:root[data-mood="calm"] h1.t { font-weight: 700; }
+
+/* ===== Fit rules. Container queries on the stage (= the visual viewport). A developer maps these to viewport media queries. ===== */
+/* Compact phones (360x640, 320x568): tighter rhythm, same text sizes (never below 14px) */
+@container phone (max-height: 700px) {
+  .top { height: 48px; }
+  .main { gap: 8px; padding-bottom: 10px; }
+  h1.t { font-size: calc(21px * var(--ts)); }
+  .tile { min-height: 64px; }
+  .celebrate { gap: 8px; }
+  .celebrate .big { width: 92px; height: 92px; }
+  .celebrate .big svg { width: 46px; height: 46px; }
+  .foot { padding: 8px 16px 12px; gap: 6px; }
+  .ava { width: 72px; height: 72px; }
+  .list .row-btn { min-height: 52px; }
+  textarea.inp { min-height: 88px; }
+  .chips.big .chip { min-height: 44px; padding: 0 14px; }
+  .chips { gap: 6px; }
+}
+/* Three role cards go 2x2 (third spans) on narrow frames */
+@container phone (max-width: 370px) {
+  .tiles.three { grid-template-columns: repeat(2, 1fr); }
+  .tiles.three > .tile:nth-child(3) { grid-column: span 2; }
+  /* 320 wide, two columns: a 15px label keeps "Community group" on two lines at 130% (was a mid-word break into three) */
+  .tile strong { font-size: calc(15px * var(--ts)); padding-right: 18px; }
+}
+/* Keyboard open (visual viewport 508 / 370 / 308 px): the title shrinks, helper lines and secondary links collapse, field + Continue stay above the keyboard */
+@container phone (max-height: 520px) {
+  .top { height: 40px; }
+  h1.t { font-size: calc(18px * var(--ts)); margin: 0; }
+  .main { padding-top: 0; padding-bottom: 4px; gap: 6px; }
+  .main > p.m, .main .fld > p.m, .main .live-content > p.m, .kbhide { display: none !important; }
+  textarea.inp { min-height: 48px; padding: 8px 18px; }
+  .foot { padding: 6px 16px 8px; gap: 4px; }
+  .foot .lnk { display: none; }
+}
+/* Browser viewports without the keyboard (390x664, 360x560, 320x460; round-3 fix 1): top strip 40, title 18, tap cards 56 (fix 7: five category cards fit at 320x460 / 130%) */
+@container phone (max-height: 480px) {
+  .top { height: 40px; }
+  h1.t { font-size: calc(18px * var(--ts)); margin: 0; }
+  .main { padding-top: 0; padding-bottom: 6px; gap: 6px; }
+  .tile { min-height: 56px; padding: 8px 10px; }
+  .celebrate .big { width: 72px; height: 72px; }
+  .celebrate .big svg { width: 36px; height: 36px; }
+  .foot { padding: 6px 16px 10px; gap: 4px; }
+  .ava { width: 64px; height: 64px; }
+}
+/* 320-wide phones with the keyboard up (320x568 leaves 308, 320x460 Safari leaves 244; round-3 fix 1): field, picker row and Continue still fit; the disabled-button reason moves to the tap (showWhy toasts it), a save error still shows inline; the (optional) pill and the Skip link go, so the title stays one line */
+@container phone (max-height: 320px) {
+  .top { height: 36px; }
+  h1.t { font-size: calc(16px * var(--ts)); }
+  .main { padding-bottom: 0; gap: 4px; }
+  .main p.m { display: none !important; }
+  .inp { min-height: 48px; }
+  textarea.inp { min-height: 44px; height: 44px; }
+  .opt { display: none; }
+  .main p.err:not(:empty) + .scrollbox { min-height: 0; } /* a no-match message replaces the (empty) list */
+  .btn { min-height: 48px; }
+  .foot { padding: 4px 16px 8px; gap: 2px; }
+  .foot .why:not(.why-err) { display: none; }
+}
+
+/* Developer notes (toggle) */
+.devnote { display: none; margin: 0; padding: 8px 10px; border-left: 3px solid var(--gold); background: var(--card2); color: var(--mut); font-size: calc(12px * var(--ts)); line-height: 1.4; border-radius: 0 8px 8px 0; overflow-wrap: anywhere; }
+:root[data-dev="true"] .devnote { display: block; }
+.devnote code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--fg); }
+
+/* Reduced motion: no slide, no pop, no confetti, no shimmer */
+@media (prefers-reduced-motion: reduce) {
+  .scr.in-r, .scr.in-l, .sheet, .btn.bounce, .tile .tick, .nice div, .celebrate .big, .skel, .toast[data-on="true"], .spin { animation: none !important; }
+  .btn, .tile, .sw::after, .prog i { transition: none !important; }
+  canvas.confetti { display: none !important; }
+}
+:root[data-rm="true"] .scr.in-r, :root[data-rm="true"] .scr.in-l, :root[data-rm="true"] .sheet, :root[data-rm="true"] .btn.bounce, :root[data-rm="true"] .tile .tick, :root[data-rm="true"] .nice div, :root[data-rm="true"] .celebrate .big, :root[data-rm="true"] .skel, :root[data-rm="true"] .toast[data-on="true"], :root[data-rm="true"] .spin { animation: none !important; }
+:root[data-rm="true"] .btn, :root[data-rm="true"] .tile, :root[data-rm="true"] .sw::after, :root[data-rm="true"] .prog i { transition: none !important; }
+:root[data-rm="true"] canvas.confetti { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4M12 17.5v.5"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M20 16l-5-5-7 8"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8.5" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></symbol>
+  <symbol id="i-lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="2.5"/><path d="M9 9v6l-3 6M9 15l3 6M9 10l5 2 3-3"/></symbol>
+  <symbol id="i-follow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="6" r="2.5"/><path d="M15 9v6l3 6M15 15l-3 6M15 10l-5 2-3-3"/></symbol>
+  <symbol id="i-both" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="6" r="2.2"/><circle cx="17" cy="6" r="2.2"/><path d="M7 9v6l-2 6M7 15l2 6M17 9v6l2 6M17 15l-2 6M9 11h6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-pound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 7a3 3 0 0 0-6 0v9H7M7 12h6M8 19h9"/></symbol>
+  <symbol id="i-cog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v8h14v-8"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h4l2 5-2.5 1.5a11 11 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0M12 19.5v.5"/><path d="M3 3l18 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+
+<div class="desk">
+  <div class="bar">
+    <div class="bar-l">
+      <button class="dbtn" id="btn-drawer" aria-expanded="false" aria-controls="drawer"><svg><use href="#i-sliders"/></svg>Design options</button>
+      <button class="dbtn" id="btn-theme" aria-label="Switch light or dark"><svg><use href="#i-moon"/></svg><span id="theme-lbl">Dark</span></button>
+    </div>
+    <select class="dbtn" id="jump" aria-label="Jump to a screen"></select>
+  </div>
+  <div class="drawer" id="drawer" data-open="false">
+    <div class="drow"><span>Corners</span>
+      <button data-set="corners" data-val="soft">Soft</button>
+      <button data-set="corners" data-val="round">Round</button>
+      <button data-set="corners" data-val="pill" data-chosen aria-pressed="true">Pill &middot; Chosen</button></div>
+    <div class="drow"><span>Text</span>
+      <button data-set="text" data-val="short" data-chosen aria-pressed="true">Short &middot; Chosen</button>
+      <button data-set="text" data-val="explained">Explained</button></div>
+    <div class="drow"><span>Mood</span>
+      <button data-set="mood" data-val="calm" data-chosen aria-pressed="true">Calm &middot; Chosen</button>
+      <button data-set="mood" data-val="playful">Playful</button>
+      <button data-set="mood" data-val="bold">Bold</button></div>
+    <div class="drow"><span>Arrival</span>
+      <button data-set="arrive" data-val="invite" aria-pressed="true">Invite link</button>
+      <button data-set="arrive" data-val="direct">Direct</button></div>
+    <div class="drow"><span>Phone size</span>
+      <button data-set="size" data-val="390" aria-pressed="true">390x844</button>
+      <button data-set="size" data-val="360">360x640</button>
+      <button data-set="size" data-val="320">320x568</button>
+      <button data-set="size" data-val="390b">390 in Safari (664)</button>
+      <button data-set="size" data-val="360b">360 in Chrome (560)</button>
+      <button data-set="size" data-val="320b">320 in Safari (460)</button></div>
+    <div class="drow"><span>This screen</span>
+      <button data-set="state" data-val="normal" aria-pressed="true">Normal</button>
+      <button data-set="state" data-val="loading">Loading</button>
+      <button data-set="state" data-val="error">Error</button>
+      <button data-set="state" data-val="empty">Empty</button>
+      <button data-set="state" data-val="done">All done</button>
+      <button data-set="state" data-val="savefail">Save failed</button>
+      <button data-set="state" data-val="graceover">Grace ended</button>
+      <button data-set="state" data-val="alreadylive">Already live</button></div>
+    <div class="drow"><span>Checks</span>
+      <button data-set="ts" data-val="130" aria-pressed="false">Text 130%</button>
+      <button data-set="kb" data-val="true" aria-pressed="false">Keyboard open</button>
+      <button data-set="rm" data-val="true" aria-pressed="false">Reduced motion</button>
+      <button data-set="dev" data-val="true" aria-pressed="false">Developer notes</button></div>
+    <p class="dnote">&ldquo;Chosen&rdquo; = the owner&rsquo;s round-2 picks, now the defaults. Keyboard open only shows on screens with a text field, like a real phone. Nothing here is saved. Keyboard: Tab moves, Enter taps, Esc goes back.</p>
+  </div>
+
+  <div class="frame-wrap"><div class="frame" id="frame">
+  <div class="stage" id="stage">
+
+  <!-- 1. WELCOME -->
+  <section class="scr" data-id="welcome" data-title="1. Welcome (invite aware)" data-active="true">
+    <div class="top"><span class="top-end"></span><span class="top-sp"></span></div>
+    <div class="main">
+      <div class="skeleton"><div class="skel" style="height:34px;width:70%"></div><div class="skel" style="height:20px"></div><div class="skel" style="height:72px"></div></div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your invite. Check your connection and try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:10px">
+        <div class="card" data-when="invite"><div class="row"><div class="ava" style="width:48px;height:48px;border:0;background:var(--warn-bg);color:var(--warn-fg);font-weight:800;font-size:18px">AR</div><div class="grow"><strong>Ana invited you to help run Bachata Nights Leeds</strong></div></div></div>
+        <h1 class="t" id="w-title">Hi Sam, welcome</h1>
+        <p class="m" data-when="invite">A few quick questions and the page is yours to edit.<span class="tx-l"> About five minutes, once only.</span></p>
+        <p class="m" data-when="direct">Let&rsquo;s find or set up your organiser page.<span class="tx-l"> A few quick questions, about five minutes, once only.</span></p>
+        <p class="m">Signed in as sam@example.com. <button class="lnk" data-sheet="signout">Not you?</button></p>
+        <p class="devnote">Invite line comes from the invite token (<code>/invite/:token</code>, inviter name + organiser name). Direct arrival hides the card and goes to Find your page. Sign-out sheet is today&rsquo;s <code>SignOutLine</code>. The mood picker screen from round 1 is gone: the owner chose Calm.</p>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" data-go="find" data-when="direct">Find your page</button><button class="btn" data-go="contact" data-when="invite" data-nice>Yes, that&rsquo;s me</button><button class="lnk" data-sheet="notme" data-when="invite">That&rsquo;s not my page</button></div>
+  </section>
+
+  <!-- 2. FIND -->
+  <section class="scr" data-id="find" data-title="2. Find your page" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="find-h">Find your page</h1>
+      <p class="m">Your organiser, school or party.<span class="tx-l"> If it&rsquo;s listed you can claim it or ask to join the team.</span></p>
+      <div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="find-q" type="search" placeholder="Try &ldquo;Bachata Leeds&rdquo;" autocomplete="off" aria-labelledby="find-h"></div>
+      <div class="scrollbox">
+        <div class="skeleton"><div class="skel" style="height:52px"></div><div class="skel" style="height:52px"></div><p class="m">Searching&hellip;</p></div>
+        <div class="readfail alert" role="alert"><span><svg style="width:16px;height:16px;vertical-align:-3px"><use href="#i-wifi"/></svg> The search didn&rsquo;t work. Check your connection and try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+        <div class="live-content" id="find-results"></div>
+        <p class="devnote">Search = today&rsquo;s <code>searchClaimableOrganisers</code> (2+ letters, 250 ms debounce) + <code>organiser_claim_hints_v1</code>. Row words from <code>claimStates.ts</code>. Claim = <code>claim_organiser_v1</code>, Ask = <code>request_organiser_access_v1</code>. The result list is the one onboarding region that scrolls internally (like a picker sheet); the page never does.</p>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" data-go="create-name">Not listed? Create a page</button></div>
+  </section>
+
+  <!-- 3. CREATE: NAME -->
+  <section class="scr" data-id="create-name" data-title="3. Name your page" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="cr-h">Name your page</h1>
+      <p class="m">The name dancers see on the calendar.<span class="tx-l"> You can change it later.</span></p>
+      <div class="fld"><input class="inp" id="cr-name" type="text" placeholder="Bachata Nights Harrogate" autocomplete="off" aria-labelledby="cr-h"><p class="err" id="cr-name-err"></p></div>
+      <p class="devnote">Create = <code>create_organiser_profile_v1</code> on the City screen&rsquo;s button (today: the city tap is the create). Refusals: name taken (City screen&rsquo;s Error state), 3 a day, invite required.</p>
+    </div>
+    <div class="foot"><p class="why" id="cr-why"></p><button class="btn" id="cr-next" aria-disabled="true" data-go="create-city" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 4. CREATE: CITY -->
+  <section class="scr" data-id="create-city" data-title="4. Which city?" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="cc-h">Which city?</h1>
+      <div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="cr-city" type="search" placeholder="Search cities" autocomplete="off" aria-labelledby="cc-h"></div>
+      <p class="err" id="cr-city-err"></p>
+      <div class="scrollbox">
+        <div class="readfail alert" role="alert"><span><span data-pagename>Bachata Nights Harrogate</span> is already listed.</span><button class="btn btn-sm" data-go="find">Ask to join it instead</button></div>
+        <div class="live-content chips big" id="cr-city-sugg"></div>
+        <p class="devnote">City search = <code>search_cities</code>. Chosen city shows as a pressed chip.</p>
+      </div>
+    </div>
+    <div class="foot"><p class="why" id="cc-why"></p><button class="btn" id="cc-next" aria-disabled="true" data-go="contact" data-nice>Create page</button></div>
+  </section>
+
+  <!-- 5. CONTACT: HELD NUMBER -->
+  <section class="scr" data-id="contact" data-title="5. Best number?" data-top>
+    <div class="main">
+      <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:80px"></div></div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your details. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:10px">
+        <h1 class="t">Is this the best number?</h1>
+        <div class="card"><p class="m">Shown on <span data-org>Bachata Nights Leeds</span></p><div class="row"><svg style="width:22px;height:22px;color:var(--gold-fg);flex:none"><use href="#i-phone"/></svg><strong class="grow" id="ct-phone-shown">07700 900123</strong></div></div>
+        <p class="m tx-l">So dancers can ask about classes and parties.</p>
+        <p class="devnote">A6 in the plan. Phone pre-filled from the held value; &ldquo;Yes, that&rsquo;s right&rdquo; is ONE tap: it saves and moves on. Contact email: the plan says it is set by the team and never asked; the &ldquo;Use an email instead&rdquo; path is a DESIGN ASSUMPTION for pages with no number (see .md).</p>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" id="ct-yes" data-go="whatsapp" data-nice>Yes, that&rsquo;s right</button><button class="lnk" data-go="contact-phone">Change number</button><button class="lnk" data-go="contact-email">Use an email instead</button></div>
+  </section>
+
+  <!-- 5b. CONTACT: PHONE -->
+  <section class="scr" data-id="contact-phone" data-title="5b. Phone number" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="cp-h">Phone number</h1>
+      <p class="m">Shown on your page.<span class="tx-l"> UK mobiles start 07; add +44 for anything else.</span></p>
+      <div class="fld"><input class="inp" id="ct-phone" type="tel" inputmode="tel" placeholder="07&hellip;" autocomplete="tel" aria-labelledby="cp-h"><p class="err" id="ct-phone-err"></p></div>
+    </div>
+    <div class="foot"><p class="why" id="cp-why"></p><button class="btn" id="cp-next" aria-disabled="true" data-go="whatsapp" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 5c. CONTACT: EMAIL -->
+  <section class="scr" data-id="contact-email" data-title="5c. Contact email" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="ce-h">Contact email</h1>
+      <p class="m">Public, shown on your page.<span class="tx-l"> Your sign-in email stays private; we ask for that later.</span></p>
+      <div class="fld"><input class="inp" id="ct-email" type="email" inputmode="email" placeholder="hello@yourpage.com" autocomplete="off" aria-labelledby="ce-h"><p class="err" id="ct-email-err"></p></div>
+    </div>
+    <div class="foot"><p class="why" id="ce-why"></p><button class="btn" id="ce-next" aria-disabled="true" data-go="cat" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 6. WHATSAPP -->
+  <section class="scr" data-id="whatsapp" data-title="6. WhatsApp?" data-top>
+    <div class="main">
+      <h1 class="t" id="wa-h">Show on WhatsApp too?</h1>
+      <p class="m">Same number, one-tap chat.</p>
+      <div class="tiles" role="radiogroup" aria-labelledby="wa-h">
+        <button class="tile" role="radio" aria-checked="true" data-wa="yes"><strong>Yes</strong><span class="tx-l">Dancers can message you</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="radio" aria-checked="false" data-wa="no"><strong>No</strong><span class="tx-l">Calls and texts only</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+      </div>
+      <p class="devnote">Was a switch on the Contact screen in round 1; split out because one question per screen. Public switches unchanged (<code>whatsapp_public</code>).</p>
+    </div>
+    <div class="foot"><button class="btn" data-go="cat" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 7. CATEGORY -->
+  <section class="scr" data-id="cat" data-title="7. What kind of page?" data-top>
+    <div class="main">
+      <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:64px"></div><div class="skel" style="height:64px"></div></div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your page. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:10px">
+        <h1 class="t" id="pg-cat-lbl">What kind of page?</h1>
+        <p class="m"><span data-org>Bachata Nights Leeds</span><span id="pg-city">, in Leeds</span></p>
+        <div class="tiles" role="radiogroup" aria-labelledby="pg-cat-lbl">
+          <button class="tile" role="radio" aria-checked="false" data-cat="Dance School"><strong>Dance school</strong><span class="tx-l">Classes and courses</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Event Brand"><strong>Event brand</strong><span class="tx-l">Parties and socials</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Community Group"><strong>Community group</strong><span class="tx-l">By dancers, for dancers</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Promoter"><strong>Promoter</strong><span class="tx-l">Nights and tours</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+          <button class="tile" role="radio" aria-checked="false" data-cat="Festival Brand"><strong>Festival brand</strong><span class="tx-l">Weekenders and festivals</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        </div>
+        <p class="devnote">A5: category = <code>CATEGORY_OPTIONS</code>, five values, one tap (owner, round 3: five cards accepted; 56 px tall on compact and browser-viewport heights so the screen never scrolls). Display labels are sentence case (<code>catLabel</code>); the stored value stays Title Case. Saves via <code>organiser_profile_update_p5_v1</code>.</p>
+      </div>
+    </div>
+    <div class="foot"><p class="why" id="pg-why"></p><button class="btn" id="pg-next" aria-disabled="true" data-go="link" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 8. LINK -->
+  <section class="scr" data-id="link" data-title="8. One link" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="lk-h">One link</h1>
+      <p class="m">Website, Instagram or Facebook.<span class="tx-l"> One is enough; add more later.</span></p>
+      <div class="fld"><input class="inp" id="pg-link" type="text" inputmode="url" placeholder="yourpage.com or @yourpage" autocomplete="url" aria-labelledby="lk-h"><p class="err" id="pg-link-err"></p></div>
+      <p class="devnote">A5: at least one of website, Instagram, Facebook. Stored in the matching column by shape (@handle = Instagram).</p>
+    </div>
+    <div class="foot"><p class="why" id="lk-why"></p><button class="btn" id="lk-next" aria-disabled="true" data-go="logo" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 9. LOGO -->
+  <section class="scr" data-id="logo" data-title="9. Logo" data-top>
+    <div class="main">
+      <h1 class="t" id="pg-logo-lbl">Your logo</h1>
+      <p class="m">Square works best.<span class="tx-l"> Shown beside your name on the calendar.</span></p>
+      <div class="ava-row"><div class="ava sq" id="pg-logo" aria-labelledby="pg-logo-lbl"><svg><use href="#i-img"/></svg></div><button class="ava-btn" data-photo="logo"><svg><use href="#i-img"/></svg>Choose a logo</button></div>
+      <p class="err" id="pg-logo-err"></p>
+      <p class="devnote">A5 logo: same uploader as the photo (<code>AvatarUpload</code>) with a square crop.</p>
+    </div>
+    <div class="foot"><p class="why" id="lg-why"></p><button class="btn" id="lg-next" aria-disabled="true" data-go="name" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 10. FIRST NAME -->
+  <section class="scr" data-id="name" data-title="10. First name" data-top data-field>
+    <div class="main">
+      <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:52px"></div></div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your details. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:10px">
+        <h1 class="t" id="yn-h">Your first name</h1>
+        <p class="m">Goes on your dancer card.<span class="tx-l"> So people know who runs the page.</span></p>
+        <div class="fld"><input class="inp" id="y-name" type="text" value="Sam" autocomplete="given-name" aria-labelledby="yn-h"><p class="err" id="y-name-err"></p></div>
+        <p class="devnote">A2 in the plan. Held values pre-filled; a change is saved and the old value audited.</p>
+      </div>
+    </div>
+    <div class="foot"><p class="why" id="yn-why"></p><button class="btn" id="yn-next" data-go="photo" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 11. PHOTO -->
+  <section class="scr" data-id="photo" data-title="11. Your photo (required)" data-top>
+    <div class="main">
+      <h1 class="t" id="y-photo-lbl">Your photo</h1>
+      <p class="m">A clear face shot.<span class="tx-l"> We round it off for you.</span></p>
+      <div class="ava-row"><div class="ava" id="y-ava" aria-labelledby="y-photo-lbl"><svg><use href="#i-user"/></svg></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><button class="ava-btn" data-photo="camera"><svg><use href="#i-cam"/></svg>Take a photo</button><button class="ava-btn" data-photo="gallery"><svg><use href="#i-img"/></svg>Choose from gallery</button></div></div>
+      <input type="file" id="y-file" accept="image/*" class="sr" tabindex="-1" aria-hidden="true">
+      <p class="err" id="y-photo-err"></p>
+      <p class="devnote">The one required step. Photo = <code>AvatarUpload</code>; camera via <code>capture="user"</code>, round crop sheet.</p>
+    </div>
+    <div class="foot"><p class="why" id="yp-why"></p><button class="btn" id="yp-next" aria-disabled="true" data-go="role" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 12. DANCE ROLE -->
+  <section class="scr" data-id="role" data-title="12. How do you dance?" data-top>
+    <div class="main">
+      <h1 class="t" id="y-role-lbl">How do you dance?</h1>
+      <div class="tiles three" role="radiogroup" aria-labelledby="y-role-lbl">
+        <button class="tile" role="radio" aria-checked="false" data-role="Leader"><svg><use href="#i-lead"/></svg><strong>Leader</strong><span class="tx-l">You lead</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="radio" aria-checked="false" data-role="Follower"><svg><use href="#i-follow"/></svg><strong>Follower</strong><span class="tx-l">You follow</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="radio" aria-checked="false" data-role="Lead and Follow"><svg><use href="#i-both"/></svg><strong>Both</strong><span class="tx-l">You switch</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+      </div>
+      <p class="err" id="y-role-err"></p>
+      <p class="devnote">Stored values: <code>Leader</code>, <code>Follower</code>, <code>Lead and Follow</code> (shown as &ldquo;Both&rdquo;). &ldquo;Not sure yet&rdquo; dropped (owner, round 2).</p>
+    </div>
+    <div class="foot"><p class="why" id="yr-why"></p><button class="btn" id="yr-next" aria-disabled="true" data-go="nat" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 13. NATIONALITY -->
+  <section class="scr" data-id="nat" data-title="13. Nationality" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="nat-h">Nationality</h1>
+      <div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="nat-q" type="search" placeholder="Type to search" autocomplete="off" aria-labelledby="nat-h"></div>
+      <div class="scrollbox"><div class="chips big" id="nat-chips" role="radiogroup" aria-labelledby="nat-h"></div></div>
+      <button class="btn btn-sm btn-line kbhide" data-sheet="nat" style="align-self:flex-start">All countries</button>
+      <p class="err" id="y-nat-err"></p>
+      <p class="devnote">Full ISO list + four home nations in the sheet, popular first. Six popular chips on the screen; typing filters to six matches; the chosen one shows as a pressed chip with a clear button. Stored as the English name.</p>
+    </div>
+    <div class="foot"><p class="why" id="na-why"></p><button class="btn" id="na-next" aria-disabled="true" data-go="langs" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 14. LANGUAGES -->
+  <section class="scr" data-id="langs" data-title="14. Languages (optional)" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="y-lang-lbl">Languages you speak <span class="opt">optional</span></h1>
+      <div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="lang-q" type="search" placeholder="Type to search" autocomplete="off" aria-labelledby="y-lang-lbl"></div>
+      <div class="scrollbox"><div class="chips big" id="lang-chips" role="group" aria-labelledby="y-lang-lbl"></div></div>
+      <button class="btn btn-sm btn-line kbhide" data-sheet="langs" style="align-self:flex-start">More languages</button>
+      <p class="devnote">Stored as English names. Ticked ones stay as pressed chips with a remove button, in front of the popular six.</p>
+    </div>
+    <div class="foot"><button class="btn" data-go="teach" data-nice>Continue</button><button class="lnk" data-go="teach">Skip for now</button></div>
+  </section>
+
+  <!-- 15. TEACH? -->
+  <section class="scr" data-id="teach" data-title="15. Do you teach?" data-top>
+    <div class="main">
+      <h1 class="t" id="tc-h">Do you teach?</h1>
+      <p class="m tx-l">This shows on your teacher page. Say no and we won&rsquo;t ask again.</p>
+      <div class="tiles" role="radiogroup" aria-labelledby="tc-h">
+        <button class="tile" role="radio" aria-checked="false" data-teach="yes"><strong>Yes, I teach</strong><span class="tx-l">Classes or privates</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="radio" aria-checked="false" data-teach="no"><strong>No</strong><span class="tx-l">Just organising</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+      </div>
+      <p class="devnote">A3: answer saved by <code>save_my_role_v1</code>. &ldquo;No&rdquo; skips Levels, Styles and Years. The DJ question (A4) follows the same pattern and is not drawn separately.</p>
+    </div>
+    <div class="foot"><p class="why" id="tc-why"></p><button class="btn" id="tc-next" aria-disabled="true" data-go="levels" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 16. LEVELS -->
+  <section class="scr" data-id="levels" data-title="16. Which levels?" data-top>
+    <div class="main">
+      <h1 class="t" id="lv-lbl">Which levels?</h1>
+      <p class="m">Tick all that apply.</p>
+      <div class="tiles" role="group" aria-labelledby="lv-lbl">
+        <button class="tile" role="checkbox" aria-checked="false" data-level="Beginner"><strong>Beginner</strong><span>First steps and basics</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="checkbox" aria-checked="false" data-level="Improver"><strong>Improver</strong><span>Knows the basics</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="checkbox" aria-checked="false" data-level="Intermediate"><strong>Intermediate</strong><span>Adding style</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+        <button class="tile" role="checkbox" aria-checked="false" data-level="Advanced"><strong>Advanced</strong><span>Dances with confidence</span><span class="tick"><svg><use href="#i-tick"/></svg></span></button>
+      </div>
+      <p class="err" id="lv-err"></p>
+      <p class="devnote">Levels = new <code>levels_taught</code> (S1), at least one. Four cards, 2x2.</p>
+    </div>
+    <div class="foot"><p class="why" id="lv-why"></p><button class="btn" id="lv-next" aria-disabled="true" data-go="styles" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 17. STYLES -->
+  <section class="scr" data-id="styles" data-title="17. Styles you teach" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="sty-lbl">Styles you teach</h1>
+      <div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="sty-q" type="search" placeholder="Type to search" autocomplete="off" aria-labelledby="sty-lbl"></div>
+      <div class="scrollbox"><div class="chips big" id="sty-chips" role="group" aria-labelledby="sty-lbl"></div></div>
+      <button class="btn btn-sm btn-line kbhide" data-sheet="styles" style="align-self:flex-start">More styles</button>
+      <p class="err" id="sty-err"></p>
+      <p class="devnote">Same search + six chips + sheet pattern as languages (round 2 rule). At least one.</p>
+    </div>
+    <div class="foot"><p class="why" id="st-why"></p><button class="btn" id="st-next" aria-disabled="true" data-go="years" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 18. YEARS -->
+  <section class="scr" data-id="years" data-title="18. Years teaching" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="yrs-h">Years teaching</h1>
+      <p class="m">0 is fine.</p>
+      <div class="fld"><input class="inp" id="yrs" type="number" inputmode="numeric" min="0" max="60" placeholder="0 to 60" style="max-width:160px" aria-labelledby="yrs-h"><p class="err" id="yrs-err"></p></div>
+      <button class="lnk kbhide" data-sheet="teachmore">Add more (optional)</button>
+    </div>
+    <div class="foot"><p class="why" id="yy-why"></p><button class="btn" id="yy-next" aria-disabled="true" data-go="about" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 19. ABOUT -->
+  <section class="scr" data-id="about" data-title="19. About (optional)" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="ab-h">About <span data-org>Bachata Nights Leeds</span> <span class="opt">optional</span></h1>
+      <p class="m">A sentence or two for the top of your page.<span class="tx-l"> We wrote a starter from what you told us.</span></p>
+      <div class="fld"><textarea class="inp" id="ab-text" maxlength="500" placeholder="Who you are and what you run" aria-labelledby="ab-h"></textarea><p class="m kbhide" id="ab-count" style="display:block">0 / 500</p></div>
+      <button class="lnk kbhide" id="ab-use">Use the starter sentence</button>
+      <p class="devnote">A7: starter from <code>starterSentence(category, city, styles)</code>, never invents a fact. Skip saves nothing; Review lists About as &ldquo;optional, not added&rdquo;.</p>
+    </div>
+    <div class="foot"><button class="btn" id="ab-next" data-go="email" data-nice>Save and continue</button><button class="lnk" data-go="email">Skip for now</button></div>
+  </section>
+
+  <!-- 20. SIGN-IN EMAIL -->
+  <section class="scr" data-id="email" data-title="20. Personal email (optional)" data-top data-field>
+    <div class="main">
+      <h1 class="t" id="em-h">Personal email <span class="opt">optional</span></h1>
+      <div class="card kbhide"><div class="row"><svg style="width:22px;height:22px;color:var(--gold-fg);flex:none"><use href="#i-lock"/></svg><div class="grow"><strong>Private. Never shown on your page.</strong><span class="sub tx-l">Only used to sign you in and for the odd important message.</span></div></div></div>
+      <p class="m">You sign in as sam@example.com.<span class="tx-l"> If that is a shared or work inbox, add a personal one so you never lose the page.</span></p>
+      <div class="fld"><input class="inp" id="em" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email" aria-labelledby="em-h"><p class="err" id="em-err"></p></div>
+      <p class="devnote">S1 private sign-in email. Stored privately, never in a public select. Empty is allowed.</p>
+    </div>
+    <div class="foot"><p class="why" id="em-why"></p><button class="btn" id="em-next" data-go="review" data-nice>Continue</button></div>
+  </section>
+
+  <!-- 21. REVIEW -->
+  <section class="scr" data-id="review" data-title="21. Review and go live" data-top>
+    <div class="main">
+      <div class="skeleton"><div class="skel" style="height:34px;width:60%"></div><div class="skel" style="height:20px"></div><div class="skel" style="height:56px"></div></div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t check your page. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:10px">
+        <h1 class="t" id="rv-title">Nearly there</h1>
+        <p class="m" id="rv-sub"></p>
+        <div class="card" style="padding:4px 12px"><div class="list" id="rv-next-item"></div></div>
+        <button class="btn btn-sm btn-line" data-sheet="all" style="align-self:flex-start">Show all</button>
+        <p class="devnote">A8 + the gate list (A1). Rows come from <code>organiser_onboarding_status_v1().missing[]</code>; the card shows the FIRST missing row (or the last done one when all set); &ldquo;Show all&rdquo; opens the full list in a sheet that scrolls internally. Go live = <code>complete_organiser_onboarding_v1</code> (S6).</p>
+      </div>
+    </div>
+    <div class="foot"><p class="why" id="rv-why"></p><button class="btn" id="rv-next">Go live</button></div>
+  </section>
+
+  <!-- 22. LIVE -->
+  <section class="scr" data-id="live" data-title="22. You&rsquo;re live">
+    <canvas class="confetti" id="confetti"></canvas>
+    <div class="top"><span class="top-sp"></span></div>
+    <div class="main">
+      <div class="celebrate">
+        <div class="big"><svg><use href="#i-tick"/></svg></div>
+        <h1 class="t" id="lv-title">You&rsquo;re live</h1>
+        <p class="p" id="lv-sub"><span data-org>Bachata Nights Leeds</span> is on the calendar.<span class="tx-l"> Dancers can find you now. Next: add your first event.</span></p>
+      </div>
+      <p class="devnote">Draft organiser after S6. Live organiser sees &ldquo;All done&rdquo; with Add an event (drawer: Already live). Ambassador city (Q2a) sees &ldquo;Sent for review&rdquo;. View my page opens the public page (<code>/organisers/:id</code>, not drawn). Share uses the Web Share API when present, else copies the link.</p>
+    </div>
+    <div class="foot"><button class="btn" id="lv-view" data-sheet="viewpage">View my page</button><button class="btn" id="lv-add" hidden>Add an event</button><button class="btn btn-line" id="share-btn">Share</button><button class="btn btn-line" data-go="home">Go to Home</button></div>
+  </section>
+
+  <!-- 23. HOME (not onboarding: may scroll) -->
+  <section class="scr" data-id="home" data-title="23. Home: grace banner (may scroll)" data-scrolls>
+    <div class="top" style="padding:0 16px"><h2 class="h">Home</h2><span class="top-sp"></span><button class="back" aria-label="Settings" data-sheet="settings"><svg><use href="#i-cog"/></svg></button></div>
+    <div class="main">
+      <div class="banner" id="grace" role="status">
+        <div class="grow"><strong>Finish your details to create and edit events.</strong><p id="grace-p">From Monday 16 November you&rsquo;ll need them.<span class="tx-l"> Until then everything works as usual.</span></p><div class="row" style="min-height:auto;margin-top:8px;flex-wrap:wrap"><span class="days" id="grace-days">12 days left</span><button class="btn btn-sm" data-go="review">Finish your page</button></div></div>
+        <button class="x" aria-label="Hide for today" id="grace-x"><svg><use href="#i-x"/></svg></button>
+      </div>
+      <div class="ok" id="home-done" hidden>All done. You can create and edit events now.</div>
+      <div class="readfail alert" role="alert"><span>We couldn&rsquo;t load your page. Try again.</span><button class="btn btn-sm" data-retry>Try again</button></div>
+      <div class="skeleton"><div class="skel" style="height:72px"></div><div class="skel" style="height:72px"></div></div>
+      <div class="live-content" style="display:flex;flex-direction:column;gap:12px">
+        <div class="card"><div class="row"><div class="ava" id="home-ava" style="width:48px;height:48px"><svg style="width:22px;height:22px"><use href="#i-user"/></svg></div><div class="grow"><strong data-org>Bachata Nights Leeds</strong><span class="sub" id="home-status">Live</span></div><button class="btn btn-sm btn-line" data-sheet="viewpage">View</button></div></div>
+        <div class="stat3"><div class="stat"><b>0</b><span>Events</span></div><div class="stat"><b>0</b><span>Going</span></div><div class="stat"><b>0</b><span>Views</span></div></div>
+        <div class="card" style="padding:4px 12px"><div class="list" id="home-list"></div></div>
+        <div class="card" id="home-empty"><div class="empty"><svg><use href="#i-cal"/></svg><strong>No events yet</strong><p class="m">Your first party or class goes here.</p><button class="btn btn-sm" id="home-add">Add an event</button></div></div>
+        <p class="devnote">Home is NOT an onboarding screen: it may scroll (owner, round 2) and the audit reports its overflow without counting it as a defect. A0 banner shown while <code>!complete</code>, hidden for admins. &ldquo;Hide for today&rdquo; is per device. After the grace end (drawer: Grace ended) every create/edit tap opens the gate (A1). Settings is a sheet (scrolls internally).</p>
+      </div>
+    </div>
+    <div class="tabs"><button class="tab" aria-current="page" id="tab-home"><svg><use href="#i-home"/></svg>Home</button><button class="tab" data-sheet="tabs"><svg><use href="#i-cal"/></svg>Events</button><button class="tab" data-sheet="tabs"><svg><use href="#i-pound"/></svg>Money</button><button class="tab" data-sheet="settings"><svg><use href="#i-cog"/></svg>Settings</button></div>
+  </section>
+
+  </div><!-- stage -->
+  <div class="nice" id="nice" aria-hidden="true"><div><svg><use href="#i-tick"/></svg></div></div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="sheet-scrim" id="scrim" data-open="false"><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div class="grabber"></div><div class="sheet-h"><h3 id="sheet-title"></h3><button class="sheet-close" aria-label="Close"><svg><use href="#i-x"/></svg></button></div><div class="sheet-body" id="sheet-body"></div></div></div>
+  <div class="kb" id="kb" aria-hidden="true"><div class="r"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="r"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="r"><i class="w"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="w"></i></div><div class="r"><i class="w"></i><i class="sp"></i><i class="w"></i></div></div>
+  </div></div><!-- frame -->
+  <p class="dnote" style="max-width:390px;padding:0 16px">Prototype, round 2. Nothing is saved or sent. One question per screen; no onboarding screen scrolls. Open on a phone to feel the taps.</p>
+</div>
+<script>
+(function () {
+  'use strict';
+  var root = document.documentElement, $ = function (s, c) { return (c || document).querySelector(s); }, $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+  var ORG = 'Bachata Nights Leeds';
+  /* Onboarding order for the thin progress bar: 22 screens. Alternatives (phone/email) count once each; "No" to teaching skips three. */
+  var ORDER = ['find', 'create-name', 'create-city', 'contact', 'contact-phone', 'contact-email', 'whatsapp', 'cat', 'link', 'logo', 'name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about', 'email', 'review'];
+  var S;
+  function initState() { S = { arrive: 'invite', page: null, pageMode: null, city: null, contactMode: 'phone', phoneOk: false, phone: '07700 900123', email: '', wa: 'yes', name: 'Sam', photo: null, role: null, nat: null, langs: ['English'], teach: null, levels: [], styles: [], years: '', about: '', signinEmail: '', graceHidden: false, graceDays: 12, graceOver: false, cat: null, link: '', logo: null, photoTarget: 'you', alreadyLive: false, live: false, kb: false }; }
+  initState();
+  var hist = [];
+  function rm() { return root.getAttribute('data-rm') === 'true' || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function flag(cc) { if (cc === 'ENG' || cc === 'SCT' || cc === 'WLS') { var sub = cc === 'ENG' ? 'eng' : cc === 'SCT' ? 'sct' : 'wls'; var cps = [0x1F3F4]; 'gb'.split('').concat(sub.split('')).forEach(function (ch) { cps.push(0xE0000 + ch.charCodeAt(0)); }); cps.push(0xE007F); return String.fromCodePoint.apply(null, cps); } if (cc === 'NIR') cc = 'GB'; return String.fromCodePoint(0x1F1E6 + cc.charCodeAt(0) - 65, 0x1F1E6 + cc.charCodeAt(1) - 65); }
+
+  /* ---------- data ---------- */
+  var POPULAR = [['GB', 'United Kingdom'], ['ENG', 'England'], ['SCT', 'Scotland'], ['WLS', 'Wales'], ['NIR', 'Northern Ireland'], ['ES', 'Spain'], ['DO', 'Dominican Republic'], ['IT', 'Italy'], ['PL', 'Poland'], ['BR', 'Brazil'], ['PT', 'Portugal'], ['FR', 'France'], ['RO', 'Romania'], ['IE', 'Ireland'], ['CO', 'Colombia'], ['CU', 'Cuba']];
+  var NAT_FEW = ['GB', 'ES', 'DO', 'IT', 'PL', 'BR'];
+  var MORE = [['AF', 'Afghanistan'], ['AL', 'Albania'], ['DZ', 'Algeria'], ['AR', 'Argentina'], ['AM', 'Armenia'], ['AU', 'Australia'], ['AT', 'Austria'], ['BD', 'Bangladesh'], ['BE', 'Belgium'], ['BO', 'Bolivia'], ['BA', 'Bosnia and Herzegovina'], ['BG', 'Bulgaria'], ['CA', 'Canada'], ['CL', 'Chile'], ['CN', 'China'], ['CR', 'Costa Rica'], ['HR', 'Croatia'], ['CY', 'Cyprus'], ['CZ', 'Czechia'], ['DK', 'Denmark'], ['EC', 'Ecuador'], ['EG', 'Egypt'], ['SV', 'El Salvador'], ['EE', 'Estonia'], ['FI', 'Finland'], ['DE', 'Germany'], ['GH', 'Ghana'], ['GR', 'Greece'], ['GT', 'Guatemala'], ['HN', 'Honduras'], ['HU', 'Hungary'], ['IN', 'India'], ['ID', 'Indonesia'], ['IR', 'Iran'], ['IQ', 'Iraq'], ['IL', 'Israel'], ['JM', 'Jamaica'], ['JP', 'Japan'], ['KE', 'Kenya'], ['LV', 'Latvia'], ['LB', 'Lebanon'], ['LT', 'Lithuania'], ['MY', 'Malaysia'], ['MT', 'Malta'], ['MX', 'Mexico'], ['MD', 'Moldova'], ['MA', 'Morocco'], ['NL', 'Netherlands'], ['NZ', 'New Zealand'], ['NI', 'Nicaragua'], ['NG', 'Nigeria'], ['NO', 'Norway'], ['PK', 'Pakistan'], ['PA', 'Panama'], ['PY', 'Paraguay'], ['PE', 'Peru'], ['PH', 'Philippines'], ['PR', 'Puerto Rico'], ['RU', 'Russia'], ['SA', 'Saudi Arabia'], ['RS', 'Serbia'], ['SG', 'Singapore'], ['SK', 'Slovakia'], ['SI', 'Slovenia'], ['ZA', 'South Africa'], ['KR', 'South Korea'], ['LK', 'Sri Lanka'], ['SE', 'Sweden'], ['CH', 'Switzerland'], ['TH', 'Thailand'], ['TT', 'Trinidad and Tobago'], ['TN', 'Tunisia'], ['TR', 'Turkey'], ['UA', 'Ukraine'], ['AE', 'United Arab Emirates'], ['US', 'United States'], ['UY', 'Uruguay'], ['VE', 'Venezuela'], ['VN', 'Vietnam'], ['ZW', 'Zimbabwe']];
+  var ALL_NAT = POPULAR.concat(MORE);
+  var LANG_FEW = ['English', 'Spanish', 'Portuguese', 'Italian', 'Polish', 'French'];
+  var LANG_ALL = LANG_FEW.concat(['Romanian', 'German', 'Lithuanian', 'Greek', 'Hungarian', 'Russian', 'Ukrainian', 'Arabic', 'Turkish', 'Dutch', 'Hindi', 'Urdu', 'Punjabi', 'Bulgarian', 'Czech', 'Slovak', 'Swedish', 'Danish', 'Norwegian', 'Finnish', 'Japanese', 'Mandarin Chinese', 'Cantonese', 'Korean', 'Tagalog', 'Swahili', 'Yoruba', 'Hebrew', 'Persian', 'Welsh', 'Irish', 'British Sign Language']);
+  var STY_FEW = ['Bachata sensual', 'Dominican bachata', 'Traditional', 'Moderna', 'Fusion', 'Salsa'];
+  var STY_ALL = STY_FEW.concat(['Urban', 'Kizomba', 'Zouk', 'Footwork', 'Musicality', 'Body movement', 'Ladies styling', 'Men styling']);
+  var PAGES = [{ n: 'Bachata Nights Leeds', hint: 'claim', s: 'Leeds. No owner yet' }, { n: 'Bachata Social Leeds', hint: 'ask', s: 'Leeds. Already has an owner' }, { n: 'Leeds Latin Collective', hint: 'asked', s: 'You asked to join on Monday' }, { n: 'Bachata Nights Harrogate', hint: 'claim', s: 'Harrogate. No owner yet' }];
+  var CITIES = ['Leeds', 'London', 'Manchester', 'Bristol', 'Birmingham', 'Harrogate', 'Sheffield', 'Liverpool', 'Glasgow', 'Edinburgh', 'Nottingham', 'Cardiff'];
+
+  /* ---------- top bars + progress ---------- */
+  var TOP = '<div class="top"><button class="back" aria-label="Back"><svg><use href="#i-back"/></svg></button><div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="18"><i></i></div><span class="top-end"></span></div>';
+  $$('.scr[data-top]').forEach(function (s) { s.insertAdjacentHTML('afterbegin', TOP); });
+  /* Progress (fix 8): the bar counts the path actually ahead. Alternatives are one step (find / create = one, held number / phone / email = one); WhatsApp drops off the email path, levels / styles / years drop off when teach = No, the page step is not on the invite path. */
+  var STEPS = [['find', 'create-name', 'create-city'], ['contact', 'contact-phone', 'contact-email'], ['whatsapp'], ['cat'], ['link'], ['logo'], ['name'], ['photo'], ['role'], ['nat'], ['langs'], ['teach'], ['levels'], ['styles'], ['years'], ['about'], ['email'], ['review']];
+  function path() { return STEPS.filter(function (g) { if (g[0] === 'find' && S.arrive === 'invite') return false; if (g[0] === 'whatsapp' && S.contactMode === 'email') return false; if ((g[0] === 'levels' || g[0] === 'styles' || g[0] === 'years') && S.teach === 'no') return false; return true; }); }
+  function paintProg(sc) { var p = $('.prog', sc); if (!p) return; var id = sc.getAttribute('data-id'), pth = path(), i = -1; pth.forEach(function (g, k) { if (g.indexOf(id) >= 0) i = k; }); if (i < 0) return; var n = pth.length; $('i', p).style.width = ((i + 1) / n * 100) + '%'; p.setAttribute('aria-valuemax', n); p.setAttribute('aria-valuenow', i + 1); p.setAttribute('aria-label', 'Step ' + (i + 1) + ' of ' + n); }
+  function scr(id) { return $('.scr[data-id="' + id + '"]'); }
+  function hasField(sc) { return sc.hasAttribute('data-field'); }
+  function paintKb() { var sc = cur(); root.setAttribute('data-kbon', S.kb && sc && hasField(sc) ? 'true' : 'false'); }
+
+  /* ---------- router ---------- */
+  function cur() { return $('.scr[data-active="true"]'); }
+  function show(id, dir) {
+    var from = cur(), to = scr(id); if (!to || to === from) return;
+    if (dir !== 'back' && from) hist.push(from.getAttribute('data-id'));
+    if (from) { from.setAttribute('data-active', 'false'); from.classList.remove('in-r', 'in-l'); }
+    to.setAttribute('data-active', 'true'); to.setAttribute('data-state', 'normal');
+    to.classList.remove('in-r', 'in-l'); if (!rm()) { void to.offsetWidth; to.classList.add(dir === 'back' ? 'in-l' : 'in-r'); }
+    var m = $('.main', to); if (m) m.scrollTop = 0;
+    $('#jump').value = id; syncDrawer('state', 'normal'); paintProg(to); paintKb();
+    $$('.why-err', to).forEach(function (w) { w.classList.remove('why-err'); });
+    if (id === 'live') { S.alreadyLive = false; renderLive(); confetti(); }
+    if (id === 'review') buildReview(); if (id === 'home') { buildHome(); if (S.graceOver) syncDrawer('state', 'graceover'); } if (id === 'find') buildFind(); if (id === 'welcome') buildWelcome(); if (id === 'teach') renderTeach();
+    var h = $('h1, h2', to); if (h && document.activeElement && document.activeElement !== document.body) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  }
+  function back() { if ($('#scrim').getAttribute('data-open') === 'true') { closeSheet(); return; } var prev = hist.pop(); if (prev) show(prev, 'back'); else if (cur().getAttribute('data-id') !== 'welcome') show('welcome', 'back'); }
+  function nice(btn, then) { if (btn && btn.getAttribute('aria-disabled') === 'true') { showWhy(btn); return; } vibrate(12); if (rm()) { then(); return; } if (btn) { btn.classList.remove('bounce'); void btn.offsetWidth; btn.classList.add('bounce'); } var n = $('#nice'); n.setAttribute('data-on', 'true'); setTimeout(function () { n.setAttribute('data-on', 'false'); then(); }, 380); }
+  function showWhy(btn) { var why = btn.parentNode && $('.why', btn.parentNode); if (why && why.textContent) { toast(why.textContent); } }
+  var toastT; function toast(msg) { var t = $('#toast'); t.textContent = msg; t.setAttribute('data-on', 'true'); clearTimeout(toastT); toastT = setTimeout(function () { t.setAttribute('data-on', 'false'); }, 2400); }
+  /* gate(id, why): the screen's primary button is enabled when why is empty; the why line explains a disabled button */
+  function gate(id, why) { var sc = scr(id), b = $('.foot .btn', sc), w = $('.foot .why', sc); if (!b) return; b.setAttribute('aria-disabled', why ? 'true' : 'false'); if (w) { w.innerHTML = why || ''; w.classList.remove('why-err'); } }
+  function errAt(id, msg) { var e = $('#' + id + '-err'), i = $('#' + id); if (e) e.innerHTML = msg ? '<svg><use href="#i-warn"/></svg><span>' + msg + '</span>' : ''; if (i) { if (msg) i.setAttribute('aria-invalid', 'true'); else i.removeAttribute('aria-invalid'); } }
+
+  var jump = $('#jump'); $$('.scr').forEach(function (s) { var o = document.createElement('option'); o.value = s.getAttribute('data-id'); o.innerHTML = s.getAttribute('data-title'); jump.appendChild(o); });
+  jump.addEventListener('change', function () { hist = []; show(jump.value); });
+
+  /* ---------- clicks ---------- */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('button, a'); if (!t) return;
+    if (t.classList.contains('back') && t.getAttribute('aria-label') === 'Back') { back(); return; }
+    if (t.hasAttribute('data-retry')) { var sc = cur(); sc.setAttribute('data-state', 'loading'); syncDrawer('state', 'loading'); setTimeout(function () { sc.setAttribute('data-state', 'normal'); syncDrawer('state', 'normal'); }, 700); return; }
+    if (t.hasAttribute('data-sheet')) { openSheet(t.getAttribute('data-sheet')); return; }
+    if (t.hasAttribute('data-go')) { var go = t.getAttribute('data-go'); if (t.getAttribute('aria-disabled') === 'true') { showWhy(t); return; } if (t.id === 'ct-yes') { S.phoneOk = true; S.contactMode = 'phone'; } if (t.hasAttribute('data-nice')) nice(t, function () { show(go); }); else show(go); return; }
+    if (t.classList.contains('sheet-close')) { closeSheet(); return; }
+  });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') back(); });
+  $('#scrim').addEventListener('click', function (ev) { if (ev.target === ev.currentTarget) closeSheet(); });
+
+  /* ---------- drawer ---------- */
+  $('#btn-drawer').addEventListener('click', function () { var d = $('#drawer'), open = d.getAttribute('data-open') !== 'true'; d.setAttribute('data-open', open); this.setAttribute('aria-expanded', open); });
+  function syncDrawer(set, val) { $$('.drow button[data-set="' + set + '"]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-val') === val); }); }
+  $$('.drow button').forEach(function (b) { b.addEventListener('click', function () {
+    var set = b.getAttribute('data-set'), val = b.getAttribute('data-val');
+    if (set === 'ts' || set === 'rm' || set === 'dev' || set === 'kb') { var on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); if (set === 'kb') { S.kb = on; root.setAttribute('data-kb', on); paintKb(); if (on && !hasField(cur())) toast('No text field on this screen, so no keyboard. It shows on screens with one.'); return; } root.setAttribute('data-' + set, on ? val : (set === 'ts' ? '100' : 'false')); return; }
+    if (set === 'arrive') { S.arrive = val; syncDrawer(set, val); buildWelcome(); return; }
+    if (set === 'state') { applyState(val); return; }
+    if (set === 'mood') { setMood(val); return; }
+    root.setAttribute('data-' + set, val); syncDrawer(set, val);
+  }); });
+  function setMood(v) { root.setAttribute('data-mood', v); syncDrawer('mood', v); buildWelcome(); }
+  var VALIDATE = {};
+  function revalidate(id) { var f = VALIDATE[id]; if (f) f(); else { var w = $('.scr[data-id="' + id + '"] .foot .why'); if (w) w.innerHTML = ''; } }
+  function clearAll() { S.page = null; S.pageMode = null; S.phoneOk = false; S.email = ''; S.about = ''; S.cat = null; S.link = ''; S.logo = null; S.photo = null; S.role = null; S.nat = null; S.langs = []; S.teach = null; S.levels = []; S.styles = []; S.years = ''; S.name = ''; S.signinEmail = ''; S.graceHidden = false; $('#y-name').value = ''; $('#pg-link').value = ''; $('#ct-email').value = ''; $('#yrs').value = ''; $('#ab-text').value = ''; $('#em').value = ''; renderAll(); }
+  function fill() { S.page = ORG; S.pageMode = 'invite'; S.phoneOk = true; S.contactMode = 'phone'; S.cat = 'Dance School'; $('#pg-link').value = 'bnleeds.com'; S.photoTarget = 'logo'; setPhoto(samplePhoto()); S.photoTarget = 'you'; setPhoto(samplePhoto()); $('#y-name').value = 'Sam'; S.role = 'Leader'; S.nat = ['ES', 'Spain']; S.langs = ['English', 'Spanish']; S.teach = 'yes'; S.levels = ['Beginner', 'Improver']; S.styles = ['Bachata sensual']; $('#yrs').value = '4'; $('#ab-text').value = 'Bachata Nights Leeds runs bachata sensual classes and socials in Leeds.'; S.about = $('#ab-text').value; $('#em').value = 'sam@gmail.com'; S.signinEmail = 'sam@gmail.com'; S.live = true; renderAll(); }
+  function renderAll() { $$('[data-cat]').forEach(function (o) { o.setAttribute('aria-checked', o.getAttribute('data-cat') === S.cat); }); $$('[data-role]').forEach(function (o) { o.setAttribute('aria-checked', o.getAttribute('data-role') === S.role); }); $$('[data-wa]').forEach(function (o) { o.setAttribute('aria-checked', o.getAttribute('data-wa') === S.wa); }); if (!S.photo) { $('#y-ava').innerHTML = '<svg><use href="#i-user"/></svg>'; $('#y-ava').removeAttribute('data-has'); } if (!S.logo) { $('#pg-logo').innerHTML = '<svg><use href="#i-img"/></svg>'; $('#pg-logo').removeAttribute('data-has'); } renderNat(); renderLangs(); renderTeach(); renderStyles(); $('#ab-count').textContent = $('#ab-text').value.length + ' / 500'; Object.keys(VALIDATE).forEach(function (k) { VALIDATE[k](); }); buildFind(); }
+  function applyState(val) {
+    var sc = cur(), id = sc.getAttribute('data-id');
+    if (val === 'savefail') {
+      var foot = $('.foot', sc), nb = foot && $('.btn', foot);
+      if (!nb || id === 'welcome' || id === 'live' || id === 'find' || id === 'home') { toast('This screen saves nothing, so it has no save error.'); syncDrawer('state', 'normal'); return; }
+      var why = $('.why', foot); if (!why) { why = document.createElement('p'); why.className = 'why'; foot.insertBefore(why, foot.firstChild); }
+      why.classList.add('why-err'); why.innerHTML = '<svg aria-hidden="true"><use href="#i-warn"/></svg> ' + (id === 'review' ? 'Couldn&rsquo;t go live. Check your connection and try again.' : 'Couldn&rsquo;t save. Check your connection and try again.');
+      nb.setAttribute('aria-disabled', 'false'); sc.setAttribute('data-state', 'normal'); syncDrawer('state', 'savefail'); return;
+    }
+    if (val === 'graceover') { if (id !== 'home') { toast('Grace ended applies to Home: jump there first.'); syncDrawer('state', 'normal'); return; } S.graceOver = true; S.graceDays = 0; S.graceHidden = false; sc.setAttribute('data-state', 'normal'); buildHome(); syncDrawer('state', 'graceover'); toast('Grace ended: Add an event now opens the gate.'); return; }
+    if (val === 'alreadylive') { if (id !== 'live') { toast('Already live applies to the You&rsquo;re live screen.'); syncDrawer('state', 'normal'); return; } S.alreadyLive = true; S.live = true; renderLive(); syncDrawer('state', 'alreadylive'); return; }
+    if (val === 'done') { fill(); sc.setAttribute('data-state', 'normal'); syncDrawer('state', 'done'); if (id === 'review') buildReview(); if (id === 'home') buildHome(); toast('Everything filled in: Review says All set, Home shows the done state.'); return; }
+    if (val === 'normal') { if (id === 'home' && S.graceOver) { S.graceOver = false; S.graceDays = 12; buildHome(); } if (id === 'live' && S.alreadyLive) { S.alreadyLive = false; renderLive(); } $$('.why-err', sc).forEach(function (w) { w.classList.remove('why-err'); }); revalidate(id); }
+    if (val === 'empty') {
+      sc.setAttribute('data-state', 'normal'); syncDrawer('state', 'empty');
+      if (id === 'find') { $('#find-q').value = 'Bachta Leds'; buildFind(); }
+      else if (id === 'create-city') { $('#cr-city').value = 'Zzz'; $('#cr-city').dispatchEvent(new Event('input')); }
+      else if (id === 'review' || id === 'home') { clearAll(); if (id === 'review') buildReview(); else buildHome(); toast(id === 'review' ? 'Showing Review with everything still to do.' : 'Showing Home with no events and the page unfinished.'); }
+      else if (id === 'nat') { S.nat = null; $('#nat-q').value = 'Zzz'; renderNat(); }
+      else if (id === 'langs') { S.langs = []; $('#lang-q').value = 'Zzz'; renderLangs(); }
+      else if (id === 'styles') { S.styles = []; $('#sty-q').value = 'Zzz'; renderStyles(); }
+      else if (id === 'teach' || id === 'levels') { S.teach = null; S.levels = []; renderTeach(); }
+      else if (id === 'cat') { S.cat = null; renderAll(); }
+      else if (id === 'name') { $('#y-name').value = ''; validateName(); }
+      else toast('This screen has no empty state: it always has something to show.');
+      return;
+    }
+    if (val === 'loading' && !$('.skeleton', sc)) { toast('This screen never loads data, so it has no loading state.'); syncDrawer('state', 'normal'); return; }
+    if (val === 'error' && !$('.readfail', sc)) { toast('This screen has no read error. Its save error shows beside the field: type something wrong to see it.'); syncDrawer('state', 'normal'); return; }
+    sc.setAttribute('data-state', val); syncDrawer('state', val);
+  }
+
+  /* ---------- theme ---------- */
+  function theme() { return root.getAttribute('data-theme'); }
+  function effectiveDark() { var t = theme(); if (t === 'dark') return true; if (t === 'light') return false; return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+  function setTheme(t) { root.setAttribute('data-theme', t); try { localStorage.setItem('proto-theme', t); } catch (e) {} paintTheme(); }
+  function paintTheme() { var d = effectiveDark(); $('#theme-lbl').textContent = d ? 'Light' : 'Dark'; $('#btn-theme use').setAttribute('href', d ? '#i-sun' : '#i-moon'); var sw = $('#theme-sw'); if (sw) sw.setAttribute('aria-checked', d); }
+  try { var saved = localStorage.getItem('proto-theme'); if (saved === 'dark' || saved === 'light') root.setAttribute('data-theme', saved); else root.setAttribute('data-theme', 'light'); } catch (e) { root.setAttribute('data-theme', 'light'); }
+  $('#btn-theme').addEventListener('click', function () { setTheme(effectiveDark() ? 'light' : 'dark'); });
+  paintTheme();
+
+  /* ---------- welcome ---------- */
+  function buildWelcome() { var inv = S.arrive === 'invite'; $$('[data-when]').forEach(function (el) { el.style.display = el.getAttribute('data-when') === S.arrive ? '' : 'none'; }); var m = root.getAttribute('data-mood'); $('#w-title').innerHTML = m === 'playful' ? 'Hey Sam, you made it!' : m === 'bold' ? 'Sam. Let&rsquo;s go.' : 'Hi Sam, welcome'; if (inv) { S.page = ORG; S.pageMode = 'invite'; } }
+
+  /* ---------- find / create ---------- */
+  var findT;
+  $('#find-q').addEventListener('input', function () { clearTimeout(findT); var sc = scr('find'); if (this.value.trim().length >= 2) { sc.setAttribute('data-state', 'loading'); findT = setTimeout(function () { sc.setAttribute('data-state', 'normal'); buildFind(); }, 350); } else buildFind(); });
+  function buildFind() {
+    var q = $('#find-q').value.trim().toLowerCase(), box = $('#find-results'), h = '';
+    if (q.length < 2) { box.innerHTML = '<p class="m">Type two or more letters.</p>'; return; }
+    var hits = PAGES.filter(function (p) { return q.split(/\s+/).every(function (w) { return p.n.toLowerCase().indexOf(w) >= 0; }); });
+    if (!hits.length) h = '<div class="card"><div class="empty"><svg><use href="#i-search"/></svg><strong>No page matches &ldquo;' + esc($('#find-q').value.trim()) + '&rdquo;</strong><p class="m">Check the spelling, or create it below.</p></div></div>';
+    else h = '<div class="card" style="padding:4px 12px"><div class="list">' + hits.map(function (p, i) { var lbl = p.hint === 'claim' ? 'Claim' : p.hint === 'ask' ? 'Ask to join' : 'Asked'; return '<div class="row-btn" style="cursor:default"><div class="grow"><strong>' + esc(p.n) + '</strong><span class="sub">' + esc(p.s) + '</span></div>' + (p.hint === 'asked' ? '<span class="sub">Asked</span>' : '<button class="btn btn-sm' + (p.hint === 'ask' ? ' btn-line' : '') + '" data-pick="' + i + '">' + lbl + '</button>') + '</div>'; }).join('') + '</div></div>';
+    box.innerHTML = h;
+    $$('[data-pick]', box).forEach(function (b) { b.addEventListener('click', function () { var p = hits[+b.getAttribute('data-pick')]; openSheet(p.hint === 'claim' ? 'claim' : 'ask', p); }); });
+  }
+  function validateCreateName() { var n = $('#cr-name').value.trim(); errAt('cr-name', n.length && n.length < 3 ? 'The name needs three letters or more.' : ''); var why = !n ? 'Type the page name first.' : n.length < 3 ? 'The name needs three letters or more.' : ''; gate('create-name', why); if (!why) { S.page = n; S.pageMode = 'create'; $$('[data-pagename]').forEach(function (e) { e.textContent = n; }); } }
+  VALIDATE['create-name'] = validateCreateName; $('#cr-name').addEventListener('input', validateCreateName);
+  function validateCity() { var c = $('#cr-city').value.trim(); errAt('cr-city', c.length && !S.city && !$('[data-city]') ? 'No city matches. Check the spelling.' : ''); gate('create-city', S.city ? '' : 'Pick a city to continue.'); }
+  VALIDATE['create-city'] = validateCity;
+  $('#cr-city').addEventListener('input', function () { var q = this.value.trim().toLowerCase(); if (S.city && S.city.toLowerCase() !== q) S.city = null; var box = $('#cr-city-sugg'); var hits = q.length ? CITIES.filter(function (c) { return c.toLowerCase().indexOf(q) === 0; }).slice(0, 4) : CITIES.slice(0, 4); box.innerHTML = hits.map(function (c) { return '<button class="chip" aria-pressed="' + (S.city === c) + '" data-city="' + c + '">' + c + '</button>'; }).join(''); $$('[data-city]', box).forEach(function (b) { b.addEventListener('click', function () { S.city = b.getAttribute('data-city'); $('#cr-city').value = S.city; $$('[data-city]').forEach(function (o) { o.setAttribute('aria-pressed', o === b); }); validateCity(); vibrate(8); }); }); validateCity(); });
+  $('#cr-city').dispatchEvent(new Event('input'));
+
+  /* ---------- contact ---------- */
+  function validatePhone() { var v = $('#ct-phone').value.replace(/\s+/g, ''); var ok = /^(\+?44|0)7\d{9}$/.test(v) || /^\+\d{8,15}$/.test(v); errAt('ct-phone', v.length && !ok ? 'That doesn&rsquo;t look like a phone number. Try 07&hellip; or +44&hellip;' : ''); gate('contact-phone', ok ? '' : (v.length ? 'Fix the phone number to continue.' : 'Add a phone number to continue.')); if (ok) { S.phone = $('#ct-phone').value; S.phoneOk = true; S.contactMode = 'phone'; $('#ct-phone-shown').textContent = S.phone; } }
+  VALIDATE['contact-phone'] = validatePhone; $('#ct-phone').addEventListener('input', validatePhone);
+  function validateEmail() { var e = $('#ct-email').value.trim(), ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); errAt('ct-email', e.length && !ok ? 'That doesn&rsquo;t look like an email. Check for a missing @ or dot.' : ''); gate('contact-email', ok ? '' : (e.length ? 'Fix the email to continue.' : 'Add a contact email to continue.')); S.email = ok ? e : ''; if (ok) { S.contactMode = 'email'; S.phoneOk = false; } }
+  VALIDATE['contact-email'] = validateEmail; $('#ct-email').addEventListener('input', validateEmail);
+  function contactOk() { return S.contactMode === 'phone' ? S.phoneOk : !!S.email; }
+  $$('[data-wa]').forEach(function (t) { t.addEventListener('click', function () { S.wa = t.getAttribute('data-wa'); $$('[data-wa]').forEach(function (o) { o.setAttribute('aria-checked', o === t); }); vibrate(8); }); });
+
+  /* ---------- page: category, link, logo ---------- */
+  function validateCat() { gate('cat', S.cat ? '' : 'Pick one to continue.'); }
+  VALIDATE.cat = validateCat;
+  $$('[data-cat]').forEach(function (t) { t.addEventListener('click', function () { S.cat = t.getAttribute('data-cat'); $$('[data-cat]').forEach(function (o) { o.setAttribute('aria-checked', o === t); }); vibrate(8); validateCat(); }); });
+  function linkOk(v) { v = v.trim(); if (!v) return false; if (/^@[A-Za-z0-9._]{2,30}$/.test(v)) return true; return /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(v); }
+  function validateLink() { var v = $('#pg-link').value.trim(), ok = linkOk(v); errAt('pg-link', v && !ok ? 'That doesn&rsquo;t look like a link. Try yourpage.com or @yourpage.' : ''); S.link = ok ? v : ''; gate('link', ok ? '' : (v ? 'Fix the link to continue.' : 'Add one link to continue.')); }
+  VALIDATE.link = validateLink; $('#pg-link').addEventListener('input', validateLink);
+  function validateLogo() { gate('logo', S.logo ? '' : 'Add a logo to continue.'); }
+  VALIDATE.logo = validateLogo;
+
+  /* ---------- you: name, photo, role, nationality, languages ---------- */
+  function validateName() { var n = $('#y-name').value.trim(); S.name = n; errAt('y-name', !n ? 'Tell us your first name.' : ''); gate('name', n ? '' : 'Add your first name to continue.'); }
+  VALIDATE.name = validateName; $('#y-name').addEventListener('input', validateName);
+  function validatePhoto() { gate('photo', S.photo ? '' : 'Add a photo to continue. Dancers like to see who they&rsquo;re meeting.'); }
+  VALIDATE.photo = validatePhoto;
+  function validateRole() { gate('role', S.role ? '' : 'Pick one to continue.'); }
+  VALIDATE.role = validateRole;
+  $$('[data-role]').forEach(function (t) { t.addEventListener('click', function () { S.role = t.getAttribute('data-role'); $$('[data-role]').forEach(function (o) { o.setAttribute('aria-checked', o === t); }); vibrate(8); validateRole(); }); });
+  $$('[data-photo]').forEach(function (b) { b.addEventListener('click', function () { S.photoTarget = b.getAttribute('data-photo') === 'logo' ? 'logo' : 'you'; var f = $('#y-file'); if (b.getAttribute('data-photo') === 'camera') f.setAttribute('capture', 'user'); else f.removeAttribute('capture'); f.value = ''; f.click(); openSheet('photo'); }); });
+  $('#y-file').addEventListener('change', function () { var file = this.files && this.files[0]; if (!file) return; var r = new FileReader(); r.onload = function () { openSheet('crop', r.result); }; r.readAsDataURL(file); });
+  function samplePhoto() { var c = document.createElement('canvas'); c.width = c.height = 320; var x = c.getContext('2d'); var g = x.createLinearGradient(0, 0, 320, 320); g.addColorStop(0, '#f0703a'); g.addColorStop(1, '#a8461a'); x.fillStyle = g; x.fillRect(0, 0, 320, 320); x.fillStyle = '#fff'; x.font = 'bold 150px system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(S.photoTarget === 'logo' ? 'B' : 'S', 160, 170); return c.toDataURL('image/png'); }
+  function setPhoto(dataUrl) { if (S.photoTarget === 'logo') { S.logo = dataUrl; var l = $('#pg-logo'); l.innerHTML = '<img alt="Your logo" src="' + dataUrl + '">'; l.setAttribute('data-has', 'true'); $('[data-photo="logo"]').innerHTML = '<svg><use href="#i-img"/></svg>Change logo'; errAt('pg-logo', ''); validateLogo(); return; } S.photo = dataUrl; var a = $('#y-ava'); a.innerHTML = '<img alt="Your photo" src="' + dataUrl + '">'; a.setAttribute('data-has', 'true'); $('#home-ava').innerHTML = '<img alt="" src="' + dataUrl + '">'; errAt('y-photo', ''); $('[data-photo="camera"]').innerHTML = '<svg><use href="#i-cam"/></svg>Retake'; $('[data-photo="gallery"]').innerHTML = '<svg><use href="#i-img"/></svg>Change'; validatePhoto(); }
+  /* Nationality: search box + six popular chips; typing filters to six matches; the sheet has the full list */
+  function natChip(c, on) { return '<button class="chip" role="radio" aria-checked="' + on + '" aria-pressed="' + on + '" data-nat="' + c[0] + '"><span class="chip-flag" aria-hidden="true">' + flag(c[0]) + '</span>' + esc(c[1]) + (on ? '<span class="x" aria-hidden="true"><svg><use href="#i-x"/></svg></span>' : '') + '</button>'; }
+  function renderNat() { var q = $('#nat-q').value.trim().toLowerCase(), box = $('#nat-chips'), list; if (q) list = ALL_NAT.filter(function (c) { return c[1].toLowerCase().indexOf(q) === 0 || c[1].toLowerCase().indexOf(' ' + q) >= 0; }).slice(0, 6); else list = NAT_FEW.map(function (cc) { return ALL_NAT.filter(function (c) { return c[0] === cc; })[0]; }); if (S.nat && !list.some(function (c) { return c[0] === S.nat[0]; })) list.unshift(S.nat); box.innerHTML = list.length ? list.map(function (c) { return natChip(c, !!(S.nat && S.nat[0] === c[0])); }).join('') : '<p class="m">No country matches &ldquo;' + esc($('#nat-q').value.trim()) + '&rdquo;. Try the English name, or open All countries.</p>'; $$('[data-nat]', box).forEach(function (b) { b.addEventListener('click', function () { var cc = b.getAttribute('data-nat'); if (S.nat && S.nat[0] === cc) S.nat = null; else S.nat = ALL_NAT.filter(function (c) { return c[0] === cc; })[0]; vibrate(8); renderNat(); }); }); validateNat(); }
+  function validateNat() { gate('nat', S.nat ? '' : 'Pick your nationality to continue.'); }
+  VALIDATE.nat = validateNat; $('#nat-q').addEventListener('input', renderNat);
+  /* Languages and styles: same pattern, multi-select, ticked ones first */
+  function multiRender(boxId, qId, few, all, picked, onToggle) { var q = $('#' + qId).value.trim().toLowerCase(), box = $('#' + boxId), list; if (q) list = all.filter(function (l) { return l.toLowerCase().indexOf(q) >= 0; }).slice(0, 6); else list = few.slice(); var shown = picked.filter(function (l) { return list.indexOf(l) < 0; }).concat(list); box.innerHTML = shown.length ? shown.map(function (l) { var on = picked.indexOf(l) >= 0; return '<button class="chip" aria-pressed="' + on + '" data-m="' + esc(l) + '">' + esc(l) + (on ? '<span class="x" aria-hidden="true"><svg><use href="#i-x"/></svg></span>' : '') + '</button>'; }).join('') : '<p class="m">Nothing matches &ldquo;' + esc($('#' + qId).value.trim()) + '&rdquo;. Try another word, or open the full list.</p>'; $$('[data-m]', box).forEach(function (b) { b.addEventListener('click', function () { onToggle(b.getAttribute('data-m')); }); }); }
+  function toggleIn(arr, v) { var i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); vibrate(8); }
+  function renderLangs() { multiRender('lang-chips', 'lang-q', LANG_FEW, LANG_ALL, S.langs, function (l) { toggleIn(S.langs, l); renderLangs(); }); }
+  $('#lang-q').addEventListener('input', renderLangs);
+  function renderStyles() { multiRender('sty-chips', 'sty-q', STY_FEW, STY_ALL, S.styles, function (s) { toggleIn(S.styles, s); renderStyles(); }); validateStyles(); }
+  function validateStyles() { gate('styles', S.styles.length ? '' : 'Tick at least one style to continue.'); }
+  VALIDATE.styles = validateStyles; $('#sty-q').addEventListener('input', renderStyles);
+
+  /* ---------- teach ---------- */
+  function renderTeach() { $$('[data-teach]').forEach(function (t) { t.setAttribute('aria-checked', t.getAttribute('data-teach') === S.teach); }); $$('[data-level]').forEach(function (t) { t.setAttribute('aria-checked', S.levels.indexOf(t.getAttribute('data-level')) >= 0); }); $('#tc-next').setAttribute('data-go', S.teach === 'no' ? 'about' : 'levels'); validateTeach(); validateLevels(); }
+  function validateTeach() { gate('teach', S.teach ? '' : 'Pick yes or no.'); }
+  function validateLevels() { gate('levels', S.levels.length ? '' : 'Tick at least one level to continue.'); }
+  VALIDATE.teach = validateTeach; VALIDATE.levels = validateLevels;
+  $$('[data-teach]').forEach(function (t) { t.addEventListener('click', function () { S.teach = t.getAttribute('data-teach'); vibrate(8); renderTeach(); }); });
+  $$('[data-level]').forEach(function (t) { t.addEventListener('click', function () { toggleIn(S.levels, t.getAttribute('data-level')); renderTeach(); }); });
+  function yearsOk() { var y = $('#yrs').value; return y !== '' && /^\d+$/.test(y) && +y <= 60; }
+  function validateYears() { var y = $('#yrs').value, ok = yearsOk(); errAt('yrs', y !== '' && !ok ? 'Whole years only, 0 to 60.' : ''); S.years = ok ? y : ''; gate('years', ok ? '' : (y === '' ? 'Add years teaching to continue (0 is fine).' : 'Fix years teaching to continue.')); }
+  VALIDATE.years = validateYears; $('#yrs').addEventListener('input', validateYears);
+
+  /* ---------- about / email ---------- */
+  function starter() { var sty = S.styles.length ? S.styles.slice(0, 2).join(' and ').toLowerCase() : 'bachata'; return (S.page || ORG) + (S.cat ? ', a ' + S.cat.toLowerCase() + ',' : '') + ' runs ' + sty + ' classes and socials in ' + (S.city || 'Leeds') + '.'; }
+  $('#ab-use').addEventListener('click', function () { $('#ab-text').value = starter(); $('#ab-text').dispatchEvent(new Event('input')); $('#ab-text').focus(); });
+  $('#ab-text').addEventListener('input', function () { S.about = this.value; $('#ab-count').textContent = this.value.length + ' / 500'; });
+  function validateSignin() { var e = $('#em').value.trim(), ok = !e || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e); errAt('em', ok ? '' : 'That doesn&rsquo;t look like an email. Check for a missing @ or dot.'); gate('email', ok ? '' : 'Fix the email, or leave it empty.'); S.signinEmail = ok ? e : ''; }
+  VALIDATE.email = validateSignin; $('#em').addEventListener('input', validateSignin);
+
+  /* ---------- review ---------- */
+  function catLabel(v) { return v ? v.charAt(0) + v.slice(1).toLowerCase() : v; } /* fix 9: Title Case data values read as sentence case on cards; stored values unchanged */
+  function missing() { var m = []; if (!S.page) m.push(['find', 'Your page', 'Find, claim or create it']); if (!contactOk()) m.push(['contact', 'Contact', 'A phone number or email']); if (!S.cat) m.push(['cat', 'What kind of page', 'School, event brand, group, promoter or festival']); if (!S.link) m.push(['link', 'One link', 'Website, Instagram or Facebook']); if (!S.logo) m.push(['logo', 'Logo', 'Shown beside your name']); if (!$('#y-name').value.trim()) m.push(['name', 'First name', '']); if (!S.photo) m.push(['photo', 'Your photo', 'Add one to continue']); if (!S.role) m.push(['role', 'How you dance', 'Leader, Follower or Both']); if (!S.nat) m.push(['nat', 'Nationality', '']); if (!S.teach) m.push(['teach', 'Do you teach?', 'Yes or no is enough']); else if (S.teach === 'yes') { if (!S.levels.length) m.push(['levels', 'Teaching levels', 'At least one']); if (!S.styles.length) m.push(['styles', 'Styles you teach', 'At least one']); if (!yearsOk()) m.push(['years', 'Years teaching', '0 is fine']); } return m; }
+  function doneRows() { var d = []; if (S.page) d.push(['find', S.page, S.pageMode === 'invite' ? 'Invited by Ana' : S.pageMode === 'create' ? 'New page in ' + (S.city || '') : 'Claimed']); if (contactOk()) d.push(['contact', 'Contact', S.contactMode === 'phone' ? S.phone + (S.wa === 'yes' ? ', WhatsApp' : '') : S.email]); if (S.cat) d.push(['cat', 'What kind of page', catLabel(S.cat)]); if (S.link) d.push(['link', 'One link', S.link]); if (S.logo) d.push(['logo', 'Logo', 'Added']); if ($('#y-name').value.trim()) d.push(['name', 'First name', $('#y-name').value.trim()]); if (S.photo) d.push(['photo', 'Your photo', 'Added']); if (S.role) d.push(['role', 'How you dance', S.role === 'Lead and Follow' ? 'Both' : S.role]); if (S.nat) d.push(['nat', 'Nationality', S.nat[1]]); if (S.teach === 'no') d.push(['teach', 'Teaching', 'No, just organising']); else if (S.teach === 'yes') { if (S.levels.length) d.push(['levels', 'Teaching levels', S.levels.join(', ')]); if (S.styles.length) d.push(['styles', 'Styles', S.styles.join(', ')]); if (yearsOk()) d.push(['years', 'Years teaching', $('#yrs').value]); } return d; }
+  function optRows() { return [['langs', 'Languages', S.langs.length ? S.langs.join(', ') : 'Not added. Fine to skip', !!S.langs.length], ['about', 'About', S.about ? S.about.slice(0, 60) + (S.about.length > 60 ? '&hellip;' : '') : 'Not added. Fine to skip', !!S.about], ['email', 'Personal email', S.signinEmail || 'Not added. Private if you do', !!S.signinEmail]]; }
+  function rowHtml(go, title, sub, cls, icon, act) { return '<button class="row-btn" ' + (act ? 'data-act="go" data-to="' + go + '"' : 'data-go="' + go + '"') + '><span class="st ' + cls + '"><svg><use href="#' + icon + '"/></svg></span><span class="grow"><strong>' + title + '</strong>' + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</span><svg class="chev"><use href="#i-chev"/></svg></button>'; }
+  function buildReview() { var m = missing(), d = doneRows(), o = optRows(), n = m.length, oAdded = o.filter(function (r) { return r[3]; }).length; $('#rv-title').innerHTML = n ? (n === 1 ? 'One thing left' : n + ' things left') : 'All set'; $('#rv-sub').innerHTML = d.length + ' done &middot; ' + n + ' to do &middot; ' + oAdded + ' of 3 optional added'; $('#rv-next-item').innerHTML = n ? rowHtml(m[0][0], m[0][1], m[0][2] || 'Next up', 'st-no', 'i-warn') : rowHtml('review', esc(S.page || ORG), 'Everything is in. Tap Go live.', 'st-ok', 'i-tick'); gate('review', n ? (n === 1 ? 'Add the missing item to go live.' : 'Add the ' + n + ' missing items to go live.') : ''); }
+  VALIDATE.review = buildReview;
+  $('#rv-next').addEventListener('click', function (ev) { ev.stopImmediatePropagation(); if (this.getAttribute('aria-disabled') === 'true') { showWhy(this); return; } var b = this; b.innerHTML = '<span class="spin" aria-hidden="true"></span>Going live&hellip;'; b.setAttribute('aria-disabled', 'true'); setTimeout(function () { b.innerHTML = 'Go live'; b.setAttribute('aria-disabled', 'false'); S.live = true; vibrate([10, 40, 20]); show('live'); }, 700); }, true);
+
+  /* ---------- live ---------- */
+  function renderLive() { var a = S.alreadyLive; $('#lv-title').innerHTML = a ? 'All done' : 'You&rsquo;re live'; $('#lv-sub').innerHTML = a ? 'You can create and edit events now.<span class="tx-l"> Your page was live already; nothing else changes.</span>' : esc(ORG) + ' is on the calendar.<span class="tx-l"> Dancers can find you now. Next: add your first event.</span>'; $('#lv-view').hidden = a; $('#lv-add').hidden = !a; if (a) { var c = $('#confetti'); c.getContext('2d').clearRect(0, 0, c.width, c.height); } }
+  $('#lv-add').addEventListener('click', function () { toast('Not in this prototype: the event wizard is W4b.'); });
+  function confetti() { if (rm()) return; var c = $('#confetti'), x = c.getContext('2d'), W = c.width = c.clientWidth, H = c.height = c.clientHeight, cols = ['#f0703a', '#a8461a', '#17663f', '#f5c86a', '#ffffff'], ps = []; for (var i = 0; i < 90; i++) ps.push({ x: W / 2 + (Math.random() - .5) * 60, y: H * .45, vx: (Math.random() - .5) * 9, vy: -Math.random() * 11 - 4, r: 4 + Math.random() * 5, c: cols[i % cols.length], a: Math.random() * 6, s: (Math.random() - .5) * .3 }); var t0 = performance.now(); function f(t) { var dt = t - t0; x.clearRect(0, 0, W, H); ps.forEach(function (p) { p.vy += .25; p.x += p.vx; p.y += p.vy; p.a += p.s; x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.globalAlpha = Math.max(0, 1 - dt / 1900); x.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * .6); x.restore(); }); if (dt < 1900) requestAnimationFrame(f); else x.clearRect(0, 0, W, H); } requestAnimationFrame(f); }
+  $('#share-btn').addEventListener('click', function () { var url = 'https://bachatacalendar.com/organisers/bachata-nights-leeds'; if (navigator.share) { navigator.share({ title: S.page, url: url }).catch(function () {}); } else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function () { toast('Link copied. Paste it anywhere.'); }, function () { toast('Copy this link: ' + url); }); } else toast('Copy this link: ' + url); });
+
+  /* ---------- home ---------- */
+  $('#tab-home').addEventListener('click', function () { $('.scr[data-id="home"] .main').scrollTop = 0; toast('You are on Home already.'); });
+  $('#grace-x').addEventListener('click', function () { S.graceHidden = true; buildHome(); toast('Hidden for today. It comes back tomorrow.'); });
+  $('#home-add').addEventListener('click', function () { if (missing().length && S.graceOver) openSheet('gate'); else toast('Not in this prototype: the event wizard is W4b.' + (missing().length ? ' During the grace period you can still add events.' : '')); });
+  function buildHome() { var m = missing(), inc = m.length > 0; $('#grace').hidden = !inc || S.graceHidden; $('#home-done').hidden = inc || !S.live; $('#grace-days').textContent = S.graceOver ? 'Grace ended' : S.graceDays + ' day' + (S.graceDays === 1 ? '' : 's') + ' left'; $('#grace-p').innerHTML = S.graceOver ? 'The grace period has ended, so Add an event asks for them first.' : 'From Monday 16 November you&rsquo;ll need them.<span class="tx-l"> Until then everything works as usual.</span>'; $('#home-status').textContent = S.live ? 'Live' : 'Draft. Not on the calendar yet'; var h = ''; m.forEach(function (r) { h += rowHtml(r[0], r[1], r[2], 'st-no', 'i-warn'); }); if (!inc) h += rowHtml('review', 'Page details', 'All done', 'st-ok', 'i-tick'); h += rowHtml('about', 'About', S.about ? 'Added' : 'Optional, not added', S.about ? 'st-ok' : 'st-opt', S.about ? 'i-tick' : 'i-plus'); $('#home-list').innerHTML = h; }
+
+  /* ---------- sheets ---------- */
+  var sheetBody = $('#sheet-body'), sheetTitle = $('#sheet-title'), lastFocus = null;
+  function openSheet(kind, arg) {
+    var h = '', t = '';
+    if (kind === 'signout') { t = 'Sign out'; h = '<p class="p">Sign out of sam@example.com on this device?</p><button class="btn btn-line" data-close>No, stay signed in</button><button class="btn" data-act="toast" data-msg="Signed out (prototype only).">Yes, sign out</button>'; }
+    else if (kind === 'notme') { t = 'Not your page?'; h = '<p class="p">No problem. You can find your own page, or create a new one.</p><button class="btn" data-act="go" data-to="find">Find my page</button><button class="btn btn-line" data-act="toast" data-msg="Ana would get a note (prototype only).">Tell Ana it&rsquo;s the wrong person</button>'; }
+    else if (kind === 'claim') { t = 'Is ' + esc(arg.n) + ' yours?'; h = '<p class="p">Claim it and you become the owner.<span class="tx-l"> We check the mailbox on the page first: a 6-digit code is sent to it.</span></p><div class="fld"><label class="lbl" for="code">6-digit code <span class="sub" style="display:inline">sent to h&bull;&bull;&bull;@bnleeds.com</span></label><input class="inp" id="code" inputmode="numeric" maxlength="6" placeholder="123456" style="letter-spacing:.3em"><p class="err" id="code-err"></p></div><button class="btn" data-act="claim">Claim it</button><button class="btn btn-line" data-close>Not this one</button>'; }
+    else if (kind === 'ask') { t = esc(arg.n) + ' already has an owner'; h = '<p class="p">Ask to join the team. They get a message and say yes or no.</p><div class="fld"><label class="lbl" for="who">Who are you? <span class="opt">optional</span></label><textarea class="inp" id="who" placeholder="I run the Tuesday classes with Ana" maxlength="500"></textarea></div><button class="btn" data-act="asked">Ask to join</button><button class="btn btn-line" data-close>Not this one</button>'; }
+    else if (kind === 'asked') { t = 'Asked'; h = '<div class="ok">Sent. We&rsquo;ll email you when they answer.</div><p class="p">Meanwhile you can fill in your own details so you&rsquo;re ready.</p><button class="btn" data-act="go" data-to="contact">Carry on</button><button class="btn btn-line" data-act="go" data-to="home">Go to Home</button>'; }
+    else if (kind === 'nat') { t = 'All countries'; h = '<div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="nat-sq" type="search" placeholder="Type to jump: Spa&hellip;" autocomplete="off"></div><div class="mix" id="nat-list"></div>'; }
+    else if (kind === 'langs') { t = 'More languages'; h = '<div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="lang-sq" type="search" placeholder="Search languages" autocomplete="off"></div><div class="chips" id="lang-picked"></div><div class="mix" id="lang-list"></div>'; }
+    else if (kind === 'styles') { t = 'More styles'; h = '<div class="search"><svg><use href="#i-search"/></svg><input class="inp" id="sty-sq" type="search" placeholder="Search styles" autocomplete="off"></div><div class="chips" id="sty-picked"></div><div class="mix" id="sty-list"></div>'; }
+    else if (kind === 'photo') { t = 'Add a photo'; h = '<p class="p">Your phone&rsquo;s camera or gallery should have opened.<span class="tx-l"> If nothing happened, your browser blocked it, which is fine in a prototype.</span></p><button class="btn btn-line" data-act="sample">Use a sample photo (prototype)</button><button class="btn btn-line" data-close>Cancel</button>'; }
+    else if (kind === 'crop') { t = 'Looking good?'; h = '<p class="m" style="text-align:center">Drag to move, slide to zoom.</p><div class="crop' + (S.photoTarget === 'logo' ? ' sq' : '') + '" id="crop"><img id="crop-img" alt="" src="' + arg + '"></div><label class="lbl" for="zoom">Zoom</label><input class="slider" id="zoom" type="range" min="1" max="3" step="0.01" value="1"><button class="btn" data-act="usecrop">Use this photo</button><button class="btn btn-line" data-act="retry-photo">Choose another</button>'; }
+    else if (kind === 'teachmore') { t = 'More about your teaching'; h = '<div class="row"><div class="grow"><strong>Private lessons</strong><span class="sub">Shown as a badge on your teacher page</span></div><button class="sw" role="switch" aria-checked="false" aria-label="Private lessons"></button></div><div class="fld"><label class="lbl" for="where">Where you teach <span class="opt">optional</span></label><input class="inp" id="where" placeholder="Studio name or area"></div><button class="btn" data-close>Done</button>'; }
+    else if (kind === 'gate') { t = 'A few details first'; h = '<p class="p">We ask everyone who runs a page.<span class="tx-l"> It takes about five minutes and you only do it once.</span></p><div class="card" style="padding:4px 12px"><div class="list">' + missing().map(function (r) { return '<div class="row-btn" style="cursor:default"><span class="st st-no"><svg><use href="#i-warn"/></svg></span><span class="grow"><strong>' + r[1] + '</strong>' + (r[2] ? '<span class="sub">' + r[2] + '</span>' : '') + '</span></div>'; }).join('') + '</div></div><button class="btn" data-act="go" data-to="review">Continue</button><button class="btn btn-line" data-close>Not now</button>'; }
+    else if (kind === 'all') { t = 'Everything on your page'; var rows = ''; missing().forEach(function (r) { rows += rowHtml(r[0], r[1], r[2], 'st-no', 'i-warn', true); }); doneRows().forEach(function (r) { rows += rowHtml(r[0], esc(r[1]), esc(r[2]), 'st-ok', 'i-tick', true); }); optRows().forEach(function (r) { rows += rowHtml(r[0], r[1] + ' <span class="opt">optional</span>', esc(r[2]), r[3] ? 'st-ok' : 'st-opt', r[3] ? 'i-tick' : 'i-plus', true); }); h = '<p class="m">Tap a row to change it. This list scrolls.</p><div class="card" style="padding:4px 12px"><div class="list">' + rows + '</div></div>'; }
+    else if (kind === 'settings') { t = 'Settings'; h = '<p class="m">Settings is not onboarding: it may scroll.</p><div class="row"><div class="grow"><strong>Dark mode</strong><span class="sub">True black, easier on the eyes at night</span></div><button class="sw" id="theme-sw" role="switch" aria-checked="' + effectiveDark() + '" aria-label="Dark mode"></button></div><div class="row"><div class="grow"><strong>Signed in as sam@example.com</strong><span class="sub">Sign-out lives here too</span></div></div><div class="row"><div class="grow"><strong>Page name</strong><span class="sub">' + esc(S.page || ORG) + '. Rename is today&rsquo;s field, not drawn.</span></div></div><button class="btn btn-line" data-act="go" data-to="review">Edit my details</button><button class="btn" data-close>Done</button>'; }
+    else if (kind === 'viewpage') { t = 'Public page'; h = '<p class="p">Not in this prototype: the public organiser page already exists on the site and is unchanged by onboarding.</p><button class="btn" data-close>OK</button>'; }
+    else if (kind === 'tabs') { t = 'Not in this prototype'; h = '<p class="p">The Events and Money tabs are the existing P3 screens. They are not drawn here; only the banner on Home changes.</p><button class="btn" data-close>OK</button>'; }
+    sheetTitle.innerHTML = t; sheetBody.innerHTML = h; lastFocus = document.activeElement; $('#scrim').setAttribute('data-open', 'true');
+    $$('.sw', sheetBody).forEach(function (sw) { sw.addEventListener('click', function () { sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') !== 'true'); vibrate(8); if (sw.id === 'theme-sw') setTheme(sw.getAttribute('aria-checked') === 'true' ? 'dark' : 'light'); }); });
+    $$('[data-close]', sheetBody).forEach(function (b) { b.addEventListener('click', closeSheet); });
+    $$('[data-act]', sheetBody).forEach(function (b) { b.addEventListener('click', function () { var a = b.getAttribute('data-act');
+      if (a === 'toast') { closeSheet(); toast(b.getAttribute('data-msg')); }
+      else if (a === 'go') { closeSheet(); nice(b, function () { show(b.getAttribute('data-to')); }); }
+      else if (a === 'claim') { var v = $('#code').value.trim(); if (!/^\d{6}$/.test(v)) { errAt('code', 'Enter the 6 digits from the email.'); $('#code').focus(); return; } if (v === '000000') { errAt('code', 'That code didn&rsquo;t match. Check the latest email, or ask for a new code.'); return; } S.page = arg.n; S.pageMode = 'claim'; closeSheet(); nice(b, function () { show('contact'); }); }
+      else if (a === 'asked') { S.page = arg.n; S.pageMode = 'asked'; openSheet('asked'); }
+      else if (a === 'sample') { closeSheet(); openSheet('crop', samplePhoto()); }
+      else if (a === 'retry-photo') { closeSheet(); $('#y-file').value = ''; $('#y-file').click(); openSheet('photo'); }
+      else if (a === 'usecrop') { setPhoto(cropResult()); closeSheet(); toast('Nice one.'); vibrate(12); }
+    }); });
+    if (kind === 'nat') { renderNatList(''); $('#nat-sq').addEventListener('input', function () { renderNatList(this.value); }); setTimeout(function () { var q = $('#nat-sq'); if (q) q.focus(); }, 50); }
+    if (kind === 'langs') { renderPickList('lang', LANG_ALL, S.langs, renderLangs); }
+    if (kind === 'styles') { renderPickList('sty', STY_ALL, S.styles, renderStyles); }
+    if (kind === 'crop') initCrop();
+    var first = $('input, button', sheetBody); if (first && kind !== 'nat') first.focus();
+  }
+  function closeSheet() { $('#scrim').setAttribute('data-open', 'false'); sheetBody.innerHTML = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+  function renderNatList(q) { q = q.trim().toLowerCase(); var list = $('#nat-list'), h = ''; function row(c) { return '<button class="row-btn" data-nat="' + c[0] + '"><span class="flag" aria-hidden="true">' + flag(c[0]) + '</span><span class="grow">' + esc(c[1]) + '</span>' + (S.nat && S.nat[0] === c[0] ? '<span class="st st-ok"><svg><use href="#i-tick"/></svg></span>' : '') + '</button>'; }
+    if (!q) { h += '<div class="sect">Popular</div>' + POPULAR.map(row).join('') + '<div class="sect">All countries</div>' + MORE.map(row).join(''); }
+    else { var hits = ALL_NAT.filter(function (c) { return c[1].toLowerCase().indexOf(q) === 0 || c[1].toLowerCase().indexOf(' ' + q) >= 0; }); h = hits.length ? hits.map(row).join('') : '<div class="empty"><strong>No country matches &ldquo;' + esc(q) + '&rdquo;</strong><p class="m">Try the English name, like &ldquo;Spain&rdquo;.</p></div>'; }
+    list.innerHTML = h; $$('[data-nat]', list).forEach(function (b) { b.addEventListener('click', function () { var cc = b.getAttribute('data-nat'); S.nat = ALL_NAT.filter(function (c) { return c[0] === cc; })[0]; vibrate(10); $('#nat-q').value = ''; renderNat(); closeSheet(); }); }); }
+  function renderPickList(p, all, picked, onChange) { var qEl = $('#' + p + '-sq'); function paint() { var q = qEl.value.trim().toLowerCase(), pk = $('#' + p + '-picked'), list = $('#' + p + '-list'); pk.innerHTML = picked.map(function (l) { return '<button class="chip" aria-pressed="true" data-ul="' + esc(l) + '">' + esc(l) + '<span class="x" aria-hidden="true"><svg><use href="#i-x"/></svg></span></button>'; }).join('') || '<p class="m">None ticked yet.</p>'; var hits = all.filter(function (l) { return !q || l.toLowerCase().indexOf(q) >= 0; }); list.innerHTML = hits.length ? hits.map(function (l) { var on = picked.indexOf(l) >= 0; return '<button class="row-btn" data-ll="' + esc(l) + '" aria-pressed="' + on + '"><span class="grow">' + esc(l) + '</span>' + (on ? '<span class="st st-ok"><svg><use href="#i-tick"/></svg></span>' : '') + '</button>'; }).join('') : '<div class="empty"><strong>Nothing matches &ldquo;' + esc(q) + '&rdquo;</strong><p class="m">Try its English name.</p></div>'; $$('[data-ll], [data-ul]', sheetBody).forEach(function (b) { b.addEventListener('click', function () { toggleIn(picked, b.getAttribute('data-ll') || b.getAttribute('data-ul')); onChange(); paint(); }); }); } paint(); qEl.addEventListener('input', paint); }
+  var crop = { z: 1, x: 0, y: 0, img: null, base: 1 };
+  function initCrop() { var img = $('#crop-img'); crop.img = img; crop.z = 1; crop.x = 0; crop.y = 0; img.onload = function () { crop.base = 240 / Math.min(img.naturalWidth, img.naturalHeight); paintCrop(); }; if (img.complete) img.onload(); var box = $('#crop'), drag = null; box.addEventListener('pointerdown', function (e) { drag = { x: e.clientX - crop.x, y: e.clientY - crop.y }; box.setPointerCapture(e.pointerId); }); box.addEventListener('pointermove', function (e) { if (!drag) return; crop.x = e.clientX - drag.x; crop.y = e.clientY - drag.y; paintCrop(); }); box.addEventListener('pointerup', function () { drag = null; }); $('#zoom').addEventListener('input', function () { crop.z = +this.value; paintCrop(); }); }
+  function paintCrop() { var i = crop.img, s = crop.base * crop.z, w = i.naturalWidth * s, h = i.naturalHeight * s, lim = function (v, m) { return Math.max(-m, Math.min(m, v)); }; crop.x = lim(crop.x, (w - 240) / 2); crop.y = lim(crop.y, (h - 240) / 2); i.style.width = w + 'px'; i.style.height = h + 'px'; i.style.transform = 'translate(calc(-50% + ' + crop.x + 'px), calc(-50% + ' + crop.y + 'px))'; }
+  function cropResult() { var c = document.createElement('canvas'); c.width = c.height = 320; var x = c.getContext('2d'), i = crop.img, s = crop.base * crop.z * (320 / 240), w = i.naturalWidth * s, h = i.naturalHeight * s; x.drawImage(i, 160 - w / 2 + crop.x * (320 / 240), 160 - h / 2 + crop.y * (320 / 240), w, h); return c.toDataURL('image/jpeg', .85); }
+
+  /* ---------- audit: measured, not asserted. Run from the console: __proto.audit() for the current screen + settings ---------- */
+  function parseColor(s) { var m = /rgba?\(([^)]+)\)/.exec(s || ''); if (!m) return null; var p = m[1].split(',').map(parseFloat); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; }
+  function lum(c) { var f = function (v) { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(c[0]) + .7152 * f(c[1]) + .0722 * f(c[2]); }
+  function blend(top, under) { var a = top[3]; return [top[0] * a + under[0] * (1 - a), top[1] * a + under[1] * (1 - a), top[2] * a + under[2] * (1 - a), 1]; }
+  function bgOf(el) { var a = el; while (a && a !== document.body) { var c = parseColor(getComputedStyle(a).backgroundColor); if (c && c[3] > 0) { if (c[3] >= 1) return c; return blend(c, bgOf(a.parentElement)); } a = a.parentElement; } return parseColor(getComputedStyle($('.frame')).backgroundColor) || [255, 255, 255, 1]; }
+  function ratio(fg, bg) { var a = lum(fg), b = lum(bg); return (Math.max(a, b) + .05) / (Math.min(a, b) + .05); }
+  function desc(e) { var t = (e.textContent || e.getAttribute('aria-label') || e.getAttribute('placeholder') || '').trim().replace(/\s+/g, ' ').slice(0, 28); return e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.split(' ')[0] : '') + ' "' + t + '"'; }
+  function audit() {
+    var sc = cur(); sc.classList.remove('in-r', 'in-l'); var stage = $('#stage'), fr = stage.getBoundingClientRect(), main = $('.main', sc);
+    var r = { id: sc.getAttribute('data-id'), state: sc.getAttribute('data-state') || 'normal', size: root.getAttribute('data-size'), ts: root.getAttribute('data-ts'), kb: root.getAttribute('data-kbon') === 'true', theme: effectiveDark() ? 'dark' : 'light', stageH: Math.round(stage.clientHeight), stageW: Math.round(stage.clientWidth), mayScroll: sc.hasAttribute('data-scrolls') };
+    r.spare = main ? main.clientHeight - main.scrollHeight : sc.clientHeight - sc.scrollHeight; /* px of room left; negative = the page would scroll */
+    r.scrSpare = sc.clientHeight - sc.scrollHeight;
+    /* room = px left below the lowest visible item in .main before the page would scroll (spare only shows the overflow) */
+    if (main) { var mb = main.getBoundingClientRect(), low = mb.top + parseFloat(getComputedStyle(main).paddingTop); $$('*', main).forEach(function (e) { var cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return; var b = e.getBoundingClientRect(); if (b.height && b.bottom > low && !e.closest('.scrollbox') && !e.closest('[hidden]')) low = b.bottom; }); r.room = Math.round(mb.bottom - parseFloat(getComputedStyle(main).paddingBottom) - low); if (r.spare < 0) r.room = r.spare; } else r.room = r.scrSpare;
+    r.overX = 0; r.clipped = []; r.minFont = 999; r.taps = []; r.contrastMin = 99; r.contrastFails = [];
+    function vis(e) { var b = e.getBoundingClientRect(); if (!b.width || !b.height) return false; var cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) return false; return !e.closest('.sr') && !e.closest('[aria-hidden="true"]'); }
+    $$('*', sc).filter(vis).forEach(function (e) {
+      var b = e.getBoundingClientRect(), cs = getComputedStyle(e);
+      if (e.tagName !== 'CANVAS' && (b.right > fr.right + 1 || b.left < fr.left - 1)) r.overX++;
+      var isField = /^(INPUT|TEXTAREA)$/.test(e.tagName) && e.type !== 'file' && e.type !== 'range';
+      var hasText = isField || Array.prototype.some.call(e.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+      if (hasText) {
+        var fs = parseFloat(cs.fontSize); if (fs < r.minFont) r.minFont = fs;
+        var a = e.parentElement, clip = null; while (a && a !== stage) { var o = getComputedStyle(a).overflow; if (o !== 'visible') { clip = a; break; } a = a.parentElement; }
+        if (clip) { var cb = clip.getBoundingClientRect(); var horiz = b.right > cb.right + 1; var vert = b.bottom > cb.bottom + 1 && clip !== main && !clip.classList.contains('scrollbox') && !clip.classList.contains('sheet-body'); if (horiz || vert) r.clipped.push(desc(e)); }
+        if (!isField && cs.overflow !== 'visible' && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1)) r.clipped.push('inner:' + desc(e));
+        if (!isField && b.bottom > fr.bottom + 1 && !(main && main.contains(e))) r.clipped.push('offscreen:' + desc(e));
+        var bg = bgOf(isField ? e : e), fg = parseColor(cs.color); var big = fs >= 24 || (fs >= 18.66 && parseInt(cs.fontWeight, 10) >= 700); var need = big ? 3 : 4.5;
+        var rt = ratio(fg, bg); if (rt < r.contrastMin) r.contrastMin = rt; if (rt < need) r.contrastFails.push(desc(e) + ' ' + rt.toFixed(2));
+        if (isField && !e.value) { var pc = parseColor(getComputedStyle(e, '::placeholder').color); if (pc) { var pr = ratio(pc, bg); if (pr < r.contrastMin) r.contrastMin = pr; if (pr < 4.5) r.contrastFails.push('placeholder ' + desc(e) + ' ' + pr.toFixed(2)); } }
+      }
+      if (e.matches('button, a, input, textarea, select, [role="button"], [role="switch"]') && e.type !== 'file') { if (b.width < 44 || b.height < 44) r.taps.push(desc(e) + ' ' + Math.round(b.width) + 'x' + Math.round(b.height)); }
+    });
+    r.contrastMin = +r.contrastMin.toFixed(2); if (r.minFont === 999) r.minFont = null;
+    r.box = null; $$('.scrollbox', sc).forEach(function (b) { if (!vis(b)) return; var h = Math.round(b.getBoundingClientRect().height); if (r.box === null || h < r.box) r.box = h; }); /* smallest visible picker region (fix 2: must be >= 52) */
+    r.rmOk = rm() ? (getComputedStyle(sc).animationName === 'none' && (!$('canvas.confetti', sc) || getComputedStyle($('canvas.confetti', sc)).display === 'none')) : null;
+    return r;
+  }
+  function screens() { return $$('.scr').map(function (s) { return { id: s.getAttribute('data-id'), title: s.getAttribute('data-title'), field: s.hasAttribute('data-field'), scrolls: s.hasAttribute('data-scrolls'), loading: !!$('.skeleton', s), error: !!$('.readfail', s) }; }); }
+  function setCheck(size, ts, kb, theme) { root.setAttribute('data-size', size); syncDrawer('size', size); root.setAttribute('data-ts', ts); $('[data-set="ts"]').setAttribute('aria-pressed', ts === '130'); S.kb = kb; root.setAttribute('data-kb', kb); $('[data-set="kb"]').setAttribute('aria-pressed', kb); if (theme) setTheme(theme); paintKb(); }
+
+  /* ---------- init ---------- */
+  $$('[data-org]').forEach(function (el) { el.textContent = ORG; });
+  buildWelcome(); renderAll(); $('#jump').value = 'welcome'; paintKb();
+  window.__proto = { show: show, state: S, missing: missing, openSheet: openSheet, closeSheet: closeSheet, applyState: applyState, fill: fill, clearAll: clearAll, audit: audit, screens: screens, setCheck: setCheck, setTheme: setTheme };
+})();
+</script>
+</body>
+</html>

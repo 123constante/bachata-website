@@ -13,6 +13,8 @@
 import { Suspense, useState, type ReactNode } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import type { ListingSection } from '@/lib/featureFlags';
+import type { PageCity } from '@/lib/pageCity';
+import { listingSourceUrl } from '@/components/listingSourceUrl';
 
 // Through ComingSoonGate, not the form's own module: see the re-export there.
 const ListingRequestForm = lazyWithRetry(() =>
@@ -24,6 +26,37 @@ export const EMPTY_CITY_TELL_US = 'Tell us';
 export function emptyCityNoteText(cityName: string): string {
   return `Nothing listed in ${cityName} yet. Run a night or know a teacher?`;
 }
+
+// The list half of pageCity: whether a directory page shows this note, and the
+// venues cut. Here, not in pageCity.ts (which rides lib-event-rules, in the first
+// load of every route, /app included) and not in a module of their own (a chunk
+// of its own on /venues, /dancers, /djs, /organisers): every page that reads them
+// renders this note, so they ride its chunk. Moved 2026-10-27, /app bundle trim.
+
+/**
+ * A city-wide list (venues) cut to the page city by its city_name. London is
+ * returned untouched -- the London page is byte-identical to before, its
+ * three off-city venues included under "Elsewhere".
+ */
+export function rowsForCity<T extends { city_name?: string | null }>(rows: readonly T[], city: PageCity): readonly T[] {
+  if (city.isLondon) return rows;
+  const want = city.name.toLowerCase();
+  return rows.filter((r) => (r.city_name ?? '').trim().toLowerCase() === want);
+}
+
+/**
+ * Global directories (dancers, DJs, organisers) list everyone; true when the
+ * page city is not London and no row is in it, so the page shows the
+ * empty-city note above the everyone-list.
+ */
+export function cityHasNoRows<T>(rows: readonly T[], city: PageCity, cityOf: (row: T) => string | null | undefined): boolean {
+  if (city.isLondon) return false;
+  const want = city.name.toLowerCase();
+  return !rows.some((r) => (cityOf(r) ?? '').trim().toLowerCase() === want);
+}
+
+/** The line under the note on a global directory. */
+export const SHOWING_EVERYONE = 'Showing everyone for now.';
 
 interface EmptyCityNoteProps {
   cityName: string;
@@ -77,7 +110,10 @@ export default function EmptyCityNote({
       {open && (
         <div className="mt-3 rounded-md bg-white p-3">
           <Suspense fallback={<p className="text-sm text-slate-600">Loading&hellip;</p>}>
-            <ListingRequestForm section={section} citySlug={citySlug} />
+            <ListingRequestForm
+              section={section}
+              getSourceUrl={() => listingSourceUrl(window.location.pathname, window.location.search, citySlug)}
+            />
           </Suspense>
         </div>
       )}

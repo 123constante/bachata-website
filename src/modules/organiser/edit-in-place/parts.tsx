@@ -11,12 +11,24 @@ import type { CardModel, CardRow } from './draftModel';
 export const GOLD = '#E7BE6E';
 export const INK = '#0C0A0D';
 export const CREAM = '#F6F1EA';
+// The pieces the owner's page renders read these `--eip-*` variables, whose fallbacks are the
+// R1 values above, so the public page and R1 /page paint exactly as before; P3's /you/page maps
+// them to P3 tokens (p3.css .p3-eip). The sheets (in document.body) keep GOLD/INK/CREAM.
+export const ACCENT = `var(--eip-accent, ${GOLD})`;
+/** ACCENT as a fill (pencil dots): P3 fills with --btn and writes with --gold-fg. */
+export const ACCENT_BG = `var(--eip-accent-bg, ${GOLD})`;
+/** Text or a glyph on ACCENT_BG. */
+export const ON_ACCENT = `var(--eip-ink, ${INK})`;
+export const FG = `var(--eip-fg, ${CREAM})`;
+export const MUTED = 'var(--eip-mut, rgba(246,241,234,0.7))';
+/** The hairline between the page's sections. */
+export const RULE = '1px solid var(--eip-line, rgba(246,241,234,0.08))';
 
 /** Global styles for the layer (dashed outline on drafted values, the tag). */
 export const LAYER_CSS = `
-.eip-drafted{outline:2px dashed ${GOLD};outline-offset:3px;border-radius:8px}
-.eip-unsaved{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;border:1px dashed ${GOLD};color:${GOLD};font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:lowercase;white-space:nowrap}
-.eip-pencil:focus-visible,.eip-btn:focus-visible,.eip-file:focus-within{outline:2px solid ${GOLD};outline-offset:2px}
+.eip-drafted{outline:2px dashed ${ACCENT};outline-offset:3px;border-radius:8px}
+.eip-unsaved{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:999px;border:1px dashed ${ACCENT};color:${ACCENT};font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:lowercase;white-space:nowrap}
+.eip-pencil:focus-visible,.eip-btn:focus-visible,.eip-file:focus-within{outline:2px solid ${ACCENT};outline-offset:2px}
 .eip-pencil--compact{width:32px;min-width:32px}
 .org-theme .eip-pencil--compact{width:44px;min-width:44px}
 `;
@@ -28,7 +40,7 @@ const pencilStyle: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0,
 };
 const pencilDot: CSSProperties = {
-  width: 28, height: 28, borderRadius: '50%', background: GOLD, color: INK,
+  width: 28, height: 28, borderRadius: '50%', background: ACCENT_BG, color: ON_ACCENT,
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
 };
 
@@ -128,7 +140,7 @@ export function PhotoSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenS
 
 const chip: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 2, minHeight: 32, padding: '0 0 0 10px', borderRadius: 999,
-  background: 'rgba(12,10,13,0.45)', border: '1px solid rgba(231,190,110,0.35)', color: CREAM, fontSize: 12.5, fontWeight: 600,
+  background: 'var(--eip-chip-bg, rgba(12,10,13,0.45))', border: '1px solid var(--eip-chip-line, rgba(231,190,110,0.35))', color: FG, fontSize: 12.5, fontWeight: 600,
 };
 
 // The chip is 32px high; its pencil keeps a 44px hit area by overhanging 6px above and below.
@@ -180,7 +192,7 @@ export function AboutSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenS
 }
 
 export const AboutEmpty = () => (
-  <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.6)' }} data-testid="eip-about-empty">
+  <p style={{ margin: 0, fontSize: 14, color: 'var(--eip-mut, rgba(246,241,234,0.6))' }} data-testid="eip-about-empty">
     Not added yet. Optional: tell dancers who you are and what your nights are like.
   </p>
 );
@@ -195,16 +207,16 @@ export function LinkRows({ values, drafted, onOpen }: {
   onOpen: OpenSheet;
 }) {
   return (
-    <section aria-labelledby="eip-links-title" className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="eip-links">
-      <h2 id="eip-links-title" style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: GOLD }}>Your links</h2>
+    <section aria-labelledby="eip-links-title" className="px-5 md:px-12 py-3" style={{ borderBottom: RULE }} data-testid="eip-links">
+      <h2 id="eip-links-title" style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: ACCENT }}>Your links</h2>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, maxWidth: 480 }}>
         {LINK_FIELDS.map((f) => {
           const v = values[f as 'instagram'];
           return (
             <li key={f} data-eip-link={f} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44 }}>
-              <span style={{ width: 76, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'rgba(246,241,234,0.6)' }}>{FIELD_LABEL[f]}</span>
+              <span style={{ width: 76, flexShrink: 0, fontSize: 12, fontWeight: 600, color: 'var(--eip-mut, rgba(246,241,234,0.6))' }}>{FIELD_LABEL[f]}</span>
               {/* minWidth 0 + ellipsis: a long value never runs under the pencil, which keeps its own 44px. */}
-              <span className={drafted[f] ? 'eip-drafted' : undefined} title={v ?? undefined} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, color: v ? CREAM : 'rgba(246,241,234,0.45)' }}>
+              <span className={drafted[f] ? 'eip-drafted' : undefined} title={v ?? undefined} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, color: v ? FG : 'var(--eip-mut, rgba(246,241,234,0.45))' }}>
                 {displayValue(f, v)}
               </span>
               {drafted[f] && <UnsavedTag field={f} />}
