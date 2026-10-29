@@ -49,14 +49,14 @@ const RSQ = '\u2019';
 
 export const ticketsWord = (n: number) => `${n} ticket${n === 1 ? '' : 's'}`;
 
-/** "21:42" in London; "21:42 on 27 Oct" when it was not today in London. */
+/** "21:42" in London; "21:42 on 27 October" when it was not today in London. */
 export function londonClock(iso: string | null, now: Date = new Date()): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   const tz = { timeZone: 'Europe/London' } as const;
   const time = new Intl.DateTimeFormat('en-GB', { ...tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
-  const day = (x: Date) => new Intl.DateTimeFormat('en-GB', { ...tz, day: 'numeric', month: 'short' }).format(x);
+  const day = (x: Date) => new Intl.DateTimeFormat('en-GB', { ...tz, day: 'numeric', month: 'long' }).format(x);
   return day(d) === day(now) ? time : `${time} on ${day(d)}`;
 }
 
@@ -71,9 +71,13 @@ export const RESULT_TABLE: Record<DoorResult, ResultRow> = {
   ok: {
     band: 'ok', headline: 'LET IN',
     sub: (c) => (c?.quantity && c.quantity > 1 ? `1 person ${DOT} ticket 1 of an order of ${c.quantity}` : `1 person ${N} enjoy the night`),
-    detail: (c) => (c?.quantity && c.quantity > 1
-      ? `Let 1 person in. The other ${ticketsWord(c.quantity - 1)} in this order each have their own code.`
-      : 'Let them in. Then scan the next code.'),
+    detail: (c) => {
+      const others = (c?.quantity ?? 1) - 1;
+      if (others < 1) return 'Let them in. Then scan the next code.';
+      return others === 1
+        ? 'Let 1 person in. The other ticket in this order has its own code.'
+        : `Let 1 person in. The other ${ticketsWord(others)} in this order each have their own code.`;
+    },
     vibrate: [80], actions: ['scan'], keepScanning: true,
   },
   already_in: {

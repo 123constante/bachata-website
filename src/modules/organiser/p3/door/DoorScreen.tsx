@@ -40,6 +40,7 @@ export function DoorScreen() {
 
 export function Door({ seriesId, deps = browserDeps }: { seriesId: string; deps?: ScannerDeps }) {
   const { user } = useAuth();
+  const uid = user?.id;
   const qc = useQueryClient();
   const list = useQuery({
     queryKey: doorKeys.list(user?.id, seriesId),
@@ -55,6 +56,9 @@ export function Door({ seriesId, deps = browserDeps }: { seriesId: string; deps?
   const [counts, setCounts] = useState<{ in: number; total: number } | null>(null);
   const gate = useRef(createScanGate());
   const busyRef = useRef(false);
+  // the code whose answer is on screen: held in front of the camera it never re-fires (an ok
+  // would turn into ALREADY IN after 2.5 s); Scan next or another code clears it
+  const onScreen = useRef<string | null>(null);
   const codeInput = useRef<HTMLInputElement>(null);
 
   const listCounts = list.data && list.data.inCount != null && list.data.totalCount != null ? { in: list.data.inCount, total: list.data.totalCount } : null;
@@ -69,10 +73,11 @@ export function Door({ seriesId, deps = browserDeps }: { seriesId: string; deps?
     setBusy(true);
     try {
       const c = await checkInTicket(code, seriesId);
+      onScreen.current = code;
       setShown({ kind: c.result, c });
       buzz(RESULT_TABLE[c.result].vibrate);
       if (c.in_count != null && c.total_count != null) setCounts({ in: c.in_count, total: c.total_count });
-      if (c.result === 'ok') void qc.invalidateQueries({ queryKey: doorKeys.list(user?.id, seriesId) });
+      if (c.result === 'ok') void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
     } catch (e) {
       if (isSignedOut(e)) setSignedOut(true);
       else {
@@ -83,11 +88,11 @@ export function Door({ seriesId, deps = browserDeps }: { seriesId: string; deps?
       busyRef.current = false;
       setBusy(false);
     }
-  }, [qc, seriesId, user?.id]);
+  }, [qc, seriesId, uid]);
 
   const onCamera = useCallback((raw: string) => {
     const code = parseCode(raw);
-    if (!code || busyRef.current || !gate.current.accept(code)) return;
+    if (!code || busyRef.current || code === onScreen.current || !gate.current.accept(code)) return;
     void run(code);
   }, [run]);
 
@@ -103,10 +108,11 @@ export function Door({ seriesId, deps = browserDeps }: { seriesId: string; deps?
   }, [cam]);
 
   const act = (a: NextAction) => {
-    if (a === 'scan') { setShown(null); gate.current.reset(); setTab('scan'); }
+    if (a === 'scan') { setShown(null); onScreen.current = null; gate.current.reset(); setTab('scan'); }
     if (a === 'list') setTab('list');
     if (a === 'type') {
       setShown(null);
+      onScreen.current = null;
       setTab('scan');
       requestAnimationFrame(() => codeInput.current?.focus({ preventScroll: true }));
     }
@@ -281,9 +287,9 @@ interface ListProps {
 function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId }: ListProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
-  const rows = list.data?.rows ?? [];
+  const rows = list.data?.rows;
   const term = q.trim().toLowerCase();
-  const hits = useMemo(() => (term ? rows.filter((r) => (r.firstName ?? '').toLowerCase().includes(term)) : rows), [rows, term]);
+  const hits = useMemo(() => (term ? (rows ?? []).filter((r) => (r.firstName ?? '').toLowerCase().includes(term)) : rows ?? []), [rows, term]);
   const offline = shown?.kind === 'no_signal';
   const loadedAt = list.data ? londonClock(new Date(list.data.loadedAt).toISOString()) : null;
 
@@ -316,7 +322,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId }: L
   if (d.result === 'not_allowed') {
     return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} /></div>;
   }
-  if (!rows.length) return <>{top}<EmptySold seriesId={seriesId} /></>;
+  if (!rows?.length) return <>{top}<EmptySold seriesId={seriesId} /></>;
   return (
     <>
       {top}

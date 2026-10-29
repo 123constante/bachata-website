@@ -52,13 +52,15 @@ describe('the ONE result table', () => {
   });
   it('ok says how many the ORDER holds and lets ONE person in (one QR per ticket)', () => {
     expect(RESULT_TABLE.ok.sub(reply({ quantity: 2 }))).toBe('1 person \u00b7 ticket 1 of an order of 2');
-    expect(RESULT_TABLE.ok.detail(reply({ quantity: 3 }))).toContain('other 2 tickets');
+    expect(RESULT_TABLE.ok.detail(reply({ quantity: 3 }))).toBe('Let 1 person in. The other 2 tickets in this order each have their own code.');
+    expect(RESULT_TABLE.ok.detail(reply({ quantity: 2 }))).toBe('Let 1 person in. The other ticket in this order has its own code.');
+    expect(RESULT_TABLE.ok.detail(reply({ quantity: 1 }))).toBe('Let them in. Then scan the next code.');
     expect(RESULT_TABLE.ok.sub(reply({ quantity: 1 }))).toBe('1 person \u2014 enjoy the night');
   });
   it('already_in says when (London) and by whom, or just when', () => {
     // 21:42 UTC on 29 Oct 2026 is 21:42 in London (GMT after 25 Oct)
-    expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in' }))).toMatch(/^Scanned at 21:42( on 29 Oct)? by Sam$/);
-    expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in', checked_in_by_first_name: null }))).toMatch(/^Scanned at 21:42( on 29 Oct)?$/);
+    expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in' }))).toMatch(/^Scanned at 21:42( on 29 October)? by Sam$/);
+    expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in', checked_in_by_first_name: null }))).toMatch(/^Scanned at 21:42( on 29 October)?$/);
     expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in', checked_in_at: null }))).toBe('Scanned earlier');
   });
   it('not_allowed names the team, never a role', () => {
@@ -77,7 +79,7 @@ describe('londonClock', () => {
   const now = new Date('2026-07-01T20:00:00Z');
   it('is London time (BST in summer), with the day when not today', () => {
     expect(londonClock('2026-07-01T20:42:00Z', now)).toBe('21:42');
-    expect(londonClock('2026-06-30T20:42:00Z', now)).toBe('21:42 on 30 Jun');
+    expect(londonClock('2026-06-30T20:42:00Z', now)).toBe('21:42 on 30 June');
     expect(londonClock(null, now)).toBeNull();
     expect(londonClock('nope', now)).toBeNull();
   });

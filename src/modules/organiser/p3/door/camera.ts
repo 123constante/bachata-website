@@ -67,14 +67,63 @@ export const browserDeps: ScannerDeps = {
 };
 
 /**
- * Reads codes from the camera while `enabled`; hands each one to onCode (the caller gates
- * repeats). Returns the camera's state for the screen to show.
+ * One camera run: open the stream, attach it to the video, read a frame every `deps.every` ms
+ * and hand each code to onCode. Returns the stop function (tracks stopped, timer cleared).
+ * A plain function, so the hook below only starts and stops it.
+ */
+export function runScanner(getVideo: () => HTMLVideoElement | null, deps: ScannerDeps, onCode: (raw: string) => void, onState: (s: CameraState) => void): () => void {
+  let stopped = false;
+  let stream: MediaStream | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let attached: HTMLVideoElement | null = null;
+  onState('starting');
+  (async () => {
+    try {
+      stream = await deps.getStream();
+      if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+      attached = getVideo();
+      if (attached) {
+        attached.srcObject = stream;
+        // autoplay refusals are harmless here: the video is muted and playsInline
+        try { await attached.play(); } catch { /* keep reading */ }
+      }
+      const detect = await deps.makeDetector();
+      if (stopped) return;
+      onState('on');
+      const tick = async () => {
+        if (stopped) return;
+        const el = getVideo();
+        try {
+          const raw = el ? await detect(el) : null;
+          if (raw && !stopped) onCode(raw);
+        } catch {
+          // one unreadable frame is not an error; try the next
+        }
+        if (!stopped) timer = setTimeout(tick, deps.every);
+      };
+      void tick();
+    } catch (e) {
+      if (!stopped) onState(cameraErrorState(e));
+    }
+  })();
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+    stream?.getTracks().forEach((t) => t.stop());
+    if (attached) attached.srcObject = null;
+  };
+}
+
+/**
+ * Reads codes from the camera while `enabled` and the tab is visible; hands each one to onCode
+ * (the caller gates repeats). Returns the camera's state for the screen to show: a dead camera
+ * keeps saying why while it is off; anything else off just says paused.
  */
 export function useScanner(video: RefObject<HTMLVideoElement>, enabled: boolean, onCode: (raw: string) => void, deps: ScannerDeps = browserDeps): CameraState {
-  const [state, setState] = useState<CameraState>(enabled ? 'starting' : 'off');
+  const [raw, setRaw] = useState<CameraState>('starting');
   const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.visibilityState === 'hidden');
   const cb = useRef(onCode);
-  cb.current = onCode;
+  useEffect(() => { cb.current = onCode; }, [onCode]);
 
   useEffect(() => {
     const on = () => setHidden(document.visibilityState === 'hidden');
@@ -82,51 +131,14 @@ export function useScanner(video: RefObject<HTMLVideoElement>, enabled: boolean,
     return () => document.removeEventListener('visibilitychange', on);
   }, []);
 
+  const running = enabled && !hidden;
   useEffect(() => {
-    // a dead camera keeps saying why while it is off; anything else just says paused
-    if (!enabled || hidden) { setState((s) => (s === 'denied' || s === 'none' || s === 'failed' ? s : 'off')); return; }
-    let stopped = false;
-    let stream: MediaStream | null = null;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    setState('starting');
-    (async () => {
-      try {
-        stream = await deps.getStream();
-        if (stopped) return;
-        const v = video.current;
-        if (v) {
-          v.srcObject = stream;
-          // autoplay refusals are harmless here: the video is muted and playsInline
-          try { await v.play(); } catch { /* keep reading */ }
-        }
-        const detect = await deps.makeDetector();
-        if (stopped) return;
-        setState('on');
-        const tick = async () => {
-          if (stopped) return;
-          const el = video.current;
-          try {
-            const raw = el ? await detect(el) : null;
-            if (raw && !stopped) cb.current(raw);
-          } catch {
-            // one unreadable frame is not an error; try the next
-          }
-          if (!stopped) timer = setTimeout(tick, deps.every);
-        };
-        void tick();
-      } catch (e) {
-        if (!stopped) setState(cameraErrorState(e));
-      }
-    })();
-    return () => {
-      stopped = true;
-      if (timer) clearTimeout(timer);
-      stream?.getTracks().forEach((t) => t.stop());
-      if (video.current) video.current.srcObject = null;
-    };
-  }, [enabled, hidden, deps, video]);
+    if (!running) return undefined;
+    return runScanner(() => video.current, deps, (c) => cb.current(c), setRaw);
+  }, [running, deps, video]);
 
-  return state;
+  if (running) return raw;
+  return raw === 'denied' || raw === 'none' || raw === 'failed' ? raw : 'off';
 }
 
 /** Vibrate when the phone can; a no-op elsewhere (iPhone Safari has no vibrate). */
