@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { profileCompletionQueryKey, useProfileCompletion } from '@/hooks/useProfileCompletion';
+import { flags } from '@/lib/featureFlags';
 import { claimAtSignIn, type ClaimOutcome } from '@/lib/claimMyDancerProfile';
 import { OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { ORGANISER_HOME_KEY, fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
@@ -340,7 +341,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} selfServe={flags.organiserSelfServe} />
         </>
       );
       break;

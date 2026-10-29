@@ -45,8 +45,8 @@ import {
 } from "@/lib/auth-otp-routing";
 
 const VALID_ROLES: Record<string, string> = {
-  organiser: "/create-organiser-profile",
-  videographer: "/create-videographer-profile",
+  organiser: "/",
+  videographer: "/",
 };
 
 /** Neither sign-up read below holds a sign-in longer than this. */

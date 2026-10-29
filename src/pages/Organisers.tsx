@@ -1,4 +1,5 @@
 import { Link, useSearchParams, useParams } from 'react-router-dom';
+import { flags } from '@/lib/featureFlags';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X, CalendarDays, MapPin, Star, Building2, Music } from 'lucide-react';
@@ -815,7 +816,7 @@ const Organisers = () => {
                   </div>
                 </div>
                 <Link
-                  to="/listing-request"
+                  to={flags.organiserSelfServe ? "/account/new" : "/auth"}
                   className="flex-none rounded-lg px-4 py-2 text-[12px] font-bold transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                   style={{ background: ACCENT, color: '#1a1408' }}
                 >

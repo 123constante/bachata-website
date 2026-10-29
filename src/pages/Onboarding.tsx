@@ -14,8 +14,8 @@ import { popPendingReturnTo } from "@/lib/authRouting";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
 const VALID_ROLES: Record<string, string> = {
-  organiser: "/create-organiser-profile",
-  videographer: "/create-videographer-profile",
+  organiser: "/",
+  videographer: "/",
 };
 
 const Onboarding = () => {

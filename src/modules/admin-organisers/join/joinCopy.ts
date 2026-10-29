@@ -78,6 +78,9 @@ export const JOIN_COPY = {
     heading: (org: string) => `You${APOS}re on ${org}${APOS}s team.`,
     body: 'Everything on its page is yours to use: events, team and profile.',
     button: 'Open your organiser home',
+    // organiserSelfServe off: the organiser area is not open yet, so the one next step is the public site.
+    bodyOff: 'The organiser tools are not open yet. We will tell you when they are, and your place on the team is saved.',
+    buttonOff: 'Go to Bachata Calendar',
   },
 
   wrongAccount: {
