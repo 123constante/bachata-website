@@ -3,7 +3,7 @@
  * and the ticket privacy paragraph for buyer checkout (S4). Any wording change needs a fresh
  * owner approval. Plain English, UK.
  * 2026-10-29 owner order "remove the 50p booking fee": while BOOKING_FEE_PENCE is 0 the fee
- * sentence is left out and the refund sentence names no fee (owner to confirm the result). The
+ * sentence is left out and the refund sentence names no fee (owner confirmed 2026-10-29). The
  * approved 50p-era wording stays below so a non-zero fee does not silently sell without terms.
  * Edit the words here only: the block and its tests read this one file.
  */
