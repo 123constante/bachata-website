@@ -219,6 +219,15 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         <span aria-hidden="true">&rsaquo;</span>
       </button>
       {flags.organiserTicketing && <TicketsEntry seriesId={ws.series.id} />}
+      {flags.organiserTicketing && (
+        <Link className="p3-card p3-status-row" to={P3_PATHS.eventDoor(ws.series.id)} data-testid="p3-open-door">
+          <span className="p3-grow">
+            <span className="p3-row-t">Scan tickets</span>
+            <span className="p3-row-s"> &middot; At the door</span>
+          </span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+      )}
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
       <About v={v} />
