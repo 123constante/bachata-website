@@ -154,7 +154,7 @@ export type StepCopy = { title: string; helper: string | null; reason: string | 
 
 export const STEP_COPY: Record<PersonStep, StepCopy> = {
   name: { title: 'Your first name', helper: 'Goes on your dancer card.', reason: 'Type your first name to continue.', optional: false },
-  photo: { title: 'Your photo', helper: 'Add a photo to continue. Dancers like to see who they’re meeting.', reason: 'Add a photo to continue.', optional: false },
+  photo: { title: 'Your photo', helper: 'Add a photo to continue. Dancers like to see who they\u2019re meeting.', reason: 'Add a photo to continue.', optional: false },
   role: { title: 'How do you dance?', helper: null, reason: 'Pick one to continue.', optional: false },
   nat: { title: 'Nationality', helper: null, reason: 'Pick your nationality to continue.', optional: false },
   langs: { title: 'Languages you speak', helper: null, reason: null, optional: true },
@@ -166,8 +166,8 @@ export const STEP_COPY: Record<PersonStep, StepCopy> = {
   email: { title: 'Personal email', helper: null, reason: null, optional: true },
 };
 
-export const SAVE_FAILED = 'Couldn’t save. Check your connection and try again.';
-export const READ_FAILED = 'We couldn’t load your details. Try again.';
+export const SAVE_FAILED = 'Couldn\u2019t save. Check your connection and try again.';
+export const READ_FAILED = 'We couldn\u2019t load your details. Try again.';
 export const UPLOAD_FAILED = 'That photo did not upload. Try again or pick another.';
 
 /** Why Continue is off on this step, or null when it is on. Never a disabled control without a reason. */

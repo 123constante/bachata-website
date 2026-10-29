@@ -206,7 +206,7 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
   const copy = STEP_COPY[step];
   const reason = blockedReason(step, d);
   const isLast = nextStep(step, path) === null;
-  const primaryLabel = saving ? 'Saving…' : step === 'email' ? (signInEmail ? 'Save it privately' : 'Continue') : step === 'about' && d.about.trim() ? 'Save and continue' : isLast ? 'Done' : 'Continue';
+  const primaryLabel = saving ? 'Saving\u2026' : step === 'email' ? (signInEmail ? 'Save it privately' : 'Continue') : step === 'about' && d.about.trim() ? 'Save and continue' : isLast ? 'Done' : 'Continue';
   const skippable = step === 'langs' || step === 'about' || step === 'email';
   const title = step === 'about' && organiser?.name ? `About ${organiser.name}` : copy.title;
 
@@ -348,12 +348,12 @@ function PhotoStep({ url, userId, onUrl, upload }: { url: string; userId: string
     <>
       <div className="p3-ob-ava-row">
         <div className="p3-ob-ava" data-has={url ? 'true' : undefined} data-testid="p3-ob-ava">
-          {url ? <img src={url} alt="Your photo" /> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" strokeLinecap="round" /></svg>}
+          {url ? <img src={url} alt="Your photo" loading="lazy" decoding="async" /> : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" strokeLinecap="round" /></svg>}
         </div>
         <div className="p3-ob-ava-btns">
           <button type="button" className="p3-ob-ava-btn" onClick={() => camera.current?.click()} disabled={busy} data-testid="p3-ob-photo-camera">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" strokeLinejoin="round" /><circle cx="12" cy="13" r="3.5" /></svg>
-            {busy ? 'Uploading…' : 'Take a photo'}
+            {busy ? 'Uploading\u2026' : 'Take a photo'}
           </button>
           <button type="button" className="p3-ob-ava-btn" onClick={() => gallery.current?.click()} disabled={busy} data-testid="p3-ob-photo-gallery">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M4 16l5-5 4 4 3-3 4 4" strokeLinejoin="round" /></svg>

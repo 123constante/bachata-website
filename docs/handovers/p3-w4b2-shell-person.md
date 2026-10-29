@@ -79,4 +79,29 @@ Branch `claude/p3-w4b2-shell-person` (from `main` at `3f8f373`). Brief: `docs/br
 
 ## Verified / Not verified
 
-See the PR body (per-job table) and the hand-off message.
+Sandbox run of every PR job step (2026-10-29, branch vs `origin/main` worktree):
+
+| Workflow / job | Result |
+|---|---|
+| architecture-guard / integrity (incl. `check:images` AUDIT_STRICT=1, mojibake, image-widths, entry-point) | PASS after fix (first run: photo preview `<img>` had no `loading`) |
+| typecheck / wallclock-brand | PASS; `tsc` 99 errors on both main and branch, identical lists, none in changed files |
+| unit-tests / unit London | 16 fail on BOTH main and branch (live-DB contract suites with no secrets, goingPhoto, integrityCouldNotRun); branch-only failure (B-N8 raw Unicode punctuation: the writer turned `\u2019`/`\u2026` escapes into raw characters) FIXED, consistency matrix + `src/modules/organiser/p3` 2095/2095 |
+| unit-tests / New_York, Sydney, timing, dancer-area-isolation | PASS |
+| workflow-lint, phone-qa (406 pass), build-smoke (73 pass), live-db-gate, contract-check (runnable steps) | PASS |
+| perf-budget / bundle-budget | PASS: `/app/*` first load 373.7 KB on main AND branch, 49 chunks both, every route byte-identical |
+| e2e-smoke `test:e2e` | 180 pass, 26 skip; `organiser-home.spec:55` timed out once and passed on rerun, flaky on main too; the new walk skips (P3 off) |
+| new walk with both flags on | 8/8, twice in a row |
+| db-contract-check secret steps, og/seo/lighthouse, phone-qa-section, real-data-verified | not runnable here (secrets / preview / PR body) |
+
+`npm run lint`: only `check:integrity` fails, identically on main (bin/*.sh are mode 644 in this checkout; CI chmods them). eslint: 0 messages in changed files.
+
+**Verified:** the data contract on prod (function bodies, read-only), the prod shapes (counts), the
+table-driven matrix (89 tests), no page scroll on every person screen at 390x844 / 360x640 / 320x568 at
+100% and 130% text in Chromium with prod-shaped fakes, tap targets >= 44, toast + sheet in viewport, zero
+bytes on `/app` first load.
+
+**Not verified:** a real iPhone keyboard (`visualViewport` path) and a real Android; the browser-viewport
+heights (390x664 / 360x560 / 320x460) and keyboard-open cells in the app (the prototype measured them; this
+walk did not); Safari / Firefox container queries; dark mode in the walk (the tokens are the prototype's
+measured set); a real photo upload to R2 (stubbed in tests); real saves against prod (no writes allowed
+here); the Vercel preview; `/code-review` and the independent Fable review (next step per the brief).
