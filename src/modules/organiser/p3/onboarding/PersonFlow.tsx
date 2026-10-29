@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
-import { loadCountries, type Country } from '@/constants/countries';
+import { wizardCountries, type WizardCountry as Country } from '../../wizard/wizardCountries';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
 import { Flag, ObSheet, ObShell, ObToast } from './ObShell';
@@ -16,10 +16,9 @@ import {
   LANG_ALL,
   LANG_FEW,
   LEVELS,
+  NAT_FEW,
   POPULAR_NATIONS,
-  READ_FAILED,
   ROLE_OPTIONS,
-  SAVE_FAILED,
   STEP_COPY,
   STY_ALL,
   STY_FEW,
@@ -32,6 +31,8 @@ import {
   personPath,
   prevStep,
   progressPercent,
+  readFailCopy,
+  saveFailCopy,
   sixFor,
   starterSentence,
   toggleIn,
@@ -44,7 +45,7 @@ const X = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth
 const SEARCH = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>;
 
 /**
- * P3 onboarding, the person screens 10-20 (W4b build 2 slice 1, design record
+ * P3 onboarding, the person screens 10-19 (W4b build 2 slice 1, design record
  * docs/design/onboarding-prototype.md). Route /account/p3/you/details[?o=<organiser id>]:
  * the organiser is the one About is written for (plan A7); without one About is not on the path.
  */
@@ -70,7 +71,7 @@ export default function PersonFlow({ reads = REAL_READS, writes = REAL_WRITES }:
       <ObShell screen="error" dir="fwd" percent={0} onBack={exit} backLabel="Back" onEscape={exit} theme={theme}
         foot={<button type="button" className="p3-ob-btn" onClick={() => all.forEach((q) => void q.refetch())} data-testid="p3-ob-retry">Try again</button>}>
         <h1 className="p3-ob-t" tabIndex={-1}>Your details</h1>
-        <p className="p3-ob-err" role="alert" data-testid="p3-ob-readfail">{READ_FAILED}</p>
+        <p className="p3-ob-err" role="alert" data-testid="p3-ob-readfail">{readFailCopy(all.map((q) => q.error))}</p>
       </ObShell>
     );
   }
@@ -91,7 +92,6 @@ export default function PersonFlow({ reads = REAL_READS, writes = REAL_WRITES }:
       held={held}
       organiser={orgId ? organiser.data ?? null : null}
       userId={user.id}
-      signInEmail={user.email ?? null}
       writes={writes}
       theme={theme}
       onExit={exit}
@@ -104,7 +104,6 @@ export interface PersonScreensProps {
   held: PersonDraft;
   organiser: OrganiserBrief | null;
   userId: string;
-  signInEmail: string | null;
   writes: PersonWrites;
   theme: 'light' | 'dark';
   onExit: () => void;
@@ -117,7 +116,7 @@ export interface PersonScreensProps {
 
 type Sheet = 'nat' | 'langs' | 'styles' | null;
 
-export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, writes, theme, onExit, onDone, initialStep, upload }: PersonScreensProps) {
+export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload }: PersonScreensProps) {
   const qc = useQueryClient();
   const [held, setHeld] = useState<PersonDraft>(heldIn);
   const [d, setD] = useState<PersonDraft>({ ...EMPTY_DRAFT, ...heldIn });
@@ -128,6 +127,7 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
   const [toast, setToast] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bounce, setBounce] = useState(false);
+  const clearToast = useCallback(() => setToast(null), []);
   const path = personPath(d.teach, !!organiser);
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((p) => ({ ...p, [k]: v }));
 
@@ -173,8 +173,8 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
       setError(null);
       try {
         await writes.run(cmd, organiser?.id ?? null);
-      } catch {
-        setError(SAVE_FAILED);
+      } catch (e) {
+        setError(saveFailCopy(e));
         setSaving(false);
         return;
       }
@@ -192,8 +192,8 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
       setSaving(true);
       try {
         await writes.skipAbout(organiser.id);
-      } catch {
-        setError(SAVE_FAILED);
+      } catch (e) {
+        setError(saveFailCopy(e));
         setSaving(false);
         return;
       }
@@ -206,8 +206,8 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
   const copy = STEP_COPY[step];
   const reason = blockedReason(step, d);
   const isLast = nextStep(step, path) === null;
-  const primaryLabel = saving ? 'Saving\u2026' : step === 'email' ? (signInEmail ? 'Save it privately' : 'Continue') : step === 'about' && d.about.trim() ? 'Save and continue' : isLast ? 'Done' : 'Continue';
-  const skippable = step === 'langs' || step === 'about' || step === 'email';
+  const primaryLabel = saving ? 'Saving\u2026' : step === 'about' && d.about.trim() ? 'Save and continue' : isLast ? 'Done' : 'Continue';
+  const skippable = step === 'langs' || step === 'about';
   const title = step === 'about' && organiser?.name ? `About ${organiser.name}` : copy.title;
 
   const foot = (
@@ -219,7 +219,7 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
         aria-disabled={reason || saving ? 'true' : undefined}
         aria-describedby={reason ? 'p3-ob-why' : undefined}
         data-bounce={bounce ? 'true' : undefined}
-        onClick={() => void (step === 'email' && !signInEmail ? skip() : continueStep())}
+        onClick={() => void continueStep()}
         data-testid="p3-ob-continue"
       >
         {primaryLabel}
@@ -272,17 +272,6 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
           onChange={(e) => set('years', e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={(e) => { if (e.key === 'Enter') void continueStep(); }} data-testid="p3-ob-years" />
       )}
       {step === 'about' && <AboutStep value={d.about} onChange={(v) => set('about', v)} starter={organiser ? starterSentence({ name: organiser.name, category: organiser.category, city: organiser.city, styles: d.teach === 'yes' ? d.styles : [] }) : ''} />}
-      {step === 'email' && (
-        <>
-          <div className="p3-ob-card p3-ob-kbhide">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
-            <div><strong>Private. Never shown on your page.</strong></div>
-          </div>
-          <p className="p3-ob-m" data-testid="p3-ob-email-line">
-            {signInEmail ? <>You sign in as <b>{signInEmail}</b>. We keep a private copy so you never lose the page.</> : 'There is no email on this sign-in, so there is nothing to keep.'}
-          </p>
-        </>
-      )}
 
       {sheet === 'nat' && (
         <ObSheet title="All countries" onClose={() => setSheet(null)} theme={theme} testId="p3-ob-sheet-nat">
@@ -299,7 +288,7 @@ export function PersonScreens({ held: heldIn, organiser, userId, signInEmail, wr
           <PickRows all={uniq([...d.styles, ...STY_ALL])} chosen={d.styles} onToggle={(v) => set('styles', toggleIn(d.styles, v))} />
         </ObSheet>
       )}
-      {toast && <ObToast text={toast} theme={theme} onDone={() => setToast(null)} />}
+      {toast && <ObToast text={toast} theme={theme} onDone={clearToast} />}
     </ObShell>
   );
 }
@@ -368,12 +357,17 @@ function PhotoStep({ url, userId, onUrl, upload }: { url: string; userId: string
   );
 }
 
-/** Country names: the popular list inline; the full ISO list + home nations loads lazily (world-countries). */
+/**
+ * Country names: the popular list inline; the full ISO list + home nations loads lazily (world-countries)
+ * through the wizard's reader, NOT @/constants/countries: sharing that module with dancer-app split it
+ * into a chunk of its own, one more request on /app's first load (review r1 S4; a dynamic import of it
+ * splits it the same way).
+ */
 function useCountries(): Country[] | null {
   const [list, setList] = useState<Country[] | null>(null);
   useEffect(() => {
     let live = true;
-    loadCountries().then((c) => live && setList(c), () => live && setList([]));
+    wizardCountries().then((c) => live && setList(c), () => live && setList([]));
     return () => {
       live = false;
     };
@@ -383,6 +377,7 @@ function useCountries(): Country[] | null {
 
 type Nation = { code: string; name: string };
 const POPULAR: Nation[] = POPULAR_NATIONS.map(([code, name]) => ({ code, name }));
+const FEW: Nation[] = NAT_FEW.map((c) => POPULAR.find((n) => n.code === c)).filter((n): n is Nation => !!n);
 
 function nationName(code: string, countries: Country[] | null): string {
   const c = code.trim().toUpperCase();
@@ -406,7 +401,7 @@ function SearchBox({ value, onChange, label }: { value: string; onChange: (v: st
 function NationalityStep({ value, onPick, onMore }: { value: string; onPick: (code: string) => void; onMore: () => void }) {
   const countries = useCountries();
   const [q, setQ] = useState('');
-  const six = sixFor(allNations(countries), POPULAR, q, (n) => n.name);
+  const six = sixFor(allNations(countries), FEW, q, (n) => n.name);
   const chosen = value.trim().toUpperCase();
   const shown = chosen && !six.some((n) => n.code === chosen) ? [{ code: chosen, name: nationName(chosen, countries) }, ...six.slice(0, 5)] : six;
   return (

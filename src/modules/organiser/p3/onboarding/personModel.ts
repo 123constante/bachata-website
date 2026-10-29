@@ -1,13 +1,14 @@
-// P3 W4b build 2, slice 1: the person screens 10-20 of the approved onboarding
-// prototype (docs/design/onboarding-prototype.md, section 2). Pure: no React, no
+// P3 W4b build 2, slice 1: the person screens 10-19 of the approved onboarding
+// prototype (docs/design/onboarding-prototype.md, section 2). Screen 20 (personal email)
+// was dropped by the owner on 2026-10-29: the path ends at About, or at years with no page. Pure: no React, no
 // network. ONE place for the order, which steps the answers skip, the progress
 // percentage, the words, why Continue is off, and the command each Continue sends
 // (null = nothing changed, so nothing is sent).
 
-export type PersonStep = 'name' | 'photo' | 'role' | 'nat' | 'langs' | 'teach' | 'levels' | 'styles' | 'years' | 'about' | 'email';
+export type PersonStep = 'name' | 'photo' | 'role' | 'nat' | 'langs' | 'teach' | 'levels' | 'styles' | 'years' | 'about';
 
-/** Screen order (prototype ORDER, 10 to 20). Back walks the PATH, never this list. */
-export const PERSON_ORDER: readonly PersonStep[] = ['name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about', 'email'];
+/** Screen order (prototype ORDER, 10 to 19). Back walks the PATH, never this list. */
+export const PERSON_ORDER: readonly PersonStep[] = ['name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about'];
 
 /** Teach = No skips these (prototype section 2: "No skips 16 to 18"). */
 export const TEACH_ONLY: readonly PersonStep[] = ['levels', 'styles', 'years'];
@@ -22,7 +23,11 @@ export type TeachAnswer = 'yes' | 'no' | null;
 export const personPath = (teach: TeachAnswer, hasOrganiser: boolean): PersonStep[] =>
   PERSON_ORDER.filter((s) => !(teach === 'no' && TEACH_ONLY.includes(s)) && !(s === 'about' && !hasOrganiser));
 
-/** Owner change 2: the bar shows a percentage. Step n of a path of N is round(n / N * 100). */
+/**
+ * Owner change 2: the bar shows a percentage. Step n of a path of N is round(n / N * 100). The path is
+ * the person steps only in slice 1; slice 3 must pass the FULL onboarding path (contact ... person ...
+ * Review) or the bar reads 100% with Review still ahead.
+ */
 export const progressPercent = (step: PersonStep, path: readonly PersonStep[]): number => {
   const i = path.indexOf(step);
   if (i < 0 || path.length === 0) return 0;
@@ -54,7 +59,10 @@ export const LEVELS = [
   { value: 'Advanced', help: 'Dances with confidence' },
 ] as const;
 
-/** Nationality: the popular rows first (prototype POPULAR). Codes as the dancer editor stores them (alpha-2, or GB-ENG style). */
+/** Nationality: the on-screen six with no query (prototype NAT_FEW). The home nations are found by search or in the sheet. */
+export const NAT_FEW: readonly string[] = ['GB', 'ES', 'DO', 'IT', 'PL', 'BR'];
+
+/** Nationality: the sheet's first section (prototype POPULAR). Codes as the dancer editor stores them (alpha-2, or GB-ENG style). */
 export const POPULAR_NATIONS: readonly (readonly [string, string])[] = [
   ['GB', 'United Kingdom'], ['GB-ENG', 'England'], ['GB-SCT', 'Scotland'], ['GB-WLS', 'Wales'], ['GB-NIR', 'Northern Ireland'],
   ['ES', 'Spain'], ['DO', 'Dominican Republic'], ['IT', 'Italy'], ['PL', 'Poland'], ['BR', 'Brazil'], ['PT', 'Portugal'],
@@ -143,6 +151,7 @@ export function heldFrom(reads: {
     nationality: str(d.nationality),
     languages: strList(d.languages),
     teach,
+    // Prod my_role_details_v1 does not return levels_taught yet (queued admin item), so this is [] today.
     levels: strList(t.levels_taught).filter((l) => LEVELS.some((x) => x.value === l)),
     styles: strList(t.teaching_styles),
     years,
@@ -163,12 +172,17 @@ export const STEP_COPY: Record<PersonStep, StepCopy> = {
   styles: { title: 'Styles you teach', helper: null, reason: 'Pick at least one style to continue.', optional: false },
   years: { title: 'Years teaching', helper: '0 is fine.', reason: 'Type a number from 0 to 60 to continue.', optional: false },
   about: { title: 'About', helper: 'A sentence or two for the top of your page.', reason: null, optional: true },
-  email: { title: 'Personal email', helper: null, reason: null, optional: true },
 };
 
 export const SAVE_FAILED = 'Couldn\u2019t save. Check your connection and try again.';
 export const READ_FAILED = 'We couldn\u2019t load your details. Try again.';
 export const UPLOAD_FAILED = 'That photo did not upload. Try again or pick another.';
+/** The dancer area gate (app_feature_flags.dancer_area_open) is shut: every dancer read and write raises area_closed. */
+export const AREA_CLOSED = 'Your dancer details are closed for now, so we can\u2019t load or save them. Try again later.';
+
+const isAreaClosed = (e: unknown) => e instanceof Error && /\barea_closed\b/.test(e.message);
+export const readFailCopy = (errors: readonly unknown[]): string => (errors.some(isAreaClosed) ? AREA_CLOSED : READ_FAILED);
+export const saveFailCopy = (e: unknown): string => (isAreaClosed(e) ? AREA_CLOSED : SAVE_FAILED);
 
 /** Why Continue is off on this step, or null when it is on. Never a disabled control without a reason. */
 export function blockedReason(step: PersonStep, d: PersonDraft): string | null {
@@ -191,14 +205,9 @@ export type PersonCommand =
   | { kind: 'dancer'; patch: Record<string, unknown> }
   | { kind: 'teach'; yes: boolean }
   | { kind: 'teacher'; patch: Record<string, unknown> }
-  | { kind: 'about'; bio: string }
-  | { kind: 'signinEmail' };
+  | { kind: 'about'; bio: string };
 
-/**
- * The command for Continue on this step, diff-first against what the server holds: an untouched
- * answer sends nothing (null). Email is the one exception: the person tapped "Save it privately" and
- * the RPC itself is a no-op when the private copy already matches (it never says which beforehand).
- */
+/** The command for Continue on this step, diff-first against what the server holds: an untouched answer sends nothing (null). */
 export function commandFor(step: PersonStep, d: PersonDraft, held: PersonDraft): PersonCommand | null {
   switch (step) {
     case 'name': {
@@ -229,8 +238,6 @@ export function commandFor(step: PersonStep, d: PersonDraft, held: PersonDraft):
       const v = d.about.trim();
       return v && v !== held.about.trim() ? { kind: 'about', bio: v } : null;
     }
-    case 'email':
-      return { kind: 'signinEmail' };
   }
 }
 
@@ -264,6 +271,5 @@ export function heldAfter(step: PersonStep, held: PersonDraft, d: PersonDraft): 
     case 'styles': return { ...held, styles: [...d.styles] };
     case 'years': { const n = parseYears(d.years); return n === null ? held : { ...held, years: String(n) }; }
     case 'about': return { ...held, about: d.about.trim() };
-    case 'email': return held;
   }
 }

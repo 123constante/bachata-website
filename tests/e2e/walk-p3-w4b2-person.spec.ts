@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ORG, ORG_NAME, OrganiserFake, json } from './helpers/organiserFake';
 
-// P3 W4b build 2 slice 1: the onboarding person screens 10-20 at the prototype's sizes. For each
+// P3 W4b build 2 slice 1: the onboarding person screens 10-19 at the prototype's sizes (screen 20,
+// personal email, was dropped by the owner on 2026-10-29), for the FILLED and the EMPTY persona. For each
 // screen: NO PAGE SCROLL on the screen shell (scrollHeight <= clientHeight on .p3-ob-main and the
 // shell itself) at 390x844, 360x640, 320x568 and at 130% text (--ts, the prototype's own simulator),
 // nothing wider than the viewport, every control >= 44x44; the sheet and the toast boxes sit in the
@@ -9,7 +10,8 @@ import { ORG, ORG_NAME, OrganiserFake, json } from './helpers/organiserFake';
 //   VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/walk-p3-w4b2-person.spec.ts --project=chromium
 // With organiserP3 off (the e2e gate's server today) each test skips itself, as the build 1 walk does.
 
-const STEPS = ['name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about', 'email'] as const;
+const STEPS = ['name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about'] as const;
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const SIZES = [
   { width: 390, height: 844 },
   { width: 360, height: 640 },
@@ -23,7 +25,13 @@ async function open(page: Page, filled: boolean) {
   await page.route('**/rest/v1/rpc/my_dancer_edit_v1*', (r) =>
     json(r, { profile_id: 'p1', first_name: filled ? 'Sam' : null, avatar_url: filled ? 'https://img.example/a.png' : null, dance_role: filled ? 'Follower' : null, nationality: filled ? 'GB' : null, languages: filled ? ['English', 'Spanish', 'Polish'] : [], favorite_styles: [], achievements: [], other_roles: [] }));
   await page.route('**/rest/v1/rpc/my_role_intent_v1*', (r) => json(r, { roles: filled ? ['dancer', 'teacher'] : [], declined: [] }));
-  await page.route('**/rest/v1/rpc/my_role_details_v1*', (r) => json(r, { role: 'teacher', person_id: 'p1', details: filled ? { teaching_styles: ['Moderna', 'Bachata sensual'], years_teaching: 4, levels_taught: ['Beginner'] } : {} }));
+  // The prod teacher object today has NO levels_taught (review r1 S1), so the filled persona has no levels either.
+  await page.route('**/rest/v1/rpc/my_role_details_v1*', (r) => json(r, { role: 'teacher', person_id: 'p1', details: filled ? { teaching_styles: ['Moderna', 'Bachata sensual'], years_teaching: 4, offers_private: false, private_lesson_types: [], private_lesson_locations: [], private_travel_distance: null, partner_role: null } : {} }));
+  // The writes the empty walk makes (the fake's default answer [] is not a save result).
+  await page.route('**/rest/v1/rpc/save_my_dancer_profile_v2*', (r) => json(r, { profile_id: 'p1', first_name: 'Sam', avatar_url: null, dance_role: null, nationality: null, languages: [], favorite_styles: [], achievements: [], other_roles: [] }));
+  await page.route('**/rest/v1/rpc/save_my_role_v1*', (r) => json(r, { role: 'teacher', person_id: 'p1', details: {}, changed: true, changed_keys: [] }));
+  await page.route('**/rest/v1/rpc/set_my_role_declined_v1*', (r) => json(r, { roles: [], declined: [], changed: true }));
+  await page.route('**/functions/v1/storage-sign-upload*', (r) => json(r, { ok: true, publicUrl: 'https://img.example/n.png' }));
   await page.route('**/rest/v1/organiser_profiles*', (r) => json(r, { id: ORG, name: ORG_NAME, bio: null, organisation_category: 'Promoter', city_id: null }));
   await page.route('https://img.example/**', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>' }));
   await page.route('https://flagcdn.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="18"><rect width="24" height="18" fill="#888"/></svg>' }));
@@ -33,11 +41,28 @@ async function open(page: Page, filled: boolean) {
   return fake;
 }
 
-/** Walk to a screen the way a person would: Continue on each filled screen (an untouched screen sends nothing). */
+/** The least answer that lets Continue on: the empty persona fills each screen only AFTER it was measured. */
+async function answer(page: Page, at: string) {
+  switch (at) {
+    case 'name': return page.getByTestId('p3-ob-name').fill('Sam');
+    case 'photo':
+      await page.getByTestId('p3-ob-photo-file').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG });
+      return expect(page.getByTestId('p3-ob-ava')).toHaveAttribute('data-has', 'true');
+    case 'role': return page.getByTestId('p3-ob-role-Leader').click();
+    case 'nat': return page.getByTestId('p3-ob-nat-GB').click();
+    case 'teach': return page.getByTestId('p3-ob-teach-yes').click();
+    case 'levels': return page.getByTestId('p3-ob-level-Beginner').click();
+    case 'styles': return page.getByTestId('p3-ob-styles-Moderna').click();
+    case 'years': return page.getByTestId('p3-ob-years').fill('0');
+  }
+}
+
+/** Walk to a screen the way a person would: answer if Continue is off, then Continue (an untouched screen sends nothing). */
 async function walkTo(page: Page, step: (typeof STEPS)[number]) {
   for (let i = 0; i < 20; i++) {
     const at = await page.getByTestId('p3-ob-shell').getAttribute('data-screen');
     if (at === step) return;
+    if ((await page.getByTestId('p3-ob-continue').getAttribute('aria-disabled')) === 'true') await answer(page, at ?? '');
     await page.getByTestId('p3-ob-continue').click();
     await expect(page.getByTestId('p3-ob-shell')).not.toHaveAttribute('data-screen', at ?? '');
   }
@@ -64,8 +89,8 @@ async function fit(page: Page) {
   });
 }
 
-for (const filled of [true]) {
-  test.describe(`person screens, filled persona`, () => {
+for (const filled of [true, false]) {
+  test.describe(`person screens, ${filled ? 'filled' : 'empty'} persona`, () => {
     for (const size of SIZES) {
       for (const ts of [1, 1.3]) {
         test(`no page scroll at ${size.width}x${size.height}, text ${ts * 100}%`, async ({ page }) => {
@@ -110,8 +135,9 @@ test('nationality sheet sits in the viewport and the page does not scroll when i
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, true);
   await walkTo(page, 'nat');
-  await expect(page.getByTestId('p3-ob-nat-GB-ENG').locator('img')).toHaveAttribute('src', 'https://flagcdn.com/gb-eng.svg');
+  await expect(page.getByTestId('p3-ob-nat-GB').locator('img')).toHaveAttribute('src', 'https://flagcdn.com/gb.svg');
   await page.getByTestId('p3-ob-more').click();
+  await expect(page.getByTestId('p3-ob-nat-row-GB-ENG').locator('img')).toHaveAttribute('src', 'https://flagcdn.com/gb-eng.svg');
   await page.waitForTimeout(400); // the slide-up (translateY 40px) settles before the box is measured
   const sheet = await page.getByTestId('p3-ob-sheet-nat').boundingBox();
   expect(sheet).not.toBeNull();

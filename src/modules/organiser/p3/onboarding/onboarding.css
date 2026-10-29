@@ -58,9 +58,6 @@
 .p3-ob-t:focus { outline: none; }
 .p3-ob-m { margin: 0; font-size: var(--fs-small); line-height: 1.4; color: var(--mut); overflow-wrap: anywhere; }
 .p3-ob-opt { font-size: var(--fs-small); font-weight: 600; color: var(--mut); background: var(--card2); border-radius: var(--r-chip); padding: 2px 8px; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
-.p3-ob-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 12px; display: flex; gap: 12px; align-items: center; }
-.p3-ob-card strong { display: block; font-size: var(--fs-body); }
-.p3-ob-card svg { width: 22px; height: 22px; color: var(--gold-fg); flex: none; }
 .p3-ob-scrollbox { flex: 1; min-height: 52px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 
 .p3-ob-btn { min-height: 52px; padding: 0 18px; border-radius: var(--r-ctl); border: 0; background: var(--btn); color: var(--btnfg); font: inherit; font-size: var(--fs-body); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; overflow-wrap: anywhere; text-align: center; transition: transform 120ms ease; }

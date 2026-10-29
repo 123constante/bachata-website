@@ -1,4 +1,40 @@
-# Handover: P3 W4b build 2, slice 1 - onboarding shell + person screens 10-20
+# Handover: P3 W4b build 2, slice 1 - onboarding shell + person screens 10-19
+
+## Fix round 1 (2026-10-29, review `docs/review/pr-1130-r1.md`, brief `docs/briefs/p3-w4b2-fix1.md`)
+
+Owner decision: the PERSONAL EMAIL screen (20) is DROPPED. The path now ends at About, or at years with no
+page (or at Do you teach? with teach = No and no page). Removed: the step, its copy, its command
+(`signinEmail`), the `save_my_signin_email_v1` call (it had no other importer, so it is gone from
+`personApi.ts` too), the `.p3-ob-card` CSS it alone used, its tests and its e2e step. Tests pinning the old
+path were changed first and failed on the unfixed code (20 red), then went green.
+
+| Item | Done |
+|---|---|
+| Merge `origin/main` | merged (conflict: `package.json` `test:e2e`, kept main's `walk-w3c-1-repeat` then this `walk-p3-w4b2-person`) |
+| S1 levels not prefilled | prod `my_role_details_v1('teacher')` has NO `levels_taught`. Database untouched. The invented key is gone from both fixtures (matrix + e2e); a "prod today" teacher shape (the seven keys `_role_details_v1` emits) pins `levels = []`. **Levels are NOT prefilled yet**: a returning teacher answers Levels again. Queued admin item: emit `levels_taught` from `_role_details_v1` (+ a Website contract check pinning the key) |
+| S2 PR body | "Verified on real data" reformatted to the three one-line labels; `check-pr-real-data-verified.mjs` run on it |
+| S3 nationality six | `NAT_FEW = ['GB','ES','DO','IT','PL','BR']` (the prototype's) are the on-screen chips; `POPULAR_NATIONS` (home nations first) stays the sheet's first section; tests pin both |
+| S4 extra /app request | `PersonFlow` no longer imports `@/constants/countries` (a dynamic import of it split it out the same way: a dynamic entry is its own chunk). It reads `world-countries` through the existing `wizard/wizardCountries.ts`, which exists for this exact ratchet. Both flags on (`VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true`), `check:bundle-budget`: main /app 375.3 KB / 50 chunks, branch 375.4 KB / 50 chunks (dancer-app 31.7 KB on both; no `countries-*` chunk on the branch). Both are over the 374 KB / 49 budget with the flags on, on main too (the budget is tuned to the flag-off build); flag-off the branch passes every budget |
+| S5 `dancer_area_open` | risk row in `docs/plans/onboarding-arc.md` section 10; `area_closed` maps to `AREA_CLOSED` ("Your dancer details are closed for now, so we can't load or save them. Try again later.") on the read-failed screen and on teacher / About saves. Dancer-field saves go through `saveWizardDancer`, which rewrites server codes into its own copy first, so there it still shows the generic "Couldn't save" |
+| S6 percentage | for slice 3, below |
+| N1 | toast `onDone` memoised (`useCallback`); a test types while the toast shows and the toast still goes |
+| N5 | the geometry walk loops `[true, false]`: the EMPTY persona is measured on every screen before it is answered (14 tests) |
+| Mutation (replaces the wrong evidence below) | the 700 px step's `.p3-ob-main { gap: 8px }` set to 60 px: 8 failed / 6 passed (both personas, every 360x640 and 320x568 cell; About up to 135 px, langs 15 px and levels 43 px in the empty persona), reverted. The old "base rule `gap: 60px`" mutation was NOT caught: the 700 px container step overrides it at every measured size |
+
+**Left (skipped by the brief):** N2 (gone with the email screen), N3 (`?o=` not checked against the
+person's own pages: scope it to `home.data.organisers` ids when slice 3 adds the link), N4 (`PERSON_STALE_KEYS`
+misses the P3 home / organiser keys after an About save), N6 (Esc `preventDefault` on `window` also swallows
+the native clear of the search field).
+
+**For slice 3 (S6):** `progressPercent(step, personPath(...))` counts only the person steps, so it reads
+100% on About. When slices 2 and 3 land, the percentage MUST be rebased onto the full path (contact,
+WhatsApp, category, link, logo ... the person steps ... Review), or the bar shows 100% with Review still
+ahead. Pass the full path into `progressPercent`.
+
+---
+
+The text below is the slice 1 handover as first written; where it says screens 10-20, personal email or
+`save_my_signin_email_v1`, the fix round above supersedes it.
 
 Branch `claude/p3-w4b2-shell-person` (from `main` at `3f8f373`). Brief: `docs/briefs/p3-w4b2.md` on
 `brief/p3-w4b2-shell-person`. Design record: [`docs/design/onboarding-prototype.md`](../design/onboarding-prototype.md)

@@ -2,13 +2,13 @@
 // 2026-10-29, pg_get_functiondef); no new server code:
 //   read  my_dancer_edit_v1            -> dancer_profiles first_name, avatar_url, dance_role, nationality, languages
 //   read  my_role_intent_v1            -> account_role_intent roles / declined (the teach answer)
-//   read  my_role_details_v1('teacher') -> teacher_role_details levels_taught, teaching_styles, years_teaching
+//   read  my_role_details_v1('teacher') -> teacher_role_details teaching_styles, years_teaching (NOT levels_taught:
+//         prod _role_details_v1 does not emit it today, so levels are not prefilled; queued admin item)
 //   read  organiser_profiles (public select) name, bio, organisation_category, city_id (+ cities.name)
 //   write save_my_dancer_profile_v2    -> name, photo, role, nationality, languages (diff-first, one key)
 //   write set_my_role_intent_v1 / set_my_role_declined_v1 (answerDoYou) -> the teach answer
 //   write save_my_role_v1('teacher')   -> levels_taught, teaching_styles, years_teaching
 //   write organiser_profile_update_p5_v1 {bio} -> About; skip_organiser_about_v1 -> About skipped
-//   write save_my_signin_email_v1()    -> copies the SIGN-IN email to the private dancer_profiles.email
 import { supabase } from '@/integrations/supabase/client';
 import { answerDoYou, fetchMyRoleIntent, type RoleIntent } from '@/modules/areas/home/rolesApi';
 import { fetchMyRoleDetails, saveMyRole } from '@/modules/areas/shared/areaApi';
@@ -67,7 +67,6 @@ export const REAL_WRITES: PersonWrites = {
         if (!organiserId) throw new Error('no_organiser');
         await must(rpc('organiser_profile_update_p5_v1', { p_organiser_id: organiserId, p_patch: { bio: cmd.bio } }));
         return;
-      case 'signinEmail': await must(rpc('save_my_signin_email_v1')); return;
     }
   },
   skipAbout: (organiserId) => must(rpc('skip_organiser_about_v1', { p_organiser_id: organiserId })),
