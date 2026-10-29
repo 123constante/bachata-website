@@ -1,0 +1,11 @@
+# Review brief: Website PR #1130 (P3 W4b build 2 slice 1: onboarding shell + person screens), independent, read-only
+
+You are NOT the builder (Opus built it; you are Fable). Review branch claude/p3-w4b2-shell-person at its head against: docs/design/onboarding-prototype.md (+ .html; the APPROVED spec), docs/briefs/p3-w4b2.md (brief; owner changes 1-3 are binding: playful mood, progress shows %, nationality FLAGS lazy with zero bytes to /app first load), docs/handovers/p3-w4b2-shell-person.md (builder's claims and decisions 1-4), docs/plans/onboarding-arc.md.
+Check adversarially, with evidence (file:line):
+1. Spec fidelity: one question per screen; screens 10-20 present and in order; path/percentage maths (aria-valuenow equals the shown %; teach=No path); photo REQUIRED; role = Leader/Follower/Both stored 'Lead and Follow'; nationality search + 6 chips + sheet; flags are images (gb-eng/sct/wls/nir), lazy, in the route's own chunk; px only (grep rem); 100dvh never 100vh; visualViewport handler (resize + scroll, scrollTo(0,0), cleanup on unmount, no leak).
+2. Data/save paths: every screen sends exactly one key, nothing when untouched; the RPC argument shapes match the live prod function bodies (read-only SELECT pg_get_functiondef); error and save-failed states keep the answer; no existence/permission assumptions (dancer_area_open dependency noted by the builder: is it real risk?).
+3. Decision 1 (personal email screen shows "You sign in as X / Save it privately" instead of a typed field) vs the prototype and plan: say whether it is acceptable or a product call for the owner.
+4. Tests: do the matrix and geometry tests actually fail when the behaviour breaks (mutate two things locally and say what happened)? Is the e2e wired into the test:e2e list by name?
+5. Blast radius: nothing outside /account/p3 changes; bundle budget for /app (run npm run check:bundle-budget on branch and main); the flag organiserP3 off means no visible change.
+6. Known open items: the branch is CONFLICTING with main (main moved: #1122, #1129) and the PR body lacks the real-data-verified block. Do not fix these; just list what the merge needs.
+Output docs/review/pr-1130-r1.md on branch claude/review-w4b2-slice1-r1: verdict PASS / FIX FIRST / BLOCK, findings ranked block / should-fix / nit. Do not push to the PR branch. One round. Context under 50%.
