@@ -20,6 +20,7 @@ const going = vi.hoisted(() => ({ value: { view: { state: 'off' }, total: null }
 
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => homeQ.value, useP3Views: () => viewsQ.value }));
 vi.mock('@/modules/going/useMyOrganiserGoingTotal', () => ({ useMyOrganiserGoingTotal: () => going.value }));
+vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));
 
 import { HomeScreen } from '../HomeScreen';
 import { EventsScreen } from '../EventsScreen';
