@@ -75,3 +75,49 @@ and 1 each of city, org_category, org_logo, first_name, teach_years, photo, dj_g
 prod-shaped fakes at 390x844 / 360x640 / 320x568 x 100% / 130%, both flags on.
 **Not verified:** the CI job sweep, bundle budget, eslint; real saves on prod (no writes allowed); a real iPhone / Android keyboard; dark mode
 in the walk; the Live screen in a browser (unreachable until go-live ships); Vercel preview; review.
+
+## Fix round 1 (brief `docs/briefs/p3-w4b2-page-fix1.md`, review `docs/review/pr-1132-r1.md`)
+
+Red first: the S2 and S3 tests were added and run against the unfixed code (4 failed: S2 has-page teach yes 6 vs 7,
+no-page teach yes 12 vs 13, no-page teach no 14 vs 15; S3 return URL was the bare `/account/p3/start`). Has-page
+teach no was already flat (8 = 8), as the review measured. Then fixed; all green.
+
+- **S1** words only: `pageApi.ts` (GoLiveApi doc), `pageModel.ts` (`goLiveState` / `GO_LIVE_NOT_YET` rationale), the
+  two test titles, `p3-w4b2-page-prbody.md` and this file now say "deployed in admin #1119; intentionally not wired in
+  this PR, `deployed: false` until the go-live slice". The stub is unchanged. PR body NOT edited through the API: copy
+  `p3-w4b2-page-prbody.md` in by hand.
+- **S2** `OnboardingFlow.tsx`: `waPhone` (the WhatsApp group on the %) now comes from the HELD phone, not the live
+  draft. Held is set once on arrival and updated by `pageHeldAfter` when the phone screen's Continue saves, so it is a
+  committed fact. The jump to WhatsApp after Continue still rises (index +1, total +1). Tests:
+  `pageScreens.matrix.test.tsx` "S2 ..." (has-page / no-page x teach yes / no): `aria-valuenow` equal before and after
+  typing, higher on WhatsApp.
+- **S3** keep their answers: when Create is refused with `next: 'finish_profile'`, "Finish your profile" now sends
+  `returnTo=/account/p3/start?at=create-name&name=..&city=..&cityLabel=..` (`keptCreateHref`). The flow already
+  carries state in the return URL (`o`, `at`), so no storage keys were added. On return the draft is seeded from it
+  (`keptCreateDraft`), so the person lands on `create-name` prefilled, then city chosen, then Create. Only name and
+  city exist before a page does, so those are the "typed page answers". On a successful create the kept params (and
+  `at`) are dropped from the URL (`replace`). Screen order unchanged. Tests: "S3 ..." (refusal, return, answers kept,
+  create sent with them) and "a plain arrival starts empty".
+- **N2** done (one-line import): `isPersonStep` reads `PERSON_ORDER`; the second copy is gone. N1, N3-N6 left alone.
+
+### CI jobs run locally (head = this commit)
+
+| Job / step | Result |
+|---|---|
+| Unit, `vitest run src/modules/organiser/p3` | 38 files, 2446 tests pass (onboarding 275, incl. 7 new) |
+| `npm run lint` (22 links) | 21 PASS; `check:integrity` exit 126 = `bin/check-integrity.sh` is mode 100644 in git (same on main, local exec bit only). `bash bin/check-integrity.sh`: ok, 2870 files, 0 issues |
+| typecheck.yml: `check:rpc-typing`, `check:wallclock-brand` | both pass |
+| tsc (info) | 117 errors repo-wide, the same pre-existing set; 0 in `p3/onboarding` |
+| perf-budget.yml, flags OFF: build, 3 self-tests, `check:bundle-budget`, `check:first-load-requests`, `check:chunk-cycles` | all exit 0. dancer-app 373.7 KB / 49 files (budget 374), as on main. The flags-off build contains none of the onboarding strings (`Going live opens soon` absent from `build/client`), so 0 bytes reach any first load |
+| e2e `walk-p3-w4b2-page.spec.ts` + `walk-p3-w4b2-person.spec.ts`, both flags on, chromium, 2 workers | 31 passed + 2 flaky (the first two `filled` cells at 390x844 on a cold dev server, one "execution context destroyed by a navigation"); re-run `-g filled --repeat-each=2 --retries=0` warm: 12/12 pass |
+
+**Not run:** full `test:e2e` gate (the review ran it at the previous head: 0 hard failures), Lighthouse / doc-weight
+(need a Vercel preview, no token), db-contract-check, og, eslint backlog, `/code-review` (brief: do not run).
+
+### Verified / Not verified (fix round 1)
+
+**Verified:** red-then-green for S2 and S3 in the jsdom matrix with the real flow, real model functions and fake
+reads / writes; the CI steps above; the flags-off build carries no onboarding code.
+**Not verified:** the real Finish-profile screen sending the person back to the kept `returnTo` (the test stands in
+for it by mounting the flow at that URL; `sanitizeReturnTo` keeps the query string); a real phone keyboard on the
+phone screen; any prod write (none made); Vercel preview.
