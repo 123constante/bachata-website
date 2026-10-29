@@ -4,15 +4,38 @@ Independent, read-only review (Fable; the builder was another model). Branch `cl
 at `17e8465` against `main` at `95a8dce`. Brief: `docs/briefs/ticket-fee-zero-web-review.md` on
 `brief/ticket-fee-zero-web-review`. No src changed; no Supabase call made. One round.
 
-## Verdict: PASS with should-fix
+## Verdict: FIX FIRST
 
-The fee is computed from one constant and every render of it is gated on `> 0`; Total equals the
-ticket price for every price x quantity shape; the 50p-era terms wording is intact behind the gate;
-the refund sheet names the fee only when the order row carried one. Nothing blocks merge. Two
-should-fix items are about the merge window and the "APPROVED" stamp on unapproved wording, not
-about the arithmetic.
+One block: the P3 organiser tickets sheet (`src/modules/organiser/p3/tickets/TicketsEntry.tsx:315`,
+behind `organiserP3`, shipped in #1132) still renders "Buyers pay a 0p booking fee per paid ticket"
+and its matrix test is red on the PR head (`unit (Europe/London, full)`: 7 failed). The rest holds:
+the buyer total equals the ticket price for every price x quantity shape; the 50p-era terms wording
+is intact behind the gate; the refund sheet names the fee only when the order row carried one. Two
+should-fix items are about the merge window and the "APPROVED" stamp on unapproved wording.
 
 ## Findings
+
+### F0 (block) P3 organiser sheet says "Buyers pay a 0p booking fee"; CI red on the PR head
+
+`src/modules/organiser/p3/tickets/TicketsEntry.tsx:315` (untouched by the diff):
+`{eventDateLine(series)}. Buyers pay a {feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to {MAX_PER_ORDER} tickets an order.`
+With the constant at 0, `feeLabel(0)` is `"0p"`, so an organiser with `organiserP3` on opens the
+tickets sheet and reads "Buyers pay a 0p booking fee per paid ticket". Same sentence as the legacy
+`SeriesTickets.tsx:191-193`, which the PR did gate; this copy was not.
+
+Evidence: PR #1135 check run `unit (Europe/London, full)` on `17e8465` = **failure**, 7 failed /
+18991 passed, all seven at `src/modules/organiser/p3/tickets/__tests__/tickets.matrix.test.tsx:52`:
+expected "Buyers pay a 50p booking fee...", received "Buyers pay a 0p booking fee...". The handover's
+"pre-existing reds, identical on main" list does not include this one, and it is not: it fails
+because of this PR's constant. Note my own grep sweep (item 1 below) also missed this file; the
+CI caught it.
+
+Suggested fix (in #1135, two files): mirror the gate from `SeriesTickets.tsx:191-193` at
+`TicketsEntry.tsx:315` ("Buyers pay the ticket price, up to 20 tickets an order." at 0), and change
+the expectation at `tickets.matrix.test.tsx:52-54` to the zero-fee sentence (ideally via the same
+`BOOKING_FEE_PENCE > 0` branch so the test follows the constant). Better still, hoist the rules
+sentence into `ticketModel.ts` as one `rulesLine()` so the two screens cannot drift again. Re-run
+`npx vitest run src/modules/organiser/p3/tickets` and the full `unit` job before re-requesting.
 
 ### F1 (should-fix) Merge window: the PR cannot shrink it, so flip the secret FIRST, not after
 
@@ -82,9 +105,10 @@ use would print "0p booking fee". No change needed; noted so the next reader doe
    columns, not displayed except through the two above; `bookingFeesPence` is summed in
    `ticketModel.ts:196` and rendered nowhere). `TicketThanksPage.tsx`, `RefundSheet.tsx`,
    `TypeSheet.tsx`, `parts.tsx`, `TicketsHome.tsx`: no fee words. Emails are server-side (admin
-   repo), not reviewable here. Docs: only `docs/ticketing-buyer-journey.md` and
+   repo), not reviewable here. **Missed by this sweep and caught by CI: `src/modules/organiser/p3/
+   tickets/TicketsEntry.tsx:315` (F0), an ungated copy of the rules sentence.** Docs: only `docs/ticketing-buyer-journey.md` and
    `docs/organiser-ticketing-journey.md` mention the fee and both are updated; `docs/handover/*` and
-   `docs/review/ticketing-checkout-1063.md` keep 50p as history. **Nothing still assumes a fee at 0.**
+   `docs/review/ticketing-checkout-1063.md` keep 50p as history. **One place still assumes a fee at 0: F0.**
 2. **Total == price.** `totals()` (`ticketCheckoutModel.ts:126-131`): `feePence = free ? 0 : 0 * q`,
    `totalPence = subtotal + 0`. Covered by `feeZero.matrix.test.tsx:50-60` (6 prices x 4 quantities,
    incl. 0p, 1p, 99p, GBP 2,022.50 x 20) and the rendered block at `:62-94` (paid x1, x2, x20,
@@ -122,7 +146,8 @@ use would print "0p booking fee". No change needed; noted so the next reader doe
 6. **Merge-ordering risk.** See F1. Shown: Total = price (fee line hidden, terms silent on a fee).
    Charged: price + 50p per ticket. No PR-side change shrinks the window: the wire body carries no
    total, and the server's fee comes only from its env. Only the flip order shrinks it (flip first).
-7. **Out of scope in the diff.** None in src. `docs/handovers/ticket-fee-zero-web.md` and the four
+7. **Out of scope in the diff.** None in src (the gap is a file the diff should have touched and
+   did not, F0). `docs/handovers/ticket-fee-zero-web.md` and the four
    PNGs (F4) are the handover. Comment-only edits in `ticketsApi.ts:247`, `ticketCheckoutModel.ts:10-11`,
    `ticketModel.ts:153,421` are all about the fee.
 
@@ -134,6 +159,11 @@ use would print "0p booking fee". No change needed; noted so the next reader doe
 - Red-first on `main`'s src with the branch's tests: 62 failures in the three fee files.
 - 50p-era terms wording reachable at a non-zero constant (`bookingFee.shared.test.tsx`, 75p).
 - Wire body (`CheckoutBody`) has no total or fee field.
+- CI on PR #1135 head `17e8465` (check runs read via the GitHub API): `unit (Europe/London, full)`
+  **failure** (F0); `real-data-verified` failed on the first push then passed after the PR body was
+  edited; `build-smoke`, `integrity`, `contract-check`, `bundle-budget`, `e2e-smoke`,
+  `dancer-area-isolation`, the two tz-sensitive `unit` jobs, `masking-check`, `notification-check`,
+  `bom-check`, `phone-qa-section` all success; the preview-only jobs skipped (`[skip preview]`).
 
 ## Not verified
 
@@ -143,4 +173,5 @@ use would print "0p booking fee". No change needed; noted so the next reader doe
   admin repo, not in this tree. The "unset means 50" claim is taken from the brief.
 - The four screenshots were not re-walked in a browser; the rendered assertions in
   `feeZero.matrix.test.tsx` stand in for the 390x844 walk.
-- CI on PR #1135: not fetched (no `gh`; GitHub MCP not used for this read-only review).
+- The `unit (Europe/London, full)` job log was read only for its failing assertions (tail); the
+  full 19,013-test run was not reproduced locally (the two tickets directories were).
