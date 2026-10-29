@@ -6,6 +6,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { isRoutable } from './routeTable';
 import { landingPathAfterAuth } from '@/lib/auth-otp-routing';
+import { getListedTarget } from '@/lib/getListedTarget';
+import { JOIN_COPY } from '@/modules/admin-organisers/join/joinCopy';
 import { DoneScreen } from '@/modules/admin-organisers/join/JoinScreens';
 
 // Login dead-ends F1 + F2: every internal path the sign-in routing and the get-listed CTAs can
@@ -33,22 +35,39 @@ describe('role-entry maps point only at routes that exist', () => {
     'components/profile/ProfileEntryRouter.tsx',
     'components/organiser/GetListedHoloCta.tsx',
     'pages/Organisers.tsx',
+    'lib/getListedTarget.ts',
   ])('%s has no retired organiser/videographer path', (f) => {
-    expect(src(f)).not.toMatch(/create-(organiser|videographer)-profile|\/listing-request/);
+    // Template-literal forms too: `/create-${role}-profile`.
+    expect(src(f)).not.toMatch(/create-(organiser|videographer|\$\{[^}]*\})-profile|\/listing-request/);
   });
-  it.each(['/account/new', '/auth', '/'])('CTA fallback %s is routable', (p) => {
-    expect(isRoutable(p)).toBe(true);
+  it.each([
+    { selfServe: true, external: false, href: '/account/new' },
+    { selfServe: false, external: true, href: null },
+  ])('Get listed target, selfServe=$selfServe', ({ selfServe, external, href }) => {
+    const t = getListedTarget(selfServe);
+    expect(t.external).toBe(external);
+    if (href) expect(t.href).toBe(href);
+    if (!selfServe) {
+      // Sign-in and the organiser area go live together: nothing may point at them while off.
+      expect(t.href).not.toBe('/auth');
+      expect(t.href).not.toBe('/account/new');
+      expect(t.href).not.toMatch(/create-(organiser|videographer)-profile|listing-request/);
+      expect(t.href).toMatch(/^https:\/\//);
+    } else {
+      expect(isRoutable(t.href)).toBe(true);
+    }
   });
 });
 
 describe('invite Done screen', () => {
   afterEach(cleanup);
   it.each([
-    { selfServe: true, to: '/account/o' },
-    { selfServe: false, to: '/' },
-  ])('selfServe=$selfServe -> link to $to, a routable page', ({ selfServe, to }) => {
+    { selfServe: true, to: '/account/o', body: JOIN_COPY.done.body },
+    { selfServe: false, to: '/', body: JOIN_COPY.done.bodyOff },
+  ])('selfServe=$selfServe -> link to $to, a routable page', ({ selfServe, to, body }) => {
     render(<MemoryRouter><DoneScreen org="Salsa Co" selfServe={selfServe} /></MemoryRouter>);
     expect(screen.getByTestId('join-done').textContent).toContain('Salsa Co');
+    expect(document.body.textContent).toContain(body);
     const href = screen.getByTestId('join-done-home').getAttribute('href');
     expect(href).toBe(to);
     expect(isRoutable(href!)).toBe(true);

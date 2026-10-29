@@ -13,11 +13,6 @@ import { MapPin, User } from "lucide-react";
 import { popPendingReturnTo } from "@/lib/authRouting";
 import GlobalLayout from "@/components/layout/GlobalLayout";
 
-const VALID_ROLES: Record<string, string> = {
-  organiser: "/",
-  videographer: "/",
-};
-
 const Onboarding = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -86,17 +81,14 @@ const Onboarding = () => {
         based_city_id: cityId,
       });
 
-      // 1. Read pendingRole
-      const pendingRole = localStorage.getItem("pending_profile_role");
       const pendingReturnTo = popPendingReturnTo();
 
       // 2. Decide route + 3. Navigate
       if (pendingReturnTo) {
         navigate(pendingReturnTo, { replace: true });
-      } else if (pendingRole && pendingRole !== "dancer" && VALID_ROLES[pendingRole]) {
-        navigate(`/create-${pendingRole}-profile`, { replace: true });
       } else {
-        navigate("/profile", { replace: true });
+        // The create-*-profile and /profile pages are retired (no route): home.
+        navigate("/", { replace: true });
       }
 
       // 4. Clear AFTER navigate

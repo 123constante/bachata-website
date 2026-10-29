@@ -161,7 +161,7 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
   );
 }
 
-export function DoneScreen({ org, selfServe = true }: { org: string; selfServe?: boolean }) {
+export function DoneScreen({ org, selfServe }: { org: string; selfServe: boolean }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>

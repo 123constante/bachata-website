@@ -1,5 +1,6 @@
 import { Link, useSearchParams, useParams } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
+import { getListedTarget } from '@/lib/getListedTarget';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Users, Search, X, CalendarDays, MapPin, Star, Building2, Music } from 'lucide-react';
@@ -815,13 +816,14 @@ const Organisers = () => {
                     Add your events in minutes
                   </div>
                 </div>
-                <Link
-                  to={flags.organiserSelfServe ? "/account/new" : "/auth"}
-                  className="flex-none rounded-lg px-4 py-2 text-[12px] font-bold transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-                  style={{ background: ACCENT, color: '#1a1408' }}
-                >
-                  Join
-                </Link>
+                {(() => {
+                  const target = getListedTarget(flags.organiserSelfServe);
+                  const cls = "flex-none rounded-lg px-4 py-2 text-[12px] font-bold transition-colors hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400";
+                  const style = { background: ACCENT, color: '#1a1408' };
+                  return target.external
+                    ? <a href={target.href} target="_blank" rel="noopener noreferrer" className={cls} style={style}>Join</a>
+                    : <Link to={target.href} className={cls} style={style}>Join</Link>;
+                })()}
               </div>
             )}
           </section>

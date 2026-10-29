@@ -45,8 +45,6 @@ const KNOWN_UNROUTABLE = new Set([
   'src/pages/Dancers.tsx -> /photographers',
   'src/pages/EditProfile.tsx -> /create-dancers-profile',
   'src/pages/EditProfile.tsx -> /profile',
-  'src/pages/Onboarding.tsx -> /create-x-profile',
-  'src/pages/Onboarding.tsx -> /profile',
   'src/pages/PracticePartners.tsx -> /create-dancers-profile',
   'src/pages/Profile.tsx -> /profile?role=x',
   'src/pages/VendorDashboardPage.tsx -> /profile?role=vendor',
