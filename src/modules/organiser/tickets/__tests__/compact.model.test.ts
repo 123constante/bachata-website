@@ -27,9 +27,9 @@ import { writeResult } from '../ticketsApi';
 
 describe('buyerTotal: the one buyer sum', () => {
   it.each([
-    [1000, false, 1050, '\u00A310.00 ticket + 50p booking fee'],
-    [1, false, 51, '\u00A30.01 ticket + 50p booking fee'],
-    [0, true, 0, 'Free, no fee'],
+    [1000, false, 1000, 'The ticket price, nothing added'],
+    [1, false, 1, 'The ticket price, nothing added'],
+    [0, true, 0, 'Free'],
   ])('%ip', (pence, free, total, line) => {
     const b = buyerTotal(pence);
     expect(b.free).toBe(free);
@@ -183,4 +183,13 @@ describe('writeResult keeps the new ticket id', () => {
     [{ ok: false, reason: 'closed' }, { ok: false, reason: 'closed' }],
     [null, { ok: false, reason: 'unknown' }],
   ])('%j', (data, want) => expect(writeResult(data)).toEqual(want));
+});
+
+describe('fee zero: buyerTotal x price is the ticket price, no fee words', () => {
+  it.each([[1000], [1], [1250], [202250], [0]])('%s', (p) => {
+    const t = buyerTotal(p);
+    expect(t.feePence).toBe(0);
+    expect(t.totalPence).toBe(p);
+    expect(t.line).not.toMatch(/50p|booking fee|\bfee\b/i);
+  });
 });

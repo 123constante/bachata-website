@@ -250,8 +250,8 @@ describe('Add sheet x every shape (three steps, live buyer total, review)', () =
         expect((await screen.findByTestId('tix-step')).textContent).toBe('1 / 3');
         fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Early bird' } });
         fireEvent.change(screen.getByTestId('tix-form-price'), { target: { value: price } });
-        expect(screen.getByTestId('tix-buyer-total').textContent).toBe(price === '10' ? '\u00A310.50' : 'Free');
-        expect(screen.getByTestId('tix-buyer-line').textContent).toBe(price === '10' ? '\u00A310.00 ticket + 50p booking fee' : 'Free, no fee');
+        expect(screen.getByTestId('tix-buyer-total').textContent).toBe(price === '10' ? '\u00A310.00' : 'Free');
+        expect(screen.getByTestId('tix-buyer-line').textContent).toBe(price === '10' ? 'The ticket price, nothing added' : 'Free');
         fireEvent.click(screen.getByTestId('tix-next'));
         expect(screen.getByTestId('tix-step').textContent).toBe('2 / 3');
         // Continue checks only this step's fields.
@@ -264,7 +264,7 @@ describe('Add sheet x every shape (three steps, live buyer total, review)', () =
         expect(screen.getByTestId('tix-review-places').textContent).toContain('20');
         expect(screen.getByTestId('tix-review-opens').textContent).toContain('Now');
         expect(screen.getByTestId('tix-review-closes').textContent).toContain('When you stop selling');
-        expect(screen.getByTestId('tix-review-buyer').textContent).toContain(price === '10' ? '\u00A310.50' : 'Free, no fee');
+        expect(screen.getByTestId('tix-review-buyer').textContent).toContain(price === '10' ? '\u00A310.00' : 'Free');
         const why = moveBlock({ pricePence: price === '10' ? 1000 : 0, reserved: 0, capacity: 20 }, 'on_sale', { role: s.role, stripe: s.stripe, seriesLive: true });
         expect((screen.getByTestId('tix-sell') as HTMLButtonElement).disabled).toBe(why !== null);
         expect(screen.queryByTestId('tix-sell-reason')?.textContent ?? null).toBe(why);
@@ -635,5 +635,43 @@ describe('critique fixes (docs/review/ticketing-organiser-ui-1060.md)', () => {
     const ref = sw.getAttribute('aria-describedby');
     for (const id of (ref ?? '').split(' ').filter(Boolean)) expect(document.getElementById(id)).not.toBeNull();
     if (shape.role !== 'contributor') expect(ref).toBeTruthy();
+  });
+});
+
+describe('fee zero (owner order 2026-10-29): organiser preview and lists say no fee', () => {
+  const FEE_WORDS = /50p|booking fee|includes a fee|\bfee\b/i;
+  it('event rules line names no fee', async () => {
+    arrange(SHAPES.find((x) => x.name === 'selling')!);
+    mount('/account/tickets/events/s1');
+    expect((await screen.findByTestId('tix-event-rules')).textContent ?? '').not.toMatch(FEE_WORDS);
+  });
+  for (const [price, total] of [['10', '\u00A310.00'], ['12.50', '\u00A312.50'], ['0', 'Free']] as const) {
+    it(`add sheet preview, price ${price}: buyer pays the ticket price, no fee words`, async () => {
+      arrange(SHAPES.find((x) => x.name === 'connected, no tickets')!);
+      mount('/account/tickets/events/s1');
+      await waitFor(() => expect(api.fetchStripeAccount).toHaveBeenCalled());
+      fireEvent.click(await screen.findByTestId('tix-add'));
+      fireEvent.change(await screen.findByTestId('tix-form-name'), { target: { value: 'Early bird' } });
+      fireEvent.change(screen.getByTestId('tix-form-price'), { target: { value: price } });
+      expect(screen.getByTestId('tix-buyer-total').textContent).toBe(total);
+      expect(screen.getByTestId('tix-buyer-line').textContent ?? '').not.toMatch(FEE_WORDS);
+      fireEvent.click(screen.getByTestId('tix-next'));
+      fireEvent.change(screen.getByTestId('tix-form-capacity'), { target: { value: '20' } });
+      fireEvent.click(screen.getByTestId('tix-next'));
+      const review = screen.getByTestId('tix-review-buyer').textContent ?? '';
+      expect(review).toContain(total);
+      expect(review).not.toMatch(FEE_WORDS);
+    });
+  }
+  it.each([
+    ['paid order, no fee taken', order('p', 'paid', { subtotalPence: 2000, bookingFeePence: 0, totalPence: 2000 }), /^\u00A320\.00 goes back\. /],
+    ['one ticket, no fee taken', order('q', 'paid', { quantity: 1, subtotalPence: 1000, bookingFeePence: 0, totalPence: 1000 }), /^\u00A310\.00 goes back\. /],
+  ])('refund question: %s names no fee', (_n, o, re) => {
+    const q = refundQuestion(o);
+    expect(q.body).toMatch(re);
+    expect(q.body).not.toMatch(FEE_WORDS);
+  });
+  it('refund question still says the fee goes back when the order carried one', () => {
+    expect(refundQuestion(order('p', 'paid')).body).toMatch(/booking fee included/);
   });
 });

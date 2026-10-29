@@ -244,7 +244,7 @@ export async function startOnboarding(organiserId: string, returnUrl: string, re
   return typeof url === 'string' && /^https:\/\//.test(url) ? { kind: 'ok', value: url } : { kind: 'failed', reason: null };
 }
 
-/** Refund one whole order (ticket price + booking fee). Owner / manager only; the function checks again. */
+/** Refund one whole order (ticket price plus any booking fee it carried). Owner / manager only; the function checks again. */
 export async function refundOrder(orderId: string): Promise<EdgeOutcome<null>> {
   const out = await invokeEdge('ticket-refund', { order_id: orderId });
   if (out.kind !== 'ok') return out;

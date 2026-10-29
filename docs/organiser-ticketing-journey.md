@@ -50,10 +50,11 @@ Backend it reads and writes (all live on prod, admin #1063 + #1070):
    - Price is locked with a reason once the type has orders (server: `has_orders`).
      A closed type cannot be edited (server: `closed`), so the sheet opens read-only.
    - Saving an untouched form sends nothing (`buildUpsert` returns null).
-   - Buyers pay a 50p booking fee per ticket on paid types (Q9); max 20 tickets per order (Q2).
+   - Buyers pay the ticket price only: the 50p booking fee (Q9) was removed by the owner order of
+     2026-10-29 (`BOOKING_FEE_PENCE = 0`); max 20 tickets per order (Q2).
 4. **Orders and refund** (section on screen 2, per paid ticket type with orders)
    - Paid orders list: buyer name, quantity, total, date. Refund button opens a confirm
-     sheet: "Refund GBP x to <buyer>? The 50p booking fee per ticket is refunded too."
+     sheet: "Refund GBP x to <buyer>?" (it adds "booking fee included" only for an order that carried a fee).
      Owner/manager only; a contributor sees it disabled with the reason. Refunded and
      disputed orders show their tag and no button.
 

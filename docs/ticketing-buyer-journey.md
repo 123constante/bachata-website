@@ -9,7 +9,7 @@ off, `/event/:id` renders exactly as before and `/tickets/thanks` has no route.
 | # | Screen | Where | What the buyer sees |
 |---|--------|-------|---------------------|
 | 1 | Tickets block | `/event/:id`, under the bento grid | One row per type on sale: name, price (or "Free"), "N left" / "Sold out". |
-| 2 | Order form | same block, after picking a type | Quantity stepper (1 to min(20, remaining)), total lines: tickets subtotal, "+ 50p booking fee per ticket", total; email (required), name (optional), terms checkbox, one Buy button with the reason it is disabled. |
+| 2 | Order form | same block, after picking a type | Quantity stepper (1 to min(20, remaining)), total lines: tickets subtotal, total (no booking fee since the owner order of 2026-10-29; the "+ fee per ticket" line shows only if `BOOKING_FEE_PENCE` is ever non-zero again); email (required), name (optional), terms checkbox, one Buy button with the reason it is disabled. |
 | 3 | Error | same block | Plain-English line for the server reason + a way forward (try again / pick another ticket / contact the organiser). |
 | 4 | Stripe | Stripe hosted checkout (paid only) | Not ours. |
 | 5 | Thank you | `/tickets/thanks?o=<order_id>` | Paid: "Payment received, your tickets are being emailed". Free: "Your free tickets are on their way". Never claims issuance (the webhook issues). |
