@@ -1,0 +1,54 @@
+/*
+ * P3 onboarding, slices 2+3 (page screens, Review, Live, Settings, Home banner). Builds on
+ * onboarding.css (same tokens, same px-only rule: html is ~13.5px on phones). Fit steps mirror the
+ * prototype's container rules on the shell (container name ob).
+ */
+.p3-ob-card { border-radius: var(--r-card); background: var(--card); border: 1px solid var(--line); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.p3-ob-card-list { padding: 4px 12px; }
+.p3-ob-big { font-size: calc(22px * var(--ts)); font-weight: 800; overflow-wrap: anywhere; }
+.p3-ob-break { overflow-wrap: anywhere; word-break: break-all; }
+.p3-ob-row-txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.p3-ob-row-txt strong { font-weight: 700; }
+.p3-ob-row-txt span { font-size: var(--fs-small); color: var(--mut); }
+.p3-ob-row > svg { width: 18px; height: 18px; flex: none; color: var(--mut); }
+a.p3-ob-btn { text-decoration: none; }
+
+/* Logo: square preview, same size steps as the photo. */
+.p3-ob-ava[data-sq="true"] { border-radius: var(--r-tile); }
+
+/* Category: five cards (owner, round 3), 56px on compact heights so the screen never scrolls. */
+.p3-ob-tiles[data-five="true"] > .p3-ob-tile:nth-child(5) { grid-column: span 2; }
+
+/* Live: celebration + confetti behind it. */
+.p3-ob-confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.p3-ob-celebrate { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; margin: auto 0; }
+.p3-ob-bigtick { width: 120px; height: 120px; border-radius: 50%; background: var(--gold); color: var(--btnfg); display: flex; align-items: center; justify-content: center; animation: p3ObPop 420ms ease; }
+.p3-ob-bigtick svg { width: 56px; height: 56px; }
+.p3-ob-scr { position: relative; }
+
+/* Settings sheet (may scroll inside the sheet). */
+.p3-ob-settings { display: flex; flex-direction: column; gap: 12px; padding-bottom: 4px; }
+.p3-ob-set-block { display: flex; flex-direction: column; gap: 8px; }
+.p3-ob-switch { width: 48px; height: 28px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line-strong); position: relative; flex: none; }
+.p3-ob-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--fg); transition: transform 160ms ease; }
+.p3-ob-switch[data-on="true"] { background: var(--gold); border-color: var(--gold); }
+.p3-ob-switch[data-on="true"]::after { transform: translateX(20px); background: var(--btnfg); }
+
+@container ob (max-height: 700px) {
+  .p3-ob-tiles[data-five="true"] > .p3-ob-tile { min-height: 56px; padding: 8px 12px; }
+  .p3-ob-bigtick { width: 92px; height: 92px; }
+  .p3-ob-bigtick svg { width: 44px; height: 44px; }
+  .p3-ob-foot a.p3-ob-btn, .p3-ob-foot .p3-ob-btn-line { min-height: 46px; }
+}
+@container ob (max-height: 520px) {
+  .p3-ob-tiles[data-five="true"] { gap: 6px; }
+  .p3-ob-card { padding: 8px 12px; }
+}
+@container ob (max-height: 480px) {
+  .p3-ob-bigtick { width: 72px; height: 72px; }
+  .p3-ob-bigtick svg { width: 36px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p3-ob-bigtick { animation: none; }
+  .p3-ob-switch::after { transition: none; }
+}

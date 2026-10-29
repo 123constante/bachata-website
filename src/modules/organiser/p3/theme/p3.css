@@ -338,3 +338,10 @@
 .p3-theme.org-sheet { color: var(--fg); font-family: var(--font-ui); font-size: var(--fs-body); line-height: 1.4; }
 .p3-theme.p3-sheet-scrim { background: var(--scrim); }
 .p3-theme .p3-ok { margin: 0; padding: 8px 12px; border-radius: var(--r-ctl); background: var(--ok-bg); color: var(--ok-fg); font-size: var(--fs-small); }
+
+/* W4b build 2 slice 3: Home grace banner + Settings button (prototype screen 23; not onboarding, may scroll). */
+.p3-theme .p3-grace-bar { display: flex; justify-content: flex-end; margin-bottom: -6px; }
+.p3-theme .p3-grace { display: flex; flex-direction: column; gap: 8px; border-color: var(--gold); background: var(--warn-bg); }
+.p3-theme .p3-grace-txt { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.p3-theme .p3-grace-txt span { color: var(--mut); }
+.p3-theme .p3-grace-acts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

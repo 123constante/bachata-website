@@ -30,6 +30,8 @@ export const P3_PATHS = {
   /** W4b build 2: the onboarding person screens 10-20 (full screen, no tab bar); `o` = the page About is for. */
   youDetails: `${P3_BASE}/you/details`,
   youDetailsFor: (organiserId: string) => `${P3_BASE}/you/details?o=${encodeURIComponent(organiserId)}`,
+  /** W4b build 2 slices 2+3: the whole onboarding (Welcome, page screens, person screens, Review, Live); `o` = the page, `at` = a step. */
+  start: `${P3_BASE}/start`,
   /** Done after a team change or a page save, in P3's frame (W4a fix 1). */
   youDone: `${P3_BASE}/you/done`,
   /** One event's Name and details (W3a). */
