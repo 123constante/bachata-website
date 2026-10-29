@@ -462,3 +462,20 @@ export function liveCopy(outcome: GoLiveOutcome, name: string, organiserDetail: 
   }
   return { title: 'You\u2019re live', sub: `${page} is on the calendar.`, celebrate: true, actions: organiserDetail ? ['view', 'share', 'home'] : ['view', 'home'], publicView: organiserDetail };
 }
+
+const WELCOME_NAME_MAX = 24;
+
+/**
+ * Welcome title (playful mood), the ONE mapping: "Hey <first name>, you made it!" when a first name is
+ * known, else the earlier copy. Only the first word is used; long names are clipped by code point.
+ */
+export function welcomeTitle(firstName: string | null | undefined, pageName: string | null | undefined): string {
+  const first = (firstName ?? '').trim().split(/\s+/)[0] ?? '';
+  if (first) {
+    const cps = Array.from(first);
+    const shown = cps.length > WELCOME_NAME_MAX ? `${cps.slice(0, WELCOME_NAME_MAX - 1).join('')}…` : first;
+    return `Hey ${shown}, you made it!`;
+  }
+  const page = (pageName ?? '').trim();
+  return page ? `Welcome to ${page}` : 'Welcome';
+}

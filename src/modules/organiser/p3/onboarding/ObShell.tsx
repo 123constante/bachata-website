@@ -122,10 +122,20 @@ export function ObToast({ text, theme, onDone }: { text: string; theme: 'light' 
  * CSP-allowlisted (CityBlock, CityCard) and has the four home nations (gb-eng, gb-sct, gb-wls,
  * gb-nir). Lazy and in this route's own chunk: zero bytes on /app's first load.
  */
+export function flagEmoji(code: string): string {
+  const c = code.trim().toLowerCase();
+  const cp = String.fromCodePoint;
+  if (/^[a-z]{2}$/.test(c)) return [...c].map((ch) => cp(0x1f1e6 + ch.charCodeAt(0) - 97)).join('');
+  if (/^gb-[a-z]{3}$/.test(c)) return cp(0x1f3f4) + [...`gb${c.slice(3)}`].map((ch) => cp(0xe0000 + ch.charCodeAt(0))).join('') + cp(0xe007f);
+  return '';
+}
+
 export function Flag({ code }: { code: string }) {
   const [failed, setFailed] = useState(false);
   const c = code.trim().toLowerCase();
   if (!/^[a-z]{2}(-[a-z]{3})?$/.test(c)) return <span className="p3-ob-flag" data-failed="true" aria-hidden="true" />;
+  // The image failed (CDN blocked / offline): show the emoji flag instead, never an empty box.
+  if (failed) return <span className="p3-ob-flag" data-emoji="true" aria-hidden="true">{flagEmoji(c)}</span>;
   return (
     <img
       className="p3-ob-flag"

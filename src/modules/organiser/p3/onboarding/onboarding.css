@@ -96,11 +96,13 @@ textarea.p3-ob-inp { min-height: 120px; padding: 12px 18px; resize: none; line-h
 /* Chips (popular picks are .big). */
 .p3-ob-chips { display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
 .p3-ob-chip { min-height: 48px; padding: 0 16px; border-radius: var(--r-chip); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; overflow-wrap: anywhere; text-align: left; }
-.p3-ob-chip[aria-pressed="true"], .p3-ob-chip[aria-checked="true"] { background: var(--warn-bg); border-color: var(--gold); }
+.p3-ob-chip[aria-pressed="true"], .p3-ob-chip[aria-checked="true"] { background: var(--warn-bg); border-color: var(--gold); animation: p3ObPop 220ms ease; }
+.p3-ob-chip[aria-pressed="true"] .p3-ob-chip-x, .p3-ob-chip[aria-checked="true"] .p3-ob-chip-x { background: var(--gold); color: var(--btnfg); animation: p3ObPop 220ms ease; }
 .p3-ob-chip-x { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--card2); align-items: center; justify-content: center; flex: none; }
 .p3-ob-chip-x svg { width: 12px; height: 12px; }
 .p3-ob-flag { width: 24px; height: 18px; flex: none; border-radius: 3px; object-fit: cover; background: var(--card2); display: inline-block; }
 .p3-ob-flag[data-failed="true"] { visibility: hidden; }
+.p3-ob-flag[data-emoji="true"] { background: none; font-size: 18px; line-height: 18px; text-align: center; }
 
 /* Photo */
 .p3-ob-ava-row { display: flex; align-items: center; gap: 14px; }
@@ -181,5 +183,5 @@ textarea.p3-ob-inp { min-height: 120px; padding: 12px 18px; resize: none; line-h
 
 /* Motion off-switch: the phone's reduced-motion setting. No slide, no pop, no bounce. */
 @media (prefers-reduced-motion: reduce) {
-  .p3-ob-scr, .p3-ob-btn, .p3-ob-tile, .p3-ob-tick, .p3-ob-sheet, .p3-ob-toast, .p3-ob-bar i { animation: none !important; transition: none !important; }
+  .p3-ob-scr, .p3-ob-btn, .p3-ob-tile, .p3-ob-tick, .p3-ob-chip, .p3-ob-chip-x, .p3-ob-sheet, .p3-ob-toast, .p3-ob-bar i { animation: none !important; transition: none !important; }
 }

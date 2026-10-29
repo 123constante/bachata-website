@@ -1,0 +1,114 @@
+[
+ {
+  "screen": "welcome",
+  "title": "Welcome to Ritmo Bachata London",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "contact-phone",
+  "title": "Phone number",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "whatsapp",
+  "title": "Show on WhatsApp too?",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "cat",
+  "title": "What kind of page?",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "link",
+  "title": "One link",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "logo",
+  "title": "Your logo",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "name",
+  "title": "Your first name",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "photo",
+  "title": "Your photo",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "role",
+  "title": "How do you dance?",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "nat",
+  "title": "Nationality",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "langs",
+  "title": "Languages you speakoptional",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "teach",
+  "title": "Do you teach?",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "levels",
+  "title": "Which levels?",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ },
+ {
+  "screen": "styles",
+  "title": "Styles you teach",
+  "scroll": 0,
+  "wide": 0,
+  "small": [],
+  "flagBoxEmpty": 0
+ }
+]
