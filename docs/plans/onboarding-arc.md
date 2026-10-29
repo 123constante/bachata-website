@@ -362,6 +362,7 @@ create route), so W4b's create wizard, not ticketing, is the next arc's first sl
 | Live on completion skips human review | owner accepted (D4); ambassador cities per Q2 |
 | `/app` bundle at 0.3 KB headroom | screens as a lazy chunk; perf budget in the walk |
 | Teach styles: D5 names admin's 14, Website stores free text | W4b uses the 14 as chips plus the held free-text values shown as already ticked; no data rewrite |
+| Organiser onboarding now shares the dancer area's gate (`app_feature_flags.dancer_area_open`, `_dancer_area_allowed_v1`): the person screens read and write through `my_dancer_edit_v1` / `save_my_dancer_profile_v2`, which raise `area_closed` for everyone not on `dancer_area_access` if that flag is ever turned off | keep the flag on while organiser onboarding is live (on since 2026-10-15); W4b2 slice 1 shows a message that says the dancer area is closed instead of the generic read error |
 
 **Owner questions (click format, recommendation first):**
 
