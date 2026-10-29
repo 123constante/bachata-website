@@ -345,28 +345,107 @@ export function reviewStatusFrom(raw: unknown, organiserId: string): ReviewStatu
 }
 
 
-export type GoLiveState = 'blocked' | 'ready' | 'not-yet' | 'live';
+export type GoLiveState = 'blocked' | 'ready' | 'not-yet' | 'live' | 'in-review' | 'closed';
 
 /**
- * Review's one primary button. `goLiveDeployed` = complete_organiser_onboarding_v1 is wired in (deployed in admin #1119;
- * intentionally not wired in this PR, `deployed: false` until the go-live slice): until then a draft page's button is disabled with the reason, never a
- * fake success. A live page has nothing to go live; it goes Home.
+ * Review's one primary button, from the status read. The ONE mapping Review, Live and the server answers agree with
+ * (lifecycle values = organiser_profiles_lifecycle_chk: draft, pending_review, live, rejected, archived; read on prod
+ * 2026-10-29). `goLiveDeployed` = complete_organiser_onboarding_v1 is wired in; with the stub a ready page's button
+ * is disabled with the reason, never a fake success. A live or in-review page has nothing to send; it goes Home.
+ * Archived is refused by the RPC (invalid_state), so it is closed here too. Draft and rejected can go live.
  */
 export function goLiveState(s: ReviewStatus, goLiveDeployed: boolean): GoLiveState {
   if (s.lifecycle === 'live') return 'live';
+  if (s.lifecycle === 'pending_review') return 'in-review';
+  if (s.lifecycle === 'archived') return 'closed';
   if (s.missing.length > 0) return 'blocked';
   return goLiveDeployed ? 'ready' : 'not-yet';
 }
 
 export const GO_LIVE_NOT_YET = 'Going live opens soon. Everything you added is saved.';
+export const IN_REVIEW_SUB = 'Your page is with your city\u2019s team. It goes on the calendar once they have checked it, and we will let you know.';
+export const CLOSED_SUB = 'This page is archived, so it can\u2019t go live from here. Ask the Bachata Calendar team to bring it back.';
 
 export function reviewCopy(s: ReviewStatus, deployed: boolean): { title: string; sub: string; primary: string; reason: string | null } {
   const n = s.missing.length;
   const about = s.about.done ? 'About added.' : s.about.skipped ? 'About skipped.' : 'About not added (optional).';
   const state = goLiveState(s, deployed);
+  if (state === 'in-review') return { title: 'Sent for review', sub: `${IN_REVIEW_SUB} ${about}`, primary: 'Go to Home', reason: null };
+  if (state === 'closed') return { title: 'Page archived', sub: CLOSED_SUB, primary: 'Go to Home', reason: null };
   if (n > 0) {
     return { title: thingsLeft(n), sub: `${n} to do. ${about}`, primary: state === 'live' ? 'Go to Home' : 'Go live', reason: state === 'live' ? null : `Finish the ${thingsLeft(n).replace(' left', '')} left to go live.` };
   }
   if (state === 'live') return { title: 'All done', sub: `Your page is live. ${about}`, primary: 'Go to Home', reason: null };
   return { title: 'All set', sub: `Nothing left to do. ${about}`, primary: 'Go live', reason: state === 'not-yet' ? GO_LIVE_NOT_YET : null };
+}
+
+/** What a successful Go live left the page as (complete_organiser_onboarding_v1 `lifecycle` when ok). */
+export type GoLiveOutcome = 'live' | 'pending_review';
+
+/**
+ * Every refusal the RPC gives (live body read 2026-10-29), as Review handles it:
+ *   RAISE authentication_required          -> signed-out (sign in again, come back to Review)
+ *   RAISE not_found (not owner / no page)  -> not-owner (owner-only, plan D4; a manager reads the same)
+ *   { ok:false, reason:'incomplete', missing[] } -> incomplete (the rows, each jumps to its step)
+ *   { ok:false, reason:'invalid_state', lifecycle } -> invalid-state (archived)
+ *   anything else (network, a new reason)  -> failed (retry; nothing is lost, every step already saved)
+ */
+export type GoLiveRefusal = 'incomplete' | 'invalid-state' | 'not-owner' | 'signed-out' | 'failed';
+
+export class GoLiveError extends Error {
+  constructor(readonly refusal: GoLiveRefusal, readonly missing: string[] = []) {
+    super(`go_live_${refusal}`);
+    this.name = 'GoLiveError';
+  }
+}
+
+/** The RPC's raised error message -> a refusal (only the two RAISEs are named; everything else is a failure to retry). */
+export function goLiveRefusalOfMessage(message: string): GoLiveRefusal {
+  if (/\bauthentication_required\b/.test(message)) return 'signed-out';
+  if (/\bnot_found\b/.test(message)) return 'not-owner';
+  return 'failed';
+}
+
+/** The RPC's jsonb answer -> the outcome; a refusal (or a shape it never sends) throws GoLiveError. */
+export function goLiveOutcomeFrom(raw: unknown): GoLiveOutcome {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as { ok?: unknown; reason?: unknown; missing?: unknown; lifecycle?: unknown };
+  if (r.ok === true && (r.lifecycle === 'live' || r.lifecycle === 'pending_review')) return r.lifecycle;
+  if (r.ok === false && r.reason === 'incomplete') {
+    const missing = Array.isArray(r.missing) ? r.missing.filter((x): x is string => typeof x === 'string') : [];
+    throw new GoLiveError('incomplete', missing);
+  }
+  if (r.ok === false && r.reason === 'invalid_state') throw new GoLiveError('invalid-state');
+  throw new GoLiveError('failed');
+}
+
+/** What Review shows for a refusal, and the one next action it offers. */
+export function goLiveRefusalCopy(refusal: GoLiveRefusal): { text: string; action: 'rows' | 'home' | 'sign-in' | 'retry' } {
+  switch (refusal) {
+    case 'incomplete':
+      return { text: 'Not quite yet: your page still needs the things below. Tap one to finish it.', action: 'rows' };
+    case 'invalid-state':
+      return { text: 'This page can\u2019t go live from here. Ask the Bachata Calendar team to help.', action: 'home' };
+    case 'not-owner':
+      return { text: 'Only the page owner can put this page live. Ask them to finish here.', action: 'home' };
+    case 'signed-out':
+      return { text: 'You were signed out. Sign in again and come back here to go live. Everything you added is saved.', action: 'sign-in' };
+    default:
+      return { text: 'Couldn\u2019t go live. Check your connection and try again. Everything you added is saved.', action: 'retry' };
+  }
+}
+
+export type LiveAction = 'view' | 'share' | 'home';
+
+/**
+ * Screen 22 after a real success. `pending_review` is the review variant ("Sent for review", same layout, no
+ * confetti): the page is not public yet, so it offers Home only, never View or Share of a page nobody can see.
+ * View / Share point at the public page, which exists only while flags.organiserDetail is on; with it off View
+ * opens the page in P3 (You > Organiser page) and Share is not offered (it would share a "coming soon" page).
+ */
+export function liveCopy(outcome: GoLiveOutcome, name: string, organiserDetail: boolean): { title: string; sub: string; celebrate: boolean; actions: LiveAction[]; publicView: boolean } {
+  const page = name || 'Your page';
+  if (outcome === 'pending_review') {
+    return { title: 'Sent for review', sub: `${page} goes on the calendar once your city\u2019s team has checked it. We will let you know.`, celebrate: false, actions: ['home'], publicView: false };
+  }
+  return { title: 'You\u2019re live', sub: `${page} is on the calendar.`, celebrate: true, actions: organiserDetail ? ['view', 'share', 'home'] : ['view', 'home'], publicView: organiserDetail };
 }

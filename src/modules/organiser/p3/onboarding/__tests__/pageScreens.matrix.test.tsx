@@ -21,7 +21,7 @@ vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ data: { organisers:
 
 import OnboardingFlow from '../OnboardingFlow';
 import { GraceBanner } from '../../screens/GraceBanner';
-import type { GoLiveApi, PageReads, PageWrites } from '../pageApi';
+import { GO_LIVE_NOT_DEPLOYED, type GoLiveApi, type PageReads, type PageWrites } from '../pageApi';
 import type { PersonReads, PersonWrites } from '../personApi';
 import type { PageCommand } from '../pageModel';
 import { OB_THEME_KEY } from '../obEnv';
@@ -86,7 +86,7 @@ function mount(opts: { shape?: string; at?: string; person?: string[]; goLive?: 
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[url]}>
         <Routes>
-          <Route path="/account/p3/start" element={<OnboardingFlow reads={reads} writes={writes} personReads={PERSON_READS} personWrites={personWrites} goLive={opts.goLive} upload={async () => 'https://img/new.png'} />} />
+          <Route path="/account/p3/start" element={<OnboardingFlow reads={reads} writes={writes} personReads={PERSON_READS} personWrites={personWrites} goLive={opts.goLive ?? GO_LIVE_NOT_DEPLOYED} organiserDetail upload={async () => 'https://img/new.png'} />} />
           <Route path="*" element={<Where />} />
         </Routes>
       </MemoryRouter>
@@ -387,7 +387,7 @@ describe('Review and Live', () => {
     expect(screen.queryByTestId('p3-ob-confetti')).toBeNull();
   });
   it('with a deployed go-live: Go live -> You\u2019re live with confetti, View / Share / Home', async () => {
-    const complete = vi.fn(async () => undefined);
+    const complete = vi.fn(async () => 'live' as const);
     mount({ shape: 'draftDone', at: 'review', goLive: { deployed: true, complete } });
     await onStep('review');
     fireEvent.click(cont());

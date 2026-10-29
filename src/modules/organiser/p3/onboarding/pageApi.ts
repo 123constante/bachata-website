@@ -7,13 +7,14 @@
 //         (+ contact_phone through organiser_profile_update_p5_v1 when the number changed; E.164 or invalid_phone)
 //   write organiser_profile_update_p5_v1 {socials | organisation_category | instagram | website | avatar_url | name}
 //   write create_organiser_profile_v1 / claim_organiser_v1 / request_organiser_access_v1 (build 1's selfServeApi)
+//   write complete_organiser_onboarding_v1(p_organiser_id) -> organiser_profiles.lifecycle_status live | pending_review (REAL_GO_LIVE)
 // NOT used: contact_email (the RPC refuses it for non-admins: contact_email_admin_only), so the prototype's
 // "Use an email instead" (assumption 1) is not built.
 import { supabase } from '@/integrations/supabase/client';
 import { fetchContactSettings } from '../../shared/ownershipApi';
 import { claimOrganiser, createOrganiserProfile, requestOrganiserAccess, searchClaimableOrganisers, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { searchCities, type CityResult } from '../../home/onboarding/citySearch';
-import type { PageCommand } from './pageModel';
+import { GoLiveError, goLiveOutcomeFrom, goLiveRefusalOfMessage, type GoLiveOutcome, type PageCommand } from './pageModel';
 
 type UntypedRpc = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
 const rpc = (fn: string, args?: Record<string, unknown>) => (supabase as unknown as UntypedRpc).rpc(fn, args);
@@ -41,20 +42,34 @@ export interface PageWrites {
 }
 
 /**
- * Go live (screen 22). The S6 RPC complete_organiser_onboarding_v1 is deployed in admin #1119; it is
- * intentionally not wired in this PR (`deployed: false` until the go-live slice). This is the interface the flow calls; GO_LIVE_NOT_DEPLOYED is the
- * stub: `deployed: false`, so Review disables Go live with the reason and never shows a fake "You're live".
- * The go-live slice swaps in an implementation that calls it and sets `deployed: true`.
+ * Go live (screen 22): complete_organiser_onboarding_v1(p_organiser_id) (admin #1119; live body read on prod
+ * 2026-10-29: SECURITY DEFINER, EXECUTE to authenticated only, owner-only). `complete` RESOLVES with the outcome
+ * (`live`, or `pending_review` when the page's city has an ambassador) and REJECTS with a GoLiveError naming the
+ * refusal (pageModel goLiveOutcomeFrom / goLiveRefusalOfMessage). A page already live / in review resolves with its
+ * lifecycle (the RPC's no-op ok). GO_LIVE_NOT_DEPLOYED is the stub tests use for `deployed: false`.
  */
 export interface GoLiveApi {
   deployed: boolean;
-  complete: (organiserId: string) => Promise<void>;
+  complete: (organiserId: string) => Promise<GoLiveOutcome>;
 }
 
 export const GO_LIVE_NOT_DEPLOYED: GoLiveApi = {
   deployed: false,
   complete: async () => {
     throw new Error('go_live_not_deployed');
+  },
+};
+
+export const REAL_GO_LIVE: GoLiveApi = {
+  deployed: true,
+  complete: async (organiserId) => {
+    let data: unknown;
+    try {
+      data = await must(rpc('complete_organiser_onboarding_v1', { p_organiser_id: organiserId }));
+    } catch (e) {
+      throw new GoLiveError(goLiveRefusalOfMessage(e instanceof Error ? e.message : String(e)));
+    }
+    return goLiveOutcomeFrom(data);
   },
 };
 
