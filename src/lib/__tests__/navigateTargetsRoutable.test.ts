@@ -31,7 +31,6 @@ const KNOWN_UNROUTABLE = new Set([
   'src/components/profile/DJDashboard.tsx -> /profile',
   'src/components/profile/DancerDashboard.tsx -> /create-dancers-profile',
   'src/components/profile/OrganiserDashboard.tsx -> /create-event',
-  'src/components/profile/OrganiserDashboard.tsx -> /create-organiser-profile',
   'src/components/profile/OrganiserDashboard.tsx -> /event/x/edit',
   'src/components/profile/TeacherDashboard.tsx -> /create-event',
   'src/components/profile/TeacherDashboard.tsx -> /profile',
@@ -46,16 +45,12 @@ const KNOWN_UNROUTABLE = new Set([
   'src/pages/Dancers.tsx -> /photographers',
   'src/pages/EditProfile.tsx -> /create-dancers-profile',
   'src/pages/EditProfile.tsx -> /profile',
-  'src/pages/Onboarding.tsx -> /create-x-profile',
-  'src/pages/Onboarding.tsx -> /profile',
   'src/pages/PracticePartners.tsx -> /create-dancers-profile',
   'src/pages/Profile.tsx -> /profile?role=x',
   'src/pages/VendorDashboardPage.tsx -> /profile?role=vendor',
   // Found when links joined the scan (2026-10-11); out of the dancer-home PR's
   // scope (listed in its body). Fix the link, then delete the entry.
   'src/components/PartnersMarquee.tsx -> /partners',
-  'src/components/organiser/GetListedHoloCta.tsx -> /create-organiser-profile',
-  'src/pages/Organisers.tsx -> /listing-request',
 ]);
 
 const SIGN_IN_FILES = [

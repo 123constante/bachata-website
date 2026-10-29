@@ -144,10 +144,8 @@ export function callbackErrorCopy(reason: string | null): string | null {
 // A sign-UP for an organiser-type role still goes to the organiser onboarding,
 // exactly as before. Judged on the sign-up, not the role alone: an existing
 // account whose metadata says "organiser" signs in to the chooser too.
-const LEGACY_ROLE_ROUTES: Record<string, string> = {
-  organiser: "/create-organiser-profile",
-  videographer: "/create-videographer-profile",
-};
+// The create-organiser/videographer pages were retired 2026-09-12 (no route: a 404), so with the
+// flag off every role lands on home, as a dancer does.
 
 export const SIGNED_IN_LANDING_PATH = "/account/continue";
 
@@ -164,7 +162,6 @@ export function landingPathAfterAuth(input: {
 }): string {
   const { organiserSelfServe, role, isSignup = false } = input;
   if (!organiserSelfServe) {
-    if (role && role !== "dancer" && LEGACY_ROLE_ROUTES[role]) return LEGACY_ROLE_ROUTES[role];
     // /profile was unrouted 2026-09-12 (a 404 straight after sign-in); home, as for a dancer.
     return "/";
   }

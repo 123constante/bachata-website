@@ -105,7 +105,7 @@ const ROWS: Row[] = [
   { name: 'organiser-type (metadata) SIGN-IN: Continue-as, not straight to /account/o', meta: { user_type: 'organiser' }, lands: '/account/continue', armed: true },
   { name: 'organiser-type sign-up (pending_profile_role): /account/o', mode: 'signup', pendingRole: 'organiser', meta: {}, lands: '/account/o', armed: true },
   { name: 'videographer-type sign-up, self-serve ON: /account/o', mode: 'signup', meta: { user_type: 'videographer' }, lands: '/account/o', armed: true },
-  { name: 'organiser-type, self-serve OFF: legacy create page', selfServe: false, meta: { user_type: 'organiser' }, lands: '/create-organiser-profile', armed: true },
+  { name: 'organiser-type, self-serve OFF: legacy page retired, lands home', selfServe: false, meta: { user_type: 'organiser' }, lands: '/', armed: true },
   { name: 'no role, manages an organiser: Continue-as (it reads the sides)', organisers: 1, meta: {}, lands: '/account/continue', armed: true },
   { name: 'no role, manages none: Continue-as', organisers: 0, meta: {}, lands: '/account/continue', armed: true },
   { name: 'no role, organiser read would fail: Continue-as (it falls back to /account itself)', organisers: 'throws', meta: {}, lands: '/account/continue', armed: true },

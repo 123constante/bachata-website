@@ -91,7 +91,7 @@ export const OrganiserDashboard = () => {
             <p className='text-xs text-muted-foreground'>Tabbed bento layout with role-specific actions.</p>
           </div>
           <div className='flex items-center gap-2'>
-            <Button size='sm' variant='ghost' className='h-7 text-[10px] text-muted-foreground hover:text-foreground' onClick={() => navigate('/create-organiser-profile')}>Use wizard</Button>
+            <Button size='sm' variant='ghost' className='h-7 text-[10px] text-muted-foreground hover:text-foreground' onClick={() => navigate('/')}>Home</Button>
             <Button size='sm' className='h-7 text-[11px]' onClick={() => navigate('/create-event')}>{DASHBOARD_LABELS.addEvent}</Button>
           </div>
         </div>
