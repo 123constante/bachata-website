@@ -11,8 +11,9 @@ Every mockup also shows the "N of M in" counter, manual code entry and the empty
 - `B.html`: camera top 400 px, counter + **result card always visible** below; the next scan replaces it, no tap.
 - `C.html`: B-style scan screen plus a **"Tonight's list" tab** (first name, quantity, In / Not in), which NO SIGNAL opens automatically.
 
-Each file draws every state side by side from ONE `RESULTS` table (generated, so the words, colours and actions
-cannot drift between states or between files).
+Each file draws every state side by side from ONE `RESULTS` table in `gen.py` (`python3 gen.py docs/design/qr-door-scanning`
+regenerates all three), so the words, colours and actions
+cannot drift between states or between files.
 
 ## What differs
 | | A | B | C |
