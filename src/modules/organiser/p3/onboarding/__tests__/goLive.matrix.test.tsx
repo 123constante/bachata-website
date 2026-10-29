@@ -132,8 +132,8 @@ describe('goLiveOutcomeFrom / goLiveRefusalOfMessage: every answer of the live b
   it.each([
     ['live', true, 'You\u2019re live', true, ['view', 'share', 'home']],
     ['live', false, 'You\u2019re live', true, ['view', 'home']],
-    ['pending_review', true, 'Sent for review', false, ['home']],
-    ['pending_review', false, 'Sent for review', false, ['home']],
+    ['pending_review', true, 'Sent for a quick check', false, ['home']],
+    ['pending_review', false, 'Sent for a quick check', false, ['home']],
   ] as const)('liveCopy(%s, organiserDetail %s): %s', (outcome, detail, t, celebrate, actions) => {
     const c = liveCopy(outcome, 'Leeds Nights', detail);
     expect(c.title).toBe(t);
@@ -204,13 +204,13 @@ describe('Go live: every server answer on a ready draft', () => {
   it.each([
     ['sent (changed)', { ok: true, changed: true, lifecycle: 'pending_review', review: true }],
     ['already in review (no-op ok)', { ok: true, changed: false, lifecycle: 'pending_review', review: true }],
-  ])('%s -> Sent for review: no confetti, no View / Share, never "You\u2019re live"', async (_n, data) => {
+  ])('%s -> Sent for a quick check: no confetti, no View / Share, never "You\u2019re live"', async (_n, data) => {
     rpc.mockResolvedValue(ok(data));
     mount();
     await onStep('review');
     fireEvent.click(cont());
     await onStep('live-review');
-    expect(title()).toBe('Sent for review');
+    expect(title()).toBe('Sent for a quick check');
     expect(screen.queryByText('You\u2019re live')).toBeNull();
     expect(screen.queryByTestId('p3-ob-confetti')).toBeNull();
     expect(screen.queryByTestId('p3-ob-live-view')).toBeNull();

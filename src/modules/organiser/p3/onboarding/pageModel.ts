@@ -370,7 +370,7 @@ export function reviewCopy(s: ReviewStatus, deployed: boolean): { title: string;
   const n = s.missing.length;
   const about = s.about.done ? 'About added.' : s.about.skipped ? 'About skipped.' : 'About not added (optional).';
   const state = goLiveState(s, deployed);
-  if (state === 'in-review') return { title: 'Sent for review', sub: `${IN_REVIEW_SUB} ${about}`, primary: 'Go to Home', reason: null };
+  if (state === 'in-review') return { title: 'Sent for a quick check', sub: `${IN_REVIEW_SUB} ${about}`, primary: 'Go to Home', reason: null };
   if (state === 'closed') return { title: 'Page archived', sub: CLOSED_SUB, primary: 'Go to Home', reason: null };
   if (n > 0) {
     return { title: thingsLeft(n), sub: `${n} to do. ${about}`, primary: state === 'live' ? 'Go to Home' : 'Go live', reason: state === 'live' ? null : `Finish the ${thingsLeft(n).replace(' left', '')} left to go live.` };
@@ -437,7 +437,7 @@ export function goLiveRefusalCopy(refusal: GoLiveRefusal): { text: string; actio
 export type LiveAction = 'view' | 'share' | 'home';
 
 /**
- * Screen 22 after a real success. `pending_review` is the review variant ("Sent for review", same layout, no
+ * Screen 22 after a real success. `pending_review` is the review variant ("Sent for a quick check": the G3 copy guard bars "for review"; same layout, no
  * confetti): the page is not public yet, so it offers Home only, never View or Share of a page nobody can see.
  * View / Share point at the public page, which exists only while flags.organiserDetail is on; with it off View
  * opens the page in P3 (You > Organiser page) and Share is not offered (it would share a "coming soon" page).
@@ -445,7 +445,7 @@ export type LiveAction = 'view' | 'share' | 'home';
 export function liveCopy(outcome: GoLiveOutcome, name: string, organiserDetail: boolean): { title: string; sub: string; celebrate: boolean; actions: LiveAction[]; publicView: boolean } {
   const page = name || 'Your page';
   if (outcome === 'pending_review') {
-    return { title: 'Sent for review', sub: `${page} goes on the calendar once your city\u2019s team has checked it. We will let you know.`, celebrate: false, actions: ['home'], publicView: false };
+    return { title: 'Sent for a quick check', sub: `${page} goes on the calendar once your city\u2019s team has checked it. We will let you know.`, celebrate: false, actions: ['home'], publicView: false };
   }
   return { title: 'You\u2019re live', sub: `${page} is on the calendar.`, celebrate: true, actions: organiserDetail ? ['view', 'share', 'home'] : ['view', 'home'], publicView: organiserDetail };
 }
