@@ -12,18 +12,18 @@ type RawOrg = { id?: unknown; name?: unknown; complete?: unknown; missing?: unkn
 const codes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
 /**
- * organiser_onboarding_status_v1() (no id = every page the person is on), for ONE page: `organiserId` when it is
- * listed, else the first page still missing something, else the first. `left` = the person's codes plus that
- * page's, each once. Null = unknown: not an object, or `person.missing` / `organisers` not arrays.
+ * organiser_onboarding_status_v1() (no id = every page the person is on), for ONE page: the shown page
+ * (`organiserId`; not listed = the person's codes only, never another page's), or with no shown page yet the first
+ * page still missing something, else the first. `left` = the person's codes plus that page's, each once. Null = unknown: not an object, or `person.missing` / `organisers` not arrays.
  */
 export function graceStatusFrom(raw: unknown, organiserId: string | null = null): GraceStatus | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as { complete?: unknown; is_admin?: unknown; person?: { missing?: unknown } | null; organisers?: unknown };
   if (!Array.isArray(r.person?.missing) || !Array.isArray(r.organisers)) return null;
   const orgs = r.organisers as RawOrg[];
-  const page = orgs.find((o) => organiserId !== null && o?.id === organiserId)
-    ?? orgs.find((o) => o?.complete !== true && codes(o?.missing).length > 0)
-    ?? orgs[0];
+  const page = organiserId !== null
+    ? orgs.find((o) => o?.id === organiserId)
+    : orgs.find((o) => o?.complete !== true && codes(o?.missing).length > 0) ?? orgs[0];
   return {
     complete: r.complete === true,
     isAdmin: r.is_admin === true,

@@ -72,5 +72,5 @@ export const REAL_WRITES: PersonWrites = {
   skipAbout: (organiserId) => must(rpc('skip_organiser_about_v1', { p_organiser_id: organiserId })),
 };
 
-/** The query keys a person save makes stale (the dancer app, the profile gate, the role reads). */
-export const PERSON_STALE_KEYS: readonly (readonly string[])[] = [['my-dancer-edit'], ['profile-completion'], ['my-role-intent'], ['my-roles'], ['wizard-dancer']];
+/** The query keys a person save makes stale (the dancer app, the profile gate, the role reads, the things-left count). */
+export const PERSON_STALE_KEYS: readonly (readonly string[])[] = [['my-dancer-edit'], ['profile-completion'], ['my-role-intent'], ['my-roles'], ['wizard-dancer'], ['p3-ob-status']];

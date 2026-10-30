@@ -8,6 +8,7 @@ import { OB_THEME_KEY, readObTheme } from '../onboarding/obEnv';
 import { GRACE_HIDE_KEY, graceShown, graceStatusFrom, onboardingLeft, thingsLeft } from '../onboarding/graceModel';
 import { fetchOnboardingStatus, onboardingStatusKey } from '../onboarding/statusQuery';
 import { P3_PATHS } from '../shell/paths';
+import { useOrganiserChoice } from '../../switch/useOrganiserChoice';
 
 // The sheet (and onboarding.css) load only when Settings is tapped.
 const SettingsSheet = lazyWithRetry(() => import('../onboarding/SettingsSheet'));
@@ -29,7 +30,9 @@ export function GraceBanner({ fetcher = fetchOnboardingStatus }: { fetcher?: () 
   const { user } = useAuth();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: onboardingStatusKey(user?.id), queryFn: fetcher, enabled: !!user?.id, staleTime: 60_000, retry: false });
-  const s = q.data ? graceStatusFrom(q.data) : null;
+  // The shown page, as the You tab counts it (one mapping, one page: the two never disagree).
+  const { selected } = useOrganiserChoice();
+  const s = q.data ? graceStatusFrom(q.data, selected?.id ?? null) : null;
   const today = londonTodayKey();
   const [hiddenOn, setHiddenOn] = useState(readHidden);
   const [settings, setSettings] = useState(false);

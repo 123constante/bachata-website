@@ -65,10 +65,12 @@ function install() {
     sent.push(fn);
     if (fn === 'organiser_team_v1') return teamFails ? { data: null, error: { message: 'boom' } } : { data: { my_role: myRole, members }, error: null };
     if (fn === 'list_organiser_access_requests_v1') return { data: requests, error: null };
-    // The Home banner's read (one mapping): every page is `left` codes short, none from the person.
+    // The Home banner's read (one mapping): the shown (first home) page is `left` codes short and listed LAST, every
+    // other page 5, so a You row counting any other page (or the first unfinished one) shows 5, not `left`.
     if (fn === 'organiser_onboarding_status_v1') {
-      const missing = Array.from({ length: left }, (_, i) => `code_${i}`);
-      return { data: { v: 1, is_admin: false, complete: left === 0, person: { complete: true, missing: [] }, organisers: pages.map((p) => ({ id: p.id, complete: left === 0, missing })) }, error: null };
+      const codes = (n: number) => Array.from({ length: n }, (_, i) => `code_${i}`);
+      const orgs = pages.map((p, i) => ({ id: p.id, complete: i === 0 ? left === 0 : false, missing: codes(i === 0 ? left : 5) })).reverse();
+      return { data: { v: 1, is_admin: false, complete: false, person: { complete: true, missing: [] }, organisers: orgs }, error: null };
     }
     return { data: null, error: null };
   });
