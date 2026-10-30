@@ -1,5 +1,5 @@
-import { requiredLeftText } from '@/modules/organiser/shared/profileProgress';
 import { P3_PATHS } from '../shell/paths';
+import { toFinish } from '../onboarding/graceModel';
 
 /**
  * The You hub's rows (mockup p3-w4a A), as data: ONE entry per row, in order. A new row (e.g.
@@ -13,7 +13,7 @@ export interface YouFacts {
   teamCount: number | null;
   /** Open join requests on the shown page. */
   requests: number;
-  /** my_profile_progress_v1 required_left for the shown page; 0 when ready or unknown. */
+  /** graceModel's onboardingLeft for the shown page (the Home banner's count); 0 when done or unknown. */
   requiredLeft: number;
   /** Add a page (P3 youAdd: find, claim, ask to join, create). */
   addPage: string;
@@ -35,7 +35,7 @@ export const YOU = {
   switchSub: (n: number) => `${n} pages`,
   page: 'Organiser page',
   pageSub: 'Photo, about, links, contact',
-  pageRequired: (n: number) => `Required to publish: ${requiredLeftText(n)}`,
+  pageRequired: toFinish,
   team: 'Team',
   teamSub: (n: number) => (n === 1 ? 'Just you' : `${n} people`),
   // Says why, never "add one": at 0 pages the no-page card above has the Add a page link.

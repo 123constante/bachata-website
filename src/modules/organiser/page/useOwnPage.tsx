@@ -100,6 +100,8 @@ export function useOwnPage() {
     () => {
       void queryClient.invalidateQueries({ queryKey: ownOrganiserEntityQueryKey(id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      // P3's things-left count (Home banner, You row) reads the page fields this save may have filled.
+      void queryClient.invalidateQueries({ queryKey: ['p3-ob-status'] });
       // A save always holds drafts when it writes; a write with none is a refetch, not a save.
       if (!pending.current && hasDrafts(bridgeRef.current)) pending.current = { bridge: bridgeRef.current };
     },

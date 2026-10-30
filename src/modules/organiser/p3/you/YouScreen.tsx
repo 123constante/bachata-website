@@ -3,7 +3,9 @@ import { YouTicketsRow } from '../shell/youTickets';
 import { useQuery } from '@tanstack/react-query';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { NO_PAGE_ADD } from '@/modules/organiser/shared/teamRules';
-import { fetchProfileProgress, profileProgressQueryKey } from '@/modules/organiser/shared/profileProgress';
+import { useAuth } from '@/hooks/useAuth';
+import { graceStatusFrom, onboardingLeft } from '../onboarding/graceModel';
+import { fetchOnboardingStatus, onboardingStatusKey } from '../onboarding/statusQuery';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { ROLE_LABEL } from '@/modules/organiser/shared/teamModel';
 import { ORG_PATHS } from '../../shell/paths';
@@ -67,7 +69,7 @@ function AccountCard() {
 /**
  * P3 You (W4a, mockup A): the shown page as a card, then one row per area (Switch page with 2+
  * pages, Organiser page, Team, Add another page), each pushing its screen; back returns here.
- * Reads the same team, join-request and profile-progress caches the pushed screens read, so the
+ * Reads the same team, join-request and onboarding-status caches the pushed screens read, so the
  * numbers here and there agree.
  */
 export function YouScreen() {
@@ -78,11 +80,9 @@ export function YouScreen() {
     queryFn: () => fetchIncomingAccessRequests(organiser!.id),
     enabled: !!organiser,
   });
-  const progress = useQuery({
-    queryKey: profileProgressQueryKey(organiser?.id ?? null),
-    queryFn: () => fetchProfileProgress(organiser!.id),
-    enabled: !!organiser,
-  });
+  // The Home banner's read and count (one mapping), for the page shown here.
+  const { user } = useAuth();
+  const status = useQuery({ queryKey: onboardingStatusKey(user?.id), queryFn: fetchOnboardingStatus, enabled: !!user?.id && !!organiser, staleTime: 60_000, retry: false });
 
   if (ctx.loading) return <StateCard title={YOU.loading} testId="p3-you-loading">This takes a second.</StateCard>;
   if (!organiser && ctx.failed) {
@@ -98,7 +98,7 @@ export function YouScreen() {
     pages: organisers.length,
     teamCount: organiser && !ctx.failed ? ctx.members.length : null,
     requests: requests.data?.length ?? 0,
-    requiredLeft: progress.data?.requiredLeft ?? 0,
+    requiredLeft: onboardingLeft(status.data ? graceStatusFrom(status.data, organiser?.id ?? null) : null),
     addPage: P3_SURFACE.addPage,
   });
 

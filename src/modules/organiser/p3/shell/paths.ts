@@ -44,6 +44,10 @@ export const P3_PATHS = {
   eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
 } as const;
 
+/** Onboarding's Review for a page (where Home's Continue and the editor's "To finish" line go). */
+export const p3StartReview = (organiserId: string | null): string =>
+  organiserId ? `${P3_PATHS.start}?o=${encodeURIComponent(organiserId)}&at=review` : P3_PATHS.start;
+
 /**
  * Where an accepted invite lands (review 1080 F5, owner decision 2026-10-28): P3's Welcome when
  * organiserP3 AND organiserSelfServe are on, else R1's, unchanged. The ONE answer for any caller.

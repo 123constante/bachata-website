@@ -78,6 +78,7 @@ export function invalidateAfterAnswer(qc: QueryClient, area: string, organiserId
   const inv = (queryKey: readonly unknown[]) => { pending.push(qc.invalidateQueries({ queryKey })); };
   inv(profileProgressQueryKey(organiserId));
   inv(['my-profile-progress']);
+  inv(['p3-ob-status']);
   if (area === 'organiser' && organiserId) {
     inv(ownOrganiserEntityQueryKey(organiserId));
     inv(organiserEntityQueryKey(organiserId));

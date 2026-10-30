@@ -1,4 +1,6 @@
 import { type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Users } from 'lucide-react';
 import { useOrgSurface } from '../shell/surface';
@@ -8,18 +10,41 @@ import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/mod
 import type { ProfileEntity } from './profileForm';
 import { useOwnPage } from './useOwnPage';
 import { NO_PAGE_ADD } from '@/modules/organiser/shared/teamRules';
+import { graceStatusFrom, onboardingLeft, toFinish } from '../p3/onboarding/graceModel';
+import { fetchOnboardingStatus, onboardingStatusKey } from '../p3/onboarding/statusQuery';
+import { p3StartReview } from '../p3/shell/paths';
 
 /**
- * C15: while required profile answers are missing, ONE line that opens the
- * wizard (no second checklist here). The number is my_profile_progress_v1's
- * required_left, the one the ring and the go-live lock read.
+ * C15: while something is left, ONE line (no second checklist here). R1: my_profile_progress_v1's
+ * required_left (the ring and the go-live lock), opening the wizard. P3: onboarding's things left,
+ * the same count and words as Home's banner and the You row, opening onboarding's Review.
  */
 export function RequiredLine({ organiserId }: { organiserId: string }) {
+  return useOrgSurface().kind === 'p3' ? <P3RequiredLine organiserId={organiserId} /> : <R1RequiredLine organiserId={organiserId} />;
+}
+
+const LINE = 'flex min-h-[48px] items-center gap-[8px] rounded-[12px] border border-[var(--gold)] bg-[var(--card)] px-[16px] text-[15px] font-semibold text-[var(--fg)]';
+
+/** P3: the count Home's banner and the You row show (graceModel, one read), opening onboarding's Review. */
+function P3RequiredLine({ organiserId }: { organiserId: string }) {
+  const { user } = useAuth();
+  const status = useQuery({ queryKey: onboardingStatusKey(user?.id), queryFn: fetchOnboardingStatus, enabled: !!user?.id, staleTime: 60_000, retry: false });
+  const left = onboardingLeft(status.data ? graceStatusFrom(status.data, organiserId) : null);
+  if (left <= 0) return null;
+  return (
+    <Link to={p3StartReview(organiserId)} data-testid="page-required-line" className={LINE}>
+      <span className="flex-1">{toFinish(left)}</span>
+      <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] text-[var(--gold)]" />
+    </Link>
+  );
+}
+
+function R1RequiredLine({ organiserId }: { organiserId: string }) {
   const progress = useProfileProgress(organiserId);
   const left = progress.data?.requiredLeft ?? 0;
   if (left <= 0) return null;
   return (
-    <Link to={PROFILE_WIZARD_PATH} data-testid="page-required-line" className="flex min-h-[48px] items-center gap-[8px] rounded-[12px] border border-[var(--gold)] bg-[var(--card)] px-[16px] text-[15px] font-semibold text-[var(--fg)]">
+    <Link to={PROFILE_WIZARD_PATH} data-testid="page-required-line" className={LINE}>
       <span className="flex-1">Required to publish: {requiredLeftText(left)}</span>
       <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] text-[var(--gold)]" />
     </Link>
