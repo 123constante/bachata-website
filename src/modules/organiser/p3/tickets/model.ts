@@ -9,8 +9,6 @@ import {
   formOf,
   formatCount,
   isoToLondonInput,
-  moveBlock,
-  reasonMessage,
   type MemberRole,
   type MoveContext,
   type Order,
@@ -31,13 +29,6 @@ import { fullDate } from '../../shared/dateWords';
 
 // ---- Copy the owner approved for P3 (2026-10-27) -----------------------------------
 
-/** The shipped words name the old Tickets home, which P3 does not have. */
-export const OLD_PAYMENTS_WHERE = 'Connect payments on your Tickets home before selling paid tickets.';
-export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
-/** Every ticketing line a P3 screen shows passes through here, so no line points at a screen P3 has not got. */
-export const p3Words = <T extends string | null>(text: T): T => (text === OLD_PAYMENTS_WHERE ? (PAYMENTS_WHERE as T) : text);
-export const p3MoveBlock = (...args: Parameters<typeof moveBlock>): string | null => p3Words(moveBlock(...args));
-export const p3Reason = (reason: string | null | undefined): string => p3Words(reasonMessage(reason));
 /** The Home prompt's title: Home has no one event to name (the shipped title names one). */
 export const PROMPT_TITLE: Record<'none' | 'started', string> = {
   none: 'Get paid for tickets',

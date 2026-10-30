@@ -3,20 +3,17 @@ import {
   EVENT_SALE,
   NOT_MANAGER,
   ORDER_TAG,
+  PAYMENTS_WHERE,
   STRIPE_COPY,
   moveBlock,
   reasonMessage,
 } from '../../../tickets/ticketModel';
 import {
-  OLD_PAYMENTS_WHERE,
-  PAYMENTS_WHERE,
   PREVIEW_ORDERS,
   TONE_CLASS,
   addWhy,
   draftFor,
   newDraft,
-  p3MoveBlock,
-  p3Reason,
   seeAllLabel,
   shownOrders,
   showPrompt,
@@ -26,16 +23,17 @@ import { SHAPES, SHAPE_KEYS, type Shape, type ShapeKey, order, type } from './fi
 
 /* W-T pure layer: the P3 copy swap, the Tickets row, the order preview, the prompt rule, the held draft. */
 
-describe('P3 copy: no line points at the old Tickets home', () => {
-  it('the shipped words are exactly what P3 swaps (moveBlock and the server refusal)', () => {
+describe('Ticketing copy: no line points at the retired Tickets home', () => {
+  it('moveBlock and the server refusal both name You > Get paid', () => {
     const paid = { pricePence: 1000, reserved: 0, capacity: 10 };
-    expect(moveBlock(paid, 'on_sale', { role: 'owner', stripe: 'none', seriesLive: true })).toBe(OLD_PAYMENTS_WHERE);
-    expect(reasonMessage('organiser_not_onboarded')).toBe(OLD_PAYMENTS_WHERE);
-    expect(p3MoveBlock(paid, 'on_sale', { role: 'owner', stripe: 'started', seriesLive: true })).toBe(PAYMENTS_WHERE);
-    expect(p3Reason('organiser_not_onboarded')).toBe(PAYMENTS_WHERE);
+    expect(PAYMENTS_WHERE).toBe('Connect payments in You \u203A Get paid before selling paid tickets.');
+    expect(moveBlock(paid, 'on_sale', { role: 'owner', stripe: 'none', seriesLive: true })).toBe(PAYMENTS_WHERE);
+    expect(moveBlock(paid, 'on_sale', { role: 'owner', stripe: 'started', seriesLive: true })).toBe(PAYMENTS_WHERE);
+    expect(reasonMessage('organiser_not_onboarded')).toBe(PAYMENTS_WHERE);
   });
-  it('every other reason passes through unchanged', () => {
-    for (const r of ['not_authorised', 'has_orders', 'at_capacity', null, 'whatever']) expect(p3Reason(r)).toBe(reasonMessage(r));
+  it('no reason line names the Tickets home', () => {
+    for (const r of ['organiser_not_onboarded', 'not_authorised', 'has_orders', 'at_capacity', null, 'whatever'])
+      expect(reasonMessage(r)).not.toMatch(/Tickets home/i);
   });
 });
 

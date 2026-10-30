@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { refundOrder } from '../../tickets/ticketsApi';
-import { NOT_SWITCHED_ON, buyerNameOf, dayWord, orderLine, orderTag, refundQuestion, type Order } from '../../tickets/ticketModel';
-import { TONE_CLASS, p3Reason } from './model';
+import { NOT_SWITCHED_ON, buyerNameOf, dayWord, orderLine, orderTag, reasonMessage, refundQuestion, type Order } from '../../tickets/ticketModel';
+import { TONE_CLASS } from './model';
 import { StackSheet } from './StackSheet';
 
 /**
@@ -50,7 +50,7 @@ export function RefundSheet({
     // and the late words name this order, so they never read as the open one's (review r2 R2).
     const whose = `${buyerNameOf(order)}'s order`;
     if (out.kind === 'ok') return alive.current ? onDone('Refund started.') : onLate(`Refund started for ${whose}.`, true);
-    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : p3Reason(out.reason);
+    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : reasonMessage(out.reason);
     if (!alive.current) return onLate(`Refund for ${whose} did not start. ${text}`, false);
     setBusy(false);
     setNote(text);
