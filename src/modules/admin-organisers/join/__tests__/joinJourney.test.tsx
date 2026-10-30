@@ -488,6 +488,53 @@ describe('the Join tap', () => {
     expect(document.body.textContent).not.toContain(reason);
   });
 
+  it('rate_limited after Join (login audit L6): Try again is disabled with its reason, nothing redeems again', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'rate_limited' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('rate_limited');
+    const btn = screen.getByTestId('join-retry') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(screen.getByTestId('join-retry-why').textContent).toBe('Please wait an hour before trying again.');
+    fireEvent.click(btn);
+    expect(redeems()).toHaveLength(1);
+  });
+
+  it('unconfirmed_account after Join (login audit L3): its own screen, the person is NOT signed out', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'unconfirmed_account' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('refused');
+    expect(screen.getByRole('heading').textContent).toBe('Confirm your account first');
+    expect(h.auth.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it('team_full after Join (login audit L2): the WhatsApp help link as well as home', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'team_full' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('refused');
+    expect(screen.getByTestId('join-help').getAttribute('href')).toBe(JOIN_COPY.help.url);
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it('an unknown refusal after Join (login audit L4): Try again redeems again and can land on done', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'brand_new_reason' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('refused');
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+    redeem = { ok: true, status: 'redeemed', organiser_id: 'o1' };
+    fireEvent.click(screen.getByTestId('join-retry'));
+    await stepIs('done');
+    expect(redeems()).toHaveLength(2);
+  });
+
   it('not_linked after Join (A2 refused the seat): the safety stop, the invite stays usable', async () => {
     signedIn();
     preview = open(PERSON);

@@ -164,7 +164,8 @@ describe('outcome mappings', () => {
     [{ ok: false, reason: 'rate_limited' }, null, 'rate_limited'],
     [{ ok: false, reason: 'profile_incomplete' }, null, 'profile_incomplete'],
     [{ ok: false, reason: 'sign_in_required' }, null, 'sign_in'],
-    [{ ok: false, reason: 'unconfirmed_account' }, null, 'sign_in'],
+    // Login audit L3: its own "Confirm your account first" screen, never a silent sign-out.
+    [{ ok: false, reason: 'unconfirmed_account' }, null, 'refused'],
     [{ ok: false, reason: 'team_full' }, null, 'refused'],
     [{ ok: false }, null, 'failed'],
     [null, { message: 'authentication_required' }, 'sign_in'],
