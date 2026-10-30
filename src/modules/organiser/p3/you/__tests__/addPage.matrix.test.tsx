@@ -65,6 +65,7 @@ function mount(path: string = P3_PATHS.youAdd, state?: unknown) {
         <div className="p3-theme" data-testid="frame">
           <Routes>
             <Route path={P3_PATHS.home} element={<HomeScreen />} />
+            <Route path={P3_PATHS.start} element={<p data-testid="p3-start-landed">P3 Welcome</p>} />
             <Route path={P3_PATHS.youAdd} element={<OrgSurfaceProvider value={P3_SURFACE}><AddPageScreen /></OrgSurfaceProvider>} />
           </Routes>
         </div>
@@ -141,10 +142,11 @@ describe('Welcome read states', () => {
 });
 
 describe('P3 Home', () => {
-  it('no page yet: Home is the Welcome', async () => {
+  it('no page yet: Home hands over to P3 Welcome (/start), never the R1 onboarding at /you/add', async () => {
     h.mine.mockResolvedValue([]);
     mount(P3_PATHS.home);
-    expect((await screen.findByRole('heading', { level: 1 })).textContent).toBe('Welcome');
+    expect((await screen.findByTestId('p3-start-landed')).textContent).toBe('P3 Welcome');
+    expect(screen.queryByTestId('p3-add-page')).toBeNull();
   });
   it('a claim landing on Home shows its confirmation once, in-flow', () => {
     h.home = { ...h.home, data: { today: '2026-10-28', organisers: [page('a')] } };
