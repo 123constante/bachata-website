@@ -18,3 +18,9 @@
 
 ## Next
 - The owner reviews C r3, then decides on the GAPs (each one needs a server command or column in the admin repo before build).
+
+## PR and checks
+- PR #1204 (open, never merged or approved by the worker).
+- Checks on 6b3fac11, all passed or skipped:
+  - **Passed:** integrity, unit (Europe/London, America/New_York, Australia/Sydney), e2e-smoke, bundle-budget, bom-check, masking-check, notification-check, dancer-area-isolation, live-db-gate, wallclock-brand, phone-qa-section, real-data-verified, no-preview-reason, canary, decide, open-pr.
+  - **Skipped by their triggers:** contract-check, lighthouse, seo, og, synthetic, measure, doc-weight, enable.
