@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { StateCard } from '../screens/parts';
 import type { OrganiserShellProps } from '../../shell/OrganiserShell';
 import { ORG_PATHS } from '../../shell/paths';
 import { OrgSurfaceProvider, type OrgSurface } from '../../shell/surface';
 import { P3_PATHS } from '../shell/paths';
+import { P3RouteBoundary } from '../shell/P3RouteBoundary';
 
 /**
  * The P3 frame for a screen the You hub pushes: back link and title in P3's top bar, the page in
@@ -65,12 +66,17 @@ export const P3_SURFACE: OrgSurface = {
 
 /** Layout route: every screen under /you reads its links and frame from P3_SURFACE. */
 export function P3YouSurface() {
+  // the You hub itself sits in P3Shell's top bar and main (a tab); the screens it pushes draw their own
+  const { pathname } = useLocation();
   return (
     <OrgSurfaceProvider value={P3_SURFACE}>
       {/* The pushed screens are lazy (P3Routes): keep P3's frame, top bar included, while one arrives. */}
-      <Suspense fallback={<P3PushedShell title="" back={YOU} testId="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
-        <Outlet />
-      </Suspense>
+      {/* p3-prefix-d D2: a pushed screen whose chunk will not load says so, with Try again and back to You. */}
+      <P3RouteBoundary frame={pathname === P3_PATHS.you || pathname === `${P3_PATHS.you}/` ? 'tab' : 'pushed'} back={() => YOU}>
+        <Suspense fallback={<P3PushedShell title="" back={YOU} testId="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
+          <Outlet />
+        </Suspense>
+      </P3RouteBoundary>
     </OrgSurfaceProvider>
   );
 }

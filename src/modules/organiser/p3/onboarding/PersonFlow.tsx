@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { NO_PROFILE_CONTACT_LABEL, NO_PROFILE_CONTACT_URL, NO_PROFILE_TEXT } from '@/lib/profileCompletion';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { wizardCountries, type WizardCountry as Country } from '../../wizard/wizardCountries';
@@ -29,6 +30,7 @@ import {
   heldFrom,
   nextStep,
   personPath,
+  personReadFail,
   prevStep,
   progressPercent,
   readFailCopy,
@@ -67,6 +69,13 @@ export default function PersonFlow({ reads = REAL_READS, writes = REAL_WRITES }:
 
   if (!user) return null;
   if (all.some((q) => q.isError)) {
+    if (personReadFail(all.map((q) => q.error)) === 'no_dancer') {
+      return (
+        <ObShell screen="nodancer" dir="fwd" percent={0} onBack={exit} backLabel="Back" onEscape={exit} theme={theme} foot={<NoDancerFoot />}>
+          <NoDancerBody />
+        </ObShell>
+      );
+    }
     return (
       <ObShell screen="error" dir="fwd" percent={0} onBack={exit} backLabel="Back" onEscape={exit} theme={theme}
         foot={<button type="button" className="p3-ob-btn" onClick={() => all.forEach((q) => void q.refetch())} data-testid="p3-ob-retry">Try again</button>}>
@@ -97,6 +106,27 @@ export default function PersonFlow({ reads = REAL_READS, writes = REAL_WRITES }:
       onExit={exit}
       onDone={exit}
     />
+  );
+}
+
+/**
+ * The person screens for an account with no dancer row (personModel isNoDancer), shared by this route
+ * and the full onboarding flow: it says what is missing, and its one action is the team's contact link
+ * (the same copy and link as the Welcome tap gate, lib/profileCompletion). No Retry: it cannot succeed.
+ */
+export function NoDancerBody() {
+  return (
+    <>
+      <h1 className="p3-ob-t" tabIndex={-1} data-testid="p3-ob-title">Your details</h1>
+      <p className="p3-ob-m" data-testid="p3-ob-nodancer">{NO_PROFILE_TEXT}</p>
+    </>
+  );
+}
+export function NoDancerFoot() {
+  return (
+    <a className="p3-ob-btn" href={NO_PROFILE_CONTACT_URL} target="_blank" rel="noopener noreferrer" data-testid="p3-ob-nodancer-contact">
+      {NO_PROFILE_CONTACT_LABEL}
+    </a>
   );
 }
 

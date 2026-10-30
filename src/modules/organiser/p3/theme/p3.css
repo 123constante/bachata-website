@@ -179,6 +179,10 @@
   display: flex; flex-direction: column; gap: 12px;
 }
 .p3-theme .p3-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* p3-prefix-d D4: Close was 38 wide; a whole 44px square, the word centred */
+.p3-theme .p3-sheet-head .p3-link { min-width: var(--tap); justify-content: center; flex: none; }
+/* p3-prefix-d D4: the page editor's compact pencils (Edit city / year / category) were 32 wide here */
+.p3-theme .eip-pencil--compact { width: var(--tap); min-width: var(--tap); }
 .p3-theme .p3-sheet h3 { margin: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
 .p3-theme .p3-stack-s { display: flex; flex-direction: column; gap: 8px; }
 .p3-theme .p3-choice {
@@ -197,6 +201,17 @@
 .p3-theme .p3-checks { display: flex; flex-direction: column; }
 .p3-theme .p3-check { display: flex; align-items: center; gap: 12px; min-height: var(--tap); font-size: var(--fs-body); border-top: 1px solid var(--line); }
 .p3-theme .p3-check input { width: 22px; height: 22px; accent-color: var(--gold); }
+/* p3-prefix-d D4: a switch row (Prices "It's free"): the input covers the whole 44px row, unseen but
+ * focusable, so the tap target is the row; the pill beside it shows the state. */
+.p3-theme .p3-check-switch { position: relative; }
+.p3-theme .p3-check-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.p3-theme .p3-switch { flex: none; position: relative; width: 40px; height: 24px; border-radius: 12px; background: var(--line-strong); transition: background 0.15s; }
+.p3-theme .p3-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--card); transition: transform 0.15s; }
+.p3-theme .p3-check-switch input:checked + .p3-switch { background: var(--gold); }
+.p3-theme .p3-check-switch input:checked + .p3-switch::after { transform: translateX(16px); }
+.p3-theme .p3-check-switch input:focus-visible + .p3-switch { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme .p3-check-switch input:disabled + .p3-switch { opacity: 0.5; }
+.p3-theme .p3-check-switch input:disabled { cursor: default; }
 .p3-theme .p3-toast {
   position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom, 0px)); z-index: 65;
   display: flex; align-items: center; gap: 12px; padding: 4px 4px 4px 16px; min-height: var(--tap); border-radius: var(--r-ctl);

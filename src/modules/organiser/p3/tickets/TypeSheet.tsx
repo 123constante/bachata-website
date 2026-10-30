@@ -10,8 +10,10 @@ import {
   formPence,
   formatPence,
   isoToLondonInput,
+  moveBlock,
   paidOf,
   priceLock,
+  reasonMessage,
   reviewRows,
   stepErrors,
   validateForm,
@@ -20,7 +22,7 @@ import {
   type TicketType,
   type TypeForm,
 } from '../../tickets/ticketModel';
-import { p3MoveBlock, p3Reason, type Step, type TypeDraft } from './model';
+import type { Step, TypeDraft } from './model';
 import { StackSheet } from './StackSheet';
 
 const STEP_TITLE: Record<Step, string> = { 1: 'Name and price', 2: 'Places and dates', 3: 'Review' };
@@ -96,7 +98,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   };
 
   const pence = formPence(form);
-  const sellBlock = p3MoveBlock({ pricePence: pence ?? 0, reserved: type?.reserved ?? 0, capacity: Number(form.capacity) || 0 }, 'on_sale', ctx);
+  const sellBlock = moveBlock({ pricePence: pence ?? 0, reserved: type?.reserved ?? 0, capacity: Number(form.capacity) || 0 }, 'on_sale', ctx);
 
   const submit = async (sell: boolean) => {
     if (locked) return;
@@ -116,7 +118,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     try {
       const out = await upsertTicketType(upsert);
       if (!out.ok) {
-        refuse(p3Reason(out.reason));
+        refuse(reasonMessage(out.reason));
         return;
       }
       if (type) return landed('Ticket saved.');
@@ -124,9 +126,9 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       if (!out.id) return landed('Ticket saved as a draft. Switch it to Selling to put it on sale.');
       const st = await setTicketStatus(out.id, 'on_sale').catch(() => ({ ok: false, reason: null }));
       if (st.ok) landed('Ticket added and on sale.');
-      else landed(`Ticket saved as a draft, not on sale yet. ${p3Reason(st.reason)}`, false);
+      else landed(`Ticket saved as a draft, not on sale yet. ${reasonMessage(st.reason)}`, false);
     } catch {
-      refuse(p3Reason(null));
+      refuse(reasonMessage(null));
     } finally {
       if (alive.current) setSaving(null);
     }
@@ -139,9 +141,9 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     try {
       const out = await setTicketStatus(type.id, 'closed');
       if (out.ok) landed(`${type.name}: sales closed.`, true, named('sales closed.'));
-      else refuse(p3Reason(out.reason), 'sales not closed.');
+      else refuse(reasonMessage(out.reason), 'sales not closed.');
     } catch {
-      refuse(p3Reason(null), 'sales not closed.');
+      refuse(reasonMessage(null), 'sales not closed.');
     } finally {
       if (alive.current) setSaving(null);
     }

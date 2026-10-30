@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fullDate } from '../../shared/dateWords';
-import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
+import { weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
 import {
   ORGANISER_HOME_KEY, dateDetailQueryKey, fetchDateDetail, runOccurrenceCommand, runSeriesCommand, seriesWorkspaceQueryKey,
   type CommandResponse,
@@ -12,11 +12,11 @@ import {
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
+import { DATE_WHY, L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
-import { breakFactsOf, dateFactsOf, marksOf } from './dateFacts';
+import { breakFactsOf, dateFactsOf, marksOf, repeatShapeOf } from './dateFacts';
 
-export { breakFactsOf, dateFactsOf, ownDetailsOf } from './dateFacts';
+export { breakFactsOf, dateFactsOf, ownDetailsOf, repeatShapeOf } from './dateFacts';
 
 /**
  * admin_event_workspace_p5 (+ event_view_p5 for one date's own details) -> the W2b date
@@ -32,6 +32,7 @@ export function seriesFactsOf(ws: EventWorkspace, today: IsoDate, now: Date = ne
     kind,
     lifecycle: ws.series.lifecycle_status,
     upcoming: ws.dates.filter((d) => d.lifecycle_status === 'scheduled' && d.occurrence_date >= today).length,
+    ...(ws.series.recurrence_rule == null ? { ruleSaved: false } : {}),
     ...(kind === 'oneoff' ? { oneOff: canCancelOneOff(cancelInputOf(ws), today, now) } : {}),
   };
 }
@@ -51,7 +52,7 @@ export interface DateEntry {
   own: boolean;
 }
 
-/** Every date the read holds, plus the breaks on the rule's cadence, soonest first. */
+/** Every date the read holds, plus every break (removed_dates, whatever the rule: its date sheet says if it can come back), soonest first. */
 export function dateEntries(ws: EventWorkspace, today: IsoDate): DateEntry[] {
   const stored = new Set(ws.dates.map((d) => d.occurrence_date));
   const rows: DateEntry[] = ws.dates.map((d) => {
@@ -60,7 +61,7 @@ export function dateEntries(ws: EventWorkspace, today: IsoDate): DateEntry[] {
     return { id: d.id, date: d.occurrence_date, label: fullDate(d.occurrence_date, today), facts, tags: m.tags, own: m.own };
   });
   for (const date of ws.series.removed_dates) {
-    if (stored.has(date) || !isRuleDate(date, ws.series)) continue;
+    if (stored.has(date)) continue;
     const facts = breakFactsOf(ws, date);
     rows.push({ id: null, date, label: fullDate(date, today), facts, tags: dateMarks(kindOfWorkspace(ws), facts, { today, hasOverride: false, sessionChanges: false }).tags, own: false });
   }
@@ -109,7 +110,9 @@ export function emptyDatesCopy(ws: EventWorkspace, today: IsoDate, filter: DateF
   if (filter === 'breaks') {
     if (s.kind === 'oneoff') return 'No break weeks. A one-off has one date, so it has none.';
     if (s.kind === 'festival') return 'No break weeks. A festival holds one date, so it has none.';
-    if ((s.kind !== 'weekly' && s.kind !== 'course') || !weeklyRule(ws.series.recurrence_rule)) {
+    const shape = repeatShapeOf(ws);
+    if (shape.from === 'loose') return `No break weeks. ${DATE_WHY.noDatesPattern}`;
+    if ((s.kind !== 'weekly' && s.kind !== 'course') || (shape.from === 'rule' && !weeklyRule(ws.series.recurrence_rule))) {
       return 'No break weeks. Only a weekly pattern has them; cancel a date instead, so dancers see why.';
     }
   }

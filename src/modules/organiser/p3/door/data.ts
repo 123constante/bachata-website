@@ -46,11 +46,24 @@ export async function checkInTicket(code: string, seriesId: string): Promise<Che
 export interface DoorRow { ticketId: string; firstName: string | null; quantity: number | null; typeName: string | null; checkedInAt: string | null }
 export interface DoorList { result: 'ok' | 'not_allowed'; rows: DoorRow[]; truncated: boolean; inCount: number | null; totalCount: number | null; loadedAt: number }
 
+/** The list answer was not one this screen knows (null, a new shape, a partial answer). */
+export class DoorListShapeError extends Error {
+  constructor() { super('door_list_shape'); this.name = 'DoorListShapeError'; }
+}
+
+/*
+ * Only an explicit `not_allowed` is a permissions answer. Anything else that is not a whole `ok`
+ * (rows a list) is a LOAD problem and throws, so the screen says Could not load and Try again,
+ * never "ask the event's organiser to add you" (p3-prefix-d D1).
+ */
 export function parseDoorList(d: unknown, loadedAt = Date.now()): DoorList {
-  const r = (d ?? {}) as Record<string, unknown>;
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new DoorListShapeError();
+  const r = d as Record<string, unknown>;
+  if (r.result !== 'ok' && r.result !== 'not_allowed') throw new DoorListShapeError();
+  if (r.result === 'ok' && !Array.isArray(r.rows)) throw new DoorListShapeError();
   const rows = Array.isArray(r.rows) ? (r.rows as Record<string, unknown>[]) : [];
   return {
-    result: r.result === 'ok' ? 'ok' : 'not_allowed',
+    result: r.result,
     rows: rows.map((x) => ({
       ticketId: String(x.ticket_id),
       firstName: str(x.first_name),

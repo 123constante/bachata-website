@@ -6,9 +6,10 @@ import { saveButton } from '../model';
 import {
   NTH_CHOICES, PREVIEW_EMPTY, REPEAT_COPY, REPEAT_MAX, WEEK_ORDER, addMonthsKey, blankDraft, courseFacts, courseLine, defaultWeekday,
   draftOfRule, draftSig, parsePreview, previewCommand, previewFailure, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem,
-  repeatSentence, repeatStart, storedRuleWords, type RepeatDraft, type RepeatEnd, type RepeatPreview,
+  noRuleNote, repeatSentence, repeatStart, repeatWords, type RepeatDraft, type RepeatEnd, type RepeatPreview,
 } from '../model/repeat';
 import type { PreviewRepeat } from '../data/repeat';
+import { repeatShapeOf } from '../data/dateFacts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
 import { Sheet } from './Sheet';
 import type { SendOnce } from './CancelEventSheet';
@@ -132,6 +133,8 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
 }) {
   const s = ws.series;
   const access = repeatAccess({ format: s.format, lifecycle: s.lifecycle_status, rule: s.recurrence_rule });
+  const shape = repeatShapeOf(ws);
+  const note = noRuleNote(shape);
   const next = ws.dates.filter((x) => x.lifecycle_status !== 'cancelled' && x.occurrence_date >= today).map((x) => x.occurrence_date).sort()[0] ?? null;
   const [base] = useState<RepeatDraft>(() => draftOfRule(s.recurrence_rule, defaultWeekday(next)) ?? blankDraft(defaultWeekday(next)));
   const [draft, setDraft] = useState<RepeatDraft>(base);
@@ -202,7 +205,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
     return (
       <OnBody>
         <Sheet title={REPEAT_COPY.title} onClose={onClose}>
-          <div className="p3-card p3-inset" data-testid="p3-repeat-current">{storedRuleWords(s.recurrence_rule, today)}</div>
+          <div className="p3-card p3-inset" data-testid="p3-repeat-current">{repeatWords(shape, today)}</div>
           {course && <p className="p3-note" data-testid="p3-repeat-course">{courseLine(course, today)}</p>}
           <p className="p3-note" data-testid="p3-repeat-why">{access.why}</p>
           <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>OK</button>
@@ -217,7 +220,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
         <div className="p3-sheet-body p3-stack-s">
           {course && <p className="p3-row-t" data-testid="p3-repeat-course">{courseLine(course, today)}</p>}
           {access.mode === 'disabled' && <p className="p3-warn" id="p3-repeat-why" data-testid="p3-repeat-why">{access.why}</p>}
-          {access.mode === 'edit' && s.recurrence_rule == null && !changed && <p className="p3-note" data-testid="p3-repeat-norule">{REPEAT_COPY.noRule}</p>}
+          {access.mode === 'edit' && note && !changed && <p className="p3-note" data-testid="p3-repeat-norule">{note}</p>}
           <fieldset className="p3-ask" disabled={access.mode !== 'edit' || busy} aria-describedby={access.mode === 'disabled' ? 'p3-repeat-why' : undefined}>
             <legend className="p3-sr">How it repeats</legend>
             <Editor d={draft} set={set} today={today} off={access.mode !== 'edit' || busy} />

@@ -1,5 +1,4 @@
 import { P3_PATHS } from '../shell/paths';
-import { NO_PAGE } from '@/modules/organiser/shared/teamRules';
 import { toFinish } from '../onboarding/graceModel';
 
 /**
@@ -16,7 +15,7 @@ export interface YouFacts {
   requests: number;
   /** graceModel's onboardingLeft for the shown page (the Home banner's count); 0 when done or unknown. */
   requiredLeft: number;
-  /** Add a page (R1 Home's add sheet; P3 has none of its own). */
+  /** Add a page (P3 youAdd: find, claim, ask to join, create). */
   addPage: string;
 }
 
@@ -39,13 +38,11 @@ export const YOU = {
   pageRequired: toFinish,
   team: 'Team',
   teamSub: (n: number) => (n === 1 ? 'Just you' : `${n} people`),
-  // Says why, never "add one": at 0 pages there is no add here; the no-page card above has Message us.
+  // Says why, never "add one": at 0 pages the no-page card above has the Add a page link.
   teamNoPage: 'A team belongs to a page, and you don\u2019t run one yet.',
   addPage: 'Add another page',
   account: 'Account and help',
   accountSub: 'Sign out, help, leave a page',
-  noPage: NO_PAGE.title,
-  messageUs: 'Message us',
   loading: 'Loading your pages\u2026',
   failed: 'Your pages did not load',
   failedBody: 'Check your connection, then try again.',

@@ -126,11 +126,13 @@ describe('the greyed reasons say what to do instead', () => {
     expect(dateActions(series('weekly', DATE_CAP), STATES.skipped, TODAY)[0].reason).toBe(DATE_WHY.cap);
     expect(dateActions(series('weekly', DATE_CAP - 1), STATES.skipped, TODAY)[0].reason).toBeNull();
   });
-  it('recurring with recurrence_rule null (ruleDate n/a): no "Not the usual day", skip says no pattern (r1 finding 5)', () => {
+  it('recurring with recurrence_rule null (ruleDate n/a): no "Not the usual day", skip says no pattern (r1 finding 5, p3-prefix-c)', () => {
     const noRule: DateFacts = { ...STATES.coming, ruleDate: null };
     for (const kind of ['weekly', 'course'] as P3Kind[]) {
       expect(enabled(series(kind), noRule)).toEqual(['cancel', 'details', 'move', 'time']);
-      expect(dateActions(series(kind), noRule, TODAY).find((r) => r.action === 'skip')?.reason).toBe(DATE_WHY.noPattern);
+      expect(dateActions({ ...series(kind), ruleSaved: false }, noRule, TODAY).find((r) => r.action === 'skip')?.reason).toBe(DATE_WHY.noDatesPattern);
+      // A stored rule this page cannot judge (every 2-4 weeks): skip says so (p3-prefix-c).
+      expect(dateActions(series(kind), noRule, TODAY).find((r) => r.action === 'skip')?.reason).toBe(DATE_WHY.cantCheck);
       expect(dateMarks(kind, noRule, { today: TODAY, hasOverride: false, sessionChanges: false }).tags).toEqual([]);
     }
   });

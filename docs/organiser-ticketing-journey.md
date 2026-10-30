@@ -1,5 +1,7 @@
 # Organiser ticketing: journey map (S3)
 
+> **Retired 2026-10-30 (T6).** The `/account/tickets` screens below were deleted once the P3 walk passed. That path is now only a redirect to P3 (`src/modules/organiser/tickets/legacyRedirect.ts`): Stripe returns go to You > Get paid with `o` and `stripe` kept; an event screen goes to its P3 event page. `ticketModel.ts` and `ticketsApi.ts` stay; P3 uses them.
+
 Flag: `organiserTicketing` (`VITE_ENABLE_ORGANISER_TICKETING=true`), OFF by default.
 While off there is NO route: `/account/tickets/*` falls through to the site's NotFound,
 exactly like `/account/p3/*` while `organiserP3` is off. It also needs

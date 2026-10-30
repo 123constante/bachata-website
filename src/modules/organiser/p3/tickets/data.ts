@@ -3,9 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { isListedSeries, type HomeSeriesFull } from '../../shared/homeModel';
 import type { HomeOrganiser, OrganiserHome } from '../../shared/selfServeApi';
 import { fetchOrders, fetchSalesSummary, fetchSeriesTypes, fetchStripeAccount, startOnboarding, ticketKeys } from '../../tickets/ticketsApi';
-import { stripeStateOf, type StripeState } from '../../tickets/ticketModel';
+import { reasonMessage, stripeStateOf, type StripeState } from '../../tickets/ticketModel';
 import { useP3Home } from '../data/useP3Data';
-import { p3Reason } from './model';
 import { P3_TICKET_PATHS } from './paths';
 
 /**
@@ -94,7 +93,7 @@ export function useStartOnboarding(organiserId: string) {
     }
     setBusy(false);
     if (out.kind === 'not_configured') setSwitchedOff(true);
-    else setNote(p3Reason(out.reason));
+    else setNote(reasonMessage(out.reason));
   };
   return { go, busy, note, switchedOff };
 }

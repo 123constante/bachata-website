@@ -60,6 +60,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
 
   const [stop, setStop] = useState<JoinStop | null>(null);
   const [redeemed, setRedeemed] = useState(false);
+  // undefined = nothing redeemed here; null = redeemed with no new seat (already a member) or no id: the plain organiser home.
+  const [redeemedOrgId, setRedeemedOrgId] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -92,6 +94,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     void attemptRedeem(token).then((o) => {
       if (o.kind === 'done') {
         setRedeemed(true);
+        setRedeemedOrgId(o.alreadyMember ? null : o.organiserId);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       }
       setUsedResolved(true);
@@ -117,6 +120,13 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     usedCheckPending: !usedResolved,
   });
   const step = derived.step;
+
+  // The Done link's organiser: the redeem's own id; else, only when exactly ONE of the person's pages matches the
+  // invite's name (two same-named pages cannot say which), that page. Otherwise null: the plain organiser home.
+  const ownPages = ownList.isSuccess ? ownList.data?.organisers : null;
+  const nameMatch = info ? ownPageForName(ownPages, info.organiserName) : null;
+  const nameIsUnique = nameMatch != null && info != null && ownPageForName(ownPages?.filter((o) => o !== nameMatch), info.organiserName) == null;
+  const doneOrgId = redeemedOrgId !== undefined ? redeemedOrgId : nameIsUnique ? nameMatch.id : null;
 
   // A finished-with link: the token leaves the address bar.
   useEffect(() => {
@@ -207,7 +217,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
       if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
         const outcome = await attemptRedeem(token);
-        if (outcome.kind === 'done') setRedeemed(true);
+        if (outcome.kind === 'done') { setRedeemed(true); setRedeemedOrgId(outcome.alreadyMember ? null : outcome.organiserId); }
         else fail('claim', { kind: 'not_linked' });
       }
     } finally {
@@ -225,6 +235,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       switch (outcome.kind) {
         case 'done':
           setRedeemed(true);
+          setRedeemedOrgId(outcome.alreadyMember ? null : outcome.organiserId);
           void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
           return;
         case 'not_linked': return fail('join', { kind: 'not_linked' });
@@ -343,7 +354,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} selfServe={flags.organiserSelfServe} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} />
         </>
       );
       break;

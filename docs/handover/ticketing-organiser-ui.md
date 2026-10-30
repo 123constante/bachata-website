@@ -1,5 +1,7 @@
 # Handover: organiser ticketing screens (Website), PR #1060
 
+> **Retired 2026-10-30 (T6).** The `/account/tickets` screens below were deleted once the P3 walk passed. That path is now only a redirect to P3 (`src/modules/organiser/tickets/legacyRedirect.ts`): Stripe returns go to You > Get paid with `o` and `stripe` kept; an event screen goes to its P3 event page. `ticketModel.ts` and `ticketsApi.ts` stay; P3 uses them.
+
 Branch `claude/ticketing-organiser-ui`. Flag `organiserTicketing` stays OFF.
 Journey map and first shape survey: [`docs/organiser-ticketing-journey.md`](../organiser-ticketing-journey.md).
 Design record (S3b): [`docs/design/1060.md`](../design/1060.md).

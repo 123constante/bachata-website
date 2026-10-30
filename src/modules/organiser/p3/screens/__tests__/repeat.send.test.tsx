@@ -232,7 +232,7 @@ describe('W3c-1 Repeat sheet, real send path', () => {
     ['oneoff', 'Doesn\u2019t repeat', REPEAT_WHY.oneoff],
     ['festival', 'Doesn\u2019t repeat', REPEAT_WHY.festival],
     ['custom', 'Dates you pick', REPEAT_WHY.custom],
-    ['ended', 'Doesn\u2019t repeat', REPEAT_WHY.ended],
+    ['ended', 'Every Wednesday, going by its dates. No pattern is saved.', REPEAT_WHY.ended],
   ] as const)('%s: the pattern and why, an OK button, no editor', async (shape, words, why) => {
     serve(SHAPES[shape]);
     show();
@@ -248,9 +248,9 @@ describe('W3c-1 Repeat sheet, real send path', () => {
   it('a recurring event with no rule yet opens with no day, says how to start, and Save waits for a day', async () => {
     serve(wsRaw({ recurrence_rule: null }, program([item('p', 'party', 'Social', '21:00', '01:00')]), weekly('2026-10-30', 3).map((d) => occ(d))));
     show();
-    expect((await screen.findByTestId('p3-repeat-row')).textContent).toContain('Doesn\u2019t repeat');
+    expect((await screen.findByTestId('p3-repeat-row')).textContent).toContain('Every Friday, going by its dates. No pattern is saved.');
     await openRepeat();
-    expect((screen.getByTestId('p3-repeat-norule')).textContent).toContain(REPEAT_COPY.noRule);
+    expect((screen.getByTestId('p3-repeat-norule')).textContent).toContain('No pattern is saved; its dates run every Friday. Pick the days to save it as a pattern.');
     expect((screen.getByTestId('p3-repeat-save') as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Friday' }));
     await screen.findByTestId('p3-repeat-line-added');

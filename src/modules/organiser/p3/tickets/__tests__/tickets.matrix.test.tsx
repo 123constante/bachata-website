@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
-import { NOT_MANAGER, NOT_MANAGER_REFUND, refundable } from '../../../tickets/ticketModel';
-import { PAYMENTS_WHERE, shownOrders } from '../model';
+import { NOT_MANAGER, NOT_MANAGER_REFUND, PAYMENTS_WHERE, refundable } from '../../../tickets/ticketModel';
+import { shownOrders } from '../model';
 import { SHAPES, SHAPE_KEYS, type Shape, type ShapeKey } from './fixtures';
 import { dataMock, load, show } from './harness';
 

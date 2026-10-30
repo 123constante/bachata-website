@@ -1,5 +1,5 @@
-import { Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Suspense, type ReactNode } from 'react';
+import { Navigate, Route, Routes, type Params } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
@@ -11,6 +11,7 @@ import { StatsScreen } from '../screens/StatsScreen';
 import { P3YouSurface } from '../you/surface';
 import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
+import { P3RouteBoundary, type P3RouteBack, type P3RouteFrame } from './P3RouteBoundary';
 
 // The You hub and the R1 screens it pushes: lazy, as in OrganiserRoutes. Static imports here put
 // every one of their chunks in AnimatedRoutes' preload list for this area, which /app/* loads first.
@@ -37,6 +38,16 @@ const HistoryScreen = lazyWithRetry(() => import('../screens/HistoryScreen').the
 // The door scanner (ticketing) loads on its own; its QR reader fallback (jsQR) loads only from inside it.
 const DoorScreen = lazyWithRetry(() => import('../door/DoorScreen').then((m) => ({ default: m.DoorScreen })));
 
+// p3-prefix-d D2: every lazy screen sits in a boundary, so a chunk that will not load shows a
+// message, Try again and a way back instead of a blank screen. `back` is where that link goes.
+const toEvent = (p: Readonly<Params>) => ({ to: P3_PATHS.event(p.seriesId ?? ''), label: 'Event' });
+const toEvents = () => ({ to: P3_PATHS.events, label: 'Events' });
+const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
+const toHome = () => ({ to: P3_PATHS.home, label: 'Home' });
+function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
+  return <P3RouteBoundary frame={frame} back={back}><Suspense fallback={null}>{el}</Suspense></P3RouteBoundary>;
+}
+
 /**
  * The P3 organiser area (lazy chunk, mounted by AnimatedRoutes ONLY while
  * flags.organiserP3 and flags.organiserSelfServe are on). W1: Home, Events and Stats read screens; W2a: one event's page and its Status sheet; W2b: its date sheets and All dates; W4a: the You hub and the screens it pushes (Team, Switch page, Organiser page, Welcome), the R1 screens in P3's frame.
@@ -46,17 +57,17 @@ export default function P3Routes() {
   return (
     <AuthGuard>
       <Routes>
-        <Route path="you/details" element={<Suspense fallback={null}><PersonFlow /></Suspense>} />
-        <Route path="start" element={<Suspense fallback={null}><OnboardingFlow /></Suspense>} />
-        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={<Suspense fallback={null}><DoorScreen /></Suspense>} />}
+        <Route path="you/details" element={lazyScreen(<PersonFlow />, 'own', toYou)} />
+        <Route path="start" element={lazyScreen(<OnboardingFlow />, 'own', toHome)} />
+        {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
           <Route index element={<HomeScreen />} />
           <Route path="events" element={<EventsScreen />} />
-          <Route path="events/:seriesId" element={<Suspense fallback={null}><EventPage /></Suspense>} />
-          <Route path="events/:seriesId/dates" element={<Suspense fallback={null}><AllDatesScreen /></Suspense>} />
-          <Route path="events/:seriesId/details" element={<Suspense fallback={null}><DetailsScreen /></Suspense>} />
-          <Route path="events/:seriesId/prices" element={<Suspense fallback={null}><PricesScreen /></Suspense>} />
-          <Route path="events/:seriesId/history" element={<Suspense fallback={null}><HistoryScreen /></Suspense>} />
+          <Route path="events/:seriesId" element={lazyScreen(<EventPage />, 'tab', toEvents)} />
+          <Route path="events/:seriesId/dates" element={lazyScreen(<AllDatesScreen />, 'tab', toEvent)} />
+          <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
+          <Route path="events/:seriesId/prices" element={lazyScreen(<PricesScreen />, 'tab', toEvent)} />
+          <Route path="events/:seriesId/history" element={lazyScreen(<HistoryScreen />, 'tab', toEvent)} />
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />

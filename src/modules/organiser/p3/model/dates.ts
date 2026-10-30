@@ -26,8 +26,9 @@ export interface DateFacts {
   state: DateState;
   /**
    * The series' own weekly rule makes this date (seriesModel.isRuleDate): only such a date can
-   * be a break. null = the series has no weekly rule to measure against (monthly, dates I pick,
-   * or a recurring series whose rule is not stored), so "off the usual day" does not apply.
+   * be a break. With no stored rule, a weekly pattern read off the dates (repeatShape 'dates')
+   * stands in. null = nothing weekly to measure against (monthly, dates I pick, or no rule and
+   * dates that follow no pattern), so "off the usual day" does not apply.
    */
   ruleDate: boolean | null;
   /** The date starts at another time than the series (changeModel.hasOwnTime). */
@@ -43,6 +44,12 @@ export interface SeriesFacts {
   upcoming: number;
   /** canCancelOneOff for a one-off (null when the event is not live or hidden). */
   oneOff?: CancelRule | null;
+  /**
+   * false = no rule is stored (repeatShape 'dates' / 'loose'). The server's unskip then has no
+   * cadence to guard (_cmd_series_unskip_date_p5 falls open on a NULL rule), so every break can
+   * come back. Absent = a rule is stored.
+   */
+  ruleSaved?: boolean;
 }
 
 export interface DateRow {
@@ -66,8 +73,11 @@ export const DATE_WHY = {
   festivalOne: 'A festival holds one date. Ask the Bachata Calendar team to change its days.',
   oneOffNoBreak: 'A one-off has one date, so it has no break weeks. Cancel the event instead.',
   noPattern: 'Only a weekly pattern has break weeks. Cancel this date instead, so dancers see why.',
+  noDatesPattern: 'No pattern is saved and its dates don\u2019t follow a weekly one, so it has no break weeks. Cancel this date instead, so dancers see why.',
   offRule: 'This date was added or moved, so it is not part of the weekly pattern and can\u2019t be a break. Cancel it instead.',
-  unskipOffRule: 'The weekly pattern changed since this break, so it can\u2019t come back as a break. Add it as a date instead.',
+  cantCheck: 'Breaks can only be checked here on a pattern that runs every week. Cancel this date instead, so dancers see why.',
+  unskipCantCheck: 'This break can\u2019t be checked against the pattern here, so it can\u2019t come back as a break. Add it as a date instead.',
+  unskipOffRule: 'This date was moved, removed, or the pattern changed since, so it can\u2019t come back as a break. Add it as a date instead.',
   oneOffRemove: 'A one-off keeps its one date. Move it to another day, or cancel the event.',
   noDelete: 'Dates are never deleted here, so dancers who saved one can see what happened. Cancel it instead.',
   oneOffAdd: 'A one-off has one date. Move it, or make a new event for another night.',
@@ -91,7 +101,11 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
   const oneoff = s.kind === 'oneoff';
 
   // unskip delegates to _cmd_series_add_date_p5, so the date cap refuses it like Add.
-  if (d.state === 'skip') return [row('unskip', base ?? (!d.ruleDate ? DATE_WHY.unskipOffRule : s.upcoming >= DATE_CAP ? DATE_WHY.cap : null))];
+  // With a STORED rule the server restores only a date that rule makes, so a break this page cannot
+  // place on it is not offered; with none stored the server has no cadence to guard.
+  const stored = s.ruleSaved !== false;
+  const unskipWhy = d.ruleDate === false ? DATE_WHY.unskipOffRule : stored && d.ruleDate === null ? DATE_WHY.unskipCantCheck : null;
+  if (d.state === 'skip') return [row('unskip', base ?? unskipWhy ?? (s.upcoming >= DATE_CAP ? DATE_WHY.cap : null))];
 
   const cancelled = d.state === 'cancelled';
   const onFirst = cancelled ? DATE_WHY.cancelledFirst : null;
@@ -111,7 +125,8 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
 
   const skipWhy = oneoff ? DATE_WHY.oneOffNoBreak
     : fest ? DATE_WHY.festivalOne
-    : s.kind === 'monthly' || s.kind === 'custom' || d.ruleDate === null ? DATE_WHY.noPattern
+    : s.kind === 'monthly' || s.kind === 'custom' ? DATE_WHY.noPattern
+    : d.ruleDate === null ? (s.ruleSaved === false ? DATE_WHY.noDatesPattern : DATE_WHY.cantCheck)
     : base ?? onFirst ?? (d.ruleDate ? null : DATE_WHY.offRule);
   out.push(row('skip', skipWhy));
 
