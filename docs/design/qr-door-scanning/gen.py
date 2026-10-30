@@ -1,0 +1,223 @@
+import sys, os
+OUT = sys.argv[1]
+os.makedirs(OUT, exist_ok=True)
+
+CSS = r"""
+:root{
+  /* copied from src/modules/organiser/p3/theme/p3.css, dark set (door rooms are dark) */
+  --bg:#202226; --card:#2a2d32; --card2:#33373d; --sheet:#2a2d32; --tab:#17181b;
+  --line:#3d4148; --line-strong:#7b828d; --fg:#f1f2f4; --mut:#a3a9b3;
+  --gold:#f0703a; --gold-fg:#f5865a; --btn:#f0703a; --btnfg:#1d0a03;
+  --danger:#ff7a6b; --ok-fg:#7be6b4; --warn-fg:#ff9a6a;
+  --r-card:20px; --r-ctl:15px; --r-chip:999px; --r-sheet:28px; --tap:44px;
+  --fs-body:16px; --fs-small:14px; --fs-tab:12px; --fs-title:22px;
+  --font-ui:"Outfit",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  /* result fills: the p3 dark *-fg colours used SOLID, with --btnfg text (all > 9:1); --res-warn is NEW (p3 has no amber distinct from its reds) */
+  --res-ok:#7be6b4; --res-warn:#ffc061; --res-bad:#ff7a6b; --res-grey:#a3a9b3; --res-text:#1d0a03;
+  --cam:#0b0c0e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#111214;color:var(--fg);font-family:var(--font-ui);font-size:var(--fs-body);line-height:1.4;padding:16px}
+.doc{max-width:1700px;margin:0 auto}
+.doc h1{font-size:24px;margin:0 0 4px}
+.doc p.lead{font-size:15px;color:var(--mut);margin:0 0 16px;max-width:760px}
+.grid{display:flex;flex-wrap:wrap;gap:24px}
+.cell h2{font-size:14px;font-weight:600;color:var(--mut);margin:0 0 6px}
+.phone{width:390px;height:844px;background:var(--bg);border-radius:36px;overflow:hidden;position:relative;border:1px solid var(--line);display:flex;flex-direction:column}
+.cam{background:radial-gradient(circle at 50% 40%,#2b2f36 0,var(--cam) 70%);position:relative;display:flex;align-items:center;justify-content:center;color:var(--fg)}
+.finder{width:230px;height:230px;position:relative}
+.finder i{position:absolute;width:44px;height:44px;border:4px solid var(--fg);border-radius:6px}
+.finder i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0}
+.finder i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0}
+.finder i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0}
+.finder i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0}
+.hint{position:absolute;bottom:-40px;left:0;right:0;text-align:center;font-size:var(--fs-small);color:var(--fg)}
+.count{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap);padding:0 16px;border-radius:var(--r-chip);background:rgba(23,24,27,.85);border:1px solid var(--line);font-size:16px;font-weight:700;color:var(--fg)}
+.count small{font-size:var(--fs-small);font-weight:500;color:var(--mut)}
+.btn{min-height:56px;border:0;border-radius:var(--r-ctl);font:inherit;font-size:18px;font-weight:700;padding:0 16px;width:100%;cursor:pointer}
+.btn.pri{background:var(--btn);color:var(--btnfg)}
+.btn.sec{background:var(--card2);color:var(--fg);border:1px solid var(--line-strong)}
+.btn.sm{min-height:var(--tap);font-size:16px;width:auto}
+.iconbtn{min-width:var(--tap);min-height:var(--tap);border-radius:var(--r-chip);background:rgba(23,24,27,.85);border:1px solid var(--line);color:var(--fg);font:inherit;font-size:15px;font-weight:600;padding:0 14px}
+.res{border-radius:var(--r-card);overflow:hidden;background:var(--card)}
+.res .band{padding:14px 16px;color:var(--res-text)}
+.res .band b{display:block;font-size:30px;line-height:1.1;font-weight:800;letter-spacing:.2px}
+.res .band span{display:block;font-size:16px;font-weight:600;margin-top:4px}
+.res .body{padding:12px 16px 14px}
+.res .who{font-size:18px;font-weight:700;color:var(--fg)}
+.res .meta{font-size:var(--fs-small);color:var(--mut);margin-top:2px}
+.res .do{margin-top:10px;font-size:16px;color:var(--fg);background:var(--card2);border-radius:12px;padding:10px 12px}
+.res .do em{font-style:normal;font-weight:700;color:var(--gold-fg)}
+.res .acts{display:flex;gap:8px;margin-top:12px}
+.res .acts .btn{flex:1}
+.ok{background:var(--res-ok)} .warn{background:var(--res-warn)} .bad{background:var(--res-bad)} .grey{background:var(--res-grey)}
+.idle{padding:16px;color:var(--mut);font-size:16px;text-align:center}
+.idle b{display:block;color:var(--fg);font-size:20px;margin-bottom:4px}
+.field{min-height:56px;border-radius:var(--r-ctl);border:2px solid var(--gold);background:var(--card2);color:var(--fg);font-size:24px;font-weight:700;letter-spacing:4px;display:flex;align-items:center;padding:0 14px}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.keys span{min-height:52px;display:flex;align-items:center;justify-content:center;background:var(--card2);border-radius:12px;font-size:20px;font-weight:600}
+.lbl{font-size:var(--fs-small);color:var(--mut);margin:0 0 6px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--tab);border-bottom:1px solid var(--line)}
+.tabs a{min-height:52px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:16px;font-weight:700;color:var(--mut);text-decoration:none}
+.tabs a[aria-current]{color:var(--gold-fg);box-shadow:inset 0 -3px 0 var(--gold-fg)}
+.row{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 12px;border-bottom:1px solid var(--line)}
+.row .nm{flex:1;font-size:17px;font-weight:600}
+.row .nm small{display:block;font-size:var(--fs-small);font-weight:500;color:var(--mut)}
+.row .q{font-size:16px;font-weight:700;color:var(--fg);min-width:36px;text-align:center}
+.row .st{min-height:var(--tap);min-width:96px;border-radius:var(--r-chip);font:inherit;font-size:15px;font-weight:700;border:1px solid var(--line-strong);background:var(--card2);color:var(--fg)}
+.row .st.in{background:var(--res-ok);color:var(--res-text);border:0}
+.banner{padding:10px 14px;font-size:15px;font-weight:600;color:var(--res-text)}
+.search{min-height:var(--tap);border-radius:var(--r-ctl);border:1px solid var(--line-strong);background:var(--card2);color:var(--mut);display:flex;align-items:center;padding:0 12px;font-size:16px}
+.empty{padding:20px 16px;text-align:center}
+.empty b{display:block;font-size:22px;margin-bottom:6px}
+.empty p{color:var(--mut);margin:0 0 14px;font-size:16px}
+.stack{display:flex;flex-direction:column;gap:8px}
+"""
+
+# ONE shared mapping: every result state, its words, colour and next action.
+RESULTS = [
+ dict(key="ok", cls="ok", title="LET IN", sub="Ticket checked &mdash; enjoy the night",
+      who="Maria", meta="Early bird &middot; order of 2", do="Let <em>2 people</em> in. Then scan the next code.",
+      acts=[("pri","Scan next")]),
+ dict(key="already", cls="warn", title="ALREADY IN", sub="Scanned at 21:42 tonight",
+      who="Daniel", meta="Standard &middot; order of 1 &middot; scanned at 21:42 by Door 1",
+      do="<em>Do not let in again.</em> Ask if someone else used this ticket; if unsure, call the organiser.",
+      acts=[("sec","Call organiser"),("pri","Scan next")]),
+ dict(key="wrong", cls="bad", title="NOT FOR THIS EVENT", sub="This ticket is for Sensual Sundays, 2 Nov",
+      who="Priya", meta="Standard &middot; order of 1", do="<em>Do not let in.</em> Tell them the ticket is for 2 Nov.",
+      acts=[("pri","Scan next")]),
+ dict(key="notvalid", cls="bad", title="NOT VALID", sub="Refunded on 27 Oct",
+      who="Tom", meta="Early bird &middot; order of 2", do="<em>Do not let in.</em> They can buy a new ticket if you sell on the door.",
+      acts=[("pri","Scan next")]),
+ dict(key="unknown", cls="bad", title="CODE NOT RECOGNISED", sub="No ticket matches this code",
+      who=None, meta=None, do="Type the code printed under the QR, or <em>find their name on tonight&rsquo;s list</em>.",
+      acts=[("sec","Type code"),("pri","Scan next")]),
+ dict(key="offline", cls="grey", title="NO SIGNAL", sub="Cannot check this code right now",
+      who=None, meta=None, do="<em>Use tonight&rsquo;s list</em> (saved on this phone at 21:30) and tap their name in. It syncs when signal is back.",
+      acts=[("pri","Open tonight&rsquo;s list")]),
+]
+
+def result_card(r):
+    body = ""
+    if r["who"]:
+        body += f'<div class="who">{r["who"]}</div><div class="meta">{r["meta"]}</div>'
+    body += f'<div class="do">{r["do"]}</div>'
+    acts = "".join(f'<button class="btn {k}">{t}</button>' for k,t in r["acts"])
+    return (f'<div class="res" data-state="{r["key"]}"><div class="band {r["cls"]}"><b>{r["title"]}</b>'
+            f'<span>{r["sub"]}</span></div><div class="body">{body}<div class="acts">{acts}</div></div></div>')
+
+def finder(hint="Point the camera at the QR code"):
+    return f'<div class="finder"><i></i><i></i><i></i><i></i><div class="hint">{hint}</div></div>'
+
+COUNT = '<span class="count">37 of 52 in <small>&middot; 15 to come</small></span>'
+COUNT0 = '<span class="count">0 of 0 in</span>'
+
+EMPTY_BODY = ('<div class="empty"><b>No tickets sold yet</b><p>There is nothing to scan until someone buys. '
+              'Share the event link to sell tickets, or add a guest by hand so they are on tonight&rsquo;s list.</p>'
+              '<div class="stack"><button class="btn pri">Share event link</button><button class="btn sec">Add a guest</button></div></div>')
+
+def manual_body():
+    keys = "".join(f"<span>{k}</span>" for k in "1 2 3 4 5 6 7 8 9 &larr; 0 OK".split())
+    return ('<div style="padding:16px" class="stack"><p class="lbl">Type the 8-character code printed under the QR</p>'
+            '<div class="field">K7Q2&middot;M9</div><div class="keys">'+keys+'</div>'
+            '<button class="btn pri">Check code</button><button class="btn sec">Back to camera</button></div>')
+
+GUESTS = [("Maria","Early bird",2,True),("Daniel","Standard",1,True),("Aisha","Standard",3,False),
+          ("Ben","Early bird",1,False),("Chloe","Standard",2,True),("Diego","Standard",1,False),
+          ("Elena","Early bird",4,False),("Femi","Standard",2,True)]
+
+def list_body(banner=None):
+    rows = "".join(f'<div class="row"><div class="nm">{n}<small>{t}</small></div><div class="q">&times;{q}</div>'
+                   f'<button class="st{" in" if i else ""}">{"In" if i else "Not in &middot; tap"}</button></div>'
+                   for n,t,q,i in GUESTS)
+    b = f'<div class="banner grey">{banner}</div>' if banner else ""
+    return (b+'<div style="padding:12px 12px 6px">'+'<div class="search">Search first name&hellip;</div></div>'
+            '<div style="padding:0 12px 8px;font-size:14px;color:var(--mut)">37 of 52 in &middot; sorted A&ndash;Z &middot; first name only</div>'
+            +rows)
+
+def page(variant, title, lead, frames):
+    cells = "".join(f'<div class="cell"><h2>{h}</h2><div class="phone">{f}</div></div>' for h,f in frames)
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR door {variant}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>{CSS}</style></head><body><div class="doc">
+<h1>{title}</h1><p class="lead">{lead}</p>
+<div class="grid">{cells}</div></div></body></html>
+"""
+
+# ---------- A: full-screen camera + sliding sheet ----------
+def a_frame(sheet=None, empty=False, manual=False):
+    top = f'<div style="position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;z-index:2">{COUNT0 if empty else COUNT}<button class="iconbtn">Torch</button></div>'
+    bottom = ('<div style="position:absolute;bottom:20px;left:16px;right:16px;display:flex;gap:8px;z-index:2">'
+              '<button class="btn sec" style="flex:1">Type code</button><button class="btn sec" style="flex:1">Tonight&rsquo;s list</button></div>')
+    cam = f'<div class="cam" style="position:absolute;inset:0">{finder()}</div>'
+    if empty:
+        return cam.replace(finder(), "") + top + f'<div style="position:absolute;left:0;right:0;bottom:0;background:var(--sheet);border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding-bottom:16px">{EMPTY_BODY}</div>'
+    if manual:
+        return cam + top + f'<div style="position:absolute;inset:auto 0 0 0;background:rgba(0,0,0,.6);top:0"></div><div style="position:absolute;left:0;right:0;bottom:0;background:var(--sheet);border-radius:var(--r-sheet) var(--r-sheet) 0 0">{manual_body()}</div>'
+    if sheet is None:
+        return cam + top + bottom
+    return (cam + top + '<div style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>'
+            f'<div style="position:absolute;left:8px;right:8px;bottom:8px;border-radius:var(--r-sheet);overflow:hidden;background:var(--sheet)">'
+            f'<div style="width:40px;height:4px;border-radius:2px;background:var(--line-strong);margin:8px auto 0"></div>'
+            f'<div style="padding:8px">{result_card(sheet)}</div></div>')
+
+# ---------- B: camera top half, always-visible card bottom ----------
+def b_frame(r=None, empty=False, manual=False):
+    cam = f'<div class="cam" style="height:400px;flex:none">{"" if empty or manual else finder()}<div style="position:absolute;top:16px;right:16px"><button class="iconbtn">Torch</button></div></div>'
+    head = f'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px">{COUNT0 if empty else COUNT}<button class="btn sec sm">Type code</button></div>'
+    if empty:
+        return cam + head + EMPTY_BODY
+    if manual:
+        return f'<div style="padding:12px 12px 0">{COUNT}</div>' + manual_body()
+    if r is None:
+        card = '<div class="res"><div class="idle"><b>Ready to scan</b>Hold the QR inside the frame. The answer shows here.</div></div>'
+    else:
+        card = result_card(r)
+    foot = '<div style="margin-top:auto;padding:0 12px 16px"><button class="btn sec">Tonight&rsquo;s list</button></div>'
+    return cam + head + f'<div style="padding:0 12px">{card}</div>' + foot
+
+# ---------- C: camera + tonight's list tab ----------
+def c_tabs(scan=True, n="52"):
+    return (f'<nav class="tabs"><a href="#"{" aria-current=page" if scan else ""}>Scan</a>'
+            f'<a href="#"{"" if scan else " aria-current=page"}>Tonight&rsquo;s list ({n})</a></nav>')
+
+def c_frame(r=None, empty=False, manual=False, listview=False):
+    if empty:
+        return c_tabs(True,"0") + f'<div style="padding:10px 12px">{COUNT0}</div>' + EMPTY_BODY
+    if listview or (r is not None and r["key"]=="offline"):
+        banner = None
+        if r is not None:
+            banner = "NO SIGNAL &mdash; scanning is paused. Find the name below and tap it in; it syncs when signal is back."
+        return c_tabs(False) + list_body(banner)
+    if manual:
+        return c_tabs(True) + f'<div style="padding:10px 12px 0">{COUNT}</div>' + manual_body()
+    cam = f'<div class="cam" style="height:{360 if r else 520}px;flex:none">{finder()}<div style="position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between">{COUNT}<button class="iconbtn">Torch</button></div></div>'
+    if r is None:
+        rest = ('<div style="padding:12px" class="stack"><button class="btn sec">Type code</button>'
+                '<p class="lbl" style="text-align:center;margin:4px 0 0">Camera not working? Use the <b style="color:var(--fg)">Tonight&rsquo;s list</b> tab.</p></div>')
+    else:
+        rest = f'<div style="padding:8px">{result_card(r)}</div>'
+    return c_tabs(True) + cam + rest
+
+def frames_for(fn, extra=()):
+    out = [("Ready (no scan yet)", fn())]
+    out += [(f"Result: {r['title']}", fn(r)) for r in RESULTS]
+    out += [("Manual code entry", fn(manual=True)), ("Empty: no tickets sold yet", fn(empty=True))]
+    out += list(extra)
+    return out
+
+
+
+A = [("Ready (no scan yet)", a_frame())] + [(f"Result: {r['title']}", a_frame(r)) for r in RESULTS] + \
+    [("Manual code entry", a_frame(manual=True)), ("Empty: no tickets sold yet", a_frame(empty=True))]
+B = frames_for(b_frame)
+C = frames_for(c_frame, extra=[("Tonight&rsquo;s list (camera dead)", c_frame(listview=True))])
+
+open(f"{OUT}/A.html","w").write(page("A","A &mdash; Full-screen camera, result sheet slides up",
+ "The camera fills the phone. Each scan slides a sheet up from the bottom with the answer; the sheet covers the camera until the door person taps Scan next. Biggest viewfinder, one answer at a time.", A))
+open(f"{OUT}/B.html","w").write(page("B","B &mdash; Camera top half, result card always visible",
+ "Camera on top (400 px), the counter and the last result card always visible below it. The next scan replaces the card with no tap needed, so a queue can flow.", B))
+open(f"{OUT}/C.html","w").write(page("C","C &mdash; Camera plus a Tonight&rsquo;s list tab",
+ "Two tabs: Scan and Tonight&rsquo;s list (first name, quantity, in / not in). No signal or a dead camera sends the door person to the list, which is saved on the phone and syncs later.", C))

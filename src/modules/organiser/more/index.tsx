@@ -5,12 +5,13 @@ import { ChevronRight, CircleHelp, FileText, LogOut, Mail, MessageCircle, Plus, 
 import { ORGANISER_HOME_KEY, removeOrganiserMember } from '@/modules/organiser/shared/selfServeApi';
 import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { memberAction } from '@/modules/organiser/shared/teamModel';
+import { LEAVE_UNCHECKED, canLeave, type Gate } from '@/modules/organiser/shared/teamRules';
 import { fetchOrganiserTeam, organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import { supportLinks } from '@/modules/organiser/shared/support';
 import { goDone } from '../flows/doneState';
+import { GateReason } from '../team/GateReason';
 import { useOwnPage } from '../page/useOwnPage';
-import { OrganiserShell } from '../shell';
-import { ORG_PATHS } from '../shell/paths';
+import { useOrgSurface } from '../shell/surface';
 import { Card, ErrorState, GhostButton, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
 import { SignOutSheet } from './SignOutSheet';
 
@@ -43,6 +44,8 @@ function LinkRow({ to, icon, label, testId, external }: { to: string; icon: Reac
  */
 export default function MorePage() {
   const navigate = useNavigate();
+  // R1 More (back Home), or P3 Account (back You): the frame and every link from the surface
+  const { Shell, paths, hub, addPage, moreTitle } = useOrgSurface();
   const queryClient = useQueryClient();
   const { user, home, selected, bridge, layer } = useOwnPage();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -52,10 +55,11 @@ export default function MorePage() {
   const isOwner = selected?.role === 'owner';
   // The server refuses only the LAST owner (remove_organiser_member_v1 last_owner), so a
   // co-owner may leave. The count is the layer's own team read (same key, one request).
+  // Everyone else reads it too: the RPC lets the LAST manager of an ownerless page leave (R2-1).
   const team = useQuery({
     queryKey: organiserTeamQueryKey(selected?.id),
     queryFn: () => fetchOrganiserTeam(selected!.id),
-    enabled: !!selected && isOwner,
+    enabled: !!selected,
     staleTime: 60 * 1000,
     retry: false,
   });
@@ -63,47 +67,56 @@ export default function MorePage() {
   // fails, the server decides, and its last_owner copy shows in the confirm sheet.
   const self = team.data?.members.find((m) => m.isSelf);
   const soleOwner = isOwner && !team.isError && !(self && team.data && memberAction(self, 'owner', team.data.members)?.enabled);
+  // A non-owner follows Team's canLeave (teamRules). Here the server does NOT catch an orphaned page,
+  // so until the read answers, and if it fails, Leave stays refused (the safe side).
+  const leaveGate: Gate | null = !selected || isOwner ? null
+    : team.isError ? { ok: false, reason: LEAVE_UNCHECKED, messageUs: true }
+    : team.data ? canLeave(team.data.members)
+    : { ok: false, reason: null, messageUs: false };
+  const leaveRefused = soleOwner || (leaveGate !== null && !leaveGate.ok);
+  const leaveReason = soleOwner || !!leaveGate?.reason;
 
   const leave = useMutation({
     mutationFn: () => removeOrganiserMember(selected!.id, user!.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       setConfirmLeave(false);
-      goDone(navigate, { title: 'Leave this page', message: `You left ${selected!.name}`, seriesId: null });
+      goDone(navigate, { title: 'Leave this page', message: `You left ${selected!.name}`, seriesId: null }, null, paths.done);
     },
   });
 
   if (home.isPending) {
-    return <OrganiserShell title="More" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-more"><SkeletonRows count={4} label="Loading" testId="more-loading" /></OrganiserShell>;
+    return <Shell title={moreTitle} back={hub} testId="org-page-more"><SkeletonRows count={4} label="Loading" testId="more-loading" /></Shell>;
   }
   if (home.isError && !home.data) {
-    return <OrganiserShell title="More" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-more"><ErrorState title="This did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="more-load-error" /></OrganiserShell>;
+    return <Shell title={moreTitle} back={hub} testId="org-page-more"><ErrorState title="This did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="more-load-error" /></Shell>;
   }
 
   return (
-    <OrganiserShell title="More" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-more">
+    <Shell title={moreTitle} back={hub} testId="org-page-more">
       <div className="space-y-[12px]">
         {selected && bridge && <div className="overflow-hidden rounded-[12px] bg-[#0C0A0D]" data-testid="more-contact">{bridge.slot('contact')}</div>}
 
         <Card testId="more-page-rows">
-          <LinkRow to={`${ORG_PATHS.home}?add=1`} icon={<Plus aria-hidden="true" className={ICON} />} label="Add a page" testId="more-add-page" />
+          <LinkRow to={addPage} icon={<Plus aria-hidden="true" className={ICON} />} label="Add a page" testId="more-add-page" />
           {selected && isOwner && (
-            <LinkRow to={ORG_PATHS.handover} icon={<UserRoundCog aria-hidden="true" className={ICON} />} label="Hand over" testId="more-hand-over" />
+            <LinkRow to={paths.handover} icon={<UserRoundCog aria-hidden="true" className={ICON} />} label="Hand over" testId="more-hand-over" />
           )}
           {selected && (
             <div>
               <button
                 type="button"
-                className={`${ROW} ${soleOwner ? 'cursor-not-allowed opacity-60' : ''}`}
-                aria-disabled={soleOwner ? true : undefined}
-                aria-describedby={soleOwner ? 'more-leave-reason' : undefined}
-                onClick={() => { if (!soleOwner) setConfirmLeave(true); }}
+                className={`${ROW} ${leaveRefused ? 'cursor-not-allowed opacity-60' : ''}`}
+                aria-disabled={leaveRefused ? true : undefined}
+                aria-describedby={leaveReason ? 'more-leave-reason' : undefined}
+                onClick={() => { if (!leaveRefused) setConfirmLeave(true); }}
                 data-testid="more-leave"
               >
                 <LogOut aria-hidden="true" className={ICON} />
                 <span className="flex-1">Leave this page</span>
               </button>
               {soleOwner && <p id="more-leave-reason" className="px-[16px] pb-[12px] text-[13px] text-[var(--mut)]" data-testid="more-leave-reason">{HAND_OVER_FIRST}</p>}
+              {!soleOwner && leaveGate && <div className="px-[16px] pb-[12px]"><GateReason gate={leaveGate} id="more-leave-reason" testId="more-leave-reason" /></div>}
             </div>
           )}
         </Card>
@@ -111,7 +124,7 @@ export default function MorePage() {
         <Card testId="more-help-rows">
           {support.whatsapp && <LinkRow to={support.whatsapp} external icon={<MessageCircle aria-hidden="true" className={ICON} />} label="WhatsApp us" testId="more-support-whatsapp" />}
           {support.email && <LinkRow to={`mailto:${support.email}`} external icon={<Mail aria-hidden="true" className={ICON} />} label="Email us" testId="more-support-email" />}
-          <LinkRow to={ORG_PATHS.help} icon={<CircleHelp aria-hidden="true" className={ICON} />} label="Help" testId="more-help" />
+          <LinkRow to={paths.help} icon={<CircleHelp aria-hidden="true" className={ICON} />} label="Help" testId="more-help" />
         </Card>
 
         <Card testId="more-account-rows">
@@ -125,7 +138,7 @@ export default function MorePage() {
         </Card>
       </div>
 
-      <SheetView open={confirmLeave} returnFocusRef={leaveOpener} onOpenChange={(o) => { if (!o) setConfirmLeave(false); }} title="Leave this page" testId="more-leave-sheet">
+      <SheetView open={confirmLeave && !leaveRefused} returnFocusRef={leaveOpener} onOpenChange={(o) => { if (!o) setConfirmLeave(false); }} title="Leave this page" testId="more-leave-sheet">
         <div className="space-y-[12px] p-[16px]">
           <p className="text-[15px] text-[var(--fg)]">Leave {selected?.name}? You can ask to join again later.</p>
           {leave.isError && <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="more-leave-error">{teamErrorMessage(leave.error)}</p>}
@@ -135,6 +148,6 @@ export default function MorePage() {
       </SheetView>
       <SignOutSheet open={signOut} onClose={() => setSignOut(false)} />
       {layer}
-    </OrganiserShell>
+    </Shell>
   );
 }

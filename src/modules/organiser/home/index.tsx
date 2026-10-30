@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useId } from 'react';
@@ -8,6 +8,8 @@ import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { supportLinks } from '@/modules/organiser/shared/support';
 import type { Job } from '@/modules/organiser/jobs/homeJobs';
 import { cn } from '@/lib/utils';
+import { flags } from '@/lib/featureFlags';
+import { organiserHomeHandoff } from '@/lib/auth-otp-routing';
 import { OrganiserShell, ORG_PATHS } from '../shell';
 import { ErrorState, GhostButton, PrimaryButton, SkeletonRows, useAnnounce } from '../ui';
 import { SMALL_BUTTONS, TODO_EMPTY, TODO_HEADING, isFirstSteps, newEventBlock } from './homeView';
@@ -112,6 +114,10 @@ export default function HomePage() {
 
   const loading = home.isPending && !home.isPaused;
   const failed = (home.isError || (home.isPending && home.isPaused)) && !home.data;
+
+  // P3 live and no page yet: P3's Welcome, never R1's (lib/auth-otp-routing organiserHomeHandoff).
+  const handoff = organiserHomeHandoff(flags.organiserP3 && flags.organiserSelfServe, home.data ? organisers.length : undefined);
+  if (handoff) return <Navigate to={handoff} replace />;
 
   if (home.data && (organisers.length === 0 || adding)) {
     return (

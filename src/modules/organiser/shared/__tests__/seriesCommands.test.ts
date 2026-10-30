@@ -41,6 +41,8 @@ const SERVER_OWNER_KINDS = [
   'occurrence.move_date',
   // ER AD4 (20261204180000, on prod 2026-10-26): a one-off ends with a reason.
   'series.cancel_one_off',
+  // P3 W3a: the group chat link (prod allowlist c_expected, read 2026-10-27).
+  'series.set_group_chat',
 ];
 const SERVER_UPSERT_KEYS = [
   'name', 'slug', 'default_venue_id', 'default_city_id', 'default_local_start_time',
@@ -55,7 +57,8 @@ const SERVER_UPSERT_KEYS = [
 // Website attaches it in selfServeApi.ts (createSeriesCommand, pinned in
 // createModel.test.ts) and the mirror below stops at 'format'.
 const SERVER_CREATE_KEYS_WITHOUT_ORGANISER = [...SERVER_UPSERT_KEYS, 'format'];
-const SERVER_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description'];
+// W3b-2: title, gallery, passes (ER P4 A3); music_styles is an owner key on prod too, not sent yet (waits for admin A2 R4).
+const SERVER_OVERRIDE_KEYS = ['venue_id', 'city_id', 'cancellation_reason_label', 'cover_image_url', 'ticket_url', 'description', 'title', 'gallery', 'passes'];
 const SERVER_CANCEL_KEYS = ['cancelled', 'reason'];
 
 const base: BasicsDraft = {
@@ -78,7 +81,7 @@ describe('the owner allowlist mirror', () => {
   });
 
   it('never sends an admin-only override key (the handler accepts them, the owner gate refuses)', () => {
-    for (const key of ['lifecycle', 'title', 'level', 'music_styles', 'gallery', 'passes', 'promo_codes', 'featured', 'custom_local_start_time']) {
+    for (const key of ['lifecycle', 'level', 'music_styles', 'promo_codes', 'featured', 'custom_local_start_time']) {
       expect(SERVER_OVERRIDE_KEYS).not.toContain(key);
     }
   });
@@ -173,7 +176,7 @@ describe('date commands', () => {
   });
 
   it('set_override keeps only owner keys, trims, and sends null for "back to the series"', () => {
-    const patch = { ticket_url: ' https://t.example ', description: '', title: 'Hijack', lifecycle: 'cancelled' } as unknown as OverridePatch;
+    const patch = { ticket_url: ' https://t.example ', description: '', music_styles: ['Hijack'], lifecycle: 'cancelled' } as unknown as OverridePatch;
     const cmd = overrideCommand(patch);
     expect(cmd).toEqual({ kind: 'occurrence.set_override', payload: { ticket_url: 'https://t.example', description: null } });
     expect(Object.keys(cmd.payload).filter((k) => !SERVER_OVERRIDE_KEYS.includes(k))).toEqual([]);
@@ -182,6 +185,6 @@ describe('date commands', () => {
 
   it('refuses to build an empty override (the server refuses {} for owners)', () => {
     expect(() => overrideCommand({})).toThrow();
-    expect(() => overrideCommand({ title: 'x' } as unknown as OverridePatch)).toThrow();
+    expect(() => overrideCommand({ music_styles: ['x'] } as unknown as OverridePatch)).toThrow();
   });
 });

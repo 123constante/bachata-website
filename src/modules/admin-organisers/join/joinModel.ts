@@ -236,7 +236,9 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
   if (reason === 'email_unproven') return { kind: 'email_unproven' };
   if (reason === 'rate_limited') return { kind: 'rate_limited' };
   if (reason === PROFILE_INCOMPLETE_CODE) return { kind: 'profile_incomplete' };
-  if (reason === 'sign_in_required' || reason === 'authentication_required' || reason === 'unconfirmed_account') return { kind: 'sign_in' };
+  if (reason === 'sign_in_required' || reason === 'authentication_required') return { kind: 'sign_in' };
+  // unconfirmed_account (login audit L3) is NOT a sign-in: signing out would hide why. It falls through to
+  // `refused`, so the screen shows REDEEM_COPY's "Confirm your account first".
   if (reason) return { kind: 'refused', reason, emailHint: hint };
   return { kind: 'failed' };
 }

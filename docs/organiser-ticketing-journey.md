@@ -1,5 +1,7 @@
 # Organiser ticketing: journey map (S3)
 
+> **Retired 2026-10-30 (T6).** The `/account/tickets` screens below were deleted once the P3 walk passed. That path is now only a redirect to P3 (`src/modules/organiser/tickets/legacyRedirect.ts`): Stripe returns go to You > Get paid with `o` and `stripe` kept; an event screen goes to its P3 event page. `ticketModel.ts` and `ticketsApi.ts` stay; P3 uses them.
+
 Flag: `organiserTicketing` (`VITE_ENABLE_ORGANISER_TICKETING=true`), OFF by default.
 While off there is NO route: `/account/tickets/*` falls through to the site's NotFound,
 exactly like `/account/p3/*` while `organiserP3` is off. It also needs
@@ -50,10 +52,11 @@ Backend it reads and writes (all live on prod, admin #1063 + #1070):
    - Price is locked with a reason once the type has orders (server: `has_orders`).
      A closed type cannot be edited (server: `closed`), so the sheet opens read-only.
    - Saving an untouched form sends nothing (`buildUpsert` returns null).
-   - Buyers pay a 50p booking fee per ticket on paid types (Q9); max 20 tickets per order (Q2).
+   - Buyers pay the ticket price only: the 50p booking fee (Q9) was removed by the owner order of
+     2026-10-29 (`BOOKING_FEE_PENCE = 0`); max 20 tickets per order (Q2).
 4. **Orders and refund** (section on screen 2, per paid ticket type with orders)
    - Paid orders list: buyer name, quantity, total, date. Refund button opens a confirm
-     sheet: "Refund GBP x to <buyer>? The 50p booking fee per ticket is refunded too."
+     sheet: "Refund GBP x to <buyer>?" (it adds "booking fee included" only for an order that carried a fee).
      Owner/manager only; a contributor sees it disabled with the reason. Refunded and
      disputed orders show their tag and no button.
 

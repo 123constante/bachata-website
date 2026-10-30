@@ -208,7 +208,8 @@ describe('shapes: 0 / 1 / many left, and 2,022', () => {
     for (let i = 1; i < 20; i++) fireEvent.click(screen.getByRole('button', { name: 'One more ticket' }));
     const t = screen.getByTestId('ticket-totals').textContent ?? '';
     expect(t).toMatch(/20 × Type a£40,440/);
-    expect(t).toMatch(/booking fee per ticket£10Total£40,450/);
+    // No booking fee (owner order 2026-10-29): Total is the ticket price.
+    expect(t).toMatch(/Total£40,440$/);
     expect(screen.getByText('Up to 20 tickets per order.')).toBeTruthy();
   });
 });

@@ -17,7 +17,7 @@ vi.mock('../ticketCheckoutApi', async (orig) => ({ ...(await orig<typeof import(
 import { TicketsBlock } from '../TicketsBlock';
 import { totals, type PublicTicketType } from '../ticketCheckoutModel';
 import { TERMS_OF_SALE } from '../legalCopy';
-import { buyerTotal } from '@/modules/organiser/tickets/ticketModel';
+import { buyerRulesLine, buyerTotal } from '@/modules/organiser/tickets/ticketModel';
 
 const mk = (p: Partial<PublicTicketType> = {}): PublicTicketType => ({
   id: 'a', occurrenceId: null, name: 'Type a', pricePence: 1200, status: 'on_sale', remaining: 30, salesOpenAt: null, salesCloseAt: null, ...p,
@@ -38,6 +38,9 @@ describe('one booking-fee constant', () => {
   });
   it('organiser preview uses the same fee', () => {
     expect(buyerTotal(1000)).toMatchObject({ feePence: 75, totalPence: 1075, line: '£10.00 ticket + 75p booking fee' });
+  });
+  it('organiser rules line names the same fee', () => {
+    expect(buyerRulesLine()).toBe('Buyers pay a 75p booking fee per paid ticket, up to 20 tickets an order.');
   });
   it('the block fee line and total', async () => {
     api.fetchPublicTicketTypes.mockResolvedValue([mk()]);

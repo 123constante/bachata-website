@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fullDate } from '../../shared/dateWords';
-import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
+import { weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
 import {
   ORGANISER_HOME_KEY, dateDetailQueryKey, fetchDateDetail, runOccurrenceCommand, runSeriesCommand, seriesWorkspaceQueryKey,
   type CommandResponse,
@@ -12,11 +12,11 @@ import {
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, addDateWhy, canCancelOneOff, dateMarks, timeWord, type DateAction, type DateFacts, type IsoDate, type SeriesFacts } from '../model';
+import { DATE_WHY, L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
-import { breakFactsOf, dateFactsOf, marksOf } from './dateFacts';
+import { breakFactsOf, dateFactsOf, marksOf, repeatShapeOf } from './dateFacts';
 
-export { breakFactsOf, dateFactsOf, ownDetailsOf } from './dateFacts';
+export { breakFactsOf, dateFactsOf, ownDetailsOf, repeatShapeOf } from './dateFacts';
 
 /**
  * admin_event_workspace_p5 (+ event_view_p5 for one date's own details) -> the W2b date
@@ -32,6 +32,7 @@ export function seriesFactsOf(ws: EventWorkspace, today: IsoDate, now: Date = ne
     kind,
     lifecycle: ws.series.lifecycle_status,
     upcoming: ws.dates.filter((d) => d.lifecycle_status === 'scheduled' && d.occurrence_date >= today).length,
+    ...(ws.series.recurrence_rule == null ? { ruleSaved: false } : {}),
     ...(kind === 'oneoff' ? { oneOff: canCancelOneOff(cancelInputOf(ws), today, now) } : {}),
   };
 }
@@ -51,7 +52,7 @@ export interface DateEntry {
   own: boolean;
 }
 
-/** Every date the read holds, plus the breaks on the rule's cadence, soonest first. */
+/** Every date the read holds, plus every break (removed_dates, whatever the rule: its date sheet says if it can come back), soonest first. */
 export function dateEntries(ws: EventWorkspace, today: IsoDate): DateEntry[] {
   const stored = new Set(ws.dates.map((d) => d.occurrence_date));
   const rows: DateEntry[] = ws.dates.map((d) => {
@@ -60,7 +61,7 @@ export function dateEntries(ws: EventWorkspace, today: IsoDate): DateEntry[] {
     return { id: d.id, date: d.occurrence_date, label: fullDate(d.occurrence_date, today), facts, tags: m.tags, own: m.own };
   });
   for (const date of ws.series.removed_dates) {
-    if (stored.has(date) || !isRuleDate(date, ws.series)) continue;
+    if (stored.has(date)) continue;
     const facts = breakFactsOf(ws, date);
     rows.push({ id: null, date, label: fullDate(date, today), facts, tags: dateMarks(kindOfWorkspace(ws), facts, { today, hasOverride: false, sessionChanges: false }).tags, own: false });
   }
@@ -109,7 +110,9 @@ export function emptyDatesCopy(ws: EventWorkspace, today: IsoDate, filter: DateF
   if (filter === 'breaks') {
     if (s.kind === 'oneoff') return 'No break weeks. A one-off has one date, so it has none.';
     if (s.kind === 'festival') return 'No break weeks. A festival holds one date, so it has none.';
-    if ((s.kind !== 'weekly' && s.kind !== 'course') || !weeklyRule(ws.series.recurrence_rule)) {
+    const shape = repeatShapeOf(ws);
+    if (shape.from === 'loose') return `No break weeks. ${DATE_WHY.noDatesPattern}`;
+    if ((s.kind !== 'weekly' && s.kind !== 'course') || (shape.from === 'rule' && !weeklyRule(ws.series.recurrence_rule))) {
       return 'No break weeks. Only a weekly pattern has them; cancel a date instead, so dancers see why.';
     }
   }
@@ -155,16 +158,34 @@ export const PLAN = {
 
 /**
  * "Put this date back to normal" (CONTRACT 2's composite, no new command): the date's own
- * Where (with its city) / About / Ticket link / photo back to the series, then its time.
+ * Where (with its city) / About / Ticket link / photo / name / photos / price back to the series,
+ * then its time.
  * The programme call of the composite is not sent: C3 `resetdate` says sessions stay
  * (per-date sessions are W2d). null when there is nothing to put back.
  */
+/**
+ * The date sheet's rows: model/dates dateActions, with "Put this date back to normal" greyed on a
+ * cancelled date when nothing it owns can go back yet (only a name, photos or price: the
+ * owner arm refuses those there), so the row says why instead of a confirm whose Go is off.
+ */
+export function dateRowsOf(ws: EventWorkspace, d: D, detail: DateDetail | null, facts: DateFacts, today: IsoDate): DateRow[] {
+  return dateActions(seriesFactsOf(ws, today), facts, today).map((r) =>
+    (r.action === 'resetNormal' && !r.reason && !resetNormalPlan(d, detail, facts.ownTime) ? { ...r, reason: L.dateFieldsCancelled } : r));
+}
+
 export function resetNormalPlan(d: D, detail: DateDetail | null | undefined, ownTime: boolean): DatePlan | null {
   const patch: OverridePatch = {};
   if (detail?.venueOverride) { patch.venue_id = null; patch.city_id = null; }
   if (detail?.descriptionOverride) patch.description = null;
   if (detail?.ticketUrlOverride) patch.ticket_url = null;
   if (detail?.coverImageOverride) patch.cover_image_url = null;
+  // W3b-2: name, photos, price. Not on a cancelled date: the owner arm refuses these keys there
+  // even as null (apply_aggregate_write_p5 c_a3_cancel), so they wait until it is brought back.
+  if (detail && !detail.cancelled) {
+    if (detail.titleOverride !== null) patch.title = null;
+    if (detail.galleryOverride !== null) patch.gallery = null;
+    if (detail.passesOverride !== null) patch.passes = null;
+  }
   const commands: OwnerCommand[] = [];
   if (Object.keys(patch).length) commands.push(overrideCommand(patch));
   if (ownTime) commands.push(resetTimeCommand());
@@ -208,7 +229,7 @@ export const DATE_COPY = {
   startsAt: 'Starts at',
   now: (t: string | null) => (t ? `Now ${timeWord(t)}.` : 'No start time yet.'),
   resetTitle: `${L.resetDate}?`,
-  resetBody: (day: string) => `Where, about, ticket link, photo and time on ${day} go back to usual. Sessions stay as they are.`,
+  resetBody: (day: string) => `Where, about, ticket link, cover photo, name, photos, price and time on ${day} go back to usual. Sessions stay as they are.`,
   resetGo: 'Put it back',
   keepMine: 'Keep my changes',
   detailsTitle: (day: string) => `Different details on ${day}`,

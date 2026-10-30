@@ -65,7 +65,11 @@ export function closesOnSameLine(text, openIdx, quote) {
   return false;
 }
 
-export function stripCommentsAndStrings(text) {
+// `onString(start, end)`, when given, is told the [start, end) span of every
+// string literal the stripper opened, quotes included -- so a scanner that needs
+// a literal's VALUE reuses this one definition of comments and strings instead
+// of re-implementing it (scripts/check-onboarding-write-doors.mjs).
+export function stripCommentsAndStrings(text, { onString = null } = {}) {
   // Replace contents of // line comments, /* block */ comments, and string
   // literals (" ' `) with spaces, preserving line breaks so line numbers
   // remain accurate. Does NOT strip JSX {/* */} content (those are JSX
@@ -122,6 +126,7 @@ export function stripCommentsAndStrings(text) {
         i += 1;
         continue;
       }
+      const start = i;
       out += ' ';
       i += 1;
       while (i < text.length && text[i] !== quote) {
@@ -137,6 +142,7 @@ export function stripCommentsAndStrings(text) {
         i += 1;
       }
       if (i < text.length) { out += ' '; i += 1; }
+      if (onString) onString(start, i);
     } else {
       out += c;
       i += 1;

@@ -132,6 +132,8 @@ export const LINKS = [
   "check:mojibake",
   "check:legacy-tables",
   "check:legacy-program-rpcs",
+  "check:onboarding-write-doors:self-test",
+  "check:onboarding-write-doors",
   "check:going-legacy-rpcs:self-test",
   "check:going-legacy-rpcs",
   "check:no-social-word",

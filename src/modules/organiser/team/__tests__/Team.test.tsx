@@ -119,7 +119,7 @@ describe('C25 Team', () => {
     requests = [{ request_id: 'r1', user_id: 'u9', requester_email: 'c@x.example', created_at: '2026-10-01T10:00:00Z' }];
     mountAt('/account/o/team', routes);
     expect(((await screen.findByTestId('team-add')) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('team-full').textContent).toBe('This team is full (20)');
+    expect(screen.getByTestId('team-add-reason').textContent).toBe('This team is full (20)');
     expect((screen.getByTestId('join-request-add') as HTMLButtonElement).disabled).toBe(true);
   });
 });
@@ -149,7 +149,7 @@ describe('C25b the faces wall', () => {
     fireEvent.click(btn);
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     const sent = share.mock.calls[0][0] as { text: string };
-    expect(sent.text).toMatch(/^Lena, join Ritmo on Bachata Calendar: https?:\/\/.+\/auth\. Sign up with the email we have for you and your profile links automatically; otherwise ask us to link it\.$/);
+    expect(sent.text).toMatch(/^Lena, join Ritmo on Bachata Calendar: https?:\/\/.+\/auth\?mode=signup\. Sign up with the email we have for you and your profile links automatically; otherwise ask us to link it\.$/);
     expect(world.sent.filter((s) => /add_member|set_member|transfer|remove/.test(s.fn))).toHaveLength(0);
   });
 

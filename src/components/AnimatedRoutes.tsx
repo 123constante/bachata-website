@@ -48,14 +48,19 @@ const Auth = lazyWithRetry(() => import("../pages/Auth"));
 // old /account URLs redirect into it (LegacyAccountRedirect, a tiny eager file).
 const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/OrganiserRoutes"));
 // The P3 organiser area (mockup C3): its own lazy chunk, mounted only while flags.organiserP3 is on.
-const OrganiserP3Area = lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
+// `@__PURE__`: with the flag off (prod today) the route folds away and rollup drops this dead
+// import too, about 0.35 KB gz off the chunk every catchall route loads first. The other
+// flag-gated lazies here were measured the same way and left alone: dropping them re-cuts
+// /event's chunks (Raffles) or saves under 20 B.
+const OrganiserP3Area = /* @__PURE__ */ lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
 // Organiser ticketing (S3): its own lazy chunk, mounted only while flags.organiserTicketing is on.
-const OrganiserTicketsArea = lazyWithRetry(() => import("@/modules/organiser/tickets/TicketRoutes"));
+const LegacyTicketsRedirect = lazyWithRetry(() => import("@/modules/organiser/tickets/LegacyTicketsRedirect"));
 // The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
 const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
 const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/AdminOrganisersPage"));
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
+const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
@@ -99,10 +104,11 @@ const CityRedirect = () => {
   return <Navigate to={buildCityPath(slug)} replace />;
 };
 
-/** Every /app URL shares one key, so the dancer app's shell stays mounted across its tabs. */
+/** Every /app URL shares one key, so the dancer app's shell stays mounted across its tabs.
+ *  Same for /ambassador: its list keeps state and scroll while a review is open. */
 const routesKey = (pathname: string) => {
-  const p = pathname.toLowerCase();
-  return p === "/app" || p.startsWith("/app/") ? "/app" : pathname;
+  const first = pathname.toLowerCase().split("/")[1];
+  return first === "app" || first === "ambassador" ? `/${first}` : pathname;
 };
 
 export const AnimatedRoutes = () => {
@@ -213,7 +219,9 @@ export const AnimatedRoutes = () => {
                 ? <RedirectIfAllowed><PageTransition><Account view="dancer" /></PageTransition></RedirectIfAllowed>
                 : <Navigate to="/" replace />
             } />
-            <Route path="/account/continue" element={<PageTransition><ContinueAs /></PageTransition>} />
+            {/* F4: p3Live = the same pair that mounts the P3 area below (lib/auth-otp-routing newOrganiserLanding;
+                read here: a flags import in the profiles chunk split one onto the /auth/callback and /app/* first loads). */}
+            <Route path="/account/continue" element={<PageTransition><ContinueAs p3Live={flags.organiserP3 && flags.organiserSelfServe} /></PageTransition>} />
             <Route path="/account/attendance" element={
               flags.organiserSelfServe
                 ? <PageTransition><MyAttendance /></PageTransition>
@@ -258,10 +266,11 @@ export const AnimatedRoutes = () => {
             {flags.organiserP3 && flags.organiserSelfServe ? (
               <Route path="/account/p3/*" element={<OrganiserP3Area />} />
             ) : null}
-            {/* Organiser ticketing: no route at all while flags.organiserTicketing is off.
-                Path = TICKETS_BASE (modules/organiser/tickets/paths.ts; a test pins them together). */}
-            {flags.organiserTicketing && flags.organiserSelfServe ? (
-              <Route path="/account/tickets/*" element={<OrganiserTicketsArea />} />
+            {/* The retired organiser ticketing screens (T6): old URLs and Stripe return links go to
+                the P3 screen that does the same job, so the route lives only while that screen does.
+                Path = LEGACY_TICKETS_BASE (modules/organiser/tickets/legacyRedirect.ts; a test pins them). */}
+            {flags.organiserTicketing && flags.organiserP3 && flags.organiserSelfServe ? (
+              <Route path="/account/tickets/*" element={<LegacyTicketsRedirect />} />
             ) : null}
 
             <Route path="/account/areas" element={<AreaRoutes area="areas" />} />
@@ -269,6 +278,7 @@ export const AnimatedRoutes = () => {
             <Route path="/account/dj/*" element={<AreaRoutes area="dj" />} />
 
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
+            <Route path="/ambassador/*" element={<PageTransition><AmbassadorQueue /></PageTransition>} />
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />

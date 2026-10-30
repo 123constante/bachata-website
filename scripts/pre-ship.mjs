@@ -135,6 +135,8 @@ export const CHECKS = [
   ["check:mojibake", "cp1252 mojibake scan"],
   ["check:legacy-tables", "no references to retired tables"],
   ["check:legacy-program-rpcs", "no references to retired program RPCs"],
+  ["check:onboarding-write-doors:self-test", "the write-door canary fires (fixture-only)"],
+  ["check:onboarding-write-doors", "every event-write RPC goes through a gated door (static)"],
   // Canary BEFORE the check (fixture-only: it builds its own tree, so a live
   // violation cannot red it ahead of the guard).
   ["check:going-legacy-rpcs:self-test", "the retired attendance RPC names are still detected"],

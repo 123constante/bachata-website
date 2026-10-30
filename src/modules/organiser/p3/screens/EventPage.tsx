@@ -7,17 +7,23 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
 import { eventPageOf, type EventPageView } from '../data/eventPage';
 import { L, addDateWhy, peopleText, sessionKindLabel, sessionTitle, timeWord } from '../model';
-import { seriesFactsOf, tagClass } from '../data/dates';
+import { repeatShapeOf, seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
-import { ChangeItLink, RetryButton, StateCard } from './parts';
+import { RetryButton, StateCard } from './parts';
 import { StatusSheet, type Send } from './StatusSheet';
+import { RepeatSheet } from './RepeatSheet';
+import { previewRepeat } from '../data/repeat';
+import { repeatWords } from '../model/repeat';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { useToast } from './Toast';
+import { useSavedToast } from './savedToast';
 import { SessionSheet, type SessionOpen } from './SessionSheet';
 import { factsOf } from '../data/sessions';
 import { programmeRules } from '../model/programme';
 import type { SendOnce } from './CancelEventSheet';
+import { flags } from '@/lib/featureFlags';
+import { TicketsEntry } from '../tickets/TicketsEntry';
 
 /** The second half of the status row (C3 "Live \u00b7 Hide or end it"). */
 const STATUS_HINT: Record<string, string> = {
@@ -147,7 +153,24 @@ function About({ v }: { v: EventPageView }) {
         <AboutRow label={L.ticket}>{a.ticket ? <a className="p3-link" href={a.ticket} target="_blank" rel="noreferrer">{a.ticket}</a> : none}</AboutRow>
         <AboutRow label={L.instagram}>{a.instagram ? <a className="p3-link" href={a.instagram} target="_blank" rel="noreferrer">{a.instagram}</a> : none}</AboutRow>
       </div>
-      <p className="p3-note">To change details for every date: <ChangeItLink>use the current organiser area</ChangeItLink>.</p>
+      <div className="p3-card p3-tight p3-list p3-gap-t" data-testid="p3-edit-rows">
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventDetails(v.id)} data-testid="p3-open-details">
+          <span className="p3-grow"><span className="p3-row-t">{L.detailsTitle}</span><br /><span className="p3-row-s">{L.detailsRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventPrices(v.id)} data-testid="p3-open-prices">
+          <span className="p3-grow"><span className="p3-row-t">{L.prices}</span><br /><span className="p3-row-s">{L.pricesRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventHistory(v.id)} data-testid="p3-open-history">
+          <span className="p3-grow"><span className="p3-row-t">{L.history}</span><br /><span className="p3-row-s">{L.historyRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventOrganisers(v.id)} data-testid="p3-open-organisers">
+          <span className="p3-grow"><span className="p3-row-t">{L.organisers}</span><br /><span className="p3-row-s">{L.organisersRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+      </div>
     </section>
   );
 }
@@ -156,10 +179,13 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const today = londonTodayKey();
   const v = eventPageOf(ws, today);
   const toast = useToast(ws.series.id, ws.series.version);
+  useSavedToast(toast.show);
   const send: Send = (commands, version) => toast.run(commands, version);
   const once = useSendOnce(ws.series.id);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
   const [sheet, setSheet] = useState(false);
+  const [repeat, setRepeat] = useState(false);
+  const closeRepeat = useCallback(() => setRepeat(false), [setRepeat]);
   const [date, setDate] = useState<DateOpen>(null);
   const [session, setSession] = useState<SessionOpen>(null);
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
@@ -189,6 +215,23 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         </span>
         <span aria-hidden="true">&rsaquo;</span>
       </button>
+      <button type="button" className="p3-card p3-status-row" onClick={() => setRepeat(true)} data-testid="p3-open-repeat">
+        <span className="p3-grow">
+          <span className="p3-row-t">Repeats</span><br />
+          <span className="p3-row-s" data-testid="p3-repeat-row">{repeatWords(repeatShapeOf(ws), today)}</span>
+        </span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </button>
+      {flags.organiserTicketing && <TicketsEntry seriesId={ws.series.id} />}
+      {flags.organiserTicketing && (
+        <Link className="p3-card p3-status-row" to={P3_PATHS.eventDoor(ws.series.id)} data-testid="p3-open-door">
+          <span className="p3-grow">
+            <span className="p3-row-t">Scan tickets</span>
+            <span className="p3-row-s"> &middot; At the door</span>
+          </span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
+      )}
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
       <About v={v} />
@@ -196,12 +239,26 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
           onDone={(d) => { setSheet(false); toast.show(d); }} />
       )}
+      {repeat && (
+        <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
+          onClose={closeRepeat} onDone={(d) => { setRepeat(false); toast.show(d); }} />
+      )}
       <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />
       {session && (
         <SessionSheet ws={ws} today={today} open={session} onClose={() => setSession(null)} onDone={(d) => { setSession(null); toast.show(d); }} />
       )}
       {toast.node}
     </div>
+  );
+}
+
+/** The refusal copy every P3 event screen shows when the read is not this person's (W3b-1 History reuses it). */
+export function NotYoursCard() {
+  return (
+    <StateCard title="This event isn&rsquo;t one of yours" testId="p3-event-notyours">
+      <p>Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team.</p>
+      <Link className="p3-link" to={P3_PATHS.events}>See your events</Link>
+    </StateCard>
   );
 }
 
@@ -214,14 +271,7 @@ export function WorkspaceGate({ children }: { children: (ws: EventWorkspace, pla
     return <StateCard title="Loading the event&hellip;" testId="p3-event-loading">This takes a second.</StateCard>;
   }
   if (ws.isError) {
-    if (isAccessRefusal(ws.error)) {
-      return (
-        <StateCard title="This event isn&rsquo;t one of yours" testId="p3-event-notyours">
-          <p>Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team.</p>
-          <Link className="p3-link" to={P3_PATHS.events}>See your events</Link>
-        </StateCard>
-      );
-    }
+    if (isAccessRefusal(ws.error)) return <NotYoursCard />;
     if (isNotFound(ws.error)) {
       return (
         <StateCard title="We can&rsquo;t find this event" testId="p3-event-notfound">

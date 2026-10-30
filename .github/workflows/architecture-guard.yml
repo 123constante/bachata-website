@@ -82,6 +82,15 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
         run: npm run check:legacy-program-rpcs
 
+      # Scope G1 (docs/scoping/g1-write-door-check.md): Part A only, no secrets,
+      # so a Website PR that adds an ungated event-write RPC goes red here.
+      # Part B (the live guard) runs in db-contract-check.yml. Canary first.
+      - name: Run onboarding write-door guard (static)
+        if: steps.changes.outputs.docs_only != 'true'
+        run: |
+          npm run check:onboarding-write-doors:self-test
+          npm run check:onboarding-write-doors
+
       - name: Run runtime architecture guard
         if: steps.changes.outputs.docs_only != 'true'
         run: npm run lint:architecture

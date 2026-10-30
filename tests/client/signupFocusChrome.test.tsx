@@ -35,7 +35,6 @@ const renderAt = (path: string) =>
 describe('sign-up focus mode chrome', () => {
   it.each([
     ['/auth?mode=signup', '/'],
-    ['/auth', '/'],
     ['/auth?mode=signup&returnTo=%2Fevent%2Fabc', '/event/abc'],
     ['/auth/callback?mode=signup&returnTo=%2Fevent%2Fabc', '/event/abc'],
   ])('%s: logo + "Not now" (-> %s) only', async (path, notNow) => {
@@ -52,7 +51,7 @@ describe('sign-up focus mode chrome', () => {
     expect(screen.getByAltText('Bachata Calendar')).toBeTruthy();
   });
 
-  it.each(['/auth?mode=signin', '/auth?mode=signin&returnTo=%2Fevent%2Fabc', '/auth/callback?mode=signin', '/city/london', '/event/abc'])(
+  it.each(['/auth', '/auth?mode=signin', '/auth?mode=signin&returnTo=%2Fevent%2Fabc', '/auth/callback?mode=signin', '/city/london', '/event/abc'])(
     '%s: normal site chrome, no focus bar',
     (path) => {
       renderAt(path);

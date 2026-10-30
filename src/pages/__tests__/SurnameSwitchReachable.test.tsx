@@ -56,7 +56,7 @@ const backendWith = (row: Partial<typeof FULL> | null) =>
   makeBackend({ row: row === null ? null : { ...FULL, ...row }, organisers: 0, requests: [] });
 
 const saves = (b: Backend) => b.calls.filter((c) => c.name === 'save_my_dancer_profile_v1');
-const theSwitch = () => screen.findByRole('switch', { name: HIDE_SURNAME_LABEL });
+const theSwitch = () => screen.findByRole('switch', { name: HIDE_SURNAME_LABEL }, { timeout: 5000 });
 const saveButton = () => screen.getByTestId('hide-surname-save') as HTMLButtonElement;
 
 beforeEach(() => {

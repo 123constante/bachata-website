@@ -16,8 +16,22 @@
  * The workflow passes the body through the PR_BODY env var -- never interpolated
  * into a shell command.
  *
+ * PENDING: .github/workflows/bot-pr.yml opens every claude/** PR with the section
+ * already present and each line set to the MARKER "TO FILL". A body where every
+ * problem is a marker line is PENDING, not a violation: the description has not
+ * been written yet. Pending is NEVER a pass -- parse().ok stays false, so every
+ * merge path that reads parse() (scripts/automerge-classify.mjs) refuses it; the
+ * workflow only turns exit 3 into a notice instead of a red run. Marker lines plus
+ * any genuine violation (a missing line, a placeholder) stay exit 1. The marker
+ * counts on ANY line of the section, not only the first line per label, and a
+ * label given on two real lines is a violation (no first-wins).
+ *
+ * Fenced code blocks are removed like HTML comments: a section (or a marker)
+ * quoted inside ``` is an example, not the PR's own section.
+ *
  * Exit codes: 0 pass, 1 the PR body violates the format, 2 cannot run (no PR_BODY
- * variable at all -- an unset variable is infrastructure, not an empty body).
+ * variable at all -- an unset variable is infrastructure, not an empty body),
+ * 3 pending (the bot's TO FILL marker is still there; reported, not failed).
  *
  *   PR_BODY="$BODY" node scripts/check-pr-real-data-verified.mjs
  *   node scripts/check-pr-real-data-verified.mjs --self-test
@@ -26,6 +40,8 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 
 export const HEADING = '## Verified on real data';
 export const LABELS = ['Shapes surveyed', 'Checks run', 'NOT verified'];
+/** Written by bot-pr.yml on each line; case-sensitive so prose "to fill" is not it. */
+export const MARKER = 'TO FILL';
 
 export const FORMAT_HELP = [
   'Required format in the PR description:',
@@ -48,19 +64,39 @@ const MIN_CHARS = 12;
 const HEADING_RE = /^[ \t]{0,3}##[ \t]+verified[ \t]+on[ \t]+real[ \t]+data[ \t]*#*[ \t]*$/i;
 const ANY_HEADING_RE = /^[ \t]{0,3}#{1,6}(?:[ \t]|$)/;
 
+const FENCE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
+
+/** Drop fenced code blocks (fence lines included); an unclosed fence runs to the end. */
+function stripFences(lines) {
+  const out = [];
+  let open = null;
+  for (const l of lines) {
+    const m = FENCE_RE.exec(l);
+    if (open === null) {
+      // CommonMark: a backtick fence's info string has no backtick, so
+      // "```npm test``` passes" is an inline span, not a fence.
+      if (m && !(m[1][0] === '`' && l.slice(l.indexOf(m[1]) + m[1].length).includes('`'))) open = m[1];
+      else out.push(l);
+    } else if (m && m[1][0] === open[0] && m[1].length >= open.length && l.trim() === m[1].trim()) {
+      open = null;
+    }
+  }
+  return out;
+}
+
 const stripPunct = (s) => s.replace(/[\s\p{P}\p{S}]+/gu, ' ').trim();
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function labelValue(lines, label) {
+/** Every value given for `label` in `lines`, in order (empty when the line is missing). */
+function labelValues(lines, label) {
   const re = new RegExp(
     '^[ \\t]*(?:[-*+][ \\t]+)?(?:\\*\\*|__)?' + escapeRe(label) + '(?:\\*\\*|__)?[ \\t]*:(?:\\*\\*|__)?(.*)$',
     'i',
   );
-  const hits = lines.map((l) => re.exec(l)).filter(Boolean);
-  return hits.length ? hits[0][1].trim() : null;
+  return lines.map((l) => re.exec(l)).filter(Boolean).map((m) => m[1].trim());
 }
 
 function contentProblem(label, raw) {
@@ -84,25 +120,26 @@ function contentProblem(label, raw) {
   return null;
 }
 
-/** @param {string | null | undefined} body @returns {{ok: boolean, problems: string[]}} */
+/** @param {string | null | undefined} body @returns {{ok: boolean, pending: boolean, problems: string[]}} */
 export function parse(body) {
   if (typeof body !== 'string' || body.trim() === '') {
-    return { ok: false, problems: ['PR description is empty: the "' + HEADING + '" section is missing'] };
+    return { ok: false, pending: false, problems: ['PR description is empty: the "' + HEADING + '" section is missing'] };
   }
   // Comments first: a valid-looking section inside <!-- --> is invisible to
   // reviewers and must not count. CRLF normalised so $-anchored matches hold.
   const text = body.replace(/\r\n?/g, '\n').replace(/<!--[\s\S]*?-->/g, '');
-  const lines = text.split('\n');
+  const lines = stripFences(text.split('\n'));
   const starts = [];
   lines.forEach((l, i) => {
     if (HEADING_RE.test(l)) starts.push(i);
   });
   if (starts.length === 0) {
-    return { ok: false, problems: ['Section "' + HEADING + '" is missing'] };
+    return { ok: false, pending: false, problems: ['Section "' + HEADING + '" is missing'] };
   }
   if (starts.length > 1) {
     return {
       ok: false,
+      pending: false,
       problems: ['Section "' + HEADING + '" appears ' + starts.length + ' times; keep exactly one'],
     };
   }
@@ -116,11 +153,32 @@ export function parse(body) {
   }
   const section = lines.slice(from, to);
   const problems = [];
+  // A marker on ANY section line is pending, whether it is a label line or not
+  // and wherever it sits: filled lines pasted above the bot's marker lines must
+  // not pass (review r1, finding 1). Marker lines are then left out of the label
+  // checks below, so the leftover copy of a label is not also a duplicate.
+  const markerLines = section.filter((l) => l.includes(MARKER));
+  const rest = section.filter((l) => !l.includes(MARKER));
+  for (const l of markerLines) {
+    const hit = LABELS.find((label) => labelValues([l], label).length);
+    problems.push((hit || 'section line "' + l.trim() + '"') + ': still "' + MARKER + '" (the description has not been filled in)');
+  }
+  const markers = problems.length;
   for (const label of LABELS) {
-    const p = contentProblem(label, labelValue(section, label));
+    const values = labelValues(rest, label);
+    // A label with only marker lines is already reported above.
+    if (values.length === 0 && markerLines.some((l) => labelValues([l], label).length)) continue;
+    // Two real lines for one label: refuse rather than pick one (review r1, finding 2).
+    if (values.length > 1) {
+      problems.push(label + ': line appears ' + values.length + ' times; keep exactly one');
+      continue;
+    }
+    const p = contentProblem(label, values.length ? values[0] : null);
     if (p) problems.push(p);
   }
-  return { ok: problems.length === 0, problems };
+  // Pending only when EVERY problem is a marker line: a real violation beside a
+  // marker is still a violation.
+  return { ok: problems.length === 0, pending: markers > 0 && markers === problems.length, problems };
 }
 
 export function main(argv, env = process.env, log = console) {
@@ -129,10 +187,15 @@ export function main(argv, env = process.env, log = console) {
     log.error('PR_BODY is not set: the workflow must pass the PR description in the environment.');
     return 2;
   }
-  const { ok, problems } = parse(env.PR_BODY);
+  const { ok, pending, problems } = parse(env.PR_BODY);
   if (ok) {
     log.log('real-data-verified: OK -- "' + HEADING + '" section is filled in.');
     return 0;
+  }
+  if (pending) {
+    log.log('real-data-verified: PENDING -- waiting for the description to be filled in (NOT a pass).');
+    for (const p of problems) log.log('  - ' + p);
+    return 3;
   }
   log.error('real-data-verified: FAIL');
   for (const p of problems) log.error('  - ' + p);
@@ -147,6 +210,8 @@ const FILLED = [
   '- NOT verified: behaviour with more than 1000 occurrences per series',
 ].join('\n');
 
+const PENDING_BODY = [HEADING, ...LABELS.map((l) => '- ' + l + ': ' + MARKER)].join('\n');
+
 function selfTest(log) {
   const cases = [
     ['filled section passes', FILLED, true],
@@ -157,6 +222,10 @@ function selfTest(log) {
     ['commented-out section fails', '<!--\n' + FILLED + '\n-->', false],
     ['doubled section fails', FILLED + '\n\n' + FILLED, false],
     ['CRLF body passes', FILLED.replace(/\n/g, '\r\n'), true],
+    ['marker body is not a pass', PENDING_BODY, false],
+    ['fenced-only section fails', '```\n' + FILLED + '\n```', false],
+    ['filled lines above leftover markers are not a pass', FILLED + '\n' + PENDING_BODY.split('\n').slice(1).join('\n'), false],
+    ['a label given twice fails', FILLED + '\n- Checks run: matrix tests plus a browser walk again', false],
   ];
   let failed = 0;
   for (const [name, body, want] of cases) {
@@ -172,6 +241,9 @@ function selfTest(log) {
     ['no PR_BODY is infrastructure (2)', main([], {}, quiet), 2],
     ['bad body is a violation (1)', main([], { PR_BODY: 'nothing here' }, quiet), 1],
     ['good body passes (0)', main([], { PR_BODY: FILLED }, quiet), 0],
+    ['marker body is pending (3)', main([], { PR_BODY: PENDING_BODY }, quiet), 3],
+    ['filled lines above leftover markers are pending (3)', main([], { PR_BODY: FILLED + '\n' + PENDING_BODY.split('\n').slice(1).join('\n') }, quiet), 3],
+    ['marker beside a violation is a violation (1)', main([], { PR_BODY: PENDING_BODY.replace(/- Checks run.*/, '- Checks run: n/a') }, quiet), 1],
   ];
   for (const [name, got, want] of exits) {
     if (got !== want) {

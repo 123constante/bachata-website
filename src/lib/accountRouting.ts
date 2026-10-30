@@ -19,6 +19,7 @@
 import { sanitizeReturnTo } from './authRouting';
 import type { DeletionLanding } from './accountDeletion';
 import { ACCOUNT_HOME_PATH, isAccountPath } from './accountPaths';
+import { P3_START_PATH } from './p3StartPath';
 
 // The two the site header needs live in an import-free leaf (review #789 S6); re-exported here.
 export { ACCOUNT_HOME_PATH, isAccountPath };
@@ -267,9 +268,12 @@ export const onboardingEnd = (returnTo: string | null | undefined): string => on
 
 /** The end-of-onboarding button names where it goes; it never says Home when it does not go there. */
 export const onboardingEndLabel = (end: string): string => {
-  const path = end.split(/[?#]/, 1)[0].toLowerCase();
+  const rawPath = end.split(/[?#]/, 1)[0];
+  const path = rawPath.toLowerCase().replace(/\/+$/, '') || '/';
   if (path === APP_HOME_PATH) return 'Go to Home';
   if (path === ORGANISER_HOME_PATH || path.startsWith(`${ORGANISER_HOME_PATH}/`)) return 'Next: set up your organiser page';
+  // A chosen page (o=, e.g. the Review-step return) already exists: "find or create" would point at a step that is not coming.
+  if (path === P3_START_PATH) return /[?&]o=[^&#]/.test(end) ? 'Next: back to your page' : 'Next: find or create your page';
   if (path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`)) return 'Next: join the team';
   return 'Continue';
 };
@@ -307,6 +311,12 @@ export type SidesFacts = {
    * any side or returnTo. 'loading' = not read yet; undefined / null = not deleted (or a failed read).
    */
   deletion?: DeletionLanding | 'loading';
+  /**
+   * Where a brand-new organiser (organiser intent, no organiser, no open request) lands:
+   * lib/auth-otp-routing newOrganiserLanding, passed in by /account/continue (F4).
+   * Absent = the organiser home, as before.
+   */
+  newOrganiserTo?: string;
 };
 
 export type ProfileSide =
@@ -350,7 +360,7 @@ export const profileSides = (f: SidesFacts): SidesState => {
       // Organiser intent with nothing organised yet: the unfinished onboarding carries on to the organiser page.
       to:
         f.dancer === 'incomplete' && f.areaAllowed && f.organiserIntent && f.organisers.length === 0
-          ? appWelcomeHref(ORGANISER_HOME_PATH)
+          ? appWelcomeHref(f.newOrganiserTo ?? ORGANISER_HOME_PATH)
           : dancerSidePath(f.dancer, f.areaAllowed),
     });
   }
@@ -391,7 +401,7 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
   if (state.sides.length === 1) {
     const unclaimedOrganiser = state.sides[0].kind === 'dancer' && f.dancer === 'complete' && f.organiserIntent;
     if (unclaimedOrganiser && f.openRequestCount === undefined) return { kind: 'wait' };
-    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: ORGANISER_HOME_PATH };
+    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: f.newOrganiserTo ?? ORGANISER_HOME_PATH };
     return { kind: 'go', to: state.sides[0].to };
   }
   return { kind: 'choose', sides: state.sides };

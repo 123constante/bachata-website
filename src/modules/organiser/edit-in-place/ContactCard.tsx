@@ -6,16 +6,14 @@
 import type { CSSProperties, MouseEvent } from 'react';
 import { Pencil } from 'lucide-react';
 import { CONTACT_COPY, type ContactItem } from './contactModel';
-import { CREAM, GOLD, INK, UnsavedTag } from './parts';
+import { ACCENT, ACCENT_BG, FG, MUTED, ON_ACCENT, RULE, UnsavedTag } from './parts';
 
 export type ContactLoad = 'loading' | 'failed' | 'ready';
-
-const MUTED = 'rgba(246,241,234,0.7)';
 
 const tagStyle = (pub: boolean): CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', height: 20, padding: '0 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 700,
   whiteSpace: 'nowrap', flexShrink: 0,
-  ...(pub ? { background: 'rgba(231,190,110,0.16)', color: GOLD, border: `1px solid ${GOLD}` } : { background: 'transparent', color: MUTED, border: '1px solid rgba(246,241,234,0.35)' }),
+  ...(pub ? { background: 'var(--eip-accent-soft, rgba(231,190,110,0.16))', color: ACCENT, border: `1px solid ${ACCENT}` } : { background: 'transparent', color: MUTED, border: '1px solid var(--eip-line-strong, rgba(246,241,234,0.35))' }),
 });
 
 function ItemRow({ item }: { item: ContactItem }) {
@@ -24,7 +22,7 @@ function ItemRow({ item }: { item: ContactItem }) {
       <span style={{ width: 56, flexShrink: 0, fontSize: 12, fontWeight: 600, color: MUTED }}>{item.label}</span>
       <span
         className={item.drafted ? 'eip-drafted' : undefined}
-        style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, color: item.empty ? MUTED : CREAM }}
+        style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 14, color: item.empty ? MUTED : FG }}
       >
         {item.masked ?? CONTACT_COPY.notAdded}
       </span>
@@ -43,8 +41,8 @@ export function ContactCard({ load, items, onEdit, onRetry }: {
   const reasonId = 'eip-contact-reason';
   const ready = load === 'ready' && !!items;
   return (
-    <section aria-labelledby="eip-contact-title" className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="eip-contact">
-      <h2 id="eip-contact-title" style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: GOLD }}>{CONTACT_COPY.card}</h2>
+    <section aria-labelledby="eip-contact-title" className="px-5 md:px-12 py-3" style={{ borderBottom: RULE }} data-testid="eip-contact">
+      <h2 id="eip-contact-title" style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: ACCENT }}>{CONTACT_COPY.card}</h2>
       <div style={{ maxWidth: 480 }}>
         {ready && (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -55,8 +53,8 @@ export function ContactCard({ load, items, onEdit, onRetry }: {
         {load === 'loading' && <p id={reasonId} role="status" style={{ margin: '4px 0', fontSize: 13, color: MUTED }}>{CONTACT_COPY.loading}</p>}
         {load === 'failed' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '4px 0' }}>
-            <p id={reasonId} role="alert" style={{ margin: 0, flex: '1 1 200px', fontSize: 13, color: '#FFB4A2' }}>{CONTACT_COPY.failed}</p>
-            <button type="button" className="eip-btn" onClick={onRetry} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, background: 'none', border: '1px solid rgba(246,241,234,0.3)', color: CREAM, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <p id={reasonId} role="alert" style={{ margin: 0, flex: '1 1 200px', fontSize: 13, color: 'var(--eip-danger, #FFB4A2)' }}>{CONTACT_COPY.failed}</p>
+            <button type="button" className="eip-btn" onClick={onRetry} style={{ minHeight: 44, padding: '0 14px', borderRadius: 999, background: 'none', border: '1px solid var(--eip-line-strong, rgba(246,241,234,0.3))', color: FG, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {CONTACT_COPY.retry}
             </button>
           </div>
@@ -68,10 +66,10 @@ export function ContactCard({ load, items, onEdit, onRetry }: {
           disabled={!ready}
           aria-describedby={ready ? undefined : reasonId}
           onClick={(e: MouseEvent<HTMLButtonElement>) => onEdit(e.currentTarget)}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', minHeight: 44, padding: 0, marginTop: 2, background: 'none', border: 'none', borderTop: '1px solid rgba(246,241,234,0.08)', color: ready ? GOLD : MUTED, fontSize: 14, fontWeight: 700, cursor: ready ? 'pointer' : 'default', textAlign: 'left' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', minHeight: 44, padding: 0, marginTop: 2, background: 'none', border: 'none', borderTop: RULE, color: ready ? ACCENT : MUTED, fontSize: 14, fontWeight: 700, cursor: ready ? 'pointer' : 'default', textAlign: 'left' }}
         >
           {CONTACT_COPY.editRow}
-          <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', background: ready ? GOLD : 'rgba(246,241,234,0.25)', color: INK, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', background: ready ? ACCENT_BG : 'var(--eip-line-strong, rgba(246,241,234,0.25))', color: ON_ACCENT, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Pencil width={14} height={14} strokeWidth={2.4} />
           </span>
         </button>

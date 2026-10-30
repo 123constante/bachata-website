@@ -187,6 +187,7 @@ const TARGETS = [
   { rel: 'scripts/check-og-images.mjs' },
   { rel: 'scripts/check-og-render-health.mjs' },
   { rel: 'scripts/check-og-scrape-evidence.mjs' },
+  { rel: 'scripts/check-onboarding-write-doors.mjs' },
   { rel: 'scripts/check-organiser-hidden-ids-contract.mjs' },
   { rel: 'scripts/check-origin-consumers.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },

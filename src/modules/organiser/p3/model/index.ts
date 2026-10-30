@@ -8,3 +8,4 @@ export * from './status';
 export * from './cancel';
 export * from './dates';
 export * from './programme';
+export * from './saveModel';

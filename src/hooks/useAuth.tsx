@@ -84,6 +84,12 @@ export type ProfileGateValue = {
   gateFor: (returnTo: string) => RatingGate;
   /** The gate to show when rate_series_level_p5_v1 refuses with `profile_incomplete` (the server is the authority). */
   refusedGateFor: (returnTo: string) => RatingGate;
+  /**
+   * The caller is an admin (admin_is_admin). The server's profile check exempts admins, so the
+   * organiser tap gate does too. AppChrome's value leaves it unset (no admin read on every page);
+   * P3 Add a page sets it from the admin read it already makes (profileGate.withAdmin).
+   */
+  isAdmin?: boolean;
 };
 export const ProfileGateContext = createContext<ProfileGateValue | "loading" | null>(null);
 

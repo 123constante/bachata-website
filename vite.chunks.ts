@@ -357,6 +357,12 @@ export const LIB_EVENT_RULES_MODULES = [
   // (chunk ratchet, measured). Its static deps (getSupabase, viewerSession, featureFlags)
   // are already in the root graph; the Supabase client itself stays lazy.
   "/src/lib/listImpressions.ts",
+  // contactLinks (G2, Option D, docs/scoping/g2-page-size-budget.md): it imports the
+  // react-router Link, so as its own chunk it also split react-router's ~40 KB gz shared
+  // chunk out as a second first-load chunk. Pinned here both ride lib-event-rules: 2 fewer
+  // first-load chunks on every budgeted route and fewer bytes (measured). Cost: any edit to
+  // a pinned module re-hashes react-router's shared code for returning visitors.
+  "/src/lib/contactLinks.tsx",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

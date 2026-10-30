@@ -71,7 +71,12 @@ test.describe('me + edit 390x844', () => {
 
   test('a change sends only the changed key, then Save is disabled again', async ({ page }) => {
     const { saves } = await open(page, '/app/me/edit', 'completeAllExtras');
-    await page.locator('#languages').fill('French');
+    await expect(page.getByTestId('languages-picker')).toBeVisible();
+    for (const stored of ['English', 'Spanish']) {
+      const remove = page.getByRole('button', { name: `Remove ${stored}`, exact: true });
+      if (await remove.count()) await remove.click();
+    }
+    await page.getByLabel('French', { exact: true }).check();
     await page.getByTestId('edit-save').click();
     await expect(page.getByTestId('edit-saved')).toBeVisible();
     expect(saves).toEqual([{ languages: ['French'] }]);

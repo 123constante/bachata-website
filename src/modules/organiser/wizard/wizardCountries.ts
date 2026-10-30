@@ -1,6 +1,6 @@
 // The nationality step's country list. It reads the same world-countries data
-// as src/constants/countries.ts (UN members plus Palestine and Vatican City,
-// stored as the upper-case two-letter code) WITHOUT importing that module: a
+// as src/constants/countries.ts (every ISO 3166-1 entry plus the four GB home
+// nations, stored as the upper-case ISO code: two letters, or GB-ENG style) WITHOUT importing that module: a
 // static import made it a chunk of its own, one more first-load request on
 // every /app/* view (the dancer-app chunk ratchet, check:bundle-budget).
 import { safeDynamicImport } from '@/lib/lazyWithRetry';
@@ -18,10 +18,12 @@ export async function wizardCountries(): Promise<WizardCountry[]> {
     const code = c.cca2?.toUpperCase();
     const name = c.name?.common?.trim();
     const demonym = c.demonyms?.eng?.m?.trim() || undefined;
-    if (c.unMember && code && code.length === 2 && name) byCode.set(code, { code, name, demonym });
+    if (code && code.length === 2 && name) byCode.set(code, { code, name, demonym });
   }
-  byCode.set('PS', { code: 'PS', name: 'Palestine', demonym: 'Palestinian' });
-  byCode.set('VA', { code: 'VA', name: 'Vatican City', demonym: 'Vatican' });
+  byCode.set('GB-ENG', { code: 'GB-ENG', name: 'England', demonym: 'English' });
+  byCode.set('GB-NIR', { code: 'GB-NIR', name: 'Northern Ireland', demonym: 'Northern Irish' });
+  byCode.set('GB-SCT', { code: 'GB-SCT', name: 'Scotland', demonym: 'Scottish' });
+  byCode.set('GB-WLS', { code: 'GB-WLS', name: 'Wales', demonym: 'Welsh' });
   cached = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name));
   return cached;
 }

@@ -8,8 +8,10 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 const api = vi.hoisted(() => ({ signOut: vi.fn(), home: vi.fn(), mine: vi.fn(), search: vi.fn() }));
 const auth = vi.hoisted(() => ({ email: 'me@x.example' as string | null }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: {}, rpc: vi.fn() } }));
-vi.mock('@/hooks/useAuth', () => ({
+vi.mock('@/hooks/useAuth', async () => ({
   useAuth: () => ({ user: { id: 'u1', email: auth.email }, session: null, signOut: api.signOut }),
+  // Welcome reads the shared completeness fact (P3 W4b tap gate); no provider = today's behaviour.
+  ProfileGateContext: (await import('react')).createContext(null),
 }));
 vi.mock('@/modules/organiser/shared/selfServeApi', async () => {
   const actual = await vi.importActual<typeof import('@/modules/organiser/shared/selfServeApi')>('@/modules/organiser/shared/selfServeApi');

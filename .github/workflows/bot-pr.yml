@@ -8,6 +8,9 @@ name: Bot PR for cloud branches
 # owner's merge) only ever opened empty duplicates (#547, #553, #554). New work goes on a new branch.
 # A PAT-opened PR fires the normal pull_request checks. The cloud session pushes and never
 # opens the PR itself; it may edit the body afterwards with `gh api -X PATCH`.
+# The body carries a `## Verified on real data` section set to TO FILL: real-data-verified
+# reports that as PENDING (a notice), not red, and no merge path accepts it. Sessions
+# REPLACE the three TO FILL lines; a second section is red ("appears 2 times").
 
 on:
   push:
@@ -49,7 +52,21 @@ jobs:
           fi
           node -e '
             const title = (process.env.SUBJECT || process.env.BRANCH).split("\n")[0].slice(0, 250);
-            const body = "Opened by the bot for cloud branch `" + process.env.BRANCH + "` so the owner can approve it. The session fills in this description.\n\nRaised by .github/workflows/bot-pr.yml.";
+            // The section is pre-filled with the TO FILL marker so real-data-verified reports
+            // PENDING (exit 3, a notice) instead of RED until the session writes it. Pending is
+            // never a pass: scripts/check-pr-real-data-verified.mjs parse() keeps ok=false.
+            // tests/realDataVerified.test.ts evaluates this array, so keep the [ ... ].join shape.
+            const body = [
+              "Opened by the bot for cloud branch `" + process.env.BRANCH + "` so the owner can approve it. The session fills in this description.",
+              "Replace each TO FILL below in place; do not add a second Verified on real data section.",
+              "",
+              "## Verified on real data",
+              "- Shapes surveyed: TO FILL",
+              "- Checks run: TO FILL",
+              "- NOT verified: TO FILL",
+              "",
+              "Raised by .github/workflows/bot-pr.yml.",
+            ].join("\n");
             require("fs").writeFileSync("pr.json", JSON.stringify({ title, head: process.env.BRANCH, base: process.env.BASE, body }));
           '
           code="$(api -o resp.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/pulls" --data @pr.json)"

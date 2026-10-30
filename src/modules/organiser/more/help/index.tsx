@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { OrganiserShell } from '../../shell';
-import { ORG_PATHS } from '../../shell/paths';
+import { useOrgSurface } from '../../shell/surface';
 import { Card } from '../../ui';
-import { HELP_ROWS } from './helpRows';
+import { helpRows } from './helpRows';
 
-/** /account/o/more/help (C41): the short list of jobs, each a link into its flow. */
+/** /account/o/more/help (C41), and P3's /you/help: the short list of jobs, each a link into its flow. */
 export default function HelpPage() {
+  const { Shell, paths, moreTitle } = useOrgSurface();
   return (
-    <OrganiserShell title="Help" back={{ to: ORG_PATHS.more, label: 'More' }} testId="org-page-help">
+    <Shell title="Help" back={{ to: paths.more, label: moreTitle }} testId="org-page-help">
       <Card testId="help-rows">
-        {HELP_ROWS.map((row) => (
+        {helpRows(paths).map((row) => (
           <Link
             key={row.id}
             to={row.to}
@@ -22,6 +22,6 @@ export default function HelpPage() {
           </Link>
         ))}
       </Card>
-    </OrganiserShell>
+    </Shell>
   );
 }

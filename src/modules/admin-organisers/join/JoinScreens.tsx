@@ -7,7 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
-import { reasonScreen } from '../inviteModel';
+import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
+import { reasonScreen, type ReasonScreen } from '../inviteModel';
 import { JOIN_COPY } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';
 
@@ -161,12 +162,15 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
   );
 }
 
-export function DoneScreen({ org }: { org: string }) {
+export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+  const selfServe = flags.organiserSelfServe;
+  // The ONE landing helper; without an id (or with the area off) the plain home links stay.
+  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : ORG_PATHS.home) : '/';
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
-      <Lead>{JOIN_COPY.done.body}</Lead>
-      <Link to={ORG_PATHS.home} className={BTN} data-testid="join-done-home">{JOIN_COPY.done.button}</Link>
+      <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
+      <Link to={to} className={BTN} data-testid="join-done-home">{selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff}</Link>
     </div>
   );
 }
@@ -207,6 +211,27 @@ export function NoProfileScreen() {
   );
 }
 
+/**
+ * A redeem refusal's next action, straight from the shared mapping (reasonScreen), never decided here:
+ * the WhatsApp help link, Try again (disabled with its reason when a retry now would only fail again),
+ * then the home link.
+ */
+function ReasonActions({ reason, busy, onRetry, home }: { reason: ReasonScreen; busy: boolean; onRetry: () => void; home: ReactNode }) {
+  const blocked = reason.retryBlocked ?? null;
+  return (
+    <>
+      {reason.help && <a href={JOIN_COPY.help.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="join-help">{JOIN_COPY.help.label}</a>}
+      {reason.action === 'retry' && (
+        <>
+          <button type="button" className={BTN} disabled={busy || blocked !== null} aria-describedby={blocked ? 'join-retry-why' : undefined} onClick={onRetry} data-testid="join-retry">{JOIN_COPY.network.button}</button>
+          {blocked && <p id="join-retry-why" className={WHY} data-testid="join-retry-why">{blocked}</p>}
+        </>
+      )}
+      {home}
+    </>
+  );
+}
+
 /** Refusals and failures, each with what to do next. `onRetry` re-runs the action that failed; `onSwitch` signs out and continues. */
 export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss }: {
   stop: JoinStop; preview: JoinPreview | null; signedInAs: string; busy: boolean; error: string | null;
@@ -224,15 +249,28 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
           <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>
         </div>
       );
-    case 'rate_limited':
+    case 'rate_limited': {
+      // A code-send limit is "wait a minute", and Try again only returns to the email box (it sends nothing).
+      if (stop.from === 'code') {
+        return (
+          <div className="flex flex-col gap-2">
+            <Heading>{JOIN_COPY.rateLimited.heading}</Heading>
+            <Lead>{JOIN_COPY.rateLimited.bodyCode}</Lead>
+            <button type="button" className={BTN} disabled={busy} onClick={onRetry} data-testid="join-retry">{JOIN_COPY.rateLimited.button}</button>
+            {home}
+          </div>
+        );
+      }
+      // The redeem limit is an hour (login audit L6): the shared mapping disables Try again and says why.
+      const screen = reasonScreen('rate_limited');
       return (
         <div className="flex flex-col gap-2">
-          <Heading>{JOIN_COPY.rateLimited.heading}</Heading>
-          <Lead>{stop.from === 'code' ? JOIN_COPY.rateLimited.bodyCode : JOIN_COPY.rateLimited.bodyJoin}</Lead>
-          <button type="button" className={BTN} disabled={busy} onClick={onRetry} data-testid="join-retry">{JOIN_COPY.rateLimited.button}</button>
-          {home}
+          <Heading>{screen.title}</Heading>
+          <Lead>{screen.body}</Lead>
+          <ReasonActions reason={screen} busy={busy} onRetry={onRetry} home={home} />
         </div>
       );
+    }
     case 'network':
       return (
         <div className="flex flex-col gap-2">
@@ -279,7 +317,7 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
         <div className="flex flex-col gap-2" data-testid="invite-card">
           <Heading>{screen.title}</Heading>
           {screen.body && <Lead testId="invite-body">{screen.body}</Lead>}
-          {home}
+          <ReasonActions reason={screen} busy={busy} onRetry={onRetry} home={home} />
         </div>
       );
     }

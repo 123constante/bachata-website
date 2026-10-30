@@ -4,6 +4,7 @@ import { ChevronLeft, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useKeyboardInset } from './useKeyboardInset';
 import { useInEmberWorld } from './EmberWorld';
+import { useSheetLook } from './sheetLook';
 
 /** Set inside a SheetView so a second one inside it is caught at once. */
 const InSheet = createContext(false);
@@ -71,6 +72,9 @@ export function SheetView({
     console.error(NESTED_SHEET_ERROR);
   }
   const inEmber = useInEmberWorld();
+  // P3 (W4b): P3's tokens and scrim on the portalled sheet, and focus never scrolls the page.
+  const p3 = useSheetLook() === 'p3';
+  const focusOpts = p3 ? { preventScroll: true } : undefined;
   const { inset, height } = useKeyboardInset(open);
   const contentRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -92,8 +96,8 @@ export function SheetView({
     if (!open) return;
     bodyRef.current?.scrollTo?.({ top: 0 });
     const target = contentRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus]');
-    (target ?? titleRef.current)?.focus();
-  }, [viewKey, open]);
+    (target ?? titleRef.current)?.focus(p3 ? { preventScroll: true } : undefined);
+  }, [viewKey, open, p3]);
 
   const cap = height !== null ? `${Math.max(0, height - 12)}px` : '100dvh';
   // Keyboard up on a short screen (e.g. 390x500 landscape-ish): the grabber
@@ -106,7 +110,7 @@ export function SheetView({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay
-          className="org-sheet-overlay fixed inset-0 z-[70] bg-black/60 duration-300 ease-in-out data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+          className={cn(p3 ? 'p3-theme p3-sheet-scrim' : 'bg-black/60', 'org-sheet-overlay fixed inset-0 z-[70] duration-300 ease-in-out data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0')}
         />
         <Dialog.Content
           ref={contentRef}
@@ -117,14 +121,14 @@ export function SheetView({
             const target = contentRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus]');
             if (target) {
               e.preventDefault();
-              target.focus();
+              target.focus(focusOpts);
             }
           }}
           onCloseAutoFocus={(e) => {
             const back = returnFocusRef?.current ?? opener.current;
             if (back && back.isConnected && back !== document.body) {
               e.preventDefault();
-              back.focus();
+              back.focus(focusOpts);
             }
           }}
           onEscapeKeyDown={(e) => {
@@ -136,7 +140,8 @@ export function SheetView({
           style={{ bottom: inset, background: 'var(--sheet)', animationTimingFunction: 'ease-in-out', ...size }}
           className={cn(
             inEmber && 'ember-world',
-            'org-theme org-sheet fixed inset-x-0 z-[71] mx-auto flex w-full max-w-[640px] flex-col rounded-t-[var(--r-sheet,24px)] shadow-[0_-12px_40px_rgba(0,0,0,.55)] outline-none',
+            p3 ? 'p3-theme p3-onb' : 'org-theme',
+            'org-sheet fixed inset-x-0 z-[71] mx-auto flex w-full max-w-[640px] flex-col rounded-t-[var(--r-sheet,24px)] shadow-[0_-12px_40px_rgba(0,0,0,.55)] outline-none',
             'duration-300 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom',
           )}
         >

@@ -1,0 +1,42 @@
+{"label":"event page rows light","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":44}
+{"label":"details dirty light","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":45}
+{"label":"details untouched light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"label":"leave sheet light","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":7}
+{"label":"undo sheet light","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":7}
+{"label":"details problems light","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":36}
+{"label":"place sheet light","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":6}
+{"label":"details ended light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":22}
+{"label":"details festival long about light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"label":"event page rows dark","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":44}
+{"label":"details untouched dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"label":"details dirty dark","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":45}
+{"label":"details problems dark","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":36}
+{"label":"place sheet dark","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":6}
+{"label":"leave sheet dark","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":7}
+{"label":"undo sheet dark","sideways":0,"taps":3,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":7}
+{"label":"details ended dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":22}
+{"label":"details festival long about dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"label":"prices empty light","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":18}
+{"label":"prices empty dark","sideways":0,"taps":12,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":18}
+{"label":"prices bad amount light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
+{"label":"prices bad amount dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
+{"label":"prices team list dark","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":17}
+{"label":"prices team list light","sideways":0,"taps":11,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":17}
+{"label":"prices festival dark","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}
+{"label":"prices festival light","sideways":0,"taps":8,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}
+{"label":"prices free dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":18}
+{"label":"prices free light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":18}
+{"round":"r1","label":"event page rows light","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":44}
+{"round":"r1","label":"details cover button light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
+{"round":"r1","label":"details untouched light","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"round":"r1","label":"event page rows dark","sideways":0,"taps":20,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":44}
+{"round":"r1","label":"details untouched dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":42}
+{"round":"r1","label":"details city lookup failed light","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":39}
+{"round":"r1","label":"details cover button dark","sideways":0,"taps":22,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":35}
+{"round":"r1","label":"details city lookup failed dark","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":39}
+{"round":"r3","label":"details chat problem light","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":36}
+{"round":"r3","label":"details banner light","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":32}
+{"round":"r3","label":"prices profile lock light","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}
+{"round":"r3","label":"details chat problem dark","sideways":0,"taps":24,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":36}
+{"round":"r3","label":"details banner dark","sideways":0,"taps":25,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":32}
+{"round":"r3","label":"prices profile lock dark","sideways":0,"taps":13,"minTap":44,"small":[],"clipped":[],"contrastViolations":0,"contrastPasses":13}

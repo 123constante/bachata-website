@@ -78,6 +78,9 @@ export const JOIN_COPY = {
     heading: (org: string) => `You${APOS}re on ${org}${APOS}s team.`,
     body: 'Everything on its page is yours to use: events, team and profile.',
     button: 'Open your organiser home',
+    // organiserSelfServe off: the organiser area is not open yet, so the one next step is the public site.
+    bodyOff: 'Your place on the team is saved for when they open.',
+    buttonOff: 'Go to Bachata Calendar',
   },
 
   wrongAccount: {
@@ -106,9 +109,11 @@ export const JOIN_COPY = {
   rateLimited: {
     heading: 'Too many tries',
     bodyCode: OTP_RATE_LIMITED_MESSAGE,
-    bodyJoin: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.',
+    // The post-Join (redeem) limit's words and its disabled Try again live in REDEEM_COPY.rate_limited: one copy.
     button: 'Try again',
   },
+  // The help link a refusal screen shows when REDEEM_COPY marks the reason `help` (team_full).
+  help: { label: 'Message us on WhatsApp', url: SIGNUP_HELP_WHATSAPP_URL },
   network: {
     heading: 'Something went wrong',
     body: `We couldn${APOS}t reach Bachata Calendar. Check your connection and try again.`,

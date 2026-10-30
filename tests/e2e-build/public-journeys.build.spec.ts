@@ -195,7 +195,7 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
 
   if (row.then === 'join-team') {
     // Option B (PR #978): the join step's one tap redeems; the done screen stays on /invite with the token gone from the
-    // address bar, and its "Open your organiser home" link leads on to the organiser Home (never the Arc 1 welcome page).
+    // address bar, and its "Open your organiser home" link leads to that organiser's Welcome, whose Go to Home reaches the organiser Home.
     const join = page.getByTestId('invite-join');
     await expect(join).toBeVisible({ timeout: 30_000 });
     await shot('invite-join', 'join step: "Join <org>"');
@@ -204,6 +204,10 @@ async function runRow(page: Page, context: BrowserContext, row: Journey, dir: st
     await expect(page).toHaveURL((u) => u.pathname === '/invite');
     await shot('invite-done', 'done: on the team; the token is gone from the address bar');
     await page.getByTestId('join-done-home').click();
+    // Owner decision 2026-10-30 (PR #1164): the done link lands on the organiser's Welcome screen; its Go to Home leads on.
+    await expect(page).toHaveURL((u) => u.pathname === '/account/o/welcome', { timeout: 30_000 });
+    await expect(page.getByTestId('org-page-welcome')).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('org-welcome-home').click();
   }
 
   const want = row.end.path;

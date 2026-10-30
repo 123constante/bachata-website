@@ -17,7 +17,11 @@ vi.mock('@/integrations/supabase/client', () => ({
     from: () => ({ select: () => ({ is: () => ({ order: async () => ({ data: [], error: null }) }) }) }),
   },
 }));
-vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: vi.fn() }) }));
+vi.mock('@/hooks/useAuth', async () => ({
+  useAuth: () => ({ user: { id: 'u1', email: 'me@x.example' }, signOut: vi.fn() }),
+  // OnboardingView reads the completeness fact (P3 W4b tap gate); no provider = today.
+  ProfileGateContext: (await import('react')).createContext(null),
+}));
 // Admin A1 applied, as on prod (the Move row no longer exists at all: C20).
 vi.mock('@/modules/organiser/shared/a1Gate', () => ({ A1_APPLIED: true }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: null }) }));
@@ -214,7 +218,7 @@ const OFF_ROWS: OffRow[] = [
     path: () => ORG_PATHS.team,
     setup: () => { team.members = Array.from({ length: TEAM_CAP }, (_, i) => member(i ? `m${i}` : 'u1', i ? 'manager' : 'owner', i ? {} : { is_self: true })); },
     control: () => screen.findByTestId('team-add'),
-    reason: () => screen.queryByTestId('team-full'),
+    reason: () => screen.queryByTestId('team-add-reason'),
     says: () => TEAM_FULL_REASON,
   },
   // S-POLISH: the invite-link share row on a full team STAYS enabled (it writes nothing); the faces are the Add controls.

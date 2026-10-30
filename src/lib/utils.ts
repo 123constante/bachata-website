@@ -159,6 +159,11 @@ export function getNationalityCode(nationality: string | null): string | null {
   if (normalized.length === 2) {
     return normalized;
   }
+
+  // ISO 3166-2 home nation (gb-eng, gb-sct, gb-wls, gb-nir): flagcdn's own subdivision path
+  if (/^gb-(eng|sct|wls|nir)$/.test(normalized)) {
+    return normalized;
+  }
   
   return null;
 }

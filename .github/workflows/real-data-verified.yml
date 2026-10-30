@@ -70,4 +70,18 @@ jobs:
         if: steps.scope.outputs.skip != 'true'
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: node scripts/check-pr-real-data-verified.mjs
+        # Exit 3 = PENDING: the bot's TO FILL marker (bot-pr.yml) is still in the body.
+        # Reported as a notice and a non-failing run; it is NOT a pass -- the parser keeps
+        # ok=false, so bot-automerge.yml's classifier still refuses the PR. Every other
+        # non-zero code stays red. (This check is not in the main ruleset's required list;
+        # if it ever is, pending would satisfy it and must become red there.)
+        run: |
+          set +e
+          node scripts/check-pr-real-data-verified.mjs
+          code=$?
+          if [ "$code" = "3" ]; then
+            echo "::notice title=real-data-verified PENDING::waiting for the description to be filled in (TO FILL marker still present). Not a pass: no merge path accepts it."
+            echo "PENDING: waiting for the description to be filled in (the TO FILL marker is still in the Verified on real data section)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          exit "$code"

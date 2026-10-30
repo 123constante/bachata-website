@@ -150,7 +150,7 @@ export const strOrNull = (v: unknown): string | null => (typeof v === 'string' &
 
 // ---- Money (GBP only, Q10) ---------------------------------------------------------
 
-// The one shared constant (server: env TICKET_BOOKING_FEE_PENCE, kept unset = 50).
+// The one shared constant (server: env TICKET_BOOKING_FEE_PENCE, set to 0 since 2026-10-29).
 export { BOOKING_FEE_PENCE };
 export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
@@ -210,13 +210,16 @@ export interface MoveContext {
   seriesLive: boolean;
 }
 
+/** Where a paid ticket's seller connects payments (the one Get paid screen). */
+export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
+
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
 export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
   if (!canManage(ctx.role)) return NOT_MANAGER;
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return 'Connect payments on your Tickets home before selling paid tickets.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
   return null;
 };
 
@@ -367,7 +370,7 @@ export const refundQuestion = (o: Order): { title: string; body: string; confirm
   return {
     title: `Refund ${buyerNameOf(o)}?`,
     body:
-      `${amount} goes back, booking fee included. ` +
+      `${amount} goes back${o.bookingFeePence > 0 ? ', booking fee included' : ''}. ` +
       `${one ? 'Their ticket stops' : `Their ${o.quantity} tickets stop`} working and the ${one ? 'place reopens' : 'places reopen'}. Cannot be undone.`,
     confirm: `Refund ${amount}`,
   };
@@ -399,7 +402,7 @@ const REASON: Record<string, string> = {
   capacity_below_reserved: 'More tickets are already taken than that number.',
   bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
-  organiser_not_onboarded: 'Connect payments on your Tickets home before selling paid tickets.',
+  organiser_not_onboarded: PAYMENTS_WHERE,
 };
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';
@@ -418,7 +421,7 @@ export interface BuyerTotal {
   ticketPence: number;
   feePence: number;
   totalPence: number;
-  /** "\u00A310.00 ticket + 50p booking fee", or "Free, no fee". */
+  /** "\u00A310.00 ticket + 50p booking fee" while there is a fee, "The ticket price, nothing added" at 0, or "Free". */
   line: string;
 }
 export const buyerTotal = (pricePence: number): BuyerTotal =>
@@ -428,9 +431,18 @@ export const buyerTotal = (pricePence: number): BuyerTotal =>
         ticketPence: pricePence,
         feePence: BOOKING_FEE_PENCE,
         totalPence: pricePence + BOOKING_FEE_PENCE,
-        line: `${formatPence(pricePence)} ticket + ${feeLabel(BOOKING_FEE_PENCE)} booking fee`,
+        line:
+          BOOKING_FEE_PENCE > 0
+            ? `${formatPence(pricePence)} ticket + ${feeLabel(BOOKING_FEE_PENCE)} booking fee`
+            : 'The ticket price, nothing added',
       }
-    : { free: true, ticketPence: 0, feePence: 0, totalPence: 0, line: 'Free, no fee' };
+    : { free: true, ticketPence: 0, feePence: 0, totalPence: 0, line: BOOKING_FEE_PENCE > 0 ? 'Free, no fee' : 'Free' };
+
+/** The event's rules line after the date, on every organiser tickets screen. The fee clause only while there is a fee. */
+export const buyerRulesLine = (): string =>
+  BOOKING_FEE_PENCE > 0
+    ? `Buyers pay a ${feeLabel(BOOKING_FEE_PENCE)} booking fee per paid ticket, up to ${MAX_PER_ORDER} tickets an order.`
+    : `Buyers pay the ticket price, up to ${MAX_PER_ORDER} tickets an order.`;
 
 /** One price box in the editor: empty or 0 is a free ticket, anything else is paid (and validated as a price). */
 export const paidOf = (priceText: string): boolean => priceText.trim() !== '' && penceOf(priceText) !== 0;

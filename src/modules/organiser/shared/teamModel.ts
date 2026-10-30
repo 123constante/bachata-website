@@ -208,6 +208,8 @@ export function parseTeamRead(raw: unknown): { myRole: TeamRole | 'admin' | null
 /** A team holds at most this many people (D60); at the cap Add someone is off with a reason. */
 export const TEAM_CAP = 20;
 export const TEAM_FULL_REASON = `This team is full (${TEAM_CAP})`;
+/** Why a Contributor cannot add anyone: Add someone's read-only state, and P3 Team's disabled Add. */
+export const ADD_ROLE_REASON = 'Only an owner or a manager adds people.';
 /** Full when the list says so OR the server said `team_full` (a race): both disable Add. */
 export const teamIsFull = (memberCount: number, serverSaidFull: boolean): boolean => serverSaidFull || memberCount >= TEAM_CAP;
 

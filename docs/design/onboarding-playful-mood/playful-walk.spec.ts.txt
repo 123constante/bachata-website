@@ -1,0 +1,101 @@
+import { test, expect, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import { ORG, ORG_NAME, OrganiserFake, json } from './helpers/organiserFake';
+
+// AUDIT ONLY (read-only walk): every server call is faked by page.route. Output: JSON rows + screenshots.
+const OUT = process.env.SHOT_DIR ?? 'docs/design/onboarding-playful-mood';
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const rows: unknown[] = [];
+
+async function setup(page: Page, status: 'empty' | 'ready') {
+  const fake = new OrganiserFake({});
+  await fake.install(page);
+  const empty = status === 'empty';
+  await page.route('**/rest/v1/rpc/get_organiser_contact_settings_v1*', (r) =>
+    json(r, { contact_phone: null, contact_email: null, show_phone_publicly: true, show_email_publicly: false, claim_email: null }));
+  await page.route('**/rest/v1/rpc/organiser_onboarding_status_v1*', (r) =>
+    json(r, { v: 1, gate_on: false, is_admin: false, complete: !empty,
+      person: { complete: !empty, missing: empty ? ['photo', 'nationality', 'teach_answer', 'dj_answer'] : [] },
+      organisers: [{ id: ORG, name: ORG_NAME, role: 'owner', lifecycle: 'draft', complete: !empty, missing: empty ? ['org_logo', 'org_link', 'org_category', 'contact_confirm'] : [], about: { done: !empty, skipped: false } }] }));
+  await page.route('**/rest/v1/rpc/complete_organiser_onboarding_v1*', (r) => json(r, { ok: true, changed: true, lifecycle: 'live', review: false }));
+  await page.route('**/rest/v1/rpc/confirm_organiser_contact_v1*', (r) => json(r, { ok: true, changed: true }));
+  await page.route('**/rest/v1/rpc/organiser_profile_update_p5_v1*', (r) => json(r, { organiser_id: ORG, changed_keys: [], profile: {} }));
+  await page.route('**/rest/v1/rpc/my_dancer_edit_v1*', (r) =>
+    json(r, { profile_id: 'p1', first_name: 'Sam', avatar_url: empty ? null : 'https://img.example/a.png', dance_role: empty ? null : 'Follower', nationality: empty ? null : 'GB', languages: empty ? [] : ['English'], favorite_styles: [], achievements: [], other_roles: [] }));
+  await page.route('**/rest/v1/rpc/my_role_intent_v1*', (r) => json(r, { roles: [], declined: [] }));
+  await page.route('**/rest/v1/rpc/my_role_details_v1*', (r) => json(r, { role: 'teacher', person_id: 'p1', details: {} }));
+  await page.route('**/rest/v1/rpc/save_my_dancer_profile_v2*', (r) => json(r, { profile_id: 'p1', first_name: 'Sam', avatar_url: null, dance_role: null, nationality: null, languages: [], favorite_styles: [], achievements: [], other_roles: [] }));
+  await page.route('**/rest/v1/rpc/save_my_role_v1*', (r) => json(r, { role: 'teacher', person_id: 'p1', details: {}, changed: true, changed_keys: [] }));
+  await page.route('**/rest/v1/rpc/set_my_role_declined_v1*', (r) => json(r, { roles: [], declined: [], changed: true }));
+  await page.route('**/rest/v1/rpc/search_cities*', (r) => json(r, [{ city_id: 'c1', display_name: 'Harrogate, United Kingdom' }]));
+  await page.route(`**/rest/v1/organiser_profiles?*id=eq.${ORG}*`, (r) =>
+    json(r, { id: ORG, name: ORG_NAME, avatar_url: empty ? null : 'https://img.example/l.png', website: empty ? null : 'https://ritmo.example', instagram: null, socials: null, organisation_category: empty ? null : 'Promoter', city_id: null }));
+  await page.route('**/rest/v1/organiser_profiles*', (r) => json(r, { id: ORG, name: ORG_NAME, bio: null, organisation_category: 'Promoter', city_id: null }));
+  await page.route('**/functions/v1/storage-sign-upload*', (r) => json(r, { ok: true, publicUrl: 'https://img.example/n.png' }));
+  await page.route('https://img.example/**', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#c84"/></svg>' }));
+  await page.route('https://flagcdn.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="18"><rect width="24" height="18" fill="#888"/></svg>' }));
+}
+
+async function answer(page: Page, at: string) {
+  const t = (id: string) => page.getByTestId(id);
+  switch (at) {
+    case 'contact-phone': return t('p3-ob-phone').fill('07700 900123');
+    case 'whatsapp': return t('p3-ob-wa-no').click();
+    case 'cat': return t('p3-ob-cat-Promoter').click();
+    case 'link': return t('p3-ob-link').fill('@ritmo');
+    case 'logo':
+      await t('p3-ob-logo-file').setInputFiles({ name: 'l.png', mimeType: 'image/png', buffer: PNG });
+      return expect(t('p3-ob-logo')).toHaveAttribute('data-has', 'true');
+    case 'name': return t('p3-ob-name').fill('Sam');
+    case 'photo':
+      await t('p3-ob-photo-file').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: PNG });
+      return expect(t('p3-ob-ava')).toHaveAttribute('data-has', 'true');
+    case 'role': return t('p3-ob-role-Leader').click();
+    case 'nat': return t('p3-ob-nat-GB').click();
+    case 'teach': return t('p3-ob-teach-yes').click();
+    case 'levels': return t('p3-ob-level-Beginner').click();
+    case 'styles': return t('p3-ob-styles-Moderna').click();
+    case 'years': return t('p3-ob-years').fill('3');
+  }
+}
+
+
+const WANT = new Set(['welcome', 'photo', 'nat', 'styles']);
+for (const theme of ['light', 'dark'] as const) {
+  test(`playful walk ${theme}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    fs.mkdirSync(OUT, { recursive: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript((t) => { try { window.localStorage.setItem('p3-ob-theme', t); } catch { /* */ } }, theme);
+    await setup(page, 'empty');
+    if (process.env.FLAGS_FAIL) { await page.unroute('https://flagcdn.com/**'); await page.route('https://flagcdn.com/**', (r) => r.abort()); }
+    await page.goto(`/account/p3/start?o=${ORG}`);
+    await page.getByTestId('p3-ob-title').waitFor({ timeout: 20_000 });
+    const seen = new Set<string>();
+    const metrics: unknown[] = [];
+    for (let i = 0; i < 30; i++) {
+      const at = (await page.getByTestId('p3-ob-shell').getAttribute('data-screen')) ?? '';
+      if (!seen.has(at)) {
+        seen.add(at);
+        await page.waitForTimeout(500);
+        const m = await page.evaluate(() => {
+          const main = document.querySelector('.p3-ob-main') as HTMLElement;
+          const small: string[] = [];
+          for (const el of Array.from(document.querySelectorAll('.p3-ob button, .p3-ob input, .p3-ob [role=radio]'))) {
+            const b = el.getBoundingClientRect();
+            if (b.width && (b.height < 43.5 || b.width < 43.5) && !(el as HTMLElement).classList.contains('p3-ob-sr')) small.push(`${el.className} ${Math.round(b.width)}x${Math.round(b.height)}`);
+          }
+          return { title: document.querySelector('[data-testid="p3-ob-title"]')?.textContent, scroll: main.scrollHeight - main.clientHeight, wide: document.documentElement.scrollWidth - innerWidth, small, flagBoxEmpty: Array.from(document.querySelectorAll('.p3-ob-flag')).filter((f) => !(f as HTMLElement).textContent && (f as HTMLImageElement).complete === false).length };
+        });
+        metrics.push({ screen: at, ...m });
+        if (WANT.has(at)) await page.screenshot({ path: `${OUT}/${theme}-${at}.png` });
+      }
+      if (at === 'nat') { if ((await page.getByTestId('p3-ob-nat-GB').getAttribute('aria-checked')) !== 'true') await page.getByTestId('p3-ob-nat-GB').click(); await page.waitForTimeout(400); await page.screenshot({ path: `${OUT}/${theme}-nat-picked.png` }); }
+      if (at === 'styles') { if ((await page.getByTestId('p3-ob-styles-Moderna').getAttribute('aria-pressed')) !== 'true') await page.getByTestId('p3-ob-styles-Moderna').click(); await page.waitForTimeout(400); await page.screenshot({ path: `${OUT}/${theme}-styles-picked.png` }); break; }
+      if ((await page.getByTestId('p3-ob-continue').getAttribute('aria-disabled')) === 'true') await answer(page, at);
+      await page.getByTestId('p3-ob-continue').click();
+      await expect(page.getByTestId('p3-ob-shell')).not.toHaveAttribute('data-screen', at);
+    }
+    fs.writeFileSync(`${OUT}/${theme}-metrics.json`, JSON.stringify(metrics, null, 1));
+  });
+}

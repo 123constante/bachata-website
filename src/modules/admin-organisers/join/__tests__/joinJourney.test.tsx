@@ -44,6 +44,10 @@ vi.mock('@/hooks/useProfileCompletion', () => ({
   },
   profileCompletionQueryKey: (id: string | null) => ['profile-completion', id],
 }));
+vi.mock('@/lib/featureFlags', async (orig) => {
+  const real = await orig<typeof import('@/lib/featureFlags')>();
+  return { ...real, flags: { ...real.flags, organiserSelfServe: true } };
+});
 vi.mock('@/hooks/useNoindexMeta', () => ({ useNoindexMeta: () => undefined }));
 vi.mock('@/components/layout/GlobalLayout', () => ({
   default: ({ children, breadcrumbs }: { children: ReactNode; breadcrumbs?: { label: string }[] }) => (
@@ -431,7 +435,8 @@ describe('the Join tap', () => {
     expect(redeems()).toHaveLength(1);
     expect(h.rpc).toHaveBeenCalledWith('redeem_organiser_invite_v1', { p_token: TOKEN });
     expect(screen.getByTestId('join-done').textContent).toContain(ORG);
-    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o/welcome?o=o1');
+    expect(screen.getByTestId('join-done-home').textContent).toBe('Open your organiser home');
     expect(window.location.pathname).toBe('/invite');
     // F1 (fixup1): the cached "no organisers" home list is refetched, so the organiser home shows the new seat.
     await waitFor(() => expect(h.home).toHaveBeenCalledTimes(1));
@@ -458,6 +463,8 @@ describe('the Join tap', () => {
     mount();
     fireEvent.click(await screen.findByTestId('invite-join'));
     await stepIs('done');
+    // Already on the team (not a new seat): the plain organiser home, not the new-seat Welcome.
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
   });
 
   it('already on the team (own page list): the done screen without a tap, nothing redeemed', async () => {
@@ -482,6 +489,53 @@ describe('the Join tap', () => {
     expect(screen.getByTestId(control)).toBeTruthy();
     expect(screen.queryByTestId('elsewhere')).toBeNull();
     expect(document.body.textContent).not.toContain(reason);
+  });
+
+  it('rate_limited after Join (login audit L6): Try again is disabled with its reason, nothing redeems again', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'rate_limited' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('rate_limited');
+    const btn = screen.getByTestId('join-retry') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(screen.getByTestId('join-retry-why').textContent).toBe('Please wait an hour before trying again.');
+    fireEvent.click(btn);
+    expect(redeems()).toHaveLength(1);
+  });
+
+  it('unconfirmed_account after Join (login audit L3): its own screen, the person is NOT signed out', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'unconfirmed_account' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('refused');
+    expect(screen.getByRole('heading').textContent).toBe('Confirm your account first');
+    expect(h.auth.signOut).not.toHaveBeenCalled();
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it('team_full after Join (login audit L2): the WhatsApp help link as well as home', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'team_full' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('refused');
+    expect(screen.getByTestId('join-help').getAttribute('href')).toBe(JOIN_COPY.help.url);
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it('an unknown refusal after Join (login audit L4): Try again redeems again and can land on done', async () => {
+    signedIn();
+    redeem = { ok: false, reason: 'brand_new_reason' };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stopIs('refused');
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+    redeem = { ok: true, status: 'redeemed', organiser_id: 'o1' };
+    fireEvent.click(screen.getByTestId('join-retry'));
+    await stepIs('done');
+    expect(redeems()).toHaveLength(2);
   });
 
   it('not_linked after Join (A2 refused the seat): the safety stop, the invite stays usable', async () => {
@@ -579,9 +633,10 @@ describe('dead and broken links', () => {
   it('a used link opened by the person who used it: the done screen, no error', async () => {
     signedIn();
     preview = { ...open(), status: 'used' };
-    redeem = { ok: true, status: 'already_member', organiser_id: 'o1' };
+    redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
     mount();
     await stepIs('done');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
   });
 
   it('a used link opened by someone else: the used screen', async () => {
@@ -620,5 +675,45 @@ describe('dead and broken links', () => {
     expect(document.head.querySelector('meta[name="referrer"][content="no-referrer"]')).toBeTruthy();
     view.unmount();
     expect(document.head.querySelector('meta[name="referrer"]')).toBeNull();
+  });
+});
+
+describe('the Done link: where the organiser id comes from', () => {
+  const codeUrl = `/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`;
+
+  it('person-bound, the claim found no match but the server seats them: the link carries the redeem id', async () => {
+    preview = open(PERSON);
+    redeem = { ok: true, status: 'redeemed', organiser_id: 'o7' };
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    mount(codeUrl);
+    await typeCode();
+    await stepIs('done');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o/welcome?o=o7');
+  });
+
+  it('already on the team by name (nothing redeemed): the one matching page of the person is the link', async () => {
+    signedIn();
+    h.organisers = [{ id: 'own1', name: ' sensual vibes ' }];
+    mount();
+    await stepIs('done');
+    expect(redeems()).toHaveLength(0);
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o/welcome?o=own1');
+  });
+
+  it('two of the person\'s pages share the invite\'s name: no guess, the plain organiser home', async () => {
+    signedIn();
+    h.organisers = [{ id: 'A', name: ORG }, { id: 'A2', name: ORG.toUpperCase() }];
+    mount();
+    await stepIs('done');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+  });
+
+  it('the server seats them with no organiser id and no page matches: the plain organiser home', async () => {
+    signedIn();
+    redeem = { ok: true, status: 'redeemed', organiser_id: null };
+    mount();
+    fireEvent.click(await screen.findByTestId('invite-join'));
+    await stepIs('done');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
   });
 });

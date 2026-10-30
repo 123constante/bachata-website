@@ -189,6 +189,10 @@ export interface RedeemCopy {
   action: RedeemAction;
   /** True when the link is finished with and the token can leave the address bar. */
   terminal: boolean;
+  /** Show the WhatsApp help link: the copy sends the person to the Bachata Calendar team. */
+  help?: true;
+  /** The retry is shown DISABLED with this reason (a retry now would only fail again). */
+  retryBlocked?: string;
 }
 
 /** Every reason redeem_organiser_invite_v1 can return (4b), plus the raised authentication_required. */
@@ -196,7 +200,8 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   sign_in_required: { title: 'Sign in to continue', body: 'This link is for a signed-in account. Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
   authentication_required: { title: 'Sign in to continue', body: 'Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
   unconfirmed_account: { title: 'Confirm your account first', body: 'Your account has not been confirmed yet. Confirm your email address from the message we sent you, then open this link again.', action: 'home', terminal: false },
-  rate_limited: { title: 'Too many tries', body: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.', action: 'home', terminal: false },
+  // Login audit L6: a retry now would only fail again, so Try again shows disabled, saying why.
+  rate_limited: { title: 'Too many tries', body: 'Too many links were tried from this account in the last hour. Wait an hour, then open this link again.', action: 'retry', terminal: false, retryBlocked: 'Please wait an hour before trying again.' },
   // The server refuses BEFORE consuming the link, so the token must stay in the URL for the way back.
   [PROFILE_INCOMPLETE_CODE]: { title: 'Finish your dancer profile first', body: 'Add your first name, city, dance role and photo, then you will come straight back here and the link is used.', action: 'finish_profile', terminal: false },
   // Mockup 2d. The server refuses BEFORE using the link, so it stays in the address bar for the way back.
@@ -210,7 +215,8 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   revoked: { title: 'This link was withdrawn', body: '', action: 'home', terminal: true },
   expired: { title: 'This link has run out', body: 'Links last 7 days.', action: 'home', terminal: true },
   // The page is at its cap (admin A1b). A joiner has no Remove control, so the shared TEAM_FULL_COPY ("Remove someone first") does not fit here: same cap, same support route, no absent control.
-  team_full: { title: 'This team is full', body: `This team already has ${TEAM_CAP} people, so you cannot join it yet. Ask the page owner to make room, or ask the Bachata Calendar team.`, action: 'home', terminal: true },
+  // Login audit L2: "ask the Bachata Calendar team" needs a way to ask, so the screen carries the WhatsApp help link.
+  team_full: { title: 'This team is full', body: `This team already has ${TEAM_CAP} people, so you cannot join it yet. Ask the page owner to make room, or ask the Bachata Calendar team.`, action: 'home', terminal: true, help: true },
 };
 
 export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };

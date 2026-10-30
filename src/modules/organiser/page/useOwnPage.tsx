@@ -8,6 +8,7 @@ import { organiserContactSettingsQueryKey } from '@/modules/organiser/shared/own
 import type { EipBridge } from '../edit-in-place/bridge';
 import { FIELD_KEYS } from '../edit-in-place/fieldRules';
 import { goDone } from '../flows/doneState';
+import { useOrgSurface } from '../shell/surface';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
 import type { ProfileEntity } from './profileForm';
 
@@ -67,6 +68,7 @@ function useSavedSignal(keys: ReadonlyArray<readonly unknown[]>, seeded: Readonl
  */
 export function useOwnPage() {
   const navigate = useNavigate();
+  const { pageDoneBack, paths } = useOrgSurface();
   const queryClient = useQueryClient();
   const { user, home, organisers, selected, choose } = useOrganiserChoice();
   const [bridge, setBridge] = useState<EipBridge | null>(null);
@@ -98,6 +100,8 @@ export function useOwnPage() {
     () => {
       void queryClient.invalidateQueries({ queryKey: ownOrganiserEntityQueryKey(id) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      // P3's things-left count (Home banner, You row) reads the page fields this save may have filled.
+      void queryClient.invalidateQueries({ queryKey: ['p3-ob-status'] });
       // A save always holds drafts when it writes; a write with none is a refetch, not a save.
       if (!pending.current && hasDrafts(bridgeRef.current)) pending.current = { bridge: bridgeRef.current };
     },
@@ -110,8 +114,8 @@ export function useOwnPage() {
     pending.current = null;
     if (!bridge || hasDrafts(bridge)) return;
     // A tick later, or the layer's leave guard would still see the old drafts.
-    window.setTimeout(() => goDone(navigate, { title: 'Saved', message: 'Saved', seriesId: null }), 0);
-  }, [bridge, navigate]);
+    window.setTimeout(() => goDone(navigate, { title: 'Saved', message: 'Saved', seriesId: null }, pageDoneBack, paths.done), 0);
+  }, [bridge, navigate, pageDoneBack, paths.done]);
 
   const layer: ReactNode = id && entity.data ? (
     <Suspense fallback={null}>

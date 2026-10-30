@@ -9,25 +9,22 @@ export type Country = {
 
 const FLAG_CDN_BASE = 'https://flagcdn.com';
 
+/** ISO 3166-2 home nations, stored as the 5-char code and listed beside United Kingdom (GB). */
+const HOME_NATIONS: Record<string, string> = { ENG: 'England', NIR: 'Northern Ireland', SCT: 'Scotland', WLS: 'Wales' };
+
 const toFlagEmoji = (code: string): string => {
-  if (!code) return '';
-  const alphabeticCode = code.toUpperCase().replace(/[^A-Z]/g, '');
-  if (alphabeticCode.length !== 2) return '';
-  return alphabeticCode
-    .split('')
-    .map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397))
-    .join('');
+  const cc = [...code.replace(/[^A-Z]/g, '')].map((c) => c.charCodeAt(0));
+  // GB-ENG style: black flag + tag letters + cancel tag; otherwise two regional indicators.
+  if (code.includes('-')) return String.fromCodePoint(0x1f3f4, ...cc.map((c) => c + 0xe0020), 0xe007f);
+  return cc.length === 2 ? String.fromCodePoint(...cc.map((c) => c + 127397)) : '';
 };
 
-const buildCountry = (code: string, name: string): Country => {
-  const normalizedCode = code.toUpperCase();
-  return {
-    code: normalizedCode,
-    name,
-    flag: toFlagEmoji(normalizedCode),
-    flagUrl: `${FLAG_CDN_BASE}/w40/${normalizedCode.toLowerCase()}.png`,
-  };
-};
+const buildCountry = (code: string, name: string): Country => ({
+  code,
+  name,
+  flag: toFlagEmoji(code),
+  flagUrl: `${FLAG_CDN_BASE}/w40/${code.toLowerCase()}.png`,
+});
 
 let cachedCountries: Country[] | null = null;
 
@@ -36,32 +33,10 @@ export async function loadCountries(): Promise<Country[]> {
 
   const { default: worldCountries } = await safeDynamicImport(() => import('world-countries'));
 
-  type WC = (typeof worldCountries)[number];
-  const mapWorldCountry = (country: WC): Country | null => {
-    const code = country.cca2?.toUpperCase();
-    const name = country.name?.common?.trim();
-    if (!code || code.length !== 2 || !name) return null;
-    return buildCountry(code, name);
-  };
+  const isoCountries = worldCountries.map((c) => buildCountry(c.cca2.toUpperCase(), c.name.common));
 
-  const unitedNationsMembers: Country[] = worldCountries
-    .filter((country) => country.unMember)
-    .map(mapWorldCountry)
-    .filter((country): country is Country => Boolean(country));
-
-  const observerStates: Country[] = [
-    buildCountry('PS', 'Palestine'),
-    buildCountry('VA', 'Vatican City'),
-  ];
-
-  const countriesByCode = new Map<string, Country>();
-  [...unitedNationsMembers, ...observerStates].forEach((country) => {
-    countriesByCode.set(country.code, country);
-  });
-
-  cachedCountries = Array.from(countriesByCode.values()).sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+  // ISO 3166-1 codes are unique and the home nations are GB-xxx, so no de-duplication is needed.
+  cachedCountries = [...isoCountries, ...Object.entries(HOME_NATIONS).map(([c, n]) => buildCountry(`GB-${c}`, n))].sort((a, b) => a.name.localeCompare(b.name));
 
   return cachedCountries;
 }

@@ -264,7 +264,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
               <dt>{qty} &times; {selected.name}</dt>
               <dd>{sum.free ? 'Free' : formatPence(sum.subtotalPence)}</dd>
             </div>
-            {!sum.free && (
+            {sum.feePence > 0 && (
               <div className="flex justify-between" style={muted}>
                 <dt>+ {BOOKING_FEE_LABEL} booking fee per ticket</dt>
                 <dd>{formatPence(sum.feePence)}</dd>

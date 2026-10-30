@@ -1,8 +1,8 @@
 /**
  * The form-side half of ListingRequestForm's copy: the type, the event copy
- * every gate and empty-city note shows, the event link rule and the
- * "Submitted from" path. The teacher variant lives in listingRequestCopy.ts
- * and only the teachers page imports it, so the teacher strings and its
+ * every gate and empty-city note shows and the event link rule (the
+ * "Submitted from" path is listingSourceUrl.ts). The teacher variant lives in
+ * listingRequestCopy.ts and only the teachers page imports it, so the teacher strings and its
  * Instagram rule are not in the first load of every route that loads
  * ComingSoonGate (auth, /app) -- the 2026-10-26 bundle-budget red.
  */
@@ -35,16 +35,4 @@ export const EVENT_LISTING_COPY: ListingFormCopy = {
 export function eventListingLink(raw: string): string | null {
   const v = raw.trim();
   return v && LISTING_URL_RE.test(v) ? v : null;
-}
-
-/**
- * The page path + query the receiver sees as "Submitted from". A bare route
- * (/djs) does not name the city a stored-city visitor was looking at, so the
- * slug is added as ?city=<slug> unless the path already carries /city/<slug>/.
- */
-export function listingSourceUrl(pathname: string, search: string, citySlug?: string | null): string {
-  if (!citySlug || pathname.startsWith(`/city/${citySlug}`)) return pathname + search;
-  const q = new URLSearchParams(search);
-  q.set('city', citySlug);
-  return `${pathname}?${q.toString()}`;
 }

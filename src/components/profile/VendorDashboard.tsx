@@ -41,7 +41,7 @@ type SecondaryRole = Exclude<UserRole, "vendor" | "dj">;
 
 const PROFILE_ROLE_META: Record<SecondaryRole, { label: string; createRoute: string; canClaim: boolean }> = {
   dancer: { label: "Dancer", createRoute: "/create-dancers-profile", canClaim: false },
-  organiser: { label: "Organiser", createRoute: "/create-organiser-profile", canClaim: true },
+  organiser: { label: "Organiser", createRoute: "/", canClaim: true },
   // Teacher signup parked 2026-04-30 — createRoute falls back to /profile.
   teacher: { label: "Teacher", createRoute: "/profile", canClaim: false },
   videographer: { label: "Videographer", createRoute: "/create-videographer-profile", canClaim: false },
