@@ -60,8 +60,9 @@ export const P3_SURFACE: OrgSurface = {
     done: P3_PATHS.youDone,
     more: P3_PATHS.youAccount,
     help: P3_PATHS.youHelp,
-    newWhat: P3_PATHS.newWhat,
-    newWhatFor: P3_PATHS.newWhatFor,
+    // p3-create: New event is P3's own flow (Welcome's "Add an event" too); the R1 step keys below are the bridge URLs, which redirect.
+    newWhat: P3_PATHS.create,
+    newWhatFor: P3_PATHS.createFor,
     newName: P3_PATHS.newName,
     newVenue: P3_PATHS.newVenue,
     newDate: P3_PATHS.newDate,

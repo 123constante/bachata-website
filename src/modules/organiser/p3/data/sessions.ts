@@ -234,6 +234,21 @@ export function useVenueRooms(venueId: string | null) {
 
 export const levelsApply = (type: string | null) => (LEVEL_TYPES as readonly string[]).includes(type ?? '');
 
+/**
+ * New event (p3/new): several sessions added to a programme that does not exist yet, as ONE
+ * series.set_program. The same fold as everyAdd, one form at a time, checked once at the end.
+ */
+export function everyAddAll(tree: PTree, forms: readonly SessForm[], rooms: Room[] = []): Built {
+  let next = tree;
+  for (const f of forms) {
+    const type = f.type ?? 'class';
+    const added = addSession(next, SECTION_FOR[type] ?? 'party', type);
+    const it = itemOf(added.tree, added.key)!;
+    next = updateItem(added.tree, added.key, withForm(it, f, rooms));
+  }
+  return built(next, tree);
+}
+
 // ---- writes -----------------------------------------------------------------------------
 
 /**

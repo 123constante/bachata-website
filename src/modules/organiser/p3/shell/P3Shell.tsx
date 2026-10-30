@@ -23,18 +23,20 @@ const ICON: Record<P3Tab, ReactNode> = {
 };
 
 const NEW_PREFIX = P3_PATHS.newWhat.replace(/what$/, '');
+const CREATE = P3_PATHS.create;
+const isCreate = (pathname: string) => pathname === CREATE || pathname.startsWith(`${CREATE}/`) || pathname.startsWith(NEW_PREFIX);
 const ORGANISERS = new RegExp(`^${P3_PATHS.events}/[^/]+/organisers/?$`);
 
 export function tabOf(pathname: string): P3Tab {
   // New event belongs to Events (its way out is Events).
-  if (pathname.startsWith(NEW_PREFIX)) return 'events';
+  if (isCreate(pathname)) return 'events';
   const hit = P3_TABS.find((t) => t !== 'home' && (pathname === P3_PATHS[t] || pathname.startsWith(`${P3_PATHS[t]}/`)));
   return hit ?? 'home';
 }
 
 /** An R1 screen in P3's frame (the You hub's pushes, New event, an event's Organisers): it draws its own top bar, with the way back. */
 export function isPushed(pathname: string): boolean {
-  if (pathname.startsWith(NEW_PREFIX) || ORGANISERS.test(pathname)) return true;
+  if (isCreate(pathname) || ORGANISERS.test(pathname)) return true;
   return pathname.startsWith(`${P3_PATHS.you}/`) && pathname !== `${P3_PATHS.you}/`;
 }
 

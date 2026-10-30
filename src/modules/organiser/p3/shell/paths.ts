@@ -44,7 +44,15 @@ export const P3_PATHS = {
   eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
   /** One event's co-organiser pages (R1 SeriesOrganisers in P3's frame). */
   eventOrganisers: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/organisers`,
-  /** New event: R1's create steps (flows/new) in P3's frame, same step URLs under P3. */
+  /**
+   * New event (p3-create slice 1): the kind first, then the page (2+ pages only), then the form.
+   * `o` = the page, `kind` = the kind picked, `at` = the step after the kind (page | form).
+   */
+  create: `${P3_BASE}/create`,
+  createFor: (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/create?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/create`),
+  createStep: (at: 'page' | 'form', kind: string, organiserId: string | null | undefined) =>
+    `${P3_BASE}/create?at=${at}&kind=${encodeURIComponent(kind)}${organiserId ? `&o=${encodeURIComponent(organiserId)}` : ''}`,
+  /** The interim bridge's URLs (#1202, R1's steps in P3's frame): each now redirects (P3Routes), the first two to New event, a draft's steps to its event page. */
   newWhat: `${P3_BASE}/new/what`,
   newWhatFor: (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/new/what?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/new/what`),
   newName: (format: NewEventFormat) => `${P3_BASE}/new/name?format=${encodeURIComponent(format)}`,
