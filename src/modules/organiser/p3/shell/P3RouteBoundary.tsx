@@ -10,6 +10,8 @@ import '../theme/p3.css';
  * frame. Never a blank screen. Try again reloads the page: React keeps a failed lazy import, so
  * re-rendering it would only fail again.
  *
+ * A failure that is not a chunk load (a bug in the screen) says so plainly, not "check the signal".
+ *
  * frame: 'own'    a screen with no P3 shell around it (door, onboarding): draws the whole frame.
  *        'pushed' a screen the You hub pushes: P3Shell gives the frame and tab bar, this the top bar.
  *        'tab'    a screen inside P3Shell's top bar and main: the card only.
@@ -20,32 +22,37 @@ export interface P3RouteBack { to: string; label: string }
 
 interface Props { frame: P3RouteFrame; back: (p: Readonly<Params>) => P3RouteBack; children: ReactNode }
 
-class Boundary extends Component<Props, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
+class Boundary extends Component<Props, { failed: boolean; chunk: boolean }> {
+  state = { failed: false, chunk: false };
+  static getDerivedStateFromError(error: unknown) { return { failed: true, chunk: isStaleChunkError(error) }; }
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('P3 route failed:', error, info);
     // a stale chunk is healed by the one reload; report only when it still fails after it
     if (!isStaleChunkError(error) || chunkReloadAttempted()) reportClientErrorLazy(error);
   }
   render() {
-    return this.state.failed ? <P3RouteError frame={this.props.frame} back={this.props.back} /> : this.props.children;
+    return this.state.failed ? <P3RouteError frame={this.props.frame} back={this.props.back} chunk={this.state.chunk} /> : this.props.children;
   }
 }
 
-function P3RouteError({ frame, back }: Omit<Props, 'children'>) {
+function P3RouteError({ frame, back, chunk }: Omit<Props, 'children'> & { chunk: boolean }) {
   const b = back(useParams());
+  // a back link to the screen already showing would do nothing: leave it out
+  const here = useLocation().pathname === b.to;
+  const backLink = here ? null : (
+    <Link to={b.to} className="p3-back" data-testid="p3-route-error-back"><span aria-hidden="true">&lsaquo;</span> {b.label}</Link>
+  );
   const card = (
     <div className="p3-card p3-state" role="alert" data-testid="p3-route-error">
-      <strong>This screen did not load</strong>
-      <p className="p3-note">Check the signal, then try again. Nothing you saved is lost.</p>
+      <strong>{chunk ? 'This screen did not load' : 'Something went wrong on this screen'}</strong>
+      <p className="p3-note">{chunk ? 'Check the signal, then try again.' : 'Try again; if it happens again, go back and tell us.'} Nothing you saved is lost.</p>
       <button type="button" className="p3-btn" onClick={() => window.location.reload()} data-testid="p3-route-error-retry">Try again</button>
     </div>
   );
   if (frame === 'tab') {
     return (
       <div className="p3-stack">
-        <Link to={b.to} className="p3-back" data-testid="p3-route-error-back"><span aria-hidden="true">&lsaquo;</span> {b.label}</Link>
+        {backLink}
         {card}
       </div>
     );
@@ -53,9 +60,7 @@ function P3RouteError({ frame, back }: Omit<Props, 'children'>) {
   const body = (
     <>
       <header className="p3-top">
-        <div className="p3-top-row">
-          <Link to={b.to} className="p3-back" data-testid="p3-route-error-back"><span aria-hidden="true">&lsaquo;</span> {b.label}</Link>
-        </div>
+        <div className="p3-top-row">{backLink}</div>
       </header>
       <main className="p3-main p3-main-pushed">{card}</main>
     </>
