@@ -89,6 +89,11 @@ const RULES = [
       'src/modules/admin-organisers/join/__tests__/joinModel.test.ts',
       'src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx',
       'src/modules/admin-organisers/join/__tests__/joinMachine.table.test.tsx',
+      // P3-GATE: _require_onboarding_complete_v1's refusal DETAIL names the page as organiser_id (an
+      // organiser_profiles id); gate.ts is its one parser, and the gate matrix feeds it that refusal.
+      'src/modules/organiser/p3/onboarding/gate.ts',
+      'src/modules/organiser/p3/onboarding/__tests__/gate.matrix.test.tsx',
+      'src/modules/organiser/p3/onboarding/__tests__/gate.fixround.test.tsx',
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',

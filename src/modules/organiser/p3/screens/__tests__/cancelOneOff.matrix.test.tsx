@@ -162,7 +162,7 @@ describe('the Status sheet x every shape', () => {
 describe('the Cancel the event sheet', () => {
   it('names the event and the full date; carry on is off until a reason is picked; nothing is sent untouched', async () => {
     await openCancel();
-    expect(document.getElementById('p3-sheet-title')!.textContent).toBe('Cancel Halloween Party on Saturday 31 October?');
+    expect(document.querySelector('[role="dialog"] h3')!.textContent).toBe('Cancel Halloween Party on Saturday 31 October?');
     expect(screen.getByTestId('p3-cancel-body').textContent).toBe('Dancers will see \u2018Cancelled\u2019 on Saturday 31 October. You can bring it back any time.');
     expect(confirm().disabled).toBe(true);
     expect(confirm().textContent).toBe(CANCEL_COPY.pick);
