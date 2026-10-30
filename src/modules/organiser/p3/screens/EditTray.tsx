@@ -15,7 +15,7 @@ import {
   attemptFor, changedElsewhere, changedKeys, pendingLines, saveButton, stepLanded, type FieldSpec, type SaveAttempt,
 } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { gatedCopy } from '../onboarding/gate';
+import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 
 /**
@@ -93,6 +93,7 @@ export function useSaveRun(seriesId: string) {
   const held = useRef<SaveAttempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const gated = useGatedCopy();
   const run = async (plan: readonly OwnerCommand[], version: number | null, onLanded?: (version: number, command: OwnerCommand) => void): Promise<{ ok: boolean; version: number | null }> => {
     if (!plan.length) return { ok: false, version };
     let a = attemptFor(held.current, plan, version, newIdempotencyKey);
@@ -116,7 +117,7 @@ export function useSaveRun(seriesId: string) {
       // new version with new keys, never the refused version again (PR #1082 r2 #1)
       if (isVersionConflict(e)) held.current = null;
       // an onboarding refusal opens the A1 gate sheet instead of an error line (P3-GATE)
-      setError(gatedCopy(e, commandErrorMessage));
+      setError(gated(e, commandErrorMessage));
       return { ok: false, version: last };
     } finally {
       setBusy(false);

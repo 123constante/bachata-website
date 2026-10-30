@@ -93,6 +93,7 @@ const RULES = [
       // organiser_profiles id); gate.ts is its one parser, and the gate matrix feeds it that refusal.
       'src/modules/organiser/p3/onboarding/gate.ts',
       'src/modules/organiser/p3/onboarding/__tests__/gate.matrix.test.tsx',
+      'src/modules/organiser/p3/onboarding/__tests__/gate.fixround.test.tsx',
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',

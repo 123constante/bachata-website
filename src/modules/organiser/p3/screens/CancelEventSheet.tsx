@@ -5,7 +5,7 @@ import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import { L } from '../model';
 import { CANCEL_COPY, bringBackStep, cancelEventCommand, type CancelPlan } from '../data/eventPage';
-import { gatedCopy } from '../onboarding/gate';
+import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import type { Done } from './StatusSheet';
 
@@ -29,6 +29,7 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
   const [pick, setPick] = useState<{ reason: string; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const gated = useGatedCopy();
 
   const choose = (reason: string) => {
     if (pick?.reason === reason) return;
@@ -52,7 +53,7 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
         version: typeof res?.new_version === 'number' ? res.new_version : null,
       });
     } catch (e) {
-      setError(gatedCopy(e, commandErrorMessage));
+      setError(gated(e, commandErrorMessage));
     } finally {
       setBusy(false);
     }

@@ -12,7 +12,7 @@ import {
 } from '../data/sessions';
 import { LineupSheet } from './LineupSheet';
 import { RetryButton } from './parts';
-import { gatedCopy } from '../onboarding/gate';
+import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import type { Done } from './StatusSheet';
 
@@ -59,6 +59,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
   const [step, setStep] = useState<Step>('edit');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const gated = useGatedCopy();
   const prog = useDateProgramme(scope === 'date' && wsDate ? wsDate.id : null);
   const drafts = prog.data ? draftsOf(prog.data) : null;
   const draft = drafts && open.key ? draftFor(drafts, open.key) : null;
@@ -106,7 +107,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
       else if (b.payload && prog.data) await sendDate(began ?? prog.data.version, b.payload);
       onDone({ text, undo: null });
     } catch (e) {
-      setError(gatedCopy(e, saveErrorCopy));
+      setError(gated(e, saveErrorCopy));
     } finally {
       setBusy(false);
     }

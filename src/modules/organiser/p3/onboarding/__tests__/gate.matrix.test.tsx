@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
@@ -31,7 +31,7 @@ vi.mock('../../../shared/selfServeApi', async (orig) => ({
 import { commandErrorMessage, ONBOARDING_REFUSAL, isOnboardingRefusal } from '../../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../../shared/seriesCommands';
 import type { EventWorkspace } from '../../../events/eventModel';
-import { closeGate, gatedCopy, getGate, refusalOrganiser } from '../gate';
+import { closeGate, gatedCopy, getGate, refusalFacts, subscribeGate } from '../gate';
 import { GateHost } from '../GateHost';
 import { GATE_COPY, gateView } from '../gateModel';
 import { REVIEW_ROWS } from '../pageModel';
@@ -80,12 +80,20 @@ const OUTCOMES: Outcome[] = ['refusal', 'plain', 'success'];
 const errorOf = (o: Outcome) => (o === 'refusal' ? REFUSAL : o === 'plain' ? PLAIN : null);
 
 /** What the sheet must show, per shape and role (the ONE count: person codes plus o1's, each once). */
-function expected(shape: Shape, role: Role): { kind: 'none' | 'done' | 'left' | 'failed'; n?: number; to?: string } {
+// A refused write never reads "finished": with nothing left in the status read, the refusal's own codes show.
+// A contributor (o1 not theirs) gets their own codes plus the refusal's; Continue goes to their own details, or is
+// off with a reason when nothing of their own is missing (never a page they cannot edit).
+const REFUSED = ['nationality'];
+function expected(shape: Shape, role: Role): { kind: 'none' | 'left' | 'failed'; n?: number; to?: string | null } {
   const review = '/account/p3/start?o=o1&at=review';
   if (shape === 'admin') return { kind: 'none' };
   if (shape === 'failed') return { kind: 'failed', to: review };
-  const n = PERSON[shape].length + (role === 'contributor' ? 0 : PAGE[shape].length);
-  return n === 0 ? { kind: 'done' } : { kind: 'left', n, to: review };
+  if (role === 'contributor') {
+    const n = new Set([...PERSON[shape], ...REFUSED]).size;
+    return { kind: 'left', n, to: PERSON[shape].length ? '/account/p3/you/details' : null };
+  }
+  const n = PERSON[shape].length + PAGE[shape].length;
+  return { kind: 'left', n: n || REFUSED.length, to: review };
 }
 
 // ---- the write surfaces, each through its real catch ------------------------------------------------
@@ -197,22 +205,23 @@ describe('every write surface x {refusal, plain error, success} x status x role'
             await screen.findByTestId('p3-gate');
             expect(screen.getByText(GATE_COPY.title)).toBeTruthy();
             expect(screen.getByTestId('p3-gate-body').textContent).toBe(GATE_COPY.body);
-            if (want.kind === 'done') {
-              await screen.findByTestId('p3-gate-done');
-              expect(screen.queryByTestId('p3-gate-go')).toBeNull();
-              fireEvent.click(screen.getByTestId('p3-gate-close'));
+            if (want.kind === 'failed') {
+              await screen.findByTestId('p3-gate-read-failed');
+              expect(screen.getByTestId('p3-gate-retry')).toBeTruthy();
             } else {
-              if (want.kind === 'failed') {
-                await screen.findByTestId('p3-gate-read-failed');
-                expect(screen.getByTestId('p3-gate-retry')).toBeTruthy();
-              } else {
-                await waitFor(() => expect(screen.getByTestId('p3-gate-count').textContent).toBe(want.n === 1 ? '1 thing left' : `${want.n} things left`));
-                expect(screen.getByTestId('p3-gate-rows').querySelectorAll('li')).toHaveLength(want.n as number);
-              }
-              expect(screen.getByTestId('p3-gate-go').getAttribute('href')).toBe(want.to);
-              // Not now: back to where they were, the screen still there, nothing pointing nowhere
-              fireEvent.click(screen.getByTestId('p3-gate-not-now'));
+              await waitFor(() => expect(screen.getByTestId('p3-gate-count').textContent).toBe(want.n === 1 ? '1 thing left' : `${want.n} things left`));
+              expect(screen.getByTestId('p3-gate-rows').querySelectorAll('li')).toHaveLength(want.n as number);
             }
+            const go = screen.getByTestId('p3-gate-go');
+            if (want.to) {
+              expect(go.getAttribute('href')).toBe(want.to);
+            } else {
+              // no page here the person can finish: Continue is off and says why
+              expect((go as HTMLButtonElement).disabled).toBe(true);
+              expect(screen.getByTestId('p3-gate-why').textContent).toBe(GATE_COPY.notYours);
+            }
+            // Not now: back to where they were, the screen still there, nothing pointing nowhere
+            fireEvent.click(screen.getByTestId('p3-gate-not-now'));
             await waitFor(() => expect(screen.queryByTestId('p3-gate')).toBeNull());
             expect(getGate()).toBeNull();
             expect(screen.getByTestId('surface').textContent).not.toContain(ONBOARDING_REFUSAL);
@@ -240,16 +249,19 @@ describe('p3/data writes keep the refusal so the screen can route it', () => {
   ];
   for (const w of WRITES) {
     it(`${w.name}: refusal -> gate; plain -> its words`, async () => {
+      // a gate host is listening (as in the P3 frame); with none, openGate does nothing
+      const off = subscribeGate(() => {});
       rpc.mockImplementation(async () => ({ data: null, error: REFUSAL }));
       const e = await caught(w.send());
       expect(isOnboardingRefusal(e)).toBe(true);
       expect(gatedCopy(e, commandErrorMessage)).toBeNull();
-      expect(getGate()).toEqual({ organiserId: 'o1', seq: expect.any(Number) });
+      expect(getGate()).toEqual({ organiserId: 'o1', missing: ['nationality'], at: null, seq: expect.any(Number) });
       act(() => closeGate());
       rpc.mockImplementation(async () => ({ data: null, error: PLAIN }));
       const p = await caught(w.name.startsWith('dates') ? sendPlan({ to: 'series', command: CMD } as unknown as DatePlan, ['k'], 7, { date: async () => { throw PLAIN; }, series: async () => { throw PLAIN; } }) : w.send());
       expect(isOnboardingRefusal(p)).toBe(false);
       expect(getGate()).toBeNull();
+      off();
     });
   }
 });
@@ -258,23 +270,51 @@ describe('p3/data writes keep the refusal so the screen can route it', () => {
 
 describe('no P3 write catch shows a refusal as a bare error line', () => {
   const dir = resolve(__dirname, '../../screens');
-  // Each file and the copy helpers its write catches use. Upload-only catches (photo files) are not writes the gate holds.
-  const SITES: Record<string, RegExp> = {
-    'EditTray.tsx': /setError\(commandErrorMessage\(e\)\)/,
-    'CancelEventSheet.tsx': /setError\(commandErrorMessage\(e\)\)/,
-    'Toast.tsx': /text: commandErrorMessage\(e\)/,
-    'StatusSheet.tsx': /setError\(commandErrorMessage\(e\)\)/,
-    'DateSheet.tsx': /setError\(e instanceof PlanStepError \? e\.message : commandErrorMessage\(e\)\)/,
-    'SessionSheet.tsx': /setError\(saveErrorCopy\(e\)\)/,
-    'RepeatSheet.tsx': /setError\(repeatFailure\(e\)\)|text: previewFailure\(e\)/,
+  const COPY = /commandErrorMessage|saveErrorCopy|repeatFailure|previewFailure|programmeErrorCopy|\.message\b/;
+  const UPLOAD = /upload(Flyer|EventPicture)\(/; // storage uploads: not writes the onboarding gate holds
+  /** The block that starts at the `{` at `open` (brace matching; good enough for this code, which has no braces in strings here). */
+  const block = (src: string, open: number) => {
+    let depth = 0;
+    for (let i = open; i < src.length; i += 1) {
+      if (src[i] === '{') depth += 1;
+      else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1);
+    }
+    return src.slice(open);
   };
-  for (const [file, bare] of Object.entries(SITES)) {
-    it(`${file} uses gatedCopy and no bare write-error line`, () => {
-      const src = readFileSync(resolve(dir, file), 'utf8');
-      expect(src).toMatch(/gatedCopy\(/);
-      expect(src).not.toMatch(bare);
+  /** Every write-failure handler in `src` that turns an error into words without going through the gate. */
+  const bare = (src: string): string[] => {
+    const out: string[] = [];
+    for (const m of src.matchAll(/try \{/g)) {
+      const tryBody = block(src, m.index! + 4);
+      const after = src.slice(m.index! + 4 + tryBody.length);
+      const c = after.match(/^\s*catch \(\w+\) \{/);
+      if (!c) continue;
+      const catchBody = block(after, c[0].length - 1);
+      if (COPY.test(catchBody) && !/gated(Preview)?\(/.test(catchBody) && !UPLOAD.test(tryBody)) out.push(catchBody.slice(0, 80));
+    }
+    // promise rejections: (e) => { ... previewFailure(e) ... } outside a gate
+    for (const m of src.matchAll(/\(e\) => \{[^\n]*\b(previewFailure|commandErrorMessage|repeatFailure)\(e\)[^\n]*/g)) {
+      if (!/gated(Preview)?\(e, /.test(m[0])) out.push(m[0].slice(0, 80));
+    }
+    return out;
+  };
+  it('the checker catches a bare catch, and passes a gated one (self-test)', () => {
+    expect(bare('try { await send(); } catch (e) { setError(commandErrorMessage(e)); }')).toHaveLength(1);
+    expect(bare('try { await send(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }')).toHaveLength(1);
+    expect(bare('preview().then((r) => ok(r), (e) => { setPv({ text: previewFailure(e) }); });')).toHaveLength(1);
+    expect(bare('try { await send(); } catch (e) { setError(gated(e, commandErrorMessage)); }')).toEqual([]);
+    expect(bare('try { await uploadFlyer(f); } catch (e) { setError(commandErrorMessage(e)); }')).toEqual([]);
+  });
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.tsx'))) {
+    it(`${file}: every write catch goes through the gate`, () => {
+      expect(bare(readFileSync(resolve(dir, file), 'utf8'))).toEqual([]);
     });
   }
+  it('the seven write screens use the gate hook', () => {
+    for (const f of ['EditTray.tsx', 'CancelEventSheet.tsx', 'Toast.tsx', 'StatusSheet.tsx', 'DateSheet.tsx', 'SessionSheet.tsx', 'RepeatSheet.tsx']) {
+      expect(readFileSync(resolve(dir, f), 'utf8'), f).toMatch(/useGatedCopy\(/);
+    }
+  });
 });
 
 // ---- the screen's facts (pure) ----------------------------------------------------------------------
@@ -283,11 +323,10 @@ describe('gateView: Continue target, count and rows per shape', () => {
   for (const shape of SHAPES) {
     for (const role of ROLES) {
       it(`${shape} | ${role}`, () => {
-        const v = gateView(shape === 'failed' ? undefined : statusOf(shape, role), 'o1');
+        const v = gateView(shape === 'failed' ? undefined : statusOf(shape, role), 'o1', REFUSED);
         const want = expected(shape, role);
         if (want.kind === 'none') return expect(v).toEqual({ kind: 'admin' });
         if (want.kind === 'failed') return expect(v).toEqual({ kind: 'unknown', to: want.to });
-        if (want.kind === 'done') return expect(v).toEqual({ kind: 'done' });
         if (v.kind !== 'left') throw new Error(`expected left, got ${v.kind}`);
         expect(v.to).toBe(want.to);
         expect(v.rows).toHaveLength(want.n as number);
@@ -306,23 +345,28 @@ describe('gateView: Continue target, count and rows per shape', () => {
         { id: 'oB', name: 'B', role: 'manager', complete: false, missing: ['org_logo', 'org_link'] },
       ],
     };
-    expect(gateView(raw, 'oB')).toEqual({ kind: 'left', count: '3 things left', rows: ['Nationality', 'Page logo', 'Page link'], to: '/account/p3/start?o=oB&at=review' });
+    expect(gateView(raw, 'oB')).toEqual({ kind: 'left', count: '3 things left', rows: ['Nationality', 'Page logo', 'Page link'], to: '/account/p3/start?o=oB&at=review', why: null });
     // no page named: graceModel's own pick, the first page still missing something
     expect(gateView(raw, null)).toMatchObject({ kind: 'left', to: '/account/p3/start?o=oB&at=review' });
   });
 
-  it('the refusal names its page from DETAIL; anything unreadable is null', () => {
-    expect(refusalOrganiser(REFUSAL)).toBe('o1');
-    expect(refusalOrganiser({ message: 'onboarding_incomplete' })).toBeNull();
-    expect(refusalOrganiser({ message: 'onboarding_incomplete', details: 'not json' })).toBeNull();
-    expect(refusalOrganiser({ message: 'onboarding_incomplete', details: '{"organiser_id":42}' })).toBeNull();
+  it('the refusal names its page and codes from DETAIL; anything unreadable is null / []', () => {
+    const none = { organiserId: null, missing: [] };
+    expect(refusalFacts(REFUSAL)).toEqual({ organiserId: 'o1', missing: ['nationality'] });
+    expect(refusalFacts({ message: 'onboarding_incomplete' })).toEqual(none);
+    expect(refusalFacts({ message: 'onboarding_incomplete', details: 'not json' })).toEqual(none);
+    expect(refusalFacts({ message: 'onboarding_incomplete', details: '{"organiser_id":42,"missing":"x"}' })).toEqual(none);
+    expect(refusalFacts({ message: 'onboarding_incomplete', details: '{"missing":["a","a",3,""]}' })).toEqual({ organiserId: null, missing: ['a'] });
+    const off = subscribeGate(() => {});
     expect(gatedCopy({ message: 'permission_denied: onboarding_incomplete' }, () => 'x')).toBeNull();
-    expect(getGate()).toEqual({ organiserId: null, seq: expect.any(Number) });
+    expect(getGate()).toEqual({ ...none, at: null, seq: expect.any(Number) });
+    off();
   });
 
   it('no copy points at a control that is not on the sheet', () => {
-    // body, title and "done" name no control (the Undo a toast had is gone by then); read failed names Try again, its button
-    for (const words of [GATE_COPY.title, GATE_COPY.body, GATE_COPY.done]) expect(words).not.toMatch(/tap|button|press|below|above|save again|try again|close/i);
+    // title, body and the not-yours reason name no control; read failed names Try again, its button
+    for (const words of [GATE_COPY.title, GATE_COPY.body, GATE_COPY.notYours]) expect(words).not.toMatch(/tap|button|press|below|above|save again|try again|close/i);
+    expect(GATE_COPY).not.toHaveProperty('done');
     expect(GATE_COPY.readFailed).toMatch(/Try again/);
     expect(GATE_COPY.retry).toBe('Try again');
   });

@@ -9,7 +9,7 @@ import {
   type StatusMove, type StatusRow,
 } from '../data/eventPage';
 import { CancelEventSheet, type SendOnce } from './CancelEventSheet';
-import { gatedCopy } from '../onboarding/gate';
+import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 
 /** What the page does with a finished move: the toast, and the command that undoes it (if any). */
@@ -62,6 +62,7 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
   const [step, setStep] = useState<Step>('list');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const gated = useGatedCopy();
   const [answer, setAnswer] = useState<TodaySession | null>(null);
   const keep = keepable(ws, today);
   const [kept, setKept] = useState<Set<string>>(() => new Set(keep.map((k) => k.id)));
@@ -74,7 +75,7 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
       const v = await send([command], version);
       onDone({ ...done, version: v });
     } catch (e) {
-      setError(gatedCopy(e, commandErrorMessage));
+      setError(gated(e, commandErrorMessage));
     } finally {
       setBusy(false);
     }
