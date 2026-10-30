@@ -15,6 +15,8 @@ import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
 import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths';
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
+import { LinkDraftSummary, PasteLink } from './paste/PasteLink';
+import type { LinkDraft } from './paste/pasteLinkModel';
 import {
   DRAFT_ONLY_NOTE, DRAFT_SAVED_MESSAGE, NEW_FORMATS, NO_SESSION_NEW_REASON, STEP_TITLE, coverCommands, finishReason, offerLeave, dateCommands, draftCommand, finishLabel, firstDateChoices, liveCommands, liveMessage,
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
@@ -84,6 +86,7 @@ function NewConflict({ seriesId }: { seriesId: string }) {
 
 function WhatStep() {
   const navigate = useNavigate();
+  const firstFormat = useRef<HTMLButtonElement>(null);
   const [params] = useSearchParams();
   const { home, organisers, selected } = useOrganiserChoice();
   // Never flash the format rows at a login that is about to be asked which page.
@@ -98,8 +101,12 @@ function WhatStep() {
   return (
     <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
       <div className="flex flex-col gap-[12px] p-[12px]">
-        {NEW_FORMATS.map((f) => (
-          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withPageChoice(ORG_PATHS.newName(f.format), params))}>
+        <PasteLink
+          onUse={(draft) => navigate(withPageChoice(ORG_PATHS.newName(draft.format), params), { state: { fromLink: draft } })}
+          onByHand={() => firstFormat.current?.focus()}
+        />
+        {NEW_FORMATS.map((f, i) => (
+          <button key={f.format} ref={i === 0 ? firstFormat : undefined} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withPageChoice(ORG_PATHS.newName(f.format), params))}>
             {f.label}
           </button>
         ))}
@@ -116,7 +123,9 @@ function NameStep({ format }: { format: NewEventFormat }) {
   const queryClient = useQueryClient();
   const { home, selected } = useOrganiserChoice();
   const [params] = useSearchParams();
-  const [name, setName] = useState('');
+  // A link read only PREFILLS the name; nothing is saved until Next, which is the existing create.
+  const fromLink = (useLocation().state as { fromLink?: LinkDraft } | null)?.fromLink ?? null;
+  const [name, setName] = useState(fromLink?.title ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The draft id is chosen once per screen. The key is per name + format (A-N3, as Cover keys by URL):
@@ -151,6 +160,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
   else {
     body = (
       <>
+        {fromLink && <LinkDraftSummary draft={fromLink} />}
         <TitleInput value={name} onChange={(v) => { setName(v); setError(null); }} aria-label="Event name" placeholder="Event name" maxLength={120} disabled={busy} testId="org-new-name" />
         <StepError message={error} />
         <StepButton label="Next" reason={nameBlock(name)} busy={busy} onClick={() => void next()} testId="org-new-next" />
