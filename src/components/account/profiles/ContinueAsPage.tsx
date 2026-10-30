@@ -1,6 +1,7 @@
 import { Link, Navigate } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
+import { newOrganiserLanding } from '@/lib/auth-otp-routing';
 import { APP_HOME_PATH, APP_WELCOME_PATH, ORGANISER_HOME_PATH, signInLanding, type ProfileSide } from '@/lib/accountRouting';
 import { AccountShell } from '@/modules/areas/shared/AccountShell';
 import { PAGE_TITLE } from '@/modules/areas/shared/typeScale';
@@ -32,9 +33,10 @@ export const switchHint = (sides: readonly Pick<ProfileSide, 'to'>[]): string | 
  * large button per side, organisers first and visually primary. Shown on every
  * sign-in; never to a single-side person.
  */
-export const ContinueAsScreen = () => {
+export const ContinueAsScreen = ({ p3Live = false }: { p3Live?: boolean }) => {
   const { facts } = useProfileSides();
-  const landing = signInLanding(facts, null);
+  // F4: a brand-new organiser lands on P3's Welcome while P3 is live (lib/auth-otp-routing newOrganiserLanding).
+  const landing = signInLanding({ ...facts, newOrganiserTo: newOrganiserLanding(p3Live) }, null);
   if (landing.kind === 'go') return <Navigate to={landing.to} replace />;
   if (landing.kind === 'wait') {
     return (
@@ -83,11 +85,15 @@ export const ContinueAsScreen = () => {
   );
 };
 
-const ContinueAsPage = () => {
+/**
+ * `p3Live` comes from the route (AnimatedRoutes: organiserP3 AND organiserSelfServe): importing the flags module
+ * here split a chunk onto the /auth/callback and /app/* first loads (perf-budgets chunk ratchet).
+ */
+const ContinueAsPage = ({ p3Live = false }: { p3Live?: boolean }) => {
   useNoindexMeta(true);
   return (
     <AuthGuard>
-      <ContinueAsScreen />
+      <ContinueAsScreen p3Live={p3Live} />
     </AuthGuard>
   );
 };

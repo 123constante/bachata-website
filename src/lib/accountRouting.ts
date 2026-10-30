@@ -307,6 +307,12 @@ export type SidesFacts = {
    * any side or returnTo. 'loading' = not read yet; undefined / null = not deleted (or a failed read).
    */
   deletion?: DeletionLanding | 'loading';
+  /**
+   * Where a brand-new organiser (organiser intent, no organiser, no open request) lands:
+   * lib/auth-otp-routing newOrganiserLanding, passed in by /account/continue (F4).
+   * Absent = the organiser home, as before.
+   */
+  newOrganiserTo?: string;
 };
 
 export type ProfileSide =
@@ -350,7 +356,7 @@ export const profileSides = (f: SidesFacts): SidesState => {
       // Organiser intent with nothing organised yet: the unfinished onboarding carries on to the organiser page.
       to:
         f.dancer === 'incomplete' && f.areaAllowed && f.organiserIntent && f.organisers.length === 0
-          ? appWelcomeHref(ORGANISER_HOME_PATH)
+          ? appWelcomeHref(f.newOrganiserTo ?? ORGANISER_HOME_PATH)
           : dancerSidePath(f.dancer, f.areaAllowed),
     });
   }
@@ -391,7 +397,7 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
   if (state.sides.length === 1) {
     const unclaimedOrganiser = state.sides[0].kind === 'dancer' && f.dancer === 'complete' && f.organiserIntent;
     if (unclaimedOrganiser && f.openRequestCount === undefined) return { kind: 'wait' };
-    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: ORGANISER_HOME_PATH };
+    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: f.newOrganiserTo ?? ORGANISER_HOME_PATH };
     return { kind: 'go', to: state.sides[0].to };
   }
   return { kind: 'choose', sides: state.sides };

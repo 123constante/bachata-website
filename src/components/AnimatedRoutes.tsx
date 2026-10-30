@@ -219,7 +219,9 @@ export const AnimatedRoutes = () => {
                 ? <RedirectIfAllowed><PageTransition><Account view="dancer" /></PageTransition></RedirectIfAllowed>
                 : <Navigate to="/" replace />
             } />
-            <Route path="/account/continue" element={<PageTransition><ContinueAs /></PageTransition>} />
+            {/* F4: p3Live = the same pair that mounts the P3 area below (lib/auth-otp-routing newOrganiserLanding;
+                read here: a flags import in the profiles chunk split one onto the /auth/callback and /app/* first loads). */}
+            <Route path="/account/continue" element={<PageTransition><ContinueAs p3Live={flags.organiserP3 && flags.organiserSelfServe} /></PageTransition>} />
             <Route path="/account/attendance" element={
               flags.organiserSelfServe
                 ? <PageTransition><MyAttendance /></PageTransition>

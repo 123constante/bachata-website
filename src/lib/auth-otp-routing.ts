@@ -149,6 +149,19 @@ export function callbackErrorCopy(reason: string | null): string | null {
 
 export const SIGNED_IN_LANDING_PATH = "/account/continue";
 
+// F4 (owner decision 2026-10-29): where a brand-new organiser (no organiser
+// membership -- organiser_home_v1 reads entity_members -- so no page) lands:
+// P3's Welcome while the P3 area is live (organiserP3 AND organiserSelfServe,
+// the pair AnimatedRoutes mounts /account/p3/* on), else R1's organiser home,
+// exactly as before. The ONE answer: a sign-up reads it in landingPathAfterAuth
+// below, a sign-in on /account/continue (ContinueAsPage -> signInLanding's
+// newOrganiserTo). It lives here, not in lib/accountPaths (lib-event-rules, on
+// every first load), so the mapping stays off /app. Paths restated (import-free); asserted equal to
+// P3_PATHS.start and ORGANISER_HOME_PATH in newOrganiserLanding.test.ts.
+export const P3_START_PATH = "/account/p3/start";
+const R1_ORGANISER_HOME_PATH = "/account/o";
+export const newOrganiserLanding = (p3Live: boolean): string => (p3Live ? P3_START_PATH : R1_ORGANISER_HOME_PATH);
+
 export function normalizeLandingRole(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const role = raw.trim().toLowerCase();
@@ -157,10 +170,12 @@ export function normalizeLandingRole(raw: unknown): string | null {
 
 export function landingPathAfterAuth(input: {
   organiserSelfServe: boolean;
+  /** flags.organiserP3: with self-serve on too, a new organiser lands on P3's Welcome (F4). */
+  organiserP3?: boolean;
   role: string | null;
   isSignup?: boolean;
 }): string {
-  const { organiserSelfServe, role, isSignup = false } = input;
+  const { organiserSelfServe, organiserP3 = false, role, isSignup = false } = input;
   if (!organiserSelfServe) {
     // /profile was unrouted 2026-09-12 (a 404 straight after sign-in); home, as for a dancer.
     return "/";
@@ -168,7 +183,7 @@ export function landingPathAfterAuth(input: {
   // A non-dancer sign-up meant to set up an organiser: to the organiser
   // onboarding. Dancer first: /account/o's DancerProfileGate sends a new account
   // on to /finish-profile?returnTo=/account/o (DancerFirstGate.matrix.test.tsx).
-  if (isSignup && role && role !== "dancer") return "/account/o";
+  if (isSignup && role && role !== "dancer") return newOrganiserLanding(organiserSelfServe && organiserP3);
   return SIGNED_IN_LANDING_PATH;
 }
 
