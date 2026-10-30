@@ -93,3 +93,48 @@ Team on P-big: owner A-org-big, member A-org-member, an open access request from
 - Seed through the admin repo's tooling or the RPCs as the account itself. Never hand-written DDL here (this repo owns no migrations).
 - Never seed into real organisers' pages. Mark every seeded row (for example, a name prefix `[ACC]`) so cleanup can find it, and keep the pages out of public listings if the admin side supports that.
 - After seeding, rerun the section 1 query restricted to the `[ACC]` pages and paste the counts under each account. That is the walker's proof that the shapes exist.
+
+## 4. Round 2 shape survey (read-only, 2026-10-30, project stsdtacfauprzrdebmzg)
+
+Counts only. Sources: `organiser_profiles`, `organiser_team_members`, `organiser_claim_emails`, `organiser_onboarding_progress`, `organiser_self_start_v1_meta`, `series_organiser_invites`, `event_series_p5`, `event_occurrence_p5`, `cancellation_reasons`.
+
+| fact | prod count |
+|---|---|
+| users who claimed 2+ pages | **0** (max 1 page per user) |
+| unclaimed pages | 39 |
+| pages with a claim email set (auto-claim) | **0** (G-17) |
+| claimed pages with no completed onboarding row | **10 of 10** (G-19) |
+| pages with a Facebook link (website or socials) | 29 (R3, G-20) |
+| active team rows by role | `Leader` on 48 pages, `Member` on 5 pages |
+| pages with 2+ active team members | 4 |
+| page lifecycle | 49 `live` (44 with `is_active` null, 5 true); no hidden / taken down (G-27) |
+| possible duplicate pages flagged | 0 |
+| series listing 2+ organiser pages | 6 |
+| pending series co-organiser invites | 0 |
+| most series on one page | 45 |
+| most past dates on one page | 86; pages with 50+ past dates: 9 |
+| active cancellation reasons (fixed list) | venue_closed, teacher_unavailable, bank_holiday, low_signups, other |
+
+So "several pages per person" (J-e4) and "two owners" (J-e6) exist only in seeds; the gate (J-e8) meets every real organiser.
+
+## 5. Round 2 test accounts (persons e, f, g)
+
+Same rules as section 3 (`[ACC]` prefix, lead seeds, no worker writes).
+
+| account | person | auth / profile state | pages | series and dates | journeys |
+|---|---|---|---|---|---|
+| A-org-autoclaim | e | dancer complete; NOT yet claimed | 0 -> 1 | page **P-autoclaim** with `organiser_claim_emails` = this account's email, 2 live weekly; plus **P-autoclaim-other** with a different email (must not claim) | J-e1 |
+| A-org-history | e | onboarding complete, owner | 1 | **P-history**: 3 series, 86 past dates in total (2 ended recurring, 1 live weekly with 40 past), 60+ history rows | J-e5 |
+| A-org-coowner-1 / -2 | e | -1 is `claimed_by`; -2 is an active team row `Leader` | 1 shared | **P-shared**: 2 live weekly | J-e6 |
+| A-org-half | e | claimed, **no** `organiser_onboarding_progress` row, no contact confirmed | 1 | **P-half**: 1 live weekly | J-e7 |
+| **A-org-legacy-live** | e | claimed, no onboarding row (copy of the prod shape), website = a Facebook URL | 1 | **P-legacy**: 3 live weekly (52 dates each, 10 past), 1 cancelled date, people going on the next 3 dates | J-e8, J-p1 (P1) |
+| A-org-big (reuse) | e | as section 2; owns P-big and P-small | 2 | as section 2 | J-e4 (P1) |
+| A-dj | f | dancer complete + DJ role saved | 0 | - | J-f3 |
+| A-org-nodancer | f | organiser intent, **no** dancer profile | 0 | - | J-f4 |
+| A-dancer-teacher-org | f | dancer + teacher role + owner of **P-teach** | 1 | 1 live course (8 sessions) | J-p3 |
+| A-helper | g | fresh email; 1 open invite to P-big | 0 | - | J-g1 |
+| A-org-member (reuse) | g | Member on P-big only; NOT on P-small | 0 own | - | J-g2, J-g3, J-g5, J-v8 |
+| A-org-solo | g | only owner of **P-solo**, no team | 1 | 1 live weekly with people going | J-g4 |
+| A-org-partner | g | owner of **P-partner** | 1 | series **S-shared** with `organiser_ids = {P-big, P-partner}`, live weekly | J-g6 |
+
+Extra seed for J-x2 and J-v*: on P-big's W-weekly-130, mark 3 future dates with people going (so the R1 preview has names), and hand-edit 1 future date's time (so "hand-edited dates kept" is testable). Pages for J-p6: one `[ACC]` page in each lifecycle state the admin side supports (hidden, taken down, flagged duplicate).

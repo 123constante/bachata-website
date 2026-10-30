@@ -1,4 +1,4 @@
-# P3 organiser area: inventory (main @ 472ecde, 2026-10-30)
+# P3 organiser area: inventory (main @ 472ecde, 2026-10-30; E15-E18 added in round 2)
 
 Step 1 of `docs/briefs/p3-acceptance-contract.md`. Every screen, route and sheet of the P3 area, and every entry point into it. CONTRACT.md journeys cite these ids; its Coverage section counts them.
 
@@ -80,5 +80,9 @@ Step 1 of `docs/briefs/p3-acceptance-contract.md`. Every screen, route and sheet
 | E12 | Legacy `/account/new`, `/account/series/:id`, `/account/team/:id?` | old links | -> R1 `/account/o/...`, never P3 | - | - | selfServe off -> `/` | src/components/AnimatedRoutes.tsx:241-255; organiser/shell/legacyPaths.ts:23-28 |
 | E13 | Legacy `/account/tickets/*` (incl. Stripe return) | old ticket links | needs organiserTicketing + P3 live; event -> S07; `?o&stripe=` -> S34; else S34 | - | - | route absent -> NotFound | src/components/AnimatedRoutes.tsx:272-274; organiser/tickets/legacyRedirect.ts:16-21 |
 | E14 | Sign-up role screen | signed out | offers Dancer (default), Organiser, Teacher, DJ; copy describes the role only, never where it leads | - | set_my_role_intent_v1 (at callback) | - | src/lib/auth-otp-routing.ts:219-229; src/pages/Auth.tsx:693-719 |
+| E15 | Old R1 organiser bookmarks `/account/o`, `/account/o/*` | anyone with a saved link | today: R1 screens; while P3 is live they must land on the P3 equivalent | - | - | unverified in round 2 (no file:line) | R2: see J-x1 |
+| E16 | Claim email link (claim / approval of an access request) | page claimer, approved requester | today: R1 or `/account/o`; must land in P3 Home while P3 is live | - | - | unverified in round 2 | R2: see J-x1 |
+| E17 | Invite email link (`/invite/:token`) from `organiser_invite_queue` | invitee | E11 | - | - | as E11 | R2: see J-x1, J-g1 |
+| E18 | Public event page `/event/:id` (BentoPage) as the RESULT of organiser edits | everyone | read-only render of what the organiser set | event_view_p5 / public reads | `record_event_view_v1` | cancelled, moved, repeat rule, cover, price | `src/modules/event-page/BentoPage.tsx` |
 
-Totals: 47 S rows + 14 E rows = **61 inventory rows**.
+Totals: 47 S rows + 18 E rows = **65 inventory rows** (E15-E18 added in round 2).

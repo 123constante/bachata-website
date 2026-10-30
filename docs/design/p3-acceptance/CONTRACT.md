@@ -255,7 +255,205 @@ Pass/Fail: ____
 
 ---
 
-## Gap list (as of main 472ecde)
+## Round 2 additions (2026-10-30, brief `docs/briefs/p3-acceptance-contract-r2.md`)
+
+Round 1 ids above are unchanged. Round 2 adds owner rules (R1-R4), persons (e), (f), (g), a states matrix, cross-area journeys (J-x), profile journeys (J-p) and event-editing journeys (J-v). New entry rows E15-E18 are in INVENTORY.md. New gaps are G-16 onwards.
+
+### Owner rules (2026-10-30). The walker tests these as rules, like U1-U10
+
+- **R1. Series edits ask each time, with a preview.** Any edit to a repeating series asks "this date only" or "all dates". The preview lists the dates that change AND who is going on them. Dates edited by hand are kept when "all dates" is applied.
+- **R2. One person, one account.** There is one "You" area, with a section per role (dancer, teacher, DJ, organiser). "Switch page" switches organiser pages only, never roles.
+- **R3. Old data is accepted until edited.** A stored value that fails a new check (e.g. a Facebook link where a new validator refuses it) is shown and kept as-is. Only editing that field asks for a valid value. An untouched save is never blocked and sends no command (sharpens U5).
+- **R4. Walk-first priority.** P1 journeys are walked first, in this order: (1) existing organisers meeting the onboarding gate (J-e8), (2) the public page matches what was set (J-x2), (3) co-organisers and several pages (J-g1..J-g6, J-e4). Everything else is P2 unless marked.
+
+Prod facts behind R4 (survey in ACCOUNTS.md section 4): **all 10 claimed pages have no completed onboarding row**, so every existing organiser meets the gate on their first gated write. 29 pages carry a Facebook link (R3).
+
+### Extra states (apply to every person; matrix S-1..S-11)
+
+Each P1 journey is walked once more under each state below. Record one Pass/Fail per state in the journey's `States:` line.
+
+| id | state | expected |
+|---|---|---|
+| S-1 | signed out | /auth, then back to the same screen after sign-in |
+| S-2 | expired session mid-flow | sign-in prompt; typed data survives or a warning says it will not |
+| S-3 | wrong account (signed in as someone else) | wrong-account state naming the signed-in email, with Sign out |
+| S-4 | deleted / hidden / suspended account | refused or restore screen (G-03); never a working editor |
+| S-5 | slow network (DevTools Slow 3G) | busy state on every button; no double send |
+| S-6 | save that half-fails (one of two writes errors) | an error names what did and did not save; no silent success |
+| S-7 | Back button mid-flow | previous step with data intact, or a Leave? sheet |
+| S-8 | refresh on each screen | same screen, same page choice, no blank |
+| S-9 | two people editing the same event | the second save is refused or warned, never silently overwrites [G-24] |
+| S-10 | clock change, after-midnight event, multi-day festival | dates and times read in London time; a 23:00-03:00 social is ONE date; a festival spans its days |
+| S-11 | non-London city | copy never says "London" for a page in another city |
+
+## Person (e): existing organiser with pages already in the system
+
+### J-e1: page auto-claimed at sign-in by email (P2)
+Account: A-org-autoclaim. Entries: E04, E02.
+1. A page has a claim email set to the account's email. Sign in. The page is claimed with no search, and you land on P3 Home for that page **[G-17]**.
+2. A page whose claim email does not match is NOT claimed.
+3. Must be impossible: auto-claiming a page already claimed by someone else.
+Pass/Fail: ____ States: ____
+
+### J-e2: page claimed through find-and-claim (P2)
+Account: A-org-claimer (as J-c2), then sign out and in again.
+1. After the claim, the next sign-in goes straight to P3 Home, not to `start` and not to R1 **[G-01]**.
+Pass/Fail: ____ States: ____
+
+### J-e3: page waiting on an open access request (P2)
+Account: A-org-waiting (as J-c3). Same as J-c3, plus:
+1. The owner refuses the request. The next visit says it was not approved and what to do next, never a silent empty Home.
+Pass/Fail: ____ States: ____
+
+### J-e4: holding 2+ pages (P1)
+Account: A-org-big (P-big, P-small). Screens: S36, S01, S05, S06.
+1. Switch page (S36) lists both. Choose P-small. Home, Events and Stats all show P-small only; the page name is visible on each.
+2. Refresh (S-8) and sign out / in: the choice sticks or the screen says which page it shows.
+3. An event of P-big opened by deep link while P-small is chosen opens normally (it is still yours) and does not flip the choice silently.
+4. Switch page never offers roles (R2).
+Pass/Fail: ____ States: ____
+
+### J-e5: page with 50+ past events and a long history (P2)
+Account: A-org-history (P-history: 86 past dates across series, like prod's largest). Screens: S01, S05, S07, S23, S28.
+1. Home Next up skips past dates. Events lists ended series as Ended.
+2. All dates "Past" filter count matches the seed. History pages with Load more.
+Pass/Fail: ____ States: ____
+
+### J-e6: page with two owners (P2)
+Account: A-org-coowner-1 and A-org-coowner-2 on P-shared.
+1. Prod has a single `claimed_by` per page, so "two owners" means one claimer plus a second person with owner-level team rights **[G-18]**. Both see the same Home; owner-only controls (S29 edit, S39 hand over, S40) behave the same for both, or the difference is stated on screen.
+Pass/Fail: ____ States: ____
+
+### J-e7: half-claimed page (P2)
+Account: A-org-half (claimed, no onboarding row, no contact confirmed; prod: 10 of 10 claimed pages look like this).
+1. Home loads. The Grace banner (S02) says what is left and links to it.
+2. Reads never fail for the missing row.
+Pass/Fail: ____ States: ____
+
+### J-e8: existing organiser with live events meets the onboarding gate (P1, priority 1)
+Account: A-org-legacy-live (claimed page, 3 live weekly series, no onboarding row). Screens: S41, S46, S02, S07.
+1. Sign in and open Home. Live events show. Nothing is blocked just by opening (grace period): the banner says how long the grace lasts and what is left.
+2. Make a gated write (edit a date time). "A few details first" opens. It asks only for what is missing, prefilled from existing data.
+3. Finish. Return to the same edit; the write succeeds without retyping.
+4. Close the sheet without finishing: the live events stay live and public (J-x2), only the write is refused, with a reason.
+5. Legacy page data failing new checks (Facebook link) does not block the gate (R3).
+Pass/Fail: ____ States: ____
+
+## Person (f): dancer, teacher or DJ who later says they are an organiser
+
+Organiser is a seat on a page, not a label (R2).
+
+### J-f1: from the dancer home link (P2)
+Account: A-dancer. Entry: E07.
+1. The dancer home offers a way to start organising [G-06]. It lands on P3 `start`, not R1.
+Pass/Fail: ____ States: ____
+
+### J-f2: from the /account/o hand-off (P2)
+Account: A-dancer-teacher. Entry: E05. As J-b2; also the hand-off read failing shows a message (G-08).
+Pass/Fail: ____ States: ____
+
+### J-f3: from Your areas (P2)
+Account: A-dj (dancer + DJ role). Entry: E09.
+1. Add Organiser leads to P3 `start`. The DJ role stays; nothing is lost.
+Pass/Fail: ____ States: ____
+
+### J-f4: dancer-profile-first gate and one account (P2)
+Accounts: A-org-nodancer (organiser intent, no dancer profile), A-dancer-teacher.
+1. If a dancer profile is required before organising, the screen says so and links to it, once; after finishing you return to where you were [G-25].
+2. The teacher/DJ profile and the organiser page show as sections of ONE You area (R2). The same name and photo are not asked for twice when they already exist.
+Pass/Fail: ____ States: ____
+
+## Person (g): co-organiser / invited helper (P1, priority 3)
+
+### J-g1: invite and accept (P1)
+Accounts: A-org-big (owner), A-helper (fresh). Entries: E11, E17. Screens: S39, S37.
+1. Owner invites from Team. The invite email link opens `/invite/<token>`, accept lands on P3 Home for P-big (G-09).
+2. The helper sees P-big only.
+Pass/Fail: ____ States: ____
+
+### J-g2: owner vs manager rights per screen (P1)
+Accounts: A-org-big (owner), A-org-member (manager/member).
+
+| area | owner | manager | walker |
+|---|---|---|---|
+| page name, photo | edit | [decision needed: edit or read-only with reason] | ____ |
+| contact details | edit | read-only with reason | ____ |
+| team (add, remove, hand over) | edit | hidden or disabled with reason | ____ |
+| events (dates, details, prices) | edit | edit, or edit-lock banner with reason (S24/S27) | ____ |
+| tickets, refunds, get paid | edit | read-only note (S31-S34) | ____ |
+Pass/Fail: ____ States: ____
+
+### J-g3: leave a team (P1)
+Account: A-org-member. Screens: S44.
+1. Leave asks first, then lands somewhere with a way onward. The page no longer appears in Switch page.
+Pass/Fail: ____ States: ____
+
+### J-g4: last owner leaves (P1)
+Account: A-org-solo (only owner, no team).
+1. Leave is disabled with a reason ("hand over first") or explains what happens to the page and its live events [G-23].
+Pass/Fail: ____ States: ____
+
+### J-g5: manager of page A never acts on page B (P1)
+Accounts: A-org-member (member of P-big only), page P-small.
+1. Every P-small deep link (`/events/<id>`, `/dates`, `/details`, `/prices`, `/door`) shows Not yours. Direct RPC writes with the P-small id are refused by the server (42501) [G-22].
+Pass/Fail: ____ States: ____
+
+### J-g6: co-organiser on a shared series (P1)
+Accounts: A-org-big, A-org-partner (owns P-partner). Series S-shared lists both pages (prod: 6 series list 2+ pages).
+1. Both organisers see the series. Only rights stated in S29 apply. The public page lists both organisers.
+Pass/Fail: ____ States: ____
+
+## Cross-area journeys
+
+### J-x1: old links, bookmarks and emails land in the new area (P2)
+Entries: E12, E13, E15, E16, E17.
+1. Each saved R1 path (`/account/o`, `/account/o/series/<id>`, `/account/new`, `/account/team`) lands on the P3 equivalent while P3 is live [G-04, G-26].
+2. Claim, invite and approval email links land in P3 Home or the matching screen, never in R1 [G-26].
+Pass/Fail: ____ States: ____
+
+### J-x2: the public page shows what the organiser set (P1, priority 2)
+Account: A-org-big. Entry: E18. For each edit below, open `/event/<id>` at 390x844 straight after.
+
+| edit in P3 | public page must show | walker |
+|---|---|---|
+| move one date / change its time | the new date and time; going people see the change | ____ |
+| cancel one date (reason from the fixed server list: venue_closed, teacher_unavailable, bank_holiday, low_signups, other) | that date marked cancelled with the reason label | ____ |
+| change the repeat rule | only the new future dates; hand-edited dates kept (R1) | ____ |
+| new cover photo | the new cover (cache-busted) | ____ |
+| price / free switch | the new price or "free" | ____ |
+| hide / end / remove | hidden or gone as the status says | ____ |
+Pass/Fail: ____ States: ____
+
+## Profiles area (J-p, severity rated)
+
+| id | journey | account | severity | Pass/Fail |
+|---|---|---|---|---|
+| J-p1 | Legacy value failing a validator (stored Facebook link) shows, survives an untouched save, and is only checked when edited (R3) | A-org-legacy-live | **High** | ____ |
+| J-p2 | Owner vs manager rights per field (as J-g2 table) | A-org-big, A-org-member | **High** | ____ |
+| J-p3 | One person, several roles: dancer + teacher + organiser shown in one You (R2) | A-dancer-teacher-org | Medium | ____ |
+| J-p4 | Public result after save: photo crop, bio at max length, links, contact privacy (show_phone/email_publicly off hides them) | A-org-big | **High** | ____ |
+| J-p5 | Team add / remove / leave, last owner leaves (J-g3, J-g4) | A-org-big, A-org-solo | Medium | ____ |
+| J-p6 | Page lifecycle: unclaimed, claimed, hidden, taken down, duplicate, merge; each state's P3 screen says what the person can do [G-27] | seeded pages per state | Medium | ____ |
+
+## Event editing (J-v, severity rated)
+
+| id | journey | account / series | severity | Pass/Fail |
+|---|---|---|---|---|
+| J-v1 | Series vs one date: each series edit asks "this date only" / "all dates" with a preview of dates and going people (R1) [G-16] | A-org-big W-weekly-130 | **Critical** | ____ |
+| J-v2 | Change the repeat rule on a running series: preview lists which dates move or go and who is going on them; hand-edited dates kept [G-16] | M-monthly, W-weekly-130 | **Critical** | ____ |
+| J-v3 | Dates taken off, cancelled, moved: going people see the change; cancel reason from the fixed server list only | W-weekly-130 | **High** | ____ |
+| J-v4 | Times live on sessions: session times, rooms, per-date venue and line-up edit and show publicly | K-course-now, F-festival | **High** | ____ |
+| J-v5 | Line-up search and add a new person not yet in the system | K-course-now | Medium | ____ |
+| J-v6 | Publish state transitions incl. past one-off and ended recurring (never Draft) | E-ended, O-oneoff-past, X-draft | **High** | ____ |
+| J-v7 | Editing with tickets sold or people going: what is blocked is disabled with a reason (e.g. date move with sold tickets) | A-org-tickets | **High** | ____ |
+| J-v8 | Concurrent edits (S-9) [G-24] | A-org-big + A-org-member | Medium | ____ |
+| J-v9 | Admin-editor capabilities missing from the new editor are listed as GAP (G-21) and each either has a P3 control or a stated "ask us" route | - | Medium | ____ |
+
+PARKED on purpose (owner, 2026-10-30), not journeys: undo history, make a copy, bulk cancel/move.
+
+---
+
+## Gap list (as of main 472ecde; G-16 onwards added in round 2)
 
 | id | gap | journeys | severity |
 |---|---|---|---|
@@ -274,10 +472,22 @@ Pass/Fail: ____
 | G-13 | The Tickets row renders nothing if the home read fails (`TicketsEntry.tsx:54`). Co-organiser names fall back silently to "Organiser page" on error (`SeriesOrganisers.tsx:91`). | J-d12, J-d10 | Low |
 | G-14 | The flag pair is checked separately in 4+ places (`AnimatedRoutes.tsx:224,266,272`, `home/index.tsx:119`, `JoinPage.tsx:357`), so the checks can drift apart. | J-a5 | Low (guard) |
 | G-15 | No prod series uses every-N-months (interval > 1) or explicit-dates mode, so these shapes exist only in seeds. | J-d5 | Info |
+| G-16 | Owner rule R1 is not met on main: the Repeats preview (S13) lists dates but not who is going, and there is no per-edit "this date only / all dates" choice outside sessions (S20). Whether hand-edited dates survive a rule change is unproven. | J-v1, J-v2 | **Critical** (owner rule) |
+| G-17 | Auto-claim by email: `organiser_claim_emails` exists but has **0 rows** in prod, and no `src/` code reads it (only a test mentions it). Sign-in auto-claim is unproven. | J-e1 | High until proven |
+| G-18 | "Two owners" has no single meaning: `organiser_profiles.claimed_by` holds one user; team roles in prod are `Leader` (48 pages) and `Member` (5 pages). The owner must decide what a second owner is. | J-e6 | Decision |
+| G-19 | Every claimed page in prod (10 of 10) has no completed `organiser_onboarding_progress` row, so every existing organiser hits the gate. Grace period length and copy are unproven. | J-e7, J-e8 | **Critical** (P1) |
+| G-20 | 29 pages carry a Facebook link. R3 (accept until edited) is unproven for the page editor and Settings. | J-p1, J-e8 | High |
+| G-21 | Admin-editor fields with no P3 control, from the `organiser_profiles` columns: `gallery_urls`, `address`, `google_maps_url`, `founded_year`, `trusted_at`, claim email (`organiser_claim_emails`), front-door flag (`organiser_front_door_flags.run_by_us`), series co-organiser invites (`series_organiser_invites`). Not checked against the admin repo in round 2 (not readable here). | J-v9 | Medium (confirm list) |
+| G-22 | Cross-page isolation for a member of page A acting on page B is proven only by the Not yours card, not by a server-refusal test. | J-g5 | **High** (P1) |
+| G-23 | No defined outcome when the last owner leaves a page with live events. | J-g4 | Medium |
+| G-24 | No known conflict check for two people editing the same event; the later save may overwrite silently. | J-v8, S-9 | Medium |
+| G-25 | The dancer-profile-first gate (`dancerFirst.refusal.test.tsx`) for an organiser-later path is not described in P3 copy. | J-f4 | Medium |
+| G-26 | Destinations of old R1 bookmarks (E15) and claim/approval email links (E16) are unverified while P3 is live. | J-x1 | Medium |
+| G-27 | Page lifecycle states other than live: prod has only `live` pages (49), so hidden, taken down, duplicate and merge exist only in seeds. | J-p6 | Info |
 
 ## Coverage
 
-61 inventory rows (47 S + 14 E). Rows covered by at least one journey:
+65 inventory rows (47 S + 18 E; E15-E18 added in round 2). Rows covered by at least one journey:
 
 | journey | covers |
 |---|---|
@@ -309,7 +519,13 @@ Pass/Fail: ____
 | J-d11 | S01, S05, S07 |
 | J-d12 | E13, S30, S31, S32, S33, S34 |
 | J-d13 | S35, S38, S42, S44 |
+| J-e1..J-e8 | E02, E04, S01, S02, S05, S06, S07, S23, S28, S36, S41, S46 |
+| J-f1..J-f4 | E05, E07, E09 |
+| J-g1..J-g6 | E11, E17, S29, S37, S39, S40, S44 |
+| J-x1 | E12, E13, E15, E16, E17 |
+| J-x2 | E18 |
+| J-p1..J-p6, J-v1..J-v9 | S13, S16, S17, S20, S22, S38 (and the S rows above) |
 
-**Coverage: 61 inventory rows, 61 covered by a journey, 0 uncovered.**
+**Coverage: 65 rows, 65 covered, 0 uncovered.** (Round 2: 25 round-1 journeys + 35 new journey ids: J-e1..8, J-f1..4, J-g1..6, J-x1..2, J-p1..6, J-v1..9.)
 
 Covered thinly (one journey, and the step depends on a flag the walker may not have on): S04 (needs p3GoingOn) and S30-S34 (need organiserTicketing). The walker records "flag off, not walked" instead of PASS. That is a known limit, not a silent omission.
