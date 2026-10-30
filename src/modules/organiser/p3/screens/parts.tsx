@@ -2,13 +2,11 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { GoingTotalStat } from '@/modules/going/GoingTotalStat';
 import { useMyOrganiserGoingTotal } from '@/modules/going/useMyOrganiserGoingTotal';
-import { ORG_PATHS } from '../../shell/paths';
+
 import type { P3Row } from '../data/home';
 import { P3_PATHS } from '../shell/paths';
 
-/** Where a change is made until the P3 editor lands (the R1 area, untouched by P3). */
-const CHANGE_IT_PATH = ORG_PATHS.home;
-const CHANGE_IT = 'Change it in the current organiser area';
+
 
 /** The kind chip (C3 deviation #71: one per row, never a group heading). */
 export function KindChip({ row }: { row: P3Row }) {
@@ -72,8 +70,14 @@ export function StateCard({ title, children, testId }: { title: string; children
   );
 }
 
-export function ChangeItLink({ children = CHANGE_IT }: { children?: ReactNode }) {
-  return <Link className="p3-link" to={CHANGE_IT_PATH}>{children}</Link>;
+/** A P3 link in running copy (p3-shell-exits: none points at the R1 area any more). */
+export function P3Link({ to, children, testId }: { to: string; children: ReactNode; testId?: string }) {
+  return <Link className="p3-link" to={to} data-testid={testId}>{children}</Link>;
+}
+
+/** New event, in P3's frame (R1's create steps under /account/p3/new). */
+export function AddEventLink({ children = 'Add an event' }: { children?: ReactNode }) {
+  return <P3Link to={P3_PATHS.newWhat} testId="p3-add-event">{children}</P3Link>;
 }
 
 export function RetryButton({ onClick }: { onClick: () => void }) {

@@ -11,8 +11,7 @@ import { supportLinks } from '@/modules/organiser/shared/support';
 import { goDone } from '../flows/doneState';
 import { GateReason } from '../team/GateReason';
 import { useOwnPage } from '../page/useOwnPage';
-import { OrganiserShell } from '../shell';
-import { ORG_PATHS } from '../shell/paths';
+import { useOrgSurface } from '../shell/surface';
 import { Card, ErrorState, GhostButton, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
 import { SignOutSheet } from './SignOutSheet';
 
@@ -45,6 +44,8 @@ function LinkRow({ to, icon, label, testId, external }: { to: string; icon: Reac
  */
 export default function MorePage() {
   const navigate = useNavigate();
+  // R1 More (back Home), or P3 Account (back You): the frame and every link from the surface
+  const { Shell, paths, hub, addPage, moreTitle } = useOrgSurface();
   const queryClient = useQueryClient();
   const { user, home, selected, bridge, layer } = useOwnPage();
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -80,26 +81,26 @@ export default function MorePage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       setConfirmLeave(false);
-      goDone(navigate, { title: 'Leave this page', message: `You left ${selected!.name}`, seriesId: null });
+      goDone(navigate, { title: 'Leave this page', message: `You left ${selected!.name}`, seriesId: null }, null, paths.done);
     },
   });
 
   if (home.isPending) {
-    return <OrganiserShell title="More" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-more"><SkeletonRows count={4} label="Loading" testId="more-loading" /></OrganiserShell>;
+    return <Shell title={moreTitle} back={hub} testId="org-page-more"><SkeletonRows count={4} label="Loading" testId="more-loading" /></Shell>;
   }
   if (home.isError && !home.data) {
-    return <OrganiserShell title="More" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-more"><ErrorState title="This did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="more-load-error" /></OrganiserShell>;
+    return <Shell title={moreTitle} back={hub} testId="org-page-more"><ErrorState title="This did not load" onRetry={() => void home.refetch()} retrying={home.isFetching} testId="more-load-error" /></Shell>;
   }
 
   return (
-    <OrganiserShell title="More" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-page-more">
+    <Shell title={moreTitle} back={hub} testId="org-page-more">
       <div className="space-y-[12px]">
         {selected && bridge && <div className="overflow-hidden rounded-[12px] bg-[#0C0A0D]" data-testid="more-contact">{bridge.slot('contact')}</div>}
 
         <Card testId="more-page-rows">
-          <LinkRow to={`${ORG_PATHS.home}?add=1`} icon={<Plus aria-hidden="true" className={ICON} />} label="Add a page" testId="more-add-page" />
+          <LinkRow to={addPage} icon={<Plus aria-hidden="true" className={ICON} />} label="Add a page" testId="more-add-page" />
           {selected && isOwner && (
-            <LinkRow to={ORG_PATHS.handover} icon={<UserRoundCog aria-hidden="true" className={ICON} />} label="Hand over" testId="more-hand-over" />
+            <LinkRow to={paths.handover} icon={<UserRoundCog aria-hidden="true" className={ICON} />} label="Hand over" testId="more-hand-over" />
           )}
           {selected && (
             <div>
@@ -123,7 +124,7 @@ export default function MorePage() {
         <Card testId="more-help-rows">
           {support.whatsapp && <LinkRow to={support.whatsapp} external icon={<MessageCircle aria-hidden="true" className={ICON} />} label="WhatsApp us" testId="more-support-whatsapp" />}
           {support.email && <LinkRow to={`mailto:${support.email}`} external icon={<Mail aria-hidden="true" className={ICON} />} label="Email us" testId="more-support-email" />}
-          <LinkRow to={ORG_PATHS.help} icon={<CircleHelp aria-hidden="true" className={ICON} />} label="Help" testId="more-help" />
+          <LinkRow to={paths.help} icon={<CircleHelp aria-hidden="true" className={ICON} />} label="Help" testId="more-help" />
         </Card>
 
         <Card testId="more-account-rows">
@@ -147,6 +148,6 @@ export default function MorePage() {
       </SheetView>
       <SignOutSheet open={signOut} onClose={() => setSignOut(false)} />
       {layer}
-    </OrganiserShell>
+    </Shell>
   );
 }

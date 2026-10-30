@@ -26,6 +26,10 @@ export interface OrgSurface {
   doneBack: string | null;
   /** The same for a page save (Done "Saved"). */
   pageDoneBack: string | null;
+  /** New event's way out (its first step's back, "Save as draft and leave"): R1 Home, P3 Events. */
+  createHub: { to: string; label: string };
+  /** The More screen's title: R1 "More", P3 "Account" (the You row that opens it). */
+  moreTitle: string;
 }
 
 export const R1_SURFACE: OrgSurface = {
@@ -37,6 +41,8 @@ export const R1_SURFACE: OrgSurface = {
   addPage: `${ORG_PATHS.home}?add=1`,
   doneBack: null,
   pageDoneBack: null,
+  createHub: { to: ORG_PATHS.home, label: 'Home' },
+  moreTitle: 'More',
 };
 
 const OrgSurfaceContext = createContext<OrgSurface>(R1_SURFACE);

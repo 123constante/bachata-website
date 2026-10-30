@@ -22,6 +22,7 @@ import {
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
 import { DateFieldSheet, type FieldStep } from './DateFieldSheets';
 import { P3NightGoing } from './P3Going';
+import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import { DateSessions } from './SessionSheet';
 import type { Done } from './StatusSheet';
@@ -42,6 +43,7 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
   const ring = useRef(new KeyRing());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const gated = useGatedCopy();
   const go = async (plan: DatePlan, done: Done) => {
     setBusy(true);
     setError(null);
@@ -50,7 +52,7 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
       ring.current.forget(plan);
       onDone(done);
     } catch (e) {
-      setError(e instanceof PlanStepError ? e.message : commandErrorMessage(e));
+      setError(gated(e, (x) => (x instanceof PlanStepError ? x.message : commandErrorMessage(x))));
     } finally {
       setBusy(false);
     }

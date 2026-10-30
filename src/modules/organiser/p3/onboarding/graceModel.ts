@@ -9,7 +9,7 @@ export const toFinish = (n: number): string => `To finish: ${thingsLeft(n)}`;
 /** "Hide for today" is per device, keyed by the London day it was hidden on. */
 export const GRACE_HIDE_KEY = 'p3-ob-grace-hidden';
 
-export type GraceStatus = { complete: boolean; isAdmin: boolean; left: number; firstId: string | null; firstName: string };
+export type GraceStatus = { complete: boolean; isAdmin: boolean; left: number; missing: string[]; firstId: string | null; firstName: string };
 
 type RawOrg = { id?: unknown; name?: unknown; complete?: unknown; missing?: unknown };
 const codes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -28,10 +28,12 @@ export function graceStatusFrom(raw: unknown, organiserId: string | null = null)
   const page = organiserId !== null
     ? orgs.find((o) => o?.id === organiserId)
     : orgs.find((o) => o?.complete !== true && codes(o?.missing).length > 0) ?? orgs[0];
+  const missing = [...new Set([...codes(r.person?.missing), ...codes(page?.missing)])];
   return {
     complete: r.complete === true,
     isAdmin: r.is_admin === true,
-    left: new Set([...codes(r.person?.missing), ...codes(page?.missing)]).size,
+    left: missing.length,
+    missing,
     firstId: typeof page?.id === 'string' ? page.id : null,
     firstName: typeof page?.name === 'string' ? page.name : '',
   };
@@ -39,6 +41,9 @@ export function graceStatusFrom(raw: unknown, organiserId: string | null = null)
 
 /** THE count both screens show: 0 when unknown, complete or an admin (the gate never holds an admin). */
 export const onboardingLeft = (s: GraceStatus | null): number => (!s || s.complete || s.isAdmin ? 0 : s.left);
+
+/** The codes behind that count (the A1 gate screen's list): exactly onboardingLeft(s) of them, never a second count. */
+export const onboardingMissing = (s: GraceStatus | null): string[] => (onboardingLeft(s) > 0 && s ? s.missing : []);
 
 /** Shown only with something left to do (never "0 things left"), and not on a day it was hidden. No grace end date exists on the server yet (plan Q1), so none is shown. */
 export const graceShown = (s: GraceStatus | null, hiddenOn: string | null, today: string): boolean =>

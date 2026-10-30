@@ -10,7 +10,7 @@ import {
   type DraftPerson, type DraftSession, type PeopleRole, type Programme, type SessionType,
 } from '../../shared/programmeModel';
 import { fetchOccurrenceProgramme, occurrenceProgrammeQueryKey, saveOccurrenceProgramme } from '../../shared/selfServeApi';
-import { commandErrorMessage, isNetworkFailure, programmeErrorCopy } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isNetworkFailure, isOnboardingRefusal, programmeErrorCopy } from '../../shared/selfServeErrors';
 import { eventWorkspaceQueryKey, useSendOnce } from '../../shared/runCommands';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import { AW1_APPLIED } from '../../shared/parityGate';
@@ -287,6 +287,8 @@ export function useDateSend(ws: EventWorkspace, occurrenceId: string | null) {
       await saveOccurrenceProgramme(occurrenceId as string, version, payload);
       reload();
     } catch (e) {
+      // the onboarding refusal goes up as itself, so the sheet's gatedCopy opens the A1 gate (P3-GATE)
+      if (isOnboardingRefusal(e)) throw e;
       const c = programmeErrorCopy(e);
       if (c.reload) reload();
       throw new DateSaveError(c.message);

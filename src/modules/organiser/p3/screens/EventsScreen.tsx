@@ -1,7 +1,7 @@
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
-import { ChangeItLink, EventList, RetryButton, StateCard } from './parts';
+import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 
 const PAST = 'Past and nothing coming up';
 
@@ -24,7 +24,7 @@ export function EventsScreen() {
     return (
       <StateCard title="No events here yet" testId="p3-events-empty">
         <p>Events you run show up here.</p>
-        <ChangeItLink>Add an event in the current organiser area</ChangeItLink>
+        <AddEventLink />
       </StateCard>
     );
   }
@@ -45,7 +45,7 @@ export function EventsScreen() {
         </section>
       )}
       <p className="p3-note">
-        Tap an event to open it. To change or add one: <ChangeItLink>use the current organiser area</ChangeItLink>.
+        Tap an event to open and change it, or <AddEventLink>add an event</AddEventLink>.
       </p>
     </div>
   );

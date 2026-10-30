@@ -2,7 +2,7 @@
  * Every URL in the P3 organiser area (flag organiserP3). A separate base from
  * the R1 area (/account/o), so nothing there changes while P3 is built.
  */
-import { ORG_PATHS } from '../../shell/paths';
+import { ORG_PATHS, type NewEventFormat } from '../../shell/paths';
 
 export const P3_BASE = '/account/p3';
 
@@ -42,6 +42,19 @@ export const P3_PATHS = {
   eventDoor: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/door`,
   /** One event's History, read only (W3b-1). */
   eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
+  /** One event's co-organiser pages (R1 SeriesOrganisers in P3's frame). */
+  eventOrganisers: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/organisers`,
+  /** New event: R1's create steps (flows/new) in P3's frame, same step URLs under P3. */
+  newWhat: `${P3_BASE}/new/what`,
+  newWhatFor: (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/new/what?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/new/what`),
+  newName: (format: NewEventFormat) => `${P3_BASE}/new/name?format=${encodeURIComponent(format)}`,
+  newVenue: (seriesId: string) => `${P3_BASE}/new/${encodeURIComponent(seriesId)}/venue`,
+  newDate: (seriesId: string) => `${P3_BASE}/new/${encodeURIComponent(seriesId)}/date`,
+  newTime: (seriesId: string) => `${P3_BASE}/new/${encodeURIComponent(seriesId)}/time`,
+  newCover: (seriesId: string) => `${P3_BASE}/new/${encodeURIComponent(seriesId)}/cover`,
+  /** Account (R1 More) and Help, pushed from You (back = You, Help's back = Account). */
+  youAccount: `${P3_BASE}/you/account`,
+  youHelp: `${P3_BASE}/you/help`,
 } as const;
 
 /** Onboarding's Review for a page (where Home's Continue and the editor's "To finish" line go). */

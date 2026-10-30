@@ -11,6 +11,7 @@ import {
 import type { PreviewRepeat } from '../data/repeat';
 import { repeatShapeOf } from '../data/dateFacts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
+import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
@@ -141,6 +142,9 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const [pv, setPv] = useState<PreviewState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const gated = useGatedCopy();
+  // the dry-run preview re-asks the server on every change: it opens the gate at most once per sheet (Save, every time)
+  const gatedPreview = useGatedCopy({ once: true });
   const [nonce, setNonce] = useState(0);
   const seq = useRef(0);
   const held = useRef<{ sig: string; key: string } | null>(null);
@@ -161,7 +165,8 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
     const t = setTimeout(() => {
       preview(previewCommand(draft)).then(
         (raw) => { if (seq.current === mine) setPv({ key, state: 'ok', data: parsePreview(raw) }); },
-        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: previewFailure(e) }); },
+        // a refused dry run opens the A1 gate; the preview then reads "not checked yet" with its Check again (P3-GATE)
+        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: gatedPreview(e, previewFailure) ?? REPEAT_COPY.previewNeeded }); },
       );
     }, 350);
     return () => { clearTimeout(t); seq.current += 1; };
@@ -193,7 +198,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
       held.current = null;
       onDone({ text: REPEAT_COPY.saved, undo: null, version: typeof res?.new_version === 'number' ? res.new_version : null });
     } catch (e) {
-      setError(repeatFailure(e));
+      setError(gated(e, repeatFailure));
     } finally {
       setBusy(false);
     }
