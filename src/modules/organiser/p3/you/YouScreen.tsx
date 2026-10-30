@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { YouTicketsRow } from '../shell/youTickets';
 import { useQuery } from '@tanstack/react-query';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
-import { NO_PAGE } from '@/modules/organiser/shared/teamRules';
+import { NO_PAGE_ADD } from '@/modules/organiser/shared/teamRules';
 import { fetchProfileProgress, profileProgressQueryKey } from '@/modules/organiser/shared/profileProgress';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { ROLE_LABEL } from '@/modules/organiser/shared/teamModel';
@@ -107,9 +107,9 @@ export function YouScreen() {
       {organiser ? (
         <PageCard page={organiser} />
       ) : (
-        <StateCard title={YOU.noPage} testId="p3-you-no-page">
-          <p>{NO_PAGE.body}</p>
-          <Link to={ORG_PATHS.help} className="p3-btn p3-btn-link" data-testid="p3-you-message-us">{YOU.messageUs}</Link>
+        <StateCard title={NO_PAGE_ADD.title} testId="p3-you-no-page">
+          <p>{NO_PAGE_ADD.body}</p>
+          <Link to={P3_SURFACE.addPage} className="p3-btn p3-btn-link" data-testid="p3-you-add-page-link">{NO_PAGE_ADD.action}</Link>
         </StateCard>
       )}
       <YouTicketsRow />

@@ -26,8 +26,13 @@ const OK: Gate = { ok: true, reason: null, messageUs: false };
 const no = (reason: string, messageUs = false): Gate => ({ ok: false, reason, messageUs });
 
 export const MESSAGE_US = 'Message us';
-/** The no-page copy for You, Team and the page editor (one string, with the Message us link). */
+/** The no-page copy for Team and Hand over (with the Message us link); P3 You and the page editor use NO_PAGE_ADD. */
 export const NO_PAGE = { title: 'You don\u2019t run a page yet', body: INVITE_REQUIRED_COPY } as const;
+/**
+ * The no-page copy for P3 You and the page editor (owner click 2026-10-30): Add a page (P3 youAdd, where
+ * Home sends a 0-page person) finds, claims and asks to join, so the copy says that and links there.
+ */
+export const NO_PAGE_ADD = { title: NO_PAGE.title, body: 'Find your page to claim it, or ask to join its team.', action: 'Add a page' } as const;
 
 export const NO_OWNER_REASON = (what: string) => `This page has no owner yet, so only the Bachata Calendar team can ${what}.`;
 export const TEAM_REASONS = {
