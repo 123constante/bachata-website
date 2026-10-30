@@ -117,7 +117,9 @@ const AuthContent = () => {
   // to the signed-in landing (a guarded page that bounces straight back here).
   const browseTo = explicitReturnTo || "/";
   const userType = searchParams.get("userType");
-  const mode = searchParams.get("mode") || "signup";
+  // L1: only an explicit mode=signup opens sign-up; a bare /auth (or any other
+  // value) is a returning person following a link, so it opens sign-in.
+  const mode = searchParams.get("mode") === "signup" ? "signup" : "signin";
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   // D7: a reload within 10 minutes of the send reopens the code box for the same
