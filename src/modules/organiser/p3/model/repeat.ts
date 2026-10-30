@@ -295,6 +295,83 @@ export function storedRuleWords(rule: unknown, today: IsoDate): string {
   return 'A pattern set by the Bachata Calendar team.';
 }
 
+// ---- how it repeats, for every screen (event page Repeats row, Repeat sheet, Skip) --------
+
+/**
+ * A weekly pattern read off the stored dates, for a recurring series with NO stored rule (prod
+ * 2026-10-30: 9 live and 13 ended `recurring` series, every one a legacy import; the rule is only
+ * written by series.set_recurrence). Read-only: nothing is saved. Clear means: 3+ dates on one
+ * weekday, every gap a whole number of the smallest gap (1..4 weeks), and at least half the gaps
+ * that small. A series whose dates are weeks apart at random says nothing.
+ */
+export interface DatesPattern { weekday: number; interval: number; first: IsoDate }
+
+const dayNo = (k: IsoDate) => {
+  const [y, m, d] = k.split('-').map(Number);
+  return Math.round(Date.UTC(y, m - 1, d) / 864e5);
+};
+
+export function patternOfDates(dates: ReadonlyArray<IsoDate>): DatesPattern | null {
+  const ds = [...new Set(dates)].sort();
+  if (ds.length < 3) return null;
+  const ns = ds.map(dayNo);
+  const gaps = ns.slice(1).map((n, i) => n - ns[i]);
+  const step = Math.min(...gaps);
+  if (step % 7 !== 0 || step > 7 * REPEAT_MAX.interval || gaps.some((g) => g % step !== 0)) return null;
+  if (gaps.filter((g) => g === step).length * 2 < gaps.length) return null;
+  return { weekday: defaultWeekday(ds[0]), interval: step / 7, first: ds[0] };
+}
+
+/** Whether a date falls on a dates pattern's cadence (Skip / Not usual day judge it as a rule date). */
+export const onPatternCadence = (p: DatesPattern, date: IsoDate): boolean =>
+  date >= p.first && (dayNo(date) - dayNo(p.first)) % (7 * p.interval) === 0;
+
+/**
+ * THE shape of how a series repeats. rule: a stored rule. dates: no rule, a weekly pattern read off
+ * the dates. loose: no rule and the dates say nothing (never "doesn't repeat": it is a recurring
+ * series). once: a one-off or a festival, which truly does not repeat.
+ */
+export type RepeatShape =
+  | { from: 'rule'; rule: unknown }
+  | { from: 'dates'; pattern: DatesPattern }
+  | { from: 'loose' }
+  | { from: 'once' };
+
+/** `dates` = every stored date (cancelled too) and every break (removed_dates). */
+export function repeatShape(f: { format: string | null; rule: unknown; dates: ReadonlyArray<IsoDate> }): RepeatShape {
+  if (f.rule != null) return { from: 'rule', rule: f.rule };
+  const kind = kindOf(f.format, null);
+  if (kind === 'oneoff' || kind === 'festival') return { from: 'once' };
+  const pattern = patternOfDates(f.dates);
+  return pattern ? { from: 'dates', pattern } : { from: 'loose' };
+}
+
+const datesWords = (p: DatesPattern) =>
+  patternWords({ ...blankDraft(p.weekday), weekdays: [p.weekday], interval: p.interval });
+
+export const REPEAT_SHAPE_COPY = {
+  once: 'Doesn\u2019t repeat',
+  dates: (p: DatesPattern) => `${datesWords(p)}, going by its dates. No pattern is saved.`,
+  loose: 'No pattern is saved, so each date is set on its own.',
+  /** The Repeat sheet's note above the editor when nothing is saved yet. */
+  noteDates: (p: DatesPattern) => `No pattern is saved; its dates run ${datesWords(p).replace(/^Every/, 'every')}. Pick the days to save it as a pattern.`,
+  noteLoose: 'No pattern is saved, so each date is set on its own. Pick the days to save a pattern, or change single dates under Coming up.',
+} as const;
+
+/** How it repeats in words: the Repeats row and the read-only Repeat sheet alike. */
+export function repeatWords(shape: RepeatShape, today: IsoDate): string {
+  if (shape.from === 'rule') return storedRuleWords(shape.rule, today);
+  if (shape.from === 'dates') return REPEAT_SHAPE_COPY.dates(shape.pattern);
+  return shape.from === 'loose' ? REPEAT_SHAPE_COPY.loose : REPEAT_SHAPE_COPY.once;
+}
+
+/** The editable sheet's note when no rule is stored; null when a rule is. */
+export function noRuleNote(shape: RepeatShape): string | null {
+  if (shape.from === 'dates') return REPEAT_SHAPE_COPY.noteDates(shape.pattern);
+  if (shape.from === 'loose') return REPEAT_SHAPE_COPY.noteLoose;
+  return shape.from === 'once' ? REPEAT_COPY.noRule : null;
+}
+
 // ---- the dry-run preview ----------------------------------------------------------------
 
 export interface RepeatPreview {

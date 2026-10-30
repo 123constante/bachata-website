@@ -171,10 +171,11 @@ describe('All dates: filters, breaks, the honest cap', () => {
     for (const c of page.coming) expect(v.rows.find((r) => r.id === c.id)!.tags).toEqual(c.tags);
     expect(allDatesOf(w, TODAY, 'past').rows.map((r) => [r.date, r.tags])).toEqual([['2026-10-23', [L.done]], ['2026-10-16', [L.done]]]);
   });
-  it('a break on the weekly cadence is listed (Put this week back); an off-cadence tombstone (a removed added date) is not', () => {
+  it('every break is listed (p3-prefix-c), an off-cadence tombstone too: its Put this week back says why it cannot', () => {
     const w = parseEventWorkspace(wsRaw({ removed_dates: ['2026-11-20', '2026-11-18'] }, [], weekly('2026-10-30', 3).map((d) => occ(d))));
     const breaks = allDatesOf(w, TODAY, 'breaks').rows;
-    expect(breaks.map((b) => [b.id, b.date, b.facts.state, b.tags])).toEqual([[null, '2026-11-20', 'skip', [L.skipped]]]);
+    expect(breaks.map((b) => [b.id, b.date, b.facts.state, b.tags])).toEqual([[null, '2026-11-18', 'skip', [L.skipped]], [null, '2026-11-20', 'skip', [L.skipped]]]);
+    expect(breaks.map((b) => b.facts.ruleDate)).toEqual([false, true]);
   });
   it('over 100: the newest 100 of 131, said honestly; nothing paged from a second read', () => {
     const w = ws('over100');
@@ -197,11 +198,11 @@ describe('All dates: filters, breaks, the honest cap', () => {
     expect(msg('has_bookings: occurrence x on 2026-10-30 has attendance or guest-list entries and cannot be made a break (cancel it instead)')).toContain('cannot be skipped');
     expect(msg('has_bookings: occurrence x on 2026-10-30 has attendance or guest-list entries and cannot be deleted (cancel it instead)')).toContain('cannot be removed');
   });
-  it('recurring with recurrence_rule null: no date is tagged Not the usual day, skip says no pattern (r1 finding 5)', () => {
+  it('recurring with recurrence_rule null and weekly dates: no date is tagged Not the usual day, each is on the dates pattern (r1 finding 5, p3-prefix-c)', () => {
     const w = parseEventWorkspace(wsRaw({ recurrence_rule: null }, [], weekly('2026-10-30', 3).map((d) => occ(d))));
     const rows = allDatesOf(w, TODAY, 'coming').rows;
     expect(rows).toHaveLength(3);
-    for (const r of rows) { expect(r.tags).toEqual([]); expect(r.facts.ruleDate).toBeNull(); }
+    for (const r of rows) { expect(r.tags).toEqual([]); expect(r.facts.ruleDate).toBe(true); }
   });
   it('empty states never point at a greyed control (r1 finding 6)', () => {
     const oneoff = parseEventWorkspace(wsRaw({ format: 'one_off', recurrence_rule: null }, [], [occ('2026-10-16')]));
