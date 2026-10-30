@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type { ScannerDeps } from '../camera';
 
@@ -85,6 +85,21 @@ describe('the door list answer x the screen', () => {
       fireEvent.click(screen.getByTestId('door-tab-scan'));
       expect(await screen.findByTestId('door-codebox')).toBeTruthy();
       expect(screen.queryByTestId('door-result')).toBeNull();
+    }
+  });
+
+  it('offline from the start -> load_error (Check the signal + Try again), never "Loading" for ever', async () => {
+    onlineManager.setOnline(false);
+    try {
+      rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+      show();
+      fireEvent.click(screen.getByTestId('door-tab-list'));
+      const err = await screen.findByTestId('door-list-error', {}, { timeout: 4000 });
+      expect(err.textContent).toContain('Check the signal');
+      expect(err.textContent).toContain('Try again');
+      expect(screen.queryByTestId('door-list-loading')).toBeNull();
+    } finally {
+      onlineManager.setOnline(true);
     }
   });
 
