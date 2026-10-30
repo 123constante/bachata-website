@@ -64,7 +64,7 @@ describe('show_going_photo: the delta (one rule, buildDelta)', () => {
 describe('the Edit screen switch', () => {
   it('default OFF, with its one line, a 44px+ explicit-px control and an accessible name', async () => {
     renderInShell({ path: '/app/me/edit', backend: { profile: { ...complete, show_going_photo: false } } });
-    const sw = await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel }, { timeout: 5000 });
+    const sw = await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel });
     expect(sw.getAttribute('aria-checked')).toBe('false');
     expect(sw.className).toMatch(/h-\[44px\]/);
     expect(sw.className).toMatch(/w-\[56px\]/);
@@ -75,7 +75,7 @@ describe('the Edit screen switch', () => {
   it('untouched: Save stays off with its reason, nothing is sent', async () => {
     const backend = createFakeBackend({ profile: complete });
     renderInShell({ path: '/app/me/edit', backend });
-    await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel }, { timeout: 5000 });
+    await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel });
     expect((screen.getByTestId('edit-save') as HTMLButtonElement).disabled).toBe(true);
     expect(backend.calls.filter((c) => c.fn === 'saveMyDancerProfile')).toEqual([]);
   });
@@ -83,7 +83,7 @@ describe('the Edit screen switch', () => {
   it('toggled on: Save sends ONLY { show_going_photo: true }', async () => {
     const backend = createFakeBackend({ profile: complete });
     renderInShell({ path: '/app/me/edit', backend });
-    const sw = await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel }, { timeout: 5000 });
+    const sw = await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel });
     fireEvent.click(sw);
     expect(sw.getAttribute('aria-checked')).toBe('true');
     const save = screen.getByTestId('edit-save') as HTMLButtonElement;
@@ -95,7 +95,7 @@ describe('the Edit screen switch', () => {
 
   it('toggled twice: back to untouched, Save is off again', async () => {
     renderInShell({ path: '/app/me/edit', backend: { profile: complete } });
-    const sw = await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel }, { timeout: 5000 });
+    const sw = await screen.findByRole('switch', { name: GOING_COPY.photoSwitchLabel });
     fireEvent.click(sw);
     fireEvent.click(sw);
     expect((screen.getByTestId('edit-save') as HTMLButtonElement).disabled).toBe(true);
