@@ -8,8 +8,14 @@
 }
 .p3-theme .p3-new-kind:disabled { cursor: default; border-style: dashed; border-color: var(--line); color: var(--mut); }
 .p3-theme .p3-new-kind:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
-/* the "Coming soon" pill stays inside a 3-column card at 390px (phone walk 2026-10-30) */
-.p3-theme .p3-new-kind .p3-tag { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+/* The "Coming soon" pill sits BELOW the description in normal flow and the tile grows to fit. The shared
+ * .p3-tag is a fixed 24px tall: when the pill wraps to two lines in a 3-column tile (390px, 360px) its text
+ * spilled up over the description's last line (lead walk 2026-10-30). Here its height follows its text.
+ * Pinned by tests/e2e/walk-p3-create-kinds.spec.ts. */
+.p3-theme .p3-new-kind .p3-tag {
+  max-width: 100%; height: auto; min-height: 24px; padding: 3px 8px; margin-top: 2px;
+  line-height: 1.25; white-space: normal; overflow-wrap: anywhere;
+}
 .p3-theme .p3-new-kind-t { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
 .p3-theme .p3-new-kind-s { font-size: 13px; color: var(--mut); line-height: 1.3; overflow-wrap: anywhere; }
 .p3-theme .p3-new-row {
