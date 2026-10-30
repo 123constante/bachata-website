@@ -7,14 +7,14 @@ import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
 import { eventPageOf, type EventPageView } from '../data/eventPage';
 import { L, addDateWhy, peopleText, sessionKindLabel, sessionTitle, timeWord } from '../model';
-import { seriesFactsOf, tagClass } from '../data/dates';
+import { repeatShapeOf, seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { RetryButton, StateCard } from './parts';
 import { StatusSheet, type Send } from './StatusSheet';
 import { RepeatSheet } from './RepeatSheet';
 import { previewRepeat } from '../data/repeat';
-import { storedRuleWords } from '../model/repeat';
+import { repeatWords } from '../model/repeat';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { useToast } from './Toast';
 import { useSavedToast } from './savedToast';
@@ -214,7 +214,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       <button type="button" className="p3-card p3-status-row" onClick={() => setRepeat(true)} data-testid="p3-open-repeat">
         <span className="p3-grow">
           <span className="p3-row-t">Repeats</span><br />
-          <span className="p3-row-s" data-testid="p3-repeat-row">{storedRuleWords(ws.series.recurrence_rule, today)}</span>
+          <span className="p3-row-s" data-testid="p3-repeat-row">{repeatWords(repeatShapeOf(ws), today)}</span>
         </span>
         <span aria-hidden="true">&rsaquo;</span>
       </button>
