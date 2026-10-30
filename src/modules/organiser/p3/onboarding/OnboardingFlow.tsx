@@ -340,7 +340,10 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           }, { replace: true });
         }
       }}
-      onAsked={(name) => go({ kind: 'asked', name })}
+      onAsked={(name) => {
+        void qc.invalidateQueries({ queryKey: myAccessRequestsQueryKey(user.id) });
+        go({ kind: 'asked', name });
+      }}
       onFinishProfile={() => navigate(finishProfileHref(orgId || !d ? P3_PATHS.start : keptCreateHref(P3_PATHS.start, d)))}
       onFullClaim={() => navigate(P3_PATHS.youAdd)}
       invalidate={invalidate}
