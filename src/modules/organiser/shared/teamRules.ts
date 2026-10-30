@@ -26,7 +26,7 @@ const OK: Gate = { ok: true, reason: null, messageUs: false };
 const no = (reason: string, messageUs = false): Gate => ({ ok: false, reason, messageUs });
 
 export const MESSAGE_US = 'Message us';
-/** The no-page copy for You, Team and the page editor (one string, with the Message us link). */
+/** The no-page copy for Team and Hand over (with the Message us link); P3 You and the page editor use NO_PAGE_ADD. */
 export const NO_PAGE = { title: 'You don\u2019t run a page yet', body: INVITE_REQUIRED_COPY } as const;
 /**
  * The no-page copy for P3 You and the page editor (owner click 2026-10-30): Add a page (P3 youAdd, where

@@ -1,6 +1,5 @@
 import { requiredLeftText } from '@/modules/organiser/shared/profileProgress';
 import { P3_PATHS } from '../shell/paths';
-import { NO_PAGE } from '@/modules/organiser/shared/teamRules';
 
 /**
  * The You hub's rows (mockup p3-w4a A), as data: ONE entry per row, in order. A new row (e.g.
@@ -16,7 +15,7 @@ export interface YouFacts {
   requests: number;
   /** my_profile_progress_v1 required_left for the shown page; 0 when ready or unknown. */
   requiredLeft: number;
-  /** Add a page (R1 Home's add sheet; P3 has none of its own). */
+  /** Add a page (P3 youAdd: find, claim, ask to join, create). */
   addPage: string;
 }
 
@@ -39,13 +38,11 @@ export const YOU = {
   pageRequired: (n: number) => `Required to publish: ${requiredLeftText(n)}`,
   team: 'Team',
   teamSub: (n: number) => (n === 1 ? 'Just you' : `${n} people`),
-  // Says why, never "add one": at 0 pages there is no add here; the no-page card above has Message us.
+  // Says why, never "add one": at 0 pages the no-page card above has the Add a page link.
   teamNoPage: 'A team belongs to a page, and you don\u2019t run one yet.',
   addPage: 'Add another page',
   account: 'Account and help',
   accountSub: 'Sign out, help, leave a page',
-  noPage: NO_PAGE.title,
-  messageUs: 'Message us',
   loading: 'Loading your pages\u2026',
   failed: 'Your pages did not load',
   failedBody: 'Check your connection, then try again.',
