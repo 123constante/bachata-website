@@ -53,7 +53,7 @@ export function HomeScreen() {
     if (confirmation && home.isFetching) {
       return <StateCard title="Loading your events&hellip;" testId="p3-home-loading">This takes a second.</StateCard>;
     }
-    return <Navigate to={P3_PATHS.youAdd} replace />;
+    return <Navigate to={P3_PATHS.start} replace />;
   }
 
   // A claim or a create that just landed here says so (W4b), and so do pages claimed at sign-in.
