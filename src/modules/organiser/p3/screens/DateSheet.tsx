@@ -21,6 +21,7 @@ import {
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
 import { DateFieldSheet, type FieldStep } from './DateFieldSheets';
+import { P3NightGoing } from './P3Going';
 import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import { DateSessions } from './SessionSheet';
@@ -369,6 +370,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
         {rows.map((r) => <ActionChoice key={r.action} row={r} busy={busy} onPick={pick} />)}
       </div>
       <Err error={error} />
+      <P3NightGoing seriesId={ws.series.id} seriesName={ws.series.name.trim() || L.noName} nightKey={{ occurrenceId: d.id }} testId="p3-date-going" />
       {/* W2d: this date's sessions (organiser_get_occurrence_programme_v1), each opening the session sheet on "Just this date" */}
       <DateSessions ws={ws} today={today} date={d} onDone={onDone} />
     </Sheet>

@@ -27,6 +27,7 @@ export const GOING_RPC = {
   mine: 'get_my_going_v1',
   dancerExtras: 'get_public_dancer_extras_v1',
   myEvent: 'get_my_event_going_v1',
+  mySeries: 'get_my_series_going_v1',
   myTotal: 'get_my_organiser_going_total_v1',
 } as const;
 
@@ -261,6 +262,14 @@ export const parseMyEventGoing = (v: unknown, publicEventId: string): MyEventGoi
  */
 export const fetchMyEventGoing = async (publicEventId: string): Promise<MyEventGoing> =>
   parseMyEventGoing(await call(GOING_RPC.myEvent, { p_public_event_id: publicEventId }), publicEventId);
+
+/**
+ * The same read by SERIES id (the id every organiser row carries), via
+ * get_my_series_going_v1, which resolves the public event id and answers
+ * exactly what get_my_event_going_v1 answers. Same response type and refusals.
+ */
+export const fetchMySeriesGoing = async (seriesId: string): Promise<MyEventGoing> =>
+  parseMyEventGoing(await call(GOING_RPC.mySeries, { p_series_id: seriesId }), seriesId);
 
 // ---------------------------------------------------------------- organiser total (Stats)
 

@@ -8,6 +8,7 @@ import { P3_PATHS } from '../shell/paths';
 import { flags } from '@/lib/featureFlags';
 import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
 import { GraceBanner } from './GraceBanner';
+import { P3NightGoing } from './P3Going';
 import { AddEventLink, EventList, P3Link, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
 
 /** Why there is no Next up, and what the person can do about it (the state decides the words). */
@@ -100,6 +101,9 @@ export function HomeScreen() {
           <div className="p3-hero-name">{next.row.name}</div>
           {next.row.place && <div className="p3-row-s">{next.row.place}</div>}
           {next.different && <div className="p3-row-s" data-testid="p3-different">This date is different from usual.</div>}
+          {next.row.next && (
+            <P3NightGoing seriesId={next.row.id} seriesName={next.row.name} nightKey={{ date: next.row.next.date }} testId="p3-nextup-going" />
+          )}
         </section>
       ) : (
         <StateCard title="Nothing coming up" testId="p3-nextup-none">

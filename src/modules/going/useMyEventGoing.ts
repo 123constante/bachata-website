@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
-import { GoingRpcError, fetchMyEventGoing, type MyEventGoing, type MyEventGoingNight } from './goingRpc';
+import { GoingRpcError, fetchMyEventGoing, fetchMySeriesGoing, type MyEventGoing, type MyEventGoingNight } from './goingRpc';
 import { organiserGoingStateFor, type GoingErrorCode, type OrganiserGoingView } from './goingState';
 import { goingKeys } from './useNightGoing';
 
@@ -40,15 +40,15 @@ export type MyEventGoingResult = {
  */
 export const useMyEventGoing = (
   publicEventId: string | null | undefined,
-  opts: { enabled?: boolean } = {},
+  opts: { enabled?: boolean; /** the id is a SERIES id (organiser rows): read via get_my_series_going_v1 */ bySeries?: boolean } = {},
 ): MyEventGoingResult => {
   const { user, isLoading } = useAuth();
   const signedIn = Boolean(user?.id) && !user?.is_anonymous;
   const on = GOING_CHECKIN_ENABLED && (opts.enabled ?? true);
   const validId = Boolean(publicEventId) && UUID.test(publicEventId as string);
   const q = useQuery({
-    queryKey: goingKeys.event(signedIn ? user?.id : null, publicEventId),
-    queryFn: () => fetchMyEventGoing(publicEventId as string),
+    queryKey: goingKeys.event(signedIn ? user?.id : null, opts.bySeries && publicEventId ? `series:${publicEventId}` : publicEventId),
+    queryFn: () => (opts.bySeries ? fetchMySeriesGoing : fetchMyEventGoing)(publicEventId as string),
     enabled: on && signedIn && validId,
     staleTime: ORGANISER_GOING_STALE_MS,
     retry: retryable,
