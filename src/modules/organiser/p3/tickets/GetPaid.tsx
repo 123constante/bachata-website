@@ -18,6 +18,7 @@ import {
 } from '../../tickets/ticketModel';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { P3_PATHS } from '../shell/paths';
+import { P3PushedShell } from '../you/surface';
 import { ChangeItLink, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
 import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt } from './model';
@@ -63,7 +64,7 @@ export function MoneySoFar({ types }: { types: readonly TypeSales[] }) {
 }
 
 /** You > Get paid (route you/get-paid): Stripe state, the Connect button, setup and money so far. */
-export function GetPaidScreen() {
+function GetPaidContent() {
   const home = useP3Home();
   const [params, setParams] = useSearchParams();
   const org = payingOrganiser(home.data, params.get('o'));
@@ -81,14 +82,13 @@ export function GetPaidScreen() {
     setParams(next, { replace: true });
   }, [stripeParam, params, setParams]);
 
-  const head = <Link className="p3-link" to={P3_PATHS.you}>&larr; You</Link>;
   if (home.isPending) {
-    return <div className="p3-stack">{head}<StateCard title="Loading&hellip;" testId="tix-getpaid-loading">This takes a second.</StateCard></div>;
+    return <div className="p3-stack"><StateCard title="Loading&hellip;" testId="tix-getpaid-loading">This takes a second.</StateCard></div>;
   }
   if (home.isError) {
     return (
       <div className="p3-stack">
-        {head}
+        
         <StateCard title="We couldn&rsquo;t load your page" testId="tix-getpaid-home-error">
           <p>Check your connection, then try again.</p>
           <RetryButton onClick={() => void home.refetch()} />
@@ -99,7 +99,7 @@ export function GetPaidScreen() {
   if (!org) {
     return (
       <div className="p3-stack">
-        {head}
+        
         <StateCard title="No organiser page yet" testId="tix-getpaid-nopage">
           <p>Set up your organiser page first, then come back here to get paid for tickets.</p>
           <ChangeItLink>Do it in the current organiser area</ChangeItLink>
@@ -107,7 +107,16 @@ export function GetPaidScreen() {
       </div>
     );
   }
-  return <div className="p3-stack" data-testid="tix-getpaid">{head}<GetPaidBody org={org} back={back} /></div>;
+  return <div className="p3-stack" data-testid="tix-getpaid"><GetPaidBody org={org} back={back} /></div>;
+}
+
+/** You > Get paid (route you/get-paid): in P3's pushed frame, the same one the You screens use. */
+export function GetPaidScreen() {
+  return (
+    <P3PushedShell title="Get paid" back={{ to: P3_PATHS.you, label: 'You' }}>
+      <GetPaidContent />
+    </P3PushedShell>
+  );
 }
 
 function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refresh' | null }) {

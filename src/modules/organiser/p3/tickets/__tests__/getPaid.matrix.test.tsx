@@ -161,3 +161,17 @@ describe('flag wiring (source)', () => {
     expect(P3_TICKET_PATHS.stripeBack('https://x.test', 'org 1', 'return')).toBe('https://x.test/account/p3/you/get-paid?o=org%201&stripe=return');
   });
 });
+
+describe('Get paid frame', () => {
+  it.each(['bare', 'pending'] as const)('sits in the same pushed frame as the You screens (%s)', (k) => {
+    load(shape({ stripe: 'connected', role: 'owner' }));
+    if (k === 'pending') q.home = pending();
+    show(<GetPaidScreen />, GP());
+    const main = document.querySelector('main.p3-main.p3-main-pushed');
+    expect(main).not.toBeNull();
+    expect(main?.querySelector('[data-testid="tix-getpaid-card"], [data-testid="tix-getpaid-loading"]')).not.toBeNull();
+    const back = document.querySelector('header.p3-top a.p3-back') as HTMLAnchorElement | null;
+    expect(back?.getAttribute('href')).toBe('/account/p3/you');
+    expect(document.querySelector('header.p3-top h1')?.textContent).toBe('Get paid');
+  });
+});
