@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { L } from '../model/labels';
+import { GateHost } from '../onboarding/GateHost';
 import { P3_PATHS, P3_TABS, type P3Tab } from './paths';
 import '../theme/p3.css';
 
@@ -60,6 +61,8 @@ export function P3Shell() {
           </NavLink>
         ))}
       </nav>
+      {/* A1 "A few details first": opened by any refused event write on these screens (P3-GATE) */}
+      <GateHost />
     </div>
   );
 }

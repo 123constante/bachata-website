@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRunCommands } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../shared/seriesCommands';
+import { gatedCopy } from '../onboarding/gate';
 import type { Done } from './StatusSheet';
 
 function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onClose: () => void }) {
@@ -31,7 +32,9 @@ export function useToast(seriesId: string, seriesVersion: number) {
       await run([cmd], version ?? seriesVersion);
       setToast({ text: 'Undone.', undo: null });
     } catch (e) {
-      setToast({ text: commandErrorMessage(e), undo: null });
+      // an onboarding refusal opens the A1 gate sheet; the toast just goes (P3-GATE)
+      const text = gatedCopy(e, commandErrorMessage);
+      setToast(text ? { text, undo: null } : null);
     }
   };
   const node = toast ? <Toast done={toast} onClose={close} onUndo={() => toast.undo && void undo(toast.undo, toast.version)} /> : null;

@@ -15,6 +15,7 @@ import {
   attemptFor, changedElsewhere, changedKeys, pendingLines, saveButton, stepLanded, type FieldSpec, type SaveAttempt,
 } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
+import { gatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 
 /**
@@ -114,7 +115,8 @@ export function useSaveRun(seriesId: string) {
       // a stale-version refusal ends the attempt: after "Start again" the same edit goes against the
       // new version with new keys, never the refused version again (PR #1082 r2 #1)
       if (isVersionConflict(e)) held.current = null;
-      setError(commandErrorMessage(e));
+      // an onboarding refusal opens the A1 gate sheet instead of an error line (P3-GATE)
+      setError(gatedCopy(e, commandErrorMessage));
       return { ok: false, version: last };
     } finally {
       setBusy(false);

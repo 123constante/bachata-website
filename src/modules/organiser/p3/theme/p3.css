@@ -364,3 +364,8 @@
 .p3-theme .p3-grace-txt { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .p3-theme .p3-grace-txt span { color: var(--mut); }
 .p3-theme .p3-grace-acts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* A1 gate sheet (p3-gate-screen): Continue is a link drawn as the 44px primary button */
+.p3-theme .p3-gate-go { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+/* the missing items are words, not taps: compact rows, so ten (the prod maximum) fit above the sticky buttons */
+.p3-theme .p3-gate-row { padding: 6px 0; font-size: var(--fs-small); font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
+.p3-theme .p3-gate-row + .p3-gate-row { border-top: 1px solid var(--line); }

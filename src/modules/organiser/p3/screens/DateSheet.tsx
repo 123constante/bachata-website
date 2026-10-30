@@ -21,6 +21,7 @@ import {
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
 import { DateFieldSheet, type FieldStep } from './DateFieldSheets';
+import { gatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import { DateSessions } from './SessionSheet';
 import type { Done } from './StatusSheet';
@@ -49,7 +50,7 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
       ring.current.forget(plan);
       onDone(done);
     } catch (e) {
-      setError(e instanceof PlanStepError ? e.message : commandErrorMessage(e));
+      setError(gatedCopy(e, (x) => (x instanceof PlanStepError ? x.message : commandErrorMessage(x))));
     } finally {
       setBusy(false);
     }

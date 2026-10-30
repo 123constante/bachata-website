@@ -5,6 +5,7 @@ import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import { L } from '../model';
 import { CANCEL_COPY, bringBackStep, cancelEventCommand, type CancelPlan } from '../data/eventPage';
+import { gatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import type { Done } from './StatusSheet';
 
@@ -51,7 +52,7 @@ export function CancelEventSheet({ name, plan, send, onDone, onClose }: {
         version: typeof res?.new_version === 'number' ? res.new_version : null,
       });
     } catch (e) {
-      setError(commandErrorMessage(e));
+      setError(gatedCopy(e, commandErrorMessage));
     } finally {
       setBusy(false);
     }

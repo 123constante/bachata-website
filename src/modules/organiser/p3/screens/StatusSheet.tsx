@@ -9,6 +9,7 @@ import {
   type StatusMove, type StatusRow,
 } from '../data/eventPage';
 import { CancelEventSheet, type SendOnce } from './CancelEventSheet';
+import { gatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 
 /** What the page does with a finished move: the toast, and the command that undoes it (if any). */
@@ -73,7 +74,7 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
       const v = await send([command], version);
       onDone({ ...done, version: v });
     } catch (e) {
-      setError(commandErrorMessage(e));
+      setError(gatedCopy(e, commandErrorMessage));
     } finally {
       setBusy(false);
     }

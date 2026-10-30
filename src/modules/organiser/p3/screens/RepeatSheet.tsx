@@ -11,6 +11,7 @@ import {
 import type { PreviewRepeat } from '../data/repeat';
 import { repeatShapeOf } from '../data/dateFacts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
+import { gatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
@@ -161,7 +162,8 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
     const t = setTimeout(() => {
       preview(previewCommand(draft)).then(
         (raw) => { if (seq.current === mine) setPv({ key, state: 'ok', data: parsePreview(raw) }); },
-        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: previewFailure(e) }); },
+        // a refused dry run opens the A1 gate; the preview then reads "not checked yet" with its Check again (P3-GATE)
+        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: gatedCopy(e, previewFailure) ?? REPEAT_COPY.previewNeeded }); },
       );
     }, 350);
     return () => { clearTimeout(t); seq.current += 1; };
@@ -193,7 +195,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
       held.current = null;
       onDone({ text: REPEAT_COPY.saved, undo: null, version: typeof res?.new_version === 'number' ? res.new_version : null });
     } catch (e) {
-      setError(repeatFailure(e));
+      setError(gatedCopy(e, repeatFailure));
     } finally {
       setBusy(false);
     }

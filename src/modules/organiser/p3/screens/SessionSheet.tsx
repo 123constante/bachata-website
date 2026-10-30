@@ -12,6 +12,7 @@ import {
 } from '../data/sessions';
 import { LineupSheet } from './LineupSheet';
 import { RetryButton } from './parts';
+import { gatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
 import type { Done } from './StatusSheet';
 
@@ -105,7 +106,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
       else if (b.payload && prog.data) await sendDate(began ?? prog.data.version, b.payload);
       onDone({ text, undo: null });
     } catch (e) {
-      setError(saveErrorCopy(e));
+      setError(gatedCopy(e, saveErrorCopy));
     } finally {
       setBusy(false);
     }
