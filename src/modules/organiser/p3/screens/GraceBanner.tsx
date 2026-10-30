@@ -7,7 +7,7 @@ import { londonTodayKey } from '@/lib/londonDate';
 import { OB_THEME_KEY, readObTheme } from '../onboarding/obEnv';
 import { GRACE_HIDE_KEY, graceShown, graceStatusFrom, onboardingLeft, thingsLeft } from '../onboarding/graceModel';
 import { fetchOnboardingStatus, onboardingStatusKey } from '../onboarding/statusQuery';
-import { P3_PATHS } from '../shell/paths';
+import { p3StartReview } from '../shell/paths';
 import { useOrganiserChoice } from '../../switch/useOrganiserChoice';
 
 // The sheet (and onboarding.css) load only when Settings is tapped.
@@ -30,7 +30,8 @@ export function GraceBanner({ fetcher = fetchOnboardingStatus }: { fetcher?: () 
   const { user } = useAuth();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: onboardingStatusKey(user?.id), queryFn: fetcher, enabled: !!user?.id, staleTime: 60_000, retry: false });
-  // The shown page, as the You tab counts it (one mapping, one page: the two never disagree).
+  // The shown page, as the You tab counts it (one mapping, one page: the two never disagree). Its "remember ?o="
+  // effect is inert here: no link into Home carries ?o=.
   const { selected } = useOrganiserChoice();
   const s = q.data ? graceStatusFrom(q.data, selected?.id ?? null) : null;
   const today = londonTodayKey();
@@ -66,7 +67,7 @@ export function GraceBanner({ fetcher = fetchOnboardingStatus }: { fetcher?: () 
             <span>{thingsLeft(onboardingLeft(s))}. Until then everything works as usual.</span>
           </div>
           <div className="p3-grace-acts">
-            <Link className="p3-btn" to={s.firstId ? `${P3_PATHS.start}?o=${encodeURIComponent(s.firstId)}&at=review` : P3_PATHS.start} data-testid="p3-grace-go">Continue</Link>
+            <Link className="p3-btn" to={p3StartReview(s.firstId)} data-testid="p3-grace-go">Continue</Link>
             <button type="button" className="p3-link" onClick={hide} data-testid="p3-grace-hide">Hide for today</button>
           </div>
         </section>

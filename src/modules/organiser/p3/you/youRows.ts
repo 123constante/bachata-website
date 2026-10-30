@@ -1,6 +1,6 @@
 import { P3_PATHS } from '../shell/paths';
 import { NO_PAGE } from '@/modules/organiser/shared/teamRules';
-import { thingsLeft } from '../onboarding/graceModel';
+import { toFinish } from '../onboarding/graceModel';
 
 /**
  * The You hub's rows (mockup p3-w4a A), as data: ONE entry per row, in order. A new row (e.g.
@@ -36,7 +36,7 @@ export const YOU = {
   switchSub: (n: number) => `${n} pages`,
   page: 'Organiser page',
   pageSub: 'Photo, about, links, contact',
-  pageRequired: (n: number) => `To finish: ${thingsLeft(n)}`,
+  pageRequired: toFinish,
   team: 'Team',
   teamSub: (n: number) => (n === 1 ? 'Just you' : `${n} people`),
   // Says why, never "add one": at 0 pages there is no add here; the no-page card above has Message us.

@@ -70,7 +70,7 @@ function install() {
     if (fn === 'organiser_onboarding_status_v1') {
       const codes = (n: number) => Array.from({ length: n }, (_, i) => `code_${i}`);
       const orgs = pages.map((p, i) => ({ id: p.id, complete: i === 0 ? left === 0 : false, missing: codes(i === 0 ? left : 5) })).reverse();
-      return { data: { v: 1, is_admin: false, complete: false, person: { complete: true, missing: [] }, organisers: orgs }, error: null };
+      return { data: { v: 1, is_admin: false, complete: orgs.every((o) => o.complete), person: { complete: true, missing: [] }, organisers: orgs }, error: null };
     }
     return { data: null, error: null };
   });

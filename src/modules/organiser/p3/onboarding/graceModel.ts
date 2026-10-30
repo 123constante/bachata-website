@@ -3,6 +3,9 @@
 
 export const thingsLeft = (n: number): string => (n === 1 ? '1 thing left' : `${n} things left`);
 
+/** The You row's and the page editor's words for the same count. */
+export const toFinish = (n: number): string => `To finish: ${thingsLeft(n)}`;
+
 /** "Hide for today" is per device, keyed by the London day it was hidden on. */
 export const GRACE_HIDE_KEY = 'p3-ob-grace-hidden';
 
@@ -19,6 +22,7 @@ const codes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is s
 export function graceStatusFrom(raw: unknown, organiserId: string | null = null): GraceStatus | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as { complete?: unknown; is_admin?: unknown; person?: { missing?: unknown } | null; organisers?: unknown };
+  // A code in both lists counts once (the server strips person codes from organisers[].missing today).
   if (!Array.isArray(r.person?.missing) || !Array.isArray(r.organisers)) return null;
   const orgs = r.organisers as RawOrg[];
   const page = organiserId !== null
