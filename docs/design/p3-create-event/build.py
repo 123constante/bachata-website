@@ -95,8 +95,7 @@ def s_venue(state):
 
 def s_when(kind):
     d = FRI if kind != "course" else TUE
-    base = (field("First date", day(d), hint="Pick any date &mdash; not only the next 30 days.") +
-            '<div class="p3-pair">' + field("Starts", "20:00") + field("Ends", "02:00", hint="Ends the next day") + "</div>")
+    base = (field("First date", day(d), hint="Pick any date &mdash; not only the next 30 days. The time comes from your first session, next.")) 
     if kind == "weekly":
         nxt = ", ".join(day(d + dt.timedelta(weeks=i)) for i in range(1, 4))
         base += ('<fieldset class="p3-ask"><legend>Repeats</legend>' + chips(["Every Friday", "Every other Friday"], (0,)) +
@@ -108,9 +107,16 @@ def s_when(kind):
                  f'</fieldset><p class="p3-note">8 sessions, every Tuesday: {day(d)} to {day(last)}. Skip a week later from the event page.</p>')
     return sheet("When is it?", base + '<button class="p3-btn">Done</button>')
 
+def sess_times(note=True):
+    t = ('<div class="p3-pair">' + field("First session starts", "20:00") + field("First session ends", "02:00", hint="Ends the next day") + "</div>")
+    if note:
+        t += '<p class="p3-note">The event shows <strong>20:00 to 02:00</strong>, from your sessions. Weekly: the same session repeats each week.</p>'
+    return t
+
 def s_what():
-    b = ('<p class="p3-note">This becomes the first session. You can add more, a line-up and levels later.</p>' + g3(WHAT, 2) +
-         chips(WHAT_MORE) + '<div class="p3-card p3-inset"><strong>Class 20:00&ndash;21:00</strong>Party 21:00&ndash;02:00</div>'
+    b = ('<p class="p3-note">This is your first session. An event has no start or end of its own: its times are its sessions&rsquo; times. You can add more sessions, a line-up and levels later.</p>' + g3(WHAT, 2) +
+         chips(WHAT_MORE) + sess_times() +
+         '<div class="p3-card p3-inset"><strong>Class, then party:</strong> Class 20:00&ndash;21:00, Party 21:00&ndash;02:00 (two sessions)</div>'
          '<fieldset class="p3-ask"><legend>Level (class)</legend>' + chips(["Beginner", "Improver", "Intermediate", "Advanced", "Open level"], (0, 1)) +
          '</fieldset><button class="p3-btn">Done</button>')
     return sheet("What happens?", b)
@@ -148,7 +154,7 @@ def offline_banner():
 def done(live=True):
     if live:
         m = ('<div class="m-ph on">Photo</div><div class="p3-head"><span class="p3-row-tags"><span class="p3-tag p3-tag-live"><span class="p3-dot"></span>Live</span><span class="p3-chip">Weekly</span></span>'
-             f'<p class="p3-name">Friday Bachata at The Loft</p><p class="p3-when">{day(FRI)}, 20:00 &middot; then every Friday</p></div>'
+             f'<p class="p3-name">Friday Bachata at The Loft</p><p class="p3-when">{day(FRI)}, 20:00 to 02:00, from your sessions &middot; then every Friday</p></div>'
              '<div class="p3-card"><strong>It is on the calendar</strong>Dancers can find it now. Add a line-up, a ticket link or more sessions any time.</div>')
         return phone(top("Event", "Home"), m, foot("Open event page", "Share"))
     m = ('<div class="p3-card p3-state"><strong>Saved as a draft</strong><p>Going live needs the next platform update. Your draft is safe on Home.</p></div>')
@@ -163,11 +169,11 @@ def a_page(stage, kind=1, extra=""):
     filled = stage != "empty"
     name = field("What is it called?", NAME_LONG if stage == "long" else ("Friday Bachata at The Loft" if filled else ""), "For example Friday Bachata at The Loft", "Up to 120 letters." if not filled else "")
     k = ["one", "weekly", "course"][kind or 0]
-    when_s = {"one": f"{day(FRI)}, 20:00&ndash;02:00", "weekly": f"Every Friday from {day(FRI)}, 20:00&ndash;02:00 &middot; keeps going",
-              "course": f"8 Tuesdays, {day(TUE)} to {day(TUE + dt.timedelta(weeks=7))}, 19:00&ndash;20:30"}[k]
+    when_s = {"one": f"{day(FRI)}", "weekly": f"Every Friday from {day(FRI)} &middot; keeps going",
+              "course": f"8 Tuesdays, {day(TUE)} to {day(TUE + dt.timedelta(weeks=7))}"}[k]
     rows = (row("Where", "The Loft, Shoreditch" if filled else "Pick a venue", "Change" if filled else "Pick", "m-done" if filled else "") +
-            row("When", when_s if filled else "Date and time", "Change" if filled else "Pick", "m-done" if filled else "") +
-            row("What happens", ("Class 19:00&ndash;20:30 &middot; Beginner" if k == "course" else "Class, then party") if filled else "First session", "Change" if filled else "Pick", "m-done" if filled else "") +
+            row("When", when_s if filled else "Date", "Change" if filled else "Pick", "m-done" if filled else "") +
+            row("What happens", ("Class 19:00&ndash;20:30 &middot; Beginner" if k == "course" else ("Party 20:00&ndash;02:00" if k == "one" else "Party 20:00&ndash;02:00, every Friday")) if filled else "First session (start and end)", "Change" if filled else "Pick", "m-done" if filled else "") +
             row("Photo", "Added" if stage == "ready" else "Needed to go live", "Add", "m-done" if stage == "ready" else ""))
     m = (extra + '<section><h2 class="p3-h2">What are you listing?</h2>' + kinds + "</section><section>" + name + "</section>" +
          card("Details", rows) +
@@ -209,15 +215,15 @@ def b_step(n, kind=1, extra=""):
     elif n == 2:
         k = ["one", "weekly", "course"][kind or 0]
         m = (extra + card("Where", row("The Loft", "Shoreditch &middot; London", "Change", "m-done")) +
-             '<section><h2 class="p3-h2">When</h2><div class="p3-card">' + field("First date", day(TUE if k == "course" else FRI)) +
-             '<div class="p3-pair">' + field("Starts", "20:00") + field("Ends", "02:00", hint="Ends the next day") + "</div>" +
+             '<section><h2 class="p3-h2">When</h2><div class="p3-card">' + field("First date", day(TUE if k == "course" else FRI), hint="The time comes from your first session, in step 3.") +
              ('<p class="p3-field">Repeats</p>' + chips(["Every Friday", "Every other Friday"], (0,)) + '<p class="p3-field">Runs until</p>' + chips(["Keeps going", "A date I pick"], (0,)) if k == "weekly" else "") +
              ('<p class="p3-field">How many weeks?</p>' + chips(["4", "6", "8", "10", "12", "Other"], (2,)) + f'<p class="p3-note p3-gap-t">8 Tuesdays, {day(TUE)} to {day(TUE + dt.timedelta(weeks=7))}.</p>' if k == "course" else "") +
              "</div></section>")
         f, t = foot("Next", "Back"), "2 of 3 &middot; Where and when"
     else:
         m = (extra + '<section><h2 class="p3-h2">What happens?</h2>' + g3(WHAT, 2) + '<div class="p3-gap-t">' + chips(WHAT_MORE) + "</div></section>" +
-             '<div class="p3-card p3-inset"><strong>Class 20:00&ndash;21:00</strong>Party 21:00&ndash;02:00 &middot; change times later on the event page</div>' +
+             '<section><h2 class="p3-h2">First session</h2><div class="p3-card">' + sess_times() + "</div></section>" +
+             '<div class="p3-card p3-inset"><strong>Class, then party:</strong> Class 20:00&ndash;21:00, Party 21:00&ndash;02:00 &middot; add or change sessions later on the event page</div>' +
              '<section><h2 class="p3-h2">Photo</h2><button class="m-ph">Add a photo &mdash; JPEG, PNG or WebP under 10 MB</button></section>')
         f, t = foot("Go live", "Back", "Add a photo to go live."), "3 of 3 &middot; What happens"
     return phone(top(t, "Cancel") + steps(n, 3), m, f)
@@ -254,11 +260,12 @@ def c_fork():
 
 def c_form(kind, extra="", stage="part"):
     title = {"one": "New one night", "weekly": "New weekly night", "course": "New course"}[kind]
-    when = {"one": row("When", f"{day(FRI)}, 20:00&ndash;02:00", "Change", "m-done"),
-            "weekly": row("Every", "Friday, 20:00&ndash;02:00", "Change", "m-done") + row("Starts", day(FRI) + " &middot; keeps going", "Change", "m-done"),
-            "course": row("Every", "Tuesday, 19:00&ndash;20:30", "Change", "m-done") + row("Weeks", f"8 &middot; {day(TUE)} to {day(TUE + dt.timedelta(weeks=7))}", "Change", "m-done") +
+    when = {"one": row("When", f"{day(FRI)}", "Change", "m-done"),
+            "weekly": row("Every", "Friday", "Change", "m-done") + row("First date", day(FRI) + " &middot; keeps going", "Change", "m-done"),
+            "course": row("Every", "Tuesday", "Change", "m-done") + row("Weeks", f"8 &middot; {day(TUE)} to {day(TUE + dt.timedelta(weeks=7))}", "Change", "m-done") +
                       row("Level", "Beginner", "Change", "m-done")}[kind]
-    what = row("What happens", "Party", "Change", "m-done") if kind == "one" else ("" if kind == "course" else row("What happens", "Party", "Change", "m-done"))
+    what = {"one": row("First session", "Party 20:00&ndash;02:00", "Change", "m-done"), "weekly": row("First session", "Party 20:00&ndash;02:00, every Friday", "Change", "m-done"),
+            "course": row("First session", "Class 19:00&ndash;20:30", "Change", "m-done")}[kind]
     m = (extra + field("Name", "Friday Bachata at The Loft" if kind != "course" else "Beginners Bachata, 8 weeks") +
          card("Details", row("Where", "The Loft, Shoreditch", "Change", "m-done") + when + what) +
          ('<div class="m-ph on">Photo added</div>' if stage == "ready" else '<button class="m-ph">Add a photo &mdash; JPEG, PNG or WebP under 10 MB</button>'))
@@ -270,7 +277,7 @@ def approach_c():
             shot("C2 &middot; Page picker (2+ pages only)", "", phone(top("New event"), "", "", s_page_pick())),
             shot("C3 &middot; One night", "Only the rows a one night needs.", c_form("one")),
             shot("C4 &middot; Weekly night", "Weekday and start date are separate rows.", c_form("weekly")),
-            shot("C5 &middot; Course, ready", "Weeks and level replace What happens: every session is a class.", c_form("course", stage="ready")),
+            shot("C5 &middot; Course, ready", "The course session (class, with a level) replaces What happens: every session is a class.", c_form("course", stage="ready")),
             shot("C6 &middot; Weekly: when sheet", "", phone(T, "", "", s_when("weekly"))),
             shot("C7 &middot; Course: when sheet", "", phone(top("New course", "Back"), "", "", s_when("course"))),
             shot("C8 &middot; Where: results", "", phone(T, "", "", s_venue("list"))),
@@ -311,10 +318,11 @@ CMP = """<table class="m-cmp"><tr><th></th><th>Old wizard (today)</th><th>A &mid
 <tr><th>Name, max 120</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
 <tr><th>Venue search</th><td>Kept; dead end on no match</td><td colspan="3">Kept + &ldquo;Send us this venue&rdquo; or skip and keep a draft</td></tr>
 <tr><th>First date</th><td>Next 30 days only</td><td colspan="3">Any future date</td></tr>
-<tr><th>Start time / end time</th><td>Start only</td><td colspan="3">Start + end (ends next day shown)</td></tr>
+<tr><th>Event start / end time</th><td>Writes a default start on the series (no sessions yet)</td><td colspan="3">None: the event has no time of its own. It is read-only everywhere, taken from its sessions (first start to last end)</td></tr>
+<tr><th>First session&rsquo;s start and end</th><td>Missing</td><td>Asked in the What happens sheet</td><td>Asked in step 3, What happens</td><td>Asked in the What happens row (course: the class time)</td></tr>
 <tr><th>Repeat / runs until</th><td>Every weekday of the first date, no end</td><td colspan="3">Every / every other week; keeps going or until a date</td></tr>
 <tr><th>Course length</th><td>Not possible</td><td colspan="3">4&ndash;12 weeks or other (prod max 16)</td></tr>
-<tr><th>First session (kind, times, level)</th><td>Missing &mdash; why Go live is blocked</td><td colspan="2">Seeded from &ldquo;What happens&rdquo;</td><td>Seeded; course is always a class with a level</td></tr>
+<tr><th>First session (kind, times, level)</th><td>Missing &mdash; why Go live is blocked</td><td colspan="2">Created from &ldquo;What happens&rdquo; with its times</td><td>Seeded; course is always a class with a level</td></tr>
 <tr><th>Photo, JPEG/PNG/WebP &lt; 10 MB</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
 <tr><th>Onboarding gate</th><td>&ldquo;Almost live&rdquo; bridge</td><td colspan="3">&ldquo;A few details first&rdquo; sheet, draft already saved</td></tr>
 <tr><th>Cancel mid-way</th><td>&ldquo;Save as draft and leave&rdquo; (from step 3); no delete</td><td colspan="3">Ask: keep as draft (default), keep going, or delete draft; draft shows on Home with what it still needs</td></tr>

@@ -6,10 +6,11 @@
 <tr><th>Name, max 120</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
 <tr><th>Venue search</th><td>Kept; dead end on no match</td><td colspan="3">Kept + &ldquo;Send us this venue&rdquo; or skip and keep a draft</td></tr>
 <tr><th>First date</th><td>Next 30 days only</td><td colspan="3">Any future date</td></tr>
-<tr><th>Start time / end time</th><td>Start only</td><td colspan="3">Start + end (ends next day shown)</td></tr>
+<tr><th>Event start / end time</th><td>Writes a default start on the series (no sessions yet)</td><td colspan="3">None: the event has no time of its own. It is read-only everywhere, taken from its sessions (first start to last end)</td></tr>
+<tr><th>First session&rsquo;s start and end</th><td>Missing</td><td>Asked in the What happens sheet</td><td>Asked in step 3, What happens</td><td>Asked in the What happens row (course: the class time)</td></tr>
 <tr><th>Repeat / runs until</th><td>Every weekday of the first date, no end</td><td colspan="3">Every / every other week; keeps going or until a date</td></tr>
 <tr><th>Course length</th><td>Not possible</td><td colspan="3">4&ndash;12 weeks or other (prod max 16)</td></tr>
-<tr><th>First session (kind, times, level)</th><td>Missing &mdash; why Go live is blocked</td><td colspan="2">Seeded from &ldquo;What happens&rdquo;</td><td>Seeded; course is always a class with a level</td></tr>
+<tr><th>First session (kind, times, level)</th><td>Missing &mdash; why Go live is blocked</td><td colspan="2">Created from &ldquo;What happens&rdquo; with its times</td><td>Seeded; course is always a class with a level</td></tr>
 <tr><th>Photo, JPEG/PNG/WebP &lt; 10 MB</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
 <tr><th>Onboarding gate</th><td>&ldquo;Almost live&rdquo; bridge</td><td colspan="3">&ldquo;A few details first&rdquo; sheet, draft already saved</td></tr>
 <tr><th>Cancel mid-way</th><td>&ldquo;Save as draft and leave&rdquo; (from step 3); no delete</td><td colspan="3">Ask: keep as draft (default), keep going, or delete draft; draft shows on Home with what it still needs</td></tr>

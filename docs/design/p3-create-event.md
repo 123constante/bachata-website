@@ -2,7 +2,7 @@
 
 ## Brief (5 lines)
 1. Rebuild "create an event" inside P3 in the P3 look (owner decision 2026-10-30), replacing the R1 wizard bridged in by PR #1202.
-2. Parity first: keep every field and rule the current wizard has, and close its gaps (course, end time, first session, venue not found).
+2. Parity first: keep every field and rule the current wizard has, and close its gaps (course, first session with its times, venue not found).
 3. Phone first at 390x844, dark and light, compact density, tap targets of at least 44px, plain words, full weekday names.
 4. Cover every step, empty/loading/error/offline, venue not found, weekly, course, the "A few details first" gate, and cancel with the draft kept.
 5. Docs only. The owner picks an approach; nothing is built from this branch.
@@ -25,7 +25,7 @@ Open these from a checkout. The pages link the real `src/modules/organiser/p3/th
 3. Name: required, up to 120 letters. This step creates the server draft.
 4. Where: venue search, up to 50 matches. A search with no match is a dead end.
 5. First date: the next 30 days only.
-6. Start time: there is no end time.
+6. Start time: written to the series default (`default_local_start_time`); there is no session, so no session times.
 7. Photo: JPEG, PNG or WebP under 10 MB.
 8. Go live, or "Save as draft" while the A1 platform gate is off. Go live goes through the "Almost live" profile bridge if profile questions are left.
 
@@ -34,7 +34,7 @@ Open these from a checkout. The pages link the real `src/modules/organiser/p3/th
 **Gaps the mockups close:**
 - No first session is created, so with A1 on, Go live stays off on every new event.
 - Course cannot be created.
-- No end time.
+- Times live on sessions: the old wizard wrote an event-level start and no session, so there was never an end. The mockups ask for the FIRST SESSION's start and end instead.
 - No run-until date for weekly events.
 - Dates are limited to 30 days ahead.
 - No path when the venue is not found.
@@ -43,6 +43,13 @@ Open these from a checkout. The pages link the real `src/modules/organiser/p3/th
 **Left for the event page on purpose:** the owner-ticked editor fields from `docs/organiser-rebuild/ARC.md`. These are description, music styles, ticket link, extra organisers, gallery, video, line-up, rooms, and per-date changes. They are editing fields, not create fields.
 
 **Admin editor:** its code lives in the admin repo, so only its documented fields were compared (`docs/event-truth-table.md`, `ARC.md`). Festival creation stays admin-only in all three options.
+
+## Where an event's time comes from (proved 2026-10-30, read-only)
+- An event (series) has **no start or end of its own to enter**. `event_series_p5.default_local_start_time` and `default_duration` are DERIVED defaults: triggers (`_p5_sync_series_default_from_date_sessions_v1`, `_p5_sync_series_default_times_v1`) refresh them from the sessions.
+- A session row holds `start_time`, `end_time` (both `time`) and `section_kind` (`event_occurrence_added_session_p5`, per-date overrides in `event_occurrence_session_override_p5`, series programme items in `event_series_program_item_p5`).
+- The time every screen shows for a date is `event_occurrence_p5.materialised_start_utc` / `materialised_end_utc`. Writer: `_recompute_occurrence_headline_time_from_sessions_v1`, from `_p5_occurrence_effective_headline_v1` (first session start to last session end). `occurrence.set_time` (new_local_start / new_local_end) is the per-date override command; `seriesModel.ts` reads `schedule.local_start_time` with the materialised value as fallback.
+- Old wizard: one `series.upsert` of `default_local_start_time` through `series_command_p5`; no session, so no end.
+- Consequence for the mockups: no event-level Start or Ends anywhere. The create flow asks for the first session's start and end in the What happens step; elsewhere the time is read-only, labelled "from your sessions". Open point for build: whether a session is created through a series command that takes times (the add-session command is not yet verified against `series_command_p5`).
 
 ## Production shapes the mockups use (read-only SELECT, counts only, `event_series_p5`)
 - Longest event name: 53 letters. A11 shows it wrapping.
