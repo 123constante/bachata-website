@@ -184,6 +184,16 @@ const isAreaClosed = (e: unknown) => e instanceof Error && /\barea_closed\b/.tes
 export const readFailCopy = (errors: readonly unknown[]): string => (errors.some(isAreaClosed) ? AREA_CLOSED : READ_FAILED);
 export const saveFailCopy = (e: unknown): string => (isAreaClosed(e) ? AREA_CLOSED : SAVE_FAILED);
 
+/**
+ * An account with no dancer row: my_dancer_edit_v1 (and save_my_dancer_profile_v2) raise `no_profile`
+ * (prod 2026-10-30: 3 of 43 accounts, 2 of them admins; new sign-ups get a stub row from the auth.users
+ * trigger). The site has no way to create the row (auto-create is a queued admin item), so Retry can
+ * never succeed: the screen says so and offers the team's contact link instead.
+ */
+export const isNoDancer = (e: unknown) => e instanceof Error && /(^|[^a-z_])no_profile([^a-z_]|$)/.test(e.message);
+/** What a failed person read shows: the no-dancer screen (no Retry), or the read error (with Retry). */
+export const personReadFail = (errors: readonly unknown[]): 'no_dancer' | 'failed' => (errors.some(isNoDancer) ? 'no_dancer' : 'failed');
+
 /** Why Continue is off on this step, or null when it is on. Never a disabled control without a reason. */
 export function blockedReason(step: PersonStep, d: PersonDraft): string | null {
   const r = STEP_COPY[step].reason;

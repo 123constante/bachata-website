@@ -15,8 +15,8 @@ import { P3_PATHS } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
-import { PersonScreens } from './PersonFlow';
-import { PERSON_ORDER, heldFrom, personPath, type PersonStep } from './personModel';
+import { NoDancerBody, NoDancerFoot, PersonScreens } from './PersonFlow';
+import { PERSON_ORDER, heldFrom, personPath, personReadFail, type PersonStep } from './personModel';
 import { PAGE_STALE_KEYS, REAL_GO_LIVE, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
   CATEGORIES,
@@ -212,7 +212,12 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   };
 
   if (stage.kind === 'person') {
-    const personFailed = [dancer, intent, teacher, ...(orgId ? [organiser] : [])].some((q) => q.isError);
+    const personReads = [dancer, intent, teacher, ...(orgId ? [organiser] : [])];
+    const personFailed = personReads.some((q) => q.isError);
+    // No dancer row: Retry cannot succeed, so the screen says so and offers the team's contact link.
+    if (personFailed && personReadFail(personReads.map((q) => q.error)) === 'no_dancer') {
+      return shell('person-nodancer', <NoDancerBody />, <NoDancerFoot />, 0, () => go({ kind: 'page', step: orgId ? 'logo' : 'welcome' }, 'back'));
+    }
     if (personFailed) return failed('person', 'We couldn\u2019t load your details. Try again.', () => [dancer, intent, teacher, organiser].forEach((q) => void q.refetch()));
     if (!personHeld || (orgId && organiser.isPending)) return loading('person');
     return (
