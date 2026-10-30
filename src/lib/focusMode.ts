@@ -23,14 +23,23 @@ const SETUP_PHOTO_PATH = '/app/me/photo';
 
 const trimSlash = (p: string) => (p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p);
 
+/**
+ * The ONE rule for which /auth tab a URL opens (L1): only an exact `mode=signup`
+ * is sign-up; absent, empty, junk, other-case or repeated-after-the-first values
+ * are sign-in. Auth.tsx (what to draw) and the chrome below (focus mode) both read it.
+ */
+export function authModeFromSearch(search: string | URLSearchParams): 'signin' | 'signup' {
+  const params = typeof search === 'string' ? new URLSearchParams(search) : search;
+  return params.get('mode') === 'signup' ? 'signup' : 'signin';
+}
+
 export function isSignupFocusPath(pathname: string, search: string, profileComplete: boolean): boolean {
   // Case-folded, as the router matches.
   const path = trimSlash(pathname.toLowerCase());
   const params = new URLSearchParams(search);
   if (path === '/auth' || path === '/auth/callback') {
-    const mode = params.get('mode');
     // L1: a bare /auth opens sign-in, so only an explicit mode=signup is focus mode.
-    return mode === 'signup';
+    return authModeFromSearch(params) === 'signup';
   }
   if (profileComplete) return false;
   if (path === SETUP_PATH) return true;

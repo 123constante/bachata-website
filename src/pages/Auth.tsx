@@ -38,6 +38,7 @@ import {
   type SignupRole,
 } from "@/lib/auth-otp-routing";
 import { sanitizeReturnTo } from "@/lib/authRouting";
+import { authModeFromSearch } from "@/lib/focusMode";
 import { signInWithDevBypass, DEV_AUTH_BYPASS_HINT, createRandomDevAccount } from "@/lib/devAuthBypass";
 import { trackAuthStep } from "@/lib/trackAuthStep";
 import { acceptTerms, hasAcceptedTerms } from "@/lib/termsConsent";
@@ -119,7 +120,7 @@ const AuthContent = () => {
   const userType = searchParams.get("userType");
   // L1: only an explicit mode=signup opens sign-up; a bare /auth (or any other
   // value) is a returning person following a link, so it opens sign-in.
-  const mode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const mode = authModeFromSearch(searchParams);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   // D7: a reload within 10 minutes of the send reopens the code box for the same

@@ -43,6 +43,9 @@ describe('L1: which tab a /auth link opens', () => {
     ['absent', '', 'Welcome back'],
     ['empty', 'mode=', 'Welcome back'],
     ['junk', 'mode=nonsense', 'Welcome back'],
+    ['upper-case SIGNUP', 'mode=SIGNUP', 'Welcome back'],
+    ['repeated, signin first', 'mode=signin&mode=signup', 'Welcome back'],
+    ['repeated, signup first', 'mode=signup&mode=signin', 'Join the community'],
     ['signin', 'mode=signin', 'Welcome back'],
     ['signup', 'mode=signup', 'Join the community'],
   ])('mode %s', (_label, query, expected) => {
