@@ -8,7 +8,7 @@ import { P3_PATHS } from '../shell/paths';
 import { flags } from '@/lib/featureFlags';
 import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
 import { GraceBanner } from './GraceBanner';
-import { ChangeItLink, EventList, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
+import { AddEventLink, EventList, P3Link, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
 
 /** Why there is no Next up, and what the person can do about it (the state decides the words). */
 function noNextCopy(rows: readonly P3Row[]): string {
@@ -72,7 +72,7 @@ export function HomeScreen() {
         {said}
         <StateCard title="No events here yet" testId="p3-home-empty">
           <p>When you run an event on Bachata Calendar it shows here. You can add one now.</p>
-          <ChangeItLink>Add an event in the current organiser area</ChangeItLink>
+          <AddEventLink />
         </StateCard>
       </div>
     );
@@ -104,7 +104,7 @@ export function HomeScreen() {
       ) : (
         <StateCard title="Nothing coming up" testId="p3-nextup-none">
           <p>{noNextCopy(rows)}</p>
-          <ChangeItLink>Do it in the current organiser area</ChangeItLink>
+          <P3Link to={P3_PATHS.events} testId="p3-nextup-events">Open your events</P3Link>
         </StateCard>
       )}
 
@@ -124,7 +124,7 @@ export function HomeScreen() {
             ))}
           </ul>
           <p className="p3-note">
-            <ChangeItLink>Sort these in the current organiser area</ChangeItLink>
+            <P3Link to={P3_PATHS.events} testId="p3-needs-events">Sort these in Events</P3Link>
           </p>
         </section>
       )}

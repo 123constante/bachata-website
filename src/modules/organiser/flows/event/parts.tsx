@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { OrganiserShell } from '@/modules/organiser/shell';
+import { useOrgSurface } from '@/modules/organiser/shell/surface';
 import { VERSION_CONFLICT } from '@/modules/organiser/shared/copy';
 import { PrimaryButton } from '@/modules/organiser/ui';
 
@@ -31,10 +32,11 @@ export function EventStepShell({ seriesId, title, name, back, children }: {
  */
 export function EventConflict({ seriesId, testId = 'event-conflict' }: { seriesId: string; testId?: string }) {
   const navigate = useNavigate();
+  const { paths } = useOrgSurface();
   return (
     <div className="flex flex-col gap-3" data-testid={testId} role="alert">
       <p className="text-[16px] font-bold text-[var(--fg)]">{VERSION_CONFLICT}</p>
-      <PrimaryButton testId={`${testId}-event`} onClick={() => navigate(ORG_PATHS.event(seriesId), { replace: true })}>
+      <PrimaryButton testId={`${testId}-event`} onClick={() => navigate(paths.event(seriesId), { replace: true })}>
         Open the event
       </PrimaryButton>
     </div>

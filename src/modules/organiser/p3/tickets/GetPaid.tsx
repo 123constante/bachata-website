@@ -19,7 +19,7 @@ import {
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { P3_PATHS } from '../shell/paths';
 import { P3PushedShell } from '../you/surface';
-import { ChangeItLink, RetryButton, StateCard } from '../screens/parts';
+import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
 import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt } from './model';
 import { P3_TICKET_PATHS } from './paths';
@@ -102,7 +102,7 @@ function GetPaidContent() {
         
         <StateCard title="No organiser page yet" testId="tix-getpaid-nopage">
           <p>Set up your organiser page first, then come back here to get paid for tickets.</p>
-          <ChangeItLink>Do it in the current organiser area</ChangeItLink>
+          <P3Link to={P3_PATHS.start} testId="tix-getpaid-setup">Set up your page</P3Link>
         </StateCard>
       </div>
     );

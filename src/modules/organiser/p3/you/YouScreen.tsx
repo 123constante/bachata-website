@@ -8,7 +8,7 @@ import { graceStatusFrom, onboardingLeft } from '../onboarding/graceModel';
 import { fetchOnboardingStatus, onboardingStatusKey } from '../onboarding/statusQuery';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { ROLE_LABEL } from '@/modules/organiser/shared/teamModel';
-import { ORG_PATHS } from '../../shell/paths';
+import { P3_PATHS } from '../shell/paths';
 import { Avatar } from '../../team/Avatar';
 import { useTeamContext } from '../../team/useTeamContext';
 import { RetryButton, StateCard } from '../screens/parts';
@@ -61,7 +61,7 @@ function PageCard({ page }: { page: HomeOrganiser }) {
 function AccountCard() {
   return (
     <section className="p3-card p3-list">
-      <NavRow r={{ id: 'account', label: YOU.account, sub: YOU.accountSub, to: ORG_PATHS.more, reason: null, badge: null }} />
+      <NavRow r={{ id: 'account', label: YOU.account, sub: YOU.accountSub, to: P3_PATHS.youAccount, reason: null, badge: null }} />
     </section>
   );
 }

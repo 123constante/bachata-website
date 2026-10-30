@@ -238,6 +238,6 @@ describe('the programme and organisers screens save through the one send', () =>
     expect(src).toMatch(/useEventSend\(/);
     expect(src).not.toMatch(/goDone\(/);
     // Its Back keeps the returnTo too.
-    expect(src).toMatch(/keepReturnTo\(ORG_PATHS\.eventDetails\(seriesId\), search\)/);
+    expect(src).toMatch(/keepReturnTo\((ORG_PATHS\.eventDetails\(seriesId\)|back), search\)/);
   });
 });
