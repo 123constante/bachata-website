@@ -364,3 +364,5 @@
 .p3-theme .p3-grace-txt { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .p3-theme .p3-grace-txt span { color: var(--mut); }
 .p3-theme .p3-grace-acts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* The Continue link is an <a>: min-height does not apply to an inline box, so the label sat high. Explicit px (html is ~13.5px on phones). */
+.p3-theme .p3-grace-acts .p3-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 44px; padding: 0 16px; line-height: 20px; text-decoration: none; }
