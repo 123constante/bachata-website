@@ -297,7 +297,7 @@ export const JOURNEYS: Journey[] = [
     auth: 'signin',
     then: 'join-team',
     // Option B (PR #978, PLAN section 4 table): the done screen stays on /invite and its "Open your organiser home"
-    // link leads to the organiser Home (not the Arc 1 welcome page the old redeem card hopped to).
+    // link leads to the organiser's Welcome (owner decision 2026-10-30, PR #1164); its Go to Home reaches the organiser Home.
     end: { path: '/account/o', screen: 'organiser Home of the joined page', state: 'member of the organiser' },
   },
   {
