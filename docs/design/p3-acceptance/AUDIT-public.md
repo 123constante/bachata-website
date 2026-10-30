@@ -104,7 +104,7 @@ All P3 event writes go through `series_command_p5` / `occurrence_command_p5`. Bo
 ### A-public-7: the public page and the calendar keep their data for 1 hour in the browser, and a P3 write does not clear it
 - Journeys: J-x2-adjacent, J-v3, J-d7. **Severity: medium.**
 - What happens:
-  - `useEventPageQuery` uses `staleTime: 1h` (`src/modules/event-page/useEventPageQuery.ts:393`).
+  - `useEventPageQuery` uses `staleTime: 1h` (`src/modules/event-page/useEventPageQuery.ts:391`).
   - `useCalendarEventsRpc` uses a default of `1000*60*60` (`src/hooks/useCalendarEventsRpc.ts:31`).
   - P3 writes invalidate only organiser keys (`src/modules/organiser/p3/data/dates.ts:339-342`, `data/sessions.ts:282-283`).
   - So after a cancel or move, an organiser who goes to the calendar or event page in the same tab sees the old state for up to an hour. Refetch on window focus can hide this. The edge cache is purged correctly (section 1); this is the browser's own copy.
