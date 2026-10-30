@@ -260,3 +260,5 @@ the 20-per-24h quota (`apply_aggregate_write_p5` l.605-618).
 | EXCLUDED | 11 |
 
 #27 counts as BUILT and #40 as DEFERRED-needs-admin. Each also has a split verdict in its row.
+
+Coverage: 71 rows, 30 built, 30 deferred (with reason: 18 DEFERRED-slice-2 = outside slice 1 scope, no DB change needed; 12 DEFERRED-needs-admin = the missing server command, owner key or column is named in each row), 11 excluded (not part of create, reason in each row), 0 silent

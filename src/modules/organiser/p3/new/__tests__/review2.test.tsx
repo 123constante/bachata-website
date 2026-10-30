@@ -187,8 +187,10 @@ describe('R2-2: a created draft left in storage never takes over the next New ev
     fireEvent.click(screen.getByTestId('p3-new-save-draft'));
     await screen.findByTestId('p3-new-partial-error');
     const id = sent[0].target_id;
+    // React Router 7 writes the location in a startTransition; the partial card is an urgent update,
+    // so under load it can paint before the URL names the draft. Wait for the URL, never read it in the same tick.
+    await waitFor(() => expect(where()).toContain(`sid=${id}`));
     const url = where()!;
-    expect(url).toContain(`sid=${id}`);
     const keep = window.sessionStorage.getItem(DRAFT_STORE_KEY);
     cleanup();
     window.sessionStorage.setItem(DRAFT_STORE_KEY, keep!); // a reload runs no unmount
