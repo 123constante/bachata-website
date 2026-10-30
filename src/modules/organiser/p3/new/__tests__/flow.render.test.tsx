@@ -25,6 +25,7 @@ vi.mock('../../../home/onboarding/golive/profileLeft', () => ({ profileQuestions
 import CreateFlow from '../CreateFlow';
 import { P3_BASE, P3_PATHS, p3StartReview } from '../../shell/paths';
 import { COPY, RESULT_COPY } from '../model';
+import { rawWorkspace } from '../../../events/__tests__/fixtures';
 import { ONBOARDING_REFUSAL } from '../../../shared/selfServeErrors';
 
 const page = (id: string, name: string, lifecycle = 'live') => ({ id, name, slug: null, avatar_url: null, city_id: 'c1', lifecycle_status: lifecycle, role: 'owner', latest_decision: null, series: [] });
@@ -35,12 +36,15 @@ const VENUES = [
 
 let pages: ReturnType<typeof page>[] = [];
 let commandFails: (env: { command: { kind: string } }, n: number) => { message: string } | null = () => null;
+/** Commands the server took (the series' version); 0 = no row yet. */
+let landed = 0;
 let sent: Array<{ target_id: string; expected_version?: number; idempotency_key: string; command: { kind: string; payload: Record<string, unknown> } }> = [];
 
 beforeEach(() => {
   pages = [page('org1', 'Latin Nights')];
   commandFails = () => null;
   sent = [];
+  landed = 0;
   profileLeft.value = false;
   upload.mockReset();
   upload.mockResolvedValue('https://img.example/cover.jpg');
@@ -49,12 +53,17 @@ beforeEach(() => {
   rpc.mockImplementation(async (fn: string, args: { p_envelope?: (typeof sent)[number] }) => {
     if (fn === 'organiser_home_v1') return { data: { today: '2026-11-02', organisers: pages }, error: null };
     if (fn === 'get_organiser_venue_options_v1') return { data: VENUES, error: null };
+    // the series as the server has it now (a retry reads its version again): one version per command that landed
+    if (fn === 'admin_event_workspace_p5') {
+      return landed ? { data: rawWorkspace({ lifecycle_status: 'draft', version: landed }, []), error: null } : { data: null, error: { message: 'not found' } };
+    }
     if (fn === 'series_command_p5') {
       const env = args.p_envelope!;
       sent.push(env);
       const fail = commandFails(env, sent.length);
       if (fail) return { data: null, error: fail };
-      return { data: { ok: true, new_version: sent.filter((e) => !commandFails(e, 0)).length }, error: null };
+      landed += 1;
+      return { data: { ok: true, new_version: landed }, error: null };
     }
     return { data: null, error: { message: 'unexpected ' + fn } };
   });

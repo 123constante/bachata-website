@@ -59,7 +59,8 @@ export const NEW_STEPS = ['new/what', 'new/name', 'new/:seriesId/venue', 'new/:s
 function OldNewStep() {
   const { seriesId } = useParams();
   const [params] = useSearchParams();
-  return <Navigate to={seriesId ? P3_PATHS.event(seriesId) : P3_PATHS.createFor(params.get('o'))} replace />;
+  // review 1 F9 / F10: the format and the page ride along (a named page is not asked again)
+  return <Navigate to={seriesId ? P3_PATHS.event(seriesId) : P3_PATHS.createForFormat(params.get('format'), params.get('o'))} replace />;
 }
 function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
   return <P3RouteBoundary frame={frame} back={back}><Suspense fallback={null}>{el}</Suspense></P3RouteBoundary>;

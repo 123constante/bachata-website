@@ -79,6 +79,8 @@ export interface CreateDraft {
   pay: PaymentMethod[];
   prices: PriceRow[];
   ticketUrl: string;
+  /** Kept only in storage: the create landed (review 1 F1), so this draft is opened, never created again. */
+  created?: true;
 }
 
 export const NAME_MAX = 120;
@@ -192,6 +194,7 @@ export const COPY = {
   pastDate: 'Every date must be from today on.',
   tooManyDates: `Up to ${DATES_MAX} dates can be listed at once. Remove some now, and add the rest later from the event page.`,
   noDates: 'No dates yet. Add the first date.',
+  repeatNeedsFirst: 'Pick the first date: the pattern saves from it.',
   notFit: 'The first date is not one of the repeat dates. Pick a first date that matches the pattern, or change the pattern.',
   ticketUrl: 'A ticket link must start with https://',
   draftOnly: 'Going live needs the next platform update. Save it as a draft for now; you can go live from the event page.',
@@ -231,6 +234,9 @@ export function rowProblems(d: CreateDraft, today: string): RowProblems {
   } else if (d.firstDate) {
     if (d.firstDate < today) when = COPY.pastFirst;
     else if (k?.when === 'repeat') when = repeatProblem(d.repeat, today, d.firstDate) ?? (firstDateFits(d.repeat, d.firstDate) ? null : COPY.notFit);
+  } else if (k?.when === 'repeat' && draftSig(d.repeat) !== draftSig(repeatFor(k.freq))) {
+    // review 1 F7: a pattern set by hand is never dropped for want of a first date; it is checked, then waits on one
+    when = repeatProblem(d.repeat, today) ?? COPY.repeatNeedsFirst;
   }
   const free = d.pay.includes('free');
   const price = (!free && d.prices.length ? pricesProblem(d.prices) : null)
@@ -410,7 +416,9 @@ export function backOf(at: CreateAt, kind: string, organiserId: string | null, p
 
 /** Where a picked kind goes next. */
 export const afterKind = (kind: CreateKind, organiserId: string | null, pageCount: number): string =>
-  P3_PATHS.createStep(pageCount >= 2 ? 'page' : 'form', kind, organiserId);
+  // review 1 F10: a page already named (Welcome, a page's own link, ?o=) is not asked again
+  P3_PATHS.createStep(pageCount >= 2 && !organiserId ? 'page' : 'form', kind, organiserId);
+
 
 // ---- the draft kept across steps (sessionStorage, a convenience only) --------------------------
 
@@ -434,6 +442,7 @@ export function parseStoredDraft(raw: string | null): CreateDraft | null {
       pay: Array.isArray(d.pay) ? d.pay.filter((m): m is PaymentMethod => (PAYMENT_METHODS as readonly string[]).includes(m)) : [],
       prices: Array.isArray(d.prices) ? d.prices : [],
       ticketUrl: typeof d.ticketUrl === 'string' ? d.ticketUrl : '',
+      ...(d.created === true ? { created: true as const } : {}),
     };
   } catch {
     return null;

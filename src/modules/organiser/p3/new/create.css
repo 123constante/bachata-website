@@ -29,6 +29,8 @@
 .p3-theme .p3-new-cover { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--r-date); display: block; }
 .p3-theme .p3-new-file { min-height: 48px; width: 100%; }
 .p3-theme .p3-new-top-end { margin-left: auto; min-width: 44px; justify-content: center; }
-/* A sheet here never hands its scroll to the page behind it (the frame is fixed; this stops the chain on phones). */
-.p3-theme .p3-new-flow .p3-scrim, .p3-theme .p3-new-flow .p3-sheet { overscroll-behavior: contain; }
+/* A sheet here never moves the page behind it: the form's main is overflow hidden while one is open
+ * (CreateFlow), a drag on the scrim does nothing, the sheet itself scrolls and keeps its scroll. */
+.p3-theme .p3-new-flow .p3-scrim { touch-action: none; }
+.p3-theme .p3-new-flow .p3-sheet { touch-action: pan-y; overscroll-behavior: contain; }
 .p3-theme .p3-new-linkbtn { display: flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; text-decoration: none; }

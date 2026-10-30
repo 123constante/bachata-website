@@ -38,6 +38,11 @@ export function forgetStoredDraft() {
   try { window.sessionStorage.removeItem(DRAFT_STORE_KEY); } catch { /* storage off: nothing kept */ }
 }
 
+/** Review 1 F1: once the create lands, the kept draft says so, so a remount opens that draft instead of creating it again. */
+function rememberCreated(draft: CreateDraft) {
+  try { window.sessionStorage.setItem(DRAFT_STORE_KEY, JSON.stringify({ ...draft, created: true })); } catch { /* storage off */ }
+}
+
 export function useCreateSave({ draft, cover, organiser, today }: { draft: CreateDraft; cover: File | null; organiser: HomeOrganiser | null; today: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -46,6 +51,10 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
   const version = useRef<number | null>(null);
   const coverUrl = useRef<string | null>(null);
   const cityId = useRef<string | null | undefined>(undefined);
+  // review 1: one save at a time (F4), the Go live a retry repeats (F3), the version to read again after a failure (F6)
+  const inFlight = useRef(false);
+  const lastGoLive = useRef(false);
+  const stale = useRef(false);
   const [state, setState] = useState<SaveState>({ s: 'idle' });
   const [coverUploaded, setCoverUploaded] = useState(false);
   const seriesId = draft.seriesId;
@@ -59,17 +68,27 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
 
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY }); };
 
+  /** The series' version as the server has it now (a lost reply, a reply without new_version, a retry). */
+  const reread = async () => { version.current = (await fetchSeriesWorkspace(seriesId)).series.version; };
+
   const run = async (goLive: boolean): Promise<void> => {
-    if (!organiser || state.s === 'busy' || state.s === 'discarding') return;
+    if (!organiser || inFlight.current) return;
     const hasCover = !!cover || !!coverUrl.current;
     const base = { organiserId: organiser.id, today, hasCover, goLive };
     // Untouched, blocked, or Go live off: nothing is sent.
     if (!savePlan(draft, { ...base, coverUrl: coverUrl.current, cityId: null }).length) return;
+    inFlight.current = true;
+    lastGoLive.current = goLive;
     let at: StepKey = 'cover';
     let left: StepKey[] = [];
+    let plan: ReturnType<typeof savePlan> = [];
+    setState({ s: 'busy', at });
     try {
+      if (created() && stale.current) {
+        await reread();
+        stale.current = false;
+      }
       if (hasCover && !coverUrl.current && cover) {
-        setState({ s: 'busy', at });
         coverUrl.current = await uploadEventPicture(seriesId, cover);
         setCoverUploaded(true);
       }
@@ -81,7 +100,7 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
           cityId.current = organiser.city_id ?? null;
         }
       }
-      const plan = savePlan(draft, { ...base, coverUrl: coverUrl.current, cityId: cityId.current ?? null });
+      plan = savePlan(draft, { ...base, coverUrl: coverUrl.current, cityId: cityId.current ?? null });
       left = plan.filter((p) => !done.current.has(p.key)).map((p) => p.key);
       for (const step of plan) {
         if (done.current.has(step.key) || !step.command) continue;
@@ -94,29 +113,48 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
         setState({ s: 'busy', at });
         const key = keyFor(`${step.key}|${JSON.stringify(step.command)}`);
         const res = await runSeriesCommand(envelope(seriesId, step.key === 'create' ? null : version.current, step.command, key));
-        if (typeof res?.new_version === 'number') version.current = res.new_version;
-        else if (step.key === 'create' || version.current == null) version.current = (await fetchSeriesWorkspace(seriesId)).series.version;
         done.current.add(step.key);
+        if (step.key === 'create') rememberCreated(draft);
         left = left.filter((k) => k !== step.key);
+        if (typeof res?.new_version === 'number') version.current = res.new_version;
+        else await reread();
       }
       forgetStoredDraft();
       refresh();
       navigate(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
     } catch (e) {
       const message = at === 'cover' ? (e instanceof Error ? e.message : commandErrorMessage(e)) : at === 'repeat' ? repeatFailure(e) : commandErrorMessage(e);
+      // F2: the create may have landed with its reply lost. If the row is there, it is a draft that needs finishing.
+      if (at === 'create' && !created() && !isOnboardingRefusal(e)) {
+        try {
+          await reread();
+          done.current.add('create');
+          rememberCreated(draft);
+          left = plan.filter((p) => !done.current.has(p.key)).map((p) => p.key);
+        } catch { /* no row: nothing was saved */ }
+      }
       if (!created()) setState({ s: 'failed', message, onboarding: isOnboardingRefusal(e) });
       else {
+        stale.current = true;
         refresh();
         setState({ s: 'partial', message, left: left.length ? left : [at] });
       }
+    } finally {
+      inFlight.current = false;
     }
   };
 
+  /** Try again after a partial save: the same request, Go live included when it was asked (F3). */
+  const retry = () => run(lastGoLive.current);
+
   /** The draft is archived (draft -> archived is an owner move); hard delete is the team's. */
   const discard = async (): Promise<void> => {
-    if (!created() || state.s === 'discarding') return;
+    if (!created() || inFlight.current) return;
+    inFlight.current = true;
     setState({ s: 'discarding' });
     try {
+      // F6: after a failure the version may have moved; read it, and go on with ours when the read fails
+      if (stale.current) await reread().catch(() => undefined);
       const command = removeCommand();
       const res = await runSeriesCommand(envelope(seriesId, version.current, command, keyFor(`discard|${JSON.stringify(command)}`)));
       if (typeof res?.new_version === 'number') version.current = res.new_version;
@@ -124,7 +162,10 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
       refresh();
       navigate(P3_PATHS.events, { replace: true, state: { p3Toast: RESULT_COPY.discarded } });
     } catch {
+      stale.current = true;
       setState({ s: 'discardFailed' });
+    } finally {
+      inFlight.current = false;
     }
   };
 
@@ -136,5 +177,5 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
     setCoverUploaded(false);
   };
 
-  return { state, run, discard, forgetCover, coverUploaded };
+  return { state, run, retry, discard, forgetCover, coverUploaded };
 }

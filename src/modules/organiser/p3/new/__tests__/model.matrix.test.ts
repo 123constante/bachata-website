@@ -58,7 +58,9 @@ describe('the kind picker', () => {
 describe('the route steps x 0/1/2+ pages: every Back stays in P3, Cancel is Events', () => {
   it.each([[1, ['kind', 'form']], [2, ['kind', 'page', 'form']], [3, ['kind', 'page', 'form']]])('%i page(s): %j', (n, steps) => {
     expect(stepsFor(n)).toEqual(steps);
-    expect(afterKind('weekly', 'o1', n)).toBe(P3_PATHS.createStep(n >= 2 ? 'page' : 'form', 'weekly', 'o1'));
+    expect(afterKind('weekly', null, n)).toBe(P3_PATHS.createStep(n >= 2 ? 'page' : 'form', 'weekly', null));
+    // a page already named is never asked again (review 1 F10)
+    expect(afterKind('weekly', 'o1', n)).toBe(P3_PATHS.createStep('form', 'weekly', 'o1'));
     for (const at of steps as Array<'kind' | 'page' | 'form'>) expect(backOf(at, 'weekly', 'o1', n).to.startsWith(P3_BASE)).toBe(true);
     expect(backOf('kind', 'weekly', 'o1', n)).toEqual({ to: P3_PATHS.events, label: 'Cancel' });
     expect(backOf('form', 'weekly', 'o1', n).to).toBe(n >= 2 ? P3_PATHS.createStep('page', 'weekly', 'o1') : P3_PATHS.createFor('o1'));

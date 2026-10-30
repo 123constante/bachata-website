@@ -38,7 +38,8 @@ function KindStep({ organiserId, pageCount }: { organiserId: string | null; page
   const navigate = useNavigate();
   const pick = (k: KindInfo) => {
     if (k.deferred) return;
-    forgetStoredDraft();
+    // review 1 F5: Back to the kinds and the same kind again keeps what was typed; another kind starts blank
+    if (storedDraft()?.kind !== k.kind) forgetStoredDraft();
     navigate(afterKind(k.kind, organiserId, pageCount));
   };
   return (
@@ -82,12 +83,17 @@ function PageStep({ kind, organisers, selectedId }: { kind: KindInfo; organisers
 
 // ---- C3.. the form ------------------------------------------------------------------------
 
-function loadDraft(kind: CreateKind): CreateDraft {
+function storedDraft(): CreateDraft | null {
   try {
-    const stored = parseStoredDraft(window.sessionStorage.getItem(DRAFT_STORE_KEY));
-    if (stored && stored.kind === kind) return stored;
-  } catch { /* storage off: start blank */ }
-  return blankCreate(kind);
+    return parseStoredDraft(window.sessionStorage.getItem(DRAFT_STORE_KEY));
+  } catch {
+    return null; // storage off: start blank
+  }
+}
+
+function loadDraft(kind: CreateKind): CreateDraft {
+  const stored = storedDraft();
+  return stored && stored.kind === kind ? stored : blankCreate(kind);
 }
 
 function Row({ title, value, action, onClick, testId }: { title: string; value: string; action: string; onClick: () => void; testId: string }) {
@@ -120,8 +126,18 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   // Kept across steps and a reload (not the photo): a convenience, so storage that is off changes nothing.
   useEffect(() => {
+    // review 1 F1: a draft whose create landed is opened on its event page, never kept to be created again
+    if (d.created) { forgetStoredDraft(); return; }
     try { window.sessionStorage.setItem(DRAFT_STORE_KEY, JSON.stringify(d)); } catch { /* storage off */ }
   }, [d]);
+  // review 1 F8: while a sheet is open the page behind it does not scroll
+  useEffect(() => {
+    const main = sheet ? document.querySelector<HTMLElement>('main[data-testid="p3-new-form"]') : null;
+    if (!main) return;
+    const was = main.style.overflow;
+    main.style.overflow = 'hidden';
+    return () => { main.style.overflow = was; };
+  }, [sheet]);
 
   const set = (p: Partial<CreateDraft>) => setD((x) => ({ ...x, ...p }));
   const hasCover = !!cover || save.coverUploaded;
@@ -140,6 +156,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     <button type="button" className="p3-link p3-new-top-end" onClick={cancel} disabled={busy} data-testid="p3-new-cancel">Cancel</button>
   );
   const title = `New ${kind.label.toLowerCase()}`;
+
+  if (d.created) return <Navigate to={P3_PATHS.event(d.seriesId)} replace />;
 
   const pickCover = (file: File | undefined) => {
     if (!file) return;
@@ -161,7 +179,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
           {st.s === 'discardFailed' && <p className="p3-error">{RESULT_COPY.discardFailed}</p>}
           <p>{RESULT_COPY.partBody}</p>
           <div className="p3-stack-s">
-            <button type="button" className="p3-btn" disabled={st.s === 'discarding'} onClick={() => void save.run(false)} data-testid="p3-new-retry">Try again</button>
+            <button type="button" className="p3-btn" disabled={st.s === 'discarding'} onClick={() => void save.retry()} data-testid="p3-new-retry">Try again</button>
             <Link className="p3-btn p3-btn-line p3-new-linkbtn" to={P3_PATHS.event(d.seriesId)} onClick={() => forgetStoredDraft()} data-testid="p3-new-open">Open the draft</Link>
             <button type="button" className="p3-btn p3-btn-line p3-danger-t" disabled={st.s === 'discarding'} onClick={() => void save.discard()} data-testid="p3-new-discard">
               {st.s === 'discarding' ? 'Discarding\u2026' : 'Discard it'}

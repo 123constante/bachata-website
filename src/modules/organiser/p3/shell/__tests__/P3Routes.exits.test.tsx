@@ -66,7 +66,7 @@ describe('route matrix: each screen renders inside P3, one top bar, Back stays i
   it.each([
     ['what', P3_PATHS.newWhat, P3_PATHS.create],
     ['what for a page', P3_PATHS.newWhatFor('org 1'), P3_PATHS.createFor('org 1')],
-    ['name', P3_PATHS.newName('recurring'), P3_PATHS.create],
+    ['name', P3_PATHS.newName('recurring'), P3_PATHS.createStep('form', 'weekly', null)],
     ['name with no format', `${P3_BASE}/new/name`, P3_PATHS.create],
     ['venue', P3_PATHS.newVenue(S), P3_PATHS.event(S)],
     ['date', P3_PATHS.newDate(S), P3_PATHS.event(S)],
@@ -95,7 +95,7 @@ describe('the surfaces: P3 points every exit the shared screens use at P3, R1 is
   it('New event, Account, Help, events: P3 paths', () => {
     const p = P3_SURFACE.paths;
     expect([p.newWhat, p.newWhatFor('o'), p.newName('one_off'), p.newVenue('s'), p.newDate('s'), p.newTime('s'), p.newCover('s'), p.more, p.help, p.event('s'), p.events, p.eventOrganisers('s'), p.eventProgramme('s')])
-      .toEqual([P3_PATHS.create, `${P3_BASE}/create?o=o`, `${P3_BASE}/new/name?format=one_off`, `${P3_BASE}/new/s/venue`, `${P3_BASE}/new/s/date`, `${P3_BASE}/new/s/time`, `${P3_BASE}/new/s/cover`, P3_PATHS.youAccount, P3_PATHS.youHelp, P3_PATHS.event('s'), P3_PATHS.events, P3_PATHS.eventOrganisers('s'), P3_PATHS.event('s')]);
+      .toEqual([P3_PATHS.create, `${P3_BASE}/create?o=o`, `${P3_BASE}/create?at=form&kind=one_date`, P3_PATHS.event('s'), P3_PATHS.event('s'), P3_PATHS.event('s'), P3_PATHS.event('s'), P3_PATHS.youAccount, P3_PATHS.youHelp, P3_PATHS.event('s'), P3_PATHS.events, P3_PATHS.eventOrganisers('s'), P3_PATHS.event('s')]);
     expect(P3_SURFACE.createHub).toEqual({ to: P3_PATHS.events, label: 'Events' });
     expect(R1_SURFACE.createHub).toEqual({ to: ORG_PATHS.home, label: 'Home' });
     expect(R1_SURFACE.moreTitle).toBe('More');
