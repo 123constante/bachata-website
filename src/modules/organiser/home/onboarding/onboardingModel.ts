@@ -45,3 +45,17 @@ export const RESEND_COOLDOWN_SECONDS = 30;
 
 /** "Tuesday 6 October" from an ISO timestamp, London time, with the year when not this year (the shared formatter). */
 export const askedOn = (iso: string, now: Date = new Date()) => instantDateLabel(iso, now) ?? '';
+
+/**
+ * The already-asked state (owner 2026-10-30), one wording for P3's Find row, its claim sheet and
+ * Welcome's waiting row: a fact in normal text, never an error, and the Ask button is gone. No
+ * date (the server said request_already_open before the list caught up): the same line without it.
+ */
+export const waitingRowText = (iso: string, now: Date = new Date()) => {
+  const on = askedOn(iso, now);
+  return on ? `Waiting for an answer, asked ${on}` : 'Waiting for an answer';
+};
+export const askedLine = (iso: string | null, now: Date = new Date()) => {
+  const on = iso ? askedOn(iso, now) : '';
+  return on ? `You asked on ${on}. We will get back to you.` : 'You already asked to join this page. We will get back to you.';
+};
