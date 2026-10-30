@@ -1,0 +1,12 @@
+# Brief: P3 shell exits -- the ONE fix round after the Fable review (continuation on claude/p3-shell-exits, PR #1202)
+
+Branch: `claude/p3-shell-exits` (EXISTING; push your fixes there). Model Opus. Marker `[worker-done <ticket>]`. Read the review first: `git fetch origin claude/review-1202-r1` then `git show FETCH_HEAD:docs/review/pr-1202-r1.md`, and your own `docs/handover/p3-shell-exits.md`. Stopping rule: this is the fix round; no further round without a stated reason.
+
+Fix, red first (write the failing test, see it red on the current head, then fix):
+- S1: Cover "Go live" with profile questions left (`flows/new/NewFlow.tsx` ~326-330) must NOT drop the person on the bare P3 event page. Send them to P3's own Review for that page: `p3StartReview(selected.id)` (`p3/shell/paths.ts:61-62`), the same place Home's Continue and the editor's "To finish" line go. Test: M4 mutant (always the R1 `goLivePath`) goes red.
+- S2: tests for the four untested P3 behaviours: `doneBack` after New event (mutant M3: `doneBack = null` must go red), the profile-questions exit (M4), the `returnToSeriesId` widening in `flows/doneState.ts:39` (M10), and the EventPage Organisers row target (M12, `EventPage.tsx:169`). Table-driven, assert the real href / button label ("Back to <event name>" vs generic "Go back").
+- N4: `P3PushedSurface` Suspense fallback (`p3/you/surface.tsx:110`) must offer a way back (a static Events link) like `P3YouSurface` does, with a test.
+- N3: add a DOM test that R1 More renders its h1 "More" and its Home back link with the default surface (so `moreTitle` is pinned by behaviour, not a value pin).
+Take the review's other nits only if each is a one-liner; list what you skipped.
+
+Also finish what the first worker left: a read-only shape survey on prod (counts only): organisers by role (owner/manager/contributor), pages with 0 / 1 / >100 events, draft vs live pages, series weekly with and without a stored rule; add table rows to the matrix where a shape changes a screen. Then run every CI job step locally (read `.github/workflows`; `npm run lint`, the integrity job incl. `check:images` with `AUDIT_STRICT=1`, `check:bundle-budget`), and make sure PR #1202's body has "Verified on real data" and a Phone QA section naming 390x844 (use the pr-body pattern the repo expects). Push ONCE at the end (a mid-way push is fine if it ends [skip preview]). Do NOT walk in a browser; the orchestrator walks.
