@@ -1,8 +1,8 @@
 import { Link, Navigate } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
-import { newOrganiserLanding } from '@/lib/auth-otp-routing';
-import { APP_HOME_PATH, APP_WELCOME_PATH, ORGANISER_HOME_PATH, signInLanding, type ProfileSide } from '@/lib/accountRouting';
+import { continueAsLanding } from '@/lib/auth-otp-routing';
+import { APP_HOME_PATH, APP_WELCOME_PATH, ORGANISER_HOME_PATH, type ProfileSide } from '@/lib/accountRouting';
 import { AccountShell } from '@/modules/areas/shared/AccountShell';
 import { PAGE_TITLE } from '@/modules/areas/shared/typeScale';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
@@ -36,7 +36,8 @@ export const switchHint = (sides: readonly Pick<ProfileSide, 'to'>[]): string | 
 export const ContinueAsScreen = ({ p3Live = false }: { p3Live?: boolean }) => {
   const { facts } = useProfileSides();
   // F4: a brand-new organiser lands on P3's Welcome while P3 is live (lib/auth-otp-routing newOrganiserLanding).
-  const landing = signInLanding({ ...facts, newOrganiserTo: newOrganiserLanding(p3Live) }, null);
+  // Waiting on an open access request with no page: P3's Welcome too while P3 is live (owner decision 2026-10-30).
+  const landing = continueAsLanding(facts, p3Live);
   if (landing.kind === 'go') return <Navigate to={landing.to} replace />;
   if (landing.kind === 'wait') {
     return (

@@ -3,6 +3,7 @@
 import { WHATSAPP_GET_LISTED_URL, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { AREA_PATHS } from "@/lib/areaPaths";
 import { P3_START_PATH } from "@/lib/p3StartPath";
+import { signInLanding, type SidesFacts, type SignInLanding } from "@/lib/accountRouting";
 
 // Shown when sign-in mode discovers the email has no account (Lever 2 walk B3).
 /**
@@ -162,6 +163,26 @@ export const SIGNED_IN_LANDING_PATH = "/account/continue";
 export { P3_START_PATH };
 const R1_ORGANISER_HOME_PATH = "/account/o";
 export const newOrganiserLanding = (p3Live: boolean): string => (p3Live ? P3_START_PATH : R1_ORGANISER_HOME_PATH);
+
+// Owner decision 2026-10-30 (brief p3-landing-welcome): while P3 is live, R1's organiser home
+// (/account/o) hands a person with NO page -- waiting on an open access request or not -- to P3's
+// Welcome. Every way into /account/o (/account, the dancer home's and Options' organiser links,
+// R1's Done -> Home, the dancer-first gate's returnTo) then ends there. null = R1 Home stays (P3 off,
+// any page, or the home read not in yet / failed). Read by modules/organiser/home (R1 Home).
+export const organiserHomeHandoff = (p3Live: boolean, organiserCount: number | null | undefined): string | null =>
+  p3Live && organiserCount === 0 ? newOrganiserLanding(true) : null;
+
+// Where /account/continue sends a sign-in: lib/accountRouting signInLanding, with F4's new-organiser
+// landing, plus ONE rule of its own (owner decision 2026-10-30): while P3 is live, a finished dancer
+// with no page who is waiting on an open access request lands on P3's Welcome, not the dancer app.
+// With P3 off it is signInLanding exactly as before. The rule lives here, not in signInLanding:
+// lib/accountRouting is on /app's first load, this module is not.
+export const continueAsLanding = (f: SidesFacts, p3Live: boolean): SignInLanding => {
+  const waiting = p3Live && !f.deletion && f.dancer === 'complete' && f.areaAllowed !== undefined && Array.isArray(f.organisers) && f.organisers.length === 0;
+  if (waiting && f.openRequestCount === undefined) return { kind: 'wait' };
+  if (waiting && (f.openRequestCount ?? 0) > 0) return { kind: 'go', to: newOrganiserLanding(true) };
+  return signInLanding({ ...f, newOrganiserTo: newOrganiserLanding(p3Live) }, null);
+};
 
 export function normalizeLandingRole(raw: unknown): string | null {
   if (typeof raw !== "string") return null;

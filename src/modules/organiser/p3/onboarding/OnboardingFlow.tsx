@@ -7,9 +7,10 @@ import { flags } from '@/lib/featureFlags';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
-import { selfServeErrorCopy } from '../../shared/selfServeErrors';
-import type { ClaimableOrganiser } from '../../shared/selfServeApi';
+import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
+import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
+import { askedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
@@ -391,6 +392,11 @@ export function PageScreens(props: PageScreensProps) {
   const contactVia: PageStep = lastContact ?? (held.phone ? 'contact' : 'contact-phone');
   const [findQ, setFindQ] = useState('');
   const [cityQ, setCityQ] = useState('');
+  // Open access requests: Welcome's "Waiting for an answer", the Find row's hint and the sheet's asked line
+  // (owner 2026-10-30). The organiser area's own key, so an ask anywhere refreshes it. A failed read shows none.
+  const requests = useQuery({ queryKey: myAccessRequestsQueryKey(userId), queryFn: () => (reads.requests as NonNullable<PageReads['requests']>)(), enabled: !!reads.requests, retry: false });
+  const open = useMemo(() => (requests.data ?? []).filter((r) => r.status === 'open'), [requests.data]);
+  const askedAt = useMemo(() => new Map(open.map((r) => [r.organiserId, r.createdAt])), [open]);
   const clearToast = useCallback(() => setToast(null), []);
   const set = <K extends keyof PageDraft>(k: K, v: PageDraft[K]) => setDraft((p) => ({ ...p, [k]: v }));
   useEffect(() => {
@@ -568,9 +574,19 @@ export function PageScreens(props: PageScreensProps) {
             {email ? <>Signed in as <span className="p3-ob-break">{email}</span>. </> : <>Signed in. </>}
             <button type="button" className="p3-ob-lnk" onClick={() => setSheet({ kind: 'settings' })} data-testid="p3-ob-notyou">Not you?</button>
           </p>
+          {!orgId && open.length > 0 && (
+            <div className="p3-ob-card" data-testid="p3-ob-waiting">
+              <strong>Waiting for an answer</strong>
+              {open.map((r) => (
+                <p key={r.requestId} className="p3-ob-m" data-testid="p3-ob-waiting-row">
+                  <strong>{r.organiserName ?? 'An organiser'}</strong>: {askedLine(r.createdAt)}
+                </p>
+              ))}
+            </div>
+          )}
         </>
       )}
-      {step === 'find' && <FindStep q={findQ} setQ={setFindQ} reads={reads} onPick={(p) => setSheet({ kind: 'claim', page: p })} />}
+      {step === 'find' && <FindStep q={findQ} setQ={setFindQ} reads={reads} askedAt={askedAt} onPick={(p) => setSheet({ kind: 'claim', page: p })} />}
       {step === 'create-name' && (
         <input className="p3-ob-inp" type="text" autoComplete="off" placeholder="Bachata Nights Harrogate" aria-labelledby="p3-ob-title" value={d.name} maxLength={NAME_MAX + 20}
           onChange={(e) => set('name', e.target.value)} onKeyDown={enter} data-testid="p3-ob-page-name" />
@@ -611,6 +627,7 @@ export function PageScreens(props: PageScreensProps) {
           page={sheet.page}
           theme={theme}
           writes={writes}
+          askedAt={askedAt.get(sheet.page.id)}
           onClose={() => setSheet(null)}
           onClaimed={(id) => {
             setSheet(null);
@@ -660,7 +677,7 @@ function SearchInput({ value, onChange, placeholder, testId }: { value: string; 
   );
 }
 
-function FindStep({ q, setQ, reads, onPick }: { q: string; setQ: (v: string) => void; reads: PageReads; onPick: (p: ClaimableOrganiser) => void }) {
+function FindStep({ q, setQ, reads, askedAt, onPick }: { q: string; setQ: (v: string) => void; reads: PageReads; askedAt: ReadonlyMap<string, string>; onPick: (p: ClaimableOrganiser) => void }) {
   const term = useDebounced(q.trim(), 250);
   const res = useQuery({ queryKey: ['p3-ob-find', term], queryFn: () => reads.findPages(term), enabled: term.length >= FIND_MIN, retry: false });
   return (
@@ -679,7 +696,7 @@ function FindStep({ q, setQ, reads, onPick }: { q: string; setQ: (v: string) => 
           <div role="list">
             {res.data.map((p) => (
               <button key={p.id} type="button" role="listitem" className="p3-ob-row" onClick={() => onPick(p)} data-testid={`p3-ob-find-${p.id}`}>
-                <span className="p3-ob-row-txt"><strong>{p.name}</strong><span>{hintRowText(p.hint)}</span></span>
+                <span className="p3-ob-row-txt"><strong>{p.name}</strong><span>{askedAt.has(p.id) ? waitingRowText(askedAt.get(p.id) as string) : hintRowText(p.hint)}</span></span>
                 {CHEV}
               </button>
             ))}
@@ -753,12 +770,25 @@ function LogoStep({ url, orgId, onUrl, upload }: { url: string; orgId: string; o
   );
 }
 
-function ClaimSheet({ page, theme, writes, onClose, onClaimed, onAsked, onHome, onFullClaim }: {
-  page: ClaimableOrganiser; theme: 'light' | 'dark'; writes: PageWrites; onClose: () => void; onClaimed: (id: string) => void; onAsked: () => void; onHome: () => void; onFullClaim: () => void;
+function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked, onHome, onFullClaim }: {
+  page: ClaimableOrganiser; theme: 'light' | 'dark'; writes: PageWrites;
+  /** The open request's date when the person already asked to join this page; undefined = not asked. */
+  askedAt?: string;
+  onClose: () => void; onClaimed: (id: string) => void; onAsked: () => void; onHome: () => void; onFullClaim: () => void;
 }) {
   const s = claimScreen(page.hint, page.name);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<{ text: string; reauth: boolean } | null>(null);
+  // The server's request_already_open (the list had not caught up) is the same fact, not an error.
+  const [serverAsked, setServerAsked] = useState(false);
+  if (s.primary !== 'home' && (askedAt !== undefined || serverAsked)) {
+    return (
+      <ObSheet title={s.title} onClose={onClose} theme={theme} testId="p3-ob-sheet-claim">
+        <p className="p3-ob-m" role="status" data-testid="p3-ob-claim-asked">{askedLine(askedAt ?? null)}</p>
+        <button type="button" className="p3-ob-lnk" onClick={onClose} data-testid="p3-ob-claim-close">Close</button>
+      </ObSheet>
+    );
+  }
   const act = async () => {
     if (s.primary === 'home') return onHome();
     setBusy(true);
@@ -772,6 +802,7 @@ function ClaimSheet({ page, theme, writes, onClose, onClaimed, onAsked, onHome, 
         onAsked();
       }
     } catch (e) {
+      if (selfServeErrorCode(e) === 'request_already_open') return setServerAsked(true);
       const c = selfServeErrorCopy(e);
       setErr({ text: c.message, reauth: c.next === 'reauth' });
     } finally {

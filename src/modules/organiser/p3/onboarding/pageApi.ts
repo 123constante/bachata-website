@@ -12,7 +12,7 @@
 // "Use an email instead" (assumption 1) is not built.
 import { supabase } from '@/integrations/supabase/client';
 import { fetchContactSettings } from '../../shared/ownershipApi';
-import { claimOrganiser, createOrganiserProfile, requestOrganiserAccess, searchClaimableOrganisers, type ClaimableOrganiser } from '../../shared/selfServeApi';
+import { claimOrganiser, createOrganiserProfile, fetchMyAccessRequests, requestOrganiserAccess, searchClaimableOrganisers, type ClaimableOrganiser, type MyAccessRequest } from '../../shared/selfServeApi';
 import { searchCities, type CityResult } from '../../home/onboarding/citySearch';
 import { GoLiveError, goLiveOutcomeFrom, goLiveRefusalOfMessage, type GoLiveOutcome, type PageCommand } from './pageModel';
 
@@ -31,6 +31,8 @@ export interface PageReads {
   status: (id: string) => Promise<unknown>;
   findPages: (q: string) => Promise<ClaimableOrganiser[]>;
   cities: (q: string) => Promise<CityResult[]>;
+  /** The person's own access requests (open ones = "Waiting for an answer"). Absent = none shown. */
+  requests?: () => Promise<MyAccessRequest[]>;
 }
 
 export interface PageWrites {
@@ -98,6 +100,7 @@ export const REAL_PAGE_READS: PageReads = {
   status: (id) => must(rpc('organiser_onboarding_status_v1', { p_organiser_id: id })),
   findPages: searchClaimableOrganisers,
   cities: searchCities,
+  requests: fetchMyAccessRequests,
 };
 
 export const REAL_PAGE_WRITES: PageWrites = {
