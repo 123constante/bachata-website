@@ -315,6 +315,18 @@ describe('no P3 write catch shows a refusal as a bare error line', () => {
       expect(readFileSync(resolve(dir, f), 'utf8'), f).toMatch(/useGatedCopy\(/);
     }
   });
+  it('Cover "Go live" with profile questions left (#1202): goes to P3 Review BEFORE any write, so no refusal reaches the gate', () => {
+    // One owner per refusal: NewFlow asks first and never sends the live write while questions are open; the gate
+    // only answers writes the server refused. NewFlow does not use the gate, so the two cannot both fire.
+    const src = readFileSync(resolve(__dirname, '../../../flows/new/NewFlow.tsx'), 'utf8');
+    const left = src.indexOf('await profileQuestionsLeft(seriesId)');
+    const review = src.indexOf("kind === 'p3' ? p3StartReview(", left);
+    const write = src.indexOf('await send(liveCommands())', left);
+    expect(left).toBeGreaterThan(-1);
+    expect(review).toBeGreaterThan(left);
+    expect(write).toBeGreaterThan(review);
+    expect(src).not.toMatch(/useGatedCopy|gatedCopy|openGate/);
+  });
 });
 
 // ---- the screen's facts (pure) ----------------------------------------------------------------------
