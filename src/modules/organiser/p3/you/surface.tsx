@@ -5,6 +5,7 @@ import type { OrganiserShellProps } from '../../shell/OrganiserShell';
 import { ORG_PATHS } from '../../shell/paths';
 import { OrgSurfaceProvider, type OrgSurface } from '../../shell/surface';
 import { P3_PATHS } from '../shell/paths';
+import { P3RouteBoundary } from '../shell/P3RouteBoundary';
 
 /**
  * The P3 frame for a screen the You hub pushes: back link and title in P3's top bar, the page in
@@ -68,9 +69,12 @@ export function P3YouSurface() {
   return (
     <OrgSurfaceProvider value={P3_SURFACE}>
       {/* The pushed screens are lazy (P3Routes): keep P3's frame, top bar included, while one arrives. */}
-      <Suspense fallback={<P3PushedShell title="" back={YOU} testId="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
-        <Outlet />
-      </Suspense>
+      {/* p3-prefix-d D2: a pushed screen whose chunk will not load says so, with Try again and back to You. */}
+      <P3RouteBoundary frame="pushed" back={() => YOU}>
+        <Suspense fallback={<P3PushedShell title="" back={YOU} testId="p3-you-route-loading"><StateCard title="Loading&hellip;" testId="p3-you-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
+          <Outlet />
+        </Suspense>
+      </P3RouteBoundary>
     </OrgSurfaceProvider>
   );
 }
