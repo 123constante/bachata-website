@@ -17,3 +17,8 @@ Branch `claude/p3-acceptance-contract`. Docs only: no `src/` change, and no prod
 1. Lead decides G-01 (Critical: organisers with a page cannot reach P3 from any UI path), then G-02, G-03 and G-10.
 2. Seed the ACCOUNTS.md accounts. Rerun the survey query on the `[ACC]` pages and paste the counts.
 3. A walker runs CONTRACT.md at 390x844 and fills in the Pass/Fail lines.
+
+
+## Round 3 (2026-10-30)
+
+People already in the system coming to join: [PEOPLE-INVENTORY.md](PEOPLE-INVENTORY.md), CONTRACT.md J-i1..J-i18, G-28..G-41, ACCOUNTS.md section 6. Handover: `docs/handovers/p3-acceptance-contract-r3.md`.

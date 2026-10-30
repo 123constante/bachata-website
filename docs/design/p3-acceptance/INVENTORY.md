@@ -1,4 +1,4 @@
-# P3 organiser area: inventory (main @ 472ecde, 2026-10-30; E15-E18 added in round 2)
+# P3 organiser area: inventory (main @ 472ecde, 2026-10-30; E15-E18 added in round 2; E19-E26 in round 3)
 
 Step 1 of `docs/briefs/p3-acceptance-contract.md`. Every screen, route and sheet of the P3 area, and every entry point into it. CONTRACT.md journeys cite these ids; its Coverage section counts them.
 
@@ -84,5 +84,13 @@ Step 1 of `docs/briefs/p3-acceptance-contract.md`. Every screen, route and sheet
 | E16 | Claim email link (claim / approval of an access request) | page claimer, approved requester | today: R1 or `/account/o`; must land in P3 Home while P3 is live | - | - | unverified in round 2 | R2: see J-x1 |
 | E17 | Invite email link (`/invite/:token`) from `organiser_invite_queue` | invitee | E11 | - | - | as E11 | R2: see J-x1, J-g1 |
 | E18 | Public event page `/event/:id` (BentoPage) as the RESULT of organiser edits | everyone | read-only render of what the organiser set | event_view_p5 / public reads | `record_event_view_v1` | cancelled, moved, repeat rule, cover, price | `src/modules/event-page/BentoPage.tsx` |
+| E19 | Dancer persona claim at every sign-in | any account at sign-in | links the one unlinked admin profile with the same proven email | - | `claim_my_dancer_profile_v1` | linked / already_linked / no_match / ambiguous / email_unproven / unavailable | src/lib/claimMyDancerProfile.ts:8-49 (R3: PEOPLE-INVENTORY.md) |
+| E20 | "Already listed?" step after sign-up | sign-up that ticked Teacher or DJ and E19 = no_match | WhatsApp "Ask us to link your profile" + Continue; no search, no write | - | - | no yes / no / not sure answer | src/lib/auth-otp-routing.ts:316-325; src/pages/AuthCallback.tsx:477-499 |
+| E21 | Typed-code sign-in (AuthStepper) | anyone typing the code instead of tapping the link | same landing as E04 | - | E19, E22 | Missing: deletion check and E20 step (link path has both) | src/components/auth/AuthStepper.tsx:145-204 |
+| E22 | Organiser auto-claim at sign-in | account whose email an admin recorded on a page, or an invite | `/account/o` (G-02) | - | `claim_my_organisers_v1` | already-claimed page returns empty, indistinguishable | src/lib/claimMyOrganisers.ts:6-107 |
+| E23 | Teacher / DJ / dancer claim queue (`profile_claims`) | none on main (no src writer) | admin by hand | - | - | 5 pending rows, orphaned ids | table only (R3: PEOPLE-INVENTORY.md D5) |
+| E24 | Owner adds a team member (email / name / profile) | page owner | team row | `organiser_team_search_people_v1` (confirmed accounts only) | `organiser_team_set_member_v1`, `organiser_team_add_member_by_profile_v1` | listed person with no account cannot be found by name | src/modules/organiser/shared/teamRpcApi.ts:23-50 |
+| E25 | Admin duplicate check and join | admin | merged person | `check_invitee_duplicates_v1` | `admin_join_duplicate_people_v1` | Missing: any merged-row handling at sign-in | src/modules/admin-organisers/duplicates/duplicatesApi.ts:20-48 |
+| E26 | Deleted account signs in | account with an erase request | restore screen | `my_account_deletion_status_v1` | `my_account_restore_v1` | runs after E19, before E22; link path only | src/lib/accountDeletion.ts:47-91; src/pages/AuthCallback.tsx:197-218 |
 
 Totals: 47 S rows + 18 E rows = **65 inventory rows** (E15-E18 added in round 2).

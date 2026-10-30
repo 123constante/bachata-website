@@ -264,7 +264,7 @@ Round 1 ids above are unchanged. Round 2 adds owner rules (R1-R4), persons (e), 
 - **R1. Series edits ask each time, with a preview.** Any edit to a repeating series asks "this date only" or "all dates". The preview lists the dates that change AND who is going on them. Dates edited by hand are kept when "all dates" is applied.
 - **R2. One person, one account.** There is one "You" area, with a section per role (dancer, teacher, DJ, organiser). "Switch page" switches organiser pages only, never roles.
 - **R3. Old data is accepted until edited.** A stored value that fails a new check (e.g. a Facebook link where a new validator refuses it) is shown and kept as-is. Only editing that field asks for a valid value. An untouched save is never blocked and sends no command (sharpens U5).
-- **R4. Walk-first priority.** P1 journeys are walked first, in this order: (1) existing organisers meeting the onboarding gate (J-e8), (2) the public page matches what was set (J-x2), (3) co-organisers and several pages (J-g1..J-g6, J-e4). Everything else is P2 unless marked.
+- **R4. Walk-first priority.** P1 journeys are walked first, in this order: (1) existing organisers meeting the onboarding gate (J-e8), (2) the public page matches what was set (J-x2), (3) co-organisers and several pages (J-g1..J-g6, J-e4). Everything else is P2 unless marked. **Round 3:** the "already in the system comes to join" class is P1 BESIDE the gate, walked in slot (1) right after J-e8: J-i1, J-i2, J-i4, J-i8, J-i10, J-i12, J-i13, J-i15. Slots (2) and (3) are unchanged.
 
 Prod facts behind R4 (survey in ACCOUNTS.md section 4): **all 10 claimed pages have no completed onboarding row**, so every existing organiser meets the gate on their first gated write. 29 pages carry a Facebook link (R3).
 
@@ -453,7 +453,149 @@ PARKED on purpose (owner, 2026-10-30), not journeys: undo history, make a copy, 
 
 ---
 
-## Gap list (as of main 472ecde; G-16 onwards added in round 2)
+## Round 3 additions (2026-10-30, brief `docs/briefs/p3-acceptance-contract-r3.md`): a person already in the system comes to join
+
+Built from the data, not from memory: every journey below cites a prod fact (D1-D8) or a code fact (C1-C5) and the entry rows E19-E26 in [PEOPLE-INVENTORY.md](PEOPLE-INVENTORY.md) (also added to INVENTORY.md). Seeds are ACCOUNTS.md section 6. New gaps are G-28 onwards. Severity: **P1** = walked beside the gate (R4), P2 otherwise.
+
+Prod in one line: 203 persons, 8 with an account; 132 listed teachers/DJs with no account and only 3 teacher/DJ persons with an email; 72 persons hold 2+ roles (23 teacher + DJ + dancer); 49 active team rows belong to people with no account; 5 teacher claims pending up to 323 days on ids that no longer exist; all 44 accounts are email-only.
+
+Rule for every J-i journey (R2 sharpened): **one person ends with one account, one persona, one You area.** After the journey, the walker checks (read-only SQL on the `[ACC]` rows): the person row has exactly one `auth_user_id`; exactly one `dancer_profiles` row has `claimed_by` = the account; no new `person` row was created for someone who was already listed.
+
+### Listed person, no account
+
+#### J-i1: listed teacher signs up with the SAME email as on file (P1)
+Account: A-listed-same (seed: person + persona with email E, roles teaching + dancing, no account). Entries: E19, E03, E04.
+1. Sign up with E, tick Teacher. E19 answers `linked`. No "Already listed on Bachata Calendar?" screen appears (it only shows after `no_match`).
+2. You shows the listed name, photo and the Teacher section with the existing teacher details (years teaching, styles); nothing asks to re-enter them. Blank sign-up fields filled only where the listed profile was empty.
+3. The public teacher page is the same URL/slug as before sign-up; event line-ups that named this teacher still name them.
+4. Sign out, sign in by typed code (E21): same account, same You, no second link attempt shown.
+Must be impossible: a second persona for E; the listed details overwritten by sign-up blanks; the link happening with an unproven email (`email_unproven`).
+Pass/Fail: ____ States: S-1 ____ S-5 ____ S-8 ____
+
+#### J-i2: listed teacher signs up with a DIFFERENT email (P1)
+Account: A-listed-other (seed: listed teacher with email E1; sign up with E2). Entries: E19, E20.
+1. Sign up with E2, tick Teacher. E19 answers `no_match`. "Already listed on Bachata Calendar?" shows with "Ask us and we'll link it to your account." and the link "Ask us to link your profile".
+2. Continue lands on the planned landing; You shows an EMPTY teacher section (a new stub), not the listed one.
+3. After an admin links the listed profile (E25 / manual), the next sign-in shows the listed profile, and the stub made in step 2 is gone or merged; one persona remains **[G-28, G-34]**.
+Must be impossible: linking by name match without proof; two teacher pages for one person on the public site after the admin link.
+Pass/Fail: ____ States: S-1 ____
+
+#### J-i3: email typo or variant (P2)
+Account: A-listed-variant (listed email `Name.Teacher@example.test`).
+1. Sign up with `name.teacher@example.test` (case differs): links (E19 `linked`) **[G-31]**.
+2. Sign up with ` name.teacher@example.test ` (spaces): the form trims it; links.
+3. Sign up with `nameteacher@example.test` (dot removed) or a one-letter typo: does NOT link; treated as J-i2.
+Must be impossible: a typo that matches a DIFFERENT listed person links to them.
+Pass/Fail: ____
+
+#### J-i4: listed person with NO email on file signs up (P1; 132 prod rows, D1)
+Account: A-listed-noemail (listed teacher + DJ, no email). Entries: E19, E20.
+1. Sign up ticking Teacher: E19 `no_match`, "Already listed?" shows (as J-i2 step 1).
+2. Sign up ticking Dancer only: NO "Already listed?" step is shown today **[G-29]**; expected: a listed dancer is offered the same way to ask.
+3. The person can find their listed profile from inside the app (search by name, or "Is this you?" on the public profile) **[G-28]**; today the only path is WhatsApp.
+Must be impossible: the account quietly sitting beside the listed profile with no prompt anywhere.
+Pass/Fail: ____
+
+#### J-i5: "Already listed?" answered yes / no / not sure (P2)
+Account: A-listed-other.
+1. Expected screen: three answers. Yes -> ask to link (today: WhatsApp link). No -> continue, nothing sent. Not sure -> show what we hold (a search by name, or "we'll check and message you") **[G-32]**.
+2. Today the screen has only "Ask us to link your profile" and Continue. The walker records the screen as it is and FAILs step 1 until G-32 is decided.
+3. Typed-code sign-up (E21): the step must show on this path too **[G-35]**.
+Pass/Fail: ____
+
+#### J-i6: two listed profiles share the email (ambiguous) (P2; 1 prod email on 2 persons, D6)
+Account: A-listed-ambiguous.
+1. Sign up with the shared email: E19 answers `ambiguous`, nothing links.
+2. The person is told we found more than one profile and how to resolve it **[G-33]** (today: silent; no "Already listed?" either, because it only follows `no_match`).
+Must be impossible: linking either profile at random.
+Pass/Fail: ____
+
+### Person who already has an account
+
+#### J-i7: signs up again with the same email (P2)
+Account: A-dancer (existing).
+1. Choose "Sign up", type the existing email, enter the code: the person lands signed in to the SAME account, with a line that they already had one **[G-41]**.
+2. Roles ticked on this second sign-up are offered, not silently added or dropped.
+Must be impossible: a second `auth.users` row; the existing profile reset.
+Pass/Fail: ____
+
+#### J-i8: signs in with the other method (code vs link) (P1)
+Account: A-org-legacy-live and A-deleted.
+1. Same account by link (AuthCallback) and by typed code (AuthStepper): same landing, same page choice.
+2. A deleted account gets the restore screen on BOTH paths **[G-35]**.
+3. A Teacher/DJ sign-up with `no_match` sees "Already listed?" on BOTH paths **[G-35]**.
+Pass/Fail: link ____ code ____
+
+#### J-i9: one person, two accounts (P2; 0 in prod today, D7)
+Account: A-two-1 (linked to the listed persona) and A-two-2 (second email, own stub).
+1. Signing in as A-two-2 shows the stub, never the persona already linked to A-two-1.
+2. A path exists to say "this is also me" and end with one account **[G-34]** (decision: admin join via E25, or in-app).
+Must be impossible: both accounts linked to the same persona; two organiser seats for one person counted as two people.
+Pass/Fail: ____
+
+### Claims and proof of identity
+
+#### J-i10: two people claim the same profile (P1)
+Accounts: A-claim-1 (proven email = the listed email), A-claim-2 (other email).
+1. A-claim-1 links via E19. A-claim-2 has no path to the same persona except asking an admin.
+2. Organiser page: A-claim-1 claims (E10); A-claim-2 then sees the page as claimed and is offered "ask to join" (`request_organiser_access_v1`), never a second claim.
+Must be impossible: `claimed_by` overwritten; both shown as owner.
+Pass/Fail: ____
+
+#### J-i11: claim on a profile that is already claimed (P2)
+Account: A-claim-2 with the listed email recorded on a page already claimed by A-claim-1.
+1. At sign-in E22 returns nothing; the person is told the page is already run by another account and offered ask-to-join **[G-37]** (today silent).
+2. E19 `already_linked` for someone else's persona: a message with "Tell us" **[G-37]**.
+Pass/Fail: ____
+
+#### J-i12: someone who is not that person tries to claim (P1)
+Account: A-impostor (knows the listed name, not the mailbox).
+1. The only proof accepted is a proven mailbox matching the email on file (E19, E10, E11 `email_unproven`). Name, Instagram or phone never link anything.
+2. With no email on file, the claim goes to a human queue that can see and act on it: today `profile_claims` has 5 teacher claims up to 323 days old pointing at ids that no longer exist, with no writer on main **[G-30]**.
+Must be impossible: any link without a proven mailbox or an admin decision.
+Pass/Fail: ____
+
+### Several roles, team rows, venues
+
+#### J-i13: listed as teacher AND DJ AND dancer joins (P1; 23 prod persons, D3)
+Account: A-listed-three (one person, roles teaching + djing + dancing, email on file).
+1. Sign up ticking Teacher and DJ: one link, one account. You shows ONE area with Dancer, Teacher and DJ sections from the same person (R2). Switch page lists organiser pages only.
+2. Public pages: the teacher and DJ pages are the same person (same photo, name); no duplicate created.
+3. Ticking only Dancer at sign-up still links the same person; Teacher and DJ sections are present because the roles are on the person row.
+Must be impossible: three personas or three accounts; a role section missing because a different box was ticked.
+Pass/Fail: ____
+
+#### J-i14: merged or archived listed rows (P2; 19 archived, 2 merged, D6)
+Accounts: A-listed-archived (email on an archived persona), A-listed-merged (email on a merged-away person whose survivor has a different email).
+1. Archived: no link (E19 links live rows only); a fresh account; the archived row stays hidden.
+2. Merged: the account links the SURVIVOR or nothing, never the merged-away row **[G-38]**.
+Pass/Fail: ____
+
+#### J-i15: listed team member with no account joins (P1; 49 prod rows, D4)
+Account: A-team-legacy (active `organiser_team_members` row on P-big, person with email, no account).
+1. Sign up with that email: E19 links the person. The person sees P-big in P3 with the team role they hold, or a clear line "You are listed on P-big's team. Ask the owner to invite you" **[G-39]**.
+2. The owner's Team screen shows ONE row for this person before and after (not the legacy row plus a new one).
+Must be impossible: gaining owner rights from a legacy `Leader` row without a grant; seeing page B's data (J-g5).
+Pass/Fail: ____
+
+#### J-i16: owner adds a listed person who has no account (P2)
+Account: A-org-big.
+1. Team search by name finds only confirmed accounts (E24), so the listed person is not found; the screen offers invite by email instead (U3).
+2. After the invite is accepted (E11, email must match), the person's listed persona is the one linked, not a new one.
+Pass/Fail: ____
+
+#### J-i17: invite bound to a person the sign-in cannot link (P2)
+Account: A-helper-noprofile (invite with `person_profile_id`, account email matches the invite but not the persona).
+1. Redeem returns `not_linked`: no seat, and the screen says what to do next (never a blank Done).
+Pass/Fail: ____
+
+#### J-i18: deleted, suspended or venue/vendor contact (P2)
+1. Deleted account (erase request) signs in: restore screen before any claim runs **[G-36]**; restoring keeps the old links.
+2. Banned account: refused with a message; no claim runs.
+3. Venue contact, videographer or vendor (68 venues, 2 + 2 listed, none linked): no join path; the copy never offers one that does not exist **[G-40]**.
+Pass/Fail: ____
+
+## Gap list (as of main 472ecde; G-16 onwards added in round 2; G-28 onwards in round 3)
 
 | id | gap | journeys | severity |
 |---|---|---|---|
@@ -484,10 +626,24 @@ PARKED on purpose (owner, 2026-10-30), not journeys: undo history, make a copy, 
 | G-25 | The dancer-profile-first gate (`dancerFirst.refusal.test.tsx`) for an organiser-later path is not described in P3 copy. | J-f4 | Medium |
 | G-26 | Destinations of old R1 bookmarks (E15) and claim/approval email links (E16) are unverified while P3 is live. | J-x1 | Medium |
 | G-27 | Page lifecycle states other than live: prod has only `live` pages (49), so hidden, taken down, duplicate and merge exist only in seeds. | J-p6 | Info |
+| G-28 | Matching is by proven email only (C1) and only 3 listed teacher/DJ persons carry an email (D1). The 132 listed teachers/DJs with no account have no in-app way to find and claim their profile; the only path is a WhatsApp message. | J-i2, J-i4 | **High** (P1) |
+| G-29 | "Already listed?" shows only when Teacher or DJ was ticked (`auth-otp-routing.ts:316`); a listed dancer, or a teacher ticking only Dancer, never sees it. | J-i4 | Medium |
+| G-30 | `profile_claims`: 5 teacher claims pending up to 323 days, their `profile_id` matches no `person` or `dancer_profiles` row, and no `src/` writer exists. Nobody can approve them. | J-i12 | **High** (data) |
+| G-31 | Case / whitespace normalisation of the email match in `claim_my_dancer_profile_v1` and `claim_my_organisers_v1` is server-side and unread here. | J-i3 | Medium until proven |
+| G-32 | The brief's yes / no / not sure answers on "Already listed?" do not exist; the screen has a WhatsApp link and Continue. Owner decision. | J-i5 | Decision |
+| G-33 | E19 `ambiguous` shows nothing to the person. | J-i6 | Medium |
+| G-34 | No account linking or account merge: OTP email only, `person_account_links` 0 rows. A person with two emails ends with two accounts; the stub from a non-matching sign-up has no defined fate after an admin link. | J-i2, J-i9 | Medium (decision) |
+| G-35 | The typed-code path (AuthStepper) skips the deletion/restore check and the "Already listed?" step that the link path (AuthCallback) runs. | J-i5, J-i8 | **High** (P1) |
+| G-36 | The dancer persona claim runs before the deletion check (`AuthCallback.tsx:197` vs `207`). | J-i18 | Medium |
+| G-37 | A page or persona already claimed by someone else is silent at sign-in (empty list / `already_linked`). | J-i11 | Medium |
+| G-38 | No merged-row handling at sign-in; `person_merge_decisions` has 4 `merge` rows but `person_merge_log` has 0. | J-i14 | Medium |
+| G-39 | 49 active legacy `organiser_team_members` rows belong to people with no account, and 10 `entity_members` holders have no `person` row: the legacy team and the P3 roles are two lists with no defined mapping at join. | J-i15 | **High** (P1) |
+| G-40 | Venue contacts, videographers and vendors have no join path (vendors only via team auto-claim). | J-i18 | Info |
+| G-41 | Signing up with an email that already has an account: outcome and copy unproven. | J-i7 | Medium |
 
 ## Coverage
 
-65 inventory rows (47 S + 18 E; E15-E18 added in round 2). Rows covered by at least one journey:
+73 inventory rows (47 S + 26 E; E15-E18 added in round 2, E19-E26 in round 3). Rows covered by at least one journey:
 
 | journey | covers |
 |---|---|
@@ -525,7 +681,11 @@ PARKED on purpose (owner, 2026-10-30), not journeys: undo history, make a copy, 
 | J-x1 | E12, E13, E15, E16, E17 |
 | J-x2 | E18 |
 | J-p1..J-p6, J-v1..J-v9 | S13, S16, S17, S20, S22, S38 (and the S rows above) |
+| J-i1..J-i6 | E03, E04, E19, E20, E21 |
+| J-i7..J-i9 | E04, E21, E25, E26 |
+| J-i10..J-i12 | E10, E11, E19, E22, E23 |
+| J-i13..J-i18 | E11, E19, E24, E25, E26, S37 |
 
-**Coverage: 65 rows, 65 covered, 0 uncovered.** (Round 2: 25 round-1 journeys + 35 new journey ids: J-e1..8, J-f1..4, J-g1..6, J-x1..2, J-p1..6, J-v1..9.)
+**Coverage: 73 rows, 73 covered, 0 uncovered.** (Round 2: 25 round-1 journeys + 35 new journey ids: J-e1..8, J-f1..4, J-g1..6, J-x1..2, J-p1..6, J-v1..9. Round 3: 18 more, J-i1..J-i18.)
 
 Covered thinly (one journey, and the step depends on a flag the walker may not have on): S04 (needs p3GoingOn) and S30-S34 (need organiserTicketing). The walker records "flag off, not walked" instead of PASS. That is a known limit, not a silent omission.

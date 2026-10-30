@@ -138,3 +138,26 @@ Same rules as section 3 (`[ACC]` prefix, lead seeds, no worker writes).
 | A-org-partner | g | owner of **P-partner** | 1 | series **S-shared** with `organiser_ids = {P-big, P-partner}`, live weekly | J-g6 |
 
 Extra seed for J-x2 and J-v*: on P-big's W-weekly-130, mark 3 future dates with people going (so the R1 preview has names), and hand-edit 1 future date's time (so "hand-edited dates kept" is testable). Pages for J-p6: one `[ACC]` page in each lifecycle state the admin side supports (hidden, taken down, flagged duplicate).
+
+## 6. Round 3 test accounts (a person already in the system comes to join, J-i1..J-i18)
+
+The prod survey for this round is [PEOPLE-INVENTORY.md](PEOPLE-INVENTORY.md) section 1 (counts only). Same rules as section 3: `[ACC]` prefix, the lead seeds, no worker writes. "Listed" = a `person` row + its `dancer_profiles` persona + `person_roles` (+ role details), created as an admin would (`created_by` null, `profile_source` admin_create), with NO account unless stated. Emails use `example.test`.
+
+| account / row | seed | journeys |
+|---|---|---|
+| A-listed-same | listed person, roles teaching + dancing, `teacher_role_details` filled, persona email = the account email to be used | J-i1 |
+| A-listed-other | listed teacher with email E1; the walker signs up with E2 | J-i2, J-i5 |
+| A-listed-variant | listed persona email in mixed case `Name.Teacher@example.test` | J-i3 |
+| A-listed-noemail | listed teacher + DJ, no email anywhere (the 132-row prod shape) | J-i4 |
+| A-listed-ambiguous | two live unlinked personas with the same email (the prod shared-email shape) | J-i6 |
+| A-two-1 / A-two-2 | -1 linked to a listed persona; -2 a second email with its own stub | J-i9 |
+| A-claim-1 / A-claim-2 | -1 email = listed persona email and = an unclaimed `[ACC]` page contact email; -2 another email | J-i10, J-i11 |
+| A-impostor | fresh account; knows the A-listed-noemail name only | J-i12 |
+| A-listed-three | one person with teaching + djing + dancing active, both role-detail rows, email on file (the 23-person prod shape) | J-i13 |
+| A-listed-archived / A-listed-merged | persona with `archived_at` set; a person with `merged_into_id` pointing at a survivor with a different email | J-i14 |
+| A-team-legacy | listed person with email, active `organiser_team_members` row `Member` on P-big (`member_profile_id` = the person id), no `entity_members` row | J-i15 |
+| A-helper-noprofile | open `organiser_invites` row on P-big with `person_profile_id` set to a persona whose email differs from the invite email | J-i17 |
+| A-deleted (reuse) + one banned account | erase request open; `banned_until` in the future | J-i8, J-i18 |
+| profile_claims row | one pending teacher claim pointing at A-listed-noemail's current person id (and the 5 prod orphans stay untouched) | J-i12 |
+
+After each J-i walk, run the "one person, one account" check from CONTRACT.md round 3 (read-only SELECT on `[ACC]` rows).
