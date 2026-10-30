@@ -32,3 +32,11 @@ body { margin: 0; padding: 16px; background: #8f8a86; font-family: "Outfit", sys
 .m-cmp { border-collapse: collapse; background: #fff; color: #1d0a03; font-size: 14px; margin-bottom: 24px; }
 .m-cmp th, .m-cmp td { border: 1px solid #d8cfc6; padding: 8px 10px; text-align: left; vertical-align: top; }
 .m-cmp th { background: #f1ebe5; }
+.m-g7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.m-g7 button { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--fg); font: inherit; font-size: 14px; }
+.m-g7 button[aria-pressed="true"] { background: var(--gold); color: var(--on-gold, #1d0a03); border-color: var(--gold); }
+/* r3 C: phones drawn full length so nothing is hidden; the dashed line is where an 844px screen ends and the page scrolls. */
+.p3-theme.p3-frame.m-phone.m-long { height: auto; min-height: 844px; }
+.m-long .p3-main { overflow: visible; }
+.m-long .p3-sheet { max-height: none; }
+.m-long::after { content: "844px: below here scrolls"; position: absolute; left: 0; right: 0; top: 844px; border-top: 2px dashed #e0457b; color: #e0457b; font-size: 11px; text-align: right; padding-right: 8px; pointer-events: none; z-index: 9; }

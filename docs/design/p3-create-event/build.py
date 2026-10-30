@@ -333,5 +333,7 @@ CMP = """<table class="m-cmp"><tr><th></th><th>Old wizard (today)</th><th>A &mid
 if __name__ == "__main__":
     page("a.html", "P3 create A: one page", approach_a())
     page("b.html", "P3 create B: three steps", approach_b())
-    page("c.html", "P3 create C: pick first", approach_c())
+    # c.html is round 3 (full inventory); approach_c() above is kept as the r2 record.
+    from build_c3 import write_c3
+    write_c3(page)
     page("index.html", "P3 create event: compare", [], '<div style="overflow-x:auto">' + CMP + "</div>")
