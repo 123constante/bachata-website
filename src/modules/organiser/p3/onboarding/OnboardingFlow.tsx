@@ -53,6 +53,7 @@ import {
   type PageHeld,
   type PageStep,
   type ReviewRow,
+  welcomeTitle,
 } from './pageModel';
 import { SettingsBody } from './SettingsSheet';
 import './page.css';
@@ -193,6 +194,8 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   if (!user) return null;
   if (home.isError && !params.get('o')) return failed('home', 'We couldn\u2019t load your page. Try again.', () => void home.refetch());
   if (!arrival) return loading('home');
+  // Welcome greets by first name: hold it until the dancer read settles so the title never changes after first paint.
+  if (stage.kind === 'page' && stage.step === 'welcome' && uid && dancer.isPending) return loading('page');
 
   const pageReadsFailed = [page, phone, status].some((q) => q.isError);
   const needsPage = stage.kind === 'review' || (stage.kind === 'page' && DETAIL_STEPS.includes(stage.step));
@@ -302,6 +305,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       setTheme={setTheme}
       email={user.email ?? null}
       orgId={orgId}
+      firstName={dancer.data?.first_name ?? ''}
       held={held ?? { ...EMPTY_PAGE, name: pageName }}
       draft={d ?? draftFrom(EMPTY_PAGE)}
       setDraft={(f) => setD((p) => f(p ?? draftFrom(EMPTY_PAGE)))}
@@ -345,6 +349,8 @@ interface PageScreensProps {
   setTheme: (t: 'light' | 'dark') => void;
   email: string | null;
   orgId: string | null;
+  /** The dancer's first name when known (Welcome greets by it); '' otherwise. */
+  firstName?: string;
   held: PageHeld;
   draft: PageDraft;
   setDraft: (f: (p: PageDraft) => PageDraft) => void;
@@ -541,7 +547,7 @@ export function PageScreens(props: PageScreensProps) {
     </>
   );
 
-  const titleOf = step === 'welcome' ? (orgId && held.name ? `Welcome to ${held.name}` : 'Welcome') : copy.title;
+  const titleOf = step === 'welcome' ? welcomeTitle(props.firstName, orgId ? held.name : '') : copy.title;
   const enter = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') void continueStep();
   };

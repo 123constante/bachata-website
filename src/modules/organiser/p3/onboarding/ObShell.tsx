@@ -122,10 +122,29 @@ export function ObToast({ text, theme, onDone }: { text: string; theme: 'light' 
  * CSP-allowlisted (CityBlock, CityCard) and has the four home nations (gb-eng, gb-sct, gb-wls,
  * gb-nir). Lazy and in this route's own chunk: zero bytes on /app's first load.
  */
+const RGI_SUBDIVISIONS = new Set(['gb-eng', 'gb-sct', 'gb-wls']);
+
+/** The emoji flag, or '' when there is no RGI emoji for it (gb-nir has none: a tag sequence would draw a plain black flag). */
+export function flagEmoji(code: string): string {
+  const c = code.trim().toLowerCase();
+  const cp = String.fromCodePoint;
+  if (/^[a-z]{2}$/.test(c)) return [...c].map((ch) => cp(0x1f1e6 + ch.charCodeAt(0) - 97)).join('');
+  if (RGI_SUBDIVISIONS.has(c)) return cp(0x1f3f4) + [...`gb${c.slice(3)}`].map((ch) => cp(0xe0000 + ch.charCodeAt(0))).join('') + cp(0xe007f);
+  return '';
+}
+
+/** What the fallback box shows: the emoji flag when one exists, else the short country code as text. */
+export function flagFallbackText(code: string): string {
+  const c = code.trim().toLowerCase();
+  return flagEmoji(c) || (c.includes('-') ? c.split('-')[1] : c).slice(0, 2).toUpperCase();
+}
+
 export function Flag({ code }: { code: string }) {
   const [failed, setFailed] = useState(false);
   const c = code.trim().toLowerCase();
   if (!/^[a-z]{2}(-[a-z]{3})?$/.test(c)) return <span className="p3-ob-flag" data-failed="true" aria-hidden="true" />;
+  // The image failed (CDN blocked / offline): show the emoji flag instead, never an empty box.
+  if (failed) return <span className="p3-ob-flag" data-emoji={flagEmoji(c) ? 'true' : 'code'} aria-hidden="true">{flagFallbackText(c)}</span>;
   return (
     <img
       className="p3-ob-flag"
@@ -136,7 +155,6 @@ export function Flag({ code }: { code: string }) {
       height={18}
       loading="lazy"
       decoding="async"
-      data-failed={failed ? 'true' : undefined}
       onError={() => setFailed(true)}
     />
   );

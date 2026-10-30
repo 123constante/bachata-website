@@ -410,7 +410,7 @@ describe('Settings sheet', () => {
   it('Not you? opens Settings; the dark switch flips the shell and is remembered', async () => {
     mount({ shape: 'e164Confirmed' });
     await onStep('welcome');
-    await waitFor(() => expect(title()).toBe('Welcome to Leeds Nights'));
+    await waitFor(() => expect(title()).toBe('Hey Sam, you made it!'));
     expect(screen.getByTestId('p3-ob-shell').getAttribute('data-theme')).toBe('light');
     fireEvent.click(screen.getByTestId('p3-ob-notyou'));
     const sw = await screen.findByTestId('p3-ob-dark');

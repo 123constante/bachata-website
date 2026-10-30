@@ -163,7 +163,7 @@ export type StepCopy = { title: string; helper: string | null; reason: string | 
 
 export const STEP_COPY: Record<PersonStep, StepCopy> = {
   name: { title: 'Your first name', helper: 'Goes on your dancer card.', reason: 'Type your first name to continue.', optional: false },
-  photo: { title: 'Your photo', helper: 'Add a photo to continue. Dancers like to see who they\u2019re meeting.', reason: 'Add a photo to continue.', optional: false },
+  photo: { title: 'Your photo', helper: 'Add a photo to continue. Dancers like to see who they\u2019re meeting. A clear face shot works best.', reason: 'Add a photo to continue.', optional: false },
   role: { title: 'How do you dance?', helper: null, reason: 'Pick one to continue.', optional: false },
   nat: { title: 'Nationality', helper: null, reason: 'Pick your nationality to continue.', optional: false },
   langs: { title: 'Languages you speak', helper: null, reason: null, optional: true },
