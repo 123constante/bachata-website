@@ -12,5 +12,6 @@
 
 ## Not done
 - No e2e at 390x844 (no browser walk); no live signed-in organiser call; no "before" bundle-budget run (after run is green with unchanged allowances).
+- PR: #1206 (body filled).
 - Stats makes one read per row (batch read is a separate admin ask).
 - Sandbox lacks `jsqr` (door tests fail to resolve; build needs `npm i --no-save jsqr`) -- pre-existing.
