@@ -75,7 +75,6 @@ for (const theme of ['light', 'dark'] as const) {
     const metrics: unknown[] = [];
     for (let i = 0; i < 30; i++) {
       const at = (await page.getByTestId('p3-ob-shell').getAttribute('data-screen')) ?? '';
-      if ((await page.getByTestId('p3-ob-continue').getAttribute('aria-disabled')) === 'true') await answer(page, at);
       if (!seen.has(at)) {
         seen.add(at);
         await page.waitForTimeout(500);

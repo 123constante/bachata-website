@@ -16,3 +16,12 @@ Class: BUILD-visual. Branch `claude/onboarding-playful-mood`. Design record: `do
 - Real flagcdn rendering and a real device; the walk faked every call and flagcdn.
 - Find / create / contact screens and the Welcome-with-invite-card (out of scope / not walked).
 - Gap 4 (Review %) and Languages flags untouched by design.
+
+## Fix round r1 (review `docs/reviews/onboarding-playful-mood-r1.md`)
+- F1 (BLOCK): the raw ellipsis in `welcomeTitle` is now `…`. Whole `src/modules/organiser` vitest tree: 204 files, run after the fix (G3 included); the only red was my own new emoji test case, fixed (see below), then the touched suites re-ran green (445/445).
+- F2: first name now comes from the dancer read alone (`dancer.data?.first_name`), and Welcome shows the loading state until that read settles, so the title does not change after first paint. A failed dancer read just gives the page-name title.
+- F3: `flagEmoji` returns '' for `gb-nir` (no RGI emoji); the fallback box then shows the code as text ("NI"). Emoji span is `overflow:hidden`, 14px. Tests added for gb-eng, gb-wls, gb-nir.
+- F4: pictures recaptured before any answer, so unpicked and picked now differ (md5 checked). Before / after / after-flagfail all redone.
+- F6: dead `data-failed` on the img removed. F8: O'Brien, `<b>&` and punctuation-only first word added to the table (punctuation-only now falls back to the page copy; emoji-only names still greet).
+- Not changed, on purpose: F5 (pop replays on remount: mild, playful), F7 (clips by code point, not grapheme: prod max is 21 characters, 0 non-ASCII).
+- Still not verified: real device, real flagcdn, Windows glyph width.

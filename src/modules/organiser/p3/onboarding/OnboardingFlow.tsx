@@ -194,6 +194,8 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   if (!user) return null;
   if (home.isError && !params.get('o')) return failed('home', 'We couldn\u2019t load your page. Try again.', () => void home.refetch());
   if (!arrival) return loading('home');
+  // Welcome greets by first name: hold it until the dancer read settles so the title never changes after first paint.
+  if (stage.kind === 'page' && stage.step === 'welcome' && uid && dancer.isPending) return loading('page');
 
   const pageReadsFailed = [page, phone, status].some((q) => q.isError);
   const needsPage = stage.kind === 'review' || (stage.kind === 'page' && DETAIL_STEPS.includes(stage.step));
@@ -303,7 +305,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       setTheme={setTheme}
       email={user.email ?? null}
       orgId={orgId}
-      firstName={personHeld?.first_name ?? ''}
+      firstName={dancer.data?.first_name ?? ''}
       held={held ?? { ...EMPTY_PAGE, name: pageName }}
       draft={d ?? draftFrom(EMPTY_PAGE)}
       setDraft={(f) => setD((p) => f(p ?? draftFrom(EMPTY_PAGE)))}

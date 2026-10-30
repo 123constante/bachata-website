@@ -470,10 +470,12 @@ const WELCOME_NAME_MAX = 24;
  * known, else the earlier copy. Only the first word is used; long names are clipped by code point.
  */
 export function welcomeTitle(firstName: string | null | undefined, pageName: string | null | undefined): string {
-  const first = (firstName ?? '').trim().split(/\s+/)[0] ?? '';
+  const word = (firstName ?? '').trim().split(/\s+/)[0] ?? '';
+  // A first word with no letter in it ("." or "-") is not a name: use the page copy.
+  const first = /[\p{L}\p{Extended_Pictographic}]/u.test(word) ? word : '';
   if (first) {
     const cps = Array.from(first);
-    const shown = cps.length > WELCOME_NAME_MAX ? `${cps.slice(0, WELCOME_NAME_MAX - 1).join('')}…` : first;
+    const shown = cps.length > WELCOME_NAME_MAX ? `${cps.slice(0, WELCOME_NAME_MAX - 1).join('')}\u2026` : first;
     return `Hey ${shown}, you made it!`;
   }
   const page = (pageName ?? '').trim();

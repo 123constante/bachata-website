@@ -102,7 +102,9 @@ textarea.p3-ob-inp { min-height: 120px; padding: 12px 18px; resize: none; line-h
 .p3-ob-chip-x svg { width: 12px; height: 12px; }
 .p3-ob-flag { width: 24px; height: 18px; flex: none; border-radius: 3px; object-fit: cover; background: var(--card2); display: inline-block; }
 .p3-ob-flag[data-failed="true"] { visibility: hidden; }
-.p3-ob-flag[data-emoji="true"] { background: none; font-size: 18px; line-height: 18px; text-align: center; }
+.p3-ob-flag[data-emoji="true"], .p3-ob-flag[data-emoji="code"] { overflow: hidden; font-size: 14px; line-height: 18px; text-align: center; white-space: nowrap; }
+.p3-ob-flag[data-emoji="true"] { background: none; }
+.p3-ob-flag[data-emoji="code"] { font-size: 11px; font-weight: 700; color: var(--mut); }
 
 /* Photo */
 .p3-ob-ava-row { display: flex; align-items: center; gap: 14px; }
