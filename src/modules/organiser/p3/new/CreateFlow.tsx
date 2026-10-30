@@ -173,7 +173,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const end = (
     <button type="button" className="p3-link p3-new-top-end" onClick={cancel} disabled={busy} data-testid="p3-new-cancel">Cancel</button>
   );
-  const title = `New ${kind.label.toLowerCase()}`;
+  const title = `New event: ${kind.label}`;
 
   if (boot.open) return <Navigate to={P3_PATHS.event(boot.open)} replace />;
 
@@ -285,7 +285,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
 
       <div className="p3-card p3-stack-s" data-testid="p3-new-photo">
         <strong>Cover photo</strong>
-        {preview && <img className="p3-new-cover" src={preview} alt="Your cover photo" data-testid="p3-new-cover-preview" />}
+        {preview && <img className="p3-new-cover" src={preview} alt="Your cover photo" loading="lazy" decoding="async" data-testid="p3-new-cover-preview" />}
         {!preview && cover && <p className="p3-ok" data-testid="p3-new-cover-picked">Photo picked: {cover.name}</p>}
         <label className="p3-btn p3-btn-line p3-file p3-new-file" data-testid="p3-new-cover-label">
           {cover ? 'Choose a different photo' : 'Add a photo'}

@@ -292,7 +292,7 @@ export const repeatLine = (d: CreateDraft, today: string): string => `${patternW
 
 export function sessionsLine(d: CreateDraft): string {
   if (!d.sessions.length) return 'Add at least one session with its times';
-  return d.sessions.map((s) => `${s.title.trim() || (TYPE_LABEL[s.type ?? ''] ?? 'Session')} ${s.start && s.end ? `${s.start}\u2013${s.end}` : 'no times yet'}`).join(', ');
+  return d.sessions.map((s) => `${s.title.trim() || (TYPE_LABEL[s.type ?? ''] ?? 'Session')}${s.start && s.end ? ` ${s.start}\u2013${s.end}` : ', no times yet'}`).join('; ');
 }
 
 export function priceLine(d: CreateDraft): string {
