@@ -463,6 +463,8 @@ describe('the Join tap', () => {
     mount();
     fireEvent.click(await screen.findByTestId('invite-join'));
     await stepIs('done');
+    // Already on the team (not a new seat): the plain organiser home, not the new-seat Welcome.
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
   });
 
   it('already on the team (own page list): the done screen without a tap, nothing redeemed', async () => {
@@ -634,7 +636,7 @@ describe('dead and broken links', () => {
     redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
     mount();
     await stepIs('done');
-    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o/welcome?o=o4');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
   });
 
   it('a used link opened by someone else: the used screen', async () => {
