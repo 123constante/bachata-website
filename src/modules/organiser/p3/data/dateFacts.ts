@@ -39,7 +39,9 @@ export function repeatShapeOf(ws: EventWorkspace): RepeatShape {
  * null when there is neither (dateMarks and skip then do not judge the day).
  */
 function ruleDateOf(ws: EventWorkspace, date: IsoDate): boolean | null {
-  if (weeklyRule(ws.series.recurrence_rule)) return isRuleDate(date, ws.series);
+  // isRuleDate only knows a rule that runs every week; every 2-4 weeks cannot be judged here.
+  const rule = weeklyRule(ws.series.recurrence_rule);
+  if (rule) return rule.interval === 1 ? isRuleDate(date, ws.series) : null;
   const shape = repeatShapeOf(ws);
   return shape.from === 'dates' ? onPatternCadence(shape.pattern, date) : null;
 }

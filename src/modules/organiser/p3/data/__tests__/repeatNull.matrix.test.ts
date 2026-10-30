@@ -21,6 +21,7 @@ export const NULL_SHAPES = {
   weeklyRule: ws({ removed_dates: ['2026-11-12'] }, weekly('2026-10-16', 6)),
   monthlyRule: ws({ recurrence_rule: { mode: 'monthly', interval: 1, monthly: { kind: 'nth_weekday', nth: 1, weekday: 6 }, end: { kind: 'none' } }, removed_dates: ['2026-12-05'] },
     ['2026-10-03', '2026-11-07', '2027-01-02']),
+  fortnightlyRule: ws({ recurrence_rule: { mode: 'weekly', weekdays: [5], interval: 2, end: { kind: 'none' } }, removed_dates: ['2026-11-13'] }, ['2026-10-16', '2026-10-30', '2026-11-27']),
   nullWeeklyDates: ws({ recurrence_rule: null, removed_dates: ['2026-11-06'] }, ['2026-10-16', '2026-10-23', '2026-10-30', '2026-11-13', '2026-11-20'], ['2026-10-23']),
   nullFortnightly: ws({ recurrence_rule: null }, weekly('2026-09-18', 6).filter((_, i) => i % 2 === 0).concat(['2026-10-30', '2026-11-13'])),
   nullLoose: ws({ recurrence_rule: null, removed_dates: ['2026-11-27'] }, ['2026-09-04', '2026-10-02', '2026-11-06', '2026-12-18']),
@@ -43,6 +44,7 @@ describe('Skip on a coming date, per rule shape', () => {
   it.each<[Shape, string, string | null]>([
     ['weeklyRule', '2026-10-30', null],
     ['monthlyRule', '2026-11-07', DATE_WHY.noPattern],
+    ['fortnightlyRule', '2026-10-30', DATE_WHY.cantCheck],
     ['nullWeeklyDates', '2026-10-30', null],
     ['nullFortnightly', '2026-11-13', null],
     ['nullLoose', '2026-11-06', DATE_WHY.noDatesPattern],
@@ -60,7 +62,8 @@ describe('Skip on a coming date, per rule shape', () => {
 describe('every break shows, whatever the rule, and says whether it can come back', () => {
   it.each<[Shape, string, string | null]>([
     ['weeklyRule', '2026-11-12', DATE_WHY.unskipOffRule],
-    ['monthlyRule', '2026-12-05', null],
+    ['monthlyRule', '2026-12-05', DATE_WHY.unskipCantCheck],
+    ['fortnightlyRule', '2026-11-13', DATE_WHY.unskipCantCheck],
     ['nullWeeklyDates', '2026-11-06', null],
     ['nullLoose', '2026-11-27', null],
     ['endedNullWeekly', '2026-08-21', DATE_WHY.closed],
@@ -74,6 +77,7 @@ describe('ONE mapping: the Repeats row, the Repeat sheet and its note never say 
   it.each<[Shape, string, string | null, string]>([
     ['weeklyRule', 'Every Friday, keeps going.', null, 'edit'],
     ['monthlyRule', 'Every month on the first Saturday, keeps going.', null, 'edit'],
+    ['fortnightlyRule', 'Every 2 weeks on Friday, keeps going.', null, 'edit'],
     ['nullWeeklyDates', 'Every Friday, going by its dates. No pattern is saved.', 'No pattern is saved; its dates run every Friday. Pick the days to save it as a pattern.', 'edit'],
     ['nullFortnightly', 'Every 2 weeks on Friday, going by its dates. No pattern is saved.', 'No pattern is saved; its dates run every 2 weeks on Friday. Pick the days to save it as a pattern.', 'edit'],
     ['nullLoose', 'No pattern is saved, so each date is set on its own.', 'No pattern is saved, so each date is set on its own. Pick the days to save a pattern, or change single dates under Coming up.', 'edit'],

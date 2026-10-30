@@ -75,6 +75,8 @@ export const DATE_WHY = {
   noPattern: 'Only a weekly pattern has break weeks. Cancel this date instead, so dancers see why.',
   noDatesPattern: 'No pattern is saved and its dates don\u2019t follow a weekly one, so it has no break weeks. Cancel this date instead, so dancers see why.',
   offRule: 'This date was added or moved, so it is not part of the weekly pattern and can\u2019t be a break. Cancel it instead.',
+  cantCheck: 'Breaks can only be checked here on a pattern that runs every week. Cancel this date instead, so dancers see why.',
+  unskipCantCheck: 'This break can\u2019t be checked against the pattern here, so it can\u2019t come back as a break. Add it as a date instead.',
   unskipOffRule: 'The weekly pattern changed since this break, so it can\u2019t come back as a break. Add it as a date instead.',
   oneOffRemove: 'A one-off keeps its one date. Move it to another day, or cancel the event.',
   noDelete: 'Dates are never deleted here, so dancers who saved one can see what happened. Cancel it instead.',
@@ -99,9 +101,11 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
   const oneoff = s.kind === 'oneoff';
 
   // unskip delegates to _cmd_series_add_date_p5, so the date cap refuses it like Add.
-  // A break off a STORED rule's cadence is refused by the server; null = cannot judge here, so the server's guard decides.
-  const offRule = s.ruleSaved !== false && d.ruleDate === false;
-  if (d.state === 'skip') return [row('unskip', base ?? (offRule ? DATE_WHY.unskipOffRule : s.upcoming >= DATE_CAP ? DATE_WHY.cap : null))];
+  // With a STORED rule the server restores only a date that rule makes, so a break this page cannot
+  // place on it is not offered; with none stored the server has no cadence to guard.
+  const stored = s.ruleSaved !== false;
+  const unskipWhy = stored && d.ruleDate === false ? DATE_WHY.unskipOffRule : stored && d.ruleDate === null ? DATE_WHY.unskipCantCheck : null;
+  if (d.state === 'skip') return [row('unskip', base ?? unskipWhy ?? (s.upcoming >= DATE_CAP ? DATE_WHY.cap : null))];
 
   const cancelled = d.state === 'cancelled';
   const onFirst = cancelled ? DATE_WHY.cancelledFirst : null;
@@ -122,7 +126,7 @@ export function dateActions(s: SeriesFacts, d: DateFacts, today: IsoDate): DateR
   const skipWhy = oneoff ? DATE_WHY.oneOffNoBreak
     : fest ? DATE_WHY.festivalOne
     : s.kind === 'monthly' || s.kind === 'custom' ? DATE_WHY.noPattern
-    : d.ruleDate === null ? (s.ruleSaved === false ? DATE_WHY.noDatesPattern : DATE_WHY.noPattern)
+    : d.ruleDate === null ? (s.ruleSaved === false ? DATE_WHY.noDatesPattern : DATE_WHY.cantCheck)
     : base ?? onFirst ?? (d.ruleDate ? null : DATE_WHY.offRule);
   out.push(row('skip', skipWhy));
 
