@@ -12,9 +12,11 @@ import {
   countsLine,
   eventStartOf,
   leftOf,
+  moveBlock,
   orderLine,
   orderTag,
   priceLabel,
+  reasonMessage,
   refundable,
   switchMove,
   type MoveContext,
@@ -34,8 +36,6 @@ import {
   eventDateLine,
   hasOrdersOf,
   noOrdersText,
-  p3MoveBlock,
-  p3Reason,
   seeAllLabel,
   shownOrders,
   ticketsRowOf,
@@ -162,9 +162,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         say(`${t.name}: ${SWITCH_LABEL[to]}`);
         setMoveError((m) => with_(m, null));
         await refresh();
-      } else setMoveError((m) => with_(m, p3Reason(out.reason)));
+      } else setMoveError((m) => with_(m, reasonMessage(out.reason)));
     } catch {
-      setMoveError((m) => with_(m, p3Reason(null)));
+      setMoveError((m) => with_(m, reasonMessage(null)));
     } finally {
       setMoving((s) => {
         const n = new Set(s);
@@ -422,7 +422,7 @@ function TypeRow({
 }) {
   const id = useId();
   const to = switchMove(t.status);
-  const blocked = to ? p3MoveBlock(t, to, ctx) : null;
+  const blocked = to ? moveBlock(t, to, ctx) : null;
   // The role reason is said once at the top of the sheet, not under every row.
   const shownReason = blocked && blocked !== NOT_MANAGER ? blocked : null;
   return (

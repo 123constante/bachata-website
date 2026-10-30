@@ -9,6 +9,7 @@ import {
   canManage,
   formatCount,
   formatPence,
+  reasonMessage,
   setupLine,
   setupSteps,
   totalsOf,
@@ -19,7 +20,7 @@ import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { P3_PATHS } from '../shell/paths';
 import { ChangeItLink, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
-import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, p3Reason, showPrompt } from './model';
+import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt } from './model';
 import { P3_TICKET_PATHS } from './paths';
 
 const BACK_NOTE = {
@@ -171,7 +172,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
           <RetryButton onClick={() => void summary.refetch()} />
         </StateCard>
       )}
-      {summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{p3Reason(summary.data.reason)}</p>}
+      {summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{reasonMessage(summary.data.reason)}</p>}
       {types && types.length > 0 && <MoneySoFar types={types} />}
     </>
   );

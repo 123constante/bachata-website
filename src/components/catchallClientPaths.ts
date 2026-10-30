@@ -48,7 +48,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/team/:organiserId?',
   '/account/o/*',
   '/account/p3/*', // flags.organiserP3; while off the client renders its NotFound
-  '/account/tickets/*', // flags.organiserTicketing; while off the client renders its NotFound
+  '/account/tickets/*', // retired: redirects to P3 while organiserTicketing + organiserP3; else NotFound
   '/account/areas',
   '/account/t/*',
   '/account/dj/*',

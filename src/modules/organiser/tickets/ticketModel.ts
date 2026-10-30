@@ -210,13 +210,16 @@ export interface MoveContext {
   seriesLive: boolean;
 }
 
+/** Where a paid ticket's seller connects payments (the one Get paid screen). */
+export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
+
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
 export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
   if (!canManage(ctx.role)) return NOT_MANAGER;
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return 'Connect payments on your Tickets home before selling paid tickets.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
   return null;
 };
 
@@ -399,7 +402,7 @@ const REASON: Record<string, string> = {
   capacity_below_reserved: 'More tickets are already taken than that number.',
   bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
-  organiser_not_onboarded: 'Connect payments on your Tickets home before selling paid tickets.',
+  organiser_not_onboarded: PAYMENTS_WHERE,
 };
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';

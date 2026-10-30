@@ -54,7 +54,7 @@ const OrganiserArea = lazyWithRetry(() => import("@/modules/organiser/shell/Orga
 // /event's chunks (Raffles) or saves under 20 B.
 const OrganiserP3Area = /* @__PURE__ */ lazyWithRetry(() => import("@/modules/organiser/p3/shell/P3Routes"));
 // Organiser ticketing (S3): its own lazy chunk, mounted only while flags.organiserTicketing is on.
-const OrganiserTicketsArea = lazyWithRetry(() => import("@/modules/organiser/tickets/TicketRoutes"));
+const LegacyTicketsRedirect = lazyWithRetry(() => import("@/modules/organiser/tickets/LegacyTicketsRedirect"));
 // The person areas (AREA_PATHS): Your areas, teacher, DJ. One lazy chunk; its AuthGuard lives inside it.
 const AreaRoutes = lazyWithRetry(() => import("@/modules/areas/home/AreaRoutes"));
 // Admin organiser access and the invite landing: lazy chunks, no weight on the public first load.
@@ -266,10 +266,11 @@ export const AnimatedRoutes = () => {
             {flags.organiserP3 && flags.organiserSelfServe ? (
               <Route path="/account/p3/*" element={<OrganiserP3Area />} />
             ) : null}
-            {/* Organiser ticketing: no route at all while flags.organiserTicketing is off.
-                Path = TICKETS_BASE (modules/organiser/tickets/paths.ts; a test pins them together). */}
-            {flags.organiserTicketing && flags.organiserSelfServe ? (
-              <Route path="/account/tickets/*" element={<OrganiserTicketsArea />} />
+            {/* The retired organiser ticketing screens (T6): old URLs and Stripe return links go to
+                the P3 screen that does the same job, so the route lives only while that screen does.
+                Path = LEGACY_TICKETS_BASE (modules/organiser/tickets/legacyRedirect.ts; a test pins them). */}
+            {flags.organiserTicketing && flags.organiserP3 && flags.organiserSelfServe ? (
+              <Route path="/account/tickets/*" element={<LegacyTicketsRedirect />} />
             ) : null}
 
             <Route path="/account/areas" element={<AreaRoutes area="areas" />} />
