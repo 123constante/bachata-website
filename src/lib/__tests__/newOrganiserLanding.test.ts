@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ORGANISER_HOME_PATH, appWelcomeHref, signInLanding, type SidesFacts } from '@/lib/accountRouting';
+import { ORGANISER_HOME_PATH, appWelcomeHref, onboardingEnd, onboardingEndLabel, signInLanding, type SidesFacts } from '@/lib/accountRouting';
 import { P3_START_PATH, landingPathAfterAuth, newOrganiserLanding } from '@/lib/auth-otp-routing';
 import { P3_PATHS } from '@/modules/organiser/p3/shell/paths';
 
@@ -88,5 +88,45 @@ describe('landingPathAfterAuth (callback, no returnTo): every sign-up kind x fla
         expect(landingPathAfterAuth({ organiserSelfServe: f.organiserSelfServe, organiserP3: f.organiserP3, role: r.role, isSignup: r.isSignup })).toBe(want);
       });
     }
+  }
+});
+
+describe('onboardingEndLabel: the button names every end path', () => {
+  const ROWS: Array<[string, string, string]> = [
+    ['dancer Home', '/app/home', 'Go to Home'],
+    ['organiser page (R1)', '/account/o', 'Next: set up your organiser page'],
+    ['organiser page with query', '/account/o?x=1', 'Next: set up your organiser page'],
+    ['P3 start', START, 'Next: find or create your page'],
+    ['P3 start with query', `${START}?o=abc`, 'Next: find or create your page'],
+    ['invite', '/invite/abc', 'Next: join the team'],
+    ['anything else', '/events', 'Continue'],
+  ];
+  for (const [name, end, label] of ROWS) {
+    it(`${name} -> ${label}`, () => {
+      expect(onboardingEndLabel(end)).toBe(label);
+    });
+  }
+
+  it('the new-organiser unfinished-dancer landing ends on the P3 label', () => {
+    const go = signInLanding({ ...base, organiserIntent: true, dancer: 'incomplete', newOrganiserTo: START }, null);
+    expect(go).toEqual({ kind: 'go', to: appWelcomeHref(START) });
+    expect(onboardingEndLabel(onboardingEnd(START))).toBe('Next: find or create your page');
+  });
+});
+
+describe('signInLanding: today\'s behaviour for the remaining shapes (documented, not changed)', () => {
+  const nt = { newOrganiserTo: START };
+  const ROWS: Array<[string, Partial<SidesFacts>, unknown]> = [
+    ['areaAllowed false, organiser intent, dancer done', { organiserIntent: true, areaAllowed: false }, { kind: 'go', to: START }],
+    ['areaAllowed false, organiser intent, dancer incomplete', { organiserIntent: true, areaAllowed: false, dancer: 'incomplete' }, { kind: 'go', to: '/account/dancer' }],
+    ['organiser intent, no dancer profile', { organiserIntent: true, dancer: 'no_profile' }, { kind: 'go', to: '/app/welcome' }],
+    ['open request count null (read failed)', { organiserIntent: true, openRequestCount: null }, { kind: 'go', to: '/app/home' }],
+    ['open request count undefined (loading)', { organiserIntent: true, openRequestCount: undefined }, { kind: 'wait' }],
+    ['deletion set', { organiserIntent: true, deletion: 'restore' }, { kind: 'go', to: '/account/restore' }],
+  ];
+  for (const [name, f, want] of ROWS) {
+    it(name, () => {
+      expect(signInLanding({ ...base, ...f, ...nt }, null)).toEqual(want);
+    });
   }
 });

@@ -19,6 +19,7 @@
 import { sanitizeReturnTo } from './authRouting';
 import type { DeletionLanding } from './accountDeletion';
 import { ACCOUNT_HOME_PATH, isAccountPath } from './accountPaths';
+import { P3_START_PATH } from './auth-otp-routing';
 
 // The two the site header needs live in an import-free leaf (review #789 S6); re-exported here.
 export { ACCOUNT_HOME_PATH, isAccountPath };
@@ -270,6 +271,7 @@ export const onboardingEndLabel = (end: string): string => {
   const path = end.split(/[?#]/, 1)[0].toLowerCase();
   if (path === APP_HOME_PATH) return 'Go to Home';
   if (path === ORGANISER_HOME_PATH || path.startsWith(`${ORGANISER_HOME_PATH}/`)) return 'Next: set up your organiser page';
+  if (path === P3_START_PATH) return 'Next: find or create your page';
   if (path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`)) return 'Next: join the team';
   return 'Continue';
 };
