@@ -48,6 +48,9 @@ export function Door({ seriesId, deps = browserDeps }: { seriesId: string; deps?
     enabled: !!user?.id && !!seriesId,
     staleTime: 15_000,
     retry: 1,
+    // Offline the default networkMode would leave the list paused on "Loading" for ever; run it so it
+    // fails fast into "Check the signal, then try again" (p3-prefix-d r1 S2).
+    networkMode: 'always',
   });
   const [tab, setTab] = useState<Tab>('scan');
   const [shown, setShown] = useState<Shown | null>(null);

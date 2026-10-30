@@ -47,8 +47,9 @@ function Prices({ ws }: { ws: EventWorkspace }) {
       )}
       {choices.length > 1 && (
         <div className="p3-card p3-tight">
-          <label className="p3-check" data-testid="p3-free">
+          <label className="p3-check p3-check-switch" data-testid="p3-free">
             <input type="checkbox" role="switch" checked={free} disabled={off} onChange={(e) => set(setFree(draft, e.target.checked))} data-testid="p3-free-switch" />
+            <span className="p3-switch" aria-hidden="true" />
             <span className="p3-grow"><span className="p3-row-t">{L.pricesFree}</span><br /><span className="p3-row-s">{L.pricesFreeSub}</span></span>
           </label>
         </div>

@@ -110,7 +110,7 @@ export default function AddSomeone() {
         ) : !organiser ? (
           <p className="text-[14px] text-[var(--mut)]" data-testid="add-no-page">Choose a page on Team first. <Link to={paths.team} className="underline">Go to Team</Link></p>
         ) : !allowed ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">{ADD_ROLE_REASON} <Link to={paths.team} className="underline">Back to the team</Link></p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="add-read-only">{ADD_ROLE_REASON} <Link to={paths.team} className="inline-flex min-h-[44px] items-center underline">Back to the team</Link></p>
         ) : (
           <>
             <SearchField value={query} onChange={setQuery} aria-label="Search dancers by name" placeholder="Search by name" testId="add-search" />
