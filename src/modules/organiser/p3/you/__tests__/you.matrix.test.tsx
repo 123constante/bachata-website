@@ -33,7 +33,7 @@ import { ADD_ROLE_REASON, ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON } from '@/modul
 import { INVITE_REQUIRED_COPY } from '@/modules/organiser/shared/selfServeErrors';
 import { NO_PROFILE_NOTE } from '../../../team/PublicToggle';
 import { YOU, YOU_ROWS, youRows } from '../youRows';
-import { NO_OWNER_REASON, NO_PAGE, TEAM_REASONS } from '@/modules/organiser/shared/teamRules';
+import { NO_OWNER_REASON, NO_PAGE, NO_PAGE_ADD, TEAM_REASONS } from '@/modules/organiser/shared/teamRules';
 import { TEAM_COPY, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -173,8 +173,8 @@ describe('You hub x shape', () => {
     pages = [];
     at(P3_PATHS.you);
     const empty = await screen.findByTestId('p3-you-no-page');
-    expect(empty.textContent).toContain(INVITE_REQUIRED_COPY);
-    expect(screen.getByTestId('p3-you-message-us').getAttribute('href')).toBe(ORG_PATHS.help);
+    expect(empty.textContent).toContain(NO_PAGE_ADD.body);
+    expect(screen.getByTestId('p3-you-add-page-link').getAttribute('href')).toBe(P3_PATHS.youAdd);
     expect(screen.getByTestId('p3-you-team').getAttribute('aria-disabled')).toBe('true');
     expect(screen.getByTestId('p3-you-team').textContent).toContain(YOU.teamNoPage);
   });
@@ -343,10 +343,10 @@ describe('Switch page, Organiser page, Welcome in P3', () => {
   });
 
   // Fix 3 (F6): "from You" pointed at an add You does not show at 0 pages; the shared no-page copy instead.
-  it('Organiser page with no page: the shared no-page copy with Message us', async () => {
+  it('Organiser page with no page: the same 0-page copy as You, pointing at Add a page', async () => {
     pages = [];
     at(P3_PATHS.youPage);
-    expect((await screen.findByTestId('page-no-organiser')).textContent).toContain(NO_PAGE.body);
+    expect((await screen.findByTestId('page-no-organiser')).textContent).toContain(NO_PAGE_ADD.body);
   });
 
   it('Welcome 7c: "Switch any time from You" (owner pick)', async () => {
@@ -677,17 +677,30 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
     reasonWithMessageUs('team-leave-reason', TEAM_REASONS.leaveContributor);
   });
 
-  it('F6 no page: You, Team and the page editor say the same thing, each with Message us', async () => {
+  // p3-prefix-b (owner click 2026-10-30): 0 pages on You and the page editor points at Add a page (find, claim,
+  // ask to join), the screen Home sends a 0-page person to; never the invite-only line. Team is not in that scope.
+  it.each([
+    { where: 'You', path: P3_PATHS.you, id: 'p3-you-no-page' },
+    { where: 'page editor', path: P3_PATHS.youPage, id: 'page-no-organiser' },
+  ])('0 pages / $where: says what the person CAN do, and its link is Add a page', async ({ path, id }) => {
     pages = [];
-    for (const [path, id] of [[P3_PATHS.you, 'p3-you-no-page'], [P3_PATHS.youTeam, 'team-no-organiser'], [P3_PATHS.youPage, 'page-no-organiser']] as const) {
-      at(path);
-      const box = await screen.findByTestId(id);
-      expect(box.textContent, path).toContain(NO_PAGE.title);
-      expect(box.textContent, path).toContain(NO_PAGE.body);
-      expect(within(box).getByRole('link', { name: 'Message us' }).getAttribute('href'), path).toBe(ORG_PATHS.help);
-      expect(box.textContent, path).not.toMatch(/from (You|Home)|Add one first/);
-      cleanup();
-    }
+    at(path);
+    const box = await screen.findByTestId(id);
+    expect(box.textContent).toContain(NO_PAGE_ADD.title);
+    expect(box.textContent).toContain(NO_PAGE_ADD.body);
+    expect(box.textContent).not.toContain(INVITE_REQUIRED_COPY);
+    const links = within(box).getAllByRole('link');
+    expect(links.map((l) => [l.textContent, l.getAttribute('href')])).toEqual([[NO_PAGE_ADD.action, P3_PATHS.youAdd]]);
+  });
+
+  it('F6 no page: Team keeps the shared no-page copy with Message us', async () => {
+    pages = [];
+    at(P3_PATHS.youTeam);
+    const box = await screen.findByTestId('team-no-organiser');
+    expect(box.textContent).toContain(NO_PAGE.title);
+    expect(box.textContent).toContain(NO_PAGE.body);
+    expect(within(box).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(ORG_PATHS.help);
+    expect(box.textContent).not.toMatch(/from (You|Home)|Add one first/);
   });
 
   it('F7 a late Remove answer after leaving the screen does not yank you to Done', async () => {

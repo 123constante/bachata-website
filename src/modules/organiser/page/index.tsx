@@ -7,8 +7,9 @@ import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { PROFILE_WIZARD_PATH, requiredLeftText, useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import type { ProfileEntity } from './profileForm';
 import { useOwnPage } from './useOwnPage';
-import { MESSAGE_US, NO_PAGE } from '@/modules/organiser/shared/teamRules';
+import { NO_PAGE_ADD } from '@/modules/organiser/shared/teamRules';
 import { ORG_PATHS } from '../shell/paths';
+import { P3_PATHS } from '../p3/shell/paths';
 
 /**
  * C15: while required profile answers are missing, ONE line that opens the
@@ -54,9 +55,9 @@ export default function PageScreen() {
   else if ((home.isError && !home.data) || entity.isError) {
     body = <ErrorState title="Your page did not load" onRetry={() => void (entity.isError ? entity.refetch() : home.refetch())} retrying={home.isFetching || entity.isFetching} testId="page-load-error" />;
   } else if (!selected) {
-    // P3 has no add of its own: the shared no-page copy (You, Team, here) with Message us. R1 Home has the add.
+    // P3: the You tab's 0-page copy, pointing at P3 Add a page (find, claim, ask to join). R1 Home has the add.
     body = kind === 'p3'
-      ? <EmptyState title={NO_PAGE.title} body={NO_PAGE.body} action={<Link to={ORG_PATHS.help} className="font-semibold underline" data-testid="page-message-us">{MESSAGE_US}</Link>} testId="page-no-organiser" />
+      ? <EmptyState title={NO_PAGE_ADD.title} body={NO_PAGE_ADD.body} action={<Link to={P3_PATHS.youAdd} className="font-semibold underline" data-testid="page-add-page-link">{NO_PAGE_ADD.action}</Link>} testId="page-no-organiser" />
       : <EmptyState title="You don&rsquo;t run a page yet" body={`Add a page from ${hub.label}, then edit it here.`} testId="page-no-organiser" />;
   } else if (!entity.data) {
     body = <EmptyState title="This page is not available" body={`You may no longer help run it. Pick another page from ${hub.label}.`} testId="page-missing" />;
