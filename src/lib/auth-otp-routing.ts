@@ -2,6 +2,7 @@
 // components so they can be unit-tested without a Supabase client.
 import { WHATSAPP_GET_LISTED_URL, dancerMessageUsUrl } from "@/lib/contactLinks";
 import { AREA_PATHS } from "@/lib/areaPaths";
+import { P3_START_PATH } from "@/lib/p3StartPath";
 
 // Shown when sign-in mode discovers the email has no account (Lever 2 walk B3).
 /**
@@ -158,7 +159,7 @@ export const SIGNED_IN_LANDING_PATH = "/account/continue";
 // newOrganiserTo). It lives here, not in lib/accountPaths (lib-event-rules, on
 // every first load), so the mapping stays off /app. Paths restated (import-free); asserted equal to
 // P3_PATHS.start and ORGANISER_HOME_PATH in newOrganiserLanding.test.ts.
-export const P3_START_PATH = "/account/p3/start";
+export { P3_START_PATH };
 const R1_ORGANISER_HOME_PATH = "/account/o";
 export const newOrganiserLanding = (p3Live: boolean): string => (p3Live ? P3_START_PATH : R1_ORGANISER_HOME_PATH);
 

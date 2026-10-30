@@ -149,7 +149,7 @@ describe('C25b the faces wall', () => {
     fireEvent.click(btn);
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     const sent = share.mock.calls[0][0] as { text: string };
-    expect(sent.text).toMatch(/^Lena, join Ritmo on Bachata Calendar: https?:\/\/.+\/auth\. Sign up with the email we have for you and your profile links automatically; otherwise ask us to link it\.$/);
+    expect(sent.text).toMatch(/^Lena, join Ritmo on Bachata Calendar: https?:\/\/.+\/auth\?mode=signup\. Sign up with the email we have for you and your profile links automatically; otherwise ask us to link it\.$/);
     expect(world.sent.filter((s) => /add_member|set_member|transfer|remove/.test(s.fn))).toHaveLength(0);
   });
 
