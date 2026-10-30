@@ -142,6 +142,24 @@ All in `scripts/check-*.mjs`, enforced by CI.
   most runs its green proves the call and the type, not the element arms; it says
   so in its output. Counts only, never ids.
 
+- Onboarding write doors (#72) (`scripts/check-onboarding-write-doors.mjs`,
+  `npm run check:onboarding-write-doors`, 2026-10-30, design
+  `docs/scoping/g1-write-door-check.md`) &mdash; Part A (static) in
+  `architecture-guard.yml`, the lint chain and pre-ship; Part A + B (`--live`) in
+  `db-contract-check.yml`. Part A scrapes `src/`, `app/`, `api/`, `components/`
+  (comments recognised by `scripts/lib/stripSource.mjs`) for RPC-name literals:
+  red on a door outside its wrapper, an RPC-shaped name with a write verb that is
+  not gated / guard-allow-listed / expected-pending / `not_event_writes`, a stale
+  config entry, or a missing `ONBOARDING_REFUSAL_MATCH` row first in
+  `COMMAND_COPY` and `PROGRAMME_COPY`. Part B calls
+  `check_organiser_onboarding_gate_v1()` as anon. **Green is narrower than it
+  looks:** the guard reports COUNTS only, so Part B is red only when the live
+  gated count falls BELOW `gated` in `scripts/onboarding-write-doors.json`; a
+  drop while the guard gates more doors than the config lists is invisible
+  (a WARN says so) until the guard returns names (scope Q3). The write net is a
+  name heuristic (`isWriteShaped`), not a call graph; `flag_on` is printed, not
+  gated. `expected_pending` entries WARN, never red.
+
 `scripts/check-going-legacy-rpcs.mjs` (`npm run check:going-legacy-rpcs`, Going
 P2) fails on any name of the retired interested/going attendance RPC family
 (`set_attendance`, `set_my_occurrence_attendance_p5_v1`,

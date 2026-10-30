@@ -1,0 +1,127 @@
+{
+  "_doc": "Input to scripts/check-onboarding-write-doors.mjs. Design: docs/scoping/g1-write-door-check.md (PR #1189). gated = the doors the live guard check_organiser_onboarding_gate_v1() gates (names read from its body 2026-10-30). guard_allow_list = the guard's own allow-list (writes that are not event edits). expected_pending = a door the Website calls that the guard does NOT gate yet; each is a [WARN], never red; REMOVE the entry (and add the name to gated) once the admin gate migration (PR #1141) is applied. wrappers = the only files allowed to name a door, and which doors each may name. not_event_writes = write-shaped RPC names in src/ that are not event writes; a stale entry is red.",
+  "gated": [
+    "series_command_p5",
+    "occurrence_command_p5",
+    "organiser_save_event_v1",
+    "organiser_save_festival_v1",
+    "organiser_set_occurrence_programme_v1",
+    "organiser_undo_last_change_v1"
+  ],
+  "guard_allow_list": [
+    "series_invite_respond_v1",
+    "series_leave_v1",
+    "series_remove_organiser_v1",
+    "self_heal_occurrence_integrity_v1"
+  ],
+  "expected_pending": [
+    {
+      "name": "admin_bulk_occurrence_command_p5",
+      "reason": "Several-dates change (flows/change/Pick.tsx). Gated by admin PR #1141; the lead removes this entry and adds the name to gated after the apply."
+    }
+  ],
+  "wrappers": {
+    "src/modules/organiser/shared/selfServeApi.ts": [
+      "series_command_p5",
+      "occurrence_command_p5",
+      "organiser_set_occurrence_programme_v1"
+    ],
+    "src/modules/organiser/flows/change/bulkApi.ts": [
+      "admin_bulk_occurrence_command_p5"
+    ]
+  },
+  "not_event_writes": [
+    {
+      "name": "add_favourite_venue_v1",
+      "reason": "Dancer favourite venue."
+    },
+    {
+      "name": "admin_add_entity_member_v1",
+      "reason": "Admin tool, organiser-page membership."
+    },
+    {
+      "name": "admin_add_organiser_v1",
+      "reason": "Admin tool, creates an organiser page."
+    },
+    {
+      "name": "admin_set_run_by_us_v1",
+      "reason": "Admin front-door flag on an organiser page, not an event edit."
+    },
+    {
+      "name": "create_organiser_profile_v1",
+      "reason": "Creates the organiser page that onboarding then completes."
+    },
+    {
+      "name": "my_account_restore_v1",
+      "reason": "Account restore after deletion request."
+    },
+    {
+      "name": "organiser_profile_update_p5_v1",
+      "reason": "Organiser page details; this is what onboarding itself saves."
+    },
+    {
+      "name": "organiser_team_add_member_by_profile_v1",
+      "reason": "Organiser-page team membership."
+    },
+    {
+      "name": "organiser_team_set_member_v1",
+      "reason": "Organiser-page team membership, not an event edit."
+    },
+    {
+      "name": "organiser_team_set_public_v1",
+      "reason": "Organiser-page team visibility, not an event edit."
+    },
+    {
+      "name": "remove_favourite_venue_v1",
+      "reason": "Dancer favourite venue."
+    },
+    {
+      "name": "remove_organiser_member_v1",
+      "reason": "Organiser-page team membership."
+    },
+    {
+      "name": "save_my_dancer_profile_v1",
+      "reason": "Dancer profile."
+    },
+    {
+      "name": "save_my_dancer_profile_v2",
+      "reason": "Dancer profile."
+    },
+    {
+      "name": "save_my_role_v1",
+      "reason": "Account role choice."
+    },
+    {
+      "name": "set_my_going_v1",
+      "reason": "Dancer going/interested mark."
+    },
+    {
+      "name": "set_my_role_declined_v1",
+      "reason": "Account role choice."
+    },
+    {
+      "name": "set_my_role_intent_v1",
+      "reason": "Account role intent at sign-in."
+    },
+    {
+      "name": "submit_feedback_v1",
+      "reason": "App feedback."
+    },
+    {
+      "name": "submit_listing_request_v1",
+      "reason": "Public listing request form; a request, not an event write."
+    },
+    {
+      "name": "submit_organiser_profile_v1",
+      "reason": "Submits the organiser page for review."
+    },
+    {
+      "name": "ticket_type_set_status_v1",
+      "reason": "Ticket type status. Neither gated nor guard-allow-listed live; classified not-an-event-edit here, owner to confirm."
+    },
+    {
+      "name": "ticket_type_upsert_v1",
+      "reason": "Ticket type save. Neither gated nor guard-allow-listed live; classified not-an-event-edit here, owner to confirm."
+    }
+  ]
+}
