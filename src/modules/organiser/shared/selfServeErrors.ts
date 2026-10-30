@@ -141,10 +141,27 @@ export const KNOWN_SELF_SERVE_CODES = Object.keys(COPY);
  */
 export const SESSION_ENDED = 'Your sign-in ended. Sign in again.';
 
+/**
+ * The onboarding gate (admin `_require_onboarding_complete_v1`, plan 4.3) refuses every event write with P0001,
+ * message `onboarding_incomplete` (a helper inside a door, so it may arrive as `permission_denied: ...` like
+ * `authentication_required`), DETAIL lists what is missing, HINT `Finish your details`. ONE pattern, used as the
+ * FIRST row of COMMAND_COPY and PROGRAMME_COPY and by isOnboardingRefusal, so no later rule ever names it
+ * something else; scripts/check-onboarding-write-doors.mjs is red if either row moves or goes (scope G1).
+ * Where the refusal sends the person (the onboarding screens) is product question Q2, not decided here.
+ */
+export const ONBOARDING_REFUSAL_MATCH = /^(permission_denied: )?onboarding_incomplete/;
+export const ONBOARDING_REFUSAL = 'Finish your details first, then you can add or change your events.';
+
+export function isOnboardingRefusal(error: unknown): boolean {
+  const message = error && typeof error === 'object' ? (error as { message?: unknown }).message : null;
+  return typeof message === 'string' && ONBOARDING_REFUSAL_MATCH.test(message.trim());
+}
+
 export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegExpMatchArray) => string) }> = [
+  { match: ONBOARDING_REFUSAL_MATCH, message: ONBOARDING_REFUSAL },
   // INT4, the final AW1 contract (admin PR #838): an owner may not delete a session that has per-date changes (named),
   // an id-less or stale-id programme save is refused (reload brings the stored ids), and an owner may only ADD
-  // live organiser pages they own or manage. FIRST and anchored (FIX-INT4 S-3): the session title is free text, so
+  // live organiser pages they own or manage. Anchored, and first after the onboarding row (FIX-INT4 S-3): the session title is free text, so
   // an unanchored rule below (e.g. "on a past date is admin-only") must never see it first. The server sends
   // left(title, 80) and a title may be '' (FIX-INT4 S-1).
   { match: /^permission_denied: removing the session "(.{0,200})" would delete its per-date changes/, message: (hit) => {
@@ -395,6 +412,7 @@ export const PEOPLE_CHANGED_COPY = 'The line-up of this date changed since you o
 export const PEOPLE_GENERIC_COPY = 'We could not save the line-up changes. Check the line-up and try again.';
 
 export const PROGRAMME_COPY: Array<{ match: RegExp; message: string; reload?: boolean }> = [
+  { match: ONBOARDING_REFUSAL_MATCH, message: ONBOARDING_REFUSAL },
   { match: /^version_conflict/, message: PROGRAMME_VERSION_CONFLICT, reload: true },
   { match: /^(permission_denied: )?authentication_required/, message: SESSION_ENDED },
   { match: /occurrence not found or caller is not an owner or manager/, message: 'You cannot change this date. It may have been removed, or you are no longer on this event\u2019s team.' },

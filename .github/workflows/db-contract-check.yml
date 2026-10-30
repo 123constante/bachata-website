@@ -1253,6 +1253,25 @@ jobs:
           node scripts/check-organiser-hidden-ids-contract.mjs --self-test
           node scripts/check-organiser-hidden-ids-contract.mjs
 
+      # 72. ONBOARDING WRITE DOORS (2026-10-30, scope G1, docs/scoping/g1-write-door-check.md).
+      #     Part A scrapes src/ (comment-stripped) for event-write RPC names:
+      #     red on a door named outside its wrapper, a write-shaped RPC the
+      #     guard neither gates nor allow-lists, a stale config entry, or a
+      #     missing /^onboarding_incomplete/ row first in the refusal copy.
+      #     Part B (--live) calls check_organiser_onboarding_gate_v1() with the
+      #     publishable key: red on unhealthy, a violation, or a live gated
+      #     count below scripts/onboarding-write-doors.json. Counts derived from
+      #     the guard, never pinned. Counts only. Canary first.
+      - name: Run onboarding write-door check
+        if: always()
+        timeout-minutes: 2
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-onboarding-write-doors.mjs --self-test
+          node scripts/check-onboarding-write-doors.mjs --live
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
