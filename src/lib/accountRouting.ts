@@ -19,7 +19,7 @@
 import { sanitizeReturnTo } from './authRouting';
 import type { DeletionLanding } from './accountDeletion';
 import { ACCOUNT_HOME_PATH, isAccountPath } from './accountPaths';
-import { P3_START_PATH } from './auth-otp-routing';
+import { P3_START_PATH } from './p3StartPath';
 
 // The two the site header needs live in an import-free leaf (review #789 S6); re-exported here.
 export { ACCOUNT_HOME_PATH, isAccountPath };
