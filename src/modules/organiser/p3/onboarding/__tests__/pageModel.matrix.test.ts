@@ -223,12 +223,14 @@ describe('Review: organiser_onboarding_status_v1().missing[]', () => {
 });
 
 describe('Home grace banner', () => {
-  it.each<[{ complete: boolean; isAdmin: boolean } | null, string | null, boolean]>([
-    [{ complete: false, isAdmin: false }, null, true],
-    [{ complete: false, isAdmin: false }, '2026-10-28', true],
-    [{ complete: false, isAdmin: false }, '2026-10-29', false],
-    [{ complete: true, isAdmin: false }, null, false],
-    [{ complete: false, isAdmin: true }, null, false],
+  const g = (complete: boolean, isAdmin: boolean, left: number) => ({ complete, isAdmin, left, firstId: 'o1', firstName: '' });
+  it.each<[ReturnType<typeof g> | null, string | null, boolean]>([
+    [g(false, false, 2), null, true],
+    [g(false, false, 2), '2026-10-28', true],
+    [g(false, false, 2), '2026-10-29', false],
+    [g(false, false, 0), null, false],
+    [g(true, false, 0), null, false],
+    [g(false, true, 2), null, false],
     [null, null, false],
   ])('%o hidden on %s -> %s', (s, hidden, shown) => {
     expect(graceShown(s, hidden, '2026-10-29')).toBe(shown);

@@ -49,7 +49,6 @@ const ME = (role: Role, extra: Record<string, unknown> = {}) => member('me', rol
 const others = (n: number) => Array.from({ length: n }, (_, i) => member(`u${i}`, i % 3 ? 'contributor' : 'manager', { display_name: `Person ${i}` }));
 const LONG = 'Maximiliana Concepcion Rodriguez-Villanueva de la Fuente';
 const REQUEST = { request_id: 'r1', user_id: 'u-req', requester_email: 'nadia@x.example', message: 'I help with the door', created_at: '2026-10-01T10:00:00Z' };
-const PROGRESS = (left: number) => ({ percent: left ? 50 : 100, required_left: left, publish_ready: left === 0, steps: [], declined: [] });
 const WRITES = ['organiser_team_add_member_by_profile_v1', 'organiser_team_remove_member_v1', 'organiser_team_set_member_v1', 'organiser_transfer_ownership_v1',
   'organiser_team_set_public_v1', 'resolve_organiser_access_request_v1', 'organiser_profile_update_p5_v1'];
 
@@ -66,7 +65,11 @@ function install() {
     sent.push(fn);
     if (fn === 'organiser_team_v1') return teamFails ? { data: null, error: { message: 'boom' } } : { data: { my_role: myRole, members }, error: null };
     if (fn === 'list_organiser_access_requests_v1') return { data: requests, error: null };
-    if (fn === 'my_profile_progress_v1') return { data: PROGRESS(left), error: null };
+    // The Home banner's read (one mapping): every page is `left` codes short, none from the person.
+    if (fn === 'organiser_onboarding_status_v1') {
+      const missing = Array.from({ length: left }, (_, i) => `code_${i}`);
+      return { data: { v: 1, is_admin: false, complete: left === 0, person: { complete: true, missing: [] }, organisers: pages.map((p) => ({ id: p.id, complete: left === 0, missing })) }, error: null };
+    }
     return { data: null, error: null };
   });
 }
@@ -125,10 +128,10 @@ describe('youRows (the one row list): shape -> rows', () => {
   it.each([[1, 'Just you'], [12, '12 people'], [20, '20 people']])('team of %i -> "%s"', (n, sub) => {
     expect(youRows({ ...base, teamCount: n }).find((r) => r.id === 'team')!.sub).toBe(sub);
   });
-  it('join requests badge Team; required answers replace the page sub', () => {
+  it('join requests badge Team; things left (the Home banner count) replace the page sub', () => {
     const rows = youRows({ ...base, requests: 2, requiredLeft: 3 });
     expect(rows.find((r) => r.id === 'team')!.badge).toBe(2);
-    expect(rows.find((r) => r.id === 'page')!.sub).toBe('Required to publish: 3 answers left');
+    expect(rows.find((r) => r.id === 'page')!.sub).toBe('To finish: 3 things left');
   });
   it('one entry per row: ids are unique (a new row, e.g. Get paid, is one more entry)', () => {
     expect(new Set(YOU_ROWS.map((d) => d.id)).size).toBe(YOU_ROWS.length);
@@ -158,7 +161,7 @@ describe('You hub x shape', () => {
     expect(screen.getByTestId('p3-you-page-card').textContent).toContain(ROLE_LABEL.manager);
     expect(rowIds()).toEqual(['switch', 'page', 'team']);
     expect(screen.getByTestId('p3-you-switch').textContent).toContain('3 pages');
-    await waitFor(() => expect(screen.getByTestId('p3-you-page').textContent).toContain('Required to publish: 2 answers left'));
+    await waitFor(() => expect(screen.getByTestId('p3-you-page').textContent).toContain('To finish: 2 things left'));
     await waitFor(() => expect(screen.getByTestId('p3-you-team').textContent).toContain('12 people'));
   });
 
@@ -194,7 +197,7 @@ describe('You hub x shape', () => {
     requests = [REQUEST];
     at(P3_PATHS.you);
     await screen.findByTestId('p3-you-page-card');
-    await waitFor(() => expect(sent).toContain('my_profile_progress_v1'));
+    await waitFor(() => expect(sent).toContain('organiser_onboarding_status_v1'));
     expect(sent.filter((f) => WRITES.includes(f))).toEqual([]);
   });
 });
