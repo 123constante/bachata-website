@@ -13,6 +13,7 @@
 // Team access is not page content, so it is NOT part of the page's draft and
 // Save bar: like the Team page, an add is live once Done answers.
 import { OWNER_ONLY_ADD, ROLE_HELP, USE_TRANSFER_ADD, selfServeErrorCode, teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
+import { buildSignInHref } from '@/lib/authRouting';
 import { ROLE_LABEL } from '@/modules/organiser/shared/teamModel';
 
 export const MIN_QUERY = 2;
@@ -215,7 +216,7 @@ export function addedMessage(outcomes: readonly AddOutcome[], role: AddRole): st
 
 /** The invite fallback: a link to sign up. There is no owner invite RPC; once they have a profile, the search finds them. */
 export function inviteShare(organiserName: string, origin: string): { title: string; text: string; url: string } {
-  const url = `${origin.replace(/\/+$/, '')}/auth`;
+  const url = `${origin.replace(/\/+$/, '')}${buildSignInHref(null, 'signup')}`;
   return {
     title: 'Join Bachata Calendar',
     text: `Join Bachata Calendar and make your dancer profile, so I can add you to the ${organiserName} team.`,
