@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { useOrganiserChoice } from '../../switch/useOrganiserChoice';
@@ -15,7 +15,7 @@ import {
   liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
   DRAFT_STORE_KEY, type CreateDraft, type CreateKind, type KindInfo,
 } from './model';
-import { forgetStoredDraft, useCreateSave } from './useCreateSave';
+import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave';
 import { PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
 import { Sheet } from '../screens/Sheet';
 import { fullDate } from '../../shared/dateWords';
@@ -38,8 +38,10 @@ function KindStep({ organiserId, pageCount }: { organiserId: string | null; page
   const navigate = useNavigate();
   const pick = (k: KindInfo) => {
     if (k.deferred) return;
-    // review 1 F5: Back to the kinds and the same kind again keeps what was typed; another kind starts blank
-    if (storedDraft()?.kind !== k.kind) forgetStoredDraft();
+    // review 1 F5: Back to the kinds and the same kind again keeps what was typed; another kind starts blank.
+    // review 2 R2-2: a draft whose create landed is never picked up again from here.
+    const kept = storedDraft();
+    if (!kept || kept.created || kept.kind !== k.kind) forgetStoredDraft();
     navigate(afterKind(k.kind, organiserId, pageCount));
   };
   return (
@@ -91,14 +93,23 @@ function storedDraft(): CreateDraft | null {
   }
 }
 
-function loadDraft(kind: CreateKind): CreateDraft {
+/**
+ * The draft a form opens with. One whose create landed opens its event page ONLY when this URL
+ * names it (the same screen reloaded, review 1 F1); any other way in forgets it and starts blank
+ * (review 2 R2-2), so it never takes over the next New event.
+ */
+function bootDraft(kind: CreateKind, landedId: string | null): { draft: CreateDraft; open: string | null } {
   const stored = storedDraft();
-  return stored && stored.kind === kind ? stored : blankCreate(kind);
+  if (stored?.created) {
+    forgetStoredDraft();
+    return stored.seriesId === landedId ? { draft: stored, open: stored.seriesId } : { draft: blankCreate(kind), open: null };
+  }
+  return { draft: stored && stored.kind === kind ? stored : blankCreate(kind), open: null };
 }
 
-function Row({ title, value, action, onClick, testId }: { title: string; value: string; action: string; onClick: () => void; testId: string }) {
+function Row({ title, value, action, onClick, testId, disabled }: { title: string; value: string; action: string; onClick: () => void; testId: string; disabled: boolean }) {
   return (
-    <button type="button" className="p3-new-row" onClick={onClick} data-testid={testId}>
+    <button type="button" className="p3-new-row" onClick={onClick} disabled={disabled} data-testid={testId}>
       <span className="p3-grow">
         <span className="p3-row-t">{title}</span><br />
         <span className="p3-row-s">{value}</span>
@@ -113,23 +124,30 @@ type SheetName = 'venue' | 'repeat' | 'sessions' | 'price' | 'leave' | null;
 function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: HomeOrganiser; pageCount: number }) {
   const navigate = useNavigate();
   const today = useLondonToday();
-  const [d, setD] = useState<CreateDraft>(() => loadDraft(kind.kind));
+  const [params] = useSearchParams();
+  const [boot] = useState(() => bootDraft(kind.kind, params.get(LANDED_PARAM)));
+  const [d, setD] = useState<CreateDraft>(boot.draft);
   const [cover, setCover] = useState<File | null>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetName>(null);
   const [addDate, setAddDate] = useState('');
-  const save = useCreateSave({ draft: d, cover, organiser, today });
+  const save = useCreateSave({ draft: d, cover, organiser, today, onCreated: () => setD((x) => ({ ...x, created: true })) });
+  // review 2 R2-2: leaving a draft that exists (the partial or details screen, by any link) forgets it here
+  const exists = useRef(false);
+  const stateNow = save.state.s;
+  useEffect(() => { exists.current = stateNow === 'partial' || stateNow === 'details' || stateNow === 'discardFailed'; }, [stateNow]);
+  useEffect(() => () => { if (exists.current) forgetStoredDraft(); }, []);
   const preview = useMemo(() => {
     if (!cover || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return null;
     return URL.createObjectURL(cover);
   }, [cover]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   // Kept across steps and a reload (not the photo): a convenience, so storage that is off changes nothing.
+  // review 2 R2-1: `created` lives in d, so a write after the create keeps it
   useEffect(() => {
-    // review 1 F1: a draft whose create landed is opened on its event page, never kept to be created again
-    if (d.created) { forgetStoredDraft(); return; }
+    if (boot.open) return;
     try { window.sessionStorage.setItem(DRAFT_STORE_KEY, JSON.stringify(d)); } catch { /* storage off */ }
-  }, [d]);
+  }, [d, boot.open]);
   // review 1 F8: while a sheet is open the page behind it does not scroll
   useEffect(() => {
     const main = sheet ? document.querySelector<HTMLElement>('main[data-testid="p3-new-form"]') : null;
@@ -157,7 +175,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   );
   const title = `New ${kind.label.toLowerCase()}`;
 
-  if (d.created) return <Navigate to={P3_PATHS.event(d.seriesId)} replace />;
+  if (boot.open) return <Navigate to={P3_PATHS.event(boot.open)} replace />;
 
   const pickCover = (file: File | undefined) => {
     if (!file) return;
@@ -215,7 +233,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       ) : (
         <StateCard title={RESULT_COPY.nothingSaved} testId="p3-new-failed-error">
           <p>{failed.message} What you typed is still here.</p>
-          <RetryButton onClick={() => void save.run(false)} />
+          <RetryButton onClick={() => void save.retry()} />
         </StateCard>
       ))}
 
@@ -227,7 +245,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       </div>
 
       <div className="p3-card p3-tight" data-testid="p3-new-rows">
-        <Row title="Where" value={d.venue ? [d.venue.name, d.venue.place].filter(Boolean).join(', ') : 'Not set'} action={d.venue ? 'Change' : 'Pick'} onClick={() => setSheet('venue')} testId="p3-new-row-venue" />
+        <Row title="Where" value={d.venue ? [d.venue.name, d.venue.place].filter(Boolean).join(', ') : 'Not set'} action={d.venue ? 'Change' : 'Pick'} onClick={() => setSheet('venue')} disabled={busy} testId="p3-new-row-venue" />
         {kind.when === 'dates' ? (
           <div className="p3-new-inline" data-testid="p3-new-dates">
             <span className="p3-row-t">Dates</span>
@@ -236,13 +254,13 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
             {chosenDates(d).map((x) => (
               <div key={x} className="p3-new-date" data-testid="p3-new-date">
                 <span className="p3-row-t">{fullDate(x, today)}</span>
-                <button type="button" className="p3-link" onClick={() => setD((v) => removeChosenDate(v, x))}>Remove</button>
+                <button type="button" className="p3-link" disabled={busy} onClick={() => setD((v) => removeChosenDate(v, x))}>Remove</button>
               </div>
             ))}
             <label className="p3-field" htmlFor="p3-new-add-date">Add a date</label>
             <div className="p3-new-time">
-              <input id="p3-new-add-date" className="p3-in" type="date" min={today} value={addDate} onChange={(e) => setAddDate(e.target.value)} data-testid="p3-new-add-date" />
-              <button type="button" className="p3-btn p3-btn-line" disabled={!addDate} aria-describedby={!addDate ? 'p3-new-add-why' : undefined}
+              <input id="p3-new-add-date" className="p3-in" type="date" min={today} value={addDate} disabled={busy} onChange={(e) => setAddDate(e.target.value)} data-testid="p3-new-add-date" />
+              <button type="button" className="p3-btn p3-btn-line" disabled={!addDate || busy} aria-describedby={!addDate ? 'p3-new-add-why' : undefined}
                 onClick={() => { setD((v) => addChosenDate(v, addDate)); setAddDate(''); }} data-testid="p3-new-add-date-go">Add</button>
             </div>
             {!addDate && <p className="p3-note" id="p3-new-add-why">Pick a date above, then tap Add.</p>}
@@ -256,12 +274,12 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
           </div>
         )}
         {kind.when === 'repeat' && (
-          <Row title="Repeats" value={repeatLine(d, today)} action="Change" onClick={() => setSheet('repeat')} testId="p3-new-row-repeat" />
+          <Row title="Repeats" value={repeatLine(d, today)} action="Change" onClick={() => setSheet('repeat')} disabled={busy} testId="p3-new-row-repeat" />
         )}
         {problems.when && <p className="p3-error" data-testid="p3-new-when-problem">{problems.when}</p>}
-        <Row title="Sessions" value={sessionsLine(d)} action={d.sessions.length ? 'Change' : 'Add'} onClick={() => setSheet('sessions')} testId="p3-new-row-sessions" />
+        <Row title="Sessions" value={sessionsLine(d)} action={d.sessions.length ? 'Change' : 'Add'} onClick={() => setSheet('sessions')} disabled={busy} testId="p3-new-row-sessions" />
         {problems.sessions && <p className="p3-error" data-testid="p3-new-sessions-problem">{problems.sessions}</p>}
-        <Row title="Price" value={priceLine(d)} action={d.pay.length ? 'Change' : 'Pick'} onClick={() => setSheet('price')} testId="p3-new-row-price" />
+        <Row title="Price" value={priceLine(d)} action={d.pay.length ? 'Change' : 'Pick'} onClick={() => setSheet('price')} disabled={busy} testId="p3-new-row-price" />
         {problems.price && <p className="p3-error" data-testid="p3-new-price-row-problem">{problems.price}</p>}
       </div>
 

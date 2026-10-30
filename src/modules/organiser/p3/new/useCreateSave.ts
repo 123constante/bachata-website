@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, type HomeOrganiser } from '../../shared/selfServeApi';
 import { envelope, newIdempotencyKey } from '../../shared/seriesCommands';
@@ -43,8 +43,16 @@ function rememberCreated(draft: CreateDraft) {
   try { window.sessionStorage.setItem(DRAFT_STORE_KEY, JSON.stringify({ ...draft, created: true })); } catch { /* storage off */ }
 }
 
-export function useCreateSave({ draft, cover, organiser, today }: { draft: CreateDraft; cover: File | null; organiser: HomeOrganiser | null; today: string }) {
+/** The URL param that names a draft whose create landed (review 2 R2-2): only this screen, opened again, goes to it. */
+export const LANDED_PARAM = 'sid';
+
+export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
+  draft: CreateDraft; cover: File | null; organiser: HomeOrganiser | null; today: string;
+  /** The create landed: the screen keeps `created` in its draft (review 2 R2-1). */
+  onCreated?: () => void;
+}) {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const keys = useRef(new Map<string, string>());
   const done = useRef(new Set<StepKey>());
@@ -68,20 +76,42 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
 
   const refresh = () => { void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY }); };
 
-  /** The series' version as the server has it now (a lost reply, a reply without new_version, a retry). */
-  const reread = async () => { version.current = (await fetchSeriesWorkspace(seriesId)).series.version; };
+  /** The series' version as the server has it now (a lost reply, a reply without new_version, a retry). Only THIS series counts (R2-3). */
+  const reread = async () => {
+    const ws = await fetchSeriesWorkspace(seriesId);
+    if (!ws?.series?.id || ws.series.id !== seriesId) throw new Error('series not found');
+    version.current = ws.series.version;
+  };
+
+  /** The create landed: mark it in storage, in the screen's draft and in this screen's URL (a reload opens the draft, R2-2). */
+  const landed = () => {
+    done.current.add('create');
+    rememberCreated(draft);
+    onCreated?.();
+    const q = new URLSearchParams(location.search);
+    q.set(LANDED_PARAM, seriesId);
+    navigate(`${location.pathname}?${q.toString()}`, { replace: true });
+  };
 
   const run = async (goLive: boolean): Promise<void> => {
     if (!organiser || inFlight.current) return;
     const hasCover = !!cover || !!coverUrl.current;
     const base = { organiserId: organiser.id, today, hasCover, goLive };
-    // Untouched, blocked, or Go live off: nothing is sent.
-    if (!savePlan(draft, { ...base, coverUrl: coverUrl.current, cityId: null }).length) return;
+    const probe = savePlan(draft, { ...base, coverUrl: coverUrl.current, cityId: cityId.current ?? null });
+    if (!probe.length) {
+      // Untouched, blocked, or Go live off: nothing is sent. A draft that exists is finished on its page (R2-5).
+      if (created()) {
+        forgetStoredDraft();
+        navigate(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: RESULT_COPY.finishThere } });
+      }
+      return;
+    }
     inFlight.current = true;
     lastGoLive.current = goLive;
-    let at: StepKey = 'cover';
-    let left: StepKey[] = [];
-    let plan: ReturnType<typeof savePlan> = [];
+    // R2-4: until a step runs, a failure is about the first step not saved yet (never "the photo" by default)
+    let left: StepKey[] = probe.filter((p) => !done.current.has(p.key)).map((p) => p.key);
+    let at: StepKey = left[0] ?? 'cover';
+    let plan: ReturnType<typeof savePlan> = probe;
     setState({ s: 'busy', at });
     try {
       if (created() && stale.current) {
@@ -89,6 +119,7 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
         stale.current = false;
       }
       if (hasCover && !coverUrl.current && cover) {
+        at = 'cover';
         coverUrl.current = await uploadEventPicture(seriesId, cover);
         setCoverUploaded(true);
       }
@@ -113,8 +144,8 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
         setState({ s: 'busy', at });
         const key = keyFor(`${step.key}|${JSON.stringify(step.command)}`);
         const res = await runSeriesCommand(envelope(seriesId, step.key === 'create' ? null : version.current, step.command, key));
+        if (step.key === 'create') landed();
         done.current.add(step.key);
-        if (step.key === 'create') rememberCreated(draft);
         left = left.filter((k) => k !== step.key);
         if (typeof res?.new_version === 'number') version.current = res.new_version;
         else await reread();
@@ -128,8 +159,7 @@ export function useCreateSave({ draft, cover, organiser, today }: { draft: Creat
       if (at === 'create' && !created() && !isOnboardingRefusal(e)) {
         try {
           await reread();
-          done.current.add('create');
-          rememberCreated(draft);
+          landed();
           left = plan.filter((p) => !done.current.has(p.key)).map((p) => p.key);
         } catch { /* no row: nothing was saved */ }
       }

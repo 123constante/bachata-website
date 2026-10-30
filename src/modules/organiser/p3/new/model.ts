@@ -395,6 +395,7 @@ export const RESULT_COPY = {
   detailsBody: (name: string) => `\u201c${name.trim()}\u201d is saved as a draft. Before it goes live, answer a few quick questions so dancers know who runs it.`,
   onboardingTitle: 'Finish your details first',
   discarded: 'Draft discarded.',
+  finishThere: 'Your draft is saved. Finish it here.',
   discardFailed: 'The draft could not be discarded. Check your connection and try again, or open it and discard it from there.',
 } as const;
 

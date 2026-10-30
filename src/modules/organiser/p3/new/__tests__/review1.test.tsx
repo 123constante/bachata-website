@@ -109,7 +109,8 @@ async function readyOneDate() {
 }
 
 describe('F1: a landed create is never re-sent after a remount', () => {
-  it('sessions failed, the screen is left and opened again: it goes to the draft, no second create', async () => {
+  // review 2 R2-2: leaving forgets the draft, so a fresh mount is a NEW draft (its own id); the same URL reloaded goes to the old one (review2)
+  it('sessions failed, the screen is left and opened again: a blank new draft, no second create of the old one', async () => {
     answer = (e) => (e.command.kind === 'series.set_program' ? { error: { message: 'Failed to fetch' } } : null);
     await named();
     fireEvent.click(screen.getByTestId('p3-new-save-draft'));
@@ -117,8 +118,13 @@ describe('F1: a landed create is never re-sent after a remount', () => {
     const id = sent[0].target_id;
     cleanup();
     mount(form('one_date'));
-    await waitFor(() => expect(where()).toBe(P3_PATHS.event(id)));
-    expect(creates().length).toBe(1);
+    expect(((await screen.findByTestId('p3-new-name')) as HTMLInputElement).value).toBe('');
+    fireEvent.change(screen.getByTestId('p3-new-name'), { target: { value: 'Another' } });
+    answer = () => null;
+    fireEvent.click(screen.getByTestId('p3-new-save-draft'));
+    await waitFor(() => expect(where()).toMatch(/^\/account\/p3\/events\//));
+    expect(creates().length).toBe(2);
+    expect(creates()[1].target_id).not.toBe(id);
   });
 });
 

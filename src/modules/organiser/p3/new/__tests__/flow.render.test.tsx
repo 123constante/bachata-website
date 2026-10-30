@@ -55,7 +55,7 @@ beforeEach(() => {
     if (fn === 'get_organiser_venue_options_v1') return { data: VENUES, error: null };
     // the series as the server has it now (a retry reads its version again): one version per command that landed
     if (fn === 'admin_event_workspace_p5') {
-      return landed ? { data: rawWorkspace({ lifecycle_status: 'draft', version: landed }, []), error: null } : { data: null, error: { message: 'not found' } };
+      return landed ? { data: rawWorkspace({ id: (args as { p_series_id?: string }).p_series_id, lifecycle_status: 'draft', version: landed }, []), error: null } : { data: null, error: { message: 'not found' } };
     }
     if (fn === 'series_command_p5') {
       const env = args.p_envelope!;
