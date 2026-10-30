@@ -1,13 +1,13 @@
 // Presentational pieces of the join journey. No data fetching here: JoinPage decides the step and hands
 // each screen its facts and handlers. Every tap target is 44px or more (explicit px: the phone html
 // font-size is about 13.5px, so rem sizes render small). Words come from joinCopy only.
-import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { reasonScreen, type ReasonScreen } from '../inviteModel';
 import { JOIN_COPY } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';

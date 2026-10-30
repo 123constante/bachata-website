@@ -120,6 +120,13 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   });
   const step = derived.step;
 
+  // The Done link's organiser: the redeem's own id; else, only when exactly ONE of the person's pages matches the
+  // invite's name (two same-named pages cannot say which), that page. Otherwise null: the plain organiser home.
+  const ownPages = ownList.isSuccess ? ownList.data?.organisers : null;
+  const nameMatch = info ? ownPageForName(ownPages, info.organiserName) : null;
+  const nameIsUnique = nameMatch != null && info != null && ownPageForName(ownPages?.filter((o) => o !== nameMatch), info.organiserName) == null;
+  const doneOrgId = redeemedOrgId ?? (nameIsUnique ? nameMatch.id : null);
+
   // A finished-with link: the token leaves the address bar.
   useEffect(() => {
     if (step === 'done' || step === 'dead') stripToken();
@@ -346,7 +353,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} flags={flags} organiserId={redeemedOrgId ?? (info && ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName)?.id ?? null : null)} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} flags={flags} organiserId={doneOrgId} />
         </>
       );
       break;

@@ -79,4 +79,12 @@ describe('invite Done screen', () => {
     expect(href).toBe(to);
     expect(isRoutable(href!.split('?')[0])).toBe(true);
   });
+
+  it('the button label is pinned, and an id that needs encoding is encoded', () => {
+    render(<MemoryRouter><DoneScreen org="Salsa Co" flags={{ organiserP3: true, organiserSelfServe: true }} organiserId="a b/c" /></MemoryRouter>);
+    const link = screen.getByTestId('join-done-home');
+    expect(link.textContent).toBe(JOIN_COPY.done.button);
+    expect(JOIN_COPY.done.button).toBe('Open your organiser home');
+    expect(link.getAttribute('href')).toBe('/account/p3/you/welcome?o=a%20b%2Fc');
+  });
 });
