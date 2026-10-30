@@ -35,7 +35,8 @@ export const backToEventLabel = (name: string | null | undefined): string => `Ba
 /** The event a returnTo points at: One event (and its sub-screens) or the Go live flow (`?series=`). */
 export function returnToSeriesId(returnTo: string | null): string | null {
   if (!returnTo) return null;
-  const own = returnTo.match(/^\/account\/o\/events\/([^/?#]+)/);
+  // R1's event page, or P3's (a P3 flow's Done leads back to it)
+  const own = returnTo.match(/^\/account\/(?:o|p3)\/events\/([^/?#]+)/);
   if (own) return decodeURIComponent(own[1]);
   if (/^\/account\/o\/go-live(?:[?#]|$)/.test(returnTo)) return new URLSearchParams(returnTo.split('?')[1]?.split('#')[0] ?? '').get('series');
   return null;

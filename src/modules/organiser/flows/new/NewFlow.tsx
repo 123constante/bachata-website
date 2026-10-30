@@ -11,8 +11,8 @@ import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { useVenueOptions, type VenueOption } from '@/modules/organiser/shared/publicVenues';
 import { uploadEventPicture } from '@/modules/organiser/events/media';
 import { useOrganiserChoice } from '@/modules/organiser/profile/useOrganiserChoice';
-import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
-import { ORG_PATHS, type NewEventFormat } from '@/modules/organiser/shell/paths';
+import { useOrgSurface } from '@/modules/organiser/shell/surface';
+import type { NewEventFormat } from '@/modules/organiser/shell/paths';
 import { EmptyState, ErrorState, GhostButton, PrimaryButton, SearchField, SkeletonRows, TitleInput } from '@/modules/organiser/ui';
 import { goDone } from '../doneState';
 import {
@@ -33,10 +33,11 @@ const QUIET = 'min-h-[44px] w-full text-center text-[14px] text-[var(--mut)] und
 const MAX_VENUE_ROWS = 50;
 
 /** After the name step the draft exists: every step offers to leave it as a draft. */
-function LeaveLink({ label = 'Save as draft and leave', to = ORG_PATHS.home }: { label?: string; to?: string }) {
+function LeaveLink({ label = 'Save as draft and leave', to }: { label?: string; to?: string }) {
   const navigate = useNavigate();
+  const { createHub } = useOrgSurface();
   return (
-    <button type="button" className={QUIET} data-testid="org-new-leave" onClick={() => navigate(to, { replace: true })}>
+    <button type="button" className={QUIET} data-testid="org-new-leave" onClick={() => navigate(to ?? createHub.to, { replace: true })}>
       {label}
     </button>
   );
@@ -61,19 +62,21 @@ function StepButton({ label, reason, busy, onClick, testId }: { label: string; r
 }
 
 function Frame({ title, back, children }: { title: string; back: string; children: ReactNode }) {
+  const { Shell } = useOrgSurface();
   return (
-    <OrganiserShell title={title} back={{ to: back, label: 'Back' }} testId="org-new-step">
+    <Shell title={title} back={{ to: back, label: 'Back' }} testId="org-new-step">
       <div className="flex flex-col gap-[12px] p-[12px]">{children}</div>
-    </OrganiserShell>
+    </Shell>
   );
 }
 
 /** R3-7: another device changed the draft first; ONE button, to the event. */
 function NewConflict({ seriesId }: { seriesId: string }) {
+  const { Shell, createHub } = useOrgSurface();
   return (
-    <OrganiserShell title="New event" back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-conflict">
+    <Shell title="New event" back={createHub} testId="org-new-conflict">
       <div className="p-[12px]"><EventConflict seriesId={seriesId} /></div>
-    </OrganiserShell>
+    </Shell>
   );
 }
 
@@ -84,28 +87,29 @@ function NewConflict({ seriesId }: { seriesId: string }) {
 
 function WhatStep() {
   const navigate = useNavigate();
+  const { Shell, paths, createHub } = useOrgSurface();
   const [params] = useSearchParams();
   const { home, organisers, selected } = useOrganiserChoice();
   // Never flash the format rows at a login that is about to be asked which page.
   if (home.isPending && !home.isPaused) {
     return (
-      <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
+      <Shell title={STEP_TITLE.what} back={createHub} testId="org-new-what">
         <div className="p-[12px]"><SkeletonRows count={2} label="Loading" /></div>
-      </OrganiserShell>
+      </Shell>
     );
   }
   if (needsPagePick(organisers.length, params)) return <WhichPageStep organisers={organisers} selectedId={selected?.id ?? null} />;
   return (
-    <OrganiserShell title={STEP_TITLE.what} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-what">
+    <Shell title={STEP_TITLE.what} back={createHub} testId="org-new-what">
       <div className="flex flex-col gap-[12px] p-[12px]">
         {NEW_FORMATS.map((f) => (
-          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withPageChoice(ORG_PATHS.newName(f.format), params))}>
+          <button key={f.format} type="button" className={ROW} data-testid={'org-new-format-' + f.format} onClick={() => navigate(withPageChoice(paths.newName(f.format), params))}>
             {f.label}
           </button>
         ))}
         <LeaveLink label="Leave" />
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }
 
@@ -113,6 +117,7 @@ function WhatStep() {
 
 function NameStep({ format }: { format: NewEventFormat }) {
   const navigate = useNavigate();
+  const { Shell, paths } = useOrgSurface();
   const queryClient = useQueryClient();
   const { home, selected } = useOrganiserChoice();
   const [params] = useSearchParams();
@@ -136,7 +141,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
       await runSeriesCommand(envelope(draft.current.seriesId, null, draftCommand(name, format, selected.id), draft.current.key));
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       // replace: Back must not return here and create a second draft.
-      navigate(ORG_PATHS.newVenue(draft.current.seriesId), { replace: true });
+      navigate(paths.newVenue(draft.current.seriesId), { replace: true });
     } catch (err) {
       setError(commandErrorMessage(err));
       setBusy(false);
@@ -146,8 +151,8 @@ function NameStep({ format }: { format: NewEventFormat }) {
   let body: ReactNode;
   if (home.isPending) body = <SkeletonRows count={2} label="Loading" />;
   else if (!home.data) body = <ErrorState onRetry={() => void home.refetch()} retrying={home.isFetching} />;
-  else if (!selected) body = <EmptyState title="Set up your page first" body="An event belongs to a page. Create or claim yours from Home." action={<GhostButton onClick={() => navigate(ORG_PATHS.home)}>Back to Home</GhostButton>} testId="org-new-no-page" />;
-  else if (block) body = <EmptyState title="You cannot start an event yet" body={block} action={<GhostButton onClick={() => navigate(ORG_PATHS.home)}>Back to Home</GhostButton>} testId="org-new-blocked" />;
+  else if (!selected) body = <EmptyState title="Set up your page first" body="An event belongs to a page. Create or claim yours from Home." action={<GhostButton onClick={() => navigate(paths.home)}>Back to Home</GhostButton>} testId="org-new-no-page" />;
+  else if (block) body = <EmptyState title="You cannot start an event yet" body={block} action={<GhostButton onClick={() => navigate(paths.home)}>Back to Home</GhostButton>} testId="org-new-blocked" />;
   else {
     body = (
       <>
@@ -159,9 +164,9 @@ function NameStep({ format }: { format: NewEventFormat }) {
     );
   }
   return (
-    <OrganiserShell title={STEP_TITLE.name} back={{ to: withPageChoice(ORG_PATHS.newWhat, params), label: 'Back' }} testId="org-new-name-step">
+    <Shell title={STEP_TITLE.name} back={{ to: withPageChoice(paths.newWhat, params), label: 'Back' }} testId="org-new-name-step">
       <div className="flex flex-col gap-[12px] p-[12px]">{body}</div>
-    </OrganiserShell>
+    </Shell>
   );
 }
 
@@ -169,6 +174,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
 
 function VenueStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
+  const { Shell, paths, createHub } = useOrgSurface();
   const { selected } = useOrganiserChoice();
   const venues = useVenueOptions();
   const { send, busy, error, setError, conflict } = useNewSend(seriesId);
@@ -184,7 +190,7 @@ function VenueStep({ seriesId }: { seriesId: string }) {
     } catch {
       cityId = selected?.city_id ?? null;
     }
-    if (await send(venueCommands(venue.id, cityId))) navigate(ORG_PATHS.newDate(seriesId));
+    if (await send(venueCommands(venue.id, cityId))) navigate(paths.newDate(seriesId));
   };
 
   let body: ReactNode;
@@ -204,14 +210,14 @@ function VenueStep({ seriesId }: { seriesId: string }) {
   }
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
-    <OrganiserShell title={STEP_TITLE.venue} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-venue">
+    <Shell title={STEP_TITLE.venue} back={createHub} testId="org-new-venue">
       <div className="flex flex-col gap-[12px] p-[12px]">
         <SearchField value={term} onChange={(v) => { setTerm(v); setError(null); }} aria-label="Search venues" placeholder="Search venues" testId="org-new-venue-search" />
         <StepError message={error} />
         {body}
         <LeaveLink />
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }
 
@@ -225,16 +231,17 @@ function useDraft(seriesId: string) {
 
 function DateStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
+  const { paths } = useOrgSurface();
   const today = useLondonToday();
   const draft = useDraft(seriesId);
   const { send, busy, error, conflict } = useNewSend(seriesId);
-  const back = ORG_PATHS.newVenue(seriesId);
+  const back = paths.newVenue(seriesId);
   if (draft.isPending) return <Frame title={STEP_TITLE.date} back={back}><SkeletonRows count={4} label="Loading" /></Frame>;
   if (!draft.data && isAccessRefusal(draft.error)) return <Frame title={STEP_TITLE.date} back={back}><NoAccess /></Frame>;
   if (!draft.data) return <Frame title={STEP_TITLE.date} back={back}><ErrorState onRetry={() => void draft.refetch()} retrying={draft.isFetching} /></Frame>;
   const format: NewEventFormat = draft.data.series.format === 'one_off' ? 'one_off' : 'recurring';
   const pick = async (date: string) => {
-    if (await send(dateCommands(format, date))) navigate(ORG_PATHS.newTime(seriesId));
+    if (await send(dateCommands(format, date))) navigate(paths.newTime(seriesId));
   };
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
@@ -254,14 +261,15 @@ function DateStep({ seriesId }: { seriesId: string }) {
 
 function TimeStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
+  const { paths } = useOrgSurface();
   const { send, busy, error, setError, conflict } = useNewSend(seriesId);
   const [time, setTime] = useState('');
   const go = async () => {
-    if (!timeBlock(time) && (await send(timeCommands(time)))) navigate(ORG_PATHS.newCover(seriesId));
+    if (!timeBlock(time) && (await send(timeCommands(time)))) navigate(paths.newCover(seriesId));
   };
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
-    <Frame title={STEP_TITLE.time} back={ORG_PATHS.newDate(seriesId)}>
+    <Frame title={STEP_TITLE.time} back={paths.newDate(seriesId)}>
       <input
         type="time"
         value={time}
@@ -282,6 +290,9 @@ function TimeStep({ seriesId }: { seriesId: string }) {
 
 function CoverStep({ seriesId }: { seriesId: string }) {
   const navigate = useNavigate();
+  const { kind, paths, createHub } = useOrgSurface();
+  // P3's Done leads back to the event made (R1 keeps Done's own Back to Home).
+  const doneBack = kind === 'p3' ? paths.event(seriesId) : null;
   const { selected } = useOrganiserChoice();
   const draft = useDraft(seriesId);
   const today = useLondonToday();
@@ -308,12 +319,13 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     if (finishReason(!!cover, draft.data ?? null, today)) return;
     // A1 not on prod: going live would be refused, so the draft stays a draft and Done says so.
     if (!liveCommands().length) {
-      goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId });
+      goDone(navigate, { title: 'Saved', message: DRAFT_SAVED_MESSAGE, seriesId }, doneBack, paths.done);
       return;
     }
     // Profile answers still open: the "Almost live" bridge, not a refusal. A failed read falls through and the server decides.
     if (await profileQuestionsLeft(seriesId)) {
-      navigate(goLivePath(seriesId, selected?.id ?? null));
+      // P3 has no Almost live screen: its event page's Status sheet asks what is left.
+      navigate(kind === 'p3' ? paths.event(seriesId) : goLivePath(seriesId, selected?.id ?? null));
       return;
     }
     if (!(await send(liveCommands()))) return;
@@ -324,12 +336,12 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     } catch {
       // The event is live; the confirmation just loses its date.
     }
-    goDone(navigate, { title: TITLE, message, seriesId });
+    goDone(navigate, { title: TITLE, message, seriesId }, doneBack, paths.done);
   };
 
   if (conflict) return <NewConflict seriesId={seriesId} />;
   return (
-    <Frame title={STEP_TITLE.cover} back={ORG_PATHS.newTime(seriesId)}>
+    <Frame title={STEP_TITLE.cover} back={paths.newTime(seriesId)}>
       {cover && <img src={cover} alt="Your photo" loading="eager" className="max-h-[240px] w-full rounded-[12px] object-cover" data-testid="org-new-cover-preview" />}
       <label className={ROW + ' cursor-pointer justify-center'} data-testid="org-new-cover-label">
         {uploading ? 'Uploading' : cover ? 'Choose a different photo' : 'Choose a photo'}
@@ -339,7 +351,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
       {!A1_APPLIED && <p className="text-[14px] text-[var(--mut)]" data-testid="org-new-draft-note">{DRAFT_ONLY_NOTE}</p>}
       <StepButton label={finishLabel()} reason={finishReason(!!cover, draft.data ?? null, today)} busy={busy && !uploading} onClick={() => void goLive()} testId="org-new-live" />
       {/* The session is the only thing missing: leave where it is added. */}
-      {offerLeave(!!cover) && <LeaveLink to={finishReason(!!cover, draft.data ?? null, today) === NO_SESSION_NEW_REASON ? ORG_PATHS.eventProgramme(seriesId) : ORG_PATHS.home} />}
+      {offerLeave(!!cover) && <LeaveLink to={finishReason(!!cover, draft.data ?? null, today) === NO_SESSION_NEW_REASON ? paths.eventProgramme(seriesId) : createHub.to} />}
     </Frame>
   );
 }
@@ -348,6 +360,7 @@ function CoverStep({ seriesId }: { seriesId: string }) {
 
 /** One lazy chunk for every New event route; the URL names the step. */
 export default function NewFlow() {
+  const { paths } = useOrgSurface();
   const { pathname } = useLocation();
   const { seriesId } = useParams();
   const [params] = useSearchParams();
@@ -355,12 +368,12 @@ export default function NewFlow() {
   if (step === 'what') return <WhatStep />;
   if (step === 'name') {
     const format = parseFormat(params.get('format'));
-    return format ? <NameStep format={format} /> : <Navigate to={ORG_PATHS.newWhat} replace />;
+    return format ? <NameStep format={format} /> : <Navigate to={paths.newWhat} replace />;
   }
-  if (!seriesId) return <Navigate to={ORG_PATHS.newWhat} replace />;
+  if (!seriesId) return <Navigate to={paths.newWhat} replace />;
   if (step === 'venue') return <VenueStep seriesId={seriesId} />;
   if (step === 'date') return <DateStep seriesId={seriesId} />;
   if (step === 'time') return <TimeStep seriesId={seriesId} />;
   if (step === 'cover') return <CoverStep seriesId={seriesId} />;
-  return <Navigate to={ORG_PATHS.newWhat} replace />;
+  return <Navigate to={paths.newWhat} replace />;
 }

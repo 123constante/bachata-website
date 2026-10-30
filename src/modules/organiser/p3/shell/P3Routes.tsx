@@ -8,7 +8,7 @@ import { P3Shell } from './P3Shell';
 import { EventsScreen } from '../screens/EventsScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { StatsScreen } from '../screens/StatsScreen';
-import { P3YouSurface } from '../you/surface';
+import { P3PushedSurface, P3YouSurface } from '../you/surface';
 import { youGetPaidRoute } from './youTickets';
 import { P3_PATHS } from './paths';
 import { P3RouteBoundary, type P3RouteBack, type P3RouteFrame } from './P3RouteBoundary';
@@ -27,6 +27,11 @@ const WelcomePage = lazyWithRetry(() => import('../../switch/Welcome'));
 const PageScreen = lazyWithRetry(() => import('../../page'));
 const Done = lazyWithRetry(() => import('../../flows/Done'));
 const AddPageScreen = lazyWithRetry(() => import('../you/AddPageScreen'));
+// p3-shell-exits: R1's New event steps, More (Account), Help and an event's Organisers, in P3's frame.
+const NewFlow = lazyWithRetry(() => import('../../flows/new'));
+const MorePage = lazyWithRetry(() => import('../../more'));
+const HelpPage = lazyWithRetry(() => import('../../more/help'));
+const SeriesOrganisers = lazyWithRetry(() => import('../../events/SeriesOrganisers'));
 // W4b build 2: the onboarding person screens draw their own full-screen shell (no tab bar), lazy like the rest.
 const PersonFlow = lazyWithRetry(() => import('../onboarding/PersonFlow'));
 const OnboardingFlow = lazyWithRetry(() => import('../onboarding/OnboardingFlow'));
@@ -44,6 +49,8 @@ const toEvent = (p: Readonly<Params>) => ({ to: P3_PATHS.event(p.seriesId ?? '')
 const toEvents = () => ({ to: P3_PATHS.events, label: 'Events' });
 const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
 const toHome = () => ({ to: P3_PATHS.home, label: 'Home' });
+/** R1's New event step URLs (OrganiserRoutes), each under /account/p3; the URL names the step. */
+export const NEW_STEPS = ['new/what', 'new/name', 'new/:seriesId/venue', 'new/:seriesId/date', 'new/:seriesId/time', 'new/:seriesId/cover'] as const;
 function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
   return <P3RouteBoundary frame={frame} back={back}><Suspense fallback={null}>{el}</Suspense></P3RouteBoundary>;
 }
@@ -68,6 +75,10 @@ export default function P3Routes() {
           <Route path="events/:seriesId/details" element={lazyScreen(<DetailsScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/prices" element={lazyScreen(<PricesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/history" element={lazyScreen(<HistoryScreen />, 'tab', toEvent)} />
+          <Route path="events/:seriesId/organisers" element={<P3PushedSurface back={toEvent}><SeriesOrganisers /></P3PushedSurface>} />
+          {NEW_STEPS.map((step) => (
+            <Route key={step} path={step} element={<P3PushedSurface back={toEvents}><NewFlow /></P3PushedSurface>} />
+          ))}
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />
@@ -81,6 +92,8 @@ export default function P3Routes() {
             <Route path="handover/:userId" element={<HandoverFlow step="confirm" />} />
             <Route path="done" element={<Done />} />
             <Route path="add" element={<AddPageScreen />} />
+            <Route path="account" element={<MorePage />} />
+            <Route path="help" element={<HelpPage />} />
           </Route>
           {youGetPaidRoute()}
           <Route path="*" element={<Navigate to={P3_PATHS.home} replace />} />

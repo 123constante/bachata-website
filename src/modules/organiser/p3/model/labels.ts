@@ -287,6 +287,8 @@ export const L = {
   startAgain: 'Start again from the saved version',
   saving: 'Saving\u2026',
   historyRowSub: 'Every change, who made it and when',
+  organisers: 'Organisers',
+  organisersRowSub: 'The pages that run this event',
   historyIntro: 'Every change, who made it and when.',
   historyWho: { you: 'You', 'co-host': 'A co-host', team: 'The Bachata team', someone: 'Someone' },
   historyFor: (day: string) => `for ${day}`,
