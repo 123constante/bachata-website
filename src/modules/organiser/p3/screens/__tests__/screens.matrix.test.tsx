@@ -24,6 +24,7 @@ vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));
 
 import { HomeScreen } from '../HomeScreen';
 import { EventsScreen } from '../EventsScreen';
+import { P3_PATHS } from '../../shell/paths';
 import { StatsScreen } from '../StatsScreen';
 
 const ok = (data: unknown) => ({ isPending: false, isError: false, data, refetch: vi.fn() });
@@ -89,7 +90,8 @@ describe('Home x every shape', () => {
     } else {
       // says what the person can do, with the control on screen
       const none = screen.getByTestId('p3-nextup-none');
-      expect(within(none).getByRole('link').textContent).toMatch(/current organiser area/);
+      // p3-shell-exits: to P3 Events, never the R1 area
+      expect(within(none).getByRole('link').getAttribute('href')).toBe(P3_PATHS.events);
       // the words follow the state: a draft or a hidden event is never told to "add dates"
       const want = row.lifecycle === 'live' ? /Add dates/ : row.lifecycle === 'draft' ? /Put a draft live/ : row.lifecycle === 'paused' ? /hidden/ : /Nothing is on the calendar/;
       expect(none.textContent).toMatch(want);
@@ -238,10 +240,19 @@ describe('Events x every shape', () => {
     expect(screen.getByTestId(id).textContent!.length).toBeGreaterThan(10);
   });
 
-  it('the note points at a link that is on screen', () => {
+  it('the note points at a link that is on screen: New event inside P3', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     show(<EventsScreen />);
-    expect(screen.getByRole('link', { name: /current organiser area/ }).getAttribute('href')).toBe('/account/o');
+    expect(screen.getByRole('link', { name: 'add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+  });
+
+  it('no events: Add an event goes to New event inside P3 (Home and Events)', () => {
+    homeQ.value = ok(homeOf([]));
+    show(<EventsScreen />);
+    expect(within(screen.getByTestId('p3-events-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    cleanup();
+    show(<HomeScreen />);
+    expect(within(screen.getByTestId('p3-home-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
   });
 });
 

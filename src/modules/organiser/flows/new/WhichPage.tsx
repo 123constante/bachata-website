@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Circle } from 'lucide-react';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
-import { OrganiserShell } from '@/modules/organiser/shell/OrganiserShell';
-import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { useOrgSurface } from '@/modules/organiser/shell/surface';
 import { PrimaryButton } from '@/modules/organiser/ui';
 import { WHICH_PAGE_TITLE, pageChosenHref } from './whichPageModel';
 
@@ -14,9 +13,10 @@ import { WHICH_PAGE_TITLE, pageChosenHref } from './whichPageModel';
  */
 export function WhichPageStep({ organisers, selectedId }: { organisers: HomeOrganiser[]; selectedId: string | null }) {
   const navigate = useNavigate();
+  const { Shell, paths, createHub } = useOrgSurface();
   const [chosen, setChosen] = useState(selectedId ?? organisers[0]?.id ?? null);
   return (
-    <OrganiserShell title={WHICH_PAGE_TITLE} back={{ to: ORG_PATHS.home, label: 'Home' }} testId="org-new-page">
+    <Shell title={WHICH_PAGE_TITLE} back={createHub} testId="org-new-page">
       <div className="flex flex-col gap-[12px] p-[12px]">
         <div role="radiogroup" aria-label="Pages" className="overflow-hidden rounded-[12px] border border-[var(--line)] bg-[var(--card)]">
           {organisers.map((o) => {
@@ -39,10 +39,10 @@ export function WhichPageStep({ organisers, selectedId }: { organisers: HomeOrga
             );
           })}
         </div>
-        <PrimaryButton disabled={!chosen} onClick={() => chosen && navigate(pageChosenHref(ORG_PATHS.newWhat, chosen))} testId="org-new-page-continue">
+        <PrimaryButton disabled={!chosen} onClick={() => chosen && navigate(pageChosenHref(paths.newWhat, chosen))} testId="org-new-page-continue">
           Continue
         </PrimaryButton>
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }

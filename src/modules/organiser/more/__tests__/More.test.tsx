@@ -222,6 +222,18 @@ describe('every row names a control that exists', () => {
     }
   });
 
+  // review 1202 N3: R1's title and back come from the surface default; pin them by what renders.
+  it('R1 More is titled "More" and goes back to Home', async () => {
+    homeAs('owner');
+    serve([member('u1', 'owner')], 'owner');
+    mount();
+    await screen.findByTestId('more-leave');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('More');
+    const back = screen.getByTestId('org-back');
+    expect(back.getAttribute('href')).toBe(ORG_PATHS.home);
+    expect(back.textContent).toBe('Home');
+  });
+
   // SH-6: a login with no page loaded (no `selected`) still has Add a page.
   it('Add a page shows with no page selected (a login with no pages)', async () => {
     api.home.mockResolvedValue({ today: '2026-10-07', organisers: [] });

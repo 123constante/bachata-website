@@ -189,6 +189,17 @@ describe('History screen x shape', () => {
     expect(await screen.findAllByTestId('p3-history-row')).toHaveLength(1);
   });
 
+  // review 1202 S2 (M12): every row on the event page that opens a pushed screen, by its real href
+  it.each([
+    ['p3-open-prices', P3_PATHS.eventPrices('ser-1')],
+    ['p3-open-history', P3_PATHS.eventHistory('ser-1')],
+    ['p3-open-organisers', P3_PATHS.eventOrganisers('ser-1')],
+  ])('the event page row %s links to its screen', async (testId, href) => {
+    rpc.reply = serve(histItems(1));
+    show(P3_PATHS.event('ser-1'));
+    expect((await screen.findByTestId(testId)).getAttribute('href')).toBe(href);
+  });
+
   it('the event page links to History', async () => {
     rpc.reply = serve(histItems(1));
     show(P3_PATHS.event('ser-1'));

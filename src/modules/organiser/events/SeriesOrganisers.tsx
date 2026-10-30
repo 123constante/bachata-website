@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react';
 import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { EventConflict, StepError, useEventSend } from '@/modules/organiser/flows/event';
-import { OrganiserShell, ORG_PATHS } from '../shell';
+import { useOrgSurface } from '../shell/surface';
 import { Card, ErrorState, GhostButton, PersonRow, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
 import { useEventWorkspace } from './eventsApi';
 import type { EventWorkspace } from './eventModel';
@@ -92,14 +92,17 @@ export default function SeriesOrganisers() {
   const { seriesId = '' } = useParams();
   const { search } = useLocation();
   const ws = useEventWorkspace(seriesId);
+  const { kind, Shell, paths } = useOrgSurface();
+  // P3 opens it from the event page (R1 from Name and details)
+  const back = kind === 'p3' ? paths.event(seriesId) : paths.eventDetails(seriesId);
   return (
-    <OrganiserShell title="Organisers" back={{ to: keepReturnTo(ORG_PATHS.eventDetails(seriesId), search), label: 'Back' }} testId="org-page-organisers">
+    <Shell title="Organisers" back={{ to: keepReturnTo(back, search), label: 'Back' }} testId="org-page-organisers">
       <div className="flex flex-col gap-3 p-3">
         {ws.isError && isAccessRefusal(ws.error) ? <NoAccess />
           : ws.isError ? <ErrorState onRetry={() => void ws.refetch()} retrying={ws.isFetching} testId="org-organisers-error" />
           : !ws.data ? <SkeletonRows count={3} label="Loading the organisers" testId="org-organisers-loading" />
             : <OrganisersBody key={ws.data.series.version} ws={ws.data} />}
       </div>
-    </OrganiserShell>
+    </Shell>
   );
 }

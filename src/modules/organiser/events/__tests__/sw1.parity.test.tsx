@@ -36,6 +36,9 @@ vi.mock('@/modules/organiser/dates/peoplePicker', () => ({
 import Details from '../Details';
 import ProgrammeSeries from '../ProgrammeSeries';
 import SeriesOrganisers from '../SeriesOrganisers';
+import { OrgSurfaceProvider } from '@/modules/organiser/shell/surface';
+import { P3_SURFACE } from '@/modules/organiser/p3/you/surface';
+import { P3_BASE, P3_PATHS } from '@/modules/organiser/p3/shell/paths';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { detailEditPath } from '@/modules/organiser/flows/event/eventSteps';
 import { A, DRAFT, FEST, FROZEN, answer, commandsOf, defaultWorld, flush, mount, tooSmall, type World } from '@/modules/organiser/flows/add/__tests__/fixtures';
@@ -592,6 +595,22 @@ describe('Organisers screen', () => {
     mount(ORG_PATHS.eventOrganisers(A), routes);
     expect((await screen.findByTestId('org-off-reason')).textContent).toBe(MANAGER_REASON);
     expect((screen.getByTestId('org-add') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // p3-shell-exits: the same screen inside P3 (prod 2026-10-30: 18 owner / 45 manager rows, 36 of 51 pages
+  // have no owner, 6 events have two organisers). The role rule is unchanged; Back stays in P3.
+  it.each([
+    ['owner', null],
+    ['manager', MANAGER_REASON],
+  ] as const)('P3: %s of a two-organiser event', async (role, reason) => {
+    gate.on = true;
+    over.role = role;
+    over.organisers = ['org1', 'org2'];
+    mount(P3_PATHS.eventOrganisers(A), <Route path={`${P3_BASE}/events/:seriesId/organisers`} element={<OrgSurfaceProvider value={P3_SURFACE}><SeriesOrganisers /></OrgSurfaceProvider>} />);
+    expect(await screen.findAllByTestId('org-linked-row')).toHaveLength(2);
+    expect(screen.queryByTestId('org-off-reason')?.textContent ?? null).toBe(reason);
+    expect((screen.getByTestId('org-add') as HTMLButtonElement).disabled).toBe(reason !== null);
+    expect(screen.getByTestId('org-back').getAttribute('href')).toBe(P3_PATHS.event(A));
   });
 
   it('the last organiser cannot be removed (off with the reason)', async () => {

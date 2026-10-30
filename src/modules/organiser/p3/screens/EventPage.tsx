@@ -166,6 +166,10 @@ function About({ v }: { v: EventPageView }) {
           <span className="p3-grow"><span className="p3-row-t">{L.history}</span><br /><span className="p3-row-s">{L.historyRowSub}</span></span>
           <span aria-hidden="true">&rsaquo;</span>
         </Link>
+        <Link className="p3-row p3-row-link" to={P3_PATHS.eventOrganisers(v.id)} data-testid="p3-open-organisers">
+          <span className="p3-grow"><span className="p3-row-t">{L.organisers}</span><br /><span className="p3-row-s">{L.organisersRowSub}</span></span>
+          <span aria-hidden="true">&rsaquo;</span>
+        </Link>
       </div>
     </section>
   );

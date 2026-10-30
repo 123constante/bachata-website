@@ -150,7 +150,7 @@ describe('You hub x shape', () => {
     await waitFor(() => expect(within(screen.getByTestId('p3-you-team')).getByText('5 people')).toBeTruthy());
     expect(rowIds()).toEqual(['page', 'team', 'add-page']);
     expect(screen.getByTestId('p3-you-add-page').getAttribute('href')).toBe(P3_PATHS.youAdd);
-    expect(screen.getByTestId('p3-you-account').getAttribute('href')).toBe(ORG_PATHS.more);
+    expect(screen.getByTestId('p3-you-account').getAttribute('href')).toBe(P3_PATHS.youAccount);
   });
 
   it('3 pages, manager on a draft one with a long name: Switch row first, Draft tag, Manager', async () => {
@@ -248,7 +248,7 @@ describe('Team in P3 x shape', () => {
     members = [member('own', 'owner'), ME('manager')];
     at(P3_PATHS.youTeam);
     await waitFor(() => expect(screen.getByTestId('team-add').tagName).toBe('A'));
-    expect(screen.getByTestId('team-leave').getAttribute('href')).toBe(ORG_PATHS.more);
+    expect(screen.getByTestId('team-leave').getAttribute('href')).toBe(P3_PATHS.youAccount);
   });
 
   it('contributor: Add someone is DISABLED with its reason (owner pick), not hidden', async () => {
@@ -591,7 +591,7 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
   const reasonWithMessageUs = (id: string, text: string) => {
     const el = screen.getByTestId(id);
     expect(el.textContent).toContain(text);
-    expect(within(el).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(ORG_PATHS.help);
+    expect(within(el).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(P3_PATHS.youHelp);
   };
 
   it('F1+F2 sole manager, no owner, a join request: Decline disabled, says nobody but us can, Message us; Add as Manager works', async () => {
@@ -640,7 +640,7 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
     soleManager();
     members = [ME('manager'), member('pri', 'manager')];
     at(P3_PATHS.youTeam);
-    expect((await screen.findByTestId('team-leave')).getAttribute('href')).toBe(ORG_PATHS.more);
+    expect((await screen.findByTestId('team-leave')).getAttribute('href')).toBe(P3_PATHS.youAccount);
   });
 
   it('F2 manager viewing a colleague on an ownerless page: the role reason names no owner and offers Message us', async () => {
@@ -725,7 +725,7 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
     const box = await screen.findByTestId('team-no-organiser');
     expect(box.textContent).toContain(NO_PAGE.title);
     expect(box.textContent).toContain(NO_PAGE.body);
-    expect(within(box).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(ORG_PATHS.help);
+    expect(within(box).getByRole('link', { name: 'Message us' }).getAttribute('href')).toBe(P3_PATHS.youHelp);
     expect(box.textContent).not.toMatch(/from (You|Home)|Add one first/);
   });
 

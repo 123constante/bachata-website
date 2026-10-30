@@ -4,7 +4,6 @@ import { ChevronRight, UserPlus } from 'lucide-react';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { ROLE_LABEL, TEAM_CAP, TEAM_FULL_REASON, memberLabel, type TeamMember } from '@/modules/organiser/shared/teamModel';
 import { MESSAGE_US, NO_PAGE, canAdd as addGate, canDecline, canLeave } from '@/modules/organiser/shared/teamRules';
-import { ORG_PATHS } from '../shell/paths';
 import { JoinRequestCard } from '../flows/fix/JoinRequest';
 import { useOrgSurface } from '../shell/surface';
 import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, SkeletonRows, useAnnounce } from '../ui';
@@ -66,7 +65,7 @@ export default function TeamPage() {
           <ErrorState title="Your team did not load" onRetry={ctx.retry} testId="team-load-error" />
         ) : !organiser ? (
           kind === 'p3' ? (
-            <EmptyState title={NO_PAGE.title} body={NO_PAGE.body} action={<Link to={ORG_PATHS.help} className="font-semibold underline" data-testid="team-message-us">{MESSAGE_US}</Link>} testId="team-no-organiser" />
+            <EmptyState title={NO_PAGE.title} body={NO_PAGE.body} action={<Link to={paths.help} className="font-semibold underline" data-testid="team-message-us">{MESSAGE_US}</Link>} testId="team-no-organiser" />
           ) : (
             <EmptyState title="You don&rsquo;t have a page yet" body="A team belongs to a page. Claim yours or add one from Home, then your team shows here." testId="team-no-organiser" />
           )
