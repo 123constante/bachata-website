@@ -61,15 +61,30 @@ describe('role-entry maps point only at routes that exist', () => {
 
 describe('invite Done screen', () => {
   afterEach(cleanup);
+  const ID = 'org-1';
   it.each([
-    { selfServe: true, to: '/account/o', body: JOIN_COPY.done.body },
-    { selfServe: false, to: '/', body: JOIN_COPY.done.bodyOff },
-  ])('selfServe=$selfServe -> link to $to, a routable page', ({ selfServe, to, body }) => {
-    render(<MemoryRouter><DoneScreen org="Salsa Co" selfServe={selfServe} /></MemoryRouter>);
+    { organiserP3: false, selfServe: true, id: ID, to: `/account/o/welcome?o=${ID}`, body: JOIN_COPY.done.body },
+    { organiserP3: true, selfServe: true, id: ID, to: `/account/p3/you/welcome?o=${ID}`, body: JOIN_COPY.done.body },
+    { organiserP3: false, selfServe: true, id: null, to: '/account/o', body: JOIN_COPY.done.body },
+    { organiserP3: true, selfServe: true, id: null, to: '/account/o', body: JOIN_COPY.done.body },
+    { organiserP3: false, selfServe: false, id: ID, to: '/', body: JOIN_COPY.done.bodyOff },
+    { organiserP3: true, selfServe: false, id: ID, to: '/', body: JOIN_COPY.done.bodyOff },
+    { organiserP3: false, selfServe: false, id: null, to: '/', body: JOIN_COPY.done.bodyOff },
+    { organiserP3: true, selfServe: false, id: null, to: '/', body: JOIN_COPY.done.bodyOff },
+  ])('p3=$organiserP3 selfServe=$selfServe id=$id -> link to $to', ({ organiserP3, selfServe, id, to, body }) => {
+    render(<MemoryRouter><DoneScreen org="Salsa Co" flags={{ organiserP3, organiserSelfServe: selfServe }} organiserId={id} /></MemoryRouter>);
     expect(screen.getByTestId('join-done').textContent).toContain('Salsa Co');
     expect(document.body.textContent).toContain(body);
     const href = screen.getByTestId('join-done-home').getAttribute('href');
     expect(href).toBe(to);
-    expect(isRoutable(href!)).toBe(true);
+    expect(isRoutable(href!.split('?')[0])).toBe(true);
+  });
+
+  it('the button label is pinned, and an id that needs encoding is encoded', () => {
+    render(<MemoryRouter><DoneScreen org="Salsa Co" flags={{ organiserP3: true, organiserSelfServe: true }} organiserId="a b/c" /></MemoryRouter>);
+    const link = screen.getByTestId('join-done-home');
+    expect(link.textContent).toBe(JOIN_COPY.done.button);
+    expect(JOIN_COPY.done.button).toBe('Open your organiser home');
+    expect(link.getAttribute('href')).toBe('/account/p3/you/welcome?o=a%20b%2Fc');
   });
 });
