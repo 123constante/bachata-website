@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCOUNT_HOME_PATH, CONTINUE_AS_PATH, ORGANISER_HOME_PATH, accountHome, type SidesFacts } from '@/lib/accountRouting';
+import { ACCOUNT_HOME_PATH, CONTINUE_AS_PATH, ORGANISER_HOME_PATH, accountHome, appWelcomeHref, type SidesFacts } from '@/lib/accountRouting';
 import { P3_START_PATH, landingPathAfterAuth, continueAsLanding, organiserHomeHandoff } from '@/lib/auth-otp-routing';
 
 // Brief p3-landing-welcome (owner decision 2026-10-30): while P3 is live (organiserP3 AND
@@ -26,6 +26,7 @@ const STATES: State[] = [
   { name: 'no dancer row', organisers: [], openRequests: 0, dancer: 'no_profile', dancerRow: false },
   { name: 'dancer complete, 0 pages', organisers: [], openRequests: 0, dancer: 'complete', dancerRow: true },
   { name: '0 pages + open request', organisers: [], openRequests: 1, dancer: 'complete', dancerRow: true },
+  { name: 'unfinished dancer, 0 pages + open request', organisers: [], openRequests: 1, dancer: 'incomplete', dancerRow: true },
   { name: '1 page', organisers: [page('a')], openRequests: 0, dancer: 'complete', dancerRow: true },
   { name: 'several pages', organisers: [page('a'), page('b')], openRequests: 0, dancer: 'complete', dancerRow: true },
   { name: 'load error', organisers: null, openRequests: null, dancer: 'complete', dancerRow: true },
@@ -80,10 +81,15 @@ type Entry = keyof typeof ENTRIES;
 // rows for 1 / several pages and a load error record what the same functions answer anyway.
 // A page plus a finished dancer profile is two sides: sign-in shows "Continue as...".
 const W = P3_START_PATH;
+// Sign-up callback: P3 on goes straight to Welcome (its tap gate sends an unfinished profile to finish it); P3 off goes via R1's gate.
+// An unfinished dancer finishes the dancer profile first (/app/welcome), then goes on to where a finished one would land.
+const APP_WELCOME_R1 = appWelcomeHref(R1);
+const APP_WELCOME_W = appWelcomeHref(W);
 const EXPECTED: Record<string, Record<Entry, [string, string]>> = {
   'no dancer row': { 'sign-up callback': ['/', '/'], 'sign-in': ['/app/welcome', '/app/welcome'], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [FINISH, FINISH] },
   'dancer complete, 0 pages': { 'sign-up callback': [R1, W], 'sign-in': [R1, W], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [R1, W] },
   '0 pages + open request': { 'sign-up callback': [R1, W], 'sign-in': [DANCER_APP, W], '/account': [R1, W], '/account/o': [R1, W] },
+  'unfinished dancer, 0 pages + open request': { 'sign-up callback': [FINISH, W], 'sign-in': [APP_WELCOME_R1, APP_WELCOME_W], '/account': [FINISH, FINISH], '/account/o': [FINISH, FINISH] },
   '1 page': { 'sign-up callback': [R1, W], 'sign-in': ['choose', 'choose'], '/account': [R1, R1], '/account/o': [R1, R1] },
   'several pages': { 'sign-up callback': [R1, W], 'sign-in': ['choose', 'choose'], '/account': [R1, R1], '/account/o': [R1, R1] },
   'load error': { 'sign-up callback': [R1, W], 'sign-in': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [R1, R1] },
