@@ -81,7 +81,7 @@ export default function Person() {
         ) : ctx.failed ? (
           <ErrorState title="This did not load" onRetry={ctx.retry} testId="person-load-error" />
         ) : !organiser || !member ? (
-          <p className="text-[14px] text-[var(--mut)]" data-testid="person-missing">They are not on the team any more. <Link to={paths.team} className="underline">Back to the team</Link></p>
+          <p className="text-[14px] text-[var(--mut)]" data-testid="person-missing">They are not on the team any more. <Link to={paths.team} className="inline-flex min-h-[44px] items-center underline">Back to the team</Link></p>
         ) : (
           <>
             <div className="flex items-center gap-3">
