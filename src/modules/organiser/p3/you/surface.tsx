@@ -32,6 +32,8 @@ export function P3PushedShell({ title, back, topBarEnd, children, testId }: Orga
 }
 
 const YOU = { to: P3_PATHS.you, label: 'You' };
+// a pushed screen outside You (New event, an event's Organisers) keeps a way out while its chunk loads (review 1202 N4)
+const EVENTS = { to: P3_PATHS.events, label: 'Events' };
 
 /**
  * Where the shared screens' links go in P3. Team, Switch, the page editor and Welcome are P3
@@ -81,7 +83,7 @@ export const P3_SURFACE: OrgSurface = {
   addPage: P3_PATHS.youAdd,
   doneBack: P3_PATHS.youTeam,
   pageDoneBack: P3_PATHS.youPage,
-  createHub: { to: P3_PATHS.events, label: 'Events' },
+  createHub: EVENTS,
   moreTitle: 'Account',
 };
 
@@ -107,7 +109,7 @@ export function P3PushedSurface({ back, children }: { back: (p: Readonly<Params>
   return (
     <OrgSurfaceProvider value={P3_SURFACE}>
       <P3RouteBoundary frame="pushed" back={back}>
-        <Suspense fallback={<P3PushedShell title="" testId="p3-pushed-route-loading"><StateCard title="Loading&hellip;" testId="p3-pushed-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
+        <Suspense fallback={<P3PushedShell title="" back={EVENTS} testId="p3-pushed-route-loading"><StateCard title="Loading&hellip;" testId="p3-pushed-route-loading-card">This takes a second.</StateCard></P3PushedShell>}>
           {children}
         </Suspense>
       </P3RouteBoundary>

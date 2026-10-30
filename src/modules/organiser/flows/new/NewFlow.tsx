@@ -26,6 +26,7 @@ import { needsPagePick, withPageChoice } from './whichPageModel';
 import { WhichPageStep } from './WhichPage';
 import { goLivePath } from '@/modules/organiser/home/onboarding/golive/goLiveModel';
 import { profileQuestionsLeft } from '@/modules/organiser/home/onboarding/golive/profileLeft';
+import { p3StartReview } from '@/modules/organiser/p3/shell/paths';
 
 const TITLE = 'New event';
 const ROW = 'flex min-h-[56px] w-full items-center rounded-[12px] bg-[var(--card2)] px-[16px] text-left text-[16px] font-semibold text-[var(--fg)]';
@@ -324,8 +325,8 @@ function CoverStep({ seriesId }: { seriesId: string }) {
     }
     // Profile answers still open: the "Almost live" bridge, not a refusal. A failed read falls through and the server decides.
     if (await profileQuestionsLeft(seriesId)) {
-      // P3 has no Almost live screen: its event page's Status sheet asks what is left.
-      navigate(kind === 'p3' ? paths.event(seriesId) : goLivePath(seriesId, selected?.id ?? null));
+      // P3 has no Almost live screen: its own Review for the page asks what is left (review 1202 S1).
+      navigate(kind === 'p3' ? p3StartReview(selected?.id ?? null) : goLivePath(seriesId, selected?.id ?? null));
       return;
     }
     if (!(await send(liveCommands()))) return;
