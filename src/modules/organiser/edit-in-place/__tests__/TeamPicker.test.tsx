@@ -294,6 +294,6 @@ describe('the invite fallback', () => {
     const dialog = await openSheet();
     fireEvent.click(within(dialog).getByRole('button', { name: PICKER_COPY.inviteLink }));
     await waitFor(() => has(within(dialog).getByTestId('eip-team-invite-note'), PICKER_COPY.inviteCopied));
-    expect(writeText.mock.calls[0][0]).toMatch(/Ritmo Latino team\. http.*\/auth$/);
+    expect(writeText.mock.calls[0][0]).toMatch(/Ritmo Latino team\. http.*\/auth\?mode=signup$/);
   });
 });

@@ -227,7 +227,7 @@ describe('the invite fallback', () => {
     expect(inviteShare('Ritmo Latino', 'https://www.bachatacalendar.com/')).toEqual({
       title: 'Join Bachata Calendar',
       text: 'Join Bachata Calendar and make your dancer profile, so I can add you to the Ritmo Latino team.',
-      url: 'https://www.bachatacalendar.com/auth',
+      url: 'https://www.bachatacalendar.com/auth?mode=signup',
     });
   });
 });

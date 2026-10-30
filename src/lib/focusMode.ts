@@ -10,9 +10,8 @@
  * dancer-app shell in modules/dancer-app). Sign-in of an existing account is
  * NOT focus mode.
  *
- * /auth with no mode renders the sign-up flow (Auth.tsx: `mode || "signup"`), so
- * it counts (as does any mode but signin: Auth.tsx draws the sign-up steps for
- * every mode except `signin`); only `mode=signin` does not. The
+ * /auth with no mode (or any mode but signup) renders SIGN-IN (L1, Auth.tsx), so
+ * it does not count; only an explicit `mode=signup` does. The
  * code step and the terms card render on the same /auth URL, and the code hand-
  * over lands on /auth/callback?mode=signup, so both are covered by the mode test.
  * The setup screens count only while the profile is not complete.
@@ -24,13 +23,23 @@ const SETUP_PHOTO_PATH = '/app/me/photo';
 
 const trimSlash = (p: string) => (p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p);
 
+/**
+ * The ONE rule for which /auth tab a URL opens (L1): only an exact `mode=signup`
+ * is sign-up; absent, empty, junk, other-case or repeated-after-the-first values
+ * are sign-in. Auth.tsx (what to draw) and the chrome below (focus mode) both read it.
+ */
+export function authModeFromSearch(search: string | URLSearchParams): 'signin' | 'signup' {
+  const params = typeof search === 'string' ? new URLSearchParams(search) : search;
+  return params.get('mode') === 'signup' ? 'signup' : 'signin';
+}
+
 export function isSignupFocusPath(pathname: string, search: string, profileComplete: boolean): boolean {
   // Case-folded, as the router matches.
   const path = trimSlash(pathname.toLowerCase());
   const params = new URLSearchParams(search);
   if (path === '/auth' || path === '/auth/callback') {
-    const mode = params.get('mode');
-    return path === '/auth' ? mode !== 'signin' : mode === 'signup';
+    // L1: a bare /auth opens sign-in, so only an explicit mode=signup is focus mode.
+    return authModeFromSearch(params) === 'signup';
   }
   if (profileComplete) return false;
   if (path === SETUP_PATH) return true;

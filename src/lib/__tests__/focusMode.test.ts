@@ -11,8 +11,8 @@ const CASES: Array<[string, string, boolean, boolean]> = [
   // pathname, search, profileComplete, expected
   ['/auth', '?mode=signup', false, true],
   ['/auth', '?mode=signup&returnTo=%2Fevent%2F1', false, true],
-  ['/auth', '', false, true], // no mode renders the sign-up flow
-  ['/auth', '?mode=nonsense', false, true], // so does any mode but signin
+  ['/auth', '', false, false], // L1: no mode renders sign-in
+  ['/auth', '?mode=nonsense', false, false], // so does any mode but signup
   ['/Auth/', '?mode=signup', false, true],
   ['/auth', '?mode=signup', true, true], // pre-account: the profile flag is irrelevant
   ['/auth/callback', '?mode=signup', false, true],
