@@ -268,10 +268,12 @@ export const onboardingEnd = (returnTo: string | null | undefined): string => on
 
 /** The end-of-onboarding button names where it goes; it never says Home when it does not go there. */
 export const onboardingEndLabel = (end: string): string => {
-  const path = end.split(/[?#]/, 1)[0].toLowerCase();
+  const rawPath = end.split(/[?#]/, 1)[0];
+  const path = rawPath.toLowerCase().replace(/\/+$/, '') || '/';
   if (path === APP_HOME_PATH) return 'Go to Home';
   if (path === ORGANISER_HOME_PATH || path.startsWith(`${ORGANISER_HOME_PATH}/`)) return 'Next: set up your organiser page';
-  if (path === P3_START_PATH) return 'Next: find or create your page';
+  // A chosen page (o=, e.g. the Review-step return) already exists: "find or create" would point at a step that is not coming.
+  if (path === P3_START_PATH) return /[?&]o=[^&#]/.test(end) ? 'Next: back to your page' : 'Next: find or create your page';
   if (path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`)) return 'Next: join the team';
   return 'Continue';
 };

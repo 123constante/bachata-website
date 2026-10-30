@@ -97,7 +97,12 @@ describe('onboardingEndLabel: the button names every end path', () => {
     ['organiser page (R1)', '/account/o', 'Next: set up your organiser page'],
     ['organiser page with query', '/account/o?x=1', 'Next: set up your organiser page'],
     ['P3 start', START, 'Next: find or create your page'],
-    ['P3 start with query', `${START}?o=abc`, 'Next: find or create your page'],
+    ['P3 start, trailing slash', `${START}/`, 'Next: find or create your page'],
+    ['P3 start, unrelated query', `${START}?x=1`, 'Next: find or create your page'],
+    ['P3 start with a page chosen (o=)', `${START}?o=abc`, 'Next: back to your page'],
+    ['P3 Review return (o= and at=review)', `${START}?o=abc&at=review`, 'Next: back to your page'],
+    ['P3 Review return, trailing slash', `${START}/?o=abc&at=review`, 'Next: back to your page'],
+    ['P3 start with an empty o=', `${START}?o=`, 'Next: find or create your page'],
     ['invite', '/invite/abc', 'Next: join the team'],
     ['anything else', '/events', 'Continue'],
   ];
