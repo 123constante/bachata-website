@@ -25,6 +25,8 @@ export const NULL_SHAPES = {
   nullWeeklyDates: ws({ recurrence_rule: null, removed_dates: ['2026-11-06'] }, ['2026-10-16', '2026-10-23', '2026-10-30', '2026-11-13', '2026-11-20'], ['2026-10-23']),
   nullFortnightly: ws({ recurrence_rule: null }, weekly('2026-09-18', 6).filter((_, i) => i % 2 === 0).concat(['2026-10-30', '2026-11-13'])),
   nullLoose: ws({ recurrence_rule: null, removed_dates: ['2026-11-27'] }, ['2026-09-04', '2026-10-02', '2026-11-06', '2026-12-18']),
+  // A move (Fri 6 Nov -> Sat 7 Nov) leaves the Friday in removed_dates; Thu 19 Nov is a removed added date.
+  nullMoved: ws({ recurrence_rule: null, removed_dates: ['2026-11-06', '2026-11-19'] }, ['2026-10-16', '2026-10-23', '2026-10-30', '2026-11-07', '2026-11-13']),
   nullOneOff: ws({ recurrence_rule: null, format: 'one_off' }, ['2026-11-06']),
   endedNullWeekly: ws({ recurrence_rule: null, lifecycle_status: 'ended', removed_dates: ['2026-08-21'] }, ['2026-08-07', '2026-08-14', '2026-08-28', '2026-09-04']),
 };
@@ -66,9 +68,17 @@ describe('every break shows, whatever the rule, and says whether it can come bac
     ['fortnightlyRule', '2026-11-13', DATE_WHY.unskipCantCheck],
     ['nullWeeklyDates', '2026-11-06', null],
     ['nullLoose', '2026-11-27', null],
+    ['nullMoved', '2026-11-06', null],
+    ['nullMoved', '2026-11-19', DATE_WHY.unskipOffRule],
     ['endedNullWeekly', '2026-08-21', DATE_WHY.closed],
   ])('%s %s', (shape, date, why) => {
     expect(unskipWhy(NULL_SHAPES[shape], date)).toBe(why);
+  });
+});
+
+describe('a tombstone a move or remove left says so, not that the pattern changed (r1 S2)', () => {
+  it('the off-rule words name all three causes', () => {
+    expect(DATE_WHY.unskipOffRule).toBe('This date was moved, removed, or the pattern changed since, so it can\u2019t come back as a break. Add it as a date instead.');
   });
 });
 

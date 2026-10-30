@@ -322,6 +322,15 @@ export function patternOfDates(dates: ReadonlyArray<IsoDate>): DatesPattern | nu
   return { weekday: defaultWeekday(ds[0]), interval: step / 7, first: ds[0] };
 }
 
+/** The weekday most stored dates fall on (ties: the earliest such date's); null for no dates. */
+export function mainWeekday(dates: ReadonlyArray<IsoDate>): number | null {
+  const n = new Map<number, number>();
+  for (const d of [...dates].sort()) n.set(defaultWeekday(d), (n.get(defaultWeekday(d)) ?? 0) + 1);
+  let best: number | null = null;
+  for (const [w, c] of n) if (best === null || c > n.get(best)!) best = w;
+  return best;
+}
+
 /** Whether a date falls on a dates pattern's cadence (Skip / Not usual day judge it as a rule date). */
 export const onPatternCadence = (p: DatesPattern, date: IsoDate): boolean =>
   date >= p.first && (dayNo(date) - dayNo(p.first)) % (7 * p.interval) === 0;

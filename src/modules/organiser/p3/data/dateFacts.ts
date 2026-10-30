@@ -2,7 +2,7 @@ import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../
 import { hasOwnTime } from '../../flows/change/changeModel';
 import type { EventWorkspace } from '../../events/eventModel';
 import { dateMarks, kindOf, type DateFacts, type IsoDate } from '../model';
-import { onPatternCadence, repeatShape, type RepeatShape } from '../model/repeat';
+import { mainWeekday, onPatternCadence, repeatShape, type RepeatShape } from '../model/repeat';
 
 /**
  * One stored date as the date rules (model/dates.ts) read it. Its own file so the event
@@ -56,9 +56,19 @@ export function dateFactsOf(ws: EventWorkspace, d: WorkspaceDate, detail?: DateD
   };
 }
 
-/** A break: a tombstone in removed_dates, not a stored date (shown whatever the rule, so it can come back). */
-export const breakFactsOf = (ws: EventWorkspace, date: IsoDate): DateFacts =>
-  ({ date, state: 'skip', ruleDate: ruleDateOf(ws, date), ownTime: false, ownDetails: false });
+/**
+ * A break: a tombstone in removed_dates, not a stored date (shown whatever the rule). A move or a
+ * removed added date leaves one too, so with no rule stored a tombstone off the weekday most dates
+ * run on is not offered back (the server would restore it with no cadence to check).
+ */
+export function breakFactsOf(ws: EventWorkspace, date: IsoDate): DateFacts {
+  let ruleDate = ruleDateOf(ws, date);
+  if (ruleDate === null && ws.series.recurrence_rule == null) {
+    const main = mainWeekday(ws.dates.map((d) => d.occurrence_date));
+    if (main !== null && new Date(`${date}T12:00:00Z`).getUTCDay() !== main) ruleDate = false;
+  }
+  return { date, state: 'skip', ruleDate, ownTime: false, ownDetails: false };
+}
 
 const ruleMode = (rule: unknown): string | null =>
   rule && typeof rule === 'object' && typeof (rule as { mode?: unknown }).mode === 'string' ? (rule as { mode: string }).mode : null;

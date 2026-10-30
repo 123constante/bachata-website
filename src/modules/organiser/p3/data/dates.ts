@@ -12,7 +12,7 @@ import {
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
+import { DATE_WHY, L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
 import { breakFactsOf, dateFactsOf, marksOf, repeatShapeOf } from './dateFacts';
 
@@ -111,7 +111,7 @@ export function emptyDatesCopy(ws: EventWorkspace, today: IsoDate, filter: DateF
     if (s.kind === 'oneoff') return 'No break weeks. A one-off has one date, so it has none.';
     if (s.kind === 'festival') return 'No break weeks. A festival holds one date, so it has none.';
     const shape = repeatShapeOf(ws);
-    if (shape.from === 'loose') return 'No break weeks. No pattern is saved and its dates don\u2019t follow a weekly one; cancel a date instead, so dancers see why.';
+    if (shape.from === 'loose') return `No break weeks. ${DATE_WHY.noDatesPattern}`;
     if ((s.kind !== 'weekly' && s.kind !== 'course') || (shape.from === 'rule' && !weeklyRule(ws.series.recurrence_rule))) {
       return 'No break weeks. Only a weekly pattern has them; cancel a date instead, so dancers see why.';
     }
