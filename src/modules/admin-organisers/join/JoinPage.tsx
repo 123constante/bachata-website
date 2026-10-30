@@ -60,6 +60,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
 
   const [stop, setStop] = useState<JoinStop | null>(null);
   const [redeemed, setRedeemed] = useState(false);
+  const [redeemedOrgId, setRedeemedOrgId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -92,6 +93,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     void attemptRedeem(token).then((o) => {
       if (o.kind === 'done') {
         setRedeemed(true);
+        setRedeemedOrgId(o.organiserId);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       }
       setUsedResolved(true);
@@ -207,7 +209,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
       if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
         const outcome = await attemptRedeem(token);
-        if (outcome.kind === 'done') setRedeemed(true);
+        if (outcome.kind === 'done') { setRedeemed(true); setRedeemedOrgId(outcome.organiserId); }
         else fail('claim', { kind: 'not_linked' });
       }
     } finally {
@@ -225,6 +227,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       switch (outcome.kind) {
         case 'done':
           setRedeemed(true);
+          setRedeemedOrgId(outcome.organiserId);
           void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
           return;
         case 'not_linked': return fail('join', { kind: 'not_linked' });
@@ -343,7 +346,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} selfServe={flags.organiserSelfServe} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} flags={flags} organiserId={redeemedOrgId ?? (info && ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName)?.id ?? null : null)} />
         </>
       );
       break;

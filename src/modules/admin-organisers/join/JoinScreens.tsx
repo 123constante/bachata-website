@@ -1,6 +1,7 @@
 // Presentational pieces of the join journey. No data fetching here: JoinPage decides the step and hands
 // each screen its facts and handlers. Every tap target is 44px or more (explicit px: the phone html
 // font-size is about 13.5px, so rem sizes render small). Words come from joinCopy only.
+import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -161,14 +162,15 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
   );
 }
 
-export function DoneScreen({ org, selfServe }: { org: string; selfServe: boolean }) {
+export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+  const selfServe = flags.organiserSelfServe;
+  // The ONE landing helper; without an id (or with the area off) the plain home links stay.
+  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : ORG_PATHS.home) : '/';
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
       <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
-      {selfServe
-        ? <Link to={ORG_PATHS.home} className={BTN} data-testid="join-done-home">{JOIN_COPY.done.button}</Link>
-        : <Link to="/" className={BTN} data-testid="join-done-home">{JOIN_COPY.done.buttonOff}</Link>}
+      <Link to={to} className={BTN} data-testid="join-done-home">{selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff}</Link>
     </div>
   );
 }

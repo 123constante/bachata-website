@@ -435,7 +435,7 @@ describe('the Join tap', () => {
     expect(redeems()).toHaveLength(1);
     expect(h.rpc).toHaveBeenCalledWith('redeem_organiser_invite_v1', { p_token: TOKEN });
     expect(screen.getByTestId('join-done').textContent).toContain(ORG);
-    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o/welcome?o=o1');
     expect(window.location.pathname).toBe('/invite');
     // F1 (fixup1): the cached "no organisers" home list is refetched, so the organiser home shows the new seat.
     await waitFor(() => expect(h.home).toHaveBeenCalledTimes(1));
