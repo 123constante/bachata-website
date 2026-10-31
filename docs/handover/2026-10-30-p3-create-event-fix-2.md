@@ -21,9 +21,18 @@ Brief: `brief/p3-create-event-fix-2:docs/briefs/p3-create-event-fix-2.md`. Ticke
 
 ## Verified
 - The e2e spec above, red then green, with real layout (Chromium, both flags on).
-- `tsc --noEmit` clean; `vitest run src/modules/organiser/p3/new` 124/124; `npm run lint` 24/24 links green.
+- After merging main: `tsc --noEmit` clean; `vitest run src/modules/organiser/p3` 3217/3217; `npm run lint` 24/24
+  links green; the kinds walk 3/3 green.
+- `npm run pre-ship`: every link PASS (build:ship, bundle-budget, first-load-requests, chunk-cycles, typecheck
+  ratchet, scoped eslint) EXCEPT test:unit: 15 failures in 4 files (live-DB `*.contract.test.ts` x3 need
+  credentials this container lacks; `integrityCouldNotRun.test.ts`). The same files fail on a clean origin/main
+  worktree here, so they come from this environment. test:e2e was therefore skipped by pre-ship.
+  (The container node_modules lacked `jsqr` from the lockfile; installed with --no-save, no lockfile change.)
+- **Merge conflict fixed:** PR #1208 was `dirty` (main #1207 also edited the `test:e2e` line). Merged main and
+  kept both `p3-gate-sheet` and `walk-p3-create-kinds`.
 
 ## Not verified
+- PR checks on the final head: not watched (the worker stops after the push).
 - No real-data shape survey: the change is CSS on a static nine-tile picker with no data-driven content.
 - Not tested on a physical phone (Ricky's phone test is the final confirmation).
 
