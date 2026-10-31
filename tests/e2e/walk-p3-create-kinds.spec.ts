@@ -31,7 +31,7 @@ async function open(page: Page, path = `/account/p3/create?o=${ORG}`, ready = 'p
   const mounted = await page.getByTestId(ready).waitFor({ timeout: 15_000 }).then(() => true, () => false);
   // In the CI geometry step (e2e-smoke.yml sets P3_GEOMETRY_REQUIRED and VITE_ENABLE_ORGANISER_P3) a missing mount is a FAILURE, never a skip (r4).
   if (process.env.P3_GEOMETRY_REQUIRED) expect(mounted, '/account/p3/create must mount in CI').toBe(true);
-  test.skip(!mounted, 'organiserP3 is off in this server: /account/p3/create is not mounted');
+  test.skip(!mounted && process.env.VITE_ENABLE_ORGANISER_P3 !== 'true', 'organiserP3 is off in this server: /account/p3/create is not mounted');
   // the slide-in: measure only once no animation is still running
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), undefined, { timeout: 5_000 }).catch(() => undefined);
 }

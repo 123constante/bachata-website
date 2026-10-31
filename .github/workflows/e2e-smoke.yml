@@ -83,18 +83,27 @@ jobs:
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
         run: npm run test:e2e
 
-      # Kind-picker pill geometry (fix-1208 r4). Its own step: VITE_ENABLE_ORGANISER_P3 swaps the onboarding
-      # screens, so it cannot be on for the whole gate. P3_GEOMETRY_REQUIRED turns the spec's skip into a failure.
-      - name: P3 kind picker geometry (flag on, must not skip)
-        if: ${{ steps.changes.outputs.docs_only != 'true' }}
+      # The P3 walk specs skip themselves unless VITE_ENABLE_ORGANISER_P3 (and, for the door
+      # scanner, _TICKETING) is 'true'. Review of #1208, F4: they sat in test:e2e above, which
+      # sets neither, so all seven skipped and this gate ran none of them. They cannot simply
+      # join the step above with the flags on: P3 takes over /account/o and the legacy
+      # organiser-* smoke specs fail (measured 2026-10-31). So they run here, on their own dev
+      # server (a new step starts a new one), with the flags on the STEP so both the server and
+      # the test runner see them -- the specs read process.env directly.
+      # scripts/check-p3-specs-not-skipped.mjs (architecture-guard.yml) fails if a flag goes
+      # missing here or a P3 spec gains a skip the flags do not control.
+      - name: Run E2E P3 walk specs (P3 flags on)
+        # !cancelled(): a legacy failure above must not hide the P3 result on the same commit.
+        if: ${{ !cancelled() && steps.changes.outputs.docs_only != 'true' }}
         env:
-          # Same placeholder Supabase values as the step above (route mocks, no real backend).
           VITE_SUPABASE_URL: https://stsdtacfauprzrdebmzg.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.e2e-test-placeholder-not-a-real-key
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
           VITE_ENABLE_ORGANISER_P3: 'true'
+          VITE_ENABLE_ORGANISER_TICKETING: 'true'
+          # walk-p3-create-kinds (fix-1208 r4): turns its missing-mount skip into a failure.
           P3_GEOMETRY_REQUIRED: '1'
-        run: npx playwright test tests/e2e/walk-p3-create-kinds.spec.ts --project=chromium
+        run: npm run test:e2e:p3
 
       - name: Upload Playwright artifacts on failure
         if: ${{ (failure()) && steps.changes.outputs.docs_only != 'true' }}
