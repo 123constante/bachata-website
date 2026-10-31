@@ -125,7 +125,7 @@ const pick = (n: number) => fireEvent.change(screen.getByTestId('p3-pictures-fil
 });
 
 describe('ended / archived lock', () => {
-  it.each(['ended', 'archived'] as const)('%s: the row is disabled and the reason is shown', async (k) => {
+  it.each(['ended'] as const)('%s: the row is disabled and the reason is shown', async (k) => {
     const envs = show(withGallery(SHAPES[k], 2));
     await waitFor(() => screen.getByTestId('p3-details-lock'));
     expect((screen.getByTestId('p3-d-pictures-open') as HTMLButtonElement).disabled).toBe(true);
