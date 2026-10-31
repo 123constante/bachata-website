@@ -50,8 +50,8 @@ describe.each(['edit-name', 'edit-photos', 'edit-price'] as FieldStep[])('F-24 %
     await act(async () => { await router.navigate('/c'); });
     expect(router.state.location.pathname).toBe('/b');
     expect(screen.getByTestId('p3-field-ask')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('p3-field-ask-stay'));
-    expect(screen.queryByTestId('p3-field-ask')).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByTestId('p3-field-ask-stay')); });
+    await waitFor(() => expect(screen.queryByTestId('p3-field-ask')).toBeNull());
     if (step === 'edit-photos') expect(screen.queryAllByTestId('p3-photo')).toHaveLength(0);
     else expect((screen.getByTestId(DIRTY[step].id) as HTMLInputElement).value).toBe(DIRTY[step].value);
     await act(async () => { await router.navigate('/c'); });

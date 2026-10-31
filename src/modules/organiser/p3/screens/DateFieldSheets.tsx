@@ -12,7 +12,7 @@ import {
   DATE_NAME_MAX, dateGalleryOf, dateGalleryPatch, dateNameOf, dateNamePatch, dateNameProblem, datePriceRows, datePricesPatch, datePricesProblem,
 } from '../data/dateFields';
 import { PriceCard } from './PriceCard';
-import { useLeave } from './EditTray';
+import { useLeave, type Ask } from './EditTray';
 import { Sheet } from './Sheet';
 
 /** The three W3b-2 steps of the date sheet: this date's own Name, Photos, Price. */
@@ -44,9 +44,10 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
   // Dirty only when the draft differs in what a save compares (trimmed, as sent): a trailing space is no change.
   const dirty = !sameValue(base, draft) && (patch !== null || problem !== null);
   // the tab bar and phone Back: the same router blocker the edit screens use (F-24), no second copy of the ask
-  const blocker = useLeave((dirty || uploading) && !busy, (a) => {
+  const onLeave = useCallback((a: Ask) => {
     if (a?.kind === 'leave') { routeGo.current = a.go; setAsk('route'); }
-  });
+  }, []);
+  const blocker = useLeave((dirty || uploading) && !busy, onLeave);
   const guard = (to: 'leave' | 'close', go: () => void) => () => ((dirty || uploading) && !busy ? setAsk(to) : go());
   const why = !dirty || patch ? null : problem;
   // Sheet re-runs its focus effect when onClose changes: keep ONE function, reading the latest guard,
