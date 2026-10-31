@@ -388,7 +388,8 @@ export const notSavedLine = (keys: StepKey[], today: string): string => {
 export const RESULT_COPY = {
   savedDraft: 'Saved as a draft. Nobody else can see it yet. Go live from here when it is ready.',
   live: 'It is live. Dancers can find it now.',
-  nothingSaved: 'Nothing was saved',
+  // review r1 F2: not "Nothing was saved" (a cover photo may already be in storage, FIXLIST F-15)
+  nothingSaved: 'The event was not saved',
   partTitle: 'Your draft is saved, but not all of it',
   partBody: 'Try again to finish it here, open the draft to finish it there, or discard it. It also shows on Home under Needs you, and in Events with a Draft tag.',
   detailsTitle: 'A few details first',

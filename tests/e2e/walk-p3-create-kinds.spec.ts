@@ -17,7 +17,7 @@ const SIZES = [
   { width: 430, height: 932 },
 ];
 
-async function open(page: Page) {
+async function open(page: Page, path = `/account/p3/create?o=${ORG}`, ready = 'p3-new-kinds') {
   const fake = new OrganiserFake({});
   await fake.install(page);
   await page.route('**/rest/v1/rpc/organiser_onboarding_status_v1*', (r) =>
@@ -26,9 +26,9 @@ async function open(page: Page) {
       person: { complete: true, missing: [] },
       organisers: [{ id: ORG, name: ORG_NAME, role: 'owner', lifecycle: 'live', complete: true, missing: [], about: { done: true, skipped: false } }],
     }));
-  await page.goto(`/account/p3/create?o=${ORG}`);
+  await page.goto(path);
   await page.waitForLoadState('networkidle').catch(() => undefined);
-  const mounted = await page.getByTestId('p3-new-kinds').waitFor({ timeout: 15_000 }).then(() => true, () => false);
+  const mounted = await page.getByTestId(ready).waitFor({ timeout: 15_000 }).then(() => true, () => false);
   test.skip(!mounted, 'organiserP3 is off in this server: /account/p3/create is not mounted');
   // the slide-in: measure only once no animation is still running
   await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), undefined, { timeout: 5_000 }).catch(() => undefined);
@@ -79,3 +79,18 @@ for (const size of SIZES) {
     if (process.env.WALK_SHOTS === '1') await page.screenshot({ path: `${SHOTS}/00-kind-picker-${size.width}x${size.height}.png`, fullPage: true });
   });
 }
+
+// review r1 F7: the FORM at 360 wide (the narrowest), whose .p3-new-time grids hold date/time inputs with an
+// intrinsic width: the page is never wider than the viewport, with the form and with the Sessions sheet open.
+test('form at 360x740: no sideways scroll (form and Sessions sheet)', async ({ page }) => {
+  test.skip(process.env.VITE_ENABLE_ORGANISER_P3 !== 'true', 'organiserP3 is off: /account/p3 is not mounted');
+  await page.setViewportSize({ width: 360, height: 740 });
+  await open(page, `/account/p3/create?at=form&kind=other_dates&o=${ORG}`, 'p3-new-name');
+  const wide = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect.soft(await page.getByTestId('p3-new-add-date').count(), 'the add-date grid is on the form').toBe(1);
+  expect.soft(await wide(), 'form wider than the viewport').toBeLessThanOrEqual(0);
+  if (process.env.WALK_SHOTS === '1') await page.screenshot({ path: `${SHOTS}/01-form-other-dates-360x740.png`, fullPage: true });
+  await page.getByTestId('p3-new-row-sessions').click();
+  await page.getByTestId('p3-new-sess-start').first().waitFor();
+  expect.soft(await wide(), 'Sessions sheet wider than the viewport').toBeLessThanOrEqual(0);
+});

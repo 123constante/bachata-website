@@ -9,7 +9,11 @@ export const P3_BASE = '/account/p3';
 const createUrl = (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/create?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/create`);
 const createStepUrl = (at: 'page' | 'form', kind: string, organiserId: string | null | undefined) =>
   `${P3_BASE}/create?at=${at}&kind=${encodeURIComponent(kind)}${organiserId ? `&o=${encodeURIComponent(organiserId)}` : ''}`;
-/** R1's two creatable formats as P3 kinds (review 1 F9); anything else is the kind picker. */
+/**
+ * R1's two creatable formats as P3 kinds (review 1 F9); anything else is the kind picker.
+ * `recurring -> weekly` is the best mapping available (review r1 F6): R1 had only these two
+ * formats, so a monthly intent never reached its URL and cannot be told apart here.
+ */
 const FORMAT_KIND: Record<string, string> = { one_off: 'one_date', recurring: 'weekly' };
 
 export const P3_PATHS = {

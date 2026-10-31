@@ -52,9 +52,10 @@ const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
 const toHome = () => ({ to: P3_PATHS.home, label: 'Home' });
 /**
  * The interim bridge's URLs (#1202: R1's New event steps in P3's frame). They redirect now: the
- * first two to P3's New event (the page kept), a draft's steps to that draft's event page.
+ * first two to P3's New event (the page kept), any step of a draft to that draft's event page
+ * (review r1 F6: `new/:seriesId/*`, not only the four R1 steps, so none falls to Home).
  */
-export const NEW_STEPS = ['new/what', 'new/name', 'new/:seriesId/venue', 'new/:seriesId/date', 'new/:seriesId/time', 'new/:seriesId/cover'] as const;
+export const NEW_STEPS = ['new/what', 'new/name', 'new/:seriesId/*'] as const;
 
 function OldNewStep() {
   const { seriesId } = useParams();

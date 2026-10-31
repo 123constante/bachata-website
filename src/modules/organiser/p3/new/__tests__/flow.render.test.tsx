@@ -167,6 +167,17 @@ describe('0 / 1 / 2+ pages', () => {
     at(form('festival'));
     await waitFor(() => expect(where()).toBe(P3_PATHS.create));
   });
+
+  // review r1 F6: the other two fall-throughs of buildableKind
+  it('an unknown kind in the URL goes back to the kind picker', async () => {
+    at(form('rave'));
+    await waitFor(() => expect(where()).toBe(P3_PATHS.create));
+  });
+
+  it('at=form with no kind goes back to the kind picker', async () => {
+    at(`${P3_PATHS.create}?at=form`);
+    await waitFor(() => expect(where()).toBe(P3_PATHS.create));
+  });
 });
 
 describe('the form: untouched sends nothing, Cancel, disabled says why', () => {
@@ -278,7 +289,7 @@ describe('saving: the fixed order, the versions chained, one key per step', () =
     expect(screen.queryByTestId('p3-new-discard')).toBeNull();
   });
 
-  it('another refusal before the create (the 20-a-day limit): Nothing was saved, Try again', async () => {
+  it('another refusal before the create (the 20-a-day limit): The event was not saved, Try again', async () => {
     commandFails = (_e, n) => (n === 1 ? { message: 'rate_limited: too many creates' } : null);
     at(form('one_date'));
     fireEvent.change(await screen.findByTestId('p3-new-name'), { target: { value: 'Salsa Sunday' } });

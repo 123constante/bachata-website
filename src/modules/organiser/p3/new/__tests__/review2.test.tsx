@@ -211,7 +211,7 @@ describe('R2-2: a created draft left in storage never takes over the next New ev
 });
 
 describe('R2-3: the readback after a lost create reply needs THIS series', () => {
-  it('an empty answer is not a row: Nothing was saved', async () => {
+  it('an empty answer is not a row: The event was not saved', async () => {
     answer = (e) => (e.command.kind === 'series.upsert' ? { error: { message: 'Failed to fetch' } } : null);
     workspace = 'empty';
     await named();
@@ -250,7 +250,7 @@ describe('R2-5: a retry with nothing left to plan is never a dead button', () =>
   });
 });
 
-describe('R2-6: Try again on "Nothing was saved" keeps Go live', () => {
+describe('R2-6: Try again on "The event was not saved" keeps Go live', () => {
   it('the create is refused once, Try again goes live', async () => {
     answer = (e, n) => (e.command.kind === 'series.upsert' && n === 1 ? { error: { message: 'rate_limited: too many' } } : null);
     await readyLive();

@@ -129,7 +129,7 @@ describe('F1: a landed create is never re-sent after a remount', () => {
 });
 
 describe('F2: the create landed but its reply was lost', () => {
-  it('the row exists: it is the partial state (no "Nothing was saved"), and Try again does not create again', async () => {
+  it('the row exists: it is the partial state (no "The event was not saved"), and Try again does not create again', async () => {
     answer = (e, n) => (e.command.kind === 'series.upsert' && n === 1 ? { error: { message: 'Failed to fetch' } } : null);
     workspace = { version: 1 };
     version = 1;

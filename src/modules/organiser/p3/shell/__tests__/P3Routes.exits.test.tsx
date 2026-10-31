@@ -72,6 +72,8 @@ describe('route matrix: each screen renders inside P3, one top bar, Back stays i
     ['date', P3_PATHS.newDate(S), P3_PATHS.event(S)],
     ['time', P3_PATHS.newTime(S), P3_PATHS.event(S)],
     ['cover', P3_PATHS.newCover(S), P3_PATHS.event(S)],
+    // review r1 F6: any other step of a draft goes to its event page, never the Home catch-all
+    ['any other step', `${P3_BASE}/new/${S}/repeat`, P3_PATHS.event(S)],
   ])('the old New event step %s redirects inside P3', async (_n, path, to) => {
     at(path);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(to));

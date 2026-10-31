@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, type NavigateOptions } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, type HomeOrganiser } from '../../shared/selfServeApi';
 import { envelope, newIdempotencyKey } from '../../shared/seriesCommands';
@@ -63,8 +63,18 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
   const inFlight = useRef(false);
   const lastGoLive = useRef(false);
   const stale = useRef(false);
-  const [state, setState] = useState<SaveState>({ s: 'idle' });
-  const [coverUploaded, setCoverUploaded] = useState(false);
+  const [state, setStateNow] = useState<SaveState>({ s: 'idle' });
+  const [coverUploaded, setCoverUploadedNow] = useState(false);
+  // review r1 F1: the save goes on after the person leaves the screen, but never moves them or sets
+  // state on the gone screen. Storage already holds `created: true`, so the next New event stays safe.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const setState = (next: SaveState) => { if (mounted.current) setStateNow(next); };
+  const setCoverUploaded = (next: boolean) => { if (mounted.current) setCoverUploadedNow(next); };
+  const go = (to: string, options?: NavigateOptions) => { if (mounted.current) void navigate(to, options); };
   const seriesId = draft.seriesId;
   const created = () => done.current.has('create');
 
@@ -87,10 +97,11 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
   const landed = () => {
     done.current.add('create');
     rememberCreated(draft);
+    if (!mounted.current) return;
     onCreated?.();
     const q = new URLSearchParams(location.search);
     q.set(LANDED_PARAM, seriesId);
-    navigate(`${location.pathname}?${q.toString()}`, { replace: true });
+    go(`${location.pathname}?${q.toString()}`, { replace: true });
   };
 
   const run = async (goLive: boolean): Promise<void> => {
@@ -102,7 +113,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       // Untouched, blocked, or Go live off: nothing is sent. A draft that exists is finished on its page (R2-5).
       if (created()) {
         forgetStoredDraft();
-        navigate(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: RESULT_COPY.finishThere } });
+        go(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: RESULT_COPY.finishThere } });
       }
       return;
     }
@@ -152,7 +163,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       }
       forgetStoredDraft();
       refresh();
-      navigate(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
+      go(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
     } catch (e) {
       const message = at === 'cover' ? (e instanceof Error ? e.message : commandErrorMessage(e)) : at === 'repeat' ? repeatFailure(e) : commandErrorMessage(e);
       // F2: the create may have landed with its reply lost. If the row is there, it is a draft that needs finishing.
@@ -190,7 +201,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       if (typeof res?.new_version === 'number') version.current = res.new_version;
       forgetStoredDraft();
       refresh();
-      navigate(P3_PATHS.events, { replace: true, state: { p3Toast: RESULT_COPY.discarded } });
+      go(P3_PATHS.events, { replace: true, state: { p3Toast: RESULT_COPY.discarded } });
     } catch {
       stale.current = true;
       setState({ s: 'discardFailed' });

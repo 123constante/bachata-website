@@ -148,7 +148,7 @@ the 20-per-24h quota (`apply_aggregate_write_p5` l.605-618).
 | 6 | Online (`livestream_url`) | DEFERRED-needs-admin | Column exists, but `livestream_url` is NOT an owner create/upsert key (aggregate l.60-74) |
 | 7 | Class, then party | BUILT | Two items in `set_program` (class + party) |
 | 8 | Which page (2+) | BUILT | `needsPagePick`, `useOrganiserChoice` |
-| 9 | Name (120) | BUILT | create key `name`, `TitleInput maxLength 120` |
+| 9 | Name (120) | BUILT | create key `name`. The input is `maxLength={140}` (`CreateFlow.tsx`); the 120 limit is a validation check that blocks Save with its reason (`model.ts`) |
 | 10 | Description | DEFERRED-slice-2 | owner key `default_description` |
 | 11 | City | BUILT | `resolveCreateCityId` from the venue, sent in the create |
 | 12 | Venue search | BUILT | `useVenueOptions` |
@@ -186,29 +186,29 @@ the 20-per-24h quota (`apply_aggregate_write_p5` l.605-618).
 | 44 | Price list (10 passes) | BUILT | create key `default_passes`, `_owner_passes_problem_p5`, `pricesPlan` |
 | 45 | Sell tickets here (Stripe) | DEFERRED-slice-2 | P3 tickets behind `organiserTicketing`. Needs an existing series |
 | 46 | Music styles | DEFERRED-slice-2 | owner key `default_music_styles` |
-| 47 | Age | DEFERRED-needs-admin | no column / no owner key |
-| 48 | Dress code | DEFERRED-needs-admin | no column / no owner key |
-| 49 | Places (event capacity) | DEFERRED-needs-admin | only `guest_list_capacity_max` (admin RPC). Stripe ticket places are slice 2 |
-| 50 | Teaching language | DEFERRED-needs-admin | no column |
+| 47 | Age | DEFERRED-needs-admin | no column / no owner key. Needs admin: an age-policy column on `event_series` (e.g. `min_age`) and its `series.upsert` owner key |
+| 48 | Dress code | DEFERRED-needs-admin | no column / no owner key. Needs admin: a `dress_code` text column on `event_series` and its `series.upsert` owner key |
+| 49 | Places (event capacity) | DEFERRED-needs-admin | only `guest_list_capacity_max` (admin RPC). Missing: an owner key for event capacity in `series.upsert` (or an owner command for the guest-list cap). Split: Stripe ticket places are DEFERRED-slice-2 |
+| 50 | Teaching language | DEFERRED-needs-admin | no column. Needs admin: a `teaching_language` column (series or session) and its owner key |
 | 51 | Group chat | DEFERRED-slice-2 | `series.set_group_chat` owner kind |
 | 52 | Instagram | DEFERRED-slice-2 | owner key `instagram_url` |
 | 53 | Website / Facebook / TikTok | DEFERRED-needs-admin | columns `website`, `facebook_url`, `tiktok_url` exist, but no owner key |
 | 54 | Guest list | DEFERRED-needs-admin | `admin_save_event_guest_list_config_v1` admin only. No owner command |
-| 55 | Raffle | DEFERRED-needs-admin | `admin_assign_raffle_preset_v1` admin only |
+| 55 | Raffle | DEFERRED-needs-admin | `admin_assign_raffle_preset_v1` admin only. Missing: an owner `series_command_p5` kind (e.g. `series.set_raffle`) that assigns a preset |
 | 56 | Promo codes | DEFERRED-needs-admin | `default_promo_codes` is NOT an owner key (aggregate l.68-74) |
 | 57 | Save draft / go live | BUILT | create = draft. `lifecycleCommand('live')` gated by `_series_go_live_check_p5` |
-| 58 | Leave / discard draft | BUILT | `removeCommand()` -> archived (draft -> archived allowed). Hard delete is admin only (EXCLUDED) |
+| 58 | Leave / discard draft | BUILT | `removeCommand()` -> archived (draft -> archived allowed). Split: hard delete is admin only (EXCLUDED) |
 | 59 | Copy / duplicate | DEFERRED-slice-2 | `admin_duplicate_event_p5` HAS an owner arm (ER P4 D42: keys name, as_template, copy_dates, shift_days, copy_recurrence). Unused by the Website |
 | 60 | Cancel one date | EXCLUDED | post-create (`occurrence.cancel`) |
 | 61 | Cancel whole event | EXCLUDED | post-create (`series.cancel_one_off`) |
-| 62 | Pause / end run | EXCLUDED | post-create |
+| 62 | Pause / end run | EXCLUDED | post-create (`series.end_run` / `series.stop_repeating`, `series.set_lifecycle`) |
 | 63 | Move / change one date | EXCLUDED | post-create (`occurrence.move_date` / `set_override`) |
 | 64 | Web address (`slug`) *(added)* | DEFERRED-slice-2 | owner create key `slug`. Auto-slug trigger fills it when absent |
 | 65 | Series default time / duration (`default_local_start_time`, `default_duration`) *(added)* | EXCLUDED | Times live on sessions. See the materialise risk above |
 | 66 | Featured (`featured`) *(added)* | EXCLUDED | admin-only promotion, not an owner key |
 | 67 | Organiser card slots 1/2 *(added)* | EXCLUDED | admin-only presentation, no owner key |
 | 68 | Poster (`poster_url`) *(added)* | EXCLUDED | admin-only. Counts as a cover for go-live. Owners use the cover |
-| 69 | Promotion touch override *(added)* | EXCLUDED | admin-only |
+| 69 | Promotion touch override *(added)* | EXCLUDED | admin-only: no owner command for the promotion touch; it is set in the admin app only |
 | 70 | Template (`is_template`) *(added)* | DEFERRED-slice-2 | owner reach is via the copy `as_template` key (#59) |
 | 71 | Festival meta (`festival_meta`) *(added)* | DEFERRED-needs-admin | no owner key. Arrives with festival work (#3) |
 
@@ -259,6 +259,12 @@ the 20-per-24h quota (`apply_aggregate_write_p5` l.605-618).
 | DEFERRED-needs-admin | 12 |
 | EXCLUDED | 11 |
 
-#27 counts as BUILT and #40 as DEFERRED-needs-admin. Each also has a split verdict in its row.
+Split verdicts (counted once, under the first verdict; the other part is named in the row):
+
+- #1 counts as BUILT: the format picker and the slice 1 kinds are built; course (#2) and festival (#3) are DEFERRED-slice-2.
+- #13 counts as DEFERRED-slice-2: creating a venue is deferred; the "venue not found" copy in the venue search IS built (`sheets.tsx`).
+- #27 counts as BUILT and #40 as DEFERRED-needs-admin.
+- #49 counts as DEFERRED-needs-admin: event capacity needs an owner key; Stripe ticket places are DEFERRED-slice-2.
+- #58 counts as BUILT: discard (archive) is built; hard delete is EXCLUDED (admin only).
 
 Coverage: 71 rows, 30 built, 30 deferred (with reason: 18 DEFERRED-slice-2 = outside slice 1 scope, no DB change needed; 12 DEFERRED-needs-admin = the missing server command, owner key or column is named in each row), 11 excluded (not part of create, reason in each row), 0 silent

@@ -6,7 +6,7 @@ import { createBlock } from '../../shared/createModel';
 import { checkFlyerFile, FLYER_PROBLEM_COPY } from '../../shared/flyerModel';
 import { ONBOARDING_REFUSAL } from '../../shared/selfServeErrors';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
-import { needsPagePick, PAGE_SET_PARAM } from '../../flows/new/whichPageModel';
+import { needsPagePick, PAGE_SET_PARAM } from './pageModel';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
@@ -227,7 +227,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     <Frame title={title} back={back} end={end} testId="p3-new-form">
       {failed && (failed.onboarding ? (
         <StateCard title={RESULT_COPY.onboardingTitle} testId="p3-new-onboarding-error">
-          <p>{ONBOARDING_REFUSAL} Nothing was saved; what you typed is still here.</p>
+          <p>{ONBOARDING_REFUSAL} The event was not saved; what you typed is still here.</p>
           <P3Link to={p3StartReview(organiser.id)} testId="p3-new-onboarding-go">Finish your details</P3Link>
         </StateCard>
       ) : (

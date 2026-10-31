@@ -32,7 +32,9 @@
 }
 .p3-theme .p3-new-foot .p3-btn { width: 100%; min-height: 48px; }
 .p3-theme .p3-new-why { grid-column: 1 / -1; margin: 0; font-size: 14px; color: var(--mut); }
-.p3-theme .p3-new-time { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.p3-theme .p3-new-time { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+/* review r1 F7: a date/time input's intrinsic width never widens a column (and so the page at 360) */
+.p3-theme .p3-new-time > * { min-width: 0; }
 .p3-theme .p3-new-date { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
 .p3-theme .p3-new-cover { width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--r-date); display: block; }
 .p3-theme .p3-new-file { min-height: 48px; width: 100%; }
