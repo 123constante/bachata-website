@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ORGANISER_HOME_PATH, profileSides, signInLanding, type SidesFacts } from '@/lib/accountRouting';
-import { continueAsLanding } from '@/lib/auth-otp-routing';
+import { P3_START_PATH, continueAsLanding, organiserHomeHandoff } from '@/lib/auth-otp-routing';
 import { legacyAccountPath } from '@/modules/organiser/shell/legacyPaths';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { P3_PATHS } from '@/modules/organiser/p3/shell/paths';
@@ -231,4 +231,26 @@ describe('door constants and the claim landing: flag x person', () => {
       expect(m.claim.shouldToastClaim(claimed, false, '/event/1')).toBe(true);
     });
   }
+});
+
+// Handover item 2 (r2 confirm): organiserHomeHandoff keeps its `organiserCount === 0` guard. While P3 is
+// live the only way to RENDER R1 Home is ?legacy=1 (r1AreaRedirect -> null); then a page holder stays in the
+// old area they asked for, and a person with no page still goes to P3's Welcome (R1 has nothing for them).
+// A home read not in yet / failed stays put (R1's own loading / retry), as before.
+describe('?legacy=1 into R1 Home while P3 is live: the handoff guard', () => {
+  const r1Home = (count: number | null | undefined) => {
+    const toP3 = r1AreaRedirect(ON, { pathname: R1, search: '?legacy=1', hash: '' }, TODAY, false);
+    if (toP3) return toP3;
+    return organiserHomeHandoff(true, count) ?? R1;
+  };
+  it.each([
+    [0, P3_START_PATH],
+    [1, R1],
+    [2, R1],
+    [undefined, R1],
+    [null, R1],
+  ] as const)('%s page(s) -> %s', (count, want) => expect(r1Home(count)).toBe(want));
+  it('without ?legacy=1 nobody reaches R1 Home: every count goes to P3 Home first', () => {
+    for (const n of [0, 1, 2]) expect(r1AreaRedirect(ON, { pathname: R1, search: '', hash: '' }, TODAY, false) ?? organiserHomeHandoff(true, n)).toBe(P3);
+  });
 });
