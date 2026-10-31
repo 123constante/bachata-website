@@ -243,16 +243,16 @@ describe('Events x every shape', () => {
   it('the note points at a link that is on screen: New event inside P3', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     show(<EventsScreen />);
-    expect(screen.getByRole('link', { name: 'add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(screen.getByRole('link', { name: 'add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
   });
 
   it('no events: Add an event goes to New event inside P3 (Home and Events)', () => {
     homeQ.value = ok(homeOf([]));
     show(<EventsScreen />);
-    expect(within(screen.getByTestId('p3-events-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(within(screen.getByTestId('p3-events-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
     cleanup();
     show(<HomeScreen />);
-    expect(within(screen.getByTestId('p3-home-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(within(screen.getByTestId('p3-home-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
   });
 });
 

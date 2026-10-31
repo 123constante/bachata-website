@@ -28,7 +28,8 @@ type PreviewState =
 
 const pressed = (on: boolean) => ({ 'aria-pressed': on });
 
-function Editor({ d, set, today, off }: { d: RepeatDraft; set: (p: Partial<RepeatDraft>) => void; today: string; off: boolean }) {
+/** The pattern editor, shared with New event (p3/new), which has no series to dry-run against yet. */
+export function Editor({ d, set, today, off }: { d: RepeatDraft; set: (p: Partial<RepeatDraft>) => void; today: string; off: boolean }) {
   const [more, setMore] = useState(d.interval !== 1);
   const unit = d.freq === 'weekly' ? 'weeks' : 'months';
   const toggle = <T,>(xs: T[], x: T) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
