@@ -60,7 +60,7 @@ export const declinedLine = (iso: string | null, name: string | null, now: Date 
   const on = iso ? askedOn(iso, now) : '';
   return `${name ?? 'An organiser'} said no${on ? ` on ${on}` : ''}.`;
 };
-export const DECLINED_NEXT = 'You can ask again with a note, or create a page of your own. Both start from Find your page.';
+export const DECLINED_NEXT = 'You can ask again, or create a page of your own. Both start from Find your page.';
 export const askedLine = (iso: string | null, now: Date = new Date()) => {
   const on = iso ? askedOn(iso, now) : '';
   return on ? `You asked on ${on}. We will get back to you.` : 'You already asked to join this page. We will get back to you.';
