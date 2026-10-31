@@ -1,3 +1,4 @@
+import { eventHref } from '@/lib/seo/eventHref';
 import { fullDate } from '../../shared/dateWords';
 import { cancelOneOffCommand, lifecycleCommand, uncancelCommand, type DateStep, type OwnerCommand } from '../../shared/seriesCommands';
 import { endRunCommand, readIsFull, stopRepeatingCommand, type EventWorkspace, type TodaySession } from '../../events/eventModel';
@@ -369,3 +370,22 @@ export function keepable(ws: EventWorkspace, today: IsoDate): Array<{ id: string
 }
 
 export const stopCommand = (keepIds: string[]): OwnerCommand => stopRepeatingCommand(keepIds);
+
+/**
+ * FIXLIST F-34: "See it as dancers see it". event_view_p5 (read on prod 2026-10-31) serves a
+ * series whose event_series_p5.lifecycle_status is live, paused or ended; paused is the owner's
+ * "Hidden", so the link opens only for live and ended. The path comes from eventHref, the
+ * builder every public event link uses (slug first, else the id the page resolves).
+ */
+export const PUBLIC_PAGE_WHY: Record<string, string> = {
+  draft: 'Dancers can see it once it is live.',
+  paused: 'It is hidden now. Show it again and dancers can see it.',
+  archived: 'You removed it, so dancers can\u2019t see it.',
+};
+export const PUBLIC_PAGE_WHY_OTHER = 'Dancers can see it once it is live.';
+
+export function publicPageOf(ws: EventWorkspace): { href: string | null; why: string | null } {
+  const lc = ws.series.lifecycle_status;
+  if (lc === 'live' || lc === 'ended') return { href: eventHref({ slug: ws.series.slug, event_id: ws.series.id }), why: null };
+  return { href: null, why: PUBLIC_PAGE_WHY[lc] ?? PUBLIC_PAGE_WHY_OTHER };
+}

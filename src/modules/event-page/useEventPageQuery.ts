@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { EVENT_PAGE_QUERY_ROOT } from '@/lib/publicQueryKeys';
 import type { Json } from '@/integrations/supabase/types';
 import { resolveEventImage } from '@/lib/utils';
 import { pickEventCoverSource } from '@/lib/eventCoverImage';
@@ -355,7 +356,7 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
 // ---------------------------------------------------------------------------
 
 export const eventPageQueryKey = (eventId?: string | null, occurrenceId?: string | null) => [
-  'event-page-snapshot',
+  EVENT_PAGE_QUERY_ROOT,
   eventId ?? null,
   occurrenceId ?? null,
 ] as const;

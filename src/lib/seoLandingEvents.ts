@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { getCalendarEvents, type CalendarEventRow } from '@/integrations/supabase/eventRpcs';
+import { CALENDAR_EVENTS_QUERY_ROOT } from '@/lib/publicQueryKeys';
 import {
   LONDON_TZ,
   londonDateKey,
@@ -63,7 +64,7 @@ export const SEO_LANDING_STALE_TIME = 1000 * 60 * 60;
 
 export function seoLandingEventsKey(todayKey: string, windowDays: number) {
   const { start, end } = londonDayRangeUtc(todayKey, windowDays);
-  return ['calendar-events', start.toISOString(), end.toISOString(), SEO_LANDING_CITY_SLUG];
+  return [CALENDAR_EVENTS_QUERY_ROOT, start.toISOString(), end.toISOString(), SEO_LANDING_CITY_SLUG];
 }
 
 /**
