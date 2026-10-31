@@ -114,14 +114,14 @@ describe('0 / 1 / 2+ pages', () => {
     expect(screen.getByTestId('org-back').getAttribute('href')).toBe(P3_PATHS.events);
   });
 
-  it('one page: kind -> the form; deferred kinds are off with "Coming soon"', async () => {
+  it('one page: kind -> the form; deferred kinds open the classic form', async () => {
     at(P3_PATHS.create);
     await screen.findByTestId('p3-new-kinds');
     expect(screen.getByTestId('org-back').getAttribute('href')).toBe(P3_PATHS.events);
     for (const k of ['course', 'festival', 'online']) {
       const b = screen.getByTestId(`p3-new-kind-${k}`) as HTMLButtonElement;
-      expect(b.disabled).toBe(true);
-      expect(document.getElementById(b.getAttribute('aria-describedby')!)!.textContent).toBe('Coming soon');
+      expect(b.disabled).toBe(false);
+      expect(document.getElementById(b.getAttribute('aria-describedby')!)!.textContent).toBe('Opens the classic form');
     }
     fireEvent.click(screen.getByTestId('p3-new-kind-weekly'));
     expect(where()).toBe(form('weekly'));
@@ -141,6 +141,21 @@ describe('0 / 1 / 2+ pages', () => {
     fireEvent.click(rows[1]);
     fireEvent.click(screen.getByTestId('p3-new-page-continue'));
     expect(where()).toBe(form('monthly', 'org2'));
+  });
+
+  it.each(['course', 'festival', 'online'])('%s: a tap opens the classic form (kind named), never a dead end', async (k) => {
+    at(P3_PATHS.create);
+    await screen.findByTestId('p3-new-kinds');
+    fireEvent.click(screen.getByTestId(`p3-new-kind-${k}`));
+    expect(where()).toBe(`/account/o/new/what?kind=${k}`);
+  });
+
+  it('two pages, one named in the URL: the classic form keeps that page', async () => {
+    pages = [page('org1', 'Latin Nights'), page('org2', 'Bachata Lab')];
+    at(P3_PATHS.createFor('org2'));
+    await screen.findByTestId('p3-new-kinds');
+    fireEvent.click(screen.getByTestId('p3-new-kind-course'));
+    expect(where()).toBe('/account/o/new/what?kind=course&o=org2');
   });
 
   it('two pages: the form without a page goes back to the page question', async () => {

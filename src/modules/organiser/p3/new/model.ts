@@ -37,22 +37,26 @@ export interface KindInfo {
   deferred: string | null;
 }
 
-export const COMING_SOON = 'Coming soon';
+/** The pill on a kind this flow does not build yet: it says what a tap does. */
+export const CLASSIC_FORM = 'Opens the classic form';
 
 /** The nine tiles, in the design's order (3 columns). Course, festival and online wait for slice 2 / admin. */
 export const KINDS: readonly KindInfo[] = [
   { kind: 'one_date', label: 'One date', hint: 'A party or social on one night', format: 'one_off', when: 'date', sessions: ['party'], deferred: null },
   { kind: 'weekly', label: 'Weekly', hint: 'Same night every week, or a few weekdays', format: 'recurring', when: 'repeat', freq: 'weekly', sessions: ['class'], deferred: null },
   { kind: 'monthly', label: 'Monthly', hint: 'For example the first Saturday', format: 'recurring', when: 'repeat', freq: 'monthly', sessions: ['party'], deferred: null },
-  { kind: 'course', label: 'Course', hint: 'Set number of classes, for example 8 Tuesdays', format: null, when: 'repeat', freq: 'weekly', sessions: ['class'], deferred: COMING_SOON },
+  { kind: 'course', label: 'Course', hint: 'Set number of classes, for example 8 Tuesdays', format: null, when: 'repeat', freq: 'weekly', sessions: ['class'], deferred: CLASSIC_FORM },
   { kind: 'workshop', label: 'Workshop', hint: 'One day of classes with teachers', format: 'one_off', when: 'date', sessions: ['class', 'class'], deferred: null },
-  { kind: 'festival', label: 'Festival', hint: 'Several days, passes, a line-up', format: null, when: 'date', sessions: [], deferred: COMING_SOON },
+  { kind: 'festival', label: 'Festival', hint: 'Several days, passes, a line-up', format: null, when: 'date', sessions: [], deferred: CLASSIC_FORM },
   { kind: 'class_party', label: 'Class, then party', hint: 'Two sessions on the same night', format: 'one_off', when: 'date', sessions: ['class', 'party'], deferred: null },
-  { kind: 'online', label: 'Online', hint: 'A class or talk on a video link', format: null, when: 'date', sessions: ['class'], deferred: COMING_SOON },
+  { kind: 'online', label: 'Online', hint: 'A class or talk on a video link', format: null, when: 'date', sessions: ['class'], deferred: CLASSIC_FORM },
   { kind: 'other_dates', label: 'Other dates', hint: 'Dates that follow no pattern', format: 'recurring', when: 'dates', sessions: ['party'], deferred: null },
 ];
 
 export const kindInfo = (kind: string | null | undefined): KindInfo | null => KINDS.find((k) => k.kind === kind) ?? null;
+/** Where a tapped kind goes: its own form here, or (not built yet) the classic form's kind picker. */
+export const kindTarget = (k: KindInfo, organiserId: string | null, pageCount: number): string =>
+  k.deferred ? P3_PATHS.classicCreate(k.kind, organiserId) : afterKind(k.kind, organiserId, pageCount);
 /** A kind that can be built now (a deferred or unknown one is null). */
 export const buildableKind = (kind: string | null | undefined): KindInfo | null => {
   const k = kindInfo(kind);

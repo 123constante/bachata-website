@@ -11,7 +11,7 @@ import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
 import {
-  COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, draftBlock, isUntouched,
+  COPY, KINDS, RESULT_COPY, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, draftBlock, isUntouched, kindTarget,
   liveBlock, notSavedLine, parseAt, parseStoredDraft, priceLine, removeChosenDate, repeatLine, rowProblems, sessionsLine, whenLine, withFirstDate,
   DRAFT_STORE_KEY, type CreateDraft, type CreateKind, type KindInfo,
 } from './model';
@@ -37,19 +37,18 @@ function Frame({ title, back, end, children, testId }: { title: string; back: { 
 function KindStep({ organiserId, pageCount }: { organiserId: string | null; pageCount: number }) {
   const navigate = useNavigate();
   const pick = (k: KindInfo) => {
-    if (k.deferred) return;
     // review 1 F5: Back to the kinds and the same kind again keeps what was typed; another kind starts blank.
     // review 2 R2-2: a draft whose create landed is never picked up again from here.
     const kept = storedDraft();
     if (!kept || kept.created || kept.kind !== k.kind) forgetStoredDraft();
-    navigate(afterKind(k.kind, organiserId, pageCount));
+    navigate(kindTarget(k, organiserId, pageCount));
   };
   return (
     <Frame title={TITLE} back={backOf('kind', '', organiserId, pageCount)} testId="p3-new-kind">
       <h2 className="p3-h2">{COPY.kindTitle}</h2>
       <div className="p3-new-kinds" data-testid="p3-new-kinds">
         {KINDS.map((k) => (
-          <button key={k.kind} type="button" className="p3-new-kind" disabled={!!k.deferred} aria-describedby={k.deferred ? `p3-new-why-${k.kind}` : undefined}
+          <button key={k.kind} type="button" className="p3-new-kind" aria-describedby={k.deferred ? `p3-new-why-${k.kind}` : undefined}
             onClick={() => pick(k)} data-testid={`p3-new-kind-${k.kind}`}>
             <span className="p3-new-kind-t">{k.label}</span>
             <span className="p3-new-kind-s">{k.hint}</span>

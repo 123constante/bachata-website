@@ -6,7 +6,7 @@ import { OWNER_CREATE_KEYS } from '../../../shared/seriesCommands';
 import { rulePayload, type RepeatDraft } from '../../model/repeat';
 import { P3_BASE, P3_PATHS } from '../../shell/paths';
 import {
-  COMING_SOON, COPY, DATES_MAX, KINDS, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, createPayload, draftBlock,
+  CLASSIC_FORM, COPY, DATES_MAX, KINDS, addChosenDate, afterKind, backOf, blankCreate, buildableKind, chosenDates, createPayload, draftBlock,
   firstDateFits, isUntouched, liveBlock, missingForLive, monthDayWarning, notSavedLine, parseAt, parseStoredDraft, removeChosenDate, rowProblems,
   savePlan, stepsFor, togglePay, venueMatches, withFirstDate, type CreateDraft, type CreateKind,
 } from '../model';
@@ -35,9 +35,9 @@ function ready(kind: CreateKind, firstDate = '2026-11-06'): CreateDraft {
 }
 
 describe('the kind picker', () => {
-  it('nine kinds in the design order; course, festival and online off with "Coming soon"', () => {
+  it('nine kinds in the design order; course, festival and online route to the classic form', () => {
     expect(KINDS.map((k) => k.kind)).toEqual(['one_date', 'weekly', 'monthly', 'course', 'workshop', 'festival', 'class_party', 'online', 'other_dates']);
-    expect(KINDS.filter((k) => k.deferred).map((k) => [k.kind, k.deferred])).toEqual([['course', COMING_SOON], ['festival', COMING_SOON], ['online', COMING_SOON]]);
+    expect(KINDS.filter((k) => k.deferred).map((k) => [k.kind, k.deferred])).toEqual([['course', CLASSIC_FORM], ['festival', CLASSIC_FORM], ['online', CLASSIC_FORM]]);
     for (const k of KINDS) expect(k.hint.length).toBeGreaterThan(0);
   });
 

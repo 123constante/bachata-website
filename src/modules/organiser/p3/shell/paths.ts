@@ -6,6 +6,20 @@ import { ORG_PATHS, type NewEventFormat } from '../../shell/paths';
 
 export const P3_BASE = '/account/p3';
 
+/**
+ * The classic (R1) create path stays reachable for page holders even when organiserP3 is ON: the three kinds
+ * the new create flow has not built yet (Course, Festival, Online) open the classic kind picker. Slice 1
+ * (p3-landing) imports this so its /account/o/* redirect lets these through; do not copy the strings.
+ */
+export const CLASSIC_CREATE_PATH = ORG_PATHS.newWhat;
+export const CLASSIC_CREATE_KINDS = ['course', 'festival', 'online'] as const;
+/** True for the classic create URL the P3 redirect must NOT bounce (any query; the kind, if given, is one of the three). */
+export const isClassicCreateAllowed = (pathname: string, search = ''): boolean => {
+  if (pathname.replace(/\/+$/, '') !== CLASSIC_CREATE_PATH) return false;
+  const kind = new URLSearchParams(search).get('kind');
+  return kind === null || (CLASSIC_CREATE_KINDS as readonly string[]).includes(kind);
+};
+
 const createUrl = (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/create?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/create`);
 const createStepUrl = (at: 'page' | 'form', kind: string, organiserId: string | null | undefined) =>
   `${P3_BASE}/create?at=${at}&kind=${encodeURIComponent(kind)}${organiserId ? `&o=${encodeURIComponent(organiserId)}` : ''}`;
@@ -62,6 +76,9 @@ export const P3_PATHS = {
   createFor: createUrl,
   createStep: createStepUrl,
   /** The old new/name?format= link: that kind's form (the page asked there when 2+ pages and none named), page kept. */
+  /** A not-yet-built kind (Course, Festival, Online): the classic kind picker, kind named, page kept (`?o=`). */
+  classicCreate: (kind: string, organiserId: string | null | undefined = null) =>
+    `${CLASSIC_CREATE_PATH}?kind=${encodeURIComponent(kind)}${organiserId ? `&o=${encodeURIComponent(organiserId)}` : ''}`,
   createForFormat: (format: string | null | undefined, organiserId: string | null | undefined = null) =>
     (format && FORMAT_KIND[format] ? createStepUrl('form', FORMAT_KIND[format], organiserId) : createUrl(organiserId)),
   /** The interim bridge's URLs (#1202, R1's steps in P3's frame): each now redirects (P3Routes), the first two to New event, a draft's steps to its event page. */

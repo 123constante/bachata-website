@@ -109,8 +109,9 @@ describe('the surfaces: P3 points every exit the shared screens use at P3, R1 is
 });
 
 // The R1 links P3 still keeps on purpose: the surface's base (every key not overridden) and
-// R1's Welcome for an invite while P3 is off (acceptedInviteLanding).
-const ALLOWED = new Map([['you/surface.tsx', 1], ['shell/paths.ts', 1]]);
+// R1's Welcome for an invite while P3 is off (acceptedInviteLanding), and the classic create path that
+// Course/Festival/Online open (CLASSIC_CREATE_PATH).
+const ALLOWED = new Map([['you/surface.tsx', 1], ['shell/paths.ts', 2]]);
 const P3_DIR = join(process.cwd(), 'src/modules/organiser/p3');
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
