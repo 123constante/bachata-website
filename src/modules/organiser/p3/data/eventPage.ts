@@ -304,6 +304,7 @@ export const CANCEL_COPY = {
   already: (reason: string | null) => (reason ? `It was already cancelled. Dancers see: ${reason}.` : 'It was already cancelled.'),
   loading: 'Loading the reasons\u2026',
   noReasons: 'The reasons didn\u2019t load. Check your connection, then try again.',
+  emptyReasons: 'There are no reasons to pick from. The list comes from our server, so try again in a moment.',
 } as const;
 
 /** The one-off's one date; null when there is not exactly one (the row is greyed then). */

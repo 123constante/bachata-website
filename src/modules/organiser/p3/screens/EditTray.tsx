@@ -128,7 +128,7 @@ export function useSaveRun(seriesId: string) {
   return { run, busy, error, clearError: () => setError(null), forget };
 }
 
-type Ask = { kind: 'undo' } | { kind: 'leave'; go: () => void } | { kind: 'list' } | null;
+export type Ask = { kind: 'undo' } | { kind: 'leave'; go: () => void } | { kind: 'list' } | null;
 
 const IDLE_BLOCKER = { state: 'unblocked', proceed: undefined, reset: undefined, location: undefined } as Blocker;
 let blockerSeq = 0;
@@ -164,7 +164,7 @@ function useRouterBlocker(): Blocker {
  * The leave guard: the router blocker (back, links, the tab bar under the data router), the
  * store's own asking for the Back link where there is no data router, and the tab-close warning.
  */
-function useLeave(dirty: boolean, setAsk: (a: Ask) => void) {
+export function useLeave(dirty: boolean, setAsk: (a: Ask) => void) {
   useLeaveGuard(dirty);
   const blocker = useRouterBlocker();
   const open = useCallback((go: () => void) => setAsk({ kind: 'leave', go }), [setAsk]);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import { eventLock } from '../../shared/eventState';
+import { VenueList } from './VenueList';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
@@ -146,17 +147,15 @@ function Details({ ws }: { ws: EventWorkspace }) {
         onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
-          {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}
-          {venues.isError && !venues.data && <p className="p3-error" role="alert">{L.detailsPlaceFail}</p>}
-          <div className="p3-stack-s" data-testid="p3-d-venues">
-            {(venues.data ?? []).map((v) => (
+          <VenueList venues={venues} testId="p3-d-venues">
+            {(list) => list.map((v) => (
               <button key={v.id} type="button" className="p3-choice" aria-pressed={v.id === draft.venueId}
                 onClick={() => { set({ venueId: v.id }); setPicking(false); }}>
                 <span className="p3-row-t">{v.name}</span>
                 <span className="p3-row-s">{[v.neighbourhood, v.city_name].filter(Boolean).join(', ')}</span>
               </button>
             ))}
-          </div>
+          </VenueList>
         </Sheet>
       )}
     </div>
