@@ -3,8 +3,8 @@ import type { VenueOption } from '../../shared/publicVenues';
 
 /** Copy for the place list, shared by the event Details sheet and the per-date "Where" sheet (F-17). */
 export const VENUE_LIST_COPY = {
-  loading: 'Loading the places…',
-  fail: 'We couldn’t load the places. Check your connection, then try again.',
+  loading: 'Loading the places\u2026',
+  fail: 'We couldn\u2019t load the places. Check your connection, then try again.',
   retry: 'Try again',
   empty: 'There are no places to pick from yet. Try again in a moment, or close this and ask the team to add your place.',
 } as const;
