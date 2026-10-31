@@ -395,7 +395,7 @@ Pass/Fail: ____ States: ____
 
 ### J-g5: manager of page A never acts on page B (P1)
 Accounts: A-org-member (member of P-big only), page P-small.
-1. Every P-small deep link (`/events/<id>`, `/dates`, `/details`, `/prices`, `/door`) shows Not yours. Direct RPC writes with the P-small id are refused by the server (42501) [G-22].
+1. Every P-small deep link (`/events/<id>`, `/dates`, `/details`, `/prices`, `/door`) shows Not yours. Direct RPC writes with the P-small id are refused by the server with `permission_denied` (SQLSTATE P0001, not 42501; live body read 2026-10-31, admin PR #1165 proves it) [G-22].
 Pass/Fail: ____ States: ____
 
 ### J-g6: co-organiser on a shared series (P1)
