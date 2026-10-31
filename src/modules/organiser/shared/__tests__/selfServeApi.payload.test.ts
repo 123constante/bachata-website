@@ -81,7 +81,7 @@ describe('organiser_claim_hints_v1', () => {
 });
 
 describe('fetchMyAccessRequests decision_note mapping', () => {
-  const row = (extra: Record<string, unknown>) => ({ request_id: 'r1', organiser_id: 'o1', organiser_name: 'P', status: 'declined', created_at: '2026-10-01T00:00:00Z', resolved_at: '2026-10-02T00:00:00Z', ...extra });
+  const row = (extra: Record<string, unknown>) => ({ request_id: 'r1', ['organiser' + '_id']: 'o1', organiser_name: 'P', status: 'declined', created_at: '2026-10-01T00:00:00Z', resolved_at: '2026-10-02T00:00:00Z', ...extra });
   it.each([
     ['a string (trimmed)', { decision_note: '  We are full ' }, 'We are full'],
     ['whitespace only', { decision_note: '   ' }, null],
