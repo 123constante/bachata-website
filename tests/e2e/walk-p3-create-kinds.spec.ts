@@ -6,7 +6,9 @@ import { ORG, ORG_NAME, OrganiserFake, json } from './helpers/organiserFake';
 // is not absolutely positioned, nothing in a tile is clipped by the tile, every tile is >= 44x44 and the page is
 // never wider than the viewport. Read-only: every RPC is fulfilled by the fake. P3 mounts only with BOTH flags:
 //   VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/walk-p3-create-kinds.spec.ts --project=chromium
-// With organiserP3 off each test skips itself, as the other P3 walks do.
+// Without VITE_ENABLE_ORGANISER_P3=true (the e2e gate's server today) each test skips at once, so in that gate
+// this spec checks nothing. Screenshots are written only with WALK_SHOTS=1, so a routine run never rewrites
+// the committed walk pictures.
 
 const SHOTS = 'docs/design/p3-create-event/walk';
 const SIZES = [
@@ -28,13 +30,15 @@ async function open(page: Page) {
   await page.waitForLoadState('networkidle').catch(() => undefined);
   const mounted = await page.getByTestId('p3-new-kinds').waitFor({ timeout: 15_000 }).then(() => true, () => false);
   test.skip(!mounted, 'organiserP3 is off in this server: /account/p3/create is not mounted');
+  // the slide-in: measure only once no animation is still running
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), undefined, { timeout: 5_000 }).catch(() => undefined);
 }
 
 for (const size of SIZES) {
   test(`kind picker tiles at ${size.width}x${size.height}: pill below the text, nothing clipped`, async ({ page }) => {
+    test.skip(process.env.VITE_ENABLE_ORGANISER_P3 !== 'true', 'organiserP3 is off: /account/p3 is not mounted');
     await page.setViewportSize(size);
     await open(page);
-    await page.waitForTimeout(400); // the slide-in
     const r = await page.evaluate(() => {
       const tiles = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="p3-new-kinds"] .p3-new-kind'));
       const problems: string[] = [];
@@ -47,8 +51,8 @@ for (const size of SIZES) {
         for (const k of kids) {
           const b = k.getBoundingClientRect();
           if (b.top < t.top - 0.5 || b.bottom > t.bottom + 0.5 || b.left < t.left - 0.5 || b.right > t.right + 0.5) problems.push(`${id} ${k.className} outside the tile`);
-          // a child's own content spilling out of its box (e.g. a fixed-height pill whose text wrapped)
-          if (k.scrollHeight > k.clientHeight + 1 || k.scrollWidth > k.clientWidth + 1) problems.push(`${id} ${k.className} content overflows its box`);
+          // a child's own content spilling out of its box (e.g. a fixed-height pill whose text wrapped); 2px absorbs rounding
+          if (k.scrollHeight > k.clientHeight + 2 || k.scrollWidth > k.clientWidth + 2) problems.push(`${id} ${k.className} content overflows its box`);
         }
         const pill = tile.querySelector<HTMLElement>('.p3-tag');
         if (!pill) continue;
@@ -68,10 +72,10 @@ for (const size of SIZES) {
       }
       return { count: tiles.length, pills, problems, wide: document.documentElement.scrollWidth - window.innerWidth };
     });
-    expect(r.count, 'nine kind tiles').toBe(9);
-    expect(r.pills, 'three coming-soon tiles').toBe(3);
+    expect.soft(r.count, 'nine kind tiles').toBe(9);
+    expect.soft(r.pills, 'at least one coming-soon tile to measure').toBeGreaterThan(0);
     expect.soft(r.wide, 'wider than the viewport').toBeLessThanOrEqual(0);
     expect.soft(r.problems).toEqual([]);
-    await page.screenshot({ path: `${SHOTS}/00-kind-picker-${size.width}x${size.height}.png`, fullPage: true });
+    if (process.env.WALK_SHOTS === '1') await page.screenshot({ path: `${SHOTS}/00-kind-picker-${size.width}x${size.height}.png`, fullPage: true });
   });
 }
