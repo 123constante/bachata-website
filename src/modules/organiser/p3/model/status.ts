@@ -5,7 +5,7 @@ import { L } from './labels';
 import type { IsoDate, P3Kind } from './types';
 
 /** The status tag on an event (C3 `status`). `warn` = live but nothing coming up; `review` = in review / changes needed. */
-export type P3StatusKey = 'live' | 'hidden' | 'finished' | 'draft' | 'review' | 'warn';
+export type P3StatusKey = 'live' | 'hidden' | 'finished' | 'draft' | 'review' | 'warn' | 'removed';
 
 export interface P3Status {
   key: P3StatusKey;
@@ -25,7 +25,8 @@ export interface P3Status {
 export function statusOf(lifecycle: string, format: string | null, kind: P3Kind, upcoming: number): P3Status {
   const life = seriesLife({ lifecycle_status: lifecycle, format }, upcoming);
   const past = life.section === 'past';
-  if (lifecycle === 'ended' || lifecycle === 'archived') return { key: 'finished', label: L.finished, past };
+  if (lifecycle === 'archived') return { key: 'removed', label: L.removedTag, past };
+  if (lifecycle === 'ended') return { key: 'finished', label: L.finished, past };
   if (lifecycle === 'paused') return { key: 'hidden', label: L.hidden, past };
   if (lifecycle === 'draft') return { key: 'draft', label: L.draftTag, past };
   if (lifecycle !== 'live') return { key: 'review', label: life.tag.label, past };
@@ -48,3 +49,6 @@ export function dayWord(date: IsoDate, today: IsoDate, start?: string | null): s
   if (date === addDaysToKey(today, 1)) return L.tomorrow;
   return fullDate(date, today);
 }
+
+/** The tag of an event that was removed (archived), for the page that opens in place of it. */
+export const removedStatus = (): P3Status => statusOf('archived', null, 'custom', 0);

@@ -109,7 +109,6 @@ const EXEMPT: Record<string, string> = {
   'src/modules/organiser/shared/selfServeApi.ts': 'transport: defines the senders',
   'src/modules/organiser/flows/change/bulkApi.ts': 'transport: defines runBulkCommand (its caller Pick.tsx invalidates)',
   'src/modules/organiser/p3/data/repeat.ts': 'dry run (previewRepeat): the server rolls the write back',
-  'src/modules/organiser/p3/data/sessions.ts': 'owned by open PR #1208; left for the lead (F-33)',
 };
 // A call through a sender, or a direct rpc on a command RPC by its quoted name (a comment naming it does not count).
 const SENDS = /\b(runSeriesCommand|runOccurrenceCommand|saveOccurrenceProgramme|runBulkCommand)\(|['"](series_command_p5|occurrence_command_p5|admin_bulk_occurrence_command_p5)['"]/;

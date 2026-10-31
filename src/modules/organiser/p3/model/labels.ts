@@ -262,7 +262,10 @@ export const L = {
   pricesIntro: 'What dancers pay. Shown next to the ticket link.',
   pricesFree: 'It\u2019s free',
   pricesFreeSub: 'Dancers see \u201cFree\u201d',
-  pricesNone: 'No prices yet. Add one, or switch on \u201cIt\u2019s free\u201d.',
+  /** The empty-list line: it names the free switch only when the switch is on screen (F-18). */
+  pricesNone: (freeSwitchShown: boolean) => (freeSwitchShown
+    ? 'No prices yet. Add one, or switch on \u201cIt\u2019s free\u201d.'
+    : 'No prices yet. Use \u201cAdd a price\u201d below to add one.'),
   pricesAdd: 'Add a price',
   pricesRemove: 'Remove this price',
   pricesName: 'Name',
