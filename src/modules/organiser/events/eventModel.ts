@@ -48,7 +48,33 @@ export interface EventWorkspace extends SeriesWorkspace {
   classCount: number | null;
   /** meta.last_class_date (P3 A2 R1): the last of those dates, YYYY-MM-DD; null when none or an older read. */
   lastClassDate: string | null;
+  /** meta.counts (P3 A2 R3): whole-series counts, whatever the page holds; null on an older read. */
+  dateCounts?: WorkspaceDateCounts | null;
+  /** meta.next_before: pass as p_before to read the next older page; null when nothing older. */
+  nextBefore?: string | null;
 }
+
+/** admin_event_workspace_p5 meta.counts: upcoming / past exclude cancelled dates (series-local today). */
+export interface WorkspaceDateCounts {
+  upcoming: number;
+  past: number;
+  cancelled: number;
+}
+
+const count = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null);
+
+export function dateCountsOf(meta: unknown): WorkspaceDateCounts | null {
+  const c = (meta as { counts?: Record<string, unknown> } | null)?.counts;
+  const upcoming = count(c?.upcoming);
+  const past = count(c?.past);
+  const cancelled = count(c?.cancelled);
+  return upcoming === null || past === null || cancelled === null ? null : { upcoming, past, cancelled };
+}
+
+export const nextBeforeOf = (meta: unknown): string | null => {
+  const v = (meta as { next_before?: unknown } | null)?.next_before;
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+};
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
 
@@ -69,6 +95,8 @@ export function parseEventWorkspace(raw: unknown): EventWorkspace {
     groupChatUrl: typeof row.group_chat_url === 'string' && row.group_chat_url.trim() ? row.group_chat_url : null,
     classCount: typeof root?.meta?.class_count === 'number' && Number.isInteger(root.meta.class_count) ? root.meta.class_count : null,
     lastClassDate: typeof root?.meta?.last_class_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(root.meta.last_class_date) ? root.meta.last_class_date : null,
+    dateCounts: dateCountsOf(root?.meta),
+    nextBefore: nextBeforeOf(root?.meta),
   };
 }
 
