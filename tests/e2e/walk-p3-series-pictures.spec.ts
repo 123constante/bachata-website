@@ -14,6 +14,7 @@ const SHAPES = [
   { n: 1, id: SID(1), gallery: pics(1), format: 'recurring' },
   { n: 2, id: SID(2), gallery: pics(2), format: 'recurring' },
   { n: 30, id: SID(30), gallery: pics(30), format: 'recurring' },
+  { n: 2, id: SID(52), gallery: pics(2), format: 'one_off' },
 ];
 const FESTIVAL = { id: SID(99), gallery: pics(3), format: 'festival' };
 
@@ -92,7 +93,7 @@ for (const scheme of ['light', 'dark'] as const) {
     test.beforeEach(async ({ page }) => { await page.emulateMedia({ colorScheme: scheme }); });
 
     for (const shape of SHAPES) {
-      test(`${shape.n} pictures: row reachable, sheet fits, no page scroll, tap + contrast`, async ({ page }) => {
+      test(`${shape.n} pictures (${shape.format}): row reachable, sheet fits, no page scroll, tap + contrast`, async ({ page }) => {
         const fake = await open(page, shape);
         const row = page.getByTestId('p3-d-pictures-open');
         const count = page.getByTestId('p3-d-pictures-count');
@@ -100,18 +101,20 @@ for (const scheme of ['light', 'dark'] as const) {
 
         // reachable above the sticky save bar when scrolled to the bottom
         await row.scrollIntoViewIfNeeded();
-        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        await page.evaluate(() => { const m = document.querySelector('.p3-main'); m?.scrollTo(0, m.scrollHeight); });
         await row.scrollIntoViewIfNeeded();
         const [rb, tb] = [await row.boundingBox(), await page.getByTestId('p3-tray').boundingBox()];
         expect(rb!.y + rb!.height, 'Pictures button sits above the save bar').toBeLessThanOrEqual(tb!.y + 0.5);
+        expect(rb!.height, 'Pictures row is at least 44px tall').toBeGreaterThanOrEqual(43.5);
 
-        // opening does not scroll the page
-        const before = await page.evaluate(() => [window.scrollX, window.scrollY]);
+        // opening does not scroll the page (P3 scrolls inside .p3-main, not the window)
+        const scrolled = () => page.evaluate(() => [window.scrollY, document.querySelector('.p3-main')?.scrollTop ?? 0]);
+        const before = await scrolled();
         await row.click();
         const sheet = page.getByTestId('p3-sheet');
         await expect(sheet).toBeVisible();
         await settled(page);
-        expect(await page.evaluate(() => [window.scrollX, window.scrollY]), 'opening the sheet scrolled the page').toEqual(before);
+        expect(await scrolled(), 'opening the sheet scrolled the page').toEqual(before);
 
         await inViewport(page, sheet, 'sheet');
         await inViewport(page, sheet.getByRole('button', { name: 'Close' }), 'Close');
@@ -154,7 +157,7 @@ for (const scheme of ['light', 'dark'] as const) {
       await page.getByTestId('p3-d-pictures-open').click();
       await page.getByTestId('p3-pictures-done').click();
       const save = page.getByTestId('p3-save');
-      if (await save.isEnabled()) await save.click();
+      await expect(save, 'nothing changed, so Save is disabled').toBeDisabled();
       await page.waitForTimeout(500);
       expect(fake.envelopes(), 'an untouched save sent a command').toEqual([]);
     });
