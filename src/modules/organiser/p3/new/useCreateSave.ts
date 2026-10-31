@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, type NavigateOptions } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidatePublicEventCaches } from '../../shared/publicCache';
 import { ORGANISER_HOME_KEY, fetchSeriesWorkspace, runSeriesCommand, type HomeOrganiser } from '../../shared/selfServeApi';
 import { envelope, newIdempotencyKey } from '../../shared/seriesCommands';
 import { commandErrorMessage, isOnboardingRefusal } from '../../shared/selfServeErrors';
@@ -84,7 +85,11 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
     return key;
   };
 
-  const refresh = () => { void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY }); };
+  // F-33: every settle after a write (done, partial, discarded) also drops the stale public event page and calendar
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    invalidatePublicEventCaches(queryClient);
+  };
 
   /** The series' version as the server has it now (a lost reply, a reply without new_version, a retry). Only THIS series counts (R2-3). */
   const reread = async () => {

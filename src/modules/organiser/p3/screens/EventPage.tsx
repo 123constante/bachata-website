@@ -5,7 +5,7 @@ import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
 import { isAccessRefusal } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
-import { STATUS_COPY, eventPageOf, type EventPageView } from '../data/eventPage';
+import { STATUS_COPY, eventPageOf, publicPageOf, type EventPageView } from '../data/eventPage';
 import { L, addDateWhy, peopleText, removedStatus, sessionKindLabel, sessionTitle, timeWord } from '../model';
 import { repeatShapeOf, seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
@@ -141,7 +141,26 @@ function AboutRow({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function About({ v }: { v: EventPageView }) {
+/** F-34: the public page, same tab; disabled with the reason beside it when dancers cannot open one. */
+function DancerView({ ws }: { ws: EventWorkspace }) {
+  const pub = publicPageOf(ws);
+  const title = <span className="p3-row-t">See it as dancers see it</span>;
+  if (pub.href) {
+    return (
+      <Link className="p3-row p3-row-link" to={pub.href} data-testid="p3-dancer-view">
+        <span className="p3-grow">{title}<br /><span className="p3-row-s" data-testid="p3-dancer-view-sub">{pub.why}</span></span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </Link>
+    );
+  }
+  return (
+    <div className="p3-row" aria-disabled="true" data-testid="p3-dancer-view-off">
+      <span className="p3-grow p3-mut">{title}<br /><span className="p3-row-s" data-testid="p3-dancer-view-why">{pub.why}</span></span>
+    </div>
+  );
+}
+
+function About({ v, ws }: { v: EventPageView; ws: EventWorkspace }) {
   const a = v.about;
   const none = <span className="p3-mut">{L.notSet}</span>;
   return (
@@ -154,6 +173,7 @@ function About({ v }: { v: EventPageView }) {
         <AboutRow label={L.instagram}>{a.instagram ? <a className="p3-link" href={a.instagram} target="_blank" rel="noreferrer">{a.instagram}</a> : none}</AboutRow>
       </div>
       <div className="p3-card p3-tight p3-list p3-gap-t" data-testid="p3-edit-rows">
+        <DancerView ws={ws} />
         <Link className="p3-row p3-row-link" to={P3_PATHS.eventDetails(v.id)} data-testid="p3-open-details">
           <span className="p3-grow"><span className="p3-row-t">{L.detailsTitle}</span><br /><span className="p3-row-s">{L.detailsRowSub}</span></span>
           <span aria-hidden="true">&rsaquo;</span>
@@ -238,7 +258,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       )}
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
-      <About v={v} />
+      <About v={v} ws={ws} />
       {sheet && (
         <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
           onDone={(d) => {

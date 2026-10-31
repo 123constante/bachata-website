@@ -1,3 +1,4 @@
+import { eventHref } from '@/lib/seo/eventHref';
 import { fullDate } from '../../shared/dateWords';
 import { cancelOneOffCommand, lifecycleCommand, uncancelCommand, type DateStep, type OwnerCommand } from '../../shared/seriesCommands';
 import { endRunCommand, readIsFull, stopRepeatingCommand, type EventWorkspace, type TodaySession } from '../../events/eventModel';
@@ -370,3 +371,30 @@ export function keepable(ws: EventWorkspace, today: IsoDate): Array<{ id: string
 }
 
 export const stopCommand = (keepIds: string[]): OwnerCommand => stopRepeatingCommand(keepIds);
+
+/**
+ * FIXLIST F-34: "See it as dancers see it". event_view_p5 (read on prod 2026-10-31) serves a
+ * series whose event_series_p5.lifecycle_status is live, paused or ended, so the link opens for
+ * all three. Paused is the owner's "Hidden": off the calendar, but _p5_paused_hides_occurrence_v1
+ * keeps its page and its PAST dates (owner decision 2026-10-08), so the subline says so.
+ * The path comes from eventHref, the builder every public event link uses, and only from the
+ * slug: without one it would fall back to the P5 id, which resolve_public_event_ref_v1 does not
+ * find for a series bridged from a legacy event (0 public series without a slug on prod).
+ */
+export const PUBLIC_PAGE_SUB = 'Your public event page';
+export const PUBLIC_PAGE_SUB_PAUSED = 'Hidden from the calendar. The page still opens with past dates only.';
+export const PUBLIC_PAGE_NO_ADDRESS = 'The page has no address yet.';
+export const PUBLIC_PAGE_WHY: Record<string, string> = {
+  draft: 'Dancers can see it once it is live.',
+  archived: 'You removed it, so dancers can\u2019t see it.',
+};
+export const PUBLIC_PAGE_WHY_OTHER = 'Dancers can see it once it is live.';
+
+/** href set: the link, and `why` is its subline. href null: the row is off, and `why` is the reason. */
+export function publicPageOf(ws: EventWorkspace): { href: string | null; why: string } {
+  const lc = ws.series.lifecycle_status;
+  if (lc !== 'live' && lc !== 'ended' && lc !== 'paused') return { href: null, why: PUBLIC_PAGE_WHY[lc] ?? PUBLIC_PAGE_WHY_OTHER };
+  const slug = ws.series.slug;
+  if (!slug) return { href: null, why: PUBLIC_PAGE_NO_ADDRESS };
+  return { href: eventHref({ slug, event_id: ws.series.id }), why: lc === 'paused' ? PUBLIC_PAGE_SUB_PAUSED : PUBLIC_PAGE_SUB };
+}

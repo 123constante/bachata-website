@@ -10,6 +10,7 @@ import {
   setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand, type OverridePatch, type OwnerCommand,
 } from '../../shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
+import { invalidatePublicEventCaches } from '../../shared/publicCache';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { readIsFull, type EventWorkspace } from '../../events/eventModel';
 import { DATE_WHY, L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
@@ -376,6 +377,7 @@ export function useSendPlan(seriesId: string) {
       void qc.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void qc.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       if (plan.to === 'date') void qc.invalidateQueries({ queryKey: dateDetailQueryKey(plan.occurrenceId) });
+      invalidatePublicEventCaches(qc);
     }
   };
 }
