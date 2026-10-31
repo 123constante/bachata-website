@@ -1,0 +1,292 @@
+{
+ "text": [
+  {
+   "th": "light",
+   "pair": "name on card",
+   "r": 14.72
+  },
+  {
+   "th": "light",
+   "pair": "muted on card",
+   "r": 7.88
+  },
+  {
+   "th": "light",
+   "pair": "muted on page",
+   "r": 7.25
+  },
+  {
+   "th": "light",
+   "pair": "name on page",
+   "r": 13.56
+  },
+  {
+   "th": "light",
+   "pair": "dj badge text on badge fill",
+   "r": 8.07
+  },
+  {
+   "th": "light",
+   "pair": "dj section title on card",
+   "r": 5.93
+  },
+  {
+   "th": "light",
+   "pair": "dj initials on tile",
+   "r": 7.26
+  },
+  {
+   "th": "light",
+   "pair": "dancer badge text on badge fill",
+   "r": 5.47
+  },
+  {
+   "th": "light",
+   "pair": "dancer section title on card",
+   "r": 5.47
+  },
+  {
+   "th": "light",
+   "pair": "dancer initials on tile",
+   "r": 7.1
+  },
+  {
+   "th": "light",
+   "pair": "teacher badge text on badge fill",
+   "r": 7.1
+  },
+  {
+   "th": "light",
+   "pair": "teacher section title on card",
+   "r": 7.1
+  },
+  {
+   "th": "light",
+   "pair": "teacher initials on tile",
+   "r": 8.04
+  },
+  {
+   "th": "light",
+   "pair": "organiser badge text on badge fill",
+   "r": 5.59
+  },
+  {
+   "th": "light",
+   "pair": "organiser section title on card",
+   "r": 5.59
+  },
+  {
+   "th": "light",
+   "pair": "organiser initials on tile",
+   "r": 7.13
+  },
+  {
+   "th": "dark",
+   "pair": "name on card",
+   "r": 13.98
+  },
+  {
+   "th": "dark",
+   "pair": "muted on card",
+   "r": 7.97
+  },
+  {
+   "th": "dark",
+   "pair": "muted on page",
+   "r": 8.85
+  },
+  {
+   "th": "dark",
+   "pair": "name on page",
+   "r": 15.51
+  },
+  {
+   "th": "dark",
+   "pair": "dj badge text on badge fill",
+   "r": 8.07
+  },
+  {
+   "th": "dark",
+   "pair": "dj section title on card",
+   "r": 8.92
+  },
+  {
+   "th": "dark",
+   "pair": "dj initials on tile",
+   "r": 7.26
+  },
+  {
+   "th": "dark",
+   "pair": "dancer badge text on badge fill",
+   "r": 5.47
+  },
+  {
+   "th": "dark",
+   "pair": "dancer section title on card",
+   "r": 8.2
+  },
+  {
+   "th": "dark",
+   "pair": "dancer initials on tile",
+   "r": 7.1
+  },
+  {
+   "th": "dark",
+   "pair": "teacher badge text on badge fill",
+   "r": 7.1
+  },
+  {
+   "th": "dark",
+   "pair": "teacher section title on card",
+   "r": 6.96
+  },
+  {
+   "th": "dark",
+   "pair": "teacher initials on tile",
+   "r": 8.04
+  },
+  {
+   "th": "dark",
+   "pair": "organiser badge text on badge fill",
+   "r": 5.59
+  },
+  {
+   "th": "dark",
+   "pair": "organiser section title on card",
+   "r": 6.58
+  },
+  {
+   "th": "dark",
+   "pair": "organiser initials on tile",
+   "r": 7.13
+  }
+ ],
+ "edge": [
+  {
+   "th": "light",
+   "pair": "dj badge edge vs card (top card)",
+   "r": 5.93
+  },
+  {
+   "th": "light",
+   "pair": "dj badge edge vs page",
+   "r": 5.46
+  },
+  {
+   "th": "light",
+   "pair": "dj badge fill vs card",
+   "r": 1.82
+  },
+  {
+   "th": "light",
+   "pair": "dancer badge edge vs card (top card)",
+   "r": 5.47
+  },
+  {
+   "th": "light",
+   "pair": "dancer badge edge vs page",
+   "r": 5.04
+  },
+  {
+   "th": "light",
+   "pair": "dancer badge fill vs card",
+   "r": 5.47
+  },
+  {
+   "th": "light",
+   "pair": "teacher badge edge vs card (top card)",
+   "r": 7.1
+  },
+  {
+   "th": "light",
+   "pair": "teacher badge edge vs page",
+   "r": 6.54
+  },
+  {
+   "th": "light",
+   "pair": "teacher badge fill vs card",
+   "r": 7.1
+  },
+  {
+   "th": "light",
+   "pair": "organiser badge edge vs card (top card)",
+   "r": 5.59
+  },
+  {
+   "th": "light",
+   "pair": "organiser badge edge vs page",
+   "r": 5.15
+  },
+  {
+   "th": "light",
+   "pair": "organiser badge fill vs card",
+   "r": 5.59
+  },
+  {
+   "th": "dark",
+   "pair": "dj badge edge vs card (top card)",
+   "r": 8.92
+  },
+  {
+   "th": "dark",
+   "pair": "dj badge edge vs page",
+   "r": 9.9
+  },
+  {
+   "th": "dark",
+   "pair": "dj badge fill vs card",
+   "r": 8.92
+  },
+  {
+   "th": "dark",
+   "pair": "dancer badge edge vs card (top card)",
+   "r": 8.2
+  },
+  {
+   "th": "dark",
+   "pair": "dancer badge edge vs page",
+   "r": 9.1
+  },
+  {
+   "th": "dark",
+   "pair": "dancer badge fill vs card",
+   "r": 2.97
+  },
+  {
+   "th": "dark",
+   "pair": "teacher badge edge vs card (top card)",
+   "r": 6.96
+  },
+  {
+   "th": "dark",
+   "pair": "teacher badge edge vs page",
+   "r": 7.73
+  },
+  {
+   "th": "dark",
+   "pair": "teacher badge fill vs card",
+   "r": 2.29
+  },
+  {
+   "th": "dark",
+   "pair": "organiser badge edge vs card (top card)",
+   "r": 6.58
+  },
+  {
+   "th": "dark",
+   "pair": "organiser badge edge vs page",
+   "r": 7.3
+  },
+  {
+   "th": "dark",
+   "pair": "organiser badge fill vs card",
+   "r": 2.91
+  }
+ ],
+ "textMin": 5.47,
+ "edgeMin": 5.04,
+ "fails": {
+  "text": [],
+  "edge": []
+ }
+}
