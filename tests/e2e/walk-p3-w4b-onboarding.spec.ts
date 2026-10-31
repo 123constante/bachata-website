@@ -30,7 +30,9 @@ async function open(page: Page, shape: Shape, path = '/account/p3') {
   }
   await page.goto(path);
   const mounted = await page.getByTestId('p3-shell').waitFor({ timeout: 15_000 }).then(() => true, () => false);
-  test.skip(!mounted, 'organiserP3 is off in this server: /account/p3 is not mounted');
+  // Skip ONLY when the flag is off. With it on (e2e-smoke.yml sets it) an unmounted page is a FAILURE,
+  // not a skip: scripts/check-p3-specs-not-skipped.mjs holds every P3 skip to this shape.
+  test.skip(!mounted && process.env.VITE_ENABLE_ORGANISER_P3 !== 'true', 'organiserP3 is off in this server: /account/p3 is not mounted');
   return fake;
 }
 

@@ -744,14 +744,16 @@ export function smokeEnvFrom(text, parseYaml) {
   const jobs = doc && doc.jobs && typeof doc.jobs === "object" ? Object.values(doc.jobs) : [];
   for (const job of jobs) {
     const steps = job && Array.isArray(job.steps) ? job.steps : [];
-    const runsSmoke = steps.some(
-      (s) => s && typeof s.run === "string" && s.run.includes("test:e2e"),
-    );
+    // EXACTLY `test:e2e`, never `test:e2e:p3`: that step turns the P3 flags on, and
+    // lifting its env into this (legacy) smoke run reds organiser-* on a clean tree --
+    // P3 takes over /account/o. (guard-p3-walk-specs, 2026-10-31.)
+    const isSmoke = (s) => s && typeof s.run === "string" && /\btest:e2e(?![:\w-])/.test(s.run);
+    const runsSmoke = steps.some(isSmoke);
     if (!runsSmoke) continue;
     lift(doc.env);
     lift(job.env);
     for (const step of steps) {
-      if (step && typeof step.run === "string" && step.run.includes("test:e2e")) lift(step.env);
+      if (isSmoke(step)) lift(step.env);
     }
   }
   const REQUIRED = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"];

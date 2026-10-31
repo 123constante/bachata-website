@@ -17,7 +17,8 @@ Contract tests: `tests/eventViewCompat.contract.test.ts`,
 ## E2E (Playwright)
 
 ```bash
-npm run test:e2e         # curated smoke specs — this is the CI gate (e2e-smoke.yml)
+npm run test:e2e         # curated smoke specs — this is the CI gate (e2e-smoke.yml), P3 flags OFF
+npm run test:e2e:p3      # the P3 walk specs — second e2e-smoke step, needs VITE_ENABLE_ORGANISER_P3/_TICKETING=true
 npm run test:e2e:all     # everything under tests/e2e/ — no scheduled caller
 ```
 
