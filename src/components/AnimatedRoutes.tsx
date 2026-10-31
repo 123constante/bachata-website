@@ -62,6 +62,8 @@ const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/A
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
+// The S5 public door ("I run events"): ships closed unless VITE_ORGANISER_DOOR=on.
+const OrganiserDoor = lazyWithRetry(() => import("@/modules/organiser-door/DoorPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 // /account: the dancer home, or on to the organiser home (lib/accountRouting).
@@ -280,6 +282,7 @@ export const AnimatedRoutes = () => {
             <Route path="/admin/organisers" element={<PageTransition><AdminOrganisers /></PageTransition>} />
             <Route path="/ambassador/*" element={<PageTransition><AmbassadorQueue /></PageTransition>} />
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
+            <Route path="/run-events" element={<PageTransition><OrganiserDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
 

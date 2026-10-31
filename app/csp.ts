@@ -14,7 +14,7 @@
 export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean }): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     // server.arcgisonline.com is the BASEMAP host (was *.basemaps.cartocdn.com,
@@ -34,7 +34,7 @@ export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean 
     // basemaps-api = tiles + glyphs, cdn.arcgis = sprites. Miss one and the
     // map draws nothing at HTTP 200 with no failed IMAGE request, which is the
     // img-src failure mode above wearing a different hat.
-    "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com",
+    "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.supabase.co wss://*.supabase.co https://basemapstyles-api.arcgis.com https://basemaps-api.arcgis.com https://cdn.arcgis.com https://challenges.cloudflare.com",
     // MapLibre parses tiles in a Worker. This directive is a deliberate
     // NARROWING, not an enabler, and the difference matters to anyone deciding
     // whether it can go: worker-src falls back to child-src and then
@@ -61,7 +61,7 @@ export function contentSecurityPolicy(nonce: string, opts?: { forMeta?: boolean 
     // If the assets are ever moved to a separate CDN origin, this is one of
     // the things that breaks, and blob: is the fix.
     "worker-src 'self'",
-    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com",
     ...(opts?.forMeta ? [] : ["frame-ancestors 'none'"]),
     "base-uri 'self'",
     "form-action 'self'",
