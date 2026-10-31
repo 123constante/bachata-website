@@ -41,3 +41,52 @@ Owner decision 1 (c) is built. The flag is NOT flipped. Vite env is untouched. `
 6. Full unit run: everything is green except tests/* contract and env suites (eventViewCompat, occurrenceProgram, publicEventPageLineup,
    ogBrandedCardLayout, integrityCouldNotRun). They do not touch these files and look like env/live-DB failures, but they were NOT checked against main.
    Typecheck: 101 pre-existing errors on the branch vs 103 on main. None are in the changed files.
+
+---
+
+# Round 2 (worker dt_2099a974b5a1, 2026-10-31) -- brief `brief/p3-landing-r2:docs/briefs/p3-landing-r2.md`
+
+## Done
+1. **Bundle budget GREEN, zero first-load bytes.** Root cause was NOT the featureFlags import. Two things:
+   (a) passing the `flags` OBJECT as a function argument (`organiserAreaHome(flags)`, `r1AreaRedirect(flags, ...)`)
+   makes it escape, which stops Rollup tracking `flags.*` constants, so every flag-gated branch on every route
+   was kept (+1.8 KB everywhere: faq and landing pages too, which touch none of this code);
+   (b) a helper module shared by eager callers became its own first-load chunk (+1 request; chunk ratchet).
+   Also found: `import.meta.env?.VITE_X` (with `?.`) inlines Vite's WHOLE env object (~0.5 KB); only the exact
+   `import.meta.env.VITE_X` form is replaced.
+   Fix: `accountRouting.ORGANISER_AREA_HOME_PATH` is a build-time constant over the exact env form (folds to one
+   string); first-load doors read it. `lib/organiserAreaHome` is lazy-only. PublicClaimCard / OrganiserRoutes
+   pass the two booleans, never `flags`. Same-directory builds: every route equals main; dancer-app 371.8 KB
+   both (-6 B gz by chunk walk), chunk counts equal main on every route. perf-budgets.json / vite.config.ts untouched.
+   Tests: the door suite uses `vi.stubEnv`; a pin proves ORGANISER_AREA_HOME_PATH == organiserAreaHome(flags)
+   for 7 env combinations.
+2. `src/modules/organiser/shell/__tests__/p3Redirect.mount.test.tsx` mounts OrganiserRoutes (14 cases,
+   mutation-checked). `tests/e2e/p3-landing-redirect.spec.ts` (390x844, 3 tests, passed locally with flags on),
+   added by name to `test:e2e:p3`; check-p3-specs-not-skipped green.
+3. Handover item 2 confirmed by a table in p3Landing.matrix (`?legacy=1` into R1 Home x page count). Item 3 is a
+   DECISION for the lead in the PR body.
+
+4. **Dancer-area isolation fix.** Round 1 changed two dancer-app files (optionsModel, NoProfileWayOut), which made
+   this a dancer-area PR, and `check:dancer-area-isolation` (unit-tests job) then failed every other file. Both are
+   reverted to main. Their organiser rows stay `/account/o`, and while P3 is live OrganiserRoutes redirects that to
+   P3 Home: one more hop, through the lazy chunk. The matrix asserts this chain.
+
+## CI steps run locally (head before the final docs commit = 5f6f3cb)
+- architecture-guard (every npm/node step, check:images with AUDIT_STRICT=1), typecheck steps, perf-budget
+  (build, bundle-budget, first-load-requests, chunk-cycles + self-tests), workflow-lint scripts,
+  dancer-area-isolation (+ self-test): PASS.
+- lint chain: 24/24 links green (eslint is informational). pre-ship: everything PASS except test:unit (below),
+  so it skipped e2e. I ran e2e myself.
+- test:unit: 5 failures in tests/integrityCouldNotRun.test.ts and 10 in 3 contract suites (eventViewCompat,
+  occurrenceProgram, publicEventPageLineup). The SAME failures happen on main in this sandbox, so they are inherited
+  (sandbox / live-DB env).
+- test:e2e:p3: 87 passed, 2 failed in the full run (walk-p3-create-kinds 360x740, walk-p3-golive Review->Live).
+  Both pass 24/24 in isolation on the branch AND on main, so they look load-flaky.
+- test:e2e: 179 passed, 6 skipped, 3 failed in the full run (home-nights, organiser-onboarding signed-out @1280,
+  organiser-profile). They pass 19/19 in isolation on the branch and on main, so they look load-flaky.
+- Not runnable here: db-contract-check (needs secrets), ci-budget-guard (needs a token), phone-qa-section (needs the
+  PR body in env), check:doc-weight (needs GITHUB_REPOSITORY), lighthouse, seo/og (need a live deploy).
+
+## Left / next
+- `/code-review` was not run (Ricky types it). No browser walk beyond the e2e at 390x844. The flag is NOT flipped.
+- Lead decision in the PR body: an unfinished dancer at /account/o with the flag on now reaches P3 Welcome.
