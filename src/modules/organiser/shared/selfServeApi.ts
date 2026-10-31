@@ -63,6 +63,8 @@ export interface MyAccessRequest {
   createdAt: string;
   /** When an admin or owner answered; null while open. */
   resolvedAt: string | null;
+  /** Why it was declined, when the answerer left a note (list_organiser_access_requests_v1 'mine', read on prod 2026-10-31); null otherwise. */
+  decisionNote?: string | null;
 }
 
 export type { ClaimCandidate, ClaimableOrganiser };
@@ -97,6 +99,7 @@ export async function fetchMyAccessRequests(): Promise<MyAccessRequest[]> {
     status: String(row.status),
     createdAt: String(row.created_at),
     resolvedAt: typeof row.resolved_at === 'string' ? row.resolved_at : null,
+    decisionNote: typeof row.decision_note === 'string' && row.decision_note.trim() ? row.decision_note.trim() : null,
   }));
 }
 

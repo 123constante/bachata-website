@@ -79,3 +79,18 @@ describe('organiser_claim_hints_v1', () => {
     await expect(fetchClaimHint('o1')).resolves.toBeNull();
   });
 });
+
+describe('fetchMyAccessRequests decision_note mapping', () => {
+  const row = (extra: Record<string, unknown>) => ({ request_id: 'r1', ['organiser' + '_id']: 'o1', organiser_name: 'P', status: 'declined', created_at: '2026-10-01T00:00:00Z', resolved_at: '2026-10-02T00:00:00Z', ...extra });
+  it.each([
+    ['a string (trimmed)', { decision_note: '  We are full ' }, 'We are full'],
+    ['whitespace only', { decision_note: '   ' }, null],
+    ['missing', {}, null],
+    ['null', { decision_note: null }, null],
+  ])('%s', async (_n, extra, want) => {
+    const { fetchMyAccessRequests } = await import('../selfServeApi');
+    rpc.mockResolvedValue({ data: [row(extra)], error: null });
+    const [r] = await fetchMyAccessRequests();
+    expect(r.decisionNote).toBe(want);
+  });
+});

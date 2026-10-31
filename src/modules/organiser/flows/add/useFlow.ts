@@ -37,12 +37,15 @@ export const useDateDetail = (occurrenceId: string, enabled: boolean) =>
  * idempotency key, so a lost reply is replayed by the server, not applied twice.
  * `refusal` lets a step word a refusal its own way (put back's date_cap).
  */
-export function useFlowSend(seriesId: string, refusal?: (err: unknown) => string | null) {
+export function useFlowSend(seriesId: string, refusal?: (err: unknown) => string | null, gated?: (err: unknown, copy: (e: unknown) => string) => string | null) {
   const command = useOwnerCommand(seriesId);
   const keys = useRef(new Map<string, string>());
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // P3's gate (A1): an onboarding refusal opens the sheet and leaves no error line (gated returns null).
+  const wording = (err: unknown) => (gated ? gated(err, (e) => refusal?.(e) ?? commandErrorMessage(e)) : refusal?.(err) ?? commandErrorMessage(err));
 
   /** Resolves with the server's reply, or null when the send failed (the screen shows why). */
   const send = async (targetId: string, version: number, cmd: OwnerCommand): Promise<CommandResponse | null> => {
@@ -53,7 +56,7 @@ export function useFlowSend(seriesId: string, refusal?: (err: unknown) => string
       return await command.mutateAsync({ targetId, version, command: cmd, idempotencyKey: keys.current.get(sig) });
     } catch (err) {
       if (isVersionConflict(err)) setConflict(true);
-      else setError(refusal?.(err) ?? commandErrorMessage(err));
+      else setError(wording(err));
       return null;
     }
   };
@@ -65,7 +68,7 @@ export function useFlowSend(seriesId: string, refusal?: (err: unknown) => string
     try {
       await work();
     } catch (err) {
-      setError(commandErrorMessage(err));
+      setError(gated ? gated(err, commandErrorMessage) : commandErrorMessage(err));
     } finally {
       setBusy(false);
     }

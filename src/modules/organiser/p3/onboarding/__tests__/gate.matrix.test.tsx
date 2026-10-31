@@ -41,6 +41,8 @@ import { useToast } from '../../screens/Toast';
 import { useDateSend, useEverySend } from '../../data/sessions';
 import { sendPlan, type DatePlan } from '../../data/dates';
 import { previewRepeat } from '../../data/repeat';
+import { useEventSend } from '../../../flows/event/useEventSend';
+import { useGatedCopy } from '../gate';
 
 afterEach(() => {
   cleanup();
@@ -132,6 +134,18 @@ function ToastHarness() {
   );
 }
 
+/** SeriesOrganisers' real send path (F-10): useEventSend with the gate hook, as the screen wires it for P3. */
+function OrganisersHarness() {
+  const gated = useGatedCopy();
+  const { sendThenDone, error, conflict } = useEventSend('ser-1', gated);
+  return (
+    <>
+      <button type="button" data-testid="org-save" onClick={() => void sendThenDone(7, CMD, { title: 'Saved', message: 'Saved' })}>Save</button>
+      {(error || conflict) && <p data-testid="org-send-error">{error ?? commandErrorMessage(PLAIN)}</p>}
+    </>
+  );
+}
+
 type Surface = { name: string; mount: () => ReactNode; act: () => Promise<void>; errorTestId: string | null };
 const SURFACES: Surface[] = [
   {
@@ -139,6 +153,12 @@ const SURFACES: Surface[] = [
     mount: () => <TrayHarness />,
     act: async () => { await act(async () => { fireEvent.click(screen.getByTestId('p3-save')); }); },
     errorTestId: 'p3-save-error',
+  },
+  {
+    name: 'SeriesOrganisers save (useEventSend)',
+    mount: () => <OrganisersHarness />,
+    act: async () => { await act(async () => { fireEvent.click(screen.getByTestId('org-save')); }); },
+    errorTestId: 'org-send-error',
   },
   {
     name: 'CancelEventSheet',
@@ -310,6 +330,11 @@ describe('no P3 write catch shows a refusal as a bare error line', () => {
       expect(bare(readFileSync(resolve(dir, file), 'utf8'))).toEqual([]);
     });
   }
+  it('SeriesOrganisers routes its refusals through the gate hook on P3 (F-10)', () => {
+    const src = readFileSync(resolve(__dirname, '../../../events/SeriesOrganisers.tsx'), 'utf8');
+    expect(src).toMatch(/useGatedCopy\(/);
+    expect(src).toMatch(/useEventSend\(seriesId, kind === 'p3' \? gated : undefined\)/);
+  });
   it('the seven write screens use the gate hook', () => {
     for (const f of ['EditTray.tsx', 'CancelEventSheet.tsx', 'Toast.tsx', 'StatusSheet.tsx', 'DateSheet.tsx', 'SessionSheet.tsx', 'RepeatSheet.tsx']) {
       expect(readFileSync(resolve(dir, f), 'utf8'), f).toMatch(/useGatedCopy\(/);
