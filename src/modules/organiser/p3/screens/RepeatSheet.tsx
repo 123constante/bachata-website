@@ -17,7 +17,7 @@ import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
 
 /** The sheet and its scrim go to document.body, inside their own p3-theme (the frame's light or dark). */
-function OnBody({ children }: { children: ReactNode }) {
+export function OnBody({ children }: { children: ReactNode }) {
   const theme = document.querySelector('.p3-frame')?.getAttribute('data-theme') ?? undefined;
   return createPortal(<div className="p3-theme p3-portal" data-theme={theme}>{children}</div>, document.body);
 }
