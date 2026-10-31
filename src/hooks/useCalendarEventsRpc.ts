@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { CALENDAR_EVENTS_QUERY_ROOT } from '@/lib/publicQueryKeys';
 import {
   getCalendarEvents,
   CalendarEventRow,
@@ -33,7 +32,7 @@ export const useCalendarEvents = ({
 }: UseCalendarEventsParams) => {
   return useQuery({
     queryKey: [
-      CALENDAR_EVENTS_QUERY_ROOT,
+      'calendar-events',
       rangeStart.toISOString(),
       rangeEnd.toISOString(),
       citySlug,

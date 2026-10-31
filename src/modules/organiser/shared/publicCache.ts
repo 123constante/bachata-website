@@ -1,5 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { CALENDAR_EVENTS_QUERY_ROOT, EVENT_PAGE_QUERY_ROOT } from '@/lib/publicQueryKeys';
+
+/**
+ * Roots of the public site's React Query keys an organiser write makes stale. Kept as
+ * strings here, not imported from the public hooks: a shared module became one more
+ * first-load chunk on /event, /city, /parties and /classes (perf-budget ratchet).
+ * publicCache.test.tsx pins both to eventPageQueryKey, useCalendarEvents and
+ * seoLandingEventsKey, so a renamed key fails there.
+ */
+export const EVENT_PAGE_QUERY_ROOT = 'event-page-snapshot';
+export const CALENDAR_EVENTS_QUERY_ROOT = 'calendar-events';
 
 /**
  * FIXLIST F-33: the public event page and the calendar keep their data for an hour

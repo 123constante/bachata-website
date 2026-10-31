@@ -12,8 +12,8 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 
 import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import { seoLandingEventsKey } from '@/lib/seoLandingEvents';
-import { CALENDAR_EVENTS_QUERY_ROOT, EVENT_PAGE_QUERY_ROOT } from '@/lib/publicQueryKeys';
-import { invalidatePublicEventCaches } from '../publicCache';
+import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
+import { CALENDAR_EVENTS_QUERY_ROOT, EVENT_PAGE_QUERY_ROOT, invalidatePublicEventCaches } from '../publicCache';
 import { useRunCommands, useSendOnce } from '../runCommands';
 import { useSendPlan } from '../../p3/data/dates';
 import { lifecycleCommand } from '../seriesCommands';
@@ -56,6 +56,12 @@ describe('F-33 key roots are the ones the public hooks build', () => {
   it('event page key', () => expect(eventPageQueryKey(S, null)[0]).toBe(EVENT_PAGE_QUERY_ROOT));
   it('calendar key (the SEO landing pages dehydrate the same key)', () =>
     expect(seoLandingEventsKey('2026-10-31', 7)[0]).toBe(CALENDAR_EVENTS_QUERY_ROOT));
+  it('calendar key as useCalendarEvents builds it', () => {
+    const qc = new QueryClient();
+    rpc.mockReturnValue(new Promise(() => undefined));
+    renderHook(() => useCalendarEvents({ rangeStart: new Date('2026-10-01T00:00:00Z'), rangeEnd: new Date('2026-11-01T00:00:00Z') }), { wrapper: wrapper(qc) });
+    expect(qc.getQueryCache().getAll().map((q) => q.queryKey[0])).toEqual([CALENDAR_EVENTS_QUERY_ROOT]);
+  });
 });
 
 describe('F-33 invalidatePublicEventCaches', () => {
