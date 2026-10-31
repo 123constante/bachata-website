@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
+import { Link as RouterLink } from 'react-router-dom';
 import { eventLock } from '../../shared/eventState';
 import { VenueList } from './VenueList';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
@@ -82,7 +83,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-details-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
+          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
       <Field id="name" label={L.detailsName} problem={touched.name || form.changed.includes('name') ? problems.name : null}>

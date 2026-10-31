@@ -2,6 +2,7 @@ import { PAYMENT_LABEL, togglePayment } from '../../events/paymentModel';
 import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
 import { eventLock } from '../../shared/eventState';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
+import { Link as RouterLink } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L } from '../model';
 import {
@@ -43,7 +44,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-prices-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
+          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
       {freeSwitchShown && (

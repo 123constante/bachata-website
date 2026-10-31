@@ -6,8 +6,8 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
-import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
+import { organiserAreaHome, p3AreaLive } from '@/lib/organiserAreaHome';
 import { reasonScreen, type ReasonScreen } from '../inviteModel';
 import { JOIN_COPY } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';
@@ -165,12 +165,13 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
 export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
   const selfServe = flags.organiserSelfServe;
   // The ONE landing helper; without an id (or with the area off) the plain home links stay.
-  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : ORG_PATHS.home) : '/';
+  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
+  const button = !selfServe ? JOIN_COPY.done.buttonOff : p3AreaLive(flags) ? JOIN_COPY.done.buttonP3 : JOIN_COPY.done.button;
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
       <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
-      <Link to={to} className={BTN} data-testid="join-done-home">{selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff}</Link>
+      <Link to={to} className={BTN} data-testid="join-done-home">{button}</Link>
     </div>
   );
 }
