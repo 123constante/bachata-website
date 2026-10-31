@@ -1,0 +1,21 @@
+# Brief: p3-fix-editor-states -- FIXLIST F-17, F-18, F-19, F-22, F-24, F-25 (dead states and copy; no product decision needed)
+
+Branch `claude/p3-fix-editor-states` from origin/main. Model Sonnet (copy and states, no new rule). Lane normal (no DB change).
+Rows F-20, F-21 and F-23 of the same group WAIT for an owner answer: do not touch them.
+
+## Shared rules for every P3 fix slice (program lead 2026-10-31)
+- Context cap 35%: push + `PARTIAL [worker-done <ticket>]` if you cannot finish. Stopping rule: one independent review (the lead dispatches it), one fix round, then the lead walks at 390x844.
+- Source of truth for each row: `docs/design/p3-acceptance/FIXLIST.md` (on main after #1216 merges; until then read it from `origin/claude/p3-fixlist`), the audit it cites, and `CONTRACT.md` in the same folder. Quote the row id in every commit and in the PR body with its result.
+- FILES OWNED BY ANOTHER OPEN PR (#1208 create-event): do NOT edit `p3/data/sessions.ts`, `p3/screens/RepeatSheet.tsx`, `p3/screens/parts.tsx`, `p3/screens/__tests__/screens.matrix.test.tsx`, `p3/shell/P3Routes.tsx`, `p3/shell/P3Shell.tsx`, `p3/shell/paths.ts`, `p3/new/**`, `p3/you/surface.tsx`, `package.json`. Put new tests in NEW test files. If a fix needs one of those files, stop that row, write it under "Left for the lead" in the PR body, and do the rest.
+- Table-driven vitest for every screen x shape the row names (prod shapes in INVENTORY.md; counts only). One shared mapping for any fact shown on more than one screen. No copy pointing at a control that is not on screen. Every empty or error state says what the person can do. Red first: run the new test against the unfixed code and paste the red line in the PR body.
+- Standing lines: prove the data source first (read the live RPC body read-only on prod and name the table/column); zero bytes to the dancer-app first load (`npm run check:bundle-budget` on main and on the branch; never edit perf-budgets.json or vite.config.ts); sheets and toasts are portalled, opening one must not scroll the page; an e2e at 390x844 asserts the boxes sit inside the viewport when you add a sheet.
+- Run every CI job step that applies (read `.github/workflows`), fill the PR body template incl. Verified / Not verified and the per-job table. Walk your screens at 390x844 with the ACCOUNTS.md test accounts; list the screenshots in the PR body. HTML entities, never raw Unicode punctuation. Full weekday names. Compact density (.claude/rules/design-density.md).
+- Commit subjects `fix(p3): ...`; the final one ends `[worker-done <ticket>]`.
+
+## Rows
+- **F-17** (low) `p3/screens/DetailsScreen.tsx:149-159`, `p3/screens/DateSheet.tsx` edit-where branch: a venue list failure gives a dead sheet (Close only); an empty list renders nothing. Fix: Try again on failure; an empty-state line that says what to do on empty; both sheets through one shared piece.
+- **F-18** (low) `p3/screens/PricesScreen.tsx:48,65`, `model/labels.ts:265`: a festival with no prices says "or switch on It's free" but the switch is not on screen (6 of 8 live festivals). Fix: the empty copy derives from the same choice list that decides whether the switch renders.
+- **F-19** (low) `p3/screens/CancelEventSheet.tsx:80-95`: an empty cancel-reasons list shows nothing. Fix: an actionable line plus Try again (the reasons come from the server; say so).
+- **F-22** (medium) `p3/screens/StatusSheet.tsx:176`, `model/status.ts:28`, `p3/screens/EventPage.tsx`: after Remove the person stays on a page now tagged "Finished"; later deep links open the full page tagged Finished. Fix: after Remove navigate to Events with the toast; an archived series opens a "Removed" state (tag "Removed", not "Finished") with the way onward. The tag mapping stays ONE function in status.ts used by every screen.
+- **F-24** (low) `p3/screens/DateFieldSheets.tsx:35-50`: a half-typed per-date name, photos or price is dropped silently on tab bar or phone Back. Fix: reuse the existing EditTray router-blocker pattern ("Leave without saving?") for these sheets; no second copy.
+- **F-25** (low) `p3/screens/EventPage.tsx:199`: broken-image icon when the cover URL is bad. Fix: onError fallback to the no-cover placeholder already used elsewhere.
