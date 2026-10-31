@@ -219,7 +219,10 @@ describe('door constants and the claim landing: flag x person', () => {
     const label = f.organiserP3 ? 'on' : 'off';
     it(`Options / Your areas organiser rows | P3 ${label}`, async () => {
       const m = await load(f);
-      expect(m.options.ORGANISER_AREA_PATH).toBe(base);
+      // The dancer app's Options row stays /account/o (dancer-area isolation: this PR touches no dancer-app file);
+      // while P3 is live OrganiserRoutes redirects it to P3 Home -- one more hop through the lazy chunk.
+      expect(m.options.ORGANISER_AREA_PATH).toBe(R1);
+      expect(r1AreaRedirect(f, { pathname: m.options.ORGANISER_AREA_PATH, search: '', hash: '' }, TODAY, false) ?? R1).toBe(base);
       expect(m.areas.AREA_HREF.organiser).toBe(base);
     });
     it(`claimed-by-me sign-in lands on the area Home, toast only elsewhere | P3 ${label}`, async () => {

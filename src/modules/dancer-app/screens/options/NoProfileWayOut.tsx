@@ -2,8 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/modules/organiser/ui';
 import { LinkRow } from '../blocks';
 import { useAuth } from '@/hooks/useAuth';
-import { APP_ACCOUNT_SETTINGS_PATH, ACCOUNT_SETTINGS_LABEL } from '@/lib/accountRouting';
-import { ORGANISER_AREA_HOME_PATH } from '@/lib/accountRouting';
+import { APP_ACCOUNT_SETTINGS_PATH, ACCOUNT_SETTINGS_LABEL, ORGANISER_HOME_PATH } from '@/lib/accountRouting';
 import SignOutControl from './SignOutControl';
 
 export const ORGANISER_AREA_LABEL = 'Go to my organiser area';
@@ -29,7 +28,7 @@ const NoProfileWayOut = () => {
   const isOrganiser = (home.data?.organisers.length ?? 0) > 0;
   return (
     <Card className="mt-[8px]" testId="no-profile-way-out">
-      {isOrganiser && <LinkRow to={ORGANISER_AREA_HOME_PATH} label={ORGANISER_AREA_LABEL} testId="no-profile-organiser" />}
+      {isOrganiser && <LinkRow to={ORGANISER_HOME_PATH} label={ORGANISER_AREA_LABEL} testId="no-profile-organiser" />}
       <LinkRow to={APP_ACCOUNT_SETTINGS_PATH} label={ACCOUNT_SETTINGS_LABEL} testId="no-profile-settings" />
       <SignOutControl />
     </Card>
