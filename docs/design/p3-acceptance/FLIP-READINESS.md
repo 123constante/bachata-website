@@ -272,6 +272,6 @@ Not blockers for day one because prod has no such shape: F-26 (0 users with 2+ p
 
 ## Handover
 
-Done: this document (FIXLIST 60/60 rows, WALKLIST 47/47 rows, prod counts, verdict, blockers).
+Done: this document (FIXLIST 60/60 rows, WALKLIST 47/47 rows, prod counts, verdict, blockers); PR #1233.
 Left: nothing from the brief. Next: the owner answers decisions 1, 11 and 12 and the create-flow
 kinds question above; slice 1 (landing) is the first PR; the lead seeds and walks section A.
