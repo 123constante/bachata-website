@@ -1,0 +1,369 @@
+[
+ {
+  "build": "hub",
+  "name": "dancers-wall > rich all-three person",
+  "start": "/dancers",
+  "steps": [
+   "tile:456af8d2-aa47-4055-8d5d-08afaa90cfb4|ramiro-zapata",
+   "sel:[data-testid=hub-cta]",
+   "sel:[data-testid=role-pill]:not([aria-current])",
+   "back-ui",
+   "back-ui",
+   "back-ui",
+   "browser-back",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/dancers"
+   },
+   {
+    "action": "tile:456af8d2-aa47-4055-8d5d-08afaa90cfb4|ramiro-zapata -> \"Next gig Thursday 29 October Ramiro Zapa\" href=/people/456af8d2-aa47-4055-8d5d-08afaa90cfb4",
+    "ok": true,
+    "url": "/people/ramiro-zapata",
+    "h1": "Ramiro Zapata"
+   },
+   {
+    "action": "sel:[data-testid=hub-cta] -> \"Open DJ page\" href=/djs/456af8d2-aa47-4055-8d5d-08afaa90cfb4",
+    "ok": true,
+    "url": "/djs/ramiro-zapata",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "sel:[data-testid=role-pill]:not([aria-current]) (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/djs/ramiro-zapata",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/djs/ramiro-zapata",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/djs/ramiro-zapata",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/djs/ramiro-zapata",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/people/ramiro-zapata",
+    "h1": "Ramiro Zapata"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/dancers",
+    "h1": "Meet Dancers"
+   }
+  ]
+ },
+ {
+  "build": "hub",
+  "name": "djs-wall > one-role DJ",
+  "start": "/djs",
+  "steps": [
+   "tile:59150b2d-0963-4cea-80fd-76c2d48ab23c|bobby-blanco",
+   "back-ui",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/djs"
+   },
+   {
+    "action": "tile:59150b2d-0963-4cea-80fd-76c2d48ab23c|bobby-blanco -> \"BB Next gig Saturday 7 November Bobby Bl\" href=/djs/59150b2d-0963-4cea-80fd-76c2d48ab23c",
+    "ok": true,
+    "url": "/djs/bobby-blanco",
+    "h1": "Bobby Blanco"
+   },
+   {
+    "action": "back-ui -> \"Back to DJs\" href=/djs",
+    "ok": true,
+    "url": "/djs",
+    "h1": "Bachata DJs"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/djs/bobby-blanco",
+    "h1": "Bobby Blanco"
+   }
+  ]
+ },
+ {
+  "build": "hub",
+  "name": "dancers-wall > dancer+dj, hub card",
+  "start": "/dancers",
+  "steps": [
+   "tile:11549aa4-599a-4be1-96e2-262f0696f9b1|elias",
+   "sel:[data-testid=hub-also-card]",
+   "back-ui",
+   "back-ui",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/dancers"
+   },
+   {
+    "action": "tile:11549aa4-599a-4be1-96e2-262f0696f9b1|elias -> \"Next gig Friday 23 October Elias , DJ , \" href=/people/11549aa4-599a-4be1-96e2-262f0696f9b1",
+    "ok": true,
+    "url": "/people/elias",
+    "h1": "Elias"
+   },
+   {
+    "action": "sel:[data-testid=hub-also-card] -> \"Dancer Their dancer page Open\" href=/dancers/11549aa4-599a-4be1-96e2-262f0696f9b1",
+    "ok": true,
+    "url": "/dancers/elias",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/dancers/elias",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/dancers/elias",
+    "h1": "Something went wrong"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/people/elias",
+    "h1": "Elias"
+   }
+  ]
+ },
+ {
+  "build": "hub",
+  "name": "teachers-wall > first tile",
+  "start": "/teachers",
+  "steps": [
+   "sel:[data-testid=wall-tile][href]",
+   "sel:[data-testid=hub-cta]",
+   "back-ui",
+   "back-ui"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/teachers"
+   },
+   {
+    "action": "sel:[data-testid=wall-tile][href] (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/teachers",
+    "h1": "Find Teachers"
+   },
+   {
+    "action": "sel:[data-testid=hub-cta] (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/teachers",
+    "h1": "Find Teachers"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/teachers",
+    "h1": "Find Teachers"
+   },
+   {
+    "action": "back-ui (NOT ON SCREEN)",
+    "ok": false,
+    "url": "/teachers",
+    "h1": "Find Teachers"
+   }
+  ]
+ },
+ {
+  "build": "hub",
+  "name": "wall > Organisers link",
+  "start": "/dancers",
+  "steps": [
+   "sel:[data-testid=wall-organisers]",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/dancers"
+   },
+   {
+    "action": "sel:[data-testid=wall-organisers] -> \"Organisers\" href=/organisers",
+    "ok": true,
+    "url": "/organisers",
+    "h1": "Meet the Organisers"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/dancers",
+    "h1": "Meet Dancers"
+   }
+  ]
+ },
+ {
+  "build": "hub",
+  "name": "direct hub link, one-role dancer",
+  "start": "/people/00422bf9-1f6e-4d15-b598-dcfbc1a7d5f3",
+  "steps": [
+   "back-ui",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/dancers/unclaimed-00422bf9"
+   },
+   {
+    "action": "back-ui -> \"Back\" href=/dancers",
+    "ok": true,
+    "url": "/dancers",
+    "h1": "Meet Dancers"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/dancers/unclaimed-00422bf9",
+    "h1": "Biskit"
+   }
+  ]
+ },
+ {
+  "build": "main",
+  "name": "djs list > all-three person",
+  "start": "/djs",
+  "steps": [
+   "tile:076e6e97-0259-42d3-98d1-5c5d25a8f4b2|jeff",
+   "back-ui",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/djs"
+   },
+   {
+    "action": "tile:076e6e97-0259-42d3-98d1-5c5d25a8f4b2|jeff -> \"J Jeff Playing soon London , Teacher , D\" href=/djs/076e6e97-0259-42d3-98d1-5c5d25a8f4b2",
+    "ok": true,
+    "url": "/djs/jeff",
+    "h1": "Jeff"
+   },
+   {
+    "action": "back-ui -> \"Back\" href=/djs",
+    "ok": true,
+    "url": "/djs",
+    "h1": "Bachata DJs"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/djs/jeff",
+    "h1": "Jeff"
+   }
+  ]
+ },
+ {
+  "build": "main",
+  "name": "dancers list > all-three person",
+  "start": "/dancers",
+  "steps": [
+   "tile:076e6e97-0259-42d3-98d1-5c5d25a8f4b2|jeff",
+   "back-ui",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/dancers"
+   },
+   {
+    "action": "tile:076e6e97-0259-42d3-98d1-5c5d25a8f4b2|jeff -> \"Jeff , Teacher , DJ\" href=/dancers/076e6e97-0259-42d3-98d1-5c5d25a8f4b2",
+    "ok": true,
+    "url": "/dancers/jeff",
+    "h1": "Jeff"
+   },
+   {
+    "action": "back-ui -> \"Back\" href=/dancers",
+    "ok": true,
+    "url": "/dancers",
+    "h1": "Meet Dancers"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/dancers/jeff",
+    "h1": "Jeff"
+   }
+  ]
+ },
+ {
+  "build": "main",
+  "name": "dancers list > dancer+dj, cross link",
+  "start": "/dancers",
+  "steps": [
+   "tile:11549aa4-599a-4be1-96e2-262f0696f9b1|elias",
+   "sel:main a[href^=\"/djs/\"]",
+   "back-ui",
+   "browser-back"
+  ],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/dancers"
+   },
+   {
+    "action": "tile:11549aa4-599a-4be1-96e2-262f0696f9b1|elias -> \"Elias , DJ\" href=/dancers/11549aa4-599a-4be1-96e2-262f0696f9b1",
+    "ok": true,
+    "url": "/dancers/elias",
+    "h1": "Elias"
+   },
+   {
+    "action": "sel:main a[href^=\"/djs/\"] -> \"DJ\" href=/djs/11549aa4-599a-4be1-96e2-262f0696f9b1",
+    "ok": true,
+    "url": "/djs/elias",
+    "h1": "Elias"
+   },
+   {
+    "action": "back-ui -> \"Back\" href=/djs",
+    "ok": true,
+    "url": "/djs",
+    "h1": "Bachata DJs"
+   },
+   {
+    "action": "browser-back",
+    "ok": true,
+    "url": "/djs/elias",
+    "h1": "Elias"
+   }
+  ]
+ },
+ {
+  "build": "main",
+  "name": "direct /people link (flag off)",
+  "start": "/people/076e6e97-0259-42d3-98d1-5c5d25a8f4b2",
+  "steps": [],
+  "hops": [
+   {
+    "action": "open",
+    "url": "/people/jeff"
+   }
+  ]
+ }
+]
