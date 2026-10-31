@@ -35,6 +35,40 @@ export function statusOf(lifecycle: string, format: string | null, kind: P3Kind,
   return { key: 'finished', label: kind === 'course' ? L.allDone : L.finished, past };
 }
 
+/** The one control Home's "Nothing coming up" card shows: Events, or New event. */
+export type NextUpAction = 'events' | 'new';
+
+export interface NextUpAdvice {
+  copy: string;
+  action: NextUpAction;
+}
+
+/**
+ * FIXLIST F-16: why Home has no Next up, and the ONE control that works for it. Read from
+ * statusOf (lifecycle x a date coming x format), so the words never offer dates to an event
+ * tagged Finished and never name a control that is not on the card.
+ */
+export function nextUpAdviceOf(rows: ReadonlyArray<{ lifecycle: string; status: P3Status }>): NextUpAdvice {
+  // a live weekly event with nothing coming up can take more dates (its event page has Add a date)
+  if (rows.some((r) => r.status.key === 'warn')) {
+    return { copy: 'Your weekly event has no dates coming up. Open it in Events and add dates; the next one shows here.', action: 'events' };
+  }
+  if (rows.some((r) => r.lifecycle === 'draft')) {
+    return { copy: 'Nothing is live yet. Open a draft in Events and put it live; its next date shows here.', action: 'events' };
+  }
+  if (rows.some((r) => r.lifecycle === 'paused')) {
+    return { copy: 'Your events are hidden. Open one in Events and show it again; its next date shows here.', action: 'events' };
+  }
+  if (rows.some((r) => r.status.key === 'review')) {
+    return { copy: 'Your event is waiting for a check. Its next date shows here once it is live; Events shows where it stands.', action: 'events' };
+  }
+  // live, but a one-off or a course whose dates have all passed: it cannot take new dates
+  if (rows.some((r) => r.lifecycle === 'live')) {
+    return { copy: 'Your events have all happened, and a one-off or a course cannot take new dates. Open Events to see them or add a new event there.', action: 'events' };
+  }
+  return { copy: 'Nothing is on the calendar right now. Add an event and its next date shows here.', action: 'new' };
+}
+
 /** Before 5pm a date today is "Today", not "Tonight" (daytime classes and workshops). */
 const EVENING_FROM = '17:00';
 

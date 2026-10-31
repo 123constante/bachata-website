@@ -1,0 +1,167 @@
+diff --git a/src/modules/organiser/p3/screens/HomeScreen.tsx b/src/modules/organiser/p3/screens/HomeScreen.tsx
+index 8e5c8e58..ff7e14f0 100644
+--- a/src/modules/organiser/p3/screens/HomeScreen.tsx
++++ b/src/modules/organiser/p3/screens/HomeScreen.tsx
+@@ -3,7 +3,7 @@ import { ClaimNotice } from '../../home/ClaimNotice';
+ import { needsOf, nextUpView, rowsOf, type P3Row } from '../data/home';
+ import { viewsTotal } from '../data/stats';
+ import { useP3Home, useP3Views } from '../data/useP3Data';
+-import { L } from '../model';
++import { L, nextUpAdviceOf } from '../model';
+ import { P3_PATHS } from '../shell/paths';
+ import { flags } from '@/lib/featureFlags';
+ import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
+@@ -11,12 +11,15 @@ import { GraceBanner } from './GraceBanner';
+ import { P3NightGoing } from './P3Going';
+ import { AddEventLink, EventList, P3Link, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
+ 
+-/** Why there is no Next up, and what the person can do about it (the state decides the words). */
+-function noNextCopy(rows: readonly P3Row[]): string {
+-  if (rows.some((r) => r.lifecycle === 'live')) return 'None of your live events has a date coming up. Add dates and the next one shows here.';
+-  if (rows.some((r) => r.lifecycle === 'draft')) return 'Nothing is live yet. Put a draft live and its next date shows here.';
+-  if (rows.some((r) => r.lifecycle === 'paused')) return 'Your events are hidden. Show one again and its next date shows here.';
+-  return 'Nothing is on the calendar right now. Add an event and its next date shows here.';
++/** Why there is no Next up, and the one control that works for it (F-16: model/status.ts nextUpAdviceOf). */
++function NoNextUp({ rows }: { rows: readonly P3Row[] }) {
++  const advice = nextUpAdviceOf(rows);
++  return (
++    <StateCard title="Nothing coming up" testId="p3-nextup-none">
++      <p>{advice.copy}</p>
++      {advice.action === 'new' ? <AddEventLink /> : <P3Link to={P3_PATHS.events} testId="p3-nextup-events">Open your events</P3Link>}
++    </StateCard>
++  );
+ }
+ 
+ /** Welcome's claim / create line, carried in the router state (P3 W4b). */
+@@ -106,10 +109,7 @@ export function HomeScreen() {
+           )}
+         </section>
+       ) : (
+-        <StateCard title="Nothing coming up" testId="p3-nextup-none">
+-          <p>{noNextCopy(rows)}</p>
+-          <P3Link to={P3_PATHS.events} testId="p3-nextup-events">Open your events</P3Link>
+-        </StateCard>
++        <NoNextUp rows={rows} />
+       )}
+ 
+       {flags.organiserTicketing && <GetPaidPrompt />}
+diff --git a/src/modules/organiser/p3/screens/__tests__/homeNextUp.matrix.test.tsx b/src/modules/organiser/p3/screens/__tests__/homeNextUp.matrix.test.tsx
+new file mode 100644
+index 00000000..0d0684c6
+--- /dev/null
++++ b/src/modules/organiser/p3/screens/__tests__/homeNextUp.matrix.test.tsx
+@@ -0,0 +1,85 @@
++// @vitest-environment jsdom
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { cleanup, render, screen, within } from '@testing-library/react';
++import { MemoryRouter } from 'react-router-dom';
++import type { HomeSeriesRow } from '../../data/home';
++import { rowsOf } from '../../data/home';
++import { nextUpAdviceOf } from '../../model';
++import { P3_PATHS } from '../../shell/paths';
++import { SHAPES, homeOf } from './fixtures';
++
++/**
++ * FIXLIST F-16 (HOME-COPY): Home's "Nothing coming up" card, for every prod shape INVENTORY.md
++ * names (ended, live-past one-off, live-past course, live weekly with and without future dates,
++ * archived, draft, 0 events). The words come from ONE mapping (model/status.ts nextUpAdviceOf),
++ * never offer dates to an event that cannot take them, and only name a control on the card.
++ */
++const homeQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
++vi.mock('../../data/useP3Data', () => ({ useP3Home: () => homeQ.value, useP3Views: () => ({ isPending: true }) }));
++vi.mock('@/modules/going/useMyOrganiserGoingTotal', () => ({ useMyOrganiserGoingTotal: () => ({ view: { state: 'off' }, total: null }) }));
++vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));
++vi.mock('../../../home/ClaimNotice', () => ({ ClaimNotice: () => null }));
++import { HomeScreen } from '../HomeScreen';
++
++const archived: HomeSeriesRow = { ...SHAPES.ended, id: 'archived', name: 'Removed Event', lifecycle_status: 'archived' };
++
++/** `card`: archived is not listed (isListedSeries), so archived-only is the 0-events state. */
++type Want = { control: 'events' | 'new' | null; says: RegExp; card?: string };
++const CASES: Array<[string, HomeSeriesRow[], Want]> = [
++  ['ended', [SHAPES.ended], { control: 'new', says: /Add an event and its next date shows here/ }],
++  ['archived only', [archived], { control: 'new', says: /You can add one now/, card: 'p3-home-empty' }],
++  ['archived beside ended', [archived, SHAPES.ended], { control: 'new', says: /Add an event and its next date shows here/ }],
++  ['live-past one-off', [SHAPES.oneoffPast], { control: 'events', says: /cannot take new dates/ }],
++  ['live-past course', [SHAPES.courseDone], { control: 'events', says: /cannot take new dates/ }],
++  ['live-past one-off beside ended', [SHAPES.oneoffPast, SHAPES.ended], { control: 'events', says: /cannot take new dates/ }],
++  ['live weekly, no future dates', [SHAPES.allCancelled], { control: 'events', says: /Open it in Events and add dates/ }],
++  ['live weekly no future, beside a finished one-off', [SHAPES.oneoffPast, SHAPES.allCancelled], { control: 'events', says: /add dates/ }],
++  ['draft', [SHAPES.draft], { control: 'events', says: /Open a draft in Events and put it live/ }],
++  ['paused with nothing else', [{ ...SHAPES.paused, upcoming_count: 0, next_dates: [] }], { control: 'events', says: /show it again/ }],
++  ['live weekly with future dates', [SHAPES.weekly], { control: null, says: /./ }],
++];
++
++function renderHome(rows: HomeSeriesRow[]) {
++  homeQ.value = { isPending: false, isError: false, isFetching: false, data: homeOf(rows), refetch: vi.fn() };
++  return render(<MemoryRouter><HomeScreen /></MemoryRouter>);
++}
++
++afterEach(cleanup);
++
++describe('F-16 Home next-up copy x every prod shape', () => {
++  it.each(CASES)('%s', (_name, rows, want) => {
++    renderHome(rows);
++    if (want.control === null) {
++      expect(screen.getByTestId('p3-nextup')).toBeTruthy();
++      expect(screen.queryByTestId('p3-nextup-none')).toBeNull();
++      return;
++    }
++    const card = screen.getByTestId(want.card ?? 'p3-nextup-none');
++    const text = card.textContent ?? '';
++    expect(text).toMatch(want.says);
++    const links = within(card).getAllByRole('link');
++    expect(links).toHaveLength(1);
++    expect(links[0].getAttribute('href')).toBe(want.control === 'new' ? P3_PATHS.newWhat : P3_PATHS.events);
++    // never "Add dates" beside an event tagged Finished
++    const finished = rowsOf(homeOf(rows)).every((r) => r.status.key === 'finished');
++    if (finished) expect(text).not.toMatch(/add dates/i);
++    // the card never names a control it does not show
++    if (/Add an event/.test(text)) expect(links[0].textContent).toBe('Add an event');
++    if (/Events/.test(text)) expect(want.control).toBe('events');
++  });
++
++  it('0 events: the empty state offers Add an event, and that control is on screen', () => {
++    renderHome([]);
++    const card = screen.getByTestId('p3-home-empty');
++    expect(card.textContent).toMatch(/You can add one now/);
++    expect(within(card).getByTestId('p3-add-event').getAttribute('href')).toBe(P3_PATHS.newWhat);
++  });
++
++  it('one shared mapping: Home renders exactly what nextUpAdviceOf says for the rows Events lists', () => {
++    for (const [, rows, want] of CASES) {
++      if (want.control === null || want.card) continue;
++      const advice = nextUpAdviceOf(rowsOf(homeOf(rows)));
++      expect(advice.action).toBe(want.control);
++    }
++  });
++});
+diff --git a/src/modules/organiser/p3/screens/__tests__/screens.matrix.test.tsx b/src/modules/organiser/p3/screens/__tests__/screens.matrix.test.tsx
+index 20a4a9b8..94e1430c 100644
+--- a/src/modules/organiser/p3/screens/__tests__/screens.matrix.test.tsx
++++ b/src/modules/organiser/p3/screens/__tests__/screens.matrix.test.tsx
+@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
+ import { SHAPES, SHAPE_KEYS, TODAY, homeOf, statsOf, type ShapeKey } from './fixtures';
+ import { groupsOf, needsOf, nextUpView, rowOf, rowsOf } from '../../data/home';
+ import { dailyTotals, parseStats, rangeFrom, viewsTotal } from '../../data/stats';
+-import { L, dayWord, statusOf } from '../../model';
++import { L, dayWord, nextUpAdviceOf, statusOf } from '../../model';
+ import { NOTHING_COMING_UP } from '../../../shared/lifeLabel';
+ 
+ /*
+@@ -90,11 +90,10 @@ describe('Home x every shape', () => {
+     } else {
+       // says what the person can do, with the control on screen
+       const none = screen.getByTestId('p3-nextup-none');
+-      // p3-shell-exits: to P3 Events, never the R1 area
+-      expect(within(none).getByRole('link').getAttribute('href')).toBe(P3_PATHS.events);
+-      // the words follow the state: a draft or a hidden event is never told to "add dates"
+-      const want = row.lifecycle === 'live' ? /Add dates/ : row.lifecycle === 'draft' ? /Put a draft live/ : row.lifecycle === 'paused' ? /hidden/ : /Nothing is on the calendar/;
+-      expect(none.textContent).toMatch(want);
++      // F-16: the words and the ONE control come from nextUpAdviceOf (P3 Events or New event, never R1)
++      const advice = nextUpAdviceOf([row]);
++      expect(within(none).getByRole('link').getAttribute('href')).toBe(advice.action === 'new' ? P3_PATHS.newWhat : P3_PATHS.events);
++      expect(none.textContent).toContain(advice.copy);
+     }
+     if (row.status.past) expect(screen.getByTestId('p3-home-allended')).toBeTruthy();
+     else expect(within(screen.getByRole('list', { name: 'Your first events' })).getAllByTestId('p3-row')).toHaveLength(1);
