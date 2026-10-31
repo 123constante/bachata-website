@@ -1,3 +1,7 @@
+import { useCallback, useState } from 'react';
+import { useSavedToast } from './savedToast';
+import { Toast } from './Toast';
+import type { Done } from './StatusSheet';
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
@@ -5,8 +9,20 @@ import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 
 const PAST = 'Past and nothing coming up';
 
-/** C3 Events: every event, soonest first. Reads only. */
+/** C3 Events: every event, soonest first. Reads only; carries the toast of a removal (F-22). */
 export function EventsScreen() {
+  const [note, setNote] = useState<Done | null>(null);
+  const clear = useCallback(() => setNote(null), []);
+  useSavedToast(setNote);
+  return (
+    <>
+      <EventsBody />
+      {note && <Toast done={note} onUndo={clear} onClose={clear} />}
+    </>
+  );
+}
+
+function EventsBody() {
   const home = useP3Home();
   if (home.isPending) {
     return <StateCard title="Loading your events&hellip;" testId="p3-events-loading">This takes a second.</StateCard>;

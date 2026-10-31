@@ -1,12 +1,12 @@
 import { useCallback, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
 import { isAccessRefusal } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
-import { eventPageOf, type EventPageView } from '../data/eventPage';
-import { L, addDateWhy, peopleText, sessionKindLabel, sessionTitle, timeWord } from '../model';
+import { STATUS_COPY, eventPageOf, type EventPageView } from '../data/eventPage';
+import { L, addDateWhy, peopleText, removedStatus, sessionKindLabel, sessionTitle, timeWord } from '../model';
 import { repeatShapeOf, seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
@@ -183,6 +183,10 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const send: Send = (commands, version) => toast.run(commands, version);
   const once = useSendOnce(ws.series.id);
   const sendOnce: SendOnce = (command, key) => once(command, ws.series.version, key);
+  const navigate = useNavigate();
+  // a cover address that does not load is the same as no cover (F-25)
+  const [broken, setBroken] = useState<string | null>(null);
+  const coverBroken = !!v.cover && v.cover === broken;
   const [sheet, setSheet] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const closeRepeat = useCallback(() => setRepeat(false), [setRepeat]);
@@ -196,7 +200,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
     <div className="p3-stack" data-testid="p3-event" data-kind={v.kind}>
       <Link className="p3-link" to={P3_PATHS.events}>&larr; {L.allEvents}</Link>
       <div className="p3-card p3-head" data-testid="p3-event-head">
-        {v.cover && <img className="p3-cover" src={v.cover} alt="" loading="eager" decoding="async" />}
+        {v.cover && !coverBroken && <img className="p3-cover" src={v.cover} alt="" loading="eager" decoding="async" onError={() => setBroken(v.cover)} />}
         <h2 className="p3-name" data-testid="p3-event-name">{v.name}</h2>
         <div className="p3-row-tags">
           <span className="p3-chip" data-testid="p3-kind">{v.kindWord}</span>
@@ -237,7 +241,11 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       <About v={v} />
       {sheet && (
         <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
-          onDone={(d) => { setSheet(false); toast.show(d); }} />
+          onDone={(d) => {
+            setSheet(false);
+            if (d.removed) navigate(P3_PATHS.events, { state: { p3Toast: d.text } });
+            else toast.show(d);
+          }} />
       )}
       {repeat && (
         <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
@@ -284,6 +292,15 @@ export function WorkspaceGate({ children }: { children: (ws: EventWorkspace, pla
       <StateCard title="We couldn&rsquo;t load this event" testId="p3-event-error">
         <p>Check your connection, then try again.</p>
         <RetryButton onClick={() => void ws.refetch()} />
+      </StateCard>
+    );
+  }
+  if (ws.data.series.lifecycle_status === 'archived') {
+    return (
+      <StateCard title="This event was removed" testId="p3-event-removed">
+        <p><span className={`p3-tag p3-tag-${removedStatus().key}`} data-testid="p3-status">{removedStatus().label}</span></p>
+        <p>{STATUS_COPY.archivedWhy}</p>
+        <Link className="p3-link" to={P3_PATHS.events}>See your events</Link>
       </StateCard>
     );
   }

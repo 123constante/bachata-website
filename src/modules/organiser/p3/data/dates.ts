@@ -243,7 +243,6 @@ export const DATE_COPY = {
   photoHint: 'A photo for this date only: JPG, PNG or WebP.',
   uploading: 'Uploading the photo\u2026',
   pickVenue: 'Pick the place for this date',
-  noVenues: 'The places didn\u2019t load. Check your connection, then try again.',
   usualPlace: 'The usual place',
   partialNote: 'Dates not in this list are not shown here.',
   halfReset: 'The details went back to usual, but the time did not.',
