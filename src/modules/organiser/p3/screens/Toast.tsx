@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRunCommands } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { OwnerCommand } from '../../shared/seriesCommands';
+import { useGatedCopy } from '../onboarding/gate';
 import type { Done } from './StatusSheet';
 
 function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onClose: () => void }) {
@@ -23,6 +24,7 @@ function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onCl
  */
 export function useToast(seriesId: string, seriesVersion: number) {
   const run = useRunCommands(seriesId);
+  const gated = useGatedCopy();
   const [toast, setToast] = useState<Done | null>(null);
   const close = useCallback(() => setToast(null), []);
   const undo = async (cmd: OwnerCommand, version: number | null | undefined) => {
@@ -31,7 +33,9 @@ export function useToast(seriesId: string, seriesVersion: number) {
       await run([cmd], version ?? seriesVersion);
       setToast({ text: 'Undone.', undo: null });
     } catch (e) {
-      setToast({ text: commandErrorMessage(e), undo: null });
+      // an onboarding refusal opens the A1 gate sheet; the toast just goes (P3-GATE)
+      const text = gated(e, commandErrorMessage);
+      setToast(text ? { text, undo: null } : null);
     }
   };
   const node = toast ? <Toast done={toast} onClose={close} onUndo={() => toast.undo && void undo(toast.undo, toast.version)} /> : null;

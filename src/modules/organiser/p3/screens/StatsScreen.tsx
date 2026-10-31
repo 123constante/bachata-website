@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
+import { P3SeriesGoing } from './P3Going';
 import { RANGE_DAYS, byEventOf, dailyTotals, sliceStats, viewsTotal, type StatsRange } from '../data/stats';
 import { useP3Views } from '../data/useP3Data';
 import { L } from '../model';
@@ -130,6 +131,7 @@ export function StatsScreen() {
                     <span className="p3-row-s p3-nowrap">{r.total} {L.views}</span>
                   </div>
                   <div className="p3-bar" aria-hidden="true"><i style={{ width: `${r.pct}%` }} /></div>
+                  <P3SeriesGoing seriesId={r.id} testId={`p3-stats-going-${r.id}`} />
                 </li>
               ))}
             </ul>

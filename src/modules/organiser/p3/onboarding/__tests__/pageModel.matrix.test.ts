@@ -223,7 +223,7 @@ describe('Review: organiser_onboarding_status_v1().missing[]', () => {
 });
 
 describe('Home grace banner', () => {
-  const g = (complete: boolean, isAdmin: boolean, left: number) => ({ complete, isAdmin, left, firstId: 'o1', firstName: '' });
+  const g = (complete: boolean, isAdmin: boolean, left: number) => ({ complete, isAdmin, left, missing: Array.from({ length: left }, (_, i) => `c${i}`), firstId: 'o1', firstName: '' });
   it.each<[ReturnType<typeof g> | null, string | null, boolean]>([
     [g(false, false, 2), null, true],
     [g(false, false, 2), '2026-10-28', true],
