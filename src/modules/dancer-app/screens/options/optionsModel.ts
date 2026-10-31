@@ -1,4 +1,6 @@
 import { APP_ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
+import { flags } from '@/lib/featureFlags';
+import { organiserAreaHome } from '@/lib/organiserAreaHome';
 import { buildCityPath } from '@/lib/cityPath';
 import { hrefFor } from '@/lib/searchEntities';
 import { SITE_ORIGIN } from '@/lib/seo';
@@ -39,7 +41,8 @@ export type OptionsRow = {
 export const PAGE_PATH = '/app/page';
 /** "Your areas" (add a role): D129 moved it here so a one-profile dancer can still reach it. */
 export const AREAS_PATH = '/account/areas';
-export const ORGANISER_AREA_PATH = '/account/o';
+/** F-01: the organiser area's Home -- P3 while live (lib/organiserAreaHome), else R1, as before. */
+export const ORGANISER_AREA_PATH = organiserAreaHome(flags);
 export const ACCOUNT_SETTINGS_PATH = APP_ACCOUNT_SETTINGS_PATH; // from=app: settings shows Back to Options (M4)
 /** The site home (the events feed). The ONE way back to the site from Options (audit L9). */
 export const SITE_HOME_PATH = buildCityPath(null);

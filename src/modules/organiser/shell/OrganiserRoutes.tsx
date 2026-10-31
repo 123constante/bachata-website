@@ -12,6 +12,9 @@ import { SkeletonRows } from '../ui/Skeleton';
 import { ModuleLegacyRedirect } from './LegacyRedirect';
 import { OrganiserShell } from './OrganiserShell';
 import { ORG_PATHS } from './paths';
+import { flags } from '@/lib/featureFlags';
+import { londonTodayKey } from '@/lib/londonDate';
+import { LEGACY_QUERY, r1AreaRedirect } from '@/lib/organiserAreaHome';
 
 // One lazy chunk per folder. main's screens stay mounted on the R1 paths until
 // their slice swaps them. Every R1 route group has landed (INT2): no route
@@ -87,8 +90,25 @@ function AccountGated({ children }: { children: ReactNode }) {
  * from Home). AuthGuard wraps it here, inside this lazy chunk, exactly as
  * Account.tsx does (signed-out visitors go to the same /auth sign-in, with returnTo).
  */
+const LEGACY_KEY = 'organiser.legacyArea';
+
+/** True when this tab chose the old area with ?legacy=1 (stored here so R1's own links keep it). */
+const stickyLegacy = (search: string): boolean => {
+  try {
+    if (new URLSearchParams(search).get(LEGACY_QUERY) === '1') window.sessionStorage.setItem(LEGACY_KEY, '1');
+    return window.sessionStorage.getItem(LEGACY_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 export default function OrganiserRoutes() {
   useNoindexMeta(true);
+  const { pathname, search, hash } = useLocation();
+  // F-01..F-03 (owner decision 1, option (c)): while P3 is live, R1's URLs open the P3 screen that
+  // does the same job; ?legacy=1 keeps R1 until LEGACY_UNTIL. P3 off: null, R1 exactly as before.
+  const toP3 = r1AreaRedirect(flags, { pathname, search, hash }, londonTodayKey(), flags.organiserP3 && stickyLegacy(search));
+  if (toP3) return <Navigate to={toP3} replace />;
   return (
     <AuthGuard>
       <PrefetchOrganiserHome />

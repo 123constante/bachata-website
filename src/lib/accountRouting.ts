@@ -317,6 +317,11 @@ export type SidesFacts = {
    * Absent = the organiser home, as before.
    */
   newOrganiserTo?: string;
+  /**
+   * The organiser area's Home (lib/organiserAreaHome organiserAreaHome: P3 while live, F-01).
+   * Absent = ORGANISER_HOME_PATH, as before.
+   */
+  organiserHomeTo?: string;
 };
 
 export type ProfileSide =
@@ -343,13 +348,14 @@ export const profileSides = (f: SidesFacts): SidesState => {
   if (f.organisers === undefined || f.dancer === 'loading' || f.areaAllowed === undefined) return { status: 'loading' };
   if (f.organisers === null || f.dancer === 'unknown') return { status: 'failed' };
   const many = f.organisers.length > 1;
+  const home = f.organiserHomeTo ?? ORGANISER_HOME_PATH;
   const sides: ProfileSide[] = f.organisers.map((o) => ({
     kind: 'organiser',
     key: `organiser:${o.id}`,
     organiserId: o.id,
     name: o.name,
     avatarUrl: o.avatar_url,
-    to: many ? `${ORGANISER_HOME_PATH}?o=${encodeURIComponent(o.id)}` : ORGANISER_HOME_PATH,
+    to: many ? `${home}?o=${encodeURIComponent(o.id)}` : home,
   }));
   if (f.dancer === 'complete' || f.dancer === 'incomplete') {
     sides.push({
@@ -360,7 +366,7 @@ export const profileSides = (f: SidesFacts): SidesState => {
       // Organiser intent with nothing organised yet: the unfinished onboarding carries on to the organiser page.
       to:
         f.dancer === 'incomplete' && f.areaAllowed && f.organiserIntent && f.organisers.length === 0
-          ? appWelcomeHref(f.newOrganiserTo ?? ORGANISER_HOME_PATH)
+          ? appWelcomeHref(f.newOrganiserTo ?? home)
           : dancerSidePath(f.dancer, f.areaAllowed),
     });
   }
@@ -401,7 +407,7 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
   if (state.sides.length === 1) {
     const unclaimedOrganiser = state.sides[0].kind === 'dancer' && f.dancer === 'complete' && f.organiserIntent;
     if (unclaimedOrganiser && f.openRequestCount === undefined) return { kind: 'wait' };
-    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: f.newOrganiserTo ?? ORGANISER_HOME_PATH };
+    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: f.newOrganiserTo ?? f.organiserHomeTo ?? ORGANISER_HOME_PATH };
     return { kind: 'go', to: state.sides[0].to };
   }
   return { kind: 'choose', sides: state.sides };

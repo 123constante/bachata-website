@@ -8,6 +8,8 @@
 import { AREA_PATHS } from '@/lib/areaPaths';
 import { FINISH_PROFILE_PATH } from '@/lib/profileCompletion';
 import { APP_HOME_PATH } from '@/lib/accountRouting';
+import { flags } from '@/lib/featureFlags';
+import { organiserAreaHome } from '@/lib/organiserAreaHome';
 import type { StatusTone } from '@/modules/organiser/ui';
 import { requiredLeftText, type ProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { ROLE_NAME } from '../shared/fieldRegistry';
@@ -25,7 +27,7 @@ export const AREA_NAME: Record<AreaRole, string> = {
 /** Where each area opens. The organiser area also takes a new organiser's request (the same way in Options uses). */
 export const AREA_HREF: Record<AreaRole, string> = {
   dancer: APP_HOME_PATH,
-  organiser: '/account/o',
+  organiser: organiserAreaHome(flags), // F-01: P3 while live
   teacher: AREA_PATHS.teacher,
   dj: AREA_PATHS.dj,
 };
