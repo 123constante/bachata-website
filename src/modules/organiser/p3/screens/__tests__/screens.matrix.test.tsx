@@ -92,7 +92,7 @@ describe('Home x every shape', () => {
       const none = screen.getByTestId('p3-nextup-none');
       // F-16: the words and the ONE control come from nextUpAdviceOf (P3 Events or New event, never R1)
       const advice = nextUpAdviceOf([row]);
-      expect(within(none).getByRole('link').getAttribute('href')).toBe(advice.action === 'new' ? P3_PATHS.newWhat : P3_PATHS.events);
+      expect(within(none).getByRole('link').getAttribute('href')).toBe(advice.action === 'new' ? P3_PATHS.create : P3_PATHS.events);
       expect(none.textContent).toContain(advice.copy);
     }
     if (row.status.past) expect(screen.getByTestId('p3-home-allended')).toBeTruthy();

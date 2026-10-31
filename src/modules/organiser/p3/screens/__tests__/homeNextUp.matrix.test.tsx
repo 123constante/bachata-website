@@ -59,7 +59,7 @@ describe('F-16 Home next-up copy x every prod shape', () => {
     expect(text).toMatch(want.says);
     const links = within(card).getAllByRole('link');
     expect(links).toHaveLength(1);
-    expect(links[0].getAttribute('href')).toBe(want.control === 'new' ? P3_PATHS.newWhat : P3_PATHS.events);
+    expect(links[0].getAttribute('href')).toBe(want.control === 'new' ? P3_PATHS.create : P3_PATHS.events);
     // never "Add dates" beside an event tagged Finished
     const finished = rowsOf(homeOf(rows)).every((r) => r.status.key === 'finished');
     if (finished) expect(text).not.toMatch(/add dates/i);
@@ -72,7 +72,7 @@ describe('F-16 Home next-up copy x every prod shape', () => {
     renderHome([]);
     const card = screen.getByTestId('p3-home-empty');
     expect(card.textContent).toMatch(/You can add one now/);
-    expect(within(card).getByTestId('p3-add-event').getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(within(card).getByTestId('p3-add-event').getAttribute('href')).toBe(P3_PATHS.create);
   });
 
   it('one shared mapping: Home renders exactly what nextUpAdviceOf says for the rows Events lists', () => {
