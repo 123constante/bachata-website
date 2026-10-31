@@ -1,0 +1,379 @@
+{
+  "generated": "S10, measured from rendered DOM computed styles",
+  "frames": {
+    "01-wall-cream": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 86.4,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 13.56,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 8.07,
+          "fillVsPage": 1.68,
+          "borderVsPage": 5.46,
+          "edgeVsPage": 5.46
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 5.47,
+          "fillVsPage": 5.04,
+          "borderVsPage": 8.31,
+          "edgeVsPage": 8.31
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.1,
+          "fillVsPage": 6.54,
+          "borderVsPage": 10.09,
+          "edgeVsPage": 10.09
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 12.73,
+        "borderVsTile": 1.01
+      }
+    },
+    "02-wall-dark": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 86.4,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 15.51,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 9.21,
+          "fillVsPage": 9.9,
+          "borderVsPage": 12.85,
+          "edgeVsPage": 12.85
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 7.7,
+          "fillVsPage": 9.7,
+          "borderVsPage": 13.5,
+          "edgeVsPage": 13.5
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.6,
+          "fillVsPage": 7.88,
+          "borderVsPage": 11.7,
+          "edgeVsPage": 11.7
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 2.25,
+        "borderVsTile": 5.72
+      }
+    },
+    "03-side-by-side": {
+      "scrollWidth": 840,
+      "innerWidth": 840,
+      "noHorizontalScroll": true,
+      "tiles": 32,
+      "tileWidth": 85.9,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 13.56,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 8.07,
+          "fillVsPage": 1.68,
+          "borderVsPage": 5.46,
+          "edgeVsPage": 5.46
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 5.47,
+          "fillVsPage": 5.04,
+          "borderVsPage": 8.31,
+          "edgeVsPage": 8.31
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.1,
+          "fillVsPage": 6.54,
+          "borderVsPage": 10.09,
+          "edgeVsPage": 10.09
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 7.7,
+          "fillVsPage": 1.71,
+          "borderVsPage": 1.23,
+          "edgeVsPage": 1.71
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.6,
+          "fillVsPage": 2.11,
+          "borderVsPage": 1.42,
+          "edgeVsPage": 2.11
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 12.73,
+        "borderVsTile": 1.01
+      }
+    },
+    "04-full-page-cream": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 86.4,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 13.56,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 8.07,
+          "fillVsPage": 1.68,
+          "borderVsPage": 5.46,
+          "edgeVsPage": 5.46
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 5.47,
+          "fillVsPage": 5.04,
+          "borderVsPage": 8.31,
+          "edgeVsPage": 8.31
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.1,
+          "fillVsPage": 6.54,
+          "borderVsPage": 10.09,
+          "edgeVsPage": 10.09
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 12.73,
+        "borderVsTile": 1.01
+      }
+    },
+    "05-full-page-dark": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 86.4,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 15.51,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 9.21,
+          "fillVsPage": 9.9,
+          "borderVsPage": 12.85,
+          "edgeVsPage": 12.85
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 7.7,
+          "fillVsPage": 9.7,
+          "borderVsPage": 13.5,
+          "edgeVsPage": 13.5
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.6,
+          "fillVsPage": 7.88,
+          "borderVsPage": 11.7,
+          "edgeVsPage": 11.7
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 2.25,
+        "borderVsTile": 5.72
+      }
+    },
+    "06-sheet-cream": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 86.4,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 13.56,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 8.07,
+          "fillVsPage": 1.68,
+          "borderVsPage": 5.46,
+          "edgeVsPage": 5.46
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 5.47,
+          "fillVsPage": 5.04,
+          "borderVsPage": 8.31,
+          "edgeVsPage": 8.31
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.1,
+          "fillVsPage": 6.54,
+          "borderVsPage": 10.09,
+          "edgeVsPage": 10.09
+        },
+        {
+          "role": "DJ · Oreo Sensual",
+          "textOnChip": 8.07,
+          "fillVsPage": 1.68,
+          "borderVsPage": 5.46,
+          "edgeVsPage": 5.46
+        },
+        {
+          "role": "Dancer",
+          "textOnChip": 5.47,
+          "fillVsPage": 5.04,
+          "borderVsPage": 8.31,
+          "edgeVsPage": 8.31
+        },
+        {
+          "role": "Teacher",
+          "textOnChip": 7.1,
+          "fillVsPage": 6.54,
+          "borderVsPage": 10.09,
+          "edgeVsPage": 10.09
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 12.73,
+        "borderVsTile": 1.01
+      }
+    },
+    "07-sheet-dark": {
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 86.4,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 15.51,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 9.21,
+          "fillVsPage": 9.9,
+          "borderVsPage": 12.85,
+          "edgeVsPage": 12.85
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 7.7,
+          "fillVsPage": 9.7,
+          "borderVsPage": 13.5,
+          "edgeVsPage": 13.5
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.6,
+          "fillVsPage": 7.88,
+          "borderVsPage": 11.7,
+          "edgeVsPage": 11.7
+        },
+        {
+          "role": "DJ · Oreo Sensual",
+          "textOnChip": 9.21,
+          "fillVsPage": 9.9,
+          "borderVsPage": 12.85,
+          "edgeVsPage": 12.85
+        },
+        {
+          "role": "Dancer",
+          "textOnChip": 7.7,
+          "fillVsPage": 9.7,
+          "borderVsPage": 13.5,
+          "edgeVsPage": 13.5
+        },
+        {
+          "role": "Teacher",
+          "textOnChip": 7.6,
+          "fillVsPage": 7.88,
+          "borderVsPage": 11.7,
+          "edgeVsPage": 11.7
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 2.25,
+        "borderVsTile": 5.72
+      }
+    },
+    "08-photo-layout-proof": {
+      "scrollWidth": 840,
+      "innerWidth": 840,
+      "noHorizontalScroll": true,
+      "tiles": 16,
+      "tileWidth": 85.9,
+      "namesClipped": 0,
+      "pageErrors": 0,
+      "nameOnPage": 13.56,
+      "chips": [
+        {
+          "role": "dj",
+          "textOnChip": 8.07,
+          "fillVsPage": 1.68,
+          "borderVsPage": 5.46,
+          "edgeVsPage": 5.46
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 5.47,
+          "fillVsPage": 5.04,
+          "borderVsPage": 8.31,
+          "edgeVsPage": 8.31
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.1,
+          "fillVsPage": 6.54,
+          "borderVsPage": 10.09,
+          "edgeVsPage": 10.09
+        },
+        {
+          "role": "dancer",
+          "textOnChip": 7.7,
+          "fillVsPage": 1.71,
+          "borderVsPage": 1.23,
+          "edgeVsPage": 1.71
+        },
+        {
+          "role": "teacher",
+          "textOnChip": 7.6,
+          "fillVsPage": 2.11,
+          "borderVsPage": 1.42,
+          "edgeVsPage": 2.11
+        }
+      ],
+      "dateChip": {
+        "textOnChip": 12.85,
+        "chipVsTile": 6.42,
+        "borderVsTile": 2
+      }
+    }
+  }
+}
