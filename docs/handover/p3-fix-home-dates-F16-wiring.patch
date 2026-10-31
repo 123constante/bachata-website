@@ -85,10 +85,10 @@ index 00000000..0d0684c6
 +  ['live-past one-off', [SHAPES.oneoffPast], { control: 'events', says: /cannot take new dates/ }],
 +  ['live-past course', [SHAPES.courseDone], { control: 'events', says: /cannot take new dates/ }],
 +  ['live-past one-off beside ended', [SHAPES.oneoffPast, SHAPES.ended], { control: 'events', says: /cannot take new dates/ }],
-+  ['live weekly, no future dates', [SHAPES.allCancelled], { control: 'events', says: /Open it in Events and add dates/ }],
++  ['live weekly, no future dates', [SHAPES.allCancelled], { control: 'events', says: /Your repeating event has no dates coming up. Open it in Events and add dates/ }],
 +  ['live weekly no future, beside a finished one-off', [SHAPES.oneoffPast, SHAPES.allCancelled], { control: 'events', says: /add dates/ }],
-+  ['draft', [SHAPES.draft], { control: 'events', says: /Open a draft in Events and put it live/ }],
-+  ['paused with nothing else', [{ ...SHAPES.paused, upcoming_count: 0, next_dates: [] }], { control: 'events', says: /show it again/ }],
++  ['draft', [SHAPES.draft], { control: 'events', says: /A draft is not live yet. Open it in Events and put it live/ }],
++  ['paused with nothing else', [{ ...SHAPES.paused, upcoming_count: 0, next_dates: [] }], { control: 'events', says: /One of your events is hidden. Open it in Events and show it again/ }],
 +  ['live weekly with future dates', [SHAPES.weekly], { control: null, says: /./ }],
 +];
 +

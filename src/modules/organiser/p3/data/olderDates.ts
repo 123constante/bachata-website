@@ -59,6 +59,8 @@ export function useOlderDates(ws: EventWorkspace, wanted: boolean) {
     queryKey: ['p3-older-dates', ws.series.id, ws.series.version, before],
     queryFn: () => fetchOlderDates(ws.series.id, before as string),
     enabled: wanted && before !== null,
+    // F7: after a command on a loaded older date the key changes (series.version); the previous
+    // pages stay merged until the new walk lands, so that row's tag is stale for the refetch window.
     placeholderData: keepPreviousData,
   });
 }

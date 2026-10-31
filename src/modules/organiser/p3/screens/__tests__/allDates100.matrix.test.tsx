@@ -146,6 +146,9 @@ describe('F-27 All dates screen: says more exist, and what to tap', () => {
     show();
     fireEvent.click(await screen.findByTestId('p3-load-older'));
     expect((await screen.findByTestId('p3-older-error')).textContent).toMatch(/Check your connection, then try again/);
+    // F1: the note must not name a button that is not on screen
+    expect(screen.queryByTestId('p3-load-older')).toBeNull();
+    expect(screen.getByTestId('p3-partial').textContent).not.toContain('Load older dates');
     failOlder = false;
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.queryByTestId('p3-older-error')).toBeNull());

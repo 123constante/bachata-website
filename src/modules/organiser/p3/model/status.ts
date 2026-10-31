@@ -51,13 +51,13 @@ export interface NextUpAdvice {
 export function nextUpAdviceOf(rows: ReadonlyArray<{ lifecycle: string; status: P3Status }>): NextUpAdvice {
   // a live weekly event with nothing coming up can take more dates (its event page has Add a date)
   if (rows.some((r) => r.status.key === 'warn')) {
-    return { copy: 'Your weekly event has no dates coming up. Open it in Events and add dates; the next one shows here.', action: 'events' };
+    return { copy: 'Your repeating event has no dates coming up. Open it in Events and add dates; the next one shows here.', action: 'events' };
   }
   if (rows.some((r) => r.lifecycle === 'draft')) {
-    return { copy: 'Nothing is live yet. Open a draft in Events and put it live; its next date shows here.', action: 'events' };
+    return { copy: 'A draft is not live yet. Open it in Events and put it live; its next date shows here.', action: 'events' };
   }
   if (rows.some((r) => r.lifecycle === 'paused')) {
-    return { copy: 'Your events are hidden. Open one in Events and show it again; its next date shows here.', action: 'events' };
+    return { copy: 'One of your events is hidden. Open it in Events and show it again; its next date shows here.', action: 'events' };
   }
   if (rows.some((r) => r.status.key === 'review')) {
     return { copy: 'Your event is waiting for a check. Its next date shows here once it is live; Events shows where it stands.', action: 'events' };

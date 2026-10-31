@@ -40,8 +40,11 @@ function AllDates({ ws: ws0 }: { ws: EventWorkspace }) {
   const view = allDatesOf(ws, today, filter);
   const addWhy = addDateWhy(seriesFactsOf(ws, today));
   // an older read sends no next_before: it can only say so (partialOf), not page
-  const canPage = ws.hasMore && !!ws0.nextBefore;
-  const partial = canPage ? olderDatesNote(ws, LOAD_OLDER) : partialOf(ws);
+  // F6: when the page guard stopped the walk, tapping again does nothing, so no button
+  const stopped = !!older.data && !older.data.complete;
+  const canPage = ws.hasMore && !!ws0.nextBefore && !stopped;
+  // F1: after a failed older read the button is not on screen, so the note must not name it
+  const partial = canPage && !older.isError ? olderDatesNote(ws, LOAD_OLDER) : partialOf(ws);
   const name = ws.series.name.trim() || L.noName;
   return (
     <div className="p3-stack" data-testid="p3-all-dates-screen">

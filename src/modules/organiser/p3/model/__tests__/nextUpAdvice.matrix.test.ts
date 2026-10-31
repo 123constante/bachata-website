@@ -18,10 +18,10 @@ const CASES: Array<[string, HomeSeriesRow[], 'events' | 'new', RegExp]> = [
   ['live-past one-off', [SHAPES.oneoffPast], 'events', /cannot take new dates/],
   ['live-past course', [SHAPES.courseDone], 'events', /cannot take new dates/],
   ['live-past one-off beside ended', [SHAPES.oneoffPast, SHAPES.ended], 'events', /cannot take new dates/],
-  ['live weekly, no future dates', [SHAPES.allCancelled], 'events', /Open it in Events and add dates/],
+  ['live weekly, no future dates', [SHAPES.allCancelled], 'events', /Your repeating event has no dates coming up. Open it in Events and add dates/],
   ['live weekly no future beside a finished course', [SHAPES.courseDone, SHAPES.allCancelled], 'events', /add dates/],
-  ['draft', [SHAPES.draft], 'events', /Open a draft in Events and put it live/],
-  ['paused, nothing coming', [pausedEmpty], 'events', /show it again/],
+  ['draft', [SHAPES.draft], 'events', /A draft is not live yet. Open it in Events and put it live/],
+  ['paused, nothing coming', [pausedEmpty], 'events', /One of your events is hidden. Open it in Events and show it again/],
   ['draft beside ended', [SHAPES.draft, SHAPES.ended], 'events', /put it live/],
 ];
 
