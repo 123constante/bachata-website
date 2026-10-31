@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPE_KEYS, ws, type ShapeKey } from './wsFixtures';
-import { PUBLIC_PAGE_WHY, PUBLIC_PAGE_WHY_OTHER, publicPageOf } from '../../data/eventPage';
+import {
+  PUBLIC_PAGE_NO_ADDRESS, PUBLIC_PAGE_SUB, PUBLIC_PAGE_SUB_PAUSED, PUBLIC_PAGE_WHY, PUBLIC_PAGE_WHY_OTHER, publicPageOf,
+} from '../../data/eventPage';
 import { eventHref } from '@/lib/seo/eventHref';
 import { P3_PATHS } from '../../shell/paths';
 
@@ -26,26 +28,28 @@ import { EventPage } from '../EventPage';
 
 afterEach(cleanup);
 
-/** Each shape: the link's path, or the reason it is off. */
-const EXPECT: Record<ShapeKey, { href: string } | { why: string }> = {
-  weekly: { href: '/event/sensual-fridays' },
-  over100: { href: '/event/sensual-fridays' },
-  monthly: { href: '/event/sensual-fridays' },
-  custom: { href: '/event/sensual-fridays' },
-  course: { href: '/event/sensual-fridays' },
-  courseDone: { href: '/event/sensual-fridays' },
-  festival: { href: '/event/sensual-fridays' },
-  oneoff: { href: '/event/sensual-fridays' },
-  oneoffPast: { href: '/event/sensual-fridays' },
-  tonight: { href: '/event/sensual-fridays' },
-  paused: { why: PUBLIC_PAGE_WHY.paused },
+/** Each shape: the link's path and subline, or the reason it is off. */
+const LIVE = { href: '/event/sensual-fridays', sub: PUBLIC_PAGE_SUB };
+const EXPECT: Record<ShapeKey, { href: string; sub: string } | { why: string }> = {
+  weekly: LIVE,
+  over100: LIVE,
+  monthly: LIVE,
+  custom: LIVE,
+  course: LIVE,
+  courseDone: LIVE,
+  festival: LIVE,
+  oneoff: LIVE,
+  oneoffPast: LIVE,
+  tonight: LIVE,
+  // event_view_p5 serves a paused series to anon with its past dates (_p5_paused_hides_occurrence_v1).
+  paused: { href: '/event/sensual-fridays', sub: PUBLIC_PAGE_SUB_PAUSED },
   draft: { why: PUBLIC_PAGE_WHY.draft },
   draftReady: { why: PUBLIC_PAGE_WHY.draft },
-  ended: { href: '/event/sensual-fridays' },
+  ended: LIVE,
   archived: { why: PUBLIC_PAGE_WHY.archived },
-  noSessions: { href: '/event/sensual-fridays' },
-  noTime: { href: '/event/sensual-fridays' },
-  emptyLineup: { href: '/event/sensual-fridays' },
+  noSessions: LIVE,
+  noTime: LIVE,
+  emptyLineup: LIVE,
 };
 
 function show(k: ShapeKey) {
@@ -65,6 +69,7 @@ describe('F-34 See it as dancers see it x every shape', () => {
       const a = screen.getByTestId('p3-dancer-view');
       expect(a.getAttribute('href')).toBe(want.href);
       expect(a.getAttribute('target')).toBeNull();
+      expect(screen.getByTestId('p3-dancer-view-sub').textContent).toBe(want.sub);
       expect(screen.queryByTestId('p3-dancer-view-off')).toBeNull();
     } else {
       expect(screen.queryByTestId('p3-dancer-view')).toBeNull();
@@ -79,15 +84,16 @@ describe('F-34 publicPageOf', () => {
     const w = ws('weekly');
     expect(publicPageOf(w).href).toBe(eventHref({ slug: w.series.slug, event_id: w.series.id }));
   });
-  it('falls back to the id when a live series has no slug', () => {
+  // No fallback to the P5 id: resolve_public_event_ref_v1 does not find it for a bridged series.
+  it.each(['live', 'ended', 'paused'])('a %s series with no slug is off with the reason', (lc) => {
     const w = ws('weekly');
-    expect(publicPageOf({ ...w, series: { ...w.series, slug: null } }).href).toBe('/event/ser-1');
+    expect(publicPageOf({ ...w, series: { ...w.series, lifecycle_status: lc, slug: null } })).toEqual({ href: null, why: PUBLIC_PAGE_NO_ADDRESS });
   });
   it('an unknown status is off with the plain reason', () => {
     const w = ws('weekly');
     expect(publicPageOf({ ...w, series: { ...w.series, lifecycle_status: 'pending_review' } })).toEqual({ href: null, why: PUBLIC_PAGE_WHY_OTHER });
   });
   it('no reason uses an HTML entity or points at a control', () => {
-    for (const why of [...Object.values(PUBLIC_PAGE_WHY), PUBLIC_PAGE_WHY_OTHER]) expect(why).not.toMatch(/&\w+;|button|tap/i);
+    for (const why of [...Object.values(PUBLIC_PAGE_WHY), PUBLIC_PAGE_WHY_OTHER, PUBLIC_PAGE_NO_ADDRESS, PUBLIC_PAGE_SUB, PUBLIC_PAGE_SUB_PAUSED]) expect(why).not.toMatch(/&\w+;|button|tap/i);
   });
 });

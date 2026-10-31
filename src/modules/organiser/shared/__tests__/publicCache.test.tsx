@@ -16,6 +16,7 @@ import { useCalendarEvents } from '@/hooks/useCalendarEventsRpc';
 import { CALENDAR_EVENTS_QUERY_ROOT, EVENT_PAGE_QUERY_ROOT, invalidatePublicEventCaches } from '../publicCache';
 import { useRunCommands, useSendOnce } from '../runCommands';
 import { useSendPlan } from '../../p3/data/dates';
+import { useOwnerCommand } from '../useOwnerCommand';
 import { lifecycleCommand } from '../seriesCommands';
 
 /*
@@ -28,12 +29,16 @@ const KEYS = {
   pageSeries: eventPageQueryKey(S, null),
   pageDate: eventPageQueryKey(S, 'occ-1'),
   pageOther: eventPageQueryKey('ser-2', null),
+  // The public page keys by resolve_public_event_ref_v1's id, COALESCE(legacy_event_id, id),
+  // which is not the P5 series id for 81 of 92 prod series (2026-10-31), and the workspace
+  // carries no legacy id: the helper cannot match by id, so it marks every event page stale.
+  pageLegacy: eventPageQueryKey('legacy-9', null),
   calendar: ['calendar-events', '2026-10-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z', null],
   calendarCity: ['calendar-events', '2026-10-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z', 'london'],
   unrelated: ['festival-detail', S],
 } as const;
 type K = keyof typeof KEYS;
-const STALE: Record<K, boolean> = { pageSeries: true, pageDate: true, pageOther: false, calendar: true, calendarCity: true, unrelated: false };
+const STALE: Record<K, boolean> = { pageSeries: true, pageDate: true, pageOther: true, pageLegacy: true, calendar: true, calendarCity: true, unrelated: false };
 
 function seeded() {
   const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 60 * 60 * 1000 } } });
@@ -67,7 +72,7 @@ describe('F-33 key roots are the ones the public hooks build', () => {
 describe('F-33 invalidatePublicEventCaches', () => {
   it.each(Object.keys(KEYS) as K[])('%s', (k) => {
     const qc = seeded();
-    invalidatePublicEventCaches(qc, S);
+    invalidatePublicEventCaches(qc);
     expect(staleOf(qc)[k]).toBe(STALE[k]);
   });
 });
@@ -78,6 +83,7 @@ const HOOKS: Array<[string, (qc: QueryClient) => () => Promise<unknown>]> = [
   ['useRunCommands', (qc) => { const { result } = renderHook(() => useRunCommands(S), { wrapper: wrapper(qc) }); return () => result.current([lifecycleCommand('paused')], 7); }],
   ['useSendPlan series', (qc) => { const { result } = renderHook(() => useSendPlan(S), { wrapper: wrapper(qc) }); return () => result.current({ to: 'series', command: lifecycleCommand('paused') }, ['k1'], 7); }],
   ['useSendPlan date', (qc) => { const { result } = renderHook(() => useSendPlan(S), { wrapper: wrapper(qc) }); return () => result.current({ to: 'date', occurrenceId: 'occ-1', version: 3, commands: [lifecycleCommand('paused')] }, ['k1'], 7); }],
+  ['useOwnerCommand', (qc) => { const { result } = renderHook(() => useOwnerCommand(S), { wrapper: wrapper(qc) }); return () => result.current.mutateAsync({ targetId: S, version: 7, command: lifecycleCommand('paused') }); }],
 ];
 
 describe('F-33 every P3 write hook calls it', () => {
@@ -98,12 +104,15 @@ describe('F-33 every P3 write hook calls it', () => {
  * without it fails here. EXEMPT names why a file does not. Profile, onboarding and door
  * writes are not event-page facts and are out of F-33's scope.
  */
-const ROOTS = ['src/modules/organiser/p3', 'src/modules/organiser/shared/runCommands.ts'];
+const ROOTS = ['src/modules/organiser'];
 const EXEMPT: Record<string, string> = {
+  'src/modules/organiser/shared/selfServeApi.ts': 'transport: defines the senders',
+  'src/modules/organiser/flows/change/bulkApi.ts': 'transport: defines runBulkCommand (its caller Pick.tsx invalidates)',
   'src/modules/organiser/p3/data/repeat.ts': 'dry run (previewRepeat): the server rolls the write back',
   'src/modules/organiser/p3/data/sessions.ts': 'owned by open PR #1208; left for the lead (F-33)',
 };
-const SENDS = /\b(runSeriesCommand|runOccurrenceCommand|saveOccurrenceProgramme)\(/;
+// A call through a sender, or a direct rpc on a command RPC by its quoted name (a comment naming it does not count).
+const SENDS = /\b(runSeriesCommand|runOccurrenceCommand|saveOccurrenceProgramme|runBulkCommand)\(|['"](series_command_p5|occurrence_command_p5|admin_bulk_occurrence_command_p5)['"]/;
 
 function files(p: string): string[] {
   if (statSync(p).isFile()) return [p];
@@ -120,6 +129,8 @@ describe('F-33 completeness: every file that sends a command invalidates the pub
     expect(senders).toEqual(expect.arrayContaining([
       'src/modules/organiser/p3/data/dates.ts',
       'src/modules/organiser/shared/runCommands.ts',
+      'src/modules/organiser/shared/useOwnerCommand.ts',
+      'src/modules/organiser/flows/change/Pick.tsx',
       ...Object.keys(EXEMPT),
     ]));
   });

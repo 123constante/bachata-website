@@ -148,7 +148,7 @@ function DancerView({ ws }: { ws: EventWorkspace }) {
   if (pub.href) {
     return (
       <Link className="p3-row p3-row-link" to={pub.href} data-testid="p3-dancer-view">
-        <span className="p3-grow">{title}<br /><span className="p3-row-s">Your public event page</span></span>
+        <span className="p3-grow">{title}<br /><span className="p3-row-s" data-testid="p3-dancer-view-sub">{pub.why}</span></span>
         <span aria-hidden="true">&rsaquo;</span>
       </Link>
     );

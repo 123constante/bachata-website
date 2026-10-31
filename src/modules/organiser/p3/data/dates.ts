@@ -341,7 +341,7 @@ export function useSendPlan(seriesId: string) {
       void qc.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void qc.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       if (plan.to === 'date') void qc.invalidateQueries({ queryKey: dateDetailQueryKey(plan.occurrenceId) });
-      invalidatePublicEventCaches(qc, seriesId);
+      invalidatePublicEventCaches(qc);
     }
   };
 }

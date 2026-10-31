@@ -29,7 +29,7 @@ Branch `claude/p3-fix-cache`, ticket dt_3c0cf785c306. Brief: `brief/p3-fix-cache
   - F-34: `Unable to find an element by: [data-testid="p3-dancer-view"]`.
 
 ## Left for the lead
-- **F-33, `p3/data/sessions.ts:282-283` (`useDateSend`, owned by #1208):** add `invalidatePublicEventCaches(qc, ws.series.id)` inside `reload()`, then remove `sessions.ts` from EXEMPT in `publicCache.test.tsx`. Once the EXEMPT entry is gone, the completeness test fails until the call is there. The every-date session path already goes through `useSendOnce` and is covered.
+- **F-33, `p3/data/sessions.ts:282-283` (`useDateSend`, owned by #1208):** add `invalidatePublicEventCaches(qc)` (r2: no series id) inside `reload()`, then remove `sessions.ts` from EXEMPT in `publicCache.test.tsx`. Once the EXEMPT entry is gone, the completeness test fails until the call is there. The every-date session path already goes through `useSendOnce` and is covered.
 - Out of scope, noted: organiser profile, onboarding and door writes do not invalidate public pages. The organiser name can appear on an event page.
 
 ## Not verified
@@ -38,3 +38,17 @@ Branch `claude/p3-fix-cache`, ticket dt_3c0cf785c306. Brief: `brief/p3-fix-cache
 - 4 unit test files fail locally, all environment-related, none in files this PR touches:
   - 3 live-DB contract tests fail with "Invalid API key" (no DB key in this container).
   - `tests/integrityCouldNotRun.test.ts` fails because a global typescript at `/opt/node-tools` breaks its precondition.
+
+## Round r2 (review `claude/review-1220-r1:docs/review/pr-1220-r1.md`, brief `brief/fix-1220-r2`, ticket dt_2baab86007d8)
+
+The r1 notes above are kept as written; two of them were wrong and are corrected here.
+
+- **F1 (fixed).** "The page key's second part is the series UUID" was wrong: the public page keys by `resolve_public_event_ref_v1`'s `COALESCE(legacy_event_id, id)`, which differs from the P5 id for 81 of 92 prod series, and the workspace carries no legacy id. The helper is now `invalidatePublicEventCaches(qc)` and marks the event-page ROOT stale, like the calendar root. The `seriesId` parameter is gone from every caller. Test: `pageOther` now expected stale, new row `pageLegacy` (`eventPageQueryKey('legacy-9', null)`) expected stale.
+- **F2 (fixed).** `shared/useOwnerCommand.ts` `reload` calls the helper last. New `HOOKS` row `useOwnerCommand` (ok, refused).
+- **F3 (fixed).** `flows/fix/CoverFlow.tsx`, `flows/new/NewFlow.tsx`, `flows/new/useNewSend.ts` call the helper after their invalidations. The widened grep also found two more senders the review did not list: `flows/change/Pick.tsx` (bulk move/cancel through `admin_bulk_occurrence_command_p5`) and `dates/useDateEditor.ts` (`saveOccurrenceProgramme`, its `invalidateAround`). Both now call the helper.
+- **F4 (fixed).** `ROOTS` is `src/modules/organiser`. `SENDS` also matches `runBulkCommand(` and a quoted `'series_command_p5'`, `'occurrence_command_p5'` or `'admin_bulk_occurrence_command_p5'` (quoted, so a comment naming the RPC does not count). `EXEMPT`: `selfServeApi.ts` and `flows/change/bulkApi.ts` (transport), `repeat.ts` (dry run), `sessions.ts` (#1208, lead).
+- **F5 (fixed).** Paused opens the link. The subline reads "Hidden from the calendar. The page still opens with past dates only." The owner copy at `eventPage.ts:209,281` is unchanged (out of scope).
+- **F6 (fixed).** No slug: the row is off with "The page has no address yet." (no fallback to the P5 id).
+- **F8.** The handover stays at `docs/handover-p3-fix-cache.md`.
+
+Still left for the lead: the `p3/data/sessions.ts` call is now `invalidatePublicEventCaches(qc)` (no series id), then drop `sessions.ts` from `EXEMPT`.

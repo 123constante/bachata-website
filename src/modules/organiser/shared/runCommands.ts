@@ -41,7 +41,7 @@ function useReload(seriesId: string) {
     void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-    invalidatePublicEventCaches(queryClient, seriesId);
+    invalidatePublicEventCaches(queryClient);
   };
 }
 
