@@ -27,6 +27,7 @@ import {
   programmeErrorCopy,
 } from '@/modules/organiser/shared/selfServeErrors';
 import { useOwnerCommand } from '@/modules/organiser/shared/useOwnerCommand';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 import { useVenueOptions } from '@/modules/organiser/shared/publicVenues';
 import { venueOverridePatch } from './venueOverride';
 
@@ -136,6 +137,7 @@ export function useDateEditor(seriesId: string, occurrenceId: string) {
     // The event page reads this date's session count.
     void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    invalidatePublicEventCaches(queryClient);
   };
 
   const save = async (): Promise<SaveOutcome> => {

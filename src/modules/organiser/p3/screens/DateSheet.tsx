@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { fullDate } from '../../shared/dateWords';
 import { localAsZTime } from '../../shared/homeModel';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { VenueList } from './VenueList';
 import { useVenueOptions, venueName } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
 import { passCount } from '../../events/seriesExtras';
@@ -288,17 +289,15 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
     return (
       <Sheet title={DATE_COPY.pickVenue} onClose={onClose}>
         {backLink}
-        {venues.isPending && <p className="p3-note">{DATE_COPY.loading}</p>}
-        {venues.isError && !venues.data && <p className="p3-error" role="alert">{DATE_COPY.noVenues}</p>}
-        <div className="p3-stack-s" data-testid="p3-venues">
-          {(venues.data ?? []).map((v) => (
+        <VenueList venues={venues} testId="p3-venues">
+          {(list) => list.map((v) => (
             <button key={v.id} type="button" className="p3-choice" disabled={busy || v.id === (detail?.venueOverride ?? s.default_venue_id)}
               onClick={() => void venueOverridePatch(v.id === s.default_venue_id ? null : v.id, venues.data).then(saveDetail)}>
               <span className="p3-row-t">{v.name}</span>
               <span className="p3-row-s">{v.id === s.default_venue_id ? DATE_COPY.usualPlace : [v.neighbourhood, v.city_name].filter(Boolean).join(', ')}</span>
             </button>
           ))}
-        </div>
+        </VenueList>
         <Err error={error} />
       </Sheet>
     );

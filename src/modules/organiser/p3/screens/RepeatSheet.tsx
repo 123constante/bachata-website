@@ -17,7 +17,7 @@ import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
 
 /** The sheet and its scrim go to document.body, inside their own p3-theme (the frame's light or dark). */
-function OnBody({ children }: { children: ReactNode }) {
+export function OnBody({ children }: { children: ReactNode }) {
   const theme = document.querySelector('.p3-frame')?.getAttribute('data-theme') ?? undefined;
   return createPortal(<div className="p3-theme p3-portal" data-theme={theme}>{children}</div>, document.body);
 }
@@ -28,7 +28,8 @@ type PreviewState =
 
 const pressed = (on: boolean) => ({ 'aria-pressed': on });
 
-function Editor({ d, set, today, off }: { d: RepeatDraft; set: (p: Partial<RepeatDraft>) => void; today: string; off: boolean }) {
+/** The pattern editor, shared with New event (p3/new), which has no series to dry-run against yet. */
+export function Editor({ d, set, today, off }: { d: RepeatDraft; set: (p: Partial<RepeatDraft>) => void; today: string; off: boolean }) {
   const [more, setMore] = useState(d.interval !== 1);
   const unit = d.freq === 'weekly' ? 'weeks' : 'months';
   const toggle = <T,>(xs: T[], x: T) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);

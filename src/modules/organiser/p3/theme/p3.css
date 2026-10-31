@@ -108,7 +108,7 @@
 }
 .p3-theme .p3-tag-live { background: var(--ok-bg); color: var(--ok-fg); }
 .p3-theme .p3-tag-warn, .p3-theme .p3-tag-draft { background: var(--warn-bg); color: var(--warn-fg); }
-.p3-theme .p3-tag-hidden, .p3-theme .p3-tag-finished { background: var(--card2); color: var(--mut); }
+.p3-theme .p3-tag-hidden, .p3-theme .p3-tag-finished, .p3-theme .p3-tag-removed { background: var(--card2); color: var(--mut); }
 .p3-theme .p3-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .p3-theme .p3-state p { margin: 4px 0 8px; }
 .p3-theme .p3-note { margin: 0; font-size: var(--fs-small); color: var(--mut); }
