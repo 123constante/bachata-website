@@ -39,3 +39,9 @@ Branch `claude/p3-fix-home-dates`, ticket dt_0d3125ed3faa. Brief: `docs/briefs/p
 1. Lead dispatches the one independent review, then one fix round.
 2. After #1208 merges: apply the F-16 patch, run `npx vitest run src/modules/organiser/p3`.
 3. Walk All dates on the 132-date prod series and Home on a live-past one-off account at 390x844.
+
+## Round r2 (ticket dt_477c630de496)
+
+Done: F1 (older-read error note), F2/F3 (copy, tests, patch), F6 (50-page guard shows no button), F7 (comment). F4/F5/F8 are PR-body only.
+Gates: typecheck 101 errors (baseline 106, none in touched files); lint 24/24; organiser vitest 222 files / 8435 passed; patch `git apply --check` exit 0 on main and on p3-create-event-build; build + bundle budget green (dancer-app 371.8 KB / 47 files).
+Left: lead browser walk at 390x844; apply the F-16 wiring patch after #1208 merges.
