@@ -4,8 +4,9 @@ import { eventLock } from '../../shared/eventState';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
+import { uploadEventPicture } from '../../events/media';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
-import { MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
+import { MAX_GALLERY, MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
 import { L, kindWordStored } from '../model';
 import {
   DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
@@ -15,6 +16,7 @@ import { P3_PATHS } from '../shell/paths';
 import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
+import { OnBody } from './RepeatSheet';
 
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
@@ -34,6 +36,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const lock = useEditLock(ws);
   const venues = useVenueOptions();
   const [picking, setPicking] = useState(false);
+  const [pictures, setPictures] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<DetailsField, boolean>>>({});
   const [photo, setPhoto] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const { draft, set } = form;
@@ -68,6 +71,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
     }
   };
 
+  const festival = ws.series.format === 'festival';
   const place = venueName(venues.data, draft.venueId);
   return (
     <div className="p3-stack p3-edit" data-testid="p3-details">
@@ -125,6 +129,18 @@ function Details({ ws }: { ws: EventWorkspace }) {
         {photo.busy && <p className="p3-note">{L.detailsUploading}</p>}
         {photo.error && <p className="p3-error" role="alert">{photo.error}</p>}
       </div>
+      <div className="p3-stack-s" data-testid="p3-field-gallery">
+        <span className="p3-field">{L.detailsPictures}</span>
+        <div className="p3-card p3-tight">
+          <p className="p3-row-t" data-testid="p3-d-pictures-count">{L.detailsPicturesCount(draft.gallery.length)}</p>
+          {festival && <p className="p3-note" data-testid="p3-d-pictures-festival">{L.detailsPicturesFestival}</p>}
+          {!festival && draft.gallery.length === 0 && <p className="p3-note">{L.detailsPicturesEmpty}</p>}
+        </div>
+        <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} disabled={off || festival} onClick={() => setPictures(true)} data-testid="p3-d-pictures-open">
+          {draft.gallery.length ? L.detailsPicturesEdit : L.detailsPicturesAdd}
+        </button>
+        {problems.gallery && <p className="p3-error" role="alert">{problems.gallery}</p>}
+      </div>
       <Field id="instagram" label={L.instagram} hint={L.detailsInstagramHint} problem={shown('instagram')}>
         <input id="p3-d-instagram" className="p3-in" value={draft.instagram} disabled={off} autoComplete="off"
           onChange={(e) => set({ instagram: e.target.value })} onBlur={() => touch('instagram')} data-testid="p3-d-instagram" />
@@ -144,6 +160,11 @@ function Details({ ws }: { ws: EventWorkspace }) {
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
         onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+      {pictures && (
+        <OnBody>
+          <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)} />
+        </OnBody>
+      )}
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
           {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}
@@ -160,6 +181,56 @@ function Details({ ws }: { ws: EventWorkspace }) {
         </Sheet>
       )}
     </div>
+  );
+}
+
+/** The series pictures: the date sheet's picker and the same upload path; edits the draft, the ONE save sends them. */
+function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesId: string; gallery: string[]; busy: boolean; onChange: (g: string[]) => void; onClose: () => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const file = useRef<HTMLInputElement>(null);
+  const latest = useRef(gallery);
+  useEffect(() => { latest.current = gallery; });
+  const add = async (files: File[]) => {
+    setUploading(true);
+    setError(null);
+    try {
+      for (const f of files.slice(0, Math.max(0, MAX_GALLERY - latest.current.length))) {
+        const url = await uploadEventPicture(seriesId, f);
+        latest.current = [...latest.current, url];
+        onChange(latest.current);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : commandErrorMessage(e));
+    } finally {
+      setUploading(false);
+    }
+  };
+  return (
+    <Sheet title={L.detailsPictures} onClose={onClose}>
+      <p className="p3-note">{L.detailsPicturesHint}</p>
+      {gallery.length === 0 && <p className="p3-note" data-testid="p3-pictures-empty">{L.detailsPicturesEmpty}</p>}
+      <div role="list" className="p3-photos" data-testid="p3-pictures">
+        {gallery.map((url, i) => (
+          <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-picture">
+            <img src={url} alt="" loading="lazy" />
+            <button type="button" className="p3-photo-x" aria-label={`${L.detailsPicturesRemove} ${i + 1}`} disabled={busy || uploading}
+              onClick={() => { latest.current = gallery.filter((_, j) => j !== i); onChange(latest.current); }} data-testid="p3-picture-remove">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        ))}
+      </div>
+      <input ref={file} type="file" accept={FLYER_ACCEPT} multiple className="p3-sr" tabIndex={-1} aria-hidden="true"
+        onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) void add(f); }} data-testid="p3-pictures-file" />
+      {gallery.length < MAX_GALLERY
+        ? <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} disabled={busy || uploading} onClick={() => file.current?.click()} data-testid="p3-pictures-add">
+            {uploading ? L.detailsUploading : L.detailsPicturesAdd}
+          </button>
+        : <p className="p3-note" data-testid="p3-pictures-max">{L.detailsPicturesMax(MAX_GALLERY)}</p>}
+      {error && <p className="p3-error" role="alert" data-testid="p3-pictures-error">{error}</p>}
+      <button type="button" className="p3-btn" style={{ minHeight: 44 }} onClick={onClose} data-testid="p3-pictures-done">{L.detailsPicturesDone}</button>
+    </Sheet>
   );
 }
 
