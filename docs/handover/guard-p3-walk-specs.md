@@ -57,3 +57,11 @@ Named gaps, not fixed: a skip inside an imported helper and an early `return` on
 Supabase placeholder env is still copied into both e2e steps instead of hoisted to the job.
 Also not fixed: `pre-ship` runs only `test:e2e`, not `test:e2e:p3`.
 Not fixed, owner decision: walk-p3-w4b-onboarding is red in the gate (above).
+
+## Merge of main into the branch (fix-1231)
+
+Conflicts: package.json, e2e-smoke.yml. Main added `walk-p3-create-kinds` to `test:e2e` plus its own
+step (`P3_GEOMETRY_REQUIRED`). Resolved: it moved to `test:e2e:p3` (the set union of both scripts equals
+main's `test:e2e` list, each spec in exactly one), main's step was folded into the P3 step (which now also
+sets `P3_GEOMETRY_REQUIRED: '1'`). The guard flagged its `test.skip(!mounted, ...)`; gated it like the
+other probe skips. Guard logic unchanged. CLAUDE.md 12 KB, no line dropped.

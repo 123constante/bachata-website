@@ -101,6 +101,8 @@ jobs:
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
           VITE_ENABLE_ORGANISER_P3: 'true'
           VITE_ENABLE_ORGANISER_TICKETING: 'true'
+          # walk-p3-create-kinds (fix-1208 r4): turns its missing-mount skip into a failure.
+          P3_GEOMETRY_REQUIRED: '1'
         run: npm run test:e2e:p3
 
       - name: Upload Playwright artifacts on failure

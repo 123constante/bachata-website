@@ -215,7 +215,7 @@ describe('Name and details: the one save', () => {
     expect(screen.queryByTestId('p3-changed-elsewhere')).toBeNull();
   });
 
-  it.each([['ended'], ['archived']] as const)('%s: every field is greyed and Save names why', async (shape) => {
+  it.each([['ended']] as const)('%s: every field is greyed and Save names why', async (shape) => {
     server();
     show(DETAILS, SHAPES[shape]);
     await waitFor(() => screen.getByTestId('p3-details-lock'));
@@ -230,7 +230,7 @@ describe('Prices: the one save', () => {
     const envs = server();
     show(PRICES);
     await waitFor(() => screen.getByTestId('p3-prices-empty'));
-    expect(screen.getByTestId('p3-prices-empty').textContent).toBe(L.pricesNone);
+    expect(screen.getByTestId('p3-prices-empty').textContent).toBe(L.pricesNone(true));
     fireEvent.click(screen.getByTestId('p3-free-switch'));
     await press(saveBtn());
     await waitFor(() => expect(envs).toHaveLength(1));

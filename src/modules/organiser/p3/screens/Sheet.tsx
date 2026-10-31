@@ -5,12 +5,12 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 const open: object[] = [];
 
 /** The C3 bottom sheet every P3 step opens in. Escape (topmost sheet only) and the scrim close it. */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ title, onClose, locked = false, children }: { title: string; onClose: () => void; locked?: boolean; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   // Its own title id, so a sheet over another is named by its own title.
   const titleId = `p3-sheet-title-${useId().replace(/:/g, '')}`;
   const close = useRef(onClose);
-  useEffect(() => { close.current = onClose; }, [onClose]);
+  useEffect(() => { close.current = locked ? () => {} : onClose; }, [onClose, locked]);
   useEffect(() => {
     const me = {};
     open.push(me);
@@ -25,11 +25,11 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     box.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus({ preventScroll: true });
   }, [title]);
   return (
-    <div className="p3-scrim" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="p3-scrim" onClick={(e) => { if (e.target === e.currentTarget && !locked) onClose(); }}>
       <div className="p3-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={box} data-testid="p3-sheet">
         <div className="p3-sheet-head">
           <h3 id={titleId}>{title}</h3>
-          <button type="button" className="p3-link" onClick={onClose}>Close</button>
+          <button type="button" className="p3-link" disabled={locked} onClick={onClose}>Close</button>
         </div>
         {children}
       </div>

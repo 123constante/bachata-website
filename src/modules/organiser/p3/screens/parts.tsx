@@ -75,9 +75,9 @@ export function P3Link({ to, children, testId }: { to: string; children: ReactNo
   return <Link className="p3-link" to={to} data-testid={testId}>{children}</Link>;
 }
 
-/** New event, in P3's frame (R1's create steps under /account/p3/new). */
+/** New event: P3's own flow (p3/new), kind first. */
 export function AddEventLink({ children = 'Add an event' }: { children?: ReactNode }) {
-  return <P3Link to={P3_PATHS.newWhat} testId="p3-add-event">{children}</P3Link>;
+  return <P3Link to={P3_PATHS.create} testId="p3-add-event">{children}</P3Link>;
 }
 
 export function RetryButton({ onClick }: { onClick: () => void }) {

@@ -10,8 +10,9 @@ import {
   setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand, type OverridePatch, type OwnerCommand,
 } from '../../shared/seriesCommands';
 import { eventWorkspaceQueryKey } from '../../shared/runCommands';
+import { invalidatePublicEventCaches } from '../../shared/publicCache';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
-import type { EventWorkspace } from '../../events/eventModel';
+import { readIsFull, type EventWorkspace } from '../../events/eventModel';
 import { DATE_WHY, L, addDateWhy, canCancelOneOff, dateActions, dateMarks, timeWord, type DateAction, type DateFacts, type DateRow, type IsoDate, type SeriesFacts } from '../model';
 import { bringBackStep, cancelInputOf, kindOfWorkspace } from './eventPage';
 import { breakFactsOf, dateFactsOf, marksOf, repeatShapeOf } from './dateFacts';
@@ -79,14 +80,51 @@ const IN: Record<DateFilter, (e: DateEntry, today: IsoDate) => boolean> = {
 export interface AllDatesView {
   rows: DateEntry[];
   counts: Record<DateFilter, number>;
+  /** Filters whose count is a floor ("12+"): the read does not hold every date and the server sends no total for them. */
+  atLeast: DateFilter[];
 }
 
-/** The list for one filter; Past runs newest first, the rest soonest first. Never pages from a second read. */
+/**
+ * FIXLIST F-27: the filter counts. When the read holds every date they are the list's own;
+ * when it holds only the newest page they come from the server's whole-series summary
+ * (meta.total, meta.counts), never from the loaded slice. Coming and Breaks are whole either
+ * way (every future date is in the newest page unless the read is full; removed_dates is the
+ * series row's).
+ */
+function countsOf(ws: EventWorkspace, all: DateEntry[], today: IsoDate): Pick<AllDatesView, 'counts' | 'atLeast'> {
+  const counts = Object.fromEntries((Object.keys(IN) as DateFilter[]).map((f) => [f, all.filter((e) => IN[f](e, today)).length])) as Record<DateFilter, number>;
+  if (!ws.hasMore) return { counts, atLeast: [] };
+  const full = readIsFull(ws, today);
+  // "Own changes" reads the date's own time too, which meta.counts.changed does not count
+  const atLeast: DateFilter[] = ['own'];
+  if (full) atLeast.push('coming');
+  if (ws.total !== null && !full) {
+    // every stored date not coming up is past (a cancelled one too); past breaks are not stored
+    const storedComing = ws.dates.filter((d) => d.occurrence_date >= today).length;
+    counts.past = ws.total - storedComing + all.filter((e) => e.id === null && e.date < today).length;
+  } else atLeast.push('past');
+  if (ws.dateCounts) counts.cancelled = ws.dateCounts.cancelled;
+  else atLeast.push('cancelled');
+  return { counts, atLeast };
+}
+
+/** The list for one filter; Past runs newest first, the rest soonest first. Counts are the server's (countsOf). */
 export function allDatesOf(ws: EventWorkspace, today: IsoDate, filter: DateFilter): AllDatesView {
   const all = dateEntries(ws, today);
-  const counts = Object.fromEntries((Object.keys(IN) as DateFilter[]).map((f) => [f, all.filter((e) => IN[f](e, today)).length])) as Record<DateFilter, number>;
   const rows = all.filter((e) => IN[filter](e, today));
-  return { rows: filter === 'past' ? rows.reverse() : rows, counts };
+  return { rows: filter === 'past' ? rows.reverse() : rows, ...countsOf(ws, all, today) };
+}
+
+/**
+ * F-27: what All dates says while older dates are not loaded, naming the button on screen.
+ * null when the read holds every date.
+ */
+export function olderDatesNote(ws: EventWorkspace, button: string): string | null {
+  if (!ws.hasMore) return null;
+  const shown = ws.dates.length;
+  return ws.total !== null && ws.total > shown
+    ? `Showing the newest ${shown} of ${ws.total} dates. Tap "${button}" to see the other ${ws.total - shown}.`
+    : `Showing the newest ${shown} dates. Tap "${button}" to see older ones.`;
 }
 
 const EMPTY: Record<DateFilter, string> = {
@@ -243,7 +281,6 @@ export const DATE_COPY = {
   photoHint: 'A photo for this date only: JPG, PNG or WebP.',
   uploading: 'Uploading the photo\u2026',
   pickVenue: 'Pick the place for this date',
-  noVenues: 'The places didn\u2019t load. Check your connection, then try again.',
   usualPlace: 'The usual place',
   partialNote: 'Dates not in this list are not shown here.',
   halfReset: 'The details went back to usual, but the time did not.',
@@ -340,6 +377,7 @@ export function useSendPlan(seriesId: string) {
       void qc.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void qc.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       if (plan.to === 'date') void qc.invalidateQueries({ queryKey: dateDetailQueryKey(plan.occurrenceId) });
+      invalidatePublicEventCaches(qc);
     }
   };
 }

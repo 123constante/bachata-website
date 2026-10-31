@@ -247,6 +247,16 @@ export const L = {
   detailsCoverChange: 'Choose a new cover photo',
   detailsCoverNone: 'No cover photo yet. Add one: dancers see it before anything else.',
   detailsUploading: 'Uploading the photo\u2026',
+  detailsPictures: 'Pictures',
+  detailsPicturesCount: (n: number) => (n ? `${n} ${n === 1 ? 'picture' : 'pictures'}` : 'None yet'),
+  detailsPicturesHint: 'Pictures for the whole event, shown on its page. JPG, PNG or WebP.',
+  detailsPicturesEmpty: 'No pictures yet. Add a few from past nights to show on the event page.',
+  detailsPicturesAdd: 'Add pictures',
+  detailsPicturesEdit: 'Change pictures',
+  detailsPicturesRemove: 'Remove this picture',
+  detailsPicturesDone: 'Done',
+  detailsPicturesMax: (n: number) => `${n} pictures is the most an event can have. Remove one to add another.`,
+  detailsPicturesFestival: 'A festival\'s pictures are set by the Bachata Calendar team. Ask them to change them.',
   detailsVideos: 'Videos',
   detailsVideosHint: 'One link per line, starting with https://',
   detailsTooManyVideos: (n: number) => `Up to ${n} videos.`,
@@ -262,7 +272,10 @@ export const L = {
   pricesIntro: 'What dancers pay. Shown next to the ticket link.',
   pricesFree: 'It\u2019s free',
   pricesFreeSub: 'Dancers see \u201cFree\u201d',
-  pricesNone: 'No prices yet. Add one, or switch on \u201cIt\u2019s free\u201d.',
+  /** The empty-list line: it names the free switch only when the switch is on screen (F-18). */
+  pricesNone: (freeSwitchShown: boolean) => (freeSwitchShown
+    ? 'No prices yet. Add one, or switch on \u201cIt\u2019s free\u201d.'
+    : 'No prices yet. Use \u201cAdd a price\u201d below to add one.'),
   pricesAdd: 'Add a price',
   pricesRemove: 'Remove this price',
   pricesName: 'Name',
