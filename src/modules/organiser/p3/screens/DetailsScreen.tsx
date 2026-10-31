@@ -229,7 +229,9 @@ function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesI
           </button>
         : <p className="p3-note" data-testid="p3-pictures-max">{L.detailsPicturesMax(MAX_GALLERY)}</p>}
       {error && <p className="p3-error" role="alert" data-testid="p3-pictures-error">{error}</p>}
-      <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={uploading} onClick={onClose} data-testid="p3-pictures-done">{L.detailsPicturesDone}</button>
+      <div className="p3-sheet-foot">
+        <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={uploading} onClick={onClose} data-testid="p3-pictures-done">{L.detailsPicturesDone}</button>
+      </div>
     </Sheet>
   );
 }
