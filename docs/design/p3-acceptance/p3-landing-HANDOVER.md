@@ -114,3 +114,18 @@ exact `?legacy=1` URL renders the old area and its first in-area link redirects 
 
 ## Not done (nits, deliberately out of this round)
 N1 (`stickyLegacy` writes during render), N4 (`more`/`more/help` -> P3 Home, not `you/account|help`), N5 (DancerHome alias name).
+
+## Round 3 checks run locally
+| step | result |
+|---|---|
+| phone config `--list` | 534 tests in 21 files (main: 534 / 21) -- F1 fixed |
+| phone-qa, the 5 files that failed under local overload (incl. organiser-refusal-copy, the accountRouting importer) at CI's 2 workers | 53 / 53 passed |
+| phone-qa full suite | NOT completed locally: first run hit the 10 min shell limit (175 run, 10 overload failures, all passing in the rerun above); second run was invalidated (it reused a web server I then killed). CI's phone-qa job is the real result. |
+| build + `check:bundle-budget` vs a main build (same env) | every route equal or -0.1 KB, chunk and puller ratchets identical, no env object inlined |
+| `check:first-load-requests` | all 6 prerendered routes at their pin |
+| touched vitest files (6 incl. accountRouting.test) | 375 / 375; the 7 new rows red on the unfixed code first |
+| `check:dancer-area-isolation`, `check:mojibake`, `check:p3-specs-not-skipped` | PASS |
+| `npm run pre-ship` | hit the 10 min shell limit; its test:unit finished: 20229 passed, 15 failed in 4 files = the inherited list (integrityCouldNotRun x5, 3 contract suites x10) |
+
+## Next
+- Read PR #1237 checks on the final head (phone-qa especially). Nits N1/N4/N5 remain. `/code-review` not run (Ricky types it).
