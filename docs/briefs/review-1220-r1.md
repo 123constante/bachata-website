@@ -1,0 +1,19 @@
+# Brief: independent review r1 of Website PR #1220 (p3 public cache after writes + See it as dancers see it, FIXLIST F-33 / F-34)
+
+Repo 123constante/bachata-website. Builder: Opus on `claude/p3-fix-cache` (head 170d3f265). You are the Fable reviewer: write ONLY `docs/review/pr-1220-r1.md` on branch `claude/review-1220-r1` (from origin/main). Never edit the builder branch. Context cap 35%.
+
+Read first: `docs/design/p3-acceptance/FIXLIST.md` rows F-33 and F-34 and the AUDIT-public.md lines they cite; `docs/briefs/p3-fix-cache.md` on `origin/brief/p3-fix-cache`; the handover under `docs/handover/` on the builder branch; then `git diff origin/main...origin/claude/p3-fix-cache`.
+
+Verdict per row, PASS / FAIL / PARTIAL with file:line:
+- **F-33 CACHE:** after ANY organiser write (status, cancel, uncancel, toast undo, details, prices, dates, sessions, lineup, cover, go-live) the event page and the calendar in the same tab show the new data. The builder's `invalidatePublicEventCaches(qc, seriesId)` in `organiser/shared/publicCache.ts` is called from `runCommands.ts` `useReload` and `p3/data/dates.ts` `useSendPlan`; `p3/data/sessions.ts` is left for the lead (owned by #1208). Enumerate EVERY write path in `src/modules/organiser/p3` and `src/modules/organiser/shared` yourself (grep `supabase.rpc`, `.from(`, `runSeriesCommand`, `runOccurrenceCommand`, `useMutation`) and say for each: covered / left-for-lead / MISSED. A missed path is a finding. Check the key roots the helper invalidates really match `eventPageQueryKey`, `useCalendarEvents` and `seoLandingEventsKey` (the builder pins them by test; confirm the test would go red if a root were renamed). Does it also cover the organiser public profile page cache, or is that out of the row's scope (say which)?
+- **F-34 DANCER-VIEW:** `publicPageOf(ws)` in `p3/data/eventPage.ts`: live and ended get a link to `eventHref({slug,id})`; paused and draft and archived get the reason. Check against the live `event_view_p5` body read-only on prod (does it serve paused? the builder says live/paused/ended are served, yet paused gets no link: is that the right product reading of "Hidden"?). Shapes: 18 prod shapes in `dancerView.matrix.test.tsx`; is a series with NO slug handled (the builder says every live/ended series has one; what does `eventHref` do when slug is null)?
+
+Cross-cutting checks (owner rules):
+1. ONE shared mapping: the public-URL builder is `eventHref` (no second URL string); the invalidation helper is called, never a second inline `invalidateQueries` with hand-typed keys. Grep.
+2. No copy points at a control not on screen; the dancer-view row's disabled reason says why.
+3. Red-first: the builder pasted red lines (F-33 10 of 21, F-34 missing test id). Re-run the new tests against main's `runCommands.ts`, `dates.ts`, `EventPage.tsx`, `eventPage.ts` yourself and report which go red; a test green on unfixed code is a FINDING. The grep-based completeness test: mutate it (remove one call) and confirm it reds.
+4. Files owned by #1208 untouched (sessions.ts, RepeatSheet.tsx, parts.tsx, screens.matrix.test.tsx, P3Routes, P3Shell, shell/paths, p3/new/**, you/surface.tsx, package.json).
+5. `npm run build && npm run check:bundle-budget && npm run check:first-load-requests` on main AND the branch: 0 bytes and 0 chunks added to every route (the first version of this PR added a first-load chunk and was reverted; confirm the final one does not).
+6. `npm run lint`, `npx tsc --noEmit`, `npx vitest run src/modules/organiser src/modules/event-page src/lib src/hooks`.
+
+Output: `docs/review/pr-1220-r1.md` with verdict PASS / PASS WITH NITS / BLOCK, findings F1..Fn with severity, file:line and the exact fix, and a Not verified list. Commit subject `docs(review): PR #1220 cache r1 <VERDICT> [worker-done <ticket>]`, push once.
