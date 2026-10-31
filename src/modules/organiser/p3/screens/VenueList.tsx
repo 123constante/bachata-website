@@ -1,12 +1,13 @@
 import type { UseQueryResult } from '@tanstack/react-query';
+import { L } from '../model';
 import type { VenueOption } from '../../shared/publicVenues';
 
 /** Copy for the place list, shared by the event Details sheet and the per-date "Where" sheet (F-17). */
 export const VENUE_LIST_COPY = {
   loading: 'Loading the places\u2026',
-  fail: 'We couldn\u2019t load the places. Check your connection, then try again.',
+  fail: L.detailsPlaceFail,
   retry: 'Try again',
-  empty: 'There are no places to pick from yet. Try again in a moment, or close this and ask the team to add your place.',
+  empty: 'There are no places to pick from yet. Try again in a moment, or close this and ask the Bachata Calendar team.',
 } as const;
 
 /**

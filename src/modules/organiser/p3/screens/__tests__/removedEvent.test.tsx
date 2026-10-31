@@ -20,6 +20,9 @@ vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, da
 
 import { EventPage } from '../EventPage';
 import { PricesScreen } from '../PricesScreen';
+import { DetailsScreen } from '../DetailsScreen';
+import { AllDatesScreen } from '../AllDatesScreen';
+import { HistoryScreen } from '../HistoryScreen';
 import { EventsScreen } from '../EventsScreen';
 
 const ok = (k: keyof typeof SHAPES) => ({ isPending: false, isError: false, data: ws(k), error: null, refetch: vi.fn() });
@@ -40,6 +43,9 @@ describe('F-22 removed event', () => {
   it.each([
     ['event page', <EventPage key="e" />, '/account/p3/events/:seriesId', P3_PATHS.event('ser-1')],
     ['prices screen', <PricesScreen key="p" />, '/account/p3/events/:seriesId/prices', `${P3_PATHS.event('ser-1')}/prices`],
+    ['details screen', <DetailsScreen key="d" />, '/account/p3/events/:seriesId/details', P3_PATHS.eventDetails('ser-1')],
+    ['all dates screen', <AllDatesScreen key="a" />, '/account/p3/events/:seriesId/dates', P3_PATHS.eventDates('ser-1')],
+    ['history screen', <HistoryScreen key="h" />, '/account/p3/events/:seriesId/history', P3_PATHS.eventHistory('ser-1')],
   ])('archived %s opens the Removed state with the way onward', (_n, el, path, url) => {
     at('archived', el, path, url);
     expect(screen.getByTestId('p3-event-removed')).toBeTruthy();
