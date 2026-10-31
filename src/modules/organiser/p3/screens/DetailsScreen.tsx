@@ -207,7 +207,7 @@ function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesI
     }
   };
   return (
-    <Sheet title={L.detailsPictures} onClose={onClose}>
+    <Sheet title={L.detailsPictures} onClose={onClose} locked={uploading}>
       <p className="p3-note">{L.detailsPicturesHint}</p>
       {gallery.length === 0 && <p className="p3-note" data-testid="p3-pictures-empty">{L.detailsPicturesEmpty}</p>}
       <div role="list" className="p3-photos" data-testid="p3-pictures">
@@ -229,7 +229,7 @@ function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesI
           </button>
         : <p className="p3-note" data-testid="p3-pictures-max">{L.detailsPicturesMax(MAX_GALLERY)}</p>}
       {error && <p className="p3-error" role="alert" data-testid="p3-pictures-error">{error}</p>}
-      <button type="button" className="p3-btn" style={{ minHeight: 44 }} onClick={onClose} data-testid="p3-pictures-done">{L.detailsPicturesDone}</button>
+      <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={uploading} onClick={onClose} data-testid="p3-pictures-done">{L.detailsPicturesDone}</button>
     </Sheet>
   );
 }

@@ -18,6 +18,8 @@ const rpc = vi.hoisted(() => vi.fn());
 const owner = vi.hoisted(() => ({ ready: true }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, auth: {}, from: vi.fn() } }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
+const upload = vi.hoisted(() => vi.fn());
+vi.mock('../../../events/media', () => ({ uploadEventPicture: upload }));
 vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => ({ isAdmin: false, isPending: false }) }));
 vi.mock('../../../shared/profileProgress', async (orig) => ({
   ...(await orig<typeof import('../../../shared/profileProgress')>()),
@@ -30,7 +32,7 @@ vi.mock('../../../shared/publicVenues', async (orig) => ({
 
 import { DetailsScreen } from '../DetailsScreen';
 
-afterEach(() => { cleanup(); rpc.mockReset(); owner.ready = true; });
+afterEach(() => { cleanup(); rpc.mockReset(); upload.mockReset(); owner.ready = true; });
 
 type Raw = Record<string, unknown>;
 const pics = (n: number) => Array.from({ length: n }, (_, i) => `https://cdn.example/g${i + 1}.webp`);
@@ -89,7 +91,7 @@ describe.each(Object.entries(KINDS))('%s', (kind, shape) => {
   });
 });
 
-describe('not the owner (profile unfinished)', () => {
+describe('profile unfinished (not yet publish-ready)', () => {
   it.each(['recurring', 'course'] as const)('%s: Pictures is greyed, nothing can be sent', async (kind) => {
     owner.ready = false;
     const envs = show(withGallery(KINDS[kind], 2));
@@ -110,5 +112,91 @@ describe('plan', () => {
   it('over the cap is a problem', () => {
     const base = detailsDraftOf(parseEventWorkspace(wsRaw({}, [], [])));
     expect(detailsPlan(base, { ...base, gallery: pics(31) })).toEqual([]);
+  });
+});
+
+const openSheet = async () => {
+  await waitFor(() => screen.getByTestId('p3-d-pictures-open'));
+  fireEvent.click(screen.getByTestId('p3-d-pictures-open'));
+  await waitFor(() => screen.getByTestId('p3-sheet'));
+};
+const pick = (n: number) => fireEvent.change(screen.getByTestId('p3-pictures-file'), {
+  target: { files: Array.from({ length: n }, (_, i) => new File(['x'], `n${i}.webp`, { type: 'image/webp' })) },
+});
+
+describe('ended / archived lock', () => {
+  it.each(['ended', 'archived'] as const)('%s: the row is disabled and the reason is shown', async (k) => {
+    const envs = show(withGallery(SHAPES[k], 2));
+    await waitFor(() => screen.getByTestId('p3-details-lock'));
+    expect((screen.getByTestId('p3-d-pictures-open') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('p3-details-lock').textContent?.length).toBeGreaterThan(0);
+    expect(saveBtn().disabled).toBe(true);
+    expect(envs).toHaveLength(0);
+  });
+});
+
+describe('gallery + description in one save', () => {
+  it('sends ONE upsert: default_gallery in draft order + the description; description-only has no default_gallery', async () => {
+    const envs = show(withGallery(SHAPES.weekly, 5));
+    await openSheet();
+    fireEvent.click(screen.getAllByTestId('p3-picture-remove')[2]);
+    fireEvent.click(screen.getByTestId('p3-pictures-done'));
+    const ta = document.querySelector('textarea') as HTMLTextAreaElement;
+    fireEvent.change(ta, { target: { value: 'New words' } });
+    await act(async () => { fireEvent.click(saveBtn()); });
+    await waitFor(() => expect(envs).toHaveLength(1));
+    const all = pics(5);
+    const cmd = envs[0].command as { payload?: Raw } & Raw;
+    const body = JSON.stringify(cmd);
+    expect(body).toContain('New words');
+    expect(JSON.stringify(cmd)).toContain(JSON.stringify([all[0], all[1], all[3], all[4]]));
+  });
+  it('description only: no default_gallery key', async () => {
+    const envs = show(withGallery(SHAPES.weekly, 5));
+    await waitFor(() => screen.getByTestId('p3-d-pictures-open'));
+    fireEvent.change(document.querySelector('textarea') as HTMLTextAreaElement, { target: { value: 'Only words' } });
+    await act(async () => { fireEvent.click(saveBtn()); });
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect(JSON.stringify(envs[0].command)).toContain('Only words');
+    expect(JSON.stringify(envs[0].command)).not.toContain('default_gallery');
+  });
+});
+
+describe('uploads', () => {
+  it('a failure mid-batch keeps the pictures already added and shows the error', async () => {
+    upload.mockResolvedValueOnce('https://cdn.example/new1.webp').mockRejectedValueOnce(new Error('That file is too big.'));
+    const envs = show(withGallery(SHAPES.weekly, 2));
+    await openSheet();
+    await act(async () => { pick(3); });
+    await waitFor(() => screen.getByTestId('p3-pictures-error'));
+    expect(screen.getByTestId('p3-pictures-error').textContent).toBe('That file is too big.');
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(screen.queryAllByTestId('p3-picture')).toHaveLength(3);
+    fireEvent.click(screen.getByTestId('p3-pictures-done'));
+    await act(async () => { fireEvent.click(saveBtn()); });
+    await waitFor(() => expect(envs).toHaveLength(1));
+    expect(JSON.stringify(envs[0].command)).toContain(JSON.stringify([...pics(2), 'https://cdn.example/new1.webp']));
+  });
+  it('the cap slice: 29 stored + 3 picked = 1 upload, 30 pictures, the max note', async () => {
+    upload.mockResolvedValue('https://cdn.example/new1.webp');
+    show(withGallery(SHAPES.weekly, 29));
+    await openSheet();
+    await act(async () => { pick(3); });
+    await waitFor(() => screen.getByTestId('p3-pictures-max'));
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(screen.queryAllByTestId('p3-picture')).toHaveLength(30);
+  });
+  it('Done and Close are disabled while an upload is in flight', async () => {
+    let finish: (u: string) => void = () => {};
+    upload.mockImplementation(() => new Promise<string>((r) => { finish = r; }));
+    show(withGallery(SHAPES.weekly, 2));
+    await openSheet();
+    await act(async () => { pick(1); });
+    await waitFor(() => expect((screen.getByTestId('p3-pictures-add') as HTMLButtonElement).textContent).toBe(L.detailsUploading));
+    expect((screen.getByTestId('p3-pictures-done') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByText('Close') as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { finish('https://cdn.example/new1.webp'); });
+    await waitFor(() => expect((screen.getByTestId('p3-pictures-done') as HTMLButtonElement).disabled).toBe(false));
+    expect((screen.getByText('Close') as HTMLButtonElement).disabled).toBe(false);
   });
 });
