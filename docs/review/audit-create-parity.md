@@ -69,10 +69,8 @@ Prod `event_series_p5` (series count / distinct organisers):
 
 ## 3. Coverage and verdicts
 
-Rows: 29. HAS: 19 (rows 1,2,7-12,14-16,18-23,25,27,28; row 23 counted HAS; row 29 excluded below). GAP: 2 (13, 17). DEFERRED: 7 (3,4,5,6,24,26 plus row 5 N/A). New-only: 1 (29).
-Exact count: 29 rows = 18 HAS + 2 GAP + 6 DEFERRED + 1 N/A (row 5 online) + 1 new-in-P3 (row 29) + row 22/23 included in HAS count (18 = rows 1,2,7,8,9,10,11,12,14,15,16,18,19,20,21,22,23,25,27,28 minus 2 = see table; recount by status column).
-
-(Recount from the table: HAS = 1,2,7,8,9,10,11,12,14,15,16,18,19,20,21,22,23,25,27,28 = 20; GAP = 13,17 = 2; DEFERRED = 3,4,5,6,24,26 = 6; new-in-P3 = 29 = 1. Total 29. Use these figures.)
+**Coverage: 29 rows = 20 HAS + 2 GAP + 6 DEFERRED + 1 new-in-P3 (row 29).**
+HAS = rows 1,2,7-12,14-16,18-23,25,27,28. GAP = 13 (series gallery), 17 (level). DEFERRED = 3,4,5,6,24,26 (row 5, online, has nothing in prod to defer).
 
 | Capability | RETIRE-SAFE |
 |---|---|
