@@ -5,9 +5,13 @@
  * R1's own URLs (/account/o/*) redirect to the P3 screen that does the same job, except while the
  * person chose the old area with `?legacy=1` before LEGACY_UNTIL, so nobody is trapped.
  *
- * Import-free leaf: lib/accountRouting (on /app's first load) and the dancer screens read it, so it
- * must not drag featureFlags (Vite env) into Node-side importers. Paths restated; asserted equal to
- * P3_PATHS.home and ORG_PATHS.home in src/lib/__tests__/p3Landing.matrix.test.ts.
+ * LAZY ONLY (organiser shell, P3 You, Continue as, the join Done screen, the public claim card):
+ * never import this from a first-load module. The first-load doors (Options, Your areas, the dancer
+ * home, the sign-in landing) read ORGANISER_AREA_HOME_PATH in lib/accountRouting instead -- a
+ * build-time constant Rollup folds to one string, so the doors cost zero first-load bytes (bundle
+ * budget; a shared helper here made its own chunk and +1.8 KB on every route). Import-free.
+ * Paths restated; asserted equal to P3_PATHS.home, ORG_PATHS.home and ORGANISER_AREA_HOME_PATH in
+ * src/lib/__tests__/p3Landing.matrix.test.ts.
  */
 export type OrganiserAreaFlags = { organiserP3: boolean; organiserSelfServe: boolean };
 

@@ -27,6 +27,17 @@ export { ACCOUNT_HOME_PATH, isAccountPath };
 export const DANCER_HOME_PATH = '/account/dancer';
 /** The organiser area's Home. Equal to ORG_PATHS.home (asserted in accountRouting.test.tsx). */
 export const ORGANISER_HOME_PATH = '/account/o';
+/**
+ * The organiser area's Home for every first-load door (F-01, owner decision 1 (c)): P3's Home while P3
+ * is live (VITE_ENABLE_ORGANISER_P3 AND _SELF_SERVE, the pair AnimatedRoutes mounts /account/p3/* on),
+ * else ORGANISER_HOME_PATH exactly as before. Written over the exact `import.meta.env.VITE_X` form so
+ * Vite replaces it and Rollup folds it to ONE string: zero first-load bytes (bundle budget). Do not
+ * route it through featureFlags' `flags` or a helper. Pinned to `flags` in p3Landing.matrix.test.ts.
+ */
+export const ORGANISER_AREA_HOME_PATH: string =
+  import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true' && import.meta.env.VITE_ENABLE_ORGANISER_SELF_SERVE === 'true'
+    ? '/account/p3'
+    : ORGANISER_HOME_PATH;
 /** My attendance (src/pages/MyAttendance.tsx): nights marked going or interested; past ones link to their rating card. */
 export const MY_ATTENDANCE_PATH = '/account/attendance';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */

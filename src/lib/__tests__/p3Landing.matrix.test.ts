@@ -178,18 +178,36 @@ describe('isOrganiserAreaPath', () => {
     expect(isOrganiserAreaPath(p)).toBe(want));
 });
 
-// Module-level entry points read flags at import: load each with the flag mocked off / on.
+// The first-load doors read accountRouting's ORGANISER_AREA_HOME_PATH, a build-time constant over the two
+// Vite env vars (no featureFlags import, no helper: zero first-load bytes). Pin it, for every env
+// combination, to what featureFlags' `flags` says and to the lazy helper organiserAreaHome(flags).
+describe('ORGANISER_AREA_HOME_PATH equals organiserAreaHome(flags) for every env', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+  it.each([
+    ['true', 'true'], ['true', 'false'], ['false', 'true'], ['false', 'false'], ['', 'true'], ['TRUE', 'true'], ['1', 'true'],
+  ] as const)('P3=%j SELF_SERVE=%j', async (p3, ss) => {
+    vi.stubEnv('VITE_ENABLE_ORGANISER_P3', p3);
+    vi.stubEnv('VITE_ENABLE_ORGANISER_SELF_SERVE', ss);
+    vi.resetModules();
+    const [{ flags }, ar] = await Promise.all([import('@/lib/featureFlags'), import('@/lib/accountRouting')]);
+    expect(ar.ORGANISER_AREA_HOME_PATH).toBe(organiserAreaHome(flags));
+    expect(ar.ORGANISER_AREA_HOME_PATH).toBe(p3 === 'true' && ss === 'true' ? P3_PATHS.home : ORG_PATHS.home);
+  });
+});
+
+// Module-level entry points read the env at import: load each with the env stubbed off / on.
 describe('door constants and the claim landing: flag x person', () => {
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.resetModules();
-    vi.doUnmock('@/lib/featureFlags');
   });
   const load = async (f: OrganiserAreaFlags) => {
+    vi.stubEnv('VITE_ENABLE_ORGANISER_P3', String(f.organiserP3));
+    vi.stubEnv('VITE_ENABLE_ORGANISER_SELF_SERVE', String(f.organiserSelfServe));
     vi.resetModules();
-    vi.doMock('@/lib/featureFlags', async (orig) => {
-      const real = await orig<typeof import('@/lib/featureFlags')>();
-      return { ...real, flags: { ...real.flags, ...f } };
-    });
     const [options, areas, claim] = await Promise.all([
       import('@/modules/dancer-app/screens/options/optionsModel'),
       import('@/modules/areas/home/areaStatus'),

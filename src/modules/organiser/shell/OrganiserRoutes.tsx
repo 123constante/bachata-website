@@ -92,6 +92,10 @@ function AccountGated({ children }: { children: ReactNode }) {
  */
 const LEGACY_KEY = 'organiser.legacyArea';
 
+// Pass the two booleans, never the `flags` object itself: an escaping `flags` defeats Rollup's
+// constant tracking of every flag-gated branch site-wide (+1.8 KB on every route; bundle budget).
+const AREA = { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe };
+
 /** True when this tab chose the old area with ?legacy=1 (stored here so R1's own links keep it). */
 const stickyLegacy = (search: string): boolean => {
   try {
@@ -107,7 +111,7 @@ export default function OrganiserRoutes() {
   const { pathname, search, hash } = useLocation();
   // F-01..F-03 (owner decision 1, option (c)): while P3 is live, R1's URLs open the P3 screen that
   // does the same job; ?legacy=1 keeps R1 until LEGACY_UNTIL. P3 off: null, R1 exactly as before.
-  const toP3 = r1AreaRedirect(flags, { pathname, search, hash }, londonTodayKey(), flags.organiserP3 && stickyLegacy(search));
+  const toP3 = r1AreaRedirect(AREA, { pathname, search, hash }, londonTodayKey(), flags.organiserP3 && stickyLegacy(search));
   if (toP3) return <Navigate to={toP3} replace />;
   return (
     <AuthGuard>

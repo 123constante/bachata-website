@@ -21,11 +21,8 @@ import {
   MY_ATTENDANCE_PATH,
   SHOW_AGAIN_LABEL,
 } from "@/lib/accountRouting";
-import { flags } from "@/lib/featureFlags";
-import { organiserAreaHome } from "@/lib/organiserAreaHome";
-
-/** F-01: every organiser link here opens the organiser area's Home (P3 while live). */
-const ORGANISER_HOME_PATH = organiserAreaHome(flags);
+// F-01: every organiser link here opens the organiser area's Home (P3 while live).
+import { ORGANISER_AREA_HOME_PATH as ORGANISER_HOME_PATH } from "@/lib/accountRouting";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
