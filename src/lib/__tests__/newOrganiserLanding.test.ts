@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ORGANISER_HOME_PATH, appWelcomeHref, onboardingEnd, onboardingEndLabel, signInLanding, type SidesFacts } from '@/lib/accountRouting';
+import { ORGANISER_HOME_PATH, appWelcomeHref, onboardingEnd, onboardingEndLabel, profileSides, signInLanding, type SidesFacts } from '@/lib/accountRouting';
 import { P3_START_PATH, landingPathAfterAuth, newOrganiserLanding } from '@/lib/auth-otp-routing';
 import { P3_PATHS } from '@/modules/organiser/p3/shell/paths';
 import { organiserAreaHome } from '@/lib/organiserAreaHome';
@@ -118,6 +118,24 @@ describe('onboardingEndLabel: the button names every end path', () => {
     const go = signInLanding({ ...base, organiserIntent: true, dancer: 'incomplete', newOrganiserTo: START }, null);
     expect(go).toEqual({ kind: 'go', to: appWelcomeHref(START) });
     expect(onboardingEndLabel(onboardingEnd(START))).toBe('Next: find or create your page');
+  });
+
+  // review 1237 r1 F5: the switcher (useProfileSides) passes organiserHomeTo = the area Home and no
+  // newOrganiserTo, so the unfinished dancer side's returnTo is the area Home. It names a step either way.
+  for (const [name, f] of FLAGS) {
+    it(`switcher shape, unfinished dancer with organiser intent -- ${name}`, () => {
+      const home = organiserAreaHome(f);
+      const s = profileSides({ ...base, organiserIntent: true, dancer: 'incomplete', organiserHomeTo: home });
+      expect(s.status).toBe('ready');
+      const dancer = s.status === 'ready' ? s.sides.find((x) => x.kind === 'dancer') : undefined;
+      expect(dancer?.to).toBe(appWelcomeHref(home));
+      const label = onboardingEndLabel(onboardingEnd(home));
+      expect(label).toBe(live(f) ? 'Next: find or create your page' : 'Next: set up your organiser page');
+      expect(label).not.toBe('Continue');
+    });
+  }
+  it('P3 Home with a page chosen (o=) -> back to your page', () => {
+    expect(onboardingEndLabel(`${P3_PATHS.home}?o=abc`)).toBe('Next: back to your page');
   });
 });
 

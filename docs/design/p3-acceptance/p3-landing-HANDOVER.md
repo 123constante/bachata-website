@@ -90,3 +90,27 @@ Owner decision 1 (c) is built. The flag is NOT flipped. Vite env is untouched. `
 ## Left / next
 - `/code-review` was not run (Ricky types it). No browser walk beyond the e2e at 390x844. The flag is NOT flipped.
 - Lead decision in the PR body: an unfinished dancer at /account/o with the flag on now reaches P3 Welcome.
+
+# Round 3 fix (worker dt_3c0015a296ab, 2026-10-31) -- brief `brief/fix-1237-r1:docs/briefs/fix-1237-r1.md`
+
+Review: `origin/claude/review-1237-r1:docs/review/pr-1237-r1.md` (verdict BLOCK). One fix round.
+
+## Done
+- F2: merged origin/main; `test:e2e:p3` keeps BOTH `walk-p3-series-pictures.spec.ts` and `p3-landing-redirect.spec.ts`.
+- F1: `ORGANISER_AREA_HOME_PATH` reads the two env keys inside try/catch (default `/account/o`), the
+  `goingCheckin.ts` pattern; exact `import.meta.env.VITE_X` form kept, vite.config.ts untouched.
+  Phone config `--list`: 534 tests in 21 files (same as main).
+- F3: `/account/o/new/<seriesId>/<step>` (and `new/<seriesId>`) -> `/account/p3/events/<seriesId>`, as P3Routes NEW_STEPS.
+- F4: `/account/o/go-live?series=<id>` -> `/account/p3/events/<id>` (`series` dropped, rest kept); `/start` only without a series.
+- F5: `onboardingEndLabel` treats `/account/p3` like P3 start (no dancer-app file touched); switcher shape added to newOrganiserLanding.test.
+- N2/N3 copy: the P3 You link now says the old area stays only through its own links in this tab.
+
+## Two behaviours to know (review N2, N3)
+A legacy tab (`?legacy=1`) stays in the old area only through the old area's own links: every door
+(dancer home, Options, Your areas, sign-in landing, claim card, Done screen) still goes to P3.
+With storage blocked (private mode, site data blocked) the choice cannot be remembered, so only the
+exact `?legacy=1` URL renders the old area and its first in-area link redirects to P3 with no message
+-- accepted for the 7-day window.
+
+## Not done (nits, deliberately out of this round)
+N1 (`stickyLegacy` writes during render), N4 (`more`/`more/help` -> P3 Home, not `you/account|help`), N5 (DancerHome alias name).

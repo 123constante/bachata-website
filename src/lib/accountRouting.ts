@@ -33,11 +33,21 @@ export const ORGANISER_HOME_PATH = '/account/o';
  * else ORGANISER_HOME_PATH exactly as before. Written over the exact `import.meta.env.VITE_X` form so
  * Vite replaces it and Rollup folds it to ONE string: zero first-load bytes (bundle budget). Do not
  * route it through featureFlags' `flags` or a helper. Pinned to `flags` in p3Landing.matrix.test.ts.
+ * import.meta.env is absent outside Vite (Playwright imports this file in plain Node via
+ * selfServeErrors): the read is guarded and defaults to ORGANISER_HOME_PATH (review 1237 r1 F1),
+ * the same pattern as src/lib/goingCheckin.ts.
  */
-export const ORGANISER_AREA_HOME_PATH: string =
-  import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true' && import.meta.env.VITE_ENABLE_ORGANISER_SELF_SERVE === 'true'
-    ? '/account/p3'
-    : ORGANISER_HOME_PATH;
+const readOrganiserAreaHome = (): string => {
+  try {
+    return import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true' &&
+      import.meta.env.VITE_ENABLE_ORGANISER_SELF_SERVE === 'true'
+      ? '/account/p3'
+      : ORGANISER_HOME_PATH;
+  } catch {
+    return ORGANISER_HOME_PATH;
+  }
+};
+export const ORGANISER_AREA_HOME_PATH: string = readOrganiserAreaHome();
 /** My attendance (src/pages/MyAttendance.tsx): nights marked going or interested; past ones link to their rating card. */
 export const MY_ATTENDANCE_PATH = '/account/attendance';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
@@ -284,7 +294,9 @@ export const onboardingEndLabel = (end: string): string => {
   if (path === APP_HOME_PATH) return 'Go to Home';
   if (path === ORGANISER_HOME_PATH || path.startsWith(`${ORGANISER_HOME_PATH}/`)) return 'Next: set up your organiser page';
   // A chosen page (o=, e.g. the Review-step return) already exists: "find or create" would point at a step that is not coming.
-  if (path === P3_START_PATH) return /[?&]o=[^&#]/.test(end) ? 'Next: back to your page' : 'Next: find or create your page';
+  // P3's Home ('/account/p3', ORGANISER_AREA_HOME_PATH while P3 is live) is the switcher's onward
+  // returnTo for the same person (useProfileSides passes no newOrganiserTo): same step (review 1237 r1 F5).
+  if (path === P3_START_PATH || path === '/account/p3') return /[?&]o=[^&#]/.test(end) ? 'Next: back to your page' : 'Next: find or create your page';
   if (path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`)) return 'Next: join the team';
   return 'Continue';
 };

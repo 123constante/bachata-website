@@ -106,7 +106,11 @@ describe('/account/o/* -> P3 (F-02, F-03): every R1 path x flag', () => {
     ['/account/o/events/s1/dates/d1', `${P3}/events/s1`, null],
     ['/account/o/events/new', `${P3}/create`, null],
     ['/account/o/new/what?o=a', `${P3}/create?o=a`, null],
-    ['/account/o/new/s1/venue', `${P3}/create`, null],
+    ['/account/o/new/name?format=class', `${P3}/create?format=class`, null],
+    // review 1237 r1 F3: a draft step keeps its draft (P3Routes NEW_STEPS `new/:seriesId/*`)
+    ['/account/o/new/s1/venue', `${P3}/events/s1`, null],
+    ['/account/o/new/s1/cover?o=a', `${P3}/events/s1?o=a`, null],
+    ['/account/o/new/s1', `${P3}/events/s1`, null],
     ['/account/o/change/s1/d1/time', `${P3}/events/s1`, null],
     ['/account/o/change', `${P3}/events`, null],
     ['/account/o/add/s1', `${P3}/events/s1`, null],
@@ -121,6 +125,10 @@ describe('/account/o/* -> P3 (F-02, F-03): every R1 path x flag', () => {
     ['/account/o/switch', `${P3}/you/switch`, null],
     ['/account/o/welcome?o=a', `${P3}/you/welcome?o=a`, null],
     ['/account/o/go-live?o=a', `${P3}/start?o=a`, null],
+    // review 1237 r1 F4: go-live for a series is that event (`series` dropped, the rest rides along)
+    ['/account/o/go-live?series=s2&o=org1', `${P3}/events/s2?o=org1`, null],
+    ['/account/o/go-live?series=s2', `${P3}/events/s2`, null],
+    ['/account/o/go-live?series=', `${P3}/start?series=`, null],
     ['/account/o/more/help', P3, null],
     ['/account/o/done#x', `${P3}#x`, null],
   ];

@@ -62,6 +62,8 @@ export const r1ToP3Path = (pathname: string, search: string, hash: string): stri
   else if (a === 'events') to = `${P3_HOME}/events`;
   else if ((a === 'change' || a === 'add' || a === 'cancel' || a === 'cover') && b && b !== 'pick') to = `${P3_HOME}/events/${seg(b)}`;
   else if (a === 'change' || a === 'add' || a === 'cancel') to = `${P3_HOME}/events`;
+  // review 1237 r1 F3: a draft step keeps its draft, as P3Routes NEW_STEPS does (`new/:seriesId/*`)
+  else if (a === 'new' && b && b !== 'what' && b !== 'name') to = `${P3_HOME}/events/${seg(b)}`;
   else if (a === 'new') to = `${P3_HOME}/create`;
   else if (a === 'team' && b === 'add') to = `${P3_HOME}/you/team/add`;
   else if (a === 'team' && b) to = `${P3_HOME}/you/team/${seg(b)}`;
@@ -74,6 +76,12 @@ export const r1ToP3Path = (pathname: string, search: string, hash: string): stri
   else to = P3_HOME;
   const q = new URLSearchParams(search);
   q.delete(LEGACY_QUERY);
+  // review 1237 r1 F4: an R1 go-live for a series is that event's page in P3 (P3 start reads only `o`)
+  const goLiveSeries = a === 'go-live' ? q.get('series') : null;
+  if (goLiveSeries) {
+    to = `${P3_HOME}/events/${encodeURIComponent(goLiveSeries)}`;
+    q.delete('series');
+  }
   const qs = q.toString();
   return `${to}${qs ? `?${qs}` : ''}${hash}`;
 };
