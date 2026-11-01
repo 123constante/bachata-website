@@ -12,6 +12,7 @@ import {
 import { fetchOccurrenceProgramme, occurrenceProgrammeQueryKey, saveOccurrenceProgramme } from '../../shared/selfServeApi';
 import { commandErrorMessage, isNetworkFailure, isOnboardingRefusal, programmeErrorCopy } from '../../shared/selfServeErrors';
 import { eventWorkspaceQueryKey, useSendOnce } from '../../shared/runCommands';
+import { invalidatePublicViews } from '../../shared/publicViewKeys';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import { AW1_APPLIED } from '../../shared/parityGate';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -281,6 +282,7 @@ export function useDateSend(ws: EventWorkspace, occurrenceId: string | null) {
   const reload = () => {
     void qc.invalidateQueries({ queryKey: occurrenceProgrammeQueryKey(occurrenceId ?? undefined) });
     void qc.invalidateQueries({ queryKey: eventWorkspaceQueryKey(ws.series.id) });
+    invalidatePublicViews(qc, ws.series.id);
   };
   return async (version: number, payload: Record<string, unknown>[]): Promise<void> => {
     try {
