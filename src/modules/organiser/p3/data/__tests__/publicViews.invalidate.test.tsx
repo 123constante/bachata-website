@@ -83,7 +83,7 @@ const PATHS: Path[] = [
 ];
 
 describe('F-33: organiser saves refresh the public event page and calendar in the same tab', () => {
-  it.each(PATHS)('$name marks exactly this series’ event page and the calendar stale', async ({ run }) => {
+  it.each(PATHS)('$name marks exactly this series\u2019 event page and the calendar stale', async ({ run }) => {
     const { qc, wrapper } = setup();
     expect(stale(qc).every((s) => !s.stale)).toBe(true);
     await run(wrapper);
@@ -99,7 +99,7 @@ describe('F-33: organiser saves refresh the public event page and calendar in th
     expect(stale(qc)).toEqual(expected);
   });
 
-  it('the keys are the public modules’ own keys (a renamed key fails here, not silently on prod)', () => {
+  it('the keys are the public modules\u2019 own keys (a renamed key fails here, not silently on prod)', () => {
     expect(eventPageQueryKey(SID, OCC).slice(0, 2)).toEqual([...publicEventPageKey(SID)]);
     expect(seoLandingEventsKey(TODAY, 28)[0]).toBe(PUBLIC_CALENDAR_KEY[0]);
     expect(PUBLIC_CALENDAR_KEY).toHaveLength(1);
