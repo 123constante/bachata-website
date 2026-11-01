@@ -26,7 +26,7 @@ import CreateFlow from '../CreateFlow';
 import { P3_BASE, P3_PATHS, p3StartReview } from '../../shell/paths';
 import { COPY, RESULT_COPY } from '../model';
 import { rawWorkspace } from '../../../events/__tests__/fixtures';
-import { ONBOARDING_REFUSAL } from '../../../shared/selfServeErrors';
+import { closeGate, getGate, subscribeGate } from '../../onboarding/gate';
 
 const page = (id: string, name: string, lifecycle = 'live') => ({ id, name, slug: null, avatar_url: null, city_id: 'c1', lifecycle_status: lifecycle, role: 'owner', latest_decision: null, series: [] });
 const VENUES = [
@@ -35,6 +35,8 @@ const VENUES = [
 ];
 
 let pages: ReturnType<typeof page>[] = [];
+/** How many commands had been sent when each upload ran (F-15: never before the create). */
+let uploadedAfter: number[] = [];
 let commandFails: (env: { command: { kind: string } }, n: number) => { message: string } | null = () => null;
 /** Commands the server took (the series' version); 0 = no row yet. */
 let landed = 0;
@@ -47,7 +49,8 @@ beforeEach(() => {
   landed = 0;
   profileLeft.value = false;
   upload.mockReset();
-  upload.mockResolvedValue('https://img.example/cover.jpg');
+  upload.mockImplementation(async () => { uploadedAfter.push(sent.length); return 'https://img.example/cover.jpg'; });
+  uploadedAfter = [];
   try { window.sessionStorage.clear(); } catch { /* none */ }
   rpc.mockReset();
   rpc.mockImplementation(async (fn: string, args: { p_envelope?: (typeof sent)[number] }) => {
@@ -245,7 +248,7 @@ describe('saving: the fixed order, the versions chained, one key per step', () =
     expect(upload).not.toHaveBeenCalled();
   });
 
-  it('weekly, go live (gate off = success): photo, create, repeat, sessions, live, in that order', async () => {
+  it('weekly, go live (gate off = success): create, photo, repeat, sessions, live, in that order', async () => {
     await fillWeekly();
     const live = screen.getByTestId('p3-new-go-live') as HTMLButtonElement;
     expect(live.disabled).toBe(false);
@@ -253,16 +256,19 @@ describe('saving: the fixed order, the versions chained, one key per step', () =
     await waitFor(() => expect(where()).toMatch(/^\/account\/p3\/events\//));
     const id = sent[0].target_id;
     expect(upload).toHaveBeenCalledWith(id, expect.any(File));
-    expect(sent.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.set_recurrence', 'series.set_program', 'series.set_lifecycle']);
-    expect(sent.map((e) => e.expected_version)).toEqual([undefined, 1, 2, 3]);
+    expect(sent.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.upsert', 'series.set_recurrence', 'series.set_program', 'series.set_lifecycle']);
+    expect(sent.map((e) => e.expected_version)).toEqual([undefined, 1, 2, 3, 4]);
     expect(sent[0].command.payload).toMatchObject({
-      format: 'recurring', default_start_date: '2026-11-06', default_venue_id: 'v1', default_city_id: 'c1',
-      default_cover_image_url: 'https://img.example/cover.jpg', payment_methods: 'door',
+      format: 'recurring', default_start_date: '2026-11-06', default_venue_id: 'v1', default_city_id: 'c1', payment_methods: 'door',
     });
+    expect(sent[0].command.payload).not.toHaveProperty('default_cover_image_url');
     expect(sent[0].command.payload).not.toHaveProperty('default_local_start_time');
-    expect(sent[1].command.payload).toMatchObject({ mode: 'weekly', weekdays: [5], end: { kind: 'none' } });
-    expect(sent[3].command.payload).toEqual({ to: 'live' });
-    expect(new Set(sent.map((e) => e.idempotency_key)).size).toBe(4);
+    // F-15: the photo goes to storage only after the create landed, then is saved on the draft
+    expect(uploadedAfter).toEqual([1]);
+    expect(sent[1].command.payload).toEqual({ name: 'Friday Bachata', default_cover_image_url: 'https://img.example/cover.jpg' });
+    expect(sent[2].command.payload).toMatchObject({ mode: 'weekly', weekdays: [5], end: { kind: 'none' } });
+    expect(sent[4].command.payload).toEqual({ to: 'live' });
+    expect(new Set(sent.map((e) => e.idempotency_key)).size).toBe(5);
     expect(screen.getByTestId('where').getAttribute('data-toast')).toBe(RESULT_COPY.live);
   });
 
@@ -271,22 +277,29 @@ describe('saving: the fixed order, the versions chained, one key per step', () =
     await fillWeekly();
     fireEvent.click(screen.getByTestId('p3-new-go-live'));
     const card = await screen.findByTestId('p3-new-details');
-    expect(sent.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.set_recurrence', 'series.set_program']);
+    expect(sent.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.upsert', 'series.set_recurrence', 'series.set_program']);
     expect(within(card).getByTestId('p3-new-details-go').getAttribute('href')).toBe(p3StartReview('org1'));
     expect(within(card).getByTestId('p3-new-open').getAttribute('href')).toBe(P3_PATHS.event(sent[0].target_id));
   });
 
-  it('gate on (onboarding refusal): nothing saved, the existing copy, a link to finish the details', async () => {
-    commandFails = () => ({ message: 'onboarding_incomplete' });
-    at(form('one_date'));
-    fireEvent.change(await screen.findByTestId('p3-new-name'), { target: { value: 'Salsa Sunday' } });
-    fireEvent.click(screen.getByTestId('p3-new-save-draft'));
-    const card = await screen.findByTestId('p3-new-onboarding-error');
-    expect(card.textContent).toContain(ONBOARDING_REFUSAL);
-    expect(within(card).getByRole('link', { name: 'Finish your details' }).getAttribute('href')).toBe(p3StartReview('org1'));
-    expect(sent.length).toBe(1);
-    expect((screen.getByTestId('p3-new-name') as HTMLInputElement).value).toBe('Salsa Sunday');
-    expect(screen.queryByTestId('p3-new-discard')).toBeNull();
+  it('gate on (onboarding refusal, F-15): the shared gate sheet opens, no own card, no photo uploaded, the typing kept', async () => {
+    const off = subscribeGate(() => undefined); // P3Shell's GateHost, listening
+    try {
+      commandFails = () => ({ message: 'onboarding_incomplete', details: JSON.stringify({ missing: ['contact_confirm'], organiser_id: 'org1' }) } as { message: string });
+      await fillWeekly();
+      fireEvent.click(screen.getByTestId('p3-new-save-draft'));
+      await waitFor(() => expect(getGate()).not.toBeNull());
+      expect(getGate()).toMatchObject({ organiserId: 'org1', missing: ['contact_confirm'] });
+      expect(sent.length).toBe(1);
+      expect(upload).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('p3-new-onboarding-error')).toBeNull();
+      expect(screen.queryByTestId('p3-new-failed-error')).toBeNull();
+      expect(screen.queryByTestId('p3-new-discard')).toBeNull();
+      expect((screen.getByTestId('p3-new-name') as HTMLInputElement).value).toBe('Friday Bachata');
+    } finally {
+      closeGate();
+      off();
+    }
   });
 
   it('another refusal before the create (the 20-a-day limit): The event was not saved, Try again', async () => {
@@ -314,13 +327,13 @@ describe('failure midway: the draft exists, the screen says what did not save an
     expect(screen.getByTestId('p3-new-partial-left').textContent).toBe('Not saved yet: the sessions.');
     namedControlsOnScreen(card.textContent ?? '');
     expect(within(card).getByTestId('p3-new-open').getAttribute('href')).toBe(P3_PATHS.event(sent[0].target_id));
-    const firstKey = sent[2].idempotency_key;
+    const firstKey = sent[3].idempotency_key;
     failSessions = false;
     fireEvent.click(within(card).getByTestId('p3-new-retry'));
     await waitFor(() => expect(where()).toMatch(/^\/account\/p3\/events\//));
-    expect(sent.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.set_recurrence', 'series.set_program', 'series.set_program']);
-    expect(sent[3].idempotency_key).toBe(firstKey);
-    expect(sent[3].expected_version).toBe(2);
+    expect(sent.map((e) => e.command.kind)).toEqual(['series.upsert', 'series.upsert', 'series.set_recurrence', 'series.set_program', 'series.set_program']);
+    expect(sent[4].idempotency_key).toBe(firstKey);
+    expect(sent[4].expected_version).toBe(3);
     expect(upload).toHaveBeenCalledTimes(1);
   });
 
@@ -335,7 +348,27 @@ describe('failure midway: the draft exists, the screen says what did not save an
     const last = sent[sent.length - 1];
     expect(last.command).toEqual({ kind: 'series.set_lifecycle', payload: { to: 'archived' } });
     expect(last.target_id).toBe(sent[0].target_id);
-    expect(last.expected_version).toBe(1);
+    expect(last.expected_version).toBe(2);
+  });
+
+  it('Discard refused by the gate (F-15): the gate sheet opens, the partial card stays, no wrong "check your connection" line', async () => {
+    const off = subscribeGate(() => undefined);
+    try {
+      commandFails = (e) => (e.command.kind === 'series.set_recurrence' ? { message: 'Failed to fetch' }
+        : e.command.kind === 'series.set_lifecycle' ? { message: 'onboarding_incomplete' } : null);
+      await fillWeekly();
+      fireEvent.click(screen.getByTestId('p3-new-save-draft'));
+      await screen.findByTestId('p3-new-partial-error');
+      fireEvent.click(screen.getByTestId('p3-new-discard'));
+      await waitFor(() => expect(getGate()).not.toBeNull());
+      const card = await screen.findByTestId('p3-new-partial-error');
+      expect(card.textContent).not.toContain(RESULT_COPY.discardFailed);
+      expect(screen.getByTestId('p3-new-partial-left').textContent).toBe('Not saved yet: how it repeats and the sessions.');
+      expect(where()).not.toBe(P3_PATHS.events);
+    } finally {
+      closeGate();
+      off();
+    }
   });
 });
 

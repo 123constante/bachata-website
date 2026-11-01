@@ -11,7 +11,7 @@ import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
  *      the person cannot edit;
  *   2. a refusal with no gate host listening, or for a screen the person has left, never opens later;
  *   3. only the topmost sheet answers Escape, and each sheet is named by its own title;
- *   5. Repeat's dry-run preview opens the gate at most once per sheet.
+ *   5. Repeat (F-12): the gate sheet waits for Save; a refusal the status read predicts is never sent.
  * Only exports that existed at e984ac1 are used, so the red run measured behaviour, not a missing import.
  */
 
@@ -112,16 +112,23 @@ describe('3. stacked sheets', () => {
   });
 });
 
-describe('5. Repeat\u2019s dry-run preview opens the gate at most once per sheet', () => {
-  it('two draft changes, both refused: one opening', async () => {
-    rpc.mockImplementation(async (name: string) => {
+describe('5. Repeat (F-12): the gate sheet waits for Save, and a refusal the status read predicts is never sent', () => {
+  const statusOf: Record<string, unknown> = {
+    'status unknown (read fails)': null,
+    'gate on, the page unfinished': status(['nationality'], [page('o1', ['org_logo'])]),
+    'gate off': { ...status(['nationality'], [page('o1', ['org_logo'])]), gate_on: false },
+  };
+  const render5 = (st: unknown, refuse: boolean) => {
+    rpc.mockImplementation(async (name: string, args?: { p_envelope?: { command?: { payload?: { dry_run?: boolean } } } }) => {
       if (name === 'admin_event_workspace_p5') return { data: SHAPES.weekly, error: null };
-      if (name === 'series_command_p5') return { data: null, error: REFUSAL };
+      if (name === 'organiser_onboarding_status_v1') return st === null ? { data: null, error: { message: 'boom' } } : { data: st, error: null };
+      if (name === 'series_command_p5') {
+        if (refuse) return { data: null, error: REFUSAL };
+        const dry = args?.p_envelope?.command?.payload?.dry_run === true;
+        return { data: { ok: true, new_version: 8, dry_run: dry, data: { will_add: [], will_remove: [], will_cancel_booked: [], keeps_own_changes: [], next_8: ['2026-10-26'] } }, error: null };
+      }
       return { data: [], error: null };
     });
-    let opens = 0;
-    let last: unknown = null;
-    const off = subscribeGate(() => { const g = getGate(); if (g && g !== last) opens += 1; last = g; });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={qc}>
@@ -131,17 +138,41 @@ describe('5. Repeat\u2019s dry-run preview opens the gate at most once per sheet
         </MemoryRouter>
       </QueryClientProvider>,
     );
-    fireEvent.click(await screen.findByTestId('p3-open-repeat'));
-    await screen.findByTestId('p3-sheet');
-    fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
-    await screen.findByTestId('p3-gate', {}, { timeout: 3000 });
-    fireEvent.click(screen.getByTestId('p3-gate-not-now'));
-    await waitFor(() => expect(screen.queryByTestId('p3-gate')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Tuesday' }));
-    await waitFor(() => expect(rpc.mock.calls.filter((c) => c[0] === 'series_command_p5').length).toBeGreaterThanOrEqual(2), { timeout: 3000 });
-    await new Promise((r) => setTimeout(r, 100));
-    expect(screen.queryByTestId('p3-gate')).toBeNull();
-    expect(opens).toBe(1);
-    off();
-  });
+  };
+  const commands = () => rpc.mock.calls.filter((c) => c[0] === 'series_command_p5').length;
+  const saveBtn = () => screen.getByRole('button', { name: /Save the new pattern/ }) as HTMLButtonElement;
+
+  for (const [label, st] of Object.entries(statusOf)) {
+    const refuse = label !== 'gate off';
+    it(`${label}: two changes, no sheet before Save; Save ${refuse ? 'opens the sheet once' : 'saves'}`, async () => {
+      let opens = 0;
+      let last: unknown = null;
+      const off = subscribeGate(() => { const g = getGate(); if (g && g !== last) opens += 1; last = g; });
+      render5(st, refuse);
+      fireEvent.click(await screen.findByTestId('p3-open-repeat'));
+      await screen.findByTestId('p3-sheet');
+      fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Tuesday' }));
+      await waitFor(() => expect(saveBtn().disabled).toBe(false), { timeout: 3000 });
+      await new Promise((r) => setTimeout(r, 450));
+      // never a sheet before the person taps Save
+      expect(screen.queryByTestId('p3-gate')).toBeNull();
+      expect(opens).toBe(0);
+      // a refusal the status read predicts sends no dry run at all (each refused one is a failed-change row);
+      // with no status answer at most ONE refused dry run, then nothing more is asked
+      const before = commands();
+      expect(before).toBeLessThanOrEqual(label === 'gate on, the page unfinished' ? 0 : label === 'gate off' ? 2 : 1);
+      if (refuse) expect(screen.getByTestId('p3-repeat-held')).toBeTruthy();
+      fireEvent.click(saveBtn());
+      if (refuse) {
+        await screen.findByTestId('p3-gate', {}, { timeout: 3000 });
+        expect(opens).toBe(1);
+        expect(commands()).toBe(before); // Save on a held change sends nothing: the sheet is the answer
+      } else {
+        await waitFor(() => expect(commands()).toBe(before + 1));
+        expect(opens).toBe(0);
+      }
+      off();
+    });
+  }
 });

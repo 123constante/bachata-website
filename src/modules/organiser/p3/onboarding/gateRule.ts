@@ -22,13 +22,16 @@ type RawOrg = { id?: unknown; complete?: unknown };
  * an admin, or the caller is a member of none of the target pages; otherwise passes only when ONE target page the
  * caller is a member of is complete. `organisers` in the status read is every page the caller is on, each with
  * `complete` (= nothing missing for the person and that page, the same `_onboarding_missing_v1`).
+ * Targets as _command_target_organisers_p5 picks them: the series' organiser_ids, and when that is empty (571 of
+ * 758 series on prod, 2026-11-01) the caller's own pages, so `targets` [] means every page the person is on.
  */
 export function gateAnswerFrom(raw: unknown, targets: readonly string[]): GateAnswer {
   if (!raw || typeof raw !== 'object') return { s: 'unknown' };
   const r = raw as { gate_on?: unknown; is_admin?: unknown; organisers?: unknown };
   if (typeof r.gate_on !== 'boolean' || !Array.isArray(r.organisers)) return { s: 'unknown' };
   if (!r.gate_on || r.is_admin === true) return { s: 'pass' };
-  const mine = (r.organisers as RawOrg[]).filter((o) => typeof o?.id === 'string' && targets.includes(o.id as string));
+  const pages = (r.organisers as RawOrg[]).filter((o) => typeof o?.id === 'string');
+  const mine = targets.length ? pages.filter((o) => targets.includes(o.id as string)) : pages;
   if (mine.length === 0 || mine.some((o) => o.complete === true)) return { s: 'pass' };
   return { s: 'refuse', organiserId: mine[0].id as string };
 }
