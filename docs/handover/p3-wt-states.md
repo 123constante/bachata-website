@@ -20,3 +20,5 @@ Branch `claude/p3-wt-states`, brief `docs/briefs/p3-wt-states.md` (ticket dt_698
 - Router-blocker path of F-24 has no unit test (needs a data router); walk it at 390x844: edit a date name, tap a tab.
 - Overlay e2e at 390x844 (sheet/confirm/toast inside viewport) not written.
 - Shape survey (Supabase) and bundle-budget not run by this worker, see PR body.
+
+Run so far: organiser vitest 221 files / 8421 tests green; eslint on p3 clean for touched files (1 pre-existing error in OnboardingFlow.tsx:112). check:bundle-budget needs a build, not run.
