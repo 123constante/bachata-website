@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Loader2, MailCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { ORG_PATHS } from '../../shell/paths';
+import { flags } from '@/lib/featureFlags';
+import { organiserAreaHome } from '@/lib/organiserAreaHome';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +25,10 @@ export const EMAIL_CODE_MAX_LENGTH = 10;
 /** Seconds before another code can be requested; the mail provider rate-limits sends. */
 export const RESEND_COOLDOWN_SECONDS = 30;
 
-export function EmailCodeProof({ email, onProven, returnTo = ORG_PATHS.home }: { email: string; onProven: () => void; returnTo?: string }) {
+// F-04: the default lands in the live organiser area's Home (P3 while live), never via the old one.
+const AREA_HOME = organiserAreaHome({ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe });
+
+export function EmailCodeProof({ email, onProven, returnTo = AREA_HOME }: { email: string; onProven: () => void; returnTo?: string }) {
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);

@@ -60,6 +60,8 @@ export const r1ToP3Path = (pathname: string, search: string, hash: string): stri
   else if (a === 'events' && b === 'new') to = `${P3_HOME}/create`;
   else if (a === 'events' && b) to = c === 'details' || c === 'organisers' ? `${P3_HOME}/events/${seg(b)}/${c}` : `${P3_HOME}/events/${seg(b)}`;
   else if (a === 'events') to = `${P3_HOME}/events`;
+  // F-03 / A-gate-J3: the old event bookmark shape keeps its event
+  else if (a === 'series' && b) to = `${P3_HOME}/events/${seg(b)}`;
   else if ((a === 'change' || a === 'add' || a === 'cancel' || a === 'cover') && b && b !== 'pick') to = `${P3_HOME}/events/${seg(b)}`;
   else if (a === 'change' || a === 'add' || a === 'cancel') to = `${P3_HOME}/events`;
   // review 1237 r1 F3: a draft step keeps its draft, as P3Routes NEW_STEPS does (`new/:seriesId/*`)
@@ -84,6 +86,16 @@ export const r1ToP3Path = (pathname: string, search: string, hash: string): stri
   }
   const qs = q.toString();
   return `${to}${qs ? `?${qs}` : ''}${hash}`;
+};
+
+/**
+ * Old R1-only URL shapes R1 itself no longer routes (F-03 / A-gate-J3): `/account/o/series/<id>` is
+ * that event's page, `/account/o/events/<id>`, query and hash kept (`legacy` too: the person asked for
+ * the old area). null = not one of them. Read by OrganiserRoutes while R1 renders.
+ */
+export const r1LegacyPath = (pathname: string, search: string, hash: string): string | null => {
+  const m = pathname.match(/^\/account\/o\/series\/([^/]+)\/?$/);
+  return m ? `${R1_HOME}/events/${seg(m[1])}${search}${hash}` : null;
 };
 
 /**

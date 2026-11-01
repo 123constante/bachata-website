@@ -86,10 +86,9 @@ export const JOIN_COPY = {
   done: {
     heading: (org: string) => `You${APOS}re on ${possessive(org)} team.`,
     body: 'Everything on its page is yours to use: events, team and profile.',
+    // F-05: with either area live the button opens that area's Home (acceptedInviteLanding /
+    // organiserAreaHome), so one label says where it lands.
     button: 'Open your organiser home',
-    // F-05: while P3 is live the button lands on P3's Welcome for the page (or P3's Home without
-    // an id), both inside the organiser area -- so it says the area, not "home".
-    buttonP3: 'Open your organiser area',
     // organiserSelfServe off: the organiser area is not open yet, so the one next step is the public site.
     bodyOff: 'Your place on the team is saved for when they open.',
     buttonOff: 'Go to Bachata Calendar',
