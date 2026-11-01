@@ -4,7 +4,7 @@ import { cancelOneOffCommand, lifecycleCommand, uncancelCommand, type DateStep, 
 import { endRunCommand, readIsFull, stopRepeatingCommand, type EventWorkspace, type TodaySession } from '../../events/eventModel';
 import { parseTree } from '../../events/programmeSeriesModel';
 import { NO_SESSION_REASON } from '../../events/lifecycleModel';
-import { L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
+import { ARCHIVED_WHY, L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
 import { dateFactsOf, marksOf } from './dateFacts';
 import type { CancelInput, DaySession, IsoDate, P3Date, P3Event, P3Kind, P3Person, P3Session, P3Status, RoleKey, SessionKind } from '../model';
 
@@ -221,7 +221,7 @@ export const STATUS_COPY = {
   tooManyDates: 'This event has more dates coming up than this page can list, so the dates to keep can\u2019t be picked here. Ask the Bachata Calendar team.',
 
   endedWhy: 'Finished events stay finished. Ask the Bachata Calendar team if it should run again.',
-  archivedWhy: 'This event was removed. Ask the Bachata Calendar team if it should come back.',
+  archivedWhy: ARCHIVED_WHY,
   reviewWhy: 'The Bachata Calendar team is checking it, so its status can\u2019t change here.',
 } as const;
 
@@ -386,7 +386,7 @@ export const PUBLIC_PAGE_SUB_PAUSED = 'Hidden from the calendar. The page still 
 export const PUBLIC_PAGE_NO_ADDRESS = 'The page has no address yet.';
 export const PUBLIC_PAGE_WHY: Record<string, string> = {
   draft: 'Dancers can see it once it is live.',
-  archived: 'You removed it, so dancers can\u2019t see it.',
+  archived: 'It has finished and is no longer on the calendar, so dancers can\u2019t see it.',
 };
 export const PUBLIC_PAGE_WHY_OTHER = 'Dancers can see it once it is live.';
 

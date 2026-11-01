@@ -6,7 +6,7 @@ import { isAccessRefusal } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
 import { STATUS_COPY, eventPageOf, publicPageOf, type EventPageView } from '../data/eventPage';
-import { L, addDateWhy, peopleText, removedStatus, sessionKindLabel, sessionTitle, timeWord } from '../model';
+import { L, addDateWhy, peopleText, archivedStatus, sessionKindLabel, sessionTitle, timeWord } from '../model';
 import { repeatShapeOf, seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
 import { P3_PATHS } from '../shell/paths';
@@ -324,8 +324,8 @@ export function WorkspaceGate({ children }: { children: (ws: EventWorkspace, pla
   }
   if (ws.data.series.lifecycle_status === 'archived') {
     return (
-      <StateCard title="This event was removed" testId="p3-event-removed">
-        <p><span className={`p3-tag p3-tag-${removedStatus().key}`} data-testid="p3-status">{removedStatus().label}</span></p>
+      <StateCard title="This event has finished" testId="p3-event-archived">
+        <p><span className={`p3-tag p3-tag-${archivedStatus().key}`} data-testid="p3-status">{archivedStatus().label}</span></p>
         <p>{STATUS_COPY.archivedWhy}</p>
         <Link className="p3-link" to={P3_PATHS.events}>See your events</Link>
       </StateCard>

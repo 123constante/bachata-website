@@ -5,7 +5,7 @@ import { L } from './labels';
 import type { IsoDate, P3Kind } from './types';
 
 /** The status tag on an event (C3 `status`). `warn` = live but nothing coming up; `review` = in review / changes needed. */
-export type P3StatusKey = 'live' | 'hidden' | 'finished' | 'draft' | 'review' | 'warn' | 'removed';
+export type P3StatusKey = 'live' | 'hidden' | 'finished' | 'draft' | 'review' | 'warn';
 
 export interface P3Status {
   key: P3StatusKey;
@@ -25,7 +25,9 @@ export interface P3Status {
 export function statusOf(lifecycle: string, format: string | null, kind: P3Kind, upcoming: number): P3Status {
   const life = seriesLife({ lifecycle_status: lifecycle, format }, upcoming);
   const past = life.section === 'past';
-  if (lifecycle === 'archived') return { key: 'removed', label: L.removedTag, past };
+  // F-22, owner 2026-11-01: an archived event reads Finished. Most were archived by the import or
+  // the team, not the organiser, so the tag never says "Removed" (only the Remove flow does).
+  if (lifecycle === 'archived') return { key: 'finished', label: L.finished, past };
   if (lifecycle === 'ended') return { key: 'finished', label: L.finished, past };
   if (lifecycle === 'paused') return { key: 'hidden', label: L.hidden, past };
   if (lifecycle === 'draft') return { key: 'draft', label: L.draftTag, past };
@@ -84,5 +86,12 @@ export function dayWord(date: IsoDate, today: IsoDate, start?: string | null): s
   return fullDate(date, today);
 }
 
-/** The tag of an event that was removed (archived), for the page that opens in place of it. */
-export const removedStatus = (): P3Status => statusOf('archived', null, 'custom', 0);
+/**
+ * F-22 (owner 2026-11-01): the words for an archived event, on every screen that names it. It
+ * reads Finished, never "removed": 653 archived series on prod, many archived by the legacy import
+ * or the team, and the read does not say who. Only the Remove flow itself says "Removed".
+ */
+export const ARCHIVED_WHY = 'This event has finished and is no longer on the calendar. Ask the Bachata Calendar team if it should come back.';
+
+/** The tag of an archived event, for the page that opens in place of it. */
+export const archivedStatus = (): P3Status => statusOf('archived', null, 'custom', 0);

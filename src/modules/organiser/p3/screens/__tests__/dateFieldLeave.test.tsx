@@ -6,7 +6,7 @@ import { SHAPES } from './wsFixtures';
 import { parseEventWorkspace } from '../../../events/eventModel';
 import { DateFieldSheet, type FieldStep } from '../DateFieldSheets';
 
-/* F-24: a half-typed per-date field is not dropped silently by the tab bar, phone Back or Escape. */
+/* F-24 (red first: under PR #1251's inline onLeave this file hangs; run with --testTimeout): a half-typed per-date field is not dropped silently by the tab bar, phone Back or Escape. */
 
 vi.mock('@/hooks/useIsAdmin', () => ({ useIsAdmin: () => ({ isAdmin: false, isPending: false }) }));
 afterEach(cleanup);
@@ -49,8 +49,10 @@ describe.each(['edit-name', 'edit-photos', 'edit-price'] as FieldStep[])('F-24 %
     await makeDirty(step);
     await act(async () => { await router.navigate('/c'); });
     expect(router.state.location.pathname).toBe('/b');
-    expect(screen.getByTestId('p3-field-ask')).toBeTruthy();
+    // one prompt, no loop (PR #1251 r1 #1: an unstable onLeave re-asked on every render and hung here)
+    expect(screen.getAllByTestId('p3-field-ask')).toHaveLength(1);
     await act(async () => { fireEvent.click(screen.getByTestId('p3-field-ask-stay')); });
+    await waitFor(() => expect([...router.state.blockers.values()].every((b) => b.state === 'unblocked')).toBe(true));
     await waitFor(() => expect(screen.queryByTestId('p3-field-ask')).toBeNull());
     if (step === 'edit-photos') expect(screen.queryAllByTestId('p3-photo')).toHaveLength(0);
     else expect((screen.getByTestId(DIRTY[step].id) as HTMLInputElement).value).toBe(DIRTY[step].value);

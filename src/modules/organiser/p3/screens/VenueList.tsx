@@ -7,7 +7,7 @@ export const VENUE_LIST_COPY = {
   loading: 'Loading the places\u2026',
   fail: L.detailsPlaceFail,
   retry: 'Try again',
-  empty: 'There are no places to pick from yet. Try again in a moment, or close this and ask the Bachata Calendar team.',
+  empty: 'There are no places to pick from yet. Try again in a moment.',
 } as const;
 
 /**
