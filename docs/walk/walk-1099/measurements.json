@@ -1,0 +1,2871 @@
+[
+ {
+  "n": 1,
+  "file": "01-list.png",
+  "name": "list",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 12,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 2,
+  "file": "02-list-scrolled-bottom.png",
+  "name": "list-scrolled-bottom",
+  "note": "",
+  "scrollY": 643,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\"",
+   "span \"(opens in a new tab)\"",
+   "span \"(opens in a new tab)\"",
+   "span \"(opens in a new tab)\""
+  ],
+  "rowCount": 12,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Parties\" 39x14",
+   "a \"Classes\" 44x14",
+   "a \"Festivals\" 49x14",
+   "a \"Tonight\" 42x14",
+   "a \"Venues\" 42x14",
+   "a \"London Bachata Guide\" 127x14",
+   "a \"Beginners\" 56x14",
+   "a \"FAQ\" 23x14",
+   "a \"Monday\" 45x14",
+   "a \"Tuesday\" 47x14",
+   "a \"Wednesday\" 66x14",
+   "a \"Thursday\" 53x14",
+   "a \"Friday\" 35x14",
+   "a \"Saturday\" 50x14",
+   "a \"Sunday\" 42x14",
+   "a \"Get listed↗ (opens in a new \" 62x14",
+   "a \"WhatsApp↗ (opens in a new ta\" 68x14",
+   "a \"Instagram↗ (opens in a new t\" 65x14",
+   "a \"Privacy\" 42x14",
+   "a \"Terms\" 35x14"
+  ],
+  "errors": []
+ },
+ {
+  "n": 3,
+  "file": "03-review-series.png",
+  "name": "review-series",
+  "note": "Sunday Social Sensual, free, no flyer",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 12,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Pending review\" 86x17"
+  ],
+  "errors": []
+ },
+ {
+  "n": 4,
+  "file": "04-review-bare-organiser.png",
+  "name": "review-bare-organiser",
+  "note": "Bristol Bachata Beginners, all series fields NULL",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 12,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Pending review\" 86x17"
+  ],
+  "errors": []
+ },
+ {
+  "n": 5,
+  "file": "05-approve-sheet.png",
+  "name": "approve-sheet",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": {
+   "x": 0,
+   "y": 683,
+   "w": 390,
+   "h": 161,
+   "bottom": 844
+  },
+  "confirm": {
+   "x": 198,
+   "y": 786,
+   "w": 180,
+   "h": 44,
+   "bottom": 830
+  },
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [],
+  "rowCount": 12,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [],
+  "errors": []
+ },
+ {
+  "n": 6,
+  "file": "06-reject-sheet-empty-error.png",
+  "name": "reject-sheet-empty-error",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": {
+   "x": 0,
+   "y": 515,
+   "w": 390,
+   "h": 329,
+   "bottom": 844
+  },
+  "confirm": {
+   "x": 198,
+   "y": 772,
+   "w": 180,
+   "h": 58,
+   "bottom": 830
+  },
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [],
+  "rowCount": 12,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [],
+  "errors": []
+ },
+ {
+  "n": 7,
+  "file": "07-reject-sheet-reason.png",
+  "name": "reject-sheet-reason",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": {
+   "x": 0,
+   "y": 535,
+   "w": 390,
+   "h": 309,
+   "bottom": 844
+  },
+  "confirm": {
+   "x": 198,
+   "y": 772,
+   "w": 180,
+   "h": 58,
+   "bottom": 830
+  },
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [],
+  "rowCount": 12,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [],
+  "errors": []
+ },
+ {
+  "n": 8,
+  "file": "08-toast-after-approve.png",
+  "name": "toast-after-approve",
+  "note": "approve from review (scrollY 0 there); returned to list",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": {
+   "x": 47,
+   "y": 724,
+   "w": 295,
+   "h": 38,
+   "bottom": 763
+  },
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 11,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": []
+ },
+ {
+  "n": 9,
+  "file": "09-self-approval-refusal.png",
+  "name": "self-approval-refusal",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\"",
+   "span \"This has been waiting a week\""
+  ],
+  "rowCount": 11,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Pending review\" 86x17"
+  ],
+  "errors": [
+   "console: Failed to load resource: the server responded with a status of 400 (Bad Request)",
+   "console: Mutation error: {code: P0001, message: self_approval_not_allowed, details: null, hint: null} {mutatio"
+  ]
+ },
+ {
+  "n": 10,
+  "file": "10-no-access.png",
+  "name": "no-access",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [],
+  "ageBar": [],
+  "ageBarText": null,
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 0,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 11,
+  "file": "11-signed-out-401.png",
+  "name": "signed-out-401",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [],
+  "ageBar": [],
+  "ageBarText": null,
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 0,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41",
+   "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+   "console: Query error: {code: PGRST301, message: JWT expired, details: null, hint: null} {queryKey: Array(3)}"
+  ]
+ },
+ {
+  "n": 12,
+  "file": "12-list-rpc-error.png",
+  "name": "list-rpc-error",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [],
+  "ageBar": [],
+  "ageBarText": null,
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 0,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41",
+   "console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+   "console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+   "console: Query error: {code: XX000, message: boom, details: null, hint: null} {queryKey: Array(3)}"
+  ]
+ },
+ {
+  "n": 13,
+  "file": "13-all-caught-up.png",
+  "name": "all-caught-up",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [],
+  "ageBar": [],
+  "ageBarText": null,
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 0,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 15,
+  "file": "15-f1-skeleton-while-page-2-held.png",
+  "name": "f1-skeleton-while-page-2-held",
+  "note": "page 1 is back, page 2 is held: list must not show yet",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [],
+  "ageBar": [],
+  "ageBarText": null,
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 0,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 16,
+  "file": "16-f1-list-30-day-on-top.png",
+  "name": "f1-list-30-day-on-top",
+  "note": "the 30-day item first, bar says Oldest waiting 30 days",
+  "scrollY": 0,
+  "docHeight": 6683,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 30 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 30 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 30 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 101,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": []
+ },
+ {
+  "n": 17,
+  "file": "17-f1-bottom-no-show-more.png",
+  "name": "f1-bottom-no-show-more",
+  "note": "no Show more button at the bottom",
+  "scrollY": 5839,
+  "docHeight": 6683,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 30 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 30 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 30 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\"",
+   "span \"(opens in a new tab)\"",
+   "span \"(opens in a new tab)\"",
+   "span \"(opens in a new tab)\""
+  ],
+  "rowCount": 101,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Parties\" 39x14",
+   "a \"Classes\" 44x14",
+   "a \"Festivals\" 49x14",
+   "a \"Tonight\" 42x14",
+   "a \"Venues\" 42x14",
+   "a \"London Bachata Guide\" 127x14",
+   "a \"Beginners\" 56x14",
+   "a \"FAQ\" 23x14",
+   "a \"Monday\" 45x14",
+   "a \"Tuesday\" 47x14",
+   "a \"Wednesday\" 66x14",
+   "a \"Thursday\" 53x14",
+   "a \"Friday\" 35x14",
+   "a \"Saturday\" 50x14",
+   "a \"Sunday\" 42x14",
+   "a \"Get listed↗ (opens in a new \" 62x14",
+   "a \"WhatsApp↗ (opens in a new ta\" 68x14",
+   "a \"Instagram↗ (opens in a new t\" 65x14",
+   "a \"Privacy\" 42x14",
+   "a \"Terms\" 35x14"
+  ],
+  "errors": []
+ },
+ {
+  "n": 18,
+  "file": "18-f1-cap-oldest-loaded.png",
+  "name": "f1-cap-oldest-loaded",
+  "note": "bar Oldest loaded + capped note",
+  "scrollY": 0,
+  "docHeight": 59372,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 19 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest loaded 19 days · ",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest loaded 19 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 1000,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 19,
+  "file": "19-f2-approve-sheet.png",
+  "name": "f2-approve-sheet",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": {
+   "x": 0,
+   "y": 683,
+   "w": 390,
+   "h": 161,
+   "bottom": 844
+  },
+  "confirm": {
+   "x": 198,
+   "y": 786,
+   "w": 180,
+   "h": 44,
+   "bottom": 830
+  },
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [],
+  "rowCount": 12,
+  "back": {
+   "x": 10,
+   "y": 201,
+   "w": 134,
+   "h": 44,
+   "bottom": 245
+  },
+  "small": [],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 20,
+  "file": "20-f2-toast-changed-list.png",
+  "name": "f2-toast-changed-list",
+  "note": "sheet closed, toast, back on list; rows 12 -> after (see rowCount), url /ambassador",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": {
+   "x": 12,
+   "y": 705,
+   "w": 366,
+   "h": 58,
+   "bottom": 763
+  },
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 11,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Failed to load resource: the server responded with a status of 400 (Bad Request)",
+   "console: Mutation error: {code: P0001, message: not_authorised, details: null, hint: null} {mutationKey: undef"
+  ]
+ },
+ {
+  "n": 20.5,
+  "url": "/ambassador",
+  "rowsBefore": 12,
+  "rowsAfter": 11
+ },
+ {
+  "n": 21,
+  "file": "21-f4-not-in-your-queue.png",
+  "name": "f4-not-in-your-queue",
+  "note": "",
+  "scrollY": 0,
+  "docHeight": 1487,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 12,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Pending review\" 86x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ },
+ {
+  "n": 22,
+  "file": "22-f5-stale-line-try-again.png",
+  "name": "f5-stale-line-try-again",
+  "note": "rows stay, line + Try again above the age bar",
+  "scrollY": 0,
+  "docHeight": 1524,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "Waiting 6 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 5 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 4 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 3 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 2 days",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting 1 day",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   },
+   {
+    "text": "Waiting since today",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\""
+  ],
+  "rowCount": 12,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41",
+   "console: Failed to load resource: the server responded with a status of 400 (Bad Request)",
+   "console: Mutation error: {code: P0001, message: self_approval_not_allowed, details: null, hint: null} {mutatio",
+   "console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+   "console: Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+   "console: Query error: {code: XX000, message: boom, details: null, hint: null} {queryKey: Array(3)}"
+  ]
+ },
+ {
+  "n": 14,
+  "file": "14-list-100-bottom.png",
+  "name": "list-100-bottom",
+  "note": "extra: 100-row page variant, bottom (more-note)",
+  "scrollY": 5780,
+  "docHeight": 6624,
+  "scrollWidth": 390,
+  "clientWidth": 390,
+  "vh": 844,
+  "sheet": null,
+  "confirm": null,
+  "toast": null,
+  "chips": [
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 12 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 11 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 10 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 9 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 8 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 7 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 7 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 7 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   },
+   {
+    "text": "⚠ Waiting 7 days",
+    "fg": "rgb(255, 166, 0)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 9.59
+   }
+  ],
+  "ageBar": [
+   {
+    "text": "Oldest waiting 12 days ·",
+    "fg": "rgb(171, 171, 171)",
+    "bg": "rgb(14, 18, 21)",
+    "ratio": 8.19
+   }
+  ],
+  "ageBarText": "Oldest waiting 12 days · oldest first",
+  "clipped": [
+   "a \"Skip to content\"",
+   "span \"Search events, venues, peopl\"",
+   "span \"(opens in a new tab)\"",
+   "span \"(opens in a new tab)\"",
+   "span \"(opens in a new tab)\""
+  ],
+  "rowCount": 100,
+  "back": null,
+  "small": [
+   "a \"Skip to content\" 1x1",
+   "a \"Home\" 49x17",
+   "a \"Parties\" 39x14",
+   "a \"Classes\" 44x14",
+   "a \"Festivals\" 49x14",
+   "a \"Tonight\" 42x14",
+   "a \"Venues\" 42x14",
+   "a \"London Bachata Guide\" 127x14",
+   "a \"Beginners\" 56x14",
+   "a \"FAQ\" 23x14",
+   "a \"Monday\" 45x14",
+   "a \"Tuesday\" 47x14",
+   "a \"Wednesday\" 66x14",
+   "a \"Thursday\" 53x14",
+   "a \"Friday\" 35x14",
+   "a \"Saturday\" 50x14",
+   "a \"Sunday\" 42x14",
+   "a \"Get listed↗ (opens in a new \" 62x14",
+   "a \"WhatsApp↗ (opens in a new ta\" 68x14",
+   "a \"Instagram↗ (opens in a new t\" 65x14",
+   "a \"Privacy\" 42x14",
+   "a \"Terms\" 35x14"
+  ],
+  "errors": [
+   "console: Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:41"
+  ]
+ }
+]
