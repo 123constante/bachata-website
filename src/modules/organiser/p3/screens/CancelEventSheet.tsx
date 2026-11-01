@@ -90,7 +90,13 @@ export function ReasonPick({ picked, busy, onPick }: { picked: string | null; bu
           <button type="button" className="p3-btn p3-btn-line" onClick={() => void reasons.refetch()}>Try again</button>
         </div>
       )}
-      {reasons.data && (
+      {reasons.data && reasons.data.length === 0 && (
+        <div className="p3-stack-s" data-testid="p3-cancel-reasons-empty">
+          <p className="p3-error" role="alert">{CANCEL_COPY.noReasons}</p>
+          <button type="button" className="p3-btn p3-btn-line" onClick={() => void reasons.refetch()}>Try again</button>
+        </div>
+      )}
+      {reasons.data && reasons.data.length > 0 && (
         <div className="p3-pair" role="group" aria-label={L.cancelWhy}>
           {reasons.data.map((r) => (
             <button key={r.key} type="button" className={`p3-btn ${picked === r.label ? '' : 'p3-btn-line'}`}

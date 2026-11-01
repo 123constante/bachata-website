@@ -25,7 +25,9 @@ export interface P3Status {
 export function statusOf(lifecycle: string, format: string | null, kind: P3Kind, upcoming: number): P3Status {
   const life = seriesLife({ lifecycle_status: lifecycle, format }, upcoming);
   const past = life.section === 'past';
-  if (lifecycle === 'ended' || lifecycle === 'archived') return { key: 'finished', label: L.finished, past };
+  // F-22: a removed event is not "Finished"
+  if (lifecycle === 'archived') return { key: 'finished', label: L.removed, past };
+  if (lifecycle === 'ended') return { key: 'finished', label: L.finished, past };
   if (lifecycle === 'paused') return { key: 'hidden', label: L.hidden, past };
   if (lifecycle === 'draft') return { key: 'draft', label: L.draftTag, past };
   if (lifecycle !== 'live') return { key: 'review', label: life.tag.label, past };

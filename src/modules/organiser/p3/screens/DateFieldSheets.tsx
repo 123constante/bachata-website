@@ -7,6 +7,7 @@ import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { OverridePatch } from '../../shared/seriesCommands';
 import type { DateDetail } from '../../shared/seriesModel';
 import { L } from '../model';
+import { useLeave } from './EditTray';
 import { sameValue } from '../model/saveModel';
 import {
   DATE_NAME_MAX, dateGalleryOf, dateGalleryPatch, dateNameOf, dateNamePatch, dateNameProblem, datePriceRows, datePricesPatch, datePricesProblem,
@@ -41,6 +42,12 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
   const [ask, setAsk] = useState<null | 'leave' | 'close' | 'undo'>(null);
   // Dirty only when the draft differs in what a save compares (trimmed, as sent): a trailing space is no change.
   const dirty = !sameValue(base, draft) && (patch !== null || problem !== null);
+  // F-24: a tab-bar tap or phone Back (router navigation) asks first too, through the same ask below
+  const [routeGo, setRouteGo] = useState<(() => void) | null>(null);
+  const blocker = useLeave((dirty || uploading) && !busy, (a) => {
+    if (a?.kind === 'leave') { setRouteGo(() => a.go); setAsk('leave'); }
+  });
+  const stay = () => { if (blocker.state === 'blocked') blocker.reset?.(); setRouteGo(null); setAsk(null); };
   const guard = (to: 'leave' | 'close', go: () => void) => () => ((dirty || uploading) && !busy ? setAsk(to) : go());
   const why = !dirty || patch ? null : problem;
   // Sheet re-runs its focus effect when onClose changes: keep ONE function, reading the latest guard,
@@ -56,10 +63,10 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
         <div className="p3-card p3-tight p3-stack-s" role="alertdialog" aria-label={ask === 'undo' ? L.dateUndoAsk : L.dateLeaveAsk} data-testid="p3-field-ask">
           <p className="p3-row-t p3-plain">{ask === 'undo' ? L.dateUndoAsk : L.dateLeaveAsk}</p>
           <button type="button" className="p3-btn p3-btn-danger" data-testid="p3-field-ask-go"
-            onClick={() => { const a = ask; setAsk(null); if (a === 'undo') setDraft(base); else (a === 'close' ? onClose : onBack)(); }}>
+            onClick={() => { const a = ask; const r = routeGo; setAsk(null); setRouteGo(null); if (a === 'undo') setDraft(base); else if (r) r(); else (a === 'close' ? onClose : onBack)(); }}>
             {ask === 'undo' ? L.dateUndoGo : L.dateLeaveGo}
           </button>
-          <button type="button" className="p3-btn p3-btn-line" autoFocus onClick={() => setAsk(null)} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
+          <button type="button" className="p3-btn p3-btn-line" autoFocus onClick={stay} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
         </div>
       )}
       {why && <p className="p3-warn" role="alert" data-testid="p3-field-why">{why}</p>}

@@ -93,7 +93,9 @@ describe('Home x every shape', () => {
       // p3-shell-exits: to P3 Events, never the R1 area
       expect(within(none).getByRole('link').getAttribute('href')).toBe(P3_PATHS.events);
       // the words follow the state: a draft or a hidden event is never told to "add dates"
-      const want = row.lifecycle === 'live' ? /Add dates/ : row.lifecycle === 'draft' ? /Put a draft live/ : row.lifecycle === 'paused' ? /hidden/ : /Nothing is on the calendar/;
+      const want = row.lifecycle === 'live' ? (row.status.key === 'warn' ? /Open it in Events to add dates/ : /live events have all finished/) : row.lifecycle === 'draft' ? /Put a draft live/ : row.lifecycle === 'paused' ? /hidden/ : /Your events have finished/;
+      // F-16: never names a button Home does not have
+      expect(none.textContent).not.toMatch(/Add an event|Add dates\b(?! )/);
       expect(none.textContent).toMatch(want);
     }
     if (row.status.past) expect(screen.getByTestId('p3-home-allended')).toBeTruthy();

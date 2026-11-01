@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
@@ -6,7 +7,7 @@ import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 const PAST = 'Past and nothing coming up';
 
 /** C3 Events: every event, soonest first. Reads only. */
-export function EventsScreen() {
+function EventsBody() {
   const home = useP3Home();
   if (home.isPending) {
     return <StateCard title="Loading your events&hellip;" testId="p3-events-loading">This takes a second.</StateCard>;
@@ -48,5 +49,16 @@ export function EventsScreen() {
         Tap an event to open and change it, or <AddEventLink>add an event</AddEventLink>.
       </p>
     </div>
+  );
+}
+
+/** Events, with the words the last screen sent along once (Remove: "Removed from your events", F-22). */
+export function EventsScreen() {
+  const said = (useLocation().state as { p3Toast?: unknown } | null)?.p3Toast;
+  return (
+    <>
+      {typeof said === 'string' && said ? <p className="p3-ok" role="status" data-testid="p3-events-said">{said}</p> : null}
+      <EventsBody />
+    </>
   );
 }

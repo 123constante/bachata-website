@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import { eventLock } from '../../shared/eventState';
@@ -14,6 +15,7 @@ import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
 import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
+import { RetryButton } from './parts';
 import { Sheet } from './Sheet';
 
 
@@ -77,7 +79,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-details-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
+          {!eventLock(ws.series.lifecycle_status) && <Link className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-link">Complete your profile</Link>}
         </div>
       )}
       <Field id="name" label={L.detailsName} problem={touched.name || form.changed.includes('name') ? problems.name : null}>
@@ -147,7 +149,13 @@ function Details({ ws }: { ws: EventWorkspace }) {
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
           {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}
-          {venues.isError && !venues.data && <p className="p3-error" role="alert">{L.detailsPlaceFail}</p>}
+          {venues.isError && !venues.data && (
+            <div className="p3-stack-s" data-testid="p3-d-venues-error">
+              <p className="p3-error" role="alert">{L.detailsPlaceFail}</p>
+              <RetryButton onClick={() => void venues.refetch()} />
+            </div>
+          )}
+          {venues.data && venues.data.length === 0 && <p className="p3-note" data-testid="p3-d-venues-empty">{L.detailsPlaceEmpty}</p>}
           <div className="p3-stack-s" data-testid="p3-d-venues">
             {(venues.data ?? []).map((v) => (
               <button key={v.id} type="button" className="p3-choice" aria-pressed={v.id === draft.venueId}

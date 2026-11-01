@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
 import { isAccessRefusal } from '../../shared/selfServeErrors';
@@ -175,9 +175,20 @@ function About({ v }: { v: EventPageView }) {
   );
 }
 
+/** The public page of this event, as dancers open it (its slug, else its id). */
+export const publicEventPath = (s: { id: string; slug: string | null }) => `/event/${s.slug || s.id}`;
+
+/** The cover; an address that will not load shows nothing, not a broken-image icon (F-25). */
+function CoverImage({ src }: { src: string }) {
+  const [bad, setBad] = useState<string | null>(null);
+  if (bad === src) return null;
+  return <img className="p3-cover" src={src} alt="" loading="eager" decoding="async" onError={() => setBad(src)} data-testid="p3-cover" />;
+}
+
 function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const today = londonTodayKey();
   const v = eventPageOf(ws, today);
+  const navigate = useNavigate();
   const toast = useToast(ws.series.id, ws.series.version);
   useSavedToast(toast.show);
   const send: Send = (commands, version) => toast.run(commands, version);
@@ -191,12 +202,12 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
   const closeDate = useCallback(() => setDate(null), [setDate]);
   const addWhy = addDateWhy(seriesFactsOf(ws, today));
-  const hint = STATUS_HINT[v.lifecycle] ?? (v.lifecycle === 'ended' ? 'It has finished' : 'See what you can do');
+  const hint = STATUS_HINT[v.lifecycle] ?? (v.lifecycle === 'ended' ? 'It has finished' : v.lifecycle === 'archived' ? 'It was removed' : 'See what you can do');
   return (
     <div className="p3-stack" data-testid="p3-event" data-kind={v.kind}>
       <Link className="p3-link" to={P3_PATHS.events}>&larr; {L.allEvents}</Link>
       <div className="p3-card p3-head" data-testid="p3-event-head">
-        {v.cover && <img className="p3-cover" src={v.cover} alt="" loading="eager" decoding="async" />}
+        {v.cover && <CoverImage src={v.cover} />}
         <h2 className="p3-name" data-testid="p3-event-name">{v.name}</h2>
         <div className="p3-row-tags">
           <span className="p3-chip" data-testid="p3-kind">{v.kindWord}</span>
@@ -208,6 +219,9 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
         <p className="p3-row-s" data-testid="p3-shape">{v.shape}{place ? ` \u00b7 ${place}` : ''}</p>
         {v.when && <p className="p3-row-t" data-testid="p3-when">{v.when}</p>}
       </div>
+      {ws.series.lifecycle_status === 'live' && (
+        <a className="p3-link" href={publicEventPath(ws.series)} target="_blank" rel="noreferrer" data-testid="p3-see-public">{L.seeAsDancers}</a>
+      )}
       <button type="button" className="p3-card p3-status-row" onClick={() => setSheet(true)} data-testid="p3-open-status">
         <span className="p3-grow">
           <span className="p3-row-t">{v.status.label}</span>
@@ -237,7 +251,11 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       <About v={v} />
       {sheet && (
         <StatusSheet ws={ws} today={today} status={v.status} send={send} sendOnce={sendOnce} onClose={closeSheet}
-          onDone={(d) => { setSheet(false); toast.show(d); }} />
+          onDone={(d) => {
+            setSheet(false);
+            if (d.leave) navigate(P3_PATHS.events, { replace: true, state: { p3Toast: d.text } });
+            else toast.show(d);
+          }} />
       )}
       {repeat && (
         <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}

@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { fullDate } from '../../shared/dateWords';
 import { localAsZTime } from '../../shared/homeModel';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { RetryButton } from './parts';
 import { useVenueOptions, venueName } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
 import { passCount } from '../../events/seriesExtras';
@@ -289,7 +290,13 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
       <Sheet title={DATE_COPY.pickVenue} onClose={onClose}>
         {backLink}
         {venues.isPending && <p className="p3-note">{DATE_COPY.loading}</p>}
-        {venues.isError && !venues.data && <p className="p3-error" role="alert">{DATE_COPY.noVenues}</p>}
+        {venues.isError && !venues.data && (
+          <div className="p3-stack-s" data-testid="p3-venues-error">
+            <p className="p3-error" role="alert">{DATE_COPY.noVenues}</p>
+            <RetryButton onClick={() => void venues.refetch()} />
+          </div>
+        )}
+        {venues.data && venues.data.length === 0 && <p className="p3-note" data-testid="p3-venues-empty">{L.detailsPlaceEmpty}</p>}
         <div className="p3-stack-s" data-testid="p3-venues">
           {(venues.data ?? []).map((v) => (
             <button key={v.id} type="button" className="p3-choice" disabled={busy || v.id === (detail?.venueOverride ?? s.default_venue_id)}

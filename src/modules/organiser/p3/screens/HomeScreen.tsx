@@ -13,10 +13,13 @@ import { AddEventLink, EventList, P3Link, GoingTile, KindChip, RetryButton, Stat
 
 /** Why there is no Next up, and what the person can do about it (the state decides the words). */
 function noNextCopy(rows: readonly P3Row[]): string {
-  if (rows.some((r) => r.lifecycle === 'live')) return 'None of your live events has a date coming up. Add dates and the next one shows here.';
+  const live = rows.filter((r) => r.lifecycle === 'live');
+  // only a repeating series that has run out of dates can take more; the rest have run their course
+  if (live.some((r) => r.status.key === 'warn')) return 'A live event has no date coming up. Open it in Events to add dates and the next one shows here.';
+  if (live.length) return 'Your live events have all finished. See them in Events.';
   if (rows.some((r) => r.lifecycle === 'draft')) return 'Nothing is live yet. Put a draft live and its next date shows here.';
   if (rows.some((r) => r.lifecycle === 'paused')) return 'Your events are hidden. Show one again and its next date shows here.';
-  return 'Nothing is on the calendar right now. Add an event and its next date shows here.';
+  return 'Your events have finished. See them in Events.';
 }
 
 /** Welcome's claim / create line, carried in the router state (P3 W4b). */
