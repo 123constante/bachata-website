@@ -1,0 +1,35 @@
+{
+ "a": {
+  "pages": 14,
+  "minContrast": 5.71,
+  "lowContrast": [],
+  "smallTaps": [],
+  "clipped": 0,
+  "offscreen": 0,
+  "sideways": 0,
+  "tabRowWrong": 0,
+  "noAction": 0
+ },
+ "b": {
+  "pages": 14,
+  "minContrast": 6.09,
+  "lowContrast": [],
+  "smallTaps": [],
+  "clipped": 0,
+  "offscreen": 0,
+  "sideways": 0,
+  "tabRowWrong": 0,
+  "noAction": 0
+ },
+ "c": {
+  "pages": 14,
+  "minContrast": 5.72,
+  "lowContrast": [],
+  "smallTaps": [],
+  "clipped": 0,
+  "offscreen": 0,
+  "sideways": 0,
+  "tabRowWrong": 0,
+  "noAction": 0
+ }
+}

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>People page mockup A</title>
+<style>*{box-sizing:border-box}html{font-size:13.5px}body{margin:0;-webkit-font-smoothing:antialiased}h1,h2{margin:0}button{cursor:pointer}a:focus-visible,button:focus-visible{outline:2px solid #FBEBDD;outline-offset:2px}</style>
+</head><body><div id="root"></div>
+<script>
+// People arc P2 mockups -- the ONE shared fact mapping every direction reads.
+// Data: prod read-only SELECT, 2026-10-23 (see data.md). Public display names only.
+// Every fact a direction shows comes from a function here, never a local copy.
+
+/* eslint-disable no-unused-vars */
+const WALL = { page: '#1E1410', card: '#2B1D16', text: '#FBEBDD', muted: '#CDB09C', line: '#6A4A38' };
+const CHIP = {
+  dj: { bg: '#F2B632', text: '#2B1A00', border: '#FFD479' },
+  dancer: { bg: '#2DD4BF', text: '#04302C', border: '#8DF0E2' },
+  teacher: { bg: '#B79CFB', text: '#1E0A4D', border: '#D8C8FD' },
+};
+const TILE = {
+  dj: { bg: '#6B4A0E', ink: '#FFE3A0', edge: '#C9921E' },
+  dancer: { bg: '#0F4F4A', ink: '#A7F3E8', edge: '#2DD4BF' },
+  teacher: { bg: '#4A2D8A', ink: '#E4D7FB', edge: '#A78BFA' },
+};
+const GOLD = '#FFD479';
+
+const ROLE_ORDER = ['teacher', 'dj', 'dancer'];
+const ROLE_LABEL = { teacher: 'Teacher', dj: 'DJ', dancer: 'Dancer' };
+const ROLE_PATH = { teacher: 'teachers', dj: 'djs', dancer: 'dancers' };
+const LANG = { es: 'Spanish', en: 'English', fr: 'French', it: 'Italian', pt: 'Portuguese' };
+const COUNTRY = { BO: 'Bolivia', ZA: 'South Africa' };
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+  'October', 'November', 'December'];
+
+// Upcoming rows come from get_profile_event_timeline_v2(role, id) (lineup authority: program people).
+// `photo` is true when dancer_profiles.avatar_url is set; image hosts are unreachable from the
+// sandbox, so a photo is drawn as a marked stand-in, never a fake face.
+const PEOPLE = {
+  magda: {
+    id: '440f99dd', name: 'Magda', slug: 'unclaimed-440f99dd', photo: false, city: 'London',
+    roles: ['dancer'], danceRole: 'Lead and Follow', languages: [], nationality: null, dates: {},
+  },
+  pierre: {
+    id: '0dd8819b', name: 'Pierre Henry', slug: 'pierre-henry', photo: false, city: null,
+    roles: ['teacher'], danceRole: null, languages: [], nationality: null, dates: {},
+  },
+  papacito: {
+    id: 'ae3bffbb', name: 'Papacito', slug: 'papacito', photo: true, city: 'London',
+    roles: ['dj', 'dancer'], danceRole: 'Leader', languages: [], nationality: 'ZA',
+    dates: {
+      dj: [
+        { at: '2026-10-23T22:00', event: 'Ronald &amp; Alba - Halloween Edition - Sensual Vibes', venue: 'BPM Dance Studios' },
+        { at: '2026-12-31T21:30', event: 'NYE - Masquerade Ball - Sensual Vibes', venue: 'BPM Dance Studios' },
+      ],
+    },
+  },
+  ramiro: {
+    id: '456af8d2', name: 'Ramiro Zapata', slug: 'ramiro-zapata', photo: true, city: 'London',
+    roles: ['teacher', 'dj', 'dancer'], danceRole: 'Leader', languages: ['es', 'en'], nationality: 'BO',
+    dates: {
+      dj: [
+        { at: '2026-10-29T19:30', event: 'Wild Bachata', venue: 'Dance Station' },
+        { at: '2026-10-31T19:30', event: 'Bachata on Saturday', venue: 'Dance Station' },
+        { at: '2026-11-07T19:30', event: 'Party Pa ti', venue: 'Guy&rsquo;s Bar' },
+      ],
+      teacher: [{ at: '2026-11-21T19:00', event: '50/50', venue: 'Guy&rsquo;s Bar' }],
+    },
+  },
+  sabrina: {
+    id: '6f05d2f6', name: 'Sabrina Guzman Pastor', slug: 'unclaimed-6f05d2f6', photo: true, city: 'London',
+    roles: ['dancer'], danceRole: 'Follower', languages: [], nationality: null, dates: {},
+  },
+};
+
+// The five shapes the brief names, each opened from one role link.
+const SHAPES = [
+  { key: 'thin-dancer', person: 'magda', tabs: ['dancer'], label: 'Thin dancer-only, no photo' },
+  { key: 'thin-teacher', person: 'pierre', tabs: ['teacher'], label: 'Teacher-only, no photo, no city (the most common person)' },
+  { key: 'dj-2gigs', person: 'papacito', tabs: ['dj'], label: 'DJ with 2 upcoming gigs (no DJ-only person has 2+ on prod; this one is DJ + dancer)' },
+  { key: 'rich', person: 'ramiro', tabs: ['teacher', 'dj', 'dancer'], label: 'All three roles, rich (each tab)' },
+  { key: 'long-name', person: 'sabrina', tabs: ['dancer'], label: 'Long name (21 characters), dancer-only, photo' },
+];
+
+// ---- the facts ----
+const tabsOf = (p) => ROLE_ORDER.filter((r) => p.roles.includes(r));
+const hasTabRow = (p) => tabsOf(p).length > 1;
+const urlOf = (p, role) => `/${ROLE_PATH[role]}/${p.slug}`;
+const initialsOf = (p) => p.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+const cityOf = (p) => p.city || null;
+const languagesOf = (p) => (p.languages || []).map((c) => LANG[c] || null).filter(Boolean);
+const countryOf = (p) => (p.nationality ? COUNTRY[p.nationality] || null : null);
+const upcomingOf = (p, role) => (p.dates[role] || []).slice().sort((a, b) => a.at.localeCompare(b.at));
+const parseAt = (at) => { const [d, t] = at.split('T'); const [y, m, dd] = d.split('-').map(Number); return { date: new Date(Date.UTC(y, m - 1, dd)), time: t }; };
+/** "Friday 23 October" -- full weekday + month, the one date label. */
+const dateLabel = (at) => { const { date } = parseAt(at); return `${DAYS[date.getUTCDay()]} ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`; };
+const timeLabel = (at) => parseAt(at).time;
+/** Count only from 2 (owner rule). */
+const countLabel = (n) => (n >= 2 ? `${n} coming up` : null);
+const datesHeading = { dj: 'Next gigs', teacher: 'Teaching next' };
+/** Kicker under the name: "Teacher &middot; London", or just "Teacher" with no city. */
+const kickerOf = (p, role) => [ROLE_LABEL[role], cityOf(p)].filter(Boolean).join(' &middot; ');
+/** Dancer-tab facts: only the filled ones, in this order. */
+const dancerFacts = (p) => [
+  p.danceRole && { k: 'Dances', v: p.danceRole },
+  languagesOf(p).length && { k: 'Speaks', v: languagesOf(p).join(', ') },
+  countryOf(p) && { k: 'From', v: countryOf(p) },
+].filter(Boolean);
+/** The one action every page has, and the role-aware calendar action for a page with no dates. */
+const calendarAction = (p, role) => {
+  const where = cityOf(p) ? ` in ${cityOf(p)}` : '';
+  if (role === 'dj') return { label: `Parties${where} this week`, href: '/calendar?type=party' };
+  if (role === 'teacher') return { label: `Classes${where} this week`, href: '/calendar?type=class' };
+  return { label: `Socials${where} this week`, href: '/calendar?type=party' };
+};
+/** Link preview: og:title follows the role link (D1). */
+const ogTitle = (p, role) => `${p.name} &middot; ${ROLE_LABEL[role]}${cityOf(p) ? ` in ${cityOf(p)}` : ''}`;
+const ogDescription = (p, role) => {
+  const up = upcomingOf(p, role);
+  if (role === 'dj' && up.length) return [`Next gig ${dateLabel(up[0].at)}`, countLabel(up.length)].filter(Boolean).join(' &middot; ');
+  if (role === 'teacher' && up.length) return `Teaching ${dateLabel(up[0].at)} at ${up[0].venue}`;
+  if (role === 'dancer') { const f = dancerFacts(p); if (f.length) return f.map((x) => x.v).join(' &middot; '); }
+  return `On Bachata Calendar${cityOf(p) ? `, ${cityOf(p)}` : ''}`;
+};
+
+/** Ground tinted by the active tab (D4): the warm base mixed with the role edge. Solid, so contrast is measurable. */
+const mix = (a, b, t) => {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+};
+const groundOf = (role) => mix(WALL.page, TILE[role].edge, 0.10);
+const cardOf = (role) => mix(WALL.card, TILE[role].edge, 0.14);
+
+/** Where every fact comes from (rendered in the gallery). */
+const FACT_SOURCES = [
+  ['Name', 'p.name: the public display name (masked-names rule), ONE name on every tab', 'dancer_profiles display_name / first_name (+ surname unless hidden)'],
+  ['Photo or initials', 'initialsOf; photo stand-in when avatar_url is set', 'dancer_profiles.avatar_url'],
+  ['Roles / tabs', 'tabsOf, order Teacher, DJ, Dancer; tab row only from 2 roles', 'get_public_person_roles_v1(id)'],
+  ['City', 'cityOf (hidden when empty)', 'dancer_profiles.based_city_id &rarr; cities.name'],
+  ['Kicker', 'kickerOf: "Role &middot; City"', 'roles + city'],
+  ['Next gigs / Teaching next', 'upcomingOf + dateLabel ("Friday 23 October") + timeLabel', 'get_profile_event_timeline_v2(role, id), rows from now'],
+  ['Gig count', 'countLabel, only from 2', 'same rows'],
+  ['Dances / Speaks / From', 'dancerFacts: only filled facts; languages as full names', 'dance_role, languages, nationality'],
+  ['Calendar action', 'calendarAction (role + city aware)', 'roles + city; links to the calendar'],
+  ['Link preview title', 'ogTitle "Name &middot; Role in City"', 'role link + facts above'],
+  ['Link preview text', 'ogDescription', 'facts above'],
+  ['Ground tint', 'groundOf(active tab)', 'wall tokens WALL.page + TILE[role].edge'],
+];
+
+// Direction A -- "Name card": a compact identity card, a segmented tab bar, then plain lists.
+const F = 'Inter,system-ui,sans-serif';
+const DIR = {
+  letter: 'A',
+  name: 'Name card',
+  pitch: 'A business card first. The photo or initials sit beside the name in one compact card, the roles are a full-width segmented bar under it, and everything below is a plain list of what the calendar knows. Thin people get a small, finished card and two clear actions; rich people get the same card with more rows. Nothing grows to fill space.',
+  page(p, role) {
+    const ink = CHIP[role].bg;
+    const card = cardOf(role);
+    const facts = role === 'dancer' ? dancerFacts(p) : [];
+    const up = role === 'dancer' ? [] : upcomingOf(p, role);
+    const tabs = hasTabRow(p) ? `<nav role="tablist" aria-label="Roles" style="display:flex;gap:4px;margin-top:8px;padding:3px;border-radius:12px;background:${WALL.card};border:1px solid ${WALL.line};">${tabsOf(p).map((r) => {
+      const on = r === role;
+      return `<a role="tab" aria-selected="${on}" href="${urlOf(p, r)}" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:9px;font:700 14px/1 ${F};text-decoration:none;${on ? `background:${CHIP[r].bg};color:${CHIP[r].text};` : `color:${WALL.text};`}">${ROLE_LABEL[r]}</a>`;
+    }).join('')}</nav>` : '';
+    const factList = facts.length ? `<section style="margin-top:12px;"><h2 style="font:700 12px/1 ${F};letter-spacing:0.6px;text-transform:uppercase;color:${ink};margin:0 0 6px;">About</h2>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">${facts.map((f) => `<div style="background:${card};border-radius:10px;padding:8px;"><div style="font:600 12px/1.2 ${F};color:${WALL.muted};">${f.k}</div><div style="font:700 14px/1.25 ${F};color:${WALL.text};margin-top:3px;">${f.v}</div></div>`).join('')}</div></section>` : '';
+    const dateList = up.length ? `<section style="margin-top:12px;"><h2 style="display:flex;justify-content:space-between;font:700 12px/1 ${F};letter-spacing:0.6px;text-transform:uppercase;color:${ink};margin:0 0 6px;"><span>${datesHeading[role]}</span>${countLabel(up.length) ? `<span style="color:${WALL.muted};letter-spacing:0;text-transform:none;font-weight:600;">${countLabel(up.length)}</span>` : ''}</h2>
+      <div style="display:grid;gap:6px;">${up.map((g) => `<a href="#event" style="display:block;min-height:44px;background:${card};border-radius:10px;padding:8px 12px;text-decoration:none;border-left:3px solid ${TILE[role].edge};">
+        <div style="font:700 13px/1.3 ${F};color:${GOLD};">${dateLabel(g.at)} &middot; ${timeLabel(g.at)}</div>
+        <div style="font:700 15px/1.3 ${F};color:${WALL.text};margin-top:2px;">${g.event}</div>
+        <div style="font:500 13px/1.3 ${F};color:${WALL.muted};margin-top:1px;">${g.venue}</div></a>`).join('')}</div></section>` : '';
+    const cal = calendarAction(p, role);
+    const actions = `<div style="display:grid;grid-template-columns:${up.length ? '1fr' : '1fr 1fr'};gap:8px;margin-top:12px;">
+      ${up.length ? '' : `<a data-action href="${cal.href}" style="min-height:44px;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px 10px;border-radius:10px;background:${CHIP[role].bg};color:${CHIP[role].text};font:700 14px/1.2 ${F};text-decoration:none;">${cal.label}</a>`}
+      <button data-action style="min-height:44px;border-radius:10px;background:transparent;border:1px solid ${WALL.line};color:${WALL.text};font:700 14px/1 ${F};">Share</button></div>`;
+    return `<main style="padding:12px;">
+      <div style="display:flex;gap:12px;align-items:center;background:${card};border-radius:14px;padding:12px;border:1px solid ${mix(WALL.line, TILE[role].edge, 0.3)};">
+        ${avatar(p, role, 72, 14)}
+        <div style="min-width:0;">
+          <h1 style="font:800 22px/1.15 ${F};color:${WALL.text};margin:0;overflow-wrap:anywhere;">${p.name}</h1>
+          <div style="font:600 14px/1.3 ${F};color:${ink};margin-top:4px;">${kickerOf(p, role)}</div>
+        </div>
+      </div>
+      ${tabs}${dateList}${factList}${actions}
+    </main>`;
+  },
+  tile(p, role) {
+    const up = role === 'dj' ? upcomingOf(p, 'dj') : [];
+    return `<a href="#" style="display:block;text-decoration:none;min-height:44px;">
+      <div style="aspect-ratio:1/1;">${avatar(p, role, 'fill', 12, 28)}</div>
+      <div style="font:700 11px/14px ${F};color:${WALL.text};margin-top:4px;overflow-wrap:anywhere;">${p.name}</div>
+      ${up.length ? `<div style="font:700 10px/13px ${F};color:${GOLD};">${dateLabel(up[0].at)}</div>` : `<div style="font:600 10px/13px ${F};color:${CHIP[role].bg};">${ROLE_LABEL[role]}</div>`}
+    </a>`;
+  },
+  og(p, role) {
+    return `<div style="width:100%;height:100%;display:flex;align-items:center;gap:14px;padding:0 18px;background:${groundOf(role)};">
+      ${avatar(p, role, 96, 16)}
+      <div style="min-width:0;"><div style="font:800 20px/1.15 ${F};color:${WALL.text};overflow-wrap:anywhere;">${p.name}</div>
+      <div style="display:inline-block;margin-top:6px;padding:3px 8px;border-radius:999px;background:${CHIP[role].bg};color:${CHIP[role].text};font:700 12px/1.2 ${F};">${ROLE_LABEL[role]}</div></div></div>`;
+  },
+};
+
+// Shared render helpers for the three directions (shell, avatar, router). Not a design choice:
+// every direction gets the same site header, the same avatar fallback and the same views.
+
+/** One avatar for every screen: photo stand-in when a photo exists, else initials on the role tile. */
+function avatar(p, role, size, radius, fontPx) {
+  const t = TILE[role];
+  const fill = size === 'fill';
+  const fs = fontPx || Math.round(size * 0.38);
+  const base = `width:${fill ? '100%' : size + 'px'};height:${fill ? '100%' : size + 'px'};border-radius:${radius}px;flex:none;display:flex;align-items:center;justify-content:center;`;
+  if (p.photo) {
+    return `<div class="photo" data-photo style="${base}background:repeating-linear-gradient(135deg,${t.bg} 0 10px,${mix(t.bg, '#000000', 0.25)} 10px 20px);color:${t.ink};font:700 ${Math.max(10, Math.round(fs / 2.6))}px/1 Inter,system-ui,sans-serif;">photo</div>`;
+  }
+  return `<div aria-hidden="true" style="${base}background:${t.bg};color:${t.ink};font:800 ${fs}px/1 Inter,system-ui,sans-serif;letter-spacing:0.5px;">${initialsOf(p)}</div>`;
+}
+
+function siteHeader() {
+  return `<header style="height:48px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:#0A080B;border-bottom:1px solid #2A1F1A;">
+    <span style="font:800 15px/1 Inter,system-ui,sans-serif;color:${WALL.text};">Bachata Calendar</span>
+    <a href="#" style="min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;font:600 14px/1 Inter,system-ui,sans-serif;color:${WALL.text};text-decoration:none;">Menu</a>
+  </header>`;
+}
+
+const qs = new URLSearchParams(location.search);
+const view = qs.get('view') || 'index';
+const shapeKey = qs.get('shape');
+const tabKey = qs.get('tab');
+
+function renderView() {
+  const root = document.getElementById('root');
+  if (view === 'page') {
+    const s = SHAPES.find((x) => x.key === shapeKey);
+    const p = PEOPLE[s.person];
+    const role = tabKey || s.tabs[0];
+    document.body.style.background = groundOf(role);
+    document.title = `${DIR.name} -- ${p.name} -- ${ROLE_LABEL[role]}`;
+    root.innerHTML = siteHeader() + DIR.page(p, role);
+    return;
+  }
+  if (view === 'tile') {
+    document.body.style.background = WALL.page;
+    const row = [['magda', 'dancer'], ['pierre', 'teacher'], ['papacito', 'dj'], ['ramiro', 'dj'], ['sabrina', 'dancer'], ['ramiro', 'teacher'], ['pierre', 'teacher'], ['magda', 'dancer']];
+    root.innerHTML = `<div style="padding:12px;"><div style="font:700 13px/1.3 Inter,system-ui,sans-serif;color:${WALL.muted};margin-bottom:8px;">Wall tiles (4 columns at 390)</div>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 8px;">${row.map(([k, r]) => DIR.tile(PEOPLE[k], r)).join('')}</div></div>`;
+    return;
+  }
+  if (view === 'og') {
+    document.body.style.background = '#0B141A';
+    const links = [['magda', 'dancer'], ['pierre', 'teacher'], ['papacito', 'dj'], ['ramiro', 'teacher'], ['ramiro', 'dj'], ['ramiro', 'dancer'], ['sabrina', 'dancer']];
+    root.innerHTML = `<div style="padding:12px;display:grid;gap:12px;">${links.map(([k, r]) => ogBubble(PEOPLE[k], r)).join('')}</div>`;
+    return;
+  }
+  // index: every shape x tab as a live frame at both widths
+  document.body.style.background = '#111';
+  const frames = [];
+  SHAPES.forEach((s) => s.tabs.forEach((t) => [390, 360].forEach((w) => {
+    const h = w === 390 ? 844 : 800;
+    frames.push(`<figure style="margin:0;"><figcaption style="color:#ddd;font:12px/1.4 system-ui;margin-bottom:4px;">${s.label} &middot; ${ROLE_LABEL[t]} tab &middot; ${w}x${h}<br><code>${urlOf(PEOPLE[s.person], t)}</code></figcaption>
+      <iframe src="?view=page&shape=${s.key}&tab=${t}" width="${w}" height="${h}" style="border:1px solid #444;background:#000;"></iframe></figure>`);
+  })));
+  root.innerHTML = `<h1 style="color:#fff;font:700 20px system-ui;padding:12px;">Direction ${DIR.letter}: ${DIR.name}</h1>
+    <p style="color:#ccc;font:14px/1.5 system-ui;padding:0 12px;max-width:760px;">${DIR.pitch}</p>
+    <p style="padding:0 12px;"><a style="color:#9cf" href="?view=tile">Wall tiles</a> &middot; <a style="color:#9cf" href="?view=og">Link previews</a></p>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;padding:12px;">${frames.join('')}</div>`;
+}
+
+/** A WhatsApp-style chat bubble holding the link preview: the 1.91:1 og image, title, text, domain. */
+function ogBubble(p, role) {
+  return `<div style="max-width:320px;margin-left:auto;background:#005C4B;border-radius:10px;padding:4px;">
+    <div style="background:#025144;border-radius:8px;overflow:hidden;">
+      <div style="aspect-ratio:1.91/1;width:100%;">${DIR.og(p, role)}</div>
+      <div style="padding:8px 10px;">
+        <div style="font:700 14px/1.3 system-ui,sans-serif;color:#E9EDEF;">${ogTitle(p, role)}</div>
+        <div style="font:400 13px/1.35 system-ui,sans-serif;color:#C9D6D2;margin-top:2px;">${ogDescription(p, role)}</div>
+        <div style="font:400 12px/1.3 system-ui,sans-serif;color:#B7C8C3;margin-top:4px;">bachatacalendar.co.uk</div>
+      </div>
+    </div>
+    <div style="font:400 14px/1.35 system-ui,sans-serif;color:#E9EDEF;padding:6px 8px 4px;">https://bachatacalendar.co.uk${urlOf(p, role)}</div>
+  </div>`;
+}
+
+renderView();
+</script></body></html>
