@@ -5,7 +5,7 @@ import { L } from './labels';
 import type { IsoDate, P3Kind } from './types';
 
 /** The status tag on an event (C3 `status`). `warn` = live but nothing coming up; `review` = in review / changes needed. */
-export type P3StatusKey = 'live' | 'hidden' | 'finished' | 'draft' | 'review' | 'warn';
+export type P3StatusKey = 'live' | 'hidden' | 'finished' | 'draft' | 'review' | 'warn' | 'removed';
 
 export interface P3Status {
   key: P3StatusKey;
@@ -25,7 +25,8 @@ export interface P3Status {
 export function statusOf(lifecycle: string, format: string | null, kind: P3Kind, upcoming: number): P3Status {
   const life = seriesLife({ lifecycle_status: lifecycle, format }, upcoming);
   const past = life.section === 'past';
-  if (lifecycle === 'ended' || lifecycle === 'archived') return { key: 'finished', label: L.finished, past };
+  if (lifecycle === 'archived') return { key: 'removed', label: L.removedTag, past };
+  if (lifecycle === 'ended') return { key: 'finished', label: L.finished, past };
   if (lifecycle === 'paused') return { key: 'hidden', label: L.hidden, past };
   if (lifecycle === 'draft') return { key: 'draft', label: L.draftTag, past };
   if (lifecycle !== 'live') return { key: 'review', label: life.tag.label, past };
@@ -33,6 +34,40 @@ export function statusOf(lifecycle: string, format: string | null, kind: P3Kind,
   // live with nothing from today on: a repeating series can take more dates; anything else has run its course
   if (format === 'recurring') return { key: 'warn', label: life.tag.label, past };
   return { key: 'finished', label: kind === 'course' ? L.allDone : L.finished, past };
+}
+
+/** The one control Home's "Nothing coming up" card shows: Events, or New event. */
+export type NextUpAction = 'events' | 'new';
+
+export interface NextUpAdvice {
+  copy: string;
+  action: NextUpAction;
+}
+
+/**
+ * FIXLIST F-16: why Home has no Next up, and the ONE control that works for it. Read from
+ * statusOf (lifecycle x a date coming x format), so the words never offer dates to an event
+ * tagged Finished and never name a control that is not on the card.
+ */
+export function nextUpAdviceOf(rows: ReadonlyArray<{ lifecycle: string; status: P3Status }>): NextUpAdvice {
+  // a live weekly event with nothing coming up can take more dates (its event page has Add a date)
+  if (rows.some((r) => r.status.key === 'warn')) {
+    return { copy: 'Your repeating event has no dates coming up. Open it in Events and add dates; the next one shows here.', action: 'events' };
+  }
+  if (rows.some((r) => r.lifecycle === 'draft')) {
+    return { copy: 'A draft is not live yet. Open it in Events and put it live; its next date shows here.', action: 'events' };
+  }
+  if (rows.some((r) => r.lifecycle === 'paused')) {
+    return { copy: 'One of your events is hidden. Open it in Events and show it again; its next date shows here.', action: 'events' };
+  }
+  if (rows.some((r) => r.status.key === 'review')) {
+    return { copy: 'Your event is waiting for a check. Its next date shows here once it is live; Events shows where it stands.', action: 'events' };
+  }
+  // live, but a one-off or a course whose dates have all passed: it cannot take new dates
+  if (rows.some((r) => r.lifecycle === 'live')) {
+    return { copy: 'Your events have all happened, and a one-off or a course cannot take new dates. Open Events to see them or add a new event there.', action: 'events' };
+  }
+  return { copy: 'Nothing is on the calendar right now. Add an event and its next date shows here.', action: 'new' };
 }
 
 /** Before 5pm a date today is "Today", not "Tonight" (daytime classes and workshops). */
@@ -48,3 +83,6 @@ export function dayWord(date: IsoDate, today: IsoDate, start?: string | null): s
   if (date === addDaysToKey(today, 1)) return L.tomorrow;
   return fullDate(date, today);
 }
+
+/** The tag of an event that was removed (archived), for the page that opens in place of it. */
+export const removedStatus = (): P3Status => statusOf('archived', null, 'custom', 0);

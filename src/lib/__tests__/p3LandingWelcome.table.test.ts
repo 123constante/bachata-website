@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACCOUNT_HOME_PATH, CONTINUE_AS_PATH, ORGANISER_HOME_PATH, accountHome, appWelcomeHref, type SidesFacts } from '@/lib/accountRouting';
 import { P3_START_PATH, landingPathAfterAuth, continueAsLanding, organiserHomeHandoff } from '@/lib/auth-otp-routing';
+import { organiserAreaHome, r1AreaRedirect } from '@/lib/organiserAreaHome';
 
 // Brief p3-landing-welcome (owner decision 2026-10-30): while P3 is live (organiserP3 AND
 // organiserSelfServe), a person with NO page -- waiting on an open access request or not -- ends on
@@ -10,6 +11,11 @@ import { P3_START_PATH, landingPathAfterAuth, continueAsLanding, organiserHomeHa
 // continueAsLanding, what ContinueAsPage renders), /account (pages/Account -> accountHome; 'organiser'
 // replaces itself with /account/o) and /account/o (R1 Home -> organiserHomeHandoff, after its
 // dancer-first gate). Each hop is the app's own function; this file only chains them.
+//
+// Brief p3-landing (owner decision 1, option (c), 2026-10-31) REWROTE the P3-on column: while P3 is
+// live /account/o redirects to P3 (lib/organiserAreaHome r1AreaRedirect, before R1's dancer-first
+// gate), and P3 Home sends a person with no page to Welcome (p3/screens/HomeScreen.tsx). So 1 page,
+// several pages and a failed read now rest on P3 Home, not R1; the P3-off column is unchanged.
 
 type State = {
   name: string;
@@ -37,7 +43,13 @@ const DANCER_APP = '/app/home';
 const R1 = ORGANISER_HOME_PATH;
 
 /** /account/o: the dancer-first gate, then R1 Home (or its hand-off to P3). */
+const P3H = '/account/p3';
+const flagsOf = (p3Live: boolean) => ({ organiserP3: p3Live, organiserSelfServe: true });
+/** P3 Home: no page -> Welcome; a page or a failed read stays on Home (its own error card). */
+const atP3Home = (s: State): string => (s.organisers?.length === 0 ? P3_START_PATH : P3H);
 const atOrganiserHome = (s: State, p3Live: boolean): string => {
+  const toP3 = r1AreaRedirect(flagsOf(p3Live), { pathname: R1, search: '', hash: '' }, '2026-11-01', false);
+  if (toP3) return toP3 === P3H ? atP3Home(s) : toP3;
   if (s.dancer !== 'complete') return FINISH;
   return organiserHomeHandoff(p3Live, s.organisers === null ? null : s.organisers.length) ?? R1;
 };
@@ -46,7 +58,7 @@ const atAccount = (s: State, p3Live: boolean): string => {
   const where = accountHome({ organiserCount: s.organisers === null ? null : s.organisers.length, openRequestCount: s.openRequests });
   return where === 'organiser' ? atOrganiserHome(s, p3Live) : ACCOUNT_HOME_PATH;
 };
-const facts = (s: State, organiserIntent: boolean): SidesFacts => ({
+const facts = (s: State, organiserIntent: boolean, p3Live = false): SidesFacts => ({
   organisers: s.organisers,
   dancer: s.dancer,
   areaAllowed: true,
@@ -54,15 +66,17 @@ const facts = (s: State, organiserIntent: boolean): SidesFacts => ({
   openRequestCount: s.openRequests,
   isAdmin: false,
   deletion: null,
+  organiserHomeTo: organiserAreaHome(flagsOf(p3Live)),
 });
 /** Follows a landing to where it rests: /account and /account/o take their own hop. */
 const follow = (to: string, s: State, p3Live: boolean): string => {
   if (to === ACCOUNT_HOME_PATH) return atAccount(s, p3Live);
   if (to === R1) return atOrganiserHome(s, p3Live);
+  if (to === P3H) return atP3Home(s);
   return to;
 };
 const atSignIn = (s: State, p3Live: boolean, organiserIntent = true): string => {
-  const l = continueAsLanding(facts(s, organiserIntent), p3Live);
+  const l = continueAsLanding(facts(s, organiserIntent, p3Live), p3Live);
   if (l.kind === 'wait') return 'wait';
   if (l.kind === 'choose') return 'choose';
   return follow(l.to, s, p3Live);
@@ -86,13 +100,13 @@ const W = P3_START_PATH;
 const APP_WELCOME_R1 = appWelcomeHref(R1);
 const APP_WELCOME_W = appWelcomeHref(W);
 const EXPECTED: Record<string, Record<Entry, [string, string]>> = {
-  'no dancer row': { 'sign-up callback': ['/', '/'], 'sign-in': ['/app/welcome', '/app/welcome'], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [FINISH, FINISH] },
+  'no dancer row': { 'sign-up callback': ['/', '/'], 'sign-in': ['/app/welcome', '/app/welcome'], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [FINISH, W] },
   'dancer complete, 0 pages': { 'sign-up callback': [R1, W], 'sign-in': [R1, W], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [R1, W] },
   '0 pages + open request': { 'sign-up callback': [R1, W], 'sign-in': [DANCER_APP, W], '/account': [R1, W], '/account/o': [R1, W] },
-  'unfinished dancer, 0 pages + open request': { 'sign-up callback': [FINISH, W], 'sign-in': [APP_WELCOME_R1, APP_WELCOME_W], '/account': [FINISH, FINISH], '/account/o': [FINISH, FINISH] },
-  '1 page': { 'sign-up callback': [R1, W], 'sign-in': ['choose', 'choose'], '/account': [R1, R1], '/account/o': [R1, R1] },
-  'several pages': { 'sign-up callback': [R1, W], 'sign-in': ['choose', 'choose'], '/account': [R1, R1], '/account/o': [R1, R1] },
-  'load error': { 'sign-up callback': [R1, W], 'sign-in': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [R1, R1] },
+  'unfinished dancer, 0 pages + open request': { 'sign-up callback': [FINISH, W], 'sign-in': [APP_WELCOME_R1, APP_WELCOME_W], '/account': [FINISH, W], '/account/o': [FINISH, W] },
+  '1 page': { 'sign-up callback': [R1, W], 'sign-in': ['choose', 'choose'], '/account': [R1, P3H], '/account/o': [R1, P3H] },
+  'several pages': { 'sign-up callback': [R1, W], 'sign-in': ['choose', 'choose'], '/account': [R1, P3H], '/account/o': [R1, P3H] },
+  'load error': { 'sign-up callback': [R1, W], 'sign-in': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account': [ACCOUNT_HOME_PATH, ACCOUNT_HOME_PATH], '/account/o': [R1, P3H] },
 };
 
 describe('person state x flag x entry -> destination', () => {

@@ -2,6 +2,7 @@ import { PAYMENT_LABEL, togglePayment } from '../../events/paymentModel';
 import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
 import { eventLock } from '../../shared/eventState';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
+import { Link as RouterLink } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, hasOneDate, saveWordsFor } from '../model';
 import {
@@ -24,6 +25,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const free = isFree(draft);
   const off = !!lock || save.busy;
   const choices = payChoices(ws);
+  const freeSwitchShown = choices.length > 1;
   const blocker = pricesBlocker(ws, form.base, draft);
   const plan = pricesPlan(ws, form.base, draft);
   const lines = trayLines(form.lines, plan, blocker);
@@ -43,10 +45,10 @@ function Prices({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-prices-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
+          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
-      {choices.length > 1 && (
+      {freeSwitchShown && (
         <div className="p3-card p3-tight">
           <label className="p3-check p3-check-switch" data-testid="p3-free">
             <input type="checkbox" role="switch" checked={free} disabled={off} onChange={(e) => set(setFree(draft, e.target.checked))} data-testid="p3-free-switch" />
@@ -63,7 +65,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
           </div>
         ) : (
           <div className="p3-stack-s" data-testid="p3-price-rows">
-            {draft.rows.length === 0 && <p className="p3-note" data-testid="p3-prices-empty">{L.pricesNone}</p>}
+            {draft.rows.length === 0 && <p className="p3-note" data-testid="p3-prices-empty">{L.pricesNone(freeSwitchShown)}</p>}
             {draft.rows.map((r, i) => (
               <PriceCard key={r.id} row={r} i={i} off={off} onChange={(x) => setRow(i, x)} onRemove={() => set({ rows: draft.rows.filter((_, j) => j !== i) })} />
             ))}

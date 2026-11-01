@@ -28,6 +28,8 @@ export interface DetailsDraft {
   /** One video link per line. */
   videos: string;
   chat: string;
+  /** The series pictures (event_series_p5.default_gallery), in order. */
+  gallery: string[];
 }
 
 export type DetailsField = keyof DetailsDraft;
@@ -52,6 +54,7 @@ export function detailsDraftOf(ws: EventWorkspace): DetailsDraft {
     instagram: s.instagram_url ?? '',
     videos: ws.videoUrls.join('\n'),
     chat: groupChatOf(ws),
+    gallery: [...ws.gallery],
   };
 }
 
@@ -75,10 +78,11 @@ export const DETAILS_SPECS: ReadonlyArray<FieldSpec<DetailsDraft>> = [
   { key: 'venueId', line: () => L.detailsWhere },
   { key: 'ticket', line: () => L.ticket },
   { key: 'cover', line: () => L.detailsCover },
-  { key: 'gallery', line: (d) => `${L.detailsPhotos}: ${d.gallery.length}`, same: (a, b) => sameList(a, b) },
+  { key: 'gallery', line: (d) => `${L.detailsPictures}: ${d.gallery.length}`, same: (a, b) => sameList(a, b) },
   { key: 'instagram', line: () => L.instagram, same: (a, b) => instagramToSend(String(a)) === instagramToSend(String(b)) },
   { key: 'videos', line: (d) => `${L.detailsVideos}: ${videoList(d.videos).length}`, same: (a, b) => sameList(videoList(String(a)), videoList(String(b))) },
   { key: 'chat', line: () => L.detailsChat },
+  { key: 'gallery', line: (d) => `${L.detailsPictures}: ${d.gallery.length}`, same: (a, b) => sameList(a, b) },
 ];
 
 /** The Instagram link as sent: a handle becomes its instagram.com address (the owner rule takes links only). */
@@ -114,6 +118,7 @@ export function detailsProblems(base: DetailsDraft, draft: DetailsDraft): Partia
   else if (vids.length > MAX_VIDEOS) out.videos = L.detailsTooManyVideos(MAX_VIDEOS);
   const chat = chatProblem(draft.chat);
   if (chat) out.chat = chat;
+  if (draft.gallery.length > MAX_GALLERY) out.gallery = L.detailsPicturesMax(MAX_GALLERY);
   if (!draft.venueId && base.venueId) out.venueId = L.detailsWhereNeeded;
   return out;
 }
@@ -171,6 +176,7 @@ export function detailsPlan(base: DetailsDraft, draft: DetailsDraft, cityId: str
   if (changed.has('cover')) payload.default_cover_image_url = draft.cover.trim();
   if (changed.has('gallery')) payload.default_gallery = draft.gallery;
   if (changed.has('instagram')) payload.instagram_url = instagramToSend(draft.instagram);
+  if (changed.has('gallery')) payload.default_gallery = draft.gallery.map((v) => v.trim()).filter(Boolean);
   if (changed.has('videos')) payload.default_video_urls = videoList(draft.videos);
   const plan: OwnerCommand[] = [];
   if (changed.has('name') || Object.keys(payload).length) plan.push(upsertCommand({ name: draft.name.trim(), ...payload }));

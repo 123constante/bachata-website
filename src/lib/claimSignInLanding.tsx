@@ -1,4 +1,4 @@
-import { ORG_PATHS } from "@/modules/organiser/shell/paths";
+import { ORGANISER_AREA_HOME_PATH } from "@/lib/accountRouting";
 import {
   CLAIM_TOAST_MS,
   claimedNoticeText,
@@ -17,12 +17,12 @@ import {
 export const claimLandingPath = (claimed: readonly ClaimedOrganiser[], noticeShown: boolean): string | null => {
   if (claimed.length === 0) return null;
   if (!noticeShown) stashClaimNotice(claimed);
-  return ORG_PATHS.home;
+  return ORGANISER_AREA_HOME_PATH; // F-01: P3's Home while live (it draws the claim notice too)
 };
 
 /** True when a short toast should say it: landing anywhere but Home, and not said already. */
 export const shouldToastClaim = (claimed: readonly ClaimedOrganiser[], noticeShown: boolean, path: string): boolean =>
-  claimed.length > 0 && !noticeShown && path.split(/[?#]/)[0] !== ORG_PATHS.home;
+  claimed.length > 0 && !noticeShown && path.split(/[?#]/)[0] !== ORGANISER_AREA_HOME_PATH;
 
 /** The short toast (never Infinity: the shared toast sits mid-screen). */
 export const claimToastProps = (claimed: readonly ClaimedOrganiser[]) => ({

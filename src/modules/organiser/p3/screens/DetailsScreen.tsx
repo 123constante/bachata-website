@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
+import { Link as RouterLink } from 'react-router-dom';
 import { eventLock } from '../../shared/eventState';
+import { VenueList } from './VenueList';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
+import { uploadEventPicture } from '../../events/media';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
 import { MAX_GALLERY, MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
-import { uploadEventPicture } from '../../events/media';
 import { L, hasOneDate, kindWordStored, saveWordsFor } from '../model';
 import {
   DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
@@ -16,6 +18,7 @@ import { P3_PATHS } from '../shell/paths';
 import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
+import { OnBody } from './RepeatSheet';
 
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
@@ -36,10 +39,9 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const lock = useEditLock(ws);
   const venues = useVenueOptions();
   const [picking, setPicking] = useState(false);
+  const [pictures, setPictures] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<DetailsField, boolean>>>({});
   const [photo, setPhoto] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
-  const [pics, setPics] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
-  const picFile = useRef<HTMLInputElement>(null);
   const { draft, set } = form;
   const city = useVenueCity(form.changed.includes('venueId') ? draft.venueId : null, venues.data);
   const problems = detailsProblems(form.base, draft);
@@ -50,7 +52,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const shown = (f: DetailsField) => (touched[f] || form.changed.includes(f) || f === 'ticket' ? problems[f] ?? null : null);
   const touch = (f: DetailsField) => setTouched((t) => ({ ...t, [f]: true }));
   const off = !!lock || save.busy;
-  const uploading = pics.busy || photo.busy;
+  const uploading = photo.busy;
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
@@ -73,22 +75,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
     }
   };
 
-  // Same upload path as a date's Photos (checked, re-encoded, uploaded); a failure keeps every photo already here.
-  const addPics = async (files: File[]) => {
-    setPics({ busy: true, error: null });
-    const room = Math.max(0, MAX_GALLERY - draft.gallery.length);
-    try {
-      for (const f of files.slice(0, room)) {
-        const url = await uploadEventPicture(ws.series.id, f);
-        // onto the latest draft, never a list taken when the tap happened
-        form.setDraft((d) => ({ ...d, gallery: [...d.gallery, url] }));
-      }
-      setPics({ busy: false, error: files.length > room ? L.datePhotosMax(MAX_GALLERY) : null });
-    } catch (e) {
-      setPics({ busy: false, error: e instanceof Error ? e.message : commandErrorMessage(e) });
-    }
-  };
-
+  const festival = ws.series.format === 'festival';
   const place = venueName(venues.data, draft.venueId);
   return (
     <div className="p3-stack p3-edit" data-testid="p3-details">
@@ -98,7 +85,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-details-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
+          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
       <Field id="name" label={L.detailsName} problem={touched.name || form.changed.includes('name') ? problems.name : null}>
@@ -121,29 +108,16 @@ function Details({ ws }: { ws: EventWorkspace }) {
         {photo.error && <p className="p3-error" role="alert">{photo.error}</p>}
       </div>
       <div className="p3-stack-s" data-testid="p3-field-gallery">
-        <span className="p3-field">{L.detailsPhotos}</span>
-        <p className="p3-note">{L.detailsPhotosHint}</p>
-        {draft.gallery.length === 0 && <p className="p3-note" data-testid="p3-d-photos-empty">{L.detailsPhotosNone}</p>}
-        <div role="list" className="p3-photos" data-testid="p3-d-photos">
-          {draft.gallery.map((url, i) => (
-            <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-d-photo">
-              <img src={url} alt="" loading="lazy" />
-              <button type="button" className="p3-photo-x" aria-label={`${L.datePhotosRemove} ${i + 1}`} disabled={off || pics.busy}
-                onClick={() => set({ gallery: draft.gallery.filter((_, j) => j !== i) })} data-testid="p3-d-photo-remove">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-          ))}
+        <span className="p3-field">{L.detailsPictures}</span>
+        <div className="p3-card p3-tight">
+          <p className="p3-row-t" data-testid="p3-d-pictures-count">{L.detailsPicturesCount(draft.gallery.length)}</p>
+          {festival && <p className="p3-note" data-testid="p3-d-pictures-festival">{L.detailsPicturesFestival}</p>}
+          {!festival && draft.gallery.length === 0 && <p className="p3-note">{L.detailsPicturesEmpty}</p>}
         </div>
-        <input ref={picFile} type="file" accept={FLYER_ACCEPT} multiple className="p3-sr" tabIndex={-1} aria-hidden="true"
-          onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) void addPics(f); }} data-testid="p3-d-photos-file" />
-        {draft.gallery.length < MAX_GALLERY && (
-          <button type="button" className="p3-btn p3-btn-line" disabled={off || pics.busy} onClick={() => picFile.current?.click()} data-testid="p3-d-photos-add">
-            {pics.busy ? L.detailsUploading : L.detailsPhotosAdd}
-          </button>
-        )}
-        {draft.gallery.length >= MAX_GALLERY && <p className="p3-note" data-testid="p3-d-photos-max">{L.datePhotosMax(MAX_GALLERY)}</p>}
-        {pics.error && <p className="p3-error" role="alert" data-testid="p3-d-photos-error">{pics.error}</p>}
+        <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} disabled={off || festival} onClick={() => setPictures(true)} data-testid="p3-d-pictures-open">
+          {draft.gallery.length ? L.detailsPicturesEdit : L.detailsPicturesAdd}
+        </button>
+        {problems.gallery && <p className="p3-error" role="alert">{problems.gallery}</p>}
       </div>
       <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
         <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
@@ -190,23 +164,78 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} uploading={uploading} error={save.error}
-        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); setPics({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+      {pictures && (
+        <OnBody>
+          <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)} />
+        </OnBody>
+      )}
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
-          {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}
-          {venues.isError && !venues.data && <p className="p3-error" role="alert">{L.detailsPlaceFail}</p>}
-          <div className="p3-stack-s" data-testid="p3-d-venues">
-            {(venues.data ?? []).map((v) => (
+          <VenueList venues={venues} testId="p3-d-venues">
+            {(list) => list.map((v) => (
               <button key={v.id} type="button" className="p3-choice" aria-pressed={v.id === draft.venueId}
                 onClick={() => { set({ venueId: v.id }); setPicking(false); }}>
                 <span className="p3-row-t">{v.name}</span>
                 <span className="p3-row-s">{[v.neighbourhood, v.city_name].filter(Boolean).join(', ')}</span>
               </button>
             ))}
-          </div>
+          </VenueList>
         </Sheet>
       )}
     </div>
+  );
+}
+
+/** The series pictures: the date sheet's picker and the same upload path; edits the draft, the ONE save sends them. */
+function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesId: string; gallery: string[]; busy: boolean; onChange: (g: string[]) => void; onClose: () => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const file = useRef<HTMLInputElement>(null);
+  const latest = useRef(gallery);
+  useEffect(() => { latest.current = gallery; });
+  const add = async (files: File[]) => {
+    setUploading(true);
+    setError(null);
+    try {
+      for (const f of files.slice(0, Math.max(0, MAX_GALLERY - latest.current.length))) {
+        const url = await uploadEventPicture(seriesId, f);
+        latest.current = [...latest.current, url];
+        onChange(latest.current);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : commandErrorMessage(e));
+    } finally {
+      setUploading(false);
+    }
+  };
+  return (
+    <Sheet title={L.detailsPictures} onClose={onClose} locked={uploading}>
+      <p className="p3-note">{L.detailsPicturesHint}</p>
+      {gallery.length === 0 && <p className="p3-note" data-testid="p3-pictures-empty">{L.detailsPicturesEmpty}</p>}
+      <div role="list" className="p3-photos" data-testid="p3-pictures">
+        {gallery.map((url, i) => (
+          <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-picture">
+            <img src={url} alt="" loading="lazy" />
+            <button type="button" className="p3-photo-x" aria-label={`${L.detailsPicturesRemove} ${i + 1}`} disabled={busy || uploading}
+              onClick={() => { latest.current = gallery.filter((_, j) => j !== i); onChange(latest.current); }} data-testid="p3-picture-remove">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        ))}
+      </div>
+      <input ref={file} type="file" accept={FLYER_ACCEPT} multiple className="p3-sr" tabIndex={-1} aria-hidden="true"
+        onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) void add(f); }} data-testid="p3-pictures-file" />
+      {gallery.length < MAX_GALLERY
+        ? <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} disabled={busy || uploading} onClick={() => file.current?.click()} data-testid="p3-pictures-add">
+            {uploading ? L.detailsUploading : L.detailsPicturesAdd}
+          </button>
+        : <p className="p3-note" data-testid="p3-pictures-max">{L.detailsPicturesMax(MAX_GALLERY)}</p>}
+      {error && <p className="p3-error" role="alert" data-testid="p3-pictures-error">{error}</p>}
+      <div className="p3-sheet-foot">
+        <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={uploading} onClick={onClose} data-testid="p3-pictures-done">{L.detailsPicturesDone}</button>
+      </div>
+    </Sheet>
   );
 }
 

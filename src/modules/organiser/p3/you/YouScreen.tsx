@@ -14,6 +14,8 @@ import { useTeamContext } from '../../team/useTeamContext';
 import { RetryButton, StateCard } from '../screens/parts';
 import { P3_SURFACE } from './surface';
 import { YOU, youRows, type YouRow } from './youRows';
+import { londonTodayKey } from '@/lib/londonDate';
+import { LEGACY_UNTIL_LABEL, legacyAreaHref } from '@/lib/organiserAreaHome';
 
 function Chev() {
   return (
@@ -117,6 +119,20 @@ export function YouScreen() {
         {rows.map((r) => <NavRow key={r.id} r={r} />)}
       </section>
       <AccountCard />
+      <LegacyAreaLink />
     </div>
+  );
+}
+
+/** Owner decision 1 (c): the dated way back to the old organiser area, so nobody is trapped. Gone after LEGACY_UNTIL. */
+function LegacyAreaLink() {
+  const href = legacyAreaHref(londonTodayKey());
+  if (!href) return null;
+  return (
+    <p className="p3-row-s">
+      <Link to={href} className="p3-link" data-testid="p3-you-legacy-area">Use the old organiser area (until {LEGACY_UNTIL_LABEL})</Link>
+      {/* review 1237 r1 N2: the choice holds only inside the old area's own links, this tab */}{' '}
+      It stays open in this tab while you use its own links; other links bring you back here.
+    </p>
   );
 }

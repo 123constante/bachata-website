@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ORGANISER_HOME_KEY, runOccurrenceCommand, runSeriesCommand, seriesWorkspaceQueryKey, type CommandResponse } from '@/modules/organiser/shared/selfServeApi';
 import { envelope, type DateStep, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { parseEventWorkspace, type EventWorkspace } from '@/modules/organiser/events/eventModel';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 
 // Moved from events/eventsApi.ts with the same signatures (plan 4.3 #11, the
 // 4.11 COLLISION line): every R1 flow sends and reads through here, and
@@ -40,6 +41,7 @@ function useReload(seriesId: string) {
     void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    invalidatePublicEventCaches(queryClient);
   };
 }
 

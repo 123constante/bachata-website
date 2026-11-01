@@ -2,14 +2,10 @@
 
 export const WHICH_PAGE_TITLE = 'Which page is this for?';
 
-/** Set by Continue on the page question, so Back from the format step does not ask it again on the way in. */
-export const PAGE_SET_PARAM = 'page';
-const PAGE_SET = 'set';
+// The page rule itself lives with P3's create flow (review r1 F8); one copy, re-exported here.
+import { PAGE_SET, PAGE_SET_PARAM, needsPagePick } from '../../p3/new/pageModel';
 
-/** Asked only when the login runs 2 or more pages, once per New event; one page skips it. */
-export function needsPagePick(pageCount: number, params: URLSearchParams): boolean {
-  return pageCount >= 2 && params.get(PAGE_SET_PARAM) !== PAGE_SET;
-}
+export { PAGE_SET_PARAM, needsPagePick };
 
 /** The New event steps before the draft keep the page (`?o=`) and that it was answered. */
 export function withPageChoice(path: string, params: URLSearchParams): string {

@@ -27,6 +27,27 @@ export { ACCOUNT_HOME_PATH, isAccountPath };
 export const DANCER_HOME_PATH = '/account/dancer';
 /** The organiser area's Home. Equal to ORG_PATHS.home (asserted in accountRouting.test.tsx). */
 export const ORGANISER_HOME_PATH = '/account/o';
+/**
+ * The organiser area's Home for every first-load door (F-01, owner decision 1 (c)): P3's Home while P3
+ * is live (VITE_ENABLE_ORGANISER_P3 AND _SELF_SERVE, the pair AnimatedRoutes mounts /account/p3/* on),
+ * else ORGANISER_HOME_PATH exactly as before. Written over the exact `import.meta.env.VITE_X` form so
+ * Vite replaces it and Rollup folds it to ONE string: zero first-load bytes (bundle budget). Do not
+ * route it through featureFlags' `flags` or a helper. Pinned to `flags` in p3Landing.matrix.test.ts.
+ * import.meta.env is absent outside Vite (Playwright imports this file in plain Node via
+ * selfServeErrors): the read is guarded and defaults to ORGANISER_HOME_PATH (review 1237 r1 F1),
+ * the same pattern as src/lib/goingCheckin.ts.
+ */
+const readOrganiserAreaHome = (): string => {
+  try {
+    return import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true' &&
+      import.meta.env.VITE_ENABLE_ORGANISER_SELF_SERVE === 'true'
+      ? '/account/p3'
+      : ORGANISER_HOME_PATH;
+  } catch {
+    return ORGANISER_HOME_PATH;
+  }
+};
+export const ORGANISER_AREA_HOME_PATH: string = readOrganiserAreaHome();
 /** My attendance (src/pages/MyAttendance.tsx): nights marked going or interested; past ones link to their rating card. */
 export const MY_ATTENDANCE_PATH = '/account/attendance';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
@@ -273,7 +294,9 @@ export const onboardingEndLabel = (end: string): string => {
   if (path === APP_HOME_PATH) return 'Go to Home';
   if (path === ORGANISER_HOME_PATH || path.startsWith(`${ORGANISER_HOME_PATH}/`)) return 'Next: set up your organiser page';
   // A chosen page (o=, e.g. the Review-step return) already exists: "find or create" would point at a step that is not coming.
-  if (path === P3_START_PATH) return /[?&]o=[^&#]/.test(end) ? 'Next: back to your page' : 'Next: find or create your page';
+  // P3's Home ('/account/p3', ORGANISER_AREA_HOME_PATH while P3 is live) is the switcher's onward
+  // returnTo for the same person (useProfileSides passes no newOrganiserTo): same step (review 1237 r1 F5).
+  if (path === P3_START_PATH || path === '/account/p3') return /[?&]o=[^&#]/.test(end) ? 'Next: back to your page' : 'Next: find or create your page';
   if (path === INVITE_PATH || path.startsWith(`${INVITE_PATH}/`)) return 'Next: join the team';
   return 'Continue';
 };
@@ -317,6 +340,11 @@ export type SidesFacts = {
    * Absent = the organiser home, as before.
    */
   newOrganiserTo?: string;
+  /**
+   * The organiser area's Home (lib/organiserAreaHome organiserAreaHome: P3 while live, F-01).
+   * Absent = ORGANISER_HOME_PATH, as before.
+   */
+  organiserHomeTo?: string;
 };
 
 export type ProfileSide =
@@ -343,13 +371,14 @@ export const profileSides = (f: SidesFacts): SidesState => {
   if (f.organisers === undefined || f.dancer === 'loading' || f.areaAllowed === undefined) return { status: 'loading' };
   if (f.organisers === null || f.dancer === 'unknown') return { status: 'failed' };
   const many = f.organisers.length > 1;
+  const home = f.organiserHomeTo ?? ORGANISER_HOME_PATH;
   const sides: ProfileSide[] = f.organisers.map((o) => ({
     kind: 'organiser',
     key: `organiser:${o.id}`,
     organiserId: o.id,
     name: o.name,
     avatarUrl: o.avatar_url,
-    to: many ? `${ORGANISER_HOME_PATH}?o=${encodeURIComponent(o.id)}` : ORGANISER_HOME_PATH,
+    to: many ? `${home}?o=${encodeURIComponent(o.id)}` : home,
   }));
   if (f.dancer === 'complete' || f.dancer === 'incomplete') {
     sides.push({
@@ -360,7 +389,7 @@ export const profileSides = (f: SidesFacts): SidesState => {
       // Organiser intent with nothing organised yet: the unfinished onboarding carries on to the organiser page.
       to:
         f.dancer === 'incomplete' && f.areaAllowed && f.organiserIntent && f.organisers.length === 0
-          ? appWelcomeHref(f.newOrganiserTo ?? ORGANISER_HOME_PATH)
+          ? appWelcomeHref(f.newOrganiserTo ?? home)
           : dancerSidePath(f.dancer, f.areaAllowed),
     });
   }
@@ -401,7 +430,7 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
   if (state.sides.length === 1) {
     const unclaimedOrganiser = state.sides[0].kind === 'dancer' && f.dancer === 'complete' && f.organiserIntent;
     if (unclaimedOrganiser && f.openRequestCount === undefined) return { kind: 'wait' };
-    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: f.newOrganiserTo ?? ORGANISER_HOME_PATH };
+    if (unclaimedOrganiser && f.openRequestCount === 0) return { kind: 'go', to: f.newOrganiserTo ?? f.organiserHomeTo ?? ORGANISER_HOME_PATH };
     return { kind: 'go', to: state.sides[0].to };
   }
   return { kind: 'choose', sides: state.sides };
