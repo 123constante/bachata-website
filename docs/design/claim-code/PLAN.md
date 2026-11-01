@@ -60,7 +60,7 @@ live page with no owner, and only after the dancer gate passes (same gate as cla
 
 | Case | Defence |
 |---|---|
-| Enumerate pages to harvest masks | Mask only for live+unowned pages, signed-in + dancer gate; 38 such pages today; reads of the target are also counted against the per-user send window (a mask read is free only when it is the same page). |
+| Enumerate pages to harvest masks | Mask only for live+unowned pages, signed-in + dancer gate; 38 such pages today; mask reads are capped at 30 distinct pages per user per 24 h (attempt rows of kind `target`), returning `rate_limited` after that. |
 | Spam a contact | Per-page send cap (5/day) + per-user cap; the email says who asked and that ignoring it is safe. |
 | Brute-force the code | 10^8 space, 5 guesses per code, 10 per user/day, 20 per page/day. |
 | Replay | `used_at` + supersede; code bound to requester and target hash. |
@@ -85,7 +85,7 @@ organiser_claim_codes(
   -- partial unique: one open row per (organiser_id, user_id) where used_at and superseded_at are null
 
 organiser_claim_code_attempts(
-  id uuid pk, user_id uuid, organiser_id uuid, kind text check in ('send','redeem'),
+  id uuid pk, user_id uuid, organiser_id uuid, kind text check in ('target','send','redeem'),
   outcome text, attempted_at timestamptz)
   -- copy of organiser_invite_redeem_attempts; pruned >24h, bounded batch per call
 ```
@@ -103,7 +103,7 @@ and the function grants below.
 -- 1. What the card may offer (signed-in). Additive v2 of the hints, or a single-page read:
 organiser_claim_code_target_v1(p_organiser_id uuid) -> jsonb
   { ok: true, channel: 'email', masked_to: 'r***@g***.com' }
-  { ok: false, reason: 'no_contact' | 'not_live' | 'organiser_already_claimed' | 'already_member' }
+  { ok: false, reason: 'no_contact' | 'not_live' | 'organiser_already_claimed' | 'already_member' | 'rate_limited' }
   raises: authentication_required, <dancer gate as claim_organiser_v1>, organiser_not_found
   GRANT EXECUTE TO authenticated; REVOKE FROM PUBLIC, anon, service_role
 
