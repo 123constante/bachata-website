@@ -8,7 +8,8 @@ import { SELL_HELD } from '../gateCopy';
 
 /**
  * F-11: every gated ticket write x {gate off, gate on and refused, gate on and passed}. The live bodies (read on prod
- * 2026-11-01): ticket_type_upsert_v1 runs _require_onboarding_complete_v1 only in its create branch, and
+ * 2026-11-01): ticket_type_upsert_v1 runs _require_onboarding_complete_v1 in BOTH branches (create: the new
+ * ticket's page; update: the existing ticket's page, after its FOR UPDATE read), and
  * ticket_type_set_status_v1 only for p_status = 'on_sale'; the refusal raises P0001 'onboarding_incomplete' with
  * DETAIL {missing, organiser_id}, which supabase-js hands back as `error` and ticketsApi throws. "Gate off" and
  * "gate on, passed" both answer ok from the server, so for the client they are the same row; both are kept so the
@@ -118,8 +119,29 @@ describe('Switch to Selling on a row (ticket_type_set_status_v1 on_sale) x gate'
   });
 });
 
-describe('Edit an existing ticket (upsert update branch: not gated)', () => {
-  it('untouched: sends nothing; changed: saves, never opens the gate', async () => {
+describe('Edit an existing ticket (ticket_type_upsert_v1 update branch, gated too) x gate', () => {
+  it.each(GATES)('changed, %s', async (g) => {
+    load(SHAPES.selling);
+    api.upsertTicketType.mockImplementation(() => (g === 'gate on, refused' ? Promise.reject(REFUSAL) : Promise.resolve({ ok: true, reason: null, id: 't-sell' })));
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    fireEvent.click(within(screen.getByTestId('tix-type-t-sell')).getByTestId('tix-edit'));
+    fireEvent.change(screen.getByTestId('tix-form-name'), { target: { value: 'Standard (renamed)' } });
+    fireEvent.click(screen.getByTestId('tix-save'));
+    await waitFor(() => expect(api.upsertTicketType).toHaveBeenCalledTimes(1));
+    if (g === 'gate on, refused') {
+      // opens the shared sheet; no generic error, no "Try again"; the ticket sheet stays under it
+      await waitFor(() => expect(getGate()).not.toBeNull());
+      expect(getGate()).toMatchObject({ organiserId: 'org-1', missing: ['org_logo'] });
+      expect(document.body.textContent).not.toContain(GENERIC);
+      expect(screen.queryByTestId('tix-form-error')).toBeNull();
+      expect(screen.getByTestId('tix-save')).toBeTruthy();
+    } else {
+      expect(await screen.findByTestId('tix-toast')).toBeTruthy();
+      expect(getGate()).toBeNull();
+    }
+  });
+  it('untouched: sends nothing, never opens the gate', async () => {
     load(SHAPES.selling);
     api.upsertTicketType.mockResolvedValue({ ok: true, reason: null, id: 't-sell' });
     show(<TicketsEntry seriesId="ser-1" />);

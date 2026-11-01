@@ -110,6 +110,23 @@ describe('3. stacked sheets', () => {
     expect(screen.getByRole('dialog', { name: 'A few details first' })).toBeTruthy();
     expect(screen.getByRole('dialog', { name: 'Status: Live' })).toBeTruthy();
   });
+  it('closing the upper sheet gives focus back to what was tapped to open it (review r1 F4)', () => {
+    function Two({ upper }: { upper: boolean }) {
+      return (
+        <Sheet title="Repeat" onClose={() => undefined}>
+          <button type="button">Save the new pattern</button>
+          {upper && <Sheet title="A few details first" onClose={() => undefined}><button type="button">Not now</button></Sheet>}
+        </Sheet>
+      );
+    }
+    const { rerender } = render(<Two upper={false} />);
+    const save = screen.getByRole('button', { name: 'Save the new pattern' });
+    save.focus();
+    rerender(<Two upper />);
+    expect(document.activeElement).not.toBe(save);
+    rerender(<Two upper={false} />);
+    expect(document.activeElement).toBe(save);
+  });
 });
 
 describe('5. Repeat (F-12): the gate sheet waits for Save, and a refusal the status read predicts is never sent', () => {
@@ -175,4 +192,46 @@ describe('5. Repeat (F-12): the gate sheet waits for Save, and a refusal the sta
       off();
     });
   }
+
+  it('status read fails, dry run refused and held; details finished elsewhere, the recheck says pass: Save sends (review r1 F2)', async () => {
+    let statusOk = false; // the first status read fails (offline blip); the recheck answers "pass"
+    let refuses = true; // until the details are finished elsewhere
+    rpc.mockImplementation(async (name: string, args?: { p_envelope?: { command?: { payload?: { dry_run?: boolean } } } }) => {
+      if (name === 'admin_event_workspace_p5') return { data: SHAPES.weekly, error: null };
+      if (name === 'organiser_onboarding_status_v1') return statusOk ? { data: status([], [page('o1', [])]), error: null } : { data: null, error: { message: 'boom' } };
+      if (name === 'series_command_p5') {
+        if (refuses) return { data: null, error: REFUSAL };
+        const dry = args?.p_envelope?.command?.payload?.dry_run === true;
+        return { data: { ok: true, new_version: 8, dry_run: dry, data: { will_add: [], will_remove: [], will_cancel_booked: [], keeps_own_changes: [], next_8: ['2026-10-26'] } }, error: null };
+      }
+      return { data: [], error: null };
+    });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/account/p3/events/ser-1']}>
+          <Routes><Route path="/account/p3/events/:seriesId" element={<EventPage />} /></Routes>
+          <GateHost fetcher={async () => status([], [page('o1', [])])} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByTestId('p3-open-repeat'));
+    await screen.findByTestId('p3-sheet');
+    fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tuesday' }));
+    await screen.findByTestId('p3-repeat-held', {}, { timeout: 3000 });
+    // details finished in another tab; the person taps Save on the still-open Repeat sheet
+    statusOk = true;
+    refuses = false;
+    fireEvent.click(saveBtn());
+    await screen.findByTestId('p3-gate', {}, { timeout: 3000 }); // the held tap still opens the sheet once
+    act(() => closeGate());
+    await waitFor(() => expect(screen.queryByTestId('p3-repeat-held')).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(saveBtn().disabled).toBe(false), { timeout: 3000 });
+    const sent = () => rpc.mock.calls.filter((c) => c[0] === 'series_command_p5' && c[1]?.p_envelope?.command?.payload?.dry_run !== true).length;
+    const before = sent();
+    fireEvent.click(saveBtn());
+    await waitFor(() => expect(sent()).toBe(before + 1), { timeout: 3000 });
+    expect(screen.queryByTestId('p3-gate')).toBeNull();
+  });
 });

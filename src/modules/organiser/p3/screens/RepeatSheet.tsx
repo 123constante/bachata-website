@@ -204,7 +204,9 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const save = async () => {
     if (gateHeld) {
       setError(gated(gateHeld, repeatFailure));
-      gate.recheck();
+      // a held refusal lets go once the re-read says pass (details finished elsewhere, flag off): the next
+      // dry run and Save then send (review r1 F2)
+      void gate.recheck().then((a) => { if (a.s === 'pass') setRefusal(null); }, () => undefined);
       return;
     }
     if (!plan.length || checking || failed) return;

@@ -31,7 +31,10 @@ export function gateAnswerFrom(raw: unknown, targets: readonly string[]): GateAn
   if (typeof r.gate_on !== 'boolean' || !Array.isArray(r.organisers)) return { s: 'unknown' };
   if (!r.gate_on || r.is_admin === true) return { s: 'pass' };
   const pages = (r.organisers as RawOrg[]).filter((o) => typeof o?.id === 'string');
-  const mine = targets.length ? pages.filter((o) => targets.includes(o.id as string)) : pages;
+  // Target order, as the server names the refusal (ORDER BY the target's position): first target the person is on.
+  const mine = targets.length
+    ? targets.flatMap((t) => pages.filter((o) => o.id === t))
+    : pages;
   if (mine.length === 0 || mine.some((o) => o.complete === true)) return { s: 'pass' };
   return { s: 'refuse', organiserId: mine[0].id as string };
 }
@@ -42,11 +45,19 @@ export const heldRefusal = (organiserId: string | null) => ({
   details: JSON.stringify({ missing: [], organiser_id: organiserId }),
 });
 
-/** gateAnswerFrom over the shared status read; `enabled` false = no read (unknown). */
-export function useGateAnswer(targets: readonly string[], enabled = true): { answer: GateAnswer; recheck: () => void } {
+/**
+ * gateAnswerFrom over the shared status read; `enabled` false = no read (unknown). `recheck` re-reads and resolves
+ * to the fresh answer, so a screen holding a refusal can let go of it once the read says pass.
+ */
+export function useGateAnswer(targets: readonly string[], enabled = true): { answer: GateAnswer; recheck: () => Promise<GateAnswer> } {
   const { user } = useAuth();
   const on = enabled && !!user?.id;
   const q = useQuery({ queryKey: onboardingStatusKey(user?.id), queryFn: fetchOnboardingStatus, enabled: on, staleTime: 60_000, retry: false });
   const answer: GateAnswer = !on || q.isError ? { s: 'unknown' } : q.isPending ? { s: 'checking' } : gateAnswerFrom(q.data, targets);
-  return { answer, recheck: () => { if (on) void q.refetch(); } };
+  const recheck = async (): Promise<GateAnswer> => {
+    if (!on) return { s: 'unknown' };
+    const r = await q.refetch();
+    return r.isError ? { s: 'unknown' } : gateAnswerFrom(r.data, targets);
+  };
+  return { answer, recheck };
 }

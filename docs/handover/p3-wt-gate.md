@@ -9,8 +9,8 @@ stays OFF (prod `gate_on=false`, read 2026-11-01). No server, admin, `GraceBanne
   {"missing":[...],"organiser_id":...}::text, HINT 'Finish your details'`. supabase-js returns it as `error`
   (`message` / `details`). Client recognises it with `isOnboardingRefusal` (`/^(permission_denied: )?onboarding_incomplete/`
   on `message`) and reads the facts with `refusalFacts` (`details` JSON). Unchanged, ONE mapping: `useGatedCopy` / `gatedCopy`.
-- `ticket_type_upsert_v1`: gate line in the create branch (`IF v_id IS NULL`), AFTER its only `EXCEPTION WHEN others`
-  block closes, so the refusal propagates as an error (not `{ok:false}`). `ticket_type_set_status_v1`: gate only for
+- `ticket_type_upsert_v1`: gate line in BOTH branches (create: `ARRAY[v_org]`; update: `ARRAY[v_type.organiser_id]` after
+  the `FOR UPDATE` read; corrected in fix round 1, review r1 F1), AFTER its only `EXCEPTION WHEN others` block closes, so the refusal propagates as an error (not `{ok:false}`). `ticket_type_set_status_v1`: gate only for
   `p_status='on_sale'`. `ticketsApi` throws `error`, so the ticket screens' catches see it.
 - `check_organiser_onboarding_gate_v1()` live: gated=10, healthy, 0 violations. Bodies calling `_require_onboarding*`:
   the 6 config doors + admin_bulk_occurrence_command_p5, admin_collapse_series_to_one_off_p5, admin_duplicate_event_p5,
@@ -44,7 +44,7 @@ refused the moment the flag flips. 1 page has ticket types (2, both paused). 758
 New: `p3/tickets/__tests__/gate.matrix.test.tsx` (create / add-and-sell / switch-to-Selling x gate off / refused /
 passed, + a non-gate failure, + untouched edit sends nothing), `p3/onboarding/__tests__/gateRule.matrix.test.ts`
 (13 shapes). Rewritten: `gate.fixround` 5 (Repeat x status unknown / refuse / gate off), `p3/new` flow.render (order,
-gate, discard refusal) and model.matrix (order). Ran the new tests against unfixed main: all 11 refused rows red,
+gate, discard refusal) and model.matrix (order). Ran the new tests against unfixed main (re-measured by review r1): 18 red = 7 refused rows + 11 fixed-order rows,
 off/passed rows green.
 
 ## Continuation session (brief `brief/p3-wt-gate-cont`), 2026-11-01
@@ -77,3 +77,22 @@ Done:
 5. Independent review (one round) + one fix round, then the orchestrator walk. Owner Approve at head (hard-tier
    `scripts/onboarding-write-doors.json`).
 6. Browser walk with the flag ON needs a branch DB (never prod).
+
+## Fix round 1 (brief `brief/p3-wt-gate-fix`, review `docs/review/pr-1250-r1.md`), 2026-11-01
+
+Merged `origin/main` (39a887d) first, no conflicts. One round, no new scope:
+- F1: prose corrected in the PR body, this doc, the doors config `_doc` (prose only; which doors are gated is unchanged)
+  and the tickets matrix (comment + describe). New rows: Edit x {gate off, refused, passed} (changed name). The refused
+  row passes on the existing code (TypeSheet already routes the error through `gated`); proven non-vacuous by mutation
+  (catch without `gated`: Add refused + Edit refused go red).
+- F2: `useGateAnswer().recheck` now resolves to the fresh answer; Repeat's held-Save clears `refusal` on `pass`. New
+  `gate.fixround` 5 row (status read fails, dry run refused and held, details finished elsewhere, recheck pass, Save
+  sends): red before, green after.
+- F3: `gateAnswerFrom` picks the first target (organiser_ids order) the person is on. `gateRule.matrix` expectation flipped
+  to `a`: red before, green after.
+- F4: `Sheet` remembers the focused element on mount and refocuses it on unmount (if connected). Row in
+  `gate.fixround` 3: red before, green after.
+- F5: `gateRule.matrix.test.ts` labels reworded ("no pages"), its allowlist entry dropped; `lint:architecture` green.
+- F6/F7: PR body wording (tsc and red-count).
+
+Left / next: review round 2 (fixes are unreviewed code); owner Approve at head for the hard-tier doors config.
