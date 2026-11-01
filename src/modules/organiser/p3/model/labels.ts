@@ -231,7 +231,7 @@ export const L = {
   detailsNameNeeded: 'Add an event name',
   detailsTooLong: (n: number) => `Keep it under ${n.toLocaleString('en-GB')} characters.`,
   detailsAbout: 'About this event',
-  detailsAboutHint: 'What should dancers know? For example: no partner needed, class first, then the party.',
+  detailsAboutHint: 'What should dancers know? For example: no partner needed, class first, then the party. Shown on every date; to change one date only, open that date.',
   detailsNone: 'none',
   detailsWhere: 'Where',
   detailsWhereNeeded: 'Pick a place: an event always has one.',
