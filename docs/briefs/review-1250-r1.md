@@ -1,0 +1,13 @@
+# Brief: independent review of PR #1250 (p3-wt-gate: F-10, F-11, F-12, F-15 gate refusals open the shared sheet)
+
+Repo bachata-website. You review; you do NOT edit the PR branch. Output ONE file `docs/review/pr-1250-r1.md` on branch `claude/review-1250-r1` (docs only): verdict PASS / PASS-WITH-NITS / BLOCK, findings ranked, each with file:line and a concrete failing scenario. Read the builder's handover `docs/handover/p3-wt-gate.md` on `claude/p3-wt-gate` first (including its "Continuation session" and "Left / next steps"), then the diff against main. Check FIRST that main does not already contain the same fix (a previous builder duplicated merged work, PR #1252).
+
+## Check
+1. Gate behaviour (the flag `organiser_onboarding_gate` is OFF in prod, so check gate off = no change, and gate on): Tickets create, Add-and-sell, switch-to-Selling; Repeat (F-12) status-read-first, no dry run sent when a refusal is predicted, Save opens the sheet and sends nothing; New event create then cover (F-15), refused create uploads nothing; refused Discard restores the partial card. One shared mapping (`useGatedCopy`); no copy that points at a missing control; every empty or refused state says what the person can do.
+2. The stacking fix: `GateSheet` through `OnBody`, appended after any open sheet. Look for other sheets that can open over it or under it, and focus return.
+3. Tests non-vacuous: run the new tests against `main` (refused rows red) and the branch (green); mutate one new rule and confirm a test fails. Table covers shapes: 48 pages with events, 0 onboarding completed; 571 series with empty `organiser_ids`; 6 run by 2+ pages (read-only prod, project stsdtacfauprzrdebmzg, counts only).
+4. Hard-tier path: `scripts/onboarding-write-doors.json` moved both ticket doors from `not_event_writes` to `gated`. Run `node scripts/check-onboarding-write-doors.mjs` (no --live). Confirm the move matches the SQL (read `pg_proc` for `ticket_type_upsert_v1` and `ticket_type_set_status_v1`: gate in create branch only; gate only for `on_sale`) and say whether the owner should Approve at head.
+5. `lint-runtime-architecture.mjs` allowlist change: is it the narrowest possible?
+6. CI: read `.github/workflows`; say which jobs apply and their state on the PR head (`gh pr checks 1250`). Note: the two body guards (`real-data-verified`, `phone-qa-section`) were red on the stub body; the orchestrator is fixing the body.
+7. Bundle: the dancer-app first load must stay at 0 added bytes; check `RepeatSheet`'s new imports.
+Hard limits in the dispatch prompt apply. Report honest Verified / Not verified.
