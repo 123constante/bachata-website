@@ -3,6 +3,7 @@ import { continueAsLanding } from '@/lib/auth-otp-routing';
 import type { SidesFacts } from '@/lib/accountRouting';
 import { legacyAccountPath, type LegacyAccountTarget } from '@/modules/organiser/shell/legacyPaths';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { LEGACY_UNTIL, organiserAreaHome, r1AreaRedirect, r1LegacyPath, type OrganiserAreaFlags } from '@/lib/organiserAreaHome';
 import { JOIN_COPY } from '@/modules/admin-organisers/join/joinCopy';
 
@@ -131,6 +132,9 @@ describe('F-04 / F-05: the "go" link after claim / invite / email code', () => {
   it('the button words say Home and the link opens Home (one label, both flags)', () => {
     expect(JOIN_COPY.done.button).toBe('Open your organiser home');
     expect(new URL(acceptedInviteLanding('a', ON), 'https://x').pathname).toBe(P3);
+  });
+  it('email-code proof (default returnTo, pinned byte-for-byte by Door.test) still ends on P3 Home, any window', () => {
+    for (const today of [OPEN, CLOSED]) expect(land(ORG_PATHS.home, ON, today)).toBe(P3);
   });
   it('invite without a page id and the claim card open the area Home', () => {
     expect(organiserAreaHome(ON)).toBe(P3);
