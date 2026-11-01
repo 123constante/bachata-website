@@ -12,8 +12,8 @@ export interface SaveWords {
   pricesSaved: string;
 }
 
-/** Exactly one date: the page holds one and the series total (when known) agrees. */
-export const hasOneDate = (listed: number, total: number | null): boolean => listed === 1 && (total === null || total === 1);
+/** One date, or none (a draft): nothing to name "all dates" for. The series total (when known) agrees. */
+export const hasOneDate = (listed: number, total: number | null): boolean => listed <= 1 && (total === null || total <= 1);
 
 export function saveWordsFor(oneDate: boolean): SaveWords {
   return oneDate

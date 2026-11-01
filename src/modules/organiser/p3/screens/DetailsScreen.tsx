@@ -50,6 +50,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const shown = (f: DetailsField) => (touched[f] || form.changed.includes(f) || f === 'ticket' ? problems[f] ?? null : null);
   const touch = (f: DetailsField) => setTouched((t) => ({ ...t, [f]: true }));
   const off = !!lock || save.busy;
+  const uploading = pics.busy || photo.busy;
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
@@ -75,13 +76,14 @@ function Details({ ws }: { ws: EventWorkspace }) {
   // Same upload path as a date's Photos (checked, re-encoded, uploaded); a failure keeps every photo already here.
   const addPics = async (files: File[]) => {
     setPics({ busy: true, error: null });
-    let list = draft.gallery;
+    const room = Math.max(0, MAX_GALLERY - draft.gallery.length);
     try {
-      for (const f of files.slice(0, MAX_GALLERY - list.length)) {
-        list = [...list, await uploadEventPicture(ws.series.id, f)];
-        set({ gallery: list });
+      for (const f of files.slice(0, room)) {
+        const url = await uploadEventPicture(ws.series.id, f);
+        // onto the latest draft, never a list taken when the tap happened
+        form.setDraft((d) => ({ ...d, gallery: [...d.gallery, url] }));
       }
-      setPics({ busy: false, error: null });
+      setPics({ busy: false, error: files.length > room ? L.datePhotosMax(MAX_GALLERY) : null });
     } catch (e) {
       setPics({ busy: false, error: e instanceof Error ? e.message : commandErrorMessage(e) });
     }
@@ -187,7 +189,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-row-t">{kindWordStored(ws.series.format, ws.series.category)}</p>
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
-      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
+      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} uploading={uploading} error={save.error}
         onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); setPics({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>

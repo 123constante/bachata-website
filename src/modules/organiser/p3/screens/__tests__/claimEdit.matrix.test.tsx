@@ -47,7 +47,7 @@ const CASES: Array<[name: string, raw: Raw, oneDate: boolean]> = [
   ['weekly 16 dates', wsRaw({}, PARTY, weekly('2026-10-30', 16).map((d) => occ(d))), false],
   ['one-off 1 date', one(), true],
   ['one-off 2 dates', wsRaw({ format: 'one_off', recurrence_rule: null }, PARTY, [occ('2026-10-31'), occ('2026-11-01')]), false],
-  ['draft, no dates', SHAPES.draft, false],
+  ['draft, no dates', SHAPES.draft, true],
   ['draft with one date', one({ lifecycle_status: 'draft' }), true],
   ['ended', SHAPES.ended, false],
   ['with sessions', SHAPES.weekly, false],
@@ -95,7 +95,9 @@ describe('one shared save-word mapping', () => {
     expect(hasOneDate(1, null)).toBe(true);
     expect(hasOneDate(1, 1)).toBe(true);
     expect(hasOneDate(1, 40)).toBe(false);
-    expect(hasOneDate(0, 0)).toBe(false);
+    expect(hasOneDate(0, 0)).toBe(true);
+    expect(hasOneDate(0, null)).toBe(true);
+    expect(hasOneDate(0, 5)).toBe(false);
     expect(hasOneDate(2, 2)).toBe(false);
   });
 });
@@ -180,7 +182,7 @@ describe('Photos for every date', () => {
     await press(saveBtn());
     await waitFor(() => expect(envs).toHaveLength(1));
     expect(envs[0]).toMatchObject({ expected_version: 7, command: { kind: 'series.upsert', payload: { name: 'Sensual Fridays', default_gallery: [...pics(2), 'https://img.example.test/new1.jpg', 'https://img.example.test/new2.jpg'] } } });
-    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain('Saved for every date. Dancers see it now.'));
+    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(L.detailsSaved));
   });
 
   it('removing one of 10 photos sends the other 9; removing all sends an empty list', async () => {
@@ -214,5 +216,88 @@ describe('Photos for every date', () => {
     await screen.findByTestId('p3-details');
     expect(screen.queryByTestId('p3-d-photos-add')).toBeNull();
     expect(screen.getByTestId('p3-d-photos-max')).toBeTruthy();
+  });
+});
+
+describe('claim-edit-fix r2: uploads, copy, cap, zero dates', () => {
+  const file = (n: string) => new File(['x'], n, { type: 'image/jpeg' });
+  const pick = async (...n: string[]) => { await act(async () => { fireEvent.change(screen.getByTestId('p3-d-photos-file'), { target: { files: n.map(file) } }); }); };
+  const weeklyRaw = (gallery: string[]) => wsRaw({ gallery }, PARTY, weekly('2026-10-30', 8).map((d) => occ(d)));
+
+  it('F1: while a photo uploads, Save is off, Add is off, and leaving asks', async () => {
+    const raw = weeklyRaw(pics(2));
+    const envs = server(raw);
+    let done: (u: string) => void = () => {};
+    upload.mockReturnValueOnce(new Promise<string>((r) => { done = r; }));
+    show(DETAILS, raw);
+    await screen.findByTestId('p3-details');
+    fireEvent.change(screen.getByTestId('p3-d-ticket'), { target: { value: 'https://tickets.example.test/new' } });
+    expect(saveBtn().disabled).toBe(false);
+    await pick('a.jpg');
+    expect(saveBtn().disabled).toBe(true);
+    expect((screen.getByTestId('p3-d-photos-add') as HTMLButtonElement).disabled).toBe(true);
+    await press(saveBtn());
+    expect(envs).toHaveLength(0);
+    await press(screen.getByTestId('p3-edit-back'));
+    expect(screen.queryByTestId('p3-d-photos')).toBeTruthy();
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    await act(async () => { done('https://img.example.test/n.jpg'); });
+    await waitFor(() => expect(saveBtn().disabled).toBe(false));
+  });
+
+  it('F1: leaving with a photo uploading and nothing else changed still asks', async () => {
+    const raw = weeklyRaw(pics(1));
+    server(raw);
+    upload.mockReturnValueOnce(new Promise<string>(() => {}));
+    show(DETAILS, raw);
+    await screen.findByTestId('p3-details');
+    await pick('a.jpg');
+    await press(screen.getByTestId('p3-edit-back'));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('F2: photos land on the latest draft, and Undo is off while uploading', async () => {
+    const raw = weeklyRaw(pics(2));
+    server(raw);
+    let done: (u: string) => void = () => {};
+    upload.mockResolvedValueOnce('https://img.example.test/n1.jpg').mockReturnValueOnce(new Promise<string>((r) => { done = r; }));
+    show(DETAILS, raw);
+    await screen.findByTestId('p3-details');
+    await pick('a.jpg', 'b.jpg');
+    await waitFor(() => expect(screen.getAllByTestId('p3-d-photo')).toHaveLength(3));
+    const undo = screen.queryByTestId('p3-undo-mine') as HTMLButtonElement | null;
+    if (undo) expect(undo.disabled).toBe(true);
+    await act(async () => { done('https://img.example.test/n2.jpg'); });
+    await waitFor(() => expect(screen.getAllByTestId('p3-d-photo')).toHaveLength(4));
+  });
+
+  it('F3: the hint and toast do not claim every date; one mapping; series gallery with 2 dates on their own photos', async () => {
+    expect(L.detailsPhotosHint).toContain('every date that has no photos of its own');
+    expect(L.detailsSaved).not.toMatch(/every date\./);
+    expect(L.detailsSaved).toContain('own photos keeps them');
+    const raw = weeklyRaw(pics(2));
+    const envs = server(raw);
+    show(DETAILS, raw);
+    await screen.findByTestId('p3-details');
+    expect(screen.getByTestId('p3-field-gallery').textContent).toContain(L.detailsPhotosHint);
+    fireEvent.click(screen.getAllByTestId('p3-d-photo-remove')[0]);
+    await press(saveBtn());
+    await waitFor(() => expect(envs).toHaveLength(1));
+    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain('own photos keeps them'));
+  });
+
+  it('F4: picking more photos than fit says the cap instead of dropping silently', async () => {
+    const raw = weeklyRaw(pics(29));
+    server(raw);
+    upload.mockResolvedValue('https://img.example.test/x.jpg');
+    show(DETAILS, raw);
+    await screen.findByTestId('p3-details');
+    await pick('a.jpg', 'b.jpg', 'c.jpg');
+    await waitFor(() => expect(screen.getAllByTestId('p3-d-photo')).toHaveLength(30));
+    expect(screen.getByTestId('p3-d-photos-error').textContent).toBe(L.datePhotosMax(30));
+  });
+
+  it('F5: an event with no dates says Save / Saved.', () => {
+    expect(saveWordsFor(hasOneDate(0, 0))).toEqual(saveWordsFor(true));
   });
 });
