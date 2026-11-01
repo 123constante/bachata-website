@@ -64,7 +64,7 @@ const where = async () => (await screen.findByTestId('where')).textContent;
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-11-01T12:00:00Z')); // inside the legacy window (to 7 Nov)
+  vi.setSystemTime(new Date('2026-11-01T12:00:00Z')); // inside the legacy window (to 7 Dec)
   window.sessionStorage.clear();
 });
 afterEach(() => {
@@ -117,8 +117,8 @@ describe('?legacy=1 keeps the old area and persists per tab', () => {
     expect(await where()).toBe('/account/p3/events/ev-1');
   });
 
-  it('after the window closes (8 Nov, London) ?legacy=1 is ignored', async () => {
-    vi.setSystemTime(new Date('2026-11-08T12:00:00Z'));
+  it('after the window closes (8 Dec, London) ?legacy=1 is ignored', async () => {
+    vi.setSystemTime(new Date('2026-12-08T12:00:00Z'));
     await mount('/account/o/events/ev-1?legacy=1', ON);
     expect(await where()).toBe('/account/p3/events/ev-1');
   });

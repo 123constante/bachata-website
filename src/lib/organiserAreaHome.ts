@@ -32,10 +32,10 @@ export const isOrganiserAreaPath = (path: string): boolean => {
   return p === P3_HOME || p.startsWith(`${P3_HOME}/`) || p === R1_HOME || p.startsWith(`${R1_HOME}/`);
 };
 
-/** Last London day (exclusive) the old area is honoured with `?legacy=1`: honoured to 7 Nov 2026 inclusive. */
-export const LEGACY_UNTIL = '2026-11-08';
+/** Last London day (exclusive) the old area is honoured with `?legacy=1`: honoured to 7 Dec 2026 inclusive. */
+export const LEGACY_UNTIL = '2026-12-08';
 export const LEGACY_QUERY = 'legacy';
-export const LEGACY_UNTIL_LABEL = '7 November';
+export const LEGACY_UNTIL_LABEL = '7 December';
 
 /** `today` = a London YYYY-MM-DD key. */
 export const legacyWindowOpen = (today: string): boolean => today < LEGACY_UNTIL;
