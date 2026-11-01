@@ -1,0 +1,642 @@
+{
+ "01-wall-4col": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bisket"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Nico"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Papacito"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Magda"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Kal"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Ayrton"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Gatica"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Javier"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Pierre"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Enoch"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Joey"
+   }
+  ],
+  "face": {
+   "initials": 16
+  },
+  "sheet": false,
+  "errs": []
+ },
+ "01b-wall-4col-djs": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Oreo Sensual"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "El Rugido"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bobby Blanco"
+   },
+   {
+    "w": 86.4,
+    "h": 139,
+    "nameClipped": false,
+    "name": "Carlos De La Cruz"
+   },
+   {
+    "w": 86.4,
+    "h": 139,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 86.4,
+    "h": 139,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 86.4,
+    "h": 139,
+    "nameClipped": false,
+    "name": "Morcilla"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Magda"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Missy K"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Tony Spark"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Joey"
+   }
+  ],
+  "face": {
+   "initials": 12
+  },
+  "sheet": false,
+  "errs": []
+ },
+ "02-wall-3col-compare": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bisket"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Nico"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Magda"
+   },
+   {
+    "w": 116.5,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 116.5,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Bisket"
+   },
+   {
+    "w": 116.6,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Nico"
+   },
+   {
+    "w": 116.5,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 116.5,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 116.6,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 116.5,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 116.5,
+    "h": 154,
+    "nameClipped": false,
+    "name": "Magda"
+   }
+  ],
+  "face": {
+   "initials": 16
+  },
+  "sheet": false,
+  "errs": []
+ },
+ "03-no-photo-states": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Pierre"
+   }
+  ],
+  "face": {
+   "initials": 7
+  },
+  "sheet": false,
+  "errs": []
+ },
+ "04-person-sheet": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bisket"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Nico"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Papacito"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Magda"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Kal"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Ayrton"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Gatica"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Javier"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Pierre"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Enoch"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Joey"
+   }
+  ],
+  "face": {
+   "initials": 17
+  },
+  "sheet": true,
+  "errs": []
+ },
+ "05a-dark-wall": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bisket"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Nico"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Papacito"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Magda"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Kal"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Ayrton"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Gatica"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Javier"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Pierre"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Enoch"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Joey"
+   }
+  ],
+  "face": {
+   "initials": 16
+  },
+  "sheet": false,
+  "errs": []
+ },
+ "05b-dark-sheet": {
+  "scrollW": 390,
+  "tiles": [
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Roger"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bisket"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Nico"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Bobby"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Carlos"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Melita"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Daniel"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Papacito"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Magda"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Kal"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Ayrton"
+   },
+   {
+    "w": 86.4,
+    "h": 143,
+    "nameClipped": false,
+    "name": "Gatica"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Javier"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Pierre"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Enoch"
+   },
+   {
+    "w": 86.4,
+    "h": 124,
+    "nameClipped": false,
+    "name": "Joey"
+   }
+  ],
+  "face": {
+   "initials": 17
+  },
+  "sheet": true,
+  "errs": []
+ }
+}
