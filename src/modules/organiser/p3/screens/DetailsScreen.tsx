@@ -5,8 +5,9 @@ import { useVenueOptions, venueName, type VenueOption } from '../../shared/publi
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
-import { MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
-import { L, kindWordStored } from '../model';
+import { MAX_GALLERY, MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
+import { uploadEventPicture } from '../../events/media';
+import { L, hasOneDate, kindWordStored, saveWordsFor } from '../model';
 import {
   DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
 } from '../data/details';
@@ -30,12 +31,15 @@ function Field({ id, label, hint, problem, children }: { id: string; label: stri
 function Details({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS);
   const save = useSaveRun(ws.series.id);
+  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total));
   const back = useBackToEvent(ws.series.id, form.dirty);
   const lock = useEditLock(ws);
   const venues = useVenueOptions();
   const [picking, setPicking] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<DetailsField, boolean>>>({});
   const [photo, setPhoto] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const [pics, setPics] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const picFile = useRef<HTMLInputElement>(null);
   const { draft, set } = form;
   const city = useVenueCity(form.changed.includes('venueId') ? draft.venueId : null, venues.data);
   const problems = detailsProblems(form.base, draft);
@@ -49,7 +53,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
-    if (res.ok) { form.saved(res.version); back(L.detailsSaved); }
+    if (res.ok) { form.saved(res.version); back(words.detailsSaved); }
   };
 
   const upload = async (file: File | undefined) => {
@@ -65,6 +69,21 @@ function Details({ ws }: { ws: EventWorkspace }) {
       setPhoto({ busy: false, error: null });
     } catch (e) {
       setPhoto({ busy: false, error: e instanceof FlyerError ? FLYER_PROBLEM_COPY[e.problem] : commandErrorMessage(e) });
+    }
+  };
+
+  // Same upload path as a date's Photos (checked, re-encoded, uploaded); a failure keeps every photo already here.
+  const addPics = async (files: File[]) => {
+    setPics({ busy: true, error: null });
+    let list = draft.gallery;
+    try {
+      for (const f of files.slice(0, MAX_GALLERY - list.length)) {
+        list = [...list, await uploadEventPicture(ws.series.id, f)];
+        set({ gallery: list });
+      }
+      setPics({ busy: false, error: null });
+    } catch (e) {
+      setPics({ busy: false, error: e instanceof Error ? e.message : commandErrorMessage(e) });
     }
   };
 
@@ -88,6 +107,47 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <textarea id="p3-d-description" className="p3-in" rows={6} value={draft.description} disabled={off}
           onChange={(e) => set({ description: e.target.value })} data-testid="p3-d-description" />
       </Field>
+      <div className="p3-stack-s" data-testid="p3-field-cover">
+        <span className="p3-field">{L.detailsCover}</span>
+        {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
+        <label className="p3-btn p3-btn-line p3-file" htmlFor="p3-d-cover" data-testid="p3-d-cover-btn">
+          {draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}
+          <input id="p3-d-cover" type="file" accept={FLYER_ACCEPT} disabled={off || photo.busy}
+            onChange={(e) => void upload(e.target.files?.[0])} data-testid="p3-d-cover" />
+        </label>
+        {photo.busy && <p className="p3-note">{L.detailsUploading}</p>}
+        {photo.error && <p className="p3-error" role="alert">{photo.error}</p>}
+      </div>
+      <div className="p3-stack-s" data-testid="p3-field-gallery">
+        <span className="p3-field">{L.detailsPhotos}</span>
+        <p className="p3-note">{L.detailsPhotosHint}</p>
+        {draft.gallery.length === 0 && <p className="p3-note" data-testid="p3-d-photos-empty">{L.detailsPhotosNone}</p>}
+        <div role="list" className="p3-photos" data-testid="p3-d-photos">
+          {draft.gallery.map((url, i) => (
+            <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-d-photo">
+              <img src={url} alt="" loading="lazy" />
+              <button type="button" className="p3-photo-x" aria-label={`${L.datePhotosRemove} ${i + 1}`} disabled={off || pics.busy}
+                onClick={() => set({ gallery: draft.gallery.filter((_, j) => j !== i) })} data-testid="p3-d-photo-remove">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          ))}
+        </div>
+        <input ref={picFile} type="file" accept={FLYER_ACCEPT} multiple className="p3-sr" tabIndex={-1} aria-hidden="true"
+          onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) void addPics(f); }} data-testid="p3-d-photos-file" />
+        {draft.gallery.length < MAX_GALLERY && (
+          <button type="button" className="p3-btn p3-btn-line" disabled={off || pics.busy} onClick={() => picFile.current?.click()} data-testid="p3-d-photos-add">
+            {pics.busy ? L.detailsUploading : L.detailsPhotosAdd}
+          </button>
+        )}
+        {draft.gallery.length >= MAX_GALLERY && <p className="p3-note" data-testid="p3-d-photos-max">{L.datePhotosMax(MAX_GALLERY)}</p>}
+        {pics.error && <p className="p3-error" role="alert" data-testid="p3-d-photos-error">{pics.error}</p>}
+      </div>
+      <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
+        <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
+          onChange={(e) => set({ ticket: e.target.value })} onBlur={() => touch('ticket')} data-testid="p3-d-ticket" />
+      </Field>
+      <h3 className="p3-h2" data-testid="p3-d-more">{L.detailsMore}</h3>
       <span className="p3-field">{L.music}</span>
       <div className="p3-chips" role="group" aria-label={L.music} data-testid="p3-d-music">
         {[...MUSIC_STYLES, ...draft.music.filter((m) => !MUSIC_STYLES.includes(m))].map((m) => (
@@ -110,21 +170,6 @@ function Details({ ws }: { ws: EventWorkspace }) {
           </div>
         )}
       </div>
-      <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
-        <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
-          onChange={(e) => set({ ticket: e.target.value })} onBlur={() => touch('ticket')} data-testid="p3-d-ticket" />
-      </Field>
-      <div className="p3-stack-s" data-testid="p3-field-cover">
-        <span className="p3-field">{L.detailsCover}</span>
-        {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
-        <label className="p3-btn p3-btn-line p3-file" htmlFor="p3-d-cover" data-testid="p3-d-cover-btn">
-          {draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}
-          <input id="p3-d-cover" type="file" accept={FLYER_ACCEPT} disabled={off || photo.busy}
-            onChange={(e) => void upload(e.target.files?.[0])} data-testid="p3-d-cover" />
-        </label>
-        {photo.busy && <p className="p3-note">{L.detailsUploading}</p>}
-        {photo.error && <p className="p3-error" role="alert">{photo.error}</p>}
-      </div>
       <Field id="instagram" label={L.instagram} hint={L.detailsInstagramHint} problem={shown('instagram')}>
         <input id="p3-d-instagram" className="p3-in" value={draft.instagram} disabled={off} autoComplete="off"
           onChange={(e) => set({ instagram: e.target.value })} onBlur={() => touch('instagram')} data-testid="p3-d-instagram" />
@@ -143,7 +188,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); setPics({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
       {picking && (
         <Sheet title={L.detailsPlaceSheet} onClose={() => setPicking(false)}>
           {venues.isPending && <p className="p3-note">{L.detailsPlaceLoading}</p>}

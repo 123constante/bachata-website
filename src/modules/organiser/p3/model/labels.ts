@@ -94,6 +94,7 @@ export const L = {
   // save
   saveOne: 'Save for this date',
   saveAll: 'Save for all dates',
+  saveOneDateEvent: 'Save',
   notSaved: 'Not saved yet',
   undoMine: 'Undo my changes',
 
@@ -257,6 +258,12 @@ export const L = {
   detailsKind: 'What it is',
   detailsKindHint: 'Worked out from your sessions. Change a session to change it.',
   detailsSaved: 'Saved for every date. Dancers see it now.',
+  detailsSavedOne: 'Saved. Dancers see it now.',
+  detailsPhotos: 'Photos',
+  detailsPhotosHint: 'Shown on every date\u2019s event page. JPG, PNG or WebP.',
+  detailsPhotosNone: 'No photos yet. Add some: dancers see them on the event page.',
+  detailsPhotosAdd: 'Add photos',
+  detailsMore: 'More details',
   prices: 'Prices',
   pricesRowSub: 'What dancers pay and how',
   pricesIntro: 'What dancers pay. Shown next to the ticket link.',

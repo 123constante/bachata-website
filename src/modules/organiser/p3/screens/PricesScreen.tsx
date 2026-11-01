@@ -3,7 +3,7 @@ import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
 import { eventLock } from '../../shared/eventState';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L } from '../model';
+import { L, hasOneDate, saveWordsFor } from '../model';
 import {
   isFree, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, pricesSpecs, setFree, storedPriceCount,
 } from '../data/prices';
@@ -16,6 +16,7 @@ import { PriceCard } from './PriceCard';
 function Prices({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws));
   const save = useSaveRun(ws.series.id);
+  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total));
   const back = useBackToEvent(ws.series.id, form.dirty);
   const lock = useEditLock(ws);
   const rowsLock = pricesLockOf(ws);
@@ -30,7 +31,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v) => form.landed(v));
-    if (res.ok) { form.saved(res.version); back(L.pricesSaved); }
+    if (res.ok) { form.saved(res.version); back(words.pricesSaved); }
   };
 
   return (
@@ -79,7 +80,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
         ))}
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); }} />
     </div>
   );
 }
