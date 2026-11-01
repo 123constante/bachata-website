@@ -1,6 +1,6 @@
 # Handover: p3-wt-gate (GATE-RETRY, F-10 / F-11 / F-12 / F-15)
 
-Branch `claude/p3-wt-gate`, brief `brief/p3-wt-gate:docs/briefs/p3-wt-gate.md`. Gate flag `organiser_onboarding_gate`
+PR #1250. Branch `claude/p3-wt-gate`, brief `brief/p3-wt-gate:docs/briefs/p3-wt-gate.md`. Gate flag `organiser_onboarding_gate`
 stays OFF (prod `gate_on=false`, read 2026-11-01). No server, admin, `GraceBanner`, `EditTray.tsx` or routing change.
 
 ## Data source (proved first, read-only prod, pg_proc)
