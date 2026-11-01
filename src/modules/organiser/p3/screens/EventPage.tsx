@@ -172,26 +172,32 @@ function About({ v, ws }: { v: EventPageView; ws: EventWorkspace }) {
         <AboutRow label={L.ticket}>{a.ticket ? <a className="p3-link" href={a.ticket} target="_blank" rel="noreferrer">{a.ticket}</a> : none}</AboutRow>
         <AboutRow label={L.instagram}>{a.instagram ? <a className="p3-link" href={a.instagram} target="_blank" rel="noreferrer">{a.instagram}</a> : none}</AboutRow>
       </div>
-      <div className="p3-card p3-tight p3-list p3-gap-t" data-testid="p3-edit-rows">
-        <DancerView ws={ws} />
-        <Link className="p3-row p3-row-link" to={P3_PATHS.eventDetails(v.id)} data-testid="p3-open-details">
-          <span className="p3-grow"><span className="p3-row-t">{L.detailsTitle}</span><br /><span className="p3-row-s">{L.detailsRowSub}</span></span>
-          <span aria-hidden="true">&rsaquo;</span>
-        </Link>
-        <Link className="p3-row p3-row-link" to={P3_PATHS.eventPrices(v.id)} data-testid="p3-open-prices">
-          <span className="p3-grow"><span className="p3-row-t">{L.prices}</span><br /><span className="p3-row-s">{L.pricesRowSub}</span></span>
-          <span aria-hidden="true">&rsaquo;</span>
-        </Link>
-        <Link className="p3-row p3-row-link" to={P3_PATHS.eventHistory(v.id)} data-testid="p3-open-history">
-          <span className="p3-grow"><span className="p3-row-t">{L.history}</span><br /><span className="p3-row-s">{L.historyRowSub}</span></span>
-          <span aria-hidden="true">&rsaquo;</span>
-        </Link>
-        <Link className="p3-row p3-row-link" to={P3_PATHS.eventOrganisers(v.id)} data-testid="p3-open-organisers">
-          <span className="p3-grow"><span className="p3-row-t">{L.organisers}</span><br /><span className="p3-row-s">{L.organisersRowSub}</span></span>
-          <span aria-hidden="true">&rsaquo;</span>
-        </Link>
-      </div>
     </section>
+  );
+}
+
+/** The edit rows sit right under the status rows, above Sessions and Coming up, so description, flyer and ticket link are reachable without scrolling past the lists. */
+function EditRows({ id, ws }: { id: string; ws: EventWorkspace }) {
+  return (
+    <div className="p3-card p3-tight p3-list" data-testid="p3-edit-rows">
+      <DancerView ws={ws} />
+      <Link className="p3-row p3-row-link" to={P3_PATHS.eventDetails(id)} data-testid="p3-open-details">
+        <span className="p3-grow"><span className="p3-row-t">{L.detailsTitle}</span><br /><span className="p3-row-s">{L.detailsRowSub}</span></span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </Link>
+      <Link className="p3-row p3-row-link" to={P3_PATHS.eventPrices(id)} data-testid="p3-open-prices">
+        <span className="p3-grow"><span className="p3-row-t">{L.prices}</span><br /><span className="p3-row-s">{L.pricesRowSub}</span></span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </Link>
+      <Link className="p3-row p3-row-link" to={P3_PATHS.eventHistory(id)} data-testid="p3-open-history">
+        <span className="p3-grow"><span className="p3-row-t">{L.history}</span><br /><span className="p3-row-s">{L.historyRowSub}</span></span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </Link>
+      <Link className="p3-row p3-row-link" to={P3_PATHS.eventOrganisers(id)} data-testid="p3-open-organisers">
+        <span className="p3-grow"><span className="p3-row-t">{L.organisers}</span><br /><span className="p3-row-s">{L.organisersRowSub}</span></span>
+        <span aria-hidden="true">&rsaquo;</span>
+      </Link>
+    </div>
   );
 }
 
@@ -256,6 +262,7 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
           <span aria-hidden="true">&rsaquo;</span>
         </Link>
       )}
+      <EditRows id={v.id} ws={ws} />
       <Sessions v={v} ws={ws} onOpen={(key) => setSession({ key, scope: 'every' })} />
       <Coming v={v} onOpen={(id) => setDate({ kind: 'date', id })} addWhy={addWhy} onAdd={() => setDate({ kind: 'add' })} />
       <About v={v} ws={ws} />

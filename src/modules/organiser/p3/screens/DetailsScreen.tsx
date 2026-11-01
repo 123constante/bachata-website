@@ -9,7 +9,7 @@ import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFly
 import { uploadEventPicture } from '../../events/media';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
 import { MAX_GALLERY, MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
-import { L, kindWordStored } from '../model';
+import { L, hasOneDate, kindWordStored, saveWordsFor } from '../model';
 import {
   DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
 } from '../data/details';
@@ -34,6 +34,7 @@ function Field({ id, label, hint, problem, children }: { id: string; label: stri
 function Details({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS);
   const save = useSaveRun(ws.series.id);
+  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total));
   const back = useBackToEvent(ws.series.id, form.dirty);
   const lock = useEditLock(ws);
   const venues = useVenueOptions();
@@ -51,10 +52,11 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const shown = (f: DetailsField) => (touched[f] || form.changed.includes(f) || f === 'ticket' ? problems[f] ?? null : null);
   const touch = (f: DetailsField) => setTouched((t) => ({ ...t, [f]: true }));
   const off = !!lock || save.busy;
+  const uploading = photo.busy;
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
-    if (res.ok) { form.saved(res.version); back(L.detailsSaved); }
+    if (res.ok) { form.saved(res.version); back(words.detailsSaved); }
   };
 
   const upload = async (file: File | undefined) => {
@@ -94,32 +96,6 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <textarea id="p3-d-description" className="p3-in" rows={6} value={draft.description} disabled={off}
           onChange={(e) => set({ description: e.target.value })} data-testid="p3-d-description" />
       </Field>
-      <span className="p3-field">{L.music}</span>
-      <div className="p3-chips" role="group" aria-label={L.music} data-testid="p3-d-music">
-        {[...MUSIC_STYLES, ...draft.music.filter((m) => !MUSIC_STYLES.includes(m))].map((m) => (
-          <button key={m} type="button" aria-pressed={draft.music.includes(m)} disabled={off}
-            onClick={() => set({ music: toggleMusic(draft.music, m) })}>{m}</button>
-        ))}
-      </div>
-      <div className="p3-stack-s" data-testid="p3-field-venueId">
-        <span className="p3-field">{L.detailsWhere}</span>
-        <div className="p3-card p3-tight">
-          <p className="p3-row-t" data-testid="p3-d-place">{place ?? (draft.venueId ? L.detailsPlaceLoading : L.notSet)}</p>
-          <p className="p3-note">{L.detailsCityNote}</p>
-        </div>
-        <button type="button" className="p3-btn p3-btn-line" disabled={off} onClick={() => setPicking(true)} data-testid="p3-d-pick-place">{L.detailsPickPlace}</button>
-        {problems.venueId && <p className="p3-error" role="alert">{problems.venueId}</p>}
-        {city.failed && (
-          <div className="p3-warn" data-testid="p3-d-city-fail">
-            <p className="p3-plain">{L.detailsCityFail}</p>
-            <button type="button" className="p3-link" onClick={city.retry} data-testid="p3-d-city-retry">{L.detailsCityRetry}</button>
-          </div>
-        )}
-      </div>
-      <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
-        <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
-          onChange={(e) => set({ ticket: e.target.value })} onBlur={() => touch('ticket')} data-testid="p3-d-ticket" />
-      </Field>
       <div className="p3-stack-s" data-testid="p3-field-cover">
         <span className="p3-field">{L.detailsCover}</span>
         {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
@@ -143,6 +119,33 @@ function Details({ ws }: { ws: EventWorkspace }) {
         </button>
         {problems.gallery && <p className="p3-error" role="alert">{problems.gallery}</p>}
       </div>
+      <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
+        <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
+          onChange={(e) => set({ ticket: e.target.value })} onBlur={() => touch('ticket')} data-testid="p3-d-ticket" />
+      </Field>
+      <h3 className="p3-h2" data-testid="p3-d-more">{L.detailsMore}</h3>
+      <span className="p3-field">{L.music}</span>
+      <div className="p3-chips" role="group" aria-label={L.music} data-testid="p3-d-music">
+        {[...MUSIC_STYLES, ...draft.music.filter((m) => !MUSIC_STYLES.includes(m))].map((m) => (
+          <button key={m} type="button" aria-pressed={draft.music.includes(m)} disabled={off}
+            onClick={() => set({ music: toggleMusic(draft.music, m) })}>{m}</button>
+        ))}
+      </div>
+      <div className="p3-stack-s" data-testid="p3-field-venueId">
+        <span className="p3-field">{L.detailsWhere}</span>
+        <div className="p3-card p3-tight">
+          <p className="p3-row-t" data-testid="p3-d-place">{place ?? (draft.venueId ? L.detailsPlaceLoading : L.notSet)}</p>
+          <p className="p3-note">{L.detailsCityNote}</p>
+        </div>
+        <button type="button" className="p3-btn p3-btn-line" disabled={off} onClick={() => setPicking(true)} data-testid="p3-d-pick-place">{L.detailsPickPlace}</button>
+        {problems.venueId && <p className="p3-error" role="alert">{problems.venueId}</p>}
+        {city.failed && (
+          <div className="p3-warn" data-testid="p3-d-city-fail">
+            <p className="p3-plain">{L.detailsCityFail}</p>
+            <button type="button" className="p3-link" onClick={city.retry} data-testid="p3-d-city-retry">{L.detailsCityRetry}</button>
+          </div>
+        )}
+      </div>
       <Field id="instagram" label={L.instagram} hint={L.detailsInstagramHint} problem={shown('instagram')}>
         <input id="p3-d-instagram" className="p3-in" value={draft.instagram} disabled={off} autoComplete="off"
           onChange={(e) => set({ instagram: e.target.value })} onBlur={() => touch('instagram')} data-testid="p3-d-instagram" />
@@ -160,8 +163,8 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-row-t">{kindWordStored(ws.series.format, ws.series.category)}</p>
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
-      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+      <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} uploading={uploading} error={save.error}
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
       {pictures && (
         <OnBody>
           <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)} />

@@ -75,6 +75,7 @@ export const DETAILS_SPECS: ReadonlyArray<FieldSpec<DetailsDraft>> = [
   { key: 'venueId', line: () => L.detailsWhere },
   { key: 'ticket', line: () => L.ticket },
   { key: 'cover', line: () => L.detailsCover },
+  { key: 'gallery', line: (d) => `${L.detailsPictures}: ${d.gallery.length}`, same: (a, b) => sameList(a, b) },
   { key: 'instagram', line: () => L.instagram, same: (a, b) => instagramToSend(String(a)) === instagramToSend(String(b)) },
   { key: 'videos', line: (d) => `${L.detailsVideos}: ${videoList(d.videos).length}`, same: (a, b) => sameList(videoList(String(a)), videoList(String(b))) },
   { key: 'chat', line: () => L.detailsChat },
@@ -103,6 +104,7 @@ export function detailsProblems(base: DetailsDraft, draft: DetailsDraft): Partia
   if (!name) out.name = L.detailsNameNeeded;
   else if (name.length > MAX_NAME) out.name = L.detailsTooLong(MAX_NAME);
   if (draft.description.trim().length > MAX_DESCRIPTION) out.description = L.detailsTooLong(MAX_DESCRIPTION);
+  if (draft.gallery.length > MAX_GALLERY) out.gallery = L.datePhotosMax(MAX_GALLERY);
   const ticket = linkProblem('ticket', draft.ticket);
   if (ticket) out.ticket = ticket;
   const ig = linkProblem('instagram', draft.instagram);
@@ -169,6 +171,7 @@ export function detailsPlan(base: DetailsDraft, draft: DetailsDraft, cityId: str
   }
   if (changed.has('ticket')) payload.default_ticket_url = draft.ticket.trim();
   if (changed.has('cover')) payload.default_cover_image_url = draft.cover.trim();
+  if (changed.has('gallery')) payload.default_gallery = draft.gallery;
   if (changed.has('instagram')) payload.instagram_url = instagramToSend(draft.instagram);
   if (changed.has('gallery')) payload.default_gallery = draft.gallery.map((v) => v.trim()).filter(Boolean);
   if (changed.has('videos')) payload.default_video_urls = videoList(draft.videos);

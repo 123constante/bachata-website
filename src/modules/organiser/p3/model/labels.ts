@@ -94,6 +94,7 @@ export const L = {
   // save
   saveOne: 'Save for this date',
   saveAll: 'Save for all dates',
+  saveOneDateEvent: 'Save',
   notSaved: 'Not saved yet',
   undoMine: 'Undo my changes',
 
@@ -266,7 +267,9 @@ export const L = {
   detailsChatBad: 'Enter the whole group chat link, like https://chat.whatsapp.com/ and the code after it, or leave it empty.',
   detailsKind: 'What it is',
   detailsKindHint: 'Worked out from your sessions. Change a session to change it.',
-  detailsSaved: 'Saved for every date. Dancers see it now.',
+  detailsSaved: 'Saved for all dates. Dancers see it now. A date with its own pictures keeps them.',
+  detailsSavedOne: 'Saved. Dancers see it now.',
+  detailsMore: 'More details',
   prices: 'Prices',
   pricesRowSub: 'What dancers pay and how',
   pricesIntro: 'What dancers pay. Shown next to the ticket link.',
