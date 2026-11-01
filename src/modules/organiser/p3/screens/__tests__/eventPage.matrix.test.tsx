@@ -72,7 +72,7 @@ const HEAD: Record<ShapeKey, [string, string, string, string | null]> = {
   draft: [L.draftTag, 'Night', 'One-off party', null],
   draftReady: [L.draftTag, 'Night', 'Weekly social', 'Next: Thursday 29 October, 9pm'],
   ended: [L.finished, 'Night', 'Weekly social', null],
-  archived: [L.removedTag, 'Night', 'Weekly social', null],
+  archived: [L.finished, 'Night', 'Weekly social', null],
   noSessions: [L.live, 'Night', 'Weekly social', `Next: Tomorrow · ${L.noSessions}`],
   noTime: [L.live, 'Night', 'Weekly social', `Next: Saturday 31 October · ${L.noTime}`],
   emptyLineup: [L.live, 'Night', 'Weekly social', 'Next: Thursday 29 October, 9pm'],

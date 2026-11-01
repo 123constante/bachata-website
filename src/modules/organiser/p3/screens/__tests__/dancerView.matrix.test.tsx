@@ -67,7 +67,7 @@ describe('F-34 See it as dancers see it x every shape', () => {
     const want = EXPECT[k];
     if (k === 'archived') {
       // #1217: a removed event gets the removed card, not the page, so there is no dancer-view row at all
-      expect(screen.getByTestId('p3-event-removed')).toBeTruthy();
+      expect(screen.getByTestId('p3-event-archived')).toBeTruthy();
       expect(screen.queryByTestId('p3-dancer-view')).toBeNull();
       return;
     }
