@@ -43,7 +43,14 @@ export const legacyWindowOpen = (today: string): boolean => today < LEGACY_UNTIL
 /** The dated fallback link (P3 You hub) -- null once the window has closed. */
 export const legacyAreaHref = (today: string): string | null => (legacyWindowOpen(today) ? `${R1_HOME}?${LEGACY_QUERY}=1` : null);
 
-const seg = (s: string) => encodeURIComponent(decodeURIComponent(s));
+// review r1 F2: a malformed escape (%E0) must not throw during render; encode it as typed instead.
+const seg = (s: string): string => {
+  try {
+    return encodeURIComponent(decodeURIComponent(s));
+  } catch {
+    return encodeURIComponent(s);
+  }
+};
 
 /**
  * R1 path -> the P3 path that does the same job (null = keep R1: the profile wizard, which P3's

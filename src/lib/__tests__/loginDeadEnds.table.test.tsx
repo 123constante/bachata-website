@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { isRoutable } from './routeTable';
 import { landingPathAfterAuth } from '@/lib/auth-otp-routing';
 import { getListedTarget } from '@/lib/getListedTarget';
@@ -89,5 +90,29 @@ describe('invite Done screen', () => {
     expect(link.textContent).toBe(JOIN_COPY.done.button);
     expect(JOIN_COPY.done.button).toBe('Open your organiser home');
     expect(link.getAttribute('href')).toBe('/account/p3?o=a%20b%2Fc');
+  });
+
+  // Review r1 F1 (brief p3-wt-land): P3 Home waits for its refetch only when it gets a `confirmation`;
+  // without it a pre-join "no page" cache sends the new member to Start.
+  it.each([
+    [true, 'org-1', `You${String.fromCharCode(8217)}re on Salsa Co${String.fromCharCode(8217)}s team.`],
+    [true, null, null],
+    [false, 'org-1', null],
+  ] as const)('P3 live=%s id=%s -> Home gets confirmation %s', (organiserP3, id, want) => {
+    const Probe = () => {
+      const s = useLocation().state as { confirmation?: string } | null;
+      return <p data-testid="probe">{s?.confirmation ?? 'none'}</p>;
+    };
+    render(
+      <MemoryRouter initialEntries={['/join']}>
+        <Routes>
+          <Route path="/join" element={<DoneScreen org="Salsa Co" flags={{ organiserP3, organiserSelfServe: true }} organiserId={id} />} />
+          <Route path="*" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByTestId('join-done-home'));
+    expect(screen.getByTestId('probe').textContent).toBe(want ?? 'none');
+    expect(want ?? JOIN_COPY.done.heading('Salsa Co')).toBe(JOIN_COPY.done.heading('Salsa Co'));
   });
 });

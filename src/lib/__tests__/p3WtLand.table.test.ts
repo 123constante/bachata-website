@@ -122,6 +122,13 @@ describe('sign-in landing (/account/continue): person shape x P3', () => {
   });
 });
 
+describe('a malformed escape in an old link never throws (review r1 F2)', () => {
+  it('series/%E0 redirects with the id encoded as typed', () => {
+    expect(land(`${R1}/series/%E0`, ON, OPEN)).toBe(`${P3}/events/%25E0`);
+    expect(r1LegacyPath(`${R1}/series/%E0`, '', '')).toBe(`${R1}/events/%25E0`);
+  });
+});
+
 describe('F-04 / F-05: the "go" link after claim / invite / email code', () => {
   it('accepted invite (with a page id) lands on the new Home for that page while P3 is live', () => {
     expect(acceptedInviteLanding('org 1', ON)).toBe(`${P3}?o=org%201`);
