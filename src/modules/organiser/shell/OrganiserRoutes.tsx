@@ -14,7 +14,7 @@ import { OrganiserShell } from './OrganiserShell';
 import { ORG_PATHS } from './paths';
 import { flags } from '@/lib/featureFlags';
 import { londonTodayKey } from '@/lib/londonDate';
-import { LEGACY_QUERY, r1AreaRedirect } from '@/lib/organiserAreaHome';
+import { LEGACY_QUERY, r1AreaRedirect, r1LegacyPath } from '@/lib/organiserAreaHome';
 
 // One lazy chunk per folder. main's screens stay mounted on the R1 paths until
 // their slice swaps them. Every R1 route group has landed (INT2): no route
@@ -154,6 +154,8 @@ export default function OrganiserRoutes() {
             <Route path="events/:seriesId/details" element={<EventDetails />} />
             <Route path="events/:seriesId/programme" element={<ProgrammeSeries />} />
             <Route path="events/:seriesId/organisers" element={<SeriesOrganisers />} />
+            {/* F-03: the old event bookmark shape keeps its event (lib/organiserAreaHome r1LegacyPath). */}
+            <Route path="series/:seriesId" element={<Navigate to={r1LegacyPath(pathname, search, hash) ?? ORG_PATHS.home} replace />} />
 
             <Route path="team" element={<TeamPage />} />
             <Route path="team/add" element={<TeamFlow step="add" />} />

@@ -82,11 +82,12 @@ export const p3StartReview = (organiserId: string | null): string =>
   organiserId ? `${P3_PATHS.start}?o=${encodeURIComponent(organiserId)}&at=review` : P3_PATHS.start;
 
 /**
- * Where an accepted invite lands (review 1080 F5, owner decision 2026-10-28): P3's Welcome when
- * organiserP3 AND organiserSelfServe are on, else R1's, unchanged. The ONE answer for any caller.
+ * Where an accepted invite lands. F-05 (brief p3-wt-land, A-team-29): the button says "Open your
+ * organiser home", so while organiserP3 AND organiserSelfServe are on it opens P3's Home for that
+ * page (`?o=`); else R1's Welcome, unchanged. The ONE answer for any caller.
  */
 export const acceptedInviteLanding = (organiserId: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }): string =>
-  flags.organiserP3 && flags.organiserSelfServe ? P3_PATHS.youWelcome(organiserId) : ORG_PATHS.welcome(organiserId);
+  flags.organiserP3 && flags.organiserSelfServe ? `${P3_PATHS.home}?o=${encodeURIComponent(organiserId)}` : ORG_PATHS.welcome(organiserId);
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';
 export const P3_TABS: readonly P3Tab[] = ['home', 'events', 'stats', 'you'];

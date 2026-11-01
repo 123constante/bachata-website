@@ -166,12 +166,15 @@ export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { 
   const selfServe = flags.organiserSelfServe;
   // The ONE landing helper; without an id (or with the area off) the plain home links stay.
   const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
-  const button = !selfServe ? JOIN_COPY.done.buttonOff : p3AreaLive(flags) ? JOIN_COPY.done.buttonP3 : JOIN_COPY.done.button;
+  const button = selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
+  // F-05 (review r1 F1): P3 Home reads `confirmation` and WAITS for its home refetch instead of reading a
+  // pre-join "no page" cache and bouncing to Start; it also repeats the joined line on Home.
+  const state = p3AreaLive(flags) && organiserId ? { confirmation: JOIN_COPY.done.heading(org) } : undefined;
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
       <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
-      <Link to={to} className={BTN} data-testid="join-done-home">{button}</Link>
+      <Link to={to} state={state} className={BTN} data-testid="join-done-home">{button}</Link>
     </div>
   );
 }
