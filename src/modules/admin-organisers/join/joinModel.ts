@@ -112,12 +112,15 @@ export function deriveJoinStep(i: DeriveInput): Derived {
   return { step: 'join' };
 }
 
-/** The "Step n of total" bar over email/code, about and join. A complete account skips About you. */
-export function joinProgress(step: JoinStep, completion: ProfileCompletionStatus): { n: number; total: number; label: string } | null {
-  const skipsAbout = completion === 'complete' && step !== 'about';
-  const total = skipsAbout ? 2 : 3;
+/**
+ * The "Step n of 3" bar over email/code, about and join. The total is ALWAYS 3: a signed-out person cannot
+ * know yet whether their profile is complete, so a total that dropped to 2 once they signed in made the
+ * count change mid-journey (1 of 3, then 2 of 2). A complete account simply skips step 2.
+ */
+export function joinProgress(step: JoinStep, _completion?: ProfileCompletionStatus): { n: number; total: number; label: string } | null {
+  const total = 3;
   if (step === 'email' || step === 'code') return { n: 1, total, label: 'Your email' };
-  if (step === 'about') return { n: 2, total: 3, label: 'About you' };
+  if (step === 'about') return { n: 2, total, label: 'About you' };
   if (step === 'join' || step === 'done') return { n: total, total, label: 'Join' };
   return null;
 }

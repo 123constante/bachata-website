@@ -9,6 +9,14 @@ const ELLIPSIS = '\u2026';
 /** The person who sent the link, for "Ask <inviter>" wording. */
 export const inviterName = (inviter: string | null | undefined): string => (inviter?.trim() ? inviter.trim() : 'the person who sent it');
 
+/** The one possessive for join copy: "Alex" -> "Alex\u2019s", "Alex Boneva Teachings" -> "Alex Boneva Teachings\u2019". */
+export const possessive = (name: string): string => `${name}${APOS}${/s$/i.test(name.trim()) ? '' : 's'}`;
+
+/** One plain next step under a dead link's own sentence (used, withdrawn, run out, not working). */
+export const ASK_FOR_NEW_LINK = 'Ask the person who sent it for a new link.';
+export const DEAD_LINK_REASONS: readonly string[] = ['invalid', 'used', 'revoked', 'expired'];
+export const askForNewLinkLine = (reason: string): string | null => (DEAD_LINK_REASONS.includes(reason) ? ASK_FOR_NEW_LINK : null);
+
 export const PROGRESS_LABELS = { email: 'Your email', about: 'About you', join: 'Join' } as const;
 
 export const JOIN_COPY = {
@@ -30,6 +38,7 @@ export const JOIN_COPY = {
     button: 'Send my code',
     sending: 'Sending' + ELLIPSIS,
     why: 'Type your email to get a code.',
+    placeholder: 'you@example.com',
     badShape: 'Use an email like name@example.com.',
     notAscii: 'Please type the address with plain letters and numbers only.',
   },
@@ -68,14 +77,14 @@ export const JOIN_COPY = {
 
   join: {
     heading: (org: string) => `Join ${org}?`,
-    card: (org: string) => `You${APOS}ll be able to add and edit ${org}${APOS}s events and manage its page.`,
+    card: (org: string) => `You${APOS}ll be able to add and edit the events of ${org} and manage its page.`,
     button: (org: string) => `Join ${org}`,
     joining: 'Joining' + ELLIPSIS,
     notYou: 'Not you? Use another email',
   },
 
   done: {
-    heading: (org: string) => `You${APOS}re on ${org}${APOS}s team.`,
+    heading: (org: string) => `You${APOS}re on ${possessive(org)} team.`,
     body: 'Everything on its page is yours to use: events, team and profile.',
     button: 'Open your organiser home',
     // F-05: while P3 is live the button lands on P3's Welcome for the page (or P3's Home without
