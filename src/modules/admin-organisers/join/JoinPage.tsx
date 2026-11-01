@@ -194,7 +194,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       case 'done':
         setRedeemed(true);
         setRedeemedOrgId(action.alreadyMember ? null : action.organiserId);
-        if (from === 'join') void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+        void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
         return;
       case 'stop': return fail(from, action.stop);
       case 'refetch_preview': await refetchPreview(); return;

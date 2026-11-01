@@ -42,7 +42,7 @@ describe('redeem outcome mapping (shared by sign-in and join tap)', () => {
 });
 
 describe('Send my code is never a dead control', () => {
-  it('an untouched or malformed tap sends nothing', () => {
+  it('an empty tap hands an empty string up; the page validates', () => {
     const onSend = vi.fn();
     render(<EmailStep initial="" busy={false} error={null} onSend={onSend} />);
     const btn = screen.getByTestId('join-send') as HTMLButtonElement;
