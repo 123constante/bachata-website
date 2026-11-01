@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
+import { OnBody } from './OnBody';
 import type { EventWorkspace } from '../../events/eventModel';
 import { fullDate, WEEKDAY_NAMES } from '../../shared/dateWords';
 import { saveButton } from '../model';
@@ -18,11 +18,7 @@ import { Sheet } from './Sheet';
 import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
 
-/** The sheet and its scrim go to document.body, inside their own p3-theme (the frame's light or dark). */
-export function OnBody({ children }: { children: ReactNode }) {
-  const theme = document.querySelector('.p3-frame')?.getAttribute('data-theme') ?? undefined;
-  return createPortal(<div className="p3-theme p3-portal" data-theme={theme}>{children}</div>, document.body);
-}
+export { OnBody };
 
 type PreviewState =
   | { key: string; state: 'ok'; data: RepeatPreview }

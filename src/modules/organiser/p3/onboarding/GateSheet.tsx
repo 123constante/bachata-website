@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { OnBody } from '../screens/OnBody';
 import { Sheet } from '../screens/Sheet';
 import { fetchOnboardingStatus, onboardingStatusKey } from './statusQuery';
 import { GATE_COPY, gateView } from './gateModel';
@@ -35,7 +36,9 @@ export default function GateSheet({ organiserId, refused = [], onClose, fetcher 
     if (admin) onClose();
   }, [admin, onClose]);
   if (admin) return null;
+  // On document.body like the Repeat / Details sheets, so it opens ABOVE an open sheet (frame-level it drew behind).
   return (
+    <OnBody>
     <Sheet title={GATE_COPY.title} onClose={onClose}>
       <div data-testid="p3-gate">
         <p className="p3-plain" data-testid="p3-gate-body">{GATE_COPY.body}</p>
@@ -72,5 +75,6 @@ export default function GateSheet({ organiserId, refused = [], onClose, fetcher 
         <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-testid="p3-gate-not-now">{GATE_COPY.notNow}</button>
       </div></div>
     </Sheet>
+    </OnBody>
   );
 }

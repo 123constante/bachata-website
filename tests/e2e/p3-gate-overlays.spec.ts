@@ -34,18 +34,18 @@ async function inView(el: Locator, what: string) {
   expect(b!.y + b!.height, `${what} bottom`).toBeLessThanOrEqual(PHONE.height + 0.5);
 }
 const scrolls = (page: Page) => page.evaluate(() => [window.scrollY, document.querySelector('.p3-main')?.scrollTop ?? 0]);
-const dialogFocus = (page: Page) => page.evaluate(() => (window as unknown as { __focus: Array<{ inDialog: boolean; preventScroll: boolean }> }).__focus.filter((f) => f.inDialog));
+const dialogFocus = (page: Page, gateOnly = false) => page.evaluate((g) => (window as unknown as { __focus: Array<{ inDialog: boolean; inGate: boolean; preventScroll: boolean; who: string; stack: string }> }).__focus.filter((f) => (g ? f.inGate : f.inDialog)), gateOnly);
 
 async function openReal(page: Page) {
   await page.clock.install({ time: CLOCK });
   const fake = new OrganiserFake();
   await fake.install(page);
   await page.addInitScript(() => {
-    const w = window as unknown as { __focus: Array<{ inDialog: boolean; preventScroll: boolean }> };
+    const w = window as unknown as { __focus: Array<{ inDialog: boolean; inGate: boolean; preventScroll: boolean; who: string; stack: string }> };
     w.__focus = [];
     const orig = HTMLElement.prototype.focus;
     HTMLElement.prototype.focus = function focus(this: HTMLElement, o?: FocusOptions) {
-      w.__focus.push({ inDialog: !!this.closest('[role="dialog"]'), preventScroll: o?.preventScroll === true });
+      w.__focus.push({ inDialog: !!this.closest('[role="dialog"]'), inGate: !!this.closest('[role="dialog"]')?.querySelector('[data-testid="p3-gate"]'), preventScroll: o?.preventScroll === true, who: this.getAttribute('data-testid') ?? this.tagName, stack: new Error().stack?.split('\n').slice(2, 5).join(' | ') ?? '' });
       return orig.call(this, o);
     };
   });
@@ -81,6 +81,15 @@ async function gateInView(page: Page) {
   await inView(page.locator('[role="dialog"]', { has: gate }), 'gate sheet');
   await inView(page.getByTestId('p3-gate-go'), 'Continue');
   await inView(page.getByTestId('p3-gate-not-now'), 'Not now');
+  // in view is not enough: the gate sheet once drew BEHIND the open Repeat sheet. A tap at each control's centre must reach it.
+  for (const id of ['p3-gate-go', 'p3-gate-not-now']) {
+    const hit = await page.getByTestId(id).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+      return top === el || el.contains(top);
+    });
+    expect(hit, `a tap on ${id} reaches it (nothing drawn over the gate sheet)`).toBe(true);
+  }
   await expect(page.getByTestId('p3-gate-go')).toHaveAttribute('href', `/account/p3/start?o=${ORG}&at=review`);
 }
 
@@ -114,7 +123,7 @@ test.describe('P3-GATE overlays on the real app (390x844)', () => {
     expect(await scrolls(page), 'the gate sheet did not scroll the page').toEqual(before);
     const focus = await dialogFocus(page);
     expect(focus.length).toBeGreaterThan(0);
-    for (const f of focus) expect(f.preventScroll, 'dialogs focus with { preventScroll: true }').toBe(true);
+    for (const f of focus) expect(f.preventScroll, `dialogs focus with { preventScroll: true }: ${f.who} ${f.stack}`).toBe(true);
     await page.screenshot({ path: 'test-results/p3-gate-overlays-repeat-gate.png' });
     await page.getByTestId('p3-gate-not-now').click();
     await expect(page.getByTestId('p3-gate')).toHaveCount(0);
@@ -145,9 +154,11 @@ test.describe('P3-GATE overlays on the real app (390x844)', () => {
     expect(tix).toHaveLength(1);
     await expect(page.getByText('That did not work. Try again in a moment.')).toHaveCount(0);
     expect(await scrolls(page), 'the gate sheet did not scroll the page').toEqual(before);
-    const focus = await dialogFocus(page);
+    // The ticket sheets (StackSheet, on main, outside this PR) focus their title without preventScroll; the page
+    // scroll check above is what proves they do not move the page. The gate sheet's own focus must pass it.
+    const focus = await dialogFocus(page, true);
     expect(focus.length).toBeGreaterThan(0);
-    for (const f of focus) expect(f.preventScroll, 'dialogs focus with { preventScroll: true }').toBe(true);
+    for (const f of focus) expect(f.preventScroll, `dialogs focus with { preventScroll: true }: ${f.who} ${f.stack}`).toBe(true);
     await page.screenshot({ path: 'test-results/p3-gate-overlays-tickets-gate.png' });
     await page.getByTestId('p3-gate-not-now').click();
     await expect(page.getByTestId('p3-gate')).toHaveCount(0);
