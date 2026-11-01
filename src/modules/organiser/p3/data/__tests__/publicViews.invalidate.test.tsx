@@ -22,6 +22,7 @@ vi.mock('../../../shared/selfServeApi', async (orig) => ({
 import { useSendPlan, PLAN } from '../dates';
 import { useEverySend, useDateSend } from '../sessions';
 import { useRunCommands, useSendOnce } from '../../../shared/runCommands';
+import { useOwnerCommand } from '../../../shared/useOwnerCommand';
 import { lifecycleCommand } from '../../../shared/seriesCommands';
 import { publicEventPageKey, PUBLIC_CALENDAR_KEY } from '../../../shared/publicViewKeys';
 import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
@@ -79,6 +80,10 @@ const PATHS: Path[] = [
   { name: 'runCommands.useRunCommands (undo)', run: async (wrapper) => {
     const { result } = renderHook(() => useRunCommands(SID), { wrapper });
     await act(async () => { await result.current([lifecycleCommand('live')], 7); });
+  } },
+  { name: 'shared.useOwnerCommand (date editor, change flows)', run: async (wrapper) => {
+    const { result } = renderHook(() => useOwnerCommand(SID), { wrapper });
+    await act(async () => { await result.current.mutateAsync({ targetId: SID, version: 7, command: lifecycleCommand('paused') }); });
   } },
 ];
 

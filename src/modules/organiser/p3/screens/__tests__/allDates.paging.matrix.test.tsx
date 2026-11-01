@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { addDaysToKey } from '@/lib/londonDate';
@@ -62,6 +62,7 @@ function serve(all: Array<{ date: string; status: string }>, fail: { older?: num
 
 function show() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  shown = qc;
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/account/p3/events/ser-1/dates']}>
@@ -71,6 +72,7 @@ function show() {
   );
 }
 
+let shown: QueryClient;
 const count = (k: string) => within(screen.getByTestId(`p3-filter-${k}`)).getByText(/\d/).textContent;
 const rows = () => screen.queryAllByTestId('p3-date-row').length;
 
@@ -124,6 +126,22 @@ describe('F-27: All dates holds every date, and the counts are the whole series'
     release();
     await waitFor(() => expect(count('past')).toBe('80'));
     expect(calls.length).toBeGreaterThan(0);
+  });
+
+  it('132 dates: a write that moves the newest-100 window keeps every older date on screen while it reloads', async () => {
+    const all = series(132);
+    serve(all);
+    show();
+    await waitFor(() => expect(count('past')).toBe('80'));
+    all.push({ date: addDaysToKey(all[all.length - 1].date, 7), status: 'scheduled' });
+    await act(async () => { await shown.invalidateQueries({ queryKey: ['org-event-workspace', 'ser-1'] }); });
+    // never collapses back to the newest 100 (48 past), and never shows a too-low count as whole
+    fireEvent.click(screen.getByTestId('p3-filter-past'));
+    expect(rows()).toBeGreaterThanOrEqual(79);
+    expect(count('past')).toMatch(/^(80|79\+)$/);
+    await waitFor(() => expect(count('coming')).toBe('53'));
+    await waitFor(() => expect(count('past')).toBe('80'));
+    expect(rows()).toBe(80);
   });
 
   it('132 dates: an older page that fails says so, keeps "N+", and Try again reaches every date', async () => {

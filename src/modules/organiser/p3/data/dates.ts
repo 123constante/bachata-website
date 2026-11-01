@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fullDate } from '../../shared/dateWords';
 import { weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
 import {
@@ -158,10 +158,13 @@ export function useAllDatesWorkspace(ws: EventWorkspace) {
     queryKey: olderDatesQueryKey(ws.series.id, before),
     queryFn: () => loadOlderDates((b, l) => fetchDatesPage(ws.series.id, b, l), before as IsoDate),
     enabled: ws.hasMore && before !== null,
+    // a write moves the newest-100 window (so `before`): keep the older dates on screen while the new key loads
+    placeholderData: keepPreviousData,
   });
   return {
-    ws: q.data ? withOlderDates(ws, q.data) : ws,
-    loading: ws.hasMore && q.isPending && !q.isError,
+    // the kept (placeholder) pages may miss a date that just slid out of the newest 100: counts say "N+" until the new pages land
+    ws: q.data ? withOlderDates(ws, { ...q.data, hasMore: q.data.hasMore || q.isPlaceholderData }) : ws,
+    loading: ws.hasMore && before !== null && q.isPending && !q.isError,
     failed: ws.hasMore && q.isError,
     retry: () => void q.refetch(),
   };

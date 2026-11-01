@@ -9,6 +9,7 @@ import {
 } from './selfServeApi';
 import { envelope, type OwnerCommand } from './seriesCommands';
 import { isVersionConflict } from './selfServeErrors';
+import { invalidatePublicViews } from './publicViewKeys';
 import type { DateDetail, SeriesWorkspace } from './seriesModel';
 
 export interface OwnerCommandVars {
@@ -36,6 +37,7 @@ export function useOwnerCommand(seriesId: string) {
   const reload = (occurrenceId?: string) => {
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+    invalidatePublicViews(queryClient, seriesId);
     if (occurrenceId) void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(occurrenceId) });
   };
 
