@@ -66,7 +66,7 @@ describe('invite Done screen', () => {
     { organiserP3: false, selfServe: true, id: ID, to: `/account/o/welcome?o=${ID}`, body: JOIN_COPY.done.body },
     { organiserP3: true, selfServe: true, id: ID, to: `/account/p3/you/welcome?o=${ID}`, body: JOIN_COPY.done.body },
     { organiserP3: false, selfServe: true, id: null, to: '/account/o', body: JOIN_COPY.done.body },
-    { organiserP3: true, selfServe: true, id: null, to: '/account/o', body: JOIN_COPY.done.body },
+    { organiserP3: true, selfServe: true, id: null, to: '/account/p3', body: JOIN_COPY.done.body }, // F-01: P3 live -> P3 Home
     { organiserP3: false, selfServe: false, id: ID, to: '/', body: JOIN_COPY.done.bodyOff },
     { organiserP3: true, selfServe: false, id: ID, to: '/', body: JOIN_COPY.done.bodyOff },
     { organiserP3: false, selfServe: false, id: null, to: '/', body: JOIN_COPY.done.bodyOff },
@@ -80,11 +80,14 @@ describe('invite Done screen', () => {
     expect(isRoutable(href!.split('?')[0])).toBe(true);
   });
 
-  it('the button label is pinned, and an id that needs encoding is encoded', () => {
+  it('the button label is pinned per flag (F-05: it says the area it opens), and an id that needs encoding is encoded', () => {
+    render(<MemoryRouter><DoneScreen org="Salsa Co" flags={{ organiserP3: false, organiserSelfServe: true }} organiserId="x" /></MemoryRouter>);
+    expect(screen.getByTestId('join-done-home').textContent).toBe('Open your organiser home');
+    cleanup();
     render(<MemoryRouter><DoneScreen org="Salsa Co" flags={{ organiserP3: true, organiserSelfServe: true }} organiserId="a b/c" /></MemoryRouter>);
     const link = screen.getByTestId('join-done-home');
-    expect(link.textContent).toBe(JOIN_COPY.done.button);
-    expect(JOIN_COPY.done.button).toBe('Open your organiser home');
+    expect(link.textContent).toBe(JOIN_COPY.done.buttonP3);
+    expect(JOIN_COPY.done.buttonP3).toBe('Open your organiser area');
     expect(link.getAttribute('href')).toBe('/account/p3/you/welcome?o=a%20b%2Fc');
   });
 });

@@ -91,8 +91,8 @@ export function ReasonPick({ picked, busy, onPick }: { picked: string | null; bu
         </div>
       )}
       {reasons.data && reasons.data.length === 0 && (
-        <div className="p3-stack-s" data-testid="p3-cancel-reasons-empty">
-          <p className="p3-error" role="alert">{CANCEL_COPY.noReasons}</p>
+        <div className="p3-stack-s">
+          <p className="p3-note" role="status" data-testid="p3-cancel-reasons-empty">{CANCEL_COPY.emptyReasons}</p>
           <button type="button" className="p3-btn p3-btn-line" onClick={() => void reasons.refetch()}>Try again</button>
         </div>
       )}

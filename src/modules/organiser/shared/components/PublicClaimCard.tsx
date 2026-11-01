@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { EmailCodeProof } from './EmailCodeProof';
-import { ORG_PATHS } from '../../shell/paths';
+import { flags } from '@/lib/featureFlags';
+import { organiserAreaHome, p3AreaLive } from '@/lib/organiserAreaHome';
 import { claimOrganiser, requestOrganiserAccess } from '../selfServeApi';
 import { selfServeErrorCode, selfServeErrorCopy, type SelfServeErrorCopy } from '../selfServeErrors';
 import { claimIntentStep, hasClaimIntent, signInHref, signInToClaimHref, withClaimIntent, withoutClaimIntent } from '../publicClaim';
@@ -14,6 +15,10 @@ import type { ClaimHint } from '../claimHint';
 import { ProfileGateContext } from '@/hooks/useAuth';
 import { dancerGate } from '@/lib/accountRouting';
 import { finishProfileHref } from '@/lib/profileCompletion';
+
+// Pass the two booleans, never the `flags` object itself: an escaping `flags` defeats Rollup's
+// constant tracking of every flag-gated branch site-wide (+1.8 KB on every route; bundle budget).
+const AREA = { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe };
 
 /**
  * Lever 2 W7, mockup 06-A: ownership on the PUBLIC organiser page.
@@ -209,7 +214,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
         {done === 'claimed' ? (
           <div className="flex flex-wrap items-center gap-2">
             <span><strong>&#10003; This is your page.</strong> <span style={{ color: MUTE }}>You can now add and change your events.</span></span>
-            <Link to={ORG_PATHS.home} className="ml-auto inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-go">
+            <Link to={organiserAreaHome(AREA, p3AreaLive(AREA) ? organiser.id : null)} className="ml-auto inline-flex min-h-[44px] items-center rounded-full px-4 text-xs font-bold" style={primary} data-testid="public-claim-go">
               Go to my events &rarr;
             </Link>
           </div>

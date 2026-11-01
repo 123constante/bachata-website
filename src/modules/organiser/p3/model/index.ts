@@ -9,3 +9,4 @@ export * from './cancel';
 export * from './dates';
 export * from './programme';
 export * from './saveModel';
+export * from './saveWords';

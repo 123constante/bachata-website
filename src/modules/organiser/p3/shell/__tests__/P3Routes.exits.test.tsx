@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -44,13 +44,11 @@ afterEach(() => { cleanup(); });
 const S = 'ser 1';
 describe('route matrix: each screen renders inside P3, one top bar, Back stays in P3', () => {
   it.each([
-    ['New event: what', P3_PATHS.newWhat, 'org-new-what', P3_PATHS.events],
-    ['New event: what for a page', P3_PATHS.newWhatFor('org 1'), 'org-new-what', P3_PATHS.events],
-    ['New event: name', P3_PATHS.newName('recurring'), 'org-new-name-step', P3_PATHS.newWhat],
-    ['New event: venue', P3_PATHS.newVenue(S), 'org-new-venue', P3_PATHS.events],
-    ['New event: date', P3_PATHS.newDate(S), 'org-new-step', P3_PATHS.newVenue(S)],
-    ['New event: time', P3_PATHS.newTime(S), 'org-new-step', P3_PATHS.newDate(S)],
-    ['New event: cover', P3_PATHS.newCover(S), 'org-new-step', P3_PATHS.newTime(S)],
+    // p3-create: P3's own New event (loading its page, so the frame and its way out are there)
+    ['New event: kind', P3_PATHS.create, 'p3-new-loading', P3_PATHS.events],
+    ['New event: kind for a page', P3_PATHS.createFor('org 1'), 'p3-new-loading', P3_PATHS.events],
+    ['New event: page step', P3_PATHS.createStep('page', 'weekly', 'org 1'), 'p3-new-loading', P3_PATHS.events],
+    ['New event: form step', P3_PATHS.createStep('form', 'monthly', 'org 1'), 'p3-new-loading', P3_PATHS.events],
     ['Account', P3_PATHS.youAccount, 'org-page-more', P3_PATHS.you],
     ['Help', P3_PATHS.youHelp, 'org-page-help', P3_PATHS.youAccount],
     ['an event’s Organisers', P3_PATHS.eventOrganisers(S), 'org-page-organisers', P3_PATHS.event(S)],
@@ -64,16 +62,23 @@ describe('route matrix: each screen renders inside P3, one top bar, Back stays i
     for (const a of container.querySelectorAll('a[href^="/account/"]')) expect(a.getAttribute('href')).toMatch(/^\/account\/(p3|settings)(\/|\?|$)/);
   });
 
-  it('a New event step URL with no step falls back to the first step inside P3', async () => {
-    at(`${P3_BASE}/new/name`);
-    await screen.findByTestId('org-new-what');
-    expect(screen.getByTestId('where').textContent).toBe(P3_PATHS.newWhat);
-  });
-
-  it('Save as draft and leave (cancel mid-create) goes to P3 Events', async () => {
-    at(P3_PATHS.newVenue(S));
-    fireEvent.click(await screen.findByTestId('org-new-leave'));
-    expect(screen.getByTestId('where').textContent).toBe(P3_PATHS.events);
+  // p3-create: the interim bridge (#1202) is gone; its URLs redirect, a draft's steps to that draft
+  it.each([
+    ['what', P3_PATHS.newWhat, P3_PATHS.create],
+    ['what for a page', P3_PATHS.newWhatFor('org 1'), P3_PATHS.createFor('org 1')],
+    ['name', P3_PATHS.newName('recurring'), P3_PATHS.createStep('form', 'weekly', null)],
+    ['name with no format', `${P3_BASE}/new/name`, P3_PATHS.create],
+    ['venue', P3_PATHS.newVenue(S), P3_PATHS.event(S)],
+    ['date', P3_PATHS.newDate(S), P3_PATHS.event(S)],
+    ['time', P3_PATHS.newTime(S), P3_PATHS.event(S)],
+    ['cover', P3_PATHS.newCover(S), P3_PATHS.event(S)],
+    // review r1 F6: any other step of a draft goes to its event page, never the Home catch-all
+    ['any other step', `${P3_BASE}/new/${S}/repeat`, P3_PATHS.event(S)],
+  ])('the old New event step %s redirects inside P3', async (_n, path, to) => {
+    at(path);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(to));
+    expect(screen.queryByTestId('org-new-what')).toBeNull();
+    expect(screen.queryByTestId('org-new-step')).toBeNull();
   });
 
   // You's Account row itself is pinned in you.matrix (href P3_PATHS.youAccount)
@@ -92,7 +97,7 @@ describe('the surfaces: P3 points every exit the shared screens use at P3, R1 is
   it('New event, Account, Help, events: P3 paths', () => {
     const p = P3_SURFACE.paths;
     expect([p.newWhat, p.newWhatFor('o'), p.newName('one_off'), p.newVenue('s'), p.newDate('s'), p.newTime('s'), p.newCover('s'), p.more, p.help, p.event('s'), p.events, p.eventOrganisers('s'), p.eventProgramme('s')])
-      .toEqual([P3_PATHS.newWhat, `${P3_BASE}/new/what?o=o`, `${P3_BASE}/new/name?format=one_off`, `${P3_BASE}/new/s/venue`, `${P3_BASE}/new/s/date`, `${P3_BASE}/new/s/time`, `${P3_BASE}/new/s/cover`, P3_PATHS.youAccount, P3_PATHS.youHelp, P3_PATHS.event('s'), P3_PATHS.events, P3_PATHS.eventOrganisers('s'), P3_PATHS.event('s')]);
+      .toEqual([P3_PATHS.create, `${P3_BASE}/create?o=o`, `${P3_BASE}/create?at=form&kind=one_date`, P3_PATHS.event('s'), P3_PATHS.event('s'), P3_PATHS.event('s'), P3_PATHS.event('s'), P3_PATHS.youAccount, P3_PATHS.youHelp, P3_PATHS.event('s'), P3_PATHS.events, P3_PATHS.eventOrganisers('s'), P3_PATHS.event('s')]);
     expect(P3_SURFACE.createHub).toEqual({ to: P3_PATHS.events, label: 'Events' });
     expect(R1_SURFACE.createHub).toEqual({ to: ORG_PATHS.home, label: 'Home' });
     expect(R1_SURFACE.moreTitle).toBe('More');

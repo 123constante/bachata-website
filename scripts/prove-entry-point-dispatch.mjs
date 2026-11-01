@@ -190,6 +190,7 @@ const TARGETS = [
   { rel: 'scripts/check-onboarding-write-doors.mjs' },
   { rel: 'scripts/check-organiser-hidden-ids-contract.mjs' },
   { rel: 'scripts/check-origin-consumers.mjs' },
+  { rel: 'scripts/check-p3-specs-not-skipped.mjs' },
   { rel: 'scripts/check-plan-hygiene.mjs' },
   { rel: 'scripts/check-pr-mergeable.mjs' },
   { rel: 'scripts/check-pr-phone-qa.mjs' },

@@ -1,4 +1,7 @@
-import { useLocation } from 'react-router-dom';
+import { useCallback, useState } from 'react';
+import { useSavedToast } from './savedToast';
+import { Toast } from './Toast';
+import type { Done } from './StatusSheet';
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
@@ -6,7 +9,19 @@ import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 
 const PAST = 'Past and nothing coming up';
 
-/** C3 Events: every event, soonest first. Reads only. */
+/** C3 Events: every event, soonest first. Reads only; carries the toast of a removal (F-22). */
+export function EventsScreen() {
+  const [note, setNote] = useState<Done | null>(null);
+  const clear = useCallback(() => setNote(null), []);
+  useSavedToast(setNote);
+  return (
+    <>
+      <EventsBody />
+      {note && <Toast done={note} onUndo={clear} onClose={clear} />}
+    </>
+  );
+}
+
 function EventsBody() {
   const home = useP3Home();
   if (home.isPending) {
@@ -49,16 +64,5 @@ function EventsBody() {
         Tap an event to open and change it, or <AddEventLink>add an event</AddEventLink>.
       </p>
     </div>
-  );
-}
-
-/** Events, with the words the last screen sent along once (Remove: "Removed from your events", F-22). */
-export function EventsScreen() {
-  const said = (useLocation().state as { p3Toast?: unknown } | null)?.p3Toast;
-  return (
-    <>
-      {typeof said === 'string' && said ? <p className="p3-ok" role="status" data-testid="p3-events-said">{said}</p> : null}
-      <EventsBody />
-    </>
   );
 }

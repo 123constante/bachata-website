@@ -7,12 +7,12 @@ import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { OverridePatch } from '../../shared/seriesCommands';
 import type { DateDetail } from '../../shared/seriesModel';
 import { L } from '../model';
-import { useLeave } from './EditTray';
 import { sameValue } from '../model/saveModel';
 import {
   DATE_NAME_MAX, dateGalleryOf, dateGalleryPatch, dateNameOf, dateNamePatch, dateNameProblem, datePriceRows, datePricesPatch, datePricesProblem,
 } from '../data/dateFields';
 import { PriceCard } from './PriceCard';
+import { useLeave, type Ask } from './EditTray';
 import { Sheet } from './Sheet';
 
 /** The three W3b-2 steps of the date sheet: this date's own Name, Photos, Price. */
@@ -39,15 +39,15 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
   uploading?: boolean;
   children: ReactNode;
 } & Omit<FieldProps, 'ws' | 'detail'>) {
-  const [ask, setAsk] = useState<null | 'leave' | 'close' | 'undo'>(null);
+  const [ask, setAsk] = useState<null | 'leave' | 'close' | 'undo' | 'route'>(null);
+  const routeGo = useRef<() => void>(() => undefined);
   // Dirty only when the draft differs in what a save compares (trimmed, as sent): a trailing space is no change.
   const dirty = !sameValue(base, draft) && (patch !== null || problem !== null);
-  // F-24: a tab-bar tap or phone Back (router navigation) asks first too, through the same ask below
-  const [routeGo, setRouteGo] = useState<(() => void) | null>(null);
-  const blocker = useLeave((dirty || uploading) && !busy, (a) => {
-    if (a?.kind === 'leave') { setRouteGo(() => a.go); setAsk('leave'); }
-  });
-  const stay = () => { if (blocker.state === 'blocked') blocker.reset?.(); setRouteGo(null); setAsk(null); };
+  // the tab bar and phone Back: the same router blocker the edit screens use (F-24), no second copy of the ask
+  const onLeave = useCallback((a: Ask) => {
+    if (a?.kind === 'leave') { routeGo.current = a.go; setAsk('route'); }
+  }, []);
+  const blocker = useLeave((dirty || uploading) && !busy, onLeave);
   const guard = (to: 'leave' | 'close', go: () => void) => () => ((dirty || uploading) && !busy ? setAsk(to) : go());
   const why = !dirty || patch ? null : problem;
   // Sheet re-runs its focus effect when onClose changes: keep ONE function, reading the latest guard,
@@ -63,10 +63,10 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
         <div className="p3-card p3-tight p3-stack-s" role="alertdialog" aria-label={ask === 'undo' ? L.dateUndoAsk : L.dateLeaveAsk} data-testid="p3-field-ask">
           <p className="p3-row-t p3-plain">{ask === 'undo' ? L.dateUndoAsk : L.dateLeaveAsk}</p>
           <button type="button" className="p3-btn p3-btn-danger" data-testid="p3-field-ask-go"
-            onClick={() => { const a = ask; const r = routeGo; setAsk(null); setRouteGo(null); if (a === 'undo') setDraft(base); else if (r) r(); else (a === 'close' ? onClose : onBack)(); }}>
+            onClick={() => { const a = ask; setAsk(null); if (a === 'undo') setDraft(base); else if (a === 'route') routeGo.current(); else (a === 'close' ? onClose : onBack)(); }}>
             {ask === 'undo' ? L.dateUndoGo : L.dateLeaveGo}
           </button>
-          <button type="button" className="p3-btn p3-btn-line" autoFocus onClick={stay} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
+          <button type="button" className="p3-btn p3-btn-line" autoFocus onClick={() => { if (blocker.state === 'blocked') blocker.reset?.(); setAsk(null); }} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
         </div>
       )}
       {why && <p className="p3-warn" role="alert" data-testid="p3-field-why">{why}</p>}

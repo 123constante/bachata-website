@@ -18,10 +18,10 @@ export interface Done {
   undo: OwnerCommand | null;
   /** The undo button's words when it is not "Undo" (Cancel the event: "Bring it back"). */
   undoLabel?: string;
+  /** The event was removed: the page it was on has nothing left to show (F-22). */
+  removed?: boolean;
   /** The version the move left the event at (what Undo is sent against). */
   version?: number | null;
-  /** Remove: the event is gone, so the person leaves its page for Events (F-22). */
-  leave?: boolean;
 }
 
 /** Sends commands one after another (useRunCommands); resolves to the new version. */
@@ -175,7 +175,7 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
         {err}
         <div className="p3-stack-s">
           <button type="button" className="p3-btn p3-btn-danger" disabled={busy} data-testid="p3-remove-confirm"
-            onClick={() => void run(removeCommand(), { text: 'Removed from your events.', undo: null, leave: true })}>
+            onClick={() => void run(removeCommand(), { text: 'Removed from your events.', undo: null, removed: true })}>
             Yes, remove it
           </button>
           <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>Keep it</button>

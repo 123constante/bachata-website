@@ -3,7 +3,7 @@ import { ClaimNotice } from '../../home/ClaimNotice';
 import { needsOf, nextUpView, rowsOf, type P3Row } from '../data/home';
 import { viewsTotal } from '../data/stats';
 import { useP3Home, useP3Views } from '../data/useP3Data';
-import { L } from '../model';
+import { L, nextUpAdviceOf } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { flags } from '@/lib/featureFlags';
 import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
@@ -11,15 +11,15 @@ import { GraceBanner } from './GraceBanner';
 import { P3NightGoing } from './P3Going';
 import { AddEventLink, EventList, P3Link, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
 
-/** Why there is no Next up, and what the person can do about it (the state decides the words). */
-function noNextCopy(rows: readonly P3Row[]): string {
-  const live = rows.filter((r) => r.lifecycle === 'live');
-  // only a repeating series that has run out of dates can take more; the rest have run their course
-  if (live.some((r) => r.status.key === 'warn')) return 'A live event has no date coming up. Open it in Events to add dates and the next one shows here.';
-  if (live.length) return 'Your live events have all finished. See them in Events.';
-  if (rows.some((r) => r.lifecycle === 'draft')) return 'Nothing is live yet. Put a draft live and its next date shows here.';
-  if (rows.some((r) => r.lifecycle === 'paused')) return 'Your events are hidden. Show one again and its next date shows here.';
-  return 'Your events have finished. See them in Events.';
+/** Why there is no Next up, and the one control that works for it (F-16: model/status.ts nextUpAdviceOf). */
+function NoNextUp({ rows }: { rows: readonly P3Row[] }) {
+  const advice = nextUpAdviceOf(rows);
+  return (
+    <StateCard title="Nothing coming up" testId="p3-nextup-none">
+      <p>{advice.copy}</p>
+      {advice.action === 'new' ? <AddEventLink /> : <P3Link to={P3_PATHS.events} testId="p3-nextup-events">Open your events</P3Link>}
+    </StateCard>
+  );
 }
 
 /** Welcome's claim / create line, carried in the router state (P3 W4b). */
@@ -109,10 +109,7 @@ export function HomeScreen() {
           )}
         </section>
       ) : (
-        <StateCard title="Nothing coming up" testId="p3-nextup-none">
-          <p>{noNextCopy(rows)}</p>
-          <P3Link to={P3_PATHS.events} testId="p3-nextup-events">Open your events</P3Link>
-        </StateCard>
+        <NoNextUp rows={rows} />
       )}
 
       {flags.organiserTicketing && <GetPaidPrompt />}
