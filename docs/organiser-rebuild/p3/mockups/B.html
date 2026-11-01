@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Organiser Mockup B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/*
+ * Mockup B "Photo-led". Dark tokens = ember.css .ember-world values (unchanged).
+ * Light tokens are NEW (Ember has no light mode yet): --bg #faf6f2 etc, named the same.
+ * New tokens in both modes: --photo-ink (text over photos), --scrim, --gold-soft, --shadow.
+ */
+:root {
+  --bg: #faf6f2;
+  --card: #ffffff;
+  --card2: #f3ece5;
+  --sheet: #ffffff;
+  --line: #e8ded4;
+  --line-strong: #8a7d71;
+  --fg: #22140c;
+  --mut: #6a5a4e;
+  --gold: #f0703a;
+  --gold-fg: #b2400f;
+  --gold-soft: rgba(240, 112, 58, 0.12);
+  --btn: #f0703a;
+  --btnfg: #1d0a03;
+  --danger: #b3261e;
+  --ok-bg: #e3f6ec;
+  --ok-fg: #17663f;
+  --warn-bg: #fdeee6;
+  --warn-fg: #8f3410;
+  --photo-ink: #ffffff;
+  --scrim: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.72) 100%);
+  --shadow: 0 6px 24px rgba(60, 30, 10, .10);
+  --r-card: 20px;
+  --r-ctl: 15px;
+  --r-chip: 999px;
+  --r-cover: 20px;
+  --r-sheet: 28px;
+  --font-ui: "Outfit", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #202226; --card: #2a2d32; --card2: #33373d; --sheet: #2a2d32;
+    --line: #3d4148; --line-strong: #7b828d; --fg: #f1f2f4; --mut: #a3a9b3;
+    --gold: #f0703a; --gold-fg: #f5865a; --gold-soft: rgba(240,112,58,.14);
+    --btn: #f0703a; --btnfg: #1d0a03; --danger: #ff7a6b;
+    --ok-bg: rgba(62,207,142,.14); --ok-fg: #7be6b4;
+    --warn-bg: rgba(240,112,58,.14); --warn-fg: #ff9a6a;
+    --shadow: 0 6px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #202226; --card: #2a2d32; --card2: #33373d; --sheet: #2a2d32;
+  --line: #3d4148; --line-strong: #7b828d; --fg: #f1f2f4; --mut: #a3a9b3;
+  --gold: #f0703a; --gold-fg: #f5865a; --gold-soft: rgba(240,112,58,.14);
+  --btn: #f0703a; --btnfg: #1d0a03; --danger: #ff7a6b;
+  --ok-bg: rgba(62,207,142,.14); --ok-fg: #7be6b4;
+  --warn-bg: rgba(240,112,58,.14); --warn-fg: #ff9a6a;
+  --shadow: 0 6px 24px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: #17181b;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--fg);
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* Stage: phone frame on desktop, full-bleed on a phone */
+.stage { min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 32px; padding: 24px; }
+.phone {
+  position: relative; width: 390px; height: 844px; overflow: hidden;
+  background: var(--bg); border-radius: 44px;
+  box-shadow: 0 0 0 10px #0b0b0d, 0 30px 80px rgba(0,0,0,.5);
+}
+@media (max-width: 480px) {
+  body { background: var(--bg); }
+  .stage { padding: 0; display: block; }
+  .phone { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+  .demo { display: none; }
+}
+.demo { width: 230px; color: #d9dbe0; font-size: 14px; }
+.demo h2 { font-size: 15px; margin: 0 0 8px; color: #fff; }
+.demo p { color: #a3a9b3; margin: 0 0 12px; }
+.demo button { display: block; width: 100%; text-align: left; min-height: 36px; margin: 0 0 4px; padding: 6px 12px; border-radius: 10px; border: 1px solid #3d4148; background: #2a2d32; color: #f1f2f4; cursor: pointer; }
+.demo button:hover { border-color: #f0703a; }
+
+/* Screens */
+.screen { position: absolute; inset: 0; display: none; flex-direction: column; background: var(--bg); }
+.screen.on { display: flex; animation: in .22s ease-out; }
+@keyframes in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .screen.on { animation: none; } }
+.body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0 20px 28px; }
+.body.flush { padding: 0 0 28px; }
+.top { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 8px 12px 4px; }
+.top h1 { font-size: 18px; font-weight: 600; margin: 0; flex: 1; text-align: center; }
+.top .sp { width: 44px; }
+.icon-btn {
+  width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--card2);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none;
+}
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn.glass { background: rgba(0,0,0,.45); color: #fff; backdrop-filter: blur(6px); }
+.foot { padding: 12px 20px calc(16px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
+
+/* Type */
+.hello { font-size: 28px; font-weight: 700; line-height: 1.15; margin: 8px 0 4px; letter-spacing: -.01em; }
+.lede { color: var(--mut); margin: 0 0 20px; }
+.h2 { font-size: 20px; font-weight: 700; margin: 28px 0 12px; }
+.mut { color: var(--mut); }
+.small { font-size: 14px; }
+
+/* Buttons */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  min-height: 52px; padding: 12px 20px; border-radius: var(--r-ctl); border: 0; cursor: pointer;
+  background: var(--btn); color: var(--btnfg); font-weight: 700; font-size: 17px;
+}
+.btn.quiet { background: var(--card2); color: var(--fg); font-weight: 600; }
+.btn.line { background: transparent; border: 1.5px solid var(--line-strong); color: var(--fg); font-weight: 600; }
+.btn.danger { background: var(--danger); color: #fff; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.link {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; border: 0; background: none;
+  color: var(--gold-fg); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.stack > * + * { margin-top: 10px; }
+
+/* Photo stand-ins (CSS only, no web images) */
+.ph { position: relative; overflow: hidden; background: #3a1d12; }
+.ph::before { content: ""; position: absolute; inset: 0; }
+.ph1::before { background: radial-gradient(circle at 20% 15%, #ffb36b 0, transparent 38%), radial-gradient(circle at 80% 30%, #ff5f6d 0, transparent 40%), linear-gradient(160deg, #6b1d3a, #1f0d1c); }
+.ph2::before { background: radial-gradient(circle at 70% 20%, #ffd36b 0, transparent 35%), radial-gradient(circle at 15% 60%, #f0703a 0, transparent 45%), linear-gradient(200deg, #4a1606, #140806); }
+.ph3::before { background: radial-gradient(circle at 50% 10%, #8fd3ff 0, transparent 35%), radial-gradient(circle at 85% 70%, #c56bff 0, transparent 40%), linear-gradient(180deg, #23214f, #0e0c1f); }
+.ph4::before { background: radial-gradient(circle at 25% 25%, #ff9a6a 0, transparent 40%), radial-gradient(circle at 75% 75%, #ffcf6b 0, transparent 40%), linear-gradient(140deg, #5a2a10, #1d0a03); }
+.ph5::before { background: radial-gradient(circle at 80% 15%, #7be6b4 0, transparent 35%), radial-gradient(circle at 20% 80%, #f0703a 0, transparent 45%), linear-gradient(170deg, #12383a, #0b1416); }
+.ph6::before { background: radial-gradient(circle at 30% 20%, #ff7ab8 0, transparent 38%), radial-gradient(circle at 70% 60%, #ffa600 0, transparent 40%), linear-gradient(190deg, #4c1238, #1a0714); }
+.ph .dancers { position: absolute; left: 50%; bottom: 0; width: 64%; max-width: 260px; transform: translateX(-50%); opacity: .55; color: #0b0507; }
+.ph.none::before { background: repeating-linear-gradient(135deg, var(--card2) 0 14px, var(--bg) 14px 28px); }
+.ph.none { background: var(--card2); }
+.ph .scrim { position: absolute; inset: 0; background: var(--scrim); }
+
+/* Home: cover cards */
+.covers { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 20px 8px; margin: 0 -20px; scrollbar-width: none; }
+.covers::-webkit-scrollbar { display: none; }
+.cover-card {
+  flex: 0 0 300px; height: 360px; border-radius: var(--r-cover); scroll-snap-align: center;
+  border: 0; padding: 0; cursor: pointer; text-align: left; box-shadow: var(--shadow); color: var(--photo-ink);
+}
+.cover-card .over { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px; }
+.cover-card .name { font-size: 24px; font-weight: 700; line-height: 1.15; text-shadow: 0 1px 8px rgba(0,0,0,.4); }
+.cover-card .when { font-size: 16px; margin-top: 4px; }
+.cover-card .where { font-size: 14px; opacity: .92; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 12px; border-radius: var(--r-chip);
+  font-size: 14px; font-weight: 600; background: var(--ok-bg); color: var(--ok-fg);
+}
+.cover-card .pill, .hero .pill { position: absolute; top: 14px; left: 14px; background: rgba(0,0,0,.55); color: #fff; backdrop-filter: blur(6px); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #3ecf8e; }
+.dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 0; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); opacity: .5; }
+.dots i.on { width: 18px; border-radius: 3px; background: var(--gold); opacity: 1; }
+
+/* Cards */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 18px; box-shadow: var(--shadow); }
+.card + .card { margin-top: 12px; }
+.card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+.month { background: linear-gradient(150deg, var(--gold-soft), transparent 70%), var(--card); }
+.big-num { font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+.stat-row { display: flex; gap: 12px; margin-top: 16px; }
+.stat-row > div { flex: 1; background: var(--card2); border-radius: 14px; padding: 12px; }
+.stat-row b { display: block; font-size: 22px; }
+.range { display: flex; gap: 6px; margin: 4px 0 14px; }
+.range button { flex: 1; min-height: 44px; border-radius: var(--r-chip); border: 1.5px solid var(--line-strong); background: none; cursor: pointer; font-weight: 600; }
+.range button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+/* Rows */
+.row {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 10px 0;
+  border: 0; border-bottom: 1px solid var(--line); background: none; cursor: pointer; text-align: left;
+}
+.row:last-child { border-bottom: 0; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font-weight: 600; }
+.row .t span { display: block; color: var(--mut); font-size: 14px; }
+.row .chev { color: var(--mut); flex: none; }
+.thumb { width: 52px; height: 52px; border-radius: 14px; flex: none; }
+.avatar {
+  width: 48px; height: 48px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; color: #1d0a03; background: linear-gradient(140deg, #ffcf6b, #f0703a);
+}
+.avatar.b { background: linear-gradient(140deg, #8fd3ff, #c56bff); }
+.avatar.c { background: linear-gradient(140deg, #7be6b4, #3ea0cf); }
+.datebox {
+  width: 52px; height: 56px; border-radius: 14px; flex: none; background: var(--card2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05;
+}
+.datebox small { font-size: 12px; text-transform: uppercase; color: var(--mut); font-weight: 600; }
+.datebox b { font-size: 20px; }
+.datebox.off { background: var(--warn-bg); }
+.tag { display: inline-block; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: var(--r-chip); background: var(--warn-bg); color: var(--warn-fg); }
+.tag.ok { background: var(--ok-bg); color: var(--ok-fg); }
+
+/* Prompt (missing photo etc.) */
+.prompt {
+  display: flex; gap: 14px; align-items: center; padding: 16px; border-radius: var(--r-card);
+  border: 2px dashed var(--gold); background: var(--gold-soft);
+}
+.prompt .ico { width: 48px; height: 48px; border-radius: 14px; background: var(--gold); color: #1d0a03; display: flex; align-items: center; justify-content: center; flex: none; }
+.prompt b { display: block; }
+.prompt span { color: var(--mut); font-size: 14px; }
+.quiet-spot { border: 1px dashed var(--line-strong); border-radius: var(--r-card); padding: 14px 16px; color: var(--mut); font-size: 14px; margin-top: 24px; }
+
+/* Event hero */
+.hero { height: 320px; flex: none; color: var(--photo-ink); }
+.hero .tools { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; z-index: 2; }
+.hero .over { position: absolute; left: 20px; right: 20px; bottom: 38px; z-index: 2; }
+.hero .over h1 { margin: 0; font-size: 30px; line-height: 1.1; font-weight: 800; text-shadow: 0 1px 8px rgba(0,0,0,.4); }
+.chg {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: var(--r-chip);
+  background: rgba(255,255,255,.92); color: #22140c; border: 0; font-weight: 700; cursor: pointer; margin-top: 12px;
+}
+.chg svg { width: 18px; height: 18px; }
+.sheet-in { margin-top: -22px; position: relative; z-index: 3; background: var(--bg); border-radius: 24px 24px 0 0; padding: 22px 20px 0; }
+
+/* Lists with chips / search */
+.search { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: var(--r-ctl); border: 1.5px solid var(--line-strong); background: var(--card); }
+.search input { flex: 1; border: 0; background: none; font: inherit; color: var(--fg); min-height: 48px; outline: none; }
+.search input::placeholder { color: var(--mut); }
+.add {
+  min-width: 72px; min-height: 44px; border-radius: var(--r-chip); border: 1.5px solid var(--line-strong); background: none;
+  font-weight: 600; cursor: pointer; padding: 0 14px;
+}
+.add.on { background: var(--ok-bg); color: var(--ok-fg); border-color: transparent; }
+.choice { display: flex; flex-direction: column; gap: 10px; }
+.choice button {
+  min-height: 60px; padding: 12px 16px; border-radius: var(--r-ctl); border: 1.5px solid var(--line-strong); background: var(--card);
+  text-align: left; cursor: pointer; font-weight: 600; font-size: 17px;
+}
+.choice button span { display: block; color: var(--mut); font-weight: 400; font-size: 14px; }
+.choice button[aria-pressed="true"] { border-color: var(--gold); box-shadow: inset 0 0 0 1.5px var(--gold); background: var(--gold-soft); }
+.field { display: block; }
+.field label { display: block; font-weight: 600; margin-bottom: 8px; }
+.field input {
+  width: 100%; min-height: 56px; padding: 0 16px; border-radius: var(--r-ctl); border: 1.5px solid var(--line-strong);
+  background: var(--card); color: var(--fg); font: inherit; font-size: 18px;
+}
+.inline-err { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--warn-bg); color: var(--warn-fg); font-size: 15px; }
+.stepper { display: flex; align-items: center; justify-content: center; gap: 24px; margin: 24px 0; }
+.stepper button { width: 60px; height: 60px; border-radius: 50%; border: 1.5px solid var(--line-strong); background: var(--card); font-size: 28px; cursor: pointer; }
+.stepper b { font-size: 48px; min-width: 70px; text-align: center; }
+
+/* StepFrame */
+.progress { height: 6px; border-radius: 3px; background: var(--card2); margin: 0 20px; overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--gold); border-radius: 3px; transition: width .25s; }
+.step-n { color: var(--mut); font-size: 14px; margin: 18px 0 4px; }
+.q { font-size: 26px; font-weight: 700; line-height: 1.2; margin: 0 0 6px; }
+
+/* First day takeover */
+.takeover { background: radial-gradient(circle at 50% -10%, var(--gold-soft), transparent 60%), var(--bg); }
+.mosaic { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+.mosaic .ph { aspect-ratio: 1; border-radius: 16px; }
+.mosaic .ph span { position: absolute; left: 8px; right: 8px; bottom: 8px; color: #fff; font-size: 12px; font-weight: 600; line-height: 1.15; z-index: 2; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+
+/* Preview (what dancers see) */
+.pv-bar { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 10px 64px 10px 16px; background: var(--fg); color: var(--bg); font-size: 14px; font-weight: 600; }
+.pv-bar .link { color: var(--bg); }
+.pv { background: #fff; color: #1b1b1f; }
+:root[data-theme="dark"] .pv { background: #121316; color: #f1f2f4; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pv { background: #121316; color: #f1f2f4; } }
+.pv .meta { padding: 16px 20px; }
+.pv .meta h2 { margin: 0 0 6px; font-size: 24px; }
+.pv .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.pv .chips span { font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; opacity: .85; }
+
+/* Toast with undo */
+.toast {
+  position: absolute; left: 16px; right: 16px; bottom: 96px; z-index: 20; display: none; align-items: center; gap: 12px;
+  padding: 12px 12px 12px 18px; border-radius: 16px; background: var(--fg); color: var(--bg); box-shadow: var(--shadow);
+}
+.toast.on { display: flex; }
+.toast span { flex: 1; }
+.toast button { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 0; background: var(--bg); color: var(--fg); font-weight: 700; cursor: pointer; }
+
+/* Theme toggle */
+.theme-t { position: absolute; top: 12px; right: 12px; z-index: 30; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="dancers" viewBox="0 0 200 140"><circle cx="78" cy="30" r="13"/><circle cx="122" cy="26" r="12"/><path d="M60 140 C60 90 66 60 80 48 C92 56 100 70 102 80 C104 70 110 54 120 42 C136 52 142 90 146 140 Z"/><path d="M96 70 L124 62 L128 68 L100 78 Z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="currentColor"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="stage">
+<aside class="demo" aria-label="Mockup screens">
+  <h2>Mockup B &middot; Photo-led</h2>
+  <p>Tap inside the phone. These shortcuts jump to any screen.</p>
+  <button data-jump="firstday">1. First day: we found your events</button>
+  <button data-jump="home">2. Home</button>
+  <button data-jump="event">3. Event page (weekly social)</button>
+  <button data-jump="photo">4. Photo / cover</button>
+  <button data-jump="dates">5. Dates (many dates)</button>
+  <button data-jump="dateone">6. Cancel or move one date</button>
+  <button data-jump="lineup">7. Line-up</button>
+  <button data-jump="team">8. Co-organisers</button>
+  <button data-jump="preview">9. See what dancers see</button>
+  <button data-jump="stats">10. Stats</button>
+  <button data-jump="course">11. Create a course</button>
+  <button data-jump="homeempty">12. Empty: one event, no photo</button>
+  <button data-jump="lineuperr">13. Error: search did not load</button>
+</aside>
+
+<div class="phone" id="phone">
+  <button class="icon-btn theme-t" id="themeBtn" aria-label="Switch light or dark (now: follows phone)"><svg><use href="#i-moon"/></svg></button>
+
+  <!-- 1. FIRST DAY -->
+  <section class="screen takeover" id="firstday" aria-label="We found your events">
+    <div class="body" style="padding-top:56px">
+      <p class="mut small" style="margin:0">Welcome, London Loves Bachata</p>
+      <div class="hello">We found your 6 events</div>
+      <p class="lede">They are already on Bachata Calendar. They are yours now &mdash; nothing to claim, nothing to approve.</p>
+      <div class="mosaic">
+        <div class="ph ph1"><span>Sensual Fridays</span></div>
+        <div class="ph ph2"><span>Sensual Saturdays</span></div>
+        <div class="ph ph3"><span>Sensual Wednesdays course</span></div>
+        <div class="ph ph4"><span>Bachata Flow</span></div>
+        <div class="ph ph5"><span>London Loves BOS</span></div>
+        <div class="ph ph6"><span>Mambo City x LLB</span></div>
+      </div>
+      <div class="card">
+        <h3>What you can do here</h3>
+        <p class="mut small" style="margin:0">Change a photo, cancel or move a date, pick your teachers and DJs, add a co-organiser. Changes show on the calendar straight away.</p>
+      </div>
+      <p class="small mut" style="margin-top:16px">Not your event? <button class="link" data-go="help">Tell us</button></p>
+    </div>
+    <div class="foot"><button class="btn" data-go="home" data-reset>Show me my events</button></div>
+  </section>
+
+  <!-- 2. HOME -->
+  <section class="screen" id="home" aria-label="Home">
+    <div class="body">
+      <div style="padding-top:56px"></div>
+      <p class="mut small" style="margin:0">Friday 23 October</p>
+      <div class="hello">Hi, London Loves Bachata</div>
+      <p class="lede" style="margin-bottom:14px">Sensual Fridays is on tonight at 8pm.</p>
+      <div class="covers" id="covers">
+        <button class="cover-card ph ph1" data-go="event"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+          <span class="pill"><i class="dot"></i>Live</span>
+          <div class="over"><div class="name">Sensual Fridays</div><div class="when">Tonight &middot; 8pm</div><div class="where">Colab Tower</div></div></button>
+        <button class="cover-card ph ph2" data-go="event"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+          <span class="pill"><i class="dot"></i>Live</span>
+          <div class="over"><div class="name">Sensual Saturdays</div><div class="when">Tomorrow &middot; 8pm</div><div class="where">Studio 68</div></div></button>
+        <button class="cover-card ph ph3" data-go="event"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+          <span class="pill"><i class="dot"></i>Live &middot; Course</span>
+          <div class="over"><div class="name">Sensual Wednesdays</div><div class="when">Wed 28 Oct &middot; 6:45pm &middot; week 2 of 4</div><div class="where">Waterloo Action Centre</div></div></button>
+        <button class="cover-card ph ph4" data-go="event"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+          <span class="pill"><i class="dot"></i>Live</span>
+          <div class="over"><div class="name">Bachata Flow</div><div class="when">Tue 27 Oct &middot; 7pm</div><div class="where">Be At One</div></div></button>
+        <button class="cover-card ph ph5" data-go="event"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+          <span class="pill"><i class="dot"></i>Live</span>
+          <div class="over"><div class="name">London Loves BOS</div><div class="when">Thu 29 Oct &middot; 8pm</div><div class="where">The Vault</div></div></button>
+        <button class="cover-card ph ph6" data-go="event"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+          <span class="pill"><i class="dot"></i>Live &middot; Monthly</span>
+          <div class="over"><div class="name">Mambo City x London Loves Bachata</div><div class="when">Sat 7 Nov &middot; 8pm</div><div class="where">Marlborough Primary School</div></div></button>
+      </div>
+      <div class="dots" id="dotsEl" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+
+      <div class="card month" style="margin-top:22px">
+        <p class="mut small" style="margin:0 0 6px">This month</p>
+        <div class="big-num">893</div>
+        <p style="margin:6px 0 0"><b>people looked at your events.</b> <span class="mut">41 saved one to their calendar.</span></p>
+        <button class="link" data-go="stats">See each event</button>
+      </div>
+
+      <div class="h2">Your events</div>
+      <div class="card" style="padding:4px 16px">
+        <button class="row" data-go="event"><span class="thumb ph ph1"></span><span class="t"><b>Sensual Fridays</b><span>Every Friday &middot; Colab Tower</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="event"><span class="thumb ph ph2"></span><span class="t"><b>Sensual Saturdays</b><span>Every Saturday &middot; Studio 68</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="event"><span class="thumb ph ph3"></span><span class="t"><b>Sensual Wednesdays</b><span>4-week course &middot; Waterloo Action Centre</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="event"><span class="thumb ph ph4"></span><span class="t"><b>Bachata Flow</b><span>Every Tuesday &middot; Be At One</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="event"><span class="thumb ph ph5"></span><span class="t"><b>London Loves BOS</b><span>Every Thursday &middot; The Vault</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row" data-go="event"><span class="thumb ph ph6"></span><span class="t"><b>Mambo City x London Loves Bachata</b><span>First Saturday of the month &middot; Marlborough Primary School</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+      </div>
+      <div class="quiet-spot">Want more dancers to find you? Featured spots are coming soon.</div>
+    </div>
+    <div class="foot"><button class="btn" data-go="course" data-course-reset><svg width="20" height="20"><use href="#i-plus"/></svg>Add a course</button></div>
+  </section>
+
+  <!-- 12. HOME EMPTY (one event, no photo) -->
+  <section class="screen" id="homeempty" aria-label="Home, new organiser">
+    <div class="body">
+      <div style="padding-top:56px"></div>
+      <p class="mut small" style="margin:0">Friday 23 October</p>
+      <div class="hello">Hi, Ana</div>
+      <p class="lede">You have one event. Let&rsquo;s make it look great.</p>
+      <button class="cover-card ph none" style="width:100%;flex:none;height:300px;color:var(--fg)" data-go="photo">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center">
+          <span class="ico" style="width:64px;height:64px;border-radius:20px;background:var(--gold);color:#1d0a03;display:flex;align-items:center;justify-content:center"><svg width="30" height="30"><use href="#i-cam"/></svg></span>
+          <b style="font-size:20px">Add a photo</b>
+          <span class="mut">Events with a photo get more looks.</span>
+        </div>
+        <div class="over" style="color:var(--fg)"><div class="name" style="text-shadow:none;font-size:20px">Bachata Tuesdays at The Bridge</div><div class="where mut">Tue 27 Oct &middot; 8pm</div></div>
+      </button>
+      <div class="card month" style="margin-top:20px">
+        <p class="mut small" style="margin:0 0 6px">This month</p>
+        <div class="big-num">12</div>
+        <p style="margin:6px 0 0"><b>people looked at your event.</b> <span class="mut">No saves yet &mdash; a photo usually helps.</span></p>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" data-go="photo">Add a photo</button></div>
+  </section>
+
+  <!-- 3. EVENT PAGE -->
+  <section class="screen" id="event" aria-label="Sensual Fridays">
+    <div class="body flush">
+      <div class="hero ph ph1"><svg class="dancers"><use href="#dancers"/></svg><div class="scrim"></div>
+        <div class="tools"><button class="icon-btn glass" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><span></span></div>
+        <div class="over">
+          <span class="pill" style="position:static;margin-bottom:10px"><i class="dot"></i>Live on the calendar</span>
+          <h1>Sensual Fridays</h1>
+          <button class="chg" data-go="photo"><svg><use href="#i-cam"/></svg>Change photo</button>
+        </div>
+      </div>
+      <div class="sheet-in">
+        <div class="card">
+          <p class="mut small" style="margin:0">Next date</p>
+          <h3 style="font-size:22px;margin:2px 0">Tonight &middot; 8pm to 1am</h3>
+          <p class="mut" style="margin:0 0 12px">Colab Tower &middot; every Friday</p>
+          <button class="btn quiet" data-go="dateone">Cancel or move tonight</button>
+        </div>
+        <div class="card">
+          <h3>Dates</h3>
+          <p class="mut small" style="margin:0 0 4px">Every Friday, no end date</p>
+          <button class="row" data-go="dates"><span class="datebox"><small>Oct</small><b>30</b></span><span class="t"><b>Fri 30 Oct</b><span>8pm &middot; Colab Tower</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+          <button class="row" data-go="dates"><span class="datebox"><small>Nov</small><b>6</b></span><span class="t"><b>Fri 6 Nov</b><span>8pm &middot; Colab Tower</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+          <button class="link" data-go="dates">See all dates</button>
+        </div>
+        <div class="card">
+          <h3>Line-up</h3>
+          <p class="mut small" style="margin:0 0 4px">Teachers and DJs on the page</p>
+          <button class="row" data-go="lineup"><span class="avatar">K</span><span class="t"><b>Korke &amp; Judith</b><span>Teaching the 8pm class</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+          <button class="row" data-go="lineup"><span class="avatar b">D</span><span class="t"><b>DJ Seyo</b><span>DJ all night</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+          <button class="link" data-go="lineup">Change line-up</button>
+        </div>
+        <div class="card">
+          <h3>This month</h3>
+          <div class="stat-row" style="margin-top:8px"><div><b>214</b><span class="mut small">looked</span></div><div><b>12</b><span class="mut small">saved</span></div></div>
+          <button class="link" data-go="stats">More numbers</button>
+        </div>
+        <div class="card">
+          <h3>Co-organisers</h3>
+          <p class="mut small" style="margin:0 0 4px">Everyone here can change everything.</p>
+          <button class="row" data-go="team"><span class="avatar c">LL</span><span class="t"><b>London Loves Bachata</b><span>You</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+          <button class="link" data-go="team">Invite someone</button>
+        </div>
+        <div style="margin:16px 0 4px" class="stack">
+          <button class="btn line" data-go="preview"><svg width="20" height="20"><use href="#i-eye"/></svg>See what dancers see</button>
+          <button class="btn quiet" data-go="details">Change name, time, place or price</button>
+        </div>
+        <p class="small mut" style="text-align:center;margin:18px 0 0">Need to stop this event? <button class="link" data-go="pause">Pause it</button></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Simple placeholder screens so every link lands somewhere -->
+  <section class="screen" id="details" aria-label="Details">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Details</h1><span class="sp"></span></div>
+    <div class="body">
+      <div class="card" style="padding:4px 16px">
+        <button class="row"><span class="t"><b>Name</b><span>Sensual Fridays</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row"><span class="t"><b>Time</b><span>8pm to 1am</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row"><span class="t"><b>Place</b><span>Colab Tower</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row"><span class="t"><b>Price</b><span>&pound;12 on the door</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+        <button class="row"><span class="t"><b>Ticket link</b><span>Not added &mdash; tap to add</span></span><svg class="chev" width="20" height="20"><use href="#i-chev"/></svg></button>
+      </div>
+      <p class="mut small">Each row opens one question. Not designed in detail in this mockup.</p>
+    </div>
+  </section>
+  <section class="screen" id="pause" aria-label="Pause">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Pause Sensual Fridays</h1><span class="sp"></span></div>
+    <div class="body"><p class="lede" style="margin-top:12px">Dancers will see &ldquo;Taking a break&rdquo; instead of dates. Start again any time &mdash; nothing is lost.</p></div>
+    <div class="foot"><button class="btn" data-back>Pause it</button></div>
+  </section>
+  <section class="screen" id="help" aria-label="Help">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Not your event?</h1><span class="sp"></span></div>
+    <div class="body"><p class="lede" style="margin-top:12px">Tell us which one and we&rsquo;ll sort it out. It stays as it is on the calendar until then.</p>
+      <div class="choice"><button aria-pressed="false" data-toggle>Mambo City x LLB<span>Monthly</span></button><button aria-pressed="false" data-toggle>London Loves BOS<span>Every Thursday</span></button></div></div>
+    <div class="foot"><button class="btn" data-back>Send</button></div>
+  </section>
+
+  <!-- 4. PHOTO -->
+  <section class="screen" id="photo" aria-label="Cover photo">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Cover photo</h1><span class="sp"></span></div>
+    <div class="body">
+      <div class="ph ph1" style="height:240px;border-radius:var(--r-cover)" id="photoPrev"><svg class="dancers"><use href="#dancers"/></svg></div>
+      <p class="mut small" style="margin:10px 0 18px">This is the first thing dancers see on the calendar. A bright photo of people dancing works best.</p>
+      <div class="stack">
+        <button class="btn" data-pick-photo>Choose from my phone</button>
+        <button class="btn quiet" data-go="photopick">Use a photo from a past date</button>
+      </div>
+      <div class="inline-err hidden" id="photoErr" role="alert"><span>&#9888;</span><span>That photo is too big (over 10&nbsp;MB). Try a screenshot of it, or pick another one.</span></div>
+      <p class="small mut" style="margin-top:20px">Tip: wide photos look best. We crop to fit phones.</p>
+    </div>
+  </section>
+  <section class="screen" id="photopick" aria-label="Past photos">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Past photos</h1><span class="sp"></span></div>
+    <div class="body">
+      <div class="mosaic">
+        <button class="ph ph2" style="border:0;border-radius:16px;aspect-ratio:1;cursor:pointer" data-set-photo="ph2" aria-label="Photo 1"></button>
+        <button class="ph ph4" style="border:0;border-radius:16px;aspect-ratio:1;cursor:pointer" data-set-photo="ph4" aria-label="Photo 2"></button>
+        <button class="ph ph6" style="border:0;border-radius:16px;aspect-ratio:1;cursor:pointer" data-set-photo="ph6" aria-label="Photo 3"></button>
+      </div>
+      <p class="mut small">Tap one to use it.</p>
+    </div>
+  </section>
+
+  <!-- 5. DATES (many) -->
+  <section class="screen" id="dates" aria-label="Dates">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Dates</h1><span class="sp"></span></div>
+    <div class="body">
+      <p class="mut small" style="margin:4px 0 8px">Every Friday at Colab Tower. Tap a date to cancel or move it.</p>
+      <div class="card" style="padding:4px 16px" id="dateList"></div>
+      <button class="btn quiet" style="margin-top:12px" id="moreDates">Show 8 more</button>
+      <p class="mut small" style="text-align:center">Showing dates up to <span id="dateEnd">December 2026</span>. Keeps repeating every Friday.</p>
+    </div>
+  </section>
+
+  <!-- 6. ONE DATE: cancel or move -->
+  <section class="screen" id="dateone" aria-label="One date">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Fri 23 October</h1><span class="sp"></span></div>
+    <div class="body">
+      <p class="lede" style="margin-top:8px">What&rsquo;s changing for this date? The other Fridays stay the same.</p>
+      <div class="choice" id="dateChoice">
+        <button aria-pressed="false" data-choose="cancel">It&rsquo;s cancelled<span>Dancers see &ldquo;Cancelled&rdquo; on this date</span></button>
+        <button aria-pressed="false" data-choose="move">It&rsquo;s moving<span>New day, time or place for this date only</span></button>
+      </div>
+      <div id="moveBox" class="hidden" style="margin-top:18px">
+        <div class="field"><label for="mvDay">New day</label><input id="mvDay" value="Sat 24 October"></div>
+        <div class="field" style="margin-top:12px"><label for="mvTime">Start time</label><input id="mvTime" value="8pm"></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" id="dateGo" disabled>Choose one above</button></div>
+  </section>
+
+  <!-- 7. LINE-UP -->
+  <section class="screen" id="lineup" aria-label="Line-up">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Line-up</h1><span class="sp"></span></div>
+    <div class="body">
+      <p class="mut small" style="margin:4px 0 12px">Pick real dancers so their profile links from your page.</p>
+      <label class="search"><svg width="20" height="20"><use href="#i-search"/></svg><input placeholder="Search teachers and DJs" aria-label="Search teachers and DJs" value="Ko"></label>
+      <div class="card" style="padding:4px 16px;margin-top:12px">
+        <div class="row" style="cursor:default"><span class="avatar">K</span><span class="t"><b>Korke &amp; Judith</b><span>Teacher &middot; Spain</span></span><button class="add on" data-add>Added</button></div>
+        <div class="row" style="cursor:default"><span class="avatar b">K</span><span class="t"><b>Kofi</b><span>DJ &middot; London</span></span><button class="add" data-add>Add</button></div>
+        <div class="row" style="cursor:default"><span class="avatar c">K</span><span class="t"><b>Kora</b><span>Teacher &middot; London</span></span><button class="add" data-add>Add</button></div>
+      </div>
+      <p class="small mut" style="margin-top:14px">Can&rsquo;t find them? <button class="link" data-go="addname">Add their name instead</button></p>
+    </div>
+    <div class="foot"><button class="btn" data-back data-toast="Line-up saved">Save line-up</button></div>
+  </section>
+  <section class="screen" id="lineuperr" aria-label="Line-up, search error">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Line-up</h1><span class="sp"></span></div>
+    <div class="body">
+      <label class="search" style="margin-top:4px"><svg width="20" height="20"><use href="#i-search"/></svg><input aria-label="Search teachers and DJs" value="Seyo"></label>
+      <div class="inline-err" role="alert"><span>&#9888;</span><span>We couldn&rsquo;t search just now &mdash; your line-up is safe. Check you have signal, then try again.</span></div>
+      <button class="btn quiet" style="margin-top:12px" data-go="lineup">Try again</button>
+    </div>
+  </section>
+  <section class="screen" id="addname" aria-label="Add a name">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Add a name</h1><span class="sp"></span></div>
+    <div class="body"><div class="field" style="margin-top:12px"><label for="nm">Their name</label><input id="nm" placeholder="e.g. DJ Luna"></div>
+      <p class="mut small">It shows on your page without a link. If they join later, we connect it.</p></div>
+    <div class="foot"><button class="btn" data-back>Add to line-up</button></div>
+  </section>
+
+  <!-- 8. CO-ORGANISERS -->
+  <section class="screen" id="team" aria-label="Co-organisers">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Co-organisers</h1><span class="sp"></span></div>
+    <div class="body">
+      <p class="lede" style="margin-top:8px">Everyone here is equal &mdash; they can change anything on Sensual Fridays, just like you.</p>
+      <div class="card" style="padding:4px 16px">
+        <div class="row" style="cursor:default"><span class="avatar c">LL</span><span class="t"><b>London Loves Bachata</b><span>You</span></span></div>
+        <div class="row" style="cursor:default"><span class="avatar">M</span><span class="t"><b>Marco</b><span>Joined in September</span></span></div>
+        <div class="row" style="cursor:default"><span class="avatar b">S</span><span class="t"><b>Sofia</b><span>Invite sent &middot; waiting</span></span><span class="tag">Waiting</span></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" data-go="invite">Invite a co-organiser</button></div>
+  </section>
+  <section class="screen" id="invite" aria-label="Invite">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Invite</h1><span class="sp"></span></div>
+    <div class="body">
+      <div class="field" style="margin-top:12px"><label for="inv">Their phone number or email</label><input id="inv" inputmode="email" placeholder="07&hellip; or name@&hellip;"></div>
+      <p class="mut small">We send them a link. When they open it, they can change Sensual Fridays too. You can remove them any time.</p>
+    </div>
+    <div class="foot"><button class="btn" data-back data-toast="Invite sent to Sofia">Send invite</button></div>
+  </section>
+
+  <!-- 9. PREVIEW -->
+  <section class="screen" id="preview" aria-label="What dancers see">
+    <div class="pv-bar"><span style="flex:1">This is what dancers see</span><button class="link" data-back>Close</button></div>
+    <div class="body flush pv">
+      <div class="ph ph1" style="height:220px"><svg class="dancers"><use href="#dancers"/></svg></div>
+      <div class="meta">
+        <h2>Sensual Fridays</h2>
+        <div style="font-weight:600">Tonight &middot; 8pm to 1am</div>
+        <div style="opacity:.8">Colab Tower, London</div>
+        <div class="chips"><span>Bachata</span><span>Sensual</span><span>Class + social</span><span>&pound;12</span></div>
+        <p style="opacity:.85">Class at 8pm with Korke &amp; Judith, then social till late with DJ Seyo.</p>
+        <p style="font-weight:600;margin-bottom:4px">Organised by</p>
+        <p style="margin:0;opacity:.85">London Loves Bachata &middot; Marco</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10. STATS -->
+  <section class="screen" id="stats" aria-label="Stats">
+    <div class="top"><button class="icon-btn" data-back aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>How people found you</h1><span class="sp"></span></div>
+    <div class="body">
+      <div class="range" role="group" aria-label="Time range"><button aria-pressed="false" data-range="d">Today</button><button aria-pressed="false" data-range="w">This week</button><button aria-pressed="true" data-range="m">This month</button></div>
+      <div class="card month"><div class="big-num" id="stTotal">893</div><p style="margin:6px 0 0"><b>looked</b> &middot; <span id="stSaves">41</span> <b>saved</b></p></div>
+      <div class="card" style="padding:4px 16px" id="stList"></div>
+      <p class="mut small">&ldquo;Looked&rdquo; = opened your event page. &ldquo;Saved&rdquo; = added it to their calendar.</p>
+    </div>
+  </section>
+
+  <!-- 11. COURSE (StepFrame) -->
+  <section class="screen" id="course" aria-label="Add a course">
+    <div class="top"><button class="icon-btn" id="crsBack" aria-label="Back"><svg><use href="#i-back"/></svg></button><h1>Add a course</h1><span class="sp"></span></div>
+    <div class="progress"><i id="crsBar" style="width:14%"></i></div>
+    <div class="body" id="crsBody"></div>
+    <div class="foot"><button class="btn" id="crsNext">Next</button></div>
+  </section>
+
+  <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+</div>
+</div>
+
+<script>
+(function () {
+  var hist = [];
+  var cur = null;
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.toggle('on', s.id === id); });
+    cur = id;
+    var b = document.querySelector('#' + id + ' .body');
+    if (b) b.scrollTop = 0;
+  }
+  function go(id) { if (cur) hist.push(cur); show(id); }
+  function back() { show(hist.pop() || 'home'); }
+  window.__go = go;
+
+  var toastT;
+  function toast(msg, undo) {
+    var t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toastUndo').classList.toggle('hidden', !undo);
+    t.classList.add('on');
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { t.classList.remove('on'); }, 6000);
+  }
+  document.getElementById('toastUndo').onclick = function () {
+    document.getElementById('toast').classList.remove('on');
+    toast('Done \u2014 back as it was', false);
+  };
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-go],[data-back],[data-jump],[data-toggle],[data-add],[data-set-photo],[data-pick-photo]');
+    if (!el) return;
+    if (el.hasAttribute('data-course-reset')) crsStep = 0, crsRender();
+    if (el.hasAttribute('data-toast')) toast(el.getAttribute('data-toast'), true);
+    if (el.hasAttribute('data-jump')) { hist = []; show(el.getAttribute('data-jump')); if (el.getAttribute('data-jump') === 'course') { crsStep = 0; crsRender(); } return; }
+    if (el.hasAttribute('data-reset')) { hist = []; show(el.getAttribute('data-go')); return; }
+    if (el.hasAttribute('data-go')) { go(el.getAttribute('data-go')); return; }
+    if (el.hasAttribute('data-back')) { back(); return; }
+    if (el.hasAttribute('data-toggle')) { el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true'); return; }
+    if (el.hasAttribute('data-add')) { var on = el.classList.toggle('on'); el.textContent = on ? 'Added' : 'Add'; return; }
+    if (el.hasAttribute('data-pick-photo')) { document.getElementById('photoErr').classList.remove('hidden'); return; }
+    if (el.hasAttribute('data-set-photo')) {
+      var p = document.getElementById('photoPrev');
+      p.className = 'ph ' + el.getAttribute('data-set-photo');
+      document.getElementById('photoErr').classList.add('hidden');
+      back(); toast('New photo is live', true); return;
+    }
+  });
+
+  /* Home carousel dots */
+  var covers = document.getElementById('covers');
+  covers.addEventListener('scroll', function () {
+    var i = Math.round(covers.scrollLeft / 312);
+    document.querySelectorAll('#dotsEl i').forEach(function (d, k) { d.classList.toggle('on', k === i); });
+  });
+
+  /* Dates list: many dates (no end), first one cancelled as a shape */
+  var start = new Date(2026, 9, 23), shown = 0;
+  var M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var LM = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function addDates(n) {
+    var list = document.getElementById('dateList'), last;
+    for (var k = 0; k < n; k++, shown++) {
+      var d = new Date(start); d.setDate(d.getDate() + 7 * shown); last = d;
+      var off = shown === 3;
+      var yr = d.getFullYear() !== 2026 ? ' ' + d.getFullYear() : '';
+      var b = document.createElement('button');
+      b.className = 'row'; b.setAttribute('data-go', 'dateone');
+      b.innerHTML = '<span class="datebox' + (off ? ' off' : '') + '"><small>' + M[d.getMonth()] + '</small><b>' + d.getDate() + '</b></span>' +
+        '<span class="t"><b>' + (shown === 0 ? 'Tonight' : 'Fri ' + d.getDate() + ' ' + M[d.getMonth()] + yr) + '</b><span>' +
+        (off ? 'Cancelled &middot; tap to bring it back' : '8pm &middot; Colab Tower') + '</span></span>' +
+        (off ? '<span class="tag">Cancelled</span>' : '<svg class="chev" width="20" height="20"><use href="#i-chev"/></svg>');
+      list.appendChild(b);
+    }
+    document.getElementById('dateEnd').textContent = LM[last.getMonth()] + ' ' + last.getFullYear();
+  }
+  addDates(10);
+  document.getElementById('moreDates').onclick = function () { addDates(8); };
+
+  /* One date: cancel or move */
+  var choice = null;
+  document.getElementById('dateChoice').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-choose]'); if (!b) return;
+    choice = b.getAttribute('data-choose');
+    this.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+    document.getElementById('moveBox').classList.toggle('hidden', choice !== 'move');
+    var g = document.getElementById('dateGo');
+    g.disabled = false;
+    g.textContent = choice === 'cancel' ? 'Cancel this date' : 'Move this date';
+  });
+  document.getElementById('dateGo').onclick = function () {
+    back();
+    toast(choice === 'cancel' ? 'Fri 23 Oct is cancelled' : 'Moved to Sat 24 Oct, 8pm', true);
+  };
+
+  /* Stats ranges */
+  var ST = {
+    d: [31, 2, [['Sensual Fridays', 14, 1], ['Sensual Saturdays', 8, 1], ['Sensual Wednesdays', 4, 0], ['Bachata Flow', 3, 0], ['London Loves BOS', 2, 0], ['Mambo City x London Loves Bachata', 0, 0]]],
+    w: [204, 9, [['Sensual Fridays', 61, 3], ['Sensual Saturdays', 52, 3], ['Sensual Wednesdays', 34, 2], ['Bachata Flow', 27, 1], ['London Loves BOS', 19, 0], ['Mambo City x London Loves Bachata', 11, 0]]],
+    m: [893, 41, [['Sensual Fridays', 214, 12], ['Sensual Saturdays', 198, 11], ['Sensual Wednesdays', 162, 8], ['Bachata Flow', 131, 5], ['London Loves BOS', 104, 3], ['Mambo City x London Loves Bachata', 84, 2]]]
+  };
+  function stats(r) {
+    var s = ST[r];
+    document.getElementById('stTotal').textContent = s[0];
+    document.getElementById('stSaves').textContent = s[1];
+    document.getElementById('stList').innerHTML = s[2].map(function (x, i) {
+      return '<div class="row" style="cursor:default"><span class="thumb ph ph' + (i + 1) + '"></span><span class="t"><b>' + x[0] + '</b><span>' +
+        (x[1] === 0 ? 'No looks yet today' : x[1] + ' looked &middot; ' + x[2] + ' saved') + '</span></span></div>';
+    }).join('');
+    document.querySelectorAll('[data-range]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-range') === r); });
+  }
+  document.querySelector('.range').addEventListener('click', function (e) { var b = e.target.closest('[data-range]'); if (b) stats(b.getAttribute('data-range')); });
+  stats('m');
+
+  /* Course: StepFrame, one question per screen */
+  var crs = { name: '', day: null, weeks: 4, start: null, time: '7pm', place: null };
+  var crsStep = 0;
+  var steps = [
+    function () { return '<p class="step-n">Question 1 of 7</p><h2 class="q">What&rsquo;s the course called?</h2><p class="mut">Dancers see this on the calendar.</p>' +
+      '<div class="field" style="margin-top:18px"><label for="cN">Course name</label><input id="cN" placeholder="e.g. Bachata Beginners, Level 1" value="' + crs.name + '"></div>' +
+      '<div class="inline-err hidden" id="cNerr" role="alert"><span>&#9888;</span><span>Give it a name so dancers know what it is.</span></div>'; },
+    function () { return '<p class="step-n">Question 2 of 7</p><h2 class="q">Which day of the week?</h2><p class="mut">Same day every week.</p><div class="choice" style="margin-top:18px">' +
+      ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(function (d) { return '<button aria-pressed="' + (crs.day === d) + '" data-cday="' + d + '">' + d + '</button>'; }).join('') + '</div>'; },
+    function () { return '<p class="step-n">Question 3 of 7</p><h2 class="q">When is the first class?</h2><div class="choice" style="margin-top:18px">' +
+      firstDates().map(function (d) { var l = label(d); return '<button aria-pressed="' + (crs.start === l) + '" data-cstart="' + l + '">' + l + '</button>'; }).join('') + '</div>'; },
+    function () { return '<p class="step-n">Question 4 of 7</p><h2 class="q">How many weeks?</h2><p class="mut">Most courses are 4 to 6 weeks.</p>' +
+      '<div class="stepper"><button data-cw="-1" aria-label="One week fewer">&minus;</button><b id="cW">' + crs.weeks + '</b><button data-cw="1" aria-label="One week more">+</button></div>' +
+      '<p class="mut" style="text-align:center" id="cWlast">Last class: ' + lastClass() + '</p>'; },
+    function () { return '<p class="step-n">Question 5 of 7</p><h2 class="q">What time does it start?</h2><div class="choice" style="margin-top:18px">' +
+      ['6:30pm','7pm','7:30pm','8pm'].map(function (d) { return '<button aria-pressed="' + (crs.time === d) + '" data-ctime="' + d + '">' + d + '</button>'; }).join('') + '</div>'; },
+    function () { return '<p class="step-n">Question 6 of 7</p><h2 class="q">Where is it?</h2><p class="mut">Places you&rsquo;ve used before:</p><div class="choice" style="margin-top:12px">' +
+      [['Waterloo Action Centre','14 Baylis Road'],['Studio 68','Used by Sensual Saturdays'],['Colab Tower','Used by Sensual Fridays']].map(function (d) { return '<button aria-pressed="' + (crs.place === d[0]) + '" data-cplace="' + d[0] + '">' + d[0] + '<span>' + d[1] + '</span></button>'; }).join('') +
+      '</div><p class="small mut">Somewhere new? <button class="link">Search for a place</button></p>'; },
+    function () { return '<p class="step-n">Last step</p><h2 class="q">Add a photo</h2><p class="mut">Courses with a photo get more looks. You can skip this and add one later.</p>' +
+      '<button class="cover-card ph none" style="width:100%;height:200px;margin-top:16px;color:var(--fg)" data-pick-photo-c><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px"><svg width="26" height="26"><use href="#i-cam"/></svg><b>Choose a photo</b></div></button>'; },
+    function () { return '<div style="text-align:center;padding-top:30px"><div class="ph ph3" style="height:180px;border-radius:var(--r-cover)"><svg class="dancers"><use href="#dancers"/></svg></div>' +
+      '<h2 class="q" style="margin-top:20px">' + (crs.name || 'Your course') + ' is live</h2><p class="mut">' + crs.weeks + ' ' + (crs.day || 'Wednesday') + 's from ' + (crs.start || label(firstDates()[0])) + ', ' + crs.time + ' at ' + (crs.place || 'Waterloo Action Centre') + '. Dancers can find it now.</p></div>'; }
+  ];
+  var DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  function firstDates() {
+    var want = DAYS.indexOf(crs.day || 'Wednesday'), d = new Date(2026, 9, 26), out = [];
+    while (d.getDay() !== want) d.setDate(d.getDate() + 1);
+    for (var i = 0; i < 3; i++) { out.push(new Date(d)); d.setDate(d.getDate() + 7); }
+    return out;
+  }
+  function label(d) { return DAYS[d.getDay()].slice(0, 3) + ' ' + d.getDate() + ' ' + LM[d.getMonth()] + (d.getFullYear() !== 2026 ? ' ' + d.getFullYear() : ''); }
+  function lastClass() {
+    var f = firstDates(), i = Math.max(0, f.map(label).indexOf(crs.start));
+    var d = new Date(f[i]); d.setDate(d.getDate() + 7 * (crs.weeks - 1));
+    return label(d);
+  }
+  function crsRender() {
+    document.getElementById('crsBody').innerHTML = steps[crsStep]();
+    document.getElementById('crsBar').style.width = Math.round((crsStep + 1) / steps.length * 100) + '%';
+    var n = document.getElementById('crsNext');
+    var need = [crsStep === 1 && !crs.day, crsStep === 2 && !crs.start, crsStep === 5 && !crs.place].some(Boolean);
+    n.disabled = need;
+    n.textContent = crsStep === 6 ? 'Skip for now and go live' : crsStep === 7 ? 'Back to my events' : need ? 'Pick one to carry on' : 'Next';
+    var inp = document.getElementById('cN');
+    if (inp) inp.oninput = function () { crs.name = inp.value; };
+  }
+  window.crsRender = crsRender;
+  document.getElementById('crsBody').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cday],[data-cstart],[data-ctime],[data-cplace],[data-cw],[data-pick-photo-c]'); if (!b) return;
+    if (b.dataset.cday) { if (crs.day !== b.dataset.cday) crs.start = null; crs.day = b.dataset.cday; }
+    if (b.dataset.cstart) crs.start = b.dataset.cstart;
+    if (b.dataset.ctime) crs.time = b.dataset.ctime;
+    if (b.dataset.cplace) crs.place = b.dataset.cplace;
+    if (b.dataset.cw) crs.weeks = Math.max(2, Math.min(16, crs.weeks + Number(b.dataset.cw)));
+    if (b.hasAttribute('data-pick-photo-c')) { crsStep = 7; }
+    crsRender();
+  });
+  document.getElementById('crsNext').onclick = function () {
+    if (crsStep === 0 && !crs.name.trim()) { document.getElementById('cNerr').classList.remove('hidden'); return; }
+    if (crsStep === 7) { hist = []; show('home'); toast('Your course is live on the calendar', false); return; }
+    crsStep++; crsRender();
+  };
+  document.getElementById('crsBack').onclick = function () { if (crsStep === 0 || crsStep === 7) back(); else { crsStep--; crsRender(); } };
+  crsRender();
+
+  /* Theme: follows the phone; the toggle forces light or dark */
+  var modes = ['auto', 'light', 'dark'], mi = 0, tb = document.getElementById('themeBtn');
+  tb.onclick = function () {
+    mi = (mi + 1) % 3;
+    if (modes[mi] === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', modes[mi]);
+    tb.setAttribute('aria-label', 'Switch light or dark (now: ' + (modes[mi] === 'auto' ? 'follows phone' : modes[mi]) + ')');
+  };
+
+  show(location.hash.slice(1) && document.getElementById(location.hash.slice(1)) ? location.hash.slice(1) : 'firstday');
+})();
+</script>
+</body>
+</html>
