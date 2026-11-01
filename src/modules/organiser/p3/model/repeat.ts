@@ -445,6 +445,8 @@ export const REPEAT_COPY = {
   next: 'The next dates',
   undo: 'Undo my changes',
   retry: 'Check again',
+  // F-12: the gate would refuse the change; the person's details come first (Save opens what is left)
+  gateHeld: 'Finish your details first. Tap Save to see what is left.',
   noRule: 'It doesn\u2019t repeat yet. Pick the days to make it repeat.',
 } as const;
 

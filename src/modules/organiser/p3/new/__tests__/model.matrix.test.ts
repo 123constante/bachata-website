@@ -97,15 +97,20 @@ describe('every kind x draft / go live: the commands in the fixed order', () => 
     const d = ready(kind);
     const draftKeys = kinds(d, { hasCover: true, coverUrl: 'https://img/x.jpg', cityId: 'c1' });
     const repeat = kind === 'weekly' || kind === 'monthly' ? ['repeat'] : [];
-    expect(draftKeys).toEqual(['cover', 'create', ...repeat, 'sessions']);
-    expect(kinds(d, { hasCover: true, coverUrl: 'https://img/x.jpg', goLive: true })).toEqual(['cover', 'create', ...repeat, 'sessions', 'live']);
+    // F-15: the create first, the photo after it (a refused create leaves no file)
+    expect(draftKeys).toEqual(['create', 'cover', ...repeat, 'sessions']);
+    expect(kinds(d, { hasCover: true, coverUrl: 'https://img/x.jpg', goLive: true })).toEqual(['create', 'cover', ...repeat, 'sessions', 'live']);
     const steps = plan(d, { hasCover: true, coverUrl: 'https://img/x.jpg', cityId: 'c1', goLive: true });
-    expect(steps.map((s) => s.command?.kind ?? null)).toEqual([null, 'series.upsert', ...repeat.map(() => 'series.set_recurrence'), 'series.set_program', 'series.set_lifecycle']);
-    const create = steps[1].command!.payload;
+    expect(steps.map((s) => s.command?.kind ?? null)).toEqual(['series.upsert', 'series.upsert', ...repeat.map(() => 'series.set_recurrence'), 'series.set_program', 'series.set_lifecycle']);
+    const create = steps[0].command!.payload;
     expect(create).toMatchObject({
       name: 'Friday Bachata', format: buildableKind(kind)!.format, timezone: 'Europe/London', default_start_date: '2026-11-06',
-      default_venue_id: 'v1', default_city_id: 'c1', default_cover_image_url: 'https://img/x.jpg', payment_methods: 'door', [PAGE_KEY]: [ORG],
+      default_venue_id: 'v1', default_city_id: 'c1', payment_methods: 'door', [PAGE_KEY]: [ORG],
     });
+    expect(create).not.toHaveProperty('default_cover_image_url');
+    expect(steps[1].command).toEqual({ kind: 'series.upsert', payload: { name: 'Friday Bachata', default_cover_image_url: 'https://img/x.jpg' } });
+    // before the upload ran the cover step has no command yet (the save hook uploads, then builds it)
+    expect(plan(d, { hasCover: true, coverUrl: null, cityId: 'c1' })[1]).toEqual({ key: 'cover', command: null });
     // times live on sessions: the create never carries a series time, and every key is an owner create key
     expect(create).not.toHaveProperty('default_local_start_time');
     expect(create).not.toHaveProperty('default_duration_minutes');
@@ -122,9 +127,9 @@ describe('every kind x draft / go live: the commands in the fixed order', () => 
     d = addChosenDate(addChosenDate(addChosenDate(d, '2026-11-07'), '2026-12-31'), '2026-11-21');
     expect(chosenDates(d)).toEqual(['2026-11-07', '2026-11-21', '2026-12-31']);
     const steps = plan(d, { goLive: true, hasCover: true, coverUrl: 'https://img/x.jpg' });
-    expect(steps.map((s) => s.key)).toEqual(['cover', 'create', 'date:2026-11-21', 'date:2026-12-31', 'sessions', 'live']);
-    expect(steps[1].command!.payload.default_start_date).toBe('2026-11-07');
-    expect(steps[1].command!.payload.format).toBe('recurring');
+    expect(steps.map((s) => s.key)).toEqual(['create', 'cover', 'date:2026-11-21', 'date:2026-12-31', 'sessions', 'live']);
+    expect(steps[0].command!.payload.default_start_date).toBe('2026-11-07');
+    expect(steps[0].command!.payload.format).toBe('recurring');
     expect(steps[2].command).toEqual({ kind: 'series.add_date', payload: { date: '2026-11-21' } });
     expect(chosenDates(removeChosenDate(d, '2026-11-07'))).toEqual(['2026-11-21', '2026-12-31']);
   });
@@ -247,10 +252,10 @@ describe('price basics', () => {
     expect(togglePay(['door'], 'door')).toEqual([]);
     const row = { id: '0b8f6c2e-3c9a-4a7b-9a1e-5d2f8c7b6a10', name: ' Entry ', price: '12', currency: 'GBP' as const };
     const d = { ...ready('one_date'), pay: ['ticket_link', 'door'] as CreateDraft['pay'], prices: [row], ticketUrl: ' https://tix.example/a ' };
-    expect(createPayload(d, { coverUrl: null, cityId: null })).toMatchObject({
+    expect(createPayload(d, { cityId: null })).toMatchObject({
       payment_methods: 'ticket_link,door', default_ticket_url: 'https://tix.example/a', default_passes: [{ id: row.id, name: 'Entry', price: 12, currency: 'GBP' }],
     });
-    expect(createPayload({ ...d, pay: ['free'] }, { coverUrl: null, cityId: null })).not.toHaveProperty('default_passes');
+    expect(createPayload({ ...d, pay: ['free'] }, { cityId: null })).not.toHaveProperty('default_passes');
   });
 });
 

@@ -13,12 +13,15 @@ export function Sheet({ title, onClose, locked = false, children }: { title: str
   useEffect(() => { close.current = locked ? () => {} : onClose; }, [onClose, locked]);
   useEffect(() => {
     const me = {};
+    // what had focus when the sheet opened (the Save that was tapped) gets it back on close (review r1 F4)
+    const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     open.push(me);
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && open[open.length - 1] === me) close.current(); };
     document.addEventListener('keydown', esc);
     return () => {
       document.removeEventListener('keydown', esc);
       open.splice(open.indexOf(me), 1);
+      if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true });
     };
   }, []);
   useEffect(() => {

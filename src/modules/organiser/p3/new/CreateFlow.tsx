@@ -4,7 +4,6 @@ import { useLondonToday } from '@/hooks/useLondonToday';
 import { useOrganiserChoice } from '../../switch/useOrganiserChoice';
 import { createBlock } from '../../shared/createModel';
 import { checkFlyerFile, FLYER_PROBLEM_COPY } from '../../shared/flyerModel';
-import { ONBOARDING_REFUSAL } from '../../shared/selfServeErrors';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { needsPagePick, PAGE_SET_PARAM } from './pageModel';
 import { P3PushedShell } from '../you/surface';
@@ -193,7 +192,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
       <Frame title={title} back={EVENTS} testId="p3-new-form">
         <StateCard title={RESULT_COPY.partTitle} testId="p3-new-partial-error">
           {st.s === 'partial' && <p data-testid="p3-new-partial-left">{notSavedLine(st.left, today)}</p>}
-          {st.s === 'partial' && <p>{st.message}</p>}
+          {st.s === 'partial' && st.message && <p>{st.message}</p>}
           {st.s === 'discardFailed' && <p className="p3-error">{RESULT_COPY.discardFailed}</p>}
           <p>{RESULT_COPY.partBody}</p>
           <div className="p3-stack-s">
@@ -225,17 +224,13 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const whenTitle = kind.when === 'repeat' ? 'Starts' : 'Date';
   return (
     <Frame title={title} back={back} end={end} testId="p3-new-form">
-      {failed && (failed.onboarding ? (
-        <StateCard title={RESULT_COPY.onboardingTitle} testId="p3-new-onboarding-error">
-          <p>{ONBOARDING_REFUSAL} The event was not saved; what you typed is still here.</p>
-          <P3Link to={p3StartReview(organiser.id)} testId="p3-new-onboarding-go">Finish your details</P3Link>
-        </StateCard>
-      ) : (
+      {/* F-15: an onboarding refusal opens the shared gate sheet (useCreateSave), so only other failures show here */}
+      {failed && (
         <StateCard title={RESULT_COPY.nothingSaved} testId="p3-new-failed-error">
           <p>{failed.message} What you typed is still here.</p>
           <RetryButton onClick={() => void save.retry()} />
         </StateCard>
-      ))}
+      )}
 
       <div className="p3-card p3-stack-s">
         <label className="p3-field" htmlFor="p3-new-name">Name</label>
