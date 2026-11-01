@@ -22,8 +22,6 @@ export interface DetailsDraft {
   venueId: string | null;
   ticket: string;
   cover: string;
-  /** Photos for every date (default_gallery). */
-  gallery: string[];
   instagram: string;
   /** One video link per line. */
   videos: string;
@@ -50,7 +48,6 @@ export function detailsDraftOf(ws: EventWorkspace): DetailsDraft {
     venueId: s.default_venue_id ?? null,
     ticket: s.default_ticket_url ?? '',
     cover: s.default_cover_image_url ?? '',
-    gallery: [...ws.gallery],
     instagram: s.instagram_url ?? '',
     videos: ws.videoUrls.join('\n'),
     chat: groupChatOf(ws),
