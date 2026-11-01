@@ -64,7 +64,7 @@ const where = async () => (await screen.findByTestId('where')).textContent;
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-11-01T12:00:00Z')); // inside the legacy window (to 7 Nov)
+  vi.setSystemTime(new Date('2026-11-01T12:00:00Z')); // inside the legacy window (to 7 Dec)
   window.sessionStorage.clear();
 });
 afterEach(() => {
@@ -78,6 +78,9 @@ describe('OrganiserRoutes mounted: /account/o/* while P3 is live', () => {
     ['/account/o/events/ev-1?o=org-2', '/account/p3/events/ev-1?o=org-2'],
     ['/account/o', '/account/p3'],
     ['/account/o/team', '/account/p3/you/team'],
+    // F-03 / A-gate-J3 (brief p3-wt-land): the old event bookmark shape keeps its event
+    ['/account/o/series/ev-1', '/account/p3/events/ev-1'],
+    ['/account/o/series/ev-1?o=org-2', '/account/p3/events/ev-1?o=org-2'],
   ])('%s -> %s, AuthGuard never renders', async (from, to) => {
     await mount(from, ON);
     expect(await where()).toBe(to);
@@ -94,6 +97,33 @@ describe('OrganiserRoutes mounted: /account/o/* while P3 is live', () => {
     await mount('/account/o/complete', ON);
     expect(screen.getByTestId('auth-guard')).toBeTruthy();
     expect(screen.queryByTestId('where')).toBeNull();
+  });
+});
+
+describe('old area kept: /account/o/series/:id opens that event in R1 (F-03), never R1 Home', () => {
+  // A probe on R1's event URL shows where R1's own `series/:seriesId` route sent the person.
+  const mountProbe = async (at: string, f: typeof ON) => {
+    state.flags = f;
+    state.gate = 'complete';
+    vi.resetModules();
+    const { default: OrganiserRoutes } = await import('../OrganiserRoutes');
+    return render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[at]}>
+          <Routes>
+            <Route path="/account/o/events/:seriesId" element={<Where />} />
+            <Route path="/account/o/*" element={<OrganiserRoutes />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  };
+  it.each([
+    ['/account/o/series/ev-1?legacy=1', ON, '/account/o/events/ev-1?legacy=1'],
+    ['/account/o/series/ev-1?o=org-2', OFF, '/account/o/events/ev-1?o=org-2'],
+  ] as const)('%s -> %s', async (from, f, to) => {
+    await mountProbe(from, f);
+    expect(await where()).toBe(to);
   });
 });
 
@@ -117,8 +147,8 @@ describe('?legacy=1 keeps the old area and persists per tab', () => {
     expect(await where()).toBe('/account/p3/events/ev-1');
   });
 
-  it('after the window closes (8 Nov, London) ?legacy=1 is ignored', async () => {
-    vi.setSystemTime(new Date('2026-11-08T12:00:00Z'));
+  it('after the window closes (8 Dec, London) ?legacy=1 is ignored', async () => {
+    vi.setSystemTime(new Date('2026-12-08T12:00:00Z'));
     await mount('/account/o/events/ev-1?legacy=1', ON);
     expect(await where()).toBe('/account/p3/events/ev-1');
   });
