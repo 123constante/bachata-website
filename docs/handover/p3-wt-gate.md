@@ -96,3 +96,9 @@ Merged `origin/main` (39a887d) first, no conflicts. One round, no new scope:
 - F6/F7: PR body wording (tsc and red-count).
 
 Left / next: review round 2 (fixes are unreviewed code); owner Approve at head for the hard-tier doors config.
+
+Fix round 1 checks (local, head before this commit 5c8561d): lint 24/24; organiser vitest 241 files / 8868 pass;
+`test:unit:offline` 20442 pass / 5 red, all in `tests/integrityCouldNotRun.test.ts` (sandbox dir layout, no PR file);
+build + `check:bundle-budget` pass; `test:e2e` 176 pass + 4 cold-server reds (3 specs rerun: 29 pass); `test:e2e:p3`
+106 pass + 3 cold-server reds (2 specs rerun: all pass); doors check exit 0; tsc whole-project 104, none in PR files.
+Not verified: `--live` doors check, flag-ON walk on a branch DB, real phone, review round 2.
