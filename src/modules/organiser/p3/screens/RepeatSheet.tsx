@@ -12,6 +12,8 @@ import type { PreviewRepeat } from '../data/repeat';
 import { repeatShapeOf } from '../data/dateFacts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
 import { useGatedCopy } from '../onboarding/gate';
+import { heldRefusal, useGateAnswer } from '../onboarding/gateRule';
+import { isOnboardingRefusal } from '../../shared/selfServeErrors';
 import { Sheet } from './Sheet';
 import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
@@ -24,7 +26,13 @@ export function OnBody({ children }: { children: ReactNode }) {
 
 type PreviewState =
   | { key: string; state: 'ok'; data: RepeatPreview }
-  | { key: string; state: 'error'; text: string };
+  | { key: string; state: 'error'; text: string }
+  /** F-12: the dry run was refused by the onboarding gate. Nothing more is checked; Save opens the gate sheet. */
+  | { key: string; state: 'gate'; refusal: unknown };
+
+/** A failed dry run: a gate refusal is held for Save (never a sheet before the person taps Save), anything else is words. */
+const previewFailed = (key: string, e: unknown): PreviewState =>
+  isOnboardingRefusal(e) ? { key, state: 'gate', refusal: e } : { key, state: 'error', text: previewFailure(e) };
 
 const pressed = (on: boolean) => ({ 'aria-pressed': on });
 
@@ -144,8 +152,9 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gated = useGatedCopy();
-  // the dry-run preview re-asks the server on every change: it opens the gate at most once per sheet (Save, every time)
-  const gatedPreview = useGatedCopy({ once: true });
+  // F-12: the status read says first whether the gate would refuse this event, so a refused dry run is never sent
+  // (each refused send writes a failed-change audit row) and the gate sheet waits for Save.
+  const gate = useGateAnswer(ws.organiserIds, access.mode === 'edit');
   const [nonce, setNonce] = useState(0);
   const seq = useRef(0);
   const held = useRef<{ sig: string; key: string } | null>(null);
@@ -155,7 +164,8 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const start = repeatStart(s);
   const problem = repeatProblem(draft, today, start);
   const plan = repeatPlan(access, base, draft, today, start);
-  const wantPreview = access.mode === 'edit' && changed && !problem;
+  const askable = access.mode === 'edit' && changed && !problem;
+  const wantPreview = askable && (gate.answer.s === 'pass' || gate.answer.s === 'unknown');
 
   // What the preview answers is keyed by the draft's meaning and the retry count: an answer for an
   // older draft is never shown, so "checking" is derived, never set from here.
@@ -167,7 +177,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
       preview(previewCommand(draft)).then(
         (raw) => { if (seq.current === mine) setPv({ key, state: 'ok', data: parsePreview(raw) }); },
         // a refused dry run opens the A1 gate; the preview then reads "not checked yet" with its Check again (P3-GATE)
-        (e) => { if (seq.current === mine) setPv({ key, state: 'error', text: gatedPreview(e, previewFailure) ?? REPEAT_COPY.previewNeeded }); },
+        (e) => { if (seq.current === mine) setPv(previewFailed(key, e)); },
       );
     }, 350);
     return () => { clearTimeout(t); seq.current += 1; };
@@ -177,7 +187,11 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
 
   const set = (p: Partial<RepeatDraft>) => { setError(null); setDraft((d) => ({ ...d, ...p })); };
   const shown = wantPreview && pv && pv.key === key ? pv : null;
-  const checking = wantPreview && !shown;
+  // the gate's answer first, then (when sent) the dry run's
+  const checking = (askable && gate.answer.s === 'checking') || (wantPreview && !shown);
+  /** The gate holds this change: Save opens the sheet and sends nothing. */
+  const gateHeld = askable && gate.answer.s === 'refuse' ? heldRefusal(gate.answer.organiserId)
+    : shown?.state === 'gate' ? shown.refusal : null;
   // Save waits for a GOOD answer: a failed dry run (refused, or the phone offline) never showed
   // what the change removes, so Check again is the way on (review F2).
   const failed = shown?.state === 'error';
@@ -190,6 +204,11 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   });
 
   const save = async () => {
+    if (gateHeld) {
+      setError(gated(gateHeld, repeatFailure));
+      gate.recheck();
+      return;
+    }
     if (!plan.length || checking || failed) return;
     setBusy(true);
     setError(null);
@@ -232,7 +251,8 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
             <Editor d={draft} set={set} today={today} off={access.mode !== 'edit' || busy} />
           </fieldset>
           <div className="p3-card p3-inset" data-testid="p3-repeat-sentence">{repeatSentence(draft, today)}</div>
-          {wantPreview && (
+          {gateHeld && <p className="p3-note" data-testid="p3-repeat-held">{REPEAT_COPY.gateHeld}</p>}
+          {wantPreview && !gateHeld && (
             <div className="p3-stack-s" aria-live="polite" data-testid="p3-repeat-preview">
               {!shown ? <p className="p3-note">{REPEAT_COPY.checking}</p>
                 : shown.state === 'error' ? (
@@ -240,7 +260,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
                     <p className="p3-error" role="alert" data-testid="p3-repeat-preview-error">{shown.text}</p>
                     <button type="button" className="p3-btn p3-btn-line" onClick={() => setNonce((n) => n + 1)}>{REPEAT_COPY.retry}</button>
                   </>
-                ) : (
+                ) : shown.state === 'gate' ? null : (
                   <>
                     {previewLines(shown.data).map((l) => (
                       <p key={l.key} className={l.tone === 'danger' ? 'p3-error' : 'p3-note'} data-testid={`p3-repeat-line-${l.key}`}>{l.text}</p>

@@ -11,7 +11,8 @@ import { profileQuestionsLeft } from '../../home/onboarding/golive/profileLeft';
 import { repeatFailure } from '../model/repeat';
 import { removeCommand } from '../data/eventPage';
 import { P3_PATHS } from '../shell/paths';
-import { DRAFT_STORE_KEY, RESULT_COPY, savePlan, type CreateDraft, type StepKey } from './model';
+import { useGatedCopy } from '../onboarding/gate';
+import { DRAFT_STORE_KEY, RESULT_COPY, coverCommand, savePlan, type CreateDraft, type StepKey } from './model';
 
 /**
  * Runs the save plan (model.savePlan), one series_command_p5 per step, each against the version
@@ -26,9 +27,9 @@ import { DRAFT_STORE_KEY, RESULT_COPY, savePlan, type CreateDraft, type StepKey 
 export type SaveState =
   | { s: 'idle' }
   | { s: 'busy'; at: StepKey }
-  /** Nothing exists on the server (the photo or the create failed). */
-  | { s: 'failed'; message: string; onboarding: boolean }
-  /** The draft exists; these steps did not land. */
+  /** Nothing exists on the server (the create failed). An onboarding refusal is not this: it opens the gate sheet (F-15). */
+  | { s: 'failed'; message: string }
+  /** The draft exists; these steps did not land. `message` is '' when the gate sheet is the answer. */
   | { s: 'partial'; message: string; left: StepKey[] }
   /** The draft is saved; going live waits on the profile questions (P3's Review). */
   | { s: 'details' }
@@ -65,6 +66,10 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
   const lastGoLive = useRef(false);
   const stale = useRef(false);
   const [state, setStateNow] = useState<SaveState>({ s: 'idle' });
+  // F-15: an onboarding refusal opens the shared gate sheet (what was typed stays), never this screen's own card
+  const gated = useGatedCopy();
+  /** The last partial state, so a refused Discard puts the screen back as it was. */
+  const lastPartial = useRef<{ message: string; left: StepKey[] } | null>(null);
   const [coverUploaded, setCoverUploadedNow] = useState(false);
   // review r1 F1: the save goes on after the person leaves the screen, but never moves them or sets
   // state on the gone screen. Storage already holds `created: true`, so the next New event stays safe.
@@ -126,7 +131,7 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
     lastGoLive.current = goLive;
     // R2-4: until a step runs, a failure is about the first step not saved yet (never "the photo" by default)
     let left: StepKey[] = probe.filter((p) => !done.current.has(p.key)).map((p) => p.key);
-    let at: StepKey = left[0] ?? 'cover';
+    let at: StepKey = left[0] ?? 'create';
     let plan: ReturnType<typeof savePlan> = probe;
     setState({ s: 'busy', at });
     try {
@@ -134,12 +139,6 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
         await reread();
         stale.current = false;
       }
-      if (hasCover && !coverUrl.current && cover) {
-        at = 'cover';
-        coverUrl.current = await uploadEventPicture(seriesId, cover);
-        setCoverUploaded(true);
-      }
-      done.current.add('cover');
       if (cityId.current === undefined) {
         try {
           cityId.current = await resolveCreateCityId({ venueCityName: draft.venue?.cityName ?? null, organiserCityId: organiser.city_id ?? null });
@@ -150,8 +149,26 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       plan = savePlan(draft, { ...base, coverUrl: coverUrl.current, cityId: cityId.current ?? null });
       left = plan.filter((p) => !done.current.has(p.key)).map((p) => p.key);
       for (const step of plan) {
-        if (done.current.has(step.key) || !step.command) continue;
+        if (done.current.has(step.key)) continue;
         at = step.key;
+        if (step.key === 'cover') {
+          // F-15: only now, with the draft on the server, does the photo go to storage
+          setState({ s: 'busy', at });
+          if (!coverUrl.current && cover) {
+            coverUrl.current = await uploadEventPicture(seriesId, cover);
+            setCoverUploaded(true);
+          }
+          if (coverUrl.current) {
+            const cmd = coverCommand(draft, coverUrl.current);
+            const res = await runSeriesCommand(envelope(seriesId, version.current, cmd, keyFor(`cover|${JSON.stringify(cmd)}`)));
+            if (typeof res?.new_version === 'number') version.current = res.new_version;
+            else await reread();
+          }
+          done.current.add('cover');
+          left = left.filter((k) => k !== 'cover');
+          continue;
+        }
+        if (!step.command) continue;
         if (step.key === 'live' && (await profileQuestionsLeft(seriesId))) {
           refresh();
           setState({ s: 'details' });
@@ -170,20 +187,24 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       refresh();
       go(P3_PATHS.event(seriesId), { replace: true, state: { p3Toast: goLive ? RESULT_COPY.live : RESULT_COPY.savedDraft } });
     } catch (e) {
-      const message = at === 'cover' ? (e instanceof Error ? e.message : commandErrorMessage(e)) : at === 'repeat' ? repeatFailure(e) : commandErrorMessage(e);
+      const refused = isOnboardingRefusal(e);
+      const words = at === 'cover' && !refused ? (e instanceof Error ? e.message : commandErrorMessage(e)) : at === 'repeat' ? repeatFailure(e) : commandErrorMessage(e);
+      const message = gated(e, () => words) ?? '';
       // F2: the create may have landed with its reply lost. If the row is there, it is a draft that needs finishing.
-      if (at === 'create' && !created() && !isOnboardingRefusal(e)) {
+      if (at === 'create' && !created() && !refused) {
         try {
           await reread();
           landed();
           left = plan.filter((p) => !done.current.has(p.key)).map((p) => p.key);
         } catch { /* no row: nothing was saved */ }
       }
-      if (!created()) setState({ s: 'failed', message, onboarding: isOnboardingRefusal(e) });
+      // a refused create: nothing exists, the form stays as typed under the gate sheet
+      if (!created()) setState(refused ? { s: 'idle' } : { s: 'failed', message });
       else {
         stale.current = true;
         refresh();
-        setState({ s: 'partial', message, left: left.length ? left : [at] });
+        lastPartial.current = { message, left: left.length ? left : [at] };
+        setState({ s: 'partial', ...lastPartial.current });
       }
     } finally {
       inFlight.current = false;
@@ -207,9 +228,11 @@ export function useCreateSave({ draft, cover, organiser, today, onCreated }: {
       forgetStoredDraft();
       refresh();
       go(P3_PATHS.events, { replace: true, state: { p3Toast: RESULT_COPY.discarded } });
-    } catch {
+    } catch (e) {
       stale.current = true;
-      setState({ s: 'discardFailed' });
+      // F-15: a refused Discard (the gate flipped on after the create) opens the gate sheet, not "check your connection"
+      if (gated(e, () => '') === null) setState(lastPartial.current ? { s: 'partial', ...lastPartial.current, message: '' } : { s: 'idle' });
+      else setState({ s: 'discardFailed' });
     } finally {
       inFlight.current = false;
     }

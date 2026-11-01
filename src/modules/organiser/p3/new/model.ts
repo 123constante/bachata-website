@@ -1,4 +1,4 @@
-import { addDateCommand, createDraftPayload, lifecycleCommand, newSeriesId, type OwnerCommand, type OwnerFormat } from '../../shared/seriesCommands';
+import { addDateCommand, createDraftPayload, lifecycleCommand, newSeriesId, upsertCommand, type OwnerCommand, type OwnerFormat } from '../../shared/seriesCommands';
 import { createSeriesCommand } from '../../shared/selfServeApi';
 import { A1_APPLIED } from '../../shared/a1Gate';
 import { fullDate, WEEKDAY_NAMES } from '../../shared/dateWords';
@@ -316,7 +316,10 @@ export function togglePay(picked: readonly PaymentMethod[], m: PaymentMethod): P
 export type StepKey = 'cover' | 'create' | 'repeat' | 'sessions' | 'live' | `date:${string}`;
 export interface PlanStep {
   key: StepKey;
-  /** null for the cover: it is an upload into the series folder, not a command. */
+  /**
+   * The cover (F-15): uploaded only AFTER the create landed (a refused create leaves no file), then saved on the
+   * draft with coverCommand. null until the upload ran: the save hook uploads, then builds the command.
+   */
   command: OwnerCommand | null;
 }
 
@@ -324,7 +327,7 @@ export interface PlanInput {
   organiserId: string;
   today: string;
   hasCover: boolean;
-  /** The uploaded cover's URL, once step 1 has run. */
+  /** The uploaded cover's URL, once the cover step's upload has run (after the create). */
   coverUrl: string | null;
   /** The series' city (createCity.resolveCreateCityId), when known. */
   cityId: string | null;
@@ -333,13 +336,12 @@ export interface PlanInput {
 }
 
 /** The create upsert's payload, WITHOUT the organiser key (createSeriesCommand adds it). Never a series time. */
-export function createPayload(d: CreateDraft, input: Pick<PlanInput, 'coverUrl' | 'cityId'>): Record<string, unknown> {
+export function createPayload(d: CreateDraft, input: Pick<PlanInput, 'cityId'>): Record<string, unknown> {
   const k = kindInfo(d.kind)!;
   const payload: Record<string, unknown> = createDraftPayload(d.name, k.format!);
   if (d.firstDate) payload.default_start_date = d.firstDate;
   if (d.venue) payload.default_venue_id = d.venue.id;
   if (input.cityId) payload.default_city_id = input.cityId;
-  if (input.coverUrl) payload.default_cover_image_url = input.coverUrl;
   if (d.pay.length) payload.payment_methods = PAYMENT_METHODS.filter((m) => d.pay.includes(m)).join(',');
   if (!d.pay.includes('free') && d.prices.length) payload.default_passes = d.prices.map(toPass);
   if (d.ticketUrl.trim()) payload.default_ticket_url = d.ticketUrl.trim();
@@ -347,8 +349,8 @@ export function createPayload(d: CreateDraft, input: Pick<PlanInput, 'coverUrl' 
 }
 
 /**
- * The fixed order (BUILD-INVENTORY "Fixed order"): the cover upload, the create (a draft), the
- * repeat rule (repeating kinds, with a first date), each extra date ("Other dates"), the sessions
+ * The fixed order (BUILD-INVENTORY "Fixed order", F-15 since): the create (a draft), then the cover (upload
+ * and save; after the create so a refused create leaves no file in storage), the repeat rule (repeating kinds, with a first date), each extra date ("Other dates"), the sessions
  * (series.set_program, after every date exists so the server re-times the draft's dates from
  * them), then going live when asked and possible. [] when untouched, blocked, or Go live is off.
  */
@@ -358,8 +360,8 @@ export function savePlan(d: CreateDraft, input: PlanInput): PlanStep[] {
   if (!k || isUntouched(d, input.hasCover) || draftBlock(d, input.today)) return [];
   if (input.goLive && liveBlock(d, input.today, input.hasCover, a1)) return [];
   const steps: PlanStep[] = [];
-  if (input.hasCover) steps.push({ key: 'cover', command: null });
   steps.push({ key: 'create', command: createSeriesCommand(createPayload(d, input), input.organiserId) });
+  if (input.hasCover) steps.push({ key: 'cover', command: input.coverUrl ? coverCommand(d, input.coverUrl) : null });
   if (k.when === 'repeat' && d.firstDate) steps.push({ key: 'repeat', command: { kind: 'series.set_recurrence', payload: rulePayload(d.repeat) } });
   if (k.when === 'dates') d.extraDates.forEach((x) => steps.push({ key: `date:${x}`, command: addDateCommand(x) }));
   if (d.sessions.length) {
@@ -369,6 +371,9 @@ export function savePlan(d: CreateDraft, input: PlanInput): PlanStep[] {
   if (input.goLive) steps.push({ key: 'live', command: lifecycleCommand('live') });
   return steps;
 }
+
+/** The cover saved on the draft that already exists: a partial upsert (the handler needs the name on every upsert). */
+export const coverCommand = (d: CreateDraft, url: string): OwnerCommand => upsertCommand({ name: d.name.trim(), default_cover_image_url: url });
 
 /** What a step is called when it did not save ("Not saved yet: ..."). */
 export function stepLabel(key: StepKey, today: string): string {
@@ -388,13 +393,12 @@ export const notSavedLine = (keys: StepKey[], today: string): string => {
 export const RESULT_COPY = {
   savedDraft: 'Saved as a draft. Nobody else can see it yet. Go live from here when it is ready.',
   live: 'It is live. Dancers can find it now.',
-  // review r1 F2: not "Nothing was saved" (a cover photo may already be in storage, FIXLIST F-15)
+  // review r1 F2: not "Nothing was saved" (F-15 since: the photo uploads only after the create, so none is left behind)
   nothingSaved: 'The event was not saved',
   partTitle: 'Your draft is saved, but not all of it',
   partBody: 'Try again to finish it here, open the draft to finish it there, or discard it. It also shows on Home under Needs you, and in Events with a Draft tag.',
   detailsTitle: 'A few details first',
   detailsBody: (name: string) => `\u201c${name.trim()}\u201d is saved as a draft. Before it goes live, answer a few quick questions so dancers know who runs it.`,
-  onboardingTitle: 'Finish your details first',
   discarded: 'Draft discarded.',
   finishThere: 'Your draft is saved. Finish it here.',
   discardFailed: 'The draft could not be discarded. Check your connection and try again, or open it and discard it from there.',
