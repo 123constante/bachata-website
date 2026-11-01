@@ -200,7 +200,7 @@ export function DeadScreen({ reason, preview, newLink }: { reason: DeadReason; p
     <div className="flex flex-col gap-2" data-testid="invite-card">
       <Heading>{screen.title}</Heading>
       {screen.body && <Lead testId="invite-body">{screen.body}</Lead>}
-      <NextLine reason={reason} />
+      {!screen.offerNewLink && <NextLine reason={reason} />}
       {screen.offerNewLink && newLink}
       <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>
     </div>

@@ -50,8 +50,13 @@ describe('signed-out email field', () => {
 });
 
 describe('dead-link cards say what to do next', () => {
-  it.each(['invalid', 'used', 'revoked', 'expired'] as const)('DeadScreen %s', (reason) => {
-    wrap(<DeadScreen reason={reason} preview={preview('Alex Boneva Teachings')} newLink={null} />);
+  it.each(['used', 'revoked', 'expired'] as const)('DeadScreen %s: the button is the next step, no duplicate line', (reason) => {
+    wrap(<DeadScreen reason={reason} preview={preview('Alex Boneva Teachings')} newLink={<button data-testid="ask-btn">Ask</button>} />);
+    expect(screen.getByTestId('ask-btn')).toBeTruthy();
+    expect(screen.queryByTestId('invite-next')).toBeNull();
+  });
+  it('DeadScreen invalid: no button, so the line carries the next step', () => {
+    wrap(<DeadScreen reason="invalid" preview={preview('Alex Boneva Teachings')} newLink={null} />);
     expect(screen.getByTestId('invite-next').textContent).toBe(ASK_FOR_NEW_LINK);
     expect(screen.getByRole('heading').textContent).not.toBe('');
   });
