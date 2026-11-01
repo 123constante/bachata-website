@@ -428,7 +428,7 @@ describe('the Join tap', () => {
     mount(undefined, client);
     await stepIs('join');
     expect(screen.getByTestId('join-org-card').textContent).toContain(ORG);
-    expect(screen.getByTestId('join-progress-count').textContent).toBe('Step 2 of 2');
+    expect(screen.getByTestId('join-progress-count').textContent).toBe('Step 3 of 3');
     expect(redeems()).toHaveLength(0);
     fireEvent.click(screen.getByTestId('invite-join'));
     await stepIs('done');

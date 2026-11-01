@@ -9,13 +9,13 @@ import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { reasonScreen, type ReasonScreen } from '../inviteModel';
-import { JOIN_COPY } from './joinCopy';
+import { JOIN_COPY, askForNewLinkLine } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';
 
 export const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-50';
 export const GHOST = 'inline-flex w-full min-h-[44px] items-center justify-center rounded-xl border border-border px-4 text-[14px] font-medium';
 export const LINKISH = 'inline-flex min-h-[44px] items-center justify-center self-start text-[14px] font-medium text-primary underline underline-offset-4';
-export const FIELD = 'min-h-[48px] w-full rounded-xl border border-border bg-background px-3 text-[16px]';
+export const FIELD = 'min-h-[48px] w-full rounded-xl border-2 border-foreground/60 bg-card px-3 text-[16px] text-foreground placeholder:text-muted-foreground';
 export const WHY = 'min-h-[1em] text-center text-[13px] text-muted-foreground';
 
 /** The one wrapper every step renders: the state machine's visible row. Focus lands on the heading when the step changes. */
@@ -111,7 +111,7 @@ export function EmailStep({ initial, busy, error, onSend }: { initial: string; b
   return (
     <form className="flex flex-col gap-2" noValidate onSubmit={(e) => { e.preventDefault(); onSend(typed); }} data-testid="join-email-form">
       <label htmlFor="join-email" className="text-[14px] font-semibold">{JOIN_COPY.email.label}<span className="block text-[13px] font-normal text-muted-foreground">{JOIN_COPY.email.hint}</span></label>
-      <input id="join-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} className={FIELD} value={typed} onChange={(e) => setTyped(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? 'join-email-error' : 'join-email-why'} data-testid="join-email-input" />
+      <input id="join-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder={JOIN_COPY.email.placeholder} className={FIELD} value={typed} onChange={(e) => setTyped(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? 'join-email-error' : 'join-email-why'} data-testid="join-email-input" />
       <ErrorLine id="join-email-error">{error}</ErrorLine>
       <button type="submit" className={BTN} disabled={!canSend} data-testid="join-send">{busy ? JOIN_COPY.email.sending : JOIN_COPY.email.button}</button>
       <p id="join-email-why" className={WHY} data-testid="join-why">{typed.trim() === '' ? JOIN_COPY.email.why : ''}</p>
@@ -187,6 +187,12 @@ export function WrongAccountScreen({ signedInAs, hint, busy, error, onSwitch }: 
   );
 }
 
+/** The plain "what to do" line under a dead link's own sentence; nothing for other reasons. */
+function NextLine({ reason }: { reason: string }) {
+  const line = askForNewLinkLine(reason);
+  return line ? <Lead testId="invite-next">{line}</Lead> : null;
+}
+
 /** A finished-with link (used / expired / revoked / invalid): why, and "Ask <inviter> for a new one" where that helps. */
 export function DeadScreen({ reason, preview, newLink }: { reason: DeadReason; preview: JoinPreview | null; newLink: ReactNode }) {
   const screen = reasonScreen(reason, { organiserName: preview?.organiserName, inviterFirstName: preview?.inviterFirstName, emailHint: preview?.emailHint });
@@ -194,6 +200,7 @@ export function DeadScreen({ reason, preview, newLink }: { reason: DeadReason; p
     <div className="flex flex-col gap-2" data-testid="invite-card">
       <Heading>{screen.title}</Heading>
       {screen.body && <Lead testId="invite-body">{screen.body}</Lead>}
+      <NextLine reason={reason} />
       {screen.offerNewLink && newLink}
       <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>
     </div>
@@ -317,6 +324,7 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
         <div className="flex flex-col gap-2" data-testid="invite-card">
           <Heading>{screen.title}</Heading>
           {screen.body && <Lead testId="invite-body">{screen.body}</Lead>}
+          <NextLine reason={stop.reason} />
           <ReasonActions reason={screen} busy={busy} onRetry={onRetry} home={home} />
         </div>
       );
