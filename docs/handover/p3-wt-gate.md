@@ -47,12 +47,33 @@ passed, + a non-gate failure, + untouched edit sends nothing), `p3/onboarding/__
 gate, discard refusal) and model.matrix (order). Ran the new tests against unfixed main: all 11 refused rows red,
 off/passed rows green.
 
+## Continuation session (brief `brief/p3-wt-gate-cont`), 2026-11-01
+
+Done:
+- CI parity run locally (table in the PR body): lint chain 24/24 green (after the fix below), build OK, `check:bundle-budget`
+  full report byte-identical main vs branch (same chunk hashes; dancer-app 371.9 KB / 47 chunks both), `tsc` clean,
+  organiser unit tests 241 files / 8859 pass, `test:e2e` 178 pass / 2 flaky (dancer-app home-nights, header sign-in @1280:
+  unrelated) / 8 skipped, `test:e2e:p3` 117 pass / 2 flaky (p3-gate-sheet dark harness mount timeout on a cold dev
+  server; 5/5 on a clean rerun), `check-onboarding-write-doors.mjs` (no --live) exit 0, 0 violations.
+- CI parity forced fix 1: `lint:architecture` was RED: the new gate files read the refusal's `organiser_id`. Added
+  gateRule.ts + 3 specs to the guard's existing P3-GATE allowlist in `scripts/lint-runtime-architecture.mjs`.
+- CI parity forced fix 2 (found by the new overlay e2e): the gate sheet drew BEHIND the open Repeat sheet (GateHost sits
+  in the P3 frame; the Repeat sheet is portalled to body), so after F-12's "Save opens the sheet" Save looked dead and
+  Continue / Not now could not be tapped. Fix: `GateSheet` renders through `OnBody` (moved to `screens/OnBody.tsx`,
+  re-exported from RepeatSheet), so it is appended after any open sheet. Red on the unfixed GateSheet (hit-test fails),
+  green fixed.
+- New `tests/e2e/p3-gate-overlays.spec.ts` (in `test:e2e:p3`): Repeat held note + Save in view, no dry run sent, Save opens
+  the gate sheet in view and tappable; Tickets refused Add keeps the ticket sheet, gate sheet in view and tappable, no
+  generic error; no page scroll on any open; gate/Repeat focus uses preventScroll.
+
 ## Left / next steps
 
-1. CI parity not run locally: `npm run lint` chain, `npm run build` + `check:bundle-budget` (main vs branch, /app first
-   load must be +0 bytes; RepeatSheet now imports `gateRule` -> `statusQuery`, both tiny and in the event-page chunk),
-   e2e smoke + p3, the 390x844 overlay e2e (sheet/confirm/toast inside the viewport, no page scroll on open).
-2. `check-onboarding-write-doors.mjs --live` not run (needs VITE creds); live gated=10 >= config 8, so it should pass.
-3. Not in scope, noted: `admin_bulk_occurrence_command_p5` is gated live but still `expected_pending` (A-gate-11).
-4. Independent review (one round) + one fix round, then the orchestrator walk, per the brief's stopping rule.
-5. Browser walk with the flag ON needs a branch DB (never prod).
+1. Noted, not fixed (out of scope, on main): `p3/tickets/StackSheet.tsx` focuses its h3 without `preventScroll`
+   (lines 100, 143). The page-scroll check passes, so it does not move the page today; the overlay spec only pins the
+   gate sheet's own focus on the Tickets path.
+2. `check-onboarding-write-doors.mjs --live` not run (needs VITE creds).
+3. `admin_bulk_occurrence_command_p5` still `expected_pending` (A-gate-11), unchanged.
+4. Full `test:unit` (all modules) not run here; organiser module only.
+5. Independent review (one round) + one fix round, then the orchestrator walk. Owner Approve at head (hard-tier
+   `scripts/onboarding-write-doors.json`).
+6. Browser walk with the flag ON needs a branch DB (never prod).
