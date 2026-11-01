@@ -17,7 +17,7 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, type JoinPreview, type JoinStop } from './joinModel';
+import { checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, EmailStep, ErrorLine, Heading, JoinStepScreen, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
 /** How long the join card waits for the person's own page list before it shows Join anyway. */
@@ -146,7 +146,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     const check = checkTypedEmail(typed);
     if (check.ok === false) {
       const reason = check.reason;
-      setEmailError(reason === 'not_ascii' ? JOIN_COPY.email.notAscii : reason === 'bad_shape' ? JOIN_COPY.email.badShape : JOIN_COPY.email.why);
+      setEmailError(reason === 'not_ascii' ? JOIN_COPY.email.notAscii : JOIN_COPY.email.badShape);
       return;
     }
     setBusy(true);
@@ -187,6 +187,22 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     }
   };
 
+  /** ONE place that acts on a redeem answer, for the Join tap and the post-sign-in safety stop alike. */
+  const applyRedeem = async (outcome: JoinRedeemOutcome, from: 'join' | 'claim') => {
+    const action = redeemAction(outcome);
+    switch (action.act) {
+      case 'done':
+        setRedeemed(true);
+        setRedeemedOrgId(action.alreadyMember ? null : action.organiserId);
+        if (from === 'join') void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+        return;
+      case 'stop': return fail(from, action.stop);
+      case 'refetch_preview': await refetchPreview(); return;
+      case 'refetch_completion': await completion.refetch(); return;
+      case 'sign_out': await signOut(); clearStep(); return;
+    }
+  };
+
   /** Code step: verify, then claim BEFORE any persona read, then the silent roles, then the server decides the step. */
   const verify = async (code: string) => {
     const email = codeStepFromSearch(search);
@@ -216,9 +232,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       // Person-bound invite whose claim did not land: the safety stop. The one redeem call makes "we've told" real
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
       if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
-        const outcome = await attemptRedeem(token);
-        if (outcome.kind === 'done') { setRedeemed(true); setRedeemedOrgId(outcome.alreadyMember ? null : outcome.organiserId); }
-        else fail('claim', { kind: 'not_linked' });
+        await applyRedeem(await attemptRedeem(token), 'claim');
       }
     } finally {
       setLinking(false);
@@ -231,23 +245,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     if (busy) return;
     setBusy(true);
     try {
-      const outcome = await attemptRedeem(token);
-      switch (outcome.kind) {
-        case 'done':
-          setRedeemed(true);
-          setRedeemedOrgId(outcome.alreadyMember ? null : outcome.organiserId);
-          void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-          return;
-        case 'not_linked': return fail('join', { kind: 'not_linked' });
-        case 'dead': await refetchPreview(); return;
-        case 'wrong_account': return fail('join', { kind: 'wrong_account', emailHint: outcome.emailHint });
-        case 'email_unproven': return fail('join', { kind: 'email_unproven' });
-        case 'rate_limited': return fail('join', { kind: 'rate_limited', from: 'join' });
-        case 'profile_incomplete': await completion.refetch(); return;
-        case 'sign_in': await signOut(); clearStep(); return;
-        case 'refused': return fail('join', { kind: 'refused', reason: outcome.reason, emailHint: outcome.emailHint });
-        default: return fail('join', { kind: 'network', from: 'join' });
-      }
+      await applyRedeem(await attemptRedeem(token), 'join');
     } finally {
       setBusy(false);
     }
