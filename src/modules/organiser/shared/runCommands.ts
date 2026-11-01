@@ -20,6 +20,19 @@ export async function fetchEventWorkspace(seriesId: string): Promise<EventWorksp
   return parseEventWorkspace(data);
 }
 
+/** One page of dates (F-27): admin_event_workspace_p5 with p_before / p_limit (max 200), newest first. */
+export interface DatesPage { dates: EventWorkspace['dates']; hasMore: boolean; nextBefore: string | null }
+
+export async function fetchDatesPage(seriesId: string, before: string, limit: number): Promise<DatesPage> {
+  // p_before / p_limit are live (pg_proc, 1 Nov 2026) but not yet in the generated types.
+  const args = { p_series_id: seriesId, p_before: before, p_limit: limit };
+  const { data, error } = await supabase.rpc('admin_event_workspace_p5', args as never);
+  if (error) throw error;
+  const meta = (data as { meta?: { next_before?: unknown } } | null)?.meta;
+  const page = parseEventWorkspace(data);
+  return { dates: page.dates, hasMore: page.hasMore, nextBefore: typeof meta?.next_before === 'string' ? meta.next_before : null };
+}
+
 export function useEventWorkspace(seriesId: string | undefined) {
   return useQuery({
     queryKey: eventWorkspaceQueryKey(seriesId),

@@ -27,7 +27,7 @@ import { publicEventPageKey, PUBLIC_CALENDAR_KEY } from '../../../shared/publicV
 import { eventPageQueryKey } from '@/modules/event-page/useEventPageQuery';
 import { seoLandingEventsKey } from '@/lib/seoLandingEvents';
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => { vi.clearAllMocks(); });
 
 const W = ws('weekly');
 const SID = W.series.id;

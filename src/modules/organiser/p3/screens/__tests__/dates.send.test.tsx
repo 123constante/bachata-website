@@ -235,11 +235,13 @@ describe('kinds on the event page', () => {
 });
 
 describe('All dates', () => {
-  it('filters with counts; the newest 100 of 131 said honestly; Add a date at the cap is greyed with the reason', async () => {
+  it('filters with counts; when the older pages add nothing, the newest 100 of 131 said honestly; Add a date at the cap is greyed with the reason', async () => {
+    // this server answers every read with the same newest 100 (F-27's paging is allDates.paging.matrix)
     shape = SHAPES.over100;
     show('/account/p3/events/ser-1/dates');
     await waitFor(() => screen.getByTestId('p3-all-dates-screen'));
-    expect(screen.getByTestId('p3-partial').textContent).toBe('This page lists the newest 100 of 131 dates.');
+    await waitFor(() => expect(screen.getByTestId('p3-partial').textContent).toBe('This page lists the newest 100 of 131 dates.'));
+    expect(within(screen.getByTestId('p3-filter-past')).getByText(/\d/).textContent).toBe('43+');
     expect(screen.getAllByTestId('p3-date-row')).toHaveLength(57);
     expect((screen.getByTestId('p3-add-date') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('p3-add-why').textContent).toContain('30 or more dates are coming up');

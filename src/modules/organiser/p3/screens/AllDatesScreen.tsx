@@ -4,7 +4,9 @@ import { londonTodayKey } from '@/lib/londonDate';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, addDateWhy } from '../model';
 import { partialOf } from '../data/eventPage';
-import { allDatesOf, emptyDatesCopy, seriesFactsOf, tagClass, type DateEntry, type DateFilter } from '../data/dates';
+import {
+  OLDER_COPY, allDatesOf, countWord, emptyDatesCopy, seriesFactsOf, tagClass, useAllDatesWorkspace, type DateEntry, type DateFilter,
+} from '../data/dates';
 import { P3_PATHS } from '../shell/paths';
 import { DateSheets, type DateOpen } from './DateSheet';
 import { WorkspaceGate } from './EventPage';
@@ -23,8 +25,10 @@ function DateRowButton({ e, onOpen }: { e: DateEntry; onOpen: (e: DateEntry) => 
   );
 }
 
-function AllDates({ ws }: { ws: EventWorkspace }) {
+function AllDates({ ws: read }: { ws: EventWorkspace }) {
   const today = londonTodayKey();
+  const older = useAllDatesWorkspace(read);
+  const ws = older.ws;
   const [filter, setFilter] = useState<DateFilter>('coming');
   const [open, setOpen] = useState<DateOpen>(null);
   const toast = useToast(ws.series.id, ws.series.version);
@@ -40,11 +44,18 @@ function AllDates({ ws }: { ws: EventWorkspace }) {
       <div className="p3-seg" role="group" aria-label={L.allDates} data-testid="p3-date-filters">
         {L.dateFilters.map(([k, label]) => (
           <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} data-testid={`p3-filter-${k}`}>
-            {label} <span className="p3-num">{view.counts[k]}</span>
+            {label} <span className="p3-num">{countWord(ws, today, k, view.counts[k])}</span>
           </button>
         ))}
       </div>
-      {partial && <p className="p3-note" data-testid="p3-partial">{partial}</p>}
+      {older.loading && <p className="p3-note" role="status" data-testid="p3-older-loading">{OLDER_COPY.loading}</p>}
+      {older.failed && (
+        <div className="p3-note" role="alert" data-testid="p3-older-failed">
+          <p>{OLDER_COPY.failed}</p>
+          <button type="button" className="p3-btn p3-btn-line" onClick={older.retry} data-testid="p3-older-retry">Try again</button>
+        </div>
+      )}
+      {partial && !older.loading && !older.failed && <p className="p3-note" data-testid="p3-partial">{partial}</p>}
       <div className="p3-card p3-tight">
         {view.rows.length ? (
           <ul className="p3-list p3-flush" data-testid="p3-date-list">
@@ -53,6 +64,8 @@ function AllDates({ ws }: { ws: EventWorkspace }) {
                 onOpen={(x) => setOpen(x.id ? { kind: 'date', id: x.id } : { kind: 'break', date: x.date })} />
             ))}
           </ul>
+        ) : older.loading ? (
+          <div className="p3-state" data-testid="p3-dates-loading"><p>{OLDER_COPY.loading}</p></div>
         ) : (
           <div className="p3-state" data-testid="p3-dates-empty"><p>{emptyDatesCopy(ws, today, filter)}</p></div>
         )}
@@ -65,7 +78,7 @@ function AllDates({ ws }: { ws: EventWorkspace }) {
   );
 }
 
-/** C3 All dates (W2b): every date the read holds, filtered; "100 of N" said honestly, never paged from a second read. */
+/** C3 All dates (W2b): every date of the series (F-27: the older pages are read too), filtered; counts never too low. */
 export function AllDatesScreen() {
   return <WorkspaceGate>{(ws) => <AllDates ws={ws} />}</WorkspaceGate>;
 }

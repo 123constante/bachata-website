@@ -9,7 +9,7 @@ import {
   addDateCommand, cancelCommand, envelope, moveDateCommand, newIdempotencyKey, overrideCommand, resetTimeCommand,
   setTimeCommand, skipDateCommand, uncancelCommand, unskipDateCommand, type OverridePatch, type OwnerCommand,
 } from '../../shared/seriesCommands';
-import { eventWorkspaceQueryKey } from '../../shared/runCommands';
+import { eventWorkspaceQueryKey, fetchDatesPage, type DatesPage } from '../../shared/runCommands';
 import { invalidatePublicViews } from '../../shared/publicViewKeys';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -82,12 +82,89 @@ export interface AllDatesView {
   counts: Record<DateFilter, number>;
 }
 
-/** The list for one filter; Past runs newest first, the rest soonest first. Never pages from a second read. */
+/** The list for one filter; Past runs newest first, the rest soonest first (over every date the workspace given holds). */
 export function allDatesOf(ws: EventWorkspace, today: IsoDate, filter: DateFilter): AllDatesView {
   const all = dateEntries(ws, today);
   const counts = Object.fromEntries((Object.keys(IN) as DateFilter[]).map((f) => [f, all.filter((e) => IN[f](e, today)).length])) as Record<DateFilter, number>;
   const rows = all.filter((e) => IN[filter](e, today));
   return { rows: filter === 'past' ? rows.reverse() : rows, counts };
+}
+
+// ---- F-27: every date, not only the newest 100 the workspace read holds ------------------
+
+/**
+ * admin_event_workspace_p5 pages by p_before (dates strictly before it) and p_limit (1..200),
+ * newest first, with meta.has_more / meta.next_before (pg_proc, prod, 1 Nov 2026). All dates
+ * reads the older pages until there are none, so every list and every count is the whole
+ * series. The page cap only bounds a runaway read (prod's largest series has 132 dates).
+ */
+export const OLDER_PAGE = 200;
+export const MAX_OLDER_PAGES = 10;
+
+export interface OlderDates { dates: WorkspaceDate[]; hasMore: boolean }
+
+export async function loadOlderDates(
+  fetchPage: (before: IsoDate, limit: number) => Promise<DatesPage>, before: IsoDate, maxPages: number = MAX_OLDER_PAGES,
+): Promise<OlderDates> {
+  const dates: WorkspaceDate[] = [];
+  let cursor: string | null = before;
+  for (let i = 0; i < maxPages && cursor; i++) {
+    const page = await fetchPage(cursor, OLDER_PAGE);
+    dates.push(...page.dates);
+    if (!page.hasMore) return { dates, hasMore: false };
+    // a page that does not move back in time would loop: stop and say the read is partial
+    if (!page.nextBefore || page.nextBefore >= cursor) return { dates, hasMore: true };
+    cursor = page.nextBefore;
+  }
+  return { dates, hasMore: true };
+}
+
+/** The oldest date the read holds (the next page starts before it); null when it holds none. */
+export const oldestDate = (ws: EventWorkspace): IsoDate | null =>
+  ws.dates.reduce<IsoDate | null>((m, d) => (m === null || d.occurrence_date < m ? d.occurrence_date : m), null);
+
+/** The workspace with the older pages added (a date in both reads counts once: the newer read wins). */
+export function withOlderDates(ws: EventWorkspace, older: OlderDates): EventWorkspace {
+  const seen = new Set(ws.dates.map((d) => d.id));
+  return { ...ws, dates: [...ws.dates, ...older.dates.filter((d) => !seen.has(d.id))], hasMore: older.hasMore };
+}
+
+/**
+ * A filter's count as All dates shows it: the number when the read holds every date it could
+ * hold, else "N+" (never a number that is too low dressed as the whole). Coming is whole once
+ * the read reaches back past today, because pages run newest first.
+ */
+export function countWord(ws: EventWorkspace, today: IsoDate, filter: DateFilter, n: number): string {
+  if (!ws.hasMore) return String(n);
+  const oldest = oldestDate(ws);
+  if (filter === 'coming' && oldest !== null && oldest < today) return String(n);
+  return `${n}+`;
+}
+
+export const olderDatesQueryKey = (seriesId: string, before: IsoDate | null) => [...eventWorkspaceQueryKey(seriesId), 'older', before] as const;
+
+export const OLDER_COPY = {
+  loading: 'Loading older dates\u2026',
+  failed: 'Older dates didn\u2019t load. Check your connection, then try again.',
+} as const;
+
+/**
+ * All dates' workspace: the read, plus every older page when the read is not the whole series.
+ * Its key sits under the workspace key, so every write that reloads the workspace reloads it too.
+ */
+export function useAllDatesWorkspace(ws: EventWorkspace) {
+  const before = oldestDate(ws);
+  const q = useQuery({
+    queryKey: olderDatesQueryKey(ws.series.id, before),
+    queryFn: () => loadOlderDates((b, l) => fetchDatesPage(ws.series.id, b, l), before as IsoDate),
+    enabled: ws.hasMore && before !== null,
+  });
+  return {
+    ws: q.data ? withOlderDates(ws, q.data) : ws,
+    loading: ws.hasMore && q.isPending && !q.isError,
+    failed: ws.hasMore && q.isError,
+    retry: () => void q.refetch(),
+  };
 }
 
 const EMPTY: Record<DateFilter, string> = {
