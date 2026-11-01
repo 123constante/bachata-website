@@ -1,10 +1,10 @@
-# Handover: fix-join-outcomes-r1
+# Handover: fix-join-outcomes-r1 (continuation done)
 
 Done
-- `redeemAction()` in `joinModel.ts` is the ONE mapping of a redeem outcome; `applyRedeem` in `JoinPage.tsx` serves both the Join tap and the post-sign-in safety stop. The sign-in path no longer turns every non-done outcome into `not_linked`, so "We've told <inviter>" only shows for `not_linked`.
-- "Send my code" is no longer disabled when the email is empty; tapping an empty or malformed email shows the bad-shape error. The reason line under the button stays. OTP request unchanged.
-- Test: `join/__tests__/joinOutcomes.table.test.tsx` (outcome table, no false "told", Send tap).
+- `redeemAction()` / `applyRedeem` is the one mapping for Join tap and post-sign-in stop; "told" copy only for `not_linked`.
+- "Send my code" never disabled by an empty email; tap shows the bad-shape error.
+- Tests: `joinOutcomes.table.test.tsx` + 5 page-level rows in `joinJourney.test.tsx`. Against main's source: 15 red (10 table, 1 Send-tap, 4 page; the page `not_linked` row is green on old code by design). All green on the branch.
+- `docs/handover/INVENTORY.md`: 15 outcomes, 15 mapped.
+- Gates run: see PR body.
 
-Not done / not verified
-- Not run: prod shape survey (counts of open invites), `check:bundle-budget`, join e2e at 390x844, pre-ship, full CI. The new tests were not run red against unfixed code. No page-level test of the post-sign-in path (only the shared mapping).
-- Needs: independent Opus review, then the orchestrator walk.
+Not verified: full `npm run test:e2e` (exceeded the worker time limit), `pre-ship`, 390x844 visual walk by a human.

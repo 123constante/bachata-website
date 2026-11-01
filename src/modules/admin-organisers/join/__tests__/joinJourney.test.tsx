@@ -364,6 +364,26 @@ describe('the code step', () => {
     expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: 'invite_join:claim:not_linked' }), 'error');
   });
 
+  // Post-sign-in safety stop: every redeem answer shows ITS screen; "told" copy only when the server really recorded not_linked.
+  it.each([
+    [{ ok: false, reason: 'email_mismatch', invite_email_hint: 'a***@x.com' }, 'wrong_account'],
+    [{ ok: false, reason: 'email_unproven' }, 'email_unproven'],
+    [{ ok: false, reason: 'rate_limited' }, 'rate_limited'],
+    [{ ok: false, reason: 'team_full' }, 'refused'],
+    [{ ok: false, reason: 'not_linked' }, 'not_linked'],
+  ])('person-bound, claim no_match, redeem %j -> the %s screen, "told" only for not_linked', async (answer, stop) => {
+    preview = open(PERSON);
+    redeem = answer;
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs(stop);
+    const text = screen.getByTestId('join-step').textContent ?? '';
+    expect(/told/i.test(text)).toBe(stop === 'not_linked');
+    expect(redeems()).toHaveLength(1);
+    expect(screen.queryByTestId('join-done')).toBeNull();
+  });
+
   it('person-bound, the claim linked the profile: no stop, straight on', async () => {
     preview = open(PERSON);
     h.claim.mockResolvedValue({ status: 'linked', profileId: 'p1' });
