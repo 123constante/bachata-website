@@ -1,0 +1,288 @@
+<title>Organiser Style Pick</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: three phones (Apple / Airbnb / Monzo) side by side on wide screens, one at a time via tabs on a phone. All sit on the site's graphite ground. */
+:root{
+  --ground:#202226; --ground-2:#2a2d32; --ground-3:#34383e; --text:#eef0f2; --mute:#9aa1ab; --hair:#3d4148;
+  --apple-tint:#4f9dff; --air-ink:#f5f5f5; --air-accent:#ff5a6e; --monzo:#ff6b57; --monzo-2:#14233c; --ok:#3ecf8e;
+  --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --fig:"Figtree",var(--sys); --out:"Outfit",var(--sys);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--text);font-family:var(--fig);padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{max-width:1260px;margin:0 auto 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between}
+.top h1{font-family:var(--out);font-size:24px;margin:0;font-weight:700}
+.top p{margin:4px 0 0;color:var(--mute);font-size:14px;max-width:60ch}
+.tabs{display:flex;gap:6px}
+.tabs button{font:600 14px var(--fig);color:var(--text);background:var(--ground-2);border:1px solid var(--hair);border-radius:999px;padding:9px 14px;min-height:40px;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--text);color:var(--ground)}
+@media(min-width:1240px){.tabs{display:none}}
+.stage{max-width:1260px;margin:0 auto;display:grid;grid-template-columns:minmax(0,390px);justify-content:center;gap:24px}
+@media(min-width:1240px){.stage{grid-template-columns:repeat(3,390px)}.col[hidden]{display:flex!important}}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.col h2{font:700 16px var(--out);margin:0 4px}
+.col .why{font-size:13px;color:var(--mute);margin:0 4px 4px}
+.phone{width:100%;height:780px;border-radius:34px;overflow:hidden;position:relative;display:flex;flex-direction:column;border:1px solid var(--hair)}
+.scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--apple-tint);outline-offset:2px}
+input,select{font:inherit}
+.ex{position:absolute;top:8px;right:12px;font-size:11px;color:var(--mute);z-index:3}
+.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;background:var(--ok);color:#06240f;z-index:9;white-space:nowrap}
+.flyer{aspect-ratio:4/5;max-width:100%;background:radial-gradient(circle at 30% 25%,#ff9a76,transparent 55%),linear-gradient(160deg,#5b2a86,#1b1f3b 70%);display:grid;place-items:end start;padding:14px;color:#fff;font:800 22px var(--out)}
+.sheetback{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:7}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:8;max-height:85%;overflow:auto}
+
+/* ---------- APPLE: grouped inset lists, nav bar actions, system type ---------- */
+.apple{background:#1c1c1e;font-family:var(--sys)}
+.apple .nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px 16px 6px;font-size:17px}
+.apple .nav .l{justify-self:start;color:var(--apple-tint);background:none;border:0;font:inherit;min-height:44px;padding:0}
+.apple .nav .r{justify-self:end;color:var(--apple-tint);background:none;border:0;font:600 17px var(--sys);min-height:44px;padding:0}
+.apple .nav .r[disabled]{color:#5a5a60}
+.apple .nav .c{font-size:13px;color:var(--mute)}
+.apple .title{font:700 32px/1.15 var(--sys);margin:6px 16px 14px;letter-spacing:.2px}
+.apple .grp{margin:0 16px 22px;background:#2c2c2e;border-radius:12px;overflow:hidden}
+.apple .grp-h{margin:0 32px 6px;font-size:13px;color:var(--mute)}
+.apple .grp-f{margin:-16px 32px 22px;font-size:13px;color:var(--mute)}
+.apple .opt{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:11px 16px;background:none;border:0;border-top:.5px solid #3a3a3c;color:var(--text);font:17px var(--sys);text-align:left}
+.apple .opt:first-child{border-top:0}
+.apple .opt .g{flex:1;min-width:0}.apple .opt small{display:block;color:var(--mute);font-size:13px}
+.apple .opt[aria-pressed=true]::after{content:"\2713";color:var(--apple-tint);font-weight:700}
+.apple .opt.nav-row::after{content:"\203A";color:#636366;font-size:22px}
+.apple .inp{width:100%;min-height:48px;background:none;border:0;color:var(--text);padding:0 16px;font-size:17px}
+.apple .sel{appearance:none;background:none;border:0;color:var(--apple-tint);font-size:17px;text-align:right;min-height:44px}
+.apple .kv{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 16px;border-top:.5px solid #3a3a3c;font-size:17px}
+.apple .kv:first-child{border-top:0}.apple .kv .v{color:var(--mute)}
+.apple .chip{display:inline-flex;align-items:center;gap:6px;background:#3a3a3c;border-radius:999px;padding:6px 10px;font-size:15px;margin:4px}
+.apple .foot{padding:8px 16px 22px;display:flex;flex-direction:column;gap:10px}
+.apple .primary{min-height:50px;border-radius:12px;border:0;background:var(--apple-tint);color:#fff;font:600 17px var(--sys)}
+.apple .primary[disabled]{background:#3a3a3c;color:#8e8e93}
+.apple .quiet{min-height:44px;border:0;background:none;color:var(--apple-tint);font:17px var(--sys)}
+.apple .reason{text-align:center;font-size:13px;color:var(--mute)}
+.apple .bar{display:none}
+.apple .sheet{background:#1c1c1e;border-radius:14px 14px 0 0;padding-top:6px}
+.apple .pending{position:absolute;left:0;right:0;bottom:0;padding:10px 16px calc(14px + env(safe-area-inset-bottom,0px));background:rgba(28,28,30,.94);border-top:.5px solid #3a3a3c;z-index:5}
+.apple .switch{width:51px;height:31px;border-radius:999px;background:#3a3a3c;border:0;position:relative}
+.apple .switch[aria-checked=true]{background:#34c759}
+.apple .switch::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;transition:left .2s}
+.apple .switch[aria-checked=true]::after{left:22px}
+
+/* ---------- AIRBNB: one question per screen, big type, tiles, progress + bottom bar ---------- */
+.airbnb{background:#18191c;font-family:var(--fig)}
+.airbnb .nav{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 0}
+.airbnb .nav .l{display:none}.airbnb .nav .r{display:none}
+.airbnb .nav .c{font-size:13px;color:var(--mute)}
+.airbnb .exit{font:600 13px var(--fig);color:var(--text);background:var(--ground-2);border:1px solid var(--hair);border-radius:999px;padding:8px 14px;min-height:36px}
+.airbnb .title{font:700 30px/1.15 var(--fig);margin:26px 24px 22px;letter-spacing:-.4px;text-wrap:balance}
+.airbnb .grp{margin:0 24px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.airbnb .grp.one{grid-template-columns:1fr}
+.airbnb .grp-h{margin:0 24px 8px;font-weight:600;font-size:16px}
+.airbnb .grp-f{margin:-10px 24px 20px;font-size:14px;color:var(--mute)}
+.airbnb .opt{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;min-height:86px;padding:14px;border-radius:14px;border:1.5px solid var(--hair);background:none;color:var(--text);font:600 16px var(--fig);text-align:left}
+.airbnb .grp.one .opt{min-height:60px;flex-direction:row;align-items:center;justify-content:space-between}
+.airbnb .opt small{font-weight:400;color:var(--mute);font-size:13px}
+.airbnb .opt[aria-pressed=true]{border:2px solid var(--air-ink);background:#26282c}
+.airbnb .opt .g{min-width:0}
+.airbnb .inp{width:100%;min-height:64px;background:none;border:1.5px solid var(--hair);border-radius:14px;color:var(--text);padding:0 16px;font-size:22px;font-weight:600}
+.airbnb .sel{width:100%;min-height:56px;background:var(--ground-2);border:1.5px solid var(--hair);border-radius:12px;color:var(--text);padding:0 12px;font-size:18px;font-weight:600}
+.airbnb .kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid var(--hair);font-size:16px;grid-column:1/-1}
+.airbnb .kv .v{color:var(--mute);text-align:right}
+.airbnb .chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--hair);border-radius:999px;padding:7px 12px;font-size:15px;margin:4px 6px 4px 0}
+.airbnb .foot{display:none}
+.airbnb .bar{border-top:1px solid var(--hair);background:#18191c}
+.airbnb .prog{display:flex;gap:4px;padding:0}.airbnb .prog i{flex:1;height:4px;background:var(--hair)}.airbnb .prog i.on{background:var(--air-ink)}
+.airbnb .bar-in{display:flex;justify-content:space-between;align-items:center;padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px))}
+.airbnb .back{background:none;border:0;color:var(--text);font:600 16px var(--fig);text-decoration:underline;min-height:44px}
+.airbnb .next{min-height:50px;min-width:120px;border-radius:10px;border:0;background:var(--air-ink);color:#111;font:700 16px var(--fig);padding:0 22px}
+.airbnb .next.pub{background:linear-gradient(90deg,#e61e4d,#d70466);color:#fff}
+.airbnb .next[disabled]{background:#3a3d42;color:#7b818a}
+.airbnb .reason{font-size:13px;color:var(--mute);padding:0 20px 0;text-align:right;margin-top:-6px}
+.airbnb .draftlink{background:none;border:0;color:var(--mute);font:600 14px var(--fig);text-decoration:underline;min-height:40px}
+.airbnb .sheet{background:#202226;border-radius:22px 22px 0 0;padding-top:8px}
+.airbnb .pending{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px));background:#18191c;border-top:1px solid var(--hair);z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.airbnb .switch{width:48px;height:30px;border-radius:999px;background:var(--hair);border:0;position:relative}
+.airbnb .switch[aria-checked=true]{background:var(--air-ink)}
+.airbnb .switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#18191c;transition:left .2s}
+.airbnb .switch[aria-checked=true]::after{left:21px}
+
+/* ---------- MONZO: bold cards, chunky rounded type, coral pills ---------- */
+.monzo{background:linear-gradient(180deg,var(--monzo-2),#1c2230 40%,#202226);font-family:var(--out)}
+.monzo .nav{display:flex;align-items:center;gap:12px;padding:16px 18px 4px}
+.monzo .nav .l{width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:var(--text);font-size:20px}
+.monzo .nav .r{display:none}
+.monzo .nav .c{flex:1;display:flex;gap:5px}.monzo .nav .c i{height:6px;flex:1;border-radius:9px;background:rgba(255,255,255,.14)}.monzo .nav .c i.on{background:var(--monzo)}
+.monzo .title{font:800 30px/1.1 var(--out);margin:18px 18px 18px;letter-spacing:-.3px;text-wrap:balance}
+.monzo .grp{margin:0 14px 16px;background:rgba(255,255,255,.06);border-radius:22px;padding:6px;display:flex;flex-direction:column;gap:6px}
+.monzo .grp-h{margin:0 22px 8px;font-weight:600;font-size:15px;color:#c9d2e3}
+.monzo .grp-f{margin:-8px 22px 16px;font-size:13px;color:var(--mute)}
+.monzo .opt{display:flex;align-items:center;gap:12px;min-height:60px;padding:12px 14px;border-radius:16px;border:0;background:rgba(255,255,255,.05);color:var(--text);font:600 17px var(--out);text-align:left}
+.monzo .opt::before{content:"";width:34px;height:34px;flex:none;border-radius:50%;background:rgba(255,255,255,.1)}
+.monzo .opt .g{flex:1;min-width:0}.monzo .opt small{display:block;color:#aab4c5;font-weight:400;font-size:13px}
+.monzo .opt[aria-pressed=true]{background:#fff;color:#14233c}.monzo .opt[aria-pressed=true] small{color:#4a5872}
+.monzo .opt[aria-pressed=true]::before{background:var(--monzo)}
+.monzo .inp{width:100%;min-height:62px;background:rgba(255,255,255,.07);border:0;border-radius:16px;color:var(--text);padding:0 16px;font-size:22px;font-weight:700}
+.monzo .sel{width:100%;min-height:54px;background:rgba(255,255,255,.07);border:0;border-radius:14px;color:var(--text);padding:0 12px;font:700 18px var(--out)}
+.monzo .kv{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:52px;padding:0 12px;border-radius:14px;background:rgba(255,255,255,.04);font-size:16px}
+.monzo .kv .v{color:#aab4c5;text-align:right}
+.monzo .chip{display:inline-flex;align-items:center;gap:6px;background:var(--monzo);color:#fff;border-radius:999px;padding:7px 12px;font-size:15px;font-weight:600;margin:4px}
+.monzo .foot{padding:6px 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.monzo .primary{min-height:56px;border-radius:999px;border:0;background:var(--monzo);color:#fff;font:800 18px var(--out)}
+.monzo .primary[disabled]{background:rgba(255,255,255,.1);color:#8892a3}
+.monzo .quiet{min-height:44px;border:0;background:none;color:#c9d2e3;font:600 16px var(--out)}
+.monzo .reason{text-align:center;font-size:13px;color:#aab4c5}
+.monzo .bar{display:none}
+.monzo .sheet{background:#1c2230;border-radius:26px 26px 0 0;padding-top:8px}
+.monzo .pending{position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5}
+.monzo .switch{width:52px;height:32px;border-radius:999px;background:rgba(255,255,255,.15);border:0;position:relative}
+.monzo .switch[aria-checked=true]{background:var(--monzo)}
+.monzo .switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:left .2s}
+.monzo .switch[aria-checked=true]::after{left:23px}
+.row-inline{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.pad{padding:0 16px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="top">
+  <div><h1>Pick a style</h1><p>Same New event steps and rules in all three. Tap through each one. Only the look and feel differ. Venues, people and dates are examples.</p></div>
+  <div class="tabs" id="tabs"></div>
+</div>
+<div class="stage" id="stage"></div>
+
+<script>
+var SKINS=[
+ {id:'apple',name:'A. Apple',why:'Plain grouped lists, actions in the top bar, almost no decoration.'},
+ {id:'airbnb',name:'B. Airbnb',why:'One question per screen, big type, a progress bar and Next at the bottom.'},
+ {id:'monzo',name:'C. Monzo',why:'Bold cards, chunky type, one coral button for every step.'}];
+var VENUES=[['Andrea Bar','Camden'],['The Bedford','Balham'],['Salsa Temple','Waterloo'],['Bar Rumba','Soho']];
+var PEOPLE=['Marta','DJ Leo','Carlos & Ana','Sofia','DJ Kiki'];
+var PAY=[['ticket','Ticket link'],['door','Pay at the door'],['bank','Bank transfer beforehand'],['cash','Cash'],['free','Free']];
+var FORMATS=[['weekly','Weekly','Same night every week'],['oneoff','One-off','A single date'],['course','Course','A set number of weeks'],['festival','Festival','Several days in a row']];
+var WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],MO=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var TODAY=new Date(2026,9,21);
+function dates(){var a=[];for(var i=1;i<=21;i++){var d=new Date(TODAY);d.setDate(d.getDate()+i);a.push(d)}return a}
+function dlab(d){return WD[d.getDay()]+' '+d.getDate()+' '+MO[d.getMonth()]}
+function times(){var a=[];for(var h=10;h<24;h++)for(var m=0;m<60;m+=15)a.push((h<10?'0':'')+h+':'+(m?m:'00'));return a}
+var LENS=[[60,'1 hour'],[90,'1 h 30'],[120,'2 hours'],[180,'3 hours'],[240,'4 hours'],[300,'5 hours'],[360,'6 hours']];
+function endOf(start,len){var p=start.split(':'),t=+p[0]*60+ +p[1]+len,nd=t>=1440;t%=1440;var h=Math.floor(t/60),m=t%60;return {t:(h<10?'0':'')+h+':'+(m<10?'0':'')+m,next:nd}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+function fresh(){return {step:0,screen:'flow',sheet:null,pending:false,toast:null,q:'',
+ d:{name:'',format:null,venue:null,date:null,weeks:6,days:3,same:true,type:'party',start:'21:00',len:300,level:'beginner',people:[],nights:null,flyer:false,pay:[],ticket:''}}}
+var S={};SKINS.forEach(function(k){S[k.id]=fresh()});
+var active='apple';
+
+function steps(st){return ['name','format','venue','date',st.d.format==='festival'?'nights':'session','flyer','pay','review']}
+var TITLES={name:'What is the event called?',format:'How often does it run?',venue:'Where is it?',date:'When is the first date?',session:'What happens that night?',nights:'Party hours each night',flyer:'Add the flyer',pay:'How do people pay?',review:'Ready to publish'};
+function validTicket(u){return /^https:\/\/[^\s.]+\.[^\s]{2,}/.test(u)}
+function check(st,k){var d=st.d;
+ if(k==='name')return d.name.trim().length>=3?null:'Type a name';
+ if(k==='format')return d.format?null:'Pick one';
+ if(k==='venue')return d.venue!==null?null:'Pick a venue';
+ if(k==='date')return d.date!==null?null:'Pick a date';
+ if(k==='flyer')return d.flyer?null:'Add a flyer';
+ if(k==='pay'){if(!d.pay.length)return 'Pick at least one';if(d.pay.indexOf('ticket')>-1&&!validTicket(d.ticket))return 'Add the ticket link';return null}
+ return null}
+function firstBlock(st){var s=steps(st);for(var i=0;i<s.length-1;i++){var r=check(st,s[i]);if(r)return r}return null}
+
+function opt(key,val,label,sub,pressed,extra){return '<button class="opt'+(extra||'')+'" data-k="'+key+'" data-v="'+esc(val)+'" aria-pressed="'+(!!pressed)+'"><span class="g">'+label+(sub?'<small>'+sub+'</small>':'')+'</span></button>'}
+function sel(key,list,cur){return '<select class="sel" data-sel="'+key+'">'+list.map(function(o){var v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:o;return '<option value="'+v+'"'+(String(v)===String(cur)?' selected':'')+'>'+l+'</option>'}).join('')+'</select>'}
+function sw(key,on){return '<button class="switch" role="switch" data-sw="'+key+'" aria-checked="'+(!!on)+'" aria-label="toggle"></button>'}
+function kv(k,v){return '<div class="kv"><span>'+k+'</span><span class="v">'+v+'</span></div>'}
+
+function body(skin,st,k){var d=st.d,one=skin==='airbnb'?' one':'',h='';
+ if(k==='name')h='<div class="grp'+one+'"><input class="inp" data-in="name" placeholder="Sensual Fridays" value="'+esc(d.name)+'" maxlength="60" autocomplete="off"></div>';
+ if(k==='format')h='<div class="grp">'+FORMATS.map(function(f){return opt('format',f[0],f[1],f[2],d.format===f[0])}).join('')+'</div>';
+ if(k==='venue'){var q=st.q.toLowerCase();h='<div class="grp'+one+'"><input class="inp" data-in="q" placeholder="Search venues" value="'+esc(st.q)+'" autocomplete="off"></div><div class="grp one">'+
+  VENUES.map(function(v,i){return v[0].toLowerCase().indexOf(q)>-1?opt('venue',i,v[0],v[1],d.venue===i):''}).join('')+'</div>'}
+ if(k==='date'){var ds=dates();h='<div class="grp one">'+ds.slice(0,8).map(function(x,i){var sub=d.format==='weekly'?'Then every '+WD[x.getDay()]:'';return opt('date',i,dlab(x),sub,d.date===i)}).join('')+'</div>';
+  if(d.format==='course')h+='<div class="grp-h">How many weeks?</div><div class="grp one"><div class="kv"><span>Weeks</span>'+sel('weeks',[2,3,4,5,6,8,10,12],d.weeks)+'</div></div>';
+  if(d.format==='festival')h+='<div class="grp-h">How many days?</div><div class="grp one"><div class="kv"><span>Days</span>'+sel('days',[2,3,4,5],d.days)+'</div></div>'}
+ if(k==='session'){var e=endOf(d.start,d.len);
+  h='<div class="grp">'+[['party','Party'],['class','Class'],['workshop','Workshop']].map(function(t){return opt('type',t[0],t[1],'',d.type===t[0])}).join('')+'</div>'+
+  '<div class="grp one"><div class="kv"><span>Starts</span>'+sel('start',times(),d.start)+'</div><div class="kv"><span>Length</span>'+sel('len',LENS,d.len)+'</div>'+kv('Ends',e.t+(e.next?' (next day)':''))+
+  (d.type!=='party'?'<div class="kv"><span>Level</span>'+sel('level',[['beginner','Beginner'],['improver','Improver'],['intermediate','Intermediate'],['advanced','Advanced'],['open','Open level']],d.level)+'</div>':'')+'</div>'+
+  '<div class="grp-h">'+(d.type==='party'?'Who is DJing?':'Who is teaching?')+'</div><div class="pad">'+d.people.map(function(p){return '<span class="chip">'+esc(p)+' <button data-rm="'+esc(p)+'" aria-label="remove" style="background:none;border:0;color:inherit;font-size:16px">&times;</button></span>'}).join('')+'</div>'+
+  '<div class="grp one">'+PEOPLE.filter(function(p){return d.people.indexOf(p)<0}).slice(0,3).map(function(p){return opt('person',p,p,'On Bachata Calendar',false)}).join('')+'</div>'}
+ if(k==='nights'){var n=d.days,ds2=dates(),base=d.date===null?0:d.date;if(!d.nights||d.nights.length!==n){d.nights=[];for(var j=0;j<n;j++)d.nights.push({start:'22:00',len:360})}
+  h='<div class="grp one"><div class="kv"><span>Same every night</span>'+sw('same',d.same)+'</div></div><div class="grp one">';
+  for(var j2=0;j2<(d.same?1:n);j2++){var nt=d.same?d.nights[0]:d.nights[j2],en=endOf(nt.start,nt.len);
+   h+='<div class="kv"><span>'+(d.same?'Every night':WD[ds2[(base+j2)%21].getDay()])+'</span><span class="v">'+nt.start+' to '+en.t+'</span></div><div class="kv"><span>Starts</span>'+sel('nstart'+j2,times(),nt.start)+'</div><div class="kv"><span>Length</span>'+sel('nlen'+j2,LENS,nt.len)+'</div>'}
+  h+='</div><div class="grp-f">Workshop timetable can be added later.</div>'}
+ if(k==='flyer')h=d.flyer?'<div class="grp one" style="padding:0;overflow:hidden"><div class="flyer">'+esc(d.name||'Your event')+'</div></div><div class="grp one">'+opt('flyer','0','Choose another photo','',false)+'</div>':'<div class="grp one">'+opt('flyer','1','Choose a photo','Portrait works best',false)+'</div>';
+ if(k==='pay'){h='<div class="grp one">'+PAY.map(function(p){return opt('pay',p[0],p[1],p[0]==='bank'?'Dancers message you for details':'',d.pay.indexOf(p[0])>-1)}).join('')+'</div>';
+  if(d.pay.indexOf('ticket')>-1)h+='<div class="grp-h">Ticket link</div><div class="grp one"><input class="inp" data-in="ticket" inputmode="url" placeholder="https://" value="'+esc(d.ticket)+'" autocomplete="off"></div>'}
+ if(k==='review'){var e2=endOf(d.start,d.len),ds3=dates(),dd=d.date===null?null:ds3[d.date];
+  var when=dd?(d.format==='weekly'?'Every '+WD[dd.getDay()]+' from '+dd.getDate()+' '+MO[dd.getMonth()]:d.format==='course'?d.weeks+' weeks from '+dlab(dd):d.format==='festival'?d.days+' days from '+dlab(dd):dlab(dd)):'';
+  var time=d.format==='festival'?'Parties '+d.nights[0].start+' to '+endOf(d.nights[0].start,d.nights[0].len).t:(d.type[0].toUpperCase()+d.type.slice(1))+' '+d.start+' to '+e2.t;
+  h=(d.flyer?'<div class="grp one" style="padding:0;overflow:hidden"><div class="flyer" style="aspect-ratio:16/9">'+esc(d.name)+'</div></div>':'')+
+  '<div class="grp one">'+kv('Name',esc(d.name))+kv('Venue',d.venue===null?'':VENUES[d.venue][0])+kv('When',when)+kv('Time',time)+kv('How to pay',d.pay.map(function(p){return PAY.filter(function(x){return x[0]===p})[0][1]}).join(', '))+'</div>'}
+ return h}
+
+function flow(skin,st){var s=steps(st),k=s[st.step],n=s.length,block=k==='review'?firstBlock(st):check(st,k);
+ var prog='';for(var i=0;i<n;i++)prog+='<i class="'+(i<=st.step?'on':'')+'"></i>';
+ var nextLabel=k==='review'?'Publish':'Next';
+ var nav='<div class="nav"><button class="l" data-a="back" aria-label="Back">'+(skin==='apple'?(st.step?'&lsaquo; Back':'Cancel'):'&lsaquo;')+'</button>'+
+  (skin==='airbnb'?'<button class="exit" data-a="reset">Exit</button><span class="c">'+(st.step+1)+' of '+n+'</span>':'<span class="c">'+(skin==='monzo'?prog:(st.step+1)+' of '+n)+'</span>')+
+  '<button class="r" data-a="next" '+(block?'disabled':'')+'>'+nextLabel+'</button></div>';
+ var main='<div class="scroll">'+nav+'<h3 class="title">'+TITLES[k]+'</h3>'+body(skin,st,k)+
+  '<div class="foot">'+(skin==='monzo'||k==='review'?'<button class="primary" data-a="next" '+(block?'disabled':'')+'>'+nextLabel+'</button>':'')+(block?'<div class="reason">'+block+'</div>':'')+(k==='review'?'<button class="quiet" data-a="draft">Save as draft</button>':'')+'</div></div>';
+ var bar='<div class="bar"><div class="prog">'+prog+'</div><div class="bar-in"><button class="back" data-a="back">'+(st.step?'Back':'')+'</button>'+(k==='review'?'<button class="draftlink" data-a="draft">Save as draft</button>':'')+'<button class="next'+(k==='review'?' pub':'')+'" data-a="next" '+(block?'disabled':'')+'>'+nextLabel+'</button></div>'+(block?'<div class="reason" style="padding-bottom:10px">'+block+'</div>':'')+'</div>';
+ return main+bar}
+
+function eventPage(skin,st){var d=st.d,e=endOf(d.start,d.len),ds=dates(),dd=ds[d.date||0],status=st.screen==='draft'?'Draft':'Live';
+ var coming=[0,7,14].map(function(o){var x=new Date(dd);x.setDate(x.getDate()+o);return x});
+ var h='<div class="scroll"><div class="nav"><button class="l" data-a="reset" aria-label="Back">'+(skin==='apple'?'&lsaquo; Events':'&lsaquo;')+'</button><span class="c">'+(skin==='monzo'?'':status)+'</span><span></span></div>'+
+ '<h3 class="title">'+esc(d.name)+'</h3>'+
+ '<div class="grp one" style="padding:0;overflow:hidden"><div class="flyer" style="aspect-ratio:16/9">'+esc(d.name)+'</div></div>'+
+ '<div class="grp-h">'+(d.format==='festival'?'Parties':'Sessions')+'</div><div class="grp one">'+
+ (d.format==='festival'?opt('editn','0','Every night',d.nights[0].start+' to '+endOf(d.nights[0].start,d.nights[0].len).t,false,' nav-row'):
+  opt('edits','0',d.type[0].toUpperCase()+d.type.slice(1),d.start+' to '+e.t+(e.next?' (next day)':'')+(d.people.length?', '+d.people.join(', '):''),false,' nav-row'))+'</div>'+
+ '<div class="grp-h">Coming dates</div><div class="grp one">'+coming.map(function(x){return opt('date-open','0',dlab(x),'',false,' nav-row')}).join('')+'</div>'+
+ '<div class="grp one">'+kv('Venue',VENUES[d.venue||0][0])+kv('How to pay',d.pay.map(function(p){return PAY.filter(function(x){return x[0]===p})[0][1]}).join(', '))+'</div>'+
+ '<div style="height:110px"></div></div>';
+ if(st.pending){var msg='Updates 12 coming dates';h+='<div class="pending">'+(skin==='airbnb'?'<span style="font-size:14px;color:var(--mute)">'+msg+'</span><button class="next" data-a="update">Update live event</button>':'<button class="primary" style="width:100%" data-a="update">Update live event</button><div class="reason" style="margin-top:6px">'+msg+'</div>')+'</div>'}
+ if(st.sheet){var nt=d.format==='festival'?d.nights[0]:{start:d.start,len:d.len};h+='<div class="sheetback" data-a="close"></div><div class="sheet"><div class="nav"><button class="l" data-a="close">'+(skin==='apple'?'Cancel':'&times;')+'</button><span class="c">Edit</span><button class="r" data-a="close">Done</button></div><h3 class="title" style="font-size:24px">'+(d.format==='festival'?'Party hours':'Session time')+'</h3><div class="grp one"><div class="kv"><span>Starts</span>'+sel('e_start',times(),nt.start)+'</div><div class="kv"><span>Length</span>'+sel('e_len',LENS,nt.len)+'</div>'+kv('Ends',endOf(nt.start,nt.len).t)+'</div><div class="foot" style="display:flex"><button class="primary" data-a="close" style="'+(skin==='airbnb'?'min-height:50px;border-radius:10px;border:0;background:var(--air-ink);color:#111;font-weight:700':'')+'">Done</button></div></div>'}
+ if(st.toast)h+='<div class="toast">'+st.toast+'</div>';
+ return h}
+
+function render(id){var st=S[id],col=document.getElementById('ph-'+id);
+ col.innerHTML='<span class="ex">Example</span>'+(st.screen==='flow'?flow(id,st):eventPage(id,st));}
+function act(id,a){var st=S[id],s=steps(st);
+ if(a==='back'){if(st.step>0)st.step--;else{S[id]=fresh()}}
+ else if(a==='next'){var k=s[st.step];if(k==='review'){if(!firstBlock(st)){st.screen='live';st.toast='Published';later(id)}}else if(!check(st,k))st.step++}
+ else if(a==='draft'){st.screen='draft';st.toast='Saved as draft';later(id)}
+ else if(a==='reset')S[id]=fresh();
+ else if(a==='close')st.sheet=null;
+ else if(a==='update'){st.pending=false;st.toast='Updated';later(id)}
+ render(id)}
+function later(id){setTimeout(function(){S[id].toast=null;render(id)},1600)}
+
+document.addEventListener('click',function(e){var ph=e.target.closest('.phone');if(!ph)return;var id=ph.dataset.skin,st=S[id],d=st.d,t;
+ if((t=e.target.closest('[data-rm]'))){d.people=d.people.filter(function(p){return p!==t.dataset.rm});render(id);return}
+ if((t=e.target.closest('[data-sw]'))){d.same=!d.same;render(id);return}
+ if((t=e.target.closest('[data-a]'))){if(t.disabled)return;act(id,t.dataset.a);return}
+ if((t=e.target.closest('.opt[data-k]'))){var k=t.dataset.k,v=t.dataset.v;
+  if(k==='format'){d.format=v;d.nights=null}else if(k==='venue')d.venue=+v;else if(k==='date')d.date=+v;else if(k==='type')d.type=v;
+  else if(k==='person'){if(d.people.length<4)d.people.push(v)}
+  else if(k==='flyer')d.flyer=v==='1'||d.flyer;
+  else if(k==='pay'){var i=d.pay.indexOf(v);if(v==='free'){d.pay=i>-1?[]:['free']}else{d.pay=d.pay.filter(function(x){return x!=='free'});i>-1?d.pay.splice(d.pay.indexOf(v),1):d.pay.push(v)}}
+  else if(k==='edits'||k==='editn')st.sheet='edit';
+  render(id)}});
+document.addEventListener('input',function(e){var ph=e.target.closest('.phone');if(!ph)return;var id=ph.dataset.skin,st=S[id],t=e.target;
+ if(t.dataset.in){var pos=t.selectionStart;if(t.dataset.in==='q')st.q=t.value;else st.d[t.dataset.in]=t.value;render(id);var n=document.querySelector('#ph-'+id+' [data-in="'+t.dataset.in+'"]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}}});
+document.addEventListener('change',function(e){var ph=e.target.closest('.phone');if(!ph)return;var id=ph.dataset.skin,st=S[id],d=st.d,t=e.target,k=t.dataset.sel;if(!k)return;
+ if(k==='start')d.start=t.value;else if(k==='len')d.len=+t.value;else if(k==='level')d.level=t.value;else if(k==='weeks')d.weeks=+t.value;else if(k==='days'){d.days=+t.value;d.nights=null}
+ else if(/^nstart/.test(k)){var j=+k.slice(6);d.nights[j].start=t.value;if(d.same)d.nights.forEach(function(n){n.start=t.value})}
+ else if(/^nlen/.test(k)){var j2=+k.slice(4);d.nights[j2].len=+t.value;if(d.same)d.nights.forEach(function(n){n.len=+t.value})}
+ else if(k==='e_start'){if(d.format==='festival')d.nights.forEach(function(n){n.start=t.value});else d.start=t.value;st.pending=st.screen==='live'}
+ else if(k==='e_len'){if(d.format==='festival')d.nights.forEach(function(n){n.len=+t.value});else d.len=+t.value;st.pending=st.screen==='live'}
+ render(id)});
+
+var stage=document.getElementById('stage'),tabs=document.getElementById('tabs');
+SKINS.forEach(function(k){var c=document.createElement('div');c.className='col';c.id='col-'+k.id;c.innerHTML='<h2>'+k.name+'</h2><p class="why">'+k.why+'</p><div class="phone '+k.id+'" data-skin="'+k.id+'" id="ph-'+k.id+'"></div>';stage.appendChild(c);
+ var b=document.createElement('button');b.textContent=k.name;b.onclick=function(){active=k.id;showTab()};tabs.appendChild(b);render(k.id)});
+function showTab(){SKINS.forEach(function(k){document.getElementById('col-'+k.id).hidden=k.id!==active;tabs.children[SKINS.indexOf(k)].setAttribute('aria-pressed',k.id===active)})}
+showTab();
+</script>
