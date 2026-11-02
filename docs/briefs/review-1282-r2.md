@@ -1,0 +1,4 @@
+# Review r2: PR #1282 fix round only (Fable, read-only)
+
+Fixes to findings are unreviewed code. Review ONLY the fix-round diff: git diff 85c5717..92dbaee on claude/organiser-public-s1-errors (review r1 is docs/review/pr-1282-r1.md on claude/review-1282-r1).
+Judge: (1) the hero stats strip never shows a number for a failed feed, for every {upcoming, past, events} failure; a healthy real zero still follows the existing hide-empty-stat rule unchanged; (2) the new matrix rows fail on the pre-fix code (run them against 85c5717 src and report the count) and pass now; (3) the loader test no longer times out on a cold run (run both new test files together 3 times); (4) the comment fix is accurate; (5) mutants: M1 stats strip shows count while failed, M2 hide stat on a healthy zero, M3 loader test import back inside the test. Report F-numbered findings with file:line to docs/review/pr-1282-r2.md on claude/review-1282-r2. No src edits, Supabase read-only. Context cap 30%.
