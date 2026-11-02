@@ -32,6 +32,7 @@ import {
   buildDelta,
   draftFromProfile,
   fieldForKey,
+  instagramMoveNotes,
   profileName,
   saveDisabledReason,
   storedValueHints,
@@ -121,7 +122,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   };
 
   const errors = useMemo(() => validateDraft(draft, profile), [draft, profile]);
-  const hints = useMemo(() => storedValueHints(draft, profile), [draft, profile]);
+  const hints = useMemo(() => ({ ...storedValueHints(draft, profile), ...instagramMoveNotes(draft, profile) }), [draft, profile]);
   const delta = useMemo(() => buildDelta(profile, draft), [profile, draft]);
   // ?returnTo= (instagram-refusal r2: a P3 checklist row opened this screen): a save goes back there. Same-site only.
   const returnTo = sanitizeReturnTo(search.get('returnTo'), { exclude: '/app/me/edit' });

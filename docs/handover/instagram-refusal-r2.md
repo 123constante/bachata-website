@@ -65,3 +65,66 @@ The N2 case was mutation-tested: without the Review re-read the Instagram row is
   under `src/modules/dancer-app/` (EditScreen), which makes it a dancer-area PR, and the P3 onboarding
   files are not seams. Adding seams is an orchestrator decision (the script says so); not done here.
 - Simon's exact prod account state was never reproduced.
+
+## Commit B
+
+An instagram.com profile link typed into Website moves to Instagram on save (owner decision 2), on the one
+live dancer saver: `/app` EditScreen -> `screens/me/model.ts` buildDelta -> `api/delta.ts` diffDelta ->
+`api/rpc.ts` saveMyDancerProfile -> `save_my_dancer_profile_v2`.
+
+### Supabase proof (prod `stsdtacfauprzrdebmzg`, read-only `pg_get_functiondef` / `pg_indexes` / `pg_trigger`, 2026-11-02)
+
+- `save_my_dancer_profile_v2`: a text key (`website_url`, `instagram`) that is JSON null or a blank string
+  normalises to null; it is in the delta when it differs from the stored (btrimmed, NULLIF '') value.
+  Split: a NON-null `instagram` / `website_url` goes to `save_my_dancer_profile_v1` (`c_v1_set`), a null one
+  to the direct `UPDATE ... website_url = CASE WHEN v_dir ? 'website_url' THEN v_dir ->> 'website_url'`, so
+  `{instagram: <name>, website_url: null}` is ONE call, ONE transaction: v1 writes Instagram, the direct
+  UPDATE clears Website. (v1 alone cannot clear: `COALESCE(NULLIF(...,''), dp.website_url)`.)
+- v2's own check on a changed Instagram: `normalize_instagram_handle_v1(v) !~ '^[a-z0-9._]{1,30}$'` ->
+  `invalid_handle`, DETAIL `instagram`.
+- Trigger `trg_dancer_profiles_a1_contact_rule` (BEFORE INSERT/UPDATE) -> `_contact_rule_value_v1('instagram')`,
+  which calls `normalize_instagram_handle_strict_v1` -> `22023 invalid_instagram` (also reserved names).
+- `dancer_profiles_instagram_normalized_uidx`: UNIQUE btree on `instagram_normalized` (generated:
+  `normalize_instagram_handle_v1(instagram)`) WHERE NOT NULL -> a taken name is a 23505 naming that index
+  (used in commit C).
+
+No migration.
+
+### Rule
+
+- Move rule (N1): `instagramProfileLinkHandle(website)` in `src/lib/instagramHandle.ts` =
+  `checkInstagramField(website).ok && handle !== null`, AND the value must match the module's own
+  `PROFILE_LINK` (no new host list). The extra link check is a deliberate narrowing: without it a bare word
+  (`simon.bachata`) or a scheme-less site (`simonbachata.com`) in Website passes `checkInstagramField` as a
+  handle and would be moved. www. moves; m.instagram.com, /p/, /reel/ do not (they stay as typed).
+- Only when Website changed (N6: `sameValue(stored, typed)` first). A stored link left untouched changes
+  nothing; the 43 existing rows stay as they are until the queued admin backfill.
+- Instagram box empty -> `{instagram: <name>, website_url: null}`; same NORMALISED name (`@Simon.Bachata`
+  vs a link to `simon.bachata`) -> `{website_url: null}`; a different name -> Save blocked, under Website:
+  "This looks like an Instagram link. Your Instagram is already set, so remove it here or replace your
+  Instagram."
+- Move FIRST, then the rules (`validateDraft` and `storedValueHints` see the moved draft); diffDelta keeps
+  the null (`sameValue(link, null)` is false), so the cleared key is sent, not dropped.
+- Before Save, a calm note under Website says the link will go to Instagram (or that Instagram is already
+  that name). After save the form re-reads the server shape: Instagram shows the name, Website is empty.
+
+### Tests (`src/modules/dancer-app/screens/edit/__tests__/instagramInWebsite.test.tsx`, 40)
+
+Website {profile link, www, m., query + trailing slash + mixed case, /p/, scheme-less, https other site,
+plain site, bare word, empty} x Instagram {empty, same handle, different handle} = 30 cells; N6 untouched
+(Simon's stored link) sends nothing; untouched + another field sends only that field; a pure dancer's
+WhatsApp key is dropped while the move is sent whole; screen: move then fields, conflict blocks with the
+owner wording and sends nothing, untouched sends nothing, v2 `invalid_url` placed under Website.
+
+Red/green: against the unfixed code (implementation stashed, test kept) 17 of 37 were RED (every move /
+same / different cell for the four moving link shapes, retype-moves, the typed-box compare, the null-column
+case, and both screen move/conflict tests); the m. / post / other-site / empty cells, untouched, the
+WhatsApp drop and invalid_url were already green (they guard against over-moving). 40 of 40 green after
+(3 bare-word cells added after the red run).
+
+### Not verified
+
+- No browser walk at 390x844 (orchestrator walk). No prod write; Simon's row never touched.
+- A same-name link typed into an EMPTY stored Website sends nothing (Save off, "Nothing has changed yet");
+  the note under Website ("Your Instagram is already this name, so it is not kept here.") deliberately
+  does not mention Save. The link stays in the box until the person removes it or reloads.

@@ -89,6 +89,19 @@ export function checkInstagramField(raw: string): InstagramFieldCheck {
   return { ok: true, handle: r.handle };
 }
 
+/**
+ * The name in an instagram.com PROFILE link, else null. The field's own rule decides
+ * (checkInstagramField ok with a name: www. accepted; m.instagram.com, post and reel
+ * links are not profile links), and only a value that IS a link counts, so a bare word
+ * or "example.com" in a Website box is never read as an Instagram name.
+ */
+export function instagramProfileLinkHandle(raw: string): string | null {
+  const t = raw.trim();
+  if (!PROFILE_LINK.test(t)) return null;
+  const r = checkInstagramField(t);
+  return r.ok && r.handle !== null ? r.handle : null;
+}
+
 /** The profile link the "tap to check it's you" line opens. */
 export const instagramProfileUrl = (handle: string): string => `https://instagram.com/${encodeURIComponent(handle)}`;
 
