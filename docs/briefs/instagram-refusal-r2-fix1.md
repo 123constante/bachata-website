@@ -1,0 +1,12 @@
+# Fix round 1: PR #1272 (claude/instagram-refusal-r2) -- Opus, careful lane
+
+Independent Fable review: branch `claude/review-1272-r1`, file `docs/review/pr-1272-r1.md` (read it first: `git fetch origin claude/review-1272-r1` then `git show FETCH_HEAD:docs/review/pr-1272-r1.md`). Stopping rule: this is the ONE fix round; each fix gets a test that goes red first, and mutate your own fix. Work ON the existing branch `claude/instagram-refusal-r2` (head e7dfff693 + any later commit); do not rebase away history; first `git fetch origin main` and merge it if the branch is behind (PR must not be DIRTY).
+
+## Fix
+1. F1 (fix before merge): `src/lib/instagramHandle.ts` `PROFILE_LINK` must accept the `m.` host as the brief says (`(www\.|m\.)?`): `https://m.instagram.com/simon.bachata` typed into Website with Instagram empty MOVES to Instagram like the www shape. Flip the test row at `src/modules/dancer-app/screens/edit/__tests__/instagramInWebsite.test.tsx` line ~33 from 'stay' to the moving expectation, and add cells m. x {Instagram empty, same handle, different handle}. Check the organiser screens that import this module (`organiser/edit-in-place/fieldRules.ts`, `organiser/wizard/contactSteps.tsx`, `components/forms/InstagramInput.tsx`) still behave: an `m.` link is now accepted as a profile link there too; say so in the handover and run their tests.
+2. F2: two new tests in the EditScreen tests: (a) save, then a newer keystroke before the save returns: the editor stays (kills mutant P7: navigate unconditionally); (b) `?returnTo=%2Fapp%2Fme%2Fedit` does not self-loop (kills P5: drop the exclude).
+3. F3: remove the five `src/modules/organiser/p3/onboarding/__tests__/*` entries from `scripts/dancer-area-isolation-allowlist.json` (the guard exempts test paths); keep the six source seams; run `node scripts/check-dancer-area-isolation.mjs` and it must stay green.
+4. F4: refresh the PR body (use `node ~/.claude/bin/pr-body.mjs` style: Verified on real data / Phone QA sections must stay valid) and the handover: rule (a) is green now, e2e-smoke and phone-qa green, N1 deviation about `m.` is gone; do not claim a 390x844 walk (the orchestrator walks it).
+5. Leave F5 and F6 as they are; list them under Not done in the handover.
+
+Run: unit tests for the touched dirs, `npm run lint`, tsc errors only in touched files, `npm run check:bundle-budget` (report /app first load vs 372.3 KB). Update `docs/handover/instagram-refusal-r2.md`. Last commit subject ends with the done marker from your prompt. Do not push anything else; one push.
