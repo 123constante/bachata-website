@@ -96,7 +96,7 @@ No migration.
   `checkInstagramField(website).ok && handle !== null`, AND the value must match the module's own
   `PROFILE_LINK` (no new host list). The extra link check is a deliberate narrowing: without it a bare word
   (`simon.bachata`) or a scheme-less site (`simonbachata.com`) in Website passes `checkInstagramField` as a
-  handle and would be moved. www. moves; m.instagram.com, /p/, /reel/ do not (they stay as typed).
+  handle and would be moved. www. and m. move (fix1 F1: `PROFILE_LINK` is `(www\.|m\.)?`); /p/, /reel/ do not (they stay as typed).
 - Only when Website changed (N6: `sameValue(stored, typed)` first). A stored link left untouched changes
   nothing; the 43 existing rows stay as they are until the queued admin backfill.
 - Instagram box empty -> `{instagram: <name>, website_url: null}`; same NORMALISED name (`@Simon.Bachata`
@@ -203,3 +203,35 @@ The other three `invalid_instagram` wordings, untouched here:
 2. One independent review, then one fix round (brief stopping rule). `/code-review` has not been run.
 3. A 390x844 walk of /app edit (move, same, different, taken fixture) and the checklist rows, then fill in the PR's `## Phone QA` section.
 4. Queued: backfill of the 43 rows (admin migration, owner approval); unify the other invalid_instagram wordings; v1 cannot clear Instagram.
+
+## Fix round 1 (review `docs/review/pr-1272-r1.md`, brief `docs/briefs/instagram-refusal-r2-fix1.md`)
+
+- **F1 fixed.** `src/lib/instagramHandle.ts`: `PROFILE_LINK` accepts `(www\.|m\.)?`, and `checkInstagramField` reads an
+  m. link as the same link without the `m.` before normalising (the server's `normalize_instagram_handle_v1` only strips
+  `www.`, so what is saved stays the bare name). `https://m.instagram.com/simon.bachata` typed into Website with Instagram
+  empty now MOVES (`{instagram: 'simon.bachata', website_url: null}`); same handle -> `{website_url: null}`; different
+  handle -> the conflict wording. Tests: `instagramInWebsite.test.tsx` row flipped to `move`, plus rows "m. mixed case +
+  query" (move) and "m. post link" (stay), each x {empty, same, different}. Red first on the unfixed code (6, then 10 with
+  the organiser rows). Mutants of the fix: PROFILE_LINK back to www-only -> 10 red; drop the m.-strip line -> 9 red.
+  The N1 deviation about m. in the PR body is gone.
+- **Organiser screens, behaviour change (say so to the owner):** `organiser/edit-in-place/fieldRules.ts`,
+  `organiser/wizard/contactSteps.tsx` and `components/forms/InstagramInput.tsx` all save `checkInstagramField(...).handle`,
+  so an m. profile link is now ACCEPTED there too and saved as the bare name (it used to be refused with the invalid
+  wording). `fieldRules.test.ts` moves `https://m.instagram.com/ritmo` from the refuse rows to the accept rows (plus
+  scheme-less `m.instagram.com/Ritmo/`), and adds `m.instagram.com.evil.tk` (refused) and an m. post link (post wording).
+  `instagramRefusals.test.tsx` now pins the m. link as accepted. Their tests pass.
+- **F2 fixed.** New `src/modules/dancer-app/screens/edit/__tests__/editReturnTo.test.tsx`: (a) a held save, then a newer
+  keystroke, then the save returns -> the editor stays and keeps the newer input (kills P7; a control test with the same
+  held save and no newer typing does leave); (b) `?returnTo=%2Fapp%2Fme%2Fedit` stays on the editor (kills P5). Both
+  mutants applied to `EditScreen.tsx`: each turns exactly its test red; the file was restored.
+- **F3 NOT applied: the review's premise is wrong.** Rule (a) in `scripts/check-dancer-area-isolation.mjs` (lines
+  206-212) exempts only `TEST_PREFIXES` (`tests/`), not `isTestPath` (that helper is used by rule (c) only). The review's
+  proof, `src/lib/__tests__/navigateTargetsRoutable.test.ts`, IS in the allowlist (line 43). Removing the five
+  `p3/onboarding/__tests__/*` entries turned the check red locally (5 rule-(a) violations), so they stay; fix1 adds a
+  sixth test seam, `src/modules/organiser/edit-in-place/__tests__/fieldRules.test.ts`, because F1 changed it. The seam
+  note now says 12 files and why. `node scripts/check-dancer-area-isolation.mjs`: OK; `--self-test`: 44 cases behave.
+  Orchestrator choice if a test exemption in rule (a) is wanted: that is a guard change (GUARD-CI), not this PR.
+- **F4.** CI on e7dfff693 (per the review): rule (a) green, e2e-smoke and phone-qa green; phone-qa-section red (no
+  390x844 walk by a worker; the orchestrator walks it). The close-out bullet above is history, not current state.
+- **Not done (left as the brief says):** F5 (a post/reel link or `#` link in Website is saved with no note) and F6
+  (same-name link into an empty stored Website leaves Save off with "Nothing has changed yet").

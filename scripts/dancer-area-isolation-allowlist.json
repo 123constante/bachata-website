@@ -241,6 +241,7 @@
     "src/modules/admin-organisers/join/joinCopy.ts",
     "src/modules/admin-organisers/join/joinModel.ts",
     "src/lib/instagramHandle.ts",
+    "src/modules/organiser/edit-in-place/__tests__/fieldRules.test.ts",
     "src/modules/organiser/p3/onboarding/OnboardingFlow.tsx",
     "src/modules/organiser/p3/onboarding/PersonFlow.tsx",
     "src/modules/organiser/p3/onboarding/__tests__/pageModel.matrix.test.ts",
@@ -253,7 +254,7 @@
     "src/modules/organiser/p3/onboarding/personModel.ts"
   ],
   "seamNotes": {
-    "src/modules/organiser/p3/onboarding/": "instagram-refusal r2 (PR #1272, owner decision 2026-11-02): checklist rows reach their field (Review -> /app edit, new DJ steps) and src/lib/instagramHandle.ts shares the one Instagram wording; the 11 files this PR touches are listed individually above",
+    "src/modules/organiser/p3/onboarding/": "instagram-refusal r2 (PR #1272, owner decision 2026-11-02): checklist rows reach their field (Review -> /app edit, new DJ steps) and src/lib/instagramHandle.ts shares the one Instagram wording; the 12 files this PR touches are listed individually above (fix1 adds edit-in-place/__tests__/fieldRules.test.ts: the m. host is a profile link there too; rule (a) exempts only the tests/ prefix, so a __tests__ file outside src/modules/dancer-app/ must be listed)",
     "docs/people-arc/": "docPrefixes entry: docs only; orchestrator decision D138 2026-10-21",
     "src/modules/event-page/bento/BentoPage.tsx": "R1a step 4 (Round-3): lazy level-rating children",
     "playwright.config.ts": "R1a step 5 (Round-3): deterministic sandbox sign-in",

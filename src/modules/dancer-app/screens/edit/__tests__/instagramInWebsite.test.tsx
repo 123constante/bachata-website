@@ -30,7 +30,9 @@ const person = (over: Partial<MyDancerEdit>): MyDancerEdit => ({ ...base, websit
 const WEBSITES = [
   ['profile link', 'https://instagram.com/simon.bachata', 'move'],
   ['www profile link', 'https://www.instagram.com/simon.bachata', 'move'],
-  ['m. link (not a profile link by the field rule: stays)', 'https://m.instagram.com/simon.bachata', 'stay'],
+  ['m. profile link (phone share sheets: moves like www.)', 'https://m.instagram.com/simon.bachata', 'move'],
+  ['m. link, mixed case, query string', 'HTTPS://M.Instagram.com/Simon.Bachata?igsh=x', 'move'],
+  ['m. post link (stays)', 'https://m.instagram.com/p/Cxyz123/', 'stay'],
   ['query string + trailing slash, mixed case', 'https://www.instagram.com/Simon.Bachata/?igsh=abc123', 'move'],
   ['/p/ post link (stays)', 'https://www.instagram.com/p/Cxyz123/', 'stay'],
   ['scheme-less instagram.com/x', 'instagram.com/simon.bachata', 'move'],

@@ -56,9 +56,11 @@ describe('the ONE map (api/errors.ts)', () => {
   });
 
   it('the field check says the same words for a link that is not an instagram.com profile link', () => {
-    for (const raw of ['https://m.instagram.com/simon', 'https://example.com/simon']) {
+    for (const raw of ['https://example.com/simon', 'https://m.instagram.com.evil.tk/simon']) {
       expect(checkInstagramField(raw)).toEqual({ ok: false, error: INVALID });
     }
+    // F1 (fix1): an m.instagram.com profile link is a profile link, saved as the bare name.
+    expect(checkInstagramField('https://m.instagram.com/simon')).toEqual({ ok: true, handle: 'simon' });
   });
 });
 
