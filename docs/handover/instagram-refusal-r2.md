@@ -235,3 +235,9 @@ The other three `invalid_instagram` wordings, untouched here:
   390x844 walk by a worker; the orchestrator walks it). The close-out bullet above is history, not current state.
 - **Not done (left as the brief says):** F5 (a post/reel link or `#` link in Website is saved with no note) and F6
   (same-name link into an empty stored Website leaves Save off with "Nothing has changed yet").
+- **Local gates on fix1:** vitest on dancer-app, organiser, src/lib, components/forms and tests/client: 384 files,
+  13468 pass. `npm run lint`: 24/24 links. tsc: no errors in touched files. Build OK. `check:bundle-budget` OK, with
+  /app first load at 372.4 KB / 47 files (372.3 on e7dfff693, budget 374). PR #1272 body refreshed (Verified / Phone QA
+  are honest; phone-qa-section stays red until the orchestrator's 390x844 walk).
+- **Next:** the orchestrator does the 390x844 walk (including an m. link in Website) and fills `## Phone QA`; decides
+  whether rule (a) should exempt `__tests__/` (a guard change, separate PR); F5/F6 are queued.
