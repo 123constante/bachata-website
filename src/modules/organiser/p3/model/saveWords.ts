@@ -6,8 +6,9 @@ import { L } from './labels';
  *  - the date count: an event with exactly one date says "Save" and "Saved." (there is no "all dates"
  *    to name); anything else says "Save for all dates" and "Saved for every date.";
  *  - the series lifecycle_status (ws.series.lifecycle_status): only a LIVE event says dancers see it now.
- *    A draft says it is a draft and dancers do not see it yet; a paused event says dancers do not see it;
- *    ended, archived, cancelled, null or any other value says nothing about dancers either way.
+ *    A draft says it is a draft and dancers do not see it yet; a paused event says it is hidden from the calendar
+ *    (P3's own word for paused; a paused page with a past date can still show publicly, so no claim about dancers);
+ *    ended, archived, cancelled, null, '' or any other value says nothing about dancers either way.
  * The live words are the words main shipped before the lifecycle mattered, byte for byte.
  */
 export interface SaveWords {
@@ -55,13 +56,13 @@ const SAID: Record<Life, Said> = {
     addedDate: (day) => `Added to ${day} only, as a draft. Dancers do not see it yet.`,
   },
   paused: {
-    detailsSavedOne: 'Saved. It is paused, so dancers do not see it.',
-    detailsSavedAll: 'Saved for all dates. It is paused, so dancers do not see it. A date with its own pictures keeps them.',
-    pricesSavedAll: 'Prices saved. It is paused, so dancers do not see them.',
-    savedEvery: 'Saved for every date. It is paused, so dancers do not see it.',
-    savedDate: (day) => `Saved for ${day} only. It is paused, so dancers do not see it.`,
-    addedEvery: 'Session added to every date. It is paused, so dancers do not see it.',
-    addedDate: (day) => `Added to ${day} only. It is paused, so dancers do not see it.`,
+    detailsSavedOne: 'Saved. It is hidden from the calendar.',
+    detailsSavedAll: 'Saved for all dates. It is hidden from the calendar. A date with its own pictures keeps them.',
+    pricesSavedAll: 'Prices saved. The event is hidden from the calendar.',
+    savedEvery: 'Saved for every date. It is hidden from the calendar.',
+    savedDate: (day) => `Saved for ${day} only. It is hidden from the calendar.`,
+    addedEvery: 'Session added to every date. It is hidden from the calendar.',
+    addedDate: (day) => `Added to ${day} only. It is hidden from the calendar.`,
   },
   quiet: {
     detailsSavedOne: 'Saved.',

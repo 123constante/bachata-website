@@ -3,10 +3,11 @@ import { saveWordsFor } from '../saveWords';
 
 /**
  * Every P3 save message x {one date, many} x every series lifecycle_status (prod 2026-11-02: archived 653,
- * live 69, ended 21, draft 14, paused 2) plus cancelled, null and an unknown value. Only a live event may
+ * live 69, ended 21, draft 14, paused 2) plus cancelled, null, the empty string (what seriesModel passes for a
+ * null lifecycle_status) and an unknown value. Only a live event may
  * say dancers see it now; the live column is main's words byte for byte.
  */
-const LIFECYCLES = ['live', 'draft', 'paused', 'ended', 'archived', 'cancelled', null, 'mystery'] as const;
+const LIFECYCLES = ['live', 'draft', 'paused', 'ended', 'archived', 'cancelled', null, '', 'mystery'] as const;
 const DAY = 'Fri 6 Nov';
 type Msg = 'detailsSaved' | 'pricesSaved' | 'savedEvery' | 'savedDate' | 'addedEvery' | 'addedDate';
 const MSGS: Msg[] = ['detailsSaved', 'pricesSaved', 'savedEvery', 'savedDate', 'addedEvery', 'addedDate'];
@@ -49,7 +50,11 @@ describe('saveWordsFor(oneDate, lifecycle): every save message x date count x li
     }
     expect(text).not.toMatch(/dancers see (it|them) now/i);
     if (life === 'draft') expect(text).toMatch(/as a draft\. Dancers do not see (it|them) yet\.$|as a draft\. Dancers do not see (it|them) yet\. A date/);
-    else if (life === 'paused') expect(text).toMatch(/paused, so dancers do not see (it|them)\./);
+    else if (life === 'paused') {
+      // P3 calls a paused event Hidden (labels.ts); a paused page can still show on the public site, so no dancer claim.
+      expect(text).toMatch(/hidden from the calendar\./);
+      expect(text).not.toMatch(/dancers|paused/i);
+    }
     else expect(text).not.toMatch(/dancers/i);
     expect(text).not.toMatch(/[\u2013\u2014\u2026]/);
   });
