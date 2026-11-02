@@ -159,7 +159,7 @@ test.describe('the step table', () => {
   test('05 join + 06 done: one tap, the done screen, the token gone from the address bar', async ({ page }) => {
     await openInvite(page, { signedIn: true });
     await expectStep(page, 'join');
-    await expect(page.getByTestId('join-progress-count')).toHaveText('Step 2 of 2');
+    await expect(page.getByTestId('join-progress-count')).toHaveText('Step 3 of 3');
     await expect(page.getByTestId('join-org-card')).toContainText(ORG);
     await screenOk(page, '05-join', 'invite-join');
     await page.getByTestId('invite-join').click();

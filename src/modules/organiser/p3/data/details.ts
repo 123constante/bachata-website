@@ -5,7 +5,7 @@ import { venueOverridePatch } from '../../dates/venueOverride';
 import { linkProblem } from '../../shared/linkRules';
 import { groupChatCommand, upsertCommand, type OwnerCommand } from '../../shared/seriesCommands';
 import { MAX_DESCRIPTION } from '../../events/EditorSheet';
-import { MUSIC_STYLES, MAX_VIDEOS, type EventWorkspace } from '../../events/eventModel';
+import { MUSIC_STYLES, MAX_VIDEOS, MAX_GALLERY, type EventWorkspace } from '../../events/eventModel';
 import { L } from '../model/labels';
 import { changedKeys, type FieldSpec } from '../model/saveModel';
 
@@ -26,6 +26,8 @@ export interface DetailsDraft {
   /** One video link per line. */
   videos: string;
   chat: string;
+  /** The series pictures (event_series_p5.default_gallery), in order. */
+  gallery: string[];
 }
 
 export type DetailsField = keyof DetailsDraft;
@@ -49,6 +51,7 @@ export function detailsDraftOf(ws: EventWorkspace): DetailsDraft {
     instagram: s.instagram_url ?? '',
     videos: ws.videoUrls.join('\n'),
     chat: groupChatOf(ws),
+    gallery: [...ws.gallery],
   };
 }
 
@@ -72,9 +75,11 @@ export const DETAILS_SPECS: ReadonlyArray<FieldSpec<DetailsDraft>> = [
   { key: 'venueId', line: () => L.detailsWhere },
   { key: 'ticket', line: () => L.ticket },
   { key: 'cover', line: () => L.detailsCover },
+  { key: 'gallery', line: (d) => `${L.detailsPictures}: ${d.gallery.length}`, same: (a, b) => sameList(a, b) },
   { key: 'instagram', line: () => L.instagram, same: (a, b) => instagramToSend(String(a)) === instagramToSend(String(b)) },
   { key: 'videos', line: (d) => `${L.detailsVideos}: ${videoList(d.videos).length}`, same: (a, b) => sameList(videoList(String(a)), videoList(String(b))) },
   { key: 'chat', line: () => L.detailsChat },
+  { key: 'gallery', line: (d) => `${L.detailsPictures}: ${d.gallery.length}`, same: (a, b) => sameList(a, b) },
 ];
 
 /** The Instagram link as sent: a handle becomes its instagram.com address (the owner rule takes links only). */
@@ -99,6 +104,7 @@ export function detailsProblems(base: DetailsDraft, draft: DetailsDraft): Partia
   if (!name) out.name = L.detailsNameNeeded;
   else if (name.length > MAX_NAME) out.name = L.detailsTooLong(MAX_NAME);
   if (draft.description.trim().length > MAX_DESCRIPTION) out.description = L.detailsTooLong(MAX_DESCRIPTION);
+  if (draft.gallery.length > MAX_GALLERY) out.gallery = L.datePhotosMax(MAX_GALLERY);
   const ticket = linkProblem('ticket', draft.ticket);
   if (ticket) out.ticket = ticket;
   const ig = linkProblem('instagram', draft.instagram);
@@ -109,6 +115,7 @@ export function detailsProblems(base: DetailsDraft, draft: DetailsDraft): Partia
   else if (vids.length > MAX_VIDEOS) out.videos = L.detailsTooManyVideos(MAX_VIDEOS);
   const chat = chatProblem(draft.chat);
   if (chat) out.chat = chat;
+  if (draft.gallery.length > MAX_GALLERY) out.gallery = L.detailsPicturesMax(MAX_GALLERY);
   if (!draft.venueId && base.venueId) out.venueId = L.detailsWhereNeeded;
   return out;
 }
@@ -164,7 +171,9 @@ export function detailsPlan(base: DetailsDraft, draft: DetailsDraft, cityId: str
   }
   if (changed.has('ticket')) payload.default_ticket_url = draft.ticket.trim();
   if (changed.has('cover')) payload.default_cover_image_url = draft.cover.trim();
+  if (changed.has('gallery')) payload.default_gallery = draft.gallery;
   if (changed.has('instagram')) payload.instagram_url = instagramToSend(draft.instagram);
+  if (changed.has('gallery')) payload.default_gallery = draft.gallery.map((v) => v.trim()).filter(Boolean);
   if (changed.has('videos')) payload.default_video_urls = videoList(draft.videos);
   const plan: OwnerCommand[] = [];
   if (changed.has('name') || Object.keys(payload).length) plan.push(upsertCommand({ name: draft.name.trim(), ...payload }));

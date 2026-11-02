@@ -11,9 +11,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * DECLINED_VISIBLE_DAYS. A later open, granted or member row for the same
  * organiser supersedes an older decline, so "asked again" never shows both.
  *
- * The admin's reason is NOT here: list_organiser_access_requests_v1('mine')
- * returns the requester's own message, not the decision note, and the decision
- * row is not readable by the requester. The UI says so honestly.
+ * The admin's reason, when there is one: list_organiser_access_requests_v1('mine')
+ * returns `decision_note` for the caller's own DECLINED rows only (scoped to
+ * auth.uid() server-side). fetchMyAccessRequests maps it to `decisionNote`
+ * (trimmed, blank becomes null).
  */
 export function declinedRequests(requests: readonly MyAccessRequest[], now: Date = new Date()): MyAccessRequest[] {
   const newest = new Map<string, MyAccessRequest>();

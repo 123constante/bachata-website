@@ -14,6 +14,7 @@ import { EventConflict } from '../event/parts';
 import { NO_COMING } from '@/modules/organiser/shared/copy';
 import { BULK_REFUSED_REASON, bulkResult, changeDateList, findSeries, seriesLock, shiftPastProblem, shiftRefusal } from './changeModel';
 import { runBulkCommand } from './bulkApi';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 import { useChangeHome, useSeriesWorkspace } from './useChange';
 import { Failed, Loading, Missing, Refusal, Step, StepList } from './parts';
 
@@ -90,6 +91,7 @@ export default function Pick() {
         // Every moved or cancelled date's own reads (detail, sessions) carry its old version.
         void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(undefined).slice(0, 1) });
         void queryClient.invalidateQueries({ queryKey: occurrenceProgrammeQueryKey(undefined).slice(0, 1) });
+        invalidatePublicEventCaches(queryClient);
       }
     };
 

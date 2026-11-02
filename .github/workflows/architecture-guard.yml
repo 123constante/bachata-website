@@ -152,6 +152,14 @@ jobs:
           npm run check:workflow-artifact-policy:self-test
           npm run check:workflow-artifact-policy
 
+      # P3 walk specs must RUN in the e2e gate, not skip (review of #1208, F4). Static:
+      # reads package.json test:e2e, e2e-smoke.yml and the specs. Canary first.
+      - name: P3 specs not skipped in e2e-smoke (canary, then the guard)
+        if: steps.changes.outputs.docs_only != 'true'
+        run: |
+          npm run check:p3-specs-not-skipped:self-test
+          npm run check:p3-specs-not-skipped
+
       # cp1252→UTF-8 mojibake reintroduction guard. Fires when the
       # byte signature of a misinterpreted UTF-8 sequence (e.g. `â€"`,
       # `â˜…`, `â†'`, `Â·`, `Ã—`) lands in tracked source. The repo was

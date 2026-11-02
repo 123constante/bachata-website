@@ -128,7 +128,7 @@ export function useSaveRun(seriesId: string) {
   return { run, busy, error, clearError: () => setError(null), forget };
 }
 
-type Ask = { kind: 'undo' } | { kind: 'leave'; go: () => void } | { kind: 'list' } | null;
+export type Ask = { kind: 'undo' } | { kind: 'leave'; go: () => void } | { kind: 'list' } | null;
 
 const IDLE_BLOCKER = { state: 'unblocked', proceed: undefined, reset: undefined, location: undefined } as Blocker;
 let blockerSeq = 0;
@@ -164,7 +164,7 @@ function useRouterBlocker(): Blocker {
  * The leave guard: the router blocker (back, links, the tab bar under the data router), the
  * store's own asking for the Back link where there is no data router, and the tab-close warning.
  */
-function useLeave(dirty: boolean, setAsk: (a: Ask) => void) {
+export function useLeave(dirty: boolean, setAsk: (a: Ask) => void) {
   useLeaveGuard(dirty);
   const blocker = useRouterBlocker();
   const open = useCallback((go: () => void) => setAsk({ kind: 'leave', go }), [setAsk]);
@@ -186,12 +186,14 @@ export function GuardedBack({ to, children }: { to: string; children: ReactNode 
   return <Link className="p3-link" to={to} onClick={click} data-testid="p3-edit-back">&larr; {L.back}</Link>;
 }
 
-export function EditTray({ lines, elsewhere, problem, lock, busy, error, onSave, onUndo, onRestart, labels }: {
+export function EditTray({ lines, elsewhere, problem, lock, busy, uploading = false, error, onSave, onUndo, onRestart, labels }: {
   lines: string[];
   elsewhere: boolean;
   problem: string | null;
   lock?: string | null;
   busy: boolean;
+  /** A photo is still uploading: Save and Undo wait, and leaving asks (the photo would be lost). */
+  uploading?: boolean;
   error: string | null;
   onSave: () => void;
   onUndo: () => void;
@@ -199,12 +201,12 @@ export function EditTray({ lines, elsewhere, problem, lock, busy, error, onSave,
   labels?: { save: string; nothing: string };
 }) {
   const [ask, setAsk] = useState<Ask>(null);
-  const blocker = useLeave(lines.length > 0, setAsk);
+  const blocker = useLeave(lines.length > 0 || uploading, setAsk);
   const close = () => {
     if (blocker.state === 'blocked') blocker.reset?.();
     setAsk(null);
   };
-  const btn = saveButton({ changed: lines.length, problem, lock: lock ?? null, busy, labels: labels ?? { save: L.saveAll, nothing: L.nothingChanged } });
+  const btn = saveButton({ changed: lines.length, problem, lock: lock ?? null, busy: busy || uploading, labels: labels ?? { save: L.saveAll, nothing: L.nothingChanged } });
   return (
     <>
       {lines.length > 0 && (
@@ -223,7 +225,7 @@ export function EditTray({ lines, elsewhere, problem, lock, busy, error, onSave,
         {error && <p className="p3-error" role="alert" data-testid="p3-save-error">{error}</p>}
         {lines.length > 0 && (
           <div className="p3-tray-row">
-            <button type="button" className="p3-link" disabled={busy} onClick={() => setAsk({ kind: 'undo' })} data-testid="p3-undo-mine">{L.undoMine}</button>
+            <button type="button" className="p3-link" disabled={busy || uploading} onClick={() => setAsk({ kind: 'undo' })} data-testid="p3-undo-mine">{L.undoMine}</button>
           </div>
         )}
         <button type="button" className="p3-btn" disabled={!btn.enabled} onClick={onSave} data-testid="p3-save">{busy ? L.saving : btn.label}</button>
