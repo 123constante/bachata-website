@@ -198,7 +198,7 @@ describe("/api/revalidate stateChange: hard-delete event-<id> only", () => {
     vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
     vi.stubEnv("CLOUDFLARE_ZONE_ID", ZONE);
     vi.stubEnv("VERCEL_ENV", "production");
-    const fetchSpy = vi.fn(async () => new Response('{"success":true}'));
+    const fetchSpy = vi.fn(async (_u: RequestInfo | URL, _i?: RequestInit) => new Response('{"success":true}'));
     vi.stubGlobal("fetch", fetchSpy);
     invalidateByTag.mockRejectedValue(new Error("vercel soft down"));
     vi.useFakeTimers();
@@ -229,7 +229,7 @@ describe("/api/revalidate stateChange: hard-delete event-<id> only", () => {
     vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
     vi.stubEnv("CLOUDFLARE_ZONE_ID", ZONE);
     vi.stubEnv("VERCEL_ENV", "production");
-    const fetchSpy = vi.fn(async () => new Response('{"success":true}'));
+    const fetchSpy = vi.fn(async (_u: RequestInfo | URL, _i?: RequestInit) => new Response('{"success":true}'));
     vi.stubGlobal("fetch", fetchSpy);
     vi.useFakeTimers();
     try {
