@@ -1,0 +1,621 @@
+[
+  {
+    "life": "draft",
+    "dates": "one",
+    "screen": "details",
+    "expected": "Saved as a draft. Dancers do not see it yet.",
+    "file": "draft-one-details.png",
+    "toast": {
+      "text": "Saved as a draft. Dancers do not see it yet.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "draft",
+    "dates": "one",
+    "screen": "prices",
+    "expected": "Saved as a draft. Dancers do not see it yet.",
+    "file": "draft-one-prices.png",
+    "toast": {
+      "text": "Saved as a draft. Dancers do not see it yet.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Save",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "draft",
+    "dates": "one",
+    "screen": "session",
+    "expected": "Session added to every date as a draft. Dancers do not see it yet.",
+    "file": "draft-one-session.png",
+    "toast": {
+      "text": "Session added to every date as a draft. Dancers do not see it yet.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Add this session",
+    "saveBox": {
+      "x": 16,
+      "y": 795.875,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "draft",
+    "dates": "several",
+    "screen": "details",
+    "expected": "Saved for all dates as a draft. Dancers do not see it yet. A date with its own pictures keeps them.",
+    "file": "draft-several-details.png",
+    "toast": {
+      "text": "Saved for all dates as a draft. Dancers do not see it yet. A date with its own pictures keeps them.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save for all dates",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "draft",
+    "dates": "several",
+    "screen": "prices",
+    "expected": "Prices saved as a draft. Dancers do not see them yet.",
+    "file": "draft-several-prices.png",
+    "toast": {
+      "text": "Prices saved as a draft. Dancers do not see them yet.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save for all dates",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "draft",
+    "dates": "several",
+    "screen": "session",
+    "expected": "Session added to every date as a draft. Dancers do not see it yet.",
+    "file": "draft-several-session.png",
+    "toast": {
+      "text": "Session added to every date as a draft. Dancers do not see it yet.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Add this session",
+    "saveBox": {
+      "x": 16,
+      "y": 795.875,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "live",
+    "dates": "one",
+    "screen": "details",
+    "expected": "Saved. Dancers see it now.",
+    "file": "live-one-details.png",
+    "toast": {
+      "text": "Saved. Dancers see it now.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "live",
+    "dates": "one",
+    "screen": "prices",
+    "expected": "Saved. Dancers see it now.",
+    "file": "live-one-prices.png",
+    "toast": {
+      "text": "Saved. Dancers see it now.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "live",
+    "dates": "one",
+    "screen": "session",
+    "expected": "Session added to every date. Dancers see it now.",
+    "file": "live-one-session.png",
+    "toast": {
+      "text": "Session added to every date. Dancers see it now.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Add this session",
+    "saveBox": {
+      "x": 16,
+      "y": 795.875,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "live",
+    "dates": "several",
+    "screen": "details",
+    "expected": "Saved for all dates. Dancers see it now. A date with its own pictures keeps them.",
+    "file": "live-several-details.png",
+    "toast": {
+      "text": "Saved for all dates. Dancers see it now. A date with its own pictures keeps them.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save for all dates",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "live",
+    "dates": "several",
+    "screen": "prices",
+    "expected": "Prices saved. Dancers see them now.",
+    "file": "live-several-prices.png",
+    "toast": {
+      "text": "Prices saved. Dancers see them now.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save for all dates",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "live",
+    "dates": "several",
+    "screen": "session",
+    "expected": "Session added to every date. Dancers see it now.",
+    "file": "live-several-session.png",
+    "toast": {
+      "text": "Session added to every date. Dancers see it now.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Add this session",
+    "saveBox": {
+      "x": 16,
+      "y": 795.875,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "paused",
+    "dates": "one",
+    "screen": "details",
+    "expected": "Saved. It is hidden from the calendar.",
+    "file": "paused-one-details.png",
+    "toast": {
+      "text": "Saved. It is hidden from the calendar.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [],
+    "saveLabel": "Save",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "paused",
+    "dates": "one",
+    "screen": "prices",
+    "expected": "Saved. It is hidden from the calendar.",
+    "file": "paused-one-prices.png",
+    "toast": {
+      "text": "Saved. It is hidden from the calendar.",
+      "box": {
+        "x": 16,
+        "y": 724,
+        "w": 358,
+        "h": 44
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Save",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "paused",
+    "dates": "one",
+    "screen": "session",
+    "expected": "Session added to every date. It is hidden from the calendar.",
+    "file": "paused-one-session.png",
+    "toast": {
+      "text": "Session added to every date. It is hidden from the calendar.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Add this session",
+    "saveBox": {
+      "x": 16,
+      "y": 795.875,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "paused",
+    "dates": "several",
+    "screen": "details",
+    "expected": "Saved for all dates. It is hidden from the calendar. A date with its own pictures keeps them.",
+    "file": "paused-several-details.png",
+    "toast": {
+      "text": "Saved for all dates. It is hidden from the calendar. A date with its own pictures keeps them.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save for all dates",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "paused",
+    "dates": "several",
+    "screen": "prices",
+    "expected": "Prices saved. The event is hidden from the calendar.",
+    "file": "paused-several-prices.png",
+    "toast": {
+      "text": "Prices saved. The event is hidden from the calendar.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/"
+    ],
+    "saveLabel": "Save for all dates",
+    "saveBox": {
+      "x": 16,
+      "y": 716,
+      "width": 358,
+      "height": 44
+    }
+  },
+  {
+    "life": "paused",
+    "dates": "several",
+    "screen": "session",
+    "expected": "Session added to every date. It is hidden from the calendar.",
+    "file": "paused-several-session.png",
+    "toast": {
+      "text": "Session added to every date. It is hidden from the calendar.",
+      "box": {
+        "x": 16,
+        "y": 720.8125,
+        "w": 358,
+        "h": 47.1875
+      },
+      "inViewport": true,
+      "topmost": true,
+      "overTray": false,
+      "overSheet": false,
+      "textClipped": false,
+      "tapTargets": [],
+      "overflowX": 0
+    },
+    "consoleErrors": [
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La",
+      "Query error: Error: progress_bad_shape\n    at parseProfileProgress (http://127.0.0.1:4173/src/modules/organiser/shared/profileProgress.ts:9:168)\n    at fetchProfileProgress (http://127.0.0.1:4173/src/",
+      "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4173/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=9e0e106b:10258:18)\n    at head\n    at html\n    at La"
+    ],
+    "saveLabel": "Add this session",
+    "saveBox": {
+      "x": 16,
+      "y": 795.875,
+      "width": 358,
+      "height": 44
+    }
+  }
+]
