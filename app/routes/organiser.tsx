@@ -142,7 +142,7 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
   await (feeds ?? startFeeds());
 
   // A page rendered while a feed was failing is a degraded page: it must not
-  // be stored anywhere. Untagged, cacheHeaders() emits browser no-store and no
+  // be stored anywhere. Untagged, cacheHeaders() emits max-age=0, must-revalidate and no
   // edge cache at all (see ../detailLoader), so the next request renders fresh.
   const feedFailed = [
     organiserEventsQueryKey(ref.id as string),

@@ -122,6 +122,14 @@ async function renderPage() {
 
 const errLine = (feed: 'upcoming' | 'past' | 'team') => screen.queryByTestId(`org-feed-error-${feed}`);
 const bodyText = () => document.body.textContent ?? '';
+// Hero stats strip: a stat is a value div followed by its label div.
+const STAT_LABELS = ['Upcoming dates', 'Past nights', 'Team members', 'Yrs active', 'Since'] as const;
+const stat = (label: string) => {
+  const el = Array.from(document.querySelectorAll('div')).find(
+    (d) => d.textContent === label && d.children.length === 0 && d.previousElementSibling && d.parentElement?.children.length === 2,
+  );
+  return el ? (el.previousElementSibling as HTMLElement).textContent : null;
+};
 
 describe('public organiser page: a failed feed is an error state, never an empty state', () => {
   it.each(CASES)('upcoming=$upcoming past=$past team=$team', async (c) => {
@@ -150,6 +158,13 @@ describe('public organiser page: a failed feed is an error state, never an empty
     else expect(errLine('team')).toBeNull();
     expect(bodyText().includes('Teachers & DJs')).toBe(c.team === 'data');
 
+    // F1: the hero stats strip never shows a number for a failed feed -- the
+    // stat is HIDDEN (owner rule: no 0, no dash). A healthy zero is unchanged.
+    if (c.upcoming === 'error') expect(stat('Upcoming dates'), 'Upcoming dates hidden while future feed failed').toBeNull();
+    else expect(stat('Upcoming dates')).toBe(c.upcoming === 'data' ? '1' : '0');
+    if (c.past === 'error') expect(stat('Past nights'), 'Past nights hidden while past feed failed').toBeNull();
+    else expect(stat('Past nights')).toBe(c.past === 'data' ? '1' : '0');
+
     const empty = screen.queryByTestId('org-public-empty');
     if (anyError) {
       expect(empty, 'no empty-state box while a feed has failed').toBeNull();
@@ -176,6 +191,26 @@ describe('public organiser page: a failed feed is an error state, never an empty
     expect(errLine('past')).not.toBeNull();
     expect(screen.queryByTestId('org-public-empty')).toBeNull();
     for (const re of EMPTY_COPY) expect(bodyText()).not.toMatch(re);
+    // F1: every events-derived stat is hidden, none shows 0 or a dash.
+    for (const label of STAT_LABELS) {
+      if (label === 'Team members') continue; // team feed is healthy-empty here
+      expect(stat(label), `${label} hidden while events feed failed`).toBeNull();
+    }
+  });
+
+  it('events feed failing with a healthy team: the team stat still shows its real number', async () => {
+    s.upcoming = 'data'; s.past = 'data'; s.team = 'data'; s.eventsError = true;
+    await renderPage();
+    expect(stat('Upcoming dates')).toBeNull();
+    expect(stat('Past nights')).toBeNull();
+    expect(stat('Team members')).toBe('1');
+  });
+
+  it('healthy zero (all feeds ok, nothing listed): strip unchanged, shows 0', async () => {
+    s.upcoming = 'empty'; s.past = 'empty'; s.team = 'empty';
+    await renderPage();
+    expect(stat('Upcoming dates')).toBe('0');
+    expect(stat('Past nights')).toBe('0');
   });
 
   it.each(['upcoming', 'past', 'team'] as const)('retry on the %s error line refetches and shows the content', async (feed) => {

@@ -5,8 +5,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // the loader dehydrated that `[]` as a SUCCESS and cache-tagged the response,
 // so one blip during SSR rendered "No nights listed yet" for an organiser with
 // 200 events. Now: the failed feed is NOT dehydrated (the client refetches it)
-// and the response carries NO cache tag (cacheHeaders -> browser no-store, no
-// edge cache). The real feed fetchers run here; only supabase.rpc is faked.
+// and the response carries NO cache tag (cacheHeaders -> max-age=0,
+// must-revalidate, no edge cache). The real feed fetchers run here; only supabase.rpc is faked.
 
 const rpc = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { rpc } }));
@@ -40,8 +40,11 @@ function fakeRpc(failing: Set<Feed>) {
   });
 }
 
+// F2: import the route once at module level (after the mocks and `rpc` exist),
+// so the cold import cost is not paid under the first test's 5 s timeout.
+const { loader } = await import("./organiser");
+
 async function run() {
-  const { loader } = await import("./organiser");
   const request = new Request(`https://www.bachatacalendar.co.uk/organisers/org`);
   const out = (await loader({ params: { id: "org" }, request } as never)) as unknown;
   // taggedData returns react-router's data() wrapper; an untagged return is the bare payload.

@@ -1381,11 +1381,14 @@ const OrganiserProfile = () => {
 
         {/* Stats strip */}
         <div className="flex justify-around py-3 px-5" style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+          {/* F1 (S1): a stat whose feed FAILED is hidden -- never a false 0 or
+              a dash. The third stat is events-derived (earliest event year)
+              unless a team or a founded year supplies it. */}
           {[
-            { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
-            { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },
-            { value: thirdStatValue,           label: thirdStatLabel,    title: thirdStatTitle, href: undefined },
-          ].map((s) => {
+            { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined, failed: upcomingFailed },
+            { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined, failed: pastFailed },
+            { value: thirdStatValue,           label: thirdStatLabel,    title: thirdStatTitle, href: undefined, failed: allEventsError && orderedTeam.length === 0 && foundedYear === null },
+          ].filter((s) => !s.failed).map((s) => {
             const body = (
               <>
                 <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
