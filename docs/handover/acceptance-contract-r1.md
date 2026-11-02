@@ -47,6 +47,11 @@ N1-N5 and N7. N6 needed no change.
 - How many series carry prices was not counted (C25 shows an upper bound).
 - The 320 px coverage of `organiser-layout.spec.ts` was not checked.
 
+## Checks (PR #1259, fix-round push 645efbc)
+At hand-off these were green: integrity, e2e-smoke, live-db-gate, bundle-budget, real-data-verified, phone-qa-section,
+unit (New York), dancer-area-isolation, wallclock-brand, bom-check, masking-check. Still running: unit (London,
+Sydney) and notification-check. The preview-gated jobs were skipped (`[skip preview]`). The final push re-runs everything.
+
 ## Next
 1. The owner decides C15e: add claim e-mails to the 35 pages, issue invites, or change the card. The owner also decides
    C12, C17 and the C26 R1 cancel-reason conflict.
