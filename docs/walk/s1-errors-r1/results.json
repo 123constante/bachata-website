@@ -1,0 +1,568 @@
+[
+ {
+  "key": "all-ok",
+  "label": "all ok, upcoming + past",
+  "fail": [],
+  "up": true,
+  "past": true,
+  "team": true,
+  "id": "a0000000-0000-4000-8000-000000000501",
+  "slug": "s1-all-ok-walk",
+  "tag": "01",
+  "before": {
+   "stats": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "2 TEAM MEMBERS"
+   ],
+   "errs": [],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [],
+   "upcomingList": 3,
+   "upcomingSection": true,
+   "pastSection": true,
+   "teamSection": true
+  },
+  "retry": "n/a (no error line)",
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 23,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102"
+  ],
+  "failedLoads": 0,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "up-fail",
+  "label": "upcoming feed fails",
+  "fail": [
+   "cal"
+  ],
+  "up": true,
+  "past": true,
+  "id": "a0000000-0000-4000-8000-000000000502",
+  "slug": "s1-up-fail-walk",
+  "tag": "02",
+  "before": {
+   "stats": [
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "errs": [
+    "upcoming"
+   ],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [
+    "Couldn’t load dates. Try again"
+   ],
+   "upcomingList": 0,
+   "upcomingSection": false,
+   "pastSection": true,
+   "teamSection": false
+  },
+  "retry": {
+   "tapBox": {
+    "w": 85,
+    "h": 44
+   },
+   "errsAfter": [],
+   "statsAfter": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "upcomingSection": true,
+   "pastSection": true,
+   "emptyKind": null
+  },
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 15,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102",
+   "Query error: Error: walk: feed failed\n    at throwFeedError (http://127.0.0.1:4187/src/modules/profile/organiserPublicProfile.ts:44:20)\n    at fetchOrganiserFut"
+  ],
+  "failedLoads": 2,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "past-fail",
+  "label": "past feed fails",
+  "fail": [
+   "past"
+  ],
+  "up": true,
+  "past": true,
+  "id": "a0000000-0000-4000-8000-000000000503",
+  "slug": "s1-past-fail-walk",
+  "tag": "03",
+  "before": {
+   "stats": [
+    "3 UPCOMING DATES",
+    "~1 YRS ACTIVE"
+   ],
+   "errs": [
+    "past"
+   ],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [
+    "Couldn’t load past dates. Try again"
+   ],
+   "upcomingList": 3,
+   "upcomingSection": true,
+   "pastSection": false,
+   "teamSection": false
+  },
+  "retry": {
+   "tapBox": {
+    "w": 85,
+    "h": 44
+   },
+   "errsAfter": [],
+   "statsAfter": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "upcomingSection": true,
+   "pastSection": true,
+   "emptyKind": null
+  },
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 21,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102",
+   "Query error: Error: walk: feed failed\n    at throwFeedError (http://127.0.0.1:4187/src/modules/profile/organiserPublicProfile.ts:44:20)\n    at fetchOrganiserPas"
+  ],
+  "failedLoads": 2,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "events-fail",
+  "label": "events feed fails (both lists)",
+  "fail": [
+   "events"
+  ],
+  "up": true,
+  "past": true,
+  "id": "a0000000-0000-4000-8000-000000000504",
+  "slug": "s1-events-fail-walk",
+  "tag": "04",
+  "before": {
+   "stats": [],
+   "errs": [
+    "upcoming",
+    "past"
+   ],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [
+    "Couldn’t load dates. Try again",
+    "Couldn’t load past dates. Try again"
+   ],
+   "upcomingList": 0,
+   "upcomingSection": false,
+   "pastSection": false,
+   "teamSection": false
+  },
+  "retry": {
+   "tapBox": {
+    "w": 85,
+    "h": 44
+   },
+   "errsAfter": [],
+   "statsAfter": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "upcomingSection": true,
+   "pastSection": true,
+   "emptyKind": null
+  },
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 13,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102",
+   "Query error: Error: walk: feed failed\n    at throwFeedError (http://127.0.0.1:4187/src/modules/profile/organiserPublicProfile.ts:44:20)\n    at fetchOrganiserEve"
+  ],
+  "failedLoads": 2,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "team-fail",
+  "label": "team roster fails",
+  "fail": [
+   "team"
+  ],
+  "up": true,
+  "past": true,
+  "id": "a0000000-0000-4000-8000-000000000505",
+  "slug": "s1-team-fail-walk",
+  "tag": "05",
+  "before": {
+   "stats": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "errs": [
+    "team"
+   ],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [
+    "Couldn’t load the team. Try again"
+   ],
+   "upcomingList": 3,
+   "upcomingSection": true,
+   "pastSection": true,
+   "teamSection": false
+  },
+  "retry": {
+   "tapBox": {
+    "w": 85,
+    "h": 44
+   },
+   "errsAfter": [],
+   "statsAfter": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "upcomingSection": true,
+   "pastSection": true,
+   "emptyKind": null
+  },
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 23,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102",
+   "Query error: Error: walk: feed failed\n    at queryFn (http://127.0.0.1:4187/src/pages/OrganiserProfile.tsx:864:25) {queryKey: Array(2)}"
+  ],
+  "failedLoads": 2,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "all-fail",
+  "label": "all fail",
+  "fail": [
+   "cal",
+   "past",
+   "events",
+   "team"
+  ],
+  "up": true,
+  "past": true,
+  "id": "a0000000-0000-4000-8000-000000000506",
+  "slug": "s1-all-fail-walk",
+  "tag": "06",
+  "before": {
+   "stats": [],
+   "errs": [
+    "upcoming",
+    "past",
+    "team"
+   ],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [
+    "Couldn’t load dates. Try again",
+    "Couldn’t load past dates. Try again",
+    "Couldn’t load the team. Try again"
+   ],
+   "upcomingList": 0,
+   "upcomingSection": false,
+   "pastSection": false,
+   "teamSection": false
+  },
+  "retry": {
+   "tapBox": {
+    "w": 85,
+    "h": 44
+   },
+   "errsAfter": [
+    "past",
+    "team"
+   ],
+   "statsAfter": [
+    "3 UPCOMING DATES",
+    "~1 YRS ACTIVE"
+   ],
+   "upcomingSection": true,
+   "pastSection": false,
+   "emptyKind": null
+  },
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 13,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102",
+   "Query error: Error: walk: feed failed\n    at throwFeedError (http://127.0.0.1:4187/src/modules/profile/organiserPublicProfile.ts:44:20)\n    at fetchOrganiserEve",
+   "Query error: Error: walk: feed failed\n    at throwFeedError (http://127.0.0.1:4187/src/modules/profile/organiserPublicProfile.ts:44:20)\n    at fetchOrganiserFut",
+   "Query error: Error: walk: feed failed\n    at throwFeedError (http://127.0.0.1:4187/src/modules/profile/organiserPublicProfile.ts:44:20)\n    at fetchOrganiserPas",
+   "Query error: Error: walk: feed failed\n    at queryFn (http://127.0.0.1:4187/src/pages/OrganiserProfile.tsx:864:25) {queryKey: Array(2)}"
+  ],
+  "failedLoads": 8,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "empty-none",
+  "label": "real empty: no events",
+  "fail": [],
+  "id": "a0000000-0000-4000-8000-000000000507",
+  "slug": "s1-empty-none-walk",
+  "tag": "07",
+  "before": {
+   "stats": [
+    "0 UPCOMING DATES",
+    "0 PAST NIGHTS",
+    "-- SINCE"
+   ],
+   "errs": [],
+   "emptyKind": "none",
+   "emptyText": "No nights listed yet Walk S07 hasn’t listed any nights here yet. Check back soon, or see what’s on elsewhere in London. Browse upcoming nights",
+   "errText": [],
+   "upcomingList": 0,
+   "upcomingSection": false,
+   "pastSection": false,
+   "teamSection": false
+  },
+  "retry": "n/a (no error line)",
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 16,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102"
+  ],
+  "failedLoads": 0,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "empty-past-only",
+  "label": "real empty: past only",
+  "fail": [],
+  "past": true,
+  "id": "a0000000-0000-4000-8000-000000000508",
+  "slug": "s1-empty-past-only-walk",
+  "tag": "08",
+  "before": {
+   "stats": [
+    "0 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "errs": [],
+   "emptyKind": "past-only",
+   "emptyText": "No upcoming nights Walk S08 has nothing on the calendar right now. See what’s on elsewhere in London. Browse upcoming nights",
+   "errText": [],
+   "upcomingList": 0,
+   "upcomingSection": false,
+   "pastSection": true,
+   "teamSection": false
+  },
+  "retry": "n/a (no error line)",
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": null,
+  "contrastIncomplete": 17,
+  "contrastBelow45": 0,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102"
+  ],
+  "failedLoads": 0,
+  "problems": [],
+  "nav": 0
+ },
+ {
+  "key": "owner-no-bio",
+  "label": "claimed owner, no bio",
+  "fail": [],
+  "up": true,
+  "past": true,
+  "owner": true,
+  "noBio": true,
+  "id": "a0000000-0000-4000-8000-000000000509",
+  "slug": "s1-owner-no-bio-walk",
+  "tag": "09",
+  "before": {
+   "stats": [
+    "3 UPCOMING DATES",
+    "4 PAST NIGHTS",
+    "~1 YRS ACTIVE"
+   ],
+   "errs": [],
+   "emptyKind": null,
+   "emptyText": null,
+   "errText": [],
+   "upcomingList": 3,
+   "upcomingSection": true,
+   "pastSection": true,
+   "teamSection": false
+  },
+  "retry": "n/a (no error line)",
+  "small": [
+   {
+    "el": "a \"Skip to content\"",
+    "w": 1,
+    "h": 1,
+    "vis": true,
+    "inline": false
+   },
+   {
+    "el": "button \"Edit city\"",
+    "w": 32,
+    "h": 44,
+    "vis": true,
+    "inline": false
+   },
+   {
+    "el": "button \"Edit year started\"",
+    "w": 32,
+    "h": 44,
+    "vis": true,
+    "inline": false
+   },
+   {
+    "el": "button \"Edit category\"",
+    "w": 32,
+    "h": 44,
+    "vis": true,
+    "inline": false
+   }
+  ],
+  "overflow": {
+   "scrollWidth": 390,
+   "w": 390
+  },
+  "lowestContrast": {
+   "ratio": 4.12,
+   "target": "li[data-eip-link=\"instagram\"] > span[title=\"\"]",
+   "inc": false
+  },
+  "contrastIncomplete": 34,
+  "contrastBelow45": 3,
+  "consoleErrors": [
+   "Warning: Extra attributes from the server: %s%s nonce \n    at style\n    at Links (http://127.0.0.1:4187/node_modules/.vite/deps/chunk-D4PVS6J5.js?v=6537c073:102"
+  ],
+  "failedLoads": 0,
+  "problems": [],
+  "nav": 0
+ }
+]
