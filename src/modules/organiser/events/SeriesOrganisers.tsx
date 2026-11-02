@@ -7,6 +7,7 @@ import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { EventConflict, StepError, useEventSend } from '@/modules/organiser/flows/event';
 import { useOrgSurface } from '../shell/surface';
+import { useGatedCopy } from '../p3/onboarding/gate';
 import { Card, ErrorState, GhostButton, PersonRow, PrimaryButton, SheetView, SkeletonRows, useOpenerRef } from '../ui';
 import { useEventWorkspace } from './eventsApi';
 import type { EventWorkspace } from './eventModel';
@@ -40,7 +41,10 @@ function OrganisersBody({ ws }: { ws: EventWorkspace }) {
   const stored = ws.organiserIds;
   const [ids, setIds] = useState<string[]>(stored);
   const [adding, setAdding] = useState(false);
-  const { sendThenDone, busy, conflict, error } = useEventSend(seriesId);
+  // P3: an onboarding refusal opens the shared gate sheet instead of a fixed line (F-10); R1 has no host and keeps its words.
+  const gated = useGatedCopy();
+  const { kind } = useOrgSurface();
+  const { sendThenDone, busy, conflict, error } = useEventSend(seriesId, kind === 'p3' ? gated : undefined);
   const { role, myPages } = useSeriesRole(seriesId);
   const off = organisersOff({ lifecycle: ws.series.lifecycle_status, isOwner: role === 'owner' });
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...ids], queryFn: () => fetchOrganiserPages(ids), enabled: ids.length > 0 });

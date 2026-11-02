@@ -8,9 +8,10 @@ import { finishProfileHref } from '@/lib/profileCompletion';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
+import { declinedRequests } from '../../shared/accessRequestModel';
 import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
-import { askedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
+import { askedLine, DECLINED_NEXT, declinedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
@@ -399,6 +400,7 @@ export function PageScreens(props: PageScreensProps) {
   // (owner 2026-10-30). The organiser area's own key, so an ask anywhere refreshes it. A failed read shows none.
   const requests = useQuery({ queryKey: myAccessRequestsQueryKey(userId), queryFn: () => (reads.requests as NonNullable<PageReads['requests']>)(), enabled: !!reads.requests, retry: false });
   const open = useMemo(() => (requests.data ?? []).filter((r) => r.status === 'open'), [requests.data]);
+  const declined = useMemo(() => declinedRequests(requests.data ?? []), [requests.data]);
   const askedAt = useMemo(() => new Map(open.map((r) => [r.organiserId, r.createdAt])), [open]);
   const clearToast = useCallback(() => setToast(null), []);
   const set = <K extends keyof PageDraft>(k: K, v: PageDraft[K]) => setDraft((p) => ({ ...p, [k]: v }));
@@ -585,6 +587,18 @@ export function PageScreens(props: PageScreensProps) {
                   <strong>{r.organiserName ?? 'An organiser'}</strong>: {askedLine(r.createdAt)}
                 </p>
               ))}
+            </div>
+          )}
+          {!orgId && declined.length > 0 && (
+            <div className="p3-ob-card" data-testid="p3-ob-declined">
+              <strong>Request declined</strong>
+              {declined.map((r) => (
+                <p key={r.requestId} className="p3-ob-m" data-testid="p3-ob-declined-row">
+                  {declinedLine(r.resolvedAt ?? r.createdAt, r.organiserName)}
+                  {r.decisionNote ? <> Their note: &ldquo;{r.decisionNote}&rdquo;</> : null}
+                </p>
+              ))}
+              <p className="p3-ob-m" data-testid="p3-ob-declined-next">{DECLINED_NEXT}</p>
             </div>
           )}
         </>

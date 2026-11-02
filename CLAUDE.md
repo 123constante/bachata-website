@@ -153,6 +153,7 @@ convention: [`docs/testing-doctrine.md`](docs/testing-doctrine.md).
 ```bash
 npm run test:unit        # all unit tests (Vitest)
 npm run test:e2e         # curated smoke specs — the CI gate (e2e-smoke.yml)
+npm run test:e2e:p3      # P3 walk specs — second gate step, P3 flags on
 npm run lint             # node scripts/run-lint-chain.mjs
 ```
 

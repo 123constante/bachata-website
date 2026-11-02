@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { SHAPES, SHAPE_KEYS, TODAY, homeOf, statsOf, type ShapeKey } from './fixtures';
 import { groupsOf, needsOf, nextUpView, rowOf, rowsOf } from '../../data/home';
 import { dailyTotals, parseStats, rangeFrom, viewsTotal } from '../../data/stats';
-import { L, dayWord, statusOf } from '../../model';
+import { L, dayWord, nextUpAdviceOf, statusOf } from '../../model';
 import { NOTHING_COMING_UP } from '../../../shared/lifeLabel';
 
 /*
@@ -90,11 +90,10 @@ describe('Home x every shape', () => {
     } else {
       // says what the person can do, with the control on screen
       const none = screen.getByTestId('p3-nextup-none');
-      // p3-shell-exits: to P3 Events, never the R1 area
-      expect(within(none).getByRole('link').getAttribute('href')).toBe(P3_PATHS.events);
-      // the words follow the state: a draft or a hidden event is never told to "add dates"
-      const want = row.lifecycle === 'live' ? /Add dates/ : row.lifecycle === 'draft' ? /Put a draft live/ : row.lifecycle === 'paused' ? /hidden/ : /Nothing is on the calendar/;
-      expect(none.textContent).toMatch(want);
+      // F-16: the words and the ONE control come from nextUpAdviceOf (P3 Events or New event, never R1)
+      const advice = nextUpAdviceOf([row]);
+      expect(within(none).getByRole('link').getAttribute('href')).toBe(advice.action === 'new' ? P3_PATHS.create : P3_PATHS.events);
+      expect(none.textContent).toContain(advice.copy);
     }
     if (row.status.past) expect(screen.getByTestId('p3-home-allended')).toBeTruthy();
     else expect(within(screen.getByRole('list', { name: 'Your first events' })).getAllByTestId('p3-row')).toHaveLength(1);
@@ -243,16 +242,16 @@ describe('Events x every shape', () => {
   it('the note points at a link that is on screen: New event inside P3', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     show(<EventsScreen />);
-    expect(screen.getByRole('link', { name: 'add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(screen.getByRole('link', { name: 'add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
   });
 
   it('no events: Add an event goes to New event inside P3 (Home and Events)', () => {
     homeQ.value = ok(homeOf([]));
     show(<EventsScreen />);
-    expect(within(screen.getByTestId('p3-events-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(within(screen.getByTestId('p3-events-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
     cleanup();
     show(<HomeScreen />);
-    expect(within(screen.getByTestId('p3-home-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.newWhat);
+    expect(within(screen.getByTestId('p3-home-empty')).getByRole('link', { name: 'Add an event' }).getAttribute('href')).toBe(P3_PATHS.create);
   });
 });
 

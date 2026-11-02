@@ -19,9 +19,10 @@ import {
   ACCOUNT_SETTINGS_PATH,
   HIDDEN_STATE_LINE,
   MY_ATTENDANCE_PATH,
-  ORGANISER_HOME_PATH,
   SHOW_AGAIN_LABEL,
 } from "@/lib/accountRouting";
+// F-01: every organiser link here opens the organiser area's Home (P3 while live).
+import { ORGANISER_AREA_HOME_PATH as ORGANISER_HOME_PATH } from "@/lib/accountRouting";
 import {
   NO_PROFILE_CONTACT_LABEL,
   NO_PROFILE_CONTACT_URL,
