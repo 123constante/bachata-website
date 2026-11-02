@@ -61,8 +61,10 @@ export function normalizeInstagramHandle(raw: string | null | undefined): Instag
   return { ok: true, handle };
 }
 
+/** The owner's words for an Instagram that cannot be saved (instagram-refusal r2, 2026-11-02): the field and the server's refusal say the same. */
+export const INSTAGRAM_INVALID = 'Enter your Instagram handle (like @yourname) or a full instagram.com link.';
 /** A link that is not an instagram.com profile link (another site, m.instagram.com, no name). */
-export const INSTAGRAM_NOT_PROFILE_LINK = 'Use your Instagram name, like @yourname, or your profile link from instagram.com.';
+export const INSTAGRAM_NOT_PROFILE_LINK = INSTAGRAM_INVALID;
 /** An instagram.com link to a post, reel or story: it has no name in it. */
 export const INSTAGRAM_POST_LINK = 'That is a link to a post, not a profile. Use your @name or your profile link instead.';
 

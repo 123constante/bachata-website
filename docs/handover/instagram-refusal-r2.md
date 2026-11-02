@@ -128,3 +128,65 @@ WhatsApp drop and invalid_url were already green (they guard against over-moving
 - A same-name link typed into an EMPTY stored Website sends nothing (Save off, "Nothing has changed yet");
   the note under Website ("Your Instagram is already this name, so it is not kept here.") deliberately
   does not mention Save. The link stays in the box until the person removes it or reloads.
+
+## Commit C
+
+Instagram refusals of `save_my_dancer_profile_v2` explained under the Instagram field of `/app` EditScreen.
+`dancer-app/api/errors.ts` stays the ONE owner for the dancer path.
+
+### Supabase proof (same read-only reads as Commit B)
+
+- `invalid_handle` (v2's own first check on a changed Instagram), ERRCODE 22023, DETAIL `instagram`.
+- `invalid_instagram` (22023) from `trg_dancer_profiles_a1_contact_rule` -> `_contact_rule_value_v1` ->
+  `normalize_instagram_handle_strict_v1`.
+- 23505 on `dancer_profiles_instagram_normalized_uidx` (UNIQUE on `instagram_normalized` WHERE NOT NULL);
+  PostgREST message `duplicate key value violates unique constraint "dancer_profiles_instagram_normalized_uidx"`.
+
+### What changed
+
+- N3: `api/rpc.ts` keeps only `error.message` (and `details`), so the new code `instagram_taken` is matched
+  on the index name in the message (`codeFromMessage`, `INSTAGRAM_TAKEN_INDEX`) -> field `instagram`,
+  "That Instagram is already on another profile. Check the spelling, or message us if it is yours."
+  A 23505 on any other index (slug) stays `unknown` (top-of-screen message with Retry, never under Instagram).
+  `instagram_taken` added to `DANCER_ERROR_CODES` (types.ts).
+- N4: `invalid_instagram` and the DETAIL-`instagram` variant of `invalid_handle` say exactly "Enter your
+  Instagram handle (like @yourname) or a full instagram.com link." (`INSTAGRAM_INVALID`, exported from
+  `src/lib/instagramHandle.ts` so the server words and the field check are one string). A Facebook
+  `invalid_handle` still names Facebook.
+- Client-side check: `INSTAGRAM_NOT_PROFILE_LINK` (the field's generic "not a name or profile link"
+  refusal) now IS `INSTAGRAM_INVALID`. The specific problem lines (too long, characters, dots, reserved,
+  post link, no name) are kept: they say exactly what to change, and the organiser screens
+  (`organiser/edit-in-place/fieldRules.ts`, `organiser/wizard/contactSteps.tsx`, `components/forms/InstagramInput.tsx`)
+  import them; their tests (wizard, edit-in-place, forms) were run and pass. If the owner wants every
+  client refusal to be the one sentence, that is a one-line change to `INSTAGRAM_PROBLEM_COPY`.
+
+### Tests (`src/modules/dancer-app/__tests__/instagramRefusals.test.tsx`, 18)
+
+The map (code x DETAIL -> words + field, Facebook still Facebook); codeFromMessage (Instagram index,
+slug index, unnamed constraint); the field check's words; the REAL `call()` with a mocked `rpcLoose`
+returning PostgREST-shaped `{code, message, details}` errors (23505 Instagram index, 23505 slug index,
+22023 invalid_instagram, 22023 invalid_handle DETAIL instagram); the screen: each code placed under
+Instagram by `placeServerError` (no top error), a slug 23505 goes to the top and NOT under Instagram,
+untouched Save is off and sends nothing.
+
+Red/green: against the unfixed code (errors.ts, types.ts, instagramHandle.ts stashed) 11 of 18 RED (every
+owner-wording and taken case, through the map, the real call() and the screen); the Facebook, slug-23505,
+unnamed-constraint, trigger-code and untouched cases were green (they guard the edges). 18 of 18 green after.
+
+### Bundle
+
+`npm run check:bundle-budget`: dancer-app `/app` first load 372.3 KB, 47 chunks (budget 374 KB). Commit A
+measured 371.9 KB / 47 (same as main), so B + C add +0.4 KB and no chunk: the move logic and the copy live
+in `screens/me/model.ts` / `api/errors.ts`, which EditScreen (first-load) already pulls. Not zero bytes as the
+standing header asks; no new chunk or puller.
+
+### Follow-up (not in this brief)
+
+The other three `invalid_instagram` wordings, untouched here:
+- `src/modules/organiser/shared/selfServeErrors.ts:86`
+- `src/modules/organiser/wizard/dancerApi.ts:41`
+- `src/lib/organiserProfileUpdate.ts:112` (also the inline copy at `src/pages/OrganiserProfile.tsx:947`)
+
+### Not verified
+
+- No browser walk at 390x844 (orchestrator walk). The taken case was never produced on prod (no write).

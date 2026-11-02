@@ -134,6 +134,8 @@ export const DANCER_ERROR_CODES = [
   // The stored phone / Instagram rule (invite journey A1 triggers; agreed names).
   'invalid_phone',
   'invalid_instagram',
+  // Client-side name for a 23505 on dancer_profiles_instagram_normalized_uidx (the DB raises no code of its own).
+  'instagram_taken',
   'invalid_list',
   'invalid_body',
   'invalid_kind',
