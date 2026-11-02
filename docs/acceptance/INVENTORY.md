@@ -1,8 +1,9 @@
 # Acceptance inventory: the organiser area (r1)
 
 Written BEFORE `CONTRACT.md`. Owner words (2026-10-30): "I should not have to check everything."
-Sources: code at `main` ecfe506; prod `stsdtacfauprzrdebmzg` read-only SELECT counts, 2026-11-01 (no personal data);
-live function bodies of `_assert_can_edit_series_p5`, `_assert_can_edit_occurrence_p5`, `redeem_organiser_invite_v1`.
+Sources: code at `main` ff20808 (fix round); prod `stsdtacfauprzrdebmzg` read-only SELECT counts, **re-run 2026-11-02**
+(no personal data); live function bodies of `_assert_can_edit_series_p5`, `_assert_can_edit_occurrence_p5`,
+`redeem_organiser_invite_v1`, `claim_organiser_v1` (re-read 2026-11-02).
 Nothing here was executed in a browser. Tests were located, not run (see "Not verified" in the handover).
 
 Two organiser UIs exist side by side: the R1 area `/account/o/*` (`src/modules/organiser/shell/OrganiserRoutes.tsx`)
@@ -63,17 +64,23 @@ every row below says "R1" or "P3" where the screen differs. Both must pass the c
 | J33 | Switch page / add another page | `switch/index.tsx:12`, `profile/OrganiserSwitcher.tsx`, `flows/newpage/NewPageFlow.tsx:51`, P3 `you/AddPageScreen.tsx` |
 | J34 | Leave a page; sign out; help | `more/index.tsx:45` (`HAND_OVER_FIRST` :19), `more/SignOutSheet.tsx`, `more/help/*` |
 
-## C. Data shapes (prod, 2026-11-01)
+## C. Data shapes (prod, re-run 2026-11-02)
 
 Series in `event_series_p5`, templates excluded: **758**. Of these, **653 are archived** (571 of them with empty
 `organiser_ids`, admin-only, hidden from organisers). **105 are non-archived** and are the ones an organiser can meet.
-Organiser pages: **51**; **38 have no owner row**; 2 have no member at all. Page members (`entity_members`, type organiser):
-45 manager rows (45 pages), 19 owner rows (16 pages), 16 distinct people. Invites: 17 issued, 6 used, 4 open,
-5 expired, 2 revoked, 5 e-mail-bound.
+Organiser pages: **50** (all `live`); **37 have no owner row**; 1 has no member at all. **45 of 50 have no claim
+evidence** (no `organiser_claim_emails` row, 0 such rows exist, and no `contact_email`). Page members (`entity_members`,
+type organiser): 45 manager rows, 19 owner rows, **0 contributor rows (any entity type)**. Invites: 16 issued, 6 used,
+4 open (0 of them to a page that already has an owner), 5 expired, 1 revoked, 5 e-mail-bound.
+Series counts were unchanged from 2026-11-01 (758 / 653 archived / 105 non-archived).
 
 | ID | Shape | Count | Notes |
 |---|---|---|---|
-| S01 | live recurring (weekly) | 45 | 23 have a cancelled date; 5 multi-organiser; 1 has over 100 dates |
+| S01 | live recurring, all rules | 45 | split by `recurrence_rule->>'mode'` into S01a-d; 23 have a cancelled date; 5 multi-organiser; 1 has over 100 dates |
+| S01a | live recurring, weekly rule | 28 | |
+| S01b | live recurring, monthly rule | 6 | live monthly series exist, but no owner create path does (J20) |
+| S01c | live recurring, custom rule | 1 | Repeat sheet shows the pattern, no editor (C28b) |
+| S01d | live recurring, no rule saved | 10 | Repeat sheet opens with no day (C28b) |
 | S02 | ended recurring | 13 | 7 have a cancelled date; 1 multi-organiser |
 | S03 | live one-off | 10 | |
 | S04 | live festival | 8 | no owner create/edit path found (J20) |
@@ -87,23 +94,26 @@ Organiser pages: **51**; **38 have no owner row**; 2 have no member at all. Page
 | S12 | series with a cancelled date | 32 | 23+7+1+1 |
 | S13 | series with no cover (non-archived) | 12 | all drafts |
 | S14 | multi-organiser / co-hosted series | 6 | 5 live + 1 ended |
-| S15 | page with no owner | 38 of 51 pages | a lone manager can orphan it by leaving (`teamRules.ts` header) |
-| S16 | page with no member | 2 of 51 | only claim/invite can reach it |
+| S15 | page with no owner | 37 of 50 pages | a lone manager can orphan it by leaving (`teamRules.ts` header) |
+| S16 | page with no member | 1 of 50 | only claim/invite can reach it |
 | S17 | team at cap (20) | 0 known | `TEAM_CAP` `teamModel.ts:209`; server cap 20 in redeem |
-| S18 | invite states: open / used / revoked / expired / e-mail-bound | 4 / 6 / 2 / 5 / 5 | |
+| S18 | invite states: open / used / revoked / expired / e-mail-bound | 4 / 6 / 1 / 5 / 5 | |
+| S19 | page with **no claim e-mail** (no claim e-mail row and no `contact_email`) | **45 of 50** | 35 of the 37 ownerless pages are in it: the public claim card can only offer Request access there; only 2 ownerless pages can be claimed by the public card |
 
-(Counts for "no contact" and "no photo" on organiser PAGES were not surveyed: GAP-SURVEY, listed in the contract.)
+Page shapes surveyed in the fix round (2026-11-02, counts from the review, S19 re-run): no photo 2 of 50; no contact of any kind 3 of 50; no claim e-mail 45 of 50 (S19).
 
 ## D. GAPs found while inventorying
 
 1. **G-INV-1** J20: no owner create path for monthly, course, workshop or festival. 14 live series (6 courses, 8 festivals) are of these kinds today.
-2. **G-INV-2** `redeem_organiser_invite_v1` seats EVERY joiner as `owner`. Intended for ownerless pages (38 of 51) but gives full control (hand over, remove people) to anyone holding a forwarded bearer link on a page that already has an owner. No role choice on the invite.
+2. **G-INV-2** `redeem_organiser_invite_v1` seats EVERY joiner as `owner`. Intended for ownerless pages (37 of 50); today 0 of the 4 open invites go to a page that already has an owner, but it gives full control (hand over, remove people) to anyone holding a forwarded bearer link on a page that already has an owner. No role choice on the invite.
 3. **G-INV-3** R1 has no Repeat-rule screen (J26 is P3 only); P3's rule is weekly+monthly only.
 4. **G-INV-4** Undo covers only `series.upsert`.
-5. **G-INV-5** Organiser-page data shapes (no photo, no contact) not surveyed.
+5. **G-INV-5** Closed except S19: page shapes surveyed 2026-11-02; 45 of 50 pages have no claim e-mail, so the public claim path reaches 2 of 37 ownerless pages (contract C15e, GAP rank 1).
 6. **G-INV-6** Prod flag values (`organiserP3`, `organiserSelfServe`, `organiserTicketing`) not verified, so which UI a real person sees is unknown.
 
 ## Coverage count
 
-Rows: 8 persons + 34 journeys + 18 shapes = **60**. Mapped to a screen or a server rule: **57**.
-Not mapped (listed GAPs, none silently omitted): **J20** (no screen), **S17** (no prod instance), **J26 in R1** (no screen).
+Rows: 8 persons + 34 journeys + 23 shapes (S01-S19, with S01 split into S01a-d) = **65**.
+Each row is cited by at least one contract row in `CONTRACT.md` (see the coverage table in CONTRACT section 4), or is a
+listed GAP. Rows with no screen (listed, not omitted): **J20** (no create path), **J26 in R1** (no screen), **S17** (no
+prod instance; checked by a unit test, C55).
