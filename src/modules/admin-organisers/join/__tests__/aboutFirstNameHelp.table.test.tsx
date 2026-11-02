@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // The About step's "First name" help line: present in every cell of
-// {page name known, unknown} x {first name empty, filled, linked}, tied to the input, and it never
-// mentions a control that is not on screen.
+// {page name, a page named after a person} x {page invite, person-bound invite} x
+// {first name empty, filled, linked}, tied to the input, the SAME words every time (review r1: it must
+// never echo the page name or a person's name), and it never mentions a control that is not on screen.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -14,12 +15,14 @@ vi.mock('@/components/profile/DanceRolePicker', () => ({ DanceRolePicker: () => 
 vi.mock('@/lib/saveMyDancerProfile', () => ({ saveMyDancerProfile: vi.fn() }));
 afterEach(cleanup);
 
-const preview = (organiserName: string, firstName: string | null): JoinPreview => ({
-  status: 'open', organiserName, inviterFirstName: null, emailHint: null, person: null,
+const preview = (organiserName: string, firstName: string | null, bound: boolean): JoinPreview => ({
+  status: 'open', organiserName, inviterFirstName: null, emailHint: null,
+  person: bound ? { firstName: 'Maria', avatarUrl: null, city: null } : null,
   prefill: firstName ? { firstName, cityId: null } : null,
 });
 
-const NAMES = [['page name known', 'Cumbaye'], ['page name unknown', '']] as const;
+const NAMES = [['page name', 'Cumbaye'], ['page named after a person', 'Daniel Rivera']] as const;
+const INVITES = [['page invite', false], ['person-bound invite', true]] as const;
 const STATES = [
   ['first name empty', null, false],
   ['first name filled', 'Ana', false],
@@ -30,10 +33,11 @@ const NOT_ON_SCREEN = /\b(button|tap|click|press|save|edit|change|menu|link)\b/i
 
 describe('About step: first name help line', () => {
   describe.each(NAMES)('%s', (_n, org) => {
+   describe.each(INVITES)('%s', (_i, bound) => {
     it.each(STATES)('%s', (_s, first, linked) => {
       render(
         <QueryClientProvider client={new QueryClient()}>
-          <AboutStep completion={{ missing: ['first_name'], profileId: 'p1' }} preview={preview(org, first)} linked={linked} onSaved={async () => undefined} />
+          <AboutStep completion={{ missing: ['first_name'], profileId: 'p1' }} preview={preview(org, first, bound)} linked={linked} onSaved={async () => undefined} />
         </QueryClientProvider>,
       );
       const input = screen.getByTestId('join-about-first-name');
@@ -41,10 +45,11 @@ describe('About step: first name help line', () => {
       expect(helpId).toBeTruthy();
       const help = document.getElementById(helpId!);
       expect(help).not.toBeNull();
-      expect(help!.textContent).toContain('Your own first name, not the page name');
+      expect(help!.textContent).toBe('Your own first name, not the page name.');
       expect(help!.textContent).not.toMatch(NOT_ON_SCREEN);
-      if (org) expect(help!.textContent).toContain(`(${org})`);
-      else expect(help!.textContent).not.toContain('(');
+      expect(help!.textContent).not.toContain(org);
+      expect(help!.textContent).not.toContain('Maria');
     });
+   });
   });
 });
