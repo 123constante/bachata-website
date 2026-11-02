@@ -3,7 +3,7 @@ import { fullDate } from '../../shared/dateWords';
 import { LEVEL_KEYS, SESSION_TYPES, TYPE_LABEL, endsNextDay, titleProblem, type DraftPerson } from '../../shared/programmeModel';
 import { CHANGED_SESSION_REMOVE_CONFIRM, roleWord, typeWord } from '../../events/programmeSeriesModel';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L, PROGRAMME_WHY, liveDates, programmeRules, scopeWhy, sessionTitle, shownControls, timeWord, type ProgrammeControl, type Scope } from '../model';
+import { L, PROGRAMME_WHY, saveWordsFor, liveDates, programmeRules, scopeWhy, sessionTitle, shownControls, timeWord, type ProgrammeControl, type Scope } from '../model';
 import { eventOf, levelLabel } from '../data/eventPage';
 import {
   dateAdd, dateEdit, dateFactsFor, dateLineup, dateOff, datePeople, draftFor, draftsOf, emptyForm, everyAdd, everyEdit, everyLineup, everyRemove,
@@ -114,9 +114,10 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
   };
 
   const save = () => {
-    if (scope === 'every') return run(itemKey ? everyEdit(tree, itemKey, form, rooms) : everyAdd(tree, form, rooms), open.key ? L.savedEvery : L.addedEvery);
+    const W = saveWordsFor(ws.series.lifecycle_status);
+    if (scope === 'every') return run(itemKey ? everyEdit(tree, itemKey, form, rooms) : everyAdd(tree, form, rooms), open.key ? W.savedEvery : W.addedEvery);
     if (!drafts) return undefined;
-    return run(draft ? dateEdit(drafts, draft.key, form) : dateAdd(drafts, form), draft ? L.savedDate(day) : L.addedDate(day));
+    return run(draft ? dateEdit(drafts, draft.key, form) : dateAdd(drafts, form), draft ? W.savedDate(day) : W.addedDate(day));
   };
 
   const people: DraftPerson[] = scope === 'date' ? (draft ? datePeople(draft) : []) : item ? peopleOfItem(item) : [];

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SHAPES, wsRaw } from './wsFixtures';
-import { L } from '../../model';
+import { L, saveWordsFor } from '../../model';
 import { VERSION_CONFLICT } from '../../../shared/copy';
 import { LINK_PROBLEM } from '../../../shared/linkRules';
 
@@ -97,7 +97,7 @@ describe('Name and details: the one save', () => {
     expect(envs).toHaveLength(1);
     expect(envs[0]).toMatchObject({ target_id: 'ser-1', expected_version: 7, command: { kind: 'series.upsert', payload: { name: 'Sensual Fridays', default_description: 'No partner needed.' } } });
     expect(Object.keys((envs[0].command as Raw).payload as Raw).sort()).toEqual(['default_description', 'name']);
-    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(L.detailsSaved));
+    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(saveWordsFor('live').detailsSaved));
   });
 
   it('a new place sends the place and its city', async () => {

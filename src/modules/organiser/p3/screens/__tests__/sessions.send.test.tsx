@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
-import { L } from '../../model';
+import { L, saveWordsFor } from '../../model';
 import { PROGRAMME_WHY } from '../../model/programme';
 import { CHANGED_SESSION_REMOVE_CONFIRM } from '../../../events/programmeSeriesModel';
 
@@ -110,7 +110,7 @@ describe('session sheet, Every date (series.set_program)', () => {
     const items = ((e[1].command as { payload: { days: Array<{ sections: Array<{ items: Array<Record<string, unknown>> }> }> } }).payload.days)
       .flatMap((d) => d.sections.flatMap((s) => s.items));
     expect(items.map((i) => [i.id, i.title])).toEqual([['cls', 'Improvers class'], ['pty', 'Social']]);
-    expect(screen.getByTestId('p3-toast').textContent).toContain(L.savedEvery);
+    expect(screen.getByTestId('p3-toast').textContent).toContain(saveWordsFor('live').savedEvery);
   });
 
   it('a stale page: version_conflict shows the reload words, never the server text', async () => {

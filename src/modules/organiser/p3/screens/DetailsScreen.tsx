@@ -6,7 +6,7 @@ import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
 import { MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
-import { L, kindWordStored } from '../model';
+import { L, kindWordStored, saveWordsFor } from '../model';
 import {
   DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
 } from '../data/details';
@@ -49,7 +49,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
-    if (res.ok) { form.saved(res.version); back(L.detailsSaved); }
+    if (res.ok) { form.saved(res.version); back(saveWordsFor(ws.series.lifecycle_status).detailsSaved); }
   };
 
   const upload = async (file: File | undefined) => {

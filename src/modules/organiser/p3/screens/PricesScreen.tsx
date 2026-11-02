@@ -3,7 +3,7 @@ import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
 import { eventLock } from '../../shared/eventState';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import type { EventWorkspace } from '../../events/eventModel';
-import { L } from '../model';
+import { L, saveWordsFor } from '../model';
 import {
   isFree, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, pricesSpecs, setFree, storedPriceCount,
 } from '../data/prices';
@@ -30,7 +30,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v) => form.landed(v));
-    if (res.ok) { form.saved(res.version); back(L.pricesSaved); }
+    if (res.ok) { form.saved(res.version); back(saveWordsFor(ws.series.lifecycle_status).prices); }
   };
 
   return (
