@@ -146,6 +146,13 @@ describe("/api/revalidate stateChange: hard-delete event-<id> only", () => {
     expect(dangerouslyDeleteByTag).not.toHaveBeenCalled();
   });
 
+  it("explicit tags + entity + stateChange: soft full list, no hard delete, no visibility lookup (F2)", async () => {
+    await call({ tags: [EVT, "seo-landing"], entityType: "event", entityId: EV, stateChange: true });
+    expect(invalidateByTag).toHaveBeenCalledWith([EVT, "seo-landing"]);
+    expect(dangerouslyDeleteByTag).not.toHaveBeenCalled();
+    expect(resolvePublicEventRef).not.toHaveBeenCalled();
+  });
+
   it("non-event entity with stateChange: soft, as before", async () => {
     await call({ entityType: "venue", entityId: EV, stateChange: true });
     expect(invalidateByTag).toHaveBeenCalledWith([`venue-${EV}`]);
