@@ -9,6 +9,7 @@ import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { InstagramInput } from '@/components/forms/InstagramInput';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { sanitizeReturnTo } from '@/lib/authRouting';
 // The phone field (+ its country list) loads with this screen, not with /app (bundle budget, invite W2).
 const PhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { NationalityPicker } from '@/components/ui/nationality-picker';
@@ -122,6 +123,8 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   const errors = useMemo(() => validateDraft(draft, profile), [draft, profile]);
   const hints = useMemo(() => storedValueHints(draft, profile), [draft, profile]);
   const delta = useMemo(() => buildDelta(profile, draft), [profile, draft]);
+  // ?returnTo= (instagram-refusal r2: a P3 checklist row opened this screen): a save goes back there. Same-site only.
+  const returnTo = sanitizeReturnTo(search.get('returnTo'), { exclude: '/app/me/edit' });
 
   const mutation = useMutation({
     mutationFn: (d: DancerDelta) => saveMyDancerProfile(d, profile),
@@ -134,6 +137,8 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       setTopError(null);
       setSaved(true);
       toast({ title: SAVE_DONE });
+      // Only when nothing was typed after the save went out: newer input is never dropped by leaving.
+      if (returnTo && draftRef.current === sentDraft.current) navigate(returnTo);
     },
     onError: (err, d) => {
       const placed = placeServerError(err, d);
