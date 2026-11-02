@@ -34,7 +34,7 @@ function Field({ id, label, hint, problem, children }: { id: string; label: stri
 function Details({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS);
   const save = useSaveRun(ws.series.id);
-  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total));
+  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
   const back = useBackToEvent(ws.series.id, form.dirty);
   const lock = useEditLock(ws);
   const venues = useVenueOptions();
