@@ -112,8 +112,20 @@ export async function fetchOrganiserEvents(id: string): Promise<EventRow[]> {
   // `id` keeps the legacy event id where one exists so the occurrence feeds
   // below still join on event_id.
   const { data, error } = await supabase.rpc('get_organiser_public_events_v1', { p_organiser_id: id });
-  if (error) return [];
+  throwFeedError(error);
   return (data ?? []) as unknown as EventRow[];
+}
+
+/**
+ * An RPC error THROWS; only a real empty result is `[]`. Swallowing the error
+ * to `[]` (as all three feeds used to) made React Query cache a failure as a
+ * success for 5 minutes, never retried it, and showed "No nights listed yet"
+ * for an organiser with 200 events -- in SSR HTML too, because the loader
+ * dehydrated that `[]` (prod verify doc E4). Thrown, the client retries, the
+ * page shows its error line, and the loader neither dehydrates nor caches it.
+ */
+function throwFeedError(error: { message?: string } | null): void {
+  if (error) throw new Error(error.message ?? JSON.stringify(error));
 }
 
 // No `as never` on the name or the args: get_organiser_calendar_events_v1 IS
@@ -124,7 +136,7 @@ export async function fetchOrganiserEvents(id: string): Promise<EventRow[]> {
 // scripts/rpc-typing-allowlist.json entries (shrink with `--write`).
 export async function fetchOrganiserFutureOccEvents(id: string): Promise<OrgOccRow[]> {
   const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1', { p_organiser_id: id });
-  if (error) return [];
+  throwFeedError(error);
   return (data ?? []) as unknown as OrgOccRow[];
 }
 
@@ -144,7 +156,7 @@ export async function fetchOrganiserPastOccEvents(id: string): Promise<OrgOccRow
     p_to: to,
     p_include_past: true,
   });
-  if (error) return [];
+  throwFeedError(error);
   return (data ?? []) as unknown as OrgOccRow[];
 }
 
