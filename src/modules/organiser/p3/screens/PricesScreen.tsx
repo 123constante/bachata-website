@@ -17,7 +17,7 @@ import { PriceCard } from './PriceCard';
 function Prices({ ws }: { ws: EventWorkspace }) {
   const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws));
   const save = useSaveRun(ws.series.id);
-  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total));
+  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
   const back = useBackToEvent(ws.series.id, form.dirty);
   const lock = useEditLock(ws);
   const rowsLock = pricesLockOf(ws);

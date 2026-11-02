@@ -50,6 +50,8 @@ const CASES: Array<[name: string, raw: Raw, oneDate: boolean]> = [
   ['draft, no dates', SHAPES.draft, true],
   ['draft with one date', one({ lifecycle_status: 'draft' }), true],
   ['ended', SHAPES.ended, false],
+  ['paused', SHAPES.paused, false],
+  ['draft with dates', SHAPES.draftReady, false],
   ['with sessions', SHAPES.weekly, false],
   ['without sessions', SHAPES.noSessions, false],
   ['no gallery', one({ gallery: [] }), true],
@@ -88,8 +90,8 @@ const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Nod
 
 describe('one shared save-word mapping', () => {
   it('one date says Save / Saved; anything else says for all dates', () => {
-    expect(saveWordsFor(true)).toEqual({ save: 'Save', nothing: L.nothingChanged, detailsSaved: 'Saved. Dancers see it now.', pricesSaved: 'Saved. Dancers see it now.' });
-    expect(saveWordsFor(false)).toEqual({ save: L.saveAll, nothing: L.nothingChanged, detailsSaved: L.detailsSaved, pricesSaved: L.pricesSaved });
+    expect(saveWordsFor(true, 'live')).toMatchObject({ save: 'Save', nothing: L.nothingChanged, detailsSaved: 'Saved. Dancers see it now.', pricesSaved: 'Saved. Dancers see it now.' });
+    expect(saveWordsFor(false, 'live')).toMatchObject({ save: L.saveAll, nothing: L.nothingChanged, detailsSaved: 'Saved for all dates. Dancers see it now. A date with its own pictures keeps them.', pricesSaved: 'Prices saved. Dancers see them now.' });
   });
   it('hasOneDate: a page of one date is one date only when the series total agrees', () => {
     expect(hasOneDate(1, null)).toBe(true);
@@ -144,7 +146,7 @@ describe.each(CASES)('%s', (_name, raw, oneDate) => {
 
   // a nameless draft and an ended event cannot be saved (blocked / locked): their Save stays off by design
   it.skipIf(_name === 'draft, no dates' || _name === 'ended')('Details and Prices: the Save button and the toast use the shared words', async () => {
-    const words = saveWordsFor(oneDate);
+    const words = saveWordsFor(oneDate, String(((raw.series as Raw).series as Raw).lifecycle_status));
     for (const [path, toast] of [[DETAILS, words.detailsSaved], [PRICES, words.pricesSaved]] as const) {
       cleanup();
       const envs = server(raw);
@@ -171,6 +173,6 @@ describe.each(CASES)('%s', (_name, raw, oneDate) => {
 
 describe('claim-edit-fix r3: zero dates (Photos field dropped; main\'s Pictures row is the one way)', () => {
   it('F5: an event with no dates says Save / Saved.', () => {
-    expect(saveWordsFor(hasOneDate(0, 0))).toEqual(saveWordsFor(true));
+    expect(saveWordsFor(hasOneDate(0, 0), 'draft')).toEqual(saveWordsFor(true, 'draft'));
   });
 });
