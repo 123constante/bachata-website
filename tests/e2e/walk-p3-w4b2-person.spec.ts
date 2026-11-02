@@ -37,7 +37,9 @@ async function open(page: Page, filled: boolean) {
   await page.route('https://flagcdn.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="18"><rect width="24" height="18" fill="#888"/></svg>' }));
   await page.goto(`/account/p3/you/details?o=${ORG}`);
   const mounted = await page.getByTestId('p3-ob-title').waitFor({ timeout: 15_000 }).then(() => true, () => false);
-  test.skip(!mounted, 'organiserP3 is off in this server: /account/p3 is not mounted');
+  // Skip ONLY when the flag is off. With it on (e2e-smoke.yml sets it) an unmounted page is a FAILURE,
+  // not a skip: scripts/check-p3-specs-not-skipped.mjs holds every P3 skip to this shape.
+  test.skip(!mounted && process.env.VITE_ENABLE_ORGANISER_P3 !== 'true', 'organiserP3 is off in this server: /account/p3 is not mounted');
   return fake;
 }
 

@@ -93,7 +93,7 @@ export type RepeatAccess = { mode: 'edit'; why: null } | { mode: 'disabled' | 'r
 
 export const REPEAT_WHY = {
   ended: 'This has finished, so how it repeats can\u2019t change. To run it again, ask the Bachata Calendar team.',
-  archived: 'This event was removed, so how it repeats can\u2019t change. Ask the Bachata Calendar team if it should come back.',
+  archived: 'This event has finished, so how it repeats can\u2019t change. Ask the Bachata Calendar team if it should come back.',
   review: 'The Bachata Calendar team is checking this event, so how it repeats can\u2019t change yet. Ask us if it is urgent.',
   course: 'A course runs a set number of classes, so its pattern can\u2019t change here. Change its dates directly instead: tap a date under Coming up to move or cancel it, or add a date.',
   custom: 'These are dates you pick, so there is no pattern to change. Tap a date under Coming up to change it, or add a date.',
@@ -445,6 +445,8 @@ export const REPEAT_COPY = {
   next: 'The next dates',
   undo: 'Undo my changes',
   retry: 'Check again',
+  // F-12: the gate would refuse the change; the person's details come first (Save opens what is left)
+  gateHeld: 'Finish your details first. Tap Save to see what is left.',
   noRule: 'It doesn\u2019t repeat yet. Pick the days to make it repeat.',
 } as const;
 

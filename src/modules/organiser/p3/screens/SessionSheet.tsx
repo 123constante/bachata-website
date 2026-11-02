@@ -114,7 +114,7 @@ export function SessionSheet({ ws, today, open, onClose, onDone }: {
   };
 
   const save = () => {
-    const W = saveWordsFor(ws.series.lifecycle_status);
+    const W = saveWordsFor(false, ws.series.lifecycle_status) /* session toasts never depend on the date count */;
     if (scope === 'every') return run(itemKey ? everyEdit(tree, itemKey, form, rooms) : everyAdd(tree, form, rooms), open.key ? W.savedEvery : W.addedEvery);
     if (!drafts) return undefined;
     return run(draft ? dateEdit(drafts, draft.key, form) : dateAdd(drafts, form), draft ? W.savedDate(day) : W.addedDate(day));

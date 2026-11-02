@@ -110,7 +110,7 @@ describe('session sheet, Every date (series.set_program)', () => {
     const items = ((e[1].command as { payload: { days: Array<{ sections: Array<{ items: Array<Record<string, unknown>> }> }> } }).payload.days)
       .flatMap((d) => d.sections.flatMap((s) => s.items));
     expect(items.map((i) => [i.id, i.title])).toEqual([['cls', 'Improvers class'], ['pty', 'Social']]);
-    expect(screen.getByTestId('p3-toast').textContent).toContain(saveWordsFor('live').savedEvery);
+    expect(screen.getByTestId('p3-toast').textContent).toContain(saveWordsFor(false, 'live').savedEvery);
   });
 
   it('a stale page: version_conflict shows the reload words, never the server text', async () => {

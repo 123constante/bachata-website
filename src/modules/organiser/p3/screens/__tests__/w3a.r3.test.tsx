@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SHAPES, wsRaw } from './wsFixtures';
 import { L } from '../../model';
+import { PROFILE_WIZARD_PATH } from '../../../shared/profileProgress';
 
 /*
  * Review round 3 on PR #1082 (docs/reviews/1082-r3.md), the screen half, through the REAL send
@@ -57,6 +58,7 @@ function show(path: string, shape: Raw = SHAPES.weekly) {
     { path: '/account/p3/events/:seriesId/details', element: <DetailsScreen /> },
     { path: '/account/p3/events/:seriesId/prices', element: <PricesScreen /> },
     { path: '/account/p3/events', element: <p data-testid="events-list">events</p> },
+    { path: PROFILE_WIZARD_PATH, element: <p data-testid="profile-wizard">wizard</p> },
   ], { initialEntries: [path] });
   render(<QueryClientProvider client={qc}><RouterProvider router={router} /></QueryClientProvider>);
 }
@@ -152,6 +154,21 @@ describe('r3 #5: Prices has the profile lock, as Details and the old area do', (
       expect(saveBtn().disabled).toBe(true);
       await press(saveBtn());
       expect(envs).toHaveLength(0);
+    },
+  );
+  // F-06 (review r1 #2): asserted unconditionally on a profile that IS unfinished, so the lock
+  // always renders. A plain <a href> does not move the in-app router (and reloads the app on a
+  // phone), so this goes red if the link stops being a client link.
+  it.each([[DETAILS, 'p3-details-lock'], [PRICES, 'p3-prices-lock']] as const)(
+    'F-06 %s: Complete your profile navigates inside the app', async (path, lockId) => {
+      progress.current = { publishReady: false, requiredLeft: 2 };
+      server(() => ({ data: { ok: true, new_version: 8 }, error: null }));
+      show(path);
+      const link = within(await waitFor(() => screen.getByTestId(lockId))).getByText('Complete your profile');
+      expect(link.getAttribute('href')).toBe(PROFILE_WIZARD_PATH);
+      await press(link);
+      await waitFor(() => expect(router.state.location.pathname).toBe(PROFILE_WIZARD_PATH));
+      expect(screen.getByTestId('profile-wizard')).toBeTruthy();
     },
   );
   it('a finished profile: Prices is live', async () => {

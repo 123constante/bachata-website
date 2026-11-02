@@ -112,12 +112,15 @@ export function deriveJoinStep(i: DeriveInput): Derived {
   return { step: 'join' };
 }
 
-/** The "Step n of total" bar over email/code, about and join. A complete account skips About you. */
-export function joinProgress(step: JoinStep, completion: ProfileCompletionStatus): { n: number; total: number; label: string } | null {
-  const skipsAbout = completion === 'complete' && step !== 'about';
-  const total = skipsAbout ? 2 : 3;
+/**
+ * The "Step n of 3" bar over email/code, about and join. The total is ALWAYS 3: a signed-out person cannot
+ * know yet whether their profile is complete, so a total that dropped to 2 once they signed in made the
+ * count change mid-journey (1 of 3, then 2 of 2). A complete account simply skips step 2.
+ */
+export function joinProgress(step: JoinStep, _completion?: ProfileCompletionStatus): { n: number; total: number; label: string } | null {
+  const total = 3;
   if (step === 'email' || step === 'code') return { n: 1, total, label: 'Your email' };
-  if (step === 'about') return { n: 2, total: 3, label: 'About you' };
+  if (step === 'about') return { n: 2, total, label: 'About you' };
   if (step === 'join' || step === 'done') return { n: total, total, label: 'Join' };
   return null;
 }
@@ -245,3 +248,26 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
 
 /** Sentry / client-error tag: the step and the outcome code, never an email or the token. */
 export const failureTag = (step: string, code: string): string => `invite_join:${step}:${code}`;
+
+/** What the page does with a redeem answer. ONE mapping for the Join tap AND the post-sign-in safety stop. */
+export type RedeemAction =
+  | { act: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { act: 'stop'; stop: JoinStop }
+  | { act: 'refetch_preview' }
+  | { act: 'refetch_completion' }
+  | { act: 'sign_out' };
+
+export function redeemAction(outcome: JoinRedeemOutcome): RedeemAction {
+  switch (outcome.kind) {
+    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember };
+    case 'not_linked': return { act: 'stop', stop: { kind: 'not_linked' } };
+    case 'dead': return { act: 'refetch_preview' };
+    case 'wrong_account': return { act: 'stop', stop: { kind: 'wrong_account', emailHint: outcome.emailHint } };
+    case 'email_unproven': return { act: 'stop', stop: { kind: 'email_unproven' } };
+    case 'rate_limited': return { act: 'stop', stop: { kind: 'rate_limited', from: 'join' } };
+    case 'profile_incomplete': return { act: 'refetch_completion' };
+    case 'sign_in': return { act: 'sign_out' };
+    case 'refused': return { act: 'stop', stop: { kind: 'refused', reason: outcome.reason, emailHint: outcome.emailHint } };
+    default: return { act: 'stop', stop: { kind: 'network', from: 'join' } };
+  }
+}
