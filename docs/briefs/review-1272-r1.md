@@ -1,0 +1,19 @@
+# Brief: independent review of PR #1272 (instagram checklist rows, move link, refusals) -- READ-ONLY, findings doc only
+
+Repo 123constante/bachata-website. Review branch `claude/instagram-refusal-r2` (head e7dfff693) against `main`. You did not build it. You write ONE file on branch `claude/review-1272-r1`: `docs/review/pr-1272-r1.md`. No source edits, no tests added, no DB write (Supabase read-only: function bodies, index defs and counts only, no personal data).
+
+## Read
+`git fetch origin claude/instagram-refusal-r2` then `git diff origin/main...FETCH_HEAD --stat`. Brief (with the r2.1 addendum): `docs/briefs/instagram-refusal-r2.md` on `brief/instagram-refusal-r2`. Brief reviews: `docs/review/brief-instagram-refusal-r1.md` (BLOCK, live editor is /app EditScreen via save_my_dancer_profile_v2) and `-r2.md` (nits N1-N6). Worker handover: `docs/handover/instagram-refusal-r2.md` (read its claims, then verify them, do not trust them). Owner decisions are binding: (1) an Instagram link typed in Website moves to Instagram, Website cleared; (3) DJ rows get a new DJ step reachable from Review only; (4) refusal wording exactly: invalid = "Enter your Instagram handle (like @yourname) or a full instagram.com link."; taken = "That Instagram is already on another profile. Check the spelling, or message us if it is yours."
+
+## Judge (find real defects; do not restate the PR)
+1. Commit A: every REVIEW_ROWS code x {base-incomplete, base-complete, no_profile}: does the row reach a control for ITS field, with no bounce/flash (Simon: "it just flashes")? Is the matrix test honest (would it go red on main for every cell it claims)? Is `returnTo` safe (open redirect, loops, the screen returning to itself)? Does the Review re-read really drop a row after save? DJ steps: do they write exactly what `_onboarding_missing_v1` reads (read the live function body on prod)? Untouched answers send nothing?
+2. Commit B: the move rule `instagramProfileLinkHandle`. Which inputs move, which must not (m.instagram.com, /p/, /reel/, bare word, scheme-less site, other host)? Can a move ever lose data (Instagram typed, link different; Website stored link left untouched; link with query/trailing slash/mixed case/unicode)? Does the delta really send `{instagram, website_url:null}` as ONE call and does save_my_dancer_profile_v2 clear Website on null (read the live body)? Can the Save button be on with nothing to send, or off with something to send? Pure dancer WhatsApp key handling.
+3. Commit C: is `instagram_taken` matched ONLY on the Instagram index (a slug 23505 must not be reported as an Instagram problem)? Does the PostgREST error shape in `api/rpc.ts` really carry the index name? Do the organiser screens that import the changed `instagramHandle.ts` strings still say something true (tests pass, but is copy still correct there)? Facebook invalid_handle unchanged?
+4. Scope and gates: the PR adds 11 `scripts/dancer-area-isolation-allowlist.json` seam entries (last commit e7dfff693): are they exactly the changed non-dancer-app files, nothing broader? Bundle: /app first load 372.3 KB vs main 371.9 KB (brief asked zero): confirm, and say if any new chunk or puller appeared. Any file outside the brief's scope?
+5. Honest PR body and handover: do the Verified / Not verified claims match the diff and the CI state?
+
+## Output
+Findings ranked most severe first, each: file:line, what is wrong, a concrete failing input, severity (blocks merge / fix before merge / nit). Mark each CONFIRMED (you traced it or mutated it) or PLAUSIBLE. For the move rule and the refusal map, try at least three mutants (flip a condition) and report which the tests fail to catch. End with a short "Not reviewed" list. Zero findings is valid if you say what you checked.
+
+## Done =
+Push `claude/review-1272-r1` once; final commit subject ends with the done marker from your prompt. Stop at 30% context with a PARTIAL marker.
