@@ -248,3 +248,26 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
 
 /** Sentry / client-error tag: the step and the outcome code, never an email or the token. */
 export const failureTag = (step: string, code: string): string => `invite_join:${step}:${code}`;
+
+/** What the page does with a redeem answer. ONE mapping for the Join tap AND the post-sign-in safety stop. */
+export type RedeemAction =
+  | { act: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { act: 'stop'; stop: JoinStop }
+  | { act: 'refetch_preview' }
+  | { act: 'refetch_completion' }
+  | { act: 'sign_out' };
+
+export function redeemAction(outcome: JoinRedeemOutcome): RedeemAction {
+  switch (outcome.kind) {
+    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember };
+    case 'not_linked': return { act: 'stop', stop: { kind: 'not_linked' } };
+    case 'dead': return { act: 'refetch_preview' };
+    case 'wrong_account': return { act: 'stop', stop: { kind: 'wrong_account', emailHint: outcome.emailHint } };
+    case 'email_unproven': return { act: 'stop', stop: { kind: 'email_unproven' } };
+    case 'rate_limited': return { act: 'stop', stop: { kind: 'rate_limited', from: 'join' } };
+    case 'profile_incomplete': return { act: 'refetch_completion' };
+    case 'sign_in': return { act: 'sign_out' };
+    case 'refused': return { act: 'stop', stop: { kind: 'refused', reason: outcome.reason, emailHint: outcome.emailHint } };
+    default: return { act: 'stop', stop: { kind: 'network', from: 'join' } };
+  }
+}

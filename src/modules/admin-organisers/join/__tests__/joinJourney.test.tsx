@@ -226,6 +226,14 @@ describe('signed out: the email step', () => {
     expect(h.otp).not.toHaveBeenCalled();
   });
 
+  it('an empty Send shows the bad-shape error and sends nothing', async () => {
+    mount();
+    fireEvent.click(await screen.findByTestId('join-send'));
+    expect((await screen.findByTestId('join-email-error')).textContent).toBe(JOIN_COPY.email.badShape);
+    expect(h.otp).not.toHaveBeenCalled();
+    expect(h.rpc).not.toHaveBeenCalledWith('bind_organiser_invite_email_v1', expect.anything());
+  });
+
   it('the link was bound to another address meanwhile: tied-to-another-email screen', async () => {
     bind = { status: 'already_bound' };
     let served = 0;
@@ -362,6 +370,63 @@ describe('the code step', () => {
     expect(redeems()).toHaveLength(1);
     expect(screen.queryByTestId('join-done')).toBeNull();
     expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: 'invite_join:claim:not_linked' }), 'error');
+  });
+
+  // Post-sign-in safety stop: every redeem answer shows ITS screen; "told" copy only when the server really recorded not_linked.
+  it.each([
+    [{ ok: false, reason: 'email_mismatch', invite_email_hint: 'a***@x.com' }, 'wrong_account'],
+    [{ ok: false, reason: 'email_unproven' }, 'email_unproven'],
+    [{ ok: false, reason: 'rate_limited' }, 'rate_limited'],
+    [{ ok: false, reason: 'team_full' }, 'refused'],
+    [{ ok: false, reason: 'not_linked' }, 'not_linked'],
+  ])('person-bound, claim no_match, redeem %j -> the %s screen, "told" only for not_linked', async (answer, stop) => {
+    preview = open(PERSON);
+    redeem = answer;
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs(stop);
+    const text = screen.getByTestId('join-step').textContent ?? '';
+    expect(/told/i.test(text)).toBe(stop === 'not_linked');
+    expect(redeems()).toHaveLength(1);
+    expect(screen.queryByTestId('join-done')).toBeNull();
+  });
+
+  it('person-bound, claim no_match, redeem invalid -> the dead screen, not a safety stop', async () => {
+    preview = open(PERSON);
+    redeem = { ok: false, reason: 'invalid' };
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await waitFor(() => expect(redeems()).toHaveLength(1));
+    expect(screen.queryByTestId('join-done')).toBeNull();
+    expect(/told/i.test(screen.getByTestId('join-step').textContent ?? '')).toBe(false);
+  });
+
+  it('person-bound, claim no_match, redeem throws (network) -> the network stop, Try again redeems and lands on done', async () => {
+    preview = open(PERSON);
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    let first = true;
+    const base = h.rpc.getMockImplementation()!;
+    h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'redeem_organiser_invite_v1' && first ? ((first = false), Promise.reject(new Error('Failed to fetch'))) : base(fn, a)));
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('network');
+    expect(/told/i.test(screen.getByTestId('join-step').textContent ?? '')).toBe(false);
+    fireEvent.click(screen.getByTestId('join-retry'));
+    await stepIs('done');
+    expect(redeems()).toHaveLength(2);
+  });
+
+  it('person-bound, claim no_match, the server seats them: the organiser-home cache is invalidated on the claim path too', async () => {
+    preview = open(PERSON);
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`, client);
+    await typeCode();
+    await stepIs('done');
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['organiser-home'] });
   });
 
   it('person-bound, the claim linked the profile: no stop, straight on', async () => {
