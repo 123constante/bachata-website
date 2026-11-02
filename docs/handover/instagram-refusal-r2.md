@@ -190,3 +190,16 @@ The other three `invalid_instagram` wordings, untouched here:
 ### Not verified
 
 - No browser walk at 390x844 (orchestrator walk). The taken case was never produced on prod (no write).
+
+## Worker close-out (dt_bf20908ad03a)
+
+- PR #1272 (opened by the bot on the push; the body was rewritten to the brief's template). Commits: A 1310dad, B d0ba613, C 1ad0e9f, plus a close-out commit.
+- Close-out fix: `tests/client/dancerAppApi.test.tsx` pins DANCER_ERROR_CODES to its INTERFACE_CODES list; C added `instagram_taken`, so the list gains that code (this failed `unit (Europe/London, full)` on 1ad0e9f; `tests/client` + `tests/regression` now pass locally, 1555/1555).
+- CI on 1ad0e9f: dancer-area-isolation RED (rule a: the 10 p3/onboarding files are not seams; the brief requires that mix; adding seams is an orchestrator decision, the allowlist was NOT edited). unit London RED (fixed above). phone-qa-section RED: no 390x844 walk was done, and the section was not faked. Green: bundle-budget, build-smoke, integrity, unit Sydney/New York, real-data-verified, live-db-gate, wallclock-brand, masking/bom/notification checks. contract-check was cancelled by a re-run. e2e-smoke and phone-qa were still running when this was written.
+- A push with only this commit's changes is the worker's second push. The brief asked for one, but the dispatcher's done signal needs a final commit.
+
+### Left / next steps
+1. Orchestrator: decide on the isolation seams (allowlist p3/onboarding for this PR, or split A's p3 half into its own PR).
+2. One independent review, then one fix round (brief stopping rule). `/code-review` has not been run.
+3. A 390x844 walk of /app edit (move, same, different, taken fixture) and the checklist rows, then fill in the PR's `## Phone QA` section.
+4. Queued: backfill of the 43 rows (admin migration, owner approval); unify the other invalid_instagram wordings; v1 cannot clear Instagram.
