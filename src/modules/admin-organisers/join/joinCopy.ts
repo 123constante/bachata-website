@@ -59,6 +59,7 @@ export const JOIN_COPY = {
     saving: 'Saving' + ELLIPSIS,
     saveFailed: `We couldn${APOS}t save that. Check your connection and try again.`,
     firstName: 'First name',
+    firstNameHelp: (pageName: string | null) => `Your own first name, not the page name${pageName ? ` (${pageName})` : ''}.`,
     city: 'Your city',
     cityPlaceholder: 'Choose your city' + ELLIPSIS,
     role: 'Dance role',

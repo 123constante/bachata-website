@@ -80,7 +80,8 @@ export function AboutStep({ completion, preview, linked, onSaved }: {
       {fields.includes('first_name') && (
         <div className="flex flex-col gap-1">
           <label htmlFor="join-first-name" className="text-[14px] font-semibold">{JOIN_COPY.about.firstName}</label>
-          <input id="join-first-name" autoComplete="given-name" className={FIELD} value={draft.first_name} onChange={(e) => set('first_name', e.target.value)} data-testid="join-about-first-name" />
+          <input id="join-first-name" autoComplete="given-name" className={FIELD} aria-describedby="join-first-name-help" value={draft.first_name} onChange={(e) => set('first_name', e.target.value)} data-testid="join-about-first-name" />
+          <p id="join-first-name-help" className="text-[13px] text-muted-foreground">{JOIN_COPY.about.firstNameHelp(preview.organiserName || null)}</p>
         </div>
       )}
       {fields.includes('based_city_id') && (
