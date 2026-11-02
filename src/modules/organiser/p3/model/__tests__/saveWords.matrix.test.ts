@@ -51,7 +51,7 @@ describe('saveWordsFor(oneDate, lifecycle): every save message x date count x li
     if (life === 'draft') expect(text).toMatch(/as a draft\. Dancers do not see (it|them) yet\.$|as a draft\. Dancers do not see (it|them) yet\. A date/);
     else if (life === 'paused') expect(text).toMatch(/paused, so dancers do not see (it|them)\./);
     else expect(text).not.toMatch(/dancers/i);
-    expect(text).not.toMatch(/[–—…]/);
+    expect(text).not.toMatch(/[\u2013\u2014\u2026]/);
   });
 
   it('the button and the nothing-changed line do not depend on the lifecycle', () => {
@@ -62,7 +62,7 @@ describe('saveWordsFor(oneDate, lifecycle): every save message x date count x li
     }
   });
 
-  it('the owner’s draft wording, one date', () => {
+  it('the owner draft wording, one date', () => {
     expect(saveWordsFor(true, 'draft').detailsSaved).toBe('Saved as a draft. Dancers do not see it yet.');
   });
 });

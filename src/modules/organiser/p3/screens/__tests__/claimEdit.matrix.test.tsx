@@ -50,6 +50,8 @@ const CASES: Array<[name: string, raw: Raw, oneDate: boolean]> = [
   ['draft, no dates', SHAPES.draft, true],
   ['draft with one date', one({ lifecycle_status: 'draft' }), true],
   ['ended', SHAPES.ended, false],
+  ['paused', SHAPES.paused, false],
+  ['draft with dates', SHAPES.draftReady, false],
   ['with sessions', SHAPES.weekly, false],
   ['without sessions', SHAPES.noSessions, false],
   ['no gallery', one({ gallery: [] }), true],
