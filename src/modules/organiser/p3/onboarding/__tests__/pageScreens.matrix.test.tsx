@@ -369,11 +369,11 @@ describe('Review and Live', () => {
     fireEvent.click(screen.getByTestId('p3-ob-review-org_logo'));
     await onStep('logo');
   });
-  it('a code with no screen here opens the dancer editor with a way back', async () => {
-    mount({ shape: 'e164Confirmed', at: 'review', person: ['dj_answer'] });
+  it('a code with no screen here (Instagram) opens the /app editor on it with a way back', async () => {
+    mount({ shape: 'e164Confirmed', at: 'review', person: ['instagram'] });
     await onStep('review');
-    fireEvent.click(screen.getByTestId('p3-ob-review-dj_answer'));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/returnTo=.*at%3Dreview/));
+    fireEvent.click(screen.getByTestId('p3-ob-review-instagram'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/app/me/edit?focus=instagram&returnTo=%2Faccount%2Fp3%2Fstart%3Fo%3Do1%26at%3Dreview'));
   });
   it('a draft page with nothing left: Go live is disabled WITH the reason while go-live is not wired (deployed: false)', async () => {
     const SH = { ...SHAPES.e164Confirmed, lifecycle: 'draft' };

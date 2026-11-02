@@ -13,16 +13,17 @@ import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
 import { askedLine, DECLINED_NEXT, declinedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
-import { P3_PATHS } from '../shell/paths';
+import { P3_PATHS, p3StartReview } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
 import { NoDancerBody, NoDancerFoot, PersonScreens } from './PersonFlow';
-import { PERSON_ORDER, heldFrom, personPath, personReadFail, type PersonStep } from './personModel';
+import { DJ_ORDER, PERSON_ORDER, heldFrom, isDjStep, personPath, personReadFail, type PersonStep } from './personModel';
 import { PAGE_STALE_KEYS, REAL_GO_LIVE, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
   CATEGORIES,
   EMPTY_PAGE,
+  appEditHref,
   KEPT_PARAMS,
   NAME_MAX,
   PAGE_COPY,
@@ -64,7 +65,7 @@ const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWi
 const SEARCH = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>;
 const CHEV = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} aria-hidden="true"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
-const isPersonStep = (s: string): s is PersonStep => (PERSON_ORDER as readonly string[]).includes(s);
+const isPersonStep = (s: string): s is PersonStep => ([...PERSON_ORDER, ...DJ_ORDER] as readonly string[]).includes(s);
 const PAGE_STEPS: readonly string[] = ['welcome', 'find', 'create-name', 'create-city', 'contact', 'contact-phone', 'whatsapp', 'cat', 'link', 'logo'];
 const isPageStep = (s: string): s is PageStep => PAGE_STEPS.includes(s);
 /** The page screens that need the page's own reads (a page exists by then). */
@@ -75,7 +76,9 @@ type Stage =
   | { kind: 'person'; step: PersonStep }
   | { kind: 'review' }
   | { kind: 'live'; outcome: GoLiveOutcome }
-  | { kind: 'asked'; name: string };
+  | { kind: 'asked'; name: string }
+  /** A Review row no screen here answers (an unknown code): says what the person can do instead. */
+  | { kind: 'elsewhere'; row: ReviewRow };
 
 const FIND_MIN = 2;
 
@@ -132,11 +135,19 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
 
   const page = useQuery({ queryKey: ['p3-ob-page', orgId], queryFn: () => reads.page(orgId as string), enabled: !!orgId, retry: false });
   const phone = useQuery({ queryKey: ['p3-ob-page', 'phone', orgId], queryFn: () => reads.phone(orgId as string), enabled: !!orgId, retry: false });
-  const status = useQuery({ queryKey: ['p3-ob-status', orgId], queryFn: () => reads.status(orgId as string), enabled: !!orgId, retry: false });
+  // Arriving at Review (back from the /app editor, Home's banner) re-reads the list: a cached one would still show a
+  // row the person just filled in elsewhere (instagram-refusal r2 N2). Stale at once, so the key's first observer
+  // (orgId lands after mount) fetches; Review waits for that read (reviewFresh).
+  const status = useQuery({ queryKey: ['p3-ob-status', orgId], queryFn: () => reads.status(orgId as string), enabled: !!orgId, retry: false, ...(at === 'review' ? { staleTime: 0 } : {}) });
+  const reviewFresh = at !== 'review' || status.isFetchedAfterMount;
   const dancer = useQuery({ queryKey: ['p3-ob', 'dancer', uid], queryFn: personReads.dancer, enabled: !!uid, retry: false });
   const intent = useQuery({ queryKey: ['p3-ob', 'intent', uid], queryFn: personReads.intent, enabled: !!uid, retry: false });
   const teacher = useQuery({ queryKey: ['p3-ob', 'teacher', uid], queryFn: personReads.teacher, enabled: !!uid, retry: false });
   const organiser = useQuery({ queryKey: ['p3-ob', 'organiser', orgId], queryFn: () => personReads.organiser(orgId as string), enabled: !!orgId, retry: false });
+  // The DJ steps' one extra read (dj_role_details genres), only while on them.
+  const djStage = stage.kind === 'person' && isDjStep(stage.step);
+  const readDj = personReads.dj;
+  const dj = useQuery({ queryKey: ['p3-ob', 'dj', uid], queryFn: () => (readDj ? readDj() : Promise.resolve({})), enabled: !!uid && djStage, retry: false });
 
   const rs = orgId && status.data ? reviewStatusFrom(status.data, orgId) : null;
   // Held page values: taken ONCE per page when its reads land (the draft must not reset under the person's typing).
@@ -153,8 +164,8 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   }, [orgId, page.isSuccess, page.data, phone.isSuccess, phone.data, status.isSuccess, rs]);
 
   const personHeld = useMemo(
-    () => (dancer.data && intent.data && teacher.data ? heldFrom({ dancer: dancer.data, intent: intent.data, teacher: teacher.data, bio: organiser.data?.bio ?? null }) : null),
-    [dancer.data, intent.data, teacher.data, organiser.data],
+    () => (dancer.data && intent.data && teacher.data ? heldFrom({ dancer: dancer.data, intent: intent.data, teacher: teacher.data, bio: organiser.data?.bio ?? null, dj: dj.data ?? null }) : null),
+    [dancer.data, intent.data, teacher.data, organiser.data, dj.data],
   );
   const [teachNow, setTeachNow] = useState<'yes' | 'no' | null>(null);
   const teach = teachNow ?? personHeld?.teach ?? null;
@@ -203,7 +214,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   const needsPage = stage.kind === 'review' || (stage.kind === 'page' && DETAIL_STEPS.includes(stage.step));
   if (needsPage && orgId) {
     if (pageReadsFailed || page.data === null) return failed('page', 'We couldn\u2019t load your page. Try again.', () => [page, phone, status].forEach((q) => void q.refetch()));
-    if (!held || !d || !rs) return loading('page');
+    if (!held || !d || !rs || (stage.kind === 'review' && !reviewFresh)) return loading('page');
   }
   if (needsPage && !orgId) {
     return failed('page', 'You don\u2019t have a page yet. Find or create one first.', () => go({ kind: 'page', step: 'welcome' }, 'back'));
@@ -214,14 +225,19 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   };
 
   if (stage.kind === 'person') {
-    const personReads = [dancer, intent, teacher, ...(orgId ? [organiser] : [])];
+    const personReads = [dancer, intent, teacher, ...(orgId ? [organiser] : []), ...(djStage ? [dj] : [])];
     const personFailed = personReads.some((q) => q.isError);
     // No dancer row: Retry cannot succeed, so the screen says so and offers the team's contact link.
     if (personFailed && personReadFail(personReads.map((q) => q.error)) === 'no_dancer') {
       return shell('person-nodancer', <NoDancerBody />, <NoDancerFoot />, 0, () => go({ kind: 'page', step: orgId ? 'logo' : 'welcome' }, 'back'));
     }
-    if (personFailed) return failed('person', 'We couldn\u2019t load your details. Try again.', () => [dancer, intent, teacher, organiser].forEach((q) => void q.refetch()));
-    if (!personHeld || (orgId && organiser.isPending)) return loading('person');
+    if (personFailed) return failed('person', 'We couldn\u2019t load your details. Try again.', () => [dancer, intent, teacher, organiser, ...(djStage ? [dj] : [])].forEach((q) => void q.refetch()));
+    if (!personHeld || (orgId && organiser.isPending) || (djStage && dj.isPending)) return loading('person');
+    const toReview = () => {
+      void qc.invalidateQueries({ queryKey: ['p3-ob'] });
+      void qc.invalidateQueries({ queryKey: ['p3-ob-status'] });
+      go({ kind: 'review' }, 'back');
+    };
     return (
       <PersonScreens
         key={`person-${stage.step}`}
@@ -239,8 +255,9 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         initialStep={stage.step}
         upload={upload}
         lastLabel="Continue"
-        percentOf={(s, p) => flowPercent(s, groups(p))}
-        onExit={() => {
+        // The DJ steps come from Review and go back to it: the bar stays where Review had it.
+        percentOf={(s, p) => (djStage && rs ? reviewPercent(groups(personPath(teach, true)).length, rs.missing.length) : flowPercent(s, groups(p)))}
+        onExit={djStage ? toReview : () => {
           void qc.invalidateQueries({ queryKey: ['p3-ob'] });
           go({ kind: 'page', step: orgId ? 'logo' : 'welcome' }, 'back');
         }}
@@ -271,7 +288,10 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         onRow={(r) => {
           if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step });
           else if (r.step && isPageStep(r.step)) go({ kind: 'page', step: r.step === 'contact' && held ? contactEntry(held) : r.step });
-          else navigate(r.elsewhere === 'page' ? P3_PATHS.youPage : finishProfileHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`));
+          else if (r.elsewhere === 'page') navigate(P3_PATHS.youPage);
+          else if (r.elsewhere === 'app') navigate(appEditHref('instagram', p3StartReview(orgId)));
+          else if (r.elsewhere === 'dancer') navigate(finishProfileHref(p3StartReview(orgId)));
+          else go({ kind: 'elsewhere', row: r });
         }}
         onLive={(outcome) => {
           invalidate();
@@ -285,6 +305,22 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   }
   if (stage.kind === 'live' && orgId) {
     return <LiveScreen outcome={stage.outcome} name={held?.name || organiser.data?.name || ''} orgId={orgId} organiserDetail={organiserDetail} theme={theme} onHome={exit} onPage={() => navigate(P3_PATHS.youPage)} />;
+  }
+  if (stage.kind === 'elsewhere' && orgId) {
+    const back = () => go({ kind: 'review' }, 'back');
+    return shell(
+      'elsewhere',
+      <>
+        <h1 className="p3-ob-t" tabIndex={-1} data-testid="p3-ob-title">{stage.row.label}</h1>
+        <p className="p3-ob-m" data-testid="p3-ob-elsewhere">We can&rsquo;t open this one here yet. You can edit your dancer profile, or go back to your list and do the other items.</p>
+      </>,
+      <>
+        <button type="button" className="p3-ob-btn" onClick={() => navigate(appEditHref(null, p3StartReview(orgId)))} data-testid="p3-ob-elsewhere-edit">Edit your dancer profile</button>
+        <button type="button" className="p3-ob-lnk" onClick={back} data-testid="p3-ob-elsewhere-back">Back to your list</button>
+      </>,
+      0,
+      back,
+    );
   }
   if (stage.kind === 'asked') {
     return shell(

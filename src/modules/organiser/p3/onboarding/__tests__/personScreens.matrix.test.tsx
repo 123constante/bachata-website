@@ -25,7 +25,7 @@ import type { OrganiserBrief, PersonWrites } from '../personApi';
 
 const FULL: PersonDraft = {
   first_name: 'Sam', avatar_url: 'https://img/a.jpg', dance_role: 'Follower', nationality: 'GB-SCT', languages: ['English'],
-  teach: 'yes', levels: ['Beginner'], styles: ['Moderna'], years: '3', about: 'We dance on Fridays.',
+  teach: 'yes', levels: ['Beginner'], styles: ['Moderna'], years: '3', about: 'We dance on Fridays.', dj: null, genres: '',
 };
 const ORG: OrganiserBrief = { id: 'o1', name: 'Leeds Nights', bio: FULL.about, category: 'Promoter', city: 'Leeds' };
 
