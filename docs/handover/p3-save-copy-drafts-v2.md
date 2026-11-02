@@ -45,3 +45,17 @@ Replaces parked PR #1273. Branch `claude/p3-save-copy-drafts-v2` was cut fresh f
 ## Next
 - Orchestrator: walk a draft (e.g. 68d64855 on test org 5c3943c2) and a live event, saving Details, Prices and a session.
 - Then close #1273.
+
+## Fix round 1 (review r1, `docs/review/pr-1278-r1.md` on `claude/review-1278-r1`)
+- Base: main had moved to 337ec6a. I merged it into the branch with no conflicts, so the merge-base is now origin/main.
+- F1 fixed. All seven paused lines in `model/saveWords.ts` now use P3's word: "Saved. It is hidden from the calendar." / "Saved for all dates. It is hidden from the calendar. A date with its own pictures keeps them." / "Prices saved. The event is hidden from the calendar." / "Saved for every date. It is hidden from the calendar." / "Saved for {day} only. It is hidden from the calendar." / "Session added to every date. It is hidden from the calendar." / "Added to {day} only. It is hidden from the calendar." The header comment is updated too. No paused line makes a claim about dancers any more, because a paused page with a past date still shows publicly under "On hiatus".
+- F4 fixed. `''` (what `seriesModel.ts:93` passes for a null lifecycle) is now in the matrix LIFECYCLES. It behaves like null and says nothing about dancers.
+- Red first: I changed only the matrix and ran it against the old words. 12 failed (the 12 paused cells) and 98 passed. The `''` cells already passed, because `lifeOf('')` already falls to quiet.
+- Green: saveWords.matrix, claimEdit.matrix, editScreens.send and sessions.send pass: 220 passed, 2 skipped.
+- `npm run lint`: 24 of 24 links pass. Whole-tree eslint is informational and red on main. eslint on the 2 touched files is clean. `tsc -p tsconfig.app.json` shows no errors in saveWords, SessionSheet, DetailsScreen or PricesScreen.
+- F2 (the PR body) was the orchestrator's job, and its Phone QA section is present now. I left F3 and F5 alone, as the brief says.
+- After the first push, PR #1278 `mergeable_state` was `blocked` (checks pending), not `dirty`.
+
+### Not verified (fix round 1)
+- Browser walk at 390x844 (the orchestrator's).
+- CI on the final head (it was pending when I stopped).
