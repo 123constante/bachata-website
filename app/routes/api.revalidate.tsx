@@ -147,21 +147,28 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // the rest. NEVER the whole list: seo-landing (9 pages) + city-<slug> (the
     // busiest document) would be up to 11 cold renders per cancel on a Hobby team
     // over its CDN cap (docs/design/live-now-lag/PLAN.md, option C, review F2).
+    const slugHints: Record<string, string> =
+      slugHint && entityId && UUID_RE.test(entityId) ? { [entityId]: slugHint } : {};
     if (hidden) await dangerouslyDeleteByTag(tags);
     else if (stateChange) {
       const hard = eventTag(entityId!);
       await dangerouslyDeleteByTag([hard]);
       const soft = tags.filter((t) => t !== hard);
-      if (soft.length) await invalidateByTag(soft);
+      try {
+        if (soft.length) await invalidateByTag(soft);
+      } catch (softErr) {
+        // The event page IS fresh on Vercel: still clear it from Cloudflare (the
+        // soft-failed city/SEO tags are not purged there -- Cloudflare would only
+        // refetch Vercel's un-invalidated copy). Still a 502: the write is partial.
+        scheduleCloudflarePurge([hard], slugHints);
+        throw softErr;
+      }
     } else await invalidateByTag(tags);
-    scheduleCloudflarePurge(
-      tags,
-      slugHint && entityId && UUID_RE.test(entityId) ? { [entityId]: slugHint } : {},
-    );
+    scheduleCloudflarePurge(tags, slugHints);
     return json({ ok: true, tags }, 200);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[revalidate] invalidateByTag failed", msg);
+    console.error("[revalidate] Vercel tag purge failed", msg);
     // 502 → the DB webhook can safely retry (invalidation is idempotent).
     return json({ ok: false, reason: msg, tags }, 502);
   }

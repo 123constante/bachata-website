@@ -162,6 +162,65 @@ describe("/api/revalidate stateChange: hard-delete event-<id> only", () => {
     expect(waitUntil).not.toHaveBeenCalled();
   });
 
+  it("snake_case state_change: true takes the same path", async () => {
+    await call(liveBody({ state_change: true }));
+    expect(dangerouslyDeleteByTag).toHaveBeenCalledWith([EVT]);
+    expect(invalidateByTag).toHaveBeenCalledWith(["city-london-gb", "seo-landing"]);
+  });
+
+  it("Cloudflare is scheduled only AFTER the hard delete resolved", async () => {
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
+    vi.stubEnv("CLOUDFLARE_ZONE_ID", ZONE);
+    vi.stubEnv("VERCEL_ENV", "production");
+    let hardDone = false;
+    dangerouslyDeleteByTag.mockImplementation(async () => {
+      await Promise.resolve();
+      hardDone = true;
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"success":true}')));
+    waitUntil.mockImplementation(() => expect(hardDone).toBe(true));
+    vi.useFakeTimers();
+    let res: Response;
+    try {
+      res = await call(liveBody({ stateChange: true }));
+      // Drain the purge task so it cannot hit the next test's fetch stub.
+      await vi.runAllTimersAsync();
+      await (waitUntil.mock.calls[0][0] as Promise<unknown>);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(res!.status).toBe(200);
+    expect(waitUntil).toHaveBeenCalledTimes(1);
+    expect(dangerouslyDeleteByTag.mock.invocationCallOrder[0]).toBeLessThan(waitUntil.mock.invocationCallOrder[0]);
+  });
+
+  it("hard delete ok, soft invalidate fails: 502, but the event page is still purged from Cloudflare", async () => {
+    vi.stubEnv("CLOUDFLARE_API_TOKEN", "tok");
+    vi.stubEnv("CLOUDFLARE_ZONE_ID", ZONE);
+    vi.stubEnv("VERCEL_ENV", "production");
+    const fetchSpy = vi.fn(async () => new Response('{"success":true}'));
+    vi.stubGlobal("fetch", fetchSpy);
+    invalidateByTag.mockRejectedValue(new Error("vercel soft down"));
+    vi.useFakeTimers();
+    let res: Response;
+    try {
+      res = await call(liveBody({ stateChange: true }));
+      expect(waitUntil).toHaveBeenCalledTimes(1);
+      await vi.runAllTimersAsync();
+      await (waitUntil.mock.calls[0][0] as Promise<unknown>);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(res!.status).toBe(502);
+    const purged = fetchSpy.mock.calls
+      .filter(([u]) => String(u).includes("/purge_cache"))
+      .map(([, init]) => String((init as RequestInit).body))
+      .join("\n");
+    expect(purged).toContain("/event/bachateame-saturdays");
+    expect(purged).not.toContain("/city/london-gb");
+    expect(purged).not.toContain("/london-bachata-guide");
+  });
+
   // `/event/<slug>.data` row: purged AND warmed, canonical URL, no query.
   it.each([
     ["cancelled", "bachateame-saturdays", "bachateame-saturdays"],

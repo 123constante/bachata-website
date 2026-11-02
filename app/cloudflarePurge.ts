@@ -21,7 +21,8 @@
 // canonical pages once ("warm") to start Vercel's re-render, wait for it to
 // settle, and pass 2 purges again. Visitors after pass 2 get the fresh render.
 // Only the canonical pages are warmed (each warm is one SSR render on the
-// Hobby CPU budget); the other URLs get both purges but no warm. A person tag
+// Hobby CPU budget), plus, for /event only, the canonical page's `.data` twin
+// (live-now G3, see CF_URL_RULES); the other URLs get both purges but no warm. A person tag
 // (S7c) warms the slug page under each of its base paths: every one of them was
 // soft-invalidated on Vercel, and an unwarmed one comes back stale (up to 4 renders
 // for a write that touches all three roles).
