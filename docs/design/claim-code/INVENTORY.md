@@ -2,7 +2,7 @@
 
 Written BEFORE `PLAN.md`, per the brief. Read-only: code read at `origin/main` ecfe506;
 live RPC bodies and counts read from prod `stsdtacfauprzrdebmzg` on 2026-11-01 with
-SELECT only (no writes, no personal data; counts only).
+SELECT only (no writes, no personal data; counts only). Counts in s.4 re-run 2026-11-02 (r2).
 
 ## 1. Every claim path today
 
@@ -15,7 +15,7 @@ SELECT only (no writes, no personal data; counts only).
 | P5 | **Claim hints** (what the card offers) | `src/modules/organiser/shared/selfServeApi.ts:136` (call), `:109` (accepted hint list); type `src/modules/organiser/shared/claimHint.ts:16`; decision `src/modules/organiser/shared/ownership.ts:72-89` (`ownershipFacts`) | `organiser_claim_hints_v1(p_organiser_ids uuid[]) -> jsonb`, authenticated + service_role, max 50 ids | Hints: `yours`, `managed`, `no_email`, `email_matches`, `email_matches_unproven`, `email_differs`. `no_email` means no claim_email AND no contact_email (phone is ignored). |
 | P6 | **Ownership read** (public, anon) | `src/modules/organiser/shared/ownershipApi.ts:27-31`; used `src/pages/OrganiserProfile.tsx:741` | `organiser_ownership_v1(p_organiser_id) -> jsonb`, anon + authenticated | Drives `kind` = `hidden/managed/sign_in/claim/request/member` (`ownership.ts:31`). |
 | P7 | **Ask to join** (request access) | `PublicClaimCard.tsx:242` (`request`), `:307-334` panel; API `selfServeApi.ts:179`; owner/admin answers via `selfServeApi.ts:441` and `src/modules/organiser/flows/fix/JoinRequest.tsx:21` | `request_organiser_access_v1(p_organiser_id, p_message) -> jsonb`; `resolve_organiser_access_request_v1(p_request_id, p_decision, p_member_role, p_note)` | Dancer gate; `not_live`; `already_member`; message <= 500 (`message_too_long`/`message_invalid`); `request_already_open`; `request_limit_reached` (10 open per user). Stored as an audit row `access_requested` (no table of its own). On an UNOWNED page only an admin can answer. |
-| P8 | **Organiser invite link** `/invite/<token>` | route `src/components/AnimatedRoutes.tsx:284`; page `src/modules/admin-organisers/InviteRedeemPage.tsx`; API `src/modules/admin-organisers/adminApi.ts:117` (redeem), `:126` (preview), `src/modules/admin-organisers/inviteRedeemApi.ts:37` (`request_new_invite_v1`) | `redeem_organiser_invite_v1(p_token text) -> jsonb` (authenticated, service_role); `organiser_invite_preview_v1(p_token)` (anon); `request_new_invite_v1(p_token)` (anon) | Returns `{ok, reason|status}`; reasons seen: `sign_in_required`, `unconfirmed_account`, `email_unproven`, `email_mismatch`, `invalid`, `rate_limited`, `team_full`, `link_failed`, `not_linked`; statuses `redeemed`, `already_member`. Token stored as `token_hash bytea`. Rate limit: `c_limit = 10` FAILED attempts per user, per-user advisory lock `hashtextextended('organiser_invite_redeem:'||user)`, day-old rows pruned 100/call; a `rate_limited` answer is not itself recorded. |
+| P8 | **Organiser invite link** `/invite/<token>` | route `src/components/AnimatedRoutes.tsx:284`; page `src/modules/admin-organisers/InviteRedeemPage.tsx`; API `src/modules/admin-organisers/adminApi.ts:117` (redeem), `:126` (preview), `src/modules/admin-organisers/inviteRedeemApi.ts:37` (`request_new_invite_v1`) | `redeem_organiser_invite_v1(p_token text) -> jsonb` (authenticated, service_role); `organiser_invite_preview_v1(p_token)` (anon); `request_new_invite_v1(p_token)` (anon) | Seats the redeemer as **`owner`** via `_organiser_member_set_p5` with no owned-page check (see PLAN s.4a). Shows a wrong-email caller a masked address via `_email_hint_v1` (`invite_email_hint`, `r...@gmail.com`), as does the preview. Returns `{ok, reason|status}`; reasons seen: `sign_in_required`, `unconfirmed_account`, `email_unproven`, `email_mismatch`, `invalid`, `rate_limited`, `team_full`, `link_failed`, `not_linked`; statuses `redeemed`, `already_member`. Token stored as `token_hash bytea`. Rate limit: `c_limit = 10` FAILED attempts per user, per-user advisory lock `hashtextextended('organiser_invite_redeem:'||user)`, day-old rows pruned 100/call; a `rate_limited` answer is not itself recorded. |
 | P9 | **Admin issues invite / enters claim email** | `src/modules/admin-organisers/adminApi.ts:86` (`admin_issue_organiser_invite_v1`), `:97` revoke, `:67` list | `admin_issue_organiser_invite_v1(p_organiser_id, p_email, p_first_name, p_city_id)`; `organiser_claim_emails` is written from the ADMIN repo (no writer in this repo) | This is the "admin first enters the email" step the owner wants to remove for pages that HAVE a contact. |
 
 ## 2. Every data field involved
@@ -34,11 +34,12 @@ SELECT only (no writes, no personal data; counts only).
 
 ## 3. GAPs found
 
-- **G1 — phone is the real contact, and nothing can use it.** Of 38 unclaimed live pages, 32 have
-  only a phone. Email-only code delivery helps **2** pages. (See counts.)
+- **G1 — phone is the real contact, and nothing can use it.** Of 37 unclaimed live pages (2026-11-02), 32 have
+  only a phone. Email-only code delivery helps **2** pages, and both are already reachable by the instant
+  claim (P1) once the organiser signs in with that address (review R5). (See counts.)
 - **G2 — the owner's "14 of 15 founding pages with no contact" does not match prod as counted here.**
-  There is no "founding" column (`profile_source` is `admin_create` for all 38). By the claim RPC's own
-  rule (`claim_email` else `contact_email`), 36 of 38 have **no email evidence**, 4 have no contact at all.
+  There is no "founding" column (`profile_source` is `admin_create` for all 38 counted on 2026-11-01). By the claim RPC's own
+  rule (`claim_email` else `contact_email`), 35 of 37 have **no email evidence**, 3 have no contact at all (2026-11-02; was 36 of 38 and 4 on 2026-11-01).
   The brief's number may use another list; owner to confirm which set "founding" means. The design does
   not depend on it: any page without a usable contact stays ask-to-join.
 - **G3 — Website drops a live hint.** `selfServeApi.ts:109` accepts 5 hints; the DB also returns
@@ -53,16 +54,18 @@ SELECT only (no writes, no personal data; counts only).
   this design but it is the fallback for 36+ pages, so admin triage volume matters.
 - **G6 — `organiser_claim_emails` writer lives in the admin repo**; not inspected here.
 
-## 4. Counts from prod (unclaimed = live, `claimed_by` NULL, no owner row)
+## 4. Counts from prod, 2026-11-02 (unclaimed = live, `claimed_by` NULL, no owner row)
 
 | Contact kind | Pages |
 |---|---|
 | Email evidence (claim_email or contact_email) | 2 (claim_email: 0; contact_email: 2; of those, email public: 1) |
 | Other (phone only) | 32 |
-| None | 4 |
-| **Total unclaimed live** | **38** |
+| None | 3 |
+| **Total unclaimed live** | **37** |
 
-Phone present and public on 34 (phone with or without email).
+On 2026-11-01 the same query gave 38 (None 4); one no-contact page left the set since.
+
+Phone present and public on 34 (phone with or without email; figure from the review, 2026-11-02).
 
 ## 5. Coverage
 
