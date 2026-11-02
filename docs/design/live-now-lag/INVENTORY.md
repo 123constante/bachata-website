@@ -1,4 +1,4 @@
-# Live-now lag: inventory (r1, 2026-11-01)
+# Live-now lag: inventory (r1, 2026-11-01; review fixes 2026-11-02)
 
 Every public surface that shows an event's state, the cache in front of it, and
 whether a content write purges it. Then every organiser surface that shows a
@@ -38,6 +38,12 @@ Purge trigger: DB webhook (`_emit_cache_revalidation_v1`, admin repo) POSTs
 | 14 | ICS feed | `app/routes/api.ics.calendar.tsx:194` (`max-age=3600, s-maxage=21600`) | 6 h | none | **NO** (G4) |
 | 15 | Embed calendar | `app/routes/api.embed.calendar.tsx:198` (`s-maxage=300`) | 5 min | none | **NO** (G4, bounded 5 min) |
 | 16 | Sitemap | `app/routes/sitemap.tsx:305` | default | none | NO (TTL only; not state-bearing for a cancel) |
+| 17 | Tonight feed | `/tonight`, `/city/:slug/tonight` &mdash; `src/components/AnimatedRoutes.tsx:141-142`, `src/pages/Tonight.tsx:134-140` (client RPC via `get_calendar_events`, key includes London day) | none at edge (catch-all SPA shell, browser &rarr; Supabase) | none | n/a: fresh on load; open-tab stale up to **5 min** (`staleTime`, `Tonight.tsx:138`). Distinct from #3 (different route, different cache) |
+| 18 | Search results | `/search`, `/city/:slug/search` &mdash; `AnimatedRoutes.tsx:302-303`, `src/pages/SearchResults.tsx` | none at edge | none | n/a: client RPC; open-tab stale per React Query (global default 60 s, `src/App.tsx:15`, unless the page's hook overrides; not traced) |
+| 19 | Parties | `/parties`, `/city/:slug/parties` &mdash; prerendered static shell (`react-router.config.ts:33-38`), `src/pages/Parties.tsx:54` mounts the client-only `EventCalendar` | static shell (no event data in HTML) | none | n/a: same data path and open-tab staleness as #4 |
+| 20 | Classes | `/classes`, `/city/:slug/classes` &mdash; as #19, `src/pages/Classes.tsx:55` | static shell | none | n/a: as #4 |
+| 21 | Venues list | `/venues`, `/city/:slug/venues` &mdash; `AnimatedRoutes.tsx:182-183`, `src/pages/Venues.tsx:496` | none at edge | none | n/a: client RPC, open-tab stale up to 5 min |
+| 22 | Organisers list (flag `organisersDirectory`) | `/organisers` &mdash; `AnimatedRoutes.tsx:184-192`, `src/pages/Organisers.tsx:268-324` (next/last event dates) | none at edge | none | n/a: client RPC, open-tab stale 5-30 min per query |
 
 ## Organiser surfaces showing a saved / live state
 
@@ -63,12 +69,35 @@ today means "the DB accepted the command", not "the public page matches".
 - **G3** Non-warmed URLs (`.data` twins, query variants, SEO pages) can re-cache Vercel's stale copy in Cloudflare for 300 s after pass 2, because the Vercel purge is soft.
 - **G4** ICS (6 h) and embed (5 min) have no purge.
 - **G5** Writes that never call the webhook (`admin_delete_series_p5_v1`, collapse, duplicate, merge venues, raffle/guest config, `organiser_profile_update_p5_v1`) and time-based endings purge nothing (`docs/ops/cloudflare-purge.md:240-257`).
-- **G6** Open SPA tabs: React Query staleTime 1-2 h; nothing pushes a change.
+- **G6** Open SPA tabs: React Query staleTime 1-2 h (calendar, map, event), 5 min (tonight, venues), 5-30 min (organisers list); nothing pushes a change.
+- **G7** `/event/:id` has no TTL bound, so the time-driven ended / on-now state can be up to ~25 h old at the edge (review F4).
+
+**Time-driven state on #1 (review F4).** `/event/:id` passes **no TTL bound**
+(`app/routes/event.tsx:209`, `stampEvent(eventId)` with no third argument, so
+`app/detailLoader.ts:130-139` emits the default 3600 + SWR 86400). The
+server-computed `occurrence.isPast` drives the first paint
+(`src/modules/event-page/bento/BentoPage.tsx:211-222`) and `meta()` ships the
+ended share description (`event.tsx:17,205`). So "ended" and "on now" are NOT
+covered on #1/#13: a crawler or the pre-hydration paint can read "not ended"
+for up to ~25 h. `/city/:slug` does bound itself (`home.tsx:287-304`).
 
 ## Coverage count
 
-16 public surfaces + 9 organiser surfaces = **25 surfaces**. Public: 16 listed,
-7 purged on an event write (#1, #2, #3, #6, #8, #13, and #12 by URL change),
-3 not edge-cached (#4, #5, #11 timeline), 6 with a gap (#9, #10, #11 SSR, #14,
-#15, #16). Organiser: 9 listed, 0 confirm the public page. None silently
-omitted. Not surveyed: admin-repo surfaces (out of scope for this repo).
+r1 said "16 public, none silently omitted". That was wrong (review F3): rows
+#17-#22 were missing. Restated: **22 public surfaces** (counting each route
+pair such as `/tonight` + `/city/:slug/tonight` as one row; 28 if each route
+path is counted separately) + **9 organiser** = **31 rows**.
+
+Public, by how an event write reaches them:
+- Purged on an event write (7): #1, #2, #3, #6, #8, #13, and #12 by URL change.
+  #1/#13 are purge-covered for cancel/move/time changes only, not for the
+  time-driven ended / on-now transitions (see above).
+- Not edge-cached, client RPC, fresh on load and stale only in an open tab
+  (9): #4, #5, #11 timeline, #17, #18, #19, #20, #21, #22.
+- With a purge gap (6): #9, #10, #11 SSR text, #14, #15, #16.
+
+(#11 is counted in two buckets because its SSR text and its client timeline
+behave differently.) Organiser: 9 listed, 0 confirm the public page.
+Not surveyed: admin-repo surfaces (out of scope for this repo); other
+catch-all SPA pages were scanned only for event-state content
+(`AnimatedRoutes.tsx`), and these six were the ones found.
