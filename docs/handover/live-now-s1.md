@@ -1,6 +1,6 @@
 # Handover: Live now, slice 1 (website only)
 
-Branch `claude/live-now-s1`. Brief: `brief/live-now-r1:docs/briefs/live-now-slice1.md`.
+Branch `claude/live-now-s1`, PR #1267 (bot-opened; body filled by the worker). Never merged or approved by the worker. Brief: `brief/live-now-r1:docs/briefs/live-now-slice1.md`.
 Plan: `docs/design/live-now-lag/PLAN.md` option C, steps 1 and 2. Slices 2
 (admin emit + migration) and 3 (Done-screen check) are NOT started.
 
@@ -62,3 +62,7 @@ in Cloudflare for up to 300 s.
 - Whole `test:unit` with contract suites needs the Supabase secret. Locally
   `tests/integrityCouldNotRun.test.ts` fails 5 tests on origin/main too (env).
 - No browser walk: there is no UI change.
+
+## Status
+
+DONE for slice 1. Next: one orchestrator walk (stopping rule), then slice 2 (admin `stateChange` emit) and the probe run from a network that reaches prod.
