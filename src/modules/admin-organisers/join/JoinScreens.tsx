@@ -107,13 +107,12 @@ export function Checking() {
 
 export function EmailStep({ initial, busy, error, onSend }: { initial: string; busy: boolean; error: string | null; onSend: (typed: string) => void }) {
   const [typed, setTyped] = useState(initial);
-  const canSend = typed.trim() !== '' && !busy;
   return (
     <form className="flex flex-col gap-2" noValidate onSubmit={(e) => { e.preventDefault(); onSend(typed); }} data-testid="join-email-form">
       <label htmlFor="join-email" className="text-[14px] font-semibold">{JOIN_COPY.email.label}<span className="block text-[13px] font-normal text-muted-foreground">{JOIN_COPY.email.hint}</span></label>
       <input id="join-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder={JOIN_COPY.email.placeholder} className={FIELD} value={typed} onChange={(e) => setTyped(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? 'join-email-error' : 'join-email-why'} data-testid="join-email-input" />
       <ErrorLine id="join-email-error">{error}</ErrorLine>
-      <button type="submit" className={BTN} disabled={!canSend} data-testid="join-send">{busy ? JOIN_COPY.email.sending : JOIN_COPY.email.button}</button>
+      <button type="submit" className={BTN} disabled={busy} data-testid="join-send">{busy ? JOIN_COPY.email.sending : JOIN_COPY.email.button}</button>
       <p id="join-email-why" className={WHY} data-testid="join-why">{typed.trim() === '' ? JOIN_COPY.email.why : ''}</p>
     </form>
   );
