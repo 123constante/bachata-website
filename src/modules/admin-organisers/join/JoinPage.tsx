@@ -82,7 +82,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     const t = setTimeout(() => setListGaveUp(true), HOME_WAIT_MS);
     return () => clearTimeout(t);
   }, [ownList.isPending, ownList.isEnabled]);
-  const member: boolean | null = !user || !info ? null : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null : ownList.isError || listGaveUp ? false : null;
+  const member: boolean | null = !user || !info ? null : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null : ownList.isError || (listGaveUp && info.status !== 'used') ? false : null;
+  // (review r1 F2) On a USED link a slow list never reads as "not on the team": the page waits for the answer.
 
   // A used link opened by a signed-in person: redeem answers already_member (used by me) without using the link.
   // One call per page (attemptRedeem dedupes per token, so StrictMode's second effect run is the same call).
@@ -95,7 +96,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     void attemptRedeem(token).then((o) => {
       if (o.kind === 'done') {
         setRedeemed(true);
-        setRedeemedOrgId(o.alreadyMember ? null : o.organiserId);
+        // (review r1 F4) a used link's already_member names the invite's own page: land on that page's home.
+        setRedeemedOrgId(o.organiserId);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       }
       setUsedResolved(true);
@@ -137,7 +139,11 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   // Slice U: a USED link that turned out to be the person's own (redeem's already_member, or their page list) goes
   // straight to their page's home, replacing this entry so Back never lands on the link again. A first redeem
   // (status open) still shows Done.
-  const returning = step === 'done' && info?.status === 'used';
+  // (review r1 F1) "used" as FIRST seen: a first-time joiner's preview refetches as used later, and must keep Done.
+  // (review r1 F3) only when the organiser area is on: with it off, Done's plain words stay.
+  const arrivedUsed = useRef<boolean | null>(null);
+  if (arrivedUsed.current === null && info) arrivedUsed.current = info.status === 'used';
+  const returning = step === 'done' && arrivedUsed.current === true && flags.organiserSelfServe;
   useEffect(() => {
     if (!returning) return;
     const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId);

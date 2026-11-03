@@ -59,7 +59,7 @@ import {
   welcomeTitle,
 } from './pageModel';
 import { SettingsBody } from './SettingsSheet';
-import { GO_TO_HOME, eventReturnFrom, finishLabel } from './returnTo';
+import { GO_TO_HOME, eventReturnFrom, finishLabel, withBack } from './returnTo';
 import './page.css';
 
 const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true"><path d="M5 12l5 5 9-10" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -303,7 +303,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           go({ kind: 'live', outcome });
         }}
         onIncomplete={() => void qc.invalidateQueries({ queryKey: ['p3-ob-status'] })}
-        onSignIn={() => navigate(buildSignInHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`))}
+        onSignIn={() => navigate(buildSignInHref(withBack(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`, back)))}
         onHome={finish}
         back={back}
       />

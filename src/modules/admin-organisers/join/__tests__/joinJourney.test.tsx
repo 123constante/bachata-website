@@ -701,7 +701,7 @@ describe('dead and broken links', () => {
     redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
     mount();
     // the same target the Done button had, now reached without a tap, and the dead link replaced in history
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/account/o'));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/account/o/welcome?o=o4'));
     expect(screen.queryByTestId('invite-card')).toBeNull();
   });
 
@@ -852,5 +852,23 @@ describe('slice U: a dead link x who is looking', () => {
     expect(screen.getByTestId('invite-home').getAttribute('href')).toBe('/');
     // an untouched dead link sends no redeem
     expect(redeems()).toHaveLength(0);
+  });
+});
+
+describe('slice U review r1: a first-time joiner keeps Done when the preview later reads used', () => {
+  it('open at arrival, redeemed, preview refetched as used: Done stays, no redirect', async () => {
+    signedIn();
+    preview = open();
+    redeem = { ok: true, status: 'redeemed', organiser_id: 'o4' };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mount(`/invite/${TOKEN}`, client);
+    await stepIs('join');
+    fireEvent.click(screen.getByTestId('invite-join'));
+    await stepIs('done');
+    preview = { ...open(), status: 'used' };
+    await act(async () => { await client.invalidateQueries(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('done');
+    expect(screen.getByTestId('where').textContent).toMatch(/^\/invite/);
   });
 });
