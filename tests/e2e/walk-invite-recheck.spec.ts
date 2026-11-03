@@ -11,14 +11,20 @@ import { FRIDAY, ORG, ORG_NAME, OrganiserFake, PHONE, json } from './helpers/org
 test.use({ viewport: PHONE, reducedMotion: 'reduce' });
 
 const FLAGS = process.env.WALK_FLAGS === 'on' ? 'on' : 'off';
-const OUT = `docs/walk/invite-first-minute/${FLAGS}`;
+const OUT = `docs/walk/invite-recheck/${FLAGS}`;
 const TOKEN = 'ab12cd34'.repeat(8);
 const MAIL = 'diego@ritmo.example';
 fs.mkdirSync(OUT, { recursive: true });
 
 async function snap(page: Page, name: string, extra: Record<string, unknown> = {}) {
+  await page.locator('h1,h2,h3').first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => undefined);
   await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' }).catch(() => undefined);
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), undefined, { timeout: 10000 }).catch(() => undefined);
+  await page.waitForTimeout(400);
+  const full = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: PHONE.width, height: Math.max(full, PHONE.height) });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/${name}.png` });
   const text = await page.evaluate(() => (document.body.innerText || '').replace(/\n{2,}/g, '\n'));
   // Recheck guard: an error page is a FAILED walk, never a picture of a state.
