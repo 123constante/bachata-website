@@ -75,4 +75,6 @@
   display: inline-flex; align-items: center; justify-content: center; min-height: 32px; min-width: 76px; padding: 0 10px;
   border-radius: var(--r-chip); font-size: 15px; font-weight: 700; border: 1px solid var(--line-strong); background: var(--card2); color: var(--fg);
 }
+.p3-theme .p3-door-rowbtn { min-height: 44px; min-width: 96px; padding: 0 12px; font-size: 15px; font-weight: 700; }
+.p3-theme .p3-door-rowbtn[aria-disabled="true"] { opacity: 0.6; }
 .p3-theme .p3-door-st-in { background: var(--ok-fg); color: var(--danger-fg); border-color: transparent; }
