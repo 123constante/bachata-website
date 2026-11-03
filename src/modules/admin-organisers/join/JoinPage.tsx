@@ -77,18 +77,25 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   // effort: a slow or failing list leaves the Join card (the server still answers already_member on Join).
   const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && (open || info?.status === 'used') && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
   const [listGaveUp, setListGaveUp] = useState(false);
+  const [usedResolved, setUsedResolved] = useState(false);
   useEffect(() => {
     if (!ownList.isPending || !ownList.isEnabled) return;
     const t = setTimeout(() => setListGaveUp(true), HOME_WAIT_MS);
     return () => clearTimeout(t);
   }, [ownList.isPending, ownList.isEnabled]);
-  const member: boolean | null = !user || !info ? null : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null : ownList.isError || (listGaveUp && info.status !== 'used') ? false : null;
-  // (review r1 F2) On a USED link a slow list never reads as "not on the team": the page waits for the answer.
+  // (review 1291-r1 F1) redeem reads entity_members and answers already_member BEFORE used/revoked/expired, so a
+  // `dead` answer on a used link is FINAL: not on the team, whatever a same-named page in their own list says.
+  const [usedRefused, setUsedRefused] = useState(false);
+  const member: boolean | null = !user || !info ? null
+    : usedRefused ? false
+    : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null
+    : ownList.isError || (listGaveUp && (info.status !== 'used' || usedResolved)) ? false : null;
+  // (review r1 F2) On a USED link a slow list never reads as "not on the team" while redeem is still out; once it
+  // came back without a verdict (profile gate, network) the 1.5 s give-up applies again (review 1291-r1 F3).
 
   // A used link opened by a signed-in person: redeem answers already_member (used by me) without using the link.
   // One call per page (attemptRedeem dedupes per token, so StrictMode's second effect run is the same call).
   const usedStarted = useRef(false);
-  const [usedResolved, setUsedResolved] = useState(false);
   const usedByMe = Boolean(user) && authStatus === 'ready' && info?.status === 'used';
   useEffect(() => {
     if (!usedByMe || usedStarted.current) return;
@@ -99,6 +106,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         // (review r1 F4) a used link's already_member names the invite's own page: land on that page's home.
         setRedeemedOrgId(o.organiserId);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      } else if (o.kind === 'dead') {
+        setUsedRefused(true);
       }
       setUsedResolved(true);
     });

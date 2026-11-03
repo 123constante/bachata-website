@@ -16,5 +16,17 @@ PR #1291 (branch `claude/fix-join-first-batch`). Slices B, R, U are built and te
 4. Known gaps (accepted, see PR "Not verified"):
    - `back` is lost on round trips to /app or the dancer profile.
    - Back from the event can land on the finished Review.
-   - On a used link, a same-name page counts as membership.
+   - ~~On a used link, a same-name page counts as membership.~~ Fixed in fix round 1291-r1 (F1).
 5. Housekeeping: the worker's first red-first run left a stray copy of `returnTo.ts` at `/rt.ts` in the sandbox root. The sandbox safety check blocked removing it. It is outside the repo and harmless.
+
+## Fix round 1291-r1 (dt_fce3ceb41e8d; review `claude/review-1291-r1` docs/reviews/1291-r1.md)
+- F1: `JoinPage.tsx` -- on a used link, redeem answering `dead` (e.g. `{ok:false, reason:'used'}`) is FINAL: `member = false`, the other-account dead screen at once, no navigation. The page-list (`ownPageForName`) fallback stays only when redeem came back `profile_incomplete` / failed / network.
+  The `redeemer (...)` matrix cell now stubs the profile-gate RAISE (`redeemError = { message: 'profile_incomplete' }`); new same-name cell (`mine-not-the-invites`) -> dead, stays on /invite.
+- F3: used link + server `used` + a never-settling `fetchOrganiserHome` reaches dead inside 1 s; with the profile-gate refusal the 1.5 s give-up still applies (on a used link it now counts once redeem has come back). Harness: `h.homeHang`.
+- F4: `['Salsa', null]` in `inviteModel.test.ts` (kills the startsWith mutant).
+- F2: the three e2e `href` assertions are exact strings (`&back=%2Faccount%2Fp3%2Fevents%2Fx` for the harness; `encodeURIComponent('/account/p3/events/' + FRIDAY)` for Part 2 and overlays).
+- F7: F-08 marked copy-fixed by #1291 in FIXLIST.md, FLIP-READINESS.md, AUDIT-gate.md (end date / failed-read message still open, owner decision 3).
+- Red first: the 3 new journey cells failed on 655c43f9 (`expected 'checking' to be 'dead'`); green after the fix.
+- Run locally: vitest `src/modules/admin-organisers` + `src/modules/organiser/p3` 5132 passed; p3-gate-sheet + p3-gate-overlays (P3 flags on) 7/7 green (the first run had 2 failures on a cold dev server; two re-runs green); `check:bundle-budget` (see PR).
+- Not mine: F5 (PR body line) and F6 (contract-check re-run) are the orchestrator's.
+- Still left: items 1 and 3 above (390x844 browser walk, organiser shape survey).

@@ -102,7 +102,7 @@ test.describe('Part 1: the real A1 gate sheet (gate)', () => {
           expect(t.h, `tap "${t.t}" height`).toBeGreaterThanOrEqual(44);
           expect(t.w, `tap "${t.t}" width`).toBeGreaterThanOrEqual(44);
         }
-        await expect(page.getByTestId('p3-gate-go')).toHaveAttribute("href", new RegExp(`^/account/p3/start[?]o=${ORG}&at=review(&back=.*)?$`));
+        await expect(page.getByTestId('p3-gate-go')).toHaveAttribute("href", `/account/p3/start?o=${ORG}&at=review&back=%2Faccount%2Fp3%2Fevents%2Fx`);
         await page.screenshot({ path: `test-results/p3-gate-sheet-${theme}-${n}.png` });
         await page.getByTestId('p3-gate-not-now').click();
         await expect(page.getByTestId('p3-gate')).toHaveCount(0);
@@ -152,7 +152,7 @@ test.describe('Part 2: a refused write opens the real gate sheet', () => {
     await expect(page.getByText('Finish your details first, then you can add or change your events.')).toHaveCount(0);
     await page.clock.runFor(1000);
     const go = page.getByTestId('p3-gate-go');
-    await expect(go).toHaveAttribute("href", new RegExp(`^/account/p3/start[?]o=${ORG}&at=review(&back=.*)?$`));
+    await expect(go).toHaveAttribute("href", `/account/p3/start?o=${ORG}&at=review&back=${encodeURIComponent(`/account/p3/events/${FRIDAY}`)}`);
     for (const el of [page.locator('[role="dialog"]', { has: gate }), go, page.getByTestId('p3-gate-not-now')]) {
       const b = (await el.boundingBox())!;
       expect(b.x).toBeGreaterThanOrEqual(0);
