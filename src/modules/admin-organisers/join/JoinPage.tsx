@@ -18,7 +18,8 @@ import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
 import { checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
-import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, EmailStep, ErrorLine, Heading, JoinStepScreen, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
+import { buildSignInHref } from '@/lib/authRouting';
+import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
 /** How long the join card waits for the person's own page list before it shows Join anyway. */
 const HOME_WAIT_MS = 1500;
@@ -26,7 +27,7 @@ const HOME_WAIT_MS = 1500;
 export type PreviewState = 'loading' | 'failed' | JoinPreview | null;
 
 /** "Ask <inviter> for a new one": request_new_invite_v1, one line of outcome, no dead end. */
-function NewLinkRequest({ token, label }: { token: string; label: string }) {
+function NewLinkRequest({ token, label, small = false }: { token: string; label: string; small?: boolean }) {
   const [state, setState] = useState<{ busy: boolean; result: { ok: boolean; text: string } | null }>({ busy: false, result: null });
   const ask = async () => {
     setState({ busy: true, result: null });
@@ -40,7 +41,7 @@ function NewLinkRequest({ token, label }: { token: string; label: string }) {
   if (state.result?.ok) return <p className="text-[14px] font-medium" role="status" data-testid="invite-new-link-done">{state.result.text}</p>;
   return (
     <>
-      <button type="button" className={BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
+      <button type="button" className={small ? GHOST : BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
       <ErrorLine id="invite-new-link-error">{state.result?.text ?? null}</ErrorLine>
     </>
   );
@@ -74,7 +75,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
 
   // Membership before the tap: the person's own page list matched by name (the preview carries no ids). Best
   // effort: a slow or failing list leaves the Join card (the server still answers already_member on Join).
-  const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && open && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
+  const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && (open || info?.status === 'used') && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
   const [listGaveUp, setListGaveUp] = useState(false);
   useEffect(() => {
     if (!ownList.isPending || !ownList.isEnabled) return;
@@ -132,6 +133,17 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   useEffect(() => {
     if (step === 'done' || step === 'dead') stripToken();
   }, [step]);
+
+  // Slice U: a USED link that turned out to be the person's own (redeem's already_member, or their page list) goes
+  // straight to their page's home, replacing this entry so Back never lands on the link again. A first redeem
+  // (status open) still shows Done.
+  const returning = step === 'done' && info?.status === 'used';
+  useEffect(() => {
+    if (!returning) return;
+    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId);
+    navigate(to, { replace: true, state });
+  }, [returning, info?.organiserName, doneOrgId, navigate]);
+  const usedViewer = info?.status === 'used' && authStatus !== 'resolving' ? (user ? 'other_account' : 'signed_out') : null;
 
   const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
 
@@ -306,7 +318,17 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       );
       break;
     case 'dead':
-      body = <DeadScreen reason={derived.step === 'dead' ? derived.reason : 'invalid'} preview={info} newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} /> : null} />;
+      body = (
+        <DeadScreen
+          reason={derived.step === 'dead' ? derived.reason : 'invalid'}
+          preview={info}
+          newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} small={usedViewer !== null} /> : null}
+          usedViewer={usedViewer}
+          signInHref={buildSignInHref(`/invite/${token}`)}
+          busy={busy}
+          onSwitch={() => void switchAccount()}
+        />
+      );
       break;
     case 'email':
       body = (

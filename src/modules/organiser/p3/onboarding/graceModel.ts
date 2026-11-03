@@ -3,6 +3,12 @@
 
 export const thingsLeft = (n: number): string => (n === 1 ? '1 thing left' : `${n} things left`);
 
+/**
+ * Home's banner body (owner words 2026-11-03), the ONE copy: the gate is on, so nothing "works as usual" until
+ * the details are done. No other screen repeats the claim.
+ */
+export const GRACE_BODY = 'Finish your details first to create or edit events. It takes about five minutes.';
+
 /** The You row's and the page editor's words for the same count. */
 export const toFinish = (n: number): string => `To finish: ${thingsLeft(n)}`;
 

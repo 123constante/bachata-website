@@ -109,6 +109,12 @@ describe.each(ROWS)('row: $name', (row) => {
     // The skeleton renders first; the row's step is what the page settles on once the server has answered.
     if (row.expect[person] !== 'checking') await waitFor(() => expect(step.getAttribute('data-step')).not.toBe('checking'), { timeout: 4000 });
     else await new Promise((r) => setTimeout(r, 50));
+    // Slice U: a used link that is the member's own leaves for their organiser home (no Done screen to read).
+    const leaves = row.name === 'dead (used) / done for the member' && person === 'already_member';
+    if (leaves) {
+      await waitFor(() => expect(screen.getByTestId('elsewhere')).toBeTruthy());
+      return;
+    }
     expect(step.getAttribute('data-step')).toBe(row.expect[person]);
     // Server truth only: nothing is redeemed without a Join tap (the used-link membership check aside).
     if (row.name !== 'dead (used) / done for the member') expect(h.rpc).not.toHaveBeenCalledWith('redeem_organiser_invite_v1', expect.anything());

@@ -695,13 +695,14 @@ describe('dead and broken links', () => {
     expect(redeems()).toHaveLength(0);
   });
 
-  it('a used link opened by the person who used it: the done screen, no error', async () => {
+  it('a used link opened by the person who used it: straight to their organiser home (slice U), no error', async () => {
     signedIn();
     preview = { ...open(), status: 'used' };
     redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
     mount();
-    await stepIs('done');
-    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+    // the same target the Done button had, now reached without a tap, and the dead link replaced in history
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/account/o'));
+    expect(screen.queryByTestId('invite-card')).toBeNull();
   });
 
   it('a used link opened by someone else: the used screen', async () => {
@@ -780,5 +781,76 @@ describe('the Done link: where the organiser id comes from', () => {
     fireEvent.click(await screen.findByTestId('invite-join'));
     await stepIs('done');
     expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+  });
+});
+
+// ---- fix-join-first-batch slice U: invite state x viewer (red-first matrix) ----------------------------------
+describe('slice U: a dead link x who is looking', () => {
+  const OTHER = 'This account is not on the team. If you joined with a different account, sign in with that one. If not, ask for a new one.';
+  type Viewer = 'signed out' | 'redeemer' | 'redeemer (redeem refused, on the team by page list)' | 'someone else';
+  const VIEWERS: Viewer[] = ['signed out', 'redeemer', 'redeemer (redeem refused, on the team by page list)', 'someone else'];
+  const become = (v: Viewer) => {
+    if (v === 'signed out') return;
+    signedIn();
+    if (v === 'redeemer') redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
+    else if (v === 'someone else') redeem = { ok: false, reason: 'used' };
+    else {
+      redeem = { ok: false, reason: 'used' };
+      h.organisers = [{ id: 'o4', name: ORG }];
+    }
+  };
+  const TERMINAL: Record<string, { title: string; preview: unknown }> = {
+    expired: { title: 'This link has run out', preview: { ...open(), status: 'expired' } },
+    revoked: { title: 'This link was withdrawn', preview: { ...open(), status: 'revoked' } },
+    invalid: { title: 'This link does not work', preview: {} },
+  };
+  const card = () => screen.getByTestId('invite-card');
+  const heading = () => card().querySelector('h1, h2')?.textContent ?? '';
+
+  it.each(VIEWERS)('used x %s', async (v) => {
+    preview = { ...open(), status: 'used' };
+    become(v);
+    mount();
+    if (v.startsWith('redeemer')) {
+      // their own link: straight to their organiser home, the dead link replaced, never the dead end
+      await waitFor(() => expect(screen.getByTestId('where').textContent).not.toMatch(/^\/invite/), { timeout: 4000 });
+      expect(screen.queryByTestId('invite-card')).toBeNull();
+      return;
+    }
+    await stepIs('dead');
+    if (v === 'signed out') {
+      expect(heading()).toBe('You already joined');
+      expect(screen.getByTestId('invite-body').textContent).toBe('Sign in to continue.');
+      const signIn = screen.getByTestId('invite-used-sign-in');
+      expect(signIn.textContent).toBe('Sign in');
+      expect(signIn.getAttribute('href')).toBe(`/auth?mode=signin&returnTo=${encodeURIComponent(`/invite/${TOKEN}`)}`);
+      expect(screen.queryByTestId('invite-used-switch')).toBeNull();
+      // nothing asked of the server while signed out (redeem needs a session)
+      expect(redeems()).toHaveLength(0);
+    } else {
+      expect(heading()).toBe('This link was already used');
+      expect(screen.getByTestId('invite-body').textContent).toBe(OTHER);
+      expect(card().textContent).not.toContain('@');
+      expect(screen.getByTestId('invite-used-switch').textContent).toBe('Sign in with a different account');
+      expect(screen.queryByTestId('invite-used-sign-in')).toBeNull();
+    }
+    // "Ask for a new one" stays, as the smaller option
+    const ask = screen.getByTestId('invite-new-link');
+    expect(ask.className).toContain('border');
+    expect(ask.className).not.toContain('bg-primary');
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it.each(Object.keys(TERMINAL).flatMap((s) => VIEWERS.map((v) => [s, v] as const)))('%s x %s: the plain dead screen, every button goes somewhere', async (s, v) => {
+    preview = TERMINAL[s].preview;
+    become(v);
+    mount();
+    await stepIs('dead');
+    expect(heading()).toBe(TERMINAL[s].title);
+    expect(screen.queryByTestId('invite-used-sign-in')).toBeNull();
+    expect(screen.queryByTestId('invite-used-switch')).toBeNull();
+    expect(screen.getByTestId('invite-home').getAttribute('href')).toBe('/');
+    // an untouched dead link sends no redeem
+    expect(redeems()).toHaveLength(0);
   });
 });
