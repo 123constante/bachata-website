@@ -8,4 +8,5 @@ Tests only; nothing under `scripts/` changed.
   Mutant: last line of the literal changed to `...vercel-ignore-build.sh'" extra"` -> test RED; 1 failed. Reverted. Unmutated: green.
 - Unmutated run of both files: 81 passed.
 
-Not verified: no UI involved; see CI for the full lint chain.
+Lint chain: 24 of 24 links green (eslint informational). tsc: 2 errors in untouched src/pages/Venues.tsx and src/services/venuePublicService.ts, not from this change.
+Not verified: no UI involved; PR CI not observed.
