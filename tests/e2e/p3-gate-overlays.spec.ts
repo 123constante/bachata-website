@@ -90,7 +90,7 @@ async function gateInView(page: Page) {
     });
     expect(hit, `a tap on ${id} reaches it (nothing drawn over the gate sheet)`).toBe(true);
   }
-  await expect(page.getByTestId('p3-gate-go')).toHaveAttribute('href', `/account/p3/start?o=${ORG}&at=review`);
+  await expect(page.getByTestId('p3-gate-go')).toHaveAttribute("href", new RegExp(`^/account/p3/start[?]o=${ORG}&at=review(&back=.*)?$`));
 }
 
 test.describe('P3-GATE overlays on the real app (390x844)', () => {
