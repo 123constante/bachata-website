@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import '../theme/p3.css';
 import './door.css';
 import { P3_PATHS } from '../shell/paths';
-import { flags } from '@/lib/featureFlags';
+import { ticketDoorCode } from './doorFlags';
 import {
   ACTION_LABEL,
   CAMERA_WORDS,
@@ -44,7 +44,7 @@ export function DoorScreen() {
   return <Door seriesId={seriesId} />;
 }
 
-export function Door({ seriesId, deps = browserDeps, shortCodes = flags.ticketDoorCode }: { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean }) {
+export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode }: { seriesId: string; deps?: ScannerDeps; shortCodes?: boolean }) {
   const { user } = useAuth();
   const uid = user?.id;
   const qc = useQueryClient();
