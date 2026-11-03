@@ -95,6 +95,10 @@ export function deriveJoinStep(i: DeriveInput): Derived {
   if (i.preview.status !== 'open') {
     if (i.authStatus === 'resolving') return { step: 'checking' };
     if (i.preview.status === 'used' && i.user && i.usedCheckPending) return { step: 'checking' };
+    // Slice U: a used link opened by someone already on the team (redeem can refuse BEFORE its already_member
+    // read, e.g. an unfinished dancer profile) is theirs: their page, never the dead end.
+    if (i.preview.status === 'used' && i.user && i.member === true) return { step: 'done' };
+    if (i.preview.status === 'used' && i.user && i.member === null) return { step: 'checking' };
     return { step: 'dead', reason: i.preview.status };
   }
   if (i.authStatus === 'resolving') return { step: 'checking' };
