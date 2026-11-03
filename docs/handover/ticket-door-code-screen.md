@@ -19,7 +19,7 @@ Walk pictures (390x844, dark): `docs/walk/ticket-door-code-screen/1..8`.
   one action is Open tonight&rsquo;s list, where a banner says to tap Check in.
 - One check at a time across the code box and the list (no double submit). A row shows
   Checking&hellip; while pending. Other rows are aria-disabled, with a reason line.
-- Flag OFF: the screen is exactly as on main (existing 82 door tests unchanged and green). r2: the empty-submit reason line and the "Checking" button label are now gated behind `shortCodes`, so this is literally true.
+- Flag OFF (as measured, review 1294-r1 probe P1): the r1 head had two harmless flag-off differences from main (an empty-submit reason line, and a "Checking" label on the camera-dead list code box). r2 gates both behind `shortCodes` (matrix test "F7"); the existing 82 door tests are unchanged and green. `RESULTS` still accepts `too_many_attempts` with the flag off, unreachable because `ticket_check_in_v1` never returns it (prod body read by the review).
 
 ## Evidence
 
