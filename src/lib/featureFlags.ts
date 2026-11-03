@@ -69,6 +69,10 @@ export const flags = {
   // types, sales, refunds and door. OFF = none of them shows. Turn on with
   // VITE_ENABLE_ORGANISER_TICKETING=true (Vercel env) -- no code change.
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
+  // Door short code + Tonight-list Check in (docs/briefs/ticket-door-code-screen.md), inside the
+  // door screen that organiserTicketing already gates. OFF = the door is exactly as before (code
+  // box takes the QR token only, list read-only). Turn on with VITE_ENABLE_TICKET_DOOR_CODE=true.
+  ticketDoorCode:      import.meta.env.VITE_ENABLE_TICKET_DOOR_CODE === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.

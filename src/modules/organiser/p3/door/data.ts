@@ -19,7 +19,7 @@ export const isSignedOut = (e: unknown) => e instanceof SignedOutError;
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
-const RESULTS = new Set(['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed']);
+const RESULTS = new Set(['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts']);
 
 export function parseCheckIn(d: unknown): CheckIn {
   const r = (d ?? {}) as Record<string, unknown>;
@@ -39,6 +39,24 @@ export function parseCheckIn(d: unknown): CheckIn {
 
 export async function checkInTicket(code: string, seriesId: string): Promise<CheckIn> {
   const { data, error } = await db().rpc('ticket_check_in_v1', { p_qr_token: code, p_event_series_id: seriesId });
+  if (error) throw error.code === '42501' ? new SignedOutError() : error;
+  return parseCheckIn(data);
+}
+
+/*
+ * The short door code and the list's Check in (admin 20270314140000_ticket_door_short_code_v1,
+ * live on prod): same reply shape as ticket_check_in_v1. by-code also answers too_many_attempts
+ * (20 wrong codes per 15 minutes per staff member); by-id never rate-limits, so the list is
+ * the way in while typed codes are paused.
+ */
+export async function checkInByCode(code: string, seriesId: string): Promise<CheckIn> {
+  const { data, error } = await db().rpc('ticket_check_in_by_code_v1', { p_code: code, p_event_series_id: seriesId });
+  if (error) throw error.code === '42501' ? new SignedOutError() : error;
+  return parseCheckIn(data);
+}
+
+export async function checkInById(ticketId: string, seriesId: string): Promise<CheckIn> {
+  const { data, error } = await db().rpc('ticket_check_in_by_id_v1', { p_ticket_id: ticketId, p_event_series_id: seriesId });
   if (error) throw error.code === '42501' ? new SignedOutError() : error;
   return parseCheckIn(data);
 }
