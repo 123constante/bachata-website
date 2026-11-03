@@ -8,7 +8,7 @@ import { FRIDAY, ORG, ORG_NAME, OrganiserFake, PHONE, json } from './helpers/org
 //   WALK_FLAGS=on  VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/walk-invite-first-minute.spec.ts --project=chromium
 //   WALK_FLAGS=off npx playwright test tests/e2e/walk-invite-first-minute.spec.ts --project=chromium
 // Pictures: docs/walk/invite-first-minute/<flags>/<nn>-*.png ; what the screen says: .../texts.jsonl
-test.use({ viewport: PHONE });
+test.use({ viewport: PHONE, reducedMotion: 'reduce' });
 
 const FLAGS = process.env.WALK_FLAGS === 'on' ? 'on' : 'off';
 const OUT = `docs/walk/invite-first-minute/${FLAGS}`;
@@ -21,6 +21,8 @@ async function snap(page: Page, name: string, extra: Record<string, unknown> = {
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/${name}.png` });
   const text = await page.evaluate(() => (document.body.innerText || '').replace(/\n{2,}/g, '\n'));
+  // Recheck guard: an error page is a FAILED walk, never a picture of a state.
+  if (/Something went wrong|couldn.t reach Bachata Calendar/i.test(text)) throw new Error('ERROR CARD on ' + name);
   const buttons = await page.evaluate(() => Array.from(document.querySelectorAll('button,a')).filter((e) => (e as HTMLElement).offsetWidth > 0).map((e) => (e.textContent ?? '').trim()).filter(Boolean));
   fs.appendFileSync(`${OUT}/texts.jsonl`, JSON.stringify({ name, url: page.url().replace(TOKEN, '<token>'), text, controls: buttons, ...extra }) + '\n');
 }
