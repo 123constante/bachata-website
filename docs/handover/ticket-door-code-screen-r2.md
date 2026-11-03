@@ -12,3 +12,7 @@ Fix round on PR #1294 from `docs/reviews/1294-r1.md`. Flag `ticketDoorCode` stay
 
 ## Not verified
 - Real phone / real RPC; the buyer seeing `short_code` in the ticket email (gating question before flag ON).
+
+## Gates run locally
+- Door suite 304/304; `tsc` no error in `p3/door`; `npm run lint` 24 of 24 links green.
+- `check:bundle-budget`: NOT run locally (needs a full `npm run build`; no manifest). Edits are inside the lazy door chunk, unbuilt with prod flags. CI `bundle-budget` decides.
