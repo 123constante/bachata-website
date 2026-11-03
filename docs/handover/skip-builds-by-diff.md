@@ -30,3 +30,6 @@ Brief: `brief/skip-builds-by-diff:docs/briefs/skip-builds-by-diff.md`. Branch `c
 - I could not observe how Vercel reports an ignored build on GitHub (deployment status shape). So the probe does not depend on it: it decides from the rule plus an existing ancestor preview.
 - `DIFF_RULE_PREFIXES` (bot/, dependabot/) stays, only so their preview jobs remain excluded. Those jobs could be re-enabled now; that is a separate PR with workflow edits.
 - A Vercel env-var change is not in git. After one, a docs-only push serves the old build; use a dashboard Redeploy.
+
+## Status
+PR #1295 (open; never merged or approved by the worker). Not automerge-eligible: it changes scripts.
