@@ -23,7 +23,7 @@ describe('possessive: one helper, every screen that builds one', () => {
   it.each(NAMES)('%s -> %s', (name, want) => {
     expect(possessive(name)).toBe(want);
     expect(JOIN_COPY.done.heading(name)).toBe(`You’re on ${want} team.`);
-    expect(JOIN_COPY.join.card(name)).toContain(`events of ${name}`);
+    expect(JOIN_COPY.join.card(name)).toContain(`Join ${want} team.`);
     expect(JOIN_COPY.join.card(name)).not.toMatch(/s’s|s's/);
   });
   it('the done screen renders it', () => {

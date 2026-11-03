@@ -132,7 +132,8 @@ describe('the dead-link screen (same mapping): every finished-with reason, no re
     render(<MemoryRouter><DeadScreen reason={reason} preview={PREVIEW} newLink={null} /></MemoryRouter>);
     expect(screen.getByRole('heading').textContent).toBe(REDEEM_COPY[reason].title);
     expect(screen.queryByTestId('join-retry')).toBeNull();
-    expect(helpLinks()).toHaveLength(0);
+    // an unknown link has no sender to ask, so it alone carries the help route as "Ask for a new link"
+    expect(helpLinks()).toHaveLength(reason === 'invalid' ? 1 : 0);
     expect(screen.getByTestId('invite-home')).toBeTruthy();
   });
 });

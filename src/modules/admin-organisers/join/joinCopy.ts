@@ -78,7 +78,7 @@ export const JOIN_COPY = {
 
   join: {
     heading: (org: string) => `Join ${org}?`,
-    card: (org: string) => `You${APOS}ll be able to add and edit the events of ${org} and manage its page.`,
+    card: (org: string) => `Join ${possessive(org)} team. You${APOS}ll finish a few details about you and the page, then you can add and edit events.`,
     button: (org: string) => `Join ${org}`,
     joining: 'Joining' + ELLIPSIS,
     notYou: 'Not you? Use another email',
@@ -148,5 +148,7 @@ export const JOIN_COPY = {
   },
 
   signOutFailed: 'You are still signed in. Check your connection and try again.',
+  // A link that matches nothing has no sender to ask, so the one way to a new link is the existing help route.
+  unknownLink: { button: 'Ask for a new link', url: SIGNUP_HELP_WHATSAPP_URL },
   home: 'Go to Bachata Calendar',
 } as const;

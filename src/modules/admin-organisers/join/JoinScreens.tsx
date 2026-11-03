@@ -225,6 +225,7 @@ export function DeadScreen({ reason, preview, newLink, usedViewer = null, signIn
       {viewer === 'other_account' && onSwitch && <button type="button" className={BTN} disabled={busy} onClick={onSwitch} data-testid="invite-used-switch">{USED_COPY.other_account.button}</button>}
       {!screen.offerNewLink && <NextLine reason={reason} />}
       {screen.offerNewLink && newLink}
+      {reason === 'invalid' && <a href={JOIN_COPY.unknownLink.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-new-link-help">{JOIN_COPY.unknownLink.button}</a>}
       <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>
     </div>
   );
