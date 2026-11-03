@@ -59,6 +59,7 @@ import {
   welcomeTitle,
 } from './pageModel';
 import { SettingsBody } from './SettingsSheet';
+import { GO_TO_HOME, eventReturnFrom, finishLabel, withBack } from './returnTo';
 import './page.css';
 
 const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true"><path d="M5 12l5 5 9-10" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -132,6 +133,10 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
     }
   }, []);
   const exit = useCallback(() => navigate(P3_PATHS.home), [navigate]);
+  // Slice R: the event a refused write came from (GateSheet's Continue), read once so in-flow URL changes keep it.
+  // The checklist's final action goes there only when nothing is left (finishLabel); replace, so Back never loops.
+  const [back] = useState(() => eventReturnFrom(params.get('back')));
+  const finish = useCallback((left: number) => (back && left === 0 ? navigate(back, { replace: true }) : exit()), [back, exit, navigate]);
 
   const page = useQuery({ queryKey: ['p3-ob-page', orgId], queryFn: () => reads.page(orgId as string), enabled: !!orgId, retry: false });
   const phone = useQuery({ queryKey: ['p3-ob-page', 'phone', orgId], queryFn: () => reads.phone(orgId as string), enabled: !!orgId, retry: false });
@@ -298,13 +303,14 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           go({ kind: 'live', outcome });
         }}
         onIncomplete={() => void qc.invalidateQueries({ queryKey: ['p3-ob-status'] })}
-        onSignIn={() => navigate(buildSignInHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`))}
-        onHome={exit}
+        onSignIn={() => navigate(buildSignInHref(withBack(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`, back)))}
+        onHome={finish}
+        back={back}
       />
     );
   }
   if (stage.kind === 'live' && orgId) {
-    return <LiveScreen outcome={stage.outcome} name={held?.name || organiser.data?.name || ''} orgId={orgId} organiserDetail={organiserDetail} theme={theme} onHome={exit} onPage={() => navigate(P3_PATHS.youPage)} />;
+    return <LiveScreen outcome={stage.outcome} name={held?.name || organiser.data?.name || ''} orgId={orgId} organiserDetail={organiserDetail} theme={theme} onHome={() => finish(0)} homeLabel={finishLabel(back, 0)} onPage={() => navigate(P3_PATHS.youPage)} />;
   }
   if (stage.kind === 'elsewhere' && orgId) {
     const back = () => go({ kind: 'review' }, 'back');
@@ -876,9 +882,11 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
   );
 }
 
-function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome }: {
+function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome, back = null }: {
   status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; steps: number; refreshing: boolean;
-  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: () => void;
+  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: (left: number) => void;
+  /** Slice R: the refused event (returnTo.ts), or null (reached from Home). */
+  back?: string | null;
 }) {
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -904,9 +912,11 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
   }, [missingKey]);
   const percent = reviewPercent(steps, shown.missing.length);
   const fail = refused ? goLiveRefusalCopy(refused) : null;
-  const primaryLabel = fail?.action === 'home' ? 'Go to Home' : fail?.action === 'sign-in' ? 'Sign in again' : fail?.action === 'retry' ? 'Try again' : c.primary;
+  const left = shown.missing.length;
+  const homeLabel = finishLabel(back, left);
+  const primaryLabel = fail?.action === 'home' ? homeLabel : fail?.action === 'sign-in' ? 'Sign in again' : fail?.action === 'retry' ? 'Try again' : c.primary === GO_TO_HOME ? homeLabel : c.primary;
   const primary = async () => {
-    if (state === 'live' || state === 'in-review' || state === 'closed' || fail?.action === 'home') return onHome();
+    if (state === 'live' || state === 'in-review' || state === 'closed' || fail?.action === 'home') return onHome(left);
     if (fail?.action === 'sign-in') return onSignIn();
     if (c.reason) return setToast(c.reason);
     if (inFlight.current) return;
@@ -963,8 +973,8 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
 }
 
 /** Screen 22. Only reached after goLive.complete resolved; `pending_review` is the review variant (liveCopy), never "You're live". */
-function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPage }: {
-  outcome: GoLiveOutcome; name: string; orgId: string; organiserDetail: boolean; theme: 'light' | 'dark'; onHome: () => void; onPage: () => void;
+function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, homeLabel = GO_TO_HOME, onPage }: {
+  outcome: GoLiveOutcome; name: string; orgId: string; organiserDetail: boolean; theme: 'light' | 'dark'; onHome: () => void; homeLabel?: string; onPage: () => void;
 }) {
   const [note, setNote] = useState<string | null>(null);
   const clearNote = useCallback(() => setNote(null), []);
@@ -985,7 +995,7 @@ function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPa
   const first = c.actions[0];
   const line = (a: string) => (a === first ? 'p3-ob-btn' : 'p3-ob-btn p3-ob-btn-line');
   return (
-    <ObShell screen={outcome === 'live' ? 'live' : 'live-review'} dir="fwd" percent={100} onBack={onHome} backLabel="Go to Home" onEscape={onHome} theme={theme}
+    <ObShell screen={outcome === 'live' ? 'live' : 'live-review'} dir="fwd" percent={100} onBack={onHome} backLabel={homeLabel} onEscape={onHome} theme={theme}
       foot={
         <>
           {c.actions.includes('view') &&
@@ -995,7 +1005,7 @@ function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPa
               <button type="button" className={line('view')} onClick={onPage} data-testid="p3-ob-live-view">View my page</button>
             ))}
           {c.actions.includes('share') && <button type="button" className={line('share')} onClick={() => void share()} data-testid="p3-ob-live-share">Share</button>}
-          <button type="button" className={line('home')} onClick={onHome} data-testid="p3-ob-live-home">Go to Home</button>
+          <button type="button" className={line('home')} onClick={onHome} data-testid="p3-ob-live-home">{homeLabel}</button>
         </>
       }>
       {c.celebrate && <Confetti />}

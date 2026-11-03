@@ -18,7 +18,8 @@ import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
 import { checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
-import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, EmailStep, ErrorLine, Heading, JoinStepScreen, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
+import { buildSignInHref } from '@/lib/authRouting';
+import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
 /** How long the join card waits for the person's own page list before it shows Join anyway. */
 const HOME_WAIT_MS = 1500;
@@ -26,7 +27,7 @@ const HOME_WAIT_MS = 1500;
 export type PreviewState = 'loading' | 'failed' | JoinPreview | null;
 
 /** "Ask <inviter> for a new one": request_new_invite_v1, one line of outcome, no dead end. */
-function NewLinkRequest({ token, label }: { token: string; label: string }) {
+function NewLinkRequest({ token, label, small = false }: { token: string; label: string; small?: boolean }) {
   const [state, setState] = useState<{ busy: boolean; result: { ok: boolean; text: string } | null }>({ busy: false, result: null });
   const ask = async () => {
     setState({ busy: true, result: null });
@@ -40,7 +41,7 @@ function NewLinkRequest({ token, label }: { token: string; label: string }) {
   if (state.result?.ok) return <p className="text-[14px] font-medium" role="status" data-testid="invite-new-link-done">{state.result.text}</p>;
   return (
     <>
-      <button type="button" className={BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
+      <button type="button" className={small ? GHOST : BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
       <ErrorLine id="invite-new-link-error">{state.result?.text ?? null}</ErrorLine>
     </>
   );
@@ -74,19 +75,27 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
 
   // Membership before the tap: the person's own page list matched by name (the preview carries no ids). Best
   // effort: a slow or failing list leaves the Join card (the server still answers already_member on Join).
-  const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && open && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
+  const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && (open || info?.status === 'used') && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
   const [listGaveUp, setListGaveUp] = useState(false);
+  const [usedResolved, setUsedResolved] = useState(false);
   useEffect(() => {
     if (!ownList.isPending || !ownList.isEnabled) return;
     const t = setTimeout(() => setListGaveUp(true), HOME_WAIT_MS);
     return () => clearTimeout(t);
   }, [ownList.isPending, ownList.isEnabled]);
-  const member: boolean | null = !user || !info ? null : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null : ownList.isError || listGaveUp ? false : null;
+  // (review 1291-r1 F1) redeem reads entity_members and answers already_member BEFORE used/revoked/expired, so a
+  // `dead` answer on a used link is FINAL: not on the team, whatever a same-named page in their own list says.
+  const [usedRefused, setUsedRefused] = useState(false);
+  const member: boolean | null = !user || !info ? null
+    : usedRefused ? false
+    : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null
+    : ownList.isError || (listGaveUp && (info.status !== 'used' || usedResolved)) ? false : null;
+  // (review r1 F2) On a USED link a slow list never reads as "not on the team" while redeem is still out; once it
+  // came back without a verdict (profile gate, network) the 1.5 s give-up applies again (review 1291-r1 F3).
 
   // A used link opened by a signed-in person: redeem answers already_member (used by me) without using the link.
   // One call per page (attemptRedeem dedupes per token, so StrictMode's second effect run is the same call).
   const usedStarted = useRef(false);
-  const [usedResolved, setUsedResolved] = useState(false);
   const usedByMe = Boolean(user) && authStatus === 'ready' && info?.status === 'used';
   useEffect(() => {
     if (!usedByMe || usedStarted.current) return;
@@ -94,8 +103,11 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     void attemptRedeem(token).then((o) => {
       if (o.kind === 'done') {
         setRedeemed(true);
-        setRedeemedOrgId(o.alreadyMember ? null : o.organiserId);
+        // (review r1 F4) a used link's already_member names the invite's own page: land on that page's home.
+        setRedeemedOrgId(o.organiserId);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      } else if (o.kind === 'dead') {
+        setUsedRefused(true);
       }
       setUsedResolved(true);
     });
@@ -132,6 +144,21 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   useEffect(() => {
     if (step === 'done' || step === 'dead') stripToken();
   }, [step]);
+
+  // Slice U: a USED link that turned out to be the person's own (redeem's already_member, or their page list) goes
+  // straight to their page's home, replacing this entry so Back never lands on the link again. A first redeem
+  // (status open) still shows Done.
+  // (review r1 F1) "used" as FIRST seen: a first-time joiner's preview refetches as used later, and must keep Done.
+  // (review r1 F3) only when the organiser area is on: with it off, Done's plain words stay.
+  const arrivedUsed = useRef<boolean | null>(null);
+  if (arrivedUsed.current === null && info) arrivedUsed.current = info.status === 'used';
+  const returning = step === 'done' && arrivedUsed.current === true && flags.organiserSelfServe;
+  useEffect(() => {
+    if (!returning) return;
+    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId);
+    navigate(to, { replace: true, state });
+  }, [returning, info?.organiserName, doneOrgId, navigate]);
+  const usedViewer = info?.status === 'used' && authStatus !== 'resolving' ? (user ? 'other_account' : 'signed_out') : null;
 
   const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
 
@@ -306,7 +333,17 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       );
       break;
     case 'dead':
-      body = <DeadScreen reason={derived.step === 'dead' ? derived.reason : 'invalid'} preview={info} newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} /> : null} />;
+      body = (
+        <DeadScreen
+          reason={derived.step === 'dead' ? derived.reason : 'invalid'}
+          preview={info}
+          newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} small={usedViewer !== null} /> : null}
+          usedViewer={usedViewer}
+          signInHref={buildSignInHref(`/invite/${token}`)}
+          busy={busy}
+          onSwitch={() => void switchAccount()}
+        />
+      );
       break;
     case 'email':
       body = (

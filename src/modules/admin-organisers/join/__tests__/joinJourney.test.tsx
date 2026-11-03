@@ -34,6 +34,8 @@ const h = vi.hoisted(() => ({
   save: vi.fn(),
   organisers: [] as { id: string; name: string }[],
   home: vi.fn(),
+  /** (r2 F3) fetchOrganiserHome never settles. */
+  homeHang: false,
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => h.auth }));
 vi.mock('@/hooks/useProfileCompletion', () => ({
@@ -69,7 +71,7 @@ vi.mock('@/components/profile/AvatarUpload', () => ({
 vi.mock('@/modules/organiser/shared/selfServeApi', () => ({
   ORGANISER_HOME_KEY: ['organiser-home'],
   organiserHomeQueryKey: (id: string | undefined) => ['organiser-home', id ?? null],
-  fetchOrganiserHome: async () => { h.home(); return { organisers: h.organisers }; },
+  fetchOrganiserHome: async () => { h.home(); if (h.homeHang) await new Promise(() => undefined); return { organisers: h.organisers }; },
 }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
@@ -91,6 +93,8 @@ let preview: unknown;
 let redeem: unknown;
 let bind: unknown;
 let newLink: unknown;
+/** When set, redeem_organiser_invite_v1 answers with this error (e.g. the profile gate's RAISE). */
+let redeemError: { message: string } | null;
 
 function Where() { const l = useLocation(); return <p data-testid="where">{l.pathname}{l.search}</p>; }
 function mount(url = `/invite/${TOKEN}`, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
@@ -136,9 +140,11 @@ beforeEach(() => {
   redeem = { ok: true, status: 'redeemed', organiser_id: 'o1' };
   bind = { status: 'bound' };
   newLink = { ok: true };
+  redeemError = null;
+  h.homeHang = false;
   h.rpc.mockReset().mockImplementation((fn: string) => {
     if (fn === 'organiser_invite_preview_v1') return ok(preview);
-    if (fn === 'redeem_organiser_invite_v1') return ok(redeem);
+    if (fn === 'redeem_organiser_invite_v1') return redeemError ? Promise.resolve({ data: null, error: redeemError }) : ok(redeem);
     if (fn === 'bind_organiser_invite_email_v1') return ok(bind);
     if (fn === 'request_new_invite_v1') return ok(newLink);
     if (fn === 'set_my_role_intent_v1') return ok({ ok: true, roles: [...JOIN_ROLES] });
@@ -695,13 +701,14 @@ describe('dead and broken links', () => {
     expect(redeems()).toHaveLength(0);
   });
 
-  it('a used link opened by the person who used it: the done screen, no error', async () => {
+  it('a used link opened by the person who used it: straight to their organiser home (slice U), no error', async () => {
     signedIn();
     preview = { ...open(), status: 'used' };
     redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
     mount();
-    await stepIs('done');
-    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+    // the same target the Done button had, now reached without a tap, and the dead link replaced in history
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/account/o/welcome?o=o4'));
+    expect(screen.queryByTestId('invite-card')).toBeNull();
   });
 
   it('a used link opened by someone else: the used screen', async () => {
@@ -780,5 +787,138 @@ describe('the Done link: where the organiser id comes from', () => {
     fireEvent.click(await screen.findByTestId('invite-join'));
     await stepIs('done');
     expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+  });
+});
+
+// ---- fix-join-first-batch slice U: invite state x viewer (red-first matrix) ----------------------------------
+describe('slice U: a dead link x who is looking', () => {
+  const OTHER = 'This account is not on the team. If you joined with a different account, sign in with that one. If not, ask for a new one.';
+  // (review 1291-r1 F1) the page-list fallback is ONLY for a redeem the profile gate refused (it RAISES before the
+  // already_member read). A server `used` answer is final: that viewer is "someone else", whatever their page list says.
+  type Viewer = 'signed out' | 'redeemer' | 'redeemer (profile gate refused redeem, on the team by page list)' | 'someone else';
+  const VIEWERS: Viewer[] = ['signed out', 'redeemer', 'redeemer (profile gate refused redeem, on the team by page list)', 'someone else'];
+  const become = (v: Viewer) => {
+    if (v === 'signed out') return;
+    signedIn();
+    if (v === 'redeemer') redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
+    else if (v === 'someone else') redeem = { ok: false, reason: 'used' };
+    else {
+      redeemError = { message: 'profile_incomplete' };
+      h.organisers = [{ id: 'o4', name: ORG }];
+    }
+  };
+  const TERMINAL: Record<string, { title: string; preview: unknown }> = {
+    expired: { title: 'This link has run out', preview: { ...open(), status: 'expired' } },
+    revoked: { title: 'This link was withdrawn', preview: { ...open(), status: 'revoked' } },
+    invalid: { title: 'This link does not work', preview: {} },
+  };
+  const card = () => screen.getByTestId('invite-card');
+  const heading = () => card().querySelector('h1, h2')?.textContent ?? '';
+
+  it.each(VIEWERS)('used x %s', async (v) => {
+    preview = { ...open(), status: 'used' };
+    become(v);
+    mount();
+    if (v.startsWith('redeemer')) {
+      // their own link: straight to their organiser home, the dead link replaced, never the dead end
+      await waitFor(() => expect(screen.getByTestId('where').textContent).not.toMatch(/^\/invite/), { timeout: 4000 });
+      expect(screen.queryByTestId('invite-card')).toBeNull();
+      return;
+    }
+    await stepIs('dead');
+    if (v === 'signed out') {
+      expect(heading()).toBe('You already joined');
+      expect(screen.getByTestId('invite-body').textContent).toBe('Sign in to continue.');
+      const signIn = screen.getByTestId('invite-used-sign-in');
+      expect(signIn.textContent).toBe('Sign in');
+      expect(signIn.getAttribute('href')).toBe(`/auth?mode=signin&returnTo=${encodeURIComponent(`/invite/${TOKEN}`)}`);
+      expect(screen.queryByTestId('invite-used-switch')).toBeNull();
+      // nothing asked of the server while signed out (redeem needs a session)
+      expect(redeems()).toHaveLength(0);
+    } else {
+      expect(heading()).toBe('This link was already used');
+      expect(screen.getByTestId('invite-body').textContent).toBe(OTHER);
+      expect(card().textContent).not.toContain('@');
+      expect(screen.getByTestId('invite-used-switch').textContent).toBe('Sign in with a different account');
+      expect(screen.queryByTestId('invite-used-sign-in')).toBeNull();
+    }
+    // "Ask for a new one" stays, as the smaller option
+    const ask = screen.getByTestId('invite-new-link');
+    expect(ask.className).toContain('border');
+    expect(ask.className).not.toContain('bg-primary');
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it.each(Object.keys(TERMINAL).flatMap((s) => VIEWERS.map((v) => [s, v] as const)))('%s x %s: the plain dead screen, every button goes somewhere', async (s, v) => {
+    preview = TERMINAL[s].preview;
+    become(v);
+    mount();
+    await stepIs('dead');
+    expect(heading()).toBe(TERMINAL[s].title);
+    expect(screen.queryByTestId('invite-used-sign-in')).toBeNull();
+    expect(screen.queryByTestId('invite-used-switch')).toBeNull();
+    expect(screen.getByTestId('invite-home').getAttribute('href')).toBe('/');
+    // an untouched dead link sends no redeem
+    expect(redeems()).toHaveLength(0);
+  });
+});
+
+describe('review 1291-r1: a server `used` answer is final', () => {
+  const OTHER = 'This account is not on the team. If you joined with a different account, sign in with that one. If not, ask for a new one.';
+  const stayedOnInvite = async () => {
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.getByTestId('where').textContent).toMatch(/^\/invite\//);
+    expect(screen.getByTestId('invite-body').textContent).toBe(OTHER);
+  };
+
+  it('F1: signed in, redeem says used, own list has a SAME-NAMED page: the other-account dead screen, no navigation', async () => {
+    signedIn();
+    preview = { ...open(), status: 'used' };
+    redeem = { ok: false, reason: 'used' };
+    h.organisers = [{ id: 'mine-not-the-invites', name: ORG }];
+    mount();
+    await stepIs('dead');
+    await stayedOnInvite();
+    expect(screen.getByTestId('where').textContent).not.toContain('mine-not-the-invites');
+  });
+
+  it('F3: signed in, redeem says used, the page list never settles: the dead screen at once, not a spinner', async () => {
+    signedIn();
+    preview = { ...open(), status: 'used' };
+    redeem = { ok: false, reason: 'used' };
+    h.homeHang = true;
+    mount();
+    // well inside the 1.5 s give-up: the server answer alone decides
+    await waitFor(() => expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('dead'), { timeout: 1000 });
+    await stayedOnInvite();
+  });
+
+  it('F3: the profile gate refused redeem and the page list never settles: the 1.5 s give-up still reaches the dead screen', async () => {
+    signedIn();
+    preview = { ...open(), status: 'used' };
+    redeemError = { message: 'profile_incomplete' };
+    h.homeHang = true;
+    mount();
+    await waitFor(() => expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('checking'));
+    await stepIs('dead');
+    await stayedOnInvite();
+  });
+});
+
+describe('slice U review r1: a first-time joiner keeps Done when the preview later reads used', () => {
+  it('open at arrival, redeemed, preview refetched as used: Done stays, no redirect', async () => {
+    signedIn();
+    preview = open();
+    redeem = { ok: true, status: 'redeemed', organiser_id: 'o4' };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mount(`/invite/${TOKEN}`, client);
+    await stepIs('join');
+    fireEvent.click(screen.getByTestId('invite-join'));
+    await stepIs('done');
+    preview = { ...open(), status: 'used' };
+    await act(async () => { await client.invalidateQueries(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('done');
+    expect(screen.getByTestId('where').textContent).toMatch(/^\/invite/);
   });
 });

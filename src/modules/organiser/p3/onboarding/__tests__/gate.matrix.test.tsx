@@ -234,7 +234,9 @@ describe('every write surface x {refusal, plain error, success} x status x role'
             }
             const go = screen.getByTestId('p3-gate-go');
             if (want.to) {
-              expect(go.getAttribute('href')).toBe(want.to);
+              // Slice R: Continue to Review carries the refused event (every surface here sits on /events/ser-1)
+              const back = `&back=${encodeURIComponent('/account/p3/events/ser-1')}`;
+              expect(go.getAttribute('href')).toBe(want.to.includes('at=review') ? `${want.to}${back}` : want.to);
             } else {
               // no page here the person can finish: Continue is off and says why
               expect((go as HTMLButtonElement).disabled).toBe(true);
@@ -433,6 +435,6 @@ describe('gateView: Continue target, count and rows per shape', () => {
     wrap(<TrayHarness />, 'one', 'owner');
     await act(async () => { fireEvent.click(screen.getByTestId('p3-save')); });
     await screen.findByTestId('p3-gate-read-failed');
-    expect(screen.getByTestId('p3-gate-go').getAttribute('href')).toBe('/account/p3/start?o=o1&at=review');
+    expect(screen.getByTestId('p3-gate-go').getAttribute('href')).toBe(`/account/p3/start?o=o1&at=review&back=${encodeURIComponent('/account/p3/events/ser-1')}`);
   });
 });
