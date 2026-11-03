@@ -42,8 +42,12 @@ function specToRegExp(spec) {
     else if (ch === '?') re += '.';
     else if (ch === '[') {
       const end = spec.indexOf(']', i + 1);
-      if (end === -1) re += '\\[';
-      else {
+      const body = end === -1 ? '' : spec.slice(i + 1, end);
+      // git wildmatch edge forms ([]..], [!]..], escapes, empty) are not
+      // modelled: refuse, so every caller treats the spec as doubt.
+      if (end === -1 || body === '' || body === '!' || body.includes('\\') || spec[end + 1] === ']') {
+        throw new Error(`buildRule: unsupported bracket form in pathspec '${spec}'`);
+      } else {
         re += `[${spec.slice(i + 1, end).replace(/^!/, '^').replace(/\\/g, '\\\\')}]`;
         i = end;
       }

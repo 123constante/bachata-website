@@ -51,6 +51,12 @@
 # of a branch), base not in Vercel's shallow (depth 10) clone, base == HEAD (a
 # dashboard Redeploy, e.g. after an env var change: env is not in git), or git
 # erroring. Each decision prints one line, visible in the Vercel build log.
+# Env vars are not in git: after a Vercel env change, use a dashboard Redeploy
+# (base == head -> BUILD); a docs-only push alone keeps the old build.
+#
+# BUILD_PATHS is assigned ONCE, as one single-quoted literal:
+# scripts/lib/buildRule.mjs parses it for previewProbe (tests/buildRule.test.ts
+# fails on a second assignment).
 
 # BUILD_PATHS: everything `npm install` + `react-router build` (+ Vercel's own
 # api/ function build) reads, from the repo root. Derived from evidence, see the

@@ -64,6 +64,20 @@ describe('buildRule: one list, read from the ignore script', () => {
     expect(specs).toEqual(parseBuildPaths(readFileSync(IGNORE_SCRIPT, 'utf8')));
   });
 
+  it('the ignore script assigns BUILD_PATHS exactly once (a later append would hide paths from the probe)', () => {
+    const sh = readFileSync(IGNORE_SCRIPT, 'utf8');
+    expect(sh.match(/^\s*(export\s+)?BUILD_PATHS[+]?=/gm)).toHaveLength(1);
+    expect(sh.match(/\$\{?BUILD_PATHS\b/g)).toHaveLength(1);
+  });
+
+  it('every spec in the list is one the matcher supports (no throw)', () => {
+    expect(() => touchesBuildPaths(['x'], readBuildPaths())).not.toThrow();
+  });
+
+  it('an unsupported bracket form THROWS (doubt), never a silent mismatch', () => {
+    for (const spec of ['a[]b]c', 'a[!]b]c', 'a[\\]]c', 'a[b']) expect(() => pathspecMatches(spec, 'abc')).toThrow(/unsupported bracket/);
+  });
+
   it('THROWS when the literal is missing or empty (callers treat that as doubt)', () => {
     expect(() => parseBuildPaths('#!/bin/sh\necho hi\n')).toThrow(/no BUILD_PATHS/);
     expect(() => parseBuildPaths("BUILD_PATHS=''\n")).toThrow(/no BUILD_PATHS/);

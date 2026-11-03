@@ -146,14 +146,18 @@ export const COMPARE_FILE_CAP = 300;
  * but its app code is byte-identical to that earlier deployment's.
  *
  * Returns { url, base } for the newest of the head's ancestors (at most
- * `maxAncestors`, Vercel clones 10 deep) that has a READY preview, ONLY when the
+ * `maxAncestors`: Vercel clones 10 deep, and a date-ordered list mixes in
+ * merged side-branch commits, so the walk is wider) that has a READY preview, ONLY when the
  * diff base..head touches no build path under the SAME rule (scripts/lib/
  * buildRule.mjs parses the script's BUILD_PATHS; there is no second list).
+ * Known limit (as on main since the diff rule began): a Vercel env-var change is
+ * not in git, so a docs-only push after one serves, and measures, the old build;
+ * a dashboard Redeploy builds (base == head).
  * Every doubt returns null so the caller keeps polling and fails red on
  * timeout: no previewed ancestor, base not an ancestor, a compare list that may
  * be truncated, a rule that cannot be read, any API error.
  */
-export async function findIdenticalPreview({ repo, sha, token, log = console.log, maxAncestors = 10, buildPaths } = {}) {
+export async function findIdenticalPreview({ repo, sha, token, log = console.log, maxAncestors = 20, buildPaths } = {}) {
   try {
     const specs = buildPaths ?? readBuildPaths();
     const commits = await ghJson(`/repos/${repo}/commits?sha=${sha}&per_page=${maxAncestors + 1}`, token);

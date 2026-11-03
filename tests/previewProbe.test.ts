@@ -340,13 +340,14 @@ describe('resolvePreviewUrl: build by diff (head skipped by scripts/vercel-ignor
     const f = vi.fn(async (url: string) => {
       calls.push(url);
       if (url.endsWith('/commits/abc')) return ok({ commit: { message: o.message ?? 'docs: notes' } });
-      if (url.includes('/commits?sha=abc')) return ok([{ sha: 'abc' }, { sha: 'p1' }, { sha: 'p0' }]);
+      if (url.includes('/commits?sha=abc')) return ok([{ sha: 'abc' }, { sha: 'side' }, { sha: 'p1' }, { sha: 'p0' }]);
+      if (url.includes('/deployments?sha=side')) return ok([]);
       if (url.includes('/deployments?sha=abc')) return ok(o.headReady ? [{ id: 1, environment: 'Preview' }] : []);
       if (url.includes('/deployments?sha=p1')) return ok([]);
       if (url.includes('/deployments?sha=p0')) return ok(o.noAncestorPreview ? [] : [{ id: 9, environment: 'Preview' }]);
       if (url.includes('/deployments/1/statuses')) return ok([{ state: 'success', environment_url: 'https://head.vercel.app' }]);
       if (url.includes('/deployments/9/statuses')) return ok([{ state: 'success', environment_url: 'https://p0.vercel.app/' }]);
-      if (url.includes('/compare/p0...abc')) return ok({ status: o.status ?? 'ahead', files: o.files ?? [] });
+      if (url.includes('/compare/p0...abc')) return ok({ status: o.status ?? 'ahead', files: o.files === undefined ? [] : o.files });
       throw new Error(`unexpected ${url}`);
     });
     vi.stubGlobal('fetch', f);
@@ -365,6 +366,7 @@ describe('resolvePreviewUrl: build by diff (head skipped by scripts/vercel-ignor
     ['rename OUT of src (previous_filename counts)', { files: [{ filename: 'docs/x.ts', previous_filename: 'src/x.ts' }] }, 'RED'],
     ['no previewed ancestor within reach', { files: [], noAncestorPreview: true }, 'RED'],
     ['ancestor not a clean fast-forward (diverged)', { files: [], status: 'diverged' }, 'RED'],
+    ['compare answers with no file list', { files: null as unknown as Files }, 'RED'],
     ['compare list may be truncated (300 files)', { files: Array.from({ length: 300 }, (_, i) => ({ filename: `docs/${i}.md` })) }, 'RED'],
     ['[skip preview] checkpoint stays red even when docs-only', { files: [], message: 'cp [skip preview]' }, 'RED'],
   ];
@@ -390,9 +392,26 @@ describe('resolvePreviewUrl: build by diff (head skipped by scripts/vercel-ignor
     expect(Date.now() - t0).toBeLessThan(2_000);
   }, 5_000);
 
+  it('last look after the poll: an ancestor preview that became ready late is used', async () => {
+    let n = 0;
+    const identicalPreview = vi.fn(async () => (++n >= 2 ? { url: 'https://late.vercel.app', base: 'p0p0p0p0' } : null));
+    world({});
+    await expect(
+      resolvePreviewUrl({ sha: 'abc', token: 't', repo: 'o/r', timeoutMs: 20, intervalMs: 1, log: () => {}, identicalPreview }),
+    ).resolves.toBe('https://late.vercel.app');
+  });
+
+  it('a throwing build-by-diff check never turns green', async () => {
+    world({});
+    const identicalPreview = vi.fn(async () => { throw new Error('boom'); });
+    await expect(
+      resolvePreviewUrl({ sha: 'abc', token: 't', repo: 'o/r', timeoutMs: 20, intervalMs: 1, log: () => {}, identicalPreview }),
+    ).rejects.toThrow();
+  });
+
   it('the walk is bounded (maxAncestors) and the rule is the ignore script\'s list', async () => {
     const calls = world({ files: [{ filename: 'docs/a.md' }] });
     await run(60_000);
-    expect(calls.find((u) => u.includes('/commits?sha=abc'))).toContain('per_page=11');
+    expect(calls.find((u) => u.includes('/commits?sha=abc'))).toContain('per_page=21');
   });
 });
