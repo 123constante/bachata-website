@@ -5,16 +5,23 @@ import { ORG_NAME, OrganiserFake, PHONE, json } from './helpers/organiserFake';
 // Walk of the join dead-end screens changed by PR #1301, 390x844. READ-ONLY: every server answer is a page.route mock.
 // NOT in the CI gate list. Run: npx playwright test tests/e2e/walk-fix-join-dead-ends.spec.ts --project=chromium
 // Output: docs/walk/fix-join-dead-ends-r1/{NN-*.png,texts.jsonl}
-test.use({ viewport: PHONE });
+test.use({ viewport: PHONE, reducedMotion: 'reduce' });
 const OUT = 'docs/walk/fix-join-dead-ends-r1';
 const TOKEN = 'ab12cd34'.repeat(8);
 fs.mkdirSync(OUT, { recursive: true });
 const OPEN = { status: 'open', organiser_name: ORG_NAME, inviter_first_name: 'Diego', email_hint: null };
 
-async function snap(page: Page, name: string) {
-  await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important}' }).catch(() => undefined);
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+async function snap(page: Page, name: string, heading: RegExp) {
+  await page.getByRole('heading', { name: heading }).first().waitFor({ state: 'visible', timeout: 30000 });
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), undefined, { timeout: 10000 }).catch(() => undefined);
+  await page.waitForFunction(() => { const m = document.querySelector('main') ?? document.body; return Number(getComputedStyle(m).opacity) === 1; }, undefined, { timeout: 10000 }).catch(() => undefined);
+  await page.waitForTimeout(300);
+  // Resize to the full page height first: a fullPage capture on its own painted a blank body for this screen.
+  const full = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: PHONE.width, height: full });
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/${name}.png` });
   const info = await page.evaluate(() => ({
     text: (document.body.innerText || '').replace(/\n{2,}/g, '\n'),
     scrollWidth: document.documentElement.scrollWidth,
@@ -42,12 +49,12 @@ async function openInvite(page: Page, preview: Record<string, unknown> | null, o
   await page.getByTestId('join-step').or(page.getByTestId('invite-card')).first().waitFor({ timeout: 30000 }).catch(() => undefined);
 }
 
-test('01 unknown link', async ({ page }) => { await openInvite(page, null); await snap(page, '01-unknown'); });
-test('02 used link, signed out', async ({ page }) => { await openInvite(page, { ...OPEN, status: 'used' }); await snap(page, '02-used-signed-out'); });
-test('03 expired link', async ({ page }) => { await openInvite(page, { ...OPEN, status: 'expired' }); await snap(page, '03-expired'); });
+test('01 unknown link', async ({ page }) => { await openInvite(page, null); await snap(page, '01-unknown', /This link does not work/); });
+test('02 used link, signed out', async ({ page }) => { await openInvite(page, { ...OPEN, status: 'used' }); await snap(page, '02-used-signed-out', /You already joined/); });
+test('03 expired link', async ({ page }) => { await openInvite(page, { ...OPEN, status: 'expired' }); await snap(page, '03-expired', /This link has run out/); });
 test('04 join card', async ({ page }) => {
   await openInvite(page, OPEN, { complete: true, query: '?step=code&email=diego%40ritmo.example' });
   await page.locator('input[autocomplete="one-time-code"]').fill('12345678');
   await page.getByTestId('invite-join').waitFor({ timeout: 30000 }).catch(() => undefined);
-  await snap(page, '04-join-card');
+  await snap(page, '04-join-card', /Join Ritmo Bachata London\?/);
 });
