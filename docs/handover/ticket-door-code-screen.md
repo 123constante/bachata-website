@@ -19,13 +19,13 @@ Walk pictures (390x844, dark): `docs/walk/ticket-door-code-screen/1..8`.
   one action is Open tonight&rsquo;s list, where a banner says to tap Check in.
 - One check at a time across the code box and the list (no double submit). A row shows
   Checking&hellip; while pending. Other rows are aria-disabled, with a reason line.
-- Flag OFF: the screen is exactly as on main (existing 82 door tests unchanged and green).
+- Flag OFF: the screen is exactly as on main (existing 82 door tests unchanged and green). r2: the empty-submit reason line and the "Checking" button label are now gated behind `shortCodes`, so this is literally true.
 
 ## Evidence
 
-- Red first: `door.shortCode.matrix.test.tsx` on the unfixed code: 208 failed / 10 passed.
+- Red first: `door.shortCode.matrix.test.tsx` on the unfixed code: 168 failed / 50 passed of 218.
   Fixed: all 4 door test files, 300/300.
-- Matrix: 5 roles (owner, editor, contributor, admin, off-team) x 8 results x 3 shapes (empty, 1, 120)
+- Matrix: 5 roles (owner, manager, contributor, admin, off-team; prod roles are owner/manager/contributor, contributors are allowed) x 8 results x 3 shapes (empty, 1, 120)
   for typed codes, and 5 x 7 x 2 for list check-in. Also copy-to-control checks, button hygiene and flag off.
 - Bundle (`check:bundle-budget`, prod flags): every route identical to main, and every built
   chunk filename (content hash) is identical too.

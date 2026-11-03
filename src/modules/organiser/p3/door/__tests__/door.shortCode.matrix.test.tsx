@@ -42,7 +42,7 @@ const listOf = (n: number): DoorList => ({
 });
 const SHAPES = { empty: listOf(0), one: listOf(1), many: listOf(120) } as const;
 type Shape = keyof typeof SHAPES;
-const ROLES = ['owner', 'editor', 'contributor', 'admin', 'off_team'] as const;
+const ROLES = ['owner', 'manager', 'contributor', 'admin', 'off_team'] as const;
 type Role = (typeof ROLES)[number];
 
 /** Every answer the code path can show: the by-code RPC's six + too_many_attempts, plus no_signal (network). */
@@ -258,5 +258,45 @@ describe('flag OFF ships the door exactly as before', () => {
     await screen.findByTestId('door-list');
     expect(screen.getByTestId('door-list-note').textContent).toMatch(/tap Check in/);
     expect(screen.getAllByTestId('door-row-checkin')).toHaveLength(1);
+  });
+});
+
+describe('r2 fixes (review 1294-r1)', () => {
+  it('F3: after a list Check in answers not_allowed, no row keeps an enabled Check in', async () => {
+    api.byId.mockImplementation(() => answer('off_team', 'ok'));
+    show(SHAPES.many);
+    fireEvent.click((await screen.findAllByTestId('door-row-checkin'))[0]);
+    const card = await screen.findByTestId('door-result');
+    expect(card.getAttribute('data-state')).toBe('not_allowed');
+    expect(screen.queryAllByTestId('door-row-checkin')).toHaveLength(0);
+    expect(api.byId).toHaveBeenCalledTimes(1);
+  });
+  it('F4: a list Check in answering already_in refetches the list', async () => {
+    api.byId.mockResolvedValue(reply('already_in'));
+    show(SHAPES.one);
+    fireEvent.click((await screen.findAllByTestId('door-row-checkin'))[0]);
+    await screen.findByTestId('door-result');
+    await waitFor(() => expect(api.list).toHaveBeenCalledTimes(2));
+  });
+  it('F5: the paused banner never says tap Check in when the list failed to load', async () => {
+    api.byCode.mockResolvedValue(reply('too_many_attempts'));
+    api.list.mockRejectedValue(new Error('fetch failed'));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><MemoryRouter><Door seriesId="ser-1" deps={deps} shortCodes /></MemoryRouter></QueryClientProvider>);
+    await screen.findByTestId('door-codebox');
+    typeCode('K7M2QX');
+    fireEvent.click(await screen.findByTestId('door-act-list'));
+    await screen.findByTestId('door-list-error');
+    expect(screen.queryByTestId('door-paused-banner')?.textContent ?? '').not.toMatch(/tap Check in/);
+  });
+  it('F7: flag OFF: empty submit shows no reason and the busy label stays Check (as main)', async () => {
+    let done!: (c: CheckIn) => void;
+    api.qr.mockReturnValue(new Promise<CheckIn>((res) => { done = res; }));
+    show(SHAPES.one, false);
+    goScan();
+    await screen.findByTestId('door-codebox');
+    fireEvent.click(screen.getByTestId('door-code-check'));
+    expect(screen.queryByTestId('door-code-why')).toBeNull();
+    done(reply('ok'));
   });
 });

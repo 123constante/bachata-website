@@ -41,7 +41,7 @@ Reply shape = `_ticket_door_shape_v1` (`result`, `ticket_type_name`, `first_name
 | Result | When (body order) |
 |---|---|
 | ERROR 42501 | `auth.uid()` null |
-| `not_allowed` | caller is not admin / owner / editor of any organiser selling this series (`_ticket_door_orgs_v1`) |
+| `not_allowed` | caller is not admin / owner / manager / contributor of any organiser selling this series (`_ticket_door_orgs_v1`) |
 | `too_many_attempts` | &ge; 20 rows in `ticket_door_code_attempts` for this user in the last 15 minutes (checked BEFORE the lookup: even a right code is refused) |
 | `unknown_code` | normalised code (upper, spaces and dashes stripped) is not `^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$`, or no ticket of THIS series has it; inserts one attempt row |
 | core &rarr; `ok` / `already_in` / `not_valid` / `unknown_code` / `wrong_event` | see core below; a right code never counts as an attempt |

@@ -89,7 +89,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
       setShown({ kind: c.result, c, from });
       buzz(RESULT_TABLE[c.result].vibrate);
       if (c.in_count != null && c.total_count != null) setCounts({ in: c.in_count, total: c.total_count });
-      if (c.result === 'ok') void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
+      if (c.result === 'ok' || c.result === 'already_in') void qc.invalidateQueries({ queryKey: doorKeys.list(uid, seriesId) });
     } catch (e) {
       if (isSignedOut(e)) setSignedOut(true);
       else {
@@ -169,7 +169,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
         ) : (
           <ListTab
             list={list} shown={shown} cam={cam} busy={busy} codeInput={codeInput} onCode={submitCode} act={act} seriesId={seriesId}
-            shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow}
+            shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow} notAllowed={notAllowed}
           />
         )}
       </main>
@@ -269,7 +269,7 @@ function CodeBox({ inputRef, busy, onCode, shortCodes }: { inputRef: React.RefOb
         e.preventDefault();
         const code = classifyCode(text, shortCodes);
         // empty or malformed input sends nothing; the reason shows under the box
-        if (block || !code) { setTried(true); return; }
+        if (block || !code) { if (shortCodes) setTried(true); return; }
         setText('');
         setTried(false);
         onCode(code);
@@ -286,7 +286,7 @@ function CodeBox({ inputRef, busy, onCode, shortCodes }: { inputRef: React.RefOb
           aria-describedby={block ? `${id}-why` : undefined} data-testid="door-code-input"
         />
         <button type="submit" className="p3-btn p3-door-check" aria-disabled={block ? 'true' : undefined} data-testid="door-code-check">
-          {busy ? <>Checking&hellip;</> : shortCodes ? 'Check in' : 'Check'}
+          {busy && shortCodes ? <>Checking&hellip;</> : shortCodes ? 'Check in' : 'Check'}
         </button>
       </div>
       {block && (text || tried) && <p id={`${id}-why`} className="p3-note" data-testid="door-code-why">{block}</p>}
@@ -311,10 +311,10 @@ interface ListProps {
   list: { data?: DoorList; isPending: boolean; isError: boolean; refetch: () => unknown; isFetching: boolean };
   shown: Shown | null; cam: ReturnType<typeof useScanner>; busy: boolean;
   codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; act: (a: NextAction) => void; seriesId: string;
-  shortCodes: boolean; pendingId: string | null; onCheckIn: (ticketId: string) => void;
+  shortCodes: boolean; pendingId: string | null; onCheckIn: (ticketId: string) => void; notAllowed: boolean;
 }
 
-function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn }: ListProps) {
+function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed }: ListProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
   const rows = list.data?.rows;
@@ -330,7 +330,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
           NO SIGNAL &mdash; codes cannot be checked right now.{loadedAt ? ` This list was loaded at ${loadedAt}.` : ''} Find the name below, then scan again when signal is back.
         </div>
       )}
-      {shown?.kind === 'too_many_attempts' && shown.from !== 'list' && (
+      {shown?.kind === 'too_many_attempts' && shown.from !== 'list' && !(list.isError && !list.data) && (
         <div className="p3-door-banner" role="status" data-testid="door-paused-banner">
           {RESULT_TABLE.too_many_attempts.sub(null)}. Find the name below and tap Check in.
         </div>
@@ -357,7 +357,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
       <button type="button" className="p3-btn p3-door-wide" onClick={() => void list.refetch()} disabled={list.isFetching}>Try again</button></div></div></>;
   }
   const d = list.data!;
-  if (d.result === 'not_allowed') {
+  if (d.result === 'not_allowed' || notAllowed) {
     return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} /></div>;
   }
   if (!rows?.length) return <>{top}<EmptySold seriesId={seriesId} /></>;
