@@ -229,6 +229,20 @@ const cases: Case[] = [
     want: 'BUILD',
   },
   {
+    // Pins `set -f` in the script: without it sh expands tsconfig*.json against
+    // the checkout (only tsconfig.json left) and the deleted sibling is never
+    // asked about, so the deletion would false-SKIP.
+    name: 'glob-only deletion (tsconfig.app.json removed, tsconfig.json stays)',
+    setup: () => {
+      const { cwd } = seedRepo();
+      const base = commit(cwd, ['tsconfig.json', 'tsconfig.app.json']);
+      git(cwd, 'rm', '-q', 'tsconfig.app.json');
+      git(cwd, 'commit', '-q', '-m', 'drop tsconfig.app.json');
+      return { cwd, previousSha: base };
+    },
+    want: 'BUILD',
+  },
+  {
     name: 'multi-commit push: earlier commit src, last commit docs-only',
     setup: () => {
       const { cwd, base } = seedRepo();

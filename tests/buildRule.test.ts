@@ -70,6 +70,11 @@ describe('buildRule: one list, read from the ignore script', () => {
     expect(sh.match(/\$\{?BUILD_PATHS\b/g)).toHaveLength(1);
   });
 
+  it('the closing quote ends the assignment line (a same-line concatenation would make shell and parser disagree)', () => {
+    const sh = readFileSync(IGNORE_SCRIPT, 'utf8');
+    expect(sh).toMatch(/^BUILD_PATHS='[^']*'$/m);
+  });
+
   it('every spec in the list is one the matcher supports (no throw)', () => {
     expect(() => touchesBuildPaths(['x'], readBuildPaths())).not.toThrow();
   });
