@@ -139,13 +139,13 @@ const cases: Case[] = [
     want: 'SKIP',
   },
   {
-    name: 'docs-only on a PR branch (feat/*): builds, its preview jobs need a preview',
+    name: 'docs-only on a PR branch (feat/*): SKIPS by diff (previewProbe measures the identical previous preview)',
     setup: () => {
       const { cwd, base } = seedRepo();
       commit(cwd, ['docs/b.md']);
       return { cwd, previousSha: base, ref: 'feat/docs-sweep' };
     },
-    want: 'BUILD',
+    want: 'SKIP',
   },
   {
     name: 'slice budget: a claude/* worker slice branch skips, src changed',
@@ -485,7 +485,7 @@ const cases: Case[] = [
     setup: () => {
       const { cwd, base } = seedRepo();
       const message = 'chore: x [skip-preview] [skip ci] skip preview';
-      commit(cwd, ['docs/b.md'], message);
+      commit(cwd, ['src/main.tsx'], message);
       return { cwd, previousSha: base, ref: 'feat/feature-x', message };
     },
     want: 'BUILD',
@@ -494,7 +494,7 @@ const cases: Case[] = [
     name: 'budget: prefix match is anchored (feat/claude-*, arc/briefs without dash build)',
     setup: () => {
       const { cwd, base } = seedRepo();
-      commit(cwd, ['docs/b.md']);
+      commit(cwd, ['src/main.tsx']);
       return { cwd, previousSha: base, ref: 'feat/claude-done-arc/briefs-x' };
     },
     want: 'BUILD',
@@ -503,7 +503,7 @@ const cases: Case[] = [
     name: 'budget: arc/* feature branch (not arc/briefs-) still builds',
     setup: () => {
       const { cwd, base } = seedRepo();
-      commit(cwd, ['docs/b.md']);
+      commit(cwd, ['src/main.tsx']);
       return { cwd, previousSha: base, ref: 'arc/dancer-rebuild' };
     },
     want: 'BUILD',
@@ -561,6 +561,62 @@ const cases: Case[] = [
       const { cwd, base } = seedRepo();
       commit(cwd, ['docs/b.md']);
       return { cwd, previousSha: base, env: 'preview' };
+    },
+    want: 'SKIP',
+  },
+
+  // ---- BUILD BY DIFF on every branch (docs/briefs/skip-builds-by-diff.md) ---
+  // A PR branch (here feat/*, but no branch name is listed anywhere) follows the
+  // same diff rule as main. Every doubt still BUILDS.
+  ...(
+    [
+      ['docs only', [['docs/b.md', 'README.md']], 'SKIP'],
+      ['tests only', [['tests/a.test.ts', 'e2e/x.spec.ts']], 'SKIP'],
+      ['ci + guard scripts only', [['.github/workflows/ci.yml', 'scripts/check-x.mjs']], 'SKIP'],
+      ['src change', [['src/main.tsx']], 'BUILD'],
+      ['package-lock only', [['package-lock.json']], 'BUILD'],
+      ['config change (vite.config.ts)', [['vite.config.ts']], 'BUILD'],
+      ['config change (vercel.json)', [['vercel.json']], 'BUILD'],
+      ['mixed: docs + src in one commit', [['docs/b.md', 'src/main.tsx']], 'BUILD'],
+      ['mixed: src then docs (two commits, one push)', [['src/main.tsx'], ['docs/b.md']], 'BUILD'],
+      ['empty commit', [[]], 'SKIP'],
+    ] as Array<[string, string[][], Verdict]>
+  ).map(([name, pushes, want]): Case => ({
+    name: `by diff, feat/* PR branch: ${name}`,
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      for (const files of pushes) {
+        if (files.length) commit(cwd, files);
+        else git(cwd, 'commit', '-q', '--allow-empty', '-m', 'empty');
+      }
+      return { cwd, previousSha: base, ref: 'feat/any-name' };
+    },
+    want,
+  })),
+  {
+    name: 'by diff, feat/* PR branch: unknown base (sha not in the clone) BUILDS',
+    setup: () => {
+      const { cwd } = seedRepo();
+      commit(cwd, ['docs/b.md']);
+      return { cwd, previousSha: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', ref: 'feat/any-name' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'by diff, feat/* PR branch: no previous deployment (first push) BUILDS',
+    setup: () => {
+      const { cwd } = seedRepo();
+      commit(cwd, ['docs/b.md']);
+      return { cwd, previousSha: '', ref: 'feat/any-name' };
+    },
+    want: 'BUILD',
+  },
+  {
+    name: 'by diff, a branch named like nothing we know (wip/x) skips docs-only too',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['docs/b.md']);
+      return { cwd, previousSha: base, ref: 'wip/x' };
     },
     want: 'SKIP',
   },
