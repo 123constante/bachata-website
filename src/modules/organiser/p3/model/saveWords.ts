@@ -82,3 +82,7 @@ export function saveWordsFor(oneDate: boolean, lifecycle: string | null | undefi
     ? { save: L.saveOneDateEvent, nothing: L.nothingChanged, detailsSaved: s.detailsSavedOne, pricesSaved: s.detailsSavedOne, ...session }
     : { save: L.saveAll, nothing: L.nothingChanged, detailsSaved: s.detailsSavedAll, pricesSaved: s.pricesSavedAll, ...session };
 }
+
+/** The line a save adds when some dates kept their own value (from the reply's kept_dates, never the preview). '' when none. */
+export const keptDatesLine = (m: number, word: string): string =>
+  m <= 0 ? '' : m === 1 ? `1 date kept its own ${word}.` : `${m} dates kept their own ${word}.`;

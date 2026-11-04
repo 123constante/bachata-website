@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { PAYMENT_LABEL, togglePayment } from '../../events/paymentModel';
 import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -11,6 +12,8 @@ import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useKep
 import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { PriceCard } from './PriceCard';
+import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
+import { scopedChangesOf } from '../model/scopeAsk';
 
 function Prices({ ws }: { ws: EventWorkspace }) {
   const kept = useKeptEdit(ws, 'prices', pricesDraftOf, pricesLockOf(ws) ? ['rows'] : []);
@@ -30,11 +33,26 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const lines = trayLines(form.lines, plan, blocker);
   const setRow = (i: number, r: PriceRow) => set({ rows: draft.rows.map((x, j) => (j === i ? r : x)) });
 
-  const onSave = async () => {
+  const scoped = scopedChangesOf(plan);
+  const scopedRun = useScopedRun(ws.series.id);
+  const [asking, setAsking] = useState(false);
+  const askable = scoped.fields.length > 0 && !hasOneDate(ws.dates.length, ws.total);
+
+  const runPlain = async () => {
     const res = await save.run(plan, form.version, (v) => form.landed(v));
     // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
     if (res.gated) keepDraft(ws.series.id, { screen: 'prices', draft, base: form.base });
     if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.pricesSaved); }
+  };
+  const onSave = async () => {
+    if (askable) { setAsking(true); return; }
+    await runPlain();
+  };
+  const scopedDone = (d: ScopedDone) => {
+    setAsking(false);
+    dropKept(ws.series.id);
+    form.saved(d.scope === 'all_dates' ? d.reply.newVersion : null);
+    back(d.scope === 'this_date' && d.day ? words.savedDate(d.day) : [words.pricesSaved, d.keptLine].filter(Boolean).join(' '));
   };
 
   return (
@@ -83,7 +101,13 @@ function Prices({ ws }: { ws: EventWorkspace }) {
         ))}
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); scopedRun.forget(); }} />
+      {asking && (
+        <ScopeSheet seriesId={ws.series.id} fields={scoped.fields} changes={scoped.changes} unscopedChanged={scoped.unscopedChanged}
+          seriesVersion={form.version} dateVersion={(id) => ws.dates.find((x) => x.id === id)?.version ?? null} run={scopedRun.send}
+          onPlain={() => { setAsking(false); void runPlain(); }} onDone={scopedDone}
+          onGated={() => { setAsking(false); keepDraft(ws.series.id, { screen: 'prices', draft, base: form.base }); }} onClose={() => setAsking(false)} />
+      )}
     </div>
   );
 }
