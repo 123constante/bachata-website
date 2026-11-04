@@ -14,7 +14,7 @@ Read first: `docs/design/scope-ask-api.md` and `docs/briefs/p3-scope-ask-db-hand
 - The scoped RPC covers FOUR fields only: cover image (`cover_image_url`), gallery (`gallery`), venue (`venue_id` + `city_id` together), prices (`passes`). Description, music styles, ticket link, Instagram, videos, name, chat link and payment methods are NOT in it; they stay all-dates saves exactly as today. -- extends: src/modules/organiser/p3/data/details.ts, prices.ts (read only)
 - Prod shape (counts only, 2026-11-04): 762 series; 1,978 future scheduled dates; 52 series have more than one future date; 385 override rows (cover 232, gallery 50, venue 191, passes 0); 10 series have a future date with an override row. So most repeating events have NO overridden dates, and the ask must stay one calm step when nothing is kept. -- extends: src/modules/organiser/p3/screens/DetailsScreen.tsx
 
-## Files (nothing outside this list)
+## Files
 - NEW `src/modules/organiser/p3/model/scopeAsk.ts` (pure: when to ask, copy, which fields)
 - NEW `src/modules/organiser/p3/data/scopeAsk.ts` (the two RPC calls, the plan builder, the idempotency key)
 - NEW `src/modules/organiser/p3/screens/ScopeSheet.tsx` (the question sheet, built on the existing `Sheet`)
