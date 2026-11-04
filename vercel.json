@@ -138,7 +138,7 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(self), payment=(), usb=()"
+          "value": "camera=(self), microphone=(), geolocation=(self), payment=(), usb=()"
         }
       ]
     },
