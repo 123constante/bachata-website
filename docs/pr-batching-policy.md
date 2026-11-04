@@ -99,6 +99,43 @@ for NON-production builds only:
   looks verified.
 - Production (`main`, `VERCEL_ENV=production`) is unchanged, and every unknown
   case still builds.
+- **A docs-only merge to `main` still CREATES a production deployment; no
+  safe way to stop that was found (2026-11-04, ticket dt_4b0c72c66476).**
+  Measured 2026-11-04 by the lead: 40 production deployments in 24 h, 18 of
+  them CANCELED by this script (docs/test/CI-only merges). Each one counts
+  toward the ~100/day cap (Vercel project settings docs, Ignored Build Step:
+  canceled builds "still count towards your deployment quotas and concurrent
+  build slots"). Every option checked:
+  - *Commit-message directive* (`[skip ci]`, `[ci skip]`, `[vercel skip]`):
+    no Vercel doc found that names one. `[skip ci]` is a GitHub Actions rule
+    (GitHub docs, "Skipping workflow runs"), not a Vercel one, and Vercel's own
+    community answer to "skip a build on a commit" is to read
+    `VERCEL_GIT_COMMIT_MESSAGE` in the Ignored Build Step, which still counts.
+    It would also be UNSAFE here: `[skip ci]` on a squash merge to `main` turns
+    off every push-triggered workflow on `main` too.
+  - *`git.deploymentEnabled`*: keyed by BRANCH only, never by commit or path;
+    `"main": false` would stop production deploying at all.
+  - *Vercel's automatic "skip unaffected projects"* (does not count, unlike
+    the ignored step): monorepo-only, for a project whose Root Directory is
+    not the repo root. This project builds from the repo root, so every
+    commit "affects" it.
+  - *GitHub-side*: the only route is turning off the Git integration for
+    `main` and deploying production from a GitHub Actions job with a `paths`
+    filter (`vercel deploy --prebuilt --prod`). That changes how production
+    ships, so it is an owner decision, not a worker change.
+  So `vercel.json` and the merge convention are unchanged; the cost of a
+  docs-only merge is one CANCELED deployment, and the budget lever is still
+  batching docs PRs (Rules above). **Not verified:** the worker's network
+  blocked vercel.com and api.vercel.com, so the docs were read only through
+  search results (sources: vercel.com/docs/project-configuration/project-settings,
+  vercel.com/kb/guide/how-reduce-build-costs,
+  community.vercel.com/t/is-there-a-way-to-skip-a-build-on-a-commit/8446),
+  and the API was not queried for past tagged commits. Lead check (counts
+  production deployments by state; run before and after a docs-only merge):
+  `curl -s -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v6/deployments?projectId=prj_KVXvwOmB4SDFy3HljJqXVgiq6APq&teamId=team_Id0gAANQpZgZF457VMkqjiRy&target=production&limit=100" | jq '[.deployments[] | .state] | group_by(.) | map({(.[0]): length}) | add'`.
+  Past commits that carried a skip tag: add
+  `| select(.meta.githubCommitMessage | test("skip ci|ci skip|vercel skip"; "i"))`
+  after `.deployments[]`; any hit means Vercel created a deployment anyway.
 
 **Emergency path when rate-limited:** Vercel Instant Rollback to the previous
 production deployment (dashboard: Deployments, pick the last good production
