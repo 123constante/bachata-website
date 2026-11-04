@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import { reactRouter } from "@react-router/dev/vite";
 import path from "path";
 import { classifyChunk, vendorChunkCycleGuard } from "./vite.chunks";
+import { fileBytesPlugin } from "./vite.fileBytes";
 // lovable-tagger (componentTagger) is intentionally NOT restored under framework
 // mode: it's a dev-only Lovable annotation, non-essential, and untested against
 // the reactRouter() dev plugin. Re-add later behind a dev guard if wanted.
@@ -37,6 +38,10 @@ export default defineConfig(({ isSsrBuild }) => ({
     // Fails the build on a static import cycle through a vendor chunk (#747);
     // see vite.chunks.ts. The server build is one chunk, so it never trips there.
     vendorChunkCycleGuard(),
+    // `./x.ttf?bytes` -> base64 string literal (vite.fileBytes.ts). The OG card
+    // fonts ride inside the SERVER bundle this way, so rendering a card needs no
+    // network round trip (incident 2026-11-04). Also registered in vitest.config.ts.
+    fileBytesPlugin(),
     // SERVER BUILD ONLY. react-router-dom is a pure re-export shim in React Router 7
     // (every name this app imports from it also exists in react-router). Left external,
     // its CommonJS entry require()s react-router/dom, whose CJS file

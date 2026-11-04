@@ -84,7 +84,8 @@ type FallbackReason =
 // A degraded artefact must never be cached for a year, but "degraded" is not
 // one speed. Two tiers, chosen by whether the condition can clear on its own:
 //
-//   FAST (300s)  card-data-unavailable, and every redirect. An RPC blip clears
+//   NONE         render-error (redirect, no-store -- see CACHE_RENDER_ERROR).
+//   FAST (300s)  card-data-unavailable, and every other redirect. An RPC blip clears
 //                by itself, and until it does the card is GENERIC -- no title,
 //                no date. Five minutes is how long one bad request may pin a
 //                blank card to the edge (and through it to WhatsApp's
@@ -127,11 +128,18 @@ function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | nul
   });
 }
 
+// render-error is the one reason that says nothing about the entity: the card
+// threw (2026-11-04: a font fetch timing out on cold start), so the very next
+// request may well render. Caching that 302 for five minutes pinned the generic
+// /og-image.jpg to the edge and, through it, to WhatsApp's URL-keyed preview
+// cache. no-store: a crawler that retries gets a fresh render attempt.
+const CACHE_RENDER_ERROR = "no-store";
+
 function redirectToStatic(reason: FallbackReason): Response {
   return new Response(null, {
     status: 302,
     headers: {
-      "Cache-Control": CACHE_DEGRADED_FAST,
+      "Cache-Control": reason === "render-error" ? CACHE_RENDER_ERROR : CACHE_DEGRADED_FAST,
       Location: `${SITE_URL}/og-image.jpg`,
       [FALLBACK_HEADER]: reason,
     },
