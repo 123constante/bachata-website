@@ -9,12 +9,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fake = vi.hoisted(() => ({
-  resolveId: vi.fn<(id: string) => Promise<string | null>>(),
-  eventData: vi.fn<() => Promise<unknown>>(),
-  festivalData: vi.fn<() => Promise<unknown>>(),
-  imageBytes: vi.fn<() => Promise<Buffer | null>>(),
-  coverCard: vi.fn<() => Promise<Buffer>>(),
-  allowed: vi.fn<(src: string) => boolean>(),
+  resolveId: vi.fn(),
+  eventData: vi.fn(),
+  festivalData: vi.fn(),
+  imageBytes: vi.fn(),
+  coverCard: vi.fn(),
+  allowed: vi.fn(),
 }));
 
 vi.mock("../lib/ogCardRender", () => ({
@@ -92,7 +92,9 @@ function call(query: string, headers: Record<string, string> = {}): Promise<Resp
 }
 
 describe("/api/og/card cache decision per outcome", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it.each(ROWS)("$name -> $status, Cache-Control + edge directive pinned", async (row) => {
     setWorld(row.world);

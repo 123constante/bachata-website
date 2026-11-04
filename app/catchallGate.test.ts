@@ -19,6 +19,9 @@ const broken = async (): Promise<boolean> => {
   throw new Error("db down");
 };
 
+type Headers5 = { cache: string | null; edge: string | null; tag: string | null; robots: string | null; cookie: string | null };
+type Doc = Headers5 & { status: number };
+
 type Expected = {
   status: number;
   cache: string;
@@ -34,7 +37,7 @@ function finalDocument(
   status: number,
   skewOn: boolean,
   edge404 = false,
-): Record<string, string | null> {
+): Headers5 {
   const h = new Headers(route);
   if (status >= 400) h.set("X-Robots-Tag", "noindex");
   finalizeDocumentCacheHeaders(h, status, { enabled: skewOn, deploymentId: "dpl_test" }, { edge404 });
@@ -53,7 +56,7 @@ async function catchallDocument(
   isRealCity: (slug: string) => Promise<boolean>,
   skewOn: boolean,
   renderFailsWith500 = false,
-): Promise<Record<string, string | null> & { status: number }> {
+): Promise<Doc> {
   const outcome = await resolveCatchallOutcome(new URL(`https://x.test${path}`), isRealCity, 50);
   if (outcome.status === 308) {
     const h = new Headers({ Location: outcome.location, ...staticShellCacheHeaders() });
@@ -66,7 +69,7 @@ async function catchallDocument(
 
 const NO_STORE_ERROR = { cache: "no-store", edge: null, tag: null, robots: "noindex", cookieWhenSkewOn: COOKIE };
 
-type Row = { name: string; run: (skewOn: boolean) => Promise<Record<string, string | null> & { status: number }>; expect: Expected };
+type Row = { name: string; run: (skewOn: boolean) => Promise<Doc>; expect: Expected };
 
 const ROWS: Row[] = [
   {
