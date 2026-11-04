@@ -200,5 +200,7 @@ const NOT_MONEY = { money: false, names: [] as string[], reason: '' };
 export const FOUNDATIONS_OK = {
   facts: { requiredJobs: REQUIRED_OK, money: NOT_MONEY },
   opts: { foundations: { requiredJobs: async () => REQUIRED_OK, money: () => NOT_MONEY } },
+  // spreads into a scripts/automerge-classify.mjs classify() call (bot-automerge)
+  classify: { moneyCheck: () => NOT_MONEY },
 };
 export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }), ...FOUNDATIONS_OK.opts };
