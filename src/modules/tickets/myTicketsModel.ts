@@ -12,8 +12,8 @@ export const MY_TICKETS_PATH = '/account/my-tickets';
 /** = my_tickets_v1's row cap (admin: LIMIT 501 sentinel, 500 returned). */
 export const MY_TICKETS_CAP = 500;
 
-const DOT = '·';
-const ELL = '…';
+const DOT = '\u00b7';
+const ELL = '\u2026';
 
 export interface MyTicket {
   orderId: string;
@@ -102,7 +102,7 @@ export function dateWords(date: string | null, todayKey: string): string {
   }).format(d).replace(/,/g, '');
 }
 
-/** "Fri 7 Nov · 21:00"; "Today · 21:00" on the night. */
+/** "Fri 7 Nov \u00b7 21:00"; "Today \u00b7 21:00" on the night. */
 export function whenLine(t: MyTicket, todayKey: string): string {
   const day = t.date === todayKey ? 'Today' : dateWords(t.date, todayKey);
   return t.startTime ? `${day} ${DOT} ${t.startTime}` : day;

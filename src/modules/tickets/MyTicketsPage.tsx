@@ -71,7 +71,7 @@ function TicketCard({ t, position, today, past }: { t: MyTicket; position: strin
       </div>
       <p className="mt-1 text-[13px]" data-testid="my-ticket-when">{whenLine(t, today)}</p>
       <p className="text-[12px]" style={muted}>
-        {[t.typeName, position, `Order ${orderRef(t.orderId)}`].filter(Boolean).join(' · ')}
+        {[t.typeName, position, `Order ${orderRef(t.orderId)}`].filter(Boolean).join(' \u00b7 ')}
       </p>
       {t.checkedIn && (
         <p className="mt-1 text-[13px] font-medium" data-testid="my-ticket-checked-in">{checkedInLine(t)}</p>
