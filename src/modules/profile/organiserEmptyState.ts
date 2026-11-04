@@ -4,7 +4,7 @@
  * src/pages/__tests__/OrganiserProfileEmpty.matrix.test.tsx over every events
  * shape prod holds.
  *
- * - 'owner-blank': the signed-in owner, and the profile has nothing at all yet
+ * - 'owner-blank': the signed-in owner or manager (anyone who can edit), and the profile has nothing at all yet
  *   (no bio, contact links, team or nights) -- prompt them to complete it.
  * - 'none': no nights listed, ever. Shown whatever else the profile has: a bio
  *   or contact links used to hide it, leaving "0 upcoming dates / 0 past
@@ -23,10 +23,10 @@ export function organiserEmptyState(s: {
   hasBio: boolean;
   hasContact: boolean;
   team: number;
-  isOwner: boolean;
+  canEdit: boolean;
 }): OrganiserEmptyKind | null {
   if (s.loading || s.upcoming > 0) return null;
   if (s.past > 0) return 'past-only';
-  if (s.isOwner && !s.hasBio && !s.hasContact && s.team === 0) return 'owner-blank';
+  if (s.canEdit && !s.hasBio && !s.hasContact && s.team === 0) return 'owner-blank';
   return 'none';
 }

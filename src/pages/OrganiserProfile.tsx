@@ -1149,7 +1149,7 @@ const OrganiserProfile = () => {
     hasBio: !!entity.bio?.trim(),
     hasContact,
     team: orderedTeam.length,
-    isOwner: facts.isOwner,
+    canEdit: facts.canEdit,
   });
   // W7: the badge and the "Is this you?" card come from `facts` (computed above,
   // behind the self-serve flag, off in production until launch).
