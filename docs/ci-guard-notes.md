@@ -29,20 +29,28 @@ All in `scripts/check-*.mjs`, enforced by CI.
   `event_attendees`, so the step and its script are gone (number kept).
 - epp.display_name drift (#14)
 - epp.avatar_url drift (#15)
-- Teacher/DJ assignment integrity (#17) &mdash; **GATES on a hand-kept CEILING**
-  (baseline 36 teachers / 8 DJs unassigned), a known-imperfect proxy for "nobody
-  lost an assignment": the ceiling counts a TOTAL that grows every time a
-  teacher joins the directory before their first booking, so ordinary roster
-  growth reds it too &mdash; fixed by a re-baseline commit, same as #339
-  (2026-09-04) did 32-&gt;36. The DJ side did 6-&gt;8 on 2026-09-15. A 2026-09-02 change briefly suspended gating
-  (`process.exit(0)` unconditionally) on stale evidence from a branch that never
-  merged (PR #330, closed unmerged 2026-09-09); #339 had already restored real
-  gating on main five days before that branch's stale patch got revived and
-  merged anyway as PR #402 (2026-09-09), silently re-suspending it for a few
-  hours until this entry and the script were corrected the same day. The real
-  fix is a lost-assignment predicate, not a ceiling &mdash; plan
-  `~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md`, which carries
-  the design.
+- Teacher/DJ assignment integrity (#17) &mdash; **GATES on an ASSIGNMENT DEFICIT,
+  not the unassigned total** (since 2026-11-04). Deficit = active teacher (or DJ)
+  roles created on or before the 2026-07-24 re-baseline, minus the assigned count;
+  baselines 10 teachers / -4 DJs. It rises by exactly 1 when anyone loses their last
+  line-up credit &rarr; exit 1. A new person joining after the cutoff with no line-up
+  leaves it unchanged &rarr; exit 0 with the payload and a `WARN:` line, so ordinary
+  roster growth no longer reds main (it did, and needed a hand bump: #339 on
+  2026-09-04, #1337 on 2026-11-04). Why a deficit and not "pre-baseline people with
+  no assignment" directly: CI calls as anon, which can read `person_roles.created_at`
+  but not the P5 credit tables, so it cannot split the unassigned count per person;
+  deficit = (pre-baseline unassigned) &minus; (post-baseline assigned), which moves
+  with the former. Gaps, stated: a loss and a first booking in the same window
+  cancel (the old ceiling had the same masking); deactivating an ASSIGNED
+  post-cutoff role also reds it (re-baseline with a dated note). Exit codes: 0
+  pass/warn (and the legacy "RPC not deployed" soft-pass), 1 a deficit rose, 2
+  could not check (missing creds, transient, RPC or count error, malformed or
+  disagreeing reads). Canary: `--self-test` (mutants: a lost assignment reds, a
+  new unassigned person stays green) and
+  `node --test scripts/__tests__/check-teacher-dj-assignment-integrity.test.mjs`.
+  History: a 2026-09-02 change briefly suspended gating (`process.exit(0)`
+  unconditionally) on stale evidence from a branch that never merged (PR #330);
+  it was revived as PR #402 (2026-09-09) and corrected the same day.
 - Migration authority arc-closeout (#18)
 - Per-date program canonical / ADR-007 (#19)
 - Occurrence instance_time canonical / ADR-007 (#20)

@@ -202,6 +202,7 @@ const TARGETS = [
   { rel: 'scripts/check-script-conventions.mjs' },
   { rel: 'scripts/check-seo.mjs' },
   { rel: 'scripts/check-sitemap-fetchable.mjs' },
+  { rel: 'scripts/check-teacher-dj-assignment-integrity.mjs' },
   { rel: 'scripts/check-wallclock-brand.mjs' },
   { rel: 'scripts/ci/docs-only.mjs' },
   { rel: 'scripts/gh-merge-status.mjs' },
