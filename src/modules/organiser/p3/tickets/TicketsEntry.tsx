@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
@@ -45,6 +45,10 @@ import { RefundSheet } from './RefundSheet';
 import { StackSheet, refocusTop } from './StackSheet';
 import { TypeSheet } from './TypeSheet';
 import { useGatedCopy } from '../onboarding/gate';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+
+// Promo codes ride in their own chunk: nothing added to the Tickets sheet's first load.
+const PromoSection = lazyWithRetry(() => import('./promo/PromoSection'));
 
 /**
  * The event page's Tickets entry (W-T, mockup C): a row under Status that opens ONE tall
@@ -317,6 +321,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
               {body}
+              {types.isSuccess && (
+                <Suspense fallback={<p className="p3-note" data-testid="promo-loading">Loading promo codes&hellip;</p>}>
+                  <PromoSection organiserId={org.id} seriesId={series.id} onSay={say} onAlert={(text) => late(text, false)} />
+                </Suspense>
+              )}
             </div>
           ) : (
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
