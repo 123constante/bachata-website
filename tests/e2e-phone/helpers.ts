@@ -118,6 +118,24 @@ export async function animationsDone(page: Page) {
   await page.waitForTimeout(2_500);
 }
 
+/**
+ * Auto-walk picture (brief auto-walk-pictures-1): one call per driven state.
+ * Writes `<AUTO_WALK_DIR or test-results/auto-walk>/<name>.png` at 390x844 and
+ * returns the path; at any other viewport it takes NO picture and returns null,
+ * so the pack holds one size per state and a 360x640 run never overwrites it.
+ * scripts/auto-walk-manifest.mjs collects the pictures into auto-walk-manifest.json.
+ */
+export const AUTO_WALK_SIZE = { width: 390, height: 844 } as const;
+export async function autoWalkShot(page: Page, name: string): Promise<string | null> {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) throw new Error(`autoWalkShot: name "${name}" must be kebab-case [a-z0-9-]`);
+  const vp = page.viewportSize();
+  if (!vp || vp.width !== AUTO_WALK_SIZE.width || vp.height !== AUTO_WALK_SIZE.height) return null;
+  await frames(page);
+  const path = `${process.env.AUTO_WALK_DIR || 'test-results/auto-walk'}/${name}.png`;
+  await page.screenshot({ path });
+  return path;
+}
+
 export interface CoveredControl { label: string; hit: string }
 
 /**
