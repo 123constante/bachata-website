@@ -172,13 +172,13 @@ describe("planCloudflarePurge", () => {
       name: "cancelled event (no city: today's emit sends none)",
       tags: purgeTagsFor("event", EV),
       urls: [...page(`/event/${EV}`), ...page("/event/bachateame-saturdays"), ...page("/city/london-gb"), ...SEO],
-      warm: [`${O}/event/bachateame-saturdays`, `${O}/city/london-gb`],
+      warm: [`${O}/event/bachateame-saturdays`, `${O}/event/bachateame-saturdays.data`, `${O}/city/london-gb`],
     },
     {
       name: "event in a non-SEO city",
       tags: purgeTagsFor("event", EV, "berlin-de"),
       urls: [...page(`/event/${EV}`), ...page("/event/bachateame-saturdays"), ...page("/city/berlin-de")],
-      warm: [`${O}/event/bachateame-saturdays`, `${O}/city/berlin-de`],
+      warm: [`${O}/event/bachateame-saturdays`, `${O}/event/bachateame-saturdays.data`, `${O}/city/berlin-de`],
     },
     {
       name: "festival in London",
@@ -188,7 +188,7 @@ describe("planCloudflarePurge", () => {
         ...page(`/event/${FEST}`), ...page("/event/summer-fest"),
         ...page("/festivals"), ...page("/city/london-gb"), ...SEO,
       ],
-      warm: [`${O}/festival/summer-fest`, `${O}/event/summer-fest`, `${O}/festivals`, `${O}/city/london-gb`],
+      warm: [`${O}/festival/summer-fest`, `${O}/event/summer-fest`, `${O}/event/summer-fest.data`, `${O}/festivals`, `${O}/city/london-gb`],
     },
     {
       name: "city tag only",
@@ -236,7 +236,7 @@ describe("planCloudflarePurge", () => {
       name: "hidden/archived event (resolver returns no slug): uuid URL only",
       tags: [`event-${"00000000-0000-4000-8000-000000000000"}`],
       urls: page("/event/00000000-0000-4000-8000-000000000000"),
-      warm: [`${O}/event/00000000-0000-4000-8000-000000000000`],
+      warm: [`${O}/event/00000000-0000-4000-8000-000000000000`, `${O}/event/00000000-0000-4000-8000-000000000000.data`],
     },
     {
       name: "unknown tag and collection tag: no URLs",

@@ -219,6 +219,18 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   team_full: { title: 'This team is full', body: `This team already has ${TEAM_CAP} people, so you cannot join it yet. Ask the page owner to make room, or ask the Bachata Calendar team.`, action: 'home', terminal: true, help: true },
 };
 
+/**
+ * Slice U (brief fix-join-first-batch): a USED link, by who is looking. The server's already_member answer (or the
+ * person's own page list) is the only proof the link was theirs; it is never told WHO used it, so neither is anyone.
+ *   signed out    -> they may be the one who joined: sign in, then this link again (it opens their page).
+ *   someone else  -> this account is not on the team: switch accounts, or ask for a new link.
+ */
+export type UsedViewer = 'signed_out' | 'other_account';
+export const USED_COPY: Record<UsedViewer, { title: string; body: string; button: string }> = {
+  signed_out: { title: 'You already joined', body: 'Sign in to continue.', button: 'Sign in' },
+  other_account: { title: 'This link was already used', body: 'This account is not on the team. If you joined with a different account, sign in with that one. If not, ask for a new one.', button: 'Sign in with a different account' },
+};
+
 export const REDEEM_FALLBACK: RedeemCopy = { title: 'Something went wrong', body: 'We could not use this link. Check your connection and try again.', action: 'retry', terminal: false };
 
 export interface InvitePrefill { firstName: string | null; cityId: string | null }
@@ -306,8 +318,9 @@ export const SWITCH_LABEL: Record<string, string> = { email_mismatch: 'Sign in w
  * THE mapping from a redeem reason (or a preview status that is already broken) to what any screen
  * says. The landing, the preview card and the post-Join refusal all call this; none keeps its own words.
  */
-export function reasonScreen(reason: string, ctx: { organiserName?: string | null; inviterFirstName?: string | null; emailHint?: string | null } = {}): ReasonScreen {
-  const base = REDEEM_COPY[reason] ?? REDEEM_FALLBACK;
+export function reasonScreen(reason: string, ctx: { organiserName?: string | null; inviterFirstName?: string | null; emailHint?: string | null; usedViewer?: UsedViewer | null } = {}): ReasonScreen {
+  const used = reason === 'used' && ctx.usedViewer ? USED_COPY[ctx.usedViewer] : null;
+  const base = used ? { ...REDEEM_COPY.used, title: used.title, body: used.body } : REDEEM_COPY[reason] ?? REDEEM_FALLBACK;
   const hint = safeEmailHint(ctx.emailHint);
   const body = reason === 'email_mismatch' && hint ? `It was sent to ${hint}.` : base.body;
   return { ...base, body, offerNewLink: NEW_LINK_REASONS.includes(reason), newLinkLabel: newLinkLabel(ctx.inviterFirstName), switchLabel: SWITCH_LABEL[reason] ?? null };

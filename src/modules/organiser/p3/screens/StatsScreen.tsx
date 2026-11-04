@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
 import { P3SeriesGoing } from './P3Going';
-import { RANGE_DAYS, byEventOf, dailyTotals, sliceStats, viewsTotal, type StatsRange } from '../data/stats';
+import { RANGE_DAYS, byEventOf, dailyTotals, scopeStats, sliceStats, viewsTotal, type StatsRange } from '../data/stats';
 import { useP3Views } from '../data/useP3Data';
 import { L } from '../model';
+import { PageHeader, usePageScope } from './PageScope';
 import { GoingTile, RetryButton, StateCard } from './parts';
 
 const RANGES: ReadonlyArray<readonly [StatsRange, string]> = [['d', 'Today'], ['w', '7 days'], ['m', '30 days']];
@@ -33,6 +34,8 @@ export function StatsScreen() {
   const [range, setRange] = useState<StatsRange>('m');
   const [table, setTable] = useState(false);
   const views = useP3Views();
+  const scope = usePageScope();
+  const head = <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />;
 
   const seg = (
     <div className="p3-seg" role="group" aria-label="Time range">
@@ -44,41 +47,45 @@ export function StatsScreen() {
     </div>
   );
 
-  if (views.isPending) {
+  if (views.isPending || scope.home.isPending) {
     return (
       <div className="p3-stack">
+        {head}
         {seg}
         <StateCard title="Loading views&hellip;" testId="p3-stats-loading">Counting your views.</StateCard>
       </div>
     );
   }
-  if (views.isError) {
+  if (views.isError || scope.home.isError) {
     return (
       <div className="p3-stack">
+        {head}
         {seg}
         <StateCard title="We couldn&rsquo;t load your views" testId="p3-stats-error">
           <p>Check your connection, then try again.</p>
-          <RetryButton onClick={() => void views.refetch()} />
+          <RetryButton onClick={() => void Promise.all([views.refetch(), scope.home.refetch()])} />
         </StateCard>
       </div>
     );
   }
 
-  const data = sliceStats(views.data, RANGE_DAYS[range]);
+  const scoped = scopeStats(views.data, scope.seriesIds);
+  const data = sliceStats(scoped, RANGE_DAYS[range]);
   const today = data.to || londonTodayKey();
   const total = viewsTotal(data);
-  const allTotal = viewsTotal(views.data);
+  const allTotal = viewsTotal(scoped);
   const days = dailyTotals(data);
   const rows = byEventOf(data);
   const label = RANGES.find((r) => r[0] === range)![1];
 
   return (
     <div className="p3-stack" data-testid="p3-stats">
+      {head}
       {seg}
       <div className="p3-pair">
         <div className="p3-card p3-stat" data-testid="p3-stats-total">
           <div className="p3-stat-n">{total}</div>
-          <div className="p3-stat-l">{L.views}, all your events</div>
+          <div className="p3-stat-l">{L.views}, this page&rsquo;s events</div>
         </div>
         <GoingTile />
       </div>

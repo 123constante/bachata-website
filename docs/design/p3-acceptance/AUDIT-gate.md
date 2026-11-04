@@ -7,7 +7,7 @@ Method: code traced to the RPC, live RPC bodies read via `pg_get_functiondef`, p
 ## Answer to the brief's question (flag ON, organiser with live events and an unfinished page)
 
 - Prod today: flag `organiser_onboarding_gate` is **OFF**; `organiser_onboarding_progress` has **0 rows**, so 0 of 48 claimed pages would pass. Turning the flag on would refuse event writes for 11 non-admin people on 4 pages with 7 live upcoming series.
-- There is **no server-side grace period**: one global flag. Flag ON = every gated write refused at once, including cancelling tonight's date (A-gate-1, blocker). The Home banner still says "Until then everything works as usual" regardless of `gate_on` (`src/modules/organiser/p3/screens/GraceBanner.tsx:67`; A-gate-2).
+- There is **no server-side grace period**: one global flag. Flag ON = every gated write refused at once, including cancelling tonight's date (A-gate-1, blocker). The Home banner still says "Until then everything works as usual" regardless of `gate_on` (FIXED by #1291, F-08: the banner now says "Finish your details first to create or edit events. It takes about five minutes.") (`src/modules/organiser/p3/screens/GraceBanner.tsx:67`; A-gate-2).
 - 42 write doors found (39 main, 3 build branch); of 38 event-content doors: 29 gated server side (2 conditionally), 24 route the refusal to the "A few details first" sheet, 1 own card with working link, 3 fixed error line without a link, 3 wrong generic "Try again" error, 0 silent, 2 CANNOT-TELL (edge functions). Full table in Part 1 section 2.
 - No read or page open is refused.
 - The refused write is not retried after the sheet is finished (J-e8 step 3 FAIL; A-gate-5).
@@ -173,7 +173,7 @@ So with the flag ON today, **every non-admin organiser (11 people, 4 pages with 
 **Owner question:** Should cancel / move / time on a date in the next 7 days stay open during and after grace (safety writes), or is a hard gate on all writes intended?
 
 ### A-gate-2 - high - J-d8 (banner S02)
-**What happens:** The grace banner always says **"Finish your details to create and edit events. N things left. Until then everything works as usual."** (`p3/screens/GraceBanner.tsx:66-67`). It never reads `gate_on`, so when the flag is ON the copy is false (nothing works); when OFF it implies a requirement that is not enforced. No end date is shown because none exists (`graceModel.ts:48`). Grace length: decided by nothing (manual flag flip). Banner shows only on Home, only with >0 left, hidden per device per day ("Hide for today").
+**What happens (at audit time; the copy is FIXED by #1291, F-08 &mdash; end date still open):** The grace banner always says **"Finish your details to create and edit events. N things left. Until then everything works as usual."** (`p3/screens/GraceBanner.tsx:66-67`). It never reads `gate_on`, so when the flag is ON the copy is false (nothing works); when OFF it implies a requirement that is not enforced. No end date is shown because none exists (`graceModel.ts:48`). Grace length: decided by nothing (manual flag flip). Banner shows only on Home, only with >0 left, hidden per device per day ("Hide for today").
 **Evidence:** `grep gate_on src` = 0 non-test hits; banner text above.
 **Fix:** Read `gate_on` from the status call: ON -> "Finish your details to make changes to your events" (no "works as usual"); OFF -> today's line; show the deadline once the server has one.
 **Owner question:** Grace length and whether the banner shows a date (plan Q1).

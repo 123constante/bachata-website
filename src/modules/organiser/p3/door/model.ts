@@ -9,9 +9,13 @@
  * The ticket email (admin ticket-email) prints the bare token as text, one line per ticket.
  */
 
-/** What ticket_check_in_v1 answers, plus no_signal (the read itself failed, client side). */
-export type DoorResult = 'ok' | 'already_in' | 'wrong_event' | 'not_valid' | 'unknown_code' | 'not_allowed' | 'no_signal';
-export const DOOR_RESULTS: readonly DoorResult[] = ['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'no_signal'];
+/**
+ * What ticket_check_in_v1 / ticket_check_in_by_id_v1 / ticket_check_in_by_code_v1 answer, plus
+ * no_signal (the read itself failed, client side). too_many_attempts comes only from the by-code
+ * RPC: 20 wrong codes per staff member per 15 minutes (admin 20270314140000_ticket_door_short_code_v1).
+ */
+export type DoorResult = 'ok' | 'already_in' | 'wrong_event' | 'not_valid' | 'unknown_code' | 'not_allowed' | 'too_many_attempts' | 'no_signal';
+export const DOOR_RESULTS: readonly DoorResult[] = ['ok', 'already_in', 'wrong_event', 'not_valid', 'unknown_code', 'not_allowed', 'too_many_attempts', 'no_signal'];
 
 /** ticket_check_in_v1's reply: every key always present, null when it does not apply. */
 export interface CheckIn {
@@ -110,6 +114,12 @@ export const RESULT_TABLE: Record<DoorResult, ResultRow> = {
     detail: () => `Ask the event${RSQ}s organiser to add you to their team, then open this screen again.`,
     vibrate: [], actions: ['none'], keepScanning: false,
   },
+  too_many_attempts: {
+    band: 'warn', headline: 'TOO MANY WRONG CODES',
+    sub: () => 'Typing codes is paused for up to 15 minutes',
+    detail: () => `Wait up to 15 minutes before typing another code. Now: open tonight${RSQ}s list, find their name and tap Check in.`,
+    vibrate: [200, 100, 200], actions: ['list'], keepScanning: true,
+  },
   no_signal: {
     band: 'grey', headline: 'NO SIGNAL',
     sub: () => 'Cannot check this code right now',
@@ -124,7 +134,7 @@ export const ACTION_LABEL: Record<NextAction, string> = {
 
 /** The person line under the band: first name, then type and order size. Nothing for unknown / not allowed / no signal. */
 export function personOf(c: CheckIn | null): { name: string; meta: string } | null {
-  if (!c || c.result === 'unknown_code' || c.result === 'not_allowed') return null;
+  if (!c || c.result === 'unknown_code' || c.result === 'not_allowed' || c.result === 'too_many_attempts') return null;
   const bits = [c.ticket_type_name?.trim(), c.quantity ? `order of ${c.quantity}` : null].filter(Boolean);
   return { name: c.first_name?.trim() || 'No name given', meta: bits.join(` ${DOT} `) };
 }
@@ -171,10 +181,35 @@ export function createScanGate(windowMs = 2500, now: () => number = Date.now) {
   };
 }
 
+/** The short door code's alphabet (no 0, 1, I, L, O), exactly as tickets.short_code is made. */
+export const SHORT_CODE_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
+/** As ticket_check_in_by_code_v1 reads its input: case, spaces and dashes ignored. */
+export const normaliseShortCode = (raw: string) => raw.replace(/[\s-]/g, '').toUpperCase();
+/** A long QR token (64 hex) or a URL carrying one: never a short code. */
+const looksLikeQr = (raw: string) => /^https?:\/\//i.test(raw.trim()) || /^[0-9a-f]{32,}$/i.test(raw.replace(/\s+/g, ''));
+
+export type TypedCode = { kind: 'short'; code: string } | { kind: 'qr'; code: string };
+
+/**
+ * Which check a typed or scanned code goes to. With short codes off (flag), everything is a QR
+ * token, exactly as before. With them on, a long token / URL is a QR token and anything else
+ * must be a whole short code, or nothing is sent: a malformed code would still cost one of the
+ * 20 tries the by-code RPC allows.
+ */
+export function classifyCode(raw: string, shortCodes: boolean): TypedCode | null {
+  if (!shortCodes || looksLikeQr(raw)) {
+    const code = parseCode(raw);
+    return code ? { kind: 'qr', code } : null;
+  }
+  const s = normaliseShortCode(raw);
+  return SHORT_CODE_RE.test(s) ? { kind: 'short', code: s } : null;
+}
+
 /** The code box's Check button: disabled with a reason, never silently dead. */
-export function codeBoxBlock(text: string, busy: boolean): string | null {
+export function codeBoxBlock(text: string, busy: boolean, shortCodes = false): string | null {
   if (busy) return 'Checking the last code\u2026';
   if (!parseCode(text)) return 'Type or paste the code first';
+  if (!classifyCode(text, shortCodes)) return 'Ticket codes are 6 letters and numbers, like K7M 2QX (never 0, 1, I, L or O)';
   return null;
 }
 

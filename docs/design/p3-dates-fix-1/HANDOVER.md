@@ -1,4 +1,21 @@
-# p3-dates-fix-1 — HANDOVER (PARTIAL: browser walk not done)
+# p3-dates-fix-1 — HANDOVER
+
+## Rebase on main (ticket dt_e18a5635cbca, brief `docs/briefs/p3-dates-fix-1-rebase.md`, 2026-11-04)
+- Merged `origin/main` 27a9c52 (merge commit, no force-push). **Main won** for `p3/data/olderDates.ts` and
+  `p3/screens/AllDatesScreen.tsx` (taken whole from main, #1218 F-27). This branch's own W-31 paging code
+  (`useInfiniteQuery`, "Show N older dates") is DELETED: the PR now carries no W-31 code.
+- `DateSheet.tsx` / `DateFieldSheets.tsx`: both sides kept (main's `VenueList` and F-24 route blocker `'route'` ask
+  + this branch's W-35 `KeptProps` / conflict).
+- **W-31 on main, proven**: `datesFix.matrix.test.tsx` W-31 cells rewritten to drive main's control (`p3-load-older`,
+  one tap reads every older page at p_limit 200) and to count LISTED rows (the tab numbers are whole-series meta
+  counts, so they pass before anything loads; the old cells' count check was too weak). Run against PURE main:
+  **all 37 W-31 cells GREEN** (35 size x tab for 0/1/99/100/101/132/500, oldest-of-132 opens, failure + Try again)
+  and W-35 ok/refused/offline green; **4 W-35 conflict cells RED** = the delta. See `red-on-main.txt`.
+- **W-35 kept**, merged code: 44/44 green. Mutants re-run on the merged code: Save enabled during a conflict
+  (1 fail = killed); Start again without the workspace refetch (1 fail = killed).
+- Walk: NOT done here by design (walk worker `claude/walk-p3-batch-1`).
+
+## Earlier (dt_3fb8700f750d, PARTIAL: browser walk not done)
 
 Branch `claude/p3-dates-fix-1` (from main 5d20065). Ticket dt_3fb8700f750d.
 

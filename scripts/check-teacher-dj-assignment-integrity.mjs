@@ -11,7 +11,7 @@
  *   bachata-admin-11april/supabase/migrations/
  *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
  * and this check GATES on a hand-maintained ceiling
- * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/8).
+ * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/9).
  * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
  * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
  * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct
@@ -93,8 +93,17 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 //
 // 2026-10-24: DJ ceiling 7 -> 8 (owner call). Live read 33/8: one more active DJ with
 // no P5 line-up credit -- ordinary roster growth, red on main too, not a lost assignment.
+//
+// 2026-11-03: DJ ceiling 8 -> 9. Live read 33/9 (contract-check run 41666265616,
+// first visible once admin #1191 cleared the guest-entries step above it). The ninth
+// is profile bebc8933: an existing teacher (profile 2026-09-26, teacher line-up credit
+// 2026-10-16) whose djing role was created 2026-11-03 13:55 UTC, two hours before the
+// red run, with no DJ credit ever -- the same "listed before first booking" pattern as
+// 2026-07-24 / 2026-09-15 / 2026-10-24. The other eight are unmoved; nothing dropped an
+// assignment. sample_profiles reads [] in CI because the RPC returns names only to
+// is_admin() callers (admin 20261122240000, review R1 B1) and CI calls it as anon.
 const BASELINE_TEACHERS_UNASSIGNED = 33; // active teachers with no P5 line-up credit
-const BASELINE_DJS_UNASSIGNED = 8;       // active DJs with no P5 line-up credit
+const BASELINE_DJS_UNASSIGNED = 9;       // active DJs with no P5 line-up credit
 
 function loadEnv() {
   const env = { ...process.env };

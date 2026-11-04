@@ -92,11 +92,22 @@ function show() {
 }
 
 const count = (k: string) => Number(screen.getByTestId(`p3-filter-${k}`).querySelector('.p3-num')?.textContent);
-const older = () => screen.queryByTestId('p3-older-dates') as HTMLButtonElement | null;
+const older = () => screen.queryByTestId('p3-load-older') as HTMLButtonElement | null;
+
+/** Rows the list shows on a tab (the tab counts are whole-series meta, so they cannot prove a row is reachable). */
+function listed(k: string): number {
+  fireEvent.click(screen.getByTestId(`p3-filter-${k}`));
+  return screen.queryAllByTestId('p3-date-row').length;
+}
 
 const SIZES = [0, 1, 99, 100, 101, 132, 500];
 const TABS = ['coming', 'past', 'cancelled', 'breaks', 'own'] as const;
 
+/*
+ * After the main merge (#1218, F-27) these cells drive MAIN's control: "Load older dates"
+ * (p3-load-older), one tap reads every older page (p_limit 200). They were all green on main
+ * before this branch's W-31 code was dropped; this branch keeps no paging code of its own.
+ */
 describe('W-31: every date of a long series is reachable, on every tab', () => {
   for (const n of SIZES) {
     for (const tab of TABS) {
@@ -105,29 +116,26 @@ describe('W-31: every date of a long series is reachable, on every tab', () => {
         show();
         await waitFor(() => screen.getByTestId('p3-all-dates-screen'));
         fireEvent.click(screen.getByTestId(`p3-filter-${tab}`));
-        let pages = 0;
-        while (n > 100 && older()) {
-          // a way to the rest, saying how many, and the line naming what is hidden
-          expect(screen.getByTestId('p3-partial').textContent).toMatch(new RegExp(`of ${n} dates`));
-          const left = n - (count('coming') + count('past'));
-          expect(older()!.textContent).toBe(left === 1 ? 'Show 1 older date' : `Show ${Math.min(left, 100)} older dates`);
+        if (n > 100) {
+          // a way to the rest on this tab, and the line naming how many are hidden
+          await waitFor(() => expect(older()).not.toBeNull());
+          expect(screen.getByTestId('p3-partial').textContent).toMatch(new RegExp(`newest 100 of ${n} dates`));
           expect(older()!.disabled).toBe(false);
           fireEvent.click(older()!);
-          pages++;
-          await waitFor(() => expect(count('coming') + count('past')).toBe(Math.min(n, 100 * (pages + 1))));
+          await waitFor(() => expect(older()).toBeNull(), { timeout: 5000 });
         }
-        // every date is now listed (the tab counts add up to the series), and nothing says otherwise
+        // every date is now LISTED (rows, not the whole-series meta counts), and nothing says otherwise
         expect(count('coming') + count('past')).toBe(n);
-        expect(screen.queryByTestId('p3-partial')).toBeNull();
+        expect(listed('coming') + listed('past')).toBe(n);
+        expect(screen.queryByTestId('p3-partial')?.textContent ?? null).toBeNull();
         expect(older()).toBeNull();
-        expect(pages).toBe(n > 100 ? Math.ceil((n - 100) / 100) : 0);
-        // a page past the first asks for dates BEFORE the oldest one already held
-        for (const c of calls('admin_event_workspace_p5').slice(1)) expect(c[1]).toMatchObject({ p_series_id: 'ser-1', p_limit: 100 });
+        // an older read asks for dates BEFORE the oldest one already held
+        for (const c of calls('admin_event_workspace_p5').slice(1)) expect(c[1]).toMatchObject({ p_series_id: 'ser-1', p_limit: 200 });
       }, 20000);
     }
   }
 
-  it('132 dates: the oldest date, reached through Show older, opens its date sheet', async () => {
+  it('132 dates: the oldest date, reached through Load older, opens its date sheet', async () => {
     all = series(132);
     show();
     await waitFor(() => expect(older()).not.toBeNull());
@@ -141,7 +149,7 @@ describe('W-31: every date of a long series is reachable, on every tab', () => {
     expect(views[views.length - 1][1]).toMatchObject({ p_target: { occurrence_id: `o-${all[0]}` } });
   });
 
-  it('older dates that fail to load say so, and the button is the retry', async () => {
+  it('older dates that fail to load say so, and Try again loads them', async () => {
     all = series(132);
     olderFails = 1;
     show();
@@ -149,10 +157,9 @@ describe('W-31: every date of a long series is reachable, on every tab', () => {
     fireEvent.click(older()!);
     await waitFor(() => screen.getByTestId('p3-older-error'));
     expect(screen.getByTestId('p3-older-error').textContent).toMatch(/didn.t load/);
-    expect(older()!.disabled).toBe(false);
-    fireEvent.click(older()!);
-    await waitFor(() => expect(older()).toBeNull());
-    expect(count('coming') + count('past')).toBe(132);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(listed('coming') + listed('past')).toBe(132));
+    expect(older()).toBeNull();
   });
 });
 

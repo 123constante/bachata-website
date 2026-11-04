@@ -17,8 +17,9 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, type JoinPreview, type JoinStop } from './joinModel';
-import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, EmailStep, ErrorLine, Heading, JoinStepScreen, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
+import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { buildSignInHref } from '@/lib/authRouting';
+import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
 /** How long the join card waits for the person's own page list before it shows Join anyway. */
 const HOME_WAIT_MS = 1500;
@@ -26,7 +27,7 @@ const HOME_WAIT_MS = 1500;
 export type PreviewState = 'loading' | 'failed' | JoinPreview | null;
 
 /** "Ask <inviter> for a new one": request_new_invite_v1, one line of outcome, no dead end. */
-function NewLinkRequest({ token, label }: { token: string; label: string }) {
+function NewLinkRequest({ token, label, small = false }: { token: string; label: string; small?: boolean }) {
   const [state, setState] = useState<{ busy: boolean; result: { ok: boolean; text: string } | null }>({ busy: false, result: null });
   const ask = async () => {
     setState({ busy: true, result: null });
@@ -40,7 +41,7 @@ function NewLinkRequest({ token, label }: { token: string; label: string }) {
   if (state.result?.ok) return <p className="text-[14px] font-medium" role="status" data-testid="invite-new-link-done">{state.result.text}</p>;
   return (
     <>
-      <button type="button" className={BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
+      <button type="button" className={small ? GHOST : BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
       <ErrorLine id="invite-new-link-error">{state.result?.text ?? null}</ErrorLine>
     </>
   );
@@ -71,22 +72,32 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const [now, setNow] = useState(() => Date.now());
   const claimRef = useRef<ClaimOutcome | null>(null);
   const [linkedHere, setLinkedHere] = useState(false);
+  // The server refused the Join tap with profile_incomplete and the re-read sent the person to About: About says why.
+  const [aboutRefused, setAboutRefused] = useState(false);
 
   // Membership before the tap: the person's own page list matched by name (the preview carries no ids). Best
   // effort: a slow or failing list leaves the Join card (the server still answers already_member on Join).
-  const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && open && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
+  const ownList = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: Boolean(user) && (open || info?.status === 'used') && !redeemed, retry: false, networkMode: 'always', staleTime: 60_000 });
   const [listGaveUp, setListGaveUp] = useState(false);
+  const [usedResolved, setUsedResolved] = useState(false);
   useEffect(() => {
     if (!ownList.isPending || !ownList.isEnabled) return;
     const t = setTimeout(() => setListGaveUp(true), HOME_WAIT_MS);
     return () => clearTimeout(t);
   }, [ownList.isPending, ownList.isEnabled]);
-  const member: boolean | null = !user || !info ? null : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null : ownList.isError || listGaveUp ? false : null;
+  // (review 1291-r1 F1) redeem reads entity_members and answers already_member BEFORE used/revoked/expired, so a
+  // `dead` answer on a used link is FINAL: not on the team, whatever a same-named page in their own list says.
+  const [usedRefused, setUsedRefused] = useState(false);
+  const member: boolean | null = !user || !info ? null
+    : usedRefused ? false
+    : ownList.isSuccess ? ownPageForName(ownList.data?.organisers, info.organiserName) != null
+    : ownList.isError || (listGaveUp && (info.status !== 'used' || usedResolved)) ? false : null;
+  // (review r1 F2) On a USED link a slow list never reads as "not on the team" while redeem is still out; once it
+  // came back without a verdict (profile gate, network) the 1.5 s give-up applies again (review 1291-r1 F3).
 
   // A used link opened by a signed-in person: redeem answers already_member (used by me) without using the link.
   // One call per page (attemptRedeem dedupes per token, so StrictMode's second effect run is the same call).
   const usedStarted = useRef(false);
-  const [usedResolved, setUsedResolved] = useState(false);
   const usedByMe = Boolean(user) && authStatus === 'ready' && info?.status === 'used';
   useEffect(() => {
     if (!usedByMe || usedStarted.current) return;
@@ -94,8 +105,11 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     void attemptRedeem(token).then((o) => {
       if (o.kind === 'done') {
         setRedeemed(true);
-        setRedeemedOrgId(o.alreadyMember ? null : o.organiserId);
+        // (review r1 F4) a used link's already_member names the invite's own page: land on that page's home.
+        setRedeemedOrgId(o.organiserId);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      } else if (o.kind === 'dead') {
+        setUsedRefused(true);
       }
       setUsedResolved(true);
     });
@@ -133,6 +147,21 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     if (step === 'done' || step === 'dead') stripToken();
   }, [step]);
 
+  // Slice U: a USED link that turned out to be the person's own (redeem's already_member, or their page list) goes
+  // straight to their page's home, replacing this entry so Back never lands on the link again. A first redeem
+  // (status open) still shows Done.
+  // (review r1 F1) "used" as FIRST seen: a first-time joiner's preview refetches as used later, and must keep Done.
+  // (review r1 F3) only when the organiser area is on: with it off, Done's plain words stay.
+  const arrivedUsed = useRef<boolean | null>(null);
+  if (arrivedUsed.current === null && info) arrivedUsed.current = info.status === 'used';
+  const returning = step === 'done' && arrivedUsed.current === true && flags.organiserSelfServe;
+  useEffect(() => {
+    if (!returning) return;
+    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId);
+    navigate(to, { replace: true, state });
+  }, [returning, info?.organiserName, doneOrgId, navigate]);
+  const usedViewer = info?.status === 'used' && authStatus !== 'resolving' ? (user ? 'other_account' : 'signed_out') : null;
+
   const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
 
   const fail = (from: string, s: JoinStop) => {
@@ -146,17 +175,20 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     const check = checkTypedEmail(typed);
     if (check.ok === false) {
       const reason = check.reason;
-      setEmailError(reason === 'not_ascii' ? JOIN_COPY.email.notAscii : reason === 'bad_shape' ? JOIN_COPY.email.badShape : JOIN_COPY.email.why);
+      setEmailError(reason === 'not_ascii' ? JOIN_COPY.email.notAscii : JOIN_COPY.email.badShape);
       return;
     }
     setBusy(true);
     setEmailError(null);
     setCodeNotice(null);
+    // The bind is permanent: once it tied this link to the typed email, a refused send cannot be fixed with another email.
+    let locked = false;
     try {
       if (!resend && info.emailHint == null) {
         const bound = await bindInviteEmail(token, check.email);
         if (bound.kind === 'failed') return fail('bind', { kind: 'network', from: 'bind' });
         if (bound.kind === 'status') {
+          locked = bound.status === 'bound';
           if (bound.status === 'bad_email') return setEmailError(JOIN_COPY.email.badShape);
           if (bound.status === 'rate_limited') return fail('bind', { kind: 'rate_limited', from: 'code' });
           if (bound.status === 'not_open') {
@@ -176,7 +208,9 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         const s = classifySendError(error);
         if (resend && s.kind === 'rate_limited') return setCodeError(JOIN_COPY.code.rateLimited);
         if (resend && s.kind === 'network') return setCodeError(JOIN_COPY.code.resendFailed);
-        return fail('send', s);
+        // (review r1 F1) the invited address itself refused: "Use the email the invite was sent to" cannot work.
+        const typedInvited = s.kind === 'invite_only' && info.emailHint != null && hintMatchesEmail(info.emailHint, check.email);
+        return fail('send', s.kind === 'invite_only' ? { ...s, locked, typedInvited } : s.kind === 'blocked_domain' ? { ...s, locked } : s);
       }
       setCooldownUntil(Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000);
       setNow(Date.now());
@@ -184,6 +218,28 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       else navigate(`${pathname}${codeStepSearch(check.email)}`, { replace: true });
     } finally {
       setBusy(false);
+    }
+  };
+
+  /** ONE place that acts on a redeem answer, for the Join tap and the post-sign-in safety stop alike. */
+  const applyRedeem = async (outcome: JoinRedeemOutcome, from: 'join' | 'claim') => {
+    const action = redeemAction(outcome);
+    switch (action.act) {
+      case 'done':
+        setRedeemed(true);
+        setRedeemedOrgId(action.alreadyMember ? null : action.organiserId);
+        void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+        return;
+      case 'stop': return fail(from, action.stop);
+      case 'refetch_preview': await refetchPreview(); return;
+      case 'refetch_completion': {
+        // Never silent: incomplete -> About says what to do; still complete (stale) -> a plain retry stop.
+        const stale = afterProfileRefusal((await completion.refetch()).status);
+        if (stale) return fail(from, stale);
+        setAboutRefused(true);
+        return;
+      }
+      case 'sign_out': await signOut(); clearStep(); return;
     }
   };
 
@@ -216,9 +272,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       // Person-bound invite whose claim did not land: the safety stop. The one redeem call makes "we've told" real
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
       if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
-        const outcome = await attemptRedeem(token);
-        if (outcome.kind === 'done') { setRedeemed(true); setRedeemedOrgId(outcome.alreadyMember ? null : outcome.organiserId); }
-        else fail('claim', { kind: 'not_linked' });
+        await applyRedeem(await attemptRedeem(token), 'claim');
       }
     } finally {
       setLinking(false);
@@ -231,23 +285,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     if (busy) return;
     setBusy(true);
     try {
-      const outcome = await attemptRedeem(token);
-      switch (outcome.kind) {
-        case 'done':
-          setRedeemed(true);
-          setRedeemedOrgId(outcome.alreadyMember ? null : outcome.organiserId);
-          void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
-          return;
-        case 'not_linked': return fail('join', { kind: 'not_linked' });
-        case 'dead': await refetchPreview(); return;
-        case 'wrong_account': return fail('join', { kind: 'wrong_account', emailHint: outcome.emailHint });
-        case 'email_unproven': return fail('join', { kind: 'email_unproven' });
-        case 'rate_limited': return fail('join', { kind: 'rate_limited', from: 'join' });
-        case 'profile_incomplete': await completion.refetch(); return;
-        case 'sign_in': await signOut(); clearStep(); return;
-        case 'refused': return fail('join', { kind: 'refused', reason: outcome.reason, emailHint: outcome.emailHint });
-        default: return fail('join', { kind: 'network', from: 'join' });
-      }
+      await applyRedeem(await attemptRedeem(token), 'join');
     } finally {
       setBusy(false);
     }
@@ -262,6 +300,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     if (outcome === 'failed') return setSignOutError(JOIN_COPY.signOutFailed);
     claimRef.current = null;
     setLinkedHere(false);
+    // (review r1 F2) another account never inherits this one's "details are missing" notice.
+    setAboutRefused(false);
     setStop(null);
     clearStep();
   };
@@ -273,7 +313,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     if (s.kind === 'network' && s.from === 'join') return join();
     // Only a retryable refusal (the unknown-reason fallback, login audit L4) shows Try again; it redeems again.
     // A redeem rate limit shows it disabled (L6), so it never retries from here.
-    if (s.kind === 'refused') return join();
+    if (s.kind === 'refused' || s.kind === 'profile_stale') return join();
     // A code/bind/send failure returns to the email box (the typed email is kept in the box); a verify failure to the code box.
     if (s.kind === 'network' && s.from === 'verify') return;
     clearStep();
@@ -308,7 +348,17 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       );
       break;
     case 'dead':
-      body = <DeadScreen reason={derived.step === 'dead' ? derived.reason : 'invalid'} preview={info} newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} /> : null} />;
+      body = (
+        <DeadScreen
+          reason={derived.step === 'dead' ? derived.reason : 'invalid'}
+          preview={info}
+          newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} small={usedViewer !== null} /> : null}
+          usedViewer={usedViewer}
+          signInHref={buildSignInHref(`/invite/${token}`)}
+          busy={busy}
+          onSwitch={() => void switchAccount()}
+        />
+      );
       break;
     case 'email':
       body = (
@@ -316,6 +366,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
           {info && isPersonBound(info) && <PersonCard preview={info} />}
+          {info?.emailHint && <Lead testId="join-email-hint">{JOIN_COPY.inviteSentTo(info.emailHint)}</Lead>}
           <EmailStep initial="" busy={busy} error={emailError} onSend={(typed) => void send(typed)} />
         </>
       );
@@ -336,6 +387,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{JOIN_COPY.about.heading}</Heading>
+          {aboutRefused && <Lead testId="join-about-refused">{JOIN_COPY.about.refusedNotice}</Lead>}
           {info && <AboutStep completion={completion} preview={info} linked={linkedHere} onSaved={() => completion.refetch()} />}
         </>
       );
