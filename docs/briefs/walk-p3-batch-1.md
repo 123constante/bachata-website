@@ -1,0 +1,12 @@
+# Walk p3-batch-1: 390x844 walk of three Website PRs (report only, no product code)
+
+Branches to WALK (never push these): `claude/p3-event-status-1` (PR #1315), `claude/p3-dates-fix-1` (PR #1316), `claude/door-camera-help` (PR #1317). Your own branch: `claude/walk-p3-batch-1` (create from main). REPORT ONLY: you change no product code and open no PR; you add specs under `tests/e2e/walk-p3-batch-1-*.spec.ts` and `docs/walk/p3-batch-1/RESULTS.md` plus pictures.
+
+Setup: for each PR branch `git fetch origin <branch>`, then run its walk on a worktree or checkout of that branch (node_modules junction), keeping your own report on `claude/walk-p3-batch-1`. Copy the harness spec `tests/e2e/walk-p3-walklist.spec.ts` from branch `claude/walk-p3-walklist-1` (mocked answers, wait for a heading, finished animations, full-page resize, error-card guard). Read each PR branch's own handover and INVENTORY.md first (`docs/design/p3-event-status-1/INVENTORY.md`, `docs/design/p3-dates-fix-1/HANDOVER.md` + `INVENTORY.md`, `docs/design/door-camera-help/DESIGN.md` + `INVENTORY.md`) for the person x journey x data-shape list.
+
+WHAT:
+1. #1316 dates-fix: W-31 an event with 132, 100 and 99 dates: "Show 32 older dates", Past tab, open the oldest one; W-35 conflict -> Start again -> "Put my changes back" / "Drop my changes" -> save.
+2. #1315 event-status: no-page person on Events and Stats sees the "Find your page or create one" card; Switch list shows the current-page tick; loading state on Home/Events/Stats. (W-02 removed-event label is NOT in scope: F-22 owner call.)
+3. #1317 door-camera-help: the door scanner with camera states ask / granted / denied / unknown (iOS) / no camera / failed: "Start camera", steps per browser, "Try the camera again", "Still blocked" -> typed code list. The door flag is OFF in prod; use the local flag override the spec harness uses.
+
+Rules: 390x844. OPEN EVERY PICTURE yourself and write one line per picture in RESULTS.md: PASS / FAIL / CANNOT-TELL, with what you saw. A green DOM number is NOT a pass: an error card or a blank picture is a FAIL. Include a sweep line per picture for taps under 44px, garbled punctuation and sideways scroll. Anything you cannot mock honestly is BLOCKED, not faked. Push early to `claude/walk-p3-batch-1` ([skip preview]). Last commit ends `[worker-done dt_<ticket>]`; final push without [skip preview] only if you added a spec. Report FAILs first, per PR.
