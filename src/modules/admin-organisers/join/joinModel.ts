@@ -162,7 +162,7 @@ export type JoinStop =
   /** `locked`: the bind just tied this link to the refused email (bind is permanent), so another email cannot work. */
   | { kind: 'blocked_domain'; locked?: boolean }
   /** hook v1's "Sign-up is limited to approved organisers." (or a bare 403 with no text: the words blame no provider). */
-  | { kind: 'invite_only'; locked?: boolean }
+  | { kind: 'invite_only'; locked?: boolean; typedInvited?: boolean }
   /** redeem said profile_incomplete but the re-read still says complete (a stale read): a plain retry, never silence. */
   | { kind: 'profile_stale' }
   | { kind: 'rate_limited'; from: 'code' | 'join' }
@@ -266,9 +266,10 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
  * (About, or the no-profile screen) follows, with About saying why. Still complete: the stale-read stop. Unread: network.
  */
 export function afterProfileRefusal(status: ProfileCompletionStatus): JoinStop | null {
+  if (status === 'incomplete' || status === 'no_profile') return null;
   if (status === 'complete') return { kind: 'profile_stale' };
-  if (status === 'error') return { kind: 'network', from: 'join' };
-  return null;
+  // error, and the never-expected loading / signed_out: a retry stop, never the same silent card (review r1 F3).
+  return { kind: 'network', from: 'join' };
 }
 
 /** Sentry / client-error tag: the step and the outcome code, never an email or the token. */

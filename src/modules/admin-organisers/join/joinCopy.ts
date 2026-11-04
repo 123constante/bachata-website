@@ -130,6 +130,8 @@ export const JOIN_COPY = {
     noHint: `Try another email, or message us and we${APOS}ll help.`,
     useInvited: 'Use the email the invite was sent to',
     useAnother: 'Use another email',
+    // The refused address is the one the invite names: no other email can help, so only the message route is offered.
+    invitedRefused: `That${APOS}s the email the invite was sent to. Message us and we${APOS}ll open it for you.`,
     help: 'Message us on WhatsApp',
     helpUrl: SIGNUP_HELP_WHATSAPP_URL,
   },

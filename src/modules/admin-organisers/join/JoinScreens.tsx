@@ -284,7 +284,9 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
     case 'invite_only': {
       // The invited email's mask (a bound link); after a bind that just tied the link, only help can work.
       const hint = stop.locked ? null : preview?.emailHint ?? null;
-      const help = <a href={JOIN_COPY.inviteOnly.helpUrl} target="_blank" rel="noopener noreferrer" className={stop.locked ? BTN : GHOST} data-testid="join-help">{JOIN_COPY.inviteOnly.help}</a>;
+      // Only help can work: the link is tied to the refused email, or the refused email IS the invited one.
+      const onlyHelp = stop.locked || stop.typedInvited === true;
+      const help = <a href={JOIN_COPY.inviteOnly.helpUrl} target="_blank" rel="noopener noreferrer" className={onlyHelp ? BTN : GHOST} data-testid="join-help">{JOIN_COPY.inviteOnly.help}</a>;
       return (
         <div className="flex flex-col gap-2">
           <Heading>{JOIN_COPY.inviteOnly.heading}</Heading>
@@ -292,9 +294,10 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
           {stop.locked ? <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>
             : hint ? <Lead testId="join-invite-hint">{JOIN_COPY.inviteSentTo(hint)}</Lead>
             : <Lead>{JOIN_COPY.inviteOnly.noHint}</Lead>}
-          {!stop.locked && <button type="button" className={BTN} onClick={onDismiss} data-testid="join-dismiss">{hint ? JOIN_COPY.inviteOnly.useInvited : JOIN_COPY.inviteOnly.useAnother}</button>}
+          {stop.typedInvited && <Lead testId="join-invited-refused">{JOIN_COPY.inviteOnly.invitedRefused}</Lead>}
+          {!onlyHelp && <button type="button" className={BTN} onClick={onDismiss} data-testid="join-dismiss">{hint ? JOIN_COPY.inviteOnly.useInvited : JOIN_COPY.inviteOnly.useAnother}</button>}
           {help}
-          {stop.locked && home}
+          {onlyHelp && home}
         </div>
       );
     }

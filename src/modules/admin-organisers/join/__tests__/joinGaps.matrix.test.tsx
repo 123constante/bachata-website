@@ -137,7 +137,7 @@ beforeEach(() => {
   h.reads = [];
   h.organisers = [];
   preview = open();
-  redeem = { ok: true, status: 'redeemed', organiser_id: 'o1' };
+  redeem = { ok: true, status: 'redeemed' };
   bind = { status: 'bound' };
   newLink = { ok: true };
   redeemError = null;
@@ -185,10 +185,12 @@ const controls = () => Array.from(screen.getByTestId('join-step').querySelectorA
   .map((el) => [el.textContent?.trim() ?? '', el.getAttribute('href')]);
 const lines = () => Array.from(screen.getByTestId('join-step').querySelectorAll('p, h1, h2')).map((el) => el.textContent?.trim() ?? '').filter(Boolean);
 
-type SendRow = { cell: string; hint: string | null; bindAs: 'bound' | 'unavailable'; error: unknown; stop: string; title: string; body: string[]; buttons: [string, string | null][]; dismissTo?: string };
+type SendRow = { cell: string; hint: string | null; bindAs: 'bound' | 'unavailable'; error: unknown; stop: string; title: string; body: string[]; buttons: [string, string | null][]; dismissTo?: string; typed?: string };
 const SEND_ROWS: SendRow[] = [
   { cell: 'P1 x J1 x 403 invite-only x hint masked', hint: HINT, bindAs: 'bound', error: INVITE_ONLY_403, stop: 'invite_only', title: INVITE_ONLY_TITLE,
     body: [INVITE_ONLY_BODY, `This invite was sent to ${HINT}.`], buttons: [['Use the email the invite was sent to', null], ['Message us on WhatsApp', WA]], dismissTo: 'email' },
+  { cell: 'P1 x J1 x 403 invite-only x the typed email IS the invited one (review r1 F1): only help', hint: HINT, bindAs: 'bound', error: INVITE_ONLY_403, stop: 'invite_only', title: INVITE_ONLY_TITLE, typed: 'dee@ritmo.example',
+    body: [INVITE_ONLY_BODY, `This invite was sent to ${HINT}.`, 'That\u2019s the email the invite was sent to. Message us and we\u2019ll open it for you.'], buttons: [['Message us on WhatsApp', WA], ['Go to Bachata Calendar', '/']] },
   { cell: 'P1 x J1 x 403 invite-only x long hint', hint: LONG_HINT, bindAs: 'bound', error: INVITE_ONLY_403, stop: 'invite_only', title: INVITE_ONLY_TITLE,
     body: [INVITE_ONLY_BODY, `This invite was sent to ${LONG_HINT}.`], buttons: [['Use the email the invite was sent to', null], ['Message us on WhatsApp', WA]], dismissTo: 'email' },
   { cell: 'P1 x J1 x 403 bare (no text: cannot tell) x hint masked -> the combined honest words', hint: HINT, bindAs: 'bound', error: { status: 403, message: '' }, stop: 'invite_only', title: INVITE_ONLY_TITLE,
@@ -217,7 +219,7 @@ describe('gap 3: the send refusals, each cell its exact screen', () => {
     });
     h.otp.mockResolvedValue({ data: null, error: row.error });
     mount();
-    await sendEmail('ana@ritmo.example');
+    await sendEmail(row.typed ?? 'ana@ritmo.example');
     await stopIs(row.stop);
     expect(screen.getByRole('heading', { name: row.title })).toBeTruthy();
     const shown = lines();
@@ -253,7 +255,7 @@ describe('gap 2: the Join tap refused with profile_incomplete is never silent', 
       if (fn === 'organiser_invite_preview_v1') return ok(preview);
       if (fn === 'redeem_organiser_invite_v1') {
         calls += 1;
-        if (calls > 1) return ok({ ok: true, status: 'redeemed', organiser_id: 'o1' });
+        if (calls > 1) return ok({ ok: true, status: 'redeemed' });
         if (after !== 'stays') h.completion = after;
         return shape === 'error' ? Promise.resolve({ data: null, error: { message: 'profile_incomplete' } }) : ok({ ok: false, reason: 'profile_incomplete' });
       }
@@ -307,7 +309,7 @@ describe('gap 2: the Join tap refused with profile_incomplete is never silent', 
   it('P4 x J2 x ok, P5 x J2 x already_member: done, unchanged', async () => {
     for (const status of ['redeemed', 'already_member']) {
       signedIn(COMPLETE);
-      redeem = { ok: true, status, organiser_id: 'o1' };
+      redeem = { ok: true, status };
       const { unmount } = mount();
       fireEvent.click(await screen.findByTestId('invite-join'));
       await stepIs('done');

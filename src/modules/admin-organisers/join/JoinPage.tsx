@@ -208,7 +208,9 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         const s = classifySendError(error);
         if (resend && s.kind === 'rate_limited') return setCodeError(JOIN_COPY.code.rateLimited);
         if (resend && s.kind === 'network') return setCodeError(JOIN_COPY.code.resendFailed);
-        return fail('send', (s.kind === 'invite_only' || s.kind === 'blocked_domain') && locked ? { ...s, locked } : s);
+        // (review r1 F1) the invited address itself refused: "Use the email the invite was sent to" cannot work.
+        const typedInvited = s.kind === 'invite_only' && info.emailHint != null && hintMatchesEmail(info.emailHint, check.email);
+        return fail('send', s.kind === 'invite_only' ? { ...s, locked, typedInvited } : s.kind === 'blocked_domain' ? { ...s, locked } : s);
       }
       setCooldownUntil(Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000);
       setNow(Date.now());
@@ -298,6 +300,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     if (outcome === 'failed') return setSignOutError(JOIN_COPY.signOutFailed);
     claimRef.current = null;
     setLinkedHere(false);
+    // (review r1 F2) another account never inherits this one's "details are missing" notice.
+    setAboutRefused(false);
     setStop(null);
     clearStep();
   };
