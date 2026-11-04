@@ -30,7 +30,7 @@ async function snap(page: Page, row: string, name: string) {
     }
     return { small, wide: document.documentElement.scrollWidth - document.documentElement.clientWidth };
   });
-  const garbled = (text.match(/Ã.|â€.|&(mdash|hellip|rsquo|amp|nbsp|lsquo|ldquo|rdquo);|�/g) ?? []);
+  const garbled = (text.match(/\u00c3.|\u00e2\u20ac.|&(mdash|hellip|rsquo|amp|nbsp|lsquo|ldquo|rdquo);|\ufffd/g) ?? []);
   await page.screenshot({ path: `${PICS}/${name}.png`, fullPage: false });
   appendFileSync(`${OUT}/observations.jsonl`, JSON.stringify({ row, pic: `${name}.png`, w19: { small: facts.small, sidewaysPx: facts.wide, garbled, errorCard: bad } }) + '\n');
   expect(bad, `${name}: the picture shows an error card`).toBe(false);
