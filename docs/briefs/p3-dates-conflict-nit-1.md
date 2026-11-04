@@ -5,8 +5,8 @@ Brief-version: 2
 Walk of PR #1316 (docs/walk/p3-batch-1/RESULTS.md, merged to main as #1319 or on branch claude/walk-p3-batch-1) found one NIT: on a save version conflict the date sheet shows TWO messages stacked: the old generic "Someone changed this first. Check it." (a red `p3-sheet-error`) and the new W-35 reason in `ConflictNote` ("Someone else saved a change to this date, so yours was not saved. Start again to see it..."). Picture: `docs/walk/p3-batch-1/dates/pics/w35-put-2-conflict.png`.
 
 ## What main lacks
-- only ONE message on a version conflict: the generic line is suppressed when `conflict` is true (the ConflictNote already says it) -- src/modules/organiser/p3/screens/DateSheet.tsx, src/modules/organiser/p3/screens/DateFieldSheets.tsx
-- a test that pins it: a conflict shows `p3-conflict-why` and NO `p3-sheet-error` / "Check it" text on the Name, Photos, Price, About and Ticket sheets; a non-conflict error (offline, refused) still shows its own line -- src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx
+- extends: only ONE message on a version conflict: the generic line is suppressed when `conflict` is true (the ConflictNote already says it) -- src/modules/organiser/p3/screens/DateSheet.tsx, src/modules/organiser/p3/screens/DateFieldSheets.tsx
+- extends: a test that pins it: a conflict shows `p3-conflict-why` and NO `p3-sheet-error` / "Check it" text on the Name, Photos, Price, About and Ticket sheets; a non-conflict error (offline, refused) still shows its own line -- src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx
 
 ## Files
 - src/modules/organiser/p3/screens/DateSheet.tsx
