@@ -93,7 +93,7 @@ type FallbackReason =
 //   SLOW (1h)    the two cover reasons. The card still carries the real title,
 //                date and venue, and the tier is chosen to BOUND RE-RENDER
 //                COST, not because either self-heals. At 300s a dead cover
-//                costs a 5s fetch timeout plus a full sharp re-render every
+//                costs up to a 5s fetch deadline plus a full sharp re-render every
 //                five minutes -- ~288 a day per entity -- to re-derive a
 //                byte-identical card. cover-unfetchable additionally clears
 //                for free when the cover changes, since that changes `v=`;

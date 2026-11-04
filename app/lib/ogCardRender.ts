@@ -25,7 +25,7 @@
 // instead of racing; a failed write is evicted so the next request retries.
 import sharp from "sharp";
 import { createHash } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,7 +70,11 @@ async function materializeFont(name: string, b64: string): Promise<string> {
     // the old file, and two deployments sharing a /tmp cannot collide.
     const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
     const dest = join(tmpdir(), `og-font-${name}-${digest}.ttf`);
-    await writeFile(dest, bytes);
+    // Temp name + rename: Pango can never be handed a half-written file, even
+    // if a write dies part-way and a later request retries the same path.
+    const tmp = `${dest}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+    await writeFile(tmp, bytes);
+    await rename(tmp, dest);
     return dest;
   })();
 
@@ -605,42 +609,77 @@ export function formatOgDate(wc: WallClock | null): string | null {
 // Timeout + ONE retry (incident 2026-11-04): media.bachatacalendar.co.uk sits
 // behind the same Cloudflare edge whose connects were stalling from Vercel. A
 // stalled connect is usually transient, so an attempt that throws (timeout,
-// connect error) or answers 5xx gets exactly one more try; a 4xx, a redirect
-// response or an oversized body is an answer, not a blip, and is not retried.
-// Worst case is ATTEMPTS x TIMEOUT before the caller falls back to the branded
-// cover-unfetchable card -- never the generic redirect.
-export const OG_IMAGE_FETCH_TIMEOUT_MS = 3000;
+// connect error) or answers 5xx gets exactly one more try after a short pause;
+// a 4xx, a redirect (rejected by redirect "error") or an oversized body is an
+// answer, not a blip, and is not retried.
+//
+// Two clocks. HEADERS_TIMEOUT bounds one attempt's wait for response headers
+// (the stalled-connect case). DEADLINE bounds the WHOLE call, retries and body
+// download included -- it equals the old single-attempt 5s, so the worst case
+// before the caller falls back to the branded cover-unfetchable card (never
+// the generic redirect) did not grow, and a slow but healthy large flyer still
+// has the full window to download.
+export const OG_IMAGE_FETCH_HEADERS_TIMEOUT_MS = 2500;
+export const OG_IMAGE_FETCH_DEADLINE_MS = 5000;
 export const OG_IMAGE_FETCH_ATTEMPTS = 2;
+const OG_IMAGE_RETRY_PAUSE_MS = 150;
 const OG_IMAGE_MAX_BYTES = 12_000_000;
 
 type ImageAttempt = { bytes: Buffer | null; retry: boolean };
 
-async function fetchImageAttempt(url: string, timeoutMs: number): Promise<ImageAttempt> {
+function isRedirectRefusal(err: unknown): boolean {
+  const e = err as { message?: unknown; cause?: { message?: unknown } } | null;
+  return /redirect/i.test(`${e?.message ?? ""} ${e?.cause?.message ?? ""}`);
+}
+
+async function fetchImageAttempt(url: string, headersTimeoutMs: number, deadline: AbortSignal): Promise<ImageAttempt> {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  const onDeadline = () => ctrl.abort();
+  if (deadline.aborted) return { bytes: null, retry: false };
+  deadline.addEventListener("abort", onDeadline);
+  const headersTimer = setTimeout(() => ctrl.abort(), headersTimeoutMs);
   try {
     const r = await fetch(url, { signal: ctrl.signal, redirect: "error" });
-    if (!r.ok) return { bytes: null, retry: r.status >= 500 };
+    clearTimeout(headersTimer);
+    if (!r.ok) {
+      // Release the socket before a retry opens another one.
+      await r.body?.cancel().catch(() => {});
+      return { bytes: null, retry: r.status >= 500 };
+    }
     const ab = await r.arrayBuffer();
     if (ab.byteLength > OG_IMAGE_MAX_BYTES) return { bytes: null, retry: false };
     return { bytes: Buffer.from(ab), retry: false };
-  } catch {
-    return { bytes: null, retry: true };
+  } catch (err) {
+    return { bytes: null, retry: !isRedirectRefusal(err) };
   } finally {
-    clearTimeout(t);
+    clearTimeout(headersTimer);
+    deadline.removeEventListener("abort", onDeadline);
   }
 }
 
 export async function fetchImageBytes(
   url: string,
-  { timeoutMs = OG_IMAGE_FETCH_TIMEOUT_MS, attempts = OG_IMAGE_FETCH_ATTEMPTS }: { timeoutMs?: number; attempts?: number } = {},
+  {
+    headersTimeoutMs = OG_IMAGE_FETCH_HEADERS_TIMEOUT_MS,
+    deadlineMs = OG_IMAGE_FETCH_DEADLINE_MS,
+    attempts = OG_IMAGE_FETCH_ATTEMPTS,
+    retryPauseMs = OG_IMAGE_RETRY_PAUSE_MS,
+  }: { headersTimeoutMs?: number; deadlineMs?: number; attempts?: number; retryPauseMs?: number } = {},
 ): Promise<Buffer | null> {
   if (!isAllowedOgImageSource(url)) return null;
-  for (let i = 0; i < attempts; i++) {
-    const { bytes, retry } = await fetchImageAttempt(url, timeoutMs);
-    if (bytes || !retry) return bytes;
+  const deadline = new AbortController();
+  const deadlineTimer = setTimeout(() => deadline.abort(), deadlineMs);
+  try {
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, retryPauseMs));
+      if (deadline.signal.aborted) return null;
+      const { bytes, retry } = await fetchImageAttempt(url, headersTimeoutMs, deadline.signal);
+      if (bytes || !retry) return bytes;
+    }
+    return null;
+  } finally {
+    clearTimeout(deadlineTimer);
   }
-  return null;
 }
 
 // ---------------------------------------------------------------------------

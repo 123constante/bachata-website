@@ -63,8 +63,12 @@ describe('OG card fonts need no network', () => {
   it('the renderer source has no font fetch left in it', async () => {
     const { readFileSync } = await import('node:fs');
     const src = readFileSync(new URL('../app/lib/ogCardRender.ts', import.meta.url), 'utf8');
-    const body = src.slice(src.indexOf('async function materializeFont'), src.indexOf('async function fontSemiPath'));
-    expect(body.length).toBeGreaterThan(0);
+    const start = src.indexOf('async function materializeFont(');
+    const end = src.indexOf('async function fontSemiPath(');
+    // Anchors must exist and be in order, or the slice below checks nothing.
+    expect(start, 'materializeFont( not found').toBeGreaterThan(-1);
+    expect(end, 'fontSemiPath( must follow materializeFont(').toBeGreaterThan(start);
+    const body = src.slice(start, end);
     expect(body).not.toMatch(/\bfetch\(/);
   });
 });

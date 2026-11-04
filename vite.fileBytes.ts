@@ -13,15 +13,14 @@ import type { Plugin } from "vite";
 // vite.config.ts and vitest.config.ts, so tests and the server build read the
 // fonts through the same code. Only the server graph imports a `?bytes` id;
 // scripts/check-bundle-budget.mjs is what proves no client chunk grew.
-export const BYTES_QUERY = "?bytes";
-
 export function fileBytesPlugin(): Plugin {
   return {
     name: "file-bytes-base64",
     enforce: "pre",
     async load(id) {
-      if (!id.endsWith(BYTES_QUERY)) return null;
-      const file = id.slice(0, -BYTES_QUERY.length);
+      const q = id.indexOf("?");
+      if (q < 0 || !new URLSearchParams(id.slice(q + 1)).has("bytes")) return null;
+      const file = id.slice(0, q);
       this.addWatchFile(file);
       const b64 = (await readFile(file)).toString("base64");
       return { code: `export default ${JSON.stringify(b64)};`, map: null };
