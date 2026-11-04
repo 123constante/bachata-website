@@ -7,7 +7,7 @@ import { Sheet } from '../screens/Sheet';
 import { fetchOnboardingStatus, onboardingStatusKey } from './statusQuery';
 import { GATE_COPY, gateView } from './gateModel';
 import { gateBody } from './graceModel';
-import { withBack } from './returnTo';
+import { gateGoState, withBack } from './returnTo';
 import { P3_PATHS } from '../shell/paths';
 
 /**
@@ -71,7 +71,7 @@ export default function GateSheet({ organiserId, refused = [], at = null, onClos
       {/* sticky, so Continue and Not now stay in view however many rows are listed (prod max 10) */}
       <div className="p3-sheet-foot"><div className="p3-stack-s">
         {to ? (
-          <Link className="p3-btn p3-gate-go" to={to} onClick={onClose} data-testid="p3-gate-go">{GATE_COPY.go}</Link>
+          <Link className="p3-btn p3-gate-go" to={to} state={gateGoState(at)} onClick={onClose} data-testid="p3-gate-go">{GATE_COPY.go}</Link>
         ) : (
           <>
             <button type="button" className="p3-btn" disabled data-testid="p3-gate-go">{GATE_COPY.go}</button>
