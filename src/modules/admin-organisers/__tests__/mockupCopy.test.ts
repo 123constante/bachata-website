@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { ACCESS_FORM_LINE, ACCESS_FORM_TITLE, ACCESS_SENT_TITLE } from '@/components/auth/RequestAccess';
 import { wrongCodeMessage } from '@/components/MagicLinkConfirmation';
 import { callbackErrorCopy } from '@/lib/auth-otp-routing';
-import { accessResultCopy, interpretRedeem, parsePreview, reasonScreen, safeEmailHint } from '../inviteModel';
+import { accessResultCopy, interpretRedeem, parsePreview, reasonScreen, REVOKED_BODY, safeEmailHint } from '../inviteModel';
 
 const marta = { inviterFirstName: 'Marta', organiserName: 'Salsa Norte' };
 
@@ -19,7 +19,7 @@ const ROWS: Array<[screen: string, actual: () => unknown, mockup: unknown]> = [
   ['2b title', () => reasonScreen('used', marta).title, 'This link was already used'],
   ['2b body', () => reasonScreen('used', marta).body, 'If that was not you, ask for a new one.'],
   ['2c title', () => reasonScreen('revoked', marta).title, 'This link was withdrawn'],
-  ['2c body (none)', () => reasonScreen('revoked', marta).body, ''],
+  ['2c body (item 8)', () => reasonScreen('revoked', marta).body, REVOKED_BODY],
   ['2d title', () => reasonScreen('email_mismatch', { ...marta, emailHint: 'j***@gmail.com' }).title, 'This link is for a different email'],
   ['2d body (hint)', () => reasonScreen('email_mismatch', { ...marta, emailHint: 'j***@gmail.com' }).body, 'It was sent to j***@gmail.com.'],
   ['2d button', () => reasonScreen('email_mismatch', marta).switchLabel, 'Sign in with that email'],

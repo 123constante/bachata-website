@@ -9,7 +9,7 @@ import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { organiserAreaHome, p3AreaLive } from '@/lib/organiserAreaHome';
 import { USED_COPY, reasonScreen, type ReasonScreen, type UsedViewer } from '../inviteModel';
-import { JOIN_COPY, askForNewLinkLine } from './joinCopy';
+import { JOIN_COPY, askForNewLinkLine, doneBody } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';
 
 export const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-50';
@@ -173,14 +173,14 @@ export function doneTarget(org: string, flags: { organiserP3: boolean; organiser
   return { to, state };
 }
 
-export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+export function DoneScreen({ org, flags, organiserId, rowsLeft = null }: { rowsLeft?: number | null; org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
   const selfServe = flags.organiserSelfServe;
   const button = selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
   const { to, state } = doneTarget(org, flags, organiserId);
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
-      <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
+      <Lead>{selfServe ? doneBody(rowsLeft) : JOIN_COPY.done.bodyOff}</Lead>
       <Link to={to} state={state} className={BTN} data-testid="join-done-home">{button}</Link>
     </div>
   );
@@ -225,6 +225,7 @@ export function DeadScreen({ reason, preview, newLink, usedViewer = null, signIn
       {viewer === 'other_account' && onSwitch && <button type="button" className={BTN} disabled={busy} onClick={onSwitch} data-testid="invite-used-switch">{USED_COPY.other_account.button}</button>}
       {!screen.offerNewLink && <NextLine reason={reason} />}
       {screen.offerNewLink && newLink}
+      {reason === 'revoked' && <a href={JOIN_COPY.help.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-revoked-help">{JOIN_COPY.help.label}</a>}
       {reason === 'invalid' && <a href={JOIN_COPY.unknownLink.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-new-link-help">{JOIN_COPY.unknownLink.button}</a>}
       <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>
     </div>

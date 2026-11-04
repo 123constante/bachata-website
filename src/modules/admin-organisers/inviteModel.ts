@@ -195,6 +195,9 @@ export interface RedeemCopy {
   retryBlocked?: string;
 }
 
+// The preview only knows `revoked` (no reason is exposed), so the copy never guesses why.
+export const REVOKED_BODY = 'Ask for a new one if you should still join, or message us.';
+
 /** Every reason redeem_organiser_invite_v1 can return (4b), plus the raised authentication_required. */
 export const REDEEM_COPY: Record<string, RedeemCopy> = {
   sign_in_required: { title: 'Sign in to continue', body: 'This link is for a signed-in account. Sign in with your own email, then you will come straight back here.', action: 'sign_in', terminal: false },
@@ -212,7 +215,7 @@ export const REDEEM_COPY: Record<string, RedeemCopy> = {
   // Mockups 2f, 2b, 2c, 2a. The "ask for a new one" button carries the ask, so the bodies do not repeat it.
   invalid: { title: 'This link does not work', body: 'It may have been copied incompletely.', action: 'home', terminal: true },
   used: { title: 'This link was already used', body: 'If that was not you, ask for a new one.', action: 'home', terminal: true },
-  revoked: { title: 'This link was withdrawn', body: '', action: 'home', terminal: true },
+  revoked: { title: 'This link was withdrawn', body: REVOKED_BODY, action: 'home', terminal: true },
   expired: { title: 'This link has run out', body: 'Links last 7 days.', action: 'home', terminal: true },
   // The page is at its cap (admin A1b). A joiner has no Remove control, so the shared TEAM_FULL_COPY ("Remove someone first") does not fit here: same cap, same support route, no absent control.
   // Login audit L2: "ask the Bachata Calendar team" needs a way to ask, so the screen carries the WhatsApp help link.
@@ -328,11 +331,14 @@ export function reasonScreen(reason: string, ctx: { organiserName?: string | nul
 
 /** request_new_invite_v1 answer -> one short line. Rate limit wording is the arc-wide one. */
 export const TRY_LATER_COPY = 'Try again later.';
+// Proof (request_new_invite_v1): queued for the Bachata Calendar team, not the inviter; no email asked; no time stated or observable.
+export const NEW_LINK_SENT_COPY = 'Request sent to the Bachata Calendar team. We cannot say when a new link will arrive. For a faster answer, message us on WhatsApp.';
+export const NEW_LINK_ALREADY_COPY = 'You already asked, and the Bachata Calendar team has it. We cannot say when a new link will arrive. For a faster answer, message us on WhatsApp.';
 export function newLinkResultCopy(data: unknown, error: unknown): { ok: boolean; text: string } {
   if (error) return { ok: false, text: GENERIC };
   const r = (data ?? {}) as Record<string, unknown>;
-  if (r.ok === true) return { ok: true, text: 'Request sent. The admin will send you a new link.' };
-  if (r.reason === 'already_requested') return { ok: true, text: 'You already asked. The admin will send a new link.' };
+  if (r.ok === true) return { ok: true, text: NEW_LINK_SENT_COPY };
+  if (r.reason === 'already_requested') return { ok: true, text: NEW_LINK_ALREADY_COPY };
   if (r.reason === 'rate_limited') return { ok: false, text: TRY_LATER_COPY };
   return { ok: false, text: 'This link cannot be renewed from here.' };
 }

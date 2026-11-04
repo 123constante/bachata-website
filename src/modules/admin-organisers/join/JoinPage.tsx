@@ -38,7 +38,14 @@ function NewLinkRequest({ token, label, small = false }: { token: string; label:
       setState({ busy: false, result: newLinkResultCopy(null, new Error('network')) });
     }
   };
-  if (state.result?.ok) return <p className="text-[14px] font-medium" role="status" data-testid="invite-new-link-done">{state.result.text}</p>;
+  if (state.result?.ok) {
+    return (
+      <>
+        <p className="text-[14px] font-medium" role="status" data-testid="invite-new-link-done">{state.result.text}</p>
+        <a href={JOIN_COPY.help.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-new-link-help-done">{JOIN_COPY.help.label}</a>
+      </>
+    );
+  }
   return (
     <>
       <button type="button" className={small ? GHOST : BTN} disabled={state.busy} onClick={() => void ask()} data-testid="invite-new-link">{label}</button>
