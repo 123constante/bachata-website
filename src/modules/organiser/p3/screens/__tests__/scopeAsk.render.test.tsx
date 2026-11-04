@@ -140,7 +140,7 @@ describe('Scope ask: Details', () => {
     expect('occurrence_id' in scoped[0]).toBe(false);
     expect(scoped[0]).toMatchObject({ scope: 'all_dates', expected_version: 7 });
     await waitFor(() => screen.getByTestId('p3-toast'));
-    expect(screen.getByTestId('p3-toast').textContent).toContain(`${saveWordsFor(false, 'live').detailsSaved} 1 date kept its own place.`);
+    expect(screen.getByTestId('p3-toast').textContent).toContain(`${saveWordsFor(false, 'live').detailsSavedScoped('place')} 1 date kept its own place.`);
   });
 
   it('place + description: "Just one date" is disabled with its reason; All dates is today\'s single upsert, no scoped call', async () => {

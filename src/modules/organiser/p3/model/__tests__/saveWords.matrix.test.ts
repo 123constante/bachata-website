@@ -71,3 +71,17 @@ describe('saveWordsFor(oneDate, lifecycle): every save message x date count x li
     expect(saveWordsFor(true, 'draft').detailsSaved).toBe('Saved as a draft. Dancers do not see it yet.');
   });
 });
+
+/** The all-dates scoped toast names the field that changed, never the old pictures-only line (website-18 walk of #1340). */
+describe('detailsSavedScoped(word): the toast after the "Which dates?" sheet, all dates', () => {
+  const WORDS = ['place', 'prices', 'pictures', 'pictures and prices'];
+  const CELLS2 = LIFECYCLES.flatMap((life) => WORDS.map((w) => [life, w] as const));
+  it.each(CELLS2)('lifecycle=%s word=%s', (life, word) => {
+    const text = saveWordsFor(false, life).detailsSavedScoped(word);
+    expect(text).toContain(`Saved the ${word} for all dates`);
+    expect(text).not.toMatch(/own pictures/);
+    if (life === 'live') expect(text).toMatch(/Dancers see it now\.$/);
+    else expect(text).not.toMatch(/dancers see (it|them) now/i);
+    expect(text).not.toMatch(/[\u2013\u2014\u2026]/);
+  });
+});

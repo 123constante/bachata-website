@@ -13,6 +13,9 @@ export const FIELD_WORD: Record<ScopeField, string> = {
   cover_image_url: 'pictures', gallery: 'pictures', venue: 'place', passes: 'prices',
 };
 
+/** The word(s) for the scoped fields that changed, e.g. "place" or "pictures and prices". One mapping: FIELD_WORD. */
+export const changedWord = (fields: readonly ScopeField[]): string => [...new Set(fields.map((f) => FIELD_WORD[f]))].join(' and ');
+
 export const ONE_DATE_WHY = 'Name, description, music and the other details change every date. Save those first, then change this one.';
 export const MORE_DATES_NOTE = 'Use the date\u2019s own page for later dates.';
 /** The most dates the "Just one date" list shows. */

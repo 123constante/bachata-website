@@ -18,7 +18,7 @@ import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
 import { OnBody } from './RepeatSheet';
 import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
-import { scopedChangesOf } from '../model/scopeAsk';
+import { changedWord, scopedChangesOf } from '../model/scopeAsk';
 
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
@@ -75,7 +75,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
     setAsking(false);
     dropKept(ws.series.id);
     form.saved(d.scope === 'all_dates' ? d.reply.newVersion : null);
-    back(d.scope === 'this_date' && d.day ? words.savedDate(d.day) : [words.detailsSaved, d.keptLine].filter(Boolean).join(' '));
+    back(d.scope === 'this_date' && d.day ? words.savedDate(d.day) : [words.detailsSavedScoped(changedWord(scoped.fields)), d.keptLine].filter(Boolean).join(' '));
   };
 
   const upload = async (file: File | undefined) => {
