@@ -86,3 +86,10 @@ test('--self-test through the CLI exits 0; an unknown flag exits 2', () => {
   const bad = spawnSync(process.execPath, [SCRIPT, '--nope'], { encoding: 'utf8' });
   assert.equal(bad.status, 2);
 });
+
+test('a deficit below baseline prints a RATCHET line; at baseline it does not', () => {
+  assert.doesNotMatch(judge(LIVE, PRE).message, /RATCHET/);
+  const v = judge({ ...LIVE, active_djs_assigned: 34, active_djs_unassigned: 9 }, PRE);
+  assert.equal(v.exit, 0);
+  assert.match(v.message, /RATCHET: lower BASELINE_DJS_DEFICIT -4 -> -5/);
+});

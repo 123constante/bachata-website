@@ -36,7 +36,10 @@ Branch `claude/teacher-dj-ceiling-warn-1`, ticket dt_6c18a737c6d1, brief
   there the script exits 1 (baselines are prod-specific, same as the old ceiling). CI
   secrets point at prod (prior runs read 34/10), so CI should be green -- confirm on
   the PR's db-contract-check run.
-- Masking gap: a lost assignment and a first booking in the same window cancel out.
+- Masking gap (review R1, HIGH, documented not closed): slack accumulates -- every fall in
+  the deficit (a first booking) is headroom a LATER loss hides in until the baseline is
+  lowered. The check prints `RATCHET: lower ... -> N`; making that red instead is an owner
+  call (it would bring back hand-edit churn on good news). Anon undercount is not caught.
   Deactivating an ASSIGNED post-cutoff role reds (false positive; re-baseline with a note).
 
 ## Next steps

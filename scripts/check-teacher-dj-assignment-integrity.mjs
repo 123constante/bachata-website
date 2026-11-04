@@ -29,10 +29,17 @@
  *     last assignment
  *   - a post-baseline person loses theirs   -> rises by 1   (FAIL, exit 1 --
  *                                              still a lost assignment)
- * Known gaps, said plainly: (a) a lost assignment and a first line-up in the
- * same window cancel out -- the old ceiling had the same masking; (b) an
- * ASSIGNED post-baseline role being deactivated also raises it (false red,
- * fixed by a dated re-baseline note below, as before).
+ * Known gaps, said plainly:
+ *   (a) SLACK ACCUMULATES. Every fall in the deficit (a first booking, an
+ *       unassigned pre-baseline role deactivated) is headroom a LATER loss can
+ *       hide in, because the baseline does not move on its own. The check
+ *       prints a `RATCHET:` line naming the new value whenever a deficit is
+ *       below its baseline -- lower the constant (dated note) when you see it.
+ *       Until someone does, losses up to the slack exit 0.
+ *   (b) an ASSIGNED post-baseline role being deactivated also raises it (false
+ *       red, fixed by a dated re-baseline note below, as before).
+ *   (c) the anon row count is trusted: if RLS ever hid person_roles rows from
+ *       anon, the deficit would fall (green). Only an over-count is caught.
  *
  * Exit policy (0 pass / 1 contract violated / 2 could not check):
  *   - RPC missing on prod            -> exit 0 (warn; tolerates an un-pushed migration)
@@ -199,11 +206,17 @@ export function judge(payload, pre, baselines = {
         '(or an assigned role was deactivated) -- see docs/ci-guard-notes.md #17.',
     };
   }
+  const slack = [];
+  if (td < baselines.teachers) slack.push(`BASELINE_TEACHERS_DEFICIT ${baselines.teachers} -> ${td}`);
+  if (dd < baselines.djs) slack.push(`BASELINE_DJS_DEFICIT ${baselines.djs} -> ${dd}`);
+  const ratchet = slack.length
+    ? ` RATCHET: lower ${slack.join(', ')} (dated note) -- until then a later lost assignment can hide in the slack.`
+    : '';
   return {
     exit: 0,
     level: 'warn',
     message: `WARN: ${split}. No lost assignment; unassigned people beyond the ` +
-      'deficit joined after the cutoff with no line-up yet (roster growth).',
+      `deficit joined after the cutoff with no line-up yet (roster growth).${ratchet}`,
   };
 }
 
@@ -336,7 +349,8 @@ export const SELF_TEST_CASES = [
   },
   {
     name: 'a pre-baseline teacher picks up a first line-up: deficit falls, green',
-    payload: { ...LIVE, active_teachers_assigned: 95, active_teachers_unassigned: 33 }, pre: LIVE_PRE, exit: 0, re: /^WARN: 33 teacher/,
+    payload: { ...LIVE, active_teachers_assigned: 95, active_teachers_unassigned: 33 }, pre: LIVE_PRE, exit: 0,
+    re: /^WARN: 33 teacher.*RATCHET: lower BASELINE_TEACHERS_DEFICIT 10 -> 9/,
   },
   {
     name: "status 'ok' passes",

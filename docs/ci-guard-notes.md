@@ -41,7 +41,9 @@ All in `scripts/check-*.mjs`, enforced by CI.
   but not the P5 credit tables, so it cannot split the unassigned count per person;
   deficit = (pre-baseline unassigned) &minus; (post-baseline assigned), which moves
   with the former. Gaps, stated: a loss and a first booking in the same window
-  cancel (the old ceiling had the same masking); deactivating an ASSIGNED
+  cancel, and SLACK ACCUMULATES: every fall in the deficit is headroom a later
+  loss hides in until the baseline is lowered &mdash; the check prints a `RATCHET:`
+  line naming the new value, so act on it; deactivating an ASSIGNED
   post-cutoff role also reds it (re-baseline with a dated note). Exit codes: 0
   pass/warn (and the legacy "RPC not deployed" soft-pass), 1 a deficit rose, 2
   could not check (missing creds, transient, RPC or count error, malformed or
