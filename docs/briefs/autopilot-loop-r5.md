@@ -7,10 +7,10 @@ Owner 2026-11-04: full automation is the top priority. Admin r3/r4/r4b/r4c are m
 the merge lane there is OFF (AUTOPILOT_MERGE_MODE unset). This slice ports the loop to THIS repo, OFF by default.
 
 ## What main lacks
-- No hourly loop that adds run-ci, posts one owner ping per head and keeps PRs fresh in the Website repo -- grep: autopilot in .github/workflows (none on main)
-- No Website copy of the merge-lane verdict (laneClass/mergeVerdict with the r4b/r4c refusals for agent-instruction paths) -- grep: autopilot-merge in scripts (none on main)
-- No Website pack-comment helper that posts or edits ONE comment per head -- grep: autopilot-pack in scripts (none on main)
-- extends: pr-status "red also on main" comparison exists only in ~/.claude tooling, not as a Website CI-side fact -- PR 1326 (automerge)
+- No hourly loop that adds run-ci, posts one owner ping per head and keeps PRs fresh in the Website repo -- grep: autopilot
+- No Website copy of the merge-lane verdict (laneClass/mergeVerdict with the r4b/r4c refusals for agent-instruction paths) -- grep: autopilot-merge
+- No Website pack-comment helper that posts or edits ONE comment per head -- grep: autopilot-pack
+- extends: pr-status "red also on main" comparison exists only in ~/.claude tooling, not as a Website CI-side fact -- #1326
 
 ## Files
 .github/workflows/autopilot.yml
