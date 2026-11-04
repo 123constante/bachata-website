@@ -202,11 +202,12 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       </div>,
       <button type="button" className="p3-ob-btn" aria-disabled="true">Continue</button>,
     );
-  const failed = (screen: string, text: string, retry: () => void) =>
+  // the heading says what happened ("Welcome" was the start screen's title, wrong on a failure); a missing page is not a failed read
+  const failed = (screen: string, text: string, retry: () => void, title = 'That didn\u2019t load') =>
     shell(
       `${screen}-error`,
       <>
-        <h1 className="p3-ob-t" tabIndex={-1}>{PAGE_COPY.welcome.title}</h1>
+        <h1 className="p3-ob-t" tabIndex={-1}>{title}</h1>
         <p className="p3-ob-err" role="alert" data-testid="p3-ob-readfail">{text}</p>
       </>,
       <>
@@ -229,7 +230,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
     if (!held || !d || !rs || (stage.kind === 'review' && !reviewFresh)) return loading('page');
   }
   if (needsPage && !orgId) {
-    return failed('page', 'You don\u2019t have a page yet. Find or create one first.', () => go({ kind: 'page', step: 'welcome' }, 'back'));
+    return failed('page', 'You don\u2019t have a page yet. Find or create one first.', () => go({ kind: 'page', step: 'welcome' }, 'back'), 'No page yet');
   }
 
   const invalidate = () => {
