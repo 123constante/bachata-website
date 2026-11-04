@@ -53,7 +53,9 @@ export function deploymentEnabledFor(ref, cfg) {
   let best = null;
   for (const [k, v] of Object.entries(map)) {
     const hit = k.endsWith('*') ? r0.startsWith(k.slice(0, -1)) : r0 === k;
-    if (hit && (best == null || k.length > best[0].length)) best = [k, v];
+    // An exact name beats any glob; among globs the longest prefix wins.
+    const score = k.endsWith('*') ? k.length : Infinity;
+    if (hit && (best == null || score > best[2])) best = [k, v, score];
   }
   return best ? best[1] !== false : null;
 }

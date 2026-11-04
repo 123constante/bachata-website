@@ -63,7 +63,8 @@ describe('F1: PR-controlled text cannot plant a marker (review 1213-r1)', () => 
 // ---------------------------------------------------------------- F2 + N4
 describe('F2: soft-app is a short explicit allowlist; N4: pack hard tier covers the repo risky rule', () => {
   it.each([
-    ['lib/csv.ts', true], ['lib/dancerRoles.ts', true], ['lib/x.tsx', false], ['lib/a.css', false], ['lib/eventAudit/types.ts', false],
+    // Website r5: SOFT_APP_ALLOW is empty: nothing is soft-app.
+    ['lib/csv.ts', false], ['lib/dancerRoles.ts', false], ['src/lib/csv.ts', false], ['lib/x.tsx', false], ['lib/a.css', false], ['lib/eventAudit/types.ts', false],
     ['lib/useImageUpload.ts', false], ['lib/dancerSaveService.ts', false], ['lib/stripeHelpers.ts', false], ['lib/ticketMath.ts', false],
     ['lib/authHelpers.ts', false], ['lib/editorGridShellFlag.ts', false], ['lib/encodings.generated.ts', false],
     ['vercel.json', false], ['package.json', false], ['package-lock.json', false], ['next.config.js', false], ['next.config.mjs', false],
@@ -77,8 +78,8 @@ describe('F2: soft-app is a short explicit allowlist; N4: pack hard tier covers 
   it('the allowlist stays short', () => expect(SOFT_APP_ALLOW.length).toBeLessThanOrEqual(3));
   it('the pack prints soft-app only for the allowlist', () => {
     const p = buildPack({ ...PF, body: 'Verified: x', files: ['lib/csv.ts', 'lib/dataSaver.ts', 'middleware.ts'] });
-    expect(p).toMatch(/\*\*soft-app \(allowlist\)\*\* \(1\): `lib\/csv\.ts`/);
-    expect(p).toMatch(/\*\*app \(not soft\)\*\* \(2\)/);
+    expect(p).toMatch(/\*\*soft-app \(allowlist\)\*\* \(0\)/);
+    expect(p).toMatch(/\*\*app \(not soft\)\*\* \(3\)/);
   });
   const DRIFT = [
     'supabase/migrations/99990101000000_x.sql', 'supabase/migrations/ledger-sync-allowlist.json', 'supabase/migrations/proof-receipt-bypass-allowlist.json',
@@ -96,7 +97,7 @@ const PACK_OK = { id: 7, user: { login: GH_BOT }, body: `## Autopilot pack\nall 
 const ALL = () => ({
   mode: 'soft', dryRun: false, tokenOk: true, budgetOk: true, decision: 'ready', workerDone: true,
   pr: { state: 'open', draft: false, fork: false, base: 'main', author: BOT_LOGIN, ref: 'claude/x', ageDays: 1, head: H, changedFiles: 2 },
-  files: ['docs/a.md', 'lib/csv.ts'], labels: ['review-passed', 'ap:ready'],
+  files: ['docs/a.md', 'docs/handover/b.md'], labels: ['review-passed', 'ap:ready'],
   labelEvents: [{ event: 'labeled', label: { name: 'review-passed' }, actor: { login: BOT_LOGIN }, created_at: iso(NOW - 5 * MIN) }],
   pushAnchorMs: NOW - 60 * MIN, comments: [PACK_OK], body: 'Verified: unit suite green (12 tests)\nNot verified: the phone walk',
   jobs: [{ name: 'unit-build', status: 'completed', conclusion: 'success' }], redNew: [], redMain: [], pending: 0, behindBy: 0,
@@ -126,7 +127,7 @@ const ROWS: [string, (f: F) => void, RegExp][] = [
   ['3 package.json', (f) => { f.files = ['docs/a.md', 'package.json']; }, /package\.json/],
   ['3 .claude settings', (f) => { f.files = ['docs/a.md', '.claude/settings.json']; }, /\.claude/],
   ['3 supabase config', (f) => { f.files = ['docs/a.md', 'supabase/config.toml']; }, /^hard-tier path supabase\/config\.toml/],
-  ['3 governance doc', (f) => { f.files = ['docs/a.md', 'docs/automerge.md']; }, /governance/],
+  ['3 governance doc', (f) => { f.files = ['docs/a.md', 'docs/pr-batching-policy.md']; }, /governance/],
   ['4 migration file', (f) => { f.files = ['docs/a.md', 'supabase/migrations/9999_x.sql']; }, /migration file/],
   ['4 migration-queued label', (f) => { f.labels.push('migration-queued'); }, /migration-queued label/],
   ['4 queue-stopped label', (f) => { f.labels.push('queue-stopped'); }, /queue-stopped label/],
@@ -167,7 +168,7 @@ const ROWS: [string, (f: F) => void, RegExp][] = [
 describe('mergeVerdict: one row per condition (each flips one fact)', () => {
   it('all true -> merge', () => {
     const v = mergeVerdict(ALL());
-    expect(v).toMatchObject({ merge: true, reasons: [], classes: ['docs', 'soft-app'], mode: 'soft' });
+    expect(v).toMatchObject({ merge: true, reasons: [], classes: ['docs'], mode: 'soft' });
   });
   it.each(ROWS)('%s -> NO with its reason', (_n, flip, re) => {
     const f = ALL();
@@ -183,8 +184,9 @@ describe('mergeVerdict: one row per condition (each flips one fact)', () => {
     expect(mergeVerdict({ ...ALL(), ...docs, mode: 'docs-canary' }).merge).toBe(true);
     const canaryApp = mergeVerdict({ ...ALL(), ...app, mode: 'docs-canary' });
     expect(canaryApp.merge).toBe(false); // the canary test: a one-file soft-app PR gets NO
-    expect(canaryApp.reasons).toEqual(['docs-canary accepts docs only (this PR has soft-app)']);
-    expect(mergeVerdict({ ...ALL(), ...app, mode: 'soft' }).merge).toBe(true);
+    // Website r5: lib/csv.ts is never soft-app, so it is refused in every mode.
+    expect(canaryApp.reasons).toEqual(['forbidden path: lib/csv.ts is not on the Website docs/tests allowlist']);
+    expect(mergeVerdict({ ...ALL(), ...app, mode: 'soft' }).merge).toBe(false);
     expect(mergeMode({})).toBe('off');
     expect(mergeMode({ AUTOPILOT_MERGE_MODE: 'docs-canary' })).toBe('docs-canary');
     expect(mergeMode({ AUTOPILOT_MERGE_MODE: 'yes' })).toBe('off');
@@ -250,6 +252,8 @@ function fakeGitHub(cfgs: Cfg[], { statusState = null as object | null, mainRed 
     if (m === 'DELETE' && /^\/issues\/\d+\/labels\//.test(p)) return json(null, 204);
     if (m === 'POST' && p === '/issues') return json({ number: 77, node_id: 'n' });
     if (m === 'POST' && u.pathname === '/graphql') return json({});
+    // Website r5: the repo's vercel.json (claude/* never deploys), read GET-only by readVercelConfig().
+    if (m === 'GET' && p === '/contents/vercel.json') return json({ content: 'eyJnaXQiOiB7ImRlcGxveW1lbnRFbmFibGVkIjogeyJjbGF1ZGUvKiI6IGZhbHNlLCAibWFpbiI6IHRydWV9fX0=', encoding: 'base64' });
     return json({ message: `fake: unhandled ${m} ${p}` }, 500);
   };
   const merges = () => log.filter((l) => l.m === 'PUT' && /\/merge$/.test(l.p));

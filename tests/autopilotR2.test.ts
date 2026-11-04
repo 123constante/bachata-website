@@ -149,10 +149,13 @@ function fakeGitHub(prs: Pr[], { events = [] as object[], statusComments = [] as
       return json({ sha: mm[1], commit: { message: pr?.subject ?? 'feat: x [worker-done dt_ab12]' }, parents: [{ sha: 'p'.repeat(40) }] });
     }
     if (m === 'GET' && (mm = /^\/pulls\/(\d+)$/.exec(p))) { const pr = byNum(mm[1]); return json({ ...pr, mergeable_state: pr.mergeable_state ?? 'clean' }); }
-    if (m === 'GET' && /^\/pulls\/\d+\/(reviews|files)$/.test(p)) return json([]);
+    if (m === 'GET' && /^\/pulls\/\d+\/reviews$/.test(p)) return json([]);
+    // Website r5: a non-docs file list (run-ci is refused on docs-only PRs).
+    if (m === 'GET' && /^\/pulls\/\d+\/files$/.test(p)) return json([{ filename: 'src/lib/x.ts' }]);
     if (m === 'GET' && /^\/commits\/[^/]+\/check-runs$/.test(p)) return json({ check_runs: [] });
     if (m === 'GET' && /^\/commits\/[^/]+\/status$/.test(p)) return json({ statuses: [] });
-    if (m === 'GET' && p === '/actions/runs') return json({ workflow_runs: [] });
+    // Website r5: a push run only (no pull_request proof), carrying the head subject.
+    if (m === 'GET' && p === '/actions/runs') { const s = u.searchParams.get('head_sha'); return json({ workflow_runs: [{ id: 1, workflow_id: 1, head_sha: s, event: 'push', created_at: '2026-11-01T00:00:00Z', head_commit: { message: 'feat: x [worker-done dt_ab12]' } }] }); }
     if (m === 'GET' && /^\/issues\/\d+\/events$/.test(p)) return json([]);
     if (m === 'PUT' && /\/update-branch$/.test(p)) return json({});
     if (m === 'POST' && /^\/issues\/\d+\/labels$/.test(p)) return json([]);
@@ -161,6 +164,8 @@ function fakeGitHub(prs: Pr[], { events = [] as object[], statusComments = [] as
     if (m === 'POST' && p === '/issues/77/comments') return json({});
     if (m === 'PATCH' && /^\/issues\/comments\/\d+$/.test(p)) return json({});
     if (m === 'POST' && u.pathname === '/graphql') return json({});
+    // Website r5: the repo's vercel.json (claude/* never deploys), read GET-only by readVercelConfig().
+    if (m === 'GET' && p === '/contents/vercel.json') return json({ content: 'eyJnaXQiOiB7ImRlcGxveW1lbnRFbmFibGVkIjogeyJjbGF1ZGUvKiI6IGZhbHNlLCAibWFpbiI6IHRydWV9fX0=', encoding: 'base64' });
     return json({ message: `fake: unhandled ${m} ${p}` }, 500);
   };
   return { log, fetchImpl };

@@ -13,6 +13,14 @@ const STEP = path.resolve(__dirname, '../scripts/autopilot-step.mjs');
 const SRC = readFileSync(LIB, 'utf8');
 
 const MUTANTS: [string, string, string][] = [
+  // Website r5 (brief requirement 4): the Vercel build-budget gates.
+  ['r5 drop the run-ci Vercel refusal', 'const vr = runCiRefusal(f);', 'const vr = null;'],
+  ['r5 allow run-ci on a docs-only PR', "if (f.files.every((p) => /^docs\\//.test(String(p)))) return 'docs-only PR';", ''],
+  ['r5 allow run-ci on a [skip preview] head', "if (SKIP_PREVIEW_RE.test(f.headSubject)) return 'head is [skip preview]';", ''],
+  ['r5 allow run-ci when the head subject is unread', "if (typeof f.headSubject !== 'string') return 'head subject not read';", ''],
+  ['r5 allow run-ci when the file list is unread', "if (!Array.isArray(f.files) || !f.files.length) return 'file list not read';", "if (!Array.isArray(f.files)) return null;"],
+  ['r5 update-branch when vercel.json is unread', 'f.deployEnabled !== false', 'f.deployEnabled === true'],
+  ['r5 drop the update-branch Vercel gate', 'f.deployEnabled !== false', 'false'],
   ['drop the BEHIND/approved guard', "if (behind && !f.approvedAtHead) return", "if (behind) return"],
   ['drop the migration-queued exclusion', "if (f.labels.includes('migration-queued')) return", 'if (false) return'],
   ['drop the owner-approved migration exclusion', 'if (f.isMigration && f.approvedAtHead) return', 'if (false) return'],

@@ -18,17 +18,28 @@ import { isRiskyPath } from './review-scope.mjs';
  * has pathProblem() and a pathClass() that answers 'docs' | 'tests' | null (null = refused:
  * forbidden prefix, auth-ish name, or not on the allowlist). The admin lane's three names map:
  *   pathRefusal(p)     -> a reason string, or null when the Website classifier accepts p;
- *   pathClass(p)       -> 'code' for a screen path (src/ .tsx/.css/.jsx/.scss), else the
+ *   pathClass(p)       -> 'code' for a screen-shaped path (.tsx/.jsx/.css/.scss anywhere), else the
  *                         classifier's class ('docs' | 'tests') or null;
  *   isDocsClassPath(p) -> refusal-free and docs.
  * Brief r5 requirement 1: anything under src/ with a screen is NOT mergeable by the lane (it needs
  * a walk), and the lane only ever considers docs-only and tests-only PRs (tests are still refused
  * below, r4b N3b: their content is not read).
  */
-export const SCREEN_RE = /^src\/.*\.(tsx|jsx|css|scss)$/i;
+// Any screen-shaped file anywhere (src/ is also hard-tier via isRiskyPath; this catches the rest).
+export const SCREEN_RE = /\.(tsx|jsx|css|scss)$/i;
+/**
+ * Ported from admin automerge-classify GOVERNANCE: prose that defines the gates and this lane.
+ * A bot must not loosen its own rules without the owner reading the change: owner-merged.
+ */
+export const GOVERNANCE = new Set([
+  'claude.md', 'agents.md', 'docs/agent-policy.md', 'docs/automerge.md', 'docs/pr-batching-policy.md',
+  'docs/testing-doctrine.md', 'docs/ci-guard-notes.md', 'docs/claude-md-reference.md', 'docs/testing-gates.md',
+  'docs/guards-and-review-doctrine.md',
+]);
 export function pathRefusal(p) {
   const prob = pathProblem(p);
   if (prob) return prob;
+  if (GOVERNANCE.has(String(p).toLowerCase())) return `${p} is governance prose (owner-merged)`;
   return webPathClass(p) === null ? `${p} is not on the Website docs/tests allowlist` : null;
 }
 export function pathClass(p) {

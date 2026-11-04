@@ -1,5 +1,14 @@
 name: Autopilot
 
+# r5 WEBSITE PORT (docs/handover/autopilot-loop-r5.md, brief docs/briefs/autopilot-loop-r5.md):
+# SHIPS OFF. A scheduled run is a DRY RUN (reads and decides, writes nothing) unless the owner sets
+# the repo variable AUTOPILOT_LIVE to exactly `true`; the merge lane is also off unless
+# AUTOPILOT_MERGE_MODE is set. This workflow writes no variable, secret or label setting itself.
+# Vercel build budget: run-ci is never added to a docs-only or `[skip preview]` head, and
+# update-branch only runs on a branch whose vercel.json git.deploymentEnabled is false. The
+# Website lane can only ever consider docs-only PRs (screens, src/, scripts/, .github/,
+# vercel.json and package manifests are hard-tier; tests are owner-merged).
+#
 # Stages S3 + S4 of the automation plan: every hour, do the SAFE next step on every open,
 # non-draft bot PR (head branch claude/ or ccr-), keep its state visible as an ap:* label, and
 # keep ONE edited-in-place comment on the `autopilot status` issue listing what needs a human.
@@ -45,14 +54,14 @@ on:
       repos:
         description: "Comma-separated owner/name list"
         required: false
-        default: "123constante/bachata-admin"
+        default: "123constante/bachata-website"
       dry_run:
         description: "true = read and decide only, write NOTHING (the summary says what it would do)"
         required: false
         type: boolean
         default: true
 
-# Its own group: never waits behind or cancels migration-queue; two runs never overlap.
+# Its own group: never waits behind or cancels another workflow; two runs never overlap.
 concurrency:
   group: autopilot
   cancel-in-progress: false
@@ -63,8 +72,8 @@ permissions:
 jobs:
   autopilot:
     if: ${{ !github.event.repository.fork }}
-    # The same runner class migration-queue.yml uses.
-    runs-on: laptop-light
+    # Website: GitHub-hosted, like every other Website workflow.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
@@ -90,16 +99,17 @@ jobs:
           # r4 merge lane: the owner-set switch (unset/other = off) and the merge credential.
           AUTOPILOT_MERGE_MODE: ${{ vars.AUTOPILOT_MERGE_MODE }}
           AUTOMERGE_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
-          # Fail safe (N1): only a schedule, or a dispatch whose dry_run is exactly false, is live;
-          # an empty or odd value is a dry run.
-          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || (github.event.inputs.dry_run == 'false' && 'false' || 'true') }}
+          # Fail safe (N1) + r5 ships OFF: a schedule is live only when the owner-set variable
+          # AUTOPILOT_LIVE is exactly 'true'; a dispatch only when dry_run is exactly false.
+          # Anything else (unset variable, empty or odd input) is a dry run.
+          DRY_RUN: ${{ (github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node scripts/autopilot-step.mjs
 
   announce-failure:
     needs: [autopilot]
-    if: failure() && github.event_name == 'schedule'
-    runs-on: laptop-light
+    if: failure() && github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write

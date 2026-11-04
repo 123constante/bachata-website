@@ -82,7 +82,7 @@ describe('buildPack never states a check it did not read', () => {
     const p = buildPack({ ...PACK_FACTS, files: ['docs/a.md', 'tests/x.test.ts', 'lib/y.ts', 'scripts/z.mjs'], body: 'intro\nVerified: 12 mutants killed\n**Not verified**: the phone walk\nother' });
     expect(p).toMatch(/\*\*docs\*\* \(1\): `docs\/a\.md`/);
     expect(p).toMatch(/\*\*tests\*\* \(1\)/);
-    expect(p).toMatch(/\*\*soft-app \(allowlist\)\*\* \(1\): `lib\/y\.ts`/);
+    expect(p).toMatch(/\*\*soft-app \(allowlist\)\*\* \(0\)/); // Website r5: SOFT_APP_ALLOW is empty
     expect(p).toContain('  - `scripts/z.mjs`: scripts/: gate and automation code');
     expect(p).toContain('> Verified: 12 mutants killed');
     expect(p).toContain('> **Not verified**: the phone walk');
@@ -171,6 +171,8 @@ function fakeGitHub(cfgs: PrCfg[], { statusState = null as object | null, pingFa
     if (m === 'DELETE' && /^\/issues\/\d+\/labels\//.test(p)) return json(null, 204);
     if (m === 'POST' && p === '/issues') return json({ number: 77, node_id: 'n' });
     if (m === 'POST' && u.pathname === '/graphql') return json({});
+    // Website r5: the repo's vercel.json (claude/* never deploys), read GET-only by readVercelConfig().
+    if (m === 'GET' && p === '/contents/vercel.json') return json({ content: 'eyJnaXQiOiB7ImRlcGxveW1lbnRFbmFibGVkIjogeyJjbGF1ZGUvKiI6IGZhbHNlLCAibWFpbiI6IHRydWV9fX0=', encoding: 'base64' });
     return json({ message: `fake: unhandled ${m} ${p}` }, 500);
   };
   const prComments = (n: number) => log.filter((l) => l.m === 'POST' && l.p === `/issues/${n}/comments`).map((l) => String(l.body!.body));

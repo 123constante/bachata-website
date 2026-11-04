@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   decide, deriveFacts, labelPlan, jobIds, renderSummary, parseState, nextState, renderStatus,
-  ACTIONS, WRITE_ACTIONS, CI_CAP,
+  ACTIONS, WRITE_ACTIONS, CI_CAP, RUN_CI_GATED, deploymentEnabledFor, redAlsoOnMain,
 } from '../scripts/lib/autopilot.mjs';
 
 import { BASE, TABLE } from './autopilotTable';
@@ -58,18 +58,47 @@ describe('deriveFacts()', () => {
     expect(f.ranCi).toBe(true);
     expect(decide(f).action).toBe('ready');
   });
-  it('a label added on an older head is not a proof run at this head', () => {
-    const f = deriveFacts(rawBase({ labelEvents: [{ event: 'labeled', label: { name: 'run-ci' }, created_at: '2026-11-03T08:00:00Z' }], runsAtHead: [{ head_sha: H, event: 'pull_request', created_at: '2026-11-03T07:00:00Z' }] }), NOW);
+  // Website r5: the Website's PR workflows run on every pull_request push (no run-ci switch), so
+  // the admin rows "label on an older head" / "relabel once" do not apply: a pull_request run at
+  // the head IS the proof on every branch, and a push-only run is not.
+  it('r5: a pull_request run at head is a proof on a worker branch, with no run-ci label', () => {
+    const f = deriveFacts(rawBase({ labelEvents: [], runsAtHead: [{ head_sha: H, event: 'pull_request', created_at: '2026-11-03T07:00:00Z' }] }), NOW);
+    expect(RUN_CI_GATED).toBe(false);
+    expect(f.ranCi).toBe(true);
+  });
+  it('r5: a push-only run at head is not a proof', () => {
+    const f = deriveFacts(rawBase({ labelEvents: [], runsAtHead: [{ head_sha: H, event: 'push', created_at: '2026-11-03T07:00:00Z' }] }), NOW);
     expect(f.ranCi).toBe(false);
   });
-  it('a run-ci label older than the head: relabel once, then stop', () => {
-    const r = rawBase({ runsAtHead: [{ head_sha: H, event: 'pull_request', created_at: '2026-11-03T10:00:00Z' }], labelEvents: [{ event: 'labeled', label: { name: 'run-ci' }, created_at: '2026-11-03T09:00:00Z' }] });
-    expect(decide(deriveFacts(r, NOW)).action).toBe('relabel-ci');
-    r.labelEvents.push({ event: 'labeled', label: { name: 'run-ci' }, created_at: '2026-11-03T10:05:00Z' });
-    r.runsAtHead = r.runsAtHead.filter((x: { created_at: string }) => x.created_at < '2026-11-03T10:05:00Z');
-    // the run after the second add never appeared: one more add would be the third, so stop
-    r.labelEvents.push({ event: 'labeled', label: { name: 'run-ci' }, created_at: '2026-11-03T10:06:00Z' });
-    expect(decide(deriveFacts(r, NOW)).action).toBe('stop');
+  it('r5: head subject comes from a run at THIS head; deployEnabled from vercel.json', () => {
+    const runsAtHead = [
+      { head_sha: 'c'.repeat(40), event: 'pull_request', created_at: '2026-11-03T06:00:00Z', head_commit: { message: 'old' } },
+      { head_sha: H, event: 'pull_request', created_at: '2026-11-03T07:00:00Z', head_commit: { message: 'wip [skip preview]\r\n\nbody' } },
+    ];
+    const vercelConfig = { git: { deploymentEnabled: { 'claude/*': false, main: true } } };
+    const f = deriveFacts(rawBase({ runsAtHead, vercelConfig }), NOW);
+    expect(f.headSubject).toBe('wip [skip preview]');
+    expect(f.deployEnabled).toBe(false);
+    expect(deriveFacts(rawBase({ runsAtHead: [] }), NOW).headSubject).toBe(null);
+    expect(deriveFacts(rawBase({}), NOW).deployEnabled).toBe(null);
+  });
+  it.each([
+    ['claude/x', { 'claude/*': false, main: true }, false],
+    ['main', { 'claude/*': false, main: true }, true],
+    ['ccr-x', { 'claude/*': false }, null],
+    ['claude/x', { 'claude/*': false, 'claude/x': true }, true],
+    ['claude/x', null, null],
+  ])('r5 deploymentEnabledFor(%s, %j) = %s', (ref, map, want) => {
+    expect(deploymentEnabledFor(ref, map ? { git: { deploymentEnabled: map } } : null)).toBe(want);
+  });
+  it.each([
+    [[{ name: 'unit', status: 'completed', conclusion: 'failure' }], ['unit'], 'yes'],
+    [[{ name: 'unit', status: 'completed', conclusion: 'failure' }], ['lint'], 'no'],
+    [[{ name: 'unit', status: 'completed', conclusion: 'success' }], ['unit'], 'no'],
+    [null, ['unit'], 'not read'],
+    [[{ name: 'unit', status: 'completed', conclusion: 'failure' }], null, 'not read'],
+  ])('r5 redAlsoOnMain(%j, %j) = %s', (jobs, main, want) => {
+    expect(redAlsoOnMain(jobs, main)).toBe(want);
   });
   it('a non-worker branch proof is any run at head', () => {
     const f = deriveFacts(rawBase({ pr: pr({ head: { sha: H, ref: 'feature/x', repo: { full_name: 'o/r' } } }), labelEvents: [] }), NOW);

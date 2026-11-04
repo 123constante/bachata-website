@@ -22,7 +22,7 @@ for (const [label, text] of VARIANTS) {
     });
     it('dispatch inputs: repos defaults to this repo, dry_run defaults to true', () => {
       const inp = on.workflow_dispatch.inputs;
-      expect(inp.repos.default).toBe('123constante/bachata-admin');
+      expect(inp.repos.default).toBe('123constante/bachata-website');
       expect(String(inp.dry_run.default)).toBe('true');
       expect(inp.dry_run.type).toBe('boolean');
     });
@@ -31,7 +31,7 @@ for (const [label, text] of VARIANTS) {
     });
     it('the main job: queue runner class, not on a fork, minimal permissions, main checkout, one node run', () => {
       const j = wf.jobs.autopilot;
-      expect(j['runs-on']).toBe('laptop-light');
+      expect(j['runs-on']).toBe('ubuntu-latest');
       expect(j.if).toMatch(/!github\.event\.repository\.fork/);
       expect(Object.keys(j.permissions).sort()).toEqual(['actions', 'checks', 'contents', 'issues', 'pull-requests', 'statuses']);
       expect(j.permissions.contents).toBe('read');
@@ -50,15 +50,15 @@ for (const [label, text] of VARIANTS) {
       expect(text).not.toMatch(/pull_request_target|pull_request:/);
       expect(text).not.toMatch(/echo[^\n]*secrets\./);
     });
-    it('a schedule run is live; a dispatch is a dry run unless dry_run is false', () => {
+    it('r5 ships OFF: a schedule is live only with AUTOPILOT_LIVE=true; a dispatch only with dry_run false', () => {
       const env = wf.jobs.autopilot.steps.find((s: { run?: string }) => s.run).env;
       // N1 (review 1204-r1): an empty dry_run on a dispatch is a DRY run, never live.
-      expect(env.DRY_RUN).toBe("${{ github.event_name == 'schedule' && 'false' || (github.event.inputs.dry_run == 'false' && 'false' || 'true') }}");
+      expect(env.DRY_RUN).toBe("${{ (github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}");
     });
     it('a failed scheduled run announces itself (announce-failure pattern)', () => {
       const a = wf.jobs['announce-failure'];
       expect(a.needs).toEqual(['autopilot']);
-      expect(a.if).toMatch(/failure\(\) && github\.event_name == 'schedule'/);
+      expect(a.if).toMatch(/failure\(\) && github\.event_name == 'schedule' && vars\.AUTOPILOT_LIVE == 'true'/);
       expect(a.permissions.issues).toBe('write');
     });
   });

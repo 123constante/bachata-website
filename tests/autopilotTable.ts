@@ -118,7 +118,15 @@ export const R4B_PATHS: [string, string | RegExp][] = [
   // r4c (review 1217-r1 N4) turns these two to NO: the instruction-name pattern over-blocks on purpose.
   ['docs/claude-notes.md', /^agent-instruction path docs\/claude-notes\.md$/],
   ['docs/agents-overview.md', /^agent-instruction path docs\/agents-overview\.md$/],
-  ['lib/csv.ts', 'soft-app'],
+  // Website r5: SOFT_APP_ALLOW is empty, so the admin soft-app control is NO here.
+  ['lib/csv.ts', /^forbidden path: lib\/csv\.ts is not on the Website docs\/tests allowlist$/],
+  // Website review-scope isRiskyPath() holds all of src/: a screen is hard-tier before it is 'code'.
+  ['src/components/A.tsx', /^hard-tier path src\/components\/A\.tsx$/],
+  ['src/index.css', /^hard-tier path src\/index\.css$/],
+  ['src/Components/A.TSX', /^hard-tier path src\/Components\/A\.TSX$/],
+  ['components/A.tsx', /^screen \/ app path components\/A\.tsx/],
+  ['docs/demo/Widget.tsx', /^screen \/ app path docs\/demo\/Widget\.tsx/],
+  ['docs/testing-doctrine.md', /^forbidden path: docs\/testing-doctrine\.md is governance prose/],
 ];
 
 // [Verified-line body, filled?]: each body also carries a filled Not verified line.
