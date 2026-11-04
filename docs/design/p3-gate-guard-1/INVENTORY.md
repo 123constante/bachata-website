@@ -57,4 +57,5 @@ that event AND that screen is in storage right now. Everything else asks as toda
 
 ## Coverage
 
-21 rows, 21 shown, none omitted (12 of them reachable-and-tested exit rows: 1-14 less the unreachable, plus 17, 19).
+21 rows, 21 shown, none omitted. 16 reachable (1-14, 17, 19), each a row of the exit matrix in
+`screens/__tests__/gateRetry.matrix.test.tsx` for Details AND Prices (32 cases); 5 unreachable (15, 16, 18, 20, 21), each with its reason.
