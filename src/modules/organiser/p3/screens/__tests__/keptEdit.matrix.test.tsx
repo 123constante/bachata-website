@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
 import { blankDraft } from '../../model/repeat';
 import { heldRefusal } from '../../onboarding/gateRule';
-import { KEPT_COPY, KEPT_MAX_AGE_MS, dropKept, keepDraft, keptDraft, keptKey } from '../../onboarding/keptDraft';
+import { KEPT_BACK_STATE, KEPT_COPY, KEPT_MAX_AGE_MS, dropKept, keepDraft, keptDraft, keptKey } from '../../onboarding/keptDraft';
 
 /*
  * fix-gate-lost-edit item 3, red first on main: a Repeat edit the onboarding gate refused is kept for THAT event
@@ -41,11 +41,11 @@ function serve(save: 'refuse' | 'ok') {
     return { data: [], error: null };
   });
 }
-function show(id = 'ser-1') {
+function show(id = 'ser-1', back = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/account/p3/events/${id}`]}>
+      <MemoryRouter initialEntries={[{ pathname: `/account/p3/events/${id}`, state: back ? KEPT_BACK_STATE : null }]}>
         <Routes><Route path="/account/p3/events/:seriesId" element={<EventPage />} /></Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -81,6 +81,12 @@ describe('keptDraft store: one event, 60 minutes, this tab only', () => {
     keepDraft('ser-1', { screen: 'repeat', draft: { ...d, end: 'after_count', count: Number.NaN } }, T);
     expect(Number.isNaN(keptDraft('ser-1', T)?.draft.count)).toBe(true);
   });
+  it.each([
+    ['weekday 9', { weekday: 9 }], ['interval 0', { interval: 0 }], ['day 40', { day: 40 }], ['nths [7]', { nths: [7] }], ['weekdays [12]', { weekdays: [12] }], ['count 501', { count: 501 }],
+  ] as const)('a kept draft out of the editor range (%s) is ignored', (_n, bad) => {
+    window.sessionStorage.setItem(keptKey('ser-1'), JSON.stringify({ v: 1, screen: 'repeat', draft: { ...d, ...bad }, at: T }));
+    expect(keptDraft('ser-1', T)).toBeNull();
+  });
   it.each(['not json', '{"v":2}', JSON.stringify({ v: 1, screen: 'details', draft: {}, at: T }), JSON.stringify({ v: 1, screen: 'repeat', draft: { freq: 'daily' }, at: T })])('a stored %s is ignored', (raw) => {
     window.sessionStorage.setItem(keptKey('ser-1'), raw);
     expect(keptDraft('ser-1', T)).toBeNull();
@@ -112,7 +118,7 @@ describe('Repeat: refused Save -> kept -> back on the event, pre-filled, nothing
     await refusedMondayEdit();
     cleanup();
     serve('ok');
-    show();
+    show('ser-1', true);
     const kept = await screen.findByTestId('p3-repeat-kept');
     expect(kept.textContent).toBe(KEPT_COPY.line);
     expect(screen.getByTestId('p3-repeat-sentence').textContent).toContain('Every Monday and Friday, keeps going.');
@@ -136,7 +142,7 @@ describe('Repeat: refused Save -> kept -> back on the event, pre-filled, nothing
     await refusedMondayEdit();
     cleanup();
     serve('ok');
-    show();
+    show('ser-1', true);
     await screen.findByTestId('p3-repeat-kept');
     fireEvent.click(screen.getByRole('button', { name: 'Tuesday' }));
     expect(screen.queryByTestId('p3-repeat-kept')).toBeNull();
@@ -162,10 +168,21 @@ describe('Repeat: refused Save -> kept -> back on the event, pre-filled, nothing
     expect(keptDraft('ser-1')).toBeNull();
   });
 
+  it('any other arrival (Home, a link, browser back) never pops the sheet open, and leaves the edit kept', async () => {
+    await refusedMondayEdit();
+    cleanup();
+    serve('ok');
+    show('ser-1', false);
+    await screen.findByTestId('p3-open-repeat');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('p3-sheet')).toBeNull();
+    expect(keptDraft('ser-1')?.draft.weekdays).toEqual([1, 5]);
+  });
+
   it("another event's kept edit never opens here", async () => {
     keepDraft('ser-9', { screen: 'repeat', draft: { ...blankDraft(5), weekdays: [1, 5] } });
     serve('ok');
-    show('ser-1');
+    show('ser-1', true);
     await screen.findByTestId('p3-open-repeat');
     expect(screen.queryByTestId('p3-sheet')).toBeNull();
     expect(keptDraft('ser-9')).not.toBeNull();

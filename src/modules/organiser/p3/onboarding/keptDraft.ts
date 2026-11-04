@@ -2,7 +2,7 @@
 // taps Continue, finishes (or not) the checklist and comes "Back to your event" finds the same sheet pre-filled.
 // sessionStorage only (gone when the tab closes), at most 60 minutes old, one entry per event id, never sent
 // anywhere. Reading it never saves: the person taps Save again (returnTo.ts: the refused edit is never replayed).
-import { blankDraft, type RepeatDraft } from '../model/repeat';
+import type { RepeatDraft } from '../model/repeat';
 
 /** The screens whose unsaved draft is kept. Details / Prices / Dates are not (see the PR body): Back still works. */
 export type KeptScreen = 'repeat';
@@ -37,8 +37,19 @@ export function repeatDraftFrom(raw: unknown): RepeatDraft | null {
   // An empty count box (NaN) is stored as null by JSON.
   const count = r.count === null ? Number.NaN : isInt(r.count) ? r.count : null;
   if (count === null) return null;
-  return { ...blankDraft(r.weekday), freq: r.freq, weekdays, interval: r.interval, monthBy: r.monthBy, day: r.day, nths, weekday: r.weekday, end: r.end, count, until: r.until } as RepeatDraft;
+  // the editor's ranges (model/repeat RepeatDraft): anything else came from another build and is dropped
+  const day = (x: number) => x >= 0 && x <= 6;
+  if (!weekdays.every(day) || !day(r.weekday) || r.interval < 1 || r.interval > 4 || r.day < 1 || r.day > 31) return null;
+  if (!nths.every((x) => x === -1 || (x >= 1 && x <= 4))) return null;
+  if (!Number.isNaN(count) && (count < 1 || count > 500)) return null;
+  const draft: RepeatDraft = { freq: r.freq, weekdays, interval: r.interval, monthBy: r.monthBy, day: r.day, nths, weekday: r.weekday, end: r.end, count, until: r.until };
+  return draft;
 }
+
+/** The navigation state the checklist's "Back to your event" carries: only that arrival reopens a kept edit. */
+export const KEPT_BACK_STATE = { p3KeptBack: true } as const;
+export const cameBackForKept = (state: unknown): boolean =>
+  !!state && typeof state === 'object' && (state as { p3KeptBack?: unknown }).p3KeptBack === true;
 
 /** Keep `draft` for event `seriesId` (replaces anything kept for it). Storage that throws keeps nothing. */
 export function keepDraft(seriesId: string, kept: Kept, now = Date.now(), s: Store | null = store()): void {

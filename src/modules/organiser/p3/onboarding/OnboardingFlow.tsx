@@ -60,6 +60,7 @@ import {
 } from './pageModel';
 import { SettingsBody } from './SettingsSheet';
 import { BACK_TO_EVENT, GO_TO_HOME, backAsSecondary, eventReturnFrom, finishLabel, withBack } from './returnTo';
+import { KEPT_BACK_STATE } from './keptDraft';
 import './page.css';
 
 const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true"><path d="M5 12l5 5 9-10" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -137,7 +138,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   // The checklist's exit goes back to the refused event whenever there is a valid one (finishLabel), left or not:
   // the kept edit is waiting there (keptDraft.ts). Replace, so Back never loops.
   const [back] = useState(() => eventReturnFrom(params.get('back')));
-  const finish = useCallback((_left?: number) => (back ? navigate(back, { replace: true }) : exit()), [back, exit, navigate]);
+  const finish = useCallback((_left?: number) => (back ? navigate(back, { replace: true, state: KEPT_BACK_STATE }) : exit()), [back, exit, navigate]);
 
   const page = useQuery({ queryKey: ['p3-ob-page', orgId], queryFn: () => reads.page(orgId as string), enabled: !!orgId, retry: false });
   const phone = useQuery({ queryKey: ['p3-ob-page', 'phone', orgId], queryFn: () => reads.phone(orgId as string), enabled: !!orgId, retry: false });

@@ -252,7 +252,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose, kept = 
     <OnBody>
       <Sheet title={REPEAT_COPY.title} onClose={close}>
         <div className="p3-sheet-body p3-stack-s">
-          {kept && sig === draftSig(kept) && <p className="p3-note p3-kept" role="status" data-testid="p3-repeat-kept">{KEPT_COPY.line}</p>}
+          {kept && changed && sig === draftSig(kept) && <p className="p3-note p3-kept" role="status" data-testid="p3-repeat-kept">{KEPT_COPY.line}</p>}
           {course && <p className="p3-row-t" data-testid="p3-repeat-course">{courseLine(course, today)}</p>}
           {access.mode === 'disabled' && <p className="p3-warn" id="p3-repeat-why" data-testid="p3-repeat-why">{access.why}</p>}
           {access.mode === 'edit' && note && !changed && <p className="p3-note" data-testid="p3-repeat-norule">{note}</p>}

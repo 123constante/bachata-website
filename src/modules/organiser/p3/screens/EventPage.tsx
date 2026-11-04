@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { dropKept, keptDraft } from '../onboarding/keptDraft';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { cameBackForKept, dropKept, keptDraft } from '../onboarding/keptDraft';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
 import { isAccessRefusal } from '../../shared/selfServeErrors';
@@ -217,11 +217,16 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const [sheet, setSheet] = useState(false);
   // Back from the checklist with a Repeat edit the gate refused (keptDraft.ts): the sheet reopens with it, once.
   // Read in the initialiser (pure), let go in an effect: shown once, and a second refusal keeps it again.
-  const [kept, setKept] = useState(() => keptDraft(ws.series.id));
+  // Only the checklist's "Back to your event" (KEPT_BACK_STATE) reopens it: any other visit leaves it alone, so a
+  // stale edit never pops up uninvited. Tagged with the event it was read for: a page reused for another event
+  // never shows (or drops) the first event's edit.
+  const { state: navState } = useLocation();
   const seriesId = ws.series.id;
+  const [keptRead, setKeptRead] = useState(() => ({ id: seriesId, k: cameBackForKept(navState) ? keptDraft(seriesId) : null }));
+  const kept = keptRead.id === seriesId ? keptRead.k : null;
   useEffect(() => { if (kept) dropKept(seriesId); }, [kept, seriesId]);
   const [repeat, setRepeat] = useState(() => kept?.screen === 'repeat');
-  const closeRepeat = useCallback(() => { setRepeat(false); setKept(null); }, [setRepeat]);
+  const closeRepeat = useCallback(() => { setRepeat(false); setKeptRead({ id: '', k: null }); }, [setRepeat]);
   const [date, setDate] = useState<DateOpen>(null);
   const [session, setSession] = useState<SessionOpen>(null);
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
