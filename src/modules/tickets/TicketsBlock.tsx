@@ -91,7 +91,9 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   // The stepper only ever moves from qty, so the stored count never needs syncing.
   const qty = clampQuantity(quantity, max);
   const key = selected ? promoKey(selected.id, qty) : null;
-  const pv = promoView(promo, promoInput, key);
+  // A free ticket has nothing to take off: no field, and a pre-filled code never holds Buy back.
+  const promoOn = selected !== null && selected.pricePence > 0;
+  const pv = promoView(promoOn ? promo : { status: 'idle' }, promoOn ? promoInput : '', key);
 
   async function applyPromo(raw: string) {
     const code = normaliseCode(raw);
@@ -112,9 +114,13 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     setPromo(r.ok ? { status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence } : { status: 'refused', code, key: forKey, reason: r.reason });
   }
 
-  /** A new ticket or count re-prices an applied code straight away (a refusal just re-opens Apply). */
+  /**
+   * A new ticket or count re-prices the code in play straight away: applied, still being
+   * checked (the newer price wins, the older reply is dropped) or refused for the old choice.
+   */
   function choose(nextTypeId: string, nextQty: number) {
-    if (pv.sendCode && promoKey(nextTypeId, nextQty) !== key) void pricePromo(pv.sendCode, nextTypeId, nextQty);
+    const live = promo.status !== 'idle' && promo.code !== '' && promo.code === normaliseCode(promoInput) ? promo.code : null;
+    if (live && promoKey(nextTypeId, nextQty) !== key) void pricePromo(live, nextTypeId, nextQty);
   }
 
   function removePromo() {
@@ -155,6 +161,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
       ? 'Online tickets are not available for this event right now.'
       : (disabledReason({ type: selected, quantity: qty, email, termsAccepted, origin, submitting }, now) ?? pv.buyBlocked);
   const sum = selected ? totals(selected, qty) : null;
+  // The preview prices tickets only; any booking fee is added on top, as checkout does.
+  const payPence = sum ? (pv.appliedTotalPence !== null ? pv.appliedTotalPence + sum.feePence : sum.totalPence) : 0;
 
   async function onBuy() {
     if (!selected || reason || inFlight.current) return;
@@ -328,7 +336,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
             )}
             <div className="flex justify-between font-semibold">
               <dt>Total</dt>
-              <dd>{sum.free ? 'Free' : formatPence(pv.appliedTotalPence ?? sum.totalPence)}</dd>
+              <dd>{sum.free ? 'Free' : formatPence(payPence)}</dd>
             </div>
           </dl>
 
@@ -388,7 +396,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                   {[pv.note, pv.applyBlocked && pv.applyBlocked !== pv.note && !pv.sendCode ? pv.applyBlocked : null].filter(Boolean).join(' ')}
                 </p>
               )}
-              {promoInput && !pv.sendCode && promo.status !== 'checking' && (
+              {normaliseCode(promoInput) && !pv.sendCode && promo.status !== 'checking' && (
                 <button type="button" onClick={removePromo} className="min-h-[44px] text-[13px] underline" style={muted}>
                   Clear the code and pay the full price
                 </button>
@@ -460,7 +468,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
               className="min-h-[48px] w-full rounded-md px-3 py-2 text-[15px] font-semibold disabled:opacity-50"
               style={accentBg}
             >
-              {submitting ? <>Working on it&hellip;</> : pv.appliedTotalPence === 0 ? 'Get free tickets' : buyLabel(selected)}
+              {submitting ? <>Working on it&hellip;</> : pv.appliedTotalPence !== null && payPence === 0 ? 'Get free tickets' : buyLabel(selected)}
             </button>
             {reason && (
               <p id="tickets-buy-reason" className="mt-1 text-[12px]" style={muted}>{reason}</p>

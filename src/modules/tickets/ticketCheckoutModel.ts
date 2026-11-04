@@ -208,7 +208,6 @@ export function buildCheckoutBody(
   cancelPath: string,
 ): CheckoutBody {
   const name = f.name.trim();
-  const promo = (f.promoCode ?? '').trim();
   return {
     ticket_type_id: f.typeId,
     quantity: f.quantity,
@@ -216,7 +215,8 @@ export function buildCheckoutBody(
     ...(name ? { buyer_name: name.slice(0, 200) } : {}),
     success_url: `${origin}${THANKS_PATH}`,
     cancel_url: `${origin}${cancelPath}`,
-    ...(promo ? { promo_code: promo.slice(0, 64) } : {}),
+    // Already normalised by promo.ts (the code the preview priced); passed through as is.
+    ...(f.promoCode ? { promo_code: f.promoCode } : {}),
   };
 }
 

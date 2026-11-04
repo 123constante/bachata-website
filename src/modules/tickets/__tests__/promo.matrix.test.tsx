@@ -285,6 +285,41 @@ describe('the block, end to end with a faked preview and edge', () => {
     expect(screen.getByText('Remove the promo code or try a different one.')).toBeTruthy();
   });
 
+  it('review: a ?code= link on a free ticket never holds Buy back', async () => {
+    renderBlock([mk('a', { pricePence: 0 })], '/event/e1?code=summer');
+    const buy = (await screen.findByRole('button', { name: 'Get free ticket' })) as HTMLButtonElement;
+    fill();
+    expect(buy.disabled).toBe(false);
+  });
+
+  it('review: two fast + taps while re-pricing end priced for the final count', async () => {
+    const pending: ((v: unknown) => void)[] = [];
+    rpc.mockResolvedValueOnce(OK(125, 1125)).mockImplementation(() => new Promise((r) => pending.push(r)));
+    renderBlock([mk('a')]);
+    await typeAndApply('save10');
+    await screen.findByTestId('promo-saving');
+    fireEvent.click(screen.getByRole('button', { name: 'One more ticket' }));
+    fireEvent.click(screen.getByRole('button', { name: 'One more ticket' }));
+    expect(rpc.mock.calls.map((c) => c[1].p_quantity)).toEqual([1, 2, 3]);
+    pending[1](OK(375, 3375));
+    pending[0](OK(250, 2250)); // older reply lands last and is dropped
+    await waitFor(() => expect(total()).toContain('Total\u00a333.75'));
+  });
+
+  it('review: back to the count a refused re-price came from re-prices again', async () => {
+    rpc.mockResolvedValueOnce(OK(250, 2250)).mockResolvedValueOnce(NO('below_minimum')).mockResolvedValueOnce(OK(250, 2250));
+    renderBlock([mk('a')]);
+    await screen.findByLabelText('Promo code (optional)');
+    fireEvent.click(screen.getByRole('button', { name: 'One more ticket' }));
+    await typeAndApply('save10');
+    await screen.findByTestId('promo-saving');
+    fireEvent.click(screen.getByRole('button', { name: 'One fewer ticket' }));
+    await waitFor(() => expect(note()).toContain(PROMO_REASON_COPY.below_minimum));
+    fireEvent.click(screen.getByRole('button', { name: 'One more ticket' }));
+    await screen.findByTestId('promo-saving');
+    expect(rpc).toHaveBeenCalledTimes(3);
+  });
+
   it('a free ticket shows no promo field (nothing to take off)', async () => {
     renderBlock([mk('a', { pricePence: 0 })]);
     await screen.findByRole('button', { name: 'Get free ticket' });
