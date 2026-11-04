@@ -158,7 +158,8 @@ describe('You hub x shape', () => {
     myRole = 'manager';
     members = [ME('manager'), ...others(11)];
     left = 2;
-    at(P3_PATHS.you);
+    // no page chosen yet lands on the first by name (F-26), so the long-named draft page is chosen via ?o=
+    at(`${P3_PATHS.you}?o=org-2`);
     expect((await screen.findByTestId('p3-you-page-name')).textContent).toBe(LONG);
     expect(screen.getByTestId('p3-you-page-status').textContent).toBe('Draft');
     expect(screen.getByTestId('p3-you-page-card').textContent).toContain(ROLE_LABEL.manager);

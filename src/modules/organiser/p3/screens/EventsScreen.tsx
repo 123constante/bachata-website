@@ -1,6 +1,7 @@
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
+import { PageHeader, usePageScope } from './PageScope';
 import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 
 const PAST = 'Past and nothing coming up';
@@ -8,6 +9,7 @@ const PAST = 'Past and nothing coming up';
 /** C3 Events: every event, soonest first. Reads only. */
 export function EventsScreen() {
   const home = useP3Home();
+  const scope = usePageScope();
   if (home.isPending) {
     return <StateCard title="Loading your events&hellip;" testId="p3-events-loading">This takes a second.</StateCard>;
   }
@@ -19,18 +21,23 @@ export function EventsScreen() {
       </StateCard>
     );
   }
-  const rows = rowsOf(home.data);
+  const rows = rowsOf(home.data, scope.pageId);
+  const head = <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />;
   if (!rows.length) {
     return (
-      <StateCard title="No events here yet" testId="p3-events-empty">
-        <p>Events you run show up here.</p>
-        <AddEventLink />
-      </StateCard>
+      <div className="p3-stack">
+        {head}
+        <StateCard title="No events here yet" testId="p3-events-empty">
+          <p>Events this page runs show up here. You can add one now{scope.organisers.length > 1 ? ', or switch to another page' : ''}.</p>
+          <AddEventLink />
+        </StateCard>
+      </div>
     );
   }
   const g = groupsOf(rows);
   return (
     <div className="p3-stack" data-testid="p3-events">
+      {head}
       {g.on.length > 0 && <EventList rows={g.on} label="Your events" />}
       {g.hidden.length > 0 && (
         <section aria-label={L.hidden}>
