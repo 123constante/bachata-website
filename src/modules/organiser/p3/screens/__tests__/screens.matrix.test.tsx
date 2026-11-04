@@ -261,21 +261,22 @@ describe('Stats x every shape', () => {
     const name = rowOf(SHAPES[k], TODAY).name;
     viewsQ.value = ok(statsOf([[k, SHAPES[k].name, 41], ['other', 'Other', 9]]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-total').textContent).toContain('50');
+    // page scope (F-26): the other series is not this page's, so it is not counted
+    expect(screen.getByTestId('p3-stats-total').textContent).toContain('41');
     const items = within(screen.getByTestId('p3-stats-byevent')).getAllByRole('listitem');
     expect(items[0].textContent).toContain(`${name}41 ${L.views}`);
   });
 
-  it('probe R-sim-s4-tile + #15: the tile says "views, all your events"; no saves count', () => {
+  it('probe R-sim-s4-tile + #15: the tile says "views, this page\u2019s events"; no saves count', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-total').textContent).toBe('300views, all your events');
+    expect(screen.getByTestId('p3-stats-total').textContent).toBe('300views, this page\u2019s events');
     expect(screen.getByTestId('p3-stats').textContent).not.toMatch(/saves/i);
   });
 
   it('range buttons are pressed one at a time; the table lists every day', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok({ from: '2026-10-19', to: TODAY, series: [{ seriesId: 'w', name: 'W', total: 5, byDay: [{ day: '2026-10-20', count: 2 }, { day: TODAY, count: 3 }] }] });
+    viewsQ.value = ok({ from: '2026-10-19', to: TODAY, series: [{ seriesId: 'weekly', name: 'W', total: 5, byDay: [{ day: '2026-10-20', count: 2 }, { day: TODAY, count: 3 }] }] });
     show(<StatsScreen />);
     const pressed = () => screen.getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent);
     expect(pressed()).toEqual(['30 days']);
@@ -287,7 +288,7 @@ describe('Stats x every shape', () => {
 
   it('no views / no events say what to do; loading and error too', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok(statsOf([['w', 'W', 0]]));
+    viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
     expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Share your link/);
     cleanup();
@@ -363,15 +364,15 @@ describe('review findings (round 1)', () => {
   });
 
   it('an event with 0 views has an empty bar', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok(statsOf([['a', 'A', 30], ['b', 'B', 0]]));
+    homeQ.value = ok(homeOf([SHAPES.weekly, SHAPES.monthly]));
+    viewsQ.value = ok(statsOf([['weekly', 'A', 30], ['monthly', 'B', 0]]));
     show(<StatsScreen />);
     const bars = [...screen.getByTestId('p3-stats-byevent').querySelectorAll('.p3-bar i')] as HTMLElement[];
     expect(bars.map((b) => b.style.width)).toEqual(['100%', '0%']);
   });
 
   it('Today and 7 days are sliced from the one 30-day read, totals included', () => {
-    const s = { from: '2026-09-26', to: TODAY, series: [{ seriesId: 'a', name: 'A', total: 6, byDay: [{ day: '2026-10-01', count: 1 }, { day: '2026-10-20', count: 2 }, { day: TODAY, count: 3 }] }] };
+    const s = { from: '2026-09-26', to: TODAY, series: [{ seriesId: 'weekly', name: 'A', total: 6, byDay: [{ day: '2026-10-01', count: 1 }, { day: '2026-10-20', count: 2 }, { day: TODAY, count: 3 }] }] };
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     viewsQ.value = ok(s);
     show(<StatsScreen />);
@@ -384,7 +385,7 @@ describe('review findings (round 1)', () => {
 
   it('a window across New Year shows the year on last year\'s days', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok({ from: '2026-12-12', to: '2027-01-10', series: [{ seriesId: 'a', name: 'A', total: 2, byDay: [{ day: '2026-12-31', count: 2 }] }] });
+    viewsQ.value = ok({ from: '2026-12-12', to: '2027-01-10', series: [{ seriesId: 'weekly', name: 'A', total: 2, byDay: [{ day: '2026-12-31', count: 2 }] }] });
     show(<StatsScreen />);
     fireEvent.click(screen.getByRole('button', { name: 'Show as a table' }));
     expect(screen.getByTestId('p3-stats-table').textContent).toContain('Thursday 31 December 2026');
@@ -427,7 +428,7 @@ describe('review findings (round 2)', () => {
 
   it('a quiet day on Today is not "No views yet" when the 30 days have views', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
-    viewsQ.value = ok({ from: '2026-09-26', to: TODAY, series: [{ seriesId: 'a', name: 'A', total: 240, byDay: [{ day: '2026-10-01', count: 240 }] }] });
+    viewsQ.value = ok({ from: '2026-09-26', to: TODAY, series: [{ seriesId: 'weekly', name: 'A', total: 240, byDay: [{ day: '2026-10-01', count: 240 }] }] });
     show(<StatsScreen />);
     fireEvent.click(screen.getByRole('button', { name: 'Today' }));
     const card = screen.getByTestId('p3-stats-none-range');
