@@ -176,6 +176,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
           />
         ) : (
           <ListTab
+            retryCamera={() => { setTab('scan'); startCamera(); }}
             list={list} shown={shown} cam={cam} busy={busy} codeInput={codeInput} onCode={submitCode} act={act} seriesId={seriesId}
             shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow} notAllowed={notAllowed}
           />
@@ -206,19 +207,25 @@ interface ScanProps {
 function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes }: ScanProps) {
   if (notAllowed) return <div className="p3-door-pad"><ResultCard shown={shown?.kind === 'not_allowed' ? shown : { kind: 'not_allowed', c: null }} act={act} /></div>;
   if (noneSold) return <EmptySold seriesId={seriesId} />;
+  const helpShown = (cam === 'ask' || cam === 'denied') && !shown;
   return (
     <>
-      {(cam === 'ask' || cam === 'denied') && !shown && (
+      {helpShown && (
         <CameraHelp cam={cam} tries={tries} startCamera={startCamera} openList={openList} counts={counts} />
       )}
-      <div className={`p3-door-cam${shown ? ' p3-door-cam-short' : ''}${(cam === 'ask' || cam === 'denied') && !shown ? ' p3-door-cam-gone' : ''}`} data-testid="door-camera" data-cam={cam}>
+      {!helpShown && <div className="p3-door-pad p3-door-countrow"><Counter counts={counts} /></div>}
+      <div className={`p3-door-cam${shown ? ' p3-door-cam-short' : ''}${helpShown ? ' p3-door-cam-gone' : ''}`} data-testid="door-camera" data-cam={cam}>
         <video ref={video} playsInline muted aria-hidden="true" />
         {cam === 'on' ? (
           <div className="p3-door-finder" aria-hidden="true"><i /><i /><i /><i /></div>
         ) : (
-          <p className="p3-door-camwords" data-testid="door-cam-words">{CAMERA_WORDS[cam]}</p>
+          <div className="p3-door-camwords-box">
+            <p className="p3-door-camwords" data-testid="door-cam-words">{CAMERA_WORDS[cam]}</p>
+            {(cam === 'none' || cam === 'failed') && (
+              <button type="button" className="p3-btn p3-door-tap" onClick={startCamera} data-testid="door-cam-retry">{CAMERA_RETRY_LABEL}</button>
+            )}
+          </div>
         )}
-        <div className="p3-door-camtop"><Counter counts={counts} /></div>
         {cam === 'on' && !shown && <p className="p3-door-hint">Point the camera at the QR code</p>}
       </div>
       <div className="p3-door-pad" aria-live="polite">
@@ -351,9 +358,10 @@ interface ListProps {
   shown: Shown | null; cam: CameraState; busy: boolean;
   codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; act: (a: NextAction) => void; seriesId: string;
   shortCodes: boolean; pendingId: string | null; onCheckIn: (ticketId: string) => void; notAllowed: boolean;
+  retryCamera: () => void;
 }
 
-function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed }: ListProps) {
+function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed, retryCamera }: ListProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
   const rows = list.data?.rows;
@@ -380,6 +388,9 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
       {cameraDead(cam) && (
         <div className="p3-door-pad p3-door-stack">
           <p className="p3-door-camnote" data-testid="door-cam-dead">{CAMERA_WORDS[cam as 'denied']}</p>
+          {(cam === 'none' || cam === 'failed') && (
+            <button type="button" className="p3-btn p3-door-wide p3-door-tap" onClick={retryCamera} data-testid="door-cam-retry">{CAMERA_RETRY_LABEL}</button>
+          )}
           <CodeBox inputRef={codeInput} busy={busy} onCode={onCode} shortCodes={shortCodes} />
         </div>
       )}

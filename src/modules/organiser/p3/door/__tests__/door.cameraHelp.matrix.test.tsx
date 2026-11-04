@@ -122,3 +122,61 @@ describe('after a Don’t allow', () => {
     await waitFor(() => expect(screen.getByTestId('door-camera').getAttribute('data-cam')).toBe('on'));
   });
 });
+
+// ---- door-camera-nits-1: numbered steps, Try again for none/failed, the pill off the feed ----
+describe('camera states: steps and Try again', () => {
+  const stateCases: Array<[string, CameraPermission | null, Cam, keyof typeof UA]> = [
+    ['ask', 'prompt', 'available', 'chrome'],
+    ['granted', 'granted', 'available', 'chrome'],
+    ['denied-android', 'denied', 'available', 'chrome'],
+    ['denied-iphone', 'denied', 'available', 'ios'],
+    ['denied-inapp', 'denied', 'available', 'inapp'],
+    ['none', 'granted', 'none', 'chrome'],
+    ['failed', 'granted', 'failed', 'chrome'],
+    ['unknown', null, 'available', 'chrome'],
+  ];
+  it.each(stateCases)('%s', async (name, perm, cam, b) => {
+    setUA(UA[b]);
+    const m = mk(perm ?? 'unknown', cam);
+    show(m.deps, false);
+    const dead = name === 'none' || name === 'failed';
+    const denied = name.startsWith('denied');
+    if (denied) {
+      const steps = await screen.findByTestId('door-cam-steps');
+      expect(steps.tagName).toBe('OL');
+      expect(steps.querySelectorAll('li').length).toBeGreaterThanOrEqual(2);
+    } else {
+      await waitFor(() => expect(m.getStream.mock.calls.length + (has('door-cam-start') ? 1 : 0)).toBeGreaterThan(0));
+      expect(has('door-cam-steps')).toBe(false);
+    }
+    if (dead) {
+      // the list opens by itself; the line there points at a real button, and so does the Scan tab
+      await waitFor(() => expect(screen.getByTestId('door-tab-list').getAttribute('aria-current')).toBe('page'));
+      expect(has('door-cam-retry')).toBe(true);
+      fireEvent.click(screen.getByTestId('door-tab-scan'));
+      await waitFor(() => expect(has('door-cam-retry')).toBe(true));
+      await waitFor(() => expect(m.getStream.mock.calls.length).toBeGreaterThanOrEqual(2));
+      const before = m.getStream.mock.calls.length;
+      fireEvent.click(screen.getByTestId('door-cam-retry'));
+      await waitFor(() => expect(m.getStream.mock.calls.length).toBe(before + 1));
+    } else if (denied) {
+      expect(has('door-cam-retry')).toBe(true);
+    } else {
+      expect(has('door-cam-retry')).toBe(false);
+    }
+  });
+  it('the N of M pill is never inside the live camera box', async () => {
+    setUA(UA.chrome);
+    show(mk('granted', 'available').deps, false);
+    await waitFor(() => expect(screen.getByTestId('door-camera').getAttribute('data-cam')).toBe('on'));
+    await waitFor(() => expect(has('door-count')).toBe(true));
+    expect(screen.getByTestId('door-camera').contains(screen.getByTestId('door-count'))).toBe(false);
+    expect(document.querySelectorAll('[data-testid="door-count"]').length).toBe(1);
+  });
+  it('the CSS gives the steps visible numbers and the feed no pill', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('src/modules/organiser/p3/door/door.css', 'utf8');
+    expect(css).toMatch(/\.p3-door-steps[^{]*\{[^}]*list-style:\s*decimal/);
+    expect(css).not.toMatch(/\.p3-door-camtop/);
+  });
+});

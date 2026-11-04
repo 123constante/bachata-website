@@ -196,9 +196,10 @@ describe('W-35: every save outcome of a date field has a next action', () => {
         await waitFor(() => screen.getByTestId('p3-toast'));
         return;
       }
-      await waitFor(() => screen.getByTestId('p3-sheet-error'));
+      await waitFor(() => screen.getByTestId(k === 'conflict' ? 'p3-conflict-why' : 'p3-sheet-error'));
       expect(nameBox().value).toBe('Mine');
       if (k === 'conflict') {
+        expect(screen.queryByTestId('p3-sheet-error')).toBeNull();
         // Save is held while the conflict stands, and says why; Start again is the way on
         expect(save().disabled).toBe(true);
         expect(screen.getByTestId('p3-conflict-why').textContent).toMatch(/Start again/);
@@ -274,4 +275,50 @@ describe('W-35: every save outcome of a date field has a next action', () => {
     fireEvent.click(screen.getByTestId('p3-kept-put'));
     expect((screen.getByTestId('p3-own-text') as HTMLTextAreaElement).value).toBe('My words');
   });
+});
+
+// ---- one message on a conflict -------------------------------------------------------------
+
+const GENERIC = /Check it/;
+const PHOTOS = ['https://x.test/a.jpg', 'https://x.test/b.jpg'];
+
+async function openDetails(own: string, edit: string) {
+  show();
+  await waitFor(() => screen.getAllByTestId('p3-date-row'));
+  fireEvent.click(screen.getAllByTestId('p3-date-row')[0].querySelector('button')!);
+  await waitFor(() => screen.getByTestId('p3-date-actions'));
+  fireEvent.click(screen.getByTestId('p3-date-act-details'));
+  await waitFor(() => screen.getByTestId(own));
+  fireEvent.click(screen.getByTestId(edit));
+}
+
+const SHEETS: Record<string, () => Promise<void>> = {
+  name: openName,
+  about: async () => { await openDetails('p3-own-about-edit', 'p3-own-about-edit'); fireEvent.change(screen.getByTestId('p3-own-text'), { target: { value: 'My words' } }); },
+  ticket: async () => { await openDetails('p3-own-ticket-edit', 'p3-own-ticket-edit'); fireEvent.change(screen.getByTestId('p3-own-text'), { target: { value: 'https://tickets.test/x' } }); },
+  photos: async () => {
+    detail = { gallery_override: PHOTOS };
+    await openDetails('p3-own-photos-edit', 'p3-own-photos-edit');
+    fireEvent.click(screen.getAllByTestId('p3-photo-remove')[0]);
+  },
+};
+
+describe('a version conflict shows ONE message; other errors keep their own line', () => {
+  for (const [sheet, open] of Object.entries(SHEETS)) {
+    for (const k of ['conflict', 'offline', 'refused'] as const) {
+      it(`${sheet} / ${k}`, async () => {
+        await open();
+        failNext = OUTCOMES[k];
+        fireEvent.click(save());
+        if (k === 'conflict') {
+          await waitFor(() => screen.getByTestId('p3-conflict-why'));
+          expect(screen.queryByTestId('p3-sheet-error')).toBeNull();
+          expect(document.body.textContent).not.toMatch(GENERIC);
+        } else {
+          await waitFor(() => screen.getByTestId('p3-sheet-error'));
+          expect(screen.queryByTestId('p3-conflict-why')).toBeNull();
+        }
+      });
+    }
+  }
 });
