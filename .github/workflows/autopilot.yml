@@ -1,0 +1,136 @@
+name: Autopilot
+
+# r5 WEBSITE PORT (docs/handover/autopilot-loop-r5.md, brief docs/briefs/autopilot-loop-r5.md):
+# SHIPS OFF. A scheduled run is a DRY RUN (reads and decides, writes nothing) unless the owner sets
+# the repo variable AUTOPILOT_LIVE to exactly `true`; the merge lane is also off unless
+# AUTOPILOT_MERGE_MODE is set. This workflow writes no variable, secret or label setting itself.
+# Vercel build budget: run-ci is never added to a docs-only or `[skip preview]` head, and
+# update-branch only runs on a branch whose vercel.json git.deploymentEnabled is false. The
+# Website lane can only ever consider docs-only PRs (screens, src/, scripts/, .github/,
+# vercel.json and package manifests are hard-tier; tests are owner-merged).
+#
+# Stages S3 + S4 of the automation plan: every hour, do the SAFE next step on every open,
+# non-draft bot PR (head branch claude/ or ccr-), keep its state visible as an ap:* label, and
+# keep ONE edited-in-place comment on the `autopilot status` issue listing what needs a human.
+# Script and decision table: scripts/autopilot-step.mjs, scripts/lib/autopilot.mjs.
+# Handover: docs/handover/autopilot-loop-r1.md.
+#
+# Safe writes only: add run-ci (no proof run at head; daily cap 25 read from repo label events),
+# update-branch (BEHIND and not approved at head), re-run a failed job ONCE (runner memory kill
+# or all-cancelled duplicate), the ap:* labels, the one status comment. It never merges,
+# approves, closes, force-pushes, touches a conflicting branch, a draft, a fork PR, a PR
+# labelled queue-stopped / migration-queued, or an owner-approved migration PR (migration-queue
+# owns those).
+#
+# NEVER RUNS PR CODE: no pull_request trigger at all, and the checkout below pins the default
+# branch, so even a dispatch from a branch runs main's script. PRs are read through the REST API.
+#
+# r2 (review 1204-r1): only kiki-claude-bot's PRs, newest first, never claude/review-*, walk-*,
+# done-* branches or PRs older than 14 days; nothing but an ap:worker-running label until the head
+# carries its [worker-done dt_...] marker; caps: 25 CI proofs (run-ci + re-runs) per rolling 24 h,
+# 5 update-branch and 5 re-runs per hour, 250 requests per run / 550 per hour (all repos).
+#
+# r3 (docs/handover/autopilot-loop-r3.md): the CI cap counts only kiki-claude-bot's run-ci adds;
+# a `ready` PR is compared main...head and gets update-branch when behind and not approved; a PR
+# still ready gets ONE pack comment (edited in place) and, when hard-tier and not approved at head,
+# ONE new comment per head that @-mentions the owner. No new permission: issues: write and
+# pull-requests: write already cover PR comments; the compare read needs contents: read only.
+#
+# r4 MERGE LANE (docs/handover/autopilot-loop-r4.md, docs/automerge.md "Autopilot merge lane"):
+# OFF unless the repo variable AUTOPILOT_MERGE_MODE is exactly `docs-canary` or `soft`. When on,
+# a `ready`, no-screen, non-hard-tier kiki-claude-bot PR that passes every condition of
+# scripts/lib/autopilot-merge.mjs mergeVerdict() is squash-merged pinned to its head sha with
+# secrets.AUTOMERGE_TOKEN (never GITHUB_TOKEN: its merge fires no push workflows on main). Caps: 3
+# merges per run, 6 per rolling 24 h; it pauses itself while main is red after its last merge.
+# The loop never writes a variable or secret. No new trigger, permission or step.
+#
+# STOP IT: disable this workflow in the Actions tab. SKIP ONE PR: add the `autopilot-hold` label.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: "Comma-separated owner/name list"
+        required: false
+        default: "123constante/bachata-website"
+      dry_run:
+        description: "true = read and decide only, write NOTHING (the summary says what it would do)"
+        required: false
+        type: boolean
+        default: true
+
+# Its own group: never waits behind or cancels another workflow; two runs never overlap.
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  autopilot:
+    if: ${{ !github.event.repository.fork }}
+    # Website: GitHub-hosted, like every other Website workflow.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      actions: write
+      checks: read
+      statuses: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: autopilot step (Node built-ins only, no npm install)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The SAME bot credential migration-queue.yml uses: its label/update events fire CI.
+          BOT_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          REPOS: ${{ github.event.inputs.repos || github.repository }}
+          # r4 merge lane: the owner-set switch (unset/other = off) and the merge credential.
+          AUTOPILOT_MERGE_MODE: ${{ vars.AUTOPILOT_MERGE_MODE }}
+          AUTOMERGE_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          # Fail safe (N1) + r5 ships OFF: a schedule is live only when the owner-set variable
+          # AUTOPILOT_LIVE is exactly 'true'; a dispatch only when dry_run is exactly false.
+          # Anything else (unset variable, empty or odd input) is a dry run.
+          DRY_RUN: ${{ (github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/autopilot-step.mjs
+
+  announce-failure:
+    needs: [autopilot]
+    if: failure() && github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'autopilot-failure';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'The hourly autopilot run failed: open bot PRs are NOT being moved.',
+              '',
+              `Run: ${run}`,
+              '',
+              'Read the run summary: an ERROR row names the PR or repo read/write that failed.',
+              'Fix it, or disable the Autopilot workflow until fixed.',
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: LABEL });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: open.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title: 'autopilot red', body, labels: [LABEL] });
+            }
