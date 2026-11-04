@@ -1,6 +1,6 @@
 # Handover: vercel-cpu-cuts-web
 
-Branch `claude/vercel-cpu-cuts-web` (from `origin/main` 4bde699). Ticket dt_b1830f2dd875.
+PR #1362. Branch `claude/vercel-cpu-cuts-web` (from `origin/main` 4bde699). Ticket dt_b1830f2dd875.
 Full detail: `docs/ops/vercel-cpu-cuts-2026-11-04.md`.
 
 ## Landed (all three slices)
