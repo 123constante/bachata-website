@@ -119,6 +119,18 @@ export async function main(argv = [], env = process.env, log = console, deps = {
     return 2;
   }
   const register = parsed.register;
+  if (argv.includes('--offline')) {
+    // The lint-chain link: judge the RECORDED acts_as values only (no credential, no network).
+    const off = judgeIdentities({ register, resolved: {} });
+    if (off.violations.length) {
+      log.error(`identity-register --offline: FAIL -- ${off.violations.length} violation(s) in the recorded acts_as values:`);
+      for (const v of off.violations) log.error('  ' + v);
+      return 1;
+    }
+    const toRecord = register.entries.filter((e) => e.acts_as === null).length;
+    log.log(`identity-register --offline: OK -- ${register.entries.length} entries; no recorded acts_as is the owner login; recorded roles separate; ${toRecord} acts_as still to record (the live GET /user check is automation-identity-check.yml).`);
+    return 0;
+  }
   const fetchImpl = deps.fetch || globalThis.fetch;
   const targets = register.entries.filter((e) => e.identity_check === 'user' && e.exists);
   if (targets.length === 0) {

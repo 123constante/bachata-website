@@ -391,6 +391,12 @@ describe('identity check (drill A36): GET /user per credential, fake fetch', () 
     const v = judgeIdentities({ register: r, resolved: { BOT_PR_TOKEN: '123constante', AUTOMERGE_TOKEN: '123constante' } });
     expect(v.violations.length).toBeGreaterThanOrEqual(3);
   });
+  it('--offline (the lint-chain link) judges the recorded acts_as only: real register 0, owner-acting entry 1', async () => {
+    expect(await identityMain(['--offline'], {}, quiet().log)).toBe(0);
+    const r = reg();
+    entry(r, 'TYPES_BOT_TOKEN').acts_as = '123constante';
+    expect(await identityMain(['--offline'], {}, quiet().log, { registerText: JSON.stringify(r) })).toBe(1);
+  });
   it('--self-test passes', async () => {
     expect(await identityMain(['--self-test'], {}, quiet().log)).toBe(0);
   });
