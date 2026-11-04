@@ -1,0 +1,77 @@
+{"row":"W-02","pic":"w02-0-before.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-09","pic":"w09-0-event.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-09","text":"sheet text: No name yet | Close | Friday Bachata · Every date | Every date | Every date coming up changes | Just Friday 9 October | Every other date stays as it is | What is it? | Class | Masterclass | Party | Performance | Name | Starts | Ends | Level | Beginners | Improvers | Intermediate | Advanced | All levels | Line-up | Nobody yet. Search below to add a teacher or a DJ. | Change line-up | Nothing changed yet | Remove from every date"}
+{"row":"W-01","pic":"w01-0-dirty.png","w19":{"small":["input \"\" 356x42"],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-02","pic":"w02-1-status-sheet.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","text":"(a) Events tab: prompt visible=true, path=/account/p3/events/b0000000-0000-4000-8000-000000000001/details"}
+{"row":"W-09","pic":"w09-1-session-sheet.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","pic":"w01-a-events-tab.png","w19":{"small":["input \"\" 356x42"],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-02","pic":"w02-2-remove-confirm.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","text":"(a) Keep editing: path=/account/p3/events/b0000000-0000-4000-8000-000000000001/details, name value=\"Friday Bachata XYZ\""}
+{"row":"W-02","text":"after remove: path=/account/p3/events/b1000000-0000-4000-8000-000000000002, status tag=\"Finished\""}
+{"row":"W-01","pic":"w01-a-keep.png","w19":{"small":["input \"\" 356x42"],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","text":"(b) history back: prompt visible=true, path=/account/p3/events/b0000000-0000-4000-8000-000000000001/details"}
+{"row":"W-02","pic":"w02-3-after-remove.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","pic":"w01-b-history-back.png","w19":{"small":["input \"\" 356x42"],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","text":"(b) after: path=/account/p3/events/b0000000-0000-4000-8000-000000000001/details, name value=\"Friday Bachata XYZ\""}
+{"row":"W-10","text":"buttons in sheet: Close | Class | Masterclass | Party | Performance | Beginners | Improvers | Intermediate | Advanced | All levels | Change line-up | Nothing changed yet | Remove from every date"}
+{"row":"W-01","text":"(c) Back link: prompt visible=true, path=/account/p3/events/b0000000-0000-4000-8000-000000000001/details"}
+{"row":"W-10","pic":"w10-0-session.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","pic":"w01-c-back-link.png","w19":{"small":["input \"\" 356x42"],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","text":"(c) Leave and lose them: path=/account/p3/events/b0000000-0000-4000-8000-000000000001"}
+{"row":"W-02","text":"reloaded deep link: tag=\"Finished\", add-date disabled=true, add-why=\"This event has finished, so its dates can’t change here. Ask the Bachata Calendar team.\", repeat row disabled=false"}
+{"row":"W-10","pic":"w10-1-lineup.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-01","pic":"w01-c-left.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-02","pic":"w02-4-reloaded.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-10","text":"search \"Cleo\": results=1"}
+{"row":"W-10","pic":"w10-2-search-hit.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-10","text":"search nobody: nomatch=\"Nobody found with that name. Check the spelling, or ask the Bachata Calendar team to add them.\""}
+{"row":"W-10","pic":"w10-3-search-empty.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-16","text":"/: path=/account/p3/events/b9000000-0000-4000-8000-0000000000b1, editable fields=0, notYours=false, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | This event isn’t one of yours | Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team. | See your events | Home | Events | Stats | You | Find eve"}
+{"row":"W-16","pic":"w16-event.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-29","pic":"w29-0-top.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-29","text":"mock series=116; rows in DOM=116; \"Series 114\" present=true; count text=100 || 101 || 102 || 103"}
+{"row":"W-29","pic":"w29-1-bottom.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-29","text":"after scroll to end: last row text=\"true\""}
+{"row":"W-16","text":"/dates: path=/account/p3/events/b9000000-0000-4000-8000-0000000000b1/dates, editable fields=0, notYours=false, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | This event isn’t one of yours | Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team. | See your events | Home | Events | Stats | You | Find eve"}
+{"row":"W-16","pic":"w16-dates.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-16","text":"/details: path=/account/p3/events/b9000000-0000-4000-8000-0000000000b1/details, editable fields=0, notYours=false, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | This event isn’t one of yours | Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team. | See your events | Home | Events | Stats | You | Find eve"}
+{"row":"W-16","pic":"w16-details.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-33","text":"move sheet text: Move Friday 9 October to another day | Close | ← Back | Move to another day | The sessions keep their times. Pick a day from today on. | Move it"}
+{"row":"W-16","text":"/prices: path=/account/p3/events/b9000000-0000-4000-8000-0000000000b1/prices, editable fields=0, notYours=false, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | This event isn’t one of yours | Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team. | See your events | Home | Events | Stats | You | Find eve"}
+{"row":"W-33","pic":"w33-0-move-sheet.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-16","pic":"w16-prices.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-33","pic":"w33-1-move-chosen.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-16","text":"/history: path=/account/p3/events/b9000000-0000-4000-8000-0000000000b1/history, editable fields=0, notYours=false, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Events | This event isn’t one of yours | Only the people who run an event can open it here. If it should be yours, ask the Bachata Calendar team. | See your events | Home | Events | Stats | You | Find eve"}
+{"row":"W-16","pic":"w16-history.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35","pic":"w35-0-time-sheet.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35","pic":"w35-1-first-save.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35","text":"first save sent=1 occurrence commands"}
+{"row":"W-16","text":"/door: path=/account/p3, editable fields=0, notYours=false, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | Home | Settings | Class | Live | Next up · Tomorrow, 8pm | Friday Bachata | Studio One | Needs you | 1 | 2 events have no photo | It’s the first thing dancers see. Friday Bachata, Sunday Party. | Sort the"}
+{"row":"W-35","text":"second save: Change the time on Friday 9 October | Close | ← Back | Every session on this date moves by the same amount. Other dates stay as usual. | Starts at | Now 8pm. | Someone changed this first. Check it. | Save for this date"}
+{"row":"W-16","pic":"w16-door.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-35","pic":"w35-2-conflict.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-36","pic":"w36-0-festival.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-36","text":"festival sessions section: Sessions | 8pm | No name yet | Class | No line-up yet | 9pm | No name yet | Party | No line-up yet | Festival sessions are set with the Bachata Calendar team. Ask us to change the programme.; sessions-ask=\"Festival sessions are set with the Bachata Calendar team. Ask us to change the programme.\""}
+{"row":"W-36","text":"festival session rows are not buttons"}
+{"row":"W-36","pic":"w36-1-festival-session.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-36","pic":"w36-2-course.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-36","text":"course session sheet: No name yet | Close | Beginner Course · Every date | Every date | Every date coming up changes | Just Monday 12 October | Every other date stays as it is | What is it? | Class | Masterclass | Party | Performance | Name | Starts | Ends | Level | Beginners | Improvers | Intermediate | Advanced | All levels | Line-up | Nobody yet. Search below to add a teacher or a DJ. | Change line-up | Nothing changed yet | Remove from every date"}
+{"row":"W-36","pic":"w36-3-course-session.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31","text":"model: 132 dates 2026-02-04..2028-08-09, past=36, cancelled=3, skipped=2"}
+{"row":"W-31","text":"dates screen: rows=96, has \"100 of 132\"=true, has Load more=false, partial note=\"This page lists the newest 100 of 132 dates.\""}
+{"row":"W-31","pic":"w31-0-dates.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-20","pic":"w20-0-event.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-31","pic":"w31-1-dates-bottom.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-20","pic":"w20-1-status-sheet.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-20","text":"status rows: p3-status-row-hide, p3-status-row-draft(disabled), p3-status-row-end(disabled), p3-status-row-stop, p3-status-row-remove"}
+{"row":"W-20","text":"put-live gate: We ask everyone who runs a page. It takes about five minutes and you only do it once. | 4 things left | Nationality | Languages | Page logo | Contact number"}
+{"row":"W-20","pic":"w20-2-put-live-gate.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-20","text":"Not now: path=/account/p3/events/b0000000-0000-4000-8000-000000000001, gate gone=true"}
+{"row":"W-20","pic":"w20-3-not-now.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-20","pic":"w20-4-cancel-sheet.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-20","text":"cancel gate: We ask everyone who runs a page. It takes about five minutes and you only do it once. | 4 things left | Nationality | Languages | Page logo | Contact number"}
+{"row":"W-20","pic":"w20-5-cancel-gate.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
+{"row":"W-26","text":"Continue href=/account/p3/start?o=a0000000-0000-4000-8000-000000000001&at=review"}
+{"row":"W-26","text":"after Continue: path=/account/p3/start?o=a0000000-0000-4000-8000-000000000001&at=review, text=Skip to content | Search events, venues, people… | 🎪 | Organisers | 🏛️ | Venues | Community | 67% | 4 things left | 4 to do. About not added (optional). | Nationality | To do | Show all | Go to Home | Find events | Parties | Classes | Festivals | Tonight | Venues | London Bachata Guide | Beginners"}
+{"row":"W-26","pic":"w26-0-after-continue.png","w19":{"small":[],"clipped":[],"sidewaysPx":0,"garbled":[],"errorCard":false}}
