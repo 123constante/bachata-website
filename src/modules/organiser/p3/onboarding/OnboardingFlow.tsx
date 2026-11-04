@@ -18,6 +18,7 @@ import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
 import { NoDancerBody, NoDancerFoot, PersonScreens } from './PersonFlow';
+import { welcomeLine } from './graceModel';
 import { DJ_ORDER, PERSON_ORDER, heldFrom, isDjStep, personPath, personReadFail, type PersonStep } from './personModel';
 import { PAGE_STALE_KEYS, REAL_GO_LIVE, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
@@ -356,6 +357,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       setTheme={setTheme}
       email={user.email ?? null}
       orgId={orgId}
+      left={rs ? new Set(rs.missing).size : null}
       firstName={dancer.data?.first_name ?? ''}
       held={held ?? { ...EMPTY_PAGE, name: pageName }}
       draft={d ?? draftFrom(EMPTY_PAGE)}
@@ -403,6 +405,8 @@ interface PageScreensProps {
   setTheme: (t: 'light' | 'dark') => void;
   email: string | null;
   orgId: string | null;
+  /** Rows still to finish for this page (the status read), for the welcome line's time; null = not read yet. */
+  left?: number | null;
   /** The dancer's first name when known (Welcome greets by it); '' otherwise. */
   firstName?: string;
   held: PageHeld;
@@ -618,7 +622,7 @@ export function PageScreens(props: PageScreensProps) {
       {copy.helper && <p className="p3-ob-m">{copy.helper}</p>}
       {step === 'welcome' && (
         <>
-          <p className="p3-ob-m">{orgId ? 'A few quick questions and your page is ready to edit. About five minutes, once only.' : 'Let\u2019s find or set up your organiser page.'}</p>
+          <p className="p3-ob-m">{orgId ? welcomeLine(props.left ?? null) : 'Let\u2019s find or set up your organiser page.'}</p>
           <p className="p3-ob-m" data-testid="p3-ob-signedin">
             {email ? <>Signed in as <span className="p3-ob-break">{email}</span>. </> : <>Signed in. </>}
             <button type="button" className="p3-ob-lnk" onClick={() => setSheet({ kind: 'settings' })} data-testid="p3-ob-notyou">Not you?</button>

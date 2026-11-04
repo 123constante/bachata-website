@@ -25,7 +25,7 @@ import { GO_LIVE_NOT_DEPLOYED, type GoLiveApi, type PageReads, type PageWrites }
 import type { PersonReads, PersonWrites } from '../personApi';
 import type { PageCommand } from '../pageModel';
 import { OB_THEME_KEY } from '../obEnv';
-import { GRACE_HIDE_KEY } from '../graceModel';
+import { GRACE_HIDE_KEY, graceBody } from '../graceModel';
 import { eventReturnFrom, withBack } from '../returnTo';
 import { londonTodayKey } from '@/lib/londonDate';
 
@@ -468,7 +468,7 @@ describe('Home grace banner', () => {
 
 // ---- fix-join-first-batch slices B + R (red-first matrix) ---------------------------------------------------
 describe('slice B: the banner words, every left count x role x hidden', () => {
-  const NEW = 'Finish your details first to create or edit events. It takes about five minutes.';
+  const NEW = (left: number) => graceBody(left);
   const CODES = ['photo', 'dance_role', 'nationality', 'languages', 'org_logo', 'org_link', 'org_category', 'contact_confirm', 'org_city', 'org_name'];
   const raw = (left: number, admin: boolean) => ({ v: 1, is_admin: admin, complete: left === 0, person: { missing: [] }, organisers: [{ id: 'o1', name: 'L', complete: left === 0, missing: CODES.slice(0, left) }] });
   const mountBanner = (r: unknown) => {
@@ -488,7 +488,7 @@ describe('slice B: the banner words, every left count x role x hidden', () => {
       return;
     }
     const b = await screen.findByTestId('p3-grace');
-    expect(b.textContent?.split(NEW)).toHaveLength(2);
+    expect(b.textContent?.split(NEW(left))).toHaveLength(2);
     expect(screen.getByTestId('p3-grace-count').textContent).toBe(left === 1 ? '1 thing left' : `${left} things left`);
     expect(screen.getByTestId('p3-grace-go').textContent).toBe('Continue');
     expect(screen.getByTestId('p3-grace-hide')).toBeTruthy();

@@ -190,7 +190,9 @@ describe('signed out: the email step', () => {
     expect(screen.getByTestId('join-person-hi').textContent).toBe('Hi Papacito');
     expect(screen.getByTestId('join-person-card').textContent).toContain('London');
     expect(screen.getByTestId('join-person-card').textContent).toContain(JOIN_COPY.person.tag);
-    expect(document.body.textContent).not.toMatch(/@/);
+    // join-gaps-1: the only address shown is the masked hint's own line (the card itself shows no email)
+    expect(screen.getByTestId('join-person-card').textContent).not.toMatch(/@/);
+    expect(document.body.textContent?.replace(JOIN_COPY.inviteSentTo('p***@sensualvibes.example'), '')).not.toMatch(/@/);
   });
 
   it('a page invite shows no person card', async () => {
@@ -256,6 +258,8 @@ describe('signed out: the email step', () => {
 describe('refusals when the code is sent: each its own screen, each says what to do next', () => {
   it('blocked email domain (403): WhatsApp help and "Use another email" back to the box', async () => {
     h.otp.mockResolvedValue({ data: null, error: { status: 403, message: 'Sign-up with this email provider is not accepted' } });
+    // A link already bound (hint shown): no bind runs, so another email can still work (the bind-tied case: joinGaps.matrix).
+    preview = open({ email_hint: 'a***@blocked.example' });
     mount();
     await sendEmail('ana@blocked.example');
     await stopIs('blocked_domain');

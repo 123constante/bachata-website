@@ -34,6 +34,7 @@ import type { EventWorkspace } from '../../../events/eventModel';
 import { closeGate, gatedCopy, getGate, refusalFacts, subscribeGate } from '../gate';
 import { GateHost } from '../GateHost';
 import { GATE_COPY, gateView } from '../gateModel';
+import { gateBody } from '../graceModel';
 import { REVIEW_ROWS } from '../pageModel';
 import { EditTray, useSaveRun } from '../../screens/EditTray';
 import { CancelEventSheet } from '../../screens/CancelEventSheet';
@@ -224,13 +225,15 @@ describe('every write surface x {refusal, plain error, success} x status x role'
             }
             await screen.findByTestId('p3-gate');
             expect(screen.getByText(GATE_COPY.title)).toBeTruthy();
-            expect(screen.getByTestId('p3-gate-body').textContent).toBe(GATE_COPY.body);
+            expect(screen.getByTestId('p3-gate-body').textContent).toMatch(/^We ask everyone who runs a page, and you only do it once\./);
             if (want.kind === 'failed') {
               await screen.findByTestId('p3-gate-read-failed');
               expect(screen.getByTestId('p3-gate-retry')).toBeTruthy();
             } else {
               await waitFor(() => expect(screen.getByTestId('p3-gate-count').textContent).toBe(want.n === 1 ? '1 thing left' : `${want.n} things left`));
               expect(screen.getByTestId('p3-gate-rows').querySelectorAll('li')).toHaveLength(want.n as number);
+              // join-gaps-1 gap 4: the time promised is the one for the rows listed
+              expect(screen.getByTestId('p3-gate-body').textContent).toBe(gateBody(want.n as number));
             }
             const go = screen.getByTestId('p3-gate-go');
             if (want.to) {
@@ -404,7 +407,7 @@ describe('gateView: Continue target, count and rows per shape', () => {
 
   it('no copy points at a control that is not on the sheet', () => {
     // title, body and the not-yours reason name no control; read failed names Try again, its button
-    for (const words of [GATE_COPY.title, GATE_COPY.body, GATE_COPY.notYours]) expect(words).not.toMatch(/tap|button|press|below|above|save again|try again|close/i);
+    for (const words of [GATE_COPY.title, gateBody(10), gateBody(2), gateBody(null), GATE_COPY.notYours]) expect(words).not.toMatch(/tap|button|press|below|above|save again|try again|close/i);
     expect(GATE_COPY).not.toHaveProperty('done');
     expect(GATE_COPY.readFailed).toMatch(/Try again/);
     expect(GATE_COPY.retry).toBe('Try again');

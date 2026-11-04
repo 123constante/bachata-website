@@ -58,8 +58,13 @@ export const JOIN_COPY = {
     linking: 'Signing you in' + ELLIPSIS,
   },
 
+  /** The masked address a bound invite was sent to (the preview's email_hint), on the email step and the invite-only stop. */
+  inviteSentTo: (hint: string) => `This invite was sent to ${hint}.`,
+
   about: {
     heading: 'A bit about you',
+    // Shown on About after the server refused the Join tap with profile_incomplete: About's Continue is the one button.
+    refusedNotice: 'A few details are missing. Finish them, then join.',
     lead: `Four things, then you${APOS}re in. You can add more later.`,
     linked: 'Linked to your existing profile.',
     missing: (n: number) => (n === 1 ? 'Just one thing missing' : `Just ${n} things missing`),
@@ -117,6 +122,24 @@ export const JOIN_COPY = {
     help: 'Message us on WhatsApp',
     helpUrl: SIGNUP_HELP_WHATSAPP_URL,
     button: 'Use another email',
+  },
+  // hook v1's refusal (sign-up closed to this email), NOT a blocked provider: never blames the provider.
+  inviteOnly: {
+    heading: `We can${APOS}t create an account for this email yet`,
+    body: `Sign-up isn${APOS}t open to this email yet.`,
+    noHint: `Try another email, or message us and we${APOS}ll help.`,
+    useInvited: 'Use the email the invite was sent to',
+    useAnother: 'Use another email',
+    help: 'Message us on WhatsApp',
+    helpUrl: SIGNUP_HELP_WHATSAPP_URL,
+  },
+  // The bind ran before the refused send and tied the link to that email (bind is permanent): another email cannot work here.
+  locked: (inviter: string | null) => `This link is now tied to that email, so it can${APOS}t be used with another one. Ask ${inviterName(inviter)} for a new link, or message us.`,
+  // redeem said profile_incomplete, the re-read says complete (a stale read).
+  profileStale: {
+    heading: `We couldn${APOS}t join you yet`,
+    body: `Your details look finished, but we couldn${APOS}t confirm them yet. Wait a moment, then try again.`,
+    button: 'Try again',
   },
   rateLimited: {
     heading: 'Too many tries',
