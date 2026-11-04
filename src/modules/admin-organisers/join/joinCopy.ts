@@ -1,6 +1,7 @@
 // THE copy module for the /invite join journey (PLAN.md section 3 copy rule): plain English, one
 // place per screen, and every error says what the person can do next -- never a raw code. Unicode
 // punctuation is written as \u escapes (right quote, ellipsis): the Cowork -> FUSE -> NTFS pipeline corrupts raw glyphs.
+import { timePromise } from '@/modules/organiser/p3/onboarding/graceModel';
 import { OTP_RATE_LIMITED_MESSAGE, SIGNUP_HELP_WHATSAPP_URL } from '@/lib/auth-otp-routing';
 
 const APOS = '\u2019';
@@ -16,6 +17,10 @@ export const possessive = (name: string): string => `${name}${APOS}${/s$/i.test(
 export const ASK_FOR_NEW_LINK = 'Ask the person who sent it for a new link.';
 export const DEAD_LINK_REASONS: readonly string[] = ['invalid', 'used', 'revoked', 'expired'];
 export const askForNewLinkLine = (reason: string): string | null => (DEAD_LINK_REASONS.includes(reason) ? ASK_FOR_NEW_LINK : null);
+
+/** ONE rule for the Done sentence: only 0 rows left says the page is theirs; else details first, with graceModel's one time promise. */
+export const doneBody = (rowsLeft: number | null | undefined): string =>
+  rowsLeft === 0 ? JOIN_COPY.done.body : [JOIN_COPY.done.bodyDetailsFirst, timePromise(rowsLeft ?? null)].filter(Boolean).join(' ');
 
 export const PROGRESS_LABELS = { email: 'Your email', about: 'About you', join: 'Join' } as const;
 
@@ -91,7 +96,9 @@ export const JOIN_COPY = {
 
   done: {
     heading: (org: string) => `You${APOS}re on ${possessive(org)} team.`,
+    // Item 7: the promise must match what happens next. Rows left (or unknown) -> the gate asks for details first.
     body: 'Everything on its page is yours to use: events, team and profile.',
+    bodyDetailsFirst: `You${APOS}re on the team. Add your details, then you can add and edit events.`,
     // F-05: with either area live the button opens that area's Home (acceptedInviteLanding /
     // organiserAreaHome), so one label says where it lands.
     button: 'Open your organiser home',

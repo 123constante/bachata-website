@@ -64,10 +64,10 @@ describe('invite Done screen', () => {
   afterEach(cleanup);
   const ID = 'org-1';
   it.each([
-    { organiserP3: false, selfServe: true, id: ID, to: `/account/o/welcome?o=${ID}`, body: JOIN_COPY.done.body },
-    { organiserP3: true, selfServe: true, id: ID, to: `/account/p3?o=${ID}`, body: JOIN_COPY.done.body },
-    { organiserP3: false, selfServe: true, id: null, to: '/account/o', body: JOIN_COPY.done.body },
-    { organiserP3: true, selfServe: true, id: null, to: '/account/p3', body: JOIN_COPY.done.body }, // F-01: P3 live -> P3 Home
+    { organiserP3: false, selfServe: true, id: ID, to: `/account/o/welcome?o=${ID}`, body: JOIN_COPY.done.bodyDetailsFirst },
+    { organiserP3: true, selfServe: true, id: ID, to: `/account/p3?o=${ID}`, body: JOIN_COPY.done.bodyDetailsFirst },
+    { organiserP3: false, selfServe: true, id: null, to: '/account/o', body: JOIN_COPY.done.bodyDetailsFirst },
+    { organiserP3: true, selfServe: true, id: null, to: '/account/p3', body: JOIN_COPY.done.bodyDetailsFirst }, // F-01: P3 live -> P3 Home
     { organiserP3: false, selfServe: false, id: ID, to: '/', body: JOIN_COPY.done.bodyOff },
     { organiserP3: true, selfServe: false, id: ID, to: '/', body: JOIN_COPY.done.bodyOff },
     { organiserP3: false, selfServe: false, id: null, to: '/', body: JOIN_COPY.done.bodyOff },

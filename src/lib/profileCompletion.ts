@@ -181,6 +181,8 @@ const BANNER_HIDDEN_ON = (pathname: string) =>
   pathname.toLowerCase().startsWith("/app/") ||
   // The ambassador queue is the job on that page; reviewing needs no dancer profile.
   pathname === "/ambassador" ||
+  // The join journey asks for the same four details on its About step; one button for one job.
+  pathname.startsWith("/invite/") ||
   pathname.startsWith("/ambassador/");
 
 /** The reminder banner. `dismissed` is per page view; it never outlives a navigation. */
