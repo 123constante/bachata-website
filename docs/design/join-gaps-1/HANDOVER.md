@@ -22,7 +22,9 @@ No PR opened: the routine prompt names no PR step, and opening one is the orches
 - **Browser walk at 390x844 NOT done** (context budget). Walk: email step with/without hint; invite-only (hint, no hint +
   locked, typed = invited); blocked domain (hint, locked); About with the refusal notice; profile_stale; Home banner and
   gate sheet at 10, 6, 3, 0 rows; welcome line. Reuse `tests/e2e/walk-invite-recheck.spec.ts` from `claude/walk-invite-recheck-1`.
-- `npm run check:bundle-budget` main vs branch: see the final report (run if missing).
+- Local gates run: `npm run lint` (all 24 links green, exit 0); unit tests for join + p3 + lib (1422 in the join/p3 run, all green);
+  `check:bundle-budget` exit 0 on BOTH: dancer-app `/app/*` 372.4 KB on main and on the branch (zero bytes added). NOT run: e2e smoke,
+  phone-qa (E1 spec edited, not executed), `pre-ship`, the other CI jobs.
 - Review r1 F4 (older than this diff): bind succeeds, then the send fails on network / 429: Try again returns to the box with
   the preview still unbound in cache, so a different email gets `already_bound`. Fix idea: refetch the preview after a
   successful bind.
