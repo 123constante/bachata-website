@@ -47,13 +47,26 @@ describe('people counts and outcome copy', () => {
     expect(MOVE_PEOPLE_COPY.body(c)).toBe(body);
   });
 
-  it('outcome copy: with and without notices', () => {
-    expect(moveOutcomeCopy(undefined).confirm).toBe('They are not told automatically. Tell them yourself.');
-    expect(moveOutcomeCopy(null).done).toBe('Moved. Tell the people on it yourself: they are not told automatically.');
-    expect(moveOutcomeCopy({ queued: 5, guest_list_unreached: 0 }).done).toBe('Moved. We emailed 5 people about the new date.');
-    expect(moveOutcomeCopy({ queued: 5, guest_list_unreached: 2 }).done).toBe('Moved. We emailed 5 people about the new date. 2 guest-list people have no contact details, so please tell them yourself.');
-    expect(moveOutcomeCopy({ queued: 1, guest_list_unreached: 1 }).done).toBe('Moved. We emailed 1 person about the new date. 1 guest-list person has no contact details, so please tell them yourself.');
+  it('outcome copy: only the moved line without notices or with nobody reached', () => {
+    expect(moveOutcomeCopy(undefined, 'Moved to X.').done).toBe('Moved to X.');
+    expect(moveOutcomeCopy(null, 'Moved to X.').done).toBe('Moved to X.');
+    expect(moveOutcomeCopy({ queued: 0, guest_list_unreached: 0 }, 'Moved to X.').done).toBe('Moved to X.');
+    expect(moveOutcomeCopy({ queued: 5, guest_list_unreached: 0 }, 'Moved to X.').done).toBe('Moved to X. We emailed 5 people about the new day.');
+    expect(moveOutcomeCopy({ queued: 0, guest_list_unreached: 2 }, 'Moved to X.').done).toBe('Moved to X. 2 on the guest list could not be emailed, so you may want to tell them yourself.');
+    expect(moveOutcomeCopy({ queued: 1, guest_list_unreached: 1 }, 'Moved to X.').done).toBe('Moved to X. We emailed 1 person about the new day. 1 on the guest list could not be emailed, so you may want to tell them yourself.');
   });
+  it.each([
+    ['all three', { guest_list: 3, going: 4, tickets: 2, total: 9 }, 'Ticket buyers and people who said they are going get an email about the new day. 3 on the guest list cannot be emailed. You may want to tell them yourself.'],
+    ['tickets only', { guest_list: 0, going: 0, tickets: 2, total: 2 }, 'Ticket buyers get an email about the new day.'],
+    ['going only', { guest_list: 0, going: 2, tickets: 0, total: 2 }, 'People who said they are going get an email about the new day.'],
+    ['guest list only', { guest_list: 2, going: 0, tickets: 0, total: 2 }, '2 on the guest list cannot be emailed. You may want to tell them yourself.'],
+    ['no counts', null, 'Ticket buyers and people who said they are going get an email about the new day. People on the guest list cannot be emailed, so you may want to tell them yourself.'],
+  ] as const)('confirm line (%s)', (_n, c, want) => expect(MOVE_PEOPLE_COPY.tell(c)).toBe(want));
+  it.each([
+    ['real guard message (hyphen, number first)', 'date_has_people: 3 guest-list, 4 going, 2 tickets on 2026-12-01; send acknowledge_people true to move it anyway', { guest_list: 3, going: 4, tickets: 2, total: 9 }],
+    ['key: n form', 'date_has_people: guest_list: 1, going: 0, tickets: 5', { guest_list: 1, going: 0, tickets: 5, total: 6 }],
+    ['order shuffled', 'date_has_people: 2 tickets, 1 going, 7 guest list', { guest_list: 7, going: 1, tickets: 2, total: 10 }],
+  ])('counts from the message: %s', (_n, message, want) => expect(peopleCountsOf({ message })).toEqual(want));
   it('reads notices from the reply top level or data', () => {
     expect(moveNoticesOf({ ok: true })).toBeNull();
     expect(moveNoticesOf({ notices: { queued: 2, guest_list_unreached: 0 } })).toEqual({ queued: 2, guest_list_unreached: 0 });

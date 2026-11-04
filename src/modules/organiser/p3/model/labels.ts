@@ -360,8 +360,10 @@ export function peopleCountsOf(error: unknown): PeopleCounts | null {
     if (g !== null && n !== null && t !== null) return { guest_list: g, going: n, tickets: t, total: whole(o.total) ?? g + n + t };
   }
   const msg = typeof e.message === 'string' ? e.message.replace(DATE_HAS_PEOPLE, '') : '';
-  const keyed = (k: string) => msg.match(new RegExp(`${k}\\D{0,3}(\\d+)`));
-  const [kg, kn, kt] = [keyed('guest_list'), keyed('going'), keyed('tickets')];
+  // The real guard says `3 guest-list, 4 going, 2 tickets on <day>`: the number comes FIRST. `guest_list`,
+  // `guest-list` and `guest list` all name the same count; a `key: n` form is read too.
+  const keyed = (k: string) => msg.match(new RegExp(`${k}\\s*[:=]\\s*(\\d+)`)) ?? msg.match(new RegExp(`(\\d+)\\s*${k}\\b`));
+  const [kg, kn, kt] = [keyed('guest[ _-]list'), keyed('going'), keyed('tickets')];
   const nums = kg && kn && kt ? [kg[1], kn[1], kt[1]] : (msg.match(/\d+/g) ?? []);
   if (nums.length < 3) return null;
   const [g, n, t] = nums.slice(0, 3).map(Number);
@@ -380,17 +382,17 @@ export function moveNoticesOf(reply: unknown): MoveNotices | null {
 }
 
 /**
- * The two sentences about telling the people, in ONE place. `confirm` is said before the move (the reply is not
- * known yet, so it is always the honest "not told" line); `done` is said after, from the reply's notices.
+ * The line after a move, from the reply's notices (admin #1223: one email per paid ticket order and per "going"
+ * user; guest-list entries hold no contact). No notices (server not applied yet) or nobody reached: only the
+ * moved line, never a claim either way. The line BEFORE the move is `MOVE_PEOPLE_COPY.tell`.
  */
-export function moveOutcomeCopy(notices: MoveNotices | null | undefined): { confirm: string; done: string } {
-  const confirm = 'They are not told automatically. Tell them yourself.';
-  if (!notices) return { confirm, done: 'Moved. Tell the people on it yourself: they are not told automatically.' };
-  const who = notices.queued === 1 ? '1 person' : `${notices.queued} people`;
-  const rest = notices.guest_list_unreached > 0
-    ? ` ${notices.guest_list_unreached} guest-list ${notices.guest_list_unreached === 1 ? 'person has' : 'people have'} no contact details, so please tell them yourself.`
+export function moveOutcomeCopy(notices: MoveNotices | null | undefined, moved: string): { done: string } {
+  if (!notices) return { done: moved };
+  const emailed = notices.queued > 0 ? ` We emailed ${notices.queued === 1 ? '1 person' : `${notices.queued} people`} about the new day.` : '';
+  const unreached = notices.guest_list_unreached > 0
+    ? ` ${notices.guest_list_unreached} on the guest list could not be emailed, so you may want to tell them yourself.`
     : '';
-  return { confirm, done: `Moved. We emailed ${who} about the new date.${rest}` };
+  return { done: `${moved}${emailed}${unreached}` };
 }
 
 export const MOVE_PEOPLE_COPY = {
@@ -404,6 +406,19 @@ export const MOVE_PEOPLE_COPY = {
       c.tickets > 0 ? `${c.tickets} with tickets` : '',
     ].filter(Boolean);
     return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  },
+  /**
+   * Who hears about the move, said before it (true once admin #1223 is applied): ticket buyers and people going
+   * are emailed; guest-list entries cannot be. Only the kinds that are on the date; null counts say both.
+   */
+  tell: (c: PeopleCounts | null): string => {
+    const mailed = !c ? 'Ticket buyers and people who said they are going'
+      : c.tickets > 0 && c.going > 0 ? 'Ticket buyers and people who said they are going'
+        : c.tickets > 0 ? 'Ticket buyers' : c.going > 0 ? 'People who said they are going' : '';
+    const first = mailed ? `${mailed} get an email about the new day.` : '';
+    const guests = !c ? 'People on the guest list cannot be emailed, so you may want to tell them yourself.'
+      : c.guest_list > 0 ? `${c.guest_list} on the guest list cannot be emailed. You may want to tell them yourself.` : '';
+    return [first, guests].filter(Boolean).join(' ');
   },
   anyway: 'Move it anyway',
   another: 'Choose another day',

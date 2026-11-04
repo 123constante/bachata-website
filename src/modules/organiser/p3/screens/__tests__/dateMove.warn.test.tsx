@@ -27,6 +27,7 @@ vi.mock('../../../shared/publicVenues', async (orig) => ({
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
 
 import { EventPage } from '../EventPage';
+import { MOVE_PEOPLE_COPY, peopleCountsOf } from '../../model/labels';
 
 afterEach(cleanup);
 
@@ -105,7 +106,7 @@ describe('move a date: the people warning', () => {
     await waitFor(() => screen.getByTestId('p3-move-people'));
     expect(text('p3-move-people-title')).toBe(title);
     expect(text('p3-move-people-body')).toBe(body);
-    expect(text('p3-move-people-tell')).toBe('They are not told automatically. Tell them yourself.');
+    expect(text('p3-move-people-tell')).toBe(MOVE_PEOPLE_COPY.tell(peopleCountsOf({ message: PEOPLE, details })));
     expect(sent).toHaveLength(1);
     expect(sent[0].command.payload).toEqual({ to_date: '2026-12-01' });
     expect(screen.queryByTestId('p3-sheet-error')).toBeNull();
@@ -131,7 +132,7 @@ describe('move a date: the people warning', () => {
     expect(screen.queryByTestId('p3-move-people-body')).toBeNull();
   });
 
-  it('Move it anyway: same move, acknowledge_people true, a NEW idempotency key; success says they are not told (no notices)', async () => {
+  it('Move it anyway: same move, acknowledge_people true, a NEW idempotency key; success says only where it moved (no notices)', async () => {
     replies = [refuse(PEOPLE, { guest_list: 1, going: 1, tickets: 0, total: 2 })];
     await openMove();
     fireEvent.click(screen.getByTestId('p3-move-go'));
@@ -142,7 +143,7 @@ describe('move a date: the people warning', () => {
     expect(sent[1].command).toEqual({ kind: 'occurrence.move_date', payload: { to_date: '2026-12-01', acknowledge_people: true } });
     expect(sent[1].idempotency_key).toBeTruthy();
     expect(sent[1].idempotency_key).not.toBe(sent[0].idempotency_key);
-    expect(screen.getByTestId('p3-toast').textContent).toContain('Moved. Tell the people on it yourself: they are not told automatically.');
+    expect(screen.getByTestId('p3-toast').textContent).toBe('Moved to Tuesday 1 December.');
   });
 
   it('Move it anyway with notices on the reply: says how many were emailed and who was not reached', async () => {
@@ -152,7 +153,7 @@ describe('move a date: the people warning', () => {
     await waitFor(() => screen.getByTestId('p3-move-anyway'));
     fireEvent.click(screen.getByTestId('p3-move-anyway'));
     await waitFor(() => screen.getByTestId('p3-toast'));
-    expect(screen.getByTestId('p3-toast').textContent).toContain('Moved. We emailed 2 people about the new date. 1 guest-list person has no contact details, so please tell them yourself.');
+    expect(screen.getByTestId('p3-toast').textContent).toBe('Moved to Tuesday 1 December. We emailed 2 people about the new day. 1 on the guest list could not be emailed, so you may want to tell them yourself.');
   });
 
   it('a second date_has_people after the confirm shows the confirm again with the NEW counts, and sends nothing more', async () => {

@@ -174,8 +174,8 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
     // A confirmed resend is a NEW write: never reuse the key of the refused one (or of an earlier confirm).
     if (acknowledge) forget(plan);
     setPeople(null);
-    // No people (no confirm): "Moved to {day}." as today. After a confirm: say whether they were told.
-    const words = (reply: unknown) => (acknowledge ? moveOutcomeCopy(moveNoticesOf(reply)).done : DATE_COPY.done.move(fullDate(text, today)));
+    // "Moved to {day}.", plus who was emailed when the reply carries notices (never a claim without them).
+    const words = (reply: unknown) => moveOutcomeCopy(moveNoticesOf(reply), DATE_COPY.done.move(fullDate(text, today))).done;
     void go(plan, (reply) => ({ text: words(reply), ...undoFor('move', d, d.occurrence_date) }), (e) => {
       const msg = e && typeof e === 'object' ? (e as { message?: unknown }).message : null;
       if (typeof msg !== 'string' || !DATE_HAS_PEOPLE.test(msg.trim())) return false;
@@ -222,7 +222,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
           <div className="p3-stack-s" data-testid="p3-move-people">
             <p className="p3-row-t" data-testid="p3-move-people-title">{MOVE_PEOPLE_COPY.title(people.counts?.total ?? null)}</p>
             {body && <p className="p3-note" data-testid="p3-move-people-body">{body}</p>}
-            <p className="p3-warn" data-testid="p3-move-people-tell">{moveOutcomeCopy(null).confirm}</p>
+            <p className="p3-warn" data-testid="p3-move-people-tell">{MOVE_PEOPLE_COPY.tell(people.counts)}</p>
           </div>
           <Err error={error} />
           <Buttons>
