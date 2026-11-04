@@ -22,6 +22,8 @@
 // below is the closed list and the executor refuses anything outside it.
 // Website port (r5, docs/handover/autopilot-loop-r5.md): the admin repo's queue-dry-run.mjs is not
 // here, so the runner-death signs live in this file (same three patterns).
+import { deploymentEnabledByTable } from './vercel-deploys.mjs';
+
 export const RUNNER_DEATH_SIGNS = [
   /Worker exited unexpectedly/i,
   /Timeout terminating forks worker/i,
@@ -42,22 +44,12 @@ export function detectRunnerDeath(text) {
 export const RUN_CI_GATED = false;
 
 /**
- * Website r5 (Vercel build budget, ~100/day): vercel.json git.deploymentEnabled for one branch.
- * Keys are exact names or `prefix*` globs; the most specific (longest) matching key wins.
+ * Website r5 (Vercel build budget, ~100/day): vercel.json git.deploymentEnabled for one branch,
+ * by Vercel's rule (scripts/lib/vercel-deploys.mjs): `*` does not cross `/`, any matching true key wins.
  * @returns {boolean|null} true/false as configured, null when no key matches (Vercel default: deploys).
  */
 export function deploymentEnabledFor(ref, cfg) {
-  const map = cfg && cfg.git && cfg.git.deploymentEnabled;
-  if (!map || typeof map !== 'object') return null;
-  const r0 = String(ref ?? '');
-  let best = null;
-  for (const [k, v] of Object.entries(map)) {
-    const hit = k.endsWith('*') ? r0.startsWith(k.slice(0, -1)) : r0 === k;
-    // An exact name beats any glob; among globs the longest prefix wins.
-    const score = k.endsWith('*') ? k.length : Infinity;
-    if (hit && (best == null || score > best[2])) best = [k, v, score];
-  }
-  return best ? best[1] !== false : null;
+  return deploymentEnabledByTable(ref, cfg && cfg.git && cfg.git.deploymentEnabled);
 }
 
 /**

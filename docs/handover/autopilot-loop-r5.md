@@ -64,3 +64,16 @@ Source: `123constante/bachata-admin` main at `f2b16a5` (r3/r4/r4b/r4c merged). A
 1. Independent review (website-18). 2. Owner Approves at head. 3. Live dry run (above) and table it.
 4. Owner decides `AUTOPILOT_LIVE=true` later; `AUTOPILOT_MERGE_MODE` stays unset until then.
 5. Separately: re-derive the MEASURED block in `check-workflow-artifact-policy.mjs` (red on main too).
+
+## Fix round r1 (review docs/review/1342-r1.md, ticket dt_87d8b90e14f8)
+
+- B1: `MEASURED` in `scripts/check-workflow-artifact-policy.mjs` re-derived from the tree after merging
+  current main: 34 files, 54 jobs, 357 steps, 7 uploads, largest workflow 67 steps. `FLOORS.workflowFiles`
+  16 -> 20, because 16 fell below the pinned lower edge ceil(34/2) = 17. Check and `--self-test` exit 0.
+- N1: `deploymentEnabledFor` now uses `scripts/lib/vercel-deploys.mjs` (Node built-ins only), which follows
+  Vercel's rule: `*` does not cross `/`, and any matching true key wins. Red first: 4 new rows failed on the
+  old matcher. `tests/vercelDeploymentEnabled.test.ts` checks it against the minimatch `deploys()`.
+- N2: `tests/autopilotR2.test.ts` has a new row: a live run with no BOT_TOKEN gets the config error, exit 1, and
+  no non-GET request. The reviewer's mutant (`if (!dryRun && !bot)` removed) is now killed (1 failed).
+- N3: `autopilot.yml` actions are pinned `@v7`. `owner-approval.yml` still uses `@v5`; it was out of scope.
+- Still ships OFF; nothing else touched.

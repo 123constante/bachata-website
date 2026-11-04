@@ -3,7 +3,7 @@
 // H2 autopilot-hold, M1 stale ap:* labels, M2 human-cancelled runs, M3 24 h cap count, N2 author
 // of the status comment. Pure helpers first, then a fake-GitHub simulation of run() that counts
 // every request. Handover: docs/handover/autopilot-loop-r2.md.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   labelPlan, listFacts, listGate, classifyHead, countCiProofs24h, ledgerCount, pruneLedger, newestFirst,
   findStatusComment, staleLabels, deriveFacts, decide, STATE_LABELS, BOT_LOGIN, RUN_CALL_BUDGET, HOUR_CALL_BUDGET,
@@ -174,6 +174,18 @@ const ENV = { REPOS: 'o/r', GH_TOKEN: 't', BOT_TOKEN: 'b', DRY_RUN: 'false' };
 const perPr = (log: string[], n: number) => log.filter((l) => new RegExp(`^(GET|PUT|POST|DELETE) /(pulls|issues)/${n}(/|$)`).test(l));
 
 describe('run() against a fake GitHub (B1, B2, B3, H1, H2)', () => {
+  it('r5 review N2: a live run with no BOT_TOKEN is refused with the config error and makes ZERO writes', async () => {
+    const prs = Array.from({ length: 3 }, (_, i) => ({ ...listPr(1400 + i), mergeable_state: 'behind' }));
+    const gh = fakeGitHub(prs);
+    const { BOT_TOKEN: _bot, ...noBot } = ENV;
+    const out: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { out.push(a.map(String).join(' ')); });
+    let code: number;
+    try { code = await run(noBot, { now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
+    expect(code).toBe(1);
+    expect(out.join('\n')).toMatch(/config[^\n]*BOT_TOKEN missing: live run refused/);
+    expect(gh.log.filter((l) => !l.startsWith('GET'))).toEqual([]);
+  });
   it('20 behind bot PRs: at most 5 update-branch writes, newest first', async () => {
     const prs = Array.from({ length: 20 }, (_, i) => ({ ...listPr(1000 + i), mergeable_state: 'behind' }));
     const gh = fakeGitHub(prs);

@@ -88,6 +88,12 @@ describe('deriveFacts()', () => {
     ['ccr-x', { 'claude/*': false }, null],
     ['claude/x', { 'claude/*': false, 'claude/x': true }, true],
     ['claude/x', null, null],
+    // r1 N1: Vercel's rule -- `*` does not cross `/`, and any matching true key wins.
+    ['claude/a/b', { 'claude/*': false }, null],
+    ['claude/x', { 'claude/*': true, 'claude/x*': false }, true],
+    ['claude/x', { 'claude/*': false, '*/x': true }, true],
+    ['experiment-my-branch-dev', { 'experiment-*': false, '*-dev': true }, true],
+    ['arc/briefs-r5', { 'arc/briefs-*': false, 'feat/*': true }, false],
   ])('r5 deploymentEnabledFor(%s, %j) = %s', (ref, map, want) => {
     expect(deploymentEnabledFor(ref, map ? { git: { deploymentEnabled: map } } : null)).toBe(want);
   });
