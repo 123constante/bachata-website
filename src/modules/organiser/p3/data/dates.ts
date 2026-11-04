@@ -185,7 +185,8 @@ type D = Pick<WorkspaceDate, 'id' | 'version' | 'occurrence_date'>;
 export const PLAN = {
   cancel: (d: D, reason: string) => onDate(d, cancelCommand(reason)),
   bringBack: (d: D) => onDate(d, uncancelCommand()),
-  move: (d: D, to: IsoDate) => onDate(d, moveDateCommand(to)),
+  /** `acknowledge`: the organiser saw the people on the date and confirmed (the server refuses without it). */
+  move: (d: D, to: IsoDate, acknowledge = false) => onDate(d, moveDateCommand(to, acknowledge)),
   time: (d: D, start: string) => onDate(d, setTimeCommand(start, null)),
   resetTime: (d: D) => onDate(d, resetTimeCommand()),
   details: (d: D, patch: OverridePatch) => onDate(d, overrideCommand(patch)),
