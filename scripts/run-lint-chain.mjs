@@ -151,6 +151,8 @@ export const LINKS = [
   "check:no-preview-prefixes",
   "check:journey-grid:self-test",
   "check:journey-grid",
+  "check:required-jobs:self-test",
+  "check:required-jobs",
 ];
 
 /**

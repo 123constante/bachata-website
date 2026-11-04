@@ -164,7 +164,8 @@ const lower = (l) => (typeof l === 'string' ? l.toLowerCase() : '');
  *   comments: [issue comment] | null, body: string | null,
  *   jobs: [{name, status, conclusion}] | null, redNew: [name], redMain: [name], pending,
  *   behindBy: number | null, mergesThisRun, merges24h: number | null,
- *   mainAfterLastMerge: {state: 'none'|'green'|'red'|'pending'|'unread', pr?}
+ *   mainAfterLastMerge: {state: 'none'|'green'|'red'|'pending'|'unread', pr?},
+ *   requiredJobs: checkRequiredJobs() result at the pinned head (slice 2, A17); absent = NO
  * }
  */
 export function mergeVerdict(facts) {
@@ -227,6 +228,11 @@ export function mergeVerdict(facts) {
     if (alsoMain.length) no(`not green (red also on main, or a billing/annotation red): ${alsoMain.join(', ')}`);
     if (jobs.some((j) => j && RED.has(j.conclusion)) && !notGreen.length) no('red check');
   }
+  // 6b. required jobs at the pinned head (slice 2, drill A17; scripts/lib/required-jobs.mjs). The
+  // checker result over .github/automation/required-jobs.json read from MAIN. Absent = refuse.
+  const rj = f.requiredJobs;
+  if (!rj || typeof rj !== 'object' || !Array.isArray(rj.reasons)) no('required jobs not checked at the pinned head (fail closed)');
+  else if (rj.ok !== true || rj.reasons.length) for (const r of rj.reasons.length ? rj.reasons : ['required jobs refused (no reason given)']) no(r);
   // 7. behind
   if (f.behindBy !== 0) no(f.behindBy == null ? 'behind check not read' : `behind main by ${f.behindBy}`);
   // 8. review label by the bot after the latest push + our pack for THIS head

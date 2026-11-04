@@ -31,7 +31,8 @@
 // pinned-sha squash with AUTOMERGE_TOKEN, never GITHUB_TOKEN. A refused merge (409 head moved,
 // 405) is logged and not retried this run. Each merge writes a row in the status comment's log.
 // Exit: 0 ok, 1 any PR or repo read/write errored (the workflow's announce-failure then fires).
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   decide, deriveFacts, labelPlan, jobIds, renderSummary, parseState, nextState, renderStatus,
   listFacts, listGate, markerGate, classifyHead, countCiProofs24h, ledgerCount, pruneLedger, newestFirst, findStatusComment, staleLabels,
@@ -41,6 +42,7 @@ import { buildPack, findPackComment, packHead, pingedAtHead, needsOwnerApprove, 
 import { mergeVerdict, mergeCallBody, merges24h, pruneMerges } from './lib/autopilot-merge.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
 import { readPause, PausedError } from './lib/automation-pause.mjs';
+import { parseRequiredJobs, checkRequiredJobs, REQUIRED_JOBS_PATH } from './lib/required-jobs.mjs';
 
 const API = 'https://api.github.com';
 const LABEL_COLORS = { [STATE_LABELS.waiting]: 'fbca04', [STATE_LABELS.ready]: '0e8a16', [STATE_LABELS.stopped]: 'd93f0b', [STATE_LABELS.running]: 'c5def5' };
@@ -239,16 +241,44 @@ async function mainAfterLastMerge(api, repo, log) {
  * (a GITHUB_TOKEN merge fires no push workflows on main). Refused (409 head moved, 405) = logged,
  * returned, never retried in this run.
  */
-async function mergePr(mergeApi, repo, f, pauseCheck) {
+async function mergePr(mergeApi, repo, f, pauseCheck, requiredCheck) {
   // PAUSE SWITCH: read AGAIN immediately before THE merge, every time (drill A15, docs/automation-pause.md).
   const switchWhy = await pauseCheck();
   if (switchWhy) return { ok: false, paused: true, why: `paused: ${switchWhy}` };
+  // REQUIRED JOBS (slice 2, drill A17): RE-READ the pinned head's check-runs after the pause re-read
+  // and immediately before the PUT; any required job missing / not green = no merge.
+  const rj = await requiredCheck(f.head);
+  if (!rj || rj.ok !== true) return { ok: false, refused: true, why: (rj && rj.reason) || 'required jobs not checked at the pinned head (fail closed)' };
   try {
     const res = await mergeApi.call('PUT', `/repos/${repo}/pulls/${f.number}/merge`, mergeCallBody(f.head));
     return res && res.merged && res.sha ? { ok: true, sha: res.sha } : { ok: false, why: 'merge answered without merged/sha' };
   } catch (e) {
     return { ok: false, why: e.message };
   }
+}
+
+/**
+ * Slice 2 foundations (docs/automation-foundations.md): the REAL readers. Files come from the
+ * checkout the workflow made (main; autopilot.yml checks out the default branch), never the PR.
+ *   requiredJobs(api, repo, sha): GET /repos/{repo}/commits/{sha}/check-runs (paginated, per_page=100)
+ *     judged against required-jobs.json; any read or parse failure is a refusal (fail closed).
+ * run(opts.foundations) may replace a reader in tests only (the ONE shared helper in
+ * tests/autopilotTable.ts); the new tests drive these defaults.
+ */
+export function defaultFoundations({ root = process.cwd(), readFile = (p) => readFileSync(p, 'utf8') } = {}) {
+  let required = null;
+  let requiredWhy = '';
+  try { required = parseRequiredJobs(readFile(join(root, REQUIRED_JOBS_PATH))); } catch (e) { requiredWhy = e.message; }
+  const refuse = (why) => ({ ok: false, missing: [], notGreen: [], reason: why, reasons: [why] });
+  return {
+    requiredJobs: async (api, repo, sha) => {
+      if (!required) return refuse(`required-jobs file unreadable on main (${requiredWhy})`);
+      let checkRuns;
+      try { checkRuns = await api.all(`/repos/${repo}/commits/${sha}/check-runs`, 'check_runs', 10); } catch (e) { return refuse(`check-runs not read at the pinned head (${e.message})`); }
+      if (checkRuns.length >= 1000) return refuse('check-runs list may be truncated (1000+): fail closed');
+      return checkRequiredJobs({ required, checkRuns, headSha: sha });
+    },
+  };
 }
 
 async function ensureLabels(api, repo) {
@@ -301,6 +331,8 @@ export async function run(env = process.env, opts = {}) {
     return api.call(method, p, body, o);
   } });
   const pausedRepos = [];
+  // Slice 2 foundations: required jobs (A17). Defaults are the real readers; see defaultFoundations().
+  const foundations = { ...defaultFoundations(), ...(opts.foundations || {}) };
   const gh = guarded(makeApi(env.GH_TOKEN || '', counter, opts.fetch));
   const bot = env.BOT_TOKEN ? guarded(makeApi(env.BOT_TOKEN, counter, opts.fetch)) : null;
   // r4: the merge lane's own credential; absent = the lane cannot merge (mergeVerdict says so).
@@ -436,6 +468,7 @@ export async function run(env = process.env, opts = {}) {
             if (!mainState) mainState = await mainAfterLastMerge(gh, repo, mergeLog);
             if (mainState.state === 'red') paused = `paused: main red after #${mainState.pr}`;
             const comments = left() > END_RESERVE + 2 ? await gh.all(`/repos/${repo}/issues/${f.number}/comments`, null, 3) : null;
+            const requiredJobs = left() > END_RESERVE + 2 ? await foundations.requiredJobs(gh, repo, f.head) : null;
             const v = mergeVerdict({
               mode: env.AUTOPILOT_MERGE_MODE, dryRun, tokenOk: !!mergeApi, budgetOk: left() > END_RESERVE + 2,
               decision: d.action, workerDone: f.workerDone,
@@ -443,11 +476,12 @@ export async function run(env = process.env, opts = {}) {
               files: f.files, labels: f.labels, labelEvents: f.labelEvents, pushAnchorMs: f.pushAnchorMs, comments, body: f.body,
               jobs: f.jobs, redNew: f.redNew, redMain: f.redMain, pending: f.pending, behindBy: f.behindBy ?? null,
               mergesThisRun: mergesRun, merges24h: merges24h(mergeLog, now), mainAfterLastMerge: mainState,
+              requiredJobs,
             });
             log(`${repo}#${p.number} merge verdict: ${v.merge ? 'MERGE' : `NO: ${v.reasons.join('; ')}`}`);
             if (!v.merge) did = [did, `merge: no (${v.reasons.slice(0, 4).join('; ')}${v.reasons.length > 4 ? `; +${v.reasons.length - 4} more` : ''})`].join('; ');
             else {
-              const m = await mergePr(mergeApi, repo, f, pauseCheck);
+              const m = await mergePr(mergeApi, repo, f, pauseCheck, (sha) => foundations.requiredJobs(gh, repo, sha));
               if (m.paused) did = `${did}; ${m.why}`;
               else if (!m.ok) { log(`::warning::${repo}#${p.number}: merge refused (${m.why}); not retried this run`); did = `${did}; merge refused (${m.why})`; }
               else {
