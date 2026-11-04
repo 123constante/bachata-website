@@ -380,18 +380,15 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-fk-indexes.mjs
 
-      # Gates on a hand-maintained ceiling (baseline 33 teachers / 7 DJs
-      # unassigned, the P5 reading since admin M5 C7b) -- a real but known-imperfect proxy for "nobody lost an
-      # assignment": it reds on ordinary roster growth too, fixed by a
-      # re-baseline commit. The correct replacement (a lost-assignment
-      # predicate, not a ceiling) is queued, not yet built. See
-      # docs/ci-guard-notes.md #17.
+      # Gates on an ASSIGNMENT DEFICIT (roles created on/before 2026-07-24 minus
+      # assigned), not the unassigned total: roster growth after the cutoff WARNs
+      # (exit 0), a lost line-up credit FAILs (exit 1). See docs/ci-guard-notes.md #17.
       - name: Run teacher/DJ assignment integrity check
         if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-teacher-dj-assignment-integrity.mjs
+        run: node scripts/check-teacher-dj-assignment-integrity.mjs --self-test && node scripts/check-teacher-dj-assignment-integrity.mjs
 
       # ADR-007 checks run even if earlier (pre-existing) gates failed -
       # they monitor an independent invariant and we need their signal
