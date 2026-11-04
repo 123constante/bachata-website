@@ -5,7 +5,7 @@ import { P3SeriesGoing } from './P3Going';
 import { RANGE_DAYS, byEventOf, dailyTotals, scopeStats, sliceStats, viewsTotal, type StatsRange } from '../data/stats';
 import { useP3Views } from '../data/useP3Data';
 import { L } from '../model';
-import { PageHeader, usePageScope } from './PageScope';
+import { NoPageCard, PageHeader, usePageScope } from './PageScope';
 import { GoingTile, RetryButton, StateCard } from './parts';
 
 const RANGES: ReadonlyArray<readonly [StatsRange, string]> = [['d', 'Today'], ['w', '7 days'], ['m', '30 days']];
@@ -47,7 +47,7 @@ export function StatsScreen() {
     </div>
   );
 
-  if (views.isPending || scope.home.isPending) {
+  if (views.isPending || scope.loading) {
     return (
       <div className="p3-stack">
         {head}
@@ -65,6 +65,15 @@ export function StatsScreen() {
           <p>Check your connection, then try again.</p>
           <RetryButton onClick={() => void Promise.all([views.refetch(), scope.home.refetch()])} />
         </StateCard>
+      </div>
+    );
+  }
+
+  if (scope.noPage) {
+    return (
+      <div className="p3-stack">
+        {seg}
+        <NoPageCard testId="p3-stats-nopage" what="Your views" />
       </div>
     );
   }

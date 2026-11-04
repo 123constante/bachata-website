@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { P3_PATHS } from '../shell/paths';
+import { StateCard } from './parts';
 import { useP3Home } from '../data/useP3Data';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { useOrganiserChoiceFrom } from '../../switch/useOrganiserChoice';
@@ -7,7 +10,21 @@ import { useOrganiserChoiceFrom } from '../../switch/useOrganiserChoice';
 export function usePageScope() {
   const c = useOrganiserChoiceFrom(useP3Home());
   const seriesIds = new Set((c.selected?.series ?? []).map((s) => s.id));
-  return { ...c, pageId: c.selected?.id ?? null, seriesIds };
+  const noPage = !c.home.isPending && !c.home.isError && c.organisers.length === 0;
+  // The choice is resolved only once the read is in and, with pages to choose from, one is selected:
+  // until then no screen shows any page's data (an unresolved choice must never read as "all pages").
+  const loading = !!c.home.isPending || (c.organisers.length > 0 && !c.selected);
+  return { ...c, pageId: c.selected?.id ?? null, seriesIds, noPage, loading };
+}
+
+/** A person with no page at all, on Events or Stats: nothing to scope, so say how to get a page. */
+export function NoPageCard({ testId, what }: { testId: string; what: string }) {
+  return (
+    <StateCard title="You don&rsquo;t have a page yet" testId={testId}>
+      <p>{what} show here once you run a page. Find your page or create one to get started.</p>
+      <Link className="p3-btn p3-btn-line p3-btn-link" to={P3_PATHS.start} data-testid="p3-nopage-start">Find or create a page</Link>
+    </StateCard>
+  );
 }
 
 /** The page name at the top; with 2+ pages a Switch page control that keeps the person on this screen. */
@@ -40,7 +57,8 @@ export function PageHeader({ selected, organisers, onChoose }: {
                 onClick={() => { onChoose(o.id); setOpen(false); }}
                 data-testid={`p3-page-pick-${o.id}`}
               >
-                <span className="p3-row-t" style={{ overflowWrap: 'anywhere' }}>{o.name}</span>
+                <span className="p3-row-t p3-grow" style={{ overflowWrap: 'anywhere' }}>{o.name}</span>
+                {o.id === selected.id && <span aria-hidden="true" data-testid="p3-page-current">&#10003;</span>}
               </button>
             </li>
           ))}

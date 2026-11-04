@@ -5,7 +5,7 @@ import type { Done } from './StatusSheet';
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
-import { PageHeader, usePageScope } from './PageScope';
+import { NoPageCard, PageHeader, usePageScope } from './PageScope';
 import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 
 const PAST = 'Past and nothing coming up';
@@ -26,7 +26,7 @@ export function EventsScreen() {
 function EventsBody() {
   const home = useP3Home();
   const scope = usePageScope();
-  if (home.isPending) {
+  if (home.isPending || scope.loading) {
     return <StateCard title="Loading your events&hellip;" testId="p3-events-loading">This takes a second.</StateCard>;
   }
   if (home.isError) {
@@ -37,6 +37,7 @@ function EventsBody() {
       </StateCard>
     );
   }
+  if (scope.noPage) return <NoPageCard testId="p3-events-nopage" what="Your events" />;
   const rows = rowsOf(home.data, scope.pageId);
   const head = <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />;
   if (!rows.length) {

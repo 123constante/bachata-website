@@ -144,3 +144,51 @@ describe('J4 switch from the same screen', () => {
     expect(screen.queryByTestId('p3-page-list')).toBeNull();
   });
 });
+
+/* p3-event-status-1: the nits from the #1307 walk (states 0 pages, loading, the open Switch list) x Home/Events/Stats. */
+describe('no page at all (0 pages): Events and Stats say how to get a page', () => {
+  it.each([
+    ['Events', <EventsScreen key="e" />, 'p3-events-nopage'],
+    ['Stats', <StatsScreen key="s" />, 'p3-stats-nopage'],
+  ] as const)('%s', (_n, node, id) => {
+    homeQ.value = ok(home());
+    show(node);
+    const card = screen.getByTestId(id);
+    expect(card.textContent).not.toMatch(/this page/i);
+    expect(card.textContent).toMatch(/find your page or create one/i);
+    expect(screen.getByTestId('p3-nopage-start').getAttribute('href')).toMatch(/\/start$/);
+    expect(screen.queryByTestId('p3-stats-total')).toBeNull();
+    expect(screen.queryByTestId('p3-events-empty')).toBeNull();
+  });
+});
+
+describe('the open Switch list marks the current page', () => {
+  it.each([['Events', <EventsScreen key="e" />], ['Home', <HomeScreen key="h" />], ['Stats', <StatsScreen key="s" />]] as const)('%s', (_n, node) => {
+    homeQ.value = ok(home(ZED, RITMO));
+    show(node, '/?o=zed');
+    fireEvent.click(screen.getByTestId('p3-page-switch'));
+    expect(screen.getByTestId('p3-page-pick-zed').getAttribute('aria-current')).toBe('true');
+    expect(screen.getByTestId('p3-page-pick-ritmo').getAttribute('aria-current')).toBeNull();
+    expect(screen.getByTestId('p3-page-pick-zed').querySelector('[data-testid="p3-page-current"]')).toBeTruthy();
+    expect(screen.getByTestId('p3-page-pick-ritmo').querySelector('[data-testid="p3-page-current"]')).toBeNull();
+  });
+});
+
+describe('the page choice still loading: all three show the same loading, no page data', () => {
+  it.each([
+    ['Home', <HomeScreen key="h" />, 'p3-home-loading'],
+    ['Events', <EventsScreen key="e" />, 'p3-events-loading'],
+    ['Stats', <StatsScreen key="s" />, 'p3-stats-loading'],
+  ] as const)('%s', (_n, node, id) => {
+    homeQ.value = { isPending: true, isError: false, isFetching: true, data: undefined, refetch: vi.fn() };
+    show(node);
+    expect(screen.getByTestId(id)).toBeTruthy();
+    expect(screen.queryAllByTestId('p3-row')).toHaveLength(0);
+    expect(screen.queryByTestId('p3-stats-total')).toBeNull();
+  });
+  it('rowsOf with no page chosen (null) reads no page; only a caller with no page concept reads all', () => {
+    const h = home(ZED, RITMO);
+    expect(rowsOf(h, null)).toEqual([]);
+    expect(rowsOf(h).length).toBeGreaterThan(0);
+  });
+});
