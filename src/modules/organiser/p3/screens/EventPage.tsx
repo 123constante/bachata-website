@@ -1,5 +1,6 @@
-import { useCallback, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { cameBackForKept, dropKept, keptDraft } from '../onboarding/keptDraft';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
 import { isAccessRefusal } from '../../shared/selfServeErrors';
@@ -214,8 +215,18 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const [broken, setBroken] = useState<string | null>(null);
   const coverBroken = !!v.cover && v.cover === broken;
   const [sheet, setSheet] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const closeRepeat = useCallback(() => setRepeat(false), [setRepeat]);
+  // Back from the checklist with a Repeat edit the gate refused (keptDraft.ts): the sheet reopens with it, once.
+  // Read in the initialiser (pure), let go in an effect: shown once, and a second refusal keeps it again.
+  // Only the checklist's "Back to your event" (KEPT_BACK_STATE) reopens it: any other visit leaves it alone, so a
+  // stale edit never pops up uninvited. Tagged with the event it was read for: a page reused for another event
+  // never shows (or drops) the first event's edit.
+  const { state: navState } = useLocation();
+  const seriesId = ws.series.id;
+  const [keptRead, setKeptRead] = useState(() => ({ id: seriesId, k: cameBackForKept(navState) ? keptDraft(seriesId) : null }));
+  const kept = keptRead.id === seriesId ? keptRead.k : null;
+  useEffect(() => { if (kept) dropKept(seriesId); }, [kept, seriesId]);
+  const [repeat, setRepeat] = useState(() => kept?.screen === 'repeat');
+  const closeRepeat = useCallback(() => { setRepeat(false); setKeptRead({ id: '', k: null }); }, [setRepeat]);
   const [date, setDate] = useState<DateOpen>(null);
   const [session, setSession] = useState<SessionOpen>(null);
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
@@ -276,7 +287,8 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       )}
       {repeat && (
         <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
-          onClose={closeRepeat} onDone={(d) => { setRepeat(false); toast.show(d); }} />
+          kept={kept?.screen === 'repeat' ? kept.draft : null}
+          onClose={closeRepeat} onDone={(d) => { closeRepeat(); toast.show(d); }} />
       )}
       <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />
       {session && (

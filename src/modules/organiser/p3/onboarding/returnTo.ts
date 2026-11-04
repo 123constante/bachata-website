@@ -22,5 +22,16 @@ export function withBack(href: string, at: string | null | undefined): string {
 export const BACK_TO_EVENT = 'Back to your event';
 export const GO_TO_HOME = 'Go to Home';
 
-/** The checklist's final words: back to the event only when nothing is left AND there is a valid event. */
-export const finishLabel = (back: string | null, left: number): string => (back && left === 0 ? BACK_TO_EVENT : GO_TO_HOME);
+/**
+ * The checklist's exit words (brief fix-gate-lost-edit): with a valid event to go back to, the exit is always
+ * "Back to your event" (left or not: the refused edit is waiting there, kept by keptDraft.ts); "Go to Home" only
+ * when there is no valid event. `left` is kept for the call sites; the rule no longer depends on it.
+ */
+export const finishLabel = (back: string | null, _left?: number): string => (back ? BACK_TO_EVENT : GO_TO_HOME);
+
+/**
+ * Whether the checklist shows "Back to your event" as a SECOND button: things are still left, there is a valid
+ * event, and the primary is not already that (it is Go live / Try again / Sign in again).
+ */
+export const backAsSecondary = (back: string | null, left: number, primaryLabel: string): boolean =>
+  !!back && left > 0 && primaryLabel !== BACK_TO_EVENT;

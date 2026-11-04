@@ -59,7 +59,8 @@ import {
   welcomeTitle,
 } from './pageModel';
 import { SettingsBody } from './SettingsSheet';
-import { GO_TO_HOME, eventReturnFrom, finishLabel, withBack } from './returnTo';
+import { BACK_TO_EVENT, GO_TO_HOME, backAsSecondary, eventReturnFrom, finishLabel, withBack } from './returnTo';
+import { KEPT_BACK_STATE } from './keptDraft';
 import './page.css';
 
 const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true"><path d="M5 12l5 5 9-10" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -134,9 +135,10 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   }, []);
   const exit = useCallback(() => navigate(P3_PATHS.home), [navigate]);
   // Slice R: the event a refused write came from (GateSheet's Continue), read once so in-flow URL changes keep it.
-  // The checklist's final action goes there only when nothing is left (finishLabel); replace, so Back never loops.
+  // The checklist's exit goes back to the refused event whenever there is a valid one (finishLabel), left or not:
+  // the kept edit is waiting there (keptDraft.ts). Replace, so Back never loops.
   const [back] = useState(() => eventReturnFrom(params.get('back')));
-  const finish = useCallback((left: number) => (back && left === 0 ? navigate(back, { replace: true }) : exit()), [back, exit, navigate]);
+  const finish = useCallback((_left?: number) => (back ? navigate(back, { replace: true, state: KEPT_BACK_STATE }) : exit()), [back, exit, navigate]);
 
   const page = useQuery({ queryKey: ['p3-ob-page', orgId], queryFn: () => reads.page(orgId as string), enabled: !!orgId, retry: false });
   const phone = useQuery({ queryKey: ['p3-ob-page', 'phone', orgId], queryFn: () => reads.phone(orgId as string), enabled: !!orgId, retry: false });
@@ -952,6 +954,10 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
           <button type="button" className="p3-ob-btn" aria-disabled={(c.reason && fail?.action !== 'home' && fail?.action !== 'sign-in') || busy ? 'true' : undefined} aria-describedby={c.reason && !fail ? 'p3-ob-why' : undefined} onClick={() => void primary()} data-testid="p3-ob-continue">
             {busy ? 'Going live\u2026' : primaryLabel}
           </button>
+          {/* things still left + a valid refused event: the way back to it, without finishing first */}
+          {backAsSecondary(back, left, primaryLabel) && (
+            <button type="button" className="p3-ob-btn p3-ob-btn-line" onClick={() => onHome(left)} data-testid="p3-ob-back-event">{BACK_TO_EVENT}</button>
+          )}
         </>
       }>
       <h1 className="p3-ob-t" id="p3-ob-title" tabIndex={-1} data-testid="p3-ob-title">{c.title}</h1>
