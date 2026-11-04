@@ -34,7 +34,8 @@ describe('publicTicketing flag', () => {
     const importers = execSync('git grep -l "qrcode-generator" -- src', { encoding: 'utf8' }).trim().split('\n').filter((f) => !f.includes('__tests__'));
     expect(importers).toEqual(['src/modules/tickets/qr.ts']);
     const qrImporters = execSync('git grep -lE "from .(\\./|@/modules/tickets/)qr." -- src', { encoding: 'utf8' }).trim().split('\n').filter((f) => !f.includes('__tests__'));
-    expect(qrImporters).toEqual(['src/modules/tickets/MyTicketsPage.tsx']);
+    expect(qrImporters).toEqual(['src/modules/tickets/TicketQrCode.tsx']);
+    for (const f of ['MyTicketsPage.tsx', 'OrderQrBlock.tsx']) expect(readFileSync(`src/modules/tickets/${f}`, 'utf8')).toMatch(/from '\.\/TicketQrCode'/);
   });
   it('DancerHome never imports the tickets module; the thank-you page imports the model only (not qr)', () => {
     const dh = readFileSync('src/components/account/DancerHome.tsx', 'utf8');
@@ -42,6 +43,8 @@ describe('publicTicketing flag', () => {
     const thanks = readFileSync('src/modules/tickets/TicketThanksPage.tsx', 'utf8');
     expect(thanks).toMatch(/from '\.\/myTicketsModel'/);
     expect(thanks).not.toMatch(/from '\.\/qr'/);
+    expect(thanks).not.toMatch(/^import .*OrderQrBlock/m);
+    expect(thanks).toMatch(/const OrderQrBlock = lazyWithRetry\(\(\) => import\('\.\/OrderQrBlock'\)\);/);
     const importers = execSync('git grep -l "modules/tickets" -- src/components/account || true', { encoding: 'utf8' }).trim().split('\n').filter((f) => f && !f.includes('__tests__'));
     expect(importers).toEqual([]);
   });
@@ -52,7 +55,7 @@ describe('publicTicketing flag', () => {
     expect(bento).toMatch(/\{flags\.publicTicketing && state === 'ready' && eventId && !over && !occurrence\?\.isCancelled && !pageModel\.page\.isPaused && \(/);
   });
   it('no Stripe secret anywhere in the module', () => {
-    const src = ['ticketCheckoutApi.ts', 'ticketCheckoutModel.ts', 'TicketsBlock.tsx', 'TicketThanksPage.tsx', 'legalCopy.ts', 'MyTicketsPage.tsx', 'myTicketsApi.ts', 'myTicketsModel.ts', 'qr.ts']
+    const src = ['ticketCheckoutApi.ts', 'ticketCheckoutModel.ts', 'TicketsBlock.tsx', 'TicketThanksPage.tsx', 'legalCopy.ts', 'MyTicketsPage.tsx', 'myTicketsApi.ts', 'myTicketsModel.ts', 'qr.ts', 'TicketQrCode.tsx', 'OrderQrBlock.tsx']
       .map((f) => readFileSync(`src/modules/tickets/${f}`, 'utf8')).join('\n');
     expect(src).not.toMatch(/sk_(test|live)_|rk_(test|live)_|STRIPE_SECRET/);
   });

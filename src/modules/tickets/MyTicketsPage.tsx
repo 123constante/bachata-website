@@ -21,7 +21,7 @@ import {
   type MyTicket,
   type PageState,
 } from './myTicketsModel';
-import { qrModules, qrPath } from './qr';
+import QrCode from './TicketQrCode';
 
 /**
  * /account/my-tickets (queue B, flags.publicTicketing). A signed-in buyer's paid tickets with
@@ -35,26 +35,6 @@ const surface = {
   border: '1px solid var(--bento-hairline)',
 } as const;
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
-
-function QrCode({ token }: { token: string }) {
-  const { size, d } = useMemo(() => {
-    const grid = qrModules(token);
-    return { size: grid.length + 8, d: qrPath(grid) };
-  }, [token]);
-  return (
-    <svg
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label="Ticket QR code"
-      data-testid="ticket-qr"
-      className="mx-auto block h-auto w-full max-w-[240px] rounded-sm"
-      shapeRendering="crispEdges"
-    >
-      <rect width={size} height={size} fill="#fff" />
-      <path d={d} fill="#000" />
-    </svg>
-  );
-}
 
 function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position: string | null; today: string; defaultOpen: boolean }) {
   const [anyway, setAnyway] = useState(false);

@@ -164,3 +164,26 @@ export function qrVisible(t: MyTicket, shownAnyway: boolean): boolean {
 
 /** Why a ticket has no QR to show: a control that cannot work says so. */
 export const QR_MISSING = 'QR code unavailable for this ticket. Show your confirmation email at the door.';
+
+export interface OrderQrTicket {
+  ticketId: string;
+  typeName: string;
+  qrToken: string;
+  checkedIn: boolean;
+}
+
+/** my_ticket_order_qr_v1's reply: only `{tickets: [...]}`; a row without all four valid fields is dropped; anything else is null (an error). */
+export function parseOrderQr(data: unknown): OrderQrTicket[] | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const rows = (data as Record<string, unknown>).tickets;
+  if (!Array.isArray(rows)) return null;
+  const out: OrderQrTicket[] = [];
+  for (const raw of rows) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    if (typeof r.ticket_id !== 'string' || typeof r.ticket_type_name !== 'string' || typeof r.checked_in !== 'boolean') continue;
+    if (typeof r.qr_token !== 'string' || !TOKEN_RE.test(r.qr_token)) continue;
+    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in });
+  }
+  return out;
+}
