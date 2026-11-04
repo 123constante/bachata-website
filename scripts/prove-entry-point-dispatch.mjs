@@ -168,6 +168,7 @@ const TARGETS = [
   { rel: 'scripts/apply-firewall.mjs' },
   { rel: 'scripts/auto-walk-manifest.mjs' },
   { rel: 'scripts/autopilot-step.mjs' },
+  { rel: 'scripts/check-automation-workflow-allowlist.mjs' },
   { rel: 'scripts/check-bundle-budget.mjs' },
   { rel: 'scripts/check-chunk-cycles.mjs' },
   { rel: 'scripts/check-dancer-area-isolation.mjs' },
