@@ -166,3 +166,15 @@ Suggested fix for a later brief: refuse any body containing the marker in `class
 1. Apply the diff above to this branch; the two wiring tests go green.
 2. One independent review, one fix round; owner Approves at the PR head (hard-tier).
 3. Optional follow-up brief: marker refusal in `automerge-classify.mjs`.
+
+## PR and CI
+- PR: #1323 (opened by the bot from the first push; body replaced, both checkers exit 0 on it).
+- automerge-ok NOT added: the PR changes `scripts/` (not docs/tests-only) and is hard-tier.
+- CI per job: NOT read at the final head (a cloud worker cannot wait on runs). Expected: unit tests RED on
+  the 2 wiring tests until the workflow diffs land; everything else as on main.
+
+## Second finding (orchestrator prompt skeleton)
+The dispatch prompt's PR skeleton heading `## Phone QA (only when a .tsx or .css UI path changed)` does
+NOT match `HEADING_RE` (`^##\s+phone\s+qa\s*#*\s*$`): on a UI PR that body reports "Section ## Phone QA
+is missing" (exit 1). It only passed here because no UI path changed. Fix the skeleton to a bare
+`## Phone QA` (or loosen the regex in a separate brief).
