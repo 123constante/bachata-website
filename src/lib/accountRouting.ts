@@ -50,6 +50,8 @@ const readOrganiserAreaHome = (): string => {
 export const ORGANISER_AREA_HOME_PATH: string = readOrganiserAreaHome();
 /** My attendance (src/pages/MyAttendance.tsx): nights marked going or interested; past ones link to their rating card. */
 export const MY_ATTENDANCE_PATH = '/account/attendance';
+/** My tickets (src/modules/tickets/MyTicketsPage.tsx, behind publicTicketing). Pinned equal to MY_TICKETS_PATH by a test; kept here so DancerHome never imports the tickets module. */
+export const MY_TICKETS_ACCOUNT_PATH = '/account/my-tickets';
 /** Account settings (src/pages/AccountSettings.tsx): sign out, email, export, hide, erase. Never gated: see isDancerGatedPath. */
 export const ACCOUNT_SETTINGS_PATH = '/account/settings';
 /** Settings opened from inside the dancer app: `?from=app` makes the page offer "Back to Options" (audit M4). */
