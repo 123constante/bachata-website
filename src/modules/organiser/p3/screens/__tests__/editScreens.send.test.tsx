@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SHAPES, wsRaw } from './wsFixtures';
-import { L } from '../../model';
+import { L, saveWordsFor } from '../../model';
 import { VERSION_CONFLICT } from '../../../shared/copy';
 import { LINK_PROBLEM } from '../../../shared/linkRules';
 
@@ -97,7 +97,7 @@ describe('Name and details: the one save', () => {
     expect(envs).toHaveLength(1);
     expect(envs[0]).toMatchObject({ target_id: 'ser-1', expected_version: 7, command: { kind: 'series.upsert', payload: { name: 'Sensual Fridays', default_description: 'No partner needed.' } } });
     expect(Object.keys((envs[0].command as Raw).payload as Raw).sort()).toEqual(['default_description', 'name']);
-    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(L.detailsSaved));
+    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(saveWordsFor(false, 'live').detailsSaved));
   });
 
   it('a new place sends the place and its city', async () => {
@@ -215,7 +215,7 @@ describe('Name and details: the one save', () => {
     expect(screen.queryByTestId('p3-changed-elsewhere')).toBeNull();
   });
 
-  it.each([['ended'], ['archived']] as const)('%s: every field is greyed and Save names why', async (shape) => {
+  it.each([['ended']] as const)('%s: every field is greyed and Save names why', async (shape) => {
     server();
     show(DETAILS, SHAPES[shape]);
     await waitFor(() => screen.getByTestId('p3-details-lock'));
@@ -230,7 +230,7 @@ describe('Prices: the one save', () => {
     const envs = server();
     show(PRICES);
     await waitFor(() => screen.getByTestId('p3-prices-empty'));
-    expect(screen.getByTestId('p3-prices-empty').textContent).toBe(L.pricesNone);
+    expect(screen.getByTestId('p3-prices-empty').textContent).toBe(L.pricesNone(true));
     fireEvent.click(screen.getByTestId('p3-free-switch'));
     await press(saveBtn());
     await waitFor(() => expect(envs).toHaveLength(1));

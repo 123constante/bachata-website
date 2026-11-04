@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from 'react';
-import { Navigate, Route, Routes, type Params } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams, useSearchParams, type Params } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
@@ -27,8 +27,9 @@ const WelcomePage = lazyWithRetry(() => import('../../switch/Welcome'));
 const PageScreen = lazyWithRetry(() => import('../../page'));
 const Done = lazyWithRetry(() => import('../../flows/Done'));
 const AddPageScreen = lazyWithRetry(() => import('../you/AddPageScreen'));
-// p3-shell-exits: R1's New event steps, More (Account), Help and an event's Organisers, in P3's frame.
-const NewFlow = lazyWithRetry(() => import('../../flows/new'));
+// p3-create slice 1: P3's own New event (kind, page, form), lazy so none of it lands on /app's first load.
+const CreateFlow = lazyWithRetry(() => import('../new/CreateFlow'));
+// p3-shell-exits: More (Account), Help and an event's Organisers, in P3's frame.
 const MorePage = lazyWithRetry(() => import('../../more'));
 const HelpPage = lazyWithRetry(() => import('../../more/help'));
 const SeriesOrganisers = lazyWithRetry(() => import('../../events/SeriesOrganisers'));
@@ -49,8 +50,19 @@ const toEvent = (p: Readonly<Params>) => ({ to: P3_PATHS.event(p.seriesId ?? '')
 const toEvents = () => ({ to: P3_PATHS.events, label: 'Events' });
 const toYou = () => ({ to: P3_PATHS.you, label: 'You' });
 const toHome = () => ({ to: P3_PATHS.home, label: 'Home' });
-/** R1's New event step URLs (OrganiserRoutes), each under /account/p3; the URL names the step. */
-export const NEW_STEPS = ['new/what', 'new/name', 'new/:seriesId/venue', 'new/:seriesId/date', 'new/:seriesId/time', 'new/:seriesId/cover'] as const;
+/**
+ * The interim bridge's URLs (#1202: R1's New event steps in P3's frame). They redirect now: the
+ * first two to P3's New event (the page kept), any step of a draft to that draft's event page
+ * (review r1 F6: `new/:seriesId/*`, not only the four R1 steps, so none falls to Home).
+ */
+export const NEW_STEPS = ['new/what', 'new/name', 'new/:seriesId/*'] as const;
+
+function OldNewStep() {
+  const { seriesId } = useParams();
+  const [params] = useSearchParams();
+  // review 1 F9 / F10: the format and the page ride along (a named page is not asked again)
+  return <Navigate to={seriesId ? P3_PATHS.event(seriesId) : P3_PATHS.createForFormat(params.get('format'), params.get('o'))} replace />;
+}
 function lazyScreen(el: ReactNode, frame: P3RouteFrame, back: (p: Readonly<Params>) => P3RouteBack) {
   return <P3RouteBoundary frame={frame} back={back}><Suspense fallback={null}>{el}</Suspense></P3RouteBoundary>;
 }
@@ -76,9 +88,8 @@ export default function P3Routes() {
           <Route path="events/:seriesId/prices" element={lazyScreen(<PricesScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/history" element={lazyScreen(<HistoryScreen />, 'tab', toEvent)} />
           <Route path="events/:seriesId/organisers" element={<P3PushedSurface back={toEvent}><SeriesOrganisers /></P3PushedSurface>} />
-          {NEW_STEPS.map((step) => (
-            <Route key={step} path={step} element={<P3PushedSurface back={toEvents}><NewFlow /></P3PushedSurface>} />
-          ))}
+          <Route path="create" element={<P3PushedSurface back={toEvents}><CreateFlow /></P3PushedSurface>} />
+          {NEW_STEPS.map((step) => <Route key={step} path={step} element={<OldNewStep />} />)}
           <Route path="stats" element={<StatsScreen />} />
           <Route path="you" element={<P3YouSurface />}>
             <Route index element={<YouScreen />} />

@@ -45,6 +45,8 @@ function show() {
 }
 
 const openSheet = () => fireEvent.click(screen.getByTestId('p3-open-status'));
+/** An archived event opens the Removed state, not this page (F-22; removedEvent.test.tsx). */
+const PAGE_KEYS = SHAPE_KEYS.filter((k) => k !== 'archived');
 const row = (m: string) => screen.getByTestId(`p3-status-row-${m}`);
 
 beforeEach(() => {
@@ -192,7 +194,7 @@ describe('Status sheet rows x every shape', () => {
 });
 
 describe('the page x every shape', () => {
-  it.each(SHAPE_KEYS)('%s renders its header, sessions, coming dates and about', (k) => {
+  it.each(PAGE_KEYS)('%s renders its header, sessions, coming dates and about', (k) => {
     wsQ.value = ok(k);
     show();
     const [status, kind] = HEAD[k];
@@ -270,7 +272,7 @@ describe('the read states each say what the person can do', () => {
 });
 
 describe('the Status sheet sends only what was chosen', () => {
-  it.each(SHAPE_KEYS)('%s: opened and closed untouched sends nothing', (k) => {
+  it.each(PAGE_KEYS)('%s: opened and closed untouched sends nothing', (k) => {
     wsQ.value = ok(k);
     show();
     openSheet();
@@ -279,7 +281,7 @@ describe('the Status sheet sends only what was chosen', () => {
     expect(sent.calls).toEqual([]);
   });
 
-  it.each(SHAPE_KEYS)('%s: a greyed row is disabled and sends nothing when tapped', (k) => {
+  it.each(PAGE_KEYS)('%s: a greyed row is disabled and sends nothing when tapped', (k) => {
     wsQ.value = ok(k);
     show();
     openSheet();

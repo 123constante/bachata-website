@@ -20,7 +20,7 @@ describe('parse: positive', () => {
     ['spaced size', section('390 x 844 only')],
     ['Nothing plus explanation', section(S, W, 'Nothing, every page was walked at both sizes')],
   ])('%s', (_n, body) => {
-    expect(parse(body)).toEqual({ ok: true, problems: [] });
+    expect(parse(body)).toEqual({ ok: true, pending: false, problems: [] });
   });
 });
 
@@ -129,7 +129,7 @@ describe('main: exit codes, end to end', () => {
       .replace(/^- Sizes checked:.*$/m, `- Sizes checked: ${S}`)
       .replace(/^- Walked:.*$/m, `- Walked: ${W}`)
       .replace(/^- Not verified:.*$/m, `- Not verified: ${N}`);
-    expect(parse(filled)).toEqual({ ok: true, problems: [] });
+    expect(parse(filled)).toEqual({ ok: true, pending: false, problems: [] });
     // ...and unfilled, it fails: the template alone never satisfies the check.
     expect(parse(template).ok).toBe(false);
   });
@@ -148,5 +148,54 @@ describe('main: exit codes, end to end', () => {
     main([], { PR_BODY: 'x', PR_FILES: UI }, { log() {}, error: (m: string) => errors.push(m) });
     expect(errors.join('\n')).toContain(UI);
     expect(errors.join('\n')).toContain('## Phone QA');
+  });
+});
+
+// Pending, mirroring check-pr-real-data-verified.mjs: the bot stub
+// (scripts/pr-body-stub.mjs) opens every PR with the section set to TO FILL.
+// That is PENDING (exit 3, a notice) on a UI PR, never a pass.
+describe('TO FILL marker: pending, not a violation and not a pass', () => {
+  const M = 'TO FILL';
+  it.each([
+    ['marker on every line', section(M, M, M), true],
+    ['marker on one line', section(S, M), true],
+    ['marker mixed with real text', section(`${S} ${M}`), true],
+    ['marker beside a placeholder', section(M, 'n/a'), false],
+    ['marker, another line missing', `## Phone QA\n- Sizes checked: ${M}\n- Walked: ${W}`, false],
+    ['marker on a mislabelled line', `## Phone QA\n- Sizes checked: ${S}\n- Walked (note): ${M}\n- Not verified: ${N}`, false],
+  ])('%s', (_n, body, pending) => {
+    const r = parse(body);
+    expect(r.ok).toBe(false);
+    expect(r.pending).toBe(pending);
+    expect(main([], { PR_BODY: body, PR_FILES: UI }, quiet)).toBe(pending ? 3 : 1);
+  });
+  it('a docs-only PR with the marker stays OK / not required (0)', () => {
+    expect(main([], { PR_BODY: section(M, M, M), PR_FILES: 'docs/a.md' }, quiet)).toBe(0);
+  });
+  it('FAIL for a renamed label line "Walked (note): text"', () => {
+    const r = parse(`## Phone QA\n- Sizes checked: ${S}\n- Walked (note): ${W}\n- Not verified: ${N}`);
+    expect(r).toMatchObject({ ok: false, pending: false });
+    expect(r.problems.join('\n')).toMatch(/Walked: line is missing/);
+  });
+  it('filled lines pasted above leftover markers are pending, not a pass', () => {
+    const markers = section(M, M, M).split('\n').slice(1).join('\n');
+    expect(parse(`${section()}\n${markers}`)).toMatchObject({ ok: false, pending: true });
+  });
+  it.each([
+    ['filled body', section(), UI, 0],
+    ['violation', section(S, 'n/a'), UI, 1],
+    ['no PR_BODY', undefined, UI, 2],
+    ['pending', section(M, M, M), UI, 3],
+  ])('exit code: %s', (_n, body, files, code) => {
+    const env: Record<string, string> = { PR_FILES: files as string };
+    if (body !== undefined) env.PR_BODY = body as string;
+    expect(main([], env, quiet)).toBe(code);
+  });
+  it('the PENDING message is logged, not an error', () => {
+    const logs: string[] = [];
+    const errors: string[] = [];
+    main([], { PR_BODY: section(M, M, M), PR_FILES: UI }, { log: (m: string) => logs.push(m), error: (m: string) => errors.push(m) });
+    expect(logs.join('\n')).toMatch(/PENDING/);
+    expect(errors).toEqual([]);
   });
 });

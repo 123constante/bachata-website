@@ -37,6 +37,7 @@
 // which skips green with a visible warning because no code change can open it.
 
 import { readFileSync } from 'node:fs';
+import { readBuildPaths, touchesBuildPaths } from './buildRule.mjs';
 
 const GH_API = 'https://api.github.com';
 
@@ -121,6 +122,76 @@ async function headCommitMessage(repo, sha, token, log) {
   }
 }
 
+/** The ready Preview URL for one commit (one pass over its deployments), or null. */
+async function readyPreviewFor(repo, sha, token) {
+  const deployments = await ghJson(`/repos/${repo}/deployments?sha=${sha}&per_page=30`, token);
+  // Vercel labels the environment "Preview" (sometimes "Preview – <project>").
+  const previews = deployments.filter((d) => /preview/i.test(d.environment ?? ''));
+  for (const d of previews) {
+    const statuses = await ghJson(`/repos/${repo}/deployments/${d.id}/statuses?per_page=30`, token);
+    const ready = statuses.find((s) => s.state === 'success' && s.environment_url);
+    if (ready) return { url: ready.environment_url.replace(/\/$/, ''), id: d.id };
+  }
+  return null;
+}
+
+/** GitHub's compare API returns at most this many files; a list that long may
+ *  be truncated, so it can never prove "no build path changed". */
+export const COMPARE_FILE_CAP = 300;
+
+/**
+ * BUILD BY DIFF (scripts/vercel-ignore-build.sh): on any branch, Vercel skips the
+ * build (CANCELED, no preview) when the diff from the branch's last successful
+ * deployment touches none of BUILD_PATHS. Such a head has no preview of its own,
+ * but its app code is byte-identical to that earlier deployment's.
+ *
+ * Returns { url, base } for the newest of the head's ancestors (at most
+ * `maxAncestors`: Vercel clones 10 deep, and a date-ordered list mixes in
+ * merged side-branch commits, so the walk is wider) that has a READY preview, ONLY when the
+ * diff base..head touches no build path under the SAME rule (scripts/lib/
+ * buildRule.mjs parses the script's BUILD_PATHS; there is no second list).
+ * Known limit (as on main since the diff rule began): a Vercel env-var change is
+ * not in git, so a docs-only push after one serves, and measures, the old build;
+ * a dashboard Redeploy builds (base == head).
+ * Every doubt returns null so the caller keeps polling and fails red on
+ * timeout: no previewed ancestor, base not an ancestor, a compare list that may
+ * be truncated, a rule that cannot be read, any API error.
+ */
+export async function findIdenticalPreview({ repo, sha, token, log = console.log, maxAncestors = 20, buildPaths } = {}) {
+  try {
+    const specs = buildPaths ?? readBuildPaths();
+    const commits = await ghJson(`/repos/${repo}/commits?sha=${sha}&per_page=${maxAncestors + 1}`, token);
+    const ancestors = (Array.isArray(commits) ? commits : []).map((c) => c?.sha).filter((s) => s && s !== sha);
+    let found = null;
+    for (const a of ancestors.slice(0, maxAncestors)) {
+      found = await readyPreviewFor(repo, a, token);
+      if (found) {
+        found.base = a;
+        break;
+      }
+    }
+    if (!found) {
+      log(`previewProbe: no previewed ancestor of ${sha.slice(0, 8)} within ${maxAncestors} commits; build-by-diff cannot apply`);
+      return null;
+    }
+    const cmp = await ghJson(`/repos/${repo}/compare/${found.base}...${sha}`, token);
+    const files = Array.isArray(cmp?.files) ? cmp.files : null;
+    if (cmp?.status !== 'ahead' || !files || files.length >= COMPARE_FILE_CAP) {
+      log(`previewProbe: compare ${found.base.slice(0, 8)}...${sha.slice(0, 8)} is not a clean fast-forward file list; build-by-diff does not apply`);
+      return null;
+    }
+    const paths = files.flatMap((f) => [f.filename, f.previous_filename]).filter((p) => typeof p === 'string');
+    if (touchesBuildPaths(paths, specs)) {
+      log(`previewProbe: a build path changed since ${found.base.slice(0, 8)}; waiting for this head's own preview`);
+      return null;
+    }
+    return { url: found.url, base: found.base };
+  } catch (e) {
+    log(`previewProbe: build-by-diff check failed (${e.message}); polling as usual`);
+    return null;
+  }
+}
+
 /**
  * Resolve the ready Vercel preview URL for a commit via the GitHub Deployments
  * API. Polls until a Preview deployment reports a `success` status with an
@@ -140,28 +211,29 @@ export async function resolvePreviewUrl({
   intervalMs = 5_000,
   log = console.log,
   commitMessage = undefined,
+  identicalPreview = findIdenticalPreview,
 } = {}) {
   if (!repo) throw new Error('previewProbe: GITHUB_REPOSITORY is not set.');
   if (!sha) throw new Error('previewProbe: could not determine the preview commit sha.');
 
   // One pass over the deployments: the ready preview URL, or null.
   const readyUrl = async (attempt) => {
-    const deployments = await ghJson(
-      `/repos/${repo}/deployments?sha=${sha}&per_page=30`,
-      token,
+    const r = await readyPreviewFor(repo, sha, token);
+    if (r) log(`previewProbe: preview ready at ${r.url} (deployment ${r.id}, attempt ${attempt})`);
+    return r?.url ?? null;
+  };
+
+  // Build by diff: no preview of its own, but app code identical to a previewed
+  // ancestor -> measure that preview (green, and still a real measurement).
+  const identical = async () => {
+    if (!identicalPreview) return null;
+    const r = await identicalPreview({ repo, sha, token, log });
+    if (!r) return null;
+    log(
+      `::notice title=preview by diff::${sha.slice(0, 8)} changed no build path since ${r.base.slice(0, 8)}, so Vercel ` +
+        `skipped its build (scripts/vercel-ignore-build.sh); measuring ${r.base.slice(0, 8)}'s preview, the identical app code: ${r.url}`,
     );
-    // Vercel labels the environment "Preview" (sometimes "Preview – <project>").
-    const previews = deployments.filter((d) => /preview/i.test(d.environment ?? ''));
-    for (const d of previews) {
-      const statuses = await ghJson(`/repos/${repo}/deployments/${d.id}/statuses?per_page=30`, token);
-      const ready = statuses.find((s) => s.state === 'success' && s.environment_url);
-      if (ready) {
-        const url = ready.environment_url.replace(/\/$/, '');
-        log(`previewProbe: preview ready at ${url} (deployment ${d.id}, attempt ${attempt})`);
-        return url;
-      }
-    }
-    return null;
+    return r.url;
   };
 
   // The END of the SUBJECT only, as scripts/vercel-ignore-build.sh matches it. One pass
@@ -188,7 +260,7 @@ export async function resolvePreviewUrl({
   while (Date.now() < deadline) {
     attempt += 1;
     try {
-      const url = await readyUrl(attempt);
+      const url = (await readyUrl(attempt)) ?? (attempt === 1 ? await identical() : null);
       if (url) return url;
       log(`previewProbe: waiting for a ready Preview deployment for ${sha.slice(0, 8)} (attempt ${attempt})`);
     } catch (e) {
@@ -196,6 +268,9 @@ export async function resolvePreviewUrl({
     }
     await sleep(intervalMs);
   }
+  // Last look: an ancestor's preview may have become ready while we polled.
+  const late = await identical();
+  if (late) return late;
   throw new Error(
     `previewProbe: no ready Vercel preview for ${sha} within ${Math.round(timeoutMs / 1000)}s.`,
   );

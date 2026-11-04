@@ -89,6 +89,9 @@ describe('checkInstagram', () => {
     ['instagram.com/ritmo', 'ritmo', 'ritmo', '@ritmo'],
     ['HTTPS://instagram.com/Ritmo?igsh=x', 'ritmo', 'ritmo', '@ritmo'],
     ['@Ritmo.Latino', 'ritmo.latino', 'ritmo.latino', '@ritmo.latino'],
+    // instagram-refusal r2 fix1 (F1): the m. host is a profile link too (phone share sheets).
+    ['https://m.instagram.com/ritmo', 'ritmo', 'ritmo', '@ritmo'],
+    ['m.instagram.com/Ritmo/', 'ritmo', 'ritmo', '@ritmo'],
   ])('accepts %j', (typed, value, willSave, display) => {
     const c = checkInstagram(typed);
     expect(c.ok).toBe(true);
@@ -101,7 +104,8 @@ describe('checkInstagram', () => {
     expect(c.href).toMatch(/^https:\/\/(www\.)?instagram\.com\//i);
   });
   it.each([
-    ['https://m.instagram.com/ritmo', INSTAGRAM_COPY.refuse],
+    ['https://m.instagram.com.evil.tk/ritmo', INSTAGRAM_COPY.refuse],
+    ['https://m.instagram.com/p/C0ffee', INSTAGRAM_COPY.post],
     ['https://instagram.com', INSTAGRAM_COPY.refuse],
     ['https://instagram.com.evil.tk/ritmo', INSTAGRAM_COPY.refuse],
     ['https://bit.ly/x?ref=instagram.com', INSTAGRAM_COPY.refuse],

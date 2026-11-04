@@ -638,10 +638,11 @@ const FLOORS = {
 const MEASURED = {
   // RE-DERIVED 2026-10-08 after cloudflare-purge-on-deploy.yml joined main:
   // analyse() gave 30 files, 43 jobs, 292 steps.
+  // 2026-11-04: uploadSteps 5 -> 7 (phone-qa.yml auto-walk pictures upload; measured 7).
   workflowFiles: 30,
   jobs: 43,
   steps: 292,
-  uploadSteps: 5,
+  uploadSteps: 7,
   /** db-contract-check.yml, the largest single workflow, in steps. */
   largestWorkflowSteps: 82,
 };

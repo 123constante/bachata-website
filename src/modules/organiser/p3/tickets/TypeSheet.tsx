@@ -24,6 +24,8 @@ import {
 } from '../../tickets/ticketModel';
 import type { Step, TypeDraft } from './model';
 import { StackSheet } from './StackSheet';
+import { useGatedCopy } from '../onboarding/gate';
+import { GATE_LATE, SELL_HELD } from './gateCopy';
 
 const STEP_TITLE: Record<Step, string> = { 1: 'Name and price', 2: 'Places and dates', 3: 'Review' };
 
@@ -63,6 +65,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const [confirmClose, setConfirmClose] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
+  // F-11: an onboarding refusal (a new ticket, or putting one on sale) opens the shared gate sheet, not "Try again"
+  const gated = useGatedCopy();
   /**
    * Late words name the ticket as the list shows it, so they never read as the sheet open now (review r2 R2):
    * the saved name first, which is what the refreshed list shows after a rename (review r3 N1).
@@ -124,11 +128,14 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
       if (type) return landed('Ticket saved.');
       if (!sell) return landed('Ticket saved as a draft. Switch it to Selling when you are ready.');
       if (!out.id) return landed('Ticket saved as a draft. Switch it to Selling to put it on sale.');
-      const st = await setTicketStatus(out.id, 'on_sale').catch(() => ({ ok: false, reason: null }));
+      const st = await setTicketStatus(out.id, 'on_sale').catch((e: unknown) => ({ ok: false, reason: null, error: e }));
       if (st.ok) landed('Ticket added and on sale.');
+      else if ('error' in st && gated(st.error, () => '') === null) landed(SELL_HELD, false);
       else landed(`Ticket saved as a draft, not on sale yet. ${reasonMessage(st.reason)}`, false);
-    } catch {
-      refuse(reasonMessage(null));
+    } catch (e) {
+      const words = gated(e, () => reasonMessage(null));
+      if (words !== null) refuse(words);
+      else if (!alive.current) onLate(named(`not saved. ${GATE_LATE}`), false);
     } finally {
       if (alive.current) setSaving(null);
     }

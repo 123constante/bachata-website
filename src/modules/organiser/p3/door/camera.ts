@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import type { CameraState } from './model';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import type { CameraPermission, CameraState } from './model';
 
 /*
  * The camera and the QR reader. BarcodeDetector (Android Chrome) where it reads qr_code; else
@@ -55,7 +55,24 @@ export interface ScannerDeps {
   makeDetector: () => Promise<Detect>;
   /** ms between reads */
   every: number;
+  /** Read the camera permission WITHOUT asking. Left out = start the camera straight away (as before). */
+  permission?: () => Promise<CameraPermission>;
+  /** Tell me when the permission changes (a change made in settings); returns the unsubscribe. */
+  watchPermission?: (cb: (p: CameraPermission) => void) => () => void;
 }
+
+type PermStatus = { state: string; addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void };
+const queryCamera = async (): Promise<PermStatus | null> => {
+  try {
+    const q = navigator.permissions?.query;
+    if (!q) return null;
+    return (await navigator.permissions.query({ name: 'camera' as PermissionName })) as PermStatus;
+  } catch {
+    return null; // iOS Safari rejects the 'camera' name: unknown
+  }
+};
+const asPerm = (st: PermStatus | null): CameraPermission =>
+  st?.state === 'granted' || st?.state === 'prompt' || st?.state === 'denied' ? st.state : 'unknown';
 
 export const browserDeps: ScannerDeps = {
   getStream: () => {
@@ -64,6 +81,18 @@ export const browserDeps: ScannerDeps = {
   },
   makeDetector,
   every: 250,
+  permission: async () => asPerm(await queryCamera()),
+  watchPermission: (cb) => {
+    let off = () => {};
+    let dead = false;
+    void queryCamera().then((st) => {
+      if (dead || !st?.addEventListener) return;
+      const f = () => cb(asPerm(st));
+      st.addEventListener('change', f);
+      off = () => st.removeEventListener?.('change', f);
+    });
+    return () => { dead = true; off(); };
+  },
 };
 
 /**
@@ -71,7 +100,7 @@ export const browserDeps: ScannerDeps = {
  * and hand each code to onCode. Returns the stop function (tracks stopped, timer cleared).
  * A plain function, so the hook below only starts and stops it.
  */
-export function runScanner(getVideo: () => HTMLVideoElement | null, deps: ScannerDeps, onCode: (raw: string) => void, onState: (s: CameraState) => void): () => void {
+export function runScanner(getVideo: () => HTMLVideoElement | null, deps: ScannerDeps, onCode: (raw: string) => void, onState: (s: CameraState) => void, tapped = true): () => void {
   let stopped = false;
   let stream: MediaStream | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -79,6 +108,14 @@ export function runScanner(getVideo: () => HTMLVideoElement | null, deps: Scanne
   onState('starting');
   (async () => {
     try {
+      // Read the permission BEFORE asking. Until the person taps Start camera, never call getUserMedia
+      // when the answer is not already "granted" (a denied one is remembered by the browser).
+      if (!tapped && deps.permission) {
+        const p = await deps.permission();
+        if (stopped) return;
+        if (p === 'denied') { onState('denied'); return; }
+        if (p !== 'granted') { onState('ask'); return; }
+      }
       stream = await deps.getStream();
       if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
       attached = getVideo();
@@ -119,9 +156,14 @@ export function runScanner(getVideo: () => HTMLVideoElement | null, deps: Scanne
  * (the caller gates repeats). Returns the camera's state for the screen to show: a dead camera
  * keeps saying why while it is off; anything else off just says paused.
  */
-export function useScanner(video: RefObject<HTMLVideoElement>, enabled: boolean, onCode: (raw: string) => void, deps: ScannerDeps = browserDeps): CameraState {
+export function useScanner(video: RefObject<HTMLVideoElement>, enabled: boolean, onCode: (raw: string) => void, deps: ScannerDeps = browserDeps): { state: CameraState; start: () => void; denials: number } {
   const [raw, setRaw] = useState<CameraState>('starting');
   const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  // each tap on Start camera / Try the camera again bumps this and runs the camera once more
+  const [tries, setTries] = useState(0);
+  // how many times the browser has said no: the second one is "Still blocked"
+  const [denials, setDenials] = useState(0);
+  const note = useCallback((s: CameraState) => { setRaw(s); if (s === 'denied') setDenials((n) => n + 1); }, []);
   const cb = useRef(onCode);
   useEffect(() => { cb.current = onCode; }, [onCode]);
 
@@ -134,11 +176,18 @@ export function useScanner(video: RefObject<HTMLVideoElement>, enabled: boolean,
   const running = enabled && !hidden;
   useEffect(() => {
     if (!running) return undefined;
-    return runScanner(() => video.current, deps, (c) => cb.current(c), setRaw);
-  }, [running, deps, video]);
+    return runScanner(() => video.current, deps, (c) => cb.current(c), note, tries > 0);
+  }, [running, deps, video, tries, note]);
 
-  if (running) return raw;
-  return raw === 'denied' || raw === 'none' || raw === 'failed' ? raw : 'off';
+  // a change made in the browser settings is picked up without a reload
+  useEffect(() => {
+    if (!running || !deps.watchPermission) return undefined;
+    return deps.watchPermission((p) => { if (p === 'granted') setTries((n) => n + 1); });
+  }, [running, deps]);
+
+  const start = useCallback(() => setTries((n) => n + 1), []);
+  const state: CameraState = running ? raw : raw === 'denied' || raw === 'none' || raw === 'failed' || raw === 'ask' ? raw : 'off';
+  return { state, start, denials };
 }
 
 /** Vibrate when the phone can; a no-op elsewhere (iPhone Safari has no vibrate). */

@@ -33,7 +33,8 @@ export function PublicToggle({ organiserId, profileId, onChanged }: { organiserI
       const status = await setShownOnPublicTeam(organiserId, !on);
       const next = status === 'unchanged' ? on : status === 'public';
       qc.setQueryData(key, next);
-      void qc.invalidateQueries({ queryKey: ['organiser-lineup', organiserId] });
+      // The public organiser page's team read; nothing changed on the server for 'unchanged'.
+      if (status !== 'unchanged') void qc.invalidateQueries({ queryKey: ['organiser-lineup', organiserId] });
       onChanged?.(next ? 'You now show on the public team.' : 'You no longer show on the public team.');
     } catch (e) {
       setError(publicTeamErrorMessage(e));

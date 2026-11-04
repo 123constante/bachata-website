@@ -39,7 +39,7 @@ import {
 
 const FULL: PersonDraft = {
   first_name: 'Sam', avatar_url: 'https://img/a.jpg', dance_role: 'Lead and Follow', nationality: 'ES', languages: ['English', 'Spanish'],
-  teach: 'yes', levels: ['Beginner'], styles: ['Moderna'], years: '4', about: 'We dance.',
+  teach: 'yes', levels: ['Beginner'], styles: ['Moderna'], years: '4', about: 'We dance.', dj: null, genres: '',
 };
 
 describe('path and progress (owner change 2: a percentage that follows the path length)', () => {
@@ -137,7 +137,7 @@ describe('heldFrom over the prod shapes', () => {
     ['brand new (all null, no intent row, no teacher row)', { dancer: dancer({}), intent: { roles: [], declined: [] }, teacher: {}, bio: null }, EMPTY_DRAFT],
     ['alpha-2 nationality, [] languages', { dancer: dancer({ nationality: 'DO', languages: [] }), intent: { roles: ['dancer'], declined: [] }, teacher: null, bio: '' }, { ...EMPTY_DRAFT, nationality: 'DO' }],
     ['Lead and Follow, 3 languages, teacher claimed', { dancer: dancer({ first_name: 'Sam', dance_role: 'Lead and Follow', languages: ['English', 'Polish', 'Spanish'] }), intent: { roles: ['dancer', 'teacher', 'dj'], declined: [] }, teacher: { teaching_styles: ['Sensual', 'Moderna'], years_teaching: null }, bio: 'Hi' },
-      { ...EMPTY_DRAFT, first_name: 'Sam', dance_role: 'Lead and Follow', languages: ['English', 'Polish', 'Spanish'], teach: 'yes', styles: ['Sensual', 'Moderna'], about: 'Hi' }],
+      { ...EMPTY_DRAFT, first_name: 'Sam', dance_role: 'Lead and Follow', languages: ['English', 'Polish', 'Spanish'], teach: 'yes', styles: ['Sensual', 'Moderna'], about: 'Hi', dj: 'yes' }],
     ['declined teacher wins over a claimed one', { dancer: dancer({}), intent: { roles: ['teacher'], declined: ['teacher'] }, teacher: { years_teaching: 12 }, bio: null },
       { ...EMPTY_DRAFT, teach: 'no', years: '12' }],
     // The prod teacher object today (_role_details_v1): no levels_taught key, so levels are NOT prefilled

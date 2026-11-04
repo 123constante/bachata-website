@@ -176,13 +176,13 @@ describe('TO FILL marker: pending, not a violation and not a pass', () => {
   });
 
   it('the body bot-pr.yml writes today is pending (exit 3)', async () => {
-    const { readFileSync } = await import('node:fs');
-    const yml = readFileSync(new URL('../.github/workflows/bot-pr.yml', import.meta.url), 'utf8');
-    const m = /const body = (\[[\s\S]*?\])\.join\("\\n"\);/.exec(yml);
-    expect(m, 'bot-pr.yml must build the body as [ ... ].join("\\n")').not.toBeNull();
-    const body = (new Function('process', `return ${m![1]}.join("\\n");`) as (p: unknown) => string)({
-      env: { BRANCH: 'claude/x' },
-    });
+    // bot-pr.yml builds the body with `node scripts/pr-body-stub.mjs`; run that generator.
+    const { execFileSync } = await import('node:child_process');
+    const { fileURLToPath } = await import('node:url');
+    const body = execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/pr-body-stub.mjs', import.meta.url))], {
+      env: { ...process.env, BRANCH: 'claude/x' },
+      encoding: 'utf8',
+    }).replace(/\n$/, '');
     expect(body).toContain('Opened by the bot');
     expect(parse(body)).toMatchObject({ ok: false, pending: true });
     expect(main([], { PR_BODY: body }, quiet)).toBe(3);
@@ -200,6 +200,30 @@ describe('TO FILL marker: pending, not a violation and not a pass', () => {
       classify({ pr: { ...pr, body }, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false });
     expect(go(section()).qualifies).toBe(true);
     expect(go(section(M)).qualifies).toBe(false);
+  });
+});
+
+describe('bot-pr.yml wiring', () => {
+  it('builds the body from scripts/pr-body-stub.mjs, with a warned fallback so the PR always opens', async () => {
+    const { readFileSync } = await import('node:fs');
+    const yml = readFileSync(new URL('../.github/workflows/bot-pr.yml', import.meta.url), 'utf8').replace(/\r/g, '');
+    expect(yml).toContain('uses: actions/checkout@');
+    // The token step must run main's generator, never the pushed branch's copy.
+    expect(yml).toMatch(/actions\/checkout@[^\n]*\n\s+with:\n\s+ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
+    expect(yml).toContain('node scripts/pr-body-stub.mjs');
+    expect(yml).toMatch(/::warning::[^\n]*pr-body-stub/);
+    // The labels live in the checkers only: no inline stub array is left behind.
+    expect(yml).not.toContain('"- Shapes surveyed: TO FILL"');
+  });
+});
+
+describe('phone-qa-section.yml wiring', () => {
+  it('turns ONLY exit 3 into a non-failing notice, like real-data-verified.yml', async () => {
+    const { readFileSync } = await import('node:fs');
+    const yml = readFileSync(new URL('../.github/workflows/phone-qa-section.yml', import.meta.url), 'utf8').replace(/\r/g, '');
+    expect(yml).toContain('node scripts/check-pr-phone-qa.mjs --self-test');
+    expect(yml).toMatch(/set \+e\n\s+node scripts\/check-pr-phone-qa\.mjs\n\s+code=\$\?/);
+    expect(yml).toMatch(/if \[ "\$code" = "3" \]; then\n\s+echo "::notice [^\n]*\n[^\n]*\n\s+exit 0\n\s+fi\n\s+exit "\$code"/);
   });
 });
 
