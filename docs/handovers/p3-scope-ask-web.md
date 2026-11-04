@@ -28,7 +28,7 @@ Venue without a city is treated as unscoped (stays in the upsert).
 - The brief's files `docs/design/scope-ask-api.md` / db handover were read from the admin repo (not in this repo).
 
 ## Verified
-- New tests: model 56 -> with real shapes 59, data 10, render 9; red first (modules missing), then green.
+- New tests: model 49 + 3 real shapes, data 10, render 9; red first (modules missing), then green.
 - `npx vitest run src/modules/organiser/p3`: 88 files, 4987 passed, 2 skipped.
 - `npx tsc --noEmit`: clean. `npm run lint`: 24 of 24 links green (eslint link informational). `npm run check:mojibake`: clean.
 
