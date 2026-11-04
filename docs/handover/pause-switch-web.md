@@ -84,3 +84,32 @@ a later slice wires them.
   `node scripts/automation-pause.mjs` against it; check the Dependabot token case live.
 - Decide the long-term listing approach (see Deviation).
 - Later slices: variable (b), `resume`, cross-repo read, readers for consumers 7-12.
+
+## Fix round r1 (brief docs/briefs/fix-1361-r1.md, 2026-11-04)
+
+Done:
+- Reader author check: only an issue CREATED by the repo owner counts. `PAUSE_ISSUE_AUTHOR_BOTS`
+  is deliberately EMPTY. Review found that listing kiki-claude-bot would let the paused automation
+  create a fresh unlabelled issue and un-pause itself. Foreign same-title issues are ignored with
+  a `::warning::`. Two owner issues = paused.
+- Guard workflow: the scheduled run also runs `disarm` (needs: guard, always()). It disables
+  auto-merge unless `--info` reads `paused=false`, so a label present OR any doubt disarms.
+- Tests (red on mutants first): autopilot reader throws / malformed / default reader with
+  GH_TOKEN; the author-check table; event x label table over the real `if:` expressions.
+
+Left for the owner / orchestrator (review findings skipped as out of the r1 scope):
+- the `issues`/labeled disarm still matches on title only, not author (disarm is the safe direction).
+- `workflow_dispatch` does not disarm.
+- the reader warning goes to console, not the CLI `out`.
+- the owner is compared in two places (case-insensitive author check vs the case-sensitive
+  `decideReassert`).
+- the disarm job does one extra issues read.
+
+Next steps: create the real `AUTOMATION PAUSE SWITCH` issue AS THE OWNER, because an issue
+created by a bot is now ignored. Then do a live read-only `--info` and watch one scheduled
+guard run.
+
+Local env note: this container's node_modules lacked `qrcode-generator` (added on main in #1359).
+After installing it, build passed. typecheck is 109 = main 109. bundle-budget /
+first-load-requests are red on main too. The live-DB contract tests and integrityCouldNotRun
+fail in this sandbox on files the diff does not touch.
