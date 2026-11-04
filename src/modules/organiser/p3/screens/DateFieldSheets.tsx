@@ -25,6 +25,42 @@ interface FieldProps {
   onSave: (patch: OverridePatch) => void;
   onBack: () => void;
   onClose: () => void;
+  /** W-35: the last save was refused as version_conflict; Save waits for Start again. */
+  conflict: boolean;
+  /** Start again is reading the date. */
+  restarting: boolean;
+}
+
+/** What the sheet keeps across Start again: the person's typing, offered back once the fresh value shows. */
+interface KeptProps {
+  kept: unknown;
+  onKeptDone: () => void;
+  onStartAgain: (mine: unknown) => void;
+}
+
+/** W-35: Save is held after a version_conflict; this says why and is the way on. */
+export function ConflictNote({ busy, onStart }: { busy: boolean; onStart: () => void }) {
+  return (
+    <div className="p3-stack-s">
+      <p className="p3-warn" data-testid="p3-conflict-why">
+        Someone else saved a change to this date, so yours was not saved. Start again to see it; what you typed is kept until you choose.
+      </p>
+      <button type="button" className="p3-btn p3-btn-line" disabled={busy} onClick={onStart} data-testid="p3-start-again">
+        {busy ? 'Loading this date\u2026' : 'Start again'}
+      </button>
+    </div>
+  );
+}
+
+/** W-35: after Start again, the person's typing offered back or dropped, in plain words. */
+export function KeptOffer({ onPut, onDrop }: { onPut: () => void; onDrop: () => void }) {
+  return (
+    <div className="p3-card p3-tight p3-stack-s" data-testid="p3-kept-offer">
+      <p className="p3-row-t p3-plain">This is the date as it is now. Your changes are not saved.</p>
+      <button type="button" className="p3-btn p3-btn-line" onClick={onPut} data-testid="p3-kept-put">Put my changes back</button>
+      <button type="button" className="p3-link" onClick={onDrop} data-testid="p3-kept-drop">Drop my changes</button>
+    </div>
+  );
 }
 
 /**
@@ -32,12 +68,14 @@ interface FieldProps {
  * a save that sends only a real change (the builder's patch, null = nothing to send), a leave
  * guard on Back and Close, and "Undo my changes" behind a confirm.
  */
-function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, uploading = false, error, onSave, onBack, onClose, children }: {
+function FieldSheet<T>({
+  title, base, draft, setDraft, patch, problem, busy, uploading = false, error, onSave, onBack, onClose, conflict, restarting, kept, onKeptDone, onStartAgain, children,
+}: {
   title: string; base: T; draft: T; setDraft: (v: T) => void; patch: OverridePatch | null; problem: string | null;
   /** Photos still uploading: leaving asks first (they would be lost), saving waits. */
   uploading?: boolean;
   children: ReactNode;
-} & Omit<FieldProps, 'ws' | 'detail'>) {
+} & Omit<FieldProps, 'ws' | 'detail'> & KeptProps) {
   const [ask, setAsk] = useState<null | 'leave' | 'close' | 'undo'>(null);
   // Dirty only when the draft differs in what a save compares (trimmed, as sent): a trailing space is no change.
   const dirty = !sameValue(base, draft) && (patch !== null || problem !== null);
@@ -62,10 +100,14 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
           <button type="button" className="p3-btn p3-btn-line" autoFocus onClick={() => setAsk(null)} data-testid="p3-field-ask-stay">{L.dateLeaveStay}</button>
         </div>
       )}
+      {kept !== null && !sameValue(kept as T, base) && (
+        <KeptOffer onPut={() => { setDraft(kept as T); onKeptDone(); }} onDrop={onKeptDone} />
+      )}
       {why && <p className="p3-warn" role="alert" data-testid="p3-field-why">{why}</p>}
       {error && <p className="p3-error" role="alert" data-testid="p3-sheet-error">{error}</p>}
+      {conflict && <ConflictNote busy={restarting} onStart={() => onStartAgain(draft)} />}
       <div className="p3-stack-s">
-        <button type="button" className="p3-btn" disabled={!patch || busy || uploading} data-testid="p3-own-save" onClick={() => patch && onSave(patch)}>
+        <button type="button" className="p3-btn" disabled={!patch || busy || uploading || conflict} data-testid="p3-own-save" onClick={() => patch && onSave(patch)}>
           {patch || (dirty && problem) ? L.saveOne : L.dateNothing}
         </button>
         {dirty && <button type="button" className="p3-link" disabled={busy || uploading} onClick={() => setAsk('undo')} data-testid="p3-field-undo">{L.dateUndo}</button>}
@@ -74,7 +116,7 @@ function FieldSheet<T>({ title, base, draft, setDraft, patch, problem, busy, upl
   );
 }
 
-function NameSheet(p: FieldProps) {
+function NameSheet(p: FieldProps & KeptProps) {
   const base = dateNameOf(p.ws, p.detail);
   const [text, setText] = useState(base);
   return (
@@ -87,7 +129,7 @@ function NameSheet(p: FieldProps) {
   );
 }
 
-function PhotosSheet(p: FieldProps) {
+function PhotosSheet(p: FieldProps & KeptProps) {
   const base = dateGalleryOf(p.ws, p.detail);
   const [photos, setPhotos] = useState(base);
   const latest = useRef(photos);
@@ -139,7 +181,7 @@ function PhotosSheet(p: FieldProps) {
   );
 }
 
-function PriceSheet(p: FieldProps) {
+function PriceSheet(p: FieldProps & KeptProps) {
   const base = datePriceRows(p.ws, p.detail);
   const [rows, setRows] = useState<PriceRow[]>(base);
   return (
@@ -156,8 +198,21 @@ function PriceSheet(p: FieldProps) {
   );
 }
 
-export function DateFieldSheet({ step, ...p }: FieldProps & { step: FieldStep }) {
-  if (step === 'edit-name') return <NameSheet {...p} />;
-  if (step === 'edit-photos') return <PhotosSheet {...p} />;
-  return <PriceSheet {...p} />;
+export function DateFieldSheet({ step, gen, onStartAgain, ...p }: FieldProps & {
+  step: FieldStep;
+  /** Bumped by each Start again: the sheet remounts from the date as it is now. */
+  gen: number;
+  /** W-35: re-read the date; true when it came back. */
+  onStartAgain: () => Promise<boolean>;
+}) {
+  const [kept, setKept] = useState<unknown>(null);
+  const q = {
+    ...p,
+    kept,
+    onKeptDone: () => setKept(null),
+    onStartAgain: (mine: unknown) => void onStartAgain().then((ok) => { if (ok) setKept(mine); }),
+  };
+  if (step === 'edit-name') return <NameSheet key={gen} {...q} />;
+  if (step === 'edit-photos') return <PhotosSheet key={gen} {...q} />;
+  return <PriceSheet key={gen} {...q} />;
 }

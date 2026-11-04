@@ -1,0 +1,44 @@
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 0 dates, coming tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 0 dates, past tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 0 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 0 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 0 dates, own tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 1 dates, coming tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 1 dates, past tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 1 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 1 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 1 dates, own tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 99 dates, coming tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 99 dates, past tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 99 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 99 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 99 dates, own tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 100 dates, coming tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 100 dates, past tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 100 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 100 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 100 dates, own tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 101 dates, coming tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 101 dates, past tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 101 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 101 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 101 dates, own tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 132 dates, coming tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 132 dates, past tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 132 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 132 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 132 dates, own tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 500 dates, coming tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 500 dates, past tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 500 dates, cancelled tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 500 dates, breaks tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 500 dates, own tab: nothing hidden, or a way to the hidden dates
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > 132 dates: the oldest date, reached through Show older, opens its date sheet
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-31: every date of a long series is reachable, on every tab > older dates that fail to load say so, and the button is the retry
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > ok
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > refused
+ ✓ src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > offline
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > conflict
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > conflict -> Start again re-reads the date, shows the other change, offers mine back, then saves at the new version
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > conflict -> Start again -> Drop my changes keeps their value and sends nothing
+ × src/modules/organiser/p3/screens/__tests__/datesFix.matrix.test.tsx > W-35: every save outcome of a date field has a next action > conflict on the About sheet: Save held, Start again shows the new text
