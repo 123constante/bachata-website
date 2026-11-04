@@ -12,7 +12,7 @@ import { buildPack, classifyFile, classifySoft, packHead, pingedAtHead, findPack
 import { mergeVerdict, mergeCallBody, laneClass, MAX_MERGES_PER_RUN, MAX_MERGES_24H } from '../scripts/lib/autopilot-merge.mjs';
 import { isRiskyPath } from '../scripts/lib/review-scope.mjs';
 import { run } from '../scripts/autopilot-step.mjs';
-import { MERGE_SITE, NOT_PAUSED } from './autopilotTable';
+import { MERGE_SITE, NOT_PAUSED, FOUNDATIONS_OK } from './autopilotTable';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 const MIN = 60000;
@@ -95,6 +95,7 @@ describe('F2: soft-app is a short explicit allowlist; N4: pack hard tier covers 
 // ---------------------------------------------------------------- mergeVerdict table
 const PACK_OK = { id: 7, user: { login: GH_BOT }, body: `## Autopilot pack\nall read\n${PACKM(H)}` };
 const ALL = () => ({
+  ...FOUNDATIONS_OK.facts, // slice 2: required jobs + money set, injected through the ONE shared helper
   mode: 'soft', dryRun: false, tokenOk: true, budgetOk: true, decision: 'ready', workerDone: true,
   pr: { state: 'open', draft: false, fork: false, base: 'main', author: BOT_LOGIN, ref: 'claude/x', ageDays: 1, head: H, changedFiles: 2 },
   files: ['docs/a.md', 'docs/handover/b.md'], labels: ['review-passed', 'ap:ready'],

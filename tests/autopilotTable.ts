@@ -189,4 +189,16 @@ export const R4C_PATHS: [string, string | RegExp][] = [
 
 // Pause switch (slice 1): the ONE shared helper every fake-GitHub run() harness spreads into its
 // opts, so the switch reads as running and no existing assertion changes (docs/automation-pause.md).
-export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }) };
+// Foundations (slice 2, docs/automation-foundations.md): the ONE shared helper that injects the
+// required-jobs and money-set facts into every existing harness, so no existing assertion changes.
+// `facts` spreads into a mergeVerdict() facts object; `opts` spreads into run() opts (NOT_PAUSED
+// carries it, so every fake-GitHub run() harness that already spreads NOT_PAUSED gets it too).
+// The new tests (tests/automationFoundations.test.ts, tests/automationMoney.test.ts) use the REAL
+// readers and prove each wiring with a mutant.
+const REQUIRED_OK = { ok: true, missing: [] as string[], notGreen: [] as string[], reason: '', reasons: [] as string[] };
+const NOT_MONEY = { money: false, names: [] as string[], reason: '' };
+export const FOUNDATIONS_OK = {
+  facts: { requiredJobs: REQUIRED_OK, money: NOT_MONEY },
+  opts: { foundations: { requiredJobs: async () => REQUIRED_OK, money: () => NOT_MONEY } },
+};
+export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }), ...FOUNDATIONS_OK.opts };
