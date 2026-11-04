@@ -208,6 +208,8 @@ describe('bot-pr.yml wiring', () => {
     const { readFileSync } = await import('node:fs');
     const yml = readFileSync(new URL('../.github/workflows/bot-pr.yml', import.meta.url), 'utf8').replace(/\r/g, '');
     expect(yml).toContain('uses: actions/checkout@');
+    // The token step must run main's generator, never the pushed branch's copy.
+    expect(yml).toMatch(/actions\/checkout@[^\n]*\n\s+with:\n\s+ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
     expect(yml).toContain('node scripts/pr-body-stub.mjs');
     expect(yml).toMatch(/::warning::[^\n]*pr-body-stub/);
     // The labels live in the checkers only: no inline stub array is left behind.
