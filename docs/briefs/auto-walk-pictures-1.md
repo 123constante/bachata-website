@@ -6,8 +6,8 @@ Goal (owner 2026-11-04, "automated and quick"): every UI PR gets 390x844 picture
 
 ## What main lacks
 - extends: a helper that screenshots the page at 390x844 into `test-results/auto-walk/<name>.png` and returns the path (one call per state) -- tests/e2e-phone/helpers.ts
-- extends: a script that maps a PR's changed UI files (the same UI_PATH_RE the Phone QA checker uses; read it from scripts/check-pr-phone-qa.mjs, do not retype) to a list of existing phone specs / routes to shoot, and writes `auto-walk-manifest.json` (file, state, picture, sizes) -- scripts/auto-walk-manifest.mjs
-- extends: tests: manifest mapping table (UI file -> specs), fail-closed when a UI file has no mapped state (manifest says "NOT covered: <file>", never silently empty) -- tests/autoWalkManifest.test.ts
+- a script that maps a PR's changed UI files (the same UI_PATH_RE the Phone QA checker uses; read it from scripts/check-pr-phone-qa.mjs, do not retype) to a list of existing phone specs / routes to shoot, and writes `auto-walk-manifest.json` (file, state, picture, sizes) -- scripts/auto-walk-manifest.mjs
+- tests: manifest mapping table (UI file -> specs), fail-closed when a UI file has no mapped state (manifest says "NOT covered: <file>", never silently empty) -- tests/autoWalkManifest.test.ts
 
 ## Files
 - tests/e2e-phone/helpers.ts
