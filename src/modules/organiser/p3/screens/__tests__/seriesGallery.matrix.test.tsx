@@ -46,6 +46,7 @@ function show(raw: Raw) {
   const envs: Raw[] = [];
   rpc.mockImplementation(async (name: string, args: Raw) => {
     if (name === 'admin_event_workspace_p5') return { data: raw, error: null };
+    if (name === 'series_scope_change_preview_v1') return { data: { dates: [{ occurrence_id: 'o-x', occurrence_date: '2026-11-06', kept_fields: [], applied_fields: [] }], totals: { dates: 1, applied: 1, kept: 0, curated_but_inherits: 0 } }, error: null }; // one future date: the save runs as before
     if (name === 'series_command_p5') { envs.push(args.p_envelope as Raw); return { data: { ok: true, new_version: 8 }, error: null }; }
     return { data: null, error: null };
   });

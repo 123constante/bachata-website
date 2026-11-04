@@ -17,6 +17,8 @@ import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
 import { OnBody } from './RepeatSheet';
+import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
+import { changedWord, scopedChangesOf } from '../model/scopeAsk';
 
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
@@ -53,11 +55,27 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const off = !!lock || save.busy;
   const uploading = photo.busy;
 
-  const onSave = async () => {
+  const scoped = scopedChangesOf(plan, form.changed.includes('name'));
+  const scopedRun = useScopedRun(ws.series.id);
+  const [asking, setAsking] = useState(false);
+  const askable = scoped.fields.length > 0 && !hasOneDate(ws.dates.length, ws.total);
+
+  const runPlain = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
     // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
     if (res.gated) keepDraft(ws.series.id, { screen: 'details', draft, base: form.base });
     if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.detailsSaved); }
+  };
+  // a scoped field changed on an event with several dates: ask which dates first (the sheet sends nothing until a choice)
+  const onSave = async () => {
+    if (askable) { setAsking(true); return; }
+    await runPlain();
+  };
+  const scopedDone = (d: ScopedDone) => {
+    setAsking(false);
+    dropKept(ws.series.id);
+    form.saved(d.scope === 'all_dates' ? d.reply.newVersion : null);
+    back(d.scope === 'this_date' && d.day ? words.savedDate(d.day) : [words.detailsSavedScoped(changedWord(scoped.fields)), d.keptLine].filter(Boolean).join(' '));
   };
 
   const upload = async (file: File | undefined) => {
@@ -165,7 +183,13 @@ function Details({ ws }: { ws: EventWorkspace }) {
         <p className="p3-note">{L.detailsKindHint}</p>
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} uploading={uploading} error={save.error}
-        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); scopedRun.forget(); }} />
+      {asking && (
+        <ScopeSheet seriesId={ws.series.id} fields={scoped.fields} changes={scoped.changes} unscopedChanged={scoped.unscopedChanged}
+          seriesVersion={form.version} dateVersion={(id) => ws.dates.find((x) => x.id === id)?.version ?? null} run={scopedRun.send}
+          onPlain={() => { setAsking(false); void runPlain(); }} onDone={scopedDone}
+          onGated={() => { setAsking(false); keepDraft(ws.series.id, { screen: 'details', draft, base: form.base }); }} onClose={() => setAsking(false)} />
+      )}
       {pictures && (
         <OnBody>
           <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)} />
