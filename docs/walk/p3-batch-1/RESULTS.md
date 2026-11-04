@@ -6,7 +6,7 @@ Every picture below was opened and read by me. Pictures I did not open were dele
 ## Summary (FAILs first)
 - #1316 dates-fix: no FAIL on W-31 or W-35. Two NITs (see below).
 - #1315 event-status: no FAIL.
-- #1317 door-camera-help: see its section (filled below).
+- #1317 door-camera-help: no FAIL; 3 NITs (steps have no visible numbers; no retry for none/failed; stats pill overlaps the live camera). Browser-level mocks only, see BLOCKED.
 
 ## #1316 p3-dates-fix-1 (branch is on older main ea16d47; walked as-is)
 Mock honesty: the workspace answer pages like the real read (`p_before`/`p_limit`, `has_more`, `next_before`, whole-series `total`), shape taken from the PR INVENTORY (proved read-only on prod by that worker). Not independently re-proved here.
@@ -47,3 +47,30 @@ Not walked: W-35 on the About / Ticket sheets (only the Name sheet); older-page 
 
 Notes: Home with no page redirects to /account/p3/start (unchanged, as the PR inventory says); I did not take a picture of it. The tick is a small decorative glyph (aria-hidden); the row remains the tap target. Sweep: no garbled punctuation or sideways scroll seen.
 Not walked: a 0-page person on Home; Stats with real numbers.
+
+## #1317 door-camera-help (flag `organiserTicketing` ON locally via VITE_ENABLE_ORGANISER_TICKETING; OFF in prod)
+Mock honesty: camera states are driven by an init script that replaces `navigator.permissions.query` (prompt / granted / denied / throws = iOS) and `getUserMedia` (real Chromium fake device, or NotAllowedError / NotFoundError / NotReadableError). User-agent is overridden for iPhone Safari, Instagram in-app and a Pixel. **BLOCKED (cannot be mocked honestly):** a real "Don't allow" on a phone, a real iOS Safari permission sheet, a real settings change back to Allow (the watch that restarts the camera). The "live camera" pictures show Chromium's green fake-device feed, not a QR scan.
+
+| Picture | Verdict | What I saw |
+|---|---|---|
+| ask-0-load | PASS | state ask: "To scan tickets, this page needs your camera." / "Tap Start camera, then tap Allow." big orange **Start camera**; "No camera? Type the code below, or open tonight's list."; code box below. getUserMedia calls = 0 at load. |
+| ask-1-after-start | PASS | after Start camera: live feed (fake green), "Point the camera at the QR code", code box. getUserMedia calls = 1. NIT: the "3 of 8 in" pill sits on top of the feed's top-left (pre-existing layout). |
+| granted-0 | PASS | granted: goes straight to the live camera, no help card. |
+| denied-android-0-steps | PASS (NIT) | "The camera is blocked for this page." + 4 steps (padlock > Permissions, Camera > Choose Allow > come back and tap Try the camera again) + in-app line + **Try the camera again** + list link. NIT: the steps are indented but have no numbers or bullets, so they read as loose lines. |
+| denied-android-1-still-blocked | PASS | after Try the camera again (still denied): lead line becomes "Still blocked. Follow the steps, then tap Try the camera again. Or type the code, or use tonight's list."; steps and button stay. |
+| denied-android-2-list | PASS | open tonight's list: Tonight's list tab with 4 mocked rows, line "The camera is blocked for this page. The Scan tab shows how to turn it on. Or type the code, or use tonight's list.", code box on top. |
+| denied-iphone-0-steps | PASS | iPhone Safari UA: "Tap the aA at the left of the address / Tap Website Settings / Tap Camera, then Allow." |
+| denied-insta-0-steps | PASS | Instagram in-app UA: generic two-step "Open your browser settings for this site and set Camera to Allow." plus the "open it in Chrome or Safari" line (that line shows for every browser, not only in-app). |
+| ask-decline-1-after | PASS | ask, Start camera, browser says no: moves to the denied card with steps and Try the camera again (desktop Chromium UA, so the generic steps). |
+| unknown-0-load | PASS | iOS (permissions.query throws): same "Start camera" card as ask, 0 camera calls until tapped. |
+| unknown-1-after-start | PASS | after Start camera: live feed. |
+| none-0 | PASS (NIT) | no camera: the list tab opens by itself with "No camera found on this phone. Type the code, or use tonight's list." code box and list. NIT: no Try again here. |
+| failed-0 | PASS (NIT) | NotReadableError: list tab opens with "The camera did not start. Type the code, or use tonight's list." No retry control visible on this tab; I did not open the Scan tab for none/failed, so CANNOT-TELL whether a Try again lives there. |
+
+Sweep (all door pictures): `w19` records empty (no tap under 44px in `.p3-theme`/dialogs, no garbled punctuation, no sideways scroll, no error card). Apostrophes render as proper curly quotes in every picture I read.
+Not walked: checking a typed code after "Still blocked"; light mode (door rooms are dark); desktop width.
+
+## Walk method notes
+- Pictures I did not open were deleted from the repo (some W-35 Drop-path and Switch-list pictures).
+- The #1316 branch was cut from an older main (ea16d47); the walk used that branch exactly as it stands.
+- No product code, no PR, nothing on the three PR branches was changed or pushed.
