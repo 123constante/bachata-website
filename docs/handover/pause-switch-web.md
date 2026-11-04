@@ -113,3 +113,20 @@ Local env note: this container's node_modules lacked `qrcode-generator` (added o
 After installing it, build passed. typecheck is 109 = main 109. bundle-budget /
 first-load-requests are red on main too. The live-DB contract tests and integrityCouldNotRun
 fail in this sandbox on files the diff does not touch.
+
+## r2 (brief fix-1361-r2, dt_8ce5bccc8284)
+
+Done (tests only; `tests/automationPauseGuard.test.ts`; the workflow is unchanged):
+- The guard job's `if:` is asserted EXACTLY, title check included. At r1 head the plain
+  "drop the title" mutants were already red via the evaluator rows, but
+  `... || github.event.action == 'unlabeled'` (title bypassed for unlabel on ANY issue) survived
+  all 46 tests. With the new assertion it is red (2 fails: as-read + CRLF), green on the real file.
+- The scripts/ walk already skipped dot-files (r1); it now also tolerates ENOENT on a listed
+  directory (`readdirSync`) and on a listed file deleted before it is read (`readIfPresent`).
+  Other errors still throw.
+- The 3 pause test files run together 5 times: 5/5 green (153 tests). Also run together with
+  the mutant-writing suites (autopilotMerge/R3/R4c, integrityCouldNotRun): pause files green.
+
+Not verified / env: integrityCouldNotRun has 5 fails in this sandbox WITH AND WITHOUT the diff
+(typescript resolves in its temp repo). typecheck 110 both with and without the diff.
+/code-review (low) on the diff: no findings. Next: owner Approve at head.

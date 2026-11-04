@@ -2,7 +2,7 @@
 // re-asserts it with a notice; no workflow or script contains code that removes it or deletes the
 // pinned issue; PR-controlled text never reaches a shell. Line-ending agnostic (as read + CRLF).
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, type Dirent } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
 import { main as cli } from '../scripts/automation-pause.mjs';
@@ -49,6 +49,9 @@ for (const [eol, text] of [['as read', RAW], ['CRLF', RAW.replace(/\r?\n/g, '\r\
     });
     it('guard job runs the CLI --guard on GitHub-hosted runners from a main checkout without credentials', () => {
       const g = wf.jobs.guard;
+      // Exact expression, title check included: the evaluator rows below cannot see every weakening
+      // (e.g. `|| github.event.action == 'unlabeled'` survived them -- fix-1361-r2).
+      expect(String(g.if).trim()).toBe(`github.event_name != 'issues' || github.event.issue.title == '${PAUSE_ISSUE_TITLE}'`);
       expect(g['runs-on']).toBe('ubuntu-latest');
       const co = g.steps.find((s: Step) => /^actions\/checkout@/.test(String(s.uses || '')));
       expect(co.with).toEqual({ ref: 'main', 'persist-credentials': false });
@@ -220,12 +223,19 @@ describe('the --guard CLI re-asserts a bot removal with ONE notice and exit 0', 
 function walk(dir: string, out: string[] = []) {
   // Dot-files are skipped: other suites write and delete `.<name>-mutant-*.mjs` temp copies in scripts/
   // while this one runs in parallel (they are the TEST corpus, not shipped code).
-  for (const d of readdirSync(dir, { withFileTypes: true })) {
+  // ENOENT is tolerated too: a directory can vanish between listing and reading (temp dirs).
+  let ents: Dirent[];
+  try { ents = readdirSync(dir, { withFileTypes: true }); } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return out; throw e; }
+  for (const d of ents) {
     if (d.name.startsWith('.') || d.name === 'node_modules') continue;
     const p = path.join(dir, d.name);
     if (d.isDirectory()) walk(p, out); else out.push(p);
   }
   return out;
+}
+// A file listed by walk() can be deleted by a parallel suite before it is read: skip it (ENOENT only).
+function readIfPresent(p: string): string | null {
+  try { return readFileSync(p, 'utf8'); } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null; throw e; }
 }
 const REMOVERS: RegExp[] = [
   /labels\/automation-paused/, /--remove-label[^\n]*automation-paused/, /removeLabel[^\n]*automation-paused/,
@@ -239,7 +249,7 @@ function tripwire(files: Record<string, string>) {
 }
 describe('tripwire: no workflow or script removes the label or deletes the pinned issue', () => {
   const files = Object.fromEntries([...walk(path.join(ROOT, '.github/workflows')), ...walk(path.join(ROOT, 'scripts'))]
-    .filter((p) => /\.(ya?ml|mjs|js|cjs|ts|sh|py)$/.test(p)).map((p) => [path.relative(ROOT, p), readFileSync(p, 'utf8')]));
+    .filter((p) => /\.(ya?ml|mjs|js|cjs|ts|sh|py)$/.test(p)).flatMap((p) => { const t = readIfPresent(p); return t === null ? [] : [[path.relative(ROOT, p), t]]; }));
   it('scans a real corpus', () => expect(Object.keys(files).length).toBeGreaterThan(100));
   it('no remover anywhere', () => expect(tripwire(files)).toEqual([]));
   it('CANARY: each remover shape is caught', () => {
