@@ -11,7 +11,7 @@
  *   bachata-admin-11april/supabase/migrations/
  *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
  * and this check GATES on a hand-maintained ceiling
- * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/9).
+ * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 34/10).
  * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
  * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
  * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct
@@ -102,8 +102,12 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 // 2026-07-24 / 2026-09-15 / 2026-10-24. The other eight are unmoved; nothing dropped an
 // assignment. sample_profiles reads [] in CI because the RPC returns names only to
 // is_admin() callers (admin 20261122240000, review R1 B1) and CI calls it as anon.
-const BASELINE_TEACHERS_UNASSIGNED = 33; // active teachers with no P5 line-up credit
-const BASELINE_DJS_UNASSIGNED = 9;       // active DJs with no P5 line-up credit
+//
+// 2026-11-04: ceilings 33/9 -> 34/10. Live read 34/10 (red on main too, run 41815691763). Assigned counts
+// are unchanged (94 teachers, 33 DJs): one more teacher and one more DJ were listed with no line-up yet,
+// ordinary roster growth, not a dropped assignment. Same pattern as the 2026-10-24 and 2026-11-03 bumps.
+const BASELINE_TEACHERS_UNASSIGNED = 34; // active teachers with no P5 line-up credit
+const BASELINE_DJS_UNASSIGNED = 10;      // active DJs with no P5 line-up credit
 
 function loadEnv() {
   const env = { ...process.env };
