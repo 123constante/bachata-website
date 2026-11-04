@@ -209,7 +209,11 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         <h1 className="p3-ob-t" tabIndex={-1}>{PAGE_COPY.welcome.title}</h1>
         <p className="p3-ob-err" role="alert" data-testid="p3-ob-readfail">{text}</p>
       </>,
-      <button type="button" className="p3-ob-btn" onClick={retry} data-testid="p3-ob-retry">Try again</button>,
+      <>
+        <button type="button" className="p3-ob-btn" onClick={retry} data-testid="p3-ob-retry">Try again</button>
+        {/* a failed read is never a dead end: with a valid refused event, the way back to it is right here */}
+        {back && <button type="button" className="p3-ob-btn p3-ob-btn-line" onClick={() => finish(0)} data-testid="p3-ob-back-event">{BACK_TO_EVENT}</button>}
+      </>,
     );
 
   if (!user) return null;
