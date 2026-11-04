@@ -16,3 +16,6 @@ FAIL one-message > name / conflict, about / conflict, ticket / conflict, photos 
 
 ## Not verified
 Price sheet has no direct cell (needs a valid price draft); it shares `FieldSheet`/`sheetError` with Name and Photos. No browser picture (the lead walks).
+
+## Gates (all green)
+vitest src/modules/organiser: 250 files, 10281 passed, 4 skipped. npm run lint: 24 of 24 links (eslint informational). check:integrity ok. check:mojibake ok.
