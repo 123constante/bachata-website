@@ -1,4 +1,5 @@
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { dropKept, keptDraft } from '../onboarding/keptDraft';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
@@ -214,8 +215,13 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const [broken, setBroken] = useState<string | null>(null);
   const coverBroken = !!v.cover && v.cover === broken;
   const [sheet, setSheet] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const closeRepeat = useCallback(() => setRepeat(false), [setRepeat]);
+  // Back from the checklist with a Repeat edit the gate refused (keptDraft.ts): the sheet reopens with it, once.
+  // Read in the initialiser (pure), let go in an effect: shown once, and a second refusal keeps it again.
+  const [kept, setKept] = useState(() => keptDraft(ws.series.id));
+  const seriesId = ws.series.id;
+  useEffect(() => { if (kept) dropKept(seriesId); }, [kept, seriesId]);
+  const [repeat, setRepeat] = useState(() => kept?.screen === 'repeat');
+  const closeRepeat = useCallback(() => { setRepeat(false); setKept(null); }, [setRepeat]);
   const [date, setDate] = useState<DateOpen>(null);
   const [session, setSession] = useState<SessionOpen>(null);
   const closeSheet = useCallback(() => setSheet(false), [setSheet]);
@@ -276,7 +282,8 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
       )}
       {repeat && (
         <RepeatSheet ws={ws} today={today} send={sendOnce} preview={(cmd) => previewRepeat(ws.series.id, ws.series.version, cmd)}
-          onClose={closeRepeat} onDone={(d) => { setRepeat(false); toast.show(d); }} />
+          kept={kept?.screen === 'repeat' ? kept.draft : null}
+          onClose={closeRepeat} onDone={(d) => { closeRepeat(); toast.show(d); }} />
       )}
       <DateSheets ws={ws} today={today} open={date} onClose={closeDate} onDone={(d) => { setDate(null); toast.show(d); }} />
       {session && (
