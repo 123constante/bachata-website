@@ -47,6 +47,8 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
   const [error, setError] = useState<string | null>(null);
   // W-35: the last refusal was version_conflict (someone saved first): Save waits for Start again.
   const [conflict, setConflict] = useState(false);
+  // The words the conflict itself left in `error`: the sheet's ConflictNote already says it, so the edit sheets hide just these.
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const gated = useGatedCopy();
   const go = async (plan: DatePlan, done: Done) => {
     setBusy(true);
@@ -57,13 +59,17 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
       ring.current.forget(plan);
       onDone(done);
     } catch (e) {
-      setError(gated(e, (x) => (x instanceof PlanStepError ? x.message : commandErrorMessage(x))));
-      setConflict(isVersionConflict(e instanceof PlanStepError ? e.cause : e));
+      const msg = gated(e, (x) => (x instanceof PlanStepError ? x.message : commandErrorMessage(x)));
+      const clash = isVersionConflict(e instanceof PlanStepError ? e.cause : e);
+      setError(msg);
+      setConflict(clash);
+      setConflictMsg(clash ? msg : null);
     } finally {
       setBusy(false);
     }
   };
-  return { go, busy, error, setError, conflict, setConflict, gated };
+  const sheetError = conflict && error === conflictMsg ? null : error;
+  return { go, busy, error, sheetError, setError, conflict, setConflict, gated };
 }
 
 function ActionChoice({ row, busy, onPick }: { row: DateRow; busy: boolean; onPick: (a: DateAction) => void }) {
@@ -163,7 +169,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
   const [step, setStep] = useState<Step>('list');
   const [reason, setReason] = useState<string | null>(null);
   const [text, setText] = useState('');
-  const { go, busy, error, setError, conflict, setConflict, gated } = useGo(ws, onDone);
+  const { go, busy, error, sheetError, setError, conflict, setConflict, gated } = useGo(ws, onDone);
   // W-35: what the person had typed when they started again, offered back (About / Ticket).
   const [kept, setKept] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
@@ -344,7 +350,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
         {!about && <p className="p3-note">{DATE_COPY.ticketHint}</p>}
         {problem && <p className="p3-warn" role="alert">{problem}</p>}
         {kept !== null && <KeptOffer onPut={() => { setText(kept); setKept(null); }} onDrop={() => setKept(null)} />}
-        <Err error={error} />
+        <Err error={sheetError} />
         {conflict && (
           <ConflictNote busy={restarting} onStart={async () => {
             const mine = text;
@@ -366,7 +372,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
   }
   if (step === 'edit-name' || step === 'edit-photos' || step === 'edit-price') {
     return (
-      <DateFieldSheet step={step} gen={gen} ws={ws} detail={detail} busy={busy || restarting} error={error} onSave={saveDetail} onBack={back} onClose={onClose}
+      <DateFieldSheet step={step} gen={gen} ws={ws} detail={detail} busy={busy || restarting} error={sheetError} onSave={saveDetail} onBack={back} onClose={onClose}
         conflict={conflict} restarting={restarting} onStartAgain={async () => !!(await startAgain())} />
     );
   }
