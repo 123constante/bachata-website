@@ -81,9 +81,14 @@ export const MAP = [
 export const notCoveredLine = (file, why) => `NOT covered: ${file}${why ? ` (${why})` : ''}`;
 export const walkDir = (key) => `${OUT_ROOT}/${key}`;
 
-/** A picture taken at another phone size (a 3xx width token other than 390) is not this pack's size. */
+/**
+ * A picture taken at another size is not this pack's size: a WxH token other than
+ * 390x844, or a bare phone-width token (3xx/4xx) other than 390, drops it.
+ */
 export function isPackSize(name) {
-  for (const m of basename(name).matchAll(/(?:^|-)(3\d\d)(?:x\d{3,4})?(?=[-.]|$)/g)) if (m[1] !== '390') return false;
+  const n = basename(name);
+  for (const m of n.matchAll(/(?:^|-)(\d{3,4})x(\d{3,4})(?=[-.]|$)/g)) if (`${m[1]}x${m[2]}` !== SIZE) return false;
+  for (const m of n.matchAll(/(?:^|-)([34]\d\d)(?=[-.]|$)/g)) if (m[1] !== '390') return false;
   return true;
 }
 
@@ -204,7 +209,7 @@ function selfTest(log) {
     ['unmapped UI file is NOT covered', () => collect(plan(['src/pages/Parties.tsx']), none, {}).notCovered[0] === 'NOT covered: src/pages/Parties.tsx'],
     ['failed walk is NOT covered', () => collect(plan([door]), one, { 'p3-door': 1 }).notCovered.length === 1],
     ['non-UI file is not in the plan', () => plan(['scripts/x.mjs']).ui.length === 0],
-    ['other-size picture is dropped', () => !isPackSize('list-360-light.png') && isPackSize('list-390-light.png') && isPackSize('1-ready.png')],
+    ['other-size picture is dropped', () => !isPackSize('list-360-light.png') && !isPackSize('card-412x915.png') && !isPackSize('r-320x568-dark.png') && isPackSize('card-390x844.png') && isPackSize('list-390-light.png') && isPackSize('1-ready.png')],
     ['every MAP key is a walk', () => MAP.every(([, ks]) => ks.every((k) => WALKS[k]))],
     ['main: no PR_FILES exits 2', () => main([], {}, quiet, sink) === 2],
     ['main: empty PR_FILES exits 2', () => main([], { PR_FILES: ' \n' }, quiet, sink) === 2],

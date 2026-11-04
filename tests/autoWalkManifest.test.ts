@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 // @ts-expect-error -- plain .mjs script, no types
-import { MAP, WALKS, plan, collect, main, notCoveredLine } from '../scripts/auto-walk-manifest.mjs';
+import { MAP, WALKS, plan, collect, main, notCoveredLine, isPackSize } from '../scripts/auto-walk-manifest.mjs';
 // @ts-expect-error -- plain .mjs script, no types
 import { UI_PATH_RE } from '../scripts/check-pr-phone-qa.mjs';
 
@@ -96,6 +96,13 @@ describe('auto-walk manifest: UI file -> walks', () => {
       { file, state: 'p3-onboarding/welcome', picture: `${ob}/welcome.png`, sizes: ['390x844'] },
       { file, state: 'p3-golive/review', picture: `${gl}/review.png`, sizes: ['390x844'] },
     ]);
+  });
+
+  it.each([
+    ['contact-card-390x844.png', true], ['contact-card-412x915.png', false], ['contact-sheet-360x640.png', false],
+    ['list-390-light.png', true], ['list-360-dark.png', false], ['review-320x568-dark.png', false], ['1-ready.png', true], ['10-empty.png', true],
+  ])('picture %s is pack size: %s', (name, want) => {
+    expect(isPackSize(name)).toBe(want);
   });
 
   it('a mixed PR keeps covered and NOT covered apart', () => {
