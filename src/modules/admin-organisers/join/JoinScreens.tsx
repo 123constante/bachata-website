@@ -276,8 +276,38 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
         <div className="flex flex-col gap-2">
           <Heading>{JOIN_COPY.blockedDomain.heading}</Heading>
           <Lead>{JOIN_COPY.blockedDomain.body}</Lead>
+          {stop.locked && <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>}
           <a href={JOIN_COPY.blockedDomain.helpUrl} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="join-help">{JOIN_COPY.blockedDomain.help}</a>
-          <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>
+          {stop.locked ? home : <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>}
+        </div>
+      );
+    case 'invite_only': {
+      // The invited email's mask (a bound link); after a bind that just tied the link, only help can work.
+      const hint = stop.locked ? null : preview?.emailHint ?? null;
+      // Only help can work: the link is tied to the refused email, or the refused email IS the invited one.
+      const onlyHelp = stop.locked || stop.typedInvited === true;
+      const help = <a href={JOIN_COPY.inviteOnly.helpUrl} target="_blank" rel="noopener noreferrer" className={onlyHelp ? BTN : GHOST} data-testid="join-help">{JOIN_COPY.inviteOnly.help}</a>;
+      return (
+        <div className="flex flex-col gap-2">
+          <Heading>{JOIN_COPY.inviteOnly.heading}</Heading>
+          <Lead testId="join-invite-only-body">{JOIN_COPY.inviteOnly.body}</Lead>
+          {stop.locked ? <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>
+            : hint ? <Lead testId="join-invite-hint">{JOIN_COPY.inviteSentTo(hint)}</Lead>
+            : <Lead>{JOIN_COPY.inviteOnly.noHint}</Lead>}
+          {stop.typedInvited && <Lead testId="join-invited-refused">{JOIN_COPY.inviteOnly.invitedRefused}</Lead>}
+          {!onlyHelp && <button type="button" className={BTN} onClick={onDismiss} data-testid="join-dismiss">{hint ? JOIN_COPY.inviteOnly.useInvited : JOIN_COPY.inviteOnly.useAnother}</button>}
+          {help}
+          {onlyHelp && home}
+        </div>
+      );
+    }
+    case 'profile_stale':
+      return (
+        <div className="flex flex-col gap-2">
+          <Heading>{JOIN_COPY.profileStale.heading}</Heading>
+          <Lead testId="join-stale-body">{JOIN_COPY.profileStale.body}</Lead>
+          <button type="button" className={BTN} disabled={busy} onClick={onRetry} data-testid="join-retry">{JOIN_COPY.profileStale.button}</button>
+          {home}
         </div>
       );
     case 'rate_limited': {

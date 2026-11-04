@@ -213,7 +213,7 @@ test.describe('the step table', () => {
 
 test.describe('error screens (no prototype: the owner reviews these shots)', () => {
   test('E1 blocked email domain (403): WhatsApp help + use another email', async ({ page }) => {
-    await openInvite(page, { otp: { body: { code: 403, msg: 'Sign-up with this email provider is not accepted', message: 'Sign-up with this email provider is not accepted' }, status: 403 } });
+    await openInvite(page, { preview: previewOf('open', { email_hint: 'a***@blocked.example' }), otp: { body: { code: 403, msg: 'Sign-up with this email provider is not accepted', message: 'Sign-up with this email provider is not accepted' }, status: 403 } });
     await page.getByTestId('join-email-input').fill('ana@blocked.example');
     await page.getByTestId('join-send').click();
     await expectStep(page, 'email', 'blocked_domain');

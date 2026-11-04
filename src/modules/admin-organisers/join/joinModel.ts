@@ -159,7 +159,12 @@ export function checkTypedEmail(raw: string): EmailCheck {
 
 /** What stopped the journey. Shown over the derived step until the person acts; never persisted. */
 export type JoinStop =
-  | { kind: 'blocked_domain' }
+  /** `locked`: the bind just tied this link to the refused email (bind is permanent), so another email cannot work. */
+  | { kind: 'blocked_domain'; locked?: boolean }
+  /** hook v1's "Sign-up is limited to approved organisers." (or a bare 403 with no text: the words blame no provider). */
+  | { kind: 'invite_only'; locked?: boolean; typedInvited?: boolean }
+  /** redeem said profile_incomplete but the re-read still says complete (a stale read): a plain retry, never silence. */
+  | { kind: 'profile_stale' }
   | { kind: 'rate_limited'; from: 'code' | 'join' }
   | { kind: 'network'; from: 'send' | 'verify' | 'join' | 'bind' }
   | { kind: 'email_unproven' }
@@ -180,8 +185,14 @@ const text = (e: unknown): string => String((e as { message?: unknown } | null)?
 
 /** signInWithOtp({ shouldCreateUser: true }) failed: which screen? */
 export function classifySendError(error: unknown): JoinStop {
-  // hook_before_user_created_v2: HTTP 403 "Sign-up with this email provider is not accepted" (12 blocked domains).
-  if (isSignupAllowlistRefusal(error, true) || text(error).includes('not accepted') || text(error).includes('email provider')) return { kind: 'blocked_domain' };
+  // hook_before_user_created_v2 (prod body read 2026-11-04): BOTH refusals are HTTP 403, told apart by the text.
+  // v1 (dancer_area_open off): "Sign-up is limited to approved organisers." -> invite_only.
+  // the domain blocklist: "Sign-up with this email provider is not accepted. ..." -> blocked_domain.
+  const t = text(error);
+  if (t.includes('limited to approved organisers')) return { kind: 'invite_only' };
+  if (t.includes('not accepted') || t.includes('email provider')) return { kind: 'blocked_domain' };
+  // A 403 with no text to tell them apart: the invite-only words, which name the invited email and blame no provider.
+  if (isSignupAllowlistRefusal(error, true)) return { kind: 'invite_only' };
   if (isOtpRateLimitedError(error) || status(error) === 429 || text(error).includes('rate limit')) return { kind: 'rate_limited', from: 'code' };
   return { kind: 'network', from: 'send' };
 }
@@ -248,6 +259,17 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
   // `refused`, so the screen shows REDEEM_COPY's "Confirm your account first".
   if (reason) return { kind: 'refused', reason, emailHint: hint };
   return { kind: 'failed' };
+}
+
+/**
+ * After a profile_incomplete refusal the completeness is re-read. Incomplete / no profile: null, the derived step
+ * (About, or the no-profile screen) follows, with About saying why. Still complete: the stale-read stop. Unread: network.
+ */
+export function afterProfileRefusal(status: ProfileCompletionStatus): JoinStop | null {
+  if (status === 'incomplete' || status === 'no_profile') return null;
+  if (status === 'complete') return { kind: 'profile_stale' };
+  // error, and the never-expected loading / signed_out: a retry stop, never the same silent card (review r1 F3).
+  return { kind: 'network', from: 'join' };
 }
 
 /** Sentry / client-error tag: the step and the outcome code, never an email or the token. */
