@@ -22,3 +22,49 @@ Real-data shapes read read-only on prod (counts only). Walk 390x844 AND 320x568 
 
 ## Output
 Handover docs/handovers/ticket-promo-codes-web.md with Verified / Not verified. One push at the end, subject ending `[worker-done <ticket>]`. Opus, careful lane, context under 30%.
+
+
+## Addendum 2026-11-04 (website-18, ticketing lane): facts the worker needs
+
+- Admin #1125 is MERGED. Prod already has ticket_promo_{create,list,preview,update}_v1 (read-only survey 2026-11-04). The deployed ticket-checkout edge function (v8, 2026-10-28) predates promo_code: the lead redeploys it from main before any walk. Do NOT assume the edge accepts promo_code on prod yet; the fakes in tests must model it.
+- Website main has no promo.ts and no promo code in src/modules/tickets (checked 2026-11-04). Files to touch: src/modules/tickets/ticketCheckoutModel.ts, ticketCheckoutApi.ts, TicketsBlock.tsx; organiser Promo codes section under src/modules/organiser/p3/tickets/**; new src/modules/tickets/promo.ts (one shared reason-to-copy mapping).
+- Booking fee is 0 (src/lib/ticketBookingFee.ts); the preview has no fee.
+- Sales summary: show gross_pence as money taken and discounts_pence beside it (list = gross + discounts).
+- The handover docs/handovers/ticket-promo-codes-web.md on main is STALE (says RPCs absent); replace it.
+
+## Copied from the admin handover (docs/handover/ticket-promo-codes-db.md)
+
+## What the Website half needs
+
+RPCs (PostgREST):
+- `ticket_promo_preview_v1(p_series uuid, p_ticket_type uuid, p_quantity int, p_code text)`, anon.
+  `p_series` = series id or public event id. Returns exactly
+  `{ok: true, unit_price, discount, total}` or `{ok: false, reason, unit_price, discount: 0, total}`
+  (pence; `discount`/`total` are for the whole order). `rate_limited` / `not_found` / `invalid_quantity`
+  carry nulls / list price. Uses nothing up; checkout re-validates.
+- `ticket-checkout` edge function: add `promo_code` (string, optional, <= 64 chars) to the body.
+  Code refusals come back as HTTP 409 `{ok: false, reason}`; `rate_limited` (the checkout limiter or
+  reserve_v2's code-refusal limiter, 10 refused codes per email / 30 per IP an hour) is HTTP 429 with a
+  `message`; a free result is `{ok: true, order_id, free: true}`.
+- Organiser screens (authenticated): `ticket_promo_create_v1(p_event_series_id, p_organiser_id, p_code,
+  p_kind 'percent'|'fixed', p_value, p_max_uses?, p_expires_at?)` -> `{ok, id, code}` | reasons
+  `not_authorised, series_not_organisers, invalid_code, invalid_value, invalid_max_uses, invalid_expiry,
+  code_taken`. `ticket_promo_update_v1(p_id, p_patch)` patch keys `active, expires_at, max_uses, kind,
+  value` (null clears expiry/max_uses) -> extra reasons `locked_after_use, invalid_request`.
+  `ticket_promo_list_v1(p_event_series_id)` -> `{ok, rows: [{id, organiser_id, code, kind, value,
+  max_uses, used_count (counted orders holding a use), expires_at, active, created_at, paid_orders}]}`. Codes: 3..32 of A-Z 0-9 _ -,
+  stored upper-case (send any case).
+
+Suggested buyer copy per reason:
+
+| reason | copy |
+| --- | --- |
+| `unknown_code` | "That code isn't recognised. Check the spelling and try again." |
+| `inactive` | "That code is no longer active." |
+| `expired` | "That code has expired." |
+| `used_up` | "That code has been fully used." |
+| `not_for_this_event` | "That code isn't valid for this event." |
+| `no_discount` | "That code doesn't take anything off this ticket." |
+| `below_minimum` | "With this code the total would be under 30p, which we can't charge. Please contact the organiser." |
+| `rate_limited` | "Too many attempts. Please wait a while and try again." |
+
