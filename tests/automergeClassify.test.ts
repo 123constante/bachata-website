@@ -2,6 +2,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs script, no types
 import { classify, pathClass, lastLabelActor, prFromApi, BOT_LOGIN, OWNER_LOGIN, LABEL_OK, RUN } from '../scripts/automerge-classify.mjs';
+// @ts-expect-error -- plain .mjs script, no types
+import { parse as parseRealData, MARKER, HEADING as RD_HEADING, LABELS as RD_LABELS } from '../scripts/check-pr-real-data-verified.mjs';
+// @ts-expect-error -- plain .mjs script, no types
+import { parse as parsePhoneQa, HEADING as PQ_HEADING, LABELS as PQ_LABELS } from '../scripts/check-pr-phone-qa.mjs';
 
 type F = { filename: string; status?: string; previous_filename?: string; additions?: number; deletions?: number };
 const file = (filename: string, extra: Partial<F> = {}): F => ({ filename, status: 'modified', additions: 3, deletions: 1, ...extra });
@@ -137,5 +141,59 @@ describe('bot-automerge.yml wiring', () => {
     expect(wf).not.toMatch(/head\.(sha|ref)\s*}}\s*$/m);
     expect(wf).toContain("vars.AUTOMERGE_ENABLED == 'true' && vars.BOT_AUTOMERGE_ENABLED == 'true'");
     expect(wf).toContain('--match-head-commit');
+  });
+});
+
+describe('automerge classifier -- a TO FILL stub never merges (F1, PR #1323 review)', () => {
+  // The marker is read from the checker, never typed here.
+  const RD = [RD_HEADING, '- Shapes surveyed: docs only, no production data shape is read by this change', '- Checks run: npm run lint and the vitest files this PR touches', '- NOT verified: nothing at runtime, docs and tests only'];
+  const RD_PENDING = [RD_HEADING, ...RD_LABELS.map((l: string) => `- ${l}: ${MARKER}`)];
+  const QA = [PQ_HEADING, '- Sizes checked: 390x844', '- Walked: no UI path changed, nothing to walk at phone size', '- Not verified: no UI path changed in this PR'];
+  const QA_PENDING = [PQ_HEADING, ...PQ_LABELS.map((l: string) => `- ${l}: ${MARKER}`)];
+  const body = (...parts: string[][]) => ['Intro: replace each ' + MARKER + ' below in place.', '', ...parts.flatMap((p) => [...p, ''])].join('\n');
+  const docs = [file('docs/a.md')];
+  const docsTests = [file('docs/a.md'), file('tests/a.test.ts')];
+
+  const cells: Array<[string, F[], string, boolean]> = [
+    ['filled real-data + filled Phone QA', docsTests, body(RD, QA), true],
+    ['filled real-data, no Phone QA section', docs, body(RD), true],
+    ['filled real-data, bare empty Phone QA heading (docs-only may delete it)', docs, body(RD, [PQ_HEADING]), true],
+    ['marker only above the sections (intro line)', docs, body(RD, QA), true],
+    ['real-data pending', docsTests, body(RD_PENDING, QA), false],
+    ['Phone QA pending', docsTests, body(RD, QA_PENDING), false],
+    ['both pending', docsTests, body(RD_PENDING, QA_PENDING), false],
+    ['docs-only with Phone QA pending', docs, body(RD, QA_PENDING), false],
+    ['one Phone QA line still pending', docs, body(RD, [PQ_HEADING, '- Sizes checked: 390x844', `- Walked: ${MARKER}`, '- Not verified: no UI path changed in this PR']), false],
+  ];
+
+  // Both parser states: the real checker parse(), and NO parser on main -- the
+  // pending refusal must not depend on the parser being loaded.
+  for (const [parserName, realData] of [['real parser', parseRealData], ['no parser', null]] as const) {
+    it.each(cells)(`${parserName}: %s`, (_name, files, prBody, want) => {
+      const v = run(files, { body: prBody }, { realData });
+      expect(v.qualifies).toBe(want);
+      if (want) expect(v.reasons).toEqual([]);
+      else expect(v.reasons.some((r: string) => r.includes(MARKER))).toBe(true);
+    });
+  }
+
+  it('names the section that is pending', () => {
+    const qa = run(docs, { body: body(RD, QA_PENDING) }, { realData: parseRealData });
+    expect(qa.reasons.some((r: string) => r.includes(PQ_HEADING))).toBe(true);
+    const rd = run(docs, { body: body(RD_PENDING, QA) }, { realData: null });
+    expect(rd.reasons.some((r: string) => r.includes(RD_HEADING))).toBe(true);
+  });
+
+  it('a marker inside an HTML comment or a code fence is not the PR\'s own section', () => {
+    const commented = body(RD, [PQ_HEADING, `<!-- - Walked: ${MARKER} -->`]);
+    expect(run(docs, { body: commented }, { realData: parseRealData }).qualifies).toBe(true);
+    const fenced = body(RD, ['```', ...QA_PENDING, '```']);
+    expect(run(docs, { body: fenced }, { realData: parseRealData }).qualifies).toBe(true);
+  });
+
+  it('the filled bodies really pass both checkers (the table is not vacuous)', () => {
+    expect(parseRealData(body(RD, QA)).ok).toBe(true);
+    expect(parsePhoneQa(body(RD, QA)).ok).toBe(true);
+    expect(parseRealData(body(RD_PENDING, QA)).pending).toBe(true);
   });
 });

@@ -5,6 +5,8 @@ import { isRoutable, routePatterns } from './routeTable';
 import { ACCOUNT_HOME_PATH, DANCER_HOME_PATH, MY_ATTENDANCE_PATH, ORGANISER_HOME_PATH } from '@/lib/accountRouting';
 import { FINISH_PROFILE_PATH, finishProfileHref } from '@/lib/profileCompletion';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
+import { p3StartReview } from '@/modules/organiser/p3/shell/paths';
+import { APP_EDIT_PATH, appEditHref } from '@/modules/organiser/p3/onboarding/pageModel';
 
 // Every literal navigation target in src/ must be a route that exists. The
 // self-serve retirement (2026-09-12) unrouted /onboarding, /profile and the
@@ -203,6 +205,11 @@ describe.each([
   ['FINISH_PROFILE_PATH', FINISH_PROFILE_PATH],
   ["finishProfileHref('/account')", finishProfileHref(ACCOUNT_HOME_PATH)],
   ["finishProfileHref('/event/e1#level-rating')", finishProfileHref('/event/e1#level-rating')],
+  // instagram-refusal r2: the checklist's Instagram row and unknown-code screen open the /app editor, then come back.
+  ['APP_EDIT_PATH', APP_EDIT_PATH],
+  ["appEditHref('instagram', p3StartReview('o1'))", appEditHref('instagram', p3StartReview('o1'))],
+  ["appEditHref(null, p3StartReview('o1'))", appEditHref(null, p3StartReview('o1'))],
+  ["p3StartReview('o1')", p3StartReview('o1')],
   ...Object.entries(ORG_PATHS).map(([k, v]) => [`ORG_PATHS.${k}`, typeof v === 'function' ? (v as (...a: string[]) => string)('s1', 'o1') : v] as [string, string]),
 ])('%s', (_name, target) => {
   it(`${target} is a route`, () => {

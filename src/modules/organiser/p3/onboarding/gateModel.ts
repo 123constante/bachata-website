@@ -8,7 +8,7 @@ import { P3_PATHS, p3StartReview } from '../shell/paths';
 
 export const GATE_COPY = {
   title: 'A few details first',
-  body: 'We ask everyone who runs a page. It takes about five minutes and you only do it once.',
+  // The body is graceModel's gateBody(rows left): the ONE time promise, never a flat number.
   go: 'Continue',
   notNow: 'Not now',
   readFailed: 'We couldn\u2019t load your details. Try again.',

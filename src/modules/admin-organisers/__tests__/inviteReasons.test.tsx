@@ -4,7 +4,7 @@
  * themselves are exercised in join/__tests__/joinJourney.test.tsx (W1, Option B).
  */
 import { describe, expect, it } from 'vitest';
-import { reasonScreen } from '../inviteModel';
+import { REVOKED_BODY, reasonScreen } from '../inviteModel';
 
 const ASKABLE = new Set(['used', 'revoked', 'expired', 'email_mismatch']);
 
@@ -13,8 +13,8 @@ describe('the reason mapping itself (every reason x ask button x copy rules)', (
   it.each(ALL)('%s has a title and body, and never names a control', (reason) => {
     const s = reasonScreen(reason, { inviterFirstName: 'Marta' });
     expect(s.title.length).toBeGreaterThan(3);
-    // Mockup 2c (withdrawn) has no body; every other screen has one.
-    if (reason === 'revoked') expect(s.body).toBe('');
+    // Item 8: withdrawn has its own body; every other screen has one.
+    if (reason === 'revoked') expect(s.body).toBe(REVOKED_BODY);
     else expect(s.body.length).toBeGreaterThan(15);
     expect(s.body).not.toMatch(/\b(tap|click|press|button|menu|tab)\b/i);
     expect(s.offerNewLink).toBe(ASKABLE.has(reason));

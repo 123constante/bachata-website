@@ -20,6 +20,7 @@ import {
   nameBlock, parseFormat, timeBlock, timeCommands, venueCommands,
 } from './model';
 import { useNewSend } from './useNewSend';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 import { A1_APPLIED } from '@/modules/organiser/shared/a1Gate';
 import { EventConflict } from '../event/parts';
 import { needsPagePick, withPageChoice } from './whichPageModel';
@@ -141,6 +142,7 @@ function NameStep({ format }: { format: NewEventFormat }) {
       if (draft.current.sig !== sig) draft.current = { ...draft.current, sig, key: newIdempotencyKey() };
       await runSeriesCommand(envelope(draft.current.seriesId, null, draftCommand(name, format, selected.id), draft.current.key));
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      invalidatePublicEventCaches(queryClient);
       // replace: Back must not return here and create a second draft.
       navigate(paths.newVenue(draft.current.seriesId), { replace: true });
     } catch (err) {
