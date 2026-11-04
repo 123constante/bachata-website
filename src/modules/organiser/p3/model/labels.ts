@@ -336,3 +336,75 @@ export function sessionKindLabel(k: SessionKind): string {
 export function roleLabel(r: RoleKey): string {
   return L.roles.find((x) => x[0] === r)?.[1] ?? r;
 }
+
+// ---- moving a date that has people on it (Q10) ---------------------------------------
+
+/** The server's refusal for a move of a date with people (admin move guard): message prefix. */
+export const DATE_HAS_PEOPLE = /^date_has_people:/;
+
+export interface PeopleCounts { guest_list: number; going: number; tickets: number; total: number }
+
+const whole = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null);
+
+/**
+ * The counts of a `date_has_people:` refusal. `details` is JSON `{guest_list, going, tickets, total}`;
+ * a missing or bad `details` falls back to the numbers in the message, and to null (no numbers) if none parse.
+ */
+export function peopleCountsOf(error: unknown): PeopleCounts | null {
+  const e = (error && typeof error === 'object' ? error : {}) as { message?: unknown; details?: unknown };
+  let raw: unknown = e.details;
+  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = null; } }
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    const [g, n, t] = [whole(o.guest_list), whole(o.going), whole(o.tickets)];
+    if (g !== null && n !== null && t !== null) return { guest_list: g, going: n, tickets: t, total: whole(o.total) ?? g + n + t };
+  }
+  const msg = typeof e.message === 'string' ? e.message.replace(DATE_HAS_PEOPLE, '') : '';
+  const keyed = (k: string) => msg.match(new RegExp(`${k}\\D{0,3}(\\d+)`));
+  const [kg, kn, kt] = [keyed('guest_list'), keyed('going'), keyed('tickets')];
+  const nums = kg && kn && kt ? [kg[1], kn[1], kt[1]] : (msg.match(/\d+/g) ?? []);
+  if (nums.length < 3) return null;
+  const [g, n, t] = nums.slice(0, 3).map(Number);
+  return { guest_list: g, going: n, tickets: t, total: g + n + t };
+}
+
+/** What the notices on a move reply said, or null when the server sent none (today). */
+export interface MoveNotices { queued: number; guest_list_unreached: number }
+export function moveNoticesOf(reply: unknown): MoveNotices | null {
+  const r = reply as { notices?: unknown; data?: { notices?: unknown } } | null | undefined;
+  const raw = r?.notices ?? r?.data?.notices;
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const queued = whole(o.queued);
+  return queued === null ? null : { queued, guest_list_unreached: whole(o.guest_list_unreached) ?? 0 };
+}
+
+/**
+ * The two sentences about telling the people, in ONE place. `confirm` is said before the move (the reply is not
+ * known yet, so it is always the honest "not told" line); `done` is said after, from the reply's notices.
+ */
+export function moveOutcomeCopy(notices: MoveNotices | null | undefined): { confirm: string; done: string } {
+  const confirm = 'They are not told automatically. Tell them yourself.';
+  if (!notices) return { confirm, done: 'Moved. Tell the people on it yourself: they are not told automatically.' };
+  const who = notices.queued === 1 ? '1 person' : `${notices.queued} people`;
+  const rest = notices.guest_list_unreached > 0
+    ? ` ${notices.guest_list_unreached} guest-list ${notices.guest_list_unreached === 1 ? 'person has' : 'people have'} no contact details, so please tell them yourself.`
+    : '';
+  return { confirm, done: `Moved. We emailed ${who} about the new date.${rest}` };
+}
+
+export const MOVE_PEOPLE_COPY = {
+  title: (total: number | null) => (total === null ? 'People are on this date' : total === 1 ? '1 person is on this date' : `${total} people are on this date`),
+  /** Only the non-zero parts, in the order guest list, going, tickets. */
+  body: (c: PeopleCounts | null): string => {
+    if (!c) return '';
+    const parts = [
+      c.guest_list > 0 ? `${c.guest_list} on the guest list` : '',
+      c.going > 0 ? `${c.going} going` : '',
+      c.tickets > 0 ? `${c.tickets} with tickets` : '',
+    ].filter(Boolean);
+    return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  },
+  anyway: 'Move it anyway',
+  another: 'Choose another day',
+};
