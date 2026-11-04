@@ -7,6 +7,8 @@ import type { DetailsDraft } from '../data/details';
 import type { PricesDraft } from '../data/prices';
 import { PAYMENT_METHODS, type PaymentMethod } from '../../events/paymentModel';
 import { CURRENCIES, type Currency, type PriceRow } from '../../events/seriesExtras';
+import { P3_BASE } from '../shell/paths';
+import { gateGoFrom } from './returnTo';
 
 /**
  * The screens whose unsaved draft is kept. Repeat (fix-gate-lost-edit), Details and Prices (p3-gate-retry-1:
@@ -147,6 +149,19 @@ export function keptDraft(seriesId: string, now = Date.now(), s: Store | null = 
   } catch {
     return null;
   }
+}
+
+const KEPT_SCREEN_PATH = new RegExp(`^${P3_BASE}/events/([A-Za-z0-9_-]{1,64})/(details|prices)/?$`);
+
+/**
+ * Brief p3-gate-guard-1: may a dirty edit screen at `from` be left WITHOUT "Leave without saving?"? Only by the gate
+ * sheet's Continue for this very screen (`state` names `from`, returnTo.ts gateGoState), and only while the typing
+ * for this event AND this screen is in storage right now. Every other exit, or a draft storage refused, still asks.
+ */
+export function leavesForGate(state: unknown, from: string, now = Date.now(), s: Store | null = store()): boolean {
+  if (gateGoFrom(state) !== from) return false;
+  const m = KEPT_SCREEN_PATH.exec(from);
+  return !!m && keptDraft(m[1], now, s)?.screen === m[2];
 }
 
 /** Forget what is kept for event `seriesId` (saved, closed, or shown once). */

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { Link, Outlet, RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
 import { heldRefusal } from '../../onboarding/gateRule';
 import { closeGate, getGate, subscribeGate } from '../../onboarding/gate';
@@ -22,6 +22,7 @@ import { thingsLeft } from '../../onboarding/graceModel';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, auth: {}, from: vi.fn() } }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-10-25' }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
 vi.mock('@/lib/city-canonical', () => ({ resolveCanonicalCity: async () => ({ cityId: 'city-9' }) }));
@@ -39,6 +40,7 @@ vi.mock('../../../shared/publicVenues', async (orig) => ({
 import { EventPage } from '../EventPage';
 import { DetailsScreen } from '../DetailsScreen';
 import { PricesScreen } from '../PricesScreen';
+import { GateHost } from '../../onboarding/GateHost';
 
 type Raw = Record<string, unknown>;
 const REFUSAL = { code: 'P0001', ...heldRefusal('o1'), hint: 'Finish your details' };
@@ -281,5 +283,141 @@ describe('kept edit over the event as it is now (review r1 #1 / #3)', () => {
     expect(screen.queryByTestId('p3-details-kept')).toBeNull();
     expect(SCREENS.details.typed()).toBe(false);
     expect(sends).toHaveLength(0);
+  });
+});
+
+// ---- p3-gate-guard-1: every way out of Details / Prices x dirty/clean x refused/not ----
+// docs/design/p3-gate-guard-1/INVENTORY.md. The real data router, the real GateHost + GateSheet, the real tab
+// link and Back link; only the start route (the checklist) is a stand-in page. Red first: rows `gate-continue`
+// (dirty, refused, stored) fail on main 9a1ddce ("Leave without saving?" opens over the gate's Continue).
+type Exit = 'tab' | 'phone-back' | 'back-link' | 'gate-continue' | 'gate-not-now' | 'save';
+type ExitRow = { exit: Exit; dirty: boolean; refused: boolean; storageFails?: boolean; inv: number };
+/** What each exit must do: the ONE mapping the rows are checked against (INVENTORY "Must" column). */
+const MUST = (r: ExitRow): 'leave-sheet' | 'checklist' | 'leaves' | 'stays' | 'saved' => {
+  if (r.exit === 'gate-not-now') return 'stays';
+  if (r.exit === 'save') return 'saved';
+  if (r.exit === 'gate-continue') return r.storageFails ? 'leave-sheet' : 'checklist';
+  return r.dirty ? 'leave-sheet' : 'leaves';
+};
+const EXIT_ROWS: ExitRow[] = [
+  ...(['tab', 'phone-back', 'back-link'] as const).flatMap((exit, i) => [
+    { exit, dirty: true, refused: false, inv: 1 + i * 4 },
+    { exit, dirty: true, refused: true, inv: 2 + i * 4 },
+    { exit, dirty: false, refused: false, inv: 3 + i * 4 },
+    { exit, dirty: false, refused: true, inv: 4 + i * 4 },
+  ]),
+  { exit: 'gate-continue', dirty: true, refused: true, inv: 13 },
+  { exit: 'gate-continue', dirty: true, refused: true, storageFails: true, inv: 14 },
+  { exit: 'gate-not-now', dirty: true, refused: true, inv: 17 },
+  { exit: 'save', dirty: true, refused: false, inv: 19 },
+];
+const START = '/account/p3/start';
+function showFramed(path: string) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Frame = () => (
+    <>
+      <Link to="/account/p3/events" data-testid="tab-events">Events</Link>
+      <Outlet />
+      <GateHost fetcher={async () => null} />
+    </>
+  );
+  router = createMemoryRouter([{
+    element: <Frame />,
+    children: [
+      { path: '/account/p3/events', element: <p data-testid="events-list">Events</p> },
+      { path: START, element: <p data-testid="checklist">Checklist</p> },
+      { path: '/account/p3/events/:seriesId', element: <EventPage /> },
+      { path: '/account/p3/events/:seriesId/details', element: <DetailsScreen /> },
+      { path: '/account/p3/events/:seriesId/prices', element: <PricesScreen /> },
+    ],
+  }], { initialEntries: ['/account/p3/events/ser-1', path], initialIndex: 1 });
+  render(<QueryClientProvider client={qc}><RouterProvider router={router} /></QueryClientProvider>);
+}
+
+describe('p3-gate-guard-1 exit matrix: exit x dirty/clean x refused/not (INVENTORY rows)', () => {
+  const cases = EXIT_ROWS.flatMap((r) => (['details', 'prices'] as const).map((s) => [
+    `#${r.inv} ${r.exit} | ${r.dirty ? 'dirty' : 'clean'} | ${r.refused ? 'refused' : 'not refused'}${r.storageFails ? ' | storage refuses the draft' : ''} | ${s} -> ${MUST(r)}`, r, s,
+  ] as const));
+  it.each(cases)('%s', async (_n, r, s) => {
+    const sc = SCREENS[s];
+    const p = PEOPLE[0];
+    as(p);
+    serve(p, r.refused);
+    if (r.storageFails) vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('QuotaExceededError'); });
+    showFramed(sc.path);
+    await screen.findByTestId(sc.control);
+    if (r.refused) {
+      sc.edit();
+      await press(saveBtn());
+      const go = await screen.findByTestId('p3-gate-go');
+      expect(sends).toHaveLength(1);
+      expect(keptDraft('ser-1')?.screen ?? null).toBe(r.storageFails ? null : s);
+      if (r.exit !== 'gate-continue' && r.exit !== 'gate-not-now') {
+        await press(screen.getByTestId('p3-gate-not-now'));
+        expect(screen.queryByTestId('p3-gate')).toBeNull();
+        if (!r.dirty) {
+          await press(screen.getByTestId('p3-undo-mine'));
+          await press(screen.getByTestId('p3-undo-confirm'));
+        }
+      } else {
+        expect(go.tagName).toBe('A');
+      }
+    } else if (r.dirty) {
+      sc.edit();
+    }
+    expect(saveBtn().disabled).toBe(!r.dirty);
+
+    if (r.exit === 'tab') await press(screen.getByTestId('tab-events'));
+    if (r.exit === 'phone-back') await act(async () => { await router.navigate(-1); });
+    if (r.exit === 'back-link') await press(screen.getByTestId('p3-edit-back'));
+    if (r.exit === 'gate-continue') await press(screen.getByTestId('p3-gate-go'));
+    if (r.exit === 'gate-not-now') await press(screen.getByTestId('p3-gate-not-now'));
+    if (r.exit === 'save') await press(saveBtn());
+
+    const must = MUST(r);
+    if (must === 'leave-sheet') {
+      await screen.findByTestId('p3-leave-go');
+      expect(router.state.location.pathname).toBe(sc.path);
+      expect(sc.typed()).toBe(true);
+      // Keep editing: the person stays with the typing, nothing sent by the sheet
+      await press(screen.getByTestId('p3-keep-editing'));
+      expect(router.state.location.pathname).toBe(sc.path);
+      expect(sc.typed()).toBe(true);
+    } else {
+      await waitFor(() => expect(screen.queryByTestId('p3-leave-go')).toBeNull());
+    }
+    if (must === 'checklist') {
+      await screen.findByTestId('checklist');
+      expect(screen.queryByTestId('p3-leave-go')).toBeNull();
+      expect(router.state.location.pathname).toBe(START);
+      expect(router.state.location.search).toContain(`back=${encodeURIComponent('/account/p3/events/ser-1')}`);
+      expect(keptDraft('ser-1')?.screen).toBe(s); // still kept for "Back to your event"
+      expect(sends).toHaveLength(1); // nothing sent or replayed by leaving
+    }
+    if (must === 'leaves') await waitFor(() => expect(router.state.location.pathname).not.toBe(sc.path));
+    if (must === 'stays') {
+      expect(router.state.location.pathname).toBe(sc.path);
+      expect(sc.typed()).toBe(true);
+      expect(screen.queryByTestId('p3-gate')).toBeNull();
+    }
+    if (must === 'saved') await waitFor(() => expect(router.state.location.pathname).toBe('/account/p3/events/ser-1'));
+    if (must !== 'saved') expect(sends).toHaveLength(r.refused ? 1 : 0);
+    vi.restoreAllMocks();
+  });
+
+  it('the gate Continue passes ONLY for the screen it was refused on: a kept draft for another screen asks', async () => {
+    const p = PEOPLE[0];
+    as(p);
+    serve(p, true);
+    showFramed(SCREENS.details.path);
+    await screen.findByTestId('p3-d-name');
+    SCREENS.details.edit();
+    await press(saveBtn());
+    await screen.findByTestId('p3-gate-go');
+    // what is stored is Prices' typing, not this screen's: leaving would lose the Details typing
+    window.sessionStorage.setItem('p3-kept-edit:ser-1', JSON.stringify({ v: 1, screen: 'prices', draft: { methods: [], rows: [] }, base: { methods: [], rows: [] }, at: Date.now() }));
+    await press(screen.getByTestId('p3-gate-go'));
+    await screen.findByTestId('p3-leave-go');
+    expect(router.state.location.pathname).toBe(SCREENS.details.path);
   });
 });
