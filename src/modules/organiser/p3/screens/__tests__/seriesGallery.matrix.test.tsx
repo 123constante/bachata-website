@@ -92,11 +92,13 @@ describe.each(Object.entries(KINDS))('%s', (kind, shape) => {
 });
 
 describe('profile unfinished (not yet publish-ready)', () => {
-  it.each(['recurring', 'course'] as const)('%s: Pictures is greyed, nothing can be sent', async (kind) => {
+  // F-13 b (p3-gate-retry-1): unfinished details no longer lock the screen up front; the server's gate answers at Save.
+  it.each(['recurring', 'course'] as const)('%s: Pictures is open, no lock, an untouched Save sends nothing', async (kind) => {
     owner.ready = false;
     const envs = show(withGallery(KINDS[kind], 2));
-    await waitFor(() => screen.getByTestId('p3-details-lock'));
-    expect((screen.getByTestId('p3-d-pictures-open') as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => screen.getByTestId('p3-d-pictures-open'));
+    expect(screen.queryByTestId('p3-details-lock')).toBeNull();
+    expect((screen.getByTestId('p3-d-pictures-open') as HTMLButtonElement).disabled).toBe(false);
     expect(saveBtn().disabled).toBe(true);
     expect(envs).toHaveLength(0);
   });

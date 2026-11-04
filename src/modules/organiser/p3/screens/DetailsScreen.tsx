@@ -1,7 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
-import { Link as RouterLink } from 'react-router-dom';
-import { eventLock } from '../../shared/eventState';
 import { VenueList } from './VenueList';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
@@ -15,7 +12,8 @@ import {
 } from '../data/details';
 import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
+import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useKeptEdit, useSaveRun } from './EditTray';
+import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
 import { OnBody } from './RepeatSheet';
@@ -32,7 +30,8 @@ function Field({ id, label, hint, problem, children }: { id: string; label: stri
 }
 
 function Details({ ws }: { ws: EventWorkspace }) {
-  const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS);
+  const kept = useKeptEdit(ws, 'details', detailsDraftOf);
+  const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS, kept);
   const save = useSaveRun(ws.series.id);
   const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
   const back = useBackToEvent(ws.series.id, form.dirty);
@@ -56,7 +55,9 @@ function Details({ ws }: { ws: EventWorkspace }) {
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
-    if (res.ok) { form.saved(res.version); back(words.detailsSaved); }
+    // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
+    if (res.gated) keepDraft(ws.series.id, { screen: 'details', draft, base: form.base });
+    if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.detailsSaved); }
   };
 
   const upload = async (file: File | undefined) => {
@@ -85,9 +86,9 @@ function Details({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-details-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
+      {kept && form.dirty && <p className="p3-note p3-kept" role="status" data-testid="p3-details-kept">{KEPT_COPY.line}</p>}
       <Field id="name" label={L.detailsName} problem={touched.name || form.changed.includes('name') ? problems.name : null}>
         <input id="p3-d-name" className="p3-in" value={draft.name} disabled={off} autoComplete="off"
           onChange={(e) => set({ name: e.target.value })} onBlur={() => touch('name')} data-testid="p3-d-name" />
