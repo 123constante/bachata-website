@@ -265,7 +265,10 @@ describe('redirect degrades name their reason and still redirect', () => {
     // Asserted here because a 302 with no Location is a preview that goes
     // nowhere, and the marker assertion alone would stay green through it.
     expect(res.headers.get('location')).toBe(STATIC_FALLBACK);
-    expect(res.headers.get('cache-control')).toBe(FAST_CACHE);
+    // render-error is the one redirect that must not be cached at all: it says
+    // nothing about the entity, and 300s of it pinned the generic picture to
+    // every share preview during the 2026-11-04 font-fetch incident.
+    expect(res.headers.get('cache-control')).toBe(reason === 'render-error' ? 'no-store' : FAST_CACHE);
   });
 });
 

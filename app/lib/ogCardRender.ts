@@ -10,16 +10,22 @@
 // Font loading: sharp's Pango text renderer needs a real FILESYSTEM path
 // (`fontfile`), not bytes. RR7's server build bundles into one JS file with no
 // guaranteed sibling-file layout at runtime, so the two Inter .ttf files are
-// imported as Vite assets (resolves to a hashed /assets/*.ttf URL, which Vite
-// copies into build/client — the same static-asset pipeline that already
-// serves e.g. src/fontsource webfonts). At first use, fetch that URL from the
-// site's own deployed origin and write the bytes to /tmp once (Vercel Node
-// functions always have a writable /tmp and network access to their own
-// origin); the memoized promise means concurrent cold-start requests share one
-// write instead of racing.
+// imported with the `?bytes` suffix (vite.fileBytes.ts, registered in both
+// vite.config.ts and vitest.config.ts): the BYTES ride inside the server
+// bundle as a base64 string, and at first use they are decoded and written
+// to /tmp once (Vercel Node functions always have a writable /tmp). No network.
+//
+// Until 2026-11-04 this fetched the hashed /assets/*.ttf from the site's own
+// public origin on every cold start. When the function -> Cloudflare connect
+// stalled (ConnectTimeoutError, 10s), every card threw and every share fell
+// back to the generic /og-image.jpg. tests/ogFontOffline.test.ts renders both
+// cards with global fetch always failing; keep it green.
+//
+// The memoized promise means concurrent cold-start requests share one write
+// instead of racing; a failed write is evicted so the next request retries.
 import sharp from "sharp";
 import { createHash } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,11 +35,9 @@ import { wordForStored, type CategoryWord } from "@/lib/eventCategory";
 import { isAllowedOgImageSource } from "./ogImageSourceAllowlist";
 import { asWallClock, formatWallClockLocalIntl, wallClockDateKey, type WallClock } from "@/lib/time/wallClock";
 import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery";
-import interSemiBoldUrl from "./ogCardFonts/Inter-SemiBold.ttf";
-import interRegularUrl from "./ogCardFonts/Inter-Regular.ttf";
+import interSemiBoldB64 from "./ogCardFonts/Inter-SemiBold.ttf?bytes";
+import interRegularB64 from "./ogCardFonts/Inter-Regular.ttf?bytes";
 import { truncate } from "../truncate";
-
-const SITE_URL = "https://www.bachatacalendar.co.uk";
 
 const CARD_W = 1200;
 const CARD_H = 630;
@@ -42,32 +46,48 @@ const ORANGE = { r: 249, g: 115, b: 22, alpha: 1 } as const;
 
 const fontPathCache = new Map<string, Promise<string>>();
 
-function absoluteAssetUrl(assetUrl: string): string {
-  return assetUrl.startsWith("http") ? assetUrl : `${SITE_URL}${assetUrl}`;
+// A TrueType file starts with the sfnt version 0x00010000. Checked so a loader
+// regression (a path or URL string where bytes were expected) fails loudly
+// here rather than as an opaque Pango error on a garbage font file.
+const TTF_MAGIC = Buffer.from([0x00, 0x01, 0x00, 0x00]);
+
+/** Decode the base64 a `?bytes` import yields into the .ttf bytes. */
+export function fontBytesFromBase64(b64: string): Buffer {
+  const bytes = Buffer.from(b64, "base64");
+  if (bytes.length < 1024 || !bytes.subarray(0, 4).equals(TTF_MAGIC)) {
+    throw new Error("og font: ?bytes import did not yield a TrueType file");
+  }
+  return bytes;
 }
 
-async function materializeFont(assetUrl: string): Promise<string> {
-  const cached = fontPathCache.get(assetUrl);
+async function materializeFont(name: string, b64: string): Promise<string> {
+  const cached = fontPathCache.get(name);
   if (cached) return cached;
 
   const promise = (async () => {
-    const dest = join(tmpdir(), `og-font-${assetUrl.replace(/[^a-z0-9.]/gi, "_")}`);
-    const res = await fetch(absoluteAssetUrl(assetUrl));
-    if (!res.ok) throw new Error(`font fetch failed: ${assetUrl} (${res.status})`);
-    const bytes = Buffer.from(await res.arrayBuffer());
-    await writeFile(dest, bytes);
+    const bytes = fontBytesFromBase64(b64);
+    // Content hash in the name: a font change on a warm /tmp never reuses
+    // the old file, and two deployments sharing a /tmp cannot collide.
+    const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
+    const dest = join(tmpdir(), `og-font-${name}-${digest}.ttf`);
+    // Temp name + rename: Pango can never be handed a half-written file, even
+    // if a write dies part-way and a later request retries the same path.
+    const tmp = `${dest}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+    await writeFile(tmp, bytes);
+    await rename(tmp, dest);
     return dest;
   })();
 
-  fontPathCache.set(assetUrl, promise);
+  fontPathCache.set(name, promise);
+  promise.catch(() => fontPathCache.delete(name));
   return promise;
 }
 
 async function fontSemiPath(): Promise<string> {
-  return materializeFont(interSemiBoldUrl);
+  return materializeFont("Inter-SemiBold", interSemiBoldB64);
 }
 async function fontRegPath(): Promise<string> {
-  return materializeFont(interRegularUrl);
+  return materializeFont("Inter-Regular", interRegularB64);
 }
 
 function esc(s: string): string {
@@ -585,20 +605,80 @@ export function formatOgDate(wc: WallClock | null): string | null {
 // the SSRF allow-list lives here: a refused source returns null without ever
 // calling fetch, and redirect "error" stops an allowed host bouncing the
 // request somewhere else (ogImageSourceAllowlist.ts).
-export async function fetchImageBytes(url: string): Promise<Buffer | null> {
-  if (!isAllowedOgImageSource(url)) return null;
+//
+// Timeout + ONE retry (incident 2026-11-04): media.bachatacalendar.co.uk sits
+// behind the same Cloudflare edge whose connects were stalling from Vercel. A
+// stalled connect is usually transient, so an attempt that throws (timeout,
+// connect error) or answers 5xx gets exactly one more try after a short pause;
+// a 4xx, a redirect (rejected by redirect "error") or an oversized body is an
+// answer, not a blip, and is not retried.
+//
+// Two clocks. HEADERS_TIMEOUT bounds one attempt's wait for response headers
+// (the stalled-connect case). DEADLINE bounds the WHOLE call, retries and body
+// download included -- it equals the old single-attempt 5s, so the worst case
+// before the caller falls back to the branded cover-unfetchable card (never
+// the generic redirect) did not grow, and a slow but healthy large flyer still
+// has the full window to download.
+export const OG_IMAGE_FETCH_HEADERS_TIMEOUT_MS = 2500;
+export const OG_IMAGE_FETCH_DEADLINE_MS = 5000;
+export const OG_IMAGE_FETCH_ATTEMPTS = 2;
+const OG_IMAGE_RETRY_PAUSE_MS = 150;
+const OG_IMAGE_MAX_BYTES = 12_000_000;
+
+type ImageAttempt = { bytes: Buffer | null; retry: boolean };
+
+function isRedirectRefusal(err: unknown): boolean {
+  const e = err as { message?: unknown; cause?: { message?: unknown } } | null;
+  return /redirect/i.test(`${e?.message ?? ""} ${e?.cause?.message ?? ""}`);
+}
+
+async function fetchImageAttempt(url: string, headersTimeoutMs: number, deadline: AbortSignal): Promise<ImageAttempt> {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 5000);
+  const onDeadline = () => ctrl.abort();
+  if (deadline.aborted) return { bytes: null, retry: false };
+  deadline.addEventListener("abort", onDeadline);
+  const headersTimer = setTimeout(() => ctrl.abort(), headersTimeoutMs);
   try {
     const r = await fetch(url, { signal: ctrl.signal, redirect: "error" });
-    if (!r.ok) return null;
+    clearTimeout(headersTimer);
+    if (!r.ok) {
+      // Release the socket before a retry opens another one.
+      await r.body?.cancel().catch(() => {});
+      return { bytes: null, retry: r.status >= 500 };
+    }
     const ab = await r.arrayBuffer();
-    if (ab.byteLength > 12_000_000) return null;
-    return Buffer.from(ab);
-  } catch {
+    if (ab.byteLength > OG_IMAGE_MAX_BYTES) return { bytes: null, retry: false };
+    return { bytes: Buffer.from(ab), retry: false };
+  } catch (err) {
+    return { bytes: null, retry: !isRedirectRefusal(err) };
+  } finally {
+    clearTimeout(headersTimer);
+    deadline.removeEventListener("abort", onDeadline);
+  }
+}
+
+export async function fetchImageBytes(
+  url: string,
+  {
+    headersTimeoutMs = OG_IMAGE_FETCH_HEADERS_TIMEOUT_MS,
+    deadlineMs = OG_IMAGE_FETCH_DEADLINE_MS,
+    attempts = OG_IMAGE_FETCH_ATTEMPTS,
+    retryPauseMs = OG_IMAGE_RETRY_PAUSE_MS,
+  }: { headersTimeoutMs?: number; deadlineMs?: number; attempts?: number; retryPauseMs?: number } = {},
+): Promise<Buffer | null> {
+  if (!isAllowedOgImageSource(url)) return null;
+  const deadline = new AbortController();
+  const deadlineTimer = setTimeout(() => deadline.abort(), deadlineMs);
+  try {
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) await new Promise((r) => setTimeout(r, retryPauseMs));
+      if (deadline.signal.aborted) return null;
+      const { bytes, retry } = await fetchImageAttempt(url, headersTimeoutMs, deadline.signal);
+      if (bytes || !retry) return bytes;
+    }
     return null;
   } finally {
-    clearTimeout(t);
+    clearTimeout(deadlineTimer);
   }
 }
 
