@@ -128,9 +128,11 @@ export function byPageName<T extends { id: string; name: string }>(a: T, b: T): 
 /**
  * Every listed series of ONE page (page scope, F-26), once each, soonest first. An event run
  * by 2+ of the person's pages appears under each of them and names the others (alsoRunBy).
- * No page given (nothing chosen yet) reads every page, as before.
+ * `undefined` (a caller with no page concept) reads every page; `null` (no page chosen or none
+ * exist) reads NONE, so an unresolved choice never shows every page's events.
  */
 export function rowsOf(home: OrganiserHome, organiserId?: string | null): P3Row[] {
+  if (organiserId === null) return [];
   const scoped = organiserId ? home.organisers.filter((o) => o.id === organiserId) : home.organisers;
   const seen = new Set<string>();
   const out: P3Row[] = [];

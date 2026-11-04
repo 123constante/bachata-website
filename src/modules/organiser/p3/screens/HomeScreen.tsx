@@ -36,7 +36,7 @@ export function HomeScreen() {
   const scope = usePageScope();
   const confirmation = confirmationOf(useLocation().state);
 
-  if (home.isPending) {
+  if (home.isPending || scope.loading) {
     return (
       <StateCard title="Loading your events&hellip;" testId="p3-home-loading">
         This takes a second. Your tabs below work while it loads.
