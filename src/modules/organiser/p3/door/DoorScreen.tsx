@@ -8,7 +8,13 @@ import { P3_PATHS } from '../shell/paths';
 import { ticketDoorCode } from './doorFlags';
 import {
   ACTION_LABEL,
+  CAMERA_INAPP_LINE,
+  CAMERA_RETRY_LABEL,
+  CAMERA_START_LABEL,
+  CAMERA_STILL_BLOCKED,
   CAMERA_WORDS,
+  cameraSteps,
+  detectBrowser,
   RESULT_TABLE,
   cameraDead,
   classifyCode,
@@ -18,6 +24,7 @@ import {
   londonClock,
   parseCode,
   personOf,
+  type CameraState,
   type CheckIn,
   type DoorResult,
   type NextAction,
@@ -112,12 +119,12 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
   const video = useRef<HTMLVideoElement>(null);
   const keep = !shown || RESULT_TABLE[shown.kind].keepScanning;
   const camOn = tab === 'scan' && !notAllowed && !noneSold && !out && keep;
-  const cam = useScanner(video, camOn, onCamera, deps);
+  const { state: cam, start: startCamera, denials } = useScanner(video, camOn, onCamera, deps);
 
   // a camera that is blocked or missing will not come back by itself: open the list once
   const opened = useRef(false);
   useEffect(() => {
-    if (cameraDead(cam) && !opened.current) { opened.current = true; setTab('list'); }
+    if ((cam === 'none' || cam === 'failed') && !opened.current) { opened.current = true; setTab('list'); }
   }, [cam]);
 
   const act = (a: NextAction) => {
@@ -165,6 +172,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
           <ScanTab
             video={video} cam={cam} counts={shownCounts} shown={shown} busy={busy} notAllowed={notAllowed}
             noneSold={noneSold} seriesId={seriesId} act={act} codeInput={codeInput} onCode={submitCode} shortCodes={shortCodes}
+            startCamera={startCamera} tries={denials} openList={() => setTab('list')}
           />
         ) : (
           <ListTab
@@ -189,17 +197,21 @@ function Counter({ counts }: { counts: { in: number; total: number } | null }) {
 }
 
 interface ScanProps {
-  video: React.RefObject<HTMLVideoElement>; cam: ReturnType<typeof useScanner>; counts: { in: number; total: number } | null;
+  video: React.RefObject<HTMLVideoElement>; cam: CameraState; counts: { in: number; total: number } | null;
   shown: Shown | null; busy: boolean; notAllowed: boolean; noneSold: boolean; seriesId: string;
   act: (a: NextAction) => void; codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; shortCodes: boolean;
+  startCamera: () => void; tries: number; openList: () => void;
 }
 
-function ScanTab({ video, cam, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes }: ScanProps) {
+function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes }: ScanProps) {
   if (notAllowed) return <div className="p3-door-pad"><ResultCard shown={shown?.kind === 'not_allowed' ? shown : { kind: 'not_allowed', c: null }} act={act} /></div>;
   if (noneSold) return <EmptySold seriesId={seriesId} />;
   return (
     <>
-      <div className={`p3-door-cam${shown ? ' p3-door-cam-short' : ''}`} data-testid="door-camera" data-cam={cam}>
+      {(cam === 'ask' || cam === 'denied') && !shown && (
+        <CameraHelp cam={cam} tries={tries} startCamera={startCamera} openList={openList} counts={counts} />
+      )}
+      <div className={`p3-door-cam${shown ? ' p3-door-cam-short' : ''}${(cam === 'ask' || cam === 'denied') && !shown ? ' p3-door-cam-gone' : ''}`} data-testid="door-camera" data-cam={cam}>
         <video ref={video} playsInline muted aria-hidden="true" />
         {cam === 'on' ? (
           <div className="p3-door-finder" aria-hidden="true"><i /><i /><i /><i /></div>
@@ -219,6 +231,33 @@ function ScanTab({ video, cam, counts, shown, busy, notAllowed, noneSold, series
         )}
       </div>
     </>
+  );
+}
+
+/** The calm card before the camera question, and the plain steps after a "Don't allow". Code box and list stay below. */
+function CameraHelp({ cam, tries, startCamera, openList, counts }: { cam: 'ask' | 'denied'; tries: number; startCamera: () => void; openList: () => void; counts: { in: number; total: number } | null }) {
+  const steps = cameraSteps(detectBrowser(typeof navigator === 'undefined' ? '' : navigator.userAgent));
+  return (
+    <div className="p3-door-pad">
+      <Counter counts={counts} />
+      <section className="p3-card p3-door-help" data-testid="door-cam-help" data-cam={cam}>
+        {cam === 'ask' ? (
+          <>
+            <strong>To scan tickets, this page needs your camera.</strong>
+            <p className="p3-note">Tap Start camera, then tap Allow.</p>
+            <button type="button" className="p3-btn p3-door-wide p3-door-tap" onClick={startCamera} data-testid="door-cam-start">{CAMERA_START_LABEL}</button>
+          </>
+        ) : (
+          <>
+            <strong>{tries > 1 ? CAMERA_STILL_BLOCKED : 'The camera is blocked for this page.'}</strong>
+            <ol className="p3-door-steps" data-testid="door-cam-steps">{steps.map((t) => <li key={t}>{t}</li>)}</ol>
+            <p className="p3-note">{CAMERA_INAPP_LINE}</p>
+            <button type="button" className="p3-btn p3-door-wide p3-door-tap" onClick={startCamera} data-testid="door-cam-retry">{CAMERA_RETRY_LABEL}</button>
+          </>
+        )}
+        <p className="p3-note">No camera? Type the code below, or <button type="button" className="p3-door-linkbtn" onClick={openList} data-testid="door-cam-openlist">open tonight&rsquo;s list</button>.</p>
+      </section>
+    </div>
   );
 }
 
@@ -309,7 +348,7 @@ function EmptySold({ seriesId }: { seriesId: string }) {
 
 interface ListProps {
   list: { data?: DoorList; isPending: boolean; isError: boolean; refetch: () => unknown; isFetching: boolean };
-  shown: Shown | null; cam: ReturnType<typeof useScanner>; busy: boolean;
+  shown: Shown | null; cam: CameraState; busy: boolean;
   codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; act: (a: NextAction) => void; seriesId: string;
   shortCodes: boolean; pendingId: string | null; onCheckIn: (ticketId: string) => void; notAllowed: boolean;
 }

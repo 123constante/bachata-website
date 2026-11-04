@@ -213,12 +213,13 @@ export function codeBoxBlock(text: string, busy: boolean, shortCodes = false): s
   return null;
 }
 
-export type CameraState = 'starting' | 'on' | 'denied' | 'none' | 'failed' | 'off';
+export type CameraState = 'starting' | 'ask' | 'on' | 'denied' | 'none' | 'failed' | 'off';
 
 /** What the camera box says when there is no picture. */
 export const CAMERA_WORDS: Record<Exclude<CameraState, 'on'>, string> = {
   starting: 'Starting the camera\u2026',
-  denied: `Camera blocked. Allow the camera for this site in your browser settings, or type the code or use tonight${RSQ}s list.`,
+  ask: `To scan tickets, this page needs your camera. Tap Start camera, then tap Allow. Or type the code, or use tonight${RSQ}s list.`,
+  denied: `The camera is blocked for this page. The Scan tab shows how to turn it on. Or type the code, or use tonight${RSQ}s list.`,
   none: `No camera found on this phone. Type the code, or use tonight${RSQ}s list.`,
   failed: `The camera did not start. Type the code, or use tonight${RSQ}s list.`,
   off: 'Camera paused.',
@@ -226,3 +227,27 @@ export const CAMERA_WORDS: Record<Exclude<CameraState, 'on'>, string> = {
 
 /** A camera that will not come back without the person changing something: open the list for them. */
 export const cameraDead = (s: CameraState) => s === 'denied' || s === 'none' || s === 'failed';
+
+export type CameraPermission = 'granted' | 'prompt' | 'denied' | 'unknown';
+export type DoorBrowser = 'chrome' | 'ios' | 'inapp' | 'other';
+
+/** Which set of steps to show. In-app tabs (Facebook, Instagram, ...) never show a camera question at all. */
+export function detectBrowser(ua: string): DoorBrowser {
+  if (/FBAN|FBAV|Instagram|MicroMessenger|TikTok|Snapchat|\bLine\/|; wv\)|GSA\//i.test(ua)) return 'inapp';
+  if (/iPhone|iPad|iPod/i.test(ua)) return /CriOS|FxiOS|EdgiOS/i.test(ua) ? 'other' : 'ios';
+  if (/Android/i.test(ua) && /Chrome\//i.test(ua)) return 'chrome';
+  return 'other';
+}
+
+export const CAMERA_START_LABEL = 'Start camera';
+export const CAMERA_RETRY_LABEL = 'Try the camera again';
+export const CAMERA_STILL_BLOCKED = `Still blocked. Follow the steps, then tap Try the camera again. Or type the code, or use tonight${RSQ}s list.`;
+export const CAMERA_INAPP_LINE = 'If you opened this link inside another app, open it in Chrome or Safari.';
+
+/** Plain steps for getting the camera back, by browser. Never mentions a control that is not on screen. */
+export function cameraSteps(b: DoorBrowser): string[] {
+  const back = 'Come back here and tap Try the camera again.';
+  if (b === 'ios') return ['Tap the aA at the left of the address.', 'Tap Website Settings.', 'Tap Camera, then Allow.', back];
+  if (b === 'chrome') return [`Tap the padlock (or the settings icon) next to the address.`, 'Tap Permissions, then Camera.', 'Choose Allow.', back];
+  return ['Open your browser settings for this site and set Camera to Allow.', back];
+}
