@@ -82,6 +82,16 @@ export function groupTickets(tickets: MyTicket[], todayKey: string): { upcoming:
   return { upcoming, past };
 }
 
+/** How many upcoming cards draw their QR on mount (each QR is built on the phone). */
+export const QR_OPEN_DEFAULT = 3;
+
+/** ticketIds whose QR starts open: tickets dated today first, then the rest, server order, capped. */
+export function qrOpenByDefault(upcoming: MyTicket[], todayKey: string): Set<string> {
+  const live = upcoming.filter((t) => t.date === null || t.date >= todayKey); // past never opens
+  const todayFirst = [...live.filter((t) => t.date === todayKey), ...live.filter((t) => t.date !== todayKey)];
+  return new Set(todayFirst.slice(0, QR_OPEN_DEFAULT).map((t) => t.ticketId));
+}
+
 /** "Ticket 2 of 3" inside its order; null for a one-ticket order. */
 export function orderPositions(tickets: MyTicket[]): Map<string, string | null> {
   const byOrder = new Map<string, string[]>();

@@ -13,6 +13,7 @@ import {
   groupTickets,
   orderPositions,
   orderRef,
+  qrOpenByDefault,
   qrVisible,
   stateCopy,
   truncatedNote,
@@ -55,9 +56,9 @@ function QrCode({ token }: { token: string }) {
   );
 }
 
-function TicketCard({ t, position, today, past }: { t: MyTicket; position: string | null; today: string; past: boolean }) {
+function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position: string | null; today: string; defaultOpen: boolean }) {
   const [anyway, setAnyway] = useState(false);
-  const [open, setOpen] = useState(!past);
+  const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
   return (
     <li className="rounded-md p-3 text-[14px]" style={surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'}>
@@ -120,7 +121,7 @@ function TicketCard({ t, position, today, past }: { t: MyTicket; position: strin
   );
 }
 
-function Section({ title, tickets, positions, today, past }: { title: string; tickets: MyTicket[]; positions: Map<string, string | null>; today: string; past: boolean }) {
+function Section({ title, tickets, positions, today, past, openSet }: { title: string; tickets: MyTicket[]; positions: Map<string, string | null>; today: string; past: boolean; openSet: Set<string> }) {
   if (!tickets.length) return null;
   return (
     <section className="mb-3" data-testid={past ? 'my-tickets-past' : 'my-tickets-upcoming'}>
@@ -129,7 +130,7 @@ function Section({ title, tickets, positions, today, past }: { title: string; ti
       </h2>
       <ul className="space-y-2">
         {tickets.map((t) => (
-          <TicketCard key={t.ticketId} t={t} position={positions.get(t.ticketId) ?? null} today={today} past={past} />
+          <TicketCard key={t.ticketId} t={t} position={positions.get(t.ticketId) ?? null} today={today} defaultOpen={!past && openSet.has(t.ticketId)} />
         ))}
       </ul>
     </section>
@@ -150,6 +151,7 @@ export function MyTicketsView({ result, authReady, onRetry, today }: {
           : result.reply.tickets.length === 0 ? 'empty' : 'ready';
   const reply = result?.kind === 'ok' ? result.reply : null;
   const groups = useMemo(() => groupTickets(reply?.tickets ?? [], today), [reply, today]);
+  const openSet = useMemo(() => qrOpenByDefault(groups.upcoming, today), [groups, today]);
   const positions = useMemo(() => orderPositions(reply?.tickets ?? []), [reply]);
   const note = reply ? truncatedNote(reply) : null;
   return (
@@ -161,8 +163,8 @@ export function MyTicketsView({ result, authReady, onRetry, today }: {
           {groups.upcoming.length === 0 && (
             <p className="mb-2 text-[13px]" style={muted}>No upcoming tickets. <Link to="/" className="underline">Find an event</Link></p>
           )}
-          <Section title="Upcoming" tickets={groups.upcoming} positions={positions} today={today} past={false} />
-          <Section title="Past" tickets={groups.past} positions={positions} today={today} past />
+          <Section title="Upcoming" tickets={groups.upcoming} positions={positions} today={today} past={false} openSet={openSet} />
+          <Section title="Past" tickets={groups.past} positions={positions} today={today} past openSet={openSet} />
         </>
       ) : (
         <StateBox state={state as Exclude<PageState, 'ready'>} signIn={buildSignInHref(location.pathname)} onRetry={onRetry} />

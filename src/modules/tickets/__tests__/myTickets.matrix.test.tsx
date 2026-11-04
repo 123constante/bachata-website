@@ -16,7 +16,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-11-04' }));
 
 import MyTicketsPage from '../MyTicketsPage';
-import { dateWords, groupTickets, parseMyTickets, stateCopy, truncatedNote, whenLine, MY_TICKETS_CAP } from '../myTicketsModel';
+import { dateWords, groupTickets, parseMyTickets, qrOpenByDefault, stateCopy, truncatedNote, whenLine, MY_TICKETS_CAP, QR_OPEN_DEFAULT } from '../myTicketsModel';
 
 const TOKEN = (n: number) => n.toString(16).padStart(64, 'a');
 let seq = 0;
@@ -51,6 +51,21 @@ const SHAPES: Shape[] = [
     expect(screen.getAllByTestId('my-ticket')).toHaveLength(3);
     expect(screen.getByText(/Ticket 2 of 3/)).toBeTruthy();
     expect(screen.getAllByTestId('ticket-qr')).toHaveLength(3);
+  } },
+  { name: '40 upcoming tickets', reply: () => ok(Array.from({ length: 40 }, () => row())), state: 'ready', check: () => {
+    expect(screen.getAllByTestId('my-ticket')).toHaveLength(40);
+    expect(screen.getAllByTestId('ticket-qr')).toHaveLength(3);
+    const buttons = screen.getAllByRole('button', { name: 'Show QR code' });
+    expect(buttons).toHaveLength(37);
+    fireEvent.click(buttons[0]);
+    expect(screen.getAllByTestId('ticket-qr')).toHaveLength(4);
+  } },
+  { name: 'past + checked in', reply: () => ok([row({ occurrence_date: '2026-10-01', checked_in: true, checked_in_at: '2026-10-01T21:42:00Z' })]), state: 'ready', check: () => {
+    expect(screen.getByTestId('my-ticket-checked-in').textContent).toMatch(/^Checked in at /);
+    expect(screen.queryByTestId('ticket-qr')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show anyway' }));
+    expect(screen.getByTestId('ticket-qr')).toBeTruthy();
+    expect(screen.getByText('Already used at the door.')).toBeTruthy();
   } },
   { name: 'past + upcoming mix', reply: () => ok([row(), row({ occurrence_date: '2026-11-04' }), row({ occurrence_date: '2026-10-01', order_id: 'ord2' })]), state: 'ready', check: () => {
     expect(within(screen.getByTestId('my-tickets-upcoming')).getAllByTestId('my-ticket')).toHaveLength(2);
@@ -135,6 +150,37 @@ describe('my tickets model', () => {
     const r = parseMyTickets({ tickets: [row({ occurrence_date: '2026-11-03' }), row({ occurrence_date: null }), row({ occurrence_date: '2026-11-04' })], truncated: false, total_count: 3 })!;
     const g = groupTickets(r.tickets, '2026-11-04');
     expect([g.upcoming.length, g.past.length]).toEqual([2, 1]);
+  });
+  describe('qrOpenByDefault', () => {
+    const TODAY = '2026-11-04';
+    const mk = (n: number, date: string | null = '2026-11-07') =>
+      parseMyTickets({ tickets: Array.from({ length: n }, () => row({ occurrence_date: date })) })!.tickets;
+    const ids = (a: { ticketId: string }[]) => a.map((t) => t.ticketId);
+    it('is 3', () => expect(QR_OPEN_DEFAULT).toBe(3));
+    it('0 tickets: none', () => expect(qrOpenByDefault([], TODAY).size).toBe(0));
+    it('2 tickets: both open', () => {
+      const t = mk(2);
+      expect([...qrOpenByDefault(t, TODAY)]).toEqual(ids(t));
+    });
+    it('5 upcoming: first 3 open', () => {
+      const t = mk(5);
+      expect([...qrOpenByDefault(t, TODAY)]).toEqual(ids(t).slice(0, 3));
+    });
+    it('today tickets open first, then server order', () => {
+      const t = [...mk(3), ...mk(2, TODAY)];
+      const s = qrOpenByDefault(t, TODAY);
+      expect(s.size).toBe(3);
+      expect([t[3], t[4], t[0]].every((x) => s.has(x.ticketId))).toBe(true);
+    });
+    it('40 today: exactly 3', () => expect(qrOpenByDefault(mk(40, TODAY), TODAY).size).toBe(3));
+    it('null date is an ordinary upcoming ticket', () => {
+      const t = mk(2, null);
+      expect(qrOpenByDefault(t, TODAY).size).toBe(2);
+    });
+    it('past tickets never open', () => {
+      const t = mk(4, '2026-10-01');
+      expect(qrOpenByDefault(t, TODAY).size).toBe(0);
+    });
   });
   it('dates: year only when not this year; bad time dropped', () => {
     expect(dateWords('2027-01-02', '2026-11-04')).toBe('Sat 2 Jan 2027');
