@@ -40,6 +40,7 @@ import {
 import { buildPack, findPackComment, packHead, pingedAtHead, needsOwnerApprove, renderOwnerPing } from './lib/autopilot-pack.mjs';
 import { mergeVerdict, mergeCallBody, merges24h, pruneMerges } from './lib/autopilot-merge.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
+import { readPause, PausedError } from './lib/automation-pause.mjs';
 
 const API = 'https://api.github.com';
 const LABEL_COLORS = { [STATE_LABELS.waiting]: 'fbca04', [STATE_LABELS.ready]: '0e8a16', [STATE_LABELS.stopped]: 'd93f0b', [STATE_LABELS.running]: 'c5def5' };
@@ -238,7 +239,10 @@ async function mainAfterLastMerge(api, repo, log) {
  * (a GITHUB_TOKEN merge fires no push workflows on main). Refused (409 head moved, 405) = logged,
  * returned, never retried in this run.
  */
-async function mergePr(mergeApi, repo, f) {
+async function mergePr(mergeApi, repo, f, pauseCheck) {
+  // PAUSE SWITCH: read AGAIN immediately before THE merge, every time (drill A15, docs/automation-pause.md).
+  const switchWhy = await pauseCheck();
+  if (switchWhy) return { ok: false, paused: true, why: `paused: ${switchWhy}` };
   try {
     const res = await mergeApi.call('PUT', `/repos/${repo}/pulls/${f.number}/merge`, mergeCallBody(f.head));
     return res && res.merged && res.sha ? { ok: true, sha: res.sha } : { ok: false, why: 'merge answered without merged/sha' };
@@ -287,8 +291,18 @@ export async function run(env = process.env, opts = {}) {
   const dryRun = env.DRY_RUN !== 'false';
   const repos = String(env.REPOS || env.GITHUB_REPOSITORY || '').split(',').map((s) => s.trim()).filter(Boolean);
   const counter = { calls: 0, remaining: Infinity };
-  const gh = makeApi(env.GH_TOKEN || '', counter, opts.fetch);
-  const bot = env.BOT_TOKEN ? makeApi(env.BOT_TOKEN, counter, opts.fetch) : null;
+  // PAUSE SWITCH (docs/automation-pause.md). opts.pauseReader exists for tests; the default is the
+  // REAL reader. Every non-GET call through gh/bot re-reads the switch first and throws PausedError
+  // when paused; the merge call re-reads explicitly in mergePr(). A pause is not a failure (exit 0).
+  const pauseReader = opts.pauseReader ?? ((r) => readPause({ repo: r, token: env.GH_TOKEN || '', fetch: opts.fetch ?? globalThis.fetch }));
+  let pauseCheck = async () => null; // replaced per repo below, before that repo's first write
+  const guarded = (api) => ({ ...api, call: async (method, p, body, o) => {
+    if (method !== 'GET') { const why = await pauseCheck(); if (why) throw new PausedError(why); }
+    return api.call(method, p, body, o);
+  } });
+  const pausedRepos = [];
+  const gh = guarded(makeApi(env.GH_TOKEN || '', counter, opts.fetch));
+  const bot = env.BOT_TOKEN ? guarded(makeApi(env.BOT_TOKEN, counter, opts.fetch)) : null;
   // r4: the merge lane's own credential; absent = the lane cannot merge (mergeVerdict says so).
   const mode = mergeMode(env);
   const mergeApi = env.AUTOMERGE_TOKEN ? makeApi(env.AUTOMERGE_TOKEN, counter, opts.fetch) : null;
@@ -324,12 +338,25 @@ export async function run(env = process.env, opts = {}) {
     const mergeLog = pruneMerges(prev._merges);
     let mainState = null;
     let paused = null;
+    let switchPaused = null; // the PAUSE SWITCH; once seen it holds for the rest of this repo's run
+    pauseCheck = async () => {
+      if (switchPaused) return switchPaused;
+      let r;
+      try { r = await pauseReader(repo); } catch (e) { r = { paused: true, reason: `reader threw: ${e && e.message}` }; }
+      if (!r || r.paused !== false) {
+        switchPaused = String((r && r.reason) || 'paused');
+        pausedRepos.push(`${repo}: ${switchPaused}`);
+        log(`::notice::${repo}: automation pause switch: PAUSED (${switchPaused}); nothing more is written or merged this run`);
+      }
+      return switchPaused;
+    };
     const row = (p, head, d, did) => {
       rows.push({ repo, pr: p, head: String(head).slice(0, 8), decision: d.action, why: d.why, did });
       log(JSON.stringify({ repo, pr: p, head: String(head).slice(0, 8), action: d.action, why: d.why, did }));
     };
     const labelOnly = async (f, want) => (dryRun ? `would: ${want ? `label ${want}` : `remove ${labelPlan(f.labels, null).remove.join(', ') || 'nothing'}`}` : (await setStateLabel(gh, repo, f, want)) || 'nothing');
     try {
+      await pauseCheck(); // read FIRST, before anything for this repo
       if (left() < END_RESERVE + 10) throw new Error(`request budget used (${counter.calls}/${budget} this run, ${hourUsed} earlier this hour): repo not read`);
       const meta = await gh.call('GET', `/repos/${repo}`);
       const mainSha = (await gh.call('GET', `/repos/${repo}/commits/${meta.default_branch}`)).sha;
@@ -346,7 +373,7 @@ export async function run(env = process.env, opts = {}) {
         ciRunsToday: proofs.complete ? proofs.count : Math.max(proofs.count, CI_CAP),
       };
       if (!proofs.complete) log(`::warning::${repo}: the 24 h run-ci window was not fully read; the CI cap fails closed this run`);
-      if (!dryRun) await ensureLabels(gh, repo);
+      if (!dryRun && !switchPaused) await ensureLabels(gh, repo);
       // B2: newest first, drafts included (only to clear their ap:* labels, M1).
       const open = newestFirst(await gh.all(`/repos/${repo}/pulls?state=open`));
       for (const p of open) openNums.add(p.number);
@@ -420,8 +447,9 @@ export async function run(env = process.env, opts = {}) {
             log(`${repo}#${p.number} merge verdict: ${v.merge ? 'MERGE' : `NO: ${v.reasons.join('; ')}`}`);
             if (!v.merge) did = [did, `merge: no (${v.reasons.slice(0, 4).join('; ')}${v.reasons.length > 4 ? `; +${v.reasons.length - 4} more` : ''})`].join('; ');
             else {
-              const m = await mergePr(mergeApi, repo, f);
-              if (!m.ok) { log(`::warning::${repo}#${p.number}: merge refused (${m.why}); not retried this run`); did = `${did}; merge refused (${m.why})`; }
+              const m = await mergePr(mergeApi, repo, f, pauseCheck);
+              if (m.paused) did = `${did}; ${m.why}`;
+              else if (!m.ok) { log(`::warning::${repo}#${p.number}: merge refused (${m.why}); not retried this run`); did = `${did}; merge refused (${m.why})`; }
               else {
                 mergesRun++;
                 d = { action: 'merge', why: `merge lane (${v.mode}): ${v.classes.join(' + ')}`, label: null, stop: false };
@@ -436,7 +464,8 @@ export async function run(env = process.env, opts = {}) {
           if (d.action !== 'none') row(p.number, f.head, d, did);
           if (d.stop) stops.push({ key: `${repo}#${p.number}`, head: f.head.slice(0, 8), why: d.why });
         } catch (e) {
-          errors.push({ where: `${repo}#${p.number}`, message: e.message });
+          if (e instanceof PausedError) row(p.number, (p.head && p.head.sha) || '', { action: 'paused', why: 'automation pause switch' }, `paused: ${e.reason}`);
+          else errors.push({ where: `${repo}#${p.number}`, message: e.message });
         }
       }
     } catch (e) {
@@ -456,11 +485,13 @@ export async function run(env = process.env, opts = {}) {
       }
       if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `\n### Status comment ${dryRun ? '(would write)' : `(issue #${issue.number})`}\n\n${body.replace(/<!--[\s\S]*?-->/, '')}\n`);
     } catch (e) {
-      errors.push({ where: `${repo} status`, message: e.message });
+      if (e instanceof PausedError) log(`${repo}: status comment not written (paused: ${e.reason})`);
+      else errors.push({ where: `${repo} status`, message: e.message });
     }
   }
   const md = renderSummary(rows, { dryRun, errors }) + (foreign.length ? `\n${foreign.map((x) => `- ${x}`).join('\n')}\n` : '')
-    + `\nMerge lane: mode ${mode}${mergeLines.length ? `\n${mergeLines.join('\n')}` : ' (no merge this run)'}\n`;
+    + `\nMerge lane: mode ${mode}${mergeLines.length ? `\n${mergeLines.join('\n')}` : ' (no merge this run)'}\n`
+    + (pausedRepos.length ? `\nAutomation pause switch: PAUSED (${pausedRepos.join('; ')}). Nothing was written or merged after the switch was seen (docs/automation-pause.md).\n` : '\nAutomation pause switch: running\n');
   log(md);
   log(`requests: ${counter.calls} (budget ${budget} this run; ${hourUsed} earlier this hour)`);
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${md}\nRequests: ${counter.calls} (budget ${budget})\n`);

@@ -102,6 +102,20 @@ jobs:
         ${{ github.event_name == 'workflow_dispatch' && 'manual test' || needs.probe-new-deployment.result == 'failure' && 'new deployment probe failed' || github.event.workflow_run.conclusion || github.event.deployment_status.state }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      # PAUSE SWITCH: logged only (--info always exits 0). The brake ALWAYS runs: disabling
+      # auto-merge and alerting are protective; a pause stops merging, never alerting.
+      - uses: actions/checkout@v7
+        continue-on-error: true
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Log the automation pause switch (never stops the brake)
+        id: pause
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs --info
+
       - name: Disable auto-merge on every open PR
         run: |
           set -eu

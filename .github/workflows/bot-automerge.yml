@@ -30,6 +30,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: read # the pause switch reader (docs/automation-pause.md); nothing else
 
 concurrency:
   group: bot-automerge-${{ github.event.pull_request.number }}
@@ -53,6 +54,15 @@ jobs:
         with:
           node-version: "22"
 
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets a merge step run.
+      - name: Read the automation pause switch
+        id: pause
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+
       - name: Classify the PR (REST only, no PR code)
         id: c
         env:
@@ -64,11 +74,20 @@ jobs:
           node -e 'import("./scripts/automerge-classify.mjs").then((m) => m.main()).then((c) => { process.exitCode = c; }, (e) => { console.log("INFRA: " + e.message); process.exitCode = 2; })'
           echo "code=$?" >> "$GITHUB_OUTPUT"
 
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets a merge step run.
+      - name: Read the automation pause switch again (immediately before enabling)
+        id: pause2
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+
       # The bot's token, not GITHUB_TOKEN: a merge made with GITHUB_TOKEN starts no
       # `push` workflow, so owner-approval.yml and every post-merge check on main
       # would silently not run for an auto-merged commit.
       - name: Enable auto-merge (GitHub merges when required checks pass)
-        if: steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true'
+        if: steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.pause2.outputs.paused == 'false'
         env:
           GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -80,9 +99,10 @@ jobs:
 
       # Any other outcome, including a classifier that could not run, switches an
       # already-enabled auto-merge back OFF: a PR that stopped qualifying (new push,
-      # needs-owner label, back to draft) must not merge on an old verdict.
+      # needs-owner label, back to draft) must not merge on an old verdict. A PAUSE lands here too:
+      # GitHub would merge an armed PR later by itself, so a pause must disarm (the one write allowed).
       - name: Disable auto-merge when the PR does not qualify
-        if: always() && !(steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true')
+        if: always() && !(steps.c.outputs.code == '0' && steps.c.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.pause2.outputs.paused == 'false')
         env:
           GH_TOKEN: ${{ github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -93,7 +113,7 @@ jobs:
           on="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')"
           if [ "$on" = "true" ]; then
             gh pr merge --disable-auto "$PR_URL"
-            echo "Auto-merge was on and is now OFF: the PR no longer qualifies."
+            echo "Auto-merge was on and is now OFF: the PR no longer qualifies, or automation is paused."
           else
             echo "Auto-merge is off; nothing to undo."
           fi

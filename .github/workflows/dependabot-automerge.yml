@@ -21,6 +21,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: read # the pause switch reader (docs/automation-pause.md); nothing else
 
 concurrency:
   group: dependabot-automerge-${{ github.event.pull_request.number }}
@@ -32,6 +33,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # The pause reader is guard code: it comes from MAIN, never the PR merge ref, and the
+      # checkout keeps no credentials. KNOWN RISK: if a Dependabot-triggered token cannot read
+      # issues, the reader fails closed (reason=HTTP 403 in this step's log) and nothing enables.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
+      # not a red run; fail closed: only paused == 'false' (positively read) lets a merge step run.
+      - name: Read the automation pause switch
+        id: pause
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+
       - id: meta
         uses: dependabot/fetch-metadata@v2
         with:
@@ -47,8 +67,27 @@ jobs:
           printf '%s' "$DEPS" | jq -r '.[] | "  \(.dependencyName) \(.prevVersion) -> \(.newVersion) [\(.dependencyType), \(.updateType)]"'
 
       - name: Enable auto-merge (GitHub merges when required checks pass)
-        if: steps.decide.outputs.qualifies == 'true'
+        if: steps.decide.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: gh pr merge --auto --squash "$PR_URL"
+
+      # Paused (or the switch unreadable): an already-armed auto-merge would still merge later by
+      # itself, so disarm it. Disabling only removes merge power.
+      - name: Disable auto-merge while the automation is paused
+        if: always() && steps.pause.outputs.paused != 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          on="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.auto_merge != null')"
+          if [ "$on" = "true" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+            echo "Auto-merge was on and is now OFF: automation is paused."
+          else
+            echo "Auto-merge is off; nothing to undo."
+          fi

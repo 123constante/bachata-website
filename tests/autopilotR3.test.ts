@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 import { decide, countCiProofs24h, CI_CAP, BOT_LOGIN, STATE_LABELS, WRITE_ACTIONS } from '../scripts/lib/autopilot.mjs';
 import { buildPack, classifyFile, hardTier, needsOwnerApprove, quoteBody, findPackComment, packHead, pingedAtHead, renderOwnerPing } from '../scripts/lib/autopilot-pack.mjs';
 import { run } from '../scripts/autopilot-step.mjs';
-import { BASE, MERGE_SITE } from './autopilotTable';
+import { BASE, MERGE_SITE, NOT_PAUSED } from './autopilotTable';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 const MIN = 60000;
@@ -189,64 +189,64 @@ type RunFn = (env: any, opts: any) => Promise<number>;
 const SCENARIOS: [string, (run: RunFn) => Promise<boolean>][] = [
   ['hard-tier ready PR: one pack + one owner ping, one compare', async (run) => {
     const gh = fakeGitHub([{ n: 41, files: ['scripts/a.mjs'] }]);
-    const code = await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    const code = await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const c = gh.prComments(41);
     const asGhActions = gh.log.filter((l) => l.p === '/issues/41/comments' && l.m === 'POST').every((l) => l.auth === 'Bearer t');
     return code === 0 && asGhActions && c.length === 2 && c[0].includes('autopilot-pack head=') && c[1].startsWith('@123constante #41 is ready for Approve at head') && c[1].includes(gh.sha(41)) && c[1].includes('issuecomment-900') && gh.compares() === 1 && stateOf(gh.log)._pings['41'] === gh.sha(41);
   }],
   ['non-ready PR: no pack, no ping, no compare', async (run) => {
     const gh = fakeGitHub([{ n: 42, ready: false, files: ['scripts/a.mjs'] }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.prComments(42).length === 0 && !gh.log.some((l) => l.m === 'PATCH' && l.p !== '/issues/comments/5') && gh.compares() === 0;
   }],
   ['docs-only ready PR: pack, no owner ping', async (run) => {
     const gh = fakeGitHub([{ n: 43, files: ['docs/a.md'] }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const c = gh.prComments(43);
     return c.length === 1 && c[0].includes('Needs: nothing from the owner') && !c.some((b) => b.startsWith('@'));
   }],
   ['second run at the same head: no comment written (pack current, already pinged)', async (run) => {
     const g1 = fakeGitHub([{ n: 44, files: ['scripts/a.mjs'] }]);
-    await run(ENV, { now: NOW, fetch: g1.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: g1.fetchImpl, quiet: true });
     const posted = g1.prComments(44).map((body, i) => ({ id: 300 + i, user: { login: GH_BOT }, body, html_url: 'u' }));
     const g2 = fakeGitHub([{ n: 44, files: ['scripts/a.mjs'], comments: posted }], { statusState: stateOf(g1.log) });
-    await run(ENV, { now: NOW + 3600000, fetch: g2.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW + 3600000, fetch: g2.fetchImpl, quiet: true });
     // the ping comment is gone (deleted by hand) but the state remembers the head: still no second ping
     const g3 = fakeGitHub([{ n: 44, files: ['scripts/a.mjs'], comments: posted.slice(0, 1) }], { statusState: stateOf(g1.log) });
-    await run(ENV, { now: NOW + 7200000, fetch: g3.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW + 7200000, fetch: g3.fetchImpl, quiet: true });
     return g2.prComments(44).length === 0 && !g2.log.some((l) => l.m === 'PATCH' && l.p !== '/issues/comments/5') && g3.prComments(44).length === 0;
   }],
   ['a stale pack (older head) is edited in place, never a second pack', async (run) => {
     const old = { id: 301, user: { login: GH_BOT }, body: `x\n<!-- autopilot-pack head=${'d'.repeat(40)} -->`, html_url: 'u' };
     const gh = fakeGitHub([{ n: 45, files: ['docs/a.md'], comments: [old] }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.log.some((l) => l.m === 'PATCH' && l.p === '/issues/comments/301') && gh.prComments(45).length === 0;
   }],
   ['ready + behind, not approved: update-branch, no pack; approved: no update, ap:stopped, no pack', async (run) => {
     const gh = fakeGitHub([{ n: 46, behind: 3, files: ['scripts/a.mjs'] }, { n: 47, behind: 2, approved: true, files: ['scripts/a.mjs'] }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const puts = gh.log.filter((l) => l.m === 'PUT').map((l) => l.p);
     const stopped = gh.log.some((l) => l.m === 'POST' && l.p === '/issues/47/labels' && JSON.stringify(l.body).includes('ap:stopped'));
     return puts.join() === '/pulls/46/update-branch' && stopped && gh.prComments(46).length === 0 && gh.prComments(47).length === 0;
   }],
   ['migration ready PR not approved: pack + ping', async (run) => {
     const gh = fakeGitHub([{ n: 48, files: ['supabase/migrations/99990101000000_x.sql'] }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.prComments(48).length === 2;
   }],
   ['dry run: no write of any kind', async (run) => {
     const gh = fakeGitHub([{ n: 49, files: ['scripts/a.mjs'] }]);
-    await run({ ...ENV, DRY_RUN: 'true' }, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run({ ...ENV, DRY_RUN: 'true' }, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.log.every((l) => l.m === 'GET');
   }],
   ['owner ping error: logged, the run carries on (exit 0, pack still posted)', async (run) => {
     const gh = fakeGitHub([{ n: 50, files: ['scripts/a.mjs'] }, { n: 51, files: ['docs/a.md'] }], { pingFails: true });
-    const code = await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    const code = await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return code === 0 && gh.prComments(51).length === 1 && gh.prComments(50).length === 2 && !stateOf(gh.log)._pings['51'] && !stateOf(gh.log)._pings['50'];
   }],
   ['every write is one of the allowed endpoints', async (run) => {
     const gh = fakeGitHub([{ n: 52, files: ['scripts/a.mjs'] }, { n: 53, behind: 1 }, { n: 54, ready: false }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const ok = /^(POST \/issues|POST \/graphql|POST \/issues\/\d+\/(labels|comments)|DELETE \/issues\/\d+\/labels\/.+|PATCH \/issues\/comments\/\d+|PUT \/pulls\/\d+\/update-branch|POST \/actions\/jobs\/\d+\/rerun)$/;
     return gh.log.filter((l) => l.m !== 'GET').every((l) => ok.test(`${l.m} ${l.p}`));
   }],

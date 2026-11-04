@@ -2,7 +2,7 @@
 // re-asserts it with a notice; no workflow or script contains code that removes it or deletes the
 // pinned issue; PR-controlled text never reaches a shell. Line-ending agnostic (as read + CRLF).
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
 import { main as cli } from '../scripts/automation-pause.mjs';
@@ -144,9 +144,12 @@ describe('the --guard CLI re-asserts a bot removal with ONE notice and exit 0', 
 
 // ------------------------------------------------------------- static tripwire
 function walk(dir: string, out: string[] = []) {
-  for (const n of readdirSync(dir)) {
-    const p = path.join(dir, n);
-    if (statSync(p).isDirectory()) { if (n !== 'node_modules') walk(p, out); } else out.push(p);
+  // Dot-files are skipped: other suites write and delete `.<name>-mutant-*.mjs` temp copies in scripts/
+  // while this one runs in parallel (they are the TEST corpus, not shipped code).
+  for (const d of readdirSync(dir, { withFileTypes: true })) {
+    if (d.name.startsWith('.') || d.name === 'node_modules') continue;
+    const p = path.join(dir, d.name);
+    if (d.isDirectory()) walk(p, out); else out.push(p);
   }
   return out;
 }

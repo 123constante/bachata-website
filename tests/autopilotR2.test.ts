@@ -9,6 +9,7 @@ import {
   findStatusComment, staleLabels, deriveFacts, decide, STATE_LABELS, BOT_LOGIN, RUN_CALL_BUDGET, HOUR_CALL_BUDGET,
 } from '../scripts/lib/autopilot.mjs';
 import { run } from '../scripts/autopilot-step.mjs';
+import { NOT_PAUSED } from './autopilotTable';
 
 const NOW = Date.parse('2026-11-03T12:00:00Z');
 const MIN = 60000;
@@ -181,7 +182,7 @@ describe('run() against a fake GitHub (B1, B2, B3, H1, H2)', () => {
     const out: string[] = [];
     const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { out.push(a.map(String).join(' ')); });
     let code: number;
-    try { code = await run(noBot, { now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
+    try { code = await run(noBot, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
     expect(code).toBe(1);
     expect(out.join('\n')).toMatch(/config[^\n]*BOT_TOKEN missing: live run refused/);
     expect(gh.log.filter((l) => !l.startsWith('GET'))).toEqual([]);
@@ -189,7 +190,7 @@ describe('run() against a fake GitHub (B1, B2, B3, H1, H2)', () => {
   it('20 behind bot PRs: at most 5 update-branch writes, newest first', async () => {
     const prs = Array.from({ length: 20 }, (_, i) => ({ ...listPr(1000 + i), mergeable_state: 'behind' }));
     const gh = fakeGitHub(prs);
-    expect(await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true })).toBe(0);
+    expect(await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true })).toBe(0);
     const updated = gh.log.filter((l) => l.startsWith('PUT')).map((l) => Number(/pulls\/(\d+)/.exec(l)![1]));
     expect(updated).toEqual([1019, 1018, 1017, 1016, 1015]);
   });
@@ -198,7 +199,7 @@ describe('run() against a fake GitHub (B1, B2, B3, H1, H2)', () => {
     const add = (login: string, i: number) => ({ event: 'labeled', label: { name: 'run-ci' }, actor: { login }, created_at: iso(NOW - 3600000 - i * MIN) });
     const events = [...Array.from({ length: 20 }, (_, i) => add(BOT_LOGIN, i)), ...Array.from({ length: 6 }, (_, i) => add('123constante', 30 + i))];
     const gh = fakeGitHub(prs, { events });
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const ci = gh.log.filter((l) => /^POST \/issues\/\d+\/labels$/.test(l)).map((l) => Number(/issues\/(\d+)/.exec(l)![1]));
     // each gets run-ci (bot) then ap:waiting-ci (gh): two label POSTs on the 5 newest
     expect(ci.filter((n) => n >= 1005)).toHaveLength(10);
@@ -208,21 +209,21 @@ describe('run() against a fake GitHub (B1, B2, B3, H1, H2)', () => {
     const noise = Array.from({ length: 300 }, (_, i) => ({ event: 'labeled', label: { name: 'ap:ready' }, created_at: iso(NOW - i * 1000) }));
     const adds = Array.from({ length: 26 }, (_, i) => ({ event: 'labeled', label: { name: 'run-ci' }, actor: { login: BOT_LOGIN }, created_at: iso(NOW - 3600000 - i * MIN) }));
     const gh = fakeGitHub([listPr(1204)], { events: [...noise, ...adds, { event: 'closed', created_at: iso(NOW - 30 * 3600000) }] });
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     expect(gh.log.filter((l) => /^GET \/issues\/events/.test(l)).length).toBe(4);
     expect(gh.log.some((l) => l === 'POST /issues/1204/labels')).toBe(true); // ap:stopped only
     expect(gh.log.filter((l) => l === 'POST /issues/1204/labels')).toHaveLength(1);
   });
   it('no marker: one commit read, one label, nothing else on that PR (B1)', async () => {
     const gh = fakeGitHub([{ ...listPr(1300, { mergeable_state: 'behind' }), subject: 'feat: early push' }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     expect(gh.log.filter((l) => /^GET \/commits\/h1300/.test(l))).toHaveLength(1);
     expect(perPr(gh.log, 1300)).toEqual(['POST /issues/1300/labels']);
     expect(gh.log.some((l) => l.startsWith('PUT'))).toBe(false);
   });
   it('a merge of main on top of a marker commit still counts as done (update-branch does not reset it)', async () => {
     const gh = fakeGitHub([{ ...listPr(1301), subject: "Merge branch 'main' into claude/feat-1301" }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     expect(gh.log.filter((l) => /^GET \/commits\/(h1301\w*|p{40})$/.test(l))).toHaveLength(2);
     expect(gh.log).toContain('GET /pulls/1301');
   });
@@ -237,25 +238,25 @@ describe('run() against a fake GitHub (B1, B2, B3, H1, H2)', () => {
       listPr(2007, { draft: true }),
     ];
     const gh = fakeGitHub(skip as Pr[]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     for (const p of skip) expect(perPr(gh.log, p.number)).toEqual([]);
     expect(gh.log.some((l) => /^GET \/commits\/(h20|x)/.test(l))).toBe(false);
   });
   it('a skipped PR still carrying an ap:* label loses it (M1)', async () => {
     const gh = fakeGitHub([listPr(2010, { draft: true, labels: [{ name: 'ap:ready' }] }), listPr(2011, { labels: [{ name: 'queue-stopped' }, { name: 'ap:waiting-ci' }] })]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     expect(gh.log).toContain('DELETE /issues/2010/labels/ap%3Aready');
     expect(gh.log).toContain('DELETE /issues/2011/labels/ap%3Awaiting-ci');
   });
   it('95 open PRs: total requests stay inside the per-run budget, and the hourly ledger caps the next run (B3)', async () => {
     const prs = Array.from({ length: 95 }, (_, i) => ({ ...listPr(1100 + i), mergeable_state: 'clean' }));
     const gh = fakeGitHub(prs);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     expect(gh.log.length).toBeLessThanOrEqual(RUN_CALL_BUDGET);
     // a previous run this hour already spent nearly the whole hour: this run reads almost nothing per PR
     const spent = `<!-- autopilot-state ${JSON.stringify({ _ledger: [{ t: NOW - 20 * MIN, a: 'calls', n: HOUR_CALL_BUDGET - 20 }] })} -->`;
     const gh2 = fakeGitHub(prs, { statusComments: [{ id: 5, user: { login: 'github-actions[bot]' }, body: spent }] });
-    await run(ENV, { now: NOW, fetch: gh2.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh2.fetchImpl, quiet: true });
     expect(gh2.log.length).toBeLessThanOrEqual(20 + 15);
     expect(gh2.log.some((l) => /^GET \/pulls\/\d+$/.test(l))).toBe(false);
   });
