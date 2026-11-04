@@ -47,3 +47,7 @@ Branch `claude/p3-dates-fix-1` (from main 5d20065). Ticket dt_3fb8700f750d.
    Open every picture; one line each in `docs/walk/p3-dates-fix-1/RESULTS.md`.
 2. PR checks per job: read them on the PR, fix any red.
 3. `/code-review` round (user-facing: two rounds) was not run.
+
+## Gates at the rebase head (dt_e18a5635cbca)
+- `npm run lint` 24/24; `vitest run src/modules/organiser` 10183 pass / 249 files; `check:integrity` ok; build + `check:bundle-budget` ok.
+- PR #1316 description updated (Verified on real data, Phone QA). Left: read PR CI per job; `/code-review` round; walk on `claude/walk-p3-batch-1`.
