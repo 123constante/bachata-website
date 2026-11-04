@@ -71,6 +71,8 @@
 .p3-ob-err { margin: 0; font-size: var(--fs-small); font-weight: 600; color: var(--danger); overflow-wrap: anywhere; }
 .p3-ob-lnk { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; background: none; border: 0; font: inherit; font-size: var(--fs-small); font-weight: 700; color: var(--gold-fg); text-decoration: underline; cursor: pointer; text-align: left; }
 .p3-ob :focus-visible, .p3-ob-layer :focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+/* the heading takes focus on each screen (ObShell) for screen readers; it is not interactive, so it draws no ring */
+.p3-ob .p3-ob-t:focus-visible { outline: none; }
 
 .p3-ob-inp { width: 100%; min-height: 52px; padding: 0 20px; border-radius: var(--r-inp); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: var(--fs-body); }
 .p3-ob-inp::placeholder { color: var(--mut); opacity: 1; }
