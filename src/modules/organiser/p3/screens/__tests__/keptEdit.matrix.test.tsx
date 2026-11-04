@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
 import { blankDraft } from '../../model/repeat';
+import { heldRefusal } from '../../onboarding/gateRule';
 import { KEPT_COPY, KEPT_MAX_AGE_MS, dropKept, keepDraft, keptDraft, keptKey } from '../../onboarding/keptDraft';
 
 /*
@@ -23,7 +24,8 @@ import { EventPage } from '../EventPage';
 
 type Env = { command: { kind: string; payload: Record<string, unknown> } };
 const DRY = { recurrence_rule: {}, materialise: null, dry_run: true, date_cap: null, dates_considered: 12, will_add: ['2026-10-26'], will_remove: [], will_cancel_booked: [], keeps_own_changes: [], next_8: ['2026-10-26', '2026-10-30'] };
-const REFUSAL = { code: 'P0001', message: 'onboarding_incomplete', details: JSON.stringify({ missing: ['nationality'], organiser_id: 'o1' }), hint: 'Finish your details' };
+// the server's onboarding_incomplete refusal, built by the ONE helper that mirrors it (gateRule heldRefusal)
+const REFUSAL = { code: 'P0001', ...heldRefusal('o1'), hint: 'Finish your details' };
 
 let saves: Env[];
 function serve(save: 'refuse' | 'ok') {
