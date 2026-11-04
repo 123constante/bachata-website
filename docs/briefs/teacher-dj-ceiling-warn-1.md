@@ -3,8 +3,8 @@
 Brief-version: 2
 
 ## What main lacks
-- scripts/check-teacher-dj-assignment-integrity.mjs gates on a hand-kept ceiling (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, 34/10). Every time a new teacher or DJ joins without a lineup the check goes red on main and every open PR, and someone has to hand-edit the numbers (PR #1337 on 2026-11-04, #339 before it) -- scripts/check-teacher-dj-assignment-integrity.mjs
-- The script's own header says the real fix is "nobody lost an assignment", not a ceiling. Its history already splits the count into people created on or before the last re-baseline date and people created after -- scripts/check-teacher-dj-assignment-integrity.mjs
+- extends: scripts/check-teacher-dj-assignment-integrity.mjs gates on a hand-kept ceiling (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, 34/10). Every time a new teacher or DJ joins without a lineup the check goes red on main and every open PR, and someone has to hand-edit the numbers (PR #1337 on 2026-11-04, #339 before it) -- scripts/check-teacher-dj-assignment-integrity.mjs
+- extends: the script header says the real fix is "nobody lost an assignment", not a ceiling. Its history already splits the count into people created on or before the last re-baseline date and people created after -- scripts/check-teacher-dj-assignment-integrity.mjs
 
 ## Goal
 Make growth from NEW people warn (exit 0, print the payload and a WARN line) and keep failing (exit 1) only when the count of people created on or before the baseline date, who hold no assignment, goes UP. Keep the existing dated-note convention: update the header note with today's date and why.
