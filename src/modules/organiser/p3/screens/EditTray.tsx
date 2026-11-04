@@ -14,7 +14,7 @@ import {
 } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
 import { useGatedCopy } from '../onboarding/gate';
-import { cameBackForKept, dropKept, keptDraft, overNow, type Kept } from '../onboarding/keptDraft';
+import { cameBackForKept, dropKept, keptDraft, leavesForGate, overNow, type Kept } from '../onboarding/keptDraft';
 import { Sheet } from './Sheet';
 
 /**
@@ -168,8 +168,10 @@ function useRouterBlocker(): Blocker {
   const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
   // one key per mounted tray, made once (no state set inside the effect)
   const [key] = useState(() => `p3-leave-${++blockerSeq}`);
+  // The gate's Continue on a screen whose typing is kept leaves without asking (p3-gate-guard-1, keptDraft.ts).
   const shouldBlock = useCallback<BlockerFunction>(
-    ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname,
+    ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname
+      && !leavesForGate(nextLocation.state, currentLocation.pathname),
     [],
   );
   useEffect(() => {
