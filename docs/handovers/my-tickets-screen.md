@@ -1,6 +1,6 @@
 # Handover -- my-tickets-screen (queue B)
 
-Branch `claude/my-tickets-screen`. Brief `docs/briefs/my-tickets-screen.md` v2.
+Branch `claude/my-tickets-screen`, PR #1334. Brief `docs/briefs/my-tickets-screen.md` v2.
 
 ## Built
 - `/account/my-tickets` (`src/modules/tickets/MyTicketsPage.tsx`): a signed-in buyer's paid tickets from
