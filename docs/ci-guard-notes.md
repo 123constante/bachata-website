@@ -465,6 +465,40 @@ needs a workflow edit, which is in the record:
 
 ---
 
+## Automation workflow allow-list
+
+`scripts/data/automation-workflow-allowlist.json` is the written rule for which
+`.github/workflows/*` files an AUTOMATED change may edit (PRIORITY-QUEUE item 8).
+Before it, the rule was implied by hand review.
+
+- **What it is.** A JSON array of bare workflow file names, e.g.
+  `["autopilot.yml"]`. It ships **empty**: nothing is allowed until the owner
+  adds a name. A nested path or anything that is not a bare `*.yml`/`*.yaml`
+  name makes the guard exit 2 (could not measure), never a silent pass.
+- **Who is "automated".** A PR whose head branch starts `claude/` or `ccr-` --
+  the autopilot loop's branch kinds, `isWorkerBranch` in
+  `scripts/lib/autopilot.mjs`, imported by the guard so the two cannot drift.
+  That prefix is ALSO the prefix of every dispatched worker branch, so the list
+  binds dispatched workers too. Any other branch is never affected (the list is
+  not even read).
+- **Who may change it.** The owner only: a PR that edits the list is hard tier
+  (`scripts/**`) and needs the owner's Approve at head. A worker never adds its
+  own workflow to the list in the same PR that edits that workflow.
+- **The guard.** `scripts/check-automation-workflow-allowlist.mjs` -- exit 0
+  pass / not a loop branch, 1 a loop branch changes an unlisted workflow file,
+  2 cannot measure (no `HEAD_REF`, no/empty file list, git failed, missing or
+  malformed list). Inputs: `HEAD_REF` + `PR_FILES`, or `--merge <sha>` (the PR
+  merge commit), or `--local` (branch and `origin/main...HEAD` from git:
+  `npm run check:automation-workflow-allowlist`). Canary:
+  `npm run check:automation-workflow-allowlist:self-test`; tests:
+  `tests/automationWorkflowAllowlist.test.ts`.
+- **Not wired into CI yet** (2026-11-04). Wiring it into the `integrity` job is
+  a step block, not one line, and with an empty list it would turn red every
+  `claude/` PR that edits a workflow -- including the PR that wires it. That
+  is an owner decision; see `docs/handovers/workflow-allowlist-1.md`.
+
+---
+
 ## Workflow inventory
 
 Moved here from the root CLAUDE.md (2026-10-02) so it loads on demand, not every session.
