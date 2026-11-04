@@ -15,8 +15,10 @@ import { CURRENCIES, type Currency, type PriceRow } from '../../events/seriesExt
 export type KeptScreen = 'repeat' | 'details' | 'prices';
 export type Kept =
   | { screen: 'repeat'; draft: RepeatDraft }
-  | { screen: 'details'; draft: DetailsDraft }
-  | { screen: 'prices'; draft: PricesDraft };
+  // `base`: what the screen opened with when the edit was refused, so only the person's OWN changes are laid back
+  // over the event as it is now (a teammate's save in between is never undone; review r1 #1)
+  | { screen: 'details'; draft: DetailsDraft; base: DetailsDraft }
+  | { screen: 'prices'; draft: PricesDraft; base: PricesDraft };
 
 export const KEPT_COPY = { line: 'We kept your changes' } as const;
 export const KEPT_MAX_AGE_MS = 60 * 60 * 1000;
@@ -90,6 +92,20 @@ export function pricesDraftFrom(raw: unknown): PricesDraft | null {
   return { methods: methods as PaymentMethod[], rows };
 }
 
+/**
+ * The kept edit laid over the event as it is NOW: only the fields the person changed (draft != the base they
+ * opened with) come from the kept copy; every other field is today's stored value. `skip`: fields the screen
+ * cannot send now (Prices rows the team has since locked) stay today's value.
+ */
+export function overNow<D extends object>(now: D, kept: { draft: D; base: D }, skip: ReadonlyArray<keyof D> = []): D {
+  const out = { ...now };
+  for (const k of Object.keys(kept.draft) as Array<keyof D>) {
+    if (skip.includes(k)) continue;
+    if (JSON.stringify(kept.draft[k]) !== JSON.stringify(kept.base[k])) out[k] = kept.draft[k];
+  }
+  return out;
+}
+
 /** The navigation state the checklist's "Back to your event" carries: only that arrival reopens a kept edit. */
 export const KEPT_BACK_STATE = { p3KeptBack: true } as const;
 export const cameBackForKept = (state: unknown): boolean =>
@@ -99,7 +115,7 @@ export const cameBackForKept = (state: unknown): boolean =>
 export function keepDraft(seriesId: string, kept: Kept, now = Date.now(), s: Store | null = store()): void {
   if (!s || !seriesId) return;
   try {
-    s.setItem(keptKey(seriesId), JSON.stringify({ v: 1, screen: kept.screen, draft: kept.draft, at: now }));
+    s.setItem(keptKey(seriesId), JSON.stringify({ v: 1, ...kept, at: now }));
   } catch {
     /* full or blocked: nothing kept, Back still works */
   }
@@ -111,7 +127,7 @@ export function keptDraft(seriesId: string, now = Date.now(), s: Store | null = 
   try {
     const raw = s.getItem(keptKey(seriesId));
     if (!raw) return null;
-    const k = JSON.parse(raw) as { v?: unknown; screen?: unknown; draft?: unknown; at?: unknown } | null;
+    const k = JSON.parse(raw) as { v?: unknown; screen?: unknown; draft?: unknown; base?: unknown; at?: unknown } | null;
     if (!k || k.v !== 1 || typeof k.at !== 'number' || now - k.at > KEPT_MAX_AGE_MS || now < k.at) return null;
     if (k.screen === 'repeat') {
       const draft = repeatDraftFrom(k.draft);
@@ -119,11 +135,13 @@ export function keptDraft(seriesId: string, now = Date.now(), s: Store | null = 
     }
     if (k.screen === 'details') {
       const draft = detailsDraftFrom(k.draft);
-      return draft ? { screen: 'details', draft } : null;
+      const base = detailsDraftFrom(k.base);
+      return draft && base ? { screen: 'details', draft, base } : null;
     }
     if (k.screen === 'prices') {
       const draft = pricesDraftFrom(k.draft);
-      return draft ? { screen: 'prices', draft } : null;
+      const base = pricesDraftFrom(k.base);
+      return draft && base ? { screen: 'prices', draft, base } : null;
     }
     return null;
   } catch {

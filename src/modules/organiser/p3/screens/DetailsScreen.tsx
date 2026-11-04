@@ -30,7 +30,7 @@ function Field({ id, label, hint, problem, children }: { id: string; label: stri
 }
 
 function Details({ ws }: { ws: EventWorkspace }) {
-  const kept = useKeptEdit(ws.series.id, 'details');
+  const kept = useKeptEdit(ws, 'details', detailsDraftOf);
   const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS, kept);
   const save = useSaveRun(ws.series.id);
   const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
@@ -56,7 +56,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
     // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
-    if (res.gated) keepDraft(ws.series.id, { screen: 'details', draft });
+    if (res.gated) keepDraft(ws.series.id, { screen: 'details', draft, base: form.base });
     if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.detailsSaved); }
   };
 

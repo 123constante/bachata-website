@@ -246,3 +246,40 @@ describe('the sheet count is the ONE onboarding count (organiser_onboarding_stat
     expect(Object.values(GATE_COPY).join(' ')).not.toMatch(/answer/);
   });
 });
+
+// ---- review r1: the kept edit never undoes a save made meanwhile, and never opens on a closed event ----
+describe('kept edit over the event as it is now (review r1 #1 / #3)', () => {
+  const p = PEOPLE[0];
+  async function refusedNameEdit() {
+    as(p);
+    serve(p, true);
+    show(SCREENS.details.path);
+    await screen.findByTestId('p3-d-name');
+    SCREENS.details.edit();
+    await press(saveBtn());
+    await waitFor(() => expect(keptDraft('ser-1')?.screen).toBe('details'));
+    cleanup();
+  }
+  it('a teammate changed About meanwhile: back with the typed name AND their About, only the name sent', async () => {
+    await refusedNameEdit();
+    const w = SHAPES.weekly as { series: { series: Raw } & Raw } & Raw;
+    const now = { ...w, series: { ...w.series, series: { ...w.series.series, default_description: 'Teammate wrote this', version: 9 } } };
+    serve({ ...p, refusedWhenOn: false }, true, now);
+    show('/account/p3/events/ser-1', KEPT_BACK_STATE);
+    await screen.findByTestId('p3-details-kept');
+    expect(SCREENS.details.typed()).toBe(true);
+    expect((screen.getByTestId('p3-d-description') as HTMLTextAreaElement).value).toBe('Teammate wrote this');
+    await press(saveBtn());
+    await waitFor(() => expect(sends.length).toBeGreaterThan(0));
+    expect(JSON.stringify(sends)).not.toContain('default_description');
+  });
+  it('the event ended meanwhile: the closed lock, nothing restored, no kept line', async () => {
+    await refusedNameEdit();
+    serve({ ...p, refusedWhenOn: false }, true, SHAPES.ended);
+    show('/account/p3/events/ser-1', KEPT_BACK_STATE);
+    await screen.findByTestId('p3-details-lock');
+    expect(screen.queryByTestId('p3-details-kept')).toBeNull();
+    expect(SCREENS.details.typed()).toBe(false);
+    expect(sends).toHaveLength(0);
+  });
+});

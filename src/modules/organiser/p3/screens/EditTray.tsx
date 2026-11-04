@@ -14,7 +14,7 @@ import {
 } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
 import { useGatedCopy } from '../onboarding/gate';
-import { cameBackForKept, dropKept, keptDraft, type Kept } from '../onboarding/keptDraft';
+import { cameBackForKept, dropKept, keptDraft, overNow, type Kept } from '../onboarding/keptDraft';
 import { Sheet } from './Sheet';
 
 /**
@@ -91,12 +91,16 @@ type KeptOf<S extends 'details' | 'prices'> = Extract<Kept, { screen: S }>['draf
  * to your event" from the checklist (KEPT_BACK_STATE; the event page forwards it here), then let go: shown once,
  * and a second refusal keeps it again. Any other arrival reads nothing.
  */
-export function useKeptEdit<S extends 'details' | 'prices'>(seriesId: string, screen: S): KeptOf<S> | null {
+export function useKeptEdit<S extends 'details' | 'prices'>(ws: EventWorkspace, screen: S, now: (ws: EventWorkspace) => KeptOf<S>, skip: ReadonlyArray<keyof KeptOf<S>> = []): KeptOf<S> | null {
   const { state } = useLocation();
+  const seriesId = ws.series.id;
   const [kept] = useState(() => {
-    if (!cameBackForKept(state)) return null;
+    // a closed event (ended / archived meanwhile) cannot take the edit: nothing is restored (review r1 #3)
+    if (!cameBackForKept(state) || eventLock(ws.series.lifecycle_status)) return null;
     const k = keptDraft(seriesId);
-    return k && k.screen === screen ? (k.draft as KeptOf<S>) : null;
+    if (!k || k.screen !== screen || !('base' in k)) return null;
+    // only the person's own changes over the event as it is now (review r1 #1)
+    return overNow(now(ws), k as unknown as { draft: KeptOf<S>; base: KeptOf<S> }, skip);
   });
   useEffect(() => { if (kept) dropKept(seriesId); }, [kept, seriesId]);
   return kept;
