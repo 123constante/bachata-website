@@ -94,7 +94,7 @@ const components = () => ({
   components: {
     'merge-lane': { paths: ['scripts/lib/autopilot-merge.mjs'], status: 'built', drills: { A17: 'Drill A17' } },
     'pause-readers': { paths: ['scripts/lib/automation-pause.mjs'], status: 'built', drills: { A15: 'Drill A15' } },
-    queue: { paths: [], status: 'not built' },
+    ...Object.fromEntries(['approver', 'sql-classifier', 'queue', 'apply', 'notifier', 'canary', 'revert', 'walk-gate'].map((n) => [n, { paths: [], status: 'not built' }])),
   },
 });
 const record = (over: Any = {}) => ({
