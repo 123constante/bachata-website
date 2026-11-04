@@ -3,10 +3,20 @@
 // sessionStorage only (gone when the tab closes), at most 60 minutes old, one entry per event id, never sent
 // anywhere. Reading it never saves: the person taps Save again (returnTo.ts: the refused edit is never replayed).
 import type { RepeatDraft } from '../model/repeat';
+import type { DetailsDraft } from '../data/details';
+import type { PricesDraft } from '../data/prices';
+import { PAYMENT_METHODS, type PaymentMethod } from '../../events/paymentModel';
+import { CURRENCIES, type Currency, type PriceRow } from '../../events/seriesExtras';
 
-/** The screens whose unsaved draft is kept. Details / Prices / Dates are not (see the PR body): Back still works. */
-export type KeptScreen = 'repeat';
-export type Kept = { screen: 'repeat'; draft: RepeatDraft };
+/**
+ * The screens whose unsaved draft is kept. Repeat (fix-gate-lost-edit), Details and Prices (p3-gate-retry-1:
+ * F-13 b, the screens are open and the gate answers at Save). Dates is not (see the PR body): Back still works.
+ */
+export type KeptScreen = 'repeat' | 'details' | 'prices';
+export type Kept =
+  | { screen: 'repeat'; draft: RepeatDraft }
+  | { screen: 'details'; draft: DetailsDraft }
+  | { screen: 'prices'; draft: PricesDraft };
 
 export const KEPT_COPY = { line: 'We kept your changes' } as const;
 export const KEPT_MAX_AGE_MS = 60 * 60 * 1000;
@@ -46,6 +56,40 @@ export function repeatDraftFrom(raw: unknown): RepeatDraft | null {
   return draft;
 }
 
+const isStr = (x: unknown): x is string => typeof x === 'string';
+const strs = (x: unknown): string[] | null => (Array.isArray(x) && x.every(isStr) ? [...x] : null);
+
+/** A stored Details draft back to a DetailsDraft, or null when any field is not one the screen can show. */
+export function detailsDraftFrom(raw: unknown): DetailsDraft | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const music = strs(r.music);
+  const gallery = strs(r.gallery);
+  if (!music || !gallery || !(r.venueId === null || isStr(r.venueId))) return null;
+  const { name, description, ticket, cover, instagram, videos, chat } = r;
+  if (![name, description, ticket, cover, instagram, videos, chat].every(isStr)) return null;
+  return {
+    name: name as string, description: description as string, music, venueId: r.venueId as string | null, ticket: ticket as string,
+    cover: cover as string, instagram: instagram as string, videos: videos as string, chat: chat as string, gallery,
+  };
+}
+
+/** A stored Prices draft back to a PricesDraft, or null when a method, row or currency is not one the screen knows. */
+export function pricesDraftFrom(raw: unknown): PricesDraft | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const methods = strs(r.methods);
+  if (!methods || !methods.every((m) => (PAYMENT_METHODS as readonly string[]).includes(m)) || !Array.isArray(r.rows)) return null;
+  const rows: PriceRow[] = [];
+  for (const x of r.rows as unknown[]) {
+    const e = (x ?? {}) as Record<string, unknown>;
+    if (!isStr(e.id) || !isStr(e.name) || !isStr(e.price) || !CURRENCIES.includes(e.currency as Currency)) return null;
+    if (e.description !== undefined && !isStr(e.description)) return null;
+    rows.push({ id: e.id, name: e.name, price: e.price, currency: e.currency as Currency, ...(isStr(e.description) ? { description: e.description } : {}) });
+  }
+  return { methods: methods as PaymentMethod[], rows };
+}
+
 /** The navigation state the checklist's "Back to your event" carries: only that arrival reopens a kept edit. */
 export const KEPT_BACK_STATE = { p3KeptBack: true } as const;
 export const cameBackForKept = (state: unknown): boolean =>
@@ -69,9 +113,19 @@ export function keptDraft(seriesId: string, now = Date.now(), s: Store | null = 
     if (!raw) return null;
     const k = JSON.parse(raw) as { v?: unknown; screen?: unknown; draft?: unknown; at?: unknown } | null;
     if (!k || k.v !== 1 || typeof k.at !== 'number' || now - k.at > KEPT_MAX_AGE_MS || now < k.at) return null;
-    if (k.screen !== 'repeat') return null;
-    const draft = repeatDraftFrom(k.draft);
-    return draft ? { screen: 'repeat', draft } : null;
+    if (k.screen === 'repeat') {
+      const draft = repeatDraftFrom(k.draft);
+      return draft ? { screen: 'repeat', draft } : null;
+    }
+    if (k.screen === 'details') {
+      const draft = detailsDraftFrom(k.draft);
+      return draft ? { screen: 'details', draft } : null;
+    }
+    if (k.screen === 'prices') {
+      const draft = pricesDraftFrom(k.draft);
+      return draft ? { screen: 'prices', draft } : null;
+    }
+    return null;
   } catch {
     return null;
   }

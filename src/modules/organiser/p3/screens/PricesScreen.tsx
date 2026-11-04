@@ -1,8 +1,5 @@
 import { PAYMENT_LABEL, togglePayment } from '../../events/paymentModel';
 import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
-import { eventLock } from '../../shared/eventState';
-import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
-import { Link as RouterLink } from 'react-router-dom';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L, hasOneDate, saveWordsFor } from '../model';
 import {
@@ -10,12 +7,14 @@ import {
 } from '../data/prices';
 import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
+import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useKeptEdit, useSaveRun } from './EditTray';
+import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { PriceCard } from './PriceCard';
 
 function Prices({ ws }: { ws: EventWorkspace }) {
-  const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws));
+  const kept = useKeptEdit(ws.series.id, 'prices');
+  const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws), kept);
   const save = useSaveRun(ws.series.id);
   const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
   const back = useBackToEvent(ws.series.id, form.dirty);
@@ -33,7 +32,9 @@ function Prices({ ws }: { ws: EventWorkspace }) {
 
   const onSave = async () => {
     const res = await save.run(plan, form.version, (v) => form.landed(v));
-    if (res.ok) { form.saved(res.version); back(words.pricesSaved); }
+    // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
+    if (res.gated) keepDraft(ws.series.id, { screen: 'prices', draft });
+    if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.pricesSaved); }
   };
 
   return (
@@ -45,9 +46,9 @@ function Prices({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-prices-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
+      {kept && form.dirty && <p className="p3-note p3-kept" role="status" data-testid="p3-prices-kept">{KEPT_COPY.line}</p>}
       {freeSwitchShown && (
         <div className="p3-card p3-tight">
           <label className="p3-check p3-check-switch" data-testid="p3-free">

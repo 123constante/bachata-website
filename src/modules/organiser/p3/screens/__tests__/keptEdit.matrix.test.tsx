@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SHAPES } from './wsFixtures';
-import { blankDraft } from '../../model/repeat';
+import { blankDraft, type RepeatDraft } from '../../model/repeat';
 import { heldRefusal } from '../../onboarding/gateRule';
 import { KEPT_BACK_STATE, KEPT_COPY, KEPT_MAX_AGE_MS, dropKept, keepDraft, keptDraft, keptKey } from '../../onboarding/keptDraft';
 
@@ -79,7 +79,7 @@ describe('keptDraft store: one event, 60 minutes, this tab only', () => {
   });
   it('an empty count box (NaN) comes back as NaN, not 0', () => {
     keepDraft('ser-1', { screen: 'repeat', draft: { ...d, end: 'after_count', count: Number.NaN } }, T);
-    expect(Number.isNaN(keptDraft('ser-1', T)?.draft.count)).toBe(true);
+    expect(Number.isNaN((keptDraft('ser-1', T)?.draft as RepeatDraft | undefined)?.count)).toBe(true);
   });
   it.each([
     ['weekday 9', { weekday: 9 }], ['interval 0', { interval: 0 }], ['day 40', { day: 40 }], ['nths [7]', { nths: [7] }], ['weekdays [12]', { weekdays: [12] }], ['count 501', { count: 501 }],
@@ -110,7 +110,7 @@ describe('Repeat: refused Save -> kept -> back on the event, pre-filled, nothing
     await refusedMondayEdit();
     const k = keptDraft('ser-1');
     expect(k?.screen).toBe('repeat');
-    expect(k?.draft.weekdays).toEqual([1, 5]);
+    expect((k?.draft as RepeatDraft | undefined)?.weekdays).toEqual([1, 5]);
     expect(keptDraft('ser-9')).toBeNull();
   });
 
@@ -176,7 +176,7 @@ describe('Repeat: refused Save -> kept -> back on the event, pre-filled, nothing
     await screen.findByTestId('p3-open-repeat');
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId('p3-sheet')).toBeNull();
-    expect(keptDraft('ser-1')?.draft.weekdays).toEqual([1, 5]);
+    expect((keptDraft('ser-1')?.draft as RepeatDraft | undefined)?.weekdays).toEqual([1, 5]);
   });
 
   it("another event's kept edit never opens here", async () => {

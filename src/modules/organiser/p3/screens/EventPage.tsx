@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { cameBackForKept, dropKept, keptDraft } from '../onboarding/keptDraft';
+import { KEPT_BACK_STATE, cameBackForKept, dropKept, keptDraft } from '../onboarding/keptDraft';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
@@ -224,7 +224,12 @@ function Page({ ws, place }: { ws: EventWorkspace; place: string | null }) {
   const seriesId = ws.series.id;
   const [keptRead, setKeptRead] = useState(() => ({ id: seriesId, k: cameBackForKept(navState) ? keptDraft(seriesId) : null }));
   const kept = keptRead.id === seriesId ? keptRead.k : null;
-  useEffect(() => { if (kept) dropKept(seriesId); }, [kept, seriesId]);
+  // A kept Details / Prices edit (p3-gate-retry-1): straight on to that screen, which reads it and lets it go.
+  useEffect(() => {
+    if (!kept) return;
+    if (kept.screen === 'repeat') dropKept(seriesId);
+    else navigate(kept.screen === 'details' ? P3_PATHS.eventDetails(seriesId) : P3_PATHS.eventPrices(seriesId), { replace: true, state: KEPT_BACK_STATE });
+  }, [kept, seriesId, navigate]);
   const [repeat, setRepeat] = useState(() => kept?.screen === 'repeat');
   const closeRepeat = useCallback(() => { setRepeat(false); setKeptRead({ id: '', k: null }); }, [setRepeat]);
   const [date, setDate] = useState<DateOpen>(null);
