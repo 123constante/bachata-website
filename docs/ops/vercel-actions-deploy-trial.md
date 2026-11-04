@@ -1,6 +1,6 @@
 # Vercel deploys from GitHub Actions &mdash; STEP 1 TRIAL (handover)
 
-Ticket `dt_9529cca6a577`, branch `claude/vercel-actions-deploy-trial-1`,
+PR #1354. Ticket `dt_9529cca6a577`, branch `claude/vercel-actions-deploy-trial-1`,
 brief `docs/briefs/vercel-actions-deploy-trial-1.md` on `brief/vercel-actions-deploy-trial-1`.
 
 ## What this adds (and what it does not)
