@@ -7,7 +7,7 @@ Serves: `docs/scoping/queue-organiser-ticketing-2026-11-04.md` Q1.
 ## What main lacks
 - A screen where a signed-in buyer sees their paid tickets and a QR to show at the door. `my_tickets_v1()` is live on prod (authenticated only, no args) and returns `{tickets: [{order_id, event_series_id, event_title, occurrence_date, start_time ("HH24:MI"), ticket_type_name, ticket_id, qr_token, checked_in, checked_in_at}], truncated, total_count}`, ordered upcoming first then past. `grep -rn my_tickets_v1 src` finds nothing. -- `src/modules/tickets/MyTicketsPage.tsx`
 - A QR renderer: `package.json` has `jsqr` (a scanner) only. The door scanner accepts a bare 64-hex token or a URL carrying it (`p3/door/model.ts:153` `parseCode`), so encode the bare `qr_token`. -- `src/modules/tickets/qr.ts`
-- A route, a catch-all entry and a breadcrumb for it. -- `src/components/AnimatedRoutes.tsx`
+- extends: A route, a catch-all entry and a breadcrumb for it. -- `src/components/AnimatedRoutes.tsx`
 
 ## Files
 - NEW `src/modules/tickets/MyTicketsPage.tsx`, `myTicketsModel.ts` (pure: group Upcoming / Past, date and time words, state), `myTicketsApi.ts` (one RPC wrapper, parse defensively), `qr.ts`, tests under `src/modules/tickets/__tests__/`.
