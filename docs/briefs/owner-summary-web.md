@@ -26,8 +26,8 @@ Source: acceptance contract for full automation rev 3.1, slice 14, sections 1.1(
 - no hard-tier approval list builder -- grep: hard-tier approval (no hit)
 - no pinned-issue comment writer for markers -- scripts/lib/owner-summary-issue.mjs
 - no drill tests N1, N2, N3 -- tests/owner-summary.test.ts
-- PRESENT and to be REUSED, not rewritten: `scripts/lib/automation-pause.mjs` (exports `readPause`, `assertNotPaused`, `PausedError`, `postPauseNotice`, `noticeMarker`) -- scripts/lib/automation-pause.mjs
-- LEFT FOR AFTER slice 2 merges (do NOT do these here): the ntfy token entry in `.github/automation/secrets-register.json` (with `acts_as`, not the owner login), the `check-secrets-register.mjs` coverage of it, and the `notify.yml` schedule/dispatch workflow. Also left: the owner-side ntfy account/ACL setup (baby-step sheet) and any live send.
+- extends: PRESENT and to be REUSED, not rewritten: `scripts/lib/automation-pause.mjs` (exports `readPause`, `assertNotPaused`, `PausedError`, `postPauseNotice`, `noticeMarker`) -- scripts/lib/automation-pause.mjs
+- LEFT FOR AFTER slice 2 merges (do NOT do these here): the ntfy token entry in `.github/automation/secrets-register.json` (with `acts_as`, not the owner login), the `check-secrets-register.mjs` coverage of it, and the `notify.yml` schedule/dispatch workflow. Also left: the owner-side ntfy account/ACL setup (baby-step sheet) and any live send. -- grep: notify.yml
 
 ## Do
 1. `scripts/lib/owner-summary.mjs` (pure, no I/O): `makeKey({arc,head,kind})`; `formatMessage({kind,arc,pr,link,what,next,undone})` (plain text, length-capped, refuses text matching token/secret patterns, refuses missing arc or link); `buildDigest({stops,markers,now})` (open stops plus every marker not `sent`, sorted; empty digest says "nothing open"); `buildApprovalList({prs})` (hard-tier PRs awaiting owner Approve at head: number, title, short head sha, link; one body, never per-PR).
