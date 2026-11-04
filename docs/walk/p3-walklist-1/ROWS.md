@@ -19,6 +19,6 @@ Note: the harness branch `claude/walk-invite-recheck-1` (PR #1303) is not on ori
 | W-36 | festival Session rows; course scope-disabled reason | fake series `format:'festival'`, `format:'course'` | `screens/EventPage.tsx:84`, `model/labels.ts:210`, `screens/SessionSheet.tsx` scope picker | read-only copy on festival rows; a reason beside every disabled scope control; no dead control | yes |
 | W-19 | sweep over every picture | measured in-page | all | taps >= 44px, no mojibake / raw entity text, no sideways scroll, no clipped text | yes |
 
-Unlisted rows renumbered: the brief numbers its 12 rows 1-12 and names them by WALKLIST id; the table uses the WALKLIST ids (W-01, W-02, W-09 -> shown here as W-03, W-10 -> W-04 only for brevity is NOT done in the report: RESULTS.md uses the brief's WALKLIST ids W-01, W-02, W-09, W-10, W-16, W-20, W-26, W-29, W-31, W-33, W-35, W-36).
+RESULTS.md uses the WALKLIST ids as the brief does: W-01, W-02, W-09, W-10, W-16, W-20, W-26, W-29, W-31, W-33, W-35, W-36.
 
 Count: 12 rows, 10 walkable, 2 partly blocked (W-16 `/door` if the ticketing flag is off; W-33 guest-entry destination). Fully blocked: 0.
