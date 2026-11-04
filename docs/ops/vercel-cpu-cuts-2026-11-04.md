@@ -86,15 +86,36 @@ Cloudflare → Caching → Cache Rules → Create rule, name `OG cards`:
 
 - **Expression:** `(http.host eq "www.bachatacalendar.co.uk" and starts_with(http.request.uri.path, "/api/og/card") and http.request.method in {"GET" "HEAD"})`
 - **Cache eligibility:** Eligible for cache.
-- **Edge TTL:** "Use cache-control header if present, bypass cache if not", PLUS a **status-code TTL override: `200` → 7 days (`604800`)**. Origin sends `s-maxage=31536000` on a healthy card, `max-age=300/3600` on degraded cards, `max-age=300` on a 302, `no-store` on render-error; the other tiers are honoured as-is, and the 200 override caps the healthy card at 7 days instead of the year its `s-maxage` asks for. The degraded cards are ALSO 200s, so the override must not raise them: if the plan cannot express "cap, not floor", leave the override off and accept the origin's year (and purge `/api/og/card*` by prefix on a facts edit).
+- **Edge TTL:** "Use cache-control header if present, bypass cache if not", PLUS a **status-code TTL override: `200` → 1 day (`86400`) or less. HARD PRECONDITION, not a recommendation: do not create this rule without the cap (see the precondition below).** Origin sends `s-maxage=31536000` on a healthy card, `max-age=300/3600` on degraded cards, `max-age=300` on a 302, `no-store` on render-error; the other tiers are honoured as-is, and the 200 override caps the healthy card at 1 day instead of the year its `s-maxage` asks for. The degraded cards are ALSO 200s, so the override must not raise them: if the plan cannot express "cap, not floor", **do not create the rule at all** until the follow-up below lands (a year at Cloudflare is the stale-card bug, and nothing purges `/api/og/card*` on a facts edit).
 - **Browser TTL:** respect origin (`max-age=86400`).
 - **Cache key:** Query string = **include all** (`kind`, `id`, `occ`, `v`, `src` are all identity; `v=` is what busts a changed cover). Do not ignore the query string on this rule.
 - **Status codes:** let origin headers decide (302 is `max-age=300`; render-error 302 is `no-store` and will bypass).
 - Place it ABOVE "HTML for humans (5 min, bots bypass)"; it must apply to bots too (WhatsApp / Facebook / LinkedIn crawlers are the main callers).
 
-Recommended TTL: **7 days.** A cover change busts via `v=` immediately; a
-title / date / venue change with the same cover does not (risk 1), and 7 days is
-the same window the card's own `stale-while-revalidate` already tolerates.
+**HARD PRECONDITION (review 1362-r1 finding 2): Edge TTL for `/api/og/card` is
+capped at 1 day (`86400`) or less** until the card URL carries the facts hash
+(follow-up F1 below). The Cloudflare cache key is the URL, and `v=` is the cover
+version only: a cover change busts via `v=` at once, but a title / date / venue
+edit with an unchanged cover keeps the SAME URL, so a shared cache serves the old
+card for the whole Edge TTL (risk 1; proof in F1). Vercel's copy is bounded by
+the next deploy; Cloudflare's is bounded ONLY by its Edge TTL, so the TTL is the
+staleness window. Raise the cap only after F1 has shipped.
+
+### Queued follow-up F1 — facts hash in the card URL (removes the stale-card class)
+
+Build the card URL as `v=<cover>.<ogFactsTag>` instead of `v=<cover>`, in BOTH
+places that build it: the page loader (`app/detailLoader.ts`, the `coverToken`
+block, ~line 328) and the bake (`app/lib/ogBakePolicy.ts`). Then a facts edit
+changes the URL, every cache misses, and the 1-day cap can be lifted.
+
+Stale-card proof (review 1362-r1 appendix; scratch test, not committed): with the
+mocks of `app/routes/api.og.card.test.tsx`, call the real `loader` twice for the
+same URL `kind=event&id=e1&v=cover.jpg`, `title: "Old title"` then
+`title: "New title, new date"`. Result: bodies differ, ETag identical,
+`Vercel-CDN-Cache-Control` identical and containing `s-maxage=31536000` -> 1 passed.
+Same URL + same validators + a year of shared lifetime = the old card wins. Not
+new in this PR (`CACHE_OK` already asked for a year); it matters once owner step 1
+puts Cloudflare in front.
 
 ### Step 2 (optional, owner decision) — tracking parameters out of the HTML key
 
@@ -105,7 +126,7 @@ Vercel request log share for those parameters; listed in section 6 of
 
 ## Risks found
 
-1. **Stale card.** `v=` is `coverVersionToken(coverUrl)` (`app/detailLoader.ts`): the cover file name only. Title, date and venue do NOT feed it; `ogFactsTag` only enters the ETag when `OG_BRANDED_CARD_ENABLED`. `vercel.json` excludes `api/og/` from `Cache-Tag: html`, so no purge reaches a card. A facts edit with an unchanged cover is stale until the next deploy in Vercel (unchanged by this PR, the lifetime was already a year) and, once step 1 exists, up to its Edge TTL in Cloudflare → recommend 7 days, not a year. The steady-state baked R2 card (`app/lib/ogBakePolicy.ts`) is re-baked on cover change, same caveat.
+1. **Stale card.** `v=` is `coverVersionToken(coverUrl)` (`app/detailLoader.ts`): the cover file name only. Title, date and venue do NOT feed it; `ogFactsTag` only enters the ETag when `OG_BRANDED_CARD_ENABLED`. `vercel.json` excludes `api/og/` from `Cache-Tag: html`, so no purge reaches a card. A facts edit with an unchanged cover is stale until the next deploy in Vercel (unchanged by this PR, the lifetime was already a year) and, once step 1 exists, up to its Edge TTL in Cloudflare → **hard cap 1 day** (owner step 1 precondition) until follow-up F1 puts the facts hash in `v=`. The steady-state baked R2 card (`app/lib/ogBakePolicy.ts`) is re-baked on cover change, same caveat.
 2. **Cloudflare ignoring `no-store`.** The 2026-10-08 doc measured Cloudflare caching a `no-store` 404 for humans (5-min rule); bots bypass that rule. Slice 3 sets the same 5 minutes at Vercel, so the layers agree; no conflict. Bot UA not measured live (no route to production).
 3. **HEAD does not fill Vercel's cache.** `scripts/check-og-images.mjs` probes cards with GET (good). Its page probe comment (line ~329) mentions HEAD + 1-byte range GET for images; the synthetic monitor is outside this repo — check its method in its own config.
 4. **Skew cookie on an edge-cached 404.** Cannot happen: `isEdgeCacheable` sees `s-maxage=300` and withholds `__vdpl` (pinned, skew on and off).
@@ -116,7 +137,7 @@ Vercel request log share for those parameters; listed in section 6 of
 Seven findings, none proved by a mutation as a defect of this diff; all queued
 or accepted, nothing reverted:
 
-1. **Client may now see the full `CACHE_OK`.** If Vercel passes `Cache-Control` through untouched once `Vercel-CDN-Cache-Control` is present, the client/Cloudflare see `s-maxage=31536000, stale-while-revalidate=604800` instead of today's `public, max-age=86400`. Not provable from the sandbox. **AFTER check:** the healthy card's client `Cache-Control`. Mitigated by step 1's 7-day cap; if it matters, revert slice 1 (one commit).
+1. **Client may now see the full `CACHE_OK`.** If Vercel passes `Cache-Control` through untouched once `Vercel-CDN-Cache-Control` is present, the client/Cloudflare see `s-maxage=31536000, stale-while-revalidate=604800` instead of today's `public, max-age=86400`. Not provable from the sandbox. **AFTER check:** the healthy card's client `Cache-Control`. Mitigated by step 1's 1-day cap; if it matters, revert slice 1 (one commit).
 2. `edge404` is a caller flag, not a property of the response: only the gate passes it (pinned). Accepted.
 3. A stream error after the shell is ready changes the status to 500 too late; an unknown-path 404 broken mid-stream would be stored 5 min. Same exposure the edge-cached 200 shell already has; the catchall renders `null` on the server. Accepted.
 4. A shared cached 404 shares one CSP nonce for 5 min. Same as every edge-cached document today (the 200 shell, `/city/:slug`). Queued as a site-wide CSP question, not this PR.

@@ -12,7 +12,7 @@ Full detail: `docs/ops/vercel-cpu-cuts-2026-11-04.md`.
 `/event/:id`, `/organisers/:id`, `/api/revalidate`, `/api/og/bake`, `/api/io-health`, purge path (`cloudflarePurge.ts`, `cacheTags.ts`, workflows), `edgeCacheControl.ts`, `staticShellCacheHeaders`, `catchall.tsx` (still loader-free), `vercel.json`, calendar files. Sign-in shell (`/auth`, `/auth/callback`, `/account*`, `/finish-profile`) pinned 200-shell-identical. Note: `/profile` and `/onboarding` from the brief are NOT app paths (unknown 404s).
 
 ## Owner step (relay)
-Cloudflare Cache Rule `OG cards`: `starts_with(http.request.uri.path, "/api/og/card")`, GET/HEAD, eligible, respect origin Cache-Control, status 200 capped at 7 days, query string included in full, placed above the HTML rule, applies to bots. Exact text in the ops doc, "Owner steps".
+Cloudflare Cache Rule `OG cards`: `starts_with(http.request.uri.path, "/api/og/card")`, GET/HEAD, eligible, respect origin Cache-Control, status 200 capped at **1 day (`86400`) or less -- HARD precondition** (do not create the rule without it; follow-up F1 in the ops doc lifts it), query string included in full, placed above the HTML rule, applies to bots. Exact text in the ops doc, "Owner steps".
 
 ## Not verified
 Live BEFORE survey (sandbox gets proxy 403 on production and api.vercel.com — orchestrator's 2026-11-04 measurements used instead); local prod-build smoke against real data; production behaviour after deploy; Cloudflare behaviour; UK vantage; 24 h Active CPU; real `s-maxage` at three times of day for `/city/london-gb`; whether Vercel still strips `s-maxage` from the card's client `Cache-Control` once the CDN directive is present (review finding 1).
@@ -21,3 +21,10 @@ Live BEFORE survey (sandbox gets proxy 403 on production and api.vercel.com — 
 - Queue `/event/:id` (biggest absolute cost) after its time bound + purge gaps.
 - Queue: move `tests/seoSoft404Matrix.test.ts` to `gateCatchallOutcome`, drop the wrapper; root-loader-free guard.
 - No `pr-body.mjs` exists in `scripts/` (the brief names it); PR body must be set by hand / orchestrator.
+
+## Fix round r1 (review `docs/review/1362-r1.md`, ticket dt_3170e451099e) -- tests + docs only, no production line
+- `app/catchallGate.test.ts`: new block drives the REAL `entry.server` `handleRequest` (catchall router context; React render and city lookup mocked; real finaliser wrapped in a pass-through spy) for `/zz-probe`, `/city/zz-x/parties`, `/zz-x-qq` (404 and 503). Asserts `Vercel-CDN-Cache-Control` only on `/zz-probe`, plus the `{ edge404 }` argument. Mutants E1-E5 each fail it (E1 2 failed, E2 4, E3 1, E4 1, E5 3), restored.
+- Rows for `/wp-login.php`, `/.env`, `/.well-known/security.txt`, `/ads.txt`, `/api/nope`, `/event`, `/event/`.
+- `public/` guard: PINNED, not proven. Vercel's filesystem-first ordering is platform behaviour no unit test drives; the test fixes the full `public/` file list (robots.txt + favicon.ico by name), asserts each would be `unknown` to the gate, and fails on a new public file until it is confirmed static. `/sitemap.xml` proved to match `routes/sitemap.tsx`, not the catchall (route config + `matchRoutes`).
+- Ops doc: Cloudflare Edge TTL for `/api/og/card` is a HARD precondition, 1 day or less (was a 7-day recommendation); queued follow-up F1 (`v=<cover>.<ogFactsTag>` in `detailLoader.ts` + `ogBakePolicy.ts`) with the stale-card proof.
+- Next: F1; after deploy check the card's client `Cache-Control` (review finding 3).

@@ -5,7 +5,33 @@
 //
 // `finalDocument` replays entry.server.tsx's two header steps for a live SSR
 // document, in order: noindex on >= 400, then finalizeDocumentCacheHeaders.
-import { describe, expect, it } from "vitest";
+// The "real handleRequest wiring" block below drives the REAL entry.server
+// default export instead (review 1362-r1 finding 1: the replay above cannot see
+// the glue in entry.server, so mutants of that glue survived it).
+import { readdirSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { matchRoutes } from "react-router";
+import type { EntryContext } from "react-router";
+
+// The city lookup handleRequest calls (via gateCatchallOutcome). Per-test value.
+const cityLookup = vi.hoisted(() => ({ impl: async (_slug: string): Promise<boolean> => false }));
+vi.mock("@/lib/cityValidity", () => ({ isRealCitySlug: (slug: string) => cityLookup.impl(slug) }));
+// React rendering is not under test: the shell is "ready" at once with a stub
+// body, so handleRequest reaches its header code with no router tree.
+vi.mock("react-dom/server", () => ({
+  renderToPipeableStream: (_el: unknown, opts: Record<string, () => void>) => {
+    queueMicrotask(() => (opts.onShellReady ?? opts.onAllReady)());
+    return { pipe: (w: NodeJS.WritableStream) => w.end("<html><head></head><body></body></html>"), abort: () => {} };
+  },
+}));
+// Pass-through spy: the real finaliser runs; the test also reads the options
+// handleRequest handed it (a 503 with edge404 true is invisible in the final
+// header -- the finaliser also requires 404 -- but not in the argument).
+vi.mock("./documentCacheHeaders", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./documentCacheHeaders")>();
+  return { ...real, finalizeDocumentCacheHeaders: vi.fn(real.finalizeDocumentCacheHeaders) };
+});
 import { classifyCatchallPath, resolveCatchallOutcome } from "./catchallGate";
 import { cacheHeaders, edgeCacheControl, staticShellCacheHeaders } from "./detailLoader";
 import { EDGE_404, finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
@@ -187,4 +213,121 @@ describe("sign-in and account shell headers are unchanged", () => {
       expect(await catchallDocument(path, notReal, false)).toEqual(SHELL);
     },
   );
+});
+
+// Scanner / probe / near-miss paths: the same `unknown` code path as
+// /zz-probe-123, pinned by name (review 1362-r1, real-data shapes table).
+describe("probe and near-miss paths are unknown edge-cached 404s", () => {
+  it.each(["/wp-login.php", "/.env", "/.well-known/security.txt", "/ads.txt", "/api/nope", "/event", "/event/"])(
+    "%s -> unknown 404 + edge window, no tag, no cookie",
+    async (path) => {
+      expect(classifyCatchallPath(path)).toEqual({ kind: "unknown" });
+      for (const skewOn of [true, false]) {
+        expect(await catchallDocument(path, notReal, skewOn)).toEqual({
+          status: 404,
+          cache: "no-store",
+          edge: EDGE_404,
+          tag: null,
+          robots: "noindex",
+          cookie: null,
+        });
+      }
+    },
+  );
+});
+
+// Real files and the sitemap never reach the catchall gate as `unknown` 404s.
+//
+// public/ files: the gate WOULD call every one of them `unknown` (asserted
+// below, so this is not a vacuous guard). They never get there because Vercel's
+// routing serves the static build output (public/ is copied into build/client)
+// before any function -- the filesystem-first ordering of the @vercel/react-router
+// preset's Build Output. That ordering is platform behaviour no unit test can
+// drive, so this block PINS the contract instead of proving it: the full list of
+// public/ files is fixed here, robots.txt and favicon.ico by name, and adding a
+// file to public/ fails this test until someone confirms it is served statically
+// (curl the preview: 200 with no `x-vercel-cache: MISS` from the function) and
+// adds it to the list.
+describe("public/ files and the sitemap are not catchall 404s", () => {
+  const PUBLIC = join(process.cwd(), "public");
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((name) => {
+      const p = join(dir, name);
+      return statSync(p).isDirectory() ? walk(p) : ["/" + relative(PUBLIC, p).split("\\").join("/")];
+    });
+  const STATIC_FILES = [
+    "/android-chrome-192x192.png",
+    "/android-chrome-512x512.png",
+    "/apple-touch-icon.png",
+    "/favicon-16x16.png",
+    "/favicon-32x32.png",
+    "/favicon.ico",
+    "/map-placeholder/london-gb-desktop.webp",
+    "/map-placeholder/london-gb-mobile.webp",
+    "/og-image.jpg",
+    "/placeholder.svg",
+    "/robots.txt",
+    "/site.webmanifest",
+  ];
+
+  it("robots.txt and favicon.ico are real static files", () => {
+    expect(statSync(join(PUBLIC, "robots.txt")).isFile()).toBe(true);
+    expect(statSync(join(PUBLIC, "favicon.ico")).isFile()).toBe(true);
+  });
+
+  it("public/ holds exactly the pinned static files (new file = confirm it is served statically, then pin it)", () => {
+    expect(walk(PUBLIC).sort()).toEqual([...STATIC_FILES].sort());
+  });
+
+  it("every pinned file is one the gate would call unknown (why filesystem-first matters)", () => {
+    for (const path of STATIC_FILES) expect(classifyCatchallPath(path)).toEqual({ kind: "unknown" });
+  });
+
+  it("/sitemap.xml matches the sitemap route, not the catchall", async () => {
+    const { default: routes } = await import("./routes");
+    const toObjects = (rs: typeof routes): Parameters<typeof matchRoutes>[0] =>
+      rs.map((r) => ({ path: r.path, index: r.index, id: r.file, children: r.children ? toObjects(r.children) : undefined })) as Parameters<typeof matchRoutes>[0];
+    const matched = matchRoutes(toObjects(routes), "/sitemap.xml");
+    expect(matched?.[matched.length - 1].route.id).toBe("routes/sitemap.tsx");
+    const probe = matchRoutes(toObjects(routes), "/zz-probe-123");
+    expect(probe?.[probe.length - 1].route.id).toBe("routes/catchall.tsx");
+  });
+});
+
+// The REAL entry.server default export, with a catchall router context. Kills
+// the wiring mutants of review 1362-r1 finding 1 (E1 edge404 true for any 404,
+// E2 `{}` options, E3 assignment deleted, E4 true for 503, E5 gate result
+// without edge404): each changes the final header or the finaliser argument.
+describe("real handleRequest wiring: edge window only for the unknown verdict", () => {
+  const catchallContext = { staticHandlerContext: { matches: [{ route: { id: "routes/catchall" } }] } } as unknown as EntryContext;
+
+  async function serve(path: string, lookup: (slug: string) => Promise<boolean>) {
+    cityLookup.impl = lookup;
+    const { default: handleRequest } = await import("./entry.server");
+    const { finalizeDocumentCacheHeaders: spy } = await import("./documentCacheHeaders");
+    vi.mocked(spy).mockClear();
+    const res = await handleRequest(new Request(`https://x.test${path}`), 200, new Headers(staticShellCacheHeaders()), catchallContext, {});
+    await res.text();
+    const calls = vi.mocked(spy).mock.calls;
+    return { res, calls };
+  }
+
+  const CASES = [
+    { path: "/zz-probe", lookup: notReal, status: 404, edge: EDGE_404, edge404: true },
+    { path: "/city/zz-x/parties", lookup: notReal, status: 404, edge: null, edge404: false },
+    { path: "/zz-x-qq", lookup: notReal, status: 404, edge: null, edge404: false },
+    { path: "/zz-x-qq", lookup: broken, status: 503, edge: null, edge404: false },
+  ];
+
+  it.each(CASES)("$path (status $status) -> Vercel-CDN-Cache-Control $edge", async ({ path, lookup, status, edge, edge404 }) => {
+    const { res, calls } = await serve(path, lookup);
+    expect(res.status).toBe(status);
+    expect(res.headers.get("Vercel-CDN-Cache-Control")).toBe(edge);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(res.headers.get("Vercel-Cache-Tag")).toBeNull();
+    expect(res.headers.get("Set-Cookie")).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toBe(status);
+    expect(calls[0][3]).toEqual({ edge404 });
+  });
 });
