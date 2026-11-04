@@ -15,7 +15,7 @@ const marta = { inviterFirstName: 'Marta', organiserName: 'Salsa Norte' };
 const ROWS: Array<[screen: string, actual: () => unknown, mockup: unknown]> = [
   ['2a title', () => reasonScreen('expired', marta).title, 'This link has run out'],
   ['2a body', () => reasonScreen('expired', marta).body, 'Links last 7 days.'],
-  ['2a ask button', () => reasonScreen('expired', marta).newLinkLabel, 'Ask Marta for a new one'],
+  ['2a ask button', () => reasonScreen('expired', marta).newLinkLabel, 'Ask the team for a new one'],
   ['2b title', () => reasonScreen('used', marta).title, 'This link was already used'],
   ['2b body', () => reasonScreen('used', marta).body, 'If that was not you, ask for a new one.'],
   ['2c title', () => reasonScreen('revoked', marta).title, 'This link was withdrawn'],

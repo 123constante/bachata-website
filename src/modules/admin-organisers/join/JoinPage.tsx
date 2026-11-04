@@ -12,7 +12,9 @@ import { flags } from '@/lib/featureFlags';
 import { claimAtSignIn, type ClaimOutcome } from '@/lib/claimMyDancerProfile';
 import { OTP_RESEND_COOLDOWN_SECONDS } from '@/lib/auth-otp-routing';
 import { ORGANISER_HOME_KEY, fetchOrganiserHome, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
-import { hintMatchesEmail, newLinkResultCopy, ownPageForName } from '../inviteModel';
+import { fetchOnboardingStatus, onboardingStatusKey } from '@/modules/organiser/p3/onboarding/statusQuery';
+import { graceStatusFrom, onboardingLeft } from '@/modules/organiser/p3/onboarding/graceModel';
+import { hintMatchesEmail, newLinkLabel, newLinkResultCopy, ownPageForName } from '../inviteModel';
 import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
@@ -26,7 +28,7 @@ const HOME_WAIT_MS = 1500;
 
 export type PreviewState = 'loading' | 'failed' | JoinPreview | null;
 
-/** "Ask <inviter> for a new one": request_new_invite_v1, one line of outcome, no dead end. */
+/** "Ask the team for a new one": request_new_invite_v1, one line of outcome, no dead end. */
 function NewLinkRequest({ token, label, small = false }: { token: string; label: string; small?: boolean }) {
   const [state, setState] = useState<{ busy: boolean; result: { ok: boolean; text: string } | null }>({ busy: false, result: null });
   const ask = async () => {
@@ -148,6 +150,11 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const nameMatch = info ? ownPageForName(ownPages, info.organiserName) : null;
   const nameIsUnique = nameMatch != null && info != null && ownPageForName(ownPages?.filter((o) => o !== nameMatch), info.organiserName) == null;
   const doneOrgId = redeemedOrgId !== undefined ? redeemedOrgId : nameIsUnique ? nameMatch.id : null;
+
+  // Item 7: the REAL rows left for the Done sentence (same read + same count as Home and the gate). Unknown (loading/failed) = null = details first.
+  const doneStatus = useQuery({ queryKey: onboardingStatusKey(user?.id), queryFn: fetchOnboardingStatus, enabled: Boolean(user) && step === 'done' && flags.organiserSelfServe, retry: false, networkMode: 'always', staleTime: 0 });
+  const doneGrace = doneStatus.isSuccess ? graceStatusFrom(doneStatus.data, doneOrgId) : null;
+  const rowsLeft = doneGrace ? onboardingLeft(doneGrace) : null;
 
   // A finished-with link: the token leaves the address bar.
   useEffect(() => {
@@ -359,7 +366,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <DeadScreen
           reason={derived.step === 'dead' ? derived.reason : 'invalid'}
           preview={info}
-          newLink={info ? <NewLinkRequest token={token} label={`Ask ${info.inviterFirstName ?? 'the sender'} for a new one`} small={usedViewer !== null} /> : null}
+          newLink={info ? <NewLinkRequest token={token} label={newLinkLabel(info.inviterFirstName)} small={usedViewer !== null} /> : null}
           usedViewer={usedViewer}
           signInHref={buildSignInHref(`/invite/${token}`)}
           busy={busy}
@@ -413,7 +420,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} rowsLeft={rowsLeft} />
         </>
       );
       break;

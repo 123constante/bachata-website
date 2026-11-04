@@ -304,7 +304,8 @@ export function parsePreview(raw: unknown): InvitePreview | null {
 export const NEW_LINK_REASONS: readonly string[] = ['used', 'revoked', 'expired', 'email_mismatch'];
 
 /** The label of the "ask for a new link" control: names the sender when the lookup knows them. */
-export const newLinkLabel = (inviter: string | null | undefined): string => (inviter ? `Ask ${inviter} for a new one` : 'Request a new link');
+/** The request goes to the Bachata Calendar team (request_new_invite_v1 notifies no inviter), so the button says so for every inviter. */
+export const newLinkLabel = (_inviter?: string | null): string => 'Ask the team for a new one';
 
 export interface ReasonScreen extends RedeemCopy {
   /** Show the "ask for a new link" control (request_new_invite_v1). */

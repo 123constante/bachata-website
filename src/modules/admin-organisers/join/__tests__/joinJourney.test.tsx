@@ -95,6 +95,7 @@ let bind: unknown;
 let newLink: unknown;
 /** When set, redeem_organiser_invite_v1 answers with this error (e.g. the profile gate's RAISE). */
 let redeemError: { message: string } | null;
+let onboarding: unknown = null;
 
 function Where() { const l = useLocation(); return <p data-testid="where">{l.pathname}{l.search}</p>; }
 function mount(url = `/invite/${TOKEN}`, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
@@ -147,6 +148,7 @@ beforeEach(() => {
     if (fn === 'redeem_organiser_invite_v1') return redeemError ? Promise.resolve({ data: null, error: redeemError }) : ok(redeem);
     if (fn === 'bind_organiser_invite_email_v1') return ok(bind);
     if (fn === 'request_new_invite_v1') return ok(newLink);
+    if (fn === 'organiser_onboarding_status_v1') return ok(onboarding);
     if (fn === 'set_my_role_intent_v1') return ok({ ok: true, roles: [...JOIN_ROLES] });
     return Promise.reject(new Error(`unexpected rpc ${fn}`));
   });
@@ -692,12 +694,12 @@ describe('wrong account', () => {
 });
 
 describe('dead and broken links', () => {
-  it.each(['used', 'expired', 'revoked'])('%s, signed out: why, and "Ask Ricky for a new one" that really asks', async (status) => {
+  it.each(['used', 'expired', 'revoked'])('%s, signed out: why, and "Ask the team for a new one" that really asks', async (status) => {
     preview = { ...open(), status };
     mount();
     await stepIs('dead');
     const ask = screen.getByTestId('invite-new-link');
-    expect(ask.textContent).toContain('Ricky');
+    expect(ask.textContent).toContain('Ask the team for a new one');
     expect(window.location.pathname).toBe('/invite');
     fireEvent.click(ask);
     expect(await screen.findByTestId('invite-new-link-done')).toBeTruthy();
@@ -751,6 +753,24 @@ describe('dead and broken links', () => {
     expect(document.head.querySelector('meta[name="referrer"][content="no-referrer"]')).toBeTruthy();
     view.unmount();
     expect(document.head.querySelector('meta[name="referrer"]')).toBeNull();
+  });
+});
+
+describe('Done sentence uses the real rows left (join-gaps-2 item 7)', () => {
+  const codes = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
+  it.each([[0, /yours to use/, /minute|stop and come back|Add your details/], [1, /Add your details first|Add your details/, /Everything/], [3, /minute or two/, /Everything/], [6, /three minutes/, /Everything/], [10, /five minutes/, /Everything/]])('%s rows left', async (n, want, notWant) => {
+    signedIn();
+    onboarding = { complete: n === 0, is_admin: false, person: { missing: [] }, organisers: [{ id: 'o1', name: ORG, complete: n === 0, missing: codes(n) }] };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['organiser-home', ME.id], { organisers: [] });
+    mount(undefined, client);
+    await stepIs('join');
+    fireEvent.click(screen.getByTestId('invite-join'));
+    await stepIs('done');
+    await waitFor(() => expect(h.rpc.mock.calls.some((c) => c[0] === 'organiser_onboarding_status_v1')).toBe(true));
+    const text = () => document.body.textContent ?? '';
+    await waitFor(() => expect(text()).toMatch(want));
+    expect(text()).not.toMatch(notWant);
   });
 });
 
