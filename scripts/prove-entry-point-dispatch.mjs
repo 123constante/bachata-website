@@ -207,6 +207,7 @@ const TARGETS = [
   { rel: 'scripts/check-teacher-dj-assignment-integrity.mjs' },
   { rel: 'scripts/check-wallclock-brand.mjs' },
   { rel: 'scripts/ci/docs-only.mjs' },
+  { rel: 'scripts/deploy-trial-decide.mjs' },
   { rel: 'scripts/gh-merge-status.mjs' },
   { rel: 'scripts/hooks/arc-checkpoint.mjs' },
   { rel: 'scripts/hooks/pre-exec-guard.mjs' },
