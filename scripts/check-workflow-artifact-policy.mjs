@@ -645,9 +645,12 @@ const MEASURED = {
   // RE-DERIVED 2026-11-04 after autopilot.yml (PR #1342) on top of main:
   // analyse() over .github/workflows gave 34 files, 54 jobs, 357 steps,
   // 7 upload steps, largest workflow (db-contract-check.yml) 67 steps.
-  workflowFiles: 34,
-  jobs: 54,
-  steps: 357,
+  // RE-DERIVED 2026-11-04 after automation-pause-guard.yml (pause switch, slice 1) plus the
+  // reader steps in bot-automerge/dependabot-automerge/post-merge-prod-alarm: analyse() gave
+  // 36 files, 58 jobs, 380 steps, 7 upload steps, largest still db-contract-check.yml (67).
+  workflowFiles: 36,
+  jobs: 58,
+  steps: 380,
   uploadSteps: 7,
   /** db-contract-check.yml, the largest single workflow, in steps. */
   largestWorkflowSteps: 67,

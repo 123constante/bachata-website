@@ -12,7 +12,7 @@ import { buildPack, classifyFile, classifySoft, packHead, pingedAtHead, findPack
 import { mergeVerdict, mergeCallBody, laneClass, MAX_MERGES_PER_RUN, MAX_MERGES_24H } from '../scripts/lib/autopilot-merge.mjs';
 import { isRiskyPath } from '../scripts/lib/review-scope.mjs';
 import { run } from '../scripts/autopilot-step.mjs';
-import { MERGE_SITE } from './autopilotTable';
+import { MERGE_SITE, NOT_PAUSED } from './autopilotTable';
 
 const NOW = Date.parse('2026-11-04T12:00:00Z');
 const MIN = 60000;
@@ -270,7 +270,7 @@ type RunFn = (env: any, opts: any) => Promise<number>;
 const SCENARIOS: [string, (run: RunFn) => Promise<boolean>][] = [
   ['soft docs PR: ONE pinned-sha squash with AUTOMERGE_TOKEN, ap:* removed, merge-log row', async (run) => {
     const gh = fakeGitHub([{ n: 61 }]);
-    const code = await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    const code = await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const ms = gh.merges();
     const { body, state } = stateOf(gh.log);
     const removed = gh.log.some((l) => l.m === 'DELETE' && l.p === '/issues/61/labels/ap%3Aready');
@@ -279,49 +279,49 @@ const SCENARIOS: [string, (run: RunFn) => Promise<boolean>][] = [
   }],
   ['mode unset: no merge call', async (run) => {
     const gh = fakeGitHub([{ n: 62 }]);
-    await run({ ...ENV, AUTOPILOT_MERGE_MODE: undefined }, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run({ ...ENV, AUTOPILOT_MERGE_MODE: undefined }, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.merges().length === 0;
   }],
   ['dry run with mode soft: no write of any kind', async (run) => {
     const gh = fakeGitHub([{ n: 63 }]);
-    await run({ ...ENV, DRY_RUN: 'true' }, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run({ ...ENV, DRY_RUN: 'true' }, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.log.every((l) => l.m === 'GET');
   }],
   ['no AUTOMERGE_TOKEN: no merge (never GITHUB_TOKEN)', async (run) => {
     const gh = fakeGitHub([{ n: 64 }]);
-    await run({ ...ENV, AUTOMERGE_TOKEN: '' }, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run({ ...ENV, AUTOMERGE_TOKEN: '' }, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.merges().length === 0;
   }],
   ['409 head moved: logged, no retry, nothing else, exit 0', async (run) => {
     const gh = fakeGitHub([{ n: 65, mergeStatus: 409 }]);
-    const code = await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    const code = await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return code === 0 && gh.merges().length === 1 && stateOf(gh.log).state._merges.length === 0 && !gh.log.some((l) => l.m === 'DELETE');
   }],
   ['hard-tier / screen PRs: no merge', async (run) => {
     const gh = fakeGitHub([{ n: 66, files: ['scripts/a.mjs'] }, { n: 67, files: ['components/A.tsx'] }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.merges().length === 0;
   }],
   ['two mergeable PRs: the second is behind the new main, one merge only', async (run) => {
     const gh = fakeGitHub([{ n: 68 }, { n: 69 }]);
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.merges().length === 1;
   }],
   ['main red after the previous loop merge: paused, written in the status comment', async (run) => {
     const prev = { _merges: [{ t: NOW - 3600000, key: 'o/r#60', head: 'x', sha: MERGED, cls: 'docs', mode: 'soft', run: 'r' }] };
     const gh = fakeGitHub([{ n: 70 }], { statusState: prev, mainRed: true });
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.merges().length === 0 && stateOf(gh.log).body.includes('paused: main red after #60');
   }],
   ['24 h cap counted from the merge log', async (run) => {
     const prev = { _merges: Array.from({ length: 6 }, (_, i) => ({ t: NOW - (i + 2) * 3600000, key: 'o/r#1', head: 'x', sha: 'f'.repeat(40), cls: 'docs', mode: 'soft', run: 'r' })) };
     const gh = fakeGitHub([{ n: 71 }], { statusState: prev });
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     return gh.merges().length === 0;
   }],
   ['N1: a deferred behind check never labels ap:ready (it labels ap:waiting-ci)', async (run) => {
     const gh = fakeGitHub([{ n: 72 }], { lowRateAfter: '/pulls/72/files' });
-    await run({ ...ENV, AUTOPILOT_MERGE_MODE: undefined }, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run({ ...ENV, AUTOPILOT_MERGE_MODE: undefined }, { ...NOT_PAUSED, now: NOW, fetch: gh.fetchImpl, quiet: true });
     const labelled = (l: string) => gh.log.some((x) => x.m === 'POST' && x.p === '/issues/72/labels' && JSON.stringify(x.body).includes(l));
     return !gh.log.some((x) => x.p.startsWith('/compare/')) && labelled(STATE_LABELS.waiting) && !labelled(STATE_LABELS.ready);
   }],

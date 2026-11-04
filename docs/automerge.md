@@ -219,3 +219,5 @@ is a separate decision about CI-guard PRs, not a wider allowlist here.
   whether `AUTOMERGE_ENABLED` is already set is unknown.
 - The workflow on a live event: `pull_request_target` runs from `main`, so it
   cannot run until this file has merged.
+
+Pause switch: every auto-merge path here first reads the automation pause switch; see [docs/automation-pause.md](automation-pause.md).

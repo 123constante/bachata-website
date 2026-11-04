@@ -186,3 +186,7 @@ export const R4C_PATHS: [string, string | RegExp][] = [
   ...['docs/handover/x.md', 'docs/review/1.md', 'README.md', 'docs/design/x.md', 'docs/claudette.md', 'docs/agent.md', 'docs/skills.md']
     .map((p): [string, string] => [p, 'docs']),
 ];
+
+// Pause switch (slice 1): the ONE shared helper every fake-GitHub run() harness spreads into its
+// opts, so the switch reads as running and no existing assertion changes (docs/automation-pause.md).
+export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }) };
