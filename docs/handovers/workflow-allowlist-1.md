@@ -1,6 +1,6 @@
 # Handover: workflow-allowlist-1 (PRIORITY-QUEUE item 8, hard tier)
 
-Branch `claude/workflow-allowlist-1`. Brief: `docs/briefs/workflow-allowlist-1.md`
+Branch `claude/workflow-allowlist-1`, PR #1353. Brief: `docs/briefs/workflow-allowlist-1.md`
 on `brief/workflow-allowlist-1`. Owner Approves at head; the worker never merges.
 
 ## Done
