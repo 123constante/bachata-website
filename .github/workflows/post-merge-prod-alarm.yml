@@ -105,12 +105,14 @@ jobs:
       # PAUSE SWITCH: logged only (--info always exits 0). The brake ALWAYS runs: disabling
       # auto-merge and alerting are protective; a pause stops merging, never alerting.
       - uses: actions/checkout@v7
+        # soft-signal: the brake must ALWAYS run; the switch here is logged only (--info), never a gate
         continue-on-error: true
         with:
           ref: main
           persist-credentials: false
       - name: Log the automation pause switch (never stops the brake)
         id: pause
+        # soft-signal: the brake must ALWAYS run; the switch here is logged only (--info), never a gate
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

@@ -58,6 +58,7 @@ jobs:
       # not a red run; fail closed: only paused == 'false' (positively read) lets a merge step run.
       - name: Read the automation pause switch
         id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' enables (fail closed)
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,6 +79,7 @@ jobs:
       # not a red run; fail closed: only paused == 'false' (positively read) lets a merge step run.
       - name: Read the automation pause switch again (immediately before enabling)
         id: pause2
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' enables (fail closed)
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
