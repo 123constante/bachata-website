@@ -178,6 +178,9 @@
   "git": {
     "deploymentEnabled": {
       "arc/briefs-*": false,
+      "brief/*": false,
+      "tmp-*": false,
+      "dependabot/*": false,
       "claude/*": false,
       "main": true,
       "feat/*": true

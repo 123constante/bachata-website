@@ -28,7 +28,12 @@ describe('vercel.json git.deploymentEnabled (real file)', () => {
     ['main', true],
     ['feat/organiser-rebuild', true],
     ['feat/account', true],
+    ['dependabot/foo', false],
+    // Real dependabot names have two slashes; `*` does not cross `/`, so vercel.json cannot switch them
+    // off without a `**` key the prefix guard forbids. scripts/vercel-ignore-build.sh skips them instead.
     ['dependabot/npm_and_yarn/vite-6.4.1', true],
+    ['brief/my-ticket-order-qr-db', false],
+    ['tmp-merge-probe-1', false],
     ['bot/types-refresh', true],
     ['arc/organiser-r1', true],
     ['claude/vercel-slice-budget', false],
