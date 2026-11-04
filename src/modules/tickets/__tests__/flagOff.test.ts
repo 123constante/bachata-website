@@ -36,6 +36,15 @@ describe('publicTicketing flag', () => {
     const qrImporters = execSync('git grep -lE "from .(\\./|@/modules/tickets/)qr." -- src', { encoding: 'utf8' }).trim().split('\n').filter((f) => !f.includes('__tests__'));
     expect(qrImporters).toEqual(['src/modules/tickets/MyTicketsPage.tsx']);
   });
+  it('DancerHome never imports the tickets module; the thank-you page imports the model only (not qr)', () => {
+    const dh = readFileSync('src/components/account/DancerHome.tsx', 'utf8');
+    expect(dh).not.toMatch(/modules\/tickets/);
+    const thanks = readFileSync('src/modules/tickets/TicketThanksPage.tsx', 'utf8');
+    expect(thanks).toMatch(/from '\.\/myTicketsModel'/);
+    expect(thanks).not.toMatch(/from '\.\/qr'/);
+    const importers = execSync('git grep -l "modules/tickets" -- src/components/account || true', { encoding: 'utf8' }).trim().split('\n').filter((f) => f && !f.includes('__tests__'));
+    expect(importers).toEqual([]);
+  });
   it('the event page mounts the block only behind the flag, from a lazy chunk', () => {
     expect(bento).not.toMatch(/^import .*modules\/tickets/m);
     expect(bento.match(/import\('@\/modules\/tickets\//g)).toHaveLength(1);

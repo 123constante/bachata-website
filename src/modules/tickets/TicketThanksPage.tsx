@@ -6,6 +6,8 @@ import { useSeo } from '@/lib/seo';
 import { MAX_ORDER_POLLS, isOrderId, pollDelayMs, thanksCopy, type OrderStatusReading, type ThanksOrderState } from './ticketCheckoutModel';
 import { readOrderStatus } from './ticketCheckoutApi';
 import { clearOrderId, readOrderId } from './orderStorage';
+import { MY_TICKETS_PATH } from './myTicketsModel';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * /tickets/thanks (S4). Stripe returns here after payment; free orders come here
@@ -15,6 +17,7 @@ import { clearOrderId, readOrderId } from './orderStorage';
 
 export default function TicketThanksPage() {
   const [params] = useSearchParams();
+  const { user } = useAuth();
   useSeo({ title: 'Your tickets', description: 'Your Bachata Calendar ticket order.', noindex: true });
   const navigate = useNavigate();
   const [stored] = useState(() => {
@@ -94,6 +97,11 @@ export default function TicketThanksPage() {
             <p className="mb-2 text-[12px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
               Order reference: <span className="font-mono">{orderId.slice(0, 8)}</span>
             </p>
+          )}
+          {state === 'paid' && user && (
+            <Link to={MY_TICKETS_PATH} className="mb-2 flex min-h-[44px] items-center font-semibold underline" data-testid="tickets-thanks-my-tickets">
+              See your tickets
+            </Link>
           )}
           <Link to="/" className="inline-flex min-h-[44px] items-center underline">
             {state === 'failed' || state === 'processing' ? 'Back' : 'Back to what\u2019s on'}
