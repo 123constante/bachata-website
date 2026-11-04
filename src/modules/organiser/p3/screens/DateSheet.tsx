@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { fullDate } from '../../shared/dateWords';
 import { localAsZTime } from '../../shared/homeModel';
-import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isVersionConflict } from '../../shared/selfServeErrors';
 import { VenueList } from './VenueList';
 import { useVenueOptions, venueName } from '../../shared/publicVenues';
 import { venueOverridePatch } from '../../dates/venueOverride';
@@ -9,7 +10,7 @@ import { passCount } from '../../events/seriesExtras';
 import { ticketProblem } from '../../flows/change/changeModel';
 import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFlyerFile, reencodeFlyer } from '../../shared/flyerModel';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
-import { useSendOnce } from '../../shared/runCommands';
+import { eventWorkspaceQueryKey, useSendOnce } from '../../shared/runCommands';
 import type { OverridePatch } from '../../shared/seriesCommands';
 import type { DateDetail, WorkspaceDate } from '../../shared/seriesModel';
 import type { EventWorkspace } from '../../events/eventModel';
@@ -21,7 +22,7 @@ import {
   type DatePlan,
 } from '../data/dates';
 import { CancelEventSheet, ReasonPick, type SendOnce } from './CancelEventSheet';
-import { DateFieldSheet, type FieldStep } from './DateFieldSheets';
+import { ConflictNote, DateFieldSheet, KeptOffer, type FieldStep } from './DateFieldSheets';
 import { P3NightGoing } from './P3Going';
 import { useGatedCopy } from '../onboarding/gate';
 import { Sheet } from './Sheet';
@@ -44,21 +45,25 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
   const ring = useRef(new KeyRing());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // W-35: the last refusal was version_conflict (someone saved first): Save waits for Start again.
+  const [conflict, setConflict] = useState(false);
   const gated = useGatedCopy();
   const go = async (plan: DatePlan, done: Done) => {
     setBusy(true);
     setError(null);
+    setConflict(false);
     try {
       await send(plan, ring.current.for(plan), ws.series.version);
       ring.current.forget(plan);
       onDone(done);
     } catch (e) {
       setError(gated(e, (x) => (x instanceof PlanStepError ? x.message : commandErrorMessage(x))));
+      setConflict(isVersionConflict(e instanceof PlanStepError ? e.cause : e));
     } finally {
       setBusy(false);
     }
   };
-  return { go, busy, error, setError };
+  return { go, busy, error, setError, conflict, setConflict, gated };
 }
 
 function ActionChoice({ row, busy, onPick }: { row: DateRow; busy: boolean; onPick: (a: DateAction) => void }) {
@@ -147,21 +152,43 @@ function OwnRow({ label, own, usual, testId, busy, why = null, onEdit, onUsual }
 }
 
 /** The C3 date sheet (`date`, `dtime`, `skip`, `resetdate`, `dayown`, `cancelnext` recurring wording) for one stored date. */
-function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: {
+function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, refresh, gen }: {
   ws: EventWorkspace; d: WorkspaceDate; detail: DateDetail | null; today: string;
   onDone: (x: Done) => void; onClose: () => void; onCancelEvent: () => void;
+  /** W-35: re-read this date and the event (fresh versions); resolves to the date as it is now. */
+  refresh: () => Promise<DateDetail>;
+  /** Bumped by each re-read: a field sheet remounts on it, from the fresh value. */
+  gen: number;
 }) {
   const [step, setStep] = useState<Step>('list');
   const [reason, setReason] = useState<string | null>(null);
   const [text, setText] = useState('');
-  const { go, busy, error, setError } = useGo(ws, onDone);
+  const { go, busy, error, setError, conflict, setConflict, gated } = useGo(ws, onDone);
+  // W-35: what the person had typed when they started again, offered back (About / Ticket).
+  const [kept, setKept] = useState<string | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  const startAgain = async (): Promise<DateDetail | null> => {
+    setRestarting(true);
+    try {
+      const fresh = await refresh();
+      setError(null);
+      setConflict(false);
+      return fresh;
+    } catch (e) {
+      // still in conflict: Save stays held, Start again stays the retry
+      setError(gated(e, commandErrorMessage));
+      return null;
+    } finally {
+      setRestarting(false);
+    }
+  };
   const venues = useVenueOptions();
   const facts = dateFactsOf(ws, d, detail);
   const rows = dateRowsOf(ws, d, detail, facts, today);
   const day = fullDate(d.occurrence_date, today);
   const start = localAsZTime(d.materialised_start_utc) ?? detail?.start ?? null;
   const done = (action: DateAction, words: string): Done => ({ text: words, ...undoFor(action, d, d.occurrence_date) });
-  const to = (s: Step, value = '') => { setError(null); setText(value); setStep(s); };
+  const to = (s: Step, value = '') => { setError(null); setConflict(false); setKept(null); setText(value); setStep(s); };
   const s = ws.series;
 
   const pick = (a: DateAction) => {
@@ -316,9 +343,20 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
           : <input id="p3-own-text" className="p3-in" type="url" inputMode="url" value={text} onChange={(e) => setText(e.target.value)} data-testid="p3-own-text" />}
         {!about && <p className="p3-note">{DATE_COPY.ticketHint}</p>}
         {problem && <p className="p3-warn" role="alert">{problem}</p>}
+        {kept !== null && <KeptOffer onPut={() => { setText(kept); setKept(null); }} onDrop={() => setKept(null)} />}
         <Err error={error} />
+        {conflict && (
+          <ConflictNote busy={restarting} onStart={async () => {
+            const mine = text;
+            const fresh = await startAgain();
+            if (!fresh) return;
+            const now = (about ? fresh.descriptionOverride ?? s.default_description : fresh.ticketUrlOverride ?? '') ?? '';
+            setText(now);
+            setKept(mine.trim() !== now.trim() ? mine : null);
+          }} />
+        )}
         <Buttons>
-          <button type="button" className="p3-btn" disabled={!changed || !!problem || busy} data-testid="p3-own-save"
+          <button type="button" className="p3-btn" disabled={!changed || !!problem || busy || conflict} data-testid="p3-own-save"
             onClick={() => saveDetail(about ? { description: text } : { ticket_url: text })}>
             {L.saveOne}
           </button>
@@ -327,7 +365,10 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent }: 
     );
   }
   if (step === 'edit-name' || step === 'edit-photos' || step === 'edit-price') {
-    return <DateFieldSheet step={step} ws={ws} detail={detail} busy={busy} error={error} onSave={saveDetail} onBack={back} onClose={onClose} />;
+    return (
+      <DateFieldSheet step={step} gen={gen} ws={ws} detail={detail} busy={busy || restarting} error={error} onSave={saveDetail} onBack={back} onClose={onClose}
+        conflict={conflict} restarting={restarting} onStartAgain={async () => !!(await startAgain())} />
+    );
   }
   if (step === 'edit-photo') {
     const upload = async (file: File | undefined) => {
@@ -390,6 +431,18 @@ function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent }: {
   if (live && live !== seen) setSeen(live);
   const d = live ?? (seen?.id === id ? seen : undefined);
   const detail = useDateDetail(d ? id : null);
+  const qc = useQueryClient();
+  const [gen, setGen] = useState(0);
+  // W-35 Start again: the date (its own values) and the event (the date's version, older pages too), read again.
+  const refresh = async (): Promise<DateDetail> => {
+    const [r] = await Promise.all([
+      detail.refetch(),
+      qc.refetchQueries({ queryKey: eventWorkspaceQueryKey(ws.series.id) }, { throwOnError: true }),
+    ]);
+    if (r.isError || !r.data) throw r.error ?? new Error('This date didn\u2019t load.');
+    setGen((g) => g + 1);
+    return r.data;
+  };
   if (!d) return null;
   if (!detail.data && (detail.isPending || detail.isError)) {
     return (
@@ -403,7 +456,7 @@ function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent }: {
       </Sheet>
     );
   }
-  return <OneDateSheet ws={ws} d={d} detail={detail.data} today={today} onDone={onDone} onClose={onClose} onCancelEvent={onCancelEvent} />;
+  return <OneDateSheet ws={ws} d={d} detail={detail.data} today={today} onDone={onDone} onClose={onClose} onCancelEvent={onCancelEvent} refresh={refresh} gen={gen} />;
 }
 
 /**
