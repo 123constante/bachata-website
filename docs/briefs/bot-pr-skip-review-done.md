@@ -8,11 +8,11 @@ Tier: HARD-TIER (.github/** workflows and scripts/** guards). The owner Approves
 Branch `claude/bot-pr-skip-review-done` (push ONLY here, ONE push, final subject ends `[worker-done <ticket>]`). Under 30% context. Owner click 2026-11-04: review reports (`claude/review-*`) and "nothing to change" markers (`claude/done-*`) pile up as superseded PRs only the owner can close. Reports are read from the branch. Read first: `.github/workflows/bot-pr.yml`, `.github/workflows/autopilot.yml` (cron, BOT_LOGIN, labels), `scripts/lib/automation-pause.mjs`, `scripts/automation-pause.mjs`, `docs/automation-pause.md`, `tests/automationPauseWorkflows.test.ts` (EXEMPT list + completeness test), `tests/realDataVerified.test.ts` ("bot-pr.yml wiring"), `tests/prBodyStub.test.ts`. Note: a local checkout may be stale; work from `git fetch origin main`.
 
 ## What main lacks
-- no skip for claude/review-* or claude/done-* in bot-pr.yml; its only job `if:` is `!github.event.deleted` -- .github/workflows/bot-pr.yml
+- extends: no skip for claude/review-* or claude/done-* in bot-pr.yml; its only job `if:` is `!github.event.deleted` -- .github/workflows/bot-pr.yml
 - no test evaluates the job `if:` of bot-pr.yml against branch names -- grep: bot-pr.yml wiring (tests/realDataVerified.test.ts only checks the body generator wiring)
 - no scheduled workflow closes stale or superseded bot PRs; the only schedulers are autopilot.yml (hourly, merges) and pr-mergeable-guard.yml -- grep: cron in .github/workflows
 - no pure decision function for "stale bot PR" -- scripts/lib (only autopilot.mjs and autopilot-merge.mjs exist; reuse BOT_LOGIN and RESERVED_LABELS from them, do not copy)
-- the sweep needs the pause reader; main has it, so USE it, do not re-implement -- scripts/automation-pause.mjs
+- extends: the sweep needs the pause reader; main has it, so USE it, do not re-implement -- scripts/automation-pause.mjs
 - no label list for the sweep's protected set `automerge-ok`, `ap:hold`, `owner-reserved` as one tested constant -- grep: PROTECTED_LABELS
 
 ## Do
