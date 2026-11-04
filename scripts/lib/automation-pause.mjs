@@ -12,6 +12,13 @@
  * over 500 issues+PRs, so an oldest-first walk capped at 5 pages could never reach a NEW pinned
  * issue (it would read as "missing" = paused forever). Once 500 newer items exist the issue falls
  * off the window and the reader fails CLOSED ("pause issue missing"): loud, never silently running.
+ *
+ * AUTHOR CHECK: only an issue CREATED by the repo owner or by a login in PAUSE_ISSUE_AUTHOR_BOTS
+ * counts as THE pause issue. A same-title issue by anyone else is ignored (logged as a ::warning::)
+ * and never causes a pause, so a stranger cannot force a permanent "ambiguous" pause by opening a
+ * duplicate. Two ALLOWED issues are still ambiguous = PAUSED (fail closed). An issue whose author
+ * cannot be read is treated as foreign (ignored); if that leaves none, the result is "missing" =
+ * PAUSED, so the check can only ever fail closed. Logins compare case-insensitively (GitHub's rule).
  */
 
 export const PAUSE_ISSUE_TITLE = 'AUTOMATION PAUSE SWITCH';
@@ -19,6 +26,23 @@ export const PAUSE_LABEL = 'automation-paused';
 const API = 'https://api.github.com';
 const REPO_RE = /^[\w.-]+\/[\w.-]+$/;
 const MAX_PAGES = 5;
+
+/**
+ * Bot accounts allowed to CREATE the pause issue besides the repo owner (the owner comes from the
+ * `owner/` half of GITHUB_REPOSITORY, i.e. github.repository_owner). Deliberately EMPTY: every
+ * login here could create a fresh UNLABELLED pause issue once the owner's falls out of the
+ * 500-item window, and so un-pause the very automation that is paused. kiki-claude-bot (BOT_LOGIN
+ * in scripts/lib/autopilot.mjs) is that automation, so it is NOT listed. Add a login only with the
+ * owner's Approve, for a bot that can never be the thing being paused.
+ */
+export const PAUSE_ISSUE_AUTHOR_BOTS = Object.freeze([]);
+
+/** True when `login` may create THE pause issue for `repo` (owner/name). */
+export function isAllowedPauseAuthor(login, repo) {
+  if (typeof login !== 'string' || login === '' || typeof repo !== 'string') return false;
+  const l = login.toLowerCase();
+  return l === repo.split('/')[0].toLowerCase() || PAUSE_ISSUE_AUTHOR_BOTS.some((b) => b.toLowerCase() === l);
+}
 
 export class PausedError extends Error {
   constructor(reason) {
@@ -70,7 +94,7 @@ function checkArgs(repo, token, fetchImpl) {
 const labelNames = (labels) => labels.map((l) => (typeof l === 'string' ? l : l && typeof l.name === 'string' ? l.name : ''));
 
 /** Finds THE pause issue. Throws (fail-closed reason) on any read error or odd shape. */
-async function findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs }) {
+async function findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs, log = (s) => console.log(s) }) {
   let url = `${API}/repos/${repo}/issues?state=all&per_page=100&sort=created&direction=desc`;
   const matches = [];
   for (let page = 1; url && page <= MAX_PAGES; page++) {
@@ -80,7 +104,12 @@ async function findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs }) {
       if (!it || typeof it !== 'object') throw new Error('issues response has a non-object item');
       if (!Array.isArray(it.labels)) throw new Error(`item #${it.number} labels field missing or not an array`);
       if ('pull_request' in it) continue;
-      if (typeof it.title === 'string' && it.title.trim() === PAUSE_ISSUE_TITLE) matches.push(it);
+      if (typeof it.title !== 'string' || it.title.trim() !== PAUSE_ISSUE_TITLE) continue;
+      const author = it.user && typeof it.user.login === 'string' ? it.user.login : null;
+      if (isAllowedPauseAuthor(author, repo)) matches.push(it);
+      else {
+        try { log(`::warning::automation pause: issue #${it.number} is titled "${PAUSE_ISSUE_TITLE}" but was created by ${author ? JSON.stringify(author) : 'an unreadable author'}, not the owner or an allowed bot: IGNORED`); } catch { /* logging never changes the read */ }
+      }
     }
     url = next;
   }
@@ -90,11 +119,11 @@ async function findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs }) {
 /**
  * -> { paused, reason, issue }. Never throws. reason '' only when running.
  */
-export async function readPause({ repo, token, fetch: fetchImpl = globalThis.fetch, timeoutMs = 10000 } = {}) {
+export async function readPause({ repo, token, fetch: fetchImpl = globalThis.fetch, timeoutMs = 10000, log } = {}) {
   try {
     const bad = checkArgs(repo, token, fetchImpl);
     if (bad) return { paused: true, reason: bad, issue: null };
-    const matches = await findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs });
+    const matches = await findPauseIssue({ repo, token, fetch: fetchImpl, timeoutMs, log });
     if (matches.length === 0) return { paused: true, reason: `pause issue missing (no issue titled "${PAUSE_ISSUE_TITLE}")`, issue: null };
     if (matches.length > 1) return { paused: true, reason: `ambiguous: ${matches.length} issues titled "${PAUSE_ISSUE_TITLE}"`, issue: null };
     const it = matches[0];

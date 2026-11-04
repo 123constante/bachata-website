@@ -13,6 +13,25 @@ const GUARD = path.join(ROOT, '.github/workflows/automation-pause-guard.yml');
 const RAW = readFileSync(GUARD, 'utf8');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Step = Record<string, any>;
+/**
+ * A tiny evaluator for the `if:` subset this workflow uses: always(), ==, !=, &&, ||, parens,
+ * 'single-quoted' strings and github.* / steps.* paths (a missing path is null, as in Actions).
+ */
+function evalIf(expr: unknown, ctx: Record<string, unknown>): boolean {
+  const src = String(expr).trim().replace(/^\$\{\{([\s\S]*)\}\}$/, '$1');
+  const strings: string[] = [];
+  let js = src.replace(/'([^']*)'/g, (_m, s: string) => { strings.push(s); return `__S${strings.length - 1}__`; });
+  if (/[^\w\s.()&|=!-]/.test(js)) throw new Error(`evalIf: unsupported syntax in ${src}`);
+  js = js.replace(/\balways\(\)/g, 'true')
+    .replace(/\b(github|steps)(\.[\w-]+)+/g, (m) => {
+      let v: unknown = ctx;
+      for (const k of m.split('.')) v = v && typeof v === 'object' ? (v as Record<string, unknown>)[k] : undefined;
+      return v === undefined ? 'null' : JSON.stringify(v);
+    })
+    .replace(/!=/g, '!==').replace(/([^!=])==/g, '$1===')
+    .replace(/__S(\d+)__/g, (_m, i: string) => JSON.stringify(strings[Number(i)]));
+  return Boolean(new Function(`return (${js});`)());
+}
 
 for (const [eol, text] of [['as read', RAW], ['CRLF', RAW.replace(/\r?\n/g, '\r\n')]] as const) {
   describe(`automation-pause-guard.yml (${eol})`, () => {
@@ -37,7 +56,7 @@ for (const [eol, text] of [['as read', RAW], ['CRLF', RAW.replace(/\r?\n/g, '\r\
       expect(String(r.run).trim()).toBe('node scripts/automation-pause.mjs --guard');
       expect(r.env.GH_TOKEN).toBe('${{ github.token }}');
     });
-    it('disarm job: only on issues/labeled with the pause label, compared in if:, disables auto-merge on open PRs', () => {
+    it('disarm job: issues/labeled with the pause label (or the schedule), compared in if:, disables auto-merge on open PRs', () => {
       const d = wf.jobs.disarm;
       expect(d['runs-on']).toBe('ubuntu-latest');
       const cond = String(d.if).replace(/\s+/g, ' ');
@@ -49,6 +68,61 @@ for (const [eol, text] of [['as read', RAW], ['CRLF', RAW.replace(/\r?\n/g, '\r\
       expect(run).toMatch(/gh pr list --state open[^\n]*--json number,autoMergeRequest/);
       expect(run).toMatch(/gh pr merge --disable-auto "\$n"/);
       expect(run).not.toMatch(/gh pr merge (--auto|--squash|--merge|--rebase)/);
+    });
+    it('disarm runs AFTER the guard (needs: guard, always()) so a label it re-asserted is seen; the scheduled read is --info from main', () => {
+      const d = wf.jobs.disarm;
+      expect(d.needs).toBe('guard');
+      expect(String(d.if)).toMatch(/^always\(\) && \(/);
+      const read = d.steps.find((s: Step) => s.id === 'pause');
+      expect(String(read.run).trim()).toBe('node scripts/automation-pause.mjs --info');
+    });
+    // fix-1361-r1: a pause set with GITHUB_TOKEN fires no `issues` workflow, so the 30-minute
+    // scheduled run must disarm too. Evaluates the REAL if: expressions over event x label state.
+    // reason = what `automation-pause.mjs --info` writes to GITHUB_OUTPUT ('label' = label present,
+    // '' = running, anything else = fail-closed doubt; 'NO OUTPUT' = the step wrote nothing).
+    const ISSUE = (action: string, label: string, title = PAUSE_ISSUE_TITLE) => ({ event_name: 'issues', event: { action, label: { name: label }, issue: { title } } });
+    const SCHED = { event_name: 'schedule', event: {} };
+    const TABLE: [string, Record<string, unknown>, string | null, boolean, boolean, boolean][] = [
+      // name, github, --info reason (null = step skipped), guard job, disarm job, disable step
+      ['issues labeled with the pause label', ISSUE('labeled', PAUSE_LABEL), null, true, true, true],
+      ['issues labeled, another label', ISSUE('labeled', 'bug'), null, true, false, false],
+      ['issues labeled, another issue', ISSUE('labeled', PAUSE_LABEL, 'other'), null, false, false, false],
+      ['issues unlabeled (the pause label)', ISSUE('unlabeled', PAUSE_LABEL), null, true, false, false],
+      ['schedule, label PRESENT (e.g. set with GITHUB_TOKEN)', SCHED, 'label', true, true, true],
+      ['schedule, label absent (running)', SCHED, '', true, true, false],
+      ['schedule, issue closed without label (fail closed)', SCHED, 'pause issue #9 is closed', true, true, true],
+      ['schedule, read error (fail closed)', SCHED, 'HTTP 500 on GET /repos/o/r/issues', true, true, true],
+      ['schedule, the read step wrote no output (fail closed)', SCHED, 'NO OUTPUT', true, true, true],
+      ['workflow_dispatch', { event_name: 'workflow_dispatch', event: {} }, null, true, false, false],
+    ];
+    for (const [name, github, reason, guardRuns, disarmRuns, disableRuns] of TABLE) {
+      it(`event x label: ${name} -> guard ${guardRuns}, disarm job ${disarmRuns}, disable step ${disableRuns}`, () => {
+        const d = wf.jobs.disarm;
+        const steps: Record<string, unknown> = {};
+        const ran: Record<string, boolean> = {};
+        const ctx = () => ({ github, steps });
+        expect(evalIf(wf.jobs.guard.if, ctx())).toBe(guardRuns);
+        const jobRuns = evalIf(d.if, ctx());
+        expect(jobRuns).toBe(disarmRuns);
+        if (!jobRuns) return;
+        for (const s of d.steps as Step[]) {
+          const label = String(s.name || s.uses);
+          ran[label] = s.if === undefined ? true : evalIf(s.if, ctx());
+          if (s.id === 'pause') {
+            expect(ran[label]).toBe(reason !== null);
+            if (ran[label] && reason !== 'NO OUTPUT') steps.pause = { outputs: { paused: reason === '' ? 'false' : 'true', reason } };
+          }
+        }
+        expect(ran['Disable auto-merge on every open PR']).toBe(disableRuns);
+      });
+    }
+    it('CANARY: the evaluator is not vacuous (a disarm if: without the schedule clause fails the PRESENT row)', () => {
+      const cut = String(wf.jobs.disarm.if).replace(/\|\|\s*github\.event_name == 'schedule'/, '');
+      expect(cut).not.toBe(String(wf.jobs.disarm.if));
+      expect(evalIf(cut, { github: SCHED, steps: {} })).toBe(false);
+      expect(evalIf("steps.pause.outputs.paused != 'false'", { github: SCHED, steps: {} })).toBe(true);
+      expect(evalIf("steps.pause.outputs.paused != 'false'", { github: SCHED, steps: { pause: { outputs: { paused: 'false' } } } })).toBe(false);
+      expect(evalIf("github.event_name != 'issues'", { github: SCHED, steps: {} })).toBe(true);
     });
     it('no PR code is ever checked out; no ${{ }} expression inside any run: text', () => {
       for (const j of Object.values(wf.jobs) as Step[]) for (const s of j.steps) {
@@ -73,7 +147,7 @@ describe('inert PR/issue text: hostile titles, branches and bodies stay data', (
       const urls: string[] = [];
       const lines: string[] = [];
       const items = [
-        { number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [{ name: h }] },
+        { number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [{ name: h }], user: { login: 'o' } },
         { number: 10, title: h, state: 'open', labels: [{ name: PAUSE_LABEL }], body: h },
         { number: 11, title: `${PAUSE_ISSUE_TITLE}${h}`, state: 'open', labels: [], pull_request: { head: { ref: h } } },
       ];
@@ -93,7 +167,7 @@ describe('the --guard CLI re-asserts a bot removal with ONE notice and exit 0', 
       const m = init.method || 'GET';
       log.push({ m, u, body: init.body });
       const ok = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s });
-      if (m === 'GET' && /\/issues\?/.test(u)) return ok([{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labelPresent ? [{ name: PAUSE_LABEL }] : [] }]);
+      if (m === 'GET' && /\/issues\?/.test(u)) return ok([{ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labelPresent ? [{ name: PAUSE_LABEL }] : [], user: { login: 'o' } }]);
       if (m === 'GET' && /\/issues\/9\/events/.test(u)) return ok(events);
       if (m === 'GET' && /\/issues\/9\/comments/.test(u)) return ok(existing.map((body, id) => ({ id, body })));
       if (m === 'POST' && /\/issues\/9\/labels$/.test(u)) return failLabelPost ? ok({}, 403) : ok([{ name: PAUSE_LABEL }]);

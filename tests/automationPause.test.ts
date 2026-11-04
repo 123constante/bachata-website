@@ -5,14 +5,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { readPause, postPauseNotice, decideReassert, PAUSE_ISSUE_TITLE, PAUSE_LABEL } from '../scripts/lib/automation-pause.mjs';
+import { readPause, postPauseNotice, decideReassert, isAllowedPauseAuthor, PAUSE_ISSUE_AUTHOR_BOTS, PAUSE_ISSUE_TITLE, PAUSE_LABEL } from '../scripts/lib/automation-pause.mjs';
 import { main as cli } from '../scripts/automation-pause.mjs';
 import { run } from '../scripts/autopilot-step.mjs';
 import { BOT_LOGIN, STATE_LABELS } from '../scripts/lib/autopilot.mjs';
 
 type Item = Record<string, unknown>;
 const json = (b: unknown, status = 200, headers: Record<string, string> = {}) => new Response(status === 204 ? null : typeof b === 'string' ? b : JSON.stringify(b), { status, headers });
-const issue = (over: Item = {}): Item => ({ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [], ...over });
+// The repo in R is o/r, so the OWNER login is `o` (the reader's author check, fix-1361-r1).
+const issue = (over: Item = {}): Item => ({ number: 9, title: PAUSE_ISSUE_TITLE, state: 'open', labels: [], user: { login: 'o' }, ...over });
 /** A fake fetch serving ONE page of the issues list (or a status / a throw). Records every URL. */
 function listFetch(items: unknown, { status = 200, raw = null as string | null, throwErr = null as Error | null } = {}) {
   const urls: string[] = [];
@@ -134,6 +135,66 @@ describe('readPause: the fail-closed decision table', () => {
     paused = true;
     expect((await readPause({ ...R, fetch: f })).paused).toBe(true);
     expect(urls).toHaveLength(2);
+  });
+});
+
+describe('readPause: only the owner or an allowed bot creates THE pause issue (fix-1361-r1)', () => {
+  const read = async (items: unknown[]) => {
+    const logs: string[] = [];
+    const r = await readPause({ ...R, fetch: listFetch(items).f, log: (s: string) => logs.push(s) });
+    return { r, logs };
+  };
+  it('a foreign-author duplicate (even labelled) is IGNORED: running, the owner issue is THE issue, and it is logged', async () => {
+    const { r, logs } = await read([issue({ number: 10, user: { login: 'mallory' }, labels: [PAUSE_LABEL] }), issue()]);
+    expect(r).toEqual({ paused: false, reason: '', issue: 9 });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(/^::warning::.*#10.*"mallory".*IGNORED$/);
+  });
+  it('the owner issue is still found (login compared case-insensitively)', async () => {
+    expect((await read([issue({ user: { login: 'O' } })])).r).toEqual({ paused: false, reason: '', issue: 9 });
+    expect((await read([issue({ labels: [PAUSE_LABEL] })])).r).toEqual({ paused: true, reason: 'label', issue: 9 });
+  });
+  it('the bot allow-list is EMPTY: the paused automation (kiki-claude-bot) cannot re-create an unlabelled issue and un-pause itself', async () => {
+    expect(PAUSE_ISSUE_AUTHOR_BOTS).toEqual([]);
+    const { r } = await read([issue({ number: 10, user: { login: 'kiki-claude-bot' } })]);
+    expect(r.paused).toBe(true);
+    expect(r.reason).toMatch(/missing/);
+  });
+  it('two OWNER issues = paused, fail closed (ambiguous)', async () => {
+    const { r } = await read([issue(), issue({ number: 10 })]);
+    expect(r.paused).toBe(true);
+    expect(r.reason).toMatch(/ambiguous: 2/);
+  });
+  it('owner issue labelled + a bot-created unlabelled duplicate: still PAUSED (label), the duplicate ignored', async () => {
+    const { r, logs } = await read([issue({ number: 10, user: { login: 'kiki-claude-bot' } }), issue({ labels: [PAUSE_LABEL] })]);
+    expect(r).toEqual({ paused: true, reason: 'label', issue: 9 });
+    expect(logs).toHaveLength(1);
+  });
+  it('only foreign issues -> none counts -> "missing" = paused (fail closed, never running)', async () => {
+    const { r, logs } = await read([issue({ user: { login: 'mallory' } }), issue({ number: 10, user: { login: 'github-actions[bot]' } })]);
+    expect(r.paused).toBe(true);
+    expect(r.reason).toMatch(/missing/);
+    expect(logs).toHaveLength(2);
+  });
+  it('an unreadable author (no user, user without login) is treated as foreign', async () => {
+    const { r, logs } = await read([issue({ user: undefined }), issue({ number: 10, user: { id: 1 } }), issue({ number: 11 })]);
+    expect(r).toEqual({ paused: false, reason: '', issue: 11 });
+    expect(logs).toHaveLength(2);
+    expect(logs.every((l) => /unreadable author/.test(l))).toBe(true);
+  });
+  it('a read error is still fail closed with the author check in place', async () => {
+    expect((await readPause({ ...R, fetch: listFetch([issue()], { status: 502 }).f })).paused).toBe(true);
+  });
+  it('a logger that throws never changes the read', async () => {
+    const r = await readPause({ ...R, fetch: listFetch([issue({ number: 10, user: { login: 'mallory' } }), issue()]).f, log: () => { throw new Error('x'); } });
+    expect(r).toEqual({ paused: false, reason: '', issue: 9 });
+  });
+  it('isAllowedPauseAuthor: the owner half of owner/name only, never a substring or the repo name', () => {
+    expect(isAllowedPauseAuthor('o', 'o/r')).toBe(true);
+    expect(isAllowedPauseAuthor('r', 'o/r')).toBe(false);
+    expect(isAllowedPauseAuthor('oo', 'o/r')).toBe(false);
+    expect(isAllowedPauseAuthor('', 'o/r')).toBe(false);
+    expect(isAllowedPauseAuthor(undefined, 'o/r')).toBe(false);
   });
 });
 
@@ -341,6 +402,61 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
     expect(gh.log.some((l) => l.m === 'GET' && l.p === '/issues')).toBe(true);
     expect(gh.merges()).toEqual([]);
     expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
+  });
+  it('the reader THROWS: treated as paused (fail closed): zero writes, zero merges, reason logged, exit 0', async () => {
+    const gh = fakeGitHub();
+    const { code, rows, out } = await rowsOf(() => run(ENV, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => { throw new Error('boom'); } }));
+    expect(code).toBe(0);
+    expect(gh.merges()).toEqual([]);
+    expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
+    expect(rows.length).toBe(3);
+    expect(rows.every((r) => /paused: reader threw: boom/.test(r.did))).toBe(true);
+    expect(out).toMatch(/automation pause switch: PAUSED/i);
+  });
+  for (const [name, bad] of [
+    ['undefined', undefined], ['null', null], ['{}', {}], ['paused: "false" (string)', { paused: 'false', reason: '' }],
+    ['paused: 0', { paused: 0, reason: '' }], ['paused: null', { paused: null, reason: 'x' }], ['a bare string', 'running'],
+  ] as const) {
+    it(`the reader returns a malformed result (${name}): treated as PAUSED, zero writes, zero merges`, async () => {
+      const gh = fakeGitHub();
+      const { code, out } = await rowsOf(() => run(ENV, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => bad }));
+      expect(code).toBe(0);
+      expect(gh.merges()).toEqual([]);
+      expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
+      expect(out).toMatch(/automation pause switch: PAUSED/i);
+    });
+  }
+  /** The DEFAULT reader against a fake API that answers the pause query ONLY for GH_TOKEN. */
+  function withPauseIssue(gh: ReturnType<typeof fakeGitHub>, labels: string[]) {
+    const auths: string[] = [];
+    const f = async (url: string, init: { method?: string; headers?: Record<string, string> } = {}) => {
+      const u = new URL(url);
+      if (u.pathname === '/repos/o/r/issues' && u.searchParams.get('state') === 'all' && u.searchParams.get('direction') === 'desc') {
+        const auth = String((init.headers || {}).authorization);
+        auths.push(auth);
+        if (auth !== 'Bearer t') return new Response('{"message":"Bad credentials"}', { status: 401 });
+        return new Response(JSON.stringify([{ number: 5, title: PAUSE_ISSUE_TITLE, state: 'open', labels: labels.map((name) => ({ name })), user: { login: 'o' } }]), { status: 200 });
+      }
+      return gh.fetchImpl(url, init);
+    };
+    return { f, auths };
+  }
+  it('the DEFAULT reader (no pauseReader) reads with GH_TOKEN: running issue -> the run merges all three', async () => {
+    const gh = fakeGitHub();
+    const w = withPauseIssue(gh, []);
+    const code = await run(ENV, { now: NOW, fetch: w.f, quiet: true });
+    expect(code).toBe(0);
+    expect(w.auths.length).toBeGreaterThan(0);
+    expect(w.auths.every((a) => a === `Bearer ${ENV.GH_TOKEN}`)).toBe(true);
+    expect(gh.merges()).toHaveLength(3);
+  });
+  it('the DEFAULT reader sees the label: zero writes, zero merges', async () => {
+    const gh = fakeGitHub();
+    const w = withPauseIssue(gh, [PAUSE_LABEL]);
+    const { out } = await rowsOf(() => run(ENV, { now: NOW, fetch: w.f }));
+    expect(gh.merges()).toEqual([]);
+    expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
+    expect(out).toMatch(/PAUSED \(o\/r: label\)/);
   });
   it('a dry run still reads the switch and reports', async () => {
     const gh = fakeGitHub();

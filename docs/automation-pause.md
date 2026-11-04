@@ -9,7 +9,9 @@ code: `scripts/lib/automation-pause.mjs`, `scripts/automation-pause.mjs`, the re
 PAUSED = ANY of:
 
 - (a) the label `automation-paused` on the issue titled exactly `AUTOMATION PAUSE SWITCH`;
-- (c) any doubt: no such issue, more than one, the one issue closed, or ANY read error
+  only an issue CREATED by the repo owner counts (`PAUSE_ISSUE_AUTHOR_BOTS` is deliberately
+  empty); a same-title issue by anyone else is ignored with a `::warning::` and never pauses;
+- (c) any doubt: no such issue, more than one owner-created one, the one issue closed, or ANY read error
   (HTTP 401/403/404/429/5xx, network, timeout, a body that is not JSON / not an array, an item
   without a `labels` array, no token, an invalid repo).
 
@@ -35,7 +37,7 @@ its own switch; the orchestrator sets both repos' labels when it pauses.
 | `bot-automerge.yml` | after checkout of main, and again immediately before `Enable auto-merge` | no enable; the existing disable step runs (an armed auto-merge would merge later) |
 | `dependabot-automerge.yml` | checkout of main, before `Enable auto-merge` | no enable; an armed auto-merge on the PR is disabled |
 | `post-merge-prod-alarm.yml` (brake) | `--info`, logged only | the brake ALWAYS runs: a pause stops merging, never alerting |
-| `automation-pause-guard.yml` | `--guard` (A15b), every 30 min + on label events | label added: disarms auto-merge on every open PR |
+| `automation-pause-guard.yml` | `--guard` (A15b), every 30 min + on label events; `--info` before the scheduled disarm | label added, OR a scheduled run that does not read RUNNING (a label set with GITHUB_TOKEN fires no `issues` event): disarms auto-merge on every open PR |
 
 Not readers (EXEMPT in `tests/automationPauseWorkflows.test.ts`, each with a reason):
 `bot-pr.yml` (opens PRs, never merges) and `types-drift-autoheal.yml` (refreshes one PR,

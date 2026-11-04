@@ -7,6 +7,10 @@ name: Automation pause guard
 #         included), re-add it and post ONE notice on that issue. Only the owner clears the switch.
 #  disarm: when the label is ADDED, disable auto-merge on every open PR (exactly like the
 #         post-merge brake): GitHub merges an armed PR later by itself, and a pause must stop that.
+#         ALSO on every 30-minute scheduled run unless the switch reads positively RUNNING
+#         (label present, or any doubt = fail closed, like bot-automerge.yml), after the guard
+#         job so a label it just re-asserted counts: a label added with GITHUB_TOKEN fires NO
+#         `issues` workflow, so without this its armed PRs would never be disarmed.
 #
 # SAFETY: GitHub-hosted runners only; checks out MAIN only (never PR code); the owner login is
 # github.repository_owner, read by the script from the GITHUB_REPOSITORY_OWNER env var; the label
@@ -48,17 +52,34 @@ jobs:
         run: node scripts/automation-pause.mjs --guard
 
   disarm:
+    needs: guard
     if: >-
-      github.event_name == 'issues' && github.event.action == 'labeled' &&
+      always() && (
+      (github.event_name == 'issues' && github.event.action == 'labeled' &&
       github.event.label.name == 'automation-paused' &&
-      github.event.issue.title == 'AUTOMATION PAUSE SWITCH'
+      github.event.issue.title == 'AUTOMATION PAUSE SWITCH') ||
+      github.event_name == 'schedule')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'schedule'
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        if: github.event_name == 'schedule'
+        with:
+          node-version: "22"
+      - name: Read the switch (scheduled run; only paused=false keeps auto-merge armed)
+        id: pause
+        if: github.event_name == 'schedule'
+        run: node scripts/automation-pause.mjs --info
       - name: Disable auto-merge on every open PR
+        if: github.event_name == 'issues' || steps.pause.outputs.paused != 'false'
         run: |
           set -eu
           prs=$(gh pr list --state open --limit 100 --json number,autoMergeRequest --jq '.[] | select(.autoMergeRequest != null) | .number')
