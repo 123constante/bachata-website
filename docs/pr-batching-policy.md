@@ -45,7 +45,7 @@ The rule (`scripts/vercel-ignore-build.sh`, the `vercel.json` ignoreCommand),
 for NON-production builds only:
 
 - **No preview for these branch prefixes:** `arc/briefs-` and `claude/`
-  always skip; `bot/` and `dependabot/` skip when no build path
+  always skip; `bot/` skips when no build path
   changed (as before). That list lives ONLY in the script
   (`ALWAYS_SKIP_PREFIXES` + `DIFF_RULE_PREFIXES`); the preview jobs' `if:` in
   `perf-budget.yml`, `synthetic-ssr-monitor.yml`, `seo-check.yml` and
@@ -70,7 +70,7 @@ for NON-production builds only:
   `"main": true`, `"feat/*": true`. Vercel deploys a branch when ANY matching key
   is `true` (a `true` always wins; unmatched branches deploy), so the guard
   allows no other `true` key: a stray glob such as `*-dev` would re-enable
-  slices. `bot/*` and `dependabot/*` are unmatched and keep deploying (their
+  slices. `bot/*` is unmatched and keeps deploying (its
   preview jobs are skipped anyway; the diff rule still skips docs-only bot
   builds). Why: 117 deploys in 24 h on 2026-10-16, ~55 of them `claude/*` slice
   previews nobody opened.

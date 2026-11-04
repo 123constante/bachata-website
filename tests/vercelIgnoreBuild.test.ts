@@ -405,6 +405,33 @@ const cases: Case[] = [
     want: 'SKIP',
   },
   {
+    name: 'budget: src change on brief/*, tmp-* and dependabot/* branches skips (no deployment by policy)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'brief/x' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: src change on a tmp-* branch skips',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'tmp-merge-probe-1' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: src change on a dependabot/* branch skips',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'dependabot/npm_and_yarn/x' };
+    },
+    want: 'SKIP',
+  },
+  {
     name: 'budget: claude/review-* branch skips',
     setup: () => {
       const { cwd, base } = seedRepo();

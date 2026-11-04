@@ -16,7 +16,7 @@
 # push to a PR branch makes no new preview. No branch-name list decides it.
 #
 # BUILD BUDGET (non-production only, decided BEFORE the diff rule): a branch
-# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, and every claude/* worker branch:
+# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, brief/*, tmp-*, dependabot/*, and every claude/* worker branch:
 # slices, review and done-signal branches) and a commit whose SUBJECT ENDS with
 # `[skip preview]` (a worker checkpoint) always SKIP. vercel.json
 # git.deploymentEnabled also turns those prefixes off before any deployment exists (an ignored build still counts
@@ -94,16 +94,17 @@ skip() { echo "vercel-ignore-build: SKIP -- $1"; exit 0; }
 # synthetic-ssr-monitor.yml, seo-check.yml and og-image-check.yml exclude
 # exactly this union in their `if:`. scripts/check-no-preview-prefixes.mjs
 # fails CI when any workflow's list differs from these two lines together.
-#   DIFF_RULE_PREFIXES    bot PRs: the diff rule (as on every branch); their
+#   DIFF_RULE_PREFIXES    bot/ PRs: the diff rule (as on every branch); their
 #                         preview jobs stay excluded
-#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches
+#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches, tmp-* probes,
+#                         dependabot/* (its preview jobs are excluded anyway)
 #                         and every claude/* worker branch (slices, review,
 #                         done-signal). Workers test in their own sandbox; a
 #                         preview exists only for main and feat/* (vercel.json
 #                         KEEP_ON). Vercel Hobby: ~100 deploys / rolling 24 h;
 #                         on 2026-10-16 these were ~85% of 117 deploys.
-DIFF_RULE_PREFIXES='bot/ dependabot/'
-ALWAYS_SKIP_PREFIXES='arc/briefs- claude/'
+DIFF_RULE_PREFIXES='bot/'
+ALWAYS_SKIP_PREFIXES='arc/briefs- brief/ claude/ dependabot/ tmp-'
 
 # SKIP_PREVIEW_TAG: a worker CHECKPOINT commit ends its subject with this (the
 # SUBJECT is matched, never the body; check-no-preview-prefixes.mjs pins this
