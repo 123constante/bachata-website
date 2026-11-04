@@ -62,7 +62,7 @@ function useGo(ws: EventWorkspace, onDone: (d: Done) => void) {
       setBusy(false);
     }
   };
-  return { go, busy, error, setError, conflict, setConflict };
+  return { go, busy, error, setError, conflict, setConflict, gated };
 }
 
 function ActionChoice({ row, busy, onPick }: { row: DateRow; busy: boolean; onPick: (a: DateAction) => void }) {
@@ -162,7 +162,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
   const [step, setStep] = useState<Step>('list');
   const [reason, setReason] = useState<string | null>(null);
   const [text, setText] = useState('');
-  const { go, busy, error, setError, conflict, setConflict } = useGo(ws, onDone);
+  const { go, busy, error, setError, conflict, setConflict, gated } = useGo(ws, onDone);
   // W-35: what the person had typed when they started again, offered back (About / Ticket).
   const [kept, setKept] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
@@ -175,7 +175,7 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
       return fresh;
     } catch (e) {
       // still in conflict: Save stays held, Start again stays the retry
-      setError(commandErrorMessage(e));
+      setError(gated(e, commandErrorMessage));
       return null;
     } finally {
       setRestarting(false);

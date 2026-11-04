@@ -137,7 +137,8 @@ describe('W-31: every date of a long series is reachable, on every tab', () => {
     const rows = screen.getAllByTestId('p3-date-row');
     fireEvent.click(rows[rows.length - 1].querySelector('button')!);
     await waitFor(() => screen.getByTestId('p3-date-actions'));
-    expect(calls('event_view_p5').at(-1)![1]).toMatchObject({ p_target: { occurrence_id: `o-${all[0]}` } });
+    const views = calls('event_view_p5');
+    expect(views[views.length - 1][1]).toMatchObject({ p_target: { occurrence_id: `o-${all[0]}` } });
   });
 
   it('older dates that fail to load say so, and the button is the retry', async () => {
