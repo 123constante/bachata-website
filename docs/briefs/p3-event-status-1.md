@@ -1,0 +1,20 @@
+# p3-event-status-1 (fix: removed event looks finished; page-scope nits)
+
+Branch `claude/p3-event-status-1` from main. Lane normal, Sonnet (labels, disabled states, copy; no save-path change). Website repo only, no database change. Avoids: `EditTray.tsx`, `DetailsScreen.tsx`, `PricesScreen.tsx`, `keptDraft.ts` (worker `claude/p3-gate-guard-1`), `AllDatesScreen.tsx`, `DateFieldSheets.tsx`, `data/eventPage.ts`, `selfServeErrors.ts` (worker `claude/p3-dates-fix-1`), `join/**`, ticketing/door, calendar protected files.
+
+## The failures
+1. **W-02 (medium).** After "Remove this event" the person lands on the event page tagged **Finished**, not "Removed" (a `removedTag: 'Removed'` label exists at `model/labels.ts:200`), also after a reload of the deep link; and the **Repeats row is still tappable** so a removed event can still open its Repeats sheet (`screens/EventPage.tsx:218`, no disabled/reason path). Add date and Add a session ARE disabled with a reason; the Coming-up date rows may still be buttons (walk did not open them: check and cover). Pictures: `w02-3-after-remove.png`, `w02-4-reloaded.png` in `docs/walk/p3-walklist-1/pics/` on branch `claude/walk-p3-walklist-1`. First PROVE what the server returns for a removed event (read-only SELECT on prod `stsdtacfauprzrdebmzg`, counts only: lifecycle values and how `admin_event_workspace_p5` reports them) so the tag and the lock follow the real field, not the mock.
+2. **Page-scope nits from the #1307 walk** (pictures in docs/walk/page-scope-1-pr1307 on branch `claude/walk-page-scope-1-pr1307`): (a) a person with NO page who opens /events or /stats directly sees "Events this page runs show up here" and "0 views, this page's events" with no page on screen: reword for no page (what the person can do: find or create a page). (b) The open Switch page list marks no current page: add a visible tick and `aria-current` stays. (c) While the page choice is still loading, Home and Events show every page's events and Stats shows zero: all three must show the same loading state until the choice is resolved (`p3/data/home.ts` `rowsOf` treats an empty organiserId as "all pages"; `StatsScreen.tsx` waits on home). Files: `screens/PageScope.tsx`, `HomeScreen.tsx`, `EventsScreen.tsx`, `StatsScreen.tsx`, `data/home.ts`, `data/stats.ts`.
+The check that would have caught them: a table-driven test of event lifecycle (live, draft, finished, cancelled, removed, archived) x each control on the event page (Repeats, Add date, Add session, date rows, Details, Prices, Remove) asserting tag word and enabled/disabled + reason; and page-scope states (0, 1, 2 pages, loading, stale choice) x Home/Events/Stats.
+
+## Step 0: INVENTORY (`docs/design/p3-event-status-1/INVENTORY.md`, before any edit)
+Every lifecycle x every control on the event page and every page-scope state x screen: what it shows today (file:line) and what it must show. Coverage count at the end: N rows, N shown, none omitted.
+
+## Tests (red first, output kept)
+Table-driven as above; new rows fail on main. Mutants (each killed by a test): removed event tagged Finished; Repeats tappable on a removed event; Switch list without a current marker; Home unscoped while loading.
+
+## Walk (390x844, mocked; harness in tests/e2e/walk-p3-walklist.spec.ts from `claude/walk-p3-walklist-1`)
+Removed event (tag, Repeats, each control), no-page Events and Stats, Switch list open with 2 pages, loading state. OPEN EVERY PICTURE; error card or blank = FAIL; one line per picture in RESULTS.md.
+
+## Gates and rules
+`npm run lint`; unit tests for p3; `check:bundle-budget` main vs branch (0 bytes to /app first load; never edit perf-budgets.json or vite.config.ts); check:integrity. PR body: `- Shapes surveyed:`, `- Checks run:`, `- NOT verified:` each with text on the SAME line, and `## Phone QA` with `- Sizes checked: 390x844`, `- Walked: ...`, `- Not verified: ...`. Push once when coherent; never add run-ci. Last commit ends `[worker-done <ticket>]`, final push without [skip preview].
