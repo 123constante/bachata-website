@@ -1269,6 +1269,25 @@ jobs:
           node scripts/check-onboarding-write-doors.mjs --self-test
           node scripts/check-onboarding-write-doors.mjs --live
 
+      # 73. P3 REFUSAL CODES vs LIVE (2026-11-05, docs/briefs/p3-real-rules-check.md).
+      #     Static half runs in architecture-guard.yml. Here --live reads the
+      #     RAISE codes of the live P3 command doors through psql (read-only
+      #     P3_RULES_DB_URL) and diffs them against scripts/p3-refusal-codes.json:
+      #     red on a new or removed live code. Until the owner adds the secret
+      #     the step SKIPS with one line (exit 0), never fails. Canary first.
+      - name: Run P3 refusal codes live drift check
+        if: always()
+        timeout-minutes: 2
+        env:
+          P3_RULES_DB_URL: ${{ secrets.P3_RULES_DB_URL }}
+        run: |
+          node scripts/check-p3-refusal-reasons.mjs --self-test
+          if [ -z "$P3_RULES_DB_URL" ]; then
+            echo "SKIP p3-refusal-reasons --live: secret P3_RULES_DB_URL is not set (static half still runs in architecture-guard.yml)"
+            exit 0
+          fi
+          node scripts/check-p3-refusal-reasons.mjs --live
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job
