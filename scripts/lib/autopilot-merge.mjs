@@ -12,6 +12,7 @@ import { BOT_LOGIN, MAX_AGE_DAYS, HOLD_LABEL, MERGE_MODES } from './autopilot.mj
 import { classifyFile, classifySoft, findPackComment, packHead, PACK_AUTHOR } from './autopilot-pack.mjs';
 import { pathProblem, pathClass as webPathClass } from '../automerge-classify.mjs';
 import { isRiskyPath } from './review-scope.mjs';
+import { guardRefusals } from './guard-paths.mjs';
 
 /*
  * Website r5 adapter (docs/handover/autopilot-loop-r5.md). The Website's automerge-classify.mjs
@@ -164,7 +165,9 @@ const lower = (l) => (typeof l === 'string' ? l.toLowerCase() : '');
  *   comments: [issue comment] | null, body: string | null,
  *   jobs: [{name, status, conclusion}] | null, redNew: [name], redMain: [name], pending,
  *   behindBy: number | null, mergesThisRun, merges24h: number | null,
- *   mainAfterLastMerge: {state: 'none'|'green'|'red'|'pending'|'unread', pr?}
+ *   mainAfterLastMerge: {state: 'none'|'green'|'red'|'pending'|'unread', pr?},
+ *   requiredJobs: checkRequiredJobs() result at the pinned head (slice 2, A17); absent = NO,
+ *   money: isMoney() result over the PR's files with patches (slice 2, A16); absent = NO
  * }
  */
 export function mergeVerdict(facts) {
@@ -202,6 +205,15 @@ export function mergeVerdict(facts) {
     }
     if (mode === 'docs-canary' && [...classes].some((c) => c !== 'docs')) no(`docs-canary accepts docs only (this PR has ${[...classes].filter((c) => c !== 'docs').join(', ')})`);
   }
+  // 3a. guard paths (slice 2, drill A18; scripts/lib/guard-paths.mjs): the ONE shared check every
+  // auto path calls, in addition to (never instead of) laneClass's refusals above.
+  // A rename's OLD name counts too (facts.previousFiles; a rename out of a guard path is a touch).
+  if (Array.isArray(files)) for (const r of guardRefusals([...files, ...(Array.isArray(f.previousFiles) ? f.previousFiles : [])])) no(r);
+  // 3b. money set (slice 2, drill A16; scripts/lib/is-money.mjs): paths AND changed lines. A
+  // path-only "docs" class is overridden by a content hit. Absent = refuse.
+  const mv = f.money;
+  if (!mv || typeof mv !== 'object') no('money set not checked (fail closed)');
+  else if (mv.money !== false) no(mv.reason || 'money set: unreadable (no reason given)');
   // 4. migration
   // r4b N3a: GitHub label names are case-insensitive: compare lower-cased on both sides.
   const labels = Array.isArray(f.labels) ? f.labels.map(lower) : null;
@@ -227,6 +239,11 @@ export function mergeVerdict(facts) {
     if (alsoMain.length) no(`not green (red also on main, or a billing/annotation red): ${alsoMain.join(', ')}`);
     if (jobs.some((j) => j && RED.has(j.conclusion)) && !notGreen.length) no('red check');
   }
+  // 6b. required jobs at the pinned head (slice 2, drill A17; scripts/lib/required-jobs.mjs). The
+  // checker result over .github/automation/required-jobs.json read from MAIN. Absent = refuse.
+  const rj = f.requiredJobs;
+  if (!rj || typeof rj !== 'object' || !Array.isArray(rj.reasons)) no('required jobs not checked at the pinned head (fail closed)');
+  else if (rj.ok !== true || rj.reasons.length) for (const r of rj.reasons.length ? rj.reasons : ['required jobs refused (no reason given)']) no(r);
   // 7. behind
   if (f.behindBy !== 0) no(f.behindBy == null ? 'behind check not read' : `behind main by ${f.behindBy}`);
   // 8. review label by the bot after the latest push + our pack for THIS head

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { main, parse } from '../scripts/check-pr-real-data-verified.mjs';
+// Slice 2 foundations: the ONE shared helper injecting the money check (tests/autopilotTable.ts).
+import { FOUNDATIONS_OK } from './autopilotTable';
 
 const S = 'events table, 412 rows, null venue_id in 9';
 const C = 'matrix tests plus a browser walk at 390x844';
@@ -197,7 +199,7 @@ describe('TO FILL marker: pending, not a violation and not a pass', () => {
       baseRef: 'main', labels: [LABEL_OK], additions: 3, deletions: 1, changedFiles: 1,
     };
     const go = (body: string) =>
-      classify({ pr: { ...pr, body }, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false });
+      classify({ pr: { ...pr, body }, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false, ...FOUNDATIONS_OK.classify });
     expect(go(section()).qualifies).toBe(true);
     expect(go(section(M)).qualifies).toBe(false);
   });
@@ -289,7 +291,7 @@ describe('leftover markers anywhere in the section, and duplicate labels', () =>
       baseRef: 'main', labels: [LABEL_OK], additions: 3, deletions: 1, changedFiles: 1,
       body: `${H}\n${filled}\n${markers}`,
     };
-    expect(classify({ pr, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false }).qualifies).toBe(false);
+    expect(classify({ pr, files, labelActor: BOT_LOGIN, realData: parse, importedByShipped: () => false, ...FOUNDATIONS_OK.classify }).qualifies).toBe(false);
   });
 
   it.each([

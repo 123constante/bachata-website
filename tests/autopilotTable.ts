@@ -189,4 +189,38 @@ export const R4C_PATHS: [string, string | RegExp][] = [
 
 // Pause switch (slice 1): the ONE shared helper every fake-GitHub run() harness spreads into its
 // opts, so the switch reads as running and no existing assertion changes (docs/automation-pause.md).
-export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }) };
+// Foundations (slice 2, docs/automation-foundations.md): the ONE shared helper that injects the
+// required-jobs and money-set facts into every existing harness, so no existing assertion changes.
+// `facts` spreads into a mergeVerdict() facts object; `opts` spreads into run() opts (NOT_PAUSED
+// carries it, so every fake-GitHub run() harness that already spreads NOT_PAUSED gets it too).
+// The new tests (tests/automationFoundations.test.ts, tests/automationMoney.test.ts) use the REAL
+// readers and prove each wiring with a mutant.
+const REQUIRED_OK = { ok: true, missing: [] as string[], notGreen: [] as string[], reason: '', reasons: [] as string[] };
+const NOT_MONEY = { money: false, names: [] as string[], reason: '' };
+// PART 3 (A30): run() takes its merge mode from .github/automation/arming.json (the file on main),
+// never from AUTOPILOT_MERGE_MODE. The EXISTING harnesses express "the lane is on/off" through
+// their ENV's AUTOPILOT_MERGE_MODE; this ONE reader maps that harness setting to the arming VALUE
+// so every existing assertion keeps its meaning. It is test-only: the real reader
+// (defaultFoundations().arming) reads the file, and tests/automationArming.test.ts drives it and
+// its mutant. The other keys are today's file (arming.json mirrors today's state).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const harnessArming = (env: any) => ({
+  values: {
+    autopilot_live: false, automerge_enabled: true, bot_automerge_enabled: true, approver: false, audit_escalation: false,
+    autopilot_merge_mode: ['docs-canary', 'soft'].includes(env && env.AUTOPILOT_MERGE_MODE) ? env.AUTOPILOT_MERGE_MODE : 'off',
+  },
+  drift: [] as string[],
+  notices: [] as { key: string; text: string }[],
+});
+export const FOUNDATIONS_OK = {
+  facts: { requiredJobs: REQUIRED_OK, money: NOT_MONEY },
+  opts: { foundations: { requiredJobs: async () => REQUIRED_OK, money: () => NOT_MONEY, arming: harnessArming } },
+  // spreads into run() opts of a harness that keeps the REAL required-jobs / money readers
+  armingOpts: { foundations: { arming: harnessArming } },
+  // spreads into a scripts/automerge-classify.mjs classify() call (bot-automerge). PART 5 (A18):
+  // guardCheck is the shared guard-path check; the existing classifier table judges the OTHER rules
+  // (its docs-only row uses docs/automerge.md, a GOVERNANCE path that is now a guard path), and
+  // tests/automationGuardPaths.test.ts drives the REAL check and its mutant.
+  classify: { moneyCheck: () => NOT_MONEY, guardCheck: () => [] as string[] },
+};
+export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }), ...FOUNDATIONS_OK.opts };

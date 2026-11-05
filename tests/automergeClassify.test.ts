@@ -6,6 +6,8 @@ import { classify, pathClass, lastLabelActor, prFromApi, BOT_LOGIN, OWNER_LOGIN,
 import { parse as parseRealData, MARKER, HEADING as RD_HEADING, LABELS as RD_LABELS } from '../scripts/check-pr-real-data-verified.mjs';
 // @ts-expect-error -- plain .mjs script, no types
 import { parse as parsePhoneQa, HEADING as PQ_HEADING, LABELS as PQ_LABELS } from '../scripts/check-pr-phone-qa.mjs';
+// Slice 2 foundations: the ONE shared helper injecting the money check (tests/autopilotTable.ts).
+import { FOUNDATIONS_OK } from './autopilotTable';
 
 type F = { filename: string; status?: string; previous_filename?: string; additions?: number; deletions?: number };
 const file = (filename: string, extra: Partial<F> = {}): F => ({ filename, status: 'modified', additions: 3, deletions: 1, ...extra });
@@ -20,7 +22,7 @@ function run(files: F[], prOver: Record<string, unknown> = {}, opts: Record<stri
   const additions = files.reduce((n, f) => n + (f.additions ?? 0), 0);
   const deletions = files.reduce((n, f) => n + (f.deletions ?? 0), 0);
   const pr = { ...basePr, additions, deletions, changedFiles: files.length, ...prOver };
-  return classify({ pr, files, labelActor: BOT_LOGIN, importedByShipped: () => false, ...opts });
+  return classify({ pr, files, labelActor: BOT_LOGIN, importedByShipped: () => false, ...FOUNDATIONS_OK.classify, ...opts });
 }
 
 describe('automerge classifier -- table', () => {
@@ -139,7 +141,11 @@ describe('bot-automerge.yml wiring', () => {
     expect(wf).toMatch(/^on:\s*\n\s*pull_request_target:/m);
     expect(wf).toMatch(/ref: main\s*\n\s*persist-credentials: false/);
     expect(wf).not.toMatch(/head\.(sha|ref)\s*}}\s*$/m);
-    expect(wf).toContain("vars.AUTOMERGE_ENABLED == 'true' && vars.BOT_AUTOMERGE_ENABLED == 'true'");
+    // Slice 2 PART 3 (A30): both switches are arming.json on main (read by a first step that gates
+    // every later step), never the repo variables (tests/automationArming.test.ts has the full check).
+    expect(wf).toContain('node scripts/automation-arming.mjs --gate automerge_enabled,bot_automerge_enabled');
+    expect(wf).not.toContain("vars.AUTOMERGE_ENABLED == 'true'");
+    expect(wf).not.toContain("vars.BOT_AUTOMERGE_ENABLED == 'true'");
     expect(wf).toContain('--match-head-commit');
   });
 });

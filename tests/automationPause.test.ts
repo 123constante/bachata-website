@@ -9,6 +9,8 @@ import { readPause, postPauseNotice, decideReassert, isAllowedPauseAuthor, PAUSE
 import { main as cli } from '../scripts/automation-pause.mjs';
 import { run } from '../scripts/autopilot-step.mjs';
 import { BOT_LOGIN, STATE_LABELS } from '../scripts/lib/autopilot.mjs';
+// Slice 2 foundations: the ONE shared helper injecting the required-jobs / money readers (tests/autopilotTable.ts).
+import { FOUNDATIONS_OK } from './autopilotTable';
 
 type Item = Record<string, unknown>;
 const json = (b: unknown, status = 200, headers: Record<string, string> = {}) => new Response(status === 204 ? null : typeof b === 'string' ? b : JSON.stringify(b), { status, headers });
@@ -363,7 +365,7 @@ async function a15(runFn: RunFn) {
   let flipped = false;
   const gh = fakeGitHub(() => { flipped = true; });
   const reads: number[] = [];
-  const { code, rows, out } = await rowsOf(() => runFn(ENV, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => { reads.push(gh.log.length); return flipped ? PAUSED : RUNNING; } }));
+  const { code, rows, out } = await rowsOf(() => runFn(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, pauseReader: async () => { reads.push(gh.log.length); return flipped ? PAUSED : RUNNING; } }));
   const at = gh.log.findIndex((l) => l.m === 'PUT');
   const writesAfter = gh.log.slice(at + 1).filter((l) => l.m !== 'GET');
   const later = rows.filter((r) => r.pr !== 71);
@@ -373,7 +375,7 @@ async function a15(runFn: RunFn) {
 describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', () => {
   it('baseline (not paused): the same fake merges all three PRs, so the drill is meaningful', async () => {
     const gh = fakeGitHub();
-    const code = await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true, pauseReader: async () => RUNNING });
+    const code = await run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, quiet: true, pauseReader: async () => RUNNING });
     expect(code).toBe(0);
     expect(gh.merges()).toHaveLength(3);
   });
@@ -382,7 +384,7 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   });
   it('label present from the start: zero writes, zero merges, exit 0', async () => {
     const gh = fakeGitHub();
-    const { code, rows } = await rowsOf(() => run(ENV, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => PAUSED }));
+    const { code, rows } = await rowsOf(() => run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, pauseReader: async () => PAUSED }));
     expect(code).toBe(0);
     expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
     expect(rows.length).toBe(3);
@@ -391,13 +393,13 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   it('the read fails from the start (fail closed): zero writes', async () => {
     const gh = fakeGitHub();
     const failing = { paused: true, reason: 'HTTP 500', issue: null };
-    const code = await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true, pauseReader: async () => failing });
+    const code = await run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, quiet: true, pauseReader: async () => failing });
     expect(code).toBe(0);
     expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
   });
   it('the REAL reader is the default: with no injection run() reads the pinned-issue list through opts.fetch', async () => {
     const gh = fakeGitHub();
-    await run(ENV, { now: NOW, fetch: gh.fetchImpl, quiet: true });
+    await run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, quiet: true });
     // The fake answers /issues with [] -> "pause issue missing" -> paused: nothing written.
     expect(gh.log.some((l) => l.m === 'GET' && l.p === '/issues')).toBe(true);
     expect(gh.merges()).toEqual([]);
@@ -405,7 +407,7 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   });
   it('the reader THROWS: treated as paused (fail closed): zero writes, zero merges, reason logged, exit 0', async () => {
     const gh = fakeGitHub();
-    const { code, rows, out } = await rowsOf(() => run(ENV, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => { throw new Error('boom'); } }));
+    const { code, rows, out } = await rowsOf(() => run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, pauseReader: async () => { throw new Error('boom'); } }));
     expect(code).toBe(0);
     expect(gh.merges()).toEqual([]);
     expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
@@ -419,7 +421,7 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   ] as const) {
     it(`the reader returns a malformed result (${name}): treated as PAUSED, zero writes, zero merges`, async () => {
       const gh = fakeGitHub();
-      const { code, out } = await rowsOf(() => run(ENV, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => bad }));
+      const { code, out } = await rowsOf(() => run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, pauseReader: async () => bad }));
       expect(code).toBe(0);
       expect(gh.merges()).toEqual([]);
       expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
@@ -444,7 +446,7 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   it('the DEFAULT reader (no pauseReader) reads with GH_TOKEN: running issue -> the run merges all three', async () => {
     const gh = fakeGitHub();
     const w = withPauseIssue(gh, []);
-    const code = await run(ENV, { now: NOW, fetch: w.f, quiet: true });
+    const code = await run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: w.f, quiet: true });
     expect(code).toBe(0);
     expect(w.auths.length).toBeGreaterThan(0);
     expect(w.auths.every((a) => a === `Bearer ${ENV.GH_TOKEN}`)).toBe(true);
@@ -453,14 +455,14 @@ describe('drill A15: a pause set mid-run stops the NEXT merge in the same run', 
   it('the DEFAULT reader sees the label: zero writes, zero merges', async () => {
     const gh = fakeGitHub();
     const w = withPauseIssue(gh, [PAUSE_LABEL]);
-    const { out } = await rowsOf(() => run(ENV, { now: NOW, fetch: w.f }));
+    const { out } = await rowsOf(() => run(ENV, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: w.f }));
     expect(gh.merges()).toEqual([]);
     expect(gh.log.filter((l) => l.m !== 'GET')).toEqual([]);
     expect(out).toMatch(/PAUSED \(o\/r: label\)/);
   });
   it('a dry run still reads the switch and reports', async () => {
     const gh = fakeGitHub();
-    const { out } = await rowsOf(() => run({ ...ENV, DRY_RUN: 'true' }, { now: NOW, fetch: gh.fetchImpl, pauseReader: async () => PAUSED }));
+    const { out } = await rowsOf(() => run({ ...ENV, DRY_RUN: 'true' }, { ...FOUNDATIONS_OK.opts, now: NOW, fetch: gh.fetchImpl, pauseReader: async () => PAUSED }));
     expect(out).toMatch(/automation pause switch: PAUSED/i);
   });
   it('MUTANT: an autopilot that skips the re-read before a merge fails the A15 drill', async () => {

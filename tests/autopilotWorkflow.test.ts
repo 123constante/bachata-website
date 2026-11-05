@@ -44,21 +44,24 @@ for (const [label, text] of VARIANTS) {
     it('the bot token is the queue\'s secret, passed only through env, never echoed', () => {
       const step = wf.jobs.autopilot.steps.find((s: { run?: string }) => s.run);
       expect(step.env.BOT_TOKEN).toBe('${{ secrets.BOT_PR_TOKEN }}');
-      // r4: the merge lane's switch is a repo VARIABLE and its credential the automerge secret.
-      expect(step.env.AUTOPILOT_MERGE_MODE).toBe('${{ vars.AUTOPILOT_MERGE_MODE }}');
+      // r4: the merge lane's credential is the automerge secret. Slice 2 PART 3 (A30): its switch
+      // is arming.json on main; the old repo VARIABLE reaches the step only as a drift input.
+      expect(step.env.ARMING_VAR_AUTOPILOT_MERGE_MODE).toBe('${{ vars.AUTOPILOT_MERGE_MODE }}');
+      expect(step.env.AUTOPILOT_MERGE_MODE).toBeUndefined();
       expect(step.env.AUTOMERGE_TOKEN).toBe('${{ secrets.AUTOMERGE_TOKEN }}');
       expect(text).not.toMatch(/pull_request_target|pull_request:/);
       expect(text).not.toMatch(/echo[^\n]*secrets\./);
     });
-    it('r5 ships OFF: a schedule is live only with AUTOPILOT_LIVE=true; a dispatch only with dry_run false', () => {
+    it('r5 ships OFF: a schedule is live only with autopilot_live true in arming.json; a dispatch only with dry_run false', () => {
       const env = wf.jobs.autopilot.steps.find((s: { run?: string }) => s.run).env;
       // N1 (review 1204-r1): an empty dry_run on a dispatch is a DRY run, never live.
-      expect(env.DRY_RUN).toBe("${{ (github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}");
+      // Slice 2 PART 3 (A30): autopilot_live is the arming FILE's value (job `arming`), not vars.AUTOPILOT_LIVE.
+      expect(env.DRY_RUN).toBe("${{ (github.event_name == 'schedule' && needs.arming.outputs.autopilot_live == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}");
     });
     it('a failed scheduled run announces itself (announce-failure pattern)', () => {
       const a = wf.jobs['announce-failure'];
-      expect(a.needs).toEqual(['autopilot']);
-      expect(a.if).toMatch(/failure\(\) && github\.event_name == 'schedule' && vars\.AUTOPILOT_LIVE == 'true'/);
+      expect(a.needs).toEqual(['arming', 'autopilot']);
+      expect(a.if).toMatch(/failure\(\) && github\.event_name == 'schedule' && needs\.arming\.outputs\.autopilot_live == 'true'/);
       expect(a.permissions.issues).toBe('write');
     });
   });
