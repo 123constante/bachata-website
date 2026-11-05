@@ -177,7 +177,9 @@ export function organiserStats(input: OrganiserStatsInput): OrganiserStat[] {
     if (n.cancelled) continue;
     const key = nightKeyOf(n.start);
     if (!key) continue;
-    const isPast = n.isPast ?? key < todayKey;
+    // The server flag can only move a night to past (its 6h grace is for a night that just ended); it can never
+    // keep a night from before tonight upcoming, or yesterday would read "Tonight".
+    const isPast = n.isPast === true || key < todayKey;
     (isPast ? past : upcoming).push(key);
   }
   upcoming.sort();
