@@ -10,6 +10,9 @@
 //   money_reason=<`money set: <name>` | `money set: unreadable (<why>)` | empty>
 // FAIL CLOSED: a read failure, a count mismatch, an unreadable set or patch is money=true. Only
 // money=false (positively read, no hit) lets the workflow enable auto-merge.
+// GUARD PATHS (slice 2, drill A18): the same files also go through the ONE shared guard-path check
+// (scripts/lib/guard-paths.mjs), written as guard=true|false and guard_reason=`guard-path refused:
+// <path>`; a read failure is guard=true. Only guard=false lets the workflow enable auto-merge.
 //
 // Exit: 0 a verdict was written (money true OR false: a hit is not a red run, it is a NO);
 //       2 configuration missing (GH_TOKEN / REPO / PR_NUMBER), money=true still written.
@@ -19,6 +22,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntryPoint } from './lib/entry-point.mjs';
 import { isMoney, parseMoneySet, MONEY_SET_PATH } from './lib/is-money.mjs';
+import { guardRefusals } from './lib/guard-paths.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const API = 'https://api.github.com';
@@ -54,10 +58,15 @@ export async function main(env = process.env, deps = {}) {
     const reason = String(v.reason || '').replace(/[\r\n]+/g, ' ');
     writeOutput(`money=${v.money === false ? 'false' : 'true'}`);
     writeOutput(`money_reason=${reason}`);
+    if (v.guard) {
+      writeOutput(`guard=${v.guard.length ? 'true' : 'false'}`);
+      writeOutput(`guard_reason=${String(v.guard[0] || '').replace(/[\r\n]+/g, ' ')}`);
+      if (v.guard.length) err(`${v.guard.join('; ')} (auto-merge NOT enabled)`);
+    }
     (v.money === false ? out : err)(v.money === false ? 'money set: no hit (auto-merge may be enabled)' : `${reason} (auto-merge NOT enabled)`);
   };
   if (!env.GH_TOKEN || !/^[\w.-]+\/[\w.-]+$/.test(String(env.REPO || '')) || !/^\d+$/.test(String(env.PR_NUMBER || ''))) {
-    emit({ money: true, reason: 'money set: unreadable (GH_TOKEN, REPO and a numeric PR_NUMBER are required)' });
+    emit({ money: true, reason: 'money set: unreadable (GH_TOKEN, REPO and a numeric PR_NUMBER are required)', guard: ['guard-path refused: (file list not read)'] });
     return 2;
   }
   let set = null;
@@ -66,11 +75,13 @@ export async function main(env = process.env, deps = {}) {
   try {
     files = await readPrFiles(env, fetchImpl);
   } catch (e) {
-    emit({ money: true, reason: `money set: unreadable (${e.message})` });
+    emit({ money: true, reason: `money set: unreadable (${e.message})`, guard: ['guard-path refused: (file list not read)'] });
     return 0;
   }
   const v = isMoney({ files, set });
-  emit(v);
+  const names = files.flatMap((f) => [f && f.filename, f && f.previous_filename].filter((n) => n !== undefined && n !== null));
+  const guard = guardRefusals(names);
+  emit({ ...v, guard });
   return 0;
 }
 

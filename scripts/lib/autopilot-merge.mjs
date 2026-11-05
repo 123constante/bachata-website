@@ -12,6 +12,7 @@ import { BOT_LOGIN, MAX_AGE_DAYS, HOLD_LABEL, MERGE_MODES } from './autopilot.mj
 import { classifyFile, classifySoft, findPackComment, packHead, PACK_AUTHOR } from './autopilot-pack.mjs';
 import { pathProblem, pathClass as webPathClass } from '../automerge-classify.mjs';
 import { isRiskyPath } from './review-scope.mjs';
+import { guardRefusals } from './guard-paths.mjs';
 
 /*
  * Website r5 adapter (docs/handover/autopilot-loop-r5.md). The Website's automerge-classify.mjs
@@ -204,6 +205,9 @@ export function mergeVerdict(facts) {
     }
     if (mode === 'docs-canary' && [...classes].some((c) => c !== 'docs')) no(`docs-canary accepts docs only (this PR has ${[...classes].filter((c) => c !== 'docs').join(', ')})`);
   }
+  // 3a. guard paths (slice 2, drill A18; scripts/lib/guard-paths.mjs): the ONE shared check every
+  // auto path calls, in addition to (never instead of) laneClass's refusals above.
+  if (Array.isArray(files)) for (const r of guardRefusals(files)) no(r);
   // 3b. money set (slice 2, drill A16; scripts/lib/is-money.mjs): paths AND changed lines. A
   // path-only "docs" class is overridden by a content hit. Absent = refuse.
   const mv = f.money;

@@ -83,7 +83,9 @@ jobs:
       # files WITH patches (files API, github.token) and money-set.json from the MAIN checkout
       # above. Fail closed: only money == 'false' (positively read, no hit) lets Enable run. A hit
       # is a NO, not a red run (exit 0); a crash leaves no output, so Enable stays off.
-      - name: Money-set check (isMoney over the PR's changed paths and lines)
+      # GUARD PATHS (slice 2, drill A18): the same step writes guard=true|false over the ONE shared
+      # guard-path list (scripts/lib/guard-paths.mjs); only guard == 'false' lets Enable run.
+      - name: Money-set and guard-path check (isMoney over the PR's changed paths and lines; isGuardPath)
         id: money
         if: steps.arming.outputs.enabled == 'true' && steps.decide.outputs.qualifies == 'true'
         env:
@@ -93,7 +95,7 @@ jobs:
         run: node scripts/automation-money-check.mjs
 
       - name: Enable auto-merge (GitHub merges when required checks pass)
-        if: steps.arming.outputs.enabled == 'true' && steps.decide.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.money.outputs.money == 'false'
+        if: steps.arming.outputs.enabled == 'true' && steps.decide.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.money.outputs.money == 'false' && steps.money.outputs.guard == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -103,7 +105,7 @@ jobs:
       # otherwise qualifies: an already-armed auto-merge would still merge later by itself, so
       # disarm it. Disabling only removes merge power.
       - name: Disable auto-merge while the automation is paused or on a money-set hit
-        if: always() && steps.arming.outputs.enabled == 'true' && (steps.pause.outputs.paused != 'false' || (steps.decide.outputs.qualifies == 'true' && steps.money.outputs.money != 'false'))
+        if: always() && steps.arming.outputs.enabled == 'true' && (steps.pause.outputs.paused != 'false' || (steps.decide.outputs.qualifies == 'true' && (steps.money.outputs.money != 'false' || steps.money.outputs.guard != 'false')))
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}

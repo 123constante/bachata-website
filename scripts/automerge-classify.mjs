@@ -29,6 +29,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { MARKER, HEADING as REAL_DATA_HEADING } from "./check-pr-real-data-verified.mjs";
 import { HEADING as PHONE_QA_HEADING } from "./check-pr-phone-qa.mjs";
 import { isMoney, parseMoneySet, MONEY_SET_PATH } from "./lib/is-money.mjs";
+import { guardRefusals } from "./lib/guard-paths.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -128,8 +129,9 @@ export function pendingSections(body, marker = MARKER, headings = PENDING_SECTIO
  *  importedByShipped: (path) => boolean; DEFAULT says yes, so a helper with no scan fails.
  *  moneySet: the parsed .github/automation/money-set.json from MAIN (null = unreadable = NO);
  *  moneyCheck: isMoney (slice 2, drill A16); tests inject through tests/autopilotTable.ts only.
+ *  guardCheck: guardRefusals (slice 2, drill A18); same injection rule.
  */
-export function classify({ pr, files, labelActor, realData = null, importedByShipped = () => true, moneySet = null, moneyCheck = isMoney }) {
+export function classify({ pr, files, labelActor, realData = null, importedByShipped = () => true, moneySet = null, moneyCheck = isMoney, guardCheck = guardRefusals }) {
   const reasons = [];
   const no = (r) => reasons.push(r);
   if (!pr) return { qualifies: false, reasons: ["no PR object"], classes: [] };
@@ -189,6 +191,10 @@ export function classify({ pr, files, labelActor, realData = null, importedByShi
   // content hit; an unreadable set or patch is a NO.
   const mv = moneyCheck({ files: list, set: moneySet });
   if (!mv || mv.money !== false) no((mv && mv.reason) || "money set: unreadable (no verdict)");
+  // GUARD PATHS (slice 2, drill A18; scripts/lib/guard-paths.mjs): the ONE shared check, on every
+  // name a file entry carries (a rename out of a guard path counts). Refusal: `guard-path refused: <path>`.
+  const names = list.flatMap((f) => [f && f.filename, f && f.previous_filename].filter((n) => n !== undefined && n !== null));
+  for (const r of guardCheck(names)) no(r);
   if (realData) {
     let v;
     try { v = realData(String(pr.body || "")); } catch (e) { v = { ok: false, problems: [`parser threw: ${e.message}`] }; }

@@ -50,6 +50,18 @@ async function guard(env, fetchImpl, out) {
   }
 }
 
+/**
+ * Sets the pause label on THE pause issue. This file stays the ONE label-adding site for the switch
+ * (tests/automationPauseGuard.test.ts); the owner-approval audit's escalation (slice 2, drill A18,
+ * behind arming.json audit_escalation) imports this instead of adding the label itself.
+ * Throws (fail-closed reason) when the issue cannot be found uniquely or the write fails.
+ */
+export async function setPauseLabel({ repo, token, fetch: fetchImpl = globalThis.fetch }) {
+  const st = await findPause({ repo, token, fetch: fetchImpl });
+  await pauseRequest(fetchImpl, `${PAUSE_API}/repos/${repo}/issues/${st.number}/labels`, token, { method: 'POST', body: { labels: [PAUSE_LABEL] } });
+  return st.number;
+}
+
 export async function main(argv = process.argv.slice(2), env = process.env, { fetch: fetchImpl = globalThis.fetch, out = (s) => console.log(s) } = {}) {
   const mode = argv.length === 0 ? 'check' : argv.length === 1 && ['--info', '--guard'].includes(argv[0]) ? argv[0].slice(2) : 'bad';
   if (mode === 'guard') return guard(env, fetchImpl, out);
