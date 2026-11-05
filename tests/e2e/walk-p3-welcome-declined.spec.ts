@@ -16,13 +16,16 @@ const C2 = 'a0000000-0000-4000-8000-0000000000c2';
 const row = (id: string, organiser: string, name: string, status: string, created: string, resolved: string | null, note?: string | null) =>
   ({ request_id: id, organiser_id: organiser, organiser_name: name, status, created_at: created, resolved_at: resolved, ...(note === undefined ? {} : { decision_note: note }) });
 
-type Shape = 'none' | 'note' | 'no_note' | 'old' | 'two' | 'granted' | 'read_failed';
+type Shape = 'none' | 'note' | 'no_note' | 'old' | 'long' | 'two' | 'granted' | 'read_failed';
 
 const SHAPES: Record<Shape, Record<string, unknown>[]> = {
   none: [],
   note: [row('r1', C1, 'Ritmo Latino Leeds', 'declined', '2026-10-01T10:00:00Z', '2026-10-05T09:00:00Z', 'We already have an owner for this page')],
   no_note: [row('r1', C1, 'Ritmo Latino Leeds', 'declined', '2026-10-01T10:00:00Z', '2026-10-05T09:00:00Z', null)],
   old: [row('r1', C1, 'Ritmo Latino Leeds', 'declined', '2026-09-01T10:00:00Z', '2026-09-07T10:00:00Z', 'Too long ago to show')],
+  // Longest real shapes: a 500-char note with an unbroken 60-char token, and a long organiser name.
+  long: [row('r1', C1, 'Ritmo Latino Leeds Dance Academy and Social Club of Greater Yorkshire', 'declined', '2026-10-01T10:00:00Z', '2026-10-05T09:00:00Z',
+    `${'We already have an owner for this page. '.repeat(12)}${'x'.repeat(60)}`)],
   two: [
     row('r1', C1, 'Ritmo Latino Leeds', 'declined', '2026-10-01T10:00:00Z', '2026-10-05T09:00:00Z', 'We already have an owner for this page'),
     row('r2', C2, 'Ritmo Manchester', 'declined', '2026-10-02T10:00:00Z', '2026-10-06T09:00:00Z', null),
@@ -97,7 +100,13 @@ async function audit(page: Page) {
   });
 }
 
+/** Wait for every finite animation (the screen's 40px slide-in) to finish: measuring mid-slide reads x+40px (main red 42002394483). */
+async function settle(page: Page) {
+  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))));
+}
+
 async function inViewport(page: Page, testId: string) {
+  await settle(page);
   const b = await page.getByTestId(testId).boundingBox();
   expect(b, `${testId} has a box`).not.toBeNull();
   const box = b as NonNullable<typeof b>;
@@ -108,7 +117,7 @@ async function inViewport(page: Page, testId: string) {
 }
 
 async function check(page: Page, name: string) {
-  await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))));
+  await settle(page);
   const a = await audit(page);
   console.log(`[declined] ${name}: contrast ${a.minContrast} (${a.worst}), under-44 ${a.small.length} ${a.small.join(' ')}, width ${a.width}`);
   expect(a.minContrast, `${name}: lowest contrast "${a.worst}"`).toBeGreaterThanOrEqual(4.5);
@@ -158,6 +167,25 @@ for (const scheme of ['light', 'dark'] as const) {
       await inViewport(page, 'p3-ob-declined');
       await expectCopyNamesOnlyScreenControls(page);
       await check(page, `${scheme}-3-no-note`);
+    });
+
+    test('declined card never wider than the phone: longest note and name', async ({ page }) => {
+      await open(page, 'long');
+      await expect(page.getByTestId('p3-ob-declined-row')).toContainText('xxxxxxxxxx');
+      await inViewport(page, 'p3-ob-declined');
+      await expectCopyNamesOnlyScreenControls(page);
+    });
+
+    test('slow slide-in (loaded CI runner): card is measured settled, inside the phone', async ({ page }) => {
+      await page.addInitScript(() => {
+        document.addEventListener('DOMContentLoaded', () => {
+          const st = document.createElement('style');
+          st.textContent = '.p3-ob-scr{animation-duration:1500ms !important}';
+          document.head.appendChild(st);
+        });
+      });
+      await open(page, 'note');
+      await inViewport(page, 'p3-ob-declined');
     });
 
     test('declined 31 days ago: card hidden', async ({ page }) => {
