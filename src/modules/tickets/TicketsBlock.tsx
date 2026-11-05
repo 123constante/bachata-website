@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketKeys } from './ticketCheckoutApi';
-import { PROMO_MAX_LENGTH, codeFromSearch, isCodeReason, normaliseCode, promoKey, promoView, type PromoState } from './promo';
+import { PROMO_MAX_LENGTH, codeFromSearch, isCodeReason, normaliseCode, promoKey, promoNoteText, promoView, type PromoState } from './promo';
 import {
   BOOKING_FEE_LABEL,
   CANCELLED_PARAM,
@@ -393,7 +393,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                   className="mt-1 text-[12px]"
                   style={pv.tone === 'good' ? { color: 'hsl(var(--bento-accent))' } : muted}
                 >
-                  {[pv.note, pv.applyBlocked && pv.applyBlocked !== pv.note && !pv.sendCode ? pv.applyBlocked : null].filter(Boolean).join(' ')}
+                  {promoNoteText(pv)}
                 </p>
               )}
               {normaliseCode(promoInput) && !pv.sendCode && promo.status !== 'checking' && (

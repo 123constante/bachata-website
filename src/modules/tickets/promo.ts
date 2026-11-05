@@ -121,6 +121,12 @@ export interface PromoView {
 /** Refusals where the same code may well work on another tap (the wire, the limiter, the server). */
 const RETRYABLE = new Set(['network', 'timeout', 'rate_limited', 'internal_error']);
 
+/**
+ * The sentence(s) shown under the field. The note already tells the buyer what to do, so
+ * applyBlocked (the reason Apply is disabled) is only a fallback when there is no note.
+ */
+export const promoNoteText = (pv: Pick<PromoView, 'note' | 'applyBlocked'>): string => pv.note ?? pv.applyBlocked ?? '';
+
 /** The one mapping every screen and test reads. `input` is the field as typed. */
 export function promoView(state: PromoState, input: string, key: string | null): PromoView {
   const code = normaliseCode(input);

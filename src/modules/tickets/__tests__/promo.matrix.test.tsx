@@ -31,6 +31,7 @@ import {
   isCodeReason,
   parsePromoPreview,
   promoKey,
+  promoNoteText,
   promoReasonCopy,
   promoView,
   type PromoState,
@@ -142,6 +143,13 @@ describe('wire shapes', () => {
     ['rate limited, nulls', { ok: false, reason: 'rate_limited', unit_price: null, discount: 0, total: null }, { ok: false, reason: 'rate_limited' }],
     ['ok without numbers', { ok: true }, { ok: false, reason: 'internal_error' }],
     ['null', null, { ok: false, reason: 'internal_error' }],
+    ['fractional discount', { ok: true, discount: 12.5, total: 1125 }, { ok: false, reason: 'internal_error' }],
+    ['fractional total', { ok: true, discount: 125, total: 1124.5 }, { ok: false, reason: 'internal_error' }],
+    ['negative discount', { ok: true, discount: -1, total: 1125 }, { ok: false, reason: 'internal_error' }],
+    ['negative total', { ok: true, discount: 125, total: -1 }, { ok: false, reason: 'internal_error' }],
+    ['string numbers', { ok: true, discount: '125', total: '1125' }, { ok: false, reason: 'internal_error' }],
+    ['NaN total', { ok: true, discount: 125, total: Number.NaN }, { ok: false, reason: 'internal_error' }],
+    ['null total', { ok: true, discount: 125, total: null }, { ok: false, reason: 'internal_error' }],
   ])('%s', (_l, data, want) => expect(parsePromoPreview(data)).toMatchObject(want));
   it('previewPromo sends the documented args; an rpc error or a throw reads as offline', async () => {
     rpc.mockResolvedValueOnce(OK(125, 1125));
@@ -324,5 +332,24 @@ describe('the block, end to end with a faked preview and edge', () => {
     renderBlock([mk('a', { pricePence: 0 })]);
     await screen.findByRole('button', { name: 'Get free ticket' });
     expect(screen.queryByLabelText('Promo code (optional)')).toBeNull();
+  });
+});
+
+describe('refusal text as rendered under the field', () => {
+  const RETRY = ['network', 'timeout', 'rate_limited', 'internal_error'];
+  const REASONS = [...Object.keys(PROMO_REASON_COPY).filter((r) => r !== 'empty'), 'internal_error', 'something_new'];
+  it.each(REASONS)('%s: the note once, no extra "Change the code" sentence', (reason) => {
+    const pv = promoView({ status: 'refused', code: 'SAVE10', key: K, reason }, 'save10', K);
+    const text = promoNoteText(pv);
+    expect(text).toBe(promoReasonCopy(reason));
+    expect(text).not.toMatch(/Change the code to try again/);
+    expect(text.split(text.slice(0, 20)).length - 1).toBe(1);
+    // Buy / Apply reasons are unchanged.
+    expect(pv.buyBlocked).toBe('Remove the promo code or try a different one.');
+    expect(pv.applyBlocked).toBe(RETRY.includes(reason) ? null : 'Change the code to try again.');
+  });
+  it('checking and applied states are unchanged', () => {
+    expect(promoNoteText(promoView({ status: 'checking', code: 'A' }, 'a', K))).toBe('Checking the code\u2026');
+    expect(promoNoteText(promoView({ status: 'applied', code: 'A', key: K, discountPence: 125, totalPence: 1125 }, 'a', K))).toMatch(/^Code A applied\. You save/);
   });
 });

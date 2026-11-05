@@ -45,3 +45,10 @@ Not changed, with reasons:
 2. Create a test code on the test series (organiser UI is a later slice; admin RPC).
 3. Walk `/event/<id>?code=TEST` at 390x844 and 320x568 in dark and light, covering valid, refused, free and checkout.
 4. Organiser "Promo codes" section: separate slice and branch (`src/modules/organiser/**` untouched here).
+
+## Fix round r1
+
+- **Copy duplication:** new `promoNoteText(pv)` in `promo.ts` returns the note alone (applyBlocked only as a fallback when there is no note); `TicketsBlock` renders it instead of joining note + applyBlocked. `applyBlocked` is unchanged as the Apply-disabled reason; no refusal wording changed. Table test over every reason in `PROMO_REASON_COPY` (except `empty`) plus `internal_error` and an unknown reason: text equals the note once, no "Change the code to try again."; retryable/non-retryable applyBlocked and buyBlocked unchanged.
+- **P05:** 7 pence rows added to `wire shapes`. Pass on real code. Mutant dropping `Number.isInteger(v) &&`: 2 failed. Mutant dropping `v >= 0`: 2 failed. Both restored.
+- **Checks:** vitest `src/modules/tickets` 12 files, 539 tests green (was 524; needed `npm ci` for qrcode-generator); eslint on touched files clean; tsc app project no errors in tickets; check:mojibake clean.
+- **Not verified:** check:bundle-budget (no build run); browser walk at 390x844; the new copy test was not run against pre-fix code (the helper did not exist before).
