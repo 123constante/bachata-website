@@ -1,5 +1,6 @@
 import type React from 'react';
 import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
+import { RetryButton } from './RetryButton';
 
 /**
  * Get in touch (ACCEPTANCE S2): four stacked rows in a fixed order --
@@ -79,10 +80,12 @@ const ICONS: Record<ContactRowKey, React.ReactNode> = {
 const iconTile: React.CSSProperties = { width: 44, height: 44, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(246,241,234,0.06)', color: CREAM, flexShrink: 0 };
 const btn44: React.CSSProperties = { minWidth: 44, minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'none', color: GOLD, cursor: 'pointer', flexShrink: 0 };
 
-export function OrganiserGetInTouch({ rows, contactFailed, onRetry, onCopy }: {
+export function OrganiserGetInTouch({ rows, contactFailed, retrying = false, onRetry, onCopy }: {
   rows: ContactRow[];
   /** get_organiser_public_contact_v1 failed: WhatsApp/Email are unknown, not absent. */
   contactFailed: boolean;
+  /** The contact refetch is running: Try again shows its pending state. */
+  retrying?: boolean;
   onRetry: () => void;
   onCopy: (value: string, noun: string) => void;
 }) {
@@ -116,7 +119,7 @@ export function OrganiserGetInTouch({ rows, contactFailed, onRetry, onCopy }: {
       {contactFailed && (
         <p data-testid="org-contact-error" role="status" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: rows.length ? '8px 0 0' : 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>
           Couldn&rsquo;t load WhatsApp and email.
-          <button type="button" onClick={onRetry} style={{ ...btn44, padding: '0 12px', fontSize: 14, fontWeight: 700 }}>Try again</button>
+          <RetryButton onRetry={onRetry} pending={retrying} style={{ ...btn44, padding: '0 12px', fontSize: 14, fontWeight: 700, minHeight: 44 }} />
         </p>
       )}
     </section>

@@ -13,6 +13,10 @@
  * - 'past-only': past nights but nothing upcoming -- say so before the past
  *   list, with somewhere to go.
  * - null: still loading, or something is upcoming.
+ *
+ * `hasContact` / `team` are null when their read FAILED (unknown, fix round 1):
+ * unknown is never "blank", so the owner is not told to complete a profile
+ * that may be complete -- they get the nights' own answer ('none') instead.
  */
 export type OrganiserEmptyKind = 'owner-blank' | 'none' | 'past-only';
 
@@ -21,13 +25,13 @@ export function organiserEmptyState(s: {
   upcoming: number;
   past: number;
   hasBio: boolean;
-  hasContact: boolean;
-  team: number;
+  hasContact: boolean | null;
+  team: number | null;
   canEdit: boolean;
 }): OrganiserEmptyKind | null {
   if (s.loading || s.upcoming > 0) return null;
   if (s.past > 0) return 'past-only';
-  if (s.canEdit && !s.hasBio && !s.hasContact && s.team === 0) return 'owner-blank';
+  if (s.canEdit && !s.hasBio && s.hasContact === false && s.team === 0) return 'owner-blank';
   return 'none';
 }
 

@@ -12,7 +12,7 @@ import { flags } from '@/lib/featureFlags';
 import { ManagedBadge, PublicClaimCard } from '@/modules/organiser/shared/components/PublicClaimCard';
 import { ownershipFacts } from '@/modules/organiser/shared/ownership';
 import type { EipBridge } from '@/modules/organiser/edit-in-place/bridge';
-import { PUBLIC_LINK_REL, extractDomain, extractFbHandle, extractIgHandle } from '@/lib/organiserLinkLabels';
+import { extractDomain, extractIgHandle } from '@/lib/organiserLinkLabels';
 import {
   NO_PUBLIC_CONTACT,
   fetchOrganiserOwnership,
@@ -62,7 +62,11 @@ import {
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
 import { NO_DATES_ANNOUNCED, organiserEmptyState } from '@/modules/profile/organiserEmptyState';
-import { organiserStats } from '@/modules/profile/organiserStats';
+import { organiserStatsByFeed } from '@/modules/profile/organiserStatsByFeed';
+import { RetryButton } from '@/modules/profile/RetryButton';
+import { useStickyFailure } from '@/modules/profile/useStickyFailure';
+import { pickNationalityCode } from '@/components/people/nationality';
+import { usePeopleBadges } from '@/modules/person-page/badges';
 import { buildOrganiserTeam } from '@/modules/profile/organiserTeam';
 import { OrganiserStatsStrip } from '@/modules/profile/OrganiserStatsStrip';
 import { OrganiserGetInTouch, buildContactRows } from '@/modules/profile/OrganiserGetInTouch';
@@ -111,6 +115,7 @@ type TeamMember = {
   /** Public name, or null when the person has none (the Team mapping then leaves them out). */
   name: string | null;
   avatarUrl: string | null;
+  nationalityCode: string | null;
   sortOrder: number | null;
 };
 
@@ -380,13 +385,11 @@ const BrowseNightsLink = () => (
  * nights". Explicit px sizes: html is ~13.5px on phones, so rem tap targets
  * render small.
  */
-const FeedErrorLine = ({ feed, what, onRetry }: { feed: 'upcoming' | 'past' | 'team'; what: string; onRetry: () => void }) => (
+const FeedErrorLine = ({ feed, what, onRetry, retrying }: { feed: 'upcoming' | 'past'; what: string; onRetry: () => void; retrying: boolean }) => (
   <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid={`org-feed-error-${feed}`} role="status">
     <p style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>
       Couldn&rsquo;t load {what}.
-      <button type="button" onClick={onRetry} style={{ minHeight: 44, padding: '0 12px', background: 'none', border: 'none', color: D.gold, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-        Try again
-      </button>
+      <RetryButton onRetry={onRetry} pending={retrying} />
     </p>
   </section>
 );
@@ -627,16 +630,20 @@ const OrganiserProfile = () => {
   // (above all never the legacy show_contact_publicly, which sets BOTH flags).
   const openedFormRef = useRef<string | null>(null);
 
-  const { data: entity, isLoading, error, refetch: refetchEntity } = useQuery({
+  const { data: entity, isLoading: entityLoadingRaw, error, refetch: refetchEntity, isFetching: entityFetching } = useQuery({
     queryKey: organiserEntityQueryKey(id),
     queryFn: () => fetchOrganiserEntity(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
+  // The entity error screen stays up (pending) while its Try again runs (LOW-6).
+  const { failed: entityFailed, retrying: entityRetrying } = useStickyFailure(!!error, entityFetching);
+  const isLoading = entityLoadingRaw && !entityFailed;
+
   // A page that is not found (retired, archived, or never existed) is kept out of search.
   // A transient read ERROR is not "not found" (E8): no noindex for it.
-  useNoindexMeta(!isLoading && !error && !entity);
+  useNoindexMeta(!isLoading && !entityFailed && !entity);
 
   const { data: fullProfile = false } = useQuery({
     queryKey: organiserFullProfileQueryKey(id),
@@ -667,12 +674,14 @@ const OrganiserProfile = () => {
   // The WhatsApp / Email rows: both null unless the organiser is live AND the
   // matching show_*_publicly switch is on. An RPC ERROR is its own state (E9):
   // Get in touch keeps the stored-link rows and says it could not load these two.
-  const { data: publicContact = NO_PUBLIC_CONTACT, isLoading: publicContactLoading, isError: publicContactError, refetch: refetchPublicContact } = useQuery({
+  const { data: publicContact = NO_PUBLIC_CONTACT, isLoading: publicContactLoading, isError: publicContactErrorRaw, refetch: refetchPublicContact, isFetching: publicContactFetching } = useQuery({
     queryKey: organiserPublicContactQueryKey(id),
     queryFn: () => fetchPublicContactOrThrow(id as string),
     enabled: !!id && !!entity,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { failed: publicContactError, retrying: publicContactRetrying } = useStickyFailure(publicContactErrorRaw, publicContactFetching);
 
   // The ONE place that turns those answers into badge / card / claim button /
   // edit access (ownership.ts); nothing below re-derives any of them.
@@ -684,14 +693,14 @@ const OrganiserProfile = () => {
 
   // Each feed query THROWS on an RPC error (S1) -- React Query retries it, and
   // its isError drives the page's error line instead of a false empty state.
-  const { data: allEvents = [], isLoading: allEventsLoading, isError: allEventsError, refetch: refetchAllEvents } = useQuery({
+  const { data: allEvents = [], isLoading: allEventsLoading, isError: allEventsErrorRaw, refetch: refetchAllEvents, isFetching: allEventsFetching } = useQuery({
     queryKey: organiserEventsQueryKey(id),
     queryFn: () => fetchOrganiserEvents(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: futureOccs = [], isLoading: futureOccsLoading, isError: futureOccsError, refetch: refetchFutureOccs } = useQuery({
+  const { data: futureOccs = [], isLoading: futureOccsLoading, isError: futureOccsErrorRaw, refetch: refetchFutureOccs, isFetching: futureOccsFetching } = useQuery({
     queryKey: organiserOccEventsQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -705,14 +714,14 @@ const OrganiserProfile = () => {
   // we keep only is_past rows so today's already-ended events count as past.
   // The 10-year window itself lives in fetchOrganiserPastOccEvents now, shared
   // with app/routes/organiser.tsx's loader prefetch.
-  const { data: pastOccs = [], isLoading: pastOccsLoading, isError: pastOccsError, refetch: refetchPastOccs } = useQuery({
+  const { data: pastOccs = [], isLoading: pastOccsLoading, isError: pastOccsErrorRaw, refetch: refetchPastOccs, isFetching: pastOccsFetching } = useQuery({
     queryKey: organiserOccEventsPastQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersError, refetch: refetchTeamMembers } = useQuery({
+  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
     // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
     // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
     // owner layer's team read, so the Team card never showed.
@@ -729,22 +738,32 @@ const OrganiserProfile = () => {
       if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!teamRows?.length) return [];
       const memberIds = teamRows.map((r) => r.member_profile_id);
-      const { data: dancerRows } = await supabase
+      const { data: dancerRows, error: dancerError } = await supabase
         .from('dancer_profiles')
-        .select('id, first_name, avatar_url')
+        .select('id, first_name, avatar_url, nationality')
         .in('id', memberIds);
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null };
-      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url'>>);
+      // The names read failing is the TEAM failing (fix round 1, review LOW-4): with no
+      // names the mapping drops everyone, which would read as "no team".
+      if (dancerError) throw new Error(dancerError.message ?? JSON.stringify(dancerError));
+      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
+      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
       const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
       return teamRows.map((t) => {
         const d = dancerMap.get(t.member_profile_id);
         const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || null;
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, sortOrder: t.sort_order ?? null };
+        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), sortOrder: t.sort_order ?? null };
       });
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Fix round 1 (LOW-6): a failed read stays failed while its Try again runs, so
+  // the error line can show its pending state instead of vanishing into loading.
+  const { failed: allEventsError } = useStickyFailure(allEventsErrorRaw, allEventsFetching);
+  const { failed: futureOccsError } = useStickyFailure(futureOccsErrorRaw, futureOccsFetching);
+  const { failed: pastOccsError } = useStickyFailure(pastOccsErrorRaw, pastOccsFetching);
+  const { failed: teamMembersError, retrying: teamMembersRetrying } = useStickyFailure(teamMembersErrorRaw, teamMembersFetching);
 
   // S3 (read side): the ONE Team mapping. `listed` is the public line-up this
   // page already reads (active rows only, so hidden is false); `access`
@@ -756,6 +775,11 @@ const OrganiserProfile = () => {
     access: [],
   }), [teamMembers]);
   const teamCount = team.people.length + team.overflow.length;
+  // Restored from main (fix round 1): each circle's flag, and the role-aware link
+  // from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
+  const teamNationality = useMemo(() => new Map(teamMembers.map((m) => [m.memberId, m.nationalityCode])), [teamMembers]);
+  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
+  const teamBadgesState = teamBadgesLoading ? 'loading' : teamBadgesError ? 'error' : 'ready';
 
   // Start of London-today as a true-UTC instant; reactive so a long-lived tab
   // rolls the upcoming/past split over at midnight (was frozen at mount).
@@ -820,25 +844,32 @@ const OrganiserProfile = () => {
     return { upcomingEvents: upcoming, pastEvents: past };
   }, [allEvents, futureOccs, pastOccs, futureOccsError, pastOccsError, todayMs]);
 
-  // S1: the stats strip is ONE pure mapping (organiserStats). It reads the
-  // same joined, non-cancelled nights the two lists show, so a stat can never
-  // disagree with a list. No strip until the feeds settle (no pop-in), and a
-  // FAILED feed contributes nothing: then only the organiser's own founded year
-  // can qualify -- never a stat derived from a failed read (S5).
-  const statsFeedsSettled = !allEventsLoading && !futureOccsLoading && !pastOccsLoading;
-  const statsFeedFailed = allEventsError || futureOccsError || pastOccsError;
+  // S1: the stats strip is ONE pure mapping (organiserStats, via
+  // organiserStatsByFeed). It reads the same joined, non-cancelled nights the two
+  // lists show, so a stat can never disagree with a list. No strip until the feeds
+  // settle (no pop-in). Per-feed (fix round 1, review MED-3): a FAILED feed
+  // contributes nothing and its own stat is a marked dash, while the stats the
+  // working feed alone proves still show -- never a stat from a failed read (S5).
+  // The events feed is the join source, so it failing fails both.
+  // A failed feed being retried counts as settled (it is still failed), so the strip does not blink.
+  const statsFeedsSettled = (!allEventsLoading || allEventsError) && (!futureOccsLoading || futureOccsError) && (!pastOccsLoading || pastOccsError);
+  const statsUpcomingFailed = allEventsError || futureOccsError;
+  const statsPastFailed = allEventsError || pastOccsError;
   const entityFoundedYear = (entity as EntityProfile | null | undefined)?.founded_year ?? null;
   const stats = useMemo(() => {
     if (!statsFeedsSettled) return [];
     const nightKey = (wc: WallClock | null) => formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm");
-    const nights = statsFeedFailed ? [] : [
-      ...upcomingEvents.map((e) => ({ start: nightKey(e.displayStart), isPast: false })),
-      ...pastEvents.map((e) => ({ start: nightKey(e.displayStart), isPast: true })),
-    ];
-    return organiserStats({ now: new Date(), nights, foundedYear: entityFoundedYear, ticketsSold: null, dancersCame: null });
+    return organiserStatsByFeed({
+      now: new Date(),
+      upcoming: upcomingEvents.map((e) => ({ start: nightKey(e.displayStart) })),
+      past: pastEvents.map((e) => ({ start: nightKey(e.displayStart) })),
+      upcomingFailed: statsUpcomingFailed,
+      pastFailed: statsPastFailed,
+      foundedYear: entityFoundedYear,
+    });
     // todayKey: a long-lived tab re-derives "Next night" when London rolls over.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- todayKey is the clock tick, read via new Date()
-  }, [statsFeedsSettled, statsFeedFailed, upcomingEvents, pastEvents, entityFoundedYear, todayKey]);
+  }, [statsFeedsSettled, statsUpcomingFailed, statsPastFailed, upcomingEvents, pastEvents, entityFoundedYear, todayKey]);
 
   // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
@@ -999,7 +1030,7 @@ const OrganiserProfile = () => {
   // --- Entity read error (E8) ---
   // A transient network/DB failure: say so, offer a retry, keep it indexable.
   // Only a real miss (the read succeeded and found no public row) is "not found".
-  if (error && !entity) {
+  if (entityFailed && !entity) {
     return (
       <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
         <div data-testid="org-entity-error" role="status" style={{ minHeight: '100vh', background: D.black, color: D.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: BODY }}>
@@ -1008,14 +1039,11 @@ const OrganiserProfile = () => {
             <p style={{ color: 'rgba(246,241,234,0.75)', fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
               Check your connection and try again.
             </p>
-            <button
-              type="button"
-              onClick={() => void refetchEntity()}
-              className="inline-flex items-center gap-2 px-4 text-sm font-semibold rounded-full"
-              style={{ minHeight: 44, background: D.gold, border: 'none', color: D.black, cursor: 'pointer' }}
-            >
-              Try again
-            </button>
+            <RetryButton
+              onRetry={() => void refetchEntity()}
+              pending={entityRetrying}
+              style={{ background: D.gold, color: D.black, borderRadius: 100, padding: '0 16px' }}
+            />
           </div>
         </div>
       </GlobalLayout>
@@ -1048,7 +1076,7 @@ const OrganiserProfile = () => {
   // --- Data prep ---
   // An owner's unsaved drafts are shown in place (eip.overlay is {} otherwise).
   const ep = { ...(entity as EntityProfile), ...(eip?.overlay ?? {}) } as EntityProfile;
-  const socials          = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
+  const socials          = ep.socials as { instagram?: string; website?: string } | null;
   const instagramRaw     = ep.instagram  || socials?.instagram  || null;
   const websiteRaw       = ep.website    || socials?.website    || null;
   const contactPhone     = publicContact.contact_phone;
@@ -1080,7 +1108,10 @@ const OrganiserProfile = () => {
     phone: contactPhone, whatsappHref: whatsappUrl, email: contactEmail, mailtoHref,
     instagramUrl, instagramHandle: igHandle, websiteUrl, websiteDomain: siteDomain,
   });
-  const hasContact = contactRows.length > 0;
+  // Unknown (null), not false, while WhatsApp/Email failed to load and no stored
+  // link shows (fix round 1, review L2): an owner is never told to complete
+  // contact details that may well be there.
+  const hasContact: boolean | null = contactRows.length > 0 ? true : publicContactError ? null : false;
 
   // S1: which sections FAILED (after React Query's retry). The events feed is
   // the join source for both lists, so it failing fails both; the future and
@@ -1089,16 +1120,19 @@ const OrganiserProfile = () => {
   const pastFailed = allEventsError || pastOccsError;
   const retryUpcoming = () => { if (allEventsError) void refetchAllEvents(); if (futureOccsError) void refetchFutureOccs(); };
   const retryPast = () => { if (allEventsError) void refetchAllEvents(); if (pastOccsError) void refetchPastOccs(); };
-  // No empty state at all while any feed has failed: every box below states a
-  // fact ("no nights", "nothing upcoming", "blank profile") a failure cannot
-  // prove. The error lines say what happened instead.
-  const emptyKind = upcomingFailed || pastFailed || teamMembersError ? null : organiserEmptyState({
-    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading || publicContactLoading,
+  const retryingUpcoming = (allEventsError && allEventsFetching) || (futureOccsError && futureOccsFetching);
+  const retryingPast = (allEventsError && allEventsFetching) || (pastOccsError && pastOccsFetching);
+  // No empty state while a NIGHTS feed has failed: "no nights" / "nothing
+  // upcoming" is a fact a failure cannot prove; the error lines say what
+  // happened instead. A team or contact failure does not hide it (fix round 1,
+  // review LOW-5): it passes the unknown as null, which is never "blank".
+  const emptyKind = upcomingFailed || pastFailed ? null : organiserEmptyState({
+    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || (teamMembersLoading && !teamMembersError) || (publicContactLoading && !publicContactError),
     upcoming: upcomingListItems.length,
     past: pastEvents.length,
     hasBio: !!entity.bio?.trim(),
     hasContact,
-    team: teamCount,
+    team: teamMembersError ? null : teamCount,
     canEdit: facts.canEdit,
   });
   // W7: the badge and the "Is this you?" card come from `facts` (computed above,
@@ -1253,11 +1287,19 @@ const OrganiserProfile = () => {
         {/* S1 order: hero, stats, Get in touch, Team, About, Next nights, Past nights. */}
         <OrganiserStatsStrip stats={stats} onNextNight={() => scrollToId('upcoming')} />
 
-        <OrganiserGetInTouch rows={contactRows} contactFailed={publicContactError} onRetry={() => void refetchPublicContact()} onCopy={copyValue} />
+        <OrganiserGetInTouch rows={contactRows} contactFailed={publicContactError} retrying={publicContactRetrying} onRetry={() => void refetchPublicContact()} onCopy={copyValue} />
         {eip?.slot('contact')}
         {eip?.slot('links')}
 
-        <OrganiserTeamSection team={team} failed={teamMembersError} onRetry={() => void refetchTeamMembers()} />
+        <OrganiserTeamSection
+          team={team}
+          failed={teamMembersError}
+          retrying={teamMembersRetrying}
+          onRetry={() => void refetchTeamMembers()}
+          nationality={teamNationality}
+          badges={teamBadges}
+          badgesState={teamBadgesState}
+        />
         {eip?.slot('team')}
 
         {/* W7 (mockup 06-A): "Is this you?" while the organiser is unclaimed.
@@ -1320,7 +1362,7 @@ const OrganiserProfile = () => {
         )}
 
         {/* NEXT NIGHTS */}
-        {upcomingFailed && upcomingListItems.length === 0 && <FeedErrorLine feed="upcoming" what="dates" onRetry={retryUpcoming} />}
+        {upcomingFailed && upcomingListItems.length === 0 && <FeedErrorLine feed="upcoming" what="dates" onRetry={retryUpcoming} retrying={retryingUpcoming} />}
         {upcomingListItems.length > 0 && (
           <section id="upcoming" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
             {/* Wraps at 360px: the owner's Create event link goes under the count rather than off the screen. */}
@@ -1369,8 +1411,21 @@ const OrganiserProfile = () => {
           </section>
         )}
 
+        {/* Nothing upcoming but nights in the past: the quiet line, whether or not
+            the past list below has rows to show (fix round 1, review L4: it used
+            to render only inside that list). */}
+        {emptyKind === 'past-only' && pastEvents.length === 0 && (
+          <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>{NO_DATES_ANNOUNCED}.</p>
+              <BrowseNightsLink />
+              {eip?.slot('create-another-event')}
+            </div>
+          </section>
+        )}
+
         {/* PAST EVENTS */}
-        {pastFailed && pastEvents.length === 0 && <FeedErrorLine feed="past" what="past dates" onRetry={retryPast} />}
+        {pastFailed && pastEvents.length === 0 && <FeedErrorLine feed="past" what="past dates" onRetry={retryPast} retrying={retryingPast} />}
         {pastEvents.length > 0 && (
           <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
