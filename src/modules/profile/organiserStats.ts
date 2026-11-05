@@ -210,8 +210,8 @@ export function organiserStats(input: OrganiserStatsInput): OrganiserStat[] {
       return value ? { key: 'dancers_came', value, label: 'Dancers came' } : null;
     },
     // 4. Nights hosted.
-    () => (past.length >= NIGHTS_HOSTED_MIN
-      ? { key: 'nights_hosted', value: countFmt.format(past.length), label: 'Nights hosted' }
+    () => (new Set(past).size >= NIGHTS_HOSTED_MIN
+      ? { key: 'nights_hosted', value: countFmt.format(new Set(past).size), label: 'Nights hosted' }
       : null),
     // 5. Weekly rhythm over the last 12 months (distinct dates, up to today).
     () => {
