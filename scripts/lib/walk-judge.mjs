@@ -6,7 +6,8 @@
 // that must not depend on a model's mood: it is FAIL-CLOSED. `pass` is reachable
 // only when every rubric check has a cited, finite, measured number on every
 // screen x shape x engine and every number meets its threshold. Anything else --
-// a missing number, NaN, a missing picture, an unknown shape, an absent engine, a
+// a missing number, NaN, an out-of-range number, a viewport other than 390x844,
+// a bad doubts entry, a missing picture, an unknown shape, an absent engine, a
 // model or session collision, a stale head, malformed input, or a throw -- is
 // red (or doubt, which isPass() treats as not pass).
 //
@@ -19,6 +20,12 @@ import { readFileSync } from 'node:fs';
 import { isEntryPoint } from './entry-point.mjs';
 
 export const ENGINES = Object.freeze(['chromium', 'webkit']);
+
+/** The only viewport a walk may be measured at (contract: 390x844 phone). */
+export const VIEWPORT = Object.freeze({ width: 390, height: 844 });
+
+/** Finite ceiling for any px measurement; a bigger number is a broken walk, not a pass. */
+export const MAX_PX = 10000;
 
 const deepFreeze = (o) => {
   for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v);
@@ -52,17 +59,19 @@ export const JUDGE_CONFIG = deepFreeze({
  * The fixed, ordered rubric. A walk report keys each measured number by the
  * rubric `id` (a report keyed by `metric` reads as missing, so red: fail-closed).
  * `metric` documents WHAT that number is; `op` is how it must compare with
- * `threshold` to pass. Counts of offenders use `<= 0`.
+ * `threshold` to pass. Counts of offenders use `<= 0`. `min`/`max` are the
+ * sanity range: a number outside it is red whatever the threshold says
+ * (`max: null` = no ceiling beyond finite).
  */
 export const RUBRIC = deepFreeze([
-  { id: 'tapTargets', metric: 'minTapTargetPx', op: '>=', threshold: 44, unit: 'px' },
-  { id: 'noSidewaysScroll', metric: 'horizontalOverflowPx', op: '<=', threshold: 0, unit: 'px' },
-  { id: 'noClipping', metric: 'clippedElementCount', op: '<=', threshold: 0, unit: 'count' },
-  { id: 'contrast', metric: 'minContrastRatio', op: '>=', threshold: 4.5, unit: 'ratio' },
-  { id: 'emptyLoadingErrorHaveAction', metric: 'statesWithoutActionCount', op: '<=', threshold: 0, unit: 'count' },
-  { id: 'iosInputFontSize', metric: 'minInputFontPx', op: '>=', threshold: 16, unit: 'px' },
-  { id: 'iosNoRawVh', metric: 'raw100vhWithoutDvhCount', op: '<=', threshold: 0, unit: 'count' },
-  { id: 'iosFixedBarsSafeArea', metric: 'fixedBarsWithoutSafeAreaCount', op: '<=', threshold: 0, unit: 'count' },
+  { id: 'tapTargets', metric: 'minTapTargetPx', op: '>=', threshold: 44, unit: 'px', min: 0, max: MAX_PX },
+  { id: 'noSidewaysScroll', metric: 'horizontalOverflowPx', op: '<=', threshold: 0, unit: 'px', min: 0, max: MAX_PX },
+  { id: 'noClipping', metric: 'clippedElementCount', op: '<=', threshold: 0, unit: 'count', min: 0, max: null },
+  { id: 'contrast', metric: 'minContrastRatio', op: '>=', threshold: 4.5, unit: 'ratio', min: 1, max: 21 },
+  { id: 'emptyLoadingErrorHaveAction', metric: 'statesWithoutActionCount', op: '<=', threshold: 0, unit: 'count', min: 0, max: null },
+  { id: 'iosInputFontSize', metric: 'minInputFontPx', op: '>=', threshold: 16, unit: 'px', min: 0, max: MAX_PX },
+  { id: 'iosNoRawVh', metric: 'raw100vhWithoutDvhCount', op: '<=', threshold: 0, unit: 'count', min: 0, max: null },
+  { id: 'iosFixedBarsSafeArea', metric: 'fixedBarsWithoutSafeAreaCount', op: '<=', threshold: 0, unit: 'count', min: 0, max: null },
 ]);
 
 export const INVALIDATED_BY = 'any push';
@@ -139,6 +148,7 @@ export function validateJudgeInput(input) {
   return { ok: errors.length === 0, errors };
 }
 
+const inRange = (rule, n) => n >= rule.min && (rule.max === null || n <= rule.max);
 const meets = (rule, n) => (rule.op === '>=' ? n >= rule.threshold : n <= rule.threshold);
 
 function verdictOf(headSha, reasons, cited, doubts) {
@@ -171,8 +181,15 @@ function judge(input, report) {
   if (!Array.isArray(report.pictures)) reasons.push('report.pictures is not a list');
   else for (const p of report.pictures) if (isObj(p) && nonBlank(p.name)) pictures.set(p.name, p.sha256);
 
-  const doubts = Array.isArray(report.doubts) ? report.doubts.filter(nonBlank) : [];
+  // Every entry must be a non-blank string; nothing is silently dropped.
+  const doubts = [];
   if (report.doubts !== undefined && !Array.isArray(report.doubts)) reasons.push('report.doubts is not a list');
+  else if (Array.isArray(report.doubts)) {
+    report.doubts.forEach((d, i) => {
+      if (nonBlank(d)) doubts.push(d);
+      else reasons.push(`report.doubts[${i}] is not a non-blank string`);
+    });
+  }
 
   const cited = [];
   const wanted = new Map(input.screens.map((s) => [s.id, new Set(s.shapes)]));
@@ -194,10 +211,19 @@ function judge(input, report) {
         else if (typeof pic !== 'string' || !SHA256.test(pic)) reasons.push(`${where}: picture sha256 malformed`);
         const m = byEngine[engine];
         if (!isObj(m)) { reasons.push(`${where}: engine absent`); continue; }
+        const vp = m.viewport;
+        if (!isObj(vp) || vp.width !== VIEWPORT.width || vp.height !== VIEWPORT.height) {
+          const seen = isObj(vp) ? `${String(vp.width)}x${String(vp.height)}` : 'missing';
+          reasons.push(`${where}: viewport ${seen}, needs ${VIEWPORT.width}x${VIEWPORT.height}`);
+        }
         for (const rule of RUBRIC) {
           const n = m[rule.id];
           if (typeof n !== 'number' || !Number.isFinite(n)) {
             reasons.push(`${where}: ${rule.id} has no measured number`);
+            continue;
+          }
+          if (!inRange(rule, n)) {
+            reasons.push(`${where}: ${rule.id} measured ${n} is out of range ${rule.min}..${rule.max === null ? 'finite' : rule.max}`);
             continue;
           }
           cited.push({ check: rule.id, measured: n, threshold: rule.threshold, op: rule.op, screen: s.id, shape, engine });
@@ -222,11 +248,16 @@ export function judgeVerdict(input, report) {
   }
 }
 
-/** The only reading of a verdict that may unblock anything: an explicit, well-formed pass with numbers. */
-export function isPass(v) {
-  return isObj(v)
+/**
+ * The only reading of a verdict that may unblock anything: an explicit,
+ * well-formed pass with numbers, FOR THE HEAD THE CALLER IS ABOUT TO UNBLOCK.
+ * `expectedHeadSha` is mandatory; missing, malformed or different is not a pass.
+ */
+export function isPass(v, expectedHeadSha) {
+  return typeof expectedHeadSha === 'string' && SHA40.test(expectedHeadSha)
+    && isObj(v)
     && v.verdict === 'pass'
-    && typeof v.headSha === 'string' && SHA40.test(v.headSha)
+    && v.headSha === expectedHeadSha
     && Array.isArray(v.reasons) && v.reasons.length === 0
     && Array.isArray(v.cited) && v.cited.length > 0
     && v.cited.every((c) => isObj(c) && typeof c.measured === 'number' && Number.isFinite(c.measured))
@@ -250,13 +281,16 @@ export function main(argv = [], deps = {}) {
   const reportPath = argValue(argv, '--report');
   if (!inputPath || !reportPath) { error(USAGE); return 2; }
   let verdict;
+  let expectedHead = null;
   try {
-    verdict = judgeVerdict(JSON.parse(readFile(inputPath)), JSON.parse(readFile(reportPath)));
+    const input = JSON.parse(readFile(inputPath));
+    expectedHead = isObj(input) ? input.headSha : null;
+    verdict = judgeVerdict(input, JSON.parse(readFile(reportPath)));
   } catch (err) {
     verdict = verdictOf('', [`could not read input: ${err && err.message ? err.message : String(err)}`], [], []);
   }
   log(JSON.stringify(verdict, null, 2));
-  return isPass(verdict) ? 0 : 1;
+  return isPass(verdict, expectedHead) ? 0 : 1;
 }
 
 if (isEntryPoint(import.meta.url)) {

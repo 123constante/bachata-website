@@ -23,26 +23,38 @@ The lane hands the judge one JSON object (`validateJudgeInput` checks it):
 - `builderModelId`, `judgeModelId`, `builderSessionId`, `judgeSessionId`.
 
 The walk report it judges carries `headSha` (the head the walk actually measured),
-`measurements[screen][shape][engine][rubricId] = number`, `pictures` (names and
-sha256 only, one per screen x shape x engine, named `screen--shape--engine.png`)
-and optional `doubts` (strings the judge model could not settle with a number).
+`measurements[screen][shape][engine][rubricId] = number` plus
+`measurements[screen][shape][engine].viewport = { width, height }`, `pictures`
+(names and sha256 only, one per screen x shape x engine, named
+`screen--shape--engine.png`) and optional `doubts` (strings the judge model could
+not settle with a number).
+
+The viewport must be exactly 390x844 (`VIEWPORT`) on every screen, shape and
+engine; anything else -- 1280x800, one axis right, strings, missing -- is red.
+`doubts`, when present, must be a list; every entry must be a non-blank string
+and every such entry becomes a doubt. A non-string or blank entry, or a
+`doubts` that is a string, is red: nothing is silently dropped.
 No personal data: fixtures are counts-only placeholders.
 
 ## Rubric
 
 Fixed and ordered. Measurements are keyed by the rubric id; `metric` says what
-the number is. A check passes when `measured op threshold` holds.
+the number is. A check passes when `measured op threshold` holds AND the number
+is inside its sanity range `min..max` (`none` = no ceiling beyond finite; px
+values stop at `MAX_PX` = 10000). An out-of-range number -- a negative count or
+overflow, a contrast outside 1 to 21, a 1e9 px tap target -- is red with an
+"out of range" reason, whatever the threshold says.
 
-| # | id | metric | op | threshold | unit |
-|---|----|--------|----|-----------|------|
-| 1 | `tapTargets` | `minTapTargetPx` | `>=` | `44` | px |
-| 2 | `noSidewaysScroll` | `horizontalOverflowPx` | `<=` | `0` | px |
-| 3 | `noClipping` | `clippedElementCount` | `<=` | `0` | count |
-| 4 | `contrast` | `minContrastRatio` | `>=` | `4.5` | ratio |
-| 5 | `emptyLoadingErrorHaveAction` | `statesWithoutActionCount` | `<=` | `0` | count |
-| 6 | `iosInputFontSize` | `minInputFontPx` | `>=` | `16` | px |
-| 7 | `iosNoRawVh` | `raw100vhWithoutDvhCount` | `<=` | `0` | count |
-| 8 | `iosFixedBarsSafeArea` | `fixedBarsWithoutSafeAreaCount` | `<=` | `0` | count |
+| # | id | metric | op | threshold | unit | min | max |
+|---|----|--------|----|-----------|------|-----|-----|
+| 1 | `tapTargets` | `minTapTargetPx` | `>=` | `44` | px | `0` | `10000` |
+| 2 | `noSidewaysScroll` | `horizontalOverflowPx` | `<=` | `0` | px | `0` | `10000` |
+| 3 | `noClipping` | `clippedElementCount` | `<=` | `0` | count | `0` | `none` |
+| 4 | `contrast` | `minContrastRatio` | `>=` | `4.5` | ratio | `1` | `21` |
+| 5 | `emptyLoadingErrorHaveAction` | `statesWithoutActionCount` | `<=` | `0` | count | `0` | `none` |
+| 6 | `iosInputFontSize` | `minInputFontPx` | `>=` | `16` | px | `0` | `10000` |
+| 7 | `iosNoRawVh` | `raw100vhWithoutDvhCount` | `<=` | `0` | count | `0` | `none` |
+| 8 | `iosFixedBarsSafeArea` | `fixedBarsWithoutSafeAreaCount` | `<=` | `0` | count | `0` | `none` |
 
 Rows 6 to 8 are the iOS static checks: inputs at 16 px or more (no zoom on
 focus), no raw `100vh` without a `dvh` fallback, fixed bars padded with
@@ -56,7 +68,16 @@ is red.
 `{ verdict: 'pass'|'red'|'doubt', headSha, reasons[], cited: [{check, measured, threshold, op, screen, shape, engine}], engines, invalidatedBy: 'any push' }`
 
 A verdict belongs to one head. Any push invalidates it; the next head needs a
-new walk and a new verdict. Only `isPass(v)` may be used to read a verdict.
+new walk and a new verdict. Only `isPass(v, expectedHeadSha)` may be used to
+read a verdict, and the head comparison is mandatory: the caller passes the head
+it is about to unblock, and a pass for any other head -- or with no, or a
+malformed, expected head -- is not a pass. A "pass" that still carries reasons
+is not a pass either.
+
+The judge model's reply is parsed into this shape before anything reads it. An
+unparseable judge reply is red: it is never retried into a pass and never read
+as "no objections". The reply parser is Part D wiring; today `isPass` is
+already false for anything not well-formed, and the CLI reds unparseable JSON.
 
 ## Model and budget
 
@@ -104,10 +125,28 @@ is red, never pass: a missing number, NaN or a non-number, a missing picture or
 a malformed picture sha256, an unknown screen or shape, a listed shape that was
 not measured, an absent or unknown engine, a model or session collision, a
 report head that is not the judged head, malformed input, a verdict with no
-numbers, and any error thrown inside the judge. When every number passes but
+numbers, a measured number outside its sanity range, a viewport other than
+390x844, a non-string or blank `doubts` entry (or a string `doubts`), an
+unparseable judge reply, and any error thrown inside the judge. When every number passes but
 the judge model recorded a doubt, the verdict is `doubt`, and `isPass` treats
 `doubt` as not pass. The CLI exits 0 only on pass, 1 on red or doubt (including
 an unreadable file), 2 on a usage error.
+
+## Empty inputs
+
+Empty is an error, never "nothing to do": `generateFixtures([])` throws (the CLI
+exits 1), and `coverageGaps` throws on a coverage doc with `screens: []` or on
+`shapes: []` rather than returning no gaps. `validateJudgeInput` already reds
+`screens: []` and a screen with no shapes.
+
+## Parts left
+
+- input.screens is not tied to walk-coverage.json: the judge checks the screens
+  and shapes the lane SAYS it walked, not the screens `docs/design/walk-coverage.json`
+  requires. A lane that leaves a screen out of `input.screens` is not caught by
+  the judge itself. Tying the two together is Part B/C work.
+- The head comparison inside `main()` uses the input's own `headSha`; the Part D
+  caller must pass the PR's live head to `isPass`, not the verdict's.
 
 ## Residual risks
 

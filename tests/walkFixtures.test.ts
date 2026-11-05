@@ -130,3 +130,19 @@ describe('walk-fixtures: main', () => {
   it('exit 1 on a bad survey', () => expect(run(['--survey', 's.json'], { 's.json': '[{"status":1}]' }).code).toBe(1));
   it('exit 2 on usage error', () => expect(run([], {}).code).toBe(2));
 });
+
+describe('walk-fixtures r1: empties are errors, never "no gaps"', () => {
+  const shapes = generateFixtures(SURVEY).map((x: { shape: string }) => x.shape);
+  const doc = (screens: unknown[]) => ({ schemaVersion: 1, screens });
+  it('coverageGaps with screens [] throws', () => expect(() => coverageGaps(doc([]), shapes)).toThrow(/screens/));
+  it('coverageGaps with shapes [] throws', () => {
+    expect(() => coverageGaps(doc([{ id: 's', uiFiles: ['src/a.tsx'], walk: 'w', shapes }]), [])).toThrow(/shapes/);
+  });
+  it('generateFixtures([]) throws', () => expect(() => generateFixtures([])).toThrow(/empty/));
+  it('CLI on an empty survey exits non-zero', () => {
+    const out: string[] = [];
+    const code = main(['--survey', 's.json'], { readFile: () => '[]', log: (s: string) => out.push(s), error: (s: string) => out.push(s) });
+    expect(code).toBe(1);
+    expect(out.join('\n')).toMatch(/empty/);
+  });
+});

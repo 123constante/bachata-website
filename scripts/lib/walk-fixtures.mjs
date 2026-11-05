@@ -42,6 +42,7 @@ const pad = (n) => String(n).padStart(3, '0');
 /** One fixture per distinct shape, sorted by shape id. Throws on a malformed survey. */
 export function generateFixtures(surveyCounts) {
   if (!Array.isArray(surveyCounts)) throw new Error('survey must be a list of shape rows');
+  if (surveyCounts.length === 0) throw new Error('survey is empty: no shapes means no fixtures, never "nothing to walk"');
   const byShape = new Map();
   surveyCounts.forEach((row, i) => {
     checkRow(row, i);
@@ -110,11 +111,14 @@ function mustBeValid(doc) {
 /**
  * Shapes each screen's walk does not cover. A screen with no walk misses every
  * shape unless its id is in `waivedScreens` (already checked by waiverValid).
- * Throws on a malformed coverage doc: a broken table must never read as "no gaps".
+ * Throws on a malformed coverage doc, an empty screens list or an empty shapes
+ * list: a broken or empty table must never read as "no gaps".
  */
 export function coverageGaps(walkCoverage, shapes, { waivedScreens = [] } = {}) {
   mustBeValid(walkCoverage);
   if (!Array.isArray(shapes)) throw new Error('shapes must be a list');
+  if (walkCoverage.screens.length === 0) throw new Error('coverage screens is empty: an empty table must never read as "no gaps"');
+  if (shapes.length === 0) throw new Error('shapes is empty: no shapes must never read as "no gaps"');
   const gaps = [];
   for (const s of walkCoverage.screens) {
     if (waivedScreens.includes(s.id)) continue;

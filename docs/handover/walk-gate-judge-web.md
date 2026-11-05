@@ -22,7 +22,19 @@ approves at head; the worker never approves or merges.
 - No workflow, `package.json` script or existing guard edited; no guard demanded
   registration (`check-script-conventions` passed unchanged).
 
+## Fix round r1 (brief fix-1369-r1, review of c79d9a07)
+- F1: every engine measurement carries `viewport {width,height}`; anything but 390x844 is red (`VIEWPORT`).
+- F2: rubric rows carry `min`/`max`; counts/overflow >= 0, contrast 1..21, px <= `MAX_PX` (10000); out of range is red.
+- F3: every `doubts` entry must be a non-blank string (else red); a string `doubts` is red.
+- Empties: `generateFixtures([])` throws (CLI exit 1); `coverageGaps` throws on screens [] or shapes [].
+- `isPass(v, expectedHeadSha)`: the head is mandatory; another, missing or malformed head is not a pass.
+- Spec: unparseable judge reply is red; head comparison mandatory; new `## Empty inputs` and `## Parts left`.
+- Tests J8, J9, J10, J15, J23 added (they already held on c79d9a07; coverage only). 41 new tests red on
+  the old code; mutants M8 to M19 (+M9b) each killed, then restored (table in the PR body).
+
 ## Parts left
+- input.screens is not tied to walk-coverage.json (the judge trusts the lane's screen list); Part B/C.
+- Part D's caller must pass the PR's live head to `isPass`, not the verdict's own.
 - Part B: walk runner and Playwright WebKit project on the fixtures (contract 11
   items 1, 5a); enforcing the judge daily totals (section 12).
 - Part C: iOS static DOM/CSS checks on real built pages (11 item 5b); pictures
