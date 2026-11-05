@@ -82,6 +82,7 @@ export const parseSummary = (data: unknown): SummaryResult => {
       ordersRefunded: num(r.orders_refunded),
       ordersDisputed: num(r.orders_disputed),
       grossPence: num(r.gross_pence),
+      discountsPence: num(r.discounts_pence),
       bookingFeesPence: num(r.booking_fees_pence),
       refundedPence: num(r.refunded_pence),
     })),
