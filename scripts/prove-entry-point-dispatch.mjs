@@ -232,6 +232,7 @@ const TARGETS = [
   { rel: 'scripts/rework-share.mjs' },
   { rel: 'scripts/run-lint-chain.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
+  { rel: 'scripts/sweep-stale-bot-prs.mjs' },
   { rel: 'scripts/walk-seed.mjs' },
 ];
 
