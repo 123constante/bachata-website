@@ -302,6 +302,27 @@ contract list, because the checker matches it to the run. `--require-all`
 
 ---
 
+## Worker commits
+
+`scripts/worker-commit.mjs` is the ONLY commit path for workers and reviewers
+(owner decision 2026-11-05): `node scripts/worker-commit.mjs --subject "<one
+line>" [--body-file p] [--trailer-file p] [--marker dt_xxxxxxxxxxxx] [--files
+a,b | --all]`. It refuses (exit 1) off a `claude/*`, `brief/*` or `review/*`
+branch, on a blank or multi-line subject, on a marker not matching
+`^dt_[0-9a-f]{12}$`, on a dirty tree with neither `--files` nor `--all` (listing
+the unstaged paths), and when anything outside `--files` is already staged
+(checked BEFORE `git add`, so a refusal leaves the index as it found it).
+`--files` entries are git pathspecs relative to the current directory (`./x`,
+a directory, or a path from a subdirectory all work). It writes
+subject + ` [worker-done dt_xxx]` + body + trailers to a temp file and runs
+`git commit -F <file>`, prints the new head sha, and exits 2 on a git failure.
+It never pushes, never passes `-m`, `--no-verify` or `-c user.name/user.email`
+(identity comes from the environment), so no permission prompt fires on a
+hand-typed flag; the push stays a separate, visible step. Proof:
+`tests/workerCommit.test.ts` and `--self-test`.
+
+---
+
 ## Open items
 
 - Ruleset check scheduling (`check-ruleset-vs-required-jobs`): needs
