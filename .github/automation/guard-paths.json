@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "about": "Section 14.1 guard paths for this repo (drill A18; docs/automation-foundations.md). No auto path (merge lane, bot-automerge, Dependabot lane) may merge a PR touching any of these: refusal `guard-path refused: <path>`. scripts/lib/guard-paths.mjs ALSO imports GOVERNANCE and isAgentInstructionPath from scripts/lib/autopilot-merge.mjs (not copied here). Globs: ** = any depth, * = within one segment; matched case-insensitively. This file is itself a guard path: changing it is an owner-merged guard change.",
+  "globs": [
+    ".github/**",
+    "scripts/lib/autopilot*",
+    "scripts/automerge-classify.mjs",
+    "scripts/lib/automation-pause.mjs",
+    "scripts/automation-pause.mjs",
+    "scripts/lib/is-money.mjs",
+    "scripts/automation-money-check.mjs",
+    "scripts/lib/required-jobs.mjs",
+    "scripts/lib/arming.mjs",
+    "scripts/automation-arming.mjs",
+    "scripts/lib/guard-paths.mjs",
+    "scripts/data/automation-workflow-allowlist.json",
+    "scripts/check-automation-workflow-allowlist.mjs",
+    "scripts/owner-approval-audit.mjs",
+    "scripts/check-required-jobs.mjs",
+    "scripts/check-ruleset-vs-required-jobs.mjs",
+    "scripts/check-secrets-register.mjs",
+    "scripts/check-identity-register.mjs",
+    "scripts/check-drill-records.mjs",
+    "scripts/write-drill-record.mjs",
+    "scripts/lib/component-sha.mjs",
+    "scripts/lib/entry-point.mjs",
+    "scripts/data/flaky-list.json",
+    ".claude/**",
+    ".githooks/**",
+    "CLAUDE.md"
+  ],
+  "reserved": {
+    "flaky_list": "scripts/data/flaky-list.json"
+  }
+}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -48,6 +48,29 @@ describe('thanks page: back to the event link', () => {
     if (r.status === 'failed') expect(root.querySelectorAll('a').length).toBeGreaterThan(0);
     // The what's-on link always stays.
     expect(root.querySelector('a[href="/"]')).not.toBeNull();
+  });
+});
+
+describe('thanks page: processing (gave up polling) back-to-event link', () => {
+  beforeEach(() => { vi.useFakeTimers(); rpc.mockReset(); window.sessionStorage.clear(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
+  it.each([
+    ['eventId set', EID, false],
+    ['eventId null', null, false],
+  ] as const)('pending forever, %s', async (_l, eventId, link) => {
+    rpc.mockResolvedValue({ data: { status: 'pending', event_id: eventId }, error: null });
+    render(<MemoryRouter initialEntries={[`/tickets/thanks?o=${ORDER}`]}><TicketThanksPage /></MemoryRouter>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(600_000); });
+    const root = screen.getByTestId('tickets-thanks');
+    expect(root.textContent).toMatch(/Still processing/);
+    const el = screen.queryByTestId('thanks-back-to-event');
+    if (link) {
+      expect(el!.getAttribute('href')).toBe(`/event/${EID}`);
+      expect(el!.textContent).toBe('Back to the event');
+    } else {
+      expect(el).toBeNull();
+    }
+    expect(root.querySelector('a[href="/"]')!.textContent).toBe('Back');
   });
 });
 

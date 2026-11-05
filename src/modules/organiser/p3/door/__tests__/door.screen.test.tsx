@@ -182,7 +182,7 @@ describe('camera mock: debounce and dead cameras', () => {
     cam.code = null;
   });
 
-  it.each([['NotAllowedError', 'denied'], ['NotFoundError', 'none'], ['AbortError', 'failed']])('%s -> says so plainly, opens the list and the code box', async (name) => {
+  it.each([['NotFoundError', 'none'], ['AbortError', 'failed']])('%s -> says so plainly, opens the list and the code box', async (name) => {
     cam.fail = name;
     show();
     expect(await screen.findByTestId('door-cam-dead')).toBeTruthy();

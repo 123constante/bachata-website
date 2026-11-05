@@ -4,10 +4,13 @@
 //   read  my_role_intent_v1            -> account_role_intent roles / declined (the teach answer)
 //   read  my_role_details_v1('teacher') -> teacher_role_details teaching_styles, years_teaching (NOT levels_taught:
 //         prod _role_details_v1 does not emit it today, so levels are not prefilled; queued admin item)
+//   read  my_role_details_v1('dj')      -> dj_role_details genres (the DJ steps only)
 //   read  organiser_profiles (public select) name, bio, organisation_category, city_id (+ cities.name)
 //   write save_my_dancer_profile_v2    -> name, photo, role, nationality, languages (diff-first, one key)
 //   write set_my_role_intent_v1 / set_my_role_declined_v1 (answerDoYou) -> the teach answer
 //   write save_my_role_v1('teacher')   -> levels_taught, teaching_styles, years_teaching
+//   write answerDoYou('dj')             -> account_role_intent roles / declined 'dj' (what _onboarding_missing_v1's dj_answer reads)
+//   write save_my_role_v1('dj') {genres} -> dj_role_details.genres (what dj_genres reads; same persona id)
 //   write organiser_profile_update_p5_v1 {bio} -> About; skip_organiser_about_v1 -> About skipped
 import { supabase } from '@/integrations/supabase/client';
 import { answerDoYou, fetchMyRoleIntent, type RoleIntent } from '@/modules/areas/home/rolesApi';
@@ -24,6 +27,8 @@ export interface PersonReads {
   dancer: () => Promise<Record<string, unknown>>;
   intent: () => Promise<RoleIntent>;
   teacher: () => Promise<Record<string, unknown>>;
+  /** my_role_details_v1('dj'): only the DJ steps (from Review) read it. */
+  dj?: () => Promise<Record<string, unknown>>;
   organiser: (id: string) => Promise<OrganiserBrief | null>;
 }
 
@@ -49,6 +54,7 @@ export const REAL_READS: PersonReads = {
   dancer: fetchWizardDancer,
   intent: fetchMyRoleIntent,
   teacher: async () => (await fetchMyRoleDetails('teacher')).details,
+  dj: async () => (await fetchMyRoleDetails('dj')).details,
   organiser: fetchOrganiserBrief,
 };
 
@@ -63,6 +69,8 @@ export const REAL_WRITES: PersonWrites = {
       case 'dancer': await saveWizardDancer(cmd.patch); return;
       case 'teach': await answerDoYou('teacher', cmd.yes); return;
       case 'teacher': await saveMyRole('teacher', cmd.patch); return;
+      case 'dj': await answerDoYou('dj', cmd.yes); return;
+      case 'djrole': await saveMyRole('dj', cmd.patch); return;
       case 'about':
         if (!organiserId) throw new Error('no_organiser');
         await must(rpc('organiser_profile_update_p5_v1', { p_organiser_id: organiserId, p_patch: { bio: cmd.bio } }));

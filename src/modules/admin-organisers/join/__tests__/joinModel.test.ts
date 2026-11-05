@@ -89,14 +89,14 @@ describe('deriveJoinStep: the edge rows the page table does not reach', () => {
   });
 });
 
-describe('joinProgress: 1 of 3 over email/code, about, join; a complete account skips About you', () => {
+describe('joinProgress: the total is always 3 (a complete account just skips step 2)', () => {
   it.each<[string, Parameters<typeof joinProgress>[1], string | null]>([
     ['email', 'signed_out', 'Step 1 of 3'],
     ['code', 'signed_out', 'Step 1 of 3'],
     ['about', 'incomplete', 'Step 2 of 3'],
     ['join', 'incomplete', 'Step 3 of 3'],
-    ['join', 'complete', 'Step 2 of 2'],
-    ['done', 'complete', 'Step 2 of 2'],
+    ['join', 'complete', 'Step 3 of 3'],
+    ['done', 'complete', 'Step 3 of 3'],
     ['dead', 'signed_out', null],
     ['wrong_account', 'complete', null],
     ['checking', 'loading', null],
@@ -129,7 +129,8 @@ describe('checkTypedEmail', () => {
 describe('outcome mappings', () => {
   it.each([
     [{ status: 403, message: 'Sign-up with this email provider is not accepted' }, 'blocked_domain'],
-    [{ status: 403, message: 'Sign-up is limited to approved organisers.' }, 'blocked_domain'],
+    [{ status: 403, message: 'Sign-up is limited to approved organisers.' }, 'invite_only'],
+    [{ status: 403, message: '' }, 'invite_only'],
     [{ status: 429, message: 'over_email_send_rate_limit' }, 'rate_limited'],
     [{ message: 'Email rate limit exceeded' }, 'rate_limited'],
     [new Error('Failed to fetch'), 'network'],

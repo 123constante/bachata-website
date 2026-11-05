@@ -183,6 +183,8 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
+  // Q10: the move guard. The date sheet handles it before it gets here; this is the net for any other caller.
+  { match: /^date_has_people:/, message: 'Some people are on this date. Open the date and confirm the move to go ahead.' },
   // P3 W2b, the date sheet (handlers read on prod 2026-10-27). Anchored: the reason refusal lists every label.
   { match: /^invalid_payload: cancellation reason must be one of/, message: 'That reason is no longer on the list. Reload the page, then pick a reason again.' },
   { match: /^invalid_payload: per-date time is not supported for festivals/, message: 'Festival times are set for the whole festival, not one date. Ask the Bachata Calendar team.' },

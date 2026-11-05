@@ -31,17 +31,23 @@ export function rememberChoice(userId: string | undefined, id: string) {
  * entry the old /account uses) and which one this screen shows. The choice
  * lives in `?o=<id>` so Team and Profile keep it with a shared link; without
  * one, the page last picked on Switch (R1: every path returns to a bare Home),
- * else the first organiser, as on the old /account.
+ * else the first by name (deterministic, F-26).
  */
 export function useOrganiserChoice() {
   const { user } = useAuth();
-  const [params, setParams] = useSearchParams();
   const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled: !!user });
+  return useOrganiserChoiceFrom(home);
+}
+
+/** The choice rule over a home read already in hand (P3's screens pass their own cache hook). */
+export function useOrganiserChoiceFrom<H extends { data?: { organisers: HomeOrganiser[] } | undefined }>(home: H) {
+  const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
   const organisers = home.data?.organisers ?? [];
   const linked = params.get('o');
   const fromLink = linked ? organisers.find((o) => o.id === linked) : undefined;
   const wanted = linked ?? remembered(user?.id);
-  const selected: HomeOrganiser | null = fromLink ?? organisers.find((o) => o.id === wanted) ?? organisers[0] ?? null;
+  const selected: HomeOrganiser | null = fromLink ?? organisers.find((o) => o.id === wanted) ?? [...organisers].sort((a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1))[0] ?? null;
   // A ?o= link to a member page becomes the remembered choice, so the screens
   // Home opens (bare paths) show the same page. A non-member id never is.
   useEffect(() => {

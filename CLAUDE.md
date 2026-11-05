@@ -76,34 +76,9 @@ anything in them.
 
 ## Migration authority (mandatory)
 
-This repo does **NOT** own `supabase/migrations/*.sql` &mdash; that folder must
-not exist. Migration authority lives in the admin repo
-`bachata-admin-11april/supabase/migrations/`, applied via `supabase db push`
-from there (CLI-only, per admin's CLAUDE.md).
+This repo does **NOT** own `supabase/migrations/*.sql`; that folder must not exist (`scripts/check-migration-stamps.mjs` reds the workflow if it does). All schema authority is the admin repo `bachata-admin-11april/supabase/migrations/`. Never hand-apply DDL here. Contract-check scripts (`scripts/check-*.mjs`) live here; never pin their count in prose. Full text: [`docs/claude-md-reference.md`](docs/claude-md-reference.md#migration-authority-mandatory).
 
-**Forbidden in this repo:**
-- Adding `*.sql` files under `supabase/migrations/`
-- Hand-applying DDL via the Supabase SQL editor without committing the
-  migration to admin's repo first
-
-**What this repo owns instead:**
-- Contract-check scripts (`scripts/check-*.mjs`), run from
-  `db-contract-check.yml` &mdash; these validate that the live DB matches our
-  expectations. New contracts go here. Never pin their count in prose (it has
-  drifted before); count them:
-  `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml`
-- The `supabase/config.toml` `project_id` pin (so other tooling knows which
-  project to point at)
-
-If you find yourself wanting to write DDL in this repo: stop, switch to the
-admin working tree, author the migration there, push, then return here.
-
-Enforced by `scripts/check-migration-stamps.mjs` (the migration-authority
-arc-closeout step in `db-contract-check.yml`, prose-numbered #18): it fails if
-`supabase/migrations/` exists. Re-creating that folder will red the workflow.
-History (the May 2026 collapse, rollback tags):
-[`docs/ci-guard-notes.md`](docs/ci-guard-notes.md#migration-authority-history).
-
+---
 
 ## File-write safety (mandatory for agents)
 
@@ -153,6 +128,7 @@ convention: [`docs/testing-doctrine.md`](docs/testing-doctrine.md).
 ```bash
 npm run test:unit        # all unit tests (Vitest)
 npm run test:e2e         # curated smoke specs — the CI gate (e2e-smoke.yml)
+npm run test:e2e:p3      # P3 walk specs — second gate step, P3 flags on
 npm run lint             # node scripts/run-lint-chain.mjs
 ```
 
@@ -204,41 +180,12 @@ targets (see `docs/organiser-rebuild/ARC.md` if present).
 
 ## Key patterns
 
-### HTML entities over raw Unicode
+Use HTML entities (`&mdash;`, `&hellip;`, `&rsquo;`) in JSX, never raw Unicode punctuation (cp1252 mojibake on prod). Full text: [`docs/claude-md-reference.md`](docs/claude-md-reference.md).
 
-Cowork→FUSE→Windows pipeline corrupts em-dash, ellipsis, smart quotes via
-cp1252 round-trip → visible mojibake on prod. Use `&mdash;`, `&hellip;`,
-`&rsquo;` in JSX. Never paste Unicode punctuation directly into source files.
+## Operating model
 
----
-
-## Operating model (pointer -- doctrine lives in the project memory dir)
-
-Classify every request and say the class: TRIVIAL / BUILD-visual /
-BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC &mdash; pipelines in
-`feedback_operating_model.md` (project memory). Non-trivial work runs the
-7-step workflow. Decisions reach Ricky as clickable questions at genuine forks
-only. Every code-bearing diff gets
-`/code-review` BEFORE commit &mdash; Ricky types it when told; findings become
-edits, never follow-up commits. SQL/guards &rarr; xhigh; keystone/arc-close/
-DB-contract PRs &rarr; ultra.
-
-**State the stopping rule out loud before a review round runs.** User-facing or
-data-integrity changes get two rounds; a CI-guard change gets ONE. A finding
-proved by MUTATION (the gate stays green against the mutant it exists to catch)
-means revert now and queue the defect &mdash; no further round. Fixes to findings
-are unreviewed code.
-
-Arc plans carry the per-PR model/effort table (`feedback_model_effort_matrix.md`);
-phase starts write `.claude/arc-state.json` and state the phase's required
-/model + effort in one line (a mismatch is declared and recorded, never a
-halt). Ship gate: `npm run pre-ship` + the
-pre-push receipt gate (`scripts/ship-gate.mjs`). Session economy: delegate bulk
-reads, read only what you edit, and SAY when to start a fresh session.
-
-PR volume and Vercel deploy budget (one PR per unit of work, push once, batch merges): [`docs/pr-batching-policy.md`](docs/pr-batching-policy.md).
+Classify every request (TRIVIAL / BUILD-visual / BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC). Every code-bearing diff gets `/code-review` BEFORE commit; state the stopping rule before a review round (user-facing: two rounds; CI-guard: one). Ship gate: `npm run pre-ship`. One PR per unit of work ([`docs/pr-batching-policy.md`](docs/pr-batching-policy.md)). Full doctrine: [`docs/claude-md-reference.md`](docs/claude-md-reference.md#operating-model-pointer----doctrine-lives-in-the-project-memory-dir).
 
 ## Recent changes
 
-Don&rsquo;t keep a changelog here &mdash; it rotted once. Use `git log --oneline -20`;
-old entries are archived in [`docs/changelog-archive-2026.md`](docs/changelog-archive-2026.md).
+Use `git log --oneline -20`; archive in [`docs/changelog-archive-2026.md`](docs/changelog-archive-2026.md).

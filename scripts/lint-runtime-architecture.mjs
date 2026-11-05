@@ -94,6 +94,11 @@ const RULES = [
       'src/modules/organiser/p3/onboarding/gate.ts',
       'src/modules/organiser/p3/onboarding/__tests__/gate.matrix.test.tsx',
       'src/modules/organiser/p3/onboarding/__tests__/gate.fixround.test.tsx',
+      // GATE-RETRY (F-11/F-12/F-15): gateRule.ts builds the same refusal for a predicted refusal (so gate.ts
+      // reads it), and these specs feed the screens that refusal.
+      'src/modules/organiser/p3/onboarding/gateRule.ts',
+      'src/modules/organiser/p3/tickets/__tests__/gate.matrix.test.tsx',
+      'src/modules/organiser/p3/new/__tests__/flow.render.test.tsx',
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',
