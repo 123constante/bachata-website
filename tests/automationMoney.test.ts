@@ -37,6 +37,21 @@ describe('money-set.json (PART 2.1)', () => {
     for (const t of ['ticket_orders', 'tickets', 'ticket_types', 'ticket_promo_codes', 'ticket_webhook_events', 'ticket_checkout_attempts', 'organiser_stripe_accounts', 'ticket_status_reads', 'ticket_promo_*']) expect(SET.tables).toContain(t);
     for (const f of ['ticket_*_v1', '_ticket_*_v1', 'my_tickets_v1', 'my_ticket_order_qr_v1', 'stripe-webhook', 'stripe-connect-onboard', 'ticket-checkout', 'ticket-email', 'ticket-refund']) expect(SET.functions).toContain(f);
   });
+  // F15 (review-1370-r1): every list is pinned, so dropping ANY entry of the live file is red (MS02, MS09).
+  it('the live paths and keys lists are pinned entry by entry', () => {
+    expect(SET.paths).toEqual([
+      MONEY_SET_PATH, 'src/modules/tickets/**', 'src/modules/organiser/p3/tickets/**', 'src/modules/organiser/tickets/**', 'src/modules/organiser/p3/door/**',
+      'src/components/TicketCard.tsx', 'src/lib/ticketBookingFee.ts', 'src/modules/event-page/bento/StickyTicketButton.tsx',
+      'src/modules/event-page/sections/EventTicketsSection.tsx', 'src/modules/organiser/p3/shell/youTickets.tsx', 'src/modules/organiser/p3/tickets/GetPaid.tsx',
+      'src/**/*ticket*', 'src/**/*ticket*/**', 'app/**/*ticket*', 'supabase/functions/stripe-webhook/**', 'supabase/functions/stripe-connect-onboard/**',
+      'supabase/functions/ticket-checkout/**', 'supabase/functions/ticket-email/**', 'supabase/functions/ticket-refund/**',
+      '**/*stripe*', '**/*stripe*/**', '**/*payout*', '**/*payout*/**', '**/*refund*', '**/*refund*/**',
+    ]);
+    expect(SET.keys).toEqual([
+      'STRIPE_CHECKOUT_PREFIX', 'STRIPE_MODE', 'BOOKING_FEE_PENCE',
+      { regex: '^price_(?=[A-Za-z0-9]*[0-9])[A-Za-z0-9]{14,}$', why: expect.any(String) },
+    ]);
+  });
   it('never holds a secret VALUE (names only)', () => {
     expect(SET_TEXT).not.toMatch(/sk_(live|test)_[A-Za-z0-9]|whsec_[A-Za-z0-9]|pk_(live|test)_[A-Za-z0-9]/);
   });
@@ -60,10 +75,27 @@ const FN_ROWS: [string, object[], string[] | undefined, boolean, string][] = [
   ['a path glob is case-insensitive', [{ path: 'Src/Modules/Tickets/X.ts', added: ['x'] }], undefined, true, 'money set: src/modules/tickets/**'],
   ['a docs path with a table name in an ADDED line', DOC(['we read ticket_orders here']), undefined, true, 'money set: ticket_orders'],
   ['a REMOVED line counts too', [{ path: 'docs/a.md', added: [], removed: ['call my_tickets_v1'] }], undefined, true, 'money set: my_tickets_v1'],
+  // F1: the LIVE shape (a GitHub pull-file object, patch only) with removed lines only (IM09).
+  ['a REMOVED line in a GitHub patch (live shape) names the hit', [file('docs/a.md', [], ['call my_tickets_v1'])], undefined, true, 'money set: my_tickets_v1'],
+  // F5: a NESTED file under a `**`-terminated glob of the real set (IM15).
+  ['a two-level path under a ** glob', [file('src/modules/organiser/p3/door/scan/Camera.tsx', ['x'])], undefined, true, 'money set: src/modules/organiser/p3/door/**'],
+  // F4: directory forms; the file name itself carries no money word.
+  ['a stripe DIRECTORY (any case)', [file('src/Stripe/Client.ts', ['x'])], undefined, true, 'money set: **/*stripe*/**'],
+  ['a payout DIRECTORY', [file('lib/payouts/run.ts', ['x'])], undefined, true, 'money set: **/*payout*/**'],
+  ['a refund DIRECTORY', [file('app/refunds/run.ts', ['x'])], undefined, true, 'money set: **/*refund*/**'],
+  ['a ticket DIRECTORY under src', [file('src/modules/ticketing/List.tsx', ['x'])], undefined, true, 'money set: src/**/*ticket*/**'],
+  // F6: a FULL unified diff's +++/--- headers are not changed lines (fail closed on the short count).
+  ['a full unified diff: the +++/--- headers are not counted', [{ filename: 'docs/a.md', changes: 3, patch: '--- a/docs/a.md\n+++ b/docs/a.md\n@@ -1 +1,2 @@\n ctx\n+plain' }], undefined, true, 'money set: unreadable (truncated patch for docs/a.md: 1 of 3 changed lines)'],
+  ['inside a hunk a removed `---` rule IS a changed line', [{ filename: 'docs/a.md', changes: 1, patch: '@@ -1,2 +1 @@\n ctx\n----' }], undefined, false, ''],
   ['a .json path is not exempt', [{ path: 'docs/x.json', added: ['"flag": "VITE_ENABLE_PUBLIC_TICKETING"'] }], undefined, true, 'money set: VITE_ENABLE_PUBLIC_TICKETING'],
   ['whole identifier: ticket_orders_x is NOT a hit', DOC(['ticket_orders_x and xticket_orders']), undefined, false, ''],
   ['whole identifier: punctuation around the name is a hit', DOC(['(ticket_orders).id']), undefined, true, 'money set: ticket_orders'],
-  ['names are case-sensitive: TICKET_ORDERS is not the table', DOC(['TICKET_ORDERS']), undefined, false, ''],
+  ['names are case-sensitive in LINES: TICKET_ORDERS is not the table', DOC(['TICKET_ORDERS']), undefined, false, ''],
+  ['names are case-sensitive in PATHS: docs/TICKET_ORDERS.md is not the table', [file('docs/TICKET_ORDERS.md', ['x'])], undefined, false, ''],
+  // F3: Postgres folds unquoted identifiers, so a STATEMENT matches names case-insensitively.
+  ['statements: names are case-INsensitive (Postgres folds unquoted identifiers)', DOC(['x']), ['ALTER TABLE Ticket_Orders RENAME COLUMN x TO y'], true, 'money set: Ticket_Orders'],
+  ['statements: TICKET_PROMO_X matches the ticket_promo_* entry', DOC(['x']), ['DROP TABLE public.TICKET_PROMO_X'], true, 'money set: TICKET_PROMO_X'],
+  ['statements: still a whole identifier (Ticket_Orders_x is not a hit)', DOC(['x']), ['CREATE TABLE Ticket_Orders_x (id uuid)'], false, ''],
   ['a * entry: ticket_*_v1 matches ticket_type_upsert_v1', DOC(['rpc ticket_type_upsert_v1']), undefined, true, 'money set: ticket_type_upsert_v1'],
   ['a * entry needs the whole shape: ticket_type_upsert_v2 is not ticket_*_v1', DOC(['rpc ticket_type_upsert_v2']), undefined, false, ''],
   ['edge function name with a hyphen', DOC(['deploy stripe-webhook today']), undefined, true, 'money set: stripe-webhook'],
@@ -92,6 +124,7 @@ describe('isMoney (PART 2.2): paths AND lines AND statements; first hit is the r
     expect(v.money).toBe(money);
     expect(v.reason).toBe(reason);
     if (money && !/unreadable/.test(reason)) expect(v.names).toContain(reason.replace('money set: ', ''));
+    if (money && !/unreadable/.test(reason)) expect(v.names[0]).toBe(reason.replace('money set: ', ''));
   });
   it('a previous_filename of a rename is scanned too', () => {
     expect(M([{ filename: 'docs/moved.md', previous_filename: 'src/modules/tickets/old.ts', changes: 0, status: 'renamed' }]).reason).toBe('money set: src/modules/tickets/**');
@@ -139,15 +172,16 @@ const basePr = { state: 'open', draft: false, user: BOT_LOGIN, headRef: 'claude/
 const classifyCase = (f: FakeFile, cls = classify) => cls({
   pr: { ...basePr, additions: f.additions, deletions: f.deletions, changedFiles: 1 }, files: [f], labelActor: BOT_LOGIN, importedByShipped: () => false, moneySet: SET,
 });
+const CLI_HEAD = 'c'.repeat(40);
 async function dependabot(f: FakeFile, cli = moneyCli) {
   const outputs: string[] = [];
   const fetchImpl = async (url: string) => {
     const u = new URL(url);
-    if (/\/pulls\/\d+$/.test(u.pathname)) return new Response(JSON.stringify({ changed_files: 1 }), { status: 200 });
+    if (/\/pulls\/\d+$/.test(u.pathname)) return new Response(JSON.stringify({ changed_files: 1, head: { sha: CLI_HEAD } }), { status: 200 });
     if (/\/pulls\/\d+\/files$/.test(u.pathname)) return new Response(JSON.stringify(Number(u.searchParams.get('page')) === 1 ? [f] : []), { status: 200 });
     return new Response('{}', { status: 404 });
   };
-  const code = await cli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5' }, { fetch: fetchImpl, writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
+  const code = await cli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5', HEAD_SHA: CLI_HEAD }, { fetch: fetchImpl, writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
   return { code, outputs };
 }
 
@@ -187,15 +221,15 @@ describe('A16: every (case, auto path) pair is refused with `money set: <name>`'
 describe('Dependabot CLI fails closed', () => {
   it('a files read failure = money=true, exit 0 (no auto-merge, not a red run)', async () => {
     const outputs: string[] = [];
-    const code = await moneyCli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5' }, { fetch: async () => new Response('{}', { status: 403 }), writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
+    const code = await moneyCli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5', HEAD_SHA: CLI_HEAD }, { fetch: async () => new Response('{}', { status: 403 }), writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
     expect(code).toBe(0);
     expect(outputs).toContain('money=true');
     expect(outputs.join('\n')).toMatch(/money_reason=money set: unreadable \(/);
   });
   it('a file count that disagrees with the PR = unreadable', async () => {
     const outputs: string[] = [];
-    const fetchImpl = async (url: string) => new Response(JSON.stringify(/\/files$/.test(new URL(url).pathname) ? [] : { changed_files: 2 }), { status: 200 });
-    await moneyCli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5' }, { fetch: fetchImpl, writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
+    const fetchImpl = async (url: string) => new Response(JSON.stringify(/\/files$/.test(new URL(url).pathname) ? [] : { changed_files: 2, head: { sha: CLI_HEAD } }), { status: 200 });
+    await moneyCli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5', HEAD_SHA: CLI_HEAD }, { fetch: fetchImpl, writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
     expect(outputs).toContain('money=true');
   });
   it('missing config = exit 2 and money=true', async () => {
@@ -221,6 +255,7 @@ function dependabotProblems(text: string) {
   if (!/scripts\/automation-money-check\.mjs/.test(String(m.run))) out.push('money step does not run the CLI');
   if (/\$\{\{/.test(String(m.run))) out.push('money step interpolates into run');
   if (m.env?.GH_TOKEN !== '${{ github.token }}') out.push('money step not on github.token');
+  if (m.env?.HEAD_SHA !== '${{ github.event.pull_request.head.sha }}') out.push('money step does not pin the event head sha (F9)');
   if (m['continue-on-error']) out.push('money step hides a crash');
   if (!/steps\.money\.outputs\.money == 'false'/.test(String(steps[iEnable].if))) out.push('Enable does not require money == false');
   const dis = steps.find((s) => /^Disable auto-merge/.test(String(s.name || '')));
@@ -240,6 +275,11 @@ describe('dependabot-automerge.yml: the money step gates Enable (PART 2.3)', () 
     const en = wf.jobs.enable.steps.find((s: Step) => /^Enable auto-merge/.test(String(s.name || '')));
     en.if = String(en.if).replace(/ && steps\.money\.outputs\.money == 'false'/, '');
     expect(dependabotProblems(stringify(wf))).toContain('Enable does not require money == false');
+  });
+  it('MUTANT: a money step without HEAD_SHA fails the structure test (F9)', () => {
+    const wf = parse(raw);
+    delete wf.jobs.enable.steps.find((s: Step) => s.id === 'money').env.HEAD_SHA;
+    expect(dependabotProblems(stringify(wf))).toContain('money step does not pin the event head sha (F9)');
   });
 });
 

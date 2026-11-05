@@ -221,6 +221,32 @@ describe('write-drill-record (helper for later drill workflows; fake fetch, neve
     expect(Object.keys(r).sort()).toEqual(['actors', 'component', 'component_sha', 'date', 'drill', 'head_sha', 'pass', 'run_id', 'run_url']);
     expect(() => buildRecord({ ...r, drill: '' } as Any)).toThrow();
   });
+  // F14 (review-1370-r1): every field check is load-bearing (WD02, WD03).
+  const GOOD = { drill: 'A17', component: 'merge-lane', componentSha: SHA_ML, pass: true, actors: ['github-actions[bot]'], runUrl: 'https://github.com/o/r/actions/runs/1', runId: 1, headSha: HEAD, date: '2026-11-04' };
+  it.each([
+    ['pass is the STRING true', { pass: 'true' }],
+    ['pass is 1', { pass: 1 }],
+    ['pass is missing', { pass: undefined }],
+    ['component_sha is 40 hex (a commit sha, not a component sha)', { componentSha: 'a'.repeat(40) }],
+    ['component_sha is 65 hex', { componentSha: 'a'.repeat(65) }],
+    ['component_sha is upper-case hex', { componentSha: 'A'.repeat(64) }],
+    ['head_sha is 64 hex', { headSha: 'a'.repeat(64) }],
+    ['run_id is 0', { runId: 0 }],
+    ['run_url is http', { runUrl: 'http://github.com/o/r/actions/runs/1' }],
+    ['date is not YYYY-MM-DD', { date: '4 Nov 2026' }],
+  ])('buildRecord refuses: %s', (_n, bad) => {
+    expect(() => buildRecord(GOOD)).not.toThrow();
+    expect(() => buildRecord({ ...GOOD, ...bad } as Any)).toThrow();
+  });
+  it('a PULL REQUEST titled DRILL RECORDS is not the issue (WD04)', async () => {
+    const posts: string[] = [];
+    const f = async (u: string, init: Any) => {
+      if (init && init.method === 'POST') { posts.push(u); return new Response('{"id":1}', { status: 201 }); }
+      return new Response(JSON.stringify([{ number: 1, title: DRILL_ISSUE_TITLE, pull_request: { url: 'x' } }, { number: 2, title: DRILL_ISSUE_TITLE, labels: [] }]), { status: 200 });
+    };
+    expect((await postDrillRecord({ repo: 'o/r', token: 't', fetch: f, record: record() })).posted).toBe(true);
+    expect(posts).toEqual(['https://api.github.com/repos/o/r/issues/2/comments']);
+  });
   it('posts ONE comment with the JSON body on the issue titled DRILL RECORDS', async () => {
     const calls: Any[] = [];
     const f = async (u: string, init: Any) => {

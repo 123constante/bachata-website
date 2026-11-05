@@ -15,8 +15,10 @@
 // <path>`; a read failure is guard=true. Only guard=false lets the workflow enable auto-merge.
 //
 // Exit: 0 a verdict was written (money true OR false: a hit is not a red run, it is a NO);
-//       2 configuration missing (GH_TOKEN / REPO / PR_NUMBER), money=true still written.
-// Env: GH_TOKEN, REPO (owner/name), PR_NUMBER, GITHUB_OUTPUT. Prints logins/paths only, never a token.
+//       2 configuration missing (GH_TOKEN / REPO / PR_NUMBER / HEAD_SHA), money=true still written.
+// Env: GH_TOKEN, REPO (owner/name), PR_NUMBER, HEAD_SHA (the event's pull_request.head.sha: the PR
+// must still be at it when read, else money=true, review-1370-r1 F9), GITHUB_OUTPUT. Prints
+// logins/paths only, never a token.
 import { appendFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +37,8 @@ async function readPrFiles(env, fetchImpl) {
     return res.json();
   };
   const pr = await get(`/repos/${env.REPO}/pulls/${env.PR_NUMBER}`);
+  const now = pr && pr.head && typeof pr.head.sha === 'string' ? pr.head.sha : '';
+  if (now !== env.HEAD_SHA) throw new Error(`PR head moved: event ${env.HEAD_SHA.slice(0, 12)}, now ${now.slice(0, 12) || '(none)'}`);
   const files = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const batch = await get(`/repos/${env.REPO}/pulls/${env.PR_NUMBER}/files?per_page=100&page=${page}`);
@@ -44,6 +48,11 @@ async function readPrFiles(env, fetchImpl) {
   }
   if (!Number.isInteger(pr.changed_files) || pr.changed_files !== files.length) throw new Error(`file list incomplete (${files.length} read, PR says ${pr.changed_files})`);
   return files;
+}
+
+/** The money output line: only an explicit `false` verdict is money=false (fail closed). */
+export function moneyOutput(v) {
+  return `money=${v && v.money === false ? 'false' : 'true'}`;
 }
 
 export async function main(env = process.env, deps = {}) {
@@ -56,7 +65,7 @@ export async function main(env = process.env, deps = {}) {
   } = deps;
   const emit = (v) => {
     const reason = String(v.reason || '').replace(/[\r\n]+/g, ' ');
-    writeOutput(`money=${v.money === false ? 'false' : 'true'}`);
+    writeOutput(moneyOutput(v));
     writeOutput(`money_reason=${reason}`);
     if (v.guard) {
       writeOutput(`guard=${v.guard.length ? 'true' : 'false'}`);
@@ -65,8 +74,8 @@ export async function main(env = process.env, deps = {}) {
     }
     (v.money === false ? out : err)(v.money === false ? 'money set: no hit (auto-merge may be enabled)' : `${reason} (auto-merge NOT enabled)`);
   };
-  if (!env.GH_TOKEN || !/^[\w.-]+\/[\w.-]+$/.test(String(env.REPO || '')) || !/^\d+$/.test(String(env.PR_NUMBER || ''))) {
-    emit({ money: true, reason: 'money set: unreadable (GH_TOKEN, REPO and a numeric PR_NUMBER are required)', guard: ['guard-path refused: (file list not read)'] });
+  if (!env.GH_TOKEN || !/^[\w.-]+\/[\w.-]+$/.test(String(env.REPO || '')) || !/^\d+$/.test(String(env.PR_NUMBER || '')) || !/^[0-9a-f]{40}$/.test(String(env.HEAD_SHA || ''))) {
+    emit({ money: true, reason: 'money set: unreadable (GH_TOKEN, REPO, a numeric PR_NUMBER and a 40-hex HEAD_SHA are required)', guard: ['guard-path refused: (file list not read)'] });
     return 2;
   }
   let set = null;

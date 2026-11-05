@@ -14,7 +14,9 @@
 //
 // THE NAME RULE: a name matches as a whole identifier: the characters either side must not be
 // [A-Za-z0-9_] (so `ticket_orders_x` and `xticket_orders` are NOT hits; `-`, `.`, `(` are
-// boundaries). Case-sensitive. `*` inside a name stands for [A-Za-z0-9_]*. A `keys` entry may be
+// boundaries). Case-sensitive in paths and changed lines; case-INsensitive in `statements` (Postgres
+// folds unquoted identifiers, so `ALTER TABLE Ticket_Orders` is the same table; review-1370-r1 F3).
+// `*` inside a name stands for [A-Za-z0-9_]*. A `keys` entry may be
 // {regex, why}: the regex must be anchored (^...$) and is tested against every identifier token.
 // Path globs are case-insensitive: `**` any depth, `*` within one segment.
 //
@@ -67,27 +69,28 @@ export function globRe(glob) {
 }
 
 /** A name -> a global whole-identifier RegExp (`*` = [A-Za-z0-9_]*). */
-export function nameRe(name) {
-  return new RegExp(`(?<![${ID}])${name.split('*').map(esc).join(`[${ID}]*`)}(?![${ID}])`, 'g');
+export function nameRe(name, flags = 'g') {
+  return new RegExp(`(?<![${ID}])${name.split('*').map(esc).join(`[${ID}]*`)}(?![${ID}])`, flags);
 }
 
 function compile(set) {
   const s = validateMoneySet(set);
   const names = [];
+  const namesI = [];
   const regexes = [];
   for (const k of LISTS.filter((x) => x !== 'paths')) {
     for (const e of s[k]) {
-      if (typeof e === 'string') names.push(nameRe(e));
+      if (typeof e === 'string') { names.push(nameRe(e)); namesI.push(nameRe(e, 'gi')); }
       else regexes.push(new RegExp(e.regex));
     }
   }
-  return { paths: s.paths.map((g) => [g, globRe(g)]), names, regexes };
+  return { paths: s.paths.map((g) => [g, globRe(g)]), names, namesI, regexes };
 }
 
 /** Every hit in one text, in order of position: the matched text. */
-function hitsIn(text, c) {
+function hitsIn(text, c, caseless = false) {
   const found = [];
-  for (const re of c.names) {
+  for (const re of caseless ? c.namesI : c.names) {
     re.lastIndex = 0;
     for (let m = re.exec(text); m; m = re.exec(text)) found.push([m.index, m[0]]);
   }
@@ -107,7 +110,14 @@ function changedLines(f, p) {
     if (f.changes === 0) return { lines: [] }; // binary or rename-only: nothing to read
     return { why: `no patch for ${p}` };
   }
-  const lines = f.patch.split(/\r?\n/).filter((l) => (l.startsWith('+') || l.startsWith('-'))).map((l) => l.slice(1));
+  // GitHub's `patch` starts at the first `@@`. A FULL unified diff (a caller passing `git diff`
+  // output) has `--- a/x` / `+++ b/x` headers BEFORE the first `@@`: those are not changed lines
+  // (review-1370-r1 F6). Inside a hunk a removed `---` line (`----`) IS a change, so only the
+  // pre-hunk headers are skipped; a short count then fails closed as truncated.
+  const all = f.patch.split(/\r?\n/);
+  const firstHunk = all.findIndex((l) => l.startsWith('@@'));
+  const isHeader = (l, i) => (firstHunk < 0 || i < firstHunk) && (l.startsWith('+++ ') || l.startsWith('--- '));
+  const lines = all.filter((l, i) => (l.startsWith('+') || l.startsWith('-')) && !isHeader(l, i)).map((l) => l.slice(1));
   if (Number.isInteger(f.changes) && lines.length < f.changes) return { why: `truncated patch for ${p}: ${lines.length} of ${f.changes} changed lines` };
   return { lines };
 }
@@ -134,7 +144,7 @@ export function isMoney({ files, statements, set } = {}) {
     if (r.why) { broken = broken || r.why; continue; }
     for (const l of r.lines) for (const n of hitsIn(l, c)) hit(n);
   }
-  for (const s of statements || []) for (const n of hitsIn(s, c)) hit(n);
+  for (const s of statements || []) for (const n of hitsIn(s, c, true)) hit(n);
   if (broken && !reason) return unreadable(broken);
   if (broken) return { money: true, names, reason };
   return { money: names.length > 0, names, reason };

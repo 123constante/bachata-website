@@ -394,3 +394,53 @@ No behaviour code was changed in Part 7.
 - Checked, no bug: arming output names / `'true'` comparisons / step `if:`s match main with the shipped `arming.json`; fail-closed in isMoney, required-jobs, arming, guard paths; pagination + head-sha pinning; no PR text in `run:`; every `node scripts/...` invocation in workflows exists.
 - OPEN for the owner: (1) identity check likely red on first run (author/merge both inferred `kiki-claude-bot` vs the separate-roles rule; the contract contradicts itself); (2) whole-word `tickets` in the money set refuses any docs/tests bot PR whose diff says "tickets" (by design under 8.3 case 2, but it is a new refusal on docs PRs; drop the entry if unwanted); (3) pre-existing on main: the lane classifies a renamed file by its new name only (`src/x.ts` -> `docs/x.md` = docs); guard/money checks now catch some but not all of these.
 - Final suite after the fix: `npx vitest run tests/automation tests/autopilot tests/automergeClassify` 1143/1143; `npm run lint` 34/34 links.
+
+## Fix round fix-1370-r1 (review-1370-r1 findings; brief/fix-1370-r1)
+
+Review: `docs/review/review-1370-r1.md` on `claude/review-1370-r1` (verdict PASS-with-fixes at `3194f6d`).
+Every finding in scope got a test first; behaviour fixes were RED on the unfixed code (19 tests in 3
+files), test-gap findings were proven by re-running the review's surviving mutants.
+
+| Finding | What changed | Test |
+|---|---|---|
+| F1 | none (test gap) | `tests/automationMoney.test.ts` row: `file('docs/a.md', [], ['call my_tickets_v1'])` (live patch shape, removed lines only) -> `money set: my_tickets_v1` |
+| F3 | `is-money.mjs`: names are case-INsensitive for `statements` only (Postgres folds unquoted identifiers); paths and lines stay case-sensitive | rows: `ALTER TABLE Ticket_Orders` hit, `TICKET_PROMO_X` hit, `Ticket_Orders_x` not; `TICKET_ORDERS` line and `docs/TICKET_ORDERS.md` path still NOT hits |
+| F4 | `money-set.json`: `src/**/*ticket*/**`, `**/*stripe*/**`, `**/*payout*/**`, `**/*refund*/**` | one row each (`src/Stripe/Client.ts`, `lib/payouts/run.ts`, `app/refunds/run.ts`, `src/modules/ticketing/List.tsx`) |
+| F5 | none (test gap) | row: `src/modules/organiser/p3/door/scan/Camera.tsx` -> `money set: src/modules/organiser/p3/door/**` |
+| F6 | `is-money.mjs`: `--- `/`+++ ` lines BEFORE the first `@@` are headers, not changed lines; a removed `---` rule inside a hunk still counts | full unified diff row (fails closed as truncated, 1 of 3) + in-hunk `----` row |
+| F7 | `guard-paths.json` + `scripts/lib/entry-point.mjs` | `tests/automationGuardPaths.test.ts` YES list |
+| F9 | `automation-money-check.mjs` requires `HEAD_SHA` (40 hex; else exit 2, money=true, no API call) and refuses `money set: unreadable (PR head moved: event <12>, now <12>)`; `dependabot-automerge.yml` money step passes `HEAD_SHA: ${{ github.event.pull_request.head.sha }}` (env only, never in `run:`) | `tests/automationMoneyCli.test.ts` (moved head, same head, missing / bad HEAD_SHA) + workflow structure rule and its mutant in `tests/automationMoney.test.ts` |
+| F13 | `automation-money-check.mjs` exports `moneyOutput(v)` (the one money-line builder `emit` uses) | `tests/automationMoneyCli.test.ts`: 100 then 50 with `changed_files: 150` (both pages asked, money=false), a hit on page 2, 100 then HTTP 502, 151 said / 150 read -> `money set: unreadable (file list incomplete (150 read, PR says 151))`, `moneyOutput` table |
+| F14 | none (test gap) | `tests/automationDrillRecords.test.ts`: table of 10 bad `buildRecord` inputs; a PR titled `DRILL RECORDS` is skipped and the real issue (#2) gets the post |
+| F15 | none (test gap) | `paths` and `keys` of the live `money-set.json` pinned with `toEqual` |
+| F2, F8 | docs only: `docs/automation-foundations.md` (Money set base rate; Arming: the pause label disarms an already-armed PR, `arming.json` does not) | n/a |
+| F10, F11, F12 | skipped (informational, per brief) | n/a |
+
+**F2, `tickets` base rate (owner's call, NOT narrowed).** Reviewer: 17 of the last 50 merges are money,
+`tickets` the first or only hit in 15; 4 of 8 docs-only merges refused. My re-run (2026-11-05, the
+then-latest 50 first-parent merges on main, pull-file objects rebuilt from `git show -M`): 18 money, 3 of
+7 docs-only refused, and this round's set changes NO verdict or reason against the PR-head set. Narrowing
+`tickets` (e.g. `public.tickets`, `from('tickets')`) is the owner's later guard change.
+
+**F8.** The pause label on the pinned `AUTOMATION PAUSE SWITCH` issue is the disarming control for an
+already-armed PR; turning a gate off in `arming.json` skips the Disable steps too.
+
+**F7, owner judgement (NOT done).** `scripts/run-lint-chain.mjs`, `scripts/pre-ship.mjs` and the
+`package.json` script entries are still not guard paths; a bot PR could remove a chain link. Left for
+the owner, per brief.
+
+### Mutants re-run (one at a time, restored after; suite `npx vitest run tests/automation tests/autopilot tests/automergeClassify tests/realDataVerified`)
+
+| id | mutant | result | killed by |
+|---|---|---|---|
+| IM09 | removed lines not scanned in a patch | KILLED | `a REMOVED line in a GitHub patch (live shape)` |
+| IM15 | bare `**` matches one segment | KILLED | `a two-level path under a ** glob` |
+| MS02 | drop `**/*stripe*` | KILLED | `the live paths and keys lists are pinned` |
+| MS09 | drop `BOOKING_FEE_PENCE` | KILLED | same |
+| MC01 | `changed_files` count check dropped | KILLED | `a count that disagrees with changed_files` |
+| MC02 | money line from a truthy test | KILLED | `moneyOutput` table (undefined / null) |
+| MC05 | stop after page 1 | KILLED | `150 files over two pages` |
+| WD02 | `pass` may be non-boolean | KILLED | `buildRecord refuses: pass is the STRING true` |
+| WD03 | `component_sha` any hex length | KILLED | `buildRecord refuses: component_sha is 40 hex` |
+| WD04 | pull requests count as the issue | KILLED | `a PULL REQUEST titled DRILL RECORDS is not the issue` |
+| new F3 / F6 / F9 / F7 | each fix reverted alone | KILLED (each) | the rows above |

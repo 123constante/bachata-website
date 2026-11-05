@@ -92,6 +92,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          # F9 (review-1370-r1): the head the event was raised for; the CLI refuses when the PR's
+          # head has moved since (a 40-hex sha, never event text).
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/automation-money-check.mjs
 
       - name: Enable auto-merge (GitHub merges when required checks pass)

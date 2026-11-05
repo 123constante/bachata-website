@@ -136,15 +136,35 @@ premise mismatch is recorded for the orchestrator in the handover.
 `paths`, (b) every ADDED and REMOVED line of every changed file, including `.md`
 and `.json` (a docs path is NOT exempt), (c) `statements` the caller supplies
 (a migration's parsed statements; no migrations exist in this repo). Names match
-as whole identifiers. The first hit gives the reason `money set: <name>`.
+as whole identifiers: case-sensitive in paths and changed lines,
+case-INsensitive in `statements` (Postgres folds unquoted identifiers, so
+`ALTER TABLE Ticket_Orders` is the table `ticket_orders`). The first hit gives
+the reason `money set: <name>`. Path globs come in a file form (`**/*stripe*`)
+and a directory form (`**/*stripe*/**`), so `src/Stripe/Client.ts` is a hit.
 
 Fail closed: an unreadable set, or a file whose `patch` is missing or truncated
-(GitHub omits it for big files), is `money set: unreadable (<why>)`.
+(GitHub omits it for big files), is `money set: unreadable (<why>)`. The patch
+reader expects GitHub's `patch` shape (starts at the first `@@`); the `--- a/`
+and `+++ b/` headers of a full unified diff, before the first `@@`, are not
+counted as changed lines.
+
+The Dependabot lane's CLI (`scripts/automation-money-check.mjs`) also gets the
+event's head sha (`HEAD_SHA`) and refuses (`money set: unreadable (PR head
+moved: ...)`) when the PR's head is no longer that sha when the files are read.
 
 Known over-match, kept on purpose: `tickets` is a table name in the set and a
 whole-word hit, so ANY changed line containing the word `tickets` (docs prose
 included) makes the PR money, and the owner merges it. A false "money" costs one
 owner merge; a false "not money" could ship a payments change.
+
+**Base rate (review-1370-r1 F2).** Over the last 50 squash merges on main
+(reviewer's run, 2026-11-05) the set calls 17 money; the bare word `tickets` is
+the first or only hit in 15 of them, and 4 of the 8 docs-only merges in that
+window would be refused. A re-run on 2026-11-05 over the then-latest 50 merges
+with this round's set: 18 money, 3 of 7 docs-only refused, and NO verdict
+changed by this round's additions. `tickets` stays exactly as the contract seeds
+it. Narrowing it (for example to `public.tickets` / `from('tickets')`) is the
+owner's later choice, as an owner-merged guard change.
 
 ---
 
@@ -161,6 +181,13 @@ With an arming key off, `bot-automerge` and the Dependabot lane still run their
 first steps (checkout of main, setup-node, the reader) and finish GREEN with a
 visible `::notice::`; every later step is skipped. Before this slice the job was
 skipped instead.
+
+**Turning a gate OFF does not disarm a PR already armed (review-1370-r1 F8).**
+With the gate off, the "Disable auto-merge" steps are skipped too, so a PR whose
+GitHub auto-merge was enabled while the gate was ON keeps it. The control that
+disarms an already-armed PR is the PAUSE LABEL on the pinned `AUTOMATION PAUSE
+SWITCH` issue, not `arming.json`. (Same as before this slice: with the old
+variable off the whole job was skipped.)
 
 ### How to read a drift alert
 

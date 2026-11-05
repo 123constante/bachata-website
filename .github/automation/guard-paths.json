@@ -23,6 +23,7 @@
     "scripts/check-drill-records.mjs",
     "scripts/write-drill-record.mjs",
     "scripts/lib/component-sha.mjs",
+    "scripts/lib/entry-point.mjs",
     "scripts/data/flaky-list.json",
     ".claude/**",
     ".githooks/**",

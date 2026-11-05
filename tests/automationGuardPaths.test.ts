@@ -46,6 +46,9 @@ describe('guard-paths.json + isGuardPath (PART 5.1): section 14.1 for THIS repo,
     'scripts/lib/automation-pause.mjs', 'scripts/automation-pause.mjs', 'scripts/lib/is-money.mjs', 'scripts/lib/required-jobs.mjs',
     'scripts/lib/arming.mjs', 'scripts/lib/guard-paths.mjs', 'scripts/data/automation-workflow-allowlist.json',
     'scripts/check-automation-workflow-allowlist.mjs', 'scripts/owner-approval-audit.mjs',
+    // F7 (review-1370-r1): every guard CLI dispatches through isEntryPoint(); a change there could
+    // make every check a silent no-op.
+    'scripts/lib/entry-point.mjs',
     '.claude/settings.json', '.claude/hooks/pre-write-block.sh', '.claude/rules/x.md', '.githooks/pre-push', 'CLAUDE.md',
     // imported from the lane, not forked: GOVERNANCE prose and agent-instruction paths at any depth
     'docs/automerge.md', 'docs/testing-doctrine.md', 'docs/ci-guard-notes.md', 'AGENTS.md', 'docs/CLAUDE.md', 'src/modules/event-page/CLAUDE.md',
@@ -95,11 +98,11 @@ async function dependabot(files: F[], cli = depCli) {
   const outputs: string[] = [];
   const fetchImpl = async (url: string) => {
     const u = new URL(url);
-    if (/\/pulls\/\d+$/.test(u.pathname)) return new Response(JSON.stringify({ changed_files: files.length }), { status: 200 });
+    if (/\/pulls\/\d+$/.test(u.pathname)) return new Response(JSON.stringify({ changed_files: files.length, head: { sha: 'c'.repeat(40) } }), { status: 200 });
     if (/\/pulls\/\d+\/files$/.test(u.pathname)) return new Response(JSON.stringify(Number(u.searchParams.get('page')) === 1 ? files : []), { status: 200 });
     return new Response('{}', { status: 404 });
   };
-  const code = await cli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5' }, { fetch: fetchImpl, writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
+  const code = await cli({ GH_TOKEN: 't', REPO: 'o/r', PR_NUMBER: '5', HEAD_SHA: 'c'.repeat(40) }, { fetch: fetchImpl, writeOutput: (l: string) => outputs.push(l), out: () => {}, err: () => {} });
   return { code, outputs };
 }
 const unapproved = [{ number: 5, headSha: H, reviews: [] }];
