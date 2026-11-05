@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isOnboardingRefusal } from '../../shared/selfServeErrors';
+import { goLiveRefusal, isGoLiveRefusal, useGoLiveCheck, type GoLiveCheck } from '../../shared/goLiveCheck';
 import type { OwnerCommand } from '../../shared/seriesCommands';
 import type { EventWorkspace, TodaySession } from '../../events/eventModel';
 import { L } from '../model';
@@ -28,6 +29,9 @@ export interface Done {
 export type Send = (commands: OwnerCommand[], version: number | null) => Promise<number | null>;
 
 type Step = 'list' | 'end' | 'stop' | 'remove' | 'cancel';
+
+/** A go-live refusal whose items did not come through: the row says the neutral sentence (goLiveReasonText). */
+const NAMED_NOTHING: GoLiveCheck = { ready: false, eventMissing: [], recommended: [], profileRuleApplies: false, profileMissing: [] };
 
 function Choice({ row, busy, onPick }: { row: StatusRow; busy: boolean; onPick: (m: StatusMove) => void }) {
   const off = row.reason !== null;
@@ -69,6 +73,12 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
   const keep = keepable(ws, today);
   const [kept, setKept] = useState<Set<string>>(() => new Set(keep.map((k) => k.id)));
   const version = ws.series.version;
+  // Put it live's reason is the server's (series_go_live_check_v1), asked once the sheet opens on a draft.
+  const draft = ws.series.lifecycle_status === 'draft' || ws.series.lifecycle_status === 'rejected';
+  const check = useGoLiveCheck(ws.series.id, draft);
+  /** A Go live the server refused: what it named (an empty check when it named nothing). */
+  const [refused, setRefused] = useState<GoLiveCheck | null>(null);
+  const goLive = refused ?? check.data ?? null;
 
   const run = async (command: OwnerCommand, done: Done) => {
     setBusy(true);
@@ -77,7 +87,14 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
       const v = await send([command], version);
       onDone({ ...done, version: v });
     } catch (e) {
-      setError(gated(e, commandErrorMessage));
+      if (isGoLiveRefusal(e) && !isOnboardingRefusal(e)) {
+        // Put it live stays off, its reason the items the refusal names (never the server's text),
+        // until the check, asked again, answers not ready: it then names what is left now. A failed
+        // re-ask, or a "ready" the gate just refused, leaves the refusal's items on the row.
+        setRefused(goLiveRefusal(e) ?? NAMED_NOTHING);
+        setError(STATUS_COPY.goLiveRefused);
+        void check.refetch().then((r) => { if (r && !r.isError && r.data && !r.data.ready) setRefused(null); }, () => undefined);
+      } else setError(gated(e, commandErrorMessage));
     } finally {
       setBusy(false);
     }
@@ -188,7 +205,7 @@ export function StatusSheet({ ws, today, status, send, sendOnce, onDone, onClose
     <Sheet title={`Status: ${status.label}`} onClose={onClose}>
       <p className="p3-note">{L.sheetHint}</p>
       <div className="p3-stack-s" aria-busy={busy}>
-        {statusRows(ws, today).map((r) => <Choice key={r.move} row={r} busy={busy} onPick={pick} />)}
+        {statusRows(ws, today, new Date(), goLive).map((r) => <Choice key={r.move} row={r} busy={busy} onPick={pick} />)}
       </div>
       {err}
     </Sheet>

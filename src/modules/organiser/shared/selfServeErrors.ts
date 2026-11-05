@@ -11,6 +11,7 @@
  */
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import { VERSION_CONFLICT } from './copy';
+import { GO_LIVE_NOT_READY } from './goLiveKeys';
 
 import { LAST_OWNER_NOTE, TEAM_CAP } from './teamModel';
 
@@ -242,7 +243,9 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /is not an owner transition|^lifecycle_transition_denied/, message: 'That status change is not available for this event right now.' },
   // P3 W2a, the Status sheet: series.end_run and series.stop_repeating refusals (_cmd_series_end_run_p5,
   // _cmd_series_stop_repeating_p5 as read on prod 2026-10-26). Anchored: the server text names ids and formats.
-  { match: /^permission_denied: series\.set_lifecycle \S+ -> live needs a ready series/, message: 'It is not ready to go live yet: it needs a cover photo, a date coming up and its details. Add them in the current organiser area, then put it live.' },
+  // The refusal names its items in JSON (goLiveRefusal -> goLiveReasonText on the Status sheet); this is
+  // the sentence when only the code is known. It names no item: the old one blamed the cover for a profile gap.
+  { match: /^permission_denied: series\.set_lifecycle \S+ -> live needs a ready series/, message: GO_LIVE_NOT_READY },
   { match: /^invalid_payload: today_session_required/, message: 'This event has a date today. Say whether tonight happened, then end it.' },
   { match: /^invalid_transition: series \S+ has no night this platform can evidence/, message: 'We have no record of a night this event ran, so it cannot be ended. Remove it instead, or ask the Bachata Calendar team.' },
   { match: /^invalid_transition: course \S+ is (live|paused)\. A course must keep a schedule/, message: 'A course keeps its dates while it runs. End it when the last class is done.' },
