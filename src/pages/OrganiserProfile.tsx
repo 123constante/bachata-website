@@ -837,6 +837,7 @@ const OrganiserProfile = () => {
     ];
     return organiserStats({ now: new Date(), nights, foundedYear: entityFoundedYear, ticketsSold: null, dancersCame: null });
     // todayKey: a long-lived tab re-derives "Next night" when London rolls over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- todayKey is the clock tick, read via new Date()
   }, [statsFeedsSettled, statsFeedFailed, upcomingEvents, pastEvents, entityFoundedYear, todayKey]);
 
   // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
