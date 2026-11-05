@@ -24,8 +24,10 @@
 // `autopilot-pack head=`) and, when hard-tier and not approved at head, ONE NEW owner-ping comment
 // per head (a new comment, so GitHub notifies the owner). Both are authored by github-actions[bot].
 // The CI cap counts only kiki-claude-bot's run-ci adds; anyone else's are reported, not counted.
-// r4 MERGE LANE (docs/handover/autopilot-loop-r4.md): OFF unless the repo variable
-// AUTOPILOT_MERGE_MODE is `docs-canary` or `soft`. For a PR still `ready` after the pack, the
+// r4 MERGE LANE (docs/handover/autopilot-loop-r4.md): OFF unless autopilot_merge_mode in
+// .github/automation/arming.json (the file on main; slice 2 drill A30, scripts/lib/arming.mjs) is
+// `docs-canary` or `soft`. The old repo variable AUTOPILOT_MERGE_MODE is DRIFT input only (env
+// ARMING_VAR_AUTOPILOT_MERGE_MODE): it is logged when it disagrees, and never decides. For a PR still `ready` after the pack, the
 // extra facts (comments, main's state after the last loop merge) are read and
 // scripts/lib/autopilot-merge.mjs mergeVerdict() decides; the ONE merge call site (mergePr) is a
 // pinned-sha squash with AUTOMERGE_TOKEN, never GITHUB_TOKEN. A refused merge (409 head moved,
@@ -36,14 +38,15 @@ import { join } from 'node:path';
 import {
   decide, deriveFacts, labelPlan, jobIds, renderSummary, parseState, nextState, renderStatus,
   listFacts, listGate, markerGate, classifyHead, countCiProofs24h, ledgerCount, pruneLedger, newestFirst, findStatusComment, staleLabels,
-  WRITE_ACTIONS, STATE_LABELS, mergeMode, BOT_LOGIN, STATUS_TITLE, STATUS_AUTHOR, CI_CAP, RUN_CALL_BUDGET, HOUR_CALL_BUDGET,
+  WRITE_ACTIONS, STATE_LABELS, BOT_LOGIN, STATUS_TITLE, STATUS_AUTHOR, CI_CAP, RUN_CALL_BUDGET, HOUR_CALL_BUDGET,
 } from './lib/autopilot.mjs';
 import { buildPack, findPackComment, packHead, pingedAtHead, needsOwnerApprove, renderOwnerPing } from './lib/autopilot-pack.mjs';
-import { mergeVerdict, mergeCallBody, merges24h, pruneMerges } from './lib/autopilot-merge.mjs';
+import { mergeVerdict, mergeCallBody, merges24h, pruneMerges, parseMergeMode } from './lib/autopilot-merge.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
 import { readPause, PausedError } from './lib/automation-pause.mjs';
 import { parseRequiredJobs, checkRequiredJobs, REQUIRED_JOBS_PATH } from './lib/required-jobs.mjs';
 import { isMoney, parseMoneySet, MONEY_SET_PATH } from './lib/is-money.mjs';
+import { effectiveArming, varsFromEnv, ARMING_PATH } from './lib/arming.mjs';
 
 const API = 'https://api.github.com';
 const LABEL_COLORS = { [STATE_LABELS.waiting]: 'fbca04', [STATE_LABELS.ready]: '0e8a16', [STATE_LABELS.stopped]: 'd93f0b', [STATE_LABELS.running]: 'c5def5' };
@@ -267,6 +270,8 @@ async function mergePr(mergeApi, repo, f, pauseCheck, requiredCheck) {
  *     judged against required-jobs.json; any read or parse failure is a refusal (fail closed).
  *   money(f): isMoney() over the PR's pull-file objects (with patches, read by gather() at the head)
  *     and money-set.json; an unreadable set or patch is money (fail closed).
+ *   arming(env): effectiveArming() over arming.json (the FILE decides) with the old variables from
+ *     env ARMING_VAR_<NAME> as drift input only; an unreadable file reads off (fail closed).
  * run(opts.foundations) may replace a reader in tests only (the ONE shared helper in
  * tests/autopilotTable.ts); the new tests drive these defaults.
  */
@@ -276,6 +281,8 @@ export function defaultFoundations({ root = process.cwd(), readFile = (p) => rea
   try { required = parseRequiredJobs(readFile(join(root, REQUIRED_JOBS_PATH))); } catch (e) { requiredWhy = e.message; }
   let moneySet = null;
   try { moneySet = parseMoneySet(readFile(join(root, MONEY_SET_PATH))); } catch { moneySet = null; } // null = isMoney fails closed
+  let armingText = null;
+  try { armingText = readFile(join(root, ARMING_PATH)); } catch { armingText = null; } // null = readArming: every key off, plus a drift line
   const refuse = (why) => ({ ok: false, missing: [], notGreen: [], reason: why, reasons: [why] });
   return {
     requiredJobs: async (api, repo, sha) => {
@@ -286,6 +293,7 @@ export function defaultFoundations({ root = process.cwd(), readFile = (p) => rea
       return checkRequiredJobs({ required, checkRuns, headSha: sha });
     },
     money: (f) => isMoney({ files: f && f.fileEntries, set: moneySet }),
+    arming: (env) => effectiveArming({ file: armingText, vars: varsFromEnv(env) }),
   };
 }
 
@@ -344,7 +352,10 @@ export async function run(env = process.env, opts = {}) {
   const gh = guarded(makeApi(env.GH_TOKEN || '', counter, opts.fetch));
   const bot = env.BOT_TOKEN ? guarded(makeApi(env.BOT_TOKEN, counter, opts.fetch)) : null;
   // r4: the merge lane's own credential; absent = the lane cannot merge (mergeVerdict says so).
-  const mode = mergeMode(env);
+  // ARMING (slice 2, drill A30): the merge mode is arming.json's value; a variable only drifts.
+  const arming = foundations.arming(env);
+  for (const d of arming.drift) log(`::notice::${d}`);
+  const mode = parseMergeMode(arming.values.autopilot_merge_mode);
   const mergeApi = env.AUTOMERGE_TOKEN ? makeApi(env.AUTOMERGE_TOKEN, counter, opts.fetch) : null;
   let mergesRun = 0;
   const mergeLines = [];
@@ -478,7 +489,7 @@ export async function run(env = process.env, opts = {}) {
             const comments = left() > END_RESERVE + 2 ? await gh.all(`/repos/${repo}/issues/${f.number}/comments`, null, 3) : null;
             const requiredJobs = left() > END_RESERVE + 2 ? await foundations.requiredJobs(gh, repo, f.head) : null;
             const v = mergeVerdict({
-              mode: env.AUTOPILOT_MERGE_MODE, dryRun, tokenOk: !!mergeApi, budgetOk: left() > END_RESERVE + 2,
+              mode, dryRun, tokenOk: !!mergeApi, budgetOk: left() > END_RESERVE + 2,
               decision: d.action, workerDone: f.workerDone,
               pr: { state: f.state, draft: f.draft, fork: f.fork, base: f.base, author: f.botAuthored ? BOT_LOGIN : null, ref: f.ref, ageDays: f.ageDays, head: f.head, changedFiles: f.changedFiles },
               files: f.files, labels: f.labels, labelEvents: f.labelEvents, pushAnchorMs: f.pushAnchorMs, comments, body: f.body,
@@ -534,6 +545,7 @@ export async function run(env = process.env, opts = {}) {
   }
   const md = renderSummary(rows, { dryRun, errors }) + (foreign.length ? `\n${foreign.map((x) => `- ${x}`).join('\n')}\n` : '')
     + `\nMerge lane: mode ${mode}${mergeLines.length ? `\n${mergeLines.join('\n')}` : ' (no merge this run)'}\n`
+    + (arming.drift.length ? `\nArming drift (arming.json decided; nothing changed):\n${arming.drift.map((d) => `- ${d}`).join('\n')}\n` : '')
     + (pausedRepos.length ? `\nAutomation pause switch: PAUSED (${pausedRepos.join('; ')}). Nothing was written or merged after the switch was seen (docs/automation-pause.md).\n` : '\nAutomation pause switch: running\n');
   log(md);
   log(`requests: ${counter.calls} (budget ${budget} this run; ${hourUsed} earlier this hour)`);

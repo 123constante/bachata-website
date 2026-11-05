@@ -1,9 +1,14 @@
 name: Autopilot
 
 # r5 WEBSITE PORT (docs/handover/autopilot-loop-r5.md, brief docs/briefs/autopilot-loop-r5.md):
-# SHIPS OFF. A scheduled run is a DRY RUN (reads and decides, writes nothing) unless the owner sets
-# the repo variable AUTOPILOT_LIVE to exactly `true`; the merge lane is also off unless
-# AUTOPILOT_MERGE_MODE is set. This workflow writes no variable, secret or label setting itself.
+# SHIPS OFF. A scheduled run is a DRY RUN (reads and decides, writes nothing) unless
+# .github/automation/arming.json on main says autopilot_live: true; the merge lane is also off
+# unless its autopilot_merge_mode is set. This workflow writes no variable, secret or label setting.
+# ARMING (slice 2, drill A30; docs/automation-foundations.md): job `arming` reads that FILE from a
+# main checkout and every later decision uses its outputs. The old repo variables (AUTOPILOT_LIVE,
+# AUTOPILOT_MERGE_MODE, AUTOMERGE_ENABLED, BOT_AUTOMERGE_ENABLED) are DRIFT input only
+# (env ARMING_VAR_*): one that disagrees with the file is logged and posted ONCE as a notice on
+# the pinned AUTOMATION PAUSE SWITCH issue, and changes nothing.
 # Vercel build budget: run-ci is never added to a docs-only or `[skip preview]` head, and
 # update-branch only runs on a branch whose vercel.json git.deploymentEnabled is false. The
 # Website lane can only ever consider docs-only PRs (screens, src/, scripts/, .github/,
@@ -37,7 +42,7 @@ name: Autopilot
 # pull-requests: write already cover PR comments; the compare read needs contents: read only.
 #
 # r4 MERGE LANE (docs/handover/autopilot-loop-r4.md, docs/automerge.md "Autopilot merge lane"):
-# OFF unless the repo variable AUTOPILOT_MERGE_MODE is exactly `docs-canary` or `soft`. When on,
+# OFF unless arming.json's autopilot_merge_mode is exactly `docs-canary` or `soft`. When on,
 # a `ready`, no-screen, non-hard-tier kiki-claude-bot PR that passes every condition of
 # scripts/lib/autopilot-merge.mjs mergeVerdict() is squash-merged pinned to its head sha with
 # secrets.AUTOMERGE_TOKEN (never GITHUB_TOKEN: its merge fires no push workflows on main). Caps: 3
@@ -70,7 +75,37 @@ permissions:
   contents: read
 
 jobs:
+  # ARMING (A30): the file on main decides. issues: write is only for the one drift notice per
+  # distinct drift (slice 1 postPauseNotice); the autopilot job below already holds it.
+  arming:
+    if: ${{ !github.event.repository.fork }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      autopilot_live: ${{ steps.arming.outputs.autopilot_live }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Read arming.json (the file on main decides; the variables are drift input only)
+        id: arming
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARMING_VAR_AUTOPILOT_LIVE: ${{ vars.AUTOPILOT_LIVE }}
+          ARMING_VAR_AUTOPILOT_MERGE_MODE: ${{ vars.AUTOPILOT_MERGE_MODE }}
+          ARMING_VAR_AUTOMERGE_ENABLED: ${{ vars.AUTOMERGE_ENABLED }}
+          ARMING_VAR_BOT_AUTOMERGE_ENABLED: ${{ vars.BOT_AUTOMERGE_ENABLED }}
+        run: node scripts/automation-arming.mjs --post-notices
+
   autopilot:
+    needs: [arming]
     if: ${{ !github.event.repository.fork }}
     # Website: GitHub-hosted, like every other Website workflow.
     runs-on: ubuntu-latest
@@ -96,19 +131,20 @@ jobs:
           # The SAME bot credential migration-queue.yml uses: its label/update events fire CI.
           BOT_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
           REPOS: ${{ github.event.inputs.repos || github.repository }}
-          # r4 merge lane: the owner-set switch (unset/other = off) and the merge credential.
-          AUTOPILOT_MERGE_MODE: ${{ vars.AUTOPILOT_MERGE_MODE }}
+          # r4 merge lane: the merge credential. Its switch is autopilot_merge_mode in arming.json,
+          # read by the script from this main checkout; the old variable is drift input only (A30).
+          ARMING_VAR_AUTOPILOT_MERGE_MODE: ${{ vars.AUTOPILOT_MERGE_MODE }}
           AUTOMERGE_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
-          # Fail safe (N1) + r5 ships OFF: a schedule is live only when the owner-set variable
-          # AUTOPILOT_LIVE is exactly 'true'; a dispatch only when dry_run is exactly false.
-          # Anything else (unset variable, empty or odd input) is a dry run.
-          DRY_RUN: ${{ (github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}
+          # Fail safe (N1) + r5 ships OFF: a schedule is live only when arming.json says
+          # autopilot_live: true (job `arming`); a dispatch only when dry_run is exactly false.
+          # Anything else (file off or unreadable, empty or odd input) is a dry run.
+          DRY_RUN: ${{ (github.event_name == 'schedule' && needs.arming.outputs.autopilot_live == 'true') && 'false' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' && 'false' || 'true') }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node scripts/autopilot-step.mjs
 
   announce-failure:
-    needs: [autopilot]
-    if: failure() && github.event_name == 'schedule' && vars.AUTOPILOT_LIVE == 'true'
+    needs: [arming, autopilot]
+    if: failure() && github.event_name == 'schedule' && needs.arming.outputs.autopilot_live == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

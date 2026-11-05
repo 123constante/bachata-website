@@ -6,9 +6,12 @@ name: Dependabot auto-merge
 # does the merge, not this workflow: it only flips the switch.
 #
 # SAFETY, read before editing:
-#  - OFF unless the repo variable AUTOMERGE_ENABLED is exactly 'true'. Auto-merge merges
-#    IMMEDIATELY when `main` has no required checks, so the owner sets that variable only
-#    AFTER the branch rule requiring the stable checks exists. Never flip the default.
+#  - OFF unless automerge_enabled is true in .github/automation/arming.json ON MAIN (slice 2,
+#    drill A30; docs/automation-foundations.md): the first step after the checkout reads the file
+#    and gates EVERY later step; off = a visible notice and a green run. The old repo variable
+#    AUTOMERGE_ENABLED is drift input only (env ARMING_VAR_AUTOMERGE_ENABLED). Auto-merge merges
+#    IMMEDIATELY when `main` has no required checks, so the owner arms it only AFTER the branch
+#    rule requiring the stable checks exists. Never flip the default.
 #  - Majors, production dependencies, indirect dependencies and GitHub Actions bumps are
 #    never auto-merged. Anything touching .github/ is HARD tier for owner-approval.yml
 #    (an unapproved landing there goes red + opens an issue), so CI-config PRs stay manual.
@@ -29,7 +32,7 @@ concurrency:
 
 jobs:
   enable:
-    if: github.actor == 'dependabot[bot]' && vars.AUTOMERGE_ENABLED == 'true'
+    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -43,10 +46,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+      # ARMING (A30): arming.json from this MAIN checkout decides; every later step is gated on it.
+      - name: Read arming.json (automerge_enabled)
+        id: arming
+        env:
+          ARMING_VAR_AUTOMERGE_ENABLED: ${{ vars.AUTOMERGE_ENABLED }}
+        run: node scripts/automation-arming.mjs --gate automerge_enabled
       # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused. continue-on-error so a pause is
       # not a red run; fail closed: only paused == 'false' (positively read) lets a merge step run.
       - name: Read the automation pause switch
         id: pause
+        if: steps.arming.outputs.enabled == 'true'
         # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' enables (fail closed)
         continue-on-error: true
         env:
@@ -54,12 +64,14 @@ jobs:
         run: node scripts/automation-pause.mjs
 
       - id: meta
+        if: steps.arming.outputs.enabled == 'true'
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Decide whether this PR qualifies
         id: decide
+        if: steps.arming.outputs.enabled == 'true'
         env:
           DEPS: ${{ steps.meta.outputs.updated-dependencies-json }}
         run: |
@@ -73,7 +85,7 @@ jobs:
       # is a NO, not a red run (exit 0); a crash leaves no output, so Enable stays off.
       - name: Money-set check (isMoney over the PR's changed paths and lines)
         id: money
-        if: steps.decide.outputs.qualifies == 'true'
+        if: steps.arming.outputs.enabled == 'true' && steps.decide.outputs.qualifies == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -81,7 +93,7 @@ jobs:
         run: node scripts/automation-money-check.mjs
 
       - name: Enable auto-merge (GitHub merges when required checks pass)
-        if: steps.decide.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.money.outputs.money == 'false'
+        if: steps.arming.outputs.enabled == 'true' && steps.decide.outputs.qualifies == 'true' && steps.pause.outputs.paused == 'false' && steps.money.outputs.money == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -91,7 +103,7 @@ jobs:
       # otherwise qualifies: an already-armed auto-merge would still merge later by itself, so
       # disarm it. Disabling only removes merge power.
       - name: Disable auto-merge while the automation is paused or on a money-set hit
-        if: always() && (steps.pause.outputs.paused != 'false' || (steps.decide.outputs.qualifies == 'true' && steps.money.outputs.money != 'false'))
+        if: always() && steps.arming.outputs.enabled == 'true' && (steps.pause.outputs.paused != 'false' || (steps.decide.outputs.qualifies == 'true' && steps.money.outputs.money != 'false'))
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}

@@ -15,10 +15,11 @@ import { readArming, effectiveArming, varsFromEnv, SAFE_ARMING, ARMING_PATH, ARM
 import { main as armingCli } from '../scripts/automation-arming.mjs';
 import { run, defaultFoundations } from '../scripts/autopilot-step.mjs';
 import { NOT_PAUSED, FOUNDATIONS_OK } from './autopilotTable';
-import { fakeGitHub, ENV, NOW } from './automationFakeGitHub';
+import { fakeGitHub, green, ENV, NOW } from './automationFakeGitHub';
 
 const ROOT = path.resolve(__dirname, '..');
 const FILE_TEXT = readFileSync(path.join(ROOT, ARMING_PATH), 'utf8');
+const REQ = JSON.parse(readFileSync(path.join(ROOT, '.github/automation/required-jobs.json'), 'utf8'));
 const OFF = JSON.stringify({ version: 1, autopilot_live: false, autopilot_merge_mode: 'off', automerge_enabled: false, bot_automerge_enabled: false, approver: false, audit_escalation: false });
 const ARMED = JSON.stringify({ version: 1, autopilot_live: true, autopilot_merge_mode: 'soft', automerge_enabled: true, bot_automerge_enabled: true, approver: false, audit_escalation: false });
 const noVersion = (t: string) => { const o = JSON.parse(t); delete o.version; return o; };
@@ -184,12 +185,14 @@ describe('scripts/automation-arming.mjs: the workflows\' reader', () => {
 type RunFn = (env: any, opts: any) => Promise<number>;
 const realArming = (text: string | null) => defaultFoundations({ readFile: (p: string) => (p.endsWith('arming.json') ? (text === null ? (() => { throw new Error('ENOENT'); })() : text) : readFileSync(p, 'utf8')) }).arming;
 async function lane(runFn: RunFn, env: Record<string, string | undefined>, arming: unknown) {
-  const gh = fakeGitHub({ n: 95 });
+  const gh = fakeGitHub({ n: 95, checkRuns: (h) => green(h, REQ.pr_head) });
   const lines: string[] = [];
   const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.map(String).join(' ')); });
   let code: number;
   try {
-    code = await runFn(env, { pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl, foundations: { ...FOUNDATIONS_OK.opts.foundations, ...(arming ? { arming } : {}) } });
+    // required jobs + money from the shared helper; arming is the reader under test (null = run()'s default)
+    const { requiredJobs, money } = FOUNDATIONS_OK.opts.foundations;
+    code = await runFn(env, { pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl, foundations: { requiredJobs, money, ...(arming ? { arming } : {}) } });
   } finally { spy.mockRestore(); }
   return { code, merges: gh.merges().length, out: lines.join('\n') };
 }
