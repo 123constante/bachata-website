@@ -3,3 +3,4 @@ Done: ROWS.md, spec `tests/e2e/walk-p3-walklist.spec.ts` (10 tests run green), 4
 Left (next worker): W-26 return trip and tap count; W-20 "answers filled in"; W-36 course scope reason; W-02 date sheets on a removed event; /door with the ticketing flag on.
 Run: `VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npm run dev -- --host 127.0.0.1 --port 4173`, then `npx playwright test tests/e2e/walk-p3-walklist.spec.ts --project=chromium --workers=3`.
 Fix 2026-11-05 (dt_8bed5d3ba1e8): spec now imports findGarbled from ./helpers/garbled (unit red fixed) and carries a LOCAL-WALK-ONLY header; it was never in a CI list. The e2e-smoke cancel on 42418d0 was the runner: "Install Playwright browsers" took 13.6 min, not this spec.
+Next: if e2e-smoke cancels again, read the step timings first (browser install has run 13+ min on some runners); the walk spec is not in the gate, so it cannot be the cause.
