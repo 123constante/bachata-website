@@ -235,6 +235,9 @@ const TARGETS = [
   { rel: 'scripts/ship-gate.mjs' },
   { rel: 'scripts/sweep-stale-bot-prs.mjs' },
   { rel: 'scripts/walk-seed.mjs' },
+  { rel: 'scripts/lib/walk-fixtures.mjs' },
+  { rel: 'scripts/lib/walk-judge.mjs' },
+  { rel: 'scripts/lib/walk-waiver.mjs' },
 ];
 
 /** Generous: nothing here runs a target's real work, so this only catches hangs. */
