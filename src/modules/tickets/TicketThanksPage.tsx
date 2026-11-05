@@ -95,6 +95,11 @@ export default function TicketThanksPage() {
               Order reference: <span className="font-mono">{orderId.slice(0, 8)}</span>
             </p>
           )}
+          {reading?.eventId && (state === 'paid' || state === 'failed' || state === 'processing') && (
+            <Link to={`/event/${encodeURIComponent(reading.eventId)}`} className="flex min-h-[44px] items-center underline" data-testid="thanks-back-to-event">
+              {state === 'failed' ? 'Back to the event to try again' : 'Back to the event'}
+            </Link>
+          )}
           <Link to="/" className="inline-flex min-h-[44px] items-center underline">
             {state === 'failed' || state === 'processing' ? 'Back' : 'Back to what\u2019s on'}
           </Link>

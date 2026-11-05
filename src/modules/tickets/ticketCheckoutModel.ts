@@ -299,10 +299,12 @@ export interface OrderStatusReading {
   ticketCount: number | null;
   eventTitle: string | null;
   eventDate: string | null;
+  /** The public id `/event/:id` accepts; null unless the server gave one (paid or failed only). */
+  eventId: string | null;
   retryLater: boolean;
 }
 export const UNKNOWN_READING: OrderStatusReading = {
-  status: 'unknown', ticketCount: null, eventTitle: null, eventDate: null, retryLater: false,
+  status: 'unknown', ticketCount: null, eventTitle: null, eventDate: null, eventId: null, retryLater: false,
 };
 
 /** Defensive parse: anything that is not the documented shape reads as `unknown`, never as `paid`. */
@@ -318,6 +320,7 @@ export function parseOrderStatus(raw: unknown): OrderStatusReading {
     ticketCount: status === 'paid' ? n : null,
     eventTitle: status === 'paid' || status === 'failed' ? str(o.event_title) : null,
     eventDate: status === 'paid' ? str(o.event_date) : null,
+    eventId: status === 'paid' || status === 'failed' ? str(o.event_id) : null,
     retryLater: o.retry_later === true,
   };
 }

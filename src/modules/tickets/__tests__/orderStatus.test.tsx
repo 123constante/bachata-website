@@ -24,7 +24,7 @@ describe('parseOrderStatus', () => {
   ])('%s reads as unknown', (_l, raw) => expect(parseOrderStatus(raw)).toEqual(UNKNOWN_READING));
   it('reads a full paid reply and drops junk fields', () => {
     expect(parseOrderStatus({ status: 'paid', ticket_count: 2, event_title: ' Salsa Night ', event_date: '2026-11-01', x: 1 })).toEqual({
-      status: 'paid', ticketCount: 2, eventTitle: 'Salsa Night', eventDate: '2026-11-01', retryLater: false,
+      status: 'paid', ticketCount: 2, eventTitle: 'Salsa Night', eventDate: '2026-11-01', eventId: null, retryLater: false,
     });
   });
   it('rejects a bad ticket_count and reads retry_later', () => {
