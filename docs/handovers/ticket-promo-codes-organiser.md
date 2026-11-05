@@ -1,6 +1,6 @@
 # Handover: ticket promo codes, organiser section
 
-Branch `claude/ticket-promo-codes-organiser` (from main `0b8762c`). Brief: `docs/briefs/ticket-promo-codes-organiser.md` on `brief/ticket-promo-codes-organiser`.
+PR #1366. Branch `claude/ticket-promo-codes-organiser` (from main `0b8762c`). Brief: `docs/briefs/ticket-promo-codes-organiser.md` on `brief/ticket-promo-codes-organiser`.
 Inventory: `docs/design/ticket-promo-codes-organiser-INVENTORY.md` (31 rows, gaps G1..G7). Design record + state table: `docs/design/ticket-promo-codes-organiser.md`.
 
 ## Done
