@@ -1,6 +1,6 @@
 # Design record: organiser page P2 Team (owners, managers, listed people; Hide)
 
-Author: website-18. Status: DRAFT for the lead (design is the lead's call), NOT yet independently critiqued. Mock-up: five states A-E at 390 wide, kept by website-18 as `p2-team-mockup.html` (scratchpad; to be published as an artifact after critique).
+Author: website-18. Status: for the lead (design is the lead's call). Critiqued once by a different worker (Sonnet impeccable-finish-reviewer, 2026-11-05): fix list applied. Mock-up: five states A-E at 390 wide, kept by website-18 as `p2-team-mockup.html` (scratchpad; to be published as an artifact after critique).
 
 ## INVENTORY (admin + current Website + public page)
 | # | Surface | Where | What it does today | In P2? |
@@ -16,7 +16,7 @@ Author: website-18. Status: DRAFT for the lead (design is the lead's call), NOT 
 Coverage: 8 rows, 8 handled or parked with a reason, none silently omitted.
 
 ## Chosen design (ONE)
-Keep P1's look so the page has one voice: a grid of 64px gold-ringed circles with the name beneath, three per row, EVERYONE shown (no "+N more"). Public visitors see no role words and no owner or manager marker; the ORDER is the only signal (owners, managers, listed). Exactly one person: a single quiet line "Run by <name>" with a 40px ring beside it. Nobody: no section. Load error: the existing "Couldn't load the team. Try again" line.
+Keep P1's look so the page has one voice: a grid of 64px gold-ringed circles with the name beneath, three per row, EVERYONE shown (no "+N more"). Public visitors see no role words and no owner or manager marker; the ORDER is the only signal (owners, managers, listed). Exactly one person: the Team heading stays, with a single 44px-tall link line "Run by <name>" (40px ring beside it) to that person's page; a plain line when they have no page. Nobody: no section. Load error: the existing "Couldn't load the team. Try again" line.
 Owner view (edit layer, never visible to visitors): list rows of a 40px ring, the name and a 44px Hide button. A hidden person stays in the owner's list, dimmed, with "Hidden from the public page" and a Show button. A manager sees no Hide button on an owner row.
 
 ## Alternatives (two lines each)
@@ -26,9 +26,12 @@ Owner view (edit layer, never visible to visitors): list rows of a 40px ring, th
 ## Why
 Matches the merged P1 section and the density rule (3-column mobile grid, p-3, text-sm), keeps taps at 44px, and shows exactly what the owner decided: one plain list, no labels, everyone, hidden people never seen.
 
-## Open questions for the lead (not for the owner)
-- Q1: the existing 20-person limit on LISTED public people (`PUBLIC_TEAM_FULL`) conflicts with "show everyone". Keep it or lift it? (It sits in `organiser_team_set_public_v1`, an admin RPC.)
-- Q2: nine people is three rows at 3 columns; acceptable? No organiser has 4+ active listed people today.
+## Lead decisions (2026-11-05)
+- Q1 KEEP the admin limit of 20 on the listed set (`PUBLIC_TEAM_FULL`, `organiser_team_set_public_v1`). The owner's "show everyone" applies to the Website cap only (no "+N more"). Prod survey: active teams of 0/37/13/0 for 0/1/2-3/4+ people, so nobody is near it. Revisit if any organiser reaches 15.
+- Q2 YES: three columns at 390 is the density rule; nine people = three rows is fine. Use explicit px sizes (html font is about 13.5px on phones) and 44px taps.
 
 ## Self-running checks on the real build
 Contrast of cream on black >= 4.5; every tap >= 44px; no sideways scroll at 390x844; states A-E all reachable; no text pointing at a missing control; empty state shows nothing rather than "No team".
+
+## Critique round 1 (one round) and fixes
+1 hidden-row note was ~4.1:1 under row opacity: fixed (only avatar/name dimmed, note at .75 alpha). 2 Hide/Show have the person's name in aria-label (mirror in TeamSheet). 3 solo line is a 44px Link. 4 min-width:0, overflow-wrap:anywhere and 2-line clamp added to the mock, a long name added to state C. 5 BUILD NOTE: delete the '+N more' button, showAll and overflow in OrganiserTeamSection.tsx and TEAM_VISIBLE_CAP, otherwise nine people will not render. 6 owner heading now the same h2. 7 state E split into E1 (nothing) and E2 (error). 8 added D2 (manager sees why an owner row has no Hide, a reason, not a missing control) and D3 (everyone hidden: an owner-view line saying what to do). Shipped copy must not include the mock-up's explanatory captions.
