@@ -1,6 +1,6 @@
 # Brief: P3 real-rules refusal check (docs-first, then one guard + one matrix test)
 
-HELD: do not dispatch until claude/p3-status-real-reasons (ticket dt_db6910c85d9b) has merged; one worker at a time.
+RELEASED 2026-11-05 by program lead website-45-f: claude/p3-status-real-reasons (#1385) MERGED as ba957d0f0, so the status fix is on main. One worker at a time. The off-limits files below may now be read; edit them only by an additive allow-list entry, and list anything else in a shrink-only KNOWN_GAPS ratchet.
 
 Lane: careful (reads the DB contract). Model: Opus. Goal (owner definition of done): a check against the LIVE server rules fails if any P3 screen shows a wrong or missing refusal reason; the 390x844 walk of every journey stays in WALKLIST and is not part of this brief.
 
