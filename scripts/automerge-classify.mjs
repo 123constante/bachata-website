@@ -28,6 +28,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { MARKER, HEADING as REAL_DATA_HEADING } from "./check-pr-real-data-verified.mjs";
 import { HEADING as PHONE_QA_HEADING } from "./check-pr-phone-qa.mjs";
+import { isMoney, parseMoneySet, MONEY_SET_PATH } from "./lib/is-money.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -125,8 +126,10 @@ export function pendingSections(body, marker = MARKER, headings = PENDING_SECTIO
  *  labelActor: login that last applied LABEL_OK (null if unknown)
  *  realData: null (no parser on main) or (body) => { ok, problems[] }
  *  importedByShipped: (path) => boolean; DEFAULT says yes, so a helper with no scan fails.
+ *  moneySet: the parsed .github/automation/money-set.json from MAIN (null = unreadable = NO);
+ *  moneyCheck: isMoney (slice 2, drill A16); tests inject through tests/autopilotTable.ts only.
  */
-export function classify({ pr, files, labelActor, realData = null, importedByShipped = () => true }) {
+export function classify({ pr, files, labelActor, realData = null, importedByShipped = () => true, moneySet = null, moneyCheck = isMoney }) {
   const reasons = [];
   const no = (r) => reasons.push(r);
   if (!pr) return { qualifies: false, reasons: ["no PR object"], classes: [] };
@@ -181,6 +184,11 @@ export function classify({ pr, files, labelActor, realData = null, importedByShi
     }
   }
 
+  // MONEY SET (slice 2, drill A16; docs/automation-foundations.md): paths AND the added/removed
+  // lines of every file (patches from the files API). A docs/tests path class is overridden by a
+  // content hit; an unreadable set or patch is a NO.
+  const mv = moneyCheck({ files: list, set: moneySet });
+  if (!mv || mv.money !== false) no((mv && mv.reason) || "money set: unreadable (no verdict)");
   if (realData) {
     let v;
     try { v = realData(String(pr.body || "")); } catch (e) { v = { ok: false, problems: [`parser threw: ${e.message}`] }; }
@@ -244,6 +252,15 @@ export async function loadRealDataParser(root = REPO_ROOT) {
   return mod.parse;
 }
 
+/** The money set from the BASE checkout; unreadable = null, which classify() refuses (fail closed). */
+export function loadMoneySet(root = REPO_ROOT) {
+  try {
+    return parseMoneySet(fs.readFileSync(path.join(root, MONEY_SET_PATH), "utf8"));
+  } catch (e) {
+    console.log(`money set unreadable (${e.message}) - nothing qualifies`);
+    return null;
+  }
+}
 /* -- REST (GraphQL is never needed to classify) -------------------------------- */
 
 async function gh(p) {
@@ -296,7 +313,8 @@ export async function main() {
   const files = await pages(`/repos/${repo}/pulls/${num}/files`, 30);
   const events = await pages(`/repos/${repo}/issues/${num}/events`, 20);
   const realData = await loadRealDataParser();
-  const v = classify({ pr, files, labelActor: lastLabelActor(events), realData, importedByShipped: makeImportScan() });
+  const moneySet = loadMoneySet();
+  const v = classify({ pr, files, labelActor: lastLabelActor(events), realData, importedByShipped: makeImportScan(), moneySet });
 
   console.log(`PR #${num} by ${pr.user} (${pr.headRef} @ ${String(pr.headSha).slice(0, 8)}): ${v.qualifies ? "QUALIFIES" : "does not qualify"}`);
   console.log(`  classes: ${v.classes.join(", ") || "-"}; real-data parser on main: ${realData ? "yes" : "no"}`);
@@ -310,9 +328,12 @@ export async function main() {
 /** Canary: the rules can say YES, and each guard can say NO. */
 export function selfTest() {
   const pr = { state: "open", draft: false, user: BOT_LOGIN, headRef: "docs/x", headRepo: "o/r", baseRepo: "o/r", baseRef: "main", labels: [LABEL_OK], additions: 3, deletions: 1, changedFiles: 1, body: "" };
-  const f = (filename, extra = {}) => ({ filename, status: "modified", additions: 3, deletions: 1, ...extra });
+  const f = (filename, extra = {}) => ({ filename, status: "modified", additions: 3, deletions: 1, changes: 4, patch: "@@ -1,2 +1,4 @@\n+a\n+b\n+c\n-d", ...extra });
+  const moneySet = { version: 1, paths: ["src/pay/**"], tables: ["ticket_orders"], functions: [], keys: [], flags: [], env: [] };
   const cases = [
-    ["docs-only qualifies", classify({ pr, files: [f("docs/a.md")], labelActor: BOT_LOGIN }).qualifies, true],
+    ["docs-only qualifies", classify({ pr, files: [f("docs/a.md")], labelActor: BOT_LOGIN, moneySet }).qualifies, true],
+    ["a money-set name in a docs line does not", classify({ pr, files: [f("docs/a.md", { patch: "@@ -1,2 +1,4 @@\n+ticket_orders\n+b\n+c\n-d" })], labelActor: BOT_LOGIN, moneySet }).qualifies, false],
+    ["no money set does not", classify({ pr, files: [f("docs/a.md")], labelActor: BOT_LOGIN }).qualifies, false],
     ["src does not", classify({ pr, files: [f("src/a.ts")], labelActor: BOT_LOGIN }).qualifies, false],
     ["traversal does not", classify({ pr, files: [f("docs/../src/x.ts")], labelActor: BOT_LOGIN }).qualifies, false],
     ["empty does not", classify({ pr: { ...pr, changedFiles: 0 }, files: [], labelActor: BOT_LOGIN }).qualifies, false],

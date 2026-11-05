@@ -165,7 +165,8 @@ const lower = (l) => (typeof l === 'string' ? l.toLowerCase() : '');
  *   jobs: [{name, status, conclusion}] | null, redNew: [name], redMain: [name], pending,
  *   behindBy: number | null, mergesThisRun, merges24h: number | null,
  *   mainAfterLastMerge: {state: 'none'|'green'|'red'|'pending'|'unread', pr?},
- *   requiredJobs: checkRequiredJobs() result at the pinned head (slice 2, A17); absent = NO
+ *   requiredJobs: checkRequiredJobs() result at the pinned head (slice 2, A17); absent = NO,
+ *   money: isMoney() result over the PR's files with patches (slice 2, A16); absent = NO
  * }
  */
 export function mergeVerdict(facts) {
@@ -203,6 +204,11 @@ export function mergeVerdict(facts) {
     }
     if (mode === 'docs-canary' && [...classes].some((c) => c !== 'docs')) no(`docs-canary accepts docs only (this PR has ${[...classes].filter((c) => c !== 'docs').join(', ')})`);
   }
+  // 3b. money set (slice 2, drill A16; scripts/lib/is-money.mjs): paths AND changed lines. A
+  // path-only "docs" class is overridden by a content hit. Absent = refuse.
+  const mv = f.money;
+  if (!mv || typeof mv !== 'object') no('money set not checked (fail closed)');
+  else if (mv.money !== false) no(mv.reason || 'money set: unreadable (no reason given)');
   // 4. migration
   // r4b N3a: GitHub label names are case-insensitive: compare lower-cased on both sides.
   const labels = Array.isArray(f.labels) ? f.labels.map(lower) : null;

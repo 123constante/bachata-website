@@ -43,6 +43,7 @@ import { mergeVerdict, mergeCallBody, merges24h, pruneMerges } from './lib/autop
 import { isEntryPoint } from './lib/entry-point.mjs';
 import { readPause, PausedError } from './lib/automation-pause.mjs';
 import { parseRequiredJobs, checkRequiredJobs, REQUIRED_JOBS_PATH } from './lib/required-jobs.mjs';
+import { isMoney, parseMoneySet, MONEY_SET_PATH } from './lib/is-money.mjs';
 
 const API = 'https://api.github.com';
 const LABEL_COLORS = { [STATE_LABELS.waiting]: 'fbca04', [STATE_LABELS.ready]: '0e8a16', [STATE_LABELS.stopped]: 'd93f0b', [STATE_LABELS.running]: 'c5def5' };
@@ -123,13 +124,13 @@ async function gather(api, repo, n, ctx, extra) {
   const head = pr.head.sha;
   const [reviews, files, checkRuns, combined, runsAtHead, labelEvents] = await Promise.all([
     api.all(`/repos/${repo}/pulls/${n}/reviews`),
-    api.all(`/repos/${repo}/pulls/${n}/files`).then((fs) => fs.map((f) => f.filename)),
+    api.all(`/repos/${repo}/pulls/${n}/files`),
     api.all(`/repos/${repo}/commits/${head}/check-runs`, 'check_runs'),
     api.call('GET', `/repos/${repo}/commits/${head}/status`),
     api.all(`/repos/${repo}/actions/runs?head_sha=${head}`, 'workflow_runs', 2),
     api.all(`/repos/${repo}/issues/${n}/events`),
   ]);
-  const raw = { pr, reviews, files, checkRuns, statuses: combined.statuses || [], mainCheckRuns: ctx.mainCheckRuns, mainStatuses: ctx.mainStatuses, vercelConfig: ctx.vercelConfig, runsAtHead, labelEvents, repoRunCiAddsToday: ctx.ciRunsToday, jobLogs: {}, runAttempts: {}, ...extra };
+  const raw = { pr, reviews, files: files.map((x) => x.filename), checkRuns, statuses: combined.statuses || [], mainCheckRuns: ctx.mainCheckRuns, mainStatuses: ctx.mainStatuses, vercelConfig: ctx.vercelConfig, runsAtHead, labelEvents, repoRunCiAddsToday: ctx.ciRunsToday, jobLogs: {}, runAttempts: {}, ...extra };
   let logs = 0;
   // Only a completed red job's log is read, and only to look for the runner-kill signature.
   for (const c of checkRuns) {
@@ -138,7 +139,9 @@ async function gather(api, repo, n, ctx, extra) {
     if (!(ids.runId in raw.runAttempts)) raw.runAttempts[ids.runId] = (await api.call('GET', `/repos/${repo}/actions/runs/${ids.runId}`)).run_attempt;
     if (c.conclusion !== 'cancelled' && logs++ < MAX_LOG_READS) raw.jobLogs[ids.jobId] = (await api.call('GET', `/repos/${repo}/actions/jobs/${ids.jobId}/logs`, null, { raw: true })).slice(-200000);
   }
-  return deriveFacts(raw, ctx.now);
+  const facts = deriveFacts(raw, ctx.now);
+  facts.fileEntries = files; // slice 2: the pull-file objects WITH patches, for isMoney()
+  return facts;
 }
 
 /** Performs ONE decided action. Anything outside WRITE_ACTIONS is a no-op by construction. */
@@ -262,6 +265,8 @@ async function mergePr(mergeApi, repo, f, pauseCheck, requiredCheck) {
  * checkout the workflow made (main; autopilot.yml checks out the default branch), never the PR.
  *   requiredJobs(api, repo, sha): GET /repos/{repo}/commits/{sha}/check-runs (paginated, per_page=100)
  *     judged against required-jobs.json; any read or parse failure is a refusal (fail closed).
+ *   money(f): isMoney() over the PR's pull-file objects (with patches, read by gather() at the head)
+ *     and money-set.json; an unreadable set or patch is money (fail closed).
  * run(opts.foundations) may replace a reader in tests only (the ONE shared helper in
  * tests/autopilotTable.ts); the new tests drive these defaults.
  */
@@ -269,6 +274,8 @@ export function defaultFoundations({ root = process.cwd(), readFile = (p) => rea
   let required = null;
   let requiredWhy = '';
   try { required = parseRequiredJobs(readFile(join(root, REQUIRED_JOBS_PATH))); } catch (e) { requiredWhy = e.message; }
+  let moneySet = null;
+  try { moneySet = parseMoneySet(readFile(join(root, MONEY_SET_PATH))); } catch { moneySet = null; } // null = isMoney fails closed
   const refuse = (why) => ({ ok: false, missing: [], notGreen: [], reason: why, reasons: [why] });
   return {
     requiredJobs: async (api, repo, sha) => {
@@ -278,6 +285,7 @@ export function defaultFoundations({ root = process.cwd(), readFile = (p) => rea
       if (checkRuns.length >= 1000) return refuse('check-runs list may be truncated (1000+): fail closed');
       return checkRequiredJobs({ required, checkRuns, headSha: sha });
     },
+    money: (f) => isMoney({ files: f && f.fileEntries, set: moneySet }),
   };
 }
 
@@ -331,7 +339,7 @@ export async function run(env = process.env, opts = {}) {
     return api.call(method, p, body, o);
   } });
   const pausedRepos = [];
-  // Slice 2 foundations: required jobs (A17). Defaults are the real readers; see defaultFoundations().
+  // Slice 2 foundations: required jobs (A17), money set (A16). Defaults are the real readers; see defaultFoundations().
   const foundations = { ...defaultFoundations(), ...(opts.foundations || {}) };
   const gh = guarded(makeApi(env.GH_TOKEN || '', counter, opts.fetch));
   const bot = env.BOT_TOKEN ? guarded(makeApi(env.BOT_TOKEN, counter, opts.fetch)) : null;
@@ -477,6 +485,7 @@ export async function run(env = process.env, opts = {}) {
               jobs: f.jobs, redNew: f.redNew, redMain: f.redMain, pending: f.pending, behindBy: f.behindBy ?? null,
               mergesThisRun: mergesRun, merges24h: merges24h(mergeLog, now), mainAfterLastMerge: mainState,
               requiredJobs,
+              money: foundations.money(f),
             });
             log(`${repo}#${p.number} merge verdict: ${v.merge ? 'MERGE' : `NO: ${v.reasons.join('; ')}`}`);
             if (!v.merge) did = [did, `merge: no (${v.reasons.slice(0, 4).join('; ')}${v.reasons.length > 4 ? `; +${v.reasons.length - 4} more` : ''})`].join('; ');
