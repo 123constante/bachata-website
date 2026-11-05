@@ -1,0 +1,21 @@
+# Brief: organiser page P1 fix round 1 (review FIX + code-review findings on PR #1399)
+
+Repo: 123constante/bachata-website. Branch: `claude/organiser-page-p1` (PR #1399, continue it, no new PR). Normal lane, Opus. Brief-version 3.
+Read first: `git show origin/claude/review-organiser-page-p1:docs/review/review-organiser-page-p1.md` (verdict FIX, 3 MED, LOWs; the lead's 4 code-review findings are folded in at its bottom) and your own `docs/handover/organiser-page-p1.md`, `docs/design/organiser-page-p1.md`, `INVENTORY` rows already in the design record (no new screen, so no new inventory; coverage = the matrix test below).
+Look-and-feel decisions are the lead's and are made below; do not ask.
+
+## What main lacks
+The branch has these defects (file `src/pages/OrganiserProfile.tsx` unless named): the `dancer_profiles` read in the Team query ignores its `error` so a failed read shows "no team" (~l.733); `hasContact` ignores `publicContactError` so an owner of a blank page sees "Complete your profile" when contact is merely unknown (~l.1083); `emptyKind` is suppressed on a team-only error; the `past-only` empty block renders only inside `pastEvents.length > 0` (~l.1380); `extractFbHandle` is a dead import (l.15) and the dead `facebook` field; one failed feed discards ALL stats (matrix :180); the Team circles lost nationality flags and the role-aware link (DJs and teachers now link to `/dancers/<id>` and emit `profileType 'dancer'`); "Try again" has no pending state.
+
+## Inventory first (before building)
+Write `INVENTORY.md` (commit it under `docs/design/organiser-page-p1-inventory.md`) BEFORE any code: every field, state and option on the organiser page, from the admin app (`bachata-admin-11april`, cite file:line), the current Website on main (file:line) and the public page on this branch (file:line), with GAPs listed (the review's findings are the starting GAP list). End the file with a coverage count: rows covered by a matrix test / total rows.
+
+## Do (5 deliverables)
+1. Error truthfulness: (a) a failed `dancer_profiles` read marks the Team as failed (shows "Couldn&rsquo;t load the team" + Try again), never "no team"; (b) `hasContact` is unknown (not false) when the contact read failed, so no "Complete your profile" prompt; (c) a team-only error still shows the `emptyKind` that the events imply; (d) the `past-only` block renders whenever `emptyKind === 'past-only'` even if `pastEvents` is empty; (e) "Next night" and the other stats that need only the working feed still show when one feed failed (per-feed independence); stats that need the failed feed show a dash, not 0. Update matrix :180 accordingly (it pinned the old behaviour; say so in the handover).
+2. Team circles (lead decision): RESTORE the nationality flag on each circle and the role-aware link (DJ/teacher to their own page with their profileType, as on main). Take the main versions of the TeamCircle behaviour and tests back, adapting only what the new mapping needs. State in the handover what you restored.
+3. Stale specs and lint: fix `people-nationality-flag.phone.spec.ts:89` and the stale e2e-phone heading spec to the new page, remove the dead `extractFbHandle` import and `facebook` leftovers (lint must stay 0).
+4. "Try again" shows a pending state (disabled + &ldquo;Trying&hellip;&rdquo;) while the refetch runs, on the Team, Get in touch and nights retry buttons; 44px taps stay.
+5. Tests + handover: extend `organiserPage.matrix.test.tsx` (table-driven: every feed/contact/team failure combination x owner/visitor; each row asserts the visible text AND that no copy points at a missing control). Prove it red first on the unfixed branch. Update `docs/handover/organiser-page-p1.md` (per-job table again for the jobs you touched) and fill the PR body Not verified honestly.
+
+## Rules
+Do NOT touch `src/components/EventCalendar.tsx` or the calendar files (density exclusions). Source files over 2 KB go through `scripts/safe-edit.py` / `scripts/safe-write.py`. HTML entities, no raw Unicode punctuation. ONE push at the end, no early checkpoint push; this is the final push of the PR, so it is a normal push (preview deploys). Never merge or approve. Last commit subject ends `[worker-done <ticket>]`.
