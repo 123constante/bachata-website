@@ -4,7 +4,8 @@ name: Stale bot-PR sweep
 # (review reports, "nothing to change" markers, work re-done on a later branch) pile up and only
 # the owner can close them. Daily, this closes at most 5 of the BOT's own claude/* PRs that are
 # idle > 3 days AND superseded / already on main / empty. Never another author's PR, never one
-# carrying automerge-ok, ap:hold, owner-reserved or a reserved label, never a branch delete.
+# carrying automerge-ok, ap:hold, owner-reserved or a reserved label, never one with an owner Approve
+# at its current head or a hard-tier path, never a branch delete.
 # The decision is scripts/lib/stale-bot-pr.mjs (tests/staleBotPr.test.ts).
 #
 # PAUSE SWITCH: the reader runs from main BEFORE the sweep; only paused == 'false' (positively
@@ -13,7 +14,13 @@ name: Stale bot-PR sweep
 on:
   schedule:
     - cron: "23 4 * * *"
+  # fix-1368-r1: a manual run is a DRY RUN unless `apply` is ticked; the schedule always applies.
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Close PRs for real (unticked = dry run: log the decisions, close nothing)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -53,4 +60,6 @@ jobs:
         if: steps.pause.outputs.paused == 'false'
         env:
           GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
-        run: node scripts/sweep-stale-bot-prs.mjs --apply
+          # 'true' only for the schedule or a manual run with apply ticked (tests/staleBotPr.test.ts pins it).
+          SWEEP_APPLY: ${{ github.event_name == 'schedule' || inputs.apply == true }}
+        run: if [ "$SWEEP_APPLY" = "true" ]; then node scripts/sweep-stale-bot-prs.mjs --apply; else node scripts/sweep-stale-bot-prs.mjs; fi

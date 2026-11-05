@@ -10,7 +10,7 @@
  * or listing PRs failed: nothing is closed).
  */
 import { decide as _decide, plan, closeComment, ticketKeys } from './lib/stale-bot-pr.mjs';
-import { BOT_LOGIN } from './lib/autopilot.mjs';
+import { BOT_LOGIN, OWNER_LOGIN } from './lib/autopilot.mjs';
 import { isEntryPoint } from './lib/entry-point.mjs';
 
 const API = 'https://api.github.com';
@@ -40,11 +40,21 @@ async function listAll(api, path, maxPages) {
 
 const newest = (...ts) => ts.filter(Boolean).map((t) => new Date(t).getTime()).filter(Number.isFinite).reduce((a, b) => (Number.isFinite(a) ? Math.max(a, b) : b), NaN);
 
-/** Enrich one bot PR with head subject, changed files and lastActivity. Throws on API error. */
+/**
+ * Enrich one bot PR with head subject, changed files, its file list, an owner Approve at head and
+ * lastActivity. Throws on API error. The file list is trusted only when it is exactly
+ * changed_files long (anything else, a truncation included, is null: hard-tier, never closed).
+ */
 async function enrich(api, repo, p) {
   const detail = await api('GET', `/repos/${repo}/pulls/${p.number}`);
   const commits = await listAll(api, `/repos/${repo}/pulls/${p.number}/commits`, 3);
   const comments = await listAll(api, `/repos/${repo}/issues/${p.number}/comments`, 3);
+  const fileRows = await listAll(api, `/repos/${repo}/pulls/${p.number}/files`, 3);
+  const reviews = await listAll(api, `/repos/${repo}/pulls/${p.number}/reviews`, 3);
+  const headSha = detail?.head?.sha;
+  // A rename/copy also carries its OLD path: moving a file out of scripts/ is still a hard-tier change.
+  const files = Number.isInteger(detail?.changed_files) && fileRows.length === detail.changed_files ? fileRows.flatMap((f) => [f.filename, ...(f.previous_filename ? [f.previous_filename] : [])]) : null;
+  const approvedAtHead = !!headSha && reviews.some((v) => v.state === 'APPROVED' && v.commit_id === headSha && v.user?.login === OWNER_LOGIN);
   const head = commits.at(-1);
   const last = newest(p.updated_at, ...comments.map((c) => c.updated_at || c.created_at), ...commits.map((c) => c.commit?.committer?.date));
   return {
@@ -58,10 +68,12 @@ async function enrich(api, repo, p) {
     title: p.title,
     headSubject: String(head?.commit?.message || '').split('\n')[0],
     changedFiles: detail.changed_files,
+    files,
+    approvedAtHead,
   };
 }
 
-const shallow = (p) => ({ number: p.number, author: p.user?.login, headRef: p.head?.ref, labels: (p.labels || []).map((l) => l.name), draft: !!p.draft, createdAt: p.created_at, lastActivity: p.updated_at, title: p.title, headSubject: '', changedFiles: undefined });
+const shallow = (p) => ({ number: p.number, author: p.user?.login, headRef: p.head?.ref, labels: (p.labels || []).map((l) => l.name), draft: !!p.draft, createdAt: p.created_at, lastActivity: p.updated_at, title: p.title, headSubject: '', changedFiles: undefined, files: [], approvedAtHead: false });
 
 export async function run({ env = process.env, argv = process.argv.slice(2), fetch: fetchImpl = globalThis.fetch, now = Date.now(), log = console.log } = {}) {
   const apply = argv.includes('--apply');

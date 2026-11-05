@@ -4,6 +4,8 @@
 // tests/staleBotPr.test.ts drives it table-first. No I/O here.
 import { BOT_LOGIN, HANDS_OFF_LABELS, STATE_LABELS, WORKER_DONE_RE } from './autopilot.mjs';
 import { RESERVED_LABELS } from './autopilot-merge.mjs';
+import { classifyFile } from './autopilot-pack.mjs';
+import { isRiskyPath } from './review-scope.mjs';
 
 /** A PR carrying any of these is never swept, whatever else is true. */
 export const PROTECTED_LABELS = Object.freeze(['automerge-ok', 'ap:hold', 'owner-reserved']);
@@ -37,9 +39,21 @@ export function ticketKeys(pr) {
 const ms = (t) => (t == null ? NaN : new Date(t).getTime());
 
 /**
+ * fix-1368-r1: the hard-tier paths of a PR (the same test the merge lane uses: pack HARD_RULES plus
+ * review-scope isRiskyPath). files not an array = the list was not read: fail closed, one entry.
+ */
+export function hardPaths(files) {
+  if (!Array.isArray(files)) return ['(file list not read)'];
+  return files.filter((p) => typeof p !== 'string' || !p || classifyFile(p).group === 'hard' || isRiskyPath(p) || isRiskyPath(p.toLowerCase()));
+}
+
+/**
  * decide(pr, ctx, now) -> { close, reason }
- *   pr:  { number, author, headRef, labels[], draft, createdAt, lastActivity, title, headSubject, changedFiles }
+ *   pr:  { number, author, headRef, labels[], draft, createdAt, lastActivity, title, headSubject, changedFiles,
+ *          files, approvedAtHead }
  *        lastActivity = newest of the PR's updated_at, its comments and its commits (the runner computes it).
+ *        files = every changed path (null when not read in full: treated as hard-tier, never closed).
+ *        approvedAtHead = an owner APPROVED review on the current head sha (never closed).
  *   ctx: { others: [{ number, createdAt, state: 'open'|'merged', keys: ticketKeys(), headRef }] } every open or merged PR.
  *   now: epoch ms.
  */
@@ -51,6 +65,9 @@ export function decide(pr, ctx = {}, now = Date.now()) {
   const labels = pr.labels || [];
   const prot = NEVER_LABELS.find((l) => labels.includes(l));
   if (prot) return keep(`protected label ${prot}`);
+  if (pr.approvedAtHead) return keep('owner approved at head');
+  const hard = hardPaths(pr.files);
+  if (hard.length) return keep(`hard-tier path ${hard[0]}${hard.length > 1 ? ` (+${hard.length - 1})` : ''}`);
   const last = ms(pr.lastActivity);
   if (!Number.isFinite(last)) return keep('last activity unknown');
   const ageDays = (now - last) / DAY_MS;
