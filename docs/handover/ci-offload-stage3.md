@@ -164,3 +164,53 @@ readable from the files: treat as possibly write, so every routed job gets an ex
 | bom-check | workflow-lint.yml | none | contents:read | no | PR, fork-guarded | default | YES |
 | masking-check | workflow-lint.yml | none | default | no | PR (fork PR code reachable) | default | yes, needs fork guard |
 | notification-check | workflow-lint.yml | none | default | no | PR (fork PR code reachable) | default | yes, needs fork guard |
+
+## Part B verdict: NOT built (cost rule), numbers below
+
+Baseline (`docs/handover/ci-offload-stage3-baseline.md`, PR runs on 2026-11-05): unit London full median
+561 s = 10 billed min; e2e-smoke median 1012 s = 17 billed min; hosted billed minutes per PR median
+65.5 (8 PRs, range 24-111); 460 PRs merged in the last 30 days.
+
+The split could not be measured as the brief asks (scratch branch + workflow_dispatch): this worker may
+push only `claude/ci-offload-stage3`. Estimate instead, per job billed = ceil(minutes), with per-piece
+overhead (checkout, setup-node, npm upgrade, `npm ci` about 75 s, plus Playwright install for e2e):
+
+| piece set | overhead per piece | billed min after | billed min before | delta |
+|---|---|---|---|---|
+| unit 3 shards + aggregator | 90-120 s | 3x5 + 1 = 16 | 10 | +6 |
+| e2e 3 shards + P3 piece + aggregator | 90-150 s | 4x6..7 + 1 = 25..29 | 17 | +8..+12 |
+| total per PR | | | 65.5 | +14..+18 = **+21%..+27%** |
+
+That sits at or over the 25% ceiling before counting the separate live-DB gate job, so under "cost
+first" the split is not worth building blind. If the lead still wants it, the next step is ONE
+measured dispatch run on a scratch branch the lead names (the worker cannot create one).
+
+## Stage 4 proposal: move eligible jobs to the Acer instead (order = minutes saved per PR)
+
+| job | workflow | billed min/PR (baseline) | what it needs first |
+|---|---|---|---|
+| phone-qa | phone-qa.yml | 20 | fork guard in runs-on, `permissions: contents: read`, Playwright browsers on the Acer, memory check vs 4 GB |
+| e2e-smoke | e2e-smoke.yml | 17 | same; P3 step too; artifacts upload is fine (read token) |
+| build-smoke | phone-qa.yml | 6 | fork guard, explicit read permissions |
+| bundle-budget | perf-budget.yml | 2 | fork guard, explicit read permissions |
+| integrity, masking-check, notification-check, wallclock-brand, dancer-area-isolation, real-data-verified, phone-qa-section, no-preview-reason x4 | various | about 1 each | fork guard, explicit read permissions |
+
+phone-qa + e2e-smoke alone are 37 of 65.5 billed minutes per PR (56%); at 460 PRs/month that is about
+17,000 hosted minutes a month. NOT eligible while they read secrets: `unit` (London full;
+`VITE_SUPABASE_*`), `contract-check`, every deploy/prod/monitor job (see table). A single runner
+doing one job at a time cannot absorb 460 PRs x 37 min (about 280 h a month, about 9 h a day): stage 4
+must measure Acer wall time for e2e and decide between one runner (queueing) or a hosted fallback.
+
+## What is left (owner / lead)
+
+1. OWNER: registration token for the repo (private route), and add `workflow-lint.yml` to the
+   automation allow-list or Approve at head (the guard reds this PR until then).
+2. On the Acer (as `ci`): install per "The runner (exact)"; set `SAFE_LOAD_MAX`/`SAFE_MEM_MIN` to the
+   walk gate's values; fix the admin runner paths in `InaccessiblePaths`; prove gate + walk at once.
+3. Set `WEB_RUNNER_LABEL=acer-web`, confirm one bom-check moves to `acer-web` (runner_name), delete it,
+   confirm the next run is back on hosted (the revert dry run). Not done: no runner exists yet.
+4. Pilot 7 days / 20 routed green runs, then `docs/handover/ci-offload-stage3-result.md` with the same
+   table as the baseline and the verdict line PASS or REVERT.
+5. Billing: real Actions usage was NOT read (no gh api in this worker); the minutes here are ceil(wall)
+   estimates. One owner read of Settings, Billing, Actions usage gives the dollar figure.
+6. Guard gap above (secrets-register rule (e) cannot see `vars.` labels).
