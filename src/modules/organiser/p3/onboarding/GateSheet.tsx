@@ -2,17 +2,23 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { OnBody } from '../screens/OnBody';
 import { Sheet } from '../screens/Sheet';
 import { fetchOnboardingStatus, onboardingStatusKey } from './statusQuery';
 import { GATE_COPY, gateView } from './gateModel';
+import { gateBody } from './graceModel';
+import { gateGoState, withBack } from './returnTo';
+import { P3_PATHS } from '../shell/paths';
 
 /**
  * A1 "A few details first" (plan Appendix A1), as a sheet over whatever screen was refused, so "Not now"
  * leaves the person exactly where they were. It re-reads the ONE status query (Home's banner and You share
  * the key) on open: a refusal means what the cache holds may be stale. Loaded only when a refusal happens.
  */
-export default function GateSheet({ organiserId, refused = [], onClose, fetcher = fetchOnboardingStatus }: {
+export default function GateSheet({ organiserId, refused = [], at = null, onClose, fetcher = fetchOnboardingStatus }: {
   organiserId: string | null;
+  /** The refused screen's path (gate.ts GateAsk.at): an event page there becomes Review's "Back to your event". */
+  at?: string | null;
   /** The codes the refusal itself listed (DETAIL.missing). */
   refused?: readonly string[];
   onClose: () => void;
@@ -29,16 +35,19 @@ export default function GateSheet({ organiserId, refused = [], onClose, fetcher 
   });
   const view = gateView(q.isSuccess ? q.data : undefined, organiserId, refused);
   const admin = view.kind === 'admin';
-  const to = view.kind === 'admin' ? null : view.to;
+  // Slice R: Continue carries the refused event (validated), so the checklist can end "Back to your event".
+  const to = view.kind === 'admin' || !view.to ? null : view.to.startsWith(P3_PATHS.start) ? withBack(view.to, at) : view.to;
   // An admin is never routed here (the server never refuses one): close without drawing anything.
   useEffect(() => {
     if (admin) onClose();
   }, [admin, onClose]);
   if (admin) return null;
+  // On document.body like the Repeat / Details sheets, so it opens ABOVE an open sheet (frame-level it drew behind).
   return (
+    <OnBody>
     <Sheet title={GATE_COPY.title} onClose={onClose}>
       <div data-testid="p3-gate">
-        <p className="p3-plain" data-testid="p3-gate-body">{GATE_COPY.body}</p>
+        <p className="p3-plain" data-testid="p3-gate-body">{gateBody(view.kind === 'left' ? view.rows.length : null)}</p>
         {view.kind === 'unknown' && (q.isError || !user?.id || q.isSuccess) && (
           <div className="p3-stack-s p3-gap-t">
             <p className="p3-error" role="alert" data-testid="p3-gate-read-failed">{GATE_COPY.readFailed}</p>
@@ -62,7 +71,7 @@ export default function GateSheet({ organiserId, refused = [], onClose, fetcher 
       {/* sticky, so Continue and Not now stay in view however many rows are listed (prod max 10) */}
       <div className="p3-sheet-foot"><div className="p3-stack-s">
         {to ? (
-          <Link className="p3-btn p3-gate-go" to={to} onClick={onClose} data-testid="p3-gate-go">{GATE_COPY.go}</Link>
+          <Link className="p3-btn p3-gate-go" to={to} state={gateGoState(at)} onClick={onClose} data-testid="p3-gate-go">{GATE_COPY.go}</Link>
         ) : (
           <>
             <button type="button" className="p3-btn" disabled data-testid="p3-gate-go">{GATE_COPY.go}</button>
@@ -72,5 +81,6 @@ export default function GateSheet({ organiserId, refused = [], onClose, fetcher 
         <button type="button" className="p3-btn p3-btn-line" onClick={onClose} data-testid="p3-gate-not-now">{GATE_COPY.notNow}</button>
       </div></div>
     </Sheet>
+    </OnBody>
   );
 }

@@ -5,6 +5,7 @@
 // command each Continue sends (null = nothing changed, nothing sent) and the Review rows.
 import { CATEGORY_OPTIONS, checkFacebook, checkInstagram, checkWebsite } from '../../edit-in-place/fieldRules';
 import { normalizePhoneE164, stripPhonePunct } from '@/lib/phoneRules';
+import { sanitizeReturnTo } from '@/lib/authRouting';
 import { thingsLeft } from './graceModel';
 import type { PersonStep } from './personModel';
 
@@ -300,10 +301,12 @@ export const afterContact = (phone: string): PageStep => (e164Of(phone) ?? phone
 
 /**
  * One row per code _onboarding_missing_v1 can return (read on prod 2026-10-29). `step` = the screen in this
- * flow that answers it; codes with no screen here (based city, Instagram, the DJ question: prototype
- * assumption 6, not drawn) open the dancer profile editor instead.
+ * flow that answers it. Codes with no screen here: based city opens Finish profile ('dancer'; its missing
+ * city means that screen shows the city), Instagram opens the /app editor on its field ('app', the one live
+ * dancer Instagram saver), the page city opens the page ('page'). instagram-refusal r2: the DJ rows have
+ * their own steps (dj, djgenres), and an unknown code opens a screen that says what the person can do.
  */
-export type Elsewhere = 'dancer' | 'page';
+export type Elsewhere = 'dancer' | 'page' | 'app';
 export type ReviewRow = { code: string; label: string; step: FlowStep | null; elsewhere: Elsewhere | null };
 
 const row = (label: string, step: FlowStep | null, elsewhere: Elsewhere | null = null) => ({ label, step, elsewhere });
@@ -315,13 +318,13 @@ export const REVIEW_ROWS: Record<string, Omit<ReviewRow, 'code'>> = {
   photo: row('Your photo', 'photo'),
   nationality: row('Nationality', 'nat'),
   languages: row('Languages', 'langs'),
-  instagram: row('Your Instagram', null, 'dancer'),
+  instagram: row('Your Instagram', null, 'app'),
   teach_answer: row('Do you teach?', 'teach'),
   teach_styles: row('Styles you teach', 'styles'),
   teach_years: row('Years teaching', 'years'),
   teach_levels: row('Levels you teach', 'levels'),
-  dj_answer: row('Do you DJ?', null, 'dancer'),
-  dj_genres: row('Music you play', null, 'dancer'),
+  dj_answer: row('Do you DJ?', 'dj'),
+  dj_genres: row('Music you play', 'djgenres'),
   org_logo: row('Page logo', 'logo'),
   org_link: row('Page link', 'link'),
   org_city: row('Page city', null, 'page'),
@@ -329,8 +332,19 @@ export const REVIEW_ROWS: Record<string, Omit<ReviewRow, 'code'>> = {
   contact_confirm: row('Contact number', 'contact'),
 };
 
-/** An unknown code (a later compulsory item, the status RPC's own promise) still shows, never dropped; it opens the dancer editor. */
-export const reviewRow = (code: string): ReviewRow => ({ code, ...(REVIEW_ROWS[code] ?? row(code.replace(/_/g, ' '), null, 'dancer')) });
+/**
+ * An unknown code (a later compulsory item, the status RPC's own promise) still shows, never dropped. No screen
+ * here answers it (step and elsewhere null), so its row opens one that says what the person can do.
+ */
+export const reviewRow = (code: string): ReviewRow => ({ code, ...(REVIEW_ROWS[code] ?? row(code.replace(/_/g, ' '), null)) });
+
+/** The /app profile editor (dancer-app route `edit`), on one field; Save returns to `returnTo` (sanitizeReturnTo). */
+export const APP_EDIT_PATH = '/app/me/edit';
+export const appEditHref = (focus: 'instagram' | null, returnTo: string | null): string => {
+  const safe = sanitizeReturnTo(returnTo);
+  const q = [focus ? `focus=${focus}` : '', safe ? `returnTo=${encodeURIComponent(safe)}` : ''].filter(Boolean).join('&');
+  return q ? `${APP_EDIT_PATH}?${q}` : APP_EDIT_PATH;
+};
 
 /** The status read, as Review needs it, for ONE page. */
 export type ReviewStatus = {

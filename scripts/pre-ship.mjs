@@ -74,7 +74,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
  * the single source of truth for what a check actually invokes; `args` is
  * appended after `--` and exists only to make a reporter quiet.
  *
- * The first EIGHTEEN are exactly scripts/run-lint-chain.mjs's LINKS, in its
+ * The first THIRTY-FOUR are exactly scripts/run-lint-chain.mjs's LINKS, in its
  * order. NOT "the npm-run links of the lint chain" any more, and not followed
  * by "a bare `eslint .`": as of 2026-08-26 `lint` is `node
  * scripts/run-lint-chain.mjs`, which owns LINKS plus TAIL (`lint:eslint`), and
@@ -294,6 +294,17 @@ export const CHECKS = [
   ["check:no-preview-prefixes", "preview jobs exclude exactly the Vercel no-preview prefixes"],
   ["check:journey-grid:self-test", "every journey-grid rule still fails its own mutant"],
   ["check:journey-grid", "every account journey-grid row is covered or in the reasoned baseline"],
+  ["check:required-jobs:self-test", "the A17b phantom-name canary still fails a phantom fixture"],
+  ["check:required-jobs", "every required-jobs.json name is a real check-run / workflow (A17b)"],
+  // Foundations slice 2 (docs/automation-foundations.md): each canary ahead of its check.
+  ["check:secrets-register:self-test", "every secrets-register rule (a)-(f) and the expiry mode still fail their mutants"],
+  ["check:secrets-register", "every workflow secret is registered, read only by allowed workflows, from trusted triggers"],
+  ["check:identity-register:self-test", "the identity check still fails an owner login, a shared role, a mismatch"],
+  ["check:identity-register", "no recorded acts_as is the owner login; recorded roles stay separate (offline)"],
+  ["check:workflow-log-secrets:self-test", "the A22 secret matcher still catches a dummy echo"],
+  ["check:workflow-log-secrets", "no secret-shaped literal in any workflow file"],
+  ["check:drill-records:self-test", "the drill-record checker still refuses a forged and a stale record"],
+  ["check:drill-records", "components.json is valid (literal paths, built components have paths)"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to
@@ -744,14 +755,16 @@ export function smokeEnvFrom(text, parseYaml) {
   const jobs = doc && doc.jobs && typeof doc.jobs === "object" ? Object.values(doc.jobs) : [];
   for (const job of jobs) {
     const steps = job && Array.isArray(job.steps) ? job.steps : [];
-    const runsSmoke = steps.some(
-      (s) => s && typeof s.run === "string" && s.run.includes("test:e2e"),
-    );
+    // EXACTLY `test:e2e`, never `test:e2e:p3`: that step turns the P3 flags on, and
+    // lifting its env into this (legacy) smoke run reds organiser-* on a clean tree --
+    // P3 takes over /account/o. (guard-p3-walk-specs, 2026-10-31.)
+    const isSmoke = (s) => s && typeof s.run === "string" && /\btest:e2e(?![:\w-])/.test(s.run);
+    const runsSmoke = steps.some(isSmoke);
     if (!runsSmoke) continue;
     lift(doc.env);
     lift(job.env);
     for (const step of steps) {
-      if (step && typeof step.run === "string" && step.run.includes("test:e2e")) lift(step.env);
+      if (isSmoke(step)) lift(step.env);
     }
   }
   const REQUIRED = ["VITE_SUPABASE_URL", "VITE_SUPABASE_PUBLISHABLE_KEY"];

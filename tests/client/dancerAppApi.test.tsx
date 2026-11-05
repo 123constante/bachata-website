@@ -61,6 +61,8 @@ const INTERFACE_CODES = [
   // Invite journey A1: the phone / Instagram triggers on dancer_profiles (agreed names).
   'invalid_phone',
   'invalid_instagram',
+  // instagram-refusal r2 (C): a 23505 on dancer_profiles_instagram_normalized_uidx (matched on the index name).
+  'instagram_taken',
 ];
 
 /** Codes the DB raises with a DETAIL naming the field, and the DETAIL values it can send. */

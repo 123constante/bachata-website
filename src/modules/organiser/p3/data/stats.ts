@@ -113,3 +113,13 @@ export function byEventOf(s: ViewsStats) {
     .sort((a, b) => b.total - a.total)
     .map((x) => ({ id: x.seriesId, name: x.name.trim() || L.noName, total: x.total, pct: x.total > 0 ? Math.max(2, Math.round((x.total / max) * 100)) : 0 }));
 }
+
+/**
+ * Page scope (F-26): organiser_series_stats_v1 has no page argument and returns one row per
+ * series for the whole team (checked against the live function, 4 Nov 2026), so one page's
+ * numbers are the rows whose series id the chosen page carries in organiser_home_v1.
+ * A series the page does not carry is never counted; this is a client filter, not a server one.
+ */
+export function scopeStats(s: ViewsStats, seriesIds: ReadonlySet<string>): ViewsStats {
+  return { ...s, series: s.series.filter((x) => seriesIds.has(x.seriesId)) };
+}

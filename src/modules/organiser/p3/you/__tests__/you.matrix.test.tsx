@@ -158,7 +158,8 @@ describe('You hub x shape', () => {
     myRole = 'manager';
     members = [ME('manager'), ...others(11)];
     left = 2;
-    at(P3_PATHS.you);
+    // no page chosen yet lands on the first by name (F-26), so the long-named draft page is chosen via ?o=
+    at(`${P3_PATHS.you}?o=org-2`);
     expect((await screen.findByTestId('p3-you-page-name')).textContent).toBe(LONG);
     expect(screen.getByTestId('p3-you-page-status').textContent).toBe('Draft');
     expect(screen.getByTestId('p3-you-page-card').textContent).toContain(ROLE_LABEL.manager);
@@ -769,7 +770,8 @@ describe('W4a fix 3: role x shape -> what Team, Person and Hand over offer (the 
   });
 
   it.each([
-    [true, true, P3_PATHS.youWelcome('org 1')],
+    // F-05 (brief p3-wt-land): the words say "organiser home", so P3 live lands on P3 Home for the page
+    [true, true, `${P3_PATHS.home}?o=org%201`],
     [true, false, ORG_PATHS.welcome('org 1')],
     [false, true, ORG_PATHS.welcome('org 1')],
     [false, false, ORG_PATHS.welcome('org 1')],
