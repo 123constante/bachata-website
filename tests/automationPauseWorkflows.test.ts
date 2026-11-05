@@ -56,6 +56,7 @@ function consumerProblems(text: string, spec: { job: string; gated: RegExp[]; in
 const CONSUMERS: [string, Parameters<typeof consumerProblems>[1]][] = [
   ['bot-automerge.yml', { job: 'decide', gated: [/^Enable auto-merge/], pr: true, perms: { contents: 'read', 'pull-requests': 'write', issues: 'read' } }],
   ['dependabot-automerge.yml', { job: 'enable', gated: [/^Enable auto-merge/], pr: true, perms: { contents: 'write', 'pull-requests': 'write', issues: 'read' } }],
+  ['stale-bot-pr-sweep.yml', { job: 'sweep', gated: [/^Sweep stale bot PRs/], perms: { contents: 'read', issues: 'read', 'pull-requests': 'write' } }],
   ['post-merge-prod-alarm.yml', { job: 'brake', gated: [/^Disable auto-merge on every open PR/, /^Open or update the alarm issue/], info: true, perms: { contents: 'read', issues: 'write', 'pull-requests': 'write' } }],
 ];
 

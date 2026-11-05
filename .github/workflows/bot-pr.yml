@@ -3,7 +3,9 @@ name: Bot PR for cloud branches
 # Copied from bachata-admin (same file); the PR numbers below are that repo's.
 # Cloud sessions (claude.ai/code) push with the OWNER's credential (the GitHub proxy swaps it
 # in), so a PR they open is owner-authored and the owner cannot approve it. This job opens the
-# PR AS THE BOT (secret BOT_PR_TOKEN) when a claude/** or ccr-* branch is pushed and has no open PR.
+# PR AS THE BOT (secret BOT_PR_TOKEN) when a claude/** or ccr-* branch is pushed and has no open PR,
+# EXCEPT review reports (claude/review-*) and "nothing to change" markers (claude/done-*): those
+# are read from the branch and only piled up as superseded PRs (tests/botPrSkip.test.ts).
 # A branch whose PR already merged gets no new one: a push after that merge (a main-merge racing the
 # owner's merge) only ever opened empty duplicates (#547, #553, #554). New work goes on a new branch.
 # A PAT-opened PR fires the normal pull_request checks. The cloud session pushes and never
@@ -24,7 +26,8 @@ concurrency:
 
 jobs:
   open-pr:
-    if: ${{ !github.event.deleted }}
+    # Owner click 2026-11-04: no PR for claude/review-* or claude/done-* (dash included).
+    if: ${{ !github.event.deleted && !startsWith(github.ref_name, 'claude/review-') && !startsWith(github.ref_name, 'claude/done-') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

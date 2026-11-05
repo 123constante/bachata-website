@@ -36,6 +36,7 @@ its own switch; the orchestrator sets both repos' labels when it pauses.
 | `scripts/autopilot-step.mjs` (autopilot + merge lane) | at the start of each repo, then again before EVERY write (every non-GET through the guarded API) and explicitly before EACH merge (`mergePr`) | writes nothing, merges nothing; PR rows say `paused: <reason>`; summary says PAUSED; exit 0 |
 | `bot-automerge.yml` | after checkout of main, and again immediately before `Enable auto-merge` | no enable; the existing disable step runs (an armed auto-merge would merge later) |
 | `dependabot-automerge.yml` | checkout of main, before `Enable auto-merge` | no enable; an armed auto-merge on the PR is disabled |
+| `stale-bot-pr-sweep.yml` (daily 04:23 UTC + manual) | after checkout of main, before the sweep step | closes nothing; a notice step says so (a failed read is treated as paused) |
 | `post-merge-prod-alarm.yml` (brake) | `--info`, logged only | the brake ALWAYS runs: a pause stops merging, never alerting |
 | `automation-pause-guard.yml` | `--guard` (A15b), every 30 min + on label events; `--info` before the scheduled disarm | label added, OR a scheduled run that does not read RUNNING (a label set with GITHUB_TOKEN fires no `issues` event): disarms auto-merge on every open PR |
 
@@ -54,3 +55,7 @@ never merges). A new workflow that merges/approves/writes without a reader turns
   enables (`reason=HTTP 403` in the step log).
 - The interim message channel is ONE comment on the switch issue per notice key; no push
   notification.
+
+## Stale bot-PR sweep
+
+Owner click 2026-11-04. `bot-pr.yml` no longer opens a PR for `claude/review-*` or `claude/done-*` (tests/botPrSkip.test.ts evaluates the real job `if:`). `stale-bot-pr-sweep.yml` runs `scripts/sweep-stale-bot-prs.mjs --apply` (dry-run without `--apply`) with `BOT_PR_TOKEN`: it closes at most 5 (`MAX_CLOSES`, oldest first) of the bot's own `claude/*` PRs idle more than 3 days (`STALE_DAYS`) that are superseded (a later open or merged PR for the same ticket), say `chore: ... already on main`, or change zero files. A PR with `automerge-ok`, `ap:hold`, `owner-reserved` (`PROTECTED_LABELS`) or any `RESERVED_LABELS` entry, a draft, or any other author is never touched; branches are never deleted. Each close posts `Closed by the stale-bot-PR sweep: <reason>. Reopen if this was wrong.` The decision is `scripts/lib/stale-bot-pr.mjs`, tested in tests/staleBotPr.test.ts.
