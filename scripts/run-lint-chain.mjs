@@ -153,6 +153,14 @@ export const LINKS = [
   "check:journey-grid",
   "check:required-jobs:self-test",
   "check:required-jobs",
+  "check:secrets-register:self-test",
+  "check:secrets-register",
+  "check:identity-register:self-test",
+  "check:identity-register",
+  "check:workflow-log-secrets:self-test",
+  "check:workflow-log-secrets",
+  "check:drill-records:self-test",
+  "check:drill-records",
 ];
 
 /**

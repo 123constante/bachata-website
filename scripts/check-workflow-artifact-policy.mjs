@@ -648,9 +648,13 @@ const MEASURED = {
   // RE-DERIVED 2026-11-04 after automation-pause-guard.yml (pause switch, slice 1) plus the
   // reader steps in bot-automerge/dependabot-automerge/post-merge-prod-alarm: analyse() gave
   // 36 files, 58 jobs, 380 steps, 7 upload steps, largest still db-contract-check.yml (67).
-  workflowFiles: 36,
-  jobs: 58,
-  steps: 380,
+  // RE-DERIVED 2026-11-04 after automation-identity-check.yml + automation-token-expiry.yml
+  // (foundations slice 2, parts 4/6): main before them measured 36 files, 58 jobs, 383 steps
+  // (green, inside the drift band); with them analyse() gave 38 files, 60 jobs, 389 steps,
+  // 7 upload steps, largest still db-contract-check.yml (67).
+  workflowFiles: 38,
+  jobs: 60,
+  steps: 389,
   uploadSteps: 7,
   /** db-contract-check.yml, the largest single workflow, in steps. */
   largestWorkflowSteps: 67,
