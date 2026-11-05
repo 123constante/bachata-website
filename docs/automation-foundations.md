@@ -266,6 +266,18 @@ dispatch) calls `GET /user` with `BOT_PR_TOKEN` and `AUTOMERGE_TOKEN` (passed by
 `env:` only) and fails on a login that differs from `acts_as`, equals the owner
 login, or makes two `separate_roles` resolve to one login. It prints logins only.
 `npm run check:identity-register` is the offline form (recorded `acts_as` only).
+It measures only entries with `exists: true`; an `exists: true` credential missing
+from the env stays exit 2 (never green).
+
+Owner decision 2026-11-05: the `["author","merge"]` pair is dropped from
+`separate_roles` (kept: `[author, approver]`, `[merge, approver]`). Measured the
+same day (run 41990183311): `BOT_PR_TOKEN` acts as `kiki-claude-bot` (recorded),
+and there is no `AUTOMERGE_TOKEN` secret in this repo, so its entry is
+`exists: false`. The two workflows that still name it (`autopilot.yml`, which
+handles it empty, and `automation-identity-check.yml`) are listed in the entry's
+`absent_readers` with dated reasons: rule (a) of `check-secrets-register.mjs`
+accepts a reader of an absent secret only there, and a stale `absent_readers`
+row, or one on an existing entry, fails.
 
 The live A34 drill (a bot push that adds a workflow file is rejected by GitHub)
 needs the real token and is not run here.
@@ -308,9 +320,10 @@ contract list, because the checker matches it to the run. `--require-all`
   administration read; owner-gated, slice 2b.
 - Required jobs not in the ruleset (handover list): owner decides whether to add
   them to both lists.
-- Identity check first live run is likely RED: both PATs are inferred as
-  `kiki-claude-bot` and `separate_roles` keeps `[author, merge]`. Owner decides:
-  a separate merge-bot account, or drop that pair.
+- Identity check: decided 2026-11-05 (owner): `[author, merge]` dropped from
+  `separate_roles`; `AUTOMERGE_TOKEN` recorded absent (see above). If a merge
+  token is added later, set `exists: true`, remove its `absent_readers`, and the
+  live check measures it again (owner login still red).
 - Unrecorded logins: `CI_BUDGET_GITHUB_TOKEN`, `TYPES_BOT_TOKEN`,
   `ADMIN_READ_TOKEN`.
 - Grandfathered readers (handover list): owner review.

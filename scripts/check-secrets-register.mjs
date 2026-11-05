@@ -8,7 +8,8 @@
  * real YAML parse (expressions only: `${{ ... }}` and `if:` values -- never prose, never a
  * script file name) and fails when:
  *   (a) a secret used by a workflow is not in the register (GITHUB_TOKEN exempt), or an entry
- *       says `exists: false` while a workflow already reads it;
+ *       says `exists: false` while a workflow already reads it (unless that workflow is in the
+ *       entry's `absent_readers` with a dated reason; a stale one, or one on an existing entry, fails);
  *   (b) a measured reader is not in that entry's `readers_allowed`; an allowed reader nothing
  *       reads any more (stale); a reader beyond the contract's minimum list (`contract_readers`)
  *       without a dated `grandfathered` reason;
@@ -201,7 +202,18 @@ export function checkRegister({ register, measured }) {
       for (const w of wfs) v.push(`(a) secrets.${secret} is used in ${w} but is not in the register`);
       continue;
     }
-    if (e.exists === false) for (const w of wfs) v.push(`(a) ${secret}: exists is false but ${w} reads it`);
+    if (e.exists === false) {
+      // A workflow may still NAME an absent secret (it then reads an empty value) only with a dated
+      // per-workflow reason in `absent_readers`: the register says truthfully the secret is missing.
+      const ar = e.absent_readers || {};
+      for (const w of wfs) if (typeof ar[w] !== 'string' || !DATED.test(ar[w])) v.push(`(a) ${secret}: exists is false but ${w} reads it`);
+    }
+  }
+  for (const e of register.entries) {
+    for (const w of Object.keys(e.absent_readers || {})) {
+      if (e.exists !== false) v.push(`(a) ${e.name}: absent_readers is only for an entry with exists false`);
+      else if (!(measured.readers[e.name] || []).includes(w)) v.push(`(a) ${e.name}: absent_readers ${w} is not a measured reader (stale)`);
+    }
   }
   for (const e of register.entries) {
     if (e.name === 'GITHUB_TOKEN') continue;
@@ -362,6 +374,11 @@ async function selfTest(log) {
   const cases = [
     ['clean register (0)', await main([], {}, quiet, { registerText: reg(), workflows: A(SCHED) }), 0],
     ['(a) unregistered secret (1)', await main([], {}, quiet, { registerText: reg({ name: 'OTHER', readers_allowed: [], contract_readers: [] }), workflows: A(SCHED) }), 1],
+    ['(a) absent secret read (1)', await main([], {}, quiet, { registerText: reg({ exists: false }), workflows: A(SCHED) }), 1],
+    ['(a) absent secret read, dated absent_readers (0)', await main([], {}, quiet, { registerText: reg({ exists: false, absent_readers: { 'a.yml': 'no secret (measured 2026-11-05)' } }), workflows: A(SCHED) }), 0],
+    ['(a) absent_readers without a date (1)', await main([], {}, quiet, { registerText: reg({ exists: false, absent_readers: { 'a.yml': 'no secret' } }), workflows: A(SCHED) }), 1],
+    ['(a) absent_readers stale (1)', await main([], {}, quiet, { registerText: reg({ exists: false, absent_readers: { 'a.yml': '2026-11-05', 'gone.yml': '2026-11-05' } }), workflows: A(SCHED) }), 1],
+    ['(a) absent_readers on an existing entry (1)', await main([], {}, quiet, { registerText: reg({ absent_readers: { 'a.yml': '2026-11-05' } }), workflows: A(SCHED) }), 1],
     ['(b) unlisted reader (1)', await main([], {}, quiet, { registerText: reg({ readers_allowed: [] }), workflows: A(SCHED) }), 1],
     ['(c) pull_request reader (1)', await main([], {}, quiet, { registerText: reg(), workflows: A('{ pull_request: {} }') }), 1],
     ['(c) non-main push reader (1)', await main([], {}, quiet, { registerText: reg(), workflows: A('{ push: { branches: [dev] } }') }), 1],

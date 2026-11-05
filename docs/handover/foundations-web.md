@@ -264,15 +264,14 @@ Self-hosted runners: 0 (measured, 61 jobs).
 `CI_BUDGET_GITHUB_TOKEN` (account billing read: possibly the owner's login),
 `TYPES_BOT_TOKEN`, `ADMIN_READ_TOKEN`. Their `acts_as` is `to record`.
 
-### Identity check: likely RED on first live run
-6.1a says `BOT_PR_TOKEN` and `AUTOMERGE_TOKEN` both act as `kiki-claude-bot`
-(inferred), and also that author vs merge-token must resolve to different
-logins. The register keeps all three pairs in `separate_roles`, so the first
-live run of `automation-identity-check.yml` (after merge, on the push that
-touches the register) will be RED with "roles author (BOT_PR_TOKEN) and merge
-(AUTOMERGE_TOKEN) resolve to one login kiki-claude-bot" if the inference is
-right. Owner decides: a separate merge-bot account, or drop `["author","merge"]`
-from `separate_roles`.
+### Identity check: decided 2026-11-05
+The first live run (run 41990183311 on 28439c89) went red with exit 2, not on
+the role pair: `AUTOMERGE_TOKEN` is not a secret in this repo. Owner decision
+2026-11-05: drop `["author","merge"]` from `separate_roles`. Fix
+(`claude/fix-main-red-identity-web`): pair dropped; `AUTOMERGE_TOKEN` entry
+`exists: false` with dated `absent_readers` for `autopilot.yml` and
+`automation-identity-check.yml`; `BOT_PR_TOKEN` `acts_as: kiki-claude-bot`
+(measured by that run). The owner-login check is unchanged.
 
 ---
 
@@ -317,7 +316,7 @@ from `separate_roles`.
   `automation-pause.yml`, `automation-resume.yml`, A33), deleting the old
   arming variables, creating the pinned issues `DRILL RECORDS` and
   `AUTOMATION PAUSE SWITCH`, Website CODEOWNERS (plan support not verified).
-- `separate_roles` vs both PATs as `kiki-claude-bot` (above).
+- `separate_roles`: decided 2026-11-05, author/merge pair dropped (above).
 - Adding the two new workflows (and the three changed ones) to
   `scripts/data/automation-workflow-allowlist.json` is the owner's call (list
   ships empty; see the Local CI record).

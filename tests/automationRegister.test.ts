@@ -67,8 +67,10 @@ describe('the register file (.github/automation/secrets-register.json)', () => {
     }
     for (const n of ['AUTOMATION_PAUSE_TOKEN', 'APPROVER_APP', 'VERCEL_READ_TOKEN', 'CANARY_TEST_USER']) expect(entry(r, n).exists).toBe(false);
     expect(entry(r, 'GITHUB_TOKEN').acts_as).toBe('github-actions[bot]');
-    expect(entry(r, 'BOT_PR_TOKEN').acts_as_state).toBe('inferred kiki-claude-bot');
-    expect(entry(r, 'AUTOMERGE_TOKEN').acts_as_state).toBe('inferred kiki-claude-bot');
+    // Measured 2026-11-05 by the identity check (run 41990183311); AUTOMERGE_TOKEN has no secret here.
+    expect(entry(r, 'BOT_PR_TOKEN').acts_as).toBe('kiki-claude-bot');
+    expect(entry(r, 'AUTOMERGE_TOKEN').exists).toBe(false);
+    expect(entry(r, 'AUTOMERGE_TOKEN').acts_as).toBeNull();
   });
   it('BOT_PR_TOKEN: the contract minimum is bot-pr.yml; every other measured reader is grandfathered with a dated reason', () => {
     const e = entry(r, 'BOT_PR_TOKEN');
@@ -348,46 +350,54 @@ describe('identity check (drill A36): GET /user per credential, fake fetch', () 
     const code = await identityMain([], e, q.log, { fetch: f, registerText: JSON.stringify(r) });
     return { code, out: q.lines.join('\n'), seen };
   };
-  // The contract requires author / merge / approver to be SEPARATE logins (6.1a). Today both PATs are
-  // inferred to be kiki-claude-bot; that is a contract conflict surfaced in the handover, so the
-  // happy-path fixtures here use two distinct bot logins.
+  // MECHANISM fixture, independent of the shipped register's choices: both PATs exist, acts_as is
+  // null, and author / merge are kept apart. The owner dropped that pair from the SHIPPED register
+  // on 2026-11-05 (pinned in the next describe); the mechanism itself must still work.
+  const fixture = (): Any => {
+    const r = reg();
+    r.separate_roles = [['author', 'merge'], ['author', 'approver'], ['merge', 'approver']];
+    for (const n of ['BOT_PR_TOKEN', 'AUTOMERGE_TOKEN']) Object.assign(entry(r, n), { exists: true, acts_as: null, acts_as_state: 'to record' });
+    return r;
+  };
   it('distinct automation logins, acts_as null = loud "to record" lines, exit 0', async () => {
-    const { code, out, seen } = await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'kiki-merge-bot' });
+    const { code, out, seen } = await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'kiki-merge-bot' }, fixture());
     expect(code).toBe(0);
     expect(out).toMatch(/BOT_PR_TOKEN -> kiki-claude-bot/);
     expect(out).toMatch(/to record/);
     expect(seen.every((s: Any) => s.url === 'https://api.github.com/user')).toBe(true);
   });
   it('A36: a credential that resolves to the owner login = red', async () => {
-    const { code, out } = await run({ [TOK_A]: '123constante', [TOK_B]: 'kiki-merge-bot' });
+    const { code, out } = await run({ [TOK_A]: '123constante', [TOK_B]: 'kiki-merge-bot' }, fixture());
     expect(code).toBe(1);
     expect(out).toContain('BOT_PR_TOKEN resolves to the owner login 123constante');
   });
-  it('A36: two roles (author, merge) resolving to one login = red', async () => {
-    const { code, out } = await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'kiki-claude-bot' });
+  it('A36: two roles kept apart by separate_roles (fixture: author, merge) resolving to one login = red', async () => {
+    const { code, out } = await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'kiki-claude-bot' }, fixture());
     expect(code).toBe(1);
     expect(out).toContain('roles author (BOT_PR_TOKEN) and merge (AUTOMERGE_TOKEN) resolve to one login kiki-claude-bot');
   });
   it('a recorded acts_as that differs from GET /user = red', async () => {
-    const r = reg();
+    const r = fixture();
     entry(r, 'AUTOMERGE_TOKEN').acts_as = 'kiki-merge-bot';
     expect((await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'someone-else' }, r)).code).toBe(1);
     expect((await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'kiki-merge-bot' }, r)).code).toBe(0);
   });
   it('missing credential env or an HTTP failure = exit 2 (cannot measure), never green', async () => {
-    expect((await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'x' }, reg(), { BOT_PR_TOKEN: TOK_A })).code).toBe(2);
-    expect((await run({ [TOK_A]: 401, [TOK_B]: 'x' })).code).toBe(2);
+    // A credential the register marks exists:true but the env lacks stays exit 2, never green.
+    expect((await run({ [TOK_A]: 'kiki-claude-bot', [TOK_B]: 'x' }, fixture(), { BOT_PR_TOKEN: TOK_A })).code).toBe(2);
+    expect((await run({ [TOK_A]: 401, [TOK_B]: 'x' }, fixture())).code).toBe(2);
+    expect((await run({}, reg(), {})).code).toBe(2);
   });
   it('never prints a token or an authorization header', async () => {
     for (const logins of [{ [TOK_A]: '123constante', [TOK_B]: 'b' }, { [TOK_A]: 401, [TOK_B]: 'b' }, { [TOK_A]: 'a', [TOK_B]: 'b' }]) {
-      const { out } = await run(logins as Any);
+      const { out } = await run(logins as Any, fixture());
       expect(out).not.toContain(TOK_A);
       expect(out).not.toContain(TOK_B);
       expect(out.toLowerCase()).not.toContain('bearer');
     }
   });
   it('judgeIdentities is pure: owner login, shared role, mismatch each named', () => {
-    const r = reg();
+    const r = fixture();
     const v = judgeIdentities({ register: r, resolved: { BOT_PR_TOKEN: '123constante', AUTOMERGE_TOKEN: '123constante' } });
     expect(v.violations.length).toBeGreaterThanOrEqual(3);
   });
@@ -399,6 +409,48 @@ describe('identity check (drill A36): GET /user per credential, fake fetch', () 
   });
   it('--self-test passes', async () => {
     expect(await identityMain(['--self-test'], {}, quiet().log)).toBe(0);
+  });
+});
+
+describe('the SHIPPED register after the owner decision of 2026-11-05 (author/merge separation dropped)', () => {
+  const TOK = ['tok', 'en', 'S', 'value'].join('-');
+  const runShipped = async (login: string | number, env: Any = { BOT_PR_TOKEN: TOK, AUTOMERGE_TOKEN: '' }) => {
+    const q = quiet();
+    const f = async () => (typeof login === 'number' ? new Response('{}', { status: login }) : new Response(JSON.stringify({ login }), { status: 200 }));
+    const code = await identityMain([], env, q.log, { fetch: f, registerText: REGISTER_TEXT });
+    return { code, out: q.lines.join('\n') };
+  };
+  it('separate_roles is exactly author/approver and merge/approver', () => {
+    expect(reg().separate_roles).toEqual([['author', 'approver'], ['merge', 'approver']]);
+  });
+  it('AUTOMERGE_TOKEN is recorded absent, with a dated note and dated absent_readers', () => {
+    const e = entry(reg(), 'AUTOMERGE_TOKEN');
+    expect(e.exists).toBe(false);
+    expect(e.note).toMatch(/2026-11-05/);
+    expect(Object.keys(e.absent_readers).sort()).toEqual(['automation-identity-check.yml', 'autopilot.yml']);
+  });
+  it('the CI shape (BOT_PR_TOKEN set, AUTOMERGE_TOKEN empty) resolving to kiki-claude-bot = exit 0, no "to record"', async () => {
+    const { code, out } = await runShipped('kiki-claude-bot');
+    expect(code).toBe(0);
+    expect(out).not.toMatch(/TO RECORD -- BOT_PR_TOKEN/);
+  });
+  it('the owner-login check is NOT dropped: BOT_PR_TOKEN resolving to the owner login = red', async () => {
+    const { code, out } = await runShipped('123Constante');
+    expect(code).toBe(1);
+    expect(out).toContain('BOT_PR_TOKEN resolves to the owner login 123constante');
+  });
+  it('a login other than the recorded acts_as = red; a missing BOT_PR_TOKEN or HTTP failure = exit 2', async () => {
+    expect((await runShipped('someone-else')).code).toBe(1);
+    expect((await runShipped('kiki-claude-bot', {})).code).toBe(2);
+    expect((await runShipped(401)).code).toBe(2);
+  });
+  it('the shipped register passes rules (a)-(f) against the real workflows', () => {
+    expect(checkRegister({ register: reg(), measured: measureWorkflows(WORKFLOWS) }).violations).toEqual([]);
+  });
+  it('(a) an absent_readers entry for a workflow that no longer reads the secret = red (stale)', () => {
+    const r = reg();
+    entry(r, 'AUTOMERGE_TOKEN').absent_readers['gone.yml'] = 'measured 2026-11-05';
+    expect(checkRegister({ register: r, measured: measureWorkflows(WORKFLOWS) }).violations).toContain('(a) AUTOMERGE_TOKEN: absent_readers gone.yml is not a measured reader (stale)');
   });
 });
 
