@@ -99,6 +99,10 @@ describe('main: author rule and path variants (workflow-allowlist-2)', () => {
     ['leading ./ variant fails', LOOP, BOT_LOGIN, './.github/workflows/x.yml', EMPTY, 1],
     ['leading ./ on a listed name passes', LOOP, BOT_LOGIN, './' + WF, LISTED, 0],
     ['nested .github/workflows/sub/x.yml fails', LOOP, BOT_LOGIN, '.github/workflows/sub/x.yml', LISTED, 1],
+    ['doubled separator .github//workflows/x.yml fails', LOOP, BOT_LOGIN, '.github//workflows/x.yml', EMPTY, 1],
+    ['inner-dot separator .github/./workflows/x.yml fails', LOOP, BOT_LOGIN, '.github/./workflows/x.yml', EMPTY, 1],
+    ['combined case, backslash, inner-dot, doubled variant fails', LOOP, BOT_LOGIN, '.GitHub\\.\\workflows//x.yml', EMPTY, 1],
+    ['doubled separator on a LISTED name passes', LOOP, BOT_LOGIN, '.github//workflows/autopilot.yml', LISTED, 0],
   ])('%s', (_n, branch, author, files, listPath, want) => {
     expect(run({ HEAD_REF: branch, PR_AUTHOR: author, PR_FILES: files, AUTOMATION_WORKFLOW_ALLOWLIST: listPath })).toBe(want);
   });
@@ -143,6 +147,9 @@ describe('normalisePath', () => {
     ['./.github/workflows/x.yml', '.github/workflows/x.yml'],
     ['././a.md', 'a.md'],
     ['.GitHub/Workflows/x.yml', '.GitHub/Workflows/x.yml'],
+    ['.github//workflows/x.yml', '.github/workflows/x.yml'],
+    ['.github/./workflows/x.yml', '.github/workflows/x.yml'],
+    ['.GitHub\\.\\workflows//x.yml', '.GitHub/workflows/x.yml'],
   ])('%s -> %s', (raw, want) => {
     expect(normalisePath(raw)).toBe(want);
   });

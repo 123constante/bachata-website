@@ -56,6 +56,31 @@ Mutation proof: removing `|| author === BOT_LOGIN` made `--self-test` fail 1/33 
 3/64; removing normalisation in `violations()` made self-test fail 1/33 and vitest 4/64;
 revert restored green.
 
+## Fix round (brief loop-editable-workflows-fix, Brief-version 2)
+- **Path-variant gap closed.** `normalisePath` now runs `path.posix.normalize` after the
+  backslash swap (leading `./` strip and the case-insensitive prefix test kept, exit codes
+  0/1/2 unchanged), so `.github//workflows/x.yml`, `.github/./workflows/x.yml` and
+  `.GitHub\.\workflows//x.yml` are all seen as workflow paths and fail on a loop PR.
+- **Red first.** New rows written before the fix: `--self-test` gave
+  `FAIL self-test -- 3 of 36 case(s).` and vitest `7 failed | 64 passed (71)`. After the fix:
+  `PASS self-test -- 36 cases` and vitest 71/71.
+- **Mutation proof.** Dropping the `path.posix.normalize` call: self-test 3/36 red, vitest
+  7/71 red; reverted: green.
+- **Docs anchor:** anchor present, no edit (`git grep` on origin/main finds
+  `## Automation workflow allow-list` at docs/ci-guard-notes.md line 468).
+
+## What protects the guard itself
+The wired step runs the PR's OWN checkout, so a loop PR that edits the guard script,
+`scripts/lib/autopilot.mjs` (BOT_LOGIN, isWorkerBranch) or the test could weaken the guard
+and pass it in the same PR. The guard cannot defend against that; the protection is the
+hard-tier owner-Approve audit at head. In `.github/automation/guard-paths.json` the guard
+(`scripts/check-automation-workflow-allowlist.mjs`, line 17), the list (line 16),
+`scripts/lib/autopilot*` (line 6) and `.github/**` (line 5) are guard paths, so no auto path
+may merge a PR touching them. The test file `tests/automationWorkflowAllowlist.test.ts` is
+NOT a guard path, but editing it alone cannot weaken the guard: CI runs the script's own
+`--self-test`, not the vitest file. This is the accepted residual risk: a PR that weakens
+the guard is caught by the owner reading the diff before Approve, not by the guard.
+
 ## ROLLBACK
 Delete the "Automation workflow allow-list" step from `workflow-lint.yml` `masking-check`.
 The JSON list and the guard stay as inert files; nothing else depends on them.

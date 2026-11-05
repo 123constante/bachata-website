@@ -22,7 +22,8 @@
  * Rule: on a loop PR, every changed path under .github/workflows/ must be
  * `.github/workflows/<listed name>`; anything else (an unlisted name, a nested
  * path) fails, and so does changing the list itself. Every path is normalised first
- * (backslash -> slash, leading ./ stripped) and the `.github/workflows/` prefix and the
+ * (backslash -> slash, path.posix.normalize so `//` and `/./` collapse, leading ./
+ * stripped) and the `.github/workflows/` prefix and the
  * list file are matched case-insensitively, so `.GitHub/Workflows/x.yml` is seen; only
  * the exact-case `.github/workflows/<name>` counts as listed. A NON-loop PR is never
  * affected -- the list is not even read, so a human PR cannot be blocked by a broken list.
@@ -73,9 +74,13 @@ export function isLoopPr(branch, author) {
   return isWorkerBranch(branch) || author === BOT_LOGIN;
 }
 
-/** Backslash -> slash, strip any leading ./ (git and REST never emit these; a hand-fed list might). */
+/**
+ * Backslash -> slash, then path.posix.normalize (collapses `//` and inner `/./`, resolves
+ * `a/../`), then strip any leading ./ (git and REST never emit these; a hand-fed list might).
+ * So `.github//workflows/x.yml` and `.github/./workflows/x.yml` are seen as workflow paths.
+ */
 export function normalisePath(f) {
-  let p = String(f).replace(/\\/g, '/');
+  let p = path.posix.normalize(String(f).replace(/\\/g, '/'));
   while (p.startsWith('./')) p = p.slice(2);
   return p;
 }
@@ -245,6 +250,9 @@ function selfTest(log) {
       ['backslash variant (1)', a(LOOP, BOT, '.github\\workflows\\x.yml', EMPTY), 1],
       ['leading ./ variant (1)', a(LOOP, BOT, './.github/workflows/x.yml', EMPTY), 1],
       ['leading ./ on a listed name (0)', a(LOOP, BOT, './' + WF, LISTED), 0],
+      ['doubled separator variant (1)', a(LOOP, BOT, '.github//workflows/x.yml', EMPTY), 1],
+      ['inner-dot separator variant (1)', a(LOOP, BOT, '.github/./workflows/x.yml', EMPTY), 1],
+      ['combined case/backslash/dot/doubled variant (1)', a(LOOP, BOT, '.GitHub\\.\\workflows//x.yml', EMPTY), 1],
       ['list file case variant (1)', a(LOOP, BOT, 'Scripts/Data/Automation-Workflow-Allowlist.json', LISTED), 1],
       ['rename tab pair onto a workflow (1)', a(LOOP, BOT, 'docs/x.yml\t' + OTHER, LISTED), 1],
       ['CI run with no PR_AUTHOR (2)', a('ricky/x', '', OTHER, EMPTY, { GITHUB_ACTIONS: 'true' }), 2],
