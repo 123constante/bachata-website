@@ -217,7 +217,10 @@ export const FOUNDATIONS_OK = {
   opts: { foundations: { requiredJobs: async () => REQUIRED_OK, money: () => NOT_MONEY, arming: harnessArming } },
   // spreads into run() opts of a harness that keeps the REAL required-jobs / money readers
   armingOpts: { foundations: { arming: harnessArming } },
-  // spreads into a scripts/automerge-classify.mjs classify() call (bot-automerge)
-  classify: { moneyCheck: () => NOT_MONEY },
+  // spreads into a scripts/automerge-classify.mjs classify() call (bot-automerge). PART 5 (A18):
+  // guardCheck is the shared guard-path check; the existing classifier table judges the OTHER rules
+  // (its docs-only row uses docs/automerge.md, a GOVERNANCE path that is now a guard path), and
+  // tests/automationGuardPaths.test.ts drives the REAL check and its mutant.
+  classify: { moneyCheck: () => NOT_MONEY, guardCheck: () => [] as string[] },
 };
 export const NOT_PAUSED = { pauseReader: async () => ({ paused: false, reason: '', issue: 1 }), ...FOUNDATIONS_OK.opts };
