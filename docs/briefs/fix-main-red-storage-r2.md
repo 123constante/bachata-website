@@ -12,7 +12,7 @@ Owner rule 2026-11-05: the lead owns every red on main. You never approve or mer
 - A handover note recording the measurement and why the check stays red until old deployment records expire -- docs/handover/fix-main-red-storage-r2.md
 
 ## What to do
-1. `git fetch origin claude/fix-main-red-storage` and read the diff of its commit (`git show FETCH_HEAD`): files `.github/workflows/{og-image-check,perf-budget,seo-check,synthetic-ssr-monitor}.yml`, `scripts/vercel-ignore-build.sh`, `vercel.json`, `tests/vercelDeploymentEnabled.test.ts`, `tests/vercelIgnoreBuild.test.ts`, `docs/handover/fix-main-red-storage-r2.md`.
+1. `git fetch origin claude/fix-main-red-storage` and read the diff of its commit (`git show FETCH_HEAD`): files `.github/workflows/{og-image-check,perf-budget,seo-check,synthetic-ssr-monitor}.yml`, `scripts/vercel-ignore-build.sh`, `vercel.json`, `tests/vercelDeploymentEnabled.test.ts`, `tests/vercelIgnoreBuild.test.ts`; it also added `docs/automation-foundations.md`: do NOT touch that file (worker claude/foundations-web owns it), write your note in `docs/handover/fix-main-red-storage-r2.md` instead.
 2. Re-apply it on top of main by hand (main moved: read each target file as it is now; if the prefix list changed shape, extend it the same way). No existing skip rule may be loosened.
 3. Red first: the new test cases fail on main, pass after.
 4. Run `node scripts/check-no-preview-prefixes.mjs` (0 drift), `npm run check:mojibake`, `npm run check:integrity`, the lint chain, and the two vitest files; run the full unit suite and compare any failure to main (state which fail on main too).
