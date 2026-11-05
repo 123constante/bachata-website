@@ -132,7 +132,7 @@ async function lane(runFn: RunFn, f: FakeFile) {
   const gh = fakeGitHub({ n: 91, files: [f], checkRuns: (h) => green(h, REQ.pr_head) });
   const lines: string[] = [];
   const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.map(String).join(' ')); });
-  try { await runFn(ENV, { pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
+  try { await runFn(ENV, { ...FOUNDATIONS_OK.armingOpts, pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
   return { merges: gh.merges().length, out: lines.join('\n') };
 }
 const basePr = { state: 'open', draft: false, user: BOT_LOGIN, headRef: 'claude/x', headRepo: 'o/r', baseRepo: 'o/r', baseRef: 'main', labels: [LABEL_OK, 'review-passed'], body: 'x' };

@@ -125,7 +125,7 @@ async function scenario(runFn: RunFn, checkRuns: (head: string, read: number) =>
   const lines: string[] = [];
   const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.map(String).join(' ')); });
   let code: number;
-  try { code = await runFn(ENV, { pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
+  try { code = await runFn(ENV, { ...FOUNDATIONS_OK.armingOpts, pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
   return { code, merges: gh.merges().length, reads: gh.headReads(), out: lines.join('\n') };
 }
 // The REAL default readers (no foundations injection): the file comes from the checkout (main).

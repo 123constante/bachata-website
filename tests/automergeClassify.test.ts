@@ -141,7 +141,11 @@ describe('bot-automerge.yml wiring', () => {
     expect(wf).toMatch(/^on:\s*\n\s*pull_request_target:/m);
     expect(wf).toMatch(/ref: main\s*\n\s*persist-credentials: false/);
     expect(wf).not.toMatch(/head\.(sha|ref)\s*}}\s*$/m);
-    expect(wf).toContain("vars.AUTOMERGE_ENABLED == 'true' && vars.BOT_AUTOMERGE_ENABLED == 'true'");
+    // Slice 2 PART 3 (A30): both switches are arming.json on main (read by a first step that gates
+    // every later step), never the repo variables (tests/automationArming.test.ts has the full check).
+    expect(wf).toContain('node scripts/automation-arming.mjs --gate automerge_enabled,bot_automerge_enabled');
+    expect(wf).not.toContain("vars.AUTOMERGE_ENABLED == 'true'");
+    expect(wf).not.toContain("vars.BOT_AUTOMERGE_ENABLED == 'true'");
     expect(wf).toContain('--match-head-commit');
   });
 });
