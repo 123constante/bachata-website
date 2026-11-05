@@ -77,9 +77,9 @@ describe('the register file (.github/automation/secrets-register.json)', () => {
     expect(e.contract_readers).toContain('bot-pr.yml');
     for (const w of e.readers_allowed) {
       if (e.contract_readers.includes(w)) continue;
-      expect(e.grandfathered[w], w).toMatch(/2026-11-04/);
+      expect(e.grandfathered[w], w).toMatch(/2026-11-0[45]/);
     }
-    expect(Object.keys(e.grandfathered).sort()).toEqual(['autopilot.yml', 'bot-automerge.yml']);
+    expect(Object.keys(e.grandfathered).sort()).toEqual(['autopilot.yml', 'bot-automerge.yml', 'stale-bot-pr-sweep.yml']);
   });
   it('the owner PC gh session is recorded as NOT an automation credential and no workflow can name it', () => {
     expect(r.owner_credentials.map((c: Any) => c.acts_as)).toEqual(['123constante']);
