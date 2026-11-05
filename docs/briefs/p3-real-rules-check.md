@@ -1,5 +1,11 @@
 # Brief: P3 real-rules refusal check (docs-first, then one guard + one matrix test)
 
+CONTINUATION 2026-11-05 (program lead website-45-f): round 1 finished PARTIAL, PR #1389, branch claude/p3-real-rules-check. FIRST read docs/handover-p3-real-rules-check.md on that branch and continue ON THAT BRANCH (check it out from origin; do not recreate). Do NOT redo what is Done. Build what is "Left":
+1. src/modules/organiser/shared/__tests__/refusalCodes.live.test.ts (reads scripts/p3-refusal-codes.json; same rule as the guard plus "carries a next step").
+2. src/modules/organiser/p3/__tests__/refusal.screenMatrix.test.tsx (screen x refusal, red first on F-10, F-11, F-15, F-46, F-40; shrink-only KNOWN_GAPS so main stays green). Find the real doors for tickets (F-11) and ban (F-40) before building their rows; if none exist, record that in the JSON/handover and skip those rows honestly.
+3. The --live step in db-contract-check.yml must SKIP CLEANLY (exit 0, one clear line) when secret P3_RULES_DB_URL is absent; never fail. State in the PR body: "--live step: Not verified (needs P3_RULES_DB_URL secret; lead raises it with the owner)". Do not ask the owner.
+Items 4 and 5 of the handover (per-prose split, admin-repo attribution) stay out of scope. Do not merge; the lead reviews and sends the Approve (scripts/** guarded). Keep the PR body check scripts at exit 0.
+
 RELEASED 2026-11-05 by program lead website-45-f: claude/p3-status-real-reasons (#1385) MERGED as ba957d0f0, so the status fix is on main. One worker at a time. The off-limits files below may now be read; edit them only by an additive allow-list entry, and list anything else in a shrink-only KNOWN_GAPS ratchet.
 
 Lane: careful (reads the DB contract). Model: Opus. Goal (owner definition of done): a check against the LIVE server rules fails if any P3 screen shows a wrong or missing refusal reason; the 390x844 walk of every journey stays in WALKLIST and is not part of this brief.
