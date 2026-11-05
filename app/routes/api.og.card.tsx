@@ -102,6 +102,12 @@ type FallbackReason =
 //                non-healing rather than slow-healing. 1h is a cost ceiling on
 //                a wrong card, not a repair window -- the repair is the CI red.
 const CACHE_OK = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
+// The same shared-cache lifetime, stated on the directive Vercel documents for
+// its CDN, so a future edit to the browser header above cannot silently shorten
+// the edge window. HEALTHY 200 only: degraded tiers, 302s, 304s and
+// render-error never carry it (pinned in ./api.og.card.test.tsx). Rollback
+// knob for docs/ops/vercel-cpu-cuts-2026-11-04.md slice 1.
+const EDGE_CACHE_OK = "public, s-maxage=31536000, stale-while-revalidate=604800";
 const CACHE_DEGRADED_FAST = "public, max-age=300";
 const CACHE_DEGRADED_SLOW = "public, max-age=3600";
 const SLOW_HEALING: ReadonlySet<string> = new Set<FallbackReason>(["cover-unfetchable", "cover-absent"]);
@@ -123,7 +129,7 @@ function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | nul
       // request that re-renders. A client holding the HEALTHY etag still gets
       // its 304 (the short-circuit above runs before any fetch), which is the
       // safe direction: it keeps a good card rather than a bad one.
-      ...(fallback ? { [FALLBACK_HEADER]: fallback } : { ETag: etag }),
+      ...(fallback ? { [FALLBACK_HEADER]: fallback } : { ETag: etag, "Vercel-CDN-Cache-Control": EDGE_CACHE_OK }),
     },
   });
 }
