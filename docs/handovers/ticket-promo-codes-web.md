@@ -52,3 +52,9 @@ Not changed, with reasons:
 - **P05:** 7 pence rows added to `wire shapes`. Pass on real code. Mutant dropping `Number.isInteger(v) &&`: 2 failed. Mutant dropping `v >= 0`: 2 failed. Both restored.
 - **Checks:** vitest `src/modules/tickets` 12 files, 539 tests green (was 524; needed `npm ci` for qrcode-generator); eslint on touched files clean; tsc app project no errors in tickets; check:mojibake clean.
 - **Not verified:** check:bundle-budget (no build run); browser walk at 390x844; the new copy test was not run against pre-fix code (the helper did not exist before).
+
+## Block-level assertion (follow-up to #1372, mutant M5)
+
+- New `src/modules/tickets/__tests__/promo.block.test.tsx`: mounts `TicketsBlock` with a refusing `ticket_promo_preview_v1` for 9 non-retryable + 4 retryable reasons plus the empty-code tap; asserts the `promo-note` text equals the copy exactly once, has no "Change the code to try again.", and Apply is disabled only for non-retryable reasons.
+- Proof: passes on real code (14 tests). Mutant (scratch, reverted): `promoNoteText(pv)` replaced by an inline join of `pv.note` and `pv.applyBlocked` -> 9 failed (all non-retryable rows).
+- Tests only, no production change.
