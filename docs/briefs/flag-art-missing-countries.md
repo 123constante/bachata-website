@@ -7,7 +7,7 @@ Owner screenshot 2026-11-05 07:51 (bachatacalendar.co.uk, organiser page, Teache
 `src/components/people/flagArt.ts` has hand-drawn inline SVG for 61 country codes only (`FLAG_ART`). Any other valid code falls to `genericFlagArt(code)`, a grey tile with the letters, by design (file comment). Prod read-only count (dancer_profiles.nationality, 2026-11-05): 179 empty, 20 with art, 5 GB, 1 without art = `GE` (Georgia). So one real person is affected today; every picker country outside the 61 is the same bug waiting.
 
 ## What main lacks
-- Artwork for `GE`, and for every country the nationality picker can offer that is not in `FLAG_ART`. grep: the picker is `src/components/ui/nationality-picker.tsx` and its country list source (find the constant it reads); `hasFlagArt` in `flagArt.ts`.
+- Artwork for `GE`, and for every country the nationality picker can offer that is not in `FLAG_ART` -- grep: hasFlagArt
 
 ## What to do
 1. List the exact picker country codes (from its source constant, not from memory) and diff them against `Object.keys(FLAG_ART)`. Put the missing list in the PR body.
