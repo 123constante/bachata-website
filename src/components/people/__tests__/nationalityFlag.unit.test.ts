@@ -16,7 +16,7 @@ describe('normaliseNationalityCode', () => {
     ['ES', 'ES'],
     ['co', 'CO'],
     ['  gb ', 'GB'],
-    ['NZ', 'NZ'], // valid, no bespoke artwork: generic flag
+    ['AC', 'AC'], // valid, no bespoke artwork: generic flag
   ])('%j -> %s', (raw, want) => expect(normaliseNationalityCode(raw)).toBe(want));
 
   it.each([
@@ -73,10 +73,10 @@ describe('flag artwork', () => {
     }
   });
   it('a valid code without artwork gets the generic flag with its letters', () => {
-    expect(hasFlagArt('NZ')).toBe(false);
-    expect(flagArtMarkup('NZ')).toBe(genericFlagArt('NZ'));
-    expect(flagArtMarkup('NZ')).toContain('>NZ</text>');
-    expect(genericFlagArt('N<Z')).toContain('>NZ</text>');
+    expect(hasFlagArt('AC')).toBe(false);
+    expect(flagArtMarkup('AC')).toBe(genericFlagArt('AC'));
+    expect(flagArtMarkup('AC')).toContain('>AC</text>');
+    expect(genericFlagArt('A<C')).toContain('>AC</text>');
   });
 });
 
