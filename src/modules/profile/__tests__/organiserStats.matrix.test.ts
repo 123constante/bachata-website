@@ -222,6 +222,12 @@ describe('organiserStats: wording and day rollover', () => {
     expect(out2[0]).toMatchObject({ key: 'next_night', value: 'Tomorrow' });
   });
 
+  it('yesterday inside the server grace window (isPast false) is never "Tonight"', () => {
+    const out = organiserStats({ now: new Date('2026-11-06T09:00:00Z'), nights: [night('2026-11-05', '21:00', { isPast: false })] });
+    expect(out.map((s) => s.key)).not.toContain('next_night');
+    expect(out[0]).toMatchObject({ key: 'last_night', value: 'Thu 5 Nov' });
+  });
+
   it('BST: 00:30 London (23:30 UTC) is still the previous night', () => {
     expect(nowNightKey(new Date('2026-07-09T23:30:00Z'))).toBe('2026-07-09');
     expect(nowNightKey(new Date('2026-07-10T07:30:00Z'))).toBe('2026-07-10');
