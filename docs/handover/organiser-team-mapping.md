@@ -66,3 +66,8 @@ ships, a visitor screen can only pass `listed`.
    ~700-725 / 1526) with chips from `buildOrganiserTeam`; empty -> hidden for visitors, "Add
    people" prompt for the organiser; emitProfileView on tappable chips (data-contracts rule);
    px tap targets; walk at 390x844.
+
+## Ship status
+- PR: #1395 (not merged, not approved by the worker). No automerge label: 469 lines (> 400).
+- Local gates: matrix 28/28; lint chain 24/24; mojibake clean; pre-ship build/bundle/first-load/chunk-cycles/typecheck PASS;
+  test:unit 4 red files, all live-DB contract tests or the PATH-sensitive integrity harness, unrelated to these files.
