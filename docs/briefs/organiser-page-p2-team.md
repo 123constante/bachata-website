@@ -27,6 +27,7 @@ src/modules/organiser/team/publicTeamApi.ts
 src/modules/organiser/edit-in-place/TeamSheet.tsx
 src/modules/organiser/edit-in-place/TeamCard.tsx
 src/modules/organiser/edit-in-place/__tests__/ (one new matrix test for hide/show)
+docs/organiser-page/ACCEPTANCE.md (docs-only edit, see scope 6)
 docs/design/organiser-page-p2-team.md
 docs/handover/organiser-page-p2-team.md
 
@@ -40,6 +41,7 @@ Read docs/organiser-page/INVENTORY.md. Coverage table at the top of the design r
 2. OWNER DECISION: show EVERYONE, no "+N more" cap (remove TEAM_VISIBLE_CAP and the overflow path in organiserTeam.ts and its tests; update the matrix). Exactly one person still reads "Run by <name>". No role labels, each person links to their own page via `slug`, avatar with initials fallback, section hidden when the list is empty, solo/list modes as `buildOrganiserTeam` already decides. Dedupe is done in the RPC; add a test that a repeated `person_id` renders once anyway.
 3. Error state: if the RPC errors, show the section's own "Couldn't load the team" + Try again line. Never hide the section silently and never read an error as an empty team (same rule as E3/E9).
 4. Hide control (J7): in the edit layer Team sheet, each person row gets Hide / Show for owners and admins only (same gate as `teamPickerAccess`; others see nothing). OWNER DECISION: a manager can never hide an OWNER: do not offer Hide on an owner row to a manager (the admin RPC will be tightened to match in a follow-up; until it is, the UI is the guard and the handover says so). Calls `set_organiser_team_member_hidden_v1(p_organiser_profile_id, p_person_id, p_hidden)`. Result is jsonb: handle every refusal code the migration defines (read its body on prod/main first, one copy line per code, shared mapping, no text pointing at a missing control). A hidden person shows in the owner's sheet marked "Hidden from the public page" with a Show button; the public list updates at once (invalidate the team query). An owner cannot hide the last visible person by mistake without the result showing the empty state wording from section 6.
+6. ACCEPTANCE decisions to record in this push (owner clicks 2026-11-05, direct): E7 decided: cancelled nights are HIDDEN everywhere (as main, no change); E4 decided: show ALL the organiser's nights whatever the city, city named on each night; E5 decided: show the NEXT 20 upcoming nights whenever they are. E4 and E5 are built later by the Website switch to the admin RPC `get_organiser_nights_v2` (brief on admin branch brief/organiser-nights-feed); edit only the E4, E5 and E7 rows in section 7 of docs/organiser-page/ACCEPTANCE.md, nothing else in that file.
 5. Do not remove the existing direct-table read of listed people until the RPC read is proven; keep it as the unchanged edit-layer source.
 
 ## Standing lines (do not retype elsewhere)
