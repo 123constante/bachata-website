@@ -128,7 +128,7 @@ afterEach(() => { cleanup(); noindex.last = null; });
 
 const OK = { events: 'ok', future: 'ok', past: 'ok', team: 'ok', contact: 'ok' } as const;
 const base: Shape = { entity: 'ok', upcoming: 0, past: 0, team: 1, bio: false, foundedYear: null, phone: true, email: false, instagram: true, website: false, facebook: false, feeds: { ...OK } };
-const shape = (o: Partial<Shape>): Shape => ({ ...base, ...o, feeds: { ...OK, ...(o.feeds ?? {}) } });
+const shape = (o: Partial<Omit<Shape, 'feeds'>> & { feeds?: Partial<Shape['feeds']> }): Shape => ({ ...base, ...o, feeds: { ...OK, ...(o.feeds ?? {}) } });
 
 async function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
