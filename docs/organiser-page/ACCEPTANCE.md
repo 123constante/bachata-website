@@ -171,7 +171,7 @@ verifiable yet (reason given).
 
 | Person | Shape | Expected | Verify |
 |---|---|---|---|
-| P1 | no owner (34 organisers) | Flag `organiserSelfServe` on: claim card invites sign-in; off (prod today): nothing | U |
+| P1 | no owner (34 organisers) | Flag `organiserSelfServe` on (prod today: ON in the production build since 2026-10-05, owner decision 2026-11-05 to keep it on; seen on prod: header "Sign in" and the card "Is this you? Sign in to claim"): claim card invites sign-in; off: nothing | U |
 | P2 | no owner | "Is this you?" card (`PublicClaimCard`); claim refreshes ownership | U; N for a real claim (would write) |
 | P2 | owned | No claim card | U |
 | P3, P4 | owned | No claim card; edit layer instead | U |
