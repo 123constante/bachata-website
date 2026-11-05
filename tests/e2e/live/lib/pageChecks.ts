@@ -68,13 +68,33 @@ export async function checkTapTargets(page: Page): Promise<Finding[]> {
         const around = (block?.textContent || '').trim().length;
         if (around > own + 3) continue;
       }
-      if (b.width >= min && b.height >= min) continue;
+      // The tap target is the larger of the element's box and any absolutely
+      // positioned ::before/::after it carries: the site lifts small controls
+      // to 44px that way (TabBar, TapHintSticker), and a tap on the pseudo box
+      // hits the element. Its containing block is the element's PADDING box,
+      // so borders come off before the insets are applied.
+      let w = b.width;
+      let h = b.height;
+      if (cs.position !== 'static') {
+        const px = (v: string) => (v.endsWith('px') ? parseFloat(v) : NaN);
+        const padW = b.width - px(cs.borderLeftWidth) - px(cs.borderRightWidth);
+        const padH = b.height - px(cs.borderTopWidth) - px(cs.borderBottomWidth);
+        for (const which of ['::before', '::after']) {
+          const p = getComputedStyle(n, which);
+          if (p.content === 'none' || p.content === 'normal' || p.position !== 'absolute' || p.display === 'none') continue;
+          const [t, r, bt, l] = [p.top, p.right, p.bottom, p.left].map(px);
+          if ([t, r, bt, l, padW, padH].some(Number.isNaN)) continue;
+          w = Math.max(w, padW - l - r);
+          h = Math.max(h, padH - t - bt);
+        }
+      }
+      if (w >= min && h >= min) continue;
       const cls = String(n.className && typeof n.className === 'string' ? n.className : '')
         .split(/\s+/).filter(Boolean).sort().slice(0, 8).join('.');
       const name = (n.getAttribute('aria-label') || n.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40);
       out.push({
         sig: `${n.tagName.toLowerCase()}.${cls}`,
-        detail: `${Math.round(b.width)}x${Math.round(b.height)} ${n.tagName.toLowerCase()} "${name}"`,
+        detail: `${Math.round(w)}x${Math.round(h)} ${n.tagName.toLowerCase()} "${name}"`,
       });
     }
     return out;
