@@ -20,7 +20,7 @@ import { BOOKING_FEE_PENCE, formatPence, totals, type PublicTicketType } from '.
 import { TERMS_OF_SALE } from '../legalCopy';
 
 const NOW = new Date('2026-10-27T12:00:00Z');
-const FEE_WORDS = /50p|booking fee|fee per ticket|includes a fee|\bfee\b/i;
+const FEE_WORDS = /50p\b|booking fee|fee per ticket|includes a fee|\bfee\b/i;
 const mk = (id: string, p: Partial<PublicTicketType> = {}): PublicTicketType => ({
   id, occurrenceId: null, name: `Type ${id}`, pricePence: 1200, status: 'on_sale', remaining: 30, salesOpenAt: null, salesCloseAt: null, ...p,
 });

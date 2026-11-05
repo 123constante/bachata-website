@@ -21,7 +21,8 @@
 // canonical pages once ("warm") to start Vercel's re-render, wait for it to
 // settle, and pass 2 purges again. Visitors after pass 2 get the fresh render.
 // Only the canonical pages are warmed (each warm is one SSR render on the
-// Hobby CPU budget); the other URLs get both purges but no warm. A person tag
+// Hobby CPU budget), plus, for /event only, the canonical page's `.data` twin
+// (live-now G3, see CF_URL_RULES); the other URLs get both purges but no warm. A person tag
 // (S7c) warms the slug page under each of its base paths: every one of them was
 // soft-invalidated on Vercel, and an unwarmed one comes back stale (up to 4 renders
 // for a write that touches all three roles).
@@ -80,7 +81,8 @@ export type CfEntityTable = "events" | "dancer_profiles" | "venues";
 export type CfUrlRule =
   // The entity's page under EACH base path: <base>/<slug> (canonical, warmed) and <base>/<uuid>.
   // Several base paths = several pages stamp the tag (People arc S7c, below).
-  | { kind: "entity"; basePaths: readonly [string, ...string[]]; table: CfEntityTable }
+  // warmDataTwin: also warm the canonical `<base>/<slug>.data` (live-now G3, below).
+  | { kind: "entity"; basePaths: readonly [string, ...string[]]; table: CfEntityTable; warmDataTwin?: true }
   // /city/<slug> named by the tag itself.
   | { kind: "city" }
   // /city/<slug> for every active city (the tag names none).
@@ -126,7 +128,11 @@ const COLLECTION_REASON =
 // CF_MAX_URLS_PER_CALL (30), so still one call per pass.
 const PERSON_TABLE = "dancer_profiles" as const;
 export const CF_URL_RULES: Record<string, CfUrlRule> = {
-  [eventTag(ID)]: { kind: "entity", basePaths: ["/event"], table: "events" },
+  // Live-now slice 1 (G3, docs/design/live-now-lag/PLAN.md): /event/<slug>.data is
+  // what a client-side navigation from the city feed or calendar fetches. Purged
+  // but never warmed, its first miss after pass 2 could store Vercel's stale copy
+  // for 300s. One more render per event write; canonical URL, no query string.
+  [eventTag(ID)]: { kind: "entity", basePaths: ["/event"], table: "events", warmDataTwin: true },
   [festivalTag(ID)]: { kind: "entity", basePaths: ["/festival"], table: "events" },
   [dancerTag(ID)]: { kind: "entity", basePaths: ["/dancers", "/people"], table: PERSON_TABLE },
   [djTag(ID)]: { kind: "entity", basePaths: ["/djs", "/dancers", "/people"], table: PERSON_TABLE },
@@ -271,6 +277,7 @@ export async function planCloudflarePurge(
           pages.add(`${base}/${id}`);
           if (slug) pages.add(`${base}/${slug}`);
           warm.add(`${base}/${slug ?? id}`);
+          if (rule.warmDataTwin) warm.add(`${base}/${slug ?? id}.data`);
         }
         break;
       }

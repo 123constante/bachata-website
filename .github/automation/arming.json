@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "autopilot_live": false,
+  "autopilot_merge_mode": "off",
+  "automerge_enabled": true,
+  "bot_automerge_enabled": true,
+  "approver": false,
+  "audit_escalation": false
+}

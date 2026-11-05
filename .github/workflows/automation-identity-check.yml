@@ -1,0 +1,48 @@
+name: Automation identity check
+
+# Identity register check (contract 6.1a / 6.2(10), drill A36), foundations slice 2.
+#
+# Reads .github/automation/secrets-register.json from MAIN and calls GET https://api.github.com/user
+# with each automation PAT the register marks `identity_check: user` (BOT_PR_TOKEN, AUTOMERGE_TOKEN).
+# RED when a credential resolves to a login other than its recorded `acts_as`, when one resolves to
+# the owner's login (`owner_login`), or when two roles that must be separate (author / merge /
+# approver) resolve to one login. An `acts_as` still `null` is printed as a loud `to record` line.
+# A missing secret or a failed call is exit 2 (could not measure), never green.
+#
+# SAFETY: GitHub-hosted runner; checks out MAIN only, without credentials; the two PATs reach the
+# script through `env:` ONLY (never a command line); the script prints logins only, never a token
+# or a header. Nothing PR-shaped triggers this workflow and it reads no event text at all.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/automation/secrets-register.json
+  schedule:
+    - cron: '41 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: automation-identity-check
+  cancel-in-progress: false
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: GET /user per registered automation credential (A36)
+        env:
+          BOT_PR_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          AUTOMERGE_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+        run: node scripts/check-identity-register.mjs

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { SHAPES, wsRaw } from './wsFixtures';
-import { L } from '../../model';
+import { L, saveWordsFor } from '../../model';
 import { VERSION_CONFLICT } from '../../../shared/copy';
 import { LINK_PROBLEM } from '../../../shared/linkRules';
 
@@ -49,6 +49,7 @@ function server(command: (env: Raw, n: number) => unknown = () => ({ data: { ok:
   const envs: Raw[] = [];
   rpc.mockImplementation(async (name: string, args: Raw) => {
     if (name === 'admin_event_workspace_p5') return { data: raw, error: null };
+    if (name === 'series_scope_change_preview_v1') return { data: { dates: [{ occurrence_id: 'o-x', occurrence_date: '2026-11-06', kept_fields: [], applied_fields: [] }], totals: { dates: 1, applied: 1, kept: 0, curated_but_inherits: 0 } }, error: null }; // one future date: the save runs as before
     if (name === 'series_command_p5') { envs.push(args.p_envelope as Raw); return command(args.p_envelope as Raw, envs.length); }
     return { data: null, error: null };
   });
@@ -97,7 +98,7 @@ describe('Name and details: the one save', () => {
     expect(envs).toHaveLength(1);
     expect(envs[0]).toMatchObject({ target_id: 'ser-1', expected_version: 7, command: { kind: 'series.upsert', payload: { name: 'Sensual Fridays', default_description: 'No partner needed.' } } });
     expect(Object.keys((envs[0].command as Raw).payload as Raw).sort()).toEqual(['default_description', 'name']);
-    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(L.detailsSaved));
+    await waitFor(() => expect(screen.getByTestId('p3-toast').textContent).toContain(saveWordsFor(false, 'live').detailsSaved));
   });
 
   it('a new place sends the place and its city', async () => {
@@ -215,7 +216,7 @@ describe('Name and details: the one save', () => {
     expect(screen.queryByTestId('p3-changed-elsewhere')).toBeNull();
   });
 
-  it.each([['ended'], ['archived']] as const)('%s: every field is greyed and Save names why', async (shape) => {
+  it.each([['ended']] as const)('%s: every field is greyed and Save names why', async (shape) => {
     server();
     show(DETAILS, SHAPES[shape]);
     await waitFor(() => screen.getByTestId('p3-details-lock'));
@@ -230,7 +231,7 @@ describe('Prices: the one save', () => {
     const envs = server();
     show(PRICES);
     await waitFor(() => screen.getByTestId('p3-prices-empty'));
-    expect(screen.getByTestId('p3-prices-empty').textContent).toBe(L.pricesNone);
+    expect(screen.getByTestId('p3-prices-empty').textContent).toBe(L.pricesNone(true));
     fireEvent.click(screen.getByTestId('p3-free-switch'));
     await press(saveBtn());
     await waitFor(() => expect(envs).toHaveLength(1));

@@ -403,6 +403,23 @@ const BrowseNightsLink = () => (
   </Link>
 );
 
+/**
+ * A feed that FAILED (S1, prod verify doc E4): one quiet line in place of the
+ * section, with a retry. Never the empty-state copy -- a failure is not "no
+ * nights". Explicit px sizes: html is ~13.5px on phones, so rem tap targets
+ * render small.
+ */
+const FeedErrorLine = ({ feed, what, onRetry }: { feed: 'upcoming' | 'past' | 'team'; what: string; onRetry: () => void }) => (
+  <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid={`org-feed-error-${feed}`} role="status">
+    <p style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>
+      Couldn&rsquo;t load {what}.
+      <button type="button" onClick={onRetry} style={{ minHeight: 44, padding: '0 12px', background: 'none', border: 'none', color: D.gold, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+        Try again
+      </button>
+    </p>
+  </section>
+);
+
 // Name, tags and link come ONLY from the people-badges mapping (badges.ts): a team strip is
 // not a DJ thing, so the real name leads and the stage name shows in the DJ tag only (review
 // M2); the link is DJ page, else dancer page, else none (a teacher-only member is plain,
@@ -744,14 +761,16 @@ const OrganiserProfile = () => {
   const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
   const HERO_BG = heroBg(cr, cg, cb);
 
-  const { data: allEvents = [], isLoading: allEventsLoading } = useQuery({
+  // Each feed query THROWS on an RPC error (S1) -- React Query retries it, and
+  // its isError drives the page's error line instead of a false empty state.
+  const { data: allEvents = [], isLoading: allEventsLoading, isError: allEventsError, refetch: refetchAllEvents } = useQuery({
     queryKey: organiserEventsQueryKey(id),
     queryFn: () => fetchOrganiserEvents(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: futureOccs = [], isLoading: futureOccsLoading } = useQuery({
+  const { data: futureOccs = [], isLoading: futureOccsLoading, isError: futureOccsError, refetch: refetchFutureOccs } = useQuery({
     queryKey: organiserOccEventsQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -765,14 +784,14 @@ const OrganiserProfile = () => {
   // we keep only is_past rows so today's already-ended events count as past.
   // The 10-year window itself lives in fetchOrganiserPastOccEvents now, shared
   // with app/routes/organiser.tsx's loader prefetch.
-  const { data: pastOccs = [], isLoading: pastOccsLoading } = useQuery({
+  const { data: pastOccs = [], isLoading: pastOccsLoading, isError: pastOccsError, refetch: refetchPastOccs } = useQuery({
     queryKey: organiserOccEventsPastQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [], isLoading: teamMembersLoading } = useQuery({
+  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersError, refetch: refetchTeamMembers } = useQuery({
     // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
     // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
     // owner layer's team read, so the Team card never showed.
@@ -785,7 +804,8 @@ const OrganiserProfile = () => {
         .eq('organiser_profile_id', id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true, nullsFirst: false });
-      if (error) { console.error('Organiser team fetch error:', error); return []; }
+      // Throw, not `[]`: a failed roster is an error line, not "no team" (S1).
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!teamRows?.length) return [];
       const memberIds = teamRows.map((r) => r.member_profile_id);
       const { data: dancerRows } = await supabase
@@ -860,7 +880,10 @@ const OrganiserProfile = () => {
     // fallback is unreachable on live data (0 of 15 organisers sampled); displayStart
     // is branded at the push.
     const eventsWithAnyOcc = new Set<string>([...eventsWithFutureOcc, ...pastOccs.map((o) => o.event_id)]);
-    for (const e of allEvents) {
+    // Skipped while either occurrence feed has FAILED (S1): "no occurrence row"
+    // is then unknowable, and the fallback would list every series by its base
+    // date in place of the error line.
+    if (!futureOccsError && !pastOccsError) for (const e of allEvents) {
       if (eventsWithAnyOcc.has(e.id)) continue;
       const baseRaw = e.start_time ?? e.date;
       const baseMs = baseRaw ? new Date(baseRaw).getTime() : NaN;
@@ -876,7 +899,7 @@ const OrganiserProfile = () => {
     upcoming.sort((a, b) => sortKey(a.displayStart).localeCompare(sortKey(b.displayStart)));
     past.sort((a, b) => sortKey(b.displayStart).localeCompare(sortKey(a.displayStart)));
     return { upcomingEvents: upcoming, pastEvents: past };
-  }, [allEvents, futureOccs, pastOccs, todayMs]);
+  }, [allEvents, futureOccs, pastOccs, futureOccsError, pastOccsError, todayMs]);
 
   const totalEventsCount = allEvents.length;
 
@@ -1109,7 +1132,17 @@ const OrganiserProfile = () => {
 
   const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
 
-  const emptyKind = organiserEmptyState({
+  // S1: which sections FAILED (after React Query's retry). The events feed is
+  // the join source for both lists, so it failing fails both; the future and
+  // past feeds fail independently, and one failing never hides the other list.
+  const upcomingFailed = allEventsError || futureOccsError;
+  const pastFailed = allEventsError || pastOccsError;
+  const retryUpcoming = () => { if (allEventsError) void refetchAllEvents(); if (futureOccsError) void refetchFutureOccs(); };
+  const retryPast = () => { if (allEventsError) void refetchAllEvents(); if (pastOccsError) void refetchPastOccs(); };
+  // No empty state at all while any feed has failed: every box below states a
+  // fact ("no nights", "nothing upcoming", "blank profile") a failure cannot
+  // prove. The error lines say what happened instead.
+  const emptyKind = upcomingFailed || pastFailed || teamMembersError ? null : organiserEmptyState({
     loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading || publicContactLoading,
     upcoming: upcomingListItems.length,
     past: pastEvents.length,
@@ -1348,11 +1381,14 @@ const OrganiserProfile = () => {
 
         {/* Stats strip */}
         <div className="flex justify-around py-3 px-5" style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+          {/* F1 (S1): a stat whose feed FAILED is hidden -- never a false 0 or
+              a dash. The third stat is events-derived (earliest event year)
+              unless a team or a founded year supplies it. */}
           {[
-            { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
-            { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },
-            { value: thirdStatValue,           label: thirdStatLabel,    title: thirdStatTitle, href: undefined },
-          ].map((s) => {
+            { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined, failed: upcomingFailed },
+            { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined, failed: pastFailed },
+            { value: thirdStatValue,           label: thirdStatLabel,    title: thirdStatTitle, href: undefined, failed: allEventsError && orderedTeam.length === 0 && foundedYear === null },
+          ].filter((s) => !s.failed).map((s) => {
             const body = (
               <>
                 <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
@@ -1458,6 +1494,7 @@ const OrganiserProfile = () => {
         )}
 
         {/* UPCOMING EVENTS */}
+        {upcomingFailed && upcomingListItems.length === 0 && <FeedErrorLine feed="upcoming" what="dates" onRetry={retryUpcoming} />}
         {upcomingListItems.length > 0 && (
           <section id="upcoming" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
             {/* Wraps at 360px: the owner's Create event link goes under the count rather than off the screen. */}
@@ -1514,6 +1551,7 @@ const OrganiserProfile = () => {
         )}
 
         {/* TEACHERS & DJs */}
+        {teamMembersError && orderedTeam.length === 0 && <FeedErrorLine feed="team" what="the team" onRetry={() => void refetchTeamMembers()} />}
         {orderedTeam.length > 0 && (
           <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -1529,6 +1567,7 @@ const OrganiserProfile = () => {
         )}
 
         {/* PAST EVENTS */}
+        {pastFailed && pastEvents.length === 0 && <FeedErrorLine feed="past" what="past dates" onRetry={retryPast} />}
         {pastEvents.length > 0 && (
           <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>

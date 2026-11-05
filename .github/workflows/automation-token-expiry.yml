@@ -1,0 +1,43 @@
+name: Automation token expiry
+
+# Token expiry warning (contract 6.2(4)), foundations slice 2.
+#
+# Reads .github/automation/secrets-register.json from MAIN. For an entry whose `expiry` is within
+# 7 days, and again within 1 day, posts ONE notice on the pinned `AUTOMATION PAUSE SWITCH` issue
+# through slice 1's postPauseNotice (de-duplicated by key `expiry:<name>:<expiry>:<7d|1d|past>`).
+# A token PAST its expiry turns this run red (exit 1) with a notice: the arc stops, it never
+# silently continues. No entry has a recorded expiry yet, so today every run is a green no-op.
+#
+# SAFETY: GitHub-hosted runner; checks out MAIN only, without credentials; GITHUB_TOKEN only
+# (issues: write, to comment on the pinned issue), passed by `env:`. No repo secret is read.
+# Nothing PR-shaped triggers this workflow and it reads no event text at all.
+
+on:
+  schedule:
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: automation-token-expiry
+  cancel-in-progress: false
+
+jobs:
+  expiry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Warn 7 days and 1 day ahead; red past expiry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-secrets-register.mjs --expiry

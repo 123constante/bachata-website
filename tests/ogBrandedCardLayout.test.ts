@@ -17,8 +17,6 @@
 // which is how the estimate got shipped. The fonts are the real .ttf files, the
 // cover is a real image, and the assertion is on the real JPEG that comes out.
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import sharp from 'sharp';
 
 // ogCardRender imports the Supabase client and two page-model modules at the
@@ -30,19 +28,12 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
 vi.mock('@/lib/seo/resolvePublicEventRef', () => ({ resolvePublicEventRef: async () => null }));
 vi.mock('@/modules/event-page/useFestivalDetailQuery', () => ({ fetchFestivalDetail: async () => null }));
 
-const FONT_DIR = join(process.cwd(), 'app', 'lib', 'ogCardFonts');
-
-// materializeFont() fetches the hashed Vite asset URL from the deployed origin
-// and writes it to /tmp. Off a deployment there is no origin to fetch from, so
-// the .ttf request is served from the working tree instead. Any other URL is a
-// mistake in this test rather than something to paper over, so it rejects.
+// The fonts are bundled bytes (`?bytes`, vite.fileBytes.ts), so a render needs
+// no network at all. Any fetch from this file is a regression -- the
+// 2026-11-04 incident was exactly a font fetch -- so it rejects loudly.
 beforeAll(() => {
   vi.stubGlobal('fetch', async (input: unknown) => {
-    const url = String(input);
-    if (!url.endsWith('.ttf')) throw new Error(`unexpected fetch in a render test: ${url}`);
-    const name = url.includes('SemiBold') ? 'Inter-SemiBold.ttf' : 'Inter-Regular.ttf';
-    const bytes = await readFile(join(FONT_DIR, name));
-    return new Response(bytes, { status: 200 });
+    throw new Error(`unexpected fetch in a render test: ${String(input)}`);
   });
 });
 

@@ -26,8 +26,10 @@ import {
   UPLOAD_FAILED,
   blockedReason,
   commandFor,
+  djPath,
   heldAfter,
   heldFrom,
+  isDjStep,
   nextStep,
   personPath,
   personReadFail,
@@ -165,7 +167,9 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bounce, setBounce] = useState(false);
   const clearToast = useCallback(() => setToast(null), []);
-  const path = personPath(d.teach, !!organiser);
+  // The DJ steps are their own short path from Review (personModel DJ_ORDER); every other step walks the person path.
+  const entry = initialStep ?? 'name';
+  const path = isDjStep(entry) ? djPath(d.dj, entry) : personPath(d.teach, !!organiser);
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((p) => ({ ...p, [k]: v }));
 
   const move = (to: PersonStep | null, how: 'fwd' | 'back') => {
@@ -293,6 +297,16 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
           <Tile role="radio" on={d.teach === 'yes'} onClick={() => set('teach', 'yes')} label="Yes, I teach" testId="p3-ob-teach-yes" />
           <Tile role="radio" on={d.teach === 'no'} onClick={() => set('teach', 'no')} label="No" testId="p3-ob-teach-no" />
         </div>
+      )}
+      {step === 'dj' && (
+        <div className="p3-ob-tiles" role="radiogroup" aria-labelledby="p3-ob-title">
+          <Tile role="radio" on={d.dj === 'yes'} onClick={() => set('dj', 'yes')} label="Yes, I DJ" testId="p3-ob-dj-yes" />
+          <Tile role="radio" on={d.dj === 'no'} onClick={() => set('dj', 'no')} label="No" testId="p3-ob-dj-no" />
+        </div>
+      )}
+      {step === 'djgenres' && (
+        <input className="p3-ob-inp" type="text" placeholder="Bachata, Kizomba" aria-labelledby="p3-ob-title" value={d.genres} autoComplete="off"
+          onChange={(e) => set('genres', e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void continueStep(); }} data-testid="p3-ob-djgenres" />
       )}
       {step === 'levels' && (
         <div className="p3-ob-tiles" role="group" aria-labelledby="p3-ob-title">

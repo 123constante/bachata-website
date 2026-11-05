@@ -10,11 +10,11 @@ import { useFlowSend } from '@/modules/organiser/flows/add/useFlow';
  * Undo: D49). The event's own workspace read is reloaded with the rest. Opened
  * with `?returnTo=` (a Go live row), Done leads back there (W2 walk fix 10).
  */
-export function useEventSend(seriesId: string) {
+export function useEventSend(seriesId: string, gated?: (err: unknown, copy: (e: unknown) => string) => string | null) {
   const navigate = useNavigate();
   const { search } = useLocation();
   const queryClient = useQueryClient();
-  const flow = useFlowSend(seriesId);
+  const flow = useFlowSend(seriesId, undefined, gated);
   const sendThenDone = (version: number, command: OwnerCommand, done: { title: string; message: string }) =>
     flow.run(async () => {
       const res = await flow.send(seriesId, version, command);

@@ -4,6 +4,7 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useAccountGate } from '@/lib/accountGate';
 import { hasOrganiserIntent, profileSides, type SidesFacts, type SidesState } from '@/lib/accountRouting';
 import { completenessFact } from '@/lib/profileCompletion';
+import { ORGANISER_AREA_HOME_PATH } from '@/lib/accountRouting';
 import { useDancerArea } from '@/modules/dancer-app/gate/useDancerArea';
 import { fetchMyDancerEdit } from '@/modules/dancer-app/api/rpc';
 import { myDancerEditKey } from '@/modules/dancer-app/api/useMyDancerEdit';
@@ -70,6 +71,7 @@ export function useProfileSides(): ProfileSidesResult {
     openRequestCount: fact(requests, (d) => d.filter((r) => r.status === 'open').length),
     isAdmin: fact(admin, (d) => d === true),
     deletion: gate.deletion ?? (gate.status === 'loading' ? 'loading' : null),
+    organiserHomeTo: ORGANISER_AREA_HOME_PATH,
   };
   return { facts, state: profileSides(facts), openRequestCount: facts.openRequestCount };
 }

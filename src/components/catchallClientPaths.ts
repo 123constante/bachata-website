@@ -35,6 +35,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/account/dancer',
   '/account/continue',
   '/account/attendance',
+  '/account/my-tickets', // flags.publicTicketing; while off the client redirects to /
   '/account/settings',
   '/account/settings/ownership',
   '/account/settings/delete',
