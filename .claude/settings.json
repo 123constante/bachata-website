@@ -220,6 +220,15 @@
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/session-lock.mjs heartbeat --hook --quiet"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && node scripts/hooks/push-or-block.mjs",
+            "timeout": 90
+          }
+        ]
       }
     ],
     "SessionEnd": [
