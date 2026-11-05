@@ -220,6 +220,7 @@ const TARGETS = [
   { rel: 'scripts/ci/docs-only.mjs' },
   { rel: 'scripts/deploy-trial-decide.mjs' },
   { rel: 'scripts/gh-merge-status.mjs' },
+  { rel: 'scripts/owner-summary.mjs' },
   { rel: 'scripts/hooks/arc-checkpoint.mjs' },
   { rel: 'scripts/hooks/pre-exec-guard.mjs' },
   { rel: 'scripts/hooks/review-stamp.mjs' },
