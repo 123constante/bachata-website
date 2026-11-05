@@ -386,3 +386,11 @@ origin/main `0b8762c` in a separate worktree with the same node_modules.
     An automated change may only edit a listed workflow. Only the owner adds a name (owner Approve); see docs/ci-guard-notes.md#automation-workflow-allow-list.
 
 No behaviour code was changed in Part 7.
+
+## Review round (stopping rule: one round, guard-class)
+
+`/code-review low` covered only 2 KB of the 250 KB diff, so an independent agent reviewed `scripts/`, `.github/`, `package.json` in full.
+- CONFIRMED + FIXED (32a354d): the lane's guard-path check saw only the NEW filename; a bot PR renaming `CLAUDE.md` / `.claude/hooks/*` / `scripts/lib/guard-paths.mjs` to `docs/moved.md` would be merged. `run()` now passes `previousFiles`; `mergeVerdict` checks them. 3 run-level rename tests red on unfixed code, green after.
+- Checked, no bug: arming output names / `'true'` comparisons / step `if:`s match main with the shipped `arming.json`; fail-closed in isMoney, required-jobs, arming, guard paths; pagination + head-sha pinning; no PR text in `run:`; every `node scripts/...` invocation in workflows exists.
+- OPEN for the owner: (1) identity check likely red on first run (author/merge both inferred `kiki-claude-bot` vs the separate-roles rule; the contract contradicts itself); (2) whole-word `tickets` in the money set refuses any docs/tests bot PR whose diff says "tickets" (by design under 8.3 case 2, but it is a new refusal on docs PRs; drop the entry if unwanted); (3) pre-existing on main: the lane classifies a renamed file by its new name only (`src/x.ts` -> `docs/x.md` = docs); guard/money checks now catch some but not all of these.
+- Final suite after the fix: `npx vitest run tests/automation tests/autopilot tests/automergeClassify` 1143/1143; `npm run lint` 34/34 links.
