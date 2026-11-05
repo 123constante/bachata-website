@@ -207,7 +207,8 @@ export function mergeVerdict(facts) {
   }
   // 3a. guard paths (slice 2, drill A18; scripts/lib/guard-paths.mjs): the ONE shared check every
   // auto path calls, in addition to (never instead of) laneClass's refusals above.
-  if (Array.isArray(files)) for (const r of guardRefusals(files)) no(r);
+  // A rename's OLD name counts too (facts.previousFiles; a rename out of a guard path is a touch).
+  if (Array.isArray(files)) for (const r of guardRefusals([...files, ...(Array.isArray(f.previousFiles) ? f.previousFiles : [])])) no(r);
   // 3b. money set (slice 2, drill A16; scripts/lib/is-money.mjs): paths AND changed lines. A
   // path-only "docs" class is overridden by a content hit. Absent = refuse.
   const mv = f.money;

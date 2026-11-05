@@ -20,7 +20,10 @@ import { main as depCli } from '../scripts/automation-money-check.mjs';
 import { decideAudit, escalateRed, OWNER_LOGIN } from '../scripts/owner-approval-audit.mjs';
 import { readArming, ARMING_PATH } from '../scripts/lib/arming.mjs';
 import { PAUSE_ISSUE_TITLE, PAUSE_LABEL, noticeMarker } from '../scripts/lib/automation-pause.mjs';
-import { FOUNDATIONS_OK } from './autopilotTable';
+import { FOUNDATIONS_OK, NOT_PAUSED } from './autopilotTable';
+import { run } from '../scripts/autopilot-step.mjs';
+import { fakeGitHub, green, ENV, NOW } from './automationFakeGitHub';
+import { vi } from 'vitest';
 
 const ROOT = path.resolve(__dirname, '..');
 const GUARD = JSON.parse(readFileSync(path.join(ROOT, GUARD_PATHS_PATH), 'utf8'));
@@ -291,7 +294,7 @@ async function loadBeside(file: string, src: string) {
 const LANE = path.join(ROOT, 'scripts/lib/autopilot-merge.mjs');
 const CLASSIFY = path.join(ROOT, 'scripts/automerge-classify.mjs');
 const CLI = path.join(ROOT, 'scripts/automation-money-check.mjs');
-const LANE_CALL = '  if (Array.isArray(files)) for (const r of guardRefusals(files)) no(r);';
+const LANE_CALL = '  if (Array.isArray(files)) for (const r of guardRefusals([...files, ...(Array.isArray(f.previousFiles) ? f.previousFiles : [])])) no(r);';
 const CLASSIFY_CALL = '  for (const r of guardCheck(names)) no(r);';
 const CLI_CALL = 'const guard = guardRefusals(names);';
 describe('MUTANTS: the isGuardPath wiring is load-bearing', () => {
@@ -325,5 +328,24 @@ describe('MUTANTS: the isGuardPath wiring is load-bearing', () => {
   });
   it('pass record: every (A18 path, auto path) pair was refused / RED', () => {
     for (const [, p] of A18) for (const where of ['lane | refused', 'bot-automerge | refused', 'dependabot | refused', 'audit | RED']) expect(RECORD).toContain(`${p} | ${where}`);
+  });
+});
+
+describe('lane run(): a rename OUT of a guard path is refused (the old name is checked, as on bot-automerge)', () => {
+  const REQ = JSON.parse(readFileSync(path.join(ROOT, '.github/automation/required-jobs.json'), 'utf8'));
+  async function laneRun(f: Partial<F> & { filename: string }) {
+    const gh = fakeGitHub({ n: 91, files: [f], checkRuns: (h) => green(h, REQ.pr_head) });
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => { lines.push(a.map(String).join(' ')); });
+    try { await run(ENV, { ...FOUNDATIONS_OK.armingOpts, pauseReader: NOT_PAUSED.pauseReader, now: NOW, fetch: gh.fetchImpl }); } finally { spy.mockRestore(); }
+    return { merges: gh.merges().length, out: lines.join('\n') };
+  }
+  it('control: a plain docs edit merges through the same harness', async () => {
+    expect((await laneRun(file('docs/a.md'))).merges).toBe(1);
+  });
+  it.each(['CLAUDE.md', '.claude/hooks/pre-write-block.sh', 'scripts/lib/guard-paths.mjs'])('rename %s -> docs/moved.md: no merge, named reason', async (old) => {
+    const r = await laneRun({ filename: 'docs/moved.md', previous_filename: old, status: 'renamed', additions: 0, deletions: 0, changes: 0 });
+    expect(r.merges).toBe(0);
+    expect(r.out).toContain(`guard-path refused: ${old}`);
   });
 });

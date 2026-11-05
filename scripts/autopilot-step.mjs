@@ -497,6 +497,7 @@ export async function run(env = process.env, opts = {}) {
               mergesThisRun: mergesRun, merges24h: merges24h(mergeLog, now), mainAfterLastMerge: mainState,
               requiredJobs,
               money: foundations.money(f),
+              previousFiles: (Array.isArray(f.fileEntries) ? f.fileEntries : []).map((x) => x && x.previous_filename).filter((x) => typeof x === 'string' && x),
             });
             log(`${repo}#${p.number} merge verdict: ${v.merge ? 'MERGE' : `NO: ${v.reasons.join('; ')}`}`);
             if (!v.merge) did = [did, `merge: no (${v.reasons.slice(0, 4).join('; ')}${v.reasons.length > 4 ? `; +${v.reasons.length - 4} more` : ''})`].join('; ');
