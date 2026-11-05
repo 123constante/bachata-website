@@ -1,4 +1,5 @@
 import { formatPence, isoToLondonInput, londonInputToIso, penceOf } from '../../../tickets/ticketModel';
+import { SESSION_ENDED } from '../../../shared/selfServeErrors';
 import type { StatusTone } from '../../../ui/StatusTag';
 
 /**
@@ -94,6 +95,22 @@ export const LOCKED_WHY =
 
 /** The fixed-amount range, said one way everywhere. */
 export const AMOUNT_RANGE = '\u00A30.01 to \u00A31,000';
+
+export const LOCKED_SHORT = 'Discount locked: someone has ordered with this code.';
+
+/** The app's one wording for an ended sign-in (selfServeErrors SESSION_ENDED, Arc 1 flow 9c). */
+export const SIGNED_OUT = SESSION_ENDED;
+
+/** A thrown rpc error that means "no signed-in person": Postgres 42501 or the not-signed-in wording. */
+export function isSignedOutError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const { code, message } = e as { code?: unknown; message?: unknown };
+  const m = typeof message === 'string' ? message.trim() : '';
+  return code === '42501' || /^(permission_denied: )?authentication_required/.test(m) || /not signed in/i.test(m);
+}
+
+/** What a thrown error says: sign in again when signed out, otherwise the connection line. */
+export const thrownCopy = (e: unknown): string => (isSignedOutError(e) ? SIGNED_OUT : NETWORK);
 
 export const NETWORK = 'We could not reach the server. Check your connection, then try again.';
 
@@ -201,13 +218,13 @@ export const createArgsOf = (f: PromoForm): CreateArgs => ({
 export type PromoPatch = Partial<{ active: boolean; expires_at: string | null; max_uses: number | null; kind: PromoKind; value: number }>;
 
 /** Only the keys that changed. {} = nothing to send. A locked code never sends kind or value. */
-export function patchOf(c: PromoCode, f: PromoForm): PromoPatch {
+export function patchOf(c: PromoCode, f: PromoForm, locked: boolean = isLocked(c)): PromoPatch {
   const p: PromoPatch = {};
   const next = createArgsOf({ ...f, code: c.code });
   // Compared as the form shows it (minutes, London): a stored time with seconds is not a change.
   if (f.endsAt !== formOf(c).endsAt) p.expires_at = next.expiresAt;
   if (c.maxUses !== next.maxUses) p.max_uses = next.maxUses;
-  if (!isLocked(c)) {
+  if (!locked) {
     if (c.kind !== next.kind) p.kind = next.kind;
     if (c.value !== next.value || c.kind !== next.kind) p.value = next.value;
   }

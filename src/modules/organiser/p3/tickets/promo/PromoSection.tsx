@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { isOnboardingRefusal } from '../../../shared/selfServeErrors';
@@ -8,8 +8,9 @@ import { TONE_CLASS } from '../model';
 import { createPromo, promoKeys, updatePromo, usePromoCodes } from './promoApi';
 import {
   LOCKED_WHY,
+  LOCKED_SHORT,
   GATE_PROMO,
-  NETWORK,
+  thrownCopy,
   STILL_SAVING,
   STATE_NEXT,
   STATE_TAG,
@@ -52,9 +53,17 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   const [rowError, setRowError] = useState<ReadonlyMap<string, string>>(new Map());
   // A second tap before React re-renders must not send a second command.
-  const flying = useRef(new Set<string>());
+  const [flying] = useState(() => new Set<string>());
   const now = new Date();
-  const anchor = useRef<HTMLElement>(null);
+  // The layer the promo sheet is portalled into: read from the DOM once the section is attached (an
+  // effect-time read held in state, never a ref read during render).
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const anchor = useCallback((el: HTMLElement | null) => {
+    if (!el) return;
+    setHost((el.closest('.p3-scrim')?.parentElement as HTMLElement | null | undefined) ?? (typeof document === 'undefined' ? null : document.body));
+  }, []);
+  // Codes the server told us are locked although the list could not see why (INVENTORY G3).
+  const [lockedIds, setLockedIds] = useState<ReadonlySet<string>>(new Set());
   const refresh = () => queryClient.invalidateQueries({ queryKey: promoKeys.list(seriesId) });
 
   const mark = (id: string, on: boolean) =>
@@ -73,8 +82,8 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
     });
 
   const toggle = async (c: PromoCode) => {
-    if (flying.current.has(c.id)) return;
-    flying.current.add(c.id);
+    if (flying.has(c.id)) return;
+    flying.add(c.id);
     mark(c.id, true);
     setErr(c.id, null);
     try {
@@ -84,9 +93,9 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
         await refresh();
       } else setErr(c.id, reasonCopy(out.reason));
     } catch (e) {
-      setErr(c.id, gated(e, () => NETWORK));
+      setErr(c.id, gated(e, thrownCopy));
     } finally {
-      flying.current.delete(c.id);
+      flying.delete(c.id);
       mark(c.id, false);
     }
   };
@@ -115,7 +124,7 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
     body = (
       <ul className="p3-list p3-flush">
         {data.rows.map((c) => (
-          <PromoRow key={c.id} code={c} now={now} busy={busy.has(c.id)} error={rowError.get(c.id) ?? null} onToggle={() => void toggle(c)} onEdit={() => setEditing({ code: c })} />
+          <PromoRow key={c.id} code={c} locked={isLocked(c) || lockedIds.has(c.id)} now={now} busy={busy.has(c.id)} error={rowError.get(c.id) ?? null} onToggle={() => void toggle(c)} onEdit={() => setEditing({ code: c })} />
         ))}
       </ul>
     );
@@ -124,7 +133,6 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
   // A refused list already says why; the disabled Add points at those words (no second note).
   // The sheet is a sibling layer of the tall Tickets sheet, never inside it: StackSheet makes the
   // layers under the top one inert, and an inert ancestor would take the promo sheet with it.
-  const host = (anchor.current?.closest('.p3-scrim')?.parentElement as HTMLElement | null | undefined) ?? (typeof document === 'undefined' ? null : document.body);
   const addWhy = refused ? `promo-why-${seriesId}` : undefined;
   return (
     <section ref={anchor} className="p3-stack-s" data-testid="promo-section" aria-labelledby={`promo-h-${seriesId}`}>
@@ -146,7 +154,12 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
           organiserId={organiserId}
           seriesId={seriesId}
           now={now}
-          flying={flying.current}
+          flying={flying}
+          lockedByServer={editing.code ? lockedIds.has(editing.code.id) : false}
+          onLocked={(id) => {
+            setLockedIds((l) => new Set(l).add(id));
+            void refresh();
+          }}
           onClose={() => setEditing(null)}
           onDone={(text, changed) => {
             setEditing(null);
@@ -169,7 +182,7 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
   );
 }
 
-function PromoRow({ code: c, now, busy, error, onToggle, onEdit }: { code: PromoCode; now: Date; busy: boolean; error: string | null; onToggle: () => void; onEdit: () => void }) {
+function PromoRow({ code: c, locked, now, busy, error, onToggle, onEdit }: { code: PromoCode; locked: boolean; now: Date; busy: boolean; error: string | null; onToggle: () => void; onEdit: () => void }) {
   const id = useId();
   const state = stateOf(c, now);
   const tag = STATE_TAG[state];
@@ -209,6 +222,7 @@ function PromoRow({ code: c, now, busy, error, onToggle, onEdit }: { code: Promo
         <span className={TONE_CLASS[tag.tone]} data-testid="promo-state">{tag.label}</span>
       </div>
       {next && <p className="p3-note" data-testid="promo-next">{next}</p>}
+      {locked && <p className="p3-note" data-testid="promo-row-locked">{LOCKED_SHORT}</p>}
       {error && <p role="alert" className="p3-error" data-testid="promo-row-error">{error}</p>}
     </li>
   );
@@ -221,6 +235,10 @@ interface SheetProps {
   now: Date;
   /** The section's in-flight keys: a sheet closed mid-save and opened again never sends twice. */
   flying: Set<string>;
+  /** The server answered locked_after_use for this code earlier (the list cannot see a released order). */
+  lockedByServer?: boolean;
+  /** The server says this code is locked: the section marks the row and re-reads the list. */
+  onLocked?: (id: string) => void;
   onClose: () => void;
   /** changed = a command was sent and landed (an untouched save sends none). */
   onDone: (text: string, changed: boolean) => void;
@@ -228,7 +246,7 @@ interface SheetProps {
   onLate: (text: string, landed: boolean) => void;
 }
 
-export function PromoSheet({ code, organiserId, seriesId, now, flying, onClose, onDone, onLate }: SheetProps) {
+export function PromoSheet({ code, organiserId, seriesId, now, flying, lockedByServer = false, onLocked, onClose, onDone, onLate }: SheetProps) {
   const id = useId();
   const gated = useGatedCopy();
   const [form, setForm] = useState<PromoForm>(() => formOf(code));
@@ -243,7 +261,7 @@ export function PromoSheet({ code, organiserId, seriesId, now, flying, onClose, 
       alive.current = false;
     };
   }, []);
-  const locked = !!code && isLocked(code);
+  const locked = !!code && (isLocked(code) || lockedByServer);
   const errors = tried ? validate(form, code, now) : {};
   const set = (k: keyof PromoForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const label = code ? code.code : normaliseCode(form.code);
@@ -257,7 +275,7 @@ export function PromoSheet({ code, organiserId, seriesId, now, flying, onClose, 
     if (Object.keys(validate(form, code, new Date())).length > 0) return;
     let send;
     if (code) {
-      const patch = patchOf(code, form);
+      const patch = patchOf(code, form, locked);
       if (isEmptyPatch(patch)) {
         onDone('Nothing changed, so nothing was saved.', false);
         return;
@@ -277,13 +295,20 @@ export function PromoSheet({ code, organiserId, seriesId, now, flying, onClose, 
         const text = code ? `${label}: changes saved.` : `${label} is ready. Buyers can type it when they buy.`;
         if (alive.current) onDone(text, true);
         else onLate(text, true);
-      } else fail(reasonCopy(out.reason));
+      } else {
+        if (code && out.reason === 'locked_after_use') {
+          // The row is locked after all: show it locked, put the discount back as it was, offer no retry of it.
+          setForm((f) => ({ ...f, kind: formOf(code).kind, amount: formOf(code).amount }));
+          onLocked?.(code.id);
+        }
+        fail(reasonCopy(out.reason));
+      }
     } catch (e) {
       // Closed mid-save: no gate sheet can open for a gone sheet, so the refusal is an alert that stays.
-      if (!alive.current) onLate(`${label}: not saved. ${isOnboardingRefusal(e) ? GATE_PROMO : NETWORK}`, false);
+      if (!alive.current) onLate(`${label}: not saved. ${isOnboardingRefusal(e) ? GATE_PROMO : thrownCopy(e)}`, false);
       else {
         // A refused gate opens the shared gate sheet (null): no second error on top of it.
-        const text = gated(e, () => NETWORK);
+        const text = gated(e, thrownCopy);
         if (text !== null) fail(text);
       }
     } finally {

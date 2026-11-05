@@ -8,6 +8,9 @@ import {
   STILL_SAVING,
   switchedText,
   LOCKED_WHY,
+  LOCKED_SHORT,
+  SIGNED_OUT,
+  isLocked,
   NETWORK,
   REASON_COPY,
   STATE_NEXT,
@@ -425,5 +428,233 @@ describe('review r1 fixes', () => {
     expect(screen.getByTestId('promo-form-error').textContent).toBe(STILL_SAVING);
     await act(async () => finish({ ok: true, reason: null }));
     expect(say).toHaveBeenCalledWith('GOOD is ready. Buyers can type it when they buy.');
+  });
+});
+
+// ---- review r1 (fix-1366-r1): matrix rows the review found missing ---------------------------
+
+describe('fixed amount boundaries and limits (client side)', () => {
+  it.each([
+    ['0', false],
+    ['0.00', false],
+    ['1000.01', false],
+    ['1000.00', true],
+    ['1000', true],
+    ['0.01', true],
+  ])('create fixed %s pounds: accepted=%s', async (amount, accepted) => {
+    api.list = rows([]);
+    api.createPromo.mockResolvedValue({ ok: true, reason: null });
+    mount();
+    openCreate();
+    type('code', 'GOOD');
+    fireEvent.click(screen.getByTestId('promo-kind-fixed'));
+    type('amount', amount);
+    await save();
+    if (accepted) expect(api.createPromo).toHaveBeenCalledTimes(1);
+    else {
+      expect(api.createPromo).not.toHaveBeenCalled();
+      expect(screen.getByTestId('promo-err-amount').textContent).toContain('\u00A30.01 to \u00A31,000');
+    }
+  });
+
+  it('pence boundary: 100000 accepted, 100001 refused, 0 refused', () => {
+    const f = (pence: number) => ({ ...formOf(null), kind: 'fixed' as const, code: 'GOOD', amount: (pence / 100).toFixed(2) });
+    expect(validate(f(100000), null, NOW).amount).toBeUndefined();
+    expect(validate(f(100001), null, NOW).amount).toBeTruthy();
+    expect(validate(f(0), null, NOW).amount).toBeTruthy();
+  });
+
+  it('max_uses 0 is refused before the tap, on create and on edit', async () => {
+    api.list = rows([code('a')]);
+    mount();
+    openCreate();
+    type('code', 'GOOD');
+    type('amount', '10');
+    type('maxUses', '0');
+    await save();
+    expect(api.createPromo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('promo-err-maxUses').textContent).toBeTruthy();
+    cleanup();
+    api.list = rows([code('a', { maxUses: 5 })]);
+    mount();
+    openEdit('a');
+    type('maxUses', '0');
+    await save();
+    expect(api.updatePromo).not.toHaveBeenCalled();
+    expect(screen.getByTestId('promo-err-maxUses').textContent).toBeTruthy();
+  });
+
+  it('an untouched save on a FIXED code shows pence as pounds and sends nothing', async () => {
+    api.list = rows([code('a', { kind: 'fixed', value: 250 })]);
+    mount();
+    openEdit('a');
+    expect((screen.getByTestId('promo-form-amount') as HTMLInputElement).value).toBe('2.50');
+    await save();
+    expect(api.updatePromo).not.toHaveBeenCalled();
+    expect(say).toHaveBeenCalledWith('Nothing changed, so nothing was saved.');
+  });
+});
+
+describe('literal copy for every server reason', () => {
+  const LITERAL: Record<string, string> = {
+    not_authorised: 'Only an owner or manager of this page can make or change promo codes. Ask one of them to do it for you.',
+    series_not_organisers: 'This event is no longer run by this page, so it cannot have its codes. Refresh the page to see who runs it now.',
+    invalid_code: 'Use 3 to 32 letters, numbers, dashes or underscores, with no spaces.',
+    invalid_value: 'Pick a discount from 1% to 100%, or an amount from \u00A30.01 to \u00A31,000.',
+    invalid_max_uses: 'The limit must be at least 1, and not below the orders already made with this code. Leave it empty for no limit.',
+    invalid_expiry: 'Pick an end date in the future, or leave it empty for no end date.',
+    code_taken: 'This event already has a code that is on with that name. Pick another name, or turn the other one off first.',
+    locked_after_use:
+      'Someone has ordered with this code, so its discount cannot change. You can still change the limit and the end date, or turn it off and make a new code.',
+    invalid_request: 'That change was not accepted. Close this, refresh the page and try again.',
+  };
+  it('covers exactly the reasons REASON_COPY has', () => expect(Object.keys(LITERAL).sort()).toEqual(Object.keys(REASON_COPY).sort()));
+  it.each(Object.entries(LITERAL))('%s', (reason, text) => expect(REASON_COPY[reason]).toBe(text));
+  it('the network and signed-out lines are literal too', () => {
+    expect(NETWORK).toBe('We could not reach the server. Check your connection, then try again.');
+    expect(SIGNED_OUT).toBe('Your sign-in ended. Sign in again.');
+  });
+});
+
+describe('isLocked: both halves', () => {
+  it.each([
+    [{ usedCount: 0, paidOrders: 0 }, false],
+    [{ usedCount: 1, paidOrders: 0 }, true], // only a pending order
+    [{ usedCount: 0, paidOrders: 1 }, true], // a paid order whose use was released
+    [{ usedCount: 2, paidOrders: 3 }, true],
+  ])('%j -> %s', (c, locked) => expect(isLocked(c)).toBe(locked));
+
+  it('a pending-only code (paidOrders 0, usedCount 1) locks the sheet; a paid-only one too', () => {
+    for (const over of [{ usedCount: 1, paidOrders: 0 }, { usedCount: 0, paidOrders: 1 }]) {
+      api.list = rows([code('a', over)]);
+      mount();
+      openEdit('a');
+      expect((screen.getByTestId('promo-form-amount') as HTMLInputElement).disabled).toBe(true);
+      expect((screen.getByTestId('promo-kind-fixed') as HTMLButtonElement).disabled).toBe(true);
+      cleanup();
+    }
+  });
+  it('an unused code is not locked', () => {
+    api.list = rows([code('a')]);
+    mount();
+    expect(screen.queryByTestId('promo-row-locked')).toBeNull();
+    openEdit('a');
+    expect((screen.getByTestId('promo-form-amount') as HTMLInputElement).disabled).toBe(false);
+  });
+});
+
+describe('after a save', () => {
+  it('the list is re-fetched after a successful save', async () => {
+    api.list = rows([code('a')]);
+    api.updatePromo.mockResolvedValue({ ok: true, reason: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <PromoSection organiserId="org-1" seriesId="ser-1" onSay={say} onAlert={alertFn} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    openEdit('a');
+    type('amount', '20');
+    await save();
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['org-tickets', 'promo', 'ser-1'] });
+    // an untouched save and a refused save do not refetch
+    spy.mockClear();
+    openEdit('a');
+    await save();
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('signed out', () => {
+  it.each([
+    ['42501 code', { code: '42501', message: 'permission denied for function' }],
+    ['not signed in', { message: 'not signed in' }],
+    ['authentication_required', { message: 'permission_denied: authentication_required' }],
+  ])('create thrown (%s): says to sign in again, not the network line', async (_n, err) => {
+    api.createPromo.mockRejectedValue(err);
+    api.list = rows([]);
+    mount();
+    openCreate();
+    type('code', 'GOOD');
+    type('amount', '10');
+    await save();
+    expect(screen.getByTestId('promo-form-error').textContent).toBe(SIGNED_OUT);
+  });
+  it('switch thrown 42501: the row says to sign in again', async () => {
+    api.updatePromo.mockRejectedValue({ code: '42501', message: 'x' });
+    api.list = rows([code('a')]);
+    mount();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('promo-switch'));
+    });
+    expect(screen.getByTestId('promo-row-error').textContent).toBe(SIGNED_OUT);
+  });
+  it('a plain network failure still says the network line', async () => {
+    api.createPromo.mockRejectedValue(new Error('Failed to fetch'));
+    api.list = rows([]);
+    mount();
+    openCreate();
+    type('code', 'GOOD');
+    type('amount', '10');
+    await save();
+    expect(screen.getByTestId('promo-form-error').textContent).toBe(NETWORK);
+  });
+});
+
+describe('locked_after_use race (G3)', () => {
+  it('the server says locked: row shows locked, controls disabled, no retry of the discount', async () => {
+    // a code whose only order was released: the list says unlocked
+    api.list = rows([code('a')]);
+    api.updatePromo.mockResolvedValueOnce({ ok: false, reason: 'locked_after_use' });
+    mount();
+    openEdit('a');
+    expect(screen.queryByTestId('promo-row-locked')).toBeNull();
+    fireEvent.click(screen.getByTestId('promo-kind-fixed'));
+    type('amount', '5.00');
+    await save();
+    expect(screen.getByTestId('promo-form-error').textContent).toBe(LOCKED_WHY);
+    expect(screen.getByTestId('promo-row-locked').textContent).toBe(LOCKED_SHORT);
+    expect((screen.getByTestId('promo-form-amount') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByTestId('promo-kind-fixed') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('promo-kind-percent') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('promo-locked').textContent).toBe(LOCKED_WHY);
+    // the discount is put back as it was
+    expect((screen.getByTestId('promo-form-amount') as HTMLInputElement).value).toBe('10');
+    // retry is not offered: saving again sends nothing
+    await save();
+    expect(api.updatePromo).toHaveBeenCalledTimes(1);
+  });
+
+  it('the list is re-fetched when the server says locked', async () => {
+    api.list = rows([code('a')]);
+    api.updatePromo.mockResolvedValueOnce({ ok: false, reason: 'locked_after_use' });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <PromoSection organiserId="org-1" seriesId="ser-1" onSay={say} onAlert={alertFn} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    openEdit('a');
+    type('amount', '20');
+    await save();
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['org-tickets', 'promo', 'ser-1'] });
+  });
+
+  it('a limit change on a locked-by-server code is still sent (only kind and value are barred)', async () => {
+    api.list = rows([code('a')]);
+    api.updatePromo.mockResolvedValueOnce({ ok: false, reason: 'locked_after_use' }).mockResolvedValueOnce({ ok: true, reason: null });
+    mount();
+    openEdit('a');
+    type('amount', '20');
+    await save();
+    type('maxUses', '9');
+    await save();
+    expect(api.updatePromo).toHaveBeenLastCalledWith('a', { max_uses: 9 });
   });
 });
