@@ -9,7 +9,7 @@ Nothing here was executed in a browser. Tests were located, not run (see "Not ve
 Two organiser UIs exist side by side: the R1 area `/account/o/*` (`src/modules/organiser/shell/OrganiserRoutes.tsx`)
 and the P3 area `/account/p3/*` (`src/components/AnimatedRoutes.tsx:267`, routes in
 `src/modules/organiser/p3/shell/P3Routes.tsx`). Which one a person gets is decided by the flags
-`organiserP3` + `organiserSelfServe` (`AnimatedRoutes.tsx:224`). **The flag values in prod were not verified**;
+`organiserP3` + `organiserSelfServe` (`AnimatedRoutes.tsx:224`). **`organiserSelfServe` is ON in the prod build (since 2026-10-05; owner keeps it on, 2026-11-05; the other two flags are still unverified)**;
 every row below says "R1" or "P3" where the screen differs. Both must pass the contract until one is deleted.
 
 ## A. Person types (8)
@@ -109,7 +109,7 @@ Page shapes surveyed in the fix round (2026-11-02, counts from the review, S19 r
 3. **G-INV-3** R1 has no Repeat-rule screen (J26 is P3 only); P3's rule is weekly+monthly only.
 4. **G-INV-4** Undo covers only `series.upsert`.
 5. **G-INV-5** Closed except S19: page shapes surveyed 2026-11-02; 45 of 50 pages have no claim e-mail, so the public claim path reaches 2 of 37 ownerless pages (contract C15e, GAP rank 1).
-6. **G-INV-6** Prod flag values (`organiserP3`, `organiserSelfServe`, `organiserTicketing`) not verified, so which UI a real person sees is unknown.
+6. **G-INV-6** Prod flag values: `organiserSelfServe` is ON in the prod build (since 2026-10-05; seen 2026-11-05 as the header "Sign in" and the public claim card; owner decision: keep on). `organiserP3` and `organiserTicketing` are NOT verified, so which P3 or ticketing UI a real person sees is still unknown.
 
 ## Coverage count
 
