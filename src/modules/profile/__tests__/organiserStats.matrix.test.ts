@@ -157,6 +157,11 @@ describe('organiserStats: thresholds and rounding', () => {
     expect(keys({ nights: series('2026-06-01', 4, 30) })).not.toContain('nights_hosted');
     expect(stat({ nights: series('2026-05-01', 5, 30) }, 'nights_hosted')?.value).toBe('5');
   });
+
+  it('nights hosted counts distinct dates: 3 nights twice over is 3, not 6', () => {
+    const three = series('2026-08-06', 3);
+    expect(keys({ nights: [...three, ...three] })).not.toContain('nights_hosted');
+  });
 });
 
 describe('organiserStats: running since', () => {
@@ -222,6 +227,11 @@ describe('organiserStats: wording and day rollover', () => {
 
   it("the server's is_past flag wins over the date split", () => {
     const out = run({ nights: [night(TODAY, '19:00', { isPast: true })] });
+    expect(out[0]).toMatchObject({ key: 'last_night', value: 'Thu 5 Nov' });
+  });
+
+  it('yesterday inside the server grace window (isPast false) is never "Tonight"', () => {
+    const out = run({ now: new Date('2026-11-06T09:00:00Z'), nights: [night(TODAY, '21:00', { isPast: false })] });
     expect(out[0]).toMatchObject({ key: 'last_night', value: 'Thu 5 Nov' });
   });
 });

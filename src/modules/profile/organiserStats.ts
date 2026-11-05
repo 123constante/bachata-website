@@ -68,8 +68,9 @@ export interface OrganiserStatNight {
   start: string | null | undefined;
   cancelled?: boolean;
   /**
-   * The server's is_past flag when the caller has it (it carries the 6h grace
-   * window). Absent: a night is past when its night is before now's night.
+   * The server's is_past flag when the caller has it. true can move today's
+   * already-ended night to past; a night before now's night is past whatever
+   * the flag says (the server's 6h grace must not make yesterday "Tonight").
    */
   isPast?: boolean;
 }
@@ -177,7 +178,7 @@ export function organiserStats(input: OrganiserStatsInput): OrganiserStat[] {
     if (n.cancelled) continue;
     const key = nightKeyOf(n.start);
     if (!key) continue;
-    const isPast = n.isPast ?? key < todayKey;
+    const isPast = n.isPast === true || key < todayKey;
     (isPast ? past : upcoming).push(key);
   }
   upcoming.sort();
@@ -210,9 +211,13 @@ export function organiserStats(input: OrganiserStatsInput): OrganiserStat[] {
       return value ? { key: 'dancers_came', value, label: 'Dancers came' } : null;
     },
     // 4. Nights hosted.
-    () => (past.length >= NIGHTS_HOSTED_MIN
-      ? { key: 'nights_hosted', value: countFmt.format(past.length), label: 'Nights hosted' }
-      : null),
+    // Distinct dates: two events (or two feeds) on one night are one night.
+    () => {
+      const hosted = new Set(past).size;
+      return hosted >= NIGHTS_HOSTED_MIN
+        ? { key: 'nights_hosted', value: countFmt.format(hosted), label: 'Nights hosted' }
+        : null;
+    },
     // 5. Weekly rhythm over the last 12 months (distinct dates, up to today).
     () => {
       const fromKey = keyOneYearBefore(todayKey);
