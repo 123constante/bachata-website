@@ -157,6 +157,13 @@ describe('organiserStats: thresholds and rounding', () => {
     expect(keys({ nights: series('2026-06-01', 4, 30) })).not.toContain('nights_hosted');
     expect(stat({ nights: series('2026-05-01', 5, 30) }, 'nights_hosted')?.value).toBe('5');
   });
+
+  it('nights hosted counts DISTINCT nights: 5 occurrences on 3 nights never shows, 5 distinct shows', () => {
+    const three = ['2026-05-01', '2026-05-01', '2026-05-08', '2026-05-08', '2026-05-15'].map((d) => night(d));
+    expect(keys({ nights: three })).not.toContain('nights_hosted');
+    const five = [...three, night('2026-05-22'), night('2026-05-29')];
+    expect(stat({ nights: five }, 'nights_hosted')?.value).toBe('5');
+  });
 });
 
 describe('organiserStats: running since', () => {
