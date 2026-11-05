@@ -1,6 +1,7 @@
 // THE copy module for the /invite join journey (PLAN.md section 3 copy rule): plain English, one
 // place per screen, and every error says what the person can do next -- never a raw code. Unicode
 // punctuation is written as \u escapes (right quote, ellipsis): the Cowork -> FUSE -> NTFS pipeline corrupts raw glyphs.
+import { timePromise } from '@/modules/organiser/p3/onboarding/graceModel';
 import { OTP_RATE_LIMITED_MESSAGE, SIGNUP_HELP_WHATSAPP_URL } from '@/lib/auth-otp-routing';
 
 const APOS = '\u2019';
@@ -8,6 +9,18 @@ const ELLIPSIS = '\u2026';
 
 /** The person who sent the link, for "Ask <inviter>" wording. */
 export const inviterName = (inviter: string | null | undefined): string => (inviter?.trim() ? inviter.trim() : 'the person who sent it');
+
+/** The one possessive for join copy: "Alex" -> "Alex\u2019s", "Alex Boneva Teachings" -> "Alex Boneva Teachings\u2019". */
+export const possessive = (name: string): string => `${name}${APOS}${/s$/i.test(name.trim()) ? '' : 's'}`;
+
+/** One plain next step under a dead link's own sentence (used, withdrawn, run out, not working). */
+export const ASK_FOR_NEW_LINK = 'Ask the person who sent it for a new link.';
+export const DEAD_LINK_REASONS: readonly string[] = ['invalid', 'used', 'revoked', 'expired'];
+export const askForNewLinkLine = (reason: string): string | null => (DEAD_LINK_REASONS.includes(reason) ? ASK_FOR_NEW_LINK : null);
+
+/** ONE rule for the Done sentence: only 0 rows left says the page is theirs; else details first, with graceModel's one time promise. */
+export const doneBody = (rowsLeft: number | null | undefined): string =>
+  rowsLeft === 0 ? JOIN_COPY.done.body : [JOIN_COPY.done.bodyDetailsFirst, timePromise(rowsLeft ?? null)].filter(Boolean).join(' ');
 
 export const PROGRESS_LABELS = { email: 'Your email', about: 'About you', join: 'Join' } as const;
 
@@ -30,6 +43,7 @@ export const JOIN_COPY = {
     button: 'Send my code',
     sending: 'Sending' + ELLIPSIS,
     why: 'Type your email to get a code.',
+    placeholder: 'you@example.com',
     badShape: 'Use an email like name@example.com.',
     notAscii: 'Please type the address with plain letters and numbers only.',
   },
@@ -49,8 +63,13 @@ export const JOIN_COPY = {
     linking: 'Signing you in' + ELLIPSIS,
   },
 
+  /** The masked address a bound invite was sent to (the preview's email_hint), on the email step and the invite-only stop. */
+  inviteSentTo: (hint: string) => `This invite was sent to ${hint}.`,
+
   about: {
     heading: 'A bit about you',
+    // Shown on About after the server refused the Join tap with profile_incomplete: About's Continue is the one button.
+    refusedNotice: 'A few details are missing. Finish them, then join.',
     lead: `Four things, then you${APOS}re in. You can add more later.`,
     linked: 'Linked to your existing profile.',
     missing: (n: number) => (n === 1 ? 'Just one thing missing' : `Just ${n} things missing`),
@@ -59,6 +78,7 @@ export const JOIN_COPY = {
     saving: 'Saving' + ELLIPSIS,
     saveFailed: `We couldn${APOS}t save that. Check your connection and try again.`,
     firstName: 'First name',
+    firstNameHelp: 'Your own first name, not the page name.',
     city: 'Your city',
     cityPlaceholder: 'Choose your city' + ELLIPSIS,
     role: 'Dance role',
@@ -68,15 +88,19 @@ export const JOIN_COPY = {
 
   join: {
     heading: (org: string) => `Join ${org}?`,
-    card: (org: string) => `You${APOS}ll be able to add and edit ${org}${APOS}s events and manage its page.`,
+    card: (org: string) => `Join ${possessive(org)} team. You${APOS}ll finish a few details about you and the page, then you can add and edit events.`,
     button: (org: string) => `Join ${org}`,
     joining: 'Joining' + ELLIPSIS,
     notYou: 'Not you? Use another email',
   },
 
   done: {
-    heading: (org: string) => `You${APOS}re on ${org}${APOS}s team.`,
+    heading: (org: string) => `You${APOS}re on ${possessive(org)} team.`,
+    // Item 7: the promise must match what happens next. Rows left (or unknown) -> the gate asks for details first.
     body: 'Everything on its page is yours to use: events, team and profile.',
+    bodyDetailsFirst: `You${APOS}re on the team. Add your details, then you can add and edit events.`,
+    // F-05: with either area live the button opens that area's Home (acceptedInviteLanding /
+    // organiserAreaHome), so one label says where it lands.
     button: 'Open your organiser home',
     // organiserSelfServe off: the organiser area is not open yet, so the one next step is the public site.
     bodyOff: 'Your place on the team is saved for when they open.',
@@ -105,6 +129,26 @@ export const JOIN_COPY = {
     help: 'Message us on WhatsApp',
     helpUrl: SIGNUP_HELP_WHATSAPP_URL,
     button: 'Use another email',
+  },
+  // hook v1's refusal (sign-up closed to this email), NOT a blocked provider: never blames the provider.
+  inviteOnly: {
+    heading: `We can${APOS}t create an account for this email yet`,
+    body: `Sign-up isn${APOS}t open to this email yet.`,
+    noHint: `Try another email, or message us and we${APOS}ll help.`,
+    useInvited: 'Use the email the invite was sent to',
+    useAnother: 'Use another email',
+    // The refused address is the one the invite names: no other email can help, so only the message route is offered.
+    invitedRefused: `That${APOS}s the email the invite was sent to. Message us and we${APOS}ll open it for you.`,
+    help: 'Message us on WhatsApp',
+    helpUrl: SIGNUP_HELP_WHATSAPP_URL,
+  },
+  // The bind ran before the refused send and tied the link to that email (bind is permanent): another email cannot work here.
+  locked: (inviter: string | null) => `This link is now tied to that email, so it can${APOS}t be used with another one. Ask ${inviterName(inviter)} for a new link, or message us.`,
+  // redeem said profile_incomplete, the re-read says complete (a stale read).
+  profileStale: {
+    heading: `We couldn${APOS}t join you yet`,
+    body: `Your details look finished, but we couldn${APOS}t confirm them yet. Wait a moment, then try again.`,
+    button: 'Try again',
   },
   rateLimited: {
     heading: 'Too many tries',
@@ -136,5 +180,7 @@ export const JOIN_COPY = {
   },
 
   signOutFailed: 'You are still signed in. Check your connection and try again.',
+  // A link that matches nothing has no sender to ask, so the one way to a new link is the existing help route.
+  unknownLink: { button: 'Ask for a new link', url: SIGNUP_HELP_WHATSAPP_URL },
   home: 'Go to Bachata Calendar',
 } as const;

@@ -94,6 +94,7 @@ export const L = {
   // save
   saveOne: 'Save for this date',
   saveAll: 'Save for all dates',
+  saveOneDateEvent: 'Save',
   notSaved: 'Not saved yet',
   undoMine: 'Undo my changes',
 
@@ -212,11 +213,7 @@ export const L = {
   sessionsDate: 'Sessions this date',
   loadingSessions: 'Loading the sessions\u2026',
   sessionsLoadFail: 'We couldn\u2019t load this date\u2019s sessions. Check your connection, then try again.',
-  /** Toasts after a programme write. */
-  savedEvery: 'Saved for every date. Dancers see it now.',
-  savedDate: (day: string) => `Saved for ${day} only. Dancers see it now.`,
-  addedEvery: 'Session added to every date. Dancers see it now.',
-  addedDate: (day: string) => `Added to ${day} only. Dancers see it now.`,
+  /** Toasts after a programme write (saved/added words: saveWordsFor in saveWords.ts, by lifecycle). */
   removedEvery: 'Removed from every date.',
   removedDate: (day: string) => `Removed from ${day}.`,
   offDate: (day: string) => `Not running on ${day}. Dancers see it struck through.`,
@@ -230,7 +227,7 @@ export const L = {
   detailsNameNeeded: 'Add an event name',
   detailsTooLong: (n: number) => `Keep it under ${n.toLocaleString('en-GB')} characters.`,
   detailsAbout: 'About this event',
-  detailsAboutHint: 'What should dancers know? For example: no partner needed, class first, then the party.',
+  detailsAboutHint: 'What should dancers know? For example: no partner needed, class first, then the party. Shown on every date; to change one date only, open that date.',
   detailsNone: 'none',
   detailsWhere: 'Where',
   detailsWhereNeeded: 'Pick a place: an event always has one.',
@@ -247,6 +244,16 @@ export const L = {
   detailsCoverChange: 'Choose a new cover photo',
   detailsCoverNone: 'No cover photo yet. Add one: dancers see it before anything else.',
   detailsUploading: 'Uploading the photo\u2026',
+  detailsPictures: 'Pictures',
+  detailsPicturesCount: (n: number) => (n ? `${n} ${n === 1 ? 'picture' : 'pictures'}` : 'None yet'),
+  detailsPicturesHint: 'Pictures for the whole event, shown on its page. JPG, PNG or WebP.',
+  detailsPicturesEmpty: 'No pictures yet. Add a few from past nights to show on the event page.',
+  detailsPicturesAdd: 'Add pictures',
+  detailsPicturesEdit: 'Change pictures',
+  detailsPicturesRemove: 'Remove this picture',
+  detailsPicturesDone: 'Done',
+  detailsPicturesMax: (n: number) => `${n} pictures is the most an event can have. Remove one to add another.`,
+  detailsPicturesFestival: 'A festival\'s pictures are set by the Bachata Calendar team. Ask them to change them.',
   detailsVideos: 'Videos',
   detailsVideosHint: 'One link per line, starting with https://',
   detailsTooManyVideos: (n: number) => `Up to ${n} videos.`,
@@ -256,13 +263,16 @@ export const L = {
   detailsChatBad: 'Enter the whole group chat link, like https://chat.whatsapp.com/ and the code after it, or leave it empty.',
   detailsKind: 'What it is',
   detailsKindHint: 'Worked out from your sessions. Change a session to change it.',
-  detailsSaved: 'Saved for every date. Dancers see it now.',
+  detailsMore: 'More details',
   prices: 'Prices',
   pricesRowSub: 'What dancers pay and how',
   pricesIntro: 'What dancers pay. Shown next to the ticket link.',
   pricesFree: 'It\u2019s free',
   pricesFreeSub: 'Dancers see \u201cFree\u201d',
-  pricesNone: 'No prices yet. Add one, or switch on \u201cIt\u2019s free\u201d.',
+  /** The empty-list line: it names the free switch only when the switch is on screen (F-18). */
+  pricesNone: (freeSwitchShown: boolean) => (freeSwitchShown
+    ? 'No prices yet. Add one, or switch on \u201cIt\u2019s free\u201d.'
+    : 'No prices yet. Use \u201cAdd a price\u201d below to add one.'),
   pricesAdd: 'Add a price',
   pricesRemove: 'Remove this price',
   pricesName: 'Name',
@@ -270,7 +280,6 @@ export const L = {
   pricesCurrency: 'Currency',
   pricesNamePlaceholder: 'e.g. Class and party',
   pricesLockedCount: (n: number) => `${n} ${n === 1 ? 'price is' : 'prices are'} on the event.`,
-  pricesSaved: 'Prices saved. Dancers see them now.',
   payHow: 'How to pay',
   payHelp: 'Pick every way dancers can pay. Tap again to take one off.',
   payFestival: 'A festival sells through its ticket link.',
@@ -336,3 +345,90 @@ export function sessionKindLabel(k: SessionKind): string {
 export function roleLabel(r: RoleKey): string {
   return L.roles.find((x) => x[0] === r)?.[1] ?? r;
 }
+
+// ---- moving a date that has people on it (Q10) ---------------------------------------
+
+/** The server's refusal for a move of a date with people (admin move guard): message prefix. */
+export const DATE_HAS_PEOPLE = /^date_has_people:/;
+
+export interface PeopleCounts { guest_list: number; going: number; tickets: number; total: number }
+
+const whole = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null);
+
+/**
+ * The counts of a `date_has_people:` refusal. `details` is JSON `{guest_list, going, tickets, total}`;
+ * a missing or bad `details` falls back to the numbers in the message, and to null (no numbers) if none parse.
+ */
+export function peopleCountsOf(error: unknown): PeopleCounts | null {
+  const e = (error && typeof error === 'object' ? error : {}) as { message?: unknown; details?: unknown };
+  let raw: unknown = e.details;
+  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = null; } }
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    const [g, n, t] = [whole(o.guest_list), whole(o.going), whole(o.tickets)];
+    if (g !== null && n !== null && t !== null) return { guest_list: g, going: n, tickets: t, total: whole(o.total) ?? g + n + t };
+  }
+  const msg = typeof e.message === 'string' ? e.message.replace(DATE_HAS_PEOPLE, '') : '';
+  // The real guard says `3 guest-list, 4 going, 2 tickets on <day>`: the number comes FIRST. `guest_list`,
+  // `guest-list` and `guest list` all name the same count; a `key: n` form is read too.
+  const keyed = (k: string) => msg.match(new RegExp(`${k}\\s*[:=]\\s*(\\d+)`)) ?? msg.match(new RegExp(`(\\d+)\\s*${k}\\b`));
+  const [kg, kn, kt] = [keyed('guest[ _-]list'), keyed('going'), keyed('tickets')];
+  const nums = kg && kn && kt ? [kg[1], kn[1], kt[1]] : (msg.match(/\d+/g) ?? []);
+  if (nums.length < 3) return null;
+  const [g, n, t] = nums.slice(0, 3).map(Number);
+  return { guest_list: g, going: n, tickets: t, total: g + n + t };
+}
+
+/** What the notices on a move reply said, or null when the server sent none (today). */
+export interface MoveNotices { queued: number; guest_list_unreached: number }
+export function moveNoticesOf(reply: unknown): MoveNotices | null {
+  const r = reply as { notices?: unknown; data?: { notices?: unknown } } | null | undefined;
+  const raw = r?.notices ?? r?.data?.notices;
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const queued = whole(o.queued);
+  return queued === null ? null : { queued, guest_list_unreached: whole(o.guest_list_unreached) ?? 0 };
+}
+
+/**
+ * The line after a move, from the reply's notices (admin #1223: one email per paid ticket order and per "going"
+ * user; guest-list entries hold no contact). No notices (server not applied yet) or nobody reached: only the
+ * moved line, never a claim either way. The line BEFORE the move is `MOVE_PEOPLE_COPY.tell`.
+ */
+export function moveOutcomeCopy(notices: MoveNotices | null | undefined, moved: string): { done: string } {
+  if (!notices) return { done: moved };
+  const emailed = notices.queued > 0 ? ` We emailed ${notices.queued === 1 ? '1 person' : `${notices.queued} people`} about the new day.` : '';
+  const unreached = notices.guest_list_unreached > 0
+    ? ` ${notices.guest_list_unreached} on the guest list could not be emailed, so you may want to tell them yourself.`
+    : '';
+  return { done: `${moved}${emailed}${unreached}` };
+}
+
+export const MOVE_PEOPLE_COPY = {
+  title: (total: number | null) => (total === null ? 'People are on this date' : total === 1 ? '1 person is on this date' : `${total} people are on this date`),
+  /** Only the non-zero parts, in the order guest list, going, tickets. */
+  body: (c: PeopleCounts | null): string => {
+    if (!c) return '';
+    const parts = [
+      c.guest_list > 0 ? `${c.guest_list} on the guest list` : '',
+      c.going > 0 ? `${c.going} going` : '',
+      c.tickets > 0 ? `${c.tickets} with tickets` : '',
+    ].filter(Boolean);
+    return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  },
+  /**
+   * Who hears about the move, said before it (true once admin #1223 is applied): ticket buyers and people going
+   * are emailed; guest-list entries cannot be. Only the kinds that are on the date; null counts say both.
+   */
+  tell: (c: PeopleCounts | null): string => {
+    const mailed = !c ? 'Ticket buyers and people who said they are going'
+      : c.tickets > 0 && c.going > 0 ? 'Ticket buyers and people who said they are going'
+        : c.tickets > 0 ? 'Ticket buyers' : c.going > 0 ? 'People who said they are going' : '';
+    const first = mailed ? `${mailed} get an email about the new day.` : '';
+    const guests = !c ? 'People on the guest list cannot be emailed, so you may want to tell them yourself.'
+      : c.guest_list > 0 ? `${c.guest_list} on the guest list cannot be emailed. You may want to tell them yourself.` : '';
+    return [first, guests].filter(Boolean).join(' ');
+  },
+  anyway: 'Move it anyway',
+  another: 'Choose another day',
+};

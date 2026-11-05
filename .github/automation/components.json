@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "doc": "docs/automation-foundations.md#components. GUARD path (owner Approve at head). component_sha = sha256 of `git ls-tree -r main -- <paths>` (scripts/lib/component-sha.mjs). Paths are LITERAL files or directory prefixes: git ls-tree does not expand globs. `drills` maps each drill id to the name of the workflow whose run proves it (scripts/check-drill-records.mjs re-fetches the run and requires that name); the drill workflows are written by later slices.",
+  "components": {
+    "approver": { "paths": [], "status": "not built" },
+    "sql-classifier": { "paths": [], "status": "not built" },
+    "merge-lane": {
+      "paths": [
+        ".github/automation/arming.json",
+        ".github/automation/guard-paths.json",
+        ".github/automation/money-set.json",
+        ".github/automation/required-jobs.json",
+        ".github/workflows/autopilot.yml",
+        ".github/workflows/bot-automerge.yml",
+        ".github/workflows/dependabot-automerge.yml",
+        "scripts/automerge-classify.mjs",
+        "scripts/autopilot-step.mjs",
+        "scripts/lib/arming.mjs",
+        "scripts/lib/autopilot-merge.mjs",
+        "scripts/lib/autopilot.mjs",
+        "scripts/lib/guard-paths.mjs",
+        "scripts/lib/is-money.mjs",
+        "scripts/lib/required-jobs.mjs"
+      ],
+      "status": "built",
+      "drills": {
+        "A16": "Drill A16 money refusal",
+        "A17": "Drill A17 required job",
+        "A18": "Drill A18 guard mutation",
+        "A30": "Drill A30 arming out of token reach"
+      }
+    },
+    "queue": { "paths": [], "status": "not built" },
+    "apply": { "paths": [], "status": "not built" },
+    "notifier": { "paths": [], "status": "not built" },
+    "pause-readers": {
+      "paths": [
+        ".github/workflows/automation-pause-guard.yml",
+        ".github/workflows/bot-automerge.yml",
+        ".github/workflows/dependabot-automerge.yml",
+        ".github/workflows/post-merge-prod-alarm.yml",
+        "scripts/automation-pause.mjs",
+        "scripts/autopilot-step.mjs",
+        "scripts/lib/automation-pause.mjs"
+      ],
+      "status": "built",
+      "drills": {
+        "A15": "Drill A15 pause switch",
+        "A15b": "Drill A15b pause label guard"
+      }
+    },
+    "canary": { "paths": [], "status": "not built" },
+    "revert": { "paths": [], "status": "not built" },
+    "walk-gate": { "paths": [], "status": "not built" }
+  }
+}

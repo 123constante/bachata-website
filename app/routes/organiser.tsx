@@ -88,9 +88,9 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
   //
   // Prefetch the events the page shows, or the fix trades one thin page for
   // another: an organiser with a real <h1> and no content is still a soft 404 to
-  // Google. prefetchQuery, not fetchQuery -- the page treats each as optional
-  // (`= []` defaults, errors swallowed to empty), so a failure here must degrade
-  // to a client fetch rather than 500 a page whose primary entity loaded.
+  // Google. prefetchQuery, not fetchQuery -- prefetchQuery never rejects, so a
+  // failed feed degrades to a client fetch rather than 500 a page whose primary
+  // entity loaded.
   //
   // The past feed is included even though it sits below the fold in an
   // accordion, because WITHOUT it the crawled document states "0 Past events"
@@ -101,9 +101,14 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
   // Re-measure before assuming that still holds. The team roster stays
   // client-side: two sequential round trips for content no crawler ranks on.
   //
-  // Promise.all, not allSettled: every queryFn below already swallows its own
-  // error to `[]`, so prefetchQuery never rejects -- allSettled's per-item
-  // status was dead weight nothing read.
+  // A failed feed THROWS (S1, prod verify doc E4 -- it used to be swallowed to
+  // `[]`, which this loader then dehydrated as a success and cache-tagged, so
+  // one RPC blip served "No nights listed yet" for an organiser with 200
+  // events). prefetchQuery still never rejects -- it records the error in the
+  // query's state -- so Promise.all, not allSettled, stays right. What keeps
+  // the failure out of the HTML: dehydrate() only serialises SUCCESSFUL queries
+  // (React Query's default shouldDehydrateQuery), so the client finds no entry
+  // and fetches the feed itself; and `feedFailed` below drops the cache tag.
   const startFeeds = () =>
     Promise.all([
       qc.prefetchQuery({
@@ -136,32 +141,43 @@ export const loader = withSsrLoaderTimeout("organiser-loader", async function lo
 
   await (feeds ?? startFeeds());
 
+  // A page rendered while a feed was failing is a degraded page: it must not
+  // be stored anywhere. Untagged, cacheHeaders() emits max-age=0, must-revalidate and no
+  // edge cache at all (see ../detailLoader), so the next request renders fresh.
+  const feedFailed = [
+    organiserEventsQueryKey(ref.id as string),
+    organiserOccEventsQueryKey(ref.id as string),
+    organiserOccEventsPastQueryKey(ref.id as string),
+  ].some((queryKey) => qc.getQueryState(queryKey)?.status === "error");
+
   const row = entity as Record<string, unknown>;
+  const payload = {
+    locked: false as const,
+    dehydratedState: dehydrate(qc),
+    // resolvePublicName, not `row.name`: it returns null rather than an id or a
+    // placeholder, and buildSeoForRoute noindexes a .detail route on a falsy
+    // entityName. A nameless organiser therefore gets 200 + noindex instead of
+    // an indexed "Organiser - Bachata Organiser, London" duplicate.
+    entityName: resolvePublicName(row as PublicNameSource) ?? undefined,
+    // The SLUG, never params.id -- a uuid-shaped canonical splits the page's
+    // ranking signals across two URLs. redirectUuidToSlug above means a request
+    // that arrived by uuid has already 301'd, so ref.slug is normally set.
+    entitySlug: ref.slug ?? params.id,
+    cityDisplay: (row.cities as { name?: string } | null)?.name ?? undefined,
+    // The organiser's own bio, exactly as middleware.ts's fetchOrganiserMeta
+    // serves it to bots today. Without this the matcher retirement would be a
+    // DOWNGRADE for every organiser who wrote one: they would trade a real
+    // description for the generic "<name> runs bachata events in <city>".
+    bioDescription: truncate(row.bio as string | null, HEAD_DESCRIPTION_MAX) || undefined,
+    ogImage: normalizeOgImage({
+      rawUrl: row.avatar_url as string | null,
+      request,
+      fallbackImage: DEFAULT_OG_IMAGE,
+    }),
+  };
+  if (feedFailed) return payload;
   return taggedData(
-    {
-      locked: false as const,
-      dehydratedState: dehydrate(qc),
-      // resolvePublicName, not `row.name`: it returns null rather than an id or a
-      // placeholder, and buildSeoForRoute noindexes a .detail route on a falsy
-      // entityName. A nameless organiser therefore gets 200 + noindex instead of
-      // an indexed "Organiser - Bachata Organiser, London" duplicate.
-      entityName: resolvePublicName(row as PublicNameSource) ?? undefined,
-      // The SLUG, never params.id -- a uuid-shaped canonical splits the page's
-      // ranking signals across two URLs. redirectUuidToSlug above means a request
-      // that arrived by uuid has already 301'd, so ref.slug is normally set.
-      entitySlug: ref.slug ?? params.id,
-      cityDisplay: (row.cities as { name?: string } | null)?.name ?? undefined,
-      // The organiser's own bio, exactly as middleware.ts's fetchOrganiserMeta
-      // serves it to bots today. Without this the matcher retirement would be a
-      // DOWNGRADE for every organiser who wrote one: they would trade a real
-      // description for the generic "<name> runs bachata events in <city>".
-      bioDescription: truncate(row.bio as string | null, HEAD_DESCRIPTION_MAX) || undefined,
-      ogImage: normalizeOgImage({
-        rawUrl: row.avatar_url as string | null,
-        request,
-        fallbackImage: DEFAULT_OG_IMAGE,
-      }),
-    },
+    payload,
     stampOrganiser(ref.id),
     // Zero edge TTL, deliberately. Nothing purges an organiser tag: there is no
     // 'organiser' entity type in the admin's _emit_cache_revalidation_v1 (see

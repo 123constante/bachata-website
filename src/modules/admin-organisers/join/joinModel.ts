@@ -95,6 +95,10 @@ export function deriveJoinStep(i: DeriveInput): Derived {
   if (i.preview.status !== 'open') {
     if (i.authStatus === 'resolving') return { step: 'checking' };
     if (i.preview.status === 'used' && i.user && i.usedCheckPending) return { step: 'checking' };
+    // Slice U: a used link opened by someone already on the team (redeem can refuse BEFORE its already_member
+    // read, e.g. an unfinished dancer profile) is theirs: their page, never the dead end.
+    if (i.preview.status === 'used' && i.user && i.member === true) return { step: 'done' };
+    if (i.preview.status === 'used' && i.user && i.member === null) return { step: 'checking' };
     return { step: 'dead', reason: i.preview.status };
   }
   if (i.authStatus === 'resolving') return { step: 'checking' };
@@ -112,12 +116,15 @@ export function deriveJoinStep(i: DeriveInput): Derived {
   return { step: 'join' };
 }
 
-/** The "Step n of total" bar over email/code, about and join. A complete account skips About you. */
-export function joinProgress(step: JoinStep, completion: ProfileCompletionStatus): { n: number; total: number; label: string } | null {
-  const skipsAbout = completion === 'complete' && step !== 'about';
-  const total = skipsAbout ? 2 : 3;
+/**
+ * The "Step n of 3" bar over email/code, about and join. The total is ALWAYS 3: a signed-out person cannot
+ * know yet whether their profile is complete, so a total that dropped to 2 once they signed in made the
+ * count change mid-journey (1 of 3, then 2 of 2). A complete account simply skips step 2.
+ */
+export function joinProgress(step: JoinStep, _completion?: ProfileCompletionStatus): { n: number; total: number; label: string } | null {
+  const total = 3;
   if (step === 'email' || step === 'code') return { n: 1, total, label: 'Your email' };
-  if (step === 'about') return { n: 2, total: 3, label: 'About you' };
+  if (step === 'about') return { n: 2, total, label: 'About you' };
   if (step === 'join' || step === 'done') return { n: total, total, label: 'Join' };
   return null;
 }
@@ -152,7 +159,12 @@ export function checkTypedEmail(raw: string): EmailCheck {
 
 /** What stopped the journey. Shown over the derived step until the person acts; never persisted. */
 export type JoinStop =
-  | { kind: 'blocked_domain' }
+  /** `locked`: the bind just tied this link to the refused email (bind is permanent), so another email cannot work. */
+  | { kind: 'blocked_domain'; locked?: boolean }
+  /** hook v1's "Sign-up is limited to approved organisers." (or a bare 403 with no text: the words blame no provider). */
+  | { kind: 'invite_only'; locked?: boolean; typedInvited?: boolean }
+  /** redeem said profile_incomplete but the re-read still says complete (a stale read): a plain retry, never silence. */
+  | { kind: 'profile_stale' }
   | { kind: 'rate_limited'; from: 'code' | 'join' }
   | { kind: 'network'; from: 'send' | 'verify' | 'join' | 'bind' }
   | { kind: 'email_unproven' }
@@ -173,8 +185,14 @@ const text = (e: unknown): string => String((e as { message?: unknown } | null)?
 
 /** signInWithOtp({ shouldCreateUser: true }) failed: which screen? */
 export function classifySendError(error: unknown): JoinStop {
-  // hook_before_user_created_v2: HTTP 403 "Sign-up with this email provider is not accepted" (12 blocked domains).
-  if (isSignupAllowlistRefusal(error, true) || text(error).includes('not accepted') || text(error).includes('email provider')) return { kind: 'blocked_domain' };
+  // hook_before_user_created_v2 (prod body read 2026-11-04): BOTH refusals are HTTP 403, told apart by the text.
+  // v1 (dancer_area_open off): "Sign-up is limited to approved organisers." -> invite_only.
+  // the domain blocklist: "Sign-up with this email provider is not accepted. ..." -> blocked_domain.
+  const t = text(error);
+  if (t.includes('limited to approved organisers')) return { kind: 'invite_only' };
+  if (t.includes('not accepted') || t.includes('email provider')) return { kind: 'blocked_domain' };
+  // A 403 with no text to tell them apart: the invite-only words, which name the invited email and blame no provider.
+  if (isSignupAllowlistRefusal(error, true)) return { kind: 'invite_only' };
   if (isOtpRateLimitedError(error) || status(error) === 429 || text(error).includes('rate limit')) return { kind: 'rate_limited', from: 'code' };
   return { kind: 'network', from: 'send' };
 }
@@ -243,5 +261,39 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
   return { kind: 'failed' };
 }
 
+/**
+ * After a profile_incomplete refusal the completeness is re-read. Incomplete / no profile: null, the derived step
+ * (About, or the no-profile screen) follows, with About saying why. Still complete: the stale-read stop. Unread: network.
+ */
+export function afterProfileRefusal(status: ProfileCompletionStatus): JoinStop | null {
+  if (status === 'incomplete' || status === 'no_profile') return null;
+  if (status === 'complete') return { kind: 'profile_stale' };
+  // error, and the never-expected loading / signed_out: a retry stop, never the same silent card (review r1 F3).
+  return { kind: 'network', from: 'join' };
+}
+
 /** Sentry / client-error tag: the step and the outcome code, never an email or the token. */
 export const failureTag = (step: string, code: string): string => `invite_join:${step}:${code}`;
+
+/** What the page does with a redeem answer. ONE mapping for the Join tap AND the post-sign-in safety stop. */
+export type RedeemAction =
+  | { act: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { act: 'stop'; stop: JoinStop }
+  | { act: 'refetch_preview' }
+  | { act: 'refetch_completion' }
+  | { act: 'sign_out' };
+
+export function redeemAction(outcome: JoinRedeemOutcome): RedeemAction {
+  switch (outcome.kind) {
+    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember };
+    case 'not_linked': return { act: 'stop', stop: { kind: 'not_linked' } };
+    case 'dead': return { act: 'refetch_preview' };
+    case 'wrong_account': return { act: 'stop', stop: { kind: 'wrong_account', emailHint: outcome.emailHint } };
+    case 'email_unproven': return { act: 'stop', stop: { kind: 'email_unproven' } };
+    case 'rate_limited': return { act: 'stop', stop: { kind: 'rate_limited', from: 'join' } };
+    case 'profile_incomplete': return { act: 'refetch_completion' };
+    case 'sign_in': return { act: 'sign_out' };
+    case 'refused': return { act: 'stop', stop: { kind: 'refused', reason: outcome.reason, emailHint: outcome.emailHint } };
+    default: return { act: 'stop', stop: { kind: 'network', from: 'join' } };
+  }
+}

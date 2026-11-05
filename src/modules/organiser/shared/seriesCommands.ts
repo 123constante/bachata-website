@@ -273,7 +273,8 @@ export const uncancelCommand = (): OwnerCommand => ({ kind: 'occurrence.cancel',
 /** The event's group chat link (series.set_group_chat takes exactly `url`, a string or null; blank clears). */
 export const groupChatCommand = (url: string): OwnerCommand => ({ kind: 'series.set_group_chat', payload: { url: url.trim() || null } });
 /** Move one date to another day (D39); the server rebuilds the instant from the wall-clock time (R3-18). */
-export const moveDateCommand = (toDate: string): OwnerCommand => ({ kind: 'occurrence.move_date', payload: { to_date: toDate } });
+export const moveDateCommand = (toDate: string, acknowledgePeople = false): OwnerCommand =>
+  ({ kind: 'occurrence.move_date', payload: acknowledgePeople ? { to_date: toDate, acknowledge_people: true } : { to_date: toDate } });
 /**
  * A command aimed at ONE date (occurrence_command_p5), not the series, inside a list
  * the series runner sends (useRunCommands): it goes against the date's own version.

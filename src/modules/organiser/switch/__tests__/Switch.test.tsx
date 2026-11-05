@@ -105,10 +105,10 @@ describe('Switch page (C35)', () => {
 
   it('a ?o= link to a page the login is not a member of is never remembered', async () => {
     mount(`${ORG_PATHS.home}?o=stranger`);
-    expect((await screen.findByTestId('home-page-name')).textContent).toBe('Ritmo');
+    expect((await screen.findByTestId('home-page-name')).textContent).toBe('Latino Nights'); // F-26: no choice lands on the first by name
     cleanup();
     mount(ORG_PATHS.team);
-    await waitFor(() => expect(screen.getByTestId('probe-page-name').textContent).toBe('Ritmo'));
+    await waitFor(() => expect(screen.getByTestId('probe-page-name').textContent).toBe('Latino Nights'));
     expect(Object.values({ ...window.localStorage })).not.toContain('stranger');
   });
 
@@ -119,7 +119,7 @@ describe('Switch page (C35)', () => {
     cleanup();
     auth.user = { id: 'u2', email: 'other@x.example' };
     mount(ORG_PATHS.home);
-    expect((await screen.findByTestId('home-page-name')).textContent).toBe('Ritmo');
+    expect((await screen.findByTestId('home-page-name')).textContent).toBe('Latino Nights'); // F-26: no choice lands on the first by name
     cleanup();
     auth.user = { id: 'u1', email: 'me@x.example' };
     mount(ORG_PATHS.home);

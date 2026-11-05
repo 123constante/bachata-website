@@ -25,7 +25,7 @@ export function GateHost({ fetcher }: { fetcher?: () => Promise<unknown> }) {
   if (!ask || elsewhere) return null;
   return (
     <Suspense fallback={null}>
-      <GateSheet key={ask.seq} organiserId={ask.organiserId} refused={ask.missing} onClose={closeGate} fetcher={fetcher} />
+      <GateSheet key={ask.seq} organiserId={ask.organiserId} refused={ask.missing} at={ask.at} onClose={closeGate} fetcher={fetcher} />
     </Suspense>
   );
 }

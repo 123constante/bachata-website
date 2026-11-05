@@ -60,13 +60,16 @@ export const P3_SURFACE: OrgSurface = {
     done: P3_PATHS.youDone,
     more: P3_PATHS.youAccount,
     help: P3_PATHS.youHelp,
-    newWhat: P3_PATHS.newWhat,
-    newWhatFor: P3_PATHS.newWhatFor,
-    newName: P3_PATHS.newName,
-    newVenue: P3_PATHS.newVenue,
-    newDate: P3_PATHS.newDate,
-    newTime: P3_PATHS.newTime,
-    newCover: P3_PATHS.newCover,
+    // p3-create: New event is P3's own flow (Welcome's "Add an event" too); the R1 step keys below are the bridge URLs, which redirect.
+    newWhat: P3_PATHS.create,
+    newWhatFor: P3_PATHS.createFor,
+    // review 1 F9: R1's name step keeps its format (that kind's form in P3)
+    newName: (format) => P3_PATHS.createForFormat(format),
+    // a draft's R1 steps: that draft's P3 event page, where each of them is a row
+    newVenue: P3_PATHS.event,
+    newDate: P3_PATHS.event,
+    newTime: P3_PATHS.event,
+    newCover: P3_PATHS.event,
     events: P3_PATHS.events,
     event: P3_PATHS.event,
     eventDetails: P3_PATHS.eventDetails,
