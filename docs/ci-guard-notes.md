@@ -152,6 +152,25 @@ All in `scripts/check-*.mjs`, enforced by CI.
   most runs its green proves the call and the type, not the element arms; it says
   so in its output. Counts only, never ids.
 
+- P3 refusal reasons (`scripts/check-p3-refusal-reasons.mjs`,
+  `npm run check:p3-refusal-reasons`, 2026-11-05, brief
+  `docs/briefs/p3-real-rules-check.md`) &mdash; static in `architecture-guard.yml`.
+  Reads `scripts/p3-refusal-codes.json` (one entry per mapper x code x snake_case
+  reason, read from `pg_get_functiondef` of the P3 command doors on prod), bundles
+  `selfServeErrors.ts` with esbuild and feeds each one to `commandErrorMessage` /
+  `teamErrorMessage`: red on the generic fallback, the `/^permission_denied/`
+  catch-all or "That did not work" unless the key is in `known_gaps` (shrink-only;
+  a stale gap is red). `--live` needs `P3_RULES_DB_URL` (read-only Postgres URL)
+  and diffs the live code set (with SQLSTATE) against the snapshot. Step 73 of
+  `db-contract-check.yml` runs it **only when the secret is set** (absent = one SKIP
+  line, exit 0); once set, drift reds it (1) and so does a runner with no psql or a
+  failing psql (2). A psql failure logs one fixed line from the exit status, never
+  `e.message`/stderr (they carry the URL); canary cases 21-24 prove no URL part prints.
+  **Green is narrower than it looks:** a sample is `code: reason: X`, not each
+  literal RAISE text, so a prose-keyed row can map a sample the real text misses;
+  prose-only reasons (`permission_denied: series.upsert ...`) collapse into the
+  bare `permission_denied` key. Regenerate the snapshot from `LIVE_SQL` in the script.
+
 - Onboarding write doors (#72) (`scripts/check-onboarding-write-doors.mjs`,
   `npm run check:onboarding-write-doors`, 2026-10-30, design
   `docs/scoping/g1-write-door-check.md`) &mdash; Part A (static) in
