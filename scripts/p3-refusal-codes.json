@@ -820,5 +820,6 @@
       "key": "team:redeem_not_linked",
       "since": "2026-11-05"
     }
-  ]
+  ],
+  "_not_raised_doc": "Read 2026-11-05 on prod: F-40 (banned account) has no door; no public function raises a ban refusal (only the auth.users banned_until column is named). F-11 tickets: ticket_type_upsert_v1 / ticket_type_set_status_v1 RAISE nothing and return {ok:false, reason}; their reasons are pinned in src/modules/organiser/p3/__tests__/refusal.screenMatrix.test.tsx, not here."
 }

@@ -19,7 +19,30 @@ Branch: `claude/p3-real-rules-check`, PR #1389. Stopped at the owner's context g
   `permission_denied` is SQLSTATE P0001, not 42501 (the only 42501 is
   `authentication_required` from `_require_onboarding_complete_v1`).
 
-## Left (next worker)
+## Round 2 (dt_4147fdcb86bf, 2026-11-05) &mdash; done
+1. `src/modules/organiser/shared/__tests__/refusalCodes.live.test.ts`: reads the JSON; same copy
+   rule as the guard plus a next-step rule (imperative verb at sentence start / after `, ` `or `
+   `then ` `please `, or "you/they can"). Shrink-only `NEXT_STEP_GAPS`: `command:past_date`,
+   `team:organiser_not_found` (own copy, no next step). 82 tests green.
+2. `src/modules/organiser/p3/__tests__/refusal.screenMatrix.test.tsx`: 33 rows, screen x live
+   refusal through the mapping each screen calls, plus source assertions where the defect is the
+   wiring. **Red first: 4 rows** (F-10 NewFlow no gate sheet; F-11 a THROWN ticket refusal reaches
+   `reasonMessage(null)` = "That did not work"; F-15 `RESULT_COPY.discardFailed` blames the
+   connection; F-46 declined card gated on `!orgId`). Those 4 are `KNOWN_GAPS` (shrink-only).
+   Not a DOM render (the 390x844 walk is WALKLIST's).
+   - Tickets (prod read): `ticket_type_upsert_v1` / `ticket_type_set_status_v1` RAISE nothing and
+     return `{ok:false, reason}`; all 18 live reasons have copy in `ticketModel.ts` REASON.
+   - F-40: no live door raises a ban refusal (only `auth.users.banned_until` is named). Recorded in
+     the JSON `_not_raised_doc`; no row built.
+3. `db-contract-check.yml` step 73 runs the canary, then `--live` only when `P3_RULES_DB_URL` is
+   set; without it, one `SKIP` line and exit 0. **Not verified** live (needs the secret; lead raises it).
+
+## Still left (out of scope here)
+- Per-prose split of bare `permission_denied` (F-20 / F-52 / F-57).
+- Admin-repo migration attribution per code.
+- The fixes themselves: each deletes its `known_gaps` / `KNOWN_GAPS` / `NEXT_STEP_GAPS` line.
+
+## Earlier "Left" list (round 1, kept for history)
 1. `src/modules/organiser/shared/__tests__/refusalCodes.live.test.ts` (reads the JSON; same
    rule as the guard, plus "carries a next step"). Not written.
 2. `src/modules/organiser/p3/__tests__/refusal.screenMatrix.test.tsx` (screen x refusal,
