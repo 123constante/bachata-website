@@ -220,6 +220,7 @@ const TARGETS = [
   { rel: 'scripts/ci/docs-only.mjs' },
   { rel: 'scripts/deploy-trial-decide.mjs' },
   { rel: 'scripts/gh-merge-status.mjs' },
+  { rel: 'scripts/owner-summary.mjs' },
   { rel: 'scripts/hooks/arc-checkpoint.mjs' },
   { rel: 'scripts/hooks/pre-exec-guard.mjs' },
   { rel: 'scripts/hooks/review-stamp.mjs' },
@@ -232,7 +233,11 @@ const TARGETS = [
   { rel: 'scripts/rework-share.mjs' },
   { rel: 'scripts/run-lint-chain.mjs' },
   { rel: 'scripts/ship-gate.mjs' },
+  { rel: 'scripts/sweep-stale-bot-prs.mjs' },
   { rel: 'scripts/walk-seed.mjs' },
+  { rel: 'scripts/lib/walk-fixtures.mjs' },
+  { rel: 'scripts/lib/walk-judge.mjs' },
+  { rel: 'scripts/lib/walk-waiver.mjs' },
 ];
 
 /** Generous: nothing here runs a target's real work, so this only catches hangs. */

@@ -1,0 +1,65 @@
+name: Stale bot-PR sweep
+
+# Owner click 2026-11-04 (docs/automation-pause.md, "Stale bot-PR sweep"): superseded bot PRs
+# (review reports, "nothing to change" markers, work re-done on a later branch) pile up and only
+# the owner can close them. Daily, this closes at most 5 of the BOT's own claude/* PRs that are
+# idle > 3 days AND superseded / already on main / empty. Never another author's PR, never one
+# carrying automerge-ok, ap:hold, owner-reserved or a reserved label, never one with an owner Approve
+# at its current head or a hard-tier path, never a branch delete.
+# The decision is scripts/lib/stale-bot-pr.mjs (tests/staleBotPr.test.ts).
+#
+# PAUSE SWITCH: the reader runs from main BEFORE the sweep; only paused == 'false' (positively
+# read) lets the sweep run. A failed read or a pause = a notice and nothing closed (fail closed).
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  # fix-1368-r1: a manual run is a DRY RUN unless `apply` is ticked; the schedule always applies.
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Close PRs for real (unticked = dry run: log the decisions, close nothing)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: read # the pause switch reader (docs/automation-pause.md)
+  pull-requests: write
+
+concurrency:
+  group: stale-bot-pr-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Read the automation pause switch
+        id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' sweeps (fail closed)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+
+      - name: Paused or unreadable, so nothing is closed
+        if: steps.pause.outputs.paused != 'false'
+        run: echo "::notice::automation pause switch is not positively RUNNING; the stale bot-PR sweep closes nothing this run"
+
+      - name: Sweep stale bot PRs (close at most 5, oldest first)
+        if: steps.pause.outputs.paused == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          # 'true' only for the schedule or a manual run with apply ticked (tests/staleBotPr.test.ts pins it).
+          SWEEP_APPLY: ${{ github.event_name == 'schedule' || inputs.apply == true }}
+        run: if [ "$SWEEP_APPLY" = "true" ]; then node scripts/sweep-stale-bot-prs.mjs --apply; else node scripts/sweep-stale-bot-prs.mjs; fi
