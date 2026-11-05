@@ -1,0 +1,43 @@
+# /etc/systemd/system/actions.runner.bachata-website.acer-web.service
+# ONE self-hosted runner for 123constante/bachata-website on the Acer
+# (CI offload stage 3, docs/handover/ci-offload-stage3.md). NOT one of the
+# four admin runners (laptop-ci-runner-1..4); its own user, directory, unit.
+[Unit]
+Description=GitHub Actions runner bachata-website acer-web (stage 3 pilot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ghrunner-web
+Group=ghrunner-web
+WorkingDirectory=/srv/ghrunner-web/runner
+# Per-job load gate + shared walk lock (see gate-job-started.sh).
+Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/srv/ghrunner-web/hooks/gate-job-started.sh
+Environment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/srv/ghrunner-web/hooks/gate-job-completed.sh
+# Must equal the values the Acer's walk/test gate already uses.
+Environment=SAFE_LOAD_MAX=3.0
+Environment=SAFE_MEM_MIN=1500
+ExecStart=/srv/ghrunner-web/runner/run.sh
+Restart=on-failure
+RestartSec=30
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=5min
+# Resource caps: 4 GB (stage 2 peak was 2.64 GiB), low CPU priority.
+MemoryMax=4G
+MemorySwapMax=0
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=50
+TasksMax=2048
+# Isolation: no access to other users' homes (ci, offload: ~/.ssh, ~/.claude)
+# or the admin runners' directories.
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/srv/ghrunner-web /tmp
+InaccessiblePaths=-/home -/root -/srv/laptop-ci-runner-1 -/srv/laptop-ci-runner-2 -/srv/laptop-ci-runner-3 -/srv/laptop-ci-runner-4
+PrivateDevices=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

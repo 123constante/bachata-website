@@ -19,7 +19,20 @@ concurrency:
 
 jobs:
   bom-check:
-    runs-on: ubuntu-latest
+    # CI offload stage 3 pilot (docs/handover/ci-offload-stage3.md). Routed by
+    # the repo variable WEB_RUNNER_LABEL: unset (today) = hosted ubuntu-latest;
+    # set to `acer-web` = the one self-hosted Website runner on the Acer.
+    # DELETING the variable is the revert switch (no push, no deploy).
+    # A fork PR is never routed to the self-hosted runner: the label applies
+    # only when the event is not a pull_request, or the PR head is this repo.
+    # This job uses no secrets and only a read token.
+    runs-on: ${{ (vars.WEB_RUNNER_LABEL != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && vars.WEB_RUNNER_LABEL || 'ubuntu-latest' }}
+    # A job queued for an offline self-hosted runner waits up to 24 h; this
+    # caps the run itself. The queue rule (delete the variable when the runner
+    # reads offline) is in the handover.
+    timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
