@@ -31,6 +31,11 @@ vi.mock('../../../shared/runCommands', () => ({
   useSendOnce: () => async () => { throw new Error('Cancel the event is covered in cancelOneOff.matrix.test.tsx'); },
 }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
+// The Status sheet asks series_go_live_check_v1 on a draft; here it has not answered (the page's own facts give the reason).
+vi.mock('../../../shared/goLiveCheck', async (orig) => ({
+  ...(await orig<typeof import('../../../shared/goLiveCheck')>()),
+  useGoLiveCheck: () => ({ data: undefined, refetch: () => Promise.resolve() }),
+}));
 
 import { EventPage } from '../EventPage';
 
@@ -416,7 +421,7 @@ describe('each refusal reads as plain copy, never server text', () => {
     ['invalid_transition: series 0b6c is not a ruled recurring series (format=recurring, has_rule=false)', 'This event does not repeat, so there is nothing to stop. Reload the page to see it as it is now.'],
     ['invalid_transition: series 0b6c has format one_off. Only a recurring series or a course follows a recurrence rule.', 'This event does not repeat, so there is nothing to stop. Reload the page to see it as it is now.'],
     ['lifecycle_transition_denied: live -> draft', 'That status change is not available for this event right now.'],
-    ['permission_denied: series.set_lifecycle draft -> live needs a ready series: readiness ok, a cover image and an upcoming scheduled date', 'It is not ready to go live yet: it needs a cover photo, a date coming up and its details. Add them in the current organiser area, then put it live.'],
+    ['permission_denied: series.set_lifecycle draft -> live needs a ready series: readiness ok, a cover image and an upcoming scheduled date', 'Not ready to go live yet. Check the event\u2019s details and your profile, then try again.'],
     ['publish_blocked: missing venue', 'This event needs more details before it can go live again. Ask the Bachata Calendar team.'],
     ['version_conflict: expected 7 got 9', VERSION_CONFLICT],
   ];
