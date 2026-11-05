@@ -68,7 +68,11 @@ stderr), stdio is piped, and a set secret with no psql exits 2 with a plain line
 21-24 prove no part of a fake URL prints. PR body: 35 matrix rows; Not verified updated.
 
 Left (owner / follow-up):
-6. `P3_RULES_DB_URL` is not in the secrets register (`check-secrets-register.mjs` flags it);
-   adding the register entry needs the owner.
+6. DONE 2026-11-05 (register round): `P3_RULES_DB_URL` now has a row in
+   `.github/automation/secrets-register.json` (exists false, dated `absent_readers` and
+   `untrusted_trigger_grandfathered` for db-contract-check.yml). This fixed the 5 red
+   `tests/automationRegister.test.ts` cases in `unit (Europe/London, full)`. Left for the owner:
+   create the secret itself (a read-only DB role URL), then set `exists` to true and drop
+   `absent_readers`.
 7. The URL still reaches psql through argv, so a process listing on the runner shows it.
    Follow-up: pass it through PG* env vars.
