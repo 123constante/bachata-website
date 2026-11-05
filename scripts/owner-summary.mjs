@@ -37,12 +37,23 @@ function parseArgs(argv) {
   return o;
 }
 
-function githubClient({ repo, issue, token, fetch: fetchImpl }) {
+const MAX_COMMENT_PAGES = 50;
+
+export function githubClient({ repo, issue, token, fetch: fetchImpl }) {
   const base = `${PAUSE_API}/repos/${repo}/issues`;
   return {
+    /** EVERY page (follows rel="next"); a marker past comment 100 must still dedupe. */
     async list() {
-      const { data } = await pauseRequest(fetchImpl, `${base}/${issue}/comments?per_page=100`, token);
-      return data.map((c) => ({ id: c.id, body: c.body }));
+      const all = [];
+      let url = `${base}/${issue}/comments?per_page=100`;
+      for (let page = 1; url; page++) {
+        if (page > MAX_COMMENT_PAGES) throw new Error(`pinned issue has more than ${MAX_COMMENT_PAGES * 100} comments`);
+        const { data, next } = await pauseRequest(fetchImpl, url, token);
+        if (!Array.isArray(data)) throw new Error('comments response is not an array');
+        for (const c of data) all.push({ id: c.id, body: c.body });
+        url = next;
+      }
+      return all;
     },
     async create(body) { return (await pauseRequest(fetchImpl, `${base}/${issue}/comments`, token, { method: 'POST', body: { body } })).data; },
     async edit(id, body) { await pauseRequest(fetchImpl, `${base}/comments/${id}`, token, { method: 'PATCH', body: { body } }); },
@@ -60,6 +71,7 @@ export async function main(argv, deps = {}) {
     try { key = makeKey({ arc: o.arc, head: o.head, kind: o.kind }); } catch (e) { out(`refused: ${e.message}`); return 1; }
     const f = formatMessage({ kind: o.kind, arc: o.arc, pr: o.pr, link: o.link, what: o.what, next: o.next, undone: o.undone });
     if (!f.ok) { out(`refused: ${f.error}`); return 1; }
+    if (f.redacted) out('redacted: secret-looking text replaced with [redacted]');
     msg = f.text;
   }
   const armed = o.live && env.OWNER_SUMMARY_ARMED === '1';
@@ -85,7 +97,8 @@ export async function main(argv, deps = {}) {
   }
   const send = (text) => sendNtfy({ url: env.NTFY_URL, topic: env.NTFY_TOPIC, title: `Bachata arc ${o.arc}`, body: text, fetch: fetchImpl, env });
   const r = await deliver({ store, key, message: msg, send, setPause: deps.setPause });
-  out(`${r.status}${r.pause ? ' (set the pause)' : ''}`);
+  const pauseNote = typeof deps.setPause === 'function' ? ' (pause requested)' : ' (pause NOT set: this CLI does not set it; marker stays pending)';
+  out(`${r.status}${r.pause ? pauseNote : ''}`);
   return r.status === 'sent' || r.status === 'skip' ? 0 : 2;
 }
 

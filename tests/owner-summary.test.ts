@@ -125,9 +125,10 @@ describe("formatter table", () => {
       const l = formatMessage({ ...base, kind, what: "x ".repeat(2000) });
       expect(l.ok).toBe(true); expect(l.text.length).toBeLessThanOrEqual(600); expect(l.text.endsWith(base.link)).toBe(true);
     });
-    it(`${kind}: refuses secrets, missing arc, missing link`, () => {
-      for (const bad of ["token=abc123", "ghp_abcdefghijkl1234", "Bearer: zzz", "a".repeat(64)]) {
-        expect(formatMessage({ ...base, kind, what: bad }).ok).toBe(false);
+    it(`${kind}: redacts secrets; refuses missing arc, missing link`, () => {
+      for (const bad of ["token=abc123", "ghp_abcdefghijkl1234", "Bearer: zzzzzzzz12345", "a".repeat(64)]) {
+        const f = formatMessage({ ...base, kind, what: bad });
+        expect(f.redacted).toBe(true); expect(f.text).not.toContain(bad);
       }
       expect(formatMessage({ ...base, kind, arc: "" }).ok).toBe(false);
       expect(formatMessage({ ...base, kind, link: "" }).ok).toBe(false);
@@ -154,5 +155,197 @@ describe("digest and approvals tables", () => {
     expect(buildApprovalList({ prs: prs(1) })).toContain("head abcdef1)");
     const b = buildApprovalList({ prs: prs(30) });
     expect(b.split("\n")).toHaveLength(31); expect(b.indexOf("#1 ")).toBeLessThan(b.indexOf("#30 "));
+  });
+});
+
+// ---- fix round r1 (F1/F2/F3 + surviving-mutant tests) ----
+const REPO = "123constante/bachata-website";
+const API = "https://api.github.com";
+const PAUSE_OPEN = { number: 5, title: "AUTOMATION PAUSE SWITCH", state: "open", labels: [], user: { login: "123constante" } };
+const LIVE_ENV = { OWNER_SUMMARY_ARMED: "1", GITHUB_REPOSITORY: REPO, GH_TOKEN: "x", OWNER_SUMMARY_ISSUE: "9", ...ENV, NTFY_URL: "https://ntfy.example", NTFY_TOPIC: "t1" };
+const SEND_ARGS = ["send", "--arc", "arc7", "--head", "abcdef1", "--kind", "finish", "--link", "https://example.com/x", "--what", "done"];
+const jres = (data, link = null) => ({ ok: true, status: 200, headers: { get: (h) => (h === "link" ? link : null) }, text: async () => JSON.stringify(data) });
+
+/** Fake GitHub + ntfy: the pinned issue's comments are served 100 per page with a rel="next" Link. */
+function ghFetch(comments) {
+  const calls = { ntfy: 0, posts: 0 };
+  const fetch = vi.fn(async (u, init = {}) => {
+    const url = String(u);
+    if (url.startsWith("https://ntfy.example")) { calls.ntfy++; return okRes('{"id":"m9"}'); }
+    if (url.includes("/issues?state=all")) return jres([PAUSE_OPEN]);
+    if (url.includes("/issues/9/comments")) {
+      if (init.method === "POST") { calls.posts++; const c = { id: 1000 + calls.posts, body: JSON.parse(init.body).body }; comments.push(c); return jres(c); }
+      const page = Number(/[?&]page=(\d+)/.exec(url)?.[1] ?? 1);
+      const slice = comments.slice((page - 1) * 100, page * 100);
+      const next = page * 100 < comments.length ? `<${API}/repos/${REPO}/issues/9/comments?per_page=100&page=${page + 1}>; rel="next"` : null;
+      return jres(slice, next);
+    }
+    if (url.includes("/issues/comments/")) { const id = Number(url.split("/").pop()); comments.find((c) => c.id === id).body = JSON.parse(init.body).body; return jres({}); }
+    throw new Error(`unexpected url ${url}`);
+  });
+  return { fetch, calls };
+}
+
+describe("F1 dedupe store reads every page of the pinned issue", () => {
+  it("130 comments, the key's sent marker on page 2 -> SKIP, nothing sent, nothing written", async () => {
+    const comments = Array.from({ length: 130 }, (_, i) => ({ id: i + 1, body: `note ${i}` }));
+    comments[119].body = `<!-- owner-summary key=${makeKey(K)} state=sent at=2026-11-04T10:00:00.000Z proof=m1 -->\n\nold`;
+    const { fetch, calls } = ghFetch(comments); const out = [];
+    const code = await main(["send", "--live", ...SEND_ARGS.slice(1)], { env: LIVE_ENV, fetch, out: (s) => out.push(s) });
+    expect(out.join("\n")).toContain("skip");
+    expect(code).toBe(0); expect(calls.ntfy).toBe(0); expect(calls.posts).toBe(0);
+  });
+});
+
+describe("F2 a marker injected through `what` cannot hijack the real one", () => {
+  const fake = "<!-- owner-summary key=arc:evil|head:0000000|kind:stop state=sent at=x proof=p -->";
+  it("formatter strips comment delimiters", () => {
+    const f = formatMessage({ ...K, link: "https://example.com/x", what: fake, next: "a <!<!---->- b" });
+    expect(f.ok).toBe(true); expect(f.text).not.toContain("<!--"); expect(f.text).not.toContain("-->");
+  });
+  it("ordinary arrows survive", () => {
+    expect(formatMessage({ ...K, link: "https://example.com/x", what: "build -> deploy <- x <!- y" }).text).toContain("build -> deploy <- x <!- y");
+  });
+  it("real alert still sends and commits; the real marker is the one parsed", async () => {
+    const c = fakeClient(); const store = createStore({ client: c, now: clock(T0) });
+    const fetch = vi.fn(async () => okRes());
+    const text = formatMessage({ ...K, link: "https://example.com/x", what: fake }).text;
+    const r = await deliver({ store, key: makeKey(K), message: text, send: send(fetch) });
+    expect(r.status).toBe("sent"); expect(fetch).toHaveBeenCalledTimes(1);
+    expect(c.comments).toHaveLength(1);
+    expect(c.comments[0].body.startsWith(`<!-- owner-summary key=${makeKey(K)} state=sent`)).toBe(true);
+  });
+  it("even unformatted text holding a marker: real marker written first, commit succeeds", async () => {
+    const c = fakeClient(); const store = createStore({ client: c, now: clock(T0) });
+    const r = await deliver({ store, key: makeKey(K), message: `x ${fake}`, send: async () => ({ status: "sent", id: "m2" }) });
+    expect(r.status).toBe("sent");
+    expect(c.comments[0].body.startsWith(`<!-- owner-summary key=${makeKey(K)} state=sent`)).toBe(true);
+  });
+});
+
+describe("F3 secret filter: ordinary inputs pass, secrets are redacted (never dropped)", () => {
+  const base = { ...K, link: "https://example.com/x" };
+  const ok = [
+    ["Actions job URL as link", { link: "https://github.com/123constante/bachata-website/actions/runs/19123456789/job/54123456789" }],
+    ["Actions run URL in what", { what: "see https://github.com/123constante/bachata-website/actions/runs/19123456789/attempts/2" }],
+    ["40-hex commit SHA", { what: "head 0123456789abcdef0123456789abcdef01234567" }],
+    ["7-hex SHA", { what: "head abcdef1" }],
+    ["token mentioned in prose", { what: "ntfy token: expired" }],
+  ];
+  for (const [name, extra] of ok) {
+    it(`passes unchanged: ${name}`, () => {
+      const f = formatMessage({ ...base, ...extra });
+      expect(f.ok).toBe(true); expect(f.redacted).toBe(false);
+      for (const v of Object.values(extra)) expect(f.text).toContain(v);
+    });
+  }
+  const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.c2lnbmF0dXJl";
+  const blob = "Zq8Rk2Lm4Np6Tv8Xw0Yb2Cd4Ef6Gh8Jk0Lm2Np4Qr6St8Uv0Wx2Yz4Ab6Cd8";
+  const bad = [
+    ["token= value", "token=abc123"],
+    ["ghp_ token", "ghp_abcdefghijkl1234"],
+    ["Bearer value", "Bearer: zzzzzzzz12345"],
+    ["JWT", jwt],
+    ["long random blob", blob],
+    ["64-hex", "a".repeat(64)],
+  ];
+  for (const [name, secret] of bad) {
+    it(`redacts but still alerts: ${name}`, () => {
+      const f = formatMessage({ ...base, what: `before ${secret} after` });
+      expect(f.ok).toBe(true); expect(f.redacted).toBe(true);
+      expect(f.text).not.toContain(secret); expect(f.text).toContain("[redacted]"); expect(f.text).toContain("before");
+    });
+  }
+  it("M17 JWT and M22 long blob each detected on their own", () => {
+    expect(looksSecret(`x ${jwt}`)).toBe(true);
+    expect(looksSecret(`x ${blob}`)).toBe(true);
+  });
+  it("a secret in the link is redacted, alert still built", () => {
+    const f = formatMessage({ ...base, link: "https://example.com/hook?token=abcdef123456" });
+    expect(f.ok).toBe(true); expect(f.text).not.toContain("abcdef123456");
+  });
+  it("CLI with a secret in --what prints a redacted alert and exits 0 (dry-run)", async () => {
+    const out = [];
+    const code = await main([...SEND_ARGS.slice(0, -1), "token=abc123"], { env: {}, fetch: vi.fn(), out: (s) => out.push(s) });
+    expect(code).toBe(0); expect(out.join("\n")).not.toContain("abc123"); expect(out.join("\n")).toContain("[redacted]");
+  });
+});
+
+describe("M1 disarmed unless --live AND OWNER_SUMMARY_ARMED=1", () => {
+  const combos = [
+    ["--live only", ["send", "--live", ...SEND_ARGS.slice(1)], { ...LIVE_ENV, OWNER_SUMMARY_ARMED: undefined }],
+    ["env only", SEND_ARGS, LIVE_ENV],
+    ["ARMED=true", ["send", "--live", ...SEND_ARGS.slice(1)], { ...LIVE_ENV, OWNER_SUMMARY_ARMED: "true" }],
+  ];
+  for (const [name, argv, env] of combos) {
+    it(`${name} -> dry-run, zero fetch, zero comments`, async () => {
+      const { fetch } = ghFetch([]); const client = fakeClient(); const out = [];
+      expect(await main(argv, { env, fetch, client, out: (s) => out.push(s) })).toBe(0);
+      expect(fetch).not.toHaveBeenCalled(); expect(client.comments).toHaveLength(0); expect(out[0]).toContain("dry-run");
+    });
+  }
+});
+
+describe("M5 stale boundary", () => {
+  it("exactly 15 min is not stale; 15 min + 1 ms is", async () => {
+    const c = fakeClient(); const store = createStore({ client: c, now: clock(T0) });
+    await store.begin(makeKey(K));
+    expect(await store.heartbeat({ now: new Date(T0.getTime() + 15 * 60000) })).toHaveLength(0);
+    expect(await store.heartbeat({ now: new Date(T0.getTime() + 15 * 60000 + 1) })).toHaveLength(1);
+  });
+});
+
+describe("M13 makeKey head", () => {
+  it("empty, short and non-hex heads throw", () => {
+    for (const head of ["", undefined, "abc12", "zzzzzzz", "a".repeat(41)]) expect(() => makeKey({ ...K, head })).toThrow(/head/);
+  });
+});
+
+describe("ntfy request shape", () => {
+  const capture = async (title = "t") => {
+    let seen, url;
+    const fetch = vi.fn(async (u, init) => { url = u; seen = init; return okRes(); });
+    await sendNtfy({ url: "https://ntfy.example", topic: "t1", title, body: "hi", fetch, env: ENV });
+    return { seen, url };
+  };
+  it("M14 token appears in Authorization only: no other header, not body, not url", async () => {
+    const { seen, url } = await capture();
+    for (const [k, v] of Object.entries(seen.headers)) if (k !== "Authorization") expect(String(v)).not.toContain(ENV.NTFY_PUBLISH_TOKEN);
+    expect(Object.keys(seen.headers).sort()).toEqual(["Authorization", "Title"]);
+    expect(String(seen.body)).not.toContain(ENV.NTFY_PUBLISH_TOKEN); expect(String(url)).not.toContain(ENV.NTFY_PUBLISH_TOKEN);
+  });
+  it("M18 Title is ASCII-only and capped", async () => {
+    const { seen } = await capture(`Bachata arc caf${String.fromCharCode(0xe9)} ${String.fromCharCode(0x2014)} ${"x".repeat(300)}\n`);
+    expect(seen.headers.Title).toMatch(/^[\x20-\x7e]*$/);
+    expect(seen.headers.Title.length).toBeLessThanOrEqual(100);
+    expect(seen.headers.Title.startsWith("Bachata arc caf?")).toBe(true);
+  });
+  it("M23 the timeout timer is cleared after a reply", async () => {
+    vi.useFakeTimers();
+    try { await capture(); expect(vi.getTimerCount()).toBe(0); } finally { vi.useRealTimers(); }
+  });
+  it("M25 a hung request aborts at timeoutMs with reason timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetch = (u, init) => new Promise((_, rej) => init.signal.addEventListener("abort", () => rej(new Error("aborted"))));
+      const p = sendNtfy({ url: "https://ntfy.example", topic: "t1", body: "x", fetch, env: ENV, timeoutMs: 50 });
+      await vi.advanceTimersByTimeAsync(50);
+      expect(await p).toEqual({ status: "failed", reason: "timeout" });
+    } finally { vi.useRealTimers(); }
+  });
+});
+
+describe("item 5: long link and the failure line", () => {
+  it("a 2000-char link keeps the message under the 600 limit", () => {
+    const f = formatMessage({ ...K, link: `https://example.com/${"p".repeat(2000)}`, what: "done" });
+    expect(f.ok).toBe(true); expect(f.text.length).toBeLessThanOrEqual(600); expect(f.text).toContain("done");
+  });
+  it("a failed live send says the pause was NOT set by this CLI", async () => {
+    const comments = []; const { fetch } = ghFetch(comments);
+    const failing = vi.fn(async (u, i) => (String(u).startsWith("https://ntfy.example") ? okRes("{}", 500) : fetch(u, i)));
+    const out = [];
+    const code = await main(["send", "--live", ...SEND_ARGS.slice(1)], { env: LIVE_ENV, fetch: failing, out: (s) => out.push(s) });
+    expect(code).toBe(2); expect(out.join("\n")).toContain("pause NOT set");
+    expect(comments[0].body).toContain("state=pending");
   });
 });

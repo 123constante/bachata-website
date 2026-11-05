@@ -2,6 +2,7 @@
 // goes only into the Authorization header of the one request, and is never logged or returned.
 
 export const DEFAULT_TOKEN_ENV = 'NTFY_PUBLISH_TOKEN';
+export const MAX_TITLE = 100;
 
 /** -> { status:'sent', id } | { status:'refused', reason } | { status:'failed', httpStatus|reason } */
 export async function sendNtfy({ url, topic, tokenEnvName = DEFAULT_TOKEN_ENV, title = '', body = '', fetch: fetchImpl = globalThis.fetch, env = process.env, timeoutMs = 10000 } = {}) {
@@ -14,7 +15,7 @@ export async function sendNtfy({ url, topic, tokenEnvName = DEFAULT_TOKEN_ENV, t
   try {
     const res = await fetchImpl(`${url.replace(/\/+$/, '')}/${topic}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, Title: String(title).replace(/[^\x20-\x7e]/g, '?') },
+      headers: { Authorization: `Bearer ${token}`, Title: String(title).replace(/[^\x20-\x7e]/g, '?').slice(0, MAX_TITLE) },
       body: String(body),
       signal: ac.signal,
     });

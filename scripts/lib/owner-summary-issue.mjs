@@ -33,7 +33,8 @@ export async function upsertMarkerComment(client, { key, state, at, proof, text 
     await client.edit(found.id, found.body.replace(MARKER_RE, () => marker));
     return found.id;
   }
-  return (await client.create(`${text ? `${text}\n\n` : ''}${marker}`)).id;
+  // Marker FIRST: parseMarker takes the first match, so text can never shadow it.
+  return (await client.create(`${marker}${text ? `\n\n${text}` : ''}`)).id;
 }
 
 /** Plain comment (digest, approval list). */
