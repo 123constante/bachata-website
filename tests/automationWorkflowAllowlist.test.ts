@@ -37,7 +37,7 @@ const OTHER = '.github/workflows/e2e-smoke.yml';
 
 const run = (env: Record<string, string>) => main([], env, quiet);
 
-describe('main: the brief’s table, exit code per row (branch only, no author)', () => {
+describe('main: the brief table, exit code per row (branch only, no author)', () => {
   it.each([
     ['loop branch, no workflow change', LOOP, 'docs/a.md\nscripts/x.mjs', LISTED, 0],
     ['loop branch, listed workflow', LOOP, WF, LISTED, 0],
@@ -112,7 +112,7 @@ describe('main: author rule and path variants (workflow-allowlist-2)', () => {
   });
 });
 
-describe('isLoopBranch: the autopilot loop’s own prefixes', () => {
+describe('isLoopBranch: the autopilot loop own prefixes', () => {
   it.each([
     ['claude/x', true],
     ['ccr-1', true],
