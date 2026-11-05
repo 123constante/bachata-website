@@ -1,7 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { FRIDAY, SUNDAY, ORG, ORG_NAME, OrganiserFake, PHONE, VENUES, CITY, TODAY, json, refuse, type FakeSeries } from './helpers/organiserFake';
+import { findGarbled } from './helpers/garbled';
 
+// LOCAL-WALK-ONLY: this spec is NOT in any CI e2e list (package.json test:e2e / test:e2e:p3) and must not join one.
+// It writes pictures and observations into docs/walk/ for a person to judge, asserts only the error-card guard, and
+// costs minutes of fixed waits per row. Run it by hand with the command below; scripts/check-p3-specs-not-skipped.mjs
+// treats specs in no gate script as local walks.
 // WALK (report only): the first 12 rows of docs/design/p3-acceptance/WALKLIST.md at 390x844, every answer route-mocked.
 //   VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/walk-p3-walklist.spec.ts --project=chromium --workers=1
 // Pictures -> docs/walk/p3-walklist-1/pics; observations -> docs/walk/p3-walklist-1/observations.jsonl (read by the report, never a verdict).
@@ -36,7 +41,7 @@ async function snap(page: Page, row: string, name: string) {
     const clipped = Array.from(document.querySelectorAll('.p3-theme p, .p3-theme li, .p3-theme button, .p3-theme a, .p3-theme h2, .p3-theme span')).filter((el) => (el as HTMLElement).scrollWidth > (el as HTMLElement).clientWidth + 1 && getComputedStyle(el).overflow !== 'visible' && getComputedStyle(el).textOverflow === 'clip').map((el) => (el.textContent || '').trim().slice(0, 30));
     return { small, clipped, wide: document.documentElement.scrollWidth - document.documentElement.clientWidth, scope: scope.tagName };
   });
-  const garbled = (text.match(/\u00C3.|\u00E2\u20AC.|&(mdash|hellip|rsquo|amp|nbsp|lsquo|ldquo|rdquo);|\uFFFD/g) ?? []);
+  const garbled = findGarbled(text);
   await page.screenshot({ path: `${PICS}/${name}.png`, fullPage: false });
   appendFileSync(`${OUT}/observations.jsonl`, JSON.stringify({ row, pic: `${name}.png`, w19: { small: facts.small, clipped: facts.clipped, sidewaysPx: facts.wide, garbled, errorCard: bad } }) + '\n');
   expect(bad, `${name}: the picture shows an error card`).toBe(false);
