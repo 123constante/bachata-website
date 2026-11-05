@@ -191,6 +191,8 @@ export interface CheckoutBody {
   buyer_name?: string;
   success_url: string;
   cancel_url: string;
+  /** Only when a code was applied; the edge re-validates it (refusal = HTTP 409 + reason). */
+  promo_code?: string;
 }
 
 /** The event page to come back to on cancel: same path and night (?occurrenceId), plus tickets=cancelled. */
@@ -201,7 +203,7 @@ export function cancelReturnPath(pathname: string, search: string): string {
 }
 
 export function buildCheckoutBody(
-  f: { typeId: string; quantity: number; email: string; name: string },
+  f: { typeId: string; quantity: number; email: string; name: string; promoCode?: string | null },
   origin: string,
   cancelPath: string,
 ): CheckoutBody {
@@ -213,6 +215,8 @@ export function buildCheckoutBody(
     ...(name ? { buyer_name: name.slice(0, 200) } : {}),
     success_url: `${origin}${THANKS_PATH}`,
     cancel_url: `${origin}${cancelPath}`,
+    // Already normalised by promo.ts (the code the preview priced); passed through as is.
+    ...(f.promoCode ? { promo_code: f.promoCode } : {}),
   };
 }
 
