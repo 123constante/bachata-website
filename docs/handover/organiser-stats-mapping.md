@@ -59,3 +59,20 @@ organiser; 8 with founded_year; 0 without founded_year whose first date is
 over a year old (the inferred path has no live user today -- worth checking,
 `occurrence_date` history may be shallower than the events'); weekly rhythm
 over 12 months: 18 pass, 12 have 4+ dates on a weekday but fail the 60% share.
+
+## Gates run in this session (2026-11-05)
+- Matrix: 27/27 pass. The 2 tests added after /code-review (distinct nights
+  hosted; grace window never says "Tonight") failed on the code before the fix.
+- npm run check:mojibake: clean. eslint (scoped, 2 files): 0 errors.
+- npm run pre-ship (after npm ci; the clone's node_modules lacked
+  qrcode-generator): build:ship, check:bundle-budget, check:first-load-requests,
+  check:chunk-cycles and every repo guard PASS. FAIL, none in this diff:
+  test:unit, 15 tests in 4 files, all environment: the live contract specs
+  (eventViewCompat, occurrenceProgram, publicEventPageLineup) get "Invalid API
+  key" from this container, plus integrityCouldNotRun (a temp-repo
+  TypeScript-resolution fixture). typecheck ratchet 109 vs baseline 106: no
+  error is in the new files (tsc output filtered on organiserStats is empty),
+  so the 3 are drift on main or this environment. test:e2e skipped by pre-ship
+  as a result.
+- Side effect to know: the unit run rewrites 12 .snap files CRLF -> LF
+  (content identical); they were restored, not committed.
