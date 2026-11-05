@@ -161,8 +161,11 @@ All in `scripts/check-*.mjs`, enforced by CI.
   `teamErrorMessage`: red on the generic fallback, the `/^permission_denied/`
   catch-all or "That did not work" unless the key is in `known_gaps` (shrink-only;
   a stale gap is red). `--live` needs `P3_RULES_DB_URL` (read-only Postgres URL)
-  and diffs the live code set (with SQLSTATE) against the snapshot; **no CI secret
-  holds such a URL yet, so `--live` runs in no workflow** &mdash; exit 2 without it.
+  and diffs the live code set (with SQLSTATE) against the snapshot. Step 73 of
+  `db-contract-check.yml` runs it **only when the secret is set** (absent = one SKIP
+  line, exit 0); once set, drift reds it (1) and so does a runner with no psql or a
+  failing psql (2). A psql failure logs one fixed line from the exit status, never
+  `e.message`/stderr (they carry the URL); canary cases 21-24 prove no URL part prints.
   **Green is narrower than it looks:** a sample is `code: reason: X`, not each
   literal RAISE text, so a prose-keyed row can map a sample the real text misses;
   prose-only reasons (`permission_denied: series.upsert ...`) collapse into the

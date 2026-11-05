@@ -59,3 +59,16 @@ Branch: `claude/p3-real-rules-check`, PR #1389. Stopped at the owner's context g
    F-20 / F-52 / F-57 work.
 5. Source-migration attribution per code (brief step 1, admin repo) not done: the admin repo
    was not attached; live bodies were used instead (latest definition = live).
+
+## Review-fix round (2026-11-05, brief `docs/briefs/p3-real-rules-check-fix.md`)
+
+Done: the check is in `prove-entry-point-dispatch.mjs` TARGETS (integrity red fixed). psql
+failures log `psqlFailureLine(e)` (exit status / errno / signal only, never `e.message` or
+stderr), stdio is piped, and a set secret with no psql exits 2 with a plain line. Canary cases
+21-24 prove no part of a fake URL prints. PR body: 35 matrix rows; Not verified updated.
+
+Left (owner / follow-up):
+6. `P3_RULES_DB_URL` is not in the secrets register (`check-secrets-register.mjs` flags it);
+   adding the register entry needs the owner.
+7. The URL still reaches psql through argv, so a process listing on the runner shows it.
+   Follow-up: pass it through PG* env vars.

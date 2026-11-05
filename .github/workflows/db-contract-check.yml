@@ -1274,7 +1274,9 @@ jobs:
       #     RAISE codes of the live P3 command doors through psql (read-only
       #     P3_RULES_DB_URL) and diffs them against scripts/p3-refusal-codes.json:
       #     red on a new or removed live code. Until the owner adds the secret
-      #     the step SKIPS with one line (exit 0), never fails. Canary first.
+      #     the step SKIPS with one line (exit 0), never fails. Secret set but no
+      #     psql on the runner: the script says so and exits 2 (a fault, not a
+      #     skip; psqlFailureLine, canary case 23). Canary first.
       - name: Run P3 refusal codes live drift check
         if: always()
         timeout-minutes: 2
