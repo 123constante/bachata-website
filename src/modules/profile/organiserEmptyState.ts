@@ -30,3 +30,11 @@ export function organiserEmptyState(s: {
   if (s.canEdit && !s.hasBio && !s.hasContact && s.team === 0) return 'owner-blank';
   return 'none';
 }
+
+/**
+ * The one quiet line a visitor sees when nothing is upcoming (ACCEPTANCE S4
+ * copy): above "Recently hosted" when there are past nights, alone when there
+ * are none. It names no city (E6: the old copy hardcoded London for every
+ * organiser). Never shown while a feed has failed -- the caller passes null then.
+ */
+export const NO_DATES_ANNOUNCED = 'No dates announced yet';
