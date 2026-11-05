@@ -36,7 +36,7 @@ async function snap(page: Page, row: string, name: string) {
     const clipped = Array.from(document.querySelectorAll('.p3-theme p, .p3-theme li, .p3-theme button, .p3-theme a, .p3-theme h2, .p3-theme span')).filter((el) => (el as HTMLElement).scrollWidth > (el as HTMLElement).clientWidth + 1 && getComputedStyle(el).overflow !== 'visible' && getComputedStyle(el).textOverflow === 'clip').map((el) => (el.textContent || '').trim().slice(0, 30));
     return { small, clipped, wide: document.documentElement.scrollWidth - document.documentElement.clientWidth, scope: scope.tagName };
   });
-  const garbled = (text.match(/Ã.|â€.|&(mdash|hellip|rsquo|amp|nbsp|lsquo|ldquo|rdquo);|�/g) ?? []);
+  const garbled = (text.match(/\u00C3.|\u00E2\u20AC.|&(mdash|hellip|rsquo|amp|nbsp|lsquo|ldquo|rdquo);|\uFFFD/g) ?? []);
   await page.screenshot({ path: `${PICS}/${name}.png`, fullPage: false });
   appendFileSync(`${OUT}/observations.jsonl`, JSON.stringify({ row, pic: `${name}.png`, w19: { small: facts.small, clipped: facts.clipped, sidewaysPx: facts.wide, garbled, errorCard: bad } }) + '\n');
   expect(bad, `${name}: the picture shows an error card`).toBe(false);
