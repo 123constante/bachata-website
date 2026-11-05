@@ -1,7 +1,7 @@
 # Handover: P3 real-rules refusal check (dt_b22abe2f731c) &mdash; PARTIAL
 
 Brief: `docs/briefs/p3-real-rules-check.md` on branch `brief/p3-real-rules-check`.
-Branch: `claude/p3-real-rules-check`. Stopped at the owner's context gate.
+Branch: `claude/p3-real-rules-check`, PR #1389. Stopped at the owner's context gate.
 
 ## Done
 - `scripts/p3-refusal-codes.json`: 71 entries (mapper x code x snake_case reason, SQLSTATE,
