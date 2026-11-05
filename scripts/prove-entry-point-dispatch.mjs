@@ -184,6 +184,7 @@ const TARGETS = [
   { rel: 'scripts/check-secrets-register.mjs' },
   { rel: 'scripts/check-workflow-log-secrets.mjs' },
   { rel: 'scripts/write-drill-record.mjs' },
+  { rel: 'scripts/worker-commit.mjs' },
   { rel: 'scripts/check-firewall-drift.mjs' },
   { rel: 'scripts/check-first-load-requests.mjs' },
   { rel: 'scripts/check-going-legacy-rpcs.mjs' },
