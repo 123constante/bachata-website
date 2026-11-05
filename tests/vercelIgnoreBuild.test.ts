@@ -391,6 +391,24 @@ const cases: Case[] = [
     want: 'SKIP',
   },
   {
+    name: 'budget: src change on a brief/* branch skips (brief-only branch, no preview)',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'brief/fix-main-red-storage' };
+    },
+    want: 'SKIP',
+  },
+  {
+    name: 'budget: a branch merely starting with "brief" (no slash) still builds',
+    setup: () => {
+      const { cwd, base } = seedRepo();
+      commit(cwd, ['src/main.tsx']);
+      return { cwd, previousSha: base, ref: 'briefing-page' };
+    },
+    want: 'BUILD',
+  },
+  {
     name: 'budget: claude/review-* branch skips',
     setup: () => {
       const { cwd, base } = seedRepo();

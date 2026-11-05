@@ -16,7 +16,7 @@
 # serving the identical previous build).
 #
 # BUILD BUDGET (non-production only, decided BEFORE the diff rule): a branch
-# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, and every claude/* worker branch:
+# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, brief/*, and every claude/* worker branch:
 # slices, review and done-signal branches) and a commit whose SUBJECT ENDS with
 # `[skip preview]` (a worker checkpoint) always SKIP. vercel.json
 # git.deploymentEnabled also turns those prefixes off before any deployment exists (an ignored build still counts
@@ -94,7 +94,7 @@ skip() { echo "vercel-ignore-build: SKIP -- $1"; exit 0; }
 #                         KEEP_ON). Vercel Hobby: ~100 deploys / rolling 24 h;
 #                         on 2026-10-16 these were ~85% of 117 deploys.
 DIFF_RULE_PREFIXES='bot/ dependabot/'
-ALWAYS_SKIP_PREFIXES='arc/briefs- claude/'
+ALWAYS_SKIP_PREFIXES='arc/briefs- brief/ claude/'
 
 # SKIP_PREVIEW_TAG: a worker CHECKPOINT commit ends its subject with this (the
 # SUBJECT is matched, never the body; check-no-preview-prefixes.mjs pins this

@@ -36,6 +36,8 @@ describe('vercel.json git.deploymentEnabled (real file)', () => {
     ['claude/done-dt_623ecd04d2d8', false],
     ['claude/review-pr-802', false],
     ['arc/briefs-organiser-r1', false],
+    ['brief/fix-main-red-storage', false],
+    ['briefs-not-a-prefix', true],
   ] as const)('%s -> deploys %s', (branch, want) => {
     expect(deploys(branch)).toBe(want);
   });
