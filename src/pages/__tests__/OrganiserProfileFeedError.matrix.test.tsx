@@ -10,10 +10,17 @@
  *    never any empty-state copy ("No nights listed yet", "No upcoming nights",
  *    "Just getting started") and never the org-public-empty box;
  *  - past and upcoming fail independently: one failing never hides the other;
- *  - all-ok cases still render today's boxes unchanged (organiserEmptyState);
+ *  - all-ok cases render the organiserEmptyState answer (P1: 'none' and
+ *    'past-only' are now one quiet "No dates announced yet" line);
  *  - retry refetches the failed feed and the content then appears.
+ *
+ * Organiser page fix round 1: stats are per feed (a failed feed's stat is a
+ * marked dash, the other feed's stats still show), and a TEAM-only failure no
+ * longer hides the events' empty state. The clock is pinned to the mocked
+ * London today: organiserStats reads `now`, and since #1398 a night before
+ * today is past whatever the feed says.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -38,6 +45,9 @@ vi.mock('@/lib/seo', async (orig) => ({
   ...(await orig<typeof import('@/lib/seo')>()),
   useEntitySlugOrId: () => ({ id: 'org-1', slug: 'org', arrivedViaUuid: false }),
   useCanonicalReplaceState: () => {},
+}));
+vi.mock('@/lib/publicDancerNames', () => ({
+  withPublicNames: async <T extends { first_name?: string | null }>(rows: T[]) => rows.map((r) => ({ ...r, public_name: r.first_name })),
 }));
 vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
   ...(await orig<typeof import('@/modules/profile/organiserPublicProfile')>()),
@@ -90,6 +100,9 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 
 import OrganiserProfile from '../OrganiserProfile';
 
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-08T12:00:00Z')); });
+afterAll(() => { vi.useRealTimers(); });
+
 if (!window.matchMedia) {
   window.matchMedia = ((q: string) => ({
     matches: false, media: q, onchange: null, addListener: () => {}, removeListener: () => {},
@@ -97,7 +110,7 @@ if (!window.matchMedia) {
   })) as unknown as typeof window.matchMedia;
 }
 
-const EMPTY_COPY = [/No nights listed yet/, /No upcoming nights/, /Just getting started/];
+const EMPTY_COPY = [/No dates announced yet/, /No nights listed yet/, /No upcoming nights/, /Just getting started/];
 const MODES: Mode[] = ['data', 'empty', 'error'];
 const CASES = MODES.flatMap((upcoming) => MODES.flatMap((past) => MODES.map((team) => ({ upcoming, past, team }))));
 
@@ -122,20 +135,14 @@ async function renderPage() {
 
 const errLine = (feed: 'upcoming' | 'past' | 'team') => screen.queryByTestId(`org-feed-error-${feed}`);
 const bodyText = () => document.body.textContent ?? '';
-// Hero stats strip: a stat is a value div followed by its label div.
-const STAT_LABELS = ['Upcoming dates', 'Past nights', 'Team members', 'Yrs active', 'Since'] as const;
-const stat = (label: string) => {
-  const el = Array.from(document.querySelectorAll('div')).find(
-    (d) => d.textContent === label && d.children.length === 0 && d.previousElementSibling && d.parentElement?.children.length === 2,
-  );
-  return el ? (el.previousElementSibling as HTMLElement).textContent : null;
-};
+// Stats strip (organiserStats via OrganiserStatsStrip): the keys it shows.
+const statKeys = () => Array.from(document.querySelectorAll('[data-stat]')).map((e) => e.getAttribute('data-stat'));
+const hasTeam = () => !!screen.queryByTestId('org-team');
 
 describe('public organiser page: a failed feed is an error state, never an empty state', () => {
   it.each(CASES)('upcoming=$upcoming past=$past team=$team', async (c) => {
     s.upcoming = c.upcoming; s.past = c.past; s.team = c.team;
     await renderPage();
-    const anyError = c.upcoming === 'error' || c.past === 'error' || c.team === 'error';
 
     // Upcoming list vs its error line.
     if (c.upcoming === 'error') {
@@ -156,18 +163,22 @@ describe('public organiser page: a failed feed is an error state, never an empty
     // Team section vs its error line.
     if (c.team === 'error') expect(errLine('team'), 'team error line').not.toBeNull();
     else expect(errLine('team')).toBeNull();
-    expect(bodyText().includes('Teachers & DJs')).toBe(c.team === 'data');
+    expect(hasTeam()).toBe(c.team === 'data');
 
-    // F1: the hero stats strip never shows a number for a failed feed -- the
-    // stat is HIDDEN (owner rule: no 0, no dash). A healthy zero is unchanged.
-    if (c.upcoming === 'error') expect(stat('Upcoming dates'), 'Upcoming dates hidden while future feed failed').toBeNull();
-    else expect(stat('Upcoming dates')).toBe(c.upcoming === 'data' ? '1' : '0');
-    if (c.past === 'error') expect(stat('Past nights'), 'Past nights hidden while past feed failed').toBeNull();
-    else expect(stat('Past nights')).toBe(c.past === 'data' ? '1' : '0');
+    // F1 / S5: no stat is ever derived from a failed feed: its own stat is a
+    // marked dash, and the working feed's stats still show (fix round 1, MED-3).
+    const anyFeedError = c.upcoming === 'error' || c.past === 'error';
+    const dashes = Array.from(document.querySelectorAll('[data-stat][data-stat-failed]')).map((e) => e.getAttribute('data-stat'));
+    expect(dashes, 'a failed feed is a dash').toEqual([c.upcoming === 'error' && 'next_night', c.past === 'error' && 'nights_hosted'].filter(Boolean));
+    const real = statKeys().filter((k) => !dashes.includes(k));
+    if (c.upcoming === 'error') expect(real, 'no Last night while upcoming is unknown').not.toContain('last_night');
+    if (c.upcoming === 'data') expect(statKeys()[0]).toBe('next_night');
+    else if (c.upcoming === 'empty' && c.past === 'data') expect(statKeys()[0]).toBe('last_night');
+    else if (!anyFeedError) expect(statKeys()).toEqual([]);
 
     const empty = screen.queryByTestId('org-public-empty');
-    if (anyError) {
-      expect(empty, 'no empty-state box while a feed has failed').toBeNull();
+    if (anyFeedError) {
+      expect(empty, 'no empty-state box while a nights feed has failed').toBeNull();
       for (const re of EMPTY_COPY) expect(bodyText()).not.toMatch(re);
       // Each error line is a single quiet line with a 44px retry button.
       for (const f of ['upcoming', 'past', 'team'] as const) {
@@ -191,26 +202,26 @@ describe('public organiser page: a failed feed is an error state, never an empty
     expect(errLine('past')).not.toBeNull();
     expect(screen.queryByTestId('org-public-empty')).toBeNull();
     for (const re of EMPTY_COPY) expect(bodyText()).not.toMatch(re);
-    // F1: every events-derived stat is hidden, none shows 0 or a dash.
-    for (const label of STAT_LABELS) {
-      if (label === 'Team members') continue; // team feed is healthy-empty here
-      expect(stat(label), `${label} hidden while events feed failed`).toBeNull();
-    }
+    // F1: every events-derived stat is hidden -- no strip at all here.
+    // Fix round 1: both lists failed, so both headline stats are marked dashes (no number).
+    expect(Array.from(document.querySelectorAll('[data-stat][data-stat-failed]')).map((e) => e.getAttribute('data-stat'))).toEqual(['next_night', 'nights_hosted']);
+    expect(statKeys()).toEqual(['next_night', 'nights_hosted']);
   });
 
-  it('events feed failing with a healthy team: the team stat still shows its real number', async () => {
+  it('events feed failing with a healthy team: the Team list still shows, no stat but the dashes', async () => {
     s.upcoming = 'data'; s.past = 'data'; s.team = 'data'; s.eventsError = true;
     await renderPage();
-    expect(stat('Upcoming dates')).toBeNull();
-    expect(stat('Past nights')).toBeNull();
-    expect(stat('Team members')).toBe('1');
+    // Fix round 1: both lists failed, so both headline stats are marked dashes (no number).
+    expect(Array.from(document.querySelectorAll('[data-stat][data-stat-failed]')).map((e) => e.getAttribute('data-stat'))).toEqual(['next_night', 'nights_hosted']);
+    expect(statKeys()).toEqual(['next_night', 'nights_hosted']);
+    expect(hasTeam()).toBe(true);
   });
 
-  it('healthy zero (all feeds ok, nothing listed): strip unchanged, shows 0', async () => {
+  it('healthy zero (all feeds ok, nothing listed): no strip -- never a 0', async () => {
     s.upcoming = 'empty'; s.past = 'empty'; s.team = 'empty';
     await renderPage();
-    expect(stat('Upcoming dates')).toBe('0');
-    expect(stat('Past nights')).toBe('0');
+    expect(screen.queryByTestId('org-stats')).toBeNull();
+    expect(bodyText()).toContain('No dates announced yet');
   });
 
   it.each(['upcoming', 'past', 'team'] as const)('retry on the %s error line refetches and shows the content', async (feed) => {
@@ -225,7 +236,7 @@ describe('public organiser page: a failed feed is an error state, never an empty
     fireEvent.click(line!.querySelector('button')!);
     await waitFor(() => expect(errLine(feed)).toBeNull());
     expect(s.calls[key]).toBeGreaterThan(before);
-    if (feed === 'team') expect(bodyText()).toContain('Teachers & DJs');
+    if (feed === 'team') expect(hasTeam()).toBe(true);
     else expect(document.getElementById(feed)).not.toBeNull();
   });
 });

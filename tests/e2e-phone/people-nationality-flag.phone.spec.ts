@@ -86,7 +86,8 @@ const SURFACES: Surface[] = [
     },
   },
   { key: 'search', name: '/search result cards (inset)', url: '/search?q=a', codes: null, stickerPx: 22 },
-  { key: 'organiser-team', name: '/organisers/:id Teachers & DJs (80px)', url: `/organisers/${ORG3_SLUG}`, codes: ORG3_TEAM_CODES, stickerPx: 37 },
+  // Organiser page P1: the "Teachers & DJs" strip is now the Team list, 64px circles (flag restored in fix round 1).
+  { key: 'organiser-team', name: '/organisers/:id Team (64px)', url: `/organisers/${ORG3_SLUG}`, codes: ORG3_TEAM_CODES, stickerPx: 29 },
   { key: 'account', name: '/account dancer home (56px, own photo)', url: '/account', opts: { signedInAsOwner: true, asDancer: FLAG_DANCER_ID }, codes: ['ES'], stickerPx: 26 },
 ];
 
