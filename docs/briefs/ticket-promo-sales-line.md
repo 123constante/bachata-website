@@ -1,7 +1,7 @@
-# Brief: organiser "Money so far" shows what promo codes took off (HELD: do not dispatch until the lead opens P3 slices)
+# Brief: organiser "Money so far" shows what promo codes took off
 
 Repo 123constante/bachata-website. Branch claude/ticket-promo-sales-line. Lane normal (screen, no DB change). Model Sonnet. One push.
-Owner decision 2026-11-05: queue this. Dispatch only when website-45-e / website-15 says P3 slices are open and claude/p3-status-real-reasons has merged.
+Owner decision 2026-11-05: queue this. RELEASED 2026-11-05 by program lead website-45-f (message to website-18): dispatch now, one worker. Still keep off p3/data/eventPage.ts, StatusSheet.tsx, commandErrorMessage and eventPage.matrix tests.
 
 ## What main lacks -- grep: discounts_pence|discountsPence in src (0 hits)
 Admin's sales summary RPC (migration 20270314170000_ticket_promo_codes_v1.sql lines ~791-825, the same one the P3 Tickets screens read) ALREADY returns per type `gross_pence` = sum(subtotal - discount) over paid orders (what was charged before the fee) and a new key `discounts_pence` = sum(discount) over paid orders. The Website never reads `discounts_pence`, so an organiser whose buyers used a promo code sees a lower Sales number with no explanation.
