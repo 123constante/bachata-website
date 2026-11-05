@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { isOnboardingRefusal } from '../../../shared/selfServeErrors';
 import { useGatedCopy } from '../../onboarding/gate';
@@ -53,6 +54,7 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
   // A second tap before React re-renders must not send a second command.
   const flying = useRef(new Set<string>());
   const now = new Date();
+  const anchor = useRef<HTMLElement>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: promoKeys.list(seriesId) });
 
   const mark = (id: string, on: boolean) =>
@@ -120,9 +122,12 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
   }
 
   // A refused list already says why; the disabled Add points at those words (no second note).
+  // The sheet is a sibling layer of the tall Tickets sheet, never inside it: StackSheet makes the
+  // layers under the top one inert, and an inert ancestor would take the promo sheet with it.
+  const host = (anchor.current?.closest('.p3-scrim')?.parentElement as HTMLElement | null | undefined) ?? (typeof document === 'undefined' ? null : document.body);
   const addWhy = refused ? `promo-why-${seriesId}` : undefined;
   return (
-    <section className="p3-stack-s" data-testid="promo-section" aria-labelledby={`promo-h-${seriesId}`}>
+    <section ref={anchor} className="p3-stack-s" data-testid="promo-section" aria-labelledby={`promo-h-${seriesId}`}>
       <h4 id={`promo-h-${seriesId}`} className="p3-h2 p3-h2-s">Promo codes</h4>
       <div className="p3-card p3-tight" data-testid="promo-list">{body}</div>
       <button
@@ -135,7 +140,7 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
       >
         Add a promo code
       </button>
-      {editing && (
+      {editing && host && createPortal(
         <PromoSheet
           code={editing.code}
           organiserId={organiserId}
@@ -157,7 +162,8 @@ export default function PromoSection({ organiserId, seriesId, onSay, onAlert }: 
               void refresh();
             } else onAlert(text);
           }}
-        />
+        />,
+        host,
       )}
     </section>
   );
