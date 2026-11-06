@@ -211,6 +211,8 @@ describe('ownPageForName', () => {
   const list = [{ name: 'Salsa Norte', id: 'o1' }, { name: 'Other', id: 'o2' }];
   it.each([
     ['Salsa Norte', 'o1'], ['  salsa norte ', 'o1'], ['Salsa Norte 2', null], ['', null], [null, null],
+    // (review 1291-r1 F4) a SHORTER invite name: kills a startsWith mutant
+    ['Salsa', null],
   ])('%j -> %s', (name, id) => {
     expect(ownPageForName(list, name)?.id ?? null).toBe(id);
   });

@@ -1,6 +1,7 @@
 import { isRuleDate, weeklyRule, type DateDetail, type WorkspaceDate } from '../../shared/seriesModel';
 import { hasOwnTime } from '../../flows/change/changeModel';
 import type { EventWorkspace } from '../../events/eventModel';
+import { DETAIL_OVERRIDE_KEYS } from '../model/differentDates';
 import { dateMarks, kindOf, type DateFacts, type IsoDate } from '../model';
 import { mainWeekday, onPatternCadence, repeatShape, type RepeatShape } from '../model/repeat';
 
@@ -15,7 +16,8 @@ export function ownDetailsOf(d: WorkspaceDate, detail?: DateDetail | null): bool
     return !!(detail.venueOverride || detail.descriptionOverride || detail.ticketUrlOverride || detail.coverImageOverride)
       || detail.titleOverride !== null || detail.galleryOverride !== null || detail.passesOverride !== null;
   }
-  return d.has_override && d.lifecycle_status !== 'cancelled';
+  if (d.lifecycle_status === 'cancelled') return false;
+  return d.has_override || d.override_keys.some((k) => DETAIL_OVERRIDE_KEYS.includes(k));
 }
 
 const SHAPES = new WeakMap<EventWorkspace, RepeatShape>();

@@ -34,6 +34,8 @@ const h = vi.hoisted(() => ({
   save: vi.fn(),
   organisers: [] as { id: string; name: string }[],
   home: vi.fn(),
+  /** (r2 F3) fetchOrganiserHome never settles. */
+  homeHang: false,
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => h.auth }));
 vi.mock('@/hooks/useProfileCompletion', () => ({
@@ -69,7 +71,7 @@ vi.mock('@/components/profile/AvatarUpload', () => ({
 vi.mock('@/modules/organiser/shared/selfServeApi', () => ({
   ORGANISER_HOME_KEY: ['organiser-home'],
   organiserHomeQueryKey: (id: string | undefined) => ['organiser-home', id ?? null],
-  fetchOrganiserHome: async () => { h.home(); return { organisers: h.organisers }; },
+  fetchOrganiserHome: async () => { h.home(); if (h.homeHang) await new Promise(() => undefined); return { organisers: h.organisers }; },
 }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
@@ -91,6 +93,9 @@ let preview: unknown;
 let redeem: unknown;
 let bind: unknown;
 let newLink: unknown;
+/** When set, redeem_organiser_invite_v1 answers with this error (e.g. the profile gate's RAISE). */
+let redeemError: { message: string } | null;
+let onboarding: unknown = null;
 
 function Where() { const l = useLocation(); return <p data-testid="where">{l.pathname}{l.search}</p>; }
 function mount(url = `/invite/${TOKEN}`, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
@@ -136,11 +141,14 @@ beforeEach(() => {
   redeem = { ok: true, status: 'redeemed', organiser_id: 'o1' };
   bind = { status: 'bound' };
   newLink = { ok: true };
+  redeemError = null;
+  h.homeHang = false;
   h.rpc.mockReset().mockImplementation((fn: string) => {
     if (fn === 'organiser_invite_preview_v1') return ok(preview);
-    if (fn === 'redeem_organiser_invite_v1') return ok(redeem);
+    if (fn === 'redeem_organiser_invite_v1') return redeemError ? Promise.resolve({ data: null, error: redeemError }) : ok(redeem);
     if (fn === 'bind_organiser_invite_email_v1') return ok(bind);
     if (fn === 'request_new_invite_v1') return ok(newLink);
+    if (fn === 'organiser_onboarding_status_v1') return ok(onboarding);
     if (fn === 'set_my_role_intent_v1') return ok({ ok: true, roles: [...JOIN_ROLES] });
     return Promise.reject(new Error(`unexpected rpc ${fn}`));
   });
@@ -184,7 +192,9 @@ describe('signed out: the email step', () => {
     expect(screen.getByTestId('join-person-hi').textContent).toBe('Hi Papacito');
     expect(screen.getByTestId('join-person-card').textContent).toContain('London');
     expect(screen.getByTestId('join-person-card').textContent).toContain(JOIN_COPY.person.tag);
-    expect(document.body.textContent).not.toMatch(/@/);
+    // join-gaps-1: the only address shown is the masked hint's own line (the card itself shows no email)
+    expect(screen.getByTestId('join-person-card').textContent).not.toMatch(/@/);
+    expect(document.body.textContent?.replace(JOIN_COPY.inviteSentTo('p***@sensualvibes.example'), '')).not.toMatch(/@/);
   });
 
   it('a page invite shows no person card', async () => {
@@ -226,6 +236,14 @@ describe('signed out: the email step', () => {
     expect(h.otp).not.toHaveBeenCalled();
   });
 
+  it('an empty Send shows the bad-shape error and sends nothing', async () => {
+    mount();
+    fireEvent.click(await screen.findByTestId('join-send'));
+    expect((await screen.findByTestId('join-email-error')).textContent).toBe(JOIN_COPY.email.badShape);
+    expect(h.otp).not.toHaveBeenCalled();
+    expect(h.rpc).not.toHaveBeenCalledWith('bind_organiser_invite_email_v1', expect.anything());
+  });
+
   it('the link was bound to another address meanwhile: tied-to-another-email screen', async () => {
     bind = { status: 'already_bound' };
     let served = 0;
@@ -242,6 +260,8 @@ describe('signed out: the email step', () => {
 describe('refusals when the code is sent: each its own screen, each says what to do next', () => {
   it('blocked email domain (403): WhatsApp help and "Use another email" back to the box', async () => {
     h.otp.mockResolvedValue({ data: null, error: { status: 403, message: 'Sign-up with this email provider is not accepted' } });
+    // A link already bound (hint shown): no bind runs, so another email can still work (the bind-tied case: joinGaps.matrix).
+    preview = open({ email_hint: 'a***@blocked.example' });
     mount();
     await sendEmail('ana@blocked.example');
     await stopIs('blocked_domain');
@@ -364,6 +384,63 @@ describe('the code step', () => {
     expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: 'invite_join:claim:not_linked' }), 'error');
   });
 
+  // Post-sign-in safety stop: every redeem answer shows ITS screen; "told" copy only when the server really recorded not_linked.
+  it.each([
+    [{ ok: false, reason: 'email_mismatch', invite_email_hint: 'a***@x.com' }, 'wrong_account'],
+    [{ ok: false, reason: 'email_unproven' }, 'email_unproven'],
+    [{ ok: false, reason: 'rate_limited' }, 'rate_limited'],
+    [{ ok: false, reason: 'team_full' }, 'refused'],
+    [{ ok: false, reason: 'not_linked' }, 'not_linked'],
+  ])('person-bound, claim no_match, redeem %j -> the %s screen, "told" only for not_linked', async (answer, stop) => {
+    preview = open(PERSON);
+    redeem = answer;
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs(stop);
+    const text = screen.getByTestId('join-step').textContent ?? '';
+    expect(/told/i.test(text)).toBe(stop === 'not_linked');
+    expect(redeems()).toHaveLength(1);
+    expect(screen.queryByTestId('join-done')).toBeNull();
+  });
+
+  it('person-bound, claim no_match, redeem invalid -> the dead screen, not a safety stop', async () => {
+    preview = open(PERSON);
+    redeem = { ok: false, reason: 'invalid' };
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await waitFor(() => expect(redeems()).toHaveLength(1));
+    expect(screen.queryByTestId('join-done')).toBeNull();
+    expect(/told/i.test(screen.getByTestId('join-step').textContent ?? '')).toBe(false);
+  });
+
+  it('person-bound, claim no_match, redeem throws (network) -> the network stop, Try again redeems and lands on done', async () => {
+    preview = open(PERSON);
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    let first = true;
+    const base = h.rpc.getMockImplementation()!;
+    h.rpc.mockImplementation((fn: string, a: Record<string, unknown>) => (fn === 'redeem_organiser_invite_v1' && first ? ((first = false), Promise.reject(new Error('Failed to fetch'))) : base(fn, a)));
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('network');
+    expect(/told/i.test(screen.getByTestId('join-step').textContent ?? '')).toBe(false);
+    fireEvent.click(screen.getByTestId('join-retry'));
+    await stepIs('done');
+    expect(redeems()).toHaveLength(2);
+  });
+
+  it('person-bound, claim no_match, the server seats them: the organiser-home cache is invalidated on the claim path too', async () => {
+    preview = open(PERSON);
+    h.claim.mockResolvedValue({ status: 'no_match', profileId: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`, client);
+    await typeCode();
+    await stepIs('done');
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['organiser-home'] });
+  });
+
   it('person-bound, the claim linked the profile: no stop, straight on', async () => {
     preview = open(PERSON);
     h.claim.mockResolvedValue({ status: 'linked', profileId: 'p1' });
@@ -428,7 +505,7 @@ describe('the Join tap', () => {
     mount(undefined, client);
     await stepIs('join');
     expect(screen.getByTestId('join-org-card').textContent).toContain(ORG);
-    expect(screen.getByTestId('join-progress-count').textContent).toBe('Step 2 of 2');
+    expect(screen.getByTestId('join-progress-count').textContent).toBe('Step 3 of 3');
     expect(redeems()).toHaveLength(0);
     fireEvent.click(screen.getByTestId('invite-join'));
     await stepIs('done');
@@ -617,12 +694,12 @@ describe('wrong account', () => {
 });
 
 describe('dead and broken links', () => {
-  it.each(['used', 'expired', 'revoked'])('%s, signed out: why, and "Ask Ricky for a new one" that really asks', async (status) => {
+  it.each(['used', 'expired', 'revoked'])('%s, signed out: why, and "Ask the team for a new one" that really asks', async (status) => {
     preview = { ...open(), status };
     mount();
     await stepIs('dead');
     const ask = screen.getByTestId('invite-new-link');
-    expect(ask.textContent).toContain('Ricky');
+    expect(ask.textContent).toContain('Ask the team for a new one');
     expect(window.location.pathname).toBe('/invite');
     fireEvent.click(ask);
     expect(await screen.findByTestId('invite-new-link-done')).toBeTruthy();
@@ -630,13 +707,14 @@ describe('dead and broken links', () => {
     expect(redeems()).toHaveLength(0);
   });
 
-  it('a used link opened by the person who used it: the done screen, no error', async () => {
+  it('a used link opened by the person who used it: straight to their organiser home (slice U), no error', async () => {
     signedIn();
     preview = { ...open(), status: 'used' };
     redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
     mount();
-    await stepIs('done');
-    expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+    // the same target the Done button had, now reached without a tap, and the dead link replaced in history
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/account/o/welcome?o=o4'));
+    expect(screen.queryByTestId('invite-card')).toBeNull();
   });
 
   it('a used link opened by someone else: the used screen', async () => {
@@ -678,6 +756,24 @@ describe('dead and broken links', () => {
   });
 });
 
+describe('Done sentence uses the real rows left (join-gaps-2 item 7)', () => {
+  const codes = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
+  it.each([[0, /yours to use/, /minute|stop and come back|Add your details/], [1, /Add your details first|Add your details/, /Everything/], [3, /minute or two/, /Everything/], [6, /three minutes/, /Everything/], [10, /five minutes/, /Everything/]])('%s rows left', async (n, want, notWant) => {
+    signedIn();
+    onboarding = { complete: n === 0, is_admin: false, person: { missing: [] }, organisers: [{ id: 'o1', name: ORG, complete: n === 0, missing: codes(n) }] };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['organiser-home', ME.id], { organisers: [] });
+    mount(undefined, client);
+    await stepIs('join');
+    fireEvent.click(screen.getByTestId('invite-join'));
+    await stepIs('done');
+    await waitFor(() => expect(h.rpc.mock.calls.some((c) => c[0] === 'organiser_onboarding_status_v1')).toBe(true));
+    const text = () => document.body.textContent ?? '';
+    await waitFor(() => expect(text()).toMatch(want));
+    expect(text()).not.toMatch(notWant);
+  });
+});
+
 describe('the Done link: where the organiser id comes from', () => {
   const codeUrl = `/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`;
 
@@ -715,5 +811,138 @@ describe('the Done link: where the organiser id comes from', () => {
     fireEvent.click(await screen.findByTestId('invite-join'));
     await stepIs('done');
     expect((screen.getByTestId('join-done-home') as HTMLAnchorElement).getAttribute('href')).toBe('/account/o');
+  });
+});
+
+// ---- fix-join-first-batch slice U: invite state x viewer (red-first matrix) ----------------------------------
+describe('slice U: a dead link x who is looking', () => {
+  const OTHER = 'This account is not on the team. If you joined with a different account, sign in with that one. If not, ask for a new one.';
+  // (review 1291-r1 F1) the page-list fallback is ONLY for a redeem the profile gate refused (it RAISES before the
+  // already_member read). A server `used` answer is final: that viewer is "someone else", whatever their page list says.
+  type Viewer = 'signed out' | 'redeemer' | 'redeemer (profile gate refused redeem, on the team by page list)' | 'someone else';
+  const VIEWERS: Viewer[] = ['signed out', 'redeemer', 'redeemer (profile gate refused redeem, on the team by page list)', 'someone else'];
+  const become = (v: Viewer) => {
+    if (v === 'signed out') return;
+    signedIn();
+    if (v === 'redeemer') redeem = { ok: true, status: 'already_member', organiser_id: 'o4' };
+    else if (v === 'someone else') redeem = { ok: false, reason: 'used' };
+    else {
+      redeemError = { message: 'profile_incomplete' };
+      h.organisers = [{ id: 'o4', name: ORG }];
+    }
+  };
+  const TERMINAL: Record<string, { title: string; preview: unknown }> = {
+    expired: { title: 'This link has run out', preview: { ...open(), status: 'expired' } },
+    revoked: { title: 'This link was withdrawn', preview: { ...open(), status: 'revoked' } },
+    invalid: { title: 'This link does not work', preview: {} },
+  };
+  const card = () => screen.getByTestId('invite-card');
+  const heading = () => card().querySelector('h1, h2')?.textContent ?? '';
+
+  it.each(VIEWERS)('used x %s', async (v) => {
+    preview = { ...open(), status: 'used' };
+    become(v);
+    mount();
+    if (v.startsWith('redeemer')) {
+      // their own link: straight to their organiser home, the dead link replaced, never the dead end
+      await waitFor(() => expect(screen.getByTestId('where').textContent).not.toMatch(/^\/invite/), { timeout: 4000 });
+      expect(screen.queryByTestId('invite-card')).toBeNull();
+      return;
+    }
+    await stepIs('dead');
+    if (v === 'signed out') {
+      expect(heading()).toBe('You already joined');
+      expect(screen.getByTestId('invite-body').textContent).toBe('Sign in to continue.');
+      const signIn = screen.getByTestId('invite-used-sign-in');
+      expect(signIn.textContent).toBe('Sign in');
+      expect(signIn.getAttribute('href')).toBe(`/auth?mode=signin&returnTo=${encodeURIComponent(`/invite/${TOKEN}`)}`);
+      expect(screen.queryByTestId('invite-used-switch')).toBeNull();
+      // nothing asked of the server while signed out (redeem needs a session)
+      expect(redeems()).toHaveLength(0);
+    } else {
+      expect(heading()).toBe('This link was already used');
+      expect(screen.getByTestId('invite-body').textContent).toBe(OTHER);
+      expect(card().textContent).not.toContain('@');
+      expect(screen.getByTestId('invite-used-switch').textContent).toBe('Sign in with a different account');
+      expect(screen.queryByTestId('invite-used-sign-in')).toBeNull();
+    }
+    // "Ask for a new one" stays, as the smaller option
+    const ask = screen.getByTestId('invite-new-link');
+    expect(ask.className).toContain('border');
+    expect(ask.className).not.toContain('bg-primary');
+    expect(screen.getByTestId('invite-home')).toBeTruthy();
+  });
+
+  it.each(Object.keys(TERMINAL).flatMap((s) => VIEWERS.map((v) => [s, v] as const)))('%s x %s: the plain dead screen, every button goes somewhere', async (s, v) => {
+    preview = TERMINAL[s].preview;
+    become(v);
+    mount();
+    await stepIs('dead');
+    expect(heading()).toBe(TERMINAL[s].title);
+    expect(screen.queryByTestId('invite-used-sign-in')).toBeNull();
+    expect(screen.queryByTestId('invite-used-switch')).toBeNull();
+    expect(screen.getByTestId('invite-home').getAttribute('href')).toBe('/');
+    // an untouched dead link sends no redeem
+    expect(redeems()).toHaveLength(0);
+  });
+});
+
+describe('review 1291-r1: a server `used` answer is final', () => {
+  const OTHER = 'This account is not on the team. If you joined with a different account, sign in with that one. If not, ask for a new one.';
+  const stayedOnInvite = async () => {
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.getByTestId('where').textContent).toMatch(/^\/invite\//);
+    expect(screen.getByTestId('invite-body').textContent).toBe(OTHER);
+  };
+
+  it('F1: signed in, redeem says used, own list has a SAME-NAMED page: the other-account dead screen, no navigation', async () => {
+    signedIn();
+    preview = { ...open(), status: 'used' };
+    redeem = { ok: false, reason: 'used' };
+    h.organisers = [{ id: 'mine-not-the-invites', name: ORG }];
+    mount();
+    await stepIs('dead');
+    await stayedOnInvite();
+    expect(screen.getByTestId('where').textContent).not.toContain('mine-not-the-invites');
+  });
+
+  it('F3: signed in, redeem says used, the page list never settles: the dead screen at once, not a spinner', async () => {
+    signedIn();
+    preview = { ...open(), status: 'used' };
+    redeem = { ok: false, reason: 'used' };
+    h.homeHang = true;
+    mount();
+    // well inside the 1.5 s give-up: the server answer alone decides
+    await waitFor(() => expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('dead'), { timeout: 1000 });
+    await stayedOnInvite();
+  });
+
+  it('F3: the profile gate refused redeem and the page list never settles: the 1.5 s give-up still reaches the dead screen', async () => {
+    signedIn();
+    preview = { ...open(), status: 'used' };
+    redeemError = { message: 'profile_incomplete' };
+    h.homeHang = true;
+    mount();
+    await waitFor(() => expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('checking'));
+    await stepIs('dead');
+    await stayedOnInvite();
+  });
+});
+
+describe('slice U review r1: a first-time joiner keeps Done when the preview later reads used', () => {
+  it('open at arrival, redeemed, preview refetched as used: Done stays, no redirect', async () => {
+    signedIn();
+    preview = open();
+    redeem = { ok: true, status: 'redeemed', organiser_id: 'o4' };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mount(`/invite/${TOKEN}`, client);
+    await stepIs('join');
+    fireEvent.click(screen.getByTestId('invite-join'));
+    await stepIs('done');
+    preview = { ...open(), status: 'used' };
+    await act(async () => { await client.invalidateQueries(); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('done');
+    expect(screen.getByTestId('where').textContent).toMatch(/^\/invite/);
   });
 });

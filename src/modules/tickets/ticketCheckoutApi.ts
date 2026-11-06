@@ -9,6 +9,7 @@ import {
   type CheckoutResult,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { parsePromoPreview, refusePreview, type PromoPreview } from './promo';
 
 /**
  * The buyer wire (S4). ticket_types_public_v1 is not in the generated types.ts yet,
@@ -43,6 +44,26 @@ export async function fetchPublicTicketTypes(seriesId: string): Promise<PublicTi
   });
   if (error) throw new Error(error.message);
   return parsePublicTypes(data);
+}
+
+/**
+ * Price an order with a promo code (anon, uses nothing up; checkout re-validates).
+ * p_series takes the series id or the public event id. The wire failing reads as
+ * `network`, so the field says to check the connection; it never throws.
+ */
+export async function previewPromo(seriesId: string, typeId: string, quantity: number, code: string): Promise<PromoPreview> {
+  try {
+    const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_promo_preview_v1', {
+      p_series: seriesId,
+      p_ticket_type: typeId,
+      p_quantity: quantity,
+      p_code: code,
+    });
+    if (error) return refusePreview('network');
+    return parsePromoPreview(data);
+  } catch {
+    return refusePreview('network');
+  }
 }
 
 /** A stalled phone connection must not hold "Working on it" forever. */

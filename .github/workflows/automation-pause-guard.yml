@@ -1,0 +1,92 @@
+name: Automation pause guard
+
+# The pause switch's tripwires (docs/automation-pause.md), slice 1.
+#
+#  guard  (drill A15b): if the `automation-paused` label on the issue titled exactly
+#         `AUTOMATION PAUSE SWITCH` was removed by anyone other than the repo owner (a bot
+#         included), re-add it and post ONE notice on that issue. Only the owner clears the switch.
+#  disarm: when the label is ADDED, disable auto-merge on every open PR (exactly like the
+#         post-merge brake): GitHub merges an armed PR later by itself, and a pause must stop that.
+#         ALSO on every 30-minute scheduled run unless the switch reads positively RUNNING
+#         (label present, or any doubt = fail closed, like bot-automerge.yml), after the guard
+#         job so a label it just re-asserted counts: a label added with GITHUB_TOKEN fires NO
+#         `issues` workflow, so without this its armed PRs would never be disarmed.
+#
+# SAFETY: GitHub-hosted runners only; checks out MAIN only (never PR code); the owner login is
+# github.repository_owner, read by the script from the GITHUB_REPOSITORY_OWNER env var; the label
+# name and issue title are compared in `if:` expressions only, never inside `run:` text. This file
+# never removes the label. Honest wording: these are TRIPWIRES, not guarantees.
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: automation-pause-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    if: github.event_name != 'issues' || github.event.issue.title == 'AUTOMATION PAUSE SWITCH'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Re-assert the pause label if a non-owner removed it (A15b)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs --guard
+
+  disarm:
+    needs: guard
+    if: >-
+      always() && (
+      (github.event_name == 'issues' && github.event.action == 'labeled' &&
+      github.event.label.name == 'automation-paused' &&
+      github.event.issue.title == 'AUTOMATION PAUSE SWITCH') ||
+      github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'schedule'
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        if: github.event_name == 'schedule'
+        with:
+          node-version: "22"
+      - name: Read the switch (scheduled run; only paused=false keeps auto-merge armed)
+        id: pause
+        if: github.event_name == 'schedule'
+        run: node scripts/automation-pause.mjs --info
+      - name: Disable auto-merge on every open PR
+        if: github.event_name == 'issues' || steps.pause.outputs.paused != 'false'
+        run: |
+          set -eu
+          prs=$(gh pr list --state open --limit 100 --json number,autoMergeRequest --jq '.[] | select(.autoMergeRequest != null) | .number')
+          if [ -z "$prs" ]; then
+            echo "No open PR has auto-merge armed."
+          fi
+          for n in $prs; do
+            gh pr merge --disable-auto "$n"
+            echo "auto-merge disabled on #$n (automation paused)"
+          done

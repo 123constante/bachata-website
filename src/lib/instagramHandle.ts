@@ -61,12 +61,15 @@ export function normalizeInstagramHandle(raw: string | null | undefined): Instag
   return { ok: true, handle };
 }
 
-/** A link that is not an instagram.com profile link (another site, m.instagram.com, no name). */
-export const INSTAGRAM_NOT_PROFILE_LINK = 'Use your Instagram name, like @yourname, or your profile link from instagram.com.';
+/** The owner's words for an Instagram that cannot be saved (instagram-refusal r2, 2026-11-02): the field and the server's refusal say the same. */
+export const INSTAGRAM_INVALID = 'Enter your Instagram handle (like @yourname) or a full instagram.com link.';
+/** A link that is not an instagram.com profile link (another site, no name). */
+export const INSTAGRAM_NOT_PROFILE_LINK = INSTAGRAM_INVALID;
 /** An instagram.com link to a post, reel or story: it has no name in it. */
 export const INSTAGRAM_POST_LINK = 'That is a link to a post, not a profile. Use your @name or your profile link instead.';
 
-const PROFILE_LINK = /^(https?:\/\/)?(www\.)?instagram\.com\/([^/?#]+)/i;
+// The www. and m. hosts are both profile links (m. is what phone share sheets produce; fix1 F1).
+const PROFILE_LINK = /^(https?:\/\/)?(www\.|m\.)?instagram\.com\/([^/?#]+)/i;
 
 export type InstagramFieldCheck =
   | { ok: true; handle: string | null }
@@ -75,18 +78,33 @@ export type InstagramFieldCheck =
 /** What a typed box would save: the bare name, null to clear, or the words saying what to change. */
 export function checkInstagramField(raw: string): InstagramFieldCheck {
   // The field is stricter than the stored rule about LINKS only: anything with a / or : (or an
-  // instagram.com host) must be an instagram.com profile link, so "m.instagram.com/x" or a post
-  // link is refused here instead of being cut down to a wrong name. Everything it lets through
-  // is then exactly the server's rule.
-  const t = raw.trim();
+  // instagram.com host) must be an instagram.com profile link, so another site or a post link
+  // is refused here instead of being cut down to a wrong name. An m. link is read as the same
+  // link without the m. (the server's normaliser only knows www.), so what is saved is still
+  // the bare name. Everything it lets through is then exactly the server's rule.
+  let t = raw.trim();
   if (/[/:]/.test(t) || /^(www\.|m\.)?instagram\.com/i.test(t)) {
     const m = t.match(PROFILE_LINK);
     if (!m) return { ok: false, error: INSTAGRAM_NOT_PROFILE_LINK };
     if ((INSTAGRAM_RESERVED as readonly string[]).includes(m[3].toLowerCase())) return { ok: false, error: INSTAGRAM_POST_LINK };
+    if (m[2]?.toLowerCase() === 'm.') t = (m[1] ?? '') + t.slice((m[1] ?? '').length + 2);
   }
-  const r = normalizeInstagramHandle(raw);
+  const r = normalizeInstagramHandle(t);
   if ('problem' in r) return { ok: false, error: INSTAGRAM_PROBLEM_COPY[r.problem] };
   return { ok: true, handle: r.handle };
+}
+
+/**
+ * The name in an instagram.com PROFILE link, else null. The field's own rule decides
+ * (checkInstagramField ok with a name: www. and m. accepted; post and reel links
+ * are not profile links), and only a value that IS a link counts, so a bare word
+ * or "example.com" in a Website box is never read as an Instagram name.
+ */
+export function instagramProfileLinkHandle(raw: string): string | null {
+  const t = raw.trim();
+  if (!PROFILE_LINK.test(t)) return null;
+  const r = checkInstagramField(t);
+  return r.ok && r.handle !== null ? r.handle : null;
 }
 
 /** The profile link the "tap to check it's you" line opens. */

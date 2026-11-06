@@ -1,10 +1,13 @@
+import { eventHref } from '@/lib/seo/eventHref';
 import { fullDate } from '../../shared/dateWords';
 import { cancelOneOffCommand, lifecycleCommand, uncancelCommand, type DateStep, type OwnerCommand } from '../../shared/seriesCommands';
 import { endRunCommand, readIsFull, stopRepeatingCommand, type EventWorkspace, type TodaySession } from '../../events/eventModel';
 import { parseTree } from '../../events/programmeSeriesModel';
 import { NO_SESSION_REASON } from '../../events/lifecycleModel';
-import { L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
+import { ARCHIVED_WHY, L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
 import { dateFactsOf, marksOf } from './dateFacts';
+import { goLiveReasonText } from '../../shared/goLiveKeys';
+import type { GoLiveCheck } from '../../shared/goLiveCheck';
 import type { CancelInput, DaySession, IsoDate, P3Date, P3Event, P3Kind, P3Person, P3Session, P3Status, RoleKey, SessionKind } from '../model';
 
 /**
@@ -212,6 +215,8 @@ export const STATUS_COPY = {
   removeSub: 'It leaves your events and the calendar. Only the Bachata Calendar team can bring it back.',
   noComingDate: 'Add a date coming up first.',
   noCover: 'Add a cover photo first. Dancers see it before anything else.',
+  /** The alert over the sheet when Put it live was refused; the row under it names what is left. */
+  goLiveRefused: 'It did not go live. What is left is listed under Put it live.',
   backDraftWhy: 'A live event can\u2019t go back to draft. Hide it instead: dancers stop seeing it and every date is kept.',
   neverRan: 'It hasn\u2019t run yet, so it can\u2019t end. Hide it or remove it instead.',
   /** A one-off that can still be cancelled: End it points at the row that works (C3 `endit`). */
@@ -220,7 +225,7 @@ export const STATUS_COPY = {
   tooManyDates: 'This event has more dates coming up than this page can list, so the dates to keep can\u2019t be picked here. Ask the Bachata Calendar team.',
 
   endedWhy: 'Finished events stay finished. Ask the Bachata Calendar team if it should run again.',
-  archivedWhy: 'This event was removed. Ask the Bachata Calendar team if it should come back.',
+  archivedWhy: ARCHIVED_WHY,
   reviewWhy: 'The Bachata Calendar team is checking it, so its status can\u2019t change here.',
 } as const;
 
@@ -241,7 +246,12 @@ export const cancelInputOf = (ws: EventWorkspace): CancelInput => ({
   dates: ws.dates.map((d) => ({ date: d.occurrence_date, cancelled: d.lifecycle_status === 'cancelled', startUtc: d.materialised_start_utc })),
 });
 
-export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new Date()): StatusRow[] {
+/**
+ * `goLive`: the server's go-live answer (series_go_live_check_v1, or the JSON a refusal
+ * carries) once it is in hand. It then owns Put it live's reason, in the one mapping's
+ * words (goLiveReasonText); until then the page's own facts give a first reason.
+ */
+export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new Date(), goLive?: GoLiveCheck | null): StatusRow[] {
   const s = ws.series;
   const lc = s.lifecycle_status;
   const kind = kindOfWorkspace(ws);
@@ -250,7 +260,11 @@ export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new D
   if (lc === 'draft' || lc === 'rejected') {
     const coming = ws.dates.some((d) => d.lifecycle_status !== 'cancelled' && d.occurrence_date >= today);
     // the server's go-live gate also wants a cover (apply_aggregate_write_p5); the rest it names in its refusal
-    const why = !coming ? STATUS_COPY.noComingDate : !s.default_cover_image_url ? STATUS_COPY.noCover : !ws.hasSessions ? NO_SESSION_REASON : null;
+    // A not-ready answer names its items. A ready one (or none yet) leaves the page's own facts:
+    // a ready answer may be older than the page, and the write's gate also wants the cover.
+    const why = goLive && !goLive.ready ? goLiveReasonText(goLive)
+      : !coming ? STATUS_COPY.noComingDate
+      : !s.default_cover_image_url ? STATUS_COPY.noCover : !ws.hasSessions ? NO_SESSION_REASON : null;
     const out = [row('live', L.putLive, STATUS_COPY.liveSub, why)];
     if (lc === 'draft') out.push(row('remove', L.remove, STATUS_COPY.removeSub));
     return out;
@@ -304,6 +318,7 @@ export const CANCEL_COPY = {
   already: (reason: string | null) => (reason ? `It was already cancelled. Dancers see: ${reason}.` : 'It was already cancelled.'),
   loading: 'Loading the reasons\u2026',
   noReasons: 'The reasons didn\u2019t load. Check your connection, then try again.',
+  emptyReasons: 'There are no reasons to pick from. The list comes from our server, so try again in a moment.',
 } as const;
 
 /** The one-off's one date; null when there is not exactly one (the row is greyed then). */
@@ -369,3 +384,39 @@ export function keepable(ws: EventWorkspace, today: IsoDate): Array<{ id: string
 }
 
 export const stopCommand = (keepIds: string[]): OwnerCommand => stopRepeatingCommand(keepIds);
+
+/**
+ * FIXLIST F-34: "See it as dancers see it". event_view_p5 (read on prod 2026-10-31) serves a
+ * series whose event_series_p5.lifecycle_status is live, paused or ended, so the link opens for
+ * all three. Paused is the owner's "Hidden": off the calendar, but _p5_paused_hides_occurrence_v1
+ * keeps its page and its PAST dates (owner decision 2026-10-08), so the subline says so.
+ * The path comes from eventHref, the builder every public event link uses, and only from the
+ * slug: without one it would fall back to the P5 id, which resolve_public_event_ref_v1 does not
+ * find for a series bridged from a legacy event (0 public series without a slug on prod).
+ */
+export const PUBLIC_PAGE_SUB = 'Your public event page';
+export const PUBLIC_PAGE_SUB_PAUSED = 'Hidden from the calendar. The page still opens with past dates only.';
+export const PUBLIC_PAGE_NO_ADDRESS = 'The page has no address yet.';
+export const PUBLIC_PAGE_WHY: Record<string, string> = {
+  draft: 'Dancers can see it once it is live.',
+  archived: 'It has finished and is no longer on the calendar, so dancers can\u2019t see it.',
+};
+export const PUBLIC_PAGE_WHY_OTHER = 'Dancers can see it once it is live.';
+
+/** href set: the link, and `why` is its subline. href null: the row is off, and `why` is the reason. */
+export function publicPageOf(ws: EventWorkspace): { href: string | null; why: string } {
+  const lc = ws.series.lifecycle_status;
+  if (lc !== 'live' && lc !== 'ended' && lc !== 'paused') return { href: null, why: PUBLIC_PAGE_WHY[lc] ?? PUBLIC_PAGE_WHY_OTHER };
+  const slug = ws.series.slug;
+  if (!slug) return { href: null, why: PUBLIC_PAGE_NO_ADDRESS };
+  return { href: eventHref({ slug, event_id: ws.series.id }), why: lc === 'paused' ? PUBLIC_PAGE_SUB_PAUSED : PUBLIC_PAGE_SUB };
+}
+
+/** p3-share-event-link: what the "Share this event" row sends. Reuses publicPageOf, so the rule and the path live in one place. */
+export const SHARE_SUB = 'Send dancers the link';
+export type ShareOf = { url: string; title: string; off?: undefined } | { off: true; why: string };
+export function shareOf(ws: EventWorkspace, origin: string): ShareOf {
+  const pub = publicPageOf(ws);
+  if (!pub.href) return { off: true, why: pub.why };
+  return { url: `${origin}${pub.href}`, title: ws.series.name };
+}

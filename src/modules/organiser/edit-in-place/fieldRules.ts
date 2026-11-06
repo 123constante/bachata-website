@@ -302,6 +302,7 @@ export const facebookDisplay = (value: string | null | undefined): string => fac
 
 // ---- about -------------------------------------------------------------------------------
 
+/** Server ceiling only; editors use BIO_LIMIT (150). */
 export const ABOUT_MAX = 4000;
 export const ABOUT_COPY = {
   tooLong: (n: number) => `About can be at most ${ABOUT_MAX} characters. Yours has ${n}.`,
@@ -310,10 +311,10 @@ export const ABOUT_COPY = {
 /** Characters as the server counts them (code points, after trimming). */
 export const aboutLength = (raw: string): number => Array.from(raw.trim()).length;
 
-export function checkAbout(raw: string): FieldCheck {
+export function checkAbout(raw: string, max: number = ABOUT_MAX): FieldCheck {
   const n = aboutLength(raw);
   if (n === 0) return ok('', null);
-  if (n > ABOUT_MAX) return bad(raw, ABOUT_COPY.tooLong(n));
+  if (n > max) return bad(raw, max === ABOUT_MAX ? ABOUT_COPY.tooLong(n) : `About can be at most ${max} characters. Yours has ${n}.`);
   return ok(raw, patchValue('bio', raw) as string);
 }
 
