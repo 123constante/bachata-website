@@ -49,7 +49,7 @@ export const venueLine = (location: string | null | undefined, city: string | nu
 /** Venue line plus the time. The time is for a single night only (callers pass null for a series). */
 export const cardMetaLine = (venue: string | null, time: string | null): string | null => {
   const parts = [venue, time].filter(Boolean);
-  return parts.length ? parts.join(' · ') : null;
+  return parts.length ? parts.join(' \u00b7 ') : null;
 };
 
 export const actionLabel = (kind: 'single' | 'series', dateCount: number): string =>

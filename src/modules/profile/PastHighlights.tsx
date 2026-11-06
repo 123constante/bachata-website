@@ -62,7 +62,8 @@ export default function PastHighlights(p: PastHighlightsProps) {
           </Link>
         ))}
       </div>
-      {chips.length > 0 && (
+      {/* Chips only open the full list, so they show only when it can be closed again (the See all toggle is shown). */}
+      {p.showSeeAll && chips.length > 0 && (
         <div data-testid="past-year-shortcuts" className="flex flex-wrap" style={{ gap: 8, marginTop: 8 }}>
           {chips.map((c) => (
             <button
@@ -76,7 +77,8 @@ export default function PastHighlights(p: PastHighlightsProps) {
           ))}
         </div>
       )}
-      {p.showSeeAll && (
+      {/* An open list always keeps its close button, whatever the count. */}
+      {(p.showSeeAll || p.listOpen) && (
         <button
           type="button"
           onClick={p.onToggleList}

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import {
@@ -39,8 +41,13 @@ describe('venue / meta / action', () => {
     ['The Forge', 'London', 'The Forge'], ['  ', 'Leeds', 'Leeds'], [null, ' Leeds ', 'Leeds'], [null, null, null], ['', '', null],
   ])('venueLine(%j,%j)', (l, c, want) => expect(venueLine(l, c)).toBe(want));
   it.each([
-    ['Forge', '7:30pm', 'Forge · 7:30pm'], ['Forge', null, 'Forge'], [null, '7:30pm', '7:30pm'], [null, null, null],
+    ['Forge', '7:30pm', 'Forge \u00b7 7:30pm'], ['Forge', null, 'Forge'], [null, '7:30pm', '7:30pm'], [null, null, null],
   ])('cardMetaLine(%j,%j)', (v, t, want) => expect(cardMetaLine(v, t)).toBe(want));
+  it('separator is U+00B7 at runtime', () => expect(cardMetaLine('A', 'B')).toContain('\u00b7'));
+  it('model source is pure ASCII (separator written as an escape)', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/modules/profile/nightsCardModel.ts'));
+    expect([...src].filter((byte) => byte > 0x7f)).toEqual([]);
+  });
   it('never prints undefined', () => expect(String(cardMetaLine(venueLine(undefined, undefined), null))).not.toMatch(/undefined/));
   it('action labels', () => {
     expect(actionLabel('single', 1)).toBe('View event');
@@ -111,5 +118,22 @@ describe('PastHighlights', () => {
   it('year chip present', () => {
     wrap(<PastHighlights {...props(8)} />);
     expect(screen.getByText('2026 (8)')).toBeTruthy();
+  });
+  it('5 nights: no year chips, no list toggle', () => {
+    wrap(<PastHighlights {...props(5)} />);
+    expect(screen.queryByTestId('past-year-shortcuts')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+  it('8 nights: year chips + See all; open list shows Hide', () => {
+    wrap(<PastHighlights {...props(8)} />);
+    expect(screen.getByTestId('past-year-shortcuts')).toBeTruthy();
+    expect(screen.getByText('See all 8 nights')).toBeTruthy();
+    cleanup();
+    wrap(<PastHighlights {...props(8, { listOpen: true })} />);
+    expect(screen.getByText('Hide the full list')).toBeTruthy();
+  });
+  it.each([1, 5, 6, 8, 33])('%i nights with the list open always has a close button', (n) => {
+    wrap(<PastHighlights {...props(n, { listOpen: true })} />);
+    expect(screen.getByText('Hide the full list')).toBeTruthy();
   });
 });

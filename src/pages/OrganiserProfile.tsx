@@ -1401,6 +1401,8 @@ const OrganiserProfile = () => {
                 {eip?.slot('create-event')}
               </div>
             </div>
+            {/* Plain anchor (no handler, no role) so a walk can scroll to the cards without clicking one. */}
+            <div id="next-nights-list">
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
                 item.kind === 'single' ? (
@@ -1419,6 +1421,7 @@ const OrganiserProfile = () => {
                   />
                 ),
               )}
+            </div>
             </div>
             {upcomingListItems.length > UPCOMING_VISIBLE && (
               <button onClick={() => { if (showAllUpcoming) scrollBackIfAbove('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
@@ -1458,7 +1461,8 @@ const OrganiserProfile = () => {
           <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={sectionH2}>{emptyKind === 'past-only' ? 'Recently hosted' : 'Past nights'}</h2>
-              <span style={sectionCount}>{pastEvents.length} hosted</span>
+              {/* The highlights strip prints "N nights hosted"; the header count shows only when there is no strip. */}
+              {pastStrip.total === 0 && <span style={sectionCount}>{pastEvents.length} hosted</span>}
             </div>
             {emptyKind === 'past-only' && (
               <div data-testid="org-public-empty" data-kind={emptyKind} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '-4px 0 8px' }}>
