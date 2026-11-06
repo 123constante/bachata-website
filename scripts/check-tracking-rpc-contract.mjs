@@ -78,6 +78,7 @@ const CONTRACTS = [
       p_source: 'ci-contract-check',
       p_user_agent: BOT_UA,
       p_occurrence_id: null,
+      p_ref_code: null,
     },
   },
   {
@@ -90,6 +91,7 @@ const CONTRACTS = [
       p_session_id: 'ci-contract-check',
       p_source: 'ci-contract-check',
       p_user_agent: BOT_UA,
+      p_ref_code: null,
     },
   },
 ];

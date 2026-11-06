@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getViewerSession } from '@/lib/viewerSession';
 import { flags } from '@/lib/featureFlags';
+import { refCodeForTracking } from '@/lib/refCode';
 
 export function useRecordEventView(
   eventId: string | null | undefined,
@@ -26,6 +27,7 @@ export function useRecordEventView(
     // 3s delay filters bounced visits and most automated fetchers that do not
     // execute timers long enough to reach this point.
     const timer = setTimeout(() => {
+      const refCode = refCodeForTracking();
       void supabase
         .rpc('record_event_view_v1', {
           p_event_id: eventId,
@@ -33,6 +35,7 @@ export function useRecordEventView(
           p_source: source,
           p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           ...(occurrenceId ? { p_occurrence_id: occurrenceId } : {}),
+          ...(refCode ? { p_ref_code: refCode } : {}),
         })
         .then(() => undefined, () => undefined);
     }, 3000);
