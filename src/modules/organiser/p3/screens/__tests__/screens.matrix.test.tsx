@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { SHAPES, SHAPE_KEYS, TODAY, homeOf, statsOf, type ShapeKey } from './fixtures';
 import { groupsOf, needsOf, nextUpView, rowOf, rowsOf } from '../../data/home';
 import { dailyTotals, parseStats, rangeFrom, viewsTotal } from '../../data/stats';
+import { sumAnalytics, parseAnalyticsV2 } from '../../data/analyticsV2';
 import { L, dayWord, nextUpAdviceOf, statusOf } from '../../model';
 import { NOTHING_COMING_UP } from '../../../shared/lifeLabel';
 
@@ -18,7 +19,15 @@ const homeQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 const viewsQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 const going = vi.hoisted(() => ({ value: { view: { state: 'off' }, total: null } as Record<string, unknown> }));
 
-vi.mock('../../data/useP3Data', () => ({ useP3Home: () => homeQ.value, useP3Views: () => viewsQ.value }));
+const analyticsQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+const codeQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+
+vi.mock('../../data/useP3Data', () => ({
+  useP3Home: () => homeQ.value,
+  useP3Views: () => viewsQ.value,
+  useP3Analytics: () => analyticsQ.value,
+  useP3ShareCode: () => codeQ.value,
+}));
 vi.mock('@/modules/going/useMyOrganiserGoingTotal', () => ({ useMyOrganiserGoingTotal: () => going.value }));
 vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));
 
@@ -38,6 +47,9 @@ function show(node: JSX.Element) {
 beforeEach(() => {
   going.value = { view: { state: 'off' }, total: null };
   viewsQ.value = ok(statsOf([['weekly', 'Sensual Fridays', 300]]));
+  analyticsQ.value = ok(analyticsOf({}));
+  codeQ.value = ok({ code: 'abc', disabled: false });
+  homeQ.value = ok(homeOf([SHAPES.weekly]));
 });
 afterEach(cleanup);
 
@@ -290,7 +302,7 @@ describe('Stats x every shape', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Share your link/);
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy link/);
     cleanup();
     viewsQ.value = ok(statsOf([]));
     show(<StatsScreen />);
@@ -435,5 +447,102 @@ describe('review findings (round 2)', () => {
     expect(card.textContent).toContain('240 views in the last 30 days');
     fireEvent.click(within(card).getByRole('button', { name: 'Show 30 days' }));
     expect(screen.getByTestId('p3-stats-total').textContent).toContain('240');
+  });
+});
+
+
+/* ---- Stats v2: Visitors, From your link, share link card (organiser_analytics_v2) ---- */
+function analyticsOf(t: Record<string, number>, hasOwn = true) {
+  return sumAnalytics([parseAnalyticsV2({ has_own_code: hasOwn, totals: t, by_day: [] })]);
+}
+const ZERO = {};
+const ANALYTICS_SHAPES: Array<[string, Record<string, number>, boolean, string, string]> = [
+  ['all zero', ZERO, true, '0', '0'],
+  ['views only', { visitors: 8, views: 12 }, false, '8', '0'],
+  ['own-code taps', { visitors: 5, from_your_link: 3, link_taps_from_your_link: 2 }, true, '5', '3'],
+  ['guest list 6 and tickets 2', { visitors: 9, guest_list_signups: 6, tickets_sold: 2 }, true, '9', '0'],
+  ['huge', { visitors: 123456, from_your_link: 100000 }, true, '123456', '100000'],
+];
+
+describe('Stats v2 x every shape', () => {
+  it.each(ANALYTICS_SHAPES)('%s', (_n, t, own, visitors, fromLink) => {
+    analyticsQ.value = ok(analyticsOf(t, own));
+    show(<StatsScreen />);
+    expect(screen.getByTestId('p3-stats-visitors').textContent).toBe(`${visitors}Visitors`);
+    expect(screen.getByTestId('p3-stats-from-link').textContent).toBe(`${fromLink}From your link`);
+    expect(!!screen.queryByTestId('p3-stats-guestlist')).toBe(!!t.guest_list_signups);
+    expect(!!screen.queryByTestId('p3-stats-tickets')).toBe(!!t.tickets_sold);
+    expect(screen.getByTestId('p3-stats-help').textContent).toMatch(/3 days counts as 3 visitors/);
+    expect(screen.getByTestId('p3-share-link-card')).toBeTruthy();
+  });
+
+  it('a refused or failed read is the error state with Try again, never zeros', () => {
+    analyticsQ.value = failed();
+    show(<StatsScreen />);
+    expect(within(screen.getByTestId('p3-stats-error')).getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
+  });
+
+  it('loading shows the loading state', () => {
+    analyticsQ.value = pending();
+    show(<StatsScreen />);
+    expect(screen.getByTestId('p3-stats-loading')).toBeTruthy();
+  });
+
+  it('the empty state names the on-screen Copy link control', () => {
+    viewsQ.value = ok(statsOf([['w', 'W', 0]]));
+    show(<StatsScreen />);
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy link/);
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
+  });
+});
+
+describe('Share link card x every shape', () => {
+  const copyBtn = () => screen.getByRole('button', { name: 'Copy link' }) as HTMLButtonElement;
+
+  it('live code and a next event: the link, enabled, copies it', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    show(<StatsScreen />);
+    const link = (screen.getByTestId('p3-share-link-text') as HTMLInputElement).value;
+    expect(link).toBe(`${window.location.origin}/event/weekly?ref=abc`);
+    expect(copyBtn().disabled).toBe(false);
+    fireEvent.click(copyBtn());
+    await screen.findByText('Link copied.');
+    expect(writeText).toHaveBeenCalledWith(link);
+  });
+
+  it('clipboard failure selects the text and says so', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } });
+    show(<StatsScreen />);
+    fireEvent.click(copyBtn());
+    expect((await screen.findByTestId('p3-share-note')).textContent).toMatch(/selected/);
+  });
+
+  it.each([
+    ['admin-disabled code', { code: 'abc', disabled: true }, [SHAPES.weekly], 'Your link is switched off. Ask the team.'],
+    ['no code', { code: null, disabled: false }, [SHAPES.weekly], 'Your link is switched off. Ask the team.'],
+    ['no events', { code: 'abc', disabled: false }, [], 'Add an event to get a link'],
+    ['only a finished event', { code: 'abc', disabled: false }, [SHAPES.ended], 'Add an event to get a link'],
+  ])('%s: a disabled button with its reason', (_n, code, rows, reason) => {
+    codeQ.value = ok(code);
+    homeQ.value = ok(homeOf(rows as never));
+    show(<StatsScreen />);
+    expect(copyBtn().disabled).toBe(true);
+    expect(screen.getByTestId('p3-share-reason').textContent).toBe(reason);
+    expect(screen.queryByTestId('p3-share-link-text')).toBeNull();
+  });
+
+  it('a refused code read shows its own error with Try again', () => {
+    codeQ.value = { isPending: false, isError: true, data: undefined, refetch: vi.fn() };
+    show(<StatsScreen />);
+    expect(within(screen.getByTestId('p3-share-link-card')).getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
+  it('no help text names a control that is not on screen', () => {
+    show(<StatsScreen />);
+    const t = screen.getByTestId('p3-stats').textContent ?? '';
+    expect(t).not.toMatch(/\u00e2\u20ac/);
+    expect(t).not.toMatch(/Press/);
   });
 });

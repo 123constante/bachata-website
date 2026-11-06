@@ -3,10 +3,11 @@ import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
 import { P3SeriesGoing } from './P3Going';
 import { RANGE_DAYS, byEventOf, dailyTotals, scopeStats, sliceStats, viewsTotal, type StatsRange } from '../data/stats';
-import { useP3Views } from '../data/useP3Data';
+import { useP3Analytics, useP3Views } from '../data/useP3Data';
 import { L } from '../model';
 import { NoPageCard, PageHeader, usePageScope } from './PageScope';
 import { GoingTile, RetryButton, StateCard } from './parts';
+import { ShareLinkCard } from './ShareLinkCard';
 
 const RANGES: ReadonlyArray<readonly [StatsRange, string]> = [['d', 'Today'], ['w', '7 days'], ['m', '30 days']];
 
@@ -36,6 +37,8 @@ export function StatsScreen() {
   const views = useP3Views();
   const scope = usePageScope();
   const head = <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />;
+  const ids = [...scope.seriesIds];
+  const analytics = useP3Analytics(range, ids);
 
   const seg = (
     <div className="p3-seg" role="group" aria-label="Time range">
@@ -47,7 +50,7 @@ export function StatsScreen() {
     </div>
   );
 
-  if (views.isPending || scope.loading) {
+  if (views.isPending || scope.loading || (analytics.isPending && ids.length > 0 && !analytics.isError)) {
     return (
       <div className="p3-stack">
         {head}
@@ -56,14 +59,14 @@ export function StatsScreen() {
       </div>
     );
   }
-  if (views.isError || scope.home.isError) {
+  if (views.isError || scope.home.isError || analytics.isError) {
     return (
       <div className="p3-stack">
         {head}
         {seg}
         <StateCard title="We couldn&rsquo;t load your views" testId="p3-stats-error">
           <p>Check your connection, then try again.</p>
-          <RetryButton onClick={() => void Promise.all([views.refetch(), scope.home.refetch()])} />
+          <RetryButton onClick={() => void Promise.all([views.refetch(), scope.home.refetch(), analytics.refetch()])} />
         </StateCard>
       </div>
     );
@@ -78,6 +81,7 @@ export function StatsScreen() {
     );
   }
 
+  const a = analytics.data?.totals;
   const scoped = scopeStats(views.data, scope.seriesIds);
   const data = sliceStats(scoped, RANGE_DAYS[range]);
   const today = data.to || londonTodayKey();
@@ -98,6 +102,32 @@ export function StatsScreen() {
         </div>
         <GoingTile />
       </div>
+      <div className="p3-pair">
+        <div className="p3-card p3-stat" data-testid="p3-stats-visitors">
+          <div className="p3-stat-n">{a?.visitors ?? 0}</div>
+          <div className="p3-stat-l">Visitors</div>
+        </div>
+        <div className="p3-card p3-stat" data-testid="p3-stats-from-link">
+          <div className="p3-stat-n">{a?.fromYourLink ?? 0}</div>
+          <div className="p3-stat-l">From your link</div>
+        </div>
+        {!!a?.guestListSignups && (
+          <div className="p3-card p3-stat" data-testid="p3-stats-guestlist">
+            <div className="p3-stat-n">{a.guestListSignups}</div>
+            <div className="p3-stat-l">Guest list sign-ups</div>
+          </div>
+        )}
+        {!!a?.ticketsSold && (
+          <div className="p3-card p3-stat" data-testid="p3-stats-tickets">
+            <div className="p3-stat-n">{a.ticketsSold}</div>
+            <div className="p3-stat-l">Tickets sold</div>
+          </div>
+        )}
+      </div>
+      <p className="p3-stat-l" data-testid="p3-stats-help">
+        A visitor is one person, counted once a day. Someone who comes back on 3 days counts as 3 visitors.
+      </p>
+      <ShareLinkCard />
       {total === 0 && allTotal > 0 ? (
         <StateCard title={`No views ${range === 'd' ? 'today' : 'in the last 7 days'} yet`} testId="p3-stats-none-range">
           <p>You had {allTotal} {L.views} in the last 30 days.</p>
@@ -106,7 +136,7 @@ export function StatsScreen() {
       ) : total === 0 ? (
         <StateCard title="No views yet" testId="p3-stats-none">
           {data.series.length
-            ? 'Views show up as soon as dancers start opening your event. Share your link on WhatsApp or Instagram to get the first ones.'
+            ? 'Views show up as soon as dancers start opening your event. Use Copy link below and share it on WhatsApp or Instagram to get the first ones.'
             : 'You have no events to count yet. Views start once an event is on the calendar.'}
         </StateCard>
       ) : (
