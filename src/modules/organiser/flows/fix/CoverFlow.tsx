@@ -14,6 +14,7 @@ import { SeriesLockGate } from '../../events/ProfileLock';
 import { EventConflict } from '../event/parts';
 import { FLYER_WORD } from '../../shared/flyerLabel';
 import { COVER_TITLE, coverDone, coverFixCommands } from './coverModel';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 
 /**
  * /account/o/cover/:seriesId (C18 -> C18b): pick a photo (the existing event
@@ -61,6 +62,7 @@ function CoverFlowScreen() {
       await runSeriesCommand(envelope(seriesId, fresh.version, command, key.current.key));
       void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      invalidatePublicEventCaches(queryClient);
       goDone(navigate, coverDone(seriesId), readReturnTo(search));
     } catch (err) {
       // R3-7: someone changed the event first; else never the raw message ("Failed to fetch").

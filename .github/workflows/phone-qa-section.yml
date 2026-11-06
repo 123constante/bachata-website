@@ -13,7 +13,8 @@ name: phone-qa-section
 # "not required" message from the script.
 #
 # NOT a required status check -- that is a branch-protection decision for the
-# owner. Draft PRs pass with a "skipped" message.
+# owner. Draft PRs pass with a "skipped" message. The bot's TO FILL stub on a UI
+# PR is PENDING (exit 3 -> notice), never a pass.
 
 on:
   pull_request:
@@ -70,4 +71,18 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_FILES: ${{ steps.scope.outputs.files }}
-        run: node scripts/check-pr-phone-qa.mjs
+        # Exit 3 = PENDING: the bot's TO FILL marker (scripts/pr-body-stub.mjs via bot-pr.yml)
+        # is still in the Phone QA section of a UI PR. Reported as a notice and a non-failing
+        # run; it is NOT a pass -- the parser keeps ok=false. Every other non-zero code stays
+        # red. (This check is not in the main ruleset's required list; if it ever is, pending
+        # would satisfy it and must become red there.)
+        run: |
+          set +e
+          node scripts/check-pr-phone-qa.mjs
+          code=$?
+          if [ "$code" = "3" ]; then
+            echo "::notice title=phone-qa-section PENDING::waiting for the description to be filled in (TO FILL marker still present). Not a pass: no merge path accepts it."
+            echo "PENDING: waiting for the description to be filled in (the TO FILL marker is still in the Phone QA section)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          exit "$code"

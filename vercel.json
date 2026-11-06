@@ -138,7 +138,7 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(self), payment=(), usb=()"
+          "value": "camera=(self), microphone=(), geolocation=(self), payment=(), usb=()"
         }
       ]
     },
@@ -178,6 +178,9 @@
   "git": {
     "deploymentEnabled": {
       "arc/briefs-*": false,
+      "brief/*": false,
+      "tmp-*": false,
+      "dependabot/*": false,
       "claude/*": false,
       "main": true,
       "feat/*": true

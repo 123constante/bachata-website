@@ -6,16 +6,16 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
-import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
-import { reasonScreen, type ReasonScreen } from '../inviteModel';
-import { JOIN_COPY } from './joinCopy';
+import { organiserAreaHome, p3AreaLive } from '@/lib/organiserAreaHome';
+import { USED_COPY, reasonScreen, type ReasonScreen, type UsedViewer } from '../inviteModel';
+import { JOIN_COPY, askForNewLinkLine, doneBody } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';
 
 export const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-50';
 export const GHOST = 'inline-flex w-full min-h-[44px] items-center justify-center rounded-xl border border-border px-4 text-[14px] font-medium';
 export const LINKISH = 'inline-flex min-h-[44px] items-center justify-center self-start text-[14px] font-medium text-primary underline underline-offset-4';
-export const FIELD = 'min-h-[48px] w-full rounded-xl border border-border bg-background px-3 text-[16px]';
+export const FIELD = 'min-h-[48px] w-full rounded-xl border-2 border-foreground/60 bg-card px-3 text-[16px] text-foreground placeholder:text-muted-foreground';
 export const WHY = 'min-h-[1em] text-center text-[13px] text-muted-foreground';
 
 /** The one wrapper every step renders: the state machine's visible row. Focus lands on the heading when the step changes. */
@@ -107,13 +107,12 @@ export function Checking() {
 
 export function EmailStep({ initial, busy, error, onSend }: { initial: string; busy: boolean; error: string | null; onSend: (typed: string) => void }) {
   const [typed, setTyped] = useState(initial);
-  const canSend = typed.trim() !== '' && !busy;
   return (
     <form className="flex flex-col gap-2" noValidate onSubmit={(e) => { e.preventDefault(); onSend(typed); }} data-testid="join-email-form">
       <label htmlFor="join-email" className="text-[14px] font-semibold">{JOIN_COPY.email.label}<span className="block text-[13px] font-normal text-muted-foreground">{JOIN_COPY.email.hint}</span></label>
-      <input id="join-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} className={FIELD} value={typed} onChange={(e) => setTyped(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? 'join-email-error' : 'join-email-why'} data-testid="join-email-input" />
+      <input id="join-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder={JOIN_COPY.email.placeholder} className={FIELD} value={typed} onChange={(e) => setTyped(e.target.value)} aria-invalid={error ? true : undefined} aria-describedby={error ? 'join-email-error' : 'join-email-why'} data-testid="join-email-input" />
       <ErrorLine id="join-email-error">{error}</ErrorLine>
-      <button type="submit" className={BTN} disabled={!canSend} data-testid="join-send">{busy ? JOIN_COPY.email.sending : JOIN_COPY.email.button}</button>
+      <button type="submit" className={BTN} disabled={busy} data-testid="join-send">{busy ? JOIN_COPY.email.sending : JOIN_COPY.email.button}</button>
       <p id="join-email-why" className={WHY} data-testid="join-why">{typed.trim() === '' ? JOIN_COPY.email.why : ''}</p>
     </form>
   );
@@ -162,15 +161,27 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
   );
 }
 
-export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+/**
+ * Where Done goes, and the state it carries: the ONE landing helper; without an id (or with the area off) the plain
+ * home links stay. F-05 (review r1 F1): P3 Home reads `confirmation` and WAITS for its home refetch instead of
+ * reading a pre-join "no page" cache and bouncing to Start. Slice U's returning redirect uses the same answer.
+ */
+export function doneTarget(org: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }, organiserId: string | null): { to: string; state: { confirmation: string } | undefined } {
   const selfServe = flags.organiserSelfServe;
-  // The ONE landing helper; without an id (or with the area off) the plain home links stay.
-  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : ORG_PATHS.home) : '/';
+  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
+  const state = p3AreaLive(flags) && organiserId ? { confirmation: JOIN_COPY.done.heading(org) } : undefined;
+  return { to, state };
+}
+
+export function DoneScreen({ org, flags, organiserId, rowsLeft = null }: { rowsLeft?: number | null; org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+  const selfServe = flags.organiserSelfServe;
+  const button = selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
+  const { to, state } = doneTarget(org, flags, organiserId);
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
-      <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
-      <Link to={to} className={BTN} data-testid="join-done-home">{selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff}</Link>
+      <Lead>{selfServe ? doneBody(rowsLeft) : JOIN_COPY.done.bodyOff}</Lead>
+      <Link to={to} state={state} className={BTN} data-testid="join-done-home">{button}</Link>
     </div>
   );
 }
@@ -187,14 +198,35 @@ export function WrongAccountScreen({ signedInAs, hint, busy, error, onSwitch }: 
   );
 }
 
+/** The plain "what to do" line under a dead link's own sentence; nothing for other reasons. */
+function NextLine({ reason }: { reason: string }) {
+  const line = askForNewLinkLine(reason);
+  return line ? <Lead testId="invite-next">{line}</Lead> : null;
+}
+
 /** A finished-with link (used / expired / revoked / invalid): why, and "Ask <inviter> for a new one" where that helps. */
-export function DeadScreen({ reason, preview, newLink }: { reason: DeadReason; preview: JoinPreview | null; newLink: ReactNode }) {
-  const screen = reasonScreen(reason, { organiserName: preview?.organiserName, inviterFirstName: preview?.inviterFirstName, emailHint: preview?.emailHint });
+export function DeadScreen({ reason, preview, newLink, usedViewer = null, signInHref = null, busy = false, onSwitch }: {
+  reason: DeadReason; preview: JoinPreview | null; newLink: ReactNode;
+  /** Slice U: who is looking at a USED link (null = not yet known / not used). */
+  usedViewer?: UsedViewer | null;
+  /** signed_out: the sign-in that returns to this link. */
+  signInHref?: string | null;
+  busy?: boolean;
+  /** other_account: sign out and stay on this link. */
+  onSwitch?: () => void;
+}) {
+  const viewer = reason === 'used' ? usedViewer : null;
+  const screen = reasonScreen(reason, { organiserName: preview?.organiserName, inviterFirstName: preview?.inviterFirstName, emailHint: preview?.emailHint, usedViewer: viewer });
   return (
     <div className="flex flex-col gap-2" data-testid="invite-card">
       <Heading>{screen.title}</Heading>
       {screen.body && <Lead testId="invite-body">{screen.body}</Lead>}
+      {viewer === 'signed_out' && signInHref && <Link to={signInHref} className={BTN} data-testid="invite-used-sign-in">{USED_COPY.signed_out.button}</Link>}
+      {viewer === 'other_account' && onSwitch && <button type="button" className={BTN} disabled={busy} onClick={onSwitch} data-testid="invite-used-switch">{USED_COPY.other_account.button}</button>}
+      {!screen.offerNewLink && <NextLine reason={reason} />}
       {screen.offerNewLink && newLink}
+      {reason === 'revoked' && <a href={JOIN_COPY.help.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-revoked-help">{JOIN_COPY.help.label}</a>}
+      {reason === 'invalid' && <a href={JOIN_COPY.unknownLink.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-new-link-help">{JOIN_COPY.unknownLink.button}</a>}
       <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>
     </div>
   );
@@ -245,8 +277,38 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
         <div className="flex flex-col gap-2">
           <Heading>{JOIN_COPY.blockedDomain.heading}</Heading>
           <Lead>{JOIN_COPY.blockedDomain.body}</Lead>
+          {stop.locked && <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>}
           <a href={JOIN_COPY.blockedDomain.helpUrl} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="join-help">{JOIN_COPY.blockedDomain.help}</a>
-          <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>
+          {stop.locked ? home : <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>}
+        </div>
+      );
+    case 'invite_only': {
+      // The invited email's mask (a bound link); after a bind that just tied the link, only help can work.
+      const hint = stop.locked ? null : preview?.emailHint ?? null;
+      // Only help can work: the link is tied to the refused email, or the refused email IS the invited one.
+      const onlyHelp = stop.locked || stop.typedInvited === true;
+      const help = <a href={JOIN_COPY.inviteOnly.helpUrl} target="_blank" rel="noopener noreferrer" className={onlyHelp ? BTN : GHOST} data-testid="join-help">{JOIN_COPY.inviteOnly.help}</a>;
+      return (
+        <div className="flex flex-col gap-2">
+          <Heading>{JOIN_COPY.inviteOnly.heading}</Heading>
+          <Lead testId="join-invite-only-body">{JOIN_COPY.inviteOnly.body}</Lead>
+          {stop.locked ? <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>
+            : hint ? <Lead testId="join-invite-hint">{JOIN_COPY.inviteSentTo(hint)}</Lead>
+            : <Lead>{JOIN_COPY.inviteOnly.noHint}</Lead>}
+          {stop.typedInvited && <Lead testId="join-invited-refused">{JOIN_COPY.inviteOnly.invitedRefused}</Lead>}
+          {!onlyHelp && <button type="button" className={BTN} onClick={onDismiss} data-testid="join-dismiss">{hint ? JOIN_COPY.inviteOnly.useInvited : JOIN_COPY.inviteOnly.useAnother}</button>}
+          {help}
+          {onlyHelp && home}
+        </div>
+      );
+    }
+    case 'profile_stale':
+      return (
+        <div className="flex flex-col gap-2">
+          <Heading>{JOIN_COPY.profileStale.heading}</Heading>
+          <Lead testId="join-stale-body">{JOIN_COPY.profileStale.body}</Lead>
+          <button type="button" className={BTN} disabled={busy} onClick={onRetry} data-testid="join-retry">{JOIN_COPY.profileStale.button}</button>
+          {home}
         </div>
       );
     case 'rate_limited': {
@@ -317,6 +379,7 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
         <div className="flex flex-col gap-2" data-testid="invite-card">
           <Heading>{screen.title}</Heading>
           {screen.body && <Lead testId="invite-body">{screen.body}</Lead>}
+          <NextLine reason={stop.reason} />
           <ReasonActions reason={screen} busy={busy} onRetry={onRetry} home={home} />
         </div>
       );

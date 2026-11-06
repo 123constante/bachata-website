@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "description": "Per-screen walk shape coverage (slice 10). Each screen lists its UI files, the walk that covers it (null = none) and the survey-derived shape ids that walk covers. coverageGaps() in scripts/lib/walk-fixtures.mjs turns any uncovered shape red. Part A seeds ONE example row only; real rows are Part B/C.",
+  "screens": [
+    {
+      "id": "example-screen",
+      "example": true,
+      "uiFiles": ["src/pages/ExampleScreen.tsx"],
+      "walk": "example-walk",
+      "shapes": [
+        "published.class.nonempty.upcoming.normal",
+        "published.class.empty.upcoming.normal",
+        "published.class.nonempty.past.normal",
+        "published.class.nonempty.upcoming.huge"
+      ]
+    }
+  ]
+}

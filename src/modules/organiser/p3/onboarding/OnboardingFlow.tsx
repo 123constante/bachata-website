@@ -7,24 +7,29 @@ import { flags } from '@/lib/featureFlags';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
+import { supportLinks } from '../../shared/support';
 import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
+import { declinedRequests } from '../../shared/accessRequestModel';
 import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
-import { askedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
+import { askedLine, DECLINED_NEXT, declinedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
-import { P3_PATHS } from '../shell/paths';
+import { P3_PATHS, p3StartReview } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
 import { NoDancerBody, NoDancerFoot, PersonScreens } from './PersonFlow';
-import { PERSON_ORDER, heldFrom, personPath, personReadFail, type PersonStep } from './personModel';
+import { welcomeLine } from './graceModel';
+import { DJ_ORDER, PERSON_ORDER, heldFrom, isDjStep, personPath, personReadFail, type PersonStep } from './personModel';
 import { PAGE_STALE_KEYS, REAL_GO_LIVE, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
   CATEGORIES,
   EMPTY_PAGE,
+  appEditHref,
   KEPT_PARAMS,
   NAME_MAX,
   PAGE_COPY,
+  FIND_INVITE_NOTE,
   afterContact,
   contactEntry,
   draftFrom,
@@ -57,13 +62,15 @@ import {
   welcomeTitle,
 } from './pageModel';
 import { SettingsBody } from './SettingsSheet';
+import { BACK_TO_EVENT, GO_TO_HOME, backAsSecondary, eventReturnFrom, finishLabel, withBack } from './returnTo';
+import { KEPT_BACK_STATE } from './keptDraft';
 import './page.css';
 
 const TICK = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} aria-hidden="true"><path d="M5 12l5 5 9-10" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 const SEARCH = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" strokeLinecap="round" /></svg>;
 const CHEV = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} aria-hidden="true"><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
-const isPersonStep = (s: string): s is PersonStep => (PERSON_ORDER as readonly string[]).includes(s);
+const isPersonStep = (s: string): s is PersonStep => ([...PERSON_ORDER, ...DJ_ORDER] as readonly string[]).includes(s);
 const PAGE_STEPS: readonly string[] = ['welcome', 'find', 'create-name', 'create-city', 'contact', 'contact-phone', 'whatsapp', 'cat', 'link', 'logo'];
 const isPageStep = (s: string): s is PageStep => PAGE_STEPS.includes(s);
 /** The page screens that need the page's own reads (a page exists by then). */
@@ -74,7 +81,9 @@ type Stage =
   | { kind: 'person'; step: PersonStep }
   | { kind: 'review' }
   | { kind: 'live'; outcome: GoLiveOutcome }
-  | { kind: 'asked'; name: string };
+  | { kind: 'asked'; name: string }
+  /** A Review row no screen here answers (an unknown code): says what the person can do instead. */
+  | { kind: 'elsewhere'; row: ReviewRow };
 
 const FIND_MIN = 2;
 
@@ -128,14 +137,27 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
     }
   }, []);
   const exit = useCallback(() => navigate(P3_PATHS.home), [navigate]);
+  // Slice R: the event a refused write came from (GateSheet's Continue), read once so in-flow URL changes keep it.
+  // The checklist's exit goes back to the refused event whenever there is a valid one (finishLabel), left or not:
+  // the kept edit is waiting there (keptDraft.ts). Replace, so Back never loops.
+  const [back] = useState(() => eventReturnFrom(params.get('back')));
+  const finish = useCallback((_left?: number) => (back ? navigate(back, { replace: true, state: KEPT_BACK_STATE }) : exit()), [back, exit, navigate]);
 
   const page = useQuery({ queryKey: ['p3-ob-page', orgId], queryFn: () => reads.page(orgId as string), enabled: !!orgId, retry: false });
   const phone = useQuery({ queryKey: ['p3-ob-page', 'phone', orgId], queryFn: () => reads.phone(orgId as string), enabled: !!orgId, retry: false });
-  const status = useQuery({ queryKey: ['p3-ob-status', orgId], queryFn: () => reads.status(orgId as string), enabled: !!orgId, retry: false });
+  // Arriving at Review (back from the /app editor, Home's banner) re-reads the list: a cached one would still show a
+  // row the person just filled in elsewhere (instagram-refusal r2 N2). Stale at once, so the key's first observer
+  // (orgId lands after mount) fetches; Review waits for that read (reviewFresh).
+  const status = useQuery({ queryKey: ['p3-ob-status', orgId], queryFn: () => reads.status(orgId as string), enabled: !!orgId, retry: false, ...(at === 'review' ? { staleTime: 0 } : {}) });
+  const reviewFresh = at !== 'review' || status.isFetchedAfterMount;
   const dancer = useQuery({ queryKey: ['p3-ob', 'dancer', uid], queryFn: personReads.dancer, enabled: !!uid, retry: false });
   const intent = useQuery({ queryKey: ['p3-ob', 'intent', uid], queryFn: personReads.intent, enabled: !!uid, retry: false });
   const teacher = useQuery({ queryKey: ['p3-ob', 'teacher', uid], queryFn: personReads.teacher, enabled: !!uid, retry: false });
   const organiser = useQuery({ queryKey: ['p3-ob', 'organiser', orgId], queryFn: () => personReads.organiser(orgId as string), enabled: !!orgId, retry: false });
+  // The DJ steps' one extra read (dj_role_details genres), only while on them.
+  const djStage = stage.kind === 'person' && isDjStep(stage.step);
+  const readDj = personReads.dj;
+  const dj = useQuery({ queryKey: ['p3-ob', 'dj', uid], queryFn: () => (readDj ? readDj() : Promise.resolve({})), enabled: !!uid && djStage, retry: false });
 
   const rs = orgId && status.data ? reviewStatusFrom(status.data, orgId) : null;
   // Held page values: taken ONCE per page when its reads land (the draft must not reset under the person's typing).
@@ -152,8 +174,8 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   }, [orgId, page.isSuccess, page.data, phone.isSuccess, phone.data, status.isSuccess, rs]);
 
   const personHeld = useMemo(
-    () => (dancer.data && intent.data && teacher.data ? heldFrom({ dancer: dancer.data, intent: intent.data, teacher: teacher.data, bio: organiser.data?.bio ?? null }) : null),
-    [dancer.data, intent.data, teacher.data, organiser.data],
+    () => (dancer.data && intent.data && teacher.data ? heldFrom({ dancer: dancer.data, intent: intent.data, teacher: teacher.data, bio: organiser.data?.bio ?? null, dj: dj.data ?? null }) : null),
+    [dancer.data, intent.data, teacher.data, organiser.data, dj.data],
   );
   const [teachNow, setTeachNow] = useState<'yes' | 'no' | null>(null);
   const teach = teachNow ?? personHeld?.teach ?? null;
@@ -182,14 +204,19 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       </div>,
       <button type="button" className="p3-ob-btn" aria-disabled="true">Continue</button>,
     );
-  const failed = (screen: string, text: string, retry: () => void) =>
+  // the heading says what happened ("Welcome" was the start screen's title, wrong on a failure); a missing page is not a failed read
+  const failed = (screen: string, text: string, retry: () => void, title = 'That didn\u2019t load') =>
     shell(
       `${screen}-error`,
       <>
-        <h1 className="p3-ob-t" tabIndex={-1}>{PAGE_COPY.welcome.title}</h1>
+        <h1 className="p3-ob-t" tabIndex={-1}>{title}</h1>
         <p className="p3-ob-err" role="alert" data-testid="p3-ob-readfail">{text}</p>
       </>,
-      <button type="button" className="p3-ob-btn" onClick={retry} data-testid="p3-ob-retry">Try again</button>,
+      <>
+        <button type="button" className="p3-ob-btn" onClick={retry} data-testid="p3-ob-retry">Try again</button>
+        {/* a failed read is never a dead end: with a valid refused event, the way back to it is right here */}
+        {back && <button type="button" className="p3-ob-btn p3-ob-btn-line" onClick={() => finish(0)} data-testid="p3-ob-back-event">{BACK_TO_EVENT}</button>}
+      </>,
     );
 
   if (!user) return null;
@@ -202,10 +229,10 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   const needsPage = stage.kind === 'review' || (stage.kind === 'page' && DETAIL_STEPS.includes(stage.step));
   if (needsPage && orgId) {
     if (pageReadsFailed || page.data === null) return failed('page', 'We couldn\u2019t load your page. Try again.', () => [page, phone, status].forEach((q) => void q.refetch()));
-    if (!held || !d || !rs) return loading('page');
+    if (!held || !d || !rs || (stage.kind === 'review' && !reviewFresh)) return loading('page');
   }
   if (needsPage && !orgId) {
-    return failed('page', 'You don\u2019t have a page yet. Find or create one first.', () => go({ kind: 'page', step: 'welcome' }, 'back'));
+    return failed('page', 'You don\u2019t have a page yet. Find or create one first.', () => go({ kind: 'page', step: 'welcome' }, 'back'), 'No page yet');
   }
 
   const invalidate = () => {
@@ -213,14 +240,19 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
   };
 
   if (stage.kind === 'person') {
-    const personReads = [dancer, intent, teacher, ...(orgId ? [organiser] : [])];
+    const personReads = [dancer, intent, teacher, ...(orgId ? [organiser] : []), ...(djStage ? [dj] : [])];
     const personFailed = personReads.some((q) => q.isError);
     // No dancer row: Retry cannot succeed, so the screen says so and offers the team's contact link.
     if (personFailed && personReadFail(personReads.map((q) => q.error)) === 'no_dancer') {
       return shell('person-nodancer', <NoDancerBody />, <NoDancerFoot />, 0, () => go({ kind: 'page', step: orgId ? 'logo' : 'welcome' }, 'back'));
     }
-    if (personFailed) return failed('person', 'We couldn\u2019t load your details. Try again.', () => [dancer, intent, teacher, organiser].forEach((q) => void q.refetch()));
-    if (!personHeld || (orgId && organiser.isPending)) return loading('person');
+    if (personFailed) return failed('person', 'We couldn\u2019t load your details. Try again.', () => [dancer, intent, teacher, organiser, ...(djStage ? [dj] : [])].forEach((q) => void q.refetch()));
+    if (!personHeld || (orgId && organiser.isPending) || (djStage && dj.isPending)) return loading('person');
+    const toReview = () => {
+      void qc.invalidateQueries({ queryKey: ['p3-ob'] });
+      void qc.invalidateQueries({ queryKey: ['p3-ob-status'] });
+      go({ kind: 'review' }, 'back');
+    };
     return (
       <PersonScreens
         key={`person-${stage.step}`}
@@ -238,8 +270,9 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         initialStep={stage.step}
         upload={upload}
         lastLabel="Continue"
-        percentOf={(s, p) => flowPercent(s, groups(p))}
-        onExit={() => {
+        // The DJ steps come from Review and go back to it: the bar stays where Review had it.
+        percentOf={(s, p) => (djStage && rs ? reviewPercent(groups(personPath(teach, true)).length, rs.missing.length) : flowPercent(s, groups(p)))}
+        onExit={djStage ? toReview : () => {
           void qc.invalidateQueries({ queryKey: ['p3-ob'] });
           go({ kind: 'page', step: orgId ? 'logo' : 'welcome' }, 'back');
         }}
@@ -270,20 +303,40 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         onRow={(r) => {
           if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step });
           else if (r.step && isPageStep(r.step)) go({ kind: 'page', step: r.step === 'contact' && held ? contactEntry(held) : r.step });
-          else navigate(r.elsewhere === 'page' ? P3_PATHS.youPage : finishProfileHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`));
+          else if (r.elsewhere === 'page') navigate(P3_PATHS.youPage);
+          else if (r.elsewhere === 'app') navigate(appEditHref('instagram', p3StartReview(orgId)));
+          else if (r.elsewhere === 'dancer') navigate(finishProfileHref(p3StartReview(orgId)));
+          else go({ kind: 'elsewhere', row: r });
         }}
         onLive={(outcome) => {
           invalidate();
           go({ kind: 'live', outcome });
         }}
         onIncomplete={() => void qc.invalidateQueries({ queryKey: ['p3-ob-status'] })}
-        onSignIn={() => navigate(buildSignInHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`))}
-        onHome={exit}
+        onSignIn={() => navigate(buildSignInHref(withBack(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`, back)))}
+        onHome={finish}
+        back={back}
       />
     );
   }
   if (stage.kind === 'live' && orgId) {
-    return <LiveScreen outcome={stage.outcome} name={held?.name || organiser.data?.name || ''} orgId={orgId} organiserDetail={organiserDetail} theme={theme} onHome={exit} onPage={() => navigate(P3_PATHS.youPage)} />;
+    return <LiveScreen outcome={stage.outcome} name={held?.name || organiser.data?.name || ''} orgId={orgId} organiserDetail={organiserDetail} theme={theme} onHome={() => finish(0)} homeLabel={finishLabel(back, 0)} onPage={() => navigate(P3_PATHS.youPage)} />;
+  }
+  if (stage.kind === 'elsewhere' && orgId) {
+    const back = () => go({ kind: 'review' }, 'back');
+    return shell(
+      'elsewhere',
+      <>
+        <h1 className="p3-ob-t" tabIndex={-1} data-testid="p3-ob-title">{stage.row.label}</h1>
+        <p className="p3-ob-m" data-testid="p3-ob-elsewhere">We can&rsquo;t open this one here yet. You can edit your dancer profile, or go back to your list and do the other items.</p>
+      </>,
+      <>
+        <button type="button" className="p3-ob-btn" onClick={() => navigate(appEditHref(null, p3StartReview(orgId)))} data-testid="p3-ob-elsewhere-edit">Edit your dancer profile</button>
+        <button type="button" className="p3-ob-lnk" onClick={back} data-testid="p3-ob-elsewhere-back">Back to your list</button>
+      </>,
+      0,
+      back,
+    );
   }
   if (stage.kind === 'asked') {
     return shell(
@@ -311,6 +364,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       setTheme={setTheme}
       email={user.email ?? null}
       orgId={orgId}
+      left={rs ? new Set(rs.missing).size : null}
       firstName={dancer.data?.first_name ?? ''}
       held={held ?? { ...EMPTY_PAGE, name: pageName }}
       draft={d ?? draftFrom(EMPTY_PAGE)}
@@ -358,6 +412,8 @@ interface PageScreensProps {
   setTheme: (t: 'light' | 'dark') => void;
   email: string | null;
   orgId: string | null;
+  /** Rows still to finish for this page (the status read), for the welcome line's time; null = not read yet. */
+  left?: number | null;
   /** The dancer's first name when known (Welcome greets by it); '' otherwise. */
   firstName?: string;
   held: PageHeld;
@@ -399,6 +455,7 @@ export function PageScreens(props: PageScreensProps) {
   // (owner 2026-10-30). The organiser area's own key, so an ask anywhere refreshes it. A failed read shows none.
   const requests = useQuery({ queryKey: myAccessRequestsQueryKey(userId), queryFn: () => (reads.requests as NonNullable<PageReads['requests']>)(), enabled: !!reads.requests, retry: false });
   const open = useMemo(() => (requests.data ?? []).filter((r) => r.status === 'open'), [requests.data]);
+  const declined = useMemo(() => declinedRequests(requests.data ?? []), [requests.data]);
   const askedAt = useMemo(() => new Map(open.map((r) => [r.organiserId, r.createdAt])), [open]);
   const clearToast = useCallback(() => setToast(null), []);
   const set = <K extends keyof PageDraft>(k: K, v: PageDraft[K]) => setDraft((p) => ({ ...p, [k]: v }));
@@ -534,7 +591,7 @@ export function PageScreens(props: PageScreensProps) {
 
   const copy = PAGE_COPY[step];
   const reason = pageBlocked(step, d);
-  const label = saving ? 'Saving\u2026' : step === 'create-city' ? 'Create page' : step === 'contact' ? 'Yes, that\u2019s right' : step === 'welcome' ? (orgId ? 'Let\u2019s go' : 'Find your page') : step === 'find' ? 'Not listed? Create a page' : 'Continue';
+  const label = saving ? 'Saving\u2026' : step === 'create-city' ? 'Create page' : step === 'contact' ? 'Yes, that\u2019s right' : step === 'welcome' ? (orgId ? 'Let\u2019s go' : 'Find your page') : step === 'find' ? 'Have an invite? Create a page' : 'Continue';
   const errorLine = error && (
     <p className="p3-ob-err" role="alert" data-testid="p3-ob-error">
       {error.text}{' '}
@@ -545,6 +602,7 @@ export function PageScreens(props: PageScreensProps) {
   const foot = (
     <>
       {errorLine || (reason && step !== 'welcome' && step !== 'find' ? <p className="p3-ob-why" id="p3-ob-why" data-testid="p3-ob-why">{reason}</p> : null)}
+      {step === 'find' && <FindInviteNote />}
       <button
         type="button"
         className="p3-ob-btn"
@@ -572,7 +630,7 @@ export function PageScreens(props: PageScreensProps) {
       {copy.helper && <p className="p3-ob-m">{copy.helper}</p>}
       {step === 'welcome' && (
         <>
-          <p className="p3-ob-m">{orgId ? 'A few quick questions and your page is ready to edit. About five minutes, once only.' : 'Let\u2019s find or set up your organiser page.'}</p>
+          <p className="p3-ob-m">{orgId ? welcomeLine(props.left ?? null) : 'Let\u2019s find or set up your organiser page.'}</p>
           <p className="p3-ob-m" data-testid="p3-ob-signedin">
             {email ? <>Signed in as <span className="p3-ob-break">{email}</span>. </> : <>Signed in. </>}
             <button type="button" className="p3-ob-lnk" onClick={() => setSheet({ kind: 'settings' })} data-testid="p3-ob-notyou">Not you?</button>
@@ -585,6 +643,18 @@ export function PageScreens(props: PageScreensProps) {
                   <strong>{r.organiserName ?? 'An organiser'}</strong>: {askedLine(r.createdAt)}
                 </p>
               ))}
+            </div>
+          )}
+          {!orgId && declined.length > 0 && (
+            <div className="p3-ob-card" data-testid="p3-ob-declined">
+              <strong>Request declined</strong>
+              {declined.map((r) => (
+                <p key={r.requestId} className="p3-ob-m" data-testid="p3-ob-declined-row">
+                  {declinedLine(r.resolvedAt ?? r.createdAt, r.organiserName)}
+                  {r.decisionNote ? <> Their note: &ldquo;{r.decisionNote}&rdquo;</> : null}
+                </p>
+              ))}
+              <p className="p3-ob-m" data-testid="p3-ob-declined-next">{DECLINED_NEXT}</p>
             </div>
           )}
         </>
@@ -680,6 +750,19 @@ function SearchInput({ value, onChange, placeholder, testId }: { value: string; 
   );
 }
 
+/** Invite-only note above the Find button; a "Message us" row per configured support link, never a dead one. */
+function FindInviteNote() {
+  const support = supportLinks();
+  const row = 'p3-ob-lnk';
+  return (
+    <div className="p-3 text-sm" data-testid="p3-ob-find-invite-note">
+      <p className="p3-ob-m">{FIND_INVITE_NOTE}</p>
+      {support.whatsapp && <a href={support.whatsapp} target="_blank" rel="noopener noreferrer" className={row} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="p3-ob-find-support-whatsapp">Message us on WhatsApp</a>}
+      {support.email && <a href={`mailto:${support.email}`} className={row} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="p3-ob-find-support-email">Message us by email</a>}
+    </div>
+  );
+}
+
 function FindStep({ q, setQ, reads, askedAt, onPick }: { q: string; setQ: (v: string) => void; reads: PageReads; askedAt: ReadonlyMap<string, string>; onPick: (p: ClaimableOrganiser) => void }) {
   const term = useDebounced(q.trim(), 250);
   const res = useQuery({ queryKey: ['p3-ob-find', term], queryFn: () => reads.findPages(term), enabled: term.length >= FIND_MIN, retry: false });
@@ -690,7 +773,10 @@ function FindStep({ q, setQ, reads, askedAt, onPick }: { q: string; setQ: (v: st
         {term.length < FIND_MIN ? (
           <p className="p3-ob-m p3-ob-kbhide">Type two or more letters.</p>
         ) : res.isError ? (
-          <p className="p3-ob-err" role="alert">The search didn&rsquo;t work. Check your connection and try again.</p>
+          <>
+            <p className="p3-ob-err" role="alert">The search didn&rsquo;t work. Check your connection and try again.</p>
+            <button type="button" className="p3-ob-btn" style={{ minHeight: 44 }} onClick={() => void res.refetch()} data-testid="p3-ob-find-retry">Try again</button>
+          </>
         ) : res.isPending ? (
           <p className="p3-ob-m" role="status">Searching&hellip;</p>
         ) : res.data.length === 0 ? (
@@ -773,6 +859,14 @@ function LogoStep({ url, orgId, onUrl, upload }: { url: string; orgId: string; o
   );
 }
 
+/** P3's own lines for a refused claim that should become "Ask to join" (never the shared "request access" wording). */
+const ASK_INSTEAD_COPY: Record<string, string> = {
+  organiser_already_claimed: 'Someone already manages this page. Ask to join and they can add you.',
+  no_contact_email: 'This page has no contact email to check against. Ask to join and the team will check.',
+  email_mismatch: 'This page has a different contact email. Ask to join and the team will check who you are.',
+  auth_user_email_missing: 'Your account has no email address, so it cannot claim a page. Ask to join instead.',
+};
+
 function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked, onHome, onFullClaim }: {
   page: ClaimableOrganiser; theme: 'light' | 'dark'; writes: PageWrites;
   /** The open request's date when the person already asked to join this page; undefined = not asked. */
@@ -784,6 +878,9 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
   const [err, setErr] = useState<{ text: string; reauth: boolean } | null>(null);
   // The server's request_already_open (the list had not caught up) is the same fact, not an error.
   const [serverAsked, setServerAsked] = useState(false);
+  // A refused claim that should become a request: the button switches to Ask to join.
+  const [askInstead, setAskInstead] = useState(false);
+  const primary = askInstead ? 'ask' : s.primary;
   if (s.primary !== 'home' && (askedAt !== undefined || serverAsked)) {
     return (
       <ObSheet title={s.title} onClose={onClose} theme={theme} testId="p3-ob-sheet-claim">
@@ -797,7 +894,7 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
     setBusy(true);
     setErr(null);
     try {
-      if (s.primary === 'claim') {
+      if (primary === 'claim') {
         await writes.claim(page.id);
         onClaimed(page.id);
       } else {
@@ -807,7 +904,10 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
     } catch (e) {
       if (selfServeErrorCode(e) === 'request_already_open') return setServerAsked(true);
       const c = selfServeErrorCopy(e);
-      setErr({ text: c.message, reauth: c.next === 'reauth' });
+      const code = selfServeErrorCode(e);
+      const own = c.next === 'request_access' && code ? ASK_INSTEAD_COPY[code] : undefined;
+      if (own) setAskInstead(true);
+      setErr({ text: own ?? c.message, reauth: c.next === 'reauth' });
     } finally {
       setBusy(false);
     }
@@ -820,15 +920,17 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
           {err.text} {err.reauth && <button type="button" className="p3-ob-lnk" onClick={onFullClaim}>Confirm with an email code</button>}
         </p>
       )}
-      <button type="button" className="p3-ob-btn" aria-disabled={busy ? 'true' : undefined} onClick={() => void act()} data-testid="p3-ob-claim-go">{busy ? 'Saving\u2026' : s.primaryLabel}</button>
+      <button type="button" className="p3-ob-btn" aria-disabled={busy ? 'true' : undefined} onClick={() => void act()} data-testid="p3-ob-claim-go">{busy ? 'Saving\u2026' : askInstead ? 'Ask to join' : s.primaryLabel}</button>
       {s.notThisOne && <button type="button" className="p3-ob-lnk" onClick={onClose}>Not this one</button>}
     </ObSheet>
   );
 }
 
-function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome }: {
+function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome, back = null }: {
   status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; steps: number; refreshing: boolean;
-  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: () => void;
+  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: (left: number) => void;
+  /** Slice R: the refused event (returnTo.ts), or null (reached from Home). */
+  back?: string | null;
 }) {
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -854,9 +956,11 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
   }, [missingKey]);
   const percent = reviewPercent(steps, shown.missing.length);
   const fail = refused ? goLiveRefusalCopy(refused) : null;
-  const primaryLabel = fail?.action === 'home' ? 'Go to Home' : fail?.action === 'sign-in' ? 'Sign in again' : fail?.action === 'retry' ? 'Try again' : c.primary;
+  const left = shown.missing.length;
+  const homeLabel = finishLabel(back, left);
+  const primaryLabel = fail?.action === 'home' ? homeLabel : fail?.action === 'sign-in' ? 'Sign in again' : fail?.action === 'retry' ? 'Try again' : c.primary === GO_TO_HOME ? homeLabel : c.primary;
   const primary = async () => {
-    if (state === 'live' || state === 'in-review' || state === 'closed' || fail?.action === 'home') return onHome();
+    if (state === 'live' || state === 'in-review' || state === 'closed' || fail?.action === 'home') return onHome(left);
     if (fail?.action === 'sign-in') return onSignIn();
     if (c.reason) return setToast(c.reason);
     if (inFlight.current) return;
@@ -892,6 +996,10 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
           <button type="button" className="p3-ob-btn" aria-disabled={(c.reason && fail?.action !== 'home' && fail?.action !== 'sign-in') || busy ? 'true' : undefined} aria-describedby={c.reason && !fail ? 'p3-ob-why' : undefined} onClick={() => void primary()} data-testid="p3-ob-continue">
             {busy ? 'Going live\u2026' : primaryLabel}
           </button>
+          {/* things still left + a valid refused event: the way back to it, without finishing first */}
+          {backAsSecondary(back, left, primaryLabel) && (
+            <button type="button" className="p3-ob-btn p3-ob-btn-line" onClick={() => onHome(left)} data-testid="p3-ob-back-event">{BACK_TO_EVENT}</button>
+          )}
         </>
       }>
       <h1 className="p3-ob-t" id="p3-ob-title" tabIndex={-1} data-testid="p3-ob-title">{c.title}</h1>
@@ -913,8 +1021,8 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
 }
 
 /** Screen 22. Only reached after goLive.complete resolved; `pending_review` is the review variant (liveCopy), never "You're live". */
-function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPage }: {
-  outcome: GoLiveOutcome; name: string; orgId: string; organiserDetail: boolean; theme: 'light' | 'dark'; onHome: () => void; onPage: () => void;
+function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, homeLabel = GO_TO_HOME, onPage }: {
+  outcome: GoLiveOutcome; name: string; orgId: string; organiserDetail: boolean; theme: 'light' | 'dark'; onHome: () => void; homeLabel?: string; onPage: () => void;
 }) {
   const [note, setNote] = useState<string | null>(null);
   const clearNote = useCallback(() => setNote(null), []);
@@ -935,7 +1043,7 @@ function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPa
   const first = c.actions[0];
   const line = (a: string) => (a === first ? 'p3-ob-btn' : 'p3-ob-btn p3-ob-btn-line');
   return (
-    <ObShell screen={outcome === 'live' ? 'live' : 'live-review'} dir="fwd" percent={100} onBack={onHome} backLabel="Go to Home" onEscape={onHome} theme={theme}
+    <ObShell screen={outcome === 'live' ? 'live' : 'live-review'} dir="fwd" percent={100} onBack={onHome} backLabel={homeLabel} onEscape={onHome} theme={theme}
       foot={
         <>
           {c.actions.includes('view') &&
@@ -945,7 +1053,7 @@ function LiveScreen({ outcome, name, orgId, organiserDetail, theme, onHome, onPa
               <button type="button" className={line('view')} onClick={onPage} data-testid="p3-ob-live-view">View my page</button>
             ))}
           {c.actions.includes('share') && <button type="button" className={line('share')} onClick={() => void share()} data-testid="p3-ob-live-share">Share</button>}
-          <button type="button" className={line('home')} onClick={onHome} data-testid="p3-ob-live-home">Go to Home</button>
+          <button type="button" className={line('home')} onClick={onHome} data-testid="p3-ob-live-home">{homeLabel}</button>
         </>
       }>
       {c.celebrate && <Confetti />}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchPublicTicketTypes, postTicketCheckout, publicTicketKeys } from './ticketCheckoutApi';
+import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketKeys } from './ticketCheckoutApi';
+import { PROMO_MAX_LENGTH, codeFromSearch, isCodeReason, normaliseCode, promoKey, promoNoteText, promoView, type PromoState } from './promo';
 import {
   BOOKING_FEE_LABEL,
   CANCELLED_PARAM,
@@ -74,6 +75,11 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   // Holds a second tap or Return even before React re-renders Buy as disabled.
   const inFlight = useRef(false);
   const [error, setError] = useState<{ reason: string; message: string | null } | null>(null);
+  // Promo code: a `?code=` link pre-fills the field; it is only ever applied by a tap.
+  const [promoInput, setPromoInput] = useState(() => codeFromSearch(location.search));
+  const [promo, setPromo] = useState<PromoState>({ status: 'idle' });
+  // Only the latest preview may land: a double tap or a fast quantity change drops the older reply.
+  const promoSeq = useRef(0);
 
   const list = typesForNight(types ?? [], occurrenceId);
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
@@ -84,6 +90,44 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const max = selected ? maxQuantity(selected, now) : 0;
   // The stepper only ever moves from qty, so the stored count never needs syncing.
   const qty = clampQuantity(quantity, max);
+  const key = selected ? promoKey(selected.id, qty) : null;
+  // A free ticket has nothing to take off: no field, and a pre-filled code never holds Buy back.
+  const promoOn = selected !== null && selected.pricePence > 0;
+  const pv = promoView(promoOn ? promo : { status: 'idle' }, promoOn ? promoInput : '', key);
+
+  async function applyPromo(raw: string) {
+    const code = normaliseCode(raw);
+    if (!code) {
+      setPromo({ status: 'refused', code: '', key: null, reason: 'empty' });
+      return;
+    }
+    if (!selected || promo.status === 'checking') return;
+    await pricePromo(code, selected.id, qty);
+  }
+
+  async function pricePromo(code: string, typeIdFor: string, quantityFor: number) {
+    const seq = ++promoSeq.current;
+    const forKey = promoKey(typeIdFor, quantityFor);
+    setPromo({ status: 'checking', code });
+    const r = await previewPromo(seriesId, typeIdFor, quantityFor, code);
+    if (seq !== promoSeq.current) return;
+    setPromo(r.ok ? { status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence } : { status: 'refused', code, key: forKey, reason: r.reason });
+  }
+
+  /**
+   * A new ticket or count re-prices the code in play straight away: applied, still being
+   * checked (the newer price wins, the older reply is dropped) or refused for the old choice.
+   */
+  function choose(nextTypeId: string, nextQty: number) {
+    const live = promo.status !== 'idle' && promo.code !== '' && promo.code === normaliseCode(promoInput) ? promo.code : null;
+    if (live && promoKey(nextTypeId, nextQty) !== key) void pricePromo(live, nextTypeId, nextQty);
+  }
+
+  function removePromo() {
+    promoSeq.current += 1;
+    setPromoInput('');
+    setPromo({ status: 'idle' });
+  }
 
   // Back from Stripe can restore this page from the bfcache with submitting still true.
   useEffect(() => {
@@ -115,8 +159,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const reason =
     err?.way === 'contact_organiser'
       ? 'Online tickets are not available for this event right now.'
-      : disabledReason({ type: selected, quantity: qty, email, termsAccepted, origin, submitting }, now);
+      : (disabledReason({ type: selected, quantity: qty, email, termsAccepted, origin, submitting }, now) ?? pv.buyBlocked);
   const sum = selected ? totals(selected, qty) : null;
+  // The preview prices tickets only; any booking fee is added on top, as checkout does.
+  const payPence = sum ? (pv.appliedTotalPence !== null ? pv.appliedTotalPence + sum.feePence : sum.totalPence) : 0;
 
   async function onBuy() {
     if (!selected || reason || inFlight.current) return;
@@ -124,7 +170,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     setSubmitting(true);
     setError(null);
     const result = await postTicketCheckout(
-      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name }, origin, cancelReturnPath(location.pathname, location.search)),
+      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode }, origin, cancelReturnPath(location.pathname, location.search)),
     );
     if (result.kind === 'redirect') {
       saveOrderId(result.orderId);
@@ -136,6 +182,11 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     if (result.kind === 'free') {
       saveOrderId(result.orderId);
       navigate(`${THANKS_PATH}?o=${encodeURIComponent(result.orderId)}&free=1`);
+      return;
+    }
+    // A code refusal at checkout (HTTP 409) belongs to the code field, with its own way forward.
+    if (pv.sendCode && isCodeReason(result.reason)) {
+      setPromo({ status: 'refused', code: pv.sendCode, key, reason: result.reason });
       return;
     }
     setError({ reason: result.reason, message: result.message });
@@ -177,6 +228,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 onClick={() => {
                   setTypeId(t.id);
                   setError(null);
+                  choose(t.id, clampQuantity(quantity, maxQuantity(t, now)));
                 }}
                 className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left disabled:opacity-60"
                 style={{
@@ -234,7 +286,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 type="button"
                 aria-label="One fewer ticket"
                 disabled={qty <= 1}
-                onClick={() => setQuantity(qty - 1)}
+                onClick={() => {
+                  setQuantity(qty - 1);
+                  if (selected) choose(selected.id, qty - 1);
+                }}
                 className="h-[44px] w-[44px] rounded-md text-[18px] disabled:opacity-40"
                 style={{ background: 'hsl(var(--bento-surface))' }}
               >
@@ -245,7 +300,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 type="button"
                 aria-label="One more ticket"
                 disabled={qty >= max}
-                onClick={() => setQuantity(qty + 1)}
+                onClick={() => {
+                  setQuantity(qty + 1);
+                  if (selected) choose(selected.id, qty + 1);
+                }}
                 className="h-[44px] w-[44px] rounded-md text-[18px] disabled:opacity-40"
                 style={{ background: 'hsl(var(--bento-surface))' }}
               >
@@ -270,11 +328,81 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 <dd>{formatPence(sum.feePence)}</dd>
               </div>
             )}
+            {pv.appliedDiscountPence !== null && (
+              <div className="flex justify-between" data-testid="promo-saving">
+                <dt>Promo code {pv.sendCode}</dt>
+                <dd>&minus;{formatPence(pv.appliedDiscountPence)}</dd>
+              </div>
+            )}
             <div className="flex justify-between font-semibold">
               <dt>Total</dt>
-              <dd>{sum.free ? 'Free' : formatPence(sum.totalPence)}</dd>
+              <dd>{sum.free ? 'Free' : formatPence(payPence)}</dd>
             </div>
           </dl>
+
+          {!sum.free && (
+            <div>
+              <label htmlFor="tickets-promo" className="mb-1 block text-[13px]">Promo code (optional)</label>
+              <div className="flex gap-2">
+                <input
+                  id="tickets-promo"
+                  type="text"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={PROMO_MAX_LENGTH}
+                  value={promoInput}
+                  readOnly={promo.status === 'checking'}
+                  onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    // Return in the code field applies the code; it never submits the purchase.
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (!pv.applyBlocked) void applyPromo(promoInput);
+                    }
+                  }}
+                  aria-describedby={pv.note || pv.applyBlocked ? 'tickets-promo-note' : undefined}
+                  className="h-[44px] min-w-0 flex-1 rounded-md px-3 text-[16px] uppercase text-black"
+                />
+                {pv.sendCode ? (
+                  <button
+                    type="button"
+                    onClick={removePromo}
+                    className="h-[44px] shrink-0 rounded-md px-3 text-[14px] font-semibold"
+                    style={{ background: 'hsl(var(--bento-surface))', border: '1px solid var(--bento-hairline)' }}
+                  >
+                    Remove
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void applyPromo(promoInput)}
+                    disabled={pv.applyBlocked !== null}
+                    className="h-[44px] shrink-0 rounded-md px-3 text-[14px] font-semibold disabled:opacity-50"
+                    style={{ background: 'hsl(var(--bento-surface))', border: '1px solid var(--bento-hairline)' }}
+                  >
+                    {promo.status === 'checking' ? <>Checking&hellip;</> : 'Apply'}
+                  </button>
+                )}
+              </div>
+              {(pv.note || pv.applyBlocked) && (
+                <p
+                  id="tickets-promo-note"
+                  role={pv.tone === 'bad' ? 'alert' : 'status'}
+                  data-testid="promo-note"
+                  className="mt-1 text-[12px]"
+                  style={pv.tone === 'good' ? { color: 'hsl(var(--bento-accent))' } : muted}
+                >
+                  {promoNoteText(pv)}
+                </p>
+              )}
+              {normaliseCode(promoInput) && !pv.sendCode && promo.status !== 'checking' && (
+                <button type="button" onClick={removePromo} className="min-h-[44px] text-[13px] underline" style={muted}>
+                  Clear the code and pay the full price
+                </button>
+              )}
+            </div>
+          )}
 
           <label className="block">
             <span className="mb-1 block text-[13px]">Email (your tickets are sent here)</span>
@@ -340,7 +468,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
               className="min-h-[48px] w-full rounded-md px-3 py-2 text-[15px] font-semibold disabled:opacity-50"
               style={accentBg}
             >
-              {submitting ? <>Working on it&hellip;</> : buyLabel(selected)}
+              {submitting ? <>Working on it&hellip;</> : pv.appliedTotalPence !== null && payPence === 0 ? 'Get free tickets' : buyLabel(selected)}
             </button>
             {reason && (
               <p id="tickets-buy-reason" className="mt-1 text-[12px]" style={muted}>{reason}</p>
