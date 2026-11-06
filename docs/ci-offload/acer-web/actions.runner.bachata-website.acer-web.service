@@ -1,7 +1,7 @@
 # /etc/systemd/system/actions.runner.bachata-website.acer-web.service
-# ONE self-hosted runner for 123constante/bachata-website on the Acer
-# (CI offload stage 3, docs/handover/ci-offload-stage3.md). NOT one of the
-# four admin runners (laptop-ci-runner-1..4); its own user, directory, unit.
+# ONE self-hosted runner for 123constante/bachata-website on the Acer (CI offload stage 3,
+# docs/handover/ci-offload-stage3.md). NOT one of the admin runners; own user, dir, unit.
+# Dell: the same file with acer-web -> dell-web (see the handover, "The Dell").
 [Unit]
 Description=GitHub Actions runner bachata-website acer-web (stage 3 pilot)
 After=network-online.target
@@ -10,34 +10,56 @@ Wants=network-online.target
 [Service]
 User=ghrunner-web
 Group=ghrunner-web
+# laptop-walk: the group that owns the shared walk-lock dir /var/lib/laptop-walk.
+SupplementaryGroups=laptop-walk
 WorkingDirectory=/srv/ghrunner-web/runner
-# Per-job load gate + shared walk lock (see gate-job-started.sh).
-Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/srv/ghrunner-web/hooks/gate-job-started.sh
-Environment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/srv/ghrunner-web/hooks/gate-job-completed.sh
-# Must equal the values the Acer's walk/test gate already uses.
+# Hooks are ROOT-OWNED (0755, dir 0755 root:root) and NOT in ReadWritePaths: a job cannot edit them.
+Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/lib/ghrunner-web/hooks/gate-job-started.sh
+Environment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/lib/ghrunner-web/hooks/gate-job-completed.sh
+Environment=WEB_RUNNER_STATE_DIR=/srv/ghrunner-web/state
+Environment=WEB_RUNNER_WORK_DIR=/srv/ghrunner-web/runner/_work
+Environment=WALK_LOCK=/var/lib/laptop-walk/walk.lock
+Environment=GATE_WAIT_S=180
+# Must equal the values the Acer's walk/test gate (laptop-safe.mjs) uses.
 Environment=SAFE_LOAD_MAX=3.0
 Environment=SAFE_MEM_MIN=1500
 ExecStart=/srv/ghrunner-web/runner/run.sh
+# Stop/restart: kill the WHOLE cgroup (runner, job, the setsid lock holder, node, Playwright),
+# then clear the state files so no stale holder pid or verdict survives.
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=2min
+ExecStopPost=/bin/rm -f /srv/ghrunner-web/state/lock-holder.pid /srv/ghrunner-web/state/gate-verdict
 Restart=on-failure
 RestartSec=30
-KillMode=process
-KillSignal=SIGTERM
-TimeoutStopSec=5min
-# Resource caps: 4 GB (stage 2 peak was 2.64 GiB), low CPU priority.
+# Resource caps: 4 GB (stage 2 peak was 2.64 GiB), low CPU/IO priority.
 MemoryMax=4G
 MemorySwapMax=0
 Nice=10
 IOSchedulingClass=idle
 CPUWeight=50
 TasksMax=2048
-# Isolation: no access to other users' homes (ci, offload: ~/.ssh, ~/.claude)
-# or the admin runners' directories.
-ProtectHome=yes
+# Filesystem: everything read-only except the job workspace, the runner's log dir, the state
+# dir and the walk-lock dir. NOT writable: the hooks (/usr/local/lib/ghrunner-web), the
+# runner binaries and its credentials (.runner, .credentials, .credentials_rsaparams in
+# /srv/ghrunner-web/runner). Hence the runner is configured with --disableupdate.
 ProtectSystem=strict
-ReadWritePaths=/srv/ghrunner-web /tmp
+ProtectHome=yes
+ReadWritePaths=/srv/ghrunner-web/runner/_work /srv/ghrunner-web/runner/_diag /srv/ghrunner-web/state /var/lib/laptop-walk
+PrivateTmp=yes
 InaccessiblePaths=-/home -/root -/srv/laptop-ci-runner-1 -/srv/laptop-ci-runner-2 -/srv/laptop-ci-runner-3 -/srv/laptop-ci-runner-4
 PrivateDevices=yes
 NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+# Egress: no LAN, no link-local/metadata, no CGNAT (Tailscale) range. Internet stays open
+# (github.com, the npm registry, Supabase are what jobs need); IP-level only, no per-domain
+# allowlist. If the DNS resolver is on the LAN, allow exactly its address (set it; Allow wins):
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+# IPAddressAllow=192.168.1.1
+# Loopback stays allowed (127.0.0.0/8, ::1): the job's own vite preview / Playwright need it.
 
 [Install]
 WantedBy=multi-user.target
