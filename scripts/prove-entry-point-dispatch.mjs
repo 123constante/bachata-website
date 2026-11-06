@@ -180,6 +180,7 @@ const TARGETS = [
   { rel: 'scripts/check-ci-budget.mjs' },
   { rel: 'scripts/check-deployment-storage.mjs' },
   { rel: 'scripts/check-drill-records.mjs' },
+  { rel: 'scripts/check-event-snapshot-version.mjs' },
   { rel: 'scripts/check-event-truth-v1.mjs' },
   { rel: 'scripts/check-identity-register.mjs' },
   { rel: 'scripts/check-secrets-register.mjs' },
