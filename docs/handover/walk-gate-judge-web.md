@@ -61,3 +61,6 @@ approves at head; the worker never approves or merges.
 - Tests: `tests/walkHosts.test.ts` (table-driven); mutants in the PR body.
 - Still left: `.github/automation/walk-hosts.json` (a guard path, owner-merged) and the lock
   wiring that reads live host readings, acquires `walk:<host>` and builds once per head.
+- Status (PR #1441, tested on baf1ce4): 50 unit tests pass; mutants M0 to M6 all red; `npm run lint` exit 0;
+  tsc run on baf1ce4: 0 errors in branch files; check:mojibake clean. Not verified: real hosts, real RAM/CI
+  readings, the lock wiring. Next: owner reviews; a Part D wiring brief adds `walk-hosts.json` + lock.
