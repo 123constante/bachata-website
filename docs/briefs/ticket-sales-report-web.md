@@ -5,8 +5,8 @@ Lane: normal (no database change). Model: Sonnet (screen over existing reads, re
 Serves: arc ticketing "reports" (docs/scoping/ticket-followups-2026-10-30.md T10 area; `docs/organiser-ticketing-journey.md`).
 
 ## What main lacks
-- The P3 Tickets sheet shows types, the latest two orders and "See all" (`src/modules/organiser/p3/tickets/TicketsEntry.tsx:109,126,218-236`) and a Money so far line. It has NO per-event sales report and NO way to take the guest list out (git grep csv|download in `p3/tickets` and `p3/door` returns nothing).
-- Reads already exist and need no migration: `fetchOrders` (`src/modules/organiser/tickets/ticketsApi.ts:147`, buyer_name, quantity, totals, refunded_pence, status, paid_at; no email by design), `fetchSeriesTypes` (:115), `ticket_door_list_v1` via `src/modules/organiser/p3/door/data.ts:100` (checked-in state per ticket).
+- The P3 Tickets sheet shows types, the latest two orders and "See all" (`src/modules/organiser/p3/tickets/TicketsEntry.tsx:109,126,218-236`) and a Money so far line. It has NO per-event sales report and NO way to take the guest list out (git grep csv|download in `p3/tickets` and `p3/door` returns nothing). -- src/modules/organiser/p3/tickets/salesReportModel.ts
+- extends: Reads already exist and need no migration: `fetchOrders` (`src/modules/organiser/tickets/ticketsApi.ts:147`, buyer_name, quantity, totals, refunded_pence, status, paid_at; no email by design), `fetchSeriesTypes` (:115), `ticket_door_list_v1` via `src/modules/organiser/p3/door/data.ts:100` (checked-in state per ticket). -- src/modules/organiser/tickets/ticketsApi.ts
 
 ## Step 0 INVENTORY (before building)
 `docs/design/ticket-sales-report/INVENTORY.md`: every place the current Website and the admin app show ticket sales, orders or a guest list (file:line), the fields each shows, and the fields you will show; end with a COVERAGE COUNT. Confirm what `ticket_door_list_v1` returns per row (first_name only?) by reading admin `supabase/migrations/20270314140000_ticket_door_short_code_v1.sql` on main.
