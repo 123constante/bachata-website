@@ -108,6 +108,9 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   const [draft, setDraft] = useState<EditDraft>(() => draftFromProfile(profile));
   const [serverErrors, setServerErrors] = useState<ServerErrors>({});
   const [topError, setTopError] = useState<string | null>(null);
+  // The same words as the top card, shown again under the Save button (cleared by an edit or the next Save).
+  const [saveLine, setSaveLine] = useState<string | null>(null);
+  const saveAreaRef = useRef<HTMLDivElement>(null);
   const [saved, setSaved] = useState(false);
   // The draft a save was sent from: a draft edited while the save was in flight is kept (review S1).
   const sentDraft = useRef<EditDraft | null>(null);
@@ -115,6 +118,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   draftRef.current = draft;
   const set = <K extends keyof EditDraft>(key: K, value: EditDraft[K]) => {
     setSaved(false);
+    setSaveLine(null);
     setServerErrors((e) => ({ ...e, [key]: undefined }));
     setDraft((d) => ({ ...d, [key]: value }));
   };
@@ -139,8 +143,18 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       const placed = placeServerError(err, d);
       setServerErrors(placed.field);
       setTopError(placed.top);
+      setSaveLine(placed.top);
     },
   });
+
+  // After a failed save, bring the Save area into view only if it is off screen. Never moves focus.
+  useEffect(() => {
+    if (!saveLine) return;
+    const el = saveAreaRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView?.({ block: 'nearest' });
+  }, [saveLine]);
 
   // D119: leaving with unsaved edits asks first. Every way out (back buttons, the tabs, the home link) shares this one guard.
   const navigate = useNavigate();
@@ -179,6 +193,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
     if (reason !== null) return;
     sentDraft.current = draft;
     setTopError(null);
+    setSaveLine(null);
     mutation.mutate(delta);
   };
 
@@ -405,10 +420,15 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         )}
       </Card>
 
-      <div className="grid gap-[6px]">
+      <div ref={saveAreaRef} className="grid gap-[6px]">
         <PrimaryButton type="submit" disabled={reason !== null} aria-describedby="save-reason" testId="edit-save">
           Save changes
         </PrimaryButton>
+        {saveLine && (
+          <p role="alert" data-testid="edit-save-error" className="m-0 min-h-[44px] break-words text-[14px] text-[var(--danger)]">
+            {saveLine}
+          </p>
+        )}
         {reason !== null && (
           <p id="save-reason" data-testid="edit-save-reason" className="m-0 text-[14px] text-[var(--warn-fg)]">
             {reason}
