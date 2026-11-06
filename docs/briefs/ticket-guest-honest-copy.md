@@ -6,7 +6,7 @@ Repo: Website. Branch: claude/ticket-guest-honest-copy. Lane: normal, Sonnet. No
 ## What main lacks
 - A signed-in buyer whose order is NOT linked to their account (bought before signing in, or the read failed) sees "Your tickets are in your email, and in My tickets." (src/modules/tickets/OrderQrBlock.tsx line 35, testid order-qr-email). It is false: `my_tickets_v1` returns only orders with buyer_user_id = the caller and never links a guest order by email (admin migration 20270314050000 header). The link then shows "No tickets yet" -- grep: keep your tickets in My tickets
 - The checkout form never tells a signed-out buyer their tickets come by email only. Only the My tickets empty state says "Tickets you buy while signed in show here" (myTicketsModel.ts line 155). The sole hint is the label "Email (your tickets are sent here)" (TicketsBlock.tsx line 408). -- grep: keep your tickets in My tickets
-- Already on main, keep: the signed-out thank-you page makes no My tickets promise (OrderQrBlock mounts only when `user` is set, TicketThanksPage.tsx line 105). -- src/modules/tickets/OrderQrBlock.tsx
+- extends: Already on main, keep: the signed-out thank-you page makes no My tickets promise (OrderQrBlock mounts only when `user` is set, TicketThanksPage.tsx line 105). -- src/modules/tickets/OrderQrBlock.tsx
 
 ## Files
 src/modules/tickets/OrderQrBlock.tsx, src/modules/tickets/myTicketsModel.ts (one shared words object for the three lines), src/modules/tickets/TicketsBlock.tsx (one note under the email field, signed-out only), src/modules/tickets/__tests__/orderQr.test.tsx, new src/modules/tickets/__tests__/ticketWhere.matrix.test.tsx, docs/design/ticket-guest-honest-copy.md. Leave alone: ticketCheckoutModel.ts reasons, legalCopy.ts, TicketsBlock promo code.
