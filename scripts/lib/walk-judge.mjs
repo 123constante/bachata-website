@@ -254,11 +254,22 @@ export function judgeVerdict(input, report, coverage) {
     : screensMissingFromCoverage(coverage, isObj(input) ? input.screens : undefined).map((p) => `coverage: ${p}`)));
 }
 
+const thrownMessage = (err) => (err && err.message ? err.message : String(err));
+
+// A throw inside the coverage thunk (a hostile getter on `coverage` or
+// `input.screens`) is ONE `coverage:` reason, kept first; judge(...) still runs.
+// If judge(...) itself throws, the coverage reasons found so far are kept too.
 function judgeSafe(input, report, preReasons) {
+  let pre;
   try {
-    return judge(input, report, preReasons());
+    pre = preReasons();
   } catch (err) {
-    return verdictOf('', [`judge threw: ${err && err.message ? err.message : String(err)}`], [], []);
+    pre = [`coverage: coverage check threw: ${thrownMessage(err)}`];
+  }
+  try {
+    return judge(input, report, pre);
+  } catch (err) {
+    return verdictOf('', [...pre, `judge threw: ${thrownMessage(err)}`], [], []);
   }
 }
 

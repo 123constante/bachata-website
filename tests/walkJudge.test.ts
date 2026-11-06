@@ -551,4 +551,88 @@ describe('walk-judge: input.screens is compared with walk-coverage.json', () => 
     const seeded = JSON.parse(readFileSync(path.resolve(__dirname, '../docs/design/walk-coverage.json'), 'utf8'));
     expect(judgeVerdict(makeInput(), makeReport(), seeded).verdict).toBe('red');
   });
+
+  it('K13 duplicate input ids: reported once per duplicated id, and the verdict is red with a coverage: reason', () => {
+    const dupOnce = [...SCREENS, { ...SCREENS[0] }];
+    const dupTwice = [...SCREENS, { ...SCREENS[0] }, { ...SCREENS[0] }];
+    for (const screens of [dupOnce, dupTwice]) {
+      const problems = screensMissingFromCoverage(MATCH, screens);
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toMatch(/^input\.screens is malformed: .*unique ids$/);
+      const v = judgeVerdict(makeInput({ screens }), makeReport(), MATCH);
+      expect(v.verdict).toBe('red');
+      expect(isPass(v, HEAD)).toBe(false);
+      expect(v.reasons[0]).toMatch(/^coverage: input\.screens is malformed: .*unique ids$/);
+      expect(v.reasons.filter((x: string) => x.startsWith('coverage: '))).toHaveLength(1);
+      expect(v.reasons).toContain('input: screen event-page repeats');
+    }
+  });
+});
+
+// ---- brief walk-gate-judge-threw-test: a throw inside the coverage check is ONE
+// red reason, coverage first, and every other red reason of the judge is kept.
+describe('walk-judge: coverage check threw (red reason 10 of 10)', () => {
+  const A = 'published.class.nonempty.upcoming.normal';
+  const P = 'published.party.empty.past.normal';
+  const row = (id: string, shapes: string[]) => ({ id, uiFiles: [`src/pages/${id}.tsx`], walk: `${id}-walk`, shapes });
+  const MATCH = { schemaVersion: 1, screens: [row('event-page', [A]), row('calendar', [P])] };
+  type Target = 'coverage getter' | 'input.screens getter, always' | 'input.screens getter, first read only';
+  const thrownValues: [string, unknown, string][] = [
+    ['Error', new Error('boom'), 'boom'],
+    ['string', 'boom-string', 'boom-string'],
+    ['null', null, 'null'],
+  ];
+  function hostile(target: Target, thrown: unknown) {
+    const input = makeInput();
+    let coverage: unknown = MATCH;
+    if (target === 'coverage getter') {
+      coverage = { schemaVersion: 1, get screens() { throw thrown; } };
+    } else {
+      const screens = input.screens;
+      let reads = 0;
+      const always = target === 'input.screens getter, always';
+      Object.defineProperty(input, 'screens', {
+        enumerable: true,
+        get() { reads += 1; if (always || reads === 1) throw thrown; return screens; },
+      });
+    }
+    return { input, coverage };
+  }
+  const targets: Target[] = ['coverage getter', 'input.screens getter, always', 'input.screens getter, first read only'];
+  const rows: [string, Target, unknown, string, boolean][] = [];
+  for (const t of targets) for (const [kind, thrown, msg] of thrownValues) for (const dirty of [false, true]) {
+    rows.push([`${t} / thrown ${kind} / ${dirty ? 'with another red reason' : 'clean input'}`, t, thrown, msg, dirty]);
+  }
+
+  it.each(rows)('%s', (_name, target, thrown, msg, dirty) => {
+    const { input, coverage } = hostile(target, thrown);
+    const report = dirty ? makeReport((m) => { m.tapTargets = 10; }) : makeReport();
+    const v = judgeVerdict(input, report, coverage);
+    expect(v.verdict).toBe('red');
+    expect(isPass(v, HEAD)).toBe(false);
+    const reason = `coverage: coverage check threw: ${msg}`;
+    expect(v.reasons[0]).toBe(reason);
+    expect(v.reasons.filter((x: string) => x.includes('coverage check threw'))).toHaveLength(1);
+    if (target === 'input.screens getter, always') {
+      // judge(...) itself cannot read input.screens, so its own throw is kept AFTER the coverage reason.
+      expect(v.reasons).toEqual([reason, `judge threw: ${msg}`]);
+      return;
+    }
+    // The rest of judge(...) ran: its numbers are cited and its red reasons are kept.
+    expect(v.cited).toHaveLength(RUBRIC.length * 2 * 2);
+    if (dirty) {
+      expect(v.reasons.length).toBeGreaterThan(1);
+      expect(v.reasons.slice(1).some((x: string) => /tapTargets measured 10/.test(x))).toBe(true);
+    } else {
+      expect(v.reasons).toEqual([reason]);
+    }
+  });
+
+  it('two-argument verdict is unchanged: a throwing input.screens is still only `judge threw:`', () => {
+    const { input } = hostile('input.screens getter, always', new Error('boom'));
+    const v = judgeVerdict(input, makeReport());
+    expect(v.verdict).toBe('red');
+    expect(v.headSha).toBe('');
+    expect(v.reasons).toEqual(['judge threw: boom']);
+  });
 });

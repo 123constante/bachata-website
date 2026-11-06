@@ -35,10 +35,25 @@ approves at head; the worker never approves or merges.
   no change of intent; one hand merge in `docs/automation/judge-worker.md` "Parts left" (kept main's
   new `buildJudgeReport` not-wired line, replaced the "input.screens is not tied" line with the
   `--coverage` caller line). No test needed adapting; main's `walk-report.mjs` does not call the judge.
-- Rubric coverage: 9 of 10 red-reason kinds tested (malformed coverage, malformed input, no
+- Rubric coverage: 10 of 10 red-reason kinds tested (malformed coverage, malformed input, no
   non-example screens, empty-shapes row, missing screen, missing shape, unknown input screen,
-  example-row input screen, unreadable `--coverage` file). Not tested: the defensive
-  `coverage check threw` catch (not reachable from valid JS input).
+  example-row input screen, unreadable `--coverage` file, `coverage check threw`).
+- Brief walk-gate-judge-threw-test (v2): `judgeSafe` in `walk-judge.mjs` now catches a throw in the
+  coverage thunk separately: ONE reason `coverage: coverage check threw: <msg>`, first; `judge(...)`
+  still runs and keeps all its reasons; if `judge(...)` itself throws, the coverage reason is kept
+  before `judge threw: <msg>`. Two-argument verdict and pass path unchanged (K1, K2 still green).
+  The reason keeps the `coverage:` prefix on purpose: `screensMissingFromCoverage`'s own catch already
+  produced exactly `coverage: coverage check threw: <msg>` for a throwing getter on `coverage`.
+- New tests in `tests/walkJudge.test.ts` (20): describe `coverage check threw (red reason 10 of 10)`,
+  18 table rows (coverage getter / input.screens getter always / first read only x Error, string,
+  null x clean, other red reason) + the two-argument row; `K13 duplicate input ids: reported once per
+  duplicated id, ...` (the check was already pinned by walkFixtures `C16 repeated input screen id`).
+  Red-first: 12 of 18 rows red on d1530d3 (the input.screens rows). Mutants: no coverage catch = 12
+  red; no duplicate-id check = K13 + C16 red. Walk tests: 7 files / 446 tests green.
+  Checks: prove-entry-point-dispatch 77/77, script-conventions, mojibake, `npm run lint` 34/34, eslint
+  on touched files clean; tsc run on the final head (this commit): 0 errors in branch files.
+  Not verified: PR CI at the new head (not observed before hand-off); a two-different-ids duplicate
+  reports ONE malformed problem, not one per id (unchanged, out of scope).
 - Checks: walk tests 7 files / 426 tests green; `prove-entry-point-dispatch` 77/77; script-conventions,
   mojibake, `npm run lint` (34/34 links) green; eslint on the 4 touched code files clean.
 - tsc: `tsconfig.json`/`tsconfig.node.json` 0 errors; `tsconfig.app.json` 137 errors, none in branch
