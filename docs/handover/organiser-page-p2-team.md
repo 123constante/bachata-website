@@ -1,5 +1,38 @@
 # Handover: organiser page P2 (Team) -- PARTIAL
 
+## Continuation 2 (ticket dt_8531fa9ec8fc, brief `brief/organiser-page-p2-team-2`)
+
+Done (brief items 1-4):
+1. Team sheet list: `TeamVisibilitySheet.tsx` + pure `teamVisibilityModel.ts`. The Team card gets
+   "Who shows on your page" for owner, admin, manager and the self arm (`visibilityAccess`); "Add a
+   person" stays owner/admin. Rows: owner seats, manager seats, listed (public `sort_key`), hidden
+   listed (named from `dancer_profiles`). Hide / Show only where `canSetHidden()` says. Hidden-read
+   error -> "Couldn't check who is hidden. Try again", no controls. Both keys invalidated after each
+   call. `parseTeam` now reads `person_id` from `organiser_team_v1`. Status says "Shown" only when the
+   public read has the person (else "Not on the public page right now"; draft page, archived profile).
+2. `docs/design/organiser-page-p2-team.md` with the Step 0 coverage table.
+3. Shape survey (counts only) in the design doc and PR body: 17 owner / 43 manager / 0 contributor
+   seats; 41 of 60 seats on inactive team rows (matches #1259); 2 seats without persona; 0 hides.
+4. `teamVisibilitySheet.matrix.test.tsx`: 5 callers x 5 targets x (hide, show) through the real sheet
+   against an independent truth table, plus states. Red first: on the checkpoint code 6 red (found a
+   real bug: a hidden contributor who is also listed vanished); with the manager rule mutated 2 red.
+
+BLOCKER for green CI (needs lead): `check:onboarding-write-doors` (lint chain, architecture-guard +
+db-contract-check) fails: `publicTeamApi.ts` names `set_organiser_team_member_hidden_v1`, which is not in
+`scripts/onboarding-write-doors.json`. The fix is one `not_event_writes` entry (reason: "Organiser-page
+team visibility, not an event edit.", like `organiser_team_set_public_v1`); the brief forbids `scripts/`.
+
+Self arm reach: the edit layer mounts on `canEdit` (owner/manager) only, so a listed-only person (P5)
+or contributor cannot reach the sheet on this page; not widened (brief).
+
+Left: browser walk 390x844 (owner + manager + listed, hide-then-show on an owner-named test organiser),
+full CI job table, bundle budget main vs branch, `/code-review` round, the write-doors entry above.
+Pre-existing, not from this branch: 4 eslint errors in EditInPlaceLayer.tsx (same on main), the
+TeamPicker.test.tsx(297) tsc error (same on main).
+
+---
+
+
 Ticket dt_e1c70f458d06. Branch `claude/organiser-page-p2-team`. Stopped at the
 context gate (owner rule: 45-50%). Brief: `brief/organiser-page-p2-team` v4.
 

@@ -90,8 +90,10 @@ export default function TeamVisibilitySheet({ organiserId, myRole, members, onCl
 
   const rows: VisibilityRow[] | null = useMemo(() => {
     if (!publicQuery.data || !hiddenQuery.data) return null;
+    // Wait for the name read (or its failure) so a hidden person never flashes as "A team member".
+    if (needNames.length > 0 && namesQuery.isPending) return null;
     return visibilityRows({ myRole, members, publicRows: publicQuery.data, hidden: hiddenQuery.data, names: namesQuery.data });
-  }, [myRole, members, publicQuery.data, hiddenQuery.data, namesQuery.data]);
+  }, [myRole, members, publicQuery.data, hiddenQuery.data, namesQuery.data, namesQuery.isPending, needNames.length]);
 
   useEffect(() => { closeRef.current?.focus(); }, []);
 

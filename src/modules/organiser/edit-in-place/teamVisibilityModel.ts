@@ -15,12 +15,13 @@ export const VISIBILITY_COPY = {
   shown: 'Shown on the public page',
   hidden: 'Hidden from the public page',
   noPersona: 'No dancer profile, so not on the public page',
+  notShown: 'Not on the public page right now',
   hide: 'Hide',
   show: 'Show',
-  hiddenReadError: 'Couldn’t check who is hidden. Try again',
+  hiddenReadError: 'Couldn\u2019t check who is hidden. Try again',
   retry: 'Try again',
-  teamReadError: 'Couldn’t load the team. Try again',
-  loading: 'Loading the team…',
+  teamReadError: 'Couldn\u2019t load the team. Try again',
+  loading: 'Loading the team\u2026',
   empty: 'Nobody is on the team yet.',
   fallbackName: 'A team member',
 } as const;
@@ -74,7 +75,8 @@ export function visibilityAccess(input: { myRole: TeamRole | 'admin' | null | un
 /** Hidden ids that no seat and no public row names: these need a name read. */
 export function unnamedHiddenIds(input: Pick<VisibilityInput, 'members' | 'publicRows' | 'hidden'>): string[] {
   const known = new Set<string>();
-  for (const m of input.members) { const p = clean(m.personId ?? null); if (p) known.add(p); }
+  // Owner/manager seats are rows of their own; a contributor seat is not (contributors are not on the public Team), so a hidden contributor who is also listed still needs its row here.
+  for (const m of input.members) { const p = clean(m.personId ?? null); if (p && m.role !== 'contributor') known.add(p); }
   for (const r of input.publicRows) { const p = clean(r.person_id); if (p) known.add(p); }
   return [...input.hidden].filter((id) => !known.has(id)).sort();
 }
@@ -110,7 +112,9 @@ export function visibilityRows(input: VisibilityInput): VisibilityRow[] {
       isSelf,
       hidden,
       action: may ? (hidden ? 'show' : 'hide') : null,
-      status: personId === null ? VISIBILITY_COPY.noPersona : hidden ? VISIBILITY_COPY.hidden : VISIBILITY_COPY.shown,
+      // "Shown" only when the public read really has them: a seat can be missing from it (draft page,
+      // archived or non-public profile, no public name) without being hidden.
+      status: personId === null ? VISIBILITY_COPY.noPersona : hidden ? VISIBILITY_COPY.hidden : publicById.has(personId) ? VISIBILITY_COPY.shown : VISIBILITY_COPY.notShown,
     });
   };
   const nameFor = (pid: string | null, fallback: string | null) =>
@@ -132,7 +136,7 @@ export function visibilityRows(input: VisibilityInput): VisibilityRow[] {
     push(pid, pid, nameFor(pid, null), ownerIds.has(pid) ? 'owner' : null, pid === callerPersonId);
   }
   const hiddenOnly = unnamedHiddenIds(input)
-    .map((pid) => ({ pid, name: nameFor(pid, null) }))
+    .map((pid) => ({ pid, name: nameFor(pid, input.members.find((m) => clean(m.personId ?? null) === pid)?.displayName ?? null) }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.pid.localeCompare(b.pid));
   for (const h of hiddenOnly) push(h.pid, h.pid, h.name, null, h.pid === callerPersonId);
   return rows;
