@@ -6,10 +6,13 @@ import { useSeo } from '@/lib/seo';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
 import { londonTodayKey } from '@/lib/londonDate';
+import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
 import { fetchMyTickets, type MyTicketsResult } from './myTicketsApi';
+import DoorCodeLine from './DoorCodeLine';
 import {
   QR_MISSING,
   checkedInLine,
+  doorCodeText,
   groupTickets,
   orderPositions,
   orderRef,
@@ -40,6 +43,7 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
   const [anyway, setAnyway] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
+  const code = doorCodeText(t.shortCode, ticketDoorCode);
   return (
     <li className="rounded-md p-3 text-[14px]" style={surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'}>
       <div className="flex items-start justify-between gap-2">
@@ -91,6 +95,7 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
             )}
           </>
         )}
+        {code && <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="my-ticket-short-code" />}
       </div>
       {t.seriesId && (
         <Link to={`/event/${t.seriesId}`} className="inline-flex min-h-[44px] items-center text-[13px] underline">
