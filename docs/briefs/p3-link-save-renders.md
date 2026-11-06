@@ -5,7 +5,7 @@ Repo: Website. Branch: claude/p3-link-save-renders. Lane: normal, Sonnet. No dat
 
 ## What main lacks
 - Two rules disagree. The organiser sheets accept a link by `linkProblem('ticket'|'video', v)` = server-mirror `publicUrlOk` (regex `^https?://[^\s\u0000-\u001f\u007f]+$`, src/modules/organiser/shared/linkRules.ts lines 22-35). The public page drops a link unless `safeExternalHref` can build a URL from it (src/lib/url.ts; used at src/modules/event-page/useEventPageQuery.ts line 265 for the ticket button). Proved in node on 2026-11-06: `https://example.com:99999`, `https://[abc`, `https://exa<mple.com`, `https://user@` and `https://example.com:80a` pass the first and return undefined from the second. The organiser sees "Saved", dancers get no ticket button and no message (walk D risk 4, docs/handover/walk-dancer-view-after-edit.md) -- grep: linkRenders
-- No test compares the two rules (existing: events/__tests__/fixesBatch.matrix.test.ts line 108 checks `linkProblem` alone).
+- No test compares the two rules (existing: events/__tests__/fixesBatch.matrix.test.ts line 108 checks `linkProblem` alone). -- grep: linkRenders
 
 ## Files
 src/modules/organiser/shared/linkRules.ts, src/modules/organiser/shared/__tests__/linkRules.renders.matrix.test.ts (new), docs/design/p3-link-save-renders.md (copy only). Callers need no edit: EditorSheet.tsx lines 78-79 and the P3 Details sheet already call `linkProblem`. Leave alone: src/lib/url.ts behaviour (many readers), src/modules/event-page/**.
