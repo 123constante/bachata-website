@@ -32,6 +32,9 @@ describe('linkRenders', () => {
     expect(linkRenders('  https://example.com  ')).toBe(true);
     expect(linkRenders('https://example.com:99999')).toBe(false);
   });
+  it.each(ROWS)('agrees with safeExternalHref: $name', ({ v }) => {
+    expect(linkRenders(v)).toBe(safeExternalHref(v) !== undefined);
+  });
 });
 
 describe.each(['ticket', 'video'] as const)('%s link: exact verdict per row', (kind) => {

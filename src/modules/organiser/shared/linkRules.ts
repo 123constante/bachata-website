@@ -19,7 +19,6 @@
 // check runs on what is actually sent.
 
 import { withNormalizedProtocol } from '@/lib/organiserProfileUpdate';
-import { safeExternalHref } from '@/lib/url';
 
 export type LinkKind = 'ticket' | 'video' | 'instagram' | 'website' | 'facebook' | 'chat';
 
@@ -38,11 +37,23 @@ export const publicUrlOk = (value: string) => {
 };
 
 /**
- * True when the public page can build a link from this value (the same
- * safeExternalHref the event page uses for the ticket button). The server rule
- * is looser: it accepts https://example.com:99999, which the page then drops.
+ * True when the public page can build a link from this value: the same test as
+ * safeExternalHref in src/lib/url.ts (the ticket button's reader), copied here on
+ * purpose. Importing that module made rollup hoist it into a new shared chunk and
+ * put one more first-load request on /event/:id (bundle-budget chunk ratchet).
+ * linkRules.renders.matrix.test.ts pins the two together over a whole table.
+ * The server rule is looser: it accepts https://example.com:99999.
  */
-export const linkRenders = (value: string) => safeExternalHref(value.trim()) !== undefined;
+export const linkRenders = (value: string) => {
+  const v = value.trim();
+  if (!v) return false;
+  try {
+    const { protocol } = new URL(v.startsWith('http') ? v : `https://${v}`);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
 
 export const LINK_PROBLEM: Record<LinkKind, string> = {
   ticket: 'Enter the ticket link as a full address starting with https://',
