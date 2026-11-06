@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  newRefundRequestId,
+  partialRefundDone,
+  refundAmountError,
+  refundPartQuestion,
   MOVE_LABEL,
   NEXT_STATUS,
   NOT_MANAGER,
@@ -245,4 +249,88 @@ describe('server refusals all have words', () => {
     'immutable_field', 'closed', 'has_orders', 'capacity_below_reserved', 'bad_transition', 'at_capacity',
     'organiser_not_onboarded',
   ])('%s', (r) => expect(reasonMessage(r)).not.toBe(reasonMessage('???')));
+});
+
+// ---- Partial refunds (brief ticket-partial-refund-ui; owner Q5) ------------------------
+
+describe('partial refund amount (refundAmountError)', () => {
+  // 25.00 paid, 17.00 already refunded: 8.00 left.
+  const left = { totalPence: 2500, refundedPence: 1700 };
+  const ROWS: Array<[string, 'ok' | 'empty' | 'price' | 'zero' | 'over']> = [
+    ['', 'empty'],
+    ['   ', 'empty'],
+    ['abc', 'price'],
+    ['0', 'zero'],
+    ['0.00', 'zero'],
+    ['-1', 'price'],
+    ['0.001', 'price'],
+    ['3', 'ok'],
+    ['3.5', 'ok'],
+    ['3.50', 'ok'],
+    ['\u00A33.50', 'ok'],
+    ['GBP3', 'price'],
+    ['8', 'ok'], // exactly what is left: sent as a partial, the server decides clears_balance
+    ['8.01', 'over'], // remaining + 1p
+    ['10000.01', 'price'], // over the 1,000,000p cap
+  ];
+  it.each(ROWS)('%j -> %s', (text, want) => {
+    const e = refundAmountError(text, left);
+    if (want === 'ok') return expect(e).toBeNull();
+    expect(e).toBeTruthy();
+    // Every refusal names the maximum, so the person knows what to type.
+    expect(e).toContain('\u00A38.00');
+    if (want === 'empty') expect(e).toMatch(/^Enter how much/);
+    if (want === 'over') expect(e).toMatch(/more than is left/);
+    if (want === 'zero') expect(e).toMatch(/more than \u00A30/);
+    if (want === 'price') expect(e).toMatch(/in pounds/);
+  });
+  it('the maximum is the remainder on a part-refunded order, the total on an untouched one', () => {
+    expect(refundAmountError('25', { totalPence: 2500, refundedPence: 0 })).toBeNull();
+    expect(refundAmountError('25.01', { totalPence: 2500, refundedPence: 0 })).toContain('\u00A325.00');
+    expect(refundAmountError('8.01', left)).toContain('\u00A38.00');
+  });
+});
+
+describe('partial refund words', () => {
+  it('done: the amount, what is left, tickets stay valid', () => {
+    expect(partialRefundDone(300, 500)).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
+    expect(partialRefundDone(800, 0)).toBe('Refunded \u00A38.00. Nothing is left to refund. Tickets stay valid.');
+  });
+  it('the partial question says tickets stay valid and names the maximum', () => {
+    const q = refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 300);
+    expect(q.max).toBe('Up to \u00A38.00 left to refund');
+    expect(q.body).toMatch(/stay valid/);
+    expect(q.confirm).toBe('Refund \u00A33.00');
+    expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, null).confirm).toBe('Refund');
+  });
+  it('a request id is 8-64 chars of [A-Za-z0-9_-], fresh each call, also without crypto.randomUUID', () => {
+    const a = newRefundRequestId();
+    expect(a).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+    expect(newRefundRequestId()).not.toBe(a);
+    const real = globalThis.crypto.randomUUID;
+    try {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true });
+      expect(newRefundRequestId()).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+    } finally {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', { value: real, configurable: true });
+    }
+  });
+});
+
+describe('refund refusal words (the server reasons of ticket-refund)', () => {
+  const GENERIC = 'That did not work. Try again in a moment.';
+  // Controls the Refund sheet shows: the two choices, the amount field, Refund, Keep the order.
+  const NOT_ON_SCREEN = /\b(Retry|Cancel|Settings|Dashboard|Stripe|Contact support|Undo)\b/i;
+  it.each(['invalid_amount', 'request_id_required', 'request_id_reused', 'not_refundable', 'refund_exceeds_balance'])('%s has its own words', (r) => {
+    const t = reasonMessage(r);
+    expect(t).not.toBe(GENERIC);
+    expect(t).not.toMatch(NOT_ON_SCREEN);
+    expect(t).toMatch(/\.$/);
+    expect(t).not.toMatch(/\bPress\b/); // house rule: Tap, never Press
+
+    expect(t).not.toMatch(/[\u2018\u201C\u00E2]/); // no curly-quote or mojibake bytes in the copy
+  });
+  it('refund_exceeds_balance says an earlier refund may still be settling', () => {
+    expect(reasonMessage('refund_exceeds_balance')).toMatch(/earlier refund.*settling.*wait a minute/i);
+  });
 });

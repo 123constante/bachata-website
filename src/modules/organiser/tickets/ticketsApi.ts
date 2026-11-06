@@ -245,10 +245,38 @@ export async function startOnboarding(organiserId: string, returnUrl: string, re
   return typeof url === 'string' && /^https:\/\//.test(url) ? { kind: 'ok', value: url } : { kind: 'failed', reason: null };
 }
 
-/** Refund one whole order (ticket price plus any booking fee it carried). Owner / manager only; the function checks again. */
-export async function refundOrder(orderId: string): Promise<EdgeOutcome<null>> {
-  const out = await invokeEdge('ticket-refund', { order_id: orderId });
-  if (out.kind !== 'ok') return out;
-  const ok = (out.value as { ok?: unknown } | null)?.ok;
-  return ok === false ? { kind: 'failed', reason: (out.value as { reason?: string }).reason ?? null } : { kind: 'ok', value: null };
+/**
+ * The ticket-refund body for a partial refund (admin PR #1283): integer pence, plus the per-press
+ * idempotency key the function requires with an amount. A whole refund sends `{ order_id }` only.
+ */
+export type partialRefundRequest = { order_id: string; amount_pence: number; request_id: string };
+
+/** What a partial refund answered. `remainingPence` is null when the reply did not say (never guessed here). */
+export interface PartialRefundDone {
+  amountPence: number;
+  remainingPence: number | null;
+  clearsBalance: boolean;
 }
+
+/**
+ * Refund an order. No opts: the whole remainder (ticket price plus any booking fee), tickets voided,
+ * body exactly `{ order_id }` as before. With opts: that amount only, tickets stay valid (Q5).
+ * Owner / manager only; the function checks again. Ok is `null` for a whole refund, the partial
+ * reply's fields for a partial.
+ */
+export async function refundOrder(orderId: string, opts?: { amountPence: number; requestId: string }): Promise<EdgeOutcome<PartialRefundDone | null>> {
+  const body: { order_id: string } | partialRefundRequest = opts
+    ? { order_id: orderId, amount_pence: opts.amountPence, request_id: opts.requestId }
+    : { order_id: orderId };
+  const out = await invokeEdge('ticket-refund', body);
+  if (out.kind !== 'ok') return out;
+  const v = (out.value ?? {}) as { ok?: unknown; reason?: string; partial?: unknown; amount_pence?: unknown; remaining_pence?: unknown; clears_balance?: unknown };
+  if (v.ok === false) return { kind: 'failed', reason: v.reason ?? null };
+  if (!opts) return { kind: 'ok', value: null };
+  const remaining = typeof v.remaining_pence === 'number' && Number.isFinite(v.remaining_pence) ? v.remaining_pence : null;
+  return {
+    kind: 'ok',
+    value: { amountPence: typeof v.amount_pence === 'number' ? v.amount_pence : opts.amountPence, remainingPence: remaining, clearsBalance: v.clears_balance === true },
+  };
+}
+
