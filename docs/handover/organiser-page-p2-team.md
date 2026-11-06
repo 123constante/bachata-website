@@ -1,4 +1,64 @@
-# Handover: organiser page P2 (Team) -- PARTIAL
+# Handover: organiser page P2 (Team) -- code complete, awaiting lead walk + review
+
+## Continuation 3 (ticket dt_4491c895e2fd, brief `brief/organiser-page-p2-team-3`)
+
+Done:
+1. `scripts/onboarding-write-doors.json`: one `not_event_writes` entry,
+   `set_organiser_team_member_hidden_v1` / "Organiser-page team visibility, not an event edit."
+   (same shape as `organiser_team_set_public_v1`). Nothing else under `scripts/` touched.
+   `npm run check:onboarding-write-doors`: 0 violations (was 1, `publicTeamApi.ts:107`).
+2. Merged `origin/main` (PR was `dirty`: #1436 heroBio vs this branch's import cleanup in
+   `OrganiserProfile.tsx`). Resolution keeps `heroBio` and drops `withPublicNames` /
+   `resolvePublicName`, which nothing in the file calls any more.
+3. `w1S3Strips.test.tsx` (on main, untouched until now) still passed `overflow: []` to `TeamList`,
+   which this branch removed -> one new tsc error caused by this branch. Removed the key; no
+   behaviour change.
+
+CI per job (GitHub, head 53de75c = item 1 only; merged with main by `pull_request`):
+
+| Job | 30ae8f9 | 53de75c | Why |
+|---|---|---|---|
+| integrity (architecture-guard) | red | green | item 1 (write-door guard step) |
+| contract-check (db-contract-check) | red | green | item 1 (onboarding write-door step) |
+| phone-qa | red | green (12 passed) | not caused by item 1; red not reproduced, cause unknown |
+| build-smoke, e2e-smoke, bundle-budget, unit x3, real-data-verified, phone-qa-section, wallclock-brand, live-db-gate, bom-check, masking/notification-check, dancer-area-isolation | - | green | |
+
+Local, every step of the integrity job on 53de75c: all 16 steps green. The contract-check
+steps were also run locally but this container's Supabase secrets point at a non-prod project
+(precheck fails), so those local results do not count; the CI run against prod is the evidence.
+
+Pre-existing, proven identical on origin/main 0d1d4f1 (not fixed here):
+- `npm run typecheck`: 119 errors on main, 119 on the branch, diff of the normalised lists empty
+  (incl. `TeamPicker.test.tsx` TS2493, line 297 on main / 302 here).
+- eslint: EditInPlaceLayer.tsx 4 errors (refs during render x2, setState in effect x2) and
+  OrganiserProfile.tsx 1 (setState in effect), same rules on main.
+- `npm run lint`: 34 of 34 links green (trailing whole-tree eslint is informational).
+
+Bundle budget (`npm run build` + `npm run check:bundle-budget`, all routes ok on both):
+
+| Route | main (df4b1bd) | branch (53de75c) | budget KB |
+|---|---|---|---|
+| home | 207.6 KB | 207.7 KB | 215 |
+| event | 375.9 KB | 376.0 KB | 381 |
+| auth | 294.1 KB | 294.2 KB | 310 |
+| dancer-app | 372.9 KB | 372.9 KB | 374 |
+| parties / classes | 267.1 KB | 267.2 KB | 325 |
+| faq / landing prose / landing style | 233.2 / 233.4 / 232.4 KB | 233.2 / 233.4 / 232.5 KB | 245 |
+
+Puller and chunk ratchets identical. (Main measured at df4b1bd before #1436 landed; branch at 53de75c.)
+
+Verified: write-door guard green; integrity + contract-check + phone-qa green in CI; typecheck and
+eslint identical to main; vitest organiser + profile + pages + person-page 352 files, 13802 passed
+on the merged tree; lint chain 34/34; check:mojibake.
+
+Not verified: 390x844 browser walk (owner + manager + listed, hide-then-show) -- done by the lead;
+a real hide/show on prod (would write); local phone suite (timed out at 10 min in this container,
+several 360x640 specs failing locally across unrelated pages -- CI phone-qa is green); `/code-review`
+round; pre-ship; CI on the final merged head (pushed last, results not awaited).
+
+Left: lead browser walk, independent review, owner Approve at head.
+
+---
 
 ## Continuation 2 (ticket dt_8531fa9ec8fc, brief `brief/organiser-page-p2-team-2`)
 

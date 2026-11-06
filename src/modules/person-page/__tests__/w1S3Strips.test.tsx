@@ -93,7 +93,7 @@ const person = { personId: ID, name: 'Real Name', avatarUrl: null, href: `/dance
 const drawTeam = (b: PersonBadge | undefined, state: 'loading' | 'error' | 'ready', p = person) => render(
   <MemoryRouter>
     <OrganiserTeamSection
-      team={{ people: [p], overflow: [], mode: 'solo' }}
+      team={{ people: [p], mode: 'solo' }}
       failed={false}
       onRetry={() => {}}
       nationality={new Map([[ID, 'ES']])}
