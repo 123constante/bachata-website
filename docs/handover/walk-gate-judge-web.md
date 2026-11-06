@@ -50,3 +50,14 @@ approves at head; the worker never approves or merges.
 ## Next steps
 1. Owner reviews at head; nothing here is armed.
 2. Part B brief can import `judgeVerdict`/`isPass`, `generateFixtures`, `coverageGaps`.
+
+## Part D host picker (brief walk-host-lock)
+- Exists: `scripts/lib/walk-hosts.mjs` (pure; no fs, network, clock or env) with the frozen
+  `WALK_HOST_RULES` table (dell: no CI job running and free RAM above 3 GB; pc: owner not busy;
+  laptop2: a passed day test run; every host: not locked, not the secrets-holding runner),
+  `pickWalkHost(hosts, queue)` (oldest request first, ties by id; at most one assignment per pick;
+  unknown/duplicate hosts or malformed input give no assignment with a reason, never a throw) and
+  `hostLockKey(host, headSha)` -> `{ lock: 'walk:<host>', build: 'build:<headSha>' }`.
+- Tests: `tests/walkHosts.test.ts` (table-driven); mutants in the PR body.
+- Still left: `.github/automation/walk-hosts.json` (a guard path, owner-merged) and the lock
+  wiring that reads live host readings, acquires `walk:<host>` and builds once per head.
