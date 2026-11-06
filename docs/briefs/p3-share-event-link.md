@@ -5,7 +5,7 @@ Repo: Website. Branch: claude/p3-share-event-link. Lane: normal, Sonnet. No data
 
 ## What main lacks
 - The P3 event page has "See it as dancers see it" (src/modules/organiser/p3/screens/EventPage.tsx `DancerView`, line 146, rendered first in `EditRows`, line 184) but no way to copy or share the event link. The only copy/share in P3 is the organiser PAGE link after go-live (src/modules/organiser/p3/onboarding/OnboardingFlow.tsx lines 998-1006). Walk D risk 8 (docs/handover/walk-dancer-view-after-edit.md): after publishing, an organiser with 10 dancers to tell has to open the public page and use the browser share by hand -- grep: p3-share-event-link
-- The address is already computed: `publicPageOf(ws)` (src/modules/organiser/p3/data/eventPage.ts line 407) returns `{href, why}`; href is null for draft/archived/no slug. Reuse it; do not build a second rule.
+- The address is already computed: `publicPageOf(ws)` (src/modules/organiser/p3/data/eventPage.ts line 407) returns `{href, why}`; href is null for draft/archived/no slug. Reuse it; do not build a second rule. -- grep: p3-share-event-link
 
 ## Files
 src/modules/organiser/p3/screens/EventPage.tsx (one new `ShareRow` beside `DancerView`), src/modules/organiser/p3/data/eventPage.ts (only a pure `shareOf(ws, origin)` next to `publicPageOf`), src/modules/organiser/p3/screens/__tests__/shareEvent.matrix.test.tsx (new), docs/design/p3-share-event-link/INVENTORY.md and docs/design/p3-share-event-link.md. Overlap note: PR claude/p3-different-on-n-dates edits the Details and Prices screens, not EventPage.tsx; if you find it does, rebase after it merges and say so. Leave alone: p3/onboarding/**, p3/theme tokens (reuse `p3-row`).
@@ -19,3 +19,6 @@ src/modules/organiser/p3/screens/EventPage.tsx (one new `ShareRow` beside `Dance
 ## Out of scope
 No analytics, no QR, no WhatsApp-specific button, no change to the dancer-side share. Walk the P3 event page at 390x844 for a live, a paused and a draft event on prod-shaped data (screenshots attached to the PR).
 Hand-off: Verified / Not verified block; design record and screenshots linked in the PR body.
+
+## INVENTORY.md first (design gate)
+Before drawing or building, write INVENTORY.md (docs/design/p3-share-event-link-INVENTORY.md): every share or copy control and its states from the admin app event view, the current Website public event page, and the P3 event page plus the organiser page-link share in OnboardingFlow.tsx, each with file:line, GAPs listed. Build only after it exists; end the PR body with the coverage count (rows inventoried / rows covered).
