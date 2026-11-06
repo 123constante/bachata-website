@@ -14,7 +14,12 @@ Branch `claude/bristol-ambassador-landing`. Design record: `docs/design/bristol-
 - Done button opens `/app` as the brief says; `/app` is the dancer area and organiser onboarding sits under `/account`. Owner to confirm.
 - `already_joined` returns the city of the user's FIRST join (one join per user); the done screen names that city, which can differ from this link's.
 - Real link walk: impossible until an ambassador row exists (0 on prod 2026-11-06) and Jan has an account.
-- PR: not opened by this worker (no gh/API in this run's rules); the orchestrator opens the bot-authored PR from this branch.
+
+## Checks (local, this branch)
+- `npm run lint` 34/34 links green; `bin/check-integrity.sh`, `check:legacy-tables`, `check:legacy-program-rpcs`, `lint:architecture`, `AUDIT_STRICT=1 check:images`, `check:mojibake`: all exit 0.
+- tsc (`-p tsconfig.app.json`) run on the final tree: 0 errors in branch files (187 pre-existing lines elsewhere).
+- `npm run test:unit`: 26904 passed; 16 failed in 9 files, all environmental in the sandbox: tickets tests (`qrcode-generator` missing from the sandbox node_modules), `*.contract.test.ts` (live DB key: "Invalid API key"), `integrityCouldNotRun` (sandbox has a global typescript in /opt/node-tools). The one real failure (`catchallClientPaths`) was fixed by adding `/join/a/:code`.
+- Not run locally: e2e smoke (`test:e2e`, `test:e2e:p3`), db-contract-check (live DB), Vercel preview.
 
 ## Next steps
 1. Owner answers the `/app` vs `/account` question; adjust `NEXT_STEP_HREF` in `linkLandingModel.ts` if needed.
