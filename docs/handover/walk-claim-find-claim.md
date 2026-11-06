@@ -72,3 +72,6 @@ Not a dead end (checked): ClaimNotice (ClaimNotice.tsx:23-43) always has Tell us
 Real sign-in, the real email/claim link, a real phone, real prod accounts, the real `claim_organiser_v1` result, pending-request counts, layout of any state at 390x844 (no picture exists).
 
 tsc: see handover line below.
+
+Handover line: tsc run on 6d1b6e3: 0 errors in branch files (docs-only branch; tsc output empty).
+DONE [worker-done dt_921a9bef4cf3]
