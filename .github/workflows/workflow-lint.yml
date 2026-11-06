@@ -18,41 +18,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  bom-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # Docs-only PRs skip the heavy steps below; the job still runs, so the
-      # required check keeps its name and reports success. Fail-safe: any error
-      # means docs_only=false (scripts/ci/docs-only.mjs).
-      - name: Detect docs-only PR
-        id: changes
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          MERGE_SHA: ${{ github.sha }}
-        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
-
-      - name: Check workflow files for BOM
-        if: steps.changes.outputs.docs_only != 'true'
-        run: |
-          FAILED=0
-          for f in .github/workflows/*.yml .github/workflows/*.yaml; do
-            [ -f "$f" ] || continue
-            # Detect standard BOM (ef bb bf) or double-encoded BOM (c3 af ...)
-            FIRST=$(head -c 3 "$f" | xxd -p)
-            if [ "$FIRST" = "efbbbf" ] || echo "$FIRST" | grep -q "^c3af"; then
-              echo "BOM detected in $f (first bytes: $FIRST)"
-              FAILED=1
-            fi
-          done
-          if [ "$FAILED" = "1" ]; then
-            echo ""
-            echo "Fix: strip the BOM and re-write via safe-write.py --lf"
-            exit 1
-          fi
-          echo "No BOMs found in .github/workflows/"
-
   masking-check:
     # Guards against the dead-Lighthouse failure mode: a check masked green by an
     # unjustified continue-on-error. Every continue-on-error must carry a

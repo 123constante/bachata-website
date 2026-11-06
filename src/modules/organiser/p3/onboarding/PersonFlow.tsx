@@ -8,11 +8,11 @@ import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { wizardCountries, type WizardCountry as Country } from '../../wizard/wizardCountries';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
+import { BIO_LIMIT, BIO_SHORTEN_REASON, bioLength, limitBioInput } from '@/modules/profile/organiserHeroBio';
 import { Flag, ObSheet, ObShell, ObToast } from './ObShell';
 import { prefersReducedMotion, readObTheme } from './obEnv';
 import { PERSON_STALE_KEYS, REAL_READS, REAL_WRITES, type OrganiserBrief, type PersonReads, type PersonWrites } from './personApi';
 import {
-  ABOUT_MAX,
   EMPTY_DRAFT,
   LANG_ALL,
   LANG_FEW,
@@ -26,10 +26,13 @@ import {
   UPLOAD_FAILED,
   blockedReason,
   commandFor,
+  djPath,
   heldAfter,
   heldFrom,
+  isDjStep,
   nextStep,
   personPath,
+  teachRowPath,
   personReadFail,
   prevStep,
   progressPercent,
@@ -149,11 +152,13 @@ export interface PersonScreensProps {
   percentOf?: (step: PersonStep, path: readonly PersonStep[]) => number;
   /** The last person step's button: 'Done' here alone; 'Continue' when Review follows. */
   lastLabel?: string;
+  /** Entered from a Review row: a lone teaching step (teachRowPath) saves and calls onDone, Back calls onExit. */
+  fromReview?: boolean;
 }
 
 type Sheet = 'nat' | 'langs' | 'styles' | null;
 
-export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done' }: PersonScreensProps) {
+export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done', fromReview = false }: PersonScreensProps) {
   const qc = useQueryClient();
   const [held, setHeld] = useState<PersonDraft>(heldIn);
   const [d, setD] = useState<PersonDraft>({ ...EMPTY_DRAFT, ...heldIn });
@@ -165,7 +170,9 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bounce, setBounce] = useState(false);
   const clearToast = useCallback(() => setToast(null), []);
-  const path = personPath(d.teach, !!organiser);
+  // The DJ steps are their own short path from Review (personModel DJ_ORDER); a teaching row from Review is a lone step (teachRowPath).
+  const entry = initialStep ?? 'name';
+  const path = isDjStep(entry) ? djPath(d.dj, entry) : (fromReview ? teachRowPath(entry) : null) ?? personPath(d.teach, !!organiser);
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((p) => ({ ...p, [k]: v }));
 
   const move = (to: PersonStep | null, how: 'fwd' | 'back') => {
@@ -293,6 +300,16 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
           <Tile role="radio" on={d.teach === 'yes'} onClick={() => set('teach', 'yes')} label="Yes, I teach" testId="p3-ob-teach-yes" />
           <Tile role="radio" on={d.teach === 'no'} onClick={() => set('teach', 'no')} label="No" testId="p3-ob-teach-no" />
         </div>
+      )}
+      {step === 'dj' && (
+        <div className="p3-ob-tiles" role="radiogroup" aria-labelledby="p3-ob-title">
+          <Tile role="radio" on={d.dj === 'yes'} onClick={() => set('dj', 'yes')} label="Yes, I DJ" testId="p3-ob-dj-yes" />
+          <Tile role="radio" on={d.dj === 'no'} onClick={() => set('dj', 'no')} label="No" testId="p3-ob-dj-no" />
+        </div>
+      )}
+      {step === 'djgenres' && (
+        <input className="p3-ob-inp" type="text" placeholder="Bachata, Kizomba" aria-labelledby="p3-ob-title" value={d.genres} autoComplete="off"
+          onChange={(e) => set('genres', e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void continueStep(); }} data-testid="p3-ob-djgenres" />
       )}
       {step === 'levels' && (
         <div className="p3-ob-tiles" role="group" aria-labelledby="p3-ob-title">
@@ -530,10 +547,14 @@ function PickRows({ all, chosen, onToggle }: { all: readonly string[]; chosen: r
 }
 
 function AboutStep({ value, onChange, starter }: { value: string; onChange: (v: string) => void; starter: string }): ReactNode {
+  // The value the step opened with: an older longer bio loads unchanged.
+  const [loaded] = useState(value);
+  const n = bioLength(value);
   return (
     <>
-      <textarea className="p3-ob-inp" maxLength={ABOUT_MAX} placeholder="Who you are and what you run" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(e.target.value)} data-testid="p3-ob-about" />
-      <p className="p3-ob-m p3-ob-kbhide" aria-live="polite">{value.length} / {ABOUT_MAX}</p>
+      <textarea className="p3-ob-inp" placeholder="Who you are and what you run" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(limitBioInput(e.target.value, loaded))} data-testid="p3-ob-about" />
+      <p className="p3-ob-m p3-ob-kbhide" aria-live="polite" style={n > BIO_LIMIT ? { color: '#FF8A70' } : undefined} data-testid="p3-ob-about-counter">{n} / {BIO_LIMIT}</p>
+      {n > BIO_LIMIT && <p className="p3-ob-m" role="alert" data-testid="p3-ob-about-reason">{BIO_SHORTEN_REASON}</p>}
       {starter && !value.trim() && (
         <button type="button" className="p3-ob-lnk p3-ob-kbhide" onClick={() => onChange(starter)} data-testid="p3-ob-starter">Use the starter sentence</button>
       )}

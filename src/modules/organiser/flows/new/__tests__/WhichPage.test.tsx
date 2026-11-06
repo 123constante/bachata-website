@@ -59,7 +59,7 @@ const TWO = [page('org1', 'Salsa Norte'), page('org2', 'Bachata Club')];
 const CASES: Array<{ name: string; pages: ReturnType<typeof page>[]; path: string; asks: boolean; ticked?: string }> = [
   { name: 'one page, bare link: skipped', pages: [page('org1', 'Salsa Norte')], path: ORG_PATHS.newWhat, asks: false },
   { name: 'one page, ?o= link: skipped', pages: [page('org1', 'Salsa Norte')], path: ORG_PATHS.newWhatFor('org1'), asks: false },
-  { name: 'two pages, bare link: asked, first page ticked', pages: TWO, path: ORG_PATHS.newWhat, asks: true, ticked: 'org1' },
+  { name: 'two pages, bare link: asked, first page by name ticked', pages: TWO, path: ORG_PATHS.newWhat, asks: true, ticked: 'org2' },
   { name: 'two pages, ?o=org2 (Home or the page): asked, that page ticked', pages: TWO, path: ORG_PATHS.newWhatFor('org2'), asks: true, ticked: 'org2' },
   { name: 'two pages, already answered: not asked again', pages: TWO, path: `${ORG_PATHS.newWhatFor('org2')}&page=set`, asks: false },
 ];

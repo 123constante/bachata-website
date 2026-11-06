@@ -35,6 +35,7 @@ test('the faces wall: a face that can be added is one tap, Done names them', asy
   const fake = await openOrganiser(page, '/account/o/team/add');
   await expect(page.getByTestId('add-face')).toHaveCount(2);
   await page.getByTestId('add-face').filter({ hasText: 'Priya S.' }).click();
+  await page.getByTestId('add-confirm-yes').click();
   await expect(page.getByTestId('org-done-message')).toHaveText('Priya S. is a Manager');
   expect(fake.sent('organiser_team_add_member_by_profile_v1')).toHaveLength(1);
 });

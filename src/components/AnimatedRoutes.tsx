@@ -75,6 +75,8 @@ const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
 const Privacy = lazyWithRetry(() => import("../pages/Privacy"));
 // Buyer checkout return page (S4): its own lazy chunk, mounted only while flags.publicTicketing is on.
 const TicketThanksPage = lazyWithRetry(() => import("@/modules/tickets/TicketThanksPage"));
+// A signed-in buyer's tickets + door QR (queue B): its own lazy chunk (carries the QR generator), mounted only while flags.publicTicketing is on.
+const MyTicketsPage = lazyWithRetry(() => import("@/modules/tickets/MyTicketsPage"));
 const Terms = lazyWithRetry(() => import("../pages/Terms"));
 const AccountRestore = lazyWithRetry(() => import("../pages/AccountRestore"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
@@ -225,6 +227,12 @@ export const AnimatedRoutes = () => {
             <Route path="/account/attendance" element={
               flags.organiserSelfServe
                 ? <PageTransition><MyAttendance /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
+            {/* My tickets: no route while flags.publicTicketing is off (sends home); signed-out state lives in the chunk. */}
+            <Route path="/account/my-tickets" element={
+              flags.publicTicketing
+                ? <PageTransition><MyTicketsPage /></PageTransition>
                 : <Navigate to="/" replace />
             } />
             <Route path="/account/settings" element={<PageTransition><AccountSettings view="home" /></PageTransition>} />

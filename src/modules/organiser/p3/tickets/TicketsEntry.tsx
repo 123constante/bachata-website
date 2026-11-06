@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
@@ -44,8 +44,13 @@ import {
 import { RefundSheet } from './RefundSheet';
 import { StackSheet, refocusTop } from './StackSheet';
 import { TypeSheet } from './TypeSheet';
+import { useGatedCopy } from '../onboarding/gate';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
-const SalesReport = lazy(() => import('./SalesReport').then((m) => ({ default: m.SalesReport })));
+// Promo codes ride in their own chunk: nothing added to the Tickets sheet's first load.
+const PromoSection = lazyWithRetry(() => import('./promo/PromoSection'));
+
+const SalesReport = lazyWithRetry(() => import('./SalesReport').then((m) => ({ default: m.SalesReport })));
 
 /**
  * The event page's Tickets entry (W-T, mockup C): a row under Status that opens ONE tall
@@ -90,6 +95,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   // Per ticket type: two switches tapped in quick succession each keep their own busy and error.
   const [moving, setMoving] = useState<ReadonlySet<string>>(new Set());
   const [moveError, setMoveError] = useState<ReadonlyMap<string, string>>(new Map());
+  const gated = useGatedCopy();
   // A refusal that lands after its sheet closed is an alert that stays until dismissed (review r1 F3).
   // Alerts are their own queue: a status toast never clears one, and two stay readable (review r2 R1).
   // Each toast carries a fresh id: the same words said twice are a new node with a new timer.
@@ -165,8 +171,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         setMoveError((m) => with_(m, null));
         await refresh();
       } else setMoveError((m) => with_(m, reasonMessage(out.reason)));
-    } catch {
-      setMoveError((m) => with_(m, reasonMessage(null)));
+    } catch (e) {
+      // F-11: a refused Selling (onboarding) opens the shared gate sheet and leaves no row error
+      setMoveError((m) => with_(m, gated(e, () => reasonMessage(null))));
     } finally {
       setMoving((s) => {
         const n = new Set(s);
@@ -316,6 +323,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
               {body}
+              {types.isSuccess && (
+                <Suspense fallback={<p className="p3-note" data-testid="promo-loading">Loading promo codes&hellip;</p>}>
+                  <PromoSection organiserId={org.id} seriesId={series.id} onSay={say} onAlert={(text) => late(text, false)} />
+                </Suspense>
+              )}
             </div>
           ) : (
             <>

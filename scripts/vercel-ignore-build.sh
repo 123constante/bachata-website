@@ -9,28 +9,30 @@
 # code (a crash, `sh: not found`, a missing file) also BUILDS, so every failure
 # mode of this script is a wasted build, never a skipped one.
 #
-# RULE: skip only when the diff between the LAST SUCCESSFUL DEPLOYMENT of this
-# branch and HEAD touches none of BUILD_PATHS below, on the branches where a
-# skip is safe: production (main), bot/* and dependabot/*. A docs/ci/test-only
-# merge to main no longer makes a new production deployment (production keeps
-# serving the identical previous build).
+# RULE (BUILD BY DIFF, every branch): skip only when the diff between the LAST
+# SUCCESSFUL DEPLOYMENT of this branch and HEAD touches none of BUILD_PATHS
+# below. A docs/ci/test-only merge to main makes no new production deployment
+# (production keeps serving the identical previous build), and a docs/test-only
+# push to a PR branch makes no new preview. No branch-name list decides it.
 #
 # BUILD BUDGET (non-production only, decided BEFORE the diff rule): a branch
-# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, and every claude/* worker branch:
+# under ALWAYS_SKIP_PREFIXES (arc/briefs-*, brief/*, tmp-*, dependabot/*, and every claude/* worker branch:
 # slices, review and done-signal branches) and a commit whose SUBJECT ENDS with
 # `[skip preview]` (a worker checkpoint) always SKIP. vercel.json
 # git.deploymentEnabled also turns those prefixes off before any deployment exists (an ignored build still counts
 # toward the limit); this list stays as defence in depth. Vercel Hobby allows ~100 deployments per rolling 24 h and we hit
 # the limit on 2026-10-16 (see docs/pr-batching-policy.md, "Vercel build budget").
 #
-# Every OTHER branch always builds, because its PR's preview jobs need a
-# preview for the exact head sha: perf-budget.yml (lighthouse, doc-weight),
-# synthetic-ssr-monitor.yml, seo-check.yml and og-image-check.yml poll
-# scripts/lib/previewProbe.mjs, which THROWS after 600s when no ready
-# deployment exists for that sha. Those jobs exclude exactly the no-preview
-# prefixes below; scripts/check-no-preview-prefixes.mjs keeps them in sync. A
-# `[skip preview]` head is NOT excluded: previewProbe fails it FAST and RED (a
-# head that was never previewed must not look verified).
+# PREVIEW JOBS: perf-budget.yml (lighthouse, doc-weight), synthetic-ssr-monitor.yml,
+# seo-check.yml and og-image-check.yml poll scripts/lib/previewProbe.mjs for a
+# preview of the exact head sha. When this rule skipped the head, previewProbe
+# applies the SAME rule (scripts/lib/buildRule.mjs parses BUILD_PATHS below;
+# there is no second copy): if no build path changed since a previewed
+# ancestor, it measures that ancestor's preview (identical app code), else it
+# keeps polling and THROWS after 600s. The no-preview prefixes below stay
+# excluded from those jobs; scripts/check-no-preview-prefixes.mjs keeps them in
+# sync. A `[skip preview]` head is NOT excluded: previewProbe fails it FAST and
+# RED (a head that was never previewed must not look verified).
 #
 # WHY THE BASE IS VERCEL_GIT_PREVIOUS_SHA, NOT HEAD~1: Vercel builds only the
 # tip of a push. `HEAD~1` sees only the tip commit, so a push of [src change,
@@ -49,6 +51,12 @@
 # of a branch), base not in Vercel's shallow (depth 10) clone, base == HEAD (a
 # dashboard Redeploy, e.g. after an env var change: env is not in git), or git
 # erroring. Each decision prints one line, visible in the Vercel build log.
+# Env vars are not in git: after a Vercel env change, use a dashboard Redeploy
+# (base == head -> BUILD); a docs-only push alone keeps the old build.
+#
+# BUILD_PATHS is assigned ONCE, as one single-quoted literal:
+# scripts/lib/buildRule.mjs parses it for previewProbe (tests/buildRule.test.ts
+# fails on a second assignment).
 
 # BUILD_PATHS: everything `npm install` + `react-router build` (+ Vercel's own
 # api/ function build) reads, from the repo root. Derived from evidence, see the
@@ -86,15 +94,17 @@ skip() { echo "vercel-ignore-build: SKIP -- $1"; exit 0; }
 # synthetic-ssr-monitor.yml, seo-check.yml and og-image-check.yml exclude
 # exactly this union in their `if:`. scripts/check-no-preview-prefixes.mjs
 # fails CI when any workflow's list differs from these two lines together.
-#   DIFF_RULE_PREFIXES    skip only when no build path changed (bot PRs)
-#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches
+#   DIFF_RULE_PREFIXES    bot/ PRs: the diff rule (as on every branch); their
+#                         preview jobs stay excluded
+#   ALWAYS_SKIP_PREFIXES  never build a preview at all: brief/doc branches, tmp-* probes,
+#                         dependabot/* (its preview jobs are excluded anyway)
 #                         and every claude/* worker branch (slices, review,
 #                         done-signal). Workers test in their own sandbox; a
 #                         preview exists only for main and feat/* (vercel.json
 #                         KEEP_ON). Vercel Hobby: ~100 deploys / rolling 24 h;
 #                         on 2026-10-16 these were ~85% of 117 deploys.
-DIFF_RULE_PREFIXES='bot/ dependabot/'
-ALWAYS_SKIP_PREFIXES='arc/briefs- claude/'
+DIFF_RULE_PREFIXES='bot/'
+ALWAYS_SKIP_PREFIXES='arc/briefs- brief/ claude/ dependabot/ tmp-'
 
 # SKIP_PREVIEW_TAG: a worker CHECKPOINT commit ends its subject with this (the
 # SUBJECT is matched, never the body; check-no-preview-prefixes.mjs pins this
@@ -120,14 +130,8 @@ if [ "${VERCEL_ENV:-}" != production ]; then
   case ${msg%%"$nl"*} in
     *"$SKIP_PREVIEW_TAG") skip "commit subject carries '${SKIP_PREVIEW_TAG}' (worker checkpoint)" ;;
   esac
-  # SKIP_ELIGIBLE for the diff rule: main plus DIFF_RULE_PREFIXES.
-  eligible=
-  [ "$ref" = main ] && eligible=1
-  for p in $DIFF_RULE_PREFIXES; do
-    case $ref in "$p"*) eligible=1 ;; esac
-  done
-  [ -n "$eligible" ] \
-    || build "branch '${ref}' is not skip-eligible (its PR preview jobs need a preview)"
+  # Every named branch gets the diff rule below. An unknown branch is doubt.
+  [ -n "$ref" ] || build "VERCEL_GIT_COMMIT_REF empty (unknown branch)"
 fi
 
 git rev-parse --git-dir >/dev/null 2>&1 || build "no git checkout here"

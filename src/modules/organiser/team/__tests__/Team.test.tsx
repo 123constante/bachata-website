@@ -125,15 +125,17 @@ describe('C25 Team', () => {
 });
 
 describe('C25b the faces wall', () => {
+  const yes = async () => fireEvent.click(await screen.findByTestId('add-confirm-yes'));
   const at = () => mountAt('/account/o/team/add', routes);
 
-  it('a can_add face: ONE tap = ONE add call, then Done "Priya S. is a Manager"', async () => {
+  it('a can_add face: tap, confirm = ONE add call, then Done "Priya S. is a Manager"', async () => {
     faces = [face(1, { profile_id: 'pr', display_name: 'Priya Sharma', fact: 'attended:3' })];
     at();
     const btn = await screen.findByTestId('add-face');
     expect(btn.textContent).toContain('Priya S.');
     expect(btn.textContent).toContain('Came 3 times');
     fireEvent.click(btn);
+    await yes();
     expect(await screen.findByTestId('org-done-message')).toBeTruthy();
     expect(screen.getByTestId('org-done-message').textContent).toBe('Priya S. is a Manager');
     expect(world.calls('organiser_team_add_member_by_profile_v1')).toEqual([{ p_organiser_id: ORG, p_profile_id: 'pr', p_member_role: 'manager', p_reason: null }]);
@@ -210,6 +212,7 @@ describe('C25b the faces wall', () => {
     install({ organiser_team_add_member_by_profile_v1: () => new Error('team_full') });
     at();
     fireEvent.click(await screen.findByTestId('add-face'));
+    await yes();
     expect((await screen.findByTestId('add-error')).textContent).toBe(`This team already has ${TEAM_CAP} people. Remove someone first, or ask the Bachata Calendar team.`);
   });
 
@@ -225,6 +228,7 @@ describe('C25b the faces wall', () => {
     const buttons = (await screen.findAllByTestId('add-face')) as HTMLButtonElement[];
     if (serverFull) {
       fireEvent.click(buttons[0]);
+      await yes();
       await screen.findByTestId('add-error');
     }
     const [withPhoto, without] = screen.getAllByTestId('add-face') as HTMLButtonElement[];
@@ -248,6 +252,7 @@ describe('C25b the faces wall', () => {
     const first = (await screen.findAllByTestId('add-face'))[0] as HTMLButtonElement;
     if (serverFull) {
       fireEvent.click(first);
+      await yes();
       await screen.findByTestId('add-error');
     }
     for (const b of screen.getAllByTestId('add-face')) expect((b as HTMLButtonElement).disabled).toBe(disabled);
@@ -261,7 +266,7 @@ describe('C25b the faces wall', () => {
     }
   });
 
-  it('search needs 2 letters, asks for 8 results, and a result tap adds with ONE call', async () => {
+  it('search needs 2 letters, asks for 8 results, and a result tap then confirm adds with ONE call', async () => {
     install({ organiser_team_search_people_v1: [{ profile_id: 'pz', display_name: 'Zoe Park', photo_url: null, city_name: 'Leeds' }] });
     at();
     const input = await screen.findByTestId('add-search');
@@ -272,6 +277,8 @@ describe('C25b the faces wall', () => {
     const hit = await screen.findByTestId('add-result');
     expect(world.calls('organiser_team_search_people_v1')[0]).toMatchObject({ p_query: 'zo', p_limit: 8 });
     fireEvent.click(hit);
+    expect(world.calls('organiser_team_add_member_by_profile_v1')).toHaveLength(0);
+    await yes();
     await waitFor(() => expect(world.calls('organiser_team_add_member_by_profile_v1')).toHaveLength(1));
   });
 });

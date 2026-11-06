@@ -12,6 +12,7 @@ import { Avatar } from './Avatar';
 import { GateReason } from './GateReason';
 import { PublicToggle } from './PublicToggle';
 import { useTeamContext } from './useTeamContext';
+import { PageNameCaption, RequestsError, requestsErrorShown } from './p3TeamBits';
 
 /**
  * /account/o/team (C25). Faces and roles (Owner / Manager, D41), the open join request as a card
@@ -58,6 +59,7 @@ export default function TeamPage() {
       <div className="flex flex-col gap-3 p-3">
         {/* P3 picks the page on Switch page (You), so the chips are R1's alone. */}
         {kind === 'r1' && <OrganiserSwitcher organisers={ctx.organisers} selectedId={organiser?.id ?? null} onChoose={ctx.choose} />}
+        <PageNameCaption name={organiser?.name} show={kind === 'p3' && ctx.organisers.length >= 2} />
         <AnnounceRegion message={message} />
         {ctx.loading ? (
           <SkeletonRows count={3} label="Loading your team" testId="team-loading" />
@@ -71,6 +73,7 @@ export default function TeamPage() {
           )
         ) : (
           <>
+            {kind === 'p3' && requestsErrorShown(requests) && <RequestsError onRetry={() => void requests.refetch()} />}
             {(requests.data ?? []).length > 0 && (
               <Card label="Wants to join" testId="requests-card">
                 {(requests.data ?? []).map((r) => (

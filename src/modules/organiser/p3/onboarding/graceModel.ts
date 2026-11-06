@@ -3,6 +3,34 @@
 
 export const thingsLeft = (n: number): string => (n === 1 ? '1 thing left' : `${n} things left`);
 
+/**
+ * THE time promise (join-gaps-1 gap 4), for every screen that names one: Home's banner, the gate sheet and the
+ * onboarding welcome line. Derived from the rows left, never a flat "five minutes" next to 10 rows; a list longer
+ * than 3 also says it can be left half-done. null = the count is not known: no time is claimed.
+ */
+export const STOP_AND_COME_BACK = 'You can stop and come back.';
+export function timePromise(left: number | null): string {
+  if (left === null) return STOP_AND_COME_BACK;
+  if (left <= 0) return '';
+  if (left <= 3) return 'It takes a minute or two.';
+  if (left <= 6) return `It takes about three minutes. ${STOP_AND_COME_BACK}`;
+  if (left <= 10) return `It takes about five minutes. ${STOP_AND_COME_BACK}`;
+  return `It takes about ten minutes. ${STOP_AND_COME_BACK}`;
+}
+const join = (...parts: string[]): string => parts.filter(Boolean).join(' ');
+
+/**
+ * Home's banner body (owner words 2026-11-03), the ONE copy: the gate is on, so nothing "works as usual" until
+ * the details are done. No other screen repeats the claim. The time is timePromise's, for the count beside it.
+ */
+export const graceBody = (left: number): string => join('Finish your details first to create or edit events.', timePromise(left));
+
+/** The gate sheet's body: the same promise, for the rows it lists (null while the list is unknown). */
+export const gateBody = (left: number | null): string => join('We ask everyone who runs a page, and you only do it once.', timePromise(left));
+
+/** The onboarding welcome line for a page (null = the status read has not answered). */
+export const welcomeLine = (left: number | null): string => join('A few quick questions and your page is ready to edit, once only.', timePromise(left));
+
 /** The You row's and the page editor's words for the same count. */
 export const toFinish = (n: number): string => `To finish: ${thingsLeft(n)}`;
 

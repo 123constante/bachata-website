@@ -2,7 +2,8 @@ import { Link, Navigate } from 'react-router-dom';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { continueAsLanding } from '@/lib/auth-otp-routing';
-import { APP_HOME_PATH, APP_WELCOME_PATH, ORGANISER_HOME_PATH, type ProfileSide } from '@/lib/accountRouting';
+import { APP_HOME_PATH, APP_WELCOME_PATH, type ProfileSide } from '@/lib/accountRouting';
+import { isOrganiserAreaPath } from '@/lib/organiserAreaHome';
 import { AccountShell } from '@/modules/areas/shared/AccountShell';
 import { PAGE_TITLE } from '@/modules/areas/shared/typeScale';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
@@ -19,7 +20,7 @@ const hasSwitcher = (to: string): boolean => {
   const p = to.split(/[?#]/, 1)[0].toLowerCase();
   if (p === APP_WELCOME_PATH) return false;
   const app = APP_HOME_PATH.slice(0, APP_HOME_PATH.lastIndexOf('/'));
-  return p === app || p.startsWith(`${app}/`) || p === ORGANISER_HOME_PATH || p.startsWith(`${ORGANISER_HOME_PATH}/`);
+  return p === app || p.startsWith(`${app}/`) || isOrganiserAreaPath(p);
 };
 
 /** The hint when EVERY button lands where the picture is; none otherwise (no text points at a missing control). */
