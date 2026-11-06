@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
@@ -44,6 +44,8 @@ import {
 import { RefundSheet } from './RefundSheet';
 import { StackSheet, refocusTop } from './StackSheet';
 import { TypeSheet } from './TypeSheet';
+
+const SalesReport = lazy(() => import('./SalesReport').then((m) => ({ default: m.SalesReport })));
 
 /**
  * The event page's Tickets entry (W-T, mockup C): a row under Status that opens ONE tall
@@ -316,7 +318,14 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               {body}
             </div>
           ) : (
+            <>
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
+            {orders.isSuccess && (
+              <Suspense fallback={null}>
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} />
+              </Suspense>
+            )}
+            </>
           )}
         </StackSheet>
       )}
