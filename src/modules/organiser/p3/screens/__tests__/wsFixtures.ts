@@ -93,6 +93,9 @@ export const SHAPES = {
   emptyLineup: wsRaw({ name: 'Quiet Thursdays' }, program([item('p', 'party', 'Social', '21:00', '00:00')]), weekly('2026-10-29', 4).map((d) => occ(d))),
 } satisfies Record<string, Raw>;
 
+/** Real prod shape: 33 of 44 live recurring series hold 13 to 100 dates. 13 Fridays from 2026-10-30; 2026-11-13 has its own title. Kept OUT of SHAPES so the all-shape matrices elsewhere do not pick it up. */
+export const WEEKLY13: Raw = wsRaw({}, TWO, weekly('2026-10-30', 13).map((d) => d === '2026-11-13' ? occ(d, 'scheduled', { has_override: true, override_keys: ['title'] }) : occ(d)));
+
 export type ShapeKey = keyof typeof SHAPES;
 export const SHAPE_KEYS = Object.keys(SHAPES) as ShapeKey[];
 

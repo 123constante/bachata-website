@@ -17,6 +17,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | Nights feed swap on the page | web | BRIEFED | A#1266 applied | brief/organiser-page-nights-feed (34b165ca) |
 | Claim + find + onboarding polish (claim sheet retry, team page errors, teach row, edit save error, edit back, Instagram hint, bio) | web | DONE | -- | W#1411, W#1412, W#1422, W#1423, W#1431, W#1432 |
 | Different on N dates (Details/Prices) | web | DONE | -- | W#1406 |
+| Details and Prices on every event shape (tests only; closes Walk B's 10 untested cells) | web | PR OPEN, tests only | checks, review | claude/details-prices-shape-matrix |
 | Page row returns to Review after save | web | PR OPEN, `phone-qa-section` red (PR body) | body fill, checks | W#1433 |
 | Plain note when an editor picture does not load | web | PR OPEN | checks, review | W#1442 |
 | Door no-access card gets Check again + Back | web | PR OPEN, green at last read | review, merge | W#1439 |
