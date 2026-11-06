@@ -32,7 +32,7 @@ One permanent shared Bristol link per ambassador (Jan). The page says "Jan invit
 Bot-authored PR, every CI job step run, Verified / Not verified block (Not verified: real link until #1277 is applied and Jan has an account), handover `docs/handover/bristol-ambassador-landing.md`.
 
 ## What main lacks
-No shared ambassador link route, no landing, join record call or `/join/a/` path anywhere on origin/main (git grep for ambassador link finds only the A1 queue under src/modules/ambassador). The DB half is admin PR #1277 (unmerged).
+- No shared ambassador link route, no landing, no join record call (`record_ambassador_link_join_v1`) and no `/join/a/` path anywhere in src on origin/main (git grep for ambassador link finds only the A1 queue under src/modules/ambassador). The DB half is admin PR #1277 (unmerged). -- grep: record_ambassador_link_join_v1
 
 ## Files
 `src/components/AnimatedRoutes.tsx` (route), new `src/modules/ambassador/link/*`, `src/modules/admin-organisers/join/JoinPage.tsx` (read only, hand-off), tests under `src/modules/ambassador/link/__tests__/`.
