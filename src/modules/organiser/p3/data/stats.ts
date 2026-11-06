@@ -113,3 +113,8 @@ export function byEventOf(s: ViewsStats) {
     .sort((a, b) => b.total - a.total)
     .map((x) => ({ id: x.seriesId, name: x.name.trim() || L.noName, total: x.total, pct: x.total > 0 ? Math.max(2, Math.round((x.total / max) * 100)) : 0 }));
 }
+
+/** The page scope for every number on Stats: the series organiser_series_stats_v1 returned (F-26). */
+export function scopeSeriesIds(s: ViewsStats): string[] {
+  return s.series.map((x) => x.seriesId);
+}
