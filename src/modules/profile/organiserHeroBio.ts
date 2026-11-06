@@ -22,7 +22,7 @@ export function heroBio(
     const line = [cityName, category]
       .map((p) => (p ?? '').trim())
       .filter(Boolean)
-      .join(' · ');
+      .join(' \u00b7 ');
     return { text: line || null, truncated: false, fallback: line !== '' };
   }
   if (chars.length <= BIO_LIMIT) return { text: chars.join(''), truncated: false, fallback: false };
@@ -33,7 +33,7 @@ export function heroBio(
       break;
     }
   }
-  return { text: cut.join('').trimEnd() + '…', truncated: true, fallback: false };
+  return { text: cut.join('').trimEnd() + '\u2026', truncated: true, fallback: false };
 }
 
 /**
