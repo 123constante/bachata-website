@@ -181,6 +181,13 @@ describe('my tickets: door code (reply shape x ticket state)', () => {
         expect(l.getAttribute('data-checked-in')).toBe(checked ? 'true' : 'false');
         expect(l.textContent?.includes('Checked in')).toBe(checked);
         expect(l.querySelector('[data-testid="door-code-value"]')?.className).toContain('font-mono');
+        // directly under the QR, above the Hide QR code toggle
+        const card = l.closest('[data-testid="my-ticket"]') as HTMLElement;
+        const after = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+        const box = card.querySelector('[data-testid="my-ticket-qr-box"]');
+        if (box) expect(after(box, l)).toBe(true);
+        const toggle = within(card).queryByRole('button', { name: /QR code|Show anyway/ });
+        if (toggle && !checked) expect(after(l, toggle)).toBe(true);
       }
     }
     // the QR stays as it was: open on an unchecked ticket, collapsed behind Show anyway when checked in

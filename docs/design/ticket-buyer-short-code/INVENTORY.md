@@ -17,7 +17,7 @@ Legend: **Covered** = this branch shows or honours it, with the test that proves
 | A3 | `my_tickets_v1` row key `short_code` | live body: `'qr_token', s.qr_token, 'short_code', s.short_code,` | Covered: `parseMyTickets` |
 | A4 | `my_ticket_order_qr_v1` row key `short_code` | live body: `'qr_token', t.qr_token, 'short_code', t.short_code,` | Covered: `parseOrderQr` |
 | A5 | `checked_in` = `checked_in_at IS NOT NULL OR status = 'used'` | both live bodies | Covered: greyed code + "Checked in" |
-| A6 | Void tickets: `t.status <> 'void'` in both RPCs | both live bodies | Covered: server hides them; test asserts a reply without them renders no extra card |
+| A6 | Void tickets: `t.status <> 'void'` in both RPCs | both live bodies | Covered server-side only: the reply carries no status, so the client cannot filter; matrix state "void hidden" proves the remaining tickets of a part-voided order each render their code |
 | A7 | Prod shapes: valid/unchecked/code ok = 4; void/unchecked/code ok = 4; void/checked/code ok = 1; null codes = 0; malformed = 0 | SELECT on `tickets` (counts) | Covered: matrix also covers null / lowercase / malformed / missing key for old replies |
 | A8 | Door check by code `ticket_check_in_by_code_v1` (rate-limited 20 / 15 min) | `src/modules/organiser/p3/door/data.ts:53`, `model.ts:15` | N/A (organiser door screen, not touched) |
 | A9 | Ticket email wording carrying the code | admin repo (not attached) | N/A: brief says the email wording stays as it is; not changed here |
@@ -37,7 +37,7 @@ Legend: **Covered** = this branch shows or honours it, with the test that proves
 | B9 | Thank-you QR card | `src/modules/tickets/OrderQrBlock.tsx:251-263` | Covered: code line under the QR |
 | B10 | Thank-you checked-in tag | `OrderQrBlock.tsx:254-258` | Covered: code greyed with "Checked in" |
 | B11 | Thank-you empty / error / loading / "and N more" | `OrderQrBlock.tsx:230-244,266-271` | Covered: unchanged, no code text (test) |
-| B12 | Door short-code flag `ticketDoorCode` (`VITE_ENABLE_TICKET_DOOR_CODE`, OFF in prod per `docs/handover/ticket-door-code-screen.md:10`) | `src/modules/organiser/p3/door/doorFlags.ts:10` | Covered: the buyer code shows only when the door can accept it (flag on); off = treated as null |
+| B12 | Door short-code flag `ticketDoorCode` (`VITE_ENABLE_TICKET_DOOR_CODE`, OFF in prod per `docs/handover/ticket-door-code-screen.md:10`) | `src/modules/organiser/p3/door/doorFlags.ts:10` | Covered: the buyer code shows only when the door can accept it (flag on); off = treated as null (flag imported, not re-read, so the env name stays out of ticket files) |
 | B13 | Never log / store the secret | `myTicketsModel.ts:6-7`, `OrderQrBlock.tsx:10` | Covered: no logging added; DOM test asserts no token, code only as the grouped text |
 | B14 | Door placeholder "K7M 2QX" grouping | `src/modules/organiser/p3/door/DoorScreen.tsx:330` | Covered: same grouping via one formatter `formatShortCode` |
 
@@ -48,4 +48,4 @@ Legend: **Covered** = this branch shows or honours it, with the test that proves
 | C1 | Thank-you page order reference (mono) | `src/modules/tickets/TicketThanksPage.tsx:102` | Covered: code uses the same mono style |
 | C2 | Thank-you renders `OrderQrBlock` only when paid + signed in | `TicketThanksPage.tsx:107` | Covered: existing test kept green |
 
-**Coverage: 21 / 23 covered, 2 N/A (A8 door screen, A9 email; both out of scope by the brief).**
+**Coverage: 23 / 25 covered, 2 N/A (A8 door screen, A9 email; both out of scope by the brief).**

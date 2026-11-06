@@ -44,6 +44,8 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
   const [open, setOpen] = useState(defaultOpen);
   const show = open && qrVisible(t, anyway);
   const code = doorCodeText(t.shortCode, ticketDoorCode);
+  // Directly under the QR when one is drawn; otherwise in the QR's place, so it shows on every card.
+  const codeLine = code ? <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="my-ticket-short-code" /> : null;
   return (
     <li className="rounded-md p-3 text-[14px]" style={surface} data-testid="my-ticket" data-checked-in={t.checkedIn ? 'true' : 'false'}>
       <div className="flex items-start justify-between gap-2">
@@ -63,16 +65,22 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
       )}
       <div className="mt-2">
         {!t.qrToken ? (
-          <p className="text-[12px]" style={muted} data-testid="my-ticket-no-qr">{QR_MISSING}</p>
+          <>
+            <p className="text-[12px]" style={muted} data-testid="my-ticket-no-qr">{QR_MISSING}</p>
+            {codeLine}
+          </>
         ) : t.checkedIn && !anyway ? (
-          <button
-            type="button"
-            onClick={() => { setAnyway(true); setOpen(true); }}
-            className="min-h-[44px] w-full rounded-md px-3 text-[14px] underline"
-            style={{ border: '1px solid var(--bento-hairline)' }}
-          >
-            Show anyway
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => { setAnyway(true); setOpen(true); }}
+              className="min-h-[44px] w-full rounded-md px-3 text-[14px] underline"
+              style={{ border: '1px solid var(--bento-hairline)' }}
+            >
+              Show anyway
+            </button>
+            {codeLine}
+          </>
         ) : (
           <>
             {show && (
@@ -83,6 +91,7 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
                 )}
               </div>
             )}
+            {codeLine}
             {!t.checkedIn && (
               <button
                 type="button"
@@ -95,7 +104,6 @@ function TicketCard({ t, position, today, defaultOpen }: { t: MyTicket; position
             )}
           </>
         )}
-        {code && <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="my-ticket-short-code" />}
       </div>
       {t.seriesId && (
         <Link to={`/event/${t.seriesId}`} className="inline-flex min-h-[44px] items-center text-[13px] underline">
