@@ -46,6 +46,7 @@ vi.mock('@/integrations/supabase/client', () => {
   chain.then = (res: (v: unknown) => void) => res({ data: [], error: null });
   return { supabase: { from: () => chain, rpc: async (fn: string) => {
     // Ownership and contact come from RPCs only (arc PR 3); the claim hint is signed-in only.
+    if (fn === 'organiser_public_team_v1') return { data: [], error: null };
     if (fn === 'organiser_ownership_v1') return { data: feeds.ownership, error: null };
     if (fn === 'get_organiser_public_contact_v1') return { data: feeds.contact, error: null };
     return { data: null, error: null };
