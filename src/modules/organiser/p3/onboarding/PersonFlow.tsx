@@ -32,6 +32,7 @@ import {
   isDjStep,
   nextStep,
   personPath,
+  teachRowPath,
   personReadFail,
   prevStep,
   progressPercent,
@@ -151,11 +152,13 @@ export interface PersonScreensProps {
   percentOf?: (step: PersonStep, path: readonly PersonStep[]) => number;
   /** The last person step's button: 'Done' here alone; 'Continue' when Review follows. */
   lastLabel?: string;
+  /** Entered from a Review row: a lone teaching step (teachRowPath) saves and calls onDone, Back calls onExit. */
+  fromReview?: boolean;
 }
 
 type Sheet = 'nat' | 'langs' | 'styles' | null;
 
-export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done' }: PersonScreensProps) {
+export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done', fromReview = false }: PersonScreensProps) {
   const qc = useQueryClient();
   const [held, setHeld] = useState<PersonDraft>(heldIn);
   const [d, setD] = useState<PersonDraft>({ ...EMPTY_DRAFT, ...heldIn });
@@ -167,9 +170,9 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bounce, setBounce] = useState(false);
   const clearToast = useCallback(() => setToast(null), []);
-  // The DJ steps are their own short path from Review (personModel DJ_ORDER); every other step walks the person path.
+  // The DJ steps are their own short path from Review (personModel DJ_ORDER); a teaching row from Review is a lone step (teachRowPath).
   const entry = initialStep ?? 'name';
-  const path = isDjStep(entry) ? djPath(d.dj, entry) : personPath(d.teach, !!organiser);
+  const path = isDjStep(entry) ? djPath(d.dj, entry) : (fromReview ? teachRowPath(entry) : null) ?? personPath(d.teach, !!organiser);
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((p) => ({ ...p, [k]: v }));
 
   const move = (to: PersonStep | null, how: 'fwd' | 'back') => {
