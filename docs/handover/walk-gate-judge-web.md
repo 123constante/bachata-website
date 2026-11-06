@@ -32,8 +32,27 @@ approves at head; the worker never approves or merges.
 - Tests J8, J9, J10, J15, J23 added (they already held on c79d9a07; coverage only). 41 new tests red on
   the old code; mutants M8 to M19 (+M9b) each killed, then restored (table in the PR body).
 
+## Brief walk-judge-screens-tied-to-coverage (branch claude/walk-judge-screens-tied-to-coverage)
+- `screensMissingFromCoverage(walkCoverage, inputScreens)` in `walk-fixtures.mjs` (re-exported by
+  `walk-judge.mjs`): pure, never throws; lists a required (non-example) screen missing from
+  `input.screens`, an input screen coverage does not list, a coverage shape the input screen lacks.
+  A required screen with `shapes: []` and an input screen naming an example row are problems too.
+  Malformed coverage/input or a table with no non-example screen is ONE problem string.
+- `judgeVerdict(input, report, coverage)`: optional third argument; each problem is a red reason
+  prefixed `coverage:`. Omitted (`undefined`) = byte-for-byte the old verdict. CLI `--coverage <file>`;
+  an unreadable/unparseable file is red (exit 1); `--coverage` with no file is usage (exit 2).
+- Spec updated (Input, Output, Fail-closed rule, Parts left). Tests C1-C17 + K0-K12; mutants M1-M10 in the PR.
+- Code review (one round): fixed empty-shapes row, example-row message, duplicate input ids,
+  unreadable --coverage now keeps all other reasons, `coverage:` reasons always first.
+  Not changed: opt-in coverage (brief says optional) and waived `walk: null` screens (Parts left).
+- The seeded `walk-coverage.json` has only the example row, so `--coverage` against it is ALWAYS red
+  until Part C adds real rows. That is intended (fail-closed), not a bug.
+
 ## Parts left
-- input.screens is not tied to walk-coverage.json (the judge trusts the lane's screen list); Part B/C.
+- Part D's caller must pass the live `docs/design/walk-coverage.json` (`--coverage`) and the PR's live
+  head; nothing wires the judge into CI yet.
+- Waived `walk: null` screens are still required by the coverage check; Part D/E decides how a waiver
+  reaches the judge.
 - Part D's caller must pass the PR's live head to `isPass`, not the verdict's own.
 - Part B: walk runner and Playwright WebKit project on the fixtures (contract 11
   items 1, 5a); enforcing the judge daily totals (section 12).
