@@ -81,6 +81,15 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [refunding, setRefunding] = useState<Order | null>(null);
+  // Per order AND its refunded amount: partial-refund keys still waiting for a definite answer
+  // (amount -> request_id), kept across the Refund sheet closing so a retry after a network failure
+  // is the same press. Once the webhook moves refunded_pence, the old keys no longer apply.
+  const refundKeys = useRef(new Map<string, Map<number, string>>());
+  const keysFor = (id: string) => {
+    const m = refundKeys.current.get(id) ?? new Map<number, string>();
+    refundKeys.current.set(id, m);
+    return m;
+  };
   // Orders whose refund is on its way: their Refund button waits for the answer (never a second request).
   const [inFlight, setInFlight] = useState<ReadonlySet<string>>(new Set());
   const flight = (id: string, on: boolean) =>
@@ -371,6 +380,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           onLate={late}
           onStart={() => flight(refunding.id, true)}
           onSettled={() => flight(refunding.id, false)}
+          keys={keysFor(`${refunding.id}:${refunding.refundedPence}`)}
+
+
           onDone={(text) => {
             setRefunding(null);
             say(text);

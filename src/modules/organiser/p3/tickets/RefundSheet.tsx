@@ -10,8 +10,8 @@ import {
   partialRefundDone,
   penceOf,
   reasonMessage,
-  refundAmount,
   refundAmountError,
+
   refundPartQuestion,
   refundQuestion,
   type Order,
@@ -36,6 +36,7 @@ export function RefundSheet({
   onLate,
   onStart,
   onSettled,
+  keys,
 }: {
   order: Order;
   /** The ticket type's name, or null when the event has one type. */
@@ -48,6 +49,12 @@ export function RefundSheet({
   /** The order's refund started (the parent locks its Refund button until the answer). */
   onStart: () => void;
   onSettled: () => void;
+  /**
+   * This order's partial presses still waiting for a definite answer: amount (pence) -> request_id.
+   * Owned by the parent, so a sheet closed and reopened after a network failure reuses the key
+   * for the same amount (the server answers that press, never a second refund).
+   */
+  keys: Map<number, string>;
 }) {
   const id = useId();
   const [busy, setBusy] = useState(false);
@@ -62,10 +69,6 @@ export function RefundSheet({
   const day = dayWord(order.paidAt, today);
   const alive = useRef(true);
   const noteRef = useRef<HTMLParagraphElement>(null);
-  // The idempotency key of the last partial press and the amount it carried. A retry from this
-  // sheet with the SAME amount reuses it (the server answers that press, never a second refund);
-  // a changed amount is a new refund and gets a new key. A new opening of the sheet starts empty.
-  const pressKey = useRef<{ key: string; pence: number } | null>(null);
   useEffect(() => () => { alive.current = false; }, []);
   // The refusal takes focus, so a keyboard or screen-reader user hears it inside the sheet.
   useEffect(() => { if (note) noteRef.current?.focus(); }, [note]);
@@ -73,22 +76,26 @@ export function RefundSheet({
     if (mode === 'part' && pence === null) return;
     let opts: { amountPence: number; requestId: string } | undefined;
     if (mode === 'part' && pence !== null) {
-      if (!pressKey.current || pressKey.current.pence !== pence) pressKey.current = { key: newRefundRequestId(), pence };
-      opts = { amountPence: pence, requestId: pressKey.current.key };
+      // One key per press. A retry of the SAME amount after an unclear failure reuses it; a different
+      // amount is a different refund with its own key.
+      const key = keys.get(pence) ?? newRefundRequestId();
+      keys.set(pence, key);
+      opts = { amountPence: pence, requestId: key };
     }
     setBusy(true);
     setNote(null);
     onStart();
     const out = await refundOrder(order.id, opts);
     onSettled();
+    // A definite answer (done, a refusal with a reason, payments off) ends that press: the next press
+    // of this amount is a new refund. Only an unclear failure (no reason: network) keeps the key.
+    if (opts && (out.kind !== 'failed' || out.reason !== null)) keys.delete(opts.amountPence);
     // Closed before the answer: another order's sheet may be open now, so never close it (review r1 F2),
     // and the late words name this order, so they never read as the open one's (review r2 R2).
     const whose = `${buyerNameOf(order)}'s order`;
     if (out.kind === 'ok') {
       if (!opts) return alive.current ? onDone('Refund started.') : onLate(`Refund started for ${whose}.`, true);
-      const sent = out.value?.amountPence ?? opts.amountPence;
-      const left = out.value?.remainingPence ?? Math.max(0, refundAmount(order) - sent);
-      const done = partialRefundDone(sent, left);
+      const done = partialRefundDone(out.value?.amountPence ?? opts.amountPence, out.value?.remainingPence ?? null, out.value?.clearsBalance ?? false);
       return alive.current ? onDone(done) : onLate(`${whose}: ${done}`, true);
     }
     const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : reasonMessage(out.reason);

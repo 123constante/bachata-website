@@ -294,7 +294,12 @@ describe('partial refund amount (refundAmountError)', () => {
 describe('partial refund words', () => {
   it('done: the amount, what is left, tickets stay valid', () => {
     expect(partialRefundDone(300, 500)).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
-    expect(partialRefundDone(800, 0)).toBe('Refunded \u00A38.00. Nothing is left to refund. Tickets stay valid.');
+    expect(partialRefundDone(800, 0)).toBe('Refunded \u00A38.00. Nothing is left to refund.');
+    // The server cleared the balance: no promise about the tickets (the server settles the order).
+    expect(partialRefundDone(800, 0, true)).toBe('Refunded \u00A38.00. Nothing is left to refund.');
+    // No remainder in the reply: none is guessed from a row the webhook has not updated yet.
+    expect(partialRefundDone(300, null)).toBe('Refunded \u00A33.00. Tickets stay valid.');
+
   });
   it('the partial question says tickets stay valid and names the maximum', () => {
     const q = refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 300);
@@ -302,6 +307,9 @@ describe('partial refund words', () => {
     expect(q.body).toMatch(/stay valid/);
     expect(q.confirm).toBe('Refund \u00A33.00');
     expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, null).confirm).toBe('Refund');
+    // Exactly what is left: the server decides what happens to the order, so no promise about tickets.
+    expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 800).body).not.toMatch(/stay valid|stays paid/);
+
   });
   it('a request id is 8-64 chars of [A-Za-z0-9_-], fresh each call, also without crypto.randomUUID', () => {
     const a = newRefundRequestId();

@@ -14,7 +14,7 @@ admin PR #1283, verified deployed by the lead), not from file:line.
 | A2 | body `amount_pence` (integer pence, optional; absent = whole refund) | contract | NEW: ticketsApi `refundOrder(id, opts)` |
 | A3 | body `request_id` (8-64 chars `[A-Za-z0-9_-]`; required with A2; idempotency key) | contract | NEW: `newRefundRequestId()` |
 | A4 | reply whole `{ok:true,refunded:true}` | contract | yes, today |
-| A5 | reply partial `{ok:true,refunded:false,partial:true,amount_pence,remaining_pence,clears_balance}` | contract | NEW: parsed into `RefundDone` |
+| A5 | reply partial `{ok:true,refunded:false,partial:true,amount_pence,remaining_pence,clears_balance}` | contract | NEW: parsed into `PartialRefundDone` |
 | A6 | refusal `invalid_amount` (+ `remaining_pence`) | contract | NEW REASON |
 | A7 | refusal `request_id_required` | contract | NEW REASON |
 | A8 | refusal `request_id_reused` | contract | NEW REASON |

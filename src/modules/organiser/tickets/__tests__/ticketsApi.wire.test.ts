@@ -62,4 +62,9 @@ describe('refundOrder wire', () => {
     invoke.mockReset().mockResolvedValue({ data: { ok: true, refunded: false, partial: true, amount_pence: 300 }, error: null });
     expect(await refundOrder('o1', { amountPence: 300, requestId: 'key-12345678' })).toEqual({ kind: 'ok', value: { amountPence: 300, remainingPence: null, clearsBalance: false } });
   });
+  it('odd numbers in a partial reply are never shown: the sent amount stands, an odd remainder reads unknown', async () => {
+    invoke.mockReset().mockResolvedValue({ data: { ok: true, partial: true, amount_pence: 2.5, remaining_pence: Number.NaN, clears_balance: 'yes' }, error: null });
+    expect(await refundOrder('o1', { amountPence: 300, requestId: 'key-12345678' })).toEqual({ kind: 'ok', value: { amountPence: 300, remainingPence: null, clearsBalance: false } });
+  });
+
 });

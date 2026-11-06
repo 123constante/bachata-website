@@ -165,7 +165,7 @@ describe('one key per press (request_id idempotency)', () => {
     await screen.findByTestId('tix-refund-note');
     await waitFor(() => expect(confirm().disabled).toBe(false));
   };
-  it('a retry of the same amount reuses the key; a changed amount gets a new one; a new opening a new one', async () => {
+  it('an unclear failure (no reason) keeps the key per amount: retry, a changed amount and back, closing and reopening', async () => {
     api.refundOrder.mockResolvedValue({ kind: 'failed', reason: null }); // a network failure leaves the sheet open
     show(<TicketsEntry seriesId="ser-1" />);
     open();
@@ -175,19 +175,69 @@ describe('one key per press (request_id idempotency)', () => {
     typeAmount('3');
     await pressAndWait(1);
     await pressAndWait(2);
-    expect(key(1)).toBe(key(0));
+    expect(key(1)).toBe(key(0)); // the same press, retried
     typeAmount('4');
     await pressAndWait(3);
-    expect(key(2)).not.toBe(key(0));
-    typeAmount('3'); // back to the first amount: still a different press than the one in flight last
+    expect(key(2)).not.toBe(key(0)); // a different amount is a different refund
+    typeAmount('3');
     await pressAndWait(4);
-    expect(key(3)).not.toBe(key(2));
+    expect(key(3)).toBe(key(0)); // 3.00 may already have gone through: still that press
     fireEvent.click(screen.getByTestId('tix-refund-cancel'));
     openSheet('op');
     part();
-    typeAmount('4');
+    typeAmount('3');
     await pressAndWait(5);
-    expect(new Set([key(0), key(2), key(3), key(4)]).size).toBe(4);
+    expect(key(4)).toBe(key(0)); // reopening the sheet never mints a second refund of 3.00
+  });
+  it('once the webhook moves refunded_pence, kept keys no longer apply: the same amount is a new key', async () => {
+    api.refundOrder.mockResolvedValue({ kind: 'failed', reason: null });
+    const r = show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('op');
+    part();
+    typeAmount('3');
+    await pressAndWait(1);
+    fireEvent.click(screen.getByTestId('tix-refund-cancel'));
+    // The lost 3.00 did land: the order row now says 3.00 refunded.
+    load({ ...withOrders(), orders: [order('op', 't-sell', { refundedPence: 300 })] });
+    r.again();
+    openSheet('op');
+    part();
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A322.00 left to refund');
+    typeAmount('3');
+    await pressAndWait(2);
+    expect(key(1)).not.toBe(key(0)); // a second, deliberate 3.00 refund
+  });
+  it('a definite answer ends the press: a refusal with a reason, then a new press, uses a new key', async () => {
+
+    api.refundOrder.mockResolvedValue({ kind: 'failed', reason: 'refund_exceeds_balance' });
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('op');
+    part();
+    typeAmount('3');
+    await pressAndWait(1);
+    await pressAndWait(2);
+    expect(key(1)).not.toBe(key(0)); // "wait a minute, then try again" is a new press the server can say yes to
+  });
+  it('a done partial ends the press: the next refund of the same amount on that order is a new key', async () => {
+    api.refundOrder.mockResolvedValueOnce({ kind: 'ok', value: { amountPence: 300, remainingPence: 2200, clearsBalance: false } });
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('op');
+    part();
+    typeAmount('3');
+    fireEvent.click(confirm());
+    await screen.findByTestId('tix-toast');
+    api.refundOrder.mockResolvedValue({ kind: 'failed', reason: null });
+    openSheet('op');
+    part();
+    typeAmount('3');
+    await pressAndWait(2);
+    expect(key(1)).not.toBe(key(0));
   });
   it('a whole refund never sends a key', async () => {
     api.refundOrder.mockResolvedValue({ kind: 'failed', reason: null });

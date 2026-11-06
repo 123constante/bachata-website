@@ -270,13 +270,14 @@ export async function refundOrder(orderId: string, opts?: { amountPence: number;
     : { order_id: orderId };
   const out = await invokeEdge('ticket-refund', body);
   if (out.kind !== 'ok') return out;
-  const v = (out.value ?? {}) as { ok?: unknown; reason?: string; partial?: unknown; amount_pence?: unknown; remaining_pence?: unknown; clears_balance?: unknown };
+  const v = (out.value ?? {}) as { ok?: unknown; reason?: string; amount_pence?: unknown; remaining_pence?: unknown; clears_balance?: unknown };
   if (v.ok === false) return { kind: 'failed', reason: v.reason ?? null };
   if (!opts) return { kind: 'ok', value: null };
-  const remaining = typeof v.remaining_pence === 'number' && Number.isFinite(v.remaining_pence) ? v.remaining_pence : null;
+  const pence = (x: unknown): number | null => (typeof x === 'number' && Number.isInteger(x) && x >= 0 ? x : null);
   return {
     kind: 'ok',
-    value: { amountPence: typeof v.amount_pence === 'number' ? v.amount_pence : opts.amountPence, remainingPence: remaining, clearsBalance: v.clears_balance === true },
+    value: { amountPence: pence(v.amount_pence) ?? opts.amountPence, remainingPence: pence(v.remaining_pence), clearsBalance: v.clears_balance === true },
   };
+
 }
 

@@ -398,13 +398,27 @@ export const refundAmountError = (text: string, o: Pick<Order, 'totalPence' | 'r
 /** The "Refund part of it" words: the maximum line, the body, and the confirm button (amount only once it is valid). */
 export const refundPartQuestion = (o: Pick<Order, 'totalPence' | 'refundedPence'>, validPence: number | null): { max: string; body: string; confirm: string } => ({
   max: `Up to ${formatPence(refundAmount(o))} left to refund`,
-  body: 'The amount you enter goes back. Their tickets stay valid and the order stays paid. Cannot be undone.',
+  // The whole remainder typed as a part: the server decides what happens to the order (clears_balance), so promise nothing.
+  body:
+    validPence !== null && validPence >= refundAmount(o)
+      ? 'This gives back everything that is left on the order. Cannot be undone.'
+      : 'The amount you enter goes back. Their tickets stay valid and the order stays paid. Cannot be undone.',
+
   confirm: validPence === null ? 'Refund' : `Refund ${formatPence(validPence)}`,
 });
 
-/** The toast after a partial refund (the order row updates a moment later, once the webhook lands). */
-export const partialRefundDone = (amountPence: number, remainingPence: number): string =>
-  `Refunded ${formatPence(amountPence)}. ${remainingPence > 0 ? `${formatPence(remainingPence)} is left to refund` : 'Nothing is left to refund'}. Tickets stay valid.`;
+/**
+ * The toast after a partial refund (the order row updates a moment later, once the webhook lands).
+ * Only what the server said: no remainder when it did not send one, and no promise about the
+ * tickets once the server says the balance is cleared (it settles that order, not this screen).
+ */
+export const partialRefundDone = (amountPence: number, remainingPence: number | null, clearsBalance = false): string => {
+  const sent = `Refunded ${formatPence(amountPence)}.`;
+  if (clearsBalance || remainingPence === 0) return `${sent} Nothing is left to refund.`;
+  if (remainingPence === null) return `${sent} Tickets stay valid.`;
+  return `${sent} ${formatPence(remainingPence)} is left to refund. Tickets stay valid.`;
+};
+
 
 /**
  * One idempotency key per press of Refund (ticket-refund request_id: 8-64 chars of [A-Za-z0-9_-]).
@@ -445,7 +459,6 @@ const REASON: Record<string, string> = {
   // ticket-refund (partial refunds). Each says what the person can do on the Refund sheet or the page.
   invalid_amount: 'That amount cannot be refunded. Enter an amount up to what is left on the order.',
   request_id_required: 'That refund did not start. Tap Refund again.',
-
   request_id_reused: 'That refund was already sent with a different amount. Reload the page to see the order before refunding again.',
   not_refundable: 'This order cannot be refunded any more. Reload the page to see its latest state.',
   refund_exceeds_balance: 'An earlier refund on this order may still be settling. Wait a minute, then try again.',
