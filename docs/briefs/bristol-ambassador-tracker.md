@@ -29,7 +29,8 @@ Table-driven: {0, 1, 60 joiners} x {active, switched off, not live} x {ambassado
 Bot-authored PR, every CI job step run, Verified / Not verified, handover `docs/handover/bristol-ambassador-tracker.md`.
 
 ## What main lacks
-AmbassadorQueuePage.tsx has the pending queue only: no link card, no copy/share, no switch, no joined counts (git grep get_ambassador_link_tracker_v1 finds nothing).
+- extends: AmbassadorQueuePage.tsx has the pending queue only: no link card, no copy/share, no switch, no joined counts (git grep get_ambassador_link_tracker_v1 finds nothing). -- src/modules/ambassador/AmbassadorQueuePage.tsx
+- No tracker read exists on main for the link card: nothing calls the tracker RPC -- grep: get_ambassador_link_tracker_v1
 
 ## Files
 `src/modules/ambassador/AmbassadorQueuePage.tsx`, `src/modules/ambassador/ambassadorApi.ts`, new `src/modules/ambassador/link/*`, tests under `src/modules/ambassador/link/__tests__/`.
