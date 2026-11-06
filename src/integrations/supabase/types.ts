@@ -13992,6 +13992,17 @@ export type Database = {
           start_time: string
         }[]
       }
+      get_organiser_nights_v2: {
+        Args: {
+          p_from?: string
+          p_include_past?: boolean
+          p_organiser_id: string
+          p_past_limit?: number
+          p_to?: string
+          p_upcoming_limit?: number
+        }
+        Returns: Json[]
+      }
       get_organiser_next_event_dates: {
         Args: never
         Returns: {

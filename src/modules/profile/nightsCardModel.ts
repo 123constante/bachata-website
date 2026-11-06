@@ -46,6 +46,39 @@ export const venueLine = (location: string | null | undefined, city: string | nu
   return v || null;
 };
 
+/** "Venue, City" -- the city is named on every night (never a hard-coded one). Either part may be missing. */
+export const venueCityLine = (location: string | null | undefined, cityName: string | null | undefined): string | null => {
+  const parts = [location?.trim(), cityName?.trim()].filter(Boolean) as string[];
+  return parts.length ? parts.join(', ') : null;
+};
+
+/** A repeating row spanning cities: first city plus "+1 city" / "+2 cities". Order of first appearance. */
+export const seriesCityLabel = (cityNames: (string | null | undefined)[]): string | null => {
+  const seen: string[] = [];
+  for (const c of cityNames) { const t = c?.trim(); if (t && !seen.includes(t)) seen.push(t); }
+  if (!seen.length) return null;
+  const extra = seen.length - 1;
+  return extra > 0 ? `${seen[0]} +${extra} ${extra === 1 ? 'city' : 'cities'}` : seen[0];
+};
+
+/** The server cap on the upcoming feed (mirrors ORGANISER_UPCOMING_NIGHTS_CAP). */
+export const UPCOMING_CAP = 20;
+
+/** One shared mapping for every piece of upcoming-count wording. */
+export const upcomingWording = (totalDates: number, rowCount: number) => {
+  const capped = totalDates >= UPCOMING_CAP;
+  const oneRowHoldsAll = rowCount === 1;
+  return {
+    capped,
+    // Heading count: dropped when capped (it would claim "20 dates" is the whole truth).
+    headingCount: capped ? null : `${totalDates} ${totalDates === 1 ? 'date' : 'dates'}`,
+    // Tag on a single repeating row that holds every returned date.
+    seriesTag: capped && oneRowHoldsAll ? `next ${UPCOMING_CAP} dates` : null,
+    showMoreLabel: capped ? 'Show more nights' : `Show all ${totalDates} dates`,
+    capLine: capped ? `Showing the next ${UPCOMING_CAP} nights` : null,
+  };
+};
+
 /** Venue line plus the time. The time is for a single night only (callers pass null for a series). */
 export const cardMetaLine = (venue: string | null, time: string | null): string | null => {
   const parts = [venue, time].filter(Boolean);
