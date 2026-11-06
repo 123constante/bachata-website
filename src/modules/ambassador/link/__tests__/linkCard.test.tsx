@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LinkSection } from '../LinkCard';
-import { LOCKED_REASON, EMPTY_TEXT, OFF_NOTE, NOT_LIVE_NOTE, parseTracker, linkUrl, type TrackerLink } from '../trackerModel';
+import { LOCKED_REASON, EMPTY_TEXT, EMPTY_TEXT_OTHER, OFF_NOTE, OFF_NOTE_OTHER, NOT_LIVE_NOTE, cardModel, parseTracker, linkUrl, type TrackerLink } from '../trackerModel';
 
 const rpc = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (fn: string, a?: Record<string, unknown>) => rpc(fn, a) } }));
@@ -45,14 +45,15 @@ describe('link card matrix', () => {
           const cards = await screen.findAllByTestId('link-card');
           expect(cards).toHaveLength(rows.length);
           expect(screen.getAllByTestId('link-joined')[0].textContent).toBe(`Joined ${n}`);
-          expect(screen.getAllByTestId('link-cityset')[0].textContent).toBe(`Set Bristol ${Math.min(n, 3)}`);
-          expect(screen.queryAllByText(EMPTY_TEXT)).toHaveLength(s !== 'not_live' && n === 0 ? rows.length : 0);
-          expect(screen.queryAllByText(OFF_NOTE)).toHaveLength(s === 'off' ? rows.length : 0);
+          expect(screen.getAllByTestId('link-cityset')[0].textContent).toBe(`${Math.min(n, 3)} set Bristol as their city`);
+          const [e, o] = who === 'admin' ? [EMPTY_TEXT_OTHER, OFF_NOTE_OTHER] : [EMPTY_TEXT, OFF_NOTE];
+          expect(screen.queryAllByText(e)).toHaveLength(s !== 'not_live' && n === 0 ? rows.length : 0);
+          expect(screen.queryAllByText(o)).toHaveLength(s === 'off' ? rows.length : 0);
           expect(screen.queryAllByText(NOT_LIVE_NOTE)).toHaveLength(s === 'not_live' ? rows.length : 0);
           expect(screen.queryAllByRole('button', { name: 'Copy link' })).toHaveLength(s === 'not_live' ? 0 : rows.length);
           expect(screen.queryAllByRole('button', { name: 'Switch off' })).toHaveLength(s === 'active' ? rows.length : 0);
           expect(screen.queryAllByRole('button', { name: 'Switch on' })).toHaveLength(s === 'off' ? rows.length : 0);
-          if (who === 'admin') expect(screen.getByText('Your Bath link (Sam)')).toBeTruthy();
+          if (who === 'admin') expect(screen.getByText("Sam's Bath link")).toBeTruthy();
           else expect(screen.getByText('Your Bristol link')).toBeTruthy();
           expect(writes()).toHaveLength(0);
         });
@@ -99,6 +100,7 @@ describe('link card behaviour', () => {
     rows = [mk({ is_active: false })];
     fireEvent.click(screen.getAllByRole('button', { name: 'Switch off' })[0]);
     await screen.findByText(OFF_NOTE);
+    expect(screen.queryByTestId('switch-confirm')).toBeNull();
     expect(writes()).toEqual([['set_ambassador_link_active_v1', { p_link_id: 'l1', p_active: false }]]);
     expect(rpc.mock.calls.filter(([fn]) => fn === 'get_ambassador_link_tracker_v1')).toHaveLength(2);
   });
@@ -129,11 +131,84 @@ describe('link card behaviour', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Switch off' })[0]);
     await waitFor(() => expect(screen.getByTestId('switch-error').textContent).toBe(LOCKED_REASON));
   });
-  it('renders nothing for no links or a read error', async () => {
+  it('empty state (no links, no error) shows no load-error line', async () => {
     mount();
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(screen.queryByTestId('link-section')).toBeNull();
+    expect(screen.queryByTestId('link-load-error')).toBeNull();
   });
+  it('a read error shows one line with a Retry that refetches', async () => {
+    let fail = true;
+    rpc.mockImplementation(async (fn: string) =>
+      fn !== 'get_ambassador_link_tracker_v1' ? { data: { ok: true }, error: null }
+        : fail ? { data: null, error: { message: 'boom' } } : { data: { links: [mk()] }, error: null });
+    mount();
+    const box = await screen.findByTestId('link-load-error');
+    expect(box.textContent).toContain('We could not load the link.');
+    const retry = screen.getByRole('button', { name: 'Retry' });
+    expect(retry.className).toContain('min-h-[44px]');
+    fail = false;
+    fireEvent.click(retry);
+    await screen.findByTestId('link-card');
+    expect(screen.queryByTestId('link-load-error')).toBeNull();
+  });
+  it('confirm stays open as Saving... until the save ends, closes on success', async () => {
+    rows = [mk()];
+    let release: () => void = () => undefined;
+    rpc.mockImplementation((fn: string) =>
+      fn === 'get_ambassador_link_tracker_v1' ? Promise.resolve({ data: { links: rows }, error: null })
+        : new Promise((r) => { release = () => r({ data: { ok: true }, error: null }); }));
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch off' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Switch off' })[0]);
+    const saving = await screen.findByRole('button', { name: 'Saving...' });
+    expect((saving as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('switch-confirm')).toBeTruthy();
+    rows = [mk({ is_active: false })];
+    release();
+    await waitFor(() => expect(screen.queryByTestId('switch-confirm')).toBeNull());
+  });
+  it('confirm stays open with the error on failure', async () => {
+    rows = [mk()];
+    rpc.mockImplementation(async (fn: string) =>
+      fn === 'get_ambassador_link_tracker_v1' ? { data: { links: rows }, error: null } : { data: null, error: { message: 'x' } });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch off' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Switch off' })[0]);
+    await screen.findByTestId('switch-error');
+    expect(screen.getByTestId('switch-confirm')).toBeTruthy();
+    expect((screen.getAllByRole('button', { name: 'Switch off' })[0] as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('busy is per card: the other card stays usable while one saves', async () => {
+    rows = [mk(), mk({ link_id: 'l2', city_name: 'Bath', ambassador_first_name: 'Sam' })];
+    rpc.mockImplementation((fn: string) =>
+      fn === 'get_ambassador_link_tracker_v1' ? Promise.resolve({ data: { links: rows }, error: null }) : new Promise(() => undefined));
+    mount(true);
+    await screen.findAllByTestId('link-card');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Switch off' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Switch off' })[0]);
+    await screen.findByRole('button', { name: 'Saving...' });
+    const second = screen.getAllByRole('button', { name: 'Switch off' });
+    expect(second).toHaveLength(1);
+    expect((second[0] as HTMLButtonElement).disabled).toBe(false);
+  });
+  it('notes end with a full stop and name a route', () => {
+    for (const t of [OFF_NOTE, OFF_NOTE_OTHER, NOT_LIVE_NOTE, EMPTY_TEXT, EMPTY_TEXT_OTHER]) expect(t.endsWith('.')).toBe(true);
+    expect(NOT_LIVE_NOTE).toContain('Ask an admin.');
+  });
+  it('wording for the owner says your; for an admin viewing someone else it does not', () => {
+    const own = cardModel(mk({ is_active: false }), false, false);
+    const other = cardModel(mk({ is_active: false }), true, true);
+    expect(own.title).toBe('Your Bristol link');
+    expect(other.title).toBe("Jan's Bristol link");
+    expect(own.note).toMatch(/your/i);
+    expect(other.note).not.toMatch(/your/i);
+    expect(cardModel(mk(), false, false).empty).toMatch(/your/i);
+    expect(cardModel(mk(), true, true).empty).not.toMatch(/your/i);
+    expect(cardModel(mk({ ambassador_first_name: null }), true, true).title).toBe('Bristol link');
+  });
+});
+describe('parse', () => {
   it('parseTracker survives bad shapes and a null first name', () => {
     expect(parseTracker(null)).toEqual([]);
     expect(parseTracker({ links: [{ nope: 1 }, { link_id: 'a', code: 'c', joined: -3, ambassador_first_name: null }] })).toMatchObject([{ link_id: 'a', joined: 0, ambassador_first_name: null, live: false }]);

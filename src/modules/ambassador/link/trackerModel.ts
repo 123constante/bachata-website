@@ -16,8 +16,10 @@ export type LinkState = 'on' | 'off' | 'not_live';
 
 export const LOCKED_REASON = 'An admin switched this link off. Ask an admin to turn it back on.';
 export const EMPTY_TEXT = 'Nobody has joined yet. Send your link to the first organiser.';
-export const OFF_NOTE = 'Your link is off. Nobody can join with it';
-export const NOT_LIVE_NOTE = 'This link no longer works. Ask us';
+export const EMPTY_TEXT_OTHER = 'Nobody has joined with this link yet.';
+export const OFF_NOTE = 'Your link is off. Nobody can join with it.';
+export const OFF_NOTE_OTHER = 'This link is off. Nobody can join with it.';
+export const NOT_LIVE_NOTE = 'This link no longer works. Ask an admin.';
 export const CONFIRM_OFF = 'Switch this link off? Nobody will be able to join with it until you switch it on again.';
 export const CONFIRM_ON = 'Switch this link on? Anyone with it will be able to join.';
 
@@ -68,7 +70,7 @@ export interface CardModel {
 export function cardModel(l: TrackerLink, isAdmin: boolean, showWho: boolean): CardModel {
   const state = linkState(l);
   const city = l.city_name || 'city';
-  const who = showWho && l.ambassador_first_name ? ` (${l.ambassador_first_name})` : '';
+  const title = !showWho ? `Your ${city} link` : l.ambassador_first_name ? `${l.ambassador_first_name}'s ${city} link` : `${city} link`;
   let toggle: CardModel['toggle'] = null;
   if (state === 'on') toggle = { label: 'Switch off', next: false, confirm: CONFIRM_OFF, disabledReason: null };
   if (state === 'off') {
@@ -76,11 +78,11 @@ export function cardModel(l: TrackerLink, isAdmin: boolean, showWho: boolean): C
   }
   return {
     state,
-    title: `Your ${city} link${who}`,
+    title,
     joinedLabel: `Joined ${l.joined}`,
-    cityLabel: `Set ${city} ${l.city_set}`,
-    empty: state !== 'not_live' && l.joined === 0 ? EMPTY_TEXT : null,
-    note: state === 'off' ? OFF_NOTE : state === 'not_live' ? NOT_LIVE_NOTE : null,
+    cityLabel: `${l.city_set} set ${city} as their city`,
+    empty: state !== 'not_live' && l.joined === 0 ? (showWho ? EMPTY_TEXT_OTHER : EMPTY_TEXT) : null,
+    note: state === 'off' ? (showWho ? OFF_NOTE_OTHER : OFF_NOTE) : state === 'not_live' ? NOT_LIVE_NOTE : null,
     toggle,
     canCopy: state !== 'not_live',
   };

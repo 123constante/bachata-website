@@ -68,7 +68,7 @@ for (const n of sizes) {
     const card = page.getByTestId('link-card');
     await expect(card).toBeVisible();
     await expect(page.getByTestId('link-joined')).toHaveText(`Joined ${n}`);
-    await expect(page.getByTestId('link-cityset')).toHaveText(`Set Bristol ${Math.min(n, 3)}`);
+    await expect(page.getByTestId('link-cityset')).toHaveText(`${Math.min(n, 3)} set Bristol as their city`);
     if (n === 0) await expect(page.getByTestId('link-empty')).toContainText('Nobody has joined yet');
     else await expect(page.getByTestId('link-empty')).toHaveCount(0);
     await expect(card.getByRole('button', { name: 'Switch off' })).toBeEnabled();
@@ -86,7 +86,7 @@ for (const n of sizes) {
     await page.goto('/ambassador');
     const card = page.getByTestId('link-card');
     await expect(card).toBeVisible();
-    await expect(page.getByTestId('link-note')).toContainText('Your link is off');
+    await expect(page.getByTestId('link-note')).toContainText('Your link is off. Nobody can join with it.');
     await expect(card.getByRole('button', { name: 'Switch on' })).toBeEnabled();
     await expect(page.getByTestId('switch-reason')).toHaveCount(0);
     await layoutChecks(page);
@@ -127,8 +127,8 @@ test('an admin with two links sees both, with who, and can switch an admin-locke
   await page.goto('/ambassador');
   const cards = page.getByTestId('link-card');
   await expect(cards).toHaveCount(2);
-  await expect(cards.nth(0)).toContainText('Your Bristol link (Jan)');
-  await expect(cards.nth(1)).toContainText('Your Leeds link (Sam)');
+  await expect(cards.nth(0)).toContainText("Jan's Bristol link");
+  await expect(cards.nth(1)).toContainText("Sam's Leeds link");
   const on = cards.nth(1).getByRole('button', { name: 'Switch on' });
   await expect(on).toBeEnabled();
   await expect(cards.nth(1).getByTestId('switch-reason')).toHaveCount(0);

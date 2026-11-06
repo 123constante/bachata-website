@@ -11,13 +11,15 @@ interface CardProps {
   showWho: boolean;
   busy: boolean;
   error: string | null;
-  onSwitch: (next: boolean) => void;
+  /** Resolves when the save succeeded, rejects when it failed. */
+  onSwitch: (next: boolean) => Promise<unknown>;
 }
 
 /** One link: copy, share, switch on/off (with a confirm sentence), and the two counts. Pure of data fetching. */
 export function LinkCard({ link, isAdmin, showWho, busy, error, onSwitch }: CardProps) {
   const m = cardModel(link, isAdmin, showWho);
   const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<'ok' | 'fail' | null>(null);
   const url = linkUrl(window.location.origin, link.code);
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
@@ -39,6 +41,19 @@ export function LinkCard({ link, isAdmin, showWho, busy, error, onSwitch }: Card
   const share = () => {
     // A dismissed share sheet rejects: that is a choice, not an error.
     void Promise.resolve(navigator.share({ url, title: m.title })).catch(() => undefined);
+  };
+
+  // Stay open until the save ends: close on success, keep open (error shows below) on failure.
+  const confirmSwitch = async () => {
+    setSaving(true);
+    try {
+      await onSwitch(m.toggle!.next);
+      setConfirming(false);
+    } catch {
+      /* the error line below carries the reason */
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -80,10 +95,10 @@ export function LinkCard({ link, isAdmin, showWho, busy, error, onSwitch }: Card
         <div className="mt-2 rounded-[10px] border border-border p-2.5" data-testid="switch-confirm">
           <p className="m-0 text-[14px]">{m.toggle.confirm}</p>
           <div className="mt-2 flex gap-2">
-            <button type="button" className={btn} disabled={busy} onClick={() => { onSwitch(m.toggle!.next); setConfirming(false); }}>
-              {m.toggle.label}
+            <button type="button" className={btn} disabled={busy || saving} onClick={() => void confirmSwitch()}>
+              {saving || busy ? 'Saving...' : m.toggle.label}
             </button>
-            <button type="button" className={btn} onClick={() => setConfirming(false)}>Cancel</button>
+            <button type="button" className={btn} disabled={saving || busy} onClick={() => setConfirming(false)}>Cancel</button>
           </div>
         </div>
       )}
@@ -92,7 +107,7 @@ export function LinkCard({ link, isAdmin, showWho, busy, error, onSwitch }: Card
   );
 }
 
-/** Reads the tracker; renders nothing while loading, on a read error, or when the person has no link. */
+/** Reads the tracker; shows a Retry line on a read error, renders nothing while loading or when the person has no link. */
 export function LinkSection({ userId, isAdmin }: { userId: string; isAdmin: boolean }) {
   const qc = useQueryClient();
   const key = trackerKey(userId);
@@ -104,9 +119,18 @@ export function LinkSection({ userId, isAdmin }: { userId: string; isAdmin: bool
       setError(null);
       return qc.invalidateQueries({ queryKey: key });
     },
+    onMutate: () => setError(null),
     onError: (err, v) => setError({ id: v.id, text: switchError(err) }),
   });
   const links = tracker.data ?? [];
+  if (tracker.isError && links.length === 0) {
+    return (
+      <div className="flex items-center gap-2 px-3 pt-3 text-[14px]" data-testid="link-load-error">
+        <span>We could not load the link.</span>
+        <button type="button" className={btn} onClick={() => void tracker.refetch()}>Retry</button>
+      </div>
+    );
+  }
   if (links.length === 0) return null;
   return (
     <div className="flex flex-col gap-3 px-3 pt-3" data-testid="link-section">
@@ -116,9 +140,9 @@ export function LinkSection({ userId, isAdmin }: { userId: string; isAdmin: bool
           link={l}
           isAdmin={isAdmin}
           showWho={links.length > 1}
-          busy={sw.isPending}
+          busy={sw.isPending && sw.variables?.id === l.link_id}
           error={error?.id === l.link_id ? error.text : null}
-          onSwitch={(next) => sw.mutate({ id: l.link_id, next })}
+          onSwitch={(next) => sw.mutateAsync({ id: l.link_id, next })}
         />
       ))}
     </div>
