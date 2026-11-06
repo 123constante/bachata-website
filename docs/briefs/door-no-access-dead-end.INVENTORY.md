@@ -15,3 +15,7 @@ Admin app / public page: no counterpart (door is Website-only, organiser P3). Co
 | 9 | Signed-out state (separate card) | DoorScreen.tsx door-signed-out | n/a, unchanged |
 
 Coverage: 8 covered / 8 applicable (1 n/a).
+
+## Handover
+Done: both controls, reworded detail, matrix (10 cells, red on unfixed code), model row. door tests 93/93, tsc 0 errors on 20c9903, check:mojibake clean.
+Left: 390x844 browser walk + screenshot; full pre-ship / CI-step run; /code-review round.
