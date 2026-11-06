@@ -3,7 +3,9 @@ import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
 import { eventLock } from '../../shared/eventState';
 import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import type { EventWorkspace } from '../../events/eventModel';
+import { londonTodayKey } from '@/lib/londonDate';
 import { L } from '../model';
+import { datesAreCapped, differentDatesCount, differentLine } from '../model/differentDates';
 import {
   isFree, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, pricesSpecs, setFree, storedPriceCount,
 } from '../data/prices';
@@ -23,6 +25,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const free = isFree(draft);
   const off = !!lock || save.busy;
   const choices = payChoices(ws);
+  const different = differentLine(differentDatesCount(ws, londonTodayKey()).price, datesAreCapped(ws));
   const blocker = pricesBlocker(ws, form.base, draft);
   const plan = pricesPlan(ws, form.base, draft);
   const lines = trayLines(form.lines, plan, blocker);
@@ -70,6 +73,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
           </div>
         )
       )}
+      {different && <p className="p3-note" data-testid="p3-different-on-price">{different}</p>}
       <span className="p3-field">{L.payHow}</span>
       <p className="p3-note">{choices.length === 1 ? L.payFestival : L.payHelp}</p>
       <div className="p3-chips" role="group" aria-label={L.payHow} data-testid="p3-pay">

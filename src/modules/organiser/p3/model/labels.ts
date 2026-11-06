@@ -327,6 +327,8 @@ export const L = {
   dateUndoAsk: 'Undo your changes to this date?',
   dateUndoGo: 'Yes, undo them',
   dateNothing: 'Nothing changed yet',
+  differentOn: (n: number) => (n === 1 ? 'Different on 1 date' : `Different on ${n} dates`),
+  differentOnShown: (n: number) => `Different on ${n} of the dates shown`,
 } as const;
 
 export function sessionKindLabel(k: SessionKind): string {
