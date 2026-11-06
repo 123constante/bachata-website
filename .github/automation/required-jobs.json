@@ -11,7 +11,9 @@
     "unit (Europe/London, full)"
   ],
   "conditional": [
-    { "name": "phone-qa", "when": "Phone QA (phone-qa.yml) runs only when the PR touches its paths: filter (UI paths, package.json/lockfile, vite/react-router config, its own files)" },
+    { "name": "phone-qa (1)", "when": "Phone QA (phone-qa.yml) shard 1/3; runs only when the PR touches its paths: filter (UI paths, package.json/lockfile, vite/react-router config, its own files)" },
+    { "name": "phone-qa (2)", "when": "Phone QA (phone-qa.yml) shard 2/3; runs only when the PR touches its paths: filter (UI paths, package.json/lockfile, vite/react-router config, its own files)" },
+    { "name": "phone-qa (3)", "when": "Phone QA (phone-qa.yml) shard 3/3; runs only when the PR touches its paths: filter (UI paths, package.json/lockfile, vite/react-router config, its own files)" },
     { "name": "build-smoke", "when": "Phone QA (phone-qa.yml) job build-smoke: same paths: filter as phone-qa" },
     { "name": "types-drift", "when": "Supabase types drift (types-drift.yml) runs on a PR only when src/integrations/supabase/types.ts changes" }
   ],
