@@ -12,7 +12,11 @@ name: Phone QA rerun
 #     (cancel-in-progress) cancels the older run on every push, and that also
 #     concludes `cancelled`; it is told apart by its head sha no longer being
 #     the PR's head. Checked twice: in the job `if` from the event payload, and
-#     again in the step against the live PR, since the payload can lag a push.
+#     again in the step against the live PR, since the payload can lag a push;
+#   - a run superseded at the SAME sha (a `reopened` event, or a re-trigger):
+#     the newer run cancels this one through the same concurrency group, so
+#     re-running the older one would cancel the newer in turn. Skipped when any
+#     newer Phone QA run exists for this sha.
 #
 # NO checkout, no secrets: the built-in token with actions: write is all a
 # re-run needs.
@@ -49,6 +53,11 @@ jobs:
           head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
           if [ "$head" != "$RUN_SHA" ]; then
             echo "::notice title=phone-qa-rerun skipped::run $RUN_ID is for $RUN_SHA, PR #$PR_NUMBER head is now $head (superseded by a push)."
+            exit 0
+          fi
+          newer="$(gh run list --workflow phone-qa.yml --commit "$RUN_SHA" --limit 20 --json databaseId --jq "[.[] | select(.databaseId > $RUN_ID)] | length")"
+          if [ "$newer" != "0" ]; then
+            echo "::notice title=phone-qa-rerun skipped::a newer Phone QA run exists for $RUN_SHA; run $RUN_ID was superseded, not timed out."
             exit 0
           fi
           gh run rerun "$RUN_ID" --failed
