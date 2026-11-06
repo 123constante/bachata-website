@@ -16,3 +16,6 @@ full reason, and is flaky in in-app browsers.
 
 **Failure handling.** A failed add closes the sheet and the existing `add-error` line shows; a retry needs a
 fresh tap. `team_full` keeps Add disabled. Missing page name reads "this page".
+
+## Merge with main (2026-11-06)
+Merged origin/main (#1411, #1412) into the branch. One conflict in AddSomeone.tsx: kept the confirm sheet and main's page-name suffix on the Done message. teamPageName.matrix test now taps `add-confirm-yes` after the face. Vitest team + p3: 106 files pass. tsc run on 2cb7b282: 0 errors in branch files. mojibake clean.
