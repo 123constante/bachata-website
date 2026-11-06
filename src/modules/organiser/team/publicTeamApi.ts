@@ -111,16 +111,17 @@ export async function setTeamMemberHidden(organiserId: string, personId: string,
 
 /**
  * set_organiser_team_member_hidden_v1 refusals: MESSAGE = code, HINT = plain
- * words. The copy below IS the RPC's HINT, pinned here so a server wording
- * change never leaks unreviewed text; an unknown code (or a network failure)
+ * words. The copy below is the RPC's HINT, pinned here so a server wording
+ * change never leaks unreviewed text, with "organiser" said as "page" (team
+ * copy rule, consistency G3); an unknown code (or a network failure)
  * falls back to the generic team error.
  */
 export const HIDE_ERROR_COPY: Record<string, string> = {
   not_signed_in: 'Sign in to change who is shown on the team.',
-  invalid_input: 'Pick an organiser, a person, and whether to hide or show them.',
-  organiser_not_found: 'That organiser page does not exist.',
-  not_allowed: 'Only an owner or manager of this organiser, or the person themself, can do this.',
-  person_not_on_team: 'That person is not on this organiser\u2019s team.',
+  invalid_input: 'Pick a page, a person, and whether to hide or show them.',
+  organiser_not_found: 'That page does not exist.',
+  not_allowed: 'Only an owner or manager of this page, or the person themself, can do this.',
+  person_not_on_team: 'That person is not on this page\u2019s team.',
   owner_protected: 'Only an owner can hide or show an owner.',
 };
 

@@ -74,18 +74,19 @@ vi.mock('@/integrations/supabase/client', () => {
     const chain: Record<string, unknown> = {};
     for (const m of ['select', 'eq', 'in', 'order', 'not', 'maybeSingle']) chain[m] = () => chain;
     chain.then = (res: (v: unknown) => void) => {
-      if (table === 'organiser_team_members') {
-        s.calls.team++;
-        if (s.team === 'error') return res({ data: null, error: { message: 'team boom' } });
-        if (s.team === 'data') return res({ data: [{ id: 't1', role: 'DJ', is_head: true, is_leader: false, sort_order: 1, member_profile_id: 'd1', is_active: true }], error: null });
-        return res({ data: [], error: null });
-      }
       if (table === 'dancer_profiles') return res({ data: [{ id: 'd1', first_name: 'Ana', avatar_url: null, nationality: null }], error: null });
       return res({ data: [], error: null });
     };
     return chain;
   };
   return { supabase: { from: chainFor, rpc: async (fn: string) => {
+    // P2: the public Team is organiser_public_team_v1.
+    if (fn === 'organiser_public_team_v1') {
+      s.calls.team++;
+      if (s.team === 'error') return { data: null, error: { message: 'team boom' } };
+      if (s.team === 'data') return { data: [{ person_id: 'd1', slug: null, public_name: 'Ana', avatar_url: null, sort_key: 1 }], error: null };
+      return { data: [], error: null };
+    }
     if (fn === 'organiser_ownership_v1') return { data: { is_managed: false, i_own_it: false, my_role: null }, error: null };
     if (fn === 'get_organiser_public_contact_v1') return { data: { contact_email: null, contact_phone: null }, error: null };
     return { data: null, error: null };

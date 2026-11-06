@@ -49,3 +49,11 @@ context gate (owner rule: 45-50%). Brief: `brief/organiser-page-p2-team` v4.
 ## Survey (prod, read-only, counts only, 2026-11-06)
 Live organisers by `organiser_public_team_v1` row count: 1 row: 5, 2 rows: 36, 3 rows: 9
 (50 organisers; none empty, none over 3). Owners/managers now appear (P1 showed only listed people).
+
+## Checks (this push)
+- vitest src/modules/organiser + src/modules/profile + src/pages: 324 files, 12729 passed.
+- check:mojibake, check:rpc-typing: pass.
+- tsc run on the final branch head (`tsc -p tsconfig.app.json`): 0 new errors in branch files; the one
+  hit in a touched file (OrganiserProfile.tsx `ep.city`) is an unchanged line from main. 139 repo-wide.
+- Refusal copy follows the RPC HINTs with "organiser" said as "page" (consistency matrix G3).
+- NOT run: full CI job table, e2e smoke, bundle budget, pre-ship, browser walk, review round.

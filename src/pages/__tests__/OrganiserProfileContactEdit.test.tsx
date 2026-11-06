@@ -47,6 +47,7 @@ vi.mock('@/integrations/supabase/client', () => {
       from: () => chain,
       rpc: async (fn: string, args: Record<string, unknown>) => {
         h.calls.push([fn, args]);
+        if (fn === 'organiser_public_team_v1') return { data: [], error: null };
         if (fn === 'organiser_ownership_v1') return { data: { is_managed: true, i_own_it: true, my_role: 'owner' }, error: null };
         if (fn === 'get_organiser_public_contact_v1') return { data: { contact_email: null, contact_phone: null }, error: null };
         if (fn === 'get_organiser_contact_settings_v1' && h.gated) {
