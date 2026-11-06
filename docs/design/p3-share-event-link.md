@@ -5,4 +5,4 @@
 **Rejected: a button in the page head.** The head is identity only; a button there adds a second control style next to the status rows.
 **Rejected: share inside the dancer-view link.** One row, two actions: the tap target would be ambiguous and the link would lose its plain "open" meaning.
 
-**Rules.** Address = origin + `publicPageOf(ws).href` (eventHref, slug only, no tracking params). A closed share sheet (AbortError) says nothing. Clipboard failure says "Couldn't copy. Press and hold the link below to copy it." and shows the url as selectable text. No analytics, QR or WhatsApp button.
+**Rules.** Address = origin + `publicPageOf(ws).href` (eventHref, slug only, no tracking params). A closed share sheet (AbortError) says nothing. Clipboard failure says "Couldn't copy. Tap and hold the link below to copy it." and shows the url as selectable text. No analytics, QR or WhatsApp button.

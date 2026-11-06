@@ -163,7 +163,7 @@ function DancerView({ ws }: { ws: EventWorkspace }) {
 
 /** p3-share-event-link: send dancers the event link. Share sheet, else copy; a closed sheet says nothing. */
 export const SHARE_COPIED = 'Link copied.';
-export const SHARE_COPY_FAILED = 'Couldn\u2019t copy. Press and hold the link below to copy it.';
+export const SHARE_COPY_FAILED = 'Couldn\u2019t copy. Tap and hold the link below to copy it.';
 function ShareRow({ ws }: { ws: EventWorkspace }) {
   const sh = shareOf(ws, typeof window === 'undefined' ? '' : window.location.origin);
   const [note, setNote] = useState<'copied' | 'failed' | null>(null);

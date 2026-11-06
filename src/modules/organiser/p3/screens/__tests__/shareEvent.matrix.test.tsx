@@ -22,7 +22,7 @@ import { EventPage } from '../EventPage';
 
 const ORIGIN = window.location.origin;
 const COPIED = 'Link copied.';
-const FAILED = 'Couldn’t copy. Press and hold the link below to copy it.';
+const FAILED = 'Couldn’t copy. Tap and hold the link below to copy it.';
 const CAPS = ['shareOk', 'shareAborts', 'clipboardOnly', 'clipboardRejects', 'neither'] as const;
 type Cap = (typeof CAPS)[number];
 
