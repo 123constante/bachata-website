@@ -1292,6 +1292,45 @@ export function runCheck(id, args = [], extraEnv = null, exec = execSync) {
 }
 
 /**
+ * The TARGETS-coverage half of the entry-point proof, run IN-PROCESS (no npm
+ * spawn, no child processes, one directory walk, well under a second).
+ *
+ * Why here: the full proof (`npm run prove:entry-point`) spawns ~75 probes and
+ * runs only in architecture-guard.yml, so a new scripts/**\/*.mjs dispatching
+ * through isEntryPoint(import.meta.url) but missing from TARGETS was caught only
+ * after a paid push (#1402, route-runner.mjs). CI stays the backstop; this is
+ * the early red. Not a CHECKS entry: CHECKS is a list of npm scripts and its
+ * prefix must equal run-lint-chain's LINKS, and this needs no spawn at all. It
+ * runs BEFORE the CHECKS loop so its red arrives in milliseconds, not after the
+ * build.
+ *
+ * Exit 2 from the check ("cannot run"), a failed import of the proof module, or
+ * a throw are all a FAIL row -- never a pass, and never a crash that discards
+ * the ledger. The import is dynamic for that reason: a load-time fault in that
+ * 1,600-line file must not take pre-ship (or the suites importing it) down.
+ */
+export const ENTRY_POINT_COVERAGE = [
+  "prove:entry-point:coverage",
+  "every isEntryPoint dispatcher under scripts/ is in the entry-point proof's TARGETS",
+];
+
+export async function entryPointCoverageResult(check = null, log = console.log) {
+  let code;
+  let lines;
+  try {
+    const fn = check || (await import("./prove-entry-point-dispatch.mjs")).checkTargetsCoverage;
+    ({ code, lines } = fn());
+  } catch (error) {
+    code = 2;
+    lines = ["Entry-point coverage: cannot run -- " + String((error && error.message) || error)];
+  }
+  const ok = code === 0;
+  log((ok ? "PASS " : "FAIL ") + ENTRY_POINT_COVERAGE[0]);
+  if (!ok) for (const line of lines || []) log("     | " + line);
+  return { id: ENTRY_POINT_COVERAGE[0], label: ENTRY_POINT_COVERAGE[1], ok };
+}
+
+/**
  * Every repo-relative path in THIS ship. Delegates to the library's
  * resolveShipBase()/shipScope() rather than re-deriving either.
  *
@@ -1343,6 +1382,7 @@ async function main(argv = process.argv.slice(2)) {
 
   const results = [];
   if (!dryRun) {
+    results.push(await entryPointCoverageResult());
     for (const [id, label, args] of CHECKS) {
       const skipReason = CHECK_SKIPS[id] ? CHECK_SKIPS[id]() : null;
       if (skipReason) {
@@ -1422,6 +1462,7 @@ async function main(argv = process.argv.slice(2)) {
   out.push("-- pre-ship summary" + (dryRun ? " (DRY RUN -- nothing executed)" : "") + " --");
   out.push("   base ref: " + base + "   files in ship: " + (diffError ? "(unknown)" : files.length));
   if (dryRun) {
+    out.push("   -  " + ENTRY_POINT_COVERAGE[0] + " -- WOULD RUN: " + ENTRY_POINT_COVERAGE[1]);
     for (const [id, label] of CHECKS) out.push("   -  " + id + " -- WOULD RUN: " + label);
   } else {
     for (const r of results) {

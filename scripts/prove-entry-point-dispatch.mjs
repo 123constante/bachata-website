@@ -603,7 +603,7 @@ function removeLink(link) {
  * green over a smaller set. Deriving the required set from the tree makes the
  * omission a hard failure instead.
  */
-function assertTargetsCover(root) {
+export function assertTargetsCover(root) {
   const listed = new Set(TARGETS.map((t) => t.rel));
   // The module that DEFINES the predicate shows the call in its usage
   // docstring; it is not a dispatch. Excluded by name rather than by trying to
@@ -632,6 +632,60 @@ function assertTargetsCover(root) {
   };
   walk('scripts');
   return missing;
+}
+
+/**
+ * The TARGETS-coverage half of main(), on its own: offline, no child processes,
+ * one directory walk. This is what `--coverage-only` runs and what pre-ship
+ * calls in-process, so an unlisted dispatcher goes red BEFORE a push rather
+ * than only in architecture-guard.yml after one (#1402: route-runner.mjs).
+ *
+ * Returns { code, lines } and prints nothing -- the caller owns the output.
+ *   0 every dispatching file is listed
+ *   1 at least one dispatching file is NOT in TARGETS (named in `lines`)
+ *   2 cannot run: scripts/ is missing or unreadable, or the walk threw. Never a
+ *     silent green -- assertTargetsCover's ENOENT tolerance would otherwise
+ *     turn a missing scripts/ into "nothing to cover".
+ *
+ * `cover` and `targets` are seams for the unit test; the defaults are the real
+ * walker and the real TARGETS.
+ */
+export function checkTargetsCoverage(root = REPO_ROOT, cover = assertTargetsCover, targets = TARGETS) {
+  try {
+    if (!fs.statSync(path.join(root, 'scripts')).isDirectory()) {
+      return { code: 2, lines: ['Entry-point coverage: cannot run -- ' + path.join(root, 'scripts') + ' is not a directory.'] };
+    }
+  } catch (error) {
+    return { code: 2, lines: ['Entry-point coverage: cannot run -- cannot read scripts/: ' + (error?.message || error)] };
+  }
+  // main()'s other coverage gate, mirrored: a listed target that no longer
+  // exists (renamed or deleted) makes the full proof exit 2 in CI.
+  const gone = targets.filter((t) => !fs.existsSync(path.join(root, t.rel))).map((t) => t.rel);
+  if (gone.length > 0) {
+    return {
+      code: 2,
+      lines: [
+        'Entry-point coverage: cannot run -- these TARGETS do not exist (renamed or deleted? update TARGETS in scripts/prove-entry-point-dispatch.mjs):',
+        ...gone.map((rel) => '  ' + rel),
+      ],
+    };
+  }
+  let missing;
+  try {
+    missing = cover(root);
+  } catch (error) {
+    return { code: 2, lines: ['Entry-point coverage: cannot run -- the tree walk failed: ' + (error?.message || error)] };
+  }
+  if (missing.length === 0) {
+    return { code: 0, lines: ['Entry-point coverage: every scripts/**/*.mjs that dispatches via isEntryPoint is in TARGETS.'] };
+  }
+  return {
+    code: 1,
+    lines: [
+      'Entry-point coverage: FAILED -- these files dispatch via isEntryPoint(import.meta.url) but are not in TARGETS:',
+      ...missing.map((rel) => '  ' + rel + '  -- add it to TARGETS in scripts/prove-entry-point-dispatch.mjs'),
+    ],
+  };
 }
 
 /**
@@ -1616,11 +1670,18 @@ export async function main() {
 // Realpath-to-realpath, like everything it proves.
 if (isEntryPoint(import.meta.url)) {
   const argv = process.argv.slice(2);
-  const KNOWN_FLAGS = ['--self-test'];
+  const KNOWN_FLAGS = ['--self-test', '--coverage-only'];
   const unknown = argv.filter((a) => !KNOWN_FLAGS.includes(a));
   if (unknown.length > 0) {
     console.error('Unknown flag(s): ' + unknown.join(', ') + '. Known: ' + KNOWN_FLAGS.join(', '));
     process.exitCode = 2;
+  } else if (argv.includes('--self-test') && argv.includes('--coverage-only')) {
+    console.error('--self-test and --coverage-only are separate runs; pass one.');
+    process.exitCode = 2;
+  } else if (argv.includes('--coverage-only')) {
+    const { code, lines } = checkTargetsCoverage();
+    for (const line of lines) (code === 0 ? console.log : console.error)(line);
+    process.exitCode = code;
   } else if (argv.includes('--self-test')) {
     process.exitCode = await selfTest();
   } else {
