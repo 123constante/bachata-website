@@ -41,10 +41,10 @@ describe('csvCell: one test per escaping rule', () => {
     ['-', '-1', "'-1"],
     ['@', '@x', "'@x"],
     ['tab', '\tx', "'\tx"],
-    // CR also trips the line-break quoting rule
-    ['CR', '\rx', `"'\rx"`],
+    ['CR', '\rx', "'\rx"],
   ])('formula neutraliser: a cell starting with %s gets a leading apostrophe', (_label, v, want) => {
-    expect(csvCell(v)).toBe(want);
+    // the outer quotes belong to the quoting rules (a CR cell is also quoted); strip them here
+    expect(csvCell(v).replace(/^"([\s\S]*)"$/, '$1')).toBe(want);
   });
   it('a plain cell is left alone', () => {
     expect(csvCell('Ana 1')).toBe('Ana 1');

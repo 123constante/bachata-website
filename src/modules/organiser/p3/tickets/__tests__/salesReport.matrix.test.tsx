@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { SHAPES, SHAPE_KEYS, type Shape } from './fixtures';
 import { dataMock, load, show } from './harness';
+import { REPORT_SOURCE_TEXT } from '../salesReportModel';
 
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-10-27' }));
 vi.mock('../data', (orig) => dataMock(orig as never));
@@ -47,7 +48,7 @@ describe.each(SHAPE_KEYS)('sales report, shape %s', (k) => {
     // the source label: shown only with orders to point at; says what the gross includes
     const source = screen.queryByTestId('tix-report-source');
     if (counted === 0) expect(source).toBeNull();
-    else expect(source?.textContent).toMatch(/From the orders below.*booking fees.*refunded or disputed.*Money so far.*paid orders only/);
+    else expect(source?.textContent).toBe(REPORT_SOURCE_TEXT);
     // no refund control inside the report, whatever the role
     expect(screen.getByTestId('tix-report').querySelector('[data-testid="tix-refund"]')).toBeNull();
     // door list failed: no checked-in line, no error

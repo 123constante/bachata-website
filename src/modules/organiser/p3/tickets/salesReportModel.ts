@@ -86,6 +86,14 @@ export const reportEmptyText = (types: readonly Pick<TicketType, 'status'>[]): s
     ? 'No sales to report yet. Add a ticket type, then share the event.'
     : 'No sales to report yet. Share the event so people can buy.';
 
+/**
+ * Where the card's money comes from. It differs from Money so far (ticket_sales_summary_v1:
+ * paid orders only, subtotal less discount, no booking fee) by the paid booking fees plus the
+ * totals of refunded and disputed orders (salesReport.model.agree.test.ts).
+ */
+export const REPORT_SOURCE_TEXT =
+  'From the orders above. Includes booking fees and refunded or disputed orders; Money so far on Get paid counts paid orders only.';
+
 export const CSV_COLUMNS = ['Order', 'Buyer name', 'Ticket type', 'Quantity', 'Status', 'Paid at', 'Refunded (pence)'] as const;
 
 /** A cell starting = + - @ (or a tab / CR) would run as a formula in a spreadsheet: lead it with an apostrophe. */

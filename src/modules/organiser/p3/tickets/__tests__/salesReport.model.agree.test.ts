@@ -58,7 +58,7 @@ const serverRow = (t: TicketType, all: readonly Order[]): TypeSales => {
 describe('sales report agrees with the server summary (documented difference)', () => {
   const report = buildReport([T1, T2], ORDERS);
   const server = totalsOf([T1, T2].map((t) => serverRow(t, ORDERS)));
-  const notPaid = ORDERS.filter((o) => o.status === 'refunded' || o.status === 'disputed').reduce((a, o) => a + o.totalPence, 0);
+  const refundedOrDisputedTotal = ORDERS.filter((o) => o.status === 'refunded' || o.status === 'disputed').reduce((a, o) => a + o.totalPence, 0);
 
   it('the fixture has every shape the brief names', () => {
     const statuses = new Set(ORDERS.map((o) => o.status));
@@ -72,7 +72,7 @@ describe('sales report agrees with the server summary (documented difference)', 
     expect(report.totals.refundedPence).toBe(server.refundedPence);
   });
   it('gross = server gross + paid booking fees + refunded and disputed order totals', () => {
-    expect(report.totals.grossPence).toBe(server.grossPence + server.bookingFeesPence + notPaid);
+    expect(report.totals.grossPence).toBe(server.grossPence + server.bookingFeesPence + refundedOrDisputedTotal);
     expect(report.totals.grossPence).not.toBe(server.grossPence);
   });
   it('net = gross - refunded', () => {

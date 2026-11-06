@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCount, formatPence, type Order, type TicketType } from '../../tickets/ticketModel';
 import { doorKeys, fetchDoorList } from '../door/data';
-import { buildReport, csvFileName, downloadWhy, guestListCsv, reportEmptyText } from './salesReportModel';
+import { buildReport, csvFileName, downloadWhy, guestListCsv, reportEmptyText, REPORT_SOURCE_TEXT } from './salesReportModel';
 
 /**
  * The orders view's Sales report card (lazy chunk): per ticket type sold / refunded / left, money,
@@ -50,14 +50,11 @@ export function SalesReport({
   return (
     <div className="p3-card p3-tight" data-testid="tix-report">
       <div className="p3-row-t p3-pad-y">Sales report</div>
-      {report.countedOrders > 0 && (
-        <p className="p3-note p3-pad-y" data-testid="tix-report-source">
-          From the orders below. Includes booking fees and refunded or disputed orders; the Money so far figure counts paid orders only.
-        </p>
-      )}
       {report.countedOrders === 0 ? (
         <p className="p3-note p3-pad-y" data-testid="tix-report-empty">{reportEmptyText(types)}</p>
       ) : (
+        <>
+        <p className="p3-note p3-pad-y" data-testid="tix-report-source">{REPORT_SOURCE_TEXT}</p>
         <ul className="p3-list p3-flush">
           {report.rows.map((r) => (
             <li key={r.typeId} className="p3-row" data-testid={`tix-report-row-${r.typeId}`}>
@@ -67,7 +64,7 @@ export function SalesReport({
                   {formatCount(r.sold)} sold &middot; {formatCount(r.refundedTickets)} refunded &middot; {formatCount(r.remaining)} left of {formatCount(r.capacity)}
                 </div>
                 <div className="p3-row-s" data-testid="tix-report-money">
-                  Paid {formatPence(r.grossPence)} &middot; Refunded {formatPence(r.refundedPence)} &middot; Net {formatPence(r.netPence)}
+                  Taken {formatPence(r.grossPence)} &middot; Refunded {formatPence(r.refundedPence)} &middot; Net {formatPence(r.netPence)}
                 </div>
               </div>
             </li>
@@ -79,11 +76,12 @@ export function SalesReport({
                 {formatCount(report.totals.sold)} sold &middot; {formatCount(report.totals.refundedTickets)} refunded
               </div>
               <div className="p3-row-s" data-testid="tix-report-total-money">
-                Paid {formatPence(report.totals.grossPence)} &middot; Refunded {formatPence(report.totals.refundedPence)} &middot; Net {formatPence(report.totals.netPence)}
+                Taken {formatPence(report.totals.grossPence)} &middot; Refunded {formatPence(report.totals.refundedPence)} &middot; Net {formatPence(report.totals.netPence)}
               </div>
             </div>
           </li>
         </ul>
+        </>
       )}
       {report.notPaidOrders > 0 && (
         <p className="p3-note p3-pad-y" data-testid="tix-report-notpaid">
