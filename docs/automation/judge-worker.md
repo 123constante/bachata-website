@@ -141,6 +141,7 @@ exits 1), and `coverageGaps` throws on a coverage doc with `screens: []` or on
 
 ## Parts left
 
+- Report builder exists, not wired: `buildJudgeReport` in `scripts/lib/walk-report.mjs` turns raw runner records into the report `judgeVerdict` reads, but no walk runner calls it yet.
 - input.screens is not tied to walk-coverage.json: the judge checks the screens
   and shapes the lane SAYS it walked, not the screens `docs/design/walk-coverage.json`
   requires. A lane that leaves a screen out of `input.screens` is not caught by
