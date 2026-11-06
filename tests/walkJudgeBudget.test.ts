@@ -2,9 +2,7 @@
 // Table-driven: each row is a ledger + now (+ config) and the decision it must
 // produce. Mutants run against this suite are listed in the PR body.
 import { describe, it, expect } from 'vitest';
-// @ts-expect-error -- untyped .mjs module
 import { judgeBudgetDecision } from '../scripts/lib/walk-judge-budget.mjs';
-// @ts-expect-error -- untyped .mjs module
 import { JUDGE_CONFIG } from '../scripts/lib/walk-judge.mjs';
 
 type Entry = { startedAt: unknown; endedAt: unknown; branch: unknown };

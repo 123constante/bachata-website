@@ -95,9 +95,11 @@ function decide(ledger, now, config) {
 
 /**
  * May one more judge be dispatched at `now`?
- * @param {Array<{startedAt: string, endedAt: string|null, branch: string}>} ledger
- * @param {string} now ISO-8601 with a zone; the UTC day of `now` is counted.
- * @param {object} [config] defaults to JUDGE_CONFIG.budget
+ * Inputs are typed `unknown` on purpose: anything that is not the expected
+ * shape holds rather than throws.
+ * @param {unknown} ledger expected: Array<{startedAt: string, endedAt: string|null, branch: string}>
+ * @param {unknown} now expected: ISO-8601 with a zone; the UTC day of `now` is counted.
+ * @param {unknown} [config] defaults to JUDGE_CONFIG.budget
  * @returns {{allow: boolean, action: 'allow'|'hold-and-alert', reasons: string[], dispatchesToday: number|null, runtimeHoursToday: number|null}}
  */
 export function judgeBudgetDecision(ledger, now, config = JUDGE_CONFIG.budget) {
