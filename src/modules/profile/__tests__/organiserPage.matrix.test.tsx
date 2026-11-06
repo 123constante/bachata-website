@@ -203,7 +203,7 @@ function noCopyWithoutControl() {
     expect(f.getAttribute('aria-label') ?? '').toMatch(/couldn\u2019t load/i);
   }
 }
-const ORDER = ['Get in touch', 'Team', 'About', 'Next nights', 'Recently hosted', 'Past nights'];
+const ORDER = ['Get in touch', 'Team', 'Next nights', 'Recently hosted', 'Past nights'];
 
 function visitorOrOwnerInvariants(owner: boolean) {
   if (!owner) return visitorInvariants();
@@ -296,8 +296,8 @@ describe('organiser page P1: every section x every shape (visitor)', () => {
     }
     if (row.errors.length) expect(screen.getAllByRole('button', { name: 'Try again' }).length).toBeGreaterThanOrEqual(row.errors.length);
 
-    // About only when written.
-    expect(h2s().includes('About')).toBe(row.shape.bio);
+    // The bio is shown once, in the header: there is no About section any more.
+    expect(h2s().includes('About')).toBe(false);
   });
 });
 
