@@ -17,3 +17,5 @@ Coverage: 8 pre-change stats -> 3 offered (next_night, nights_hosted, running_si
 - Three test files updated first (19 failures vs unfixed source), then green (7 files, 261 tests).
 ## Not done
 - 390x844 laptop-walk screenshots (not run).
+
+tsc run on 6df8670: 0 errors in branch files (grep of tsc output for touched files was empty).
