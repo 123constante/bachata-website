@@ -64,7 +64,10 @@ import { useLondonToday } from '@/hooks/useLondonToday';
 import { organiserEmptyState } from '@/modules/profile/organiserEmptyState';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import { useListImpressions } from '@/lib/listImpressions';
-import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
+import { type EventRowProps } from '@/components/events/EventRow';
+import NightsCard from '@/modules/profile/NightsCard';
+import PastHighlights from '@/modules/profile/PastHighlights';
+import { countdownChip, venueLine, cardMetaLine, actionLabel as nightsActionLabel, pastCounts, fallbackInitials } from '@/modules/profile/nightsCardModel';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 import { ReportProblemLink } from '@/lib/contactLinks';
@@ -512,6 +515,36 @@ const buildEventRowProps = (
   };
 };
 
+// Props for the Next nights card (design D4). A series passes `series` and gets no time.
+const buildNightsCardProps = (
+  event: OrgEvent,
+  todayKey: string,
+  fallbackIndex: number,
+  organiserName: string,
+  series?: { name: string; posterUrl: string | null; location: string | null; dateCount: number; onClick: () => void },
+) => {
+  const key = formatWallClockLocal(event.displayStart, 'yyyy-MM-dd');
+  const chip = countdownChip(key, todayKey);
+  const name = series?.name ?? event.name;
+  const venue = series ? venueLine(series.location, event.city) : venueLine(event.location, event.city);
+  const { day, mon } = dateParts(event.displayStart);
+  return {
+    href: event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`,
+    onClick: series?.onClick,
+    name,
+    posterUrl: series ? series.posterUrl : event.poster_url,
+    weekday: formatWallClockLocal(event.displayStart, 'EEEE') ?? '',
+    day,
+    month: mon,
+    chipText: chip?.text ?? null,
+    chipSoon: chip?.soon ?? false,
+    metaLine: cardMetaLine(venue, series ? null : eventTime(event.displayStart)),
+    actionLabel: nightsActionLabel(series ? 'series' : 'single', series?.dateCount ?? 1),
+    initials: fallbackInitials(name, organiserName),
+    fallbackIndex,
+  };
+};
+
 // --- Colour extraction ---
 
 const DEFAULT_HERO_RGB: [number, number, number] = [255, 106, 44];
@@ -672,6 +705,8 @@ const OrganiserProfile = () => {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
   const [showAllPastYears, setShowAllPastYears] = useState(false);
+  const [pastListOpen, setPastListOpen] = useState(false);
+  const [openPastYears, setOpenPastYears] = useState<Set<string>>(() => new Set());
   const [aboutExpanded, setAboutExpanded] = useState(false);
   const [expandedPastYears, setExpandedPastYears] = useState<Set<string>>(() => new Set());
   const [editForm, setEditForm] = useState({
@@ -1030,6 +1065,10 @@ const OrganiserProfile = () => {
   // Only the most recent 3 years mount by default -- a decade-old organiser's
   // full history is fetched (for the "since <year>" stat) but doesn't need to
   // render 500+ DOM rows on a mobile-first page just because they're collapsed.
+  const pastStrip = pastCounts(
+    pastEvents.map((e) => ({ dateKey: formatWallClockLocal(e.displayStart, 'yyyy-MM-dd') })),
+    todayKey,
+  );
   const visiblePastYears = showAllPastYears ? pastByYear : pastByYear.slice(0, PAST_YEARS_VISIBLE);
   const hiddenPastYears = pastByYear.slice(visiblePastYears.length);
 
@@ -1471,16 +1510,16 @@ const OrganiserProfile = () => {
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
                 item.kind === 'single' ? (
-                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildEventRowProps(item.event, todayKey, i)} />
+                  <NightsCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildNightsCardProps(item.event, todayKey, i, ep.name)} />
                 ) : (
-                  <EventRowCard
+                  <NightsCard
                     key={item.eventId}
                     impressionRef={trackImpression(item.eventId)}
-                    {...buildEventRowProps(item.dates[0], todayKey, i, {
+                    {...buildNightsCardProps(item.dates[0], todayKey, i, ep.name, {
                       name: item.name,
                       posterUrl: item.posterUrl,
-                      meta: [countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · '),
-                      chip: `${item.dates.length} dates`,
+                      location: item.location,
+                      dateCount: item.dates.length,
                       onClick: () => setOpenSeriesEventId(item.eventId),
                     })}
                   />
@@ -1535,9 +1574,33 @@ const OrganiserProfile = () => {
               <h2 style={sectionH2}>Past nights</h2>
               <span style={sectionCount}>{pastEvents.length} hosted</span>
             </div>
+            <PastHighlights
+              total={pastStrip.total}
+              thisYear={pastStrip.thisYear}
+              latest={pastEvents.slice(0, 6).map((e, i) => ({
+                key: stableRowKey(e.occurrenceId, e.id, i),
+                href: e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`,
+                name: e.name,
+                posterUrl: e.poster_url,
+                caption: formatWallClockLocal(e.displayStart, 'd MMM') ?? 'TBA',
+              }))}
+              showSeeAll={pastStrip.showSeeAll}
+              listOpen={pastListOpen}
+              onToggleList={() => setPastListOpen((v) => !v)}
+              years={pastByYear.map((g) => ({ year: g.year, count: g.events.length }))}
+              onYear={(year) => {
+                setPastListOpen(true);
+                const idx = pastByYear.findIndex((g) => g.year === year);
+                if (idx >= PAST_YEARS_VISIBLE) setShowAllPastYears(true);
+                setOpenPastYears((prev) => new Set(prev).add(year));
+                setTimeout(() => scrollToId(`past-${year}`), 50);
+              }}
+              organiserName={ep.name}
+            />
+            {pastListOpen && (
             <div className="flex max-w-3xl flex-col gap-2">
               {visiblePastYears.map((group, gi) => { const shown = expandedPastYears.has(group.year) ? group.events : group.events.slice(0, PAST_ROWS_PER_YEAR); return (
-                <details key={group.year} id={`past-${group.year}`} open={gi === 0} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
+                <details key={group.year} id={`past-${group.year}`} open={gi === 0 || openPastYears.has(group.year)} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
                   <summary
                     className="flex min-h-[44px] cursor-pointer list-none items-center justify-between"
                     style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(246,241,234,0.7)' }}
@@ -1578,7 +1641,8 @@ const OrganiserProfile = () => {
                 </details>
               ); })}
             </div>
-            {pastByYear.length > PAST_YEARS_VISIBLE && (
+            )}
+            {pastListOpen && pastByYear.length > PAST_YEARS_VISIBLE && (
               <button onClick={() => { if (showAllPastYears) scrollBackIfAbove('past'); setShowAllPastYears((v) => !v); }} aria-expanded={showAllPastYears} style={moreBtn}>
                 {showAllPastYears ? 'Show fewer years' : `Show earlier years (${hiddenPastYears.length})`}
               </button>
