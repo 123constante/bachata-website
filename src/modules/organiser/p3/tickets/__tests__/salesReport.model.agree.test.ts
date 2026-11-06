@@ -75,7 +75,7 @@ describe('sales report agrees with the server summary (documented difference)', 
     expect(report.totals.grossPence).toBe(server.grossPence + server.bookingFeesPence + refundedOrDisputedTotal);
     expect(report.totals.grossPence).not.toBe(server.grossPence);
   });
-  it('net = gross - refunded', () => {
-    expect(report.totals.netPence).toBe(report.totals.grossPence - report.totals.refundedPence);
+  it('net = gross - refunded - disputed', () => {
+    expect(report.totals.netPence).toBe(report.totals.grossPence - report.totals.refundedPence - report.totals.disputedPence);
   });
 });

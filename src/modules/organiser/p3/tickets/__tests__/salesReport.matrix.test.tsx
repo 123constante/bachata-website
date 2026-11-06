@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
-import { SHAPES, SHAPE_KEYS, type Shape } from './fixtures';
+import { SHAPES, SHAPE_KEYS, order, type, type Shape } from './fixtures';
 import { dataMock, load, show } from './harness';
 import { REPORT_SOURCE_TEXT } from '../salesReportModel';
+import { SalesReport } from '../SalesReport';
 
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-10-27' }));
 vi.mock('../data', (orig) => dataMock(orig as never));
@@ -66,5 +67,39 @@ describe('door list loads', () => {
     door.fetchDoorList.mockResolvedValue({ result: 'ok', rows: [], truncated: false, inCount: 3, totalCount: 9, loadedAt: 0 });
     await openOrders(withMany);
     expect((await screen.findByTestId('tix-report-checkedin')).textContent).toMatch(/3 of 9 checked in/);
+  });
+});
+
+describe('SalesReport rendered directly (shapes the list view cannot reach)', () => {
+  const T = type('t1', { name: 'General', capacity: 50, reserved: 1 });
+  const renderReport = (orders: ReturnType<typeof order>[]) =>
+    show(<SalesReport seriesId="ser-1" eventName="Sunday Social" types={[T]} orders={orders} today="2026-10-27" />);
+
+  it('0 counted orders: empty words, no source label, Download greyed with why', () => {
+    renderReport([]);
+    expect(screen.getByTestId('tix-report-empty').textContent).toMatch(/No sales to report yet/);
+    expect(screen.queryByTestId('tix-report-source')).toBeNull();
+    expect(screen.queryByTestId('tix-report-notpaid')).toBeNull();
+    expect((screen.getByTestId('tix-report-download') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('tix-report-why').textContent).toMatch(/No paid orders/);
+  });
+  it('notPaid-only: one pending order is left out, said once, nothing counted', () => {
+    renderReport([order('p1', 't1', { status: 'pending', paidAt: null })]);
+    expect(screen.getByTestId('tix-report-empty')).toBeTruthy();
+    expect(screen.getByTestId('tix-report-notpaid').textContent).toBe('1 order not paid, left out.');
+    expect((screen.getByTestId('tix-report-download') as HTMLButtonElement).disabled).toBe(true);
+  });
+  it('notPaid-only: several pending / expired orders use the plural', () => {
+    renderReport([order('p1', 't1', { status: 'pending', paidAt: null }), order('p2', 't1', { status: 'expired', paidAt: null })]);
+    expect(screen.getByTestId('tix-report-notpaid').textContent).toBe('2 orders not paid, left out.');
+  });
+  it('lost dispute: its own Disputed line, not sold, Net 0.00', () => {
+    renderReport([order('d1', 't1', { status: 'disputed', quantity: 1, totalPence: 1200, refundedPence: 0 })]);
+    const row = screen.getByTestId('tix-report-row-t1');
+    expect(row.querySelector('[data-testid="tix-report-counts"]')?.textContent).toMatch(/^0 sold/);
+    expect(row.querySelector('[data-testid="tix-report-disputed"]')?.textContent).toMatch(/Disputed 1 .*12\.00/);
+    expect(row.querySelector('[data-testid="tix-report-money"]')?.textContent).toMatch(/Net \S*0\.00/);
+    expect(screen.getByTestId('tix-report-total-money').textContent).toMatch(/Net \S*0\.00/);
+    expect(screen.queryByTestId('tix-report-notpaid')).toBeNull();
   });
 });

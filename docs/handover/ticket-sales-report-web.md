@@ -22,3 +22,9 @@ Brief: `brief/ticket-sales-report-web:docs/briefs/sales-report-agree-and-split-t
 - The matrix never reaches the orders view with 0 counted orders (it needs more than 2 orders), so "label hidden when empty" is never exercised.
 - 390x844 walk not done; CSV not opened in Excel.
 - typecheck run on 3f20e10 (npm run typecheck, tsconfig.app.json): 0 errors in branch files (119 total, the same with and without this diff).
+
+## Round 2 (review #1445, brief sales-report-fix2)
+
+Done: disputed orders get their own line (count and amount) and are subtracted in Net (approach: separate line, not folded into Refunded; amount = totalPence - refundedPence); raw U+FEFF replaced by the `﻿` escape plus a test that no sales-report source has one; `csvCell` neutralises a leading LF; CSV rows for leading zeros and unicode; matrix test now renders `SalesReport` directly for the 0-counted, notPaid-only and lost-dispute shapes. Tests were RED (7 failures) on 5667d80f before the fix.
+Left: nothing in scope. Label wording dependency not touched.
+Not verified: 390x844 walk, CSV in Excel/Sheets, real data. tsc: 0 errors in p3/tickets files.

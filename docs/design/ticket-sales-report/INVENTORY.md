@@ -15,4 +15,6 @@ Fields the new report shows: per type sold / refunded tickets / left of capacity
 
 The admin migration `20270314140000_ticket_door_short_code_v1.sql` is not readable from this session (admin repo not attached). The door row fields above come from this repo's `parseDoorList`; the report uses only `result`, `in_count`, `total_count`.
 
-COVERAGE COUNT: 4 places inventoried, 4 read; 0 changed except the orders view (+1 card).
+Disputed orders (added in the round-2 fix): `p3/tickets/salesReportModel.ts` `buildReport` (disputed branch, `disputedTickets` / `disputedPence`, Net = gross - refunded - disputed) and `p3/tickets/SalesReport.tsx` (per-type `tix-report-disputed` line, totals line). A lost dispute (admin `20270304170000_ticketing_p2_hardening_v1.sql:421-427`) sets status disputed, voids tickets, never sets refunded_pence.
+
+COVERAGE COUNT: 5 places inventoried (4 + the disputed handling), 5 read; 0 changed except the orders view (+1 card).

@@ -37,7 +37,7 @@ export function SalesReport({
 
   const download = () => {
     const { csv } = guestListCsv(types, orders);
-    const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = csvFileName(eventName, today);
@@ -66,6 +66,11 @@ export function SalesReport({
                 <div className="p3-row-s" data-testid="tix-report-money">
                   Taken {formatPence(r.grossPence)} &middot; Refunded {formatPence(r.refundedPence)} &middot; Net {formatPence(r.netPence)}
                 </div>
+                {r.disputedTickets > 0 && (
+                  <div className="p3-row-s" data-testid="tix-report-disputed">
+                    Disputed {formatCount(r.disputedTickets)} {r.disputedTickets === 1 ? 'ticket' : 'tickets'} &middot; {formatPence(r.disputedPence)} not counted in Net
+                  </div>
+                )}
               </div>
             </li>
           ))}
@@ -74,6 +79,7 @@ export function SalesReport({
               <div className="p3-row-t">Total</div>
               <div className="p3-row-s" data-testid="tix-report-total-counts">
                 {formatCount(report.totals.sold)} sold &middot; {formatCount(report.totals.refundedTickets)} refunded
+                {report.totals.disputedTickets > 0 && <> &middot; {formatCount(report.totals.disputedTickets)} disputed ({formatPence(report.totals.disputedPence)})</>}
               </div>
               <div className="p3-row-s" data-testid="tix-report-total-money">
                 Taken {formatPence(report.totals.grossPence)} &middot; Refunded {formatPence(report.totals.refundedPence)} &middot; Net {formatPence(report.totals.netPence)}

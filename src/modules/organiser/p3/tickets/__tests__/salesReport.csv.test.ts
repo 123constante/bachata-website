@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildReport, csvCell, csvFileName, downloadWhy, guestListCsv, shortRef, CSV_COLUMNS } from '../salesReportModel';
 import { order, type } from './fixtures';
@@ -21,8 +23,8 @@ describe('sales report model', () => {
     expect(r.notPaidOrders).toBe(2);
     expect(r.totals.grossPence).toBe(r.rows.reduce((a, x) => a + x.grossPence, 0));
     expect(r.totals.refundedPence).toBe(2900);
-    expect(r.totals.netPence).toBe(r.totals.grossPence - r.totals.refundedPence);
-    expect(r.rows[0]).toMatchObject({ sold: 5, refundedTickets: 2, remaining: 45, grossPence: 8400 });
+    expect(r.totals.netPence).toBe(r.totals.grossPence - r.totals.refundedPence - r.totals.disputedPence);
+    expect(r.rows[0]).toMatchObject({ sold: 4, disputedTickets: 1, disputedPence: 1200, refundedTickets: 2, remaining: 45, grossPence: 8400 });
     expect(r.rows[1]).toMatchObject({ sold: 2, grossPence: 0, remaining: 8 });
   });
   it('CSV row count equals paid + refunded + disputed orders; no email column', () => {
@@ -79,5 +81,51 @@ describe('sales report shapes', () => {
     const r = buildReport([T1], many);
     expect(r.totals.sold).toBe(230);
     expect(guestListCsv([T1], many).rows).toBe(230);
+  });
+});
+
+describe('lost dispute: the organiser keeps nothing', () => {
+  it.each([
+    ['lost 12 pound order, nothing refunded', { status: 'disputed', quantity: 1, totalPence: 1200, refundedPence: 0 }, { sold: 0, disputedTickets: 1, disputedPence: 1200, grossPence: 1200, netPence: 0 }],
+    ['disputed after a part refund: only the unrefunded part is lost', { status: 'disputed', quantity: 1, totalPence: 1200, refundedPence: 500 }, { sold: 0, disputedTickets: 1, disputedPence: 700, grossPence: 1200, netPence: 0 }],
+    ['paid order is unaffected', { status: 'paid', quantity: 1, totalPence: 1200, refundedPence: 0 }, { sold: 1, disputedTickets: 0, disputedPence: 0, grossPence: 1200, netPence: 1200 }],
+  ])('%s', (_l, over, want) => {
+    const r = buildReport([T1], [order('d1', 't1', over as never)]);
+    expect(r.rows[0]).toMatchObject(want);
+    expect(r.totals.netPence).toBe(want.netPence);
+    expect(r.totals.disputedPence).toBe(want.disputedPence);
+  });
+});
+
+describe('csvCell: leading line breaks, zeros and unicode', () => {
+  it.each([
+    ['LF', '\nx', "\"'\nx\""],
+    ['CR', '\rx', "\"'\rx\""],
+    ['CRLF', '\r\nx', "\"'\r\nx\""],
+  ])('a cell starting with %s is apostrophe-led and quoted', (_l, v, want) => {
+    expect(csvCell(v)).toBe(want);
+  });
+  it.each(['007', '0044 7700 900123', '00123456'])('leading zeros survive untouched: %s', (v) => {
+    expect(csvCell(v)).toBe(v);
+  });
+  it.each(['Zo\u00eb Mu\u00f1oz', '\u674e\u96f7', 'Ana \u{1F483}', 'Caf\u00e9, bar'])('unicode is kept: %s', (v) => {
+    expect(csvCell(v).replace(/^"([\s\S]*)"$/, '$1')).toBe(v);
+  });
+  it('through guestListCsv: leading-zero ref buyer and unicode name', () => {
+    const { csv } = guestListCsv([T1], [order('x1', 't1', { buyerName: '007' }), order('x2', 't1', { buyerName: 'Zo\u00eb \u674e' })]);
+    expect(csv).toContain(',007,');
+    expect(csv).toContain('Zo\u00eb \u674e');
+  });
+});
+
+describe('no raw U+FEFF in the sales report sources', () => {
+  const here = __dirname;
+  const dir = join(here, '..');
+  const files = [...readdirSync(dir), ...readdirSync(here).map((f) => `__tests__/${f}`)].filter((f) => /^(?:__tests__\/)?salesReport|^SalesReport/.test(f) && /\.tsx?$/.test(f));
+  it('finds the files to scan', () => {
+    expect(files.length).toBeGreaterThanOrEqual(5);
+  });
+  it.each(files)('%s has no raw BOM', (f) => {
+    expect(readFileSync(join(dir, f), 'utf8').includes('\uFEFF')).toBe(false);
   });
 });
