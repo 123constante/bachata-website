@@ -26,7 +26,7 @@ export function importSites(name: string): string[] {
 describe('copy (4.3 #9)', () => {
   it('pins the words', () => {
     expect(WARN_DATE).toBe('Only this date changes. Dancers see it at once.');
-    expect(WARN_END).toBe('Only Ricky can reopen an ended event.');
+    expect(WARN_END).toBe('Only the Bachata Calendar team can reopen an ended event.');
     expect(VERSION_CONFLICT).toBe('Someone changed this first. Check it.');
     expect(handOverWarning('Ritmo', 'Maya R.')).toBe(
       'Hand Ritmo over to Maya R.? You become a Manager: you can still edit events but no longer hand the page over or remove people. Maya R. can hand it back.',
