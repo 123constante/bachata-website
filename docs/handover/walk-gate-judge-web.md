@@ -28,12 +28,46 @@ approves at head; the worker never approves or merges.
 - F3: every `doubts` entry must be a non-blank string (else red); a string `doubts` is red.
 - Empties: `generateFixtures([])` throws (CLI exit 1); `coverageGaps` throws on screens [] or shapes [].
 - `isPass(v, expectedHeadSha)`: the head is mandatory; another, missing or malformed head is not a pass.
-- Spec: unparseable judge reply is red; head comparison mandatory; new `## Empty inputs` and `## Parts left`.
+- Spec: unparseable judge reply is red; head comparison mandatory; new `## Empty inputs` and `## Brief walk-judge-screens-tied-to-coverage-r2 (branch claude/walk-judge-screens-coverage-r2)
+- Rebuild of PR #1435 (head 022b6d6e) on current main; #1435 is replaced and the lead closes it.
+- The old diff (6 files, +296 -18) re-applied onto main: all five code/test files applied cleanly with
+  no change of intent; one hand merge in `docs/automation/judge-worker.md` "Parts left" (kept main's
+  new `buildJudgeReport` not-wired line, replaced the "input.screens is not tied" line with the
+  `--coverage` caller line). No test needed adapting; main's `walk-report.mjs` does not call the judge.
+- Rubric coverage: 9 of 10 red-reason kinds tested (malformed coverage, malformed input, no
+  non-example screens, empty-shapes row, missing screen, missing shape, unknown input screen,
+  example-row input screen, unreadable `--coverage` file). Not tested: the defensive
+  `coverage check threw` catch (not reachable from valid JS input).
+- Checks: walk tests 7 files / 426 tests green; `prove-entry-point-dispatch` 77/77; script-conventions,
+  mojibake, `npm run lint` (34/34 links) green; eslint on the 4 touched code files clean.
+- tsc: `tsconfig.json`/`tsconfig.node.json` 0 errors; `tsconfig.app.json` 137 errors, none in branch
+  files (that config does not cover scripts/ or tests/).
+
+## Parts left`.
 - Tests J8, J9, J10, J15, J23 added (they already held on c79d9a07; coverage only). 41 new tests red on
   the old code; mutants M8 to M19 (+M9b) each killed, then restored (table in the PR body).
 
+## Brief walk-judge-screens-tied-to-coverage (branch claude/walk-judge-screens-tied-to-coverage)
+- `screensMissingFromCoverage(walkCoverage, inputScreens)` in `walk-fixtures.mjs` (re-exported by
+  `walk-judge.mjs`): pure, never throws; lists a required (non-example) screen missing from
+  `input.screens`, an input screen coverage does not list, a coverage shape the input screen lacks.
+  A required screen with `shapes: []` and an input screen naming an example row are problems too.
+  Malformed coverage/input or a table with no non-example screen is ONE problem string.
+- `judgeVerdict(input, report, coverage)`: optional third argument; each problem is a red reason
+  prefixed `coverage:`. Omitted (`undefined`) = byte-for-byte the old verdict. CLI `--coverage <file>`;
+  an unreadable/unparseable file is red (exit 1); `--coverage` with no file is usage (exit 2).
+- Spec updated (Input, Output, Fail-closed rule, Parts left). Tests C1-C17 + K0-K12; mutants M1-M10 in the PR.
+- Code review (one round): fixed empty-shapes row, example-row message, duplicate input ids,
+  unreadable --coverage now keeps all other reasons, `coverage:` reasons always first.
+  Not changed: opt-in coverage (brief says optional) and waived `walk: null` screens (Parts left).
+- The seeded `walk-coverage.json` has only the example row, so `--coverage` against it is ALWAYS red
+  until Part C adds real rows. That is intended (fail-closed), not a bug.
+
 ## Parts left
-- input.screens is not tied to walk-coverage.json (the judge trusts the lane's screen list); Part B/C.
+- Part D's caller must pass the live `docs/design/walk-coverage.json` (`--coverage`) and the PR's live
+  head; nothing wires the judge into CI yet.
+- Waived `walk: null` screens are still required by the coverage check; Part D/E decides how a waiver
+  reaches the judge.
 - Part D's caller must pass the PR's live head to `isPass`, not the verdict's own.
 - Part B: walk runner and Playwright WebKit project on the fixtures (contract 11
   items 1, 5a); enforcing the judge daily totals (section 12).

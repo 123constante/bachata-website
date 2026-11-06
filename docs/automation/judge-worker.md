@@ -22,6 +22,20 @@ The lane hands the judge one JSON object (`validateJudgeInput` checks it):
   survey-derived fixtures (`status.type.empty|nonempty.past|upcoming.huge|normal`).
 - `builderModelId`, `judgeModelId`, `builderSessionId`, `judgeSessionId`.
 
+input.screens is compared with walk-coverage.json. `judgeVerdict(input, report,
+coverage)` takes `docs/design/walk-coverage.json` as an optional third argument
+(the CLI flag `--coverage <file>`); when given, `screensMissingFromCoverage`
+(`scripts/lib/walk-fixtures.mjs`) lists every disagreement and each one is a red
+reason prefixed `coverage:` -- a non-example coverage screen missing from
+`input.screens`, an input screen coverage does not list, or a coverage shape
+that input screen does not list, or a required screen that lists no shapes.
+Rows with `"example": true` are never required, and an input screen naming one
+is red. Duplicate or non-string ids or shapes in `input.screens` are red.
+Malformed coverage, a table with no non-example screen, or an unreadable or
+unparseable `--coverage` file is red, never "no coverage given". When the third
+argument is omitted the verdict is exactly the two-argument one. Part D's caller
+must pass the live coverage file and the PR's live head; nothing wires it yet.
+
 The walk report it judges carries `headSha` (the head the walk actually measured),
 `measurements[screen][shape][engine][rubricId] = number` plus
 `measurements[screen][shape][engine].viewport = { width, height }`, `pictures`
@@ -63,7 +77,7 @@ is red.
 
 ## Output
 
-`judgeVerdict(input, report)` returns (see `verdictSchema`):
+`judgeVerdict(input, report[, coverage])` returns (see `verdictSchema`):
 
 `{ verdict: 'pass'|'red'|'doubt', headSha, reasons[], cited: [{check, measured, threshold, op, screen, shape, engine}], engines, invalidatedBy: 'any push' }`
 
@@ -127,7 +141,10 @@ not measured, an absent or unknown engine, a model or session collision, a
 report head that is not the judged head, malformed input, a verdict with no
 numbers, a measured number outside its sanity range, a viewport other than
 390x844, a non-string or blank `doubts` entry (or a string `doubts`), an
-unparseable judge reply, and any error thrown inside the judge. When every number passes but
+unparseable judge reply, any `coverage:` reason (a screen or shape
+`walk-coverage.json` requires that `input.screens` leaves out, an input screen
+coverage does not list, malformed or unreadable coverage), and any error thrown
+inside the judge. When every number passes but
 the judge model recorded a doubt, the verdict is `doubt`, and `isPass` treats
 `doubt` as not pass. The CLI exits 0 only on pass, 1 on red or doubt (including
 an unreadable file), 2 on a usage error.
@@ -142,12 +159,14 @@ exits 1), and `coverageGaps` throws on a coverage doc with `screens: []` or on
 ## Parts left
 
 - Report builder exists, not wired: `buildJudgeReport` in `scripts/lib/walk-report.mjs` turns raw runner records into the report `judgeVerdict` reads, but no walk runner calls it yet.
-- input.screens is not tied to walk-coverage.json: the judge checks the screens
-  and shapes the lane SAYS it walked, not the screens `docs/design/walk-coverage.json`
-  requires. A lane that leaves a screen out of `input.screens` is not caught by
-  the judge itself. Tying the two together is Part B/C work.
+- The coverage check only runs when the caller passes coverage: Part D's caller
+  must pass the live `docs/design/walk-coverage.json` (`--coverage`) on every
+  judge run. Until it does, nothing calls the judge in CI.
 - The head comparison inside `main()` uses the input's own `headSha`; the Part D
   caller must pass the PR's live head to `isPass`, not the verdict's.
+- A screen with `walk: null` that is waived by a valid `walk-waived` record is
+  still required by `screensMissingFromCoverage`; passing waived screen ids in
+  is Part D/E wiring if a waived screen must be judged without a walk.
 
 ## Residual risks
 

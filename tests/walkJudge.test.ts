@@ -16,7 +16,9 @@ import {
   VIEWPORT,
   MAX_PX,
   main,
+  screensMissingFromCoverage,
 } from '../scripts/lib/walk-judge.mjs';
+import { screensMissingFromCoverage as fromFixtures } from '../scripts/lib/walk-fixtures.mjs';
 
 const HEAD = 'a'.repeat(40);
 const SHA = 'b'.repeat(64);
@@ -429,14 +431,124 @@ describe('walk-judge r1: judge-worker.md states the r1 rules', () => {
   it('names the 390x844 viewport', () => expect(doc).toMatch(/390 ?x ?844/));
   it('an unparseable judge reply is red', () => expect(doc).toMatch(/unparseable judge reply is red/i));
   it('the head comparison is mandatory', () => expect(doc).toMatch(/head comparison is mandatory/i));
-  it('lists the walk-coverage gap under Parts left', () => {
+  it('the walk-coverage gap is closed: no longer under Parts left, and the spec says the tie', () => {
     const parts = doc.split(/^## Parts left$/m)[1] ?? '';
-    expect(parts).toMatch(/input\.screens is not tied to walk-coverage\.json/);
+    expect(parts).not.toMatch(/input\.screens is not tied to walk-coverage\.json/);
+    expect(doc).toMatch(/input\.screens is compared with walk-coverage\.json/);
+    expect(doc).toMatch(/--coverage/);
+    expect(doc).toMatch(/`coverage:`/);
   });
   it('the rubric range columns match the module', () => {
     const docRange = [...doc.matchAll(/^\| \d+ \| `(\w+)` \|.*\| `([\d.]+)` \| `([\d.]+|none)` \|$/gm)].map((m) => ({
       id: m[1], min: Number(m[2]), max: m[3] === 'none' ? null : Number(m[3]),
     }));
     expect(docRange).toEqual(RUBRIC.map((r: { id: string; min: number; max: number | null }) => ({ id: r.id, min: r.min, max: r.max })));
+  });
+});
+
+// ---- brief walk-judge-screens-tied-to-coverage: judgeVerdict(input, report, coverage)
+// and the CLI flag --coverage (cases K1 to K12).
+describe('walk-judge: input.screens is compared with walk-coverage.json', () => {
+  const A = 'published.class.nonempty.upcoming.normal';
+  const P = 'published.party.empty.past.normal';
+  const row = (id: string, shapes: string[], extra: Record<string, unknown> = {}) => ({ id, uiFiles: [`src/pages/${id}.tsx`], walk: `${id}-walk`, shapes, ...extra });
+  const cov = (...screens: unknown[]) => ({ schemaVersion: 1, screens });
+  const MATCH = cov(row('event-page', [A]), row('calendar', [P]), row('example-screen', [A], { example: true }));
+
+  it('K0 re-exports the walk-fixtures check, not a copy', () => expect(screensMissingFromCoverage).toBe(fromFixtures));
+
+  it('K1 coverage omitted: verdict is byte-for-byte the two-argument one, on every existing fixture', () => {
+    const reports = [makeReport(), makeReport((m) => { m.tapTargets = 10; }), { ...makeReport(), doubts: ['hmm'] }, null];
+    const inputs = [makeInput(), makeInput({ screens: [] }), 'junk'];
+    for (const i of inputs) for (const r of reports) {
+      expect(JSON.stringify(judgeVerdict(i, r, undefined))).toBe(JSON.stringify(judgeVerdict(i, r)));
+    }
+    expect(judgeVerdict(makeInput(), makeReport()).reasons.some((x: string) => x.startsWith('coverage:'))).toBe(false);
+  });
+
+  it('K2 matching coverage: still pass', () => {
+    const v = judgeVerdict(makeInput(), makeReport(), MATCH);
+    expect(v.verdict).toBe('pass');
+    expect(isPass(v, HEAD)).toBe(true);
+    expect(JSON.stringify(v)).toBe(JSON.stringify(judgeVerdict(makeInput(), makeReport())));
+  });
+
+  const red: [string, unknown, RegExp][] = [
+    ['K3 coverage screen missing from input', cov(row('event-page', [A]), row('calendar', [P]), row('organiser', [A])), /^coverage: screen organiser is required by walk-coverage\.json but not in input\.screens$/],
+    ['K4 extra input screen', cov(row('event-page', [A])), /^coverage: screen calendar is in input\.screens but not in walk-coverage\.json$/],
+    ['K5 missing shape', cov(row('event-page', [A, P]), row('calendar', [P])), /^coverage: screen event-page: shape published\.party\.empty\.past\.normal is required/],
+    ['K6 example row treated as example (not required)', cov(row('event-page', [A]), row('calendar', [P]), row('ghost', [A], { example: true })), /__never__/],
+    ['K7 empty coverage', cov(), /^coverage: .*no non-example screens/],
+    ['K8 malformed coverage', { schemaVersion: 1, screens: [{ id: 'event-page' }] }, /^coverage: walk-coverage is malformed: /],
+    ['K9 null coverage is given, so it is red', null, /^coverage: walk-coverage is malformed: /],
+  ];
+  it.each(red)('%s', (name, coverage, re) => {
+    const v = judgeVerdict(makeInput(), makeReport(), coverage);
+    if (name.startsWith('K6')) { expect(v.verdict).toBe('pass'); return; }
+    expect(v.verdict).toBe('red');
+    expect(isPass(v, HEAD)).toBe(false);
+    expect(v.reasons.some((x: string) => re.test(x))).toBe(true);
+    // The measured numbers are still cited: the coverage reasons are added, nothing else is lost.
+    expect(v.cited).toHaveLength(RUBRIC.length * 2 * 2);
+  });
+
+  it('K10 a coverage problem turns a doubt into red, and keeps the input/report reasons', () => {
+    const d = judgeVerdict(makeInput(), { ...makeReport(), doubts: ['hmm'] }, cov(row('event-page', [A])));
+    expect(d.verdict).toBe('red');
+    const r = judgeVerdict(makeInput(), makeReport((m) => { m.tapTargets = 10; }), cov(row('event-page', [A])));
+    expect(r.reasons.some((x: string) => /tapTargets measured 10/.test(x))).toBe(true);
+    expect(r.reasons.some((x: string) => x.startsWith('coverage: '))).toBe(true);
+    const bad = judgeVerdict(makeInput({ headSha: 'nope' }), makeReport(), cov(row('event-page', [A])));
+    expect(bad.verdict).toBe('red');
+    expect(bad.reasons[0]).toMatch(/^coverage: /);
+    expect(bad.reasons.some((x: string) => x.startsWith('input: '))).toBe(true);
+  });
+
+  describe('K11 CLI --coverage', () => {
+    const files: Record<string, string> = {
+      'in.json': JSON.stringify(makeInput()),
+      'ok.json': JSON.stringify(makeReport()),
+      'match.json': JSON.stringify(MATCH),
+      'short.json': JSON.stringify(cov(row('event-page', [A]), row('calendar', [P]), row('organiser', [A]))),
+      'junk.json': '{not json',
+    };
+    const run = (argv: string[]) => {
+      const out: string[] = [];
+      const code = main(argv, { readFile: (p: string) => { if (!(p in files)) throw new Error('ENOENT'); return files[p]; }, log: (s: string) => out.push(s), error: (s: string) => out.push(s) });
+      return { code, out: out.join('\n') };
+    };
+    const base = ['--input', 'in.json', '--report', 'ok.json'];
+    it('matching coverage: exit 0', () => expect(run([...base, '--coverage', 'match.json']).code).toBe(0));
+    it('no --coverage: exit 0, as before', () => expect(run(base).code).toBe(0));
+    it('a screen left out: exit 1 with a coverage: reason', () => {
+      const r = run([...base, '--coverage', 'short.json']);
+      expect(r.code).toBe(1);
+      expect(JSON.parse(r.out).reasons.some((x: string) => x.startsWith('coverage: screen organiser'))).toBe(true);
+    });
+    it('unreadable coverage file: red, not ignored', () => {
+      const r = run([...base, '--coverage', 'missing.json']);
+      expect(r.code).toBe(1);
+      const v = JSON.parse(r.out);
+      expect(v.verdict).toBe('red');
+      expect(v.reasons.some((x: string) => /^coverage: could not read missing\.json/.test(x))).toBe(true);
+    });
+    it('unreadable coverage file still reports every other red reason, coverage first', () => {
+      const f2 = { ...files, 'bad.json': JSON.stringify(makeReport((m) => { m.tapTargets = 10; })) };
+      const out: string[] = [];
+      main(['--input', 'in.json', '--report', 'bad.json', '--coverage', 'missing.json'], { readFile: (p: string) => { if (!(p in f2)) throw new Error('ENOENT'); return f2[p as keyof typeof f2]; }, log: (x: string) => out.push(x), error: () => {} });
+      const v = JSON.parse(out.join('\n'));
+      expect(v.reasons[0]).toMatch(/^coverage: could not read missing\.json/);
+      expect(v.reasons.some((x: string) => /tapTargets measured 10/.test(x))).toBe(true);
+    });
+    it('unparseable coverage file: red', () => expect(run([...base, '--coverage', 'junk.json']).code).toBe(1));
+    it('--coverage with no file: usage, exit 2', () => {
+      expect(run([...base, '--coverage']).code).toBe(2);
+      expect(run(['--coverage', '--input', 'in.json', '--report', 'ok.json']).code).toBe(2);
+    });
+  });
+
+  it('K12 the seeded walk-coverage.json (example row only) is red against the fixtures', () => {
+    const seeded = JSON.parse(readFileSync(path.resolve(__dirname, '../docs/design/walk-coverage.json'), 'utf8'));
+    expect(judgeVerdict(makeInput(), makeReport(), seeded).verdict).toBe('red');
   });
 });
