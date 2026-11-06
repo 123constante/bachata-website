@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import minimatch from 'minimatch';
+import { deploymentEnabledByTable } from '../scripts/lib/vercel-deploys.mjs';
 
 const vercel = JSON.parse(readFileSync(resolve(__dirname, '..', 'vercel.json'), 'utf8'));
 const rules: Record<string, boolean> = vercel.git?.deploymentEnabled ?? {};
@@ -28,7 +29,12 @@ describe('vercel.json git.deploymentEnabled (real file)', () => {
     ['main', true],
     ['feat/organiser-rebuild', true],
     ['feat/account', true],
+    ['dependabot/foo', false],
+    // Real dependabot names have two slashes; `*` does not cross `/`, so vercel.json cannot switch them
+    // off without a `**` key the prefix guard forbids. scripts/vercel-ignore-build.sh skips them instead.
     ['dependabot/npm_and_yarn/vite-6.4.1', true],
+    ['brief/my-ticket-order-qr-db', false],
+    ['tmp-merge-probe-1', false],
     ['bot/types-refresh', true],
     ['arc/organiser-r1', true],
     ['claude/vercel-slice-budget', false],
@@ -55,4 +61,24 @@ describe('the matcher follows Vercel (any true wins; no match = deploy)', () => 
   ] as const)('%j / %s -> %s', (table, branch, want) => {
     expect(deploys(branch, table as Record<string, boolean>)).toBe(want);
   });
+});
+
+// The autopilot (scripts/lib/autopilot.mjs) runs with Node built-ins only, so it carries its own
+// matcher (scripts/lib/vercel-deploys.mjs). It must agree with the minimatch reference above.
+describe('scripts/lib/vercel-deploys.mjs agrees with deploys() (minimatch)', () => {
+  const tables: Record<string, boolean>[] = [
+    rules,
+    { 'experiment-*': false, '*-dev': true },
+    { 'claude/*': false },
+    { 'claude/*': true, 'claude/x*': false },
+    { 'claude/**': false, main: true },
+    { 'release/v?': false },
+  ];
+  const branches = ['main', 'feat/a', 'claude/x', 'claude/a/b', 'arc/briefs-r5', 'arc/briefs-r5/x',
+    'experiment-my-branch-dev', 'experiment-x', 'release/v1', 'release/v10', 'mainline', 'x.main'];
+  for (const table of tables) {
+    it.each(branches)(`%s against ${JSON.stringify(table)}`, (branch) => {
+      expect(deploymentEnabledByTable(branch, table) ?? true).toBe(deploys(branch, table));
+    });
+  }
 });

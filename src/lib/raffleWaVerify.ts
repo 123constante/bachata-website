@@ -86,3 +86,56 @@ export async function pollWaVerifyStatus(
   }
   return 'timeout';
 }
+
+// ---- Pool-keyed twins (raffle v2). Same outcome types and timing. ----------
+
+export async function sendPoolWaConfirm(poolId: string, sessionId: string): Promise<SendOutcome> {
+  try {
+    const supabase = await getSupabase();
+    const { data, error } = await supabase.functions.invoke('raffle-send-confirmation', {
+      body: { pool_id: poolId, session_id: sessionId },
+    });
+    if (error) return 'unavailable';
+    const payload = data as { ok?: boolean; wa_status?: string } | null;
+    if (payload?.ok && payload.wa_status === 'sent') return 'sent';
+    if (payload?.ok && payload.wa_status === 'failed') return 'failed';
+    if (payload?.ok && payload.wa_status === 'skipped') return 'skipped';
+    if (payload && 'wa_status' in payload) {
+      if (payload.wa_status === 'sent' || payload.wa_status === 'verified') return 'sent';
+      if (payload.wa_status === 'failed') return 'failed';
+    }
+    return 'unavailable';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+export async function pollPoolWaStatus(
+  poolId: string,
+  sessionId: string,
+  opts: PollOptions = {},
+): Promise<VerifyOutcome> {
+  const intervalMs = opts.intervalMs ?? 1500;
+  const maxWaitMs = opts.maxWaitMs ?? 12000;
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    try {
+      const { data, error } = await callRpc('get_raffle_pool_wa_status_v1', {
+        p_pool_id: poolId,
+        p_session_id: sessionId,
+      });
+      if (error) return 'unavailable';
+      const payload = data as { found?: boolean; wa_status?: string } | null;
+      if (!payload?.found) return 'unavailable';
+      if (payload.wa_status === 'verified') return 'verified';
+      if (payload.wa_status === 'failed') return 'failed';
+      if (payload.wa_status === 'skipped') return 'skipped';
+    } catch {
+      return 'unavailable';
+    }
+    await sleep(intervalMs);
+  }
+  return 'timeout';
+}

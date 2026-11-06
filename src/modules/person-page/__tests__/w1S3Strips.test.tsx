@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 /**
- * W1 S3: organiser team strip, event lineup person, search person row. Each surface x the S0
+ * W1 S3: organiser team list (link only: the Team list has no role labels since
+ * organiser-page P1; its role-aware link came back in fix round 1), event lineup
+ * person, search person row. Each surface x the S0
  * prod shapes x teacher flag off/on: tags and link must equal the badges mapping's answer,
  * no /teachers/ href while the flag is off, stage name only where shown as a DJ.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const flag = vi.hoisted(() => ({ teacherDetail: false, searchV7: true, organiserSelfServe: false }));
@@ -15,8 +17,7 @@ vi.mock('@/lib/searchClickTelemetry', () => ({ recordSearchResultClick: () => {}
 const emit = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/profileViewEmit', () => ({ emitProfileView: emit }));
 
-import { TeamCircle } from '@/pages/OrganiserProfile';
-import { fireEvent } from '@testing-library/react';
+import { OrganiserTeamSection } from '@/modules/profile/OrganiserTeamSection';
 import { PersonRow } from '@/pages/SearchResults';
 import { mapPersonFromBadges } from '@/modules/event-page/bento/blocks/ScheduleBlock';
 import { linkFor, roleTagsFor, type PersonBadge } from '../badges';
@@ -37,26 +38,12 @@ const SHAPES: Array<[string, PersonRole[], string | null]> = [
 const badge = (roles: PersonRole[], djName: string | null): PersonBadge => ({ id: ID, roles, djName, djHasUpcoming: false, nextGigDate: null });
 const labels = (b: PersonBadge, open: boolean) => roleTagsFor(b, { teacherPagesOpen: open, withStageName: true }).map((t) => t.label);
 const FLAGS = [false, true];
-const member = { id: 'm1', memberId: ID, dancerId: ID, name: 'Real Name', avatarUrl: null, nationalityCode: null, role: 'Founder', isHead: null, isLeader: null };
 
 describe.each(FLAGS)('teacher pages open = %s', (open) => {
   describe.each(SHAPES)('%s', (_n, roles, djName) => {
     const b = badge(roles, djName);
     const want = labels(b, open);
     const wantLink = linkFor(b, { teacherPagesOpen: open });
-
-    it('organiser team strip', () => {
-      flag.teacherDetail = open;
-      const { container } = render(<MemoryRouter><TeamCircle member={member} badge={b} /></MemoryRouter>);
-      expect(Array.from(container.querySelectorAll('[data-team-tag]')).map((e) => e.textContent)).toEqual(want);
-      expect(container.querySelector('a')?.getAttribute('href') ?? null).toBe(wantLink);
-      // Review M2: a team strip is not a DJ thing, so the real name leads; the stage name is
-      // in the DJ tag only.
-      expect(container.querySelector('[data-team-name]')?.textContent).toBe('Real Name');
-      // Review 7d: the organiser-authored title shows next to the tags.
-      expect(container.querySelector('[data-team-title]')?.textContent).toBe('Founder');
-      if (!open) expect(container.innerHTML).not.toContain('/teachers/');
-    });
 
     it('search person row', () => {
       flag.teacherDetail = open;
@@ -83,87 +70,6 @@ describe.each(FLAGS)('teacher pages open = %s', (open) => {
   });
 });
 
-describe('organiser team strip: the organiser-authored title (review 7d)', () => {
-  const b = badge(['dj', 'dancer'], 'El Rugido');
-  const titleOf = (role: string | null) => {
-    const { container } = render(<MemoryRouter><TeamCircle member={{ ...member, role }} badge={b} /></MemoryRouter>);
-    return container.querySelector('[data-team-title]')?.textContent ?? null;
-  };
-  it.each([
-    ['set', 'Founder', 'Founder'],
-    ['set, padded', '  Head of music ', 'Head of music'],
-    ['null: no "Team" default', null, null],
-    ['blank', '   ', null],
-    ['same word as a tag: not repeated', 'dj', null],
-    // Prod 2026-10-21: all 58 active team rows carry role='Leader' (a system value, not an
-    // authored title), so it is never shown.
-    ['system value Leader: hidden', 'Leader', null],
-    ['system value leader, padded/lowercase: hidden', '  leader ', null],
-  ])('%s', (_n, role, want) => {
-    expect(titleOf(role)).toBe(want);
-  });
-  it('the stage name stays in the DJ tag, never the name line', () => {
-    const { container } = render(<MemoryRouter><TeamCircle member={member} badge={b} /></MemoryRouter>);
-    expect(container.querySelector('[data-team-name]')?.textContent).toBe('Real Name');
-    expect(container.querySelector('[data-team-tag="dj"]')?.textContent).toContain('El Rugido');
-    expect(container.textContent).not.toContain('Team member');
-  });
-});
-
-// Round 2 R2+R4: while the badges read loads, or when it failed, a member with a dancerId keeps
-// the dancer page link (the strip's link before W1), like ScheduleBlock's feedFallback. The
-// title waits for the read (loading: none, so it never flashes then hides on dedupe); on error
-// it shows, since there are no tags to dedupe against.
-describe('organiser team strip while badges load / errored', () => {
-  const draw = (state: 'loading' | 'error' | 'ready', m = member) =>
-    render(<MemoryRouter><TeamCircle member={m} badge={undefined} badgesState={state} /></MemoryRouter>).container;
-  it.each(['loading', 'error'] as const)('%s: a member with a dancerId keeps /dancers/:id', (state) => {
-    flag.teacherDetail = false;
-    expect(draw(state).querySelector('a')?.getAttribute('href')).toBe(`/dancers/${ID}`);
-  });
-  it.each(['loading', 'error'] as const)('%s: no dancerId, no link', (state) => {
-    expect(draw(state, { ...member, dancerId: null }).querySelector('a')).toBeNull();
-  });
-  it('ready with no badge row: no link (the read answered)', () => {
-    expect(draw('ready').querySelector('a')).toBeNull();
-  });
-  it('loading: no title yet (no flash-then-hide)', () => {
-    expect(draw('loading').querySelector('[data-team-title]')).toBeNull();
-    expect(draw('loading', { ...member, role: 'dj' }).querySelector('[data-team-title]')).toBeNull();
-  });
-  it('error: the title shows (no tags to dedupe against)', () => {
-    expect(draw('error').querySelector('[data-team-title]')?.textContent).toBe('Founder');
-    expect(draw('error', { ...member, role: 'dj' }).querySelector('[data-team-title]')?.textContent).toBe('dj');
-    expect(draw('error', { ...member, role: 'Leader' }).querySelector('[data-team-title]')).toBeNull();
-  });
-});
-
-// Round 2 R6: the team link is a clickable profile, so it emits a profile view
-// (.claude/rules/data-contracts.md), typed by the role the link opens.
-describe('organiser team strip: profile view on click', () => {
-  const click = (b: PersonBadge | undefined, state: 'loading' | 'error' | 'ready' = 'ready') => {
-    emit.mockClear();
-    const { container } = render(<MemoryRouter><TeamCircle member={member} badge={b} badgesState={state} /></MemoryRouter>);
-    fireEvent.click(container.querySelector('a')!);
-    return emit.mock.calls.map((c) => [c[0].personId, c[0].profileType]);
-  };
-  it.each([
-    ['DJ page', ['dj', 'dancer'] as PersonRole[], 'dj'],
-    ['dancer page', ['teacher', 'dancer'] as PersonRole[], 'dancer'],
-  ])('%s', (_n, roles, type) => {
-    flag.teacherDetail = false;
-    expect(click(badge(roles, null))).toEqual([[ID, type]]);
-  });
-  it('teacher page while open', () => {
-    flag.teacherDetail = true;
-    expect(click(badge(['teacher'], null))).toEqual([[ID, 'teacher']]);
-    flag.teacherDetail = false;
-  });
-  it('the loading/error fallback link is a dancer view', () => {
-    expect(click(undefined, 'error')).toEqual([[ID, 'dancer']]);
-  });
-});
-
 describe('event lineup person while badges load / are missing', () => {
   const t = { id: ID, name: 'T', href: `/teachers/${ID}`, avatarUrl: null, role: 'Teacher', profileType: 'teacher', level: null };
   const d = { ...t, href: `/djs/${ID}`, profileType: 'dj' };
@@ -176,5 +82,72 @@ describe('event lineup person while badges load / are missing', () => {
   it('vendors are untouched', () => {
     const v = { ...t, profileType: 'vendor', href: `/vendors/${ID}` };
     expect(mapPersonFromBadges(v, undefined, false)).toBe(v);
+  });
+});
+
+// Organiser page fix round 1 (lead decision): main's TeamCircle link behaviour and its
+// tests, restored on the new Team list (OrganiserTeamSection). Role tags and the
+// organiser-authored title stay gone (ACCEPTANCE: no role labels), so those blocks are
+// not restored; the link, the loading/error fallback and the typed profile view are.
+const person = { personId: ID, name: 'Real Name', avatarUrl: null, href: `/dancers/${ID}`, initials: 'RN' };
+const drawTeam = (b: PersonBadge | undefined, state: 'loading' | 'error' | 'ready', p = person) => render(
+  <MemoryRouter>
+    <OrganiserTeamSection
+      team={{ people: [p], mode: 'solo' }}
+      failed={false}
+      onRetry={() => {}}
+      nationality={new Map([[ID, 'ES']])}
+      badges={new Map(b ? [[ID, b]] : [])}
+      badgesState={state}
+    />
+  </MemoryRouter>,
+).container;
+
+describe.each(FLAGS)('organiser team list, teacher pages open = %s', (open) => {
+  it.each(SHAPES)('%s: link = the badges mapping, name is the real name, flag shows', (_n, roles, djName) => {
+    flag.teacherDetail = open;
+    const b = badge(roles, djName);
+    const c = drawTeam(b, 'ready');
+    expect(c.querySelector('a')?.getAttribute('href') ?? null).toBe(linkFor(b, { teacherPagesOpen: open }));
+    expect(c.querySelector('[data-team-name]')?.textContent).toBe('Real Name');
+    expect(c.querySelector('[data-nationality-flag]')?.getAttribute('data-nationality-flag')).toBe('ES');
+    expect(c.querySelectorAll('[data-team-tag], [data-team-title]').length).toBe(0);
+    if (!open) expect(c.innerHTML).not.toContain('/teachers/');
+    flag.teacherDetail = false;
+  });
+});
+
+describe('organiser team list while badges load / errored', () => {
+  it.each(['loading', 'error'] as const)('%s: a person with a dancer page keeps /dancers/:id', (state) => {
+    expect(drawTeam(undefined, state).querySelector('a')?.getAttribute('href')).toBe(`/dancers/${ID}`);
+  });
+  it.each(['loading', 'error'] as const)('%s: no dancer page, no link', (state) => {
+    expect(drawTeam(undefined, state, { ...person, href: null }).querySelector('a')).toBeNull();
+  });
+  it('ready with no badge row: no link (the read answered)', () => {
+    expect(drawTeam(undefined, 'ready').querySelector('a')).toBeNull();
+  });
+});
+
+describe('organiser team list: profile view on click', () => {
+  const click = (b: PersonBadge | undefined, state: 'loading' | 'error' | 'ready' = 'ready') => {
+    emit.mockClear();
+    fireEvent.click(drawTeam(b, state).querySelector('a')!);
+    return emit.mock.calls.map((c) => [c[0].personId, c[0].profileType, c[0].context]);
+  };
+  it.each([
+    ['DJ page', ['dj', 'dancer'] as PersonRole[], 'dj'],
+    ['dancer page', ['teacher', 'dancer'] as PersonRole[], 'dancer'],
+  ])('%s', (_n, roles, type) => {
+    flag.teacherDetail = false;
+    expect(click(badge(roles, null))).toEqual([[ID, type, 'organiser:team']]);
+  });
+  it('teacher page while open', () => {
+    flag.teacherDetail = true;
+    expect(click(badge(['teacher'], null))).toEqual([[ID, 'teacher', 'organiser:team']]);
+    flag.teacherDetail = false;
+  });
+  it('the loading/error fallback link is a dancer view', () => {
+    expect(click(undefined, 'error')).toEqual([[ID, 'dancer', 'organiser:team']]);
   });
 });

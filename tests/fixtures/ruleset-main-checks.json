@@ -1,0 +1,26 @@
+{
+  "id": 24574372,
+  "name": "main checks",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "integrity", "integration_id": 15368 },
+          { "context": "bundle-budget", "integration_id": 15368 },
+          { "context": "e2e-smoke", "integration_id": 15368 },
+          { "context": "wallclock-brand", "integration_id": 15368 },
+          { "context": "masking-check", "integration_id": 15368 },
+          { "context": "bom-check", "integration_id": 15368 },
+          { "context": "unit (Europe/London, full)", "integration_id": 15368 }
+        ]
+      }
+    }
+  ]
+}

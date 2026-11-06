@@ -6,7 +6,7 @@
  * gets the layer -- the pencils (Name and City included) and the Create event
  * buttons -- and for everyone else the lazy chunk is never even imported (no
  * new code, no new request). The Create event rows run over both events shapes:
- * nights upcoming (the "Upcoming events" row) and none (the empty state).
+ * nights upcoming (the "Next nights" row) and none (the empty state).
  *
  * Contact (admin #771 split): only the owner or a manager gets the Contact card
  * (each item tagged Public / Hidden, masked) and its "Edit contact details"
@@ -164,21 +164,22 @@ describe('the owner layer on the live public page', () => {
       expect(h.contactReads).toBe(0);
     }
     // Public links: noopener nofollow ugc, for everyone.
-    const pills = ['Instagram', 'Facebook', 'Website'].map((n) => screen.getByRole('link', { name: new RegExp(`^${n}`) }));
-    for (const a of pills) expect(a.getAttribute('rel')).toBe('noopener nofollow ugc');
-    // A facebook.com/share/ link is not announced as a handle.
-    expect(screen.getByRole('link', { name: /^Facebook/ }).getAttribute('aria-label')).toBe('Facebook');
+    const rows = ['Instagram', 'Website'].map((n) => screen.getByRole('link', { name: new RegExp(`^${n}`) }));
+    for (const a of rows) expect(a.getAttribute('rel')).toBe('noopener nofollow ugc');
+    // Facebook is not a Get in touch row (organiser-page P1, E2 by owner decision).
+    expect(screen.queryByRole('link', { name: /^Facebook/ })).toBeNull();
     // Nobody is told about review: edits go live on Save.
     expect(document.body.textContent).not.toMatch(/sent for review|pending review/i);
   });
 
   // The Team card (team picker) reads organiser_team_v1 under ['organiser-team', id]. The
   // page's public line-up query once used that SAME key, so the layer got the line-up
-  // array, saw no role, and an owner never got the card. Owner: card; manager: none.
+  // array, saw no role, and an owner never got the card. Owner: card with Add a person;
+  // manager: card with only "Who shows on your page" (lead decision, brief p2-team-2).
   it.each([
     ['owner', 'owner', true],
     ['manager', 'manager', false],
-  ] as const)('the Team card through the real page: %s -> shown %s', async (_n, role, shown) => {
+  ] as const)('the Team card through the real page: %s -> Add a person %s', async (_n, role, add) => {
     h.user = ME;
     h.ownership = { is_managed: true, i_own_it: role === 'owner', my_role: role };
     h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_team_v1'
@@ -187,12 +188,10 @@ describe('the owner layer on the live public page', () => {
     renderPage();
     await screen.findByTestId('eip-contact');
     await waitFor(() => expect(h.rpc.mock.calls.some(([fn]) => fn === 'organiser_team_v1')).toBe(true));
-    if (shown) {
-      expect((await screen.findByTestId('eip-team')).textContent).toContain('Add a person');
-    } else {
-      await new Promise((res) => setTimeout(res, 50));
-      expect(screen.queryByTestId('eip-team')).toBeNull();
-    }
+    const card = await screen.findByTestId('eip-team');
+    expect(card.textContent).toContain('Who shows on your page');
+    if (add) expect(card.textContent).toContain('Add a person');
+    else expect(card.textContent).not.toContain('Add a person');
     expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
     h.rpc.mockReset();
   });
@@ -239,7 +238,7 @@ describe('Create event: only the owner or a manager, on both events shapes', () 
     h.events = r.shape === 'upcoming nights' ? UPCOMING : r.shape === 'past nights only' ? PAST : [];
     renderPage();
     await screen.findByRole('heading', { level: 1, name: 'Ritmo Latino' });
-    if (r.shape === 'upcoming nights') await screen.findByRole('heading', { name: 'Upcoming events' });
+    if (r.shape === 'upcoming nights') await screen.findByRole('heading', { name: 'Next nights' });
     else await screen.findByTestId('org-public-empty');
     if (r.layer) {
       const link = await screen.findByTestId('eip-create-event');
@@ -250,7 +249,7 @@ describe('Create event: only the owner or a manager, on both events shapes', () 
       expect(screen.getAllByTestId('eip-create-event')).toHaveLength(1);
       if (r.shape === 'upcoming nights') {
         // Beside the date count, in the heading row.
-        const row = screen.getByRole('heading', { name: 'Upcoming events' }).parentElement!;
+        const row = screen.getByRole('heading', { name: 'Next nights' }).parentElement!;
         expect(row.contains(link)).toBe(true);
         expect(row.textContent).toContain('1 date');
       } else {
