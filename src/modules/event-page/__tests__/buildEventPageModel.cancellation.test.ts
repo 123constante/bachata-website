@@ -27,6 +27,7 @@ const buildSnapshot = (
 ): EventPageSnapshot => ({
   eventId: 'event-1',
   occurrenceId: occurrences[effectiveIndex]?.occurrenceId ?? null,
+  version: null,
   event: {
     name: 'Pulse Bachata Friday',
     description: null,
