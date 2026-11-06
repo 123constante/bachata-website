@@ -490,7 +490,8 @@ describe('Stats v2 x every shape', () => {
   });
 
   it('the empty state names the on-screen Copy link control', () => {
-    viewsQ.value = ok(statsOf([['w', 'W', 0]]));
+    homeQ.value = ok(homeOf([SHAPES.weekly]));
+    viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
     expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy link/);
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
