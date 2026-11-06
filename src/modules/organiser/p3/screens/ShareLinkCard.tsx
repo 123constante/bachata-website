@@ -8,7 +8,7 @@ import { RetryButton } from './parts';
 const SHARE_REASONS = {
   off: 'Your link is switched off. Ask the team.',
   noEvent: 'Add an event to get a link',
-  loading: 'Getting your link…',
+  loading: 'Getting your link\u2026',
 } as const;
 
 /** The page's share link for its next live event, with a Copy link control. */
@@ -42,7 +42,7 @@ export function ShareLinkCard() {
     } catch {
       field.current?.focus();
       field.current?.select();
-      setNote('Copy didn’t work. The link is selected, so copy it from there.');
+      setNote('Copy didn\u2019t work. The link is selected, so copy it from there.');
     }
   };
 
