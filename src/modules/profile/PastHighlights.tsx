@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { optimizedImageUrl } from '@/lib/imageCdn';
+import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 import { fallbackInitials, yearChips } from './nightsCardModel';
 
 const SERIF = "'Cormorant Garamond', Georgia, serif";
@@ -51,7 +51,7 @@ export default function PastHighlights(p: PastHighlightsProps) {
               style={{ width: 84, height: 84, borderRadius: 12, background: n.posterUrl ? '#0E0F13' : GRADS[i % GRADS.length] }}
             >
               {n.posterUrl ? (
-                <img src={optimizedImageUrl(n.posterUrl, 200)} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                <img src={optimizedImageUrl(n.posterUrl, srcWidthFor(84))} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
               ) : (
                 <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center" style={{ fontFamily: SERIF, fontSize: 24, color: 'rgba(251,239,196,0.85)' }}>
                   {fallbackInitials(n.name, p.organiserName)}

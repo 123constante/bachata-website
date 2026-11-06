@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { optimizedImageUrl } from '@/lib/imageCdn';
+import { optimizedImageUrl, srcWidthFor } from '@/lib/imageCdn';
 
 const SERIF = "'Cormorant Garamond', Georgia, serif";
 const GOLD = '#E7BE6E';
@@ -40,7 +40,7 @@ export default function NightsCard(p: NightsCardProps) {
     <>
       <div className="relative flex-shrink-0 overflow-hidden" style={{ width: '50%', height: 200, background: p.posterUrl ? '#0E0F13' : fallback }}>
         {p.posterUrl ? (
-          <img src={optimizedImageUrl(p.posterUrl, 400)} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+          <img src={optimizedImageUrl(p.posterUrl, srcWidthFor(190))} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
         ) : (
           <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center" style={{ fontFamily: SERIF, fontSize: 44, color: 'rgba(251,239,196,0.85)' }}>
             {p.initials}
