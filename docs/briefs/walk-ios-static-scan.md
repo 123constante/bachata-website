@@ -6,8 +6,8 @@ Serves: the owner and lead (iOS Safari bugs the Chromium walk cannot see are cau
 
 ## What main lacks
 - The judge rubric asks for three iOS numbers (iosInputFontSize >= 16, iosNoRawVh <= 0, iosFixedBarsSafeArea <= 0) but nothing produces them -- grep: scanIosClasses
-- extends: rubric ids and thresholds live in scripts/lib/walk-judge.mjs (RUBRIC, lines 66-75); the scanner must emit exactly those report keys
-- Real code has both good and bad shapes the scanner must tell apart (100vh at src/index.css; fixed bars with env(safe-area-inset-*) at src/components/organiser/GetListedHoloCta.css:6-7 and src/components/AppChrome.tsx:118)
+- extends: rubric ids and thresholds live in scripts/lib/walk-judge.mjs (RUBRIC, lines 66-75); the scanner must emit exactly those report keys -- scripts/lib/walk-judge.mjs
+- extends: Real code has both good and bad shapes the scanner must tell apart (100vh at src/index.css; fixed bars with env(safe-area-inset-*) at src/components/organiser/GetListedHoloCta.css:6-7 and src/components/AppChrome.tsx:118) -- src/components/AppChrome.tsx
 
 ## Files
 scripts/lib/walk-ios-static.mjs (new)
