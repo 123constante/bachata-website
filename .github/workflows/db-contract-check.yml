@@ -1290,7 +1290,7 @@ jobs:
           fi
           node scripts/check-p3-refusal-reasons.mjs --live
 
-      # 74. LIVE-NOW SNAPSHOT VERSION (2026-11-06, docs/briefs/live-now-s2web.md).
+      # 74. LIVE-NOW SNAPSHOT VERSION (2026-11-06, docs/handovers/live-now-s2web.md).
       #     event_view_p5(snapshot_compat) must carry a top-level `version`
       #     (non-negative safe integer; admin 20270312410000 + #1280). The site's
       #     parser maps a missing one to null on purpose, so a regression would be

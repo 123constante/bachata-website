@@ -44,3 +44,31 @@ untouched.
 ## Next
 
 Slice 3 (Done screen "Live now") can read `version` off `/event/<slug>.data`.
+
+## Checks run locally (2026-11-06)
+
+- `npx tsc -p tsconfig.app.json --noEmit`: 0 errors in branch files (119 total,
+  all pre-existing on main: main had 120).
+- `npm run lint`: 34/34 links green (trailing eslint informational, as on main).
+- `npm run test:unit`: 833/841 files green; the 8 red were environmental and
+  re-run green: 4 tickets files (stale node_modules, green after `npm ci`), 3
+  live contract tests (sandbox env is a non-prod project; 34/34 green against
+  prod anon), `integrityCouldNotRun` (needs typescript unresolvable from /tmp;
+  the sandbox has a global one; untouched by this PR).
+- `check-event-snapshot-version.mjs --self-test` 23/23; live vs prod: exit 0.
+- `prove-entry-point-dispatch.mjs` (79 targets), `check-script-conventions`,
+  `check:mojibake`: green.
+- /code-review (one round, CI-guard stopping rule): fixed sample window (was
+  mostly past events), doc pointer, cancellation fixture. Not taken: reuse of
+  `rpcWithRetry`, folding into `check-compat-payload-consistency`, parallel
+  probes, npm script alias + ci-guard-notes inventory row, the second
+  `EventPageSnapshot` type in `src/integrations/supabase/eventRpcs.ts` (raw cast,
+  not parsed; slice 3 should read through `useEventPageQuery`).
+
+## Not verified
+
+- Which project the CI `VITE_SUPABASE_URL` secret targets (step #74 is red there
+  if it is not prod and lacks #1280).
+- e2e / browser walk: no visible change, not run.
+- Vercel preview of `/event/<slug>.data` carrying `version` (proven in the
+  loader test, not on a deploy).

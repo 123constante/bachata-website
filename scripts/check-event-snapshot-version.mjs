@@ -3,7 +3,7 @@
  * CI contract check: event_view_p5(snapshot_compat) carries a top-level
  * `version` -- a non-negative safe-integer JSON number -- on live events.
  *
- * Why: live-now slice 2 (docs/briefs/live-now-s2web.md). The Website reads
+ * Why: live-now slice 2 (docs/handovers/live-now-s2web.md). The Website reads
  * `payload.version` in parseEventPageSnapshot (src/modules/event-page/
  * useEventPageQuery.ts, parseSnapshotVersion) and the /event loader dehydrates
  * it into the public /event/<slug>.data twin, which slice 3 ("Live now" on the
@@ -13,7 +13,7 @@
  * Admin authority: 20270312410000_live_now_state_change_version_v1 (native
  * shape) and admin #1280 (snapshot_compat shape).
  *
- * Sample: calendar_events_dto (anon) over -30/+60 days, one occurrence per
+ * Sample: calendar_events_dto (anon) over -1/+60 days, one occurrence per
  * event, up to SAMPLE events; each probed on the landing call AND pinned by
  * occurrence id -- the two calls the Website makes. A null payload (event not
  * public) is skipped, not counted. Fewer than MIN_PROBED payloads measured is
@@ -32,7 +32,9 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 
 const SAMPLE = 12;
 const MIN_PROBED = 3;
-const RANGE_BACK_DAYS = 30;
+// Rows come back in date order, so a long look-back would sample mostly ended
+// events; one day back keeps the sample on live/upcoming pages.
+const RANGE_BACK_DAYS = 1;
 const RANGE_FWD_DAYS = 60;
 
 /** The verdict for one payload: null = ok, else the reason it violates. */
