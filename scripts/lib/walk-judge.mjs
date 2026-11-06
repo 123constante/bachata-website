@@ -51,7 +51,7 @@ export const JUDGE_CONFIG = deepFreeze({
     judgeRuntimeHoursPerDay: 3,
     judgeDispatchesPerDay: 8,
     overBudgetAction: 'hold-and-alert',
-    dailyTotalEnforcedIn: 'part-b',
+    dailyTotalEnforcedIn: 'scripts/lib/walk-judge-budget.mjs',
   },
 });
 
