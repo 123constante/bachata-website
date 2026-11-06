@@ -102,6 +102,7 @@ describe('Add someone + Done', () => {
       const cap = screen.queryByTestId('p3-team-page-name');
       if (p >= 2) expect(cap?.textContent).toBe(NAMES[0]); else expect(cap).toBeNull();
       fireEvent.click(face);
+      fireEvent.click(await screen.findByTestId('add-confirm-yes'));
       await waitFor(() => expect(adds).toBe(1));
       const msg = await screen.findByText(/is a Manager/);
       expect(msg.textContent).toBe(p >= 2 ? `Priya S. is a Manager of ${NAMES[0]}` : 'Priya S. is a Manager');

@@ -11,6 +11,7 @@ import { goDone } from '../flows/doneState';
 import { useOrgSurface } from '../shell/surface';
 import { AnnounceRegion, ErrorState, GhostButton, SearchField, SkeletonRows, useAnnounce, useDebounced } from '../ui';
 import { Avatar } from './Avatar';
+import { AddConfirm } from './AddConfirm';
 import { BROWSE_PAGE, SHORT_WALL, browseQueryKey, factLabel, fetchBrowsePeople, inviteMessage, shortWallLine, type Face } from './browseApi';
 import { addErrorMessage } from './teamErrors';
 import { useTeamContext } from './useTeamContext';
@@ -18,7 +19,7 @@ import { PageNameCaption } from './p3TeamBits';
 
 /**
  * /account/o/team/add (C25b, D43, D56): a search field (existing RPC, 2-letter minimum, 8 results) over a
- * 3-column wall of faces. A face the server says can be added is ONE tap = ONE add call (Done "Priya S. is a
+ * 3-column wall of faces. A face the server says can be added opens a confirm sheet; Add there is ONE add call (Done "Priya S. is a
  * Manager"); any other reads "Invite": tap shares the invite link with their first name in the message
  * (no share sheet -> copy), and writes nothing. Faces are 44px+ targets and never blank circles.
  */
@@ -33,6 +34,8 @@ export default function AddSomeone() {
   const [query, setQuery] = useState(() => params.get('q') ?? '');
   const [limit, setLimit] = useState(BROWSE_PAGE);
   const [error, setError] = useState<string | null>(null);
+  // The person whose confirm sheet is open (null = closed). Nothing is written until Add inside it.
+  const [confirming, setConfirming] = useState<{ profileId: string; name: string } | null>(null);
   // The server said team_full (a race): Add stays disabled, the message stays on screen.
   const [serverFull, setServerFull] = useState(false);
   const [message, announce] = useAnnounce();
@@ -66,6 +69,7 @@ export default function AddSomeone() {
     },
     onError: (err) => {
       if (selfServeErrorCode(err) === 'team_full') setServerFull(true);
+      setConfirming(null);
       setError(addErrorMessage(err, 'wall'));
     },
   });
@@ -97,7 +101,12 @@ export default function AddSomeone() {
     if (!serverFull) setError(null);
     if (f.canAdd === false) void share(invite(f.name));
     // Done rides mutate()'s own callback: TanStack drops it once this screen unmounts (a late answer stays put).
-    else add.mutate({ profileId: f.profileId, name: f.name }, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager${ofPage}`, seriesId: null }, doneBack, paths.done) });
+    else setConfirming({ profileId: f.profileId, name: f.name });
+  };
+  const confirmAdd = () => {
+    if (!confirming || full || add.isPending) return;
+    // Done rides mutate()'s own callback: TanStack drops it once this screen unmounts (a late answer stays put).
+    add.mutate(confirming, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager${ofPage}`, seriesId: null }, doneBack, paths.done) });
   };
   const more = (browse.data?.length ?? 0) >= limit;
   // The lookup cap (permission_denied: lookup_cap) says what to do instead of "did not load" (W4a fix 3, F8).
@@ -181,6 +190,7 @@ export default function AddSomeone() {
                 )}
               </>
             )}
+            <AddConfirm person={confirming} pageName={organiser.name} pending={add.isPending} full={full} onAdd={confirmAdd} onCancel={() => setConfirming(null)} />
             <GhostButton testId="add-invite" onClick={() => void share(invite(null))}>
               <Share2 aria-hidden="true" className="h-[18px] w-[18px]" /> Share an invite link
             </GhostButton>
