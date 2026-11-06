@@ -1,5 +1,36 @@
 # Handover: organiser page P2 (Team) -- code complete, awaiting lead walk + review
 
+## Continuation 4 (ticket dt_b788ae89c0a4, brief `organiser-page-p2-team-4.md`)
+
+Done:
+1. Merged `origin/main` (96c4f5d, #1438 nights cards). Git auto-merged `OrganiserProfile.tsx`
+   with no conflict: main's header bio + NightsCard/PastHighlights and this branch's public
+   team read (`fetchOrganiserPublicTeam` + the flags read) are both kept.
+2. `phone-qa` red, cause found: the page now reads the Team from `organiser_public_team_v1`
+   (publicTeamApi.ts), and `tests/e2e-phone/fakeSupabase.mjs` did not list that RPC, so the
+   fake answered `[]` -> no Team -> `[data-nationality-flag]` never appeared (the 15 s waitFor).
+   Not a real-visitor bug: prod answers the RPC. Fix: the fake now answers
+   `organiser_public_team_v1` for ORG3 with the same six people (person_id = dancer id, slug,
+   public_name, avatar_url, sort_key 0..5), so the flags come from the existing
+   `dancer_profiles` fixture. The spec is UNCHANGED (assertion not touched).
+   Prod shape checked read-only: `TABLE(person_id uuid, slug text, public_name text,
+   avatar_url text, sort_key integer)`; on the 3 largest teams, 8/8 person_id are
+   `dancer_profiles.id`, 0 null slug, sort_key 1..3, 5/8 have a nationality.
+
+Local: `people-nationality-flag.phone.spec.ts` 32 passed / 32 skipped (per-viewport
+duplicates), including "/organisers/:id Team" taps-through and "clear of every sticker";
+`organiser-team-picker.phone.spec.ts` 12 passed. tsc 0 errors (whole project). vitest
+src/pages src/modules/profile src/modules/organiser/team: 56 files, 1404 tests passed.
+check:mojibake clean.
+
+/code-review (low) on the merged branch: 2 findings, both in main's #1438 code, not this
+branch's, left for a follow-up (out of this brief's scope): `buildEventRowProps` /
+`countdownLabel` in OrganiserProfile.tsx now look unused; and a past-year chip tapped a second
+time after the year was collapsed by hand does not reopen it (`openPastYears` only grows).
+
+Not verified: CI on the new head (reported in the PR after push); a browser walk on the
+real prod RPC (the phone suite runs on the fake).
+
 ## Continuation 3 (ticket dt_4491c895e2fd, brief `brief/organiser-page-p2-team-3`)
 
 Done:
