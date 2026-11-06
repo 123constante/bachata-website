@@ -7,6 +7,8 @@ const rpc = vi.fn();
 // A rejecting vi.fn is reported by vitest itself as a failure, so the offline case rejects outside it.
 let offline = false;
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => (offline ? Promise.reject(new Error('offline')) : rpc(...a)), auth: { getSession: vi.fn() } } }));
+const auth = vi.hoisted(() => ({ user: null as { id: string } | null }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: auth.user, authStatus: 'ready', retryAuth: () => {} }) }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
 import TicketThanksPage from '../TicketThanksPage';
@@ -24,7 +26,7 @@ describe('parseOrderStatus', () => {
   ])('%s reads as unknown', (_l, raw) => expect(parseOrderStatus(raw)).toEqual(UNKNOWN_READING));
   it('reads a full paid reply and drops junk fields', () => {
     expect(parseOrderStatus({ status: 'paid', ticket_count: 2, event_title: ' Salsa Night ', event_date: '2026-11-01', x: 1 })).toEqual({
-      status: 'paid', ticketCount: 2, eventTitle: 'Salsa Night', eventDate: '2026-11-01', retryLater: false,
+      status: 'paid', ticketCount: 2, eventTitle: 'Salsa Night', eventDate: '2026-11-01', eventId: null, retryLater: false,
     });
   });
   it('rejects a bad ticket_count and reads retry_later', () => {
@@ -163,5 +165,29 @@ describe('TicketThanksPage reads the order', () => {
     unmount();
     await flush(120_000);
     expect(rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TicketThanksPage: See your tickets link (paid + signed in only)', () => {
+  beforeEach(() => { vi.useFakeTimers(); rpc.mockClear(); window.sessionStorage.clear(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); auth.user = null; });
+  const states: Array<[string, string | null, unknown]> = [
+    ['paid', ORDER, { status: 'paid', ticket_count: 2 }],
+    ['pending', ORDER, { status: 'pending' }],
+    ['processing (gave up)', ORDER, { status: 'pending' }],
+    ['failed', ORDER, { status: 'failed' }],
+    ['unknown order', ORDER, { status: 'unknown' }],
+    ['no order', null, null],
+  ];
+  it.each(states.flatMap(([l, o, r]) => [[l, o, r, true], [l, o, r, false]] as const))('%s, signed in=%s', async (label, order, reply, signedIn) => {
+    auth.user = signedIn ? { id: 'u1' } : null;
+    rpc.mockResolvedValue({ data: reply, error: null });
+    mount(order ? `?o=${order}` : '');
+    await flush(label.startsWith('processing') ? 600_000 : 0);
+    const link = screen.queryByRole('link', { name: 'See your tickets' });
+    if (label === 'paid' && signedIn) {
+      expect(link?.getAttribute('href')).toBe('/account/my-tickets');
+      expect(link?.className).toContain('min-h-[44px]');
+    } else expect(link).toBeNull();
   });
 });

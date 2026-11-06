@@ -5,6 +5,7 @@ import {
 } from '@/modules/organiser/shared/selfServeApi';
 import { envelope, newIdempotencyKey, withSeriesName, type OwnerCommand } from '@/modules/organiser/shared/seriesCommands';
 import { commandErrorMessage, isVersionConflict } from '@/modules/organiser/shared/selfServeErrors';
+import { invalidatePublicEventCaches } from '@/modules/organiser/shared/publicCache';
 
 /**
  * One step of New event sends its command(s) here, one after another, each
@@ -51,6 +52,7 @@ export function useNewSend(seriesId: string) {
     } finally {
       void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      invalidatePublicEventCaches(queryClient);
       setBusy(false);
     }
   };

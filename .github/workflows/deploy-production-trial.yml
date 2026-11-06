@@ -1,0 +1,141 @@
+name: Deploy Production Trial
+
+# STEP 1 TRIAL of moving production deploys from Vercel's Git integration to
+# GitHub Actions. Owner runbook + 5-merge comparison checklist:
+# docs/ops/vercel-actions-deploy-trial.md.
+#
+# WHAT IT DOES. On every push to main whose diff touches a build path, it builds
+# main the way production does (production env pulled from Vercel) and uploads
+# it as a PREVIEW deployment -- never `--prod`, never an alias. Production keeps
+# coming from Vercel's own Git build, which this file does not touch; the owner
+# compares the two for several merges before any Step 2.
+#
+# ONE RULE. "Docs-only" is decided by scripts/deploy-trial-decide.mjs, which
+# reads BUILD_PATHS out of scripts/vercel-ignore-build.sh (via
+# scripts/lib/buildRule.mjs). There is no second path list here.
+#
+# SECRETS. VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID. Until the owner adds
+# all three, the deploy job prints a ::notice:: and SKIPS its steps (green): the
+# trial is opt-in, and a red board on every merge before then would teach
+# everyone to ignore it.
+#
+# BUDGET. Each deploying run is one more Vercel deployment against the shared
+# Hobby limit (~100 per rolling 24 h), on main merges only.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production-trial
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.rule.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The push's `before` sha must be in the clone; a shallow clone would
+          # fail-safe to deploy=true on every push and measure nothing.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Decide docs-only vs build (shared BUILD_PATHS rule)
+        id: rule
+        env:
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          node scripts/deploy-trial-decide.mjs --ref "$REF" --base "$BEFORE" --head "$AFTER"
+          {
+            echo "### Deploy trial decision"
+            echo ""
+            echo "- Commit: \`$AFTER\` (before \`$BEFORE\`)"
+            grep -E '^(deploy|reason)=' "$GITHUB_OUTPUT" | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-preview:
+    needs: decide
+    if: needs.decide.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check the three Vercel secrets are set
+        id: secrets
+        run: |
+          missing=""
+          [ -n "$VERCEL_TOKEN" ] || missing="$missing VERCEL_TOKEN"
+          [ -n "$VERCEL_ORG_ID" ] || missing="$missing VERCEL_ORG_ID"
+          [ -n "$VERCEL_PROJECT_ID" ] || missing="$missing VERCEL_PROJECT_ID"
+          if [ -n "$missing" ]; then
+            echo "::notice title=Deploy trial skipped::Repo secret(s) not set:${missing}. See docs/ops/vercel-actions-deploy-trial.md."
+            echo "SKIPPED: repo secret(s) not set:${missing} (docs/ops/vercel-actions-deploy-trial.md)" >> "$GITHUB_STEP_SUMMARY"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.secrets.outputs.ok == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.secrets.outputs.ok == 'true'
+        with:
+          node-version: 22
+
+      - name: Install Vercel CLI (pinned)
+        if: steps.secrets.outputs.ok == 'true'
+        run: npm install --global vercel@64.7.0
+
+      - name: Pull production project settings and env
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          # `vercel build` without --prod targets preview and reads
+          # .vercel/.env.preview.local; give it the PRODUCTION values so the
+          # trial build matches what Vercel's Git production build sees.
+          cp .vercel/.env.production.local .vercel/.env.preview.local
+
+      - name: Build (vercel build, preview target)
+        id: build
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          start=$(date +%s)
+          vercel build --yes --token="$VERCEL_TOKEN"
+          echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy prebuilt output as a PREVIEW (no --prod, no alias)
+        id: deploy
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          url=$(vercel deploy --prebuilt --yes --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        if: steps.secrets.outputs.ok == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          SECONDS_TAKEN: ${{ steps.build.outputs.seconds }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "### Deploy trial (preview, not production)"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Commit | \`$SHA\` |"
+            echo "| Preview URL | $URL |"
+            echo "| vercel build duration | ${SECONDS_TAKEN}s |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -42,6 +42,7 @@ export function EventRow({ row }: { row: P3Row }) {
         <div className="p3-grow">
           <div className="p3-row-t">{row.name}</div>
           <div className="p3-row-s">{row.sub}</div>
+          {row.alsoRunBy.length > 0 && <div className="p3-row-s" data-testid="p3-also-run-by">Also run by {row.alsoRunBy.join(', ')}</div>}
           <div className="p3-row-tags">
             <KindChip row={row} />
             <StatusTag row={row} />
@@ -75,9 +76,9 @@ export function P3Link({ to, children, testId }: { to: string; children: ReactNo
   return <Link className="p3-link" to={to} data-testid={testId}>{children}</Link>;
 }
 
-/** New event, in P3's frame (R1's create steps under /account/p3/new). */
+/** New event: P3's own flow (p3/new), kind first. */
 export function AddEventLink({ children = 'Add an event' }: { children?: ReactNode }) {
-  return <P3Link to={P3_PATHS.newWhat} testId="p3-add-event">{children}</P3Link>;
+  return <P3Link to={P3_PATHS.create} testId="p3-add-event">{children}</P3Link>;
 }
 
 export function RetryButton({ onClick }: { onClick: () => void }) {

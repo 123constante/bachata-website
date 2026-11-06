@@ -1,7 +1,11 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
+import { fileBytesPlugin } from "./vite.fileBytes";
 
 export default defineConfig({
+  // Same `?bytes` loader the build uses (vite.fileBytes.ts), so OG font tests
+  // decode exactly what the server bundle ships.
+  plugins: [fileBytesPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

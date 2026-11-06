@@ -172,9 +172,6 @@
     "R1:empty-sample": 2,
     "R4:no-canary": 1
   },
-  "scripts/check-teacher-dj-assignment-integrity.mjs": {
-    "R4:no-canary": 1
-  },
   "scripts/check-time-pairing.mjs": {
     "R4:no-canary": 1
   },

@@ -36,6 +36,25 @@ export const publicUrlOk = (value: string) => {
   return v === '' || (v.length <= MAX_URL && PUBLIC_URL.test(v));
 };
 
+/**
+ * True when the public page can build a link from this value: the same test as
+ * safeExternalHref in src/lib/url.ts (the ticket button's reader), copied here on
+ * purpose. Importing that module made rollup hoist it into a new shared chunk and
+ * put one more first-load request on /event/:id (bundle-budget chunk ratchet).
+ * linkRules.renders.matrix.test.ts pins the two together over a whole table.
+ * The server rule is looser: it accepts https://example.com:99999.
+ */
+export const linkRenders = (value: string) => {
+  const v = value.trim();
+  if (!v) return false;
+  try {
+    const { protocol } = new URL(v.startsWith('http') ? v : `https://${v}`);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 export const LINK_PROBLEM: Record<LinkKind, string> = {
   ticket: 'Enter the ticket link as a full address starting with https://',
   video: 'Enter the video as a full address starting with https://',
@@ -53,7 +72,7 @@ export function linkProblem(kind: LinkKind, value: string): string | null {
   switch (kind) {
     case 'ticket':
     case 'video':
-      ok = publicUrlOk(v);
+      ok = publicUrlOk(v) && linkRenders(v);
       break;
     case 'instagram': {
       const sent = withNormalizedProtocol(v, 'instagram.com');

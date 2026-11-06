@@ -161,10 +161,10 @@ describe('money', () => {
   it('totals add every type', () => {
     const row = { id: 'a', seriesId: 's', name: 'n', status: 'on_sale' as const, pricePence: 1000, capacity: 10, reserved: 2 };
     const t = totalsOf([
-      { ...row, ticketsSold: 2, ordersPaid: 1, ordersPending: 1, ordersRefunded: 0, ordersDisputed: 0, grossPence: 2000, bookingFeesPence: 100, refundedPence: 0 },
-      { ...row, ticketsSold: 3, ordersPaid: 2, ordersPending: 0, ordersRefunded: 1, ordersDisputed: 1, grossPence: 3000, bookingFeesPence: 150, refundedPence: 1050 },
+      { ...row, ticketsSold: 2, ordersPaid: 1, ordersPending: 1, ordersRefunded: 0, ordersDisputed: 0, grossPence: 2000, discountsPence: 0, bookingFeesPence: 100, refundedPence: 0 },
+      { ...row, ticketsSold: 3, ordersPaid: 2, ordersPending: 0, ordersRefunded: 1, ordersDisputed: 1, grossPence: 3000, discountsPence: 200, bookingFeesPence: 150, refundedPence: 1050 },
     ]);
-    expect(t).toEqual({ ticketsSold: 5, ordersPaid: 3, ordersPending: 1, ordersRefunded: 1, ordersDisputed: 1, grossPence: 5000, bookingFeesPence: 250, refundedPence: 1050 });
+    expect(t).toEqual({ ticketsSold: 5, ordersPaid: 3, ordersPending: 1, ordersRefunded: 1, ordersDisputed: 1, grossPence: 5000, discountsPence: 200, bookingFeesPence: 250, refundedPence: 1050 });
   });
 });
 

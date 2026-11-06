@@ -125,6 +125,8 @@ export interface TypeSales {
   ordersRefunded: number;
   ordersDisputed: number;
   grossPence: number;
+  /** Sum of promo-code discounts on paid orders; grossPence is already net of it. */
+  discountsPence: number;
   bookingFeesPence: number;
   refundedPence: number;
 }
@@ -181,6 +183,7 @@ export interface SalesTotals {
   ordersRefunded: number;
   ordersDisputed: number;
   grossPence: number;
+  discountsPence: number;
   bookingFeesPence: number;
   refundedPence: number;
 }
@@ -193,10 +196,11 @@ export const totalsOf = (rows: readonly TypeSales[]): SalesTotals =>
       ordersRefunded: t.ordersRefunded + r.ordersRefunded,
       ordersDisputed: t.ordersDisputed + r.ordersDisputed,
       grossPence: t.grossPence + r.grossPence,
+      discountsPence: t.discountsPence + r.discountsPence,
       bookingFeesPence: t.bookingFeesPence + r.bookingFeesPence,
       refundedPence: t.refundedPence + r.refundedPence,
     }),
-    { ticketsSold: 0, ordersPaid: 0, ordersPending: 0, ordersRefunded: 0, ordersDisputed: 0, grossPence: 0, bookingFeesPence: 0, refundedPence: 0 },
+    { ticketsSold: 0, ordersPaid: 0, ordersPending: 0, ordersRefunded: 0, ordersDisputed: 0, grossPence: 0, discountsPence: 0, bookingFeesPence: 0, refundedPence: 0 },
   );
 
 

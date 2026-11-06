@@ -48,8 +48,9 @@ import {
   CHANGED_SESSION_REMOVE_CONFIRM, FESTIVAL_REASON, type PTree,
 } from '../programmeSeriesModel';
 import { MUSIC_VOCAB, isOn, musicChips, musicCommand, toggleStyle } from '../musicModel';
-import { ADD_NONE_LEFT, ADD_ONLY_YOURS, LAST_ORGANISER_REASON, MANAGER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
+import { ADD_NONE_LEFT, ADD_ONLY_YOURS, LAST_ORGANISER_REASON, NOT_ORGANISER_REASON, organisersCommand, organisersOff, removeOff, removeOrganiser } from '../organisersModel';
 import { parseEventWorkspace } from '../eventModel';
+import { eventLock } from '@/modules/organiser/shared/eventState';
 
 const GATE_REASON = 'Needs the next platform update';
 // The architecture lint bans the whole word outside selfServeApi.ts, so the key is spelled in two parts.
@@ -197,11 +198,11 @@ describe('who can change what, and why not (one mapping per fact)', () => {
     expect(programmeOff(input)).toEqual(reason);
   });
 
-  it('organisers: owner only, never the last one, closed events refuse', () => {
-    expect(organisersOff({ lifecycle: 'live', isOwner: true, gate: false })).toBe(GATE_REASON);
-    expect(organisersOff({ lifecycle: 'live', isOwner: true, gate: true })).toBeNull();
-    expect(organisersOff({ lifecycle: 'live', isOwner: false, gate: true })).toBe(MANAGER_REASON);
-    expect(organisersOff({ lifecycle: 'ended', isOwner: true, gate: true })).toContain('has ended');
+  it('organisers: owner or manager, never the last one, closed events refuse', () => {
+    expect(organisersOff({ lifecycle: 'live', canEdit: true, gate: false })).toBe(GATE_REASON);
+    expect(organisersOff({ lifecycle: 'live', canEdit: true, gate: true })).toBeNull();
+    expect(organisersOff({ lifecycle: 'live', canEdit: false, gate: true })).toBe(NOT_ORGANISER_REASON);
+    expect(organisersOff({ lifecycle: 'ended', canEdit: true, gate: true })).toContain('has ended');
     expect(removeOff(['a'])).toBe(LAST_ORGANISER_REASON);
     expect(removeOff(['a', 'b'])).toBeNull();
     expect(removeOrganiser(['a'], 'a')).toEqual(['a']);
@@ -576,6 +577,19 @@ describe('Programme screen across the shapes', () => {
   });
 });
 
+describe('organisersOff: lifecycle x seat x gate', () => {
+  const seats = [['owner', true], ['manager', true], ['none', false]] as const;
+  it.each(['live', 'paused', 'ended'].flatMap((lc) => seats.flatMap(([seat, canEdit]) => [true, false].map((gate) => [lc, seat, canEdit, gate] as const))))(
+    '%s / %s / gate %s', (lifecycle, _seat, canEdit, gate) => {
+      const lock = eventLock(lifecycle);
+      const want = lock ?? (!canEdit ? NOT_ORGANISER_REASON : gate ? null : GATE_REASON);
+      expect(organisersOff({ lifecycle, canEdit, gate })).toBe(want);
+    });
+  it('the refusal for no seat is the new plain words', () => {
+    expect(NOT_ORGANISER_REASON).toBe('Only the people who run this event can change who runs it.');
+  });
+});
+
 describe('Organisers screen', () => {
   it('gate OFF: the list shows, Link and Remove are off with the reason, nothing is sent', async () => {
     over.organisers = ['org1', 'org2'];
@@ -589,19 +603,36 @@ describe('Organisers screen', () => {
     expect(commandsOf(rpc)).toEqual([]);
   });
 
-  it('a manager reads the list with the owner-only reason', async () => {
+  it('a manager of a one-organiser event can edit: no reason, Remove held only by the last-organiser rule, Link on', async () => {
     gate.on = true;
     over.role = 'manager';
     mount(ORG_PATHS.eventOrganisers(A), routes);
-    expect((await screen.findByTestId('org-off-reason')).textContent).toBe(MANAGER_REASON);
-    expect((screen.getByTestId('org-add') as HTMLButtonElement).disabled).toBe(true);
+    await screen.findByTestId('org-linked-row');
+    expect(screen.queryByTestId('org-off-reason')).toBeNull();
+    expect((screen.getByTestId('org-remove') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('org-last-reason').textContent).toBe(LAST_ORGANISER_REASON);
+    expect((screen.getByTestId('org-add') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('a manager links a live page and saves: ONE series.set_organisers with the complete ordered list', async () => {
+    gate.on = true;
+    over.role = 'manager';
+    over.extraHome = [{ id: 'org3', name: 'Zouk Club', lifecycle_status: 'live', role: 'manager' }];
+    mount(ORG_PATHS.eventOrganisers(A), routes);
+    await screen.findByTestId('org-linked-row');
+    fireEvent.click(screen.getByTestId('org-add'));
+    press((await screen.findAllByTestId('org-add-result', {}, { timeout: 3000 }))[0]);
+    await waitFor(() => expect(screen.getAllByTestId('org-linked-row')).toHaveLength(2));
+    await click('org-save');
+    expect(commandsOf(rpc)).toHaveLength(1);
+    expect(lastCommand()).toEqual({ kind: 'series.set_organisers', payload: { [ORG_LIST_KEY]: ['org1', 'org3'] } });
   });
 
   // p3-shell-exits: the same screen inside P3 (prod 2026-10-30: 18 owner / 45 manager rows, 36 of 51 pages
   // have no owner, 6 events have two organisers). The role rule is unchanged; Back stays in P3.
   it.each([
     ['owner', null],
-    ['manager', MANAGER_REASON],
+    ['manager', null],
   ] as const)('P3: %s of a two-organiser event', async (role, reason) => {
     gate.on = true;
     over.role = role;

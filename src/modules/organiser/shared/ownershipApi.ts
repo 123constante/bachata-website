@@ -47,6 +47,21 @@ export async function fetchPublicContact(organiserId: string): Promise<PublicCon
   return { contact_email: str(row.contact_email), contact_phone: str(row.contact_phone) };
 }
 
+/**
+ * The same read for the public page's Get in touch rows. An RPC ERROR throws
+ * (React Query retries, then the page says "Couldn't load WhatsApp and email.
+ * Try again", E9); only a real empty answer (organiser not live, nothing
+ * public) is "no contact". fetchPublicContact above keeps its degrade-to-empty
+ * contract for its other callers.
+ */
+export async function fetchPublicContactOrThrow(organiserId: string): Promise<PublicContact> {
+  const { data, error } = await callRpc('get_organiser_public_contact_v1', { p_organiser_id: organiserId });
+  if (error) throw new Error(error.message || 'get_organiser_public_contact_v1 failed');
+  if (!data || typeof data !== 'object') return NO_PUBLIC_CONTACT;
+  const row = data as Record<string, unknown>;
+  return { contact_email: str(row.contact_email), contact_phone: str(row.contact_phone) };
+}
+
 export interface ContactSettings extends PublicContact {
   /** Visitors see contact_phone (admin #771 split; new organisers default true). */
   show_phone_publicly: boolean;

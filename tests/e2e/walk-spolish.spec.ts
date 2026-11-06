@@ -75,6 +75,7 @@ test('(c1) team_full from the server: faces disabled, message visible, invite ro
   fake.refuse('organiser_team_add_member_by_profile_v1', 'team_full', 5);
   await expect(page.getByTestId('org-page-team-add')).toBeVisible();
   await page.getByTestId('add-face').first().click();
+  await page.getByTestId('add-confirm-yes').click();
   await expect(page.getByTestId('add-error')).toContainText('This team already has 20 people');
   for (const b of await page.getByTestId('add-face').all()) await expect(b).toBeDisabled();
   await expect(page.getByTestId('add-invite')).toBeEnabled();

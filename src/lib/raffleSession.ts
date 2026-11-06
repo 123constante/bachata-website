@@ -41,6 +41,18 @@ export function getRaffleSessionId(): string {
 export const raffleEnteredKey = (eventId: string | null | undefined): string | null =>
   eventId ? `bcal_raffle_entered_${eventId}` : null;
 
+/** sessionStorage key recording that THIS browser joined the ONE general raffle
+ *  pool (never expires). Shared by the tile and /raffles -- do NOT inline. */
+export const rafflePoolJoinedKey = 'bcal_raffle_pool_joined';
+
+export function isRafflePoolJoined(): boolean {
+  try { return typeof window !== 'undefined' && window.sessionStorage.getItem(rafflePoolJoinedKey) === '1'; } catch { return false; }
+}
+
+export function markRafflePoolJoined(): void {
+  try { if (typeof window !== 'undefined') window.sessionStorage.setItem(rafflePoolJoinedKey, '1'); } catch { /* no-op */ }
+}
+
 /** Best-effort haptic feedback. No-ops where unsupported and never throws
  *  (some browsers throw on vibrate() inside cross-origin iframes). */
 export const tryVibrate = (pattern: number | number[]): void => {

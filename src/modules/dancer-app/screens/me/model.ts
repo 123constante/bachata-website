@@ -7,10 +7,10 @@
  * Strength is NEVER computed here: it is `profile.strength` from the server.
  */
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
-import { diffDelta } from '../../api/delta';
+import { diffDelta, sameValue } from '../../api/delta';
 // Client-side refusals read the SAME copy the DB's refusal maps to (one mapping, api/errors.ts).
 import { copyFor } from '../../api/errors';
-import { checkInstagramField } from '@/lib/instagramHandle';
+import { checkInstagramField, instagramProfileLinkHandle, stripInstagram } from '@/lib/instagramHandle';
 import { normalizePhoneE164 } from '@/lib/phoneRules';
 import type { DancerDelta, DanceRole, MyDancerEdit, SaveKey } from '../../api/types';
 import { EDIT_PATH, nextStepFor, nextStepLine, roleLabel, type EditFocus, type NextStepProfile } from '../../api/nextStep';
@@ -196,8 +196,62 @@ const ruleFindings = (d: EditDraft, p: Pick<MyDancerEdit, 'other_roles' | 'first
  * calm hint (storedValueHints) and never blocks a save of the other fields.
  */
 export const validateDraft = (d: EditDraft, p: MyDancerEdit): FieldMessages => {
+  // Move FIRST (instagram-refusal r2, N1): the rules see the draft as it will be saved.
   const changed = buildDelta(p, d);
-  return Object.fromEntries(Object.entries(ruleFindings(d, p)).filter(([k]) => k in changed)) as FieldMessages;
+  const out = Object.fromEntries(Object.entries(ruleFindings(withInstagramMoved(p, d), p)).filter(([k]) => k in changed)) as FieldMessages;
+  if (websiteInstagramMove(p, d).kind === 'conflict') out.website_url = INSTAGRAM_IN_WEBSITE;
+  return out;
+};
+
+/* ---------- an Instagram link typed into Website (owner decision 2, instagram-refusal r2) ---------- */
+
+/** Owner wording: an Instagram profile link in Website while the Instagram box holds a DIFFERENT name. */
+export const INSTAGRAM_IN_WEBSITE =
+  'This looks like an Instagram link. Your Instagram is already set, so remove it here or replace your Instagram.';
+/** What the Website box says before Save when the link will move, or just be cleared. */
+export const INSTAGRAM_MOVE_NOTE = 'This is an Instagram link, so saving puts it in your Instagram instead.';
+// Says nothing about Save: when Website was already empty there is nothing to save, and Save says so itself.
+export const INSTAGRAM_SAME_NOTE = 'Your Instagram is already this name, so it is not kept here.';
+
+export type WebsiteInstagramMove = { kind: 'none' } | { kind: 'move'; handle: string } | { kind: 'clear' } | { kind: 'conflict' };
+
+/** The name the Instagram box holds, normalised; a legacy value the field refuses is still cut down to compare. */
+const instagramBoxHandle = (typed: string): string | null => {
+  const ig = checkInstagramField(typed);
+  return 'handle' in ig ? ig.handle : stripInstagram(typed);
+};
+
+/**
+ * Does the Website box hold an instagram.com profile link the person typed? Only when
+ * Website itself changed (N6: a stored link left untouched changes nothing), and only
+ * a profile link by lib/instagramHandle's own rule (N1). Handles compare NORMALISED.
+ */
+export const websiteInstagramMove = (
+  current: Pick<MyDancerEdit, 'website_url'>,
+  d: Pick<EditDraft, 'website_url' | 'instagram'>,
+): WebsiteInstagramMove => {
+  if (sameValue(current.website_url, d.website_url)) return { kind: 'none' };
+  const handle = instagramProfileLinkHandle(d.website_url);
+  if (handle === null) return { kind: 'none' };
+  const box = instagramBoxHandle(d.instagram);
+  if (box === null) return { kind: 'move', handle };
+  return box === handle ? { kind: 'clear' } : { kind: 'conflict' };
+};
+
+/** The draft as it is saved: a moved link goes to Instagram and Website clears; a same-name link just clears. */
+export const withInstagramMoved = (current: MyDancerEdit, d: EditDraft): EditDraft => {
+  const m = websiteInstagramMove(current, d);
+  if (m.kind === 'move') return { ...d, instagram: m.handle, website_url: '' };
+  if (m.kind === 'clear') return { ...d, website_url: '' };
+  return d;
+};
+
+/** The calm line under Website while a move (or a clear) is waiting for Save. Not an error. */
+export const instagramMoveNotes = (d: EditDraft, p: MyDancerEdit): FieldMessages => {
+  const m = websiteInstagramMove(p, d);
+  if (m.kind === 'move') return { website_url: INSTAGRAM_MOVE_NOTE };
+  if (m.kind === 'clear') return { website_url: INSTAGRAM_SAME_NOTE };
+  return {};
 };
 
 /** What to change in an untouched stored value the rules would refuse. Not an error: no alert, no aria-invalid. */
@@ -213,7 +267,7 @@ export const STORED_VALUE_HINT: FieldMessages = {
 export const storedValueHints = (d: EditDraft, p: MyDancerEdit): FieldMessages => {
   const changed = buildDelta(p, d);
   const out: FieldMessages = {};
-  for (const k of Object.keys(ruleFindings(d, p)) as FormFieldId[]) {
+  for (const k of Object.keys(ruleFindings(withInstagramMoved(p, d), p)) as FormFieldId[]) {
     if (!(k in changed)) out[k] = STORED_VALUE_HINT[k] ?? 'This saved value needs a change before it can be saved again.';
   }
   return out;
@@ -245,7 +299,10 @@ const phoneValue = (stored: string | null, typed: string): string | null => {
  * are never here: the switch and the photo screen write through their own paths.
  * A pure dancer (no other_roles) can NEVER produce a whatsapp key.
  */
-export const buildDelta = (current: MyDancerEdit, d: EditDraft): DancerDelta => {
+export const buildDelta = (current: MyDancerEdit, typed: EditDraft): DancerDelta => {
+  // An Instagram profile link typed into Website goes to Instagram in the SAME save, and Website
+  // is sent as null (v2 clears the column); diffDelta keeps that null as a change.
+  const d = withInstagramMoved(current, typed);
   const candidate: DancerDelta = {
     display_name: text(d.display_name),
     first_name: text(d.first_name),

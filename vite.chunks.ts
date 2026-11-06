@@ -363,6 +363,10 @@ export const LIB_EVENT_RULES_MODULES = [
   // first-load chunks on every budgeted route and fewer bytes (measured). Cost: any edit to
   // a pinned module re-hashes react-router's shared code for returning visitors.
   "/src/lib/contactLinks.tsx",
+  // How-to-pay mapping (2026-11-06): a pure leaf shared by the organiser Prices screen and
+  // the public event page. Alone it was its own chunk: +1 first-load request on /event
+  // (chunk ratchet 40 vs 39). Pinned here it rides a chunk /event already loads.
+  "/src/lib/paymentMethods.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar
