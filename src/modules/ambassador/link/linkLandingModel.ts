@@ -7,6 +7,9 @@
 //   record_ambassador_link_join_v1(p_code) authed -> {status:'joined'|'already_joined', city_slug, city_name}
 //     refusals are RAISEd: authentication_required (no user or an anonymous
 //     session), link_not_found, own_link. It never sets the joiner's city.
+//   Any OTHER server answer (another RAISE, an unexpected shape) is 'refused': a calm
+//   way out, never "check your connection". Only a request that never reached the
+//   server (no PostgREST error code) is 'failed', which may be retried.
 
 export const LINK_CODE_MAX = 64;
 
@@ -16,8 +19,8 @@ export type LinkLookup =
 
 export type JoinResult = { status: 'joined' | 'already_joined'; cityName: string; citySlug: string };
 
-/** A raised refusal from record_ambassador_link_join_v1, or 'failed' for anything else. */
-export type JoinRefusal = 'authentication_required' | 'link_not_found' | 'own_link' | 'failed';
+/** A raised refusal from record_ambassador_link_join_v1; 'refused' = any other server no; 'failed' = network only. */
+export type JoinRefusal = 'authentication_required' | 'link_not_found' | 'own_link' | 'refused' | 'failed';
 
 export type Viewer = 'resolving' | 'signed-out' | 'anonymous' | 'signed-in';
 export type LookupState = 'loading' | 'error' | LinkLookup;
@@ -28,7 +31,7 @@ export type LandingAction =
   | { kind: 'join'; label: string; primary: true; disabled: boolean; reason: string | null }
   | { kind: 'retry'; label: string; primary: boolean };
 
-export type LandingKind = 'loading' | 'error' | 'not_found' | 'signed-out' | 'invite' | 'joined' | 'already_joined';
+export type LandingKind = 'loading' | 'error' | 'not_found' | 'signed-out' | 'invite' | 'refused' | 'joined' | 'already_joined';
 
 export interface LandingView {
   kind: LandingKind;
@@ -42,6 +45,8 @@ export interface LandingView {
 }
 
 export const NEXT_STEP_HREF = '/app';
+/** "Back to the calendar": the root redirects to the visitor's city calendar. */
+export const CALENDAR_HREF = '/';
 
 export const COPY = {
   loading: 'Opening your invite…',
@@ -66,6 +71,9 @@ export const COPY = {
   ownLink: 'This is your own invite link. Share it with the people you want to bring in.',
   linkGone: 'This link was switched off a moment ago. Ask whoever sent it for a new one.',
   joinFailed: 'That did not go through. Check your connection, then tap Join again.',
+  refusedHeading: (city: string) => `We could not add you to ${city}`,
+  refusedBody: 'Something on our side stopped this join. Message us and we will sort it out, or carry on with the calendar.',
+  backToCalendar: 'Back to the calendar',
 } as const;
 
 export const CONTACT_MESSAGE = 'Hi! The Bachata Calendar invite link I was sent does not work: ';
@@ -76,10 +84,11 @@ export function inviteHeading(firstName: string | null, cityName: string): strin
   return name ? `${name} invited you to ${cityName}` : `You are invited to ${cityName}`;
 }
 
-/** Parse the public lookup; anything unexpected is treated as an error, not a guess. */
+/** Parse the public lookup. Any status other than 'ok' (not_found, or one the server adds later such
+ *  as 'locked') is the plain not-found state: a retry could never help. A broken 'ok' is an error. */
 export function parseLookup(raw: unknown): LinkLookup {
   const r = (raw ?? {}) as Record<string, unknown>;
-  if (r.status === 'not_found') return { status: 'not_found' };
+  if (typeof r.status === 'string' && r.status !== 'ok') return { status: 'not_found' };
   if (r.status === 'ok' && typeof r.city_name === 'string' && typeof r.city_slug === 'string') {
     return { status: 'ok', firstName: typeof r.first_name === 'string' && r.first_name.trim() ? r.first_name : null, cityName: r.city_name, citySlug: r.city_slug };
   }
@@ -94,10 +103,13 @@ export function parseJoin(raw: unknown): JoinResult {
   throw new Error('ambassador_join_unexpected_shape');
 }
 
-/** Map a thrown join error to a refusal; the server raises bare codes as the message. */
+/** Map a thrown join error to a refusal; the server raises bare codes as the message. A PostgREST
+ *  error carries a code (P0001 for a RAISE); a fetch that never reached the server carries none. */
 export function joinRefusal(err: unknown): JoinRefusal {
-  const msg = String((err as { message?: unknown } | null)?.message ?? '');
+  const e = (err ?? {}) as { message?: unknown; code?: unknown };
+  const msg = String(e.message ?? '');
   for (const code of ['authentication_required', 'link_not_found', 'own_link'] as const) if (msg.includes(code)) return code;
+  if ((typeof e.code === 'string' && e.code.trim() !== '') || msg.includes('ambassador_join_unexpected_shape')) return 'refused';
   return 'failed';
 }
 
@@ -151,6 +163,17 @@ export function landingView(args: { viewer: Viewer; lookup: LookupState; join: J
         { kind: 'link', label: COPY.signUp, href: signInHref(returnTo, 'signup'), primary: true },
         { kind: 'link', label: COPY.signIn, href: signInHref(returnTo, 'signin'), primary: false },
       ],
+    };
+  }
+
+  if (join.kind === 'refused' && join.refusal === 'refused') {
+    return {
+      ...base,
+      kind: 'refused',
+      heading: COPY.refusedHeading(city),
+      body: COPY.refusedBody,
+      city,
+      actions: [{ ...contact, primary: true }, { kind: 'link', label: COPY.backToCalendar, href: CALENDAR_HREF, primary: false }],
     };
   }
 

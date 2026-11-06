@@ -25,3 +25,12 @@ Branch `claude/bristol-ambassador-landing`. Design record: `docs/design/bristol-
 ## Next steps
 1. Owner answers the `/app` vs `/account` question; adjust `NEXT_STEP_HREF` in `linkLandingModel.ts` if needed.
 2. Once Jan is an ambassador, walk the real link signed out -> sign up -> back -> Join on a phone.
+
+## Fix round 1 (review `claude/review-1455-ambassador-landing`, ticket dt_1b7965dd3356)
+- M1: `JoinRefusal` gains `refused`. `joinRefusal` maps the three known RAISEs as before; any other error that carries a PostgREST `code` (P0001 RAISE, PGRST*) or an unexpected success shape -> `refused`: "We could not add you to <city>" + calm sentence + Contact us / Back to the calendar, no Join button. `failed` ("Check your connection") only when there is no error code (fetch never reached the server). Matrix: 3 refused rows + a 10-row `joinRefusal` table. Screenshot `13-join-refused.png`.
+- L1: `parseLookup` treats any non-`ok` string status as not found (matrix gained a `locked` column, 3 rows). Broken `ok` still throws -> error state.
+- M2: no RPC change; design record decision 5 says own-link is found after one round trip, by design, and why.
+- L5: test "chip falls back to the RPC city name when the cities read fails" (with a control proving the cities name is used when the read works).
+- The new M1/L1 tests were run against the unfixed model first: 8 failed; all pass on the fix.
+- Not changed: types.ts, routes, RPCs. L2/L3/L4 need no code (owner notes in the review).
+- Owner question still open: what other codes can the admin RPC RAISE (e.g. a profile requirement)? Each is now safe (`refused`), but a known one could get its own sentence.
