@@ -172,9 +172,9 @@ describe('public organiser page: a failed feed is an error state, never an empty
     const dashes = Array.from(document.querySelectorAll('[data-stat][data-stat-failed]')).map((e) => e.getAttribute('data-stat'));
     expect(dashes, 'a failed feed is a dash').toEqual([c.upcoming === 'error' && 'next_night', c.past === 'error' && 'nights_hosted'].filter(Boolean));
     const real = statKeys().filter((k) => !dashes.includes(k));
-    if (c.upcoming === 'error') expect(real, 'no Last night while upcoming is unknown').not.toContain('last_night');
+    expect(statKeys(), 'Last night no longer exists').not.toContain('last_night');
     if (c.upcoming === 'data') expect(statKeys()[0]).toBe('next_night');
-    else if (c.upcoming === 'empty' && c.past === 'data') expect(statKeys()[0]).toBe('last_night');
+    else if (c.upcoming === 'empty' && c.past === 'data') expect(statKeys(), 'nothing upcoming: no Next night, no Last night').not.toContain('next_night');
     else if (!anyFeedError) expect(statKeys()).toEqual([]);
 
     const empty = screen.queryByTestId('org-public-empty');

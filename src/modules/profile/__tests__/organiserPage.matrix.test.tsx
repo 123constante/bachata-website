@@ -209,7 +209,7 @@ function noCopyWithoutControl() {
     expect(f.getAttribute('aria-label') ?? '').toMatch(/couldn\u2019t load/i);
   }
 }
-const ORDER = ['Get in touch', 'Team', 'About', 'Next nights', 'Recently hosted', 'Past nights'];
+const ORDER = ['Get in touch', 'Team', 'Next nights', 'Recently hosted', 'Past nights'];
 
 function visitorOrOwnerInvariants(owner: boolean) {
   if (!owner) return visitorInvariants();
@@ -247,20 +247,20 @@ function visitorInvariants() {
 
 interface Row { name: string; shape: Shape; stats: string[]; dashes?: string[]; upcomingHeading: boolean; pastHeading: 'Past nights' | 'Recently hosted' | null; noDates: boolean; team: string[]; errors: string[] }
 const ROWS: Row[] = [
-  { name: 'large ticketed, 120 weekly upcoming + 30 past', shape: shape({ upcoming: 120, past: 30, team: 3, bio: true, website: true, email: true }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben', 'Cleo'], errors: [] },
-  { name: 'weekly class, 4 upcoming + 10 past', shape: shape({ upcoming: 4, past: 10, team: 2 }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben'], errors: [] },
+  { name: 'large ticketed, 120 weekly upcoming + 30 past', shape: shape({ upcoming: 120, past: 30, team: 3, bio: true, website: true, email: true }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben', 'Cleo'], errors: [] },
+  { name: 'weekly class, 4 upcoming + 10 past', shape: shape({ upcoming: 4, past: 10, team: 2 }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben'], errors: [] },
   { name: 'brand new, 1 upcoming, nothing else', shape: shape({ upcoming: 1, past: 0 }), stats: ['next_night'], upcomingHeading: true, pastHeading: null, noDates: false, team: ['Ana'], errors: [] },
-  { name: 'past-only, 6 past', shape: shape({ upcoming: 0, past: 6 }), stats: ['last_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
-  { name: 'past-only, 2 past (under the hosted threshold)', shape: shape({ upcoming: 0, past: 2, foundedYear: 2019 }), stats: ['last_night', 'running_since'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
+  { name: 'past-only, 6 past', shape: shape({ upcoming: 0, past: 6 }), stats: ['nights_hosted'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
+  { name: 'past-only, 2 past (under the hosted threshold)', shape: shape({ upcoming: 0, past: 2, foundedYear: 2019 }), stats: ['running_since'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
   { name: 'no nights, no founded year: no strip at all', shape: shape({ upcoming: 0, past: 0 }), stats: [], upcomingHeading: false, pastHeading: null, noDates: true, team: ['Ana'], errors: [] },
   { name: 'no nights, founded year set', shape: shape({ upcoming: 0, past: 0, foundedYear: 2019 }), stats: ['running_since'], upcomingHeading: false, pastHeading: null, noDates: true, team: ['Ana'], errors: [] },
-  { name: 'no team', shape: shape({ upcoming: 4, past: 10, team: 0 }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: [] },
+  { name: 'no team', shape: shape({ upcoming: 4, past: 10, team: 0 }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: [] },
   // Fix round 1 (MED-3): one failed feed no longer discards every stat. These three rows
   // pinned `stats: []` / founded-year-only before; the stats the working feed alone can
   // prove still show, the failed feed's own stat is a marked dash.
   { name: 'past feed fails', shape: shape({ upcoming: 4, past: 10, feeds: { past: 'error' } }), stats: ['next_night', 'nights_hosted'], dashes: ['nights_hosted'], upcomingHeading: true, pastHeading: null, noDates: false, team: ['Ana'], errors: ['past'] },
   { name: 'upcoming feed fails', shape: shape({ upcoming: 4, past: 10, foundedYear: 2019, feeds: { future: 'error' } }), stats: ['next_night', 'nights_hosted', 'running_since'], dashes: ['next_night'], upcomingHeading: false, pastHeading: 'Past nights', noDates: false, team: ['Ana'], errors: ['upcoming'] },
-  { name: 'team read fails', shape: shape({ upcoming: 4, past: 10, feeds: { team: 'error' } }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: ['team'] },
+  { name: 'team read fails', shape: shape({ upcoming: 4, past: 10, feeds: { team: 'error' } }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: ['team'] },
   { name: 'every feed fails', shape: shape({ upcoming: 4, past: 10, feeds: { events: 'error', future: 'error', past: 'error', team: 'error', contact: 'error' } }), stats: ['next_night', 'nights_hosted'], dashes: ['next_night', 'nights_hosted'], upcomingHeading: false, pastHeading: null, noDates: false, team: [], errors: ['upcoming', 'past', 'team'] },
 ];
 
@@ -302,8 +302,8 @@ describe('organiser page P1: every section x every shape (visitor)', () => {
     }
     if (row.errors.length) expect(screen.getAllByRole('button', { name: 'Try again' }).length).toBeGreaterThanOrEqual(row.errors.length);
 
-    // About only when written.
-    expect(h2s().includes('About')).toBe(row.shape.bio);
+    // The bio is shown once, in the header: there is no About section any more.
+    expect(h2s().includes('About')).toBe(false);
   });
 });
 
@@ -448,7 +448,7 @@ describe('fix 1: owner-blank only when everything is KNOWN blank', () => {
 
 describe('fix 1 (MED-3): stats per feed, busy and past-only organisers', () => {
   const N: Array<[string, Partial<Shape['feeds']>, string[], string[]]> = [
-    ['all ok', {}, ['next_night', 'nights_hosted', 'weekly_rhythm'], []],
+    ['all ok', {}, ['next_night', 'nights_hosted'], []],
     ['past fails: Next night stays', { past: 'error' }, ['next_night', 'nights_hosted'], ['nights_hosted']],
     ['future fails: Nights hosted stays', { future: 'error' }, ['next_night', 'nights_hosted'], ['next_night']],
     ['both fail', { future: 'error', past: 'error' }, ['next_night', 'nights_hosted'], ['next_night', 'nights_hosted']],
@@ -462,7 +462,7 @@ describe('fix 1 (MED-3): stats per feed, busy and past-only organisers', () => {
     expect(failedStats()).toEqual(dashes);
     if (!dashes.includes('next_night')) expect(document.querySelector('[data-stat="next_night"] [data-stat-value]')?.textContent).toBe('Tomorrow');
   });
-  it('past-only, future fails: never "Last night" (nothing upcoming is unknowable)', async () => {
+  it('past-only, future fails: Next night is a dash, never Last night (nothing upcoming is unknowable)', async () => {
     s.shape = shape({ upcoming: 0, past: 6, feeds: { future: 'error' } });
     await renderPage();
     expect(statKeys()).toEqual(['next_night', 'nights_hosted']);
