@@ -198,10 +198,10 @@ on `main` + prod.
 | E1 | Verified badge can never show: `is_verified` is not a column (OP:125, OP:1311, OP:1347; `information_schema`) | S1: delete the dead badge (hero otherwise unchanged); trust is `trusted_at`, admin-only |
 | E2 | Facebook not in the select: no `facebook` column; only `socials.facebook` reaches the page (OP:1104) | S2: closed by decision &mdash; Facebook is not in the Get in touch rows; value stays stored and editable |
 | E3 | Fake empty state on RPC error | Already fixed for feeds (OPP:139-147, OP:1145); S5 extends to the entity read (E8) and stats |
-| E4 | Events filtered to organiser city: RPC passes the organiser&rsquo;s city slug to `get_calendar_events_v2`; 6 organisers have nights elsewhere | S4: needs an admin-repo RPC change (this repo owns no migrations) &mdash; ticket to admin |
-| E5 | 365-day window: RPC default `p_to` = +365 d; 4 organisers have later dates | S4: pass an explicit horizon or count via a dedicated RPC (admin) |
+| E4 | Events filtered to organiser city: RPC passes the organiser&rsquo;s city slug to `get_calendar_events_v2`; 6 organisers have nights elsewhere | DECIDED (owner, 2026-11-05): show ALL the organiser&rsquo;s nights whatever the city, the city named on each night. Built later by the Website switch to admin `get_organiser_nights_v2` (brief on admin branch brief/organiser-nights-feed) |
+| E5 | 365-day window: RPC default `p_to` = +365 d; 4 organisers have later dates | DECIDED (owner, 2026-11-05): show the NEXT 20 upcoming nights whenever they are. Built later by the same switch to `get_organiser_nights_v2` |
 | E6 | Hardcoded "elsewhere in London" (OP:1474, OP:1487) | S4: empty copy names the organiser&rsquo;s city or no city |
-| E7 | Cancelled nights hidden (OP:851, OP:864); 23 organisers have one | S4: upcoming cancelled dates shown marked "Cancelled" (proposed &mdash; owner to confirm); never counted in stats; past cancelled stay out |
+| E7 | Cancelled nights hidden (OP:851, OP:864); 23 organisers have one | DECIDED (owner, 2026-11-05): cancelled nights stay HIDDEN everywhere, as main does today (no change); never counted in stats |
 | E8 | Entity read error renders "Organiser not found" + noindex (OP:1076, OP:719) | S5 |
 | E9 | Public contact RPC error silently hides WhatsApp/Email (OP:748) | S2 |
 | E10 | Stats strip shows 0 and `--` (OP:1171, OP:1388-1390) | S1 |
