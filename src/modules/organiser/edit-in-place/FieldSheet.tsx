@@ -15,7 +15,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useKeyboardInset } from '@/modules/organiser/ui/useKeyboardInset';
 import {
-  ABOUT_MAX,
+  checkAbout,
   CATEGORY_OPTIONS,
   FIELD_LABEL,
   NAME_MAX,
@@ -24,6 +24,7 @@ import {
   nameLength,
   type FieldKey,
 } from './fieldRules';
+import { BIO_LIMIT, BIO_SHORTEN_REASON, bioLength, limitBioInput } from '@/modules/profile/organiserHeroBio';
 import CitySheetBody from './CitySheetBody';
 import { useCityCheck, type CityLookups } from './cityCheck';
 import { PHOTO_ACCEPT } from './organiserPhotoModel';
@@ -88,7 +89,11 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
-  const check = useMemo(() => checkField(field, value, { storedCategory }), [field, value, storedCategory]);
+  const check = useMemo(
+    () => (field === 'bio' ? checkAbout(value, BIO_LIMIT) : checkField(field, value, { storedCategory })),
+    [field, value, storedCategory],
+  );
+  const bioTooLong = field === 'bio' && bioLength(value) > BIO_LIMIT;
   const label = FIELD_LABEL[field];
   // City: the pick confirmed against the cities table ('none' for every other field).
   const city = useCityCheck(field === 'city' && value !== initial ? value : '', cityLookups.resolveCity);
@@ -167,15 +172,16 @@ export default function FieldSheet({ field, initial, storedCategory, initialCity
           id={`${titleId}-input`}
           ref={(el) => { firstRef.current = el; }}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => setValue(limitBioInput(e.target.value, initial))}
           rows={6}
           aria-describedby={describedBy}
           aria-invalid={!!showError}
           style={{ ...inputStyle, resize: 'vertical', minHeight: 140 }}
         />
-        <p aria-live="polite" style={{ margin: '4px 0 0', fontSize: 12, textAlign: 'right', color: n > ABOUT_MAX ? '#FF8A70' : 'rgba(246,241,234,0.6)' }} data-testid="eip-about-counter">
-          {n} / {ABOUT_MAX}
+        <p aria-live="polite" style={{ margin: '4px 0 0', fontSize: 12, textAlign: 'right', color: n > BIO_LIMIT ? '#FF8A70' : 'rgba(246,241,234,0.6)' }} data-testid="eip-about-counter">
+          {n} / {BIO_LIMIT}
         </p>
+        {bioTooLong && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#FF8A70' }} data-testid="eip-about-reason">{BIO_SHORTEN_REASON}</p>}
       </>
     );
   } else if (field === 'organisation_category') {

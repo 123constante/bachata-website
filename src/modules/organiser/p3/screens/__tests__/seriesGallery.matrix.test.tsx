@@ -46,6 +46,7 @@ function show(raw: Raw) {
   const envs: Raw[] = [];
   rpc.mockImplementation(async (name: string, args: Raw) => {
     if (name === 'admin_event_workspace_p5') return { data: raw, error: null };
+    if (name === 'series_scope_change_preview_v1') return { data: { dates: [{ occurrence_id: 'o-x', occurrence_date: '2026-11-06', kept_fields: [], applied_fields: [] }], totals: { dates: 1, applied: 1, kept: 0, curated_but_inherits: 0 } }, error: null }; // one future date: the save runs as before
     if (name === 'series_command_p5') { envs.push(args.p_envelope as Raw); return { data: { ok: true, new_version: 8 }, error: null }; }
     return { data: null, error: null };
   });
@@ -92,11 +93,13 @@ describe.each(Object.entries(KINDS))('%s', (kind, shape) => {
 });
 
 describe('profile unfinished (not yet publish-ready)', () => {
-  it.each(['recurring', 'course'] as const)('%s: Pictures is greyed, nothing can be sent', async (kind) => {
+  // F-13 b (p3-gate-retry-1): unfinished details no longer lock the screen up front; the server's gate answers at Save.
+  it.each(['recurring', 'course'] as const)('%s: Pictures is open, no lock, an untouched Save sends nothing', async (kind) => {
     owner.ready = false;
     const envs = show(withGallery(KINDS[kind], 2));
-    await waitFor(() => screen.getByTestId('p3-details-lock'));
-    expect((screen.getByTestId('p3-d-pictures-open') as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => screen.getByTestId('p3-d-pictures-open'));
+    expect(screen.queryByTestId('p3-details-lock')).toBeNull();
+    expect((screen.getByTestId('p3-d-pictures-open') as HTMLButtonElement).disabled).toBe(false);
     expect(saveBtn().disabled).toBe(true);
     expect(envs).toHaveLength(0);
   });

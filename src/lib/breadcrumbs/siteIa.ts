@@ -79,6 +79,8 @@ export const SITE_IA = {
   notFound:         { label: 'Page not found' },
   // Buyer checkout return page (flags.publicTicketing), noindex.
   ticketsThanks:    { label: 'Your tickets' },
+  // A signed-in buyer's tickets (flags.publicTicketing), noindex.
+  myTickets:        { label: 'My tickets', parent: 'dancerHome' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access', path: '/admin/organisers' },
   'admin.organisers.frontDoor': { label: 'Add and manage', parent: 'admin.organisers' },

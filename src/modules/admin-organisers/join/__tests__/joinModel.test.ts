@@ -129,7 +129,8 @@ describe('checkTypedEmail', () => {
 describe('outcome mappings', () => {
   it.each([
     [{ status: 403, message: 'Sign-up with this email provider is not accepted' }, 'blocked_domain'],
-    [{ status: 403, message: 'Sign-up is limited to approved organisers.' }, 'blocked_domain'],
+    [{ status: 403, message: 'Sign-up is limited to approved organisers.' }, 'invite_only'],
+    [{ status: 403, message: '' }, 'invite_only'],
     [{ status: 429, message: 'over_email_send_rate_limit' }, 'rate_limited'],
     [{ message: 'Email rate limit exceeded' }, 'rate_limited'],
     [new Error('Failed to fetch'), 'network'],

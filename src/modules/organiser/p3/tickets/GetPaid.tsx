@@ -40,6 +40,7 @@ export function MoneySoFar({ types }: { types: readonly TypeSales[] }) {
   const t = totalsOf(types);
   const extra = [
     t.ordersPending > 0 ? `${formatCount(t.ordersPending)} waiting for payment` : null,
+    t.discountsPence > 0 ? `${formatPence(t.discountsPence)} off with promo codes` : null,
     t.refundedPence > 0 ? `${formatPence(t.refundedPence)} refunded` : null,
     t.ordersDisputed > 0 ? `${formatCount(t.ordersDisputed)} disputed` : null,
   ].filter(Boolean);

@@ -25,8 +25,10 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { triggerMicroConfetti } from '@/lib/confetti';
-import { getRaffleSessionId } from '@/lib/raffleSession';
-import { sendWaConfirmation, pollWaVerifyStatus } from '@/lib/raffleWaVerify';
+import { getRaffleSessionId, markRafflePoolJoined } from '@/lib/raffleSession';
+import { sendWaConfirmation, pollWaVerifyStatus, sendPoolWaConfirm, pollPoolWaStatus } from '@/lib/raffleWaVerify';
+import { rpcLoose } from '@/integrations/supabase/rpcLoose';
+import { flags } from '@/lib/featureFlags';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 // The phone field (the shared PhoneInput + its country list) loads when the dialog
 // opens, not with /event: shared with the dancer app and organiser screens since
@@ -38,13 +40,18 @@ import { Sparkles } from 'lucide-react';
 interface RaffleEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  eventId: string;
+  /** Required unless flags.raffleV2 is ON (the pool join sends no event id). */
+  eventId?: string;
   consentVersion: string | null;
   onSubmitted: () => void;
 }
 
 type SubmitResponse =
   | { ok: true; entry_id: string }
+  | { ok: false; reason: string };
+
+type PoolJoinResponse =
+  | { ok: true; pool_id?: string; already_in?: boolean }
   | { ok: false; reason: string };
 
 type Phase =
@@ -66,6 +73,8 @@ function messageForReason(reason: string): { text: string; toast: 'error' | 'suc
       return { text: 'Please enter a valid phone number with country code', toast: 'error' };
     case 'consent_required':
       return { text: 'You must agree to the privacy terms', toast: 'error' };
+    case 'removed':
+      return { text: "You can't enter this raffle.", toast: 'error' };
     case 'event_not_found':
       return { text: 'Sorry, this event is no longer available', toast: 'error' };
     case 'raffle_not_enabled':
@@ -109,7 +118,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
   const [phase, setPhase] = useState<Phase>('form');
   const [waFailed, setWaFailed] = useState(false);
   const [neutralVariant, setNeutralVariant] = useState<'sent_unconfirmed' | 'no_claim'>('no_claim');
-  const [ackState, setAckState] = useState<{ title: string; body: string; emoji: string } | null>(null);
+  const [ackState, setAckState] = useState<{ title: string; body: string; emoji: string; testId?: string } | null>(null);
 
   // Invalidates in-flight confirmation work when the dialog closes/reopens —
   // a stale poll must never flip state under a new attempt.
@@ -163,8 +172,64 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
     const sessionId = getRaffleSessionId();
     const generation = generationRef.current;
 
+    if (flags.raffleV2) {
+      const res = await rpcLoose('raffle_join_pool_v1', {
+        p_first_name: '—',
+        p_phone: phoneE164,
+        p_consent_version: consentVersion ?? 'v1',
+        p_session_id: sessionId,
+        p_honeypot: honeypot || null,
+      });
+      if (generation !== generationRef.current) return;
+      if (res.error) {
+        setPhase('form');
+        toast.error('Network error. Please check your connection and try again.');
+        return;
+      }
+      const joined = res.data as PoolJoinResponse;
+      if (!joined?.ok) {
+        setPhase('form');
+        toast.error(messageForReason((joined as { reason?: string })?.reason ?? '').text);
+        return;
+      }
+      markRafflePoolJoined();
+      if (joined.already_in) {
+        setPhase('ack');
+        setAckState({
+          title: "You're in!",
+          body: "You're already in the raffle. We'll message you on WhatsApp if you win — good luck!",
+          emoji: '🎉',
+          testId: 'raffle-already-in',
+        });
+        onSubmitted();
+        return;
+      }
+      const poolId = joined.pool_id;
+      if (!poolId) {
+        setPhase('success_neutral');
+        celebrate('neutral');
+        return;
+      }
+      setPhase('confirming');
+      const sent = await sendPoolWaConfirm(poolId, sessionId);
+      if (generation !== generationRef.current) return;
+      if (sent === 'failed') { setPhase('form'); setWaFailed(true); return; }
+      if (sent !== 'sent') {
+        setNeutralVariant('no_claim');
+        setPhase('success_neutral');
+        celebrate('neutral');
+        return;
+      }
+      const poolVerdict = await pollPoolWaStatus(poolId, sessionId);
+      if (generation !== generationRef.current) return;
+      if (poolVerdict === 'verified') { setPhase('success_verified'); celebrate('verified'); }
+      else if (poolVerdict === 'failed') { setPhase('form'); setWaFailed(true); }
+      else { setNeutralVariant('sent_unconfirmed'); setPhase('success_neutral'); celebrate('neutral'); }
+      return;
+    }
+
     const { data, error } = await supabase.rpc('submit_raffle_entry', {
-      p_event_id: eventId,
+      p_event_id: eventId ?? '',
       p_first_name: '—',
       p_phone_e164: phoneE164,
       p_consent_version: consentVersion ?? 'v1',
@@ -276,7 +341,7 @@ export const RaffleEntryDialog: React.FC<RaffleEntryDialogProps> = ({
         </DialogHeader>
 
         {phase === 'ack' && ackState ? (
-          <div className="px-5 pb-5 pt-4 text-center space-y-3">
+          <div data-testid={ackState.testId} className="px-5 pb-5 pt-4 text-center space-y-3">
             <div className="text-4xl" aria-hidden>{ackState.emoji}</div>
             <div className="text-lg font-semibold text-[#F5D563]">{ackState.title}</div>
             <div className="text-sm text-[#D8CCB0] leading-relaxed max-w-sm mx-auto">{ackState.body}</div>

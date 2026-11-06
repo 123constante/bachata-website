@@ -25,6 +25,7 @@ import { DescriptionBlock } from '@/modules/event-page/bento/blocks/DescriptionB
 import { OrganiserCardBlock } from '@/modules/event-page/bento/blocks/OrganiserCardBlock';
 import { MusicStylesRow } from '@/modules/event-page/bento/blocks/MusicStylesRow';
 import { GroupChatBlock } from '@/modules/event-page/bento/blocks/GroupChatBlock';
+import { HowToPayLine } from '@/modules/event-page/bento/blocks/HowToPayLine';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
@@ -766,6 +767,10 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             />
           </Suspense>
         )}
+
+        {/* How to pay: the saved payment methods as words. Upcoming nights only,
+            gated like the group-chat CTA below. Renders nothing when none saved. */}
+        {state === 'ready' && !over && !occurrence?.isCancelled && (<HowToPayLine stored={pageModel.eventInfo.paymentMethods} />)}
 
         {/* Group-chat CTA — hidden on past/cancelled occurrences, matching the
             ticket pill in the sticky bar (a dead date must not advertise a chat). */}

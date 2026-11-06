@@ -1,13 +1,11 @@
 import { useCallback, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
-import { Link, UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, useNavigate, type Blocker, type BlockerFunction } from 'react-router-dom';
+import { Link, UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext, useLocation, useNavigate, type Blocker, type BlockerFunction } from 'react-router-dom';
 import {
   isFormDirty, isLeaveDirty, requestLeave, setRouterGuard, useLeaveGuard, useRegisterLeaveAsk,
 } from '@/modules/areas/shared/leaveGuard';
-import { useIsAdmin } from '@/hooks/useIsAdmin';
-import { profileLock, useProfileProgress } from '../../shared/profileProgress';
 import { eventLock } from '../../shared/eventState';
 import { useSendOnce } from '../../shared/runCommands';
-import { commandErrorMessage, isVersionConflict } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isOnboardingRefusal, isVersionConflict } from '../../shared/selfServeErrors';
 import { newIdempotencyKey, type OwnerCommand } from '../../shared/seriesCommands';
 import type { EventWorkspace } from '../../events/eventModel';
 import { L } from '../model/labels';
@@ -16,6 +14,7 @@ import {
 } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
 import { useGatedCopy } from '../onboarding/gate';
+import { cameBackForKept, dropKept, keptDraft, leavesForGate, overNow, type Kept } from '../onboarding/keptDraft';
 import { Sheet } from './Sheet';
 
 /**
@@ -24,9 +23,10 @@ import { Sheet } from './Sheet';
  * idempotency key per command, reused by a retry), and EditTray (pending tray, Undo my changes
  * with a confirm, the Save button with its reason, the leave guard's sheet).
  */
-export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace) => D, specs: ReadonlyArray<FieldSpec<D>>) {
+export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace) => D, specs: ReadonlyArray<FieldSpec<D>>, kept: D | null = null) {
   const [opened, setOpened] = useState(() => ({ base: initial(ws), version: ws.series.version }));
-  const [draft, setDraft] = useState<D>(opened.base);
+  // `kept`: the typing a gate refusal kept (keptDraft.ts), over the stored values; nothing is sent until Save.
+  const [draft, setDraft] = useState<D>(() => kept ?? opened.base);
   // the versions this screen's own saves made (state, not a ref: render reads it)
   const [own, setOwn] = useState<ReadonlySet<number>>(() => new Set());
   const mine = (version: number) => setOwn((s) => new Set(s).add(version));
@@ -70,17 +70,40 @@ export function useEditForm<D>(ws: EventWorkspace, initial: (ws: EventWorkspace)
 }
 
 /**
- * Why nothing on an edit screen can change: an ended or archived event, or an unfinished
- * organiser profile (the old area's locks). ONE lock for every P3 edit screen, so Details and
- * Prices agree for the same person on the same event (PR #1082 r3 #5).
+ * Why nothing on an edit screen can change: an ended or archived event. ONE lock for every P3 edit
+ * screen, so Details and Prices agree for the same person on the same event (PR #1082 r3 #5).
+ *
+ * F-13 (brief p3-gate-retry-1, decision "F-13 b"): unfinished details NO LONGER lock the screen up
+ * front. The old profile lock counted my_profile_progress_v1 ("N answers left"), a different
+ * question from the onboarding gate's organiser_onboarding_status_v1 ("N things left"), so the
+ * same person read two counts. Now the person types and presses Save; the server's
+ * `onboarding_incomplete` refusal opens the ONE gate sheet (useSaveRun -> useGatedCopy), whose
+ * count is the onboarding one, and the typing is kept (keptDraft.ts).
  */
 export function useEditLock(ws: EventWorkspace): string | null {
-  const admin = useIsAdmin();
-  const progress = useProfileProgress(ws.organiserIds[0] ?? null);
-  const closed = eventLock(ws.series.lifecycle_status);
-  if (closed) return closed;
-  const profile = profileLock(admin.isPending ? undefined : progress.data, admin.isAdmin);
-  return profile.locked ? profile.reason : null;
+  return eventLock(ws.series.lifecycle_status);
+}
+
+type KeptOf<S extends 'details' | 'prices'> = Extract<Kept, { screen: S }>['draft'];
+
+/**
+ * The typing a gate refusal kept for this event and screen (keptDraft.ts), read once when the person came "Back
+ * to your event" from the checklist (KEPT_BACK_STATE; the event page forwards it here), then let go: shown once,
+ * and a second refusal keeps it again. Any other arrival reads nothing.
+ */
+export function useKeptEdit<S extends 'details' | 'prices'>(ws: EventWorkspace, screen: S, now: (ws: EventWorkspace) => KeptOf<S>, skip: ReadonlyArray<keyof KeptOf<S>> = []): KeptOf<S> | null {
+  const { state } = useLocation();
+  const seriesId = ws.series.id;
+  const [kept] = useState(() => {
+    // a closed event (ended / archived meanwhile) cannot take the edit: nothing is restored (review r1 #3)
+    if (!cameBackForKept(state) || eventLock(ws.series.lifecycle_status)) return null;
+    const k = keptDraft(seriesId);
+    if (!k || k.screen !== screen || !('base' in k)) return null;
+    // only the person's own changes over the event as it is now (review r1 #1)
+    return overNow(now(ws), k as unknown as { draft: KeptOf<S>; base: KeptOf<S> }, skip);
+  });
+  useEffect(() => { if (kept) dropKept(seriesId); }, [kept, seriesId]);
+  return kept;
 }
 
 /**
@@ -94,7 +117,8 @@ export function useSaveRun(seriesId: string) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gated = useGatedCopy();
-  const run = async (plan: readonly OwnerCommand[], version: number | null, onLanded?: (version: number, command: OwnerCommand) => void): Promise<{ ok: boolean; version: number | null }> => {
+  /** `gated`: the server refused with onboarding_incomplete (the gate sheet opened, no error line). */
+  const run = async (plan: readonly OwnerCommand[], version: number | null, onLanded?: (version: number, command: OwnerCommand) => void): Promise<{ ok: boolean; version: number | null; gated?: boolean }> => {
     if (!plan.length) return { ok: false, version };
     let a = attemptFor(held.current, plan, version, newIdempotencyKey);
     held.current = a;
@@ -118,7 +142,7 @@ export function useSaveRun(seriesId: string) {
       if (isVersionConflict(e)) held.current = null;
       // an onboarding refusal opens the A1 gate sheet instead of an error line (P3-GATE)
       setError(gated(e, commandErrorMessage));
-      return { ok: false, version: last };
+      return { ok: false, version: last, gated: isOnboardingRefusal(e) };
     } finally {
       setBusy(false);
     }
@@ -144,8 +168,10 @@ function useRouterBlocker(): Blocker {
   const blockers = useContext(UNSAFE_DataRouterStateContext)?.blockers;
   // one key per mounted tray, made once (no state set inside the effect)
   const [key] = useState(() => `p3-leave-${++blockerSeq}`);
+  // The gate's Continue on a screen whose typing is kept leaves without asking (p3-gate-guard-1, keptDraft.ts).
   const shouldBlock = useCallback<BlockerFunction>(
-    ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname,
+    ({ currentLocation, nextLocation }) => isFormDirty() && currentLocation.pathname !== nextLocation.pathname
+      && !leavesForGate(nextLocation.state, currentLocation.pathname),
     [],
   );
   useEffect(() => {

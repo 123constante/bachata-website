@@ -585,7 +585,10 @@ const NO_UPLOAD_WORKFLOWS = ['ci-budget-guard.yml', 'deployment-storage-check.ym
  * never read is not a floor either, and it reads exactly like one.
  */
 const FLOORS = {
-  workflowFiles: 16,
+  // 16 -> 20 on 2026-11-04: MEASURED.workflowFiles 34 puts the pinned band at
+  // [ceil(34/2), 34 - 2] = [17, 32]; 16 fell below its lower edge. 20 sits
+  // inside the band and off both ends.
+  workflowFiles: 20,
   uploadSteps: 3,
   // A COLLAPSE floor, and deliberately nothing more. Gate 1 compares two reads
   // of the same parsed document, so both halves see the same thing if the
@@ -638,12 +641,23 @@ const FLOORS = {
 const MEASURED = {
   // RE-DERIVED 2026-10-08 after cloudflare-purge-on-deploy.yml joined main:
   // analyse() gave 30 files, 43 jobs, 292 steps.
-  workflowFiles: 30,
-  jobs: 43,
-  steps: 292,
-  uploadSteps: 5,
+  // 2026-11-04: uploadSteps 5 -> 7 (phone-qa.yml auto-walk pictures upload; measured 7).
+  // RE-DERIVED 2026-11-04 after autopilot.yml (PR #1342) on top of main:
+  // analyse() over .github/workflows gave 34 files, 54 jobs, 357 steps,
+  // 7 upload steps, largest workflow (db-contract-check.yml) 67 steps.
+  // RE-DERIVED 2026-11-04 after automation-pause-guard.yml (pause switch, slice 1) plus the
+  // reader steps in bot-automerge/dependabot-automerge/post-merge-prod-alarm: analyse() gave
+  // 36 files, 58 jobs, 380 steps, 7 upload steps, largest still db-contract-check.yml (67).
+  // RE-DERIVED 2026-11-04 after automation-identity-check.yml + automation-token-expiry.yml
+  // (foundations slice 2, parts 4/6): main before them measured 36 files, 58 jobs, 383 steps
+  // (green, inside the drift band); with them analyse() gave 38 files, 60 jobs, 389 steps,
+  // 7 upload steps, largest still db-contract-check.yml (67).
+  workflowFiles: 38,
+  jobs: 60,
+  steps: 389,
+  uploadSteps: 7,
   /** db-contract-check.yml, the largest single workflow, in steps. */
-  largestWorkflowSteps: 82,
+  largestWorkflowSteps: 67,
 };
 
 /**

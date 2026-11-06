@@ -21,6 +21,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } })
 import EditInPlaceLayer from '../EditInPlaceLayer';
 import type { EipBridge } from '../bridge';
 import { PICKER_COPY } from '../teamPickerModel';
+import { VISIBILITY_COPY } from '../teamVisibilityModel';
 
 const ID = '22222222-2222-4222-8222-222222222222';
 const ENTITY = {
@@ -85,25 +86,29 @@ describe('who sees the Team card and its picker: roles x team shapes', () => {
   const OWNER_ONLY = [member('u1', 'owner', true)];
   const TWO_OWNERS = [member('u1', 'owner', true), member('u2', 'owner')];
   const MIXED = [member('u1', 'owner'), member('u2', 'manager', true), member('u3', 'contributor')];
-  const CASES: Array<[string, Team | Error, string | null]> = [
-    ['owner, sole member (3 organisers on prod)', { myRole: 'owner', members: OWNER_ONLY }, 'On the team: 1 owner.'],
-    ['owner, two owners (1 organiser on prod)', { myRole: 'owner', members: TWO_OWNERS }, 'On the team: 2 owners.'],
-    ['admin, organiser with no member yet (41 on prod)', { myRole: 'admin', members: [] }, 'No one is on the team yet. Add a person to share the work.'],
-    ['admin who is also a manager (the server answers admin)', { myRole: 'admin', members: MIXED }, 'On the team: 1 owner, 1 manager, 1 contributor.'],
-    ['manager', { myRole: 'manager', members: MIXED }, null],
-    ['contributor', { myRole: 'contributor', members: [member('u1', 'owner'), member('u3', 'contributor', true)] }, null],
-    ['team read refused', new Error('not_authorised'), null],
+  // [name, team read, count line (null = no card), Add a person?, Who shows on your page?]
+  // Lead decision (brief p2-team-2): managers get the card for Hide / Show only, never the picker.
+  const CASES: Array<[string, Team | Error, string | null, boolean, boolean]> = [
+    ['owner, sole member (3 organisers on prod)', { myRole: 'owner', members: OWNER_ONLY }, 'On the team: 1 owner.', true, true],
+    ['owner, two owners (1 organiser on prod)', { myRole: 'owner', members: TWO_OWNERS }, 'On the team: 2 owners.', true, true],
+    ['admin, organiser with no member yet (41 on prod)', { myRole: 'admin', members: [] }, 'No one is on the team yet. Add a person to share the work.', true, true],
+    ['admin who is also a manager (the server answers admin)', { myRole: 'admin', members: MIXED }, 'On the team: 1 owner, 1 manager, 1 contributor.', true, true],
+    ['manager', { myRole: 'manager', members: MIXED }, 'On the team: 1 owner, 1 manager, 1 contributor.', false, true],
+    ['contributor with no persona (no self arm)', { myRole: 'contributor', members: [member('u1', 'owner'), member('u3', 'contributor', true)] }, null, false, false],
+    ['team read refused', new Error('not_authorised'), null, false, false],
   ];
-  it.each(CASES)('%s', async (_n, team, line) => {
+  it.each(CASES)('%s', async (_n, team, line, add, vis) => {
     const { fetchTeam, search } = setup({ team });
     await waitFor(() => expect(fetchTeam).toHaveBeenCalled());
     if (line) {
       has(await screen.findByTestId('eip-team-count'), line);
-      expect(screen.getByRole('button', { name: PICKER_COPY.title })).toBeTruthy();
+      expect(!!screen.queryByRole('button', { name: PICKER_COPY.title })).toBe(add);
+      expect(!!screen.queryByRole('button', { name: VISIBILITY_COPY.open })).toBe(vis);
     } else {
       await new Promise((r) => setTimeout(r, 30));
       expect(screen.queryByTestId('eip-team')).toBeNull();
       expect(screen.queryByRole('button', { name: PICKER_COPY.title })).toBeNull();
+      expect(screen.queryByRole('button', { name: VISIBILITY_COPY.open })).toBeNull();
     }
     expect(search).not.toHaveBeenCalled();
   });

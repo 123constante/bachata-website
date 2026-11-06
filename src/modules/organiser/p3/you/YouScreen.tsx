@@ -12,6 +12,7 @@ import { P3_PATHS } from '../shell/paths';
 import { Avatar } from '../../team/Avatar';
 import { useTeamContext } from '../../team/useTeamContext';
 import { RetryButton, StateCard } from '../screens/parts';
+import { RequestsError, requestsErrorShown } from '../../team/p3TeamBits';
 import { P3_SURFACE } from './surface';
 import { YOU, youRows, type YouRow } from './youRows';
 import { londonTodayKey } from '@/lib/londonDate';
@@ -114,6 +115,7 @@ export function YouScreen() {
           <Link to={P3_SURFACE.addPage} className="p3-btn p3-btn-link" data-testid="p3-you-add-page-link">{NO_PAGE_ADD.action}</Link>
         </StateCard>
       )}
+      {requestsErrorShown(requests) && <RequestsError onRetry={() => void requests.refetch()} />}
       <YouTicketsRow />
       <section className="p3-card p3-list" data-testid="p3-you-rows">
         {rows.map((r) => <NavRow key={r.id} r={r} />)}

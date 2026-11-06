@@ -3,14 +3,18 @@ name: Bot PR for cloud branches
 # Copied from bachata-admin (same file); the PR numbers below are that repo's.
 # Cloud sessions (claude.ai/code) push with the OWNER's credential (the GitHub proxy swaps it
 # in), so a PR they open is owner-authored and the owner cannot approve it. This job opens the
-# PR AS THE BOT (secret BOT_PR_TOKEN) when a claude/** or ccr-* branch is pushed and has no open PR.
+# PR AS THE BOT (secret BOT_PR_TOKEN) when a claude/** or ccr-* branch is pushed and has no open PR,
+# EXCEPT review reports (claude/review-*) and "nothing to change" markers (claude/done-*): those
+# are read from the branch and only piled up as superseded PRs (tests/botPrSkip.test.ts).
 # A branch whose PR already merged gets no new one: a push after that merge (a main-merge racing the
 # owner's merge) only ever opened empty duplicates (#547, #553, #554). New work goes on a new branch.
 # A PAT-opened PR fires the normal pull_request checks. The cloud session pushes and never
 # opens the PR itself; it may edit the body afterwards with `gh api -X PATCH`.
-# The body carries a `## Verified on real data` section set to TO FILL: real-data-verified
-# reports that as PENDING (a notice), not red, and no merge path accepts it. Sessions
-# REPLACE the three TO FILL lines; a second section is red ("appears 2 times").
+# The body comes from scripts/pr-body-stub.mjs, built from the checkers' own labels: a
+# `## Verified on real data` and a `## Phone QA` section, every line set to TO FILL.
+# real-data-verified and phone-qa-section report that as PENDING (a notice), not red, and
+# no merge path accepts it. Sessions REPLACE the TO FILL lines; a second section is red
+# ("appears 2 times"). If the generator fails the PR still opens with a minimal body.
 
 on:
   push:
@@ -22,12 +26,20 @@ concurrency:
 
 jobs:
   open-pr:
-    if: ${{ !github.event.deleted }}
+    # Owner click 2026-11-04: no PR for claude/review-* or claude/done-* (dash included).
+    if: ${{ !github.event.deleted && !startsWith(github.ref_name, 'claude/review-') && !startsWith(github.ref_name, 'claude/done-') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
     steps:
+      # The default branch's scripts/ ONLY: this step's env holds BOT_PR_TOKEN, so it must
+      # never run code from the pushed branch. Read-only; no credential is kept.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
       - name: Open the PR as the bot if the branch has none
         env:
           BOT_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
@@ -50,23 +62,15 @@ jobs:
             echo "No PR opened: $BRANCH already shipped in $merged. Put new work on a new branch cut from $BASE." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          node -e '
+          # One generator, pinned to both checkers by tests/prBodyStub.test.ts. The PR must
+          # always open: on any generator failure fall back to the old minimal body, warned.
+          if ! body="$(node scripts/pr-body-stub.mjs)" || [ -z "$body" ]; then
+            echo "::warning::scripts/pr-body-stub.mjs failed; opening the PR with the minimal fallback body (no Verified on real data / Phone QA sections)."
+            body="$(printf '%s\n\n%s' "Opened by the bot for cloud branch \`$BRANCH\` so the owner can approve it. The session fills in this description." "Raised by .github/workflows/bot-pr.yml.")"
+          fi
+          BODY="$body" node -e '
             const title = (process.env.SUBJECT || process.env.BRANCH).split("\n")[0].slice(0, 250);
-            // The section is pre-filled with the TO FILL marker so real-data-verified reports
-            // PENDING (exit 3, a notice) instead of RED until the session writes it. Pending is
-            // never a pass: scripts/check-pr-real-data-verified.mjs parse() keeps ok=false.
-            // tests/realDataVerified.test.ts evaluates this array, so keep the [ ... ].join shape.
-            const body = [
-              "Opened by the bot for cloud branch `" + process.env.BRANCH + "` so the owner can approve it. The session fills in this description.",
-              "Replace each TO FILL below in place; do not add a second Verified on real data section.",
-              "",
-              "## Verified on real data",
-              "- Shapes surveyed: TO FILL",
-              "- Checks run: TO FILL",
-              "- NOT verified: TO FILL",
-              "",
-              "Raised by .github/workflows/bot-pr.yml.",
-            ].join("\n");
+            const body = process.env.BODY;
             require("fs").writeFileSync("pr.json", JSON.stringify({ title, head: process.env.BRANCH, base: process.env.BASE, body }));
           '
           code="$(api -o resp.json -w '%{http_code}' -X POST "https://api.github.com/repos/$REPO/pulls" --data @pr.json)"

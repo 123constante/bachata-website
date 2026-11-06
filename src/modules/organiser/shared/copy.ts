@@ -8,7 +8,7 @@ import { PUT_BACK_WHERE } from './editorGuards';
 export const WARN_DATE = 'Only this date changes. Dancers see it at once.';
 
 /** End confirm only (R3-8, C42c): an ended event is admin-only to leave. */
-export const WARN_END = 'Only Ricky can reopen an ended event.';
+export const WARN_END = 'Only the Bachata Calendar team can reopen an ended event.';
 
 /** A write refused with version_conflict (R3-7): someone else saved first. */
 export const VERSION_CONFLICT = 'Someone changed this first. Check it.';

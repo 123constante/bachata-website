@@ -42,6 +42,7 @@ export function EventRow({ row }: { row: P3Row }) {
         <div className="p3-grow">
           <div className="p3-row-t">{row.name}</div>
           <div className="p3-row-s">{row.sub}</div>
+          {row.alsoRunBy.length > 0 && <div className="p3-row-s" data-testid="p3-also-run-by">Also run by {row.alsoRunBy.join(', ')}</div>}
           <div className="p3-row-tags">
             <KindChip row={row} />
             <StatusTag row={row} />

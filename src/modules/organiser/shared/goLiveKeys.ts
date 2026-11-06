@@ -100,6 +100,73 @@ export const showsProfileRow = (c: GoLiveCheck): boolean => c.profileRuleApplies
 /** How many rows the event's Go live list shows: each event blocker once, plus the one profile row. Home quotes this. */
 export const goLiveLeft = (c: GoLiveCheck): number => eventBlockers(c.eventMissing).length + (showsProfileRow(c) ? 1 : 0);
 
+// ---- the reasons, in words (Status sheet's Put it live) -------------------------------------
+
+/**
+ * Every required profile field the server names (_profile_fields_p5, prod 2026-11-05), as its
+ * to-do: organiser page and dancer profile. A field not here still reads as words (profileGapText).
+ */
+export const PROFILE_GAP_TODO: Readonly<Record<'organiser' | 'dancer', Readonly<Record<string, string>>>> = {
+  organiser: {
+    name: 'Add a name to your organiser page',
+    city: 'Add your city to your organiser page',
+    logo: 'Add a logo to your organiser page',
+    category: 'Say what kind of organiser you are on your organiser page',
+    founded_year: 'Add the year you started to your organiser page',
+    instagram: 'Add your Instagram to your organiser page',
+    contact_phone: 'Add a contact phone number to your organiser page',
+  },
+  dancer: {
+    first_name: 'Add your first name to your dancer profile',
+    city: 'Add your city to your dancer profile',
+    dance_role: 'Say if you lead or follow on your dancer profile',
+    photo: 'Add a photo to your dancer profile',
+    nationality: 'Add your nationality to your dancer profile',
+    languages: 'Add the languages you speak to your dancer profile',
+    instagram: 'Add your Instagram to your dancer profile',
+    phone_or_whatsapp: 'Add a phone or WhatsApp number to your dancer profile',
+    dance_started_year: 'Add the year you started dancing to your dancer profile',
+  },
+};
+
+/** One profile gap's to-do words, by area; never the field name as a code. */
+export function profileGapText(area: string, field: string): string {
+  if (area === 'teacher' || area === 'dj') return roleGapText(area, field);
+  const page = area === 'dancer' ? 'dancer profile' : 'organiser page';
+  const table = PROFILE_GAP_TODO[area === 'dancer' ? 'dancer' : 'organiser'];
+  return Object.prototype.hasOwnProperty.call(table, field) ? table[field] : `Add your ${humanise(field)} to your ${page}`;
+}
+
+/**
+ * Everything the server says is left, in its order, one line per fact: the event
+ * blockers (no_flyer shows once, under cover), then each profile field. Empty when
+ * nothing is named (or the profile rule does not apply and the event is ready).
+ */
+export function goLiveReasons(c: GoLiveCheck): string[] {
+  const event = eventBlockers(c.eventMissing).map((i) => goLiveLabel(i.code));
+  const profile = c.profileRuleApplies ? c.profileMissing.flatMap((p) => p.fields.map((f) => profileGapText(p.area, f))) : [];
+  return [...new Set([...event, ...profile])];
+}
+
+/** A refusal (or a not-ready check) that names nothing: neutral, never blames one item, says what to do. */
+/** The first words of every go-live reason (the same line LifecycleActions shows on its own). */
+export const GO_LIVE_NOT_READY_LEAD = 'Not ready to go live yet.';
+
+export const GO_LIVE_NOT_READY = `${GO_LIVE_NOT_READY_LEAD} Check the event\u2019s details and your profile, then try again.`;
+
+/** How many lines the reason shows before "and N more". */
+export const GO_LIVE_REASONS_SHOWN = 3;
+
+/** The ONE go-live reason sentence (Status sheet, before the tap and after a refusal). null: nothing blocks. */
+export function goLiveReasonText(c: GoLiveCheck | null): string | null {
+  if (c && c.ready) return null;
+  const lines = c ? goLiveReasons(c) : [];
+  if (!lines.length) return GO_LIVE_NOT_READY;
+  const shown = lines.slice(0, GO_LIVE_REASONS_SHOWN);
+  const more = lines.length - shown.length;
+  return `${GO_LIVE_NOT_READY_LEAD} ${shown.join('. ')}.${more > 0 ? ` And ${more} more.` : ''}`;
+}
+
 /** The ONE "N things left" formatter (D82): the card's count line. */
 export const thingsLeftText = (n: number): string => (n === 1 ? '1 thing left' : `${n} things left`);
 

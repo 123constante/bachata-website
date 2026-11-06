@@ -80,7 +80,7 @@ export const InstagramInput: React.FC<InstagramInputProps> = ({
         {handle && !shownError && (
           <div id={statusId} data-testid={`${testId}-ok`} className="space-y-[2px] text-[13px]">
             <p className="m-0 text-[var(--ok-fg)]"><span aria-hidden="true">&#10003; </span>@{handle}</p>
-            <p className="m-0 text-[var(--mut)]">Saved as {handle}</p>
+            <p className="m-0 text-[var(--mut)]">Will save as {handle}</p>
             <a
               href={instagramProfileUrl(handle)}
               target="_blank"

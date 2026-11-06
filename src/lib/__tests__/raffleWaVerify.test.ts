@@ -111,3 +111,41 @@ describe('pollWaVerifyStatus', () => {
     expect(await pollWaVerifyStatus('e', 's', { sleep: noSleep, maxWaitMs: 50, intervalMs: 1 })).toBe('timeout');
   });
 });
+
+import { sendPoolWaConfirm, pollPoolWaStatus } from '../raffleWaVerify';
+
+describe('sendPoolWaConfirm', () => {
+  it.each([
+    [{ ok: true, wa_status: 'sent' }, 'sent'],
+    [{ ok: true, wa_status: 'skipped' }, 'skipped'],
+    [{ ok: true, wa_status: 'failed' }, 'failed'],
+    [{ ok: false, wa_status: 'verified' }, 'sent'],
+    [{ ok: false }, 'unavailable'],
+  ])('maps %j to %s and sends pool_id', async (data, want) => {
+    invokeMock.mockResolvedValue({ data, error: null });
+    expect(await sendPoolWaConfirm('p', 's')).toBe(want);
+    expect(invokeMock).toHaveBeenCalledWith('raffle-send-confirmation', { body: { pool_id: 'p', session_id: 's' } });
+  });
+  it('maps an invoke error to unavailable', async () => {
+    invokeMock.mockResolvedValue({ data: null, error: { message: 'x' } });
+    expect(await sendPoolWaConfirm('p', 's')).toBe('unavailable');
+  });
+});
+
+describe('pollPoolWaStatus', () => {
+  it.each(['verified', 'failed', 'skipped'])('returns %s', async (st) => {
+    rpcMock.mockResolvedValue({ data: { found: true, wa_status: st }, error: null });
+    expect(await pollPoolWaStatus('p', 's', { sleep: noSleep })).toBe(st);
+    expect(rpcMock).toHaveBeenCalledWith('get_raffle_pool_wa_status_v1', { p_pool_id: 'p', p_session_id: 's' });
+  });
+  it('unavailable when not found or error', async () => {
+    rpcMock.mockResolvedValue({ data: { found: false }, error: null });
+    expect(await pollPoolWaStatus('p', 's', { sleep: noSleep })).toBe('unavailable');
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'x' } });
+    expect(await pollPoolWaStatus('p', 's', { sleep: noSleep })).toBe('unavailable');
+  });
+  it('times out while pending', async () => {
+    rpcMock.mockResolvedValue({ data: { found: true, wa_status: 'sent' }, error: null });
+    expect(await pollPoolWaStatus('p', 's', { sleep: noSleep, maxWaitMs: 5 })).toBe('timeout');
+  });
+});
