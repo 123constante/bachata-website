@@ -136,8 +136,8 @@ export function StatsScreen() {
       ) : total === 0 ? (
         <StateCard title="No views yet" testId="p3-stats-none">
           {data.series.length
-            ? 'Views show up as soon as dancers start opening your event. Use Copy link below and share it on WhatsApp or Instagram to get the first ones.'
-            : 'You have no events to count yet. Views start once an event is on the calendar.'}
+            ? 'Views show up as soon as dancers open your event. Copy your link above and share it on WhatsApp or Instagram to get the first ones.'
+            : 'Add an event first. Views start once an event is on the calendar.'}
         </StateCard>
       ) : (
         <>

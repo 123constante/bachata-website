@@ -302,11 +302,11 @@ describe('Stats x every shape', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy link/);
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
     cleanup();
     viewsQ.value = ok(statsOf([]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/no events to count/);
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Add an event first/);
     cleanup();
     viewsQ.value = pending();
     show(<StatsScreen />);
@@ -489,11 +489,11 @@ describe('Stats v2 x every shape', () => {
     expect(screen.getByTestId('p3-stats-loading')).toBeTruthy();
   });
 
-  it('the empty state names the on-screen Copy link control', () => {
+  it('the empty state points at the Copy link control that is above it', () => {
     homeQ.value = ok(homeOf([SHAPES.weekly]));
     viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy link/);
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
   });
 });
