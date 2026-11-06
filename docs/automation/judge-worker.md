@@ -141,6 +141,7 @@ exits 1), and `coverageGaps` throws on a coverage doc with `screens: []` or on
 
 ## Parts left
 
+- Part C static scan exists, not wired: `scripts/lib/walk-ios-static.mjs` (`scanIosClasses`) emits `iosInputFontSize`, `iosNoRawVh` and `iosFixedBarsSafeArea` from CSS/TSX/HTML text; no workflow, lane or judge calls it yet.
 - input.screens is not tied to walk-coverage.json: the judge checks the screens
   and shapes the lane SAYS it walked, not the screens `docs/design/walk-coverage.json`
   requires. A lane that leaves a screen out of `input.screens` is not caught by

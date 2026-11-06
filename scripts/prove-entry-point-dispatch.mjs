@@ -238,6 +238,7 @@ const TARGETS = [
   { rel: 'scripts/sweep-stale-bot-prs.mjs' },
   { rel: 'scripts/walk-seed.mjs' },
   { rel: 'scripts/lib/walk-fixtures.mjs' },
+  { rel: 'scripts/lib/walk-ios-static.mjs' },
   { rel: 'scripts/lib/walk-judge.mjs' },
   { rel: 'scripts/lib/walk-waiver.mjs' },
 ];
