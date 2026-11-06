@@ -28,7 +28,9 @@ approves at head; the worker never approves or merges.
 - F3: every `doubts` entry must be a non-blank string (else red); a string `doubts` is red.
 - Empties: `generateFixtures([])` throws (CLI exit 1); `coverageGaps` throws on screens [] or shapes [].
 - `isPass(v, expectedHeadSha)`: the head is mandatory; another, missing or malformed head is not a pass.
-- Spec: unparseable judge reply is red; head comparison mandatory; new `## Empty inputs` and `## Brief walk-judge-screens-tied-to-coverage-r2 (branch claude/walk-judge-screens-coverage-r2)
+- Spec: unparseable judge reply is red; head comparison mandatory; new `## Empty inputs` and `## Parts left`.
+
+## Brief walk-judge-screens-tied-to-coverage-r2 (branch claude/walk-judge-screens-coverage-r2)
 - PR #1453. tsc run on 7d209846: 0 errors in branch files. Not labelled automerge-ok (scripts/lib is hard-tier).
 - Rebuild of PR #1435 (head 022b6d6e) on current main; #1435 is replaced and the lead closes it.
 - The old diff (6 files, +296 -18) re-applied onto main: all five code/test files applied cleanly with
@@ -59,7 +61,6 @@ approves at head; the worker never approves or merges.
 - tsc: `tsconfig.json`/`tsconfig.node.json` 0 errors; `tsconfig.app.json` 137 errors, none in branch
   files (that config does not cover scripts/ or tests/).
 
-## Parts left`.
 - Tests J8, J9, J10, J15, J23 added (they already held on c79d9a07; coverage only). 41 new tests red on
   the old code; mutants M8 to M19 (+M9b) each killed, then restored (table in the PR body).
 

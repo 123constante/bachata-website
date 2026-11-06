@@ -552,7 +552,7 @@ describe('walk-judge: input.screens is compared with walk-coverage.json', () => 
     expect(judgeVerdict(makeInput(), makeReport(), seeded).verdict).toBe('red');
   });
 
-  it('K13 duplicate input ids: reported once per duplicated id, and the verdict is red with a coverage: reason', () => {
+  it('K13 duplicate input ids: one coverage: reason regardless of how many ids repeat, and the verdict is red', () => {
     const dupOnce = [...SCREENS, { ...SCREENS[0] }];
     const dupTwice = [...SCREENS, { ...SCREENS[0] }, { ...SCREENS[0] }];
     for (const screens of [dupOnce, dupTwice]) {
