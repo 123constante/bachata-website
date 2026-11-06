@@ -1,6 +1,4 @@
-﻿import { withPublicNames } from '@/lib/publicDancerNames';
-import { resolvePublicName } from '@/lib/publicName';
-import React from 'react';
+﻿import React from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -67,7 +65,8 @@ import { RetryButton } from '@/modules/profile/RetryButton';
 import { useStickyFailure } from '@/modules/profile/useStickyFailure';
 import { pickNationalityCode } from '@/components/people/nationality';
 import { usePeopleBadges } from '@/modules/person-page/badges';
-import { buildOrganiserTeam } from '@/modules/profile/organiserTeam';
+import { teamFromPublicRows } from '@/modules/profile/organiserTeam';
+import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { OrganiserStatsStrip } from '@/modules/profile/OrganiserStatsStrip';
 import { OrganiserGetInTouch, buildContactRows } from '@/modules/profile/OrganiserGetInTouch';
 import { OrganiserTeamSection } from '@/modules/profile/OrganiserTeamSection';
@@ -108,16 +107,7 @@ type UpcomingListItem =
       dates: OrgEvent[];
     };
 
-type TeamMember = {
-  id: string;
-  memberId: string;
-  dancerId: string | null;
-  /** Public name, or null when the person has none (the Team mapping then leaves them out). */
-  name: string | null;
-  avatarUrl: string | null;
-  nationalityCode: string | null;
-  sortOrder: number | null;
-};
+const EMPTY_NATIONALITY: ReadonlyMap<string, string | null> = new Map();
 
 type EntityProfile = {
   id: string;
@@ -721,39 +711,14 @@ const OrganiserProfile = () => {
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
-    // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
-    // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
-    // owner layer's team read, so the Team card never showed.
-    queryKey: ['organiser-lineup', id],
-    queryFn: async (): Promise<TeamMember[]> => {
-      if (!id) return [];
-      const { data: teamRows, error } = await supabase
-        .from('organiser_team_members')
-        .select('id, sort_order, member_profile_id, is_active')
-        .eq('organiser_profile_id', id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true, nullsFirst: false });
-      // Throw, not `[]`: a failed roster is an error line, not "no team" (S1).
-      if (error) throw new Error(error.message ?? JSON.stringify(error));
-      if (!teamRows?.length) return [];
-      const memberIds = teamRows.map((r) => r.member_profile_id);
-      const { data: dancerRows, error: dancerError } = await supabase
-        .from('dancer_profiles')
-        .select('id, first_name, avatar_url, nationality')
-        .in('id', memberIds);
-      // The names read failing is the TEAM failing (fix round 1, review LOW-4): with no
-      // names the mapping drops everyone, which would read as "no team".
-      if (dancerError) throw new Error(dancerError.message ?? JSON.stringify(dancerError));
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
-      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
-      const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
-      return teamRows.map((t) => {
-        const d = dancerMap.get(t.member_profile_id);
-        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || null;
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), sortOrder: t.sort_order ?? null };
-      });
-    },
+  // P2: the public Team is organiser_public_team_v1 -- owners, managers, then listed
+  // people, already filtered (hides, opt-outs, inactive) and ordered (sort_key) by the
+  // RPC. Its key is NOT ['organiser-team', id] (organiser_team_v1, the owner layer's
+  // access read). The direct organiser_team_members read stays the edit layer's source.
+  const { data: publicTeamRows = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
+    queryKey: organiserPublicTeamKey(id),
+    // Throws on error or a bad shape: a failed read is an error line, not "no team" (S1).
+    queryFn: () => fetchOrganiserPublicTeam(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -765,20 +730,24 @@ const OrganiserProfile = () => {
   const { failed: pastOccsError } = useStickyFailure(pastOccsErrorRaw, pastOccsFetching);
   const { failed: teamMembersError, retrying: teamMembersRetrying } = useStickyFailure(teamMembersErrorRaw, teamMembersFetching);
 
-  // S3 (read side): the ONE Team mapping. `listed` is the public line-up this
-  // page already reads (active rows only, so hidden is false); `access`
-  // (owners + managers) is empty until an admin RPC makes them publicly
-  // readable -- docs/handover/organiser-page-p1.md. A person links to their
-  // dancer page by id (the dancer route takes a slug or an id).
-  const team = useMemo(() => buildOrganiserTeam({
-    listed: teamMembers.map((m) => ({ personId: m.memberId, name: m.name, avatarUrl: m.avatarUrl, slug: m.dancerId, sortOrder: m.sortOrder, hidden: false })),
-    access: [],
-  }), [teamMembers]);
-  const teamCount = team.people.length + team.overflow.length;
-  // Restored from main (fix round 1): each circle's flag, and the role-aware link
-  // from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
-  const teamNationality = useMemo(() => new Map(teamMembers.map((m) => [m.memberId, m.nationalityCode])), [teamMembers]);
-  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
+  // S3 (read side): the ONE Team mapping, in the RPC's order (teamFromPublicRows).
+  const team = useMemo(() => teamFromPublicRows(publicTeamRows), [publicTeamRows]);
+  const teamCount = team.people.length;
+  const teamIds = useMemo(() => team.people.map((p) => p.personId), [team]);
+  // Each circle's flag (dancer_profiles.nationality). A failed flag read only drops
+  // the flags; it never hides the Team.
+  const { data: teamNationality = EMPTY_NATIONALITY } = useQuery({
+    queryKey: ['organiser-public-team-flags', id, teamIds],
+    queryFn: async (): Promise<ReadonlyMap<string, string | null>> => {
+      const { data, error } = await supabase.from('dancer_profiles').select('id, nationality').in('id', teamIds);
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((d) => [d.id, pickNationalityCode(d)]));
+    },
+    enabled: teamIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  // The role-aware link from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
+  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(teamIds);
   const teamBadgesState = teamBadgesLoading ? 'loading' : teamBadgesError ? 'error' : 'ready';
 
   // Start of London-today as a true-UTC instant; reactive so a long-lived tab

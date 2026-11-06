@@ -116,6 +116,12 @@ vi.mock('@/integrations/supabase/client', () => {
     return chain;
   };
   return { supabase: { from: chainFor, rpc: async (fn: string) => {
+    // P2: the public Team is organiser_public_team_v1 (rows already ordered by sort_key).
+    if (fn === 'organiser_public_team_v1') {
+      if (s.shape.feeds.team === 'hang') return never();
+      if (s.shape.feeds.team === 'error') return { data: null, error: { message: 'team boom' } };
+      return { data: Array.from({ length: s.shape.team }, (_, i) => ({ person_id: `d${i}`, slug: null, public_name: ['Ana', 'Ben', 'Cleo'][i] ?? `P${i}`, avatar_url: null, sort_key: i + 1 })), error: null };
+    }
     if (fn === 'organiser_ownership_v1') return { data: s.shape.owner ? { is_managed: true, i_own_it: true, my_role: 'owner' } : { is_managed: false, i_own_it: false, my_role: null }, error: null };
     if (fn === 'get_public_people_badges_v1') {
       if (s.shape.feeds.badges === 'hang') return never();
@@ -389,7 +395,9 @@ describe.each([false, true])('fix 1: failure combinations (owner = %s)', (owner)
     const upcomingFailed = failed.has('events') || failed.has('future');
     const pastFailed = failed.has('events') || failed.has('past');
     // The names read only runs when the roster has rows (the owner shape has none).
-    const teamFailed = failed.has('team') || (failed.has('dancers') && !owner);
+    // P2: names come from organiser_public_team_v1; the dancer_profiles read only
+    // carries flags, so its failure drops flags and never fails the Team.
+    const teamFailed = failed.has('team');
 
     // (e) per-feed stats: the failed feed's own stat is a marked dash; nothing else qualifies here.
     expect(failedStats()).toEqual([upcomingFailed && 'next_night', pastFailed && 'nights_hosted'].filter(Boolean));
