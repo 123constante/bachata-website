@@ -25,7 +25,7 @@ export const program = (...days: Array<ReturnType<typeof item>[]>) =>
 
 export const occ = (date: string, status = 'scheduled', extra: Raw = {}) => ({
   id: `o-${date}`, occurrence_date: date, lifecycle_status: status, version: 3,
-  has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null, ...extra,
+  has_override: false, override_keys: [] as string[], session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null, ...extra,
 });
 
 /** `n` dates a week apart from `from` (a Friday by default). */
