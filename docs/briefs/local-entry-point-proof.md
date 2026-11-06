@@ -11,8 +11,8 @@ Why: #1402 added `route-runner.mjs` with `isEntryPoint` but not in TARGETS; only
 
 ## What main lacks
 (Verified by the orchestrator with `git grep` on origin/main 3e8a74b0a, 2026-11-06.)
-- `prove:entry-point` / `prove:entry-point:self-test` (package.json lines 20-21) run only from `.github/workflows/architecture-guard.yml` (lines 249-250); `git grep prove-entry-point` on `scripts/pre-ship.mjs`, `scripts/ship-gate.mjs` and `.husky` returns nothing.
-- `assertTargetsCover(root)` in `scripts/prove-entry-point-dispatch.mjs` (line 631, walks `scripts`, collects files containing `isEntryPoint(import.meta.url)` not in TARGETS) is NOT exported; nothing outside the file can call the cheap coverage check without the full spawning probe run.
+- pre-ship / ship-gate / .husky never run the entry-point proof (it runs only in architecture-guard.yml lines 249-250) -- grep: coverage-only
+- `assertTargetsCover(root)` (line 631) is not exported, so the cheap TARGETS-coverage check cannot be called without the full spawning probe run -- grep: export function assertTargetsCover
 
 ## Files
 scripts/prove-entry-point-dispatch.mjs (ONLY: export `assertTargetsCover`, optionally add a `--coverage-only` flag that runs just it, offline, no spawns; behaviour of the default run byte-identical)
