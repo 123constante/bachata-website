@@ -249,7 +249,7 @@ export async function startOnboarding(organiserId: string, returnUrl: string, re
  * The ticket-refund body for a partial refund (admin PR #1283): integer pence, plus the per-press
  * idempotency key the function requires with an amount. A whole refund sends `{ order_id }` only.
  */
-export type partialRefundRequest = { order_id: string; amount_pence: number; request_id: string };
+export type PartialRefundRequest = { order_id: string; amount_pence: number; request_id: string };
 
 /** What a partial refund answered. `remainingPence` is null when the reply did not say (never guessed here). */
 export interface PartialRefundDone {
@@ -265,7 +265,7 @@ export interface PartialRefundDone {
  * reply's fields for a partial.
  */
 export async function refundOrder(orderId: string, opts?: { amountPence: number; requestId: string }): Promise<EdgeOutcome<PartialRefundDone | null>> {
-  const body: { order_id: string } | partialRefundRequest = opts
+  const body: { order_id: string } | PartialRefundRequest = opts
     ? { order_id: orderId, amount_pence: opts.amountPence, request_id: opts.requestId }
     : { order_id: orderId };
   const out = await invokeEdge('ticket-refund', body);
@@ -278,6 +278,5 @@ export async function refundOrder(orderId: string, opts?: { amountPence: number;
     kind: 'ok',
     value: { amountPence: pence(v.amount_pence) ?? opts.amountPence, remainingPence: pence(v.remaining_pence), clearsBalance: v.clears_balance === true },
   };
-
 }
 

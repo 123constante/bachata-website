@@ -403,7 +403,6 @@ export const refundPartQuestion = (o: Pick<Order, 'totalPence' | 'refundedPence'
     validPence !== null && validPence >= refundAmount(o)
       ? 'This gives back everything that is left on the order. Cannot be undone.'
       : 'The amount you enter goes back. Their tickets stay valid and the order stays paid. Cannot be undone.',
-
   confirm: validPence === null ? 'Refund' : `Refund ${formatPence(validPence)}`,
 });
 
@@ -419,7 +418,6 @@ export const partialRefundDone = (amountPence: number, remainingPence: number | 
   return `${sent} ${formatPence(remainingPence)} is left to refund. Tickets stay valid.`;
 };
 
-
 /**
  * One idempotency key per press of Refund (ticket-refund request_id: 8-64 chars of [A-Za-z0-9_-]).
  * A UUID (36 chars of hex and dashes); the fallback mirrors shared/seriesCommands.ts newIdempotencyKey.
@@ -428,6 +426,40 @@ export const newRefundRequestId = (): string =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+
+/**
+ * Server answers that END a partial-refund press: the server has said no (or yes) for certain, so the
+ * held key is dropped and the next press is a new refund. `stripe_error` and `internal_error` can happen
+ * AFTER Stripe created the refund, and an unknown reason or gateway code says nothing, so those keep the
+ * key and a retry sends the same one (the server answers the same press, never a second refund).
+ */
+export const DEFINITE_REFUND_REASONS: ReadonlySet<string> = new Set([
+  'invalid_request',
+  'invalid_amount',
+  'request_id_required',
+  'request_id_reused',
+  'not_signed_in',
+  'not_authorised',
+  'not_found',
+  'not_refundable',
+  'refund_exceeds_balance',
+  'method_not_allowed',
+]);
+/** True when this outcome ends the press (drop the key); false keeps it for the retry. */
+export const endsRefundPress = (kind: 'ok' | 'not_configured' | 'failed', reason: string | null): boolean =>
+  kind !== 'failed' || (reason !== null && DEFINITE_REFUND_REASONS.has(reason));
+
+/** Shown under the note while a key is held: the last press may have reached Stripe. */
+export const refundMaybeSent = (pence: number): string =>
+  `The last refund may have gone through. Tap Refund ${formatPence(pence)} again to check, or reload the page before changing the amount.`;
+
+/**
+ * `refunded_pence` is advisory and lags the webhook. Pence this page has sent that the order row does
+ * not show yet: counted only while the row still shows the figure it had when the refund was sent.
+ */
+export type PendingRefund = { base: number; pence: number };
+export const withPendingRefund = <T extends { refundedPence: number }>(o: T, p: PendingRefund | undefined): T =>
+  p && p.base === o.refundedPence ? { ...o, refundedPence: o.refundedPence + p.pence } : o;
 
 export const ORDER_TAG: Record<string, { label: string; tone: StatusTone }> = {
   paid: { label: 'Paid', tone: 'live' },

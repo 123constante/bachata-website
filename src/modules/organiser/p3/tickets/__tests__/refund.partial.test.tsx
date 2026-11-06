@@ -210,7 +210,6 @@ describe('one key per press (request_id idempotency)', () => {
     expect(key(1)).not.toBe(key(0)); // a second, deliberate 3.00 refund
   });
   it('a definite answer ends the press: a refusal with a reason, then a new press, uses a new key', async () => {
-
     api.refundOrder.mockResolvedValue({ kind: 'failed', reason: 'refund_exceeds_balance' });
     show(<TicketsEntry seriesId="ser-1" />);
     open();
@@ -221,6 +220,70 @@ describe('one key per press (request_id idempotency)', () => {
     await pressAndWait(1);
     await pressAndWait(2);
     expect(key(1)).not.toBe(key(0)); // "wait a minute, then try again" is a new press the server can say yes to
+  });
+  const DEFINITE = ['invalid_request', 'invalid_amount', 'request_id_required', 'request_id_reused', 'not_signed_in', 'not_authorised', 'not_found', 'not_refundable', 'refund_exceeds_balance', 'method_not_allowed'];
+  const UNCLEAR = ['stripe_error', 'internal_error', 'something_new', 'FunctionsHttpError'];
+  it.each(DEFINITE)('definite reason %s: the next press makes a new key', async (reason) => {
+    api.refundOrder.mockResolvedValue({ kind: 'failed', reason });
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('op');
+    part();
+    typeAmount('3');
+    await pressAndWait(1);
+    await pressAndWait(2);
+    expect(key(1)).not.toBe(key(0));
+    expect(screen.queryByTestId('tix-refund-maybe-sent')).toBeNull();
+  });
+  it.each(UNCLEAR)('unclear reason %s: the next press reuses the same key and the sheet says the last refund may have gone through', async (reason) => {
+    api.refundOrder.mockResolvedValue({ kind: 'failed', reason });
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('op');
+    part();
+    typeAmount('3');
+    await pressAndWait(1);
+    expect(screen.getByTestId('tix-refund-maybe-sent').textContent).toBe(
+      'The last refund may have gone through. Tap Refund \u00A33.00 again to check, or reload the page before changing the amount.',
+    );
+    await pressAndWait(2);
+    expect(key(1)).toBe(key(0));
+  });
+  it('the may-have-gone-through line is absent before any press', () => {
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('op');
+    part();
+    typeAmount('3');
+    expect(screen.queryByTestId('tix-refund-maybe-sent')).toBeNull();
+  });
+  it('a \u00A33 partial of \u00A38 left: reopening shows up to \u00A35.00 and the whole refund says \u00A35.00 until refunded_pence moves', async () => {
+    // order 'op' is \u00A325.00 total; make it \u00A38.00 so the brief\u2019s figures hold.
+    load({ ...withOrders(), orders: [order('o8', 't-sell', { subtotalPence: 800, bookingFeePence: 0, totalPence: 800 })] });
+    api.refundOrder.mockResolvedValueOnce({ kind: 'ok', value: { amountPence: 300, remainingPence: 500, clearsBalance: false } });
+    const r = show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    seeAll();
+    openSheet('o8');
+    part();
+    typeAmount('3');
+    fireEvent.click(confirm());
+    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
+    openSheet('o8');
+    expect(screen.getByTestId('tix-refund-body').textContent).toMatch(/\u00A35\.00/);
+    expect(confirm().textContent).toBe('Refund \u00A35.00');
+    part();
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A35.00 left to refund');
+    fireEvent.click(screen.getByTestId('tix-refund-cancel'));
+    // The webhook lands: the row says 3.00 refunded, and the pending figure is not counted twice.
+    load({ ...withOrders(), orders: [order('o8', 't-sell', { subtotalPence: 800, bookingFeePence: 0, totalPence: 800, refundedPence: 300 })] });
+    r.again();
+    openSheet('o8');
+    part();
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A35.00 left to refund');
   });
   it('a done partial ends the press: the next refund of the same amount on that order is a new key', async () => {
     api.refundOrder.mockResolvedValueOnce({ kind: 'ok', value: { amountPence: 300, remainingPence: 2200, clearsBalance: false } });

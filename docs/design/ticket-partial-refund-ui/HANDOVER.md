@@ -17,3 +17,11 @@ PR #1458, branch `claude/ticket-partial-refund-ui`. Brief: `brief/ticket-partial
 - Lead: confirm that `ticket-refund` with no amount on a part-refunded order refunds only the remainder.
 - Follow-ups (review, skipped): show the server's `remaining_pence` for `invalid_amount`. The maximum stays stale until the `charge.refunded` webhook lands; the server refuses with `refund_exceeds_balance`, whose words say to wait a minute.
 - Repo: `.githooks/*` are not executable in this sandbox, so the pre-push hook did not run. pre-ship was run by hand; the 4 failing unit suites fail the same way on main.
+
+## Continuation 1 (review fixes)
+
+Done: key kept on `stripe_error` / `internal_error` / unknown reasons (dropped only on `ok`, `not_configured` and the 10 definite reasons); per-order pending-refund pence in `TicketsEntry` (cleared when `refundedPence` moves) subtracted from max, whole-refund amount and the toast remainder (toast remainder is our figure, not the reply's); "may have gone through" line while a key is held; tidy (blank lines, `PartialRefundRequest`, lazy key Map).
+Left: whole refund still sends `{ order_id }` with no amount (server computes the remainder); only the amount shown is reduced.
+Coverage: INVENTORY.md 33 / 34 (gap A13, admin screen unreadable).
+Verified: `npx vitest run src/modules/organiser` 279 files pass; 5 new key/may-have-sent tests fail on the old code; `check:mojibake` clean; tsc -p tsconfig.app.json 138 errors, 0 in branch files.
+Not verified: a real Stripe refund (no test-mode run); browser walk at 390x844.
