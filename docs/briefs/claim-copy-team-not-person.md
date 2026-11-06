@@ -6,7 +6,7 @@ Repo: Website. Branch: claude/claim-copy-team-not-person. Lane: normal, Sonnet. 
 Overlap note: PR #1411 (claude/claim-sheet-honest-retry) edits OnboardingFlow.tsx only. Keep your files to claimStates.ts, shared/copy.ts and their tests so there is no overlap.
 
 ## What main lacks
-- A "no email" line that names a person: `NO_EMAIL_COPY` says 'This page has no email on file yet. Ask to join and Ricky approves it, usually the same day.' (src/modules/organiser/home/onboarding/claimStates.ts line 28). Replace with the Bachata Calendar team wording -- grep: Ricky approves it
+- A "no email" line that names a person: `NO_EMAIL_COPY` says 'This page has no email on file yet. Ask to join and Ricky approves it, usually the same day.' (src/modules/organiser/home/onboarding/claimStates.ts line 28). Replace with the Bachata Calendar team wording -- grep: team will check
 - A "has a team" title that claims an owner: the `managed` screen (6b) title is `<name> already has an owner` (claimStates.ts line 48), but the database hint `managed` only means the page has members; the client cannot tell managers-only from owned (`ClaimHint` in shared/claimHint.ts has no owner flag and this brief adds no database call) -- grep: already has a team
 - A second organiser-facing line that names a person: `WARN_END = 'Only Ricky can reopen an ended event.'` (src/modules/organiser/shared/copy.ts line 11), shown by flows/event/EndStep.tsx and pinned in shared/__tests__/copy.test.ts line 29. Reword to the team -- grep: Only the Bachata Calendar team can reopen
 - A table test over every claim state's words that fails on any named person -- src/modules/organiser/home/__tests__/ClaimWords.matrix.test.tsx
