@@ -38,6 +38,8 @@ export default function AddSomeone() {
   const [message, announce] = useAnnounce();
   const term = searchTerm(useDebounced(query));
   const namePage = kind === 'p3' && ctx.organisers.length >= 2;
+  const pageName = organiser?.name ?? '';
+  const ofPage = namePage ? ` of ${pageName}` : '';
   const full = teamIsFull(members.length, serverFull);
   const allowed = viewerRole === 'owner' || viewerRole === 'manager';
   // Faces and results carry profile ids; a member's profile id is their user id unless organiser_team_v1
@@ -95,7 +97,7 @@ export default function AddSomeone() {
     if (!serverFull) setError(null);
     if (f.canAdd === false) void share(invite(f.name));
     // Done rides mutate()'s own callback: TanStack drops it once this screen unmounts (a late answer stays put).
-    else add.mutate({ profileId: f.profileId, name: f.name }, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager${namePage && organiser ? ` of ${organiser.name}` : ''}`, seriesId: null }, doneBack, paths.done) });
+    else add.mutate({ profileId: f.profileId, name: f.name }, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager${ofPage}`, seriesId: null }, doneBack, paths.done) });
   };
   const more = (browse.data?.length ?? 0) >= limit;
   // The lookup cap (permission_denied: lookup_cap) says what to do instead of "did not load" (W4a fix 3, F8).
