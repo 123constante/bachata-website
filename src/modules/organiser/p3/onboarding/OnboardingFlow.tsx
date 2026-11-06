@@ -7,6 +7,7 @@ import { flags } from '@/lib/featureFlags';
 import { finishProfileHref } from '@/lib/profileCompletion';
 import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
+import { supportLinks } from '../../shared/support';
 import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
 import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
@@ -25,6 +26,7 @@ import {
   KEPT_PARAMS,
   NAME_MAX,
   PAGE_COPY,
+  FIND_INVITE_NOTE,
   afterContact,
   contactEntry,
   draftFrom,
@@ -534,7 +536,7 @@ export function PageScreens(props: PageScreensProps) {
 
   const copy = PAGE_COPY[step];
   const reason = pageBlocked(step, d);
-  const label = saving ? 'Saving\u2026' : step === 'create-city' ? 'Create page' : step === 'contact' ? 'Yes, that\u2019s right' : step === 'welcome' ? (orgId ? 'Let\u2019s go' : 'Find your page') : step === 'find' ? 'Not listed? Create a page' : 'Continue';
+  const label = saving ? 'Saving\u2026' : step === 'create-city' ? 'Create page' : step === 'contact' ? 'Yes, that\u2019s right' : step === 'welcome' ? (orgId ? 'Let\u2019s go' : 'Find your page') : step === 'find' ? 'Have an invite? Create a page' : 'Continue';
   const errorLine = error && (
     <p className="p3-ob-err" role="alert" data-testid="p3-ob-error">
       {error.text}{' '}
@@ -545,6 +547,7 @@ export function PageScreens(props: PageScreensProps) {
   const foot = (
     <>
       {errorLine || (reason && step !== 'welcome' && step !== 'find' ? <p className="p3-ob-why" id="p3-ob-why" data-testid="p3-ob-why">{reason}</p> : null)}
+      {step === 'find' && <FindInviteNote />}
       <button
         type="button"
         className="p3-ob-btn"
@@ -676,6 +679,19 @@ function SearchInput({ value, onChange, placeholder, testId }: { value: string; 
     <div className="p3-ob-search">
       {SEARCH}
       <input className="p3-ob-inp" type="search" placeholder={placeholder} autoComplete="off" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(e.target.value)} data-testid={testId} />
+    </div>
+  );
+}
+
+/** Invite-only note above the Find button; a "Message us" row per configured support link, never a dead one. */
+function FindInviteNote() {
+  const support = supportLinks();
+  const row = 'p3-ob-lnk';
+  return (
+    <div className="p-3 text-sm" data-testid="p3-ob-find-invite-note">
+      <p className="p3-ob-m">{FIND_INVITE_NOTE}</p>
+      {support.whatsapp && <a href={support.whatsapp} target="_blank" rel="noopener noreferrer" className={row} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="p3-ob-find-support-whatsapp">Message us on WhatsApp</a>}
+      {support.email && <a href={`mailto:${support.email}`} className={row} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} data-testid="p3-ob-find-support-email">Message us by email</a>}
     </div>
   );
 }

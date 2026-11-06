@@ -202,6 +202,9 @@ export function keptCreateDraft(params: URLSearchParams): PageDraft | null {
 
 export type PageCopy = { title: string; helper: string | null; reason: string | null };
 
+/** Find step: creating a new page is invite-only (see INVITE_REQUIRED_COPY in shared/selfServeErrors). */
+export const FIND_INVITE_NOTE = 'New pages are by invite from the Bachata Calendar team. Have an invite? Create your page below.';
+
 export const PAGE_COPY: Record<PageStep, PageCopy> = {
   welcome: { title: 'Welcome', helper: null, reason: null },
   find: { title: 'Find your page', helper: 'Your organiser, school or party.', reason: null },
