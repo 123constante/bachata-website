@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchOrderQr } from './myTicketsApi';
-import { MY_TICKETS_PATH, type OrderQrTicket } from './myTicketsModel';
+import { MY_TICKETS_PATH, TICKET_WHERE, type OrderQrTicket } from './myTicketsModel';
 import QrCode from './TicketQrCode';
 
 /**
  * The buyer's door QRs on the paid thank-you page (signed in, real order id). One call per
- * mount. Empty, signed-out and error replies all read "in your email, and in My tickets" and
- * never say the order is missing. The qr_token lives only in this state and TicketQrCode.
+ * mount. An empty reply says "in your email" only (a guest order is never linked to My tickets);
+ * an error says email, with a My tickets link as a retry. Neither says the order is missing. The qr_token lives only in this state and TicketQrCode.
  */
 export const ORDER_QR_CAP = 8;
 
-type View = { kind: 'loading' } | { kind: 'cards'; tickets: OrderQrTicket[] } | { kind: 'email' };
+type View = { kind: 'loading' } | { kind: 'cards'; tickets: OrderQrTicket[] } | { kind: 'empty' } | { kind: 'error' };
 
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
 
@@ -21,7 +21,8 @@ export default function OrderQrBlock({ orderId }: { orderId: string }) {
     let live = true;
     void fetchOrderQr(orderId).then((r) => {
       if (!live) return;
-      setView(r.kind === 'ok' && r.tickets.length > 0 ? { kind: 'cards', tickets: r.tickets } : { kind: 'email' });
+      if (r.kind === 'ok') setView(r.tickets.length > 0 ? { kind: 'cards', tickets: r.tickets } : { kind: 'empty' });
+      else setView(r.kind === 'signed_out' ? { kind: 'empty' } : { kind: 'error' });
     });
     return () => {
       live = false;
@@ -31,8 +32,17 @@ export default function OrderQrBlock({ orderId }: { orderId: string }) {
   if (view.kind === 'loading') {
     return <p className="mb-2 text-[13px]" style={muted} data-testid="order-qr-loading">Getting your door codes&hellip;</p>;
   }
-  if (view.kind === 'email') {
-    return <p className="mb-2 text-[13px]" style={muted} data-testid="order-qr-email">Your tickets are in your email, and in My tickets.</p>;
+  if (view.kind === 'empty') {
+    return <p className="mb-2 text-[13px]" style={muted} data-testid="order-qr-email">{TICKET_WHERE.empty}</p>;
+  }
+  if (view.kind === 'error') {
+    return (
+      <p className="mb-2 text-[13px]" style={muted} data-testid="order-qr-email">
+        {TICKET_WHERE.error}{' '}
+        <Link to={MY_TICKETS_PATH} className="inline-flex min-h-[44px] items-center underline">{TICKET_WHERE.errorLink}</Link>{' '}
+        {TICKET_WHERE.errorTail}
+      </p>
+    );
   }
   const shown = view.tickets.slice(0, ORDER_QR_CAP);
   const more = view.tickets.length - shown.length;

@@ -21,6 +21,9 @@ import {
   typesForNight,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { useAuth } from '@/hooks/useAuth';
+import { buildSignInHref } from '@/lib/authRouting';
+import { TICKET_WHERE } from './myTicketsModel';
 import { clearOrderId, saveOrderId } from './orderStorage';
 import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
 
@@ -54,6 +57,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, authStatus } = useAuth();
+  const guest = !user && authStatus !== 'resolving';
   const { data: types } = useQuery({
     queryKey: publicTicketKeys.types(seriesId),
     queryFn: () => fetchPublicTicketTypes(seriesId),
@@ -415,6 +420,18 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
               className="h-[44px] w-full rounded-md px-3 text-[16px] text-black"
             />
           </label>
+          {guest && (
+            <p className="text-[13px]" style={muted} data-testid="tickets-guest-note">
+              {TICKET_WHERE.guestNote}{' '}
+              <Link
+                to={buildSignInHref(`${location.pathname}${location.search}`)}
+                className="inline-flex min-h-[44px] items-center underline"
+                data-testid="tickets-guest-signin"
+              >
+                {TICKET_WHERE.guestSignIn}
+              </Link>
+            </p>
+          )}
           <label className="block">
             <span className="mb-1 block text-[13px]">Name (optional)</span>
             <input
