@@ -6,7 +6,7 @@ import { useEventWorkspace, useSendOnce } from '../../shared/runCommands';
 import { isAccessRefusal } from '../../shared/selfServeErrors';
 import type { EventWorkspace } from '../../events/eventModel';
 import { useP3Home } from '../data/useP3Data';
-import { STATUS_COPY, eventPageOf, publicPageOf, type EventPageView } from '../data/eventPage';
+import { STATUS_COPY, SHARE_SUB, eventPageOf, publicPageOf, shareOf, type EventPageView } from '../data/eventPage';
 import { L, addDateWhy, peopleText, archivedStatus, sessionKindLabel, sessionTitle, timeWord } from '../model';
 import { repeatShapeOf, seriesFactsOf, tagClass } from '../data/dates';
 import type { DaySession } from '../model';
@@ -161,6 +161,50 @@ function DancerView({ ws }: { ws: EventWorkspace }) {
   );
 }
 
+/** p3-share-event-link: send dancers the event link. Share sheet, else copy; a closed sheet says nothing. */
+export const SHARE_COPIED = 'Link copied.';
+export const SHARE_COPY_FAILED = 'Couldn\u2019t copy. Press and hold the link below to copy it.';
+function ShareRow({ ws }: { ws: EventWorkspace }) {
+  const sh = shareOf(ws, typeof window === 'undefined' ? '' : window.location.origin);
+  const [note, setNote] = useState<'copied' | 'failed' | null>(null);
+  const title = <span className="p3-row-t">Share this event</span>;
+  if (sh.off) {
+    return (
+      <div className="p3-row" aria-disabled="true" data-testid="p3-share-off">
+        <span className="p3-grow p3-mut">{title}<br /><span className="p3-row-s" data-testid="p3-share-why">{sh.why}</span></span>
+      </div>
+    );
+  }
+  const { url, title: name } = sh;
+  const go = async () => {
+    setNote(null);
+    if (typeof navigator.share === 'function') {
+      try { await navigator.share({ title: name, url }); return; } catch (e) {
+        if ((e as { name?: string })?.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setNote('copied');
+    } catch {
+      setNote('failed');
+    }
+  };
+  return (
+    <>
+      <button type="button" className="p3-row p3-row-link" onClick={() => void go()} data-testid="p3-share">
+        <span className="p3-grow">{title}<br /><span className="p3-row-s">{SHARE_SUB}</span></span>
+      </button>
+      {note === 'copied' && <p className="p3-note" role="status" data-testid="p3-share-note">{SHARE_COPIED}</p>}
+      {note === 'failed' && (
+        <p className="p3-note" role="status" data-testid="p3-share-note">
+          {SHARE_COPY_FAILED}<br /><span className="p3-plain" style={{ userSelect: 'all' }} data-testid="p3-share-url">{url}</span>
+        </p>
+      )}
+    </>
+  );
+}
+
 function About({ v, ws }: { v: EventPageView; ws: EventWorkspace }) {
   const a = v.about;
   const none = <span className="p3-mut">{L.notSet}</span>;
@@ -182,6 +226,7 @@ function EditRows({ id, ws }: { id: string; ws: EventWorkspace }) {
   return (
     <div className="p3-card p3-tight p3-list" data-testid="p3-edit-rows">
       <DancerView ws={ws} />
+      <ShareRow ws={ws} />
       <Link className="p3-row p3-row-link" to={P3_PATHS.eventDetails(id)} data-testid="p3-open-details">
         <span className="p3-grow"><span className="p3-row-t">{L.detailsTitle}</span><br /><span className="p3-row-s">{L.detailsRowSub}</span></span>
         <span aria-hidden="true">&rsaquo;</span>
