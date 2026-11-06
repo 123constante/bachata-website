@@ -170,6 +170,21 @@ const lower = (l) => (typeof l === 'string' ? l.toLowerCase() : '');
  *   money: isMoney() result over the PR's files with patches (slice 2, A16); absent = NO
  * }
  */
+/**
+ * The review-passed label rule, shared by this lane (mergeVerdict step 8) and bot-automerge's
+ * class C (scripts/automerge-classify.mjs reviewRecordVerdict): the label is on the PR AND an
+ * issue event shows BOT_LOGIN adding it after the push anchor (ms). null = ok, else the refusal.
+ * labels: lower-cased label names (null = not read); labelEvents: issue events (null = not read).
+ */
+export function reviewLabelRefusal(labels, labelEvents, anchor) {
+  if (!labels || !labels.includes(REVIEW_LABEL)) return `no ${REVIEW_LABEL} label`;
+  if (!Number.isFinite(anchor) || !Array.isArray(labelEvents)) return `${REVIEW_LABEL}: push time or label events not read`;
+  const adds = labelEvents.filter((e) => e && e.event === 'labeled' && e.label && lower(e.label.name) === REVIEW_LABEL);
+  if (!adds.some((e) => e.actor && e.actor.login === BOT_LOGIN)) return `${REVIEW_LABEL} was not added by ${BOT_LOGIN}`;
+  if (!adds.some((e) => e.actor && e.actor.login === BOT_LOGIN && ts(e.created_at) > anchor)) return `${REVIEW_LABEL} was added before the latest push`;
+  return null;
+}
+
 export function mergeVerdict(facts) {
   const f = facts || {};
   const pr = f.pr || {};
@@ -248,13 +263,8 @@ export function mergeVerdict(facts) {
   if (f.behindBy !== 0) no(f.behindBy == null ? 'behind check not read' : `behind main by ${f.behindBy}`);
   // 8. review label by the bot after the latest push + our pack for THIS head
   const anchor = f.pushAnchorMs;
-  if (!labels || !labels.includes(REVIEW_LABEL)) no(`no ${REVIEW_LABEL} label`);
-  else if (!Number.isFinite(anchor) || !Array.isArray(f.labelEvents)) no(`${REVIEW_LABEL}: push time or label events not read`);
-  else {
-    const adds = f.labelEvents.filter((e) => e && e.event === 'labeled' && e.label && lower(e.label.name) === REVIEW_LABEL);
-    if (!adds.some((e) => e.actor && e.actor.login === BOT_LOGIN)) no(`${REVIEW_LABEL} was not added by ${BOT_LOGIN}`);
-    else if (!adds.some((e) => e.actor && e.actor.login === BOT_LOGIN && ts(e.created_at) > anchor)) no(`${REVIEW_LABEL} was added before the latest push`);
-  }
+  const labelNo = reviewLabelRefusal(labels, f.labelEvents, anchor);
+  if (labelNo) no(labelNo);
   const pack = Array.isArray(f.comments) ? findPackComment(f.comments) : null;
   if (!Array.isArray(f.comments)) no('PR comments not read');
   else if (!pack || !pack.user || pack.user.login !== PACK_AUTHOR) no('no autopilot pack comment');
