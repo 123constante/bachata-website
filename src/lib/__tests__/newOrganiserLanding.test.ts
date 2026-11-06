@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ORGANISER_HOME_PATH, appWelcomeHref, onboardingEnd, onboardingEndLabel, signInLanding, type SidesFacts } from '@/lib/accountRouting';
+import { ORGANISER_HOME_PATH, appWelcomeHref, onboardingEnd, onboardingEndLabel, profileSides, signInLanding, type SidesFacts } from '@/lib/accountRouting';
 import { P3_START_PATH, landingPathAfterAuth, newOrganiserLanding } from '@/lib/auth-otp-routing';
 import { P3_PATHS } from '@/modules/organiser/p3/shell/paths';
+import { organiserAreaHome } from '@/lib/organiserAreaHome';
 
 // F4 (owner decision 2026-10-29): a brand-new organiser who signs in lands on
 // P3's Welcome (/account/p3/start) -- only while the P3 area is live
@@ -43,8 +44,8 @@ const KINDS: Array<{ kind: string; facts: Partial<SidesFacts>; returnTo?: string
   { kind: 'new organiser, dancer done (no page, no membership, no request)', facts: { organiserIntent: true }, off: R1, on: START },
   { kind: 'new organiser, dancer unfinished', facts: { organiserIntent: true, dancer: 'incomplete' }, off: appWelcomeHref(R1), on: appWelcomeHref(START) },
   { kind: 'organiser-intent with an open access request', facts: { organiserIntent: true, openRequestCount: 1 }, off: '/app/home', on: '/app/home' },
-  { kind: 'existing organiser (one page)', facts: { organisers: [{ id: 'o1', name: 'A', avatar_url: null }], dancer: 'no_profile' }, off: R1, on: R1 },
-  { kind: 'existing organiser with organiser intent', facts: { organisers: [{ id: 'o1', name: 'A', avatar_url: null }], dancer: 'no_profile', organiserIntent: true }, off: R1, on: R1 },
+  { kind: 'existing organiser (one page)', facts: { organisers: [{ id: 'o1', name: 'A', avatar_url: null }], dancer: 'no_profile' }, off: R1, on: P3_PATHS.home }, // p3-landing F-01: P3 Home while live
+  { kind: 'existing organiser with organiser intent', facts: { organisers: [{ id: 'o1', name: 'A', avatar_url: null }], dancer: 'no_profile', organiserIntent: true }, off: R1, on: P3_PATHS.home },
   { kind: 'dancer only', facts: {}, off: '/app/home', on: '/app/home' },
   { kind: 'dancer only, unfinished', facts: { dancer: 'incomplete' }, off: '/app/welcome', on: '/app/welcome' },
   { kind: 'invite claim (returnTo kept)', facts: { organiserIntent: true }, returnTo: '/invite/abc', off: '/invite/abc', on: '/invite/abc' },
@@ -54,7 +55,8 @@ describe('signInLanding: every person kind x P3 flag', () => {
   for (const k of KINDS) {
     for (const [name, f] of FLAGS) {
       it(`${k.kind} -- ${name}`, () => {
-        const facts: SidesFacts = { ...base, ...k.facts, newOrganiserTo: newOrganiserLanding(live(f)) };
+        // What useProfileSides passes: the new-organiser landing and the organiser area's Home (p3-landing).
+        const facts: SidesFacts = { ...base, ...k.facts, newOrganiserTo: newOrganiserLanding(live(f)), organiserHomeTo: organiserAreaHome({ organiserP3: live(f), organiserSelfServe: true }) };
         expect(signInLanding(facts, k.returnTo ?? null)).toEqual({ kind: 'go', to: live(f) ? k.on : k.off });
       });
     }
@@ -116,6 +118,24 @@ describe('onboardingEndLabel: the button names every end path', () => {
     const go = signInLanding({ ...base, organiserIntent: true, dancer: 'incomplete', newOrganiserTo: START }, null);
     expect(go).toEqual({ kind: 'go', to: appWelcomeHref(START) });
     expect(onboardingEndLabel(onboardingEnd(START))).toBe('Next: find or create your page');
+  });
+
+  // review 1237 r1 F5: the switcher (useProfileSides) passes organiserHomeTo = the area Home and no
+  // newOrganiserTo, so the unfinished dancer side's returnTo is the area Home. It names a step either way.
+  for (const [name, f] of FLAGS) {
+    it(`switcher shape, unfinished dancer with organiser intent -- ${name}`, () => {
+      const home = organiserAreaHome(f);
+      const s = profileSides({ ...base, organiserIntent: true, dancer: 'incomplete', organiserHomeTo: home });
+      expect(s.status).toBe('ready');
+      const dancer = s.status === 'ready' ? s.sides.find((x) => x.kind === 'dancer') : undefined;
+      expect(dancer?.to).toBe(appWelcomeHref(home));
+      const label = onboardingEndLabel(onboardingEnd(home));
+      expect(label).toBe(live(f) ? 'Next: find or create your page' : 'Next: set up your organiser page');
+      expect(label).not.toBe('Continue');
+    });
+  }
+  it('P3 Home with a page chosen (o=) -> back to your page', () => {
+    expect(onboardingEndLabel(`${P3_PATHS.home}?o=abc`)).toBe('Next: back to your page');
   });
 });
 

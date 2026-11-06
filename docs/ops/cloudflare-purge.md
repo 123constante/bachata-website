@@ -133,8 +133,21 @@ Vercel's next request gets the stale copy while Vercel re-renders in the
 background. With one purge, Cloudflare's next miss would fetch that stale copy
 and cache it for another 300s. The warm request starts the re-render, and
 pass 2 removes the stale copy Cloudflare picked up. The SEO landing pages and
-the `.data` twins are not warmed. Each warm request is one SSR render on the
-Hobby CPU budget.
+the `.data` twins are not warmed, except the event page's canonical
+`/event/<slug>.data` (live-now slice 1, G3: a client-side navigation from the
+city feed or calendar fetches it). `/festival/<slug>.data` is still not warmed
+(accepted; a festival state change re-renders through the `event-<id>` hard
+delete below). Each warm request is one SSR render on the Hobby CPU budget.
+
+**State changes (live-now slice 1).** When the webhook body carries
+`stateChange: true` (boolean; the admin emit lands in slice 2), `/api/revalidate`
+hard-deletes ONLY `event-<id>` (`dangerouslyDeleteByTag`) and soft-invalidates
+the rest of the list (`city-<slug>`, `seo-landing` or `home-feed`, festival
+tags). Vercel then renders the event page fresh on the warm, so Cloudflare
+cannot re-hold a stale copy. The whole list is never hard-deleted (up to 11
+cold renders per cancel). If the hard delete succeeds and the soft invalidate
+fails, the event page is still purged from Cloudflare and the route returns
+502. Plan: `docs/design/live-now-lag/PLAN.md` (option C).
 
 Ids and slugs: the webhook sends a uuid. The slug comes from the same public
 resolvers the routes use: `resolve_public_event_ref_v1` for events, and
@@ -249,7 +262,8 @@ Vercel env vars are not set on this deployment.
   duplicate, `admin_merge_venues_v1`, self-heal, raffle and guest-list config,
   `organiser_profile_update_p5_v1`) and an event that ends because time passed:
   nothing purges any cache. Admin repo work.
-- **URLs that were not warmed** (query-string variants, `.data`, SEO pages)
+- **URLs that were not warmed** (query-string variants, `.data` other than
+  `/event/<slug>.data`, SEO pages)
   can still pick up Vercel's stale copy once after pass 2, because the soft
   invalidate serves stale first. That copy lasts up to 300s, compared with up
   to ~600s before this change.

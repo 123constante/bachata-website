@@ -26,9 +26,16 @@
  * the changed paths (one per line, old AND new name of a rename) through
  * PR_FILES -- never interpolated into a shell command.
  *
+ * PENDING (mirrors check-pr-real-data-verified.mjs): the bot opens every
+ * claude/** PR with this section already present and each line set to the MARKER
+ * "TO FILL" (scripts/pr-body-stub.mjs). On a UI PR, a body where every problem is
+ * a marker line is PENDING, not a violation; it is NEVER a pass (ok stays false).
+ * A docs-only / non-UI PR is still OK / not required, marker or not.
+ *
  * Exit codes: 0 pass (or no UI path changed), 1 the PR body violates the format,
  * 2 cannot run: PR_BODY or PR_FILES unset, or PR_FILES empty (every PR changes at
- * least one file, so an empty list is a broken pipe, never "nothing to check").
+ * least one file, so an empty list is a broken pipe, never "nothing to check"),
+ * 3 pending (the bot's TO FILL marker is still there; reported, not failed).
  *
  *   PR_BODY="$BODY" PR_FILES="$FILES" node scripts/check-pr-phone-qa.mjs
  *   node scripts/check-pr-phone-qa.mjs --self-test
@@ -37,6 +44,8 @@ import { isEntryPoint } from './lib/entry-point.mjs';
 
 export const HEADING = '## Phone QA';
 export const LABELS = ['Sizes checked', 'Walked', 'Not verified'];
+/** The bot stub's placeholder; the same string as check-pr-real-data-verified.mjs. */
+export const MARKER = 'TO FILL';
 
 /** The paths whose change can move pixels on a phone. */
 export const UI_PATH_RE = /^(?:(?:src|app)\/.+\.(?:tsx|css)|tailwind\.config\.[^/]+|public\/.+|index\.html)$/;
@@ -105,10 +114,10 @@ export function touchesUi(files) {
   return uiPaths(files).length > 0;
 }
 
-/** @param {string | null | undefined} body @returns {{ok: boolean, problems: string[]}} */
+/** @param {string | null | undefined} body @returns {{ok: boolean, pending: boolean, problems: string[]}} */
 export function parse(body) {
   if (typeof body !== 'string' || body.trim() === '') {
-    return { ok: false, problems: ['PR description is empty: the "' + HEADING + '" section is missing'] };
+    return { ok: false, pending: false, problems: ['PR description is empty: the "' + HEADING + '" section is missing'] };
   }
   // Comments first: a valid-looking section inside <!-- --> is invisible to
   // reviewers and must not count. CRLF normalised so $-anchored matches hold.
@@ -119,10 +128,14 @@ export function parse(body) {
     if (HEADING_RE.test(l)) starts.push(i);
   });
   if (starts.length === 0) {
-    return { ok: false, problems: ['Section "' + HEADING + '" is missing'] };
+    return { ok: false, pending: false, problems: ['Section "' + HEADING + '" is missing'] };
   }
   if (starts.length > 1) {
-    return { ok: false, problems: ['Section "' + HEADING + '" appears ' + starts.length + ' times; keep exactly one'] };
+    return {
+      ok: false,
+      pending: false,
+      problems: ['Section "' + HEADING + '" appears ' + starts.length + ' times; keep exactly one'],
+    };
   }
   const from = starts[0] + 1;
   let to = lines.length;
@@ -134,11 +147,25 @@ export function parse(body) {
   }
   const section = lines.slice(from, to);
   const problems = [];
+  // A marker on ANY section line is pending, wherever it sits: filled lines
+  // pasted above the bot's marker lines must not pass. Marker lines are left out
+  // of the label checks, so a label with only a marker line is reported once.
+  const markerLines = section.filter((l) => l.includes(MARKER));
+  const rest = section.filter((l) => !l.includes(MARKER));
+  for (const l of markerLines) {
+    const hit = LABELS.find((label) => labelValue([l], label) !== null);
+    problems.push((hit || 'section line "' + l.trim() + '"') + ': still "' + MARKER + '" (the description has not been filled in)');
+  }
+  const markers = problems.length;
   for (const label of LABELS) {
-    const p = contentProblem(label, labelValue(section, label));
+    const value = labelValue(rest, label);
+    if (value === null && markerLines.some((l) => labelValue([l], label) !== null)) continue;
+    const p = contentProblem(label, value);
     if (p) problems.push(p);
   }
-  return { ok: problems.length === 0, problems };
+  // Pending only when EVERY problem is a marker line: a real violation beside a
+  // marker is still a violation.
+  return { ok: problems.length === 0, pending: markers > 0 && markers === problems.length, problems };
 }
 
 export function main(argv, env = process.env, log = console) {
@@ -161,10 +188,15 @@ export function main(argv, env = process.env, log = console) {
     log.log('phone-qa-section: OK -- no UI path changed (' + files.length + ' files), the section is not required.');
     return 0;
   }
-  const { ok, problems } = parse(env.PR_BODY);
+  const { ok, pending, problems } = parse(env.PR_BODY);
   if (ok) {
     log.log('phone-qa-section: OK -- "' + HEADING + '" section is filled in (' + ui.length + ' UI paths changed).');
     return 0;
+  }
+  if (pending) {
+    log.log('phone-qa-section: PENDING -- ' + ui.length + ' UI path(s) changed; waiting for the description to be filled in (NOT a pass).');
+    for (const p of problems) log.log('  - ' + p);
+    return 3;
   }
   log.error('phone-qa-section: FAIL -- ' + ui.length + ' UI path(s) changed, e.g. ' + ui.slice(0, 3).join(', '));
   for (const p of problems) log.error('  - ' + p);
@@ -179,8 +211,12 @@ const FILLED = [
   '- Not verified: iOS safe-area inset (Chromium cannot emulate it)',
 ].join('\n');
 
+const PENDING_BODY = [HEADING, ...LABELS.map((l) => '- ' + l + ': ' + MARKER)].join('\n');
+
 function selfTest(log) {
   const cases = [
+    ['marker body is not a pass', PENDING_BODY, false],
+    ['filled lines above leftover markers are not a pass', FILLED + '\n' + PENDING_BODY.split('\n').slice(1).join('\n'), false],
     ['filled section passes', FILLED, true],
     ['null body fails', null, false],
     ['body without the section fails', 'Summary only', false],
@@ -225,6 +261,9 @@ function selfTest(log) {
     ['UI change without the section is a violation (1)', main([], { PR_BODY: 'nothing here', PR_FILES: UI }, quiet), 1],
     ['UI change with the section passes (0)', main([], { PR_BODY: FILLED, PR_FILES: UI }, quiet), 0],
     ['non-UI change without the section passes (0)', main([], { PR_BODY: 'nothing here', PR_FILES: 'docs/a.md' }, quiet), 0],
+    ['UI change with the marker body is pending (3)', main([], { PR_BODY: PENDING_BODY, PR_FILES: UI }, quiet), 3],
+    ['non-UI change with the marker body passes (0)', main([], { PR_BODY: PENDING_BODY, PR_FILES: 'docs/a.md' }, quiet), 0],
+    ['marker beside a violation is a violation (1)', main([], { PR_BODY: PENDING_BODY.replace(/- Walked.*/, '- Walked: n/a'), PR_FILES: UI }, quiet), 1],
   ];
   for (const [name, got, want] of exits) {
     if (got !== want) {

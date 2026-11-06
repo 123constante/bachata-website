@@ -50,6 +50,8 @@ export interface WorkspaceDate {
   lifecycle_status: string;
   version: number;
   has_override: boolean;
+  /** Keys this date owns (admin_event_workspace_p5 occurrences[].override_keys); [] when missing or malformed. */
+  override_keys: string[];
   session_overrides_count: number;
   added_sessions_count: number;
   materialised_start_utc: string | null;
@@ -112,6 +114,7 @@ export function parseWorkspace(raw: unknown): SeriesWorkspace {
     lifecycle_status: String(o.lifecycle_status ?? 'scheduled'),
     version: num(o.version, 1),
     has_override: o.has_override === true,
+    override_keys: Array.isArray(o.override_keys) ? (o.override_keys as unknown[]).filter((k): k is string => typeof k === 'string') : [],
     session_overrides_count: num(o.session_overrides_count),
     added_sessions_count: num(o.added_sessions_count),
     materialised_start_utc: str(o.materialised_start_utc),

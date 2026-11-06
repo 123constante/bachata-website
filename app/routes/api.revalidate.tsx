@@ -22,6 +22,8 @@
 //     event/festival purge to that city's tag instead of the site-wide
 //     HOME_FEED/SEO_LANDING tags — see purgeTagsFor in ../cacheTags.
 //   - tags: string[] — explicit tags, overrides the derived list (bulk/manual).
+//   - stateChange (optional, boolean true only): the event write changed public
+//     STATE (cancel/move/time/status). Hard-deletes event-<id> only; see below.
 //   - slug (optional): the entity's canonical slug, when the sender knows it.
 //     Used only by the Cloudflare purge below (a hidden/archived event no
 //     longer resolves to its slug through the public resolver).
@@ -41,7 +43,7 @@
 // CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID. See docs/ops/cloudflare-purge.md.
 import { dangerouslyDeleteByTag, invalidateByTag, waitUntil } from "@vercel/functions";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
-import { isEntityType, purgeTagsFor } from "../cacheTags";
+import { eventTag, isEntityType, purgeTagsFor } from "../cacheTags";
 import { cloudflareEnvFromProcess, cloudflareSkipReason, runCloudflarePurge } from "../cloudflarePurge";
 import type { Route } from "./+types/api.revalidate";
 
@@ -129,26 +131,44 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (!tags.length) return json({ ok: false, reason: "no tags to invalidate" }, 400);
   tags = tags.slice(0, 128); // Vercel allows up to 128 tags per cached response.
 
-  const hidden =
-    !explicitTags?.length &&
-    (entityType === "event" || entityType === "festival") &&
-    !!entityId &&
-    (await eventPageHidden(entityId));
+  const isEventWrite =
+    !explicitTags?.length && (entityType === "event" || entityType === "festival") && !!entityId;
+  const hidden = isEventWrite && (await eventPageHidden(entityId!));
+  // Live-now slice 1: the sender says the write changed public STATE (cancel,
+  // move, time, status). Strictly boolean true; anything else is today's path.
+  const stateChange = isEventWrite && !hidden && (body.stateChange ?? body.state_change) === true;
 
   try {
     // Soft invalidate: serve stale instantly, revalidate in the background. No
     // token — runs with the deployment's ambient identity, current environment.
     // A hidden event is hard-deleted instead (see the header).
+    // A state change hard-deletes ONLY event-<id> (the next /event request renders
+    // fresh, so Cloudflare's warm cannot re-hold a stale copy) and soft-invalidates
+    // the rest. NEVER the whole list: seo-landing (9 pages) + city-<slug> (the
+    // busiest document) would be up to 11 cold renders per cancel on a Hobby team
+    // over its CDN cap (docs/design/live-now-lag/PLAN.md, option C, review F2).
+    const slugHints: Record<string, string> =
+      slugHint && entityId && UUID_RE.test(entityId) ? { [entityId]: slugHint } : {};
     if (hidden) await dangerouslyDeleteByTag(tags);
-    else await invalidateByTag(tags);
-    scheduleCloudflarePurge(
-      tags,
-      slugHint && entityId && UUID_RE.test(entityId) ? { [entityId]: slugHint } : {},
-    );
+    else if (stateChange) {
+      const hard = eventTag(entityId!);
+      await dangerouslyDeleteByTag([hard]);
+      const soft = tags.filter((t) => t !== hard);
+      try {
+        if (soft.length) await invalidateByTag(soft);
+      } catch (softErr) {
+        // The event page IS fresh on Vercel: still clear it from Cloudflare (the
+        // soft-failed city/SEO tags are not purged there -- Cloudflare would only
+        // refetch Vercel's un-invalidated copy). Still a 502: the write is partial.
+        scheduleCloudflarePurge([hard], slugHints);
+        throw softErr;
+      }
+    } else await invalidateByTag(tags);
+    scheduleCloudflarePurge(tags, slugHints);
     return json({ ok: true, tags }, 200);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[revalidate] invalidateByTag failed", msg);
+    console.error("[revalidate] Vercel tag purge failed", msg);
     // 502 → the DB webhook can safely retry (invalidation is idempotent).
     return json({ ok: false, reason: msg, tags }, 502);
   }

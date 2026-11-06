@@ -113,16 +113,22 @@ const json = (text: unknown): unknown => {
   try { return JSON.parse(text); } catch { return null; }
 };
 
+/** True for a Go live refused because the series is not ready, whether or not its JSON came through. */
+export function isGoLiveRefusal(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === 'string' && /needs a ready series/.test(message);
+}
+
 /**
  * The readable refusal of a Go live command (A-DB1): `permission_denied:
  * series.set_lifecycle <from> -> live needs a ready series: <json>`, the same
  * JSON in PostgREST `details`. Null for any other error.
  */
 export function goLiveRefusal(error: unknown): GoLiveCheck | null {
-  if (!error || typeof error !== 'object') return null;
-  const e = error as { message?: unknown; details?: unknown };
-  const message = typeof e.message === 'string' ? e.message : '';
-  if (!/needs a ready series/.test(message)) return null;
+  if (!isGoLiveRefusal(error)) return null;
+  const e = error as { message: string; details?: unknown };
+  const message = e.message;
   for (const raw of [json(e.details), json(message.match(REFUSAL)?.[1])]) {
     try { if (raw) return parseGoLiveCheck(raw); } catch { /* the other copy, else null */ }
   }

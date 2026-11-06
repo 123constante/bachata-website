@@ -6,6 +6,16 @@ import { ORG_PATHS, type NewEventFormat } from '../../shell/paths';
 
 export const P3_BASE = '/account/p3';
 
+const createUrl = (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/create?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/create`);
+const createStepUrl = (at: 'page' | 'form', kind: string, organiserId: string | null | undefined) =>
+  `${P3_BASE}/create?at=${at}&kind=${encodeURIComponent(kind)}${organiserId ? `&o=${encodeURIComponent(organiserId)}` : ''}`;
+/**
+ * R1's two creatable formats as P3 kinds (review 1 F9); anything else is the kind picker.
+ * `recurring -> weekly` is the best mapping available (review r1 F6): R1 had only these two
+ * formats, so a monthly intent never reached its URL and cannot be told apart here.
+ */
+const FORMAT_KIND: Record<string, string> = { one_off: 'one_date', recurring: 'weekly' };
+
 export const P3_PATHS = {
   home: P3_BASE,
   events: `${P3_BASE}/events`,
@@ -44,7 +54,17 @@ export const P3_PATHS = {
   eventHistory: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/history`,
   /** One event's co-organiser pages (R1 SeriesOrganisers in P3's frame). */
   eventOrganisers: (seriesId: string) => `${P3_BASE}/events/${encodeURIComponent(seriesId)}/organisers`,
-  /** New event: R1's create steps (flows/new) in P3's frame, same step URLs under P3. */
+  /**
+   * New event (p3-create slice 1): the kind first, then the page (2+ pages only), then the form.
+   * `o` = the page, `kind` = the kind picked, `at` = the step after the kind (page | form).
+   */
+  create: `${P3_BASE}/create`,
+  createFor: createUrl,
+  createStep: createStepUrl,
+  /** The old new/name?format= link: that kind's form (the page asked there when 2+ pages and none named), page kept. */
+  createForFormat: (format: string | null | undefined, organiserId: string | null | undefined = null) =>
+    (format && FORMAT_KIND[format] ? createStepUrl('form', FORMAT_KIND[format], organiserId) : createUrl(organiserId)),
+  /** The interim bridge's URLs (#1202, R1's steps in P3's frame): each now redirects (P3Routes), the first two to New event, a draft's steps to its event page. */
   newWhat: `${P3_BASE}/new/what`,
   newWhatFor: (organiserId: string | null | undefined) => (organiserId ? `${P3_BASE}/new/what?o=${encodeURIComponent(organiserId)}` : `${P3_BASE}/new/what`),
   newName: (format: NewEventFormat) => `${P3_BASE}/new/name?format=${encodeURIComponent(format)}`,
@@ -62,11 +82,12 @@ export const p3StartReview = (organiserId: string | null): string =>
   organiserId ? `${P3_PATHS.start}?o=${encodeURIComponent(organiserId)}&at=review` : P3_PATHS.start;
 
 /**
- * Where an accepted invite lands (review 1080 F5, owner decision 2026-10-28): P3's Welcome when
- * organiserP3 AND organiserSelfServe are on, else R1's, unchanged. The ONE answer for any caller.
+ * Where an accepted invite lands. F-05 (brief p3-wt-land, A-team-29): the button says "Open your
+ * organiser home", so while organiserP3 AND organiserSelfServe are on it opens P3's Home for that
+ * page (`?o=`); else R1's Welcome, unchanged. The ONE answer for any caller.
  */
 export const acceptedInviteLanding = (organiserId: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }): string =>
-  flags.organiserP3 && flags.organiserSelfServe ? P3_PATHS.youWelcome(organiserId) : ORG_PATHS.welcome(organiserId);
+  flags.organiserP3 && flags.organiserSelfServe ? `${P3_PATHS.home}?o=${encodeURIComponent(organiserId)}` : ORG_PATHS.welcome(organiserId);
 
 export type P3Tab = 'home' | 'events' | 'stats' | 'you';
 export const P3_TABS: readonly P3Tab[] = ['home', 'events', 'stats', 'you'];
