@@ -19,6 +19,9 @@ export const flags = {
   // ComingSoonGate. Default true in dev, false in prod until the public
   // list_open_raffles_v1 RPC is live.
   rafflesPage:         import.meta.env.VITE_ENABLE_RAFFLES_PAGE === 'true',
+  // Raffle v2 (win a free night; raffle_public_board_v1 board on event pages and /raffles).
+  // Arc: raffle-r3a/r3b. Default OFF; nothing reads it yet (R3a is foundations only).
+  raffleV2:            import.meta.env.VITE_ENABLE_RAFFLE_V2 === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
