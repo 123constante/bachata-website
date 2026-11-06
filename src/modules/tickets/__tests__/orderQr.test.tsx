@@ -8,29 +8,50 @@ let offline = false;
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => (offline ? Promise.reject(new Error('offline')) : rpc(...a)), auth: { getSession: vi.fn() } } }));
 const auth = vi.hoisted(() => ({ user: null as { id: string } | null }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: auth.user, authStatus: 'ready', retryAuth: () => {} }) }));
+const flags = vi.hoisted(() => ({ door: true }));
+vi.mock('@/modules/organiser/p3/door/doorFlags', async (orig) => ({ ...(await orig<object>()), get ticketDoorCode() { return flags.door; } }));
 vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
 import TicketThanksPage from '../TicketThanksPage';
 import OrderQrBlock from '../OrderQrBlock';
 import { fetchOrderQr } from '../myTicketsApi';
-import { parseOrderQr } from '../myTicketsModel';
+import { formatShortCode, parseOrderQr } from '../myTicketsModel';
 
 const ORDER = '3f2a9c10-1111-4222-8333-444455556666';
 const tok = (i: number) => (i.toString(16).padStart(2, '0')).repeat(32);
 const ticket = (i: number, checked = false) => ({ ticket_id: `t${i}`, ticket_type_name: `Type ${i}`, qr_token: tok(i + 10), checked_in: checked });
 const tickets = (n: number) => ({ tickets: Array.from({ length: n }, (_, i) => ticket(i)) });
+/** short_code reply shapes (brief ticket-buyer-short-code-web): value or omitted key -> what the screen shows. */
+const CODE_SHAPES: Array<[string, Record<string, unknown>, string | null]> = [
+  ['with code', { short_code: 'K7M2QX' }, 'K7M 2QX'],
+  ['null', { short_code: null }, null],
+  ['lowercase', { short_code: 'k7m2qx' }, 'K7M 2QX'],
+  ['malformed: banned letter O', { short_code: 'K7M2QO' }, null],
+  ['malformed: too short', { short_code: 'K7M2Q' }, null],
+  ['malformed: grouped with a space', { short_code: 'K7M 2QX' }, null],
+  ['malformed: number', { short_code: 123456 }, null],
+  ['missing key', {}, null],
+];
+const CODE_STATES = ['valid', 'checked in', 'void hidden'] as const;
+const NO_CODE_WORDS = /door code/i;
 const flush = async () => { await act(async () => { await vi.advanceTimersByTimeAsync(0); }); await act(async () => { await vi.advanceTimersByTimeAsync(0); }); };
 
 describe('parseOrderQr', () => {
   it('keeps good rows, drops bad ones', () => {
     const bad = [null, 'x', { ticket_id: 1, ticket_type_name: 'a', qr_token: tok(1), checked_in: false }, { ticket_id: 'a', ticket_type_name: 'a', qr_token: 'short', checked_in: false }, { ticket_id: 'a', ticket_type_name: 'a', qr_token: tok(1), checked_in: 'no' }, { ticket_id: 'a', qr_token: tok(1), checked_in: false }];
     expect(parseOrderQr({ tickets: [ticket(1), ...bad, ticket(2, true)] })).toEqual([
-      { ticketId: 't1', typeName: 'Type 1', qrToken: tok(11), checkedIn: false },
-      { ticketId: 't2', typeName: 'Type 2', qrToken: tok(12), checkedIn: true },
+      { ticketId: 't1', typeName: 'Type 1', qrToken: tok(11), checkedIn: false, shortCode: null },
+      { ticketId: 't2', typeName: 'Type 2', qrToken: tok(12), checkedIn: true, shortCode: null },
     ]);
   });
   it.each([[null], ['x'], [[]], [{}], [{ tickets: 'no' }]])('malformed envelope %j is an error (null)', (raw) => expect(parseOrderQr(raw)).toBeNull());
   it('empty list is ok and empty', () => expect(parseOrderQr({ tickets: [] })).toEqual([]));
+  it.each(CODE_SHAPES)('short code %s: row kept, code parsed', (_l, extra, want) => {
+    const r = parseOrderQr({ tickets: [{ ...ticket(1), ...extra }] })!;
+    expect(r).toHaveLength(1);
+    expect(r[0].shortCode === null ? null : formatShortCode(r[0].shortCode)).toBe(want);
+  });
+  it('formatter groups 3 + 3', () => expect(formatShortCode('K7M2QX')).toBe('K7M 2QX'));
 });
 
 describe('fetchOrderQr', () => {
@@ -111,6 +132,50 @@ describe('OrderQrBlock states', () => {
     for (let i = 0; i < 3; i++) expect(html).not.toContain(tok(i + 10));
     expect(html).not.toMatch(/[0-9a-f]{64}/);
     expect(JSON.stringify({ ...window.localStorage, ...window.sessionStorage })).not.toMatch(/[0-9a-f]{64}/);
+  });
+});
+
+describe('OrderQrBlock: door code (reply shape x ticket state)', () => {
+  beforeEach(() => { vi.useFakeTimers(); rpc.mockReset(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); flags.door = true; vi.restoreAllMocks(); });
+  const cases = CODE_SHAPES.flatMap(([label, extra, want]) => CODE_STATES.map((st) => [label, st, extra, want] as const));
+  it.each(cases)('%s x %s', async (_label, st, extra, want) => {
+    const logs = (['log', 'info', 'warn', 'error', 'debug'] as const).map((k) => vi.spyOn(console, k));
+    const checked = st === 'checked in';
+    // void hidden: 3 bought, 1 voided; my_ticket_order_qr_v1 drops it (t.status <> 'void').
+    const rows = st === 'void hidden' ? [{ ...ticket(1), ...extra }, { ...ticket(2), ...extra }] : [{ ...ticket(1, checked), ...extra }];
+    rpc.mockResolvedValue({ data: { tickets: rows }, error: null });
+    const { container } = render(<MemoryRouter><OrderQrBlock orderId={ORDER} /></MemoryRouter>);
+    await flush();
+    expect(screen.getAllByTestId('order-qr-card')).toHaveLength(rows.length);
+    expect(screen.getAllByTestId('ticket-qr')).toHaveLength(rows.length);
+    const lines = screen.queryAllByTestId('order-qr-short-code');
+    if (want === null) {
+      expect(lines).toHaveLength(0);
+      expect(container.textContent).not.toMatch(NO_CODE_WORDS);
+    } else {
+      expect(lines).toHaveLength(rows.length);
+      for (const l of lines) {
+        expect(l.querySelector('[data-testid="door-code-value"]')?.textContent).toBe(want);
+        expect(l.querySelector('[data-testid="door-code-value"]')?.className).toContain('font-mono');
+        expect(l.textContent).toMatch(/^Door code/);
+        expect(l.getAttribute('data-checked-in')).toBe(checked ? 'true' : 'false');
+        expect(l.textContent?.includes('Checked in')).toBe(checked);
+        // under the QR, inside the same card
+        const box = l.closest('[data-testid="order-qr-card"]')!.querySelector('[data-testid="order-qr-box"]')!;
+        expect(!!(box.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+      }
+    }
+    for (const spy of logs) for (const c of spy.mock.calls) expect(JSON.stringify(c)).not.toMatch(/K7M ?2QX|k7m2qx/i);
+  });
+  it('door flag off: a valid code shows no code line and no words about it', async () => {
+    flags.door = false;
+    rpc.mockResolvedValue({ data: { tickets: [{ ...ticket(1), short_code: 'K7M2QX' }] }, error: null });
+    const { container } = render(<MemoryRouter><OrderQrBlock orderId={ORDER} /></MemoryRouter>);
+    await flush();
+    expect(screen.getAllByTestId('ticket-qr')).toHaveLength(1);
+    expect(screen.queryByTestId('order-qr-short-code')).toBeNull();
+    expect(container.textContent).not.toMatch(NO_CODE_WORDS);
   });
 });
 

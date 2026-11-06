@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchOrderQr } from './myTicketsApi';
-import { MY_TICKETS_PATH, TICKET_WHERE, type OrderQrTicket } from './myTicketsModel';
+import { ticketDoorCode } from '@/modules/organiser/p3/door/doorFlags';
+import { MY_TICKETS_PATH, TICKET_WHERE, doorCodeText, type OrderQrTicket } from './myTicketsModel';
+import DoorCodeLine from './DoorCodeLine';
 import QrCode from './TicketQrCode';
 
 /**
@@ -49,21 +51,25 @@ export default function OrderQrBlock({ orderId }: { orderId: string }) {
   return (
     <div className="mb-2" data-testid="order-qr-block">
       <ul className="space-y-2">
-        {shown.map((t) => (
-          <li key={t.ticketId} className="rounded-md p-2 text-[13px]" style={{ border: '1px solid var(--bento-hairline)' }} data-testid="order-qr-card">
-            <div className="mb-1 flex items-start justify-between gap-2">
-              <span className="font-semibold">{t.typeName}</span>
-              {t.checkedIn && (
-                <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ background: 'hsl(var(--bento-accent) / 0.18)' }}>
-                  Checked in
-                </span>
-              )}
-            </div>
-            <div className="rounded-md bg-white p-2" data-testid="order-qr-box">
-              <QrCode token={t.qrToken} />
-            </div>
-          </li>
-        ))}
+        {shown.map((t) => {
+          const code = doorCodeText(t.shortCode, ticketDoorCode);
+          return (
+            <li key={t.ticketId} className="rounded-md p-2 text-[13px]" style={{ border: '1px solid var(--bento-hairline)' }} data-testid="order-qr-card">
+              <div className="mb-1 flex items-start justify-between gap-2">
+                <span className="font-semibold">{t.typeName}</span>
+                {t.checkedIn && (
+                  <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ background: 'hsl(var(--bento-accent) / 0.18)' }}>
+                    Checked in
+                  </span>
+                )}
+              </div>
+              <div className="rounded-md bg-white p-2" data-testid="order-qr-box">
+                <QrCode token={t.qrToken} />
+              </div>
+              {code && <DoorCodeLine code={code} checkedIn={t.checkedIn} testId="order-qr-short-code" />}
+            </li>
+          );
+        })}
       </ul>
       {more > 0 && (
         <p className="mt-2 text-[13px]" data-testid="order-qr-more">
