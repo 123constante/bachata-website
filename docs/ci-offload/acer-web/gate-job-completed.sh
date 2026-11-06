@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# ACTIONS_RUNNER_HOOK_JOB_COMPLETED: release the walk lock, clean the workspace. Root-owned,
+# ACTIONS_RUNNER_HOOK_JOB_COMPLETED: release the walk lock, remove this job's checkout. Root-owned,
 # read-only to the service user. Always exits 0 (a cleanup problem never reds a job).
+# fix round 2 item 8: ONLY _work/<repo> goes. _temp and _actions are the runner's and it may
+# still use them after this hook; stale ones are cleaned by gate-job-started.sh before a job.
 STATE_DIR=${WEB_RUNNER_STATE_DIR:-/srv/ghrunner-web/state}
 HOLDER_PID_FILE=$STATE_DIR/lock-holder.pid
 WORK_DIR=${WEB_RUNNER_WORK_DIR:-/srv/ghrunner-web/runner/_work}
@@ -12,9 +14,9 @@ if [ -s "$HOLDER_PID_FILE" ]; then
   fi
 fi
 rm -f "$HOLDER_PID_FILE" "$STATE_DIR/gate-verdict"
-# Ephemeral workspace: nothing a job wrote survives into the next job (checkout, node_modules,
-# _temp). _tool (setup-node cache) is kept; it is written only by pinned actions.
-if [ -d "$WORK_DIR" ]; then
-  find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name _tool -exec rm -rf {} + 2>/dev/null
-fi
+name=${GITHUB_REPOSITORY##*/}
+case "$name" in
+  ''|.|..|_tool|_temp|_actions|*/*) ;;
+  *) [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] && [ -d "$WORK_DIR/$name" ] && rm -rf "${WORK_DIR:?}/$name" 2>/dev/null ;;
+esac
 exit 0

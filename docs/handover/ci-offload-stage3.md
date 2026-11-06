@@ -5,6 +5,233 @@ Branch `claude/ci-offload-stage3`, base origin/main 01914fa. Status: Part A wire
 owner registers the runner); baseline committed; Part B NOT built (see "Part B verdict").
 Fix round 1 (dt_19750f4e085b, 2026-11-06): hosted fallback, positive trust allowlist, hardened
 unit/hooks, guard rule (e-routed). The workflow half is PATCH A below (lead applies).
+Fix round 2 (dt_2f8827503d6b, 2026-11-06): runner-side workflow identity check, watchdog removed,
+structural guard; the workflow half is PATCH B (next section).
+
+## Fix round 2 (brief `ci-offload-stage3-fix2.md` v2, ticket dt_2f8827503d6b): read this first
+
+Review of #1402 at 1ba49bd46. Sections further down describe fix round 1; where they mention the
+watchdog, `if: always()`, `docs/ci-offload/bom-check.yml` or a full `_work` wipe after every job,
+this section supersedes them. The workflow half is **PATCH B** (end of this section; the lead
+applies it, the worker cannot push `.github/workflows`).
+
+| item | done | where | proof |
+|---|---|---|---|
+| 1 CRITICAL: PR's own workflow can hard-code `runs-on: acer-web` | job-started hook refuses (exit 1, job fails before any step, hosted answers) unless: event is `pull_request` or push to main; `GITHUB_ACTOR` and `GITHUB_TRIGGERING_ACTOR` on the trust list; `GITHUB_WORKFLOW_REF` = this repo's `.github/workflows/bom-check.yml`; the git blob of that file at `GITHUB_WORKFLOW_SHA` == the blob on `origin/main`, both fetched fresh into a local mirror. Settings come only from built-in defaults + root-owned `/etc/ghrunner-web/gate.conf`, never env. | `docs/ci-offload/acer-web/gate-job-started.sh` | `test-gate-hooks.sh`: 34 cases; MUTANT (altered workflow blob) refused + names IDENTITY; 9 more refusals (actor, re-run actor, workflow path, repo, non-hex/unknown sha, push to branch, pull_request_target, env cannot widen trust list) |
+| 2 protected paths | `scripts/lib/`, `package.json`, `package-lock.json` added (`.github/automation/` already under `.github/`) | `PROTECTED_PREFIXES` | test: PR touching ONLY `scripts/lib/entry-point.mjs` -> untrusted -> hosted; `scripts/library.mjs` still trusted (no over-match) |
+| 3 exit classes | only 1 = code-failure; 124/137 = busy-timeout; 2, 126, 127, 130, 139, 143, empty, non-numeric = `runner-error` -> hosted. `verdict` now always exits 0 (the verdict travels as an output + marker step, so a crashed node can never pose as a code failure) | `classifyExit()` | table test over 0,1,2,124,126,127,130,137,139,143 + garbage |
+| 4 watchdog | GONE (no run cancel). Required `bom-check` does not `needs:` the routed job; it polls it (`route-runner.mjs await`): skip-pass only if the routed job succeeded AND its `BOM verdict: pass` marker step succeeded; red only if the routed job failed AND its `BOM verdict: code failure` marker failed; queued > 120 s, running > 660 s, refused, crashed, API errors -> runs the check hosted. No `if: always()`: `!cancelled()` | `awaitDecision()`, PATCH B | 15-row table + 4 `main(['await'])` cases (no POST ever sent) |
+| 5 label empty | `route` has `if: vars.WEB_RUNNER_LABEL != ''`; routed job skips with it; `bom-check` (`!cancelled()`) runs hosted = the old single-job behaviour | PATCH B | YAML parsed; guard OK on it (below) |
+| 6 guard parses `if:` | `parseExpr()` (tokeniser + precedence parser for `|| && ! == != ( ) calls`), `routeTrust()`: the expression must IMPLY push-to-main or (same-repo head AND `contains(fromJSON('<literal list>'), github.event.pull_request.user.login)` with the list inside `TRUSTED_AUTHORS`) on EVERY OR branch | `scripts/check-secrets-register.mjs` | self-test 41 cases incl. 13 structural mutants: `|| true` (outer and inside the group), negated trust, trust in one OR branch only, trust OR target, `!=`, author not allowlisted, list from a variable, wrong field, whole expression as a string literal, unparseable -> all exit 1; live `if:` and `${{ }}`-wrapped -> 0 |
+| 7 duplicate YAML | `docs/ci-offload/bom-check.yml` deleted; the workflow is the only copy; test asserts the docs copy does not come back | `tests/routeRunner.test.ts` | |
+| 8 completed hook | removes ONLY `_work/<repo>` (name validated; never `_temp`/`_actions`/`_tool`). Started hook (after identity) removes other top-level `_work` entries and `_temp` entries older than 60 min | both hooks | shell test: stale checkout + old `_temp` gone, fresh `_temp`, `_tool`, `_actions` kept |
+| 9 lock holder | `exec sleep 7200` replaced: holder loops (`sleep 1` with the lock fd closed) and exits when the watched process (nearest `Runner.Worker` ancestor) dies or after `HOLDER_MAX_S` (default and hard cap 1800 s). Pid file unwritable -> holder exits 3 (lock released) -> hook refuses with exit 1 | `gate-job-started.sh` | shell test: lock held while the runner lives, released within 2 s of its death; released after a 2 s cap; unwritable pid file -> exit 1 + lock free; walk running -> refused BUSY, exit 0 |
+
+**Deliberate deviation (item 8).** The brief says "move the FULL cleanup to job-started". Not
+done literally: when the job-started hook runs, the runner has already downloaded THIS job's
+actions into `_actions` and created its file-command files under `_temp`; wiping them there would
+break the job. So job-started keeps `_actions`, `_tool` and fresh `_temp` entries. Needs owner /
+lead confirmation on a live runner (Not verified below).
+
+**Mutant results (run 2026-11-06 in this container).**
+- Altered workflow blob (`jobs: { evil: { runs-on: acer-web } }`) at `GITHUB_WORKFLOW_SHA` -> hook exit 1, verdict `refused ... IDENTITY ...`, walk lock never taken.
+- Hook mutant with the identity compare line deleted -> `test-gate-hooks.sh` FAILS (8 of 34, first: `MUTANT altered workflow: refused`). Also pinned in vitest (`runner hooks (shell test)`).
+- Guard: 13 structural `if:` mutants all exit 1 (table above); route-runner self-test 14 cases.
+
+### PATCH B (lead applies; replaces the routing part of PATCH A)
+
+Changes `.github/workflows/bom-check.yml` only. Items 4 + 5: `route` skipped when the label is
+empty; watchdog job removed; routed job gets two marker steps and never fails on its own; the
+required `bom-check` no longer `needs:` the routed job, uses `!cancelled()` instead of
+`always()`, polls with the BASE commit's `route-runner.mjs await` (`actions: read`), and only
+checks out the PR head when it has to run the check itself. Proven here: `git apply --check`
+clean on this branch; with it applied, `node scripts/check-secrets-register.mjs` = OK (1 routed
+job trust-gated), YAML parses. Apply: save the block as `fix2.patch`, then
+`git apply --ignore-whitespace fix2.patch`.
+
+**Owner steps that go with PATCH B (not code):**
+1. Org/repo runner group for `acer-web`/`dell-web`: restrict to **Selected workflows** =
+   `123constante/bachata-website/.github/workflows/bom-check.yml@refs/heads/main`. This is the
+   GitHub-side half of item 1 (the hook is the runner-side half; keep both).
+2. Install `/etc/ghrunner-web/gate.conf` root-owned 0644 (keys `REPO`, `WORKFLOW_PATH`,
+   `TRUSTED`, `REMOTE_URL`, `MIRROR`, `MAIN_REF`; defaults in the hook are already right for
+   this repo, so the file is optional). `MIRROR` must be writable by the service user.
+3. If the repo is private, the mirror fetch needs a read-only credential (fine-grained token,
+   `contents:read`, this repo only) in the service user's git credential store; register it in
+   `secrets-register.json` before use. Without it every job is refused -> hosted (safe, no gain).
+
+```diff
+diff --git a/.github/workflows/bom-check.yml b/.github/workflows/bom-check.yml
+index af04c34..22c1617 100644
+--- a/.github/workflows/bom-check.yml
++++ b/.github/workflows/bom-check.yml
+@@ -1,15 +1,17 @@
+ name: BOM Check
+ 
+-# CI offload stage 3 (docs/handover/ci-offload-stage3.md). The required check `bom-check`
+-# may run on a side machine (Acer/Dell) and FALLS BACK to GitHub-hosted whenever that
+-# machine is off, busy, broken or its gate refuses: a side machine never reds or blocks a PR.
+-#   route            hosted, seconds: scripts/ci/route-runner.mjs route (trust + runner online/idle)
+-#   bom-check-routed side machine, only when route said self AND the trust if: holds
+-#   bom-check-watch  hosted: cancels THIS run if bom-check-routed sits queued > 120 s
+-#                    (that is why this is its own workflow: a cancel touches nothing else)
+-#   bom-check        hosted, the REQUIRED name: skipped (= success) when the routed run passed,
+-#                    red when it failed on code, otherwise runs the check itself.
+-# Revert switch: delete the repo variable WEB_RUNNER_LABEL (unset = always hosted).
++# CI offload stage 3 (docs/handover/ci-offload-stage3.md). The required check `bom-check` may be
++# answered by a side machine (Acer/Dell); a side machine that is off, busy, broken or refused
++# NEVER reds or blocks a PR (owner rule 2026-11-06).
++#   route            hosted, seconds; SKIPPED when vars.WEB_RUNNER_LABEL is empty (= the old
++#                    single-job behaviour). route-runner.mjs route: trust + runner online/idle.
++#   bom-check-routed side machine, NOT required, nothing needs: it. Its job-started hook refuses
++#                    unless this file at GITHUB_WORKFLOW_SHA is byte-identical to main's.
++#   bom-check        hosted, the REQUIRED name, runs in parallel with the routed job: polls it
++#                    (route-runner.mjs await, no run cancel) and is red ONLY when the routed job
++#                    completed AND its code-failure marker step failed; otherwise it passes on
++#                    the routed pass, or runs the check itself.
++# Revert switch: delete the repo variable WEB_RUNNER_LABEL (unset = route skipped, always hosted).
+ 
+ on:
+   push:
+@@ -26,6 +28,7 @@ permissions:
+ 
+ jobs:
+   route:
++    if: vars.WEB_RUNNER_LABEL != ''
+     runs-on: ubuntu-latest
+     timeout-minutes: 2
+     permissions:
+@@ -58,12 +61,13 @@ jobs:
+ 
+   bom-check-routed:
+     needs: route
+-    # Trust is checked TWICE: by the route script and here (scripts/check-secrets-register.mjs
+-    # rule (e-routed) fails if any of these conditions is removed).
++    # Trust is checked THREE times: route script, this if: (scripts/check-secrets-register.mjs
++    # rule (e-routed) parses it and fails unless it implies trust), and the runner's job-started
++    # hook (workflow blob == main's, actor on the trust list).
+     if: needs.route.outputs.target == 'self' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["kiki-claude-bot","123constante"]'), github.event.pull_request.user.login)))
+     runs-on: ${{ needs.route.outputs.runner }}
+-    # Budget: gate wait <= 180 s (job-started hook) + check <= 240 s (timeout(1) below) + slack.
+-    # A timeout here is "runner busy", never a code failure: the hosted job re-runs it.
++    # Budget: gate wait <= 180 s (hook) + check <= 240 s (timeout(1) below) + slack. bom-check
++    # stops waiting after 660 s and runs hosted, so a slow side machine costs nothing but time.
+     timeout-minutes: 10
+     permissions:
+       contents: read
+@@ -75,7 +79,7 @@ jobs:
+           persist-credentials: false
+       - name: Gate verdict (load + walk lock, written by the job-started hook)
+         id: gate
+-        run: node scripts/ci/route-runner.mjs gate
++        run: node scripts/ci/route-runner.mjs gate || echo "proceed=false" >> "$GITHUB_OUTPUT"
+       - name: Detect docs-only PR
+         id: changes
+         if: steps.gate.outputs.proceed == 'true'
+@@ -88,20 +92,35 @@ jobs:
+         if: steps.gate.outputs.proceed == 'true'
+         env:
+           DOCS_ONLY: ${{ steps.changes.outputs.docs_only }}
++        # Never fails: the verdict is an OUTPUT, read by the two marker steps below.
+         run: |
+           set +e
+           if [ "$DOCS_ONLY" = "true" ]; then code=0; else timeout --kill-after=10 240 bash scripts/ci/bom-check.sh; code=$?; fi
+           node scripts/ci/route-runner.mjs verdict "$code"
++          exit 0
++      # Marker steps: bom-check reads THEIR conclusions through the jobs API (names pinned in
++      # route-runner.mjs PASS_STEP / FAIL_STEP). Anything else (refused, crashed, busy) = hosted.
++      - name: 'BOM verdict: pass'
++        if: steps.check.outputs.verdict == 'pass'
++        run: echo "bom-check passed on the side machine"
++      - name: 'BOM verdict: code failure'
++        if: steps.check.outputs.verdict == 'code-failure'
++        run: |
++          echo "bom-check FAILED on the side machine: a code failure, not a runner problem."
++          exit 1
+ 
+-  bom-check-watch:
++  bom-check:
+     needs: route
+-    if: needs.route.outputs.target == 'self'
++    # !cancelled(), not always(): runs when route is SKIPPED (label empty) or failed, so the
++    # required check is never skipped-as-success; it does not wait for the routed job.
++    if: ${{ !cancelled() }}
+     runs-on: ubuntu-latest
+-    timeout-minutes: 5
++    timeout-minutes: 15
+     permissions:
+       contents: read
+-      actions: write
++      actions: read
+     steps:
++      # The BASE commit's route script (same rule as route).
+       - uses: actions/checkout@v7
+         with:
+           ref: ${{ github.event.pull_request.base.sha || github.sha }}
+@@ -109,47 +128,35 @@ jobs:
+           sparse-checkout: |
+             scripts/ci
+             scripts/lib
+-      - name: Cancel this run if the side machine never picks the job up
++          path: base
++      - name: Wait for the side machine (poll only; never cancels)
++        id: fb
+         env:
++          TARGET: ${{ needs.route.outputs.target }}
+           GITHUB_TOKEN: ${{ github.token }}
+           WATCH_JOB_NAME: bom-check-routed
+           QUEUE_BUDGET_S: '120'
+-        run: node scripts/ci/route-runner.mjs watch || true
+-
+-  bom-check:
+-    needs: [route, bom-check-routed]
+-    # always(): also runs after the watchdog cancels the run -- that IS the hosted fallback.
+-    if: always() && !(needs.bom-check-routed.result == 'success' && needs.bom-check-routed.outputs.verdict == 'pass')
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 5
+-    permissions:
+-      contents: read
+-    steps:
+-      - uses: actions/checkout@v7
+-      - name: Fallback decision
+-        id: fb
+-        env:
+-          TARGET: ${{ needs.route.outputs.target }}
+-          ROUTED_RESULT: ${{ needs.bom-check-routed.result }}
+-          ROUTED_VERDICT: ${{ needs.bom-check-routed.outputs.verdict }}
+-        run: node scripts/ci/route-runner.mjs fallback || echo "action=run-hosted" >> "$GITHUB_OUTPUT"
++          TOTAL_BUDGET_S: '660'
++        run: node base/scripts/ci/route-runner.mjs await || echo "action=run-hosted" >> "$GITHUB_OUTPUT"
+       - name: Routed run failed on code
+         if: steps.fb.outputs.action == 'fail-code'
+         run: |
+           echo "bom-check FAILED on the side machine: a code failure, not a runner problem (see bom-check-routed)."
+           exit 1
+-
+-      # Docs-only PRs skip the heavy steps below; the job still runs, so the
+-      # required check keeps its name and reports success. Fail-safe: any error
+-      # means docs_only=false (scripts/ci/docs-only.mjs).
++      - uses: actions/checkout@v7
++        if: steps.fb.outputs.action != 'fail-code' && steps.fb.outputs.action != 'skip-pass'
++        with:
++          path: head
++      # Docs-only PRs skip the heavy step; fail-safe: any error means docs_only=false.
+       - name: Detect docs-only PR
+         id: changes
+-        if: steps.fb.outputs.action != 'fail-code'
++        if: steps.fb.outputs.action != 'fail-code' && steps.fb.outputs.action != 'skip-pass'
++        working-directory: head
+         env:
+           EVENT_NAME: ${{ github.event_name }}
+           MERGE_SHA: ${{ github.sha }}
+         run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+-
+       - name: Check workflow files for BOM
+-        if: steps.fb.outputs.action != 'fail-code' && steps.changes.outputs.docs_only != 'true'
++        if: steps.fb.outputs.action != 'fail-code' && steps.fb.outputs.action != 'skip-pass' && steps.changes.outputs.docs_only != 'true'
++        working-directory: head
+         run: bash scripts/ci/bom-check.sh
+```
 
 ## Fix round 1 (brief `stage3-fix1.md` v1, ticket dt_19750f4e085b): what changed
 
@@ -13,7 +240,7 @@ block a merge. Every unknown now ends on GitHub-hosted.
 
 | item | done | where |
 |---|---|---|
-| 1 fallback | route job + routed job + watchdog + required hosted fallback | `scripts/ci/route-runner.mjs`, `docs/ci-offload/bom-check.yml` (PATCH A) |
+| 1 fallback | route job + routed job + watchdog + required hosted fallback | `scripts/ci/route-runner.mjs`, `.github/workflows/bom-check.yml` (PATCH A; docs copy deleted in fix round 2) |
 | 2 trust | positive allowlist, checked twice (script + job `if:`) | `trustDecision()`, routed job `if:` |
 | 3 hooks/permissions | hooks root-owned in `/usr/local/lib/ghrunner-web/hooks`, not writable; runner dir + credentials read-only; LAN egress denied; workspace wiped after every job | unit, `gate-job-completed.sh` |
 | 4 lock holder | `setsid`, fds to /dev/null, pid file cleared first and written only by the holder, `pid starttime` checked before any kill, lock in `/var/lib/laptop-walk/walk.lock` | `gate-job-started.sh` |
@@ -149,7 +376,7 @@ build, bom-check). Differences from the Acer, nothing else:
 
 PATCH A, against this branch's head. It (1) removes `bom-check` from `workflow-lint.yml`
 (dropping the old negative-guard version too), (2) adds `.github/workflows/bom-check.yml`
-(byte-identical to `docs/ci-offload/bom-check.yml`), (3) adds the `WEB_RUNNER_READ_TOKEN`
+(the docs copy it duplicated was deleted in fix round 2, item 7), (3) adds the `WEB_RUNNER_READ_TOKEN`
 register entry (`exists: false`, dated reasons), (4) adds `bom-check.yml` to the workflow subset
 in `tests/automationFoundations.test.ts` (must land together with the workflow file).
 
@@ -614,3 +841,21 @@ Not verified:
 - That GitHub reports a skipped required job as Success for this ruleset (documented; pilot 6a).
 - The workflow itself has never run (cannot push `.github/` from the sandbox).
 
+
+## Verified / Not verified (fix round 2, dt_2f8827503d6b)
+
+Verified (this container, 2026-11-06):
+- `npx vitest run tests/routeRunner.test.ts tests/automationFoundations.test.ts tests/automationRegister.test.ts` = 3 files, 247 tests passed (routeRunner 96, incl. the shell hook test and its mutant).
+- `node scripts/check-secrets-register.mjs` = OK (40 workflows, 1 routed job trust-gated); `--self-test` 41 cases PASS; `node scripts/ci/route-runner.mjs --self-test` 14 cases PASS.
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` = PASS 34 cases (real git over a local `file://` remote, real `flock`/`setsid`); hook mutant without the identity compare = FAIL 8 of 34.
+- PATCH B: `git apply --check` clean; guard OK and YAML parses with it applied (then reverted; `.github/workflows` untouched by this round).
+- `npm run lint` = 34 of 34 links green (eslint informational, as documented).
+- No real-data shapes apply: CI-only change, no UI, no DB read.
+
+Not verified (needs a live runner / the lead):
+- That the runner passes `GITHUB_WORKFLOW_REF`, `GITHUB_WORKFLOW_SHA`, `GITHUB_TRIGGERING_ACTOR` to the job-started hook's environment (documented for hooks, not observed here). If any is missing, the hook refuses -> hosted (fails safe, but no offload).
+- That `Runner.Worker` is an ancestor of the hook process (else the holder falls back to the 1800 s cap only; it logs that).
+- That `_actions` / `_temp` are populated before the job-started hook (the reason for the item 8 deviation).
+- Fetch by sha of a PR merge commit from github.com (fallback: fetch `GITHUB_REF`, then compare the sha).
+- PATCH B on GitHub itself: the `await` poll against the real jobs API, step names in the API, and `!cancelled()` with a skipped `route` (needs the lead to apply it and a run with and without `WEB_RUNNER_LABEL`).
+- The "Selected workflows" runner-group restriction (owner step 1).
