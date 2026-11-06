@@ -1,7 +1,7 @@
 # Handover: local-entry-point-proof (Website)
 
 Brief: `brief/local-entry-point-proof:docs/briefs/local-entry-point-proof.md` (v2).
-Branch: `claude/local-entry-point-proof`. Ticket dt_ef34bce2cec3. HARD-tier (`scripts/**`):
+Branch: `claude/local-entry-point-proof`, PR #1405. Ticket dt_ef34bce2cec3. HARD-tier (`scripts/**`):
 needs the owner's Approve at head; the worker never approves or merges.
 
 ## Done
@@ -57,3 +57,4 @@ says stays unchanged; vitest covers it.
 
 ## Next steps
 - Owner review + Approve at head. CI `architecture-guard.yml` remains the backstop.
+- tsc run on dea770a: 0 errors in branch files (0 in the whole `-p .` project).
