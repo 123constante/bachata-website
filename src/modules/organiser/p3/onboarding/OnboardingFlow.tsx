@@ -17,7 +17,7 @@ import { ObSheet, ObShell, ObToast } from './ObShell';
 import { OB_THEME_KEY, prefersReducedMotion, readObTheme } from './obEnv';
 import { REAL_READS, REAL_WRITES, type PersonReads, type PersonWrites } from './personApi';
 import { NoDancerBody, NoDancerFoot, PersonScreens } from './PersonFlow';
-import { PERSON_ORDER, heldFrom, personPath, personReadFail, type PersonStep } from './personModel';
+import { PERSON_ORDER, heldFrom, personPath, personReadFail, teachRowPath, type PersonStep } from './personModel';
 import { PAGE_STALE_KEYS, REAL_GO_LIVE, REAL_PAGE_READS, REAL_PAGE_WRITES, type GoLiveApi, type PageReads, type PageWrites } from './pageApi';
 import {
   CATEGORIES,
@@ -71,7 +71,7 @@ const DETAIL_STEPS: readonly PageStep[] = ['contact', 'contact-phone', 'whatsapp
 
 type Stage =
   | { kind: 'page'; step: PageStep }
-  | { kind: 'person'; step: PersonStep }
+  | { kind: 'person'; step: PersonStep; review?: { percent: number } }
   | { kind: 'review' }
   | { kind: 'live'; outcome: GoLiveOutcome }
   | { kind: 'asked'; name: string };
@@ -238,8 +238,14 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
         initialStep={stage.step}
         upload={upload}
         lastLabel="Continue"
-        percentOf={(s, p) => flowPercent(s, groups(p))}
+        fromReview={!!stage.review}
+        percentOf={(s, p) => (stage.review && teachRowPath(s) ? stage.review.percent : flowPercent(s, groups(p)))}
         onExit={() => {
+          if (stage.review) {
+            void qc.invalidateQueries({ queryKey: ['p3-ob'] });
+            go({ kind: 'review' }, 'back');
+            return;
+          }
           void qc.invalidateQueries({ queryKey: ['p3-ob'] });
           go({ kind: 'page', step: orgId ? 'logo' : 'welcome' }, 'back');
         }}
@@ -268,7 +274,7 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           go({ kind: 'person', step: last[last.length - 1] }, 'back');
         }}
         onRow={(r) => {
-          if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step });
+          if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step, review: { percent: reviewPercent(groups(personPath(teach, true)).length, rs.missing.length) } });
           else if (r.step && isPageStep(r.step)) go({ kind: 'page', step: r.step === 'contact' && held ? contactEntry(held) : r.step });
           else navigate(r.elsewhere === 'page' ? P3_PATHS.youPage : finishProfileHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`));
         }}

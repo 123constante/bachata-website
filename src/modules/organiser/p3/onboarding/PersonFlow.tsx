@@ -30,6 +30,7 @@ import {
   heldFrom,
   nextStep,
   personPath,
+  teachRowPath,
   personReadFail,
   prevStep,
   progressPercent,
@@ -149,11 +150,13 @@ export interface PersonScreensProps {
   percentOf?: (step: PersonStep, path: readonly PersonStep[]) => number;
   /** The last person step's button: 'Done' here alone; 'Continue' when Review follows. */
   lastLabel?: string;
+  /** Entered from a Review row: a lone teaching step (teachRowPath) saves and calls onDone, Back calls onExit. */
+  fromReview?: boolean;
 }
 
 type Sheet = 'nat' | 'langs' | 'styles' | null;
 
-export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done' }: PersonScreensProps) {
+export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done', fromReview = false }: PersonScreensProps) {
   const qc = useQueryClient();
   const [held, setHeld] = useState<PersonDraft>(heldIn);
   const [d, setD] = useState<PersonDraft>({ ...EMPTY_DRAFT, ...heldIn });
@@ -165,7 +168,8 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bounce, setBounce] = useState(false);
   const clearToast = useCallback(() => setToast(null), []);
-  const path = personPath(d.teach, !!organiser);
+  const [entry] = useState<PersonStep>(initialStep ?? 'name');
+  const path = (fromReview ? teachRowPath(entry) : null) ?? personPath(d.teach, !!organiser);
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((p) => ({ ...p, [k]: v }));
 
   const move = (to: PersonStep | null, how: 'fwd' | 'back') => {
