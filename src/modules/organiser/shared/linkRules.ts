@@ -19,6 +19,7 @@
 // check runs on what is actually sent.
 
 import { withNormalizedProtocol } from '@/lib/organiserProfileUpdate';
+import { safeExternalHref } from '@/lib/url';
 
 export type LinkKind = 'ticket' | 'video' | 'instagram' | 'website' | 'facebook' | 'chat';
 
@@ -35,6 +36,13 @@ export const publicUrlOk = (value: string) => {
   const v = value.trim();
   return v === '' || (v.length <= MAX_URL && PUBLIC_URL.test(v));
 };
+
+/**
+ * True when the public page can build a link from this value (the same
+ * safeExternalHref the event page uses for the ticket button). The server rule
+ * is looser: it accepts https://example.com:99999, which the page then drops.
+ */
+export const linkRenders = (value: string) => safeExternalHref(value.trim()) !== undefined;
 
 export const LINK_PROBLEM: Record<LinkKind, string> = {
   ticket: 'Enter the ticket link as a full address starting with https://',
@@ -53,7 +61,7 @@ export function linkProblem(kind: LinkKind, value: string): string | null {
   switch (kind) {
     case 'ticket':
     case 'video':
-      ok = publicUrlOk(v);
+      ok = publicUrlOk(v) && linkRenders(v);
       break;
     case 'instagram': {
       const sent = withNormalizedProtocol(v, 'instagram.com');
