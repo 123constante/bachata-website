@@ -28,14 +28,9 @@ src/modules/organiser/edit-in-place/TeamSheet.tsx
 src/modules/organiser/edit-in-place/TeamCard.tsx
 src/modules/organiser/edit-in-place/__tests__/ (one new matrix test for hide/show)
 docs/organiser-page/ACCEPTANCE.md (docs-only edit, see scope 6)
-src/components/events/EventRow.tsx
-src/components/events/SeriesDatesSheet.tsx
-src/lib/__tests__/listImpressions.surfaces.test.tsx
-docs/design/organiser-page-nights.md (read: chosen sizes)
-docs/design/organiser-page-p2-team.md
-docs/handover/organiser-page-p2-team.md
+docs/design/organiser-page-p2-team.md (new)
+docs/handover/organiser-page-p2-team.md (new)
 
-7. LARGER NIGHT CARDS (owner feedback 2026-11-05, design record docs/design/organiser-page-nights.md section 'Owner feedback'): resize `EventRow` IN PLACE (imported only by OrganiserProfile.tsx, SeriesDatesSheet.tsx and one test): poster 84px, date badge 38px with 17px day, name 17px up to two lines, grey meta 13.5px at .70 alpha wrapping to two lines (not truncated) so the city survives, tag 12px, chevron 22px, padding 14px, explicit px sizes. Re-check the dates-sheet rows and `listImpressions.surfaces.test.tsx`; walk at 390x844 with a 35-character venue plus city and a two-line name. This is SIZE ONLY: the nights feed swap (all cities, next 20, "next 20 dates" tag, "Showing the next 20 nights" line, city on each night) is a SEPARATE Website brief after admin `get_organiser_nights_v2` is applied.
 
 Do not touch: the hero, src/integrations/supabase/types.ts by hand (regenerate only if the repo does it by a script), anything under supabase/, perf-budgets.json, vite.config.ts, calendar density-exclusion files.
 
@@ -75,3 +70,6 @@ Read docs/organiser-page/INVENTORY.md. Coverage table at the top of the design r
 
 ## Stop and handover
 Push once, write docs/handover/organiser-page-p2-team.md (what shipped, what is parked), add the `[worker-done <ticket>]` marker to the final commit message, stop. At 50% context stop with the PARTIAL marker and a "what is left" list.
+
+
+NOTE (lead 2026-11-06): the larger night cards (old scope item 7) are REMOVED from this brief. The owner asked for new giant-card mockups (branch claude/organiser-nights-cards); do NOT resize EventRow, SeriesDatesSheet or the Past nights block here.
