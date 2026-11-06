@@ -1290,6 +1290,23 @@ jobs:
           fi
           node scripts/check-p3-refusal-reasons.mjs --live
 
+      # 74. LIVE-NOW SNAPSHOT VERSION (2026-11-06, docs/briefs/live-now-s2web.md).
+      #     event_view_p5(snapshot_compat) must carry a top-level `version`
+      #     (non-negative safe integer; admin 20270312410000 + #1280). The site's
+      #     parser maps a missing one to null on purpose, so a regression would be
+      #     silent on /event/<slug>.data; this is where it goes red. Samples live
+      #     events from calendar_events_dto, landing + pinned. Exit 2 below a
+      #     3-payload floor. Canary first.
+      - name: Run event snapshot version contract check
+        if: always()
+        timeout-minutes: 3
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-event-snapshot-version.mjs --self-test
+          node scripts/check-event-snapshot-version.mjs
+
       # ── Failure notification ────────────────────────────────────────────────────
       #
       # WHY THIS EXISTS. Every guard step above carries `if: always()`, so the job

@@ -1,64 +1,46 @@
-# Handover: live-now slice 2, Website half -- PARTIAL (stop rule hit)
+# Handover: live-now slice 2, Website half -- BUILT
 
-Brief: `brief/live-now-s2web:docs/briefs/live-now-s2web.md`. Base: main 61c970668.
-Ticket: dt_2a614767bef0. No code changed; this file is the only diff.
+Brief: `brief/live-now-s2web:docs/briefs/live-now-s2web.md` (sha dd50ec2). Ticket
+dt_1541618b21ee (continues dt_2a614767bef0, which stopped PARTIAL because the
+`snapshot_compat` payload had no `version` on prod; admin #1280 fixed that).
 
-## Stop rule that fired
+## Re-check (prod `stsdtacfauprzrdebmzg`, read-only, 2026-11-06)
 
-> If the live event_view_p5 does NOT return `version` on prod: stop, write
-> PARTIAL with the observed keys, do not invent a field.
+- `event_view_p5(snapshot_compat)`, 40 live series ids, series-only target:
+  12 non-null, 12 with `version`, 12 JSON numbers. Keys now: `attendance,
+  byline_organisers, event, event_id, location_default, occurrence_effective,
+  occurrence_id, occurrences, organiser_byline, organiser_card, organisers, version`.
+- 40 live occurrences, occurrence-pinned: 40/40 non-null, 40/40 number, 40/40
+  integer, range 1790673796391298 .. 1793435959737933 (microsecond epoch, < 2^53).
+- New contract check run against prod with the anon key over PostgREST (the
+  Website's real path): 24 payloads over 12 live events, 0 violations, exit 0.
 
-On the call path the Website actually uses, it does not.
+## Done (Build 1-4)
 
-## Evidence (prod `stsdtacfauprzrdebmzg`, read-only, 2026-11-02)
+1. `EventPageSnapshot.version: number | null` (`src/modules/event-page/types.ts`),
+   read by the one shared mapping `parseSnapshotVersion`
+   (`src/modules/event-page/useEventPageQuery.ts`): non-negative safe integer,
+   else null. Never throws.
+2. `.data` shape: `tests/eventSnapshotVersion.test.ts` drives the real
+   `app/routes/event.tsx` loader (DB mocked), JSON round-trips its
+   `dehydratedState`, and pins `version` on the snapshot entry (number, and an
+   explicit null when the RPC has none).
+3. `scripts/check-event-snapshot-version.mjs` (main/deps seam, 23-case
+   `--self-test`, 0/1/2 exits, 3-payload floor = exit 2), step added to
+   `db-contract-check.yml` (#74), listed in `prove-entry-point-dispatch.mjs` TARGETS.
+4. Table-driven tests (12 shapes + "rest of snapshot unchanged"). RED FIRST on
+   unfixed code: 14 failed / 1 passed (loader returned `MISSING`).
 
-1. `event_view_p5(jsonb,jsonb)` is `STABLE SECURITY DEFINER` (no writes), body
-   6059 chars. Migration 20270312410000 adds
-   `v_result || jsonb_build_object('version', public._event_public_version_v1(...))`
-   ONLY in the native-shape branches (occurrence_id and series_id). Its own
-   comment says "additive, native shape only".
-2. The Website calls it with `p_viewer = {role:'anon', shape:'snapshot_compat'}`
-   (`src/modules/event-page/useEventPageQuery.ts`, `useEventPageQuery`, and the
-   same path via the `app/routes/event.tsx` loader). The `snapshot_compat`
-   branch returns `_event_view_snapshot_compat_v1(p_target)` plus
-   `has_timed_session` and RETURNS before the version merge.
-   `_event_view_snapshot_compat_v1` does not mention `version` (position = 0).
-3. Live calls, 40 `lifecycle_status='live'` series ids:
-   - `snapshot_compat`: 5 non-null objects, **0 with `version`**. Union of
-     top-level keys observed: `attendance, byline_organisers, event, event_id,
-     location_default, occurrence_effective, occurrence_id, occurrences,
-     organiser_byline, organiser_card, organisers`.
-   - native (no shape): keys `program, series, version`; `version` is a JSON
-     **number**.
+No visible change; no Done-screen code; `api.revalidate.tsx` / `cloudflarePurge.ts`
+untouched.
 
-So the brief's premise ("adds a top-level `version` to the event_view_p5
-payload") holds for the native shape only. Parsing `payload.version` in
-`parseEventPageSnapshot` would always yield null on prod; a contract check
-pinning `version` on the compat shape would be red on day one.
+## Watch out
 
-## Not done (all of Build 1-4)
+- The sandbox's `VITE_SUPABASE_URL` is NOT prod (a fixture/staging project). There
+  the new check is RED (24/24 "no top-level version key") because that project
+  lacks #1280. If the CI secret points at that project too, step #74 will be red
+  until #1280 is applied there. On prod it is green.
 
-- `EventPageSnapshot.version` parser field + tests -- not started (would be
-  inventing a field the payload does not carry).
-- `.data` loader shape test -- not started.
-- `scripts/check-*.mjs` contract + db-contract-check.yml step -- not started.
+## Next
 
-## Owner decision needed (pick one)
-
-A. **Admin follow-up migration** (recommended): in the `snapshot_compat` branch
-   of `event_view_p5`, merge
-   `jsonb_build_object('version', public._event_public_version_v1(<series id>, <occurrence id>))`
-   before `RETURN v_result`, using the target's ids. Additive, keeps the
-   Website's single RPC. Then re-dispatch this brief unchanged; the type is
-   `number` (from the native shape), parse with the existing `asNumber`.
-B. **Website second call**: have the `/event` loader also call the native shape
-   (or `_event_public_version_v1` if exposed) for `version`. Costs one extra RPC
-   on every SSR render of `/event`; not recommended.
-
-## Verified / Not verified
-
-- Verified: function body (both halves read), volatility, compat vs native keys
-  on live prod data (counts/keys only, no personal data, no writes).
-- Not verified: occurrence_id-targeted compat calls (same early RETURN in the
-  body, so same result expected); why 35/40 live series ids return null from
-  compat (pre-existing, unrelated; compat likely keys on a different id).
+Slice 3 (Done screen "Live now") can read `version` off `/event/<slug>.data`.
