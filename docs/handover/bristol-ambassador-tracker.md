@@ -11,3 +11,10 @@ Left: browser walk at 390x844 (not done by this worker); generated Supabase type
 tsc run on 19f9acd: 0 errors in branch files (whole project clean).
 Checks run: vitest src/modules/ambassador (89 pass, incl. existing queue.matrix), eslint on touched files (0 errors), check:mojibake.
 Verified: prod RPC source read-only. Not verified: browser walk 390x844, /code-review, full CI-job local replay (pre-ship), PR checks.
+
+## Walk at 390x844 (tests/e2e/ambassador-link-card.spec.ts, stubbed backend, 14 tests green headless)
+Shapes: {0,1,60 joined} x {active, off by ambassador, off by admin, not live} + admin with 2 links + confirm-off/Cancel. Each: labels, switch reason text (+aria-describedby), scrollWidth <= 390, buttons >= 44px, copy writes `<origin>/join/a/<code>` (stubbed clipboard), untouched card sends no set_ call.
+Problem found and fixed: `AmbassadorQueuePage` read `isAdmin` from `useAuth`, which AppChrome never sets, so an admin always got the locked reason. Now `useIsAdmin` (admin_is_admin); the 2-link admin test covers it.
+Spec added to `test:e2e` (stubs only, no network). Screenshots in walk-shots/ambassador-link-card/ (not committed): off-admin-60, admin-two-links, active-60, off-ambassador-0, not-live-0, confirm-off.
+Copy note, not changed (owner words): not-live note ends "Ask us" with no contact control on screen.
+Not verified: real device; real RPC (0 ambassador rows on prod); /code-review; full pre-ship replay.
