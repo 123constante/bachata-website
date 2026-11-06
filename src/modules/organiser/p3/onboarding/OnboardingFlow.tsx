@@ -690,7 +690,10 @@ function FindStep({ q, setQ, reads, askedAt, onPick }: { q: string; setQ: (v: st
         {term.length < FIND_MIN ? (
           <p className="p3-ob-m p3-ob-kbhide">Type two or more letters.</p>
         ) : res.isError ? (
-          <p className="p3-ob-err" role="alert">The search didn&rsquo;t work. Check your connection and try again.</p>
+          <>
+            <p className="p3-ob-err" role="alert">The search didn&rsquo;t work. Check your connection and try again.</p>
+            <button type="button" className="p3-ob-btn" style={{ minHeight: 44 }} onClick={() => void res.refetch()} data-testid="p3-ob-find-retry">Try again</button>
+          </>
         ) : res.isPending ? (
           <p className="p3-ob-m" role="status">Searching&hellip;</p>
         ) : res.data.length === 0 ? (
@@ -773,6 +776,14 @@ function LogoStep({ url, orgId, onUrl, upload }: { url: string; orgId: string; o
   );
 }
 
+/** P3's own lines for a refused claim that should become "Ask to join" (never the shared "request access" wording). */
+const ASK_INSTEAD_COPY: Record<string, string> = {
+  organiser_already_claimed: 'Someone already manages this page. Ask to join and they can add you.',
+  no_contact_email: 'This page has no contact email to check against. Ask to join and the team will check.',
+  email_mismatch: 'This page has a different contact email. Ask to join and the team will check who you are.',
+  auth_user_email_missing: 'Your account has no email address, so it cannot claim a page. Ask to join instead.',
+};
+
 function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked, onHome, onFullClaim }: {
   page: ClaimableOrganiser; theme: 'light' | 'dark'; writes: PageWrites;
   /** The open request's date when the person already asked to join this page; undefined = not asked. */
@@ -784,6 +795,9 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
   const [err, setErr] = useState<{ text: string; reauth: boolean } | null>(null);
   // The server's request_already_open (the list had not caught up) is the same fact, not an error.
   const [serverAsked, setServerAsked] = useState(false);
+  // A refused claim that should become a request: the button switches to Ask to join.
+  const [askInstead, setAskInstead] = useState(false);
+  const primary = askInstead ? 'ask' : s.primary;
   if (s.primary !== 'home' && (askedAt !== undefined || serverAsked)) {
     return (
       <ObSheet title={s.title} onClose={onClose} theme={theme} testId="p3-ob-sheet-claim">
@@ -797,7 +811,7 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
     setBusy(true);
     setErr(null);
     try {
-      if (s.primary === 'claim') {
+      if (primary === 'claim') {
         await writes.claim(page.id);
         onClaimed(page.id);
       } else {
@@ -807,7 +821,10 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
     } catch (e) {
       if (selfServeErrorCode(e) === 'request_already_open') return setServerAsked(true);
       const c = selfServeErrorCopy(e);
-      setErr({ text: c.message, reauth: c.next === 'reauth' });
+      const code = selfServeErrorCode(e);
+      const own = c.next === 'request_access' && code ? ASK_INSTEAD_COPY[code] : undefined;
+      if (own) setAskInstead(true);
+      setErr({ text: own ?? c.message, reauth: c.next === 'reauth' });
     } finally {
       setBusy(false);
     }
@@ -820,7 +837,7 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
           {err.text} {err.reauth && <button type="button" className="p3-ob-lnk" onClick={onFullClaim}>Confirm with an email code</button>}
         </p>
       )}
-      <button type="button" className="p3-ob-btn" aria-disabled={busy ? 'true' : undefined} onClick={() => void act()} data-testid="p3-ob-claim-go">{busy ? 'Saving\u2026' : s.primaryLabel}</button>
+      <button type="button" className="p3-ob-btn" aria-disabled={busy ? 'true' : undefined} onClick={() => void act()} data-testid="p3-ob-claim-go">{busy ? 'Saving\u2026' : askInstead ? 'Ask to join' : s.primaryLabel}</button>
       {s.notThisOne && <button type="button" className="p3-ob-lnk" onClick={onClose}>Not this one</button>}
     </ObSheet>
   );
