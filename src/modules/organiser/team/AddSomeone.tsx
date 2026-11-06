@@ -14,6 +14,7 @@ import { Avatar } from './Avatar';
 import { BROWSE_PAGE, SHORT_WALL, browseQueryKey, factLabel, fetchBrowsePeople, inviteMessage, shortWallLine, type Face } from './browseApi';
 import { addErrorMessage } from './teamErrors';
 import { useTeamContext } from './useTeamContext';
+import { PageNameCaption } from './p3TeamBits';
 
 /**
  * /account/o/team/add (C25b, D43, D56): a search field (existing RPC, 2-letter minimum, 8 results) over a
@@ -23,7 +24,7 @@ import { useTeamContext } from './useTeamContext';
  */
 export default function AddSomeone() {
   const ctx = useTeamContext();
-  const { Shell, paths, doneBack } = useOrgSurface();
+  const { Shell, paths, doneBack, kind } = useOrgSurface();
   const { organiser, members, viewerRole } = ctx;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -36,6 +37,9 @@ export default function AddSomeone() {
   const [serverFull, setServerFull] = useState(false);
   const [message, announce] = useAnnounce();
   const term = searchTerm(useDebounced(query));
+  const namePage = kind === 'p3' && ctx.organisers.length >= 2;
+  const pageName = organiser?.name ?? '';
+  const ofPage = namePage ? ` of ${pageName}` : '';
   const full = teamIsFull(members.length, serverFull);
   const allowed = viewerRole === 'owner' || viewerRole === 'manager';
   // Faces and results carry profile ids; a member's profile id is their user id unless organiser_team_v1
@@ -93,7 +97,7 @@ export default function AddSomeone() {
     if (!serverFull) setError(null);
     if (f.canAdd === false) void share(invite(f.name));
     // Done rides mutate()'s own callback: TanStack drops it once this screen unmounts (a late answer stays put).
-    else add.mutate({ profileId: f.profileId, name: f.name }, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager`, seriesId: null }, doneBack, paths.done) });
+    else add.mutate({ profileId: f.profileId, name: f.name }, { onSuccess: (_r, p) => goDone(navigate, { title: 'Added', message: `${shortName(p.name)} is a Manager${ofPage}`, seriesId: null }, doneBack, paths.done) });
   };
   const more = (browse.data?.length ?? 0) >= limit;
   // The lookup cap (permission_denied: lookup_cap) says what to do instead of "did not load" (W4a fix 3, F8).
@@ -102,6 +106,7 @@ export default function AddSomeone() {
   return (
     <Shell title="Add someone" back={{ to: paths.team, label: 'Team' }} testId="org-page-team-add">
       <div className="flex flex-col gap-3 p-3">
+        <PageNameCaption name={organiser?.name} show={namePage} />
         <AnnounceRegion message={message} />
         {ctx.loading ? (
           <SkeletonRows count={3} label="Loading" testId="add-loading" />

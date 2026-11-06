@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "_doc": "docs/automation-foundations.md. The MONEY SET (contract 8.1). Every auto path calls scripts/lib/is-money.mjs isMoney() immediately before acting; a hit anywhere (a changed path, an added OR removed line of any changed file incl. .md/.json, a migration statement) = refuse with `money set: <name>`. paths: globs, case-insensitive, `**` any depth, `*` within one segment. Every other list: NAMES matched as whole identifiers (neighbours must not be [A-Za-z0-9_]; `-` is a boundary), case-sensitive in paths and changed lines, case-insensitive in migration statements (Postgres folds unquoted identifiers); `*` inside a name = [A-Za-z0-9_]*. keys may also hold {regex, why}: the regex must be anchored ^...$ and is tested against each identifier token of a line. Names only: never a secret value. Guard path: changing this file is an owner-merged guard change.",
+  "paths": [
+    ".github/automation/money-set.json",
+    "src/modules/tickets/**",
+    "src/modules/organiser/p3/tickets/**",
+    "src/modules/organiser/tickets/**",
+    "src/modules/organiser/p3/door/**",
+    "src/components/TicketCard.tsx",
+    "src/lib/ticketBookingFee.ts",
+    "src/modules/event-page/bento/StickyTicketButton.tsx",
+    "src/modules/event-page/sections/EventTicketsSection.tsx",
+    "src/modules/organiser/p3/shell/youTickets.tsx",
+    "src/modules/organiser/p3/tickets/GetPaid.tsx",
+    "src/**/*ticket*",
+    "src/**/*ticket*/**",
+    "app/**/*ticket*",
+    "supabase/functions/stripe-webhook/**",
+    "supabase/functions/stripe-connect-onboard/**",
+    "supabase/functions/ticket-checkout/**",
+    "supabase/functions/ticket-email/**",
+    "supabase/functions/ticket-refund/**",
+    "**/*stripe*",
+    "**/*stripe*/**",
+    "**/*payout*",
+    "**/*payout*/**",
+    "**/*refund*",
+    "**/*refund*/**"
+  ],
+  "tables": [
+    "ticket_orders",
+    "tickets",
+    "ticket_types",
+    "ticket_promo_codes",
+    "ticket_webhook_events",
+    "ticket_checkout_attempts",
+    "organiser_stripe_accounts",
+    "ticket_status_reads",
+    "ticket_promo_*"
+  ],
+  "functions": [
+    "ticket_*_v1",
+    "_ticket_*_v1",
+    "my_tickets_v1",
+    "my_ticket_order_qr_v1",
+    "stripe-webhook",
+    "stripe-connect-onboard",
+    "ticket-checkout",
+    "ticket-email",
+    "ticket-refund"
+  ],
+  "keys": [
+    "STRIPE_CHECKOUT_PREFIX",
+    "STRIPE_MODE",
+    "BOOKING_FEE_PENCE",
+    { "regex": "^price_(?=[A-Za-z0-9]*[0-9])[A-Za-z0-9]{14,}$", "why": "a Stripe price id (price_ + 14 or more alphanumerics with at least one digit); price_currency / price_display do not match" }
+  ],
+  "flags": [
+    "organiserTicketing",
+    "publicTicketing",
+    "VITE_ENABLE_ORGANISER_TICKETING",
+    "VITE_ENABLE_PUBLIC_TICKETING",
+    "VITE_ENABLE_TICKET_DOOR_CODE"
+  ],
+  "env": [
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_WEBHOOK_SECRET_THIN",
+    "STRIPE_PUBLISHABLE_KEY",
+    "VITE_TICKET_PREVIEW_ORIGIN"
+  ]
+}

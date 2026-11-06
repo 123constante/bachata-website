@@ -7,6 +7,7 @@ import {
   seriesWorkspaceQueryKey,
   type CommandResponse,
 } from './selfServeApi';
+import { invalidatePublicEventCaches } from './publicCache';
 import { envelope, type OwnerCommand } from './seriesCommands';
 import { isVersionConflict } from './selfServeErrors';
 import type { DateDetail, SeriesWorkspace } from './seriesModel';
@@ -37,6 +38,7 @@ export function useOwnerCommand(seriesId: string) {
     void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
     void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
     if (occurrenceId) void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(occurrenceId) });
+    invalidatePublicEventCaches(queryClient);
   };
 
   return useMutation<CommandResponse, Error, OwnerCommandVars>({

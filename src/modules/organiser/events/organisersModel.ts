@@ -1,5 +1,5 @@
 // The event's organisers (parity wave 1, SW1): the organiser pages linked to an event.
-// Pure. Owner only (a manager sees the list read-only, with the reason); the last
+// Pure. Owner or manager (anyone else sees the list read-only, with the reason); the last
 // organiser cannot be removed; an added page must be live (the search lists live
 // pages only). The write is series.set_organisers with the COMPLETE ordered id list.
 
@@ -10,7 +10,7 @@ import { eventLock } from '@/modules/organiser/shared/eventState';
 
 export interface LinkedOrganiser { id: string; name: string; avatarUrl: string | null }
 
-export const MANAGER_REASON = 'Only the owner can change who runs this event.';
+export const NOT_ORGANISER_REASON = 'Only the people who run this event can change who runs it.';
 export const LAST_ORGANISER_REASON = 'An event needs at least one organiser.';
 export const ORGANISERS_EMPTY = 'No organiser is linked yet. Ask the Bachata Calendar team to link your page.';
 /** The empty list for an owner who can link (Link a page is on screen and on); anyone else asks the team. */
@@ -29,10 +29,10 @@ export const addablePages = (mine: MyPage[], linked: string[]): LinkedOrganiser[
   mine.filter((p) => p.lifecycle_status === 'live' && !linked.includes(p.id)).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatar_url }));
 
 /** Why the list cannot change here, or null. */
-export function organisersOff(input: { lifecycle: string; isOwner: boolean; gate?: boolean }): string | null {
+export function organisersOff(input: { lifecycle: string; canEdit: boolean; gate?: boolean }): string | null {
   const lock = eventLock(input.lifecycle);
   if (lock) return lock;
-  if (!input.isOwner) return MANAGER_REASON;
+  if (!input.canEdit) return NOT_ORGANISER_REASON;
   if (!(input.gate ?? AW1_APPLIED)) return PARITY_GATE_REASON;
   return null;
 }
