@@ -17,7 +17,7 @@ applies it, the worker cannot push `.github/workflows`).
 
 | item | done | where | proof |
 |---|---|---|---|
-| 1 CRITICAL: PR's own workflow can hard-code `runs-on: acer-web` | job-started hook refuses (exit 1, job fails before any step, hosted answers) unless: event is `pull_request` or push to main; `GITHUB_ACTOR` and `GITHUB_TRIGGERING_ACTOR` on the trust list; `GITHUB_WORKFLOW_REF` = this repo's `.github/workflows/bom-check.yml`; the git blob of that file at `GITHUB_WORKFLOW_SHA` == the blob on `origin/main`, both fetched fresh into a local mirror. Settings come only from built-in defaults + root-owned `/etc/ghrunner-web/gate.conf`, never env. | `docs/ci-offload/acer-web/gate-job-started.sh` | `test-gate-hooks.sh`: 34 cases; MUTANT (altered workflow blob) refused + names IDENTITY; 9 more refusals (actor, re-run actor, workflow path, repo, non-hex/unknown sha, push to branch, pull_request_target, env cannot widen trust list) |
+| 1 CRITICAL: PR's own workflow can hard-code `runs-on: acer-web` | job-started hook refuses (exit 1, job fails before any step, hosted answers) unless: event is `pull_request` or push to main; `GITHUB_ACTOR` and `GITHUB_TRIGGERING_ACTOR` on the trust list; `GITHUB_WORKFLOW_REF` = this repo's `.github/workflows/bom-check.yml`; the git blob of that file at `GITHUB_WORKFLOW_SHA` == the blob on `origin/main`, both fetched fresh into a local mirror. Settings come only from built-in defaults + root-owned `/etc/ghrunner-web/gate.conf`, never env. | `docs/ci-offload/acer-web/gate-job-started.sh` | `test-gate-hooks.sh`: 38 cases; MUTANT (altered workflow blob) refused + names IDENTITY; 9 more refusals (actor, re-run actor, workflow path, repo, non-hex/unknown sha, push to branch, pull_request_target, env cannot widen trust list) |
 | 2 protected paths | `scripts/lib/`, `package.json`, `package-lock.json` added (`.github/automation/` already under `.github/`) | `PROTECTED_PREFIXES` | test: PR touching ONLY `scripts/lib/entry-point.mjs` -> untrusted -> hosted; `scripts/library.mjs` still trusted (no over-match) |
 | 3 exit classes | only 1 = code-failure; 124/137 = busy-timeout; 2, 126, 127, 130, 139, 143, empty, non-numeric = `runner-error` -> hosted. `verdict` now always exits 0 (the verdict travels as an output + marker step, so a crashed node can never pose as a code failure) | `classifyExit()` | table test over 0,1,2,124,126,127,130,137,139,143 + garbage |
 | 4 watchdog | GONE (no run cancel). Required `bom-check` does not `needs:` the routed job; it polls it (`route-runner.mjs await`): skip-pass only if the routed job succeeded AND its `BOM verdict: pass` marker step succeeded; red only if the routed job failed AND its `BOM verdict: code failure` marker failed; queued > 120 s, running > 660 s, refused, crashed, API errors -> runs the check hosted. No `if: always()`: `!cancelled()` | `awaitDecision()`, PATCH B | 15-row table + 4 `main(['await'])` cases (no POST ever sent) |
@@ -27,6 +27,32 @@ applies it, the worker cannot push `.github/workflows`).
 | 8 completed hook | removes ONLY `_work/<repo>` (name validated; never `_temp`/`_actions`/`_tool`). Started hook (after identity) removes other top-level `_work` entries and `_temp` entries older than 60 min | both hooks | shell test: stale checkout + old `_temp` gone, fresh `_temp`, `_tool`, `_actions` kept |
 | 9 lock holder | `exec sleep 7200` replaced: holder loops (`sleep 1` with the lock fd closed) and exits when the watched process (nearest `Runner.Worker` ancestor) dies or after `HOLDER_MAX_S` (default and hard cap 1800 s). Pid file unwritable -> holder exits 3 (lock released) -> hook refuses with exit 1 | `gate-job-started.sh` | shell test: lock held while the runner lives, released within 2 s of its death; released after a 2 s cap; unwritable pid file -> exit 1 + lock free; walk running -> refused BUSY, exit 0 |
 
+**Review round (one, CI-guard rule), fixed in this round:**
+- The started hook's cleanup would have deleted THIS job's own workspace (`_work/<repo>` and
+  `_PipelineMapping` exist before the hook runs): both are now kept; the completed hook empties
+  `_work/<repo>` instead of removing it. Tested.
+- Paths the hooks write/delete (state dir, verdict file, work dir, walk lock) came from env
+  BEFORE the identity check: now defaults + `gate.conf` only (keys `STATE_DIR`, `WORK_DIR`,
+  `WALK_LOCK`; tests pass `--conf`). Tested: env `WEB_RUNNER_GATE_FILE` pointing elsewhere is ignored.
+- Holder whose watched runner pid is already gone now refuses at once (exit 1) instead of
+  spinning 180 s as "lock held". Tested.
+
+**Review round, OPEN for the lead (not fixed; need a live runner or a design call):**
+- (high) The identity check trusts `GITHUB_*` env. If a workflow's `env:` can shadow
+  `GITHUB_ACTOR` / `GITHUB_EVENT_NAME` / `GITHUB_REF` / `GITHUB_WORKFLOW_SHA` inside the hook,
+  every condition can be faked. Check on the live runner (set them in job `env:` of a scratch
+  workflow and log what the hook sees). If they can be shadowed, owner step 1 (runner group
+  "Selected workflows") is the ONLY real control, not "the other half": do it before the first run.
+- (medium) `refuse` exits 1 also on infrastructure failures (cannot fetch main / no mirror /
+  private repo without a credential). The required check stays green (hosted answers) but the
+  routed job shows as failed on every run, including push-to-main runs. Exit 1 is still needed
+  when identity is unproven; the fix is upstream: stop routing (unset `WEB_RUNNER_LABEL`) while
+  the gate keeps refusing. Owner step 3 wording "safe, no gain" means: never red on the required
+  check, but a red routed job in the run list.
+- (low) Rule (e-routed) gates only an EXPRESSION `runs-on`; a literal `runs-on: acer-web` (no
+  `self-hosted` label) is not caught. Suggested: flag any label that is not a GitHub-hosted image
+  (`ubuntu-*`, `windows-*`, `macos-*`). The hook's identity check covers it at runtime.
+
 **Deliberate deviation (item 8).** The brief says "move the FULL cleanup to job-started". Not
 done literally: when the job-started hook runs, the runner has already downloaded THIS job's
 actions into `_actions` and created its file-command files under `_temp`; wiping them there would
@@ -35,7 +61,7 @@ lead confirmation on a live runner (Not verified below).
 
 **Mutant results (run 2026-11-06 in this container).**
 - Altered workflow blob (`jobs: { evil: { runs-on: acer-web } }`) at `GITHUB_WORKFLOW_SHA` -> hook exit 1, verdict `refused ... IDENTITY ...`, walk lock never taken.
-- Hook mutant with the identity compare line deleted -> `test-gate-hooks.sh` FAILS (8 of 34, first: `MUTANT altered workflow: refused`). Also pinned in vitest (`runner hooks (shell test)`).
+- Hook mutant with the identity compare line deleted -> `test-gate-hooks.sh` FAILS (10 of 38, first: `MUTANT altered workflow: refused`). Also pinned in vitest (`runner hooks (shell test)`).
 - Guard: 13 structural `if:` mutants all exit 1 (table above); route-runner self-test 14 cases.
 
 ### PATCH B (lead applies; replaces the routing part of PATCH A)
@@ -847,7 +873,7 @@ Not verified:
 Verified (this container, 2026-11-06):
 - `npx vitest run tests/routeRunner.test.ts tests/automationFoundations.test.ts tests/automationRegister.test.ts` = 3 files, 247 tests passed (routeRunner 96, incl. the shell hook test and its mutant).
 - `node scripts/check-secrets-register.mjs` = OK (40 workflows, 1 routed job trust-gated); `--self-test` 41 cases PASS; `node scripts/ci/route-runner.mjs --self-test` 14 cases PASS.
-- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` = PASS 34 cases (real git over a local `file://` remote, real `flock`/`setsid`); hook mutant without the identity compare = FAIL 8 of 34.
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` = PASS 38 cases (real git over a local `file://` remote, real `flock`/`setsid`); hook mutant without the identity compare = FAIL 10 of 38.
 - PATCH B: `git apply --check` clean; guard OK and YAML parses with it applied (then reverted; `.github/workflows` untouched by this round).
 - `npm run lint` = 34 of 34 links green (eslint informational, as documented).
 - No real-data shapes apply: CI-only change, no UI, no DB read.

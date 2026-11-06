@@ -29,22 +29,25 @@ TRUSTED=kiki-claude-bot 123constante
 REMOTE_URL=file://$T/origin.git
 MIRROR=$T/mirror.git
 MAIN_REF=refs/heads/main
+STATE_DIR=$T/state
+WORK_DIR=$T/work
+WALK_LOCK=$T/walk.lock
 EOF
 sleep 600 & W=$!
 
-reset() { rm -rf "$T/state" "$T/work"; mkdir -p "$T/state" "$T/work/_tool" "$T/work/_actions" "$T/work/_temp" "$T/work/r"; }
+reset() { rm -rf "$T/state" "$T/work" "$T/evil"; mkdir -p "$T/state" "$T/work/_tool" "$T/work/_actions" "$T/work/_temp" "$T/work/_PipelineMapping" "$T/work/r/r"; }
 run() { # env overrides as args; prints exit code
   env -i PATH="$PATH" HOME="$T" GITHUB_RUN_ID=9 GITHUB_RUN_ATTEMPT=1 GITHUB_JOB=bom-check-routed \
     GITHUB_REPOSITORY=o/r GITHUB_EVENT_NAME=pull_request GITHUB_REF=refs/pull/1/merge \
     GITHUB_ACTOR=kiki-claude-bot GITHUB_TRIGGERING_ACTOR=kiki-claude-bot \
     GITHUB_WORKFLOW_REF="o/r/.github/workflows/bom-check.yml@refs/pull/1/merge" GITHUB_WORKFLOW_SHA="$SAME" \
-    WEB_RUNNER_STATE_DIR="$T/state" WEB_RUNNER_WORK_DIR="$T/work" WALK_LOCK="$T/walk.lock" \
+    WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_GATE_FILE="$T/evil" WEB_RUNNER_WORK_DIR=/nonexistent WALK_LOCK=/nonexistent \
     SAFE_LOAD_MAX=999 SAFE_MEM_MIN=0 GATE_WAIT_S=0 WEB_RUNNER_WATCH_PID="$W" "$@" \
     bash "$STARTED" --conf "$T/gate.conf" >"$T/out" 2>&1; echo $?
 }
 word() { awk '{print $4}' "$T/state/gate-verdict" 2>/dev/null; }
 lockfree() { ( flock -n 9 && echo free || echo held ) 9>>"$T/walk.lock"; }
-done_hook() { env -i PATH="$PATH" GITHUB_REPOSITORY=o/r WEB_RUNNER_STATE_DIR="$T/state" WEB_RUNNER_WORK_DIR="$T/work" bash "$COMPLETED"; echo $?; }
+done_hook() { env -i PATH="$PATH" GITHUB_REPOSITORY=o/r WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_WORK_DIR=/nonexistent bash "$COMPLETED" --conf "$T/gate.conf"; echo $?; }
 waitfree() { for _ in $(seq 1 50); do [ "$(lockfree)" = free ] && break; sleep 0.1; done; lockfree; }
 
 # 1. identical workflow -> ok, lock held; completed releases it and removes only the checkout
@@ -56,10 +59,12 @@ check 'started cleanup: stale checkout removed' "$([ -e "$T/work/stale-checkout"
 check 'started cleanup: old _temp entry removed' "$([ -e "$T/work/_temp/old" ] && echo kept || echo gone)" gone
 check 'started cleanup: fresh _temp entry kept' "$([ -e "$T/work/_temp/new" ] && echo kept || echo gone)" kept
 check 'started cleanup: _tool/_actions kept' "$([ -d "$T/work/_tool" ] && [ -d "$T/work/_actions" ] && echo kept)" kept
+check "started cleanup: THIS job's workspace + _PipelineMapping kept" "$([ -d "$T/work/r/r" ] && [ -d "$T/work/_PipelineMapping" ] && echo kept)" kept
+check 'env paths ignored: no file written at WEB_RUNNER_GATE_FILE' "$([ -e "$T/evil" ] && echo written || echo none)" none
 mkdir -p "$T/work/r/src"
 check 'completed: exit 0' "$(done_hook)" 0
 check 'completed: lock released' "$(waitfree)" free
-check 'completed: checkout dir removed' "$([ -e "$T/work/r" ] && echo kept || echo gone)" gone
+check 'completed: checkout contents removed, dir kept' "$([ -e "$T/work/r/r" ] && echo kept || echo gone)/$([ -d "$T/work/r" ] && echo dir)" gone/dir
 check 'completed: _temp/_actions/_tool kept' "$([ -d "$T/work/_temp" ] && [ -d "$T/work/_actions" ] && [ -d "$T/work/_tool" ] && echo kept)" kept
 
 # 2. MUTANT: altered workflow blob must be refused
@@ -82,11 +87,17 @@ reset; check 'push to main: ok' "$(run GITHUB_EVENT_NAME=push GITHUB_REF=refs/he
 done_hook >/dev/null; waitfree >/dev/null
 
 # 9. holder exits when the watched (runner) process dies
-reset; sleep 600 & W2=$!
+reset
+sleep 600 & W2=$!
 check 'holder: ok' "$(run WEB_RUNNER_WATCH_PID=$W2)" 0
 check 'holder: lock held while runner lives' "$(lockfree)" held
 kill $W2; wait $W2 2>/dev/null
 check 'holder: lock released when the runner dies' "$(sleep 1.5; waitfree)" free
+# 9b. runner process already gone -> refused at once, exit 1, lock free
+reset
+true & W3=$!; wait $W3
+check 'runner already gone: exit 1' "$(run WEB_RUNNER_WATCH_PID=$W3)" 1
+check 'runner already gone: lock free' "$(waitfree)" free
 # 10. holder cap
 reset; check 'holder cap: ok' "$(run HOLDER_MAX_S=2)" 0
 check 'holder cap: lock released after HOLDER_MAX_S' "$(sleep 3; waitfree)" free

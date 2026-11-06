@@ -25,11 +25,11 @@ set -u
 CONF=/etc/ghrunner-web/gate.conf
 [ "${1:-}" = "--conf" ] && [ -n "${2:-}" ] && CONF=$2
 
-STATE_DIR=${WEB_RUNNER_STATE_DIR:-/srv/ghrunner-web/state}
-VERDICT=${WEB_RUNNER_GATE_FILE:-$STATE_DIR/gate-verdict}
-HOLDER_PID_FILE=$STATE_DIR/lock-holder.pid
-WALK_LOCK=${WALK_LOCK:-/var/lib/laptop-walk/walk.lock}
-WORK_DIR=${WEB_RUNNER_WORK_DIR:-/srv/ghrunner-web/runner/_work}
+# Every PATH this hook writes or deletes comes from defaults + the conf file, never env (review
+# round 2: an env path would let a job's own env: aim rm/mv anywhere BEFORE identity is proven).
+STATE_DIR=/srv/ghrunner-web/state
+WORK_DIR=/srv/ghrunner-web/runner/_work
+WALK_LOCK=/var/lib/laptop-walk/walk.lock
 GATE_WAIT_S=${GATE_WAIT_S:-180}
 HOLDER_MAX_S=${HOLDER_MAX_S:-1800}
 case "$HOLDER_MAX_S" in ''|*[!0-9]*) HOLDER_MAX_S=1800 ;; esac
@@ -52,9 +52,12 @@ if [ -r "$CONF" ]; then
     case "$k" in
       REPO) G_REPO=$v ;; WORKFLOW_PATH) G_WORKFLOW=$v ;; TRUSTED) G_TRUSTED=$v ;;
       REMOTE_URL) G_REMOTE=$v ;; MIRROR) G_MIRROR=$v ;; MAIN_REF) G_MAIN_REF=$v ;;
+      STATE_DIR) STATE_DIR=$v ;; WORK_DIR) WORK_DIR=$v ;; WALK_LOCK) WALK_LOCK=$v ;;
     esac
   done < <(grep -E '^[A-Z_]+=' "$CONF")
 fi
+VERDICT=$STATE_DIR/gate-verdict
+HOLDER_PID_FILE=$STATE_DIR/lock-holder.pid
 
 rm -f "$VERDICT" 2>/dev/null
 case "${GITHUB_EVENT_NAME:-}" in
@@ -89,11 +92,14 @@ run_blob=$(mgit rev-parse -q --verify "refs/gate/run:$G_WORKFLOW" 2>/dev/null)
 echo "side-machine gate: identity ok ($G_WORKFLOW blob $main_blob, actor ${GITHUB_ACTOR:-?})"
 
 # ---- 1. workspace cleanup (moved here from the completed hook, item 8) ----------------------
-# Keep _tool (setup-node cache, pinned actions only) and _actions/_temp: by the time this hook
-# runs the runner has already downloaded THIS job's actions and created its file-command files.
+# Keep _tool (setup-node cache, pinned actions only), _actions, _temp, _PipelineMapping and
+# _work/<repo>: by the time this hook runs, "Set up job" has already created THIS job's
+# workspace dir, mapping, actions and file-command files (review round 2). The previous job's
+# checkout inside _work/<repo> is removed by gate-job-completed.sh.
 # _temp entries older than 60 min belong to earlier jobs and go.
+REPO_DIR=${G_REPO##*/}
 if [ -d "$WORK_DIR" ]; then
-  find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name _tool ! -name _actions ! -name _temp -exec rm -rf {} + 2>/dev/null
+  find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name _tool ! -name _actions ! -name _temp ! -name _PipelineMapping ! -name "$REPO_DIR" -exec rm -rf {} + 2>/dev/null
   [ -d "$WORK_DIR/_temp" ] && find "$WORK_DIR/_temp" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null
 fi
 
@@ -133,7 +139,7 @@ while :; do
       { printf "%s %s\n" "$$" "$(awk "{print \$22}" /proc/$$/stat)" > "$2.tmp" && mv -f "$2.tmp" "$2"; } 2>/dev/null || exit 3
       st() { awk "{print \$22}" "/proc/$1/stat" 2>/dev/null; }
       wstart=; [ -n "$3" ] && wstart=$(st "$3")
-      [ -n "$3" ] && [ -z "$wstart" ] && exit 0
+      [ -n "$3" ] && [ -z "$wstart" ] && exit 4
       end=$(( $(date +%s) + $4 ))
       while [ "$(date +%s)" -lt "$end" ]; do
         [ -n "$3" ] && [ "$(st "$3")" != "$wstart" ] && break
@@ -153,6 +159,7 @@ while :; do
     if ! kill -0 "$hp" 2>/dev/null; then
       wait "$hp"; rc=$?
       [ "$rc" = 3 ] && refuse "cannot write holder pid file $HOLDER_PID_FILE (lock released)"
+      [ "$rc" = 4 ] && refuse "runner process $WATCH_PID already gone (lock released)"
     else
       kill "$hp" 2>/dev/null
     fi
