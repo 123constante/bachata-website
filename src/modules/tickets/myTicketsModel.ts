@@ -156,6 +156,19 @@ export function stateCopy(state: Exclude<PageState, 'ready'>, signInHref: string
   }
 }
 
+/** Where a ticket really is: the three lines that name email vs My tickets, in one place. */
+export const TICKET_WHERE = {
+  /** Reply ok, zero tickets (order not linked to this account): email only, no My tickets claim. */
+  empty: 'Your tickets are in your email.',
+  /** The door-code read failed: email is certain, My tickets is a retry. */
+  error: "We couldn't load your door codes just now. Your tickets are in your email. You can also try",
+  errorLink: 'My tickets',
+  errorTail: 'in a minute.',
+  /** Checkout, signed out only. */
+  guestNote: 'You are not signed in, so your tickets come by email only. Sign in first to keep them in My tickets.',
+  guestSignIn: 'Sign in',
+} as const;
+
 /** The QR toggle on a checked-in ticket: collapsed by default, never shown as if usable. */
 export function qrVisible(t: MyTicket, shownAnyway: boolean): boolean {
   if (!t.qrToken) return false;

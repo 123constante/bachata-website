@@ -53,17 +53,17 @@ describe('fetchOrderQr', () => {
   });
 });
 
-const IN_EMAIL = 'Your tickets are in your email, and in My tickets.';
+const IN_EMAIL = 'Your tickets are in your email.';
 type Reply = { data: unknown; error: { code?: string; message: string } | null };
-const replies: Array<[string, Reply, 'cards' | 'email', number]> = [
+const replies: Array<[string, Reply, 'cards' | 'email' | 'error', number]> = [
   ['1 ticket', { data: tickets(1), error: null }, 'cards', 1],
   ['3 tickets', { data: tickets(3), error: null }, 'cards', 3],
   ['9 tickets (cap 8)', { data: tickets(9), error: null }, 'cards', 8],
   ['empty', { data: { tickets: [] }, error: null }, 'email', 0],
   ['signed out', { data: null, error: { code: '42501', message: 'nope' } }, 'email', 0],
-  ['other error', { data: null, error: { code: 'XX', message: 'boom' } }, 'email', 0],
+  ['other error', { data: null, error: { code: 'XX', message: 'boom' } }, 'error', 0],
   ['malformed rows only', { data: { tickets: [{ ticket_id: 'a' }, null] }, error: null }, 'email', 0],
-  ['malformed envelope', { data: 'junk', error: null }, 'email', 0],
+  ['malformed envelope', { data: 'junk', error: null }, 'error', 0],
 ];
 
 describe('OrderQrBlock states', () => {
@@ -80,6 +80,9 @@ describe('OrderQrBlock states', () => {
     if (kind === 'email') {
       expect(screen.getByTestId('order-qr-email').textContent).toBe(IN_EMAIL);
       expect(screen.queryByRole('link')).toBeNull();
+    } else if (kind === 'error') {
+      expect(screen.getByTestId('order-qr-email').textContent).toBe("We couldn't load your door codes just now. Your tickets are in your email. You can also try My tickets in a minute.");
+      expect(screen.getByRole('link', { name: 'My tickets' }).getAttribute('href')).toBe('/account/my-tickets');
     } else expect(screen.queryByTestId('order-qr-email')).toBeNull();
     const more = screen.queryByTestId('order-qr-more');
     if (_l.startsWith('9')) {
