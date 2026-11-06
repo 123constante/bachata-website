@@ -8,13 +8,13 @@ export const linkLookupKey = (code: string) => ['ambassador-link-public', code] 
 export const linkCityKey = (slug: string) => ['ambassador-link-city', slug] as const;
 
 export async function fetchLinkLookup(code: string): Promise<LinkLookup> {
-  const { data, error } = await supabase.rpc('get_ambassador_link_public_v1' as never, { p_code: code } as never);
+  const { data, error } = await supabase.rpc('get_ambassador_link_public_v1', { p_code: code });
   if (error) throw error;
   return parseLookup(data);
 }
 
 export async function recordLinkJoin(code: string): Promise<JoinResult> {
-  const { data, error } = await supabase.rpc('record_ambassador_link_join_v1' as never, { p_code: code } as never);
+  const { data, error } = await supabase.rpc('record_ambassador_link_join_v1', { p_code: code });
   if (error) throw error;
   return parseJoin(data);
 }

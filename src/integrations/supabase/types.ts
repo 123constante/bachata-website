@@ -13675,6 +13675,7 @@ export type Database = {
         Returns: Json
       }
       front_door_morning_digest_v1: { Args: never; Returns: Json }
+      get_ambassador_link_public_v1: { Args: { p_code: string }; Returns: Json }
       get_all_profiles_v1: {
         Args: never
         Returns: {
@@ -15105,6 +15106,7 @@ export type Database = {
         }
         Returns: Json
       }
+      record_ambassador_link_join_v1: { Args: { p_code: string }; Returns: Json }
       record_auth_funnel_step_v1: {
         Args: { p_outcome: string; p_step: string }
         Returns: undefined
