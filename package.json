@@ -19,6 +19,7 @@
     "check:guest-list-contract:self-test": "node scripts/check-guest-list-contract.mjs --self-test",
     "prove:entry-point": "node scripts/prove-entry-point-dispatch.mjs",
     "prove:entry-point:self-test": "node scripts/prove-entry-point-dispatch.mjs --self-test",
+    "prove:entry-point:coverage": "node scripts/prove-entry-point-dispatch.mjs --coverage-only",
     "check:ci-budget": "node scripts/check-ci-budget.mjs",
     "check:ci-budget:self-test": "node scripts/check-ci-budget.mjs --self-test",
     "check:pr-real-data-verified": "node scripts/check-pr-real-data-verified.mjs",
