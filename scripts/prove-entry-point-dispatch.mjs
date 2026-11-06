@@ -239,7 +239,9 @@ const TARGETS = [
   { rel: 'scripts/walk-seed.mjs' },
   { rel: 'scripts/lib/walk-fixtures.mjs' },
   { rel: 'scripts/lib/walk-gate-decision.mjs' },
+  { rel: 'scripts/lib/walk-ios-static.mjs' },
   { rel: 'scripts/lib/walk-judge.mjs' },
+  { rel: 'scripts/lib/walk-report.mjs' },
   { rel: 'scripts/lib/walk-waiver.mjs' },
 ];
 
