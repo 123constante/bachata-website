@@ -2307,6 +2307,7 @@ export type Database = {
           event_id_p5: string
           id: string
           link_type: string
+          ref_code: string | null
           source: string | null
           target_url: string | null
           user_agent: string | null
@@ -2317,6 +2318,7 @@ export type Database = {
           event_id_p5: string
           id?: string
           link_type: string
+          ref_code?: string | null
           source?: string | null
           target_url?: string | null
           user_agent?: string | null
@@ -2327,6 +2329,7 @@ export type Database = {
           event_id_p5?: string
           id?: string
           link_type?: string
+          ref_code?: string | null
           source?: string | null
           target_url?: string | null
           user_agent?: string | null
@@ -3875,6 +3878,7 @@ export type Database = {
           id: string
           occurrence_id: string | null
           occurrence_id_p5: string | null
+          ref_code: string | null
           source: string | null
           user_agent: string | null
           viewed_at: string
@@ -3886,6 +3890,7 @@ export type Database = {
           id?: string
           occurrence_id?: string | null
           occurrence_id_p5?: string | null
+          ref_code?: string | null
           source?: string | null
           user_agent?: string | null
           viewed_at?: string
@@ -3897,6 +3902,7 @@ export type Database = {
           id?: string
           occurrence_id?: string | null
           occurrence_id_p5?: string | null
+          ref_code?: string | null
           source?: string | null
           user_agent?: string | null
           viewed_at?: string
@@ -5336,6 +5342,47 @@ export type Database = {
           },
         ]
       }
+      organiser_analytics_daily_totals: {
+        Row: {
+          day: string
+          link_taps: Json
+          link_taps_by_ref: Json
+          rolled_at: string
+          series_id: string
+          views: number
+          views_by_ref: Json
+          visitors: number
+        }
+        Insert: {
+          day: string
+          link_taps?: Json
+          link_taps_by_ref?: Json
+          rolled_at?: string
+          series_id: string
+          views?: number
+          views_by_ref?: Json
+          visitors?: number
+        }
+        Update: {
+          day?: string
+          link_taps?: Json
+          link_taps_by_ref?: Json
+          rolled_at?: string
+          series_id?: string
+          views?: number
+          views_by_ref?: Json
+          visitors?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_analytics_daily_totals_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organiser_card_clicks: {
         Row: {
           clicked_at: string
@@ -5872,6 +5919,8 @@ export type Database = {
           name: string
           organisation_category: string | null
           profile_source: string | null
+          share_code: string
+          share_code_disabled_at: string | null
           show_contact_publicly: boolean
           show_email_publicly: boolean
           show_phone_publicly: boolean
@@ -5902,6 +5951,8 @@ export type Database = {
           name: string
           organisation_category?: string | null
           profile_source?: string | null
+          share_code?: string
+          share_code_disabled_at?: string | null
           show_contact_publicly?: boolean
           show_email_publicly?: boolean
           show_phone_publicly?: boolean
@@ -5932,6 +5983,8 @@ export type Database = {
           name?: string
           organisation_category?: string | null
           profile_source?: string | null
+          share_code?: string
+          share_code_disabled_at?: string | null
           show_contact_publicly?: boolean
           show_email_publicly?: boolean
           show_phone_publicly?: boolean
@@ -6131,6 +6184,49 @@ export type Database = {
             columns: ["person_entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organiser_team_public_hides: {
+        Row: {
+          dancer_profile_id: string
+          hidden_at: string
+          hidden_by: string | null
+          organiser_profile_id: string
+        }
+        Insert: {
+          dancer_profile_id: string
+          hidden_at?: string
+          hidden_by?: string | null
+          organiser_profile_id: string
+        }
+        Update: {
+          dancer_profile_id?: string
+          hidden_at?: string
+          hidden_by?: string | null
+          organiser_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_team_public_hides_dancer_profile_id_fkey"
+            columns: ["dancer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "dancer_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_team_public_hides_organiser_profile_id_fkey"
+            columns: ["organiser_profile_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_team_public_hides_organiser_profile_id_fkey"
+            columns: ["organiser_profile_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -10351,6 +10447,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      _organiser_analytics_purge_raw_v1: {
+        Args: { p_months: number }
+        Returns: Json
+      }
       _organiser_audit_field_label_v1: {
         Args: { p_key: string }
         Returns: string
@@ -10409,6 +10509,10 @@ export type Database = {
         Returns: boolean
       }
       _organiser_festival_switch_on_v1: { Args: never; Returns: boolean }
+      _organiser_link_zone_v1: {
+        Args: { p_link_type: string; p_source: string }
+        Returns: string
+      }
       _organiser_linked_series_count_v1: {
         Args: { p_organiser_id: string }
         Returns: number
@@ -10463,6 +10567,10 @@ export type Database = {
         Args: { p_member_role: string; p_organiser_id: string; p_user: string }
         Returns: boolean
       }
+      _organiser_ref_for_series_v1: {
+        Args: { p_ref_code: string; p_series_id: string }
+        Returns: string
+      }
       _organiser_seat_p5: {
         Args: { p_organiser_id: string; p_user: string }
         Returns: boolean
@@ -10475,6 +10583,7 @@ export type Database = {
         Args: { p_series_id: string }
         Returns: string
       }
+      _organiser_share_code_new_v1: { Args: never; Returns: string }
       _organiser_show_email_publicly_admin_v1: {
         Args: { p_organiser_id: string }
         Returns: boolean
@@ -13150,6 +13259,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_set_organiser_share_code_disabled_v1: {
+        Args: { p_disabled: boolean; p_organiser_id: string }
+        Returns: Json
+      }
       admin_set_organiser_trusted_v1: {
         Args: { p_organiser: string; p_trusted: boolean }
         Returns: Json
@@ -14641,6 +14754,10 @@ export type Database = {
           occurrence_id: string
         }[]
       }
+      organiser_analytics_v2: {
+        Args: { p_from?: string; p_series_id: string; p_to?: string }
+        Returns: Json
+      }
       organiser_claim_hints_v1: {
         Args: { p_organiser_ids: string[] }
         Returns: Json
@@ -14685,6 +14802,16 @@ export type Database = {
         Args: { p_organiser_id: string; p_patch: Json }
         Returns: Json
       }
+      organiser_public_team_v1: {
+        Args: { p_organiser_profile_id: string }
+        Returns: {
+          avatar_url: string
+          person_id: string
+          public_name: string
+          slug: string
+          sort_key: number
+        }[]
+      }
       organiser_publish_gate_v1: {
         Args: { p_actor: string; p_series_id: string }
         Returns: Json
@@ -14728,6 +14855,10 @@ export type Database = {
           p_occurrence_id: string
           p_sessions: Json
         }
+        Returns: Json
+      }
+      organiser_share_code_v1: {
+        Args: { p_organiser_id: string }
         Returns: Json
       }
       organiser_start_v1: { Args: { p_payload: Json }; Returns: Json }
@@ -15125,6 +15256,7 @@ export type Database = {
         Args: {
           p_event_id: string
           p_link_type: string
+          p_ref_code?: string
           p_session_id?: string
           p_source?: string
           p_target_url?: string
@@ -15136,6 +15268,7 @@ export type Database = {
         Args: {
           p_event_id: string
           p_occurrence_id?: string
+          p_ref_code?: string
           p_source?: string
           p_user_agent?: string
           p_viewer_session_id: string
@@ -15504,6 +15637,14 @@ export type Database = {
           p_status?: string
         }
         Returns: undefined
+      }
+      set_organiser_team_member_hidden_v1: {
+        Args: {
+          p_hidden: boolean
+          p_organiser_profile_id: string
+          p_person_id: string
+        }
+        Returns: Json
       }
       skip_organiser_about_v1: {
         Args: { p_organiser_id: string }
