@@ -35,8 +35,10 @@ export const WALK_GATE_REASONS = Object.freeze({
 });
 
 const R = WALK_GATE_REASONS;
+// Diagnostics only (reason ids); the decision itself is isPass / waiverValid.
 const SHA40 = /^[0-9a-f]{40}$/;
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const validSha = (v) => typeof v === 'string' && SHA40.test(v);
 const why = (id, detail) => ({ id, detail });
 
 function verdictReasons(verdict, liveHeadSha) {
@@ -45,7 +47,10 @@ function verdictReasons(verdict, liveHeadSha) {
     return [why(R.VERDICT_MALFORMED, 'verdict is not a judge verdict object')];
   }
   const out = [];
-  if (typeof verdict.headSha !== 'string' || !SHA40.test(verdict.headSha)) {
+  // Head diagnostics only when the live head is itself usable; otherwise
+  // LIVE_HEAD_INVALID is the cause and blaming the verdict would mislead.
+  if (!validSha(liveHeadSha)) { /* reported by the caller */ }
+  else if (!validSha(verdict.headSha)) {
     out.push(why(R.VERDICT_MALFORMED, 'verdict headSha is not a 40-hex sha'));
   } else if (verdict.headSha !== liveHeadSha) {
     out.push(why(R.VERDICT_WRONG_HEAD, `verdict is for ${verdict.headSha}, live head is ${String(liveHeadSha)}`));
@@ -64,14 +69,14 @@ function decide({ liveHeadSha, verdict, waiverRecord, waiverContext }) {
   if (waiver && waiver.valid === true) return { allowed: true, via: 'waiver', reasons: [] };
 
   const reasons = [];
-  if (typeof liveHeadSha !== 'string' || !SHA40.test(liveHeadSha)) {
+  if (!validSha(liveHeadSha)) {
     reasons.push(why(R.LIVE_HEAD_INVALID, 'liveHeadSha is not a 40-hex sha'));
   }
   reasons.push(...verdictReasons(verdict, liveHeadSha));
   if (waiver === null) reasons.push(why(R.NO_WAIVER, 'no walk-waived record'));
   else {
     if (!isObj(waiverContext)) reasons.push(why(R.WAIVER_CONTEXT_MISSING, 'no waiver context'));
-    if (isObj(waiverRecord) && waiverRecord.headSha !== liveHeadSha) {
+    if (isObj(waiverRecord) && validSha(liveHeadSha) && validSha(waiverRecord.headSha) && waiverRecord.headSha !== liveHeadSha) {
       reasons.push(why(R.WAIVER_WRONG_HEAD, `waiver stood at ${String(waiverRecord.headSha)}, live head is ${String(liveHeadSha)}`));
     }
     const detail = Array.isArray(waiver.reasons) && waiver.reasons.length ? waiver.reasons.join('; ') : 'waiver not valid';

@@ -4,7 +4,8 @@
 // MUTANTS at the bottom copy the module with one rule weakened and require the
 // same table to go red, so the table is proven to guard each rule.
 import { describe, it, expect, afterAll } from 'vitest';
-import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { decideWalkGate, WALK_GATE_REASONS, main } from '../scripts/lib/walk-gate-decision.mjs';
@@ -74,6 +75,12 @@ CELLS.push({
   input: { liveHeadSha: LIVE, waiverRecord: waiverRec(OWNER, LIVE) },
   allowed: false, via: null,
 });
+// A 'pass' at the live head that isPass still rejects (one engine only) is blocked: the gate trusts isPass, not the word.
+CELLS.push({
+  name: 'pass at head missing webkit',
+  input: { liveHeadSha: LIVE, verdict: { ...(verdictOf('pass', LIVE) as object), engines: ['chromium'] } },
+  allowed: false, via: null,
+});
 for (const bad of [null, undefined, 'x', 42, []]) {
   CELLS.push({ name: `input ${JSON.stringify(bad) ?? 'undefined'}`, input: bad, allowed: false, via: null });
 }
@@ -89,7 +96,7 @@ function runTable(decide: Decide): string[] {
 }
 
 describe('decideWalkGate table', () => {
-  it('has the full verdict x head x waiver grid', () => expect(CELLS.length).toBeGreaterThanOrEqual(85));
+  it('has the full verdict x head x waiver grid', () => expect(CELLS.length).toBe(96));
   it.each(CELLS)('$name -> allowed $allowed via $via', (c) => {
     const r = decideWalkGate(c.input);
     expect(r.allowed).toBe(c.allowed);
@@ -116,6 +123,12 @@ describe('reasons', () => {
   it('red and doubt are named', () => {
     expect(idsOf({ liveHeadSha: LIVE, verdict: verdictOf('red', LIVE) })).toContain(WALK_GATE_REASONS.VERDICT_RED);
     expect(idsOf({ liveHeadSha: LIVE, verdict: verdictOf('doubt', LIVE) })).toContain(WALK_GATE_REASONS.VERDICT_DOUBT);
+  });
+  it('a bad live head is blamed on the live head, not the verdict or waiver', () => {
+    const r = idsOf({ liveHeadSha: undefined, verdict: verdictOf('pass', LIVE), waiverRecord: waiverRec(OWNER, LIVE), waiverContext: CTX });
+    expect(r).toContain(WALK_GATE_REASONS.LIVE_HEAD_INVALID);
+    expect(r).not.toContain(WALK_GATE_REASONS.VERDICT_MALFORMED);
+    expect(r).not.toContain(WALK_GATE_REASONS.WAIVER_WRONG_HEAD);
   });
   it('a getter that throws is blocked, not thrown', () => {
     const evil = { get liveHeadSha() { throw new Error('boom'); } };
@@ -145,7 +158,9 @@ describe('main', () => {
 // ---------------------------------------------------------------- mutants
 const SRC_FILE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../scripts/lib/walk-gate-decision.mjs');
 const SRC = readFileSync(SRC_FILE, 'utf8');
-const made: string[] = [];
+// Mutants live in an OS temp dir (never in the tracked scripts/ tree); their
+// relative imports are rewritten to absolute URLs of the real sibling modules.
+const MUTANT_DIR = mkdtempSync(path.join(os.tmpdir(), 'walk-gate-mutant-'));
 let seq = 0;
 async function mutant(pairs: [string, string][]): Promise<Decide> {
   let src = SRC;
@@ -153,12 +168,12 @@ async function mutant(pairs: [string, string][]): Promise<Decide> {
     expect(src.includes(from), `mutation anchor not found: ${from}`).toBe(true);
     src = src.split(from).join(to);
   }
-  const f = path.join(path.dirname(SRC_FILE), `.walk-gate-mutant-${process.pid}-${seq++}.mjs`);
+  src = src.replace(/from '\.\/([a-z-]+\.mjs)'/g, (_m, f) => `from '${pathToFileURL(path.join(path.dirname(SRC_FILE), f)).href}'`);
+  const f = path.join(MUTANT_DIR, `m-${seq++}.mjs`);
   writeFileSync(f, src);
-  made.push(f);
   return (await import(pathToFileURL(f).href)).decideWalkGate as Decide;
 }
-afterAll(() => { for (const f of made) rmSync(f, { force: true }); });
+afterAll(() => rmSync(MUTANT_DIR, { recursive: true, force: true }));
 
 describe('MUTANTS: each weakened rule turns the table red', () => {
   it('unmutated copy is green (the harness itself is sound)', async () => {
@@ -172,11 +187,17 @@ describe('MUTANTS: each weakened rule turns the table red', () => {
     const d = await mutant([['pinnedHeadSha: liveHeadSha }', 'pinnedHeadSha: isObj(waiverRecord) ? waiverRecord.headSha : liveHeadSha }']]);
     expect(runTable(d)).toContain('verdict none / head same / waiver owner at old head');
   });
-  it('accept a bot waiver', async () => {
+  it('accept a bot waiver: drop the automation-login list only', async () => {
+    const d = await mutant([['pinnedHeadSha: liveHeadSha }', 'pinnedHeadSha: liveHeadSha, registeredAutomationLogins: [] }']]);
+    expect(runTable(d)).toContain('verdict none / head same / waiver owner equal to bot login');
+  });
+  it('accept a bot waiver: treat the label actor as the owner', async () => {
     const d = await mutant([['pinnedHeadSha: liveHeadSha }', 'pinnedHeadSha: liveHeadSha, registeredAutomationLogins: [], ownerLogin: isObj(waiverRecord) ? waiverRecord.eventActor : null }']]);
-    const wrong = runTable(d);
-    expect(wrong).toContain('verdict none / head same / waiver bot actor');
-    expect(wrong).toContain('verdict none / head same / waiver owner equal to bot login');
+    expect(runTable(d)).toContain('verdict none / head same / waiver bot actor');
+  });
+  it('trust the word pass instead of isPass', async () => {
+    const d = await mutant([['isPass(verdict, liveHeadSha)', "(isObj(verdict) && verdict.verdict === 'pass' && verdict.headSha === liveHeadSha)"]]);
+    expect(runTable(d)).toContain('pass at head missing webkit');
   });
   it('let doubt pass', async () => {
     const d = await mutant([['isPass(verdict, liveHeadSha)',
