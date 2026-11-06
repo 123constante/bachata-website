@@ -20,6 +20,11 @@
  *       This is the static half of drill A34 / 6.2(7); the live half needs the real token;
  *   (d) any `acts_as` equals `owner_login` (case-insensitive: GitHub logins are);
  *   (e) a self-hosted `runs-on` label is reachable from those triggers (Website has none);
+ *       and (e-routed) a job whose `runs-on` is an EXPRESSION (`${{ ... }}`, e.g. the CI-offload
+ *       route `needs.route.outputs.runner` / `vars.WEB_RUNNER_LABEL`) may land on a self-hosted
+ *       runner, so its job `if:` must carry every ROUTE_TRUST_TOKENS condition (push to main, or a
+ *       same-repo PR by an allowlisted author), and its workflow must have no
+ *       pull_request_target / workflow_run trigger (docs/handover/ci-offload-stage3.md, item 2);
  *   (f) `actual_scope` is anything but "NOT VERIFIED" or a list of `perm:read|write` tokens
  *       each covered by `required_minimum_scope` (a recorded scope wider than the minimum fails).
  *
@@ -48,6 +53,16 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 export const REGISTER_PATH = path.join(REPO_ROOT, '.github', 'automation', 'secrets-register.json');
 export const WORKFLOW_DIR = path.join(REPO_ROOT, '.github', 'workflows');
 export const OWNER_LOGIN = '123constante';
+// Rule (e-routed): every one of these must appear in the `if:` of a job whose runs-on is an
+// expression. Compared with whitespace removed and quotes unified. Mirrors trustDecision() in
+// scripts/ci/route-runner.mjs (the YAML half is the defence the PR itself cannot edit away
+// without touching .github/, which always routes hosted).
+export const ROUTE_TRUST_TOKENS = [
+  "github.event_name == 'push' && github.ref == 'refs/heads/main'",
+  'github.event.pull_request.head.repo.full_name == github.repository',
+  'github.event.pull_request.user.login',
+];
+const normExpr = (x) => String(x).replace(/\s+/g, '').replace(/"/g, "'");
 const DATED = /\b20\d\d-\d\d-\d\d\b/;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const REQUIRED_FIELDS = ['name', 'kind', 'acts_as', 'owner_login', 'required_minimum_scope', 'actual_scope', 'expiry', 'readers_allowed', 'exists'];
@@ -153,6 +168,7 @@ export function measureWorkflows(files) {
   const readers = {};
   const untrustedReaders = {};
   const selfHosted = [];
+  const routed = [];
   let jobCount = 0;
   const add = (map, k, v) => { (map[k] = map[k] || []).push(v); };
   for (const { name, text } of files) {
@@ -176,6 +192,12 @@ export function measureWorkflows(files) {
       if (labels.some((l) => /self-hosted/i.test(l))) {
         for (const u of untrusted) selfHosted.push({ workflow: name, job: id, trigger: u.trigger });
         if (!untrusted.length) selfHosted.push({ workflow: name, job: id, trigger: null });
+      } else if (labels.some((l) => /\$\{\{/.test(l))) {
+        const on = triggersOf(doc);
+        const cond = normExpr(job && job.if !== undefined ? job.if : '');
+        const missing = ROUTE_TRUST_TOKENS.filter((t) => !cond.includes(normExpr(t)));
+        const badTriggers = ['pull_request_target', 'workflow_run'].filter((t) => t in on);
+        routed.push({ workflow: name, job: id, missing, badTriggers });
       }
       for (const s of js) {
         for (const u of untrusted) {
@@ -187,7 +209,7 @@ export function measureWorkflows(files) {
     }
     for (const s of wfSecrets) add(readers, s, name);
   }
-  return { readers, untrustedReaders, selfHosted, jobCount, workflowCount: files.length };
+  return { readers, untrustedReaders, selfHosted, routed, jobCount, workflowCount: files.length };
 }
 
 /** Rules (a)-(f). Pure. -> { violations: [string] } */
@@ -246,6 +268,10 @@ export function checkRegister({ register, measured }) {
         if (!min.some((m) => m.perm === a.perm && m.level >= a.level)) v.push(`(f) ${e.name}: actual_scope ${e.actual_scope[i]} exceeds required_minimum_scope`);
       }
     }
+  }
+  for (const r of measured.routed || []) {
+    if (r.missing.length) v.push(`(e) ${r.workflow}/${r.job}: runs-on is an expression (may be self-hosted) but its job if: lacks the trust condition(s): ${r.missing.join(' | ')}`);
+    if (r.badTriggers.length) v.push(`(e) ${r.workflow}/${r.job}: runs-on is an expression (may be self-hosted) in a workflow triggered by ${r.badTriggers.join(', ')}`);
   }
   for (const s of measured.selfHosted) v.push(`(e) ${s.workflow}/${s.job}: self-hosted runner reachable from ${s.trigger || 'a trusted trigger (no self-hosted runner is registered for this repo)'}`);
   return { violations: v };
@@ -350,7 +376,7 @@ export async function main(argv = [], env = process.env, log = console, deps = {
     return 1;
   }
   const secrets = Object.keys(measured.readers).filter((s) => s !== 'GITHUB_TOKEN').length;
-  log.log(`secrets-register: OK -- ${measured.workflowCount} workflows, ${measured.jobCount} jobs, ${secrets} secret(s) read, ${register.entries.length} register entries, 0 self-hosted runners.`);
+  log.log(`secrets-register: OK -- ${measured.workflowCount} workflows, ${measured.jobCount} jobs, ${secrets} secret(s) read, ${register.entries.length} register entries, 0 self-hosted runners, ${(measured.routed || []).length} routed job(s) trust-gated.`);
   return 0;
 }
 
@@ -397,6 +423,13 @@ async function selfTest(log) {
   const m = measureWorkflows([{ name: 's.yml', text: 'on: { pull_request_target: {} }\njobs:\n  j:\n    runs-on: [self-hosted]\n    steps:\n      - uses: actions/checkout@v7\n      - run: echo "${{ secrets.TOK }}"\n' }]);
   cases.push(['(e) self-hosted reachable is reported', m.selfHosted.length, 1]);
   cases.push(['prt + PR-head checkout is untrusted', (m.untrustedReaders.TOK || []).length, 1]);
+  const ROUTE_IF = `${ROUTE_TRUST_TOKENS[0]} || (github.event_name == 'pull_request' && ${ROUTE_TRUST_TOKENS[1]} && contains(fromJSON('["a"]'), ${ROUTE_TRUST_TOKENS[2]}))`;
+  const routedWf = (cond, on = '{ pull_request: {}, push: { branches: [main] } }') => [{ name: 'r.yml', text: `on: ${on}\njobs:\n  j:\n    if: "${cond.replace(/"/g, '\\"')}"\n    runs-on: \${{ needs.route.outputs.runner }}\n    steps:\n      - run: "true"\n` }];
+  cases.push(['(e-routed) full trust if: (0)', await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(ROUTE_IF)] }), 0]);
+  for (const t of ROUTE_TRUST_TOKENS) {
+    cases.push([`(e-routed) mutant without ${t} (1)`, await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(ROUTE_IF.replace(t, 'true'))] }), 1]);
+  }
+  cases.push(['(e-routed) pull_request_target trigger (1)', await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(ROUTE_IF, '{ pull_request_target: {} }')] }), 1]);
   const prose = measureWorkflows([{ name: 'p.yml', text: 'on: { schedule: [{ cron: "0 0 * * *" }] }\njobs:\n  j:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/precheck-supabase-secrets.mjs\n' }]);
   cases.push(['a script name is not a secret reference', Object.keys(prose.readers).length, 0]);
   let failed = 0;
