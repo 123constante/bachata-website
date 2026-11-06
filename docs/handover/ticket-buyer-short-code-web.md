@@ -29,3 +29,8 @@ and `tickets.short_code` exists (read-only SELECT, 2026-11-06).
 - `test:e2e:p3` was not run to completion here (sandbox timeout); `doc-weight` and lighthouse need
   a preview and CI runs them.
 - Code review round 2 (user-facing) was not run; round 1 findings are triaged in the PR body.
+
+## Status at hand-off
+- PR: #1457 (not merged, not approved by the worker; not automerge: UI paths changed).
+- tsc run on 81e4db8: 0 errors in branch files (119 repo-wide, none in this diff).
+- PR body label lines checked locally: check-pr-real-data-verified OK, check-pr-phone-qa OK.
