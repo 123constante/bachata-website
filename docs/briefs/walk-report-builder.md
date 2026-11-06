@@ -6,7 +6,7 @@ Serves: the lead (a walk runner can hand raw per-engine numbers and picture file
 
 ## What main lacks
 - judgeVerdict(input, report) needs report = { headSha, measurements[screen][shape][engine], pictures[{name,sha256}], doubts } with picture names `<screen>--<shape>--<engine>.png` (scripts/lib/walk-judge.mjs lines 180-215), but no code builds that object -- grep: buildJudgeReport
-- extends: ENGINES, VIEWPORT, RUBRIC are exported from scripts/lib/walk-judge.mjs and must be imported, not copied
+- extends: ENGINES, VIEWPORT, RUBRIC are exported from scripts/lib/walk-judge.mjs and must be imported, not copied -- scripts/lib/walk-judge.mjs
 
 ## Files
 scripts/lib/walk-report.mjs (new)
