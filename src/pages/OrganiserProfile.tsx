@@ -1,6 +1,7 @@
 ﻿import { withPublicNames } from '@/lib/publicDancerNames';
 import { resolvePublicName } from '@/lib/publicName';
 import React from 'react';
+import { heroBio } from '@/modules/profile/organiserHeroBio';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -672,7 +673,7 @@ const OrganiserProfile = () => {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
   const [showAllPastYears, setShowAllPastYears] = useState(false);
-  const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
   const [expandedPastYears, setExpandedPastYears] = useState<Set<string>>(() => new Set());
   const [editForm, setEditForm] = useState({
     name: '',
@@ -1142,12 +1143,9 @@ const OrganiserProfile = () => {
     : undefined;
 
 
-  // First sentence of the bio for the hero tagline (original behaviour).
-  const bioParts = ep.bio ? ep.bio.split(/\.\s+/) : [];
-  const heroTagline = bioParts.length > 0 ? `${bioParts[0]}${bioParts.length > 1 ? '.' : ''}` : null;
-  // A long bio is clamped to 3 lines in About with a More toggle.
-  const aboutIsLong = (ep.bio?.length ?? 0) > 180;
-
+  // The bio is shown once, in the header: 150 characters, More for the rest.
+  const hero = heroBio(ep.bio, cityName, organisationCategory);
+  const heroShown = bioExpanded && hero.truncated ? (ep.bio ?? '').trim() : hero.text;
   // Email is always offered -- it used to vanish on desktop whenever a
   // WhatsApp number existed.
   // The extract* helpers return the platform name when no handle is found;
@@ -1220,6 +1218,11 @@ const OrganiserProfile = () => {
   const sectionH2: React.CSSProperties = { fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: 0, color: D.cream };
   const sectionCount: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600 };
   const moreBtn: React.CSSProperties = { display: 'block', width: '100%', minHeight: 44, padding: '10px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' };
+  const heroMore = hero.truncated ? (
+    <button type="button" onClick={() => setBioExpanded((v) => !v)} aria-expanded={bioExpanded} data-testid="hero-bio-more" style={{ ...moreBtn, display: 'inline-block', width: 'auto', minHeight: 44, padding: '10px 0 10px 8px', textAlign: 'left' }}>
+      {bioExpanded ? 'Show less' : 'More'}
+    </button>
+  ) : null;
 
   // --- Render ---
   return (
@@ -1293,11 +1296,13 @@ const OrganiserProfile = () => {
             <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
               <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
             </svg>
-            {heroTagline && (
-              <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4 }}>
-                {heroTagline}
+            {heroShown && (
+              <p className={cn(!hero.fallback && eip?.mark('bio'))} data-testid="hero-bio" style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4, whiteSpace: 'pre-line' }}>
+                {heroShown}
+                {heroMore}
               </p>
             )}
+            {eip?.slot(ep.bio ? 'about' : 'about-empty')}
           </div>}
 
           {/* Desktop */}
@@ -1324,11 +1329,13 @@ const OrganiserProfile = () => {
                 <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
                   <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
                 </svg>
-                {heroTagline && (
-                  <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500 }}>
-                    {heroTagline}
+                {heroShown && (
+                  <p className={cn(!hero.fallback && eip?.mark('bio'))} data-testid="hero-bio-desktop" style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500, whiteSpace: 'pre-line' }}>
+                    {heroShown}
+                    {heroMore}
                   </p>
                 )}
+                {eip?.slot(ep.bio ? 'about' : 'about-empty')}
               </div>
 
             </div>
@@ -1490,24 +1497,6 @@ const OrganiserProfile = () => {
             {upcomingListItems.length > UPCOMING_VISIBLE && (
               <button onClick={() => { if (showAllUpcoming) scrollBackIfAbove('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
                 {showAllUpcoming ? 'Show fewer' : `Show all ${totalUpcomingDateCount} dates`}
-              </button>
-            )}
-          </section>
-        )}
-
-        {/* ABOUT -- below the events: a regular came for dates, not the bio */}
-        {(ep.bio || eip) && (
-          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About{eip?.slot('about')}</h2>
-            {ep.bio ? <p
-              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3', eip?.mark('bio'))}
-              style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
-            >
-              {ep.bio}
-            </p> : eip?.slot('about-empty')}
-            {aboutIsLong && (
-              <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
-                {aboutExpanded ? 'Show less' : 'More'}
               </button>
             )}
           </section>

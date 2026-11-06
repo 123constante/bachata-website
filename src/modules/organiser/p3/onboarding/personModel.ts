@@ -206,6 +206,7 @@ export function blockedReason(step: PersonStep, d: PersonDraft): string | null {
     case 'levels': return d.levels.length > 0 ? null : r;
     case 'styles': return d.styles.length > 0 ? null : r;
     case 'years': return parseYears(d.years) === null ? r : null;
+    case 'about': return Array.from(d.about.trim()).length > 150 ? 'Shorten to 150 characters to save' : null;
     default: return null;
   }
 }
