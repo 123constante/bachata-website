@@ -32,12 +32,40 @@ describe('sales report model', () => {
     expect(CSV_COLUMNS.join(' ').toLowerCase()).not.toMatch(/mail|stripe/);
     expect(csv).not.toMatch(/@/);
   });
-  it('escapes injection and quoting', () => {
-    for (const c of ['=1+1', '+1', '-1', '@x', '\tx']) expect(csvCell(c).replace(/^"/, '')).toMatch(/^'/);
-    expect(csvCell('a,"b"')).toBe('"a,""b"""');
+});
+
+describe('csvCell: one test per escaping rule', () => {
+  it.each([
+    ['=', '=1+1', "'=1+1"],
+    ['+', '+1', "'+1"],
+    ['-', '-1', "'-1"],
+    ['@', '@x', "'@x"],
+    ['tab', '\tx', "'\tx"],
+    // CR also trips the line-break quoting rule
+    ['CR', '\rx', `"'\rx"`],
+  ])('formula neutraliser: a cell starting with %s gets a leading apostrophe', (_label, v, want) => {
+    expect(csvCell(v)).toBe(want);
+  });
+  it('a plain cell is left alone', () => {
+    expect(csvCell('Ana 1')).toBe('Ana 1');
+  });
+  it('quote doubling: a double quote is doubled and the cell quoted', () => {
+    expect(csvCell('say "hi"')).toBe('"say ""hi"""');
+  });
+  it('comma quoting: a comma wraps the cell in quotes', () => {
+    expect(csvCell('a,b')).toBe('"a,b"');
+  });
+  it('CR / LF quoting: a line break mid-cell wraps it in quotes', () => {
+    expect(csvCell('a\nb')).toBe('"a\nb"');
+    expect(csvCell('a\rb')).toBe('"a\rb"');
+  });
+  it('buyer-name formula through guestListCsv is neutralised and quoted', () => {
     const { csv } = guestListCsv([T1], [order('x1', 't1', { buyerName: '=HYPERLINK("x")' })]);
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
   });
+});
+
+describe('sales report shapes', () => {
   it('shape: no orders, free ticket, file name, short ref', () => {
     const empty = buildReport([T1], []);
     expect(downloadWhy(empty)).toMatch(/No paid orders/);

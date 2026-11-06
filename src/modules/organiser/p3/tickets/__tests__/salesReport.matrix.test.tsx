@@ -44,6 +44,10 @@ describe.each(SHAPE_KEYS)('sales report, shape %s', (k) => {
     const btn = screen.getByTestId('tix-report-download') as HTMLButtonElement;
     expect(btn.disabled).toBe(counted === 0);
     if (counted === 0) expect(screen.getByTestId('tix-report-why').textContent).toMatch(/No paid orders/);
+    // the source label: shown only with orders to point at; says what the gross includes
+    const source = screen.queryByTestId('tix-report-source');
+    if (counted === 0) expect(source).toBeNull();
+    else expect(source?.textContent).toMatch(/From the orders below.*booking fees.*refunded or disputed.*Money so far.*paid orders only/);
     // no refund control inside the report, whatever the role
     expect(screen.getByTestId('tix-report').querySelector('[data-testid="tix-refund"]')).toBeNull();
     // door list failed: no checked-in line, no error

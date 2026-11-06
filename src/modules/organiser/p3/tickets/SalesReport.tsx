@@ -50,6 +50,11 @@ export function SalesReport({
   return (
     <div className="p3-card p3-tight" data-testid="tix-report">
       <div className="p3-row-t p3-pad-y">Sales report</div>
+      {report.countedOrders > 0 && (
+        <p className="p3-note p3-pad-y" data-testid="tix-report-source">
+          From the orders below. Includes booking fees and refunded or disputed orders; the Money so far figure counts paid orders only.
+        </p>
+      )}
       {report.countedOrders === 0 ? (
         <p className="p3-note p3-pad-y" data-testid="tix-report-empty">{reportEmptyText(types)}</p>
       ) : (
