@@ -1,6 +1,8 @@
 # Handover: walk-ios-static-scan (slice 10, Part C, contract 11 item 5b)
 
-Branch `claude/walk-ios-static-scan`, off origin/main 670dc90. PR #1449.
+Branch `claude/walk-ios-static-scan-r2`, rebuilt off origin/main 750a366 (code commit
+1a33a02; this doc at the branch head). Replaces PR #1450 (replaces #1449).(`claude/walk-ios-static-scan`,
+head bc16ff51), which conflicted with main and which the lead will close.
 HARD-TIER: the owner approves at head; the worker never approves or merges.
 
 ## Done
@@ -24,8 +26,17 @@ HARD-TIER: the owner approves at head; the worker never approves or merges.
 - test:unit: 15 failures in 8 files, identical on origin/main in this sandbox
   (missing `qrcode-generator` in sandbox node_modules; live contract tests).
 
+## Rebuild r2 (2026-11-06)
+- Scanner, test and this doc copied unchanged from bc16ff51; judge-worker.md line
+  and the TARGETS entry re-applied by hand onto main (next to walk-report.mjs).
+- vitest walkIosStatic 68/68; entryPoint + entryPointCoverage + walkJudge 214/214;
+  prove-entry-point-dispatch PASS (78); lint chain 34/34; check:mojibake,
+  check:integrity, check-script-conventions: pass. tsc (tsconfig.app.json): 0
+  errors in branch files (branch files are outside its include; pre-existing src
+  errors unrelated). test:unit full suite not re-run in r2.
+
 ## Not verified
-- Not run against the real built site (`dist/`); only against `src/` (today:
+- Still not run against the real built site (`dist/`) as of r2; only against `src/` (today:
   font 12, raw vh 36, fixed-without-safe-area 64 -- informational).
 - Remote PR check results not read by the worker.
 
