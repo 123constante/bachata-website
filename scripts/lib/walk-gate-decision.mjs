@@ -13,6 +13,10 @@
 // Fail-closed: allowed only when isPass(...) or waiverValid(...).valid is true.
 // Every blocked answer cites at least one WALK_GATE_REASONS id; the reason ids
 // are diagnostics and never decide anything. decideWalkGate never throws.
+//
+// CLI input file: { "liveHeadSha": "<40-hex>", "verdict": <judgeVerdict output>,
+//   "waiverRecord": <walk-waived record or null>, "waiverContext": { "ownerLogin": "...",
+//   "registeredAutomationLogins": [...] } }. Not called by any workflow yet (Part E).
 import { readFileSync } from 'node:fs';
 import { isEntryPoint } from './entry-point.mjs';
 import { isPass } from './walk-judge.mjs';
