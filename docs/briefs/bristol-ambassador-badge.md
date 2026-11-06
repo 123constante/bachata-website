@@ -24,7 +24,7 @@ Table-driven {ambassador, not ambassador, rpc error, signed-out} x {each profile
 Bot-authored PR, every CI job step run, Verified / Not verified, handover `docs/handover/bristol-ambassador-badge.md`.
 
 ## What main lacks
-No ambassador badge on any public profile (git grep is_city_ambassador_public_v1 finds nothing in src).
+- No ambassador badge on any public profile (git grep is_city_ambassador_public_v1 finds nothing in src). -- grep: is_city_ambassador_public_v1
 
 ## Files
 `src/modules/person-page/PersonPage.tsx`, `src/pages/DancerProfile.tsx`, `src/pages/PublicProfile.tsx` (prove the live one), new `src/modules/ambassador/link/AmbassadorBadge.tsx`, tests beside it.
