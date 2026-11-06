@@ -8,11 +8,11 @@ Prod vocabulary of `override_keys` (read-only count of `event_occurrence_overrid
 
 ## What main lacks
 - extends: WorkspaceDate carries the date's `override_keys` (string[], tolerant of null/missing/non-array/unknown strings) -- grep: override_keys
-- extends: ONE pure mapping from a workspace to "how many coming, not-cancelled dates own each field" for the fields name(title), about(description), cover(cover_image_url), where(venue_id or city_id), ticket(ticket_url), photos(gallery), price(passes), music(music_styles); no second mapping anywhere -- grep: differentDatesCount
-- extends: Details screen shows a quiet line "Different on N dates" (N=1: "Different on 1 date") under Name, About, Cover, Where, Ticket link, Music, Photos; Prices screen shows it under the price list; line hidden when N is 0 -- grep: p3-different-on
-- extends: when the workspace is capped at 100 dates (meta has_more / `ws.total` above `ws.dates.length`) the line says "Different on N of the dates shown" so it never claims a full count -- grep: of the dates shown
+- ONE pure mapping from a workspace to "how many coming, not-cancelled dates own each field" for the fields name(title), about(description), cover(cover_image_url), where(venue_id or city_id), ticket(ticket_url), photos(gallery), price(passes), music(music_styles); no second mapping anywhere -- grep: differentDatesCount
+- Details screen shows a quiet line "Different on N dates" (N=1: "Different on 1 date") under Name, About, Cover, Where, Ticket link, Music, Photos; Prices screen shows it under the price list; line hidden when N is 0 -- grep: p3-different-on
+- when the workspace is capped at 100 dates (meta has_more / `ws.total` above `ws.dates.length`) the line says "Different on N of the dates shown" so it never claims a full count -- grep: of the dates shown
 - extends: `ownDetailsOf` (date sheet / All dates "own details" tag) also counts music_styles so a date whose only override is music is not shown as plain -- src/modules/organiser/p3/data/dateFacts.ts
-- extends: tests: table over date shapes x fields (no overrides, one key, several keys, cancelled date with override ignored, past date ignored, unknown key ignored, null/absent `override_keys`, 0/1/N dates, over-100 series, one-off, festival) and over screens (Details, Prices); no text pointing at a missing control (the line is plain text, not a link, unless the date list can open it) -- grep: differentDatesCount.matrix
+- tests: table over date shapes x fields (no overrides, one key, several keys, cancelled date with override ignored, past date ignored, unknown key ignored, null/absent `override_keys`, 0/1/N dates, over-100 series, one-off, festival) and over screens (Details, Prices); no text pointing at a missing control (the line is plain text, not a link, unless the date list can open it) -- grep: differentDatesCount.matrix
 
 ## Files
 - src/modules/organiser/shared/seriesModel.ts (WorkspaceDate + parse only)
