@@ -27,3 +27,5 @@ Branch: `claude/walk-pictures-pinned-to-head`.
 ## Not verified / left
 - No workflow calls it yet (Part C/E). The judge does not call
   `picturesMatchVerdict` yet; wiring it into `walk-judge.mjs` is a later part.
+
+PR: #1444. CI per job: not read from this session (no gh api); see the PR checks tab.
