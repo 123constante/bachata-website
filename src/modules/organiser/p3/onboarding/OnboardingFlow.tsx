@@ -27,6 +27,8 @@ import {
   PAGE_COPY,
   afterContact,
   contactEntry,
+  pageRowPath,
+  pageRowExit,
   draftFrom,
   e164Of,
   flowPercent,
@@ -70,7 +72,8 @@ const isPageStep = (s: string): s is PageStep => PAGE_STEPS.includes(s);
 const DETAIL_STEPS: readonly PageStep[] = ['contact', 'contact-phone', 'whatsapp', 'cat', 'link', 'logo'];
 
 type Stage =
-  | { kind: 'page'; step: PageStep }
+  /** `review`: the step was opened from a Review row; it exits back to Review after its save (`entry` = the row's first step, `percent` = the bar Review showed). */
+  | { kind: 'page'; step: PageStep; review?: { percent: number; entry: PageStep } }
   | { kind: 'person'; step: PersonStep }
   | { kind: 'review' }
   | { kind: 'live'; outcome: GoLiveOutcome }
@@ -267,9 +270,12 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           const last = personPath(teach, true);
           go({ kind: 'person', step: last[last.length - 1] }, 'back');
         }}
-        onRow={(r) => {
+        onRow={(r, percent) => {
           if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step });
-          else if (r.step && isPageStep(r.step)) go({ kind: 'page', step: r.step === 'contact' && held ? contactEntry(held) : r.step });
+          else if (r.step && isPageStep(r.step)) {
+            const entry = r.step === 'contact' && held ? contactEntry(held) : r.step;
+            go({ kind: 'page', step: entry, review: pageRowPath(entry).length ? { percent, entry } : undefined });
+          }
           else navigate(r.elsewhere === 'page' ? P3_PATHS.youPage : finishProfileHref(`${P3_PATHS.start}?o=${encodeURIComponent(orgId)}&at=review`));
         }}
         onLive={(outcome) => {
@@ -317,12 +323,18 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       setDraft={(f) => setD((p) => f(p ?? draftFrom(EMPTY_PAGE)))}
       setHeld={(h) => setHeld(h)}
       arrival={arrival}
-      percent={percentAt(step)}
+      percent={stage.kind === 'page' && stage.review ? stage.review.percent : percentAt(step)}
       reads={reads}
       writes={writes}
       upload={upload}
       userId={user.id}
-      onStep={(s, how) => go({ kind: 'page', step: s }, how)}
+      onStep={(s, how) => go({ kind: 'page', step: s, review: stage.kind === 'page' ? stage.review : undefined }, how)}
+      review={stage.kind === 'page' ? stage.review : undefined}
+      onReview={() => {
+        void qc.invalidateQueries({ queryKey: ['p3-ob'] });
+        void qc.invalidateQueries({ queryKey: ['p3-ob-status'] });
+        go({ kind: 'review' }, 'back');
+      }}
       onPerson={() => go({ kind: 'person', step: 'name' })}
       onExit={exit}
       onHome={exit}
@@ -371,6 +383,9 @@ interface PageScreensProps {
   upload?: (file: File) => Promise<string>;
   userId: string;
   onStep: (s: PageStep, how: 'fwd' | 'back') => void;
+  /** Set when this step came from a Review row (see Stage). */
+  review?: { percent: number; entry: PageStep };
+  onReview?: () => void;
   onPerson: () => void;
   onExit: () => void;
   onHome: () => void;
@@ -385,7 +400,7 @@ type PageSheet = { kind: 'claim'; page: ClaimableOrganiser } | { kind: 'settings
 
 /** Screens 1-9: one question each, one primary button, Back on every one. */
 export function PageScreens(props: PageScreensProps) {
-  const { step, dir, theme, setTheme, email, orgId, held, draft: d, setDraft, setHeld, arrival, percent, reads, writes, upload, userId, onStep, onPerson, onExit, onOrg, onAsked, onFinishProfile, onFullClaim, invalidate } = props;
+  const { step, dir, theme, setTheme, email, orgId, held, draft: d, setDraft, setHeld, arrival, percent, reads, writes, upload, userId, onStep, review, onReview, onPerson, onExit, onOrg, onAsked, onFinishProfile, onFullClaim, invalidate } = props;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ text: string; next?: 'finish_profile' | 'reauth' | 'find' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -412,6 +427,7 @@ export function PageScreens(props: PageScreensProps) {
   const move = (to: PageStep | 'person' | 'exit', how: 'fwd' | 'back') => {
     setError(null);
     setSheet(null);
+    if (review && onReview && how === 'fwd' && to !== 'exit' && pageRowExit(review.entry, to) === 'review') return onReview();
     if (to === 'exit') return onExit();
     if (to === 'person') return onPerson();
     onStep(to, how);
@@ -430,7 +446,8 @@ export function PageScreens(props: PageScreensProps) {
       case 'logo': return 'link';
     }
   };
-  const back = () => move(prev(), 'back');
+  // From Review the row's first step goes straight back to Review; later steps of the same row (phone, WhatsApp) go back within it.
+  const back = () => (review && onReview && step === review.entry ? onReview() : move(prev(), 'back'));
   const escape = () => (sheet ? setSheet(null) : back());
   const celebrate = () => {
     if (prefersReducedMotion()) return;
@@ -552,7 +569,7 @@ export function PageScreens(props: PageScreensProps) {
         aria-describedby={reason ? 'p3-ob-why' : undefined}
         data-bounce={bounce ? 'true' : undefined}
         onClick={() => (step === 'find' ? move('create-name', 'fwd') : void continueStep())}
-        data-testid="p3-ob-continue"
+        data-testid={review ? 'p3-ob-page-row-return' : 'p3-ob-continue'}
       >
         {label}
       </button>
@@ -828,7 +845,7 @@ function ClaimSheet({ page, theme, writes, askedAt, onClose, onClaimed, onAsked,
 
 function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, onBack, onRow, onLive, onIncomplete, onSignIn, onHome }: {
   status: NonNullable<ReturnType<typeof reviewStatusFrom>>; goLive: GoLiveApi; orgId: string; theme: 'light' | 'dark'; dir: 'fwd' | 'back'; steps: number; refreshing: boolean;
-  onBack: () => void; onRow: (r: ReviewRow) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: () => void;
+  onBack: () => void; onRow: (r: ReviewRow, percent: number) => void; onLive: (outcome: GoLiveOutcome) => void; onIncomplete: () => void; onSignIn: () => void; onHome: () => void;
 }) {
   const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -879,7 +896,7 @@ function ReviewScreen({ status, goLive, orgId, theme, dir, steps, refreshing, on
     setBusy(false);
   };
   const rowBtn = (r: ReviewRow) => (
-    <button key={r.code} type="button" className="p3-ob-row" onClick={() => { setAll(false); onRow(r); }} data-testid={`p3-ob-review-${r.code}`}>
+    <button key={r.code} type="button" className="p3-ob-row" onClick={() => { setAll(false); onRow(r, percent); }} data-testid={`p3-ob-review-${r.code}`}>
       <span className="p3-ob-row-txt"><strong>{r.label}</strong><span>{r.step ? 'To do' : r.elsewhere === 'page' ? 'To do, on your page' : 'To do, in your dancer profile'}</span></span>
       {CHEV}
     </button>
