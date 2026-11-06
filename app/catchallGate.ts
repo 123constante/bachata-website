@@ -39,8 +39,15 @@ export function classifyCatchallPath(pathname: string): CatchallVerdict {
   return { kind: "unknown" };
 }
 
+// `edge404` is true ONLY for the `unknown` verdict: a pure function of the path
+// and the build (CATCHALL_CLIENT_PATHS), with no DB read behind it, so the same
+// URL gets the same 404 until the next deploy, which empties Vercel's cache.
+// A city-subpath / legacy-city 404 depends on a city lookup and stays false.
+// entry.server.tsx hands it to finalizeDocumentCacheHeaders (catchallUnknown
+// edge window, docs/ops/vercel-cpu-cuts-2026-11-04.md slice 3).
 export type CatchallOutcome =
-  | { status: 200 | 404 | 503 }
+  | { status: 200 | 503 }
+  | { status: 404; edge404: boolean }
   | { status: 308; location: string };
 
 export const CITY_LOOKUP_TIMEOUT_MS = 3_000;
@@ -79,10 +86,10 @@ export async function resolveCatchallOutcome(
 ): Promise<CatchallOutcome> {
   const verdict = classifyCatchallPath(url.pathname);
   if (verdict.kind === "client") return { status: 200 };
-  if (verdict.kind === "unknown") return { status: 404 };
+  if (verdict.kind === "unknown") return { status: 404, edge404: true };
   const real = await lookupWithDeadline(verdict.slug, isRealCity, timeoutMs);
   if (real === "failed") return { status: 503 };
-  if (!real) return { status: 404 };
+  if (!real) return { status: 404, edge404: false };
   if (verdict.kind === "city-subpath") return { status: 200 };
   return { status: 308, location: `/city/${verdict.slug}${url.search}` };
 }

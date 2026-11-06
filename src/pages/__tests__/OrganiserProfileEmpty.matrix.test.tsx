@@ -80,6 +80,8 @@ type Case = {
   entity?: Partial<typeof ENTITY>;
   events?: unknown[]; future?: unknown[]; past?: unknown[];
   owner?: boolean;
+  /** A signed-in non-owner seat (manager can edit; contributor cannot). */
+  role?: 'manager' | 'contributor';
   /** get_organiser_public_contact_v1's answer; absent = both null (flag off, the prod default). */
   contact?: { contact_email?: string | null; contact_phone?: string | null };
   /** Which empty state shows: none, no events at all, or nothing upcoming but past nights. */
@@ -95,6 +97,10 @@ const CASES: Case[] = [
   { name: 'no events, public contact shown (flag on): WhatsApp and email are on screen', contact: { contact_phone: '+44 7700 900000', contact_email: 'hi@example.com' }, expect: 'none' },
   { name: 'no events, owner, flag off (contact withheld), blank profile', owner: true, expect: 'owner-blank' },
   { name: 'no events, owner, profile has a bio', owner: true, entity: { bio: 'Hi.' }, expect: 'none' },
+  { name: 'no events, manager, blank profile', role: 'manager', expect: 'owner-blank' },
+  { name: 'no events, manager, profile has a bio', role: 'manager', entity: { bio: 'Hi.' }, expect: 'none' },
+  { name: 'no events, contributor, blank profile', role: 'contributor', expect: 'none' },
+  { name: 'only past dates, manager, blank profile', role: 'manager', events: [EVENT], past: [occ('2026-09-01', { past: true })], expect: 'past-only' },
   { name: 'one live series with a future date', events: [EVENT], future: [occ('2026-10-16')], expect: null },
   { name: 'one live series, future date cancelled, past dates', events: [EVENT], future: [occ('2026-10-16', { cancelled: true })], past: [occ('2026-09-01', { past: true })], expect: 'past-only' },
   { name: 'only past dates (ended series)', events: [EVENT], past: [occ('2026-09-01', { past: true }), occ('2026-08-01', { past: true })], expect: 'past-only' },
@@ -108,12 +114,12 @@ afterEach(() => { cleanup(); feeds.user = null; });
 async function renderPage(c: Case) {
   feeds.entity = { ...ENTITY, ...c.entity };
   // 2026-10-09 shape: the owner is an entity_members row; organiser_profiles.claimed_by is not read at all.
-  feeds.ownership = c.owner ? { is_managed: true, i_own_it: true, my_role: 'owner' } : { is_managed: false, i_own_it: false, my_role: null };
+  feeds.ownership = c.role ? { is_managed: true, i_own_it: false, my_role: c.role } : c.owner ? { is_managed: true, i_own_it: true, my_role: 'owner' } : { is_managed: false, i_own_it: false, my_role: null };
   feeds.contact = { contact_email: null, contact_phone: null, ...c.contact };
   feeds.events = c.events ?? [];
   feeds.future = c.future ?? [];
   feeds.past = c.past ?? [];
-  feeds.user = c.owner ? { id: 'u1' } : null;
+  feeds.user = c.owner || c.role ? { id: 'u1' } : null;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>

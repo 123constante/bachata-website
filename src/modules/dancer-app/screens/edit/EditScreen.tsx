@@ -9,6 +9,7 @@ import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { InstagramInput } from '@/components/forms/InstagramInput';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { sanitizeReturnTo } from '@/lib/authRouting';
 // The phone field (+ its country list) loads with this screen, not with /app (bundle budget, invite W2).
 const PhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { NationalityPicker } from '@/components/ui/nationality-picker';
@@ -31,6 +32,7 @@ import {
   buildDelta,
   draftFromProfile,
   fieldForKey,
+  instagramMoveNotes,
   profileName,
   saveDisabledReason,
   storedValueHints,
@@ -108,6 +110,9 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   const [draft, setDraft] = useState<EditDraft>(() => draftFromProfile(profile));
   const [serverErrors, setServerErrors] = useState<ServerErrors>({});
   const [topError, setTopError] = useState<string | null>(null);
+  // The same words as the top card, shown again under the Save button (cleared by an edit or the next Save).
+  const [saveLine, setSaveLine] = useState<string | null>(null);
+  const saveAreaRef = useRef<HTMLDivElement>(null);
   const [saved, setSaved] = useState(false);
   // The draft a save was sent from: a draft edited while the save was in flight is kept (review S1).
   const sentDraft = useRef<EditDraft | null>(null);
@@ -115,13 +120,16 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   draftRef.current = draft;
   const set = <K extends keyof EditDraft>(key: K, value: EditDraft[K]) => {
     setSaved(false);
+    setSaveLine(null);
     setServerErrors((e) => ({ ...e, [key]: undefined }));
     setDraft((d) => ({ ...d, [key]: value }));
   };
 
   const errors = useMemo(() => validateDraft(draft, profile), [draft, profile]);
-  const hints = useMemo(() => storedValueHints(draft, profile), [draft, profile]);
+  const hints = useMemo(() => ({ ...storedValueHints(draft, profile), ...instagramMoveNotes(draft, profile) }), [draft, profile]);
   const delta = useMemo(() => buildDelta(profile, draft), [profile, draft]);
+  // ?returnTo= (instagram-refusal r2: a P3 checklist row opened this screen): a save goes back there. Same-site only.
+  const returnTo = sanitizeReturnTo(search.get('returnTo'), { exclude: '/app/me/edit' });
 
   const mutation = useMutation({
     mutationFn: (d: DancerDelta) => saveMyDancerProfile(d, profile),
@@ -134,13 +142,25 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       setTopError(null);
       setSaved(true);
       toast({ title: SAVE_DONE });
+      // Only when nothing was typed after the save went out: newer input is never dropped by leaving.
+      if (returnTo && draftRef.current === sentDraft.current) navigate(returnTo);
     },
     onError: (err, d) => {
       const placed = placeServerError(err, d);
       setServerErrors(placed.field);
       setTopError(placed.top);
+      setSaveLine(placed.top);
     },
   });
+
+  // After a failed save, bring the Save area into view only if it is off screen. Never moves focus.
+  useEffect(() => {
+    if (!saveLine) return;
+    const el = saveAreaRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView?.({ block: 'nearest' });
+  }, [saveLine]);
 
   // D119: leaving with unsaved edits asks first. Every way out (back buttons, the tabs, the home link) shares this one guard.
   const navigate = useNavigate();
@@ -179,6 +199,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
     if (reason !== null) return;
     sentDraft.current = draft;
     setTopError(null);
+    setSaveLine(null);
     mutation.mutate(delta);
   };
 
@@ -405,10 +426,15 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         )}
       </Card>
 
-      <div className="grid gap-[6px]">
+      <div ref={saveAreaRef} className="grid gap-[6px]">
         <PrimaryButton type="submit" disabled={reason !== null} aria-describedby="save-reason" testId="edit-save">
           Save changes
         </PrimaryButton>
+        {saveLine && (
+          <p role="alert" data-testid="edit-save-error" className="m-0 min-h-[44px] break-words text-[14px] text-[var(--danger)]">
+            {saveLine}
+          </p>
+        )}
         {reason !== null && (
           <p id="save-reason" data-testid="edit-save-reason" className="m-0 text-[14px] text-[var(--warn-fg)]">
             {reason}

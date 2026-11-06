@@ -36,7 +36,10 @@ concurrency:
 jobs:
   unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 20, not 10 (2026-11-04): the full London suite measured 414-530 s plus about 75 s of
+    # checkout/npm ci, so it sat on the old 10 min limit and was cancelled at 10m11s (#1328).
+    # Not a hang: every step finished normally. Bounded, not removed.
+    timeout-minutes: 20
     strategy:
       # Calendar-time code must be independent of the machine timezone — the
       # "in -1 days" bug family was browser-local date math. Full suite runs

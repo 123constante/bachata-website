@@ -77,6 +77,7 @@ export const sales = (t: TicketType, over: Partial<TypeSales> = {}): TypeSales =
   ordersRefunded: 0,
   ordersDisputed: 0,
   grossPence: t.reserved * t.pricePence,
+  discountsPence: 0,
   bookingFeesPence: 0,
   refundedPence: 0,
   ...over,

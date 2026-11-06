@@ -9,7 +9,7 @@ import { NonceProvider } from "./nonce";
 import { contentSecurityPolicy } from "./csp";
 import { finalizeDocumentCacheHeaders } from "./documentCacheHeaders";
 import { isSsrLoaderTimeoutError } from "./lib/ssrLoaderTimeout";
-import { resolveCatchallOutcome } from "./catchallGate";
+import { resolveCatchallOutcome, type CatchallOutcome } from "./catchallGate";
 import { staticShellCacheHeaders } from "./detailLoader";
 import { isRealCitySlug } from "@/lib/cityValidity";
 
@@ -86,13 +86,21 @@ export function handleError(
  * finished redirect Response for a legacy /<city> URL whose city is real (308,
  * the status the retired vercel.json redirect answered with).
  */
-export async function gateCatchallDocument(request: Request): Promise<number | Response> {
+export async function gateCatchallOutcome(
+  request: Request,
+): Promise<Exclude<CatchallOutcome, { status: 308 }> | Response> {
   const outcome = await resolveCatchallOutcome(new URL(request.url), isRealCitySlug);
-  if (outcome.status !== 308) return outcome.status;
+  if (outcome.status !== 308) return outcome;
   return new Response(null, {
     status: 308,
     headers: { Location: outcome.location, ...staticShellCacheHeaders() },
   });
+}
+
+/** Status-only view of gateCatchallOutcome (the soft-404 matrix reads this). */
+export async function gateCatchallDocument(request: Request): Promise<number | Response> {
+  const gated = await gateCatchallOutcome(request);
+  return gated instanceof Response ? gated : gated.status;
 }
 
 export default async function handleRequest(
@@ -107,11 +115,13 @@ export default async function handleRequest(
   // this every URL it receives -- the client NotFound included -- answers 200.
   const { matches } = routerContext.staticHandlerContext;
   const leaf = matches[matches.length - 1];
+  let edge404 = false;
   if (responseStatusCode === 200 && leaf?.route.id === "routes/catchall") {
-    const gated = await gateCatchallDocument(request);
+    const gated = await gateCatchallOutcome(request);
     if (gated instanceof Response) return gated;
-    responseStatusCode = gated;
-    if (gated === 503) responseHeaders.set("Retry-After", "30");
+    responseStatusCode = gated.status;
+    if (gated.status === 404) edge404 = gated.edge404;
+    if (gated.status === 503) responseHeaders.set("Retry-After", "30");
   }
   return new Promise((resolve, reject) => {
     let shellRendered = false;
@@ -161,7 +171,7 @@ export default async function handleRequest(
           finalizeDocumentCacheHeaders(responseHeaders, responseStatusCode, {
             enabled: vercelSkewProtectionEnabled,
             deploymentId: vercelDeploymentId,
-          });
+          }, { edge404 });
 
           resolve(new Response(stream, { headers: responseHeaders, status: responseStatusCode }));
           // Also bake the SAME policy into the HTML as a <meta http-equiv> so it

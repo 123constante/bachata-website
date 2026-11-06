@@ -4,7 +4,7 @@
  * src/pages/__tests__/OrganiserProfileEmpty.matrix.test.tsx over every events
  * shape prod holds.
  *
- * - 'owner-blank': the signed-in owner, and the profile has nothing at all yet
+ * - 'owner-blank': the signed-in owner or manager (anyone who can edit), and the profile has nothing at all yet
  *   (no bio, contact links, team or nights) -- prompt them to complete it.
  * - 'none': no nights listed, ever. Shown whatever else the profile has: a bio
  *   or contact links used to hide it, leaving "0 upcoming dates / 0 past
@@ -13,6 +13,10 @@
  * - 'past-only': past nights but nothing upcoming -- say so before the past
  *   list, with somewhere to go.
  * - null: still loading, or something is upcoming.
+ *
+ * `hasContact` / `team` are null when their read FAILED (unknown, fix round 1):
+ * unknown is never "blank", so the owner is not told to complete a profile
+ * that may be complete -- they get the nights' own answer ('none') instead.
  */
 export type OrganiserEmptyKind = 'owner-blank' | 'none' | 'past-only';
 
@@ -21,12 +25,20 @@ export function organiserEmptyState(s: {
   upcoming: number;
   past: number;
   hasBio: boolean;
-  hasContact: boolean;
-  team: number;
-  isOwner: boolean;
+  hasContact: boolean | null;
+  team: number | null;
+  canEdit: boolean;
 }): OrganiserEmptyKind | null {
   if (s.loading || s.upcoming > 0) return null;
   if (s.past > 0) return 'past-only';
-  if (s.isOwner && !s.hasBio && !s.hasContact && s.team === 0) return 'owner-blank';
+  if (s.canEdit && !s.hasBio && s.hasContact === false && s.team === 0) return 'owner-blank';
   return 'none';
 }
+
+/**
+ * The one quiet line a visitor sees when nothing is upcoming (ACCEPTANCE S4
+ * copy): above "Recently hosted" when there are past nights, alone when there
+ * are none. It names no city (E6: the old copy hardcoded London for every
+ * organiser). Never shown while a feed has failed -- the caller passes null then.
+ */
+export const NO_DATES_ANNOUNCED = 'No dates announced yet';

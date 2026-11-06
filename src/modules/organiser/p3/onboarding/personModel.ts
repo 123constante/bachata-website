@@ -5,7 +5,10 @@
 // percentage, the words, why Continue is off, and the command each Continue sends
 // (null = nothing changed, so nothing is sent).
 
-export type PersonStep = 'name' | 'photo' | 'role' | 'nat' | 'langs' | 'teach' | 'levels' | 'styles' | 'years' | 'about';
+import { listFromText } from '@/modules/organiser/home/onboarding/golive/roleQuestion';
+import { LIST_ITEM_MAX, LIST_MAX_ITEMS, ROLE_FIELDS } from '@/modules/areas/shared/fieldRegistry';
+
+export type PersonStep = 'name' | 'photo' | 'role' | 'nat' | 'langs' | 'teach' | 'levels' | 'styles' | 'years' | 'about' | 'dj' | 'djgenres';
 
 /** Screen order (prototype ORDER, 10 to 19). Back walks the PATH, never this list. */
 export const PERSON_ORDER: readonly PersonStep[] = ['name', 'photo', 'role', 'nat', 'langs', 'teach', 'levels', 'styles', 'years', 'about'];
@@ -16,12 +19,31 @@ export const TEACH_ONLY: readonly PersonStep[] = ['levels', 'styles', 'years'];
 export type TeachAnswer = 'yes' | 'no' | null;
 
 /**
+ * The DJ steps (instagram-refusal r2, N5): reached ONLY from Review's DJ rows (dj_answer, dj_genres), never on a
+ * new person's main path, so personPath and the bar are unchanged. DJ = No skips DJ_ONLY, as Teach = No skips
+ * TEACH_ONLY. Entered at the genres row (dj claimed, no genres) the path is genres alone; the last step returns
+ * to Review.
+ */
+export const DJ_ORDER: readonly PersonStep[] = ['dj', 'djgenres'];
+export const DJ_ONLY: readonly PersonStep[] = ['djgenres'];
+export const isDjStep = (s: PersonStep): boolean => DJ_ORDER.includes(s);
+export const djPath = (dj: TeachAnswer, entry: PersonStep): PersonStep[] =>
+  entry === 'djgenres' ? ['djgenres'] : DJ_ORDER.filter((s) => !(dj === 'no' && DJ_ONLY.includes(s)));
+
+/**
  * The steps this person will see, in order. About is the organiser's About (plan A7), so it is only on
  * the path when there is a page to write it for. An unanswered teach keeps levels/styles/years on the
  * path (the bar must not jump forward before the answer).
  */
 export const personPath = (teach: TeachAnswer, hasOrganiser: boolean): PersonStep[] =>
   PERSON_ORDER.filter((s) => !(teach === 'no' && TEACH_ONLY.includes(s)) && !(s === 'about' && !hasOrganiser));
+
+/**
+ * One missing teaching item (Levels, Styles or Years) tapped from Review: the path is that step alone, so
+ * saving returns to Review at once. null for every other entry (the answer step, the first-time path).
+ */
+export const teachRowPath = (entry: PersonStep): PersonStep[] | null =>
+  TEACH_ONLY.includes(entry) ? [entry] : null;
 
 /**
  * Owner change 2: the bar shows a percentage. Step n of a path of N is round(n / N * 100). The path is
@@ -122,9 +144,26 @@ export type PersonDraft = {
   styles: string[];
   years: string;
   about: string;
+  /** Do you DJ? (account_role_intent 'dj', as teach is 'teacher'). */
+  dj: TeachAnswer;
+  /** dj_role_details.genres as typed: a comma list. */
+  genres: string;
 };
 
-export const EMPTY_DRAFT: PersonDraft = { first_name: '', avatar_url: '', dance_role: '', nationality: '', languages: [], teach: null, levels: [], styles: [], years: '', about: '' };
+export const EMPTY_DRAFT: PersonDraft = { first_name: '', avatar_url: '', dance_role: '', nationality: '', languages: [], teach: null, levels: [], styles: [], years: '', about: '', dj: null, genres: '' };
+
+/** The genres box -> the list save_my_role_v1 stores (trimmed, no blanks, no repeats). */
+export const genresFrom = (raw: string): string[] => listFromText(raw);
+const GENRES_EMPTY = 'Type at least one to continue.';
+const GENRES_MANY = `Up to ${LIST_MAX_ITEMS}, separated by commas.`;
+const GENRES_LONG = `Keep each one to ${LIST_ITEM_MAX} characters or fewer.`;
+/** save_my_role_v1's list limits (invalid_list): at most 20 items, each at most 80 characters. */
+export const genresReason = (raw: string): string | null => {
+  const list = genresFrom(raw);
+  if (list.length === 0) return GENRES_EMPTY;
+  if (list.length > LIST_MAX_ITEMS) return GENRES_MANY;
+  return list.some((g) => g.length > LIST_ITEM_MAX) ? GENRES_LONG : null;
+};
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const strList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []);
@@ -139,9 +178,12 @@ export function heldFrom(reads: {
   intent: { roles: readonly string[]; declined: readonly string[] } | null;
   teacher: Record<string, unknown> | null;
   bio: string | null;
+  /** my_role_details_v1('dj') details; only the DJ steps read it. */
+  dj?: Record<string, unknown> | null;
 }): PersonDraft {
   const d = reads.dancer ?? {};
   const teach: TeachAnswer = !reads.intent ? null : reads.intent.declined.includes('teacher') ? 'no' : reads.intent.roles.includes('teacher') ? 'yes' : null;
+  const dj: TeachAnswer = !reads.intent ? null : reads.intent.declined.includes('dj') ? 'no' : reads.intent.roles.includes('dj') ? 'yes' : null;
   const t = reads.teacher ?? {};
   const years = typeof t.years_teaching === 'number' && Number.isInteger(t.years_teaching) ? String(t.years_teaching) : '';
   return {
@@ -156,6 +198,8 @@ export function heldFrom(reads: {
     styles: strList(t.teaching_styles),
     years,
     about: reads.bio ?? '',
+    dj,
+    genres: strList(reads.dj?.genres).join(', '),
   };
 }
 
@@ -172,6 +216,8 @@ export const STEP_COPY: Record<PersonStep, StepCopy> = {
   styles: { title: 'Styles you teach', helper: null, reason: 'Pick at least one style to continue.', optional: false },
   years: { title: 'Years teaching', helper: '0 is fine.', reason: 'Type a number from 0 to 60 to continue.', optional: false },
   about: { title: 'About', helper: 'A sentence or two for the top of your page.', reason: null, optional: true },
+  dj: { title: 'Do you DJ?', helper: 'This shows on your DJ page.', reason: 'Answer to continue.', optional: false },
+  djgenres: { title: 'Music you play', helper: ROLE_FIELDS.dj.find((f) => f.key === 'genres')?.help ?? null, reason: GENRES_EMPTY, optional: false },
 };
 
 export const SAVE_FAILED = 'Couldn\u2019t save. Check your connection and try again.';
@@ -207,6 +253,8 @@ export function blockedReason(step: PersonStep, d: PersonDraft): string | null {
     case 'styles': return d.styles.length > 0 ? null : r;
     case 'years': return parseYears(d.years) === null ? r : null;
     case 'about': return Array.from(d.about.trim()).length > 150 ? 'Shorten to 150 characters to save' : null;
+    case 'dj': return d.dj ? null : r;
+    case 'djgenres': return genresReason(d.genres);
     default: return null;
   }
 }
@@ -216,7 +264,9 @@ export type PersonCommand =
   | { kind: 'dancer'; patch: Record<string, unknown> }
   | { kind: 'teach'; yes: boolean }
   | { kind: 'teacher'; patch: Record<string, unknown> }
-  | { kind: 'about'; bio: string };
+  | { kind: 'about'; bio: string }
+  | { kind: 'dj'; yes: boolean }
+  | { kind: 'djrole'; patch: Record<string, unknown> };
 
 /** The command for Continue on this step, diff-first against what the server holds: an untouched answer sends nothing (null). */
 export function commandFor(step: PersonStep, d: PersonDraft, held: PersonDraft): PersonCommand | null {
@@ -248,6 +298,12 @@ export function commandFor(step: PersonStep, d: PersonDraft, held: PersonDraft):
     case 'about': {
       const v = d.about.trim();
       return v && v !== held.about.trim() ? { kind: 'about', bio: v } : null;
+    }
+    case 'dj':
+      return d.dj && d.dj !== held.dj ? { kind: 'dj', yes: d.dj === 'yes' } : null;
+    case 'djgenres': {
+      const list = genresFrom(d.genres);
+      return list.length && !sameList(list, genresFrom(held.genres)) ? { kind: 'djrole', patch: { genres: list } } : null;
     }
   }
 }
@@ -282,5 +338,7 @@ export function heldAfter(step: PersonStep, held: PersonDraft, d: PersonDraft): 
     case 'styles': return { ...held, styles: [...d.styles] };
     case 'years': { const n = parseYears(d.years); return n === null ? held : { ...held, years: String(n) }; }
     case 'about': return { ...held, about: d.about.trim() };
+    case 'dj': return { ...held, dj: d.dj };
+    case 'djgenres': return { ...held, genres: genresFrom(d.genres).join(', ') };
   }
 }

@@ -48,17 +48,34 @@ export function isEdgeCacheable(headers: Headers): boolean {
  *   render that fails AFTER a tagged loader would otherwise keep the route's
  *   s-maxage, and Vercel stores 404s. Belt for the 500 path the incident
  *   produced.
+ * - `edge404` (the catchall gate's `unknown` verdict ONLY, see ./catchallGate):
+ *   a 404 for a path no route can serve keeps `no-store` for the browser but
+ *   gets EDGE_404 at the CDN, untagged, so a repeated hit on the same missing
+ *   URL costs one render per window instead of one per request. A loader-thrown
+ *   404, a city-lookup 404, a 503 and every 5xx never pass it. Being
+ *   edge-cacheable, it also withholds the skew cookie below (Vercel will not
+ *   store a response that carries Set-Cookie).
  * - skew-protection cookie: set only on a document the edge will NOT store.
  */
+// catchallUnknown edge window. No stale window and no tag: the verdict is a
+// pure function of the path and the build, and a deploy empties Vercel's cache,
+// so a route added later is shadowed for at most min(300 s, next deploy).
+// 300 s matches Cloudflare's 5-minute human HTML window. Rollback knob.
+export const EDGE_404 = "public, s-maxage=300";
+
 export function finalizeDocumentCacheHeaders(
   headers: Headers,
   status: number,
   skew: { enabled: boolean; deploymentId: string | undefined },
+  opts: { edge404?: boolean } = {},
 ): void {
   if (status >= 400) {
     headers.delete("Vercel-CDN-Cache-Control");
     headers.delete("Vercel-Cache-Tag");
     headers.set("Cache-Control", "no-store");
+    if (status === 404 && opts.edge404 === true) {
+      headers.set("Vercel-CDN-Cache-Control", EDGE_404);
+    }
   }
   if (skew.enabled && skew.deploymentId && !isEdgeCacheable(headers)) {
     headers.append("Set-Cookie", `__vdpl=${skew.deploymentId}; HttpOnly`);
