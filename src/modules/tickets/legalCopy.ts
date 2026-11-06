@@ -1,10 +1,12 @@
 /**
- * APPROVED by the owner 2026-10-27 (50p fee, refund, 14-day and privacy wording). Terms of sale
- * and the ticket privacy paragraph for buyer checkout (S4). Any wording change needs a fresh
- * owner approval. Plain English, UK.
- * 2026-10-29 owner order "remove the 50p booking fee": while BOOKING_FEE_PENCE is 0 the fee
- * sentence is left out and the refund sentence names no fee (owner confirmed 2026-10-29). The
- * approved 50p-era wording stays below so a non-zero fee does not silently sell without terms.
+ * APPROVED by the owner 2026-10-27 (refund, 14-day and privacy wording, plus fee wording written
+ * when a 50p fee was planned). Terms of sale and the ticket privacy paragraph for buyer checkout
+ * (S4). Any wording change needs a fresh owner approval. Plain English, UK.
+ * 2026-10-29 owner order "remove the booking fee": BOOKING_FEE_PENCE is 0 and the server default
+ * is 0 too, so no fee is charged or shown. While it is 0 the fee sentence is left out and the
+ * refund sentence names no fee (owner confirmed 2026-10-29). The earlier fee wording stays below,
+ * used only if BOOKING_FEE_PENCE is raised above 0, so a non-zero fee does not silently sell
+ * without terms (that wording then needs fresh owner approval).
  * Edit the words here only: the block and its tests read this one file.
  */
 import { BOOKING_FEE_LABEL, BOOKING_FEE_PENCE } from './ticketCheckoutModel';

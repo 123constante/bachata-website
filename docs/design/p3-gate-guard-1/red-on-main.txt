@@ -1,0 +1,6 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/modules/organiser/p3/screens/__tests__/gateRetry.matrix.test.tsx > p3-gate-guard-1 exit matrix: exit x dirty/clean x refused/not (INVENTORY rows) > #13 gate-continue | dirty | refused | details -> checklist
+AssertionError: expected <button type="button" …(2)></button> to be null
+ FAIL  src/modules/organiser/p3/screens/__tests__/gateRetry.matrix.test.tsx > p3-gate-guard-1 exit matrix: exit x dirty/clean x refused/not (INVENTORY rows) > #13 gate-continue | dirty | refused | prices -> checklist
+AssertionError: expected <button type="button" …(2)></button> to be null
+      Tests  2 failed | 77 passed (79)

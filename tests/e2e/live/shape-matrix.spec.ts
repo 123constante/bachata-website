@@ -148,6 +148,15 @@ test.describe('organiser page x shape', () => {
       await test.step(`${s.shape_key} /organisers/${org} -> ${s.slug}`, async () => {
         await visit(page, testInfo, `/organisers/${org}`, i === 0 ? { screenshot: 'organiser' } : {});
         const label = `/organisers/${org} for ${s.slug} (${s.shape_key})`;
+        // Upcoming shows the first 3 items and a "Show all N dates" control
+        // (OrganiserProfile UPCOMING_VISIBLE): a series further down is listed,
+        // one tap away. Open it, so the check asks "listed?", not "in the top 3?".
+        // (2026-11-05: incognito-dance has 5 live series; Hammersmith is 5th.)
+        const showAll = page.locator('section#upcoming').getByRole('button', { name: /^Show all \d+ dates?$/ });
+        if (await showAll.isVisible()) {
+          await showAll.click();
+          await expect(page.locator('section#upcoming').getByRole('button', { name: 'Show fewer' })).toBeVisible();
+        }
         // A multi-date series is one expandable card (not a link), so the
         // card is found by the event's NAME -- which is the fact under test.
         const card = await cardText(page, 'section#upcoming', s.name);

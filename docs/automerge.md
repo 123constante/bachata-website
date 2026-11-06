@@ -9,6 +9,8 @@ itself once the `main` ruleset's REQUIRED checks pass. The verdict is
 The owner authorised this for a narrow class only. It does not replace "the
 owner merges everything" for anything outside that class.
 
+Since slice 2 the switch is `.github/automation/arming.json` (not repo variables), and every auto path also checks the required-jobs, money-set and guard-path files: see [`docs/automation-foundations.md`](automation-foundations.md).
+
 ## What qualifies (ALL must hold, else NO)
 
 | Rule | Detail |
@@ -219,3 +221,5 @@ is a separate decision about CI-guard PRs, not a wider allowlist here.
   whether `AUTOMERGE_ENABLED` is already set is unknown.
 - The workflow on a live event: `pull_request_target` runs from `main`, so it
   cannot run until this file has merged.
+
+Pause switch: every auto-merge path here first reads the automation pause switch; see [docs/automation-pause.md](automation-pause.md).

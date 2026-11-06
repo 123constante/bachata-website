@@ -102,7 +102,9 @@ export function TabBar({
             }}
             className={cn(
               // The before: box lifts the tap area to 44px without making the rail taller (audit L8).
-              "relative flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors before:absolute before:inset-x-0 before:-inset-y-[10px] before:content-['']",
+              // 24px + 2 x 10px, in px: rem padding alone rendered ~23.6px on phones
+              // (root font ~13.5px), leaving a 43.6px tap area (Live QA 2026-11-05).
+              "relative min-h-[24px] flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors before:absolute before:inset-x-0 before:-inset-y-[10px] before:content-['']",
               focusRing,
               on
                 ? 'bg-primary text-primary-foreground shadow-sm'

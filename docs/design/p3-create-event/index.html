@@ -1,0 +1,21 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P3 create event: compare</title><link rel="stylesheet" href="../../../src/modules/organiser/p3/theme/p3.css"><link rel="stylesheet" href="mock.css"></head><body><div class="m-top"><button onclick="setT('light')">Light</button><button onclick="setT('dark')">Dark</button><h1>P3 create event: compare</h1><a href="index.html">Compare</a><a href="a.html">A &middot; One page</a><a href="b.html">B &middot; Three steps</a><a href="c.html">C &middot; Pick first</a></div><div style="overflow-x:auto"><table class="m-cmp"><tr><th></th><th>Old wizard (today)</th><th>A &middot; One page</th><th>B &middot; Three steps</th><th>C &middot; Pick first</th></tr>
+<tr><th>Screens to finish</th><td>6 steps (what, name, where, first date, time, photo)</td><td>1 page + 4 sheets</td><td>3 steps + 2 sheets</td><td>1 fork + 1 page + 3 sheets</td></tr>
+<tr><th>Taps to finish a one night (not counting typing the name, filling date and time, and picking the photo &mdash; the same in every column)</th><td>7 from Home, then blocked: no session, so Go live stays off</td><td>9: New event, One night, Where, venue, When, Done, What happens, Done, Go live</td><td>8: New event, One night, Next, Where, venue, Next, Class then party, Go live</td><td>7: New event, One night, Where, venue, When, Done, Go live (What happens defaults to Party)</td></tr>
+<tr><th>Kinds it can create</th><td>One night, Weekly</td><td>One night, Weekly, Course</td><td>One night, Weekly, Course</td><td>One night, Weekly, Course, Class then party</td></tr>
+<tr><th>Which page (2+ pages)</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
+<tr><th>Name, max 120</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
+<tr><th>Venue search</th><td>Kept; dead end on no match</td><td colspan="3">Kept + &ldquo;Send us this venue&rdquo; or skip and keep a draft</td></tr>
+<tr><th>First date</th><td>Next 30 days only</td><td colspan="3">Any future date</td></tr>
+<tr><th>Event start / end time</th><td>Writes a default start on the series (no sessions yet)</td><td colspan="3">None: the event has no time of its own. It is read-only everywhere, taken from its sessions (first start to last end)</td></tr>
+<tr><th>First session&rsquo;s start and end</th><td>Missing</td><td>Asked in the What happens sheet</td><td>Asked in step 3, What happens</td><td>Asked in the What happens row (course: the class time)</td></tr>
+<tr><th>Repeat / runs until</th><td>Every weekday of the first date, no end</td><td colspan="3">Every / every other week; keeps going or until a date</td></tr>
+<tr><th>Course length</th><td>Not possible</td><td colspan="3">4&ndash;12 weeks or other (prod max 16)</td></tr>
+<tr><th>First session (kind, times, level)</th><td>Missing &mdash; why Go live is blocked</td><td colspan="2">Created from &ldquo;What happens&rdquo; with its times</td><td>Seeded; course is always a class with a level</td></tr>
+<tr><th>Photo, JPEG/PNG/WebP &lt; 10 MB</th><td>Kept</td><td>Kept</td><td>Kept</td><td>Kept</td></tr>
+<tr><th>Onboarding gate</th><td>&ldquo;Almost live&rdquo; bridge</td><td colspan="3">&ldquo;A few details first&rdquo; sheet, draft already saved</td></tr>
+<tr><th>Cancel mid-way</th><td>&ldquo;Save as draft and leave&rdquo; (from step 3); no delete</td><td colspan="3">Ask: keep as draft (default), keep going, or delete draft; draft shows on Home with what it still needs</td></tr>
+<tr><th>Offline / error</th><td>Inline alert, typing kept</td><td colspan="3">Same copy, kept</td></tr>
+<tr><th>Left for the event page (all options)</th><td colspan="4">Description, music styles, ticket link, extra organisers, gallery, video, line-up, rooms, per-date changes &mdash; owner-ticked editor fields (ARC.md), not create fields</td></tr>
+</table></div><div class="m-grid"></div><div class="m-top" style="margin-top:16px"><button onclick="setT('light')">Light</button><button onclick="setT('dark')">Dark</button>
+<script>function setT(t){document.querySelectorAll('.p3-theme').forEach(function(e){e.setAttribute('data-theme',t)});document.body.style.background=t==='dark'?'#111':'#8f8a86'}
+var q=new URLSearchParams(location.search).get('theme');if(q)setT(q);</script></div></body></html>

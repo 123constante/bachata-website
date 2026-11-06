@@ -5,7 +5,7 @@ import type { OwnerCommand } from '../../shared/seriesCommands';
 import { useGatedCopy } from '../onboarding/gate';
 import type { Done } from './StatusSheet';
 
-function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onClose: () => void }) {
+export function Toast({ done, onUndo, onClose }: { done: Done; onUndo: () => void; onClose: () => void }) {
   useEffect(() => {
     const t = window.setTimeout(onClose, 8000);
     return () => window.clearTimeout(t);

@@ -74,6 +74,8 @@ const RULES = [
       'src/modules/organiser/shared/__tests__/goLiveCheck.roles.test.ts',
       // Invite W2 walk: the Go live x every screen matrix feeds the same server answer.
       'src/modules/organiser/shared/__tests__/goLiveWalk.matrix.test.tsx',
+      // p3-status-real-reasons: the Status sheet spec feeds a go-live refusal carrying the same answer.
+      'src/modules/organiser/p3/screens/__tests__/goLiveReasons.matrix.test.tsx',
       'src/modules/admin-organisers/inviteModel.ts',
       // S4 front door RPCs (admin PR #1007) answer organiser_id; the typed boundary parser and its specs read it.
       'src/modules/admin-organisers/frontDoorApi.ts',
@@ -94,6 +96,11 @@ const RULES = [
       'src/modules/organiser/p3/onboarding/gate.ts',
       'src/modules/organiser/p3/onboarding/__tests__/gate.matrix.test.tsx',
       'src/modules/organiser/p3/onboarding/__tests__/gate.fixround.test.tsx',
+      // GATE-RETRY (F-11/F-12/F-15): gateRule.ts builds the same refusal for a predicted refusal (so gate.ts
+      // reads it), and these specs feed the screens that refusal.
+      'src/modules/organiser/p3/onboarding/gateRule.ts',
+      'src/modules/organiser/p3/tickets/__tests__/gate.matrix.test.tsx',
+      'src/modules/organiser/p3/new/__tests__/flow.render.test.tsx',
       // claim_my_organisers_v1 (people arc A-WEB2) answers {claimed:[{organiser_id, name}]}.
       'src/lib/claimMyOrganisers.ts',
       'src/pages/__tests__/AuthCallbackOrganiserClaim.test.tsx',

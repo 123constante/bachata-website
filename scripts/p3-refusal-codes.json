@@ -1,0 +1,825 @@
+{
+  "_doc": "Refusal codes the P3 command doors RAISE, read from live pg_get_functiondef. Regenerate per docs/ci-guard-notes.md (check-p3-refusal-reasons). Drift vs live is the guard red.",
+  "read_at": "2026-11-05",
+  "source": "prod stsdtacfauprzrdebmzg pg_get_functiondef (latest definition = live); admin migration attribution not recorded",
+  "codes": [
+    {
+      "code": "authentication_required",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "42501",
+      "doors": [
+        "_require_onboarding_complete_v1"
+      ]
+    },
+    {
+      "code": "bulk_too_large",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_apply_forward_from_p5"
+      ]
+    },
+    {
+      "code": "daily_limit",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_lifecycle_p5"
+      ]
+    },
+    {
+      "code": "date_has_people",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_move_date_p5"
+      ]
+    },
+    {
+      "code": "has_bookings",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_remove_date_p5",
+        "_cmd_series_skip_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "acknowledge_people",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_move_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "cancel_one_off_reason",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "course_total_sessions",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_upsert_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "custom_local_start_time",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_apply_forward_from_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "date_time_session_has_people",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_set_time_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "ended_on",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_end_run_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "ends_at",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_upsert_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "from_date",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_apply_forward_from_p5",
+        "_cmd_series_set_session_forward_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "from_date_not_a_series_date",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_session_forward_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "item_id",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_session_forward_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "move_date",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_move_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "new_local_start",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_set_time_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_cancel_p5",
+        "_cmd_occurrence_set_override_p5",
+        "_cmd_occurrence_set_session_delta_p5",
+        "_cmd_occurrence_set_time_p5",
+        "_cmd_series_add_date_p5",
+        "_cmd_series_apply_forward_from_p5",
+        "_cmd_series_restore_ended_p5",
+        "_cmd_series_set_group_chat_p5",
+        "_cmd_series_set_lifecycle_p5",
+        "_cmd_series_set_organisers_p5",
+        "_cmd_series_set_program_p5",
+        "_cmd_series_set_rooms_p5",
+        "_cmd_series_set_session_forward_p5",
+        "_cmd_series_unskip_date_p5",
+        "_cmd_series_upsert_p5",
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "occurrence_id",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_remove_date_p5",
+        "_cmd_series_skip_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "organiser_ids",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_apply_forward_from_p5",
+        "_cmd_series_set_organisers_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "organiser_not_found",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_organisers_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "payment_methods",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_upsert_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "promo_codes",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_set_override_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "starts_at",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_upsert_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "to_date",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_move_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "today_session",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_end_run_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "today_session_required",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_end_run_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "venue_room_id_required",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_rooms_p5"
+      ]
+    },
+    {
+      "code": "invalid_payload",
+      "reason": "venue_room_not_in_event_venue",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_rooms_p5"
+      ]
+    },
+    {
+      "code": "invalid_recurrence_payload",
+      "reason": "count_over_cap",
+      "mapper": "command",
+      "errcode": "22023",
+      "doors": [
+        "_cmd_series_set_recurrence_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "cancel_one_off_dates",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "cancel_one_off_festival",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "cancel_one_off_not_live",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "cancel_one_off_not_one_off",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "cancel_one_off_past",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "cancel_one_off_started",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_cancel_one_off_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "course_needs_count",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_recurrence_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "date_taken",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_move_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "festival_extra_date",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_add_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "move_date",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_move_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_end_run_p5",
+        "_cmd_series_restore_ended_p5",
+        "_cmd_series_stop_repeating_p5",
+        "_cmd_series_unskip_date_p5"
+      ]
+    },
+    {
+      "code": "invalid_transition",
+      "reason": "today_session_required",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_lifecycle_p5"
+      ]
+    },
+    {
+      "code": "no_sessions_for_time_override",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_set_time_p5"
+      ]
+    },
+    {
+      "code": "not_found",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_cancel_p5",
+        "_cmd_occurrence_move_date_p5",
+        "_cmd_series_add_date_p5",
+        "_cmd_series_cancel_one_off_p5",
+        "_cmd_series_end_run_p5",
+        "_cmd_series_remove_date_p5",
+        "_cmd_series_restore_ended_p5",
+        "_cmd_series_set_group_chat_p5",
+        "_cmd_series_set_organisers_p5",
+        "_cmd_series_set_rooms_p5",
+        "_cmd_series_skip_date_p5",
+        "_cmd_series_unskip_date_p5",
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "onboarding_incomplete",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_require_onboarding_complete_v1"
+      ]
+    },
+    {
+      "code": "past_date",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_remove_date_p5",
+        "_cmd_series_skip_date_p5",
+        "_cmd_series_unskip_date_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "category_admin_only",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "city_follows_venue",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "course_total_needs_course",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "date_cap",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_occurrence_cancel_p5",
+        "_cmd_series_add_date_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "format_course_needs_rule",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "format_festival_admin_only",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "format_needs_collapse",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "forward_from_past",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_session_forward_p5",
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_assert_can_edit_series_p5",
+        "_cmd_series_cancel_one_off_p5",
+        "_cmd_series_end_run_p5",
+        "_cmd_series_restore_ended_p5",
+        "_cmd_series_set_group_chat_p5",
+        "_cmd_series_set_lifecycle_p5",
+        "_cmd_series_set_organisers_p5",
+        "_cmd_series_set_recurrence_p5",
+        "_cmd_series_set_rooms_p5",
+        "_cmd_series_set_session_forward_p5",
+        "_cmd_series_upsert_p5",
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "occurrence_cancelled",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "quota_exceeded",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "permission_denied",
+      "reason": "slug_admin_only",
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "publish_blocked",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_lifecycle_p5"
+      ]
+    },
+    {
+      "code": "room_in_use_by_session",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_cmd_series_set_rooms_p5"
+      ]
+    },
+    {
+      "code": "series_not_found",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "_assert_can_edit_series_p5"
+      ]
+    },
+    {
+      "code": "version_conflict",
+      "reason": null,
+      "mapper": "command",
+      "errcode": "P0001",
+      "doors": [
+        "apply_aggregate_write_p5"
+      ]
+    },
+    {
+      "code": "authentication_required",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "claim_my_organisers_v1",
+        "redeem_organiser_invite_v1",
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "cannot_remove_owner",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "last_owner",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "not_a_member",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "not_authorised",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "organiser_id_required",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "organiser_not_found",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    },
+    {
+      "code": "redeem_not_linked",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "redeem_organiser_invite_v1"
+      ]
+    },
+    {
+      "code": "user_id_required",
+      "reason": null,
+      "mapper": "team",
+      "errcode": "P0001",
+      "doors": [
+        "remove_organiser_member_v1"
+      ]
+    }
+  ],
+  "_known_gaps_doc": "Shrink-only ratchet: live refusals that still fall to the generic fallback or the /^permission_denied/ catch-all on 2026-11-05 (the red-first run). Give one its own copy, then delete its line; a stale line is red.",
+  "known_gaps": [
+    {
+      "key": "command:daily_limit",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: acknowledge_people",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: course_total_sessions",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: custom_local_start_time",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: ended_on",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: ends_at",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: from_date",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: from_date_not_a_series_date",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: item_id",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: move_date",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: new_local_start",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: occurrence_id",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: organiser_ids",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: organiser_not_found",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: payment_methods",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: promo_codes",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: starts_at",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: to_date",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: today_session",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: venue_room_id_required",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_payload: venue_room_not_in_event_venue",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_recurrence_payload: count_over_cap",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_transition: course_needs_count",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_transition: move_date",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_transition",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:invalid_transition: today_session_required",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:permission_denied",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:permission_denied: quota_exceeded",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "command:room_in_use_by_session",
+      "since": "2026-11-05"
+    },
+    {
+      "key": "team:redeem_not_linked",
+      "since": "2026-11-05"
+    }
+  ],
+  "_not_raised_doc": "Read 2026-11-05 on prod: F-40 (banned account) has no door; no public function raises a ban refusal (only the auth.users banned_until column is named). F-11 tickets: ticket_type_upsert_v1 / ticket_type_set_status_v1 RAISE nothing and return {ok:false, reason}; their reasons are pinned in src/modules/organiser/p3/__tests__/refusal.screenMatrix.test.tsx, not here."
+}

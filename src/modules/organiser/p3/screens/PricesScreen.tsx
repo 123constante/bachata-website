@@ -1,23 +1,27 @@
+import { useState } from 'react';
 import { PAYMENT_LABEL, togglePayment } from '../../events/paymentModel';
 import { newPriceRow, type PriceRow } from '../../events/seriesExtras';
-import { eventLock } from '../../shared/eventState';
-import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
 import type { EventWorkspace } from '../../events/eventModel';
 import { londonTodayKey } from '@/lib/londonDate';
-import { L } from '../model';
+import { L, hasOneDate, saveWordsFor } from '../model';
 import { datesAreCapped, differentDatesCount, differentLine } from '../model/differentDates';
 import {
   isFree, payChoices, pricesBlocker, pricesDraftOf, pricesLockOf, pricesPlan, pricesSpecs, setFree, storedPriceCount,
 } from '../data/prices';
 import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
+import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useKeptEdit, useSaveRun } from './EditTray';
+import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { PriceCard } from './PriceCard';
+import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
+import { scopedChangesOf } from '../model/scopeAsk';
 
 function Prices({ ws }: { ws: EventWorkspace }) {
-  const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws));
+  const kept = useKeptEdit(ws, 'prices', pricesDraftOf, pricesLockOf(ws) ? ['rows'] : []);
+  const form = useEditForm(ws, pricesDraftOf, pricesSpecs(ws), kept);
   const save = useSaveRun(ws.series.id);
+  const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
   const back = useBackToEvent(ws.series.id, form.dirty);
   const lock = useEditLock(ws);
   const rowsLock = pricesLockOf(ws);
@@ -26,14 +30,32 @@ function Prices({ ws }: { ws: EventWorkspace }) {
   const off = !!lock || save.busy;
   const choices = payChoices(ws);
   const different = differentLine(differentDatesCount(ws, londonTodayKey()).price, datesAreCapped(ws));
+  const freeSwitchShown = choices.length > 1;
   const blocker = pricesBlocker(ws, form.base, draft);
   const plan = pricesPlan(ws, form.base, draft);
   const lines = trayLines(form.lines, plan, blocker);
   const setRow = (i: number, r: PriceRow) => set({ rows: draft.rows.map((x, j) => (j === i ? r : x)) });
 
-  const onSave = async () => {
+  const scoped = scopedChangesOf(plan);
+  const scopedRun = useScopedRun(ws.series.id);
+  const [asking, setAsking] = useState(false);
+  const askable = scoped.fields.length > 0 && !hasOneDate(ws.dates.length, ws.total);
+
+  const runPlain = async () => {
     const res = await save.run(plan, form.version, (v) => form.landed(v));
-    if (res.ok) { form.saved(res.version); back(L.pricesSaved); }
+    // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
+    if (res.gated) keepDraft(ws.series.id, { screen: 'prices', draft, base: form.base });
+    if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.pricesSaved); }
+  };
+  const onSave = async () => {
+    if (askable) { setAsking(true); return; }
+    await runPlain();
+  };
+  const scopedDone = (d: ScopedDone) => {
+    setAsking(false);
+    dropKept(ws.series.id);
+    form.saved(d.scope === 'all_dates' ? d.reply.newVersion : null);
+    back(d.scope === 'this_date' && d.day ? words.savedDate(d.day) : [words.pricesSaved, d.keptLine].filter(Boolean).join(' '));
   };
 
   return (
@@ -45,10 +67,10 @@ function Prices({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-prices-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <a className="p3-link" href={PROFILE_WIZARD_PATH}>Complete your profile</a>}
         </div>
       )}
-      {choices.length > 1 && (
+      {kept && form.dirty && <p className="p3-note p3-kept" role="status" data-testid="p3-prices-kept">{KEPT_COPY.line}</p>}
+      {freeSwitchShown && (
         <div className="p3-card p3-tight">
           <label className="p3-check p3-check-switch" data-testid="p3-free">
             <input type="checkbox" role="switch" checked={free} disabled={off} onChange={(e) => set(setFree(draft, e.target.checked))} data-testid="p3-free-switch" />
@@ -65,7 +87,7 @@ function Prices({ ws }: { ws: EventWorkspace }) {
           </div>
         ) : (
           <div className="p3-stack-s" data-testid="p3-price-rows">
-            {draft.rows.length === 0 && <p className="p3-note" data-testid="p3-prices-empty">{L.pricesNone}</p>}
+            {draft.rows.length === 0 && <p className="p3-note" data-testid="p3-prices-empty">{L.pricesNone(freeSwitchShown)}</p>}
             {draft.rows.map((r, i) => (
               <PriceCard key={r.id} row={r} i={i} off={off} onChange={(x) => setRow(i, x)} onRemove={() => set({ rows: draft.rows.filter((_, j) => j !== i) })} />
             ))}
@@ -83,7 +105,13 @@ function Prices({ ws }: { ws: EventWorkspace }) {
         ))}
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} error={save.error}
-        onSave={() => void onSave()} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); }} onRestart={() => { form.restart(); save.forget(); scopedRun.forget(); }} />
+      {asking && (
+        <ScopeSheet seriesId={ws.series.id} fields={scoped.fields} changes={scoped.changes} unscopedChanged={scoped.unscopedChanged}
+          seriesVersion={form.version} dateVersion={(id) => ws.dates.find((x) => x.id === id)?.version ?? null} run={scopedRun.send}
+          onPlain={() => { setAsking(false); void runPlain(); }} onDone={scopedDone}
+          onGated={() => { setAsking(false); keepDraft(ws.series.id, { screen: 'prices', draft, base: form.base }); }} onClose={() => setAsking(false)} />
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, O
  *     keyboard up (the viewport shrunk, as visualViewport does) the search box
  *     and Done stay on screen; a pick shows the city the database confirms;
  *   - Create event: >= 44px tall, no sideways scroll, never under the Save bar
- *     or the BottomNav, beside the "Upcoming events" count (an organiser with
+ *     or the BottomNav, beside the "Next nights" count (an organiser with
  *     nights) and in the empty state (one without); visitors see none of it.
  * Save is NEVER pressed and no event is ever created: the fake Supabase
  * (fakeSupabase.mjs) refuses every write anyway.
@@ -179,7 +179,7 @@ async function assertCreateEvent(page: Page, label: string) {
 
 for (const withDraft of [false, true]) {
   const when = withDraft ? 'Save bar up' : 'no draft';
-  test(`Create event beside the "Upcoming events" count (${when}): >= 44px, no overflow, clear of the Save bar and BottomNav`, async ({ page }) => {
+  test(`Create event beside the "Next nights" count (${when}): >= 44px, no overflow, clear of the Save bar and BottomNav`, async ({ page }) => {
     await openAsOwner(page, ORG2_SLUG);
     if (withDraft) await draftWebsite(page);
     const link = page.getByTestId('eip-create-event');
@@ -189,6 +189,8 @@ for (const withDraft of [false, true]) {
     // In the heading row, overlapping neither the heading nor the count.
     await page.getByTestId('eip-create-event').evaluate((el) => el.scrollIntoView({ block: 'center' }));
     await frames(page);
+    // The heading reads "Next nights" since organiser-page P1 (was "Upcoming events").
+    await expect(page.locator('#upcoming h2')).toHaveText('Next nights');
     const h2 = await box(page, '#upcoming h2');
     const count = await box(page, '#upcoming h2 + div > span');
     const now = await box(page, '[data-testid="eip-create-event"]');
