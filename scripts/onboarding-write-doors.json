@@ -113,6 +113,10 @@
       "reason": "Account role intent at sign-in."
     },
     {
+      "name": "set_organiser_team_member_hidden_v1",
+      "reason": "Organiser-page team visibility, not an event edit."
+    },
+    {
       "name": "submit_feedback_v1",
       "reason": "App feedback."
     },
