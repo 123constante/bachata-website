@@ -15,6 +15,7 @@ import { P3_PATHS } from '../shell/paths';
 import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
+import { BrokenImage } from './BrokenImage';
 
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
@@ -116,7 +117,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       </Field>
       <div className="p3-stack-s" data-testid="p3-field-cover">
         <span className="p3-field">{L.detailsCover}</span>
-        {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
+        {draft.cover ? <BrokenImage className="p3-cover" src={draft.cover} /> : <p className="p3-note">{L.detailsCoverNone}</p>}
         <label className="p3-btn p3-btn-line p3-file" htmlFor="p3-d-cover" data-testid="p3-d-cover-btn">
           {draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}
           <input id="p3-d-cover" type="file" accept={FLYER_ACCEPT} disabled={off || photo.busy}
