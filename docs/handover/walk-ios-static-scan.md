@@ -1,7 +1,7 @@
 # Handover: walk-ios-static-scan (slice 10, Part C, contract 11 item 5b)
 
 Branch `claude/walk-ios-static-scan-r2`, rebuilt off origin/main 750a366 (code commit
-1a33a02; this doc at the branch head). Replaces PR #1450 (replaces #1449).(`claude/walk-ios-static-scan`,
+1a33a02; this doc at the branch head). PR #1450. Replaces PR #1449 (`claude/walk-ios-static-scan`,
 head bc16ff51), which conflicted with main and which the lead will close.
 HARD-TIER: the owner approves at head; the worker never approves or merges.
 
