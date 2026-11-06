@@ -2,36 +2,60 @@
 /**
  * CI integrity check for the teacher / DJ event-program assignment contract.
  *
- * Calls public.check_teacher_dj_assignment_integrity_v1() and reports how
- * many active teachers / active DJs (per person_roles) are NOT linked to
- * any event_program_people row in their matching capacity (profile_type or
- * role).
+ * Calls public.check_teacher_dj_assignment_integrity_v1() (P5 line-up credits,
+ * admin migration 20260513070000 + later revisions) for the assigned and
+ * unassigned counts of active teachers / DJs, and counts -- straight from
+ * person_roles, anon-readable -- how many of those active roles were created
+ * ON OR BEFORE the 2026-07-24 re-baseline (BASELINE_CUTOFF_UTC).
  *
- * STATUS: the RPC is live on prod (migration
- *   bachata-admin-11april/supabase/migrations/
- *     20260513070000_check_teacher_dj_assignment_integrity_v1.sql)
- * and this check GATES on a hand-maintained ceiling
- * (BASELINE_TEACHERS_UNASSIGNED / BASELINE_DJS_UNASSIGNED, currently 33/8).
- * The ceiling is a known-imperfect proxy for "nobody lost an assignment" --
- * it counts a TOTAL that grows on ordinary roster growth too, so it needs an
- * occasional re-baseline commit (#339, 2026-09-04, 32->36). The correct
- * replacement (a lost-assignment predicate, not a ceiling) is queued but not
- * built -- docs/ci-guard-notes.md #17,
- * ~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md.
+ * WHAT IT GATES ON (since 2026-11-04). Not the unassigned TOTAL any more: that
+ * grows every time a teacher or DJ joins the directory before their first
+ * booking, and it needed a hand re-baseline commit each time (#339, #1337, ...).
+ * It gates on the ASSIGNMENT DEFICIT:
  *
- * Exit policy:
- *   • RPC missing on prod        → exit 0 (warn; tolerates an un-pushed migration)
- *   • RPC call transient (57014) → exit 0 (warn; a cold-instance timeout is
- *                                   infra noise, not a contract violation)
- *   • status = 'ok'              → exit 0 (pass)
- *   • baselines unset (null)     → exit 0 (warn, print payload)
- *   • both counts ≤ baselines    → exit 0 (warn, no regression)
- *   • any count >  baseline      → exit 1 (FAIL -- see docs/ci-guard-notes.md #17)
+ *     deficit = (active roles created on/before the cutoff) - (assigned total)
+ *             = (pre-baseline people with no assignment)
+ *               - (post-baseline people WITH an assignment)
+ *
+ * The identity holds because unassigned = pre + post - assigned. Why not the
+ * pre-baseline unassigned count itself? Anon cannot see per-person credits (the
+ * P5 people tables are is_admin()-only and the RPC returns names to admins
+ * only), so CI cannot split the unassigned count by person. The deficit is the
+ * closest thing anon CAN compute, and it moves the right way:
+ *   - a new person joins with no line-up    -> unchanged    (WARN, exit 0)
+ *   - a new person joins WITH a line-up     -> falls        (exit 0)
+ *   - anyone picks up a first line-up       -> falls        (exit 0)
+ *   - a pre-baseline person loses their     -> rises by 1   (FAIL, exit 1)
+ *     last assignment
+ *   - a post-baseline person loses theirs   -> rises by 1   (FAIL, exit 1 --
+ *                                              still a lost assignment)
+ * Known gaps, said plainly:
+ *   (a) SLACK ACCUMULATES. Every fall in the deficit (a first booking, an
+ *       unassigned pre-baseline role deactivated) is headroom a LATER loss can
+ *       hide in, because the baseline does not move on its own. The check
+ *       prints a `RATCHET:` line naming the new value whenever a deficit is
+ *       below its baseline -- lower the constant (dated note) when you see it.
+ *       Until someone does, losses up to the slack exit 0.
+ *   (b) an ASSIGNED post-baseline role being deactivated also raises it (false
+ *       red, fixed by a dated re-baseline note below, as before).
+ *   (c) the anon row count is trusted: if RLS ever hid person_roles rows from
+ *       anon, the deficit would fall (green). Only an over-count is caught.
+ *
+ * Exit policy (0 pass / 1 contract violated / 2 could not check):
+ *   - RPC missing on prod            -> exit 0 (warn; tolerates an un-pushed migration)
+ *   - RPC or count call transient    -> exit 2 (could not verify)
+ *   - any other RPC / count error    -> exit 2
+ *   - malformed payload              -> exit 2
+ *   - status = 'ok'                  -> exit 0 (pass)
+ *   - both deficits <= baselines     -> exit 0 (WARN line + payload; growth is new people)
+ *   - any deficit >  its baseline    -> exit 1 (FAIL -- see docs/ci-guard-notes.md #17)
  *
  * Local:  node scripts/check-teacher-dj-assignment-integrity.mjs   (reads .env)
+ *         node scripts/check-teacher-dj-assignment-integrity.mjs --self-test
  * CI:     same script, env vars supplied as repo secrets:
  *           VITE_SUPABASE_URL
  *           VITE_SUPABASE_PUBLISHABLE_KEY
+ * Test:   node --test scripts/__tests__/check-teacher-dj-assignment-integrity.test.mjs
  *
  * See:
  *   admin repo migrations/20260513070000_check_teacher_dj_assignment_integrity_v1.sql
@@ -39,8 +63,12 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
-import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
+import { rpcWithRetry, isTransient } from './lib/rpc-retry.mjs';
+import { isEntryPoint } from './lib/entry-point.mjs';
 
+// HISTORY OF THE OLD UNASSIGNED-TOTAL CEILING (kept: the dated-note convention
+// is how this guard's numbers have always been explained).
+//
 // Locked to prod snapshot 2026-06-12. Increase if roles are intentionally expanded;
 // never decrease without investigating why new unassigned rows appeared.
 //
@@ -93,8 +121,104 @@ import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
 //
 // 2026-10-24: DJ ceiling 7 -> 8 (owner call). Live read 33/8: one more active DJ with
 // no P5 line-up credit -- ordinary roster growth, red on main too, not a lost assignment.
-const BASELINE_TEACHERS_UNASSIGNED = 33; // active teachers with no P5 line-up credit
-const BASELINE_DJS_UNASSIGNED = 8;       // active DJs with no P5 line-up credit
+//
+// 2026-11-03: DJ ceiling 8 -> 9. Live read 33/9 (contract-check run 41666265616,
+// first visible once admin #1191 cleared the guest-entries step above it). The ninth
+// is profile bebc8933: an existing teacher (profile 2026-09-26, teacher line-up credit
+// 2026-10-16) whose djing role was created 2026-11-03 13:55 UTC, two hours before the
+// red run, with no DJ credit ever -- the same "listed before first booking" pattern as
+// 2026-07-24 / 2026-09-15 / 2026-10-24. The other eight are unmoved; nothing dropped an
+// assignment. sample_profiles reads [] in CI because the RPC returns names only to
+// is_admin() callers (admin 20261122240000, review R1 B1) and CI calls it as anon.
+//
+// 2026-11-04: ceilings 33/9 -> 34/10. Live read 34/10 (red on main too, run 41815691763). Assigned counts
+// are unchanged (94 teachers, 33 DJs): one more teacher and one more DJ were listed with no line-up yet,
+// ordinary roster growth, not a dropped assignment. Same pattern as the 2026-10-24 and 2026-11-03 bumps.
+//
+// 2026-11-04 (later the same day): the ceiling is RETIRED, replaced by the
+// assignment deficit described in the header. The 2026-07-24 re-baseline date
+// is the cutoff because every note since then splits the count there. Measured
+// live, read-only, against prod the same day: teachers 128 active roles, 104
+// created on/before 2026-07-24, 94 assigned, 34 unassigned (28 pre-baseline + 6
+// post); DJs 43 active roles, 29 pre-baseline, 33 assigned, 10 unassigned (2
+// pre + 8 post). Deficits: teachers 104 - 94 = 10, DJs 29 - 33 = -4. The DJ
+// figure is negative because more post-baseline DJs hold a booking (6) than
+// pre-baseline DJs lack one (2); it is still a ceiling that rises by exactly 1
+// per lost assignment. The 6 + 8 people who joined after the cutoff with no
+// line-up are the growth that used to red this check; they now WARN.
+//
+// Re-baseline only with a dated note here saying who lost what, and why that
+// is not a regression. Never raise a deficit to make a red run green.
+export const BASELINE_CUTOFF_UTC = '2026-07-25T00:00:00Z'; // created_at < this = "on or before 2026-07-24"
+export const BASELINE_TEACHERS_DEFICIT = 10; // pre-baseline teacher roles - assigned teachers
+export const BASELINE_DJS_DEFICIT = -4;      // pre-baseline DJ roles - assigned DJs
+
+const RPC = 'check_teacher_dj_assignment_integrity_v1';
+const num = (v) => (Number.isFinite(v) ? v : NaN);
+
+/**
+ * Pure verdict. `payload` is the RPC result; `pre` is
+ * { teachers, djs } -- active roles created before BASELINE_CUTOFF_UTC.
+ * Returns { exit, level, message }.
+ */
+export function judge(payload, pre, baselines = {
+  teachers: BASELINE_TEACHERS_DEFICIT,
+  djs: BASELINE_DJS_DEFICIT,
+}) {
+  const tu = num(payload?.active_teachers_unassigned);
+  const du = num(payload?.active_djs_unassigned);
+  const ta = num(payload?.active_teachers_assigned);
+  const da = num(payload?.active_djs_assigned);
+  const tp = num(pre?.teachers);
+  const dp = num(pre?.djs);
+  if ([tu, du, ta, da, tp, dp].some((n) => !Number.isFinite(n))) {
+    return { exit: 2, level: 'error', message: 'FAIL: contract RPC or pre-baseline count returned a malformed payload.' };
+  }
+  // A pre-baseline count above the active total means the two reads disagree
+  // about what "active" means -- the deficit would be meaningless.
+  if (tp > ta + tu || dp > da + du) {
+    return {
+      exit: 2,
+      level: 'error',
+      message: `FAIL: pre-baseline role count (${tp}/${dp}) exceeds the RPC's active total ` +
+        `(${ta + tu}/${da + du}); the two reads disagree, cannot judge.`,
+    };
+  }
+  if (payload.status === 'ok') {
+    return {
+      exit: 0,
+      level: 'log',
+      message: `OK: every active teacher (${ta}) and DJ (${da}) holds a P5 line-up credit in matching capacity.`,
+    };
+  }
+  const td = tp - ta;
+  const dd = dp - da;
+  const split =
+    `${tu} teacher / ${du} DJ unassigned; ` +
+    'deficit (roles created on/before 2026-07-24 - assigned): ' +
+    `teachers ${tp}-${ta}=${td} (baseline ${baselines.teachers}), ` +
+    `DJs ${dp}-${da}=${dd} (baseline ${baselines.djs})`;
+  if (td > baselines.teachers || dd > baselines.djs) {
+    return {
+      exit: 1,
+      level: 'error',
+      message: `FAIL: ${split}. A deficit rose: someone lost their last line-up credit ` +
+        '(or an assigned role was deactivated) -- see docs/ci-guard-notes.md #17.',
+    };
+  }
+  const slack = [];
+  if (td < baselines.teachers) slack.push(`BASELINE_TEACHERS_DEFICIT ${baselines.teachers} -> ${td}`);
+  if (dd < baselines.djs) slack.push(`BASELINE_DJS_DEFICIT ${baselines.djs} -> ${dd}`);
+  const ratchet = slack.length
+    ? ` RATCHET: lower ${slack.join(', ')} (dated note) -- until then a later lost assignment can hide in the slack.`
+    : '';
+  return {
+    exit: 0,
+    level: 'warn',
+    message: `WARN: ${split}. No lost assignment; unassigned people beyond the ` +
+      `deficit joined after the cutoff with no line-up yet (roster growth).${ratchet}`,
+  };
+}
 
 function loadEnv() {
   const env = { ...process.env };
@@ -113,103 +237,175 @@ function loadEnv() {
   return env;
 }
 
-const env = loadEnv();
-const url = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
-const key =
-  env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  env.SUPABASE_PUBLISHABLE_KEY ||
-  env.SUPABASE_ANON_KEY;
-
-if (!url || !key) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY');
-  process.exit(2);
+function makeDeps() {
+  const env = loadEnv();
+  const url = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
+  const key = env.VITE_SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY;
+  if (!url || !key) return { missingCreds: true };
+  const sb = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  // head:true + count:'exact' -- a server-side count, so the 100-row API cap
+  // never truncates it. Same "active" predicate as the RPC.
+  const countPre = async (role) => {
+    const { count, error } = await sb
+      .from('person_roles')
+      .select('person_id', { count: 'exact', head: true })
+      .eq('role', role)
+      .or('is_active.is.null,is_active.eq.true')
+      .lt('created_at', BASELINE_CUTOFF_UTC);
+    if (error) throw error;
+    return count;
+  };
+  return { callRpc: () => rpcWithRetry(sb, RPC), countPre };
 }
 
-const sb = createClient(url, key, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-let data;
-try {
-  data = await rpcWithRetry(sb, 'check_teacher_dj_assignment_integrity_v1');
-} catch (e) {
-  // A cold-instance timeout is "could not verify", not "no drift" -- exit 2,
-  // never exit 0, now that this check gates on real drift below. Matches
-  // check-slug-column.mjs's convention: exitTransient no-ops on a
-  // NON-transient cause and falls through to the classification below.
-  exitTransient(e, 'teacher/DJ assignment integrity');
-  // Tolerate the function not yet being on prod (admin migration is local-only).
-  const error = e.cause ?? e;
-  const msg = error.message || '';
-  const code = error.code || '';
-  if (
+function isUndeployed(e) {
+  const msg = e?.message || '';
+  const code = e?.code || '';
+  return (
     /check_teacher_dj_assignment_integrity_v1/i.test(msg) &&
     (/does not exist/i.test(msg) || /Could not find the function/i.test(msg) || code === 'PGRST202' || code === '42883')
-  ) {
-    console.warn(
-      'WARN: check_teacher_dj_assignment_integrity_v1 is not yet deployed to this project. ' +
-      'Soft-pass until the admin migration ships.',
-    );
-    process.exit(0);
+  );
+}
+
+/** Exit owner. Collaborators are injected so the self-test drives it offline. */
+export async function main(argv = [], deps = {}) {
+  const { out = console.log, warn = console.warn, err = console.error } = deps;
+  const unknown = argv.filter((a) => a !== '--self-test');
+  if (unknown.length) {
+    err(`Unknown flag(s): ${unknown.join(', ')}. Known: --self-test`);
+    return 2;
   }
-  console.error('RPC failed:', msg);
-  process.exit(2);
+  if (argv.includes('--self-test')) return (await selfTest()) ? 0 : 1;
+
+  const { callRpc, countPre, missingCreds } = deps.callRpc ? deps : makeDeps();
+  if (missingCreds) {
+    err('Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY');
+    return 2;
+  }
+
+  let data;
+  try {
+    data = await callRpc();
+  } catch (e) {
+    const cause = e?.cause ?? e;
+    if (e?.transient ?? isTransient(cause)) {
+      err(`teacher/DJ assignment integrity: ${e?.message ?? e}. Transient infrastructure failure, not a contract violation -- exiting 2.`);
+      return 2;
+    }
+    if (isUndeployed(cause)) {
+      warn(`WARN: ${RPC} is not yet deployed to this project. Soft-pass until the admin migration ships.`);
+      return 0;
+    }
+    err('RPC failed:', cause?.message || String(e));
+    return 2;
+  }
+  out(JSON.stringify(data, null, 2));
+
+  let pre;
+  try {
+    pre = { teachers: await countPre('teaching'), djs: await countPre('djing') };
+  } catch (e) {
+    err(`person_roles pre-baseline count failed: ${e?.message ?? e} -- exiting 2 (could not check).`);
+    return 2;
+  }
+
+  const v = judge(data, pre);
+  ({ log: out, warn, error: err })[v.level]('\n' + v.message);
+  return v.exit;
 }
 
-console.log(JSON.stringify(data, null, 2));
+// ---------------------------------------------------------------------------
+// Canary. Every case drives main() with fake collaborators and pins WHICH
+// branch produced the code (by message), not just the code.
+// Live shape 2026-11-04: teachers 94 assigned / 34 unassigned, 104 pre-cutoff;
+// DJs 33 / 10, 29 pre-cutoff.
+const LIVE = {
+  status: 'drift',
+  active_teachers_assigned: 94,
+  active_teachers_unassigned: 34,
+  active_djs_assigned: 33,
+  active_djs_unassigned: 10,
+  sample_profiles: [],
+};
+const LIVE_PRE = { teachers: 104, djs: 29 };
 
-const tu = Number.isFinite(data?.active_teachers_unassigned) ? data.active_teachers_unassigned : NaN;
-const du = Number.isFinite(data?.active_djs_unassigned)      ? data.active_djs_unassigned      : NaN;
-const ta = Number.isFinite(data?.active_teachers_assigned)   ? data.active_teachers_assigned   : NaN;
-const da = Number.isFinite(data?.active_djs_assigned)        ? data.active_djs_assigned        : NaN;
+export const SELF_TEST_CASES = [
+  { name: 'live 2026-11-04 shape is green (WARN)', payload: LIVE, pre: LIVE_PRE, exit: 0, re: /^WARN: 34 teacher \/ 10 DJ/ },
+  {
+    name: 'new teacher after cutoff, no line-up: unassigned 34->35, stays green',
+    payload: { ...LIVE, active_teachers_unassigned: 35 }, pre: LIVE_PRE, exit: 0, re: /^WARN: 35 teacher/,
+  },
+  {
+    name: 'new DJ after cutoff, no line-up: unassigned 10->11, stays green',
+    payload: { ...LIVE, active_djs_unassigned: 11 }, pre: LIVE_PRE, exit: 0, re: /^WARN: .*11 DJ/,
+  },
+  {
+    name: 'MUTANT pre-baseline teacher loses last line-up (assigned 94->93, unassigned 34->35): red',
+    payload: { ...LIVE, active_teachers_assigned: 93, active_teachers_unassigned: 35 }, pre: LIVE_PRE, exit: 1, re: /^FAIL: .*teachers 104-93=11/,
+  },
+  {
+    name: 'MUTANT pre-baseline DJ loses last line-up (assigned 33->32): red',
+    payload: { ...LIVE, active_djs_assigned: 32, active_djs_unassigned: 11 }, pre: LIVE_PRE, exit: 1, re: /^FAIL: .*DJs 29-32=-3/,
+  },
+  {
+    name: 'a pre-baseline teacher picks up a first line-up: deficit falls, green',
+    payload: { ...LIVE, active_teachers_assigned: 95, active_teachers_unassigned: 33 }, pre: LIVE_PRE, exit: 0,
+    re: /^WARN: 33 teacher.*RATCHET: lower BASELINE_TEACHERS_DEFICIT 10 -> 9/,
+  },
+  {
+    name: "status 'ok' passes",
+    payload: { ...LIVE, status: 'ok', active_teachers_assigned: 128, active_teachers_unassigned: 0, active_djs_assigned: 43, active_djs_unassigned: 0 }, pre: LIVE_PRE, exit: 0, re: /^OK: every active teacher/,
+  },
+  { name: 'malformed payload is exit 2', payload: { status: 'drift' }, pre: LIVE_PRE, exit: 2, re: /malformed payload/ },
+  { name: 'reads that disagree are exit 2', payload: LIVE, pre: { teachers: 200, djs: 29 }, exit: 2, re: /two reads disagree/ },
+  { name: 'transient RPC failure is exit 2', rpcThrows: Object.assign(new Error('timeout'), { transient: true }), exit: 2, re: /Transient infrastructure failure/ },
+  { name: 'undeployed RPC soft-passes (exit 0)', rpcThrows: { code: 'PGRST202', message: `Could not find the function public.${RPC}` }, exit: 0, re: /not yet deployed/ },
+  { name: 'other RPC error is exit 2', rpcThrows: { code: '42501', message: 'permission denied' }, exit: 2, re: /^RPC failed/ },
+  { name: 'pre-baseline count error is exit 2', payload: LIVE, countThrows: { message: 'boom' }, exit: 2, re: /pre-baseline count failed/ },
+  { name: 'missing creds is exit 2', missingCreds: true, exit: 2, re: /Missing VITE_SUPABASE_URL/ },
+];
 
-if (!Number.isFinite(tu) || !Number.isFinite(du) || !Number.isFinite(ta) || !Number.isFinite(da)) {
-  console.error('\nFAIL: contract RPC returned malformed payload.');
-  process.exit(2);
+export async function runCase(c) {
+  const lines = [];
+  const sink = (...a) => lines.push(a.join(' ').trim());
+  const deps = {
+    out: sink,
+    warn: sink,
+    err: sink,
+    missingCreds: c.missingCreds,
+    callRpc: async () => {
+      if (c.rpcThrows) throw c.rpcThrows;
+      return c.payload;
+    },
+    countPre: async (role) => {
+      if (c.countThrows) throw c.countThrows;
+      return role === 'teaching' ? c.pre.teachers : c.pre.djs;
+    },
+  };
+  const exit = await main([], deps);
+  return { exit, lines };
 }
 
-if (data.status === 'ok') {
-  console.log(
-    `\nOK: every active teacher (${ta}) and DJ (${da}) is assigned to at least ` +
-    `one event_program_people row in matching capacity. Contract holds.`,
-  );
-  process.exit(0);
+export async function selfTest() {
+  let failed = 0;
+  for (const c of SELF_TEST_CASES) {
+    const { exit, lines } = await runCase(c);
+    const ok = exit === c.exit && lines.some((l) => c.re.test(l));
+    if (!ok) {
+      failed += 1;
+      console.error(`  FAIL ${c.name}: exit ${exit} (want ${c.exit}); output: ${lines.join(' | ')}`);
+    } else {
+      console.log(`  ok   ${c.name}`);
+    }
+  }
+  if (failed) {
+    console.error(`FAIL self-test -- ${failed} of ${SELF_TEST_CASES.length} case(s).`);
+    return false;
+  }
+  console.log(`PASS self-test -- ${SELF_TEST_CASES.length} cases.`);
+  return true;
 }
 
-
-if (tu <= BASELINE_TEACHERS_UNASSIGNED && du <= BASELINE_DJS_UNASSIGNED) {
-  console.warn(
-    `\nWARN: ${tu} teacher / ${du} DJ unassigned ` +
-    `(baseline: ${BASELINE_TEACHERS_UNASSIGNED}/${BASELINE_DJS_UNASSIGNED}). ` +
-    `No regression. Sample profiles above for review.`,
-  );
-  process.exit(0);
+if (isEntryPoint(import.meta.url)) {
+  process.exitCode = await main(process.argv.slice(2));
 }
-
-// GATING RESTORED 2026-09-09. A "GATING SUSPENDED" block sat here briefly --
-// it was written 2026-09-02 against pre-#339 main (baseline 32/6, ceiling
-// reding on ordinary roster growth) and never merged on its original branch
-// (PR #330, closed unmerged). #339 (ef2487f, 2026-09-04) fixed the real
-// problem on main instead -- re-baselined to 36/6 AND kept real gating
-// (process.exit(1) below) -- and queued-teacher-dj-lost-assignment-detector.md
-// (2026-09-07) explicitly struck the "report-only" framing as false, verified
-// three ways against main at the time. When this file's transient-retry
-// branch (PR #402) was revived and merged 2026-09-09, it silently replayed
-// the stale 2026-09-02 patch on top of current main, re-suspending a gate
-// #339 had already restored five days earlier -- caught in review of an
-// UNRELATED diff (the honest-claims P7 guard), not by this branch's own
-// review, which instead reinforced it. See docs/ci-guard-notes.md #17.
-//
-// The underlying ceiling-on-a-growing-total problem this was trying to solve
-// is real and still open -- ~/.claude/plans/queued-teacher-dj-lost-assignment-
-// detector.md carries the actual fix (a lost-assignment predicate, not a
-// ceiling). Until that lands, a ceiling that gates is still the better of two
-// imperfect options: it reds on ordinary growth (a false positive, fixed by a
-// re-baseline commit), where an ungated check that LOOKS gated silently stops
-// catching a real dropped assignment (a false negative, fixed by nothing).
-console.error(
-  `\nFAIL: ${tu} teacher / ${du} DJ unassigned ` +
-  `(baseline: ${BASELINE_TEACHERS_UNASSIGNED}/${BASELINE_DJS_UNASSIGNED}). ` +
-  `New drift introduced -- investigate the sample profiles above.`,
-);
-process.exit(1);

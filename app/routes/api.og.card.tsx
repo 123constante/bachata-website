@@ -84,7 +84,8 @@ type FallbackReason =
 // A degraded artefact must never be cached for a year, but "degraded" is not
 // one speed. Two tiers, chosen by whether the condition can clear on its own:
 //
-//   FAST (300s)  card-data-unavailable, and every redirect. An RPC blip clears
+//   NONE         render-error (redirect, no-store -- see CACHE_RENDER_ERROR).
+//   FAST (300s)  card-data-unavailable, and every other redirect. An RPC blip clears
 //                by itself, and until it does the card is GENERIC -- no title,
 //                no date. Five minutes is how long one bad request may pin a
 //                blank card to the edge (and through it to WhatsApp's
@@ -92,7 +93,7 @@ type FallbackReason =
 //   SLOW (1h)    the two cover reasons. The card still carries the real title,
 //                date and venue, and the tier is chosen to BOUND RE-RENDER
 //                COST, not because either self-heals. At 300s a dead cover
-//                costs a 5s fetch timeout plus a full sharp re-render every
+//                costs up to a 5s fetch deadline plus a full sharp re-render every
 //                five minutes -- ~288 a day per entity -- to re-derive a
 //                byte-identical card. cover-unfetchable additionally clears
 //                for free when the cover changes, since that changes `v=`;
@@ -101,6 +102,12 @@ type FallbackReason =
 //                non-healing rather than slow-healing. 1h is a cost ceiling on
 //                a wrong card, not a repair window -- the repair is the CI red.
 const CACHE_OK = "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800";
+// The same shared-cache lifetime, stated on the directive Vercel documents for
+// its CDN, so a future edit to the browser header above cannot silently shorten
+// the edge window. HEALTHY 200 only: degraded tiers, 302s, 304s and
+// render-error never carry it (pinned in ./api.og.card.test.tsx). Rollback
+// knob for docs/ops/vercel-cpu-cuts-2026-11-04.md slice 1.
+const EDGE_CACHE_OK = "public, s-maxage=31536000, stale-while-revalidate=604800";
 const CACHE_DEGRADED_FAST = "public, max-age=300";
 const CACHE_DEGRADED_SLOW = "public, max-age=3600";
 const SLOW_HEALING: ReadonlySet<string> = new Set<FallbackReason>(["cover-unfetchable", "cover-absent"]);
@@ -122,16 +129,23 @@ function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | nul
       // request that re-renders. A client holding the HEALTHY etag still gets
       // its 304 (the short-circuit above runs before any fetch), which is the
       // safe direction: it keeps a good card rather than a bad one.
-      ...(fallback ? { [FALLBACK_HEADER]: fallback } : { ETag: etag }),
+      ...(fallback ? { [FALLBACK_HEADER]: fallback } : { ETag: etag, "Vercel-CDN-Cache-Control": EDGE_CACHE_OK }),
     },
   });
 }
+
+// render-error is the one reason that says nothing about the entity: the card
+// threw (2026-11-04: a font fetch timing out on cold start), so the very next
+// request may well render. Caching that 302 for five minutes pinned the generic
+// /og-image.jpg to the edge and, through it, to WhatsApp's URL-keyed preview
+// cache. no-store: a crawler that retries gets a fresh render attempt.
+const CACHE_RENDER_ERROR = "no-store";
 
 function redirectToStatic(reason: FallbackReason): Response {
   return new Response(null, {
     status: 302,
     headers: {
-      "Cache-Control": CACHE_DEGRADED_FAST,
+      "Cache-Control": reason === "render-error" ? CACHE_RENDER_ERROR : CACHE_DEGRADED_FAST,
       Location: `${SITE_URL}/og-image.jpg`,
       [FALLBACK_HEADER]: reason,
     },

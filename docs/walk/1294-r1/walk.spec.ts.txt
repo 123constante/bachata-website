@@ -1,0 +1,166 @@
+import { test, expect, type Page, type Route } from '@playwright/test';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { FRIDAY, OrganiserFake, PHONE, json } from './helpers/organiserFake';
+
+const OUT = process.env.WALK_OUT ?? 'docs/walk/1294-r1';
+const FLAG_ON = process.env.VITE_ENABLE_TICKET_DOOR_CODE === 'true';
+mkdirSync(OUT, { recursive: true });
+const LOG = `${OUT}/measure.jsonl`;
+test.setTimeout(120_000);
+test.use({ viewport: PHONE, colorScheme: 'dark', permissions: ['camera'], launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] } });
+
+const NAMES = ['Aisha', 'Ben', 'Chloe', 'Daniel', 'Diego', 'Elena'];
+const mkList = (n: number, inN = 0) => ({
+  result: 'ok', truncated: false, in_count: inN, total_count: n,
+  rows: Array.from({ length: n }, (_, i) => ({ ticket_id: `t${i}`, short_code: 'K7M2QX', first_name: `${NAMES[i % 6]}${i >= 6 ? i : ''}`, quantity_in_order: 1 + (i % 3 === 2 ? 1 : 0), ticket_type_name: 'Standard', checked_in_at: i < inN ? '2026-10-08T20:00:00Z' : null })),
+});
+const NOBODY = { ticket_type_name: null, first_name: null, quantity: null, checked_in_at: null, checked_in_by_first_name: null };
+const OK = { result: 'ok', ticket_type_name: 'Standard', first_name: 'Chloe', quantity: 1, checked_in_at: '2026-10-08T21:42:00Z', checked_in_by_first_name: 'Sam', in_count: 1, total_count: 6 };
+const ANS: Record<string, unknown> = {
+  ok: OK,
+  already_in: { ...OK, result: 'already_in' },
+  unknown_code: { result: 'unknown_code', ...NOBODY, in_count: 0, total_count: 6 },
+  too_many_attempts: { result: 'too_many_attempts', ...NOBODY, in_count: 0, total_count: 6 },
+  not_allowed: { result: 'not_allowed', ...NOBODY, in_count: null, total_count: null },
+};
+
+const calls: string[] = [];
+async function open(page: Page, o: { code?: string; list?: unknown; byId?: string; byIdDelay?: number } = {}) {
+  calls.length = 0;
+  const fake = new OrganiserFake();
+  await fake.install(page);
+  await page.route('**/rest/v1/rpc/ticket_door_list_v1*', (r: Route) => json(r, o.list ?? mkList(6)));
+  await page.route('**/rest/v1/rpc/ticket_check_in_by_code_v1*', (r: Route) => {
+    calls.push('code:' + JSON.stringify(r.request().postDataJSON()));
+    if (o.code === 'offline') return r.abort('internetdisconnected');
+    return json(r, ANS[o.code ?? 'ok']);
+  });
+  await page.route('**/rest/v1/rpc/ticket_check_in_by_id_v1*', async (r: Route) => {
+    calls.push('id:' + JSON.stringify(r.request().postDataJSON()));
+    if (o.byIdDelay) await new Promise((res) => setTimeout(res, o.byIdDelay));
+    return json(r, ANS[o.byId ?? 'ok']);
+  });
+  await page.goto(`/account/p3/events/${FRIDAY}/door`);
+  await page.waitForLoadState('networkidle').catch(() => undefined);
+  await expect(page.getByTestId('door-screen')).toBeVisible({ timeout: 60_000 });
+}
+
+async function measure(page: Page, name: string, verdictNote = '') {
+  const m = await page.evaluate(() => {
+    const parse = (c: string) => { const x = c.match(/[\d.]+/g)!.map(Number); return { r: x[0], g: x[1], b: x[2], a: x.length > 3 ? x[3] : 1 }; };
+    const lin = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const L = (c: { r: number; g: number; b: number }) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    const bgOf = (el: Element) => {
+      let layers: ReturnType<typeof parse>[] = [];
+      for (let e: Element | null = el; e; e = e.parentElement) {
+        const c = parse(getComputedStyle(e).backgroundColor);
+        if (c.a > 0) { layers.push(c); if (c.a >= 1) break; }
+      }
+      let base = { r: 0, g: 0, b: 0 };
+      for (const l of layers.reverse()) base = { r: l.r * l.a + base.r * (1 - l.a), g: l.g * l.a + base.g * (1 - l.a), b: l.b * l.a + base.b * (1 - l.a) };
+      return base;
+    };
+    const contrast = (el: Element | null) => {
+      if (!el) return null;
+      const cs = getComputedStyle(el); const fg = parse(cs.color); const bg = bgOf(el);
+      const f = { r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a) };
+      const a = L(f), b = L(bg); return +((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2);
+    };
+    const vis = (e: Element) => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none'; };
+    const small: string[] = []; let taps = 0; let minH = 9999, minW = 9999;
+    const root = document.querySelector('[data-testid="door-screen"]') ?? document.body;
+    root.querySelectorAll('button, a[href], input, [role=button]').forEach((e) => {
+      if (!vis(e)) return; taps++;
+      const r = e.getBoundingClientRect();
+      minH = Math.min(minH, r.height); minW = Math.min(minW, r.width);
+      if (r.height < 44 || r.width < 44) small.push(`${e.tagName.toLowerCase()}[${e.getAttribute('data-testid') ?? ''}] ${Math.round(r.width)}x${Math.round(r.height)} "${(e.textContent ?? '').trim().slice(0, 20)}"`);
+    });
+    const clipped: string[] = [];
+    root.querySelectorAll('*').forEach((e) => {
+      if (!vis(e)) return; const s = getComputedStyle(e);
+      if ((e.scrollWidth > e.clientWidth + 1 && s.overflowX !== 'visible' && s.overflowX !== 'auto' && s.overflowX !== 'scroll') || (s.textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth + 1))
+        clipped.push(`${e.tagName.toLowerCase()}[${e.getAttribute('data-testid') ?? e.className}]`);
+    });
+    const q = (id: string) => document.querySelector(`[data-testid="${id}"]`);
+    const band = document.querySelector('.p3-door-band');
+    const bannerEl = band ?? q('door-paused-banner') ?? q('door-offline-banner');
+    const why = q('door-code-why') ?? q('door-row-why');
+    const dis = [...root.querySelectorAll('[aria-disabled="true"]')].filter(vis)[0] ?? null;
+    return {
+      sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, taps, minH: Math.round(minH), minW: Math.round(minW), small, clipped,
+      bandContrast: contrast(band?.querySelector('b') ?? null), bannerContrast: contrast(bannerEl), whyContrast: contrast(why), whyText: why?.textContent ?? null,
+      disabledContrast: contrast(dis), headline: q('door-headline')?.textContent ?? null, detail: q('door-detail')?.textContent ?? null,
+      checkinButtons: document.querySelectorAll('[data-testid="door-row-checkin"]').length,
+      checkinEnabled: [...document.querySelectorAll('[data-testid="door-row-checkin"]')].filter((b) => b.getAttribute('aria-disabled') !== 'true' && !(b as HTMLButtonElement).disabled).length,
+      rows: document.querySelectorAll('[data-testid="door-row"]').length,
+      visibleText: (document.querySelector('[data-testid="door-screen"]') as HTMLElement)?.innerText.slice(0, 600),
+    };
+  });
+  appendFileSync(LOG, JSON.stringify({ name, flag: FLAG_ON, calls: [...calls], ...m, note: verdictNote }) + '\n');
+  await page.screenshot({ path: `${OUT}/${name}.png` });
+  return m;
+}
+
+const type = async (page: Page, v: string) => { await page.getByTestId('door-code-input').fill(v); await page.getByTestId('door-code-check').click({ force: true }); };
+
+
+test.describe('flag ON', () => {
+  test.skip(!FLAG_ON, 'flag on only');
+  test('01 ready', async ({ page }) => { await open(page); await measure(page, '01-ready'); });
+  test('02 empty input', async ({ page }) => { await open(page); await page.getByTestId('door-code-check').click({ force: true }); await page.waitForTimeout(300); await measure(page, '02-empty'); });
+  test('03 malformed K7M2Q0', async ({ page }) => { await open(page); await type(page, 'K7M2Q0'); await page.waitForTimeout(300); await measure(page, '03-malformed-K7M2Q0'); });
+  test('04 malformed IOL123', async ({ page }) => { await open(page); await type(page, 'IOL123'); await page.waitForTimeout(300); await measure(page, '04-malformed-IOL123'); });
+  test('05 lowercase dash', async ({ page }) => { await open(page); await type(page, 'k7m-2qx'); await expect(page.getByTestId('door-headline')).toBeVisible(); await measure(page, '05-lowercase-dash'); });
+  test('06 let in', async ({ page }) => { await open(page); await type(page, 'K7M2QX'); await expect(page.getByTestId('door-headline')).toHaveText('LET IN'); await measure(page, '06-let-in'); });
+  test('07 already used', async ({ page }) => { await open(page, { code: 'already_in' }); await type(page, 'K7M2QX'); await expect(page.getByTestId('door-headline')).toHaveText('ALREADY IN'); await measure(page, '07-already-used'); });
+  test('08 wrong code', async ({ page }) => { await open(page, { code: 'unknown_code' }); await type(page, 'K7M2QX'); await expect(page.getByTestId('door-headline')).toHaveText('CODE NOT RECOGNISED'); await measure(page, '08-wrong-code'); });
+  test('09 too many attempts', async ({ page }) => {
+    await open(page, { code: 'too_many_attempts' }); await type(page, 'K7M2QX');
+    await expect(page.getByTestId('door-headline')).toHaveText('TOO MANY WRONG CODES');
+    await measure(page, '09-too-many');
+    await page.getByTestId('door-act-list').click();
+    await expect(page.getByTestId('door-paused-banner')).toBeVisible();
+    await measure(page, '09b-too-many-list');
+  });
+  test('10 list 0', async ({ page }) => { await open(page, { list: mkList(0) }); await page.getByTestId('door-tab-list').click(); await page.waitForTimeout(600); await measure(page, '10-list-0'); });
+  test('11 list 1', async ({ page }) => { await open(page, { list: mkList(1) }); await page.getByTestId('door-tab-list').click(); await expect(page.getByTestId('door-row')).toHaveCount(1); await measure(page, '11-list-1'); });
+  test('12 list 120', async ({ page }) => {
+    await open(page, { list: mkList(120, 20) }); await page.getByTestId('door-tab-list').click(); await expect(page.getByTestId('door-row')).toHaveCount(120);
+    await measure(page, '12-list-120'); await page.getByTestId('door-row').nth(119).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${OUT}/12b-list-120-bottom.png` });
+  });
+  test('13 row check in', async ({ page }) => {
+    await open(page, { byIdDelay: 1500 }); await page.getByTestId('door-tab-list').click();
+    await page.getByTestId('door-row-checkin').nth(2).click();
+    await page.waitForTimeout(400); await measure(page, '13a-row-checking');
+    await expect(page.getByTestId('door-headline')).toHaveText('LET IN', { timeout: 8000 }); await measure(page, '13b-row-let-in');
+  });
+  test('14 refused role (list not_allowed on load)', async ({ page }) => {
+    await open(page, { list: { result: 'not_allowed', rows: [], truncated: false, in_count: null, total_count: null } });
+    await page.getByTestId('door-tab-list').click(); await page.waitForTimeout(600); await measure(page, '14a-refused-list-load');
+  });
+  test('14b refused role (row check in answers not_allowed)', async ({ page }) => {
+    await open(page, { byId: 'not_allowed' }); await page.getByTestId('door-tab-list').click();
+    await page.getByTestId('door-row-checkin').nth(2).click(); await page.waitForTimeout(800); await measure(page, '14b-refused-row-checkin');
+  });
+  test('14c refused role (typed code answers not_allowed)', async ({ page }) => {
+    await open(page, { code: 'not_allowed' }); await type(page, 'K7M2QX'); await page.waitForTimeout(800); await measure(page, '14c-refused-typed');
+    await page.getByTestId('door-tab-list').click().catch(() => undefined); await page.waitForTimeout(500); await measure(page, '14d-refused-then-list');
+  });
+  test('15 no signal', async ({ page }) => {
+    await open(page, { code: 'offline' }); await type(page, 'K7M2QX'); await page.waitForTimeout(6000); await measure(page, '15a-no-signal');
+    await page.getByTestId('door-tab-list').click(); await page.waitForTimeout(800); await measure(page, '15b-no-signal-list');
+  });
+  test('15c row check in with no signal', async ({ page }) => {
+    await open(page); await page.getByTestId('door-tab-list').click();
+    await page.route('**/rest/v1/rpc/ticket_check_in_by_id_v1*', (r) => r.abort('internetdisconnected'));
+    await page.getByTestId('door-row-checkin').nth(2).click(); await page.waitForTimeout(1500); await measure(page, '15c-row-checkin-no-signal');
+  });
+});
+
+test.describe('flag OFF', () => {
+  test.skip(FLAG_ON, 'flag off only');
+  test('16 flag off', async ({ page }) => {
+    await open(page); await measure(page, '16a-flag-off-scan');
+    await page.getByTestId('door-tab-list').click(); await expect(page.getByTestId('door-row')).toHaveCount(6); await measure(page, '16b-flag-off-list');
+  });
+});

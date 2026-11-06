@@ -29,20 +29,30 @@ All in `scripts/check-*.mjs`, enforced by CI.
   `event_attendees`, so the step and its script are gone (number kept).
 - epp.display_name drift (#14)
 - epp.avatar_url drift (#15)
-- Teacher/DJ assignment integrity (#17) &mdash; **GATES on a hand-kept CEILING**
-  (baseline 36 teachers / 8 DJs unassigned), a known-imperfect proxy for "nobody
-  lost an assignment": the ceiling counts a TOTAL that grows every time a
-  teacher joins the directory before their first booking, so ordinary roster
-  growth reds it too &mdash; fixed by a re-baseline commit, same as #339
-  (2026-09-04) did 32-&gt;36. The DJ side did 6-&gt;8 on 2026-09-15. A 2026-09-02 change briefly suspended gating
-  (`process.exit(0)` unconditionally) on stale evidence from a branch that never
-  merged (PR #330, closed unmerged 2026-09-09); #339 had already restored real
-  gating on main five days before that branch's stale patch got revived and
-  merged anyway as PR #402 (2026-09-09), silently re-suspending it for a few
-  hours until this entry and the script were corrected the same day. The real
-  fix is a lost-assignment predicate, not a ceiling &mdash; plan
-  `~/.claude/plans/queued-teacher-dj-lost-assignment-detector.md`, which carries
-  the design.
+- Teacher/DJ assignment integrity (#17) &mdash; **GATES on an ASSIGNMENT DEFICIT,
+  not the unassigned total** (since 2026-11-04). Deficit = active teacher (or DJ)
+  roles created on or before the 2026-07-24 re-baseline, minus the assigned count;
+  baselines 10 teachers / -4 DJs. It rises by exactly 1 when anyone loses their last
+  line-up credit &rarr; exit 1. A new person joining after the cutoff with no line-up
+  leaves it unchanged &rarr; exit 0 with the payload and a `WARN:` line, so ordinary
+  roster growth no longer reds main (it did, and needed a hand bump: #339 on
+  2026-09-04, #1337 on 2026-11-04). Why a deficit and not "pre-baseline people with
+  no assignment" directly: CI calls as anon, which can read `person_roles.created_at`
+  but not the P5 credit tables, so it cannot split the unassigned count per person;
+  deficit = (pre-baseline unassigned) &minus; (post-baseline assigned), which moves
+  with the former. Gaps, stated: a loss and a first booking in the same window
+  cancel, and SLACK ACCUMULATES: every fall in the deficit is headroom a later
+  loss hides in until the baseline is lowered &mdash; the check prints a `RATCHET:`
+  line naming the new value, so act on it; deactivating an ASSIGNED
+  post-cutoff role also reds it (re-baseline with a dated note). Exit codes: 0
+  pass/warn (and the legacy "RPC not deployed" soft-pass), 1 a deficit rose, 2
+  could not check (missing creds, transient, RPC or count error, malformed or
+  disagreeing reads). Canary: `--self-test` (mutants: a lost assignment reds, a
+  new unassigned person stays green) and
+  `node --test scripts/__tests__/check-teacher-dj-assignment-integrity.test.mjs`.
+  History: a 2026-09-02 change briefly suspended gating (`process.exit(0)`
+  unconditionally) on stale evidence from a branch that never merged (PR #330);
+  it was revived as PR #402 (2026-09-09) and corrected the same day.
 - Migration authority arc-closeout (#18)
 - Per-date program canonical / ADR-007 (#19)
 - Occurrence instance_time canonical / ADR-007 (#20)
@@ -141,6 +151,25 @@ All in `scripts/check-*.mjs`, enforced by CI.
   element, a duplicate. **Empty is green** (0 hidden is the normal state), so on
   most runs its green proves the call and the type, not the element arms; it says
   so in its output. Counts only, never ids.
+
+- P3 refusal reasons (`scripts/check-p3-refusal-reasons.mjs`,
+  `npm run check:p3-refusal-reasons`, 2026-11-05, brief
+  `docs/briefs/p3-real-rules-check.md`) &mdash; static in `architecture-guard.yml`.
+  Reads `scripts/p3-refusal-codes.json` (one entry per mapper x code x snake_case
+  reason, read from `pg_get_functiondef` of the P3 command doors on prod), bundles
+  `selfServeErrors.ts` with esbuild and feeds each one to `commandErrorMessage` /
+  `teamErrorMessage`: red on the generic fallback, the `/^permission_denied/`
+  catch-all or "That did not work" unless the key is in `known_gaps` (shrink-only;
+  a stale gap is red). `--live` needs `P3_RULES_DB_URL` (read-only Postgres URL)
+  and diffs the live code set (with SQLSTATE) against the snapshot. Step 73 of
+  `db-contract-check.yml` runs it **only when the secret is set** (absent = one SKIP
+  line, exit 0); once set, drift reds it (1) and so does a runner with no psql or a
+  failing psql (2). A psql failure logs one fixed line from the exit status, never
+  `e.message`/stderr (they carry the URL); canary cases 21-24 prove no URL part prints.
+  **Green is narrower than it looks:** a sample is `code: reason: X`, not each
+  literal RAISE text, so a prose-keyed row can map a sample the real text misses;
+  prose-only reasons (`permission_denied: series.upsert ...`) collapse into the
+  bare `permission_denied` key. Regenerate the snapshot from `LIVE_SQL` in the script.
 
 - Onboarding write doors (#72) (`scripts/check-onboarding-write-doors.mjs`,
   `npm run check:onboarding-write-doors`, 2026-10-30, design
@@ -455,6 +484,40 @@ needs a workflow edit, which is in the record:
 
 ---
 
+## Automation workflow allow-list
+
+`scripts/data/automation-workflow-allowlist.json` is the written rule for which
+`.github/workflows/*` files an AUTOMATED change may edit (PRIORITY-QUEUE item 8).
+Before it, the rule was implied by hand review.
+
+- **What it is.** A JSON array of bare workflow file names, e.g.
+  `["autopilot.yml"]`. It ships **empty**: nothing is allowed until the owner
+  adds a name. A nested path or anything that is not a bare `*.yml`/`*.yaml`
+  name makes the guard exit 2 (could not measure), never a silent pass.
+- **Who is "automated".** A PR whose head branch starts `claude/` or `ccr-` --
+  the autopilot loop's branch kinds, `isWorkerBranch` in
+  `scripts/lib/autopilot.mjs`, imported by the guard so the two cannot drift.
+  That prefix is ALSO the prefix of every dispatched worker branch, so the list
+  binds dispatched workers too. Any other branch is never affected (the list is
+  not even read).
+- **Who may change it.** The owner only: a PR that edits the list is hard tier
+  (`scripts/**`) and needs the owner's Approve at head. A worker never adds its
+  own workflow to the list in the same PR that edits that workflow.
+- **The guard.** `scripts/check-automation-workflow-allowlist.mjs` -- exit 0
+  pass / not a loop branch, 1 a loop branch changes an unlisted workflow file,
+  2 cannot measure (no `HEAD_REF`, no/empty file list, git failed, missing or
+  malformed list). Inputs: `HEAD_REF` + `PR_FILES`, or `--merge <sha>` (the PR
+  merge commit), or `--local` (branch and `origin/main...HEAD` from git:
+  `npm run check:automation-workflow-allowlist`). Canary:
+  `npm run check:automation-workflow-allowlist:self-test`; tests:
+  `tests/automationWorkflowAllowlist.test.ts`.
+- **Not wired into CI yet** (2026-11-04). Wiring it into the `integrity` job is
+  a step block, not one line, and with an empty list it would turn red every
+  `claude/` PR that edits a workflow -- including the PR that wires it. That
+  is an owner decision; see `docs/handovers/workflow-allowlist-1.md`.
+
+---
+
 ## Workflow inventory
 
 Moved here from the root CLAUDE.md (2026-10-02) so it loads on demand, not every session.
@@ -462,11 +525,12 @@ Moved here from the root CLAUDE.md (2026-10-02) so it loads on demand, not every
 | Workflow | Trigger | Checks |
 |----------|---------|--------|
 | `db-contract-check.yml` | push/daily 06:00 UTC/dispatch; PR **only when the diff is DB-facing** (`scripts/ci-live-db-gate.mjs` owns the rule + path list, shared with `unit-tests.yml`'s live contract suites; a skip shows `contract-check` SKIPPED with the reason in the `live-db-gate` summary) | DB contract checks (venue, coords, program, program-day offsets, security, FK, occurrence integrity, series horizon, map, image refs, event covers, etc.) — count them, don't trust a number here: `grep -c '^      - name: Run ' .github/workflows/db-contract-check.yml` |
-| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, **entry-point dispatch proof**, mojibake). **Does NOT run eslint** |
-| `e2e-smoke.yml` | push/PR | Playwright smoke suite |
+| `architecture-guard.yml` | push/PR | Source integrity + architecture lint + guardrails (legacy-tables, legacy-program-RPCs, images, image widths, plan-hygiene canary, workflow artifact policy, P3 specs not skipped (`check:p3-specs-not-skipped`), **entry-point dispatch proof**, mojibake). **Does NOT run eslint** |
+| `e2e-smoke.yml` | push/PR | Playwright smoke suite: `test:e2e` (P3 flags off), then `test:e2e:p3` (P3 walk specs, P3 + TICKETING flags on) |
 | `types-drift.yml` | daily 06:17 UTC + PR | Detects `types.ts` drift vs the live schema (honest detector; goes red) |
 | `types-drift-autoheal.yml` | daily 06:47 UTC + dispatch | Heals that drift into ONE rolling `bot/types-regen` PR for review |
 | `workflow-lint.yml` | push/PR | Workflow file validation |
+| `deploy-production-trial.yml` | push to `main` | STEP 1 TRIAL: `decide` job runs `scripts/deploy-trial-decide.mjs` (the ONE `BUILD_PATHS` rule from `scripts/vercel-ignore-build.sh` via `scripts/lib/buildRule.mjs`); when a build path changed, `deploy-preview` runs `vercel pull --environment=production` / `vercel build` / `vercel deploy --prebuilt` as a PREVIEW (never `--prod`, never an alias) and writes URL, sha and build seconds to the summary. Green no-op with a `::notice::` until `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` are set. Runbook: [`docs/ops/vercel-actions-deploy-trial.md`](ops/vercel-actions-deploy-trial.md) |
 | `cloudflare-purge-on-deploy.yml` | `deployment_status` (success, Production) + dispatch | Purges Cloudflare cache tag `html` (every HTML/`.data` response; `vercel.json` stamps `Cache-Tag: html` on all but `/assets/*`, `/_vercel/*` and static image/font files) twice (60s apart) once the new production deployment is live, so cached HTML never points at the previous build's deleted hashed JS (blank pages). Falls back to purge_everything (logged) if the tag purge fails, `vercel.json` changed since the previous successful Production deployment, or a `/faq`+`/festivals` probe shows the tag did not clear. `permissions: contents: read, deployments: read`, no checkout; green no-op without `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ZONE_ID`. Runbook: [`docs/ops/cloudflare-purge.md`](ops/cloudflare-purge.md) |
 | `post-merge-prod-alarm.yml` | `workflow_run` of Prod Smoke + `deployment_status` (Production) + dispatch | Probes a NEW production deployment's own URL (`/tonight`, `/city/london-gb`, bypass header) so a broken deploy behind a healthy pinned alias goes red; on Prod Smoke red / failed prod deploy / red probe it disables auto-merge on every open PR and opens one `post-merge-prod-red` issue. Cannot flip `AUTOMERGE_ENABLED` (no variables:write) or roll back |
 | `pr-mergeable-guard.yml` | push to main + hourly + dispatch | Every open PR is `MERGEABLE` and has at least one **Actions** check run that RAN. Deliberately **not** a `pull_request` workflow &mdash; that trigger is what fails to queue on a conflicting PR |

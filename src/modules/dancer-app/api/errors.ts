@@ -1,3 +1,4 @@
+import { INSTAGRAM_INVALID } from '@/lib/instagramHandle';
 import { DANCER_ERROR_CODES, SAVE_KEYS, type DancerErrorCode, type DancerErrorField, type SaveKey } from './types';
 
 /**
@@ -36,7 +37,9 @@ const COPY: Record<DancerErrorCode, string> = {
   invalid_url: 'That link must start with http:// or https://.',
   invalid_whatsapp: 'That does not look like a WhatsApp number. Use the full number with the country code, like +44 7700 900123.',
   invalid_phone: 'That number is not complete. Check the country and the digits, like 7700 900123.',
-  invalid_instagram: 'That Instagram name cannot be saved. Use up to 30 letters, numbers, dots or underscores, with no dot at the start or end.',
+  // Owner wording (instagram-refusal r2, 2026-11-02), shared with the field's own check (lib/instagramHandle).
+  invalid_instagram: INSTAGRAM_INVALID,
+  instagram_taken: 'That Instagram is already on another profile. Check the spelling, or message us if it is yours.',
   invalid_list: 'One of your lists could not be saved. Keep each item short and try again.',
   invalid_body: 'Write a message of 1 to 2000 characters.',
   invalid_kind: 'Pick what kind of message this is.',
@@ -74,7 +77,10 @@ const DETAIL_COPY: Partial<Record<DancerErrorCode, (field: SaveKey) => string>> 
   unknown_key: (f) => `Your ${FIELD_LABEL[f]} could not be saved here. Reload the page and try again.`,
   invalid_type: (f) => `Your ${FIELD_LABEL[f]} is in the wrong format. Reload the page and try again.`,
   invalid_text: (f) => `Your ${FIELD_LABEL[f]} has characters we cannot save. Remove any links or odd symbols and try again.`,
-  invalid_handle: (f) => `That does not look like a valid ${FIELD_LABEL[f]} handle. Use letters, numbers, dots or underscores.`,
+  invalid_handle: (f) =>
+    f === 'instagram'
+      ? INSTAGRAM_INVALID
+      : `That does not look like a valid ${FIELD_LABEL[f]} handle. Use letters, numbers, dots or underscores.`,
   invalid_url: (f) =>
     f === 'avatar_url'
       ? 'Your photo link is not valid. Upload the photo again.'
@@ -108,6 +114,7 @@ const FIELD: Record<DancerErrorCode, DancerErrorField> = {
   invalid_whatsapp: 'whatsapp',
   invalid_phone: 'whatsapp',
   invalid_instagram: 'instagram',
+  instagram_taken: 'instagram',
   invalid_list: null,
   invalid_body: null,
   invalid_kind: null,
@@ -143,6 +150,13 @@ export const fieldFor = (code: DancerErrorCode, detail?: string | null): DancerE
 const PERMISSION_DENIED_RE = /permission denied for function/i;
 
 /**
+ * The unique index behind "that Instagram is taken" (instagram-refusal r2, N3). PostgREST's 23505
+ * message names the index ('duplicate key value violates unique constraint "<index>"'); api/rpc.ts
+ * keeps only the message, so the index name is the match. A 23505 on any other index stays unknown.
+ */
+export const INSTAGRAM_TAKEN_INDEX = 'dancer_profiles_instagram_normalized_uidx';
+
+/**
  * An RPC error message -> a code. The server raises `MESSAGE = '<name>'`, so the
  * message IS the code; PostgREST sometimes wraps it, so a known code anywhere
  * as a whole word counts. PostgreSQL's "permission denied for function ..." is
@@ -152,6 +166,7 @@ export const codeFromMessage = (message: string | null | undefined): DancerError
   if (!message) return 'unknown';
   const trimmed = message.trim();
   if (isDancerErrorCode(trimmed) && trimmed !== 'unknown') return trimmed;
+  if (trimmed.includes(INSTAGRAM_TAKEN_INDEX)) return 'instagram_taken';
   for (const code of DANCER_ERROR_CODES) {
     if (code === 'unknown') continue;
     if (new RegExp(`(^|[^a-z_])${code}([^a-z_]|$)`).test(trimmed)) return code;

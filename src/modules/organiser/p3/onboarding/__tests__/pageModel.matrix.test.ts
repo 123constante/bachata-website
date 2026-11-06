@@ -193,8 +193,8 @@ describe('Review: organiser_onboarding_status_v1().missing[]', () => {
       expect(r.step !== null || r.elsewhere !== null).toBe(true);
     }
   });
-  it('an unknown future code still shows a row (never dropped)', () => {
-    expect(reviewRow('org_founded')).toEqual({ code: 'org_founded', label: 'org founded', step: null, elsewhere: 'dancer' });
+  it('an unknown future code still shows a row (never dropped); no screen answers it, so it says what the person can do', () => {
+    expect(reviewRow('org_founded')).toEqual({ code: 'org_founded', label: 'org founded', step: null, elsewhere: null });
   });
   const RAW = (o: Record<string, unknown>) => ({ v: 1, is_admin: false, person: { complete: false, missing: ['teach_answer'] }, organisers: [{ id: 'o1', name: 'L', role: 'owner', lifecycle: 'live', complete: false, missing: ['contact_confirm'], about: { done: false, skipped: true }, ...o }] });
   it('reads person + this page codes, in step order', () => {

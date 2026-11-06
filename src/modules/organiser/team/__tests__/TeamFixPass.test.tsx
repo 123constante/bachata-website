@@ -90,6 +90,7 @@ describe('B2 / S2 refusals on add read sensibly', () => {
     install({ [ADD]: err('owner_only'), organiser_team_browse_people_v1: [{ profile_id: 'p1', display_name: 'Priya Shah', photo_url: null, fact: null, can_add: true }] });
     mountAt('/account/o/team/add', routes);
     fireEvent.click(await screen.findByTestId('add-face'));
+    fireEvent.click(await screen.findByTestId('add-confirm-yes'));
     expect((await screen.findByTestId('add-error')).textContent).toBe(OWNER_ONLY_ADD);
   });
   it('user_not_found on the card does not tell a requester to sign up', async () => {

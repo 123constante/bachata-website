@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "@fontsource-variable/inter";
 import { attemptChunkReloadOnce } from "@/lib/staleChunk";
+import { captureRefCode } from "@/lib/refCode";
 import { AppRoot } from "./entry-client";
 
 // Browser-only entry: all DOM-touching bootstrapping lives here (createRoot,
@@ -10,6 +11,9 @@ import { AppRoot } from "./entry-client";
 // server entry can render it without executing any of this. SSR/ISR Phase 2.
 
 if (typeof window !== 'undefined') {
+  // Organiser analytics: hold a valid ?ref= code for the session (no-op without one).
+  captureRefCode(window.location.search);
+
   // Stale-chunk guard: force a reload when Vite can't load a hashed asset after
   // a new deploy. Once per session -- a second failure falls through to the
   // error boundaries instead of reload-looping.

@@ -159,7 +159,7 @@ test.describe('the step table', () => {
   test('05 join + 06 done: one tap, the done screen, the token gone from the address bar', async ({ page }) => {
     await openInvite(page, { signedIn: true });
     await expectStep(page, 'join');
-    await expect(page.getByTestId('join-progress-count')).toHaveText('Step 2 of 2');
+    await expect(page.getByTestId('join-progress-count')).toHaveText('Step 3 of 3');
     await expect(page.getByTestId('join-org-card')).toContainText(ORG);
     await screenOk(page, '05-join', 'invite-join');
     await page.getByTestId('invite-join').click();
@@ -213,7 +213,7 @@ test.describe('the step table', () => {
 
 test.describe('error screens (no prototype: the owner reviews these shots)', () => {
   test('E1 blocked email domain (403): WhatsApp help + use another email', async ({ page }) => {
-    await openInvite(page, { otp: { body: { code: 403, msg: 'Sign-up with this email provider is not accepted', message: 'Sign-up with this email provider is not accepted' }, status: 403 } });
+    await openInvite(page, { preview: previewOf('open', { email_hint: 'a***@blocked.example' }), otp: { body: { code: 403, msg: 'Sign-up with this email provider is not accepted', message: 'Sign-up with this email provider is not accepted' }, status: 403 } });
     await page.getByTestId('join-email-input').fill('ana@blocked.example');
     await page.getByTestId('join-send').click();
     await expectStep(page, 'email', 'blocked_domain');

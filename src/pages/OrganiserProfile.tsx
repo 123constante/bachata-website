@@ -12,11 +12,11 @@ import { flags } from '@/lib/featureFlags';
 import { ManagedBadge, PublicClaimCard } from '@/modules/organiser/shared/components/PublicClaimCard';
 import { ownershipFacts } from '@/modules/organiser/shared/ownership';
 import type { EipBridge } from '@/modules/organiser/edit-in-place/bridge';
-import { PUBLIC_LINK_REL, extractDomain, extractFbHandle, extractIgHandle } from '@/lib/organiserLinkLabels';
+import { extractDomain, extractIgHandle } from '@/lib/organiserLinkLabels';
 import {
   NO_PUBLIC_CONTACT,
   fetchOrganiserOwnership,
-  fetchPublicContact,
+  fetchPublicContactOrThrow,
   organiserOwnershipQueryKey,
   organiserPublicContactQueryKey,
 } from '@/modules/organiser/shared/ownershipApi';
@@ -61,7 +61,16 @@ import {
   wallClockExactDateKey,
 } from '@/lib/time/wallClock';
 import { useLondonToday } from '@/hooks/useLondonToday';
-import { organiserEmptyState } from '@/modules/profile/organiserEmptyState';
+import { NO_DATES_ANNOUNCED, organiserEmptyState } from '@/modules/profile/organiserEmptyState';
+import { organiserStatsByFeed } from '@/modules/profile/organiserStatsByFeed';
+import { RetryButton } from '@/modules/profile/RetryButton';
+import { useStickyFailure } from '@/modules/profile/useStickyFailure';
+import { pickNationalityCode } from '@/components/people/nationality';
+import { usePeopleBadges } from '@/modules/person-page/badges';
+import { buildOrganiserTeam } from '@/modules/profile/organiserTeam';
+import { OrganiserStatsStrip } from '@/modules/profile/OrganiserStatsStrip';
+import { OrganiserGetInTouch, buildContactRows } from '@/modules/profile/OrganiserGetInTouch';
+import { OrganiserTeamSection } from '@/modules/profile/OrganiserTeamSection';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import { useListImpressions } from '@/lib/listImpressions';
 import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
@@ -69,11 +78,6 @@ import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 import { ReportProblemLink } from '@/lib/contactLinks';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
-import { NationalityFlag } from '@/components/people/NationalityFlag';
-import { pickNationalityCode } from '@/components/people/nationality';
-import { usePeopleBadges, roleTagsFor, nameFor, linkRoleFor, hrefForRole, type PersonBadge } from '@/modules/person-page/badges';
-import { emitProfileView } from '@/lib/profileViewEmit';
-import { ROLE_LABEL } from '@/lib/searchEntities';
 import {
   type EventRow,
   type OrgOccRow,
@@ -108,12 +112,11 @@ type TeamMember = {
   id: string;
   memberId: string;
   dancerId: string | null;
-  name: string;
+  /** Public name, or null when the person has none (the Team mapping then leaves them out). */
+  name: string | null;
   avatarUrl: string | null;
   nationalityCode: string | null;
-  role: string | null;
-  isHead: boolean | null;
-  isLeader: boolean | null;
+  sortOrder: number | null;
 };
 
 type EntityProfile = {
@@ -122,7 +125,6 @@ type EntityProfile = {
   avatar_url: string | null;
   bio: string | null;
   socials: Record<string, string | undefined> | null;
-  is_verified: boolean | null;
   city_id: string | null;
   instagram: string | null;
   facebook: string | null;
@@ -370,32 +372,6 @@ const FullProfileMark = () => (
   </span>
 );
 
-const VerifiedBadge = ({ size }: { size: 'sm' | 'md' }) => {
-  const iconPx = size === 'sm' ? 10 : 12;
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: size === 'sm' ? 4 : 5,
-        fontSize: size === 'sm' ? 10 : 12,
-        fontWeight: 700,
-        color: D.cream,
-        padding: size === 'sm' ? '2px 7px' : '3px 9px',
-        borderRadius: 100,
-        background: 'rgba(231,190,110,0.16)',
-        border: '1px solid rgba(231,190,110,0.35)',
-      }}
-    >
-      <svg width={iconPx} height={iconPx} viewBox="0 0 24 24" fill="none" stroke={D.gold} strokeWidth="2" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" />
-        <path d="m9 12 2 2 4-4" />
-      </svg>
-      Verified
-    </span>
-  );
-};
-
 /** The empty states' one way out: what is on elsewhere. */
 const BrowseNightsLink = () => (
   <Link to="/parties" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'rgba(246,241,234,0.1)', border: '1px solid rgba(246,241,234,0.2)', color: D.cream, fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
@@ -403,57 +379,20 @@ const BrowseNightsLink = () => (
   </Link>
 );
 
-// Name, tags and link come ONLY from the people-badges mapping (badges.ts): a team strip is
-// not a DJ thing, so the real name leads and the stage name shows in the DJ tag only (review
-// M2); the link is DJ page, else dancer page, else none (a teacher-only member is plain,
-// never a dead end). The organiser-authored title (organiser_team_members.role, e.g.
-// "Founder") shows beside the tags when set; no 'Team' default (review 7d), and not when it
-// only repeats a tag's word, nor when it is 'Leader': prod 2026-10-21 has every active team
-// row at role='Leader' (a system default, not a title anyone authored).
-// While the badges read loads or after it failed (`badgesState`), a member with a dancerId keeps
-// the dancer page link, as ScheduleBlock's feedFallback does; the title waits for the read
-// (loading: none, so it never flashes then hides on dedupe) and shows on error (no tags). A
-// click emits a profile view typed by the role the link opens (data-contracts rule).
-export const TeamCircle = ({ member, badge, badgesState = 'ready' }: { member: TeamMember; badge: PersonBadge | undefined; badgesState?: 'loading' | 'error' | 'ready' }) => {
-  const opts = { teacherPagesOpen: flags.teacherDetail };
-  const [imgFailed, setImgFailed] = useState(false);
-  const tags = badge ? roleTagsFor(badge, { ...opts, withStageName: true }) : [];
-  const shownName = nameFor('other', { name: member.name, djName: badge?.djName });
-  const rawTitle = badgesState === 'loading' ? '' : (member.role ?? '').trim();
-  const lowerTitle = rawTitle.toLowerCase();
-  const title = rawTitle && lowerTitle !== 'leader' && !tags.some((t) => ROLE_LABEL[t.role].toLowerCase() === lowerTitle) ? rawTitle : null;
-  const feedFallback = badgesState !== 'ready';
-  const linkId = badge?.id ?? (feedFallback ? member.dancerId : null);
-  const linkRole = badge ? linkRoleFor(badge, opts) : linkId ? 'dancer' : null;
-  const href = linkId && linkRole ? hrefForRole(linkRole, linkId, opts) : null;
-  const inner = (
-    <div className="text-center">
-      <div style={{ position: 'relative', aspectRatio: '1', borderRadius: '50%', padding: 2.5, background: 'linear-gradient(135deg,#FBEFC4,#E7BE6E,#FF6A2C)', marginBottom: 6 }}>
-        <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#33202c,#120c14)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-          {member.avatarUrl && !imgFailed ? (
-            <img src={optimizedImageUrl(member.avatarUrl, srcWidthFor(112))} alt={member.name} width={112} height={112} className="w-full h-full object-cover" loading="lazy" onError={() => setImgFailed(true)} />
-          ) : (
-            <span style={{ fontFamily: SERIF, fontSize: 'clamp(16px,2.5vw,26px)', color: 'rgba(251,239,196,0.8)' }}>{initials(member.name)}</span>
-          )}
-        </div>
-        {/* The circle is fluid (about 100px on a phone); 80 keeps the flag inside the page gutter. */}
-        <NationalityFlag code={member.nationalityCode} size={80} />
-      </div>
-      <div data-team-name style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: D.cream, lineHeight: 1.2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflowWrap: 'break-word' }}>{shownName}</div>
-      {(tags.length > 0 || title) && (
-        <div className="flex flex-wrap justify-center" style={{ gap: 4, marginTop: 4 }}>
-          {title && <span data-team-title style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: D.cream, padding: '2px 0', overflowWrap: 'anywhere' }}>{title}</span>}
-          {tags.map((t) => (
-            <span key={t.role} data-team-tag={t.role} style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: D.gold, border: '1px solid rgba(231,190,110,0.55)', borderRadius: 100, padding: '2px 8px' }}>{t.label}</span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-  return href && linkId ? (
-    <Link to={href} onClick={() => emitProfileView({ personId: linkId, profileType: linkRole, context: 'organiser:team' })} style={{ display: 'block', minHeight: 44 }}>{inner}</Link>
-  ) : <div>{inner}</div>;
-};
+/**
+ * A feed that FAILED (S1, prod verify doc E4): one quiet line in place of the
+ * section, with a retry. Never the empty-state copy -- a failure is not "no
+ * nights". Explicit px sizes: html is ~13.5px on phones, so rem tap targets
+ * render small.
+ */
+const FeedErrorLine = ({ feed, what, onRetry, retrying }: { feed: 'upcoming' | 'past'; what: string; onRetry: () => void; retrying: boolean }) => (
+  <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid={`org-feed-error-${feed}`} role="status">
+    <p style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>
+      Couldn&rsquo;t load {what}.
+      <RetryButton onRetry={onRetry} pending={retrying} />
+    </p>
+  </section>
+);
 
 // 44px past rows make a busy year very tall; show the latest few per year.
 const PAST_ROWS_PER_YEAR = 8;
@@ -691,15 +630,20 @@ const OrganiserProfile = () => {
   // (above all never the legacy show_contact_publicly, which sets BOTH flags).
   const openedFormRef = useRef<string | null>(null);
 
-  const { data: entity, isLoading, error } = useQuery({
+  const { data: entity, isLoading: entityLoadingRaw, error, refetch: refetchEntity, isFetching: entityFetching } = useQuery({
     queryKey: organiserEntityQueryKey(id),
     queryFn: () => fetchOrganiserEntity(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
+  // The entity error screen stays up (pending) while its Try again runs (LOW-6).
+  const { failed: entityFailed, retrying: entityRetrying } = useStickyFailure(!!error, entityFetching);
+  const isLoading = entityLoadingRaw && !entityFailed;
+
   // A page that is not found (retired, archived, or never existed) is kept out of search.
-  useNoindexMeta(!isLoading && (!!error || !entity));
+  // A transient read ERROR is not "not found" (E8): no noindex for it.
+  useNoindexMeta(!isLoading && !entityFailed && !entity);
 
   const { data: fullProfile = false } = useQuery({
     queryKey: organiserFullProfileQueryKey(id),
@@ -727,14 +671,17 @@ const OrganiserProfile = () => {
     enabled: !!id && !!entity && !!userId && flags.organiserSelfServe,
     staleTime: 60 * 1000,
   });
-  // The WhatsApp / email buttons: both null unless the organiser is live AND
-  // show_contact_publicly. An error degrades to "no contact shown".
-  const { data: publicContact = NO_PUBLIC_CONTACT, isLoading: publicContactLoading } = useQuery({
+  // The WhatsApp / Email rows: both null unless the organiser is live AND the
+  // matching show_*_publicly switch is on. An RPC ERROR is its own state (E9):
+  // Get in touch keeps the stored-link rows and says it could not load these two.
+  const { data: publicContact = NO_PUBLIC_CONTACT, isLoading: publicContactLoading, isError: publicContactErrorRaw, refetch: refetchPublicContact, isFetching: publicContactFetching } = useQuery({
     queryKey: organiserPublicContactQueryKey(id),
-    queryFn: () => fetchPublicContact(id as string),
+    queryFn: () => fetchPublicContactOrThrow(id as string),
     enabled: !!id && !!entity,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { failed: publicContactError, retrying: publicContactRetrying } = useStickyFailure(publicContactErrorRaw, publicContactFetching);
 
   // The ONE place that turns those answers into badge / card / claim button /
   // edit access (ownership.ts); nothing below re-derives any of them.
@@ -744,14 +691,16 @@ const OrganiserProfile = () => {
   const { rgb: [cr, cg, cb], ready: heroColourReady } = useAverageColor((entity as any)?.avatar_url ?? null);
   const HERO_BG = heroBg(cr, cg, cb);
 
-  const { data: allEvents = [], isLoading: allEventsLoading } = useQuery({
+  // Each feed query THROWS on an RPC error (S1) -- React Query retries it, and
+  // its isError drives the page's error line instead of a false empty state.
+  const { data: allEvents = [], isLoading: allEventsLoading, isError: allEventsErrorRaw, refetch: refetchAllEvents, isFetching: allEventsFetching } = useQuery({
     queryKey: organiserEventsQueryKey(id),
     queryFn: () => fetchOrganiserEvents(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: futureOccs = [], isLoading: futureOccsLoading } = useQuery({
+  const { data: futureOccs = [], isLoading: futureOccsLoading, isError: futureOccsErrorRaw, refetch: refetchFutureOccs, isFetching: futureOccsFetching } = useQuery({
     queryKey: organiserOccEventsQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -765,14 +714,14 @@ const OrganiserProfile = () => {
   // we keep only is_past rows so today's already-ended events count as past.
   // The 10-year window itself lives in fetchOrganiserPastOccEvents now, shared
   // with app/routes/organiser.tsx's loader prefetch.
-  const { data: pastOccs = [], isLoading: pastOccsLoading } = useQuery({
+  const { data: pastOccs = [], isLoading: pastOccsLoading, isError: pastOccsErrorRaw, refetch: refetchPastOccs, isFetching: pastOccsFetching } = useQuery({
     queryKey: organiserOccEventsPastQueryKey(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [], isLoading: teamMembersLoading } = useQuery({
+  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
     // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
     // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
     // owner layer's team read, so the Team card never showed.
@@ -781,42 +730,56 @@ const OrganiserProfile = () => {
       if (!id) return [];
       const { data: teamRows, error } = await supabase
         .from('organiser_team_members')
-        .select('id, role, is_head, is_leader, sort_order, member_profile_id, is_active')
+        .select('id, sort_order, member_profile_id, is_active')
         .eq('organiser_profile_id', id)
         .eq('is_active', true)
         .order('sort_order', { ascending: true, nullsFirst: false });
-      if (error) { console.error('Organiser team fetch error:', error); return []; }
+      // Throw, not `[]`: a failed roster is an error line, not "no team" (S1).
+      if (error) throw new Error(error.message ?? JSON.stringify(error));
       if (!teamRows?.length) return [];
       const memberIds = teamRows.map((r) => r.member_profile_id);
-      const { data: dancerRows } = await supabase
+      const { data: dancerRows, error: dancerError } = await supabase
         .from('dancer_profiles')
         .select('id, first_name, avatar_url, nationality')
         .in('id', memberIds);
+      // The names read failing is the TEAM failing (fix round 1, review LOW-4): with no
+      // names the mapping drops everyone, which would read as "no team".
+      if (dancerError) throw new Error(dancerError.message ?? JSON.stringify(dancerError));
       type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
       const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
       const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
       return teamRows.map((t) => {
         const d = dancerMap.get(t.member_profile_id);
-        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || 'Team member';
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), role: t.role, isHead: t.is_head, isLeader: t.is_leader };
+        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || null;
+        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), sortOrder: t.sort_order ?? null };
       });
     },
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
 
-  const leader = useMemo(() => {
-    if (!teamMembers.length) return null;
-    return teamMembers.find((m) => m.isHead) || teamMembers.find((m) => m.isLeader) || teamMembers[0];
-  }, [teamMembers]);
+  // Fix round 1 (LOW-6): a failed read stays failed while its Try again runs, so
+  // the error line can show its pending state instead of vanishing into loading.
+  const { failed: allEventsError } = useStickyFailure(allEventsErrorRaw, allEventsFetching);
+  const { failed: futureOccsError } = useStickyFailure(futureOccsErrorRaw, futureOccsFetching);
+  const { failed: pastOccsError } = useStickyFailure(pastOccsErrorRaw, pastOccsFetching);
+  const { failed: teamMembersError, retrying: teamMembersRetrying } = useStickyFailure(teamMembersErrorRaw, teamMembersFetching);
 
+  // S3 (read side): the ONE Team mapping. `listed` is the public line-up this
+  // page already reads (active rows only, so hidden is false); `access`
+  // (owners + managers) is empty until an admin RPC makes them publicly
+  // readable -- docs/handover/organiser-page-p1.md. A person links to their
+  // dancer page by id (the dancer route takes a slug or an id).
+  const team = useMemo(() => buildOrganiserTeam({
+    listed: teamMembers.map((m) => ({ personId: m.memberId, name: m.name, avatarUrl: m.avatarUrl, slug: m.dancerId, sortOrder: m.sortOrder, hidden: false })),
+    access: [],
+  }), [teamMembers]);
+  const teamCount = team.people.length + team.overflow.length;
+  // Restored from main (fix round 1): each circle's flag, and the role-aware link
+  // from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
+  const teamNationality = useMemo(() => new Map(teamMembers.map((m) => [m.memberId, m.nationalityCode])), [teamMembers]);
   const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
   const teamBadgesState = teamBadgesLoading ? 'loading' : teamBadgesError ? 'error' : 'ready';
-
-  const orderedTeam = useMemo(
-    () => (leader ? [leader, ...teamMembers.filter((m) => m.id !== leader.id)] : teamMembers),
-    [teamMembers, leader],
-  );
 
   // Start of London-today as a true-UTC instant; reactive so a long-lived tab
   // rolls the upcoming/past split over at midnight (was frozen at mount).
@@ -860,7 +823,10 @@ const OrganiserProfile = () => {
     // fallback is unreachable on live data (0 of 15 organisers sampled); displayStart
     // is branded at the push.
     const eventsWithAnyOcc = new Set<string>([...eventsWithFutureOcc, ...pastOccs.map((o) => o.event_id)]);
-    for (const e of allEvents) {
+    // Skipped while either occurrence feed has FAILED (S1): "no occurrence row"
+    // is then unknowable, and the fallback would list every series by its base
+    // date in place of the error line.
+    if (!futureOccsError && !pastOccsError) for (const e of allEvents) {
       if (eventsWithAnyOcc.has(e.id)) continue;
       const baseRaw = e.start_time ?? e.date;
       const baseMs = baseRaw ? new Date(baseRaw).getTime() : NaN;
@@ -876,22 +842,34 @@ const OrganiserProfile = () => {
     upcoming.sort((a, b) => sortKey(a.displayStart).localeCompare(sortKey(b.displayStart)));
     past.sort((a, b) => sortKey(b.displayStart).localeCompare(sortKey(a.displayStart)));
     return { upcomingEvents: upcoming, pastEvents: past };
-  }, [allEvents, futureOccs, pastOccs, todayMs]);
+  }, [allEvents, futureOccs, pastOccs, futureOccsError, pastOccsError, todayMs]);
 
-  const totalEventsCount = allEvents.length;
-
-  const sinceYear = useMemo(() => {
-    // Wall-clock strings sort lexically same as chronologically (yyyy-MM-dd...),
-    // so the earliest key is found by string comparison -- no Date math, no TZ.
-    let earliestKey: string | null = null;
-    for (const e of allEvents) {
-      const wc = asWallClockOrNull(e.start_time ?? e.date);
-      const key = formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm");
-      if (!key) continue;
-      if (earliestKey === null || key < earliestKey) earliestKey = key;
-    }
-    return earliestKey === null ? null : Number(earliestKey.slice(0, 4));
-  }, [allEvents]);
+  // S1: the stats strip is ONE pure mapping (organiserStats, via
+  // organiserStatsByFeed). It reads the same joined, non-cancelled nights the two
+  // lists show, so a stat can never disagree with a list. No strip until the feeds
+  // settle (no pop-in). Per-feed (fix round 1, review MED-3): a FAILED feed
+  // contributes nothing and its own stat is a marked dash, while the stats the
+  // working feed alone proves still show -- never a stat from a failed read (S5).
+  // The events feed is the join source, so it failing fails both.
+  // A failed feed being retried counts as settled (it is still failed), so the strip does not blink.
+  const statsFeedsSettled = (!allEventsLoading || allEventsError) && (!futureOccsLoading || futureOccsError) && (!pastOccsLoading || pastOccsError);
+  const statsUpcomingFailed = allEventsError || futureOccsError;
+  const statsPastFailed = allEventsError || pastOccsError;
+  const entityFoundedYear = (entity as EntityProfile | null | undefined)?.founded_year ?? null;
+  const stats = useMemo(() => {
+    if (!statsFeedsSettled) return [];
+    const nightKey = (wc: WallClock | null) => formatWallClockLocal(wc, "yyyy-MM-dd'T'HH:mm");
+    return organiserStatsByFeed({
+      now: new Date(),
+      upcoming: upcomingEvents.map((e) => ({ start: nightKey(e.displayStart) })),
+      past: pastEvents.map((e) => ({ start: nightKey(e.displayStart) })),
+      upcomingFailed: statsUpcomingFailed,
+      pastFailed: statsPastFailed,
+      foundedYear: entityFoundedYear,
+    });
+    // todayKey: a long-lived tab re-derives "Next night" when London rolls over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- todayKey is the clock tick, read via new Date()
+  }, [statsFeedsSettled, statsUpcomingFailed, statsPastFailed, upcomingEvents, pastEvents, entityFoundedYear, todayKey]);
 
   // No useSeo() here. OrganiserProfile renders only under app/routes/organiser.tsx,
   // which wraps in InitialVisiblePageTransition and so sets RouteOwnsHeadContext --
@@ -1049,8 +1027,31 @@ const OrganiserProfile = () => {
     );
   }
 
+  // --- Entity read error (E8) ---
+  // A transient network/DB failure: say so, offer a retry, keep it indexable.
+  // Only a real miss (the read succeeded and found no public row) is "not found".
+  if (entityFailed && !entity) {
+    return (
+      <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
+        <div data-testid="org-entity-error" role="status" style={{ minHeight: '100vh', background: D.black, color: D.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: BODY }}>
+          <div className="text-center px-6">
+            <h1 style={{ fontFamily: SERIF, fontSize: 32, color: D.cream, marginBottom: 12 }}>Couldn&rsquo;t load this organiser</h1>
+            <p style={{ color: 'rgba(246,241,234,0.75)', fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
+              Check your connection and try again.
+            </p>
+            <RetryButton
+              onRetry={() => void refetchEntity()}
+              pending={entityRetrying}
+              style={{ background: D.gold, color: D.black, borderRadius: 100, padding: '0 16px' }}
+            />
+          </div>
+        </div>
+      </GlobalLayout>
+    );
+  }
+
   // --- Not found ---
-  if (error || !entity) {
+  if (!entity) {
     return (
       <GlobalLayout showSubheader={false} backHref="/organisers" subheaderTone="onDark" showGradientBg={false} showProgressBar={false}>
         <div style={{ minHeight: '100vh', background: D.black, color: D.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: BODY }}>
@@ -1075,10 +1076,9 @@ const OrganiserProfile = () => {
   // --- Data prep ---
   // An owner's unsaved drafts are shown in place (eip.overlay is {} otherwise).
   const ep = { ...(entity as EntityProfile), ...(eip?.overlay ?? {}) } as EntityProfile;
-  const socials          = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
+  const socials          = ep.socials as { instagram?: string; website?: string } | null;
   const instagramRaw     = ep.instagram  || socials?.instagram  || null;
   const websiteRaw       = ep.website    || socials?.website    || null;
-  const facebookRaw      = ep.facebook   || socials?.facebook   || null;
   const contactPhone     = publicContact.contact_phone;
   const contactEmail     = publicContact.contact_email;
   const organisationCategory = ep.organisation_category || null;
@@ -1097,26 +1097,43 @@ const OrganiserProfile = () => {
           : `https://instagram.com/${instagramRaw.replace('@', '')}`)
     : null;
   const websiteUrl   = websiteRaw ? withNormalizedProtocol(websiteRaw) : null;
-  const facebookUrl  = facebookRaw
-    ? (hostMatchesDomain(facebookRaw, 'facebook.com')
-        ? withNormalizedProtocol(facebookRaw, 'facebook.com')
-        : /^https?:\/\//i.test(facebookRaw)
-          ? null
-          : `https://facebook.com/${facebookRaw.replace('@', '')}`)
-    : null;
   const whatsappUrl = buildWhatsAppHref(contactPhone);
   const mailtoHref = buildMailtoHref(contactEmail);
 
-  const hasContact = !!(instagramUrl || facebookUrl || websiteUrl || whatsappUrl || mailtoHref);
+  // Facebook is not a Get in touch row (E2, owner decision): the value stays
+  // stored and editable in the owner layer, it just is not offered here.
+  const igHandle = instagramUrl ? extractIgHandle(instagramRaw) : null;
+  const siteDomain = websiteUrl ? extractDomain(websiteRaw) : null;
+  const contactRows = buildContactRows({
+    phone: contactPhone, whatsappHref: whatsappUrl, email: contactEmail, mailtoHref,
+    instagramUrl, instagramHandle: igHandle, websiteUrl, websiteDomain: siteDomain,
+  });
+  // Unknown (null), not false, while WhatsApp/Email failed to load and no stored
+  // link shows (fix round 1, review L2): an owner is never told to complete
+  // contact details that may well be there.
+  const hasContact: boolean | null = contactRows.length > 0 ? true : publicContactError ? null : false;
 
-  const emptyKind = organiserEmptyState({
-    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || teamMembersLoading || publicContactLoading,
+  // S1: which sections FAILED (after React Query's retry). The events feed is
+  // the join source for both lists, so it failing fails both; the future and
+  // past feeds fail independently, and one failing never hides the other list.
+  const upcomingFailed = allEventsError || futureOccsError;
+  const pastFailed = allEventsError || pastOccsError;
+  const retryUpcoming = () => { if (allEventsError) void refetchAllEvents(); if (futureOccsError) void refetchFutureOccs(); };
+  const retryPast = () => { if (allEventsError) void refetchAllEvents(); if (pastOccsError) void refetchPastOccs(); };
+  const retryingUpcoming = (allEventsError && allEventsFetching) || (futureOccsError && futureOccsFetching);
+  const retryingPast = (allEventsError && allEventsFetching) || (pastOccsError && pastOccsFetching);
+  // No empty state while a NIGHTS feed has failed: "no nights" / "nothing
+  // upcoming" is a fact a failure cannot prove; the error lines say what
+  // happened instead. A team or contact failure does not hide it (fix round 1,
+  // review LOW-5): it passes the unknown as null, which is never "blank".
+  const emptyKind = upcomingFailed || pastFailed ? null : organiserEmptyState({
+    loading: allEventsLoading || futureOccsLoading || pastOccsLoading || (teamMembersLoading && !teamMembersError) || (publicContactLoading && !publicContactError),
     upcoming: upcomingListItems.length,
     past: pastEvents.length,
     hasBio: !!entity.bio?.trim(),
     hasContact,
-    team: orderedTeam.length,
-    isOwner: facts.isOwner,
+    team: teamMembersError ? null : teamCount,
+    canEdit: facts.canEdit,
   });
   // W7: the badge and the "Is this you?" card come from `facts` (computed above,
   // behind the self-serve flag, off in production until launch).
@@ -1127,38 +1144,12 @@ const OrganiserProfile = () => {
   const cityName = ep.cities?.name ?? ep.city ?? null;
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
 
-  const foundedYear = (ep.founded_year as number | null | undefined) ?? null;
-  // estYear falls back to the earliest listed event's year when the organiser
-  // hasn't told us when they started -- that's an estimate, not a fact, so it
-  // carries its own flag through to the stat display below.
-  const estYear         = foundedYear ?? (sinceYear !== null && sinceYear < new Date().getFullYear() ? sinceYear : null);
-  const estYearInferred = foundedYear === null && estYear !== null;
-  const yearsActive     = estYear !== null ? new Date().getFullYear() - estYear : null;
-
-  const thirdStatValue = orderedTeam.length > 0 ? orderedTeam.length : (yearsActive !== null ? `${estYearInferred ? '~' : ''}${yearsActive}` : '--');
-  const thirdStatLabel = orderedTeam.length > 0 ? 'Team members' : yearsActive !== null ? 'Yrs active' : 'Since';
-  const thirdStatTitle = orderedTeam.length === 0 && yearsActive !== null && estYearInferred
-    ? `Estimated from the earliest listed event (${estYear}) -- not a confirmed founding date`
-    : undefined;
-
-
   // First sentence of the bio for the hero tagline (original behaviour).
   const bioParts = ep.bio ? ep.bio.split(/\.\s+/) : [];
   const heroTagline = bioParts.length > 0 ? `${bioParts[0]}${bioParts.length > 1 ? '.' : ''}` : null;
   // A long bio is clamped to 3 lines in About with a More toggle.
   const aboutIsLong = (ep.bio?.length ?? 0) > 180;
 
-  // Email is always offered -- it used to vanish on desktop whenever a
-  // WhatsApp number existed.
-  // The extract* helpers return the platform name when no handle is found;
-  // avoid announcing "Instagram Instagram".
-  const labelWithHandle = (platform: string, handle: string | null | undefined) =>
-    handle && handle !== platform ? `${platform} ${handle}` : platform;
-  const igHandle = instagramUrl ? extractIgHandle(instagramRaw) : null;
-  const fbHandle = facebookUrl ? extractFbHandle(facebookRaw) : null;
-  const siteDomain = websiteUrl ? extractDomain(websiteRaw) : null;
-  // Contact list: icon tile + small label + value + copy button per row, then
-  // labelled social pills underneath (reference: choiceqr venue page).
   // navigator.clipboard is undefined on plain-HTTP origins and some in-app
   // browsers; say so rather than letting the tap do nothing.
   const copyValue = (value: string, noun: string) => {
@@ -1166,57 +1157,6 @@ const OrganiserProfile = () => {
     if (!navigator.clipboard?.writeText) { failed(); return; }
     navigator.clipboard.writeText(value).then(() => toast({ title: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} copied` }), failed);
   };
-  const iconTile: React.CSSProperties = { width: 44, height: 44, borderRadius: 10, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(246,241,234,0.06)', color: D.cream, flexShrink: 0 };
-  const rowLabel: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600, margin: 0 };
-  const rowValue: React.CSSProperties = { fontSize: 14, color: D.cream, textDecoration: 'none', wordBreak: 'break-word' };
-  const copyBtn: React.CSSProperties = { width: 44, height: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', color: D.gold, cursor: 'pointer', flexShrink: 0 };
-  const socialPill: React.CSSProperties = { height: 44, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '0 14px', borderRadius: 10, fontSize: 14, color: D.cream, textDecoration: 'none' };
-  const copyIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>;
-  const contactItems = [
-    whatsappUrl && contactPhone ? { key: 'wa', label: 'WhatsApp', copyNoun: 'WhatsApp number', value: contactPhone.trim(), href: whatsappUrl, external: true, icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><path d="M3 21l1.7-5A8 8 0 1 1 8 19.3z"/></svg> } : null,
-    mailtoHref && contactEmail ? { key: 'email', label: 'Email', copyNoun: 'email address', value: contactEmail.trim(), href: mailtoHref, external: false, icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg> } : null,
-  ].filter((x): x is NonNullable<typeof x> => x !== null);
-  const hasSocials = !!(instagramUrl || facebookUrl || websiteUrl);
-  const contactRow = hasContact ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 480 }}>
-      {contactItems.map((c) => (
-        <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={c.key === 'wa' ? { ...iconTile, color: '#25D366', background: 'rgba(37,211,102,0.12)' } : iconTile}>{c.icon}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={rowLabel}>{c.label}</p>
-            <a href={c.href} {...(c.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})} className="rounded-sm hover:underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400" style={rowValue}>{c.value}</a>
-          </div>
-          <button type="button" onClick={() => copyValue(c.value, c.copyNoun)} aria-label={`Copy ${c.copyNoun}`} className="rounded-lg bg-transparent transition-colors hover:bg-white/5 active:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={copyBtn}>{copyIcon}</button>
-        </div>
-      ))}
-      {hasSocials && (
-        <>
-          <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, margin: '8px 0 0', color: D.cream }}>Online</h2>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {instagramUrl && (
-              <a href={instagramUrl} target="_blank" rel={PUBLIC_LINK_REL} aria-label={labelWithHandle('Instagram', igHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor"/></svg>
-                Instagram
-              </a>
-            )}
-            {facebookUrl && (
-              <a href={facebookUrl} target="_blank" rel={PUBLIC_LINK_REL} aria-label={labelWithHandle('Facebook', fbHandle)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 9h3V6h-3c-1.7 0-3 1.3-3 3v2H8.5v3H11v7h3v-7h2.4l.6-3H14V9z"/></svg>
-                Facebook
-              </a>
-            )}
-            {websiteUrl && (
-              <a href={websiteUrl} target="_blank" rel={PUBLIC_LINK_REL} aria-label={labelWithHandle('Website', siteDomain)} className="bg-white/[0.06] transition-colors hover:bg-white/10 active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400" style={socialPill}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"/></svg>
-                {siteDomain && siteDomain !== 'Website' ? siteDomain : 'Website'}
-              </a>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  ) : null;
-
   const sectionH2: React.CSSProperties = { fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: 0, color: D.cream };
   const sectionCount: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600 };
   const moreBtn: React.CSSProperties = { display: 'block', width: '100%', minHeight: 44, padding: '10px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' };
@@ -1275,7 +1215,6 @@ const OrganiserProfile = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
               {metaLine && !eip && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
               {eip?.slot('meta')}
-              {ep.is_verified && <VerifiedBadge size="sm" />}
               {fullProfile && <FullProfileMark />}
               {facts.showBadge && <ManagedBadge size="sm" />}
             </div>
@@ -1311,7 +1250,6 @@ const OrganiserProfile = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
                   {metaLine && !eip && <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold }}>{metaLine}</span>}
                   {eip?.slot('meta')}
-                  {ep.is_verified && <VerifiedBadge size="md" />}
                   {fullProfile && <FullProfileMark />}
                   {facts.showBadge && <ManagedBadge size="md" />}
                 </div>
@@ -1346,35 +1284,22 @@ const OrganiserProfile = () => {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 'min(10vh, 80px)', background: `linear-gradient(180deg,rgba(${cr},${cg},${cb},0.18) 0%,transparent 100%)`, opacity: heroColourReady ? 1 : 0, transition: 'opacity 600ms ease-out' }} />
         </div>
 
-        {/* Stats strip */}
-        <div className="flex justify-around py-3 px-5" style={{ position: 'relative', zIndex: 1, borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-          {[
-            { value: totalUpcomingDateCount,   label: 'Upcoming dates',  title: undefined, href: upcomingListItems.length > 0 ? 'upcoming' : undefined },
-            { value: pastEvents.length,        label: 'Past nights',     title: undefined, href: pastEvents.length > 0 ? 'past' : undefined },
-            { value: thirdStatValue,           label: thirdStatLabel,    title: thirdStatTitle, href: undefined },
-          ].map((s) => {
-            const body = (
-              <>
-                <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 600, color: D.cream, lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: D.gold, marginTop: 4 }}>{s.label}</div>
-              </>
-            );
-            return s.href ? (
-              <button key={s.label} type="button" onClick={() => scrollToId(s.href!)} style={{ textAlign: 'center', minHeight: 44, padding: '2px 6px', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>{body}</button>
-            ) : (
-              <div key={s.label} style={{ textAlign: 'center', padding: '2px 6px' }} title={s.title}>{body}</div>
-            );
-          })}
-        </div>
+        {/* S1 order: hero, stats, Get in touch, Team, About, Next nights, Past nights. */}
+        <OrganiserStatsStrip stats={stats} onNextNight={() => scrollToId('upcoming')} />
 
-        {/* CONTACT -- one quiet row under the stats */}
-        {contactRow && (
-          <div className="flex flex-col items-center gap-2 px-5 py-3 md:items-start md:px-12" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            {contactRow}
-          </div>
-        )}
+        <OrganiserGetInTouch rows={contactRows} contactFailed={publicContactError} retrying={publicContactRetrying} onRetry={() => void refetchPublicContact()} onCopy={copyValue} />
         {eip?.slot('contact')}
         {eip?.slot('links')}
+
+        <OrganiserTeamSection
+          team={team}
+          failed={teamMembersError}
+          retrying={teamMembersRetrying}
+          onRetry={() => void refetchTeamMembers()}
+          nationality={teamNationality}
+          badges={teamBadges}
+          badgesState={teamBadgesState}
+        />
         {eip?.slot('team')}
 
         {/* W7 (mockup 06-A): "Is this you?" while the organiser is unclaimed.
@@ -1401,20 +1326,8 @@ const OrganiserProfile = () => {
           }}
         />
 
-        {/* EMPTY STATES -- one decision (organiserEmptyState): nothing upcoming
-            always says so and offers somewhere to go, whatever else the profile
-            has. The owner of a wholly blank profile is offered "Complete your
-            profile" too (the form dialog; the hero has no Edit profile button).
-
-            The owner layer adds its Create event link beside "Browse upcoming
-            nights" (and beside "Complete your profile"); it is only loaded for an
-            owner or manager.
-
-            Gated on all four content queries having settled (not just the
-            `entity` query, which resolves first as a single-row fetch) --
-            otherwise a well-populated organiser flashes this on every cold
-            load, before allEvents/futureOccs/pastOccs/teamMembers (four
-            independent, slower queries) have had a chance to come back. */}
+        {/* Owner-only (canEdit): a wholly blank profile is prompted to complete
+            itself. organiserEmptyState never returns 'owner-blank' for a visitor. */}
         {emptyKind === 'owner-blank' && (
           <section className="px-5 md:px-12 py-8 md:py-10 text-center" data-testid="org-public-empty" data-kind={emptyKind}>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
@@ -1430,39 +1343,31 @@ const OrganiserProfile = () => {
             </div>
           </section>
         )}
-        {emptyKind === 'none' && (
-          <section className="px-5 md:px-12 py-8 md:py-10 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
-            <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>No nights listed yet</h2>
-            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-              {ep.name} hasn&rsquo;t listed any nights here yet.{' '}
-              {hasContact ? 'Follow them with the links above for news, or see' : 'Check back soon, or see'} what&rsquo;s on elsewhere in London.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-              <BrowseNightsLink />
-              {eip?.slot('create-first-event')}
-            </div>
-          </section>
-        )}
-        {emptyKind === 'past-only' && (
-          <section className="px-5 md:px-12 py-5 md:py-6 text-center" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
-            <h2 style={{ ...sectionH2, marginBottom: 6 }}>No upcoming nights</h2>
-            <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.75)', maxWidth: 420, margin: '0 auto 14px', lineHeight: 1.5 }}>
-              {ep.name} has nothing on the calendar right now.{' '}
-              {hasContact ? 'Follow them with the links above for new dates, or see' : 'See'} what&rsquo;s on elsewhere in London.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-              <BrowseNightsLink />
-              {eip?.slot('create-another-event')}
-            </div>
+        {/* ABOUT -- only when written (an owner sees the edit-layer slot) */}
+        {(ep.bio || eip) && (
+          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About{eip?.slot('about')}</h2>
+            {ep.bio ? <p
+              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3', eip?.mark('bio'))}
+              style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
+            >
+              {ep.bio}
+            </p> : eip?.slot('about-empty')}
+            {aboutIsLong && (
+              <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
+                {aboutExpanded ? 'Show less' : 'More'}
+              </button>
+            )}
           </section>
         )}
 
-        {/* UPCOMING EVENTS */}
+        {/* NEXT NIGHTS */}
+        {upcomingFailed && upcomingListItems.length === 0 && <FeedErrorLine feed="upcoming" what="dates" onRetry={retryUpcoming} retrying={retryingUpcoming} />}
         {upcomingListItems.length > 0 && (
           <section id="upcoming" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
             {/* Wraps at 360px: the owner's Create event link goes under the count rather than off the screen. */}
             <div style={{ display: 'flex', alignItems: eip ? 'center' : 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-              <h2 style={sectionH2}>Upcoming events</h2>
+              <h2 style={sectionH2}>Next nights</h2>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>
                 <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
                 {eip?.slot('create-event')}
@@ -1495,46 +1400,45 @@ const OrganiserProfile = () => {
           </section>
         )}
 
-        {/* ABOUT -- below the events: a regular came for dates, not the bio */}
-        {(ep.bio || eip) && (
-          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About{eip?.slot('about')}</h2>
-            {ep.bio ? <p
-              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3', eip?.mark('bio'))}
-              style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
-            >
-              {ep.bio}
-            </p> : eip?.slot('about-empty')}
-            {aboutIsLong && (
-              <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
-                {aboutExpanded ? 'Show less' : 'More'}
-              </button>
-            )}
+        {/* Nothing upcoming, no nights at all: one quiet line and a way out. */}
+        {emptyKind === 'none' && (
+          <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>{NO_DATES_ANNOUNCED}.</p>
+              <BrowseNightsLink />
+              {eip?.slot('create-first-event')}
+            </div>
           </section>
         )}
 
-        {/* TEACHERS & DJs */}
-        {orderedTeam.length > 0 && (
-          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={sectionH2}>Teachers &amp; DJs</h2>
-              <span style={sectionCount}>{orderedTeam.length} {orderedTeam.length === 1 ? 'member' : 'members'}</span>
-            </div>
-            {/* px-3: the nationality sticker stands out past each circle's top-right, so the
-                last column needs room before the page's overflow-x-clip edge. */}
-            <div className={orderedTeam.length <= 3 ? 'flex justify-center gap-3 px-3' : 'grid grid-cols-3 gap-3 px-3 lg:grid-cols-8'}>
-              {orderedTeam.map((m) => <div key={m.id} className={cn('min-w-0 max-w-[112px]', orderedTeam.length <= 3 ? 'basis-1/3' : 'mx-auto w-full')}><TeamCircle member={m} badge={teamBadges.get(m.dancerId ?? '')} badgesState={teamBadgesState} /></div>)}
+        {/* Nothing upcoming but nights in the past: the quiet line, whether or not
+            the past list below has rows to show (fix round 1, review L4: it used
+            to render only inside that list). */}
+        {emptyKind === 'past-only' && pastEvents.length === 0 && (
+          <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-public-empty" data-kind={emptyKind}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>{NO_DATES_ANNOUNCED}.</p>
+              <BrowseNightsLink />
+              {eip?.slot('create-another-event')}
             </div>
           </section>
         )}
 
         {/* PAST EVENTS */}
+        {pastFailed && pastEvents.length === 0 && <FeedErrorLine feed="past" what="past dates" onRetry={retryPast} retrying={retryingPast} />}
         {pastEvents.length > 0 && (
           <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={sectionH2}>Past nights</h2>
+              <h2 style={sectionH2}>{emptyKind === 'past-only' ? 'Recently hosted' : 'Past nights'}</h2>
               <span style={sectionCount}>{pastEvents.length} hosted</span>
             </div>
+            {emptyKind === 'past-only' && (
+              <div data-testid="org-public-empty" data-kind={emptyKind} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '-4px 0 8px' }}>
+                <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>{NO_DATES_ANNOUNCED}.</p>
+                <BrowseNightsLink />
+                {eip?.slot('create-another-event')}
+              </div>
+            )}
             <div className="flex max-w-3xl flex-col gap-2">
               {visiblePastYears.map((group, gi) => { const shown = expandedPastYears.has(group.year) ? group.events : group.events.slice(0, PAST_ROWS_PER_YEAR); return (
                 <details key={group.year} id={`past-${group.year}`} open={gi === 0} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>

@@ -27,3 +27,20 @@ if (typeof globalThis.fetch === "function") {
     return realFetch(input, init);
   }) as typeof fetch;
 }
+
+// Dummy Supabase env, vitest only (this file is wired through vitest.config.ts `setupFiles` and nowhere else). A worktree with no
+// .env made every file that imports the real client fail with "supabaseUrl is required". Fill ONLY keys that are undefined, so a real
+// .env / CI value always wins; an empty string is kept (a real misconfiguration). Live-DB contract suites read the env themselves and
+// must see it ABSENT, never a fake host, so they are skipped. The host is .invalid: it can never resolve, so nothing can reach prod.
+export const DUMMY_SUPABASE_ENV = {
+  VITE_SUPABASE_URL: "https://dummy-vitest.invalid",
+  VITE_SUPABASE_PUBLISHABLE_KEY: "dummy-vitest-publishable-key",
+} as const;
+export const CONTRACT_TEST = /\.contract\.test\.[cm]?[jt]sx?$/;
+export function fillDummySupabaseEnv(env: Record<string, unknown>, testPath = ""): void {
+  if (CONTRACT_TEST.test(testPath)) return;
+  for (const [key, dummy] of Object.entries(DUMMY_SUPABASE_ENV)) if (env[key] === undefined) env[key] = dummy;
+}
+const setupTestPath = expect.getState().testPath || (globalThis as { __vitest_worker__?: { filepath?: string } }).__vitest_worker__?.filepath || "";
+fillDummySupabaseEnv(process.env, setupTestPath);
+fillDummySupabaseEnv(import.meta.env as Record<string, unknown>, setupTestPath);

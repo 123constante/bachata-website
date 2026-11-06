@@ -30,6 +30,23 @@ test.describe('detector canaries (offline)', () => {
     expect(await checkTapTargets(page)).toHaveLength(0);
   });
 
+  // The site lifts small controls to 44px with an absolutely positioned
+  // ::before box (TabBar on /city, TapHintSticker's "Dismiss hint"): the tap
+  // lands on the pseudo-element, so THAT box is the tap target. A ::before
+  // that does not reach 44px must still fire.
+  test('tap targets: a ::before hit area that reaches 44px counts, one that falls short still fires', async ({ page }) => {
+    // border:0 as on the site (Tailwind preflight): the pseudo box hangs off the PADDING box.
+    const css = '<style>button{border:0}.hit{position:relative;width:12px;height:12px;padding:0}.hit::before{content:"";position:absolute;inset:-16px}'
+      + '.tab{position:relative;width:88px;height:24px;padding:0}.tab::before{content:"";position:absolute;left:0;right:0;top:-10px;bottom:-10px}'
+      + '.short{position:relative;width:12px;height:12px;padding:0}.short::before{content:"";position:absolute;inset:-4px}'
+      + '.flat{position:relative;width:12px;height:12px;padding:0}.flat::before{content:"";inset:-16px}</style>';
+    await page.setContent(shell(`${css}<main><button class="hit" aria-label="Dismiss"></button><button class="tab">Tonight</button></main>`));
+    expect(await checkTapTargets(page)).toHaveLength(0);
+    await page.setContent(shell(`${css}<main><button class="short" aria-label="a"></button><button class="flat" aria-label="b"></button></main>`));
+    const bad = await checkTapTargets(page);
+    expect(bad.map((f) => f.detail)).toEqual(['20x20 button "a"', '12x12 button "b"']);
+  });
+
   test('axe: fires (serious/critical) on an image with no alt and an unlabelled button, quiet when fixed', async ({ page }) => {
     await page.setContent(shell('<main><h1>t</h1><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="10" height="10"><button></button></main>'));
     const ids = (await checkAxe(page)).map((f) => f.sig).sort();

@@ -17,6 +17,7 @@
 // and never block navigation (fire-and-forget, all errors swallowed).
 
 import { getViewerSessionId } from '@/lib/viewerSession';
+import { refCodeForTracking } from '@/lib/refCode';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -43,12 +44,14 @@ interface RpcParams {
   p_session_id: string | null;
   p_source: string | null;
   p_user_agent: string;
+  p_ref_code?: string;
 }
 
 const RPC_PATH = '/rest/v1/rpc/record_event_link_click_v1';
 
 function buildParams(args: RecordEventLinkClickArgs, sessionId: string, userAgent: string): RpcParams | null {
   if (!args.eventId) return null;
+  const refCode = refCodeForTracking();
   return {
     p_event_id: args.eventId,
     p_link_type: args.linkType,
@@ -56,6 +59,7 @@ function buildParams(args: RecordEventLinkClickArgs, sessionId: string, userAgen
     p_session_id: sessionId || null,
     p_source: args.source ?? null,
     p_user_agent: userAgent,
+    ...(refCode ? { p_ref_code: refCode } : {}),
   };
 }
 
