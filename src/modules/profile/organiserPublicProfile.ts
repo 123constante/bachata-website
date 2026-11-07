@@ -40,6 +40,7 @@ export type OrgOccRow = {
   location: string | null;
   is_cancelled: boolean | null;
   is_past: boolean | null;
+  city_name?: string | null;
 };
 
 export const organiserEntityQueryKey = (id: string | undefined) => ['entity', id] as const;
@@ -128,14 +129,22 @@ function throwFeedError(error: { message?: string } | null): void {
   if (error) throw new Error(error.message ?? JSON.stringify(error));
 }
 
-// No `as never` on the name or the args: get_organiser_calendar_events_v1 IS
+// No `as never` on the name or the args: get_organiser_nights_v2 IS
 // in the generated Database type, so a cast would only collapse `data` to
 // never and discard its Returns. check:rpc-typing refuses a new laundered
 // call -- both RPC fetches below were already typed this way in the loader;
 // moving OrganiserProfile.tsx's two onto the same path drops its grandfathered
 // scripts/rpc-typing-allowlist.json entries (shrink with `--write`).
+export const ORGANISER_UPCOMING_NIGHTS_CAP = 20;
+// Past feed: the server default (50) would silently cap "nights hosted".
+export const ORGANISER_PAST_NIGHTS_LIMIT = 5000;
+
 export async function fetchOrganiserFutureOccEvents(id: string): Promise<OrgOccRow[]> {
-  const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1', { p_organiser_id: id });
+  const { data, error } = await supabase.rpc('get_organiser_nights_v2', {
+    p_organiser_id: id,
+    p_include_past: false,
+    p_upcoming_limit: ORGANISER_UPCOMING_NIGHTS_CAP,
+  });
   throwFeedError(error);
   return (data ?? []) as unknown as OrgOccRow[];
 }
@@ -150,11 +159,12 @@ export async function fetchOrganiserFutureOccEvents(id: string): Promise<OrgOccR
 export async function fetchOrganiserPastOccEvents(id: string): Promise<OrgOccRow[]> {
   const from = new Date(Date.now() - 3650 * 86400000).toISOString().slice(0, 10);
   const to = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const { data, error } = await supabase.rpc('get_organiser_calendar_events_v1', {
+  const { data, error } = await supabase.rpc('get_organiser_nights_v2', {
     p_organiser_id: id,
+    p_include_past: true,
     p_from: from,
     p_to: to,
-    p_include_past: true,
+    p_past_limit: ORGANISER_PAST_NIGHTS_LIMIT,
   });
   throwFeedError(error);
   return (data ?? []) as unknown as OrgOccRow[];

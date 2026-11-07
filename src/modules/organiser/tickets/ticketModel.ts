@@ -92,7 +92,7 @@ export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; t
   },
 };
 
-/** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this. */
+/** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this (refunds are stricter: only a body saying not_configured does). */
 export const NOT_SWITCHED_ON = 'Payments are not switched on yet. Free tickets work now; paid tickets and refunds come soon.';
 
 // ---- Rows ------------------------------------------------------------------------
@@ -357,7 +357,7 @@ export const editLock = (t: TicketType | null, role: MemberRole | null | undefin
   return null;
 };
 
-// ---- Refunds (Q5: a partial refund keeps tickets valid; the UI refunds whole orders) --
+// ---- Refunds (Q5: a partial refund keeps tickets valid and the order stays paid; a whole refund voids tickets) --
 
 /** Why the Refund button is disabled, or null. Only a paid order shows the button at all (refundable). */
 export const refundBlock = (role: MemberRole | null | undefined): string | null => (canManage(role) ? null : NOT_MANAGER_REFUND);
@@ -379,6 +379,87 @@ export const refundQuestion = (o: Order): { title: string; body: string; confirm
     confirm: `Refund ${amount}`,
   };
 };
+
+/**
+ * The money check for "Refund part of it": null when the amount can be sent, else one plain
+ * sentence naming the maximum (what is left = total - refunded). Typing exactly what is left is
+ * fine: it goes as a partial with that amount and the server decides clears_balance.
+ */
+export const refundAmountError = (text: string, o: Pick<Order, 'totalPence' | 'refundedPence'>): string | null => {
+  const max = formatPence(refundAmount(o));
+  if (text.trim() === '') return `Enter how much to refund, up to ${max}.`;
+  const pence = penceOf(text);
+  if (pence === null) return `Enter an amount in pounds, like 3.50, up to ${max}.`;
+  if (pence === 0) return `Enter more than ${formatPence(0)}, up to ${max}.`;
+  if (pence > refundAmount(o)) return `That is more than is left. Enter up to ${max}.`;
+  return null;
+};
+
+/** The "Refund part of it" words: the maximum line, the body, and the confirm button (amount only once it is valid). */
+export const refundPartQuestion = (o: Pick<Order, 'totalPence' | 'refundedPence'>, validPence: number | null): { max: string; body: string; confirm: string } => ({
+  max: `Up to ${formatPence(refundAmount(o))} left to refund`,
+  // The whole remainder typed as a part: the server decides what happens to the order (clears_balance), so promise nothing.
+  body:
+    validPence !== null && validPence >= refundAmount(o)
+      ? 'This gives back everything that is left on the order. Cannot be undone.'
+      : 'The amount you enter goes back. Their tickets stay valid and the order stays paid. Cannot be undone.',
+  confirm: validPence === null ? 'Refund' : `Refund ${formatPence(validPence)}`,
+});
+
+/**
+ * The toast after a partial refund (the order row updates a moment later, once the webhook lands).
+ * Only what the server said: no remainder when it did not send one, and no promise about the
+ * tickets once the server says the balance is cleared (it settles that order, not this screen).
+ */
+export const partialRefundDone = (amountPence: number, remainingPence: number | null, clearsBalance = false): string => {
+  const sent = `Refunded ${formatPence(amountPence)}.`;
+  if (clearsBalance || remainingPence === 0) return `${sent} Nothing is left to refund.`;
+  if (remainingPence === null) return `${sent} Tickets stay valid.`;
+  return `${sent} ${formatPence(remainingPence)} is left to refund. Tickets stay valid.`;
+};
+
+/**
+ * One idempotency key per press of Refund (ticket-refund request_id: 8-64 chars of [A-Za-z0-9_-]).
+ * A UUID (36 chars of hex and dashes); the fallback mirrors shared/seriesCommands.ts newIdempotencyKey.
+ */
+export const newRefundRequestId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+
+/**
+ * Server answers that END a partial-refund press: the server has said no (or yes) for certain, so the
+ * held key is dropped and the next press is a new refund. `stripe_error` and `internal_error` can happen
+ * AFTER Stripe created the refund, and an unknown reason or gateway code says nothing, so those keep the
+ * key and a retry sends the same one (the server answers the same press, never a second refund).
+ */
+export const DEFINITE_REFUND_REASONS: ReadonlySet<string> = new Set([
+  'invalid_request',
+  'invalid_amount',
+  'request_id_required',
+  'request_id_reused',
+  'not_signed_in',
+  'not_authorised',
+  'not_found',
+  'not_refundable',
+  'refund_exceeds_balance',
+  'method_not_allowed',
+]);
+/** True when this outcome ends the press (drop the key); false keeps it for the retry. */
+export const endsRefundPress = (kind: 'ok' | 'not_configured' | 'failed', reason: string | null): boolean =>
+  kind !== 'failed' || (reason !== null && DEFINITE_REFUND_REASONS.has(reason));
+
+/** Shown under the note while a key is held: the last press may have reached Stripe. */
+export const refundMaybeSent = (pence: number): string =>
+  `The last refund may have gone through. Tap Refund ${formatPence(pence)} again to check, or reload the page before changing the amount.`;
+
+/**
+ * `refunded_pence` is advisory and lags the webhook. Pence this page has sent that the order row does
+ * not show yet: counted only while the row still shows the figure it had when the refund was sent.
+ */
+export type PendingRefund = { base: number; pence: number };
+export const withPendingRefund = <T extends { refundedPence: number }>(o: T, p: PendingRefund | undefined): T =>
+  p && p.base === o.refundedPence ? { ...o, refundedPence: o.refundedPence + p.pence } : o;
 
 export const ORDER_TAG: Record<string, { label: string; tone: StatusTone }> = {
   paid: { label: 'Paid', tone: 'live' },
@@ -407,7 +488,14 @@ const REASON: Record<string, string> = {
   bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
   organiser_not_onboarded: PAYMENTS_WHERE,
+  // ticket-refund (partial refunds). Each says what the person can do on the Refund sheet or the page.
+  invalid_amount: 'That amount cannot be refunded. Enter an amount up to what is left on the order.',
+  request_id_required: 'That refund did not start. Tap Refund again.',
+  request_id_reused: 'That refund was already sent with a different amount. Reload the page to see the order before refunding again.',
+  not_refundable: 'This order cannot be refunded any more. Reload the page to see its latest state.',
+  refund_exceeds_balance: 'An earlier refund on this order may still be settling. Wait a minute, then try again.',
 };
+
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';
 

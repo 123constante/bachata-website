@@ -1,0 +1,61 @@
+import { test, expect } from '@playwright/test';
+// Walk only (not in the gate). Run: VITE_ENABLE_PUBLIC_TICKETING=true VITE_ENABLE_TICKET_DOOR_CODE=true
+//   npx playwright test tests/e2e/zz-walk-buyer-code.spec.ts --project=chromium --trace off
+import { PHONE, OrganiserFake, expectNoHorizontalScroll, json } from './helpers/organiserFake';
+
+const ORDER = '3f2b8c1e-5a47-4d1b-9c2e-7a6b5c4d3e2f';
+const tok = (i: number) => (i.toString(16).padStart(2, '0')).repeat(32);
+// Prod shape: one order, 3 tickets (prod codes are all valid; one checked in).
+const CODES = ['K7M2QX', 'B4HN9R', 'Z3WT6P'];
+const myRows = CODES.map((c, i) => ({
+  order_id: ORDER, event_series_id: 'ser1', event_title: 'Friday Social at Salsa Soho', occurrence_date: '2026-11-07', start_time: '21:00',
+  ticket_type_name: i === 0 ? 'Early bird' : 'Standard', ticket_id: `t${i}`, qr_token: tok(i + 10), short_code: c,
+  checked_in: i === 2, checked_in_at: i === 2 ? '2026-11-07T21:42:00Z' : null,
+}));
+const qrRows = myRows.map((r) => ({ ticket_id: r.ticket_id, ticket_type_name: r.ticket_type_name, qr_token: r.qr_token, short_code: r.short_code, checked_in: r.checked_in }));
+const OUT = 'docs/walk/ticket-buyer-short-code';
+
+test.use({ viewport: PHONE, deviceScaleFactor: 2 });
+
+test('My tickets: 3 cards, door code under each QR, checked-in greyed', async ({ page }) => {
+  await new OrganiserFake({ noOrganiser: true }).install(page);
+  await page.route('**/rest/v1/rpc/my_tickets_v1', (r) => json(r, { tickets: myRows, truncated: false, total_count: 3 }));
+  await page.goto('/account/my-tickets');
+  await expect(page.getByTestId('my-ticket-short-code')).toHaveCount(3);
+  await expect(page.getByTestId('door-code-value').first()).toHaveText('K7M 2QX');
+  await expect(page.getByTestId('my-ticket-short-code').nth(2)).toHaveAttribute('data-checked-in', 'true');
+  await expectNoHorizontalScroll(page);
+  await page.waitForTimeout(1500);
+  await page.getByTestId('my-ticket-short-code').first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/my-tickets-top.png` });
+  await page.getByTestId('my-ticket-short-code').nth(2).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/my-tickets-checked-in.png` });
+});
+
+test('Thank-you: 3 QR cards with door codes', async ({ page }) => {
+  await new OrganiserFake({ noOrganiser: true }).install(page);
+  await page.route('**/rest/v1/rpc/ticket_order_public_status_v1', (r) => json(r, { status: 'paid', ticket_count: 3, event_title: 'Friday Social at Salsa Soho', event_date: '2026-11-07' }));
+  await page.route('**/rest/v1/rpc/my_ticket_order_qr_v1', (r) => json(r, { tickets: qrRows }));
+  await page.goto(`/tickets/thanks?o=${ORDER}`);
+  await expect(page.getByTestId('order-qr-short-code')).toHaveCount(3);
+  await page.waitForLoadState('networkidle');
+  console.log('url after settle:', page.url().replace(/o=[^&]+/, 'o=ORDER'));
+  await expect(page.getByTestId('order-qr-short-code')).toHaveCount(3);
+  await expectNoHorizontalScroll(page);
+  await page.getByTestId('order-qr-short-code').first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: `${OUT}/thanks-first.png` });
+  await page.getByTestId('order-qr-short-code').nth(2).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/thanks-checked-in.png` });
+});
+
+test('Old reply (no short_code key): no code line, no words about it', async ({ page }) => {
+  await new OrganiserFake({ noOrganiser: true }).install(page);
+  await page.route('**/rest/v1/rpc/my_tickets_v1', (r) => json(r, { tickets: myRows.map(({ short_code: _s, ...rest }) => rest), truncated: false, total_count: 3 }));
+  await page.goto('/account/my-tickets');
+  await expect(page.getByTestId('my-ticket')).toHaveCount(3);
+  await expect(page.getByTestId('my-ticket-short-code')).toHaveCount(0);
+  await expect(page.getByText(/door code/i)).toHaveCount(0);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${OUT}/my-tickets-old-reply.png` });
+});

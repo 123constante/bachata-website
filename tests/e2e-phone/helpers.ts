@@ -5,6 +5,10 @@ import {
 
 export { ORG_ID, ORG_SLUG, ORG2_ID, ORG2_SLUG };
 
+/** The 44px tap rule, as measured. Raw boxes at 390x844 come out at 43.997 (sub-pixel rounding), so assert against this;
+ *  the design rule stays 44px. Not usable inside page.evaluate (browser context): there, round the height first. */
+export const MIN_TAP_PX = 43.9;
+
 export const FIXED_NOW = new Date('2026-10-15T11:00:00Z');
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const USER = { id: USER_ID, aud: 'authenticated', role: 'authenticated', email: 'owner@ritmo.example', user_metadata: {} };

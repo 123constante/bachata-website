@@ -38,6 +38,7 @@ const buildSnapshot = (
 ): EventPageSnapshot => ({
   eventId: 'event-1',
   occurrenceId: occurrences[0]?.occurrenceId ?? null,
+  version: null,
   event: {
     name: 'June Styling Course',
     description: 'Join me every Sunday this June.',

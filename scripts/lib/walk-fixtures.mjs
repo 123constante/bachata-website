@@ -138,6 +138,56 @@ export function uncoveredUiFiles(walkCoverage, uiFiles, { waivedFiles = [] } = {
   return [...new Set(uiFiles)].filter((f) => !walked.has(f) && !waivedFiles.includes(f)).sort();
 }
 
+/**
+ * Compares the lane's walked screen list (the judge's `input.screens`) with
+ * docs/design/walk-coverage.json. Returns a list of problem strings, empty when
+ * the two agree; NEVER throws. A problem is: a non-example coverage screen that
+ * is not in `inputScreens`; an input screen that coverage does not list; a
+ * coverage shape that input screen does not list. Rows with `"example": true`
+ * are never required, and an input screen naming one is a problem. Extra shapes on an input
+ * screen are not a problem (walking more is fine; the judge still needs their
+ * numbers). Malformed coverage or input, or a table with no non-example screen,
+ * returns ONE problem string: an empty or broken table never reads as "agrees".
+ */
+export function screensMissingFromCoverage(walkCoverage, inputScreens) {
+  try {
+    const v = validateCoverage(walkCoverage);
+    if (!v.ok) return [`walk-coverage is malformed: ${v.errors.join('; ')}`];
+    if (!Array.isArray(inputScreens)
+      || !inputScreens.every((s) => isObj(s) && typeof s.id === 'string' && s.id !== ''
+        && Array.isArray(s.shapes) && s.shapes.every((x) => typeof x === 'string'))
+      || new Set(inputScreens.map((s) => s.id)).size !== inputScreens.length) {
+      return ['input.screens is malformed: needs a list of { id, shapes[] } with unique ids'];
+    }
+    const required = walkCoverage.screens.filter((s) => s.example !== true);
+    if (required.length === 0) {
+      return ['walk-coverage lists no non-example screens: an empty table must never read as "nothing to walk"'];
+    }
+    const walked = new Map(inputScreens.map((s) => [s.id, new Set(s.shapes)]));
+    const known = new Set(required.map((s) => s.id));
+    const examples = new Set(walkCoverage.screens.filter((s) => s.example === true).map((s) => s.id));
+    const problems = [];
+    for (const s of required) {
+      // A required screen with no shapes would accept any shape list: never "agrees".
+      if (s.shapes.length === 0) problems.push(`screen ${s.id} lists no shapes in walk-coverage.json`);
+      const shapes = walked.get(s.id);
+      if (!shapes) { problems.push(`screen ${s.id} is required by walk-coverage.json but not in input.screens`); continue; }
+      for (const shape of s.shapes) {
+        if (!shapes.has(shape)) problems.push(`screen ${s.id}: shape ${shape} is required by walk-coverage.json but not in input.screens`);
+      }
+    }
+    for (const id of walked.keys()) {
+      if (known.has(id)) continue;
+      problems.push(examples.has(id)
+        ? `screen ${id} is in input.screens but is only an example row in walk-coverage.json`
+        : `screen ${id} is in input.screens but not in walk-coverage.json`);
+    }
+    return problems;
+  } catch (err) {
+    return [`coverage check threw: ${err && err.message ? err.message : String(err)}`];
+  }
+}
+
 const USAGE = 'usage: node scripts/lib/walk-fixtures.mjs --survey <survey-counts.json>';
 
 /** CLI: prints the fixtures as JSON. Exit 0 ok, 1 bad survey, 2 usage. */

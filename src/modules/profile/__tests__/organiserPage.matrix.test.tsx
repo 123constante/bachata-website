@@ -36,6 +36,8 @@ interface Shape {
   instagram: boolean;
   website: boolean;
   facebook: boolean;
+  cityPattern?: (string | null)[];
+  cancelledExtra?: number;
   feeds: { events: Feed; future: Feed; past: Feed; team: Feed; dancers: Feed; badges: Feed; contact: Feed };
 }
 
@@ -51,9 +53,9 @@ const fridayFrom = (start: string, i: number, dir: 1 | -1) => {
   d.setUTCDate(d.getUTCDate() + dir * 7 * i);
   return d.toISOString().slice(0, 10);
 };
-const occ = (date: string, past: boolean) => ({
+const occ = (date: string, past: boolean, city: string | null = null, cancelled = false) => ({
   event_id: 'ev-1', name: 'Friday Social', occurrence_id: `occ-${date}`, instance_date: date, start_time: `${date}T21:00:00`,
-  photo_url: null, cover_image_url: null, location: 'Soho', is_cancelled: false, is_past: past,
+  photo_url: null, cover_image_url: null, location: 'Soho', city_name: city, is_cancelled: cancelled, is_past: past,
 });
 const EVENT = { id: 'ev-1', name: 'Friday Social', date: null, start_time: null, is_active: true, poster_url: null, location: 'Soho', city: 'London' };
 
@@ -88,7 +90,10 @@ vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
   fetchOrganiserFutureOccEvents: async () => {
     if (s.shape.feeds.future === 'hang') return never();
     if (s.shape.feeds.future === 'error') throw new Error('future boom');
-    return Array.from({ length: s.shape.upcoming }, (_, i) => occ(fridayFrom('2026-11-06', i, 1), false));
+    const pat = s.shape.cityPattern;
+    const rows = Array.from({ length: Math.min(20, s.shape.upcoming) }, (_, i) => occ(fridayFrom('2026-11-06', i, 1), false, pat ? pat[i % pat.length] : null));
+    const extra = Array.from({ length: s.shape.cancelledExtra ?? 0 }, (_, i) => occ(fridayFrom('2027-06-04', i, 1), false, null, true));
+    return [...rows, ...extra];
   },
   fetchOrganiserPastOccEvents: async () => {
     if (s.shape.feeds.past === 'hang') return never();
@@ -284,7 +289,9 @@ describe('organiser page P1: every section x every shape (visitor)', () => {
     expect(/No dates announced yet/.test(text())).toBe(row.noDates);
     if (row.noDates) expect(screen.getByRole('link', { name: 'Browse upcoming nights' })).toBeTruthy();
     if (row.shape.upcoming >= 100) {
-      expect(text()).toContain(`${row.shape.upcoming} dates`);
+      // The server caps the upcoming feed at 20 (get_organiser_nights_v2): a 100+ organiser shows the capped wording, not a count.
+      expect(text()).toContain('next 20 dates');
+      expect(text()).toContain('Showing the next 20 nights');
       expect(document.querySelectorAll('#upcoming a, #upcoming [role="button"]').length).toBeLessThanOrEqual(3 + 1);
     }
 
@@ -520,5 +527,65 @@ describe('fix 1 (LOW-6): Try again shows a pending state while the refetch runs'
     const pending = screen.getByTestId(testId).querySelector('button') as HTMLButtonElement;
     expect(pending.disabled).toBe(true);
     expect(pending.style.minHeight).toBe('44px');
+  });
+});
+
+describe('nights feed swap: city on each night, 20-cap wording', () => {
+  const capLine = () => document.querySelector('[data-testid="org-upcoming-cap-line"]');
+  const nextCount = () => Array.from(document.querySelectorAll('#upcoming h2 ~ div span')).map((e) => e.textContent);
+  it('capped 20, one repeating row: "next 20 dates", no heading count, Show more nights absent, quiet line', async () => {
+    s.shape = shape({ upcoming: 20, past: 3, cityPattern: ['Leeds'] });
+    await renderPage();
+    expect(text()).toMatch(/next 20 dates/);
+    expect(text()).not.toMatch(/\b20 dates\b/);
+    expect(capLine()?.textContent).toBe('Showing the next 20 nights');
+    expect(text()).toMatch(/Soho, Leeds/);
+    noCopyWithoutControl();
+  });
+  it('under cap (13): "13 dates" heading, no cap line, no "next 20"', async () => {
+    s.shape = shape({ upcoming: 13, past: 3, cityPattern: ['Leeds'] });
+    await renderPage();
+    expect(document.querySelector('#upcoming')!.textContent).toMatch(/13 dates/);
+    expect(capLine()).toBeNull();
+    expect(text()).not.toMatch(/next 20/);
+  });
+  it('repeating across cities: first city plus "+1 city"', async () => {
+    s.shape = shape({ upcoming: 6, past: 0, cityPattern: ['Leeds', 'Manchester'] });
+    await renderPage();
+    expect(text()).toMatch(/Leeds \+1 city/);
+  });
+  it('mixed cities, two single nights: each names its own city, none hard-coded', async () => {
+    s.shape = shape({ upcoming: 2, past: 0, cityPattern: ['Leeds', 'Manchester'] });
+    await renderPage();
+    expect(text()).toMatch(/Soho, Leeds/);
+    expect(text()).toMatch(/Soho, Manchester/);
+    expect(text()).not.toMatch(/London/);
+  });
+  it('cancelled rows in the feed are not shown or counted', async () => {
+    s.shape = shape({ upcoming: 2, past: 0, cancelledExtra: 5, cityPattern: ['Leeds'] });
+    await renderPage();
+    expect(document.querySelector('#upcoming')!.textContent).toMatch(/2 dates/);
+  });
+  it('capped organiser: Next night stat still shows the soonest, nights hosted from the uncapped past list', async () => {
+    s.shape = shape({ upcoming: 20, past: 60, cityPattern: ['Leeds'] });
+    await renderPage();
+    const vals = statValues().join('|');
+    expect(vals).toMatch(/60/);
+    expect(statKeys()).toContain('next_night');
+  });
+  it('past-only and none: no cap line, no Next nights section', async () => {
+    for (const sh of [shape({ upcoming: 0, past: 5 }), shape({ upcoming: 0, past: 0 })]) {
+      s.shape = sh; await renderPage();
+      expect(capLine()).toBeNull();
+      expect(h2s()).not.toContain('Next nights');
+      noCopyWithoutControl();
+      cleanup();
+    }
+  });
+  it.each(['events', 'future', 'past'] as const)('%s feed failing: no cap line, copy still points at controls', async (f) => {
+    s.shape = shape({ upcoming: 20, past: 5, cityPattern: ['Leeds'], feeds: { [f]: 'error' } });
+    await renderPage();
+    if (f !== 'past') expect(capLine()).toBeNull();
+    noCopyWithoutControl();
   });
 });

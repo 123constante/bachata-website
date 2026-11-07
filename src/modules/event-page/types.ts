@@ -80,6 +80,13 @@ export type EventPageDerivedLevel = 'mostly_beginners' | 'mixed' | 'strong';
 export type EventPageSnapshot = {
   eventId: string;
   occurrenceId: string | null;
+  /**
+   * Public state-change version from event_view_p5 (top-level `version`,
+   * admin 20270312410000; on prod a microsecond epoch integer). Null when the
+   * RPC predates it or the value is malformed. Live-now slice 3 reads it off
+   * the dehydrated /event/<slug>.data twin.
+   */
+  version: number | null;
   event: {
     name: string | null;
     description: string | null;
