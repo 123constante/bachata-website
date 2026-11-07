@@ -74,7 +74,7 @@ export function useSeriesOrders(organiserId: string | undefined, seriesId: strin
 }
 
 /** Connect / Finish connecting: ask for a Stripe link and go there; Stripe sends the person back to You > Get paid. */
-export function useStartOnboarding(organiserId: string) {
+export function useStartOnboarding(organiserId: string, from?: 'start') {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [switchedOff, setSwitchedOff] = useState(false);
@@ -84,8 +84,8 @@ export function useStartOnboarding(organiserId: string) {
     const origin = window.location.origin;
     const out = await startOnboarding(
       organiserId,
-      P3_TICKET_PATHS.stripeBack(origin, organiserId, 'return'),
-      P3_TICKET_PATHS.stripeBack(origin, organiserId, 'refresh'),
+      P3_TICKET_PATHS.stripeBack(origin, organiserId, 'return', from),
+      P3_TICKET_PATHS.stripeBack(origin, organiserId, 'refresh', from),
     );
     if (out.kind === 'ok') {
       window.location.assign(out.value);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ticketKeys } from '../../tickets/ticketsApi';
@@ -17,6 +17,8 @@ import {
   type TypeSales,
 } from '../../tickets/ticketModel';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
+import { isListedSeries } from '../../shared/homeModel';
+import { teamOf } from '../../shared/selfServeApi';
 import { P3_PATHS } from '../shell/paths';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
@@ -252,3 +254,177 @@ export function TicketsSoldTile() {
     </Link>
   );
 }
+
+/* ------------------------------------------------------------------------------------------
+ * The single Get paid screen (route /account/p3/get-paid?o=<organiserId>): the page a WhatsApp
+ * link lands on. ONE mapping (startView) decides the heading, the notes and the one primary
+ * button for every role x Stripe state x arrival; the markup only draws it.
+ * ---------------------------------------------------------------------------------------- */
+
+export const POLL_EVERY_MS = 3000;
+export const POLL_FOR_MS = 60_000;
+const STRIPE_ASKS = [
+  'Your name and date of birth',
+  'Your bank details, so it can pay you',
+  'A few words on what you sell',
+] as const;
+
+export type StartArrival = 'fresh' | 'return' | 'refresh';
+export type StartPhase = 'checking' | 'timeout' | null;
+export interface StartView {
+  heading: string;
+  asks: boolean;
+  status: string | null;
+  note: string | null;
+  primary: { kind: 'connect' | 'add' | 'check'; label: string } | null;
+}
+
+/** The ask-the-owner line: the owner's name when the home payload carries it, else "the page owner". */
+export const askOwner = (org: HomeOrganiser): string => `Ask ${teamOf(org).find((m) => m.role === 'owner')?.displayName ?? 'the page owner'} to connect payments`;
+
+export function startView(i: { manager: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
+  const ready = i.state === 'connected';
+  if (ready) {
+    return { heading: 'You\u2019re ready to sell tickets', asks: false, status: null, note: null, primary: i.manager ? { kind: 'add', label: 'Add a ticket' } : null };
+  }
+  const base = { heading: 'Get paid for your tickets', asks: true };
+  if (!i.manager) return { ...base, status: null, note: askOwner(i.org), primary: null };
+  if (i.switchedOff) return { ...base, asks: false, status: null, note: NOT_SWITCHED_ON, primary: null };
+  if (i.arrival === 'return' && i.phase === 'checking') return { ...base, asks: false, status: 'Checking with Stripe\u2026', note: null, primary: null };
+  if (i.arrival === 'return' && i.phase === 'timeout') {
+    return { ...base, asks: false, status: 'Stripe is still finishing. This can take a minute.', note: null, primary: { kind: 'check', label: 'Check again' } };
+  }
+  const label = i.state === 'started' ? 'Carry on with Stripe' : 'Connect Stripe';
+  return { ...base, status: null, note: i.arrival === 'refresh' ? 'That Stripe link ran out. Tap the button to carry on where you left off.' : null, primary: { kind: 'connect', label } };
+}
+
+const BIG = { minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' } as const;
+
+/** Where "Add a ticket" goes: straight to the event when exactly one live listed series, else Events. */
+export const addTicketPath = (org: HomeOrganiser): string => {
+  const live = org.series.filter((s) => isListedSeries(s) && s.lifecycle_status === 'live');
+  return live.length === 1 ? P3_PATHS.event(live[0].id) : P3_PATHS.events;
+};
+
+function StartFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="p3-theme p3-frame" data-testid="getpaid-start">
+      <header className="p3-top">
+        <Link className="p3-link" to={P3_PATHS.home} data-testid="getpaid-start-home" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>&larr; Home</Link>
+      </header>
+      <main className="p3-main"><div className="p3-stack">{children}</div></main>
+    </div>
+  );
+}
+
+/** Poll the Stripe read every 3 s for up to 60 s after Stripe sends the person back; stop on connected, unmount or timeout. */
+function useReturnPolling(on: boolean, connected: boolean, refetch: () => unknown) {
+  const [phase, setPhase] = useState<StartPhase>(on ? 'checking' : null);
+  const [round, setRound] = useState(0);
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+  useEffect(() => {
+    if (!on || connected) return;
+    setPhase('checking');
+    const tick = setInterval(() => void refetchRef.current(), POLL_EVERY_MS);
+    const stop = setTimeout(() => { clearInterval(tick); setPhase('timeout'); }, POLL_FOR_MS);
+    return () => { clearInterval(tick); clearTimeout(stop); };
+  }, [on, connected, round]);
+  return { phase: on && !connected ? phase : null, again: () => setRound((n) => n + 1) };
+}
+
+function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival }) {
+  const { query, state } = useStripe(org.id);
+  const { go, busy, note, switchedOff } = useStartOnboarding(org.id, 'start');
+  const manager = canManage(org.role);
+  const { phase, again } = useReturnPolling(arrival === 'return' && manager, state === 'connected', () => query.refetch());
+  if (query.isPending) return <StateCard title="Loading&hellip;" testId="getpaid-start-loading">This takes a second.</StateCard>;
+  if (query.isError || !state) {
+    return (
+      <StateCard title="We could not read your payment set-up." testId="getpaid-start-error">
+        <p>Check your connection, then try again.</p>
+        <RetryButton onClick={() => void query.refetch()} />
+      </StateCard>
+    );
+  }
+  const v = startView({ manager, state, arrival, phase, switchedOff, org });
+  return (
+    <section className="p3-card p3-stack-s" data-testid="getpaid-start-card" data-state={state}>
+      <h1 data-testid="getpaid-start-title" style={{ margin: 0, fontSize: 'var(--fs-title)' }}>{v.heading}</h1>
+      {v.asks && (
+        <div data-testid="getpaid-start-asks">
+          <strong>What Stripe will ask you</strong>
+          <ul className="p3-note" style={{ margin: '4px 0 0', paddingLeft: 20, listStyle: 'disc' }}>{STRIPE_ASKS.map((a) => <li key={a}>{a}</li>)}</ul>
+          <p className="p3-note">Stripe asks. We never see it.</p>
+        </div>
+      )}
+      {v.status && <p className="p3-warn" role="status" data-testid="getpaid-start-status">{v.status}</p>}
+      {v.note && <p className={switchedOff ? 'p3-warn' : 'p3-note'} role={switchedOff ? 'status' : undefined} data-testid="getpaid-start-note">{v.note}</p>}
+      {v.primary?.kind === 'connect' && (
+        <button type="button" className="p3-btn" style={BIG} disabled={busy} aria-busy={busy || undefined} onClick={() => void go()} data-testid="getpaid-start-go">
+          {busy ? 'Opening Stripe\u2026' : v.primary.label}
+        </button>
+      )}
+      {v.primary?.kind === 'check' && (
+        <button type="button" className="p3-btn" style={BIG} onClick={() => { void query.refetch(); again(); }} data-testid="getpaid-start-check">{v.primary.label}</button>
+      )}
+      {v.primary?.kind === 'add' && (
+        <Link className="p3-btn" style={BIG} to={addTicketPath(org)} data-testid="getpaid-start-add">{v.primary.label}</Link>
+      )}
+      {note && <p role="alert" className="p3-error" data-testid="getpaid-start-error-note">{note}</p>}
+    </section>
+  );
+}
+
+/** Route get-paid: its own full-screen frame, behind flags.organiserTicketing and AuthGuard. */
+export function GetPaidStart() {
+  const home = useP3Home();
+  const [params, setParams] = useSearchParams();
+  const wanted = params.get('o');
+  const stripeParam = params.get('stripe');
+  const [arrival] = useState<StartArrival>(stripeParam === 'return' || stripeParam === 'refresh' ? stripeParam : 'fresh');
+  useEffect(() => {
+    if (!stripeParam) return;
+    const next = new URLSearchParams(params);
+    next.delete('stripe');
+    setParams(next, { replace: true });
+  }, [stripeParam, params, setParams]);
+
+  if (home.isPending) return <StartFrame><StateCard title="Loading&hellip;" testId="getpaid-start-home-loading">This takes a second.</StateCard></StartFrame>;
+  if (home.isError) {
+    return (
+      <StartFrame>
+        <StateCard title="We couldn&rsquo;t load your page" testId="getpaid-start-home-error">
+          <p>Check your connection, then try again.</p>
+          <RetryButton onClick={() => void home.refetch()} />
+        </StateCard>
+      </StartFrame>
+    );
+  }
+  const orgs = home.data?.organisers ?? [];
+  if (orgs.length === 0) {
+    return (
+      <StartFrame>
+        <StateCard title="No organiser page yet" testId="getpaid-start-nopage">
+          <p>Set up your organiser page first, then come back here to get paid for tickets.</p>
+          <P3Link to={P3_PATHS.start} testId="getpaid-start-setup">Set up your page</P3Link>
+        </StateCard>
+      </StartFrame>
+    );
+  }
+  // A link for a page that is not on this account never quietly shows another page.
+  if (wanted && !orgs.some((o) => o.id === wanted)) {
+    return (
+      <StartFrame>
+        <StateCard title="This link is for a page that is not on your account" testId="getpaid-start-wrong">
+          <p>You may be signed in with a different email. Go to your own pages from Home.</p>
+          <P3Link to={P3_PATHS.home} testId="getpaid-start-wrong-home">Go to Home</P3Link>
+        </StateCard>
+      </StartFrame>
+    );
+  }
+  const org = payingOrganiser(home.data, wanted);
+  if (!org) return null;
+  return <StartFrame><StartBody org={org} arrival={arrival} /></StartFrame>;
+}
+
