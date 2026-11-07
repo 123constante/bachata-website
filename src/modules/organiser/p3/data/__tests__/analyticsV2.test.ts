@@ -77,9 +77,38 @@ describe('fetch', () => {
     await expect(fetchOrganiserAnalyticsV2('s1', 'a', 'b')).rejects.toBeTruthy();
     expect(rpc).toHaveBeenCalledTimes(2);
   });
-  it('one refused series refuses the page', async () => {
-    rpc.mockResolvedValueOnce({ data: raw({ visitors: 1 }), error: null }).mockResolvedValueOnce({ data: null, error: { message: 'x', code: '42501' } });
-    await expect(fetchPageAnalytics(['a', 'b'], 'f', 't')).rejects.toBeTruthy();
+  // A refusal (an error WITH a code) is "analytics hidden for your role", never a Retry that
+  // cannot succeed and never a partial sum shown as the page total. Code-less = network.
+  const OK = { data: raw({ visitors: 1 }), error: null };
+  const REFUSALS: Array<[string, { message: string; code?: string }, 'hidden' | 'throws']> = [
+    ['42501', { message: 'not_allowed', code: '42501' }, 'hidden'],
+    ['other coded error (22023)', { message: 'bad_request', code: '22023' }, 'hidden'],
+    ['no code (network)', { message: 'Failed to fetch' }, 'throws'],
+  ];
+  describe.each(REFUSALS)('fetchPageAnalytics refusal %s', (_n, err, want) => {
+    it('one series', async () => {
+      rpc.mockResolvedValue({ data: null, error: err });
+      const run = fetchPageAnalytics(['a'], 'f', 't');
+      if (want === 'hidden') {
+        await expect(run).resolves.toEqual({ hidden: true, data: null });
+        expect(rpc).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(run).rejects.toBeTruthy();
+        expect(rpc).toHaveBeenCalledTimes(2);
+      }
+    });
+    it('mixed: one allowed, one refused', async () => {
+      rpc.mockImplementation(async (_fn?: string, args?: { p_series_id: string }) => { return (args?.p_series_id === 'a' ? OK : { data: null, error: err }); });
+      const run = fetchPageAnalytics(['a', 'b'], 'f', 't');
+      if (want === 'hidden') await expect(run).resolves.toEqual({ hidden: true, data: null });
+      else await expect(run).rejects.toBeTruthy();
+    });
+  });
+  it('all allowed: summed, not hidden', async () => {
+    rpc.mockResolvedValue(OK);
+    const r = await fetchPageAnalytics(['a', 'b'], 'f', 't');
+    expect(r.hidden).toBe(false);
+    expect(r.data?.totals.visitors).toBe(2);
   });
   it('share code read', async () => {
     rpc.mockResolvedValue({ data: { share_code: 'abc', disabled: false }, error: null });
@@ -96,7 +125,7 @@ describe('share code', () => {
     [{ share_code: '  ' }, { code: null, disabled: false }],
     [null, { code: null, disabled: false }],
   ])('%j', (i, e) => expect(parseShareCode(i)).toEqual(e));
-  it('link is the event URL plus ?ref=', () => {
-    expect(shareLinkOf('https://x.test', 'e1', 'a b')).toBe('https://x.test/event/e1?ref=a%20b');
+  it('link is the public event URL plus ?ref=', () => {
+    expect(shareLinkOf('https://x.test', 'sensual-fridays', 'a b')).toBe('https://x.test/event/sensual-fridays?ref=a%20b');
   });
 });

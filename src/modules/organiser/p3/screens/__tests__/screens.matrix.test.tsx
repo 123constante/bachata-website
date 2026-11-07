@@ -299,7 +299,7 @@ describe('Stats x every shape', () => {
   });
 
   it('no views / no events say what to do; loading and error too', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
+    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
     viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
     expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
@@ -454,7 +454,7 @@ describe('review findings (round 2)', () => {
 
 /* ---- Stats v2: Visitors, From your link, share link card (organiser_analytics_v2) ---- */
 function analyticsOf(t: Record<string, number>, hasOwn = true) {
-  return sumAnalytics([parseAnalyticsV2({ has_own_code: hasOwn, totals: t, by_day: [] })]);
+  return { hidden: false as const, data: sumAnalytics([parseAnalyticsV2({ has_own_code: hasOwn, totals: t, by_day: [] })]) };
 }
 const ZERO = {};
 const ANALYTICS_SHAPES: Array<[string, Record<string, number>, boolean, string, string]> = [
@@ -477,21 +477,32 @@ describe('Stats v2 x every shape', () => {
     expect(screen.getByTestId('p3-share-link-card')).toBeTruthy();
   });
 
-  it('a refused or failed read is the error state with Try again, never zeros', () => {
+  it('a failed (network) read: views stay, the tiles offer Try again, never zeros', () => {
     analyticsQ.value = failed();
     show(<StatsScreen />);
-    expect(within(screen.getByTestId('p3-stats-error')).getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByTestId('p3-stats-error')).toBeNull();
+    expect(within(screen.getByTestId('p3-stats-analytics-error')).getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
   });
 
-  it('loading shows the loading state', () => {
+  it('a refused read hides the tiles and the share card: no error, no Try again', () => {
+    analyticsQ.value = ok({ hidden: true, data: null });
+    show(<StatsScreen />);
+    expect(screen.queryByTestId('p3-stats-error')).toBeNull();
+    expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
+    expect(screen.queryByTestId('p3-share-link-card')).toBeNull();
+    expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
+  });
+
+  it('analytics loading does not hold up the views', () => {
     analyticsQ.value = pending();
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-loading')).toBeTruthy();
+    expect(screen.queryByTestId('p3-stats-loading')).toBeNull();
+    expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
   });
 
   it('the empty state points at the Copy link control that is above it', () => {
-    homeQ.value = ok(homeOf([SHAPES.weekly]));
+    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
     viewsQ.value = ok(statsOf([['weekly', 'W', 0]]));
     show(<StatsScreen />);
     expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
@@ -505,17 +516,30 @@ describe('Share link card x every shape', () => {
   it('live code and a next event: the link, enabled, copies it', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
+    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
     show(<StatsScreen />);
     const link = (screen.getByTestId('p3-share-link-text') as HTMLInputElement).value;
-    expect(link).toBe(`${window.location.origin}/event/weekly?ref=abc`);
+    expect(link).toBe(`${window.location.origin}/event/sensual-fridays?ref=abc`);
     expect(copyBtn().disabled).toBe(false);
     fireEvent.click(copyBtn());
     await screen.findByText('Link copied.');
     expect(writeText).toHaveBeenCalledWith(link);
   });
 
+  it('"Link copied." clears when the link state changes', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
+    const { rerender } = show(<StatsScreen />);
+    fireEvent.click(copyBtn());
+    await screen.findByText('Link copied.');
+    codeQ.value = ok({ code: 'abc', disabled: true });
+    rerender(<MemoryRouter><StatsScreen /></MemoryRouter>);
+    expect(screen.queryByTestId('p3-share-note')).toBeNull();
+  });
+
   it('clipboard failure selects the text and says so', async () => {
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } });
+    homeQ.value = ok(homeOf([{ ...SHAPES.weekly, slug: 'sensual-fridays' }]));
     show(<StatsScreen />);
     fireEvent.click(copyBtn());
     expect((await screen.findByTestId('p3-share-note')).textContent).toMatch(/selected/);
@@ -535,10 +559,17 @@ describe('Share link card x every shape', () => {
     expect(screen.queryByTestId('p3-share-link-text')).toBeNull();
   });
 
-  it('a refused code read shows its own error with Try again', () => {
-    codeQ.value = { isPending: false, isError: true, data: undefined, refetch: vi.fn() };
+  it('a network failure on the code read shows its own error with Try again', () => {
+    codeQ.value = { isPending: false, isError: true, error: { message: 'Failed to fetch' }, data: undefined, refetch: vi.fn() };
     show(<StatsScreen />);
     expect(within(screen.getByTestId('p3-share-link-card')).getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
+  it('a refused code read (42501) hides the card: no Try again that cannot work', () => {
+    codeQ.value = { isPending: false, isError: true, error: { code: '42501', message: 'not_allowed' }, data: undefined, refetch: vi.fn() };
+    show(<StatsScreen />);
+    expect(screen.queryByTestId('p3-share-link-card')).toBeNull();
+    expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
   });
 
   it('no help text names a control that is not on screen', () => {

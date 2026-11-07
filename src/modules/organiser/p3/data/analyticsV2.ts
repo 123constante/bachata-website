@@ -93,7 +93,8 @@ type Rpc = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknow
 const rpc: Rpc = (fn, args) => (supabase.rpc as unknown as Rpc)(fn, args);
 
 /** A refusal or bad request from the server has a code; a dropped connection has none. */
-const isNetwork = (e: unknown): boolean => !(e && typeof e === 'object' && typeof (e as { code?: unknown }).code === 'string' && (e as { code: string }).code !== '');
+export const isRefusal = (e: unknown): boolean => !!(e && typeof e === 'object' && typeof (e as { code?: unknown }).code === 'string' && (e as { code: string }).code !== '');
+const isNetwork = (e: unknown): boolean => !isRefusal(e);
 
 /** One retry, and only for a network failure. */
 export async function withOneRetry<T>(run: () => Promise<T>): Promise<T> {
@@ -113,9 +114,27 @@ export async function fetchOrganiserAnalyticsV2(seriesId: string, from: IsoDate,
   });
 }
 
-/** Every series in the page scope, summed. One refused series refuses the lot: never zeros. */
-export async function fetchPageAnalytics(seriesIds: readonly string[], from: IsoDate, to: IsoDate): Promise<AnalyticsV2> {
-  return sumAnalytics(await Promise.all(seriesIds.map((id) => fetchOrganiserAnalyticsV2(id, from, to))));
+/**
+ * The page's analytics, or hidden. organiser_analytics_v2 is owner / manager of the SERIES, so a
+ * server refusal (any error with a code) means "not for your role": analyticsHidden, never an
+ * error with a Retry that cannot succeed. One refused series hides the lot (a partial sum is
+ * never shown as the page total). Only a code-less (network) error throws, after one retry.
+ */
+export type PageAnalytics = { hidden: true; data: null } | { hidden: false; data: AnalyticsV2 };
+
+const REFUSED = Symbol('refused');
+
+export async function fetchPageAnalytics(seriesIds: readonly string[], from: IsoDate, to: IsoDate): Promise<PageAnalytics> {
+  const list = await Promise.all(
+    seriesIds.map((id) =>
+      fetchOrganiserAnalyticsV2(id, from, to).catch((e: unknown) => {
+        if (isRefusal(e)) return REFUSED;
+        throw e;
+      }),
+    ),
+  );
+  if (list.some((a) => a === REFUSED)) return { hidden: true, data: null };
+  return { hidden: false, data: sumAnalytics(list as AnalyticsV2[]) };
 }
 
 export interface ShareCode {
@@ -142,7 +161,10 @@ export const analyticsKey = (userId: string | undefined, ids: readonly string[],
   ['p3-analytics-v2', userId, [...ids].sort().join(','), from, to] as const;
 export const shareCodeKey = (userId: string | undefined, pageId: string | undefined) => ['p3-share-code', userId, pageId] as const;
 
-/** The share link: the event URL plus ?ref=<code>. The code comes only from the RPC. */
-export function shareLinkOf(origin: string, eventId: string, code: string): string {
-  return `${origin}/event/${encodeURIComponent(eventId)}?ref=${encodeURIComponent(code)}`;
+/**
+ * The share link: the PUBLIC event URL plus ?ref=<code>. publicEventRef is P3Row.publicEventRef
+ * (slug, or legacy_event_id ?? id), never the series id. The code comes only from the RPC.
+ */
+export function shareLinkOf(origin: string, publicEventRef: string, code: string): string {
+  return `${origin}/event/${encodeURIComponent(publicEventRef)}?ref=${encodeURIComponent(code)}`;
 }

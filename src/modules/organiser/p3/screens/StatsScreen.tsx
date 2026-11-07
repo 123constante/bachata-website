@@ -7,8 +7,9 @@ import { useP3Analytics, useP3ShareCode, useP3Views } from '../data/useP3Data';
 import { L } from '../model';
 import { NoPageCard, PageHeader, usePageScope } from './PageScope';
 import { GoingTile, RetryButton, StateCard } from './parts';
-import { ShareLinkCard } from './ShareLinkCard';
-import { liveEventOf, shareStateOf } from '../data/shareState';
+import { ShareLinkCard, shareLinkStateOf } from './ShareLinkCard';
+import { liveEventOf } from '../data/shareState';
+import { isRefusal } from '../data/analyticsV2';
 
 const RANGES: ReadonlyArray<readonly [StatsRange, string]> = [['d', 'Today'], ['w', '7 days'], ['m', '30 days']];
 
@@ -52,7 +53,8 @@ export function StatsScreen() {
     </div>
   );
 
-  if (views.isPending || scope.loading || (analytics.isPending && ids.length > 0 && !analytics.isError)) {
+  // Views first: a slow or refused analytics read never holds up the existing views.
+  if (views.isPending || scope.loading) {
     return (
       <div className="p3-stack">
         {head}
@@ -61,14 +63,14 @@ export function StatsScreen() {
       </div>
     );
   }
-  if (views.isError || scope.home.isError || analytics.isError) {
+  if (views.isError || scope.home.isError) {
     return (
       <div className="p3-stack">
         {head}
         {seg}
         <StateCard title="We couldn&rsquo;t load your views" testId="p3-stats-error">
           <p>Check your connection, then try again.</p>
-          <RetryButton onClick={() => void Promise.all([views.refetch(), scope.home.refetch(), analytics.refetch()])} />
+          <RetryButton onClick={() => void Promise.all([views.refetch(), scope.home.refetch()])} />
         </StateCard>
       </div>
     );
@@ -83,7 +85,10 @@ export function StatsScreen() {
     );
   }
 
-  const a = analytics.data?.totals;
+  // analyticsHidden: the server refused organiser_analytics_v2 for this role (any series in scope).
+  const analyticsHidden = analytics.data?.hidden === true;
+  const a = analytics.data && !analytics.data.hidden ? analytics.data.data.totals : undefined;
+  const linkShown = !analyticsHidden && !(shareCode.isError && isRefusal(shareCode.error));
   const scoped = scopeStats(views.data, scope.seriesIds);
   const data = sliceStats(scoped, RANGE_DAYS[range]);
   const today = data.to || londonTodayKey();
@@ -92,7 +97,7 @@ export function StatsScreen() {
   const days = dailyTotals(data);
   const rows = byEventOf(data);
   const live = scope.selected ? liveEventOf(scope.home.data!, scope.selected) : null;
-  const shareState = shareStateOf({ pending: shareCode.isPending, data: shareCode.data }, live);
+  const shareState = shareLinkStateOf({ pending: shareCode.isPending, data: shareCode.data }, live);
   const label = RANGES.find((r) => r[0] === range)![1];
 
   return (
@@ -106,32 +111,41 @@ export function StatsScreen() {
         </div>
         <GoingTile />
       </div>
-      <div className="p3-pair">
-        <div className="p3-card p3-stat" data-testid="p3-stats-visitors">
-          <div className="p3-stat-n">{a?.visitors ?? 0}</div>
-          <div className="p3-stat-l">Visitors</div>
-        </div>
-        <div className="p3-card p3-stat" data-testid="p3-stats-from-link">
-          <div className="p3-stat-n">{a?.fromYourLink ?? 0}</div>
-          <div className="p3-stat-l">From your link</div>
-        </div>
-        {!!a?.guestListSignups && (
-          <div className="p3-card p3-stat" data-testid="p3-stats-guestlist">
-            <div className="p3-stat-n">{a.guestListSignups}</div>
-            <div className="p3-stat-l">Guest list sign-ups</div>
+      {analyticsHidden ? null : analytics.isError ? (
+        <StateCard title="We couldn&rsquo;t load your visitors" testId="p3-stats-analytics-error">
+          <p>Check your connection, then try again.</p>
+          <RetryButton onClick={() => void analytics.refetch()} />
+        </StateCard>
+      ) : a ? (
+        <>
+        <div className="p3-pair">
+          <div className="p3-card p3-stat" data-testid="p3-stats-visitors">
+            <div className="p3-stat-n">{a.visitors}</div>
+            <div className="p3-stat-l">Visitors</div>
           </div>
-        )}
-        {!!a?.ticketsSold && (
-          <div className="p3-card p3-stat" data-testid="p3-stats-tickets">
-            <div className="p3-stat-n">{a.ticketsSold}</div>
-            <div className="p3-stat-l">Tickets sold</div>
+          <div className="p3-card p3-stat" data-testid="p3-stats-from-link">
+            <div className="p3-stat-n">{a.fromYourLink}</div>
+            <div className="p3-stat-l">From your link</div>
           </div>
-        )}
-      </div>
-      <p className="p3-stat-l" data-testid="p3-stats-help">
-        A visitor is counted once a day for each event. Someone who comes back on 3 days, or opens 2 of your events, counts more than once.
-      </p>
-      <ShareLinkCard pageId={scope.pageId} />
+          {!!a.guestListSignups && (
+            <div className="p3-card p3-stat" data-testid="p3-stats-guestlist">
+              <div className="p3-stat-n">{a.guestListSignups}</div>
+              <div className="p3-stat-l">Guest list sign-ups</div>
+            </div>
+          )}
+          {!!a.ticketsSold && (
+            <div className="p3-card p3-stat" data-testid="p3-stats-tickets">
+              <div className="p3-stat-n">{a.ticketsSold}</div>
+              <div className="p3-stat-l">Tickets sold</div>
+            </div>
+          )}
+        </div>
+        <p className="p3-stat-l" data-testid="p3-stats-help">
+          A visitor is counted once a day for each event. Someone who comes back on 3 days, or opens 2 of your events, counts more than once.
+        </p>
+        </>
+      ) : null}
+      <ShareLinkCard pageId={scope.pageId} hidden={!linkShown} />
       {total === 0 && allTotal > 0 ? (
         <StateCard title={`No views ${range === 'd' ? 'today' : 'in the last 7 days'} yet`} testId="p3-stats-none-range">
           <p>You had {allTotal} {L.views} in the last 30 days.</p>
@@ -141,7 +155,9 @@ export function StatsScreen() {
         <StateCard title="No views yet" testId="p3-stats-none">
           {!live
             ? 'Put an event live first. Views start once an event is on the calendar.'
-            : shareState === 'ready'
+            : !linkShown
+              ? 'Views show up as soon as dancers open your event.'
+              : shareState === 'ready'
               ? 'Views show up as soon as dancers open your event. Copy your link above and share it on WhatsApp or Instagram to get the first ones.'
               : shareState === 'off'
                 ? 'Views show up as soon as dancers open your event. Your link is switched off, so ask the team to turn it back on.'
