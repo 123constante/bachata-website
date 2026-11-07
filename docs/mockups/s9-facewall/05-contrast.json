@@ -1,0 +1,142 @@
+[
+ {
+  "pair": "light: name text on page",
+  "fg": "#3B2216",
+  "bg": "#FFF4E6",
+  "ratio": 13.56,
+  "pass_": true
+ },
+ {
+  "pair": "light: muted text on page",
+  "fg": "#6B4A3A",
+  "bg": "#FFF4E6",
+  "ratio": 7.25,
+  "pass_": true
+ },
+ {
+  "pair": "light: dj chip fill vs page (non-text, need 3)",
+  "fg": "#F2B632",
+  "bg": "#FFF4E6",
+  "ratio": 1.68,
+  "pass_": false
+ },
+ {
+  "pair": "light: dancer chip fill vs page (non-text, need 3)",
+  "fg": "#0F766E",
+  "bg": "#FFF4E6",
+  "ratio": 5.04,
+  "pass_": true
+ },
+ {
+  "pair": "light: teacher chip fill vs page (non-text, need 3)",
+  "fg": "#6D28D9",
+  "bg": "#FFF4E6",
+  "ratio": 6.54,
+  "pass_": true
+ },
+ {
+  "pair": "light: organiser chip fill vs page (non-text, need 3)",
+  "fg": "#B93E0B",
+  "bg": "#FFF4E6",
+  "ratio": 5.15,
+  "pass_": true
+ },
+ {
+  "pair": "dark: name text on page",
+  "fg": "#FBEBDD",
+  "bg": "#1E1410",
+  "ratio": 15.51,
+  "pass_": true
+ },
+ {
+  "pair": "dark: muted text on page",
+  "fg": "#CDB09C",
+  "bg": "#1E1410",
+  "ratio": 8.85,
+  "pass_": true
+ },
+ {
+  "pair": "dark: dj chip fill vs page (non-text, need 3)",
+  "fg": "#F2B632",
+  "bg": "#1E1410",
+  "ratio": 9.9,
+  "pass_": true
+ },
+ {
+  "pair": "dark: dancer chip fill vs page (non-text, need 3)",
+  "fg": "#0F766E",
+  "bg": "#1E1410",
+  "ratio": 3.3,
+  "pass_": true
+ },
+ {
+  "pair": "dark: teacher chip fill vs page (non-text, need 3)",
+  "fg": "#6D28D9",
+  "bg": "#1E1410",
+  "ratio": 2.54,
+  "pass_": false
+ },
+ {
+  "pair": "dark: organiser chip fill vs page (non-text, need 3)",
+  "fg": "#B93E0B",
+  "bg": "#1E1410",
+  "ratio": 3.23,
+  "pass_": true
+ },
+ {
+  "pair": "dj: badge text on chip",
+  "fg": "#3B2216",
+  "bg": "#F2B632",
+  "ratio": 8.07,
+  "pass_": true
+ },
+ {
+  "pair": "dj: initials on tile",
+  "fg": "#5A3A00",
+  "bg": "#F6D58A",
+  "ratio": 7.26,
+  "pass_": true
+ },
+ {
+  "pair": "dancer: badge text on chip",
+  "fg": "#FFFFFF",
+  "bg": "#0F766E",
+  "ratio": 5.47,
+  "pass_": true
+ },
+ {
+  "pair": "dancer: initials on tile",
+  "fg": "#0B4F4A",
+  "bg": "#BFE8E1",
+  "ratio": 7.1,
+  "pass_": true
+ },
+ {
+  "pair": "teacher: badge text on chip",
+  "fg": "#FFFFFF",
+  "bg": "#6D28D9",
+  "ratio": 7.1,
+  "pass_": true
+ },
+ {
+  "pair": "teacher: initials on tile",
+  "fg": "#4C1D95",
+  "bg": "#E4D7FB",
+  "ratio": 8.04,
+  "pass_": true
+ },
+ {
+  "pair": "organiser: badge text on chip",
+  "fg": "#FFFFFF",
+  "bg": "#B93E0B",
+  "ratio": 5.59,
+  "pass_": true
+ },
+ {
+  "pair": "organiser: initials on tile",
+  "fg": "#7A2606",
+  "bg": "#FAD2BE",
+  "ratio": 7.13,
+  "pass_": true
+ }
+]
