@@ -23,10 +23,19 @@ production `gate.conf`: it is the test suite's switch for its local `file://` re
 | need | why | install (Ubuntu/Debian) | check as the runner user |
 |---|---|---|---|
 | git, flock/setsid (util-linux), coreutils `timeout` | the hooks | `apt-get install -y git util-linux coreutils` | `sudo -u ghrunner-web bash -c 'command -v git flock setsid timeout'` |
+| git **2.32 or newer** (old_git_home) | the hooks set `GIT_CONFIG_GLOBAL=/dev/null`, which older git ignores (it would read a `.gitconfig`); the started hook refuses every job below 2.32 (row `old-git`) | Ubuntu 22.04+ / Debian 12+ ship newer; else the git PPA / backports | `sudo -u ghrunner-web git --version` prints 2.32 or higher |
+| `/bin/bash`, `/usr/bin/env` at those exact paths | the hooks re-execute themselves as `/usr/bin/env -i ... /bin/bash -p` (env_i_reexec); no PATH lookup | present on Ubuntu/Debian | `ls -l /bin/bash /usr/bin/env` |
 | python3 (stdlib `json`) | the hook's `read_event_payload` (no python3 = every job refused, hosted runs it) | `apt-get install -y python3` | `sudo -u ghrunner-web python3 -I -c 'import json'` |
 | python3-yaml | `architecture-guard.yml`, `scripts/integrity-guard.py` (`import yaml`) | `apt-get install -y python3-yaml` | `sudo -u ghrunner-web python3 -c 'import yaml'` |
 | Node 22 + npm 11 | the workflows run `npm install -g npm@11`; a global install is NOT writable for the runner, so npm 11 must already be the system npm | NodeSource or the official tarball into `/usr/local`, then `npm install -g npm@11` **as root** | `sudo -u ghrunner-web npm -v` prints `11.x` |
 | Playwright chromium + OS libs | e2e jobs (waves 2-3); the unit sets `PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright` and `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` | see section 2 | see section 2 |
+
+Direct HTTPS to github.com, no proxy: the hooks start from `env -i`, so `https_proxy` /
+`HTTPS_PROXY` / `ALL_PROXY` and `SSL_CERT_FILE` / `SSL_CERT_DIR` / `CURL_CA_BUNDLE` /
+`OPENSSL_CONF` are never seen by the hook's git fetch (fix round 2). git uses the system CA store
+(`ca-certificates`). Check as root, with an empty env:
+`env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/nonexistent/ghrunner-gate git ls-remote https://github.com/123constante/bachata-website.git refs/heads/main`
+prints one sha line.
 
 Routed jobs whose workflow step runs `npm install -g npm@11` will fail on the runner (read-only
 prefix). Before such a workflow is added to `workflows.allow`, its routed job must skip that step

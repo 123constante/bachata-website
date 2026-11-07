@@ -1,4 +1,45 @@
-#!/usr/bin/env bash
+#!/bin/bash -p
+# env_i_reexec (fix round 2, item 1): FIRST, before anything else runs, re-execute under
+# `env -i` with a fixed PATH, a nonexistent HOME/XDG_CONFIG_HOME (old_git_home) and ONLY the
+# values this hook reads, passed by name. That drops exported shell functions
+# (BASH_FUNC_git%%, BASH_FUNC_rm%%), SHELLOPTS/BASHOPTS/PS4, LD_PRELOAD/LD_LIBRARY_PATH, every
+# proxy and TLS variable (https_proxy, HTTPS_PROXY, ALL_PROXY, SSL_CERT_FILE, SSL_CERT_DIR,
+# CURL_CA_BUNDLE, OPENSSL_CONF) and anything else a job env could plant.
+#  - The marker is an ARGUMENT (--gate-reexec), not an env value: an env GATE_REEXEC=1 must not be
+#    able to skip the re-exec (deviation from the brief's `[ -z "$GATE_REEXEC" ]`, on purpose).
+#  - POSIXLY_CORRECT=1 is a plain assignment (no command an exported function can shadow); it
+#    turns on posix mode, where the special builtin `exec` is found BEFORE any function named exec.
+#    `[[ ]]` and `for` are keywords; env and bash are absolute paths.
+#  - The runner starts a hook as `bash -e <file>` (the shebang is not used then); `-p` matters only
+#    when the file is executed directly. Residual: with SHELLOPTS=xtrace in the env, PS4 is still
+#    expanded for the few lines above the exec (row ps4-stops-at-reexec proves it stops there).
+POSIXLY_CORRECT=1
+if [[ "${1:-}" != --gate-reexec ]]; then
+  G_PASS=()
+  for G_V in GITHUB_RUN_ID GITHUB_RUN_ATTEMPT GITHUB_JOB GITHUB_WORKFLOW_REF GITHUB_WORKFLOW_SHA \
+      GITHUB_EVENT_PATH GITHUB_EVENT_NAME GITHUB_REPOSITORY GITHUB_ACTOR GITHUB_TRIGGERING_ACTOR GITHUB_REF \
+      GATE_WAIT_S HOLDER_MAX_S SAFE_LOAD_MAX SAFE_MEM_MIN WEB_RUNNER_WATCH_PID; do
+    [[ -n "${!G_V+x}" ]] && G_PASS+=("$G_V=${!G_V}")
+  done
+  exec /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/nonexistent/ghrunner-gate XDG_CONFIG_HOME=/nonexistent/ghrunner-gate LC_ALL=C "${G_PASS[@]}" /bin/bash -p "$0" --gate-reexec "$@"
+fi
+shift
+unset G_PASS G_V
+# unset_bash_func (second layer, for the case the re-exec ever did not happen): no function
+# survives from the environment, and none of the loader / proxy / TLS / shell-option names stays.
+# Still in posix mode here: `unset`/`export` are special builtins, found before any function; no
+# `local` (a regular builtin a function could shadow); compgen's own shadow is removed first.
+unset_bash_func() {
+  unset -f compgen declare builtin command local unset 2>/dev/null
+  for G_F in $(compgen -A function); do [[ "$G_F" = unset_bash_func ]] || unset -f "$G_F"; done
+  unset BASH_ENV ENV PS4 BASHOPTS CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT \
+    https_proxy HTTPS_PROXY http_proxy HTTP_PROXY ALL_PROXY all_proxy no_proxy NO_PROXY \
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE CURL_HOME OPENSSL_CONF OPENSSL_MODULES GATE_REEXEC 2>/dev/null
+  export HOME=/nonexistent/ghrunner-gate XDG_CONFIG_HOME=/nonexistent/ghrunner-gate
+  unset G_F
+}
+unset_bash_func
+unset POSIXLY_CORRECT
 # ACTIONS_RUNNER_HOOK_JOB_STARTED for a Website side-machine runner (acer-web, dell-web).
 # Installed ROOT-OWNED, read-only to the service user (see the unit). Verdict line for the
 # job's first step (scripts/ci/route-runner.mjs gate):  "<run_id> <attempt> <job> ok|refused <why>".
@@ -79,12 +120,15 @@ G_MAIN_REF=refs/heads/main
 # TEST_FILE_PROTOCOL=1 (conf only, never env; test-gate-hooks.sh sets it): lets git fetch from the
 # test's local file:// remote. Production gate.conf never sets it (item 5).
 G_TEST_FILE_PROTOCOL=
+# TEST_GIT_VERSION (conf only; tests): stands in for `git --version` output (row old-git).
+G_TEST_GIT_VERSION=
 if [ -r "$CONF" ]; then
   while IFS='=' read -r k v; do
     case "$k" in
       REPO) G_REPO=$v ;; TRUSTED) G_TRUSTED=$v ;; PROTECTED) G_PROTECTED=$v ;; ALLOW_FILE) G_ALLOW_FILE=$v ;;
       REMOTE_URL) G_REMOTE=$v ;; MAIN_REF) G_MAIN_REF=$v ;; TEST_FILE_PROTOCOL) G_TEST_FILE_PROTOCOL=$v ;;
       STATE_DIR) STATE_DIR=$v ;; WORK_DIR) WORK_DIR=$v ;; WALK_LOCK) WALK_LOCK=$v ;;
+      TEST_GIT_VERSION) G_TEST_GIT_VERSION=$v ;;
     esac
   done < <(grep -E '^[A-Z_]+=' "$CONF")
 fi
@@ -93,6 +137,16 @@ HOLDER_PID_FILE=$STATE_DIR/lock-holder.pid
 # The runner writes the payload here at "Set up job", before this hook runs. Pinned, not env.
 EVENT_FILE=$WORK_DIR/_temp/_github_workflow/event.json
 rm -f "$VERDICT" 2>/dev/null
+
+# old_git_home (fix round 2, item 2): GIT_CONFIG_GLOBAL=/dev/null is honoured only by git 2.32+.
+# An older git would read $HOME/.gitconfig -- HOME is a nonexistent dir after the re-exec (the unit's
+# HOME is _work/_home, which the PREVIOUS job could write) -- and still fail closed here.
+G_GITV=${G_TEST_GIT_VERSION:-$(timeout 10 git --version 2>/dev/null)}
+G_GITV=${G_GITV#git version }
+G_GITMAJ=${G_GITV%%.*}; G_GITMIN=${G_GITV#*.}; G_GITMIN=${G_GITMIN%%.*}
+if ! [[ "$G_GITMAJ" =~ ^[0-9]+$ && "$G_GITMIN" =~ ^[0-9]+$ ]] || [ "$G_GITMAJ" -lt 2 ] || { [ "$G_GITMAJ" = 2 ] && [ "$G_GITMIN" -lt 32 ]; }; then
+  refuse "git ${G_GITV:-missing} is older than 2.32 (GIT_CONFIG_GLOBAL unsupported); upgrade git" #@rule old-git
+fi
 
 trusted() { local t; for t in $G_TRUSTED; do [ "${1,,}" = "${t,,}" ] && return 0; done; return 1; }
 

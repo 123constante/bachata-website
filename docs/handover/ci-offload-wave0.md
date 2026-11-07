@@ -85,6 +85,61 @@ the env name shadowed to `pull_request`, `merge-head` would still refuse it: its
 base commit, not a merge commit. Every routed workflow must keep `pull_request`, never
 `pull_request_target` (check-secrets-register already flags the latter).
 
+## Fix round 2 (ticket dt_38826cd4e624; brief `brief/ci-offload-wave0-fix2` v2, blob 350b9a28, second review of 1b6ac93c2: SAFE WITH FIXES)
+
+The review reports (`C:/tmp/review/pr1470-fix1.md`, `C:/tmp/review/pr1470.md`) were NOT reachable
+from this cloud worker; the work follows the brief's quotes of them.
+
+| item | change | test rows / mutants |
+|---|---|---|
+| 1 env channels | `env_i_reexec`: the hook's first lines re-execute it as `/usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/nonexistent/ghrunner-gate XDG_CONFIG_HOME=(same) LC_ALL=C <the 16 values it reads, by name> /bin/bash -p "$0" --gate-reexec "$@"`. Drops `BASH_FUNC_*`, `SHELLOPTS`, `BASHOPTS`, `PS4`, `LD_PRELOAD`, `LD_LIBRARY_PATH`, every proxy / TLS variable. `POSIXLY_CORRECT=1` (a plain assignment) first, so the special builtin `exec` beats an exported function named `exec` (reproduced: without it `BASH_FUNC_exec%%` hijacks the exec). Second layer `unset_bash_func` (all functions unset, the listed names unset, HOME re-pinned). Same in `gate-job-completed.sh` (`scrub_completed`). | `env-channel <NAME>` accept + IDENTITY-refuse for each of 17 channels (`BASH_FUNC_git%%`, `BASH_FUNC_rm%%`, `BASH_FUNC_timeout%%`, SHELLOPTS, PS4, BASHOPTS, LD_PRELOAD, LD_LIBRARY_PATH, https_proxy, HTTPS_PROXY, ALL_PROXY, SSL_CERT_FILE, SSL_CERT_DIR, CURL_CA_BUNDLE, OPENSSL_CONF, HOME, XDG_CONFIG_HOME); `timeout+git` and `timeout+python3` function pairs (RED on 1b6ac93c2: the old hook said `identity ok` for an altered workflow and for a mallory payload); `GATE_REEXEC=1` cannot skip; `ps4-stops-at-reexec` started + completed (xtrace from env: nothing traced after the exec line); `scrub_completed` (exported find/rm never run, checkout still removed). Mutants `env_i_reexec`, `env_i_reexec+scrub_env`, `env_i_reexec+unset_bash_func`, `scrub_completed` |
+| 2 old git | `#@rule old-git`: refuse below git 2.32 (parsed from `git --version`; conf-only `TEST_GIT_VERSION` stands in for tests); HOME / XDG_CONFIG_HOME nonexistent (`old_git_home`) | `old-git` 2.31.1 / 1.99.9 / garbage refused, 2.32.0 / 3.0.1 accepted; `env-channel HOME` with an insteadOf `.gitconfig` |
+| 3 shebang | `#!/bin/bash -p` in both hooks | - |
+| 4 mutants | named mutants beside the `#@rule` ones: `mutant_z_diff` (plain `--name-only`), `mutant_symlink_file`, `mutant_symlink_dir`, `mutant_allow_regex` (regex -> `.`) | `--mutants` |
+| 5 unit | comment: AF_NETLINK NOT added (need unproven); FIRST thing to try if the runner or git fails to start; ProcSubset stays out; NoNewPrivileges / ProtectSystem=strict kept | not testable here |
+| 6 checklist | git 2.32+ row with the check command; `/bin/bash` + `/usr/bin/env` row; direct HTTPS (hook ignores proxies and TLS env) with an `env -i git ls-remote` check | - |
+
+Deviations, on purpose:
+- Re-exec marker is an ARGUMENT (`--gate-reexec`), not `GATE_REEXEC` in env as the brief sketched:
+  an env value is exactly the channel being closed, so `GATE_REEXEC=1` in the env would skip the
+  re-exec (row `env-channel GATE_REEXEC=1 + forging git`).
+- `scrub_env` and `unset_bash_func` alone are now redundant behind the re-exec, so their mutants
+  are run TOGETHER with the re-exec mutant (each alone would survive by design).
+
+Residual (stated): when the runner starts the hook as `bash <file>` the shebang's `-p` is not
+used, so LD_PRELOAD (loaded into that first bash) and SHELLOPTS/PS4 act on the lines ABOVE the
+exec (PS4 from env is honoured for the non-root runner user; bash ignores it as root, as in the
+cloud sandbox). Everything after the exec, including every git, python3 and rm, runs clean. A
+failed exec (no `/usr/bin/env`) exits non-zero: fail closed (the completed hook then exits non-zero
+too, its only non-0 path). The hook ignores proxies: the box needs direct HTTPS to github.com.
+
+If the runner service or the hook's git fails after install: try `AF_NETLINK` in
+`RestrictAddressFamilies` first (unit comment), never ProcSubset; keep NoNewPrivileges and
+ProtectSystem=strict.
+
+### Verified / Not verified -- fix round 2 (this sandbox: Linux, git 2.43.0, GNU bash 5.2.21, python3, running as root)
+
+Verified:
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> **PASS 240 cases** (was 144).
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants` -> **@@MUT@@**.
+- Red first: the new suite (FAST=1) against the 1b6ac93c2 hooks -> FAIL 19 of 229 (holder rows skipped): the
+  `timeout+git` / `timeout+python3` forge rows, `ps4-stops-at-reexec` x2, `scrub_completed` (an
+  exported `find` ran and the checkout was NOT removed), every `old-git` row.
+- `npx vitest run tests/routeRunner.test.ts` -> 96 passed. `check-secrets-register` OK (41
+  workflows, 0 self-hosted runners); `lint-workflow-masking`, `check-workflow-log-secrets`,
+  `lint-workflow-notification` exit 0; `check:mojibake` clean.
+- No `src/**`, `supabase/**`, `.github/workflows/**` or `route-runner.mjs` change; `bom-check`
+  required-check name unchanged.
+
+Not verified (fix round 2):
+- NOTHING ran on the Acer or the Dell: the arc owner runs the suite and `--mutants` there and records
+  the numbers; Approve waits for that. In particular the PS4-from-env case as a NON-root user was
+  not run here (root sandbox; bash drops an inherited PS4 for root).
+- How the live runner starts the hook (`bash <file>` vs executing it) is not observed; the
+  re-exec works either way, only the shebang `-p` differs.
+- systemd did not load the unit (no systemd here); AF_NETLINK need unproven.
+- The review reports under `C:/tmp/review/` (unreachable).
+
 ## Fix round 1 (ticket dt_1d521ee39f9f; brief `brief/ci-offload-wave0-fix1` v2, review of 4bf0762fb)
 
 The review report itself (`C:/tmp/review/pr1470.md`) was NOT reachable from this cloud worker; the

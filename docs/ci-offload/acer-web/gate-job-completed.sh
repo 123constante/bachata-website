@@ -1,4 +1,21 @@
-#!/usr/bin/env bash
+#!/bin/bash -p
+# scrub_completed (fix round 2, item 1): the same env_i_reexec guard as gate-job-started.sh (read
+# the comment there): re-run under `env -i` with a fixed PATH, a nonexistent HOME and ONLY
+# GITHUB_REPOSITORY, so an exported function (BASH_FUNC_rm%%, BASH_FUNC_find%%, BASH_FUNC_kill%%),
+# SHELLOPTS/PS4 or a loader variable cannot steer the rm -rf below. Marker = an argument, not env.
+POSIXLY_CORRECT=1
+if [[ "${1:-}" != --gate-reexec ]]; then
+  G_PASS=()
+  [[ -n "${GITHUB_REPOSITORY+x}" ]] && G_PASS+=("GITHUB_REPOSITORY=$GITHUB_REPOSITORY")
+  exec /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/nonexistent/ghrunner-gate XDG_CONFIG_HOME=/nonexistent/ghrunner-gate LC_ALL=C "${G_PASS[@]}" /bin/bash -p "$0" --gate-reexec "$@"
+fi
+shift
+unset G_PASS
+# unset_bash_func, second layer (same as the started hook; still in posix mode).
+unset -f compgen declare builtin command local unset 2>/dev/null
+for G_F in $(compgen -A function); do unset -f "$G_F"; done
+unset G_F BASH_ENV ENV PS4 BASHOPTS CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT 2>/dev/null
+unset POSIXLY_CORRECT
 # ACTIONS_RUNNER_HOOK_JOB_COMPLETED: release the walk lock, remove this job's checkout. Root-owned,
 # read-only to the service user. Always exits 0 (a cleanup problem never reds a job).
 # fix round 2 item 8: ONLY the checkout INSIDE _work/<repo> goes (the dir itself is kept). _temp and _actions are the runner's and it may

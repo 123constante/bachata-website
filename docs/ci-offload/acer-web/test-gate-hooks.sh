@@ -3,7 +3,8 @@
 #   bash docs/ci-offload/acer-web/test-gate-hooks.sh            -> "PASS n cases", exit 0
 #   HOOK_STARTED=/path/mutant.sh bash ...test-gate-hooks.sh     -> run against a hook mutant
 #   bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants  -> one mutant per `#@rule` line of
-#       the started hook (its `refuse` becomes `true`), plus `scrub_env` (its call deleted);
+#       the started hook (its `refuse` becomes `true`), plus the named mutants (env_i_reexec,
+#       scrub_completed, mutant_z_diff and siblings; list in the --mutants block);
 #       every mutant must make this suite FAIL.
 #   FAST=1: skip the slow lock-holder timing cases (used by --mutants).
 # Needs git, flock, setsid (util-linux), python3. Uses only a temp dir and a local file:// remote.
@@ -27,14 +28,40 @@ if [ "${1:-}" = "--mutants" ]; then
       echo "ok   mutant $r caught by: $(grep -m1 '^FAIL ' "$M/$r.out" | cut -c6-80)"
     fi
   done
-  # scrub_env mutant: the hook keeps the inherited PATH and GIT_* env.
-  mn=$((mn+1)); grep -v '^scrub_env$' "$HERE/gate-job-started.sh" > "$M/scrub.sh"
-  if cmp -s "$M/scrub.sh" "$HERE/gate-job-started.sh"; then echo "FAIL mutant scrub_env: no change made"; mf=$((mf+1))
-  elif FAST=1 HOOK_STARTED="$M/scrub.sh" bash "$0" > "$M/scrub.out" 2>&1; then
-    echo "FAIL mutant scrub_env SURVIVED"; mf=$((mf+1))
-  else
-    echo "ok   mutant scrub_env caught by: $(grep -m1 '^FAIL ' "$M/scrub.out" | cut -c6-80)"
-  fi
+  # Named mutants (fix round 2, item 4). mutate <name> <started|completed> then FIND/REPL pairs:
+  # each line holding FIND (a literal, via ENVIRON so no awk escape processing) gets FIND replaced
+  # by REPL; a pair whose REPL starts with "=" replaces the WHOLE line; a FIND starting with "^"
+  # matches only a line that equals the rest exactly. Every mutant must make the
+  # suite FAIL. scrub_env and unset_bash_func are second layers behind env_i_reexec, so each is
+  # mutated TOGETHER with the re-exec (alone they are redundant by design and would survive).
+  mutate() {
+    local name=$1 which=$2 src out; shift 2
+    if [ "$which" = completed ]; then src=$HERE/gate-job-completed.sh; else src=$HERE/gate-job-started.sh; fi
+    out="$M/$name.sh"; cp "$src" "$out"
+    while [ $# -ge 2 ]; do
+      F="$1" R="$2" awk '{ f = ENVIRON["F"]; r = ENVIRON["R"]
+        if (substr(f, 1, 1) == "^") i = ($0 == substr(f, 2)) ? 1 : 0; else i = index($0, f)
+        if (i) { if (substr(r, 1, 1) == "=") $0 = substr(r, 2); else $0 = substr($0, 1, i - 1) r substr($0, i + length(f)) }
+        print }' "$out" > "$out.n" && mv "$out.n" "$out"; shift 2
+    done
+    mn=$((mn+1))
+    if cmp -s "$out" "$src"; then echo "FAIL mutant $name: no change made"; mf=$((mf+1)); return; fi
+    local hv=HOOK_STARTED; [ "$which" = completed ] && hv=HOOK_COMPLETED
+    if env FAST=1 "$hv=$out" bash "$0" > "$M/$name.out" 2>&1; then
+      echo "FAIL mutant $name SURVIVED"; mf=$((mf+1))
+    else
+      echo "ok   mutant $name caught by: $(grep -m1 '^FAIL ' "$M/$name.out" | cut -c6-80)"
+    fi
+  }
+  REEXEC='exec /usr/bin/env -i'; NOREEXEC='=  set -- --gate-reexec "$@"'
+  mutate env_i_reexec started "$REEXEC" "$NOREEXEC"
+  mutate env_i_reexec+scrub_env started "$REEXEC" "$NOREEXEC" '^scrub_env' '=:'
+  mutate env_i_reexec+unset_bash_func started "$REEXEC" "$NOREEXEC" '^unset_bash_func' '=:'
+  mutate scrub_completed completed "$REEXEC" "$NOREEXEC"
+  mutate mutant_z_diff started 'diff -z --name-only' 'diff --name-only'
+  mutate mutant_symlink_file started '[ -f "$f" ] && [ ! -L "$f" ] || return 1' '[ -f "$f" ] || return 1'
+  mutate mutant_symlink_dir started '[ ! -L "$WORK_DIR/_temp" ] && [ ! -L "$WORK_DIR/_temp/_github_workflow" ] || return 1' '=  :'
+  mutate mutant_allow_regex started '^\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$' '.'
   if [ "$mf" -gt 0 ]; then echo "FAIL $mf of $mn mutants survived"; exit 1; fi
   echo "PASS all $mn mutants caught"; exit 0
 fi
@@ -126,7 +153,7 @@ run() { # env overrides as args; prints exit code. Defaults = PR "same" on bom-c
 }
 word() { awk '{print $4}' "$T/state/gate-verdict" 2>/dev/null; }
 lockfree() { ( flock -n 9 && echo free || echo held ) 9>>"$T/walk.lock"; }
-done_hook() { env -i PATH="$PATH" GITHUB_REPOSITORY=o/r WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_WORK_DIR=/nonexistent bash "$COMPLETED" --conf "$T/gate.conf"; echo $?; }
+done_hook() { env -i PATH="$PATH" GITHUB_REPOSITORY=o/r WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_WORK_DIR=/nonexistent "$@" bash "$COMPLETED" --conf "$T/gate.conf"; echo $?; }
 waitfree() { for _ in $(seq 1 50); do [ "$(lockfree)" = free ] && break; sleep 0.1; done; lockfree; }
 says() { grep -qF -- "$1" "$T/out" && echo yes || echo "no ($(grep -m1 'side-machine gate' "$T/out" | cut -c1-120))"; }
 # refused <name> <reason substring> [payload KEY=VAL ...] -- [env KEY=VAL ...]: exit 1, names the reason, lock untouched.
@@ -275,6 +302,65 @@ refused 'protected-nonascii: .github/workflows/<e-acute>.yml' 'PR touches $' hea
 refused 'protected-nonascii: tab in a scripts/lib/ name' 'PR touches $' head_sha="$HEAD_ctrl" -- GITHUB_WORKFLOW_SHA="$MERGE_ctrl"
 refused 'base-ref: PR into another branch' 'PR base release is not main' base=release
 refused 'identity (PR shape): altered listed workflow' 'IDENTITY' head_sha="$HEAD_mut" -- GITHUB_WORKFLOW_SHA="$MERGE_mut"
+
+# ---- 5. env channels that survive `unset GIT_*` (fix round 2, item 1: env_i_reexec) -------------
+# Each one set in the job env: a legitimate run is still accepted, an altered workflow still
+# IDENTITY-refused. The git function below FORGES every answer (fetched sha = the workflow sha,
+# both blobs equal): if it reached the hook, the refusal row would pass and the accept row
+# would fail on merge-head.
+FORGE_GIT='() { case "$*" in *"refs/gate/run^{commit}"*) echo "$GITHUB_WORKFLOW_SHA" ;; *rev-parse*) echo 1111111111111111111111111111111111111111 ;; *) return 0 ;; esac; }'
+mkdir -p "$T/evilhome"; printf '[url "file://%s/evil.git"]\n\tinsteadOf = file://%s/origin.git\n' "$T" "$T" > "$T/evilhome/.gitconfig"
+MUTPUSH=(kind=push after="$MERGE_mut" -- GITHUB_EVENT_NAME=push GITHUB_REF=refs/heads/main GITHUB_WORKFLOW_SHA="$MERGE_mut")
+for chan in "BASH_FUNC_git%%=$FORGE_GIT" 'BASH_FUNC_rm%%=() { return 0; }' 'BASH_FUNC_timeout%%=() { shift; "$@"; }' \
+    'SHELLOPTS=noglob' "PS4=\$(touch $T/ps4ran)" 'BASHOPTS=failglob' "LD_PRELOAD=$T/nope/evil.so" "LD_LIBRARY_PATH=$T/nope" \
+    'https_proxy=http://127.0.0.1:9' 'HTTPS_PROXY=http://127.0.0.1:9' 'ALL_PROXY=socks5://127.0.0.1:9' \
+    "SSL_CERT_FILE=$T/evil.pem" "SSL_CERT_DIR=$T/nope" "CURL_CA_BUNDLE=$T/evil.pem" "OPENSSL_CONF=$T/evil.cnf" \
+    "HOME=$T/evilhome" "XDG_CONFIG_HOME=$T/evilhome"; do
+  cname=${chan%%=*}
+  accepted "env-channel $cname: legitimate bom-check run still ok" -- "$chan"
+  refused "env-channel $cname: altered workflow still refused" 'IDENTITY' "${MUTPUSH[@]}" "$chan"
+done
+# The hook runs git and python3 through `timeout`, so a forging git/python3 function bites only
+# together with a timeout function that calls back into the shell (as the review reproduced).
+FN_TIMEOUT='BASH_FUNC_timeout%%=() { shift; "$@"; }'
+accepted 'env-channel timeout+git functions: legitimate run still ok' -- "$FN_TIMEOUT" "BASH_FUNC_git%%=$FORGE_GIT"
+refused 'env-channel timeout+git functions: altered workflow still refused' 'IDENTITY' "${MUTPUSH[@]}" "$FN_TIMEOUT" "BASH_FUNC_git%%=$FORGE_GIT"
+refused 'env-channel timeout+python3 functions: forged payload not read' 'payload sender mallory' sender=mallory -- "$FN_TIMEOUT" \
+  "BASH_FUNC_python3%%=() { printf 'P_KIND=pull_request\nP_REPO=o/r\nP_SENDER=kiki-claude-bot\nP_AUTHOR=kiki-claude-bot\nP_HEAD_REPO=o/r\nP_HEAD_SHA=$HEAD_same\nP_BASE_REF=main\n'; }"
+check 'env-channel PS4: no command ran from PS4' "$([ -e "$T/ps4ran" ] && echo ran || echo none)" none
+# The re-exec marker is an argument: an env GATE_REEXEC=1 cannot skip it.
+refused 'env-channel GATE_REEXEC=1 + forging git: still refused' 'IDENTITY' "${MUTPUSH[@]}" GATE_REEXEC=1 "BASH_FUNC_git%%=$FORGE_GIT"
+# ps4-stops-at-reexec: with xtrace on from the env, bash traces each line to stderr. The trace
+# must stop at the re-exec (`+ exec /usr/bin/env -i ...` is the last traced line). Counted on
+# stderr, not via PS4: bash ignores an inherited PS4 when it runs as root (the cloud sandbox),
+# but honours it for the non-root runner user (row env-channel PS4 covers that case).
+after_reexec() { awk '/^\++ exec \/usr\/bin\/env -i /{seen=1; n=0; next} /^\++ /{n++} END{ if (!seen) print "no re-exec traced"; else print n " traced after" }' "$1"; }
+accepted 'ps4-stops-at-reexec (started): xtrace from env, still ok' -- SHELLOPTS=xtrace
+reset; payload
+check 'ps4-stops-at-reexec (started): exit 0' "$(run SHELLOPTS=xtrace)" 0
+check 'ps4-stops-at-reexec (started): nothing traced after the re-exec' "$(after_reexec "$T/out")" '0 traced after'
+done_hook >/dev/null; waitfree >/dev/null
+reset; payload; mkdir -p "$T/work/r/src"
+check 'ps4-stops-at-reexec (completed): exit 0' "$(done_hook SHELLOPTS=xtrace 2>"$T/out.c")" 0
+check 'ps4-stops-at-reexec (completed): nothing traced after the re-exec' "$(after_reexec "$T/out.c")" '0 traced after'
+reset; payload; mkdir -p "$T/work/r/src"
+check 'scrub_completed: exported find/rm functions: exit 0' "$(done_hook "BASH_FUNC_find%%=() { touch $T/pwn-find; }" "BASH_FUNC_rm%%=() { touch $T/pwn-find; }")" 0
+check 'scrub_completed: no exported function ran' "$([ -e "$T/pwn-find" ] && echo ran || echo none)" none
+check 'scrub_completed: checkout contents still removed' "$([ -e "$T/work/r/src" ] && echo kept || echo gone)" gone
+
+# ---- 6. old git (fix round 2, item 2: old_git_home) ---------------------------------------------
+cp "$T/gate.conf" "$T/gate.conf.orig"
+echo 'TEST_GIT_VERSION=git version 2.31.1' >> "$T/gate.conf"
+refused 'old-git: git 2.31.1 refused' 'git 2.31.1 is older than 2.32'
+cp "$T/gate.conf.orig" "$T/gate.conf"; echo 'TEST_GIT_VERSION=git version 1.99.9' >> "$T/gate.conf"
+refused 'old-git: git 1.99.9 refused' 'is older than 2.32'
+cp "$T/gate.conf.orig" "$T/gate.conf"; echo 'TEST_GIT_VERSION=garbage' >> "$T/gate.conf"
+refused 'old-git: unparseable version refused' 'git garbage is older than 2.32'
+cp "$T/gate.conf.orig" "$T/gate.conf"; echo 'TEST_GIT_VERSION=git version 2.32.0' >> "$T/gate.conf"
+accepted 'old-git: git 2.32.0 accepted'
+cp "$T/gate.conf.orig" "$T/gate.conf"; echo 'TEST_GIT_VERSION=git version 3.0.1' >> "$T/gate.conf"
+accepted 'old-git: git 3.0.1 accepted'
+cp "$T/gate.conf.orig" "$T/gate.conf"
 
 if [ -z "${FAST:-}" ]; then
 # ---- 9. holder exits when the watched (runner) process dies -----------------------------------
