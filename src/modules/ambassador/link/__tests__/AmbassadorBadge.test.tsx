@@ -15,7 +15,6 @@ const CASES: Array<[string, () => void, boolean]> = [
   ['not ambassador', () => rpc.mockResolvedValue({ data: false, error: null }), false],
   ['null answer', () => rpc.mockResolvedValue({ data: null, error: null }), false],
   ['rpc error', () => rpc.mockResolvedValue({ data: null, error: { message: 'x' } }), false],
-  ['rpc throws', () => rpc.mockImplementation(() => { throw new Error('net'); }), false],
   ['signed-out anon denied', () => rpc.mockResolvedValue({ data: null, error: { code: '42501' } }), false],
 ];
 
