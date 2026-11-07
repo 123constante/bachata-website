@@ -21,6 +21,12 @@
  * PAUSE SWITCH issue and posts ONE notice naming the sha and PR (escalateRed; GITHUB_TOKEN
  * issues: write, which the workflow already has). Opening a revert PR is DESIGN ONLY (not built).
  * With the key off, every verdict is exactly today's.
+ *
+ * Class C review record (DETECTIVE only; brief audit-review-record-class-c): for each merged PR
+ * of a commit touching a test path (automerge-classify pathClass === "tests"), the audit also
+ * reads the PR's review record and prints `RECORD-MISSING <sha8>: PR #n <first problem>` when
+ * reviewRecordVerdict refuses it. That line never changes the exit code (worstCode ignores it).
+ * A PR the owner approved at head is skipped (`RECORD-SKIP`): the approval is the stronger record.
  */
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -31,6 +37,7 @@ import { isGuardPath } from "./lib/guard-paths.mjs";
 import { readArming, ARMING_PATH } from "./lib/arming.mjs";
 import { postPauseNotice, PAUSE_LABEL } from "./lib/automation-pause.mjs";
 import { setPauseLabel } from "./automation-pause.mjs";
+import { pathClass, reviewRecordVerdict, readReviewRecord } from "./automerge-classify.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -57,16 +64,56 @@ function verdictOf({ files, prs, owner, isHard }) {
     return { code: 1, reason: `hard-tier change with no PR (direct push to main): ${hard.join(", ")}` };
   }
   for (const pr of prs) {
-    const mine = (pr.reviews || []).filter(
-      (r) => r && r.user && String(r.user.login).toLowerCase() === owner.toLowerCase() && r.state !== "COMMENTED"
-    );
-    const last = mine[mine.length - 1];
-    if (last && last.state === "APPROVED" && last.commit_id === pr.headSha) {
+    if (ownerApprovedAtHead(pr, owner)) {
       return { code: 0, reason: `PR #${pr.number} owner-approved at head ${pr.headSha.slice(0, 8)}` };
     }
   }
   const nums = prs.map((p) => "#" + p.number).join(", ");
   return { code: 1, reason: `hard-tier change in ${nums} without an owner approval at the PR head: ${hard.join(", ")}` };
+}
+
+/** The owner's LATEST non-COMMENTED review is APPROVED at the PR's head sha. */
+function ownerApprovedAtHead(pr, owner = OWNER_LOGIN) {
+  const mine = ((pr && pr.reviews) || []).filter(
+    (r) => r && r.user && String(r.user.login).toLowerCase() === owner.toLowerCase() && r.state !== "COMMENTED"
+  );
+  const last = mine[mine.length - 1];
+  return Boolean(last && last.state === "APPROVED" && typeof pr.headSha === "string" && last.commit_id === pr.headSha);
+}
+
+/**
+ * Pure class C record verdict for ONE merged PR of a commit. `files` = the commit's paths;
+ * `pr` = {number, headSha, labels, reviews}; `record` = readReviewRecord()'s answer (null /
+ * {error} = unreadable, which fails closed). -> { applies, ok, problems, skipped }.
+ * applies: some file is a test path (pathClass, shared, never copied). skipped: the owner
+ * approved at head, so no record is needed. Detective only: never feeds an exit code.
+ */
+export function decideRecordAudit({ files, pr, record, owner = OWNER_LOGIN }) {
+  const applies = (files || []).some((f) => pathClass(f) === "tests");
+  if (!applies) return { applies: false, ok: true, problems: [], skipped: false };
+  if (ownerApprovedAtHead(pr, owner)) return { applies: true, ok: true, problems: [], skipped: true, pr: pr.number };
+  const problems = reviewRecordVerdict({ headSha: pr && pr.headSha, labels: (pr && pr.labels) || [], record });
+  return { applies: true, ok: problems.length === 0, problems, skipped: false, pr: pr && pr.number };
+}
+
+/** The log line for one record result, or null when there is nothing to say. */
+export function recordLine(sha, r) {
+  if (!r || !r.applies) return null;
+  const s8 = String(sha).slice(0, 8);
+  if (r.skipped) return `RECORD-SKIP ${s8}: PR #${r.pr} owner-approved at head (no review record needed)`;
+  if (!r.ok) return `RECORD-MISSING ${s8}: PR #${r.pr} ${r.problems[0]}`;
+  return null;
+}
+
+/** Exit code of a run: RED (1) outranks INFRA (2) outranks OK (0). Reads `code` only, so
+ *  the detective record results a verdict carries can never move it. */
+export function worstCode(verdicts) {
+  let worst = 0;
+  for (const v of verdicts || []) {
+    // RED outranks INFRA: a proven unapproved change is the stronger alarm.
+    if (v.code === 1 || (v.code === 2 && worst === 0)) worst = v.code;
+  }
+  return worst;
 }
 
 /**
@@ -130,9 +177,29 @@ async function auditCommit(repo, sha, escalation) {
   const prs = [];
   for (const p of assoc.filter((x) => x.merged_at)) {
     const reviews = await paginate(`/repos/${repo}/pulls/${p.number}/reviews`);
-    prs.push({ number: p.number, headSha: p.head.sha, reviews });
+    prs.push({ number: p.number, headSha: p.head.sha, reviews, labels: (p.labels || []).map((l) => l && l.name) });
   }
-  return decideAudit({ files, prs, escalation });
+  const v = decideAudit({ files, prs, escalation });
+  return { ...v, records: await recordAudits(repo, files, prs) };
+}
+
+/** Detective class C record check for each merged PR. Never throws: any read failure becomes
+ *  an { error } record, which decideRecordAudit fails closed into RECORD-MISSING. */
+async function recordAudits(repo, files, prs) {
+  const out = [];
+  for (const pr of prs) {
+    const first = decideRecordAudit({ files, pr, record: null });
+    if (!first.applies || first.skipped) { out.push(first); continue; }
+    let record;
+    try {
+      const events = await paginate(`/repos/${repo}/issues/${pr.number}/events`);
+      record = await readReviewRecord(repo, pr.number, pr.headSha, events);
+    } catch (e) {
+      record = { error: e && e.message ? e.message : String(e) };
+    }
+    out.push(decideRecordAudit({ files, pr, record }));
+  }
+  return out;
 }
 
 const ZERO = /^0+$/;
@@ -165,18 +232,21 @@ async function main() {
   }
   const escalation = readEscalation();
   console.log(`audit_escalation (arming.json): ${escalation ? "on" : "off"}`);
-  let worst = 0;
+  const verdicts = [];
   for (const c of shas) {
     const v = await auditCommit(repo, c, escalation);
+    verdicts.push(v);
     console.log(`${v.code === 0 ? "OK" : v.code === 1 ? "RED" : "INFRA"} ${c.slice(0, 8)}: ${v.reason}`);
+    for (const r of v.records || []) {
+      const line = recordLine(c, r);
+      if (line) console.log(line);
+    }
     if (v.escalate) {
       const e = await escalateRed({ repo, token: process.env.GH_TOKEN, sha: c, verdict: v });
       console.log(`ESCALATE ${c.slice(0, 8)}: pause label ${e.labelled ? "set" : "NOT set"}; notice ${e.notice && e.notice.posted ? "posted" : e.notice && e.notice.skipped ? "already posted" : "NOT posted"}${e.error ? ` (${e.error})` : ""}`);
     }
-    // RED outranks INFRA: a proven unapproved change is the stronger alarm.
-    if (v.code === 1 || (v.code === 2 && worst === 0)) worst = v.code;
   }
-  return worst;
+  return worstCode(verdicts);
 }
 
 if (isEntryPoint(import.meta.url)) {

@@ -7,7 +7,7 @@ import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import type { ProfileCompletionStatus } from '@/lib/profileCompletion';
 // Type only: a value import would put the claim RPC module into this pure model (and break test mocks of it).
 import type { ClaimStatus } from '@/lib/claimMyDancerProfile';
-import { hintMatchesEmail, parsePreview, type InvitePreview } from '../inviteModel';
+import { MEMBER_ROLES, hintMatchesEmail, parsePreview, type InvitePreview, type MemberRole } from '../inviteModel';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
 
@@ -223,7 +223,33 @@ export function codeStepFromSearch(search: string): string | null {
   return EMAIL_SHAPE.test(email) ? email : null;
 }
 
-export const codeStepSearch = (email: string): string => `?step=code&email=${encodeURIComponent(email.trim().toLowerCase())}`;
+/** The search with the code step's own params (step, email) removed; every other param (`next`) is kept. */
+export function withoutCodeStep(search = ''): URLSearchParams {
+  const q = new URLSearchParams(search);
+  q.delete('step');
+  q.delete('email');
+  return q;
+}
+
+/** The code step's search. `keep` is the current search: its other params (`next=get-paid`) survive the step. */
+export const codeStepSearch = (email: string, keep = ''): string => {
+  const rest = withoutCodeStep(keep).toString();
+  return `?step=code&email=${encodeURIComponent(email.trim().toLowerCase())}${rest ? `&${rest}` : ''}`;
+};
+
+/** Leaving the code step: the search that is left (other params kept), with its `?`, or ''. */
+export const searchAfterCodeStep = (search: string): string => {
+  const rest = withoutCodeStep(search).toString();
+  return rest ? `?${rest}` : '';
+};
+
+// ---- next=get-paid ------------------------------------------------------------------------------
+
+/** The ONE `next` value the join link honours: Done goes to the Get paid start path. Anything else is ignored. */
+export const NEXT_GET_PAID = 'get-paid';
+export const wantsGetPaid = (search: string): boolean => new URLSearchParams(search).get('next') === NEXT_GET_PAID;
+/** Only an owner or a manager seat sets up payments; a contributor (or an unknown role) gets today's Done. */
+export const seatCanSetUpPayments = (role: MemberRole | null | undefined): boolean => role === 'owner' || role === 'manager';
 
 // ---- typed email --------------------------------------------------------------------------------
 
@@ -308,7 +334,7 @@ export function interpretBind(data: unknown, error: { message?: string; code?: s
 }
 
 export type JoinRedeemOutcome =
-  | { kind: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { kind: 'done'; organiserId: string | null; alreadyMember: boolean; memberRole?: MemberRole }
   /** A2: the login did not land on the invited profile; the seat is NOT granted and the invite stays open. */
   | { kind: 'not_linked' }
   | { kind: 'dead'; reason: DeadReason }
@@ -332,7 +358,9 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member')) {
-    return { kind: 'done', organiserId: str(row.organiser_id), alreadyMember: row.status === 'already_member' };
+    // member_role: the seat redeemed (or already held); absent or unknown = left out, never guessed.
+    const role = (MEMBER_ROLES as readonly unknown[]).includes(row.member_role) ? (row.member_role as MemberRole) : null;
+    return { kind: 'done', organiserId: str(row.organiser_id), alreadyMember: row.status === 'already_member', ...(role ? { memberRole: role } : {}) };
   }
   const reason = typeof row.reason === 'string' ? row.reason : '';
   const hint = str(row.invite_email_hint);
@@ -365,7 +393,7 @@ export const failureTag = (step: string, code: string): string => `invite_join:$
 
 /** What the page does with a redeem answer. ONE mapping for the Join tap AND the post-sign-in safety stop. */
 export type RedeemAction =
-  | { act: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { act: 'done'; organiserId: string | null; alreadyMember: boolean; memberRole?: MemberRole }
   | { act: 'stop'; stop: JoinStop }
   | { act: 'refetch_preview' }
   | { act: 'refetch_completion' }
@@ -373,7 +401,7 @@ export type RedeemAction =
 
 export function redeemAction(outcome: JoinRedeemOutcome): RedeemAction {
   switch (outcome.kind) {
-    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember };
+    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember, ...(outcome.memberRole ? { memberRole: outcome.memberRole } : {}) };
     case 'not_linked': return { act: 'stop', stop: { kind: 'not_linked' } };
     case 'dead': return { act: 'refetch_preview' };
     case 'wrong_account': return { act: 'stop', stop: { kind: 'wrong_account', emailHint: outcome.emailHint } };

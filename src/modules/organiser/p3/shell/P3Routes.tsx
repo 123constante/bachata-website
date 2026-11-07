@@ -42,6 +42,7 @@ const DetailsScreen = lazyWithRetry(() => import('../screens/DetailsScreen').the
 const PricesScreen = lazyWithRetry(() => import('../screens/PricesScreen').then((m) => ({ default: m.PricesScreen })));
 const HistoryScreen = lazyWithRetry(() => import('../screens/HistoryScreen').then((m) => ({ default: m.HistoryScreen })));
 // The door scanner (ticketing) loads on its own; its QR reader fallback (jsQR) loads only from inside it.
+const GetPaidStart = lazyWithRetry(() => import('../tickets/GetPaid').then((m) => ({ default: m.GetPaidStart })));
 const DoorScreen = lazyWithRetry(() => import('../door/DoorScreen').then((m) => ({ default: m.DoorScreen })));
 
 // p3-prefix-d D2: every lazy screen sits in a boundary, so a chunk that will not load shows a
@@ -78,6 +79,7 @@ export default function P3Routes() {
       <Routes>
         <Route path="you/details" element={lazyScreen(<PersonFlow />, 'own', toYou)} />
         <Route path="start" element={lazyScreen(<OnboardingFlow />, 'own', toHome)} />
+        {flags.organiserTicketing && <Route path="get-paid" element={lazyScreen(<GetPaidStart />, 'own', toHome)} />}
         {flags.organiserTicketing && <Route path="events/:seriesId/door" element={lazyScreen(<DoorScreen />, 'own', toEvent)} />}
         <Route element={<P3Shell />}>
           <Route index element={<HomeScreen />} />
