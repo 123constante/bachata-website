@@ -265,7 +265,7 @@ export interface ConnectReturnBanner {
   /** Buttons, in order: put each paid draft on sale, put them all on sale, or carry on with Stripe. */
   actions: ReadonlyArray<{ kind: 'put_on_sale' | 'put_all_on_sale' | 'carry_on'; label: string; typeId?: string }>;
 }
-export const CONNECT_RETURN_CHECKING = 'Checking your payment set-up…';
+export const CONNECT_RETURN_CHECKING = 'Checking your payment set-up\u2026';
 export const CONNECT_RETURN_NONE = 'Payments connected. Add a ticket to start selling.';
 export const CONNECT_RETURN_NEEDS = 'A few details are still needed.';
 

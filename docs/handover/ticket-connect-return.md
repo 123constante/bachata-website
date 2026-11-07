@@ -17,3 +17,6 @@ Brief: `docs/briefs/ticket-connect-return.md` (brief-version 2).
 
 ## Next
 Phone walk at 390x844 with a real paid draft after Stripe return.
+
+## Continuation 1
+tsc run on HEAD: 0 errors. Fixed the red unit check: the ellipsis in CONNECT_RETURN_CHECKING is now the \u2026 escape (same visible text), so no raw U+2026 remains in source.
