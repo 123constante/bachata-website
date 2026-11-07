@@ -2,11 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { teamOf, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { fetchOrganiserTeam, organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import type { TeamMember, TeamRole } from '@/modules/organiser/shared/teamModel';
+import type { SharedTeamRow } from './teamShared';
 import { useOrganiserChoice } from '../switch/useOrganiserChoice';
 
 export interface TeamContext {
   organiser: HomeOrganiser | null;
   members: TeamMember[];
+  /** Everyone on the team from the shared read (seats + public roster); null = that read failed or is not in yet. */
+  listed: SharedTeamRow[] | null;
   viewerRole: TeamRole;
   /** The page itself is still loading (home or the team read). */
   loading: boolean;
@@ -46,6 +49,7 @@ export function useTeamContext(): TeamContext & { choose: (id: string) => void; 
     organisers,
     choose,
     members,
+    listed: usable ? read.data!.listed : null,
     viewerRole,
     loading: home.isPending || (!!selected && read.isPending && homeTeam.length === 0),
     // A failed team read is a retry, not a guess at the viewer's role.
