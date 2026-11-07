@@ -6,6 +6,10 @@ import { addRoleFor, roleWord, whyCannotAddPerson, type PItem } from '../../even
 import { L } from '../model';
 import { lineupChanged } from '../data/sessions';
 import { Sheet } from './Sheet';
+import { dancerMessageUsUrl } from '@/lib/contactLinks';
+
+/** The WhatsApp message the "Ask the team to add them" link opens; the searched text and the event follow it. */
+export const LINEUP_ADD_PERSON_MESSAGE = 'Hi! I’m adding a line-up on Bachata Calendar and cannot find: ';
 
 /** The roles an organiser adds here (organiser_search_people_v1 takes these two; performers and the MC are the team's). */
 const ADD_ROLES: ReadonlyArray<PeopleRole> = ['teaching', 'djing'];
@@ -89,7 +93,11 @@ export function LineupSheet({ name, where, type, initial, why, busy, error, onSa
           {q.length < PEOPLE_SEARCH_MIN ? <p className="p3-note">{L.searchHint}</p> : results.isError ? (
             <p className="p3-error" role="alert">{L.sessionsLoadFail.replace('this date\u2019s sessions', 'the people')}</p>
           ) : results.data && results.data.length === 0 ? (
-            <p className="p3-note" data-testid="p3-lineup-nomatch">{L.noMatch}</p>
+            <>
+              <p className="p3-note" data-testid="p3-lineup-nomatch">{L.noMatch}</p>
+              <a className="p3-link" data-testid="p3-lineup-ask-team" target="_blank" rel="noopener noreferrer"
+                href={dancerMessageUsUrl(`${LINEUP_ADD_PERSON_MESSAGE}${q}. Event: ${name}`)}>Ask the team to add them</a>
+            </>
           ) : (
             <div className="p3-stack-s" data-testid="p3-lineup-results">
               {(results.data ?? []).map((r) => {
