@@ -20,9 +20,20 @@ Environment=WEB_RUNNER_STATE_DIR=/srv/ghrunner-web/state
 Environment=WEB_RUNNER_WORK_DIR=/srv/ghrunner-web/runner/_work
 Environment=WALK_LOCK=/var/lib/laptop-walk/walk.lock
 Environment=GATE_WAIT_S=180
+# Wave 0 (audit finding E): routed jobs get a writable HOME and caches under _work ONLY (the hook
+# empties _work/_home before every job and keeps _work/_cache); browsers come from a ROOT-OWNED,
+# read-only dir (ProtectSystem=strict makes /opt read-only here) pre-installed by the owner:
+# docs/ci-offload/acer-web/provision-checklist.md. No sudo: NoNewPrivileges stays on.
+Environment=HOME=/srv/ghrunner-web/runner/_work/_home
+Environment=XDG_CACHE_HOME=/srv/ghrunner-web/runner/_work/_cache
+Environment=XDG_CONFIG_HOME=/srv/ghrunner-web/runner/_work/_home/.config
+Environment=npm_config_cache=/srv/ghrunner-web/runner/_work/_cache/npm
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+Environment=PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 # Must equal the values the Acer's walk/test gate (laptop-safe.mjs) uses.
 Environment=SAFE_LOAD_MAX=3.0
 Environment=SAFE_MEM_MIN=1500
+ExecStartPre=/bin/mkdir -p /srv/ghrunner-web/runner/_work/_home /srv/ghrunner-web/runner/_work/_cache
 ExecStart=/srv/ghrunner-web/runner/run.sh
 # Stop/restart: kill the WHOLE cgroup (runner, job, the setsid lock holder, node, Playwright),
 # then clear the state files so no stale holder pid or verdict survives.
@@ -32,14 +43,20 @@ TimeoutStopSec=2min
 ExecStopPost=/bin/rm -f /srv/ghrunner-web/state/lock-holder.pid /srv/ghrunner-web/state/gate-verdict
 Restart=on-failure
 RestartSec=30
-# Resource caps: 4 GB (stage 2 peak was 2.64 GiB), low CPU/IO priority.
+# Resource caps: 4 GB (stage 2 peak was 2.64 GiB), low CPU/IO priority. Raise MemoryMax above 4G
+# ONLY after the owner has read the Acer's RAM (free -m) and wave 1 has measured the routed job's
+# peak: docs/handover/ci-offload-wave0.md, "Memory".
 MemoryMax=4G
 MemorySwapMax=0
 Nice=10
 IOSchedulingClass=idle
 CPUWeight=50
 TasksMax=2048
-# Filesystem: everything read-only except the job workspace, the runner's log dir, the state
+# Trust boundary (fix round 1): a job runs as ghrunner-web and CAN READ the runner credential
+# files (.runner, .credentials, .credentials_rsaparams) and finds _work/_cache, _tool and
+# _actions as earlier jobs left them. Acceptable ONLY because the hook admits trusted authors'
+# same-repo PRs/pushes of allow-listed workflows identical to main's; see the wave 0 handover.
+# Filesystem (HOME, npm and XDG caches live inside _work): everything read-only except the job workspace, the runner's log dir, the state
 # dir and the walk-lock dir. NOT writable: the hooks (/usr/local/lib/ghrunner-web), the
 # runner binaries and its credentials (.runner, .credentials, .credentials_rsaparams in
 # /srv/ghrunner-web/runner). Hence the runner is configured with --disableupdate.
@@ -54,12 +71,30 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
-# Egress: no LAN, no link-local/metadata, no CGNAT (Tailscale) range. Internet stays open
+# Fix round 1, item 10. NOT set: ProcSubset=pid -- it hides /proc/loadavg and /proc/meminfo,
+# which the job-started hook's load gate reads (every job would then wait out GATE_WAIT_S and
+# run hosted), and which node/Chromium read too. ProtectProc=invisible still hides other users'
+# processes. RestrictAddressFamilies: if a routed job ever needs AF_NETLINK (seen with some
+# Chromium builds), the failure is a routed-job failure -> hosted runs it; widen only then.
+# Fix round 2, item 5: AF_NETLINK is deliberately NOT listed (need unproven). If the runner
+# service or git fails to start/resolve after install, AF_NETLINK is the FIRST thing to try
+# (append it here, daemon-reload, restart); record it in docs/handover/ci-offload-wave0.md.
+# Keep ProcSubset out (above), NoNewPrivileges=yes and ProtectSystem=strict whatever else changes.
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+# RestrictNamespaces: Chromium's own sandbox needs user namespaces; Playwright launches it with
+# --no-sandbox by default (chromiumSandbox: false), so routed e2e jobs are not affected.
+RestrictNamespaces=yes
+# Egress: no LAN, no link-local/metadata, no CGNAT (Tailscale) range, no "this network",
+# IETF-protocol, benchmarking or multicast ranges. Internet stays open
 # (github.com, the npm registry, Supabase are what jobs need); IP-level only, no per-domain
-# allowlist. If the DNS resolver is on the LAN, allow exactly its address (set it; Allow wins):
-IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+# allowlist. If the DNS resolver is on the LAN, allow exactly its address (set it; Allow wins).
+# Check which case applies BEFORE the first start: provision-checklist.md, "resolver-allow".
+IPAddressDeny=0.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 192.0.0.0/24 198.18.0.0/15 224.0.0.0/4 fc00::/7 fe80::/10 ff00::/8
 # IPAddressAllow=192.168.1.1
 # Loopback stays allowed (127.0.0.0/8, ::1): the job's own vite preview / Playwright need it.
+# 0.0.0.0/8 is denied: a test must reach its own server at 127.0.0.1 / localhost, not 0.0.0.0.
 
 [Install]
 WantedBy=multi-user.target

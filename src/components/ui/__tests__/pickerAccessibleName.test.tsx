@@ -174,7 +174,7 @@ const ROWS: Row[] = [
   { file: 'src/pages/EditProfile.tsx', picker: 'NationalityPicker', id: 'edit-profile-nationality' },
   { file: 'src/components/profile/DancerDashboard.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/pages/CreateVideographerProfile.tsx', picker: 'CityPicker', ariaLabel: 'City' },
-  { file: 'src/pages/OrganiserProfile.tsx', picker: 'CityPicker', id: 'city' },
+
   { file: 'src/pages/VendorDashboardPage.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/pages/VendorPortal.tsx', picker: 'CityPicker', ariaLabel: 'City' },
   { file: 'src/modules/admin-organisers/AdminOrganisersPage.tsx', picker: 'CityPicker', id: 'link-city' },
