@@ -48,6 +48,7 @@ const phone = (spec) => ({ spec: `tests/e2e-phone/${spec}.phone.spec.ts`, config
  */
 export const WALKS = {
   'p3-door': smoke('ticket-door-scanner', { env: { ...P3, VITE_ENABLE_ORGANISER_TICKETING: 'true' }, shotsEnv: 'DOOR_SHOTS' }),
+  'ticket-sales-report': smoke('walk-ticket-sales-report', { env: { ...P3, VITE_ENABLE_ORGANISER_TICKETING: 'true' }, shotsEnv: 'SALES_SHOTS' }),
   'p3-onboarding': smoke('walk-p3-w4b-onboarding', { shotsEnv: 'P3_WALK_DIR' }),
   'p3-golive': smoke('walk-p3-golive', { fixed: ['docs/handovers/p3-golive-wiring', ''] }),
   'p3-gate-sheet': smoke('p3-gate-sheet', { fixed: ['test-results', 'p3-gate-sheet-'] }),
@@ -65,6 +66,7 @@ export const WALKS = {
 /** UI file -> walks. FIRST match wins, so a narrow row sits above a broad one. */
 export const MAP = [
   [/^src\/modules\/organiser\/p3\/door\//, ['p3-door']],
+  [/^src\/modules\/organiser\/p3\/tickets\/(?:(?:SalesReport|salesReportModel)\.|TicketsEntry\.tsx$)/, ['ticket-sales-report']],
   [/^src\/modules\/organiser\/p3\/onboarding\/Gate(?:Host|Sheet)\.tsx$/, ['p3-gate-sheet']],
   [/^src\/modules\/organiser\/p3\/onboarding\//, ['p3-onboarding', 'p3-golive']],
   [/^src\/modules\/organiser\/p3\/screens\/RepeatSheet\.tsx$/, ['p3-repeat']],
