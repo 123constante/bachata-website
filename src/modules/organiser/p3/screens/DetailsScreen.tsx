@@ -18,6 +18,7 @@ import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useKep
 import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
+import { BrokenImage } from './BrokenImage';
 import { OnBody } from './RepeatSheet';
 import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
 import { changedWord, scopedChangesOf } from '../model/scopeAsk';
@@ -129,7 +130,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       </Field>
       <div className="p3-stack-s" data-testid="p3-field-cover">
         <span className="p3-field">{L.detailsCover}</span>
-        {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
+        {draft.cover ? <BrokenImage className="p3-cover" src={draft.cover} /> : <p className="p3-note">{L.detailsCoverNone}</p>}
         {diff('cover')}
         <label className="p3-btn p3-btn-line p3-file" htmlFor="p3-d-cover" data-testid="p3-d-cover-btn">
           {draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}
