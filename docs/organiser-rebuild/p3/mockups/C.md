@@ -1,0 +1,23 @@
+# Mockup C - "Today first"
+
+**Idea.** Home answers "what needs me now?", not "here is your list". Top: the next date (tonight's Sensual Fridays) with three one-tap actions (Cancel this date / Change line-up / See page). Then a short "Needs you" checklist, then two stat numbers, then a compact event list. An event page is a strip of upcoming dates; tap a date, pick what to do, then "This date only / This and later ones".
+
+**Screens** (all reachable by tapping `C.html`, Back works): First day "We found your events" -> Home (Next up, Needs you, stats, events, quiet featured spot) - tabs Home / Events / Stats / You. Event page (date strip, line-up, photos, people, stats, pause). Date sheet -> which-dates sheet -> take-off confirm with 10 s Undo, or Move screen, or Line-up. Line-up picker (search real profiles, "no one called X" next step). Photos (2 missing, upload-failed sheet). People who run it + invite sheet (inline error). Public preview. New course: name -> start + weeks -> place + time -> check -> live. Stats (today / 7 / 30 days, per event). Empty: new Leeds organiser, one event, no photo, no views. Long name + 13 dates (You > Mockup only).
+
+**Gaps answered.** G21/G34 (every target >= 44px, measured), G22 (one ActionRow/QuietButton set, buttons full-width so no baseline drift, W7), G29/G30 (each empty/error state has a reason + one action), G31/G32 (gold text uses `--gold-fg`; no opacity-faded reasons), G48 (course create on), G49 (stats tile + Stats tab, views/saves), G53 (cancel a date from Home), G54 (no claim step: "Tell us" if a match is wrong), G56 (invite a person by email/phone, not a page), W6 (years shown past this year: "Jan 27").
+**Benchmark patterns.** #6 Airbnb "Today" first screen (the core of this direction); #2 this date / this and later (Meetup); #4 stats as one line with three ranges (Luma); #1 empty state = reason + matching button (Stripe); undo window instead of irreversible cancel (anti-pattern Meetup); #8 featured spot as one quiet placeholder.
+
+**Trade-offs vs A (calm) and B (photo-led).** + Fastest path for the most common job (change tonight) - one tap from opening the app. + Nudges finish the job (photos, teachers) without a setup wizard. - Home changes every day, which can unsettle a low-tech user who wants things "where they were"; the list is lower down. - Needs a server-side "needs you" rule set (photo missing, empty line-up, course without teachers) kept in one shared mapping. - Less photo-led than B; covers are smaller on Home. - 4 tabs = one more navigation idea than a single-list home.
+
+**New primitives.** NextUpCard, QuickActions (3-up), NeedsYouList (TodoRow with tick), StatPair, RangeSwitch, DateStrip (DateChip: next / off / moved), ScopeChoice (ChoiceList radio), ActionRow, QuietButton, BottomBar (one primary), Sheet, UndoToast, InlineError, StepFrame (progress bars), TabBar, PreviewBar, QuietSpot (featured placeholder).
+
+**New tokens.** Light theme is new (Ember is dark-only today): `--bg #f7f3ef --card #fff --card2 #f1ebe5 --line #e4dbd2 --line-strong #8a7d71 --fg #1d0a03 --mut #5f5248 --gold-fg #a8461a --danger #b3261e --ok-fg #17663f --warn-fg #8a3510`; plus `--danger-fg` (text on a red button), `--scrim`, `--shadow`. Dark = ember.css `.ember-world` values unchanged. Light/dark follows the phone; flip it with the corner button (desktop) or You > Light / dark (phone).
+
+**Self-checks (measured, Playwright 390x844, light + dark, 30 screens/states each).**
+- Text contrast >= 4.5:1 on every visible text node on every state: PASS both themes (one fail found and fixed: white on dark red button 2.55 -> new `--danger-fg`). Text on photo stand-ins and the public-site preview excluded.
+- Tap targets >= 44x44 on every visible button/input/link: PASS (0 under).
+- No sideways scroll at 390 (page and every screen): PASS. Date strip scrolls sideways inside itself by design.
+- Empty/error states say what to do: no photo, no views (copy link), no line-up match (spelling + join link), empty course name, bad invite address, photo too big, paused event, "not mine" on day one.
+
+**Verified.** Every screen and sheet opened by a scripted walk with no JS errors in both themes; checks above. Event names and places are London Loves Bachata's real public ones (prod SELECT, names/venues only).
+**Not verified.** Visit/save numbers and per-event split are rounded stand-ins around the ~893/30-day figure (not queried per event). Teacher/DJ names (DJ Kizzy, Marco & Sofia, etc.), co-organiser "Jess" and the Leeds organiser are invented stand-ins. Days/times of some nights (Thu, Tue) are illustrative. Outfit font was blocked in the sandbox (fallback font measured). Not tried on a real phone.

@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Organiser mockup C: Today first</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/*
+ * Mockup C "Today first". Colours are the Ember tokens from
+ * src/modules/organiser/ui/ember.css (.ember-world). Ember is dark only today,
+ * so the LIGHT set below is new (named in C.md). Every size is px (the public
+ * site shrinks rem on phones).
+ */
+:root {
+  /* light (new) */
+  --bg: #f7f3ef;
+  --card: #ffffff;
+  --card2: #f1ebe5;
+  --sheet: #ffffff;
+  --tab: #ffffff;
+  --line: #e4dbd2;
+  --line-strong: #8a7d71;
+  --fg: #1d0a03;
+  --mut: #5f5248;
+  --gold: #f0703a;
+  --gold-fg: #a8461a;
+  --btn: #f0703a;
+  --btnfg: #1d0a03;
+  --danger: #b3261e;
+  --danger-fg: #ffffff;
+  --ok-bg: #e2f4ea;
+  --ok-fg: #17663f;
+  --warn-bg: #fde8dc;
+  --warn-fg: #8a3510;
+  --scrim: rgba(29, 10, 3, 0.45);
+  --shadow: 0 1px 2px rgba(29, 10, 3, 0.06), 0 6px 20px rgba(29, 10, 3, 0.06);
+  /* shared */
+  --r-card: 20px;
+  --r-ctl: 15px;
+  --r-chip: 999px;
+  --r-date: 12px;
+  --r-sheet: 28px;
+  --font-ui: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #202226; --card: #2a2d32; --card2: #33373d; --sheet: #2a2d32; --tab: #17181b;
+    --line: #3d4148; --line-strong: #7b828d; --fg: #f1f2f4; --mut: #a3a9b3;
+    --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03; --danger: #ff7a6b; --danger-fg: #1d0a03;
+    --ok-bg: rgba(62, 207, 142, 0.14); --ok-fg: #7be6b4; --warn-bg: rgba(240, 112, 58, 0.14); --warn-fg: #ff9a6a;
+    --scrim: rgba(0, 0, 0, 0.6); --shadow: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #202226; --card: #2a2d32; --card2: #33373d; --sheet: #2a2d32; --tab: #17181b;
+  --line: #3d4148; --line-strong: #7b828d; --fg: #f1f2f4; --mut: #a3a9b3;
+  --gold: #f0703a; --gold-fg: #f5865a; --btn: #f0703a; --btnfg: #1d0a03; --danger: #ff7a6b; --danger-fg: #1d0a03;
+  --ok-bg: rgba(62, 207, 142, 0.14); --ok-fg: #7be6b4; --warn-bg: rgba(240, 112, 58, 0.14); --warn-fg: #ff9a6a;
+  --scrim: rgba(0, 0, 0, 0.6); --shadow: none; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: #111214;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--fg);
+  -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center; justify-content: center;
+}
+:root:not([data-theme="dark"]) body { background: #ddd3ca; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body { background: #111214; } }
+
+.phone {
+  width: 390px; height: 844px; position: relative; overflow: hidden; overflow: clip;
+  background: var(--bg); border-radius: 44px;
+  box-shadow: 0 0 0 10px #000, 0 30px 80px rgba(0,0,0,0.35);
+}
+@media (max-width: 500px) {
+  body { display: block; }
+  .phone { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+}
+.scr {
+  position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden;
+  padding: 0 16px 120px; display: none; background: var(--bg);
+}
+.scr.on { display: block; animation: in 0.22s ease-out; }
+.scr.notab { padding-bottom: 120px; }
+@keyframes in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .scr.on, .sheet, .toast { animation: none !important; transition: none !important; } }
+
+/* top bar */
+.top { display: flex; align-items: center; gap: 8px; min-height: 64px; padding-top: 12px; }
+.top h1 { font-size: 20px; font-weight: 600; margin: 0; flex: 1; }
+.back {
+  min-width: 48px; min-height: 48px; margin-left: -12px; border: 0; background: none; color: var(--fg);
+  font: inherit; font-size: 16px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; padding: 0 12px;
+}
+.back svg { width: 22px; height: 22px; }
+
+h2 { font-size: 18px; font-weight: 600; margin: 28px 0 12px; }
+.big { font-size: 28px; line-height: 1.15; font-weight: 600; margin: 8px 0 6px; letter-spacing: -0.01em; }
+.mut { color: var(--mut); }
+.small { font-size: 14px; }
+p { margin: 0 0 12px; }
+
+/* cards & rows */
+.card { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); border: 1px solid var(--line); }
+.pad { padding: 16px; }
+.row {
+  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 16px;
+  width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.row + .row { border-top: 1px solid var(--line); }
+.row .grow { flex: 1; min-width: 0; }
+.row .t { font-weight: 500; font-size: 16px; overflow-wrap: anywhere; }
+.row .s { font-size: 14px; color: var(--mut); }
+.chev { width: 20px; height: 20px; color: var(--mut); flex: none; }
+
+/* buttons */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  min-height: 52px; border-radius: var(--r-ctl); border: 0; font: inherit; font-weight: 600; font-size: 16px;
+  background: var(--btn); color: var(--btnfg); cursor: pointer; padding: 0 18px;
+}
+.btn.quiet { background: var(--card2); color: var(--fg); font-weight: 500; }
+.btn.line { background: none; border: 1px solid var(--line-strong); color: var(--fg); font-weight: 500; }
+.btn.danger { background: none; border: 1px solid var(--danger); color: var(--danger); }
+.btn.danger-fill { background: var(--danger); color: var(--danger-fg); }
+.btn[disabled] { opacity: 1; background: var(--card2); color: var(--mut); cursor: not-allowed; }
+.link { background: none; border: 0; color: var(--gold-fg); font: inherit; font-weight: 600; min-height: 44px; padding: 0 4px; cursor: pointer; }
+.stack > * + * { margin-top: 10px; }
+.bottombar { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px 24px; background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 5; display: none; }
+.bottombar.on { display: block; }
+
+/* next-up hero */
+.hero { overflow: hidden; }
+.cover { height: 132px; position: relative; }
+.cover .tag { position: absolute; left: 12px; top: 12px; }
+.ph1 { background: radial-gradient(circle at 25% 30%, #ffb38a 0, transparent 45%), linear-gradient(135deg, #f0703a, #7a2b52 70%, #2b1640); }
+.ph2 { background: radial-gradient(circle at 70% 30%, #ffd6a0 0, transparent 40%), linear-gradient(160deg, #3a6b8f, #23314d 70%); }
+.ph3 { background: radial-gradient(circle at 30% 70%, #f7c6e0 0, transparent 40%), linear-gradient(120deg, #8f3a6b, #331a3d); }
+.ph4 { background: linear-gradient(135deg, #2f7a62, #183b38); }
+.ph5 { background: radial-gradient(circle at 60% 40%, #ffe08a 0, transparent 40%), linear-gradient(135deg, #c25a2a, #4a1f12); }
+.nophoto { background: repeating-linear-gradient(45deg, var(--card2), var(--card2) 10px, var(--card) 10px, var(--card) 20px); display: flex; align-items: center; justify-content: center; color: var(--mut); font-size: 14px; }
+.when { font-size: 14px; font-weight: 600; color: var(--gold-fg); text-transform: uppercase; letter-spacing: 0.06em; }
+.qa { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; }
+.qa button {
+  min-height: 72px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--card2); color: var(--fg);
+  font: inherit; font-size: 14px; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; padding: 6px;
+}
+.qa svg { width: 22px; height: 22px; }
+
+/* tags */
+.tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; border-radius: var(--r-chip); padding: 4px 10px; }
+.tag.live { background: var(--ok-bg); color: var(--ok-fg); }
+.tag.paused { background: var(--card2); color: var(--mut); border: 1px solid var(--line); }
+.tag.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.cover .tag.live { background: #e2f4ea; color: #17663f; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+/* needs you */
+.todo { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 16px; width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.todo + .todo { border-top: 1px solid var(--line); }
+.tick { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line-strong); flex: none; display: flex; align-items: center; justify-content: center; }
+.todo.done .tick { background: var(--ok-fg); border-color: var(--ok-fg); color: var(--card); }
+.todo.done .t { text-decoration: line-through; color: var(--mut); }
+.count { min-width: 26px; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--gold); color: var(--btnfg); font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+
+/* stats */
+.stats { display: grid; grid-template-columns: 1fr 1fr; }
+.stat { padding: 16px; }
+.stat + .stat { border-left: 1px solid var(--line); }
+.stat .n { font-size: 30px; font-weight: 600; line-height: 1.1; }
+.stat .l { font-size: 14px; color: var(--mut); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: var(--card2); border-radius: var(--r-ctl); }
+.seg button { min-height: 44px; border: 0; border-radius: 11px; background: none; color: var(--mut); font: inherit; font-weight: 500; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: var(--shadow); font-weight: 600; }
+.bar { height: 8px; border-radius: 4px; background: var(--card2); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; background: var(--gold); border-radius: 4px; }
+
+/* event list thumbs */
+.thumb { width: 48px; height: 48px; border-radius: 12px; flex: none; }
+
+/* date strip */
+.strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 8px; margin: 0 -16px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.date {
+  flex: none; width: 64px; min-height: 84px; border-radius: var(--r-date); border: 1px solid var(--line); background: var(--card);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: inherit; color: var(--fg);
+  cursor: pointer; scroll-snap-align: start; padding: 6px 2px;
+}
+.date .d { font-size: 13px; color: var(--mut); }
+.date .n { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.date .m { font-size: 13px; color: var(--mut); }
+.date.next { border: 2px solid var(--gold); }
+.date.off { background: var(--card2); }
+.date.off .n { text-decoration: line-through; color: var(--mut); }
+.date.off .m { color: var(--danger); font-weight: 600; }
+.date.moved .m { color: var(--warn-fg); font-weight: 600; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--mut); margin-top: 4px; }
+
+/* people */
+.av { width: 44px; height: 44px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #1d0a03; font-size: 15px; }
+.a1 { background: #ffb38a; } .a2 { background: #a8d8c4; } .a3 { background: #f7c6e0; } .a4 { background: #c7d2ff; } .a5 { background: #ffe08a; }
+
+/* inputs */
+label.f { display: block; font-size: 15px; font-weight: 500; margin: 16px 0 6px; }
+.in { width: 100%; min-height: 52px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: 16px; padding: 0 14px; }
+.in::placeholder { color: var(--mut); }
+.in:focus-visible, button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.in.bad { border-color: var(--danger); border-width: 2px; }
+.err { color: var(--danger); font-size: 14px; margin-top: 6px; display: flex; gap: 6px; }
+.hint { font-size: 14px; color: var(--mut); margin-top: 6px; }
+.choice { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 16px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.choice + .choice { margin-top: 10px; }
+.choice[aria-checked="true"] { border: 2px solid var(--gold); background: var(--warn-bg); }
+.radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line-strong); flex: none; }
+.choice[aria-checked="true"] .radio { border: 7px solid var(--gold); }
+.steps { display: flex; gap: 6px; margin: 4px 0 18px; }
+.steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--card2); }
+.steps i.on { background: var(--gold); }
+.weeks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.weeks button { min-height: 52px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer; }
+.weeks button[aria-pressed="true"] { border: 2px solid var(--gold); background: var(--warn-bg); }
+
+/* tab bar */
+.tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 80px; padding-bottom: 16px; background: var(--tab); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); z-index: 6; }
+.tabs button { border: 0; background: none; color: var(--mut); font: inherit; font-size: 13px; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; min-height: 56px; }
+.tabs button[aria-current="page"] { color: var(--gold-fg); font-weight: 600; }
+.tabs svg { width: 24px; height: 24px; }
+.tabs.hide { display: none; }
+
+/* sheet */
+.scrim { position: absolute; inset: 0; background: var(--scrim); z-index: 20; display: none; }
+.scrim.on { display: block; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--sheet); border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding: 10px 16px 28px; transform: translateY(105%); transition: transform 0.25s ease-out; max-height: 88%; overflow-y: auto; }
+.sheet.on { transform: none; }
+.grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line-strong); margin: 0 auto 12px; }
+.sheet h3 { font-size: 20px; font-weight: 600; margin: 4px 0 6px; }
+
+/* toast */
+.toast { position: absolute; left: 16px; right: 16px; bottom: 96px; z-index: 30; background: var(--fg); color: var(--bg); border-radius: var(--r-ctl); padding: 6px 6px 6px 16px; display: none; align-items: center; gap: 8px; min-height: 56px; font-size: 15px; }
+.toast.on { display: flex; }
+.toast .grow { flex: 1; }
+.toast button { min-height: 44px; min-width: 64px; border: 0; background: none; color: var(--gold); font: inherit; font-weight: 700; cursor: pointer; }
+:root:not([data-theme="dark"]) .toast button { color: #ffb38a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .toast button { color: #a8461a; } }
+:root[data-theme="dark"] .toast button { color: #a8461a; }
+
+/* public preview */
+.pub { background: #0f0d0b; color: #f6f1e7; margin: 0 -16px; min-height: 100%; }
+.pub .cover { height: 220px; }
+.pub .body { padding: 16px; }
+.pub .pill { display: inline-block; border: 1px solid #776e60; border-radius: 999px; padding: 4px 10px; font-size: 13px; margin: 0 6px 6px 0; color: #f6f1e7; }
+.pub .k { color: #a39a8b; font-size: 14px; }
+.previewbar { position: absolute; top: 0; left: 0; right: 0; z-index: 6; background: var(--gold); color: var(--btnfg); display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 16px; font-weight: 600; font-size: 15px; }
+.previewbar .grow { flex: 1; }
+.previewbar button { min-height: 44px; border: 0; border-radius: 12px; background: var(--btnfg); color: #fff; font: inherit; font-weight: 600; padding: 0 14px; cursor: pointer; }
+
+/* takeover */
+.take { text-align: center; padding-top: 48px; }
+.take .burst { width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 16px; background: radial-gradient(circle at 35% 35%, #ffb38a, #f0703a 60%, #a8461a); display: flex; align-items: center; justify-content: center; }
+.found { text-align: left; margin-top: 20px; }
+
+.quietspot { border: 1px dashed var(--line-strong); border-radius: var(--r-card); padding: 14px 16px; margin-top: 28px; }
+.themebtn { position: fixed; right: 12px; top: 12px; z-index: 50; min-height: 44px; min-width: 44px; border-radius: 22px; border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); font: inherit; font-size: 14px; padding: 0 14px; cursor: pointer; }
+@media (max-width: 500px) { .themebtn { display: none; } }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<button class="themebtn" id="themebtn" type="button" aria-label="Switch light or dark">Light / dark</button>
+
+<div class="phone" id="phone">
+
+<!-- ================= FIRST DAY: we found your events ================= -->
+<section class="scr notab" id="s-welcome" data-tabs="0">
+  <div class="take">
+    <div class="burst" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#1d0a03" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+    <div class="when">Welcome, London Loves Bachata</div>
+    <div class="big">We found your events</div>
+    <p class="mut">They are already on Bachata Calendar. From today you can change them yourself &mdash; dancers see your changes straight away.</p>
+  </div>
+  <div class="card found">
+    <div class="row" style="cursor:default"><div class="thumb ph3"></div><div class="grow"><div class="t">Sensual Wednesdays</div><div class="s">Every Wednesday &middot; Waterloo Action Centre</div></div></div>
+    <div class="row" style="cursor:default"><div class="thumb ph1"></div><div class="grow"><div class="t">Sensual Fridays</div><div class="s">Every Friday &middot; Colab Tower</div></div></div>
+    <div class="row" style="cursor:default"><div class="thumb ph2"></div><div class="grow"><div class="t">Sensual Saturdays</div><div class="s">Every Saturday &middot; Studio 68</div></div></div>
+    <div class="row" style="cursor:default"><div class="thumb nophoto" aria-label="No photo yet"></div><div class="grow"><div class="t">+ 4 more</div><div class="s">Courses and other nights</div></div></div>
+  </div>
+  <p class="small mut" style="margin-top:14px">Something here is not yours? <button class="link" data-sheet="notmine">Tell us</button></p>
+  <div class="bottombar" data-for="s-welcome"><button class="btn" data-go="home">Show me my week</button></div>
+</section>
+
+<!-- ================= HOME (Today) ================= -->
+<section class="scr" id="s-home" data-tabs="1" data-tab="home">
+  <div class="top"><h1>Hi, London Loves Bachata</h1></div>
+
+  <div class="card hero">
+    <div class="cover ph1"><span class="tag live"><span class="dot"></span>Live</span></div>
+    <div class="pad">
+      <div class="when">Next up &middot; Tonight, 8pm</div>
+      <div class="big" style="font-size:24px">Sensual Fridays</div>
+      <div class="mut">Colab Tower &middot; DJ Kizzy &middot; 42 saves</div>
+      <div class="qa">
+        <button data-sheet="cancelnext"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>Cancel this date</button>
+        <button data-go="lineup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11h4M19 9v4"/></svg>Change line&#8209;up</button>
+        <button data-go="preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>See page</button>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="display:flex;align-items:center;gap:8px">Needs you <span class="count" id="needcount">2</span></h2>
+  <div class="card" id="needs">
+    <button class="todo" data-go="photos" data-todo="photo"><span class="tick" aria-hidden="true"></span><span class="grow"><span class="t" style="display:block">2 events have no photo</span><span class="s mut small">Events with a photo get about twice the views</span></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="todo" data-go="lineup" data-todo="teach"><span class="tick" aria-hidden="true"></span><span class="grow"><span class="t" style="display:block">Add the teachers for the November course</span><span class="s mut small">Starts Wed 4 Nov &middot; dancers ask who is teaching</span></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="todo done" data-todo="times"><span class="tick" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><span class="grow"><span class="t" style="display:block">Check your Christmas dates</span><span class="s mut small">Done yesterday</span></span></button>
+  </div>
+
+  <h2>Last 30 days</h2>
+  <button class="card stats" data-tab-go="stats" style="width:100%;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer">
+    <div class="stat"><div class="n">893</div><div class="l">people saw your events</div></div>
+    <div class="stat"><div class="n">118</div><div class="l">saved one to go</div></div>
+  </button>
+
+  <h2 style="display:flex;align-items:center">All your events <span class="grow" style="flex:1"></span><button class="link" data-tab-go="events">See all</button></h2>
+  <div class="card" id="homelist"></div>
+
+  <div class="quietspot">
+    <div class="t" style="font-weight:600">Want more dancers to find you?</div>
+    <div class="small mut">Featured spots on the calendar are coming later. Nothing to do now.</div>
+  </div>
+</section>
+
+<!-- ================= EVENTS ================= -->
+<section class="scr" id="s-events" data-tabs="1" data-tab="events" style="padding-bottom:180px">
+  <div class="top"><h1>Your events</h1></div>
+  <div class="card" id="eventlist"></div>
+  <h2>Paused</h2>
+  <div class="card">
+    <button class="row" data-sheet="paused"><div class="thumb ph4" style="opacity:.6"></div><div class="grow"><div class="t">Mambo City x LLB</div><div class="s">Paused since 2 Sep &middot; dancers don't see it</div></div><span class="tag paused">Paused</span></button>
+  </div>
+  <div class="bottombar" data-for="s-events" style="bottom:80px"><button class="btn" data-sheet="addnew">Add an event or course</button></div>
+</section>
+
+<!-- ================= STATS ================= -->
+<section class="scr" id="s-stats" data-tabs="1" data-tab="stats">
+  <div class="top"><h1>How you're doing</h1></div>
+  <div class="seg" role="group" aria-label="Time range">
+    <button data-range="d" aria-pressed="false">Today</button>
+    <button data-range="w" aria-pressed="false">7 days</button>
+    <button data-range="m" aria-pressed="true">30 days</button>
+  </div>
+  <div class="card stats" style="margin-top:12px">
+    <div class="stat"><div class="n" id="st-v">893</div><div class="l">people saw your events</div></div>
+    <div class="stat"><div class="n" id="st-s">118</div><div class="l">saved one to go</div></div>
+  </div>
+  <h2>By event</h2>
+  <div class="card" id="statlist"></div>
+  <p class="small mut" style="margin-top:12px">A &ldquo;save&rdquo; is a dancer tapping Save on your event. Numbers update every hour.</p>
+</section>
+
+<!-- ================= YOU ================= -->
+<section class="scr" id="s-you" data-tabs="1" data-tab="you">
+  <div class="top"><h1>You</h1></div>
+  <div class="card">
+    <div class="row" style="cursor:default"><div class="av a1">LL</div><div class="grow"><div class="t">London Loves Bachata</div><div class="s">Organiser page &middot; London</div></div></div>
+    <button class="row" data-go="team"><div class="grow"><div class="t">People who run your events</div><div class="s">You and Jess &middot; invite someone</div></div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button>
+    <button class="row" data-sheet="help"><div class="grow"><div class="t">Help</div><div class="s">Short answers, in plain words</div></div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+  <h2>Mockup only</h2>
+  <div class="card">
+    <button class="row" id="themerow"><div class="grow"><div class="t">Light / dark</div><div class="s">Follows your phone; tap to flip it here</div></div></button>
+    <button class="row" data-go="welcome"><div class="grow"><div class="t">First day screen</div><div class="s">&ldquo;We found your events&rdquo;</div></div></button>
+    <button class="row" data-go="empty"><div class="grow"><div class="t">A new organiser&rsquo;s home</div><div class="s">One event, no photo, no views yet</div></div></button>
+    <button class="row" data-open-event="course"><div class="grow"><div class="t">Long name, many dates</div><div class="s">An 8-week course with 13 dates</div></div></button>
+  </div>
+</section>
+
+<!-- ================= EMPTY: new organiser ================= -->
+<section class="scr" id="s-empty" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="when" style="margin-top:4px">Hi, Bachata Nights Leeds</div>
+  <div class="card hero" style="margin-top:12px">
+    <div class="cover nophoto">No photo yet</div>
+    <div class="pad">
+      <div class="when">Next up &middot; Sat 31 Oct, 9pm</div>
+      <div class="big" style="font-size:24px">Halloween Bachata Party</div>
+      <div class="mut">The Corner, Leeds &middot; no line-up yet</div>
+    </div>
+  </div>
+  <h2 style="display:flex;align-items:center;gap:8px">Needs you <span class="count">1</span></h2>
+  <div class="card">
+    <button class="todo" data-go="photos"><span class="tick" aria-hidden="true"></span><span class="grow"><span class="t" style="display:block">Add a photo</span><span class="s mut small">A flyer or a photo from a past night. It&rsquo;s the first thing dancers see.</span></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button>
+  </div>
+  <h2>Last 30 days</h2>
+  <div class="card pad">
+    <div class="t" style="font-weight:600">No views yet</div>
+    <p class="small mut" style="margin:4px 0 12px">Views show up here the day after dancers start finding your event. Sharing the link on Instagram or WhatsApp helps.</p>
+    <button class="btn line" data-toast="Link copied. Paste it into WhatsApp or your Instagram bio.">Copy my event link</button>
+  </div>
+  <div class="bottombar" data-for="s-empty"><button class="btn" data-go="photos">Add a photo</button></div>
+</section>
+
+<!-- ================= EVENT PAGE (rendered by JS) ================= -->
+<section class="scr notab" id="s-event" data-tabs="0"></section>
+
+<!-- ================= LINE-UP ================= -->
+<section class="scr notab" id="s-lineup" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="when">Fri 23 Oct &middot; Sensual Fridays</div>
+  <div class="big">Who&rsquo;s on tonight?</div>
+  <p class="mut">Pick real people so dancers can tap through to them.</p>
+  <div class="card" id="lineupnow"></div>
+  <label class="f" for="psearch">Add someone</label>
+  <input class="in" id="psearch" placeholder="Type a name, e.g. Sofia" autocomplete="off">
+  <div class="card" id="presults" style="margin-top:10px"></div>
+  <div class="bottombar" data-for="s-lineup"><button class="btn" id="savelineup" disabled>Nothing changed yet</button></div>
+</section>
+
+<!-- ================= PHOTOS ================= -->
+<section class="scr notab" id="s-photos" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="big">Photos</div>
+  <p class="mut">The first photo is the cover dancers see on the calendar. Flyers work too.</p>
+  <div class="card">
+    <div class="row" style="cursor:default"><div class="thumb nophoto"></div><div class="grow"><div class="t">London Loves BOS</div><div class="s">No photo yet</div></div><button class="btn quiet" style="width:auto;min-height:44px" data-toast="Photo added to London Loves BOS. Dancers see it now." data-done="photo">Add</button></div>
+    <div class="row" style="cursor:default"><div class="thumb nophoto"></div><div class="grow"><div class="t">Bachata Flow</div><div class="s">No photo yet</div></div><button class="btn quiet" style="width:auto;min-height:44px" data-toast="Photo added to Bachata Flow. Dancers see it now." data-done="photo">Add</button></div>
+    <div class="row" style="cursor:default"><div class="thumb ph1"></div><div class="grow"><div class="t">Sensual Fridays</div><div class="s">Cover &middot; added 12 Sep</div></div><button class="btn quiet" style="width:auto;min-height:44px" data-sheet="photoerr">Change</button></div>
+  </div>
+  <p class="small mut" style="margin-top:12px">Tip: a square or upright photo looks best on phones.</p>
+</section>
+
+<!-- ================= TEAM (co-organisers) ================= -->
+<section class="scr notab" id="s-team" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="big">People who run your events</div>
+  <p class="mut">Everyone here can change everything. There is no boss.</p>
+  <div class="card" id="teamlist">
+    <div class="row" style="cursor:default"><div class="av a1">Y</div><div class="grow"><div class="t">You</div><div class="s">All 6 events</div></div></div>
+    <div class="row" style="cursor:default"><div class="av a2">J</div><div class="grow"><div class="t">Jess</div><div class="s">All 6 events</div></div></div>
+  </div>
+  <div class="bottombar" data-for="s-team"><button class="btn" data-sheet="invite">Invite someone</button></div>
+</section>
+
+<!-- ================= MOVE A DATE ================= -->
+<section class="scr notab" id="s-move" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="when" id="movewhen">Wed 28 Oct &middot; this date only</div>
+  <div class="big">Move it to when?</div>
+  <label class="f" for="movedate">New date</label>
+  <input class="in" id="movedate" type="date" value="2026-10-29">
+  <label class="f" for="movetime">Starts at</label>
+  <input class="in" id="movetime" type="time" value="20:00">
+  <div class="hint">Dancers who saved the old date will see &ldquo;Moved to Thu 29 Oct&rdquo;.</div>
+  <div class="bottombar" data-for="s-move"><button class="btn" id="domove">Move the date</button></div>
+</section>
+
+<!-- ================= PUBLIC PREVIEW ================= -->
+<section class="scr notab" id="s-preview" data-tabs="0" style="padding-top:56px">
+  <div class="previewbar"><span class="grow">What dancers see</span><button data-back>Back to editing</button></div>
+  <div class="pub">
+    <div class="cover ph1"></div>
+    <div class="body">
+      <div class="k">FRIDAY 23 OCTOBER &middot; 8PM &ndash; 1AM</div>
+      <div style="font-size:26px;font-weight:600;margin:6px 0">Sensual Fridays</div>
+      <div class="k" style="margin-bottom:12px">Colab Tower, London &middot; by London Loves Bachata</div>
+      <span class="pill">Bachata</span><span class="pill">Sensual</span><span class="pill">Class + social</span>
+      <div style="margin-top:16px;font-weight:600">Line-up</div>
+      <div class="k" id="publineup">DJ Kizzy (music) &middot; Marco &amp; Sofia (class)</div>
+      <div style="margin-top:16px;font-weight:600">How to pay</div>
+      <div class="k">&pound;12 on the door, card or cash</div>
+      <div style="margin-top:20px;border-radius:15px;background:#f0703a;color:#1d0a03;text-align:center;padding:14px;font-weight:600">Save</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CREATE A COURSE (5 steps) ================= -->
+<section class="scr notab" id="s-c1" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="steps"><i class="on"></i><i></i><i></i><i></i></div>
+  <div class="when">New course &middot; 1 of 4</div>
+  <div class="big">What&rsquo;s the course called?</div>
+  <label class="f" for="cname">Course name</label>
+  <input class="in" id="cname" placeholder="e.g. Sensual Bachata Beginners" value="">
+  <div class="err" id="cnameerr" style="display:none">Give it a name so dancers know what it is.</div>
+  <div class="hint">Dancers see this on the calendar. You can change it later.</div>
+  <div class="bottombar" data-for="s-c1"><button class="btn" id="c1next">Next</button></div>
+</section>
+<section class="scr notab" id="s-c2" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+  <div class="when">New course &middot; 2 of 4</div>
+  <div class="big">When does it start, and for how many weeks?</div>
+  <label class="f" for="cstart">First class</label>
+  <input class="in" id="cstart" type="date" value="2026-11-04">
+  <label class="f">How many weeks</label>
+  <div class="weeks" role="group" aria-label="Weeks">
+    <button data-weeks="4" aria-pressed="false">4</button><button data-weeks="6" aria-pressed="true">6</button><button data-weeks="8" aria-pressed="false">8</button><button data-weeks="10" aria-pressed="false">10</button>
+  </div>
+  <div class="hint" id="cweekshint">Every Wednesday, 4 Nov to 9 Dec. Skipping a week? You can take a date off afterwards.</div>
+  <div class="bottombar" data-for="s-c2"><button class="btn" data-go="c3">Next</button></div>
+</section>
+<section class="scr notab" id="s-c3" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+  <div class="when">New course &middot; 3 of 4</div>
+  <div class="big">Where and what time?</div>
+  <label class="f" for="cvenue">Place</label>
+  <input class="in" id="cvenue" value="Waterloo Action Centre">
+  <div class="hint">One of your places. Type to find another.</div>
+  <label class="f" for="ctime">Class starts at</label>
+  <input class="in" id="ctime" type="time" value="19:30">
+  <div class="bottombar" data-for="s-c3"><button class="btn" data-go="c4">Next</button></div>
+</section>
+<section class="scr notab" id="s-c4" data-tabs="0">
+  <div class="top"><button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button></div>
+  <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+  <div class="when">New course &middot; 4 of 4</div>
+  <div class="big">Looks good?</div>
+  <div class="card">
+    <button class="row" data-go="c1"><div class="grow"><div class="s">Name</div><div class="t" id="sumname">Sensual Bachata Beginners</div></div><span class="link">Change</span></button>
+    <button class="row" data-go="c2"><div class="grow"><div class="s">Dates</div><div class="t" id="sumdates">6 Wednesdays, 4 Nov to 9 Dec</div></div><span class="link">Change</span></button>
+    <button class="row" data-go="c3"><div class="grow"><div class="s">Place and time</div><div class="t">Waterloo Action Centre, 7:30pm</div></div><span class="link">Change</span></button>
+    <button class="row" data-go="lineup"><div class="grow"><div class="s">Teachers</div><div class="t mut">Add later if you like</div></div><span class="link">Add</span></button>
+  </div>
+  <p class="small mut" style="margin-top:12px">It goes live straight away. You can pause it any time.</p>
+  <div class="bottombar" data-for="s-c4"><button class="btn" id="golive">Put it live</button></div>
+</section>
+
+<div class="bottombar" data-for="s-event"><button class="btn" data-go="preview">See what dancers see</button></div>
+
+<!-- ================= TAB BAR ================= -->
+<nav class="tabs" id="tabs" aria-label="Main">
+  <button data-tab-go="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg>Home</button>
+  <button data-tab-go="events"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Events</button>
+  <button data-tab-go="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>Stats</button>
+  <button data-tab-go="you"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>You</button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheettitle"><div class="grab"></div><div id="sheetbody"></div></div>
+<div class="toast" id="toast" role="status"><span class="grow" id="toasttext"></span><button id="toastundo">Undo</button></div>
+</div>
+
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  /* ---------- data (London Loves Bachata, public names and places) ---------- */
+  var EVENTS = {
+    wed: { name: 'Sensual Wednesdays', place: 'Waterloo Action Centre', when: 'Every Wednesday, 8pm', ph: 'ph3', views: 241, saves: 34, kind: 'Weekly social',
+      dates: [['Wed', 28, 'Oct'], ['Wed', 4, 'Nov'], ['Wed', 11, 'Nov'], ['Wed', 18, 'Nov'], ['Wed', 25, 'Nov'], ['Wed', 2, 'Dec'], ['Wed', 9, 'Dec'], ['Wed', 16, 'Dec'], ['Wed', 23, 'Dec', 'off'], ['Wed', 30, 'Dec', 'off'], ['Wed', 6, 'Jan 27']],
+      lineup: 'DJ Kizzy, Marco &amp; Sofia' },
+    fri: { name: 'Sensual Fridays', place: 'Colab Tower', when: 'Every Friday, 8pm', ph: 'ph1', views: 312, saves: 42, kind: 'Weekly social',
+      dates: [['Fri', 23, 'Oct'], ['Fri', 30, 'Oct'], ['Fri', 6, 'Nov'], ['Fri', 13, 'Nov'], ['Fri', 20, 'Nov'], ['Fri', 27, 'Nov']], lineup: 'DJ Kizzy, Marco &amp; Sofia' },
+    sat: { name: 'Sensual Saturdays', place: 'Studio 68', when: 'Every Saturday, 9pm', ph: 'ph2', views: 188, saves: 22, kind: 'Weekly social',
+      dates: [['Sat', 24, 'Oct'], ['Sat', 31, 'Oct'], ['Sat', 7, 'Nov'], ['Sat', 14, 'Nov']], lineup: 'DJ Tropical' },
+    bos: { name: 'London Loves BOS', place: 'The Vault', when: 'Every Thursday, 8pm', ph: '', views: 74, saves: 9, kind: 'Weekly social',
+      dates: [['Thu', 29, 'Oct'], ['Thu', 5, 'Nov'], ['Thu', 12, 'Nov']], lineup: '' },
+    flow: { name: 'Bachata Flow', place: 'Be At One', when: 'Every Tuesday, 7pm', ph: '', views: 46, saves: 6, kind: 'Weekly social',
+      dates: [['Tue', 27, 'Oct'], ['Tue', 3, 'Nov'], ['Tue', 10, 'Nov']], lineup: 'Marco &amp; Sofia' },
+    course: { name: 'Sensual Wednesdays Beginners to Improvers: 8-week Foundations Course with Partnerwork and Musicality', place: 'Waterloo Action Centre', when: 'Wednesdays, 7:30pm, 4 Nov to 27 Jan', ph: 'ph5', views: 32, saves: 5, kind: 'Course',
+      dates: [['Wed', 4, 'Nov'], ['Wed', 11, 'Nov'], ['Wed', 18, 'Nov'], ['Wed', 25, 'Nov'], ['Wed', 2, 'Dec'], ['Wed', 9, 'Dec'], ['Wed', 16, 'Dec'], ['Wed', 23, 'Dec', 'off'], ['Wed', 30, 'Dec', 'off'], ['Wed', 6, 'Jan 27'], ['Wed', 13, 'Jan 27'], ['Wed', 20, 'Jan 27', 'moved'], ['Wed', 27, 'Jan 27']],
+      lineup: '' }
+  };
+  var ORDER = ['fri', 'sat', 'wed', 'bos', 'flow', 'course'];
+  var PEOPLE = [['Marco &amp; Sofia', 'Teachers', 'a3'], ['DJ Kizzy', 'DJ', 'a4'], ['DJ Tropical', 'DJ', 'a5'], ['Sofia Ramos', 'Teacher', 'a2'], ['Sofie Lane', 'Teacher, performer', 'a1']];
+  var CHEV = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
+  var BACK = '<button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg>Back</button>';
+
+  function thumb(e) { return e.ph ? '<div class="thumb ' + e.ph + '"></div>' : '<div class="thumb nophoto" aria-label="No photo yet"></div>'; }
+  function eventRow(k, extra) {
+    var e = EVENTS[k];
+    var next = e.dates.filter(function (d) { return d[3] !== 'off'; })[0];
+    return '<button class="row" data-open-event="' + k + '">' + thumb(e) + '<div class="grow"><div class="t">' + e.name + '</div><div class="s">' +
+      (extra || ('Next: ' + next[0] + ' ' + next[1] + ' ' + next[2] + ' &middot; ' + e.place)) + '</div></div>' + CHEV + '</button>';
+  }
+  $('#homelist').innerHTML = ORDER.slice(0, 4).map(function (k) { return eventRow(k); }).join('');
+  $('#eventlist').innerHTML = ORDER.map(function (k) { return eventRow(k); }).join('');
+
+  /* ---------- stats ---------- */
+  var RANGE = { d: [0.04, 0.03], w: [0.24, 0.22], m: [1, 1] };
+  function renderStats(r) {
+    var f = RANGE[r]; var tv = 0, ts = 0, max = 0;
+    ORDER.forEach(function (k) { max = Math.max(max, EVENTS[k].views); });
+    $('#statlist').innerHTML = ORDER.map(function (k) {
+      var e = EVENTS[k], v = Math.round(e.views * f[0]), s = Math.round(e.saves * f[1]); tv += v; ts += s;
+      return '<button class="row" data-open-event="' + k + '" style="display:block"><div style="display:flex;gap:12px;align-items:baseline"><div class="t grow" style="flex:1;min-width:0">' + e.name +
+        '</div><div class="s" style="white-space:nowrap">' + v + ' seen &middot; ' + s + ' saved</div></div><div class="bar"><i style="width:' + Math.max(2, Math.round(e.views / max * 100)) + '%"></i></div></button>';
+    }).join('');
+    $('#st-v').textContent = r === 'm' ? 893 : tv; $('#st-s').textContent = r === 'm' ? 118 : ts;
+    $$('.seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.range === r)); });
+  }
+  renderStats('m');
+
+  /* ---------- event page ---------- */
+  var current = 'wed';
+  function renderEvent(k) {
+    current = k; var e = EVENTS[k];
+    var off = e.dates.filter(function (d) { return d[3] === 'off'; }).length;
+    var html = '<div class="top">' + BACK + '</div>' +
+      '<div class="card hero"><div class="cover ' + (e.ph || 'nophoto') + '">' + (e.ph ? '' : 'No photo yet') + '<span class="tag live" style="position:absolute;left:12px;top:12px"><span class="dot"></span>Live</span></div>' +
+      '<div class="pad"><div class="when">' + e.kind + '</div><div class="big" style="font-size:24px;overflow-wrap:anywhere">' + e.name + '</div><div class="mut">' + e.when + ' &middot; ' + e.place + '</div></div></div>' +
+      '<h2>Coming up</h2><p class="small mut" style="margin-top:-6px">Tap a date to change just that one, or that one and the ones after.</p>' +
+      '<div class="strip" role="list">' + e.dates.map(function (d, i) {
+        var cls = 'date' + (i === 0 ? ' next' : '') + (d[3] === 'off' ? ' off' : '') + (d[3] === 'moved' ? ' moved' : '');
+        var m = d[3] === 'off' ? 'Off' : d[3] === 'moved' ? 'Moved' : d[2];
+        return '<button role="listitem" class="' + cls + '" data-date="' + i + '" aria-label="' + d[0] + ' ' + d[1] + ' ' + d[2] + (d[3] ? ', ' + d[3] : '') + '"><span class="d">' + d[0] + '</span><span class="n">' + d[1] + '</span><span class="m">' + m + '</span></button>';
+      }).join('') + '</div>' +
+      '<div class="legend"><span>' + e.dates.length + ' dates shown</span>' + (off ? '<span>' + off + (off === 1 ? ' date' : ' dates') + ' taken off</span>' : '') + '<span>Last: ' + e.dates[e.dates.length - 1].slice(0, 3).join(' ') + '</span></div>' +
+      '<h2>About this event</h2><div class="card">' +
+      '<button class="row" data-go="lineup"><div class="grow"><div class="t">Line-up</div><div class="s">' + (e.lineup || 'Nobody added yet') + '</div></div>' + CHEV + '</button>' +
+      '<button class="row" data-go="photos"><div class="grow"><div class="t">Photos</div><div class="s">' + (e.ph ? '1 cover photo' : 'No photo yet') + '</div></div>' + CHEV + '</button>' +
+      '<button class="row" data-go="team"><div class="grow"><div class="t">People who run it</div><div class="s">You and Jess</div></div>' + CHEV + '</button>' +
+      '<button class="row" data-tab-go="stats"><div class="grow"><div class="t">Seen by ' + e.views + ' people</div><div class="s">' + e.saves + ' saved it &middot; last 30 days</div></div>' + CHEV + '</button>' +
+      '</div>' +
+      '<div style="margin-top:20px"><button class="btn quiet" data-sheet="pause">Pause this event</button></div>';
+    $('#s-event').innerHTML = html;
+  }
+
+  /* ---------- navigation ---------- */
+  var stack = ['welcome'];
+  var tabOf = { home: 1, events: 1, stats: 1, you: 1 };
+  function show(id) {
+    $$('.scr').forEach(function (s) { s.classList.remove('on'); });
+    $$('.bottombar[data-for]').forEach(function (b) { b.classList.remove('on'); });
+    var s = $('#s-' + id); s.classList.add('on'); s.scrollTop = 0;
+    var bb = $('.bottombar[data-for="s-' + id + '"]'); if (bb) bb.classList.add('on');
+    $('#tabs').classList.toggle('hide', s.dataset.tabs !== '1');
+    if (s.dataset.tab) $$('#tabs button').forEach(function (b) { b.toggleAttribute('aria-current', b.dataset.tabGo === s.dataset.tab); if (b.dataset.tabGo === s.dataset.tab) b.setAttribute('aria-current', 'page'); });
+    closeSheet();
+  }
+  function go(id) { stack.push(id); show(id); }
+  function back() { if (stack.length > 1) stack.pop(); show(stack[stack.length - 1]); }
+  function tab(id) { stack = [id]; show(id); }
+
+  /* ---------- sheets ---------- */
+  var scope = 'one', dateIdx = 0, action = '';
+  function dateLabel(i) { var d = EVENTS[current].dates[i]; return d[0] + ' ' + d[1] + ' ' + d[2]; }
+  var SHEETS = {
+    cancelnext: function () {
+      return '<h3 id="sheettitle">Cancel tonight&rsquo;s Sensual Fridays?</h3><p class="mut">Dancers will see &ldquo;Cancelled&rdquo; on Fri 23 Oct. The other Fridays stay as they are. 42 people saved tonight.</p>' +
+        '<div class="stack"><button class="btn danger-fill" data-confirm="Tonight is cancelled. Dancers see it now.">Yes, cancel tonight</button><button class="btn quiet" data-close>Keep it on</button></div>';
+    },
+    date: function () {
+      return '<h3 id="sheettitle">' + dateLabel(dateIdx) + '</h3><p class="mut">What do you want to do?</p><div class="stack">' +
+        '<button class="choice" data-act="lineup"><span class="grow"><b>Change the line-up</b><br><span class="small mut">Who teaches or DJs</span></span></button>' +
+        '<button class="choice" data-act="move"><span class="grow"><b>Move it</b><br><span class="small mut">Another day or time</span></span></button>' +
+        '<button class="choice" data-act="off"><span class="grow"><b>Take it off</b><br><span class="small mut">Dancers see &ldquo;Cancelled&rdquo;</span></span></button></div>';
+    },
+    scope: function () {
+      var verb = action === 'off' ? 'Take off' : action === 'move' ? 'Move' : 'Change the line-up for';
+      return '<h3 id="sheettitle">' + verb + ' which dates?</h3><p class="mut">Starting ' + dateLabel(dateIdx) + '.</p>' +
+        '<div role="radiogroup" aria-label="Which dates">' +
+        '<button class="choice" role="radio" data-scope="one" aria-checked="' + (scope === 'one') + '"><span class="radio"></span><span class="grow"><b>This date only</b><br><span class="small mut">' + dateLabel(dateIdx) + '</span></span></button>' +
+        '<button class="choice" role="radio" data-scope="later" aria-checked="' + (scope === 'later') + '"><span class="radio"></span><span class="grow"><b>This and later ones</b><br><span class="small mut">' + (EVENTS[current].dates.length - dateIdx) + ' dates, to the last one</span></span></button></div>' +
+        '<div style="margin-top:16px"><button class="btn" data-scope-go>Next</button></div>';
+    },
+    offconfirm: function () {
+      var n = scope === 'one' ? 1 : EVENTS[current].dates.length - dateIdx;
+      return '<h3 id="sheettitle">Take ' + (n === 1 ? dateLabel(dateIdx) : n + ' dates') + ' off?</h3><p class="mut">Dancers will see &ldquo;Cancelled&rdquo;' + (n === 1 ? '' : ' from ' + dateLabel(dateIdx)) + '. You can bring ' + (n === 1 ? 'it' : 'them') + ' back any time.</p>' +
+        '<div class="stack"><button class="btn danger-fill" data-confirm="' + (n === 1 ? dateLabel(dateIdx) + ' is off.' : n + ' dates are off.') + ' Dancers see it now." data-mark-off="' + n + '">Yes, take ' + (n === 1 ? 'it' : 'them') + ' off</button><button class="btn quiet" data-close>Keep ' + (n === 1 ? 'it' : 'them') + '</button></div>';
+    },
+    pause: function () {
+      return '<h3 id="sheettitle">Pause ' + EVENTS[current].name + '?</h3><p class="mut">It disappears from the calendar until you turn it back on. Nothing is deleted.</p>' +
+        '<div class="stack"><button class="btn" data-confirm="Paused. Dancers can&rsquo;t see it now.">Pause it</button><button class="btn quiet" data-close>Keep it live</button></div>';
+    },
+    paused: function () {
+      return '<h3 id="sheettitle">Mambo City x LLB is paused</h3><p class="mut">Dancers can&rsquo;t see it. Turn it back on and its next dates show again.</p>' +
+        '<div class="stack"><button class="btn" data-confirm="Mambo City x LLB is live again.">Turn it back on</button><button class="btn quiet" data-close>Leave it paused</button></div>';
+    },
+    addnew: function () {
+      return '<h3 id="sheettitle">What are you adding?</h3><div class="stack">' +
+        '<button class="choice" data-go="c1"><span class="grow"><b>A course</b><br><span class="small mut">Classes over a few weeks, e.g. 6 Wednesdays</span></span></button>' +
+        '<button class="choice" data-toast="Weekly socials work the same way. Shown in mockup A and B."><span class="grow"><b>A weekly social</b><br><span class="small mut">Same night every week</span></span></button>' +
+        '<button class="choice" data-toast="One-off parties work the same way. Shown in mockup A and B."><span class="grow"><b>A one-off party</b><br><span class="small mut">Just one date</span></span></button></div>';
+    },
+    invite: function () {
+      return '<h3 id="sheettitle">Invite someone to run your events</h3><p class="mut">They can change everything, just like you.</p>' +
+        '<label class="f" for="invemail">Their email or phone</label><input class="in" id="invemail" placeholder="name@example.com" inputmode="email">' +
+        '<div class="err" id="inverr" style="display:none" role="alert"></div>' +
+        '<div style="margin-top:16px"><button class="btn" id="sendinvite">Send invite</button></div>';
+    },
+    photoerr: function () {
+      return '<h3 id="sheettitle">That photo didn&rsquo;t upload</h3><p class="mut">It is over 15 MB. Pick a smaller one, or take a screenshot of it and use that.</p>' +
+        '<div class="stack"><button class="btn" data-close>Pick another photo</button></div>';
+    },
+    notmine: function () {
+      return '<h3 id="sheettitle">Tell us what&rsquo;s not yours</h3><p class="mut">We&rsquo;ll take it off your list within a day. Nothing changes for dancers.</p>' +
+        '<label class="f" for="nm">Which event?</label><input class="in" id="nm" placeholder="e.g. Bachata Flow">' +
+        '<div style="margin-top:16px"><button class="btn" data-confirm="Thanks. We&rsquo;ll sort it within a day.">Send</button></div>';
+    },
+    help: function () {
+      return '<h3 id="sheettitle">Help</h3><div class="card"><div class="row" style="cursor:default"><div class="grow"><div class="t">Do my changes go live straight away?</div><div class="s">Yes. Dancers see them as soon as you tap Save.</div></div></div>' +
+        '<div class="row" style="cursor:default"><div class="grow"><div class="t">Can I undo?</div><div class="s">For 10 seconds after any change, tap Undo. After that, change it back by hand.</div></div></div>' +
+        '<div class="row" style="cursor:default"><div class="grow"><div class="t">Stuck?</div><div class="s">Message Ricky on WhatsApp. A real person answers.</div></div></div></div>';
+    }
+  };
+  function openSheet(name) {
+    $('#toast').classList.remove('on');
+    $('#sheetbody').innerHTML = SHEETS[name]();
+    $('#scrim').classList.add('on'); $('#sheet').classList.add('on');
+    var f = $('#sheet button, #sheet input'); if (f) f.focus({ preventScroll: true });
+  }
+  function closeSheet() { $('#phone').scrollTop = 0; $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); }
+
+  /* ---------- toast with undo ---------- */
+  var toastTimer, undoFn;
+  function toast(msg, onUndo) {
+    $('#toasttext').innerHTML = msg; undoFn = onUndo || null;
+    $('#toastundo').style.display = onUndo ? '' : 'none';
+    $('#toast').classList.add('on'); clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('#toast').classList.remove('on'); }, 10000);
+  }
+  $('#toastundo').addEventListener('click', function () { if (undoFn) undoFn(); $('#toast').classList.remove('on'); toast('Undone. Nothing changed for dancers.'); });
+
+  /* ---------- line-up ---------- */
+  var lineup = [['DJ Kizzy', 'DJ', 'a4'], ['Marco &amp; Sofia', 'Teachers', 'a3']], lineupOrig = 2;
+  function renderLineup() {
+    $('#lineupnow').innerHTML = lineup.length ? lineup.map(function (p, i) {
+      return '<div class="row" style="cursor:default"><div class="av ' + p[2] + '">' + p[0].replace(/&amp;/, '').replace(/[^A-Z]/g, '').slice(0, 2) + '</div><div class="grow"><div class="t">' + p[0] + '</div><div class="s">' + p[1] + '</div></div><button class="btn quiet" style="width:auto;min-height:44px" data-rm="' + i + '">Remove</button></div>';
+    }).join('') : '<div class="pad mut">Nobody yet. Search below to add a teacher or DJ.</div>';
+    var changed = lineup.length !== lineupOrig;
+    var b = $('#savelineup'); b.disabled = !changed; b.textContent = changed ? 'Save line-up' : 'Nothing changed yet';
+  }
+  function renderResults(q) {
+    q = (q || '').toLowerCase().trim();
+    if (!q) { $('#presults').innerHTML = '<div class="pad small mut">Start typing to find teachers and DJs on Bachata Calendar.</div>'; return; }
+    var hits = PEOPLE.filter(function (p) { return p[0].toLowerCase().indexOf(q) > -1 && !lineup.some(function (l) { return l[0] === p[0]; }); });
+    $('#presults').innerHTML = hits.length ? hits.map(function (p) {
+      return '<button class="row" data-add="' + PEOPLE.indexOf(p) + '"><div class="av ' + p[2] + '">' + p[0].replace(/[^A-Z]/g, '').slice(0, 2) + '</div><div class="grow"><div class="t">' + p[0] + '</div><div class="s">' + p[1] + '</div></div><span class="link">Add</span></button>';
+    }).join('') : '<div class="pad"><div class="t" style="font-weight:600">No one called &ldquo;' + q.replace(/</g, '') + '&rdquo; yet</div><div class="small mut" style="margin-top:4px">Check the spelling, or ask them to make a free profile so dancers can find them. Send them this link: bachatacalendar.com/join</div></div>';
+  }
+  renderLineup(); renderResults('');
+  $('#psearch').addEventListener('input', function (e) { renderResults(e.target.value); });
+
+  /* ---------- course ---------- */
+  var weeks = 6;
+  var WED = ['4 Nov', '11 Nov', '18 Nov', '25 Nov', '2 Dec', '9 Dec', '16 Dec', '23 Dec', '30 Dec', '6 Jan 2027'];
+  function weeksText() { return 'Every Wednesday, 4 Nov to ' + WED[weeks - 1] + '. Skipping a week? You can take a date off afterwards.'; }
+
+  /* ---------- one click handler ---------- */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('button, .scrim'); if (!t) return;
+    var d = t.dataset;
+    if (t.id === 'scrim' || d.close !== undefined) { closeSheet(); return; }
+    if (d.back !== undefined) { back(); return; }
+    if (d.go) {
+      if (d.go === 'home' && stack[0] === 'welcome') { tab('home'); return; }
+      go(d.go); return;
+    }
+    if (d.tabGo) { tab(d.tabGo); return; }
+    if (d.openEvent) { renderEvent(d.openEvent); go('event'); return; }
+    if (d.sheet) { openSheet(d.sheet); return; }
+    if (d.date !== undefined) { dateIdx = +d.date; scope = 'one'; openSheet('date'); return; }
+    if (d.act) { action = d.act; openSheet('scope'); return; }
+    if (d.scope) { scope = d.scope; $$('[data-scope]').forEach(function (b) { b.setAttribute('aria-checked', String(b === t)); }); return; }
+    if (d.scopeGo !== undefined) {
+      if (action === 'off') { openSheet('offconfirm'); return; }
+      $('#movewhen').innerHTML = dateLabel(dateIdx) + ' &middot; ' + (scope === 'one' ? 'this date only' : 'this and later ones');
+      go(action === 'move' ? 'move' : 'lineup'); return;
+    }
+    if (d.confirm) {
+      closeSheet();
+      if (d.markOff) {
+        var ds = EVENTS[current].dates, saved = ds.map(function (x) { return x.slice(); }), n = +d.markOff;
+        for (var i = dateIdx; i < dateIdx + n; i++) ds[i][3] = 'off';
+        renderEvent(current);
+        toast(d.confirm, function () { EVENTS[current].dates = saved; renderEvent(current); });
+      } else toast(d.confirm, function () {});
+      return;
+    }
+    if (d.toast) {
+      toast(d.toast, d.done ? function () {} : null); closeSheet();
+      if (d.done) { t.textContent = 'Added'; t.disabled = true; if ($$('[data-done="photo"]:not([disabled])').length === 0) markTodo('photo'); }
+      return;
+    }
+    if (d.range) { renderStats(d.range); return; }
+    if (d.rm !== undefined) { lineup.splice(+d.rm, 1); renderLineup(); renderResults($('#psearch').value); return; }
+    if (d.add !== undefined) { lineup.push(PEOPLE[+d.add]); renderLineup(); $('#psearch').value = ''; renderResults(''); return; }
+    if (d.weeks) { weeks = +d.weeks; $$('[data-weeks]').forEach(function (b) { b.setAttribute('aria-pressed', String(b === t)); }); $('#cweekshint').textContent = weeksText(); $('#sumdates').textContent = weeks + ' Wednesdays, 4 Nov to ' + WED[weeks - 1]; return; }
+    if (t.id === 'savelineup') { lineupOrig = lineup.length; renderLineup(); back(); toast('Line-up saved. Dancers see it now.', function () {}); markTodo('teach'); return; }
+    if (t.id === 'domove') { back(); toast('Moved to Thu 29 Oct. Dancers see it now.', function () {}); return; }
+    if (t.id === 'c1next') {
+      var v = $('#cname').value.trim();
+      $('#cname').classList.toggle('bad', !v); $('#cnameerr').style.display = v ? 'none' : 'flex';
+      if (v) { $('#sumname').textContent = v; go('c2'); } return;
+    }
+    if (t.id === 'golive') { tab('home'); toast('Your course is live. Dancers can find it now.', function () {}); return; }
+    if (t.id === 'sendinvite') {
+      var e = $('#invemail').value.trim(), ok = /.+@.+\..+/.test(e) || /^[+0-9 ]{8,}$/.test(e);
+      $('#invemail').classList.toggle('bad', !ok);
+      $('#inverr').style.display = ok ? 'none' : 'flex';
+      $('#inverr').textContent = e ? 'That doesn\u2019t look finished. An email needs an @, a phone number needs at least 8 digits.' : 'Add their email or phone so we can send the invite.';
+      if (ok) { closeSheet(); $('#teamlist').insertAdjacentHTML('beforeend', '<div class="row" style="cursor:default"><div class="av a5">?</div><div class="grow"><div class="t">' + e.replace(/</g, '') + '</div><div class="s">Invite sent &middot; waiting for them to join</div></div></div>'); toast('Invite sent. They get a link to join.'); }
+      return;
+    }
+  });
+  function markTodo(k) {
+    var el = $('[data-todo="' + k + '"]'); if (!el || el.classList.contains('done')) return;
+    el.classList.add('done'); el.querySelector('.tick').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>';
+    var c = $$('#needs .todo:not(.done)').length; $('#needcount').textContent = c; $('#needcount').style.display = c ? '' : 'none';
+  }
+  $('#scrim').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+
+  /* ---------- theme toggle ---------- */
+  function flipTheme() {
+    var r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    r.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+  }
+  $('#themebtn').addEventListener('click', flipTheme);
+  $('#themerow').addEventListener('click', flipTheme);
+
+  $$('.bottombar[data-for]').forEach(function (b) { $('#phone').appendChild(b); });
+  show('welcome');
+})();
+</script>
+</body>
+</html>
