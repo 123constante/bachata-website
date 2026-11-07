@@ -257,6 +257,53 @@ export const connectBlock = (
   return { line: CONNECT_LINE, button: ctx.stripe === 'started' ? CONNECT_RESUME_LABEL : CONNECT_LABEL, error: onboarding.note };
 };
 
+// ---- After Stripe: the status banner on the Tickets sheet -------------------------------
+export type ConnectReturnKind = 'checking' | 'ready_drafts' | 'ready_none' | 'needs_more';
+export interface ConnectReturnBanner {
+  kind: ConnectReturnKind;
+  line: string;
+  /** Buttons, in order: put each paid draft on sale, put them all on sale, or carry on with Stripe. */
+  actions: ReadonlyArray<{ kind: 'put_on_sale' | 'put_all_on_sale' | 'carry_on'; label: string; typeId?: string }>;
+}
+export const CONNECT_RETURN_CHECKING = 'Checking your payment set-up…';
+export const CONNECT_RETURN_NONE = 'Payments connected. Add a ticket to start selling.';
+export const CONNECT_RETURN_NEEDS = 'A few details are still needed.';
+
+/**
+ * ONE mapping (Stripe state x paid drafts) for the banner shown when the person comes back from Stripe.
+ * `drafts` is this event's ticket types. `polling` is true while the return poll is still running.
+ * No banner: not from Stripe, not an owner or manager, or tickets exist but none is a paid draft
+ * (a free-only list, or everything already moved on).
+ */
+export const connectReturnBanner = (i: {
+  arrivedFromStripe: boolean;
+  stripe: StripeState | 'unknown' | null;
+  role: MemberRole | null | undefined;
+  drafts: readonly Pick<TicketType, 'id' | 'name' | 'pricePence' | 'status'>[];
+  polling?: boolean;
+}): ConnectReturnBanner | null => {
+  if (!i.arrivedFromStripe || !canManage(i.role)) return null;
+  const paid = i.drafts.filter((t) => t.status === 'draft' && t.pricePence > 0);
+  if (i.drafts.length > 0 && paid.length === 0) return null;
+  if (i.stripe === 'connected') {
+    if (paid.length === 0) return { kind: 'ready_none', line: CONNECT_RETURN_NONE, actions: [] };
+    if (paid.length === 1) {
+      return {
+        kind: 'ready_drafts',
+        line: `Payments connected. Put ${paid[0].name} on sale.`,
+        actions: [{ kind: 'put_on_sale', label: 'Put on sale', typeId: paid[0].id }],
+      };
+    }
+    return {
+      kind: 'ready_drafts',
+      line: `Payments connected. Put ${paid.map((t) => t.name).join(', ')} on sale.`,
+      actions: [{ kind: 'put_all_on_sale', label: 'Put all on sale' }],
+    };
+  }
+  if (i.polling || i.stripe === null || i.stripe === 'unknown') return { kind: 'checking', line: CONNECT_RETURN_CHECKING, actions: [] };
+  return { kind: 'needs_more', line: CONNECT_RETURN_NEEDS, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
+};
+
 // ---- Sales window (London wall clock in the form, true instants on the wire) ---------
 
 /** timestamptz -> 'YYYY-MM-DDTHH:mm' London, for <input type="datetime-local">. */
