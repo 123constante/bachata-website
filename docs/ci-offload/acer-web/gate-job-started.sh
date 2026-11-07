@@ -3,18 +3,29 @@
 # Installed ROOT-OWNED, read-only to the service user (see the unit). Verdict line for the
 # job's first step (scripts/ci/route-runner.mjs gate):  "<run_id> <attempt> <job> ok|refused <why>".
 #
-# 0. Identity (fix round 2 item 1). A PR runs ITS OWN copy of the workflow, so a PR could drop
-#    the route job and hard-code `runs-on: acer-web`. This hook refuses (EXIT 1: the job fails
-#    before any step, the required hosted job runs the check) unless ALL hold:
-#      - event is pull_request, or push to the main ref;
-#      - GITHUB_ACTOR and GITHUB_TRIGGERING_ACTOR are on the trust list;
-#      - GITHUB_WORKFLOW_REF names this repo's allowed workflow file;
+# 0. Identity (stage 3 fix round 2 item 1; wave 0: allow-list + event payload). A PR runs ITS
+#    OWN copy of the workflow, so a PR could drop the route job and hard-code `runs-on: acer-web`.
+#    This hook refuses (EXIT 1: the job fails before any step, the required hosted job runs the
+#    check) unless ALL hold:
+#      - the workflow (GITHUB_WORKFLOW_REF) is listed in workflows.allow (root-owned; missing
+#        file = bom-check.yml only; any malformed line = refuse everything);
 #      - that file at GITHUB_WORKFLOW_SHA is byte-identical (same git blob hash) to the file on
-#        the remote main ref, both fetched fresh into a local mirror.
-#    These settings come ONLY from built-in defaults and the root-owned config file
-#    (/etc/ghrunner-web/gate.conf, or `--conf FILE` for tests); never from the environment,
-#    which a job could influence.
-# 1. Workspace cleanup (item 8): previous jobs' checkouts and stale _temp entries.
+#        the remote main ref, both fetched fresh into a local mirror;
+#      - the EVENT PAYLOAD (read_event_payload: the runner's own event.json at the pinned path
+#        $WORK_DIR/_temp/_github_workflow/event.json, never a path or value from env) says:
+#        repository = this repo; sender on the trust list; and EITHER a push of the main ref
+#        whose `after` is GITHUB_WORKFLOW_SHA, OR a pull_request whose head repo is this repo,
+#        whose author is on the trust list, whose merge commit (GITHUB_WORKFLOW_SHA) has the
+#        payload head sha as its second parent, and whose diff against the base parent touches
+#        no PROTECTED prefix;
+#      - the env values that also exist (GITHUB_EVENT_NAME, GITHUB_REPOSITORY, GITHUB_ACTOR,
+#        GITHUB_TRIGGERING_ACTOR, GITHUB_EVENT_PATH) AGREE with the above. Env can only narrow,
+#        never widen (env-shadow-result in docs/handover/ci-offload-wave0.md).
+#    TRUSTED / PROTECTED mirror TRUSTED_AUTHORS / PROTECTED_PREFIXES in scripts/ci/route-runner.mjs
+#    (test-gate-hooks.sh fails if they disagree). Settings come ONLY from built-in defaults and the
+#    root-owned config file (/etc/ghrunner-web/gate.conf, or `--conf FILE` for tests).
+# 1. Workspace cleanup (item 8): previous jobs' checkouts and stale _temp entries; a fresh,
+#    empty $WORK_DIR/_home (the job's HOME, see the unit); $WORK_DIR/_cache is kept.
 # 2. Load gate: load1 <= SAFE_LOAD_MAX and MemAvailable >= SAFE_MEM_MIN MiB.
 # 3. Walk lock: flock on $WALK_LOCK (default /var/lib/laptop-walk/walk.lock). The holder
 #    (item 9) exits when the runner process dies or after HOLDER_MAX_S (cap 1800 s); if it
@@ -42,15 +53,17 @@ starttime() { awk '{print $22}' "/proc/$1/stat" 2>/dev/null; }
 
 # ---- 0. identity --------------------------------------------------------------------------
 G_REPO=123constante/bachata-website
-G_WORKFLOW=.github/workflows/bom-check.yml
+# Mirrors of scripts/ci/route-runner.mjs TRUSTED_AUTHORS / PROTECTED_PREFIXES (space-separated).
 G_TRUSTED="kiki-claude-bot 123constante"
+G_PROTECTED=".github/ scripts/ci/ scripts/lib/ package.json package-lock.json"
+G_ALLOW_FILE=/etc/ghrunner-web/workflows.allow
 G_REMOTE=https://github.com/123constante/bachata-website.git
 G_MIRROR=/srv/ghrunner-web/state/mirror.git
 G_MAIN_REF=refs/heads/main
 if [ -r "$CONF" ]; then
   while IFS='=' read -r k v; do
     case "$k" in
-      REPO) G_REPO=$v ;; WORKFLOW_PATH) G_WORKFLOW=$v ;; TRUSTED) G_TRUSTED=$v ;;
+      REPO) G_REPO=$v ;; TRUSTED) G_TRUSTED=$v ;; PROTECTED) G_PROTECTED=$v ;; ALLOW_FILE) G_ALLOW_FILE=$v ;;
       REMOTE_URL) G_REMOTE=$v ;; MIRROR) G_MIRROR=$v ;; MAIN_REF) G_MAIN_REF=$v ;;
       STATE_DIR) STATE_DIR=$v ;; WORK_DIR) WORK_DIR=$v ;; WALK_LOCK) WALK_LOCK=$v ;;
     esac
@@ -58,48 +71,141 @@ if [ -r "$CONF" ]; then
 fi
 VERDICT=$STATE_DIR/gate-verdict
 HOLDER_PID_FILE=$STATE_DIR/lock-holder.pid
-
+# The runner writes the payload here at "Set up job", before this hook runs. Pinned, not env.
+EVENT_FILE=$WORK_DIR/_temp/_github_workflow/event.json
 rm -f "$VERDICT" 2>/dev/null
-case "${GITHUB_EVENT_NAME:-}" in
-  pull_request) ;;
-  push) [ "${GITHUB_REF:-}" = "$G_MAIN_REF" ] || refuse "push to ${GITHUB_REF:-?} (only $G_MAIN_REF)" ;;
-  *) refuse "event ${GITHUB_EVENT_NAME:-?} is not push/pull_request" ;;
+
+trusted() { local t; for t in $G_TRUSTED; do [ "${1,,}" = "${t,,}" ] && return 0; done; return 1; }
+
+# Allow-list: one `.github/workflows/<name>.yml|yaml` per line; blank lines and `#` comments ok.
+read_allow_list() {
+  ALLOWED=
+  if [ ! -e "$G_ALLOW_FILE" ]; then ALLOWED=.github/workflows/bom-check.yml; return 0; fi
+  [ -r "$G_ALLOW_FILE" ] || return 1
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%$'\r'}; line=${line%%#*}; line=${line//[[:space:]]/}
+    [ -z "$line" ] && continue
+    [[ "$line" =~ ^\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$ ]] || return 1
+    case "$line" in *..*) return 1 ;; esac
+    ALLOWED="$ALLOWED $line"
+  done < "$G_ALLOW_FILE"
+  [ -n "$ALLOWED" ]
+}
+
+# Event payload -> P_KIND (push|pull_request|other) P_REPO P_SENDER P_REF P_AFTER P_AUTHOR
+# P_HEAD_REPO P_HEAD_SHA. Every value is checked against a strict charset before it is used.
+read_event_payload() {
+  local f=$1 out k v
+  [ -f "$f" ] && [ ! -L "$f" ] || return 1
+  out=$(timeout 10 python3 -I -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+if not isinstance(d, dict):
+    sys.exit(1)
+def g(*path):
+    x = d
+    for p in path:
+        x = x.get(p) if isinstance(x, dict) else None
+    return x if isinstance(x, str) else ""
+pr = d.get("pull_request")
+if isinstance(pr, dict) and "number" in d:
+    kind = "pull_request"
+elif all(k in d for k in ("ref", "before", "after", "pusher")):
+    kind = "push"
+else:
+    kind = "other"
+for k, v in (("P_KIND", kind), ("P_REPO", g("repository", "full_name")), ("P_SENDER", g("sender", "login")),
+             ("P_REF", g("ref")), ("P_AFTER", g("after")), ("P_AUTHOR", g("pull_request", "user", "login")),
+             ("P_HEAD_REPO", g("pull_request", "head", "repo", "full_name")), ("P_HEAD_SHA", g("pull_request", "head", "sha"))):
+    print(k + "=" + v)
+' "$f" 2>/dev/null) || return 1
+  P_KIND=; P_REPO=; P_SENDER=; P_REF=; P_AFTER=; P_AUTHOR=; P_HEAD_REPO=; P_HEAD_SHA=
+  while IFS='=' read -r k v; do
+    [[ "$v" =~ ^[A-Za-z0-9._/@-]*$ ]] || v='?'
+    case "$k" in
+      P_KIND) P_KIND=$v ;; P_REPO) P_REPO=$v ;; P_SENDER) P_SENDER=$v ;; P_REF) P_REF=$v ;; P_AFTER) P_AFTER=$v ;;
+      P_AUTHOR) P_AUTHOR=$v ;; P_HEAD_REPO) P_HEAD_REPO=$v ;; P_HEAD_SHA) P_HEAD_SHA=$v ;;
+    esac
+  done <<< "$out"
+  [ -n "$P_KIND" ]
+}
+
+read_allow_list || refuse "workflows allow-list $G_ALLOW_FILE unreadable or malformed" #@rule allow-malformed
+WREF=${GITHUB_WORKFLOW_REF:-}
+case "$WREF" in "$G_REPO/"*@*) ;; *) refuse "workflow ref ${WREF:-?} is not in $G_REPO" ;; esac #@rule workflow-repo
+WPATH=${WREF#"$G_REPO/"}; WPATH=${WPATH%%@*}
+listed=; for a in $ALLOWED; do [ "$a" = "$WPATH" ] && listed=1; done
+[ -n "$listed" ] || refuse "workflow ${WPATH:-?} is not in the allow-list" #@rule workflow-unlisted
+
+# Env may only agree: a GITHUB_EVENT_PATH other than the pinned file is refused, never followed.
+[ -z "${GITHUB_EVENT_PATH:-}" ] || [ "$GITHUB_EVENT_PATH" = "$EVENT_FILE" ] || refuse "GITHUB_EVENT_PATH ${GITHUB_EVENT_PATH} is not $EVENT_FILE" #@rule event-path
+read_event_payload "$EVENT_FILE" || refuse "event payload $EVENT_FILE missing or unreadable" #@rule payload-missing
+[ "${GITHUB_EVENT_NAME:-}" = "$P_KIND" ] || refuse "event ${GITHUB_EVENT_NAME:-?} (payload: $P_KIND) is not push/pull_request" #@rule event-agree
+case "$P_KIND" in
+  pull_request|push) ;;
+  *) refuse "payload event $P_KIND is not push/pull_request" ;; #@rule event-kind
 esac
-[ "${GITHUB_REPOSITORY:-}" = "$G_REPO" ] || refuse "repo ${GITHUB_REPOSITORY:-?} is not $G_REPO"
+[ "$P_REPO" = "$G_REPO" ] || refuse "payload repo ${P_REPO:-?} is not $G_REPO" #@rule payload-repo
+[ "${GITHUB_REPOSITORY:-}" = "$G_REPO" ] || refuse "repo ${GITHUB_REPOSITORY:-?} is not $G_REPO" #@rule env-repo
+trusted "$P_SENDER" || refuse "payload sender ${P_SENDER:-?} is not on the trust list" #@rule sender
 for who in "${GITHUB_ACTOR:-}" "${GITHUB_TRIGGERING_ACTOR:-${GITHUB_ACTOR:-}}"; do
-  ok=; for t in $G_TRUSTED; do [ "${who,,}" = "${t,,}" ] && ok=1; done
-  [ -n "$ok" ] || refuse "actor ${who:-?} is not on the trust list"
+  trusted "$who" || refuse "actor ${who:-?} is not on the trust list" #@rule env-actor
 done
-case "${GITHUB_WORKFLOW_REF:-}" in
-  "$G_REPO/$G_WORKFLOW@"*) ;;
-  *) refuse "workflow ${GITHUB_WORKFLOW_REF:-?} is not $G_REPO/$G_WORKFLOW" ;;
-esac
 WSHA=${GITHUB_WORKFLOW_SHA:-}
-[[ "$WSHA" =~ ^[0-9a-f]{40}$ ]] || refuse "GITHUB_WORKFLOW_SHA ${WSHA:-unset} is not a commit sha"
+[[ "$WSHA" =~ ^[0-9a-f]{40}$ ]] || refuse "GITHUB_WORKFLOW_SHA ${WSHA:-unset} is not a commit sha" #@rule sha-format
+if [ "$P_KIND" = push ]; then
+  [ "$P_REF" = "$G_MAIN_REF" ] || refuse "push to ${P_REF:-?} (only $G_MAIN_REF)" #@rule push-ref
+  [ "${GITHUB_REF:-}" = "$G_MAIN_REF" ] || refuse "env ref ${GITHUB_REF:-?} disagrees with the payload ($P_REF)" #@rule env-ref
+  [ "$P_AFTER" = "$WSHA" ] || refuse "push head ${P_AFTER:-?} is not the workflow commit $WSHA" #@rule push-after
+else
+  [ "$P_HEAD_REPO" = "$G_REPO" ] || refuse "PR head ${P_HEAD_REPO:-?} is not $G_REPO" #@rule head-repo
+  trusted "$P_AUTHOR" || refuse "PR author ${P_AUTHOR:-?} not on the allowlist" #@rule pr-author
+  [[ "$P_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || refuse "payload head sha ${P_HEAD_SHA:-?} is not a commit sha" #@rule head-sha-format
+fi
+
 mgit() { timeout 60 /usr/bin/env git -c protocol.file.allow=always -C "$G_MIRROR" "$@"; }
 if [ ! -d "$G_MIRROR" ]; then
   timeout 30 /usr/bin/env git init -q --bare "$G_MIRROR" >/dev/null 2>&1 || refuse "cannot create mirror $G_MIRROR"
 fi
 mgit fetch -q --no-tags --depth=1 "$G_REMOTE" "+$G_MAIN_REF:refs/gate/main" >/dev/null 2>&1 || refuse "cannot fetch $G_MAIN_REF"
-if ! mgit fetch -q --no-tags --depth=1 "$G_REMOTE" "+$WSHA:refs/gate/run" >/dev/null 2>&1; then
-  mgit fetch -q --no-tags --depth=1 "$G_REMOTE" "+${GITHUB_REF:-none}:refs/gate/run" >/dev/null 2>&1 || refuse "cannot fetch workflow commit $WSHA"
+# depth 2: a PR merge commit's parents (base, head) are needed for the head and changed-files checks.
+if ! mgit fetch -q --no-tags --depth=2 "$G_REMOTE" "+$WSHA:refs/gate/run" >/dev/null 2>&1; then
+  mgit fetch -q --no-tags --depth=2 "$G_REMOTE" "+${GITHUB_REF:-none}:refs/gate/run" >/dev/null 2>&1 || refuse "cannot fetch workflow commit $WSHA"
 fi
 [ "$(mgit rev-parse -q --verify 'refs/gate/run^{commit}' 2>/dev/null)" = "$WSHA" ] || refuse "fetched commit is not $WSHA"
-main_blob=$(mgit rev-parse -q --verify "refs/gate/main:$G_WORKFLOW" 2>/dev/null)
-run_blob=$(mgit rev-parse -q --verify "refs/gate/run:$G_WORKFLOW" 2>/dev/null)
-[ -n "$main_blob" ] || refuse "$G_WORKFLOW missing on $G_MAIN_REF"
-[ "$run_blob" = "$main_blob" ] || refuse "IDENTITY: $G_WORKFLOW at $WSHA (${run_blob:-missing}) differs from $G_MAIN_REF ($main_blob)"
-echo "side-machine gate: identity ok ($G_WORKFLOW blob $main_blob, actor ${GITHUB_ACTOR:-?})"
+main_blob=$(mgit rev-parse -q --verify "refs/gate/main:$WPATH" 2>/dev/null)
+run_blob=$(mgit rev-parse -q --verify "refs/gate/run:$WPATH" 2>/dev/null)
+[ -n "$main_blob" ] || refuse "$WPATH missing on $G_MAIN_REF"
+[ "$run_blob" = "$main_blob" ] || refuse "IDENTITY: $WPATH at $WSHA (${run_blob:-missing}) differs from $G_MAIN_REF ($main_blob)" #@rule identity
+if [ "$P_KIND" = pull_request ]; then
+  head2=$(mgit rev-parse -q --verify 'refs/gate/run^2' 2>/dev/null)
+  [ "$head2" = "$P_HEAD_SHA" ] || refuse "workflow commit $WSHA is not the merge of PR head $P_HEAD_SHA (2nd parent ${head2:-none})" #@rule merge-head
+  changed=$(mgit diff --name-only --no-renames 'refs/gate/run^1' 'refs/gate/run' 2>/dev/null) || refuse "cannot list the PR's changed files"
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    for p in $G_PROTECTED; do
+      case "$f" in "$p"*) refuse "PR touches $f (protected paths always run hosted)" ;; esac #@rule protected
+    done
+  done <<< "$changed"
+fi
+echo "side-machine gate: identity ok ($WPATH blob $main_blob, $P_KIND by ${P_SENDER:-?})"
 
 # ---- 1. workspace cleanup (moved here from the completed hook, item 8) ----------------------
-# Keep _tool (setup-node cache, pinned actions only), _actions, _temp, _PipelineMapping and
+# Keep _tool (setup-node cache, pinned actions only), _actions, _temp, _PipelineMapping, _cache and
 # _work/<repo>: by the time this hook runs, "Set up job" has already created THIS job's
 # workspace dir, mapping, actions and file-command files (review round 2). The previous job's
 # checkout inside _work/<repo> is removed by gate-job-completed.sh.
 # _temp entries older than 60 min belong to earlier jobs and go.
 REPO_DIR=${G_REPO##*/}
 if [ -d "$WORK_DIR" ]; then
-  find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name _tool ! -name _actions ! -name _temp ! -name _PipelineMapping ! -name "$REPO_DIR" -exec rm -rf {} + 2>/dev/null
+  find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name _tool ! -name _actions ! -name _temp ! -name _PipelineMapping ! -name _cache ! -name "$REPO_DIR" -exec rm -rf {} + 2>/dev/null
+  # _home was just removed with the rest: every job starts with an empty HOME (no planted .npmrc,
+  # .gitconfig or shell rc from an earlier job). _cache (npm/XDG caches) is kept on purpose.
+  mkdir -p "$WORK_DIR/_home" "$WORK_DIR/_cache" 2>/dev/null
   [ -d "$WORK_DIR/_temp" ] && find "$WORK_DIR/_temp" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null
 fi
 
