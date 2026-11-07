@@ -9,7 +9,8 @@ vi.mock('../../../shared/selfServeApi', async (orig) => ({
   searchPeople: (...a: unknown[]) => searchPeople(...a),
 }));
 
-import { LineupSheet, LINEUP_ADD_PERSON_MESSAGE } from '../LineupSheet';
+import { readFileSync } from 'node:fs';
+import { LineupSheet, LINEUP_ADD_PERSON_MESSAGE, askTeamTerm } from '../LineupSheet';
 
 type State = 'short' | 'found' | 'nomatch' | 'error' | 'noPeople';
 const TERM = 'Zoë & Co';
@@ -59,5 +60,41 @@ describe('line-up no match offers Ask the team', () => {
       expect(link).toBeNull();
     }
     expect(container.innerHTML).not.toMatch(/overflow-x|scroll-x|whitespace-nowrap/);
+  });
+});
+
+describe('ask-the-team text is trimmed and capped', () => {
+  beforeEach(() => cleanup());
+  const rows: Array<[string, string, string]> = [
+    ['padded', '   Ana   Maria  ', 'Ana Maria'],
+    ['200 chars', 'x'.repeat(200), 'x'.repeat(60)],
+    ['emoji', 'Ana \u{1F483}', 'Ana \u{1F483}'],
+    ['amp and hash', 'A&B #1', 'A&B #1'],
+  ];
+  it.each(rows)('%s', async (_n, typed, sent) => {
+    searchPeople.mockReset();
+    searchPeople.mockResolvedValue([]);
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <LineupSheet name="Friday Social" where="Every date" type="class" initial={[]} why={null} busy={false} error={null} onSave={() => {}} onBack={() => {}} />
+      </QueryClientProvider>,
+    );
+    fireEvent.change(screen.getByTestId('p3-lineup-search'), { target: { value: typed } });
+    await waitFor(() => screen.getByTestId('p3-lineup-nomatch'));
+    const href = (screen.getByTestId('p3-lineup-ask-team') as HTMLAnchorElement).getAttribute('href')!;
+    expect(askTeamTerm(typed)).toBe(sent);
+    expect(href).toContain(encodeURIComponent(LINEUP_ADD_PERSON_MESSAGE + sent + '. Event'));
+    expect(href).not.toContain('%20%20');
+    if (typed.includes('&')) expect(href).toContain('%26');
+    if (typed.includes('#')) expect(href).toContain('%23');
+  });
+});
+
+describe('ask-the-team link tap size', () => {
+  it('p3-link is at least 44px high by an explicit px token', () => {
+    const css = readFileSync('src/modules/organiser/p3/theme/p3.css', 'utf8');
+    expect(css).toMatch(/--tap:\s*(\d+)px/);
+    expect(Number(/--tap:\s*(\d+)px/.exec(css)![1])).toBeGreaterThanOrEqual(44);
+    expect(css).toMatch(/\.p3-link[^{]*\{[^}]*min-height:\s*var\(--tap\)/);
   });
 });

@@ -11,6 +11,9 @@ import { dancerMessageUsUrl } from '@/lib/contactLinks';
 /** The WhatsApp message the "Ask the team to add them" link opens; the searched text and the event follow it. */
 export const LINEUP_ADD_PERSON_MESSAGE = 'Hi! I\u2019m adding a line-up on Bachata Calendar and cannot find: ';
 
+/** The searched text as it goes into the message: trimmed, inner whitespace collapsed, cut at 60 characters. */
+export const askTeamTerm = (q: string): string => Array.from(q.trim().replace(/\s+/g, ' ')).slice(0, 60).join('').trim();
+
 /** The roles an organiser adds here (organiser_search_people_v1 takes these two; performers and the MC are the team's). */
 const ADD_ROLES: ReadonlyArray<PeopleRole> = ['teaching', 'djing'];
 
@@ -96,7 +99,7 @@ export function LineupSheet({ name, where, type, initial, why, busy, error, onSa
             <>
               <p className="p3-note" data-testid="p3-lineup-nomatch">{L.noMatch}</p>
               <a className="p3-link" data-testid="p3-lineup-ask-team" target="_blank" rel="noopener noreferrer"
-                href={dancerMessageUsUrl(`${LINEUP_ADD_PERSON_MESSAGE}${q}. Event: ${name}`)}>Ask the team to add them</a>
+                href={dancerMessageUsUrl(`${LINEUP_ADD_PERSON_MESSAGE}${askTeamTerm(q)}. Event: ${name}`)}>Ask the team to add them</a>
             </>
           ) : (
             <div className="p3-stack-s" data-testid="p3-lineup-results">
