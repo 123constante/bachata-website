@@ -17,14 +17,14 @@ Goal: an organiser sells or hands out tickets for their own event and the buyer 
 | Dispute + async payment events | admin | DONE | -- | A#1234 |
 | Buyer short door code, DB half | admin | DONE, merged 2026-11-06 14:57Z, applied by CI | -- | A#1281 (queue row 51) |
 | Buyer short door code, web half | web | NOT ON A BRANCH: first worker ended with a blocked marker | confirm A#1281 is live on prod, then re-dispatch | brief/ticket-buyer-short-code-web (100b02fc); marker W#1446 (dt_868315ad3d0c, "prerequisites absent on main"); queue row 52 still says RUNNING, lead to reconcile |
-| Organiser sales report card + guest list CSV | web | IN FLIGHT, PR open, checks not re-read | review, checks, owner Approve if hard tier | W#1445 claude/ticket-sales-report-web (2ebafa32); brief/ticket-sales-report-web |
-| Partial refund in the refund edge function | admin | IN FLIGHT, PR open; `unit-build` and `rpc-body-snapshots` red when last read | fix round, review; lead deploys the edge function after review | A#1283 claude/ticket-partial-refund-edge (c5e348ef); brief/ticket-partial-refund-edge |
+| Organiser sales report card + guest list CSV | web | DONE, merged on main (a8afe30) | -- | W#1445 |
+| Partial refund UI: amount field on the Refund sheet (order stays paid, tickets stay valid) | web | DONE, merged on main (630a52a) | -- | W#1458 |
+| Partial refund in the refund edge function | admin | A#1283; merge and deploy state NOT re-read here | confirm merged and `ticket-refund` + `stripe-webhook` deployed before the walk | A#1283 |
 | Go-live phone walk of the checklist | owner | WAITING-OWNER | owner | W#1403 docs (merged) |
 
 ## Slices not yet briefed (drafters: pick from here, verify each on origin/main first)
 | Item | Repo | Blocked by | Source |
 |---|---|---|---|
-| Partial refund UI: amount field on the organiser Refund sheet (order stays paid, tickets stay valid) | web | A#1283 merged and deployed | plans/ARC-ticketing.md decision Q5 |
 | Ticket branch of the shared door scanner (`door_scan_v1` parses `t:` and `r:`) once raffle R5 starts | both | raffle R1 applied (docs/arcs/raffle.md) | plans/before-you-plan-or-quizzical-graham.md "RPCs" |
 | Remove TICKET_PREVIEW_ORIGIN Supabase secret before live (owner/lead task, not a worker) | ops | go-live decision | ARC-ticketing S5 note |
 | Plus-address email folding before a public sale (O2) | admin | none known | ARC-ticketing "Open follow-ups" |
@@ -42,4 +42,4 @@ Goal: an organiser sells or hands out tickets for their own event and the buyer 
 
 ## Not verified here
 - Prod state of A#1281 beyond the queue note (ledger 20270315070000); whether the short_code columns in src/integrations/supabase/types.ts are the ones the web half needs.
-- Checks on W#1445 and A#1283 beyond the red list above; Stripe live mode (never touched); dispute events in the real Stripe dashboard.
+- Whether A#1283 is merged and deployed; Stripe live mode (never touched); dispute events in the real Stripe dashboard.

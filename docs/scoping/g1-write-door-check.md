@@ -73,6 +73,28 @@ RPC name as a string later (`profileProgress.ts`, `teamRpcApi.ts`, `goLiveCheck.
 `ownershipApi.ts`, `p3/onboarding/*Api.ts`, `admin-organisers/*`, `areas/*`). None of them names a
 door today, but this is the spelling a new door would most likely arrive in.
 
+### Interim-seat doors (added with I1)
+
+Admin PR 1284 (interim manager seats) added no new event-write door. It changed four RPCs that
+open or gate a seat. Each has one Website raw call (line numbers re-read on origin/main
+2026-11-07). Caller rules and seat effects below are read from the live function bodies in prod
+(`pg_get_functiondef`, SELECT only), because the admin migration file
+`20270315110000_organiser_interim_seats_v1.sql` was not readable from this session.
+
+| RPC | Website call site | Who may call | Opens or closes a seat | Reaches an event write |
+|---|---|---|---|---|
+| `request_organiser_access_v1` | `src/modules/organiser/shared/selfServeApi.ts:179` | Any signed-in caller with a complete dancer profile, on a live page they are not already a member of (`authentication_required`, `already_member`, `not_live` otherwise). | Neither. It only writes an `access_requested` audit row. | No. The only write is `_write_entity_decision_audit`. |
+| `resolve_organiser_access_request_v1` | `selfServeApi.ts:441` | The page's owner or an admin (`not_authorised` otherwise). Granting `owner` is admin only (`use_transfer`). | Opens: a `grant` as `manager` calls `_organiser_interim_seat_open_p5` (a no-op on a page that has an owner). It also sets the member row. A `decline` writes an audit row only. Closes nothing. | No. It writes the member row and audit rows only. |
+| `admin_invite_person_v1` | `src/modules/admin-organisers/invitePersonApi.ts:119` | Admin only (`not_admin`). | Neither directly. It issues an invite with `member_role` `owner` or `manager`. The seat opens on redeem. A manager invite on a page with an owner needs a reason. | No. It writes `dancer_profiles.email`, `signup_allowlist`, `organiser_claim_emails` (owner invites only), `organiser_invites` and audit. `event_series_p5` is read for the message text only. |
+| `redeem_organiser_invite_v1` | `src/modules/admin-organisers/adminApi.ts:117` | Any signed-in, non-anonymous caller with a confirmed account who holds a valid token. An email-bound invite also needs the matching proven email. | Opens: a `manager` invite calls `_organiser_interim_seat_open_p5` after `_organiser_member_set_p5`. An `owner` invite opens no interim seat. Closes nothing. | No. It writes the member row, the invite, attempt rows and audit. |
+
+No door of the four closes a seat, and none writes series or occurrence rows. Flipping
+organiser flags does not open an event-write path through any of them.
+
+**Doors not added.** `_organiser_team_add_gate_p5` (refuses `interim_cannot_add` for an interim
+manager) and `_ticket_can_manage_organiser_v1` (owner, manager or admin read for ticket tools) are
+helpers called from inside other RPCs. The Website never calls them, so they are not doors.
+
 ## 2. What "goes through the gate" means in Website code
 
 Today: **nothing Website-side recognises the onboarding refusal.**
