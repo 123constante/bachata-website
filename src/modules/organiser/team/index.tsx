@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, UserPlus } from 'lucide-react';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { TEAM_CAP, TEAM_FULL_REASON, memberLabel, type TeamMember } from '@/modules/organiser/shared/teamModel';
-import { MESSAGE_US, NO_PAGE, canAdd as addGate, canDecline, canLeave } from '@/modules/organiser/shared/teamRules';
+import { MESSAGE_US, NO_PAGE, canDecline, canLeave, ownRowLabel, teamAddOffer } from '@/modules/organiser/shared/teamRules';
+import { useSeatKind } from '@/modules/organiser/shared/useSeatKind';
+import { ShareJoinLink } from './ShareJoinLink';
 import { JoinRequestCard } from '../flows/fix/JoinRequest';
 import { useOrgSurface } from '../shell/surface';
 import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, SkeletonRows, useAnnounce } from '../ui';
@@ -24,7 +26,7 @@ import { PageNameCaption, RequestsError, requestsErrorShown } from './p3TeamBits
  * ABOVE the list (D9), "Add someone" for an owner AND a manager (D50). The caller's own row says who
  * added them (R3-11) and links to Leave (C29, More). A row opens that person (C26), keyed by user_id.
  */
-function ListedRow({ row, organiserId, caller, onChanged }: { row: SharedTeamRow; organiserId: string; caller: { seat: ReturnType<typeof callerSeatOf>; personId: string | null }; onChanged: (msg: string) => void }) {
+function ListedRow({ row, organiserId, caller, onChanged, seatLabel }: { row: SharedTeamRow; organiserId: string; caller: { seat: ReturnType<typeof callerSeatOf>; personId: string | null }; onChanged: (msg: string) => void; seatLabel: string | null }) {
   const { paths } = useOrgSurface();
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -55,7 +57,7 @@ function ListedRow({ row, organiserId, caller, onChanged }: { row: SharedTeamRow
       <span className="min-w-0 flex-1 text-left">
         <span className="block text-[15px] text-[var(--fg)] [overflow-wrap:anywhere]">{name}</span>
       </span>
-      <span className="shrink-0 rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]" data-testid="team-row-label">{SHARED_ROLE_LABEL[row.accessRole]}</span>
+      <span className="shrink-0 rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]" data-testid="team-row-label">{seatLabel ?? SHARED_ROLE_LABEL[row.accessRole]}</span>
     </>
   );
   return (
@@ -82,7 +84,7 @@ function ListedRow({ row, organiserId, caller, onChanged }: { row: SharedTeamRow
   );
 }
 
-function MemberRow({ m }: { m: TeamMember }) {
+function MemberRow({ m, seatLabel }: { m: TeamMember; seatLabel: string | null }) {
   const { paths } = useOrgSurface();
   const name = memberLabel(m);
   return (
@@ -92,7 +94,7 @@ function MemberRow({ m }: { m: TeamMember }) {
         <span className="block text-[15px] text-[var(--fg)] [overflow-wrap:anywhere]">{name}{m.isSelf ? ' (you)' : ''}</span>
         {m.isSelf && m.addedByDisplayName && <span className="block text-[13px] text-[var(--mut)]" data-testid="team-added-by">Added by {m.addedByDisplayName}</span>}
       </span>
-      <span className="shrink-0 rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]">{SHARED_ROLE_LABEL[m.role]}</span>
+      <span className="shrink-0 rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] text-[var(--fg)]" data-testid="team-row-label">{seatLabel ?? SHARED_ROLE_LABEL[m.role]}</span>
       <ChevronRight aria-hidden="true" className="h-[16px] w-[16px] shrink-0 text-[var(--mut)]" />
     </Link>
   );
@@ -113,7 +115,10 @@ export default function TeamPage() {
   const me = members.find((m) => m.isSelf);
   const caller = { seat: callerSeatOf(viewerRole), personId: me?.personId ?? null };
   // P3 shows a Contributor the control with its reason (W4a owner pick); R1 keeps it hidden.
-  const addReason = addGate(viewerRole, members).reason;
+  const seat = useSeatKind(organiser?.id);
+  const offer = teamAddOffer(seat, viewerRole, members);
+  const addReason = offer.gate.reason;
+  const isSelfRow = (personId: string | null, userId: string | null) => !!me && ((!!personId && personId === me.personId) || (!!userId && userId === me.userId));
   // What the RPCs accept, from the ONE mapping (teamRules): Decline is owner-only, Leave never orphans a page.
   const declineGate = canDecline(viewerRole, members, full);
   const leaveGate = canLeave(members);
@@ -147,8 +152,8 @@ export default function TeamPage() {
             )}
             <Card label="Team" testId="team-list">
               {listed
-                ? listed.map((r) => <ListedRow key={r.personId ?? r.userId ?? r.sortKey} row={r} organiserId={organiser.id} caller={caller} onChanged={announce} />)
-                : members.map((m) => <MemberRow key={m.userId} m={m} />)}
+                ? listed.map((r) => <ListedRow key={r.personId ?? r.userId ?? r.sortKey} row={r} organiserId={organiser.id} caller={caller} onChanged={announce} seatLabel={ownRowLabel(seat, isSelfRow(r.personId, r.userId))} />)
+                : members.map((m) => <MemberRow key={m.userId} m={m} seatLabel={ownRowLabel(seat, m.isSelf)} />)}
               {listed && listed.length === 0 && <p className="px-[16px] py-[12px] text-[14px] text-[var(--mut)]" data-testid="team-empty">{NOBODY_LISTED}</p>}
               {!listed && !ctx.loading && <p className="px-[16px] py-[8px] text-[13px] text-[var(--mut)]" data-testid="team-shared-failed">{SHARED_READ_FAILED}</p>}
             </Card>
@@ -157,7 +162,9 @@ export default function TeamPage() {
                 <PublicToggle organiserId={organiser.id} profileId={me.profileId ?? null} onChanged={announce} />
               </Card>
             )}
-            {(canAdd || kind === 'p3') && (
+            {offer.kind === 'share' ? (
+              <ShareJoinLink organiserId={organiser.id} organiserName={organiser.name} announce={announce} />
+            ) : (canAdd || kind === 'p3') && (
               addReason ? (
                 <>
                   <GhostButton disabled testId="team-add" aria-describedby="team-add-reason"><UserPlus aria-hidden="true" className="h-[18px] w-[18px]" /> Add someone</GhostButton>
