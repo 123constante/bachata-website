@@ -102,6 +102,8 @@ export const JOIN_COPY = {
     // F-05: with either area live the button opens that area's Home (acceptedInviteLanding /
     // organiserAreaHome), so one label says where it lands.
     button: 'Open your organiser home',
+    // next=get-paid on the link, owner or manager seat: Done opens the Get paid start path.
+    buttonGetPaid: 'Set up payments',
     // organiserSelfServe off: the organiser area is not open yet, so the one next step is the public site.
     bodyOff: 'Your place on the team is saved for when they open.',
     buttonOff: 'Go to Bachata Calendar',

@@ -19,7 +19,8 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, searchAfterCodeStep, seatCanSetUpPayments, wantsGetPaid, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import type { MemberRole } from '../inviteModel';
 import { buildSignInHref } from '@/lib/authRouting';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
@@ -72,6 +73,11 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const [redeemed, setRedeemed] = useState(false);
   // undefined = nothing redeemed here; null = redeemed with no new seat (already a member) or no id: the plain organiser home.
   const [redeemedOrgId, setRedeemedOrgId] = useState<string | null | undefined>(undefined);
+  // The seat the redeem answer names (member_role). Unknown = null: today's Done.
+  const [redeemedRole, setRedeemedRole] = useState<MemberRole | null>(null);
+  // next=get-paid, as FIRST seen: the code step keeps it in the address, but stripToken rewrites the address at Done.
+  const [getPaidAsked] = useState(() => wantsGetPaid(search));
+  const getPaid = (getPaidAsked || wantsGetPaid(search)) && seatCanSetUpPayments(redeemedRole);
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -116,6 +122,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         setRedeemed(true);
         // (review r1 F4) a used link's already_member names the invite's own page: land on that page's home.
         setRedeemedOrgId(o.organiserId);
+        setRedeemedRole(o.memberRole ?? null);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       } else if (o.kind === 'dead') {
         setUsedRefused(true);
@@ -171,12 +178,13 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const returning = step === 'done' && arrivedUsed.current === true && flags.organiserSelfServe;
   useEffect(() => {
     if (!returning) return;
-    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId);
+    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId, getPaid);
     navigate(to, { replace: true, state });
-  }, [returning, info?.organiserName, doneOrgId, navigate]);
+  }, [returning, info?.organiserName, doneOrgId, getPaid, navigate]);
   const usedViewer = info?.status === 'used' && authStatus !== 'resolving' ? (user ? 'other_account' : 'signed_out') : null;
 
-  const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
+  // Other params (next=get-paid) stay when the code step is left.
+  const clearStep = useCallback(() => navigate(`${pathname}${searchAfterCodeStep(search)}`, { replace: true }), [navigate, pathname, search]);
 
   const fail = (from: string, s: JoinStop) => {
     reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind);
@@ -217,7 +225,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         }
         // unavailable: the function is not on the server yet; the redeem still guards the address.
       }
-      const { error } = await sendJoinCode(check.email, token).catch((e: unknown) => ({ error: e instanceof Error ? e : new Error('network') }));
+      const { error } = await sendJoinCode(check.email, token, getPaidAsked || wantsGetPaid(search)).catch((e: unknown) => ({ error: e instanceof Error ? e : new Error('network') }));
       if (error) {
         const s = classifySendError(error);
         if (resend && s.kind === 'rate_limited') return setCodeError(JOIN_COPY.code.rateLimited);
@@ -229,7 +237,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       setCooldownUntil(Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000);
       setNow(Date.now());
       if (resend) setCodeNotice(JOIN_COPY.code.resent);
-      else navigate(`${pathname}${codeStepSearch(check.email)}`, { replace: true });
+      else navigate(`${pathname}${codeStepSearch(check.email, search)}`, { replace: true });
     } finally {
       setBusy(false);
     }
@@ -242,6 +250,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       case 'done':
         setRedeemed(true);
         setRedeemedOrgId(action.alreadyMember ? null : action.organiserId);
+        setRedeemedRole(action.memberRole ?? null);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
         return;
       case 'stop': return fail(from, action.stop);
@@ -420,7 +429,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} rowsLeft={rowsLeft} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} rowsLeft={rowsLeft} getPaid={getPaid} />
         </>
       );
       break;

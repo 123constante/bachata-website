@@ -112,6 +112,16 @@ export function isTaskReturnTo(returnTo: string): boolean {
   return TASK_PATHS.some((t) => p === t || p.startsWith(`${t}/`)) || TASK_PREFIXES.some((t) => p.startsWith(t) && p.length > t.length);
 }
 
+// The Get paid start path (organiser Get paid link, agreed with part A). The
+// literal lives ONCE here; the sign-in link's returnTo and the invite's
+// `next=get-paid` Done landing both build it with getPaidStartPath. It is under
+// /account, so isTaskReturnTo already keeps it on every sign-in and sign-up.
+export const GET_PAID_START_PATH = "/account/p3/get-paid";
+
+export function getPaidStartPath(organiserId: string): string {
+  return `${GET_PAID_START_PATH}?o=${encodeURIComponent(organiserId)}`;
+}
+
 // Arc 1 flow 9a: the ONE sub line under "Welcome back" on every sign-in visit
 // (plain, with a returnTo, after a bounced link, from the Join tab): a new phone
 // or an ended session is the same person, and the account holds their pages.
