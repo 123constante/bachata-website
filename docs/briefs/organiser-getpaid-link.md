@@ -8,9 +8,9 @@ Serves: a non-technical organiser (first: Ritmo Latino, no Stripe row yet) who g
 ## What main lacks
 Found by the 2026-11-07 read of origin/main 4504f7fb0:
 - a link that carries "go to Get paid after sign-in" -- grep: P3_TICKET_PATHS (only getPaid and stripeBack today; this slice adds names)
-- a single-purpose Get paid screen: today's is You > Get paid inside P3PushedShell with a Back-to-You link, plus a setup-steps card and Money so far (GetPaid.tsx, GetPaidScreen / GetPaidBody)
-- a "you're ready" state with an Add a ticket button; once connected only the tag and title change today
-- polling after Stripe: GetPaidContent refetches the Stripe state ONCE on stripe=return and says "reload the page"
+- a single-purpose Get paid screen: today's is You > Get paid inside P3PushedShell with a Back-to-You link, plus a setup-steps card and Money so far -- grep: GetPaidStart
+- a "you're ready" state with an Add a ticket button; once connected only the tag and title change today -- grep: You're ready to sell tickets
+- polling after Stripe: GetPaidContent refetches the Stripe state ONCE on stripe=return and says "reload the page" -- grep: Checking with Stripe
 
 ## Files
 src/modules/organiser/p3/tickets/paths.ts (exists: add the start path and the link builder)
