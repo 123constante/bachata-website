@@ -191,11 +191,21 @@ export function AboutSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenS
   );
 }
 
-export const AboutEmpty = () => (
-  <p style={{ margin: 0, fontSize: 14, color: 'var(--eip-mut, rgba(246,241,234,0.6))' }} data-testid="eip-about-empty">
+/**
+ * The owner's empty About line. It carries the SAME bio pencil the filled-bio slot renders
+ * (AboutSlot, not a second pencil), inline at the end of the sentence so it flows after the
+ * last word and can never sit over one (docs/design/organiser-about-empty-pencil.md).
+ */
+export const AboutEmpty = ({ drafted, onOpen }: { drafted: boolean; onOpen: OpenSheet }) => (
+  <p style={{ margin: 0, fontSize: 14, lineHeight: '20px', color: 'var(--eip-mut, rgba(246,241,234,0.6))' }} data-testid="eip-about-empty">
     Not added yet. Optional: tell dancers who you are and what your nights are like.
+    <span data-testid="aboutEmptyPencil"><AboutSlot drafted={drafted} onOpen={onOpen} /></span>
   </p>
 );
+
+/** Whether a bio shows (a draft overrides the stored one), on the same truthiness the public page uses. */
+export const bioShown = (overlay: { bio?: string | null }, entity: { bio?: string | null }): boolean =>
+  !!(overlay.bio !== undefined ? overlay.bio : entity.bio);
 
 // ---- link rows -----------------------------------------------------------------------------
 

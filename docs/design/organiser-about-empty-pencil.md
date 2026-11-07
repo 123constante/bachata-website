@@ -1,0 +1,35 @@
+# Organiser page: the empty About line carries the About pencil
+
+Brief: `docs/briefs/organiser-about-empty-pencil.md` (branch `brief/organiser-about-empty-pencil`).
+
+## INVENTORY (built before the fix)
+
+Every place the owner's page shows a "not added yet / optional / add" line for a field, and whether a control sits beside it (origin/main 759d43f):
+
+| Field | Where (file:line on main) | Copy | Control beside it |
+|---|---|---|---|
+| Bio (About) | `src/modules/organiser/edit-in-place/parts.tsx:196` | "Not added yet. Optional: tell dancers who you are..." | **NO** (fixed here) |
+| City | `parts.tsx:167` | "Add city" | yes, `PencilButton field="city"` |
+| Year started | `parts.tsx:172` | "Add year started" | yes, `PencilButton field="founded_year"` |
+| Category | `parts.tsx:177` | "Add category" | yes, `PencilButton field="organisation_category"` |
+| Links (Instagram / Facebook / Website) | `parts.tsx:220` via `fieldRules.ts:394` | "Not added" | yes, `PencilButton` per row |
+| Photo | `parts.tsx:135` (initials, no copy) + card row `parts.tsx:95` | "Add" (Complete-your-page card) | yes, photo pencil + card Add |
+| Contact (phone / email) | `ContactCard.tsx:27` via `contactModel.ts:59` | "Not added" | yes, the card's Edit button |
+
+Coverage on main: **6 / 7** lines with a control. After this PR: **7 / 7**.
+
+Found, not fixed: none. Every other line already has a control.
+
+## Design chosen: pencil inline at the end of the sentence
+
+- The pencil is the existing `AboutSlot` (the same `PencilButton field="bio"`, 44x44 explicit px, "Edit about"), placed as an inline-flex element after the sentence's last word. It flows like a word, so it wraps with the text and cannot sit over a word at 390px.
+- It needs no extra row and reads as "this sentence -> edit it", which keeps the hero compact (design-density rule).
+
+## Rejected: pencil on its own line under the sentence
+
+- A separate 44px row under 2-3 wrapped lines adds about 44px of hero height for one icon. That goes against the compact rule, and on /page it stacks under the text in a column that already has a right-hand pencil slot.
+- It also splits the control from the copy that asks for it, so the pencil reads as unrelated to the sentence.
+
+## Why the 'about' slot now renders nothing when no bio shows
+
+`src/modules/organiser/page/index.tsx:110-111` renders `about-empty` (no bio) **and** `about` unconditionally. With the pencil inside the empty line, `about` would have made a second pencil there. The layer now returns `null` for `about` while no bio shows (draft overrides stored), using the same untrimmed truthiness as the public page (`ep.bio`). Trade-off: a whitespace-only bio could show two pencils on /page but never zero on the public page. Prod has 0 such rows (2026-11-07).

@@ -64,7 +64,7 @@ import TeamVisibilitySheet, { type TeamVisibilitySheetProps } from './TeamVisibi
 import { callerPersonIdOf, visibilityAccess } from './teamVisibilityModel';
 import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { SEARCH_LIMIT, addedMessage, teamCountLine, type AddOutcome, type AddRole } from './teamPickerModel';
-import { AboutEmpty, AboutSlot, CompleteCard, CreateEventLink, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, NameSlot, PhotoSlot, type OpenSheet } from './parts';
+import { AboutEmpty, AboutSlot, bioShown, CompleteCard, CreateEventLink, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, NameSlot, PhotoSlot, type OpenSheet } from './parts';
 
 type Notice = { tone: 'gold' | 'ok' | 'error'; text: string };
 type SaveClient = Parameters<typeof saveDrafts>[0];
@@ -389,8 +389,12 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
             onOpen={openSheet}
           />
         );
-        case 'about': return <AboutSlot drafted={has('bio')} onOpen={openSheet} />;
-        case 'about-empty': return <AboutEmpty />;
+        // The empty About line carries the bio pencil itself, so 'about' renders nothing while no
+        // bio shows: /page asks for both slots at once and must still get exactly ONE bio pencil.
+        // Untrimmed on purpose: a whitespace-only bio (none in prod, 2026-11-07) may show two
+        // pencils on /page, but never none on the public page, which picks 'about' on ep.bio.
+        case 'about': return bioShown(overlay, entity) ? <AboutSlot drafted={has('bio')} onOpen={openSheet} /> : null;
+        case 'about-empty': return <AboutEmpty drafted={has('bio')} onOpen={openSheet} />;
         case 'links': return (
           <LinkRows
             values={{ instagram: shown.instagram, facebook: shown.facebook, website: shown.website }}
