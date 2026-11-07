@@ -18,13 +18,14 @@ Owner 2026-10-26 / 2026-10-29: the ambassador's reward is a badge on their profi
 Table-driven {ambassador, not ambassador, rpc error, signed-out} x {each profile render that shows the badge}; badge text identical on every screen (one mapping); a long name at 390px does not clip the badge.
 
 ## Walk and design
+INVENTORY.md first (in the design record): every public profile render of a person (file:line) and whether it shows the badge; coverage count at the end.
 390x844 with a mocked ambassador. Design record `docs/design/bristol-ambassador-badge.md` with INVENTORY first (admin ambassador screen, current profile pages, file:line).
 
 ## Done
 Bot-authored PR, every CI job step run, Verified / Not verified, handover `docs/handover/bristol-ambassador-badge.md`.
 
 ## What main lacks
-- No ambassador badge on any public profile (git grep is_city_ambassador_public_v1 finds nothing in src). -- grep: is_city_ambassador_public_v1
+- No ambassador badge on any public profile (git grep is_city_ambassador_public_v1 finds nothing in src). -- grep: AmbassadorBadge
 
 ## Files
 `src/modules/person-page/PersonPage.tsx`, `src/pages/DancerProfile.tsx`, `src/pages/PublicProfile.tsx` (prove the live one), new `src/modules/ambassador/link/AmbassadorBadge.tsx`, tests beside it.
