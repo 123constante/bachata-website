@@ -29,3 +29,15 @@ The owner-blank empty state's gold "Complete your profile" button is replaced by
 ## Rejected alternative
 
 Moving the "Complete your page" card (`slot('card')`) into the empty state: it hides once photo, year and Instagram are saved, so an owner-blank profile (no bio, no links) could be left with no action at all, and it has no About row, the one field owner-blank is defined by.
+
+## Real-data survey (prod stsdtacfauprzrdebmzg, read-only SELECT, counts only, 2026-11-07)
+
+- 50 organiser_profiles rows; 47 have an owner/manager in entity_members.
+- No bio AND no public links (instagram / website, column or socials): 1 row; it has no photo, 0 rows from get_organiser_public_events_v1, and 1 entity_members row. So at most 1 organiser can meet owner-blank today (whether its public team reads 0 was not checked), and 0 owner-blank rows have a photo (the has-photo cases are covered by the matrix only).
+
+## Handover
+
+- Done: inventory (9/9), page change, dialog + state + handlers + validators + imports deleted, owner-blank matrix (flag on/off x photo/no photo, red first on main: 4/4 failed on the legacy button), design note, survey.
+- Outside the brief's file list, forced by the deletion: `src/pages/__tests__/OrganiserProfileContactEdit.test.tsx` deleted (it only exercised the deleted dialog: no contact key sent by its save). No other file outside the list was touched.
+- Typecheck: `npm run typecheck` 119 tree-wide, 0 new in touched files (one pre-existing on an unchanged line). Unit/e2e: see PR body table.
+- Left / next: the About-pencil gap for a no-bio owner who is NOT owner-blank (see Inventory, Gap found) -- a one-line follow-up in OrganiserProfile.tsx rendering `slot('about')` beside `about-empty`, needs its own brief. Real browser walk at 390x844 as a signed-in owner was not done (see PR body).
