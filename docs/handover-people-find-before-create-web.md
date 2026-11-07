@@ -36,3 +36,7 @@ Ticket: dt_506feb599065. Brief: `brief/people-find-before-create-website:docs/br
 ## Next steps
 Lead: phone walk with a real email-bound or plain invite whose email matches 2 admin-made profiles (survey: 0 such
 open invites today), and a person-bound invite. Merge after checks are green.
+
+## Gates at hand-off
+- tsc run on 4c4b738: 0 errors in branch files.
+- PR: #1466 (bot-opened; body set, both label checkers exit 0).
