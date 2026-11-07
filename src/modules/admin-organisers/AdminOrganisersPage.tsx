@@ -58,6 +58,7 @@ import {
 import { InvitePerson } from './InvitePerson';
 import { InvitePersonWho } from './InvitePersonWho';
 import { DuplicatesAlert } from './duplicates/DuplicatesAlert';
+import { JoinTwoPeople } from './duplicates/JoinTwoPeople';
 import { InviteRequests } from './InviteRequests';
 import { FrontDoorEntry } from './FrontDoorEntry';
 import { isPlausibleEmail } from '@/modules/organiser/shared/emailShape';
@@ -338,6 +339,7 @@ function AdminOrganisersBody() {
       <h1 className="text-lg font-semibold">Organiser access</h1>
       <FrontDoorEntry />
       <DuplicatesAlert />
+      <JoinTwoPeople />
       <InviteRequests onSendNewLink={sendNewLink} />
       <InvitePerson organisers={list.data ?? []} />
       <label className="relative block">
