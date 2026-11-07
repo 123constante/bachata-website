@@ -9,7 +9,7 @@ import { Sheet } from './Sheet';
 import { dancerMessageUsUrl } from '@/lib/contactLinks';
 
 /** The WhatsApp message the "Ask the team to add them" link opens; the searched text and the event follow it. */
-export const LINEUP_ADD_PERSON_MESSAGE = 'Hi! I’m adding a line-up on Bachata Calendar and cannot find: ';
+export const LINEUP_ADD_PERSON_MESSAGE = 'Hi! I\u2019m adding a line-up on Bachata Calendar and cannot find: ';
 
 /** The roles an organiser adds here (organiser_search_people_v1 takes these two; performers and the MC are the team's). */
 const ADD_ROLES: ReadonlyArray<PeopleRole> = ['teaching', 'djing'];
