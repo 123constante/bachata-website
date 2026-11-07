@@ -196,7 +196,7 @@ describe('already_member on the Join tap (no new seat)', () => {
   });
 });
 
-it('the button words are the brief’s', () => {
+it('the button words are the brief\u2019s', () => {
   expect(JOIN_COPY.done.buttonGetPaid).toBe('Set up payments');
   expect(getPaidStartPath('o1')).toBe('/account/p3/get-paid?o=o1');
 });
