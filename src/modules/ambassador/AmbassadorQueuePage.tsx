@@ -7,6 +7,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { useNoindexMeta } from '@/hooks/useNoindexMeta';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { buildSignInHref } from '@/lib/authRouting';
 import {
   approveEntity,
@@ -30,6 +31,7 @@ import {
   type QueueItem,
   type TargetType,
 } from './ambassadorModel';
+import { LinkSection } from './link/LinkCard';
 import { ApproveSheet, RejectSheet } from './DecisionSheets';
 import { CaughtUpState, ErrorState, LoadingState, NoAccessState, QueueList, ReviewView, SignedOutState } from './QueueViews';
 
@@ -51,6 +53,7 @@ function Queue() {
   const location = useLocation();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const userId = user?.id ?? '';
   // Ticks so the "Waiting N days" chips and the age bar stay true on a page left open.
   const [now, setNow] = useState(() => new Date());
@@ -222,6 +225,7 @@ function Queue() {
           </span>
         )}
       </header>
+      {!reviewing && <LinkSection userId={userId} isAdmin={isAdmin === true} />}
       {body}
       {sheet && sheetItem && sheet.kind === 'approve' && (
         <ApproveSheet item={sheetItem} busy={decide.isPending} error={sheetError} signInHref={signInHref} onCancel={closeSheet} onConfirm={() => decide.mutate({ item: sheetItem })} />
