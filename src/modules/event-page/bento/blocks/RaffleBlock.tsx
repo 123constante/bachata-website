@@ -22,7 +22,7 @@ import './RaffleBlock.css';
 import { BentoTile } from '@/modules/event-page/bento/BentoTile';
 import { BLOCK_COLORS, BLOCK_TITLES } from '@/modules/event-page/bento/BentoGrid';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
-import { getRaffleSessionId, raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
+import { getRaffleSessionId, isRafflePoolJoined, markRafflePoolJoined, raffleEnteredKey, tryVibrate } from '@/lib/raffleSession';
 import {
   countdownParts,
   formatCloseClock,
@@ -31,6 +31,10 @@ import {
 } from '@/modules/event-page/utils/raffleCountdown';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
 import { Trophy } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { flags } from '@/lib/featureFlags';
+import { useRaffleBoard } from '@/hooks/useRaffleBoard';
+import { boardForEvent } from '@/lib/raffleBoard';
 
 const GOLD = 'hsl(var(--bento-accent))';
 const pad = (n: number) => (n < 10 ? '0' : '') + n;
@@ -92,16 +96,18 @@ type SpinPhase = 'idle' | 'spinning' | 'landed';
 // The cabinet: marquee, chasing bulbs, reels (+ landing flash) and the winline.
 // Shared by the live tile and the dimmed admin-excluded state. winnerName, when
 // set, replaces the prize on the winline ("[name] WON").
-function Cabinet({ spinPhase, prizeFull, winnerName }: {
+function Cabinet({ spinPhase, prizeFull, winnerName, marquee, youreIn }: {
   spinPhase: SpinPhase;
   prizeFull: string;
   winnerName?: string | null;
+  marquee?: string;
+  youreIn?: boolean;
 }) {
   const reelsCls =
     spinPhase === 'spinning' ? ' is-spinning' : spinPhase === 'landed' ? ' is-landed' : '';
   return (
     <div className="rsb-cabinet">
-      <p className="rsb-marquee">Lucky Reels</p>
+      <p className="rsb-marquee">{marquee ?? 'Lucky Reels'}</p>
       <div className="rsb-bulbs"><i /><i /><i /><i /><i /></div>
 
       <div className="rsb-bezel">
@@ -121,6 +127,11 @@ function Cabinet({ spinPhase, prizeFull, winnerName }: {
         <div className={`rsb-reel-flash${spinPhase === 'landed' ? ' show' : ''}`} aria-hidden="true">
           <span>You&rsquo;re in the draw!</span>
         </div>
+        {youreIn && (
+          <div className="rsb-youre-in" role="status" data-testid="raffle-youre-in">
+            You&rsquo;re in
+          </div>
+        )}
       </div>
 
       <div className="rsb-winline">
@@ -151,7 +162,7 @@ const TrophyCircle = () => (
 // eventId is the RESOLVED event uuid (passed from BentoPage). Reading it from
 // useParams() here used to break: the URL param is a slug after canonicalisation,
 // and the raffle-config RPC expects a uuid.
-export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
+const RaffleBlockLegacy = ({ eventId }: { eventId: string | null }) => {
   const sessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
   const { config, loading, refresh } = useEventRaffleConfig(eventId ?? null, sessionId);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -418,3 +429,84 @@ export const RaffleBlock = ({ eventId }: { eventId: string | null }) => {
     </>
   );
 };
+
+// ---------------------------------------------------------------------------
+// Raffle v2 (flags.raffleV2): one pool, one board. The tile never hides; the
+// board (raffle_public_board_v1) says whether THIS night is in the raffle and
+// whether it has a winner. Entry is the pool join (dialog without an event id).
+// ---------------------------------------------------------------------------
+const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
+  const { data: board } = useRaffleBoard();
+  const state = useMemo(
+    () => (board && eventId ? boardForEvent(board, eventId) : null),
+    [board, eventId],
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [joined, setJoined] = useState<boolean>(() => isRafflePoolJoined());
+  useEffect(() => { setJoined(isRafflePoolJoined()); }, [eventId]);
+
+  const onSubmitted = useCallback(() => {
+    markRafflePoolJoined();
+    setJoined(true);
+  }, []);
+
+  const elsewhere = !state?.inRaffle;
+  const winnerName = state?.winnerFirstName ?? null;
+
+  return (
+    <>
+      <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle} mode="multi-target">
+        <div className="rsb-root">
+          {elsewhere && (
+            <h3 className="rsb-elsewhere" data-testid="raffle-elsewhere-heading">
+              Win a free night elsewhere
+            </h3>
+          )}
+          {!joined && <div className="rsb-free-badge"><span>Free to enter</span></div>}
+
+          <div className="rsb-machine-row">
+            <Cabinet
+              spinPhase="idle"
+              prizeFull="a free night"
+              marquee="Win a free night"
+              youreIn={joined}
+            />
+            {!joined && (
+              <div className="rsb-lever-col">
+                <button
+                  className="rsb-lever"
+                  type="button"
+                  onClick={() => { tryVibrate([20, 40, 30]); setDialogOpen(true); }}
+                  aria-label="Pull the lever to enter the raffle"
+                >
+                  <span className="rsb-lever-track" />
+                  <span className="rsb-lever-arm" />
+                  <span className="rsb-lever-knob" />
+                  <span className="rsb-lever-hint">Pull</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {winnerName && (
+            <p className="rsb-winner-strip" data-testid="raffle-winner-strip">
+              {'\u{1F389}'} <b>{winnerName}</b> won this night
+            </p>
+          )}
+          <Link to="/raffles" className="rsb-see-who-won" data-testid="raffle-see-who-won">
+            See who won &rarr;
+          </Link>
+        </div>
+      </BentoTile>
+      <RaffleEntryDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        consentVersion={null}
+        onSubmitted={onSubmitted}
+      />
+    </>
+  );
+};
+
+export const RaffleBlock = ({ eventId }: { eventId: string | null }) =>
+  flags.raffleV2 ? <RaffleBoardTile eventId={eventId} /> : <RaffleBlockLegacy eventId={eventId} />;
