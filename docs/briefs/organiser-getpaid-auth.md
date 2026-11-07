@@ -9,7 +9,7 @@ Serves: a non-technical organiser who taps ONE WhatsApp link, signs in by emaile
 Found by the 2026-11-07 read of origin/main 4504f7fb0. Main already HAS the callback fix-up branch and the invite Done landing; this slice CHANGES them. Genuinely new:
 - the `next=get-paid` handling on the join URL -- grep: next=get-paid
 - an exported constant for the Get paid start path in the OTP routing helper -- grep: GET_PAID_START_PATH
-- the two new test files named under Files
+- the join test file for `next` -- grep: JoinGetPaidNext
 
 ## Files
 src/pages/AuthCallback.tsx (exists: ONLY the returnTo case in 3a; read lines ~286-420 first)
