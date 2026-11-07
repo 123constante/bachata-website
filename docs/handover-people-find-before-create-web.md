@@ -13,7 +13,7 @@ Ticket: dt_506feb599065. Brief: `brief/people-find-before-create-website:docs/br
   | linked, already_linked, not_applicable, unavailable | continue | continue | continue |
   | no_match | safety_redeem (not_linked, inviter told) | continue (new person) | continue |
   | ambiguous | safety_redeem | **unmatched** | **unmatched** |
-  | email_unproven | **unmatched** | **unmatched** | **unmatched** |
+  | email_unproven | safety_redeem (continuation 1) | **unmatched** | **unmatched** |
 
 - `unmatched` = new stop "We couldn't match you automatically" + "The organiser's admin can join you to your existing
   profile" + "Let <inviter> know" + one link (organiser home; public site when the organiser area is off). Nothing is
@@ -40,3 +40,17 @@ open invites today), and a person-bound invite. Merge after checks are green.
 ## Gates at hand-off
 - tsc run on 4c4b738: 0 errors in branch files.
 - PR: #1466 (bot-opened; body set, both label checkers exit 0).
+
+## Continuation 1 (ticket dt_4cb4dab0552b, brief `people-find-before-create-web-c1.md`)
+- Merged `origin/main` (conflicts in `joinModel.ts` / `JoinPage.tsx` imports only; both sides kept) -> clears `pr-mergeable-guard`.
+- Person-bound `email_unproven` now takes the same safety redeem as `ambiguous` (server records not_linked, the
+  inviter is told). No new RPC, no migration. Table rows added in `claimNextStep.table.test.tsx` (hand-written
+  21-cell table) and `joinJourney.test.tsx` (3 signed-in shapes).
+- Reload after a fix: a remembered unmatched stop triggers ONE claim re-check on the next page load. `linked` /
+  `already_linked` forgets the stop and the derived step follows (no redeem: Join is still a tap). Any other answer
+  (including a failure) keeps the stop. Reading of brief items 1 vs 3: the re-check is the only command a reload
+  sends, and only when a stop is remembered; an untouched page (nothing remembered) still sends no claim.
+- Reload test strengthened: asserts no redeem, no write RPC (bind / role intent / new link), no profile save, no
+  About form, no Join button, no second failure report. All new tests were red on the unfixed code (7 failing).
+- Known limit: a stop remembered by the OLD build for a person-bound `email_unproven` invite stays a stop on reload
+  (no redeem from a reload by design); it clears on sign-out or once the claim lands.

@@ -87,6 +87,26 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const [now, setNow] = useState(() => Date.now());
   const claimRef = useRef<ClaimOutcome | null>(null);
   const [linkedHere, setLinkedHere] = useState(false);
+  // A reload after the unmatched stop (continuation 1): the stop is remembered per tab, but the organiser's admin may
+  // have joined them meanwhile. ONE claim re-check per page: linked / already_linked forgets the stop and the derived
+  // step follows; any other answer keeps the stop. Only a remembered stop asks; an untouched page sends nothing.
+  const recheckStarted = useRef(false);
+  const rememberedStop = user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
+  useEffect(() => {
+    if (!rememberedStop || !user || recheckStarted.current) return;
+    recheckStarted.current = true;
+    setLinking(true);
+    void claimAtSignIn(queryClient)
+      .then((claim) => {
+        if (claim.status !== 'linked' && claim.status !== 'already_linked') return;
+        claimRef.current = claim;
+        forgetUnmatched();
+        if (claim.status === 'linked') setLinkedHere(true);
+        void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(user.id) });
+      })
+      .catch(() => { /* never rejects; a failure keeps the stop */ })
+      .finally(() => setLinking(false));
+  }, [rememberedStop, user, queryClient]);
   // The server refused the Join tap with profile_incomplete and the re-read sent the person to About: About says why.
   const [aboutRefused, setAboutRefused] = useState(false);
 
@@ -286,6 +306,8 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       return fail('verify', { kind: 'network', from: 'verify' });
     }
     try {
+      // The claim has run on this page: the reload re-check (above) is for a LATER page load only.
+      recheckStarted.current = true;
       const claim = await claimAtSignIn(queryClient);
       claimRef.current = claim;
       if (claim.status === 'linked') setLinkedHere(true);
@@ -354,7 +376,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const title = info ? JOIN_COPY.pageTitle(info.organiserName) : null;
   const header = info && open && step !== 'done' ? <Strip preview={info} /> : null;
 
-  // A reload after the unmatched stop: the claim does not run again, so the remembered answer keeps the stop.
+  // While the reload's re-check is out the remembered stop still shows (never About on the stub in between).
   const remembered = !stop && user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
   const shownStop: JoinStop | null = stop ?? (remembered ? { kind: 'unmatched', claim: remembered } : null);
   if (shownStop) {

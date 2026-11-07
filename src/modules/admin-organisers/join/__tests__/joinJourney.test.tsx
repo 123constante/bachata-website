@@ -963,7 +963,7 @@ describe('find before create: claim answer x invite kind x signed-in shape', () 
     already_linked: { person: 'continue', email: 'continue', none: 'continue' },
     no_match: { person: 'safety_redeem', email: 'continue', none: 'continue' },
     ambiguous: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
-    email_unproven: { person: 'unmatched', email: 'unmatched', none: 'unmatched' },
+    email_unproven: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
     not_applicable: { person: 'continue', email: 'continue', none: 'continue' },
     unavailable: { person: 'continue', email: 'continue', none: 'continue' },
   };
@@ -1023,7 +1023,7 @@ describe('find before create: claim answer x invite kind x signed-in shape', () 
     expect(screen.getByTestId('join-step').getAttribute('data-step')).not.toBe('code');
   });
 
-  it('a reload after the unmatched stop keeps it: no About on the stub, no second claim, no redeem (review r1 F1)', async () => {
+  it('a reload after the unmatched stop re-asks the claim once and, still unmatched, keeps it: nothing created, chosen or redeemed', async () => {
     h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
     h.verify.mockImplementation(async () => {
       h.auth.user = ME;
@@ -1034,11 +1034,52 @@ describe('find before create: claim answer x invite kind x signed-in shape', () 
     await typeCode();
     await stopIs('unmatched');
     first.unmount();
+    h.report.mockClear();
+    h.save.mockClear();
+    const callsBefore = h.rpc.mock.calls.length;
     mount();
     await stopIs('unmatched');
-    expect(screen.queryByTestId('join-about-form')).toBeNull();
-    expect(h.claim).toHaveBeenCalledTimes(1);
+    // The reload re-asks the claim once (it may have been fixed meanwhile); it still cannot tell, so the stop stays.
+    await waitFor(() => expect(h.claim).toHaveBeenCalledTimes(2));
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    await stopIs('unmatched');
+    // Nothing created, chosen or redeemed on reload: no redeem, no role write, no profile save, no About, no Join.
     expect(redeems()).toHaveLength(0);
+    // Only reads after the reload: no write command (redeem, bind, role intent, new link) of any kind.
+    const READS = ['organiser_invite_preview_v1', 'organiser_onboarding_status_v1'];
+    expect(h.rpc.mock.calls.slice(callsBefore).map((c) => c[0]).filter((fn) => !READS.includes(fn as string))).toEqual([]);
+    expect(h.save).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('join-about-form')).toBeNull();
+    expect(screen.queryByTestId('invite-join')).toBeNull();
+    // The stop is not reported twice for the same visit.
+    expect(h.report).not.toHaveBeenCalled();
+  });
+
+  it.each(['linked', 'already_linked'] as const)('a reload after a fix (claim now %s) drops the stop and the normal flow continues', async (now) => {
+    h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
+    h.verify.mockImplementation(async () => {
+      h.auth.user = ME;
+      h.completion = SHAPES.empty_stub;
+      return { data: { user: FIRST_SIGN_IN }, error: null };
+    });
+    const first = mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('unmatched');
+    first.unmount();
+    // The organiser's admin joined them to their existing profile: the claim now lands.
+    h.claim.mockResolvedValue({ status: now, profileId: 'p-linked' });
+    h.completion = SHAPES.already_claimed;
+    mount();
+    await stepIs('join');
+    expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
+    expect(h.claim).toHaveBeenCalledTimes(2);
+    // Continuing is not joining: nothing is redeemed before the Join tap.
+    expect(redeems()).toHaveLength(0);
+    // Forgotten for good: a further reload neither shows the stop nor re-asks the claim.
+    cleanup();
+    mount();
+    await stepIs('join');
+    expect(h.claim).toHaveBeenCalledTimes(2);
   });
 
   it('another account in the same tab does not inherit the unmatched stop', async () => {

@@ -94,7 +94,8 @@ export function claimNextStep(claim: ClaimAnswer, kind: InviteKind): ClaimNext {
     case 'ambiguous':
       return kind === 'person' ? 'safety_redeem' : 'unmatched';
     case 'email_unproven':
-      return 'unmatched';
+      // Person-bound: the same safety redeem as ambiguous, so the server records not_linked and the inviter is told.
+      return kind === 'person' ? 'safety_redeem' : 'unmatched';
   }
 }
 

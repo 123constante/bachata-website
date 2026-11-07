@@ -40,6 +40,22 @@ describe('claimNextStep: every claim answer x invite kind has exactly one next s
   });
 });
 
+describe('claimNextStep: the hand-written table (continuation 1: person-bound email_unproven takes the safety redeem)', () => {
+  const TABLE: Record<ClaimAnswer, Record<InviteKind, string>> = {
+    linked: { person: 'continue', email: 'continue', none: 'continue' },
+    already_linked: { person: 'continue', email: 'continue', none: 'continue' },
+    not_applicable: { person: 'continue', email: 'continue', none: 'continue' },
+    unavailable: { person: 'continue', email: 'continue', none: 'continue' },
+    no_match: { person: 'safety_redeem', email: 'continue', none: 'continue' },
+    ambiguous: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
+    // Person-bound: the server records not_linked on the one redeem, so the inviter is told (never a silent stop).
+    email_unproven: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
+  };
+  it.each(ANSWERS.flatMap((a) => KINDS.map((k) => [a, k, TABLE[a][k]] as const)))('%s x %s -> %s', (answer, kind, next) => {
+    expect(claimNextStep(answer, kind)).toBe(next);
+  });
+});
+
 describe('the unmatched stop: one control, named by the copy', () => {
   it.each([
     [{ organiserP3: false, organiserSelfServe: false }, JOIN_COPY.done.buttonOff, '/'],
