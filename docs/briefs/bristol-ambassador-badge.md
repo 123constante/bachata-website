@@ -4,7 +4,7 @@ Brief-version: 2
 Context cap 30%. Push an early checkpoint commit as soon as the badge renders; push again before every pause. Supabase READ-ONLY. Never `gh api`, never `--no-verify`, never merge/approve. If PARTIAL, subject ends PARTIAL and the handover lists what is left. Bristol stays INACTIVE: no activation, no city set, no flag flip, no prod data write.
 
 - **Repo:** 123constante/bachata-website. **Branch:** `claude/bristol-ambassador-badge`. **Lane/model:** normal, sonnet.
-- **BLOCKED:** needs (1) admin-migration:ambassador_shared_link_v1 applied (admin PR #1277) AND (2) an owner product call: `is_city_ambassador_public_v1(p_user_id uuid)` returns a boolean and is granted to authenticated only, so a signed-out visitor sees no badge. Owner choice: grant anon (a separate small admin migration first) or accept a signed-in-only badge.
+- **UNBLOCKED 2026-11-07:** admin #1277 (ambassador_shared_link_v1) and admin #1312 (anon EXECUTE on `is_city_ambassador_public_v1`) are both applied on prod (read-only check: anon can execute it, anon still cannot run the tracker or join functions). Owner decision 2026-11-06: the badge is visible to EVERYONE, including signed-out visitors. Call the RPC with the public client; an error or a null shows no badge.
 
 ## Goal
 Owner 2026-10-26 / 2026-10-29: the ambassador's reward is a badge on their profile. The badge next to the approver's name on events is a LATER admin slice (the approve audit row is not exposed): OUT OF SCOPE here.
