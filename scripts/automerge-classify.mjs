@@ -104,6 +104,64 @@ export function isClassCTestPath(p) {
   return /^tests\/(?:[^/]+\/)*[^/]+\.test\.tsx?$/.test(p) || /^tests\/e2e\/(?:[^/]+\/)*[^/]+\.spec\.ts$/.test(p);
 }
 
+/**
+ * Class C CONTENT (brief automerge-web-test-source-refusal; adapted from the admin classifier:
+ * stricter on node:test and scripts/, different on Supabase): a class-C path is not enough, the
+ * file's HEAD text must be a plain vitest suite of the site. null = ok, else the refusal
+ * `<path>: <why>`. FAIL CLOSED:
+ *  - text not a string (not read, 404, too large, a directory) = "test content unreadable";
+ *  - empty, NUL bytes or a literal U+FFFD (binary / undecodable) = "unknown content";
+ *  - node:test (import, require, dynamic import) = a suite outside the vitest gate;
+ *  - REFUSED_TREES (fix round 1): a quoted `node scripts/` command (execSync / spawn of a guard),
+ *    or a quoted path whose ROOT-level directory segment is .github/, bin/, api/, server/ or
+ *    supabase/ (at the quote, after ./ or ../ runs, or after `${...}/`); `.github` is refused as
+ *    any segment, bare or not. A nested segment (src/lib/api/, @/integrations/supabase/) is NOT;
+ *  - any quoted path through scripts/ (import, import(), require, vi.mock, a 'scripts' path
+ *    segment): a test that loads tooling is tooling, and scripts/ is hard tier (owner Approve);
+ *  - SUPABASE_LIVE (fix round 1): `SUPABASE` (upper case: env vars), `SERVICE_ROLE` (any case),
+ *    `@supabase/supabase-js`, `createClient(` from any path, a live `supabase.co` URL, or a
+ *    `.from(` / `.rpc(` call on a client the test builds itself (`const x = <...client...>(`).
+ *    A test that only vi.mock()s or type-imports the app's `@/integrations/supabase/...` passes.
+ */
+const NODE_TEST = /['"`]node:test['"`]/;
+const SCRIPTS_REF = /['"`](?:[^'"`\n]*\/)?scripts(?:\/[^'"`\n]*)?['"`]/;
+export const REFUSED_TREES = [
+  /['"`][^'"`\n]*\bnode\s+(?:\.\/)?scripts\//,
+  /['"`](?:[^'"`\n]*\/)?\.github(?:\/|['"`])/,
+  /(?:['"`]|\$\{[^}\n]*\}\/)(?:\.\.?\/)*(?:bin|api|server|supabase)\//,
+];
+export const SUPABASE_LIVE = [
+  /SUPABASE/,
+  /SERVICE_ROLE/i,
+  /@supabase\/supabase-js/,
+  /\bcreateClient\s*\(/,
+  /supabase\.co\b/i,
+];
+/** `.from(` / `.rpc(` on a variable the test itself assigns from a `...client...(` call. */
+function liveClientCall(text) {
+  const made = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?[\w$.]*client[\w$]*\s*\(/gi;
+  for (let m; (m = made.exec(text));) {
+    const id = m[1].replace(/\$/g, "\\$");
+    if (new RegExp(`(?:^|[^\\w$.])${id}\\s*\\.\\s*(?:from|rpc)\\s*\\(`).test(text)) return true;
+  }
+  return false;
+}
+export function testSourceRefusal(p, text) {
+  if (typeof text !== "string") return `${p}: test content unreadable (fail closed)`;
+  if (text.trim() === "" || /[\0�]/.test(text)) return `${p}: unknown content (empty, binary or undecodable; fail closed)`;
+  if (NODE_TEST.test(text)) return `${p}: node:test suite (class C is vitest only)`;
+  if (REFUSED_TREES.some((re) => re.test(text))) return `${p}: runs or reads a CI / tooling tree (node scripts/, .github/, bin/, api/, server/, supabase/; owner Approve)`;
+  if (SCRIPTS_REF.test(text)) return `${p}: imports scripts/ (tooling is hard tier, owner Approve)`;
+  if (SUPABASE_LIVE.some((re) => re.test(text)) || liveClientCall(text)) return `${p}: references Supabase (data access, owner reviews)`;
+  return null;
+}
+
+/** One entry of testSources (a Map or a plain object, path -> text | null); absent = undefined. */
+function sourceOf(testSources, p) {
+  if (testSources instanceof Map) return testSources.get(p);
+  return Object.prototype.hasOwnProperty.call(testSources, p) ? testSources[p] : undefined;
+}
+
 /** "A/B" | "C" | null (null = not on the A/B/C allowlist). Forbidden wins. */
 export function classOf(p) {
   if (pathProblem(p) || forbiddenWhy(p)) return null;
@@ -200,8 +258,10 @@ export function pendingSections(body, marker = MARKER, headings = PENDING_SECTIO
  *  moneySet: the parsed .github/automation/money-set.json from MAIN (null = unreadable = NO);
  *  moneyCheck: isMoney (slice 2, drill A16); tests inject through tests/autopilotTable.ts only.
  *  guardCheck: guardRefusals (slice 2, drill A18); same injection rule.
+ *  testSources: path -> HEAD text (or null) for every class-C file, read by main()
+ *        (readTestSources); null = not read = NO for any PR judged as C (testSourceRefusal).
  */
-export function classify({ pr, files, labelActor, realData = null, reviewRecord = null, moneySet = null, moneyCheck = isMoney, guardCheck = guardRefusals }) {
+export function classify({ pr, files, labelActor, realData = null, reviewRecord = null, moneySet = null, moneyCheck = isMoney, guardCheck = guardRefusals, testSources = null }) {
   const reasons = [];
   const no = (r) => reasons.push(r);
   if (!pr) return { qualifies: false, reasons: ["no PR object"], classes: [] };
@@ -250,6 +310,12 @@ export function classify({ pr, files, labelActor, realData = null, reviewRecord 
       if (c === "C" && f.status === "removed") no(`${n}: deletes a test (owner decides)`);
       if (c === "C" && (f.status === "renamed" || f.status === "copied")) no(`${n}: renames or copies a test (owner decides)`);
     }
+  }
+  // Class C content: every class-C file present at the head (not a removal) is read and judged.
+  const testPaths = list.filter((f) => f && f.status !== "removed" && typeof f.filename === "string" && classOf(f.filename) === "C").map((f) => f.filename);
+  if (testPaths.length) {
+    if (!testSources || typeof testSources !== "object") no("class C test sources not read (fail closed)");
+    else for (const p of testPaths) { const r = testSourceRefusal(p, sourceOf(testSources, p)); if (r) no(r); }
   }
 
   // The class judged: a PR with ANY class-C file is judged as C (its line cap, its review record).
@@ -364,6 +430,27 @@ export async function readReviewRecord(repo, num, headSha, events, get = gh, lis
   }
 }
 
+/** The HEAD text of every class-C file (not removed), path -> string | null, from the contents
+ *  API at headSha. Never throws: any failure, a non-file answer or a body GitHub will not inline
+ *  (over 1 MB: encoding "none") leaves that path null, which testSourceRefusal refuses. */
+export async function readTestSources(repo, headSha, files, get = gh) {
+  const out = {};
+  const paths = (files || []).filter((f) => f && f.status !== "removed" && typeof f.filename === "string" && classOf(f.filename) === "C").map((f) => f.filename);
+  for (const p of paths) {
+    out[p] = null;
+    if (typeof headSha !== "string" || !FULL_SHA.test(headSha)) continue;
+    try {
+      const r = await get(`/repos/${repo}/contents/${p.split("/").map(encodeURIComponent).join("/")}?ref=${headSha}`);
+      if (r && r.type === "file" && r.encoding === "base64" && typeof r.content === "string") {
+        out[p] = new TextDecoder("utf-8").decode(Buffer.from(r.content, "base64"));
+      }
+    } catch (e) {
+      console.log(`test source ${p} unreadable (${e.message})`);
+    }
+  }
+  return out;
+}
+
 /** Login of whoever most recently applied LABEL_OK (null if never). */
 export function lastLabelActor(events) {
   let who = null;
@@ -389,7 +476,8 @@ export async function main() {
   // Classes A/B need no record: read it only when some file is a class-C path (any name it carries).
   const needsRecord = files.some((f) => f && [f.filename, f.previous_filename].some((n) => typeof n === "string" && classOf(n) === "C"));
   const reviewRecord = needsRecord ? await readReviewRecord(repo, num, pr.headSha, events) : { error: "not read (no class-C file)" };
-  const v = classify({ pr, files, labelActor: lastLabelActor(events), realData, reviewRecord, moneySet });
+  const testSources = await readTestSources(repo, pr.headSha, files);
+  const v = classify({ pr, files, labelActor: lastLabelActor(events), realData, reviewRecord, moneySet, testSources });
 
   console.log(`PR #${num} by ${pr.user} (${pr.headRef} @ ${String(pr.headSha).slice(0, 8)}): ${v.qualifies ? "QUALIFIES" : "does not qualify"}`);
   console.log(`  class judged: ${v.classes.join(", ") || "-"}; real-data parser on main: ${realData ? "yes" : "no"}; review record: ${reviewRecord.error ? `unreadable (${reviewRecord.error})` : "read"}`);
@@ -417,7 +505,9 @@ export function selfTest() {
     ["no money set does not", classify({ pr, files: [f("docs/a.md")], labelActor: BOT_LOGIN }).qualifies, false],
     ["src does not", classify({ pr, files: [f("src/a.ts")], labelActor: BOT_LOGIN }).qualifies, false],
     ["docs/x.mjs does not", classify({ pr, files: [f("docs/x.mjs")], labelActor: BOT_LOGIN, moneySet }).qualifies, false],
-    ["a test with a valid record qualifies", classify({ pr: rec.pr, files: [f("tests/a.test.ts")], labelActor: BOT_LOGIN, moneySet, reviewRecord: rec.record }).qualifies, true],
+    ["a test with a valid record qualifies", classify({ pr: rec.pr, files: [f("tests/a.test.ts")], labelActor: BOT_LOGIN, moneySet, reviewRecord: rec.record, testSources: { "tests/a.test.ts": "import { it } from 'vitest';\nit('x', () => {});\n" } }).qualifies, true],
+    ["a test importing scripts/ does not", classify({ pr: rec.pr, files: [f("tests/a.test.ts")], labelActor: BOT_LOGIN, moneySet, reviewRecord: rec.record, testSources: { "tests/a.test.ts": "import { x } from '../scripts/x.mjs';\n" } }).qualifies, false],
+    ["a test whose content was not read does not", classify({ pr: rec.pr, files: [f("tests/a.test.ts")], labelActor: BOT_LOGIN, moneySet, reviewRecord: rec.record }).qualifies, false],
     ["a test whose record is for another head does not", classify({ pr: rec.pr, files: [f("tests/a.test.ts")], labelActor: BOT_LOGIN, moneySet, reviewRecord: { ...rec.record, comments: [{ ...rec.comment, body: `review-pack: https://x.example/p head ${"f".repeat(40)}` }] } }).qualifies, false],
     ["traversal does not", classify({ pr, files: [f("docs/../src/x.ts")], labelActor: BOT_LOGIN }).qualifies, false],
     ["empty does not", classify({ pr: { ...pr, changedFiles: 0 }, files: [], labelActor: BOT_LOGIN }).qualifies, false],
