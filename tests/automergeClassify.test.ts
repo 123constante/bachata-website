@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- plain .mjs script, no types
-import { classify, pathClass, lastLabelActor, prFromApi, pushAnchorFrom, readReviewRecord, BOT_LOGIN, OWNER_LOGIN, LABEL_OK, RUN } from '../scripts/automerge-classify.mjs';
+import { classify, pathClass, lastLabelActor, prFromApi, pushAnchorFrom, readReviewRecord, readTestSources, testSourceRefusal, BOT_LOGIN, OWNER_LOGIN, LABEL_OK, RUN } from '../scripts/automerge-classify.mjs';
 // @ts-expect-error -- plain .mjs script, no types
 import { REVIEW_LABEL } from '../scripts/lib/autopilot-merge.mjs';
 // @ts-expect-error -- plain .mjs script, no types
@@ -13,6 +13,11 @@ import { FOUNDATIONS_OK } from './autopilotTable';
 
 type F = { filename: string; status?: string; previous_filename?: string; additions?: number; deletions?: number };
 const file = (filename: string, extra: Partial<F> = {}): F => ({ filename, status: 'modified', additions: 3, deletions: 1, ...extra });
+
+// Class C also needs each test file's HEAD content (testSources, read by main()): a clean vitest
+// suite by default, so the rows below judge what they name and nothing else.
+const CLEAN_TEST = "import { describe, expect, it } from 'vitest';\nimport { x } from '../src/lib/x';\ndescribe('x', () => { it('works', () => { expect(x()).toBe(1); }); });\n";
+const sources = (files: F[]) => Object.fromEntries(files.map((f) => [f.filename, CLEAN_TEST]));
 
 // Class C (tests) needs an independent review record at the head sha: a bot comment
 // `review-pack: <https url> head <40-hex>` and the review-passed label, both after the push.
@@ -37,7 +42,7 @@ function run(files: F[], prOver: Record<string, unknown> = {}, opts: Record<stri
   const additions = files.reduce((n, f) => n + (f.additions ?? 0), 0);
   const deletions = files.reduce((n, f) => n + (f.deletions ?? 0), 0);
   const pr = { ...basePr, additions, deletions, changedFiles: files.length, ...prOver };
-  return classify({ pr, files, labelActor: BOT_LOGIN, importedByShipped: () => false, reviewRecord: RECORD, ...FOUNDATIONS_OK.classify, ...opts });
+  return classify({ pr, files, labelActor: BOT_LOGIN, importedByShipped: () => false, reviewRecord: RECORD, testSources: sources(files), ...FOUNDATIONS_OK.classify, ...opts });
 }
 
 describe('automerge classifier -- table', () => {
@@ -233,7 +238,7 @@ describe('automerge classifier -- classes A, B, C only', () => {
     const additions = files.reduce((n, f) => n + (f.additions ?? 0), 0);
     const deletions = files.reduce((n, f) => n + (f.deletions ?? 0), 0);
     const pr = { ...basePr, additions, deletions, changedFiles: files.length, ...prOver };
-    return classify({ pr, files, labelActor: BOT_LOGIN, importedByShipped: () => false, reviewRecord: RECORD, ...realGuard, ...opts });
+    return classify({ pr, files, labelActor: BOT_LOGIN, importedByShipped: () => false, reviewRecord: RECORD, testSources: sources(files), ...realGuard, ...opts });
   }
   const DOCS_PR = [file('docs/notes/a.md'), file('docs/img/b.png')];
   const TEST_PR = [file('tests/a.test.ts'), file('tests/e2e/b.spec.ts')];
@@ -360,7 +365,7 @@ describe('automerge classifier -- class C record reader (main), fail closed', ()
     expect(rec.error).toMatch(/502/);
     const files = [file('tests/a.test.ts')];
     const pr = { ...basePr, additions: 3, deletions: 1, changedFiles: 1 };
-    expect(classify({ pr, files, labelActor: BOT_LOGIN, reviewRecord: rec, ...FOUNDATIONS_OK.classify }).qualifies).toBe(false);
+    expect(classify({ pr, files, labelActor: BOT_LOGIN, reviewRecord: rec, testSources: sources(files), ...FOUNDATIONS_OK.classify }).qualifies).toBe(false);
   });
 
   it('a short head sha is refused before any request', async () => {
@@ -377,6 +382,124 @@ describe('automerge classifier -- class C record reader (main), fail closed', ()
     expect(rec).toMatchObject({ pushAnchorMs: PUSH_MS, labelEvents: [reviewLabelEvent()] });
     const files = [file('tests/a.test.ts')];
     const pr = { ...basePr, additions: 3, deletions: 1, changedFiles: 1 };
-    expect(classify({ pr, files, labelActor: BOT_LOGIN, reviewRecord: rec, ...FOUNDATIONS_OK.classify }).qualifies).toBe(true);
+    expect(classify({ pr, files, labelActor: BOT_LOGIN, reviewRecord: rec, testSources: sources(files), ...FOUNDATIONS_OK.classify }).qualifies).toBe(true);
+  });
+});
+
+/* -- Brief automerge-web-test-source-refusal: a class-C file's HEAD content is read and refused
+ * when it is not a plain vitest suite of the site (node:test, scripts/ imports, Supabase, or
+ * content that cannot be read). Ported from the admin classifier; unknown content is a NO. */
+describe('automerge classifier -- testSourceRefusal (class C content)', () => {
+  const P = 'tests/a.test.ts';
+  const refusals: Array<[string, unknown, RegExp | null]> = [
+    ['a clean vitest suite passes', CLEAN_TEST, null],
+    ['a suite naming "scripted" or "transcripts/" in prose passes', "import { it } from 'vitest';\nit('reads transcripts/ and scripted text', () => {});\n", null],
+    ['node:test import is refused', "import { test } from 'node:test';\ntest('x', () => {});\n", /node:test/],
+    ['node:test require is refused', "const { test } = require('node:test');\n", /node:test/],
+    ['a relative scripts/ import is refused', "import { x } from '../scripts/check-x.mjs';\n", /imports scripts\//],
+    ['a dynamic scripts/ import is refused', "const m = await import('../../scripts/lib/a.mjs');\n", /imports scripts\//],
+    ['a vi.mock of scripts/ is refused', "vi.mock('../scripts/lib/a.mjs');\n", /imports scripts\//],
+    ['a path.join to scripts is refused', "const p = path.join(ROOT, 'scripts', 'x.mjs');\n", /imports scripts\//],
+    ['a Supabase client import is refused', "import { createClient } from '@supabase/supabase-js';\n", /Supabase/],
+    ['a Supabase reference in any case is refused', "const url = process.env.VITE_SUPABASE_URL;\n", /Supabase/],
+    ['missing content (null) is refused', null, /unreadable/],
+    ['missing content (undefined) is refused', undefined, /unreadable/],
+    ['empty content is refused', '   \n', /unknown content/],
+    ['binary (NUL) content is refused', 'abc\u0000def', /unknown content/],
+    ['undecodable (U+FFFD) content is refused', 'it(�)', /unknown content/],
+  ];
+
+  it.each(refusals)('%s', (_n, text, want) => {
+    const r = testSourceRefusal(P, text);
+    if (want === null) expect(r).toBe(null);
+    else {
+      expect(r).toMatch(want);
+      expect(r.startsWith(`${P}: `)).toBe(true);
+    }
+  });
+
+  it('each refused shape gives its own reason', () => {
+    const reasons = refusals.filter((r) => r[2]).map((r) => testSourceRefusal(P, r[1]).replace(/ \(.*$/, ''));
+    expect(new Set(reasons).size).toBeGreaterThanOrEqual(5);
+  });
+
+  const TEST_PR = [file(P)];
+  const judgeWith = (testSources: unknown, files: F[] = TEST_PR) => run(files, {}, { testSources });
+  const rows: Array<[string, unknown, boolean, RegExp | null]> = [
+    ['clean test with clean source merges', { [P]: CLEAN_TEST }, true, null],
+    ['clean test via a Map merges', new Map([[P, CLEAN_TEST]]), true, null],
+    ['test importing scripts/ does NOT', { [P]: "import { x } from '../scripts/x.mjs';\n" }, false, /imports scripts\//],
+    ['node:test suite does NOT', { [P]: "import test from 'node:test';\n" }, false, /node:test/],
+    ['test touching Supabase does NOT', { [P]: "import { supabase } from '../src/integrations/supabase/client';\n" }, false, /Supabase/],
+    ['content unreadable for the file does NOT', { [P]: null }, false, /unreadable/],
+    ['file missing from the sources does NOT', {}, false, /unreadable/],
+    ['sources not read at all does NOT', null, false, /test sources not read/],
+  ];
+
+  it.each(rows)('classify: %s', (_n, testSources, want, reason) => {
+    const v = judgeWith(testSources);
+    expect(v.qualifies).toBe(want);
+    if (want) expect(v.reasons).toEqual([]);
+    else expect(v.reasons.some((r: string) => reason!.test(r))).toBe(true);
+  });
+
+  it('a docs-only PR needs no test sources (classes A/B)', () => {
+    expect(judgeWith(null, [file('docs/a.md')]).qualifies).toBe(true);
+  });
+
+  it('a mixed PR refuses a bad test even when the docs are fine', () => {
+    const files = [file('docs/a.md'), file(P)];
+    expect(judgeWith({ [P]: "import 'node:test';\n" }, files).qualifies).toBe(false);
+  });
+
+  it('copied test is refused as class C', () => {
+    const v = run([file('tests/b.test.ts', { status: 'copied', previous_filename: P })]);
+    expect(v.qualifies).toBe(false);
+    expect(v.classes).toEqual(['C']);
+    expect(v.reasons.some((r: string) => /copies a test/.test(r))).toBe(true);
+  });
+});
+
+describe('automerge classifier -- readReviewRecord query params', () => {
+  it('asks for commits/<sha>, runs at head_sha with per_page=100, and pages issue comments', async () => {
+    const got: string[] = [];
+    const listed: Array<[string, number]> = [];
+    const get = async (p: string) => { got.push(p); return p.includes('/commits/') ? { commit: { committer: { date: '2026-11-01T09:58:00Z' } } } : { workflow_runs: [{ created_at: '2026-11-01T10:00:00Z' }] }; };
+    const list = async (p: string, max: number) => { listed.push([p, max]); return []; };
+    await readReviewRecord('o/r', '7', HEAD, [], get, list);
+    expect(got.sort()).toEqual([`/repos/o/r/actions/runs?head_sha=${HEAD}&per_page=100`, `/repos/o/r/commits/${HEAD}`]);
+    expect(listed).toHaveLength(1);
+    expect(listed[0][0]).toBe('/repos/o/r/issues/7/comments');
+    expect(listed[0][1]).toBeGreaterThan(1); // paged, not one page
+  });
+});
+
+describe('automerge classifier -- readTestSources (main), fail closed', () => {
+  const b64 = (s: string) => Buffer.from(s, 'utf8').toString('base64');
+  it('reads each class-C file at the head sha and decodes it', async () => {
+    const got: string[] = [];
+    const get = async (p: string) => { got.push(p); return { type: 'file', encoding: 'base64', content: b64(CLEAN_TEST) }; };
+    const files = [file('tests/a b.test.ts'), file('docs/a.md'), file('tests/old.test.ts', { status: 'removed' })];
+    const src = await readTestSources('o/r', HEAD, files, get);
+    expect(got).toEqual([`/repos/o/r/contents/tests/a%20b.test.ts?ref=${HEAD}`]);
+    expect(src).toEqual({ 'tests/a b.test.ts': CLEAN_TEST });
+  });
+
+  it.each([
+    ['an API failure', async () => { throw new Error('GET -> 404'); }],
+    ['a directory answer', async () => [] as unknown],
+    ['an empty (too large) body', async () => ({ type: 'file', encoding: 'none', content: '' })],
+  ])('%s leaves the file null, which classify refuses', async (_n, get) => {
+    const files = [file('tests/a.test.ts')];
+    const src = await readTestSources('o/r', HEAD, files, get);
+    expect(src).toEqual({ 'tests/a.test.ts': null });
+    expect(run(files, {}, { testSources: src }).qualifies).toBe(false);
+  });
+
+  it('a short head sha reads nothing', async () => {
+    let called = 0;
+    const src = await readTestSources('o/r', HEAD.slice(0, 7), [file('tests/a.test.ts')], async () => { called++; return {}; });
+    expect(called).toBe(0);
+    expect(src).toEqual({ 'tests/a.test.ts': null });
   });
 });

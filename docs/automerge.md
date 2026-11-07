@@ -45,6 +45,24 @@ rule): the record proves the review pipeline ran, not that a second identity
 signed it. The `docs/review/<pr>-r<n>.md` file is
 NOT required: it cannot live inside the PR it reviews (adding it changes the head).
 
+**Class C content (fail closed; brief automerge-web-test-source-refusal).** A
+class-C path is not enough: `main()` reads the HEAD text of every class-C file
+that is not removed (contents API at the head sha, `readTestSources`) and
+`testSourceRefusal(path, text)` refuses, each with its own reason:
+
+| Shape | Refusal |
+|---|---|
+| content not read (API error, 404, over 1 MB, a directory) or missing from the map | `<path>: test content unreadable (fail closed)` |
+| empty, NUL bytes or U+FFFD (binary / undecodable) | `<path>: unknown content ...` |
+| `node:test` (import, require, dynamic import) | `<path>: node:test suite (class C is vitest only)` |
+| any quoted path through `scripts/` (import, `import()`, `require`, `vi.mock`, a `'scripts'` path segment) | `<path>: imports scripts/ (tooling is hard tier, owner Approve)` |
+| any `supabase` reference, any case | `<path>: references Supabase (data access, owner reviews)` |
+
+No sources at all (`testSources` null) on a PR judged as C is
+`class C test sources not read (fail closed)`. A test that loads `scripts/`
+tests tooling, and tooling is hard tier, so the owner Approves it at the final
+head. Classes A/B never read content. Ported from the admin classifier.
+
 **Not wired yet (2026-11-06):** nothing in this repo's workflows or scripts posts
 a `review-pack:` comment or adds `review-passed` today (grep of `.github/` and
 `scripts/`). Admin's auto-pack posts the comment there; until the same comment
@@ -63,6 +81,7 @@ reaches Website PRs, NO class-C PR qualifies here (fail closed, by design).
 | No test deletion or rename | a removed, renamed or copied test file is a NO: it weakens a gate, and the owner decides that |
 | Size | additions + deletions under 400 for A/B, under 200 for C or a mixed PR (the larger of the PR's own totals and the per-file sum); at most 60 files |
 | Review record | class C only: see "Class C review record" above |
+| Test content | class C only: see "Class C content" above (node:test, `scripts/`, Supabase or unreadable content is a NO) |
 | Completeness | the file list the API returned has exactly `changed_files` entries, and at least one file was judged; an empty or truncated list is a NO |
 | Real-data section | if PR #658's parser `scripts/check-pr-real-data-verified.mjs` exists on main, its `parse(body)` must return `ok`. This is STRICTER than #658's own check, which skips PRs that touch no `src/`/`app/`/`api/` (every PR this workflow can merge). A parser that exists but exports no `parse()` is infra (exit 2), never "not required" |
 
