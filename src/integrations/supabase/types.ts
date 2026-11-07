@@ -3462,6 +3462,7 @@ export type Database = {
           promo_codes: Json | null
           promotion_touch_override: number | null
           public_event_id: string | null
+          raffle_enabled: boolean
           raffle_preset_id: string | null
           recurrence_rule: Json | null
           removed_dates: string[]
@@ -3521,6 +3522,7 @@ export type Database = {
           promo_codes?: Json | null
           promotion_touch_override?: number | null
           public_event_id?: string | null
+          raffle_enabled?: boolean
           raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
@@ -3580,6 +3582,7 @@ export type Database = {
           promo_codes?: Json | null
           promotion_touch_override?: number | null
           public_event_id?: string | null
+          raffle_enabled?: boolean
           raffle_preset_id?: string | null
           recurrence_rule?: Json | null
           removed_dates?: string[]
@@ -7516,6 +7519,58 @@ export type Database = {
           },
         ]
       }
+      raffle_attendance: {
+        Row: {
+          id: string
+          occurrence_id: string
+          pool_id: string
+          recorded_at: string
+          recorded_by: string | null
+          source: string
+          win_id: string | null
+        }
+        Insert: {
+          id?: string
+          occurrence_id: string
+          pool_id: string
+          recorded_at?: string
+          recorded_by?: string | null
+          source: string
+          win_id?: string | null
+        }
+        Update: {
+          id?: string
+          occurrence_id?: string
+          pool_id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          source?: string
+          win_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raffle_attendance_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raffle_attendance_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "raffle_pool"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raffle_attendance_win_id_fkey"
+            columns: ["win_id"]
+            isOneToOne: false
+            referencedRelation: "raffle_wins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       raffle_contacts: {
         Row: {
           consent_text_version: string
@@ -7595,6 +7650,74 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      raffle_nights: {
+        Row: {
+          enabled: boolean
+          occurrence_id: string
+          set_at: string
+          set_by: string | null
+        }
+        Insert: {
+          enabled: boolean
+          occurrence_id: string
+          set_at?: string
+          set_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          occurrence_id?: string
+          set_at?: string
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raffle_nights_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: true
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      raffle_pool: {
+        Row: {
+          consent_at: string
+          consent_version: string
+          entered_at: string
+          first_name: string
+          id: string
+          phone_e164: string
+          removed_at: string | null
+          removed_reason: string | null
+          user_id: string | null
+          wa_verify_status: string
+        }
+        Insert: {
+          consent_at: string
+          consent_version: string
+          entered_at?: string
+          first_name: string
+          id?: string
+          phone_e164: string
+          removed_at?: string | null
+          removed_reason?: string | null
+          user_id?: string | null
+          wa_verify_status?: string
+        }
+        Update: {
+          consent_at?: string
+          consent_version?: string
+          entered_at?: string
+          first_name?: string
+          id?: string
+          phone_e164?: string
+          removed_at?: string | null
+          removed_reason?: string | null
+          user_id?: string | null
+          wa_verify_status?: string
+        }
+        Relationships: []
       }
       raffle_presets: {
         Row: {
@@ -7761,6 +7884,72 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      raffle_wins: {
+        Row: {
+          contacted_at: string
+          drawn_by: string | null
+          id: string
+          link_expires_at: string
+          link_token: string
+          locked_at: string | null
+          note: string | null
+          occurrence_id: string | null
+          pool_id: string
+          qr_token: string | null
+          qr_void_at: string | null
+          released_at: string | null
+          scanned_at: string | null
+          state: string
+        }
+        Insert: {
+          contacted_at?: string
+          drawn_by?: string | null
+          id?: string
+          link_expires_at: string
+          link_token?: string
+          locked_at?: string | null
+          note?: string | null
+          occurrence_id?: string | null
+          pool_id: string
+          qr_token?: string | null
+          qr_void_at?: string | null
+          released_at?: string | null
+          scanned_at?: string | null
+          state: string
+        }
+        Update: {
+          contacted_at?: string
+          drawn_by?: string | null
+          id?: string
+          link_expires_at?: string
+          link_token?: string
+          locked_at?: string | null
+          note?: string | null
+          occurrence_id?: string | null
+          pool_id?: string
+          qr_token?: string | null
+          qr_void_at?: string | null
+          released_at?: string | null
+          scanned_at?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raffle_wins_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "raffle_wins_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "raffle_pool"
             referencedColumns: ["id"]
           },
         ]
@@ -11139,6 +11328,14 @@ export type Database = {
         Returns: string
       }
       _raffle_phone_pseudonym_v1: { Args: { p_phone: string }; Returns: string }
+      _raffle_pool_upsert_v1: {
+        Args: {
+          p_consent_version: string
+          p_first_name: string
+          p_phone_e164: string
+        }
+        Returns: Json
+      }
       _raffle_record_draw_v1: {
         Args: {
           p_actor_id: string
@@ -15359,6 +15556,27 @@ export type Database = {
           timezone: string
         }[]
       }
+      raffle_join_pool_v1: {
+        Args: {
+          p_consent_version: string
+          p_first_name: string
+          p_honeypot?: string
+          p_phone: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      raffle_night_is_open: {
+        Args: { p_occurrence_id: string }
+        Returns: boolean
+      }
+      raffle_occurrence_has_ended: {
+        Args: { p_occurrence_id: string }
+        Returns: boolean
+      }
+      raffle_pool_is_eligible: { Args: { p_pool_id: string }; Returns: boolean }
+      raffle_public_board_v1: { Args: never; Returns: Json }
+      raffle_sweep_no_shows_v1: { Args: never; Returns: number }
       raffle_wa_claim_send_v1: {
         Args: { p_entry_id: string; p_session_id: string }
         Returns: Json
@@ -15933,6 +16151,7 @@ export type Database = {
         Args: { p_limit: number }
         Returns: string[]
       }
+      ticket_ops_health_v1: { Args: never; Returns: Json }
       ticket_order_charge_refunded_v1: {
         Args: {
           p_account_id: string
