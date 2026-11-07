@@ -1,0 +1,4388 @@
+[
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "label": "Magda, thin dancer-only, no photo",
+  "f": null,
+  "file": "magda-dancer",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "magda-dancer-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "All socials this week",
+    "w": 366,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 849,
+  "height": 1332
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "label": "Magda, thin dancer-only, no photo",
+  "f": null,
+  "file": "magda-dancer",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "magda-dancer-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 336,
+    "h": 62
+   },
+   {
+    "text": "All socials this week",
+    "w": 336,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 859,
+  "height": 1339
+ },
+ {
+  "key": "sabrina-dancer",
+  "person": "sabrina",
+  "role": "dancer",
+  "label": "Sabrina Guzman Pastor, long name (21 characters)",
+  "f": null,
+  "file": "sabrina-dancer",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "sabrina-dancer-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Sabrina Guzman Pastor",
+    "ratio": 5.83
+   },
+   {
+    "text": "Follower · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "All socials this week",
+    "w": 366,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 849,
+  "height": 1332
+ },
+ {
+  "key": "sabrina-dancer",
+  "person": "sabrina",
+  "role": "dancer",
+  "label": "Sabrina Guzman Pastor, long name (21 characters)",
+  "f": null,
+  "file": "sabrina-dancer",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "sabrina-dancer-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Sabrina Guzman Pastor",
+    "ratio": 5.83
+   },
+   {
+    "text": "Follower · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 336,
+    "h": 62
+   },
+   {
+    "text": "All socials this week",
+    "w": 336,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 859,
+  "height": 1339
+ },
+ {
+  "key": "pierre-teacher",
+  "person": "pierre",
+  "role": "teacher",
+  "label": "Pierre Henry, teacher-only, no photo, no city, no class",
+  "f": null,
+  "file": "pierre-teacher",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "pierre-teacher-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 15.52
+   },
+   {
+    "text": "Share",
+    "ratio": 15.52
+   },
+   {
+    "text": "TEACHER",
+    "ratio": 8.85
+   },
+   {
+    "text": "PH",
+    "ratio": 9.08
+   },
+   {
+    "text": "Pierre Henry",
+    "ratio": 13.16
+   },
+   {
+    "text": "Classes this week",
+    "ratio": 7.6
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Classes this week",
+    "w": 366,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 424,
+  "height": 907
+ },
+ {
+  "key": "pierre-teacher",
+  "person": "pierre",
+  "role": "teacher",
+  "label": "Pierre Henry, teacher-only, no photo, no city, no class",
+  "f": null,
+  "file": "pierre-teacher",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "pierre-teacher-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 15.52
+   },
+   {
+    "text": "Share",
+    "ratio": 15.52
+   },
+   {
+    "text": "TEACHER",
+    "ratio": 8.85
+   },
+   {
+    "text": "PH",
+    "ratio": 9.08
+   },
+   {
+    "text": "Pierre Henry",
+    "ratio": 13.16
+   },
+   {
+    "text": "Classes this week",
+    "ratio": 7.6
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Classes this week",
+    "w": 336,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 424,
+  "height": 904
+ },
+ {
+  "key": "nadeem-teacher",
+  "person": "nadeem",
+  "role": "teacher",
+  "label": "Nadeem Malik, teacher-only with a class next Thursday",
+  "f": null,
+  "file": "nadeem-teacher",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "nadeem-teacher-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 15.52
+   },
+   {
+    "text": "Share",
+    "ratio": 15.52
+   },
+   {
+    "text": "TEACHER",
+    "ratio": 8.85
+   },
+   {
+    "text": "NM",
+    "ratio": 9.08
+   },
+   {
+    "text": "Nadeem Malik",
+    "ratio": 13.16
+   },
+   {
+    "text": "Next class",
+    "ratio": 14.21
+   },
+   {
+    "text": "19:30",
+    "ratio": 9.52
+   },
+   {
+    "text": "Thursday 29 October",
+    "ratio": 14.35
+   },
+   {
+    "text": "Latin Krazy · Sway Bar",
+    "ratio": 9.1
+   },
+   {
+    "text": "›",
+    "ratio": 12.43
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "19:30Thursday 29 OctoberLatin ",
+    "w": 340,
+    "h": 60
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 506,
+  "height": 989
+ },
+ {
+  "key": "nadeem-teacher",
+  "person": "nadeem",
+  "role": "teacher",
+  "label": "Nadeem Malik, teacher-only with a class next Thursday",
+  "f": null,
+  "file": "nadeem-teacher",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "nadeem-teacher-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 15.52
+   },
+   {
+    "text": "Share",
+    "ratio": 15.52
+   },
+   {
+    "text": "TEACHER",
+    "ratio": 8.85
+   },
+   {
+    "text": "NM",
+    "ratio": 9.08
+   },
+   {
+    "text": "Nadeem Malik",
+    "ratio": 13.16
+   },
+   {
+    "text": "Next class",
+    "ratio": 14.21
+   },
+   {
+    "text": "19:30",
+    "ratio": 9.52
+   },
+   {
+    "text": "Thursday 29 October",
+    "ratio": 14.35
+   },
+   {
+    "text": "Latin Krazy · Sway Bar",
+    "ratio": 9.1
+   },
+   {
+    "text": "›",
+    "ratio": 12.43
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "19:30Thursday 29 OctoberLatin ",
+    "w": 310,
+    "h": 60
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 506,
+  "height": 986
+ },
+ {
+  "key": "papacito-dj",
+  "person": "papacito",
+  "role": "dj",
+  "label": "Papacito, DJ world (DJ name Morcilla, 2 gigs)",
+  "f": null,
+  "file": "papacito-dj",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "papacito-dj-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 17.85
+   },
+   {
+    "text": "Share",
+    "ratio": 17.85
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Dancer",
+    "ratio": 16.25
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "LONDON",
+    "ratio": 5.91
+   },
+   {
+    "text": "Morcilla",
+    "ratio": 9.15
+   },
+   {
+    "text": "Papacito",
+    "ratio": 6.47
+   },
+   {
+    "text": "2 gigs coming up",
+    "ratio": 9.21
+   },
+   {
+    "text": "Upcoming",
+    "ratio": 16.93
+   },
+   {
+    "text": "23",
+    "ratio": 7.67
+   },
+   {
+    "text": "Friday 23 October · 22:00",
+    "ratio": 7.67
+   },
+   {
+    "text": "Ronald & Alba - Halloween Edit",
+    "ratio": 11.87
+   },
+   {
+    "text": "BPM Dance Studios",
+    "ratio": 7.52
+   },
+   {
+    "text": "›",
+    "ratio": 11.04
+   },
+   {
+    "text": "31",
+    "ratio": 10.27
+   },
+   {
+    "text": "Thursday 31 December · 21:30",
+    "ratio": 10.27
+   },
+   {
+    "text": "NYE - Masquerade Ball - Sensua",
+    "ratio": 15.91
+   },
+   {
+    "text": "BPM Dance Studios",
+    "ratio": 10.08
+   },
+   {
+    "text": "›",
+    "ratio": 14.8
+   },
+   {
+    "text": "Played at",
+    "ratio": 16.93
+   },
+   {
+    "text": "October 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "Sensual Vibes",
+    "ratio": 15.07
+   },
+   {
+    "text": "September 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "Raquel Castro (Ladies Styling ",
+    "ratio": 15.07
+   },
+   {
+    "text": "Book Morcilla",
+    "ratio": 10.93
+   },
+   {
+    "text": "instagram.com/dj_morcilla",
+    "ratio": 16.93
+   },
+   {
+    "text": "›",
+    "ratio": 15.75
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 177,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 177,
+    "h": 44
+   },
+   {
+    "text": "23Friday 23 October · 22:00Ron",
+    "w": 340,
+    "h": 87
+   },
+   {
+    "text": "31Thursday 31 December · 21:30",
+    "w": 340,
+    "h": 85
+   },
+   {
+    "text": "October 2026Sensual Vibes",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "September 2026Raquel Castro (L",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "Book Morcillainstagram.com/dj_",
+    "w": 366,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "DJ*",
+   "Dancer"
+  ],
+  "footerTop": 1180,
+  "height": 1663
+ },
+ {
+  "key": "papacito-dj",
+  "person": "papacito",
+  "role": "dj",
+  "label": "Papacito, DJ world (DJ name Morcilla, 2 gigs)",
+  "f": null,
+  "file": "papacito-dj",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "papacito-dj-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 17.85
+   },
+   {
+    "text": "Share",
+    "ratio": 17.85
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Dancer",
+    "ratio": 16.25
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "LONDON",
+    "ratio": 5.91
+   },
+   {
+    "text": "Morcilla",
+    "ratio": 9.15
+   },
+   {
+    "text": "Papacito",
+    "ratio": 6.47
+   },
+   {
+    "text": "2 gigs coming up",
+    "ratio": 9.21
+   },
+   {
+    "text": "Upcoming",
+    "ratio": 16.93
+   },
+   {
+    "text": "23",
+    "ratio": 7.67
+   },
+   {
+    "text": "Friday 23 October · 22:00",
+    "ratio": 7.67
+   },
+   {
+    "text": "Ronald & Alba - Halloween Edit",
+    "ratio": 11.87
+   },
+   {
+    "text": "BPM Dance Studios",
+    "ratio": 7.52
+   },
+   {
+    "text": "›",
+    "ratio": 11.04
+   },
+   {
+    "text": "31",
+    "ratio": 10.27
+   },
+   {
+    "text": "Thursday 31 December · 21:30",
+    "ratio": 10.27
+   },
+   {
+    "text": "NYE - Masquerade Ball - Sensua",
+    "ratio": 15.91
+   },
+   {
+    "text": "BPM Dance Studios",
+    "ratio": 10.08
+   },
+   {
+    "text": "›",
+    "ratio": 14.8
+   },
+   {
+    "text": "Played at",
+    "ratio": 16.93
+   },
+   {
+    "text": "October 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "Sensual Vibes",
+    "ratio": 15.07
+   },
+   {
+    "text": "September 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "Raquel Castro (Ladies Styling ",
+    "ratio": 15.07
+   },
+   {
+    "text": "Book Morcilla",
+    "ratio": 10.93
+   },
+   {
+    "text": "instagram.com/dj_morcilla",
+    "ratio": 16.93
+   },
+   {
+    "text": "›",
+    "ratio": 15.75
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 162,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 162,
+    "h": 44
+   },
+   {
+    "text": "23Friday 23 October · 22:00Ron",
+    "w": 310,
+    "h": 87
+   },
+   {
+    "text": "31Thursday 31 December · 21:30",
+    "w": 310,
+    "h": 85
+   },
+   {
+    "text": "October 2026Sensual Vibes",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "September 2026Raquel Castro (L",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "Book Morcillainstagram.com/dj_",
+    "w": 336,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "DJ*",
+   "Dancer"
+  ],
+  "footerTop": 1180,
+  "height": 1660
+ },
+ {
+  "key": "papacito-dancer",
+  "person": "papacito",
+  "role": "dancer",
+  "label": "Papacito, dancer world",
+  "f": null,
+  "file": "papacito-dancer",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "papacito-dancer-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Papacito",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "instagram.com/dj_morcilla",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Papacito also",
+    "ratio": 17.87
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Next DJ set Friday 23 October",
+    "ratio": 11.42
+   },
+   {
+    "text": "Ronald & Alba - Halloween Edit",
+    "ratio": 8.68
+   },
+   {
+    "text": "›",
+    "ratio": 11.42
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 177,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 177,
+    "h": 44
+   },
+   {
+    "text": "Contactinstagram.com/dj_morcil",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "DJNext DJ set Friday 23 Octobe",
+    "w": 366,
+    "h": 78
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 673,
+  "height": 1156
+ },
+ {
+  "key": "papacito-dancer",
+  "person": "papacito",
+  "role": "dancer",
+  "label": "Papacito, dancer world",
+  "f": null,
+  "file": "papacito-dancer",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "papacito-dancer-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Papacito",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "instagram.com/dj_morcilla",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Papacito also",
+    "ratio": 17.87
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Next DJ set Friday 23 October",
+    "ratio": 11.42
+   },
+   {
+    "text": "Ronald & Alba - Halloween Edit",
+    "ratio": 8.68
+   },
+   {
+    "text": "›",
+    "ratio": 11.42
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 162,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 162,
+    "h": 44
+   },
+   {
+    "text": "Contactinstagram.com/dj_morcil",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "DJNext DJ set Friday 23 Octobe",
+    "w": 336,
+    "h": 78
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 673,
+  "height": 1153
+ },
+ {
+  "key": "ramiro-teacher",
+  "person": "ramiro",
+  "role": "teacher",
+  "label": "Ramiro Zapata, teacher world",
+  "f": null,
+  "file": "ramiro-teacher",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "ramiro-teacher-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 15.52
+   },
+   {
+    "text": "Share",
+    "ratio": 15.52
+   },
+   {
+    "text": "Teacher",
+    "ratio": 7.6
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 16.25
+   },
+   {
+    "text": "TEACHER",
+    "ratio": 8.85
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 13.16
+   },
+   {
+    "text": "Teaches in London",
+    "ratio": 8.77
+   },
+   {
+    "text": "Speaks Spanish, English",
+    "ratio": 8.77
+   },
+   {
+    "text": "Next class",
+    "ratio": 14.21
+   },
+   {
+    "text": "19:00",
+    "ratio": 9.52
+   },
+   {
+    "text": "Saturday 21 November",
+    "ratio": 14.35
+   },
+   {
+    "text": "50/50 · Guy’s Bar",
+    "ratio": 9.1
+   },
+   {
+    "text": "›",
+    "ratio": 12.43
+   },
+   {
+    "text": "Learn with Ramiro",
+    "ratio": 9.36
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 16.41
+   },
+   {
+    "text": "›",
+    "ratio": 14.21
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "19:00Saturday 21 November50/50",
+    "w": 340,
+    "h": 60
+   },
+   {
+    "text": "Learn with Ramirotropicanadanc",
+    "w": 366,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher*",
+   "DJ",
+   "Dancer"
+  ],
+  "footerTop": 633,
+  "height": 1116
+ },
+ {
+  "key": "ramiro-teacher",
+  "person": "ramiro",
+  "role": "teacher",
+  "label": "Ramiro Zapata, teacher world",
+  "f": null,
+  "file": "ramiro-teacher",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "ramiro-teacher-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 15.52
+   },
+   {
+    "text": "Share",
+    "ratio": 15.52
+   },
+   {
+    "text": "Teacher",
+    "ratio": 7.6
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 16.25
+   },
+   {
+    "text": "TEACHER",
+    "ratio": 8.85
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 13.16
+   },
+   {
+    "text": "Teaches in London",
+    "ratio": 8.77
+   },
+   {
+    "text": "Speaks Spanish, English",
+    "ratio": 8.77
+   },
+   {
+    "text": "Next class",
+    "ratio": 14.21
+   },
+   {
+    "text": "19:00",
+    "ratio": 9.52
+   },
+   {
+    "text": "Saturday 21 November",
+    "ratio": 14.35
+   },
+   {
+    "text": "50/50 · Guy’s Bar",
+    "ratio": 9.1
+   },
+   {
+    "text": "›",
+    "ratio": 12.43
+   },
+   {
+    "text": "Learn with Ramiro",
+    "ratio": 9.36
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 16.41
+   },
+   {
+    "text": "›",
+    "ratio": 14.21
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "19:00Saturday 21 November50/50",
+    "w": 310,
+    "h": 60
+   },
+   {
+    "text": "Learn with Ramirotropicanadanc",
+    "w": 336,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher*",
+   "DJ",
+   "Dancer"
+  ],
+  "footerTop": 633,
+  "height": 1113
+ },
+ {
+  "key": "ramiro-dj",
+  "person": "ramiro",
+  "role": "dj",
+  "label": "Ramiro Zapata, DJ world (no DJ name set)",
+  "f": null,
+  "file": "ramiro-dj",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "ramiro-dj-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 17.85
+   },
+   {
+    "text": "Share",
+    "ratio": 17.85
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Dancer",
+    "ratio": 16.25
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "LONDON",
+    "ratio": 5.91
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 9.15
+   },
+   {
+    "text": "3 gigs coming up",
+    "ratio": 9.21
+   },
+   {
+    "text": "Upcoming",
+    "ratio": 16.93
+   },
+   {
+    "text": "29",
+    "ratio": 7.67
+   },
+   {
+    "text": "Thursday 29 October · 19:30",
+    "ratio": 7.67
+   },
+   {
+    "text": "Wild Bachata",
+    "ratio": 11.87
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 7.52
+   },
+   {
+    "text": "›",
+    "ratio": 11.04
+   },
+   {
+    "text": "31",
+    "ratio": 10.27
+   },
+   {
+    "text": "Saturday 31 October · 19:30",
+    "ratio": 10.27
+   },
+   {
+    "text": "Bachata on Saturday",
+    "ratio": 15.91
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.08
+   },
+   {
+    "text": "›",
+    "ratio": 14.8
+   },
+   {
+    "text": "7",
+    "ratio": 10.27
+   },
+   {
+    "text": "Saturday 7 November · 19:30",
+    "ratio": 10.27
+   },
+   {
+    "text": "Party Pa ti",
+    "ratio": 15.91
+   },
+   {
+    "text": "Guy’s Bar",
+    "ratio": 10.08
+   },
+   {
+    "text": "›",
+    "ratio": 14.8
+   },
+   {
+    "text": "Played at",
+    "ratio": 16.93
+   },
+   {
+    "text": "October 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "50/50",
+    "ratio": 15.07
+   },
+   {
+    "text": "August 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "London Loves BOS",
+    "ratio": 15.07
+   },
+   {
+    "text": "Book Ramiro Zapata",
+    "ratio": 10.93
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 16.93
+   },
+   {
+    "text": "›",
+    "ratio": 15.75
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "29Thursday 29 October · 19:30W",
+    "w": 340,
+    "h": 68
+   },
+   {
+    "text": "31Saturday 31 October · 19:30B",
+    "w": 340,
+    "h": 66
+   },
+   {
+    "text": "7Saturday 7 November · 19:30Pa",
+    "w": 340,
+    "h": 66
+   },
+   {
+    "text": "October 202650/50",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "August 2026London Loves BOS",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "Book Ramiro Zapatatropicanadan",
+    "w": 366,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ*",
+   "Dancer"
+  ],
+  "footerTop": 1191,
+  "height": 1674
+ },
+ {
+  "key": "ramiro-dj",
+  "person": "ramiro",
+  "role": "dj",
+  "label": "Ramiro Zapata, DJ world (no DJ name set)",
+  "f": null,
+  "file": "ramiro-dj",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "ramiro-dj-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 17.85
+   },
+   {
+    "text": "Share",
+    "ratio": 17.85
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Dancer",
+    "ratio": 16.25
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "LONDON",
+    "ratio": 5.91
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 9.15
+   },
+   {
+    "text": "3 gigs coming up",
+    "ratio": 9.21
+   },
+   {
+    "text": "Upcoming",
+    "ratio": 16.93
+   },
+   {
+    "text": "29",
+    "ratio": 7.67
+   },
+   {
+    "text": "Thursday 29 October · 19:30",
+    "ratio": 7.67
+   },
+   {
+    "text": "Wild Bachata",
+    "ratio": 11.87
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 7.52
+   },
+   {
+    "text": "›",
+    "ratio": 11.04
+   },
+   {
+    "text": "31",
+    "ratio": 10.27
+   },
+   {
+    "text": "Saturday 31 October · 19:30",
+    "ratio": 10.27
+   },
+   {
+    "text": "Bachata on Saturday",
+    "ratio": 15.91
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.08
+   },
+   {
+    "text": "›",
+    "ratio": 14.8
+   },
+   {
+    "text": "7",
+    "ratio": 10.27
+   },
+   {
+    "text": "Saturday 7 November · 19:30",
+    "ratio": 10.27
+   },
+   {
+    "text": "Party Pa ti",
+    "ratio": 15.91
+   },
+   {
+    "text": "Guy’s Bar",
+    "ratio": 10.08
+   },
+   {
+    "text": "›",
+    "ratio": 14.8
+   },
+   {
+    "text": "Played at",
+    "ratio": 16.93
+   },
+   {
+    "text": "October 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "50/50",
+    "ratio": 15.07
+   },
+   {
+    "text": "August 2026",
+    "ratio": 9.73
+   },
+   {
+    "text": "London Loves BOS",
+    "ratio": 15.07
+   },
+   {
+    "text": "Book Ramiro Zapata",
+    "ratio": 10.93
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 16.93
+   },
+   {
+    "text": "›",
+    "ratio": 15.75
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "29Thursday 29 October · 19:30W",
+    "w": 310,
+    "h": 68
+   },
+   {
+    "text": "31Saturday 31 October · 19:30B",
+    "w": 310,
+    "h": 66
+   },
+   {
+    "text": "7Saturday 7 November · 19:30Pa",
+    "w": 310,
+    "h": 66
+   },
+   {
+    "text": "October 202650/50",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "August 2026London Loves BOS",
+    "w": 136,
+    "h": 136
+   },
+   {
+    "text": "Book Ramiro Zapatatropicanadan",
+    "w": 336,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ*",
+   "Dancer"
+  ],
+  "footerTop": 1191,
+  "height": 1671
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "label": "Ramiro Zapata, dancer world",
+  "f": null,
+  "file": "ramiro-dancer",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "ramiro-dancer-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Ramiro also",
+    "ratio": 17.87
+   },
+   {
+    "text": "Teacher",
+    "ratio": 8.85
+   },
+   {
+    "text": "Next class Saturday 21 Novembe",
+    "ratio": 15.46
+   },
+   {
+    "text": "50/50 · Guy’s Bar",
+    "ratio": 8.62
+   },
+   {
+    "text": "›",
+    "ratio": 15.46
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Next DJ set Thursday 29 Octobe",
+    "ratio": 11.42
+   },
+   {
+    "text": "Wild Bachata · Dance Station",
+    "ratio": 8.68
+   },
+   {
+    "text": "›",
+    "ratio": 11.42
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "TeacherNext class Saturday 21 ",
+    "w": 366,
+    "h": 78
+   },
+   {
+    "text": "DJNext DJ set Thursday 29 Octo",
+    "w": 366,
+    "h": 64
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 805,
+  "height": 1288
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "label": "Ramiro Zapata, dancer world",
+  "f": null,
+  "file": "ramiro-dancer",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "ramiro-dancer-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Ramiro also",
+    "ratio": 17.87
+   },
+   {
+    "text": "Teacher",
+    "ratio": 8.85
+   },
+   {
+    "text": "Next class Saturday 21 Novembe",
+    "ratio": 15.46
+   },
+   {
+    "text": "50/50 · Guy’s Bar",
+    "ratio": 8.62
+   },
+   {
+    "text": "›",
+    "ratio": 15.46
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Next DJ set Thursday 29 Octobe",
+    "ratio": 11.42
+   },
+   {
+    "text": "Wild Bachata · Dance Station",
+    "ratio": 8.68
+   },
+   {
+    "text": "›",
+    "ratio": 11.42
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "TeacherNext class Saturday 21 ",
+    "w": 336,
+    "h": 78
+   },
+   {
+    "text": "DJNext DJ set Thursday 29 Octo",
+    "w": 336,
+    "h": 86
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 827,
+  "height": 1307
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "f": 1,
+  "file": "magda-dancer-f1",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "magda-dancer-f1-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "All socials this week",
+    "w": 366,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 849,
+  "height": 1332
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "f": 1,
+  "file": "magda-dancer-f1",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "magda-dancer-f1-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 336,
+    "h": 62
+   },
+   {
+    "text": "All socials this week",
+    "w": 336,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 859,
+  "height": 1339
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "f": 2,
+  "file": "magda-dancer-f2",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "magda-dancer-f2-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 429,
+  "height": 912
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "f": 2,
+  "file": "magda-dancer-f2",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "magda-dancer-f2-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 429,
+  "height": 909
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "f": 3,
+  "file": "magda-dancer-f3",
+  "w": 390,
+  "h": 844,
+  "multi": false,
+  "shot": "magda-dancer-f3-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 429,
+  "height": 912
+ },
+ {
+  "key": "magda-dancer",
+  "person": "magda",
+  "role": "dancer",
+  "f": 3,
+  "file": "magda-dancer-f3",
+  "w": 360,
+  "h": 800,
+  "multi": false,
+  "shot": "magda-dancer-f3-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "M",
+    "ratio": 8.15
+   },
+   {
+    "text": "Magda",
+    "ratio": 5.83
+   },
+   {
+    "text": "Lead and Follow · London",
+    "ratio": 5.06
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 0,
+  "tabY": null,
+  "backY": 114,
+  "tabsShown": [],
+  "footerTop": 429,
+  "height": 909
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "f": 1,
+  "file": "ramiro-dancer-f1",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "ramiro-dancer-f1-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "All socials this week",
+    "w": 366,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 1031,
+  "height": 1514
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "f": 1,
+  "file": "ramiro-dancer-f1",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "ramiro-dancer-f1-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Socials in London this week",
+    "ratio": 17.87
+   },
+   {
+    "text": "Friday 23 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Unidos Flow",
+    "ratio": 14.2
+   },
+   {
+    "text": "G Happy Feet Studios",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "21:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Pura Wild Nights",
+    "ratio": 14.2
+   },
+   {
+    "text": "Dance Station",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Saturday 24 October",
+    "ratio": 12.4
+   },
+   {
+    "text": "15:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Daytime Bachata Social",
+    "ratio": 14.2
+   },
+   {
+    "text": "Southbank Club",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:00",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachateame",
+    "ratio": 14.2
+   },
+   {
+    "text": "Ritmo Latino Studio",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "20:30",
+    "ratio": 11.75
+   },
+   {
+    "text": "Bachata On Saturday: Fusion Ed",
+    "ratio": 14.2
+   },
+   {
+    "text": "The Vault",
+    "ratio": 10.39
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "All socials this week",
+    "ratio": 14.79
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:00Unidos FlowG Happy Feet S",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "21:00Pura Wild NightsDance Sta",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "15:30Daytime Bachata SocialSou",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:00BachateameRitmo Latino St",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "20:30Bachata On Saturday: Fusi",
+    "w": 336,
+    "h": 62
+   },
+   {
+    "text": "All socials this week",
+    "w": 336,
+    "h": 44
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 1041,
+  "height": 1521
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "f": 2,
+  "file": "ramiro-dancer-f2",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "ramiro-dancer-f2-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Ramiro also",
+    "ratio": 17.87
+   },
+   {
+    "text": "Teacher",
+    "ratio": 8.85
+   },
+   {
+    "text": "Next class Saturday 21 Novembe",
+    "ratio": 15.46
+   },
+   {
+    "text": "50/50 · Guy’s Bar",
+    "ratio": 8.62
+   },
+   {
+    "text": "›",
+    "ratio": 15.46
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Next DJ set Thursday 29 Octobe",
+    "ratio": 11.42
+   },
+   {
+    "text": "Wild Bachata · Dance Station",
+    "ratio": 8.68
+   },
+   {
+    "text": "›",
+    "ratio": 11.42
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 366,
+    "h": 52
+   },
+   {
+    "text": "TeacherNext class Saturday 21 ",
+    "w": 366,
+    "h": 78
+   },
+   {
+    "text": "DJNext DJ set Thursday 29 Octo",
+    "w": 366,
+    "h": 64
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 805,
+  "height": 1288
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "f": 2,
+  "file": "ramiro-dancer-f2",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "ramiro-dancer-f2-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   },
+   {
+    "text": "Ramiro also",
+    "ratio": 17.87
+   },
+   {
+    "text": "Teacher",
+    "ratio": 8.85
+   },
+   {
+    "text": "Next class Saturday 21 Novembe",
+    "ratio": 15.46
+   },
+   {
+    "text": "50/50 · Guy’s Bar",
+    "ratio": 8.62
+   },
+   {
+    "text": "›",
+    "ratio": 15.46
+   },
+   {
+    "text": "DJ",
+    "ratio": 9.21
+   },
+   {
+    "text": "Next DJ set Thursday 29 Octobe",
+    "ratio": 11.42
+   },
+   {
+    "text": "Wild Bachata · Dance Station",
+    "ratio": 8.68
+   },
+   {
+    "text": "›",
+    "ratio": 11.42
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 336,
+    "h": 52
+   },
+   {
+    "text": "TeacherNext class Saturday 21 ",
+    "w": 336,
+    "h": 78
+   },
+   {
+    "text": "DJNext DJ set Thursday 29 Octo",
+    "w": 336,
+    "h": 86
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 827,
+  "height": 1307
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "f": 3,
+  "file": "ramiro-dancer-f3",
+  "w": 390,
+  "h": 844,
+  "multi": true,
+  "shot": "ramiro-dancer-f3-390.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 117,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 366,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 611,
+  "height": 1094
+ },
+ {
+  "key": "ramiro-dancer",
+  "person": "ramiro",
+  "role": "dancer",
+  "f": 3,
+  "file": "ramiro-dancer-f3",
+  "w": 360,
+  "h": 800,
+  "multi": true,
+  "shot": "ramiro-dancer-f3-360.png",
+  "texts": [
+   {
+    "text": "← Back",
+    "ratio": 16.27
+   },
+   {
+    "text": "Share",
+    "ratio": 16.27
+   },
+   {
+    "text": "Teacher",
+    "ratio": 16.25
+   },
+   {
+    "text": "DJ",
+    "ratio": 16.25
+   },
+   {
+    "text": "Dancer",
+    "ratio": 7.7
+   },
+   {
+    "text": "DANCER",
+    "ratio": 4.79
+   },
+   {
+    "text": "photo",
+    "ratio": 18.88
+   },
+   {
+    "text": "Ramiro Zapata",
+    "ratio": 5.83
+   },
+   {
+    "text": "Leader · London",
+    "ratio": 5.06
+   },
+   {
+    "text": "SPEAKS",
+    "ratio": 4.79
+   },
+   {
+    "text": "Spanish, English",
+    "ratio": 5.83
+   },
+   {
+    "text": "Contact",
+    "ratio": 9.86
+   },
+   {
+    "text": "tropicanadanceschool.co.uk",
+    "ratio": 14.2
+   },
+   {
+    "text": "›",
+    "ratio": 13.05
+   }
+  ],
+  "taps": [
+   {
+    "text": "← Back",
+    "w": 67,
+    "h": 44
+   },
+   {
+    "text": "Share",
+    "w": 79,
+    "h": 44
+   },
+   {
+    "text": "Teacher",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "DJ",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Dancer",
+    "w": 107,
+    "h": 44
+   },
+   {
+    "text": "Contacttropicanadanceschool.co",
+    "w": 336,
+    "h": 52
+   }
+  ],
+  "clipped": [],
+  "offscreen": [],
+  "fonts": [
+   "ok"
+  ],
+  "sideways": false,
+  "tabRows": 1,
+  "tabY": 164,
+  "backY": 114,
+  "tabsShown": [
+   "Teacher",
+   "DJ",
+   "Dancer*"
+  ],
+  "footerTop": 611,
+  "height": 1091
+ }
+]

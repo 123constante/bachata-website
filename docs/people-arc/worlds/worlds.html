@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People worlds mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=block" rel="stylesheet">
+<style>
+/* Mockup only. Header and footer are the LIVE site's pixels, cropped from today's page at the same width. */
+* { box-sizing: border-box; }
+html { background: #FFA600; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+.site-head { height: 106px; background: #000 url(before/dancer-dancer-nophoto-390.png) top left / 390px auto no-repeat; }
+.site-foot { height: 483px; background: #FFA600 url(before/dancer-dancer-nophoto-390.png) bottom left / 390px auto no-repeat; }
+@media (max-width: 370px) {
+  .site-head { background-image: url(before/dancer-dancer-nophoto-360.png); background-size: 360px auto; }
+  .site-foot { height: 480px; background-image: url(before/dancer-dancer-nophoto-360.png); background-size: 360px auto; }
+}
+/* No min-height: on every world the footer comes up right after the content (no empty ground). */
+main.world { padding: 8px 12px 28px; }
+.arr { font-size: 22px; line-height: 1; opacity: .8; margin-left: auto; padding-left: 8px; }
+
+/* ---- the shared frame: identical in every world ---- */
+.topbar { display: flex; justify-content: space-between; align-items: center; height: 44px; }
+.back, .share { display: inline-flex; align-items: center; height: 44px; min-width: 44px; padding: 0 6px; font-size: 15px; font-weight: 700; color: #F4F4F6; background: none; border: 0; cursor: pointer; }
+.share svg { margin-right: 2px; }
+.tabs { display: flex; gap: 4px; margin: 6px 0 0; padding: 3px; background: #0F0F12; border: 1px solid #3A3A44; border-radius: 999px; }
+.tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 999px; font-size: 14px; font-weight: 700; color: #ECECF1; }
+.tab .dot { width: 8px; height: 8px; border-radius: 50%; }
+.t-dancer .dot { background: #2DD4BF; } .t-dj .dot { background: #F2B632; } .t-teacher .dot { background: #B79CFB; }
+.tab.on.t-dancer { background: #2DD4BF; color: #04302C; }
+.tab.on.t-dj { background: #F2B632; color: #2B1A00; }
+.tab.on.t-teacher { background: #B79CFB; color: #1E0A4D; }
+.stage { margin-top: 12px; }
+.flag { font-family: 'Noto Color Emoji', sans-serif; font-size: .7em; margin-left: 8px; vertical-align: .12em; }
+
+/* one placeholder family: circle + initials (Inter 800), coloured per world */
+.face { border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+.face b { font-weight: 800; letter-spacing: .02em; }
+.face.photo { background: repeating-linear-gradient(135deg, #8a8f98 0 10px, #9aa0a8 10px 20px); }
+.face.photo span { font-size: 11px; font-weight: 700; color: #111; background: #fff; padding: 2px 6px; border-radius: 6px; }
+
+/* the shared contact row, tinted by the world */
+.contact { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; min-height: 52px; margin-top: 12px; padding: 8px 12px; border-radius: 14px; font-size: 14px; }
+.contact .arr { grid-row: 1 / span 2; grid-column: 2; }
+.contact .k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.contact .v { font-weight: 600; overflow-wrap: anywhere; }
+
+/* ================= DANCER WORLD: the teal card ================= */
+.w-dancer { background: #061A1F; color: #EAF8FA; }
+.d-card { text-align: center; padding: 14px 14px 16px; border-radius: 20px; background: linear-gradient(165deg, #1F6E80 0%, #0F3B48 100%); border: 1px solid #3C9BAA; }
+.kick { font-size: 11px; letter-spacing: .22em; color: #D2EEF2; font-weight: 600; }
+.d-face { width: 112px; height: 112px; margin-top: 10px; border: 4px solid #5EE6F0; background: #0C4A57; }
+.d-face b { font-size: 40px; color: #B5F5F8; }
+.d-name { margin: 10px 0 0; font-size: 26px; line-height: 1.15; font-weight: 800; color: #FFFFFF; overflow-wrap: anywhere; }
+.d-sub { margin: 4px 0 0; font-size: 15px; color: #DDF3F6; }
+.d-rule { height: 1px; background: #4F9AA7; margin: 12px 0 10px; }
+.d-langs { margin: 4px 0 0; font-size: 15px; font-weight: 700; color: #FFFFFF; }
+.w-dancer .contact { background: #0D2F37; border: 1px solid #2A6672; }
+.w-dancer .contact .k { color: #7FE7EF; } .w-dancer .contact .v { color: #FFFFFF; }
+.d-sec { margin-top: 16px; }
+.d-sec h2 { margin: 0 0 6px; font-size: 17px; font-weight: 800; color: #FFFFFF; }
+.d-sec h3 { margin: 10px 0 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #7FE7EF; font-weight: 700; }
+.d-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 12px; margin-top: 4px; border-radius: 12px; background: #0D2F37; }
+.d-row .tm { font-size: 14px; color: #B5F5F8; width: 44px; flex: none; }
+.d-row span { display: flex; flex-direction: column; min-width: 0; }
+.d-row span b { font-size: 14px; color: #FFFFFF; }
+.d-row small { font-size: 13px; color: #BFE3E8; }
+.d-all { display: flex; align-items: center; justify-content: center; height: 44px; margin-top: 10px; border-radius: 999px; border: 1px solid #5EE6F0; color: #B5F5F8; font-weight: 700; font-size: 14px; }
+.peek { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 12px; margin-top: 8px; border-radius: 14px; }
+.peek .pk { flex: none; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; padding: 4px 8px; border-radius: 999px; }
+.peek .pl { display: flex; flex-direction: column; min-width: 0; }
+.peek .pl b { font-size: 15px; } .peek .pl small { font-size: 13px; }
+.peek-dj { background: radial-gradient(120% 140% at 0% 0%, #4A2614 0%, #1E120C 70%); border: 1px solid #6A4A38; color: #FBEBDD; }
+.peek-dj .pk { background: #F2B632; color: #2B1A00; } .peek-dj .pl b { font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 17px; } .peek-dj small { color: #E3CDB9; }
+.peek-teacher { background: #F5F0FF; color: #1E1240; border: 1px solid #CDBDF5; }
+.peek-teacher .pk { background: #4B2A9E; color: #F5F0FF; } .peek-teacher .pl b { font-family: Fraunces, serif; font-size: 16px; } .peek-teacher small { color: #4A3C72; }
+
+/* ================= DJ WORLD: the record sleeve ================= */
+.w-dj { background: #0E0B0A; color: #FBEBDD; }
+.s-hero { text-align: center; padding: 18px 14px 18px; border-radius: 22px; border: 1px solid #4A3122; background: radial-gradient(130% 90% at 85% 0%, #6A3418 0%, #2A1810 45%, #160F0B 100%); }
+.vinyl { width: 196px; height: 196px; margin: 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: repeating-radial-gradient(circle, #141010 0 2px, #211A17 2px 4px); box-shadow: 0 0 0 2px #2C211B, 0 10px 30px #00000080; }
+.vinyl .label { width: 104px; height: 104px; border-radius: 50%; border: 3px solid #C9921E; overflow: hidden; }
+.s-face { width: 100%; height: 100%; background: #F2B632; }
+.s-face b { font-size: 34px; color: #2B1A00; }
+.s-kick .flag { font-size: 18px; vertical-align: -2px; }
+.s-kick { margin-top: 14px; font-size: 12px; letter-spacing: .24em; font-weight: 700; color: #F2C14E; }
+.s-name { margin: 6px 0 0; font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 40px; line-height: 1.05; color: #FFF4EA; overflow-wrap: anywhere; }
+.s-real { margin: 4px 0 0; font-size: 15px; color: #E3CDB9; }
+.s-count { display: inline-block; margin: 12px 0 0; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #2B1A00; background: #F2B632; }
+.s-sec { margin-top: 14px; padding: 14px 12px; border-radius: 18px; background: #1A1310; border: 1px solid #3A2A20; }
+.s-sec h2 { margin: 0 0 8px; font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 24px; color: #FFF4EA; }
+.s-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 12px; margin-top: 6px; border-radius: 14px; background: #221915; }
+.s-row.first { background: linear-gradient(90deg, #4A2A14, #2A1A12); border: 1px solid #8A5A2A; }
+.s-day { font-family: 'DM Serif Display', serif; font-size: 30px; width: 40px; flex: none; text-align: center; color: #F2C14E; }
+.s-txt { display: flex; flex-direction: column; min-width: 0; }
+.s-txt small { font-size: 12px; font-weight: 700; color: #F2C14E; }
+.s-txt b { font-size: 15px; color: #FFF4EA; }
+.s-txt i { font-style: normal; font-size: 13px; color: #D9C2AE; }
+.s-played { display: flex; flex-wrap: wrap; gap: 12px; }
+.rec { width: 136px; height: 136px; border-radius: 50%; border: 2px dashed #C9921E; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; background: radial-gradient(circle, #2A1D16 0 40%, #1A1310 41%); }
+.rec small { font-size: 11px; letter-spacing: .1em; font-weight: 700; color: #F2C14E; text-transform: uppercase; }
+.rec b { font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 14px; line-height: 1.15; color: #FFF4EA; margin-top: 4px; }
+.s-cta { display: flex; align-items: center; justify-content: center; height: 44px; margin-top: 14px; border-radius: 999px; border: 1px solid #C9921E; color: #F2C14E; font-weight: 700; font-size: 14px; }
+.w-dj .contact { background: #1A1310; border: 1px solid #3A2A20; } .w-dj .contact .k { color: #F2C14E; } .w-dj .contact .v { color: #FFF4EA; }
+
+/* ================= TEACHER WORLD: the studio timetable ================= */
+.w-teacher { color: #F1ECFF; background-color: #15102A;
+  background-image: repeating-linear-gradient(0deg, #1D1738 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, #1D1738 0 1px, transparent 1px 28px); }
+.t-paper { border-radius: 18px; overflow: hidden; background: #F5F0FF; color: #1E1240; box-shadow: 0 10px 30px #00000066; }
+.t-band { position: relative; display: flex; align-items: center; height: 34px; padding: 0 14px; background: #4B2A9E; }
+.t-band span { font-size: 12px; letter-spacing: .24em; font-weight: 800; color: #F5F0FF; }
+.t-band .holes { position: absolute; right: 14px; top: 11px; width: 40px; height: 12px; background: radial-gradient(circle at 6px 6px, #15102A 5px, transparent 5.5px), radial-gradient(circle at 34px 6px, #15102A 5px, transparent 5.5px); }
+.t-body { display: flex; align-items: center; gap: 14px; padding: 16px 14px 18px;
+  background-image: repeating-linear-gradient(0deg, #E6DCFB 0 1px, transparent 1px 26px); background-position: 0 6px; }
+.t-face { width: 100px; height: 100px; flex: none; margin: 0; border: 4px solid #7C5BD6; background: #E4D9FF; }
+.t-face b { font-size: 34px; color: #3B1F86; }
+.t-id { min-width: 0; }
+.t-name { margin: 0; font-family: Fraunces, serif; font-weight: 700; font-size: 27px; line-height: 1.1; color: #1E1240; overflow-wrap: anywhere; }
+.t-line { margin: 6px 0 0; font-size: 14px; font-weight: 600; color: #3E2F6B; }
+.t-sec { margin-top: 14px; padding: 14px 12px; border-radius: 18px; background: #211A3D; border: 1px solid #3D2F70; }
+.t-sec h2 { margin: 0 0 8px; font-family: Fraunces, serif; font-weight: 700; font-size: 22px; color: #F1ECFF; }
+.t-row { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 12px; border-radius: 14px; background: #2C2350; border-left: 4px solid #B79CFB; }
+.t-time { font-family: Fraunces, serif; font-weight: 700; font-size: 22px; color: #D9CBFF; flex: none; }
+.t-txt { display: flex; flex-direction: column; min-width: 0; }
+.t-txt b { font-size: 15px; color: #FFFFFF; } .t-txt small { font-size: 13px; color: #D3C8F2; }
+.t-cta { display: flex; align-items: center; justify-content: center; height: 44px; margin-top: 14px; border-radius: 999px; background: #B79CFB; color: #1E0A4D; font-weight: 800; font-size: 14px; }
+.w-teacher .contact { background: #211A3D; border: 1px solid #3D2F70; } .w-teacher .contact .k { color: #CDB9FF; } .w-teacher .contact .v { color: #FFFFFF; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="src/facts.js"></script>
+<script src="src/worlds.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById('root').innerHTML = render(q.get('p') || 'ramiro', q.get('r') || 'dj', Number(q.get('f')) || null);
+</script>
+</body>
+</html>
