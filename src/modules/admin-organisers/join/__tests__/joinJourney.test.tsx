@@ -946,3 +946,85 @@ describe('slice U review r1: a first-time joiner keeps Done when the preview lat
     expect(screen.getByTestId('where').textContent).toMatch(/^\/invite/);
   });
 });
+
+// people-find-before-create (model 2): every claim answer x invite kind x signed-in shape, after the code is verified.
+// Find before create uses ONLY the invite's own proof (its person or its bound email), never a search by name.
+describe('find before create: claim answer x invite kind x signed-in shape', () => {
+  type Kind = 'person' | 'email' | 'none';
+  type Next = 'continue' | 'safety_redeem' | 'unmatched';
+  const PREVIEWS: Record<Kind, () => Record<string, unknown>> = {
+    person: () => open(PERSON),
+    email: () => open({ email_hint: 'a***@example.com' }),
+    none: () => open(),
+  };
+  /** The expected next step, written out by hand (not read from the mapping under test). */
+  const EXPECTED: Record<string, Record<Kind, Next>> = {
+    linked: { person: 'continue', email: 'continue', none: 'continue' },
+    already_linked: { person: 'continue', email: 'continue', none: 'continue' },
+    no_match: { person: 'safety_redeem', email: 'continue', none: 'continue' },
+    ambiguous: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
+    email_unproven: { person: 'unmatched', email: 'unmatched', none: 'unmatched' },
+    not_applicable: { person: 'continue', email: 'continue', none: 'continue' },
+    unavailable: { person: 'continue', email: 'continue', none: 'continue' },
+  };
+  const SHAPES: Record<string, ProfileCompletion> = {
+    new_login: { status: 'incomplete', missing: ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], profileId: null },
+    empty_stub: { status: 'incomplete', missing: ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], profileId: ME.id },
+    already_claimed: { status: 'complete', missing: [], profileId: 'p-linked' },
+  };
+  const ROWS = Object.entries(EXPECTED).flatMap(([claim, byKind]) =>
+    (Object.keys(byKind) as Kind[]).flatMap((kind) => Object.keys(SHAPES).map((shape) => ({ claim, kind, shape, next: byKind[kind] }))));
+
+  it('covers every claim status the client knows, plus unavailable', async () => {
+    const { CLAIM_STATUSES } = await vi.importActual<typeof import('@/lib/claimMyDancerProfile')>('@/lib/claimMyDancerProfile');
+    expect(Object.keys(EXPECTED).sort()).toEqual([...CLAIM_STATUSES, 'unavailable'].sort());
+  });
+
+  it.each(ROWS)('claim $claim, $kind invite, $shape -> $next', async ({ claim, kind, shape, next }) => {
+    preview = PREVIEWS[kind]();
+    redeem = next === 'safety_redeem' ? { ok: false, reason: 'not_linked' } : { ok: true, status: 'redeemed', organiser_id: 'o1' };
+    h.claim.mockResolvedValue({ status: claim, profileId: claim === 'linked' || claim === 'already_linked' ? 'p-linked' : null });
+    h.verify.mockImplementation(async () => {
+      h.auth.user = ME;
+      h.completion = SHAPES[shape];
+      return { data: { user: FIRST_SIGN_IN }, error: null };
+    });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await waitFor(() => expect(h.claim).toHaveBeenCalledTimes(1));
+    if (next === 'continue') {
+      await stepIs(SHAPES[shape].status === 'complete' ? 'join' : 'about');
+      expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
+      // Nothing is redeemed before the Join tap.
+      expect(redeems()).toHaveLength(0);
+    } else if (next === 'safety_redeem') {
+      await stopIs('not_linked');
+      expect(redeems()).toHaveLength(1);
+      expect(screen.queryByTestId('join-about-form')).toBeNull();
+    } else {
+      await stopIs('unmatched');
+      // Nothing created or chosen: no redeem, no About form on the sign-up stub, no Join button.
+      expect(redeems()).toHaveLength(0);
+      expect(h.save).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('join-about-form')).toBeNull();
+      expect(screen.queryByTestId('invite-join')).toBeNull();
+      expect(screen.getByTestId('join-unmatched-body').textContent).toBe(JOIN_COPY.unmatched.body);
+      // The copy names the one control that is on screen, and that control goes to the organiser home.
+      const home = screen.getByTestId('join-unmatched-home');
+      expect(home.textContent).toBe(JOIN_COPY.done.button);
+      expect(screen.getByTestId('join-unmatched-next').textContent).toContain(JOIN_COPY.done.button);
+      expect(home.getAttribute('href')).not.toContain('/invite');
+      expect(screen.queryByText(/told/i)).toBeNull();
+    }
+    // The claim never blocks the sign-in: the code step is gone whatever it answered.
+    expect(screen.getByTestId('join-step').getAttribute('data-step')).not.toBe('code');
+  });
+
+  it('an untouched page (already signed in, no code typed) sends no claim and no redeem', async () => {
+    signedIn();
+    mount();
+    await stepIs('join');
+    expect(h.claim).not.toHaveBeenCalled();
+    expect(redeems()).toHaveLength(0);
+  });
+});

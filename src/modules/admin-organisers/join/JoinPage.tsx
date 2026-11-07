@@ -19,7 +19,7 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { afterProfileRefusal, checkTypedEmail, claimNextStep, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, inviteKind, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
 import { buildSignInHref } from '@/lib/authRouting';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
@@ -283,11 +283,13 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       await recordJoinRoles(data?.user);
       void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(data?.user?.id) });
       clearStep();
+      // Find before create (claimNextStep, the ONE mapping): only the invite's own proof decides, never a name search.
+      const next = claimNextStep(claim.status, inviteKind(info));
       // Person-bound invite whose claim did not land: the safety stop. The one redeem call makes "we've told" real
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
-      if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
-        await applyRedeem(await attemptRedeem(token), 'claim');
-      }
+      if (next === 'safety_redeem') await applyRedeem(await attemptRedeem(token), 'claim');
+      // The claim could not tell which existing profile is theirs: nothing is created, chosen or redeemed.
+      else if (next === 'unmatched') fail('claim', { kind: 'unmatched' });
     } finally {
       setLinking(false);
       setBusy(false);
@@ -342,7 +344,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     return (
       <StepFrame step={step} stop={stop.kind}>
         {header}
-        <StopScreen stop={stop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} />
+        <StopScreen stop={stop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} homeFlags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} />
       </StepFrame>
     );
   }

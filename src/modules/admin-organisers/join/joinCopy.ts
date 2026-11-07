@@ -122,6 +122,16 @@ export const JOIN_COPY = {
     button: 'Try a different email',
   },
 
+  // Find before create (claimNextStep 'unmatched'): the claim could not tell which existing profile is theirs, so
+  // nothing was created or chosen. The one control is the home link, named by the same label Done uses.
+  unmatched: {
+    tag: 'Paused',
+    heading: `We couldn${APOS}t match you automatically`,
+    body: `The organiser${APOS}s admin can join you to your existing profile.`,
+    note: 'Your invite stays open. You can use this link again afterwards.',
+    next: (button: string) => `Meanwhile, tap ${button} below.`,
+  },
+
   // Refusal screens (no prototype; written to the copy rule).
   blockedDomain: {
     heading: `We can${APOS}t send a code to this email`,

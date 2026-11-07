@@ -5,6 +5,8 @@
 import { isOtpRateLimitedError, isSignupAllowlistRefusal, type SignupRole } from '@/lib/auth-otp-routing';
 import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import type { ProfileCompletionStatus } from '@/lib/profileCompletion';
+// Type only: a value import would put the claim RPC module into this pure model (and break test mocks of it).
+import type { ClaimStatus } from '@/lib/claimMyDancerProfile';
 import { hintMatchesEmail, parsePreview, type InvitePreview } from '../inviteModel';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
@@ -49,6 +51,52 @@ export function parseJoinPreview(raw: unknown): JoinPreview | null {
 
 /** A person-bound invite: the server named the profile this link is for. */
 export const isPersonBound = (p: JoinPreview | null | undefined): boolean => p?.person != null;
+
+// ---- find before create: the sign-in claim x the invite's own proof ----------------------------
+
+/**
+ * What the invite itself proves about who is joining -- the ONLY evidence find-before-create uses on this route
+ * (never a search over other people's data by name): `person` = the server named the profile (person_profile_id);
+ * `email` = the link is bound to an address (email_hint); `none` = a plain page link.
+ */
+export type InviteKind = 'person' | 'email' | 'none';
+
+export const inviteKind = (p: JoinPreview | null | undefined): InviteKind =>
+  isPersonBound(p) ? 'person' : p?.emailHint ? 'email' : 'none';
+
+/** Every answer the sign-in claim can give (CLAIM_STATUSES plus the never-blocking "unavailable"). */
+export type ClaimAnswer = ClaimStatus | 'unavailable';
+
+/**
+ * What the page does right after the code is verified and the claim has answered. ONE mapping, read by the page
+ * and the tests (people-find-before-create brief, model 2):
+ * - `continue`: the derived step follows (About for an unfinished profile, then the Join tap).
+ * - `safety_redeem`: a person-bound invite whose claim did not land on its person. One redeem call, which (A2)
+ *   seats nobody, keeps the invite open and records not_linked so the inviter is really told; its answer picks the
+ *   stop. Never About on the sign-up stub: that would make a second record of the invited person.
+ * - `unmatched`: the claim could not tell which existing profile is theirs (ambiguous: two admin-made profiles
+ *   share the email; email_unproven: this session cannot prove the mailbox). Nothing is created or chosen: no
+ *   About, no Join tap, no redeem. The one control is the organiser home link.
+ * A failed or missing claim (unavailable) never blocks the sign-in: the page continues as before, and the Join
+ * tap's redeem (which runs the claim itself on a bound invite) still guards a person-bound link.
+ */
+export type ClaimNext = 'continue' | 'safety_redeem' | 'unmatched';
+
+export function claimNextStep(claim: ClaimAnswer, kind: InviteKind): ClaimNext {
+  switch (claim) {
+    case 'linked':
+    case 'already_linked':
+    case 'not_applicable':
+    case 'unavailable':
+      return 'continue';
+    case 'no_match':
+      return kind === 'person' ? 'safety_redeem' : 'continue';
+    case 'ambiguous':
+      return kind === 'person' ? 'safety_redeem' : 'unmatched';
+    case 'email_unproven':
+      return 'unmatched';
+  }
+}
 
 // ---- the step table -------------------------------------------------------------------------
 
@@ -169,6 +217,8 @@ export type JoinStop =
   | { kind: 'network'; from: 'send' | 'verify' | 'join' | 'bind' }
   | { kind: 'email_unproven' }
   | { kind: 'not_linked' }
+  /** claimNextStep said `unmatched`: the claim could not tell which existing profile is theirs; nothing was created or redeemed. */
+  | { kind: 'unmatched' }
   /** email_mismatch answered AFTER the Join tap (the preview carried no hint): the same wrong-account screen. */
   | { kind: 'wrong_account'; emailHint: string | null }
   | { kind: 'already_bound' }
