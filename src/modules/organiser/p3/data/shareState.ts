@@ -21,7 +21,7 @@ export function shareStateOf(code: { pending: boolean; data: ShareCode | undefin
 
 export const SHARE_REASONS: Record<Exclude<ShareState, 'ready'>, string> = {
   off: 'Your link is switched off. Ask the team.',
-  noCode: 'Your link isn’t ready yet. Try again shortly.',
+  noCode: 'Your link isn\u2019t ready yet. Try again shortly.',
   noEvent: 'Add an event to get a link',
-  loading: 'Getting your link…',
+  loading: 'Getting your link\u2026',
 };
