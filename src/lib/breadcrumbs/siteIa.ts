@@ -88,6 +88,8 @@ export const SITE_IA = {
   ambassador:       { label: 'Pending review', path: '/ambassador' },
   'ambassador.review': { label: 'Review', parent: 'ambassador' },
   'invite.redeem':    { label: 'Join organiser team' },
+  // Ambassador shared link landing (/join/a/:code), noindex.
+  'ambassador.link':  { label: 'Your invite' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,
