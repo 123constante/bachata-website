@@ -227,6 +227,36 @@ export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'ca
   return null;
 };
 
+// ---- Connect payments inline (the Add a ticket flow and a draft's row) ----------------
+
+export const CONNECT_LINE = 'Connect payments to put this on sale';
+export const CONNECT_LABEL = 'Connect payments';
+export const CONNECT_RESUME_LABEL = 'Carry on with Stripe';
+
+export interface ConnectBlock {
+  line: string;
+  /** The one button's words. */
+  button: string;
+  /** The start-onboarding error, when the last press failed. */
+  error: string | null;
+}
+
+/**
+ * The ONE decision for the Connect payments block, used by the sheet and by a draft's list row (they only
+ * draw it). Null = no block: free ticket, not a manager (NOT_MANAGER stays), Stripe still loading (the
+ * "Checking your payment set-up" reason stays), already connected, or onboarding cannot start
+ * (not_configured: the existing disabled reason is the fallback).
+ */
+export const connectBlock = (
+  pricePence: number,
+  ctx: Pick<MoveContext, 'role' | 'stripe'>,
+  onboarding: { switchedOff: boolean; note: string | null },
+): ConnectBlock | null => {
+  if (!(pricePence > 0) || !canManage(ctx.role)) return null;
+  if (ctx.stripe === 'unknown' || ctx.stripe === 'connected' || onboarding.switchedOff) return null;
+  return { line: CONNECT_LINE, button: ctx.stripe === 'started' ? CONNECT_RESUME_LABEL : CONNECT_LABEL, error: onboarding.note };
+};
+
 // ---- Sales window (London wall clock in the form, true instants on the wire) ---------
 
 /** timestamptz -> 'YYYY-MM-DDTHH:mm' London, for <input type="datetime-local">. */
@@ -259,7 +289,30 @@ export interface TypeForm {
   closesAt: string;
 }
 
-export const formOf = (t: TicketType | null): TypeForm =>
+/** A series as the Tickets sheet knows it: how many upcoming dates, and the next one's start. */
+export interface SeriesDates {
+  upcoming_count?: number;
+  next_dates?: readonly { materialised_start_utc: string | null }[];
+}
+
+/** A ticket type carries no date today, so on a series with 2+ upcoming dates it covers every one of them. */
+export const coversEveryDate = (s: SeriesDates | null | undefined): boolean => (s?.upcoming_count ?? 0) > 1;
+
+export const EVERY_DATE_NOTE =
+  'This ticket is for every date of this event, and its numbers are shared across them. To stop selling after one night, set Sales close.';
+
+/**
+ * The default "Sales close" for a NEW ticket on a series with several dates: the next date's start,
+ * as the London wall-clock text the form holds (same reading as eventStartOf). Null when the series
+ * has fewer than two upcoming dates or the next start is missing.
+ */
+export const defaultCloseFor = (s: SeriesDates | null | undefined): string | null => {
+  if (!coversEveryDate(s)) return null;
+  const start = s?.next_dates?.[0]?.materialised_start_utc;
+  return start ? isoToLondonInput(start) || null : null;
+};
+
+export const formOf = (t: TicketType | null, series?: SeriesDates | null): TypeForm =>
   t
     ? {
         name: t.name,
@@ -269,7 +322,7 @@ export const formOf = (t: TicketType | null): TypeForm =>
         opensAt: isoToLondonInput(t.salesOpenAt),
         closesAt: isoToLondonInput(t.salesCloseAt),
       }
-    : { name: '', paid: false, price: '', capacity: '', opensAt: '', closesAt: '' };
+    : { name: '', paid: false, price: '', capacity: '', opensAt: '', closesAt: defaultCloseFor(series) ?? '' };
 
 export type FormErrors = Partial<Record<keyof TypeForm, string>>;
 
