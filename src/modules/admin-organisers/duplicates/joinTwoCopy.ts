@@ -1,0 +1,22 @@
+// Every word the "Join two people" block shows. Refusals reuse JOIN_REFUSAL_COPY (duplicatesCopy.ts) through DuplicateReview.
+export const JOIN_TWO_COPY = {
+  title: 'Join two people',
+  lead: 'Find two profiles that are the same person. You see what would change before anything is joined.',
+  keepLabel: 'Keep this one',
+  foldLabel: 'Fold this one in',
+  placeholder: 'Name or Instagram',
+  searching: 'Searching',
+  noResults: 'No one found. Try the first name or the Instagram.',
+  searchFailed: 'The search did not load. Check your connection, then tap Try again.',
+  retry: 'Try again',
+  change: 'Change',
+  swap: 'Swap keep and fold in',
+  see: 'See what will change',
+  needTwo: 'Choose two people to see what will change.',
+  needDifferent: 'Choose two different people to see what will change.',
+  alreadyOther: 'Already chosen in the other box.',
+  hasLogin: 'Has a login',
+  noLogin: 'No login',
+  archived: 'Archived',
+  noName: 'No name yet',
+} as const;
