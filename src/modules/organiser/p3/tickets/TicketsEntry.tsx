@@ -12,6 +12,7 @@ import {
   buyerRulesLine,
   canManage,
   connectBlock,
+  connectReturnBanner,
   countsLine,
   eventStartOf,
   leftOf,
@@ -81,6 +82,10 @@ export function TicketsEntry({ seriesId }: { seriesId: string }) {
 
 type View = 'list' | 'orders';
 
+/** After Stripe sends the person back: refetch every 3 s, for at most 30 s. */
+export const CONNECT_RETURN_EVERY_MS = 3000;
+export const CONNECT_RETURN_FOR_MS = 30_000;
+
 function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) {
   const queryClient = useQueryClient();
   const today = londonTodayKey();
@@ -149,6 +154,29 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   // state after a return, and drop the params so a reload or a Back does not do it again.
   const [params, setParams] = useSearchParams();
   const arrived = useRef(false);
+  // Remembered before the effect below drops the URL params: the banner and its poll hang off this.
+  const [arrivedFromStripe, setArrivedFromStripe] = useState(() => params.get('stripe') === 'return');
+  const [connectReturnPoll, setConnectReturnPoll] = useState(() => params.get('stripe') === 'return');
+  const stripeConnected = stripe === 'connected';
+  // connectReturnPoll: refetch the Stripe state every 3 s for at most 30 s, or until connected; unmount stops it.
+  const refetchStripe = useRef(stripeQuery.refetch);
+  refetchStripe.current = stripeQuery.refetch;
+  useEffect(() => {
+    if (!connectReturnPoll) return;
+    if (stripeConnected) {
+      setConnectReturnPoll(false);
+      return;
+    }
+    const tick = window.setInterval(() => void refetchStripe.current(), CONNECT_RETURN_EVERY_MS);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(tick);
+      setConnectReturnPoll(false);
+    }, CONNECT_RETURN_FOR_MS);
+    return () => {
+      window.clearInterval(tick);
+      window.clearTimeout(stop);
+    };
+  }, [connectReturnPoll, stripeConnected]);
   useEffect(() => {
     if (arrived.current) return;
     const asked = params.get('tickets') === '1';
@@ -159,7 +187,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       setView('list');
       setOpen(true);
     }
-    if (back === 'return') void stripeQuery.refetch();
+    if (back === 'return') {
+      setArrivedFromStripe(true);
+      setConnectReturnPoll(true);
+      void stripeQuery.refetch();
+    }
     const next = new URLSearchParams(params);
     next.delete('tickets');
     next.delete('stripe');
@@ -235,6 +267,15 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         return n;
       });
     }
+  };
+
+  const banner = types.isSuccess
+    ? connectReturnBanner({ arrivedFromStripe, stripe: stripe ?? 'unknown', role: org.role, drafts: list, polling: connectReturnPoll })
+    : null;
+  const bannerBusy = list.some((t) => moving.has(t.id));
+  const putOnSale = (typeId?: string) => {
+    const paid = list.filter((t) => t.status === 'draft' && t.pricePence > 0 && (!typeId || t.id === typeId));
+    paid.forEach((t) => void move(t, 'on_sale'));
   };
 
   const orderRows = (rows: readonly Order[]) => (
@@ -377,6 +418,25 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 {eventDateLine(series)}. {buyerRulesLine()}
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
+              {banner && (
+                <div className="p3-card p3-stack-s" role="status" data-testid="tix-return-banner" data-kind={banner.kind}>
+                  <p className="p3-note" data-testid="tix-return-line">{banner.line}</p>
+                  {banner.actions.map((a) => (
+                    <button
+                      key={`${a.kind}-${a.typeId ?? ''}`}
+                      type="button"
+                      className="p3-btn"
+                      style={{ minHeight: 44 }}
+                      disabled={a.kind === 'carry_on' ? onboard.busy : bannerBusy}
+                      aria-busy={(a.kind === 'carry_on' ? onboard.busy : bannerBusy) || undefined}
+                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : putOnSale(a.typeId))}
+                      data-testid={`tix-return-${a.kind}`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {body}
               {types.isSuccess && (
                 <Suspense fallback={<p className="p3-note" data-testid="promo-loading">Loading promo codes&hellip;</p>}>
