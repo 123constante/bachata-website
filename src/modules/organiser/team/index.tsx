@@ -61,7 +61,7 @@ function ListedRow({ row, organiserId, caller, onChanged }: { row: SharedTeamRow
   return (
     <div data-testid="team-member" data-role={row.accessRole} data-public={row.isPublic ? 'true' : 'false'} className="px-[16px] py-[8px]">
       <div className="flex min-h-[56px] items-center gap-[12px]">
-        {row.userId ? <Link to={paths.teamPerson(row.userId)} className="flex min-w-0 flex-1 items-center gap-[12px]">{face}</Link> : <div className="flex min-w-0 flex-1 items-center gap-[12px]">{face}</div>}
+        {row.userId ? <Link to={paths.teamPerson(row.userId)} className="flex min-h-[56px] min-w-0 flex-1 items-center gap-[12px]">{face}</Link> : <div className="flex min-w-0 flex-1 items-center gap-[12px]">{face}</div>}
         <button
           type="button"
           role="switch"
