@@ -485,12 +485,13 @@ describe('Stats v2 x every shape', () => {
     expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
   });
 
-  it('a refused read hides the tiles and the share card: no error, no Try again', () => {
+  it('a refused read hides the tiles, keeps the page share card: no error, no Try again', () => {
     analyticsQ.value = ok({ hidden: true, data: null });
     show(<StatsScreen />);
     expect(screen.queryByTestId('p3-stats-error')).toBeNull();
     expect(screen.queryByTestId('p3-stats-visitors')).toBeNull();
-    expect(screen.queryByTestId('p3-share-link-card')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(screen.getByTestId('p3-share-link-card')).toBeTruthy();
     expect(screen.getByTestId('p3-stats-total')).toBeTruthy();
   });
 

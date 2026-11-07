@@ -88,7 +88,8 @@ export function StatsScreen() {
   // analyticsHidden: the server refused organiser_analytics_v2 for this role (any series in scope).
   const analyticsHidden = analytics.data?.hidden === true;
   const a = analytics.data && !analytics.data.hidden ? analytics.data.data.totals : undefined;
-  const linkShown = !analyticsHidden && !(shareCode.isError && isRefusal(shareCode.error));
+  // The share card is page owner / manager (organiser_share_code_v1), not series analytics.
+  const linkShown = !(shareCode.isError && isRefusal(shareCode.error));
   const scoped = scopeStats(views.data, scope.seriesIds);
   const data = sliceStats(scoped, RANGE_DAYS[range]);
   const today = data.to || londonTodayKey();
@@ -145,7 +146,7 @@ export function StatsScreen() {
         </p>
         </>
       ) : null}
-      <ShareLinkCard pageId={scope.pageId} hidden={!linkShown} />
+      <ShareLinkCard pageId={scope.pageId} />
       {total === 0 && allTotal > 0 ? (
         <StateCard title={`No views ${range === 'd' ? 'today' : 'in the last 7 days'} yet`} testId="p3-stats-none-range">
           <p>You had {allTotal} {L.views} in the last 30 days.</p>
@@ -159,6 +160,8 @@ export function StatsScreen() {
               ? 'Views show up as soon as dancers open your event.'
               : shareState === 'ready'
               ? 'Views show up as soon as dancers open your event. Copy your link above and share it on WhatsApp or Instagram to get the first ones.'
+              : shareState === 'noRef'
+                ? 'Views show up as soon as dancers open your event. Your event has no public address yet, so ask the team.'
               : shareState === 'off'
                 ? 'Views show up as soon as dancers open your event. Your link is switched off, so ask the team to turn it back on.'
                 : 'Views show up as soon as dancers open your event. Your link will appear above shortly.'}

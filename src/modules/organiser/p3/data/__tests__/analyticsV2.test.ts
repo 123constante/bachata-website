@@ -104,6 +104,10 @@ describe('fetch', () => {
       else await expect(run).rejects.toBeTruthy();
     });
   });
+  it('mixed: one refused, one dropped connection: hidden, not an error', async () => {
+    rpc.mockImplementation(async (_fn?: string, args?: { p_series_id: string }) => ({ data: null, error: args?.p_series_id === 'a' ? { message: 'not_allowed', code: '42501' } : { message: 'Failed to fetch' } }));
+    await expect(fetchPageAnalytics(['a', 'b'], 'f', 't')).resolves.toEqual({ hidden: true, data: null });
+  });
   it('all allowed: summed, not hidden', async () => {
     rpc.mockResolvedValue(OK);
     const r = await fetchPageAnalytics(['a', 'b'], 'f', 't');

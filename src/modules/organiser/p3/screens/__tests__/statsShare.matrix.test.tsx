@@ -106,7 +106,8 @@ describe('Stats share + empty copy x shape', () => {
     render(<MemoryRouter><StatsScreen /></MemoryRouter>);
     expect(screen.queryByTestId('p3-share-link-text')).toBeNull();
     expect((screen.getByRole('button', { name: 'Copy link' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('p3-share-reason').textContent).toBe(NO_CODE);
+    expect(screen.getByTestId('p3-share-reason').textContent).toBe('Your event has no public address yet. Ask the team.');
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/no public address yet/);
   });
 });
 
@@ -114,8 +115,8 @@ describe('Stats share + empty copy x shape', () => {
    the views stay, the new tiles and the share card hide, and there is no Retry that can never work. */
 const refused = { isPending: false, isError: false, data: { hidden: true, data: null }, refetch: vi.fn() };
 const ANALYTICS_STATES: Array<{ name: string; q: Record<string, unknown>; code: Record<string, unknown>; tiles: boolean; card: boolean; views: number }> = [
-  { name: 'refused, with views', q: refused, code: ok(LIVE), tiles: false, card: false, views: 5 },
-  { name: 'refused, no views', q: refused, code: ok(LIVE), tiles: false, card: false, views: 0 },
+  { name: 'refused, with views: the page share card stays', q: refused, code: ok(LIVE), tiles: false, card: true, views: 5 },
+  { name: 'refused, no views', q: refused, code: ok(LIVE), tiles: false, card: true, views: 0 },
   { name: 'refused analytics and refused share code', q: refused, code: { isPending: false, isError: true, error: { code: '42501', message: 'not_allowed' }, data: undefined, refetch: vi.fn() }, tiles: false, card: false, views: 5 },
   { name: 'analytics still loading: views render first', q: { isPending: true, isError: false, data: undefined, refetch: vi.fn() }, code: ok(LIVE), tiles: false, card: true, views: 5 },
   { name: 'allowed', q: { isPending: false, isError: false, data: { hidden: false, data: sumAnalytics([parseAnalyticsV2({ totals: { visitors: 4 } })]) }, refetch: vi.fn() }, code: ok(LIVE), tiles: true, card: true, views: 5 },
@@ -137,6 +138,15 @@ describe('Stats x analytics state', () => {
     if (!s.card) expect(screen.queryByRole('button', { name: /try again/i })).toBeNull();
     const none = screen.queryByTestId('p3-stats-none')?.textContent ?? '';
     if (!s.card) expect(none).not.toMatch(/link/i);
+  });
+
+  it('mixed: one series refused, another dropped: hidden, no analytics Try again', () => {
+    homeQ.value = ok(homeOf([SHAPES.weekly as never]));
+    viewsQ.value = ok(statsOf([['weekly', 'Event', 3]]));
+    analyticsQ.value = refused;
+    codeQ.value = ok(LIVE);
+    render(<MemoryRouter><StatsScreen /></MemoryRouter>);
+    expect(screen.queryByTestId('p3-stats-analytics-error')).toBeNull();
   });
 
   it('analytics network error: views stay; only the tiles offer Try again', () => {

@@ -122,19 +122,14 @@ export async function fetchOrganiserAnalyticsV2(seriesId: string, from: IsoDate,
  */
 export type PageAnalytics = { hidden: true; data: null } | { hidden: false; data: AnalyticsV2 };
 
-const REFUSED = Symbol('refused');
-
 export async function fetchPageAnalytics(seriesIds: readonly string[], from: IsoDate, to: IsoDate): Promise<PageAnalytics> {
-  const list = await Promise.all(
-    seriesIds.map((id) =>
-      fetchOrganiserAnalyticsV2(id, from, to).catch((e: unknown) => {
-        if (isRefusal(e)) return REFUSED;
-        throw e;
-      }),
-    ),
-  );
-  if (list.some((a) => a === REFUSED)) return { hidden: true, data: null };
-  return { hidden: false, data: sumAnalytics(list as AnalyticsV2[]) };
+  // allSettled: a refusal anywhere hides the page even if another series dropped its connection
+  // (a Retry there could never show tiles).
+  const settled = await Promise.allSettled(seriesIds.map((id) => fetchOrganiserAnalyticsV2(id, from, to)));
+  if (settled.some((r) => r.status === 'rejected' && isRefusal(r.reason))) return { hidden: true, data: null };
+  const failed = settled.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (failed) throw failed.reason;
+  return { hidden: false, data: sumAnalytics(settled.map((r) => (r as PromiseFulfilledResult<AnalyticsV2>).value)) };
 }
 
 export interface ShareCode {
