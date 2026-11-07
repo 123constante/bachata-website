@@ -64,3 +64,16 @@ admin PR #1283, verified deployed by the lead), not from file:line.
 - Website sheet rows W1-W18: 18 / 18 kept or extended; 3 NEW rows built.
 - Public rows P1-P3: 3 / 3 checked, no change needed.
 - Total: 33 / 34 covered; the gap is A13 (no access).
+
+## 4. Fix round 2: where a status or reason becomes `not_configured` / ends a refund press
+
+| # | Place | file:line | Now |
+|---|---|---|---|
+| R1 | `classifyEdge` 503 / bare 404 / body word -> `not_configured` | src/modules/organiser/tickets/ticketsApi.ts:216 | `strict` for refunds: only a body saying `not_configured`; other edges unchanged |
+| R2 | `invokeEdge` passes `strict` to both the ok and the HTTP-error read | ticketsApi.ts:224-228 | covered |
+| R3 | `refundOrder` calls `invokeEdge(..., true)` | ticketsApi.ts:271 | covered |
+| R4 | `endsRefundPress` (kind, reason) -> drop key | src/modules/organiser/tickets/ticketModel.ts:449 | unchanged; bare 503/404 now arrive as `failed`, null reason, key kept |
+| R5 | RefundSheet drops key via `endsRefundPress` | src/modules/organiser/p3/tickets/RefundSheet.tsx:104 | unchanged |
+| R6 | RefundSheet `not_configured` words | RefundSheet.tsx:121 | unchanged |
+
+Coverage (round 2): 6 / 6 places handled; table test in ticketsApi.wire.test.ts covers 9 / 9 answers.

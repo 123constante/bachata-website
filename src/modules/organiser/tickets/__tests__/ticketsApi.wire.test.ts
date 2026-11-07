@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { endsRefundPress } from '../ticketModel';
 import { parseOrderRow, parseSummary, parseTypeRow, refundOrder, upsertPayload } from '../ticketsApi';
 
 const invoke = vi.hoisted(() => vi.fn());
@@ -67,4 +68,23 @@ describe('refundOrder wire', () => {
     expect(await refundOrder('o1', { amountPence: 300, requestId: 'key-12345678' })).toEqual({ kind: 'ok', value: { amountPence: 300, remainingPence: null, clearsBalance: false } });
   });
 
+
+  // The key is dropped (the press ends) only on a definite answer. A gateway 503 or a platform 404 with no
+  // body can come after the function already reached Stripe, so it keeps the key like any unclear error.
+  const http = (status: number, body: unknown) => ({ data: null, error: { context: new Response(body === null ? null : JSON.stringify(body), { status }) } });
+  it.each([
+    ['success', { data: { ok: true, partial: true, amount_pence: 300 }, error: null }, false],
+    ['503 no body', http(503, null), true],
+    ['503 not_configured body', http(503, { error: 'not_configured' }), false],
+    ['404 no body', http(404, null), true],
+    ['404 not_configured body', http(404, { error: 'not_configured' }), false],
+    ['network error', { data: null, error: new Error('Failed to fetch') }, true],
+    ['unknown code', http(500, { error: 'weird_new_code' }), true],
+    ['refund_exceeds_balance', { data: { ok: false, reason: 'refund_exceeds_balance' }, error: null }, false],
+    ['request_id_reused', http(409, { error: 'request_id_reused' }), false],
+  ] as const)('key kept? %s -> %s', async (_n, reply, kept) => {
+    invoke.mockReset().mockResolvedValue(reply);
+    const out = await refundOrder('o1', { amountPence: 300, requestId: 'key-12345678' });
+    expect(!endsRefundPress(out.kind, out.kind === 'failed' ? out.reason : null)).toBe(kept);
+  });
 });

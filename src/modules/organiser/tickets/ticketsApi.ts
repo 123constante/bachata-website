@@ -207,25 +207,27 @@ export type EdgeOutcome<T> = { kind: 'ok'; value: T } | { kind: 'not_configured'
  * One reading of an edge-function answer: 404 (not deployed) and 503 / not_configured
  * (deployed without Stripe keys) both mean "payments not switched on yet", never a crash.
  */
-export const classifyEdge = (status: number | null, body: unknown): EdgeOutcome<unknown> => {
+export const classifyEdge = (status: number | null, body: unknown, strict = false): EdgeOutcome<unknown> => {
   const b = (body ?? {}) as { error?: unknown; reason?: unknown; code?: unknown };
   const word = [b.error, b.reason, b.code].find((v) => typeof v === 'string') as string | undefined;
   // A deployed function's own 404 carries a lowercase reason (not_found); the platform's
   // "function not deployed" 404 carries none (or code NOT_FOUND).
   const ownReason = [b.error, b.reason].find((v) => typeof v === 'string' && /^[a-z_]+$/.test(v)) as string | undefined;
-  if (status === 503 || word === 'not_configured' || (status === 404 && !ownReason)) return { kind: 'not_configured' };
+  // strict (money paths): status alone never reads as not_configured. A bare gateway 503 / platform 404 can come
+  // after the function reached Stripe, so only a body that says not_configured does.
+  if (word === 'not_configured' || (!strict && (status === 503 || (status === 404 && !ownReason)))) return { kind: 'not_configured' };
   if (status === null || (status >= 200 && status < 300)) return { kind: 'ok', value: body };
   return { kind: 'failed', reason: word ?? null };
 };
 
-async function invokeEdge(name: string, body: Record<string, unknown>): Promise<EdgeOutcome<unknown>> {
+async function invokeEdge(name: string, body: Record<string, unknown>, strict = false): Promise<EdgeOutcome<unknown>> {
   try {
     const { data, error } = await supabase.functions.invoke(name, { body });
-    if (!error) return classifyEdge(200, data);
+    if (!error) return classifyEdge(200, data, strict);
     const ctx = (error as { context?: unknown }).context;
     if (ctx instanceof Response) {
       const parsed = await ctx.json().catch(() => null);
-      return classifyEdge(ctx.status, parsed);
+      return classifyEdge(ctx.status, parsed, strict);
     }
     // FunctionsFetchError / FunctionsRelayError: the network or relay failed; try again.
     return { kind: 'failed', reason: null };
@@ -268,7 +270,7 @@ export async function refundOrder(orderId: string, opts?: { amountPence: number;
   const body: { order_id: string } | PartialRefundRequest = opts
     ? { order_id: orderId, amount_pence: opts.amountPence, request_id: opts.requestId }
     : { order_id: orderId };
-  const out = await invokeEdge('ticket-refund', body);
+  const out = await invokeEdge('ticket-refund', body, true);
   if (out.kind !== 'ok') return out;
   const v = (out.value ?? {}) as { ok?: unknown; reason?: string; amount_pence?: unknown; remaining_pence?: unknown; clears_balance?: unknown };
   if (v.ok === false) return { kind: 'failed', reason: v.reason ?? null };

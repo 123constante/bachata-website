@@ -92,7 +92,7 @@ export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; t
   },
 };
 
-/** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this. */
+/** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this (refunds are stricter: only a body saying not_configured does). */
 export const NOT_SWITCHED_ON = 'Payments are not switched on yet. Free tickets work now; paid tickets and refunds come soon.';
 
 // ---- Rows ------------------------------------------------------------------------
