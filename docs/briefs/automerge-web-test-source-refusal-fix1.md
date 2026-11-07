@@ -14,7 +14,7 @@ scripts/automerge-classify.mjs (exists on the PR branch)
 tests/automergeClassify.test.ts (exists on the PR branch)
 docs/automerge.md (exists on the PR branch)
 docs/arcs/automation.md (exists on the PR branch)
-docs/handover/automerge-web-test-source-refusal.md (exists on the PR branch)
+docs/handover/automerge-web-test-source-refusal.md (new, exists on the PR branch)
 
 ## What to build
 The independent review is not in git, so use the findings below (file:line as of PR head abc44a3).
