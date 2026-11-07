@@ -1,0 +1,22 @@
+[
+ {"shape":"dancer-photo","id":"00422bf9-1f6e-4d15-b598-dcfbc1a7d5f3","roles":"dancer"},
+ {"shape":"dancer-nophoto","id":"440f99dd-140f-409f-bf13-65eb9cb4ddcf","roles":"dancer"},
+ {"shape":"dancer-longname","id":"6f05d2f6-ce40-4964-8325-4f2e3d3b19e3","roles":"dancer"},
+ {"shape":"dj-gig-nophoto","id":"59150b2d-0963-4cea-80fd-76c2d48ab23c","roles":"dj"},
+ {"shape":"dj-nogig-nophoto","id":"7be16d15-2779-4be8-9ef6-809353520593","roles":"dj"},
+ {"shape":"dj-longname","id":"bccc8a0c-daec-414d-ad21-81aa658ebba1","roles":"dj"},
+ {"shape":"teacher-photo","id":"0786f332-8082-4574-aad4-df56be2be5d7","roles":"teacher"},
+ {"shape":"teacher-nophoto","id":"0dd8819b-1aa1-4c6e-9747-f09b2c177a0c","roles":"teacher"},
+ {"shape":"teacher-longname","id":"a7f1f56b-f54f-4f84-bbb0-26ee6e88640e","roles":"teacher"},
+ {"shape":"dancer-teacher-longname","id":"a9ec2cdb-9486-4c96-abfb-c44120d5c40a","roles":"dancer+teacher"},
+ {"shape":"dancer-dj-gig","id":"11549aa4-599a-4be1-96e2-262f0696f9b1","roles":"dancer+dj"},
+ {"shape":"dancer-dj-nogig","id":"061c6300-763c-4496-9556-2f883b3b7723","roles":"dancer+dj"},
+ {"shape":"dancer-dj-claimed-2gigs","id":"ae3bffbb-a8d5-44e4-9080-6b217f2b03f9","roles":"dancer+dj"},
+ {"shape":"dj-teacher-gig-nophoto","id":"a8f270d4-4d39-46da-920f-81da41135a0e","roles":"dj+teacher"},
+ {"shape":"all3-nogig","id":"225cfe43-1558-4342-a4a4-09900f33b7de","roles":"dancer+dj+teacher"},
+ {"shape":"all3-gig4","id":"076e6e97-0259-42d3-98d1-5c5d25a8f4b2","roles":"dancer+dj+teacher"},
+ {"shape":"all3-claimed-rich","id":"456af8d2-aa47-4055-8d5d-08afaa90cfb4","roles":"dancer+dj+teacher"},
+ {"shape":"all3-longname-gig","id":"ddb6bc80-fd55-4dbc-8b25-a99cb22510df","roles":"dancer+dj+teacher"},
+ {"shape":"noroles-live","id":"0f5f2045-167c-483f-a725-a5e8890ccfa3","roles":"none"},
+ {"shape":"archived","id":"5959a9a2-c529-46bf-a5d6-ab821ad30e81","roles":"none","hidden":true}
+]
