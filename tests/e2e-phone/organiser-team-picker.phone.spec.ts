@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { box, checkOverflow, fakeSupabase, frames, ORG_SLUG, settled } from './helpers';
+import { box, checkOverflow, fakeSupabase, frames, ORG_SLUG, settled, MIN_TAP_PX } from './helpers';
 
 /**
  * The organiser page's Team card and team picker (mockup "Team sheet", screens 3
@@ -39,7 +39,7 @@ const shot = async (page: Page, selector: string, name: string) => {
   await page.locator(selector).first().screenshot({ path });
 };
 
-async function onScreenAndHittable(page: Page, label: string, el: ReturnType<Page['locator']>, minHeight = 44) {
+async function onScreenAndHittable(page: Page, label: string, el: ReturnType<Page['locator']>, minHeight = MIN_TAP_PX) {
   const vp = page.viewportSize()!;
   const b = await el.boundingBox();
   expect(b, `${label}: box`).not.toBeNull();
@@ -105,7 +105,7 @@ for (const vp of SIZES) {
       expect(m.scroll, 'the list scrolls inside').toBeGreaterThan(m.client);
       expect(m.client, 'about three rows').toBeLessThanOrEqual(48 * 3 + 16);
       expect(m.client, 'at least two rows').toBeGreaterThanOrEqual(48 * 2);
-      for (const r of await rows.all()) expect((await r.boundingBox())!.height, 'row height').toBeGreaterThanOrEqual(44);
+      for (const r of await rows.all()) expect((await r.boundingBox())!.height, 'row height').toBeGreaterThanOrEqual(MIN_TAP_PX);
       // The fallback sits above the keyboard.
       const invite = sheet.getByRole('button', { name: 'Send an invite link' });
       await onScreenAndHittable(page, 'invite link (keyboard up)', invite);

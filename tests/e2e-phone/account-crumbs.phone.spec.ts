@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fakeSupabase, settled } from './helpers';
+import { fakeSupabase, settled, MIN_TAP_PX } from './helpers';
 import { FLAG_DANCER_ID } from './fakeSupabase.mjs';
 
 /**
@@ -29,7 +29,7 @@ for (const p of PAGES) {
     await page.waitForTimeout(400); // the crumbs fade/slide in
     const links = await crumbLinks(page);
     expect(links.map((l) => l.label)).toEqual([...p.links]);
-    const small = links.filter((l) => l.height < 44 || !l.hitsItself);
+    const small = links.filter((l) => l.height < MIN_TAP_PX || !l.hitsItself);
     expect(small, 'crumb links under 44 px, or a tap at the centre misses them').toEqual([]);
   });
 }
