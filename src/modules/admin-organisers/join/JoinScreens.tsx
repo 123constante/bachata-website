@@ -265,9 +265,11 @@ function ReasonActions({ reason, busy, onRetry, home }: { reason: ReasonScreen; 
 }
 
 /** Refusals and failures, each with what to do next. `onRetry` re-runs the action that failed; `onSwitch` signs out and continues. */
-export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss }: {
+export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss, homeFlags = { organiserP3: false, organiserSelfServe: false } }: {
   stop: JoinStop; preview: JoinPreview | null; signedInAs: string; busy: boolean; error: string | null;
   onRetry: () => void; onSwitch: () => void; onDismiss: () => void;
+  /** Where the `unmatched` stop's one link goes (doneTarget's rule). Absent: the public site. */
+  homeFlags?: { organiserP3: boolean; organiserSelfServe: boolean };
 }) {
   const inviter = preview?.inviterFirstName ?? null;
   const home = <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>;
@@ -363,6 +365,23 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
           <ErrorLine id="join-signout-error">{error}</ErrorLine>
         </div>
       );
+    case 'unmatched': {
+      // Find before create: nothing was created, chosen or redeemed. The one control is the organiser home (the
+      // public site while the organiser area is off), named in the copy by its own label.
+      const label = homeFlags.organiserSelfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
+      const { to } = doneTarget(preview?.organiserName ?? 'the team', homeFlags, null);
+      return (
+        <div className="flex flex-col gap-2">
+          <span className="self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-300" data-testid="join-unmatched-tag">{JOIN_COPY.unmatched.tag}</span>
+          <Heading>{JOIN_COPY.unmatched.heading}</Heading>
+          <Lead testId="join-unmatched-body">{JOIN_COPY.unmatched.body}</Lead>
+          <Lead testId="join-unmatched-tell">{JOIN_COPY.unmatched.tell(inviter)}</Lead>
+          <p className="rounded-xl border border-border p-3 text-[13px] text-muted-foreground">{JOIN_COPY.unmatched.note}</p>
+          <Lead testId="join-unmatched-next">{JOIN_COPY.unmatched.next(label)}</Lead>
+          <Link to={to} className={BTN} data-testid="join-unmatched-home">{label}</Link>
+        </div>
+      );
+    }
     case 'wrong_account':
       return <WrongAccountScreen signedInAs={signedInAs} hint={stop.emailHint ?? preview?.emailHint ?? 'another email'} busy={busy} error={error} onSwitch={onSwitch} />;
     case 'already_bound':

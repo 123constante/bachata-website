@@ -19,7 +19,7 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { afterProfileRefusal, checkTypedEmail, claimNextStep, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, forgetUnmatched, inviteKind, recallUnmatched, rememberUnmatched, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
 import { buildSignInHref } from '@/lib/authRouting';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
@@ -179,7 +179,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
 
   const fail = (from: string, s: JoinStop) => {
-    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind);
+    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind === 'unmatched' ? `unmatched_${s.claim}` : s.kind);
     setStop(s);
   };
 
@@ -283,10 +283,16 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       await recordJoinRoles(data?.user);
       void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(data?.user?.id) });
       clearStep();
+      // Find before create (claimNextStep, the ONE mapping): only the invite's own proof decides, never a name search.
+      const next = claimNextStep(claim.status, inviteKind(info));
       // Person-bound invite whose claim did not land: the safety stop. The one redeem call makes "we've told" real
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
-      if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
-        await applyRedeem(await attemptRedeem(token), 'claim');
+      if (next === 'safety_redeem') await applyRedeem(await attemptRedeem(token), 'claim');
+      // The claim could not tell which existing profile is theirs: nothing is created, chosen or redeemed.
+      else if (next === 'unmatched') {
+        const why = claim.status === 'ambiguous' ? 'ambiguous' : 'email_unproven';
+        if (data?.user?.id) rememberUnmatched(token, data.user.id, why);
+        fail('claim', { kind: 'unmatched', claim: why });
       }
     } finally {
       setLinking(false);
@@ -313,6 +319,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     setBusy(false);
     if (outcome === 'failed') return setSignOutError(JOIN_COPY.signOutFailed);
     claimRef.current = null;
+    forgetUnmatched();
     setLinkedHere(false);
     // (review r1 F2) another account never inherits this one's "details are missing" notice.
     setAboutRefused(false);
@@ -338,11 +345,14 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const title = info ? JOIN_COPY.pageTitle(info.organiserName) : null;
   const header = info && open && step !== 'done' ? <Strip preview={info} /> : null;
 
-  if (stop) {
+  // A reload after the unmatched stop: the claim does not run again, so the remembered answer keeps the stop.
+  const remembered = !stop && user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
+  const shownStop: JoinStop | null = stop ?? (remembered ? { kind: 'unmatched', claim: remembered } : null);
+  if (shownStop) {
     return (
-      <StepFrame step={step} stop={stop.kind}>
+      <StepFrame step={step} stop={shownStop.kind}>
         {header}
-        <StopScreen stop={stop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} />
+        <StopScreen stop={shownStop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} homeFlags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} />
       </StepFrame>
     );
   }
