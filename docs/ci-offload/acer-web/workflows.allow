@@ -1,7 +1,8 @@
 # workflows.allow -- the workflows whose jobs the acer-web / dell-web job-started hook accepts.
 # Installed ROOT-OWNED 0644 at /etc/ghrunner-web/workflows.allow (gate.conf key ALLOW_FILE).
 # Format: one `.github/workflows/<name>.yml` (or .yaml) per line; blank lines and `#` comments
-# are ignored. Any other line makes the hook refuse EVERY job (fail closed). A missing file means
+# are ignored; whitespace at a line's ends is trimmed. Any other line (also one with whitespace
+# INSIDE a name) makes the hook refuse EVERY job (fail closed). A missing file means
 # bom-check.yml only. A listed workflow still runs here only when its blob at the run's commit is
 # byte-identical to main's, so listing a file trusts main's copy of it, never a PR's.
 # Adding a line is a review item: waves 1-3 add one workflow per PR (docs/handover/ci-offload-wave0.md).

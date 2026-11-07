@@ -33,6 +33,20 @@
 # Busy (load/lock) => "refused" + exit 0: a busy machine is not an error, the hosted job runs it.
 # Waits up to GATE_WAIT_S (default 180 s; the routed job's timeout-minutes covers it).
 set -u
+# scrub_env (fix round 1, item 2): every external command (git, python3, timeout, awk, find, rm,
+# setsid, flock) runs with a FIXED PATH and no GIT_* variable from the inherited environment, so
+# nothing that reaches the hook's env (GIT_DIR, GIT_CONFIG_COUNT/KEY_n/VALUE_n insteadOf,
+# GIT_EXEC_PATH, GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_REPLACE_REF_BASE, a
+# planted PATH) can redirect the mirror fetch or forge the blob/diff answers. git reads no system
+# or global config; replace refs are ignored. Row git-env-pollution in test-gate-hooks.sh.
+scrub_env() {
+  local v
+  export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
+  for v in $(compgen -e); do case "$v" in GIT_*) unset "$v" ;; esac; done
+  unset BASH_ENV ENV LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME
+  export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_NO_REPLACE_OBJECTS=1
+}
+scrub_env
 CONF=/etc/ghrunner-web/gate.conf
 [ "${1:-}" = "--conf" ] && [ -n "${2:-}" ] && CONF=$2
 
@@ -42,6 +56,9 @@ STATE_DIR=/srv/ghrunner-web/state
 WORK_DIR=/srv/ghrunner-web/runner/_work
 WALK_LOCK=/var/lib/laptop-walk/walk.lock
 GATE_WAIT_S=${GATE_WAIT_S:-180}
+# Digits only (item 7): a value from env reaches $(( )), where a[$(cmd)] would run cmd.
+case "$GATE_WAIT_S" in ''|*[!0-9]*) GATE_WAIT_S=180 ;; esac
+[ "$GATE_WAIT_S" -gt 1800 ] && GATE_WAIT_S=1800
 HOLDER_MAX_S=${HOLDER_MAX_S:-1800}
 case "$HOLDER_MAX_S" in ''|*[!0-9]*) HOLDER_MAX_S=1800 ;; esac
 [ "$HOLDER_MAX_S" -gt 1800 ] && HOLDER_MAX_S=1800
@@ -58,13 +75,15 @@ G_TRUSTED="kiki-claude-bot 123constante"
 G_PROTECTED=".github/ scripts/ci/ scripts/lib/ package.json package-lock.json"
 G_ALLOW_FILE=/etc/ghrunner-web/workflows.allow
 G_REMOTE=https://github.com/123constante/bachata-website.git
-G_MIRROR=/srv/ghrunner-web/state/mirror.git
 G_MAIN_REF=refs/heads/main
+# TEST_FILE_PROTOCOL=1 (conf only, never env; test-gate-hooks.sh sets it): lets git fetch from the
+# test's local file:// remote. Production gate.conf never sets it (item 5).
+G_TEST_FILE_PROTOCOL=
 if [ -r "$CONF" ]; then
   while IFS='=' read -r k v; do
     case "$k" in
       REPO) G_REPO=$v ;; TRUSTED) G_TRUSTED=$v ;; PROTECTED) G_PROTECTED=$v ;; ALLOW_FILE) G_ALLOW_FILE=$v ;;
-      REMOTE_URL) G_REMOTE=$v ;; MIRROR) G_MIRROR=$v ;; MAIN_REF) G_MAIN_REF=$v ;;
+      REMOTE_URL) G_REMOTE=$v ;; MAIN_REF) G_MAIN_REF=$v ;; TEST_FILE_PROTOCOL) G_TEST_FILE_PROTOCOL=$v ;;
       STATE_DIR) STATE_DIR=$v ;; WORK_DIR) WORK_DIR=$v ;; WALK_LOCK) WALK_LOCK=$v ;;
     esac
   done < <(grep -E '^[A-Z_]+=' "$CONF")
@@ -78,13 +97,15 @@ rm -f "$VERDICT" 2>/dev/null
 trusted() { local t; for t in $G_TRUSTED; do [ "${1,,}" = "${t,,}" ] && return 0; done; return 1; }
 
 # Allow-list: one `.github/workflows/<name>.yml|yaml` per line; blank lines and `#` comments ok.
+# Leading/trailing whitespace is trimmed; whitespace INSIDE a name refuses everything (item 4).
 read_allow_list() {
   ALLOWED=
   if [ ! -e "$G_ALLOW_FILE" ]; then ALLOWED=.github/workflows/bom-check.yml; return 0; fi
   [ -r "$G_ALLOW_FILE" ] || return 1
   local line
   while IFS= read -r line || [ -n "$line" ]; do
-    line=${line%$'\r'}; line=${line%%#*}; line=${line//[[:space:]]/}
+    line=${line%$'\r'}; line=${line%%#*}
+    line=${line#"${line%%[![:space:]]*}"}; line=${line%"${line##*[![:space:]]}"}
     [ -z "$line" ] && continue
     [[ "$line" =~ ^\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$ ]] || return 1
     case "$line" in *..*) return 1 ;; esac
@@ -94,12 +115,16 @@ read_allow_list() {
 }
 
 # Event payload -> P_KIND (push|pull_request|other) P_REPO P_SENDER P_REF P_AFTER P_AUTHOR
-# P_HEAD_REPO P_HEAD_SHA. Every value is checked against a strict charset before it is used.
+# P_HEAD_REPO P_HEAD_SHA P_BASE_REF. Every value is checked against a strict charset before it is
+# used. Return 2 = a value holds a control character (a newline could forge a `P_SENDER=` line;
+# python refuses it before printing anything: row payload-control-char). Neither the file nor its
+# two parent dirs under _temp may be a symlink (row symlink-event-json).
 read_event_payload() {
-  local f=$1 out k v
+  local f=$1 out k v rc seen=" "
   [ -f "$f" ] && [ ! -L "$f" ] || return 1
+  [ ! -L "$WORK_DIR/_temp" ] && [ ! -L "$WORK_DIR/_temp/_github_workflow" ] || return 1
   out=$(timeout 10 python3 -I -c '
-import json, sys
+import json, re, sys
 try:
     d = json.load(open(sys.argv[1], encoding="utf-8"))
 except Exception:
@@ -120,15 +145,24 @@ else:
     kind = "other"
 for k, v in (("P_KIND", kind), ("P_REPO", g("repository", "full_name")), ("P_SENDER", g("sender", "login")),
              ("P_REF", g("ref")), ("P_AFTER", g("after")), ("P_AUTHOR", g("pull_request", "user", "login")),
-             ("P_HEAD_REPO", g("pull_request", "head", "repo", "full_name")), ("P_HEAD_SHA", g("pull_request", "head", "sha"))):
+             ("P_HEAD_REPO", g("pull_request", "head", "repo", "full_name")), ("P_HEAD_SHA", g("pull_request", "head", "sha")),
+             ("P_BASE_REF", g("pull_request", "base", "ref"))):
+    if re.search(r"[\x00-\x1f\x7f\u0080-\u009f\u2028\u2029]", v):
+        sys.exit(2)
+    if not re.fullmatch(r"[A-Za-z0-9._/@-]*", v):
+        v = "?"
     print(k + "=" + v)
-' "$f" 2>/dev/null) || return 1
-  P_KIND=; P_REPO=; P_SENDER=; P_REF=; P_AFTER=; P_AUTHOR=; P_HEAD_REPO=; P_HEAD_SHA=
+' "$f" 2>/dev/null); rc=$?
+  [ "$rc" = 0 ] || { [ "$rc" = 2 ] && return 2; return 1; }
+  P_KIND=; P_REPO=; P_SENDER=; P_REF=; P_AFTER=; P_AUTHOR=; P_HEAD_REPO=; P_HEAD_SHA=; P_BASE_REF=
   while IFS='=' read -r k v; do
+    # Defence in depth: each key exactly once, known keys only.
+    case "$seen" in *" $k "*) return 1 ;; esac; seen="$seen$k "
     [[ "$v" =~ ^[A-Za-z0-9._/@-]*$ ]] || v='?'
     case "$k" in
       P_KIND) P_KIND=$v ;; P_REPO) P_REPO=$v ;; P_SENDER) P_SENDER=$v ;; P_REF) P_REF=$v ;; P_AFTER) P_AFTER=$v ;;
-      P_AUTHOR) P_AUTHOR=$v ;; P_HEAD_REPO) P_HEAD_REPO=$v ;; P_HEAD_SHA) P_HEAD_SHA=$v ;;
+      P_AUTHOR) P_AUTHOR=$v ;; P_HEAD_REPO) P_HEAD_REPO=$v ;; P_HEAD_SHA) P_HEAD_SHA=$v ;; P_BASE_REF) P_BASE_REF=$v ;;
+      *) return 1 ;;
     esac
   done <<< "$out"
   [ -n "$P_KIND" ]
@@ -143,7 +177,9 @@ listed=; for a in $ALLOWED; do [ "$a" = "$WPATH" ] && listed=1; done
 
 # Env may only agree: a GITHUB_EVENT_PATH other than the pinned file is refused, never followed.
 [ -z "${GITHUB_EVENT_PATH:-}" ] || [ "$GITHUB_EVENT_PATH" = "$EVENT_FILE" ] || refuse "GITHUB_EVENT_PATH ${GITHUB_EVENT_PATH} is not $EVENT_FILE" #@rule event-path
-read_event_payload "$EVENT_FILE" || refuse "event payload $EVENT_FILE missing or unreadable" #@rule payload-missing
+read_event_payload "$EVENT_FILE"; prc=$?
+[ "$prc" != 2 ] || refuse "event payload $EVENT_FILE has a control character in a value" #@rule payload-control-char
+[ "$prc" = 0 ] || refuse "event payload $EVENT_FILE missing or unreadable" #@rule payload-missing
 [ "${GITHUB_EVENT_NAME:-}" = "$P_KIND" ] || refuse "event ${GITHUB_EVENT_NAME:-?} (payload: $P_KIND) is not push/pull_request" #@rule event-agree
 case "$P_KIND" in
   pull_request|push) ;;
@@ -165,17 +201,29 @@ else
   [ "$P_HEAD_REPO" = "$G_REPO" ] || refuse "PR head ${P_HEAD_REPO:-?} is not $G_REPO" #@rule head-repo
   trusted "$P_AUTHOR" || refuse "PR author ${P_AUTHOR:-?} not on the allowlist" #@rule pr-author
   [[ "$P_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || refuse "payload head sha ${P_HEAD_SHA:-?} is not a commit sha" #@rule head-sha-format
+  # Item 8: only PRs INTO main run here (the protected-path diff is against main's side).
+  [ "refs/heads/$P_BASE_REF" = "$G_MAIN_REF" ] || refuse "PR base ${P_BASE_REF:-?} is not ${G_MAIN_REF#refs/heads/}" #@rule base-ref
 fi
 
-mgit() { timeout 60 /usr/bin/env git -c protocol.file.allow=always -C "$G_MIRROR" "$@"; }
-if [ ! -d "$G_MIRROR" ]; then
-  timeout 30 /usr/bin/env git init -q --bare "$G_MIRROR" >/dev/null 2>&1 || refuse "cannot create mirror $G_MIRROR"
-fi
-mgit fetch -q --no-tags --depth=1 "$G_REMOTE" "+$G_MAIN_REF:refs/gate/main" >/dev/null 2>&1 || refuse "cannot fetch $G_MAIN_REF"
+# Mirror (item 6): a FRESH bare repo per run in a mktemp dir under _work (removed on exit, and by
+# step 1 below), never a dir an earlier job could have written. Its config is replaced by a fixed
+# one and refs/replace + hooks are deleted before the one shallow fetch.
+G_GITOPT=(-c core.hooksPath=/dev/null -c protocol.allow=never -c protocol.https.allow=always)
+[ "$G_TEST_FILE_PROTOCOL" = 1 ] && G_GITOPT+=(-c protocol.file.allow=always)
+G_MIRROR=$(mktemp -d "$WORK_DIR/_gate-mirror.XXXXXX" 2>/dev/null) || refuse "cannot create a mirror dir under $WORK_DIR"
+trap 'rm -rf "$G_MIRROR"' EXIT
+mgit() { timeout 60 git "${G_GITOPT[@]}" -C "$G_MIRROR" "$@"; }
+timeout 30 git init -q --bare "$G_MIRROR" >/dev/null 2>&1 || refuse "cannot create mirror $G_MIRROR"
+rm -rf "$G_MIRROR/config" "$G_MIRROR/hooks" "$G_MIRROR/refs/replace"
+printf '[core]\n\trepositoryformatversion = 0\n\tbare = true\n' > "$G_MIRROR/config" || refuse "cannot write mirror config"
 # depth 2: a PR merge commit's parents (base, head) are needed for the head and changed-files checks.
-if ! mgit fetch -q --no-tags --depth=2 "$G_REMOTE" "+$WSHA:refs/gate/run" >/dev/null 2>&1; then
-  mgit fetch -q --no-tags --depth=2 "$G_REMOTE" "+${GITHUB_REF:-none}:refs/gate/run" >/dev/null 2>&1 || refuse "cannot fetch workflow commit $WSHA"
+if ! mgit fetch -q --no-tags --depth=2 "$G_REMOTE" "+$G_MAIN_REF:refs/gate/main" "+$WSHA:refs/gate/run" >/dev/null 2>&1; then
+  # A server that refuses fetch-by-sha: fetch the event ref instead (strict charset; the result
+  # must still BE $WSHA, checked next).
+  GREF=${GITHUB_REF:-none}; [[ "$GREF" =~ ^refs/[A-Za-z0-9._/-]+$ ]] || GREF=refs/none
+  mgit fetch -q --no-tags --depth=2 "$G_REMOTE" "+$G_MAIN_REF:refs/gate/main" "+$GREF:refs/gate/run" >/dev/null 2>&1 || refuse "cannot fetch workflow commit $WSHA"
 fi
+mgit rev-parse -q --verify 'refs/gate/main^{commit}' >/dev/null 2>&1 || refuse "cannot fetch $G_MAIN_REF"
 [ "$(mgit rev-parse -q --verify 'refs/gate/run^{commit}' 2>/dev/null)" = "$WSHA" ] || refuse "fetched commit is not $WSHA"
 main_blob=$(mgit rev-parse -q --verify "refs/gate/main:$WPATH" 2>/dev/null)
 run_blob=$(mgit rev-parse -q --verify "refs/gate/run:$WPATH" 2>/dev/null)
@@ -184,13 +232,15 @@ run_blob=$(mgit rev-parse -q --verify "refs/gate/run:$WPATH" 2>/dev/null)
 if [ "$P_KIND" = pull_request ]; then
   head2=$(mgit rev-parse -q --verify 'refs/gate/run^2' 2>/dev/null)
   [ "$head2" = "$P_HEAD_SHA" ] || refuse "workflow commit $WSHA is not the merge of PR head $P_HEAD_SHA (2nd parent ${head2:-none})" #@rule merge-head
-  changed=$(mgit diff --name-only --no-renames 'refs/gate/run^1' 'refs/gate/run' 2>/dev/null) || refuse "cannot list the PR's changed files"
-  while IFS= read -r f; do
+  # -z (item 1): raw NUL-separated names. Without it git C-quotes a non-ASCII or control-char
+  # path (".github/workflows/\303\251.yml" in quotes), which no prefix matches (row protected-nonascii).
+  mgit diff -z --name-only --no-renames 'refs/gate/run^1' 'refs/gate/run' > "$G_MIRROR/changed" 2>/dev/null || refuse "cannot list the PR's changed files"
+  while IFS= read -r -d '' f; do
     [ -z "$f" ] && continue
     for p in $G_PROTECTED; do
-      case "$f" in "$p"*) refuse "PR touches $f (protected paths always run hosted)" ;; esac #@rule protected
+      case "$f" in "$p"*) refuse "PR touches $(printf '%q' "$f") (protected paths always run hosted)" ;; esac #@rule protected
     done
-  done <<< "$changed"
+  done < "$G_MIRROR/changed"
 fi
 echo "side-machine gate: identity ok ($WPATH blob $main_blob, $P_KIND by ${P_SENDER:-?})"
 

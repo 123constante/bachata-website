@@ -36,17 +36,19 @@ and the stage 3 handover only.
 ## Allow-list format (`workflows.allow`)
 
 One `.github/workflows/<name>.yml|.yaml` per line; blank lines and `#` comments (also trailing)
-ignored. Any other line (bare name, `..`, spaces inside, anything) -> the hook refuses EVERY job
-(fail closed); an empty list likewise. Missing file -> `bom-check.yml` only. A listed workflow is
+ignored; whitespace at the ends of a line (and a CR) is trimmed. Any other line (bare name, `..`,
+whitespace INSIDE a name such as `bom check.yml`, anything) -> the hook refuses EVERY job (fail
+closed; fix round 1: it used to strip inner spaces and read `bomcheck.yml`); an empty list likewise. Missing file -> `bom-check.yml` only. A listed workflow is
 accepted only when its blob at `GITHUB_WORKFLOW_SHA` equals the blob on main, fetched fresh.
 Waves 1-3 add one line per PR, each a review item.
 
 ## The hook's checks, in order (each a `#@rule` tag; every one has a refusal row + a mutant)
 
-`allow-malformed`, `workflow-repo`, `workflow-unlisted`, `event-path`, `payload-missing`,
-`event-agree`, `event-kind`, `payload-repo`, `env-repo`, `sender`, `env-actor`, `sha-format`,
-`push-ref`, `env-ref`, `push-after`, `head-repo`, `pr-author`, `head-sha-format`, `identity`,
-`merge-head`, `protected`. Not tagged: "cannot list changed files" (unreachable once `merge-head`
+`allow-malformed`, `workflow-repo`, `workflow-unlisted`, `event-path`, `payload-control-char`,
+`payload-missing`, `event-agree`, `event-kind`, `payload-repo`, `env-repo`, `sender`, `env-actor`,
+`sha-format`, `push-ref`, `env-ref`, `push-after`, `head-repo`, `pr-author`, `head-sha-format`,
+`base-ref`, `identity`, `merge-head`, `protected`; plus the untagged `scrub_env` step, which
+`--mutants` also mutates (its call deleted). Not tagged: "cannot list changed files" (unreachable once `merge-head`
 passed with a depth-2 fetch; kept as fail-closed) and the fetch/mirror failures (stage 3).
 
 Rules reused, not re-invented: `G_TRUSTED` / `G_PROTECTED` in the hook mirror `TRUSTED_AUTHORS` /
@@ -77,9 +79,45 @@ depends on those env values being honest.
 Residual (needs the live check from stage 3, owner step 4 below): `GITHUB_WORKFLOW_REF` (which
 workflow file is running) exists only in env; if it could be shadowed, a PR's own workflow could
 claim to be `bom-check.yml`. Also `pull_request` and `pull_request_target` payloads have the same
-shape; a `pull_request_target` run is still refused because its workflow sha is a base commit, not
-a merge commit (`merge-head`). Every routed workflow must keep `pull_request`, never
+shape; a `pull_request_target` run is refused by `event-agree` (env `GITHUB_EVENT_NAME` is
+`pull_request_target`, which never equals the payload kind `pull_request`), before any git work. Were
+the env name shadowed to `pull_request`, `merge-head` would still refuse it: its workflow sha is a
+base commit, not a merge commit. Every routed workflow must keep `pull_request`, never
 `pull_request_target` (check-secrets-register already flags the latter).
+
+## Fix round 1 (ticket dt_1d521ee39f9f; brief `brief/ci-offload-wave0-fix1` v2, review of 4bf0762fb)
+
+The review report itself (`C:/tmp/review/pr1470.md`) was NOT reachable from this cloud worker; the
+work follows the brief's quotes of it.
+
+| item | change | test rows |
+|---|---|---|
+| 1 MUST | changed files read with `git diff -z --name-only --no-renames` + `read -r -d ''`; a C-quoted non-ASCII / control-char name used to match no prefix (proved: the old hook said `identity ok` for all three rows) | `protected-nonascii` x3 (`scripts/ci/<e-acute>.mjs`, `.github/workflows/<e-acute>.yml`, tab in a `scripts/lib/` name) |
+| 2 MUST | `scrub_env` first: `PATH=/usr/sbin:/usr/bin:/sbin:/bin`, `LC_ALL=C`, every `GIT_*` unset, `BASH_ENV`/`ENV`/`LD_PRELOAD`/`LD_LIBRARY_PATH`/`PYTHONPATH`/`PYTHONHOME` unset, then `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_NO_REPLACE_OBJECTS=1`; git also runs with `core.hooksPath=/dev/null`, `protocol.allow=never` + `protocol.https.allow=always` | `git-env-pollution` (GIT_DIR/OBJECT_DIRECTORY/EXEC_PATH/REPLACE_REF_BASE set: still ok; GIT_CONFIG_COUNT/KEY_0/VALUE_0 insteadOf to an evil origin whose main has the altered workflow: still IDENTITY-refused), `path-pollution` (a forging `python3` first on PATH); mutant `scrub_env` |
+| 3 | rows per protected prefix, payload control chars, symlinked event.json | `protected-each-prefix` x5, `payload-control-char` x2 (python exits 2 on any control char before printing; bash also refuses a repeated or unknown key), `symlink-event-json` (file, and the `_github_workflow` dir) |
+| 4 | allow-list: trim the ends only; inner whitespace refuses | `allow-malformed: whitespace inside a name`, `allow-list: leading/trailing whitespace and CRLF trimmed` |
+| 5 | `protocol.file.allow=always` only when `gate.conf` has `TEST_FILE_PROTOCOL=1` (conf, not env: `scrub_env` would drop any GIT_CONFIG_* and env must not widen). Production `gate.conf` never sets it | the whole suite (it needs it) |
+| 6 | the mirror is a fresh `mktemp -d $WORK_DIR/_gate-mirror.XXXXXX` per run (removed on exit and by step 1's cleanup); after `git init` its `config` is replaced by a fixed 3-line one and `hooks/`, `refs/replace` deleted; ONE shallow fetch (`--depth=2`, main + the workflow sha), fallback fetch by the event ref (charset-checked) only if fetch-by-sha fails. `gate.conf` key `MIRROR` is gone | every accept row |
+| 7 | `GATE_WAIT_S` digits only (else 180), cap 1800 | `gate-wait-injection` (`x[$(touch ...)]` used to RUN in the old hook) |
+| 8 | PR payload `pull_request.base.ref` must be `main` (`MAIN_REF` without `refs/heads/`) | `base-ref` |
+| 9 | wording on `pull_request_target` (above) | - |
+| 10 | unit: `IPAddressDeny` adds `0.0.0.0/8 192.0.0.0/24 198.18.0.0/15 224.0.0.0/4 ff00::/8`; `RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6`, `ProtectProc=invisible`, `LockPersonality=yes`, `RestrictNamespaces=yes`; `NoNewPrivileges`/`ProtectSystem=strict` kept. **`ProcSubset=pid` NOT set** (deviation, on purpose): it hides `/proc/loadavg` and `/proc/meminfo`, which the hook's load gate reads, so every job would wait out `GATE_WAIT_S` and run hosted | not testable here (no systemd) |
+
+Also fixed: test row `workflows.allow in the repo` failed on every checkout (the repo checks the
+file out CRLF via `.gitattributes`; the row now strips CR like the hook does). That made the
+plain suite exit 1, so `tests/routeRunner.test.ts` "test-gate-hooks.sh passes" could not pass on
+4bf0762fb either.
+
+**Trust boundary (stated, as the review asked):** a routed job runs as `ghrunner-web` and CAN READ
+the runner's credential files (`.runner`, `.credentials`, `.credentials_rsaparams`), and
+`_work/_cache`, `_work/_tool` and `_work/_actions` persist across jobs (a job can plant content
+there for the next one). That is acceptable ONLY because the hook admits nothing but trusted
+authors' same-repo PRs into main / pushes to main of allow-listed workflows byte-identical to
+main's, never touching a protected path. Do not widen the trust list or allow-list without
+re-reading this.
+
+Install note: the unit, `gate.conf` and checklist are CRLF in a checkout; install with
+`tr -d '\r'` (provision-checklist.md says so). A CRLF `gate.conf` fails closed (every job refused).
 
 ## Memory (task 4; admin files not touched)
 
@@ -111,7 +149,27 @@ Joining admin's memory gate, proposal for the owner/lead:
    must show "refused" in the hook log; record what the hook saw.
 5. Set `WEB_RUNNER_LABEL=acer-web` only after 1-4.
 
-## Verified / Not verified
+## Verified / Not verified -- fix round 1 (this sandbox: Linux, git 2.43.0, python3, util-linux flock/setsid, /proc)
+
+Verified:
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> **PASS 144 cases** (was 103 of 104: the CRLF row).
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants` -> **PASS all 24 mutants caught**
+  (23 `#@rule` tags + `scrub_env`).
+- Red first: the new suite against the OLD hook (4bf0762fb, with a `MIRROR=` conf line so it can
+  run) -> FAIL 32 of 144; every new row red, incl. real bypasses: `protected-nonascii` x3,
+  `payload-control-char` x2, `path-pollution`, `git-env-pollution` insteadOf, `base-ref`,
+  `symlink-event-json` (dir), `gate-wait-injection` (the command ran).
+- `npx vitest run tests/routeRunner.test.ts` -> 96 passed.
+- No `src/**`, `supabase/**`, `.github/workflows/**` or `scripts/ci/route-runner.mjs` change;
+  `bom-check` required-check name unchanged.
+
+Not verified (fix round 1):
+- NOTHING ran on the Acer or the Dell: the lead runs the same script there (remote-test) before the
+  owner's Approve. Unit hardening not loaded by systemd (`systemd-analyze verify` not run; no systemd
+  here); `RestrictAddressFamilies` / `RestrictNamespaces` effect on a real routed job unproven.
+- The review report file `C:/tmp/review/pr1470.md` (unreachable from the cloud).
+
+## Verified / Not verified -- wave 0 (4bf0762fb; superseded counts above)
 
 Verified (this sandbox, Linux, git 2.x, python3):
 - `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> PASS 104 cases.

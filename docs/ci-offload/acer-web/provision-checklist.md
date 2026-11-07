@@ -10,6 +10,14 @@ Unit: `actions.runner.bachata-website.acer-web.service` (this folder). Hooks + a
 `gate-job-started.sh`, `gate-job-completed.sh` -> `/usr/local/lib/ghrunner-web/hooks/` (root:root
 0755); `workflows.allow` -> `/etc/ghrunner-web/workflows.allow` (root:root 0644).
 
+Install copies WITHOUT carriage returns: this repo checks most files out with CRLF
+(`.gitattributes`), and systemd and `gate.conf` parsing expect LF. For each file:
+`tr -d '\r' < <repo file> > <target>` (the `.sh` hooks are already LF; `workflows.allow`
+tolerates CRLF, stripping it anyway is harmless), THEN set the mode again: `chmod 0755` the
+hooks, `chmod 0644` the rest (a redirect creates a 0644 file, and a non-executable hook fails
+every job). Never set `TEST_FILE_PROTOCOL` in the
+production `gate.conf`: it is the test suite's switch for its local `file://` remote.
+
 ## 1. Tools (root, system-wide, read-only to the runner)
 
 | need | why | install (Ubuntu/Debian) | check as the runner user |
@@ -70,12 +78,12 @@ Prove it under the same filter before the first job (as root):
 
 ```bash
 systemd-run --wait --pipe --uid=ghrunner-web \
-  -p IPAddressDeny="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10" \
+  -p IPAddressDeny="0.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 192.0.0.0/24 198.18.0.0/15 224.0.0.0/4 fc00::/7 fe80::/10 ff00::/8" \
   -p IPAddressAllow=<resolver-if-LAN> \
   bash -c 'getent ahosts github.com | head -1 && getent ahosts registry.npmjs.org | head -1'
 # and the LAN must stay closed (expect a failure / timeout):
 systemd-run --wait --pipe --uid=ghrunner-web \
-  -p IPAddressDeny="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10" \
+  -p IPAddressDeny="0.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 192.0.0.0/24 198.18.0.0/15 224.0.0.0/4 fc00::/7 fe80::/10 ff00::/8" \
   timeout 5 bash -c 'echo > /dev/tcp/<router-ip>/80' && echo 'WRONG: LAN reachable' || echo 'ok: LAN closed'
 ```
 

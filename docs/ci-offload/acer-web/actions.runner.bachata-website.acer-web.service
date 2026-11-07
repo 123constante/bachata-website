@@ -52,6 +52,10 @@ Nice=10
 IOSchedulingClass=idle
 CPUWeight=50
 TasksMax=2048
+# Trust boundary (fix round 1): a job runs as ghrunner-web and CAN READ the runner credential
+# files (.runner, .credentials, .credentials_rsaparams) and finds _work/_cache, _tool and
+# _actions as earlier jobs left them. Acceptable ONLY because the hook admits trusted authors'
+# same-repo PRs/pushes of allow-listed workflows identical to main's; see the wave 0 handover.
 # Filesystem (HOME, npm and XDG caches live inside _work): everything read-only except the job workspace, the runner's log dir, the state
 # dir and the walk-lock dir. NOT writable: the hooks (/usr/local/lib/ghrunner-web), the
 # runner binaries and its credentials (.runner, .credentials, .credentials_rsaparams in
@@ -67,13 +71,26 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
-# Egress: no LAN, no link-local/metadata, no CGNAT (Tailscale) range. Internet stays open
+# Fix round 1, item 10. NOT set: ProcSubset=pid -- it hides /proc/loadavg and /proc/meminfo,
+# which the job-started hook's load gate reads (every job would then wait out GATE_WAIT_S and
+# run hosted), and which node/Chromium read too. ProtectProc=invisible still hides other users'
+# processes. RestrictAddressFamilies: if a routed job ever needs AF_NETLINK (seen with some
+# Chromium builds), the failure is a routed-job failure -> hosted runs it; widen only then.
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=yes
+# RestrictNamespaces: Chromium's own sandbox needs user namespaces; Playwright launches it with
+# --no-sandbox by default (chromiumSandbox: false), so routed e2e jobs are not affected.
+RestrictNamespaces=yes
+# Egress: no LAN, no link-local/metadata, no CGNAT (Tailscale) range, no "this network",
+# IETF-protocol, benchmarking or multicast ranges. Internet stays open
 # (github.com, the npm registry, Supabase are what jobs need); IP-level only, no per-domain
 # allowlist. If the DNS resolver is on the LAN, allow exactly its address (set it; Allow wins).
 # Check which case applies BEFORE the first start: provision-checklist.md, "resolver-allow".
-IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressDeny=0.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 192.0.0.0/24 198.18.0.0/15 224.0.0.0/4 fc00::/7 fe80::/10 ff00::/8
 # IPAddressAllow=192.168.1.1
 # Loopback stays allowed (127.0.0.0/8, ::1): the job's own vite preview / Playwright need it.
+# 0.0.0.0/8 is denied: a test must reach its own server at 127.0.0.1 / localhost, not 0.0.0.0.
 
 [Install]
 WantedBy=multi-user.target
