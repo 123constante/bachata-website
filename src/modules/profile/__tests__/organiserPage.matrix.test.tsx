@@ -444,7 +444,10 @@ describe('fix 1: owner-blank only when everything is KNOWN blank', () => {
     visitorOrOwnerInvariants(true);
     const kinds = Array.from(document.querySelectorAll('[data-testid="org-public-empty"]')).map((e) => e.getAttribute('data-kind'));
     expect(kinds).toEqual([blank ? 'owner-blank' : 'none']);
-    expect(/Complete your profile/.test(text())).toBe(blank);
+    // The legacy "Complete your profile" button and its Edit profile dialog are retired; the blank
+    // state now points at the edit-in-place controls instead (retireLegacyEditDialog).
+    expect(/Complete your profile/.test(text())).toBe(false);
+    expect(/Just getting started/.test(text())).toBe(blank);
   });
   it('a visitor never sees it', async () => {
     s.shape = shape({ team: 0, phone: false, instagram: false });

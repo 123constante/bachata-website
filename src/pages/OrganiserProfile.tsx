@@ -22,34 +22,18 @@ import {
 import { fetchClaimHint, myAccessRequestsQueryKey, organiserClaimHintQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Loader2, ChevronLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { CityPicker } from '@/components/ui/city-picker';
-import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
-import {
   buildMailtoHref,
   buildWhatsAppHref,
-  isValidEmail as sharedIsValidEmail,
 } from '@/lib/contactValidation';
-import { resolveCanonicalCity } from '@/lib/city-canonical';
 import {
   hostMatchesDomain,
   withNormalizedProtocol,
-  saveOrganiserProfile,
-  organiserProfileSaveErrorToast,
 } from '@/lib/organiserProfileUpdate';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
@@ -233,83 +217,10 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
 };
 
 
-// A resolved hostname must look like a real domain -- containing a dot AND
-// a letter -- before a website URL is accepted. Without this, placeholder
-// text like "TBA"/"N/A" (hostname "tba", no dot) and purely numeric input
-// like "12345" (the URL parser reads it as the IPv4 "0.0.48.57" -- has dots
-// but no letters) both validate and save as a live, dead link. Checking the
-// PARSED hostname rather than the raw input closes this for both the bare
-// "tba" and the scheme-prefixed "https://tba" spellings alike.
-const hostnameLooksLikeDomain = (hostname: string): boolean =>
-  hostname.includes('.') && /[a-z]/i.test(hostname);
-
 // extractIgHandle / extractFbHandle / extractDomain live in
 // src/lib/organiserLinkLabels.ts, shared with the owner's edit-in-place rows.
-
-// --- Validation helpers ---
-
-// Delegates to contactValidation.ts's own isValidEmail
-// (already imported below for buildMailtoHref/buildWhatsAppHref) so save-time
-// validation can't diverge from what render-time link-building accepts --
-// an earlier version of this file had two separate regexes for the same
-// thing and that's exactly the drift contactValidation.ts exists to stop.
-const isValidEmail = (email: string | null | undefined): boolean => {
-  if (!email || !email.trim()) return true;
-  return sharedIsValidEmail(email);
-};
-
-const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
-  if (!url) return true;
-  const trimmed = url.trim();
-  if (!trimmed) return true;
-  try {
-    const hostname = new URL(withNormalizedProtocol(trimmed)).hostname;
-    return hostnameLooksLikeDomain(hostname);
-  } catch {
-    return false;
-  }
-};
-
-const isValidInstagramUrl = (url: string | null | undefined): boolean => {
-  if (!url) return true;
-  const trimmed = url.trim();
-  if (!trimmed) return true;
-  if (trimmed.startsWith('@')) {
-    return /^@[a-zA-Z0-9._]+$/.test(trimmed);
-  }
-  // hostMatchesDomain, not a substring test -- an arbitrary URL that merely
-  // mentions "instagram.com" in its query string or path must NOT validate
-  // as an Instagram entry.
-  if (hostMatchesDomain(trimmed, 'instagram.com')) {
-    try {
-      new URL(withNormalizedProtocol(trimmed, 'instagram.com'));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  if (/^https?:\/\//i.test(trimmed)) return false;
-  return /^[a-zA-Z0-9._]+$/.test(trimmed);
-};
-
-const isValidFacebookUrl = (url: string | null | undefined): boolean => {
-  if (!url) return true;
-  const trimmed = url.trim();
-  if (!trimmed) return true;
-  if (trimmed.startsWith('@')) {
-    return /^@[a-zA-Z0-9.\-_]+$/.test(trimmed);
-  }
-  if (hostMatchesDomain(trimmed, 'facebook.com')) {
-    try {
-      new URL(withNormalizedProtocol(trimmed, 'facebook.com'));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  if (/^https?:\/\//i.test(trimmed)) return false;
-  return /^[a-zA-Z0-9.\-_]+$/.test(trimmed);
-};
+// The save-time link validators went with the legacy Edit profile dialog
+// (retireLegacyEditDialog): edit-in-place validates in fieldRules.ts.
 
 // --- Sub-components ---
 
@@ -627,12 +538,10 @@ const OrganiserProfile = () => {
   const mailboxProven = useMemo(() => isMailboxProvenToken(session?.access_token), [session?.access_token]);
 
   const isMobile = useIsMobile();
-  const [isEditOpen, setIsEditOpen] = useState(false);
   // Set by the lazy owner layer (null for everyone else): pencils + drafted values.
   const [eip, setEip] = useState<EipBridge | null>(null);
   // Owner layer only: the name's box hugs its widest line so the Name pencil sits right beside the text.
   const nameRef = useHugText(!!eip);
-  const [isSaving, setIsSaving] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
   const [showAllPastYears, setShowAllPastYears] = useState(false);
@@ -640,23 +549,6 @@ const OrganiserProfile = () => {
   const [openPastYears, setOpenPastYears] = useState<Set<string>>(() => new Set());
   const [bioExpanded, setBioExpanded] = useState(false);
   const [expandedPastYears, setExpandedPastYears] = useState<Set<string>>(() => new Set());
-  const [editForm, setEditForm] = useState({
-    name: '',
-    avatar_url: '',
-    bio: '',
-    city: '',
-    instagram: '',
-    facebook: '',
-    website: '',
-    organisation_category: '',
-    founded_year: '',
-  });
-  // Contact details (phone, and the two public switches, admin #771) are NOT in
-  // this dialog: the owner layer's Contact card opens the ONE Contact details
-  // sheet (edit-in-place/ContactSheet.tsx). This dialog never sends a contact key
-  // (above all never the legacy show_contact_publicly, which sets BOTH flags).
-  const openedFormRef = useRef<string | null>(null);
-
   const { data: entity, isLoading: entityLoadingRaw, error, refetch: refetchEntity, isFetching: entityFetching } = useQuery({
     queryKey: organiserEntityQueryKey(id),
     queryFn: () => fetchOrganiserEntity(id as string),
@@ -894,72 +786,6 @@ const OrganiserProfile = () => {
   // below). The direct `claimed_by` UPDATE that stood here is retired: D4's
   // contract pairs every claimed_by with an entity_members owner row, which
   // only the RPC writes.
-  const openEditModal = () => {
-    if (!entity || !id || !facts.canEdit) return;
-    const ep = entity as EntityProfile;
-    const socials = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
-    const base = {
-      name: entity.name || '',
-      avatar_url: entity.avatar_url || '',
-      bio: entity.bio || '',
-      city: entity.cities?.name || '',
-      instagram: ep.instagram || socials?.instagram || '',
-      facebook: ep.facebook || socials?.facebook || '',
-      website: ep.website || socials?.website || '',
-      organisation_category: ep.organisation_category || '',
-      founded_year: ep.founded_year ? String(ep.founded_year) : '',
-    };
-    setEditForm(base);
-    openedFormRef.current = JSON.stringify(base);
-    setIsEditOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!id || !user?.id || !facts.canEdit) return;
-    const city = normalizeRequiredCity(editForm.city);
-    if (!hasRequiredCity(city)) {
-      toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
-      return;
-    }
-    // Saving an untouched form sends nothing.
-    if (openedFormRef.current !== null && JSON.stringify(editForm) === openedFormRef.current) {
-      toast({ title: 'Nothing to save', description: 'You haven\u2019t changed anything.' });
-      setIsEditOpen(false);
-      return;
-    }
-    if (!isValidInstagramUrl(editForm.instagram)) {
-      toast({ title: 'Invalid Instagram', description: 'Please enter a valid Instagram handle or URL.', variant: 'destructive' });
-      return;
-    }
-    if (!isValidFacebookUrl(editForm.facebook)) {
-      toast({ title: 'Invalid Facebook', description: 'Please enter a valid Facebook handle or URL.', variant: 'destructive' });
-      return;
-    }
-    if (!isValidWebsiteUrl(editForm.website)) {
-      toast({ title: 'Invalid website', description: 'Please enter a valid website URL.', variant: 'destructive' });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const canonicalCity = await resolveCanonicalCity(city);
-      if (!canonicalCity) {
-        toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
-        return;
-      }
-      // No contact key: the form carries none, so the patch leaves the phone and both flags alone.
-      const { error } = await saveOrganiserProfile(supabase, id, editForm, canonicalCity.cityId);
-      if (error) throw error;
-      toast({ title: 'Profile updated' });
-      setIsEditOpen(false);
-      queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
-    } catch (err) {
-      console.error('Save error:', err);
-      toast({ ...organiserProfileSaveErrorToast(err), variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Groups upcomingEvents (one OrgEvent per occurrence, already sorted
   // ascending) by event_id: a recurring series (3+ upcoming dates sharing an
   // event_id) collapses to one 'series' item; 1-2-date groups stay as
@@ -1096,9 +922,8 @@ const OrganiserProfile = () => {
   const contactEmail     = publicContact.contact_email;
   const organisationCategory = ep.organisation_category || null;
 
-  // Reuses withNormalizedProtocol (defined above with the validators) so the
-  // rendered href can never disagree with what isValidInstagramUrl /
-  // isValidFacebookUrl / isValidWebsiteUrl accepted at save time.
+  // withNormalizedProtocol is the shared normaliser (organiserProfileUpdate.ts),
+  // the same one the edit-in-place save path builds its patch with.
   // hostMatchesDomain, never a substring test -- a stored value that only
   // MENTIONS "instagram.com"/"facebook.com" (a query string, a look-alike
   // subdomain) must not render as a live link under that platform's label.
@@ -1219,7 +1044,7 @@ const OrganiserProfile = () => {
 
           {/* No top-right "Edit profile" button (owner decision, 2026-10-12): the
               owner layer's pencils edit each item in place, and a wholly blank
-              profile still offers "Complete your profile" below. */}
+              profile's empty state below carries the About pencil. */}
 
           {/* Mobile */}
           {(isMobile !== false) && <div style={{ position: 'relative', minHeight: 320, height: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
@@ -1351,13 +1176,27 @@ const OrganiserProfile = () => {
           <section className="px-5 md:px-12 py-8 md:py-10 text-center" data-testid="org-public-empty" data-kind={emptyKind}>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
             <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
+            {/* retireLegacyEditDialog: the one editor is edit-in-place. The copy names
+                only controls the owner layer puts on screen (the photo pencil in the
+                hero, the Your links pencils, the About pencil here); until the lazy
+                layer has loaded it names none and the action is disabled with a
+                reason. docs/design/organiser-retire-legacy-edit-dialog.md */}
             <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-              Add a bio, photo and your social links so dancers know who you are before your first night goes up.
+              {eip
+                ? <>Tap the pencil on your photo for your picture, the pencils in Your links for Instagram, Facebook and your website, and the one here for a bio, so dancers know who you are before your first night goes up.</>
+                : <>Add a bio, photo and your social links so dancers know who you are before your first night goes up.</>}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-              <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                Complete your profile
-              </button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+              {eip ? (
+                <span data-testid="org-blank-about" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minHeight: 44, padding: '0 0 0 16px', borderRadius: 100, border: '1px solid rgba(231,190,110,0.45)', color: D.cream, fontSize: 13, fontWeight: 700 }}>
+                  Add a bio
+                  {eip.slot('about')}
+                </span>
+              ) : (
+                <button type="button" disabled aria-disabled="true" data-testid="org-blank-loading" style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'transparent', color: 'rgba(246,241,234,0.6)', fontSize: 13, fontWeight: 700, border: '1px solid rgba(246,241,234,0.25)', cursor: 'default' }}>
+                  Loading your editor&hellip;
+                </button>
+              )}
               {eip?.slot('create-first-event')}
             </div>
           </section>
@@ -1533,58 +1372,6 @@ const OrganiserProfile = () => {
       </article>
 
       <div style={{ color: D.cream }}><ReportProblemLink /></div>
-
-      {/* EDIT DIALOG */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit profile</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="Organiser name" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="organisation_category">Category</Label>
-              <Input id="organisation_category" value={editForm.organisation_category} onChange={(e) => setEditForm({ ...editForm, organisation_category: e.target.value })} placeholder="Event Brand, Dance School, Community Group..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="founded_year">Founded year</Label>
-              <Input id="founded_year" type="number" inputMode="numeric" value={editForm.founded_year} onChange={(e) => setEditForm({ ...editForm, founded_year: e.target.value })} placeholder="e.g. 2015" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="avatar_url">Avatar URL</Label>
-              <Input id="avatar_url" value={editForm.avatar_url} onChange={(e) => setEditForm({ ...editForm, avatar_url: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <CityPicker id="city" value={editForm.city} onChange={(city) => setEditForm({ ...editForm, city })} placeholder="Select city..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea id="bio" value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} placeholder="About this organiser..." rows={4} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagram">Instagram</Label>
-              <Input id="instagram" value={editForm.instagram} onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })} placeholder="@username or full URL" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="facebook">Facebook</Label>
-              <Input id="facebook" value={editForm.facebook} onChange={(e) => setEditForm({ ...editForm, facebook: e.target.value })} placeholder="Page URL or username" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input id="website" value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving || !editForm.name.trim()}>
-                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <SeriesDatesSheet
         open={!!openSeries}
