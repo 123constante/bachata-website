@@ -1,7 +1,7 @@
 # CI offload wave 0 (groundwork) -- handover (Website)
 
 Ticket dt_6fcc76e12c22. Brief: `brief/ci-offload-wave0:docs/briefs/ci-offload-wave0.md` v2
-(blob 549f67bd). Branch `claude/ci-offload-wave0`. Builds on `docs/handover/ci-offload-stage3.md`.
+(blob 549f67bd). Branch `claude/ci-offload-wave0`, PR #1470. Builds on `docs/handover/ci-offload-stage3.md`.
 Nothing here is live: no runner is registered by this PR, no workflow file is edited, no secret
 or token is created or read. The lead's plans-folder files the brief lists (AUDIT / PILOT-FILES /
 DESIGN-memory-slot-gate) were NOT reachable from this cloud worker; the work follows the brief text
@@ -120,7 +120,11 @@ Verified (this sandbox, Linux, git 2.x, python3):
 - No `.github/workflows/**`, `src/**`, `supabase/**`, `vite.config.ts` or `route-runner.mjs` change;
   the `bom-check` required-check name is unchanged (workflow untouched).
 
+- tsc run on a850696: 0 errors in branch files (no TS file touched).
+- `npm run lint` chain exit 0; `check-secrets-register`, `lint-workflow-masking`, `check:mojibake` clean.
+
 Not verified:
+- GitHub PR checks: not read back by this worker before stopping (see the PR checks tab).
 - NOTHING ran on a real runner, the Acer or the Dell. The unit was not loaded by systemd
   (`systemd-analyze verify` not run here). The real `event.json` path and shape on a live runner
   (`_temp/_github_workflow/event.json`) are from runner behaviour, not observed here.
