@@ -6,9 +6,10 @@ Lane: normal, OPUS (auth and callback logic; independent review follows). bachat
 Serves: a non-technical organiser who taps ONE WhatsApp link, signs in by emailed link with no password, and lands on the Get paid screen. Two link kinds: someone who already has a login gets a sign-in link whose returnTo is the Get paid path; someone with NO login gets the admin's invite link /join/<token> with `next=get-paid` added.
 
 ## What main lacks
-Found by the 2026-11-07 read of origin/main 4504f7fb0:
-- proof that a sign-in (callback mode=signin) honours a returnTo when the dancer profile is an incomplete stub: the branch at AuthCallback.tsx ~336-420 ends in navigateToSignedInFallback and was not shown to keep the returnTo -- grep: navigateToSignedInFallback
-- an invite link that lands on Get paid after the person joins: doneTarget (join/JoinScreens.tsx:169) goes to acceptedInviteLanding, the organiser home -- grep: doneTarget
+Found by the 2026-11-07 read of origin/main 4504f7fb0. Main already HAS the callback fix-up branch and the invite Done landing; this slice CHANGES them. Genuinely new:
+- the `next=get-paid` handling on the join URL -- grep: next=get-paid
+- an exported constant for the Get paid start path in the OTP routing helper -- grep: GET_PAID_START_PATH
+- the two new test files named under Files
 
 ## Files
 src/pages/AuthCallback.tsx (exists: ONLY the returnTo case in 3a; read lines ~286-420 first)
@@ -20,7 +21,7 @@ src/modules/admin-organisers/join/__tests__/JoinGetPaidNext.test.tsx (new)
 docs/handover/organiser-getpaid-auth.md (new)
 
 ## What to build
-THE ROUTE PATH CONSTANT, agreed with part A: `/account/p3/get-paid` with the query `?o=<organiserId>` (encodeURIComponent). Define the literal ONCE in your own code (an exported const in auth-otp-routing.ts) and use it in both changes; do not import from src/modules/organiser/p3. Add a test line asserting the built string equals exactly `/account/p3/get-paid?o=<id>`.
+THE ROUTE PATH CONSTANT, agreed with part A: `/account/p3/get-paid` with the query `?o=<organiserId>` (encodeURIComponent). Define the literal ONCE in your own code (an exported const named GET_PAID_START_PATH in auth-otp-routing.ts) and use it in both changes; do not import from src/modules/organiser/p3. Add a test line asserting the built string equals exactly `/account/p3/get-paid?o=<id>`.
 3a. A person who has a login. Prove FIRST, red, with a mocked-callback test: a sign-in (callback mode=signin) whose returnTo is `/account/p3/get-paid?o=<id>` lands there when (i) the dancer profile is complete, and (ii) it is an incomplete stub (the fix-up branch). If (ii) drops the returnTo, make the smallest change that honours it by extending isTaskReturnTo in lib/auth-otp-routing.ts for this path (no second predicate, no other landing changes). A sign-up with the same returnTo keeps today's behaviour (a row proving no change). The unknown-email case on /auth?mode=signin (it flips to the full sign-up form, Auth.tsx ~286-296) is NOT changed; say in the handover that it is why an organiser with no login must get the invite link, not this one.
 3b. A person with NO login. The admin invite link /join/<token> (organiser_invites; JoinPage binds the email with bind_organiser_invite_email_v1, then ONE signInWithOtp with shouldCreateUser true, so an unknown email never sees the full sign-up form or the 403 "limited to approved organisers"; claimOrganisersAtSignIn and find-before-create are untouched). Add ONE optional query param on the join URL, `next=get-paid`, read in JoinPage. When present and the redeemed seat is owner or manager, doneTarget returns `/account/p3/get-paid?o=<redeemed organiser id>` and the Done button reads "Set up payments". Any other value of `next`, or a contributor seat, is ignored (home as today, button as today). `next` must survive the in-page code step (codeStepSearch keeps other params; assert it) and the already-signed-in and already_member paths. Do NOT change what an invite is, who can create one, or bind / redeem behaviour. The organiser id for the Get paid path is the redeem answer's own id, else the person's single matching page, exactly as doneTarget already chooses it; when it is null, land on the organiser home as today.
 Both cases are MOCKED: do not assume anything about a real account's state.
