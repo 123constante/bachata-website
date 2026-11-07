@@ -14,6 +14,7 @@ import {
 import { PriceCard } from './PriceCard';
 import { useLeave, type Ask } from './EditTray';
 import { Sheet } from './Sheet';
+import { BrokenImage } from './BrokenImage';
 
 /** The three W3b-2 steps of the date sheet: this date's own Name, Photos, Price. */
 export type FieldStep = 'edit-name' | 'edit-photos' | 'edit-price';
@@ -167,7 +168,7 @@ function PhotosSheet(p: FieldProps & KeptProps) {
       <div role="list" className="p3-photos" data-testid="p3-photos">
         {photos.map((url, i) => (
           <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-photo">
-            <img src={url} alt="" loading="lazy" />
+            <BrokenImage src={url} />
             <button type="button" className="p3-photo-x" aria-label={`${L.datePhotosRemove} ${i + 1}`} disabled={p.busy || uploading}
               onClick={() => setPhotos(photos.filter((_, j) => j !== i))} data-testid="p3-photo-remove">
               <span aria-hidden="true">&times;</span>
