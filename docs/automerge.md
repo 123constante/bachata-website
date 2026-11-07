@@ -53,15 +53,17 @@ that is not removed (contents API at the head sha, `readTestSources`) and
 | Shape | Refusal |
 |---|---|
 | content not read (API error, 404, over 1 MB, a directory) or missing from the map | `<path>: test content unreadable (fail closed)` |
-| empty, NUL bytes or U+FFFD (binary / undecodable) | `<path>: unknown content ...` |
+| empty, NUL bytes or a literal U+FFFD anywhere in the text (binary / undecodable; a test that embeds the character itself is refused too) | `<path>: unknown content ...` |
 | `node:test` (import, require, dynamic import) | `<path>: node:test suite (class C is vitest only)` |
+| `REFUSED_TREES`: a quoted `node scripts/` command (`execSync('node scripts/x.mjs')`), or a quoted path whose root-level directory segment is `.github/`, `bin/`, `api/`, `server/` or `supabase/` (at the quote, after `./` / `../` runs or after `${...}/`; `.github` as any segment). Nested segments such as `src/lib/api/` or `@/integrations/supabase/` are not | `<path>: runs or reads a CI / tooling tree (...)` |
 | any quoted path through `scripts/` (import, `import()`, `require`, `vi.mock`, a `'scripts'` path segment) | `<path>: imports scripts/ (tooling is hard tier, owner Approve)` |
-| any `supabase` reference, any case | `<path>: references Supabase (data access, owner reviews)` |
+| `SUPABASE_LIVE`: `SUPABASE` (upper case), `SERVICE_ROLE` (any case), `@supabase/supabase-js`, `createClient(` from any path, a live `supabase.co` URL, or `.from(` / `.rpc(` on a client the test builds itself. A test that only `vi.mock`s or type-imports `@/integrations/supabase/...` is NOT refused | `<path>: references Supabase (data access, owner reviews)` |
 
 No sources at all (`testSources` null) on a PR judged as C is
 `class C test sources not read (fail closed)`. A test that loads `scripts/`
 tests tooling, and tooling is hard tier, so the owner Approves it at the final
-head. Classes A/B never read content. Ported from the admin classifier.
+head. Classes A/B never read content. Adapted from the admin classifier: stricter on node:test and scripts/, different on Supabase.
+On main at 2026-11-07 the rules refuse 99 of 276 class-C test files (47 scripts/, 32 CI / tooling tree, 20 Supabase).
 
 **Not wired yet (2026-11-06):** nothing in this repo's workflows or scripts posts
 a `review-pack:` comment or adds `review-passed` today (grep of `.github/` and

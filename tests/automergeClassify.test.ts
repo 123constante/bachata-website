@@ -388,7 +388,7 @@ describe('automerge classifier -- class C record reader (main), fail closed', ()
 
 /* -- Brief automerge-web-test-source-refusal: a class-C file's HEAD content is read and refused
  * when it is not a plain vitest suite of the site (node:test, scripts/ imports, Supabase, or
- * content that cannot be read). Ported from the admin classifier; unknown content is a NO. */
+ * content that cannot be read). Adapted from the admin classifier: stricter on node:test and scripts/, different on Supabase; unknown content is a NO. */
 describe('automerge classifier -- testSourceRefusal (class C content)', () => {
   const P = 'tests/a.test.ts';
   const refusals: Array<[string, unknown, RegExp | null]> = [
@@ -401,7 +401,32 @@ describe('automerge classifier -- testSourceRefusal (class C content)', () => {
     ['a vi.mock of scripts/ is refused', "vi.mock('../scripts/lib/a.mjs');\n", /imports scripts\//],
     ['a path.join to scripts is refused', "const p = path.join(ROOT, 'scripts', 'x.mjs');\n", /imports scripts\//],
     ['a Supabase client import is refused', "import { createClient } from '@supabase/supabase-js';\n", /Supabase/],
-    ['a Supabase reference in any case is refused', "const url = process.env.VITE_SUPABASE_URL;\n", /Supabase/],
+    ['a SUPABASE env var is refused', "const url = process.env.VITE_SUPABASE_URL;\n", /Supabase/],
+    // Fix round 1 (REFUSED_TREES): shelling out to a guard, reading CI workflows, loading root trees.
+    ['execSync of node scripts/ (space before the path) is refused', "execSync('node scripts/check-x.mjs');\n", /CI \/ tooling tree/],
+    ['a node ./scripts/ command in a template is refused', "spawnSync(`node ./scripts/x.mjs --self-test`);\n", /CI \/ tooling tree/],
+    ['reading a CI workflow (../.github/) is refused', "readFileSync(new URL('../.github/workflows/autopilot.yml', import.meta.url));\n", /CI \/ tooling tree/],
+    ['a bare .github path segment is refused', "path.join(ROOT, '.github', 'workflows', 'x.yml');\n", /CI \/ tooling tree/],
+    ['a bin/ path is refused', "readFileSync('bin/deploy.sh');\n", /CI \/ tooling tree/],
+    ['an ../api/ path is refused', "import h from '../api/og.ts';\n", /CI \/ tooling tree/],
+    ['a ../../server/ path is refused', "const s = require('../../server/index.js');\n", /CI \/ tooling tree/],
+    ['a supabase/ root tree path is refused', "readFileSync('../supabase/functions/x/index.ts');\n", /CI \/ tooling tree/],
+    ['a ${ROOT}/api/ template path is refused', "readFileSync(`${ROOT}/api/x.ts`);\n", /CI \/ tooling tree/],
+    ['the word binary stays allowed', "import { it } from 'vitest';\nit('handles binary input', () => {});\n", null],
+    ['a public/api-notes.md string stays allowed', "const p = 'public/api-notes.md';\n", null],
+    ['abin/ (not a segment) stays allowed', "const p = 'abin/x.txt';\n", null],
+    ['my-server/ (not a segment) stays allowed', "const p = '../src/my-server/x';\n", null],
+    ['a nested src/lib/api/ path stays allowed', "import { a } from '../src/lib/api/client';\n", null],
+    ['a .githubusercontent URL stays allowed', "const u = 'https://raw.githubusercontent.com/x';\n", null],
+    // Fix round 1 (SUPABASE_LIVE): admin's cases plus a live project or a client built in the test.
+    ['SERVICE_ROLE is refused', "const key = process.env.service_role ?? env.SERVICE_ROLE_KEY;\n", /Supabase/],
+    ['createClient( from any path is refused', "import { createClient } from '../src/lib/db';\nconst c = createClient(u, k);\n", /Supabase/],
+    ['a live supabase.co URL is refused', "await fetch('https://abc.supabase.co/rest/v1/events');\n", /Supabase/],
+    ['.from( on a client built in the test is refused', "const db = makeClient(u);\nawait db.from('events').select();\n", /Supabase/],
+    ['.rpc( on a client built in the test is refused', "let rpcClient = await buildClient();\nrpcClient.rpc('x');\n", /Supabase/],
+    ['vi.mock of the app supabase client stays allowed', "import { vi, it } from 'vitest';\nvi.mock('@/integrations/supabase/client', () => ({ supabase: { from: vi.fn() } }));\nit('x', () => {});\n", null],
+    ['a type import from @/integrations/supabase stays allowed', "import type { Database } from '@/integrations/supabase/types';\nconst rows = Array.from(new Set([1]));\n", null],
+    ['a mocked supabase.from( stays allowed', "import { supabase } from '@/integrations/supabase/client';\nvi.mocked(supabase.from).mockReturnValue(x);\n", null],
     ['missing content (null) is refused', null, /unreadable/],
     ['missing content (undefined) is refused', undefined, /unreadable/],
     ['empty content is refused', '   \n', /unknown content/],
@@ -430,7 +455,9 @@ describe('automerge classifier -- testSourceRefusal (class C content)', () => {
     ['clean test via a Map merges', new Map([[P, CLEAN_TEST]]), true, null],
     ['test importing scripts/ does NOT', { [P]: "import { x } from '../scripts/x.mjs';\n" }, false, /imports scripts\//],
     ['node:test suite does NOT', { [P]: "import test from 'node:test';\n" }, false, /node:test/],
-    ['test touching Supabase does NOT', { [P]: "import { supabase } from '../src/integrations/supabase/client';\n" }, false, /Supabase/],
+    ['test touching Supabase (service role) does NOT', { [P]: "const k = process.env.SUPABASE_SERVICE_ROLE_KEY;\n" }, false, /Supabase/],
+    ['test reading a CI workflow does NOT', { [P]: "readFileSync('../.github/workflows/autopilot.yml');\n" }, false, /CI \/ tooling tree/],
+    ['test that only mocks the app supabase client merges', { [P]: "vi.mock('@/integrations/supabase/client');\n" + CLEAN_TEST }, true, null],
     ['content unreadable for the file does NOT', { [P]: null }, false, /unreadable/],
     ['file missing from the sources does NOT', {}, false, /unreadable/],
     ['sources not read at all does NOT', null, false, /test sources not read/],

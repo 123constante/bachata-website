@@ -105,24 +105,54 @@ export function isClassCTestPath(p) {
 }
 
 /**
- * Class C CONTENT (brief automerge-web-test-source-refusal, ported from the admin classifier): a
- * class-C path is not enough, the file's HEAD text must be a plain vitest suite of the site.
- * null = ok, else the refusal `<path>: <why>`. FAIL CLOSED:
+ * Class C CONTENT (brief automerge-web-test-source-refusal; adapted from the admin classifier:
+ * stricter on node:test and scripts/, different on Supabase): a class-C path is not enough, the
+ * file's HEAD text must be a plain vitest suite of the site. null = ok, else the refusal
+ * `<path>: <why>`. FAIL CLOSED:
  *  - text not a string (not read, 404, too large, a directory) = "test content unreadable";
- *  - empty, NUL bytes or U+FFFD (binary / undecodable) = "unknown content";
+ *  - empty, NUL bytes or a literal U+FFFD (binary / undecodable) = "unknown content";
  *  - node:test (import, require, dynamic import) = a suite outside the vitest gate;
+ *  - REFUSED_TREES (fix round 1): a quoted `node scripts/` command (execSync / spawn of a guard),
+ *    or a quoted path whose ROOT-level directory segment is .github/, bin/, api/, server/ or
+ *    supabase/ (at the quote, after ./ or ../ runs, or after `${...}/`); `.github` is refused as
+ *    any segment, bare or not. A nested segment (src/lib/api/, @/integrations/supabase/) is NOT;
  *  - any quoted path through scripts/ (import, import(), require, vi.mock, a 'scripts' path
  *    segment): a test that loads tooling is tooling, and scripts/ is hard tier (owner Approve);
- *  - any "supabase" reference, any case (client, env var, MCP): data access is owner-reviewed.
+ *  - SUPABASE_LIVE (fix round 1): `SUPABASE` (upper case: env vars), `SERVICE_ROLE` (any case),
+ *    `@supabase/supabase-js`, `createClient(` from any path, a live `supabase.co` URL, or a
+ *    `.from(` / `.rpc(` call on a client the test builds itself (`const x = <...client...>(`).
+ *    A test that only vi.mock()s or type-imports the app's `@/integrations/supabase/...` passes.
  */
 const NODE_TEST = /['"`]node:test['"`]/;
 const SCRIPTS_REF = /['"`](?:[^'"`\n]*\/)?scripts(?:\/[^'"`\n]*)?['"`]/;
+export const REFUSED_TREES = [
+  /['"`][^'"`\n]*\bnode\s+(?:\.\/)?scripts\//,
+  /['"`](?:[^'"`\n]*\/)?\.github(?:\/|['"`])/,
+  /(?:['"`]|\$\{[^}\n]*\}\/)(?:\.\.?\/)*(?:bin|api|server|supabase)\//,
+];
+export const SUPABASE_LIVE = [
+  /SUPABASE/,
+  /SERVICE_ROLE/i,
+  /@supabase\/supabase-js/,
+  /\bcreateClient\s*\(/,
+  /supabase\.co\b/i,
+];
+/** `.from(` / `.rpc(` on a variable the test itself assigns from a `...client...(` call. */
+function liveClientCall(text) {
+  const made = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?[\w$.]*client[\w$]*\s*\(/gi;
+  for (let m; (m = made.exec(text));) {
+    const id = m[1].replace(/\$/g, "\\$");
+    if (new RegExp(`(?:^|[^\\w$.])${id}\\s*\\.\\s*(?:from|rpc)\\s*\\(`).test(text)) return true;
+  }
+  return false;
+}
 export function testSourceRefusal(p, text) {
   if (typeof text !== "string") return `${p}: test content unreadable (fail closed)`;
-  if (text.trim() === "" || /[\0\uFFFD]/.test(text)) return `${p}: unknown content (empty, binary or undecodable; fail closed)`;
+  if (text.trim() === "" || /[\0�]/.test(text)) return `${p}: unknown content (empty, binary or undecodable; fail closed)`;
   if (NODE_TEST.test(text)) return `${p}: node:test suite (class C is vitest only)`;
+  if (REFUSED_TREES.some((re) => re.test(text))) return `${p}: runs or reads a CI / tooling tree (node scripts/, .github/, bin/, api/, server/, supabase/; owner Approve)`;
   if (SCRIPTS_REF.test(text)) return `${p}: imports scripts/ (tooling is hard tier, owner Approve)`;
-  if (/supabase/i.test(text)) return `${p}: references Supabase (data access, owner reviews)`;
+  if (SUPABASE_LIVE.some((re) => re.test(text)) || liveClientCall(text)) return `${p}: references Supabase (data access, owner reviews)`;
   return null;
 }
 
