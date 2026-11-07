@@ -18,6 +18,9 @@
 // is pointed at through an injectable readFile.
 import { readFileSync } from 'node:fs';
 import { isEntryPoint } from './entry-point.mjs';
+import { screensMissingFromCoverage } from './walk-fixtures.mjs';
+
+export { screensMissingFromCoverage };
 
 export const ENGINES = Object.freeze(['chromium', 'webkit']);
 
@@ -166,11 +169,13 @@ function verdictOf(headSha, reasons, cited, doubts) {
   };
 }
 
-function judge(input, report) {
-  const reasons = [];
+// `pre` = reasons found before judging (the `coverage:` ones); [] keeps the
+// two-argument verdict byte-for-byte.
+function judge(input, report, pre = []) {
+  const reasons = [...pre];
   const v = validateJudgeInput(input);
-  if (!v.ok) return verdictOf(isObj(input) ? input.headSha : '', v.errors.map((e) => `input: ${e}`), [], []);
-  if (!isObj(report)) return verdictOf(input.headSha, ['report is not an object'], [], []);
+  if (!v.ok) return verdictOf(isObj(input) ? input.headSha : '', [...pre, ...v.errors.map((e) => `input: ${e}`)], [], []);
+  if (!isObj(report)) return verdictOf(input.headSha, [...pre, 'report is not an object'], [], []);
   if (report.headSha !== input.headSha) {
     reasons.push(`report head ${String(report.headSha)} is not the judged head ${input.headSha}`);
   }
@@ -237,14 +242,34 @@ function judge(input, report) {
 
 /**
  * The verdict. Never throws; a throw anywhere inside is itself a red verdict.
+ * `coverage` (optional) is docs/design/walk-coverage.json: when given (anything
+ * but `undefined`, so `null` is a malformed table), every problem
+ * screensMissingFromCoverage(coverage, input.screens) finds is a red reason
+ * prefixed `coverage:`. Omitted, the verdict is exactly the two-argument one.
  * @returns {{verdict:'pass'|'red'|'doubt', headSha:string, reasons:string[],
  *   cited:{check:string, measured:number, threshold:number}[], engines:string[], invalidatedBy:'any push'}}
  */
-export function judgeVerdict(input, report) {
+export function judgeVerdict(input, report, coverage) {
+  return judgeSafe(input, report, () => (coverage === undefined ? []
+    : screensMissingFromCoverage(coverage, isObj(input) ? input.screens : undefined).map((p) => `coverage: ${p}`)));
+}
+
+const thrownMessage = (err) => (err && err.message ? err.message : String(err));
+
+// A throw inside the coverage thunk (a hostile getter on `coverage` or
+// `input.screens`) is ONE `coverage:` reason, kept first; judge(...) still runs.
+// If judge(...) itself throws, the coverage reasons found so far are kept too.
+function judgeSafe(input, report, preReasons) {
+  let pre;
   try {
-    return judge(input, report);
+    pre = preReasons();
   } catch (err) {
-    return verdictOf('', [`judge threw: ${err && err.message ? err.message : String(err)}`], [], []);
+    pre = [`coverage: coverage check threw: ${thrownMessage(err)}`];
+  }
+  try {
+    return judge(input, report, pre);
+  } catch (err) {
+    return verdictOf('', [...pre, `judge threw: ${thrownMessage(err)}`], [], []);
   }
 }
 
@@ -265,7 +290,7 @@ export function isPass(v, expectedHeadSha) {
     && v.invalidatedBy === INVALIDATED_BY;
 }
 
-const USAGE = 'usage: node scripts/lib/walk-judge.mjs --input <input.json> --report <report.json>';
+const USAGE = 'usage: node scripts/lib/walk-judge.mjs --input <input.json> --report <report.json> [--coverage <walk-coverage.json>]';
 
 function argValue(argv, flag) {
   const i = argv.indexOf(flag);
@@ -279,13 +304,29 @@ export function main(argv = [], deps = {}) {
   const error = deps.error || ((s) => console.error(s));
   const inputPath = argValue(argv, '--input');
   const reportPath = argValue(argv, '--report');
-  if (!inputPath || !reportPath) { error(USAGE); return 2; }
+  const coverageGiven = argv.includes('--coverage');
+  const coveragePath = argValue(argv, '--coverage');
+  if (!inputPath || !reportPath || (coverageGiven && !coveragePath)) { error(USAGE); return 2; }
   let verdict;
   let expectedHead = null;
   try {
     const input = JSON.parse(readFile(inputPath));
     expectedHead = isObj(input) ? input.headSha : null;
-    verdict = judgeVerdict(input, JSON.parse(readFile(reportPath)));
+    const report = JSON.parse(readFile(reportPath));
+    let coverage;
+    let coverageError = null;
+    if (coveragePath) {
+      try {
+        coverage = JSON.parse(readFile(coveragePath));
+      } catch (err) {
+        coverageError = `coverage: could not read ${coveragePath}: ${err && err.message ? err.message : String(err)}`;
+      }
+    }
+    // An unreadable coverage file is red, never "no coverage given".
+    // Judged in full either way, so every other red reason is still reported.
+    verdict = coverageError
+      ? judgeSafe(input, report, () => [coverageError])
+      : judgeVerdict(input, report, coverage);
   } catch (err) {
     verdict = verdictOf('', [`could not read input: ${err && err.message ? err.message : String(err)}`], [], []);
   }

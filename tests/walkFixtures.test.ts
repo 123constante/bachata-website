@@ -11,6 +11,7 @@ import {
   coverageGaps,
   uncoveredUiFiles,
   validateCoverage,
+  screensMissingFromCoverage,
   main,
 } from '../scripts/lib/walk-fixtures.mjs';
 
@@ -144,5 +145,52 @@ describe('walk-fixtures r1: empties are errors, never "no gaps"', () => {
     const code = main(['--survey', 's.json'], { readFile: () => '[]', log: (s: string) => out.push(s), error: (s: string) => out.push(s) });
     expect(code).toBe(1);
     expect(out.join('\n')).toMatch(/empty/);
+  });
+});
+
+// ---- brief walk-judge-screens-tied-to-coverage: the lane's screen list is
+// compared with docs/design/walk-coverage.json (cases C1 to C12).
+describe('walk-fixtures: screensMissingFromCoverage', () => {
+  const A = 'published.class.nonempty.upcoming.normal';
+  const B = 'published.class.nonempty.upcoming.huge';
+  const row = (id: string, shapes: string[], extra: Record<string, unknown> = {}) => ({ id, uiFiles: [`src/pages/${id}.tsx`], walk: `${id}-walk`, shapes, ...extra });
+  const cov = (...screens: unknown[]) => ({ schemaVersion: 1, screens });
+  const COV = cov(row('event-page', [A, B]), row('calendar', [A]), row('example-screen', [A], { example: true }));
+  const cases: [string, unknown, unknown, RegExp[]][] = [
+    ['C1 exact match', COV, [{ id: 'event-page', shapes: [A, B] }, { id: 'calendar', shapes: [A] }], []],
+    ['C2 extra input shapes are fine', COV, [{ id: 'event-page', shapes: [B, A, 'x.y.empty.past.normal'] }, { id: 'calendar', shapes: [A] }], []],
+    ['C3 coverage screen missing from input', COV, [{ id: 'event-page', shapes: [A, B] }], [/^screen calendar is required by walk-coverage\.json but not in input\.screens$/]],
+    ['C4 extra input screen', COV, [{ id: 'event-page', shapes: [A, B] }, { id: 'calendar', shapes: [A] }, { id: 'stray', shapes: [A] }], [/^screen stray is in input\.screens but not in walk-coverage\.json$/]],
+    ['C5 missing shape', COV, [{ id: 'event-page', shapes: [A] }, { id: 'calendar', shapes: [A] }], [new RegExp(`^screen event-page: shape ${B.replace(/\./g, '\\.')} is required by walk-coverage\\.json but not in input\\.screens$`)]],
+    ['C6 example row ignored (not required)', COV, [{ id: 'event-page', shapes: [A, B] }, { id: 'calendar', shapes: [A] }], []],
+    ['C7 example row ignored (not a real screen)', COV, [{ id: 'event-page', shapes: [A, B] }, { id: 'calendar', shapes: [A] }, { id: 'example-screen', shapes: [A] }], [/^screen example-screen is in input\.screens but is only an example row in walk-coverage\.json$/]],
+    ['C8 empty coverage', cov(), [{ id: 'event-page', shapes: [A] }], [/no non-example screens/]],
+    ['C9 only example rows', cov(row('example-screen', [A], { example: true })), [{ id: 'example-screen', shapes: [A] }], [/no non-example screens/]],
+    ['C10 malformed coverage', { schemaVersion: 1, screens: 'nope' }, [{ id: 'event-page', shapes: [A] }], [/^walk-coverage is malformed: /]],
+    ['C11 coverage not an object', null, [{ id: 'event-page', shapes: [A] }], [/^walk-coverage is malformed: /]],
+    ['C12 input screens not a list', COV, 'event-page', [/^input\.screens is malformed/]],
+    ['C13 input screen without shapes', COV, [{ id: 'event-page' }, { id: 'calendar', shapes: [A] }], [/^input\.screens is malformed/]],
+    ['C15 required screen with no shapes is not "agrees"', cov(row('event-page', [])), [{ id: 'event-page', shapes: [A] }], [/^screen event-page lists no shapes/]],
+    ['C16 repeated input screen id', COV, [{ id: 'calendar', shapes: [A] }, { id: 'calendar', shapes: [] }], [/^input\.screens is malformed/]],
+    ['C17 non-string input shape', COV, [{ id: 'event-page', shapes: [A, 7] }, { id: 'calendar', shapes: [A] }], [/^input\.screens is malformed/]],
+    ['C14 several problems, all reported', COV, [{ id: 'event-page', shapes: [A] }, { id: 'stray', shapes: [A] }], [/calendar is required/, /event-page: shape/, /stray is in input/]],
+  ];
+  it.each(cases)('%s', (_name, coverage, screens, want) => {
+    const got = screensMissingFromCoverage(coverage, screens);
+    expect(Array.isArray(got)).toBe(true);
+    expect(got).toHaveLength(want.length);
+    want.forEach((re) => expect(got.some((p: string) => re.test(p))).toBe(true));
+  });
+  it('malformed input of every kind returns ONE problem string and never throws', () => {
+    for (const [c, s] of [[undefined, []], [42, []], [COV, undefined], [COV, [null]], [COV, [{ id: '', shapes: [A] }]], [{ schemaVersion: 2, screens: [] }, []]] as [unknown, unknown][]) {
+      let got: unknown;
+      expect(() => { got = screensMissingFromCoverage(c, s); }).not.toThrow();
+      expect(got).toHaveLength(1);
+      expect(typeof (got as string[])[0]).toBe('string');
+    }
+  });
+  it('the seeded walk-coverage.json (example row only) is red against any screen list', () => {
+    const seeded = JSON.parse(readFileSync(path.resolve(__dirname, '../docs/design/walk-coverage.json'), 'utf8'));
+    expect(screensMissingFromCoverage(seeded, [{ id: 'example-screen', shapes: seeded.screens[0].shapes }]).length).toBeGreaterThan(0);
   });
 });

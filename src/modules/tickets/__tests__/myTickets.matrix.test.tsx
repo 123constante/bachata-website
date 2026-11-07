@@ -13,10 +13,12 @@ vi.mock('@/components/layout/GlobalLayout', () => ({ default: ({ children }: { c
 vi.mock('@/lib/seo', () => ({ useSeo: () => undefined }));
 const auth = { user: { id: 'u1' } as { id: string } | null, authStatus: 'ready' as 'ready' | 'resolving' | 'unavailable', retryAuth: vi.fn() };
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
+const flags = vi.hoisted(() => ({ door: true }));
+vi.mock('@/modules/organiser/p3/door/doorFlags', async (orig) => ({ ...(await orig<object>()), get ticketDoorCode() { return flags.door; } }));
 vi.mock('@/lib/londonDate', async (orig) => ({ ...(await orig<typeof import('@/lib/londonDate')>()), londonTodayKey: () => '2026-11-04' }));
 
 import MyTicketsPage from '../MyTicketsPage';
-import { dateWords, groupTickets, parseMyTickets, qrOpenByDefault, stateCopy, truncatedNote, whenLine, MY_TICKETS_CAP, QR_OPEN_DEFAULT } from '../myTicketsModel';
+import { dateWords, formatShortCode, groupTickets, parseMyTickets, qrOpenByDefault, stateCopy, truncatedNote, whenLine, MY_TICKETS_CAP, QR_OPEN_DEFAULT } from '../myTicketsModel';
 
 const TOKEN = (n: number) => n.toString(16).padStart(64, 'a');
 let seq = 0;
@@ -34,6 +36,20 @@ const row = (o: Partial<Record<string, unknown>> = {}) => ({
   ...o,
 });
 const ok = (tickets: unknown[], extra: Record<string, unknown> = {}) => ({ data: { tickets, truncated: false, total_count: tickets.length, ...extra }, error: null });
+
+/** short_code reply shapes (brief ticket-buyer-short-code-web): value or omitted key -> what the screen shows. */
+const CODE_SHAPES: Array<[string, Record<string, unknown>, string | null]> = [
+  ['with code', { short_code: 'K7M2QX' }, 'K7M 2QX'],
+  ['null', { short_code: null }, null],
+  ['lowercase', { short_code: 'k7m2qx' }, 'K7M 2QX'],
+  ['malformed: banned letter O', { short_code: 'K7M2QO' }, null],
+  ['malformed: too short', { short_code: 'K7M2Q' }, null],
+  ['malformed: grouped with a space', { short_code: 'K7M 2QX' }, null],
+  ['malformed: number', { short_code: 123456 }, null],
+  ['missing key', {}, null],
+];
+const CODE_STATES = ['valid', 'checked in', 'void hidden'] as const;
+const NO_CODE_WORDS = /door code/i;
 
 type Shape = { name: string; reply?: () => unknown; signedOut?: boolean; authStatus?: 'resolving' | 'unavailable'; state: string; check?: () => void };
 
@@ -138,6 +154,65 @@ describe('my tickets page: shape x state matrix', () => {
     const token = TOKEN(seq);
     expect(container.innerHTML.includes(token)).toBe(false);
     for (const c of [...log.mock.calls, ...err.mock.calls]) expect(JSON.stringify(c)).not.toContain(token);
+  });
+});
+
+describe('my tickets: door code (reply shape x ticket state)', () => {
+  afterEach(() => { flags.door = true; vi.restoreAllMocks(); });
+  const cases = CODE_SHAPES.flatMap(([label, extra, want]) => CODE_STATES.map((st) => [label, st, extra, want] as const));
+  it.each(cases)('%s x %s', async (_label, st, extra, want) => {
+    const logs = (['log', 'info', 'warn', 'error', 'debug'] as const).map((k) => vi.spyOn(console, k));
+    const checked = st === 'checked in';
+    // void hidden: the order had 3 tickets, one voided; my_tickets_v1 drops it (t.status <> 'void').
+    const rows = st === 'void hidden' ? [row(extra), row(extra)] : [row({ ...extra, checked_in: checked, checked_in_at: checked ? '2026-11-04T21:42:00Z' : null })];
+    rpc.mockResolvedValue(ok(rows));
+    const { container } = render(<MemoryRouter><MyTicketsPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('my-tickets').getAttribute('data-state')).toBe('ready'));
+    const lines = screen.queryAllByTestId('my-ticket-short-code');
+    expect(screen.getAllByTestId('my-ticket')).toHaveLength(rows.length);
+    if (want === null) {
+      expect(lines).toHaveLength(0);
+      expect(container.textContent).not.toMatch(NO_CODE_WORDS);
+    } else {
+      expect(lines).toHaveLength(rows.length);
+      for (const l of lines) {
+        expect(l.querySelector('[data-testid="door-code-value"]')?.textContent).toBe(want);
+        expect(l.textContent).toMatch(/^Door code/);
+        expect(l.getAttribute('data-checked-in')).toBe(checked ? 'true' : 'false');
+        expect(l.textContent?.includes('Checked in')).toBe(checked);
+        expect(l.querySelector('[data-testid="door-code-value"]')?.className).toContain('font-mono');
+        // directly under the QR, above the Hide QR code toggle
+        const card = l.closest('[data-testid="my-ticket"]') as HTMLElement;
+        const after = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+        const box = card.querySelector('[data-testid="my-ticket-qr-box"]');
+        if (box) expect(after(box, l)).toBe(true);
+        const toggle = within(card).queryByRole('button', { name: /QR code|Show anyway/ });
+        if (toggle && !checked) expect(after(l, toggle)).toBe(true);
+      }
+    }
+    // the QR stays as it was: open on an unchecked ticket, collapsed behind Show anyway when checked in
+    expect(screen.queryAllByTestId('ticket-qr')).toHaveLength(checked ? 0 : rows.length);
+    for (const spy of logs) for (const c of spy.mock.calls) expect(JSON.stringify(c)).not.toMatch(/K7M ?2QX|k7m2qx/i);
+  });
+  it('door flag off: a valid code shows no code line and no words about it', async () => {
+    flags.door = false;
+    rpc.mockResolvedValue(ok([row({ short_code: 'K7M2QX' })]));
+    const { container } = render(<MemoryRouter><MyTicketsPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('ticket-qr')).toBeTruthy());
+    expect(screen.queryByTestId('my-ticket-short-code')).toBeNull();
+    expect(container.textContent).not.toMatch(NO_CODE_WORDS);
+  });
+  it('collapsed QR (4th ticket) and a bad QR token still show the code', async () => {
+    rpc.mockResolvedValue(ok([...Array.from({ length: 4 }, () => row({ short_code: 'ABC234' })), row({ qr_token: 'nope', short_code: 'ABC234' })]));
+    render(<MemoryRouter><MyTicketsPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getAllByTestId('ticket-qr')).toHaveLength(3));
+    expect(screen.getAllByTestId('my-ticket-short-code')).toHaveLength(5);
+  });
+  it('parser: short code per shape', () => {
+    for (const [, extra, want] of CODE_SHAPES) {
+      const t = parseMyTickets({ tickets: [row(extra)] })!.tickets[0];
+      expect(t.shortCode === null ? null : formatShortCode(t.shortCode)).toBe(want);
+    }
   });
 });
 

@@ -4,9 +4,10 @@
  * Supabase: the matrix test drives this file and the page reads only from it.
  *
  * The qr_token is a door secret: it is carried here only to draw the QR and is never put
- * in a string the page logs, links or sends anywhere.
+ * in a string the page logs, links or sends anywhere. The short door code (short_code) is the
+ * same kind of secret: shown to its owner, never logged, linked or stored.
  */
-import { londonClock } from '@/modules/organiser/p3/door/model';
+import { SHORT_CODE_RE, londonClock } from '@/modules/organiser/p3/door/model';
 
 export const MY_TICKETS_PATH = '/account/my-tickets';
 /** = my_tickets_v1's row cap (admin: LIMIT 501 sentinel, 500 returned). */
@@ -26,6 +27,8 @@ export interface MyTicket {
   typeName: string | null;
   ticketId: string;
   qrToken: string | null;
+  /** The 6-character door code, upper case; null when missing or not a code the door accepts. */
+  shortCode: string | null;
   checkedIn: boolean;
   checkedInAt: string | null;
 }
@@ -40,6 +43,23 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TOKEN_RE = /^[0-9a-f]{64}$/;
+
+/** short_code as the door reads it: exactly 6 of the door alphabet, upper-cased; anything else is null (old replies have no key). */
+export function parseShortCode(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const up = v.toUpperCase();
+  return SHORT_CODE_RE.test(up) ? up : null;
+}
+
+/** The one grouping for the door code: "K7M2QX" -> "K7M 2QX" (the door screen's placeholder shape). */
+export const formatShortCode = (code: string): string => `${code.slice(0, 3)} ${code.slice(3)}`;
+
+export const DOOR_CODE_LABEL = 'Door code';
+
+/** What a ticket card shows on the code line: the grouped code, or null (no line, no words about it). Off until the door can take it. */
+export function doorCodeText(code: string | null, doorAcceptsCodes: boolean): string | null {
+  return doorAcceptsCodes && code ? formatShortCode(code) : null;
+}
 
 /** Null when the reply is not the RPC's shape at all (reads as an error, never as "no tickets"). */
 export function parseMyTickets(data: unknown): MyTicketsReply | null {
@@ -66,6 +86,7 @@ export function parseMyTickets(data: unknown): MyTicketsReply | null {
       typeName: str(r.ticket_type_name),
       // Only a token the door would accept is drawn; anything else shows "QR unavailable".
       qrToken: token && TOKEN_RE.test(token) ? token : null,
+      shortCode: parseShortCode(r.short_code),
       checkedIn: r.checked_in === true || str(r.checked_in_at) !== null,
       checkedInAt: str(r.checked_in_at),
     });
@@ -183,9 +204,10 @@ export interface OrderQrTicket {
   typeName: string;
   qrToken: string;
   checkedIn: boolean;
+  shortCode: string | null;
 }
 
-/** my_ticket_order_qr_v1's reply: only `{tickets: [...]}`; a row without all four valid fields is dropped; anything else is null (an error). */
+/** my_ticket_order_qr_v1's reply: only `{tickets: [...]}`; a row without all four valid fields is dropped (a bad short_code is null, never a drop); anything else is null (an error). */
 export function parseOrderQr(data: unknown): OrderQrTicket[] | null {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const rows = (data as Record<string, unknown>).tickets;
@@ -196,7 +218,7 @@ export function parseOrderQr(data: unknown): OrderQrTicket[] | null {
     const r = raw as Record<string, unknown>;
     if (typeof r.ticket_id !== 'string' || typeof r.ticket_type_name !== 'string' || typeof r.checked_in !== 'boolean') continue;
     if (typeof r.qr_token !== 'string' || !TOKEN_RE.test(r.qr_token)) continue;
-    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in });
+    out.push({ ticketId: r.ticket_id, typeName: r.ticket_type_name, qrToken: r.qr_token, checkedIn: r.checked_in, shortCode: parseShortCode(r.short_code) });
   }
   return out;
 }

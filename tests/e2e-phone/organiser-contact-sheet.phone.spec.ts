@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, ORG2_SLUG, settled } from './helpers';
+import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, ORG2_SLUG, settled, MIN_TAP_PX } from './helpers';
 
 /**
  * The Contact card and the ONE "Contact details" sheet (mockup "Contact sheet",
@@ -49,7 +49,7 @@ async function sheetChecks(page: Page, label: string) {
   expect(d, `${label}: Done box`).not.toBeNull();
   expect(d!.y, `${label}: Done top`).toBeGreaterThanOrEqual(0);
   expect(d!.y + d!.height, `${label}: Done bottom on screen`).toBeLessThanOrEqual(vp.height + 0.5);
-  expect(d!.height, `${label}: Done height`).toBeGreaterThanOrEqual(44);
+  expect(d!.height, `${label}: Done height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
   const hit = await done.evaluate((el) => {
     const r = el.getBoundingClientRect();
     const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
@@ -75,7 +75,7 @@ for (const vp of SIZES) {
       await expect(card).not.toContainText('7700 900123');
       const row = card.getByRole('button', { name: 'Edit contact details' });
       const r = await row.boundingBox();
-      expect(r!.height, 'edit row tap target').toBeGreaterThanOrEqual(44);
+      expect(r!.height, 'edit row tap target').toBeGreaterThanOrEqual(MIN_TAP_PX);
       expect(r!.x + r!.width, 'edit row inside the screen').toBeLessThanOrEqual(vp.width + 0.5);
       expect(await checkOverflow(page), 'no sideways scroll with the contact card').toEqual([]);
       await card.scrollIntoViewIfNeeded();
@@ -96,16 +96,16 @@ for (const vp of SIZES) {
       expect(await phone.evaluate((el) => getComputedStyle(el).fontSize)).toBe('16px');
       const country = sheet.getByRole('button', { name: /^Country: United Kingdom \+44$/ });
       const c = await country.boundingBox();
-      expect(c!.height, 'country picker height').toBeGreaterThanOrEqual(44);
+      expect(c!.height, 'country picker height').toBeGreaterThanOrEqual(MIN_TAP_PX);
       expect(c!.x + c!.width, 'country picker inside the sheet').toBeLessThanOrEqual(vp.width + 0.5);
       const p = await phone.boundingBox();
-      expect(p!.height, 'phone box height').toBeGreaterThanOrEqual(44);
+      expect(p!.height, 'phone box height').toBeGreaterThanOrEqual(MIN_TAP_PX);
       expect(p!.x + p!.width, 'phone box inside the screen').toBeLessThanOrEqual(vp.width + 0.5);
       for (const name of ['Phone on your page', 'Email on your page']) {
         const s = sheet.getByRole('switch', { name });
         const b = await s.boundingBox();
-        expect(b!.width, `${name} width`).toBeGreaterThanOrEqual(44);
-        expect(b!.height, `${name} height`).toBeGreaterThanOrEqual(44);
+        expect(b!.width, `${name} width`).toBeGreaterThanOrEqual(MIN_TAP_PX);
+        expect(b!.height, `${name} height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
       }
       await expect(sheet.getByRole('switch', { name: 'Phone on your page' })).toHaveAttribute('aria-checked', 'true');
       await expect(sheet.getByRole('switch', { name: 'Email on your page' })).toHaveAttribute('aria-checked', 'false');
