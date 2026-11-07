@@ -14,3 +14,5 @@ Branch claude/people-join-any-two. Block "Join two people" on /admin/organisers,
 
 ## Next
 - Lead: dry run on the real Florian pair with an admin session; 390x844 walk.
+
+tsc run on aa12d81: 0 errors in branch files (tsconfig.app.json).
