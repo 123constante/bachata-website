@@ -8,6 +8,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { flags } from '@/lib/featureFlags';
 import PersonHub from './hub/PersonHub';
+import { AmbassadorBadge } from '@/modules/ambassador/link/AmbassadorBadge';
 import {
   ROLE_LABEL,
   TAB_HASH,
@@ -125,6 +126,7 @@ function TabbedPersonPage({ person, slugOrId, publicPage = null }: Props) {
               </span>
             ))}
           </p>
+          <AmbassadorBadge userId={person.id} />
           {person.city || handle ? (
             <div className="flex flex-wrap items-center justify-center gap-x-3 text-sm text-foreground/80">
               {person.city ? (
