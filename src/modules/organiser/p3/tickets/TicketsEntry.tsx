@@ -50,6 +50,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 // Promo codes ride in their own chunk: nothing added to the Tickets sheet's first load.
 const PromoSection = lazyWithRetry(() => import('./promo/PromoSection'));
 
+const SalesReport = lazyWithRetry(() => import('./SalesReport').then((m) => ({ default: m.SalesReport })));
+
 /**
  * The event page's Tickets entry (W-T, mockup C): a row under Status that opens ONE tall
  * sheet (ticket types, then the latest two orders with See all; the orders view has Back).
@@ -328,7 +330,14 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               )}
             </div>
           ) : (
+            <>
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
+            {orders.isSuccess && (
+              <Suspense fallback={null}>
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} />
+              </Suspense>
+            )}
+            </>
           )}
         </StackSheet>
       )}
