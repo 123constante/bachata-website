@@ -194,7 +194,7 @@ export function AboutSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenS
 /**
  * The owner's empty About line. It carries the SAME bio pencil the filled-bio slot renders
  * (AboutSlot, not a second pencil), inline at the end of the sentence so it flows after the
- * last word and can never sit over one (docs/design/organiser-about-empty-pencil.md).
+ * last word and can never sit over one (docs/design/1473.md).
  */
 export const AboutEmpty = ({ drafted, onOpen }: { drafted: boolean; onOpen: OpenSheet }) => (
   <p style={{ margin: 0, fontSize: 14, lineHeight: '20px', color: 'var(--eip-mut, rgba(246,241,234,0.6))' }} data-testid="eip-about-empty">
