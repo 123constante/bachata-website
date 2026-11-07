@@ -30,7 +30,7 @@ const ROW = { id: "ev-1", event_id: "ev-1", name: "Friday Social" };
 
 function fakeRpc(failing: Set<Feed>) {
   rpc.mockImplementation(async (fn: string, args?: Record<string, unknown>) => {
-    if (fn !== "get_organiser_public_events_v1" && fn !== "get_organiser_calendar_events_v1") {
+    if (fn !== "get_organiser_public_events_v1" && fn !== "get_organiser_nights_v2") {
       return { data: null, error: null };
     }
     const feed: Feed =
@@ -90,4 +90,13 @@ describe("organiser loader: a failed feed is never dehydrated or cached", () => 
       expect(headers.get("Vercel-Cache-Tag")).toBeNull();
     },
   );
+
+  it("future feed asks v2 for the capped upcoming list; past feed asks v2 with include_past", async () => {
+    fakeRpc(new Set());
+    await run();
+    const v2 = rpc.mock.calls.filter((c) => c[0] === "get_organiser_nights_v2").map((c) => c[1] as Record<string, unknown>);
+    expect(v2.some((a) => a.p_include_past === false && a.p_upcoming_limit === 20)).toBe(true);
+    expect(v2.some((a) => a.p_include_past === true)).toBe(true);
+    expect(rpc.mock.calls.some((c) => c[0] === "get_organiser_calendar_events_v1")).toBe(false);
+  });
 });

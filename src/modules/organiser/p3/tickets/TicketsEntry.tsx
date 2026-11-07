@@ -18,6 +18,8 @@ import {
   priceLabel,
   reasonMessage,
   refundable,
+  withPendingRefund,
+  type PendingRefund,
   switchMove,
   type MoveContext,
   type Order,
@@ -50,6 +52,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 // Promo codes ride in their own chunk: nothing added to the Tickets sheet's first load.
 const PromoSection = lazyWithRetry(() => import('./promo/PromoSection'));
 
+const SalesReport = lazyWithRetry(() => import('./SalesReport').then((m) => ({ default: m.SalesReport })));
+
 /**
  * The event page's Tickets entry (W-T, mockup C): a row under Status that opens ONE tall
  * sheet (ticket types, then the latest two orders with See all; the orders view has Back).
@@ -81,6 +85,32 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [refunding, setRefunding] = useState<Order | null>(null);
+  // Per order AND its refunded amount: partial-refund keys still waiting for a definite answer
+  // (amount -> request_id), kept across the Refund sheet closing so a retry after a network failure
+  // is the same press. Once the webhook moves refunded_pence, the old keys no longer apply.
+  const refundKeys = useRef(new Map<string, Map<number, string>>());
+  const NO_KEYS: ReadonlyMap<number, string> = new Map();
+  const keysOf = (scope: string): ReadonlyMap<number, string> => refundKeys.current.get(scope) ?? NO_KEYS;
+  const holdKey = (scope: string, pence: number, key: string | null) => {
+    if (key === null) {
+      refundKeys.current.get(scope)?.delete(pence);
+      return;
+    }
+    // The Map is made on the first press, never while rendering.
+    const m = refundKeys.current.get(scope) ?? new Map<number, string>();
+    m.set(pence, key);
+    refundKeys.current.set(scope, m);
+  };
+  // refunded_pence lags the webhook: pence sent and not yet on the order row, per order, counted only
+  // while the row still shows the figure it had when they were sent (so it clears when the row moves).
+  const [pendingRefund, setPendingRefund] = useState<ReadonlyMap<string, PendingRefund>>(new Map());
+  const noteSent = (o: Order, pence: number) =>
+    setPendingRefund((m) => {
+      const n = new Map(m);
+      const prev = n.get(o.id);
+      n.set(o.id, { base: o.refundedPence, pence: (prev && prev.base === o.refundedPence ? prev.pence : 0) + pence });
+      return n;
+    });
   // Orders whose refund is on its way: their Refund button waits for the answer (never a second request).
   const [inFlight, setInFlight] = useState<ReadonlySet<string>>(new Set());
   const flight = (id: string, on: boolean) =>
@@ -197,7 +227,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
               </div>
             </div>
-            {manager && refundable(o) && (
+            {manager && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
               <button
                 type="button"
                 className="p3-btn p3-btn-line p3-btn-sm"
@@ -328,7 +358,14 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               )}
             </div>
           ) : (
+            <>
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
+            {orders.isSuccess && (
+              <Suspense fallback={null}>
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} />
+              </Suspense>
+            )}
+            </>
           )}
         </StackSheet>
       )}
@@ -364,13 +401,16 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       )}
       {open && refunding && (
         <RefundSheet
-          order={refunding}
+          order={withPendingRefund(refunding, pendingRefund.get(refunding.id))}
           typeName={many ? typeName.get(refunding.typeId) ?? null : null}
           today={today}
           onClose={() => setRefunding(null)}
           onLate={late}
           onStart={() => flight(refunding.id, true)}
           onSettled={() => flight(refunding.id, false)}
+          onSent={(p) => noteSent(refunding, p)}
+          getKeys={() => keysOf(`${refunding.id}:${refunding.refundedPence}`)}
+          setKey={(p, k) => holdKey(`${refunding.id}:${refunding.refundedPence}`, p, k)}
           onDone={(text) => {
             setRefunding(null);
             say(text);

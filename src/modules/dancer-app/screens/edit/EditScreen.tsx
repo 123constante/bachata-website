@@ -9,7 +9,6 @@ import { useMutation } from '@tanstack/react-query';
 import { CityPicker } from '@/components/ui/city-picker';
 import { InstagramInput } from '@/components/forms/InstagramInput';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { sanitizeReturnTo } from '@/lib/authRouting';
 // The phone field (+ its country list) loads with this screen, not with /app (bundle budget, invite W2).
 const PhoneInput = lazyWithRetry(() => import('@/components/forms/PhoneInput').then((m) => ({ default: m.PhoneInput })));
 import { NationalityPicker } from '@/components/ui/nationality-picker';
@@ -45,7 +44,7 @@ import {
 import { useMyDancerEdit, usePutMyDancerEdit } from '../../api/useMyDancerEdit';
 import { Avatar, QueryGate } from '../me/ui';
 import { ChipChoice, ChipListInput, Field, INPUT_CLASS, TextInput } from './fields';
-import { SAVE_DONE, chipFor, nationalityCodeForPick, styleChipOptions } from './editModel';
+import { SAVE_DONE, ME_PATH, chipFor, editReturnNote, editReturnTarget, nationalityCodeForPick, styleChipOptions } from './editModel';
 
 const LanguagePicker = lazyWithRetry(() => import('./LanguagePicker'));
 const GoingPhotoSwitch = lazyWithRetry(() => import('./GoingPhotoSwitch'));
@@ -129,7 +128,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   const hints = useMemo(() => ({ ...storedValueHints(draft, profile), ...instagramMoveNotes(draft, profile) }), [draft, profile]);
   const delta = useMemo(() => buildDelta(profile, draft), [profile, draft]);
   // ?returnTo= (instagram-refusal r2: a P3 checklist row opened this screen): a save goes back there. Same-site only.
-  const returnTo = sanitizeReturnTo(search.get('returnTo'), { exclude: '/app/me/edit' });
+  const returnTo = editReturnTarget(search.get('returnTo'));
 
   const mutation = useMutation({
     mutationFn: (d: DancerDelta) => saveMyDancerProfile(d, profile),
@@ -169,6 +168,8 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   useEffect(() => {
     dirtyRef.current = dirty;
   }, [dirty]);
+  const backTo = returnTo ?? ME_PATH;
+  const returnNote = editReturnNote(returnTo, search.get('focus'));
   const [leaveTo, setLeaveTo] = useState<string | null>(null);
   useLeaveGuard((to) => {
     if (!dirtyRef.current) return true;
@@ -240,11 +241,14 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       className="grid gap-[12px]"
     >
       <div className="flex items-center gap-[4px]">
-        <Link to="/app/me" onClick={leave('/app/me')} className="da-tap inline-flex flex-none basis-[44px] items-center justify-center" aria-label="Back" data-testid="edit-header-back">
+        <Link to={backTo} onClick={leave(backTo)} className="da-tap inline-flex flex-none basis-[44px] items-center justify-center" aria-label="Back" data-testid="edit-header-back">
           <ChevronLeft aria-hidden="true" className="h-[24px] w-[24px]" />
         </Link>
         <ScreenTitle>Edit my profile</ScreenTitle>
       </div>
+      {returnNote && (
+        <p data-testid="edit-return-note" className="m-0 text-[14px]">{returnNote}</p>
+      )}
 
       {topError && (
         <Card variant="padded" role="alert" testId="edit-top-error" className="border-[var(--danger)]">
@@ -443,7 +447,7 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
         {saved && reason !== null && !mutation.isPending && (
           <p role="status" data-testid="edit-saved" className="m-0 text-[14px]">{SAVE_DONE}</p>
         )}
-        <Link to="/app/me" onClick={leave('/app/me')} className={LINK_GHOST}>Back to Me</Link>
+        <Link to={backTo} onClick={leave(backTo)} className={LINK_GHOST}>{returnTo ? 'Back to where you were' : 'Back to Me'}</Link>
       </div>
       <SheetView open={leaveTo !== null} onOpenChange={(o) => !o && setLeaveTo(null)} title="Discard changes?" description="You have changes that are not saved yet.">
         <div className="grid gap-[8px]">

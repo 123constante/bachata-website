@@ -16,6 +16,8 @@ export interface TeamMember {
   userId: string;
   /** The member's dancer profile id when organiser_team_v1 sends one; else it is taken to be userId. */
   profileId?: string | null;
+  /** organiser_team_v1 `person_id`: the seat's dancer persona (matches organiser_public_team_v1.person_id); null = none. */
+  personId?: string | null;
   role: TeamRole;
   isPrimary: boolean;
   /** When the person joined (a real instant, not local-as-Z). */
@@ -42,6 +44,7 @@ export function parseTeam(raw: unknown): TeamMember[] {
     members.push({
       userId: row.user_id,
       profileId: str(row.profile_id),
+      personId: str(row.person_id),
       role,
       isPrimary: row.is_primary === true,
       joinedAt: str(row.joined_at),

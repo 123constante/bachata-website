@@ -9,14 +9,12 @@ import { MAX_ORGANISER_STATS, organiserStats, type OrganiserStat, type Organiser
  * - a feed failed: only the stats that need nothing from it are kept; the
  *   failed feed's own headline stat is a marked dash (never 0, never a number
  *   from half the data):
- *   - future failed: "Next night" is a dash. "Last night" is dropped (it only
- *     means "nothing upcoming", which is now unknowable); "Every week" needs
- *     both feeds and is dropped.
- *   - past failed: "Nights hosted" is a dash. "Every week" and the estimated
- *     "Running" (earliest listed night) are dropped; a real founded year stays.
+ *   - future failed: "Next night" is a dash (nothing upcoming is now unknowable).
+ *   - past failed: "Nights hosted" is a dash. The estimated "Running" (earliest
+ *     listed night) is dropped; a real founded year stays.
  * - The events feed is the join source for both lists, so it failing fails both.
  *
- * Order stays the mapping's (next/last, ..., hosted, ..., running since), at
+ * Order stays the mapping's (next night, nights hosted, running since), at
  * most MAX_ORGANISER_STATS.
  */
 export interface ShownOrganiserStat extends OrganiserStat {
@@ -44,7 +42,7 @@ const dash = (key: 'next_night' | 'nights_hosted'): ShownOrganiserStat => ({
 });
 
 const ORDER: Record<string, number> = {
-  next_night: 0, last_night: 0, tickets_sold: 1, dancers_came: 2, nights_hosted: 3, weekly_rhythm: 4, running_since: 5, venues: 6,
+  next_night: 0, nights_hosted: 1, running_since: 2,
 };
 
 export function organiserStatsByFeed(i: StatsByFeedInput): ShownOrganiserStat[] {
@@ -52,7 +50,7 @@ export function organiserStatsByFeed(i: StatsByFeedInput): ShownOrganiserStat[] 
     ...(i.upcomingFailed ? [] : i.upcoming.map((n) => ({ ...n, isPast: false }))),
     ...(i.pastFailed ? [] : i.past.map((n) => ({ ...n, isPast: true }))),
   ];
-  const all = organiserStats({ now: i.now, nights, foundedYear: i.foundedYear, ticketsSold: null, dancersCame: null });
+  const all = organiserStats({ now: i.now, nights, foundedYear: i.foundedYear });
   if (!i.upcomingFailed && !i.pastFailed) return all;
   // The mapping caps at three, so a stat it dropped for room may be needed once the
   // failed feed's stats are gone: read each survivor from its own call.

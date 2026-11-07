@@ -1,6 +1,5 @@
-﻿import { withPublicNames } from '@/lib/publicDancerNames';
-import { resolvePublicName } from '@/lib/publicName';
-import React from 'react';
+﻿import React from 'react';
+import { heroBio } from '@/modules/profile/organiserHeroBio';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -67,13 +66,17 @@ import { RetryButton } from '@/modules/profile/RetryButton';
 import { useStickyFailure } from '@/modules/profile/useStickyFailure';
 import { pickNationalityCode } from '@/components/people/nationality';
 import { usePeopleBadges } from '@/modules/person-page/badges';
-import { buildOrganiserTeam } from '@/modules/profile/organiserTeam';
+import { teamFromPublicRows } from '@/modules/profile/organiserTeam';
+import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { OrganiserStatsStrip } from '@/modules/profile/OrganiserStatsStrip';
 import { OrganiserGetInTouch, buildContactRows } from '@/modules/profile/OrganiserGetInTouch';
 import { OrganiserTeamSection } from '@/modules/profile/OrganiserTeamSection';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import { useListImpressions } from '@/lib/listImpressions';
-import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
+import { type EventRowProps } from '@/components/events/EventRow';
+import NightsCard from '@/modules/profile/NightsCard';
+import PastHighlights from '@/modules/profile/PastHighlights';
+import { countdownChip, venueCityLine, seriesCityLabel, upcomingWording, cardMetaLine, actionLabel as nightsActionLabel, pastCounts, fallbackInitials } from '@/modules/profile/nightsCardModel';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 import { ReportProblemLink } from '@/lib/contactLinks';
@@ -95,7 +98,7 @@ import {
 
 // --- Types ---
 
-type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null };
+type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null; cityName?: string | null };
 
 type UpcomingListItem =
   | { kind: 'single'; event: OrgEvent }
@@ -105,19 +108,11 @@ type UpcomingListItem =
       name: string;
       posterUrl: string | null;
       location: string | null;
+      cityLabel: string | null;
       dates: OrgEvent[];
     };
 
-type TeamMember = {
-  id: string;
-  memberId: string;
-  dancerId: string | null;
-  /** Public name, or null when the person has none (the Team mapping then leaves them out). */
-  name: string | null;
-  avatarUrl: string | null;
-  nationalityCode: string | null;
-  sortOrder: number | null;
-};
+const EMPTY_NATIONALITY: ReadonlyMap<string, string | null> = new Map();
 
 type EntityProfile = {
   id: string;
@@ -435,7 +430,7 @@ const buildEventRowProps = (
 ): EventRowProps => {
   const { day, mon } = dateParts(event.displayStart);
   const time = eventTime(event.displayStart);
-  const venue = event.location?.trim() || event.city?.trim() || '';
+  const venue = venueCityLine(event.location, event.cityName ?? event.city) ?? '';
   const meta = overrides?.meta ?? [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
   const href = event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`;
   return {
@@ -448,6 +443,36 @@ const buildEventRowProps = (
     fallbackIndex,
     chip: overrides?.chip,
     onClick: overrides?.onClick,
+  };
+};
+
+// Props for the Next nights card (design D4). A series passes `series` and gets no time.
+const buildNightsCardProps = (
+  event: OrgEvent,
+  todayKey: string,
+  fallbackIndex: number,
+  organiserName: string,
+  series?: { name: string; posterUrl: string | null; location: string | null; cityLabel: string | null; dateCount: number; tag?: string; onClick: () => void },
+) => {
+  const key = formatWallClockLocal(event.displayStart, 'yyyy-MM-dd');
+  const chip = countdownChip(key, todayKey);
+  const name = series?.name ?? event.name;
+  const venue = series ? venueCityLine(series.location, series.cityLabel) : venueCityLine(event.location, event.cityName ?? event.city);
+  const { day, mon } = dateParts(event.displayStart);
+  return {
+    href: event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`,
+    onClick: series?.onClick,
+    name,
+    posterUrl: series ? series.posterUrl : event.poster_url,
+    weekday: formatWallClockLocal(event.displayStart, 'EEEE') ?? '',
+    day,
+    month: mon,
+    chipText: chip?.text ?? null,
+    chipSoon: chip?.soon ?? false,
+    metaLine: cardMetaLine(venue, series ? null : eventTime(event.displayStart)),
+    actionLabel: series?.tag ? `See ${series.tag}` : nightsActionLabel(series ? 'series' : 'single', series?.dateCount ?? 1),
+    initials: fallbackInitials(name, organiserName),
+    fallbackIndex,
   };
 };
 
@@ -611,7 +636,9 @@ const OrganiserProfile = () => {
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
   const [showAllPastYears, setShowAllPastYears] = useState(false);
-  const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [pastListOpen, setPastListOpen] = useState(false);
+  const [openPastYears, setOpenPastYears] = useState<Set<string>>(() => new Set());
+  const [bioExpanded, setBioExpanded] = useState(false);
   const [expandedPastYears, setExpandedPastYears] = useState<Set<string>>(() => new Set());
   const [editForm, setEditForm] = useState({
     name: '',
@@ -721,39 +748,14 @@ const OrganiserProfile = () => {
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
-    // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
-    // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
-    // owner layer's team read, so the Team card never showed.
-    queryKey: ['organiser-lineup', id],
-    queryFn: async (): Promise<TeamMember[]> => {
-      if (!id) return [];
-      const { data: teamRows, error } = await supabase
-        .from('organiser_team_members')
-        .select('id, sort_order, member_profile_id, is_active')
-        .eq('organiser_profile_id', id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true, nullsFirst: false });
-      // Throw, not `[]`: a failed roster is an error line, not "no team" (S1).
-      if (error) throw new Error(error.message ?? JSON.stringify(error));
-      if (!teamRows?.length) return [];
-      const memberIds = teamRows.map((r) => r.member_profile_id);
-      const { data: dancerRows, error: dancerError } = await supabase
-        .from('dancer_profiles')
-        .select('id, first_name, avatar_url, nationality')
-        .in('id', memberIds);
-      // The names read failing is the TEAM failing (fix round 1, review LOW-4): with no
-      // names the mapping drops everyone, which would read as "no team".
-      if (dancerError) throw new Error(dancerError.message ?? JSON.stringify(dancerError));
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
-      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
-      const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
-      return teamRows.map((t) => {
-        const d = dancerMap.get(t.member_profile_id);
-        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || null;
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), sortOrder: t.sort_order ?? null };
-      });
-    },
+  // P2: the public Team is organiser_public_team_v1 -- owners, managers, then listed
+  // people, already filtered (hides, opt-outs, inactive) and ordered (sort_key) by the
+  // RPC. Its key is NOT ['organiser-team', id] (organiser_team_v1, the owner layer's
+  // access read). The direct organiser_team_members read stays the edit layer's source.
+  const { data: publicTeamRows = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
+    queryKey: organiserPublicTeamKey(id),
+    // Throws on error or a bad shape: a failed read is an error line, not "no team" (S1).
+    queryFn: () => fetchOrganiserPublicTeam(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -765,20 +767,24 @@ const OrganiserProfile = () => {
   const { failed: pastOccsError } = useStickyFailure(pastOccsErrorRaw, pastOccsFetching);
   const { failed: teamMembersError, retrying: teamMembersRetrying } = useStickyFailure(teamMembersErrorRaw, teamMembersFetching);
 
-  // S3 (read side): the ONE Team mapping. `listed` is the public line-up this
-  // page already reads (active rows only, so hidden is false); `access`
-  // (owners + managers) is empty until an admin RPC makes them publicly
-  // readable -- docs/handover/organiser-page-p1.md. A person links to their
-  // dancer page by id (the dancer route takes a slug or an id).
-  const team = useMemo(() => buildOrganiserTeam({
-    listed: teamMembers.map((m) => ({ personId: m.memberId, name: m.name, avatarUrl: m.avatarUrl, slug: m.dancerId, sortOrder: m.sortOrder, hidden: false })),
-    access: [],
-  }), [teamMembers]);
-  const teamCount = team.people.length + team.overflow.length;
-  // Restored from main (fix round 1): each circle's flag, and the role-aware link
-  // from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
-  const teamNationality = useMemo(() => new Map(teamMembers.map((m) => [m.memberId, m.nationalityCode])), [teamMembers]);
-  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
+  // S3 (read side): the ONE Team mapping, in the RPC's order (teamFromPublicRows).
+  const team = useMemo(() => teamFromPublicRows(publicTeamRows), [publicTeamRows]);
+  const teamCount = team.people.length;
+  const teamIds = useMemo(() => team.people.map((p) => p.personId), [team]);
+  // Each circle's flag (dancer_profiles.nationality). A failed flag read only drops
+  // the flags; it never hides the Team.
+  const { data: teamNationality = EMPTY_NATIONALITY } = useQuery({
+    queryKey: ['organiser-public-team-flags', id, teamIds],
+    queryFn: async (): Promise<ReadonlyMap<string, string | null>> => {
+      const { data, error } = await supabase.from('dancer_profiles').select('id, nationality').in('id', teamIds);
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((d) => [d.id, pickNationalityCode(d)]));
+    },
+    enabled: teamIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  // The role-aware link from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
+  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(teamIds);
   const teamBadgesState = teamBadgesLoading ? 'loading' : teamBadgesError ? 'error' : 'ready';
 
   // Start of London-today as a true-UTC instant; reactive so a long-lived tab
@@ -796,7 +802,7 @@ const OrganiserProfile = () => {
       if (!e) continue;
       eventsWithFutureOcc.add(occ.event_id);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
+      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, cityName: occ.city_name ?? null, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
     }
     // Past list: driven by real past occurrences (server is_past flag), one
     // OrgEvent per past date. Cancelled rows are passed through by the RPC, so
@@ -815,7 +821,7 @@ const OrganiserProfile = () => {
       if (pastSeen.has(dedupeKey)) continue;
       pastSeen.add(dedupeKey);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
+      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, cityName: occ.city_name ?? null, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
     }
     // Base-date fallback only for legacy events the occurrence feed never
     // surfaced (no future AND no past occurrence row at all). EventRow.start_time
@@ -972,6 +978,7 @@ const OrganiserProfile = () => {
         name: first.name,
         posterUrl: first.poster_url,
         location: first.location,
+        cityLabel: seriesCityLabel(g.dates.map((d) => d.cityName)),
         dates: g.dates,
       };
     });
@@ -983,6 +990,8 @@ const OrganiserProfile = () => {
   // "Show all" actually reveals.
   const itemDateCount = (item: UpcomingListItem): number => (item.kind === 'series' ? item.dates.length : 1);
   const totalUpcomingDateCount = upcomingListItems.reduce((sum, item) => sum + itemDateCount(item), 0);
+
+  const wording = upcomingWording(totalUpcomingDateCount, upcomingListItems.length);
 
   const openSeries = upcomingListItems.find(
     (it): it is Extract<UpcomingListItem, { kind: 'series' }> =>
@@ -1008,6 +1017,10 @@ const OrganiserProfile = () => {
   // Only the most recent 3 years mount by default -- a decade-old organiser's
   // full history is fetched (for the "since <year>" stat) but doesn't need to
   // render 500+ DOM rows on a mobile-first page just because they're collapsed.
+  const pastStrip = pastCounts(
+    pastEvents.map((e) => ({ dateKey: formatWallClockLocal(e.displayStart, 'yyyy-MM-dd') })),
+    todayKey,
+  );
   const visiblePastYears = showAllPastYears ? pastByYear : pastByYear.slice(0, PAST_YEARS_VISIBLE);
   const hiddenPastYears = pastByYear.slice(visiblePastYears.length);
 
@@ -1144,12 +1157,9 @@ const OrganiserProfile = () => {
   const cityName = ep.cities?.name ?? ep.city ?? null;
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
 
-  // First sentence of the bio for the hero tagline (original behaviour).
-  const bioParts = ep.bio ? ep.bio.split(/\.\s+/) : [];
-  const heroTagline = bioParts.length > 0 ? `${bioParts[0]}${bioParts.length > 1 ? '.' : ''}` : null;
-  // A long bio is clamped to 3 lines in About with a More toggle.
-  const aboutIsLong = (ep.bio?.length ?? 0) > 180;
-
+  // The bio is shown once, in the header: 150 characters, More for the rest.
+  const hero = heroBio(ep.bio, cityName, organisationCategory);
+  const heroShown = bioExpanded && hero.truncated ? (ep.bio ?? '').trim() : hero.text;
   // navigator.clipboard is undefined on plain-HTTP origins and some in-app
   // browsers; say so rather than letting the tap do nothing.
   const copyValue = (value: string, noun: string) => {
@@ -1160,6 +1170,11 @@ const OrganiserProfile = () => {
   const sectionH2: React.CSSProperties = { fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: 0, color: D.cream };
   const sectionCount: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600 };
   const moreBtn: React.CSSProperties = { display: 'block', width: '100%', minHeight: 44, padding: '10px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' };
+  const heroMore = hero.truncated ? (
+    <button type="button" onClick={() => setBioExpanded((v) => !v)} aria-expanded={bioExpanded} data-testid="hero-bio-more" style={{ ...moreBtn, display: 'inline-block', width: 'auto', minHeight: 44, padding: '10px 0 10px 8px', textAlign: 'left' }}>
+      {bioExpanded ? 'Show less' : 'More'}
+    </button>
+  ) : null;
 
   // --- Render ---
   return (
@@ -1232,11 +1247,13 @@ const OrganiserProfile = () => {
             <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
               <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
             </svg>
-            {heroTagline && (
-              <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4 }}>
-                {heroTagline}
+            {heroShown && (
+              <p className={cn(!hero.fallback && eip?.mark('bio'))} data-testid="hero-bio" style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4, whiteSpace: 'pre-line' }}>
+                {heroShown}
+                {heroMore}
               </p>
             )}
+            {eip?.slot(ep.bio ? 'about' : 'about-empty')}
           </div>}
 
           {/* Desktop */}
@@ -1262,11 +1279,13 @@ const OrganiserProfile = () => {
                 <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
                   <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
                 </svg>
-                {heroTagline && (
-                  <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500 }}>
-                    {heroTagline}
+                {heroShown && (
+                  <p className={cn(!hero.fallback && eip?.mark('bio'))} data-testid="hero-bio-desktop" style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500, whiteSpace: 'pre-line' }}>
+                    {heroShown}
+                    {heroMore}
                   </p>
                 )}
+                {eip?.slot(ep.bio ? 'about' : 'about-empty')}
               </div>
 
             </div>
@@ -1343,24 +1362,6 @@ const OrganiserProfile = () => {
             </div>
           </section>
         )}
-        {/* ABOUT -- only when written (an owner sees the edit-layer slot) */}
-        {(ep.bio || eip) && (
-          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About{eip?.slot('about')}</h2>
-            {ep.bio ? <p
-              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3', eip?.mark('bio'))}
-              style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
-            >
-              {ep.bio}
-            </p> : eip?.slot('about-empty')}
-            {aboutIsLong && (
-              <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
-                {aboutExpanded ? 'Show less' : 'More'}
-              </button>
-            )}
-          </section>
-        )}
-
         {/* NEXT NIGHTS */}
         {upcomingFailed && upcomingListItems.length === 0 && <FeedErrorLine feed="upcoming" what="dates" onRetry={retryUpcoming} retrying={retryingUpcoming} />}
         {upcomingListItems.length > 0 && (
@@ -1369,33 +1370,41 @@ const OrganiserProfile = () => {
             <div style={{ display: 'flex', alignItems: eip ? 'center' : 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <h2 style={sectionH2}>Next nights</h2>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>
-                <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
+                {wording.headingCount && <span style={sectionCount}>{wording.headingCount}</span>}
                 {eip?.slot('create-event')}
               </div>
             </div>
+            {/* Plain anchor (no handler, no role) so a walk can scroll to the cards without clicking one. */}
+            <div id="next-nights-list">
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
                 item.kind === 'single' ? (
-                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildEventRowProps(item.event, todayKey, i)} />
+                  <NightsCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildNightsCardProps(item.event, todayKey, i, ep.name)} />
                 ) : (
-                  <EventRowCard
+                  <NightsCard
                     key={item.eventId}
                     impressionRef={trackImpression(item.eventId)}
-                    {...buildEventRowProps(item.dates[0], todayKey, i, {
+                    {...buildNightsCardProps(item.dates[0], todayKey, i, ep.name, {
                       name: item.name,
                       posterUrl: item.posterUrl,
-                      meta: [countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · '),
-                      chip: `${item.dates.length} dates`,
+                      location: item.location,
+                      cityLabel: item.cityLabel,
+                      dateCount: item.dates.length,
+                      tag: wording.seriesTag ?? undefined,
                       onClick: () => setOpenSeriesEventId(item.eventId),
                     })}
                   />
                 ),
               )}
             </div>
+            </div>
             {upcomingListItems.length > UPCOMING_VISIBLE && (
               <button onClick={() => { if (showAllUpcoming) scrollBackIfAbove('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
-                {showAllUpcoming ? 'Show fewer' : `Show all ${totalUpcomingDateCount} dates`}
+                {showAllUpcoming ? 'Show fewer' : wording.showMoreLabel}
               </button>
+            )}
+            {wording.capLine && (
+              <p data-testid="org-upcoming-cap-line" style={{ textAlign: 'center', fontSize: 12, opacity: 0.6, margin: '10px 0 0' }}>{wording.capLine}</p>
             )}
           </section>
         )}
@@ -1430,7 +1439,8 @@ const OrganiserProfile = () => {
           <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={sectionH2}>{emptyKind === 'past-only' ? 'Recently hosted' : 'Past nights'}</h2>
-              <span style={sectionCount}>{pastEvents.length} hosted</span>
+              {/* The highlights strip prints "N nights hosted"; the header count shows only when there is no strip. */}
+              {pastStrip.total === 0 && <span style={sectionCount}>{pastEvents.length} hosted</span>}
             </div>
             {emptyKind === 'past-only' && (
               <div data-testid="org-public-empty" data-kind={emptyKind} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '-4px 0 8px' }}>
@@ -1439,9 +1449,33 @@ const OrganiserProfile = () => {
                 {eip?.slot('create-another-event')}
               </div>
             )}
+            <PastHighlights
+              total={pastStrip.total}
+              thisYear={pastStrip.thisYear}
+              latest={pastEvents.slice(0, 6).map((e, i) => ({
+                key: stableRowKey(e.occurrenceId, e.id, i),
+                href: e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`,
+                name: e.name,
+                posterUrl: e.poster_url,
+                caption: formatWallClockLocal(e.displayStart, 'd MMM') ?? 'TBA',
+              }))}
+              showSeeAll={pastStrip.showSeeAll}
+              listOpen={pastListOpen}
+              onToggleList={() => setPastListOpen((v) => !v)}
+              years={pastByYear.map((g) => ({ year: g.year, count: g.events.length }))}
+              onYear={(year) => {
+                setPastListOpen(true);
+                const idx = pastByYear.findIndex((g) => g.year === year);
+                if (idx >= PAST_YEARS_VISIBLE) setShowAllPastYears(true);
+                setOpenPastYears((prev) => new Set(prev).add(year));
+                setTimeout(() => scrollToId(`past-${year}`), 50);
+              }}
+              organiserName={ep.name}
+            />
+            {pastListOpen && (
             <div className="flex max-w-3xl flex-col gap-2">
               {visiblePastYears.map((group, gi) => { const shown = expandedPastYears.has(group.year) ? group.events : group.events.slice(0, PAST_ROWS_PER_YEAR); return (
-                <details key={group.year} id={`past-${group.year}`} open={gi === 0} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
+                <details key={group.year} id={`past-${group.year}`} open={gi === 0 || openPastYears.has(group.year)} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
                   <summary
                     className="flex min-h-[44px] cursor-pointer list-none items-center justify-between"
                     style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(246,241,234,0.7)' }}
@@ -1482,7 +1516,8 @@ const OrganiserProfile = () => {
                 </details>
               ); })}
             </div>
-            {pastByYear.length > PAST_YEARS_VISIBLE && (
+            )}
+            {pastListOpen && pastByYear.length > PAST_YEARS_VISIBLE && (
               <button onClick={() => { if (showAllPastYears) scrollBackIfAbove('past'); setShowAllPastYears((v) => !v); }} aria-expanded={showAllPastYears} style={moreBtn}>
                 {showAllPastYears ? 'Show fewer years' : `Show earlier years (${hiddenPastYears.length})`}
               </button>

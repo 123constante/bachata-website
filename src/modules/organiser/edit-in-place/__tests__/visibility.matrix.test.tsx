@@ -174,11 +174,12 @@ describe('the owner layer on the live public page', () => {
 
   // The Team card (team picker) reads organiser_team_v1 under ['organiser-team', id]. The
   // page's public line-up query once used that SAME key, so the layer got the line-up
-  // array, saw no role, and an owner never got the card. Owner: card; manager: none.
+  // array, saw no role, and an owner never got the card. Owner: card with Add a person;
+  // manager: card with only "Who shows on your page" (lead decision, brief p2-team-2).
   it.each([
     ['owner', 'owner', true],
     ['manager', 'manager', false],
-  ] as const)('the Team card through the real page: %s -> shown %s', async (_n, role, shown) => {
+  ] as const)('the Team card through the real page: %s -> Add a person %s', async (_n, role, add) => {
     h.user = ME;
     h.ownership = { is_managed: true, i_own_it: role === 'owner', my_role: role };
     h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_team_v1'
@@ -187,12 +188,10 @@ describe('the owner layer on the live public page', () => {
     renderPage();
     await screen.findByTestId('eip-contact');
     await waitFor(() => expect(h.rpc.mock.calls.some(([fn]) => fn === 'organiser_team_v1')).toBe(true));
-    if (shown) {
-      expect((await screen.findByTestId('eip-team')).textContent).toContain('Add a person');
-    } else {
-      await new Promise((res) => setTimeout(res, 50));
-      expect(screen.queryByTestId('eip-team')).toBeNull();
-    }
+    const card = await screen.findByTestId('eip-team');
+    expect(card.textContent).toContain('Who shows on your page');
+    if (add) expect(card.textContent).toContain('Add a person');
+    else expect(card.textContent).not.toContain('Add a person');
     expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
     h.rpc.mockReset();
   });

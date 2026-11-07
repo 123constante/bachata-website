@@ -36,6 +36,8 @@ interface Shape {
   instagram: boolean;
   website: boolean;
   facebook: boolean;
+  cityPattern?: (string | null)[];
+  cancelledExtra?: number;
   feeds: { events: Feed; future: Feed; past: Feed; team: Feed; dancers: Feed; badges: Feed; contact: Feed };
 }
 
@@ -51,9 +53,9 @@ const fridayFrom = (start: string, i: number, dir: 1 | -1) => {
   d.setUTCDate(d.getUTCDate() + dir * 7 * i);
   return d.toISOString().slice(0, 10);
 };
-const occ = (date: string, past: boolean) => ({
+const occ = (date: string, past: boolean, city: string | null = null, cancelled = false) => ({
   event_id: 'ev-1', name: 'Friday Social', occurrence_id: `occ-${date}`, instance_date: date, start_time: `${date}T21:00:00`,
-  photo_url: null, cover_image_url: null, location: 'Soho', is_cancelled: false, is_past: past,
+  photo_url: null, cover_image_url: null, location: 'Soho', city_name: city, is_cancelled: cancelled, is_past: past,
 });
 const EVENT = { id: 'ev-1', name: 'Friday Social', date: null, start_time: null, is_active: true, poster_url: null, location: 'Soho', city: 'London' };
 
@@ -88,7 +90,10 @@ vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
   fetchOrganiserFutureOccEvents: async () => {
     if (s.shape.feeds.future === 'hang') return never();
     if (s.shape.feeds.future === 'error') throw new Error('future boom');
-    return Array.from({ length: s.shape.upcoming }, (_, i) => occ(fridayFrom('2026-11-06', i, 1), false));
+    const pat = s.shape.cityPattern;
+    const rows = Array.from({ length: Math.min(20, s.shape.upcoming) }, (_, i) => occ(fridayFrom('2026-11-06', i, 1), false, pat ? pat[i % pat.length] : null));
+    const extra = Array.from({ length: s.shape.cancelledExtra ?? 0 }, (_, i) => occ(fridayFrom('2027-06-04', i, 1), false, null, true));
+    return [...rows, ...extra];
   },
   fetchOrganiserPastOccEvents: async () => {
     if (s.shape.feeds.past === 'hang') return never();
@@ -116,6 +121,12 @@ vi.mock('@/integrations/supabase/client', () => {
     return chain;
   };
   return { supabase: { from: chainFor, rpc: async (fn: string) => {
+    // P2: the public Team is organiser_public_team_v1 (rows already ordered by sort_key).
+    if (fn === 'organiser_public_team_v1') {
+      if (s.shape.feeds.team === 'hang') return never();
+      if (s.shape.feeds.team === 'error') return { data: null, error: { message: 'team boom' } };
+      return { data: Array.from({ length: s.shape.team }, (_, i) => ({ person_id: `d${i}`, slug: null, public_name: ['Ana', 'Ben', 'Cleo'][i] ?? `P${i}`, avatar_url: null, sort_key: i + 1 })), error: null };
+    }
     if (fn === 'organiser_ownership_v1') return { data: s.shape.owner ? { is_managed: true, i_own_it: true, my_role: 'owner' } : { is_managed: false, i_own_it: false, my_role: null }, error: null };
     if (fn === 'get_public_people_badges_v1') {
       if (s.shape.feeds.badges === 'hang') return never();
@@ -203,7 +214,7 @@ function noCopyWithoutControl() {
     expect(f.getAttribute('aria-label') ?? '').toMatch(/couldn\u2019t load/i);
   }
 }
-const ORDER = ['Get in touch', 'Team', 'About', 'Next nights', 'Recently hosted', 'Past nights'];
+const ORDER = ['Get in touch', 'Team', 'Next nights', 'Recently hosted', 'Past nights'];
 
 function visitorOrOwnerInvariants(owner: boolean) {
   if (!owner) return visitorInvariants();
@@ -241,20 +252,20 @@ function visitorInvariants() {
 
 interface Row { name: string; shape: Shape; stats: string[]; dashes?: string[]; upcomingHeading: boolean; pastHeading: 'Past nights' | 'Recently hosted' | null; noDates: boolean; team: string[]; errors: string[] }
 const ROWS: Row[] = [
-  { name: 'large ticketed, 120 weekly upcoming + 30 past', shape: shape({ upcoming: 120, past: 30, team: 3, bio: true, website: true, email: true }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben', 'Cleo'], errors: [] },
-  { name: 'weekly class, 4 upcoming + 10 past', shape: shape({ upcoming: 4, past: 10, team: 2 }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben'], errors: [] },
+  { name: 'large ticketed, 120 weekly upcoming + 30 past', shape: shape({ upcoming: 120, past: 30, team: 3, bio: true, website: true, email: true }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben', 'Cleo'], errors: [] },
+  { name: 'weekly class, 4 upcoming + 10 past', shape: shape({ upcoming: 4, past: 10, team: 2 }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: ['Ana', 'Ben'], errors: [] },
   { name: 'brand new, 1 upcoming, nothing else', shape: shape({ upcoming: 1, past: 0 }), stats: ['next_night'], upcomingHeading: true, pastHeading: null, noDates: false, team: ['Ana'], errors: [] },
-  { name: 'past-only, 6 past', shape: shape({ upcoming: 0, past: 6 }), stats: ['last_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
-  { name: 'past-only, 2 past (under the hosted threshold)', shape: shape({ upcoming: 0, past: 2, foundedYear: 2019 }), stats: ['last_night', 'running_since'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
+  { name: 'past-only, 6 past', shape: shape({ upcoming: 0, past: 6 }), stats: ['nights_hosted'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
+  { name: 'past-only, 2 past (under the hosted threshold)', shape: shape({ upcoming: 0, past: 2, foundedYear: 2019 }), stats: ['running_since'], upcomingHeading: false, pastHeading: 'Recently hosted', noDates: true, team: ['Ana'], errors: [] },
   { name: 'no nights, no founded year: no strip at all', shape: shape({ upcoming: 0, past: 0 }), stats: [], upcomingHeading: false, pastHeading: null, noDates: true, team: ['Ana'], errors: [] },
   { name: 'no nights, founded year set', shape: shape({ upcoming: 0, past: 0, foundedYear: 2019 }), stats: ['running_since'], upcomingHeading: false, pastHeading: null, noDates: true, team: ['Ana'], errors: [] },
-  { name: 'no team', shape: shape({ upcoming: 4, past: 10, team: 0 }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: [] },
+  { name: 'no team', shape: shape({ upcoming: 4, past: 10, team: 0 }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: [] },
   // Fix round 1 (MED-3): one failed feed no longer discards every stat. These three rows
   // pinned `stats: []` / founded-year-only before; the stats the working feed alone can
   // prove still show, the failed feed's own stat is a marked dash.
   { name: 'past feed fails', shape: shape({ upcoming: 4, past: 10, feeds: { past: 'error' } }), stats: ['next_night', 'nights_hosted'], dashes: ['nights_hosted'], upcomingHeading: true, pastHeading: null, noDates: false, team: ['Ana'], errors: ['past'] },
   { name: 'upcoming feed fails', shape: shape({ upcoming: 4, past: 10, foundedYear: 2019, feeds: { future: 'error' } }), stats: ['next_night', 'nights_hosted', 'running_since'], dashes: ['next_night'], upcomingHeading: false, pastHeading: 'Past nights', noDates: false, team: ['Ana'], errors: ['upcoming'] },
-  { name: 'team read fails', shape: shape({ upcoming: 4, past: 10, feeds: { team: 'error' } }), stats: ['next_night', 'nights_hosted', 'weekly_rhythm'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: ['team'] },
+  { name: 'team read fails', shape: shape({ upcoming: 4, past: 10, feeds: { team: 'error' } }), stats: ['next_night', 'nights_hosted'], upcomingHeading: true, pastHeading: 'Past nights', noDates: false, team: [], errors: ['team'] },
   { name: 'every feed fails', shape: shape({ upcoming: 4, past: 10, feeds: { events: 'error', future: 'error', past: 'error', team: 'error', contact: 'error' } }), stats: ['next_night', 'nights_hosted'], dashes: ['next_night', 'nights_hosted'], upcomingHeading: false, pastHeading: null, noDates: false, team: [], errors: ['upcoming', 'past', 'team'] },
 ];
 
@@ -278,7 +289,9 @@ describe('organiser page P1: every section x every shape (visitor)', () => {
     expect(/No dates announced yet/.test(text())).toBe(row.noDates);
     if (row.noDates) expect(screen.getByRole('link', { name: 'Browse upcoming nights' })).toBeTruthy();
     if (row.shape.upcoming >= 100) {
-      expect(text()).toContain(`${row.shape.upcoming} dates`);
+      // The server caps the upcoming feed at 20 (get_organiser_nights_v2): a 100+ organiser shows the capped wording, not a count.
+      expect(text()).toContain('next 20 dates');
+      expect(text()).toContain('Showing the next 20 nights');
       expect(document.querySelectorAll('#upcoming a, #upcoming [role="button"]').length).toBeLessThanOrEqual(3 + 1);
     }
 
@@ -296,8 +309,8 @@ describe('organiser page P1: every section x every shape (visitor)', () => {
     }
     if (row.errors.length) expect(screen.getAllByRole('button', { name: 'Try again' }).length).toBeGreaterThanOrEqual(row.errors.length);
 
-    // About only when written.
-    expect(h2s().includes('About')).toBe(row.shape.bio);
+    // The bio is shown once, in the header: there is no About section any more.
+    expect(h2s().includes('About')).toBe(false);
   });
 });
 
@@ -389,7 +402,9 @@ describe.each([false, true])('fix 1: failure combinations (owner = %s)', (owner)
     const upcomingFailed = failed.has('events') || failed.has('future');
     const pastFailed = failed.has('events') || failed.has('past');
     // The names read only runs when the roster has rows (the owner shape has none).
-    const teamFailed = failed.has('team') || (failed.has('dancers') && !owner);
+    // P2: names come from organiser_public_team_v1; the dancer_profiles read only
+    // carries flags, so its failure drops flags and never fails the Team.
+    const teamFailed = failed.has('team');
 
     // (e) per-feed stats: the failed feed's own stat is a marked dash; nothing else qualifies here.
     expect(failedStats()).toEqual([upcomingFailed && 'next_night', pastFailed && 'nights_hosted'].filter(Boolean));
@@ -440,7 +455,7 @@ describe('fix 1: owner-blank only when everything is KNOWN blank', () => {
 
 describe('fix 1 (MED-3): stats per feed, busy and past-only organisers', () => {
   const N: Array<[string, Partial<Shape['feeds']>, string[], string[]]> = [
-    ['all ok', {}, ['next_night', 'nights_hosted', 'weekly_rhythm'], []],
+    ['all ok', {}, ['next_night', 'nights_hosted'], []],
     ['past fails: Next night stays', { past: 'error' }, ['next_night', 'nights_hosted'], ['nights_hosted']],
     ['future fails: Nights hosted stays', { future: 'error' }, ['next_night', 'nights_hosted'], ['next_night']],
     ['both fail', { future: 'error', past: 'error' }, ['next_night', 'nights_hosted'], ['next_night', 'nights_hosted']],
@@ -454,7 +469,7 @@ describe('fix 1 (MED-3): stats per feed, busy and past-only organisers', () => {
     expect(failedStats()).toEqual(dashes);
     if (!dashes.includes('next_night')) expect(document.querySelector('[data-stat="next_night"] [data-stat-value]')?.textContent).toBe('Tomorrow');
   });
-  it('past-only, future fails: never "Last night" (nothing upcoming is unknowable)', async () => {
+  it('past-only, future fails: Next night is a dash, never Last night (nothing upcoming is unknowable)', async () => {
     s.shape = shape({ upcoming: 0, past: 6, feeds: { future: 'error' } });
     await renderPage();
     expect(statKeys()).toEqual(['next_night', 'nights_hosted']);
@@ -512,5 +527,65 @@ describe('fix 1 (LOW-6): Try again shows a pending state while the refetch runs'
     const pending = screen.getByTestId(testId).querySelector('button') as HTMLButtonElement;
     expect(pending.disabled).toBe(true);
     expect(pending.style.minHeight).toBe('44px');
+  });
+});
+
+describe('nights feed swap: city on each night, 20-cap wording', () => {
+  const capLine = () => document.querySelector('[data-testid="org-upcoming-cap-line"]');
+  const nextCount = () => Array.from(document.querySelectorAll('#upcoming h2 ~ div span')).map((e) => e.textContent);
+  it('capped 20, one repeating row: "next 20 dates", no heading count, Show more nights absent, quiet line', async () => {
+    s.shape = shape({ upcoming: 20, past: 3, cityPattern: ['Leeds'] });
+    await renderPage();
+    expect(text()).toMatch(/next 20 dates/);
+    expect(text()).not.toMatch(/\b20 dates\b/);
+    expect(capLine()?.textContent).toBe('Showing the next 20 nights');
+    expect(text()).toMatch(/Soho, Leeds/);
+    noCopyWithoutControl();
+  });
+  it('under cap (13): "13 dates" heading, no cap line, no "next 20"', async () => {
+    s.shape = shape({ upcoming: 13, past: 3, cityPattern: ['Leeds'] });
+    await renderPage();
+    expect(document.querySelector('#upcoming')!.textContent).toMatch(/13 dates/);
+    expect(capLine()).toBeNull();
+    expect(text()).not.toMatch(/next 20/);
+  });
+  it('repeating across cities: first city plus "+1 city"', async () => {
+    s.shape = shape({ upcoming: 6, past: 0, cityPattern: ['Leeds', 'Manchester'] });
+    await renderPage();
+    expect(text()).toMatch(/Leeds \+1 city/);
+  });
+  it('mixed cities, two single nights: each names its own city, none hard-coded', async () => {
+    s.shape = shape({ upcoming: 2, past: 0, cityPattern: ['Leeds', 'Manchester'] });
+    await renderPage();
+    expect(text()).toMatch(/Soho, Leeds/);
+    expect(text()).toMatch(/Soho, Manchester/);
+    expect(text()).not.toMatch(/London/);
+  });
+  it('cancelled rows in the feed are not shown or counted', async () => {
+    s.shape = shape({ upcoming: 2, past: 0, cancelledExtra: 5, cityPattern: ['Leeds'] });
+    await renderPage();
+    expect(document.querySelector('#upcoming')!.textContent).toMatch(/2 dates/);
+  });
+  it('capped organiser: Next night stat still shows the soonest, nights hosted from the uncapped past list', async () => {
+    s.shape = shape({ upcoming: 20, past: 60, cityPattern: ['Leeds'] });
+    await renderPage();
+    const vals = statValues().join('|');
+    expect(vals).toMatch(/60/);
+    expect(statKeys()).toContain('next_night');
+  });
+  it('past-only and none: no cap line, no Next nights section', async () => {
+    for (const sh of [shape({ upcoming: 0, past: 5 }), shape({ upcoming: 0, past: 0 })]) {
+      s.shape = sh; await renderPage();
+      expect(capLine()).toBeNull();
+      expect(h2s()).not.toContain('Next nights');
+      noCopyWithoutControl();
+      cleanup();
+    }
+  });
+  it.each(['events', 'future', 'past'] as const)('%s feed failing: no cap line, copy still points at controls', async (f) => {
+    s.shape = shape({ upcoming: 20, past: 5, cityPattern: ['Leeds'], feeds: { [f]: 'error' } });
+    await renderPage();
+    if (f !== 'past') expect(capLine()).toBeNull();
+    noCopyWithoutControl();
   });
 });

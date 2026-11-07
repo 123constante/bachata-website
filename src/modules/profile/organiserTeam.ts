@@ -10,17 +10,15 @@
 //   A person in more than one source appears once, at the best rank.
 // - A person links to their dancer page when they have one; else shown, not tappable.
 // - A hidden person never appears (hidden in ANY source hides the person).
-// - One person is "Run by <name>"; more than one is a list; above
-//   TEAM_VISIBLE_CAP the rest go to `overflow` ("+N more"); zero is 'empty'.
+// - One person is "Run by <name>"; more than one is a list; zero is 'empty'.
+//   Everyone shows: no cap, no "+N more" (owner decision, P2 brief scope 2).
 //
-// Input today: `listed` from the 'organiser-lineup' read (organiser_team_members
-// joined to dancer_profiles) and `access` from organiser_team_v1 members with
-// role owner/manager. Later: the merged admin RPC sends the same shape.
+// Input (P2): the public page reads organiser_public_team_v1 and maps its rows
+// with teamFromPublicRows() below -- the RPC is the SINGLE source of order
+// (its sort_key) and of who may show (hides, opt-outs, inactive profiles).
+// buildOrganiserTeam() stays as the pure merge rule the RPC mirrors.
 // docs/handover/organiser-team-mapping.md maps every field.
 import { ROLE_PAGE_BASE } from '@/modules/person-page/personRoles';
-
-/** At most this many people show; the rest sit behind "+N more". */
-export const TEAM_VISIBLE_CAP = 6;
 
 /** A row of organiser_team_members (with the dancer profile it points at). */
 export interface ListedPerson {
@@ -49,7 +47,6 @@ export interface AccessPerson {
 export interface TeamInput {
   listed: ListedPerson[];
   access: AccessPerson[];
-  cap?: number;
 }
 
 export interface TeamPerson {
@@ -65,7 +62,6 @@ export type TeamMode = 'solo' | 'list' | 'empty';
 
 export interface TeamList {
   people: TeamPerson[];
-  overflow: TeamPerson[];
   mode: TeamMode;
 }
 
@@ -171,12 +167,52 @@ export function buildOrganiserTeam(input: TeamInput): TeamList {
     initials: teamInitials(v.name),
   }));
 
-  const cap = typeof input.cap === 'number' && Number.isFinite(input.cap) && input.cap >= 1 ? Math.floor(input.cap) : TEAM_VISIBLE_CAP;
-  return {
-    people: people.slice(0, cap),
-    overflow: people.slice(cap),
-    mode: people.length === 0 ? 'empty' : people.length === 1 ? 'solo' : 'list',
-  };
+  return toList(people);
+}
+
+const toList = (people: TeamPerson[]): TeamList => ({
+  people,
+  mode: people.length === 0 ? 'empty' : people.length === 1 ? 'solo' : 'list',
+});
+
+/** One row of organiser_public_team_v1 (already filtered and ordered by the RPC). */
+export interface PublicTeamRow {
+  person_id: string;
+  slug: string | null;
+  public_name: string | null;
+  avatar_url: string | null;
+  sort_key: number;
+}
+
+/**
+ * organiser_public_team_v1 rows -> the public Team list. The RPC decides who
+ * shows and in what order (sort_key: owners, managers, listed by sort_order,
+ * name A-Z); this only renders that order. A repeated person_id (the RPC
+ * already dedupes) shows once, at its lowest sort_key. A row with no name is
+ * dropped. A person links to their dancer page by slug, else by id.
+ */
+export function teamFromPublicRows(rows: readonly PublicTeamRow[]): TeamList {
+  const best = new Map<string, PublicTeamRow>();
+  for (const r of rows ?? []) {
+    const pid = clean(r.person_id);
+    if (!pid || !clean(r.public_name)) continue;
+    const prev = best.get(pid);
+    if (!prev || r.sort_key < prev.sort_key) best.set(pid, r);
+  }
+  const people = [...best.values()]
+    .sort((a, b) => a.sort_key - b.sort_key)
+    .map((r): TeamPerson => {
+      const name = clean(r.public_name) as string;
+      const key = clean(r.slug) ?? clean(r.person_id) as string;
+      return {
+        personId: clean(r.person_id) as string,
+        name,
+        avatarUrl: clean(r.avatar_url),
+        href: `${ROLE_PAGE_BASE.dancer}/${encodeURIComponent(key)}`,
+        initials: teamInitials(name),
+      };
+    });
+  return toList(people);
 }
 
 /** The solo line, "Run by <name>"; null unless exactly one person shows. */
