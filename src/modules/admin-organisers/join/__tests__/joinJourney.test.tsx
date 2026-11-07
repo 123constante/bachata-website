@@ -972,6 +972,7 @@ describe('find before create: claim answer x invite kind x signed-in shape', () 
     empty_stub: { status: 'incomplete', missing: ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], profileId: ME.id },
     already_claimed: { status: 'complete', missing: [], profileId: 'p-linked' },
   };
+  beforeEach(() => sessionStorage.clear());
   const ROWS = Object.entries(EXPECTED).flatMap(([claim, byKind]) =>
     (Object.keys(byKind) as Kind[]).flatMap((kind) => Object.keys(SHAPES).map((shape) => ({ claim, kind, shape, next: byKind[kind] }))));
 
@@ -1015,9 +1016,42 @@ describe('find before create: claim answer x invite kind x signed-in shape', () 
       expect(screen.getByTestId('join-unmatched-next').textContent).toContain(JOIN_COPY.done.button);
       expect(home.getAttribute('href')).not.toContain('/invite');
       expect(screen.queryByText(/told/i)).toBeNull();
+      // Two causes, two fixes: the failure tag names which claim answer it was.
+      expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: `invite_join:claim:unmatched_${claim}` }), 'error');
     }
     // The claim never blocks the sign-in: the code step is gone whatever it answered.
     expect(screen.getByTestId('join-step').getAttribute('data-step')).not.toBe('code');
+  });
+
+  it('a reload after the unmatched stop keeps it: no About on the stub, no second claim, no redeem (review r1 F1)', async () => {
+    h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
+    h.verify.mockImplementation(async () => {
+      h.auth.user = ME;
+      h.completion = SHAPES.empty_stub;
+      return { data: { user: FIRST_SIGN_IN }, error: null };
+    });
+    const first = mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('unmatched');
+    first.unmount();
+    mount();
+    await stopIs('unmatched');
+    expect(screen.queryByTestId('join-about-form')).toBeNull();
+    expect(h.claim).toHaveBeenCalledTimes(1);
+    expect(redeems()).toHaveLength(0);
+  });
+
+  it('another account in the same tab does not inherit the unmatched stop', async () => {
+    h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
+    const first = mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('unmatched');
+    first.unmount();
+    h.auth.user = { id: 'u2', email: 'ana@example.com' };
+    h.completion = { status: 'complete', missing: [], profileId: 'p2' };
+    mount();
+    await stepIs('join');
+    expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
   });
 
   it('an untouched page (already signed in, no code typed) sends no claim and no redeem', async () => {

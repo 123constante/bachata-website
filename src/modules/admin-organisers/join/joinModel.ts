@@ -98,6 +98,44 @@ export function claimNextStep(claim: ClaimAnswer, kind: InviteKind): ClaimNext {
   }
 }
 
+/** The claim answers that end in `unmatched` (kept on the stop for the failure tag: two causes, two fixes). */
+export type UnmatchedClaim = 'ambiguous' | 'email_unproven';
+
+/**
+ * The `unmatched` stop survives a reload of this tab (review r1 F1): the claim runs only at the code step, so
+ * without this a pull-to-refresh would fall back to About on the sign-up stub -- the second record this stop
+ * exists to prevent. Per tab (sessionStorage), per account, per link; the key holds only the link's last 12
+ * characters. Storage that throws or is empty simply forgets (the server still guards a person-bound link).
+ */
+const UNMATCHED_KEY = 'bc.join.unmatched';
+const linkTail = (token: string) => token.slice(-12);
+
+export function rememberUnmatched(token: string, userId: string, claim: UnmatchedClaim): void {
+  try {
+    sessionStorage.setItem(UNMATCHED_KEY, JSON.stringify({ t: linkTail(token), u: userId, c: claim }));
+  } catch {
+    /* storage blocked: the stop still shows for this render tree */
+  }
+}
+
+export function recallUnmatched(token: string, userId: string): UnmatchedClaim | null {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(UNMATCHED_KEY) ?? 'null') as { t?: unknown; u?: unknown; c?: unknown } | null;
+    if (!raw || raw.t !== linkTail(token) || raw.u !== userId) return null;
+    return raw.c === 'ambiguous' || raw.c === 'email_unproven' ? raw.c : null;
+  } catch {
+    return null;
+  }
+}
+
+export function forgetUnmatched(): void {
+  try {
+    sessionStorage.removeItem(UNMATCHED_KEY);
+  } catch {
+    /* nothing to forget */
+  }
+}
+
 // ---- the step table -------------------------------------------------------------------------
 
 export type JoinStep =
@@ -218,7 +256,7 @@ export type JoinStop =
   | { kind: 'email_unproven' }
   | { kind: 'not_linked' }
   /** claimNextStep said `unmatched`: the claim could not tell which existing profile is theirs; nothing was created or redeemed. */
-  | { kind: 'unmatched' }
+  | { kind: 'unmatched'; claim: UnmatchedClaim }
   /** email_mismatch answered AFTER the Join tap (the preview carried no hint): the same wrong-account screen. */
   | { kind: 'wrong_account'; emailHint: string | null }
   | { kind: 'already_bound' }

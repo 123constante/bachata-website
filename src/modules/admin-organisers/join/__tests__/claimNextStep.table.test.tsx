@@ -47,7 +47,7 @@ describe('the unmatched stop: one control, named by the copy', () => {
   ] as const)('flags %j -> "%s"', (homeFlags, label, href) => {
     render(
       <MemoryRouter>
-        <StopScreen stop={{ kind: 'unmatched' }} preview={BASE} signedInAs="ana@example.com" busy={false} error={null} onRetry={() => {}} onSwitch={() => {}} onDismiss={() => {}} homeFlags={homeFlags} />
+        <StopScreen stop={{ kind: 'unmatched', claim: 'ambiguous' }} preview={BASE} signedInAs="ana@example.com" busy={false} error={null} onRetry={() => {}} onSwitch={() => {}} onDismiss={() => {}} homeFlags={homeFlags} />
       </MemoryRouter>,
     );
     const link = screen.getByTestId('join-unmatched-home');
@@ -56,6 +56,8 @@ describe('the unmatched stop: one control, named by the copy', () => {
     expect(link.getAttribute('href')).not.toContain('/invite');
     expect(screen.getByTestId('join-unmatched-next').textContent).toContain(label);
     expect(screen.getByRole('heading').textContent).toBe(JOIN_COPY.unmatched.heading);
+    // Nothing was recorded, so the screen says who to tell rather than that anyone was told.
+    expect(screen.getByTestId('join-unmatched-tell').textContent).toBe(JOIN_COPY.unmatched.tell('Ricky'));
     // Never a raw code, never a promise that someone was told (nothing was recorded on this path).
     expect(document.body.textContent).not.toMatch(/ambiguous|email_unproven|no_match|told/);
     // One action only: no retry, no switch-account, no About.

@@ -128,6 +128,8 @@ export const JOIN_COPY = {
     tag: 'Paused',
     heading: `We couldn${APOS}t match you automatically`,
     body: `The organiser${APOS}s admin can join you to your existing profile.`,
+    // Nothing is recorded on this path (no redeem ran), so the copy never says anyone was told: it says who to tell.
+    tell: (inviter: string | null) => `Let ${inviterName(inviter)} know, so they can ask for it.`,
     note: 'Your invite stays open. You can use this link again afterwards.',
     next: (button: string) => `Meanwhile, tap ${button} below.`,
   },

@@ -375,6 +375,7 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
           <span className="self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-300" data-testid="join-unmatched-tag">{JOIN_COPY.unmatched.tag}</span>
           <Heading>{JOIN_COPY.unmatched.heading}</Heading>
           <Lead testId="join-unmatched-body">{JOIN_COPY.unmatched.body}</Lead>
+          <Lead testId="join-unmatched-tell">{JOIN_COPY.unmatched.tell(inviter)}</Lead>
           <p className="rounded-xl border border-border p-3 text-[13px] text-muted-foreground">{JOIN_COPY.unmatched.note}</p>
           <Lead testId="join-unmatched-next">{JOIN_COPY.unmatched.next(label)}</Lead>
           <Link to={to} className={BTN} data-testid="join-unmatched-home">{label}</Link>
