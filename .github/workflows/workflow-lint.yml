@@ -48,6 +48,22 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
         run: node scripts/lint-workflow-masking.mjs
 
+      # Which workflow files an automation-loop PR may change (claude/ or ccr-
+      # branch, or authored by kiki-claude-bot): only names on
+      # scripts/data/automation-workflow-allowlist.json (ships empty), and never
+      # the list itself. Owner PRs are not affected. Needs no npm ci (node
+      # built-ins only). The git fetch is the same depth-2 merge-sha fetch the
+      # docs-only step does. docs/handovers/workflow-allowlist-2.md.
+      - name: Automation workflow allow-list
+        if: github.event_name == 'pull_request' && steps.changes.outputs.docs_only != 'true'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          node scripts/check-automation-workflow-allowlist.mjs --self-test
+          node scripts/check-automation-workflow-allowlist.mjs --merge "$MERGE_SHA"
+
   notification-check:
     # Guards against the RC4 failure mode (edge-config-governance arc, P2):
     # prod-smoke, seo-check, og-image-check and synthetic-ssr-monitor went red
