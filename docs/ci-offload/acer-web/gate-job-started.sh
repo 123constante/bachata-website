@@ -24,22 +24,36 @@ if [[ "${1:-}" != --gate-reexec ]]; then
   exec /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/nonexistent/ghrunner-gate XDG_CONFIG_HOME=/nonexistent/ghrunner-gate LC_ALL=C "${G_PASS[@]}" /bin/bash -p "$0" --gate-reexec "$@"
 fi
 shift
-unset G_PASS G_V
+# readonly_unset_guard (fix round 3): every VARIABLE unset in both hooks goes through g_unset_vars.
+# BASHOPTS, SHELLOPTS, BASH_VERSINFO, EUID, PPID and UID are READONLY in bash; in posix mode
+# (POSIXLY_CORRECT=1, set above) bash 5.3 makes a failed `unset` of a readonly name FATAL for a
+# non-interactive shell, so the hook ended silently before writing any verdict (measured on the
+# Dell: bash 5.3.9, every accept row red). So: no readonly name is ever listed (the env -i re-exec
+# already drops SHELLOPTS/BASHOPTS from the environment), and each name is first unset in a
+# SUBSHELL -- if that fails, fatally or not, only the subshell ends -- and only then in this shell.
+# Rows readonly_unset_guard in test-gate-hooks.sh (fatal-unset emulation under `set -e`).
+g_unset_vars() {
+  for G_N in "$@"; do
+    ( unset -v "$G_N" ) 2>/dev/null && unset -v "$G_N"
+  done
+  unset -v G_N
+}
+g_unset_vars G_PASS G_V
 # unset_bash_func (second layer, for the case the re-exec ever did not happen): no function
 # survives from the environment, and none of the loader / proxy / TLS / shell-option names stays.
 # Still in posix mode here: `unset`/`export` are special builtins, found before any function; no
 # `local` (a regular builtin a function could shadow); compgen's own shadow is removed first.
 unset_bash_func() {
   unset -f compgen declare builtin command local unset 2>/dev/null
-  for G_F in $(compgen -A function); do [[ "$G_F" = unset_bash_func ]] || unset -f "$G_F"; done
-  unset BASH_ENV ENV PS4 BASHOPTS CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT \
+  for G_F in $(compgen -A function); do case "$G_F" in unset_bash_func|g_unset_vars) ;; *) unset -f "$G_F" ;; esac; done
+  g_unset_vars BASH_ENV ENV PS4 CDPATH GLOBIGNORE LD_PRELOAD LD_LIBRARY_PATH LD_AUDIT \
     https_proxy HTTPS_PROXY http_proxy HTTP_PROXY ALL_PROXY all_proxy no_proxy NO_PROXY \
-    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE CURL_HOME OPENSSL_CONF OPENSSL_MODULES GATE_REEXEC 2>/dev/null
+    SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE CURL_HOME OPENSSL_CONF OPENSSL_MODULES GATE_REEXEC
   export HOME=/nonexistent/ghrunner-gate XDG_CONFIG_HOME=/nonexistent/ghrunner-gate
-  unset G_F
+  g_unset_vars G_F
 }
 unset_bash_func
-unset POSIXLY_CORRECT
+g_unset_vars POSIXLY_CORRECT
 # ACTIONS_RUNNER_HOOK_JOB_STARTED for a Website side-machine runner (acer-web, dell-web).
 # Installed ROOT-OWNED, read-only to the service user (see the unit). Verdict line for the
 # job's first step (scripts/ci/route-runner.mjs gate):  "<run_id> <attempt> <job> ok|refused <why>".
@@ -83,8 +97,8 @@ set -u
 scrub_env() {
   local v
   export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C
-  for v in $(compgen -e); do case "$v" in GIT_*) unset "$v" ;; esac; done
-  unset BASH_ENV ENV LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME
+  for v in $(compgen -e); do case "$v" in GIT_*) g_unset_vars "$v" ;; esac; done
+  g_unset_vars BASH_ENV ENV LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME
   export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 GIT_NO_REPLACE_OBJECTS=1
 }
 scrub_env

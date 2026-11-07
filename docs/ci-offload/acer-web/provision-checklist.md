@@ -100,3 +100,20 @@ systemd-run --wait --pipe --uid=ghrunner-web \
 
 Leave `MemoryMax=4G` until the owner has read `free -m` on the Acer and wave 1 has measured the
 routed job's peak; see `docs/handover/ci-offload-wave0.md`, "Memory".
+
+## 6. Toolchain (fix round 3: bash 5.3 posix mode, uutils coreutils)
+
+The Dell runs bash 5.3.9 and the Rust **uutils** `env`, `timeout`, `sort`, `stat` beside GNU
+`awk`/`find`/`sed`/`grep`. The hooks use only options both implementations accept (audit table in
+`docs/handover/ci-offload-wave0.md`, "Fix round 3"), and never `unset` a readonly bash variable
+(bash 5.3 in posix mode ends the script on that). Before registering the runner, as root, run the
+suite with the box's own tools and record the totals:
+
+```bash
+bash --version | head -1; /usr/bin/env --version | head -1; timeout --version | head -1
+bash docs/ci-offload/acer-web/test-gate-hooks.sh            # expect: PASS <n> cases, exit 0
+bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants  # expect: ok baseline green ... PASS all <m> mutants caught
+```
+
+A `FAIL baseline red` from `--mutants` means the hooks do not work on this box: do not register
+the runner; send the first FAIL lines to the arc lead.

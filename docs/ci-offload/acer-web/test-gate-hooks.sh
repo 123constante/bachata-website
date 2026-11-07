@@ -5,7 +5,8 @@
 #   bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants  -> one mutant per `#@rule` line of
 #       the started hook (its `refuse` becomes `true`), plus the named mutants (env_i_reexec,
 #       scrub_completed, mutant_z_diff and siblings; list in the --mutants block);
-#       every mutant must make this suite FAIL.
+#       every mutant must make this suite FAIL with a FAIL line naming its rule; the unmutated
+#       suite runs first and a red baseline aborts with "FAIL baseline red" (baseline_green_gate).
 #   FAST=1: skip the slow lock-holder timing cases (used by --mutants).
 # Needs git, flock, setsid (util-linux), python3. Uses only a temp dir and a local file:// remote.
 set -u
@@ -15,6 +16,17 @@ COMPLETED=${HOOK_COMPLETED:-$HERE/gate-job-completed.sh}
 
 if [ "${1:-}" = "--mutants" ]; then
   M=$(mktemp -d); trap 'rm -rf "$M"' EXIT
+  # baseline_green_gate (fix round 3, item 2): the UNMUTATED suite must pass first. At f53f5c2d1 on
+  # the Dell the baseline was red, so every mutant "failed" the suite and was counted as caught --
+  # a vacuous result. A mutant now counts as caught only when a FAIL line names ITS rule (the rule
+  # tag, or the expected reason given to `mutate`), never by any red.
+  if ! FAST=1 bash "$0" > "$M/baseline.out" 2>&1; then
+    echo "FAIL baseline red: the unmutated suite fails, so no mutant result means anything"
+    grep -m5 '^FAIL ' "$M/baseline.out"; exit 1
+  fi
+  echo "ok   baseline green: $(tail -1 "$M/baseline.out")"
+  # caught <out> <reason>: a FAIL line (not the final "FAIL n of m" tally) names <reason>.
+  caught() { grep -E '^FAIL ' "$1" | grep -vE '^FAIL [0-9]+ of [0-9]+$' | grep -iqF -- "$2"; }
   rules=$(grep -o '#@rule [a-z0-9-]*' "$HERE/gate-job-started.sh" | awk '{print $2}')
   [ -n "$rules" ] || { echo "FAIL no #@rule lines found"; exit 1; }
   mf=0; mn=0
@@ -24,18 +36,21 @@ if [ "${1:-}" = "--mutants" ]; then
     if cmp -s "$M/$r.sh" "$HERE/gate-job-started.sh"; then echo "FAIL mutant $r: no change made"; mf=$((mf+1)); continue; fi
     if FAST=1 HOOK_STARTED="$M/$r.sh" bash "$0" > "$M/$r.out" 2>&1; then
       echo "FAIL mutant $r SURVIVED (suite still passes with the rule removed)"; mf=$((mf+1))
+    elif ! caught "$M/$r.out" "$r"; then
+      echo "FAIL mutant $r: suite red, but no FAIL line names $r (first: $(grep -m1 '^FAIL ' "$M/$r.out" | cut -c6-80))"; mf=$((mf+1))
     else
-      echo "ok   mutant $r caught by: $(grep -m1 '^FAIL ' "$M/$r.out" | cut -c6-80)"
+      echo "ok   mutant $r caught by: $(grep -E '^FAIL ' "$M/$r.out" | grep -iF -m1 -- "$r" | cut -c6-90)"
     fi
   done
-  # Named mutants (fix round 2, item 4). mutate <name> <started|completed> then FIND/REPL pairs:
+  # Named mutants (fix round 2, item 4). mutate <name> <started|completed> <reason> then FIND/REPL pairs
+  # (<reason>: a FAIL line must name it, baseline_green_gate):
   # each line holding FIND (a literal, via ENVIRON so no awk escape processing) gets FIND replaced
   # by REPL; a pair whose REPL starts with "=" replaces the WHOLE line; a FIND starting with "^"
   # matches only a line that equals the rest exactly. Every mutant must make the
   # suite FAIL. scrub_env and unset_bash_func are second layers behind env_i_reexec, so each is
   # mutated TOGETHER with the re-exec (alone they are redundant by design and would survive).
   mutate() {
-    local name=$1 which=$2 src out; shift 2
+    local name=$1 which=$2 why=$3 src out; shift 3
     if [ "$which" = completed ]; then src=$HERE/gate-job-completed.sh; else src=$HERE/gate-job-started.sh; fi
     out="$M/$name.sh"; cp "$src" "$out"
     while [ $# -ge 2 ]; do
@@ -49,19 +64,27 @@ if [ "${1:-}" = "--mutants" ]; then
     local hv=HOOK_STARTED; [ "$which" = completed ] && hv=HOOK_COMPLETED
     if env FAST=1 "$hv=$out" bash "$0" > "$M/$name.out" 2>&1; then
       echo "FAIL mutant $name SURVIVED"; mf=$((mf+1))
+    elif ! caught "$M/$name.out" "$why"; then
+      echo "FAIL mutant $name: suite red, but no FAIL line names '$why' (first: $(grep -m1 '^FAIL ' "$M/$name.out" | cut -c6-80))"; mf=$((mf+1))
     else
-      echo "ok   mutant $name caught by: $(grep -m1 '^FAIL ' "$M/$name.out" | cut -c6-80)"
+      echo "ok   mutant $name caught by: $(grep -E '^FAIL ' "$M/$name.out" | grep -iF -m1 -- "$why" | cut -c6-90)"
     fi
   }
   REEXEC='exec /usr/bin/env -i'; NOREEXEC='=  set -- --gate-reexec "$@"'
-  mutate env_i_reexec started "$REEXEC" "$NOREEXEC"
-  mutate env_i_reexec+scrub_env started "$REEXEC" "$NOREEXEC" '^scrub_env' '=:'
-  mutate env_i_reexec+unset_bash_func started "$REEXEC" "$NOREEXEC" '^unset_bash_func' '=:'
-  mutate scrub_completed completed "$REEXEC" "$NOREEXEC"
-  mutate mutant_z_diff started 'diff -z --name-only' 'diff --name-only'
-  mutate mutant_symlink_file started '[ -f "$f" ] && [ ! -L "$f" ] || return 1' '[ -f "$f" ] || return 1'
-  mutate mutant_symlink_dir started '[ ! -L "$WORK_DIR/_temp" ] && [ ! -L "$WORK_DIR/_temp/_github_workflow" ] || return 1' '=  :'
-  mutate mutant_allow_regex started '\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$ ]]' '. ]]'
+  mutate env_i_reexec started 'reexec' "$REEXEC" "$NOREEXEC"
+  mutate env_i_reexec+scrub_env started 'env-channel' "$REEXEC" "$NOREEXEC" '^scrub_env' '=:'
+  mutate env_i_reexec+unset_bash_func started 'env-channel' "$REEXEC" "$NOREEXEC" '^unset_bash_func' '=:'
+  mutate scrub_completed completed 'reexec' "$REEXEC" "$NOREEXEC"
+  mutate mutant_z_diff started 'protected-nonascii' 'diff -z --name-only' 'diff --name-only'
+  mutate mutant_symlink_file started 'symlink-event-json: file' '[ -f "$f" ] && [ ! -L "$f" ] || return 1' '[ -f "$f" ] || return 1'
+  mutate mutant_symlink_dir started 'symlink-event-json: dir' '[ ! -L "$WORK_DIR/_temp" ] && [ ! -L "$WORK_DIR/_temp/_github_workflow" ] || return 1' '=  :'
+  mutate mutant_allow_regex started 'allow-malformed' '\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$ ]]' '. ]]'
+  # readonly_unset_guard (fix round 3): the subshell probe removed / BASHOPTS put back in a list.
+  PROBE='( unset -v "$G_N" ) 2>/dev/null && unset -v "$G_N"'
+  mutate readonly_unset_guard started 'readonly_unset_guard' "$PROBE" 'unset -v "$G_N"'
+  mutate readonly_unset_guard_completed completed 'readonly_unset_guard' "$PROBE" 'unset -v "$G_N"'
+  mutate readonly_unset_guard_name started 'readonly_unset_guard' 'g_unset_vars BASH_ENV ENV PS4 CDPATH' 'unset BASH_ENV ENV PS4 BASHOPTS CDPATH'
+  mutate readonly_unset_guard_name_completed completed 'readonly_unset_guard' 'g_unset_vars G_F BASH_ENV' 'unset G_F BASHOPTS BASH_ENV'
   if [ "$mf" -gt 0 ]; then echo "FAIL $mf of $mn mutants survived"; exit 1; fi
   echo "PASS all $mn mutants caught"; exit 0
 fi
@@ -149,11 +172,11 @@ run() { # env overrides as args; prints exit code. Defaults = PR "same" on bom-c
     GITHUB_WORKFLOW_REF="o/r/.github/workflows/bom-check.yml@refs/pull/1/merge" GITHUB_WORKFLOW_SHA="$MERGE_same" \
     WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_GATE_FILE="$T/evil" WEB_RUNNER_WORK_DIR=/nonexistent WALK_LOCK=/nonexistent \
     SAFE_LOAD_MAX=999 SAFE_MEM_MIN=0 GATE_WAIT_S=0 WEB_RUNNER_WATCH_PID="$W" "$@" \
-    bash "$STARTED" --conf "$T/gate.conf" >"$T/out" 2>&1; echo $?
+    ${RUN_BASH:-bash} "$STARTED" --conf "$T/gate.conf" >"$T/out" 2>&1; echo $?
 }
 word() { awk '{print $4}' "$T/state/gate-verdict" 2>/dev/null; }
 lockfree() { ( flock -n 9 && echo free || echo held ) 9>>"$T/walk.lock"; }
-done_hook() { env -i PATH="$PATH" GITHUB_REPOSITORY=o/r WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_WORK_DIR=/nonexistent "$@" bash "$COMPLETED" --conf "$T/gate.conf"; echo $?; }
+done_hook() { env -i PATH="$PATH" GITHUB_REPOSITORY=o/r WEB_RUNNER_STATE_DIR=/nonexistent WEB_RUNNER_WORK_DIR=/nonexistent "$@" ${RUN_BASH:-bash} "$COMPLETED" --conf "$T/gate.conf"; echo $?; }
 waitfree() { for _ in $(seq 1 50); do [ "$(lockfree)" = free ] && break; sleep 0.1; done; lockfree; }
 says() { grep -qF -- "$1" "$T/out" && echo yes || echo "no ($(grep -m1 'side-machine gate' "$T/out" | cut -c1-120))"; }
 # refused <name> <reason substring> [payload KEY=VAL ...] -- [env KEY=VAL ...]: exit 1, names the reason, lock untouched.
@@ -361,6 +384,66 @@ accepted 'old-git: git 2.32.0 accepted'
 cp "$T/gate.conf.orig" "$T/gate.conf"; echo 'TEST_GIT_VERSION=git version 3.0.1' >> "$T/gate.conf"
 accepted 'old-git: git 3.0.1 accepted'
 cp "$T/gate.conf.orig" "$T/gate.conf"
+
+# ---- 7. readonly_unset_guard (fix round 3, item 1) ---------------------------------------------
+# Measured on the Dell (bash 5.3.9): in posix mode a failed `unset` of a READONLY variable
+# (BASHOPTS, SHELLOPTS, ...) is fatal, so the hook ended silently before any verdict and every
+# accept row was red. This sandbox's bash may not be fatal there, so three layers prove the fix:
+#  a) static: no variable unset outside g_unset_vars; no readonly name ever handed to it;
+#  b) fatal-unset emulation: a copy of each hook with `set -e` over its posix-mode prologue (from
+#     `POSIXLY_CORRECT=1` to the line that unsets it) -- there ANY failed unset ends the script,
+#     the bash 5.3 behaviour; the copy must still accept a legitimate run and refuse a bad one;
+#  c) g_unset_vars itself under `bash --posix -e` with a readonly variable.
+RO_NAMES=$(env -i /bin/bash -c 'readonly -p' 2>/dev/null | sed -nE 's/^declare -[a-zA-Z]+ ([A-Za-z_][A-Za-z0-9_]*).*/\1/p' | xargs)
+RO_NAMES="$RO_NAMES BASHOPTS SHELLOPTS BASH_VERSINFO EUID PPID UID"
+code() { sed -E 's/^[[:space:]]*#.*//; s/[[:space:]]#.*$//' "$1"; }
+for h in "$STARTED" "$COMPLETED"; do
+  hn=$(basename "$h")
+  bare=$(code "$h" | grep -nE '(^|[;&|({[:space:]])unset([[:space:]]|$)' | grep -vE 'unset -f |\( unset -v "\$G_N" \) 2>/dev/null && unset -v "\$G_N"$|^[0-9]+:[[:space:]]*unset -v G_N$' | head -3 | xargs)
+  check "readonly_unset_guard ($hn): no variable unset outside g_unset_vars" "${bare:-none}" none
+  bad=; for r in $RO_NAMES; do code "$h" | grep -E '(^|[;&|[:space:]])(g_unset_vars|unset)[[:space:]]' | grep -qwF -- "$r" && bad="$bad $r"; done
+  check "readonly_unset_guard ($hn): no readonly name is ever unset" "${bad:- none}" ' none'
+  check "readonly_unset_guard ($hn): g_unset_vars probes each name in a subshell first" "$(grep -cF '( unset -v "$G_N" ) 2>/dev/null && unset -v "$G_N"' "$h")" 1
+done
+fatal_copy() { sed -E 's/^POSIXLY_CORRECT=1$/POSIXLY_CORRECT=1; set -e/; s/^(g_unset_vars|unset) POSIXLY_CORRECT$/&; set +e/' "$1" > "$2"; }
+fatal_copy "$STARTED" "$T/fatal-started.sh"; fatal_copy "$COMPLETED" "$T/fatal-completed.sh"
+check 'readonly_unset_guard: fatal-unset emulation applied to both hooks' "$(grep -c 'set [+-]e$' "$T/fatal-started.sh")/$(grep -c 'set [+-]e$' "$T/fatal-completed.sh")" 2/2
+S0=$STARTED; C0=$COMPLETED; STARTED=$T/fatal-started.sh; COMPLETED=$T/fatal-completed.sh
+ROENV=(BASHOPTS=checkwinsize:failglob SHELLOPTS=braceexpand:hashall POSIXLY_CORRECT=1)
+for RUN_BASH in bash 'bash --posix'; do
+  accepted "readonly_unset_guard [$RUN_BASH, fatal unset, BASHOPTS+SHELLOPTS+POSIXLY_CORRECT in env]: legitimate bom-check run ok" -- "${ROENV[@]}"
+  refused "readonly_unset_guard [$RUN_BASH, fatal unset, BASHOPTS+SHELLOPTS+POSIXLY_CORRECT in env]: altered workflow refused" 'IDENTITY' "${MUTPUSH[@]}" "${ROENV[@]}"
+  refused "readonly_unset_guard [$RUN_BASH, fatal unset]: untrusted sender refused" 'payload sender mallory' sender=mallory -- "${ROENV[@]}"
+  reset; payload; mkdir -p "$T/work/r/src"
+  check "readonly_unset_guard [$RUN_BASH, fatal unset] completed: exit 0" "$(done_hook "${ROENV[@]}" 2>/dev/null)" 0
+  check "readonly_unset_guard [$RUN_BASH, fatal unset] completed: checkout removed" "$([ -e "$T/work/r/src" ] && echo kept || echo gone)" gone
+done
+RUN_BASH=; STARTED=$S0; COMPLETED=$C0
+for h in "$STARTED" "$COMPLETED"; do
+  fn=$(awk '/^g_unset_vars\(\) \{$/{p=1} p{print} p&&/^\}$/{exit}' "$h")
+  check "readonly_unset_guard ($(basename "$h")): g_unset_vars survives a readonly name under bash --posix -e" \
+    "$(env -i /bin/bash --posix -e -c "readonly RO=1; X=1; $fn"'
+g_unset_vars RO X BASHOPTS SHELLOPTS; echo "survived X=${X-unset}"' 2>/dev/null)" 'survived X=unset'
+done
+
+# ---- 8. uutils (fix round 3, item 3): the Dell's env/timeout/sort/stat are Rust uutils ----------
+# The hooks may use only options both GNU coreutils and uutils accept (audit table in
+# docs/handover/ci-offload-wave0.md). One row per option known to differ or be GNU-only: the hooks
+# must not use it. Plus the exact forms the hooks DO use, run here with the local tools.
+for h in "$STARTED" "$COMPLETED"; do
+  hn=$(basename "$h")
+  for pat in 'timeout -k' 'timeout --' 'timeout -s' 'env -S' 'env --' 'env -u' 'sort -V' 'sort ' 'stat ' 'readlink' 'realpath' \
+      'date -d' 'date --' 'head -c' 'tail -n +' 'mktemp --' 'mktemp -t' 'install ' 'cut --' 'touch -d' 'seq -'; do
+    check "uutils ($hn): no \`$pat\`" "$(code "$h" | grep -cF -- "$pat")" 0
+  done
+done
+check 'uutils: env -i NAME=VALUE cmd (the re-exec form) runs' "$(/usr/bin/env -i A=1 /bin/sh -c 'echo "$A"')" 1
+check 'uutils: timeout N cmd passes the exit code through' "$(timeout 10 sh -c 'exit 3'; echo $?)" 3
+check 'uutils: mktemp -d DIR/name.XXXXXX' "$(d=$(mktemp -d "$T/mk.XXXXXX") && [ -d "$d" ] && echo dir)" dir
+check 'uutils: date +%s is digits' "$(date +%s | grep -cE '^[0-9]+$')" 1
+check "uutils: cut -d' ' -f1 /proc/loadavg" "$(cut -d' ' -f1 /proc/loadavg | grep -cE '^[0-9.]+$')" 1
+check 'uutils: seq 1 3' "$(seq 1 3 | xargs)" '1 2 3'
+echo "info toolchain: $(bash --version | head -1); env: $(/usr/bin/env --version 2>&1 | head -1); timeout: $(timeout --version 2>&1 | head -1)"
 
 if [ -z "${FAST:-}" ]; then
 # ---- 9. holder exits when the watched (runner) process dies -----------------------------------

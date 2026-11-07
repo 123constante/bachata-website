@@ -13,7 +13,7 @@ and the stage 3 handover only.
 |---|---|
 | `docs/ci-offload/acer-web/gate-job-started.sh` | identity section rewritten: allow-list, event payload, merge-commit and changed-files checks (below); `_home` emptied per job, `_cache` kept |
 | `docs/ci-offload/acer-web/workflows.allow` (new) | the allow-list; ships with `bom-check.yml` only |
-| `docs/ci-offload/acer-web/test-gate-hooks.sh` | table-driven: 104 cases + `--mutants` (21 rules, every mutant caught) |
+| `docs/ci-offload/acer-web/test-gate-hooks.sh` | table-driven (fix round 3: see below for the current totals): 104 cases + `--mutants` (21 rules, every mutant caught) |
 | `docs/ci-offload/acer-web/actions.runner.bachata-website.acer-web.service` | HOME / XDG / npm cache under `_work`, read-only `PLAYWRIGHT_BROWSERS_PATH`, `ExecStartPre` mkdir |
 | `docs/ci-offload/acer-web/provision-checklist.md` (new) | what root installs; resolver check |
 
@@ -84,6 +84,79 @@ shape; a `pull_request_target` run is refused by `event-agree` (env `GITHUB_EVEN
 the env name shadowed to `pull_request`, `merge-head` would still refuse it: its workflow sha is a
 base commit, not a merge commit. Every routed workflow must keep `pull_request`, never
 `pull_request_target` (check-secrets-register already flags the latter).
+
+## Fix round 3 (ticket dt_85ef609034b6; brief `brief/ci-offload-wave0-fix3` v2, the Dell measurement of f53f5c2d1)
+
+Measured by the arc lead on the real Dell (bash 5.3.9, git 2.53.0, python 3.14.4, uutils
+env/timeout/sort/stat): `FAIL 147 of 240`; every accept row had an EMPTY verdict. Cause: the
+posix-mode prologue ran `unset ... BASHOPTS ...`; BASHOPTS/SHELLOPTS are readonly, and bash 5.3
+in posix mode treats a failed unset of a readonly name as fatal, so the hook ended silently.
+The review reports under `C:/tmp/review/` were NOT reachable from this cloud worker.
+
+| item | change | test rows / mutants |
+|---|---|---|
+| 1 `readonly_unset_guard` | both hooks: every VARIABLE unset goes through `g_unset_vars`, which unsets each name first in a subshell `( unset -v "$G_N" ) 2>/dev/null && unset -v "$G_N"` (a fatal or non-fatal failure ends only the subshell). BASHOPTS removed from both lists (SHELLOPTS, BASH_VERSINFO, EUID, PPID, UID were never listed); the env -i re-exec already drops them from the environment. `unset -f` (functions) is unchanged: an env-imported function is never readonly. | section 7: static (no variable `unset` outside `g_unset_vars`; no readonly name -- the bash's own `readonly -p` list plus the six above -- ever handed to unset; the probe line present) per hook; **fatal-unset emulation**: a copy of each hook with `set -e` over its posix-mode prologue (the bash 5.3 behaviour: any failed unset ends the script), run as `bash` AND `bash --posix` with `BASHOPTS`, `SHELLOPTS` and `POSIXLY_CORRECT=1` exported by the caller: legitimate bom-check run ok, altered workflow IDENTITY-refused, mallory sender refused, completed hook exit 0 + checkout removed; `g_unset_vars` alone under `bash --posix -e` with a readonly name survives. RED on f53f5c2d1: 20 rows, incl. the accept rows with an empty verdict (the Dell symptom reproduced). Mutants `readonly_unset_guard`, `readonly_unset_guard_completed` (probe removed), `readonly_unset_guard_name`, `readonly_unset_guard_name_completed` (BASHOPTS back in a bare unset). |
+| 2 `baseline_green_gate` | `--mutants` first runs the UNMUTATED suite with `FAST=1`; red -> prints `FAIL baseline red` + its first FAIL lines and exits 1 before any mutant. A mutant counts as caught only when a FAIL line (not the tally) names it: the `#@rule` tag for rule mutants, a stated reason for named mutants (`env_i_reexec*` -> `env-channel`, `scrub_completed`, `mutant_z_diff` -> `protected-nonascii`, `mutant_symlink_file`/`_dir` -> `symlink-event-json: file`/`dir`, `mutant_allow_regex` -> `allow-malformed`, the four new ones -> `readonly_unset_guard`). Any other red = `FAIL mutant X: suite red, but no FAIL line names ...`. | `--mutants` |
+| 3 `uutils` audit | no option change was needed: every external command already used only options GNU coreutils and uutils both accept (table below). | section 8: per hook, a row per GNU-only / differing option that must NOT appear (`timeout -k/-s/--`, `env -S/-u/--`, `sort`, `sort -V`, `stat`, `readlink`, `realpath`, `date -d/--`, `head -c`, `tail -n +`, `mktemp --/-t`, `install`, `cut --`, `touch -d`, `seq -`), plus the exact forms used, run with the local tools; an `info toolchain:` line records bash/env/timeout versions |
+
+External commands in the two hooks, with every option they use (after `env -i`, PATH=/usr/sbin:/usr/bin:/sbin:/bin):
+
+| command | options used | GNU / uutils |
+|---|---|---|
+| `env` (`/usr/bin/env`) | `-i NAME=VALUE ... /bin/bash -p FILE --gate-reexec ARGS` | POSIX `-i`; both |
+| `timeout` | `timeout N cmd` (N = 10, 30, 60; no `-k`, `-s`, `--foreground`) | both |
+| `mktemp` | `-d DIR/_gate-mirror.XXXXXX` | both |
+| `date` | `+%s` | both (`%s` is not POSIX, but both implement it) |
+| `cut` | `-d' ' -f1` | POSIX; both |
+| `seq` | `seq 1 20` | both |
+| `sleep` | `0.1`, `1`, `10` (fractional) | both |
+| `rm` / `mv` / `mkdir` / `cat` / `kill` | `-f`, `-rf` / `-f` / `-p` / none / `-0`, plain | POSIX; both |
+| `sort`, `stat`, `head`, `tail`, `readlink`, `install` | not used | - |
+| `printf`, `read`, `compgen`, `unset`, `export`, `flock`-fd redirections | bash builtins | - |
+| `awk` | `-v`, programs only | GNU gawk on the Dell |
+| `grep` | `-E` | GNU on the Dell |
+| `find` | `-mindepth 1 -maxdepth 1 ! -name X -exec rm -rf {} +`, `-mmin +60` | GNU findutils on the Dell (not POSIX-only; GNU there) |
+| `setsid` / `flock` | `-w` / `-n` | util-linux |
+| `git` | `--version`, `init -q --bare`, `-c k=v -C DIR fetch -q --no-tags --depth=2`, `rev-parse -q --verify`, `diff -z --name-only --no-renames` | git 2.32+ (checked) |
+| `python3` | `-I -c` | any python 3 |
+
+The test file itself (not the hooks) uses `touch -d '2 hours ago'`, `pkill -P`, `xargs`, `sed -E`;
+if the Dell's uutils `touch` ever rejects that date form, only that one cleanup row changes.
+
+### Verified / Not verified -- fix round 3 (this sandbox: Linux, GNU bash 5.2.21, GNU coreutils 9.4, git 2.43.0, root)
+
+Verified:
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> **PASS 313 cases** (was 240); the same
+  suite run as `POSIXLY_CORRECT=1 bash ...` -> PASS 313, and as `bash --posix ...` -> PASS 313.
+  `FAST=1` -> PASS 302 (the baseline `--mutants` now runs first).
+- Red first: the new suite (`FAST=1`) against the f53f5c2d1 hooks -> 20 FAIL rows, all
+  `readonly_unset_guard`. The fatal-unset copies of the old hooks ended silently with an EMPTY
+  verdict on the legitimate bom-check run, which is the Dell symptom.
+- `--mutants` (one full run, 36 mutants): `ok baseline green: PASS 302 cases`. 34 were caught by a
+  FAIL line naming their rule, including all 4 new `readonly_unset_guard*` mutants and all 24
+  `#@rule` mutants. The other 2, `env_i_reexec` and `scrub_completed`, made the suite red, but the
+  FAIL line came from `ps4-stops-at-reexec`, not from the reason first stated (`env-channel` /
+  `scrub_completed`). As root, bash ignores an inherited PS4 and the second-layer scrub removes
+  exported functions, so that row is the one that catches a missing re-exec here. Their stated
+  reason is now `reexec`. Both mutants were re-run alone with `FAST=1` after that change: each
+  is red with a FAIL line naming `reexec`. A full `--mutants` re-run after the change was NOT
+  done (about 40 min here): expected `PASS all 36`, for the Dell run to confirm.
+- `npx vitest run tests/routeRunner.test.ts` -> 96 passed. `check-secrets-register` OK (41
+  workflows, 0 self-hosted); `lint-workflow-masking`, `check-workflow-log-secrets`,
+  `lint-workflow-notification` exit 0; `check:mojibake` clean; `npx tsc --noEmit -p .` exit 0
+  (no TS file touched). No `src/**`, `supabase/**`, `.github/workflows/**` or `route-runner.mjs`
+  change; the `bom-check` required-check name is unchanged.
+
+Not verified (fix round 3):
+- **This sandbox is GNU bash 5.2.21 + GNU coreutils 9.4, not bash 5.3 + uutils.** Bash 5.2 does
+  NOT treat a failed readonly unset as fatal in posix mode, so the bash 5.3 behaviour is only
+  EMULATED here (`set -e` over the prologue). The uutils rows are static greps, plus the forms the
+  hooks use run with GNU tools. Building bash 5.3 here failed: the ftp.gnu.org / GitHub source
+  downloads were refused by the proxy (403).
+- NOTHING ran on the Acer or the Dell. The arc lead re-runs the suite and `--mutants` on the Dell
+  and records the totals; this worker claims no Dell numbers.
+- GitHub PR checks for this push were not read back before this worker stopped.
+- The review reports under `C:/tmp/review/` were unreachable.
 
 ## Fix round 2 (ticket dt_38826cd4e624; brief `brief/ci-offload-wave0-fix2` v2, blob 350b9a28, second review of 1b6ac93c2: SAFE WITH FIXES)
 
