@@ -76,7 +76,7 @@ import { useListImpressions } from '@/lib/listImpressions';
 import { type EventRowProps } from '@/components/events/EventRow';
 import NightsCard from '@/modules/profile/NightsCard';
 import PastHighlights from '@/modules/profile/PastHighlights';
-import { countdownChip, venueLine, cardMetaLine, actionLabel as nightsActionLabel, pastCounts, fallbackInitials } from '@/modules/profile/nightsCardModel';
+import { countdownChip, venueCityLine, seriesCityLabel, upcomingWording, cardMetaLine, actionLabel as nightsActionLabel, pastCounts, fallbackInitials } from '@/modules/profile/nightsCardModel';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 import { ReportProblemLink } from '@/lib/contactLinks';
@@ -98,7 +98,7 @@ import {
 
 // --- Types ---
 
-type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null };
+type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null; cityName?: string | null };
 
 type UpcomingListItem =
   | { kind: 'single'; event: OrgEvent }
@@ -108,6 +108,7 @@ type UpcomingListItem =
       name: string;
       posterUrl: string | null;
       location: string | null;
+      cityLabel: string | null;
       dates: OrgEvent[];
     };
 
@@ -429,7 +430,7 @@ const buildEventRowProps = (
 ): EventRowProps => {
   const { day, mon } = dateParts(event.displayStart);
   const time = eventTime(event.displayStart);
-  const venue = event.location?.trim() || event.city?.trim() || '';
+  const venue = venueCityLine(event.location, event.cityName ?? event.city) ?? '';
   const meta = overrides?.meta ?? [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
   const href = event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`;
   return {
@@ -451,12 +452,12 @@ const buildNightsCardProps = (
   todayKey: string,
   fallbackIndex: number,
   organiserName: string,
-  series?: { name: string; posterUrl: string | null; location: string | null; dateCount: number; onClick: () => void },
+  series?: { name: string; posterUrl: string | null; location: string | null; cityLabel: string | null; dateCount: number; tag?: string; onClick: () => void },
 ) => {
   const key = formatWallClockLocal(event.displayStart, 'yyyy-MM-dd');
   const chip = countdownChip(key, todayKey);
   const name = series?.name ?? event.name;
-  const venue = series ? venueLine(series.location, event.city) : venueLine(event.location, event.city);
+  const venue = series ? venueCityLine(series.location, series.cityLabel) : venueCityLine(event.location, event.cityName ?? event.city);
   const { day, mon } = dateParts(event.displayStart);
   return {
     href: event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`,
@@ -469,7 +470,7 @@ const buildNightsCardProps = (
     chipText: chip?.text ?? null,
     chipSoon: chip?.soon ?? false,
     metaLine: cardMetaLine(venue, series ? null : eventTime(event.displayStart)),
-    actionLabel: nightsActionLabel(series ? 'series' : 'single', series?.dateCount ?? 1),
+    actionLabel: series?.tag ? `See ${series.tag}` : nightsActionLabel(series ? 'series' : 'single', series?.dateCount ?? 1),
     initials: fallbackInitials(name, organiserName),
     fallbackIndex,
   };
@@ -801,7 +802,7 @@ const OrganiserProfile = () => {
       if (!e) continue;
       eventsWithFutureOcc.add(occ.event_id);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
+      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, cityName: occ.city_name ?? null, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
     }
     // Past list: driven by real past occurrences (server is_past flag), one
     // OrgEvent per past date. Cancelled rows are passed through by the RPC, so
@@ -820,7 +821,7 @@ const OrganiserProfile = () => {
       if (pastSeen.has(dedupeKey)) continue;
       pastSeen.add(dedupeKey);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
+      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, cityName: occ.city_name ?? null, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
     }
     // Base-date fallback only for legacy events the occurrence feed never
     // surfaced (no future AND no past occurrence row at all). EventRow.start_time
@@ -977,6 +978,7 @@ const OrganiserProfile = () => {
         name: first.name,
         posterUrl: first.poster_url,
         location: first.location,
+        cityLabel: seriesCityLabel(g.dates.map((d) => d.cityName)),
         dates: g.dates,
       };
     });
@@ -988,6 +990,8 @@ const OrganiserProfile = () => {
   // "Show all" actually reveals.
   const itemDateCount = (item: UpcomingListItem): number => (item.kind === 'series' ? item.dates.length : 1);
   const totalUpcomingDateCount = upcomingListItems.reduce((sum, item) => sum + itemDateCount(item), 0);
+
+  const wording = upcomingWording(totalUpcomingDateCount, upcomingListItems.length);
 
   const openSeries = upcomingListItems.find(
     (it): it is Extract<UpcomingListItem, { kind: 'series' }> =>
@@ -1366,7 +1370,7 @@ const OrganiserProfile = () => {
             <div style={{ display: 'flex', alignItems: eip ? 'center' : 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <h2 style={sectionH2}>Next nights</h2>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>
-                <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
+                {wording.headingCount && <span style={sectionCount}>{wording.headingCount}</span>}
                 {eip?.slot('create-event')}
               </div>
             </div>
@@ -1384,7 +1388,9 @@ const OrganiserProfile = () => {
                       name: item.name,
                       posterUrl: item.posterUrl,
                       location: item.location,
+                      cityLabel: item.cityLabel,
                       dateCount: item.dates.length,
+                      tag: wording.seriesTag ?? undefined,
                       onClick: () => setOpenSeriesEventId(item.eventId),
                     })}
                   />
@@ -1394,8 +1400,11 @@ const OrganiserProfile = () => {
             </div>
             {upcomingListItems.length > UPCOMING_VISIBLE && (
               <button onClick={() => { if (showAllUpcoming) scrollBackIfAbove('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
-                {showAllUpcoming ? 'Show fewer' : `Show all ${totalUpcomingDateCount} dates`}
+                {showAllUpcoming ? 'Show fewer' : wording.showMoreLabel}
               </button>
+            )}
+            {wording.capLine && (
+              <p data-testid="org-upcoming-cap-line" style={{ textAlign: 'center', fontSize: 12, opacity: 0.6, margin: '10px 0 0' }}>{wording.capLine}</p>
             )}
           </section>
         )}
