@@ -63,6 +63,9 @@ describe('the ONE result table', () => {
     expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in', checked_in_by_first_name: null }))).toMatch(/^Scanned at 21:42( on 29 October)?$/);
     expect(RESULT_TABLE.already_in.sub(reply({ result: 'already_in', checked_in_at: null }))).toBe('Scanned earlier');
   });
+  it('not_allowed detail names only controls on screen', () => {
+    expect(RESULT_TABLE.not_allowed.detail(null)).toBe('Ask the event\u2019s organiser to add you to their team, then tap Check again.');
+  });
   it('not_allowed names the team, never a role', () => {
     expect(RESULT_TABLE.not_allowed.sub(null)).toBe('You\u2019re not on this event\u2019s team');
   });

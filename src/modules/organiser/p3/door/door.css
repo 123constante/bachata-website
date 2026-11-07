@@ -53,7 +53,7 @@
 .p3-theme .p3-door-do { margin: 10px 0 0; font-size: 16px; color: var(--fg); background: var(--card2); border-radius: 12px; padding: 10px 12px; }
 .p3-theme .p3-door-acts { display: flex; gap: 8px; margin-top: 12px; }
 .p3-theme .p3-door-acts .p3-btn { flex: 1; }
-.p3-theme .p3-door-big { min-height: 56px; font-size: 18px; font-weight: 700; }
+.p3-theme .p3-door-big { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 56px; font-size: 18px; font-weight: 700; text-decoration: none; }
 .p3-theme .p3-door-wide { width: 100%; margin-top: 8px; }
 .p3-theme .p3-door-btnlink { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 
