@@ -45,6 +45,16 @@ rule): the record proves the review pipeline ran, not that a second identity
 signed it. The `docs/review/<pr>-r<n>.md` file is
 NOT required: it cannot live inside the PR it reviews (adding it changes the head).
 
+**After the merge, the owner-approval audit checks the record (detective).**
+`scripts/owner-approval-audit.mjs` (`decideRecordAudit`) also reads, for every
+merged PR of a commit on main that touches a test path (`pathClass` in
+`scripts/automerge-classify.mjs` says `tests`), the same record with the same
+`readReviewRecord` and `reviewRecordVerdict`, and prints
+`RECORD-MISSING <sha8>: PR #n <first problem>` when it is absent or unreadable
+(fail closed). A PR the owner approved at its head prints `RECORD-SKIP` instead:
+the approval is the stronger record. The line is a report only: it never changes
+the audit's OK / RED / INFRA exit code.
+
 **Class C content (fail closed; brief automerge-web-test-source-refusal).** A
 class-C path is not enough: `main()` reads the HEAD text of every class-C file
 that is not removed (contents API at the head sha, `readTestSources`) and

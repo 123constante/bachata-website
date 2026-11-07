@@ -41,6 +41,7 @@ Rank 1 in the owner's order. Goal: workers' PRs reach main with the owner touchi
 | Vercel `ignoreCommand` so docs/tests/scripts-only pushes build no preview | web | owner Approve (vercel.json hard tier); deploy cap ~100 per 24 h | DECISIONS 11-05 |
 | Push-or-block Stop hook (auto-push layer 1) and rescue worker after 30 min idle (layer 3) | local | layer 2 done | DECISIONS 11-05 "Auto-push" |
 | Follow-ups from the auto-merge review: refuse test files importing scripts/, label rule = last bot add, review comment before label | web/admin | web test-source refusal: PR OPEN (W#1468, hard tier, scripts/), owner Approve at final head; label rule and comment-before-label still to do | W#1468 claude/automerge-web-test-source-refusal; READY-QUEUE "FOLLOW-UP (review nits)" |
+| Owner-approval audit also checks the class C review record (detective, `RECORD-MISSING`) | web | PR OPEN (hard tier, scripts/), owner Approve at final head | owner Approve | claude/audit-review-record-class-c; READY-QUEUE "owner-approval-audit.mjs also check the review record (detective)" |
 | Dell exit-code and verify-branch Dell offload wiring | local | Dell login (owner forgot password 2026-11-05) | READY-QUEUE row 16 |
 
 ## Owner decisions pending
