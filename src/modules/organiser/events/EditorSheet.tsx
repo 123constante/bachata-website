@@ -8,6 +8,10 @@ import { linkOnClose, linkProblem } from '@/modules/organiser/shared/linkRules';
 import { Card, Collapse, ErrorState, FIELD_CLASS, GhostButton, PrimaryButton, SearchField, SheetView, SkeletonRows, SummaryRow, useOpenerRef } from '../ui';
 import { CAP_NOTE, allowedEndChoices, type CapInput } from './dateCap';
 import { MAX_GALLERY, MAX_VIDEOS, SHAPE_LABEL, shortDate, weekdayName, type EventDraft, type Shape } from './eventModel';
+import { dancerMessageUsUrl } from '@/lib/contactLinks';
+
+/** The WhatsApp message "Ask the team to add this venue" opens; the searched text and the event follow it. */
+export const VENUE_ADD_MESSAGE = 'Hi! Please add a venue to Bachata Calendar. I searched for: ';
 
 export type SheetName = 'gallery' | 'video' | 'starts' | 'repeats' | 'one-date' | 'until' | 'venue' | 'venue-search' | 'description' | 'ticket';
 
@@ -267,7 +271,14 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
             ))}
           </Card>
           )}
-          {venues && results.length === 0 && <p className="text-[14px] text-[var(--mut)]">No venue matches. Ask the team to add it.</p>}
+          {venues && results.length === 0 && (
+            <div>
+              <p className="text-[14px] text-[var(--mut)]">No venue matches. Ask the team to add it.</p>
+              <a href={dancerMessageUsUrl(`${VENUE_ADD_MESSAGE}${query.trim() || '(nothing typed)'}. Event: ${draft.name.trim() || 'not named yet'}`)}
+                target="_blank" rel="noopener noreferrer" data-testid="org-venue-ask-team"
+                className="flex min-h-[44px] items-center text-[14px] text-[var(--gold)] underline">Ask the team to add this venue</a>
+            </div>
+          )}
         </div>
       );
       break;
