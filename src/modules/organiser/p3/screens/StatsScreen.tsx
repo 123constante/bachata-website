@@ -140,7 +140,7 @@ export function StatsScreen() {
       ) : total === 0 ? (
         <StateCard title="No views yet" testId="p3-stats-none">
           {!live
-            ? 'Add an event first. Views start once an event is on the calendar.'
+            ? 'Put an event live first. Views start once an event is on the calendar.'
             : shareState === 'ready'
               ? 'Views show up as soon as dancers open your event. Copy your link above and share it on WhatsApp or Instagram to get the first ones.'
               : shareState === 'off'

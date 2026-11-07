@@ -28,14 +28,14 @@ import { sumAnalytics, parseAnalyticsV2 } from '../../data/analyticsV2';
 const ok = (data: unknown) => ({ isPending: false, isError: false, data, refetch: vi.fn() });
 const LIVE = { code: 'abc', disabled: false };
 const OFF = 'Your link is switched off. Ask the team.';
-const NO_EVENT = 'Add an event to get a link';
+const NO_EVENT = 'Put an event live to get a link';
 
 type Shape = { name: string; rows: unknown[]; views: number; code: unknown; disabled: boolean; reason: string | null; empty: RegExp | null };
 const WITH = /Copy your link above/;
 const NO_CODE = 'Your link isn\u2019t ready yet. Try again shortly.';
 const OFFTEXT = /switched off, so ask the team/;
 const SOON = /Your link will appear above shortly/;
-const WITHOUT = /Add an event first\. Views start once an event is on the calendar\./;
+const WITHOUT = /Put an event live first\. Views start once an event is on the calendar\./;
 
 const SHAPES_MATRIX: Shape[] = [
   { name: 'empty views + no event', rows: [], views: 0, code: LIVE, disabled: true, reason: NO_EVENT, empty: WITHOUT },

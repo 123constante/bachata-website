@@ -307,7 +307,7 @@ describe('Stats x every shape', () => {
     homeQ.value = ok(homeOf([]));
     viewsQ.value = ok(statsOf([]));
     show(<StatsScreen />);
-    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Add an event first/);
+    expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Put an event live first/);
     cleanup();
     viewsQ.value = pending();
     show(<StatsScreen />);
@@ -524,8 +524,8 @@ describe('Share link card x every shape', () => {
   it.each([
     ['admin-disabled code', { code: 'abc', disabled: true }, [SHAPES.weekly], 'Your link is switched off. Ask the team.'],
     ['no code', { code: null, disabled: false }, [SHAPES.weekly], 'Your link isn\u2019t ready yet. Try again shortly.'],
-    ['no events', { code: 'abc', disabled: false }, [], 'Add an event to get a link'],
-    ['only a finished event', { code: 'abc', disabled: false }, [SHAPES.ended], 'Add an event to get a link'],
+    ['no events', { code: 'abc', disabled: false }, [], 'Put an event live to get a link'],
+    ['only a finished event', { code: 'abc', disabled: false }, [SHAPES.ended], 'Put an event live to get a link'],
   ])('%s: a disabled button with its reason', (_n, code, rows, reason) => {
     codeQ.value = ok(code);
     homeQ.value = ok(homeOf(rows as never));
