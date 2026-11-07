@@ -59,8 +59,8 @@ describe.each(SHAPE_KEYS)('shape %s', (k) => {
       if (t.status === 'closed') expect(within(row).getByTestId('tix-type-closed').textContent).toBe('Closed');
       else {
         const sw = within(row).getByTestId('tix-switch') as HTMLButtonElement;
-        // a greyed switch always says why: under the row, or once at the top (the role reason)
-        if (sw.disabled && manager) expect(within(row).getByTestId('tix-switch-reason').textContent).not.toBe('');
+        // a greyed switch always says why: under the row, the Connect payments block (paid draft, not connected), or once at the top (the role reason)
+        if (sw.disabled && manager) expect((within(row).queryByTestId('tix-switch-reason') ?? within(row).getByTestId('tix-connect')).textContent).not.toBe('');
         if (!manager) expect(sw.disabled).toBe(true);
       }
     }
@@ -110,7 +110,7 @@ describe.each(SHAPE_KEYS)('shape %s', (k) => {
 });
 
 describe('the add sheet, paid, payments not connected', () => {
-  it('Put on sale is greyed and says where to connect (You > Get paid, which exists)', () => {
+  it('no greyed Put on sale: the sentence and ONE Connect payments button, with Save as draft still there', () => {
     load(SHAPES.started);
     show(<TicketsEntry seriesId="ser-1" />);
     open();
@@ -120,8 +120,11 @@ describe('the add sheet, paid, payments not connected', () => {
     fireEvent.click(screen.getByTestId('tix-next'));
     fireEvent.change(screen.getByTestId('tix-form-capacity'), { target: { value: '40' } });
     fireEvent.click(screen.getByTestId('tix-next'));
-    expect((screen.getByTestId('tix-sell') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('tix-sell-reason').textContent).toBe(PAYMENTS_WHERE);
+    expect(screen.queryByTestId('tix-sell')).toBeNull();
+    expect(screen.queryByText(PAYMENTS_WHERE)).toBeNull();
+    const sheet = screen.getByTestId('tix-sheet');
+    expect(within(sheet).getByTestId('tix-connect-line').textContent).toBe('Connect payments to put this on sale');
+    expect(within(sheet).getAllByTestId('tix-connect')).toHaveLength(1);
     expect((screen.getByTestId('tix-save') as HTMLButtonElement).disabled).toBe(false);
   });
 });
