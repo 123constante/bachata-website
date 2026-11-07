@@ -35,7 +35,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | I3 admin Seats panel + likely-match row on Access requests | admin | I1 + I7 applied | same |
 | I4 notification queue + `send-access-request-email` edge function | admin | I1 applied | same |
 | I5 Website: ownerless claim copy, `/account` request status, interim label in P3, ticket tools hidden | web | I1 + I7 applied; Design Gate by hand | same |
-| I6 G1 write-door doc gains the new doors | web docs | I1 | same |
+| I6 G1 write-door doc gains the new doors | web docs | I1 | I6 write-door doc done: `docs/scoping/g1-write-door-check.md` "Interim-seat doors (added with I1)"; PR: claude/seat-doors-doc |
 | E7 cancelled nights shown marked "Cancelled" on the page | web | owner yes/no (below) | GAPS file, ranked gap 4 |
 | Remaining P3 slices W3 later (Name/details save model, Prices, History, create flows), W4c invites/claims + organiser-side Going | web | needs re-survey against main; ARC-p3.md is stale | plans/ARC-p3.md section 2 |
 | Organiser analytics S1/S2 | admin | parked until the organiser dashboard exists | READY-QUEUE row 13 |
