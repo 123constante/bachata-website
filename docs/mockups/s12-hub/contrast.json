@@ -1,0 +1,38 @@
+{
+ "need": {
+  "text": 4.5,
+  "edge": 3
+ },
+ "text": {
+  "text on page": 15.51,
+  "text on card": 13.98,
+  "muted on page": 8.85,
+  "muted on card": 7.97,
+  "dj chip text on chip": 8.07,
+  "dj accent heading on card": 8.92,
+  "dancer chip text on chip": 5.47,
+  "dancer accent heading on card": 8.2,
+  "teacher chip text on chip": 7.1,
+  "teacher accent heading on card": 6.96,
+  "organiser chip text on chip": 5.59,
+  "organiser accent heading on card": 6.58,
+  "teacher mock hero text F5EEFF on 4C1D95": 9.68,
+  "organiser mock hero text FFF1E8 on 7A2606": 9.02
+ },
+ "edge": {
+  "dj card edge vs page": 9.9,
+  "dj card edge vs card": 8.92,
+  "dancer card edge vs page": 9.1,
+  "dancer card edge vs card": 8.2,
+  "teacher card edge vs page": 7.73,
+  "teacher card edge vs card": 6.96,
+  "organiser card edge vs page": 7.3,
+  "organiser card edge vs card": 6.58,
+  "dashed muted block edge vs card": 7.97
+ },
+ "noHorizontalScroll": {
+  "390px: scrollWidth==clientWidth": "checked on all 8 single frames (390/390)"
+ },
+ "minText": 5.47,
+ "minEdge": 6.58
+}
