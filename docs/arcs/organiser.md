@@ -20,6 +20,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | Details and Prices on every event shape (tests only; closes Walk B's 10 untested cells) | web | PR OPEN, tests only | checks, review | claude/details-prices-shape-matrix |
 | Page row returns to Review after save | web | PR OPEN, `phone-qa-section` red (PR body) | body fill, checks | W#1433 |
 | Plain note when an editor picture does not load | web | PR OPEN | checks, review | W#1442 |
+| Line-up no match offers Ask the team | web | PR OPEN (this PR) | checks, review, merge | claude/lineup-nomatch-ask-team; brief/lineup-nomatch-ask-team |
 | Door no-access card gets Check again + Back | web | PR OPEN, green at last read | review, merge | W#1439 |
 | Claimed, status not re-read: `claim-copy-team-not-person`, `event-page-how-to-pay`, `team-add-confirm` (starts after W#1412), `onboarding-find-invite-copy` | web | UNKNOWN, claimed in PROGRAM.md | lead to confirm | PROGRAM.md "Claimed branches" |
 | Interim seats I1 (seat table, gates, cooldown, invite manager branch) | admin | PR OPEN, red: unit-build, placeholder-merge-gate | fix round, independent review, replay proof, owner Approve | A#1284 claude/onboarding-interim-seats-db (cbab02b9); brief/onboarding-interim-seats-db |
