@@ -1,7 +1,7 @@
 name: Phone QA rerun
 
 # Re-runs a Phone QA run ONCE when it was cancelled -- the shape a shard hitting
-# its timeout-minutes limit leaves (phone-qa.yml, 3 shards x 15 min; owner
+# its timeout-minutes limit leaves (phone-qa.yml, 3 shards x 20 min; owner
 # 2026-11-06). Only the cancelled/failed jobs re-run (`gh run rerun --failed`),
 # so green shards are not repeated.
 #

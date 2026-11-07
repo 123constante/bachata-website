@@ -60,7 +60,9 @@ concurrency:
 
 jobs:
   # Three parallel shards (owner 2026-11-06): one job hit the 25-minute limit on
-  # busy runs. A shard cancelled at its 15-minute limit is re-run once by
+  # busy runs. Shards split by file, not duration: on #1461 shard 3 took 14m00s,
+  # shard 1 9m17s, shard 2 7m43s, so a 15-minute cap left no headroom and the one
+  # auto-rerun has the same cap. A shard cancelled at its 20-minute limit is re-run once by
   # phone-qa-rerun.yml; a real test failure is never re-run and stays red.
   phone-qa:
     runs-on: ubuntu-latest
