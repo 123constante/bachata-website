@@ -61,7 +61,7 @@ if [ "${1:-}" = "--mutants" ]; then
   mutate mutant_z_diff started 'diff -z --name-only' 'diff --name-only'
   mutate mutant_symlink_file started '[ -f "$f" ] && [ ! -L "$f" ] || return 1' '[ -f "$f" ] || return 1'
   mutate mutant_symlink_dir started '[ ! -L "$WORK_DIR/_temp" ] && [ ! -L "$WORK_DIR/_temp/_github_workflow" ] || return 1' '=  :'
-  mutate mutant_allow_regex started '^\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$' '.'
+  mutate mutant_allow_regex started '\.github/workflows/[A-Za-z0-9._-]+\.ya?ml$ ]]' '. ]]'
   if [ "$mf" -gt 0 ]; then echo "FAIL $mf of $mn mutants survived"; exit 1; fi
   echo "PASS all $mn mutants caught"; exit 0
 fi

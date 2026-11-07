@@ -10,8 +10,8 @@
 #  - POSIXLY_CORRECT=1 is a plain assignment (no command an exported function can shadow); it
 #    turns on posix mode, where the special builtin `exec` is found BEFORE any function named exec.
 #    `[[ ]]` and `for` are keywords; env and bash are absolute paths.
-#  - The runner starts a hook as `bash -e <file>` (the shebang is not used then); `-p` matters only
-#    when the file is executed directly. Residual: with SHELLOPTS=xtrace in the env, PS4 is still
+#  - If the runner starts the hook as `bash <file>`, the shebang (and its `-p`) is not used; `-p`
+#    matters only when the file is executed directly (not observed on a live runner). Residual: with SHELLOPTS=xtrace in the env, PS4 is still
 #    expanded for the few lines above the exec (row ps4-stops-at-reexec proves it stops there).
 POSIXLY_CORRECT=1
 if [[ "${1:-}" != --gate-reexec ]]; then

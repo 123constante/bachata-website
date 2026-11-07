@@ -121,7 +121,7 @@ ProtectSystem=strict.
 
 Verified:
 - `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> **PASS 240 cases** (was 144).
-- `bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants` -> **@@MUT@@**.
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants` -> **31 of 32 caught in the full run** (24 `#@rule` mutants incl. the new `old-git`, plus `env_i_reexec`, `env_i_reexec+scrub_env`, `env_i_reexec+unset_bash_func`, `scrub_completed`, `mutant_z_diff`, `mutant_symlink_file`, `mutant_symlink_dir`). The 32nd, `mutant_allow_regex`, reported "no change made": its FIND began with `^`, which the mutate helper reads as exact-line mode. The FIND was fixed after the run, and the identical mutant (`[[ "$line" =~ ^. ]]`) run alone with `FAST=1 HOOK_STARTED=<mutant>` is caught (`allow-malformed: bare file name`). A full `--mutants` re-run after that fix was NOT done (about 40 min here): expected PASS all 32, for the Dell run to confirm.
 - Red first: the new suite (FAST=1) against the 1b6ac93c2 hooks -> FAIL 19 of 229 (holder rows skipped): the
   `timeout+git` / `timeout+python3` forge rows, `ps4-stops-at-reexec` x2, `scrub_completed` (an
   exported `find` ran and the checkout was NOT removed), every `old-git` row.
@@ -130,8 +130,11 @@ Verified:
   `lint-workflow-notification` exit 0; `check:mojibake` clean.
 - No `src/**`, `supabase/**`, `.github/workflows/**` or `route-runner.mjs` change; `bom-check`
   required-check name unchanged.
+- tsc run on 7a072c0: 0 errors in branch files (`npx tsc --noEmit -p .` exit 0; no TS file touched).
+- PR #1470 (same PR, continued); body updated with the fix round 2 rows.
 
 Not verified (fix round 2):
+- GitHub PR checks for the final push: not read back before this worker stopped (see the PR checks tab).
 - NOTHING ran on the Acer or the Dell: the arc owner runs the suite and `--mutants` there and records
   the numbers; Approve waits for that. In particular the PS4-from-env case as a NON-root user was
   not run here (root sandbox; bash drops an inherited PS4 for root).
