@@ -5,7 +5,7 @@ import { reportClientErrorLazy } from '@/lib/reportClientErrorLazy';
 import { PENDING_ROLE_INTENT_KEY, ROLE_INTENT_META_KEY, SET_MY_ROLE_INTENT_RPC, isFirstSignIn, parseRoleIntentResult } from '@/lib/auth-otp-routing';
 import { previewOrganiserInvite, redeemOrganiserInvite } from '../adminApi';
 import { INVITE_PATH } from '../inviteModel';
-import { JOIN_ROLES, failureTag, interpretBind, interpretJoinRedeem, parseJoinPreview, type BindOutcome, type JoinPreview, type JoinRedeemOutcome } from './joinModel';
+import { JOIN_ROLES, NEXT_GET_PAID, failureTag, interpretBind, interpretJoinRedeem, parseJoinPreview, type BindOutcome, type JoinPreview, type JoinRedeemOutcome } from './joinModel';
 
 // Public-side RPCs not in the generated Database type yet: the same string-named boundary as inviteRedeemApi.
 type UntypedRpc = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }> };
@@ -35,9 +35,10 @@ export async function bindInviteEmail(token: string, email: string): Promise<Bin
  * account_exists_by_email call (no email enumeration). The emailed LINK comes back to this invite
  * through /auth/callback, which reads the roles from the stash / metadata as a sign-up does.
  */
-export function sendJoinCode(email: string, token: string) {
+export function sendJoinCode(email: string, token: string, getPaid = false) {
   const callbackUrl = new URL('/auth/callback', window.location.origin);
-  callbackUrl.searchParams.set('returnTo', `${INVITE_PATH}/${token}`);
+  // next=get-paid rides the emailed link too, so tapping it (not typing the code) keeps the Get paid Done.
+  callbackUrl.searchParams.set('returnTo', `${INVITE_PATH}/${token}${getPaid ? `?next=${NEXT_GET_PAID}` : ''}`);
   try {
     localStorage.setItem(PENDING_ROLE_INTENT_KEY, JSON.stringify(JOIN_ROLES));
   } catch {
