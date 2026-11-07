@@ -3,11 +3,12 @@ import { fullDate } from '../../shared/dateWords';
 import { londonTodayKey } from '@/lib/londonDate';
 import { P3SeriesGoing } from './P3Going';
 import { RANGE_DAYS, byEventOf, dailyTotals, scopeStats, sliceStats, viewsTotal, type StatsRange } from '../data/stats';
-import { useP3Analytics, useP3Views } from '../data/useP3Data';
+import { useP3Analytics, useP3ShareCode, useP3Views } from '../data/useP3Data';
 import { L } from '../model';
 import { NoPageCard, PageHeader, usePageScope } from './PageScope';
 import { GoingTile, RetryButton, StateCard } from './parts';
 import { ShareLinkCard } from './ShareLinkCard';
+import { liveEventOf, shareStateOf } from '../data/shareState';
 
 const RANGES: ReadonlyArray<readonly [StatsRange, string]> = [['d', 'Today'], ['w', '7 days'], ['m', '30 days']];
 
@@ -39,6 +40,7 @@ export function StatsScreen() {
   const head = <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />;
   const ids = [...scope.seriesIds];
   const analytics = useP3Analytics(range, ids);
+  const shareCode = useP3ShareCode(scope.pageId ?? undefined);
 
   const seg = (
     <div className="p3-seg" role="group" aria-label="Time range">
@@ -89,6 +91,8 @@ export function StatsScreen() {
   const allTotal = viewsTotal(scoped);
   const days = dailyTotals(data);
   const rows = byEventOf(data);
+  const live = scope.selected ? liveEventOf(scope.home.data!, scope.selected) : null;
+  const shareState = shareStateOf({ pending: shareCode.isPending, data: shareCode.data }, live);
   const label = RANGES.find((r) => r[0] === range)![1];
 
   return (
@@ -125,9 +129,9 @@ export function StatsScreen() {
         )}
       </div>
       <p className="p3-stat-l" data-testid="p3-stats-help">
-        A visitor is one person, counted once a day. Someone who comes back on 3 days counts as 3 visitors.
+        A visitor is counted once a day for each event. Someone who comes back on 3 days, or opens 2 of your events, counts more than once.
       </p>
-      <ShareLinkCard />
+      <ShareLinkCard pageId={scope.pageId} />
       {total === 0 && allTotal > 0 ? (
         <StateCard title={`No views ${range === 'd' ? 'today' : 'in the last 7 days'} yet`} testId="p3-stats-none-range">
           <p>You had {allTotal} {L.views} in the last 30 days.</p>
@@ -135,9 +139,13 @@ export function StatsScreen() {
         </StateCard>
       ) : total === 0 ? (
         <StateCard title="No views yet" testId="p3-stats-none">
-          {data.series.length
-            ? 'Views show up as soon as dancers open your event. Copy your link above and share it on WhatsApp or Instagram to get the first ones.'
-            : 'Add an event first. Views start once an event is on the calendar.'}
+          {!live
+            ? 'Add an event first. Views start once an event is on the calendar.'
+            : shareState === 'ready'
+              ? 'Views show up as soon as dancers open your event. Copy your link above and share it on WhatsApp or Instagram to get the first ones.'
+              : shareState === 'off'
+                ? 'Views show up as soon as dancers open your event. Your link is switched off, so ask the team to turn it back on.'
+                : 'Views show up as soon as dancers open your event. Your link will appear above shortly.'}
         </StateCard>
       ) : (
         <>

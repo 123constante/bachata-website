@@ -304,6 +304,7 @@ describe('Stats x every shape', () => {
     show(<StatsScreen />);
     expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Copy your link above/);
     cleanup();
+    homeQ.value = ok(homeOf([]));
     viewsQ.value = ok(statsOf([]));
     show(<StatsScreen />);
     expect(screen.getByTestId('p3-stats-none').textContent).toMatch(/Add an event first/);
@@ -472,7 +473,7 @@ describe('Stats v2 x every shape', () => {
     expect(screen.getByTestId('p3-stats-from-link').textContent).toBe(`${fromLink}From your link`);
     expect(!!screen.queryByTestId('p3-stats-guestlist')).toBe(!!t.guest_list_signups);
     expect(!!screen.queryByTestId('p3-stats-tickets')).toBe(!!t.tickets_sold);
-    expect(screen.getByTestId('p3-stats-help').textContent).toMatch(/3 days counts as 3 visitors/);
+    expect(screen.getByTestId('p3-stats-help').textContent).toMatch(/counted once a day for each event/);
     expect(screen.getByTestId('p3-share-link-card')).toBeTruthy();
   });
 
@@ -522,7 +523,7 @@ describe('Share link card x every shape', () => {
 
   it.each([
     ['admin-disabled code', { code: 'abc', disabled: true }, [SHAPES.weekly], 'Your link is switched off. Ask the team.'],
-    ['no code', { code: null, disabled: false }, [SHAPES.weekly], 'Your link is switched off. Ask the team.'],
+    ['no code', { code: null, disabled: false }, [SHAPES.weekly], 'Your link isn\u2019t ready yet. Try again shortly.'],
     ['no events', { code: 'abc', disabled: false }, [], 'Add an event to get a link'],
     ['only a finished event', { code: 'abc', disabled: false }, [SHAPES.ended], 'Add an event to get a link'],
   ])('%s: a disabled button with its reason', (_n, code, rows, reason) => {

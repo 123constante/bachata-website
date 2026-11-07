@@ -1,20 +1,13 @@
 import { useRef, useState } from 'react';
-import { londonTodayKey } from '@/lib/londonDate';
 import { shareLinkOf } from '../data/analyticsV2';
-import { nextUpOf, rowsOf } from '../data/home';
+import { SHARE_REASONS, liveEventOf, shareStateOf } from '../data/shareState';
 import { useP3Home, useP3ShareCode } from '../data/useP3Data';
 import { RetryButton } from './parts';
 
-const SHARE_REASONS = {
-  off: 'Your link is switched off. Ask the team.',
-  noEvent: 'Add an event to get a link',
-  loading: 'Getting your link\u2026',
-} as const;
-
 /** The page's share link for its next live event, with a Copy link control. */
-export function ShareLinkCard() {
+export function ShareLinkCard({ pageId }: { pageId?: string | null }) {
   const home = useP3Home();
-  const org = home.data?.organisers[0];
+  const org = home.data?.organisers.find((o) => o.id === pageId) ?? undefined;
   const code = useP3ShareCode(org?.id);
   const field = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -29,11 +22,10 @@ export function ShareLinkCard() {
       </div>
     );
   }
-  const today = home.data.today || londonTodayKey();
-  const next = nextUpOf(rowsOf({ ...home.data, today, organisers: [org] }));
-  const usable = code.data?.code && !code.data.disabled ? code.data.code : null;
-  const reason = code.isPending ? SHARE_REASONS.loading : !usable ? SHARE_REASONS.off : !next ? SHARE_REASONS.noEvent : null;
-  const link = usable && next ? shareLinkOf(window.location.origin, next.id, usable) : '';
+  const next = liveEventOf(home.data, org);
+  const state = shareStateOf({ pending: code.isPending, data: code.data }, next);
+  const reason = state === 'ready' ? null : SHARE_REASONS[state];
+  const link = state === 'ready' && next && code.data?.code ? shareLinkOf(window.location.origin, next.id, code.data.code) : '';
 
   const copy = async () => {
     try {
