@@ -1,7 +1,7 @@
 // Edit in place: the small owner-only pieces the page renders through the
 // bridge (pencils, tags, the "Complete your page" card, the link rows, the
 // Create event links).
-import { useState, type CSSProperties, type MouseEvent } from 'react';
+import { useLayoutEffect, useState, type CSSProperties, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { Pencil, Check } from 'lucide-react';
@@ -182,7 +182,10 @@ export function MetaSlot({ year, category, city, drafted, onOpen }: {
   );
 }
 
-export function AboutSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenSheet }) {
+export function AboutSlot({ drafted, onOpen, register }: { drafted: boolean; onOpen: OpenSheet; register?: () => () => void }) {
+  // The 'about' slot registers while mounted, so an empty About line on the SAME screen knows a
+  // bio pencil is already there and shows its sentence without a second one (docs/design/1473.md).
+  useLayoutEffect(() => register?.(), [register]);
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 4, verticalAlign: 'middle' }}>
       {drafted && <UnsavedTag field="bio" />}
@@ -192,20 +195,18 @@ export function AboutSlot({ drafted, onOpen }: { drafted: boolean; onOpen: OpenS
 }
 
 /**
- * The owner's empty About line. It carries the SAME bio pencil the filled-bio slot renders
- * (AboutSlot, not a second pencil), inline at the end of the sentence so it flows after the
- * last word and can never sit over one (docs/design/1473.md).
+ * The owner's empty About line. When no 'about' slot pencil is mounted on the same screen (the
+ * public hero with no bio, past the blank-page state), it carries the SAME bio pencil the 'about'
+ * slot renders, inline at the end of the sentence so it flows after the last word and never sits
+ * over one. When an 'about' pencil is mounted (/page's About row, the blank-page "Add a bio" pill)
+ * it shows the sentence alone, so every screen has exactly ONE About pencil (docs/design/1473.md).
  */
-export const AboutEmpty = ({ drafted, onOpen }: { drafted: boolean; onOpen: OpenSheet }) => (
+export const AboutEmpty = ({ drafted, onOpen, withPencil }: { drafted: boolean; onOpen: OpenSheet; withPencil: boolean }) => (
   <p style={{ margin: 0, fontSize: 14, lineHeight: '20px', color: 'var(--eip-mut, rgba(246,241,234,0.6))' }} data-testid="eip-about-empty">
     Not added yet. Optional: tell dancers who you are and what your nights are like.
-    <span data-testid="aboutEmptyPencil"><AboutSlot drafted={drafted} onOpen={onOpen} /></span>
+    {withPencil && <span data-testid="aboutEmptyPencil"><AboutSlot drafted={drafted} onOpen={onOpen} /></span>}
   </p>
 );
-
-/** Whether a bio shows (a draft overrides the stored one), on the same truthiness the public page uses. */
-export const bioShown = (overlay: { bio?: string | null }, entity: { bio?: string | null }): boolean =>
-  !!(overlay.bio !== undefined ? overlay.bio : entity.bio);
 
 // ---- link rows -----------------------------------------------------------------------------
 

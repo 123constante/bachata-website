@@ -6,11 +6,20 @@
  * on both callers of the slots:
  *  - public: src/pages/OrganiserProfile.tsx picks `slot(ep.bio ? 'about' : 'about-empty')`;
  *  - page:   src/modules/organiser/page/index.tsx renders 'about-empty' (no bio) AND 'about'
- *            unconditionally, so it must still get exactly ONE bio pencil.
+ *            unconditionally, so it must still get exactly ONE bio pencil;
+ *  - blank:  src/pages/OrganiserProfile.tsx in the owner-blank state (no bio, no events): the hero
+ *            renders 'about-empty' AND the empty state's "Add a bio" pill renders 'about'.
+ * 'public' is therefore the owner with no bio but with events (past the blank state).
  *
  * Red first (2026-11-07, run against origin/main 759d43f): 3 of 12 failed -- both "owner, no
  * bio" rows (the empty line had no control) and the public "drafted" row (with no bio pencil
  * there was nothing to open the sheet from to draft one).
+ *
+ * Continuation 1 (option a, docs/design/1473.md): 'about' always renders its pencil again and the
+ * empty line drops its own while an 'about' pencil is mounted. Red first against the round-1 head
+ * 462bd5b: the 'blank' owner/no-bio row failed (its one pencil sat in the hero line, none in the
+ * "Add a bio" pill) as did visibility.matrix's owner-blank rows; the 'page' owner/no-bio row now
+ * expects the pencil beside the line in the About row, not inside it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -34,7 +43,7 @@ const BASE: ProfileEntity = {
 
 const EMPTY_LINE = 'Not added yet. Optional: tell dancers who you are and what your nights are like.';
 
-type Caller = 'public' | 'page';
+type Caller = 'public' | 'page' | 'blank';
 type Bio = 'none' | 'set' | 'drafted';
 
 function Harness({ stored, owner, caller }: { stored: ProfileEntity; owner: boolean; caller: Caller }) {
@@ -44,7 +53,12 @@ function Harness({ stored, owner, caller }: { stored: ProfileEntity; owner: bool
   const bio = (ep.bio ?? '').trim();
   return (
     <div>
-      {caller === 'public' ? (
+      {caller === 'blank' ? (
+        <>
+          <section>{ep.bio && <p data-testid="bio">{ep.bio}</p>}{eip?.slot(ep.bio ? 'about' : 'about-empty')}</section>
+          {!ep.bio && eip && <span data-testid="org-blank-about">Add a bio{eip.slot('about')}</span>}
+        </>
+      ) : caller === 'public' ? (
         <section>
           {ep.bio && <p data-testid="bio">{ep.bio}</p>}
           {eip?.slot(ep.bio ? 'about' : 'about-empty')}
@@ -83,18 +97,27 @@ async function setup(bio: Bio, owner: boolean, caller: Caller) {
 beforeEach(() => window.localStorage.clear());
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-const CALLERS: Caller[] = ['public', 'page'];
+const CALLERS: Caller[] = ['public', 'page', 'blank'];
 
 describe.each(CALLERS)('%s caller', (caller) => {
-  it('owner, no bio: the empty line AND one enabled bio pencil inside it, which opens the bio sheet', async () => {
+  it('owner, no bio: the empty line AND exactly one enabled bio pencil, which opens the bio sheet', async () => {
     await setup('none', true, caller);
     const line = emptyLine();
     expect(line?.textContent).toBe(EMPTY_LINE);
     const pencils = bioPencils();
     expect(pencils).toHaveLength(1);
     const pencil = pencils[0];
-    expect(line!.contains(pencil)).toBe(true);
-    expect(within(line!).getByTestId('aboutEmptyPencil').contains(pencil)).toBe(true);
+    if (caller === 'public') {
+      // No other About pencil on this screen: the empty line carries it, inline.
+      expect(line!.contains(pencil)).toBe(true);
+      expect(within(line!).getByTestId('aboutEmptyPencil').contains(pencil)).toBe(true);
+    } else {
+      // The 'about' slot's pencil is on screen (About row / "Add a bio" pill): the line has none.
+      expect(line!.contains(pencil)).toBe(false);
+      expect(screen.queryByTestId('aboutEmptyPencil')).toBeNull();
+      if (caller === 'blank') expect(screen.getByTestId('org-blank-about').contains(pencil)).toBe(true);
+      else expect(screen.getByTestId('page-about').contains(pencil)).toBe(true);
+    }
     expect(pencil.disabled).toBe(false);
     // The same accessible name as the filled-bio pencil.
     expect(pencil.getAttribute('aria-label')).toBe('Edit about');
