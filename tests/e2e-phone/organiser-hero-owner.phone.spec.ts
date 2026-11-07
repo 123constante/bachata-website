@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { HERO_CATEGORY, HERO_ORGS } from './fakeSupabase.mjs';
-import { checkOverflow, fakeSupabase, settled, type Box } from './helpers';
+import { checkOverflow, fakeSupabase, settled, type Box, MIN_TAP_PX } from './helpers';
 
 /**
  * The OWNER hero on a phone (the edit-in-place layer on /organisers/:slug), with
@@ -64,7 +64,7 @@ for (const size of SIZES) for (const { name, slug } of HERO_ORGS) {
     const hero = await page.locator('header [data-eip-pencil]').evaluateAll((els) =>
       els.map((e) => { const r = e.getBoundingClientRect(); return { f: e.getAttribute('data-eip-pencil'), x: r.x, y: r.y, width: r.width, height: r.height }; }));
     expect(hero.map((p) => p.f)).toEqual(expect.arrayContaining(['name', 'city', 'organisation_category', 'founded_year']));
-    for (const p of hero) expect(p.height, `${p.f} tap height`).toBeGreaterThanOrEqual(44);
+    for (const p of hero) expect(p.height, `${p.f} tap height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
     for (let i = 0; i < hero.length; i++) for (let j = i + 1; j < hero.length; j++) {
       expect(intersects(hero[i], hero[j]), `${hero[i].f} overlaps ${hero[j].f}`).toBe(false);
     }

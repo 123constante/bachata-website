@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fakeSupabase, openOrganiserAsOwnerWithDraft, settled, checkOverflow, FLAG_ROUTES } from './helpers';
+import { fakeSupabase, openOrganiserAsOwnerWithDraft, settled, checkOverflow, FLAG_ROUTES, MIN_TAP_PX } from './helpers';
 import { FLAG_EVENT_SLUG, FLAG_FESTIVAL_SLUG } from './fakeSupabase.mjs';
 
 /**
@@ -59,7 +59,7 @@ for (const vp of VIEWPORTS) {
       expect([3, 4]).toContain(m.links!.length);
       expect(m.links!.map((l) => l.label)).toContain('Community');
       for (const l of m.links!) {
-        expect(l.h, `${l.label} >= 44px`).toBeGreaterThanOrEqual(44);
+        expect(l.h, `${l.label} >= 44px`).toBeGreaterThanOrEqual(MIN_TAP_PX);
         expect(l.ok, `${l.label} reachable at its centre`).toBe(true);
       }
     });

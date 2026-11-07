@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { fakeSupabase, settled } from './helpers';
+import { fakeSupabase, settled, MIN_TAP_PX } from './helpers';
 import { COMMAND_COPY, commandErrorMessage, isVersionConflict } from '../../src/modules/organiser/shared/selfServeErrors';
 
 /**
@@ -152,7 +152,7 @@ test('every refusal sentence fits the phone: no overflow, fully visible, control
     if (m.clipped) fail('note is clipped by an ancestor');
     if (m.noteBox.x < -0.5 || m.noteBox.x + m.noteBox.w > vp.width + 0.5) fail(`note outside the viewport horizontally (${m.noteBox.x}..${m.noteBox.x + m.noteBox.w})`);
     if (m.noteBox.y < 0 || m.noteBox.y + m.noteBox.h > vp.height + 0.5) fail(`note outside the viewport vertically (${m.noteBox.y}..${m.noteBox.y + m.noteBox.h})`);
-    if (m.btnBox.h < 44) fail(`confirm button ${m.btnBox.h}px tall (<44)`);
+    if (m.btnBox.h < MIN_TAP_PX) fail(`confirm button ${m.btnBox.h}px tall (<44)`);
     if (m.btnBox.y < 0 || m.btnBox.y + m.btnBox.h > vp.height + 0.5 || m.btnBox.x < -0.5 || m.btnBox.x + m.btnBox.w > vp.width + 0.5) fail('confirm button outside the viewport');
     if (!m.btnHit) fail('confirm button is covered at its centre');
     if (m.contrast < 4.5) fail(`contrast ${m.contrast.toFixed(2)}:1 (<4.5)`);
