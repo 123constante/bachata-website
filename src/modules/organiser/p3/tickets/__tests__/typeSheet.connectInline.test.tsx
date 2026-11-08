@@ -48,7 +48,7 @@ const EXPECT = (pence: number, stripe: StripeKey, role: Role) => {
     /** Put on sale / the Selling switch enabled: free works straight away, paid needs connected. */
     canSell: manager && (pence === 0 || stripe === 'connected'),
     /** The reason copy that must survive when there is no block. */
-    reason: !manager ? NOT_MANAGER : pence > 0 && stripe === 'loading' ? 'Checking your payment set-up. Reload the page if this stays.' : pence > 0 && stripe === 'not_configured' ? PAYMENTS_WHERE : null,
+    reason: !manager ? NOT_MANAGER : pence > 0 && stripe === 'loading' ? 'Checking your payment set-up. Try again in a moment.' : pence > 0 && stripe === 'not_configured' ? PAYMENTS_WHERE : null,
   };
 };
 

@@ -111,7 +111,7 @@ describe.each([
     expect(screen.queryByTestId('getpaid-start-go')).toBeNull();
     if (manager) {
       expect(primaries()).toHaveLength(1);
-      expect(screen.getByTestId('getpaid-start-add').getAttribute('href')).toBe('/account/p3/events/ser-1');
+      expect(screen.getByTestId('getpaid-start-add').getAttribute('href')).toBe('/account/p3/events/ser-1?tickets=1');
     } else expect(primaries()).toHaveLength(0);
   });
 });
@@ -135,14 +135,14 @@ describe('arriving from Stripe', () => {
     expect(screen.getByTestId('getpaid-start-status').textContent).toBe('Checking with Stripe…');
     expect(primaries()).toHaveLength(0);
     act(() => { vi.advanceTimersByTime(9000); });
-    expect(refetch).toHaveBeenCalledTimes(3);
+    expect(refetch).toHaveBeenCalledTimes(4); // on arrival, then every 3 s
     setStripe('connected', refetch);
     act(() => { view.again(); });
     expect(screen.getByTestId('getpaid-start-title').textContent).toBe('You’re ready to sell tickets');
     act(() => { vi.advanceTimersByTime(30_000); });
-    expect(refetch).toHaveBeenCalledTimes(3);
+    expect(refetch).toHaveBeenCalledTimes(4);
   });
-  it('times out at 60 s with a message and Check again, which polls again', () => {
+  it('times out at 30 s with a message and Check again, which polls again', () => {
     load(shape({ stripe: 'none' }));
     const refetch = setStripe('none');
     show(<GetPaidStart />, GP('?o=org-1&stripe=return'));
@@ -164,7 +164,7 @@ describe('arriving from Stripe', () => {
     act(() => { vi.advanceTimersByTime(3000); });
     view.unmount();
     act(() => { vi.advanceTimersByTime(60_000); });
-    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(refetch).toHaveBeenCalledTimes(2);
   });
 });
 
