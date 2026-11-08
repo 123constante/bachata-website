@@ -68,6 +68,10 @@ export const flags = {
   // exactly as before. Separate from parityGate's AW1_APPLIED (a code constant).
   // Turn on with VITE_ENABLE_ORGANISER_P3=true (Vercel env) -- no code change.
   organiserP3:         import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true',
+  // Start a P3 New event from a flyer photo (docs/design/flyer-read-screen.md). Needs organiserP3
+  // and organiserSelfServe too. OFF = the New event kind step is exactly as before.
+  // Turn on with VITE_ENABLE_ORGANISER_FLYER_READER=true (Vercel env) -- no code change.
+  organiserFlyerReader: import.meta.env.VITE_ENABLE_ORGANISER_FLYER_READER === 'true',
   // Organiser ticketing (S3, docs/organiser-ticketing-journey.md): P3's Get paid, ticket
   // types, sales, refunds and door. OFF = none of them shows. Turn on with
   // VITE_ENABLE_ORGANISER_TICKETING=true (Vercel env) -- no code change.
