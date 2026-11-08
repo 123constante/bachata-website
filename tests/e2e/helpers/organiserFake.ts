@@ -559,6 +559,15 @@ export class OrganiserFake {
           members: o.team.map((m) => ({ user_id: m.user_id, member_role: m.member_role, is_primary: m.is_primary, joined_at: '2026-09-01T10:00:00+00:00', is_me: m.user_id === ME, email: o.role === 'owner' ? m.email : null })),
         });
       }
+      case 'organiser_team_shared_v1': {
+        // Same people as the seat read, in the shared read's shape (seats only; no roster in this fake).
+        const o = org(body.p_organiser_id);
+        if (!o) return refuse(route, 'not_authorised');
+        return json(route, o.team.map((m, i) => ({
+          person_id: null, user_id: m.user_id, slug: null, public_name: m.display_name ?? m.email, avatar_url: null,
+          access_role: m.member_role, listing_label: null, is_stub: false, is_public: false, public_reason: 'no_profile', sort_key: i + 1,
+        })));
+      }
       case 'remove_organiser_member_v1': {
         const o = org(body.p_organiser_id);
         const m = o?.team.find((x) => x.user_id === body.p_user_id);

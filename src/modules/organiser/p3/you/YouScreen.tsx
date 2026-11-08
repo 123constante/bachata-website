@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { YouTicketsRow } from '../shell/youTickets';
 import { useQuery } from '@tanstack/react-query';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import { useSeatKind } from '@/modules/organiser/shared/useSeatKind';
 import { NO_PAGE_ADD } from '@/modules/organiser/shared/teamRules';
 import { useAuth } from '@/hooks/useAuth';
 import { graceStatusFrom, onboardingLeft } from '../onboarding/graceModel';
@@ -78,6 +79,7 @@ function AccountCard() {
 export function YouScreen() {
   const ctx = useTeamContext();
   const { organiser, organisers } = ctx;
+  const seat = useSeatKind(organiser?.id);
   const requests = useQuery({
     queryKey: incomingAccessRequestsQueryKey(organiser?.id),
     queryFn: () => fetchIncomingAccessRequests(organiser!.id),
@@ -116,7 +118,7 @@ export function YouScreen() {
         </StateCard>
       )}
       {requestsErrorShown(requests) && <RequestsError onRetry={() => void requests.refetch()} />}
-      <YouTicketsRow />
+      <YouTicketsRow seatKind={seat} />
       <section className="p3-card p3-list" data-testid="p3-you-rows">
         {rows.map((r) => <NavRow key={r.id} r={r} />)}
       </section>

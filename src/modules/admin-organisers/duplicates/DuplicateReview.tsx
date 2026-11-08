@@ -23,9 +23,9 @@ function Card({ tag, name, fact, keep }: { tag: string; name: string; fact: stri
 }
 
 /** "Same person?" -> "What will change" -> second confirm -> "Joined", for one pair. */
-export function DuplicateReview({ pair, onClose }: { pair: DuplicatePair; onClose: () => void }) {
+export function DuplicateReview({ pair, onClose, startAt = 'same', onJoined }: { pair: DuplicatePair; onClose: () => void; startAt?: 'same' | 'changes'; onJoined?: () => void }) {
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<ReviewStep>('same');
+  const [step, setStep] = useState<ReviewStep>(startAt);
   const heading = useRef<HTMLHeadingElement>(null);
   // Focus moves to the new step's heading (PLAN.md section 3).
   useEffect(() => { heading.current?.focus(); }, [step]);
@@ -42,6 +42,7 @@ export function DuplicateReview({ pair, onClose }: { pair: DuplicatePair; onClos
     onSuccess: (out) => {
       if (out.ok) {
         setStep('joined');
+        onJoined?.();
         void queryClient.invalidateQueries({ queryKey: DUPLICATES_KEY });
         // The folded profile is gone: no cached team list or search may still offer it for an invite.
         void queryClient.invalidateQueries({ queryKey: ['admin-invite-page-team'] });
@@ -120,7 +121,7 @@ export function DuplicateReview({ pair, onClose }: { pair: DuplicatePair; onClos
         <>
           <button type="button" className={`${BTN_PRIMARY} w-full`} disabled={!!joinBlocked || !!dryRefusal} aria-describedby={joinBlocked && changes ? 'dup-join-blocked' : undefined} onClick={() => setStep('confirm')} data-testid="dup-join">{DUP_COPY.joinOne}</button>
           {changes && changes.length === 0 && <p id="dup-join-blocked" className="text-xs text-muted-foreground" data-testid="dup-join-blocked">{DUP_COPY.changesEmpty}</p>}
-          <button type="button" className={BTN} onClick={() => setStep('same')} data-testid="dup-back">{DUP_COPY.back}</button>
+          <button type="button" className={BTN} onClick={() => (startAt === 'changes' ? onClose() : setStep('same'))} data-testid="dup-back">{DUP_COPY.back}</button>
         </>
       )}
     </div>

@@ -62,6 +62,7 @@ const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/A
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
+const AmbassadorLink = lazyWithRetry(() => import("@/modules/ambassador/link/AmbassadorLinkPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 // /account: the dancer home, or on to the organiser home (lib/accountRouting).
@@ -290,6 +291,8 @@ export const AnimatedRoutes = () => {
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
+            {/* Ambassador shared link (one permanent link per ambassador): works for an inactive city. */}
+            <Route path="/join/a/:code" element={<PageTransition><AmbassadorLink /></PageTransition>} />
 
             <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
             <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />

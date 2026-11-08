@@ -1,8 +1,18 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { setTicketStatus, upsertTicketType } from '../../tickets/ticketsApi';
 import {
   EDITOR_STEPS,
+  EVERY_DATE_NOTE,
+  coversEveryDate,
+  connectBlock,
+  OPEN_STRIPE_LABEL,
   MAX_PER_ORDER,
+  PAYMENTS_WHERE,
+  PAYMENTS_WHERE_LINK,
+  SELLING_ELSEWHERE_LINK,
+  STRIPE_AT_PRICE_HINT,
+  CONNECT_START_ERROR_SHOWN,
   NEXT_STATUS,
   buildUpsert,
   buyerTotal,
@@ -19,13 +29,36 @@ import {
   validateForm,
   type FormErrors,
   type MoveContext,
+  type SeriesDates,
   type TicketType,
   type TypeForm,
 } from '../../tickets/ticketModel';
 import type { Step, TypeDraft } from './model';
+import { P3_PATHS } from '../shell/paths';
+import { P3_TICKET_PATHS } from './paths';
 import { StackSheet } from './StackSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { GATE_LATE, SELL_HELD } from './gateCopy';
+
+/** The switched-off / not-connected reason, with its "where" words as a real tap target to Get paid. */
+export function ReasonText({ text }: { text: string }) {
+  if (text !== PAYMENTS_WHERE) return <>{text}</>;
+  return (
+    <>
+      <Link to={P3_TICKET_PATHS.getPaid()} data-testid="tix-payments-where" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, textDecoration: 'underline' }}>{PAYMENTS_WHERE_LINK}</Link>
+      {text.slice(PAYMENTS_WHERE_LINK.length)}
+    </>
+  );
+}
+
+/** The small plain text link under Connect payments: never a button, 44px tap area. */
+export function SellingElsewhere({ seriesId }: { seriesId: string }) {
+  return (
+    <Link to={P3_PATHS.eventDetails(seriesId)} className="p3-note" data-testid="tix-elsewhere" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, textDecoration: 'underline' }}>
+      {SELLING_ELSEWHERE_LINK}
+    </Link>
+  );
+}
 
 const STEP_TITLE: Record<Step, string> = { 1: 'Name and price', 2: 'Places and dates', 3: 'Review' };
 
@@ -43,6 +76,12 @@ export interface TypeSheetProps {
   checking?: boolean;
   /** A one-off's start: the default "Sales close" for a new ticket (eventStartOf). */
   eventStart: string | null;
+  /** The event's dates: a series with 2+ upcoming dates gets the "every date" note. */
+  series?: SeriesDates | null;
+  /** The one Connect payments press (Stripe start), held by the parent so its error outlives this sheet. */
+  onboard?: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
+  /** Waiting for Stripe: refetch the account status. */
+  onCheck?: () => void;
   /** inFlight: closed while a save was still running (the parent drops the draft so it cannot be sent twice). */
   onClose: (inFlight: boolean) => void;
   /** An answer that arrives after the sheet was closed (landed = saved): the parent shows it. */
@@ -57,7 +96,7 @@ export interface TypeSheetProps {
  * dress): 1 name + price with the Buyer pays box, 2 places and the sales window, 3 review.
  * Back goes one step and keeps every value. An untouched edit sends nothing.
  */
-export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, checking, eventStart, onClose, onLate, onSaved }: TypeSheetProps) {
+export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, checking, eventStart, series, onboard, onCheck, onClose, onLate, onSaved }: TypeSheetProps) {
   const { form, step, openMode, closeMode } = draft;
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -104,7 +143,10 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const pence = formPence(form);
   const sellBlock = moveBlock({ pricePence: pence ?? 0, reserved: type?.reserved ?? 0, capacity: Number(form.capacity) || 0 }, 'on_sale', ctx);
 
-  const submit = async (sell: boolean) => {
+  // A paid, complete new ticket with payments not connected: save as a draft and connect, here.
+  const connect = !type && !locked && ctx.seriesLive && Object.keys(allErrors()).length === 0 ? connectBlock(pence ?? 0, ctx, onboard ?? { switchedOff: true, note: null }) : null;
+
+  const submit = async (sell: boolean, thenConnect = false) => {
     if (locked) return;
     const errs = allErrors();
     setErrors(errs);
@@ -126,6 +168,11 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
         return;
       }
       if (type) return landed('Ticket saved.');
+      if (thenConnect && onboard) {
+        landed('Ticket saved as a draft. Connecting payments\u2026');
+        void onboard.go();
+        return;
+      }
       if (!sell) return landed('Ticket saved as a draft. Switch it to Selling when you are ready.');
       if (!out.id) return landed('Ticket saved as a draft. Switch it to Selling to put it on sale.');
       const st = await setTicketStatus(out.id, 'on_sale').catch((e: unknown) => ({ ok: false, reason: null, error: e }));
@@ -196,6 +243,32 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   } else {
     footer = (
       <>
+        {connect?.kind === 'check' ? (
+          <>
+            <p id={`${id}-sell`} className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
+            <button type="button" className="p3-btn" disabled aria-describedby={`${id}-sell`} data-testid="tix-sell">Put on sale</button>
+            <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => onCheck?.()} data-testid="tix-connect">{connect.button}</button>
+            <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} onClick={() => void submit(false, true)} disabled={busy || !!onboard?.busy} data-testid="tix-connect-open">{OPEN_STRIPE_LABEL}</button>
+            {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
+          </>
+        ) : connect ? (
+          <>
+            <p className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
+            <button
+              type="button"
+              className="p3-btn"
+              style={{ minHeight: 44 }}
+              onClick={() => void submit(false, true)}
+              disabled={busy || !!onboard?.busy}
+              aria-busy={saving === 'save' || undefined}
+              data-testid="tix-connect"
+            >
+              {saving === 'save' ? 'Saving\u2026' : connect.button}
+            </button>
+            <SellingElsewhere seriesId={seriesId} />
+            {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
+          </>
+        ) : (
         <button
           type="button"
           className="p3-btn"
@@ -207,7 +280,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
         >
           {saving === 'sell' ? 'Putting on sale\u2026' : 'Put on sale'}
         </button>
-        {sellBlock && <p id={`${id}-sell`} className="p3-note" data-testid="tix-sell-reason">{sellBlock}</p>}
+        )}
+        {!connect && sellBlock && <p id={`${id}-sell`} className="p3-note" data-testid="tix-sell-reason"><ReasonText text={sellBlock} /></p>}
         <button type="button" className="p3-btn p3-btn-line" onClick={() => void submit(false)} disabled={busy} data-testid="tix-save">
           {saving === 'save' ? 'Saving\u2026' : 'Save as draft'}
         </button>
@@ -259,6 +333,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               })}
             />
             {err('price')}
+            {pence !== null && pence > 0 && !type && <p className="p3-note" data-testid="tix-stripe-hint">{STRIPE_AT_PRICE_HINT}</p>}
             <p id={`${id}-price-help`} className="p3-note" data-testid="tix-price-help">{lockedPrice ?? (checking ? 'Checking sales\u2026' : 'Leave empty or 0 for a free ticket.')}</p>
             <div className="p3-buyer" data-testid="tix-buyer-pays" aria-live="polite">
               <span className="p3-row-s">Buyer pays</span>
@@ -307,6 +382,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               </>
             )}
             {err('closesAt')}
+            {!type && coversEveryDate(series) && <p className="p3-note" data-testid="tix-every-date">{EVERY_DATE_NOTE}</p>}
           </>
         )}
 

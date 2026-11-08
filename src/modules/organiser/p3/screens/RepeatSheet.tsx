@@ -6,8 +6,15 @@ import { saveButton } from '../model';
 import {
   NTH_CHOICES, PREVIEW_EMPTY, REPEAT_COPY, REPEAT_MAX, WEEK_ORDER, addMonthsKey, blankDraft, courseFacts, courseLine, defaultWeekday,
   draftOfRule, draftSig, parsePreview, previewCommand, previewFailure, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem,
-  noRuleNote, repeatSentence, repeatStart, repeatWords, type RepeatDraft, type RepeatEnd, type RepeatPreview,
+  noRuleNote, repeatSentence, repeatStart, repeatWords, REPEAT_WHY, type RepeatDraft, type RepeatEnd, type RepeatPreview,
 } from '../model/repeat';
+import { dancerMessageUsUrl } from '@/lib/contactLinks';
+
+/** The WhatsApp message the locked Repeat sheet's "Ask the team" opens; the event and the reason shown follow it. */
+export const REPEAT_ASK_MESSAGE = 'Hi! I need help with how my event repeats on Bachata Calendar. Event: ';
+
+/** The reasons whose words send the person to the team: each gets the Ask link (course, custom and one-off point at controls on the page). */
+const ASK_WHY: ReadonlySet<string> = new Set([REPEAT_WHY.ended, REPEAT_WHY.archived, REPEAT_WHY.review, REPEAT_WHY.adminOnly, REPEAT_WHY.festival]);
 import type { PreviewRepeat } from '../data/repeat';
 import { repeatShapeOf } from '../data/dateFacts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
@@ -240,6 +247,10 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose, kept = 
           <div className="p3-card p3-inset" data-testid="p3-repeat-current">{repeatWords(shape, today)}</div>
           {course && <p className="p3-note" data-testid="p3-repeat-course">{courseLine(course, today)}</p>}
           <p className="p3-note" data-testid="p3-repeat-why">{access.why}</p>
+          {ASK_WHY.has(access.why) && (
+            <a className="p3-link" data-testid="p3-repeat-ask-team" target="_blank" rel="noopener noreferrer"
+              href={dancerMessageUsUrl(`${REPEAT_ASK_MESSAGE}${s.name.trim() || 'not named yet'}. The page says: ${access.why}`)}>Ask the team</a>
+          )}
           <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>OK</button>
         </Sheet>
       </OnBody>

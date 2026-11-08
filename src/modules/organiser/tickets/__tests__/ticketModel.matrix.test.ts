@@ -77,7 +77,7 @@ describe('status machine mirrors the server', () => {
 });
 
 const ROLES = ['owner', 'manager', 'contributor'] as const;
-const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'connected', 'unknown'];
+const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'waiting', 'connected', 'unknown'];
 
 describe('moveBlock: every status x role x Stripe x free/paid x room left x series live', () => {
   for (const from of TICKET_STATUSES)
@@ -95,7 +95,7 @@ describe('moveBlock: every status x role x Stripe x free/paid x room left x seri
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
                 if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
-                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(/Connect payments/);
+                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : /Connect payments/);
                 expect(got).toBeNull();
               });
             }
@@ -120,10 +120,10 @@ describe('roles (Q15)', () => {
 });
 
 describe('Get paid', () => {
-  it('reads organiser_stripe_accounts as none / started / connected', () => {
+  it('reads organiser_stripe_accounts as none / started / waiting / connected', () => {
     expect(stripeStateOf(null)).toBe('none');
     expect(stripeStateOf({ charges_enabled: false, details_submitted: false })).toBe('started');
-    expect(stripeStateOf({ charges_enabled: false, details_submitted: true })).toBe('started');
+    expect(stripeStateOf({ charges_enabled: false, details_submitted: true })).toBe('waiting');
     expect(stripeStateOf({ charges_enabled: true })).toBe('connected');
   });
   it.each([

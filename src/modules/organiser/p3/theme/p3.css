@@ -121,6 +121,7 @@
   font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer;
 }
 .p3-theme .p3-btn-line { background: transparent; color: var(--fg); border: 1px solid var(--line-strong); }
+.p3-theme .p3-btn-line:disabled { background: transparent; color: var(--mut); border: 1px dashed var(--line-strong); cursor: default; opacity: 0.8; }
 .p3-theme .p3-link:focus-visible, .p3-theme .p3-btn:focus-visible, .p3-theme .p3-tap:focus-visible, .p3-theme .p3-seg button:focus-visible {
   outline: 2px solid var(--gold-fg); outline-offset: 2px;
 }

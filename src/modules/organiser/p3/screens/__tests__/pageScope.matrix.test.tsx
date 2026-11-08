@@ -17,7 +17,7 @@ import { scopeStats, viewsTotal } from '../../data/stats';
 
 const homeQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 const viewsQ = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
-vi.mock('../../data/useP3Data', () => ({ useP3Home: () => homeQ.value, useP3Views: () => viewsQ.value }));
+vi.mock('../../data/useP3Data', () => ({ useP3Home: () => homeQ.value, useP3Views: () => viewsQ.value, useP3ShareCode: () => ({ isPending: false, isError: false, data: undefined, refetch: () => undefined }), useP3Analytics: () => ({ isPending: false, isError: false, data: undefined, refetch: () => undefined }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u-scope' } }) }));
 vi.mock('@/modules/going/useMyOrganiserGoingTotal', () => ({ useMyOrganiserGoingTotal: () => ({ view: { state: 'off' }, total: null }) }));
 vi.mock('../GraceBanner', () => ({ GraceBanner: () => null }));

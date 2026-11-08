@@ -54,6 +54,7 @@ import { teamFromPublicRows } from '@/modules/profile/organiserTeam';
 import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { OrganiserStatsStrip } from '@/modules/profile/OrganiserStatsStrip';
 import { OrganiserGetInTouch, buildContactRows } from '@/modules/profile/OrganiserGetInTouch';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { OrganiserTeamSection } from '@/modules/profile/OrganiserTeamSection';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import { useListImpressions } from '@/lib/listImpressions';
@@ -1138,6 +1139,7 @@ const OrganiserProfile = () => {
         <OrganiserTeamSection
           team={team}
           failed={teamMembersError}
+          ownEmptyHref={facts.canEdit && !teamMembersLoading ? ORG_PATHS.team : null}
           retrying={teamMembersRetrying}
           onRetry={() => void refetchTeamMembers()}
           nationality={teamNationality}

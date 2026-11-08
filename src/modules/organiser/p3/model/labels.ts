@@ -264,6 +264,8 @@ export const L = {
   detailsChatBad: 'Enter the whole group chat link, like https://chat.whatsapp.com/ and the code after it, or leave it empty.',
   detailsKind: 'What it is',
   detailsKindHint: 'Worked out from your sessions. Change a session to change it.',
+  detailsKindHintFestival: 'Festival sessions are set with the Bachata Calendar team. Ask us to change the programme.',
+  detailsVideosNote: 'Dancers see the first link that can play (YouTube, Vimeo or an uploaded video). The others are kept.',
   detailsMore: 'More details',
   prices: 'Prices',
   pricesRowSub: 'What dancers pay and how',

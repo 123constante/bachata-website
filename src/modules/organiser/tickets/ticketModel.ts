@@ -59,14 +59,19 @@ export const NOT_MANAGER_STRIPE = 'Only an owner or manager of this page can set
 
 // ---- Get paid (organiser_stripe_accounts) -----------------------------------------
 
-export type StripeState = 'none' | 'started' | 'connected';
+/**
+ * none: no account row. started: a row, the forms are not all sent (Stripe still needs details from the person).
+ * waiting: every form sent (details_submitted), charges not on yet (Stripe is checking; nothing is left to do but wait).
+ * connected: charges on.
+ */
+export type StripeState = 'none' | 'started' | 'waiting' | 'connected';
 export interface StripeRow {
   charges_enabled?: unknown;
   payouts_enabled?: unknown;
   details_submitted?: unknown;
 }
 export const stripeStateOf = (row: StripeRow | null | undefined): StripeState =>
-  !row ? 'none' : row.charges_enabled === true ? 'connected' : 'started';
+  !row ? 'none' : row.charges_enabled === true ? 'connected' : row.details_submitted === true ? 'waiting' : 'started';
 
 export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; title: (eventName: string) => string; body: string; action: string | null }> = {
   none: {
@@ -83,6 +88,13 @@ export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; t
     body: 'Stripe still needs a few details before you can sell paid tickets. Free tickets work meanwhile.',
     action: 'Finish connecting',
   },
+  waiting: {
+    tag: 'Stripe is checking',
+    tone: 'draft',
+    title: () => 'Stripe is checking your details',
+    body: 'Stripe is checking the details you sent. This is usually quick. You can sell paid tickets as soon as it is done. Free tickets work meanwhile.',
+    action: 'Check again',
+  },
   connected: {
     tag: 'Paid out via Stripe',
     tone: 'live',
@@ -93,6 +105,14 @@ export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; t
 };
 
 /** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this (refunds are stricter: only a body saying not_configured does). */
+/** The waiting state's two real actions: refetch the status, and carry on at Stripe if the person wants to. */
+export const CHECK_AGAIN_LABEL = 'Check again';
+export const OPEN_STRIPE_LABEL = 'Open Stripe';
+/** Why a paid ticket cannot go on sale while Stripe is checking; also the line of the waiting Connect block. */
+export const STRIPE_WAITING_REASON = 'Stripe is still checking your details. Paid tickets can go on sale as soon as it is done.';
+/** The return banner while waiting, once the poll is over. */
+export const CONNECT_RETURN_WAITING = 'Stripe is checking your details. This is usually quick, and you can sell as soon as it is done.';
+
 export const NOT_SWITCHED_ON = 'Payments are not switched on yet. Free tickets work now; paid tickets and refunds come soon.';
 
 // ---- Rows ------------------------------------------------------------------------
@@ -215,16 +235,123 @@ export interface MoveContext {
 }
 
 /** Where a paid ticket's seller connects payments (the one Get paid screen). */
-export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
+export const PAYMENTS_WHERE_LINK = 'Connect payments in You \u203A Get paid'; // PAYMENTS_WHERE_LINK: the tap target inside PAYMENTS_WHERE
+export const PAYMENTS_WHERE = `${PAYMENTS_WHERE_LINK} before selling paid tickets.`;
+
+/** STRIPE_AT_PRICE_HINT: shown at price entry (step 1) once the price is above zero, so the next step is no surprise. */
+export const STRIPE_AT_PRICE_HINT = 'Paid tickets are paid out through Stripe. About 10 minutes: you leave the app for Stripe and come back.';
+/** SELLING_ELSEWHERE_LINK: the small plain text link under Connect payments; it opens the event Details ticket link field. Never primary. */
+export const SELLING_ELSEWHERE_LINK = 'Selling elsewhere? Add a ticket link';
+/** STRIPE_REFRESH_NOTE: why the person is back after `stripe=refresh`. */
+export const STRIPE_REFRESH_NOTE = 'The Stripe link ran out. Carry on with Stripe to get a fresh one.';
+/** CONNECT_START_ERROR_SHOWN: the start error has this test id wherever it is drawn (sheet, banner, draft row). */
+export const CONNECT_START_ERROR_SHOWN = 'tix-connect-error';
 
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
 export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
   if (!canManage(ctx.role)) return NOT_MANAGER;
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Try again in a moment.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'waiting') return STRIPE_WAITING_REASON;
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
   return null;
+};
+
+// ---- Connect payments inline (the Add a ticket flow and a draft's row) ----------------
+
+export const CONNECT_LINE = 'Connect payments to put this on sale';
+export const CONNECT_LABEL = 'Connect payments';
+export const CONNECT_RESUME_LABEL = 'Carry on with Stripe';
+
+export interface ConnectBlock {
+  /** 'connect': the button goes to Stripe. 'check': waiting, the button refetches and `openStripe` is the way on to Stripe. */
+  kind: 'connect' | 'check';
+  /** The moveBlock reason this block stands in for (it replaces that line on the screen). */
+  replaces: string;
+  line: string;
+  /** The one button's words. */
+  button: string;
+  /** The start-onboarding error, when the last press failed. */
+  error: string | null;
+}
+
+/**
+ * The ONE decision for the Connect payments block, used by the sheet and by a draft's list row (they only
+ * draw it). Null = no block: free ticket, not a manager (NOT_MANAGER stays), Stripe still loading (the
+ * "Checking your payment set-up" reason stays), already connected, or onboarding cannot start
+ * (not_configured: the existing disabled reason is the fallback).
+ */
+export const connectBlock = (
+  pricePence: number,
+  ctx: Pick<MoveContext, 'role' | 'stripe'>,
+  onboarding: { switchedOff: boolean; note: string | null },
+): ConnectBlock | null => {
+  if (!(pricePence > 0) || !canManage(ctx.role)) return null;
+  if (ctx.stripe === 'unknown' || ctx.stripe === 'connected' || onboarding.switchedOff) return null;
+  if (ctx.stripe === 'waiting') {
+    return { kind: 'check', replaces: STRIPE_WAITING_REASON, line: STRIPE_WAITING_REASON, button: CHECK_AGAIN_LABEL, error: onboarding.note };
+  }
+  return { kind: 'connect', replaces: PAYMENTS_WHERE, line: CONNECT_LINE, button: ctx.stripe === 'started' ? CONNECT_RESUME_LABEL : CONNECT_LABEL, error: onboarding.note };
+};
+
+// ---- After Stripe: the status banner on the Tickets sheet -------------------------------
+export type ConnectReturnKind = 'refresh' | 'checking' | 'ready_drafts' | 'ready_none' | 'needs_more' | 'waiting';
+export interface ConnectReturnBanner {
+  kind: ConnectReturnKind;
+  line: string;
+  /** Buttons, in order: put each paid draft on sale, put them all on sale, or carry on with Stripe. */
+  actions: ReadonlyArray<{ kind: 'put_on_sale' | 'put_all_on_sale' | 'carry_on' | 'check'; label: string; typeId?: string }>;
+}
+export const CONNECT_RETURN_CHECKING = 'Checking your payment set-up\u2026';
+export const CONNECT_RETURN_NONE = 'Payments connected. Add a ticket to start selling.';
+export const CONNECT_RETURN_NEEDS = 'A few details are still needed.';
+
+/**
+ * ONE mapping (Stripe state x paid drafts) for the banner shown when the person comes back from Stripe.
+ * `drafts` is this event's ticket types. `polling` is true while the return poll is still running.
+ * No banner: not from Stripe, not an owner or manager, or tickets exist but none is a paid draft
+ * (a free-only list, or everything already moved on).
+ */
+export const connectReturnBanner = (i: {
+  arrivedFromStripe: boolean;
+  stripe: StripeState | 'unknown' | null;
+  role: MemberRole | null | undefined;
+  drafts: readonly Pick<TicketType, 'id' | 'name' | 'pricePence' | 'status'>[];
+  polling?: boolean;
+  /** Arrived with `stripe=refresh`: the Stripe link ran out. */
+  refresh?: boolean;
+}): ConnectReturnBanner | null => {
+  const waitingBanner = (): ConnectReturnBanner => ({
+    kind: 'waiting',
+    line: CONNECT_RETURN_WAITING,
+    actions: [{ kind: 'check', label: CHECK_AGAIN_LABEL }, { kind: 'carry_on', label: OPEN_STRIPE_LABEL }],
+  });
+  if (i.refresh && !i.arrivedFromStripe && canManage(i.role) && i.stripe !== 'connected') {
+    if (i.stripe === 'waiting') return waitingBanner();
+    return { kind: 'refresh', line: STRIPE_REFRESH_NOTE, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
+  }
+  if (!i.arrivedFromStripe || !canManage(i.role)) return null;
+  const paid = i.drafts.filter((t) => t.status === 'draft' && t.pricePence > 0);
+  if (i.drafts.length > 0 && paid.length === 0) return null;
+  if (i.stripe === 'connected') {
+    if (paid.length === 0) return { kind: 'ready_none', line: CONNECT_RETURN_NONE, actions: [] };
+    if (paid.length === 1) {
+      return {
+        kind: 'ready_drafts',
+        line: `Payments connected. Put ${paid[0].name} on sale.`,
+        actions: [{ kind: 'put_on_sale', label: 'Put on sale', typeId: paid[0].id }],
+      };
+    }
+    return {
+      kind: 'ready_drafts',
+      line: `Payments connected. Put ${paid.map((t) => t.name).join(', ')} on sale.`,
+      actions: [{ kind: 'put_all_on_sale', label: 'Put all on sale' }],
+    };
+  }
+  if (i.polling || i.stripe === null || i.stripe === 'unknown') return { kind: 'checking', line: CONNECT_RETURN_CHECKING, actions: [] };
+  if (i.stripe === 'waiting') return waitingBanner();
+  return { kind: 'needs_more', line: CONNECT_RETURN_NEEDS, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
 };
 
 // ---- Sales window (London wall clock in the form, true instants on the wire) ---------
@@ -259,7 +386,30 @@ export interface TypeForm {
   closesAt: string;
 }
 
-export const formOf = (t: TicketType | null): TypeForm =>
+/** A series as the Tickets sheet knows it: how many upcoming dates, and the next one's start. */
+export interface SeriesDates {
+  upcoming_count?: number;
+  next_dates?: readonly { materialised_start_utc: string | null }[];
+}
+
+/** A ticket type carries no date today, so on a series with 2+ upcoming dates it covers every one of them. */
+export const coversEveryDate = (s: SeriesDates | null | undefined): boolean => (s?.upcoming_count ?? 0) > 1;
+
+export const EVERY_DATE_NOTE =
+  'This ticket is for every date of this event, and its numbers are shared across them. To stop selling after one night, set Sales close.';
+
+/**
+ * The default "Sales close" for a NEW ticket on a series with several dates: the next date's start,
+ * as the London wall-clock text the form holds (same reading as eventStartOf). Null when the series
+ * has fewer than two upcoming dates or the next start is missing.
+ */
+export const defaultCloseFor = (s: SeriesDates | null | undefined): string | null => {
+  if (!coversEveryDate(s)) return null;
+  const start = s?.next_dates?.[0]?.materialised_start_utc;
+  return start ? isoToLondonInput(start) || null : null;
+};
+
+export const formOf = (t: TicketType | null, series?: SeriesDates | null): TypeForm =>
   t
     ? {
         name: t.name,
@@ -269,7 +419,7 @@ export const formOf = (t: TicketType | null): TypeForm =>
         opensAt: isoToLondonInput(t.salesOpenAt),
         closesAt: isoToLondonInput(t.salesCloseAt),
       }
-    : { name: '', paid: false, price: '', capacity: '', opensAt: '', closesAt: '' };
+    : { name: '', paid: false, price: '', capacity: '', opensAt: '', closesAt: defaultCloseFor(series) ?? '' };
 
 export type FormErrors = Partial<Record<keyof TypeForm, string>>;
 
@@ -604,7 +754,7 @@ export const setupSteps = (stripe: StripeState, types: readonly Pick<TypeSales, 
 export const setupLine = (steps: readonly SetupStep[]): string => `Setup ${steps.filter((s) => s.done).length} of ${steps.length} done`;
 
 export type NextStep =
-  | { kind: 'connect'; stripe: 'none' | 'started'; seriesId: string; seriesName: string }
+  | { kind: 'connect'; stripe: 'none' | 'started' | 'waiting'; seriesId: string; seriesName: string }
   | { kind: 'add'; seriesId: string; seriesName: string }
   | { kind: 'sell'; seriesId: string; seriesName: string };
 
@@ -641,7 +791,8 @@ export const paymentsLink = (
   step: NextStep | null,
 ): { lead: string | null; action: string } | null => {
   if (!canManage(role) || stripe === 'connected' || step?.kind === 'connect') return null;
-  return stripe === 'none' ? { lead: 'Payments not connected.', action: 'Connect' } : { lead: null, action: 'Finish connecting' };
+  if (stripe === 'none') return { lead: 'Payments not connected.', action: 'Connect' };
+  return stripe === 'waiting' ? { lead: STRIPE_COPY.waiting.title(''), action: CHECK_AGAIN_LABEL } : { lead: null, action: 'Finish connecting' };
 };
 
 // ---- Orders ----------------------------------------------------------------------
