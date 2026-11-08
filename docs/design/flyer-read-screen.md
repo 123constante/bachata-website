@@ -61,3 +61,13 @@ once the Sessions sheet changes them); the flyer is already the picked cover pho
   no session = the unauthorised card and nothing is sent. The answer may be the read itself or
   `{ read }`; a refusal is a known word in `error` / `reason` / `code`.
 - Taps: the entry row 56px, tick rows 44px, all in px.
+
+## Handover (worker, 2026-11-08)
+
+- **Done:** flag, entry, `useFlyerRead`, `FlyerStart` (all states), form hand-off (marks, notes, Flyer says,
+  tick list, flyer as cover, forgotten on leave), save measurement, 41 table-driven tests, inventory, this record.
+  PR #1498. tsc run on the final branch head: 0 errors in branch files.
+- **Left / next:** the orchestrator's 390x844 walk (the list is in the PR body); add `flyer_read_saved` to
+  the typed map in `src/lib/analytics.ts`; confirm the live refusal body shape (`error` / `reason` / `code`,
+  `resets_at`) against the deployed `event-flyer-read`; then the owner turns the flag on for Ritmo Latino.
+- **Not verified:** the live reader, the deploy, the flag on in prod, any browser render.
