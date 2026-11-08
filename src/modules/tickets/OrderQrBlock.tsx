@@ -50,13 +50,13 @@ export default function OrderQrBlock({ orderId }: { orderId: string }) {
   const more = view.tickets.length - shown.length;
   return (
     <div className="mb-2" data-testid="order-qr-block">
-      <ul className="space-y-2">
-        {shown.map((t) => {
+      <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto" data-testid="order-qr-swipe" aria-label="Your tickets, swipe for the next one">
+        {shown.map((t, i) => {
           const code = doorCodeText(t.shortCode, ticketDoorCode);
           return (
-            <li key={t.ticketId} className="rounded-md p-2 text-[13px]" style={{ border: '1px solid var(--bento-hairline)' }} data-testid="order-qr-card">
+            <li key={t.ticketId} className="w-full min-w-full shrink-0 snap-center rounded-md p-2 text-[13px]" style={{ border: '1px solid var(--bento-hairline)' }} data-testid="order-qr-card">
               <div className="mb-1 flex items-start justify-between gap-2">
-                <span className="font-semibold">{t.typeName}</span>
+                <span className="font-semibold">{t.typeName}{shown.length > 1 && <span className="font-normal" style={muted} data-testid="order-qr-count"> &middot; {i + 1} of {shown.length}</span>}</span>
                 {t.checkedIn && (
                   <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ background: 'hsl(var(--bento-accent) / 0.18)' }}>
                     Checked in
