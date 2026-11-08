@@ -41,6 +41,10 @@
   },
   "not_event_writes": [
     {
+      "name": "set_ambassador_link_active_v1",
+      "reason": "Ambassador shared join link on/off switch; not an event write."
+    },
+    {
       "name": "add_favourite_venue_v1",
       "reason": "Dancer favourite venue."
     },

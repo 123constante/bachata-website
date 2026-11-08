@@ -9,10 +9,10 @@ import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { supportLinks } from '../../shared/support';
 import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
-import { declinedRequests } from '../../shared/accessRequestModel';
+import { askAgainFrom, declinedRequests } from '../../shared/accessRequestModel';
 import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
-import { askedLine, DECLINED_NEXT, declinedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
+import { askedLine, declinedLine, declinedNextLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
@@ -678,7 +678,7 @@ export function PageScreens(props: PageScreensProps) {
                   {r.decisionNote ? <> Their note: &ldquo;{r.decisionNote}&rdquo;</> : null}
                 </p>
               ))}
-              <p className="p3-ob-m" data-testid="p3-ob-declined-next">{DECLINED_NEXT}</p>
+              <p className="p3-ob-m" data-testid="p3-ob-declined-next">{declinedNextLine(askAgainFrom(declined[0].resolvedAt, declined[0].createdAt))}</p>
             </div>
           )}
         </>

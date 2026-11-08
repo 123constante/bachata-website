@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { searchClaimableOrganisers, type ClaimCandidate, type MyAccessRequest } from '@/modules/organiser/shared/selfServeApi';
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
-import { declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
+import { askAgainFrom, declinedRequests } from '@/modules/organiser/shared/accessRequestModel';
 import { Card, ErrorState, GhostButton, PrimaryButton, SearchField, SheetLookProvider, SkeletonRows, useDebounced, type SheetLook } from '../../ui';
-import { askedOn, rowAction } from './onboardingModel';
+import { askedOn, declinedNextLine, rowAction } from './onboardingModel';
 import { askedToJoinDone, hintRowText } from './claimStates';
 import { useOrgSurface } from '../../shell/surface';
 import { goDone } from '../../flows/doneState';
@@ -242,8 +242,11 @@ export function OnboardingView({ user, mailboxProven, myOrganiserIds, requests, 
               <p className="text-[15px] text-[var(--fg)]">
                 {r.organiserName ?? 'An organiser'} said no on {askedOn(r.resolvedAt ?? r.createdAt)}.
               </p>
-              <p className="text-[13px] text-[var(--mut)]">
-                The reason is not shown here yet. If you are the organiser, search for it above and ask again with a note.
+              {r.decisionNote ? (
+                <p className="text-[13px] text-[var(--mut)]">Their note: &ldquo;{r.decisionNote}&rdquo;</p>
+              ) : null}
+              <p className="text-[13px] text-[var(--mut)]" data-testid="declined-ask-again">
+                {declinedNextLine(askAgainFrom(r.resolvedAt, r.createdAt))}
               </p>
             </div>
           ))}

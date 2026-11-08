@@ -1,5 +1,6 @@
 // Pure, client-free helpers for the onboarding screens (W1).
 import type { ClaimHint } from '@/modules/organiser/shared/claimHint';
+import { londonDateKey } from '@/lib/londonDate';
 import { instantDateLabel } from '@/modules/organiser/shared/teamModel';
 import { claimPrimary } from './claimStates';
 
@@ -60,7 +61,16 @@ export const declinedLine = (iso: string | null, name: string | null, now: Date 
   const on = iso ? askedOn(iso, now) : '';
   return `${name ?? 'An organiser'} said no${on ? ` on ${on}` : ''}.`;
 };
-export const DECLINED_NEXT = 'You can ask again, or create a page of your own. Both start from Find your page.';
+/**
+ * The declined row's next step, with the first day the server will take another request
+ * (askAgainFrom). On or after that day: "from today". No date at all: no "ask again" offer.
+ * Names only Find your page, which is on both screens' path.
+ */
+export const declinedNextLine = (iso: string | null, now: Date = new Date()) => {
+  if (!iso) return 'You can ask to join a different page from Find your page.';
+  const from = iso <= londonDateKey(now) ? 'today' : instantDateLabel(`${iso}T12:00:00Z`, now) ?? iso;
+  return `You can ask again from ${from}, or ask to join a different page from Find your page.`;
+};
 export const askedLine = (iso: string | null, now: Date = new Date()) => {
   const on = iso ? askedOn(iso, now) : '';
   return on ? `You asked on ${on}. We will get back to you.` : 'You already asked to join this page. We will get back to you.';

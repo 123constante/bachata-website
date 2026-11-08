@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { COMMAND_COPY, commandErrorMessage, ONBOARDING_REFUSAL, teamErrorMessage } from '../../shared/selfServeErrors';
 import { reasonMessage } from '../../tickets/ticketModel';
 import { RESULT_COPY } from '../new/model';
-import { DECLINED_NEXT } from '../../home/onboarding/onboardingModel';
+import { declinedNextLine } from '../../home/onboarding/onboardingModel';
 
 const ROOT = path.resolve(__dirname, '../../../../..');
 const src = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -78,7 +78,7 @@ const ROWS: Row[] = [
     .map((c): Row => ({ id: `team:${c}`, screen: 'Organisers/Team', via: 'teamErrorMessage', check: () => ownReason(teamErrorMessage(refusal(c))) })),
 
   // F-46: a refused join request. The reason card is gated on !orgId, so the person who asked from a page link gets a silent Welcome.
-  { id: 'join:declined says what to do', screen: 'onboarding / join', via: 'DECLINED_NEXT', check: () => ownReason(DECLINED_NEXT) },
+  { id: 'join:declined says what to do', screen: 'onboarding / join', via: 'declinedNextLine', check: () => { ownReason(declinedNextLine('2026-12-12')); ownReason(declinedNextLine(null)); expect(declinedNextLine(null)).not.toMatch(/ask again/i); expect(declinedNextLine('2026-12-12')).toMatch(/ask again from \w+day \d{1,2} \w+/); } },
   { id: 'join:declined shows with a page in hand', fix: 'F-46', screen: 'onboarding / join', via: 'OnboardingFlow declined card', check: () => {
     expect(src('src/modules/organiser/p3/onboarding/OnboardingFlow.tsx')).not.toMatch(/!orgId && declined\.length > 0/);
   } },
