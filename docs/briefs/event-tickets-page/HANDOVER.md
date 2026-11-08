@@ -1,18 +1,17 @@
-# HANDOVER: event-tickets-page (PARTIAL, slices a-c done)
+# HANDOVER: event-tickets-page (PARTIAL, continuation 2)
 
 ## Done
-- INVENTORY.md; `goodToKnow.ts`, `ticketSymbol.ts` + tests (earlier).
-- (a) Venue read: `parking`, `id_required`, `cloakroom_available`, `bar_available` parsed in types.ts / useEventPageQuery.ts / buildEventPageModel.ts. FINDING: the `event_view_p5` RPC does NOT return these four fields today (checked with a read-only pg_get_functiondef), so those chips stay hidden until the admin repo adds them to the venue JSON. No DB change made here.
-- (b) `EventTicketsPage.tsx`: full-screen page (portal, Back button uses history), title + date line, Good to know chips (`ChipRow`), then the unchanged `TicketsBlock` (no change to ticketCheckoutModel.ts). Ticket rows now have 64px symbol tiles (`ticketSymbol`), amber #FF9900 buy button.
-- (c) Sticky bar `Buy tickets` calls `onOpenTickets`; inline `TicketsBlock` mount removed from BentoPage. `flagOff.test.ts` updated to the new mount.
-- Tests: `eventTicketsPage.matrix.test.tsx` (latest close, chip shapes).
+- Slices a-c (earlier): inventory, chips, symbols, venue read, Tickets page opened from the sticky bar.
+- (1) Programme block on the Tickets page: `programmeModel.ts` (time order, TBC last, plain type without level, max 4 then "See full programme" which closes the page and scrolls to the schedule tile via new `data-block-id` on BentoGrid). Reads the same cached queries as the Schedule tile. Length chip now falls back to the programme.
+- (2) Fixed amber bottom bar (#FF9900, dark button, total + summary, disabled reason in the sub line) in TicketsBlock; quiet dark-green bar for sold out / not open / closed / unavailable (`ticketBars.ts`); quantity pill. ticketCheckoutModel.ts untouched.
+- (3a) Thanks page: per-ticket QRs now swipe (scroll-snap), "1 of N" counter.
+- (4) Tests: `programme.matrix.test.tsx`, `ticketBars.matrix.test.ts`; all tickets and event-page unit tests pass.
 
-## Left
-1. Programme block (max 4 items, "See full programme") on the Tickets page; chips length fallback from programme (`programmeStartIso/EndIso` are passed null today).
-2. Amber fixed bottom bar and quiet dark-green bar for non-actionable states (button is amber inline, not a fixed bar); quantity pill styling.
-3. (d) Thanks page: one QR per ticket; My tickets find-by-email form.
-4. 390x844 walk (laptop-walk.mjs --branch), full CI steps, lint chain, e2e.
-5. Admin repo: add the four venue fields to `event_view_p5`.
+## Left / blocked
+- (3b) My tickets find-by-email: NOT built. It needs a backend that emails or looks up tickets for a signed-out buyer (an edge function or RPC); none exists and the brief forbids DB changes. A form that cannot work would be a fake. Needs an admin-repo decision first.
+- The "paused" quiet state shows as "Tickets unavailable" only when the types list is empty; there is no per-type paused status on the client today.
+- Item 5 (admin RPC fields) stays with the lead.
+- 390x844 walk and screenshots not done in this cloud run.
 
 ## Not verified
-No browser walk, no e2e, lint chain not run (eslint on touched files: 2 pre-existing errors in EventStickyActionBar.tsx, not from this change). Unit tests in src/modules/tickets and src/modules/event-page pass. tsc run on 3a10a8b: 0 errors in branch files.
+No browser walk, no e2e, no live Stripe, no prod data survey run. See PR body for checks run.
