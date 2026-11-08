@@ -1,21 +1,13 @@
-# Brief: Acer web runner unit-file fix into the repo (hard tier)
-Brief-version: 2
-Branch: claude/ci-offload-unitfix
-Lane: careful, Opus. Docs/ops files only, NO workflow edits. Hard tier: owner Approve at head, then Claude merges.
-Serves: owner priority 3 (CI offload to the Acer). Two fixes exist only on the Acer machine and the next re-provision would lose them. Source: ~/.claude closing note by website-8d (Acer facts: override.conf on the machine, bom-check passed on run 42483686046).
+# Brief: claude/ci-offload-unitfix (hard tier, careful lane, Opus; owner Approve at head)
 
-## What main lacks
-- the unit file ExecStart must be exactly `/srv/ghrunner-web/runner/bin/runsvc.sh` (run.sh copies run-helper.sh into the read-only runner dir and fails under ProtectSystem) -- grep: bin/runsvc.sh
-- `RestrictSUIDSGID=no` in the unit's [Service] section (tar fails with ENOSYS under it on Ubuntu 26.04, proven by bisect); add a one-line comment saying why and that other sandbox rules are untested without root -- grep: RestrictSUIDSGID=no
-- the sha256 of that unit file in the `sums` here-doc of provision-acer-web.sh must match the new file as the script prepares it (CRLF stripped with `tr -d '\r'`); recompute it and any other sum whose file changed; if the script pins a commit sha, say in the handover that the pin must be bumped after merge (do not invent a sha) -- grep: actions.runner.bachata-website.acer-web.service
-- the stale "104 cases, 21 rules" text in docs/handover/ci-offload-wave0.md must match the real current output of `bash docs/ci-offload/acer-web/test-gate-hooks.sh` (run it, quote the real totals; run `--mutants` too) -- grep: ci-offload-wave0 totals
-- provision-checklist.md has no step for the WEB_RUNNER_READ_TOKEN repo secret (without it the router always picks hosted runners); add a numbered step: create a fine-grained read-only token, store it as the repo secret WEB_RUNNER_READ_TOKEN, note it expires 90 days after creation (PAT made 2026-11-08) -- grep: WEB_RUNNER_READ_TOKEN
+Goal: make the repo copy of the acer-web systemd unit match what really runs on the Acer, so a re-provision does not break the runner. Nothing is installed or run on any machine by this PR.
 
-## Files
-- docs/ci-offload/acer-web/actions.runner.bachata-website.acer-web.service
-- docs/ci-offload/acer-web/provision-acer-web.sh
-- docs/ci-offload/acer-web/provision-checklist.md
-- docs/handover/ci-offload-wave0.md
-- docs/handover/ci-offload-unitfix.md (new)
+Why: the Acer runs with a drop-in (/etc/systemd/system/actions.runner.bachata-website.acer-web.service.d/override.conf) that sets ExecStart= (cleared) then ExecStart=/srv/ghrunner-web/runner/bin/runsvc.sh, and RestrictSUIDSGID=no. Reasons: run.sh copies run-helper.sh into the read-only runner dir (fails under ProtectSystem); tar fails with ENOSYS under RestrictSUIDSGID on Ubuntu 26.04 (proven by bisect). Owner approved both 2026-11-08. NoNewPrivileges and ProtectSystem=strict stay.
 
-Do not touch .github/workflows, secrets or the Acer. Run test-gate-hooks.sh and any script lint the repo has (shellcheck if present). Never commit a token. Push once; last commit subject ends with the worker-done marker. PR body: per-job CI table, what was run, Not verified (the real Acer re-provision is the owner's/lead's later step).
+Changes (4 files, small):
+1. docs/ci-offload/acer-web/actions.runner.bachata-website.acer-web.service: ExecStart=/srv/ghrunner-web/runner/bin/runsvc.sh; RestrictSUIDSGID=no, each with a one-line comment giving the reason above. Nothing else changes.
+2. docs/ci-offload/acer-web/provision-acer-web.sh: update the sha256 of that unit in the sums block (heredoc, ~lines 79-80). Compute it the same way the script does (CRLF stripped: `tr -d '\r'`). Leave the COMMIT pin alone (a PR cannot contain its own merge sha); state in the PR body that a one-line pin bump follows after merge and the script must not be re-run before that. Do not change any other line.
+3. docs/handover/ci-offload-wave0.md and the files table: fix the stale "104 cases, 21 rules" to the real current figures (run test-gate-hooks.sh and its --mutants run per docs; handover says PASS 313, 36 mutants; verify, do not copy).
+4. docs/ci-offload/acer-web/provision-checklist.md: add the missing step: repo secret WEB_RUNNER_READ_TOKEN (fine-grained PAT, Administration: read, this repo, 90-day expiry) and repo variable WEB_RUNNER_LABEL=acer-web. Without the secret the router always picks hosted.
+
+Hard limits: no workflow edits, no change to hooks or workflows.allow (their sums must stay identical), no secrets in text, Supabase read-only, no merge/approve. Run the hook suite (test-gate-hooks.sh) and bash -n on the script; show the new sha256 and prove it with sha256sum on the committed file. Put a per-check table in the PR body. Title: ci(offload): acer-web unit file matches the live Acer (runsvc.sh, RestrictSUIDSGID=no).
