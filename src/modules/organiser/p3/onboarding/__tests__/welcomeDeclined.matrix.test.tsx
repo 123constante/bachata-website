@@ -15,7 +15,7 @@ import OnboardingFlow from '../OnboardingFlow';
 import type { PageReads, PageWrites } from '../pageApi';
 import type { PersonReads, PersonWrites } from '../personApi';
 import type { MyAccessRequest } from '../../../shared/selfServeApi';
-import { DECLINED_NEXT } from '../../../home/onboarding/onboardingModel';
+import { declinedNextLine } from '../../../home/onboarding/onboardingModel';
 
 const PERSON_READS: PersonReads = {
   dancer: async () => ({ first_name: 'Sam', avatar_url: null, dance_role: 'Follower', nationality: 'GB', languages: ['English'] }),
@@ -96,7 +96,9 @@ describe('Welcome x declined requests', () => {
     if (note) expect(rows[0].textContent).toContain(note);
     // what they CAN do: the controls named exist on this screen
     const next = screen.getByTestId('p3-ob-declined-next').textContent;
-    expect(next).toBe(DECLINED_NEXT);
+    const latest = Math.max(...(requests as MyAccessRequest[]).filter((r) => r.status === 'declined' && shown.includes(r.organiserName ?? 'An organiser')).map((r) => Date.parse(r.resolvedAt!)));
+    const fromLabel = new Date(latest + 30 * 86_400_000).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' });
+    expect(next).toBe(`You can ask again from ${fromLabel}, or ask to join a different page from Find your page.`);
     expect(document.body.textContent).toContain('Find your page');
     expect(screen.getByTestId('p3-ob-continue').textContent).toBe('Find your page');
   });
@@ -111,7 +113,7 @@ describe('Welcome x declined requests', () => {
   it('declined-card copy names only controls on the Welcome screen (no note field on P3)', async () => {
     mount({ at: 'welcome', requests: [R('a', 'declined', 3)] });
     await screen.findByTestId('p3-ob-declined');
-    const lines = [screen.getByTestId('p3-ob-declined-next').textContent ?? '', DECLINED_NEXT];
+    const lines = [screen.getByTestId('p3-ob-declined-next').textContent ?? '', declinedNextLine('2026-12-12', NOW), declinedNextLine(null, NOW)];
     for (const line of lines) {
       expect(line).not.toMatch(/\bnote\b/i);
       expect(line).toContain('Find your page');
