@@ -150,7 +150,10 @@ export async function fetchClaimHint(organiserId: string): Promise<ClaimHint | n
 /** `%` and `_` are wildcards to ILIKE; a typed name means them literally. */
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-export async function searchClaimableOrganisers(query: string): Promise<ClaimableOrganiser[]> {
+/** How many pages Find shows. The query and the screen both read this. */
+export const FIND_LIMIT = 8;
+
+export async function searchClaimableOrganisers(query: string, limit: number = FIND_LIMIT): Promise<ClaimableOrganiser[]> {
   const term = query.trim();
   if (term.length < 2) return [];
   const { data, error } = await supabase
@@ -160,7 +163,7 @@ export async function searchClaimableOrganisers(query: string): Promise<Claimabl
     .not(...NOT_DEACTIVATED)
     .ilike('name', `%${escapeLike(term)}%`)
     .order('name')
-    .limit(8);
+    .limit(limit);
   if (error) throw error;
   const rows = (data ?? []) as ClaimCandidate[];
   // The hint is computed in the database from the private claim email; a failed
