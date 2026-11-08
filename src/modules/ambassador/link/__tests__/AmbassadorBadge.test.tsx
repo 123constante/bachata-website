@@ -45,6 +45,10 @@ import TeacherProfile from '@/pages/TeacherProfile';
 
 /* ---- component cases ---- */
 
+const withQc = (el: React.ReactElement) => (
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{el}</QueryClientProvider>
+);
+
 const CASES: Array<[string, () => void, boolean]> = [
   ['ambassador', () => h.rpc.mockResolvedValue({ data: true, error: null }), true],
   ['not ambassador', () => h.rpc.mockResolvedValue({ data: false, error: null }), false],
@@ -71,7 +75,7 @@ describe('AmbassadorBadge', () => {
   });
   it.each(CASES)('%s', async (_n, setup, shown) => {
     setup();
-    render(<AmbassadorBadge profileId="p1" />);
+    render(withQc(<AmbassadorBadge profileId="p1" />));
     await waitFor(() => expect(h.rpc).toHaveBeenCalledWith('is_claimed_profile_ambassador_v1', { p_profile_id: 'p1' }));
     if (shown) {
       expect(await screen.findByText(AMBASSADOR_LABEL)).toBeTruthy();
@@ -85,14 +89,14 @@ describe('AmbassadorBadge', () => {
   });
   it('badge hidden when the call fails (throws): no badge, no crash, page content still there', async () => {
     h.rpc.mockImplementation(() => { throw new Error('boom'); });
-    render(<div><p>page body</p><AmbassadorBadge profileId="p1" /></div>);
+    render(withQc(<div><p>page body</p><AmbassadorBadge profileId="p1" /></div>));
     await waitFor(() => expect(h.rpc).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.queryByTestId('ambassador-badge')).toBeNull();
     expect(screen.getByText('page body')).toBeTruthy();
   });
   it('no id, no call', () => {
-    render(<AmbassadorBadge profileId={null} />);
+    render(withQc(<AmbassadorBadge profileId={null} />));
     expect(h.rpc).not.toHaveBeenCalled();
   });
 });
@@ -200,7 +204,8 @@ describe('ambassadorBadge matrix', () => {
       h.rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
         if (fn === AMBASSADOR_RPC) return { data: true, error: null };
         if (fn === 'get_public_dj_v1') return { data: djRow(String(args.p_dj_id)), error: null };
-        return { data: [teacherRow(String(args.p_entity_id))], error: null };
+        if (fn === 'get_public_teacher_detail_v1') return { data: [teacherRow(String(args.p_entity_id))], error: null };
+        return { data: null, error: null };
       });
       mountPage(page, 'p-any');
       expect(await screen.findByTestId('ambassador-badge')).toBeTruthy();
@@ -211,7 +216,8 @@ describe('ambassadorBadge matrix', () => {
     h.rpc.mockImplementation(async (fn: string, args: Record<string, unknown>) => {
       if (fn === AMBASSADOR_RPC) return { data: true, error: null };
       if (fn === 'get_public_dj_v1') return { data: djRow(String(args.p_dj_id)), error: null };
-      return { data: [teacherRow(String(args.p_entity_id))], error: null };
+      if (fn === 'get_public_teacher_detail_v1') return { data: [teacherRow(String(args.p_entity_id))], error: null };
+      return { data: null, error: null };
     });
     h.routeId = 'p-any';
     const path = page === 'DJ' ? '/djs/:id' : '/teachers/:id';

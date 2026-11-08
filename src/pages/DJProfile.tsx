@@ -352,9 +352,6 @@ const DJProfile = () => {
         {breadcrumbJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbJsonLd }} />
         ) : null}
-        <div className="mx-auto w-full max-w-6xl px-3 sm:px-5 md:px-8">
-          <AmbassadorBadge profileId={id} />
-        </div>
         <DjRolePage
           id={id}
           slug={resolved.slug}

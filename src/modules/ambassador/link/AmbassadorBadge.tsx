@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /** The ONE label and note for the badge; every profile render uses this component. */
@@ -21,6 +21,7 @@ export async function fetchIsAmbassador(profileId: string): Promise<boolean> {
 
 export function AmbassadorBadge({ profileId }: { profileId: string | null | undefined }) {
   const [open, setOpen] = useState(false);
+  const noteId = useId();
   const [data, setData] = useState(false);
   useEffect(() => {
     let live = true;
@@ -34,6 +35,7 @@ export function AmbassadorBadge({ profileId }: { profileId: string | null | unde
       <button
         type="button"
         aria-expanded={open}
+        aria-controls={noteId}
         onClick={() => setOpen((v) => !v)}
         className="inline-flex min-h-[44px] max-w-full items-center"
       >
@@ -41,7 +43,7 @@ export function AmbassadorBadge({ profileId }: { profileId: string | null | unde
           {AMBASSADOR_LABEL}
         </span>
       </button>
-      {open ? <p data-testid="ambassador-note" className="text-sm text-foreground/80">{AMBASSADOR_NOTE}</p> : null}
+      {open ? <p id={noteId} data-testid="ambassador-note" className="text-sm text-foreground/80">{AMBASSADOR_NOTE}</p> : null}
     </div>
   );
 }
