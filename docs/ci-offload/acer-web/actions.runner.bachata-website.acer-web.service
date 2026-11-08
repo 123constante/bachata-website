@@ -34,7 +34,8 @@ Environment=PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 Environment=SAFE_LOAD_MAX=3.0
 Environment=SAFE_MEM_MIN=1500
 ExecStartPre=/bin/mkdir -p /srv/ghrunner-web/runner/_work/_home /srv/ghrunner-web/runner/_work/_cache
-ExecStart=/srv/ghrunner-web/runner/run.sh
+# runsvc.sh, not run.sh: run.sh copies run-helper.sh into the runner dir, which ProtectSystem=strict keeps read-only.
+ExecStart=/srv/ghrunner-web/runner/bin/runsvc.sh
 # Stop/restart: kill the WHOLE cgroup (runner, job, the setsid lock holder, node, Playwright),
 # then clear the state files so no stale holder pid or verdict survives.
 KillMode=control-group
@@ -70,7 +71,8 @@ NoNewPrivileges=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
-RestrictSUIDSGID=yes
+# no, not yes: on Ubuntu 26.04 tar fails with ENOSYS under RestrictSUIDSGID=yes (proven by bisect, owner-approved 2026-11-08).
+RestrictSUIDSGID=no
 # Fix round 1, item 10. NOT set: ProcSubset=pid -- it hides /proc/loadavg and /proc/meminfo,
 # which the job-started hook's load gate reads (every job would then wait out GATE_WAIT_S and
 # run hosted), and which node/Chromium read too. ProtectProc=invisible still hides other users'

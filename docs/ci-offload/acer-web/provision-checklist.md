@@ -117,3 +117,21 @@ bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants  # expect: ok baselin
 
 A `FAIL baseline red` from `--mutants` means the hooks do not work on this box: do not register
 the runner; send the first FAIL lines to the arc lead.
+
+## 7. Repo secret and variable (GitHub settings, once, after the runner is online)
+
+Without these the router (`scripts/ci/route-runner.mjs`, the `route` job of `bom-check.yml`)
+always picks the hosted runner: no label = route skipped; label but no token =
+`RUNNER_READ_TOKEN not available`, so it cannot list the repo's runners and falls back to hosted.
+Nothing is lost when either is missing, the minutes are simply not saved.
+
+| kind | name | value |
+|---|---|---|
+| repo **secret** (Settings > Secrets and variables > Actions > Secrets) | `WEB_RUNNER_READ_TOKEN` | a **fine-grained** personal access token: Repository access = only `123constante/bachata-website`; Repository permissions = **Administration: Read-only** (needed to list self-hosted runners; nothing else); expiry **90 days** (diarise the renewal: an expired token = hosted again) |
+| repo **variable** (same page, Variables tab) | `WEB_RUNNER_LABEL` | `acer-web` (Dell: `dell-web`) |
+
+Never paste the token anywhere but the secret field. Revert switch: delete the variable
+`WEB_RUNNER_LABEL` (unset = route skipped, always hosted). Check: with the runner idle, the next
+`bom-check` run's `route` job log prints `target=self` and `runner=acer-web`; a
+`reason=runner API error: ...` (`RUNNER_READ_TOKEN not available` = secret missing; an HTTP 401/403 =
+wrong permission or expired token) means the token step is not done.
