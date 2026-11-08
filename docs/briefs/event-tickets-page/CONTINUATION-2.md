@@ -1,0 +1,5 @@
+# CONTINUATION 2: event-tickets-page (same branch claude/event-tickets-page, PR #1502 exists)
+Read: BRIEF.md, HANDOVER.md (slices a-c done), mockups-7.html.md. Merge origin/main first.
+Build the HANDOVER "Left" items 1-4 only, push after each: (1) programme block, max 4 items then "See full programme", and chip length fallback from the programme; (2) fixed amber (#FF9900) bottom bar with dark button, quiet dark-green bar for non-actionable states (sold out, not open, closed, paused), quantity pill; (3) thanks page one QR per ticket (swipe), and My tickets find-by-email form; if (3) is large, do it LAST and say so in the handover; (4) tests table-driven per screen x shape, tsc, every CI job step, lint chain, PR body labels exact (pr-body.mjs style), 390x844 walk with screenshots in the PR.
+Out of scope: item 5 (admin RPC change; the lead queues it). Do not touch ticketCheckoutModel.ts checkout/payment logic. Chips whose venue fields are absent stay hidden; do not fake data.
+Context cap: hand over at 45%.
