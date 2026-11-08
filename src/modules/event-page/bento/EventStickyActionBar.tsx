@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
 import { Navigation, Ticket, CalendarPlus, Share2 } from 'lucide-react';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
-import { fetchPublicTicketTypes, publicTicketKeys, sellsInSite } from '@/modules/tickets/ticketCheckoutApi';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { shareEvent } from '@/modules/event-page/bento/utils/eventActions';
+
+// Lazy so the tickets module stays out of the event page's first load.
+const InSiteTicketProbe = lazyWithRetry(() => import('./InSiteTicketProbe'));
 
 type EventStickyActionBarProps = {
   eventId: string | null;
@@ -98,13 +100,8 @@ export const EventStickyActionBar = ({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
-  const { data: types } = useQuery({
-    queryKey: publicTicketKeys.types(eventId ?? ''),
-    queryFn: () => fetchPublicTicketTypes(eventId as string),
-    staleTime: 30_000,
-    enabled: inSiteTicketing && !!eventId,
-  });
-  const inSite = inSiteTicketing && sellsInSite(types);
+  const [sells, setSells] = useState(false);
+  const inSite = inSiteTicketing && !!eventId && sells;
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
@@ -151,6 +148,12 @@ export const EventStickyActionBar = ({
   };
 
   return createPortal(
+    <>
+    {inSiteTicketing && eventId && (
+      <Suspense fallback={null}>
+        <InSiteTicketProbe seriesId={eventId} onResult={setSells} />
+      </Suspense>
+    )}
     <div
       className="pointer-events-none fixed inset-x-0 z-40"
       // GlobalFooter clearance: index.css adds bottom padding to .site-footer
@@ -248,7 +251,8 @@ export const EventStickyActionBar = ({
           </button>
         </div>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 };
