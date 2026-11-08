@@ -17,6 +17,8 @@ type EventStickyActionBarProps = {
   /** True when the page may offer in-site tickets (flag on, bookable night). The bar then
    *  reads the series' ticket types itself; false never fetches. */
   inSiteTicketing?: boolean;
+  /** Opens the Tickets page (replaces scrolling to the inline block). */
+  onOpenTickets?: () => void;
   /** Title used for the native share sheet / fallback text. */
   shareTitle: string;
   /** Secondary line for the share sheet (date + venue). */
@@ -86,6 +88,7 @@ export const EventStickyActionBar = ({
   directionsUrl,
   ticketUrl,
   inSiteTicketing = false,
+  onOpenTickets,
   shareTitle,
   shareSubtitle,
   canAddToCalendar,
@@ -139,6 +142,10 @@ export const EventStickyActionBar = ({
   };
 
   const handleBuyInSite = () => {
+    if (onOpenTickets) {
+      onOpenTickets();
+      return;
+    }
     const el = document.getElementById('tickets');
     if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };

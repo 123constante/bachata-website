@@ -1,4 +1,4 @@
-﻿import { Suspense, memo, useEffect, useMemo, useState, type ComponentProps } from 'react';
+﻿import { Suspense, memo, useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { ReportProblemLink } from '@/lib/contactLinks';
 import type { EventPageSnapshotOccurrence } from '@/modules/event-page/types';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -48,7 +48,7 @@ import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
 import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
-import { wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
+import { instantToDate, wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -104,7 +104,7 @@ const importLevelRatingPrompt = () =>
 const DerivedLevelBadge = lazyWithRetry(importDerivedLevelBadge);
 // Buyer checkout (S4): its own lazy chunk, requested only while flags.publicTicketing is on,
 // so the flag-off /event/:id first load is unchanged.
-const TicketsBlock = lazyWithRetry(() => import('@/modules/tickets/TicketsBlock'));
+const EventTicketsPage = lazyWithRetry(() => import('@/modules/tickets/EventTicketsPage'));
 const LevelRatingPrompt = lazyWithRetry(importLevelRatingPrompt);
 
 // Pre-hydration chunk warm-up (same pattern as FestivalDetail in
@@ -202,9 +202,19 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   useGuestListRealtime(eventId);
 
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [ticketsOpen, setTicketsOpen] = useState(false);
+  const closeTickets = useCallback(() => setTicketsOpen(false), []);
 
   const occurrence = snapshot?.occurrenceEffective ?? null;
   const state = pageModel.page.state;
+  const ticketsStart = instantToDate(pageModel.dates?.startsAt);
+  const ticketsEnd = instantToDate(pageModel.dates?.endsAt);
+  const ticketsDateLine = ticketsStart
+    ? new Intl.DateTimeFormat('en-GB', {
+        weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
+        timeZone: pageModel.dates?.timezone ?? 'Europe/London',
+      }).format(ticketsStart).replace(',', '')
+    : null;
   const isLoading = state === 'loading';
   // Past-event logic runs only on ready pages. Not-found / error / unavailable
   // short-circuit above; loading would race since occurrence is null then.
@@ -756,14 +766,30 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
         <BentoGrid hiddenBlocks={hiddenBlocks} renderBlock={renderBlock} />
 
-        {/* Tickets (S4): only on a bookable night -- same suppression as the sticky
-            bar's ticket link. Renders nothing until the series has a type on sale. */}
-        {flags.publicTicketing && state === 'ready' && eventId && !over && !occurrence?.isCancelled && !pageModel.page.isPaused && (
+        {/* Tickets page: opened by the sticky bar's Buy tickets; same suppression as the bar. */}
+        {ticketsOpen && flags.publicTicketing && state === 'ready' && eventId && !over && !occurrence?.isCancelled && !pageModel.page.isPaused && (
           <Suspense fallback={null}>
-            <TicketsBlock
+            <EventTicketsPage
               seriesId={eventId}
               occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
               organiserId={snapshot?.organisers[0]?.id ?? null}
+              title={pageModel.identity.title}
+              dateLine={ticketsDateLine}
+              chipInput={{
+                startIso: ticketsStart?.toISOString() ?? null,
+                endIso: ticketsEnd?.toISOString() ?? null,
+                programmeStartIso: null,
+                programmeEndIso: null,
+                idRequired: pageModel.location.idRequired,
+                bar: pageModel.location.barAvailable,
+                cloakroom: pageModel.location.cloakroomAvailable,
+                facilities: pageModel.location.facilitiesNew,
+                floorType: pageModel.location.floorType,
+                musicStyles: pageModel.identity.musicStyles,
+                parking: pageModel.location.parking,
+                timeZone: pageModel.dates?.timezone ?? pageModel.location.venueTimezone ?? 'Europe/London',
+              }}
+              onClose={closeTickets}
             />
           </Suspense>
         )}
@@ -844,6 +870,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             : pageModel.actions.ticketUrl
         }
         inSiteTicketing={flags.publicTicketing && !over && !occurrence?.isCancelled && !pageModel.page.isPaused}
+        onOpenTickets={() => setTicketsOpen(true)}
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]

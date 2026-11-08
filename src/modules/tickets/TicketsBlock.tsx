@@ -21,6 +21,7 @@ import {
   typesForNight,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { SYMBOL_GRADIENT, ticketSymbol } from './ticketSymbol';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
 import { TICKET_WHERE } from './myTicketsModel';
@@ -51,7 +52,7 @@ const card = {
   border: '1px solid var(--bento-hairline)',
 } as const;
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
-const accentBg = { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' } as const;
+const accentBg = { background: '#FF9900', color: '#1A1208' } as const;
 
 export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp, origin: originProp }: TicketsBlockProps) {
   const queryClient = useQueryClient();
@@ -235,14 +236,20 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                   setError(null);
                   choose(t.id, clampQuantity(quantity, maxQuantity(t, now)));
                 }}
-                className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left disabled:opacity-60"
+                className="flex min-h-[72px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left disabled:opacity-60"
                 style={{
                   background: 'hsl(var(--bento-surface))',
                   border: isSel ? '2px solid hsl(var(--bento-accent))' : '1px solid var(--bento-hairline)',
                 }}
               >
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{t.name}</span>
+                <span
+                  aria-hidden="true"
+                  data-symbol={ticketSymbol(t.name, t.pricePence)}
+                  className="h-[64px] w-[64px] shrink-0 rounded-md"
+                  style={{ background: SYMBOL_GRADIENT[ticketSymbol(t.name, t.pricePence)] }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>
                 </span>
                 <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>

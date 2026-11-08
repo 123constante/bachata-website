@@ -48,11 +48,11 @@ describe('publicTicketing flag', () => {
     const importers = execSync('git grep -l "modules/tickets" -- src/components/account || true', { encoding: 'utf8' }).trim().split('\n').filter((f) => f && !f.includes('__tests__'));
     expect(importers).toEqual([]);
   });
-  it('the event page mounts the block only behind the flag, from a lazy chunk', () => {
+  it('the event page mounts the Tickets page only behind the flag, from a lazy chunk', () => {
     expect(bento).not.toMatch(/^import .*modules\/tickets/m);
     expect(bento.match(/import\('@\/modules\/tickets\//g)).toHaveLength(1);
-    expect(bento.match(/<TicketsBlock\s/g)).toHaveLength(1);
-    expect(bento).toMatch(/\{flags\.publicTicketing && state === 'ready' && eventId && !over && !occurrence\?\.isCancelled && !pageModel\.page\.isPaused && \(/);
+    expect(bento.match(/<EventTicketsPage\s/g)).toHaveLength(1);
+    expect(bento).toMatch(/\{ticketsOpen && flags\.publicTicketing && state === 'ready' && eventId && !over && !occurrence\?\.isCancelled && !pageModel\.page\.isPaused && \(/);
   });
   it('no Stripe secret anywhere in the module', () => {
     const src = ['ticketCheckoutApi.ts', 'ticketCheckoutModel.ts', 'TicketsBlock.tsx', 'TicketThanksPage.tsx', 'legalCopy.ts', 'MyTicketsPage.tsx', 'myTicketsApi.ts', 'myTicketsModel.ts', 'qr.ts', 'TicketQrCode.tsx', 'OrderQrBlock.tsx']
