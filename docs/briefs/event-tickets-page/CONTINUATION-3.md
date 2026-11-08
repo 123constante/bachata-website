@@ -1,0 +1,6 @@
+# CONTINUATION 3: event-tickets-page (same branch, PR #1502)
+Merge origin/main first. Two jobs only:
+1. FIX the red `bundle-budget` check: chunk ratchet "event (/event/:id)" is 40 first-load chunks, allowance 39. EventTicketsPage (and anything it pulls in: programme model, chips, symbol tiles) must be loaded lazily on tap, like TicketsBlock was before (BentoPage had a lazy chunk at ~:105), so the event page first-load graph adds ZERO chunks. Do NOT raise the allowance. Reproduce locally with the check the workflow runs (read .github/workflows for the bundle-budget step), show before/after counts.
+2. WALK EVIDENCE: add a phone-size Playwright spec (follow existing phone-qa/auto-walk specs, 390x844, mocked ticket data, no prod calls) that opens an event with an on-sale ticket, taps the sticky "Buy tickets" bar, and screenshots the Tickets page in these shapes: several types with programme + all chips; one type, no programme, one chip; sold out (quiet green bar). Assert tap targets >= 44px, no sideways scroll. Attach the screenshots to the PR (not committed to the repo unless the existing specs do so).
+Then update the PR body (Verified / Not verified; Phone QA lists what was walked), run every CI step, push once at the end. Context cap 45%.
+Out of scope: find-by-email (needs a backend, parked), admin RPC fields.
