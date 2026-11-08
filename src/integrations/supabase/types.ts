@@ -14255,7 +14255,6 @@ export type Database = {
         Returns: Json
       }
       front_door_morning_digest_v1: { Args: never; Returns: Json }
-      get_ambassador_link_public_v1: { Args: { p_code: string }; Returns: Json }
       get_all_profiles_v1: {
         Args: never
         Returns: {
