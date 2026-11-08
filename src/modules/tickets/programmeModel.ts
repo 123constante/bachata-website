@@ -1,8 +1,10 @@
+import { TIME_TBC_LABEL } from '@/lib/time/wallClock';
+
 /**
  * The night's programme as shown on the Tickets page (mockups-7). Pure: takes the
  * event's own programme sessions (the same rows the Schedule tile reads), nothing new
- * is typed by anyone. Time order, items without a saved time last as "Time to be
- * confirmed", the plain type when no level is saved, at most four items then a
+ * is typed by anyone. Time order, items without a saved time last as the shared
+ * TBC label, the plain type when no level is saved, at most four items then a
  * "See full programme" link. Hidden entirely when there is no programme.
  */
 export interface ProgrammeSessionInput {
@@ -17,7 +19,7 @@ export interface ProgrammeSessionInput {
 
 export interface ProgrammeItem {
   id: string;
-  /** "8:00pm", "9:00pm to 2:00am" or "Time to be confirmed". */
+  /** "8:00pm", "9:00pm to 2:00am" or the shared TBC label. */
   timeText: string;
   /** "Class · Beginner", "Party" or the organiser's own title for other types. */
   label: string;
@@ -35,7 +37,7 @@ export interface ProgrammeView {
 }
 
 export const MAX_PROGRAMME_ITEMS = 4;
-export const TIME_TBC = 'Time to be confirmed';
+export const TIME_TBC = TIME_TBC_LABEL;
 
 export function fmtMins(mins: number): string {
   const m = ((mins % 1440) + 1440) % 1440;

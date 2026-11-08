@@ -49,7 +49,7 @@ import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
 import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
-import { instantToDate, type Instant, wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
+import { formatWallClockLocalIntl, instantToDate, type Instant, type WallClock, wallClockDateKey, wallClockTimeKey, wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -181,9 +181,6 @@ const TileShimmer = () => (
   <div className="min-h-[24px] flex-1 animate-pulse rounded-md bg-white/20" />
 );
 
-// Naive or +00 wall clock -> an ISO string Date can parse; the value stays as-stored (read it with timeZone UTC).
-const asUtcIso = (raw: string): string => raw.trim().replace(' ', 'T').replace(/(Z|[+-]00(:?00)?)$/, '') + 'Z';
-
 export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug }: BentoPageProps) => {
   const { snapshot, pageModel } = useEventPage(eventId, occurrenceId);
 
@@ -215,16 +212,22 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // Festivals carry true-UTC instants in pageModel.dates; ordinary events carry a naive London wall
   // clock stamped +00 on the occurrence, shown as-stored (never Intl-converted), so read it as UTC.
   const festivalDates = (pageModel as { dates?: { startsAt?: Instant | null; endsAt?: Instant | null; timezone?: string | null } | null }).dates;
-  const wallStart = occurrence?.startsAt ? new Date(asUtcIso(String(occurrence.startsAt))) : null;
-  const wallEnd = occurrence?.endsAt ? new Date(asUtcIso(String(occurrence.endsAt))) : null;
-  const ticketsStart = instantToDate(festivalDates?.startsAt) ?? (wallStart && !Number.isNaN(wallStart.getTime()) ? wallStart : null);
-  const ticketsEnd = instantToDate(festivalDates?.endsAt) ?? (wallEnd && !Number.isNaN(wallEnd.getTime()) ? wallEnd : null);
-  const ticketsDateLine = ticketsStart
-    ? new Intl.DateTimeFormat('en-GB', {
-        weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
-        timeZone: festivalDates?.startsAt ? (festivalDates?.timezone ?? 'Europe/London') : 'UTC',
-      }).format(ticketsStart).replace(',', '')
-    : null;
+  const wallPseudoIso = (wc: WallClock | null | undefined): string | null => {
+    const d = wallClockDateKey(wc);
+    if (!d) return null;
+    return `${d}T${wallClockTimeKey(wc) ?? '00:00'}:00.000Z`;
+  };
+  const festStart = instantToDate(festivalDates?.startsAt);
+  const festEnd = instantToDate(festivalDates?.endsAt);
+  const ticketsStartIso = festStart ? festStart.toISOString() : wallPseudoIso(occurrence?.startsAt);
+  const ticketsEndIso = festEnd ? festEnd.toISOString() : wallPseudoIso(occurrence?.endsAt);
+  const dateLineOpts: Intl.DateTimeFormatOptions = {
+    weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
+  };
+  const ticketsDateLine = festStart
+    ? new Intl.DateTimeFormat('en-GB', { ...dateLineOpts, timeZone: festivalDates?.timezone ?? 'Europe/London' })
+        .format(festStart).replace(',', '')
+    : (formatWallClockLocalIntl(occurrence?.startsAt, dateLineOpts)?.replace(',', '') ?? null);
   const isLoading = state === 'loading';
   // Past-event logic runs only on ready pages. Not-found / error / unavailable
   // short-circuit above; loading would race since occurrence is null then.
@@ -787,8 +790,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
               dateLine={ticketsDateLine}
               venueLine={[pageModel.location.venueName, pageModel.location.address].filter(Boolean).join(', ') || null}
               chipInput={{
-                startIso: ticketsStart?.toISOString() ?? null,
-                endIso: ticketsEnd?.toISOString() ?? null,
+                startIso: ticketsStartIso,
+                endIso: ticketsEndIso,
                 programmeStartIso: null,
                 programmeEndIso: null,
                 idRequired: pageModel.location.idRequired,
