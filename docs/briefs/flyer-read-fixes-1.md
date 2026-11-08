@@ -9,7 +9,7 @@ Serves: docs/review/flyer-arc-whole.md on branch claude/review-flyer-arc (read i
 - N2 (MEDIUM): bare domains (bachata.co.uk/tix, salsa.london) survive cleanText; strip domain-shaped tokens with a TLD (keep the ticket link field path unchanged); test a title containing one -- grep: bare domain stripped
 - N3 (MEDIUM): attempts-limit card says "Wait a few minutes"; the cap is 15 a day. Use the same shape as the daily-limit card (back at the reset time in London, else "back tomorrow"); test it -- grep: attempts limit back tomorrow
 - N5 (LOW): unknown currency becomes GBP; produce no ticket row instead; test -- grep: unknown currency no row
-- N4 (LOW): fixture row 7 has a venue; make it the contract shape (course, no date, no venue) so the not-enough path is tested; add a P4 (no page) render test for R1
+- N4 (LOW): fixture row 7 has a venue; make it the contract shape (course, no date, no venue) so the not-enough path is tested; add a P4 (no page) render test for R1 -- grep: no page entry never mounts
 - D4 (LOW): add flyer_read_saved to AnalyticsEventMap and drop the cast in useFlyerRead.ts -- grep: flyer_read_saved AnalyticsEventMap
 
 ## Files
