@@ -35,6 +35,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | I2 guard arms for seats (`interim_seat_without_manager_row` and four more) + db-contract step | admin + web | I1 and I7 applied | PLAN-interim-manager-seats.md "Pieces" |
 | I3 admin Seats panel + likely-match row on Access requests | admin | I1 + I7 applied | same |
 | I4 notification queue + `send-access-request-email` edge function | admin | I1 applied | same |
+| Declined request says when you can ask again (P3 Welcome + /account) | web | PR OPEN (no 390x844 walk) | review; owner Approve | claude/declined-ask-again-date |
 | I5 Website: ownerless claim copy, `/account` request status, interim label in P3, ticket tools hidden | web | PARTIAL: refusal copy for `declined_recently` and `interim_cannot_add` done (PR: claude/declined-recently-copy); interim label + ticket tools hidden in PR (claude/interim-seat-p3-labels, #1487); claim copy and `/account` status not started. I7 and Design Gate by hand | brief/interim-seat-p3-labels; same |
 | I6 G1 write-door doc gains the new doors | web docs | I1 | I6 write-door doc done: `docs/scoping/g1-write-door-check.md` "Interim-seat doors (added with I1)"; PR: claude/seat-doors-doc |
 | S3 connect-sheet-default: Stripe named at price entry, small "Selling elsewhere?" text link under Connect, start error in sheet and banner, Get paid link, refresh note | web | done on branch claude/connect-sheet-default (not signed-in walked) | docs/design/connect-sheet-default.INVENTORY.md |
