@@ -5,6 +5,8 @@ import {
   UNKNOWN_READING,
   type OrderStatusReading,
   parsePublicTypes,
+  availability,
+  typesForNight,
   type CheckoutBody,
   type CheckoutResult,
   type PublicTicketType,
@@ -111,4 +113,16 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
   }
   const json = await resp.json().catch(() => null);
   return parseCheckoutReply(json, resp.status);
+}
+
+/**
+ * TICKET_LEAD_IN_SITE: the one answer to "does this event sell tickets in-site right now?".
+ * True when at least one type for the night is buyable (on sale, in its window, stock left).
+ * The sticky bar and the buy block both read this, so they cannot disagree. Sold out,
+ * not-yet and closed types do not count: nothing could be bought, so the external link
+ * stays the way in.
+ */
+export function sellsInSite(types: PublicTicketType[] | undefined | null, now: Date = new Date(), occurrenceId?: string | null): boolean {
+  const list = occurrenceId === undefined ? (types ?? []) : typesForNight(types ?? [], occurrenceId);
+  return list.some((t) => availability(t, now).kind === 'buyable');
 }
