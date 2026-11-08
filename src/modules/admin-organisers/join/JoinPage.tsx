@@ -19,7 +19,7 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, searchAfterCodeStep, seatCanSetUpPayments, wantsGetPaid, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { afterProfileRefusal, checkTypedEmail, claimNextStep, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, forgetUnmatched, inviteKind, recallUnmatched, rememberUnmatched, isPersonBound, joinProgress, redeemAction, searchAfterCodeStep, seatCanSetUpPayments, wantsGetPaid, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
 import type { MemberRole } from '../inviteModel';
 import { buildSignInHref } from '@/lib/authRouting';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
@@ -87,6 +87,26 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const [now, setNow] = useState(() => Date.now());
   const claimRef = useRef<ClaimOutcome | null>(null);
   const [linkedHere, setLinkedHere] = useState(false);
+  // A reload after the unmatched stop (continuation 1): the stop is remembered per tab, but the organiser's admin may
+  // have joined them meanwhile. ONE claim re-check per page: linked / already_linked forgets the stop and the derived
+  // step follows; any other answer keeps the stop. Only a remembered stop asks; an untouched page sends nothing.
+  const recheckStarted = useRef(false);
+  const rememberedStop = user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
+  useEffect(() => {
+    if (!rememberedStop || !user || recheckStarted.current) return;
+    recheckStarted.current = true;
+    setLinking(true);
+    void claimAtSignIn(queryClient)
+      .then((claim) => {
+        if (claim.status !== 'linked' && claim.status !== 'already_linked') return;
+        claimRef.current = claim;
+        forgetUnmatched();
+        if (claim.status === 'linked') setLinkedHere(true);
+        void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(user.id) });
+      })
+      .catch(() => { /* never rejects; a failure keeps the stop */ })
+      .finally(() => setLinking(false));
+  }, [rememberedStop, user, queryClient]);
   // The server refused the Join tap with profile_incomplete and the re-read sent the person to About: About says why.
   const [aboutRefused, setAboutRefused] = useState(false);
 
@@ -187,7 +207,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const clearStep = useCallback(() => navigate(`${pathname}${searchAfterCodeStep(search)}`, { replace: true }), [navigate, pathname, search]);
 
   const fail = (from: string, s: JoinStop) => {
-    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind);
+    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind === 'unmatched' ? `unmatched_${s.claim}` : s.kind);
     setStop(s);
   };
 
@@ -286,16 +306,24 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       return fail('verify', { kind: 'network', from: 'verify' });
     }
     try {
+      // The claim has run on this page: the reload re-check (above) is for a LATER page load only.
+      recheckStarted.current = true;
       const claim = await claimAtSignIn(queryClient);
       claimRef.current = claim;
       if (claim.status === 'linked') setLinkedHere(true);
       await recordJoinRoles(data?.user);
       void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(data?.user?.id) });
       clearStep();
+      // Find before create (claimNextStep, the ONE mapping): only the invite's own proof decides, never a name search.
+      const next = claimNextStep(claim.status, inviteKind(info));
       // Person-bound invite whose claim did not land: the safety stop. The one redeem call makes "we've told" real
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
-      if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
-        await applyRedeem(await attemptRedeem(token), 'claim');
+      if (next === 'safety_redeem') await applyRedeem(await attemptRedeem(token), 'claim');
+      // The claim could not tell which existing profile is theirs: nothing is created, chosen or redeemed.
+      else if (next === 'unmatched') {
+        const why = claim.status === 'ambiguous' ? 'ambiguous' : 'email_unproven';
+        if (data?.user?.id) rememberUnmatched(token, data.user.id, why);
+        fail('claim', { kind: 'unmatched', claim: why });
       }
     } finally {
       setLinking(false);
@@ -322,6 +350,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     setBusy(false);
     if (outcome === 'failed') return setSignOutError(JOIN_COPY.signOutFailed);
     claimRef.current = null;
+    forgetUnmatched();
     setLinkedHere(false);
     // (review r1 F2) another account never inherits this one's "details are missing" notice.
     setAboutRefused(false);
@@ -347,11 +376,14 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const title = info ? JOIN_COPY.pageTitle(info.organiserName) : null;
   const header = info && open && step !== 'done' ? <Strip preview={info} /> : null;
 
-  if (stop) {
+  // While the reload's re-check is out the remembered stop still shows (never About on the stub in between).
+  const remembered = !stop && user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
+  const shownStop: JoinStop | null = stop ?? (remembered ? { kind: 'unmatched', claim: remembered } : null);
+  if (shownStop) {
     return (
-      <StepFrame step={step} stop={stop.kind}>
+      <StepFrame step={step} stop={shownStop.kind}>
         {header}
-        <StopScreen stop={stop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} />
+        <StopScreen stop={shownStop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} homeFlags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} />
       </StepFrame>
     );
   }
