@@ -1,3 +1,4 @@
+import { quietBar, barSummary } from './ticketBars';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +22,8 @@ import {
   typesForNight,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { TicketGlyph } from './TicketGlyph';
+import { SYMBOL_GRADIENT, ticketSymbol } from './ticketSymbol';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
 import { TICKET_WHERE } from './myTicketsModel';
@@ -51,7 +54,7 @@ const card = {
   border: '1px solid var(--bento-hairline)',
 } as const;
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
-const accentBg = { background: 'hsl(var(--bento-accent))', color: 'hsl(var(--bento-surface))' } as const;
+const accentBg = { background: '#FF9900', color: '#1A1208' } as const;
 
 export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp, origin: originProp }: TicketsBlockProps) {
   const queryClient = useQueryClient();
@@ -87,6 +90,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const promoSeq = useRef(0);
 
   const list = typesForNight(types ?? [], occurrenceId);
+  const quiet = quietBar(list, now);
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
   // One buyable type is picked for the buyer; otherwise they choose.
   // A pick that has since sold out or closed (the list re-reads after a refusal) is no pick.
@@ -235,14 +239,22 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                   setError(null);
                   choose(t.id, clampQuantity(quantity, maxQuantity(t, now)));
                 }}
-                className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left disabled:opacity-60"
+                className="flex min-h-[72px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left disabled:opacity-60"
                 style={{
                   background: 'hsl(var(--bento-surface))',
                   border: isSel ? '2px solid hsl(var(--bento-accent))' : '1px solid var(--bento-hairline)',
                 }}
               >
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{t.name}</span>
+                <span
+                  aria-hidden="true"
+                  data-symbol={ticketSymbol(t.name, t.pricePence)}
+                  className="flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[14px] text-white"
+                  style={{ background: SYMBOL_GRADIENT[ticketSymbol(t.name, t.pricePence)], border: '1px solid var(--bento-hairline)', filter: pickable ? undefined : 'grayscale(1)' }}
+                >
+                  <TicketGlyph symbol={ticketSymbol(t.name, t.pricePence)} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>
                 </span>
                 <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>
@@ -256,6 +268,25 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
         <p className="mt-2 text-[13px]" style={muted}>
           No tickets can be bought right now. Check back later or contact the organiser.
         </p>
+      )}
+
+      {quiet && (
+        <>
+          <div
+            data-testid="ticket-bar-quiet"
+            className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-[430px] items-center justify-between gap-3 rounded-t-[18px] px-3 pt-3"
+            style={{ background: '#243B36', color: '#FFFFFF', borderTop: '2px solid var(--bento-hairline)', paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}
+          >
+            <div className="min-w-0">
+              <div className="text-[18px] font-bold leading-tight">{quiet.title}</div>
+              <div className="text-[12px]" style={{ color: '#A59474' }}>{quiet.sub}</div>
+            </div>
+            <button type="button" disabled className="h-[48px] shrink-0 rounded-md px-4 text-[14px] opacity-60" style={{ border: '1.5px solid var(--bento-hairline)', color: '#D8CCB0' }}>
+              {quiet.button}
+            </button>
+          </div>
+          <div aria-hidden="true" className="h-[84px]" />
+        </>
       )}
 
       {err && (
@@ -286,7 +317,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
         >
           <div className="flex items-center justify-between gap-3">
             <span>Quantity</span>
-            <div className="flex items-center gap-2" role="group" aria-label="Quantity">
+            <div className="flex items-center gap-1 rounded-full px-1" style={{ border: '1.5px solid #D8CCB0' }} data-testid="qty-pill" role="group" aria-label="Quantity">
               <button
                 type="button"
                 aria-label="One fewer ticket"
@@ -295,7 +326,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                   setQuantity(qty - 1);
                   if (selected) choose(selected.id, qty - 1);
                 }}
-                className="h-[44px] w-[44px] rounded-md text-[18px] disabled:opacity-40"
+                className="h-[44px] w-[44px] rounded-full text-[18px] disabled:opacity-40"
                 style={{ background: 'hsl(var(--bento-surface))' }}
               >
                 &minus;
@@ -309,7 +340,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                   setQuantity(qty + 1);
                   if (selected) choose(selected.id, qty + 1);
                 }}
-                className="h-[44px] w-[44px] rounded-md text-[18px] disabled:opacity-40"
+                className="h-[44px] w-[44px] rounded-full text-[18px] disabled:opacity-40"
                 style={{ background: 'hsl(var(--bento-surface))' }}
               >
                 +
@@ -477,20 +508,28 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
             )}
           </div>
 
-          <div>
+          <div
+            data-testid="ticket-bar"
+            className="fixed inset-x-0 bottom-0 z-[60] mx-auto flex w-full max-w-[430px] items-center justify-between gap-3 rounded-t-[18px] px-3 pt-3"
+            style={{ background: '#FF9900', color: '#1A0A04', paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}
+          >
+            <div className="min-w-0">
+              <div className="text-[20px] font-extrabold leading-tight" aria-live="polite" data-testid="ticket-bar-total">{sum.free ? 'Free' : formatPence(payPence)}</div>
+              <div className="truncate text-[12px]" style={{ color: '#3A2200' }} id={reason ? 'tickets-buy-reason' : undefined} data-testid="ticket-bar-sub">
+                {reason ?? barSummary(qty, selected.name, sum.free)}
+              </div>
+            </div>
             <button
               type="submit"
               disabled={reason !== null}
               aria-describedby={reason ? 'tickets-buy-reason' : undefined}
-              className="min-h-[48px] w-full rounded-md px-3 py-2 text-[15px] font-semibold disabled:opacity-50"
-              style={accentBg}
+              className="h-[48px] shrink-0 rounded-md px-4 text-[15px] font-semibold disabled:opacity-50"
+              style={{ background: '#1A0A04', color: '#FFFFFF' }}
             >
               {submitting ? <>Working on it&hellip;</> : pv.appliedTotalPence !== null && payPence === 0 ? 'Get free tickets' : buyLabel(selected)}
             </button>
-            {reason && (
-              <p id="tickets-buy-reason" className="mt-1 text-[12px]" style={muted}>{reason}</p>
-            )}
           </div>
+          <div aria-hidden="true" className="h-[84px]" />
         </form>
       )}
 

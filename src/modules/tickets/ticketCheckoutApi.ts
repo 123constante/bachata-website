@@ -122,6 +122,22 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
  * not-yet and closed types do not count: nothing could be bought, so the external link
  * stays the way in.
  */
+export type SiteBarState = 'buy' | 'quiet' | 'none';
+
+/** Sticky bar state: Buy tickets, a quiet disabled bar (types exist, none buyable), or nothing. */
+export function siteBarState(types: PublicTicketType[] | undefined | null, now: Date = new Date()): SiteBarState {
+  if (!types || types.length === 0) return 'none';
+  return sellsInSite(types, now) ? 'buy' : 'quiet';
+}
+
+/** Button word for the quiet bar: "Sold out" when every type is gone, else the quiet-bar word. */
+export function quietBarButton(types: PublicTicketType[], now: Date = new Date()): string {
+  const kinds = types.map((t) => availability(t, now).kind);
+  if (kinds.every((k) => k === 'sold_out')) return 'Sold out';
+  if (kinds.includes('not_yet')) return 'Not yet';
+  return 'Closed';
+}
+
 export function sellsInSite(types: PublicTicketType[] | undefined | null, now: Date = new Date(), occurrenceId?: string | null): boolean {
   const list = occurrenceId === undefined ? (types ?? []) : typesForNight(types ?? [], occurrenceId);
   return list.some((t) => availability(t, now).kind === 'buyable');
