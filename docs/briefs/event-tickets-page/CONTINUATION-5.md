@@ -1,0 +1,8 @@
+# CONTINUATION 5: event-tickets-page (same branch, PR #1502). Visual fixes found by the lead's look at the walk screenshots (docs/briefs/event-tickets-page/walk/*.png).
+Merge origin/main first. Read HANDOVER-5.md and mockups-7.html.md (design truth). Fix, then re-walk with the same mock-server spec and REPLACE the screenshots:
+1. Page top: the Tickets page content starts UNDER the site header ("Good to know" heading half hidden, no title/date/venue header visible). Show the mockup's own header (Back, event title, date line, venue line) and offset below the site header; nothing clipped at 390x844.
+2. Ticket tiles are blank colour blocks: draw the symbol glyph in each 64px tile exactly as the mockup does (party, class, class+party, free, generic pass), chosen by ticketSymbol.
+3. Cold load when every ticket type is sold out: the event page shows NO ticket control. Lead decision: the sticky bar shows a quiet disabled "Sold out" (same dark-green quiet style as the Tickets page bar) when at least one on-site ticket type exists and none is buyable. Not shown when there are no ticket types or flag off. Add table-driven tests for bar state x ticket shapes.
+4. Mock data for the walk must now include programme rows and venue fields (id_required, bar, cloakroom, parking) so the programme block and the full chip row are seen; add a 4th screenshot "full" with them. Check chip wrapping at 390 (no overflow).
+5. Full-weekday names in all new copy. Re-run tsc, lint chain, unit tests, mojibake check, bundle budget chunk count (must stay 39), update PR body (honest Verified / Not verified).
+Do not touch checkout/payment logic or chunking beyond keeping the count at 39. Context cap 45%; final push without [skip preview].
