@@ -2,7 +2,8 @@ import type { ShownOrganiserStat } from './organiserStatsByFeed';
 
 /**
  * The organiser page's proof strip (ACCEPTANCE S1). It renders exactly what
- * organiserStats() returned -- the first three stats that qualify -- and
+ * organiserStats() returned (at most Next night, Nights hosted, Running
+ * since, in that order) and
  * nothing at all when none do. It never invents a value: no 0, no `--`, no
  * placeholder tile. The page decides WHICH nights feed the mapping (never a
  * failed feed's, organiserStatsByFeed); this file only lays the answer out. A

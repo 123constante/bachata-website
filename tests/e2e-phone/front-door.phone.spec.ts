@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { checkOverflow, frames } from './helpers';
+import { checkOverflow, frames, MIN_TAP_PX } from './helpers';
 import {
   ADD_OK, EVERY_GROUP, LONG_NAMES, MANY_ROWS, ONE_ROW, PROD_LIST, PROD_NEEDS, STATUS_MATRIX, addError, asAdmin, type Call, type Rpcs,
 } from './frontDoorFake';
@@ -379,6 +379,6 @@ test('entry point on /admin/organisers carries the Needs you count', async ({ pa
   await expect(page.getByTestId('front-door-entry')).toContainText('Add and manage organisers'); // same name as the page it opens
   expect(await checkOverflow(page), 'entry: no sideways scroll').toEqual([]);
   const h = await page.getByTestId('front-door-entry').evaluate((el) => el.getBoundingClientRect().height);
-  expect(h).toBeGreaterThanOrEqual(44);
+  expect(h).toBeGreaterThanOrEqual(MIN_TAP_PX);
   await shot(page, 'entry-badge', false);
 });

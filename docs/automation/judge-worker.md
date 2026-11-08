@@ -22,6 +22,20 @@ The lane hands the judge one JSON object (`validateJudgeInput` checks it):
   survey-derived fixtures (`status.type.empty|nonempty.past|upcoming.huge|normal`).
 - `builderModelId`, `judgeModelId`, `builderSessionId`, `judgeSessionId`.
 
+input.screens is compared with walk-coverage.json. `judgeVerdict(input, report,
+coverage)` takes `docs/design/walk-coverage.json` as an optional third argument
+(the CLI flag `--coverage <file>`); when given, `screensMissingFromCoverage`
+(`scripts/lib/walk-fixtures.mjs`) lists every disagreement and each one is a red
+reason prefixed `coverage:` -- a non-example coverage screen missing from
+`input.screens`, an input screen coverage does not list, or a coverage shape
+that input screen does not list, or a required screen that lists no shapes.
+Rows with `"example": true` are never required, and an input screen naming one
+is red. Duplicate or non-string ids or shapes in `input.screens` are red.
+Malformed coverage, a table with no non-example screen, or an unreadable or
+unparseable `--coverage` file is red, never "no coverage given". When the third
+argument is omitted the verdict is exactly the two-argument one. Part D's caller
+must pass the live coverage file and the PR's live head; nothing wires it yet.
+
 The walk report it judges carries `headSha` (the head the walk actually measured),
 `measurements[screen][shape][engine][rubricId] = number` plus
 `measurements[screen][shape][engine].viewport = { width, height }`, `pictures`
@@ -63,7 +77,7 @@ is red.
 
 ## Output
 
-`judgeVerdict(input, report)` returns (see `verdictSchema`):
+`judgeVerdict(input, report[, coverage])` returns (see `verdictSchema`):
 
 `{ verdict: 'pass'|'red'|'doubt', headSha, reasons[], cited: [{check, measured, threshold, op, screen, shape, engine}], engines, invalidatedBy: 'any push' }`
 
@@ -89,8 +103,18 @@ is missing.
 
 Budget (contract section 12): 15 minutes wall time per walk; the judge worker
 gets 3 hours of runtime and 8 dispatches per day in total. Over budget means
-hold and alert, never "pass anyway". Part A exports these constants only;
-enforcing the daily totals is Part B.
+hold and alert, never "pass anyway". `judgeBudgetDecision(ledger, now, config)`
+in `scripts/lib/walk-judge-budget.mjs` enforces them as a pure, fail-closed
+decision: given the ledger of judge runs (`{ startedAt, endedAt|null, branch }`,
+ISO-8601 with a zone) and `now`, it counts the UTC day of `now` and returns
+`allow: false` with `action: hold-and-alert` when today already has 8
+dispatches, when today's runtime has reached 3 hours (an open entry runs until
+`now`; a run that straddles midnight counts only its minutes inside today), or
+when an open run has gone past 15 minutes. A malformed ledger or entry, a
+non-ISO or future-dated timestamp, an entry that ends before it starts, a
+missing `now`, a bad config, or any throw also holds; it never throws and never
+allows on doubt. The Part D dispatcher must call it before every judge
+dispatch; nothing wires that yet, and no real ledger exists yet.
 
 | constant | value |
 |----------|-------|
@@ -107,7 +131,7 @@ enforcing the daily totals is Part B.
 | `JUDGE_CONFIG.budget.judgeRuntimeHoursPerDay` | `3` |
 | `JUDGE_CONFIG.budget.judgeDispatchesPerDay` | `8` |
 | `JUDGE_CONFIG.budget.overBudgetAction` | `hold-and-alert` |
-| `JUDGE_CONFIG.budget.dailyTotalEnforcedIn` | `part-b` |
+| `JUDGE_CONFIG.budget.dailyTotalEnforcedIn` | `scripts/lib/walk-judge-budget.mjs` |
 
 ## Dispatcher
 
@@ -127,7 +151,10 @@ not measured, an absent or unknown engine, a model or session collision, a
 report head that is not the judged head, malformed input, a verdict with no
 numbers, a measured number outside its sanity range, a viewport other than
 390x844, a non-string or blank `doubts` entry (or a string `doubts`), an
-unparseable judge reply, and any error thrown inside the judge. When every number passes but
+unparseable judge reply, any `coverage:` reason (a screen or shape
+`walk-coverage.json` requires that `input.screens` leaves out, an input screen
+coverage does not list, malformed or unreadable coverage), and any error thrown
+inside the judge. When every number passes but
 the judge model recorded a doubt, the verdict is `doubt`, and `isPass` treats
 `doubt` as not pass. The CLI exits 0 only on pass, 1 on red or doubt (including
 an unreadable file), 2 on a usage error.
@@ -141,12 +168,16 @@ exits 1), and `coverageGaps` throws on a coverage doc with `screens: []` or on
 
 ## Parts left
 
-- input.screens is not tied to walk-coverage.json: the judge checks the screens
-  and shapes the lane SAYS it walked, not the screens `docs/design/walk-coverage.json`
-  requires. A lane that leaves a screen out of `input.screens` is not caught by
-  the judge itself. Tying the two together is Part B/C work.
+- Part C static scan exists, not wired: `scripts/lib/walk-ios-static.mjs` (`scanIosClasses`) emits `iosInputFontSize`, `iosNoRawVh` and `iosFixedBarsSafeArea` from CSS/TSX/HTML text; no workflow, lane or judge calls it yet.
+- Report builder exists, not wired: `buildJudgeReport` in `scripts/lib/walk-report.mjs` turns raw runner records into the report `judgeVerdict` reads, but no walk runner calls it yet.
+- The coverage check only runs when the caller passes coverage: Part D's caller
+  must pass the live `docs/design/walk-coverage.json` (`--coverage`) on every
+  judge run. Until it does, nothing calls the judge in CI.
 - The head comparison inside `main()` uses the input's own `headSha`; the Part D
   caller must pass the PR's live head to `isPass`, not the verdict's.
+- A screen with `walk: null` that is waived by a valid `walk-waived` record is
+  still required by `screensMissingFromCoverage`; passing waived screen ids in
+  is Part D/E wiring if a waived screen must be judged without a walk.
 
 ## Residual risks
 
@@ -157,5 +188,7 @@ exits 1), and `coverageGaps` throws on a coverage doc with `screens: []` or on
   a lane that lies about them is not. Part D wires the dispatcher that sets them.
 - Fixtures are as good as the survey. A shape that production has but the
   survey missed has no fixture, so `coverageGaps` cannot see it.
-- The daily runtime and dispatch ceilings are constants here and are not
-  enforced until Part B.
+- The daily runtime and dispatch ceilings are decided by
+  `scripts/lib/walk-judge-budget.mjs`, but only for a dispatcher that calls it
+  with a true ledger. Until Part D wires that call and keeps that ledger, a judge
+  dispatched another way is not counted.

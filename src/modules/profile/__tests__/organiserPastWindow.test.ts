@@ -34,12 +34,13 @@ describe('E12 past window is one explicit truth', () => {
   it('past feed: from = today - 3650 days, to = tomorrow, include_past, all passed explicitly', async () => {
     await fetchOrganiserPastOccEvents('org-1');
     expect(calls).toHaveLength(1);
-    expect(calls[0].fn).toBe('get_organiser_calendar_events_v1');
+    expect(calls[0].fn).toBe('get_organiser_nights_v2');
     expect(calls[0].args).toEqual({
       p_organiser_id: 'org-1',
+      p_include_past: true,
       p_from: new Date(NOW.getTime() - 3650 * DAY).toISOString().slice(0, 10),
       p_to: new Date(NOW.getTime() + DAY).toISOString().slice(0, 10),
-      p_include_past: true,
+      p_past_limit: 5000,
     });
   });
 
@@ -49,8 +50,9 @@ describe('E12 past window is one explicit truth', () => {
     expect(NOW.getTime() - from).toBeGreaterThan(730 * DAY);
   });
 
-  it('upcoming feed passes no window arguments (the server default horizon applies there)', async () => {
+  it('upcoming feed: v2, no past, explicit cap of 20, no window arguments', async () => {
     await fetchOrganiserFutureOccEvents('org-1');
-    expect(calls[0].args).toEqual({ p_organiser_id: 'org-1' });
+    expect(calls[0].fn).toBe('get_organiser_nights_v2');
+    expect(calls[0].args).toEqual({ p_organiser_id: 'org-1', p_include_past: false, p_upcoming_limit: 20 });
   });
 });

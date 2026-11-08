@@ -1,14 +1,18 @@
 import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { londonTodayKey } from '@/lib/londonDate';
 import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
 import {
   NOT_MANAGER,
   NOT_MANAGER_REFUND,
+  PAYMENTS_WHERE,
   SWITCH_LABEL,
   buyerNameOf,
   buyerRulesLine,
   canManage,
+  connectBlock,
+  connectReturnBanner,
   countsLine,
   eventStartOf,
   leftOf,
@@ -18,6 +22,8 @@ import {
   priceLabel,
   reasonMessage,
   refundable,
+  withPendingRefund,
+  type PendingRefund,
   switchMove,
   type MoveContext,
   type Order,
@@ -27,7 +33,8 @@ import {
 } from '../../tickets/ticketModel';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import type { HomeSeriesFull } from '../../shared/homeModel';
-import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useStripe, useSummary } from './data';
+import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { P3_TICKET_PATHS } from './paths';
 import {
   PREVIEW_ORDERS,
   TONE_CLASS,
@@ -49,6 +56,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 // Promo codes ride in their own chunk: nothing added to the Tickets sheet's first load.
 const PromoSection = lazyWithRetry(() => import('./promo/PromoSection'));
+
+const SalesReport = lazyWithRetry(() => import('./SalesReport').then((m) => ({ default: m.SalesReport })));
 
 /**
  * The event page's Tickets entry (W-T, mockup C): a row under Status that opens ONE tall
@@ -73,6 +82,10 @@ export function TicketsEntry({ seriesId }: { seriesId: string }) {
 
 type View = 'list' | 'orders';
 
+/** After Stripe sends the person back: refetch every 3 s, for at most 30 s. */
+export const CONNECT_RETURN_EVERY_MS = 3000;
+export const CONNECT_RETURN_FOR_MS = 30_000;
+
 function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) {
   const queryClient = useQueryClient();
   const today = londonTodayKey();
@@ -81,6 +94,32 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const [editing, setEditing] = useState<{ type: TicketType | null } | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [refunding, setRefunding] = useState<Order | null>(null);
+  // Per order AND its refunded amount: partial-refund keys still waiting for a definite answer
+  // (amount -> request_id), kept across the Refund sheet closing so a retry after a network failure
+  // is the same press. Once the webhook moves refunded_pence, the old keys no longer apply.
+  const refundKeys = useRef(new Map<string, Map<number, string>>());
+  const NO_KEYS: ReadonlyMap<number, string> = new Map();
+  const keysOf = (scope: string): ReadonlyMap<number, string> => refundKeys.current.get(scope) ?? NO_KEYS;
+  const holdKey = (scope: string, pence: number, key: string | null) => {
+    if (key === null) {
+      refundKeys.current.get(scope)?.delete(pence);
+      return;
+    }
+    // The Map is made on the first press, never while rendering.
+    const m = refundKeys.current.get(scope) ?? new Map<number, string>();
+    m.set(pence, key);
+    refundKeys.current.set(scope, m);
+  };
+  // refunded_pence lags the webhook: pence sent and not yet on the order row, per order, counted only
+  // while the row still shows the figure it had when they were sent (so it clears when the row moves).
+  const [pendingRefund, setPendingRefund] = useState<ReadonlyMap<string, PendingRefund>>(new Map());
+  const noteSent = (o: Order, pence: number) =>
+    setPendingRefund((m) => {
+      const n = new Map(m);
+      const prev = n.get(o.id);
+      n.set(o.id, { base: o.refundedPence, pence: (prev && prev.base === o.refundedPence ? prev.pence : 0) + pence });
+      return n;
+    });
   // Orders whose refund is on its way: their Refund button waits for the answer (never a second request).
   const [inFlight, setInFlight] = useState<ReadonlySet<string>>(new Set());
   const flight = (id: string, on: boolean) =>
@@ -108,7 +147,56 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const list = types.data ?? [];
   const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess);
   const summary = useSummary(org.id);
-  const { state: stripe } = useStripe(org.id);
+  const { state: stripe, query: stripeQuery } = useStripe(org.id);
+  // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
+  const onboard = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
+  // On arrival (`tickets=1`, and `stripe=return|refresh` from Stripe): open the sheet, refetch the Stripe
+  // state after a return, and drop the params so a reload or a Back does not do it again.
+  const [params, setParams] = useSearchParams();
+  const arrived = useRef(false);
+  // Remembered before the effect below drops the URL params: the banner and its poll hang off this.
+  const [arrivedFromStripe, setArrivedFromStripe] = useState(() => params.get('stripe') === 'return');
+  const [connectReturnPoll, setConnectReturnPoll] = useState(() => params.get('stripe') === 'return');
+  const stripeConnected = stripe === 'connected';
+  // connectReturnPoll: refetch the Stripe state every 3 s for at most 30 s, or until connected; unmount stops it.
+  const refetchStripe = useRef(stripeQuery.refetch);
+  refetchStripe.current = stripeQuery.refetch;
+  useEffect(() => {
+    if (!connectReturnPoll) return;
+    if (stripeConnected) {
+      setConnectReturnPoll(false);
+      return;
+    }
+    const tick = window.setInterval(() => void refetchStripe.current(), CONNECT_RETURN_EVERY_MS);
+    const stop = window.setTimeout(() => {
+      window.clearInterval(tick);
+      setConnectReturnPoll(false);
+    }, CONNECT_RETURN_FOR_MS);
+    return () => {
+      window.clearInterval(tick);
+      window.clearTimeout(stop);
+    };
+  }, [connectReturnPoll, stripeConnected]);
+  useEffect(() => {
+    if (arrived.current) return;
+    const asked = params.get('tickets') === '1';
+    const back = params.get('stripe');
+    if (!asked && !back) return;
+    arrived.current = true;
+    if (asked) {
+      setView('list');
+      setOpen(true);
+    }
+    if (back === 'return') {
+      setArrivedFromStripe(true);
+      setConnectReturnPoll(true);
+      void stripeQuery.refetch();
+    }
+    const next = new URLSearchParams(params);
+    next.delete('tickets');
+    next.delete('stripe');
+    setParams(next, { replace: true });
+  }, [params, setParams, stripeQuery]);
 
   const manager = canManage(org.role);
   const seriesLive = series.lifecycle_status === 'live';
@@ -148,7 +236,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   };
 
   const openEditor = (type: TicketType | null) => {
-    setDraft((held) => draftFor(held, type, eventStart));
+    setDraft((held) => draftFor(held, type, eventStart, series));
     setEditing({ type });
   };
   const closeEditor = () => setEditing(null);
@@ -181,6 +269,15 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     }
   };
 
+  const banner = types.isSuccess
+    ? connectReturnBanner({ arrivedFromStripe, stripe: stripe ?? 'unknown', role: org.role, drafts: list, polling: connectReturnPoll })
+    : null;
+  const bannerBusy = list.some((t) => moving.has(t.id));
+  const putOnSale = (typeId?: string) => {
+    const paid = list.filter((t) => t.status === 'draft' && t.pricePence > 0 && (!typeId || t.id === typeId));
+    paid.forEach((t) => void move(t, 'on_sale'));
+  };
+
   const orderRows = (rows: readonly Order[]) => (
     <ul className="p3-list p3-flush">
       {rows.map((o) => {
@@ -197,7 +294,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
               </div>
             </div>
-            {manager && refundable(o) && (
+            {manager && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
               <button
                 type="button"
                 className="p3-btn p3-btn-line p3-btn-sm"
@@ -268,6 +365,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 type={t}
                 sales={sales.get(t.id) ?? null}
                 ctx={ctx}
+                onboard={onboard}
                 busy={moving.has(t.id)}
                 error={moveError.get(t.id) ?? null}
                 onMove={(to) => void move(t, to)}
@@ -320,6 +418,25 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 {eventDateLine(series)}. {buyerRulesLine()}
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
+              {banner && (
+                <div className="p3-card p3-stack-s" role="status" data-testid="tix-return-banner" data-kind={banner.kind}>
+                  <p className="p3-note" data-testid="tix-return-line">{banner.line}</p>
+                  {banner.actions.map((a) => (
+                    <button
+                      key={`${a.kind}-${a.typeId ?? ''}`}
+                      type="button"
+                      className="p3-btn"
+                      style={{ minHeight: 44 }}
+                      disabled={a.kind === 'carry_on' ? onboard.busy : bannerBusy}
+                      aria-busy={(a.kind === 'carry_on' ? onboard.busy : bannerBusy) || undefined}
+                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : putOnSale(a.typeId))}
+                      data-testid={`tix-return-${a.kind}`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {body}
               {types.isSuccess && (
                 <Suspense fallback={<p className="p3-note" data-testid="promo-loading">Loading promo codes&hellip;</p>}>
@@ -328,7 +445,14 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               )}
             </div>
           ) : (
+            <>
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
+            {orders.isSuccess && (
+              <Suspense fallback={null}>
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} />
+              </Suspense>
+            )}
+            </>
           )}
         </StackSheet>
       )}
@@ -341,6 +465,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           seriesId={series.id}
           ctx={ctx}
           eventStart={eventStart}
+          series={series}
+          onboard={onboard}
           hasOrders={hasOrdersOf(editing.type, sales, orders.data ?? [])}
           checking={!!editing.type && (summary.isPending || orders.isPending)}
           onClose={(saving) => {
@@ -364,13 +490,16 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       )}
       {open && refunding && (
         <RefundSheet
-          order={refunding}
+          order={withPendingRefund(refunding, pendingRefund.get(refunding.id))}
           typeName={many ? typeName.get(refunding.typeId) ?? null : null}
           today={today}
           onClose={() => setRefunding(null)}
           onLate={late}
           onStart={() => flight(refunding.id, true)}
           onSettled={() => flight(refunding.id, false)}
+          onSent={(p) => noteSent(refunding, p)}
+          getKeys={() => keysOf(`${refunding.id}:${refunding.refundedPence}`)}
+          setKey={(p, k) => holdKey(`${refunding.id}:${refunding.refundedPence}`, p, k)}
           onDone={(text) => {
             setRefunding(null);
             say(text);
@@ -419,6 +548,7 @@ function TypeRow({
   type: t,
   sales,
   ctx,
+  onboard,
   busy,
   error,
   onMove,
@@ -427,6 +557,7 @@ function TypeRow({
   type: TicketType;
   sales: TypeSales | null;
   ctx: MoveContext;
+  onboard: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
   busy: boolean;
   error: string | null;
   onMove: (to: TicketStatus) => void;
@@ -436,7 +567,9 @@ function TypeRow({
   const to = switchMove(t.status);
   const blocked = to ? moveBlock(t, to, ctx) : null;
   // The role reason is said once at the top of the sheet, not under every row.
-  const shownReason = blocked && blocked !== NOT_MANAGER ? blocked : null;
+  // A paid draft with payments not connected: the Connect payments block replaces the "go to Get paid" reason.
+  const connect = to === 'on_sale' && t.status === 'draft' ? connectBlock(t.pricePence, ctx, onboard) : null;
+  const shownReason = blocked && blocked !== NOT_MANAGER && !(connect && blocked === PAYMENTS_WHERE) ? blocked : null;
   return (
     <li className="p3-row p3-row-col" data-testid={`tix-type-${t.id}`} data-status={t.status}>
       <div className="p3-type">
@@ -471,6 +604,15 @@ function TypeRow({
         )}
       </div>
       {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason">{shownReason}</p>}
+      {connect && blocked === PAYMENTS_WHERE && (
+        <div className="p3-stack-s" data-testid="tix-connect">
+          <p className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
+          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => void onboard.go()} disabled={onboard.busy} aria-busy={onboard.busy || undefined} data-testid="tix-connect-btn">
+            {connect.button}
+          </button>
+          {connect.error && <p role="alert" className="p3-error" data-testid="tix-connect-error">{connect.error}</p>}
+        </div>
+      )}
       {error && <p role="alert" className="p3-error" data-testid="tix-move-error">{error}</p>}
     </li>
   );

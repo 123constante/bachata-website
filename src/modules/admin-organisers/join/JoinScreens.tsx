@@ -5,7 +5,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
+import { OTP_CODE_LENGTH, getPaidStartPath } from '@/lib/auth-otp-routing';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { organiserAreaHome, p3AreaLive } from '@/lib/organiserAreaHome';
 import { USED_COPY, reasonScreen, type ReasonScreen, type UsedViewer } from '../inviteModel';
@@ -165,18 +165,21 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
  * Where Done goes, and the state it carries: the ONE landing helper; without an id (or with the area off) the plain
  * home links stay. F-05 (review r1 F1): P3 Home reads `confirmation` and WAITS for its home refetch instead of
  * reading a pre-join "no page" cache and bouncing to Start. Slice U's returning redirect uses the same answer.
+ * `getPaid` (the link's `next=get-paid` AND an owner or manager seat, decided by the page): with an organiser id and
+ * the area on, Done goes to the Get paid start path instead; with no id it is the plain home, as today.
  */
-export function doneTarget(org: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }, organiserId: string | null): { to: string; state: { confirmation: string } | undefined } {
+export function doneTarget(org: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }, organiserId: string | null, getPaid = false): { to: string; state: { confirmation: string } | undefined; getPaid: boolean } {
   const selfServe = flags.organiserSelfServe;
-  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
+  const toGetPaid = getPaid && selfServe && organiserId != null;
+  const to = toGetPaid ? getPaidStartPath(organiserId) : selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
   const state = p3AreaLive(flags) && organiserId ? { confirmation: JOIN_COPY.done.heading(org) } : undefined;
-  return { to, state };
+  return { to, state, getPaid: toGetPaid };
 }
 
-export function DoneScreen({ org, flags, organiserId, rowsLeft = null }: { rowsLeft?: number | null; org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+export function DoneScreen({ org, flags, organiserId, rowsLeft = null, getPaid = false }: { rowsLeft?: number | null; org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null; getPaid?: boolean }) {
   const selfServe = flags.organiserSelfServe;
-  const button = selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
-  const { to, state } = doneTarget(org, flags, organiserId);
+  const { to, state, getPaid: toGetPaid } = doneTarget(org, flags, organiserId, getPaid);
+  const button = toGetPaid ? JOIN_COPY.done.buttonGetPaid : selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
@@ -265,9 +268,11 @@ function ReasonActions({ reason, busy, onRetry, home }: { reason: ReasonScreen; 
 }
 
 /** Refusals and failures, each with what to do next. `onRetry` re-runs the action that failed; `onSwitch` signs out and continues. */
-export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss }: {
+export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss, homeFlags = { organiserP3: false, organiserSelfServe: false } }: {
   stop: JoinStop; preview: JoinPreview | null; signedInAs: string; busy: boolean; error: string | null;
   onRetry: () => void; onSwitch: () => void; onDismiss: () => void;
+  /** Where the `unmatched` stop's one link goes (doneTarget's rule). Absent: the public site. */
+  homeFlags?: { organiserP3: boolean; organiserSelfServe: boolean };
 }) {
   const inviter = preview?.inviterFirstName ?? null;
   const home = <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>;
@@ -363,6 +368,23 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
           <ErrorLine id="join-signout-error">{error}</ErrorLine>
         </div>
       );
+    case 'unmatched': {
+      // Find before create: nothing was created, chosen or redeemed. The one control is the organiser home (the
+      // public site while the organiser area is off), named in the copy by its own label.
+      const label = homeFlags.organiserSelfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
+      const { to } = doneTarget(preview?.organiserName ?? 'the team', homeFlags, null);
+      return (
+        <div className="flex flex-col gap-2">
+          <span className="self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-300" data-testid="join-unmatched-tag">{JOIN_COPY.unmatched.tag}</span>
+          <Heading>{JOIN_COPY.unmatched.heading}</Heading>
+          <Lead testId="join-unmatched-body">{JOIN_COPY.unmatched.body}</Lead>
+          <Lead testId="join-unmatched-tell">{JOIN_COPY.unmatched.tell(inviter)}</Lead>
+          <p className="rounded-xl border border-border p-3 text-[13px] text-muted-foreground">{JOIN_COPY.unmatched.note}</p>
+          <Lead testId="join-unmatched-next">{JOIN_COPY.unmatched.next(label)}</Lead>
+          <Link to={to} className={BTN} data-testid="join-unmatched-home">{label}</Link>
+        </div>
+      );
+    }
     case 'wrong_account':
       return <WrongAccountScreen signedInAs={signedInAs} hint={stop.emailHint ?? preview?.emailHint ?? 'another email'} busy={busy} error={error} onSwitch={onSwitch} />;
     case 'already_bound':

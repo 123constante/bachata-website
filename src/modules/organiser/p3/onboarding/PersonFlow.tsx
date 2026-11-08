@@ -8,11 +8,11 @@ import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { wizardCountries, type WizardCountry as Country } from '../../wizard/wizardCountries';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
+import { BIO_LIMIT, BIO_SHORTEN_REASON, bioLength, limitBioInput } from '@/modules/profile/organiserHeroBio';
 import { Flag, ObSheet, ObShell, ObToast } from './ObShell';
 import { prefersReducedMotion, readObTheme } from './obEnv';
 import { PERSON_STALE_KEYS, REAL_READS, REAL_WRITES, type OrganiserBrief, type PersonReads, type PersonWrites } from './personApi';
 import {
-  ABOUT_MAX,
   EMPTY_DRAFT,
   LANG_ALL,
   LANG_FEW,
@@ -547,10 +547,14 @@ function PickRows({ all, chosen, onToggle }: { all: readonly string[]; chosen: r
 }
 
 function AboutStep({ value, onChange, starter }: { value: string; onChange: (v: string) => void; starter: string }): ReactNode {
+  // The value the step opened with: an older longer bio loads unchanged.
+  const [loaded] = useState(value);
+  const n = bioLength(value);
   return (
     <>
-      <textarea className="p3-ob-inp" maxLength={ABOUT_MAX} placeholder="Who you are and what you run" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(e.target.value)} data-testid="p3-ob-about" />
-      <p className="p3-ob-m p3-ob-kbhide" aria-live="polite">{value.length} / {ABOUT_MAX}</p>
+      <textarea className="p3-ob-inp" placeholder="Who you are and what you run" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(limitBioInput(e.target.value, loaded))} data-testid="p3-ob-about" />
+      <p className="p3-ob-m p3-ob-kbhide" aria-live="polite" style={n > BIO_LIMIT ? { color: '#FF8A70' } : undefined} data-testid="p3-ob-about-counter">{n} / {BIO_LIMIT}</p>
+      {n > BIO_LIMIT && <p className="p3-ob-m" role="alert" data-testid="p3-ob-about-reason">{BIO_SHORTEN_REASON}</p>}
       {starter && !value.trim() && (
         <button type="button" className="p3-ob-lnk p3-ob-kbhide" onClick={() => onChange(starter)} data-testid="p3-ob-starter">Use the starter sentence</button>
       )}

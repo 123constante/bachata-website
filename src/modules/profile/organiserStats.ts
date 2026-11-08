@@ -2,11 +2,11 @@
  * Which stats the public organiser page shows in its stats strip. One pure
  * decision (no I/O, no Date.now(): `now` is an input), pinned by
  * src/modules/profile/__tests__/organiserStats.matrix.test.ts over the real
- * shapes prod holds. NOT wired into any screen yet (brief
- * docs/briefs/organiser-stats-mapping.md, branch brief/organiser-stats-mapping).
+ * shapes prod holds. Rendered by OrganiserProfile via organiserStatsByFeed.
  *
- * The rule: walk the stats in PRIORITY order and keep the first
- * MAX_ORGANISER_STATS that qualify. A stat qualifies only when its value is a
+ * The strip offers ONLY three stats, in this order: Next night, Nights hosted,
+ * Running since (owner decision 5). Each qualifies on its own; fewer
+ * qualifying means fewer shown (MAX_ORGANISER_STATS is the natural cap). A stat qualifies only when its value is a
  * real, non-zero fact -- never 0, empty, "--" or a placeholder. Nothing
  * qualifying returns [] and the screen hides the strip.
  *
@@ -22,34 +22,20 @@ import {
   londonDaysBetweenKeys,
   londonMinutesOfDay,
   parseUtcIso,
-  weekdayOfKey,
 } from '@/lib/londonDate';
 import { ROLLOVER_HOUR } from '@/lib/programDayRollover';
 
 // ---- Thresholds (owner's first guesses; the ONE place to tune them) --------
 export const MAX_ORGANISER_STATS = 3;
-/** Tickets sold below this are never shown. */
-export const TICKETS_SOLD_MIN = 100;
-/** Unique Going dancers below this are never shown. */
-export const DANCERS_CAME_MIN = 100;
 /** Past non-cancelled nights needed before "Nights hosted" shows. */
 export const NIGHTS_HOSTED_MIN = 5;
-/** Weekly rhythm: dates in the last 12 months on the top weekday ... */
-export const WEEKLY_RHYTHM_MIN_DATES = 4;
-/** ... and that weekday's share of all dates in the window. */
-export const WEEKLY_RHYTHM_MIN_SHARE = 0.6;
 /** Earliest founded_year accepted as real (anything older is junk input). */
 export const FOUNDED_YEAR_MIN = 1950;
 
 export type OrganiserStatKey =
   | 'next_night'
-  | 'last_night'
-  | 'tickets_sold'
-  | 'dancers_came'
   | 'nights_hosted'
-  | 'weekly_rhythm'
-  | 'running_since'
-  | 'venues';
+  | 'running_since';
 
 export interface OrganiserStat {
   key: OrganiserStatKey;
@@ -78,14 +64,8 @@ export interface OrganiserStatsInput {
   now: Date;
   /** One entry per listed date (occurrence), upcoming and past together. */
   nights: OrganiserStatNight[];
-  /** Tickets sold for this organiser. null/undefined = ticketing not live. */
-  ticketsSold?: number | null;
-  /** Unique Going dancers. null/undefined = Going data not live. */
-  dancersCame?: number | null;
   /** The organiser's own founded_year. */
   foundedYear?: number | null;
-  /** Venue names of the organiser's nights; shown only when exactly one distinct. */
-  venueNames?: ReadonlyArray<string | null | undefined>;
 }
 
 // ---- Night keys ------------------------------------------------------------
@@ -142,29 +122,7 @@ export const shortNightLabel = (key: string): string => {
   return `${fmtUtc(d, { weekday: 'short' })} ${d.getUTCDate()} ${fmtUtc(d, { month: 'short' })}`;
 };
 
-const WEEKDAY_PLURAL = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
-
 const countFmt = new Intl.NumberFormat('en-GB');
-
-/** Largest of 1, 2.5, 5 x 10^n (n >= 2) not above n: 100, 250, 500, 1000, ... */
-export function niceFloor(n: number): number | null {
-  if (!Number.isFinite(n) || n < 100) return null;
-  let best = 100;
-  for (let base = 100; base <= n; base *= 10) {
-    for (const m of [1, 2.5, 5]) {
-      const step = m * base;
-      if (step <= n) best = step;
-    }
-  }
-  return best;
-}
-
-/** "250+" / "1,000+", or null below 100. */
-export const roundedCount = (n: number | null | undefined): string | null => {
-  if (n === null || n === undefined) return null;
-  const step = niceFloor(n);
-  return step === null ? null : `${countFmt.format(step)}+`;
-};
 
 // ---- The decision ----------------------------------------------------------
 
@@ -186,47 +144,19 @@ export function organiserStats(input: OrganiserStatsInput): OrganiserStat[] {
   past.sort();
 
   const candidates: Array<() => OrganiserStat | null> = [
-    // 1. Next night, else last night.
+    // 1. Next night -- only when an upcoming night exists (no Last night fallback).
     () => {
-      if (upcoming.length > 0) {
-        const key = upcoming[0];
-        const diff = londonDaysBetweenKeys(todayKey, key);
-        const value = diff <= 0 ? 'Tonight' : diff === 1 ? 'Tomorrow' : shortNightLabel(key);
-        return { key: 'next_night', value, label: 'Next night' };
-      }
-      if (past.length > 0) {
-        return { key: 'last_night', value: shortNightLabel(past[past.length - 1]), label: 'Last night' };
-      }
-      return null;
+      if (upcoming.length === 0) return null;
+      const key = upcoming[0];
+      const diff = londonDaysBetweenKeys(todayKey, key);
+      const value = diff <= 0 ? 'Tonight' : diff === 1 ? 'Tomorrow' : shortNightLabel(key);
+      return { key: 'next_night', value, label: 'Next night' };
     },
-    // 2. Tickets sold (ticketing live and >= TICKETS_SOLD_MIN).
-    () => {
-      if (input.ticketsSold == null || input.ticketsSold < TICKETS_SOLD_MIN) return null;
-      const value = roundedCount(input.ticketsSold);
-      return value ? { key: 'tickets_sold', value, label: 'Tickets sold' } : null;
-    },
-    // 3. Dancers came (Going live and >= DANCERS_CAME_MIN).
-    () => {
-      if (input.dancersCame == null || input.dancersCame < DANCERS_CAME_MIN) return null;
-      const value = roundedCount(input.dancersCame);
-      return value ? { key: 'dancers_came', value, label: 'Dancers came' } : null;
-    },
-    // 4. Nights hosted.
+    // 2. Nights hosted.
     () => (new Set(past).size >= NIGHTS_HOSTED_MIN
       ? { key: 'nights_hosted', value: countFmt.format(new Set(past).size), label: 'Nights hosted' }
       : null),
-    // 5. Weekly rhythm over the last 12 months (distinct dates, up to today).
-    () => {
-      const fromKey = keyOneYearBefore(todayKey);
-      const dates = new Set([...past, ...upcoming].filter((k) => k > fromKey && k <= todayKey));
-      if (dates.size === 0) return null;
-      const perDay = [0, 0, 0, 0, 0, 0, 0];
-      for (const k of dates) perDay[weekdayOfKey(k)] += 1;
-      const top = Math.max(...perDay);
-      if (top < WEEKLY_RHYTHM_MIN_DATES || top / dates.size < WEEKLY_RHYTHM_MIN_SHARE) return null;
-      return { key: 'weekly_rhythm', value: WEEKDAY_PLURAL[perDay.indexOf(top)], label: 'Every week' };
-    },
-    // 6. Running since: real founded_year, else first night > 1 year ago.
+    // 3. Running since: real founded_year, else first night > 1 year ago.
     () => {
       const thisYear = Number(todayKey.slice(0, 4));
       const fy = input.foundedYear;
@@ -244,14 +174,6 @@ export function organiserStats(input: OrganiserStatsInput): OrganiserStat[] {
         label: 'Running',
         title: `Estimated from the earliest listed night (${first.slice(0, 4)}) -- not a confirmed founding date`,
       };
-    },
-    // 8. One main venue (7, teaching line-up, is deliberately not here).
-    () => {
-      const names = new Set(
-        (input.venueNames ?? []).map((v) => (v ?? '').trim()).filter((v) => v.length > 0),
-      );
-      if (names.size !== 1) return null;
-      return { key: 'venues', value: [...names][0], label: 'Venue' };
     },
   ];
 

@@ -25,6 +25,10 @@ import { programmeRules } from '../model/programme';
 import type { SendOnce } from './CancelEventSheet';
 import { flags } from '@/lib/featureFlags';
 import { TicketsEntry } from '../tickets/TicketsEntry';
+import { dancerMessageUsUrl } from '@/lib/contactLinks';
+
+/** The WhatsApp message the festival sessions' "Ask the team to change the programme" opens; the event follows it. */
+export const FESTIVAL_ASK_MESSAGE = 'Hi! Please change my festival programme on Bachata Calendar. Event: ';
 
 /** The second half of the status row (C3 "Live \u00b7 Hide or end it"). */
 const STATUS_HINT: Record<string, string> = {
@@ -82,7 +86,13 @@ function Sessions({ v, ws, onOpen }: { v: EventPageView; ws: EventWorkspace; onO
           </div>
         ))
       )}
-      {festival ? <p className="p3-note" data-testid="p3-sessions-ask">{L.festivalAsk}</p> : (
+      {festival ? (
+        <div className="p3-stack-s p3-gap-t">
+          <p className="p3-note" data-testid="p3-sessions-ask">{L.festivalAsk}</p>
+          <a className="p3-link" data-testid="p3-sessions-ask-team" target="_blank" rel="noopener noreferrer"
+            href={dancerMessageUsUrl(`${FESTIVAL_ASK_MESSAGE}${v.name}`)}>Ask the team to change the programme</a>
+        </div>
+      ) : (
         <div className="p3-stack-s p3-gap-t">
           <button type="button" className="p3-btn p3-btn-line" disabled={!!addWhy} onClick={() => onOpen(null)} data-testid="p3-add-session">{L.addSession}</button>
           {addWhy && count > 0 && <p className="p3-note" data-testid="p3-add-session-why">{addWhy}</p>}

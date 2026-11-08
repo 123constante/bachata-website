@@ -289,6 +289,12 @@ export const RPCS = {
     members: [{ user_id: '11111111-1111-4111-8111-111111111111', member_role: 'owner', is_primary: true, joined_at: '2026-01-01T00:00:00Z', is_me: true, email: 'owner@ritmo.example' }],
   }),
   organiser_team_search_people_v1: (args) => searchPeopleRows(args.p_query, args.p_limit),
+  // The public Team (organiser_public_team_v1, admin #1259): prod shape TABLE(person_id uuid
+  // = dancer_profiles.id, slug, public_name, avatar_url, sort_key int). The page reads the
+  // flags from dancer_profiles.nationality by person_id; unlisted it would answer [] (no Team).
+  organiser_public_team_v1: (args) => (args.p_organiser_profile_id === ORG3_ID
+    ? ORG3_TEAM.map((k, i) => ({ person_id: FLAG_PEOPLE[k].id, slug: FLAG_PEOPLE[k].id, public_name: fullName(FLAG_PEOPLE[k]), avatar_url: FLAG_PEOPLE[k].photo_url, sort_key: i }))
+    : []),
   // Nationality flags: the reads' prod shapes (admin #774), nationality_code additive.
   list_public_djs_v1: () => FLAG_PEOPLE.map(djListRow),
   get_public_dj_v1: (args) => {

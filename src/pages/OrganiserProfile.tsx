@@ -1,6 +1,5 @@
-﻿import { withPublicNames } from '@/lib/publicDancerNames';
-import { resolvePublicName } from '@/lib/publicName';
-import React from 'react';
+﻿import React from 'react';
+import { heroBio } from '@/modules/profile/organiserHeroBio';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -23,34 +22,18 @@ import {
 import { fetchClaimHint, myAccessRequestsQueryKey, organiserClaimHintQueryKey, organiserHomeQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import { isMailboxProvenToken } from '@/modules/organiser/shared/sessionProof';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Loader2, ChevronLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import GlobalLayout from '@/components/layout/GlobalLayout';
 import { useEntitySlugOrId, useCanonicalReplaceState } from '@/lib/seo';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { CityPicker } from '@/components/ui/city-picker';
-import { hasRequiredCity, normalizeRequiredCity } from '@/lib/profile-validation';
-import {
   buildMailtoHref,
   buildWhatsAppHref,
-  isValidEmail as sharedIsValidEmail,
 } from '@/lib/contactValidation';
-import { resolveCanonicalCity } from '@/lib/city-canonical';
 import {
   hostMatchesDomain,
   withNormalizedProtocol,
-  saveOrganiserProfile,
-  organiserProfileSaveErrorToast,
 } from '@/lib/organiserProfileUpdate';
 import { londonDayRangeUtc } from '@/lib/londonDate';
 import {
@@ -67,13 +50,18 @@ import { RetryButton } from '@/modules/profile/RetryButton';
 import { useStickyFailure } from '@/modules/profile/useStickyFailure';
 import { pickNationalityCode } from '@/components/people/nationality';
 import { usePeopleBadges } from '@/modules/person-page/badges';
-import { buildOrganiserTeam } from '@/modules/profile/organiserTeam';
+import { teamFromPublicRows } from '@/modules/profile/organiserTeam';
+import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { OrganiserStatsStrip } from '@/modules/profile/OrganiserStatsStrip';
 import { OrganiserGetInTouch, buildContactRows } from '@/modules/profile/OrganiserGetInTouch';
+import { ORG_PATHS } from '@/modules/organiser/shell/paths';
 import { OrganiserTeamSection } from '@/modules/profile/OrganiserTeamSection';
 import { optimizedImageUrl, cssUrl, srcWidthFor } from '@/lib/imageCdn';
 import { useListImpressions } from '@/lib/listImpressions';
-import EventRowCard, { type EventRowProps } from '@/components/events/EventRow';
+import { type EventRowProps } from '@/components/events/EventRow';
+import NightsCard from '@/modules/profile/NightsCard';
+import PastHighlights from '@/modules/profile/PastHighlights';
+import { countdownChip, venueCityLine, seriesCityLabel, upcomingWording, cardMetaLine, actionLabel as nightsActionLabel, pastCounts, fallbackInitials } from '@/modules/profile/nightsCardModel';
 import SeriesDatesSheet from '@/components/events/SeriesDatesSheet';
 import { groupByEventId, stableRowKey } from '@/lib/eventListGrouping';
 import { ReportProblemLink } from '@/lib/contactLinks';
@@ -95,7 +83,7 @@ import {
 
 // --- Types ---
 
-type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null };
+type OrgEvent = EventRow & { displayStart: WallClock | null; occurrenceId?: string | null; cityName?: string | null };
 
 type UpcomingListItem =
   | { kind: 'single'; event: OrgEvent }
@@ -105,19 +93,11 @@ type UpcomingListItem =
       name: string;
       posterUrl: string | null;
       location: string | null;
+      cityLabel: string | null;
       dates: OrgEvent[];
     };
 
-type TeamMember = {
-  id: string;
-  memberId: string;
-  dancerId: string | null;
-  /** Public name, or null when the person has none (the Team mapping then leaves them out). */
-  name: string | null;
-  avatarUrl: string | null;
-  nationalityCode: string | null;
-  sortOrder: number | null;
-};
+const EMPTY_NATIONALITY: ReadonlyMap<string, string | null> = new Map();
 
 type EntityProfile = {
   id: string;
@@ -238,83 +218,10 @@ const eventTime = (wc: WallClock | null | undefined): string | null => {
 };
 
 
-// A resolved hostname must look like a real domain -- containing a dot AND
-// a letter -- before a website URL is accepted. Without this, placeholder
-// text like "TBA"/"N/A" (hostname "tba", no dot) and purely numeric input
-// like "12345" (the URL parser reads it as the IPv4 "0.0.48.57" -- has dots
-// but no letters) both validate and save as a live, dead link. Checking the
-// PARSED hostname rather than the raw input closes this for both the bare
-// "tba" and the scheme-prefixed "https://tba" spellings alike.
-const hostnameLooksLikeDomain = (hostname: string): boolean =>
-  hostname.includes('.') && /[a-z]/i.test(hostname);
-
 // extractIgHandle / extractFbHandle / extractDomain live in
 // src/lib/organiserLinkLabels.ts, shared with the owner's edit-in-place rows.
-
-// --- Validation helpers ---
-
-// Delegates to contactValidation.ts's own isValidEmail
-// (already imported below for buildMailtoHref/buildWhatsAppHref) so save-time
-// validation can't diverge from what render-time link-building accepts --
-// an earlier version of this file had two separate regexes for the same
-// thing and that's exactly the drift contactValidation.ts exists to stop.
-const isValidEmail = (email: string | null | undefined): boolean => {
-  if (!email || !email.trim()) return true;
-  return sharedIsValidEmail(email);
-};
-
-const isValidWebsiteUrl = (url: string | null | undefined): boolean => {
-  if (!url) return true;
-  const trimmed = url.trim();
-  if (!trimmed) return true;
-  try {
-    const hostname = new URL(withNormalizedProtocol(trimmed)).hostname;
-    return hostnameLooksLikeDomain(hostname);
-  } catch {
-    return false;
-  }
-};
-
-const isValidInstagramUrl = (url: string | null | undefined): boolean => {
-  if (!url) return true;
-  const trimmed = url.trim();
-  if (!trimmed) return true;
-  if (trimmed.startsWith('@')) {
-    return /^@[a-zA-Z0-9._]+$/.test(trimmed);
-  }
-  // hostMatchesDomain, not a substring test -- an arbitrary URL that merely
-  // mentions "instagram.com" in its query string or path must NOT validate
-  // as an Instagram entry.
-  if (hostMatchesDomain(trimmed, 'instagram.com')) {
-    try {
-      new URL(withNormalizedProtocol(trimmed, 'instagram.com'));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  if (/^https?:\/\//i.test(trimmed)) return false;
-  return /^[a-zA-Z0-9._]+$/.test(trimmed);
-};
-
-const isValidFacebookUrl = (url: string | null | undefined): boolean => {
-  if (!url) return true;
-  const trimmed = url.trim();
-  if (!trimmed) return true;
-  if (trimmed.startsWith('@')) {
-    return /^@[a-zA-Z0-9.\-_]+$/.test(trimmed);
-  }
-  if (hostMatchesDomain(trimmed, 'facebook.com')) {
-    try {
-      new URL(withNormalizedProtocol(trimmed, 'facebook.com'));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  if (/^https?:\/\//i.test(trimmed)) return false;
-  return /^[a-zA-Z0-9.\-_]+$/.test(trimmed);
-};
+// The save-time link validators went with the legacy Edit profile dialog
+// (retireLegacyEditDialog): edit-in-place validates in fieldRules.ts.
 
 // --- Sub-components ---
 
@@ -435,7 +342,7 @@ const buildEventRowProps = (
 ): EventRowProps => {
   const { day, mon } = dateParts(event.displayStart);
   const time = eventTime(event.displayStart);
-  const venue = event.location?.trim() || event.city?.trim() || '';
+  const venue = venueCityLine(event.location, event.cityName ?? event.city) ?? '';
   const meta = overrides?.meta ?? [countdownLabel(event.displayStart, todayKey), venue, time].filter(Boolean).join(' \u00b7 ');
   const href = event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`;
   return {
@@ -448,6 +355,36 @@ const buildEventRowProps = (
     fallbackIndex,
     chip: overrides?.chip,
     onClick: overrides?.onClick,
+  };
+};
+
+// Props for the Next nights card (design D4). A series passes `series` and gets no time.
+const buildNightsCardProps = (
+  event: OrgEvent,
+  todayKey: string,
+  fallbackIndex: number,
+  organiserName: string,
+  series?: { name: string; posterUrl: string | null; location: string | null; cityLabel: string | null; dateCount: number; tag?: string; onClick: () => void },
+) => {
+  const key = formatWallClockLocal(event.displayStart, 'yyyy-MM-dd');
+  const chip = countdownChip(key, todayKey);
+  const name = series?.name ?? event.name;
+  const venue = series ? venueCityLine(series.location, series.cityLabel) : venueCityLine(event.location, event.cityName ?? event.city);
+  const { day, mon } = dateParts(event.displayStart);
+  return {
+    href: event.occurrenceId ? `/event/${event.id}?occurrenceId=${event.occurrenceId}` : `/event/${event.id}`,
+    onClick: series?.onClick,
+    name,
+    posterUrl: series ? series.posterUrl : event.poster_url,
+    weekday: formatWallClockLocal(event.displayStart, 'EEEE') ?? '',
+    day,
+    month: mon,
+    chipText: chip?.text ?? null,
+    chipSoon: chip?.soon ?? false,
+    metaLine: cardMetaLine(venue, series ? null : eventTime(event.displayStart)),
+    actionLabel: series?.tag ? `See ${series.tag}` : nightsActionLabel(series ? 'series' : 'single', series?.dateCount ?? 1),
+    initials: fallbackInitials(name, organiserName),
+    fallbackIndex,
   };
 };
 
@@ -602,34 +539,17 @@ const OrganiserProfile = () => {
   const mailboxProven = useMemo(() => isMailboxProvenToken(session?.access_token), [session?.access_token]);
 
   const isMobile = useIsMobile();
-  const [isEditOpen, setIsEditOpen] = useState(false);
   // Set by the lazy owner layer (null for everyone else): pencils + drafted values.
   const [eip, setEip] = useState<EipBridge | null>(null);
   // Owner layer only: the name's box hugs its widest line so the Name pencil sits right beside the text.
   const nameRef = useHugText(!!eip);
-  const [isSaving, setIsSaving] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [openSeriesEventId, setOpenSeriesEventId] = useState<string | null>(null);
   const [showAllPastYears, setShowAllPastYears] = useState(false);
-  const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [pastListOpen, setPastListOpen] = useState(false);
+  const [openPastYears, setOpenPastYears] = useState<Set<string>>(() => new Set());
+  const [bioExpanded, setBioExpanded] = useState(false);
   const [expandedPastYears, setExpandedPastYears] = useState<Set<string>>(() => new Set());
-  const [editForm, setEditForm] = useState({
-    name: '',
-    avatar_url: '',
-    bio: '',
-    city: '',
-    instagram: '',
-    facebook: '',
-    website: '',
-    organisation_category: '',
-    founded_year: '',
-  });
-  // Contact details (phone, and the two public switches, admin #771) are NOT in
-  // this dialog: the owner layer's Contact card opens the ONE Contact details
-  // sheet (edit-in-place/ContactSheet.tsx). This dialog never sends a contact key
-  // (above all never the legacy show_contact_publicly, which sets BOTH flags).
-  const openedFormRef = useRef<string | null>(null);
-
   const { data: entity, isLoading: entityLoadingRaw, error, refetch: refetchEntity, isFetching: entityFetching } = useQuery({
     queryKey: organiserEntityQueryKey(id),
     queryFn: () => fetchOrganiserEntity(id as string),
@@ -721,39 +641,14 @@ const OrganiserProfile = () => {
     queryFn: () => fetchOrganiserPastOccEvents(id as string),
   });
 
-  const { data: teamMembers = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
-    // The public line-up (organiser_team_members), NOT organiser_team_v1's access team,
-    // whose key is ['organiser-team', id] (teamRpcApi): sharing it fed this array to the
-    // owner layer's team read, so the Team card never showed.
-    queryKey: ['organiser-lineup', id],
-    queryFn: async (): Promise<TeamMember[]> => {
-      if (!id) return [];
-      const { data: teamRows, error } = await supabase
-        .from('organiser_team_members')
-        .select('id, sort_order, member_profile_id, is_active')
-        .eq('organiser_profile_id', id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true, nullsFirst: false });
-      // Throw, not `[]`: a failed roster is an error line, not "no team" (S1).
-      if (error) throw new Error(error.message ?? JSON.stringify(error));
-      if (!teamRows?.length) return [];
-      const memberIds = teamRows.map((r) => r.member_profile_id);
-      const { data: dancerRows, error: dancerError } = await supabase
-        .from('dancer_profiles')
-        .select('id, first_name, avatar_url, nationality')
-        .in('id', memberIds);
-      // The names read failing is the TEAM failing (fix round 1, review LOW-4): with no
-      // names the mapping drops everyone, which would read as "no team".
-      if (dancerError) throw new Error(dancerError.message ?? JSON.stringify(dancerError));
-      type DancerRow = { id: string; first_name: string | null; surname: string | null; display_name: string | null; public_name?: string | null; avatar_url: string | null; nationality: string | null };
-      const maskedRows = await withPublicNames((dancerRows ?? []) as Array<Pick<DancerRow, 'id' | 'first_name' | 'avatar_url' | 'nationality'>>);
-      const dancerMap = new Map<string, DancerRow>(maskedRows.map((d) => [d.id, d as unknown as DancerRow]));
-      return teamRows.map((t) => {
-        const d = dancerMap.get(t.member_profile_id);
-        const name = resolvePublicName({ public_name: d?.public_name, display_name: d?.display_name, first_name: d?.first_name, surname: d?.surname }) || null;
-        return { id: t.id, memberId: t.member_profile_id, dancerId: d?.id ?? null, name, avatarUrl: d?.avatar_url ?? null, nationalityCode: pickNationalityCode(d), sortOrder: t.sort_order ?? null };
-      });
-    },
+  // P2: the public Team is organiser_public_team_v1 -- owners, managers, then listed
+  // people, already filtered (hides, opt-outs, inactive) and ordered (sort_key) by the
+  // RPC. Its key is NOT ['organiser-team', id] (organiser_team_v1, the owner layer's
+  // access read). The direct organiser_team_members read stays the edit layer's source.
+  const { data: publicTeamRows = [], isLoading: teamMembersLoading, isError: teamMembersErrorRaw, refetch: refetchTeamMembers, isFetching: teamMembersFetching } = useQuery({
+    queryKey: organiserPublicTeamKey(id),
+    // Throws on error or a bad shape: a failed read is an error line, not "no team" (S1).
+    queryFn: () => fetchOrganiserPublicTeam(id as string),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -765,20 +660,24 @@ const OrganiserProfile = () => {
   const { failed: pastOccsError } = useStickyFailure(pastOccsErrorRaw, pastOccsFetching);
   const { failed: teamMembersError, retrying: teamMembersRetrying } = useStickyFailure(teamMembersErrorRaw, teamMembersFetching);
 
-  // S3 (read side): the ONE Team mapping. `listed` is the public line-up this
-  // page already reads (active rows only, so hidden is false); `access`
-  // (owners + managers) is empty until an admin RPC makes them publicly
-  // readable -- docs/handover/organiser-page-p1.md. A person links to their
-  // dancer page by id (the dancer route takes a slug or an id).
-  const team = useMemo(() => buildOrganiserTeam({
-    listed: teamMembers.map((m) => ({ personId: m.memberId, name: m.name, avatarUrl: m.avatarUrl, slug: m.dancerId, sortOrder: m.sortOrder, hidden: false })),
-    access: [],
-  }), [teamMembers]);
-  const teamCount = team.people.length + team.overflow.length;
-  // Restored from main (fix round 1): each circle's flag, and the role-aware link
-  // from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
-  const teamNationality = useMemo(() => new Map(teamMembers.map((m) => [m.memberId, m.nationalityCode])), [teamMembers]);
-  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(useMemo(() => teamMembers.map((m) => m.dancerId ?? '').filter(Boolean), [teamMembers]));
+  // S3 (read side): the ONE Team mapping, in the RPC's order (teamFromPublicRows).
+  const team = useMemo(() => teamFromPublicRows(publicTeamRows), [publicTeamRows]);
+  const teamCount = team.people.length;
+  const teamIds = useMemo(() => team.people.map((p) => p.personId), [team]);
+  // Each circle's flag (dancer_profiles.nationality). A failed flag read only drops
+  // the flags; it never hides the Team.
+  const { data: teamNationality = EMPTY_NATIONALITY } = useQuery({
+    queryKey: ['organiser-public-team-flags', id, teamIds],
+    queryFn: async (): Promise<ReadonlyMap<string, string | null>> => {
+      const { data, error } = await supabase.from('dancer_profiles').select('id, nationality').in('id', teamIds);
+      if (error) throw new Error(error.message);
+      return new Map((data ?? []).map((d) => [d.id, pickNationalityCode(d)]));
+    },
+    enabled: teamIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  // The role-aware link from the people-badges mapping (TeamCircle's rule, now teamPersonLink).
+  const { badges: teamBadges, isLoading: teamBadgesLoading, isError: teamBadgesError } = usePeopleBadges(teamIds);
   const teamBadgesState = teamBadgesLoading ? 'loading' : teamBadgesError ? 'error' : 'ready';
 
   // Start of London-today as a true-UTC instant; reactive so a long-lived tab
@@ -796,7 +695,7 @@ const OrganiserProfile = () => {
       if (!e) continue;
       eventsWithFutureOcc.add(occ.event_id);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
+      upcoming.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, cityName: occ.city_name ?? null, displayStart: asWallClockOrNull(occ.start_time ?? occ.instance_date), occurrenceId: occ.occurrence_id });
     }
     // Past list: driven by real past occurrences (server is_past flag), one
     // OrgEvent per past date. Cancelled rows are passed through by the RPC, so
@@ -815,7 +714,7 @@ const OrganiserProfile = () => {
       if (pastSeen.has(dedupeKey)) continue;
       pastSeen.add(dedupeKey);
       const poster = occ.cover_image_url || (Array.isArray(occ.photo_url) ? occ.photo_url[0] : null) || e.poster_url;
-      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
+      past.push({ ...e, name: occ.name || e.name, poster_url: poster, location: occ.location ?? e.location, cityName: occ.city_name ?? null, displayStart: asWallClockOrNull(startRaw), occurrenceId: occ.occurrence_id });
     }
     // Base-date fallback only for legacy events the occurrence feed never
     // surfaced (no future AND no past occurrence row at all). EventRow.start_time
@@ -888,72 +787,6 @@ const OrganiserProfile = () => {
   // below). The direct `claimed_by` UPDATE that stood here is retired: D4's
   // contract pairs every claimed_by with an entity_members owner row, which
   // only the RPC writes.
-  const openEditModal = () => {
-    if (!entity || !id || !facts.canEdit) return;
-    const ep = entity as EntityProfile;
-    const socials = ep.socials as { instagram?: string; website?: string; facebook?: string } | null;
-    const base = {
-      name: entity.name || '',
-      avatar_url: entity.avatar_url || '',
-      bio: entity.bio || '',
-      city: entity.cities?.name || '',
-      instagram: ep.instagram || socials?.instagram || '',
-      facebook: ep.facebook || socials?.facebook || '',
-      website: ep.website || socials?.website || '',
-      organisation_category: ep.organisation_category || '',
-      founded_year: ep.founded_year ? String(ep.founded_year) : '',
-    };
-    setEditForm(base);
-    openedFormRef.current = JSON.stringify(base);
-    setIsEditOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!id || !user?.id || !facts.canEdit) return;
-    const city = normalizeRequiredCity(editForm.city);
-    if (!hasRequiredCity(city)) {
-      toast({ title: 'City is required', description: 'Please add city before saving.', variant: 'destructive' });
-      return;
-    }
-    // Saving an untouched form sends nothing.
-    if (openedFormRef.current !== null && JSON.stringify(editForm) === openedFormRef.current) {
-      toast({ title: 'Nothing to save', description: 'You haven\u2019t changed anything.' });
-      setIsEditOpen(false);
-      return;
-    }
-    if (!isValidInstagramUrl(editForm.instagram)) {
-      toast({ title: 'Invalid Instagram', description: 'Please enter a valid Instagram handle or URL.', variant: 'destructive' });
-      return;
-    }
-    if (!isValidFacebookUrl(editForm.facebook)) {
-      toast({ title: 'Invalid Facebook', description: 'Please enter a valid Facebook handle or URL.', variant: 'destructive' });
-      return;
-    }
-    if (!isValidWebsiteUrl(editForm.website)) {
-      toast({ title: 'Invalid website', description: 'Please enter a valid website URL.', variant: 'destructive' });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const canonicalCity = await resolveCanonicalCity(city);
-      if (!canonicalCity) {
-        toast({ title: 'Select a valid city', description: 'Please choose city from the city picker list.', variant: 'destructive' });
-        return;
-      }
-      // No contact key: the form carries none, so the patch leaves the phone and both flags alone.
-      const { error } = await saveOrganiserProfile(supabase, id, editForm, canonicalCity.cityId);
-      if (error) throw error;
-      toast({ title: 'Profile updated' });
-      setIsEditOpen(false);
-      queryClient.invalidateQueries({ queryKey: organiserEntityQueryKey(id) });
-    } catch (err) {
-      console.error('Save error:', err);
-      toast({ ...organiserProfileSaveErrorToast(err), variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Groups upcomingEvents (one OrgEvent per occurrence, already sorted
   // ascending) by event_id: a recurring series (3+ upcoming dates sharing an
   // event_id) collapses to one 'series' item; 1-2-date groups stay as
@@ -972,6 +805,7 @@ const OrganiserProfile = () => {
         name: first.name,
         posterUrl: first.poster_url,
         location: first.location,
+        cityLabel: seriesCityLabel(g.dates.map((d) => d.cityName)),
         dates: g.dates,
       };
     });
@@ -983,6 +817,8 @@ const OrganiserProfile = () => {
   // "Show all" actually reveals.
   const itemDateCount = (item: UpcomingListItem): number => (item.kind === 'series' ? item.dates.length : 1);
   const totalUpcomingDateCount = upcomingListItems.reduce((sum, item) => sum + itemDateCount(item), 0);
+
+  const wording = upcomingWording(totalUpcomingDateCount, upcomingListItems.length);
 
   const openSeries = upcomingListItems.find(
     (it): it is Extract<UpcomingListItem, { kind: 'series' }> =>
@@ -1008,6 +844,10 @@ const OrganiserProfile = () => {
   // Only the most recent 3 years mount by default -- a decade-old organiser's
   // full history is fetched (for the "since <year>" stat) but doesn't need to
   // render 500+ DOM rows on a mobile-first page just because they're collapsed.
+  const pastStrip = pastCounts(
+    pastEvents.map((e) => ({ dateKey: formatWallClockLocal(e.displayStart, 'yyyy-MM-dd') })),
+    todayKey,
+  );
   const visiblePastYears = showAllPastYears ? pastByYear : pastByYear.slice(0, PAST_YEARS_VISIBLE);
   const hiddenPastYears = pastByYear.slice(visiblePastYears.length);
 
@@ -1083,9 +923,8 @@ const OrganiserProfile = () => {
   const contactEmail     = publicContact.contact_email;
   const organisationCategory = ep.organisation_category || null;
 
-  // Reuses withNormalizedProtocol (defined above with the validators) so the
-  // rendered href can never disagree with what isValidInstagramUrl /
-  // isValidFacebookUrl / isValidWebsiteUrl accepted at save time.
+  // withNormalizedProtocol is the shared normaliser (organiserProfileUpdate.ts),
+  // the same one the edit-in-place save path builds its patch with.
   // hostMatchesDomain, never a substring test -- a stored value that only
   // MENTIONS "instagram.com"/"facebook.com" (a query string, a look-alike
   // subdomain) must not render as a live link under that platform's label.
@@ -1144,12 +983,9 @@ const OrganiserProfile = () => {
   const cityName = ep.cities?.name ?? ep.city ?? null;
   const metaLine = [organisationCategory, cityName].filter(Boolean).join(' \u00b7 ');
 
-  // First sentence of the bio for the hero tagline (original behaviour).
-  const bioParts = ep.bio ? ep.bio.split(/\.\s+/) : [];
-  const heroTagline = bioParts.length > 0 ? `${bioParts[0]}${bioParts.length > 1 ? '.' : ''}` : null;
-  // A long bio is clamped to 3 lines in About with a More toggle.
-  const aboutIsLong = (ep.bio?.length ?? 0) > 180;
-
+  // The bio is shown once, in the header: 150 characters, More for the rest.
+  const hero = heroBio(ep.bio, cityName, organisationCategory);
+  const heroShown = bioExpanded && hero.truncated ? (ep.bio ?? '').trim() : hero.text;
   // navigator.clipboard is undefined on plain-HTTP origins and some in-app
   // browsers; say so rather than letting the tap do nothing.
   const copyValue = (value: string, noun: string) => {
@@ -1160,6 +996,11 @@ const OrganiserProfile = () => {
   const sectionH2: React.CSSProperties = { fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: 0, color: D.cream };
   const sectionCount: React.CSSProperties = { fontSize: 12, color: 'rgba(246,241,234,0.6)', fontWeight: 600 };
   const moreBtn: React.CSSProperties = { display: 'block', width: '100%', minHeight: 44, padding: '10px', background: 'none', border: 'none', color: D.gold, fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.04em' };
+  const heroMore = hero.truncated ? (
+    <button type="button" onClick={() => setBioExpanded((v) => !v)} aria-expanded={bioExpanded} data-testid="hero-bio-more" style={{ ...moreBtn, display: 'inline-block', width: 'auto', minHeight: 44, padding: '10px 0 10px 8px', textAlign: 'left' }}>
+      {bioExpanded ? 'Show less' : 'More'}
+    </button>
+  ) : null;
 
   // --- Render ---
   return (
@@ -1204,7 +1045,7 @@ const OrganiserProfile = () => {
 
           {/* No top-right "Edit profile" button (owner decision, 2026-10-12): the
               owner layer's pencils edit each item in place, and a wholly blank
-              profile still offers "Complete your profile" below. */}
+              profile's empty state below carries the About pencil. */}
 
           {/* Mobile */}
           {(isMobile !== false) && <div style={{ position: 'relative', minHeight: 320, height: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 26, paddingLeft: 24, paddingRight: 24, textAlign: 'center' }}>
@@ -1232,11 +1073,13 @@ const OrganiserProfile = () => {
             <svg aria-hidden width="88" height="12" viewBox="0 0 88 12" fill="none" style={{ margin: '0 0 10px' }}>
               <path d="M2 6c6-5 12-5 18 0s12 5 18 0 12-5 18 0 12 5 18 0" stroke={D.gold} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
             </svg>
-            {heroTagline && (
-              <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4 }}>
-                {heroTagline}
+            {heroShown && (
+              <p className={cn(!hero.fallback && eip?.mark('bio'))} data-testid="hero-bio" style={{ margin: 0, fontSize: 13, color: 'rgba(246,241,234,0.78)', fontWeight: 500, lineHeight: 1.4, whiteSpace: 'pre-line' }}>
+                {heroShown}
+                {heroMore}
               </p>
             )}
+            {eip?.slot(ep.bio ? 'about' : 'about-empty')}
           </div>}
 
           {/* Desktop */}
@@ -1262,11 +1105,13 @@ const OrganiserProfile = () => {
                 <svg aria-hidden width="104" height="14" viewBox="0 0 104 14" fill="none" style={{ margin: '0 0 12px' }}>
                   <path d="M2 7c7-6 14-6 21 0s14 6 21 0 14-6 21 0 14 6 21 0" stroke={D.gold} strokeWidth="2.3" strokeLinecap="round" opacity="0.55" />
                 </svg>
-                {heroTagline && (
-                  <p style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500 }}>
-                    {heroTagline}
+                {heroShown && (
+                  <p className={cn(!hero.fallback && eip?.mark('bio'))} data-testid="hero-bio-desktop" style={{ margin: 0, fontSize: 18, color: 'rgba(246,241,234,0.78)', fontWeight: 500, whiteSpace: 'pre-line' }}>
+                    {heroShown}
+                    {heroMore}
                   </p>
                 )}
+                {eip?.slot(ep.bio ? 'about' : 'about-empty')}
               </div>
 
             </div>
@@ -1294,6 +1139,7 @@ const OrganiserProfile = () => {
         <OrganiserTeamSection
           team={team}
           failed={teamMembersError}
+          ownEmptyHref={facts.canEdit && !teamMembersLoading ? ORG_PATHS.team : null}
           retrying={teamMembersRetrying}
           onRetry={() => void refetchTeamMembers()}
           nationality={teamNationality}
@@ -1332,35 +1178,31 @@ const OrganiserProfile = () => {
           <section className="px-5 md:px-12 py-8 md:py-10 text-center" data-testid="org-public-empty" data-kind={emptyKind}>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: D.gold, margin: '0 0 12px' }}>Your profile</p>
             <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 'clamp(22px,4vw,30px)', color: D.cream, margin: '0 0 10px' }}>Just getting started</h2>
+            {/* retireLegacyEditDialog: the one editor is edit-in-place. The copy names
+                only controls the owner layer puts on screen (the photo pencil in the
+                hero, the Your links pencils, the About pencil here); until the lazy
+                layer has loaded it names none and the action is disabled with a
+                reason. docs/design/organiser-retire-legacy-edit-dialog.md */}
             <p style={{ fontSize: 14, color: 'rgba(246,241,234,0.6)', maxWidth: 420, margin: '0 auto 22px', lineHeight: 1.5 }}>
-              Add a bio, photo and your social links so dancers know who you are before your first night goes up.
+              {eip
+                ? <>Tap the pencil on your photo for your picture, the pencils in Your links for Instagram, Facebook and your website, and the one here for a bio, so dancers know who you are before your first night goes up.</>
+                : <>Add a bio, photo and your social links so dancers know who you are before your first night goes up.</>}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
-              <button onClick={openEditModal} style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: D.gold, color: D.black, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer' }}>
-                Complete your profile
-              </button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+              {eip ? (
+                <span data-testid="org-blank-about" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, minHeight: 44, padding: '0 0 0 16px', borderRadius: 100, border: '1px solid rgba(231,190,110,0.45)', color: D.cream, fontSize: 13, fontWeight: 700 }}>
+                  Add a bio
+                  {eip.slot('about')}
+                </span>
+              ) : (
+                <button type="button" disabled aria-disabled="true" data-testid="org-blank-loading" style={{ minHeight: 44, padding: '0 18px', borderRadius: 100, background: 'transparent', color: 'rgba(246,241,234,0.6)', fontSize: 13, fontWeight: 700, border: '1px solid rgba(246,241,234,0.25)', cursor: 'default' }}>
+                  Loading your editor&hellip;
+                </button>
+              )}
               {eip?.slot('create-first-event')}
             </div>
           </section>
         )}
-        {/* ABOUT -- only when written (an owner sees the edit-layer slot) */}
-        {(ep.bio || eip) && (
-          <section className="px-5 md:px-12 py-4 md:py-6" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
-            <h2 style={{ ...sectionH2, marginBottom: 8 }}>About{eip?.slot('about')}</h2>
-            {ep.bio ? <p
-              className={cn('text-sm', !aboutExpanded && aboutIsLong && 'line-clamp-3', eip?.mark('bio'))}
-              style={{ lineHeight: 1.55, color: 'rgba(246,241,234,0.85)', margin: 0, maxWidth: 680, whiteSpace: 'pre-line' }}
-            >
-              {ep.bio}
-            </p> : eip?.slot('about-empty')}
-            {aboutIsLong && (
-              <button onClick={() => setAboutExpanded((v) => !v)} aria-expanded={aboutExpanded} style={{ ...moreBtn, display: 'inline-block', width: 'auto', padding: '10px 0', textAlign: 'left' }}>
-                {aboutExpanded ? 'Show less' : 'More'}
-              </button>
-            )}
-          </section>
-        )}
-
         {/* NEXT NIGHTS */}
         {upcomingFailed && upcomingListItems.length === 0 && <FeedErrorLine feed="upcoming" what="dates" onRetry={retryUpcoming} retrying={retryingUpcoming} />}
         {upcomingListItems.length > 0 && (
@@ -1369,33 +1211,41 @@ const OrganiserProfile = () => {
             <div style={{ display: 'flex', alignItems: eip ? 'center' : 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               <h2 style={sectionH2}>Next nights</h2>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>
-                <span style={sectionCount}>{totalUpcomingDateCount} {totalUpcomingDateCount === 1 ? 'date' : 'dates'}</span>
+                {wording.headingCount && <span style={sectionCount}>{wording.headingCount}</span>}
                 {eip?.slot('create-event')}
               </div>
             </div>
+            {/* Plain anchor (no handler, no role) so a walk can scroll to the cards without clicking one. */}
+            <div id="next-nights-list">
             <div className="flex flex-col gap-2">
               {visibleItems.map((item, i) =>
                 item.kind === 'single' ? (
-                  <EventRowCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildEventRowProps(item.event, todayKey, i)} />
+                  <NightsCard key={stableRowKey(item.event.occurrenceId, item.event.id, i)} impressionRef={trackImpression(item.event.id)} {...buildNightsCardProps(item.event, todayKey, i, ep.name)} />
                 ) : (
-                  <EventRowCard
+                  <NightsCard
                     key={item.eventId}
                     impressionRef={trackImpression(item.eventId)}
-                    {...buildEventRowProps(item.dates[0], todayKey, i, {
+                    {...buildNightsCardProps(item.dates[0], todayKey, i, ep.name, {
                       name: item.name,
                       posterUrl: item.posterUrl,
-                      meta: [countdownLabel(item.dates[0].displayStart, todayKey), item.location].filter(Boolean).join(' · '),
-                      chip: `${item.dates.length} dates`,
+                      location: item.location,
+                      cityLabel: item.cityLabel,
+                      dateCount: item.dates.length,
+                      tag: wording.seriesTag ?? undefined,
                       onClick: () => setOpenSeriesEventId(item.eventId),
                     })}
                   />
                 ),
               )}
             </div>
+            </div>
             {upcomingListItems.length > UPCOMING_VISIBLE && (
               <button onClick={() => { if (showAllUpcoming) scrollBackIfAbove('upcoming'); setShowAllUpcoming((v) => !v); }} aria-expanded={showAllUpcoming} style={moreBtn}>
-                {showAllUpcoming ? 'Show fewer' : `Show all ${totalUpcomingDateCount} dates`}
+                {showAllUpcoming ? 'Show fewer' : wording.showMoreLabel}
               </button>
+            )}
+            {wording.capLine && (
+              <p data-testid="org-upcoming-cap-line" style={{ textAlign: 'center', fontSize: 12, opacity: 0.6, margin: '10px 0 0' }}>{wording.capLine}</p>
             )}
           </section>
         )}
@@ -1430,7 +1280,8 @@ const OrganiserProfile = () => {
           <section id="past" className="px-5 md:px-12 py-4 md:py-6 scroll-mt-16">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={sectionH2}>{emptyKind === 'past-only' ? 'Recently hosted' : 'Past nights'}</h2>
-              <span style={sectionCount}>{pastEvents.length} hosted</span>
+              {/* The highlights strip prints "N nights hosted"; the header count shows only when there is no strip. */}
+              {pastStrip.total === 0 && <span style={sectionCount}>{pastEvents.length} hosted</span>}
             </div>
             {emptyKind === 'past-only' && (
               <div data-testid="org-public-empty" data-kind={emptyKind} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '-4px 0 8px' }}>
@@ -1439,9 +1290,33 @@ const OrganiserProfile = () => {
                 {eip?.slot('create-another-event')}
               </div>
             )}
+            <PastHighlights
+              total={pastStrip.total}
+              thisYear={pastStrip.thisYear}
+              latest={pastEvents.slice(0, 6).map((e, i) => ({
+                key: stableRowKey(e.occurrenceId, e.id, i),
+                href: e.occurrenceId ? `/event/${e.id}?occurrenceId=${e.occurrenceId}` : `/event/${e.id}`,
+                name: e.name,
+                posterUrl: e.poster_url,
+                caption: formatWallClockLocal(e.displayStart, 'd MMM') ?? 'TBA',
+              }))}
+              showSeeAll={pastStrip.showSeeAll}
+              listOpen={pastListOpen}
+              onToggleList={() => setPastListOpen((v) => !v)}
+              years={pastByYear.map((g) => ({ year: g.year, count: g.events.length }))}
+              onYear={(year) => {
+                setPastListOpen(true);
+                const idx = pastByYear.findIndex((g) => g.year === year);
+                if (idx >= PAST_YEARS_VISIBLE) setShowAllPastYears(true);
+                setOpenPastYears((prev) => new Set(prev).add(year));
+                setTimeout(() => scrollToId(`past-${year}`), 50);
+              }}
+              organiserName={ep.name}
+            />
+            {pastListOpen && (
             <div className="flex max-w-3xl flex-col gap-2">
               {visiblePastYears.map((group, gi) => { const shown = expandedPastYears.has(group.year) ? group.events : group.events.slice(0, PAST_ROWS_PER_YEAR); return (
-                <details key={group.year} id={`past-${group.year}`} open={gi === 0} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
+                <details key={group.year} id={`past-${group.year}`} open={gi === 0 || openPastYears.has(group.year)} className="scroll-mt-16 rounded-2xl border" style={{ borderColor: 'rgba(246,241,234,0.08)', padding: '0 12px' }}>
                   <summary
                     className="flex min-h-[44px] cursor-pointer list-none items-center justify-between"
                     style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: 'rgba(246,241,234,0.7)' }}
@@ -1482,7 +1357,8 @@ const OrganiserProfile = () => {
                 </details>
               ); })}
             </div>
-            {pastByYear.length > PAST_YEARS_VISIBLE && (
+            )}
+            {pastListOpen && pastByYear.length > PAST_YEARS_VISIBLE && (
               <button onClick={() => { if (showAllPastYears) scrollBackIfAbove('past'); setShowAllPastYears((v) => !v); }} aria-expanded={showAllPastYears} style={moreBtn}>
                 {showAllPastYears ? 'Show fewer years' : `Show earlier years (${hiddenPastYears.length})`}
               </button>
@@ -1498,58 +1374,6 @@ const OrganiserProfile = () => {
       </article>
 
       <div style={{ color: D.cream }}><ReportProblemLink /></div>
-
-      {/* EDIT DIALOG */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit profile</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} placeholder="Organiser name" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="organisation_category">Category</Label>
-              <Input id="organisation_category" value={editForm.organisation_category} onChange={(e) => setEditForm({ ...editForm, organisation_category: e.target.value })} placeholder="Event Brand, Dance School, Community Group..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="founded_year">Founded year</Label>
-              <Input id="founded_year" type="number" inputMode="numeric" value={editForm.founded_year} onChange={(e) => setEditForm({ ...editForm, founded_year: e.target.value })} placeholder="e.g. 2015" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="avatar_url">Avatar URL</Label>
-              <Input id="avatar_url" value={editForm.avatar_url} onChange={(e) => setEditForm({ ...editForm, avatar_url: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <CityPicker id="city" value={editForm.city} onChange={(city) => setEditForm({ ...editForm, city })} placeholder="Select city..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
-              <Textarea id="bio" value={editForm.bio} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} placeholder="About this organiser..." rows={4} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instagram">Instagram</Label>
-              <Input id="instagram" value={editForm.instagram} onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })} placeholder="@username or full URL" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="facebook">Facebook</Label>
-              <Input id="facebook" value={editForm.facebook} onChange={(e) => setEditForm({ ...editForm, facebook: e.target.value })} placeholder="Page URL or username" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input id="website" value={editForm.website} onChange={(e) => setEditForm({ ...editForm, website: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSaving}>Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving || !editForm.name.trim()}>
-                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <SeriesDatesSheet
         open={!!openSeries}

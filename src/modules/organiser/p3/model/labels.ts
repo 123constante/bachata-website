@@ -242,6 +242,7 @@ export const L = {
   detailsCover: 'Cover photo',
   detailsCoverAdd: 'Add a cover photo',
   detailsCoverChange: 'Choose a new cover photo',
+  detailsImageBroken: 'This picture did not load. Change it or remove it.',
   detailsCoverNone: 'No cover photo yet. Add one: dancers see it before anything else.',
   detailsUploading: 'Uploading the photo\u2026',
   detailsPictures: 'Pictures',

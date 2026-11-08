@@ -180,6 +180,7 @@ const TARGETS = [
   { rel: 'scripts/check-ci-budget.mjs' },
   { rel: 'scripts/check-deployment-storage.mjs' },
   { rel: 'scripts/check-drill-records.mjs' },
+  { rel: 'scripts/check-event-snapshot-version.mjs' },
   { rel: 'scripts/check-event-truth-v1.mjs' },
   { rel: 'scripts/check-identity-register.mjs' },
   { rel: 'scripts/check-secrets-register.mjs' },
@@ -238,7 +239,11 @@ const TARGETS = [
   { rel: 'scripts/sweep-stale-bot-prs.mjs' },
   { rel: 'scripts/walk-seed.mjs' },
   { rel: 'scripts/lib/walk-fixtures.mjs' },
+  { rel: 'scripts/lib/walk-gate-decision.mjs' },
+  { rel: 'scripts/lib/walk-ios-static.mjs' },
   { rel: 'scripts/lib/walk-judge.mjs' },
+  { rel: 'scripts/lib/walk-pictures-pin.mjs' },
+  { rel: 'scripts/lib/walk-report.mjs' },
   { rel: 'scripts/lib/walk-waiver.mjs' },
 ];
 

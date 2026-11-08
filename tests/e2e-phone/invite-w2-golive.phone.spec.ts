@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { checkOverflow, fakeSupabase, frames, settled, ORG2_SLUG, type GoLiveScenario } from './helpers';
+import { checkOverflow, fakeSupabase, frames, settled, ORG2_SLUG, type GoLiveScenario, MIN_TAP_PX } from './helpers';
 import { FLAG_EVENT_SLUG, GOLIVE_SERIES_ID, GOLIVE_EVENT_NAME } from './fakeSupabase.mjs';
 
 /**
@@ -250,7 +250,7 @@ test.describe('phone field in the raffle', () => {
     const country = dialog.getByRole('button', { name: /^Country: / });
     for (const [what, el] of [['phone box', box], ['country button', country]] as const) {
       const b = await el.boundingBox();
-      expect(b!.height, `raffle ${what} height`).toBeGreaterThanOrEqual(44);
+      expect(b!.height, `raffle ${what} height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
     }
     await screenChecks(page, 'raffle phone empty', DIALOG, `${FIELD} .flex.items-stretch`);
     await shot(page, 'raffle-phone-empty');
@@ -273,6 +273,6 @@ test.describe('phone field in the raffle', () => {
     await country.click();
     const rows = dialog.getByRole('option');
     const heights = await rows.evaluateAll((els) => els.slice(0, 12).map((el) => Math.round(el.getBoundingClientRect().height)));
-    expect(heights.filter((h) => h < 44), 'raffle country rows >= 44px').toEqual([]);
+    expect(heights.filter((h) => h < MIN_TAP_PX), 'raffle country rows >= 44px').toEqual([]);
   });
 });

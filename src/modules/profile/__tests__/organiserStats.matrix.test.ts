@@ -3,9 +3,8 @@
  * 2026-11-05 (prod stsdtacfauprzrdebmzg, event_occurrence_p5 joined to
  * event_series_organiser_p5, counts only): 50 organisers; 2 with no nights at
  * all; 31 with an upcoming night; 17 with past nights only; 31 with 5+ past
- * nights; up to 262 dates on one organiser; 8 with a founded_year; 18 pass the
- * weekly-rhythm rule over the last 12 months and 12 have 4+ dates on one
- * weekday but fail the 60% share -- the reason share is required.
+ * nights; up to 262 dates on one organiser; 8 with a founded_year. The strip offers
+ * only next night, nights hosted and running since (owner decision 5, 2026-11-06).
  *
  * Every case asserts the invariants too: at most 3 stats, priority order kept,
  * no value that is 0, empty, "--" or a placeholder.
@@ -17,7 +16,6 @@ import {
   nightKeyOf,
   nowNightKey,
   organiserStats,
-  roundedCount,
   type OrganiserStatKey,
   type OrganiserStatNight,
   type OrganiserStatsInput,
@@ -33,10 +31,7 @@ const night = (key: string, time = '21:00', extra: Partial<OrganiserStatNight> =
 const series = (fromKey: string, count: number, step = 7, time = '20:00'): OrganiserStatNight[] =>
   Array.from({ length: count }, (_, i) => night(addDaysToKey(fromKey, i * step), time));
 
-const ORDER: OrganiserStatKey[] = [
-  'next_night', 'last_night', 'tickets_sold', 'dancers_came', 'nights_hosted',
-  'weekly_rhythm', 'running_since', 'venues',
-];
+const ORDER: OrganiserStatKey[] = ['next_night', 'nights_hosted', 'running_since'];
 
 const run = (partial: Partial<OrganiserStatsInput>) => {
   const out = organiserStats({ now: NOW, nights: [], ...partial });
@@ -56,103 +51,51 @@ const keys = (partial: Partial<OrganiserStatsInput>) => run(partial).map((s) => 
 const stat = (partial: Partial<OrganiserStatsInput>, key: OrganiserStatKey) =>
   run(partial).find((s) => s.key === key);
 
-describe('organiserStats: real shapes', () => {
-  it('big ticketed organiser (221 dates, tickets >= 100): next night, tickets, nights hosted', () => {
-    const nights = [...series('2023-01-05', 200), ...series('2026-11-12', 21)];
-    const out = run({ nights, ticketsSold: 640, dancersCame: 80, foundedYear: 2019 });
-    expect(out).toEqual([
-      { key: 'next_night', value: 'Thu 12 Nov', label: 'Next night' },
-      { key: 'tickets_sold', value: '500+', label: 'Tickets sold' },
-      { key: 'nights_hosted', value: '200', label: 'Nights hosted' },
-    ]);
+const BANNED = /week|sunday|monday|tuesday|wednesday|thursday|friday|saturday|last night|ticket|dancers|venue/i;
+
+// Shapes fixed at NOW (Thu 5 Nov 2026). The first row is the owner's FK Dance-like screenshot shape.
+const SHAPES: Array<[string, Partial<OrganiserStatsInput>, Array<[OrganiserStatKey, string]>]> = [
+  ['weekly organiser, 30 past inside a year, upcoming, no founded year',
+    { nights: [...series(addDaysToKey(TODAY, -30 * 7), 30), ...series('2026-11-08', 10)] },
+    [['next_night', 'Sun 8 Nov'], ['nights_hosted', '30']]],
+  ['same with founded_year 2019',
+    { nights: [...series(addDaysToKey(TODAY, -30 * 7), 30), ...series('2026-11-08', 10)], foundedYear: 2019 },
+    [['next_night', 'Sun 8 Nov'], ['nights_hosted', '30'], ['running_since', 'Since 2019']]],
+  ['new organiser, 1 upcoming, 0 past', { nights: [night('2026-11-20')] }, [['next_night', 'Fri 20 Nov']]],
+  ['4 past with upcoming', { nights: [...series('2026-09-01', 4, 7), night('2026-11-20')] }, [['next_night', 'Fri 20 Nov']]],
+  ['ended organiser, 12 past, nothing upcoming', { nights: series('2026-06-01', 12, 7) }, [['nights_hosted', '12']]],
+  ['ended organiser, 2 past, founded 2019', { nights: series('2026-06-01', 2, 7), foundedYear: 2019 }, [['running_since', 'Since 2019']]],
+  ['no data, no founded year', {}, []],
+  ['cancelled-only and unparseable starts',
+    { nights: [...series('2026-11-12', 6).map((n) => ({ ...n, cancelled: true })), { start: 'garbage' }, { start: null }] }, []],
+];
+
+describe('organiserStats: real shapes (three-stat rule)', () => {
+  it.each(SHAPES)('%s', (_name, input, expected) => {
+    const out = run(input);
+    expect(out.map((s) => [s.key, s.value])).toEqual(expected);
   });
 
-  it('small weekly class (35 past, 53 upcoming, Thursdays): next night, nights hosted, Thursdays', () => {
-    const nights = [...series(addDaysToKey(TODAY, -35 * 7), 35), ...series(addDaysToKey(TODAY, 7), 53)];
-    const out = run({ nights });
-    expect(out.map((s) => [s.key, s.value])).toEqual([
-      ['next_night', 'Thu 12 Nov'],
-      ['nights_hosted', '35'],
-      ['weekly_rhythm', 'Thursdays'],
-    ]);
+  it('no row ever shows weekly, last-night, ticket, dancer or venue wording', () => {
+    for (const [name, input] of SHAPES) {
+      for (const s of run(input)) {
+        expect(s.label, name).not.toMatch(BANNED);
+        if (s.key !== 'next_night') expect(s.value, name).not.toMatch(BANNED);
+      }
+    }
   });
 
-  it('nothing upcoming but 14 past: last night, nights hosted, running since (inferred)', () => {
-    const nights = series('2024-06-07', 14, 28); // Fridays every 4 weeks, ending 2025
-    const out = run({ nights });
-    expect(out.map((s) => [s.key, s.value])).toEqual([
-      ['last_night', 'Fri 6 Jun'],
-      ['nights_hosted', '14'],
-      ['running_since', '~2 yrs'],
-    ]);
-    expect(out[2].title).toMatch(/Estimated/);
+  it('nothing upcoming never falls back to a Last night stat', () => {
+    expect(keys({ nights: series('2026-06-01', 12, 7) })).not.toContain('next_night');
+    expect(keys({ nights: [night('2026-11-04')] })).toEqual([]);
   });
 
-  it('brand new organiser (1 upcoming): next night only', () => {
-    expect(run({ nights: [night('2026-11-20')] }).map((s) => [s.key, s.value])).toEqual([['next_night', 'Fri 20 Nov']]);
-  });
-
-  it('no events at all: [] (strip hidden)', () => {
-    expect(run({})).toEqual([]);
-    expect(run({ nights: [], ticketsSold: null, dancersCame: null, foundedYear: null, venueNames: [] })).toEqual([]);
-  });
-
-  it('cancelled-only organiser: []', () => {
-    const nights = series('2026-11-12', 6).map((n) => ({ ...n, cancelled: true }));
-    expect(run({ nights: [...nights, night('2025-01-01', '20:00', { cancelled: true })] })).toEqual([]);
+  it('the candidate set is exactly next_night, nights_hosted, running_since', () => {
+    expect(ORDER).toEqual(['next_night', 'nights_hosted', 'running_since']);
   });
 });
 
-describe('organiserStats: weekly rhythm', () => {
-  it('4 scattered dates over 3 years: NO weekly rhythm', () => {
-    const nights = ['2023-11-09', '2024-11-07', '2025-11-06', '2026-10-29'].map((k) => night(k));
-    expect(keys({ nights })).not.toContain('weekly_rhythm');
-  });
-
-  it('exactly 4 on one weekday in 12 months plus 3 others (57%): NO', () => {
-    const nights = [...series('2026-09-03', 4), night('2026-09-05'), night('2026-09-12'), night('2026-09-19')];
-    expect(keys({ nights })).not.toContain('weekly_rhythm');
-  });
-
-  it('5 of 7 on one weekday (71%): yes', () => {
-    const nights = [...series('2026-09-03', 5), night('2026-09-05'), night('2026-09-12')];
-    expect(stat({ nights }, 'weekly_rhythm')?.value).toBe('Thursdays');
-  });
-
-  it('dates older than 12 months do not count', () => {
-    const nights = series('2025-01-02', 8); // Thursdays Jan-Feb 2025
-    expect(keys({ nights })).not.toContain('weekly_rhythm');
-  });
-
-  it('two events on the same date count once', () => {
-    const nights = [...series('2026-10-08', 3), night('2026-10-08', '22:00'), night('2026-10-29', '23:00')];
-    // 4 distinct Thursdays: qualifies; but 3 distinct + a duplicate would not.
-    expect(stat({ nights }, 'weekly_rhythm')?.value).toBe('Thursdays');
-    expect(keys({ nights: [...series('2026-10-08', 3), night('2026-10-08', '22:00')] })).not.toContain('weekly_rhythm');
-  });
-});
-
-describe('organiserStats: thresholds and rounding', () => {
-  it('tickets: 100 shows "100+", 99 never shows', () => {
-    expect(stat({ ticketsSold: 100 }, 'tickets_sold')?.value).toBe('100+');
-    expect(keys({ ticketsSold: 99 })).toEqual([]);
-    expect(keys({ ticketsSold: 0 })).toEqual([]);
-    expect(keys({ ticketsSold: null })).toEqual([]);
-  });
-
-  it('rounding steps: 100+, 250+, 500+, 1,000+, 2,500+', () => {
-    expect([100, 249, 250, 499, 500, 999, 1000, 2600, 12345].map(roundedCount))
-      .toEqual(['100+', '100+', '250+', '250+', '500+', '500+', '1,000+', '2,500+', '10,000+']);
-    expect(roundedCount(99)).toBeNull();
-    expect(roundedCount(Number.NaN)).toBeNull();
-  });
-
-  it('dancers came: absent, below threshold, at threshold', () => {
-    expect(keys({})).not.toContain('dancers_came');
-    expect(keys({ dancersCame: 99 })).not.toContain('dancers_came');
-    expect(stat({ dancersCame: 260 }, 'dancers_came')?.value).toBe('250+');
-  });
-
+describe('organiserStats: nights hosted threshold', () => {
   it('nights hosted: 4 past never shows, 5 shows', () => {
     expect(keys({ nights: series('2026-06-01', 4, 30) })).not.toContain('nights_hosted');
     expect(stat({ nights: series('2026-05-01', 5, 30) }, 'nights_hosted')?.value).toBe('5');
@@ -189,14 +132,6 @@ describe('organiserStats: running since', () => {
   });
 });
 
-describe('organiserStats: venues', () => {
-  it('exactly one distinct venue shows; zero or two do not', () => {
-    expect(stat({ venueNames: ['Salsa Soho', ' Salsa Soho ', null, ''] }, 'venues')?.value).toBe('Salsa Soho');
-    expect(keys({ venueNames: ['A', 'B'] })).toEqual([]);
-    expect(keys({ venueNames: [null, ''] })).toEqual([]);
-  });
-});
-
 describe('organiserStats: wording and day rollover', () => {
   it('upcoming today reads "Tonight", tomorrow "Tomorrow"', () => {
     expect(stat({ nights: [night(TODAY)] }, 'next_night')?.value).toBe('Tonight');
@@ -225,7 +160,7 @@ describe('organiserStats: wording and day rollover', () => {
   it('yesterday inside the server grace window (isPast false) is never "Tonight"', () => {
     const out = organiserStats({ now: new Date('2026-11-06T09:00:00Z'), nights: [night('2026-11-05', '21:00', { isPast: false })] });
     expect(out.map((s) => s.key)).not.toContain('next_night');
-    expect(out[0]).toMatchObject({ key: 'last_night', value: 'Thu 5 Nov' });
+    expect(out).toEqual([]);
   });
 
   it('BST: 00:30 London (23:30 UTC) is still the previous night', () => {
@@ -235,6 +170,6 @@ describe('organiserStats: wording and day rollover', () => {
 
   it("the server's is_past flag wins over the date split", () => {
     const out = run({ nights: [night(TODAY, '19:00', { isPast: true })] });
-    expect(out[0]).toMatchObject({ key: 'last_night', value: 'Thu 5 Nov' });
+    expect(out.map((s) => s.key)).not.toContain('next_night');
   });
 });

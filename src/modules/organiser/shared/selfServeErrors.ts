@@ -26,6 +26,11 @@ export const PROFILE_REQUIRED_NOTE = 'Finish your dancer profile first, then you
 /** Creating a NEW organiser page is invite-only (owner decision 2026-10-20); the admin trigger raises `organiser_invite_required`. */
 export const INVITE_REQUIRED_COPY = 'Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.';
 
+/** `declined_recently`: a request to this page was declined less than 30 days ago (admin I1 #1284). */
+export const DECLINED_RECENTLY_COPY = 'The page said no to your last request. You can ask again after 30 days, or message us.';
+/** `interim_cannot_add`: an interim manager cannot add people while the page has no owner (admin I1 #1284). */
+export const INTERIM_CANNOT_ADD_COPY = 'While this page has no owner, only the Bachata Calendar team can add people. Share the page link and ask them to tap Ask to join.';
+
 export interface SelfServeErrorCopy {
   message: string;
   /** What the screen should offer next, if anything. */
@@ -104,6 +109,10 @@ const COPY: Record<string, SelfServeErrorCopy> = {
   },
   organiser_invite_required: { message: INVITE_REQUIRED_COPY, next: 'contact_support' },
   team_full: { message: TEAM_FULL_COPY, next: null },
+  // Admin I1 #1284: a declined request locks the same page for 30 days.
+  declined_recently: { message: DECLINED_RECENTLY_COPY, next: 'contact_support' },
+  // Admin I1 #1284: a page with an interim manager only takes new people through the team.
+  interim_cannot_add: { message: INTERIM_CANNOT_ADD_COPY, next: null },
 };
 
 const GENERIC: SelfServeErrorCopy = {

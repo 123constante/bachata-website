@@ -3,8 +3,9 @@
 // more than 3, 4 list nobody; entity_members has 22 owners and 45 managers.
 import { describe, expect, it } from 'vitest';
 import {
-  TEAM_VISIBLE_CAP,
   buildOrganiserTeam,
+  teamFromPublicRows,
+  type PublicTeamRow,
   runByLine,
   teamInitials,
   type AccessPerson,
@@ -36,34 +37,18 @@ const names = (r: ReturnType<typeof buildOrganiserTeam>) => r.people.map((p) => 
 
 describe('organiser Team mapping: counts and mode', () => {
   it.each([
-    { n: 0, mode: 'empty', shown: 0, overflow: 0 },
-    { n: 1, mode: 'solo', shown: 1, overflow: 0 },
-    { n: 2, mode: 'list', shown: 2, overflow: 0 },
-    { n: 3, mode: 'list', shown: 3, overflow: 0 },
-    { n: 6, mode: 'list', shown: 6, overflow: 0 },
-    { n: 7, mode: 'list', shown: 6, overflow: 1 },
-  ])('$n listed people -> $mode, $shown shown, $overflow in overflow', ({ n, mode, shown, overflow }) => {
+    { n: 0, mode: 'empty', shown: 0 },
+    { n: 1, mode: 'solo', shown: 1 },
+    { n: 2, mode: 'list', shown: 2 },
+    { n: 3, mode: 'list', shown: 3 },
+    { n: 6, mode: 'list', shown: 6 },
+    { n: 7, mode: 'list', shown: 7 },
+    { n: 25, mode: 'list', shown: 25 },
+  ])('$n listed people -> $mode, all $shown shown (no cap, P2 owner decision)', ({ n, mode, shown }) => {
     const r = run({ listed: Array.from({ length: n }, (_, i) => listed(i + 1)) });
     expect(r.mode).toBe(mode);
     expect(r.people).toHaveLength(shown);
-    expect(r.overflow).toHaveLength(overflow);
-  });
-
-  it('the cap is a named constant of 6', () => {
-    expect(TEAM_VISIBLE_CAP).toBe(6);
-  });
-
-  it('7 people: the first 6 by rank are shown, the 7th overflows', () => {
-    const r = run({ listed: Array.from({ length: 7 }, (_, i) => listed(i + 1)) });
-    expect(r.people.map((p) => p.personId)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
-    expect(r.overflow.map((p) => p.personId)).toEqual(['p7']);
-  });
-
-  it('a caller cap overrides the default; a nonsense cap falls back to it', () => {
-    const seven = Array.from({ length: 7 }, (_, i) => listed(i + 1));
-    expect(run({ listed: seven, cap: 3 }).people).toHaveLength(3);
-    expect(run({ listed: seven, cap: 0 }).people).toHaveLength(6);
-    expect(run({ listed: seven, cap: Number.NaN }).people).toHaveLength(6);
+    expect(r).not.toHaveProperty('overflow');
   });
 
   it('one person reads as "Run by <name>"', () => {
@@ -212,5 +197,69 @@ describe('organiser Team mapping: unicode', () => {
     expect(teamInitials('💃 Dancer')).toBe('💃D');
     expect(teamInitials('张伟')).toBe('张');
     expect(teamInitials('')).toBe('?');
+  });
+});
+
+// P2: the page renders organiser_public_team_v1 rows. The RPC is the single
+// source of who shows and in what order (sort_key); these shapes mirror the
+// 2026-11-06 prod survey (solo owner, owner + manager, 2-3 listed, 4+ people).
+const row = (n: number, over: Partial<PublicTeamRow> = {}): PublicTeamRow => ({
+  person_id: `d${n}`,
+  slug: `dancer-${n}`,
+  public_name: `Person ${n}`,
+  avatar_url: `https://img.example/${n}.jpg`,
+  sort_key: n,
+  ...over,
+});
+
+describe('organiser Team from organiser_public_team_v1 rows', () => {
+  it.each([
+    { shape: 'empty', rows: [] as PublicTeamRow[], mode: 'empty', ids: [] as string[] },
+    { shape: 'solo owner', rows: [row(1)], mode: 'solo', ids: ['d1'] },
+    { shape: 'owner plus manager', rows: [row(1), row(2)], mode: 'list', ids: ['d1', 'd2'] },
+    { shape: '2-3 listed', rows: [row(1), row(2), row(3)], mode: 'list', ids: ['d1', 'd2', 'd3'] },
+    { shape: '8 people (over the old cap of 6)', rows: Array.from({ length: 8 }, (_, i) => row(i + 1)), mode: 'list', ids: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8'] },
+  ])('$shape -> $mode, everyone shown in sort_key order', ({ rows, mode, ids }) => {
+    const r = teamFromPublicRows(rows);
+    expect(r.mode).toBe(mode);
+    expect(r.people.map((p) => p.personId)).toEqual(ids);
+  });
+
+  it('renders in the RPC sort_key order even when rows arrive out of order', () => {
+    const r = teamFromPublicRows([row(3), row(1), row(2)]);
+    expect(r.people.map((p) => p.personId)).toEqual(['d1', 'd2', 'd3']);
+  });
+
+  it('a repeated person_id renders once, at its lowest sort_key', () => {
+    const r = teamFromPublicRows([row(1), row(2), row(5, { person_id: 'd1' })]);
+    expect(r.people.map((p) => p.personId)).toEqual(['d1', 'd2']);
+  });
+
+  it('exactly one person reads "Run by <name>"; two or more have no Run by line', () => {
+    expect(runByLine(teamFromPublicRows([row(1, { public_name: 'Ana Silva' })]))).toBe('Run by Ana Silva');
+    expect(runByLine(teamFromPublicRows([row(1), row(2)]))).toBeNull();
+  });
+
+  it('no avatar -> null avatar with initials fallback', () => {
+    const [p] = teamFromPublicRows([row(1, { avatar_url: null, public_name: 'Ana Silva' })]).people;
+    expect(p.avatarUrl).toBeNull();
+    expect(p.initials).toBe('AS');
+  });
+
+  it('links by slug, else by dancer id; never a role label', () => {
+    const r = teamFromPublicRows([row(1), row(2, { slug: null })]);
+    expect(r.people.map((p) => p.href)).toEqual(['/dancers/dancer-1', '/dancers/d2']);
+    expect(Object.keys(r.people[0]).sort()).toEqual(['avatarUrl', 'href', 'initials', 'name', 'personId']);
+  });
+
+  it('a hidden or opted-out person is simply absent from the RPC rows, so absent from the list', () => {
+    // The RPC filters organiser_team_public_hides and inactive team rows (F1);
+    // the page adds nobody back.
+    const r = teamFromPublicRows([row(1), row(3)]);
+    expect(r.people.map((p) => p.personId)).toEqual(['d1', 'd3']);
+  });
+
+  it('a row with a blank name is dropped (never an empty circle)', () => {
+    expect(teamFromPublicRows([row(1, { public_name: '  ' })]).mode).toBe('empty');
   });
 });

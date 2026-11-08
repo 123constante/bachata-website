@@ -37,6 +37,15 @@ const asNumber = (value: unknown): number | null => {
 
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
+/**
+ * The one mapping for the snapshot's public `version`. A non-negative safe
+ * integer or null: absent (pre-version RPC), null, a string, an object, a
+ * fraction, a negative or a value past 2^53 (precision already lost) all map
+ * to null. Never throws -- a bad version must not block the page.
+ */
+export const parseSnapshotVersion = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+
 const asEventLevel = (value: unknown): EventPageEventLevel => {
   const s = asString(value);
   return s === 'beginner' || s === 'intermediate' || s === 'advanced' || s === 'all_levels' ? s : null;
@@ -147,6 +156,7 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
   return {
     eventId,
     occurrenceId: asString(payload.occurrence_id),
+    version: parseSnapshotVersion(payload.version),
     event: {
       name: asString(event.name),
       description: asString(event.description),

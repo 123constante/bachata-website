@@ -22,9 +22,10 @@ import { teamPersonLink, type BadgesState } from './teamPersonLink';
  * (typed dancer); once it answered with no row, there is no link.
  *
  * Compact density: a 3-column grid of small circles (design-density rule).
+ * P2: everyone shows (no "+N more"); the list comes from organiser_public_team_v1
+ * in the RPC's order (teamFromPublicRows).
  */
 const CREAM = '#F6F1EA';
-const GOLD = '#E7BE6E';
 const SERIF = "'Cormorant Garamond', Georgia, serif";
 
 const CIRCLE = 64;
@@ -47,9 +48,11 @@ function Face({ p, nationalityCode }: { p: TeamPerson; nationalityCode: string |
   );
 }
 
-export function OrganiserTeamSection({ team, failed, retrying = false, onRetry, nationality, badges, badgesState }: {
+export function OrganiserTeamSection({ team, failed, ownEmptyHref = null, retrying = false, onRetry, nationality, badges, badgesState }: {
   team: TeamList;
   failed: boolean;
+  /** Set only when the viewer runs this page: an empty team then says so and links to Team. Visitors get null and see nothing. */
+  ownEmptyHref?: string | null;
   /** The team refetch is running: Try again shows its pending state. */
   retrying?: boolean;
   onRetry: () => void;
@@ -58,7 +61,6 @@ export function OrganiserTeamSection({ team, failed, retrying = false, onRetry, 
   badges: ReadonlyMap<string, PersonBadge>;
   badgesState: BadgesState;
 }) {
-  const [showAll, setShowAll] = useState(false);
   if (failed && team.mode === 'empty') {
     return (
       <section className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }} data-testid="org-feed-error-team" role="status">
@@ -69,13 +71,21 @@ export function OrganiserTeamSection({ team, failed, retrying = false, onRetry, 
       </section>
     );
   }
-  if (team.mode === 'empty') return null;
-  const shown = showAll ? [...team.people, ...team.overflow] : team.people;
+  if (team.mode === 'empty') {
+    if (!ownEmptyHref) return null;
+    return (
+      <section data-testid="org-team-own-empty" className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+        <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>
+          Your Team is empty. <Link to={ownEmptyHref} className="underline" style={{ color: CREAM }}>Add people in Team.</Link>
+        </p>
+      </section>
+    );
+  }
   return (
     <section data-testid="org-team" className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
       <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: '0 0 8px', color: CREAM }}>Team</h2>
       <ul className="grid grid-cols-3 gap-3 lg:grid-cols-6" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {shown.map((p) => {
+        {team.people.map((p) => {
           const link = teamPersonLink(p, badges.get(p.personId), badgesState);
           const face = <Face p={p} nationalityCode={nationality.get(p.personId) ?? null} />;
           return (
@@ -96,11 +106,6 @@ export function OrganiserTeamSection({ team, failed, retrying = false, onRetry, 
           );
         })}
       </ul>
-      {team.overflow.length > 0 && (
-        <button type="button" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll} style={{ display: 'block', width: '100%', minHeight: 44, background: 'none', border: 'none', color: GOLD, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          {showAll ? 'Show fewer' : `+${team.overflow.length} more`}
-        </button>
-      )}
     </section>
   );
 }

@@ -19,7 +19,8 @@ import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { afterProfileRefusal, checkTypedEmail, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, isPersonBound, joinProgress, redeemAction, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { afterProfileRefusal, checkTypedEmail, claimNextStep, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, forgetUnmatched, inviteKind, recallUnmatched, rememberUnmatched, isPersonBound, joinProgress, redeemAction, searchAfterCodeStep, seatCanSetUpPayments, wantsGetPaid, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import type { MemberRole } from '../inviteModel';
 import { buildSignInHref } from '@/lib/authRouting';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
 
@@ -72,6 +73,11 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const [redeemed, setRedeemed] = useState(false);
   // undefined = nothing redeemed here; null = redeemed with no new seat (already a member) or no id: the plain organiser home.
   const [redeemedOrgId, setRedeemedOrgId] = useState<string | null | undefined>(undefined);
+  // The seat the redeem answer names (member_role). Unknown = null: today's Done.
+  const [redeemedRole, setRedeemedRole] = useState<MemberRole | null>(null);
+  // next=get-paid, as FIRST seen: the code step keeps it in the address, but stripToken rewrites the address at Done.
+  const [getPaidAsked] = useState(() => wantsGetPaid(search));
+  const getPaid = (getPaidAsked || wantsGetPaid(search)) && seatCanSetUpPayments(redeemedRole);
   const [busy, setBusy] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -81,6 +87,26 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const [now, setNow] = useState(() => Date.now());
   const claimRef = useRef<ClaimOutcome | null>(null);
   const [linkedHere, setLinkedHere] = useState(false);
+  // A reload after the unmatched stop (continuation 1): the stop is remembered per tab, but the organiser's admin may
+  // have joined them meanwhile. ONE claim re-check per page: linked / already_linked forgets the stop and the derived
+  // step follows; any other answer keeps the stop. Only a remembered stop asks; an untouched page sends nothing.
+  const recheckStarted = useRef(false);
+  const rememberedStop = user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
+  useEffect(() => {
+    if (!rememberedStop || !user || recheckStarted.current) return;
+    recheckStarted.current = true;
+    setLinking(true);
+    void claimAtSignIn(queryClient)
+      .then((claim) => {
+        if (claim.status !== 'linked' && claim.status !== 'already_linked') return;
+        claimRef.current = claim;
+        forgetUnmatched();
+        if (claim.status === 'linked') setLinkedHere(true);
+        void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(user.id) });
+      })
+      .catch(() => { /* never rejects; a failure keeps the stop */ })
+      .finally(() => setLinking(false));
+  }, [rememberedStop, user, queryClient]);
   // The server refused the Join tap with profile_incomplete and the re-read sent the person to About: About says why.
   const [aboutRefused, setAboutRefused] = useState(false);
 
@@ -116,6 +142,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         setRedeemed(true);
         // (review r1 F4) a used link's already_member names the invite's own page: land on that page's home.
         setRedeemedOrgId(o.organiserId);
+        setRedeemedRole(o.memberRole ?? null);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
       } else if (o.kind === 'dead') {
         setUsedRefused(true);
@@ -171,15 +198,16 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const returning = step === 'done' && arrivedUsed.current === true && flags.organiserSelfServe;
   useEffect(() => {
     if (!returning) return;
-    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId);
+    const { to, state } = doneTarget(info?.organiserName ?? 'the team', { organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }, doneOrgId, getPaid);
     navigate(to, { replace: true, state });
-  }, [returning, info?.organiserName, doneOrgId, navigate]);
+  }, [returning, info?.organiserName, doneOrgId, getPaid, navigate]);
   const usedViewer = info?.status === 'used' && authStatus !== 'resolving' ? (user ? 'other_account' : 'signed_out') : null;
 
-  const clearStep = useCallback(() => navigate(pathname, { replace: true }), [navigate, pathname]);
+  // Other params (next=get-paid) stay when the code step is left.
+  const clearStep = useCallback(() => navigate(`${pathname}${searchAfterCodeStep(search)}`, { replace: true }), [navigate, pathname, search]);
 
   const fail = (from: string, s: JoinStop) => {
-    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind);
+    reportJoinFailure(from, s.kind === 'refused' ? s.reason : s.kind === 'wrong_account' ? 'email_mismatch' : s.kind === 'unmatched' ? `unmatched_${s.claim}` : s.kind);
     setStop(s);
   };
 
@@ -217,7 +245,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         }
         // unavailable: the function is not on the server yet; the redeem still guards the address.
       }
-      const { error } = await sendJoinCode(check.email, token).catch((e: unknown) => ({ error: e instanceof Error ? e : new Error('network') }));
+      const { error } = await sendJoinCode(check.email, token, getPaidAsked || wantsGetPaid(search)).catch((e: unknown) => ({ error: e instanceof Error ? e : new Error('network') }));
       if (error) {
         const s = classifySendError(error);
         if (resend && s.kind === 'rate_limited') return setCodeError(JOIN_COPY.code.rateLimited);
@@ -229,7 +257,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       setCooldownUntil(Date.now() + OTP_RESEND_COOLDOWN_SECONDS * 1000);
       setNow(Date.now());
       if (resend) setCodeNotice(JOIN_COPY.code.resent);
-      else navigate(`${pathname}${codeStepSearch(check.email)}`, { replace: true });
+      else navigate(`${pathname}${codeStepSearch(check.email, search)}`, { replace: true });
     } finally {
       setBusy(false);
     }
@@ -242,6 +270,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       case 'done':
         setRedeemed(true);
         setRedeemedOrgId(action.alreadyMember ? null : action.organiserId);
+        setRedeemedRole(action.memberRole ?? null);
         void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
         return;
       case 'stop': return fail(from, action.stop);
@@ -277,16 +306,24 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       return fail('verify', { kind: 'network', from: 'verify' });
     }
     try {
+      // The claim has run on this page: the reload re-check (above) is for a LATER page load only.
+      recheckStarted.current = true;
       const claim = await claimAtSignIn(queryClient);
       claimRef.current = claim;
       if (claim.status === 'linked') setLinkedHere(true);
       await recordJoinRoles(data?.user);
       void queryClient.invalidateQueries({ queryKey: profileCompletionQueryKey(data?.user?.id) });
       clearStep();
+      // Find before create (claimNextStep, the ONE mapping): only the invite's own proof decides, never a name search.
+      const next = claimNextStep(claim.status, inviteKind(info));
       // Person-bound invite whose claim did not land: the safety stop. The one redeem call makes "we've told" real
       // (A2 records the not_linked attempt and keeps the invite open); a server that seats them anyway is honoured.
-      if (isPersonBound(info) && (claim.status === 'no_match' || claim.status === 'ambiguous')) {
-        await applyRedeem(await attemptRedeem(token), 'claim');
+      if (next === 'safety_redeem') await applyRedeem(await attemptRedeem(token), 'claim');
+      // The claim could not tell which existing profile is theirs: nothing is created, chosen or redeemed.
+      else if (next === 'unmatched') {
+        const why = claim.status === 'ambiguous' ? 'ambiguous' : 'email_unproven';
+        if (data?.user?.id) rememberUnmatched(token, data.user.id, why);
+        fail('claim', { kind: 'unmatched', claim: why });
       }
     } finally {
       setLinking(false);
@@ -313,6 +350,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     setBusy(false);
     if (outcome === 'failed') return setSignOutError(JOIN_COPY.signOutFailed);
     claimRef.current = null;
+    forgetUnmatched();
     setLinkedHere(false);
     // (review r1 F2) another account never inherits this one's "details are missing" notice.
     setAboutRefused(false);
@@ -338,11 +376,14 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
   const title = info ? JOIN_COPY.pageTitle(info.organiserName) : null;
   const header = info && open && step !== 'done' ? <Strip preview={info} /> : null;
 
-  if (stop) {
+  // While the reload's re-check is out the remembered stop still shows (never About on the stub in between).
+  const remembered = !stop && user && authStatus === 'ready' && open ? recallUnmatched(token, user.id) : null;
+  const shownStop: JoinStop | null = stop ?? (remembered ? { kind: 'unmatched', claim: remembered } : null);
+  if (shownStop) {
     return (
-      <StepFrame step={step} stop={stop.kind}>
+      <StepFrame step={step} stop={shownStop.kind}>
         {header}
-        <StopScreen stop={stop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} />
+        <StopScreen stop={shownStop} preview={info} signedInAs={user?.email ?? 'another account'} busy={busy} error={signOutError} onRetry={() => void retry()} onSwitch={() => void switchAccount()} onDismiss={() => { setStop(null); clearStep(); }} homeFlags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} />
       </StepFrame>
     );
   }
@@ -420,7 +461,7 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
         <>
           {progress && <Progress {...progress} />}
           <Heading>{title}</Heading>
-          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} rowsLeft={rowsLeft} />
+          <DoneScreen org={info?.organiserName ?? 'the team'} flags={{ organiserP3: flags.organiserP3, organiserSelfServe: flags.organiserSelfServe }} organiserId={doneOrgId} rowsLeft={rowsLeft} getPaid={getPaid} />
         </>
       );
       break;

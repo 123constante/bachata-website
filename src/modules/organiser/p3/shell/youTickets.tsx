@@ -1,5 +1,7 @@
 import { Route } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
+import type { SeatKind } from '@/modules/organiser/shared/ownership';
+import { TICKETS_INTERIM_LINE, ticketsRow } from '@/modules/organiser/shared/teamRules';
 import { GetPaidRow, GetPaidScreen } from '../tickets/GetPaid';
 
 /*
@@ -7,8 +9,14 @@ import { GetPaidRow, GetPaidScreen } from '../tickets/GetPaid';
  * mounts <YouTicketsRow /> (the Get paid row) and P3Routes mounts youGetPaidRoute(); both are
  * behind flags.organiserTicketing, and the you/get-paid route stays a sibling of the hub.
  */
-export function YouTicketsRow() {
-  return <>{flags.organiserTicketing && <GetPaidRow />}</>;
+export function YouTicketsRow({ seatKind = null }: { seatKind?: SeatKind | null }) {
+  const interim = ticketsRow(seatKind) === 'line';
+  return (
+    <>
+      {flags.organiserTicketing && interim && <p className="p3-row-s" data-testid="you-tickets-interim">{TICKETS_INTERIM_LINE}</p>}
+      {!interim && <>{flags.organiserTicketing && <GetPaidRow />}</>}
+    </>
+  );
 }
 
 export const youGetPaidRoute = () => (

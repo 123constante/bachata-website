@@ -27,6 +27,8 @@ const h = vi.hoisted(() => ({
   rpc: vi.fn(),
   events: [] as Array<Record<string, unknown>>,
   contactReads: 0,
+  // Merged over the stored row (owner-blank rows clear the links; the photo varies).
+  entity: {} as Record<string, unknown>,
 }));
 
 vi.mock('@/modules/organiser/edit-in-place/EditInPlaceLayer', async (importOriginal) => {
@@ -73,6 +75,7 @@ vi.mock('@/modules/profile/organiserPublicProfile', async (orig) => ({
   fetchOrganiserEntity: async (id: string) => ({
     id, name: id === OTHER_ID ? 'Other Crew' : 'Ritmo Latino', avatar_url: null, bio: null, socials: { facebook: 'https://www.facebook.com/share/1AbC/' }, city_id: '11111111-1111-4111-8111-111111111111',
     instagram: 'https://www.instagram.com/ritmo/', website: 'ritmo.co.uk', organisation_category: 'Dance School', founded_year: null, cities: { name: 'London', slug: 'london-gb' },
+    ...h.entity,
   }),
   fetchOrganiserEvents: async () => h.events,
   fetchOrganiserFutureOccEvents: async () => [],
@@ -83,6 +86,7 @@ const ORG_ID = '22222222-2222-4222-8222-222222222222';
 const OTHER_ID = '33333333-3333-4333-8333-333333333333';
 
 import OrganiserProfile from '@/pages/OrganiserProfile';
+import { flags } from '@/lib/featureFlags';
 
 const ME = { id: 'me', email: 'me@x.example' };
 // Every row that must NOT load the layer runs first: the import counter is
@@ -110,6 +114,7 @@ beforeEach(() => {
   window.localStorage.clear();
   h.events = [];
   h.contactReads = 0;
+  h.entity = {};
 });
 afterEach(cleanup);
 
@@ -174,11 +179,12 @@ describe('the owner layer on the live public page', () => {
 
   // The Team card (team picker) reads organiser_team_v1 under ['organiser-team', id]. The
   // page's public line-up query once used that SAME key, so the layer got the line-up
-  // array, saw no role, and an owner never got the card. Owner: card; manager: none.
+  // array, saw no role, and an owner never got the card. Owner: card with Add a person;
+  // manager: card with only "Who shows on your page" (lead decision, brief p2-team-2).
   it.each([
     ['owner', 'owner', true],
     ['manager', 'manager', false],
-  ] as const)('the Team card through the real page: %s -> shown %s', async (_n, role, shown) => {
+  ] as const)('the Team card through the real page: %s -> Add a person %s', async (_n, role, add) => {
     h.user = ME;
     h.ownership = { is_managed: true, i_own_it: role === 'owner', my_role: role };
     h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_team_v1'
@@ -187,12 +193,10 @@ describe('the owner layer on the live public page', () => {
     renderPage();
     await screen.findByTestId('eip-contact');
     await waitFor(() => expect(h.rpc.mock.calls.some(([fn]) => fn === 'organiser_team_v1')).toBe(true));
-    if (shown) {
-      expect((await screen.findByTestId('eip-team')).textContent).toContain('Add a person');
-    } else {
-      await new Promise((res) => setTimeout(res, 50));
-      expect(screen.queryByTestId('eip-team')).toBeNull();
-    }
+    const card = await screen.findByTestId('eip-team');
+    expect(card.textContent).toContain('Who shows on your page');
+    if (add) expect(card.textContent).toContain('Add a person');
+    else expect(card.textContent).not.toContain('Add a person');
     expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
     h.rpc.mockReset();
   });
@@ -221,6 +225,55 @@ describe('the owner layer on the live public page', () => {
     expect(window.localStorage.getItem(`bc:organiser-edit-draft:v1:${ORG_ID}`)).toBeNull();
     expect(window.localStorage.getItem(`bc:organiser-edit-draft:v1:${OTHER_ID}`)).toContain('Other crew draft');
   });
+});
+
+// owner-blank (no bio, no public links, no team, no nights): the empty state's
+// action is an edit-in-place pencil that opens the About FieldSheet. The retired
+// legacy "Edit profile" dialog (raw Avatar URL, free-text Category) is never
+// reachable, under either value of the self-serve flag, with or without a photo.
+// Brief organiser-retire-legacy-edit-dialog step 4.
+const BLANK = { bio: null, instagram: null, website: null, socials: null };
+const PHOTO = 'https://stsdtacfauprzrdebmzg.supabase.co/storage/v1/object/public/organiser-photos/ritmo.jpg';
+
+describe('owner-blank: the empty state hands the owner to edit-in-place', () => {
+  const selfServe = flags.organiserSelfServe;
+  afterEach(() => { (flags as { organiserSelfServe: boolean }).organiserSelfServe = selfServe; });
+
+  it.each([true, false].flatMap((flagOn) => [true, false].map((photo) => ({ flagOn, photo }))))(
+    'flag on: $flagOn, has photo: $photo -> a pencil opens the About sheet, never the legacy dialog',
+    async ({ flagOn, photo }) => {
+      (flags as { organiserSelfServe: boolean }).organiserSelfServe = flagOn;
+      h.user = ME;
+      h.ownership = { is_managed: true, i_own_it: true, my_role: 'owner' };
+      h.entity = { ...BLANK, avatar_url: photo ? PHOTO : null };
+      h.rpc.mockImplementation(async (fn: string) => (fn === 'organiser_team_v1'
+        ? { data: { my_role: 'owner', members: [] }, error: null }
+        : fn === 'organiser_public_team_v1' ? { data: [], error: null } : { data: null, error: null }));
+      renderPage();
+      const empty = await waitFor(() => {
+        const el = document.querySelector('[data-testid="org-public-empty"][data-kind="owner-blank"]');
+        if (!el) throw new Error('owner-blank empty state not shown');
+        return el as HTMLElement;
+      });
+      // The legacy button is gone; the action in the empty state is the About pencil.
+      expect(within(empty).queryByRole('button', { name: 'Complete your profile' })).toBeNull();
+      const pencil = await within(empty).findByRole('button', { name: 'Edit about' });
+      expect(pencil.getAttribute('data-eip-pencil')).toBe('bio');
+      // The copy names only controls that are on screen: the photo pencil and Your links.
+      expect(empty.textContent).toMatch(/photo/i);
+      expect(document.querySelector('[data-eip-pencil="avatar_url"]')).toBeTruthy();
+      expect(screen.getByTestId('eip-links')).toBeTruthy();
+      fireEvent.click(pencil);
+      const sheet = await screen.findByRole('dialog');
+      expect(within(sheet).getByText('About')).toBeTruthy();
+      // Nowhere on the page: the legacy dialog's title or its raw Avatar URL box.
+      expect(screen.queryByRole('heading', { name: 'Edit profile' })).toBeNull();
+      expect(screen.queryByText('Edit profile')).toBeNull();
+      expect(screen.queryByLabelText('Avatar URL')).toBeNull();
+      expect(document.body.textContent).not.toContain('Avatar URL');
+      h.rpc.mockReset();
+    },
+  );
 });
 
 // An upcoming night with no dated occurrence: the page lists it as upcoming.

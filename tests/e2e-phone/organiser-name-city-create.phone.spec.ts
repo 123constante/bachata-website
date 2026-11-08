@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG_ID, scrollTo, settled, type Box } from './helpers';
+import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG_ID, scrollTo, settled, type Box, MIN_TAP_PX } from './helpers';
 
 /**
  * Edit in place on a PHONE, the Name and City sheets and the owner-only Create
@@ -53,14 +53,14 @@ async function sheetInsideScreen(page: Page, label: string) {
   expect(s.x + s.width, `${label}: sheet right`).toBeLessThanOrEqual(vp.width + 0.5);
   const done = await box(page, '[data-testid="eip-sheet"] button:has-text("Done")');
   expect(done.y + done.height, `${label}: Done on screen`).toBeLessThanOrEqual(vp.height + 0.5);
-  expect(done.height, `${label}: Done height`).toBeGreaterThanOrEqual(44);
+  expect(done.height, `${label}: Done height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
 }
 
 test('Name sheet: on screen, 16px box, "We will save" the trimmed name, Done shows it in the hero (no Save)', async ({ page }) => {
   await openAsOwner(page, ORG_SLUG);
   const pencil = await box(page, '[data-eip-pencil="name"]');
-  expect(pencil.width, 'name pencil tap target').toBeGreaterThanOrEqual(44);
-  expect(pencil.height, 'name pencil tap target').toBeGreaterThanOrEqual(44);
+  expect(pencil.width, 'name pencil tap target').toBeGreaterThanOrEqual(MIN_TAP_PX);
+  expect(pencil.height, 'name pencil tap target').toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect(await checkOverflow(page), 'no sideways scroll with the name pencil').toEqual([]);
   await page.locator('[data-eip-pencil="name"]').click();
   const sheet = page.getByRole('dialog', { name: 'Name' });
@@ -109,7 +109,7 @@ test('City sheet: search at the TOP, list scrolls INSIDE, rows >= 44px, keyboard
     const m = await measure();
     expect(m.search.y + m.search.height, `${label}: search box above the list`).toBeLessThanOrEqual(m.list.y + 0.5);
     expect(m.search.y, `${label}: search box on screen`).toBeGreaterThanOrEqual(0);
-    for (const h of m.rows) expect(h, `${label}: row height`).toBeGreaterThanOrEqual(44);
+    for (const h of m.rows) expect(h, `${label}: row height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
     expect(m.sheetScroll, `${label}: the sheet itself does not scroll (the list does)`).toBeLessThanOrEqual(1);
     return m;
   };
@@ -151,7 +151,7 @@ async function assertCreateEvent(page: Page, label: string) {
   await frames(page);
   const b = await box(page, sel);
   const vp = page.viewportSize()!;
-  expect(b.height, `${label}: height`).toBeGreaterThanOrEqual(44);
+  expect(b.height, `${label}: height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect(b.x, `${label}: left edge on screen`).toBeGreaterThanOrEqual(0);
   expect(b.x + b.width, `${label}: right edge on screen`).toBeLessThanOrEqual(vp.width + 0.5);
   expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
