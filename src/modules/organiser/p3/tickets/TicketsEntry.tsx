@@ -36,6 +36,7 @@ import {
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import type { HomeSeriesFull } from '../../shared/homeModel';
 import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, useConnectReturn } from './connectReturn';
 import { P3_TICKET_PATHS } from './paths';
 import {
   PREVIEW_ORDERS,
@@ -85,8 +86,7 @@ export function TicketsEntry({ seriesId }: { seriesId: string }) {
 type View = 'list' | 'orders';
 
 /** After Stripe sends the person back: refetch every 3 s, for at most 30 s. */
-export const CONNECT_RETURN_EVERY_MS = 3000;
-export const CONNECT_RETURN_FOR_MS = 30_000;
+export { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS };
 
 function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) {
   const queryClient = useQueryClient();
@@ -158,28 +158,12 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const arrived = useRef(false);
   // Remembered before the effect below drops the URL params: the banner and its poll hang off this.
   const [arrivedFromStripe, setArrivedFromStripe] = useState(() => params.get('stripe') === 'return');
-  const [connectReturnPoll, setConnectReturnPoll] = useState(() => params.get('stripe') === 'return');
+  const [connectReturnOn, setConnectReturnOn] = useState(() => params.get('stripe') === 'return');
   const [arrivedRefresh, setArrivedRefresh] = useState(() => params.get('stripe') === 'refresh');
   const stripeConnected = stripe === 'connected';
-  // connectReturnPoll: refetch the Stripe state every 3 s for at most 30 s, or until connected; unmount stops it.
-  const refetchStripe = useRef(stripeQuery.refetch);
-  refetchStripe.current = stripeQuery.refetch;
-  useEffect(() => {
-    if (!connectReturnPoll) return;
-    if (stripeConnected) {
-      setConnectReturnPoll(false);
-      return;
-    }
-    const tick = window.setInterval(() => void refetchStripe.current(), CONNECT_RETURN_EVERY_MS);
-    const stop = window.setTimeout(() => {
-      window.clearInterval(tick);
-      setConnectReturnPoll(false);
-    }, CONNECT_RETURN_FOR_MS);
-    return () => {
-      window.clearInterval(tick);
-      window.clearTimeout(stop);
-    };
-  }, [connectReturnPoll, stripeConnected]);
+  // The shared return handler (connectReturn.ts): refetch, then every 3 s for 30 s, or until connected.
+  const { phase: returnPhase } = useConnectReturn(connectReturnOn, stripeConnected, () => stripeQuery.refetch());
+  const connectReturnPoll = returnPhase === 'checking';
   useEffect(() => {
     if (arrived.current) return;
     const asked = params.get('tickets') === '1';
@@ -193,8 +177,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     if (back === 'refresh') setArrivedRefresh(true);
     if (back === 'return') {
       setArrivedFromStripe(true);
-      setConnectReturnPoll(true);
-      void stripeQuery.refetch();
+      setConnectReturnOn(true);
     }
     const next = new URLSearchParams(params);
     next.delete('tickets');

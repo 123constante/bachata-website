@@ -252,7 +252,7 @@ export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'ca
   if (!canManage(ctx.role)) return NOT_MANAGER;
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Try again in a moment.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'waiting') return STRIPE_WAITING_REASON;
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
   return null;
