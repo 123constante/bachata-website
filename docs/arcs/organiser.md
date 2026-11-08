@@ -43,7 +43,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | E7 cancelled nights shown marked "Cancelled" on the page | web | owner yes/no (below) | GAPS file, ranked gap 4 |
 | Remaining P3 slices W3 later (Name/details save model, Prices, History, create flows), W4c invites/claims + organiser-side Going | web | needs re-survey against main; ARC-p3.md is stale | plans/ARC-p3.md section 2 |
 | Organiser analytics S1/S2 | admin | parked until the organiser dashboard exists | READY-QUEUE row 13 |
-| Walk-report dead ends A to D (claim, edit-event shapes, team/switch, dancer view) | web | each needs a fresh check on main first (12 stale "does not exist" claims before) | docs/handover on W#1407 to W#1410 |
+| Walk-report dead ends A to D (claim, edit-event shapes, team/switch, dancer view) | web | PARTIAL: Details hints honest for festivals and videos on claude/details-honest-hints (matrix green; no 390x844 walk; PR link added when opened). Others each need a fresh check on main first | docs/handover on W#1407 to W#1410; docs/briefs/details-honest-hints.md |
 
 ## Owner decisions pending
 - E7: show upcoming cancelled nights marked "Cancelled" and never count them in stats? (23 organisers have one.)
