@@ -215,7 +215,17 @@ export interface MoveContext {
 }
 
 /** Where a paid ticket's seller connects payments (the one Get paid screen). */
-export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
+export const PAYMENTS_WHERE_LINK = 'Connect payments in You \u203A Get paid'; // PAYMENTS_WHERE_LINK: the tap target inside PAYMENTS_WHERE
+export const PAYMENTS_WHERE = `${PAYMENTS_WHERE_LINK} before selling paid tickets.`;
+
+/** STRIPE_AT_PRICE_HINT: shown at price entry (step 1) once the price is above zero, so the next step is no surprise. */
+export const STRIPE_AT_PRICE_HINT = 'Paid tickets are paid out through Stripe. About 10 minutes: you leave the app for Stripe and come back.';
+/** SELLING_ELSEWHERE_LINK: the small plain text link under Connect payments; it opens the event Details ticket link field. Never primary. */
+export const SELLING_ELSEWHERE_LINK = 'Selling elsewhere? Add a ticket link';
+/** STRIPE_REFRESH_NOTE: why the person is back after `stripe=refresh`. */
+export const STRIPE_REFRESH_NOTE = 'The Stripe link ran out. Carry on with Stripe to get a fresh one.';
+/** CONNECT_START_ERROR_SHOWN: the start error has this test id wherever it is drawn (sheet, banner, draft row). */
+export const CONNECT_START_ERROR_SHOWN = 'tix-connect-error';
 
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
 export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
@@ -258,7 +268,7 @@ export const connectBlock = (
 };
 
 // ---- After Stripe: the status banner on the Tickets sheet -------------------------------
-export type ConnectReturnKind = 'checking' | 'ready_drafts' | 'ready_none' | 'needs_more';
+export type ConnectReturnKind = 'refresh' | 'checking' | 'ready_drafts' | 'ready_none' | 'needs_more';
 export interface ConnectReturnBanner {
   kind: ConnectReturnKind;
   line: string;
@@ -281,7 +291,12 @@ export const connectReturnBanner = (i: {
   role: MemberRole | null | undefined;
   drafts: readonly Pick<TicketType, 'id' | 'name' | 'pricePence' | 'status'>[];
   polling?: boolean;
+  /** Arrived with `stripe=refresh`: the Stripe link ran out. */
+  refresh?: boolean;
 }): ConnectReturnBanner | null => {
+  if (i.refresh && !i.arrivedFromStripe && canManage(i.role) && i.stripe !== 'connected') {
+    return { kind: 'refresh', line: STRIPE_REFRESH_NOTE, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
+  }
   if (!i.arrivedFromStripe || !canManage(i.role)) return null;
   const paid = i.drafts.filter((t) => t.status === 'draft' && t.pricePence > 0);
   if (i.drafts.length > 0 && paid.length === 0) return null;
