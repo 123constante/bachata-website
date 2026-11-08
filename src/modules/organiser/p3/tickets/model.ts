@@ -17,6 +17,7 @@ import {
   type TicketType,
   type TypeForm,
   type TypeSales,
+  type SeriesDates,
 } from '../../tickets/ticketModel';
 import type { StatusTone } from '../../ui/StatusTag';
 import { fullDate } from '../../shared/dateWords';
@@ -131,8 +132,8 @@ export interface TypeDraft {
 
 export const draftKey = (type: Pick<TicketType, 'id'> | null): string => (type ? type.id : 'new');
 
-export const newDraft = (type: TicketType | null, eventStart: string | null): TypeDraft => {
-  const f = formOf(type);
+export const newDraft = (type: TicketType | null, eventStart: string | null, series?: SeriesDates | null): TypeDraft => {
+  const f = formOf(type, series);
   const form = type || !eventStart ? f : { ...f, closesAt: isoToLondonInput(eventStart) };
   return {
     key: draftKey(type),
@@ -144,8 +145,8 @@ export const newDraft = (type: TicketType | null, eventStart: string | null): Ty
 };
 
 /** Keep the held draft when it is for the same sheet; start a fresh one otherwise. */
-export const draftFor = (held: TypeDraft | null, type: TicketType | null, eventStart: string | null): TypeDraft =>
-  held && held.key === draftKey(type) ? held : newDraft(type, eventStart);
+export const draftFor = (held: TypeDraft | null, type: TicketType | null, eventStart: string | null, series?: SeriesDates | null): TypeDraft =>
+  held && held.key === draftKey(type) ? held : newDraft(type, eventStart, series);
 
 // ---- Facts the shipped event screen computes inline (SeriesTickets.tsx, to be deleted) --
 

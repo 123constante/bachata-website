@@ -1,9 +1,21 @@
+import { addDaysToKey, londonDateKey } from '@/lib/londonDate';
 import type { MyAccessRequest } from './selfServeApi';
 
 /** How long a declined answer stays on /account before it is no longer news. */
 export const DECLINED_VISIBLE_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The first day a person can ask again after a decline: the answered date (London) plus
+ * DECLINED_VISIBLE_DAYS, the server cooldown of declined_recently. ISO date (YYYY-MM-DD),
+ * or null when neither timestamp parses. A null resolvedAt falls back to createdAt.
+ */
+export function askAgainFrom(resolvedAt: string | null | undefined, createdAt: string): string | null {
+  const answered = new Date(resolvedAt ?? createdAt);
+  if (Number.isNaN(answered.getTime())) return null;
+  return addDaysToKey(londonDateKey(answered), DECLINED_VISIBLE_DAYS);
+}
 
 /**
  * The requester's declined answers worth showing (S4): the NEWEST request per

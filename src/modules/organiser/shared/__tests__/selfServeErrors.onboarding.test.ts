@@ -11,7 +11,9 @@ import {
   isOnboardingRefusal,
   ONBOARDING_REFUSAL,
   ONBOARDING_REFUSAL_MATCH,
+  KNOWN_SELF_SERVE_CODES,
   PROGRAMME_COPY,
+  selfServeErrorCopy,
   programmeErrorCopy,
 } from '../selfServeErrors';
 
@@ -36,5 +38,47 @@ describe('onboarding_incomplete refusal', () => {
   ])('isOnboardingRefusal agrees with the tables: %s', (_name, error, want) => {
     expect(isOnboardingRefusal(error)).toBe(want);
     expect(commandErrorMessage(error) === ONBOARDING_REFUSAL).toBe(want);
+  });
+});
+
+/**
+ * Cooldown and interim-seat refusals (admin I1 #1284): `declined_recently` and
+ * `interim_cannot_add` each get their own sentence from the ONE COPY map, never
+ * the generic line, never the raw code. Written against the unfixed map first.
+ */
+const GENERIC_LINE = 'Something went wrong. Please try again.';
+const REFUSALS = [
+  {
+    code: 'declined_recently',
+    message: 'The page said no to your last request. You can ask again after 30 days, or message us.',
+    next: 'contact_support',
+  },
+  {
+    code: 'interim_cannot_add',
+    message:
+      'While this page has no owner, only the Bachata Calendar team can add people. Share the page link and ask them to tap Ask to join.',
+    next: null,
+  },
+] as const;
+
+describe.each(REFUSALS)('$code refusal', ({ code, message, next }) => {
+  const error = { code: 'P0001', message: code };
+  it('has its own sentence and next step', () => {
+    expect(selfServeErrorCopy(error)).toEqual({ message, next });
+  });
+  it('is listed as a known code', () => {
+    expect(KNOWN_SELF_SERVE_CODES).toContain(code);
+  });
+  it('never shows the raw code and is not the generic line', () => {
+    const shown = selfServeErrorCopy(error).message;
+    expect(shown).not.toBe(GENERIC_LINE);
+    expect(shown).not.toContain(code);
+    expect(shown).not.toMatch(/_/);
+  });
+  it('mentions only controls that exist (Ask to join; message us -> contact_support)', () => {
+    const copy = selfServeErrorCopy(error);
+    expect(copy.message).not.toMatch(/\b(retry|try again|add someone|invite)\b/i);
+    if (/message us/i.test(copy.message)) expect(copy.next).toBe('contact_support');
+    if (/ask to join/i.test(copy.message)) expect(copy.message).toMatch(/tap Ask to join/);
   });
 });

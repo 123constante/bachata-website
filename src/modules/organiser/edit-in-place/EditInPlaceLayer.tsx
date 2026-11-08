@@ -372,6 +372,13 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
   const refetchContact = contactQuery.refetch;
   const card = useMemo(() => cardModel(entity, drafts), [entity, drafts]);
 
+  // How many 'about' slot pencils are mounted right now (see the 'about' / 'about-empty' cases).
+  const [aboutPencils, setAboutPencils] = useState(0);
+  const registerAboutPencil = useCallback(() => {
+    setAboutPencils((n) => n + 1);
+    return () => setAboutPencils((n) => n - 1);
+  }, []);
+
   const bridge = useMemo<EipBridge>(() => {
     const has = (f: FieldKey) => drafts[f] !== undefined;
     const shown = { ...formFromEntity(entity), ...buildShown(entity, drafts) };
@@ -389,8 +396,11 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
             onOpen={openSheet}
           />
         );
-        case 'about': return <AboutSlot drafted={has('bio')} onOpen={openSheet} />;
-        case 'about-empty': return <AboutEmpty />;
+        // 'about' always renders the bio pencil (the blank-page "Add a bio" pill and /page's About row
+        // use it with no bio) and registers while mounted; the empty About line drops its own pencil
+        // when one is, so every screen gets exactly ONE About pencil (docs/design/1473.md).
+        case 'about': return <AboutSlot drafted={has('bio')} onOpen={openSheet} register={registerAboutPencil} />;
+        case 'about-empty': return <AboutEmpty drafted={has('bio')} onOpen={openSheet} withPencil={aboutPencils === 0} />;
         case 'links': return (
           <LinkRows
             values={{ instagram: shown.instagram, facebook: shown.facebook, website: shown.website }}
@@ -406,7 +416,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
       }
     };
     return { overlay, slot, mark: (f) => (has(f) ? 'eip-drafted' : undefined) };
-  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact, teamAccess, teamLine, openTeam, visAccess, openVisibility]);
+  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact, teamAccess, teamLine, openTeam, visAccess, openVisibility, aboutPencils, registerAboutPencil]);
 
   useEffect(() => {
     onBridge(bridge);

@@ -20,8 +20,8 @@ import { ownershipFacts, type OrganiserOwnership } from '../ownership';
 import type { ClaimHint } from '../claimHint';
 
 const ORG = { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ritmo Bachata London' };
-const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null };
-const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null };
+const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null, seat_kind: null };
+const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null, seat_kind: null };
 const ME = { id: 'me', email: 'diego@ritmo.example' };
 const refusal = (code: string) => ({ data: null, error: { message: code, code: 'P0001' } });
 

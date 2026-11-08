@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketKeys } from './ticketCheckoutApi';
+import { fetchPublicTicketTypes, postTicketCheckout, previewPromo, publicTicketKeys, sellsInSite } from './ticketCheckoutApi';
 import { PROMO_MAX_LENGTH, codeFromSearch, isCodeReason, normaliseCode, promoKey, promoNoteText, promoView, type PromoState } from './promo';
 import {
   BOOKING_FEE_LABEL,
@@ -208,7 +208,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   }
 
   return (
-    <section aria-labelledby="tickets-heading" className="mb-3 rounded-md p-3 text-[14px]" style={card} data-testid="tickets-block">
+    <section aria-labelledby="tickets-heading" className="mb-3 rounded-md p-3 text-[14px]" style={card} id="tickets" data-testid="tickets-block" data-sells-in-site={sellsInSite(list, now) ? 'true' : 'false'}>
       <h2 id="tickets-heading" className="mb-2 text-[15px] font-semibold" style={{ color: 'hsl(var(--bento-accent))' }}>
         Tickets
       </h2>

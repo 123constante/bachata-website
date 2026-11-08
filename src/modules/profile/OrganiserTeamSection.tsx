@@ -48,9 +48,11 @@ function Face({ p, nationalityCode }: { p: TeamPerson; nationalityCode: string |
   );
 }
 
-export function OrganiserTeamSection({ team, failed, retrying = false, onRetry, nationality, badges, badgesState }: {
+export function OrganiserTeamSection({ team, failed, ownEmptyHref = null, retrying = false, onRetry, nationality, badges, badgesState }: {
   team: TeamList;
   failed: boolean;
+  /** Set only when the viewer runs this page: an empty team then says so and links to Team. Visitors get null and see nothing. */
+  ownEmptyHref?: string | null;
   /** The team refetch is running: Try again shows its pending state. */
   retrying?: boolean;
   onRetry: () => void;
@@ -69,7 +71,16 @@ export function OrganiserTeamSection({ team, failed, retrying = false, onRetry, 
       </section>
     );
   }
-  if (team.mode === 'empty') return null;
+  if (team.mode === 'empty') {
+    if (!ownEmptyHref) return null;
+    return (
+      <section data-testid="org-team-own-empty" className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
+        <p style={{ margin: 0, fontSize: 14, color: 'rgba(246,241,234,0.75)' }}>
+          Your Team is empty. <Link to={ownEmptyHref} className="underline" style={{ color: CREAM }}>Add people in Team.</Link>
+        </p>
+      </section>
+    );
+  }
   return (
     <section data-testid="org-team" className="px-5 md:px-12 py-3" style={{ borderBottom: '1px solid rgba(246,241,234,0.08)' }}>
       <h2 style={{ fontFamily: SERIF, fontWeight: 600, fontSize: 16, lineHeight: 1.3, margin: '0 0 8px', color: CREAM }}>Team</h2>
