@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FLYER_ACCEPT } from '../../shared/flyerModel';
 import { useVenueOptions } from '../../shared/publicVenues';
@@ -7,23 +7,13 @@ import { StateCard } from '../screens/parts';
 import { flyerToDraft, type FlyerDraftResult } from './flyerToDraft';
 import { DRAFT_STORE_KEY, afterKind } from './model';
 import { forgetStoredDraft } from './useCreateSave';
-import { flyerHandoff, keepFlyerHandoff, useFlyerRead, type FlyerReadDeps, type FlyerReadResult, browserFlyerDeps } from './useFlyerRead';
+import { flyerHandoff, keepFlyerHandoff, resetWords, useFlyerRead, type FlyerReadDeps, type FlyerReadResult, browserFlyerDeps } from './useFlyerRead';
 
 /**
  * Start from a flyer (P3 New event, behind organiserFlyerReader): pick a photo, it is read, and the
  * normal form opens filled in. Every state has a way forward, and the blank form (the kind tiles)
  * is always one tap away. Nothing is saved here.
  */
-
-/** "Monday 09:00" in London, or null when the time is not one. */
-export function resetWords(iso: string | null): string | null {
-  if (!iso) return null;
-  const t = new Date(iso);
-  if (Number.isNaN(t.getTime())) return null;
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(t);
-  const get = (k: string) => parts.find((p) => p.type === k)?.value ?? '';
-  return `${get('weekday')} ${get('hour')}:${get('minute')}`;
-}
 
 function PickButton({ label, reading, onPick }: { label: string; reading: boolean; onPick: (f: File) => void }) {
   return (
@@ -59,7 +49,6 @@ export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = brow
   const navigate = useNavigate();
   const venues = useVenueOptions();
   const flyer = useFlyerRead(today, deps);
-  const [held, setHeld] = useState<{ r: FlyerDraftResult; file: File } | null>(null);
   const st = flyer.state;
 
   const open = (r: FlyerDraftResult, file: File) => {
@@ -70,18 +59,22 @@ export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = brow
     // the kind comes from the flyer, never from a tile
     navigate(afterKind(draft.kind, organiserId, pageCount));
   };
-  const pick = (f: File) => { setHeld(null); void flyer.start(f); };
+  const pick = (f: File) => { void flyer.start(f); };
 
   // a good read goes straight to the form; not enough waits here to say what was found
   const result: FlyerReadResult | null = st.s === 'done' ? st.result : null;
-  const goodRead = st.s === 'done' && st.result.kind === 'read' ? { read: st.result.read, file: st.file } : null;
+  // venues still loading: wait, so a venue on the flyer can match (a failed load matches none)
+  const verdict = useMemo(() => {
+    if (st.s !== 'done' || st.result.kind !== 'read' || venues.isPending) return null;
+    const r = flyerToDraft(st.result.read, venues.data ?? [], today);
+    return { r, file: st.file, enough: !r.notes.some((n) => n.code === 'not_enough') };
+  }, [st, venues.isPending, venues.data, today]);
+  const goodRead = st.s === 'done' && st.result.kind === 'read';
+  const held = verdict && !verdict.enough ? verdict : null;
   useEffect(() => {
-    if (!goodRead || held) return;
-    const r = flyerToDraft(goodRead.read, venues.data ?? [], today);
-    if (r.notes.some((n) => n.code === 'not_enough')) setHeld({ r, file: goodRead.file });
-    else open(r, goodRead.file);
+    if (verdict?.enough) open(verdict.r, verdict.file);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per answer
-  }, [st]);
+  }, [verdict]);
 
   const card = (title: string, testId: string, body: ReactNode, again = true) => (
     <StateCard title={title} testId={testId}>

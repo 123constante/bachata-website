@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { trackAnalyticsEvent } from '@/lib/analytics';
+import { flags } from '@/lib/featureFlags';
 import { FLYER_PROBLEM_COPY, FlyerError, checkFlyerFile, reencodeFlyer, type EncodedFlyer } from '../../shared/flyerModel';
 import { parseFlyerRead, type FlyerRead } from './flyerReadShape';
 import { applySessionChoices, type DraftFieldKey, type FlyerDraftResult, type NoteLine, type SessionChoice } from './flyerToDraft';
@@ -12,6 +13,19 @@ import { blankCreate, buildableKind, withFirstDate, type CreateDraft, type Creat
  * phone photo fits the function's 5 MB) before it is sent, with the signed-in person's own token
  * (never the anon key). One read at a time. Nothing is saved here.
  */
+
+/** Start from a flyer shows only with all three flags on; off, the kind step is exactly as before. */
+export const flyerReaderOn = (): boolean => flags.organiserFlyerReader && flags.organiserP3 && flags.organiserSelfServe;
+
+/** "Monday 09:00" in London, or null when the time is not one. */
+export function resetWords(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(t);
+  const get = (k: string) => parts.find((p) => p.type === k)?.value ?? '';
+  return `${get('weekday')} ${get('hour')}:${get('minute')}`;
+}
 
 export const FLYER_FUNCTION = 'event-flyer-read';
 export const FLYER_REFUSALS = ['daily_limit', 'attempts_limit', 'switched_off', 'not_organiser', 'unauthorised', 'bad_image', 'read_failed'] as const;

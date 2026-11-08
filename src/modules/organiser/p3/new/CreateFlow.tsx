@@ -18,10 +18,9 @@ import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave'
 import { PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
 import { Sheet } from '../screens/Sheet';
 import { fullDate } from '../../shared/dateWords';
-import { flags } from '@/lib/featureFlags';
 import { FlyerStart } from './FlyerStart';
 import { applySessionChoices, type DraftFieldKey, type SessionChoice } from './flyerToDraft';
-import { fieldSig, flyerHandoffFor, forgetFlyerHandoff, recordFlyerSave } from './useFlyerRead';
+import { fieldSig, flyerHandoffFor, flyerReaderOn, forgetFlyerHandoff, recordFlyerSave } from './useFlyerRead';
 import './create.css';
 
 const TITLE = 'New event';
@@ -36,9 +35,6 @@ function Frame({ title, back, end, children, testId }: { title: string; back: { 
 }
 
 // ---- C1 pick what it is -------------------------------------------------------------------
-
-/** Start from a flyer shows only with all three flags on; off, the kind step is exactly as before. */
-export const flyerReaderOn = (): boolean => flags.organiserFlyerReader && flags.organiserP3 && flags.organiserSelfServe;
 
 function KindStep({ organiserId, pageCount }: { organiserId: string | null; pageCount: number }) {
   const navigate = useNavigate();
@@ -150,9 +146,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   // Start from a flyer: what the reader found, kept in memory for this draft only (a reload drops it)
   const [flyer] = useState(() => (boot.open ? null : flyerHandoffFor(boot.draft.seriesId)));
   const [choices, setChoices] = useState<SessionChoice[]>(() => flyer?.sessionChoices ?? []);
-  const [checked, setChecked] = useState<ReadonlySet<DraftFieldKey>>(() => new Set());
   const dNow = useRef(d);
-  dNow.current = d;
+  useEffect(() => { dNow.current = d; }, [d]);
   // the flyer is the cover, uploaded only by the normal save
   const [cover, setCover] = useState<File | null>(() => flyer?.file ?? null);
   const [coverError, setCoverError] = useState<string | null>(null);
@@ -162,12 +157,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     if (flyer) { recordFlyerSave(flyer, dNow.current); forgetFlyerHandoff(); }
     setD((x) => ({ ...x, created: true }));
   } });
-  // a "check this" mark clears once the organiser changes that field
-  useEffect(() => {
-    if (!flyer) return;
-    const now = flyer.doubtful.filter((k) => !checked.has(k) && fieldSig(d, k) !== fieldSig(flyer.initial, k));
-    if (now.length) setChecked((s) => new Set([...s, ...now]));
-  }, [d, flyer, checked]);
+
   // review 2 R2-2: leaving a draft that exists (the partial or details screen, by any link) forgets it here
   const exists = useRef(false);
   const stateNow = save.state.s;
@@ -259,7 +249,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   }
 
   const failed = save.state.s === 'failed' ? save.state : null;
-  const mark = (...ks: DraftFieldKey[]) => (flyer && ks.some((k) => flyer.doubtful.includes(k) && !checked.has(k))
+  // a "check this" mark shows while that field is still what the flyer said, and clears once it is changed
+  const mark = (...ks: DraftFieldKey[]) => (flyer && ks.some((k) => flyer.doubtful.includes(k) && fieldSig(d, k) === fieldSig(flyer.initial, k))
     ? <span className="p3-tag p3-new-check" data-testid={`p3-new-check-${ks[0]}`}>Check this</span> : null);
   const ticksFor = (cs: readonly SessionChoice[]) => applySessionChoices({ ...d, sessions: flyer?.baseSessions ?? [] }, cs);
   // the tick list shows until the organiser changes the sessions another way (the Sessions sheet)
