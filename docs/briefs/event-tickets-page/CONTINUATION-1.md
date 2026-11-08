@@ -1,0 +1,5 @@
+# CONTINUATION 1: event-tickets-page (same branch claude/event-tickets-page)
+Read first, in order: docs/briefs/event-tickets-page/BRIEF.md (full scope, acceptance contract, limits), HANDOVER.md and INVENTORY.md on the branch, and the round-seven mockup docs/briefs/event-tickets-page/mockups-7.html.md (on brief/event-tickets-page). Rebase/merge origin/main first (branch is behind).
+Done already: INVENTORY, src/modules/tickets/goodToKnow.ts, ticketSymbol.ts + 17 tests. Delete the empty file src/modules/tickets/__tests__/goodToKnow.test.ts.
+Left = HANDOVER.md "Left" items 1-5. Work in slices and PUSH after each (subject ends [skip preview] except the final push): (a) venue read addition + wiring chips; (b) the one Tickets page reusing TicketsBlock state, no change to ticketCheckoutModel.ts checkout/payment logic; (c) sticky bar opens it, remove inline mount; (d) thanks QR per ticket + My tickets find-by-email (if this makes the PR too big, stop after (c), open the PR, and say (d) is left in the handover); (e) tests, tsc, CI steps, PR body labels, 390x844 walk.
+Context cap: stop and hand over at 45%, never later.
