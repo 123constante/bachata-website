@@ -4,6 +4,8 @@ import { ChevronLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { TicketsBlock } from './TicketsBlock';
 import { buildChips, type Chip, type GoodToKnowInput } from './goodToKnow';
+import { useOccurrenceProgram, useProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
+import { buildProgramme, type ProgrammeView } from './programmeModel';
 import { fetchPublicTicketTypes, publicTicketKeys } from './ticketCheckoutApi';
 
 /**
@@ -59,13 +61,56 @@ export function ChipRow({ chips }: { chips: readonly Chip[] }) {
   );
 }
 
+export function ProgrammeBlock({ view, onSeeFull }: { view: ProgrammeView | null; onSeeFull?: () => void }) {
+  if (!view || view.items.length === 0) return null;
+  return (
+    <section aria-label="Programme" data-testid="programme" className="mb-3">
+      <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wide" style={{ color: 'hsl(var(--bento-fg-muted))' }}>
+        Programme
+      </h2>
+      <ul className="space-y-1">
+        {view.items.map((it) => (
+          <li key={it.id} data-programme-item className="flex min-w-0 gap-2 text-[14px]">
+            <span className="shrink-0 font-semibold">{it.timeText}</span>
+            <span className="min-w-0 break-words">{it.label}</span>
+          </li>
+        ))}
+      </ul>
+      {view.hasMore && (
+        <button
+          type="button"
+          data-testid="see-full-programme"
+          onClick={onSeeFull}
+          className="mt-1 inline-flex h-[48px] items-center text-[14px] underline"
+        >
+          See full programme
+        </button>
+      )}
+    </section>
+  );
+}
+
 export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, chipInput, onClose }: EventTicketsPageProps) {
   const { data: types } = useQuery({
     queryKey: publicTicketKeys.types(seriesId),
     queryFn: () => fetchPublicTicketTypes(seriesId),
     staleTime: 30_000,
   });
-  const chips = buildChips({ ...chipInput, latestCloseIso: latestCloseIso((types ?? []).map((t) => t.salesCloseAt)) });
+  // Same query keys as the Schedule tile, so the programme is shared from cache.
+  const occQuery = useOccurrenceProgram(occurrenceId);
+  const useSeries = !occurrenceId || (occQuery.isSuccess && (occQuery.data?.length ?? 0) === 0);
+  const seriesQuery = useProgramItems(useSeries ? seriesId : null);
+  const programme = buildProgramme((useSeries ? seriesQuery.data : occQuery.data) ?? []);
+  const chips = buildChips({
+    ...chipInput,
+    programmeStartIso: chipInput.programmeStartIso ?? programme?.startIso ?? null,
+    programmeEndIso: chipInput.programmeEndIso ?? programme?.endIso ?? null,
+    latestCloseIso: latestCloseIso((types ?? []).map((t) => t.salesCloseAt)),
+  });
+  const seeFull = () => {
+    onClose();
+    setTimeout(() => document.querySelector('[data-block-id="schedule"]')?.scrollIntoView({ block: 'start' }), 50);
+  };
 
   // The phone's Back button closes the page and returns to the event.
   useEffect(() => {
@@ -105,6 +150,7 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
           <h1 className="break-words text-[20px] font-semibold leading-tight">{title}</h1>
           {dateLine && <p className="mt-1 text-[14px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>{dateLine}</p>}
         </header>
+        <ProgrammeBlock view={programme} onSeeFull={seeFull} />
         <ChipRow chips={chips} />
         <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} />
       </div>
