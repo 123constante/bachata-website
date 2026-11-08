@@ -13,7 +13,7 @@ and the stage 3 handover only.
 |---|---|
 | `docs/ci-offload/acer-web/gate-job-started.sh` | identity section rewritten: allow-list, event payload, merge-commit and changed-files checks (below); `_home` emptied per job, `_cache` kept |
 | `docs/ci-offload/acer-web/workflows.allow` (new) | the allow-list; ships with `bom-check.yml` only |
-| `docs/ci-offload/acer-web/test-gate-hooks.sh` | table-driven (fix round 3: see below for the current totals): 104 cases + `--mutants` (21 rules, every mutant caught) |
+| `docs/ci-offload/acer-web/test-gate-hooks.sh` | table-driven: 313 cases + `--mutants` (36 mutants: 24 `#@rule` + 12 named; baseline `FAST=1` PASS 302; all caught). Re-measured 2026-11-08 on the unitfix branch, see "Unit file matches the live Acer" |
 | `docs/ci-offload/acer-web/actions.runner.bachata-website.acer-web.service` | HOME / XDG / npm cache under `_work`, read-only `PLAYWRIGHT_BROWSERS_PATH`, `ExecStartPre` mkdir |
 | `docs/ci-offload/acer-web/provision-checklist.md` (new) | what root installs; resolver check |
 
@@ -303,8 +303,8 @@ Not verified (fix round 1):
 ## Verified / Not verified -- wave 0 (4bf0762fb; superseded counts above)
 
 Verified (this sandbox, Linux, git 2.x, python3):
-- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> PASS 104 cases.
-- `bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants` -> PASS all 21 mutants caught.
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh` -> PASS 104 cases at that commit (current: PASS 313).
+- `bash docs/ci-offload/acer-web/test-gate-hooks.sh --mutants` -> PASS all 21 mutants caught at that commit (current: PASS all 36).
 - `npx vitest run tests/routeRunner.test.ts` -> 96 passed (incl. the shell-test + IDENTITY-mutant cases).
 - No `.github/workflows/**`, `src/**`, `supabase/**`, `vite.config.ts` or `route-runner.mjs` change;
   the `bom-check` required-check name is unchanged (workflow untouched).
@@ -320,3 +320,29 @@ Not verified:
 - Task 2 env shadowing (above). The `--mutants` mode is not in CI (about 75 s); vitest runs the
   plain suite plus the IDENTITY mutant.
 - The lead's plans-folder documents (unreachable); findings A-O not cross-checked.
+
+## Unit file matches the live Acer (2026-11-08, ticket dt_a5439a904b8f, branch `claude/ci-offload-unitfix`)
+
+Brief: `brief/ci-offload-unitfix:docs/briefs/ci-offload-unitfix.md`. Nothing installed or run on any machine.
+
+- Unit: `ExecStart=/srv/ghrunner-web/runner/bin/runsvc.sh` (run.sh copies run-helper.sh into the
+  runner dir, read-only under `ProtectSystem=strict`) and `RestrictSUIDSGID=no` (tar fails with ENOSYS
+  under it on Ubuntu 26.04, proven by bisect). Owner-approved 2026-11-08; this is what the Acer's
+  drop-in `override.conf` already sets. `NoNewPrivileges=yes` and `ProtectSystem=strict` stay.
+  Once the repo unit is installed, the drop-in is redundant but harmless.
+- `provision-acer-web.sh`: unit sha256 (CRLF-stripped) now
+  `e383f73831473b0ad9c7efbd9ef303aa87c638198b7d373ddc679bf00f231af4`. Hooks, `workflows.allow` and
+  `test-gate-hooks.sh` are unchanged, and so are their sums.
+- **COMMIT pin NOT bumped** (a PR cannot contain its own merge sha). Next step: a one-line PR setting
+  `COMMIT=` to this PR's merge commit. Do NOT re-run `provision-acer-web.sh` before that bump: at the old
+  pin, step 2's checksum STOPS it (fails safe, but cannot provision).
+- `provision-checklist.md` section 7: repo secret `WEB_RUNNER_READ_TOKEN` (fine-grained PAT, this repo,
+  Administration: Read-only, 90-day expiry) + repo variable `WEB_RUNNER_LABEL=acer-web`.
+
+Verified (this sandbox, Linux, GNU bash/coreutils): `test-gate-hooks.sh` PASS 313 cases;
+`--mutants` `ok baseline green: PASS 302 cases` then `PASS all 36 mutants caught`, exit 0 (including
+`env_i_reexec` and `scrub_completed`, caught by `ps4-stops-at-reexec`); `bash -n` on the script; the
+script's sums block passes `sha256sum -c` on all 5 committed files (CRLF-stripped).
+
+Not verified: nothing ran on the Acer or the Dell; `systemd-analyze verify` not run (no systemd here);
+bash 5.3 + uutils not available here.
