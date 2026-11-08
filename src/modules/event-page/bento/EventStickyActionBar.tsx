@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Navigation, Ticket, CalendarPlus, Share2 } from 'lucide-react';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
+import { fetchPublicTicketTypes, publicTicketKeys, sellsInSite } from '@/modules/tickets/ticketCheckoutApi';
 import { shareEvent } from '@/modules/event-page/bento/utils/eventActions';
 
 type EventStickyActionBarProps = {
@@ -10,6 +12,9 @@ type EventStickyActionBarProps = {
   directionsUrl: string | null;
   /** External ticket page. When null, the Tickets button is hidden. */
   ticketUrl: string | null;
+  /** True when the page may offer in-site tickets (flag on, bookable night). The bar then
+   *  reads the series' ticket types itself; false never fetches. */
+  inSiteTicketing?: boolean;
   /** Title used for the native share sheet / fallback text. */
   shareTitle: string;
   /** Secondary line for the share sheet (date + venue). */
@@ -78,6 +83,7 @@ export const EventStickyActionBar = ({
   eventId,
   directionsUrl,
   ticketUrl,
+  inSiteTicketing = false,
   shareTitle,
   shareSubtitle,
   canAddToCalendar,
@@ -91,11 +97,21 @@ export const EventStickyActionBar = ({
   // the portal only after hydration.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
+  const { data: types } = useQuery({
+    queryKey: publicTicketKeys.types(eventId ?? ''),
+    queryFn: () => fetchPublicTicketTypes(eventId as string),
+    staleTime: 30_000,
+    enabled: inSiteTicketing && !!eventId,
+  });
+  const inSite = inSiteTicketing && sellsInSite(types);
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
-  const directionsIsPrimary = !ticketUrl;
+  // When the event sells in-site, the in-site buy action leads and the external link
+  // steps back to a small text link, so exactly one primary buy action shows.
+  const directionsIsPrimary = !ticketUrl && !inSite;
 
   const ticketPrimaryStyle: React.CSSProperties = accentColor
     ? {
@@ -125,6 +141,11 @@ export const EventStickyActionBar = ({
     });
   };
 
+  const handleBuyInSite = () => {
+    const el = document.getElementById('tickets');
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const handleShare = () => {
     void shareEvent({ eventId, title: shareTitle, subtitle: shareSubtitle, source: SOURCE });
   };
@@ -144,14 +165,44 @@ export const EventStickyActionBar = ({
             'linear-gradient(180deg, hsl(var(--bento-surface) / 0) 0%, hsl(var(--bento-surface) / 0.94) 30%)',
         }}
       >
+        {inSite && ticketUrl && (
+          <div className="pointer-events-auto mb-1 text-center">
+            <a
+              href={ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleTicket}
+              data-testid="tickets-elsewhere"
+              className="inline-block px-2 py-1 text-[12px] underline"
+              style={{ color: 'hsl(var(--bento-fg-muted))' }}
+            >
+              Tickets elsewhere
+            </a>
+          </div>
+        )}
         <div className="pointer-events-auto flex items-center gap-2">
-          {ticketUrl && (
+          {inSite && (
+            <button
+              type="button"
+              onClick={handleBuyInSite}
+              data-testid="buy-in-site"
+              className={PRIMARY_CLASS}
+              data-primary="true"
+              style={ticketPrimaryStyle}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              Buy tickets
+            </button>
+          )}
+
+          {!inSite && ticketUrl && (
             <a
               href={ticketUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleTicket}
               className={PRIMARY_CLASS}
+              data-primary="true"
               style={ticketPrimaryStyle}
             >
               <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
@@ -166,6 +217,7 @@ export const EventStickyActionBar = ({
               rel="noopener noreferrer"
               onClick={handleDirections}
               className={directionsIsPrimary ? PRIMARY_CLASS : SECONDARY_CLASS}
+              data-primary={directionsIsPrimary ? 'true' : undefined}
               style={directionsIsPrimary ? GOLD_PRIMARY : GHOST_STYLE}
             >
               <Navigation className="h-[17px] w-[17px]" strokeWidth={2.2} />
