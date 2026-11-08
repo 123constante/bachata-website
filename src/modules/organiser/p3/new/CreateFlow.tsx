@@ -212,6 +212,12 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
     save.forgetCover();
     setCover(file);
   };
+  // review D1 (R16): the flyer (or any picked photo) can be dropped before saving; the next save sends no cover
+  const removeCover = () => {
+    setCoverError(null);
+    save.forgetCover();
+    setCover(null);
+  };
 
   // The draft exists but not all of it saved: say what, and offer every way out.
   if (save.state.s === 'partial' || save.state.s === 'discarding' || save.state.s === 'discardFailed') {
@@ -351,6 +357,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
           {cover ? 'Choose a different photo' : 'Add a photo'}
           <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => pickCover(e.target.files?.[0])} data-testid="p3-new-cover-input" />
         </label>
+        {cover && !d.created && <button type="button" className="p3-btn p3-btn-line p3-new-file" disabled={busy} onClick={removeCover} data-testid="p3-new-cover-remove">Remove photo</button>}
         {coverError ? <p className="p3-error" data-testid="p3-new-cover-error">{coverError}</p> : <p className="p3-note">{COPY.photoNote} Needed to go live.</p>}
       </div>
 

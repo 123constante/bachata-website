@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FLYER_ACCEPT } from '../../shared/flyerModel';
 import { useVenueOptions } from '../../shared/publicVenues';
@@ -43,6 +43,18 @@ function foundLines(r: FlyerDraftResult, today: string): string[] {
   ].filter((x): x is string => !!x);
 }
 
+/** D2: how long a good read waits on the venue list before it goes on without venue matching. */
+const VENUE_WAIT_MS = 8000;
+const NO_VENUE_MATCH_NOTE = 'The venue list did not load, so we continued without venue matching: pick the venue below.';
+
+/** D7: the missing part, taken from flyerToDraft's not_enough note so the title and the form say the same thing. */
+function notEnoughTitle(r: FlyerDraftResult): string {
+  // flyerToDraft missing part: "... (missing a date, a venue) ..."
+  const text = r.notes.find((n) => n.code === 'not_enough')?.text ?? '';
+  const missing = /\(missing ([^)]+)\)/.exec(text)?.[1];
+  return missing ? `Not enough on this flyer: missing ${missing}` : 'Not enough on this flyer to fill the form';
+}
+
 export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = browserFlyerDeps }: {
   today: string; organiserId: string | null; pageCount: number; onBlank: () => void; deps?: FlyerReadDeps;
 }) {
@@ -63,13 +75,25 @@ export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = brow
 
   // a good read goes straight to the form; not enough waits here to say what was found
   const result: FlyerReadResult | null = st.s === 'done' ? st.result : null;
+  const goodRead = st.s === 'done' && st.result.kind === 'read';
+  // D2: a venue list that never settles must not hold a good read: after VENUE_WAIT_MS, continue without venue matching
+  const [waitedOut, setWaitedOut] = useState<unknown>(null);
+  const waiting = goodRead && venues.isPending;
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setWaitedOut(st), VENUE_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [waiting, st]);
+  // latched: a list that lands after the wait does not re-open the form or change what it opened with
+  const noMatch = goodRead && waitedOut === st;
   // venues still loading: wait, so a venue on the flyer can match (a failed load matches none)
   const verdict = useMemo(() => {
-    if (st.s !== 'done' || st.result.kind !== 'read' || venues.isPending) return null;
-    const r = flyerToDraft(st.result.read, venues.data ?? [], today);
+    if (st.s !== 'done' || st.result.kind !== 'read' || (venues.isPending && !noMatch)) return null;
+    const r0 = flyerToDraft(st.result.read, noMatch ? [] : venues.data ?? [], today);
+    // the venue name stays as the "Flyer says" note; the form says in one line that matching was skipped
+    const r = noMatch ? { ...r0, notes: [...r0.notes, { code: 'no_venue_match', text: NO_VENUE_MATCH_NOTE }] } : r0;
     return { r, file: st.file, enough: !r.notes.some((n) => n.code === 'not_enough') };
-  }, [st, venues.isPending, venues.data, today]);
-  const goodRead = st.s === 'done' && st.result.kind === 'read';
+  }, [st, venues.isPending, venues.data, today, noMatch]);
   const held = verdict && !verdict.enough ? verdict : null;
   useEffect(() => {
     if (verdict?.enough) open(verdict.r, verdict.file);
@@ -98,7 +122,8 @@ export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = brow
   } else if (held) {
     const lines = foundLines(held.r, today);
     body = (
-      <StateCard title="Not enough on this flyer to fill the date and venue" testId="p3-flyer-not-enough">
+      <StateCard title={notEnoughTitle(held.r)} testId="p3-flyer-not-enough">
+        {noMatch && <p className="p3-note" data-testid="p3-flyer-no-venue-match">{NO_VENUE_MATCH_NOTE}</p>}
         <p>Here is what we found:</p>
         {lines.length ? <ul className="p3-new-flyer-found" data-testid="p3-flyer-found">{lines.map((l) => <li key={l}>{l}</li>)}</ul> : <p data-testid="p3-flyer-found-none">Nothing we could use.</p>}
         <div className="p3-stack-s">
@@ -113,8 +138,9 @@ export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = brow
   } else if (result?.kind === 'offline') {
     body = card('You\u2019re offline', 'p3-flyer-offline', <p>Connect to the internet and try again, or fill it in yourself.</p>);
   } else if (result?.kind === 'refused' && result.reason === 'daily_limit') {
+    // D5: no number here (the function owns the limit): "today's flyer reads"
     const when = resetWords(result.resetsAt);
-    body = card('You\u2019ve used today\u2019s 5 flyer reads', 'p3-flyer-daily-limit', <p>{when ? <>Back {when}.</> : <>Back tomorrow.</>} You can fill it in yourself now.</p>, false);
+    body = card('You\u2019ve used all of today\u2019s flyer reads', 'p3-flyer-daily-limit', <p>{when ? <>Back {when}.</> : <>Back tomorrow.</>} You can fill it in yourself now.</p>, false);
   } else if (result?.kind === 'refused' && result.reason === 'attempts_limit') {
     body = card('Too many tries in a row', 'p3-flyer-attempts-limit', <p>Wait a few minutes before the next flyer, or fill it in yourself now.</p>, false);
   } else if (result?.kind === 'refused' && result.reason === 'switched_off') {

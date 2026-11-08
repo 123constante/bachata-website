@@ -292,3 +292,68 @@ describe('pure parts', () => {
     expect(classifyFlyerAnswer(429, { reason: 'daily_limit', resets_at: 'x' }, true)).toEqual({ kind: 'refused', reason: 'daily_limit', resetsAt: 'x' });
   });
 });
+
+describe('review fixes D1, D2, D5, D7', () => {
+  const coverSent = () => sent.some((e) => 'default_cover_image_url' in (e.command.payload ?? {}));
+
+  it('D1: Remove photo drops the flyer cover, and saving then sends no cover', async () => {
+    await readWith(ok(ROWS[5].read));
+    await screen.findByTestId('p3-new-form');
+    expect(screen.getByTestId('p3-new-cover-picked')).toBeTruthy();
+    const remove = screen.getByTestId('p3-new-cover-remove');
+    expect(remove.textContent).toBe('Remove photo');
+    expect(remove.className).toMatch(/p3-new-file/); // the 48px tap class
+    fireEvent.click(remove);
+    expect(screen.queryByTestId('p3-new-cover-picked')).toBeNull();
+    expect(screen.queryByTestId('p3-new-cover-remove')).toBeNull();
+    expect(screen.getByTestId('p3-new-cover-label').textContent).toMatch(/Add a photo/);
+    await act(async () => { fireEvent.click(screen.getByTestId('p3-new-save-draft')); });
+    await waitFor(() => expect(sent.length).toBeGreaterThan(0));
+    expect(upload).not.toHaveBeenCalled();
+    expect(coverSent()).toBe(false);
+  });
+
+  it('D1 control: without Remove the same save does send the cover', async () => {
+    await readWith(ok(ROWS[5].read));
+    await screen.findByTestId('p3-new-form');
+    await act(async () => { fireEvent.click(screen.getByTestId('p3-new-save-draft')); });
+    await waitFor(() => expect(coverSent()).toBe(true));
+  });
+
+  it('D2: a venue list that never settles: after the wait, continue without venue matching and say so', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const base = rpc.getMockImplementation()!;
+      rpc.mockImplementation(async (fn: string, args: never) => (fn === 'get_organiser_venue_options_v1' ? new Promise(() => {}) : base(fn, args)));
+      await readWith(ok(ROWS[0].read)); // The Ritz Club, which would match
+      await screen.findByTestId('p3-flyer-reading');
+      await act(async () => { vi.advanceTimersByTime(8050) /* the 8 s venue wait */; });
+      await screen.findByTestId('p3-new-form');
+      expect(screen.getByTestId('p3-new-flyer-note-no_venue_match').textContent).toMatch(/without venue matching/);
+      expect(stored().venue).toBeNull();
+      expect(screen.getByTestId('p3-new-venue-said').textContent).toMatch(/^Flyer says: The Ritz Club/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('D5: the daily-limit title names no number', async () => {
+    await readWith(refuse(429, { error: 'daily_limit' }));
+    const card = await screen.findByTestId('p3-flyer-daily-limit');
+    expect(card.textContent).toMatch(/today’s flyer reads/);
+    expect(card.textContent).not.toMatch(/\d+ flyer reads/);
+  });
+
+  it('D7: the not-enough title names only what is missing', async () => {
+    const dated = [{ date_start: '2026-12-04', date_end: null, year_printed: true, weekday_printed: null, recurrence_text: null }];
+    await readWith(ok(mk({ kind: 'not_enough', dates: dated, venue_name: 'The Ritz Club' })));
+    const card = await screen.findByTestId('p3-flyer-not-enough');
+    expect(card.querySelector('h2,h3,strong')?.textContent ?? card.textContent).toMatch(/missing a name/);
+    expect(card.textContent).not.toMatch(/date and venue/);
+  });
+
+  it('D7: a flyer with nothing on it names all three, and never says date and venue alone', async () => {
+    await readWith(ok(mk({ kind: 'not_enough', title: 'Mystery Night' })));
+    expect((await screen.findByTestId('p3-flyer-not-enough')).textContent).toMatch(/missing a date, a venue/);
+  });
+});
