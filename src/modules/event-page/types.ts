@@ -199,6 +199,10 @@ export type EventPageSnapshot = {
       capacity: number | null;
       floor_type: string | null;
       facilities_new: string[];
+      parking: string | null;
+      id_required: boolean | null;
+      cloakroom_available: boolean | null;
+      bar_available: boolean | null;
       timezone: string | null;
     } | null;
     timezone: string | null;
@@ -304,6 +308,10 @@ export type EventPageModel = {
     capacity: number | null;
     floorType: string | null;
     facilitiesNew: string[];
+    parking: string | null;
+    idRequired: boolean | null;
+    cloakroomAvailable: boolean | null;
+    barAvailable: boolean | null;
     venueTimezone: string | null;
     cityId: string | null;
     cityName: string | null;
