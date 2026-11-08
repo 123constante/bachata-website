@@ -21,6 +21,7 @@ import { OWNER_ONLY_ADD, ROLE_HELP } from '@/modules/organiser/shared/selfServeE
 
 /** Everything the Team screens and the shell READ; any other RPC (an unknown one too) counts as a write. */
 const READS = new Set([
+  'organiser_ownership_v1',
   'organiser_team_v1', 'organiser_team_shared_v1', 'list_organiser_access_requests_v1', 'organiser_team_browse_people_v1', 'organiser_team_search_people_v1',
   '_my_dancer_profile_id_v1', 'my_account_deletion_status_v1', 'dancer_area_gate_v1',
 ]);
