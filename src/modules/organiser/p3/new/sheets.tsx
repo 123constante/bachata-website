@@ -129,7 +129,7 @@ export function SessionsSheet({ d, today, onChange, onClose }: { d: CreateDraft;
   );
 }
 
-/** Price basics: how dancers pay (going live needs it), a price or two, a ticket link. Stripe tickets come later. */
+/** Price basics: how dancers pay (going live needs it), a price or two, a ticket link. Paid tickets with Stripe are added from the event's Tickets sheet. */
 export function PriceSheet({ d, today, onChange, onClose }: { d: CreateDraft; today: string; onChange: (p: Partial<CreateDraft>) => void; onClose: () => void }) {
   const free = d.pay.includes('free');
   const problem = rowProblems(d, today).price;

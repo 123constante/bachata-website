@@ -37,6 +37,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | I4 notification queue + `send-access-request-email` edge function | admin | I1 applied | same |
 | I5 Website: ownerless claim copy, `/account` request status, interim label in P3, ticket tools hidden | web | PARTIAL: refusal copy for `declined_recently` and `interim_cannot_add` done (PR: claude/declined-recently-copy); interim label + ticket tools hidden in PR (claude/interim-seat-p3-labels, #1487); claim copy and `/account` status not started. I7 and Design Gate by hand | brief/interim-seat-p3-labels; same |
 | I6 G1 write-door doc gains the new doors | web docs | I1 | I6 write-door doc done: `docs/scoping/g1-write-door-check.md` "Interim-seat doors (added with I1)"; PR: claude/seat-doors-doc |
+| S3 connect-sheet-default: Stripe named at price entry, small "Selling elsewhere?" text link under Connect, start error in sheet and banner, Get paid link, refresh note | web | done on branch claude/connect-sheet-default (not signed-in walked) | docs/design/connect-sheet-default.INVENTORY.md |
 | E7 cancelled nights shown marked "Cancelled" on the page | web | owner yes/no (below) | GAPS file, ranked gap 4 |
 | Remaining P3 slices W3 later (Name/details save model, Prices, History, create flows), W4c invites/claims + organiser-side Going | web | needs re-survey against main; ARC-p3.md is stale | plans/ARC-p3.md section 2 |
 | Organiser analytics S1/S2 | admin | parked until the organiser dashboard exists | READY-QUEUE row 13 |
