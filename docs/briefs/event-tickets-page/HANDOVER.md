@@ -15,3 +15,5 @@
 
 ## Not verified
 No browser walk, no e2e, no live Stripe, no prod data survey run. See PR body for checks run.
+
+Checks: tsc 0 errors in the whole project; `npm run lint` 34 of 34 links green; `npm run check:mojibake` clean; vitest src/modules/tickets and src/modules/event-page all pass.
