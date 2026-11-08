@@ -1,0 +1,8 @@
+# HANDOVER 6: event-tickets-page (continuation 5, PR #1502)
+DONE (all 5 brief items):
+1. Tickets page now sits below the site header (measured: fixed header + sticky tabs row, 106px at 390) and shows Back, title, date line, venue line. FOUND: the date line was always empty for ordinary events because BentoPage read `pageModel.dates`, which exists only for festivals; it now falls back to the occurrence wall clock (read as-stored, UTC).
+2. Ticket tiles draw the mockup glyphs (TicketGlyph.tsx), chosen by ticketSymbol; sold-out tiles greyed.
+3. Cold sold-out: quiet disabled bar in the sticky bar (siteBarState in ticketCheckoutApi). Word is "Sold out" when every type is sold out, "Not yet" / "Closed" otherwise (honest wording instead of "Sold out" for a not-yet-open night). "Tickets elsewhere" link kept when a ticket URL exists. Table tests: src/modules/tickets/__tests__/siteBarState.matrix.test.tsx.
+4. Mock now serves programme rows + venue fields (shape `full`); walk spec has a `full` screenshot and a cold sold-out spec. Chips wrap, no sideways scroll. Screenshots replaced in walk/ (several, single, full, soldout, soldout-cold). Walk must run with --workers=1 (shared mock shape).
+5. Checks: unit suite 512 files green (before last BentoPage edit); tickets + event-page + tests/client re-run green after; lint chain 34/34; mojibake clean; build ok, bundle budget ok (39 event chunks).
+Not verified: tsc -p tsconfig.app.json shows the repo's existing errors only; none new in branch files (diff vs before = 4 fewer in BentoPage). Live Stripe, find-by-email (not built), real-data shape survey, walk not in a CI gate.

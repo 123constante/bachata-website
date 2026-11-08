@@ -22,6 +22,7 @@ import {
   typesForNight,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { TicketGlyph } from './TicketGlyph';
 import { SYMBOL_GRADIENT, ticketSymbol } from './ticketSymbol';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
@@ -247,9 +248,11 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 <span
                   aria-hidden="true"
                   data-symbol={ticketSymbol(t.name, t.pricePence)}
-                  className="h-[64px] w-[64px] shrink-0 rounded-md"
-                  style={{ background: SYMBOL_GRADIENT[ticketSymbol(t.name, t.pricePence)] }}
-                />
+                  className="flex h-[64px] w-[64px] shrink-0 items-center justify-center rounded-[14px] text-white"
+                  style={{ background: SYMBOL_GRADIENT[ticketSymbol(t.name, t.pricePence)], border: '1px solid var(--bento-hairline)', filter: pickable ? undefined : 'grayscale(1)' }}
+                >
+                  <TicketGlyph symbol={ticketSymbol(t.name, t.pricePence)} />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>

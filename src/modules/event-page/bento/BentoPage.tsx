@@ -49,7 +49,7 @@ import { EventEndedRecord } from '@/modules/event-page/bento/EventEndedRecord';
 import { selectLifecycleBanners } from '@/modules/event-page/bento/lifecycleBanner';
 import { formatRunRange } from '@/modules/event-page/bento/utils/endedRun';
 import { buildEventShareDescription } from '@/modules/event-page/endedShareDescription';
-import { instantToDate, wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
+import { instantToDate, type Instant, wallClockDateKey, wallClockToInstant } from '@/lib/time/wallClock';
 import { TapHintSticker } from '@/modules/event-page/bento/TapHintSticker';
 import type { CalendarEventInput } from '@/modules/event-page/bento/utils/ics';
 import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
@@ -181,6 +181,9 @@ const TileShimmer = () => (
   <div className="min-h-[24px] flex-1 animate-pulse rounded-md bg-white/20" />
 );
 
+// Naive or +00 wall clock -> an ISO string Date can parse; the value stays as-stored (read it with timeZone UTC).
+const asUtcIso = (raw: string): string => raw.trim().replace(' ', 'T').replace(/(Z|[+-]00(:?00)?)$/, '') + 'Z';
+
 export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug }: BentoPageProps) => {
   const { snapshot, pageModel } = useEventPage(eventId, occurrenceId);
 
@@ -209,12 +212,17 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
   const occurrence = snapshot?.occurrenceEffective ?? null;
   const state = pageModel.page.state;
-  const ticketsStart = instantToDate(pageModel.dates?.startsAt);
-  const ticketsEnd = instantToDate(pageModel.dates?.endsAt);
+  // Festivals carry true-UTC instants in pageModel.dates; ordinary events carry a naive London wall
+  // clock stamped +00 on the occurrence, shown as-stored (never Intl-converted), so read it as UTC.
+  const festivalDates = (pageModel as { dates?: { startsAt?: Instant | null; endsAt?: Instant | null; timezone?: string | null } | null }).dates;
+  const wallStart = occurrence?.startsAt ? new Date(asUtcIso(String(occurrence.startsAt))) : null;
+  const wallEnd = occurrence?.endsAt ? new Date(asUtcIso(String(occurrence.endsAt))) : null;
+  const ticketsStart = instantToDate(festivalDates?.startsAt) ?? (wallStart && !Number.isNaN(wallStart.getTime()) ? wallStart : null);
+  const ticketsEnd = instantToDate(festivalDates?.endsAt) ?? (wallEnd && !Number.isNaN(wallEnd.getTime()) ? wallEnd : null);
   const ticketsDateLine = ticketsStart
     ? new Intl.DateTimeFormat('en-GB', {
         weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit',
-        timeZone: pageModel.dates?.timezone ?? 'Europe/London',
+        timeZone: festivalDates?.startsAt ? (festivalDates?.timezone ?? 'Europe/London') : 'UTC',
       }).format(ticketsStart).replace(',', '')
     : null;
   const isLoading = state === 'loading';
@@ -777,6 +785,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
               organiserId={snapshot?.organisers[0]?.id ?? null}
               title={pageModel.identity.title}
               dateLine={ticketsDateLine}
+              venueLine={[pageModel.location.venueName, pageModel.location.address].filter(Boolean).join(', ') || null}
               chipInput={{
                 startIso: ticketsStart?.toISOString() ?? null,
                 endIso: ticketsEnd?.toISOString() ?? null,

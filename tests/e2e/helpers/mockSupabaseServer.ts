@@ -18,11 +18,22 @@ export const SHAPES: Record<string, unknown[]> = {
   several: [type('t1', 'Early bird', 1000, 'on_sale', 12), type('t2', 'General', 1500, 'on_sale', 80), type('t3', 'Party + workshop', 2200, 'on_sale', 30)],
   single: [type('t1', 'General', 1200, 'on_sale', 50)],
   soldout: [type('t1', 'General', 1200, 'sold_out', 0)],
+  full: [type('t1', 'Early bird', 1000, 'on_sale', 12), type('t2', 'Class + party', 1500, 'on_sale', 80), type('t3', 'VIP table', 4000, 'sold_out', 0), type('t4', 'Free ticket', 0, 'on_sale', 5)],
 };
+
+// legacy_compat programme rows (parseProgramItems reads this array shape, not the snapshot object).
+const row = (id: string, title: string, type: string, start: string, end: string, levels: string[], sort: number) => ({
+  id, title, type, start_time: `${date}T${start}:00`, end_time: `${date}T${end}:00`, day_event_date: date, sort_order: sort, levels, room: null,
+  people: [], section_id: null, section_kind: null, section_label: null,
+});
+const PROGRAMME = [
+  row('p1', 'Beginners class', 'class', '20:00', '21:00', ['beginner'], 1),
+  row('p2', 'Social party', 'party', '21:00', '23:30', [], 2),
+];
 
 const lineup = { teachers: [], djs: [], dancers: [], vendors: [], videographers: [] };
 const occurrence = {
-  occurrence_id: occ, starts_at: `${date}T20:00:00`, ends_at: `${date}T23:30:00`, local_date: date, timezone: 'Europe/London',
+  occurrence_id: occ, starts_at: `${date}T20:00:00+00`, ends_at: `${date}T23:30:00+00`, local_date: date, timezone: 'Europe/London',
   is_cancelled: false, cancellation_reason_label: null, has_timed_session: true, is_live: false, is_past: false, is_upcoming: true, lineup,
 };
 // The snapshot_compat shape parseEventPageSnapshot reads (src/modules/event-page/useEventPageQuery.ts).
@@ -35,7 +46,14 @@ const snapshot = () => ({
     meta_data_public: {}, actions: { ticket_url: null },
   },
   organisers: [], organiser_card: {}, occurrences: [occurrence], occurrence_effective: occurrence,
-  location_default: { city: { id: 'c1', name: 'London', slug: 'london' }, venue: null },
+  location_default: {
+    city: { id: 'c1', name: 'London', slug: 'london' },
+    venue: {
+      id: 'v1', name: 'The Studio', address_line: '14 Dean St, London', postcode: 'W1D 3RS', google_maps_link: null, image_url: null,
+      gallery_urls: [], transport_json: null, description: null, capacity: 200, floor_type: 'Sprung wooden floor', facilities_new: [],
+      parking: 'Paid street parking nearby', id_required: true, cloakroom_available: true, bar_available: true, timezone: 'Europe/London',
+    },
+  },
   attendance: { preview: [], going_count: 0 },
 });
 
@@ -54,7 +72,7 @@ createServer((req, res) => {
     const send = (b: unknown) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(b));
     switch (rpc) {
       case 'resolve_public_event_ref_v1': return send({ id: FRIDAY, slug: null });
-      case 'event_view_p5': return send(snapshot());
+      case 'event_view_p5': return send(raw.includes('legacy_compat') ? (shape === 'full' ? PROGRAMME : []) : snapshot());
       case 'ticket_types_public_v1': return send(SHAPES[shape]);
       default: return send(rpc ? [] : null);
     }

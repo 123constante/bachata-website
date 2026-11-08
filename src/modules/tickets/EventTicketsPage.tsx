@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -20,6 +20,8 @@ export interface EventTicketsPageProps {
   title: string;
   /** Pre-formatted date line, e.g. "Saturday 14 November, 9pm". */
   dateLine: string | null;
+  /** Venue name and address, e.g. "The Studio, 14 Dean St, London". */
+  venueLine?: string | null;
   chipInput: Omit<GoodToKnowInput, 'latestCloseIso'>;
   onClose: () => void;
 }
@@ -90,8 +92,18 @@ export function ProgrammeBlock({ view, onSeeFull }: { view: ProgrammeView | null
   );
 }
 
-export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, chipInput, onClose, programHooks }: EventTicketsPageProps) {
+export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, onClose, programHooks }: EventTicketsPageProps) {
   const { useOccurrenceProgram, useProgramItems } = programHooks;
+  // Sit below the site header (fixed bar plus the sticky tabs row): measured, 106px on a phone.
+  const [topPx, setTopPx] = useState(106);
+  useLayoutEffect(() => {
+    let b = 0;
+    document.querySelectorAll('header.fixed, nav.sticky').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.top < 120 && r.bottom > b) b = r.bottom;
+    });
+    if (b > 0) setTopPx(Math.round(b));
+  }, []);
   const { data: types } = useQuery({
     queryKey: publicTicketKeys.types(seriesId),
     queryFn: () => fetchPublicTicketTypes(seriesId),
@@ -132,8 +144,8 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
       aria-modal="true"
       aria-label="Tickets"
       data-testid="event-tickets-page"
-      className="fixed inset-0 z-50 overflow-y-auto"
-      style={{ background: 'hsl(var(--bento-surface))', color: 'hsl(var(--bento-fg))' }}
+      className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto"
+      style={{ top: topPx, background: 'hsl(var(--bento-surface))', color: 'hsl(var(--bento-fg))' }}
     >
       <div className="mx-auto w-full max-w-[430px] px-3 pb-8">
         <nav className="sticky top-0 z-10 flex items-center gap-2 py-2" style={{ background: 'hsl(var(--bento-surface))' }}>
@@ -150,6 +162,7 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
         <header className="mb-3">
           <h1 className="break-words text-[20px] font-semibold leading-tight">{title}</h1>
           {dateLine && <p className="mt-1 text-[14px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>{dateLine}</p>}
+          {venueLine && <p data-testid="tickets-venue" className="break-words text-[14px]" style={{ color: 'hsl(var(--bento-fg-muted))' }}>{venueLine}</p>}
         </header>
         <ProgrammeBlock view={programme} onSeeFull={seeFull} />
         <ChipRow chips={chips} />

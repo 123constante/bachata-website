@@ -16,7 +16,7 @@ const OUT = process.env.WALK_OUT ?? 'test-results/walk-event-tickets-page';
 mkdirSync(OUT, { recursive: true });
 
 const MOCK = process.env.MOCK_URL ?? 'http://127.0.0.1:54321';
-const SHAPES = { several: 1, single: 1, soldout: 1 } as const;
+const SHAPES = { several: 1, single: 1, soldout: 1, full: 1 } as const;
 
 async function open(page: Page, shape: keyof typeof SHAPES) {
   await fetch(`${MOCK}/__shape?v=${shape}`);
@@ -33,7 +33,7 @@ async function expectTaps(scope: Locator) {
 }
 const noSideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
-for (const shape of ['several', 'single'] as const) {
+for (const shape of ['several', 'single', 'full'] as const) {
   test(`tickets page: ${shape}`, async ({ page }) => {
     await open(page, shape);
     const bar = page.getByRole('button', { name: /Buy tickets/i }).first();
@@ -46,8 +46,27 @@ for (const shape of ['several', 'single'] as const) {
     await page.screenshot({ path: `${OUT}/${shape}.png`, fullPage: false });
     await expectTaps(root);
     expect(await noSideways(page)).toBe(true);
+    // Header is below the site header and fully visible; tiles carry glyphs.
+    const h1 = await root.locator('h1').boundingBox();
+    expect(h1 && h1.y).toBeGreaterThanOrEqual(106);
+    expect(await root.locator('svg[data-glyph]').count()).toBeGreaterThan(0);
+    if (shape === 'full') {
+      await expect(page.getByTestId('programme').first()).toBeVisible();
+      await expect(root.locator('[data-chip]').first()).toBeVisible();
+    }
   });
 }
+
+// Cold load, every ticket type sold out: the event page shows a quiet disabled bar.
+test('event page: cold sold out shows quiet disabled bar', async ({ page }) => {
+  await open(page, 'soldout');
+  const q = page.getByTestId('buy-quiet').first();
+  await expect(q).toBeVisible();
+  await expect(q).toBeDisabled();
+  await expect(q).toHaveText(/Sold out/);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/soldout-cold.png`, fullPage: false });
+});
 
 // All types sold out. A cold load shows NO Buy tickets bar (nothing buyable), so the quiet green bar
 // (inside the tickets page) is reachable only when the last ticket sells out while the page is open:

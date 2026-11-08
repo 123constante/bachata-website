@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigation, Ticket, CalendarPlus, Share2 } from 'lucide-react';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
@@ -103,15 +103,21 @@ export const EventStickyActionBar = ({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
-  const [sells, setSells] = useState(false);
-  const inSite = inSiteTicketing && !!eventId && sells;
+  const [barState, setBarState] = useState<'buy' | 'quiet' | 'none'>('none');
+  const [quietLabel, setQuietLabel] = useState('Sold out');
+  const onProbe = useCallback((st: 'buy' | 'quiet' | 'none', label: string) => {
+    setBarState(st);
+    if (label) setQuietLabel(label);
+  }, []);
+  const inSite = inSiteTicketing && !!eventId && barState === 'buy';
+  const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
   // When the event sells in-site, the in-site buy action leads and the external link
   // steps back to a small text link, so exactly one primary buy action shows.
-  const directionsIsPrimary = !ticketUrl && !inSite;
+  const directionsIsPrimary = !ticketUrl && !inSite && !quiet;
 
   const ticketPrimaryStyle: React.CSSProperties = accentColor
     ? {
@@ -158,7 +164,7 @@ export const EventStickyActionBar = ({
     <>
     {inSiteTicketing && eventId && (
       <Suspense fallback={null}>
-        <InSiteTicketProbe seriesId={eventId} onResult={setSells} />
+        <InSiteTicketProbe seriesId={eventId} onResult={onProbe} />
       </Suspense>
     )}
     <div
@@ -175,7 +181,7 @@ export const EventStickyActionBar = ({
             'linear-gradient(180deg, hsl(var(--bento-surface) / 0) 0%, hsl(var(--bento-surface) / 0.94) 30%)',
         }}
       >
-        {inSite && ticketUrl && (
+        {(inSite || quiet) && ticketUrl && (
           <div className="pointer-events-auto mb-1 text-center">
             <a
               href={ticketUrl}
@@ -205,7 +211,20 @@ export const EventStickyActionBar = ({
             </button>
           )}
 
-          {!inSite && ticketUrl && (
+          {quiet && (
+            <button
+              type="button"
+              disabled
+              data-testid="buy-quiet"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', color: '#D8CCB0', border: '1.5px solid var(--bento-hairline)', opacity: 0.85, boxShadow: 'none' }}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              {quietLabel}
+            </button>
+          )}
+
+          {!inSite && !quiet && ticketUrl && (
             <a
               href={ticketUrl}
               target="_blank"
