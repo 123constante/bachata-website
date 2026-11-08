@@ -103,7 +103,7 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
                     {m.city}
                   </div>
                 ) : null}
-                <AmbassadorBadge userId={person.id} />
+                <AmbassadorBadge profileId={person.id} />
                 {m.tags.length > 0 ? (
                   <div data-testid="hub-chips" className="mt-2 flex flex-wrap gap-1">
                     {m.tags.map((t) => <RoleChip key={t.role} role={t.role} label={t.label} />)}

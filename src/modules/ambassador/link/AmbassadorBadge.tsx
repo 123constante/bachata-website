@@ -4,26 +4,30 @@ import { supabase } from '@/integrations/supabase/client';
 /** The ONE label and note for the badge; every profile render uses this component. */
 export const AMBASSADOR_LABEL = 'Ambassador';
 export const AMBASSADOR_NOTE = 'Helps new organisers join their city';
+/** The ONE function the badge asks. It takes a dancer_profiles id (the id every
+ *  public person, DJ and teacher page carries) and is true only for a CLAIMED,
+ *  non-archived profile whose claimer is a city ambassador. */
+export const AMBASSADOR_RPC = 'is_claimed_profile_ambassador_v1';
 
 /** True only on an explicit `true`; an error, null or throw is false (no badge, no error UI). */
-export async function fetchIsAmbassador(userId: string): Promise<boolean> {
+export async function fetchIsAmbassador(profileId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc('is_city_ambassador_public_v1', { p_user_id: userId });
+    const { data, error } = await supabase.rpc(AMBASSADOR_RPC, { p_profile_id: profileId });
     return !error && data === true;
   } catch {
     return false;
   }
 }
 
-export function AmbassadorBadge({ userId }: { userId: string | null | undefined }) {
+export function AmbassadorBadge({ profileId }: { profileId: string | null | undefined }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(false);
   useEffect(() => {
     let live = true;
     setData(false);
-    if (userId) void fetchIsAmbassador(userId).then((v) => { if (live) setData(v); });
+    if (profileId) void fetchIsAmbassador(profileId).then((v) => { if (live) setData(v); });
     return () => { live = false; };
-  }, [userId]);
+  }, [profileId]);
   if (!data) return null;
   return (
     <div data-testid="ambassador-badge" className="min-w-0 max-w-full">

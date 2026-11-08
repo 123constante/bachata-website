@@ -126,7 +126,7 @@ function TabbedPersonPage({ person, slugOrId, publicPage = null }: Props) {
               </span>
             ))}
           </p>
-          <AmbassadorBadge userId={person.id} />
+          <AmbassadorBadge profileId={person.id} />
           {person.city || handle ? (
             <div className="flex flex-wrap items-center justify-center gap-x-3 text-sm text-foreground/80">
               {person.city ? (
