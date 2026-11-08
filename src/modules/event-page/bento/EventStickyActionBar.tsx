@@ -61,9 +61,9 @@ const GOLD_PRIMARY: React.CSSProperties = {
 };
 
 const PRIMARY_CLASS =
-  'flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
+  'flex h-[48px] flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
 const SECONDARY_CLASS =
-  'flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
+  'flex h-[48px] shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
 const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full';
 
 /**
