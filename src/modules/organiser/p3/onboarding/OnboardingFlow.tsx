@@ -10,7 +10,7 @@ import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { supportLinks } from '../../shared/support';
 import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
 import { askAgainFrom, declinedRequests } from '../../shared/accessRequestModel';
-import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
+import { myAccessRequestsQueryKey, FIND_LIMIT, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
 import { askedLine, declinedLine, declinedNextLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
@@ -807,13 +807,16 @@ function FindStep({ q, setQ, reads, askedAt, onPick }: { q: string; setQ: (v: st
           <p className="p3-ob-m" role="status">No page called &ldquo;{term}&rdquo;. Create one below.</p>
         ) : (
           <div role="list">
-            {res.data.map((p) => (
+            {res.data.slice(0, FIND_LIMIT).map((p) => (
               <button key={p.id} type="button" role="listitem" className="p3-ob-row" onClick={() => onPick(p)} data-testid={`p3-ob-find-${p.id}`}>
                 <span className="p3-ob-row-txt"><strong>{p.name}</strong><span>{askedAt.has(p.id) ? waitingRowText(askedAt.get(p.id) as string) : hintRowText(p.hint)}</span></span>
                 {CHEV}
               </button>
             ))}
           </div>
+        )}
+        {res.data && res.data.length > FIND_LIMIT && (
+          <p className="p3-ob-m text-sm" role="status" data-testid="p3-ob-find-more">Showing the first {FIND_LIMIT}. Type more of the name to narrow it.</p>
         )}
       </div>
     </>
