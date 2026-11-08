@@ -33,6 +33,96 @@ describe('flyerToDraft.matrix', () => {
     expect(flyerToDraft(mk({ dates: [dd('2026-10-31')] }), VENUES, TODAY).draft.firstDate).toBe('2026-10-31');
   });
 
+  describe('N1: printed date kept on repeating flyers', () => {
+    const rd = (a: string | null, wd: number | null, rt: string | null = null) => ({ date_start: a, date_end: null, year_printed: true, weekday_printed: wd, recurrence_text: rt });
+    it('flyer 5 (monthly 1st Saturday, no date): next 1st Saturday, rule nth 1, marked doubtful', () => {
+      const out = flyerToDraft(ROWS[4].read, VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('2026-12-05');
+      expect(out.draft.repeat).toMatchObject({ freq: 'monthly', monthBy: 'nth', nths: [1], weekday: 6 });
+      expect(out.doubtful).toContain('firstDate');
+    });
+    it('flyers 1 and 4 (weekly, no date): computed date is doubtful, rule on the printed weekday', () => {
+      for (const [i, wd] of [[0, 6], [3, 3]] as const) {
+        const out = flyerToDraft(ROWS[i].read, VENUES, TODAY);
+        expect(out.draft.repeat.weekdays).toEqual([wd]);
+        expect(out.doubtful).toContain('firstDate');
+      }
+    });
+    it('a dated past weekly keeps the printed date, doubtful, "this date has passed"', () => {
+      const out = flyerToDraft(mk({ kind: 'weekly', title: 'W', dates: [rd('2026-10-03', 6)] }), VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('2026-10-03');
+      expect(out.draft.repeat.weekdays).toEqual([6]);
+      expect(out.doubtful).toContain('firstDate');
+      expect(out.notes.map((n) => n.code)).toEqual(expect.arrayContaining(['repeats', 'past_date']));
+    });
+    it('a dated past monthly keeps the printed date and its nth', () => {
+      const out = flyerToDraft(mk({ kind: 'monthly', title: 'M', dates: [rd('2026-10-03', 6, '1st Saturday')] }), VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('2026-10-03');
+      expect(out.draft.repeat).toMatchObject({ monthBy: 'nth', nths: [1], weekday: 6 });
+      expect(out.doubtful).toContain('firstDate');
+      expect(out.notes.map((n) => n.code)).toContain('past_date');
+    });
+    it('a dated future monthly keeps the printed date, not doubtful', () => {
+      const out = flyerToDraft(mk({ kind: 'monthly', title: 'M', venue_name: 'Thames Boat', dates: [rd('2026-12-05', 6, 'first Saturday')] }), VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('2026-12-05');
+      expect(out.draft.repeat).toMatchObject({ nths: [1], weekday: 6 });
+      expect(out.doubtful).not.toContain('firstDate');
+    });
+    it('a "last Friday" monthly builds a last-week rule', () => {
+      const out = flyerToDraft(mk({ kind: 'monthly', title: 'M', dates: [rd(null, 5, 'Last Friday of the month')] }), VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('2026-11-27');
+      expect(out.draft.repeat).toMatchObject({ nths: [-1], weekday: 5 });
+      expect(out.doubtful).toContain('firstDate');
+    });
+    it('a monthly with a weekday but no week of the month sets no date (never a guessed nth)', () => {
+      const out = flyerToDraft(mk({ kind: 'monthly', title: 'M', dates: [rd(null, 6)] }), VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('');
+      expect(out.doubtful).toContain('firstDate');
+      expect(out.notes.map((n) => n.code)).toEqual(expect.arrayContaining(['repeats', 'no_date']));
+    });
+    it('week-of-month words: one week only, "last" only before a weekday', async () => {
+      const { nthFromText } = await import('../flyerToDraft');
+      expect(nthFromText('First Saturday of every month, last entry 1am')).toBe(1);
+      expect(nthFromText('Every 1st and 3rd Friday')).toBeNull();
+      expect(nthFromText('last Sunday')).toBe(-1);
+      expect(nthFromText(null)).toBeNull();
+    });
+    it('a printed date on a different weekday from the printed weekday is doubtful', () => {
+      const out = flyerToDraft(mk({ kind: 'weekly', title: 'W', dates: [rd('2026-12-04', 6)] }), VENUES, TODAY);
+      expect(out.draft.firstDate).toBe('2026-12-04');
+      expect(out.doubtful).toContain('firstDate');
+    });
+  });
+
+  it('a course with a known venue and no date keeps the venue and says no date', () => {
+    const out = flyerToDraft(mk({ kind: 'course', title: 'Beginners Course', venue_name: 'The Ritz Club' }), VENUES, TODAY);
+    expect(out.draft.venue?.id).toBe('v-ritz');
+    expect(out.draft.firstDate).toBe('');
+    expect(out.notes.map((n) => n.code)).toEqual(['no_date']);
+  });
+
+  it('bare domain stripped from flyer text; the ticket link field is unchanged', () => {
+    const out = flyerToDraft(mk({ title: 'Night bachata.co.uk/tix Social', venue_name: 'see salsa.london', venue_address: 'Hall, WWW.Dance.ORG', ticket_url_visible: 'bachata.co.uk/tix' }), VENUES, TODAY);
+    expect(out.draft.name).toBe('Night Social');
+    expect(out.venueSaid).toBe('see, Hall');
+    expect(out.draft.ticketUrl).toBe('');
+    expect(flyerToDraft(mk({ title: 'BACHATA.CO.UK/TIX Gala' }), VENUES, TODAY).draft.name).toBe('Gala');
+    for (const t of ['Doors 10.30pm, St. Ives, 1.5 hours', 'Salsa Night.Live DJs', 'Studio.Dance Hall: Social']) {
+      expect(flyerToDraft(mk({ title: t }), VENUES, TODAY).draft.name).toBe(t);
+    }
+  });
+
+  it('unknown currency no row', () => {
+    const out = flyerToDraft(mk({ price: { amount_pence: 2000, currency: 'CHF' } }), VENUES, TODAY);
+    expect(out.draft.prices).toHaveLength(0);
+    expect(out.doubtful).not.toContain('prices');
+    expect(out.notes.map((n) => n.code)).toContain('price_currency');
+    for (const [c, want] of [['\u00a3', 'GBP'], [' gbp ', 'GBP'], ['\u20ac', 'EUR'], ['$', 'USD']] as const) {
+      expect(flyerToDraft(mk({ price: { amount_pence: 2000, currency: c } }), VENUES, TODAY).draft.prices[0]?.currency).toBe(want);
+    }
+    expect(flyerToDraft(mk({ price: { amount_pence: 2000, currency: 'eur' } }), VENUES, TODAY).draft.prices[0].currency).toBe('EUR');
+  });
+
   it('single price is one Ticket row in pounds; no price means no rows', () => {
     const one = flyerToDraft(mk({ price: { amount_pence: 1250, currency: 'GBP' } }), VENUES, TODAY);
     expect(one.draft.prices).toHaveLength(1);

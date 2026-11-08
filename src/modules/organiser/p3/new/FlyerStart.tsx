@@ -142,7 +142,9 @@ export function FlyerStart({ today, organiserId, pageCount, onBlank, deps = brow
     const when = resetWords(result.resetsAt);
     body = card('You\u2019ve used all of today\u2019s flyer reads', 'p3-flyer-daily-limit', <p>{when ? <>Back {when}.</> : <>Back tomorrow.</>} You can fill it in yourself now.</p>, false);
   } else if (result?.kind === 'refused' && result.reason === 'attempts_limit') {
-    body = card('Too many tries in a row', 'p3-flyer-attempts-limit', <p>Wait a few minutes before the next flyer, or fill it in yourself now.</p>, false);
+    // N3: the attempts cap is per day, so the next step is the reset time (London), never "wait a few minutes"
+    const when = resetWords(result.resetsAt);
+    body = card('Too many tries today', 'p3-flyer-attempts-limit', <p>{when ? <>Back {when}.</> : <>Back tomorrow.</>} You can fill it in yourself now.</p>, false);
   } else if (result?.kind === 'refused' && result.reason === 'switched_off') {
     body = card('Flyer reading is paused for now', 'p3-flyer-switched-off', <p>You can fill it in yourself: it takes a minute.</p>, false);
   } else if (result?.kind === 'refused' && result.reason === 'not_organiser') {

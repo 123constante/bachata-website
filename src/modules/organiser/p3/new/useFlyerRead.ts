@@ -201,7 +201,7 @@ export const changedFields = (h: FlyerHandoff, d: CreateDraft): DraftFieldKey[] 
 
 /** Measure, do not ask: what the reader filled and what the organiser changed, as field names only. */
 export function recordFlyerSave(h: FlyerHandoff, d: CreateDraft): void {
-  (trackAnalyticsEvent as unknown as (name: string, payload: Record<string, unknown>) => void)('flyer_read_saved', {
+  trackAnalyticsEvent('flyer_read_saved', {
     flyer_read_filled: [...h.filled],
     flyer_read_changed: changedFields(h, d),
   });

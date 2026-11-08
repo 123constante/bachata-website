@@ -29,6 +29,9 @@ type AnalyticsEventMap = {
   first_going_tap: { surface?: string };
   first_level_vote: { level?: string };
   feedback_sent: { channel?: string };
+  /** Flyer reader (organiser P3 New event): what the reader filled and what the organiser
+   *  changed before saving, as draft field names only, never flyer text. */
+  flyer_read_saved: { flyer_read_filled: string[]; flyer_read_changed: string[] };
 };
 
 declare global {
