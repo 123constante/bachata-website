@@ -6,6 +6,7 @@ import {
   NOT_MANAGER_STRIPE,
   NOT_SWITCHED_ON,
   STRIPE_COPY,
+  OPEN_STRIPE_LABEL,
   canManage,
   formatCount,
   formatPence,
@@ -23,13 +24,15 @@ import { P3_PATHS } from '../shell/paths';
 import { P3PushedShell } from '../you/surface';
 import { P3Link, RetryButton, StateCard } from '../screens/parts';
 import { hasLiveEvent, payingOrganiser, useP3Home, useStartOnboarding, useStripe, useSummary } from './data';
-import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt } from './model';
+import { PROMPT_BODY, PROMPT_TITLE, TONE_CLASS, getPaidRowTag, showPrompt, type PromptState } from './model';
 import { P3_TICKET_PATHS } from './paths';
 
 const BACK_NOTE = {
   return: 'Back from Stripe. It can take a minute to show as connected; reload the page if it does not.',
   refresh: 'That Stripe link ran out. Tap the button to carry on where you left off.',
 } as const;
+/** Back from Stripe (or a link that ran out) while Stripe is checking: nothing is left to fill in. */
+const BACK_NOTE_WAITING = 'Back from Stripe. It is checking your details, which is usually quick. Tap Check again in a minute.';
 
 /** The Get paid card's title and body on the Get paid screen (the shipped STRIPE_COPY; "none" names no event). */
 const screenCopy = (s: StripeState, switchedOff: boolean): { title: string; body: string } => {
@@ -143,7 +146,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const canGo = manager && state !== 'connected' && !switchedOff;
   return (
     <>
-      {back && state !== 'connected' && <p className="p3-warn" data-testid="tix-getpaid-back">{BACK_NOTE[back]}</p>}
+      {back && state !== 'connected' && <p className="p3-warn" data-testid="tix-getpaid-back">{state === 'waiting' ? BACK_NOTE_WAITING : BACK_NOTE[back]}</p>}
       <section className="p3-card p3-stack-s" data-testid="tix-getpaid-card" data-state={state}>
         <div className="p3-row-tags"><span className={TONE_CLASS[tag.tone]} data-testid="tix-getpaid-tag">{tag.tag}</span></div>
         <strong data-testid="tix-getpaid-title">{copy.title}</strong>
@@ -157,11 +160,14 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
             disabled={!canGo || busy}
             aria-busy={busy || undefined}
             aria-describedby={!manager ? 'tix-getpaid-why' : undefined}
-            onClick={() => void go()}
+            onClick={() => (state === 'waiting' ? void query.refetch() : void go())}
             data-testid="tix-getpaid-go"
           >
-            {busy ? 'Opening Stripe\u2026' : STRIPE_COPY[state].action}
+            {busy && state !== 'waiting' ? 'Opening Stripe\u2026' : STRIPE_COPY[state].action}
           </button>
+        )}
+        {state === 'waiting' && !switchedOff && (
+          <OpenStripeLink onClick={() => void go()} disabled={!canGo || busy} busy={busy} testId="tix-getpaid-open" />
         )}
         {note && <p role="alert" className="p3-error" data-testid="tix-getpaid-note">{note}</p>}
         {canGo && <p className="p3-note">You leave Bachata Calendar for Stripe and come back here when you finish.</p>}
@@ -218,8 +224,18 @@ export function GetPaidPrompt() {
   return <Prompt org={org} stripe={state} />;
 }
 
-function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: 'none' | 'started' }) {
+/** The waiting state's plain way on to Stripe: a text link, never the primary action. */
+function OpenStripeLink({ onClick, disabled, busy, testId }: { onClick: () => void; disabled: boolean; busy: boolean; testId: string }) {
+  return (
+    <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} disabled={disabled} aria-busy={busy || undefined} onClick={onClick} data-testid={testId}>
+      {busy ? 'Opening Stripe\u2026' : OPEN_STRIPE_LABEL}
+    </button>
+  );
+}
+
+function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: PromptState }) {
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
+  const { query } = useStripe(org.id);
   return (
     <section className="p3-card p3-stack-s p3-prompt" aria-label="Get paid" data-testid="tix-prompt" data-state={stripe}>
       <span className={`${TONE_CLASS.party} p3-self-start`} data-testid="tix-prompt-kicker">Get paid</span>
@@ -228,10 +244,11 @@ function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: 'none' | 'started
       {switchedOff ? (
         <p className="p3-warn" role="status" data-testid="tix-prompt-off">{NOT_SWITCHED_ON}</p>
       ) : (
-        <button type="button" className="p3-btn" onClick={() => void go()} disabled={busy} aria-busy={busy || undefined} data-testid="tix-prompt-go">
-          {busy ? 'Opening Stripe\u2026' : STRIPE_COPY[stripe].action}
+        <button type="button" className="p3-btn" onClick={() => (stripe === 'waiting' ? void query.refetch() : void go())} disabled={busy} aria-busy={busy || undefined} data-testid="tix-prompt-go">
+          {busy && stripe !== 'waiting' ? 'Opening Stripe\u2026' : STRIPE_COPY[stripe].action}
         </button>
       )}
+      {stripe === 'waiting' && !switchedOff && <OpenStripeLink onClick={() => void go()} disabled={busy} busy={busy} testId="tix-prompt-open" />}
       {note && <p role="alert" className="p3-error" data-testid="tix-prompt-note">{note}</p>}
       <Link className="p3-link" to={P3_TICKET_PATHS.getPaid(org.id)} data-testid="tix-prompt-more">More about getting paid</Link>
     </section>
@@ -277,6 +294,8 @@ export interface StartView {
   status: string | null;
   note: string | null;
   primary: { kind: 'connect' | 'add' | 'check'; label: string } | null;
+  /** Waiting only: the plain way on to Stripe under Check again. */
+  secondary: { kind: 'connect'; label: string } | null;
 }
 
 /** The ask-the-owner line: the owner's name when the home payload carries it, else "the page owner". */
@@ -285,17 +304,20 @@ export const askOwner = (org: HomeOrganiser): string => `Ask ${teamOf(org).find(
 export function startView(i: { manager: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
   const ready = i.state === 'connected';
   if (ready) {
-    return { heading: 'You\u2019re ready to sell tickets', asks: false, status: null, note: null, primary: i.manager ? { kind: 'add', label: 'Add a ticket' } : null };
+    return { heading: 'You\u2019re ready to sell tickets', asks: false, status: null, note: null, primary: i.manager ? { kind: 'add', label: 'Add a ticket' } : null, secondary: null };
   }
   const base = { heading: 'Get paid for your tickets', asks: true };
-  if (!i.manager) return { ...base, status: null, note: askOwner(i.org), primary: null };
-  if (i.switchedOff) return { ...base, asks: false, status: null, note: NOT_SWITCHED_ON, primary: null };
-  if (i.arrival === 'return' && i.phase === 'checking') return { ...base, asks: false, status: 'Checking with Stripe\u2026', note: null, primary: null };
+  if (!i.manager) return { ...base, status: null, note: askOwner(i.org), primary: null, secondary: null };
+  if (i.switchedOff) return { ...base, asks: false, status: null, note: NOT_SWITCHED_ON, primary: null, secondary: null };
+  if (i.arrival === 'return' && i.phase === 'checking') return { ...base, asks: false, status: 'Checking with Stripe\u2026', note: null, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'timeout') {
-    return { ...base, asks: false, status: 'Stripe is still finishing. This can take a minute.', note: null, primary: { kind: 'check', label: 'Check again' } };
+    return { ...base, asks: false, status: 'Stripe is still finishing. This can take a minute.', note: null, primary: { kind: 'check', label: 'Check again' }, secondary: i.state === 'waiting' ? { kind: 'connect', label: OPEN_STRIPE_LABEL } : null };
+  }
+  if (i.state === 'waiting') {
+    return { ...base, asks: false, status: STRIPE_COPY.waiting.title('') + '.', note: STRIPE_COPY.waiting.body, primary: { kind: 'check', label: 'Check again' }, secondary: { kind: 'connect', label: OPEN_STRIPE_LABEL } };
   }
   const label = i.state === 'started' ? 'Carry on with Stripe' : 'Connect Stripe';
-  return { ...base, status: null, note: i.arrival === 'refresh' ? 'That Stripe link ran out. Tap the button to carry on where you left off.' : null, primary: { kind: 'connect', label } };
+  return { ...base, status: null, note: i.arrival === 'refresh' ? 'That Stripe link ran out. Tap the button to carry on where you left off.' : null, primary: { kind: 'connect', label }, secondary: null };
 }
 
 const BIG = { minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' } as const;
@@ -370,6 +392,11 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
       )}
       {v.primary?.kind === 'add' && (
         <Link className="p3-btn" style={BIG} to={addTicketPath(org)} data-testid="getpaid-start-add">{v.primary.label}</Link>
+      )}
+      {v.secondary && (
+        <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} disabled={busy} aria-busy={busy || undefined} onClick={() => void go()} data-testid="getpaid-start-open">
+          {busy ? 'Opening Stripe\u2026' : v.secondary.label}
+        </button>
       )}
       {note && <p role="alert" className="p3-error" data-testid="getpaid-start-error-note">{note}</p>}
     </section>

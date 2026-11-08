@@ -12,6 +12,7 @@ import {
   buyerRulesLine,
   canManage,
   connectBlock,
+  OPEN_STRIPE_LABEL,
   connectReturnBanner,
   CONNECT_START_ERROR_SHOWN,
   countsLine,
@@ -369,6 +370,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 sales={sales.get(t.id) ?? null}
                 ctx={ctx}
                 onboard={onboard}
+                onCheck={() => void stripeQuery.refetch()}
                 busy={moving.has(t.id)}
                 error={moveError.get(t.id) ?? null}
                 onMove={(to) => void move(t, to)}
@@ -430,9 +432,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                       type="button"
                       className="p3-btn"
                       style={{ minHeight: 44 }}
-                      disabled={a.kind === 'carry_on' ? onboard.busy : bannerBusy}
+                      disabled={a.kind === 'carry_on' ? onboard.busy : a.kind === 'check' ? false : bannerBusy}
                       aria-busy={(a.kind === 'carry_on' ? onboard.busy : bannerBusy) || undefined}
-                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : putOnSale(a.typeId))}
+                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : a.kind === 'check' ? void stripeQuery.refetch() : putOnSale(a.typeId))}
                       data-testid={`tix-return-${a.kind}`}
                     >
                       {a.label}
@@ -473,6 +475,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           eventStart={eventStart}
           series={series}
           onboard={onboard}
+          onCheck={() => void stripeQuery.refetch()}
           hasOrders={hasOrdersOf(editing.type, sales, orders.data ?? [])}
           checking={!!editing.type && (summary.isPending || orders.isPending)}
           onClose={(saving) => {
@@ -555,6 +558,7 @@ function TypeRow({
   sales,
   ctx,
   onboard,
+  onCheck,
   busy,
   error,
   onMove,
@@ -564,6 +568,7 @@ function TypeRow({
   sales: TypeSales | null;
   ctx: MoveContext;
   onboard: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
+  onCheck: () => void;
   busy: boolean;
   error: string | null;
   onMove: (to: TicketStatus) => void;
@@ -575,7 +580,7 @@ function TypeRow({
   // The role reason is said once at the top of the sheet, not under every row.
   // A paid draft with payments not connected: the Connect payments block replaces the "go to Get paid" reason.
   const connect = to === 'on_sale' && t.status === 'draft' ? connectBlock(t.pricePence, ctx, onboard) : null;
-  const shownReason = blocked && blocked !== NOT_MANAGER && !(connect && blocked === PAYMENTS_WHERE) ? blocked : null;
+  const shownReason = blocked && blocked !== NOT_MANAGER && !(connect && blocked === connect.replaces) ? blocked : null;
   return (
     <li className="p3-row p3-row-col" data-testid={`tix-type-${t.id}`} data-status={t.status}>
       <div className="p3-type">
@@ -610,13 +615,17 @@ function TypeRow({
         )}
       </div>
       {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason"><ReasonText text={shownReason} /></p>}
-      {connect && blocked === PAYMENTS_WHERE && (
+      {connect && blocked === connect.replaces && (
         <div className="p3-stack-s" data-testid="tix-connect">
           <p className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
-          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => void onboard.go()} disabled={onboard.busy} aria-busy={onboard.busy || undefined} data-testid="tix-connect-btn">
+          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => (connect.kind === 'check' ? onCheck() : void onboard.go())} disabled={connect.kind === 'check' ? false : onboard.busy} aria-busy={(connect.kind !== 'check' && onboard.busy) || undefined} data-testid="tix-connect-btn">
             {connect.button}
           </button>
-          <SellingElsewhere seriesId={t.seriesId} />
+          {connect.kind === 'check' ? (
+            <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} onClick={() => void onboard.go()} disabled={onboard.busy} data-testid="tix-connect-open">{OPEN_STRIPE_LABEL}</button>
+          ) : (
+            <SellingElsewhere seriesId={t.seriesId} />
+          )}
           {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
         </div>
       )}

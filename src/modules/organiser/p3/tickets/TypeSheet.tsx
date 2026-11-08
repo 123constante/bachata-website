@@ -6,6 +6,7 @@ import {
   EVERY_DATE_NOTE,
   coversEveryDate,
   connectBlock,
+  OPEN_STRIPE_LABEL,
   MAX_PER_ORDER,
   PAYMENTS_WHERE,
   PAYMENTS_WHERE_LINK,
@@ -79,6 +80,8 @@ export interface TypeSheetProps {
   series?: SeriesDates | null;
   /** The one Connect payments press (Stripe start), held by the parent so its error outlives this sheet. */
   onboard?: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
+  /** Waiting for Stripe: refetch the account status. */
+  onCheck?: () => void;
   /** inFlight: closed while a save was still running (the parent drops the draft so it cannot be sent twice). */
   onClose: (inFlight: boolean) => void;
   /** An answer that arrives after the sheet was closed (landed = saved): the parent shows it. */
@@ -93,7 +96,7 @@ export interface TypeSheetProps {
  * dress): 1 name + price with the Buyer pays box, 2 places and the sales window, 3 review.
  * Back goes one step and keeps every value. An untouched edit sends nothing.
  */
-export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, checking, eventStart, series, onboard, onClose, onLate, onSaved }: TypeSheetProps) {
+export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, hasOrders, checking, eventStart, series, onboard, onCheck, onClose, onLate, onSaved }: TypeSheetProps) {
   const { form, step, openMode, closeMode } = draft;
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -240,7 +243,15 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   } else {
     footer = (
       <>
-        {connect ? (
+        {connect?.kind === 'check' ? (
+          <>
+            <p id={`${id}-sell`} className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
+            <button type="button" className="p3-btn" disabled aria-describedby={`${id}-sell`} data-testid="tix-sell">Put on sale</button>
+            <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => onCheck?.()} data-testid="tix-connect">{connect.button}</button>
+            <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} onClick={() => void submit(false, true)} disabled={busy || !!onboard?.busy} data-testid="tix-connect-open">{OPEN_STRIPE_LABEL}</button>
+            {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
+          </>
+        ) : connect ? (
           <>
             <p className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
             <button
