@@ -120,11 +120,27 @@ describe('the entry and the flags', () => {
   });
 });
 
+describe('R1: a person with no page (P4)', () => {
+  it('no page entry never mounts', async () => {
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'organiser_home_v1') return { data: { today: TODAY, organisers: [] }, error: null };
+      if (fn === 'get_organiser_venue_options_v1') return { data: VENUES, error: null };
+      return { data: null, error: { message: 'unexpected ' + fn } };
+    });
+    at();
+    await screen.findByTestId('p3-new-no-page-card');
+    expect(screen.queryByTestId('p3-new-flyer')).toBeNull();
+    expect(screen.queryByTestId('p3-flyer-choose')).toBeNull();
+    expect(invoke).not.toHaveBeenCalled();
+  });
+});
+
 describe('each reader answer has its screen and a way forward', () => {
   const daily = { error: 'daily_limit', resets_at: '2026-11-09T09:00:00Z' };
   it.each([
     ['daily limit', refuse(429, daily), 'p3-flyer-daily-limit', /Back Monday 09:00/, false],
-    ['attempts limit', refuse(429, { error: 'attempts_limit' }), 'p3-flyer-attempts-limit', /Wait a few minutes/, false],
+    ['attempts limit back tomorrow', refuse(429, { error: 'attempts_limit' }), 'p3-flyer-attempts-limit', /Back tomorrow\./, false],
+    ['attempts limit back at the reset time', refuse(429, { error: 'attempts_limit', resets_at: '2026-11-09T00:00:00Z' }), 'p3-flyer-attempts-limit', /Back Monday 00:00\./, false],
     ['switched off', refuse(503, { error: 'switched_off' }), 'p3-flyer-switched-off', /paused for now/, false],
     ['not an organiser', refuse(403, { error: 'not_organiser' }), 'p3-flyer-not-organiser', /for organisers/, false],
     ['unauthorised', refuse(401, {}), 'p3-flyer-unauthorised', /sign-in has run out/, false],
