@@ -18,6 +18,10 @@ import { LANDED_PARAM, forgetStoredDraft, useCreateSave } from './useCreateSave'
 import { PriceSheet, RepeatSheetNew, SessionsSheet, VenueSheet } from './sheets';
 import { Sheet } from '../screens/Sheet';
 import { fullDate } from '../../shared/dateWords';
+import { flags } from '@/lib/featureFlags';
+import { FlyerStart } from './FlyerStart';
+import { applySessionChoices, type DraftFieldKey, type SessionChoice } from './flyerToDraft';
+import { fieldSig, flyerHandoffFor, forgetFlyerHandoff, recordFlyerSave } from './useFlyerRead';
 import './create.css';
 
 const TITLE = 'New event';
@@ -33,10 +37,17 @@ function Frame({ title, back, end, children, testId }: { title: string; back: { 
 
 // ---- C1 pick what it is -------------------------------------------------------------------
 
+/** Start from a flyer shows only with all three flags on; off, the kind step is exactly as before. */
+export const flyerReaderOn = (): boolean => flags.organiserFlyerReader && flags.organiserP3 && flags.organiserSelfServe;
+
 function KindStep({ organiserId, pageCount }: { organiserId: string | null; pageCount: number }) {
   const navigate = useNavigate();
+  const today = useLondonToday();
+  const [flyerOpen, setFlyerOpen] = useState(false);
+  const flyerOn = flyerReaderOn();
   const pick = (k: KindInfo) => {
     if (k.deferred) return;
+    forgetFlyerHandoff();
     // review 1 F5: Back to the kinds and the same kind again keeps what was typed; another kind starts blank.
     // review 2 R2-2: a draft whose create landed is never picked up again from here.
     const kept = storedDraft();
@@ -45,6 +56,9 @@ function KindStep({ organiserId, pageCount }: { organiserId: string | null; page
   };
   return (
     <Frame title={TITLE} back={backOf('kind', '', organiserId, pageCount)} testId="p3-new-kind">
+      {flyerOn && flyerOpen ? (
+        <FlyerStart today={today} organiserId={organiserId} pageCount={pageCount} onBlank={() => setFlyerOpen(false)} />
+      ) : (<>
       <h2 className="p3-h2">{COPY.kindTitle}</h2>
       <div className="p3-new-kinds" data-testid="p3-new-kinds">
         {KINDS.map((k) => (
@@ -56,7 +70,14 @@ function KindStep({ organiserId, pageCount }: { organiserId: string | null; page
           </button>
         ))}
       </div>
+      {flyerOn && (
+        <button type="button" className="p3-new-flyer" onClick={() => setFlyerOpen(true)} data-testid="p3-new-flyer">
+          <span className="p3-new-kind-t">Start from a flyer</span>
+          <span className="p3-new-kind-s">Pick a photo of your flyer and we fill in what it says</span>
+        </button>
+      )}
       <p className="p3-note">{COPY.kindNote}</p>
+      </>)}
     </Frame>
   );
 }
@@ -126,11 +147,27 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const [params] = useSearchParams();
   const [boot] = useState(() => bootDraft(kind.kind, params.get(LANDED_PARAM)));
   const [d, setD] = useState<CreateDraft>(boot.draft);
-  const [cover, setCover] = useState<File | null>(null);
+  // Start from a flyer: what the reader found, kept in memory for this draft only (a reload drops it)
+  const [flyer] = useState(() => (boot.open ? null : flyerHandoffFor(boot.draft.seriesId)));
+  const [choices, setChoices] = useState<SessionChoice[]>(() => flyer?.sessionChoices ?? []);
+  const [checked, setChecked] = useState<ReadonlySet<DraftFieldKey>>(() => new Set());
+  const dNow = useRef(d);
+  dNow.current = d;
+  // the flyer is the cover, uploaded only by the normal save
+  const [cover, setCover] = useState<File | null>(() => flyer?.file ?? null);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetName>(null);
   const [addDate, setAddDate] = useState('');
-  const save = useCreateSave({ draft: d, cover, organiser, today, onCreated: () => setD((x) => ({ ...x, created: true })) });
+  const save = useCreateSave({ draft: d, cover, organiser, today, onCreated: () => {
+    if (flyer) { recordFlyerSave(flyer, dNow.current); forgetFlyerHandoff(); }
+    setD((x) => ({ ...x, created: true }));
+  } });
+  // a "check this" mark clears once the organiser changes that field
+  useEffect(() => {
+    if (!flyer) return;
+    const now = flyer.doubtful.filter((k) => !checked.has(k) && fieldSig(d, k) !== fieldSig(flyer.initial, k));
+    if (now.length) setChecked((s) => new Set([...s, ...now]));
+  }, [d, flyer, checked]);
   // review 2 R2-2: leaving a draft that exists (the partial or details screen, by any link) forgets it here
   const exists = useRef(false);
   const stateNow = save.state.s;
@@ -166,6 +203,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   const back = backOf('form', kind.kind, organiser.id, pageCount);
   const cancel = () => {
     if (!untouched) { setSheet('leave'); return; }
+    forgetFlyerHandoff();
     forgetStoredDraft();
     navigate(P3_PATHS.events);
   };
@@ -221,6 +259,16 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
   }
 
   const failed = save.state.s === 'failed' ? save.state : null;
+  const mark = (...ks: DraftFieldKey[]) => (flyer && ks.some((k) => flyer.doubtful.includes(k) && !checked.has(k))
+    ? <span className="p3-tag p3-new-check" data-testid={`p3-new-check-${ks[0]}`}>Check this</span> : null);
+  const ticksFor = (cs: readonly SessionChoice[]) => applySessionChoices({ ...d, sessions: flyer?.baseSessions ?? [] }, cs);
+  // the tick list shows until the organiser changes the sessions another way (the Sessions sheet)
+  const showTicks = !!flyer && choices.length > 0 && fieldSig(d, 'sessions') === fieldSig(ticksFor(choices), 'sessions');
+  const toggle = (id: string) => {
+    const next = choices.map((c) => (c.id === id ? { ...c, ticked: !c.ticked } : c));
+    setChoices(next);
+    set({ sessions: ticksFor(next).sessions });
+  };
   const whenTitle = kind.when === 'repeat' ? 'Starts' : 'Date';
   return (
     <Frame title={title} back={back} end={end} testId="p3-new-form">
@@ -232,8 +280,18 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
         </StateCard>
       )}
 
+      {flyer && flyer.notes.length > 0 && (
+        <div className="p3-card p3-stack-s p3-new-flyer-notes" data-testid="p3-new-flyer-notes">
+          <strong>From your flyer</strong>
+          <ul className="p3-new-flyer-found">
+            {flyer.notes.map((n) => <li key={n.code} data-testid={`p3-new-flyer-note-${n.code}`}>{n.text}</li>)}
+          </ul>
+        </div>
+      )}
+
       <div className="p3-card p3-stack-s">
         <label className="p3-field" htmlFor="p3-new-name">Name</label>
+        {mark('name')}
         <input id="p3-new-name" className="p3-in" value={d.name} maxLength={140} disabled={busy} placeholder="For example Friday Bachata at The Loft"
           onChange={(e) => set({ name: e.target.value })} data-testid="p3-new-name" />
         {problems.name ? <p className="p3-error" data-testid="p3-new-name-problem">{problems.name}</p> : <p className="p3-note">Up to 120 letters. Needed to save.</p>}
@@ -241,6 +299,8 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
 
       <div className="p3-card p3-tight" data-testid="p3-new-rows">
         <Row title="Where" value={d.venue ? [d.venue.name, d.venue.place].filter(Boolean).join(', ') : 'Not set'} action={d.venue ? 'Change' : 'Pick'} onClick={() => setSheet('venue')} disabled={busy} testId="p3-new-row-venue" />
+        {mark('venue')}
+        {flyer?.venueSaid && !d.venue && <p className="p3-note" data-testid="p3-new-venue-said">Flyer says: {flyer.venueSaid}</p>}
         {kind.when === 'dates' ? (
           <div className="p3-new-inline" data-testid="p3-new-dates">
             <span className="p3-row-t">Dates</span>
@@ -268,13 +328,27 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
             {d.firstDate && <span className="p3-row-s">{whenLine(d, today)}</span>}
           </div>
         )}
+        {mark('firstDate', 'extraDates')}
         {kind.when === 'repeat' && (
           <Row title="Repeats" value={repeatLine(d, today)} action="Change" onClick={() => setSheet('repeat')} disabled={busy} testId="p3-new-row-repeat" />
         )}
         {problems.when && <p className="p3-error" data-testid="p3-new-when-problem">{problems.when}</p>}
         <Row title="Sessions" value={sessionsLine(d)} action={d.sessions.length ? 'Change' : 'Add'} onClick={() => setSheet('sessions')} disabled={busy} testId="p3-new-row-sessions" />
+        {mark('sessions')}
+        {showTicks && (
+          <div className="p3-new-ticks" data-testid="p3-new-ticks">
+            <span className="p3-row-s">Sessions on the flyer: only the ticked ones are added.</span>
+            {choices.map((c) => (
+              <label key={c.id} className="p3-new-tick">
+                <input type="checkbox" checked={c.ticked} disabled={busy} onChange={() => toggle(c.id)} data-testid={`p3-new-tick-${c.id}`} />
+                <span>{c.label}{c.start ? ` ${c.start}${c.end ? `\u2013${c.end}` : ''}` : ''}</span>
+              </label>
+            ))}
+          </div>
+        )}
         {problems.sessions && <p className="p3-error" data-testid="p3-new-sessions-problem">{problems.sessions}</p>}
         <Row title="Price" value={priceLine(d)} action={d.pay.length ? 'Change' : 'Pick'} onClick={() => setSheet('price')} disabled={busy} testId="p3-new-row-price" />
+        {mark('prices', 'ticketUrl')}
         {problems.price && <p className="p3-error" data-testid="p3-new-price-row-problem">{problems.price}</p>}
       </div>
 
@@ -308,7 +382,7 @@ function FormStep({ kind, organiser, pageCount }: { kind: KindInfo; organiser: H
           <button type="button" className="p3-btn p3-btn-line" disabled={!!draftWhy} aria-describedby={draftWhy ? 'p3-new-leave-why' : undefined}
             onClick={() => { setSheet(null); void save.run(false); }} data-testid="p3-new-leave-save">Save as a draft and leave</button>
           {draftWhy && <p className="p3-note" id="p3-new-leave-why">{draftWhy}</p>}
-          <button type="button" className="p3-btn p3-btn-line p3-danger-t" onClick={() => { forgetStoredDraft(); navigate(P3_PATHS.events); }} data-testid="p3-new-leave-discard">Leave without saving</button>
+          <button type="button" className="p3-btn p3-btn-line p3-danger-t" onClick={() => { forgetFlyerHandoff(); forgetStoredDraft(); navigate(P3_PATHS.events); }} data-testid="p3-new-leave-discard">Leave without saving</button>
         </Sheet>
       )}
     </Frame>

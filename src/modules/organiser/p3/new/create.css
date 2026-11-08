@@ -44,3 +44,18 @@
 .p3-theme .p3-new-flow .p3-scrim { touch-action: none; }
 .p3-theme .p3-new-flow .p3-sheet { touch-action: pan-y; overscroll-behavior: contain; }
 .p3-theme .p3-new-linkbtn { display: flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; text-decoration: none; }
+
+/* Start from a flyer (organiserFlyerReader; docs/design/flyer-read-screen.md). Existing p3 tokens only. */
+.p3-theme .p3-new-flyer {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; min-height: 56px; padding: 10px;
+  border: 1px dashed var(--gold-fg); border-radius: var(--r-ctl); background: var(--card); color: var(--fg);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.p3-theme .p3-new-flyer:focus-visible { outline: 2px solid var(--gold-fg); outline-offset: 2px; }
+.p3-theme .p3-new-flyer-off { opacity: 0.6; cursor: default; }
+.p3-theme .p3-new-flyer-found { margin: 0; padding-left: 18px; font-size: 13px; color: var(--fg); }
+.p3-theme .p3-new-flyer-found li + li { margin-top: 4px; }
+.p3-theme .p3-new-check { align-self: flex-start; color: var(--gold-fg); border-color: var(--gold-fg); }
+.p3-theme .p3-new-ticks { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; }
+.p3-theme .p3-new-tick { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; color: var(--fg); cursor: pointer; }
+.p3-theme .p3-new-tick input { width: 22px; height: 22px; margin: 0; accent-color: var(--gold-fg); }
