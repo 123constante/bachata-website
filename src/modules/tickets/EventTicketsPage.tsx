@@ -4,7 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { TicketsBlock } from './TicketsBlock';
 import { buildChips, type Chip, type GoodToKnowInput } from './goodToKnow';
-import { useOccurrenceProgram, useProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
+import type { useOccurrenceProgram as UseOccurrenceProgram, useProgramItems as UseProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
 import { buildProgramme, type ProgrammeView } from './programmeModel';
 import { fetchPublicTicketTypes, publicTicketKeys } from './ticketCheckoutApi';
 
@@ -90,7 +90,8 @@ export function ProgrammeBlock({ view, onSeeFull }: { view: ProgrammeView | null
   );
 }
 
-export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, chipInput, onClose }: EventTicketsPageProps) {
+export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, chipInput, onClose, programHooks }: EventTicketsPageProps) {
+  const { useOccurrenceProgram, useProgramItems } = programHooks;
   const { data: types } = useQuery({
     queryKey: publicTicketKeys.types(seriesId),
     queryFn: () => fetchPublicTicketTypes(seriesId),

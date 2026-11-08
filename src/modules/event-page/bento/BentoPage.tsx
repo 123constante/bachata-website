@@ -31,6 +31,7 @@ import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBloc
 import { MoreEventsSection } from '@/modules/event-page/sections/MoreEventsSection';
 import type { MoreEventsBlock } from '@/modules/event-page/sections/MoreEventsSection';
 import { VenueBlock } from '@/modules/event-page/bento/blocks/VenueBlock';
+import { useOccurrenceProgram, useProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
 import { ScheduleBlock } from '@/modules/event-page/bento/blocks/ScheduleBlock';
 import { PromoBlock } from '@/modules/event-page/bento/blocks/PromoBlock';
 import { CityBlock } from '@/modules/event-page/bento/blocks/CityBlock';
@@ -104,6 +105,7 @@ const importLevelRatingPrompt = () =>
 const DerivedLevelBadge = lazyWithRetry(importDerivedLevelBadge);
 // Buyer checkout (S4): its own lazy chunk, requested only while flags.publicTicketing is on,
 // so the flag-off /event/:id first load is unchanged.
+const PROGRAM_HOOKS = { useOccurrenceProgram, useProgramItems };
 const EventTicketsPage = lazyWithRetry(() => import('@/modules/tickets/EventTicketsPage'));
 const LevelRatingPrompt = lazyWithRetry(importLevelRatingPrompt);
 
