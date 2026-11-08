@@ -13,6 +13,7 @@ import {
   canManage,
   connectBlock,
   connectReturnBanner,
+  CONNECT_START_ERROR_SHOWN,
   countsLine,
   eventStartOf,
   leftOf,
@@ -50,7 +51,7 @@ import {
 } from './model';
 import { RefundSheet } from './RefundSheet';
 import { StackSheet, refocusTop } from './StackSheet';
-import { TypeSheet } from './TypeSheet';
+import { ReasonText, SellingElsewhere, TypeSheet } from './TypeSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
@@ -157,6 +158,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   // Remembered before the effect below drops the URL params: the banner and its poll hang off this.
   const [arrivedFromStripe, setArrivedFromStripe] = useState(() => params.get('stripe') === 'return');
   const [connectReturnPoll, setConnectReturnPoll] = useState(() => params.get('stripe') === 'return');
+  const [arrivedRefresh, setArrivedRefresh] = useState(() => params.get('stripe') === 'refresh');
   const stripeConnected = stripe === 'connected';
   // connectReturnPoll: refetch the Stripe state every 3 s for at most 30 s, or until connected; unmount stops it.
   const refetchStripe = useRef(stripeQuery.refetch);
@@ -187,6 +189,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       setView('list');
       setOpen(true);
     }
+    if (back === 'refresh') setArrivedRefresh(true);
     if (back === 'return') {
       setArrivedFromStripe(true);
       setConnectReturnPoll(true);
@@ -270,7 +273,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   };
 
   const banner = types.isSuccess
-    ? connectReturnBanner({ arrivedFromStripe, stripe: stripe ?? 'unknown', role: org.role, drafts: list, polling: connectReturnPoll })
+    ? connectReturnBanner({ arrivedFromStripe, stripe: stripe ?? 'unknown', role: org.role, drafts: list, polling: connectReturnPoll, refresh: arrivedRefresh })
     : null;
   const bannerBusy = list.some((t) => moving.has(t.id));
   const putOnSale = (typeId?: string) => {
@@ -435,6 +438,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                       {a.label}
                     </button>
                   ))}
+                  {banner.actions.some((a) => a.kind === 'carry_on') && onboard.note && (
+                    <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{onboard.note}</p>
+                  )}
                 </div>
               )}
               {body}
@@ -603,14 +609,15 @@ function TypeRow({
           <span className={TONE_CLASS.neutral} data-testid="tix-type-closed">{SWITCH_LABEL.closed}</span>
         )}
       </div>
-      {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason">{shownReason}</p>}
+      {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason"><ReasonText text={shownReason} /></p>}
       {connect && blocked === PAYMENTS_WHERE && (
         <div className="p3-stack-s" data-testid="tix-connect">
           <p className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
           <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => void onboard.go()} disabled={onboard.busy} aria-busy={onboard.busy || undefined} data-testid="tix-connect-btn">
             {connect.button}
           </button>
-          {connect.error && <p role="alert" className="p3-error" data-testid="tix-connect-error">{connect.error}</p>}
+          <SellingElsewhere seriesId={t.seriesId} />
+          {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
         </div>
       )}
       {error && <p role="alert" className="p3-error" data-testid="tix-move-error">{error}</p>}

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { setTicketStatus, upsertTicketType } from '../../tickets/ticketsApi';
 import {
   EDITOR_STEPS,
@@ -6,6 +7,11 @@ import {
   coversEveryDate,
   connectBlock,
   MAX_PER_ORDER,
+  PAYMENTS_WHERE,
+  PAYMENTS_WHERE_LINK,
+  SELLING_ELSEWHERE_LINK,
+  STRIPE_AT_PRICE_HINT,
+  CONNECT_START_ERROR_SHOWN,
   NEXT_STATUS,
   buildUpsert,
   buyerTotal,
@@ -27,9 +33,31 @@ import {
   type TypeForm,
 } from '../../tickets/ticketModel';
 import type { Step, TypeDraft } from './model';
+import { P3_PATHS } from '../shell/paths';
+import { P3_TICKET_PATHS } from './paths';
 import { StackSheet } from './StackSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { GATE_LATE, SELL_HELD } from './gateCopy';
+
+/** The switched-off / not-connected reason, with its "where" words as a real tap target to Get paid. */
+export function ReasonText({ text }: { text: string }) {
+  if (text !== PAYMENTS_WHERE) return <>{text}</>;
+  return (
+    <>
+      <Link to={P3_TICKET_PATHS.getPaid()} data-testid="tix-payments-where" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, textDecoration: 'underline' }}>{PAYMENTS_WHERE_LINK}</Link>
+      {text.slice(PAYMENTS_WHERE_LINK.length)}
+    </>
+  );
+}
+
+/** The small plain text link under Connect payments: never a button, 44px tap area. */
+export function SellingElsewhere({ seriesId }: { seriesId: string }) {
+  return (
+    <Link to={P3_PATHS.eventDetails(seriesId)} className="p3-note" data-testid="tix-elsewhere" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, textDecoration: 'underline' }}>
+      {SELLING_ELSEWHERE_LINK}
+    </Link>
+  );
+}
 
 const STEP_TITLE: Record<Step, string> = { 1: 'Name and price', 2: 'Places and dates', 3: 'Review' };
 
@@ -226,6 +254,8 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
             >
               {saving === 'save' ? 'Saving\u2026' : connect.button}
             </button>
+            <SellingElsewhere seriesId={seriesId} />
+            {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
           </>
         ) : (
         <button
@@ -240,7 +270,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
           {saving === 'sell' ? 'Putting on sale\u2026' : 'Put on sale'}
         </button>
         )}
-        {!connect && sellBlock && <p id={`${id}-sell`} className="p3-note" data-testid="tix-sell-reason">{sellBlock}</p>}
+        {!connect && sellBlock && <p id={`${id}-sell`} className="p3-note" data-testid="tix-sell-reason"><ReasonText text={sellBlock} /></p>}
         <button type="button" className="p3-btn p3-btn-line" onClick={() => void submit(false)} disabled={busy} data-testid="tix-save">
           {saving === 'save' ? 'Saving\u2026' : 'Save as draft'}
         </button>
@@ -292,6 +322,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
               })}
             />
             {err('price')}
+            {pence !== null && pence > 0 && !type && <p className="p3-note" data-testid="tix-stripe-hint">{STRIPE_AT_PRICE_HINT}</p>}
             <p id={`${id}-price-help`} className="p3-note" data-testid="tix-price-help">{lockedPrice ?? (checking ? 'Checking sales\u2026' : 'Leave empty or 0 for a free ticket.')}</p>
             <div className="p3-buyer" data-testid="tix-buyer-pays" aria-live="polite">
               <span className="p3-row-s">Buyer pays</span>
