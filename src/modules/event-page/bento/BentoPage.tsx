@@ -792,6 +792,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
                 timeZone: pageModel.dates?.timezone ?? pageModel.location.venueTimezone ?? 'Europe/London',
               }}
               onClose={closeTickets}
+              programHooks={PROGRAM_HOOKS}
             />
           </Suspense>
         )}

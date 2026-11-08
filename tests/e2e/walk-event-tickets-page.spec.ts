@@ -1,50 +1,76 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { FRIDAY, PHONE, OrganiserFake, json } from './helpers/organiserFake';
+import { FRIDAY, PHONE } from './helpers/organiserFake';
 
 // WALK (event-tickets-page), NOT in the test:e2e gate list: the flag is off there.
-//   VITE_ENABLE_PUBLIC_TICKETING=true npx playwright test tests/e2e/walk-event-tickets-page.spec.ts --project=chromium
-// STATUS: NOT YET GREEN. /event/:id is server-rendered; its loader reads Supabase from the SERVER, so
-// page.route() cannot feed it and with placeholder keys the route answers "Page not found" (see
-// event-hydration-421.spec.ts). Needs a local mock Supabase (VITE_SUPABASE_URL=http://127.0.0.1:<port>)
-// serving event_view_p5 + ticket_types_public_v1, or real keys. The ticket RPC mock below is right.
-// Mocked at the network layer, no prod calls. Screenshots go to the scratch dir, not the repo.
-test.use({ viewport: PHONE });
+// /event/:id is server-rendered, so page.route() cannot feed its loader. Run against the LOCAL mock
+// Supabase (no prod calls, no real keys):
+//   MOCK_PORT=54321 npx tsx tests/e2e/helpers/mockSupabaseServer.ts &
+//   VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_PUBLISHABLE_KEY=placeholder VITE_ENABLE_PUBLIC_TICKETING=true \
+//     npm run dev -- --host 127.0.0.1 --port 4173 &
+//   npx playwright test tests/e2e/walk-event-tickets-page.spec.ts --project=chromium
+// The ticket shape is switched on the mock via GET /__shape?v=several|single|soldout.
+// bypassCSP: the page CSP connect-src allows *.supabase.co only, not the local mock origin.
+test.use({ viewport: PHONE, bypassCSP: true });
 const OUT = process.env.WALK_OUT ?? 'test-results/walk-event-tickets-page';
 mkdirSync(OUT, { recursive: true });
 
-const type = (id: string, name: string, pence: number, status: 'on_sale' | 'sold_out', remaining: number) => ({
-  id, occurrence_id: null, name, price_pence: pence, status, remaining, currency: 'GBP', sales_open_at: null, sales_close_at: null,
-});
-const SHAPES: Record<string, unknown[]> = {
-  several: [type('t1', 'Early bird', 1000, 'on_sale', 12), type('t2', 'General', 1500, 'on_sale', 80), type('t3', 'Party + workshop', 2200, 'on_sale', 30)],
-  single: [type('t1', 'General', 1200, 'on_sale', 50)],
-  soldout: [type('t1', 'General', 1200, 'sold_out', 0)],
-};
+const MOCK = process.env.MOCK_URL ?? 'http://127.0.0.1:54321';
+const SHAPES = { several: 1, single: 1, soldout: 1 } as const;
 
 async function open(page: Page, shape: keyof typeof SHAPES) {
-  const fake = new OrganiserFake();
-  await fake.install(page);
-  const s = fake.series.get(FRIDAY)!;
-  const date = fake.dates(s)[0];
-  await page.route('**/rest/v1/rpc/ticket_types_public_v1', (r) => json(r, SHAPES[shape]));
-  await page.goto(`/event/${fake.occId(s, date)}`);
+  await fetch(`${MOCK}/__shape?v=${shape}`);
+  await page.goto(`/event/${FRIDAY}`);
 }
 
-for (const shape of Object.keys(SHAPES) as (keyof typeof SHAPES)[]) {
+// Taps: every button/link inside `scope` that takes space must be >= 44px tall. (The site header and the
+// skip link are outside this feature and are not measured here.)
+async function expectTaps(scope: Locator) {
+  for (const el of await scope.locator('button:visible, a:visible').all()) {
+    const b = await el.boundingBox();
+    if (b && b.width > 1 && b.height > 1) expect(b.height, `${await el.innerText()} (${Math.round(b.width)}x${Math.round(b.height)})`).toBeGreaterThanOrEqual(44);
+  }
+}
+const noSideways = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+
+for (const shape of ['several', 'single'] as const) {
   test(`tickets page: ${shape}`, async ({ page }) => {
     await open(page, shape);
     const bar = page.getByRole('button', { name: /Buy tickets/i }).first();
     await expect(bar).toBeVisible();
     await bar.click();
-    const root = page.getByTestId('good-to-know').first();
+    const root = page.getByTestId('event-tickets-page').first();
     await expect(root).toBeVisible();
+    await expect(page.getByTestId('good-to-know').first()).toBeVisible();
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${OUT}/${shape}.png`, fullPage: false });
-    for (const el of await page.locator('button:visible, a:visible').all()) {
-      const b = await el.boundingBox();
-      if (b && b.width > 0) expect(b.height, await el.innerText()).toBeGreaterThanOrEqual(44);
-    }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expectTaps(root);
+    expect(await noSideways(page)).toBe(true);
   });
 }
+
+// All types sold out. A cold load shows NO Buy tickets bar (nothing buyable), so the quiet green bar
+// (inside the tickets page) is reachable only when the last ticket sells out while the page is open:
+// open it on sale, flip the mock to sold out, age the cached list past its 30s staleTime and refocus.
+test('tickets page: soldout (quiet green bar)', async ({ page }) => {
+  await page.clock.install();
+  await open(page, 'several');
+  await page.getByRole('button', { name: /Buy tickets/i }).first().click();
+  const root = page.getByTestId('event-tickets-page').first();
+  await expect(root).toBeVisible();
+  await fetch(`${MOCK}/__shape?v=soldout`);
+  await page.clock.fastForward(60_000);
+  const refetch = page.waitForRequest((r) => r.url().includes('ticket_types_public_v1'));
+  // A reconnect refetches stale queries (react-query onlineManager).
+  await page.context().setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await page.context().setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await refetch;
+  const quiet = page.getByTestId('ticket-bar-quiet').first();
+  await expect(quiet).toBeVisible();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/soldout.png`, fullPage: false });
+  await expectTaps(root);
+  expect(await noSideways(page)).toBe(true);
+});
