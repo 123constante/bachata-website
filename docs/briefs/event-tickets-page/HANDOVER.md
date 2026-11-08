@@ -15,4 +15,4 @@
 5. Admin repo: add the four venue fields to `event_view_p5`.
 
 ## Not verified
-No browser walk, no e2e, lint chain not run (eslint on touched files: 2 pre-existing errors in EventStickyActionBar.tsx, not from this change). Unit tests in src/modules/tickets and src/modules/event-page pass. tsc run on this branch head: 0 errors.
+No browser walk, no e2e, lint chain not run (eslint on touched files: 2 pre-existing errors in EventStickyActionBar.tsx, not from this change). Unit tests in src/modules/tickets and src/modules/event-page pass. tsc run on 3a10a8b: 0 errors in branch files.
