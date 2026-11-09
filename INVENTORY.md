@@ -1,46 +1,55 @@
-# INVENTORY: organiser area v2, slice 1a (role strip, switcher, Switch badge)
+# INVENTORY: organiser area v2, slice 1c (Add a profile card)
 
-Brief: `docs/briefs/organiser-area-v2-slice1a-strip-switcher.md` (branch `brief/organiser-area-v2-shell`). Written before the code change; anchors refreshed after it.
+Written before any code change was committed (rule 1). Checked against origin/main `f096f60` (slice 1a merged), 2026-11-09.
+
+## Data source (proved first)
+`my_roles_v1` body, read-only on prod (`pg_get_functiondef`, 2026-11-09). Returns `(role, active, complete)` per role:
+
+| Role | Says "held" | Who writes it |
+|---|---|---|
+| dancer | `_dancer_profile_id_for_account_v1(auth.uid())` is not null | the dancer setup (`/app/welcome`) and admin linking |
+| organiser | `entity_members` row, `entity_type='organiser'`, `member_role in (owner, manager)`, organiser `lifecycle_status not in (archived, rejected)` | the add-a-page / claim flow, admin approval |
+| teacher | `person_roles.role='teaching' and is_active` on the dancer profile | the wizard's "Do you teach?" step (`DoYouSheet`), admin |
+| DJ | `person_roles.role='djing' and is_active` on the dancer profile | the wizard's "Do you DJ?" step (`DoYouSheet`), admin |
+
+Read in this repo at `src/modules/areas/home/rolesApi.ts:41` (`fetchMyRoles`), cached under `myRolesQueryKey` (`rolesApi.ts:20`), the same query slice 1a's Other pages reads (`src/modules/organiser/switch/index.tsx:38`).
 
 ## Three columns
 
-| Item | Admin (`bachata-admin-11april`) | Current Website | Public |
+| Role | Admin (how admin creates / links) | Current Website (entry for this card) | Public (what the profile becomes) |
 |---|---|---|---|
-| Organiser studio tabs | NOT ANCHORED: this cloud session has no access to the admin repo (add_repo refused). `components/admin/OrganiserStudio.tsx` unread. | P3 tabs Home / Events / Stats / You: `src/modules/organiser/p3/model/labels.ts:17`; tab bar `src/modules/organiser/p3/shell/P3Shell.tsx:100` | n/a |
-| Team roles (Owner / Manager) | NOT ANCHORED (same): `components/admin/organiser-studio/OrganiserTeamTab.tsx` unread. | `HomeOrganiser.role: 'owner' \| 'manager'` `src/modules/organiser/shared/selfServeApi.ts:44`; role word mapping `src/modules/organiser/p3/model/strip.ts:16` | n/a |
-| Flag gate (READ-ONLY) | n/a | `src/components/AnimatedRoutes.tsx:275` (`flags.organiserP3 && flags.organiserSelfServe`), `:281` (ticketing) | n/a |
-| P3 shell header (extends) | n/a | before: h1 = tab name only. now: strip above it, `src/modules/organiser/p3/shell/P3Shell.tsx:105` (`<P3RoleStrip />`), strip body `:57-90` | n/a |
-| Role strip (`p3-role-strip`) | n/a | `src/modules/organiser/p3/shell/P3Shell.tsx:62` | The page the strip names is the public organiser page; its name renders at `src/pages/OrganiserProfile.tsx:1068` |
-| Switch control (`p3-switch-control`) | n/a | `src/modules/organiser/p3/shell/P3Shell.tsx:70` -> `P3_PATHS.youSwitch` (`src/modules/organiser/p3/shell/paths.ts`) | n/a |
-| Switcher lists every page (extends) | n/a | organiser rows `src/modules/organiser/switch/index.tsx` (SwitchPage); teacher/DJ/dancer `OtherPages` same file, reads `my_roles_v1` via `src/modules/areas/home/rolesApi.ts` (`fetchMyRoles`); type `src/integrations/supabase/types.ts:15193` | n/a |
-| Switch to-do badge (`switch-todo-badge`) | n/a | strip `src/modules/organiser/p3/shell/P3Shell.tsx:77`; switcher rows `src/modules/organiser/switch/index.tsx:104`; count `src/modules/organiser/p3/model/strip.ts:36,44` (from Home's Needs you, `src/modules/organiser/p3/data/home.ts` `needsOf`) | n/a |
-| Labels (extends) | n/a | `src/modules/organiser/p3/model/labels.ts:20` (`L.strip`) | n/a |
+| Organiser | NOT VERIFIED: `bachata-admin-11april` is not reachable from this session (add_repo: no access). Prod writes land in `entity_members` / `organiser_profiles` (my_roles_v1 body above). | `P3_SURFACE.addPage = P3_PATHS.youAdd` `src/modules/organiser/p3/you/surface.tsx:86` -> route `src/modules/organiser/p3/shell/P3Routes.tsx:107` (`AddPageScreen`). R1 twin: `src/modules/organiser/shell/surface.tsx:41` (`?add=1`, handled `src/modules/organiser/home/index.tsx:103`). Pending claim state: `src/modules/organiser/home/ClaimNotice.tsx`, read through `fetchMyAccessRequests` `src/modules/organiser/shared/selfServeApi.ts:87`. | `src/pages/OrganiserProfile.tsx`; paid tickets via `you/get-paid` `src/modules/organiser/p3/shell/youTickets.tsx:23` (behind `organiserTicketing`). |
+| Teacher | NOT VERIFIED (admin repo unreachable). Prod writes land in `person_roles` ('teaching'). | `AREA_PATHS.teacher` `src/lib/areaPaths.ts:4` -> `AreaRoutes.tsx:28` -> `RoleAreaPage` not-added card `src/modules/areas/shared/RoleAreaPage.tsx:67`, whose Add opens the existing `DoYouSheet` (`RoleAreaPage.tsx:83`). Same action Your areas uses (`areaAction`, `src/modules/areas/home/areaStatus.ts:86`). | `src/pages/TeacherProfile.tsx`, listed in `src/pages/Teachers.tsx` (students find teachers there). |
+| DJ | NOT VERIFIED (admin repo unreachable). Prod writes land in `person_roles` ('djing'). | `AREA_PATHS.dj` `src/lib/areaPaths.ts:5` -> same `RoleAreaPage` / `DoYouSheet` path as teacher. | `src/pages/DJProfile.tsx` (contact panel `DJProfile.tsx:418`), listed in `src/pages/DJs.tsx`. |
+| Dancer | NOT VERIFIED (admin repo unreachable). | `APP_WELCOME_PATH` `src/lib/accountRouting.ts:240` (the dancer setup; also where an incomplete dancer is sent, `accountRouting.ts:364`). | Dancer app Nights / Home from the going list (`src/modules/dancer-app/screens/nights/NightsScreen.tsx:36`). |
 
-## Tests cells -> anchors
+Other reads: onboarding `src/modules/organiser/p3/onboarding/OnboardingFlow.tsx:421` (`onFullClaim` -> `P3_PATHS.youAdd`, the same organiser entry); `ContinueAs` route `src/components/AnimatedRoutes.tsx:227`.
 
-S = `src/modules/organiser/p3/shell/__tests__/strip.matrix.test.tsx`, W = `src/modules/organiser/switch/__tests__/switcher.matrix.test.tsx`.
+Flag gate: `flags.organiserP3 && flags.organiserSelfServe` `src/components/AnimatedRoutes.tsx:275` mounts the P3 area; the card renders only when `useOrgSurface().kind === 'p3'` (`src/modules/organiser/switch/index.tsx:132`), so R1 Switch (flag off) is unchanged.
+
+Preference store re-check: no per-viewer preference mechanism exists under `src/modules/organiser` (localStorage used only for edit drafts and the organiser choice). The card uses `localStorage` key `bc.addProfile.hidden.<userId>` in try/catch (`src/modules/organiser/switch/addProfileModel.ts`).
+
+## Prod shape survey (counts only, read-only, 2026-11-09)
+dancer only 28; all four 8; dancer+organiser 6; dancer+teacher+DJ 3; organiser only 3; none 2; dancer+organiser+teacher 2; dancer+DJ 2; dancer+organiser+DJ 1.
+
+## Tests section coverage
+A = `src/modules/organiser/switch/__tests__/addProfile.matrix.test.tsx` (model cells `it.each` at A:85, page cells `it.each` at A:103).
 
 | Cell | Anchor |
 |---|---|
-| P1 strip names Owner + page; switch opens; no badge | S:46, S:47, S:104, W:60 |
-| P2 switcher lists all pages; badge counts only OTHER pages; page with none = no badge | S:48, S:49, S:68, W:61, W:62 |
-| P3 org+teacher+DJ+dancer: all listed; badge on organiser only | W:63, S:82 |
-| P4 manager: strip says Manager; no owner-only control | S:51, S:118, W:98 |
-| P5 claim pending: no strip, no badge; only pages held | S:54, S:125 |
-| P7 caught up: no badge | S:52, W:64 |
-| P12 interim seat (0 seats): nothing new | S:54, S:125 (prod: 0 interim seats) |
-| P13 door + manager: Manager for that page only | S:53 |
-| P14 teacher/DJ/dancer, no organiser page: listed, no strip, no badge | W:88, S:125 |
-| P15 signed-out visitor: unchanged | P3 area sits behind AuthGuard (`src/modules/organiser/p3/shell/P3Routes.tsx`, `<AuthGuard>`); no change |
-| J1 strip on every P3 screen | S:104 (Home, Events, Stats, You, Switch page) |
-| J2 switch from every screen | S:104 (href asserted per screen) |
-| J3 badge = other pages' to-dos; none = no badge | S:60, W:69 |
-| J4 cancelled event drives no badge | S:55, S:56, W:65 |
-| J5 flag off: nothing new | W:109 (R1 Switch); route gate `src/components/AnimatedRoutes.tsx:275` + `src/modules/organiser/p3/__tests__/flagOff.test.ts` |
-| J6 teacher/DJ/dancer Home unchanged | no file under `src/modules/areas` touched; existing `src/modules/areas/__tests__/*` green |
-| Shapes (0/1/many events; live/draft/paused; 1/2 pages; zero to-dos; one other page only) | S:46-56 |
+| Dancer only: Organiser, Teacher, DJ | A:79 (row), A:85, A:103 |
+| Dancer + teacher: Organiser, DJ | A:80, A:85, A:103 |
+| Teacher + DJ: Organiser, Dancer | A:81, A:85, A:103 |
+| Organiser only: Teacher, DJ, Dancer | A:82, A:85, A:103 |
+| All roles: no card, no Not now, no toast | A:90, A:119 |
+| P6 unfinished dancer -> APP_WELCOME_PATH | A:81, A:165 |
+| 1. each row's tap -> existing entry (4 roles) | A:155 |
+| 2. Not now / toast / Undo / reload / other user | A:172 |
+| 3. localStorage throws | A:200 |
+| 4. Flag off | A:211 |
+| 5. Signed-out visitor | A:220 |
+| 6. last block, 56 px rows, 44 px Not now | A:228 |
 
-## Coverage count
+Extra cells: pending organiser claim counts as held (A:130), my_roles_v1 fails = no card (A:139).
 
-Tests cells in the brief: 17 (10 person types + 6 journeys + 1 shapes row). With a file:line anchor: 17 / 17.
-Admin column: 0 / 2 anchored -- the admin repo is not reachable from this session (see HANDOVER). This is reported, not hidden.
+Coverage: 12 cells in the Tests section, 12 with a file anchor. The Admin column has no anchors (repo unreachable) -- reported under Not verified, not a Tests cell.

@@ -17,6 +17,13 @@ export const L = {
   tabs: { home: 'Home', events: 'Events', stats: 'Stats', you: 'You' },
 
   /** Slice 1a: the role strip at the top of every P3 screen, and the Switch page list. */
+  /** Slice 1c: the Switch page's Add a profile card toast (P3-only copy; the R1 switch/ dir names no Undo). */
+  addProfile: {
+    hidden: 'Hidden. We will remember this.',
+    /** Storage threw: hidden for this visit only, so it does not promise to remember. */
+    hiddenSession: 'Hidden for now.',
+    undo: 'Undo',
+  },
   strip: {
     /** Owner or Manager only: the contributor role is gone and never named. */
     role: { owner: 'Owner', manager: 'Manager' } as Record<'owner' | 'manager', string>,
