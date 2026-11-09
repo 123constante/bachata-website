@@ -101,6 +101,10 @@
       "reason": "Dancer profile."
     },
     {
+      "name": "save_my_signin_email_v1",
+      "reason": "Copies the dancer's own sign-in email to their private profile email; never public; not an event write."
+    },
+    {
       "name": "save_my_role_v1",
       "reason": "Account role choice."
     },
