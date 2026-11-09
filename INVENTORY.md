@@ -1,26 +1,46 @@
-# INVENTORY — interim seat labels (brief interim-seat-p3-labels)
+# INVENTORY: organiser area v2, slice 1a (role strip, switcher, Switch badge)
 
-Admin app source is NOT in this repo or this session; admin items cite the Website's own record of them (honest limit, see Not covered).
+Brief: `docs/briefs/organiser-area-v2-slice1a-strip-switcher.md` (branch `brief/organiser-area-v2-shell`). Written before the code change; anchors refreshed after it.
 
-| # | Source | Field / state / option | file:line | Covered |
-|---|---|---|---|---|
-| 1 | admin | `organiser_ownership_v1.seat_kind` returned for a caller with a role | docs/scoping/g1-write-door-check.md:78 | yes: src/modules/organiser/shared/ownership.ts parseSeatKind |
-| 2 | admin | seat values owner / manager / interim / contributor | src/modules/organiser/shared/ownership.ts:9 (SeatKind) | yes |
-| 3 | admin | `interim_cannot_add` refusal on add | docs/scoping/g1-write-door-check.md:94 | yes: Add someone replaced |
-| 4 | admin | interim seat opened by manager grant / manager invite | docs/scoping/g1-write-door-check.md:87,89 | no UI (server-side only) |
-| 5 | admin | interim seat table `organiser_interim_seats` | src/integrations/supabase/types.ts:5646 | no (never read by Website) |
-| 6 | web | ownership shape my_role / is_managed / i_own_it | src/modules/organiser/shared/ownership.ts:21 | yes, unchanged |
-| 7 | web | parse of unknown / missing seat | src/modules/organiser/shared/ownership.ts:97 | yes |
-| 8 | web | Team "Add someone" (enabled / disabled+reason / contributor) | src/modules/organiser/team/index.tsx:168 | yes: share branch for interim |
-| 9 | web | own-row role label (listed rows) | src/modules/organiser/team/index.tsx:60 | yes |
-| 10 | web | own-row role label (members fallback) | src/modules/organiser/team/index.tsx:97 | yes |
-| 11 | web | Leave this page gate | src/modules/organiser/team/index.tsx:179 | unchanged by design |
-| 12 | web | Team add gate mapping canAdd | src/modules/organiser/shared/teamRules.ts:55 | yes: teamAddOffer wraps it |
-| 13 | web | You tab Get paid row | src/modules/organiser/p3/shell/youTickets.tsx:13 | yes: line for interim |
-| 14 | web | Get paid route `you/get-paid` | src/modules/organiser/p3/shell/youTickets.tsx:23 | no (flag-gated route; reachable by URL only, server refuses) |
-| 15 | web | invite share (sign-up link) in AddSomeone | src/modules/organiser/team/AddSomeone.tsx:76 | reused pattern (share, then clipboard, then show link) |
-| 16 | public | "Ask to join" button on the public page | src/modules/organiser/shared/components/PublicClaimCard.tsx:263 | yes: the share line names it |
-| 17 | public | public organiser route /organisers/:id | src/components/AnimatedRoutes.tsx:195 | yes: the URL shared |
-| 18 | public | "Managed by the organiser" badge | src/modules/organiser/shared/ownership.ts:68 | unchanged |
+## Three columns
 
-Coverage: 12 covered or deliberately unchanged / 18 total; 6 not covered, with reasons in rows 4, 5, 14 (server side or URL-only) and rows 11, 15, 18 counted as unchanged/reused. Strict count of rows with a UI change: 7 / 18.
+| Item | Admin (`bachata-admin-11april`) | Current Website | Public |
+|---|---|---|---|
+| Organiser studio tabs | NOT ANCHORED: this cloud session has no access to the admin repo (add_repo refused). `components/admin/OrganiserStudio.tsx` unread. | P3 tabs Home / Events / Stats / You: `src/modules/organiser/p3/model/labels.ts:17`; tab bar `src/modules/organiser/p3/shell/P3Shell.tsx:100` | n/a |
+| Team roles (Owner / Manager) | NOT ANCHORED (same): `components/admin/organiser-studio/OrganiserTeamTab.tsx` unread. | `HomeOrganiser.role: 'owner' \| 'manager'` `src/modules/organiser/shared/selfServeApi.ts:44`; role word mapping `src/modules/organiser/p3/model/strip.ts:16` | n/a |
+| Flag gate (READ-ONLY) | n/a | `src/components/AnimatedRoutes.tsx:275` (`flags.organiserP3 && flags.organiserSelfServe`), `:281` (ticketing) | n/a |
+| P3 shell header (extends) | n/a | before: h1 = tab name only. now: strip above it, `src/modules/organiser/p3/shell/P3Shell.tsx:105` (`<P3RoleStrip />`), strip body `:57-90` | n/a |
+| Role strip (`p3-role-strip`) | n/a | `src/modules/organiser/p3/shell/P3Shell.tsx:62` | The page the strip names is the public organiser page; its name renders at `src/pages/OrganiserProfile.tsx:1068` |
+| Switch control (`p3-switch-control`) | n/a | `src/modules/organiser/p3/shell/P3Shell.tsx:70` -> `P3_PATHS.youSwitch` (`src/modules/organiser/p3/shell/paths.ts`) | n/a |
+| Switcher lists every page (extends) | n/a | organiser rows `src/modules/organiser/switch/index.tsx` (SwitchPage); teacher/DJ/dancer `OtherPages` same file, reads `my_roles_v1` via `src/modules/areas/home/rolesApi.ts` (`fetchMyRoles`); type `src/integrations/supabase/types.ts:15193` | n/a |
+| Switch to-do badge (`switch-todo-badge`) | n/a | strip `src/modules/organiser/p3/shell/P3Shell.tsx:77`; switcher rows `src/modules/organiser/switch/index.tsx:104`; count `src/modules/organiser/p3/model/strip.ts:36,44` (from Home's Needs you, `src/modules/organiser/p3/data/home.ts` `needsOf`) | n/a |
+| Labels (extends) | n/a | `src/modules/organiser/p3/model/labels.ts:20` (`L.strip`) | n/a |
+
+## Tests cells -> anchors
+
+S = `src/modules/organiser/p3/shell/__tests__/strip.matrix.test.tsx`, W = `src/modules/organiser/switch/__tests__/switcher.matrix.test.tsx`.
+
+| Cell | Anchor |
+|---|---|
+| P1 strip names Owner + page; switch opens; no badge | S:46, S:47, S:104, W:60 |
+| P2 switcher lists all pages; badge counts only OTHER pages; page with none = no badge | S:48, S:49, S:68, W:61, W:62 |
+| P3 org+teacher+DJ+dancer: all listed; badge on organiser only | W:63, S:82 |
+| P4 manager: strip says Manager; no owner-only control | S:51, S:118, W:98 |
+| P5 claim pending: no strip, no badge; only pages held | S:54, S:125 |
+| P7 caught up: no badge | S:52, W:64 |
+| P12 interim seat (0 seats): nothing new | S:54, S:125 (prod: 0 interim seats) |
+| P13 door + manager: Manager for that page only | S:53 |
+| P14 teacher/DJ/dancer, no organiser page: listed, no strip, no badge | W:88, S:125 |
+| P15 signed-out visitor: unchanged | P3 area sits behind AuthGuard (`src/modules/organiser/p3/shell/P3Routes.tsx`, `<AuthGuard>`); no change |
+| J1 strip on every P3 screen | S:104 (Home, Events, Stats, You, Switch page) |
+| J2 switch from every screen | S:104 (href asserted per screen) |
+| J3 badge = other pages' to-dos; none = no badge | S:60, W:69 |
+| J4 cancelled event drives no badge | S:55, S:56, W:65 |
+| J5 flag off: nothing new | W:109 (R1 Switch); route gate `src/components/AnimatedRoutes.tsx:275` + `src/modules/organiser/p3/__tests__/flagOff.test.ts` |
+| J6 teacher/DJ/dancer Home unchanged | no file under `src/modules/areas` touched; existing `src/modules/areas/__tests__/*` green |
+| Shapes (0/1/many events; live/draft/paused; 1/2 pages; zero to-dos; one other page only) | S:46-56 |
+
+## Coverage count
+
+Tests cells in the brief: 17 (10 person types + 6 journeys + 1 shapes row). With a file:line anchor: 17 / 17.
+Admin column: 0 / 2 anchored -- the admin repo is not reachable from this session (see HANDOVER). This is reported, not hidden.
