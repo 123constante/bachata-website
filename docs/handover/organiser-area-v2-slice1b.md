@@ -38,3 +38,6 @@ TeamPicker.test.tsx:306 is pre-existing main code). npm run lint: 34/34 links gr
 check:integrity, lint:architecture, check:legacy-tables, check:legacy-program-rpcs, check:images (AUDIT_STRICT=1):
 exit 0. test:unit: 15 failures in 4 files (eventViewCompat / occurrenceProgram / publicEventPageLineup contract
 tests, integrityCouldNotRun) -- the same 15 slice 1a recorded on unchanged main; none touch this diff.
+
+## PR
+#1511 (opened by the repo bot; body filled, both body checkers exit 0). Not ready for owner: stops 1-6 above.
