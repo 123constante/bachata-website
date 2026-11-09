@@ -46,7 +46,7 @@ async function open(page: Page, fx: Fixture, role?: string) {
 async function geometry(page: Page, scope: string) {
   await expectNoHorizontalScroll(page);
   const boxes = await page.locator(`${scope} :is(button, input)`).evaluateAll((els) =>
-    els.filter((e) => (e as HTMLElement).offsetParent).map((e) => { const r = e.getBoundingClientRect(); return { t: e.textContent || e.getAttribute('data-testid'), h: r.height, l: r.left, r: r.right }; }));
+    els.filter((e) => e.getClientRects().length > 0).map((e) => { const r = e.getBoundingClientRect(); return { t: e.textContent || e.getAttribute('data-testid'), h: r.height, l: r.left, r: r.right }; }));
   expect(boxes.length).toBeGreaterThan(0);
   for (const b of boxes) {
     expect(b.l, String(b.t)).toBeGreaterThanOrEqual(0);
@@ -63,7 +63,7 @@ test('paused ticket with sales: says what paused means, resume is one tap', asyn
   const box = await row.getByTestId('tix-switch').boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(44);
   await expect(page.getByTestId('tix-add')).toBeVisible();
-  await geometry(page, '[data-testid="tix-sheet"]');
+  await geometry(page, 'body');
 });
 
 test('locked price: the sheet says to pause and add a new one', async ({ page }) => {
@@ -81,5 +81,5 @@ test('no tickets: still says what to do', async ({ page }) => {
   const box = await page.getByTestId('tix-add').boundingBox();
   expect(box!.height).toBeGreaterThanOrEqual(44);
   expect(box!.x + box!.width).toBeLessThanOrEqual(PHONE.width);
-  await geometry(page, '[data-testid="tix-sheet"]');
+  await geometry(page, 'body');
 });
