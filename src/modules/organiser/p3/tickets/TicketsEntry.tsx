@@ -27,6 +27,7 @@ import {
   withPendingRefund,
   type PendingRefund,
   switchMove,
+  PAUSED_NOTE,
   type MoveContext,
   type Order,
   type TicketStatus,
@@ -597,6 +598,7 @@ function TypeRow({
           <span className={TONE_CLASS.neutral} data-testid="tix-type-closed">{SWITCH_LABEL.closed}</span>
         )}
       </div>
+      {t.status === 'paused' && <p className="p3-note" data-testid="tix-paused-note">{PAUSED_NOTE}</p>}
       {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason"><ReasonText text={shownReason} /></p>}
       {connect && blocked === connect.replaces && (
         <div className="p3-stack-s" data-testid="tix-connect">
