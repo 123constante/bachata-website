@@ -33,21 +33,23 @@ Preference store re-check: no per-viewer preference mechanism exists under `src/
 dancer only 28; all four 8; dancer+organiser 6; dancer+teacher+DJ 3; organiser only 3; none 2; dancer+organiser+teacher 2; dancer+DJ 2; dancer+organiser+DJ 1.
 
 ## Tests section coverage
-All cells live in `src/modules/organiser/switch/__tests__/addProfile.matrix.test.tsx`.
+A = `src/modules/organiser/switch/__tests__/addProfile.matrix.test.tsx` (model cells `it.each` at A:85, page cells `it.each` at A:103).
 
 | Cell | Anchor |
 |---|---|
-| Dancer only | `PEOPLE` row 1, model + page `it.each` |
-| Dancer + teacher | `PEOPLE` row 2 |
-| Teacher + DJ | `PEOPLE` row 3 |
-| Organiser only | `PEOPLE` row 4 |
-| All roles | `All roles: nothing missing` + `All roles: no card, no Not now, no toast` |
-| P6 unfinished dancer | `P6 unfinished dancer` |
-| 1. tap targets per role | `1. %s row opens the existing entry` (4 cells) |
-| 2. Not now / Undo / reload / other user | `2. Not now hides the card ...` |
-| 3. localStorage throws | `3. localStorage throws ...` |
-| 4. Flag off | `4. Flag off (R1 Switch)` |
-| 5. Signed-out | `5. Signed-out visitor` |
-| 6. last block, tap sizes | `6. the card is the last block ...` |
+| Dancer only: Organiser, Teacher, DJ | A:79 (row), A:85, A:103 |
+| Dancer + teacher: Organiser, DJ | A:80, A:85, A:103 |
+| Teacher + DJ: Organiser, Dancer | A:81, A:85, A:103 |
+| Organiser only: Teacher, DJ, Dancer | A:82, A:85, A:103 |
+| All roles: no card, no Not now, no toast | A:90, A:119 |
+| P6 unfinished dancer -> APP_WELCOME_PATH | A:81, A:165 |
+| 1. each row's tap -> existing entry (4 roles) | A:155 |
+| 2. Not now / toast / Undo / reload / other user | A:172 |
+| 3. localStorage throws | A:200 |
+| 4. Flag off | A:211 |
+| 5. Signed-out visitor | A:220 |
+| 6. last block, 56 px rows, 44 px Not now | A:228 |
+
+Extra cells: pending organiser claim counts as held (A:130), my_roles_v1 fails = no card (A:139).
 
 Coverage: 12 cells in the Tests section, 12 with a file anchor. The Admin column has no anchors (repo unreachable) -- reported under Not verified, not a Tests cell.
