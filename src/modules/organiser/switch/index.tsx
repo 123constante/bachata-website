@@ -9,6 +9,7 @@ import { fetchMyRoles, myRolesQueryKey } from '@/modules/areas/home/rolesApi';
 import { AREA_HREF, AREA_NAME } from '@/modules/areas/home/areaStatus';
 import { otherPagesOf, roleWordOf, todosOf } from '@/modules/organiser/p3/model/strip';
 import { L } from '@/modules/organiser/p3/model/labels';
+import { AddProfileCard } from './AddProfileCard';
 
 /**
  * A row of chips, one per organiser, shown only when there are several (the
@@ -127,6 +128,8 @@ export default function SwitchPage() {
       >
         Add a page
       </Link>
+      {/* P3 (slice 1c): the roles the person lacks, last on the page. Flag off (R1) = today's Switch. */}
+      {kind === 'p3' && <AddProfileCard key={user?.id ?? 'signed-out'} userId={user?.id} organiserPages={organisers.length} addPage={addPage} />}
     </Shell>
   );
 }
