@@ -16,6 +16,17 @@ const RESET_DATE = 'Put this date back to normal';
 export const L = {
   tabs: { home: 'Home', events: 'Events', stats: 'Stats', you: 'You' },
 
+  /** Slice 1a: the role strip at the top of every P3 screen, and the Switch page list. */
+  strip: {
+    /** Owner or Manager only: the contributor role is gone and never named. */
+    role: { owner: 'Owner', manager: 'Manager' } as Record<'owner' | 'manager', string>,
+    switchWord: 'Switch',
+    switchName: 'Switch page',
+    todos: (n: number) => `${n} ${n === 1 ? 'to-do' : 'to-dos'} on your other pages`,
+    pageTodos: (n: number) => `${n} ${n === 1 ? 'to-do' : 'to-dos'} on this page`,
+    otherPages: 'Your other pages',
+  },
+
   sessions: 'Sessions',
   everyDate: 'Every date',
   noName: 'No name yet',

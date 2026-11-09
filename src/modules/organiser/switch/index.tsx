@@ -1,9 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import type { HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
 import { useOrgSurface } from '../shell/surface';
 import { Card, Chip, ErrorState, SkeletonRows } from '../ui';
 import { lifecycleTag } from '@/modules/organiser/shared/eventState';
 import { rememberChoice, useOrganiserChoice } from './useOrganiserChoice';
+import { fetchMyRoles, myRolesQueryKey } from '@/modules/areas/home/rolesApi';
+import { AREA_HREF, AREA_NAME } from '@/modules/areas/home/areaStatus';
+import { otherPagesOf, roleWordOf, todosOf } from '@/modules/organiser/p3/model/strip';
+import { L } from '@/modules/organiser/p3/model/labels';
 
 /**
  * A row of chips, one per organiser, shown only when there are several (the
@@ -29,7 +34,29 @@ export function OrganiserSwitcher({ organisers, selectedId, onChoose }: {
 /** P3's mark on the page You shows. */
 export const SHOWING = 'Showing';
 
-const ROLE: Record<HomeOrganiser['role'], string> = { owner: 'Owner', manager: 'Manager' };
+/** P3 (slice 1a): the teacher, DJ and dancer pages the person holds (my_roles_v1), under the organiser pages. Never badged. */
+function OtherPages() {
+  const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles });
+  const held = otherPagesOf(roles.data);
+  if (held.length === 0) return null;
+  return (
+    <>
+      <h2 className="mt-[16px] mb-[8px] text-[14px] font-semibold text-[var(--mut)]">{L.strip.otherPages}</h2>
+      <Card testId="switch-other-pages">
+        {held.map((role) => (
+          <Link
+            key={role}
+            to={AREA_HREF[role]}
+            data-testid={`switch-area-${role}`}
+            className="flex min-h-[56px] w-full items-center border-b border-[var(--line)] px-[16px] py-[8px] text-[15px] font-semibold text-[var(--fg)] last:border-b-0"
+          >
+            {AREA_NAME[role]}
+          </Link>
+        ))}
+      </Card>
+    </>
+  );
+}
 
 /**
  * /account/o/switch (C35): the login's pages as rows -- name, role, a Live chip
@@ -68,8 +95,18 @@ export default function SwitchPage() {
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold text-[var(--fg)]">{o.name}</span>
-                <span className="block text-[13px] text-[var(--mut)]">{ROLE[o.role] ?? o.role}</span>
+                <span className="block text-[13px] text-[var(--mut)]">{roleWordOf(o.role)}</span>
               </span>
+              {/* P3: an OTHER organiser page with to-dos carries its count; the open page and a page with none carry nothing. */}
+              {kind === 'p3' && home.data && o.id !== selected?.id && todosOf(home.data, o.id) > 0 && (
+                <span
+                  className="inline-flex min-w-[20px] items-center justify-center rounded-[999px] bg-[var(--btn)] px-[6px] text-[12px] font-bold leading-[20px] text-[var(--btnfg)]"
+                  data-testid="switch-todo-badge"
+                  aria-label={L.strip.pageTodos(todosOf(home.data, o.id))}
+                >
+                  {todosOf(home.data, o.id)}
+                </span>
+              )}
               {o.lifecycle_status === 'live' && (
                 <span className="rounded-[8px] bg-[var(--ok-bg)] px-[8px] py-[2px] text-[12px] font-semibold text-[var(--ok-fg)]">{lifecycleTag('live').label}</span>
               )}
@@ -81,6 +118,7 @@ export default function SwitchPage() {
           ))}
         </Card>
       )}
+      {kind === 'p3' && <OtherPages />}
       <Link
         to={addPage}
         data-testid="switch-add-page"
