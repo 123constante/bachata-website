@@ -18,9 +18,8 @@ describe('walk-spec garbled-text helper', () => {
   });
 });
 
-// Guard: a walk spec must use the shared helper, not its own inline copy of the pattern. These three predate the helper and
-// are migrated by the follow-up PR, which empties this list; a listed spec that no longer has the inline copy must be removed.
-const INLINE_ALLOWLIST = ['walk-p3-batch-1-dates.spec.ts', 'walk-p3-batch-1-door.spec.ts', 'walk-p3-batch-1-status.spec.ts'];
+// Guard: a walk spec must use the shared helper, not its own inline copy of the pattern.
+const INLINE_ALLOWLIST: string[] = [];
 const INLINE = /u00c3[^\n]*u20ac|&\((?:mdash|hellip)/;
 describe('walk specs share one garbled-text pattern', () => {
   const specs = fs.readdirSync('tests/e2e').filter((f) => /^walk-.*\.spec\.ts$/.test(f));
@@ -28,8 +27,5 @@ describe('walk specs share one garbled-text pattern', () => {
   it.each(specs)('%s has no inline copy unless allowlisted', (f) => {
     const inline = INLINE.test(fs.readFileSync(`tests/e2e/${f}`, 'utf8'));
     expect(inline && !INLINE_ALLOWLIST.includes(f), `${f}: import findGarbled from './helpers/garbled' instead of an inline regex`).toBe(false);
-  });
-  it.each(INLINE_ALLOWLIST)('allowlisted %s still has the inline copy (else remove it from the list)', (f) => {
-    expect(INLINE.test(fs.readFileSync(`tests/e2e/${f}`, 'utf8'))).toBe(true);
   });
 });
