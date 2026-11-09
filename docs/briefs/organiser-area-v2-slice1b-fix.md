@@ -12,11 +12,12 @@ Close the independent review of #1511 so the PR can merge with organiserP3 flag 
 
 ## What main lacks
 Continuation of an open PR: the fixes below are checked on the PR branch, not on main.
-- The P3 Team person screen still says "contributors" -- src/modules/organiser/team/Person.tsx
-- The P3 Team tab does not list Owner, Manager, Door -- src/modules/organiser/team/index.tsx
-- The Team roles switch uses one flag, not the flag pair -- src/modules/organiser/edit-in-place/EditInPlaceLayer.tsx
+- extends: The P3 Team person screen still says "contributors" -- src/modules/organiser/team/Person.tsx
+- extends: The P3 Team tab does not list Owner, Manager, Door -- src/modules/organiser/team/index.tsx
+- extends: The Team roles switch uses one flag, not the flag pair -- src/modules/organiser/edit-in-place/EditInPlaceLayer.tsx
 
 ## Fixes (do all, nothing else)
+0. Update INVENTORY.md first: for the Team person screen, Team index, chooser and settings sheet list every field, state and option from the admin app, the current Website and the public page, each with file:line. Build only after it exists, and report the coverage count (inventory items covered / total) at the end. (The two test files marked (new) exist only on the PR branch, not on main.)
 1. P3 Team screens: team/Person.tsx lines 17 and 94 render ROLE_EXPLAINER = ROLE_HELP (shared/selfServeErrors.ts:356) containing "contributors". When P3 is live build the explainer from TEAM_ROLES (edit-in-place/teamRoles.ts) so no contributor word shows, and render the Owner / Manager / Door roles list on team/index.tsx (Door shown disabled with its reason, as in the picker). Test: the P3 person screen and Team index never match /contributor/i.
 2. Flag pair: EditInPlaceLayer.tsx:736 p3Roles = flags.organiserP3 must use flags.organiserP3 && flags.organiserSelfServe (same as AnimatedRoutes.tsx:227). One shared helper; test organiserP3 on + organiserSelfServe off = today's picker.
 3. Tests that cannot fail: in chooser.matrix.test.tsx and accountRouting.eventDay.test.ts give P5 (claim pending) openRequestCount: 1 and assert it lands on P3 Welcome via continueAsLanding(facts, true); give P4 a real role: 'manager' row; P12 must differ from a dancer-only fixture or be removed with a note. Drop the A5 "second sign-in same day" test or make it assert no storage write. X1 test: measure 44px through the class and assert Sign out too.
@@ -29,8 +30,8 @@ src/modules/organiser/team/index.tsx
 src/modules/organiser/edit-in-place/EditInPlaceLayer.tsx
 src/modules/organiser/p3/shell/P3Shell.tsx
 src/components/account/profiles/ContinueAsPage.tsx
-src/components/account/profiles/__tests__/chooser.matrix.test.tsx
-src/lib/__tests__/accountRouting.eventDay.test.ts
+src/components/account/profiles/__tests__/chooser.matrix.test.tsx (new)
+src/lib/__tests__/accountRouting.eventDay.test.ts (new)
 src/modules/organiser/team/__tests__/p3Roles.test.tsx (new)
 
 ## Done when
