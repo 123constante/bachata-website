@@ -64,6 +64,10 @@ const rowClass = (primary: boolean) =>
  * While P3 is live (slice 1b) eventDayLanding widens it: teacher and DJ pages are entries too, a
  * live event today on one organiser page lands there, and two live pages are both marked "Live tonight".
  */
+/** The roles read as the landing takes it: its data once in; else undefined (wait) while fetching or retrying, null once it has failed for good. */
+export const rolesSettled = <T,>(q: { data: T | undefined; isError: boolean; isFetching: boolean }): T | null | undefined =>
+  q.data !== undefined ? q.data : q.isFetching || !q.isError ? undefined : null;
+
 /** Flag on (P3 live): the teacher / DJ entries and the live-tonight facts join the landing. */
 const ContinueAsLive = () => {
   const { user } = useAuth();
@@ -71,9 +75,11 @@ const ContinueAsLive = () => {
   const enabled = Boolean(user?.id);
   // Same keys and fetchers as useProfileSides / the switcher, so these are one cache entry each.
   const home = useQuery({ queryKey: organiserHomeQueryKey(user?.id), queryFn: fetchOrganiserHome, enabled });
-  const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles, enabled, retry: false });
+  // Slice 1b fix: one retry (a sign-in's first read can beat the session: not_signed_in), and the landing
+  // waits while the read is fetching, so a failed first read never hides the teacher / DJ entry for good.
+  const roles = useQuery({ queryKey: myRolesQueryKey, queryFn: fetchMyRoles, enabled, retry: 1, retryDelay: 300 });
   const live = useMemo(() => liveTonightIds(home.data ?? (home.isError ? null : undefined)), [home.data, home.isError]);
-  const areas = areaPagesOf(roles.data ?? (roles.isError ? null : undefined));
+  const areas = areaPagesOf(rolesSettled(roles));
   const landing = eventDayLanding({
     base: continueAsLanding(facts, true),
     sides: state.status === 'ready' ? state.sides : [],

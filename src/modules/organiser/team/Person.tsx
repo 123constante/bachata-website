@@ -6,6 +6,7 @@ import { ROLE_HELP, teamErrorMessage } from '@/modules/organiser/shared/selfServ
 import { organiserTeamQueryKey, setTeamMember } from '@/modules/organiser/shared/teamRpcApi';
 import { ROLE_LABEL, canReceiveOwnership, memberLabel, memberShortName } from '@/modules/organiser/shared/teamModel';
 import { TEAM_REASONS, canLeave, canManagePeople, canRemove as removeGate } from '@/modules/organiser/shared/teamRules';
+import { P3_ROLE_HELP } from '@/modules/organiser/edit-in-place/teamRoles';
 import { goDone } from '../flows/doneState';
 import { useOrgSurface } from '../shell/surface';
 import { ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '../ui';
@@ -16,6 +17,8 @@ import { useTeamContext } from './useTeamContext';
 /** The role explanation: the ONE string in selfServeErrors, shared with the /page picker (A-S5). */
 export const ROLE_EXPLAINER = ROLE_HELP;
 export const OWNER_ONLY_ROLE = TEAM_REASONS.roles;
+/** Slice 1b fix: while P3 is live the explainer is built from TEAM_ROLES (Owner, Manager, Door): no contributor word. */
+export const personExplainer = (kind: 'r1' | 'p3'): string => (kind === 'p3' ? P3_ROLE_HELP : ROLE_EXPLAINER);
 
 /**
  * /account/o/team/:userId (C26): one person, keyed by user_id (what organiser_team_v1 returns and the
@@ -26,7 +29,7 @@ export const OWNER_ONLY_ROLE = TEAM_REASONS.roles;
 export default function Person() {
   const { userId = '' } = useParams();
   const ctx = useTeamContext();
-  const { Shell, paths, doneBack } = useOrgSurface();
+  const { kind, Shell, paths, doneBack } = useOrgSurface();
   const { organiser, members, viewerRole } = ctx;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -91,7 +94,7 @@ export default function Person() {
                 <p className="text-[14px] text-[var(--mut)]" data-testid="person-role">{ROLE_LABEL[member.role]}{member.isSelf ? ' · you' : ''}</p>
               </div>
             </div>
-            <p className="text-[14px] text-[var(--mut)]" data-testid="person-explainer">{ROLE_EXPLAINER}</p>
+            <p className="text-[14px] text-[var(--mut)]" data-testid="person-explainer">{personExplainer(kind)}</p>
             {!isOwner && !member.isSelf && (
               <GhostButton disabled aria-describedby="person-role-reason" testId="person-change-role">Change role</GhostButton>
             )}

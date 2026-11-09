@@ -20,6 +20,31 @@ import { GateReason } from './GateReason';
 import { PublicToggle } from './PublicToggle';
 import { useTeamContext } from './useTeamContext';
 import { PageNameCaption, RequestsError, requestsErrorShown } from './p3TeamBits';
+import { TEAM_ROLES } from '@/modules/organiser/edit-in-place/teamRoles';
+
+/**
+ * Slice 1b fix: the P3 Team tab lists the roles, from the ONE list (TEAM_ROLES: Owner, Manager, Door).
+ * Door is shown disabled with its reason, as in the picker. No contributor word.
+ */
+function RolesCard() {
+  return (
+    <Card label="Roles" testId="p3-team-roles">
+      <ul className="flex flex-col">
+        {TEAM_ROLES.map((r) => {
+          const off = r.key === 'door';
+          const whyId = `p3-team-role-${r.key}-why`;
+          return (
+            <li key={r.key} data-testid={`p3-team-role-${r.key}`} data-disabled={off ? 'true' : 'false'} aria-disabled={off ? 'true' : undefined} aria-describedby={off ? whyId : undefined} className={`flex min-h-[44px] flex-col justify-center px-[16px] py-[8px] ${off ? 'opacity-60' : ''}`}>
+              <span className="text-[15px] font-bold text-[var(--fg)]">{r.label}</span>
+              <span className="text-[13px] text-[var(--mut)]">{r.can}</span>
+              {off && <span id={whyId} className="text-[13px] text-[var(--mut)]" data-testid="p3-team-role-door-why">{r.notAddable}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
+  );
+}
 
 /**
  * /account/o/team (C25). Faces and roles (Owner / Manager, D41), the open join request as a card
@@ -157,6 +182,7 @@ export default function TeamPage() {
               {listed && listed.length === 0 && <p className="px-[16px] py-[12px] text-[14px] text-[var(--mut)]" data-testid="team-empty">{NOBODY_LISTED}</p>}
               {!listed && !ctx.loading && <p className="px-[16px] py-[8px] text-[13px] text-[var(--mut)]" data-testid="team-shared-failed">{SHARED_READ_FAILED}</p>}
             </Card>
+            {kind === 'p3' && <RolesCard />}
             {me && (
               <Card label="Public team" testId="team-public-card">
                 <PublicToggle organiserId={organiser.id} profileId={me.profileId ?? null} onChanged={announce} />

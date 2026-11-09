@@ -9,6 +9,12 @@ import type { AddRole } from './teamPickerModel';
 
 export type TeamRoleKey = 'owner' | 'manager' | 'door';
 
+/**
+ * Slice 1b fix: the P3 Team roles are on only while the P3 area is live -- the SAME flag pair that
+ * mounts /account/p3/* (AnimatedRoutes: organiserP3 AND organiserSelfServe). organiserP3 alone = today.
+ */
+export const p3RolesLive = (f: { organiserP3: boolean; organiserSelfServe: boolean }): boolean => f.organiserP3 && f.organiserSelfServe;
+
 export interface TeamRoleEntry {
   key: TeamRoleKey;
   label: string;

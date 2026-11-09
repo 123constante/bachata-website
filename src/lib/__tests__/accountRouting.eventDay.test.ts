@@ -1,7 +1,10 @@
 /**
  * Organiser area v2 slice 1b: event-day landing (Q1, Q2, A4, A5, A8; OPEN:11 decided).
  * Pure cells over lib/accountRouting eventDayLanding + liveTonightIds. Person types are the
- * brief's P-numbers; P2 / P4 / P12 / P14 shapes are seeded fixtures, not prod accounts.
+ * brief's P-numbers; P2 / P4 / P14 shapes are seeded fixtures, not prod accounts.
+ * P12 (interim seat) is not a cell: no interim or helper seat exists (entity_members.member_role =
+ * owner | manager | contributor | ambassador, prod 2026-11-09), so a P12 person IS the dancer-only
+ * person, already a cell (P5 with no open request). Fix round, PR #1511 review.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -14,6 +17,7 @@ import {
   type TonightHome,
 } from '@/lib/accountRouting';
 import { attentionItems, type HomeSeriesFull } from '@/modules/organiser/shared/homeModel';
+import { P3_START_PATH, continueAsLanding } from '@/lib/auth-otp-routing';
 
 const TODAY = '2026-11-09';
 const HOME = '/account/p3';
@@ -53,11 +57,8 @@ describe('eventDayLanding: person types x journeys', () => {
   it('P7 caught-up organiser, one page with a live event today: lands on the page, no chooser', () => {
     expect(run(facts([A], 'no_profile'), { live: ['org-a'] })).toEqual({ kind: 'go', to: HOME });
   });
-  it('P2 two pages (seeded), no event today: chooser on every sign-in, a second sign-in the same day too', () => {
-    const first = run(facts([A, B]));
-    const second = run(facts([A, B]));
-    expect(keys(first)).toEqual(['organiser:org-a', 'organiser:org-b', 'dancer']);
-    expect(second).toEqual(first);
+  it('P2 two pages (seeded), no event today: the chooser', () => {
+    expect(keys(run(facts([A, B])))).toEqual(['organiser:org-a', 'organiser:org-b', 'dancer']);
   });
   it('P2 two pages (seeded), live event today on one: lands on that page', () => {
     expect(run(facts([A, B]), { live: ['org-b'] })).toEqual({ kind: 'go', to: `${HOME}?o=org-b` });
@@ -67,8 +68,19 @@ describe('eventDayLanding: person types x journeys', () => {
     expect(l.kind).toBe('choose');
     if (l.kind === 'choose') expect([...l.liveTonight].sort()).toEqual(['org-a', 'org-b']);
   });
-  it('P4 manager (seeded): the same landing as P2 for the manager\u2019s pages', () => {
-    expect(run(facts([A, B]), { live: ['org-a'] })).toEqual({ kind: 'go', to: `${HOME}?o=org-a` });
+  it('P4 manager of two pages (seeded, role: manager rows), live today on one: lands there', () => {
+    // organiser_home_v1 rows with role 'manager' (prod has 43 manager seats): the live mark is read from them.
+    const rows = [
+      { ...A, role: 'manager', series: [{ lifecycle_status: 'live', next_dates: [{ occurrence_date: TODAY, lifecycle_status: 'scheduled' }] }] },
+      { ...B, role: 'manager', series: [] },
+    ];
+    const home: TonightHome = { today: TODAY, organisers: rows };
+    const live = liveTonightIds(home);
+    expect(live && [...live]).toEqual(['org-a']);
+    const f = facts(rows);
+    const st = profileSides(f);
+    expect(eventDayLanding({ base: signInLanding(f, null), sides: st.status === 'ready' ? st.sides : [], areas: [], liveTonight: live, p3Live: true }))
+      .toEqual({ kind: 'go', to: `${HOME}?o=org-a` });
   });
   it('a live event on a page the person does NOT hold never moves the landing', () => {
     const l = run(facts([A, B]), { live: ['org-zz'] });
@@ -88,15 +100,17 @@ describe('eventDayLanding: person types x journeys', () => {
     // No dancer side and no organiser seat: signInLanding's no-side rule is untouched (P12-style: nothing new).
     expect(run(facts([], 'no_profile'), { areas: [DJ] })).toEqual({ kind: 'go', to: '/app/welcome' });
   });
-  it('P5 claim pending: no organiser entry; only the pages it holds', () => {
-    expect(keys(run(facts([]), { areas: [] }))).toEqual({ kind: 'go', to: '/app/home' });
-    expect(keys(run(facts([]), { areas: [TEACHER] }))).toEqual(['dancer', 'teacher']);
+  it('P5 claim pending (an open request, no page): lands on P3 Welcome via continueAsLanding', () => {
+    const f = { ...facts([]), openRequestCount: 1 };
+    const base = continueAsLanding(f, true);
+    expect(base).toEqual({ kind: 'go', to: P3_START_PATH });
+    // The event-day layer keeps that answer (no page, so no live mark can move it).
+    expect(eventDayLanding({ base, sides: [], areas: [], liveTonight: new Set(), p3Live: true })).toEqual({ kind: 'go', to: P3_START_PATH });
+    // With P3 off the claim-pending person lands as today (the dancer app).
+    expect(continueAsLanding(f, false)).toEqual({ kind: 'go', to: '/app/home' });
   });
   it('P6 unfinished dancer + organiser: the chooser still lists the dancer area', () => {
     expect(keys(run(facts([A], 'incomplete')))).toEqual(['organiser:org-a', 'dancer']);
-  });
-  it('P12 interim seat (0 seats), dancer only: nothing new appears', () => {
-    expect(run(facts([]))).toEqual({ kind: 'go', to: '/app/home' });
   });
   it('P15 / A14: a returnTo (door or short link) always wins; the event is never consulted', () => {
     expect(run(facts([A, B]), { returnTo: '/e/abc', live: ['org-a'] })).toEqual({ kind: 'go', to: '/e/abc' });

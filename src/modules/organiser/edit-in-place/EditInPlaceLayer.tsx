@@ -64,7 +64,7 @@ import TeamVisibilitySheet, { type TeamVisibilitySheetProps } from './TeamVisibi
 import { callerPersonIdOf, visibilityAccess } from './teamVisibilityModel';
 import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { SEARCH_LIMIT, addedMessage, teamCountLine, type AddOutcome, type AddRole } from './teamPickerModel';
-import { p3TeamCountLine } from './teamRoles';
+import { p3RolesLive, p3TeamCountLine } from './teamRoles';
 import { flags } from '@/lib/featureFlags';
 import { AboutEmpty, AboutSlot, CompleteCard, CreateEventLink, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, NameSlot, PhotoSlot, type OpenSheet } from './parts';
 
@@ -72,7 +72,7 @@ type Notice = { tone: 'gold' | 'ok' | 'error'; text: string };
 type SaveClient = Parameters<typeof saveDrafts>[0];
 
 export interface EditInPlaceLayerInternals {
-  /** Slice 1b: the P3 Team roles (Owner, Manager, Door; no contributor). Defaults to flags.organiserP3; tests inject. */
+  /** Slice 1b: the P3 Team roles (Owner, Manager, Door; no contributor). Defaults to p3RolesLive(flags) (organiserP3 AND organiserSelfServe); tests inject. */
   p3Roles?: boolean;
   /** Injected by tests; the real client otherwise. */
   client?: SaveClient;
@@ -89,7 +89,7 @@ export interface EditInPlaceLayerInternals {
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, dockZ = BAR_Z, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson, visibility, p3Roles = flags.organiserP3 }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, dockZ = BAR_Z, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson, visibility, p3Roles = p3RolesLive(flags) }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
   // Who may add people (owner or admin), from the server's own answer; any other seat
   // gets no Team card and no picker. A failed read shows nothing.

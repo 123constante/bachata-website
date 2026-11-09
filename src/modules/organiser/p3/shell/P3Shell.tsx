@@ -1,6 +1,8 @@
-import { useContext, type ReactNode } from 'react';
+import { Suspense, useCallback, useContext, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { QueryClientContext } from '@tanstack/react-query';
+import { QueryClientContext, useQueryClient } from '@tanstack/react-query';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { OB_THEME_KEY, readObTheme } from '../onboarding/obEnv';
 import { L } from '../model/labels';
 import { stripOf, switchBadgeOf } from '../model/strip';
 import { usePageScope } from '../screens/PageScope';
@@ -49,11 +51,66 @@ const STRIP_TONE: Record<'owner' | 'manager', string> = {
   manager: 'bg-[var(--ok-bg)] text-[var(--ok-fg)]',
 };
 
+// X1 (slice 1b fix): the existing Settings sheet (Account settings, Help, Sign out), loaded only when opened.
+const SettingsSheet = lazyWithRetry(() => import('../onboarding/SettingsSheet'));
+export const ACCOUNT_ENTRY = { word: 'Account', name: 'Account, help and sign out' } as const;
+
+/** The one Account / Help / Sign out entry, on every P3 screen: the role strip's right edge, 44px. */
+export function AccountEntry({ organiserId, pageName }: { organiserId: string | null; pageName: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [theme, setThemeState] = useState(readObTheme);
+  const setTheme = useCallback((t: 'light' | 'dark') => {
+    setThemeState(t);
+    try {
+      window.localStorage.setItem(OB_THEME_KEY, t);
+    } catch {
+      /* private mode */
+    }
+  }, []);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-[44px] min-w-[44px] flex-none items-center justify-center px-[8px] text-[14px] font-semibold underline"
+        data-testid="p3-account-entry"
+        aria-label={ACCOUNT_ENTRY.name}
+        aria-haspopup="dialog"
+      >
+        {ACCOUNT_ENTRY.word}
+      </button>
+      {open && (
+        <Suspense fallback={null}>
+          <SettingsSheet
+            theme={theme}
+            setTheme={setTheme}
+            organiserId={organiserId}
+            pageName={pageName}
+            onRenamed={() => {
+              void qc.invalidateQueries({ queryKey: ['organiser-home'] });
+              void qc.invalidateQueries({ queryKey: ['p3-ob-status'] });
+            }}
+            onClose={() => setOpen(false)}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
 function RoleStripInner() {
   const scope = usePageScope();
   const strip = stripOf(scope.selected);
-  // No organiser page (claim pending, teacher/DJ/dancer only, no seat): no strip, no badge.
-  if (scope.loading || !strip) return null;
+  if (scope.loading) return null;
+  // No organiser page (claim pending, teacher/DJ/dancer only, no seat): no strip, no badge -- the Account entry stays.
+  if (!strip) {
+    return (
+      <div className="flex min-h-[44px] w-full items-center justify-end px-[16px]" data-testid="p3-account-bar">
+        <AccountEntry organiserId={null} pageName="" />
+      </div>
+    );
+  }
   const badge = switchBadgeOf(scope.home.data, scope.pageId);
   const to = scope.pageId ? `${P3_PATHS.youSwitch}?o=${encodeURIComponent(scope.pageId)}` : P3_PATHS.youSwitch;
   return (
@@ -81,6 +138,7 @@ function RoleStripInner() {
           </span>
         )}
       </Link>
+      <AccountEntry organiserId={scope.pageId} pageName={scope.selected?.name ?? ''} />
     </div>
   );
 }
