@@ -21,3 +21,6 @@ Branch `claude/organiser-area-v2-shell`. Ticket dt_8beaef7bf06b.
 ## Checks run locally on 5df53af
 tsc run on 5df53af: 0 errors in branch files (0 overall). npm run lint: exit 0. check:mojibake, rpc-typing, wallclock-brand, integrity, lint:architecture, legacy-tables, legacy-program-rpcs, check:images (AUDIT_STRICT=1), bom-check: all exit 0.
 test:unit: 15 failures in 4 files (eventViewCompat/occurrenceProgram/publicEventPageLineup contract tests, integrityCouldNotRun) -- the same 15 fail on unchanged origin/main in this sandbox (live-DB / environment), none touch this diff.
+
+## PR
+#1510 (opened by the repo bot on first push; body updated, both body checkers exit 0). Not ready for owner: walks 1-6 and independent review outstanding.
