@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
-import { NOT_MANAGER, NOT_MANAGER_REFUND, PAYMENTS_WHERE, refundable } from '../../../tickets/ticketModel';
+import { NOT_MANAGER, NOT_MANAGER_REFUND, PAYMENTS_WHERE, PRICE_LOCKED_TEXT, refundable } from '../../../tickets/ticketModel';
 import { shownOrders } from '../model';
 import { SHAPES, SHAPE_KEYS, type Shape, type ShapeKey } from './fixtures';
 import { dataMock, load, show } from './harness';
@@ -147,7 +147,7 @@ describe('untouched edit sends nothing', () => {
     open();
     fireEvent.click(within(screen.getByTestId('tix-type-t-sell')).getByTestId('tix-edit'));
     expect((screen.getByTestId('tix-form-price') as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByTestId('tix-price-help').textContent).toBe('The price cannot change once someone has bought a ticket.');
+    expect(screen.getByTestId('tix-price-help').textContent).toBe(PRICE_LOCKED_TEXT);
   });
 });
 
@@ -170,5 +170,19 @@ describe('the Selling switch', () => {
     open();
     fireEvent.click(within(screen.getByTestId('tix-type-t-free')).getByTestId('tix-switch'));
     expect((await screen.findByTestId('tix-move-error')).textContent).toBe(PAYMENTS_WHERE);
+  });
+});
+
+describe('S1: a paused ticket says what paused means', () => {
+  it('shows the paused note on a paused row and not on a selling row', () => {
+    load(SHAPES.survey);
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    expect(within(screen.getByTestId('tix-type-t-free')).getByTestId('tix-paused-note').textContent).toBe('Not on sale. People who already bought keep their tickets.');
+    cleanup();
+    load(SHAPES.selling);
+    show(<TicketsEntry seriesId="ser-1" />);
+    open();
+    expect(screen.queryByTestId('tix-paused-note')).toBeNull();
   });
 });
