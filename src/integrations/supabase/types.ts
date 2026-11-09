@@ -15059,6 +15059,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      is_claimed_profile_ambassador_v1: {
+        Args: { p_profile_id: string }
+        Returns: boolean
+      }
       is_current_user_admin: { Args: never; Returns: boolean }
       is_feature_enabled: { Args: { p_key: string }; Returns: boolean }
       is_standard_multi_day: {
