@@ -21,6 +21,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn() } })
 import EditInPlaceLayer from '../EditInPlaceLayer';
 import type { EipBridge } from '../bridge';
 import { PICKER_COPY } from '../teamPickerModel';
+import { DOOR_NOT_OPEN, TEAM_ROLES, teamRoleDoor } from '../teamRoles';
 import { VISIBILITY_COPY } from '../teamVisibilityModel';
 
 const ID = '22222222-2222-4222-8222-222222222222';
@@ -43,6 +44,8 @@ function setup(opts: {
   team: Team | Error;
   search?: (term: string) => Promise<unknown>;
   add?: (organiserId: string, profileId: string, role: string, reason: string | null) => Promise<unknown>;
+  /** Slice 1b: P3 live (Owner, Manager, Door; no contributor). */
+  p3?: boolean;
 }) {
   const search = vi.fn(opts.search ?? (async () => ROWS));
   const add = vi.fn(opts.add ?? (async (_o: string, pid: string, role: string) => ({ changed: true, member_role: role, profile_id: pid })));
@@ -61,6 +64,7 @@ function setup(opts: {
           fetchTeam={fetchTeam}
           searchPeople={(_o, term) => search(term)}
           addPerson={add}
+          p3Roles={opts.p3 ?? false}
         />
       </div>
     );
@@ -300,5 +304,42 @@ describe('the invite fallback', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: PICKER_COPY.inviteLink }));
     await waitFor(() => has(within(dialog).getByTestId('eip-team-invite-note'), PICKER_COPY.inviteCopied));
     expect(writeText.mock.calls[0][0]).toMatch(/Ritmo Latino team\. http.*\/auth\?mode=signup$/);
+  });
+});
+
+describe('slice 1b, P3 live (R1, R2): Team roles are Owner, Manager and Door only', () => {
+  const MIXED = [member('u1', 'owner'), member('u2', 'manager', true), member('u3', 'contributor')];
+  it('the roles list is exactly Owner, Manager, Door', () => {
+    expect(TEAM_ROLES.map((r) => r.label)).toEqual(['Owner', 'Manager', 'Door']);
+    expect(teamRoleDoor.can).toContain('Never sees sales or money.');
+  });
+  const CASES: Array<[string, Team, string | null, boolean]> = [
+    ['owner, mixed team (a legacy contributor row is not counted)', { myRole: 'owner', members: MIXED }, 'On the team: 1 owner, 1 manager.', true],
+    ['admin, empty team', { myRole: 'admin', members: [] }, 'No one is on the team yet. Add a person to share the work.', true],
+    ['manager: card for Hide / Show, never the picker (no owner-only action)', { myRole: 'manager', members: MIXED }, 'On the team: 1 owner, 1 manager.', false],
+  ];
+  it.each(CASES)('%s', async (_n, team, line, add) => {
+    setup({ team, p3: true });
+    const count = await screen.findByTestId('eip-team-count');
+    has(count, line as string);
+    expect(text(count)).not.toMatch(/contributor/i);
+    expect(!!screen.queryByRole('button', { name: PICKER_COPY.title })).toBe(add);
+  });
+  it('the picker offers Manager; Door is shown disabled and says why; no Contributor anywhere', async () => {
+    setup({ team: { myRole: 'owner', members: [member('u1', 'owner', true)] }, p3: true });
+    const dialog = await openSheet();
+    expect(within(dialog).queryByRole('radio', { name: 'Contributor' })).toBeNull();
+    expect((within(dialog).getByRole('radio', { name: 'Manager' }) as HTMLInputElement).disabled).toBe(false);
+    const door = within(dialog).getByRole('radio', { name: 'Door' }) as HTMLInputElement;
+    expect(door.disabled).toBe(true);
+    has(within(dialog).getByTestId('eip-team-door-why'), DOOR_NOT_OPEN);
+    expect(text(dialog)).not.toMatch(/contributor/i);
+  });
+  it('flag off: today\u2019s picker and count line, unchanged', async () => {
+    setup({ team: { myRole: 'owner', members: MIXED } });
+    has(await screen.findByTestId('eip-team-count'), 'On the team: 1 owner, 1 manager, 1 contributor.');
+    const dialog = await openSheet();
+    expect(within(dialog).getByRole('radio', { name: 'Contributor' })).toBeTruthy();
+    expect(within(dialog).queryByTestId('eip-team-role-door')).toBeNull();
   });
 });

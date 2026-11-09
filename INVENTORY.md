@@ -1,46 +1,43 @@
-# INVENTORY: organiser area v2, slice 1a (role strip, switcher, Switch badge)
+# INVENTORY: organiser area v2, slice 1b (chooser, event-day landing, X1, Team roles)
 
-Brief: `docs/briefs/organiser-area-v2-slice1a-strip-switcher.md` (branch `brief/organiser-area-v2-shell`). Written before the code change; anchors refreshed after it.
+Branch `claude/organiser-area-v2-chooser`, brief `docs/briefs/organiser-area-v2-slice1b-chooser-team.md`
+(brief branch, sha 26691a7). Written before the code change; anchors refreshed to the branch head.
 
 ## Three columns
 
-| Item | Admin (`bachata-admin-11april`) | Current Website | Public |
+| Item | Admin (admin repo, organiser Access tab) | Current Website (before -> after) | Public (`src/pages/OrganiserProfile.tsx`) |
 |---|---|---|---|
-| Organiser studio tabs | NOT ANCHORED: this cloud session has no access to the admin repo (add_repo refused). `components/admin/OrganiserStudio.tsx` unread. | P3 tabs Home / Events / Stats / You: `src/modules/organiser/p3/model/labels.ts:17`; tab bar `src/modules/organiser/p3/shell/P3Shell.tsx:100` | n/a |
-| Team roles (Owner / Manager) | NOT ANCHORED (same): `components/admin/organiser-studio/OrganiserTeamTab.tsx` unread. | `HomeOrganiser.role: 'owner' \| 'manager'` `src/modules/organiser/shared/selfServeApi.ts:44`; role word mapping `src/modules/organiser/p3/model/strip.ts:16` | n/a |
-| Flag gate (READ-ONLY) | n/a | `src/components/AnimatedRoutes.tsx:275` (`flags.organiserP3 && flags.organiserSelfServe`), `:281` (ticketing) | n/a |
-| P3 shell header (extends) | n/a | before: h1 = tab name only. now: strip above it, `src/modules/organiser/p3/shell/P3Shell.tsx:105` (`<P3RoleStrip />`), strip body `:57-90` | n/a |
-| Role strip (`p3-role-strip`) | n/a | `src/modules/organiser/p3/shell/P3Shell.tsx:62` | The page the strip names is the public organiser page; its name renders at `src/pages/OrganiserProfile.tsx:1068` |
-| Switch control (`p3-switch-control`) | n/a | `src/modules/organiser/p3/shell/P3Shell.tsx:70` -> `P3_PATHS.youSwitch` (`src/modules/organiser/p3/shell/paths.ts`) | n/a |
-| Switcher lists every page (extends) | n/a | organiser rows `src/modules/organiser/switch/index.tsx` (SwitchPage); teacher/DJ/dancer `OtherPages` same file, reads `my_roles_v1` via `src/modules/areas/home/rolesApi.ts` (`fetchMyRoles`); type `src/integrations/supabase/types.ts:15193` | n/a |
-| Switch to-do badge (`switch-todo-badge`) | n/a | strip `src/modules/organiser/p3/shell/P3Shell.tsx:77`; switcher rows `src/modules/organiser/switch/index.tsx:104`; count `src/modules/organiser/p3/model/strip.ts:36,44` (from Home's Needs you, `src/modules/organiser/p3/data/home.ts` `needsOf`) | n/a |
-| Labels (extends) | n/a | `src/modules/organiser/p3/model/labels.ts:20` (`L.strip`) | n/a |
+| Team roles | NOT ANCHORED to a file: this session cannot reach `bachata-admin-11april` (add_repo refused). DB fact instead: `entity_members.member_role` CHECK = owner, manager, contributor, ambassador (prod read 2026-11-09); organiser rows: 20 owner, 43 manager, 0 contributor. No door seat exists. | Before: `src/modules/organiser/shared/teamModel.ts:64` ROLE_LABEL (Owner/Manager/Contributor), `:189` ADD_ROLES (manager, contributor); `src/modules/organiser/shared/selfServeErrors.ts:356` ROLE_HELP names contributors. After (P3 only): `src/modules/organiser/edit-in-place/teamRoles.ts:31` TEAM_ROLES (Owner, Manager, Door), `:24` teamRoleDoor, `:38` P3_ADD_ROLES | Not shown (public Team list is people, not seat roles): `src/pages/OrganiserProfile.tsx:525` route param, `:527` slug/id resolve |
+| Team copy and counts | as above | Before: `src/modules/organiser/edit-in-place/EditInPlaceLayer.tsx:91` comment, `:117` count line with contributor. After: `EditInPlaceLayer.tsx:122` p3TeamCountLine (owner, manager), `TeamSheet.tsx:86` addRoles, `TeamSheet.tsx:266` disabled Door + reason | n/a |
+| Chooser sides | n/a | Before: `src/components/account/profiles/ContinueAsPage.tsx:63` organiser + dancer only (`src/lib/accountRouting.ts:352` ProfileSide). After: `ContinueAsPage.tsx:46` areaPagesOf (teacher, DJ), `:67` ContinueAsLive, `:142` area entries | The chooser's organiser entry opens the organiser AREA (`/account/p3`), not this public page: `OrganiserProfile.tsx:1388` |
+| Live tonight mark | n/a | Before: absent (grep `Live tonight` empty on main). After: `src/lib/accountRouting.ts:447` LIVE_TONIGHT, `:467` liveTonightIds (rule = `src/modules/organiser/shared/homeModel.ts:88` attentionItems 'tonight'), `ContinueAsPage.tsx:133` | n/a |
+| Event-day landing | n/a | Before: absent (grep `eventDayLanding` empty). After: `src/lib/accountRouting.ts:495` eventDayLanding over `:419` signInLanding | n/a |
+| Account / Help / Sign out (X1) | n/a | Before: `src/modules/organiser/p3/onboarding/SettingsSheet.tsx` sign-out only. After: `SettingsSheet.tsx:13` X1_COPY, `:72` one block (Account settings, Help mailto, Sign out). Reached from `src/modules/organiser/p3/screens/GraceBanner.tsx:77` and `src/modules/organiser/p3/onboarding/OnboardingFlow.tsx:66` only -- NOT every screen (see handover) | n/a |
+| Flag gate | n/a | READ-ONLY `src/components/AnimatedRoutes.tsx:227` (`p3Live = organiserP3 && organiserSelfServe`); `ContinueAsPage.tsx:87` ContinueAsToday (flag off: no new reads); `EditInPlaceLayer.tsx:92` p3Roles = flags.organiserP3 | n/a |
 
-## Tests cells -> anchors
-
-S = `src/modules/organiser/p3/shell/__tests__/strip.matrix.test.tsx`, W = `src/modules/organiser/switch/__tests__/switcher.matrix.test.tsx`.
+## Tests (brief cell -> file:line)
 
 | Cell | Anchor |
 |---|---|
-| P1 strip names Owner + page; switch opens; no badge | S:46, S:47, S:104, W:60 |
-| P2 switcher lists all pages; badge counts only OTHER pages; page with none = no badge | S:48, S:49, S:68, W:61, W:62 |
-| P3 org+teacher+DJ+dancer: all listed; badge on organiser only | W:63, S:82 |
-| P4 manager: strip says Manager; no owner-only control | S:51, S:118, W:98 |
-| P5 claim pending: no strip, no badge; only pages held | S:54, S:125 |
-| P7 caught up: no badge | S:52, W:64 |
-| P12 interim seat (0 seats): nothing new | S:54, S:125 (prod: 0 interim seats) |
-| P13 door + manager: Manager for that page only | S:53 |
-| P14 teacher/DJ/dancer, no organiser page: listed, no strip, no badge | W:88, S:125 |
-| P15 signed-out visitor: unchanged | P3 area sits behind AuthGuard (`src/modules/organiser/p3/shell/P3Routes.tsx`, `<AuthGuard>`); no change |
-| J1 strip on every P3 screen | S:104 (Home, Events, Stats, You, Switch page) |
-| J2 switch from every screen | S:104 (href asserted per screen) |
-| J3 badge = other pages' to-dos; none = no badge | S:60, W:69 |
-| J4 cancelled event drives no badge | S:55, S:56, W:65 |
-| J5 flag off: nothing new | W:109 (R1 Switch); route gate `src/components/AnimatedRoutes.tsx:275` + `src/modules/organiser/p3/__tests__/flagOff.test.ts` |
-| J6 teacher/DJ/dancer Home unchanged | no file under `src/modules/areas` touched; existing `src/modules/areas/__tests__/*` green |
-| Shapes (0/1/many events; live/draft/paused; 1/2 pages; zero to-dos; one other page only) | S:46-56 |
+| P1 one page, straight in | `src/lib/__tests__/accountRouting.eventDay.test.ts:50`; `src/components/account/profiles/__tests__/chooser.matrix.test.tsx:75` |
+| P2 chooser every sign-in, second same day | `accountRouting.eventDay.test.ts:56`; `chooser.matrix.test.tsx:77`, `:109` |
+| P2 live day lands on that page | `accountRouting.eventDay.test.ts:62`; `chooser.matrix.test.tsx:78` |
+| P2 two live pages, Live tonight on both | `accountRouting.eventDay.test.ts:65`; `chooser.matrix.test.tsx:79` |
+| P3 all four kinds, each opens its area | `accountRouting.eventDay.test.ts:78`, `:81`; `chooser.matrix.test.tsx:81` |
+| P4 manager | `accountRouting.eventDay.test.ts:70`; `chooser.matrix.test.tsx:80` |
+| P5 claim pending | `accountRouting.eventDay.test.ts:91`; `chooser.matrix.test.tsx:83` |
+| P6 unfinished dancer | `accountRouting.eventDay.test.ts:95`; `chooser.matrix.test.tsx:84` |
+| P7 caught-up organiser | `accountRouting.eventDay.test.ts:53`; `chooser.matrix.test.tsx:76` |
+| P12 interim seat | `accountRouting.eventDay.test.ts:98`; `chooser.matrix.test.tsx:85` |
+| P14 teacher/DJ/dancer, no organiser page | `accountRouting.eventDay.test.ts:84`, `:87`; `chooser.matrix.test.tsx:82` |
+| P15 returnTo wins (A14) | `accountRouting.eventDay.test.ts:101` |
+| Live event on a page not held | `accountRouting.eventDay.test.ts:73`; `chooser.matrix.test.tsx:120` |
+| Shapes 0 / 1 / many events, live vs draft, cancelled, archived | `accountRouting.eventDay.test.ts:144` (parity with homeModel attentionItems) |
+| Loading / failed reads | `accountRouting.eventDay.test.ts:104`, `:109`, `:150` |
+| Team roles R1/R2 (Owner, Manager, Door; manager no owner-only action; no contributor) | `src/modules/organiser/edit-in-place/__tests__/TeamPicker.test.tsx:312`, `:328`, `:310` |
+| X1 Account, Help, Sign out | `chooser.matrix.test.tsx:153` |
+| Flag off (A8) | `accountRouting.eventDay.test.ts:121`; `chooser.matrix.test.tsx:136`; `TeamPicker.test.tsx:338` |
+| Regression A6 (teacher/DJ/dancer Home snapshot) | NO ANCHOR -- not written (those Homes are not touched by this diff) |
 
-## Coverage count
-
-Tests cells in the brief: 17 (10 person types + 6 journeys + 1 shapes row). With a file:line anchor: 17 / 17.
-Admin column: 0 / 2 anchored -- the admin repo is not reachable from this session (see HANDOVER). This is reported, not hidden.
+Coverage: 19 cells in "Tests"; 18 have a file:line anchor. The A6 regression snapshot cell and the
+Admin column have no file anchor: both are stops recorded in `docs/handover/organiser-area-v2-slice1b.md`.

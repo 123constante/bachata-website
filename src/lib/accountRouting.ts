@@ -465,7 +465,8 @@ export type TonightHome = {
  * undefined while the home is loading, null when the read failed.
  */
 export const liveTonightIds = (home: TonightHome | null | undefined): ReadonlySet<string> | null | undefined => {
-  if (home === undefined || home === null) return home;
+  if (home === undefined) return undefined;
+  if (home === null) return null;
   const ids = new Set<string>();
   for (const o of home.organisers) {
     const on = (o.series ?? []).some(

@@ -44,7 +44,8 @@ export const switchHint = (sides: readonly Pick<ProfileSide, 'to'>[]): string | 
 
 /** Slice 1b: the teacher and DJ pages the person holds (my_roles_v1 active rows), in a fixed order. */
 export const areaPagesOf = (rows: readonly RoleRow[] | null | undefined): AreaPage[] | null | undefined => {
-  if (rows === undefined || rows === null) return rows;
+  if (rows === undefined) return undefined;
+  if (rows === null) return null;
   const held = new Set(rows.filter((r) => r.active).map((r) => r.role));
   return (['teacher', 'dj'] as const).filter((r) => held.has(r)).map((role) => ({ role, key: role, to: AREA_HREF[role] }));
 };
