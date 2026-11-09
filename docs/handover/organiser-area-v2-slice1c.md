@@ -1,6 +1,6 @@
 # Handover: organiser area v2, slice 1c (Add a profile card)
 
-Branch `claude/organiser-area-v2-addprofile`. Ticket dt_784c6dbc8ec8.
+Branch `claude/organiser-area-v2-addprofile`. Ticket dt_784c6dbc8ec8. PR #1512 (bot-opened on the first push; title and body set by the worker).
 
 ## Done
 - INVENTORY.md (data source proved: my_roles_v1 body on prod; Tests coverage 12/12 anchored).
