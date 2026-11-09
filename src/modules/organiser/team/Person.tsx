@@ -6,7 +6,7 @@ import { ROLE_HELP, teamErrorMessage } from '@/modules/organiser/shared/selfServ
 import { organiserTeamQueryKey, setTeamMember } from '@/modules/organiser/shared/teamRpcApi';
 import { ROLE_LABEL, canReceiveOwnership, memberLabel, memberShortName } from '@/modules/organiser/shared/teamModel';
 import { TEAM_REASONS, canLeave, canManagePeople, canRemove as removeGate } from '@/modules/organiser/shared/teamRules';
-import { P3_ROLE_HELP } from '@/modules/organiser/edit-in-place/teamRoles';
+import { P3_ROLE_HELP } from '@/modules/organiser/shared/teamModel';
 import { goDone } from '../flows/doneState';
 import { useOrgSurface } from '../shell/surface';
 import { ErrorState, GhostButton, PrimaryButton, SkeletonRows } from '../ui';

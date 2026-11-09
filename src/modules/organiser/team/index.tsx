@@ -20,7 +20,7 @@ import { GateReason } from './GateReason';
 import { PublicToggle } from './PublicToggle';
 import { useTeamContext } from './useTeamContext';
 import { PageNameCaption, RequestsError, requestsErrorShown } from './p3TeamBits';
-import { TEAM_ROLES } from '@/modules/organiser/edit-in-place/teamRoles';
+import { TEAM_ROLES } from '@/modules/organiser/shared/teamModel';
 
 /**
  * Slice 1b fix: the P3 Team tab lists the roles, from the ONE list (TEAM_ROLES: Owner, Manager, Door).
