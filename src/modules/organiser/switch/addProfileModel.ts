@@ -10,6 +10,7 @@
 import { APP_WELCOME_PATH } from '@/lib/accountRouting';
 import { AREA_HREF, isAreaShown } from '@/modules/areas/home/areaStatus';
 import type { RoleRow } from '@/modules/areas/home/rolesApi';
+import { L } from '@/modules/organiser/p3/model/labels';
 import type { ProfileProgress } from '@/modules/organiser/shared/profileProgress';
 
 export type AddRole = 'organiser' | 'teacher' | 'dj' | 'dancer';
@@ -29,10 +30,10 @@ export const ADD_BENEFIT: Record<AddRole, string> = {
 
 export const ADD_PROFILE_HEADING = 'Add a profile';
 export const NOT_NOW_LABEL = 'Not now';
-export const HIDDEN_TOAST = 'Hidden. We will remember this.';
-/** Storage threw: the card is hidden for this visit only, so the toast does not promise to remember. */
-export const HIDDEN_TOAST_SESSION = 'Hidden for now.';
-export const UNDO_LABEL = 'Undo';
+/** The toast words are P3 copy (L.addProfile): the card renders only on the P3 surface. */
+export const HIDDEN_TOAST = L.addProfile.hidden;
+export const HIDDEN_TOAST_SESSION = L.addProfile.hiddenSession;
+export const UNDO_LABEL = L.addProfile.undo;
 
 export interface HeldInputs {
   /** my_roles_v1 rows. */

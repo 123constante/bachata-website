@@ -21,3 +21,9 @@ list of dancers is shown).
 - Storage throwing: the card still shows; Not now hides it for this visit and the toast says "Hidden for now." (it
   cannot promise to remember).
 - Colours: the P3 tokens (`--line-strong` dashed edges, `--mut` benefit text, 7:1 or better in light and dark).
+- P6 overlap: a dancer whose profile is not finished is `active` in my_roles_v1, so slice 1a's Other pages lists
+  "Dancer" (open the area) while this card also offers "Dancer" (finish the setup at `/app/welcome`). Kept, per the
+  brief's P6 decision; a later slice may word the Other pages row as unfinished instead.
+- Organiser and the "Add a page" link above both open the same existing add-a-page flow; the row adds the benefit line.
+- Review fix: the toast first used its own `z-50` portal and sat BEHIND the P3 frame (z 60). It now uses the P3
+  `OnBody` portal and the shared `.p3-toast` (z 65, above the tab bar), so it carries the frame's theme and font.

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Plus } from 'lucide-react';
 import { fetchMyRoles, myRolesQueryKey } from '@/modules/areas/home/rolesApi';
+import { OnBody } from '@/modules/organiser/p3/screens/OnBody';
 import { useProfileProgress } from '@/modules/organiser/shared/profileProgress';
 import { fetchMyAccessRequests, myAccessRequestsQueryKey } from '@/modules/organiser/shared/selfServeApi';
 import {
@@ -100,20 +100,17 @@ export function AddProfileCard({ userId, organiserPages, addPage }: { userId: st
           </button>
         </section>
       )}
-      {toast && typeof document !== 'undefined' && createPortal(
-        <div
-          role="status"
-          data-testid="add-profile-undo"
-          // Portalled out of the P3 frame, so it carries the P3 colour tokens itself (light and dark sets).
-          className="p3-theme fixed inset-x-[16px] bottom-[16px] z-50 mx-auto flex max-w-[420px] items-center gap-[12px] rounded-[12px] bg-[var(--fg)] px-[16px] py-[6px] text-[14px] text-[var(--bg)] shadow-lg"
-          style={{ bottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}
-        >
-          <span className="min-w-0 flex-1">{toast}</span>
-          <button ref={undoRef} type="button" onClick={undo} data-testid="add-profile-undo-button" className="min-h-[44px] min-w-[44px] px-[8px] font-bold underline">
-            {UNDO_LABEL}
-          </button>
-        </div>,
-        document.body,
+      {toast && typeof document !== 'undefined' && (
+        // OnBody: the P3 frame's own theme (light / dark / forced) and font; .p3-toast stacks above the frame (z 65)
+        // and sits above the tab bar.
+        <OnBody>
+          <div role="status" data-testid="add-profile-undo" className="p3-toast text-[14px]">
+            <span className="min-w-0 flex-1">{toast}</span>
+            <button ref={undoRef} type="button" onClick={undo} data-testid="add-profile-undo-button" className="p3-toast-act min-h-[44px] min-w-[44px] font-bold underline">
+              {UNDO_LABEL}
+            </button>
+          </div>
+        </OnBody>
       )}
     </>
   );
