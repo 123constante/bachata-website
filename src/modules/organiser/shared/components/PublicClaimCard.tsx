@@ -45,6 +45,10 @@ const GOLD = '#E7BE6E';
 const CREAM = '#F6F1EA';
 const MUTE = 'rgba(246,241,234,0.62)';
 
+export const OWNERLESS_REQUEST_HEADING = 'Help run this page while the owner is away';
+export const OWNERLESS_REQUEST_NEXT = 'The Bachata Calendar team checks your request. If it is approved you become a manager of this page, not its owner.';
+export const REQUEST_NOTE_MIN = 3;
+
 export function ManagedBadge({ size }: { size: 'sm' | 'md' }) {
   return (
     <span
@@ -239,6 +243,7 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
   // ...and so does the "Sign in" a refused claim offers (authentication_required).
   const signInAgain = intent ? signInToClaim : signIn;
 
+  const noteTooShort = note.trim().length < REQUEST_NOTE_MIN;
   const request = () => run(() => requestOrganiserAccess(organiser.id, note), 'requested');
 
   return (
@@ -305,6 +310,8 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
 
       {signedIn && panel === 'request' && (
         <div className="space-y-2" data-testid="public-request-panel" data-panel>
+          <p className="font-bold" data-testid="public-request-heading">{OWNERLESS_REQUEST_HEADING}</p>
+          <p className="text-xs" style={{ color: MUTE }} data-testid="public-request-next">{OWNERLESS_REQUEST_NEXT}</p>
           {/* A refusal that opened this panel already says why, just above. */}
           {failure?.next !== 'request_access' && (
           <p className="text-xs" style={{ color: MUTE }}>
@@ -314,11 +321,11 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
               : hint === 'no_email'
                 ? 'This page lists no contact email to check against.'
                 : 'We can\u2019t match your email to this page.'}{' '}
-            Tell us who you are and the Bachata Calendar team will check.
+
           </p>
           )}
           <Label htmlFor={`public-request-note-${organiser.id}`} className="text-xs" style={{ color: MUTE }}>
-            Who are you? (optional)
+            Who are you? (required)
           </Label>
           <Textarea
             id={`public-request-note-${organiser.id}`}
@@ -331,13 +338,18 @@ export function PublicClaimCard({ facts, hint, organiser, user, mailboxProven, r
             data-testid="public-request-note"
           />
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy} onClick={() => void request()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-request-send">
+            <Button size="sm" disabled={busy || noteTooShort} onClick={() => void request()} className="rounded-full font-bold min-h-[44px]" style={primary} data-testid="public-request-send">
               {busy && <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />} Request access
             </Button>
             <Button size="sm" variant="ghost" className={`${GHOST_HOVER} min-h-[44px]`} style={{ color: MUTE }} onClick={() => setPanel('closed')}>
               Cancel
             </Button>
           </div>
+          {noteTooShort && (
+            <p className="text-xs" style={{ color: MUTE }} data-testid="public-request-note-required">
+              Add a few words about who you are (at least {REQUEST_NOTE_MIN} characters) to send your request.
+            </p>
+          )}
         </div>
       )}
 

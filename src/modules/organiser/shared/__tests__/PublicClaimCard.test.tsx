@@ -183,6 +183,7 @@ describe('PublicClaimCard', () => {
     rpc.mockResolvedValue(refusal('request_already_open'));
     mount({ hintIs: 'no_email' });
     fireEvent.click(screen.getByTestId('public-claim-open'));
+    fireEvent.change(screen.getByTestId('public-request-note'), { target: { value: 'I help with the classes' } });
     fireEvent.click(screen.getByTestId('public-request-send'));
     await waitFor(() => expect(screen.getByTestId('public-claim-error')).toBeTruthy());
     expect(screen.getByTestId('public-claim-error').textContent).toContain('already asked for access');
