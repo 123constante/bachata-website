@@ -103,3 +103,5 @@ Done: Going count (r05) and external-link line (r09) built, screen x role (owner
 Paths added beyond the brief's list: `src/modules/organiser/p3/tickets/data.ts` (the two reads and the orders money flag) and `__tests__/harness.tsx` (mocks for them). Reason: every Tickets screen test mocks `../data`; reading the RPCs straight from `TicketsEntry` would hit Supabase in ~15 test files.
 
 Left: walks 1-9 at 390x844 (`scripts/preview-deploy.mjs` named by the brief does not exist in the repo; no seeded preview DB from this session); Part B (admin repo); independent Fable review; owner sign-off; Sales report CSV full names (`salesReportModel.ts:109`).
+
+Handover (cont1): tsc run on b2120d3 + review fix: 0 errors in branch files. Next: Part B brief (admin, owner sign-off), walks 1-9 on a seeded preview DB with screenshots on #1520, independent Fable review.

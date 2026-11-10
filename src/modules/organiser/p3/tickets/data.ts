@@ -117,8 +117,9 @@ export function useSeriesGoing(seriesId: string, enabled: boolean) {
 export function useSeriesTicketLink(seriesId: string) {
   const ws = useEventWorkspace(seriesId);
   if (!ws.data) return null;
-  const own = ws.data.series.default_ticket_url ?? ws.data.dates.find((d) => d.ticketUrl)?.ticketUrl ?? null;
-  return own && own.trim() ? own.trim() : null;
+  // A blank series link falls through to a date's own link (review r1).
+  const own = ws.data.series.default_ticket_url?.trim() || ws.data.dates.map((d) => d.ticketUrl?.trim()).find(Boolean) || null;
+  return own ?? null;
 }
 
 export { useP3Home };
