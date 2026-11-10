@@ -1,6 +1,6 @@
 # ACCEPTANCE CONTRACT (DRAFT 2): Welcome / find, claim or create your page
 
-Owner: website-50. Lead: website-lead-c3d9. DRAFT 2 written 2026-11-09 after independent review r1 (19 findings, `REVIEW-welcome-contract-r1.md`; each finding verified against Website 893163504 and admin origin/main d3051906, re-checked 2026-11-10 against admin origin/main 6cf7726d (fetched)). Status: DRAFT 2 re-checked 2026-11-10 (findings 1-19 table in session notes; edits applied above and marked "re-check"); next = DRAFT 3 recount, then land. Nothing built, nothing dispatched.
+Owner: website-50. Lead: website-lead-c3d9. DRAFT 2 written 2026-11-09 after independent review r1 (19 findings, `REVIEW-welcome-contract-r1.md`; each finding verified against Website 893163504 and admin origin/main d3051906, re-checked 2026-11-10 against admin origin/main 6cf7726d (fetched)). Status: DRAFT 3 (2026-11-10): DRAFT 2 re-checked (findings 1-19 table in session notes; edits applied above and marked "re-check"); next = DRAFT 3 recount, then land. Nothing built, nothing dispatched.
 Inputs: `docs/design/welcome.INVENTORY.md`, owner answers 2026-11-09 via lead, `CONTRACT-organiser-arc-combined.md` (6.1, C1-C4), `CONTRACT-claim-from-link.md`.
 Rule: every slice builds against the WHOLE contract. GAP = behaviour that does not exist on main.
 
@@ -130,7 +130,7 @@ Legend: R = required, GAP = not on main. Every cell is testable.
 ### J3 Ask to join
 | Cell | Required |
 |---|---|
-| J3.1 | Note 500 chars max. OPEN DECISION (lead mailbox): #1516 made the note REQUIRED (min 3 chars, REQUEST_NOTE_MIN) on the public card but OrganiserSheet.tsx:233 still says "(optional)"; the contract wants ONE rule on every surface; counter; over-limit disables with reason |
+| J3.1 | Note 500 chars max. DECIDED (owner 2026-11-10): the note is REQUIRED everywhere, min 3 chars (REQUEST_NOTE_MIN, as #1516 on the public card); OrganiserSheet.tsx:233 "(optional)" changes to match (W1 follow-up); counter; over-limit disables with reason |
 | J3.2 | Sent: "Asked <date>"; button replaced; no duplicate (request_already_open) |
 | J3.3 | 10 open requests: `request_limit_reached` worded |
 | J3.4 | Declined: who/when, note, "ask again from <date>" (30 days); no Ask button before then |
@@ -213,11 +213,11 @@ J10.1 sign out mid-flow: SignOutLine always there; no half-created page. J10.2 b
 | J12.8 | Outbound links on teacher/DJ/dancer pages carry `rel="nofollow ugc noopener"`: reuse `PUBLIC_LINK_REL` (organiserLinkLabels.ts:71); they use `noopener noreferrer` today |
 
 ## 7. Matrix: person x journey (R or N/A with a reason code)
-Codes: a signed-out, no account; b no persona yet (no profile data); c nothing missing so the journey cannot start; d admin acts outside self-serve; e person arrives already redeemed as target person; f flow only concerns organiser pages and this person has none; g invite flow only; h cell reached through another row (named).
+Codes: a signed-out, no account; b no persona yet (no profile data); c nothing missing so the journey cannot start; d admin acts outside self-serve; e person arrives already redeemed as target person; f flow only concerns organiser pages and this person has none; g invite flow only; h cell reached through another row (named); i nothing to ask yet (the person has no pending request or ask-to-join target).
 | | J1 | J2 | J3 | J4 | J5 | J6 | J7 | J8 | J9 | J10 | J11 | J12 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | P1 | N/A a | R via J8 | N/A a | N/A a | N/A a | N/A a | N/A a | R | R | R | N/A a | R J12.5 |
-| P2 | R | R (J6 first) | R | R (J4.6) | N/A b | R | N/A f (no ask yet) | R | R | R | R J11.5 | R |
+| P2 | R | R (J6 first) | R | R (J4.6) | N/A b | R | N/A i | R | R | R | R J11.5 | R |
 | P3 | R | R (gate) | R | R (gate) | R | R | R | R | R | R | R J11.5 | R |
 | P4 | R | R | R | R | R | N/A c | R | R | R | R | R J11.5 | R |
 | P5 | R | R | R | R | R | R | R | R | R | R | R J11.5 | R |
@@ -227,7 +227,7 @@ Codes: a signed-out, no account; b no persona yet (no profile data); c nothing m
 | P9 | R | R | R | R (nothing missing) | N/A c | R | R | R | R | R | R J11.5 | R |
 | P10 | R | R | R | R | R | N/A d | N/A d | R | N/A d | R | R admin | R |
 | P11 | N/A e | N/A e | N/A e | N/A e | N/A h (via P4 after redeem) | R | N/A e | N/A h (via P1) | R | R | N/A e | N/A e |
-| P12 | R | R | R | R (J4.8 match) | R | R | R | R | N/A f | R | R J11.3 | R |
+| P12 | R | R | R | R (J4.8 match) | R | R | R | R | N/A i | R | R J11.3 | R |
 | P13 | R | R | R | R | R | R | R | R | R | R | R J11.5 | R |
 | P14 | R | R | R | R | R | R | R (declined organiser request possible) | R | R | R | R J11.5 | R |
 | P15 | R | R J2.11 | R | R | R | R | R | R | R | R | R J11.3 | R |
@@ -257,4 +257,4 @@ Verified: inventory by file:line from Website 893163504 and admin origin/main d3
 Not verified: `_role_required_keys_v1` use; admin unlink restores fields; person_merge_candidates_v1 on self-created pages; 5-minute removal figure; Not-surveyed counts; behaviour of any cell in a real browser (nothing walked); exact words of every refusal.
 
 ## 12. Coverage
-Behaviour cells: J1 5, J2 13, J3 8, J4 13, J5 6, J6 4, J7 3, J8 5, J9 5, J10 5, J11 9, J12 8 = 84. Matrix 16 persons x 12 journeys = 192 cells, every N/A carries a reason code. GAP cells: J1.4, J2.8 (in-app Not me), J2.10, J2.11 (merge request), J3.6, J3.7 (verify panel wording), J4.8, J4.9, J4.10, J4.13, J8.2, J11.1, J11.2, J11.4, J11.5, J11.7, J12.5, J12.8 (18), plus added by the 2026-11-10 re-check: J2.9, J4.7/D12, J11.3 (changed-fields view), J11.8, J11.9, J12.6 (test) = 24 to recount at DRAFT 3. Also: P2/J7 and P12/J9 carry "N/A f" but code f means organiser-only flow; add a code "nothing to ask yet" and re-code them. J11.6 stays NOT VERIFIED. Shapes S1-S22 map to journeys; S13-S16, S18-S19, S22 need seeded accounts, not prod.
+Behaviour cells: J1 5, J2 13, J3 8, J4 13, J5 6, J6 4, J7 3, J8 5, J9 5, J10 5, J11 9, J12 8 = 84. Matrix 16 persons x 12 journeys = 192 cells, every N/A carries a reason code. GAP cells: J1.4, J2.8 (in-app Not me), J2.10, J2.11 (merge request), J3.6, J3.7 (verify panel wording), J4.8, J4.9, J4.10, J4.13, J8.2, J11.1, J11.2, J11.4, J11.5, J11.7, J12.5, J12.8 (18), plus added by the 2026-11-10 re-check: J2.9, J4.7/D12, J11.3 (changed-fields view), J11.8, J11.9, J12.6 (test) = 24 GAP cells (DRAFT 3 recount 2026-11-10). P2/J7 and P12/J9 re-coded to the new code i. J11.6 stays NOT VERIFIED. Shapes S1-S22 map to journeys; S13-S16, S18-S19, S22 need seeded accounts, not prod.
