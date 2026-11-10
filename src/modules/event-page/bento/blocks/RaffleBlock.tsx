@@ -34,7 +34,7 @@ import { Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { flags } from '@/lib/featureFlags';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { boardForEvent } from '@/lib/raffleBoard';
+import { boardForEvent, nightsWithWinner } from '@/lib/raffleBoard';
 
 const GOLD = 'hsl(var(--bento-accent))';
 const pad = (n: number) => (n < 10 ? '0' : '') + n;
@@ -436,7 +436,7 @@ const RaffleBlockLegacy = ({ eventId }: { eventId: string | null }) => {
 // whether it has a winner. Entry is the pool join (dialog without an event id).
 // ---------------------------------------------------------------------------
 const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
-  const { data: board } = useRaffleBoard();
+  const { data: board, isLoading, isError, refetch } = useRaffleBoard();
   const state = useMemo(
     () => (board && eventId ? boardForEvent(board, eventId) : null),
     [board, eventId],
@@ -450,13 +450,33 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
     setJoined(true);
   }, []);
 
-  const elsewhere = !state?.inRaffle;
+  // Distinct states: loading and error are NOT "not in the raffle".
+  const loaded = !!board && !isError;
+  const boardEmpty = loaded && board.nights.length === 0;
+  const elsewhere = loaded && !boardEmpty && !state?.inRaffle;
+  const anyWinner = loaded && nightsWithWinner(board).length > 0;
   const winnerName = state?.winnerFirstName ?? null;
 
   return (
     <>
       <BentoTile title={BLOCK_TITLES.raffle} color={BLOCK_COLORS.raffle} mode="multi-target">
         <div className="rsb-root">
+          {isError ? (
+            <div role="alert" className="rsb-board-note" data-testid="raffle-board-error">
+              <p>We couldn&rsquo;t load the raffle.</p>
+              <button type="button" style={{ minHeight: 44, padding: '0 16px' }} onClick={() => void refetch()}>
+                Try again
+              </button>
+            </div>
+          ) : isLoading || !board ? (
+            <p role="status" aria-busy="true" className="rsb-board-note" data-testid="raffle-board-loading">
+              Checking the raffle&hellip;
+            </p>
+          ) : boardEmpty ? (
+            <p className="rsb-board-note" data-testid="raffle-board-empty">
+              No raffle nights open right now. Enter and you will be in when one opens.
+            </p>
+          ) : null}
           {elsewhere && (
             <h3 className="rsb-elsewhere" data-testid="raffle-elsewhere-heading">
               Win a free night elsewhere
@@ -493,9 +513,11 @@ const RaffleBoardTile = ({ eventId }: { eventId: string | null }) => {
               {'\u{1F389}'} <b>{winnerName}</b> won this night
             </p>
           )}
-          <Link to="/raffles" className="rsb-see-who-won" data-testid="raffle-see-who-won">
-            See who won &rarr;
-          </Link>
+          {anyWinner && (
+            <Link to="/raffles" className="rsb-see-who-won" data-testid="raffle-see-who-won">
+              See who won &rarr;
+            </Link>
+          )}
         </div>
       </BentoTile>
       <RaffleEntryDialog

@@ -459,3 +459,5 @@
 .rsb-youre-in { position: absolute; inset: auto 0 6px 0; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #f3d978; }
 .rsb-winner-strip { margin: 10px 0 0; text-align: center; font-size: 13px; color: hsl(var(--bento-fg)); }
 .rsb-see-who-won { display: block; margin-top: 8px; min-height: 44px; line-height: 44px; text-align: center; font-size: 13px; font-weight: 700; color: hsl(var(--bento-accent)); text-decoration: underline; text-underline-offset: 2px; }
+.rsb-board-note { margin: 4px 0; font-size: 13px; text-align: center; }
+.rsb-board-note button { min-height: 44px; font-weight: 700; text-decoration: underline; }

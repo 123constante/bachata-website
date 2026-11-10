@@ -10,7 +10,7 @@
 import { useCallback, useState } from 'react';
 import { flags } from '@/lib/featureFlags';
 import { useRaffleBoard } from '@/hooks/useRaffleBoard';
-import { thisWeeksWinners } from '@/lib/raffleBoard';
+import { nightsWithWinner, thisWeeksWinners } from '@/lib/raffleBoard';
 import { isRafflePoolJoined, markRafflePoolJoined } from '@/lib/raffleSession';
 import { RaffleEntryDialog } from '@/modules/event-page/bento/modals/RaffleEntryDialog';
 import GlobalLayout from '@/components/layout/GlobalLayout';
@@ -52,11 +52,11 @@ const RafflesLegacy = () => {
 };
 
 // Raffle v2 (flags.raffleV2): the winners board.
+// `iso` is a UTC instant (parseRaffleBoard adds the Z); show the London date.
 const fmtNight = (iso: string): string => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return '';
-  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(d);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' }).format(d);
 };
 
 const RafflesBoard = () => {
@@ -68,6 +68,9 @@ const RafflesBoard = () => {
 
   const winners = board ? thisWeeksWinners(board, new Date()) : [];
   const nightsOpen = board ? board.nights.filter((n) => !n.winnerFirstName).length : 0;
+  // Winners come from the nights the board lists (locked/attended wins), never total_winners,
+  // which on prod counts ~766 attendance pairs.
+  const winnersListed = board ? nightsWithWinner(board).length : 0;
 
   return (
     <GlobalLayout breadcrumbs={buildBreadcrumbs('raffles')} showGradientBg={false}>
@@ -77,25 +80,31 @@ const RafflesBoard = () => {
         {isError ? (
           <div role="alert" data-testid="raffles-board-error" className="text-sm">
             <p>We couldn&rsquo;t load the raffle board.</p>
+            <p>Check your connection, then try again.</p>
             <button type="button" className="mt-2 min-h-[44px] rounded-md border px-4 font-semibold" onClick={() => void refetch()}>
               Try again
             </button>
           </div>
         ) : isLoading || !board ? (
-          <div className="h-16 animate-pulse rounded-md bg-white/10" aria-busy="true" />
+          <div role="status" aria-busy="true" data-testid="raffles-board-loading">
+            <p className="text-sm">Loading the raffle board&hellip;</p>
+            <div className="mt-2 h-16 animate-pulse rounded-md bg-white/10" />
+          </div>
         ) : (
           <>
             <dl className="grid grid-cols-3 gap-2 text-center" data-testid="raffles-board-counters">
               <div><dd className="text-xl font-bold" data-testid="raffles-count-pool">{board.poolCount}</dd><dt className="text-xs">In the draw</dt></div>
               <div><dd className="text-xl font-bold" data-testid="raffles-count-open">{nightsOpen}</dd><dt className="text-xs">Nights open</dt></div>
-              <div><dd className="text-xl font-bold" data-testid="raffles-count-winners">{board.totalWinners}</dd><dt className="text-xs">Winners so far</dt></div>
+              <div><dd className="text-xl font-bold" data-testid="raffles-count-winners">{winnersListed}</dd><dt className="text-xs">Winners listed</dt></div>
             </dl>
 
             <section aria-labelledby="raffles-week-h">
               <h2 id="raffles-week-h" className="text-sm font-bold">This week&rsquo;s winners</h2>
               {winners.length === 0 ? (
                 <p className="text-sm" data-testid="raffles-week-empty">
-                  No winners yet this week. Enter now and you could be next.
+                  {board.nights.length === 0
+                    ? 'No raffle nights are open right now. Check back soon, or enter and you will be in when the next one opens.'
+                    : 'No winners yet this week. Enter now and you could be next.'}
                 </p>
               ) : (
                 <ul className="space-y-1 text-sm" data-testid="raffles-week-list">
