@@ -27,6 +27,7 @@ import { NO_EXTRAS, buildPublicDancerPage, joinHref, type PublicPageV2Data } fro
 import { DancerWorldLoading, DancerWorldMissing, DancerWorldPage } from "@/modules/person-page/worlds/dancer/DancerWorldPage";
 import { showsJoinInvite } from "@/modules/person-page/facts";
 import { buildBreadcrumbs } from "@/lib/breadcrumbs";
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 type DancerProfileProps = {
   /** From the route loader: v2 when the dancer area is open, else null/absent = today's page. */
@@ -239,7 +240,7 @@ const DancerProfile = ({ publicPage = null, embedded: embeddedProp = false }: Da
               </h2>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {gallery.slice(0, 12).map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                  <a key={i} href={url} target="_blank" rel={PUBLIC_LINK_REL}>
                     <img
                       src={url}
                       alt={`${dancerView.displayName ?? 'Dancer'} photo ${i + 1}`}
