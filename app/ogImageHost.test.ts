@@ -12,10 +12,12 @@ import { sameHostImage } from "./sameHostImage";
 
 // A real-shaped baked card: admin migration 20261129670000 moved every stored
 // og_render.image_url from the r2.dev bucket host onto the media custom domain.
+// Key shape is the real bake key <id>-<occ|default>-<16hex>.jpg: since the
+// whole-flyer read rule (contract D4 c) any other tail means the live URL.
 const BAKED_MEDIA =
-  "https://media.bachatacalendar.co.uk/events/og/event/01173937-0000-4000-8000-46b1f42d630c.jpg";
+  "https://media.bachatacalendar.co.uk/events/og/event/01173937-0000-4000-8000-46b1f42d630c-default-0123456789abcdef.jpg";
 const BAKED_R2 =
-  "https://pub-07f606224cac4f2596903c44df723644.r2.dev/events/og/event/01173937-0000-4000-8000-46b1f42d630c.jpg";
+  "https://pub-07f606224cac4f2596903c44df723644.r2.dev/events/og/event/01173937-0000-4000-8000-46b1f42d630c-default-0123456789abcdef.jpg";
 const WWW = "https://www.bachatacalendar.co.uk";
 
 function ogFor(baked: string | null, requestUrl = `${WWW}/event/el-grande`) {

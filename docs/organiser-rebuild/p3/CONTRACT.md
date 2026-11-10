@@ -324,7 +324,10 @@ Payload:
   - `viewer_role_mismatch`
   - `invalid_viewer`
   - `invalid_target`
-  - `not_signed_in` / `not_a_member` (42501)
+  - A command door refuses a caller who may not edit with `permission_denied` (SQLSTATE **P0001**, not 42501;
+    live bodies read 2026-11-05, F-56). The only 42501 a P3 door raises is `authentication_required` from
+    `_require_onboarding_complete_v1`. The live list is `scripts/p3-refusal-codes.json`, held by
+    `check-p3-refusal-reasons.mjs`.
 - C3's ERRS list of 12 lacks `contract_violation` and `has_bookings`. **Both are already raised:**
   - `contract_violation` by bulk shift
   - `has_bookings` by remove_date and skip_date

@@ -169,7 +169,7 @@ describe('violations', () => {
 });
 
 describe('the committed list', () => {
-  it('ships EMPTY: nothing is allowed until the owner adds a name', () => {
-    expect(loadAllowlist(ALLOWLIST_PATH)).toEqual({ ok: true, names: [] });
+  it('lists exactly the names the owner has approved (2026-11-06: workflow-lint.yml, so the guard can wire itself)', () => {
+    expect(loadAllowlist(ALLOWLIST_PATH)).toEqual({ ok: true, names: ['workflow-lint.yml'] });
   });
 });

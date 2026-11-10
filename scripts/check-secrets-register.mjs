@@ -20,6 +20,13 @@
  *       This is the static half of drill A34 / 6.2(7); the live half needs the real token;
  *   (d) any `acts_as` equals `owner_login` (case-insensitive: GitHub logins are);
  *   (e) a self-hosted `runs-on` label is reachable from those triggers (Website has none);
+ *       and (e-routed) a job whose `runs-on` is an EXPRESSION (`${{ ... }}`, e.g. the CI-offload
+ *       route `needs.route.outputs.runner` / `vars.WEB_RUNNER_LABEL`) may land on a self-hosted
+ *       runner, so its job `if:` must IMPLY trust, proven on the parsed expression (routeTrust()):
+ *       every OR branch that can be true carries push-to-main, or a same-repo PR whose author is
+ *       checked against a fromJSON list inside TRUSTED_AUTHORS. `|| true`, a negated trust term,
+ *       or a trust term only inside one OR branch all fail. And its workflow must have no
+ *       pull_request_target / workflow_run trigger (docs/handover/ci-offload-stage3.md, item 2);
  *   (f) `actual_scope` is anything but "NOT VERIFIED" or a list of `perm:read|write` tokens
  *       each covered by `required_minimum_scope` (a recorded scope wider than the minimum fails).
  *
@@ -37,6 +44,7 @@
  *   node scripts/check-secrets-register.mjs --expiry [--today YYYY-MM-DD]
  *   node scripts/check-secrets-register.mjs --self-test
  */
+import { TRUSTED_AUTHORS } from './ci/route-runner.mjs';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -48,6 +56,91 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 export const REGISTER_PATH = path.join(REPO_ROOT, '.github', 'automation', 'secrets-register.json');
 export const WORKFLOW_DIR = path.join(REPO_ROOT, '.github', 'workflows');
 export const OWNER_LOGIN = '123constante';
+// Rule (e-routed) terms, kept for the self-test mutants. Mirrors trustDecision() in
+// scripts/ci/route-runner.mjs. Fix round 2 item 6: matched STRUCTURALLY (routeTrust), never as
+// substrings, so `|| true`, `!(...)` or a term hidden in one OR branch cannot pass.
+export const ROUTE_TRUST_TOKENS = [
+  "github.event_name == 'push' && github.ref == 'refs/heads/main'",
+  'github.event.pull_request.head.repo.full_name == github.repository',
+  'github.event.pull_request.user.login',
+];
+
+/** Tokenise + parse a GitHub Actions expression. -> AST; throws on anything unexpected. */
+export function parseExpr(src) {
+  let s = String(src ?? '').trim();
+  const w = /^\$\{\{([\s\S]*)\}\}$/.exec(s); if (w) s = w[1];
+  const toks = []; let i = 0;
+  const RE = [
+    ['ws', /^\s+/], ['str', /^'(?:[^']|'')*'/], ['num', /^-?\d+(?:\.\d+)?/],
+    ['op', /^(?:&&|\|\||==|!=|<=|>=|<|>|!|\(|\)|,)/],
+    ['id', /^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_*][A-Za-z0-9_-]*|\[\d+\]|\[\*\])*/],
+  ];
+  while (i < s.length) {
+    const r = RE.map(([k, re]) => [k, re.exec(s.slice(i))]).find(([, m]) => m);
+    if (!r) throw new Error(`unexpected ${JSON.stringify(s.slice(i, i + 12))}`);
+    const [k, m] = r; i += m[0].length;
+    if (k !== 'ws') toks.push({ k, v: m[0] });
+  }
+  let p = 0;
+  const peek = () => toks[p]; const isOp = (v) => peek() && peek().k === 'op' && peek().v === v;
+  const eat = (v) => { if (!isOp(v)) throw new Error(`expected ${v}`); p++; };
+  const or = () => { const items = [and()]; while (isOp('||')) { p++; items.push(and()); } return items.length > 1 ? { t: 'or', items } : items[0]; };
+  const and = () => { const items = [unary()]; while (isOp('&&')) { p++; items.push(unary()); } return items.length > 1 ? { t: 'and', items } : items[0]; };
+  const unary = () => { if (isOp('!')) { p++; return { t: 'not', x: unary() }; } return cmp(); };
+  const cmp = () => {
+    const l = primary();
+    if (peek() && peek().k === 'op' && ['==', '!=', '<', '>', '<=', '>='].includes(peek().v)) { const op = toks[p++].v; return { t: 'cmp', op, l, r: primary() }; }
+    return l;
+  };
+  const primary = () => {
+    const tk = toks[p++];
+    if (!tk) throw new Error('unexpected end');
+    if (tk.k === 'op' && tk.v === '(') { const x = or(); eat(')'); return x; }
+    if (tk.k === 'str') return { t: 'lit', v: tk.v.slice(1, -1).replace(/''/g, "'") };
+    if (tk.k === 'num') return { t: 'lit', v: Number(tk.v) };
+    if (tk.k === 'id') {
+      if (isOp('(')) {
+        p++; const args = [];
+        if (!isOp(')')) { args.push(or()); while (isOp(',')) { p++; args.push(or()); } }
+        eat(')'); return { t: 'call', name: tk.v.toLowerCase(), args };
+      }
+      const v = tk.v.toLowerCase();
+      return v === 'true' || v === 'false' || v === 'null' ? { t: 'lit', v: v === 'null' ? null : v === 'true' } : { t: 'id', v };
+    }
+    throw new Error(`unexpected ${tk.v}`);
+  };
+  const ast = or();
+  if (p !== toks.length) throw new Error(`trailing ${toks[p].v}`);
+  return ast;
+}
+
+const isEq = (n, a, b) => n.t === 'cmp' && n.op === '==' && ((same(n.l, a) && same(n.r, b)) || (same(n.l, b) && same(n.r, a)));
+const same = (n, want) => (typeof want === 'string' && want.startsWith('#') ? n.t === 'id' && n.v === want.slice(1) : n.t === 'lit' && typeof n.v === 'string' && n.v.toLowerCase() === want);
+const authorCheck = (n) => {
+  if (n.t !== 'call' || n.name !== 'contains' || n.args.length !== 2) return false;
+  const [list, who] = n.args;
+  if (!(who.t === 'id' && who.v === 'github.event.pull_request.user.login')) return false;
+  if (!(list.t === 'call' && list.name === 'fromjson' && list.args.length === 1 && list.args[0].t === 'lit')) return false;
+  let names; try { names = JSON.parse(list.args[0].v); } catch { return false; }
+  const allowed = TRUSTED_AUTHORS.map((x) => x.toLowerCase());
+  return Array.isArray(names) && names.length > 0 && names.every((x) => typeof x === 'string' && allowed.includes(x.toLowerCase()));
+};
+/** True only when `node` being true PROVES push-to-main or a same-repo allowlisted-author PR. */
+function implies(node) {
+  if (node.t === 'or') return node.items.every(implies);
+  if (node.t !== 'and') return false;
+  const c = node.items;
+  const push = c.some((x) => isEq(x, '#github.event_name', 'push')) && c.some((x) => isEq(x, '#github.ref', 'refs/heads/main'));
+  const pr = c.some((x) => isEq(x, '#github.event.pull_request.head.repo.full_name', '#github.repository')) && c.some(authorCheck);
+  return push || pr || c.some(implies);
+}
+/** Rule (e-routed). -> null when the job if: implies trust, else the reason. */
+export function routeTrust(ifExpr) {
+  if (ifExpr === undefined || ifExpr === null || String(ifExpr).trim() === '') return 'no job if:';
+  let ast;
+  try { ast = parseExpr(ifExpr); } catch (e) { return `job if: unparseable (${e.message})`; }
+  return implies(ast) ? null : 'job if: does not imply trust on every branch (push to main, or same-repo PR by a TRUSTED_AUTHORS author); no `|| true`, no negated or OR-only trust term';
+}
 const DATED = /\b20\d\d-\d\d-\d\d\b/;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const REQUIRED_FIELDS = ['name', 'kind', 'acts_as', 'owner_login', 'required_minimum_scope', 'actual_scope', 'expiry', 'readers_allowed', 'exists'];
@@ -153,6 +246,7 @@ export function measureWorkflows(files) {
   const readers = {};
   const untrustedReaders = {};
   const selfHosted = [];
+  const routed = [];
   let jobCount = 0;
   const add = (map, k, v) => { (map[k] = map[k] || []).push(v); };
   for (const { name, text } of files) {
@@ -176,6 +270,11 @@ export function measureWorkflows(files) {
       if (labels.some((l) => /self-hosted/i.test(l))) {
         for (const u of untrusted) selfHosted.push({ workflow: name, job: id, trigger: u.trigger });
         if (!untrusted.length) selfHosted.push({ workflow: name, job: id, trigger: null });
+      } else if (labels.some((l) => /\$\{\{/.test(l))) {
+        const on = triggersOf(doc);
+        const problem = routeTrust(job ? job.if : undefined);
+        const badTriggers = ['pull_request_target', 'workflow_run'].filter((t) => t in on);
+        routed.push({ workflow: name, job: id, problem, badTriggers });
       }
       for (const s of js) {
         for (const u of untrusted) {
@@ -187,7 +286,7 @@ export function measureWorkflows(files) {
     }
     for (const s of wfSecrets) add(readers, s, name);
   }
-  return { readers, untrustedReaders, selfHosted, jobCount, workflowCount: files.length };
+  return { readers, untrustedReaders, selfHosted, routed, jobCount, workflowCount: files.length };
 }
 
 /** Rules (a)-(f). Pure. -> { violations: [string] } */
@@ -246,6 +345,10 @@ export function checkRegister({ register, measured }) {
         if (!min.some((m) => m.perm === a.perm && m.level >= a.level)) v.push(`(f) ${e.name}: actual_scope ${e.actual_scope[i]} exceeds required_minimum_scope`);
       }
     }
+  }
+  for (const r of measured.routed || []) {
+    if (r.problem) v.push(`(e) ${r.workflow}/${r.job}: runs-on is an expression (may be self-hosted) but ${r.problem}`);
+    if (r.badTriggers.length) v.push(`(e) ${r.workflow}/${r.job}: runs-on is an expression (may be self-hosted) in a workflow triggered by ${r.badTriggers.join(', ')}`);
   }
   for (const s of measured.selfHosted) v.push(`(e) ${s.workflow}/${s.job}: self-hosted runner reachable from ${s.trigger || 'a trusted trigger (no self-hosted runner is registered for this repo)'}`);
   return { violations: v };
@@ -350,7 +453,7 @@ export async function main(argv = [], env = process.env, log = console, deps = {
     return 1;
   }
   const secrets = Object.keys(measured.readers).filter((s) => s !== 'GITHUB_TOKEN').length;
-  log.log(`secrets-register: OK -- ${measured.workflowCount} workflows, ${measured.jobCount} jobs, ${secrets} secret(s) read, ${register.entries.length} register entries, 0 self-hosted runners.`);
+  log.log(`secrets-register: OK -- ${measured.workflowCount} workflows, ${measured.jobCount} jobs, ${secrets} secret(s) read, ${register.entries.length} register entries, 0 self-hosted runners, ${(measured.routed || []).length} routed job(s) trust-gated.`);
   return 0;
 }
 
@@ -397,6 +500,33 @@ async function selfTest(log) {
   const m = measureWorkflows([{ name: 's.yml', text: 'on: { pull_request_target: {} }\njobs:\n  j:\n    runs-on: [self-hosted]\n    steps:\n      - uses: actions/checkout@v7\n      - run: echo "${{ secrets.TOK }}"\n' }]);
   cases.push(['(e) self-hosted reachable is reported', m.selfHosted.length, 1]);
   cases.push(['prt + PR-head checkout is untrusted', (m.untrustedReaders.TOK || []).length, 1]);
+  const ROUTE_IF = `${ROUTE_TRUST_TOKENS[0]} || (github.event_name == 'pull_request' && ${ROUTE_TRUST_TOKENS[1]} && contains(fromJSON('["kiki-claude-bot"]'), ${ROUTE_TRUST_TOKENS[2]}))`;
+  const routedWf = (cond, on = '{ pull_request: {}, push: { branches: [main] } }') => [{ name: 'r.yml', text: `on: ${on}\njobs:\n  j:\n    if: "${cond.replace(/"/g, '\\"')}"\n    runs-on: \${{ needs.route.outputs.runner }}\n    steps:\n      - run: "true"\n` }];
+  cases.push(['(e-routed) full trust if: (0)', await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(ROUTE_IF)] }), 0]);
+  for (const t of ROUTE_TRUST_TOKENS) {
+    cases.push([`(e-routed) mutant without ${t} (1)`, await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(ROUTE_IF.replace(t, 'true'))] }), 1]);
+  }
+  // Fix round 2 item 6: structural mutants that a substring match let through.
+  const LIVE_IF = `needs.route.outputs.target == 'self' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["kiki-claude-bot","123constante"]'), github.event.pull_request.user.login)))`;
+  const structural = [
+    ['live bom-check.yml if: (0)', LIVE_IF, 0],
+    ['live if: wrapped in ${{ }} (0)', `\${{ ${LIVE_IF} }}`, 0],
+    ['|| true appended (1)', `${LIVE_IF} || true`, 1],
+    ['|| true inside the trust group (1)', LIVE_IF.replace("'refs/heads/main')", "'refs/heads/main') || true"), 1],
+    ['negated trust (1)', `needs.route.outputs.target == 'self' && !(${ROUTE_IF})`, 1],
+    ['trust only in one OR branch (1)', `needs.route.outputs.target == 'self' && (${ROUTE_TRUST_TOKENS[0]} || github.event_name == 'pull_request')`, 1],
+    ['trust OR target (1)', `needs.route.outputs.target == 'self' || (${ROUTE_IF})`, 1],
+    ['!= instead of == (1)', LIVE_IF.replace('head.repo.full_name == github.repository', 'head.repo.full_name != github.repository'), 1],
+    ['author outside TRUSTED_AUTHORS (1)', LIVE_IF.replace('"123constante"', '"mallory"'), 1],
+    ['author list from a variable (1)', LIVE_IF.replace(`fromJSON('["kiki-claude-bot","123constante"]')`, 'fromJSON(vars.AUTHORS)'), 1],
+    ['contains on the wrong field (1)', LIVE_IF.replace('github.event.pull_request.user.login)', 'github.actor)'), 1],
+    ['all terms as strings in one literal (1)', `'${LIVE_IF.replace(/'/g, "''")}'`, 1],
+    ['unparseable (1)', `${LIVE_IF} &&`, 1],
+  ];
+  for (const [n, cond, want] of structural) {
+    cases.push([`(e-routed) ${n}`, await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(cond)] }), want]);
+  }
+  cases.push(['(e-routed) pull_request_target trigger (1)', await main([], {}, quiet, { registerText: reg(), workflows: [...A(SCHED), ...routedWf(ROUTE_IF, '{ pull_request_target: {} }')] }), 1]);
   const prose = measureWorkflows([{ name: 'p.yml', text: 'on: { schedule: [{ cron: "0 0 * * *" }] }\njobs:\n  j:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/precheck-supabase-secrets.mjs\n' }]);
   cases.push(['a script name is not a secret reference', Object.keys(prose.readers).length, 0]);
   let failed = 0;

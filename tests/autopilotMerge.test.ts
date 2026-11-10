@@ -397,7 +397,8 @@ async function packSurvives(src: string) {
 const MUTANTS: [string, 'merge' | 'step' | 'pack', string, string][] = [
   ['drop the hard-tier path check', 'merge', "  if (classifyFile(p).group === 'hard' || isRiskyPath(p) || isRiskyPath(p.toLowerCase())) return { no: `hard-tier path ${p}` };\n", ''],
   ['drop the screen-path check', 'merge', "  if (pathClass(p) === 'code' && !classifySoft(p)) return", '  if (false) return'],
-  ['drop the review-label actor check', 'merge', "if (!adds.some((e) => e.actor && e.actor.login === BOT_LOGIN)) no(", 'if (false) no('],
+  // the rule now lives in reviewLabelRefusal() (shared with bot-automerge class C); same mutant
+  ['drop the review-label actor check', 'merge', "if (!adds.some((e) => e.actor && e.actor.login === BOT_LOGIN)) return", 'if (false) return'],
   ['drop the label-after-push order check', 'merge', 'ts(e.created_at) > anchor', 'true'],
   ['merge in dry run', 'merge', "  if (f.dryRun !== false) no('dry run: never merges');\n", ''],
   ['merge with mode unset', 'merge', "  if (mode === 'off') no(", '  if (false) no('],

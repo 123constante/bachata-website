@@ -411,3 +411,12 @@ export function publicPageOf(ws: EventWorkspace): { href: string | null; why: st
   if (!slug) return { href: null, why: PUBLIC_PAGE_NO_ADDRESS };
   return { href: eventHref({ slug, event_id: ws.series.id }), why: lc === 'paused' ? PUBLIC_PAGE_SUB_PAUSED : PUBLIC_PAGE_SUB };
 }
+
+/** p3-share-event-link: what the "Share this event" row sends. Reuses publicPageOf, so the rule and the path live in one place. */
+export const SHARE_SUB = 'Send dancers the link';
+export type ShareOf = { url: string; title: string; off?: undefined } | { off: true; why: string };
+export function shareOf(ws: EventWorkspace, origin: string): ShareOf {
+  const pub = publicPageOf(ws);
+  if (!pub.href) return { off: true, why: pub.why };
+  return { url: `${origin}${pub.href}`, title: ws.series.name };
+}

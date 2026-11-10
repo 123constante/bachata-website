@@ -422,7 +422,16 @@ describe('the sheet', () => {
     fireEvent.click(await waitFor(() => pencil('bio')));
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Hello' } });
-    expect(within(dialog).getByTestId('eip-about-counter').textContent).toBe('5 / 4000');
+    expect(within(dialog).getByTestId('eip-about-counter').textContent).toBe('5 / 150');
+  });
+
+  it('About: a paste past 150 is cut, and an old 330-character bio needs shortening to save', async () => {
+    setup();
+    fireEvent.click(await waitFor(() => pencil('bio')));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'x'.repeat(330) } });
+    expect(within(dialog).getByTestId('eip-about-counter').textContent).toBe('150 / 150');
+    expect(within(dialog).getByRole('button', { name: 'Done' })).toHaveProperty('disabled', false);
   });
 
   it('Category is a picker of the five values plus None', async () => {

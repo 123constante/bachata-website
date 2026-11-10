@@ -274,6 +274,7 @@ export const BentoGrid = ({
         return (
           <div
             key={blk.id}
+            data-block-id={blk.id}
             style={{
               gridColumn: `${blk.x + 1} / span ${blk.w}`,
               // Dynamic blocks omit a row span so the track auto-sizes to

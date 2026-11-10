@@ -34,6 +34,8 @@
 import { createHash } from "node:crypto";
 import {
   buildCoverCard,
+  buildWholeFlyerCard,
+  wholeFlyerCanvasFor,
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
@@ -42,6 +44,7 @@ import {
   type OgCardData,
 } from "../lib/ogCardRender";
 import { decideBakePersist } from "../lib/ogBakePolicy";
+import { bakedOgPath, ogLayoutFor, WF_LAYOUT, type CanvasSize } from "../lib/ogLayout";
 import { uploadJpeg } from "../lib/ogUpload";
 import type { Route } from "./+types/api.og.bake";
 
@@ -167,7 +170,29 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // closes. A stale object at the OLD key is simply orphaned, not deleted;
     // get_og_image_v1 only ever returns the row's current image_url, so
     // nothing serves it once this bake completes.
-    const jpeg = await buildCoverCard(coverBytes as Buffer, cardData as OgCardData);
+    // WHICH layout to write has one owner, ogLayoutFor (contract D3), the same
+    // function the page asks -- so a bake can never write a layout the page's
+    // read rule then rejects. Test mode returns legacy: ?ogtest is never baked.
+    const layout = ogLayoutFor(entityType, id);
+    let jpeg: Buffer;
+    let wfCanvas: CanvasSize | null = null;
+    if (layout === WF_LAYOUT) {
+      wfCanvas = await wholeFlyerCanvasFor(coverBytes as Buffer);
+      if (!wfCanvas) throw new Error("cover could not be sized for the whole-flyer card");
+      const card = await buildWholeFlyerCard(coverBytes as Buffer, wfCanvas);
+      // D6 / r2 N4: an R2 object cannot carry X-OG-Fallback, so an over-budget
+      // card is REFUSED on the same path as the ogBakePolicy refusals (422,
+      // status error, nothing uploaded). The page then uses the live URL,
+      // whose response carries the marker the guard reds on.
+      if (card.overBudget) {
+        await recordResult(entityType, entityId, occurrenceId, coverUrl, null, "error", "over-budget");
+        console.warn("[og/bake] refused an over-budget whole-flyer card", entityType, entityId, card.buf.length);
+        return json({ ok: false, refused: "over-budget", reason: "over-budget" }, 422);
+      }
+      jpeg = card.buf;
+    } else {
+      jpeg = await buildCoverCard(coverBytes as Buffer, cardData as OgCardData);
+    }
 
     // No "fallback" tag any more, and its absence is load-bearing: the object
     // key is now, by construction, always <id>-<occ|default>-<16 hex of the
@@ -211,8 +236,14 @@ export async function action({ request }: Route.ActionArgs): Promise<Response> {
     // No cast: ogFactsTag's own parameter type already accepts cardData's
     // un-narrowed OgCardData | null, unlike buildCoverCard above which needs
     // the non-null assertion because IT has no null-tolerant signature.
+    // Whole-flyer keys carry renderer version and canvas size
+    // (<id>-<occ>-<cover16>-wf1-<W>x<H>.jpg, contract D2/D4) and NEVER the facts
+    // tag (D8). The legacy key is exactly the shape it always was.
     const factsTag = ogFactsTag(cardData);
-    const path = `og/${entityType}/${id}-${occTag}-${coverTag}${factsTag ? `-${factsTag}` : ""}.jpg`;
+    const path = bakedOgPath({
+      entityType, entityId: id, occTag, coverTag, layout, size: wfCanvas,
+      factsTag: layout === WF_LAYOUT ? "" : factsTag,
+    });
 
     const publicUrl = await uploadJpeg(path, jpeg, { supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_KEY });
     if (!publicUrl) throw new Error("R2 upload failed");

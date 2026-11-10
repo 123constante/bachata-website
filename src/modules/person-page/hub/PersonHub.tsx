@@ -7,6 +7,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { flags } from '@/lib/featureFlags';
 import { useProfileProgramAppearances } from '@/hooks/useProfileProgramAppearances';
 import { RoleChip } from '../wall/RoleChip';
+import { AmbassadorBadge } from '@/modules/ambassador/link/AmbassadorBadge';
 import { FOCUS_RING, HUB, WALL, WALL_FADE } from '../wall/tokens';
 import type { PersonBadge } from '../badges';
 import type { PersonSnapshot } from '../reads';
@@ -102,6 +103,7 @@ export default function PersonHub({ person }: { person: PersonSnapshot }) {
                     {m.city}
                   </div>
                 ) : null}
+                <AmbassadorBadge profileId={person.id} />
                 {m.tags.length > 0 ? (
                   <div data-testid="hub-chips" className="mt-2 flex flex-wrap gap-1">
                     {m.tags.map((t) => <RoleChip key={t.role} role={t.role} label={t.label} />)}

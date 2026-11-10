@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { checkOverflow, fakeSupabase, settled } from './helpers';
+import { checkOverflow, fakeSupabase, settled, MIN_TAP_PX } from './helpers';
 import { FAKE_ORIGIN, FAKE_REF } from './fakeSupabase.mjs';
 
 /**
@@ -84,7 +84,7 @@ async function primaryHittable(page: Page, testId: string) {
   const el = page.getByTestId(testId).first();
   await expect(el).toBeVisible();
   const b = (await el.boundingBox())!;
-  expect(b.height, `${testId} height`).toBeGreaterThanOrEqual(44);
+  expect(b.height, `${testId} height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect(b.y, `${testId} top`).toBeGreaterThanOrEqual(0);
   expect(b.y + b.height, `${testId} bottom`).toBeLessThanOrEqual(844 + 0.5);
   const hit = await el.evaluate((node) => {

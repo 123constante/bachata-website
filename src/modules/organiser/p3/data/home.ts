@@ -43,6 +43,27 @@ export interface P3Row {
   sub: string;
   /** Other pages of this person that also run this event (page scope: shown under each page, once per page). */
   alsoRunBy: string[];
+  /**
+   * What goes after /event/ for the PUBLIC page (publicEventRefOf), or '' when there is no
+   * safe one. Never the series id of a bridged series: the resolver matches a uuid only on
+   * legacy_event_id, or on id when legacy_event_id is null.
+   */
+  publicEventRef: string;
+}
+
+/**
+ * The one place the public event reference is built. organiser_home_v1 sends the series slug
+ * (organisers[].series[].slug; prod 2026-11-07: every live series has one and it resolves for
+ * 70 of 70) and no legacy_event_id. Slug when non-blank; else legacy_event_id ?? id only when
+ * the payload carries the legacy_event_id key; else '' (bridging unknown, so no link at all).
+ */
+export function publicEventRefOf(s: { id: string; slug?: string | null; legacy_event_id?: string | null }): string {
+  if (typeof s.slug === 'string' && s.slug.trim()) return s.slug;
+  if ('legacy_event_id' in s) {
+    const legacy = s.legacy_event_id;
+    return typeof legacy === 'string' && legacy ? legacy : s.id;
+  }
+  return '';
 }
 
 const STORED_SESSION = 'stored-start';
@@ -105,7 +126,7 @@ export function rowOf(s: HomeSeriesRow, today: IsoDate): P3Row {
     upcoming,
   };
   const when = whenLine(r, today);
-  return { ...r, sub: r.place ? `${when} \u00b7 ${r.place}` : when, alsoRunBy: [] };
+  return { ...r, sub: r.place ? `${when} \u00b7 ${r.place}` : when, alsoRunBy: [], publicEventRef: publicEventRefOf(s) };
 }
 
 /** Sort key: next date then its start; nothing coming up goes last. */

@@ -439,6 +439,86 @@ export const signInLanding = (f: SidesFacts, returnTo: string | null): SignInLan
 };
 
 /** Which area the switcher is drawn in; the organiser area passes its ?o= (null when absent). */
+// ---- Organiser area v2 slice 1b: the chooser's teacher / DJ entries and event-day landing ----
+// Only /account/continue reads these, and only while P3 is live (organiserP3 AND organiserSelfServe);
+// flag off, eventDayLanding hands back signInLanding's answer untouched (A8).
+
+/** The mark on a chooser page that has a live event today (OPEN:11 decided). */
+export const LIVE_TONIGHT = 'Live tonight';
+
+/** A teacher or DJ page the person holds (my_roles_v1, active rows): one chooser entry each. */
+export type AreaPage = { role: 'teacher' | 'dj'; key: 'teacher' | 'dj'; to: string };
+
+/** The slice of organiser_home_v1 the live-tonight rule reads. */
+export type TonightHome = {
+  today: string;
+  organisers: ReadonlyArray<{
+    id: string;
+    series: ReadonlyArray<{ lifecycle_status: string; next_dates: ReadonlyArray<{ occurrence_date: string; lifecycle_status: string }> }>;
+  }>;
+};
+
+/**
+ * The organiser pages with a live event TODAY: a live, listed series whose date today is not
+ * cancelled -- the same rule as the organiser home's "is on tonight" notice
+ * (shared/homeModel attentionItems 'tonight'; a parity test pins the two together).
+ * undefined while the home is loading, null when the read failed.
+ */
+export const liveTonightIds = (home: TonightHome | null | undefined): ReadonlySet<string> | null | undefined => {
+  if (home === undefined) return undefined;
+  if (home === null) return null;
+  const ids = new Set<string>();
+  for (const o of home.organisers) {
+    const on = (o.series ?? []).some(
+      (s) =>
+        s.lifecycle_status === 'live' &&
+        s.next_dates.some((d) => d.occurrence_date === home.today && d.lifecycle_status !== 'cancelled'),
+    );
+    if (on) ids.add(o.id);
+  }
+  return ids;
+};
+
+export type ChooserLanding =
+  | { kind: 'wait' }
+  | { kind: 'go'; to: string }
+  | { kind: 'choose'; sides: ProfileSide[]; areas: AreaPage[]; liveTonight: ReadonlySet<string> };
+
+/**
+ * eventDayLanding (Q1, Q2, A4, A5): signInLanding's answer, widened while P3 is live.
+ * - Teacher and DJ pages count as pages: 2+ pages in all = the chooser, on every sign-in.
+ * - A live event today on exactly ONE organiser page = straight to that page.
+ * - Two or more live pages today = the chooser, each live page marked LIVE_TONIGHT.
+ * A restore, a returnTo or a brand-new-organiser landing is never touched. Flag off = base, unchanged.
+ * `areas` / `liveTonight`: undefined while loading (wait), null when the read failed (treated as none:
+ * today's landing, never a stranded sign-in).
+ */
+export const eventDayLanding = (input: {
+  base: SignInLanding;
+  /** profileSides(facts) sides when ready, else []. */
+  sides: readonly ProfileSide[];
+  areas: readonly AreaPage[] | null | undefined;
+  liveTonight: ReadonlySet<string> | null | undefined;
+  p3Live: boolean;
+}): ChooserLanding => {
+  const { base, sides, p3Live } = input;
+  const none: ReadonlySet<string> = new Set();
+  if (!p3Live) return base.kind === 'choose' ? { kind: 'choose', sides: base.sides, areas: [], liveTonight: none } : base;
+  if (base.kind === 'wait') return base;
+  const singleSide = base.kind === 'go' && sides.length === 1 && base.to === sides[0].to;
+  if (base.kind === 'go' && !singleSide) return base;
+  if (input.areas === undefined) return { kind: 'wait' };
+  const areas = input.areas ?? [];
+  const pageSides = base.kind === 'choose' ? base.sides : [...sides];
+  if (base.kind === 'go' && areas.length === 0) return base;
+  const hasOrganiser = pageSides.some((s) => s.kind === 'organiser');
+  if (hasOrganiser && input.liveTonight === undefined) return { kind: 'wait' };
+  const live = input.liveTonight ?? none;
+  const liveSides = pageSides.filter((s) => s.kind === 'organiser' && live.has(s.organiserId));
+  if (liveSides.length === 1) return { kind: 'go', to: liveSides[0].to };
+  return { kind: 'choose', sides: pageSides, areas: [...areas], liveTonight: live };
+};
+
 export type SwitcherWhere = { area: 'dancer' } | { area: 'organiser'; organiserId: string | null };
 
 /**

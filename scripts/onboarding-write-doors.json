@@ -41,6 +41,10 @@
   },
   "not_event_writes": [
     {
+      "name": "set_ambassador_link_active_v1",
+      "reason": "Ambassador shared join link on/off switch; not an event write."
+    },
+    {
       "name": "add_favourite_venue_v1",
       "reason": "Dancer favourite venue."
     },
@@ -97,6 +101,10 @@
       "reason": "Dancer profile."
     },
     {
+      "name": "save_my_signin_email_v1",
+      "reason": "Copies the dancer's own sign-in email to their private profile email; never public; not an event write."
+    },
+    {
       "name": "save_my_role_v1",
       "reason": "Account role choice."
     },
@@ -111,6 +119,10 @@
     {
       "name": "set_my_role_intent_v1",
       "reason": "Account role intent at sign-in."
+    },
+    {
+      "name": "set_organiser_team_member_hidden_v1",
+      "reason": "Organiser-page team visibility, not an event edit."
     },
     {
       "name": "submit_feedback_v1",

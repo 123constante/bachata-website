@@ -92,7 +92,7 @@ const EXPECTED: Array<{
   notThisOne: boolean;
 }> = [
   { hint: 'yours', row: 'Yours', rowButton: 'onboarding-home', screen: '6a', title: `${NAME} is yours`, sub: 'You are already its owner.', primary: 'Go to Home', primaryTestId: 'onboarding-yours-home', notThisOne: false },
-  { hint: 'managed', row: 'Has a team', rowButton: 'onboarding-request', screen: '6b', title: `${NAME} already has an owner`, sub: 'You can ask to join the team.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
+  { hint: 'managed', row: 'Has a team', rowButton: 'onboarding-request', screen: '6b', title: `${NAME} already has a team`, sub: 'You can ask to join the team.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
   { hint: 'email_matches', row: 'Email on file is yours', rowButton: 'onboarding-claim', screen: '6c', title: `Claim ${NAME}`, sub: 'Your email matches the one on file.', primary: 'Claim it', primaryTestId: 'onboarding-claim-confirm', notThisOne: true },
   { hint: 'email_differs', row: 'Has an email on file', rowButton: 'onboarding-request', screen: '6d', title: `Is ${NAME} yours?`, sub: 'The email on file is not yours. Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
   { hint: 'no_email', row: NO_EMAIL_COPY, rowButton: 'onboarding-request', screen: '6e', title: `Is ${NAME} yours?`, sub: 'We have no email for this page. Ask to join and we will check.', primary: 'Ask to join', primaryTestId: 'onboarding-request-send', notThisOne: true },
@@ -172,8 +172,11 @@ describe('the sheet each row opens (390x844 copy, real component)', () => {
     api.request.mockResolvedValue({ request_id: 'r', status: 'open' });
     mount(hint);
     await openRow();
-    fireEvent.click(await screen.findByTestId('onboarding-request-send'));
-    await waitFor(() => expect(api.request).toHaveBeenCalledWith('o1', ''));
+    // Ask to join needs a note of 3+ characters; the send stays disabled until it has one.
+    expect((await screen.findByTestId('onboarding-request-send') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('onboarding-request-note'), { target: { value: 'I run it' } });
+    fireEvent.click(screen.getByTestId('onboarding-request-send'));
+    await waitFor(() => expect(api.request).toHaveBeenCalledWith('o1', 'I run it'));
   });
 
   it('6c: Claim it claims that page', async () => {

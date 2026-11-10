@@ -91,6 +91,17 @@ jobs:
           npm run check:onboarding-write-doors:self-test
           npm run check:onboarding-write-doors
 
+      # P3 real-rules check (docs/briefs/p3-real-rules-check.md): every refusal
+      # code in scripts/p3-refusal-codes.json (read from the live door bodies)
+      # must reach its own copy, never the generic fallback or the
+      # /^permission_denied/ catch-all, unless listed in its shrink-only
+      # known_gaps ratchet. Static, no secrets. Canary first.
+      - name: Run P3 refusal-reason check (static)
+        if: steps.changes.outputs.docs_only != 'true'
+        run: |
+          npm run check:p3-refusal-reasons:self-test
+          npm run check:p3-refusal-reasons
+
       - name: Run runtime architecture guard
         if: steps.changes.outputs.docs_only != 'true'
         run: npm run lint:architecture

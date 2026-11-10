@@ -21,7 +21,8 @@ import { OWNER_ONLY_ADD, ROLE_HELP } from '@/modules/organiser/shared/selfServeE
 
 /** Everything the Team screens and the shell READ; any other RPC (an unknown one too) counts as a write. */
 const READS = new Set([
-  'organiser_team_v1', 'list_organiser_access_requests_v1', 'organiser_team_browse_people_v1', 'organiser_team_search_people_v1',
+  'organiser_ownership_v1',
+  'organiser_team_v1', 'organiser_team_shared_v1', 'list_organiser_access_requests_v1', 'organiser_team_browse_people_v1', 'organiser_team_search_people_v1',
   '_my_dancer_profile_id_v1', 'my_account_deletion_status_v1', 'dancer_area_gate_v1',
 ]);
 const ADD = 'organiser_team_add_member_by_profile_v1';
@@ -90,6 +91,7 @@ describe('B2 / S2 refusals on add read sensibly', () => {
     install({ [ADD]: err('owner_only'), organiser_team_browse_people_v1: [{ profile_id: 'p1', display_name: 'Priya Shah', photo_url: null, fact: null, can_add: true }] });
     mountAt('/account/o/team/add', routes);
     fireEvent.click(await screen.findByTestId('add-face'));
+    fireEvent.click(await screen.findByTestId('add-confirm-yes'));
     expect((await screen.findByTestId('add-error')).textContent).toBe(OWNER_ONLY_ADD);
   });
   it('user_not_found on the card does not tell a requester to sign up', async () => {

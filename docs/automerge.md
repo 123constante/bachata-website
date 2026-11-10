@@ -1,4 +1,4 @@
-# Bot auto-merge (docs and tests only)
+# Bot auto-merge (classes A, B and C only)
 
 `.github/workflows/bot-automerge.yml` asks GitHub to merge a low-risk bot PR by
 itself once the `main` ruleset's REQUIRED checks pass. The verdict is
@@ -11,24 +11,93 @@ owner merges everything" for anything outside that class.
 
 Since slice 2 the switch is `.github/automation/arming.json` (not repo variables), and every auto path also checks the required-jobs, money-set and guard-path files: see [`docs/automation-foundations.md`](automation-foundations.md).
 
+## The three classes (nothing else qualifies)
+
+| Class | Paths (EVERY changed file, old and new name of a rename) | Caps | Review record |
+|---|---|---|---|
+| A / B (docs) | a lowercase `.md`, `.png`, `.jpg`, `.jpeg`, `.webp` or `.gif` under `docs/`, or the root `README.md` (exact case). `docs/x.mjs`, `docs/x.json`, `docs/x.sql`, `docs/x.MD`, `README.MD` are NOT | under 400 changed lines, at most 60 files | none (docs-only, bot-authored) |
+| C (tests) | `tests/**/*.test.ts`, `tests/**/*.test.tsx`, `tests/e2e/**/*.spec.ts`. Nothing else under `tests/` (`setup-env.ts`, helpers, fixtures, shared tables), and no `e2e/`, `__tests__/` or `*.test.*` outside `tests/` | under 200 changed lines, at most 60 files; no removed, renamed or copied test | REQUIRED, see below |
+
+Anything else is a NO (`not on the A/B/C allowlist`). A mixed PR (docs plus
+tests) is **judged as class C**: the 200-line cap and the review record apply.
+The classifier logs the class it judged. GOVERNANCE prose (`docs/automerge.md`,
+`docs/testing-doctrine.md`, ...) matches the class A/B path rule and is refused
+by the guard-path check (`.github/automation/guard-paths.json` plus the lane's
+GOVERNANCE list), so it stays owner-merged; so do `CLAUDE.md` / `AGENTS.md`.
+
+**Class C review record (fail closed).** A test PR qualifies only if BOTH hold
+at the PR's current head sha:
+
+1. a comment by `kiki-claude-bot` whose LAST non-empty line is exactly
+   `review-pack: <https url> head <40-hex sha>` (plain text, no code span, nothing
+   after the sha), whose sha is EXACTLY the head sha (lower-case, full 40
+   characters) and which was created after the head was pushed;
+2. the `review-passed` label is on the PR and the issue events show
+   `kiki-claude-bot` adding it after that push (the merge lane's own rule,
+   `reviewLabelRefusal` in `scripts/lib/autopilot-merge.mjs`, shared, not copied).
+
+"Pushed" is the later of the head commit's committer date and the first
+workflow run GitHub created for that sha. Any API failure, a missing field, a
+short or upper-case sha, a non-https url, a record older than the push, or a
+label applied by anyone else is a NO. The record is read only when the PR has a class-C file.
+Both halves come from the bot account that also authors the PR (the brief's
+rule): the record proves the review pipeline ran, not that a second identity
+signed it. The `docs/review/<pr>-r<n>.md` file is
+NOT required: it cannot live inside the PR it reviews (adding it changes the head).
+
+**After the merge, the owner-approval audit checks the record (detective).**
+`scripts/owner-approval-audit.mjs` (`decideRecordAudit`) also reads, for every
+merged PR of a commit on main that touches a test path (`pathClass` in
+`scripts/automerge-classify.mjs` says `tests`), the same record with the same
+`readReviewRecord` and `reviewRecordVerdict`, and prints
+`RECORD-MISSING <sha8>: PR #n <first problem>` when it is absent or unreadable
+(fail closed). A PR the owner approved at its head prints `RECORD-SKIP` instead:
+the approval is the stronger record. The line is a report only: it never changes
+the audit's OK / RED / INFRA exit code.
+
+**Class C content (fail closed; brief automerge-web-test-source-refusal).** A
+class-C path is not enough: `main()` reads the HEAD text of every class-C file
+that is not removed (contents API at the head sha, `readTestSources`) and
+`testSourceRefusal(path, text)` refuses, each with its own reason:
+
+| Shape | Refusal |
+|---|---|
+| content not read (API error, 404, over 1 MB, a directory) or missing from the map | `<path>: test content unreadable (fail closed)` |
+| empty, NUL bytes or a literal U+FFFD anywhere in the text (binary / undecodable; a test that embeds the character itself is refused too) | `<path>: unknown content ...` |
+| `node:test` (import, require, dynamic import) | `<path>: node:test suite (class C is vitest only)` |
+| `REFUSED_TREES`: a quoted `node scripts/` command (`execSync('node scripts/x.mjs')`), or a quoted path whose root-level directory segment is `.github/`, `bin/`, `api/`, `server/` or `supabase/` (at the quote, after `./` / `../` runs or after `${...}/`; `.github` as any segment). Nested segments such as `src/lib/api/` or `@/integrations/supabase/` are not | `<path>: runs or reads a CI / tooling tree (...)` |
+| any quoted path through `scripts/` (import, `import()`, `require`, `vi.mock`, a `'scripts'` path segment) | `<path>: imports scripts/ (tooling is hard tier, owner Approve)` |
+| `SUPABASE_LIVE`: `SUPABASE` (upper case), `SERVICE_ROLE` (any case), `@supabase/supabase-js`, `createClient(` from any path, a live `supabase.co` URL, or `.from(` / `.rpc(` on a client the test builds itself. A test that only `vi.mock`s or type-imports `@/integrations/supabase/...` is NOT refused | `<path>: references Supabase (data access, owner reviews)` |
+
+No sources at all (`testSources` null) on a PR judged as C is
+`class C test sources not read (fail closed)`. A test that loads `scripts/`
+tests tooling, and tooling is hard tier, so the owner Approves it at the final
+head. Classes A/B never read content. Adapted from the admin classifier: stricter on node:test and scripts/, different on Supabase.
+On main at 2026-11-07 the rules refuse 99 of 276 class-C test files (47 scripts/, 32 CI / tooling tree, 20 Supabase).
+
+**Not wired yet (2026-11-06):** nothing in this repo's workflows or scripts posts
+a `review-pack:` comment or adds `review-passed` today (grep of `.github/` and
+`scripts/`). Admin's auto-pack posts the comment there; until the same comment
+reaches Website PRs, NO class-C PR qualifies here (fail closed, by design).
+
 ## What qualifies (ALL must hold, else NO)
 
 | Rule | Detail |
 |---|---|
 | Kill switch | repo variables `AUTOMERGE_ENABLED` AND `BOT_AUTOMERGE_ENABLED` both exactly `true` (otherwise the job does not even start) |
 | Base / head | base is `main`; head is a branch of THIS repo (no forks); PR is open and not draft |
-| Identity | author `kiki-claude-bot` (any branch), or author `123constante` on a `claude/` or `ccr-` branch (the cloud workers' shared token; see "Identity") |
+| Identity | author `kiki-claude-bot` (any branch) ONLY. An `123constante`-authored PR never qualifies, whatever its branch (owner decision; see "Identity") |
 | Opt-in label | `automerge-ok` present, and the LAST actor who applied it is `kiki-claude-bot` or `123constante` (read from the issue events API) |
 | Block labels | none of `needs-owner`, `do-not-merge`, `wip` |
-| Paths | EVERY changed file, checking BOTH the old and new name of a rename or copy, is on the allowlist and on no forbidden list (below) |
-| No test deletion | a removed test file is a NO: deleting a test weakens a gate, and the owner decides that |
-| Test helpers | a file under `tests/` that is not itself a `*.test.*` / `*.spec.*` file is a helper, and qualifies only if no file under `src/`, `app/` or `api/` on main mentions its path (textual scan of the base checkout; over-matching only ever blocks) |
-| Size | additions + deletions under 400 (the larger of the PR's own totals and the per-file sum) |
+| Paths | EVERY changed file, checking BOTH the old and new name of a rename or copy, is in class A/B or C (above) and on no forbidden or guard-path list (below) |
+| No test deletion or rename | a removed, renamed or copied test file is a NO: it weakens a gate, and the owner decides that |
+| Size | additions + deletions under 400 for A/B, under 200 for C or a mixed PR (the larger of the PR's own totals and the per-file sum); at most 60 files |
+| Review record | class C only: see "Class C review record" above |
+| Test content | class C only: see "Class C content" above (node:test, `scripts/`, Supabase or unreadable content is a NO) |
 | Completeness | the file list the API returned has exactly `changed_files` entries, and at least one file was judged; an empty or truncated list is a NO |
 | Real-data section | if PR #658's parser `scripts/check-pr-real-data-verified.mjs` exists on main, its `parse(body)` must return `ok`. This is STRICTER than #658's own check, which skips PRs that touch no `src/`/`app/`/`api/` (every PR this workflow can merge). A parser that exists but exports no `parse()` is infra (exit 2), never "not required" |
 
-**Allowlist**: `docs/**`; any `*.md` outside the forbidden trees; test paths
-`tests/**`, `e2e/**`, `**/__tests__/**`, `*.test.*` / `*.spec.*`.
+**Allowlist**: exactly the class A/B and C paths in the table above.
 
 **Forbidden, whatever the allowlist says**: `src/`, `app/`, `api/`, `server/`,
 `public/`, `supabase/`, `scripts/`, `bin/`, `node_modules/`, `.github/`,
@@ -78,15 +147,13 @@ Bot PRs do not have one author. In the 160 PRs surveyed below:
   workers that opened their PR with the shared token (e.g. #658 on `ci/...`).
   These cannot be told apart from the PR alone.
 
-So the rule is "bot author, or owner author on a worker branch prefix", PLUS the
-`automerge-ok` label as the explicit opt-in. The label is the real gate; author
-and branch only narrow it. Nothing is guessed from commit messages or bodies.
-
-**Decision A (recommended)**: workers always open PRs with the bot token
-(`kiki-claude-bot`), as `bot-pr.yml` already does for `claude/**`. Then the
-`123constante` arm can be deleted from `WORKER_BRANCH`.
-**Decision B**: widen `WORKER_BRANCH` to more prefixes. Not recommended: the
-owner's own `docs/` and `ci/` branches would then qualify whenever labelled.
+**Decided (2026-11, brief automerge-web-classes-abc): bot author only.** The
+rule is "author `kiki-claude-bot`" (`BOT_ONLY_AUTHOR`), PLUS the `automerge-ok`
+label as the explicit opt-in. The old arm that also took `123constante` on a
+`claude/` or `ccr-` branch (`WORKER_BRANCH`) is deleted: a worker PR opened with
+the shared owner token is owner-merged. Workers open PRs with the bot token, as
+`bot-pr.yml` already does for `claude/**`. Nothing is guessed from commit
+messages or bodies.
 
 The label check trusts whoever applied it LAST. Anyone with triage access can
 label; the classifier refuses a label applied by any other login.

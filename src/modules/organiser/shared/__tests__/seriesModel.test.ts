@@ -113,7 +113,7 @@ describe('dates and scope', () => {
   });
 
   it('a date with an override, a session time, an added session or a cancellation keeps its own changes', () => {
-    const plain: WorkspaceDate = { id: 'x', occurrence_date: TODAY, lifecycle_status: 'scheduled', version: 1, has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null };
+    const plain: WorkspaceDate = { id: 'x', occurrence_date: TODAY, lifecycle_status: 'scheduled', version: 1, has_override: false, session_overrides_count: 0, added_sessions_count: 0, materialised_start_utc: null, override_keys: [] };
     expect(keepsOwnChanges(plain)).toBe(false);
     expect(keepsOwnChanges({ ...plain, has_override: true })).toBe(true);
     expect(keepsOwnChanges({ ...plain, session_overrides_count: 1 })).toBe(true);

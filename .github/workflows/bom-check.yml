@@ -1,0 +1,162 @@
+name: BOM Check
+
+# CI offload stage 3 (docs/handover/ci-offload-stage3.md). The required check `bom-check` may be
+# answered by a side machine (Acer/Dell); a side machine that is off, busy, broken or refused
+# NEVER reds or blocks a PR (owner rule 2026-11-06).
+#   route            hosted, seconds; SKIPPED when vars.WEB_RUNNER_LABEL is empty (= the old
+#                    single-job behaviour). route-runner.mjs route: trust + runner online/idle.
+#   bom-check-routed side machine, NOT required, nothing needs: it. Its job-started hook refuses
+#                    unless this file at GITHUB_WORKFLOW_SHA is byte-identical to main's.
+#   bom-check        hosted, the REQUIRED name, runs in parallel with the routed job: polls it
+#                    (route-runner.mjs await, no run cancel) and is red ONLY when the routed job
+#                    completed AND its code-failure marker step failed; otherwise it passes on
+#                    the routed pass, or runs the check itself.
+# Revert switch: delete the repo variable WEB_RUNNER_LABEL (unset = route skipped, always hosted).
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: bom-check-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  route:
+    if: vars.WEB_RUNNER_LABEL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      target: ${{ steps.route.outputs.target }}
+      runner: ${{ steps.route.outputs.runner }}
+    steps:
+      # The BASE commit's route script, never the PR's: a PR cannot change its own routing.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/ci
+            scripts/lib
+      - name: Route (self-hosted only when trusted AND online AND idle)
+        id: route
+        env:
+          WEB_RUNNER_LABEL: ${{ vars.WEB_RUNNER_LABEL }}
+          RUNNER_READ_TOKEN: ${{ secrets.WEB_RUNNER_READ_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        # A missing/broken script (e.g. the base predates it) means hosted, never red.
+        run: node scripts/ci/route-runner.mjs route || { echo "target=hosted"; echo "runner=ubuntu-latest"; } >> "$GITHUB_OUTPUT"
+
+  bom-check-routed:
+    needs: route
+    # Trust is checked THREE times: route script, this if: (scripts/check-secrets-register.mjs
+    # rule (e-routed) parses it and fails unless it implies trust), and the runner's job-started
+    # hook (workflow blob == main's, actor on the trust list).
+    if: needs.route.outputs.target == 'self' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["kiki-claude-bot","123constante"]'), github.event.pull_request.user.login)))
+    runs-on: ${{ needs.route.outputs.runner }}
+    # Budget: gate wait <= 180 s (hook) + check <= 240 s (timeout(1) below) + slack. bom-check
+    # stops waiting after 660 s and runs hosted, so a slow side machine costs nothing but time.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      verdict: ${{ steps.check.outputs.verdict }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Gate verdict (load + walk lock, written by the job-started hook)
+        id: gate
+        run: node scripts/ci/route-runner.mjs gate || echo "proceed=false" >> "$GITHUB_OUTPUT"
+      - name: Detect docs-only PR
+        id: changes
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+      - name: Check workflow files for BOM (budget 240 s)
+        id: check
+        if: steps.gate.outputs.proceed == 'true'
+        env:
+          DOCS_ONLY: ${{ steps.changes.outputs.docs_only }}
+        # Never fails: the verdict is an OUTPUT, read by the two marker steps below.
+        run: |
+          set +e
+          if [ "$DOCS_ONLY" = "true" ]; then code=0; else timeout --kill-after=10 240 bash scripts/ci/bom-check.sh; code=$?; fi
+          node scripts/ci/route-runner.mjs verdict "$code"
+          exit 0
+      # Marker steps: bom-check reads THEIR conclusions through the jobs API (names pinned in
+      # route-runner.mjs PASS_STEP / FAIL_STEP). Anything else (refused, crashed, busy) = hosted.
+      - name: 'BOM verdict: pass'
+        if: steps.check.outputs.verdict == 'pass'
+        run: echo "bom-check passed on the side machine"
+      - name: 'BOM verdict: code failure'
+        if: steps.check.outputs.verdict == 'code-failure'
+        run: |
+          echo "bom-check FAILED on the side machine: a code failure, not a runner problem."
+          exit 1
+
+  bom-check:
+    needs: route
+    # !cancelled(), not always(): runs when route is SKIPPED (label empty) or failed, so the
+    # required check is never skipped-as-success; it does not wait for the routed job.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # The BASE commit's route script (same rule as route).
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/ci
+            scripts/lib
+          path: base
+      - name: Wait for the side machine (poll only; never cancels)
+        id: fb
+        env:
+          TARGET: ${{ needs.route.outputs.target }}
+          GITHUB_TOKEN: ${{ github.token }}
+          WATCH_JOB_NAME: bom-check-routed
+          QUEUE_BUDGET_S: '120'
+          TOTAL_BUDGET_S: '660'
+        run: node base/scripts/ci/route-runner.mjs await || echo "action=run-hosted" >> "$GITHUB_OUTPUT"
+      - name: Routed run failed on code
+        if: steps.fb.outputs.action == 'fail-code'
+        run: |
+          echo "bom-check FAILED on the side machine: a code failure, not a runner problem (see bom-check-routed)."
+          exit 1
+      - uses: actions/checkout@v7
+        if: steps.fb.outputs.action != 'fail-code' && steps.fb.outputs.action != 'skip-pass'
+        with:
+          path: head
+      # Docs-only PRs skip the heavy step; fail-safe: any error means docs_only=false.
+      - name: Detect docs-only PR
+        id: changes
+        if: steps.fb.outputs.action != 'fail-code' && steps.fb.outputs.action != 'skip-pass'
+        working-directory: head
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MERGE_SHA: ${{ github.sha }}
+        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
+      - name: Check workflow files for BOM
+        if: steps.fb.outputs.action != 'fail-code' && steps.fb.outputs.action != 'skip-pass' && steps.changes.outputs.docs_only != 'true'
+        working-directory: head
+        run: bash scripts/ci/bom-check.sh

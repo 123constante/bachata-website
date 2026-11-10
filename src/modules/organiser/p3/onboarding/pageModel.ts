@@ -203,6 +203,9 @@ export function keptCreateDraft(params: URLSearchParams): PageDraft | null {
 
 export type PageCopy = { title: string; helper: string | null; reason: string | null };
 
+/** Find step: creating a new page is invite-only (see INVITE_REQUIRED_COPY in shared/selfServeErrors). */
+export const FIND_INVITE_NOTE = 'New pages are by invite from the Bachata Calendar team. Have an invite? Create your page below.';
+
 export const PAGE_COPY: Record<PageStep, PageCopy> = {
   welcome: { title: 'Welcome', helper: null, reason: null },
   find: { title: 'Find your page', helper: 'Your organiser, school or party.', reason: null },
@@ -296,6 +299,27 @@ export const contactEntry = (h: PageHeld): PageStep => (h.phone ? 'contact' : 'c
 
 /** The page steps after the contact group, given the phone the person ended with. */
 export const afterContact = (phone: string): PageStep => (e164Of(phone) ?? phoneE164(phone) ? 'whatsapp' : 'cat');
+
+/**
+ * The page steps a Review row needs (the page twin of the teach one). A Review entry opens ONLY these, never
+ * the rest of the page path. Contact keeps its group: the held number's confirm, or the phone field then WhatsApp.
+ * An empty list = not a page-row step (welcome / find / create).
+ */
+export const pageRowPath = (step: PageStep): PageStep[] => {
+  switch (step) {
+    case 'contact': return ['contact', 'contact-phone', 'whatsapp'];
+    case 'contact-phone': return ['contact-phone', 'whatsapp'];
+    case 'whatsapp': return ['whatsapp'];
+    case 'cat': return ['cat'];
+    case 'link': return ['link'];
+    case 'logo': return ['logo'];
+    default: return [];
+  }
+};
+
+/** Where a Review-entered page step goes after its save: the next step if the row still owns it, else back to Review. */
+export const pageRowExit = (entry: PageStep, to: PageStep | 'person'): PageStep | 'review' =>
+  to !== 'person' && pageRowPath(entry).includes(to) ? to : 'review';
 
 // ---- Review (screen 21): organiser_onboarding_status_v1().missing[] -------------------------------------
 

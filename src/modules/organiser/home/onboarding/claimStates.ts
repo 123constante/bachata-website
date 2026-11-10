@@ -25,7 +25,7 @@ export const NOT_THIS_ONE = 'Not this one';
  * R3-5 / D63, verbatim: a page with no email on file has no claim step; the row
  * leads straight to Ask to join.
  */
-export const NO_EMAIL_COPY = 'This page has no email on file yet. Ask to join and Ricky approves it, usually the same day.';
+export const NO_EMAIL_COPY = 'This page has no email on file yet. Ask to join and the Bachata Calendar team will check and get back to you.';
 
 interface ClaimCopy {
   screen: ClaimScreen['screen'];
@@ -45,7 +45,7 @@ const PRIMARY_LABEL: Record<ClaimPrimary, string> = { home: 'Go to Home', claim:
  */
 const CLAIM_COPY: Record<ClaimHint | 'unknown', ClaimCopy> = {
   yours: { screen: '6a', row: 'Yours', title: (n) => `${n} is yours`, sub: 'You are already its owner.', primary: 'home' },
-  managed: { screen: '6b', row: 'Has a team', title: (n) => `${n} already has an owner`, sub: 'You can ask to join the team.', primary: 'request' },
+  managed: { screen: '6b', row: 'Has a team', title: (n) => `${n} already has a team`, sub: 'You can ask to join the team.', primary: 'request' },
   email_matches: { screen: '6c', row: 'Email on file is yours', title: (n) => `Claim ${n}`, sub: 'Your email matches the one on file.', primary: 'claim' },
   // Names only that an email exists, never the address.
   email_differs: { screen: '6d', row: 'Has an email on file', title: (n) => `Is ${n} yours?`, sub: 'The email on file is not yours. Ask to join and we will check.', primary: 'request' },

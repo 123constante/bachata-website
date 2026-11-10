@@ -12,7 +12,7 @@
 // "Use an email instead" (assumption 1) is not built.
 import { supabase } from '@/integrations/supabase/client';
 import { fetchContactSettings } from '../../shared/ownershipApi';
-import { claimOrganiser, createOrganiserProfile, fetchMyAccessRequests, requestOrganiserAccess, searchClaimableOrganisers, type ClaimableOrganiser, type MyAccessRequest } from '../../shared/selfServeApi';
+import { claimOrganiser, createOrganiserProfile, fetchMyAccessRequests, requestOrganiserAccess, searchClaimableOrganisers, FIND_LIMIT, type ClaimableOrganiser, type MyAccessRequest } from '../../shared/selfServeApi';
 import { searchCities, type CityResult } from '../../home/onboarding/citySearch';
 import { GoLiveError, goLiveOutcomeFrom, goLiveRefusalOfMessage, type GoLiveOutcome, type PageCommand } from './pageModel';
 
@@ -98,7 +98,8 @@ export const REAL_PAGE_READS: PageReads = {
   page: fetchPage,
   phone: async (id) => (await fetchContactSettings(id)).contact_phone,
   status: (id) => must(rpc('organiser_onboarding_status_v1', { p_organiser_id: id })),
-  findPages: searchClaimableOrganisers,
+  // One extra row tells the screen that more pages matched than it shows.
+  findPages: (q) => searchClaimableOrganisers(q, FIND_LIMIT + 1),
   cities: searchCities,
   requests: fetchMyAccessRequests,
 };

@@ -25,7 +25,7 @@ import { MANAGED_BADGE_TEXT, ownershipFacts, parseOwnership, type OrganiserOwner
 import type { ClaimHint } from '../claimHint';
 import { rowAction } from '../../home/onboarding/onboardingModel';
 
-const O = (is_managed: boolean, i_own_it: boolean, my_role: OrganiserOwnership['my_role']): OrganiserOwnership => ({ is_managed, i_own_it, my_role });
+const O = (is_managed: boolean, i_own_it: boolean, my_role: OrganiserOwnership['my_role']): OrganiserOwnership => ({ is_managed, i_own_it, my_role, seat_kind: my_role });
 const ME = { id: 'me', email: 'me@x.example' };
 
 interface Shape {
@@ -212,7 +212,7 @@ describe('the same fact reads the same on every screen', () => {
 
 describe('parseOwnership (organiser_ownership_v1)', () => {
   it('reads the three fields and nothing else', () => {
-    expect(parseOwnership({ is_managed: true, i_own_it: false, my_role: 'manager', user_id: 'leak' })).toEqual(O(true, false, 'manager'));
+    expect(parseOwnership({ is_managed: true, i_own_it: false, my_role: 'manager', seat_kind: 'manager', user_id: 'leak' })).toEqual(O(true, false, 'manager'));
     expect(parseOwnership({ is_managed: false, i_own_it: false, my_role: null })).toEqual(O(false, false, null));
   });
   it('treats an unknown role as none and a malformed answer as unknown', () => {

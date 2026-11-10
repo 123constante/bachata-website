@@ -28,7 +28,7 @@ describe('required-jobs.json (PART 1.1)', () => {
     const r = parseRequiredJobs(FILE_TEXT);
     expect(r.pr_head).toEqual(['integrity', 'bundle-budget', 'e2e-smoke', 'wallclock-brand', 'masking-check', 'bom-check', 'unit (Europe/London, full)']);
     expect(r.post_merge_audits).toEqual(['Owner approval audit']);
-    expect(r.conditional.map((c: { name: string }) => c.name)).toEqual(['phone-qa', 'build-smoke', 'types-drift']);
+    expect(r.conditional.map((c: { name: string }) => c.name)).toEqual(['phone-qa (1)', 'phone-qa (2)', 'phone-qa (3)', 'build-smoke', 'types-drift']);
   });
   it('owner-approval is NOT a PR-head job (it is a push-to-main audit: wrong contract premise, fact 2)', () => {
     expect(REQ.pr_head).not.toContain('owner-approval');
@@ -174,7 +174,7 @@ describe('MUTANT: a mergePr that skips the re-read merges at an A17 head (the ru
 const WF = path.join(ROOT, '.github/workflows');
 const readTree = () => {
   const workflows: Record<string, string> = {};
-  for (const f of ['architecture-guard.yml', 'unit-tests.yml', 'workflow-lint.yml', 'typecheck.yml', 'perf-budget.yml', 'e2e-smoke.yml', 'phone-qa.yml', 'types-drift.yml', 'owner-approval.yml']) workflows[f] = readFileSync(path.join(WF, f), 'utf8');
+  for (const f of ['architecture-guard.yml', 'unit-tests.yml', 'workflow-lint.yml', 'bom-check.yml', 'typecheck.yml', 'perf-budget.yml', 'e2e-smoke.yml', 'phone-qa.yml', 'types-drift.yml', 'owner-approval.yml']) workflows[f] = readFileSync(path.join(WF, f), 'utf8');
   return workflows;
 };
 const drive = async (argv: string[], read: () => unknown) => {

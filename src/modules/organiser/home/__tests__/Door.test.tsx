@@ -71,7 +71,7 @@ describe('C38 find your page: one row per ClaimHint', () => {
     mount();
     search('be');
     const row = await rowOf('Beta');
-    expect(NO_EMAIL_COPY).toBe('This page has no email on file yet. Ask to join and Ricky approves it, usually the same day.');
+    expect(NO_EMAIL_COPY).toBe('This page has no email on file yet. Ask to join and the Bachata Calendar team will check and get back to you.');
     expect(row.textContent).toContain(NO_EMAIL_COPY);
     expect(within(row).queryByTestId('onboarding-claim')).toBeNull();
     const buttons = within(row).getAllByRole('button');

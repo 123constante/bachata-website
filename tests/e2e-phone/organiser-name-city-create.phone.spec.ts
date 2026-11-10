@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG_ID, scrollTo, settled, type Box } from './helpers';
+import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, ORG_SLUG, ORG2_ID, ORG2_SLUG, ORG_ID, scrollTo, settled, type Box, MIN_TAP_PX } from './helpers';
 
 /**
  * Edit in place on a PHONE, the Name and City sheets and the owner-only Create
@@ -11,7 +11,7 @@ import { box, checkOverflow, coveredFixedBottomControls, fakeSupabase, frames, O
  *     keyboard up (the viewport shrunk, as visualViewport does) the search box
  *     and Done stay on screen; a pick shows the city the database confirms;
  *   - Create event: >= 44px tall, no sideways scroll, never under the Save bar
- *     or the BottomNav, beside the "Upcoming events" count (an organiser with
+ *     or the BottomNav, beside the "Next nights" count (an organiser with
  *     nights) and in the empty state (one without); visitors see none of it.
  * Save is NEVER pressed and no event is ever created: the fake Supabase
  * (fakeSupabase.mjs) refuses every write anyway.
@@ -53,14 +53,14 @@ async function sheetInsideScreen(page: Page, label: string) {
   expect(s.x + s.width, `${label}: sheet right`).toBeLessThanOrEqual(vp.width + 0.5);
   const done = await box(page, '[data-testid="eip-sheet"] button:has-text("Done")');
   expect(done.y + done.height, `${label}: Done on screen`).toBeLessThanOrEqual(vp.height + 0.5);
-  expect(done.height, `${label}: Done height`).toBeGreaterThanOrEqual(44);
+  expect(done.height, `${label}: Done height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
 }
 
 test('Name sheet: on screen, 16px box, "We will save" the trimmed name, Done shows it in the hero (no Save)', async ({ page }) => {
   await openAsOwner(page, ORG_SLUG);
   const pencil = await box(page, '[data-eip-pencil="name"]');
-  expect(pencil.width, 'name pencil tap target').toBeGreaterThanOrEqual(44);
-  expect(pencil.height, 'name pencil tap target').toBeGreaterThanOrEqual(44);
+  expect(pencil.width, 'name pencil tap target').toBeGreaterThanOrEqual(MIN_TAP_PX);
+  expect(pencil.height, 'name pencil tap target').toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect(await checkOverflow(page), 'no sideways scroll with the name pencil').toEqual([]);
   await page.locator('[data-eip-pencil="name"]').click();
   const sheet = page.getByRole('dialog', { name: 'Name' });
@@ -109,7 +109,7 @@ test('City sheet: search at the TOP, list scrolls INSIDE, rows >= 44px, keyboard
     const m = await measure();
     expect(m.search.y + m.search.height, `${label}: search box above the list`).toBeLessThanOrEqual(m.list.y + 0.5);
     expect(m.search.y, `${label}: search box on screen`).toBeGreaterThanOrEqual(0);
-    for (const h of m.rows) expect(h, `${label}: row height`).toBeGreaterThanOrEqual(44);
+    for (const h of m.rows) expect(h, `${label}: row height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
     expect(m.sheetScroll, `${label}: the sheet itself does not scroll (the list does)`).toBeLessThanOrEqual(1);
     return m;
   };
@@ -151,7 +151,7 @@ async function assertCreateEvent(page: Page, label: string) {
   await frames(page);
   const b = await box(page, sel);
   const vp = page.viewportSize()!;
-  expect(b.height, `${label}: height`).toBeGreaterThanOrEqual(44);
+  expect(b.height, `${label}: height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect(b.x, `${label}: left edge on screen`).toBeGreaterThanOrEqual(0);
   expect(b.x + b.width, `${label}: right edge on screen`).toBeLessThanOrEqual(vp.width + 0.5);
   expect(await checkOverflow(page), `${label}: no sideways scroll`).toEqual([]);
@@ -179,7 +179,7 @@ async function assertCreateEvent(page: Page, label: string) {
 
 for (const withDraft of [false, true]) {
   const when = withDraft ? 'Save bar up' : 'no draft';
-  test(`Create event beside the "Upcoming events" count (${when}): >= 44px, no overflow, clear of the Save bar and BottomNav`, async ({ page }) => {
+  test(`Create event beside the "Next nights" count (${when}): >= 44px, no overflow, clear of the Save bar and BottomNav`, async ({ page }) => {
     await openAsOwner(page, ORG2_SLUG);
     if (withDraft) await draftWebsite(page);
     const link = page.getByTestId('eip-create-event');
@@ -189,6 +189,8 @@ for (const withDraft of [false, true]) {
     // In the heading row, overlapping neither the heading nor the count.
     await page.getByTestId('eip-create-event').evaluate((el) => el.scrollIntoView({ block: 'center' }));
     await frames(page);
+    // The heading reads "Next nights" since organiser-page P1 (was "Upcoming events").
+    await expect(page.locator('#upcoming h2')).toHaveText('Next nights');
     const h2 = await box(page, '#upcoming h2');
     const count = await box(page, '#upcoming h2 + div > span');
     const now = await box(page, '[data-testid="eip-create-event"]');
