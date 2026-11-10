@@ -114,3 +114,14 @@ describe('sign-in email copy (save_my_signin_email_v1)', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 });
+
+describe('claimMyDancerProfile with a handle', () => {
+  it('sends { p_instagram } only when given; the no-arg call is unchanged', async () => {
+    rpcLoose.mockResolvedValue({ data: { ok: true, status: 'no_match', profile_id: null }, error: null });
+    await claimMyDancerProfile();
+    expect(rpcLoose).toHaveBeenLastCalledWith('claim_my_dancer_profile_v1');
+    expect(rpcLoose.mock.calls[rpcLoose.mock.calls.length - 1]).toHaveLength(1);
+    await claimMyDancerProfile(undefined, 'simon.bachata');
+    expect(rpcLoose).toHaveBeenLastCalledWith('claim_my_dancer_profile_v1', { p_instagram: 'simon.bachata' });
+  });
+});

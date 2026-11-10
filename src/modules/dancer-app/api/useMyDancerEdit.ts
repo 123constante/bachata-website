@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-quer
 import { daConfetti } from '../shell/confetti';
 import { trackDancerEvent } from '../analytics/events';
 import { useAuth } from '@/hooks/useAuth';
+import { invalidateMyPersonaCaches } from '@/lib/myPersona';
 import { fetchMyDancerEdit, saveMyDancerProfile } from './rpc';
 import type { DancerDelta, MyDancerEdit } from './types';
 
@@ -61,7 +62,7 @@ export function useMyDancerEdit(options: Options = {}) {
   /** Save a delta and write the server-returned profile into the shared cache. */
   const save = useCallback(
     async (delta: DancerDelta, current: MyDancerEdit): Promise<MyDancerEdit> => {
-      const next = await saveMyDancerProfile(delta, current);
+      const next = await saveMyDancerProfile(delta, current, { onLinked: () => invalidateMyPersonaCaches(qc) });
       writeMyDancerEdit(qc, userId, next);
       return next;
     },

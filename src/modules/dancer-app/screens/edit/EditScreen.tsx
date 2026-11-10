@@ -5,7 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 import { Card, GhostButton, PrimaryButton, SheetView } from '@/modules/organiser/ui';
 import { LINK_GHOST, ScreenTitle, TEXT_ACTION } from '../blocks';
 import { useLeaveGuard } from '../../shell/leaveGuard';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateMyPersonaCaches } from '@/lib/myPersona';
 import { CityPicker } from '@/components/ui/city-picker';
 import { InstagramInput } from '@/components/forms/InstagramInput';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -18,7 +19,7 @@ import { toast } from '@/hooks/use-toast';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { saveMyDancerProfile } from '../../api/rpc';
-import { toDancerError } from '../../api/errors';
+import { DancerApiError, toDancerError } from '../../api/errors';
 import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';
 import type { DancerDelta, MyDancerEdit } from '../../api/types';
 import {
@@ -60,6 +61,8 @@ const PICKER_CLASS = `${INPUT_CLASS} flex items-center justify-between font-norm
 /** Where a server error belongs. A code the client did not predict (no field) goes to the top with Retry. */
 const placeServerError = (err: unknown, delta: DancerDelta): { field: ServerErrors; top: string | null } => {
   const e = toDancerError(err);
+  // The team was asked to check: a card with a way to save the rest, not an error under the field.
+  if (e.code === 'instagram_review') return { field: {}, top: e.message };
   let fields: FormFieldId[] = [];
   if (e.field) fields = [fieldForKey(e.field)].filter((f): f is FormFieldId => f !== null);
   // invalid_handle names no field in the code map; the delta says which handle(s) were sent.
@@ -130,8 +133,9 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
   // ?returnTo= (instagram-refusal r2: a P3 checklist row opened this screen): a save goes back there. Same-site only.
   const returnTo = editReturnTarget(search.get('returnTo'));
 
+  const qc = useQueryClient();
   const mutation = useMutation({
-    mutationFn: (d: DancerDelta) => saveMyDancerProfile(d, profile),
+    mutationFn: (d: DancerDelta) => saveMyDancerProfile(d, profile, { onLinked: () => invalidateMyPersonaCaches(qc) }),
     onSuccess: (next) => {
       put(next);
       // Untouched since it was sent: take the server shape. Edited meanwhile: keep the newer input;
@@ -196,6 +200,17 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
 
   const reason = saveDisabledReason(delta, errors, mutation.isPending);
   // A programmatic submit with an empty delta sends NO request (the button is also disabled).
+  // The claim could not tell which profile is theirs: the rest of the form still saves, without the handle.
+  const needsReview = mutation.isError && mutation.error instanceof DancerApiError && mutation.error.code === 'instagram_review';
+  const saveTheRest = () => {
+    const { instagram: _held, ...rest } = delta;
+    if (Object.keys(rest).length === 0) return;
+    sentDraft.current = draft;
+    setTopError(null);
+    setSaveLine(null);
+    mutation.mutate(rest);
+  };
+  const restCount = Object.keys(delta).filter((k) => k !== 'instagram').length;
   const submit = () => {
     if (reason !== null) return;
     sentDraft.current = draft;
@@ -253,9 +268,17 @@ const EditForm = ({ profile }: { profile: MyDancerEdit }) => {
       {topError && (
         <Card variant="padded" role="alert" testId="edit-top-error" className="border-[var(--danger)]">
           <p className="mb-[8px] mt-0 text-[14px]">{topError}</p>
-          <GhostButton size="sm" onClick={submit} testId="edit-retry">
-            Try again
-          </GhostButton>
+          {needsReview ? (
+            restCount > 0 && (
+              <GhostButton size="sm" onClick={saveTheRest} testId="edit-save-rest">
+                Save the rest
+              </GhostButton>
+            )
+          ) : (
+            <GhostButton size="sm" onClick={submit} testId="edit-retry">
+              Try again
+            </GhostButton>
+          )}
         </Card>
       )}
 

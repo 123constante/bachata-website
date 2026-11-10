@@ -13,6 +13,9 @@ import { DANCER_ERROR_CODES, SAVE_KEYS, type DancerErrorCode, type DancerErrorFi
  * invalid_text, invalid_handle, invalid_url, invalid_list). Then the copy names
  * that field in plain words (FIELD_LABEL), and the error is put under it.
  */
+/** Shown when the claim answers `ambiguous` on a profile save. The rest of the form still saves. */
+export const INSTAGRAM_REVIEW_COPY = 'We could not tell which profile is yours. We have asked the team to check.';
+
 const COPY: Record<DancerErrorCode, string> = {
   area_closed: 'The new dancer area is not open for your account yet.',
   not_signed_in: 'You are signed out. Sign in again to carry on.',
@@ -40,6 +43,8 @@ const COPY: Record<DancerErrorCode, string> = {
   // Owner wording (instagram-refusal r2, 2026-11-02), shared with the field's own check (lib/instagramHandle).
   invalid_instagram: INSTAGRAM_INVALID,
   instagram_taken: 'That Instagram is already on another profile. Check the spelling, or message us if it is yours.',
+  // Instagram clash that could not be linked on its own: the claim asked the team (profile-save-instagram-link).
+  instagram_review: INSTAGRAM_REVIEW_COPY,
   invalid_list: 'One of your lists could not be saved. Keep each item short and try again.',
   invalid_body: 'Write a message of 1 to 2000 characters.',
   invalid_kind: 'Pick what kind of message this is.',
@@ -115,6 +120,7 @@ const FIELD: Record<DancerErrorCode, DancerErrorField> = {
   invalid_phone: 'whatsapp',
   invalid_instagram: 'instagram',
   instagram_taken: 'instagram',
+  instagram_review: 'instagram',
   invalid_list: null,
   invalid_body: null,
   invalid_kind: null,

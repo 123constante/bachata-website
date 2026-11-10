@@ -1,4 +1,5 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
+import { claimMyDancerProfile } from '@/lib/claimMyDancerProfile';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import type { GoingNextNight } from '@/modules/going/goingRpc';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
@@ -212,6 +213,44 @@ export const fetchGate = (): Promise<DancerGate> => wrap(() => backend().fetchGa
 /** my_dancer_edit_v1: the signed-in person's own profile, everything the Edit / Home screens show. */
 export const fetchMyDancerEdit = (): Promise<MyDancerEdit> => wrap(() => backend().fetchMyDancerEdit());
 
+/** Callbacks a caller with a QueryClient hands in (this file owns none). */
+export type SaveHooks = {
+  /** The claim linked an admin-made profile: drop the persona caches. Awaited, BEFORE the save is sent. */
+  onLinked?: () => Promise<unknown> | void;
+};
+
+/** The handle a delta would write, or null when it writes no handle (absent, cleared, or unchanged). */
+const changedInstagram = (delta: DancerDelta, current?: MyDancerEdit): string | null => {
+  const raw = delta.instagram;
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  if (current && current.instagram === raw) return null;
+  return raw.trim();
+};
+
+/**
+ * Before a CHANGED Instagram handle is written, ask the claim to link an admin-made profile that
+ * already holds it (claim_my_dancer_profile_v1(p_instagram)). The link must happen BEFORE the write.
+ *   linked / already_linked -> 'linked' (caller saves against the linked profile)
+ *   ambiguous               -> throws instagram_review; nothing is saved
+ *   anything else, incl. unavailable (missing function, timeout) -> 'proceed', exactly as before
+ * An unchanged or absent handle makes no claim call.
+ */
+export const linkBeforeInstagramSave = async (
+  delta: DancerDelta,
+  current?: MyDancerEdit,
+  hooks: SaveHooks = {},
+): Promise<'skipped' | 'proceed' | 'linked'> => {
+  const handle = changedInstagram(delta, current);
+  if (handle === null) return 'skipped';
+  const outcome = await claimMyDancerProfile(undefined, handle);
+  if (outcome.status === 'ambiguous') throw new DancerApiError('instagram_review', 'instagram_review', null);
+  if (outcome.status === 'linked' || outcome.status === 'already_linked') {
+    if (hooks.onLinked) await hooks.onLinked();
+    return 'linked';
+  }
+  return 'proceed';
+};
+
 /** The keys save_my_dancer_profile_v2 refuses (by mere presence) from a person with no other profile type. */
 const WHATSAPP_KEYS = ['whatsapp', 'show_whatsapp_publicly'] as const;
 
@@ -230,9 +269,11 @@ export const dropWhatsappIfNotAllowed = (delta: DancerDelta, person: Pick<MyDanc
  * caller did not pass `current` and the delta carries one, the person is read
  * first (my_dancer_edit_v1) to know.
  */
-export const saveMyDancerProfile = (delta: DancerDelta, current?: MyDancerEdit): Promise<MyDancerEdit> =>
+export const saveMyDancerProfile = (delta: DancerDelta, current?: MyDancerEdit, hooks: SaveHooks = {}): Promise<MyDancerEdit> =>
   wrap(async () => {
     let person = current;
+    const link = await linkBeforeInstagramSave(delta, current, hooks);
+    if (link === 'linked') person = await backend().fetchMyDancerEdit();
     // Review N1: an empty delta is never sent, with or without `current` (read the person instead).
     if (!person && (Object.keys(delta).length === 0 || WHATSAPP_KEYS.some((k) => k in delta))) person = await backend().fetchMyDancerEdit();
     const send = person ? dropWhatsappIfNotAllowed(delta, person) : delta;

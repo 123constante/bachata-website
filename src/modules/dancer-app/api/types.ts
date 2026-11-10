@@ -136,6 +136,8 @@ export const DANCER_ERROR_CODES = [
   'invalid_instagram',
   // Client-side name for a 23505 on dancer_profiles_instagram_normalized_uidx (the DB raises no code of its own).
   'instagram_taken',
+  // Client-side: the claim could not tell which profile is theirs and asked the team (never a DB code).
+  'instagram_review',
   'invalid_list',
   'invalid_body',
   'invalid_kind',

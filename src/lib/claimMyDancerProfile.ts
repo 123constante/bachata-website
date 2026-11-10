@@ -63,13 +63,20 @@ const debug = (why: string, detail?: unknown) => {
 };
 
 /** The RPC, swallowed. Never rejects. */
-export const claimMyDancerProfile = async (timeoutMs = CLAIM_TIMEOUT_MS): Promise<ClaimOutcome> => {
+/**
+ * With `instagram` the call sends `{ p_instagram }` (profile save, before a changed handle is
+ * written); without it the call is the no-arg sign-in call, unchanged.
+ */
+export const claimMyDancerProfile = async (timeoutMs = CLAIM_TIMEOUT_MS, instagram?: string): Promise<ClaimOutcome> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const timeout = new Promise<"timeout">((resolve) => {
       timer = setTimeout(() => resolve("timeout"), timeoutMs);
     });
-    const result = await Promise.race([rpcLoose(CLAIM_MY_DANCER_PROFILE_RPC), timeout]);
+    const result = await Promise.race([
+      instagram ? rpcLoose(CLAIM_MY_DANCER_PROFILE_RPC, { p_instagram: instagram }) : rpcLoose(CLAIM_MY_DANCER_PROFILE_RPC),
+      timeout,
+    ]);
     if (result === "timeout") {
       debug("timed out");
       return UNAVAILABLE;
