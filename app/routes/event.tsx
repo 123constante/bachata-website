@@ -200,10 +200,10 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   // Whole-flyer card (docs/design/whatsapp-whole-flyer.CONTRACT.md D2-D4):
   // ogLayoutFor (inside resolveOgCardImageSized) picks the layout; a live
   // whole-flyer URL is sized by measuring the flyer the CARD ROUTE renders,
-  // never snap.event.imageUrl. ?ogtest=whole-flyer forces it in test mode (and
-  // any mode that is not off); it is never baked. Mode off with no param: the
-  // loader data and headers are exactly what they were.
-  const ogTestWholeFlyer = url.searchParams.get("ogtest") === "whole-flyer" && OG_LAYOUT_POLICY.mode !== "off";
+  // never snap.event.imageUrl. ?ogtest=whole-flyer forces it in TEST mode only
+  // (contract D3); off, allowlist and on ignore it. It is never baked. Mode off
+  // with no param: the loader data and headers are exactly what they were.
+  const ogTestWholeFlyer = url.searchParams.get("ogtest") === "whole-flyer" && OG_LAYOUT_POLICY.mode === "test";
   const [ogCard, , , ogTall] = await Promise.all([
     resolveOgCardImageSized({
       entityType: "event",

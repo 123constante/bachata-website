@@ -39,8 +39,18 @@ const CONCURRENCY = Number(process.env.OG_BACKFILL_CONCURRENCY ?? 4);
 // discard the console.error above it on a piped Linux CI stderr -- the very
 // truncation the comment further down documents -- leaving an operator a bare
 // exit 2 with no cause. Setting exitCode instead means the process must not
-// then fall through into main(), hence the flag.
-const CONFIG_OK = Boolean(SUPABASE_URL && SERVICE_KEY && BAKE_SECRET);
+// then fall through into main(), hence the check below.
+//
+// OG_BAKE_SECRET is demanded only when a bake will be SENT: --dry-run never
+// POSTs, so it must run (and print the plan's counts) without the secret.
+export function missingConfig(opts, env = { SUPABASE_URL, SERVICE_KEY, BAKE_SECRET }) {
+  const missing = [];
+  if (!env.SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!env.SERVICE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  const willBake = !(opts.batch && opts.dryRun);
+  if (willBake && !env.BAKE_SECRET) missing.push('OG_BAKE_SECRET');
+  return missing;
+}
 
 // ── Whole-flyer batch mode (pure, exported for tests/ogBackfillLayout.test.ts) ──
 // MIRRORS app/lib/ogLayout.ts (classifyBakedKey / acceptBakedKey / WF_VERSION /
@@ -288,8 +298,8 @@ if (isEntryPoint(import.meta.url)) {
   if (opts.errors.length) {
     console.error(opts.errors.join('\n'));
     process.exitCode = 2;
-  } else if (!CONFIG_OK) {
-    console.error('Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / OG_BAKE_SECRET');
+  } else if (missingConfig(opts).length > 0) {
+    console.error(`Missing ${missingConfig(opts).join(' / ')}`);
     process.exitCode = 2;
   } else if (opts.batch) {
     batchMain(opts).catch((e) => { console.error('backfill crashed:', e); process.exitCode = 1; });

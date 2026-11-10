@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 //     the page itself is unchanged), and declares the card's real size;
 //   - a legacy card leaves the loader data keys and the head exactly as before;
 //   - a measure miss makes the PAGE response no-store + X-OG-Layout: legacy-fallback;
-//   - ?ogtest=whole-flyer forces the layout only when the mode is not off.
+//   - ?ogtest=whole-flyer forces the layout only in mode test (contract D3).
 // The resolver itself is the real code in tests/ogWholeFlyerReadRule.test.ts;
 // here it is stubbed so the route wiring is what is under test.
 
@@ -114,15 +114,28 @@ describe("event page and the whole-flyer card", () => {
     expect(measureWholeFlyerCanvas).toHaveBeenCalledWith(ID, null);
   });
 
+  // Mode x query (contract D3: TEST mode only). Only test + the query forces
+  // wf1; every other cell leaves the layout to ogLayoutFor. No cell bakes: the
+  // page loader never calls /api/og/bake, forced or not.
   it.each([
-    ["off", undefined],
-    ["test", "wf1"],
-    ["allowlist", "wf1"],
-    ["on", "wf1"],
-  ])("?ogtest=whole-flyer in mode %s -> forceLayout %s", async (mode, want) => {
+    ["off", "", undefined],
+    ["off", "?ogtest=whole-flyer", undefined],
+    ["test", "", undefined],
+    ["test", "?ogtest=whole-flyer", "wf1"],
+    ["allowlist", "", undefined],
+    ["allowlist", "?ogtest=whole-flyer", undefined],
+    ["on", "", undefined],
+    ["on", "?ogtest=whole-flyer", undefined],
+  ])("mode %s, query %j -> forceLayout %s, never bakes", async (mode, search, want) => {
     resolveOgCardImageSized.mockResolvedValue(card(LIVE, 1200, 630));
-    await run("?ogtest=whole-flyer", mode);
-    expect(resolveOgCardImageSized.mock.calls[0][0].forceLayout).toBe(want);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      await run(search, mode);
+      expect(resolveOgCardImageSized.mock.calls[0][0].forceLayout).toBe(want);
+      expect(fetchSpy.mock.calls.some(([u]) => String(u instanceof Request ? u.url : u).includes("/api/og/bake"))).toBe(false);
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it("no ogtest param never forces a layout", async () => {

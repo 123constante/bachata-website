@@ -6,6 +6,10 @@
  * two drifting apart.
  */
 import { describe, it, expect } from "vitest";
+import { execFile } from "node:child_process";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { resolve } from "node:path";
 import {
   acceptBakedKey,
   bakedOgPath,
@@ -17,7 +21,7 @@ import {
   wholeFlyerCanvas,
 } from "../app/lib/ogLayout";
 // @ts-expect-error -- plain .mjs script, no type declarations
-import { keyLayout, parseBackfillArgs, planBackfill } from "../scripts/backfill-og-images.mjs";
+import { keyLayout, missingConfig, parseBackfillArgs, planBackfill } from "../scripts/backfill-og-images.mjs";
 
 const ID = "01173937-0000-4000-8000-46b1f42d630c";
 const OCC = "5e0c0a43-0000-4000-8000-00000000000a";
@@ -131,6 +135,64 @@ describe("backfill script: flags", () => {
   });
   it.each([["--limit", "0"], ["--limit", "x"], ["--ids", "nope"], ["--bogus", ""]])("rejects %s %s", (f, v) => {
     expect(parseBackfillArgs(["--layout", "wf1", f, v].filter(Boolean)).errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe("backfill script: OG_BAKE_SECRET only when a bake will be sent (review finding 6)", () => {
+  const env = { SUPABASE_URL: "http://x", SERVICE_KEY: "k", BAKE_SECRET: "" };
+  it.each([
+    ["--dry-run batch", ["--layout", "wf1", "--dry-run"], []],
+    ["real batch", ["--layout", "wf1", "--limit", "1"], ["OG_BAKE_SECRET"]],
+    ["no-flag full run", [], ["OG_BAKE_SECRET"]],
+  ])("%s without the secret -> missing %j", (_n, argv, want) => {
+    expect(missingConfig(parseBackfillArgs(argv), env)).toEqual(want);
+  });
+  it("Supabase config is still required for a dry run", () => {
+    expect(missingConfig(parseBackfillArgs(["--layout", "wf1", "--dry-run"]), { SUPABASE_URL: "", SERVICE_KEY: "", BAKE_SECRET: "s" }))
+      .toEqual(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]);
+  });
+
+  // End to end against a local stand-in for PostgREST (read-only GETs and the
+  // targets RPC); any request to a bake path would be recorded and fail the test.
+  const SCRIPT = resolve(__dirname, "../scripts/backfill-og-images.mjs");
+  async function runScript(argv: string[]) {
+    const seen: string[] = [];
+    const server = createServer((req, res) => {
+      seen.push(`${req.method} ${req.url}`);
+      res.setHeader("Content-Type", "application/json");
+      if (req.url?.startsWith("/rest/v1/rpc/og_render_targets_v1")) {
+        res.end(JSON.stringify([
+          { entity_type: "event", entity_id: ID, occurrence_id: null },
+          { entity_type: "event", entity_id: SERIES2, occurrence_id: null },
+        ]));
+      } else if (req.url?.startsWith("/rest/v1/og_render")) res.end("[]");
+      else { res.statusCode = 404; res.end("{}"); }
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const childEnv: NodeJS.ProcessEnv = { ...process.env, SUPABASE_URL: base, SUPABASE_SERVICE_ROLE_KEY: "test-key", OG_BAKE_URL: `${base}/api/og/bake`, NO_PROXY: "127.0.0.1" };
+    delete childEnv.OG_BAKE_SECRET;
+    try {
+      return await new Promise<{ code: number; out: string; seen: string[] }>((r) => {
+        execFile(process.execPath, [SCRIPT, ...argv], { env: childEnv, encoding: "utf8" }, (err, stdout, stderr) => {
+          r({ code: err ? Number((err as { code?: number }).code ?? 1) : 0, out: `${stdout}${stderr}`, seen });
+        });
+      });
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  }
+  it("a dry run with OG_BAKE_SECRET unset exits 0, prints the target counts, POSTs no bake", async () => {
+    const r = await runScript(["--layout", "wf1", "--dry-run"]);
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toMatch(/2 targets in scope; 0 already on wf1; 2 NOT yet on wf1; this run bakes 2/);
+    expect(r.seen.some((s) => s.includes("/api/og/bake"))).toBe(false);
+  });
+  it("a real run with OG_BAKE_SECRET unset still refuses (exit 2) before any request", async () => {
+    const r = await runScript(["--layout", "wf1", "--limit", "1"]);
+    expect(r.code).toBe(2);
+    expect(r.out).toMatch(/Missing OG_BAKE_SECRET/);
+    expect(r.seen).toEqual([]);
   });
 });
 
