@@ -82,27 +82,27 @@ At 260c2df33 (before the head moved):
 
 ## CI table (head c1c4307)
 
-The head's workflows started 18:17Z. Read at 18:22Z: 36 check runs; 30 completed (19 success, 11 skipped, 0 failure); 6 in progress: `unit (Europe/London, full)`, `e2e-smoke`, `phone-qa (1)`, `phone-qa (2)`, `phone-qa (3)`, `build-smoke`. Final read before this commit: see the line under the table.
+The head's workflows started 18:17Z. Read at 18:22Z: 36 check runs; 30 completed (19 success, 11 skipped, 0 failure); 6 in progress: `unit (Europe/London, full)`, `e2e-smoke`, `phone-qa (1)`, `phone-qa (2)`, `phone-qa (3)`, `build-smoke`. Final read: the line under the table.
 
 | Job | Result at 18:22Z | Final read |
 |---|---|---|
-| integrity | success | FINAL_integrity |
-| unit (Europe/London, full) | in progress | FINAL_unit_full |
-| unit (Australia/Sydney, tz-sensitive) | success | FINAL_unit_syd |
-| unit (America/New_York, tz-sensitive) | success | FINAL_unit_ny |
-| e2e-smoke | in progress | FINAL_e2e |
-| build-smoke | in progress | FINAL_build |
-| phone-qa (1), (2), (3) | in progress | FINAL_phoneqa |
-| phone-qa-section | success | FINAL_phoneqa_section |
-| real-data-verified | success | FINAL_realdata |
-| contract-check, live-db-gate | success | FINAL_contract |
-| bundle-budget | success | FINAL_bundle |
-| bom-check, bom-check-routed, route, decide | success | FINAL_bom |
-| dancer-area-isolation, masking-check, notification-check, wallclock-brand | success | FINAL_misc |
-| no-preview-reason (x4), open-pr | success | FINAL_nopreview |
-| lighthouse, doc-weight, enable, og-check, og-preview, synthetic, synthetic-preview, seo-check, seo-preview | skipped | FINAL_skipped |
+| integrity | success | success |
+| unit (Europe/London, full) | in progress | success (18:25Z) |
+| unit (Australia/Sydney, tz-sensitive) | success | success |
+| unit (America/New_York, tz-sensitive) | success | success |
+| e2e-smoke | in progress | success (18:36Z) |
+| build-smoke | in progress | success (18:23Z) |
+| phone-qa (1), (2), (3) | in progress | success (18:24-18:25Z) |
+| phone-qa-section | success | success (18:24-18:25Z)_section |
+| real-data-verified | success | success |
+| contract-check, live-db-gate | success | success |
+| bundle-budget | success | success |
+| bom-check, bom-check-routed, route, decide | success | success |
+| dancer-area-isolation, masking-check, notification-check, wallclock-brand | success | success |
+| no-preview-reason (x4), open-pr | success | success |
+| lighthouse, doc-weight, enable, og-check, og-preview, synthetic, synthetic-preview, seo-check, seo-preview | skipped | skipped |
 
-FINAL_SUMMARY_LINE
+Final read at 18:37Z (after the last job finished at 18:36:12Z): 36 check runs, all `completed`, none pending; 25 success, 11 skipped, 0 failure. PR head still c1c4307, `mergeable_state: clean`, 0 comments, 0 reviews.
 
 At 260c2df33 the same 36 jobs had all completed: 25 success, 11 skipped, 0 failure. PR state at 18:19Z: open, not draft, `mergeable_state: blocked` (checks running), 3 commits, 5 files, +105/-5, 0 comments, 0 reviews.
 
