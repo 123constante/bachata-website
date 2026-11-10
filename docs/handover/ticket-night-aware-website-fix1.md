@@ -36,3 +36,30 @@ sha 85cd149). Review: `docs/review/ticket-night-aware-website.md` (branch
 3. Rows are snapshot nights, not a per-night stock read; a listed night can turn out sold out / not
    yet on sale (that night's page then says so).
 4. Review N3 (bar reads all rows, block reads `typesForNight`) unchanged; prod has no own-night types.
+
+## Browser walk (390x844, Playwright isMobile, local build on prod reads)
+Coco Loco (weekly), with v2 rows stubbed to the no-night shape (remaining NULL) and view-recording
+calls blocked. The sticky bar's "Choose a night" opens the Tickets page, which lists 8 nights, 48px
+each (Wednesday 18 November 2026 19:15 ... Wednesday 6 January 2027). The quiet-bar "Choose a night"
+scrolls the list into view. Tapping a row lands on `?occurrenceId=<id>` with the Tickets page
+reopened for that night. scrollWidth is 390 and no control is under 44px. The walk caught that the
+quiet bar's 84px spacer opened a gap above the list; the list now renders before the bar.
+Screenshots: `docs/handover/fix1-shots/`.
+
+## Checks (local)
+- vitest src/modules/tickets + src/modules/event-page: 1112/1112. Full `test:unit`: 29202 pass,
+  15 fail in the same 4 `tests/` files as round 0 (live-DB contracts and `integrityCouldNotRun`;
+  none import tickets).
+- build ok; check:bundle-budget, check:chunk-cycles, check:first-load-requests, check:images
+  (AUDIT_STRICT=1), check:mojibake, check:wallclock-brand, check:legacy-tables,
+  check:legacy-program-rpcs, check:rpc-typing, check:dancer-area-isolation, bin/check-integrity.sh
+  all green. check:doc-weight needs a live deploy (it was skipped on the PR).
+- tsc run on the final head: 0 errors in branch files beyond the pre-existing set (BentoPage
+  `dates`/state comparisons and `programHooks` on EventTicketsPageProps, which exist on main).
+- Both PR-body checks exit 0.
+
+## Not verified
+- Refusal flow in a browser: checkout is origin-locked, so Buy is disabled off bachatacalendar.co.uk
+  (jsdom only).
+- Festival page: no in-site bar button showed locally, so it was not walked.
+- Vercel preview walk, real Stripe, edge deploy and live 409s, iOS Safari, contrast measured.
