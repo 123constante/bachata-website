@@ -11,18 +11,29 @@
  *
  *   scripts/data/automation-workflow-allowlist.json
  *
- * a JSON array of bare workflow file names (e.g. "autopilot.yml"). It ships
- * EMPTY, so nothing is allowed until the owner adds a name, and only the owner
- * may change it (owner Approve at head; docs/ci-guard-notes.md).
+ * a JSON array of bare workflow file names (e.g. "autopilot.yml"). It is
+ * owner-curated; currently `workflow-lint.yml`. Only listed names are allowed, and
+ * only the owner may change it (owner Approve at head; docs/ci-guard-notes.md).
  *
- * Rule: on a loop branch, every changed path under .github/workflows/ must be
+ * A LOOP PR is one whose head branch is a worker branch (claude/ or ccr-) OR whose
+ * author is exactly BOT_LOGIN (kiki-claude-bot, imported from scripts/lib/autopilot.mjs;
+ * workflow-allowlist-2). dependabot[bot] and github-actions[bot] are not the loop.
+ *
+ * Rule: on a loop PR, every changed path under .github/workflows/ must be
  * `.github/workflows/<listed name>`; anything else (an unlisted name, a nested
- * path) fails, and so does changing the list itself. A branch WITHOUT the loop prefix is never affected -- the list
- * is not even read, so a human PR cannot be blocked by a broken list.
+ * path) fails, and so does changing the list itself. Every path is normalised first
+ * (backslash -> slash, path.posix.normalize so `//` and `/./` collapse, leading ./
+ * stripped) and the `.github/workflows/` prefix and the
+ * list file are matched case-insensitively, so `.GitHub/Workflows/x.yml` is seen; only
+ * the exact-case `.github/workflows/<name>` counts as listed. A NON-loop PR is never
+ * affected -- the list is not even read, so a human PR cannot be blocked by a broken list.
  *
  * Inputs
  *   HEAD_REF (or GITHUB_HEAD_REF)  the PR head branch name. REQUIRED.
- *   PR_FILES                       changed paths, one per line (old AND new name of a rename).
+ *   PR_AUTHOR                      the PR author login. REQUIRED in CI (CI / GITHUB_ACTIONS
+ *                                  set): a CI run without it is exit 2, never a pass.
+ *   PR_FILES                       changed paths, one per line (old AND new name of a rename;
+ *                                  a tab-separated `old<TAB>new` line counts both).
  *   --merge <sha>                  instead of PR_FILES: diff <sha>^1..<sha> (the PR merge
  *                                  commit; deepens the checkout like scripts/ci/docs-only.mjs).
  *   --local                        instead of both: branch from git, files from
@@ -31,12 +42,12 @@
  *                                  seen; fetch origin main first, a stale one moves the base).
  *   AUTOMATION_WORKFLOW_ALLOWLIST  override the list path (tests and the self-test only).
  *
- * Exit codes: 0 pass (or not a loop branch), 1 a loop branch changes an unlisted
- * workflow file, 2 cannot measure: no branch name, no / empty file list, git
- * failed, or (on a loop branch) the list is missing, unparseable, not an array,
+ * Exit codes: 0 pass (or not a loop PR), 1 a loop PR changes an unlisted
+ * workflow file or the list, 2 cannot measure: no branch name, no author in CI, no /
+ * empty file list, git failed, or (on a loop PR) the list is missing, unparseable, not an array,
  * or holds anything but bare *.yml / *.yaml names.
  *
- *   HEAD_REF="$BRANCH" PR_FILES="$FILES" node scripts/check-automation-workflow-allowlist.mjs
+ *   HEAD_REF="$BRANCH" PR_AUTHOR="$LOGIN" PR_FILES="$FILES" node scripts/check-automation-workflow-allowlist.mjs
  *   node scripts/check-automation-workflow-allowlist.mjs --local
  *   node scripts/check-automation-workflow-allowlist.mjs --self-test
  */
@@ -46,7 +57,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isEntryPoint } from './lib/entry-point.mjs';
-import { isWorkerBranch } from './lib/autopilot.mjs';
+import { BOT_LOGIN, isWorkerBranch } from './lib/autopilot.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const ALLOWLIST_PATH = path.join(REPO_ROOT, 'scripts', 'data', 'automation-workflow-allowlist.json');
@@ -57,6 +68,25 @@ const NAME_RE = /^[A-Za-z0-9._-]+\.ya?ml$/;
 export { isWorkerBranch as isLoopBranch };
 /** The list's own repo path: a loop branch may never change it (owner-only). */
 export const ALLOWLIST_REL = 'scripts/data/automation-workflow-allowlist.json';
+
+/** A loop PR: worker branch OR authored by BOT_LOGIN (exact compare). */
+export function isLoopPr(branch, author) {
+  return isWorkerBranch(branch) || author === BOT_LOGIN;
+}
+
+/**
+ * Backslash -> slash, then path.posix.normalize (collapses `//` and inner `/./`, resolves
+ * `a/../`), then strip any leading ./ (git and REST never emit these; a hand-fed list might).
+ * So `.github//workflows/x.yml` and `.github/./workflows/x.yml` are seen as workflow paths.
+ */
+export function normalisePath(f) {
+  let p = path.posix.normalize(String(f).replace(/\\/g, '/'));
+  while (p.startsWith('./')) p = p.slice(2);
+  return p;
+}
+
+const isWorkflowPath = (p) => p.toLowerCase().startsWith(WORKFLOW_DIR);
+const isListFile = (p) => p.toLowerCase() === ALLOWLIST_REL;
 
 /** Read and validate the list. Never throws: a broken list is a measurement failure. */
 export function loadAllowlist(file = ALLOWLIST_PATH) {
@@ -80,10 +110,13 @@ export function loadAllowlist(file = ALLOWLIST_PATH) {
   return { ok: true, names: data };
 }
 
-/** Changed workflow paths NOT on the list (a nested path is never listed). */
+/**
+ * Changed workflow paths NOT on the list, normalised (a nested path is never listed;
+ * a case variant of the prefix is a workflow path but never the listed one).
+ */
 export function violations(files, names) {
   const allowed = new Set(names.map((n) => WORKFLOW_DIR + n));
-  return files.filter((f) => f.startsWith(WORKFLOW_DIR) && !allowed.has(f));
+  return files.map(normalisePath).filter((p) => isWorkflowPath(p) && !allowed.has(p));
 }
 
 function git(args) {
@@ -114,9 +147,14 @@ export function readInputs(argv, env, deps = {}) {
   }
   if (!branch) return { error: 'no branch name: set HEAD_REF (the PR head branch) or pass --local' };
   if (typeof filesText !== 'string') return { error: 'no changed files: set PR_FILES or pass --merge <sha> / --local' };
-  const files = filesText.split('\n').map((f) => f.trim()).filter(Boolean);
+  const files = filesText.split('\n').flatMap((l) => l.split('\t')).map((f) => f.trim()).filter(Boolean)
+    .map(normalisePath);
   if (files.length === 0) return { error: 'the changed-file list is empty: a PR always changes at least one file' };
-  return { branch, files };
+  const author = env.PR_AUTHOR || '';
+  if (!author && (env.CI || env.GITHUB_ACTIONS === 'true')) {
+    return { error: 'no PR_AUTHOR in CI: cannot tell a kiki-claude-bot PR from an owner PR' };
+  }
+  return { branch, author, files };
 }
 
 export function main(argv, env = process.env, log = console, deps = {}) {
@@ -126,9 +164,10 @@ export function main(argv, env = process.env, log = console, deps = {}) {
     log.error('automation-workflow-allowlist: CANNOT RUN -- ' + input.error);
     return 2;
   }
-  const { branch, files } = input;
-  if (!isWorkerBranch(branch)) {
-    log.log('automation-workflow-allowlist: OK -- ' + branch + ' is not an automation-loop branch (claude/ or ccr-); not affected.');
+  const { branch, author, files } = input;
+  if (!isLoopPr(branch, author)) {
+    log.log('automation-workflow-allowlist: OK -- ' + branch + (author ? ' by ' + author : '')
+      + ' is not an automation-loop PR (claude/ or ccr- branch, or ' + BOT_LOGIN + '); not affected.');
     return 0;
   }
   const list = loadAllowlist(env.AUTOMATION_WORKFLOW_ALLOWLIST || ALLOWLIST_PATH);
@@ -136,19 +175,19 @@ export function main(argv, env = process.env, log = console, deps = {}) {
     log.error('automation-workflow-allowlist: CANNOT RUN -- ' + list.reason);
     return 2;
   }
-  if (files.includes(ALLOWLIST_REL)) {
-    log.error('automation-workflow-allowlist: FAIL -- loop branch ' + branch + ' changes ' + ALLOWLIST_REL
+  if (files.some(isListFile)) {
+    log.error('automation-workflow-allowlist: FAIL -- loop PR ' + branch + ' changes ' + ALLOWLIST_REL
       + ' itself. Only the owner edits the list, in a PR of its own (owner Approve).');
     return 1;
   }
   const bad = violations(files, list.names);
-  const touched = files.filter((f) => f.startsWith(WORKFLOW_DIR)).length;
+  const touched = files.filter(isWorkflowPath).length;
   if (bad.length === 0) {
-    log.log('automation-workflow-allowlist: OK -- loop branch ' + branch + ', ' + files.length + ' files, '
+    log.log('automation-workflow-allowlist: OK -- loop PR ' + branch + ', ' + files.length + ' files, '
       + touched + ' workflow file(s), all on the list (' + list.names.length + ' name(s)).');
     return 0;
   }
-  log.error('automation-workflow-allowlist: FAIL -- loop branch ' + branch + ' changes workflow file(s) not on '
+  log.error('automation-workflow-allowlist: FAIL -- loop PR ' + branch + ' changes workflow file(s) not on '
     + 'scripts/data/automation-workflow-allowlist.json:');
   for (const f of bad) log.error('  - ' + f);
   log.error('An automated change may only edit a listed workflow. Only the owner adds a name (owner Approve);'
@@ -172,6 +211,9 @@ function selfTest(log) {
     const LIST_REL = 'scripts/data/automation-workflow-allowlist.json';
     const m = (branch, files, list, argv = [], deps = {}) =>
       main(argv, { HEAD_REF: branch, PR_FILES: files, AUTOMATION_WORKFLOW_ALLOWLIST: list }, quiet, deps);
+    const BOT = BOT_LOGIN;
+    const a = (branch, author, files, list, extra = {}) =>
+      main([], { HEAD_REF: branch, PR_AUTHOR: author, PR_FILES: files, AUTOMATION_WORKFLOW_ALLOWLIST: list, ...extra }, quiet);
     // Exit-code owner driven end to end, each branch pinned (R5).
     const cases = [
       ['loop, no workflow change (0)', m(LOOP, 'docs/a.md', LISTED), 0],
@@ -198,6 +240,23 @@ function selfTest(log) {
         { git: () => { throw new Error('fatal: bad object'); } }), 2],
       ['--local reads the branch from git (0 for main)', main(['--local'], { AUTOMATION_WORKFLOW_ALLOWLIST: EMPTY }, quiet,
         { git: (a) => (a[0] === 'rev-parse' ? 'main\n' : OTHER + '\n') }), 0],
+      // workflow-allowlist-2: author rule, path variants, CI author requirement.
+      ['bot on a non-loop branch, unlisted workflow (1)', a('feature/x', BOT, OTHER, EMPTY), 1],
+      ['bot on a non-loop branch, listed workflow (0)', a('feature/x', BOT, WF, LISTED), 0],
+      ['owner on a human branch, workflow + list, missing list (0)', a('ricky/x', '123constante', OTHER + '\n' + LIST_REL, MISSING), 0],
+      ['dependabot[bot] unaffected (0)', a('dependabot/x', 'dependabot[bot]', OTHER, EMPTY), 0],
+      ['github-actions[bot] unaffected (0)', a('autoheal', 'github-actions[bot]', OTHER, EMPTY), 0],
+      ['case variant prefix (1)', a(LOOP, BOT, '.GitHub/Workflows/x.yml', EMPTY), 1],
+      ['backslash variant (1)', a(LOOP, BOT, '.github\\workflows\\x.yml', EMPTY), 1],
+      ['leading ./ variant (1)', a(LOOP, BOT, './.github/workflows/x.yml', EMPTY), 1],
+      ['leading ./ on a listed name (0)', a(LOOP, BOT, './' + WF, LISTED), 0],
+      ['doubled separator variant (1)', a(LOOP, BOT, '.github//workflows/x.yml', EMPTY), 1],
+      ['inner-dot separator variant (1)', a(LOOP, BOT, '.github/./workflows/x.yml', EMPTY), 1],
+      ['combined case/backslash/dot/doubled variant (1)', a(LOOP, BOT, '.GitHub\\.\\workflows//x.yml', EMPTY), 1],
+      ['list file case variant (1)', a(LOOP, BOT, 'Scripts/Data/Automation-Workflow-Allowlist.json', LISTED), 1],
+      ['rename tab pair onto a workflow (1)', a(LOOP, BOT, 'docs/x.yml\t' + OTHER, LISTED), 1],
+      ['CI run with no PR_AUTHOR (2)', a('ricky/x', '', OTHER, EMPTY, { GITHUB_ACTIONS: 'true' }), 2],
+      ['CI run with PR_AUTHOR, owner (0)', a('ricky/x', '123constante', OTHER, EMPTY, { GITHUB_ACTIONS: 'true' }), 0],
     ];
     let failed = 0;
     for (const [name, got, want] of cases) {
