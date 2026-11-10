@@ -19,10 +19,11 @@ vi.mock("@/modules/event-page/useFestivalDetailQuery", () => ({
   festivalDetailQueryKey: (id: string) => ["festival-detail", id],
   fetchFestivalDetail: vi.fn(async () => null),
 }));
-vi.mock("../detailLoader", () => ({
-  cacheHeaders: () => ({}),
+// The REAL taggedData + cacheHeaders, so the response headers below are the
+// ones production would send; load() unwraps the payload for the shape tests.
+vi.mock("../detailLoader", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../detailLoader")>()),
   resolveOgCardImage,
-  taggedData: (d: unknown) => d,
 }));
 vi.mock("../lib/ogTallPreview.server", () => ({ resolveOgTallPreview }));
 
@@ -33,10 +34,23 @@ const BAKED = "https://media.bachatacalendar.co.uk/events/og/c81746db/flyer.jpg"
 const LIVE = `${ORIGIN}/api/og/card?kind=event&id=${ID}&v=flyer.jpg`;
 const TALL = { url: `${LIVE}&layout=tall`, width: 960, height: 1200 };
 
-async function load(search: string) {
+type LoaderOut = { data: Record<string, unknown>; init: ResponseInit | null };
+
+async function loadRaw(search: string) {
   const { loader } = await import("./event");
   const request = new Request(`${ORIGIN}/event/${SLUG}${search}`);
-  return (await loader({ params: { id: SLUG }, request } as never)) as unknown as Record<string, unknown>;
+  return (await loader({ params: { id: SLUG }, request } as never)) as unknown as LoaderOut;
+}
+
+async function load(search: string) {
+  return (await loadRaw(search)).data;
+}
+
+/** The document response headers the route sends for this request. */
+async function responseHeaders(search: string) {
+  const out = await loadRaw(search);
+  const { headers } = await import("./event");
+  return headers({ loaderHeaders: new Headers(out.init?.headers) } as never) as Record<string, string>;
 }
 
 /** The head main shipped before this change, verbatim, for a named event. */
@@ -137,6 +151,54 @@ describe("event route ?ogtest=tall", () => {
       const data = await pending;
       expect("ogTall" in data).toBe(false);
       expect(data.ogImage).toBe(LIVE);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// Fix round 1: a ?ogtest=tall miss must not be edge-cached (it would serve the
+// normal card to every later tester of that URL) and must say so in a header,
+// so a curl -sI before the WhatsApp paste tells "tall" from "fell back".
+describe("event route ?ogtest=tall response headers", () => {
+  const PLAIN = {
+    "Cache-Control": "public, max-age=0, must-revalidate",
+    "Vercel-CDN-Cache-Control": expect.stringMatching(/^public, s-maxage=/),
+    "Vercel-Cache-Tag": expect.stringContaining(ID),
+  };
+
+  beforeEach(() => {
+    resolvePublicEventRef.mockReset().mockResolvedValue({ id: ID, slug: SLUG });
+    rpc.mockReset().mockResolvedValue({ data: null, error: null });
+    resolveOgCardImage.mockReset().mockResolvedValue(LIVE);
+    resolveOgTallPreview.mockReset().mockResolvedValue(TALL);
+  });
+
+  it.each([[""], ["?ogtest=wide"]])("%s -> today's headers exactly, no X-OG-Tall", async (search) => {
+    const h = await responseHeaders(search);
+    expect(h).toEqual(PLAIN);
+    expect(Object.keys(h).sort()).toEqual(["Cache-Control", "Vercel-CDN-Cache-Control", "Vercel-Cache-Tag"]);
+  });
+
+  it("ogtest=tall + tall card -> unchanged cache headers + X-OG-Tall: ok", async () => {
+    const plain = await responseHeaders("");
+    const h = await responseHeaders("?ogtest=tall");
+    expect(h).toEqual({ ...plain, "X-OG-Tall": "ok" });
+  });
+
+  it("ogtest=tall + null lookup -> Cache-Control: no-store, no edge caching, X-OG-Tall: miss", async () => {
+    resolveOgTallPreview.mockResolvedValue(null);
+    const h = await responseHeaders("?ogtest=tall");
+    expect(h).toEqual({ "Cache-Control": "no-store", "X-OG-Tall": "miss" });
+  });
+
+  it("ogtest=tall + lookup that hangs past the budget -> miss, no-store", async () => {
+    vi.useFakeTimers();
+    try {
+      resolveOgTallPreview.mockReturnValue(new Promise(() => {}));
+      const pending = responseHeaders("?ogtest=tall");
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(await pending).toEqual({ "Cache-Control": "no-store", "X-OG-Tall": "miss" });
     } finally {
       vi.useRealTimers();
     }

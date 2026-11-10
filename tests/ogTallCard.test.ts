@@ -215,9 +215,11 @@ describe('tallCardSize', () => {
     expect(tallCardSize(w, h)).toEqual(want);
   });
 
-  it('a noisy 9:16 flyer still fits the 300 KB budget (quality steps down)', async () => {
+  it('a noisy 4:5 flyer still fits the 300 KB budget (quality steps down)', async () => {
     const { buildTallCard } = await import('../app/lib/ogCardRender');
-    const w = 1080, h = 1920;
+    // 4:5 is the worst shape: it fills the whole 960x1200 card (9:16 leaves
+    // blurred bars), so pure noise here is ~374 KB at q82 and only fits at q74.
+    const w = 1080, h = 1350;
     const noise = Buffer.alloc(w * h * 3);
     let seed = 7;
     for (let i = 0; i < noise.length; i++) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; noise[i] = seed & 0xff; }
@@ -225,7 +227,7 @@ describe('tallCardSize', () => {
     const out = await buildTallCard(src, { title: 't', dateLine: null, venueLine: null, coverUrl: 'x', eventType: null });
     const meta = await sharp(out).metadata();
     expect([meta.width, meta.height]).toEqual([960, 1200]);
-    // Pure noise is the worst case a flyer can be (measured ~218 KB).
+    // Over budget at q82, so this pins the quality step-down.
     expect(out.length).toBeLessThanOrEqual(300 * 1024);
   }, 30_000);
 });

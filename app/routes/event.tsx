@@ -31,6 +31,7 @@ const ENDED_DOOR_BUDGET_MS = 1500;
 // Ceiling on the TEST-ONLY ?ogtest=tall lookup (an RPC + a flyer fetch): slow
 // means "no tall card", never a page timeout.
 const OG_TALL_BUDGET_MS = 2500;
+const OG_TALL_HEADER = "X-OG-Tall";
 
 // SPIKE — the /event/:id server loader. Folds the client-side slug→uuid resolve
 // (useEntitySlugOrId) + snapshot fetch (useEventPageQuery) onto the server, then
@@ -183,8 +184,9 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   // the param nothing below runs and the loader data has no `ogTall` key at all,
   // so the document is byte-identical to before. Canonical/og:url ignore it.
   let ogTallTimer: ReturnType<typeof setTimeout> | undefined;
+  const ogTest = url.searchParams.get("ogtest") === "tall";
   const ogTallPrefetch =
-    url.searchParams.get("ogtest") === "tall"
+    ogTest
       ? Promise.race([
           resolveOgTallPreview({ eventId, occId: occurrenceId, coverUrl: snap?.event?.imageUrl, request }),
           new Promise<null>((resolve) => {
@@ -207,7 +209,7 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
     ogTallPrefetch,
   ]);
 
-  return taggedData(
+  const out = taggedData(
     {
       dehydratedState: dehydrate(qc),
       title: snap?.event?.name ?? null,
@@ -233,11 +235,26 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
     // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
     stampEvent(eventId),
   );
+  // TEST-ONLY: ?ogtest=tall says whether the tall card made it (headers() reads
+  // this). Without the param the loader headers are exactly taggedData's.
+  if (ogTest) {
+    const h = new Headers(out.init?.headers);
+    h.set(OG_TALL_HEADER, ogTall ? "ok" : "miss");
+    out.init = { ...out.init, headers: h };
+  }
+  return out;
 });
 
 // Phase 4a ISR — edge-cache the SSR response + forward the loader's cache tag
 // (see ../detailLoader). A thrown 404/500 carries no tag and stays uncached.
+// TEST-ONLY ?ogtest=tall: a miss (no flyer, fetch failed, over the budget) is
+// never cached anywhere -- an edge-cached miss would hand the normal card to
+// every later tester of that URL; an ok keeps the normal policy. Both say which
+// in X-OG-Tall so `curl -sI` can check before a WhatsApp paste.
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  const tall = loaderHeaders.get(OG_TALL_HEADER);
+  if (tall === "miss") return { "Cache-Control": "no-store", [OG_TALL_HEADER]: "miss" };
+  if (tall === "ok") return { ...cacheHeaders(loaderHeaders), [OG_TALL_HEADER]: "ok" };
   return cacheHeaders(loaderHeaders);
 }
 

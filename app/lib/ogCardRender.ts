@@ -625,9 +625,10 @@ export async function buildTallCard(coverBuf: Buffer, data: OgCardData): Promise
     .png().toBuffer();
 
   // Step quality down until the JPEG fits; never WebP (WhatsApp refuses it).
-  // Worst case measured: a pure-noise 9:16 flyer is ~218 KB at q82, so the
-  // last step returning over budget is not expected; it is pinned by
-  // tests/ogTallCard.test.ts rather than given a branch nothing can reach.
+  // Worst case measured: a pure-noise 4:5 flyer (it fills the whole 960x1200
+  // card) is ~374 KB at q82 and ~287 KB at q74, so the step-down is needed and
+  // pinned by tests/ogTallCard.test.ts. The last step returning over budget is
+  // not expected, so it gets no branch nothing can reach.
   let out = Buffer.alloc(0);
   for (const quality of TALL_QUALITIES) {
     out = await sharp(composed).flatten({ background: BRAND_DARK }).jpeg({ quality, mozjpeg: true }).toBuffer();

@@ -24,6 +24,17 @@ Paste `https://www.bachatacalendar.co.uk/event/<slug>?ogtest=tall` into a real
 WhatsApp chat (iPhone and Android) and compare with the plain URL. WhatsApp
 caches previews per URL; add e.g. `&x=2` for a fresh fetch.
 
+Before pasting, check the server (fix round 1):
+1. `curl -sI "https://www.bachatacalendar.co.uk/event/<slug>?ogtest=tall"` must show
+   `x-og-tall: ok`. `x-og-tall: miss` means the page fell back to the normal card
+   (no flyer, fetch failed, or over the 2.5 s budget); that response is `no-store`,
+   so just retry. No `x-og-tall` header at all means the deploy lacks this change.
+2. Take the `og:image` URL from that page (`curl -s ... | grep og:image`) and
+   `curl -sI` it: it must return `content-type: image/jpeg`, NO `x-og-fallback`
+   header, and the size declared in `og:image:width`/`og:image:height`
+   (e.g. 960x1200 for a 4:5 flyer; check with `curl -s <url> | identify -`).
+   An `x-og-fallback` header means the card fell back to 1200x630 -- do not test.
+
 ## Known limits
 - Page and card fetch the flyer separately; if the card's fetch fails it serves
   the normal 1200x630 fallback while the page declared the tall size.
@@ -41,6 +52,14 @@ caches previews per URL; add e.g. `&x=2` for a fresh fetch.
   -> 960x960; 16:9 and 3:1 -> 1200x630; WebP -> 960x1200; all 24-49 KB; frame
   whole on every card. No-flyer / unfetchable -> unchanged fallback + marker.
 - Red first: 19 of the new tests fail on main.
+
+## Fix round 1 (2026-11-10, brief docs/briefs/og-tall-card-test-fix1.md)
+- `?ogtest=tall` miss -> `Cache-Control: no-store` + `X-OG-Tall: miss`; ok -> normal
+  cache headers + `X-OG-Tall: ok`; no param -> headers unchanged (tests in
+  `app/routes/event.ogTall.test.ts`, red first: 3 failed before the route change).
+- Noise test now 1080x1350 (4:5, the true worst shape). Mutation: quality list
+  cut to q82 only -> test FAILS (382,637 B > 307,200 B); restored.
+- Comment in `buildTallCard` corrected (4:5 is the worst shape, not 9:16).
 
 ## Next steps
 1. Owner/orchestrator: after merge, paste `/event/<slug>?ogtest=tall` for a
