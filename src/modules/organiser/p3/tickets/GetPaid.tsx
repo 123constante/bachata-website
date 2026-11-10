@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  NOT_MANAGER_STRIPE,
+  PAYOUTS_ASK_OWNER,
+  isOwner,
   NOT_SWITCHED_ON,
   STRIPE_COPY,
   OPEN_STRIPE_LABEL,
@@ -139,7 +140,9 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const tag = STRIPE_COPY[state];
   const types = summary.data?.ok ? summary.data.types : null;
   const steps = types ? setupSteps(state, types) : null;
-  const canGo = manager && state !== 'connected' && !switchedOff;
+  // Slice 2 (PQ1): payouts are the owner's. Anyone else is told to ask the owner, with no button and no amounts.
+  const owner = isOwner(org.role);
+  const canGo = owner && state !== 'connected' && !switchedOff;
   return (
     <>
       {back && state !== 'connected' && <p className="p3-warn" data-testid="tix-getpaid-back">{state === 'waiting' ? BACK_NOTE_WAITING : BACK_NOTE[back]}</p>}
@@ -148,8 +151,8 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
         <strong data-testid="tix-getpaid-title">{copy.title}</strong>
         <p className="p3-note">{copy.body}</p>
         {switchedOff && <p className="p3-warn" role="status" data-testid="tix-getpaid-off">{NOT_SWITCHED_ON}</p>}
-        {state !== 'connected' && !manager && <p className="p3-note" id="tix-getpaid-why" data-testid="tix-getpaid-why">{NOT_MANAGER_STRIPE}</p>}
-        {state !== 'connected' && !switchedOff && (
+        {state !== 'connected' && !owner && <p className="p3-note" id="tix-getpaid-why" data-testid="tix-getpaid-why">{PAYOUTS_ASK_OWNER}</p>}
+        {owner && state !== 'connected' && !switchedOff && (
           <button
             type="button"
             className="p3-btn"
@@ -162,14 +165,14 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
             {busy && state !== 'waiting' ? 'Opening Stripe\u2026' : STRIPE_COPY[state].action}
           </button>
         )}
-        {state === 'waiting' && !switchedOff && (
+        {owner && state === 'waiting' && !switchedOff && (
           <OpenStripeLink onClick={() => void go()} disabled={!canGo || busy} busy={busy} testId="tix-getpaid-open" />
         )}
         {note && <p role="alert" className="p3-error" data-testid="tix-getpaid-note">{note}</p>}
         {state === 'connected' && manager && <AddTicketNext org={org} idPrefix="tix-getpaid-add" />}
         {canGo && <p className="p3-note">You leave Bachata Calendar for Stripe and come back here when you finish.</p>}
       </section>
-      {manager && hasLiveEvent(org) && steps && steps.some((s) => !s.done) && (
+      {owner && hasLiveEvent(org) && steps && steps.some((s) => !s.done) && (
         <section className="p3-card" aria-label={setupLine(steps)} data-testid="tix-setup">
           <strong data-testid="tix-setup-line">{setupLine(steps)}</strong>
           <ul className="p3-list p3-flush">
@@ -182,13 +185,13 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
           </ul>
         </section>
       )}
-      {summary.isError && (
+      {owner && summary.isError && (
         <StateCard title="We could not load your sales." testId="tix-money-error">
           <RetryButton onClick={() => void summary.refetch()} />
         </StateCard>
       )}
-      {summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{reasonMessage(summary.data.reason)}</p>}
-      {types && types.length > 0 && <MoneySoFar types={types} />}
+      {owner && summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{reasonMessage(summary.data.reason)}</p>}
+      {owner && types && types.length > 0 && <MoneySoFar types={types} />}
     </>
   );
 }

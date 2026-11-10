@@ -15,12 +15,15 @@ export function SalesReport({
   types,
   orders,
   today,
+  money = true,
 }: {
   seriesId: string;
   eventName: string;
   types: readonly TicketType[];
   orders: readonly Order[];
   today: string;
+  /** Slice 2 (PQ1): false for anyone but the owner. Counts stay; every amount and the download (refunded pence) go. */
+  money?: boolean;
 }) {
   const { user } = useAuth();
   const door = useQuery({
@@ -63,12 +66,14 @@ export function SalesReport({
                 <div className="p3-row-s" data-testid="tix-report-counts">
                   {formatCount(r.sold)} sold &middot; {formatCount(r.refundedTickets)} refunded &middot; {formatCount(r.remaining)} left of {formatCount(r.capacity)}
                 </div>
-                <div className="p3-row-s" data-testid="tix-report-money">
-                  Taken {formatPence(r.grossPence)} &middot; Refunded {formatPence(r.refundedPence)} &middot; Net {formatPence(r.netPence)}
-                </div>
+                {money && (
+                  <div className="p3-row-s" data-testid="tix-report-money">
+                    Taken {formatPence(r.grossPence)} &middot; Refunded {formatPence(r.refundedPence)} &middot; Net {formatPence(r.netPence)}
+                  </div>
+                )}
                 {r.disputedTickets > 0 && (
                   <div className="p3-row-s" data-testid="tix-report-disputed">
-                    Disputed {formatCount(r.disputedTickets)} {r.disputedTickets === 1 ? 'ticket' : 'tickets'} &middot; {formatPence(r.disputedPence)} not counted in Net
+                    Disputed {formatCount(r.disputedTickets)} {r.disputedTickets === 1 ? 'ticket' : 'tickets'}{money && <> &middot; {formatPence(r.disputedPence)} not counted in Net</>}
                   </div>
                 )}
               </div>
@@ -79,11 +84,13 @@ export function SalesReport({
               <div className="p3-row-t">Total</div>
               <div className="p3-row-s" data-testid="tix-report-total-counts">
                 {formatCount(report.totals.sold)} sold &middot; {formatCount(report.totals.refundedTickets)} refunded
-                {report.totals.disputedTickets > 0 && <> &middot; {formatCount(report.totals.disputedTickets)} disputed ({formatPence(report.totals.disputedPence)})</>}
+                {report.totals.disputedTickets > 0 && <> &middot; {formatCount(report.totals.disputedTickets)} disputed{money && <> ({formatPence(report.totals.disputedPence)})</>}</>}
               </div>
-              <div className="p3-row-s" data-testid="tix-report-total-money">
-                Taken {formatPence(report.totals.grossPence)} &middot; Refunded {formatPence(report.totals.refundedPence)} &middot; Net {formatPence(report.totals.netPence)}
-              </div>
+              {money && (
+                <div className="p3-row-s" data-testid="tix-report-total-money">
+                  Taken {formatPence(report.totals.grossPence)} &middot; Refunded {formatPence(report.totals.refundedPence)} &middot; Net {formatPence(report.totals.netPence)}
+                </div>
+              )}
             </div>
           </li>
         </ul>
@@ -99,10 +106,12 @@ export function SalesReport({
           {formatCount(checkedIn.inCount)} of {formatCount(checkedIn.total)} checked in
         </p>
       )}
-      <button type="button" className="p3-btn p3-btn-line" onClick={download} disabled={why !== null} data-testid="tix-report-download">
-        Download guest list
-      </button>
-      {why && <p className="p3-note p3-pad-y" data-testid="tix-report-why">{why}</p>}
+      {money && (
+        <button type="button" className="p3-btn p3-btn-line" onClick={download} disabled={why !== null} data-testid="tix-report-download">
+          Download guest list
+        </button>
+      )}
+      {money && why && <p className="p3-note p3-pad-y" data-testid="tix-report-why">{why}</p>}
     </div>
   );
 }

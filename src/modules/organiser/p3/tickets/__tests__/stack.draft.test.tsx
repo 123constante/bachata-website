@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { buyerFirstAndCode } from '../../../tickets/ticketModel';
+// The one buyer label (slice 2, Q14): read from the shared mapping, never hard-coded.
+const who = (id: string) => buyerFirstAndCode({ buyerName: `Buyer ${id}`, id });
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { SHAPES } from './fixtures';
@@ -209,7 +212,7 @@ describe('focus inside a layer, and no close while a write is in flight (review 
     const btn = within(screen.getByTestId('tix-order-o0')).getByTestId('tix-refund') as HTMLButtonElement;
     expect([btn.disabled, btn.textContent]).toEqual([true, 'Refunding\u2026']);
     answer({ kind: 'failed', reason: null });
-    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe("Refund for Buyer o0's order did not start. That did not work. Try again in a moment.");
+    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe(`Refund for ${who('o0')}'s order did not start. That did not work. Try again in a moment.`);
     expect(api.refundOrder).toHaveBeenCalledTimes(1);
   });
 
@@ -264,7 +267,7 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
     await act(async () => answer({ kind: 'ok' }));
     // R2: the late words name the order they are about, never read as B's.
-    expect((await screen.findByTestId('tix-toast')).textContent).toBe("Refund started for Buyer o0's order.");
+    expect((await screen.findByTestId('tix-toast')).textContent).toBe(`Refund started for ${who('o0')}'s order.`);
     expect(layers()).toEqual(['tix-tall', 'tix-refund-sheet']);
     expect(api.refundOrder).toHaveBeenCalledTimes(1);
   });
@@ -302,7 +305,7 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
       fireEvent.click(screen.getByTestId('tix-refund-cancel'));
       await act(async () => answer({ kind: 'failed', reason: null }));
       expect(roles()).toEqual(['alert']);
-      expect(screen.getByTestId('tix-toast').textContent).toContain("Buyer o0's order");
+      expect(screen.getByTestId('tix-toast').textContent).toContain(`${who('o0')}'s order`);
       fireEvent.click(within(screen.getByTestId('tix-type-t-sell')).getByTestId('tix-switch'));
       await act(async () => { await Promise.resolve(); });
       expect(roles().sort()).toEqual(['alert', 'status']);
@@ -331,9 +334,9 @@ describe('a late outcome never touches the sheet open NOW (review r1 F1, F2, F3,
     await act(async () => answers[1]({ kind: 'failed', reason: null }));
     const shown = screen.getAllByTestId('tix-toast');
     expect(shown.map((t) => t.getAttribute('role'))).toEqual(['alert', 'alert']);
-    expect(shown.map((t) => /Buyer (o\d)/.exec(t.textContent ?? '')?.[1])).toEqual(['o0', 'o1']);
+    expect(shown.map((t) => ['o0', 'o1'].find((id) => (t.textContent ?? '').includes(who(id))))).toEqual(['o0', 'o1']);
     fireEvent.click(within(shown[0]).getByTestId('tix-toast-dismiss'));
-    expect(screen.getByTestId('tix-toast').textContent).toContain('Buyer o1');
+    expect(screen.getByTestId('tix-toast').textContent).toContain(who('o1'));
   });
 
   it('R5 / P9 / r3 N2: Escape while "Close sales" is in flight closes the layer, as Close does; the landing comes back as a toast', async () => {

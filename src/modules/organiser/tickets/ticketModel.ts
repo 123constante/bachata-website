@@ -54,8 +54,25 @@ export const asStatus = (v: unknown): TicketStatus => (TICKET_STATUSES.includes(
 export type MemberRole = 'owner' | 'manager' | 'contributor' | string;
 export const canManage = (role: MemberRole | null | undefined): boolean => role === 'owner' || role === 'manager';
 export const NOT_MANAGER = 'Only an owner or manager of this page can change tickets.';
-export const NOT_MANAGER_REFUND = 'Only an owner or manager of this page can refund.';
-export const NOT_MANAGER_STRIPE = 'Only an owner or manager of this page can set up payments.';
+// Slice 2 (PQ1): refunds and payouts are the owner's alone, so the role notes say to ask the owner.
+/** The once-per-list note for a legacy contributor row (A1); a manager gets NOT_OWNER_REFUND per row. */
+export const NOT_MANAGER_REFUND = 'Ask the owner to refund an order.';
+/** GetPaid for anyone but the owner: no Connect action, no amounts. */
+export const PAYOUTS_ASK_OWNER = 'Ask the owner to set up payouts.';
+export const NOT_MANAGER_STRIPE = PAYOUTS_ASK_OWNER;
+
+// ---- Owner-only money (organiser area v2 slice 2: PQ1, Q15) -------------------------
+// A manager (and a legacy contributor row, A1) sees ticket COUNTS: no amount on any line,
+// no Refund, no payout action. The owner alone sees money and refunds.
+export const isOwner = (role: MemberRole | null | undefined): boolean => role === 'owner';
+/** Refund is the one money write on Tickets (Q15): owner only (PQ1). */
+export const canRefund = isOwner;
+/** Sales, refunds and payout amounts: owner only. */
+export const seesMoney = isOwner;
+/** Shown on a refundable order row for anyone but the owner (testid tix-refund-ask-owner). */
+export const NOT_OWNER_REFUND = 'Ask the owner to refund this order.';
+/** The counts-only note on a manager's orders view (testid tix-counts-only). */
+export const COUNTS_ONLY_NOTE = 'Ticket counts only. The owner sees sales and refunds.';
 
 // ---- Get paid (organiser_stripe_accounts) -----------------------------------------
 
@@ -516,7 +533,8 @@ export const editLock = (t: TicketType | null, role: MemberRole | null | undefin
 // ---- Refunds (Q5: a partial refund keeps tickets valid and the order stays paid; a whole refund voids tickets) --
 
 /** Why the Refund button is disabled, or null. Only a paid order shows the button at all (refundable). */
-export const refundBlock = (role: MemberRole | null | undefined): string | null => (canManage(role) ? null : NOT_MANAGER_REFUND);
+/** Slice 2 (PQ1): refund is the owner's alone; anyone else is told to ask the owner. */
+export const refundBlock = (role: MemberRole | null | undefined): string | null => (canRefund(role) ? null : NOT_MANAGER_REFUND);
 export const refundAmount = (o: Pick<Order, 'totalPence' | 'refundedPence'>): number => Math.max(0, o.totalPence - o.refundedPence);
 /** A paid order with money left to give back (a free order, or one already refunded in full, has none). */
 export const refundable = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean => o.status === 'paid' && refundAmount(o) > 0;
@@ -524,11 +542,23 @@ export const refundable = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPen
 /** The buyer's name as every screen shows it; the order row may not carry one. */
 export const buyerNameOf = (o: Pick<Order, 'buyerName'>): string => o.buyerName?.trim() || 'Buyer';
 
+/** The order's short code: the first 4 characters of its id, upper case (never an email, never a Stripe id). */
+export const orderShortCode = (o: Pick<Order, 'id'>): string => o.id.replace(/[^0-9a-z]/gi, '').slice(0, 4).toUpperCase();
+/**
+ * The ONE buyer label (Q14, A2): first name plus the order's short code, e.g. "Ana \u00B7 3F2A".
+ * The orders list and the Refund sheet both read it; a full name is never shown to organisers.
+ */
+export const buyerFirstAndCode = (o: Pick<Order, 'buyerName' | 'id'>): string => {
+  const first = o.buyerName?.trim().split(/\s+/)[0] || 'Buyer';
+  const code = orderShortCode(o);
+  return code ? `${first} \u00B7 ${code}` : first;
+};
+
 export const refundQuestion = (o: Order): { title: string; body: string; confirm: string } => {
   const amount = formatPence(refundAmount(o));
   const one = o.quantity === 1;
   return {
-    title: `Refund ${buyerNameOf(o)}?`,
+    title: `Refund ${buyerFirstAndCode(o)}?`,
     body:
       `${amount} goes back${o.bookingFeePence > 0 ? ', booking fee included' : ''}. ` +
       `${one ? 'Their ticket stops' : `Their ${o.quantity} tickets stop`} working and the ${one ? 'place reopens' : 'places reopen'}. Cannot be undone.`,
@@ -600,6 +630,7 @@ export const DEFINITE_REFUND_REASONS: ReadonlySet<string> = new Set([
   'not_refundable',
   'refund_exceeds_balance',
   'method_not_allowed',
+  'not_allowed',
 ]);
 /** True when this outcome ends the press (drop the key); false keeps it for the retry. */
 export const endsRefundPress = (kind: 'ok' | 'not_configured' | 'failed', reason: string | null): boolean =>
@@ -628,6 +659,8 @@ export const orderTag = (status: string) => ORDER_TAG[status] ?? { label: status
 
 const REASON: Record<string, string> = {
   not_authorised: NOT_MANAGER,
+  // ticket-refund for anyone but the owner (Part B, PQ1): the refund is the owner's.
+  not_allowed: NOT_OWNER_REFUND,
   not_found: 'This ticket is not there any more. Reload the page.',
   invalid_payload: 'Something in the form is not right. Check it and try again.',
   invalid_name: 'Give the ticket a name under 200 characters.',
@@ -824,6 +857,18 @@ export const orderLine = (o: Pick<Order, 'quantity' | 'totalPence' | 'paidAt'>, 
   const day = dayWord(o.paidAt, todayKey);
   return `${o.quantity} ${TIMES} ${price}${day ? ` ${DOT} ${day}` : ''}`;
 };
+
+/** A manager's order line (counts only, no money): "2 tickets \u00B7 today". */
+export const orderCountLine = (o: Pick<Order, 'quantity' | 'paidAt'>, todayKey: string): string => {
+  const day = dayWord(o.paidAt, todayKey);
+  return `${o.quantity} ${o.quantity === 1 ? 'ticket' : 'tickets'}${day ? ` ${DOT} ${day}` : ''}`;
+};
+/** The one order-line mapping for every role: money for the owner, counts for anyone else. */
+export const orderLineFor = (
+  role: MemberRole | null | undefined,
+  o: Pick<Order, 'quantity' | 'totalPence' | 'paidAt'>,
+  todayKey: string,
+): string => (seesMoney(role) ? orderLine(o, todayKey) : orderCountLine(o, todayKey));
 
 // ---- Editor steps and review -------------------------------------------------------
 

@@ -143,14 +143,21 @@ export const parseOrderRow = (r: Record<string, unknown>): Order => ({
   paidAt: strOrNull(r.paid_at),
 });
 
-/** Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids. */
-export async function fetchOrders(typeIds: readonly string[]): Promise<Order[]> {
+/** The orders select. Without money (anyone but the owner, slice 2 PQ1) no pence column is asked for. */
+export const ORDER_SELECT_MONEY = 'id, ticket_type_id, buyer_name, quantity, subtotal_pence, booking_fee_pence, total_pence, refunded_pence, status, paid_at';
+export const ORDER_SELECT_COUNTS = 'id, ticket_type_id, buyer_name, quantity, status, paid_at';
+
+/**
+ * Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids.
+ * `money: false` reads counts only: the pence fields parse to 0 and are never shown.
+ */
+export async function fetchOrders(typeIds: readonly string[], opts: { money?: boolean } = {}): Promise<Order[]> {
   if (typeIds.length === 0) return [];
   const out: Order[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await db()
       .from('ticket_orders')
-      .select('id, ticket_type_id, buyer_name, quantity, subtotal_pence, booking_fee_pence, total_pence, refunded_pence, status, paid_at')
+      .select(opts.money === false ? ORDER_SELECT_COUNTS : ORDER_SELECT_MONEY)
       .in('ticket_type_id', typeIds)
       .order('created_at', { ascending: false })
       .order('id', { ascending: true })

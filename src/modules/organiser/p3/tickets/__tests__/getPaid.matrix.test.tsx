@@ -26,6 +26,9 @@ describe.each([
   ['started', 'owner', 'Not finished', 'Finish connecting payments', true],
   ['connected', 'owner', 'Paid out via Stripe', 'Payments connected', false],
   ['none', 'contributor', 'Not connected', 'Connect payments', false],
+  // Slice 2 (ORG-6.4-r03-P4, PQ1): PAY none and PAY half-set for a manager: ask the owner, no button.
+  ['none', 'manager', 'Not connected', 'Connect payments', false],
+  ['started', 'manager', 'Not finished', 'Finish connecting payments', false],
 ] as const)('Get paid: stripe %s, %s', (stripe, role, tag, title, canGo) => {
   it('tag, title, the button and why it is greyed', () => {
     load(shape({ stripe, role }));
@@ -34,7 +37,11 @@ describe.each([
     expect(screen.getByTestId('tix-getpaid-title').textContent).toBe(title);
     const go = screen.queryByTestId('tix-getpaid-go') as HTMLButtonElement | null;
     if (stripe === 'connected') expect(go).toBeNull();
-    else {
+    // Slice 2 (PQ1): anyone but the owner gets no payouts button, only the ask-the-owner line.
+    else if (role !== 'owner') {
+      expect(go).toBeNull();
+      expect(screen.getByTestId('tix-getpaid-why').textContent).toBe(NOT_MANAGER_STRIPE);
+    } else {
       expect(go?.textContent).toBe(STRIPE_COPY[stripe].action);
       expect(go?.disabled).toBe(!canGo);
       if (!canGo) expect(screen.getByTestId('tix-getpaid-why').textContent).toBe(NOT_MANAGER_STRIPE);
@@ -95,10 +102,10 @@ describe('Get paid states', () => {
     expect(screen.getByTestId('tix-setup-line').textContent).toBe('Setup 0 of 3 done');
     expect(screen.queryByTestId('tix-money')).toBeNull();
   });
-  it('a contributor reading a refused summary sees the refusal, not a 0', () => {
+  it('a contributor (legacy row, A1) sees no money line at all: no refusal, no 0 (slice 2, PQ1)', () => {
     load(SHAPES.contributor);
     show(<GetPaidScreen />, GP());
-    expect(screen.getByTestId('tix-money-refused').textContent).toBe('Only an owner or manager of this page can change tickets.');
+    expect(screen.queryByTestId('tix-money-refused')).toBeNull();
     expect(screen.queryByTestId('tix-money')).toBeNull();
   });
 });

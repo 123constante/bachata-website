@@ -6,9 +6,13 @@ import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
 import {
   NOT_MANAGER,
   NOT_MANAGER_REFUND,
+  NOT_OWNER_REFUND,
+  COUNTS_ONLY_NOTE,
+  buyerFirstAndCode,
+  canRefund,
+  orderLineFor,
   PAYMENTS_WHERE,
   SWITCH_LABEL,
-  buyerNameOf,
   buyerRulesLine,
   canManage,
   connectBlock,
@@ -19,7 +23,6 @@ import {
   eventStartOf,
   leftOf,
   moveBlock,
-  orderLine,
   orderTag,
   priceLabel,
   reasonMessage,
@@ -187,6 +190,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   }, [params, setParams, stripeQuery]);
 
   const manager = canManage(org.role);
+  // Slice 2 (PQ1, Q15): money and Refund are the owner's; a manager sees counts only.
+  const owner = canRefund(org.role);
   const seriesLive = series.lifecycle_status === 'live';
   const ctx: MoveContext = { role: org.role, stripe: stripe ?? 'unknown', seriesLive };
   const sales = new Map<string, TypeSales>((summary.data?.ok ? summary.data.types : []).map((t) => [t.id, t]));
@@ -273,16 +278,19 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         return (
           <li key={o.id} className="p3-row p3-order" data-testid={`tix-order-${o.id}`}>
             <div className="p3-grow">
-              <div className="p3-row-t" data-testid="tix-order-buyer">{buyerNameOf(o)}</div>
+              <div className="p3-row-t" data-testid="tix-order-buyer">{buyerFirstAndCode(o)}</div>
               <div className="p3-row-s" data-testid="tix-order-line">
-                {orderLine(o, today)}
+                {orderLineFor(org.role, o, today)}
                 {many ? ` \u00B7 ${typeName.get(o.typeId) ?? ''}` : ''}
               </div>
               <div className="p3-row-tags">
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
               </div>
             </div>
-            {manager && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
+            {manager && !owner && refundable(o) && (
+              <p className="p3-note" data-testid="tix-refund-ask-owner">{NOT_OWNER_REFUND}</p>
+            )}
+            {owner && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
               <button
                 type="button"
                 className="p3-btn p3-btn-line p3-btn-sm"
@@ -316,6 +324,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     return (
       <>
         {!manager && shown.some(refundable) && <p className="p3-note p3-pad-y" data-testid="tix-refund-reason">{NOT_MANAGER_REFUND}</p>}
+        {!owner && <p className="p3-note p3-pad-y" data-testid="tix-counts-only">{COUNTS_ONLY_NOTE}</p>}
         {orderRows(all ? shown : shown.slice(0, PREVIEW_ORDERS))}
         {!all && more && (
           <button type="button" className="p3-link" onClick={() => setView('orders')} data-testid="tix-see-all">{more}</button>
@@ -441,7 +450,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
             {orders.isSuccess && (
               <Suspense fallback={null}>
-                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} />
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={owner} />
               </Suspense>
             )}
             </>
@@ -481,7 +490,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           }}
         />
       )}
-      {open && refunding && (
+      {open && owner && refunding && (
         <RefundSheet
           order={withPendingRefund(refunding, pendingRefund.get(refunding.id))}
           typeName={many ? typeName.get(refunding.typeId) ?? null : null}
