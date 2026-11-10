@@ -30,3 +30,21 @@ caches previews per URL; add e.g. `&x=2` for a fresh fetch.
 - Removal: if WhatsApp does not draw a taller card, delete the four pieces above
   and the tests (`tests/ogTallCard.test.ts`, `tests/ogTallPreview.test.ts`,
   `app/routes/event.ogTall.test.ts`). Making it the default is a separate decision.
+
+## Verification (worker run 2026-11-10)
+- Shape survey (prod, read-only counts): 99 public series (live 75, ended 23,
+  paused 1), every one has a cover; 95 WebP, 4 JPEG. Flyer pixel sizes are not
+  stored, so the ratio mix is unknown from the DB.
+- Real flyers NOT rendered: this worker's network policy refuses
+  media.bachatacalendar.co.uk (CONNECT 403). The nine brief shapes were rendered
+  with a synthetic framed flyer instead: 4:5, 9:16 and tiny -> 960x1200; square
+  -> 960x960; 16:9 and 3:1 -> 1200x630; WebP -> 960x1200; all 24-49 KB; frame
+  whole on every card. No-flyer / unfetchable -> unchanged fallback + marker.
+- Red first: 19 of the new tests fail on main.
+
+## Next steps
+1. Owner/orchestrator: after merge, paste `/event/<slug>?ogtest=tall` for a
+   portrait-flyer event into WhatsApp on iPhone and Android; compare with the
+   plain link.
+2. If the card is taller and whole: separate PR to decide on default + bake.
+   If not: remove (see Known limits).
