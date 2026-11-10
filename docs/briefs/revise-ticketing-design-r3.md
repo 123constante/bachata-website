@@ -1,0 +1,11 @@
+# Brief: design text fix round 3 (docs only). Lane: careful, Sonnet (mechanical text edits from an explicit review). CONTINUATION on claude/revise-ticketing-design (PR #1529, head c22434908).
+Read docs/review/ticketing-organisers-r3.md (git fetch origin claude/review-ticketing-organisers-r3; git show FETCH_HEAD:docs/review/ticketing-organisers-r3.md). Edit ONLY docs/briefs/design-ticketing-organisers.md and docs/briefs/contract-ticket-tiers.md (rebase on origin/main first; keep branch), and append an r3 table to docs/review/ticketing-design-fixes-r2.md.
+Apply, in the reviewer's own words where given:
+1. R3-1 BLOCKING: move checkpoint (b) (total check) to AFTER v4 line 193 / the onboarding refusal 195-198 and BEFORE line 200 (the promo supersede UPDATE), 213-225 (capacity) and 228 (order INSERT); compute the fee at that point from v_net, v_total_q and p_booking_fee_per_ticket_pence. Rewrite design s.3b "Two checkpoints" and contract 0c R-3 to match. Fix mutant M-8 and add the new mutant: "total check after the supersede UPDATE" -> a test with a capped code, a pending order for the same person and a stale total must show the earlier order's promo_use_released still false.
+2. R3-2: checkpoint (a) runs once after the line loop (v4 line 119), before line 121; reword.
+3. R3-3: T2 brief text: the expected_total_pence test runs BEFORE the "lines" test in the edge; v5 parser carries expected_unit_price_pence (Number.isInteger); add the edge unit test.
+4. R3-4: reserve_version migration uses SET lock_timeout = '3s' with retry; G-1 window = "24 h ending at the check, starting no earlier than the T4 deploy", start written as the DO literal.
+5. R3-5: widen T2b pre-condition grep to all admin supabase/functions/ and admin app source for ticket_checkout_reserve_v[34] and ticket_types_public_v2.
+6. R3-6: step table line becomes REVOKE ALL ... FROM PUBLIC, anon, authenticated, service_role; then GRANT SELECT TO service_role. State that ticket_price_step_set_v1 / _remove_v1 / ticket_types_manage_v1 keep default service_role EXECUTE.
+7. Any further NOTE in the review (R3-7 onward): fold into the relevant T1/T2/T2b section as one sentence each.
+No code, no migrations, prod untouched. Handover: append to docs/review/ticketing-design-fixes-r2.md. Final commit subject ends [worker-done <ticket>].
