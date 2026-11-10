@@ -55,6 +55,7 @@ const MIN_BAKED_PAGES = 2;
 let BYPASS = null;
 const WHATSAPP_UA = 'WhatsApp/2.23.20.0 A';
 const MAX_BYTES = 300 * 1024;
+const EXPECTED_WF_MODE = expectedWholeFlyerMode();
 // Scope predicate for "this og:image is served by our /api/og/ pipeline",
 // used by the dead-card rule and the neither-baked-nor-card shape clause.
 // checkPage's isCard stays separate ON PURPOSE: it asserts the narrower
@@ -196,7 +197,7 @@ async function fetchText(url, opts = {}) {
       await r.body?.cancel();
       return { ok: false, status: r.status, text: '' };
     }
-    return { ok: true, status: r.status, text: await r.text() };
+    return { ok: true, status: r.status, text: await r.text(), ogLayout: r.headers.get('x-og-layout') };
   } finally {
     clearTimeout(t);
   }
@@ -210,10 +211,15 @@ async function headImage(url) {
     const r = await fetch(url, { signal: ctrl.signal, redirect: 'follow', headers: (bypassFor(url) || Object.keys(ciBypassHeadersFor(url)).length) ? { ...(bypassFor(url) ?? {}), ...ciBypassHeadersFor(url) } : undefined });
     const ct = (r.headers.get('content-type') || '').toLowerCase();
     let bytes = Number(r.headers.get('content-length') || 0);
-    if (!bytes && r.ok) bytes = (await r.arrayBuffer()).byteLength;
-    // content-length trusted / !ok: the body is never read -- cancel it, same
-    // event-loop leak note as fetchText.
-    else await r.body?.cancel();
+    // The body is READ on every ok response now (contract D9): the declared
+    // size must equal the DECODED size, and a WebP body must be caught even
+    // under an image/jpeg header. Cards are capped at 300 KB, so this is cheap.
+    // !ok: never read -- cancel it, same event-loop leak note as fetchText.
+    let body = null;
+    if (r.ok) {
+      body = Buffer.from(await r.arrayBuffer());
+      if (!bytes) bytes = body.byteLength;
+    } else await r.body?.cancel();
     // r.redirected / r.url expose WHERE the bytes came from. Without them a
     // 302 is invisible: the card fallback serves a perfectly valid 200
     // image/jpeg from production and every size/type assertion passes.
@@ -227,6 +233,9 @@ async function headImage(url) {
       ok: r.ok, status: r.status, contentType: ct, bytes,
       redirected: r.redirected, finalUrl: r.url,
       fallbackReason: r.headers.get('x-og-fallback'),
+      body,
+      cacheControl: r.headers.get('cache-control'),
+      ogLayout: r.headers.get('x-og-layout'),
     };
   } finally {
     clearTimeout(t);
@@ -404,7 +413,124 @@ const UUID_SEG = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 // OG_BRANDED_CARD_ENABLED is off, present once a bake runs with it on. Both
 // shapes are a real-cover bake; only their presence differs by flag state,
 // so both stay healthy here.
-const HEALTHY_BAKED_KEY_RE = new RegExp(`^${UUID_SEG}-(?:default|${UUID_SEG})-[0-9a-f]{16}(?:-[0-9a-f]{12})?[.]jpg$`, 'i');
+//
+// Whole-flyer keys (docs/design/whatsapp-whole-flyer.CONTRACT.md D2/D4/D9)
+// carry the renderer version and canvas instead: -<16hex>-wf<n>-<W>x<H>.jpg.
+// The two suffixes are mutually exclusive (D8: no facts tag on a wf key). The
+// key being well-formed is only the naming half; wholeFlyerFailures() below
+// checks its size against the bytes and its layout against the expected mode.
+const HEALTHY_BAKED_KEY_RE = new RegExp(`^${UUID_SEG}-(?:default|${UUID_SEG})-[0-9a-f]{16}(?:-[0-9a-f]{12}|-wf[0-9]+-[0-9]{3,4}x[0-9]{3,4})?[.]jpg$`, 'i');
+
+// ── Whole-flyer checks (contract D9) ─────────────────────────────────────────
+// MIRRORS app/lib/ogLayout.ts (this guard is a plain node script that runs in
+// GitHub Actions; it cannot import the .ts module and cannot read the Vercel
+// env). The expected mode comes from the GitHub repository variable
+// OG_WHOLE_FLYER_MODE, passed in as an env var; default off.
+const WF_CURRENT_VERSION = 1;
+const WF_MIN_RATIO = 0.8;
+const WF_MAX_RATIO = 1.91;
+const WF_L_CACHE_MAX_S = 3600;
+const WF_KEY_TAIL_RE = /-[0-9a-f]{16}-wf([0-9]+)-([0-9]{3,4})x([0-9]{3,4})[.]jpg$/i;
+
+export function expectedWholeFlyerMode(raw = process.env.OG_WHOLE_FLYER_MODE) {
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  return ['off', 'test', 'allowlist', 'on'].includes(v) ? v : 'off';
+}
+
+/** { format, width, height } from the first bytes of an image, no deps.
+ *  JPEG: the first SOFn frame header. WebP and PNG are named so a WebP body
+ *  served as image/jpeg is still caught. Null when unreadable. */
+export function imageInfoFromBytes(buf) {
+  if (!buf || buf.length < 12) return null;
+  const b = buf;
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+    return { format: 'webp', width: null, height: null };
+  }
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 && b.length >= 24) {
+    return { format: 'png', width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
+  }
+  if (b[0] !== 0xff || b[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 9 < b.length) {
+    if (b[i] !== 0xff) { i += 1; continue; }
+    const marker = b[i + 1];
+    if (marker === 0xff) { i += 1; continue; }
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) { i += 2; continue; }
+    const len = b.readUInt16BE(i + 2);
+    // SOF0..SOF15 except DHT (c4), JPG (c8), DAC (cc).
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { format: 'jpeg', width: b.readUInt16BE(i + 7), height: b.readUInt16BE(i + 5) };
+    }
+    if (marker === 0xda || len < 2) break;
+    i += 2 + len;
+  }
+  return { format: 'jpeg', width: null, height: null };
+}
+
+function maxAgeSeconds(cacheControl) {
+  const cc = String(cacheControl ?? '').toLowerCase();
+  if (!cc) return null;
+  if (/no-store|no-cache/.test(cc)) return 0;
+  const ages = [...cc.matchAll(/(?:^|[,\s])(?:s-)?max-age=([0-9]+)/g)].map((m) => Number(m[1]));
+  return ages.length ? Math.max(...ages) : null;
+}
+
+/**
+ * Pure: the D9 whole-flyer checks for one page's og:image. Every input is
+ * already fetched, so --self-test and tests/ogWholeFlyerGuard.test.ts prove
+ * every rule without a network.
+ *   declared {width, height}: og:image:width/height as numbers (null if absent)
+ *   img: { body (Buffer|null), cacheControl, ogLayout (X-OG-Layout), bytes }
+ *   expectedMode: off | test | allowlist | on
+ */
+export function wholeFlyerFailures({ ogImage, declared, img, expectedMode = 'off' }) {
+  const failures = [];
+  const info = img?.body ? imageInfoFromBytes(img.body) : null;
+  const url = String(ogImage);
+  const isLiveCard = /\/api\/og\/card\?/i.test(url);
+  let lParam = null;
+  try { lParam = isLiveCard ? new URL(url).searchParams.get('l') : null; } catch { lParam = null; }
+
+  if (info?.format === 'webp') failures.push('og:image body is WebP (whatever its Content-Type) -- WhatsApp will not render it');
+  else if (info && info.format !== 'jpeg') failures.push(`og:image body is ${info.format}, not JPEG`);
+  else if (img?.body && !info) failures.push('og:image body is not a decodable image');
+
+  const w = info?.width ?? null;
+  const h = info?.height ?? null;
+  if (w && h) {
+    if (!declared || declared.width !== w || declared.height !== h) {
+      failures.push(`declared og:image size ${declared?.width ?? '?'}x${declared?.height ?? '?'} != decoded ${w}x${h}`);
+    }
+    const r = w / h;
+    if (r < WF_MIN_RATIO - 1e-9 || r > WF_MAX_RATIO + 1e-9) failures.push(`og:image ratio ${r.toFixed(2)} outside [${WF_MIN_RATIO}, ${WF_MAX_RATIO}] (${w}x${h})`);
+  }
+
+  if (isLiveCard && lParam !== null) {
+    if (expectedMode !== 'on') {
+      const age = maxAgeSeconds(img?.cacheControl);
+      if (age === null || age > WF_L_CACHE_MAX_S) {
+        failures.push(`live l= card Cache-Control "${img?.cacheControl ?? ''}" exceeds ${WF_L_CACHE_MAX_S}s while the expected mode is ${expectedMode} (contract D5)`);
+      }
+    }
+    if (lParam === 'wf1' && img?.ogLayout !== 'wf1') {
+      failures.push(`l=wf1 card answered with X-OG-Layout: ${img?.ogLayout ?? '(none)'} -- not the whole-flyer layout its URL names`);
+    }
+  }
+
+  if (isBakedObject(url)) {
+    const key = url.split('#')[0].split('?')[0].split('/').pop() ?? '';
+    const m = WF_KEY_TAIL_RE.exec(key);
+    if (m) {
+      const [kv, kw, kh] = [Number(m[1]), Number(m[2]), Number(m[3])];
+      if (kv !== WF_CURRENT_VERSION) failures.push(`baked whole-flyer key is wf${kv}, the current renderer is wf${WF_CURRENT_VERSION}: ${key}`);
+      if (w && h && (kw !== w || kh !== h)) failures.push(`baked key size ${kw}x${kh} != decoded ${w}x${h}: ${key}`);
+      if (expectedMode === 'off' || expectedMode === 'test') failures.push(`whole-flyer baked key served while the expected mode is ${expectedMode}: ${key}`);
+    } else if (expectedMode === 'on' && HEALTHY_BAKED_KEY_RE.test(key)) {
+      failures.push(`legacy baked key served while the expected mode is on: ${key}`);
+    }
+  }
+  return failures;
+}
 
 /**
  * A baked OG object whose key is not the shape a real-cover bake produces.
@@ -462,6 +588,15 @@ async function checkPage(pathOrUrl) {
   if (!/^https:\/\//i.test(ogImage)) failures.push(`og:image not absolute https: ${ogImage}`);
   if (!/og:image:width/i.test(html)) failures.push('missing og:image:width');
   if (!/og:image:height/i.test(html)) failures.push('missing og:image:height');
+  const declaredNum = (prop) => {
+    const v = pick(html, new RegExp(`<meta[^>]+property=["']og:image:${prop}["'][^>]+content=["']([0-9]+)["']`, 'i'))
+      || pick(html, new RegExp(`<meta[^>]+content=["']([0-9]+)["'][^>]+property=["']og:image:${prop}["']`, 'i'));
+    return v ? Number(v) : null;
+  };
+  const declared = { width: declaredNum('width'), height: declaredNum('height') };
+  // A whole-flyer measure miss (contract D2): the page served the legacy card
+  // and said so. Counted and reported by main(), not a failure on its own.
+  const legacyFallback = res.ogLayout === 'legacy-fallback';
 
   // Durability guards for the link-preview pipeline. An event/festival preview must
   // be either a pre-baked immutable R2 image, or a live card carrying a cover
@@ -533,13 +668,14 @@ async function checkPage(pathOrUrl) {
       if (/webp/.test(img.contentType)) failures.push(`og:image is WebP (${img.contentType}) — WhatsApp won't render`);
       else if (!/jpeg|jpg|png/.test(img.contentType)) failures.push(`og:image unexpected type: ${img.contentType}`);
       if (img.bytes > MAX_BYTES) failures.push(`og:image ${Math.round(img.bytes / 1024)}KB > 300KB`);
+      failures.push(...wholeFlyerFailures({ ogImage, declared, img, expectedMode: EXPECTED_WF_MODE }));
     }
   } catch (e) {
     // APPEND rather than replace, so failures found before the throw stay
     // visible in the warn. The page itself stays soft: a transient fetch
     // error must not decide hard-vs-warn (an early hard return here would
     // preempt the past-event downgrade below and escalate on a network blip).
-    return { url, baked, soft: true, failures: [...failures, `og:image fetch error: ${e.message}`] };
+    return { url, baked, legacyFallback, soft: true, failures: [...failures, `og:image fetch error: ${e.message}`] };
   }
   // Scope the VERDICT, not the check: a finished event is still fetched and
   // still asserted, but its failures warn instead of redding. Deliberately
@@ -554,9 +690,9 @@ async function checkPage(pathOrUrl) {
   // by NAME, which is the precondition 1e was waiting on; splitting the
   // downgrade is its own change, not a silent rider on this one.
   if (failures.length > 0 && /\/(event|festival)\//.test(url) && eventHasEnded(html)) {
-    return { url, baked, soft: true, failures: [...failures, '(event already ended -- warning, not a failure)'] };
+    return { url, baked, legacyFallback, soft: true, failures: [...failures, '(event already ended -- warning, not a failure)'] };
   }
-  return { url, baked, failures };
+  return { url, baked, legacyFallback, failures };
 }
 
 async function main() {
@@ -599,9 +735,12 @@ async function main() {
   let hardFailures = 0;
   let softFailures = 0;
   let bakedSeen = 0;
+  let legacyFallbacks = 0;
+  console.log(`Expected whole-flyer mode: ${EXPECTED_WF_MODE} (OG_WHOLE_FLYER_MODE; default off)`);
   for (const u of urls) {
     const r = await checkPage(u);
     if (r.baked) bakedSeen += 1;
+    if (r.legacyFallback) legacyFallbacks += 1;
     if (r.failures.length === 0) {
       console.log(`  PASS  ${r.url}`);
     } else if (r.soft && !STRICT) {
@@ -616,6 +755,7 @@ async function main() {
   }
 
   console.log(`\n${hardFailures} failed, ${softFailures} warned, ${urls.length} checked, ${bakedSeen} baked og:image(s) inspected.`);
+  console.log(`${legacyFallbacks} page(s) answered X-OG-Layout: legacy-fallback (whole-flyer measure miss, contract D2).`);
   // A BAKE-PIPELINE LIVENESS floor. Named for what it actually proves, after a
   // first draft sold it as proof that the key rule had exercised anything --
   // which it is not, because that rule has no reachable true positive (see
@@ -678,7 +818,43 @@ function selfTest() {
   // omit fallbackReason, so every redirect-rule case above doubles as proof
   // that an unmarked response leaves the fallback rule silent.
   const marked = (reason) => ({ ...inline(`${PROD}/api/og/card?kind=event&id=x&v=1`), fallbackReason: reason });
+  // Whole-flyer fixtures (contract D9). A minimal JPEG header is all the
+  // decoder reads, so the size rules are proven with no image library.
+  const jpegOf = (w, h) => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00,
+    0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 255, w >> 8, w & 255, 0x03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xd9]);
+  const WEBP = Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'binary');
+  const ID = '01173937-0000-4000-8000-46b1f42d630c';
+  const WF_LIVE = `${PROD}/api/og/card?kind=event&id=${ID}&v=x.jpg&l=wf1&s=960x1200`;
+  const LEGACY_LIVE = `${PROD}/api/og/card?kind=event&id=${ID}&v=x.jpg`;
+  const KEY = (tail) => `https://media.bachatacalendar.co.uk/events/og/event/${ID}-default-0123456789abcdef${tail}.jpg`;
+  const wfOk = { body: jpegOf(960, 1200), cacheControl: 'public, max-age=3600', ogLayout: 'wf1' };
+  const wfFails = (args) => wholeFlyerFailures(args).length > 0;
+  const wfPasses = (args) => wholeFlyerFailures(args).length === 0;
   const cases = [
+    ['wf mutant: declared 1200x630 over a 960x1200 body FAILS',
+      wfFails({ ogImage: WF_LIVE, declared: { width: 1200, height: 630 }, img: wfOk })],
+    ['wf mutant: the 1200x630 text fallback under an l=wf1 URL, marker AND layout header stripped, FAILS',
+      wfFails({ ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: { body: jpegOf(1200, 630), cacheControl: 'public, max-age=300', ogLayout: null } })],
+    ['wf mutant: a WebP body FAILS', wfFails({ ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: { ...wfOk, body: WEBP } })],
+    ['wf mutant: a 3:1 card FAILS', wfFails({ ogImage: LEGACY_LIVE, declared: { width: 1500, height: 500 }, img: { body: jpegOf(1500, 500) } })],
+    ['wf mutant: a whole-flyer key served while the expected mode is off FAILS',
+      wfFails({ ogImage: KEY('-wf1-960x1200'), declared: { width: 960, height: 1200 }, img: { body: jpegOf(960, 1200) }, expectedMode: 'off' })],
+    ['wf mutant: l=wf1 URL with Cache-Control 14400 FAILS',
+      wfFails({ ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: { ...wfOk, cacheControl: 'public, max-age=14400' }, expectedMode: 'allowlist' })],
+    ['wf mutant: l=wf1 URL answered with X-OG-Layout: legacy FAILS',
+      wfFails({ ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: { ...wfOk, ogLayout: 'legacy' } })],
+    ['wf mutant: a baked key whose size differs from the decoded size FAILS',
+      wfFails({ ogImage: KEY('-wf1-960x1200'), declared: { width: 960, height: 1000 }, img: { body: jpegOf(960, 1000) }, expectedMode: 'on' })],
+    ['wf healthy: legacy plain key PASSES (mode off)',
+      wfPasses({ ogImage: KEY(''), declared: { width: 1200, height: 630 }, img: { body: jpegOf(1200, 630) } }) && bakedDegradedFailure(KEY('')) === null],
+    ['wf healthy: legacy facts key PASSES (mode off)',
+      wfPasses({ ogImage: KEY('-0123456789ab'), declared: { width: 1200, height: 630 }, img: { body: jpegOf(1200, 630) } }) && bakedDegradedFailure(KEY('-0123456789ab')) === null],
+    ['wf healthy: wf1 key with the right size PASSES (mode on)',
+      wfPasses({ ogImage: KEY('-wf1-960x1200'), declared: { width: 960, height: 1200 }, img: { body: jpegOf(960, 1200) }, expectedMode: 'on' }) && bakedDegradedFailure(KEY('-wf1-960x1200')) === null],
+    ['wf healthy: live l=wf1 card, 1h cache, X-OG-Layout: wf1 PASSES', wfPasses({ ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: wfOk })],
+    ['wf: a key with BOTH the facts tag and a wf segment is not a healthy key', bakedDegradedFailure(KEY('-0123456789ab-wf1-960x1200')) !== null],
+    ['wf: expected mode parses exactly four values, anything else is off',
+      expectedWholeFlyerMode('on') === 'on' && expectedWholeFlyerMode('On') === 'off' && expectedWholeFlyerMode(undefined) === 'off'],
     ['bake host: the r2.dev address is ours', isOnBakeHost(`${R2}/og/event/x.jpg`)],
     ['bake host: the custom media address is ours', isOnBakeHost('https://media.bachatacalendar.co.uk/og/event/x.jpg')],
     ['bake host: an unrelated host is not', !isOnBakeHost('https://evil.example/a.jpg')],
