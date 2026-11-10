@@ -1,6 +1,6 @@
-# ACCEPTANCE CONTRACT: whole-flyer link card for every event (DRAFT 3, 2026-11-10, website-50)
+# ACCEPTANCE CONTRACT: whole-flyer link card for every event (DRAFT 3.1, 2026-11-10, website-50)
 
-Status: DRAFT 3 = DRAFT 2 + review r2 (docs/reviews/whole-flyer-og-contract-r2.md, verdict BLOCK on N1 only, contract-only fix, N1 to N13 all applied). DRAFT 2 = DRAFT 1 + review r1 (BLOCK, 18 findings applied). BOTH allowed review rounds are used: under the stopping rule this goes to the lead (website-8e), who decides whether the N1 change needs a third review. No build dispatched; the lead sees the reviewed contract before any build dispatch. Lane: careful. Inventory: docs/design/whatsapp-event-preview.INVENTORY.md plus section 4. Run record: ~/.claude/plans/PLAN-og-whole-flyer-rollout-2026-11-10.md.
+Status: DRAFT 3.1 (only change vs 3: section 10 owner steps, lead instruction 2026-11-10; one narrow third review of D4 and the matrix is ordered, hard stop after it) = DRAFT 3 = DRAFT 2 + review r2 (docs/reviews/whole-flyer-og-contract-r2.md, verdict BLOCK on N1 only, contract-only fix, N1 to N13 all applied). DRAFT 2 = DRAFT 1 + review r1 (BLOCK, 18 findings applied). BOTH allowed review rounds are used: under the stopping rule this goes to the lead (website-8e), who decides whether the N1 change needs a third review. No build dispatched; the lead sees the reviewed contract before any build dispatch. Lane: careful. Inventory: docs/design/whatsapp-event-preview.INVENTORY.md plus section 4. Run record: ~/.claude/plans/PLAN-og-whole-flyer-rollout-2026-11-10.md.
 
 ## 1. Owner decisions (binding; relayed by lead 2026-11-10)
 - W1 Who for: people receiving shared links AND organisers sharing them, equally.
@@ -108,5 +108,12 @@ Reason codes: R5 not applicable: no flyer, a kind not in scope, or a path that i
 ## 9. GRANT list
 None. No SQL, no new table, no new route (D10). If review or A1 finds a new grant, the contract is wrong and goes back to the lead.
 
-## 10. Owner decisions still open
-None that block the contract. For the lead at B2/B4: who sets the Vercel env var (OG_WHOLE_FLYER_MODE), and the owner W3 sign-off at B4 after the real-event check.
+## 10. Owner steps (prod configuration; the owner does these, never a worker; the default stays OFF until the real-event check passes)
+The mode has TWO places that must say the same thing: Vercel (what the site does) and a GitHub repository variable (what the daily guard expects, D9). Each time the mode changes, the operator lists both in one checkout line, B2 and B4. Nothing below is done until the lead gives the owner the numbered YOUR TURN message for that step; the lead writes the real values in. Screens move around, so each step says what to look for and what to send back.
+Step O1 (B2, allowlist for the real-event check). 1. Open Vercel, project of the Bachata Calendar website, Settings, Environment Variables. 2. Add OG_WHOLE_FLYER_MODE = allowlist for Production only. 3. Add OG_WHOLE_FLYER_EVENT_IDS = the comma-separated list of ids the lead gives you (BOS Majorca plus four others). 4. Save, then open Deployments and Redeploy the latest production deployment (a new value only takes effect on a redeploy). 5. Open GitHub, the website repository, Settings, Secrets and variables, Actions, Variables tab, New repository variable: name OG_WHOLE_FLYER_MODE, value allowlist. 6. Tell the lead "O1 done". The lead then reads the settings back, runs the read-only checks, and asks you to look at the five cards on your phone.
+Step O2 (B4, all events, only after the owner has said the real-event check is good). Same screens: change OG_WHOLE_FLYER_MODE to on in Vercel Production, redeploy, change the GitHub variable to on, tell the lead "O2 done". The lead runs the backfill (D7) and the read-only counts.
+Step O3 (rollback, any time). Set OG_WHOLE_FLYER_MODE to off in Vercel Production, redeploy, set the GitHub variable to off, tell the lead "O3 done". Because the layout is named in the live URL and the page only accepts a baked URL of the current layout (D4), the old look returns at once and no old link is broken.
+Never: put the mode in a preview-only setting and call it done; leave the Vercel value and the GitHub variable different; change either without the redeploy.
+
+## 11. Owner decisions still open
+None that block the contract. The owner W3 sign-off at B4 comes after the real-event check.
