@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -12,6 +12,8 @@ import {
   violations,
 } from '../scripts/check-automation-workflow-allowlist.mjs';
 import { BOT_LOGIN } from '../scripts/lib/autopilot.mjs';
+import { isDocsOnly } from '../scripts/ci/docs-only.mjs';
+import { parse as parseYaml } from 'yaml';
 
 const quiet = { log() {}, error() {} } as unknown as Console;
 const dir = mkdtempSync(path.join(tmpdir(), 'wf-allow-'));
@@ -168,29 +170,112 @@ describe('violations', () => {
   });
 });
 
+// F4 (review-1394-r2): the committed-list cases READ the committed list and derive
+// their names from it, so an owner edit to the list (e.g. dropping workflow-lint.yml,
+// review F1) does not force a test edit. They still pin the behaviours.
+function committedNames(listPath: string): string[] {
+  const r = loadAllowlist(listPath) as { ok: boolean; names?: string[]; reason?: string };
+  if (!r.ok || !Array.isArray(r.names)) {
+    throw new Error(`committed allow-list ${listPath} is malformed: ${r.reason ?? JSON.stringify(r)}`);
+  }
+  if (r.names.length === 0) {
+    throw new Error(`committed allow-list ${listPath} is empty: the committed-list cases need at least one listed name`);
+  }
+  return r.names;
+}
+
+describe('committedNames: a clear failure on an empty or malformed list', () => {
+  it('names an empty list', () => {
+    expect(() => committedNames(EMPTY)).toThrow(/is empty/);
+  });
+  it.each([NOT_JSON, NOT_ARRAY, PATH_ENTRY, MISSING])('names a malformed list (%s)', (p) => {
+    expect(() => committedNames(p)).toThrow(/is malformed/);
+  });
+  it('returns the names of a valid list', () => {
+    expect(committedNames(LISTED)).toEqual(['autopilot.yml']);
+  });
+});
+
 describe('the committed list', () => {
-  it('lists exactly the names the owner has approved (2026-11-06: workflow-lint.yml, so the guard can wire itself)', () => {
-    expect(loadAllowlist(ALLOWLIST_PATH)).toEqual({ ok: true, names: ['workflow-lint.yml'] });
+  const names = committedNames(ALLOWLIST_PATH);
+  const first = names[0];
+  // A workflow name guaranteed not on the list.
+  const unlisted = ['e2e-smoke.yml', 'unit-tests.yml', 'architecture-guard.yml', 'not-a-real-workflow.yml']
+    .find((n) => !names.includes(n)) as string;
+  const unlistedPath = `.github/workflows/${unlisted}`;
+
+  it('is a non-empty list of bare names', () => {
+    for (const n of names) expect(n).toMatch(/^[^/\\]+\.ya?ml$/);
   });
 
-  // workflow-allowlist-3 (fix round for PR #1394): the PR that wires the guard
-  // edits workflow-lint.yml from a loop branch. It passes only because the owner
-  // listed that one name (#1404), never via an exemption -- every other
-  // workflow edit by a loop PR still fails against the REAL committed list.
+  // workflow-allowlist-3: the PR that wires the guard edits a workflow from a loop
+  // branch. It passes only because that name is listed, never via an exemption --
+  // every other workflow edit by a loop PR still fails against the REAL list.
   const SELF = 'claude/automation-loop-editable-workflows';
-  const PR_1394 = [
-    '.github/workflows/workflow-lint.yml',
+  const OWN_DIFF = [
+    ...names.map((n) => `.github/workflows/${n}`),
     'docs/handovers/workflow-allowlist-2.md',
     'scripts/check-automation-workflow-allowlist.mjs',
     'tests/automationWorkflowAllowlist.test.ts',
   ].join('\n');
   it.each([
-    ['PR #1394 own diff (workflow-lint.yml) passes', SELF, BOT_LOGIN, PR_1394, 0],
-    ['the same branch editing a NON-listed workflow fails', SELF, BOT_LOGIN, PR_1394 + '\n' + OTHER, 1],
-    ['a non-listed workflow edit alone fails', SELF, BOT_LOGIN, OTHER, 1],
-    ['a loop PR adding a name to the committed list fails', SELF, BOT_LOGIN, LIST_REL, 1],
-    ['a workflow-lint.yml look-alike in a subfolder fails', SELF, BOT_LOGIN, '.github/workflows/x/workflow-lint.yml', 1],
-  ])('committed list: %s', (_n, branch, author, files, want) => {
-    expect(run({ HEAD_REF: branch, PR_AUTHOR: author, PR_FILES: files })).toBe(want);
+    ['own diff touching only listed workflows passes', () => OWN_DIFF, 0],
+    ['the same branch editing a NON-listed workflow fails', () => OWN_DIFF + '\n' + unlistedPath, 1],
+    ['a non-listed workflow edit alone fails', () => unlistedPath, 1],
+    ['a loop PR editing the committed list fails', () => LIST_REL, 1],
+    ['a listed-name look-alike in a subfolder fails', () => `.github/workflows/x/${first}`, 1],
+  ] as const)('committed list: %s', (_n, files, want) => {
+    expect(run({ HEAD_REF: SELF, PR_AUTHOR: BOT_LOGIN, PR_FILES: files() })).toBe(want);
+  });
+});
+
+// F2 (review-1394-r2): pin the CI wiring. Mutant M12 (`|| true` on the --merge line)
+// kept every test green; these assertions turn it, a dropped --merge line, a changed
+// `if:`, a continue-on-error or a missing env var red.
+describe('the CI wiring in workflow-lint.yml', () => {
+  const doc = parseYaml(readFileSync(path.resolve(__dirname, '..', '.github/workflows/workflow-lint.yml'), 'utf8'));
+  const job = doc.jobs['masking-check'];
+  const steps: Array<Record<string, unknown>> = job.steps;
+  const idx = steps.findIndex((s) => s.name === 'Automation workflow allow-list');
+  const step = steps[idx];
+  const changesIdx = steps.findIndex((s) => s.id === 'changes');
+
+  it('the step exists exactly once, in masking-check', () => {
+    expect(steps.filter((s) => s.name === 'Automation workflow allow-list')).toHaveLength(1);
+  });
+  it('runs the self-test and then --merge "$MERGE_SHA", nothing else (no || true, no set +e)', () => {
+    const lines = String(step.run).split('\n').map((l) => l.trim()).filter(Boolean);
+    expect(lines).toEqual([
+      'node scripts/check-automation-workflow-allowlist.mjs --self-test',
+      'node scripts/check-automation-workflow-allowlist.mjs --merge "$MERGE_SHA"',
+    ]);
+  });
+  it('cannot be masked: no continue-on-error, no custom shell, no job-level masking', () => {
+    expect(step).not.toHaveProperty('continue-on-error');
+    expect(step).not.toHaveProperty('shell');
+    expect(job).not.toHaveProperty('continue-on-error');
+    expect(job).not.toHaveProperty('if');
+  });
+  it('passes PR_AUTHOR, HEAD_REF and MERGE_SHA through env', () => {
+    expect(step.env).toEqual({
+      HEAD_REF: '${{ github.head_ref }}',
+      PR_AUTHOR: '${{ github.event.pull_request.user.login }}',
+      MERGE_SHA: '${{ github.sha }}',
+    });
+  });
+  it('has exactly the expected if:', () => {
+    expect(step.if).toBe("github.event_name == 'pull_request' && steps.changes.outputs.docs_only != 'true'");
+  });
+  it('its if: cannot skip when workflow files change (docs-only step runs first and vetoes .github/)', () => {
+    expect(changesIdx).toBeGreaterThanOrEqual(0);
+    expect(changesIdx).toBeLessThan(idx);
+    expect(String(steps[changesIdx].run)).toContain('scripts/ci/docs-only.mjs --merge');
+    expect(steps[changesIdx]).not.toHaveProperty('if');
+    for (const p of ['.github/workflows/workflow-lint.yml', '.GitHub/Workflows/x.yml', '.github/workflows/README.md']) {
+      expect(isDocsOnly([p, 'docs/a.md'])).toBe(false);
+    }
+  });
+  it('runs on pull_request', () => {
+    expect(doc.on).toHaveProperty('pull_request');
   });
 });

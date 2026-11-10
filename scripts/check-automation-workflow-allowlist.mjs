@@ -11,9 +11,9 @@
  *
  *   scripts/data/automation-workflow-allowlist.json
  *
- * a JSON array of bare workflow file names (e.g. "autopilot.yml"). It ships
- * EMPTY, so nothing is allowed until the owner adds a name, and only the owner
- * may change it (owner Approve at head; docs/ci-guard-notes.md).
+ * a JSON array of bare workflow file names (e.g. "autopilot.yml"). It is
+ * owner-curated; currently `workflow-lint.yml`. Only listed names are allowed, and
+ * only the owner may change it (owner Approve at head; docs/ci-guard-notes.md).
  *
  * A LOOP PR is one whose head branch is a worker branch (claude/ or ccr-) OR whose
  * author is exactly BOT_LOGIN (kiki-claude-bot, imported from scripts/lib/autopilot.mjs;
