@@ -23,17 +23,23 @@ describe('fetchRaffleBoard', () => {
 });
 
 describe('flag-off guard', () => {
-  it('no existing screen imports the hook yet', () => {
+  // R3b-2: the tile and /raffles are the only consumers, each behind flags.raffleV2.
+  const CONSUMERS = [
+    'src/modules/event-page/bento/blocks/RaffleBlock.tsx',
+    'src/pages/Raffles.tsx',
+  ];
+  it('only the flag-gated raffle screens import the hook', () => {
     const hits: string[] = [];
     const walk = (d: string) => {
       for (const f of readdirSync(d)) {
         const p = join(d, f);
         if (statSync(p).isDirectory()) { if (f !== '__tests__') walk(p); continue; }
         if (/\.(ts|tsx)$/.test(f) && !p.endsWith('hooks/useRaffleBoard.ts') &&
-            /useRaffleBoard/.test(readFileSync(p, 'utf8'))) hits.push(p);
+            /useRaffleBoard/.test(readFileSync(p, 'utf8'))) hits.push(p.split('\\').join('/'));
       }
     };
     walk('src');
-    expect(hits).toEqual([]);
+    expect(hits.sort()).toEqual([...CONSUMERS].sort());
+    for (const f of CONSUMERS) expect(readFileSync(f, 'utf8')).toMatch(/flags\.raffleV2/);
   });
 });

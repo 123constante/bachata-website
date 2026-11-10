@@ -190,7 +190,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // also fetches this internally, but keeping it here is the single source of
   // truth for grid layout.
   const raffleSessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
-  const { config: raffleConfig } = useEventRaffleConfig(eventId ?? null, raffleSessionId);
+  const { config: raffleConfig } = useEventRaffleConfig(flags.raffleV2 ? null : (eventId ?? null), raffleSessionId);
 
   // Mount-time 3s-delay view recording. Arc 15: forward occurrenceId so analytics
   // can bucket views by occurrence, not just by event.
@@ -385,7 +385,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // shimmer); once the answer arrives, an absent or disabled raffle hides
     // the tile so no empty cell or "Prize pool unlocking soon" placeholder
     // appears in the grid.
-    if (raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
+    // Raffle v2: the tile never hides on a missing config (the board decides its copy).
+    if (!flags.raffleV2 && raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
 
     // Raffle also hides on a cancelled occurrence — a cancelled date must not
     // advertise a prize draw or show a past winner (raffle audit #1).
