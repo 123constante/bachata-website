@@ -245,6 +245,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
             maxLength={500}
             rows={3}
             onChange={(e) => setNote(e.target.value)}
+            aria-describedby={noteTooShort ? `${ids}-note-required` : undefined}
             placeholder="I run the Tuesday classes with Ana"
             className={`${FIELD_CLASS} min-h-[88px] py-[12px]`}
             data-testid="onboarding-request-note"

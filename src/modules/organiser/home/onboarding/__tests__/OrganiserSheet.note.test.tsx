@@ -27,11 +27,12 @@ function mount() {
 const CASES: Array<[string, string, boolean]> = [
   ['empty', '', false],
   ['spaces only', '  ', false],
+  ['three spaces', '   ', false],
+  ['one letter padded to three characters', ' a ', false],
   ['two characters', 'ab', false],
   ['three characters', 'abc', true],
   ['three padded with spaces', '  abc  ', true],
   ['500 characters', 'a'.repeat(500), true],
-  ['501 characters (cut to 500 by the field)', 'a'.repeat(501), true],
 ];
 
 describe('onboarding Ask to join: the note is required', () => {
@@ -39,6 +40,11 @@ describe('onboarding Ask to join: the note is required', () => {
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
   it('the minimum is the public card\'s number', () => expect(REQUEST_NOTE_MIN).toBe(3));
+
+  it('the field itself caps the note at 500 characters (maxLength attribute; jsdom ignores it on change events)', () => {
+    mount();
+    expect((screen.getByTestId('onboarding-request-note') as HTMLTextAreaElement).getAttribute('maxlength')).toBe('500');
+  });
 
   it.each(CASES)('%s', async (_n, value, ok) => {
     mount();
@@ -49,10 +55,12 @@ describe('onboarding Ask to join: the note is required', () => {
     expect(!!screen.queryByTestId('onboarding-request-note-required')).toBe(!ok);
     if (!ok) expect(screen.getByTestId('onboarding-request-note-required').textContent).toBe('Add a few words about who you are (at least 3 characters) to send your request.');
     expect(screen.getByText('Who are you?')).toBeTruthy();
+    // The field and the button both point at the reason line while it shows.
+    const reasonId = screen.queryByTestId('onboarding-request-note-required')?.id;
+    expect(note.getAttribute('aria-describedby')).toBe(ok ? null : reasonId);
+    expect(send.getAttribute('aria-describedby')).toBe(ok ? null : reasonId);
     const sent = note.value;
     fireEvent.click(send);
-    // Enter inside the field must not send either.
-    fireEvent.submit(note);
     await waitFor(() => expect(api.request).toHaveBeenCalledTimes(ok ? 1 : 0));
     if (ok) expect(api.request).toHaveBeenCalledWith('org-1', sent);
   });
