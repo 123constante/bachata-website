@@ -11,7 +11,7 @@ import {
   partialRefundDone,
   refundAmount,
   penceOf,
-  reasonMessage,
+  refundReasonMessage,
   refundAmountError,
   refundMaybeSent,
   refundPartQuestion,
@@ -118,7 +118,7 @@ export function RefundSheet({
       const done = partialRefundDone(sent, left, out.value?.clearsBalance ?? false);
       return alive.current ? onDone(done) : onLate(`${whose}: ${done}`, true);
     }
-    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : reasonMessage(out.reason);
+    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : refundReasonMessage(out.reason);
     if (!alive.current) return onLate(`Refund for ${whose} did not start. ${text}`, false);
     setBusy(false);
     setNote(text);

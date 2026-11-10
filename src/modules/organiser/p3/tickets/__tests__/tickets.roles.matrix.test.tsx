@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
-import { COUNTS_ONLY_NOTE, NOT_OWNER_REFUND, buyerFirstAndCode } from '../../../tickets/ticketModel';
+import { COUNTS_ONLY_NOTE, NOT_MANAGER_REFUND, NOT_OWNER_REFUND, buyerFirstAndCode } from '../../../tickets/ticketModel';
 import { SHAPES, order, type Shape } from './fixtures';
-import { dataMock, load, show } from './harness';
+import { dataMock, load, q, show } from './harness';
 
 /*
  * Organiser area v2 slice 2 (contract 6.4, PQ1, Q15): Tickets by role. Owner: amounts, Refund.
  * Manager: counts only, no Refund, "Ask the owner" on a refundable row. Legacy contributor row (A1):
  * no Refund, no amounts. Cells ORG-6.4-r01, r02, r06, r07 at the screen layer.
+ * Fix round 1 (review 1520-r1 F1): the harness hands a non-owner the counts-only read (parseOrderRow of
+ * a row with no pence column), so these cells run on the payload the screen really gets.
  * The pound sign is matched by escape (£), never pasted.
  */
 
@@ -67,6 +69,12 @@ describe.each([
       const ask = within(row(o.id)).queryByTestId('tix-refund-ask-owner');
       expect(ask?.textContent ?? null).toBe(role === 'manager' && o.status === 'paid' ? NOT_OWNER_REFUND : null);
     }
+    // The legacy row's once-per-list note: a contributor only, and only with a paid order shown.
+    expect(screen.queryByTestId('tix-refund-reason')?.textContent ?? null).toBe(role === 'contributor' ? NOT_MANAGER_REFUND : null);
+  });
+  it(`orders and summary reads ${owner ? 'ask for' : 'never ask for'} money (r02, F3)`, () => {
+    expect(q.ordersMoney).toBe(owner);
+    expect(q.summaryMoney).toBe(owner);
   });
   it(`sales report ${owner ? 'shows' : 'hides'} money and the download (r01, r02)`, async () => {
     await screen.findByTestId('tix-report');

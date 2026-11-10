@@ -59,7 +59,6 @@ export const NOT_MANAGER = 'Only an owner or manager of this page can change tic
 export const NOT_MANAGER_REFUND = 'Ask the owner to refund an order.';
 /** GetPaid for anyone but the owner: no Connect action, no amounts. */
 export const PAYOUTS_ASK_OWNER = 'Ask the owner to set up payouts.';
-export const NOT_MANAGER_STRIPE = PAYOUTS_ASK_OWNER;
 
 // ---- Owner-only money (organiser area v2 slice 2: PQ1, Q15) -------------------------
 // A manager (and a legacy contributor row, A1) sees ticket COUNTS: no amount on any line,
@@ -586,19 +585,27 @@ export const refundBlock = (role: MemberRole | null | undefined): string | null 
 export const refundAmount = (o: Pick<Order, 'totalPence' | 'refundedPence'>): number => Math.max(0, o.totalPence - o.refundedPence);
 /** A paid order with money left to give back (a free order, or one already refunded in full, has none). */
 export const refundable = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean => o.status === 'paid' && refundAmount(o) > 0;
+/**
+ * The ask-the-owner gate (review 1520-r1 F1): a non-owner's orders read carries no pence, so every amount
+ * parses to 0 and `refundable` is always false there. The status is the one fact that read has.
+ */
+export const refundableByStatus = (o: Pick<Order, 'status'>): boolean => o.status === 'paid';
 
 /** The buyer's name as every screen shows it; the order row may not carry one. */
 export const buyerNameOf = (o: Pick<Order, 'buyerName'>): string => o.buyerName?.trim() || 'Buyer';
 
-/** The order's short code: the first 4 characters of its id, upper case (never an email, never a Stripe id). */
-export const orderShortCode = (o: Pick<Order, 'id'>): string => o.id.replace(/[^0-9a-z]/gi, '').slice(0, 4).toUpperCase();
 /**
- * The ONE buyer label (Q14, A2): first name plus the order's short code, e.g. "Ana \u00B7 3F2A".
+ * The ONE order code (review 1520-r1 F4): the first 8 letters or digits of the order id, upper case, never
+ * an email or a Stripe id. The orders list, the Refund sheet, its toast and the guest-list CSV all read it.
+ */
+export const shortRef = (id: string): string => id.replace(/[^0-9a-z]/gi, '').slice(0, 8).toUpperCase();
+/**
+ * The ONE buyer label (Q14, A2): first name plus the order's code, e.g. "Ana \u00B7 3F2A9C1E".
  * The orders list and the Refund sheet both read it; a full name is never shown to organisers.
  */
 export const buyerFirstAndCode = (o: Pick<Order, 'buyerName' | 'id'>): string => {
   const first = o.buyerName?.trim().split(/\s+/)[0] || 'Buyer';
-  const code = orderShortCode(o);
+  const code = shortRef(o.id);
   return code ? `${first} \u00B7 ${code}` : first;
 };
 
@@ -735,6 +742,12 @@ const REASON: Record<string, string> = {
 
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';
+/**
+ * A ticket-refund reply (review 1520-r1 F7). Refunds are the owner's alone (PQ1), so a `not_authorised`
+ * here (e.g. an owner whose seat went mid-session) says to ask the owner, never "owner or manager".
+ */
+export const refundReasonMessage = (reason: string | null | undefined): string =>
+  reason === 'not_authorised' ? NOT_OWNER_REFUND : reasonMessage(reason);
 
 // ---- Compact screens (S3b, owner picked mockup B; docs/design/1060.md) ---------------
 

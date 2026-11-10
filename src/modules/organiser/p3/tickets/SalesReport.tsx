@@ -15,7 +15,7 @@ export function SalesReport({
   types,
   orders,
   today,
-  money = true,
+  money,
 }: {
   seriesId: string;
   eventName: string;
@@ -23,7 +23,7 @@ export function SalesReport({
   orders: readonly Order[];
   today: string;
   /** Slice 2 (PQ1): false for anyone but the owner. Counts stay; every amount and the download (refunded pence) go. */
-  money?: boolean;
+  money: boolean;
 }) {
   const { user } = useAuth();
   const door = useQuery({

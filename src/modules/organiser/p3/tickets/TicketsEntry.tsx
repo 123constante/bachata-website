@@ -29,6 +29,7 @@ import {
   priceLabel,
   reasonMessage,
   refundable,
+  refundableByStatus,
   withPendingRefund,
   type PendingRefund,
   switchMove,
@@ -158,7 +159,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   // Slice 2 (T4 / Q16, X5): Going taps of a free event, and the event's own ticket link. Counts and words only.
   const goingNights = useSeriesGoing(series.id, open);
   const ticketLink = useSeriesTicketLink(series.id);
-  const summary = useSummary(org.id);
+  // Review 1520-r1 F3: a non-owner's summary parse keeps no pence (only ticketsSold is read for them).
+  const summary = useSummary(org.id, canRefund(org.role));
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
   const onboard = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
@@ -294,10 +296,12 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               <div className="p3-row-tags">
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
               </div>
+              {/* Review 1520-r1 F1: a manager's read has no pence, so status alone gates the note; F5: under
+                  the tags, inside the buyer column, never a second column beside it at 390. */}
+              {manager && !owner && refundableByStatus(o) && (
+                <p className="p3-note" data-testid="tix-refund-ask-owner">{NOT_OWNER_REFUND}</p>
+              )}
             </div>
-            {manager && !owner && refundable(o) && (
-              <p className="p3-note" data-testid="tix-refund-ask-owner">{NOT_OWNER_REFUND}</p>
-            )}
             {owner && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
               <button
                 type="button"
@@ -331,7 +335,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     const more = seeAllLabel(shown.length);
     return (
       <>
-        {!manager && shown.some(refundable) && <p className="p3-note p3-pad-y" data-testid="tix-refund-reason">{NOT_MANAGER_REFUND}</p>}
+        {!manager && shown.some(refundableByStatus) && <p className="p3-note p3-pad-y" data-testid="tix-refund-reason">{NOT_MANAGER_REFUND}</p>}
         {!owner && <p className="p3-note p3-pad-y" data-testid="tix-counts-only">{COUNTS_ONLY_NOTE}</p>}
         {orderRows(all ? shown : shown.slice(0, PREVIEW_ORDERS))}
         {!all && more && (

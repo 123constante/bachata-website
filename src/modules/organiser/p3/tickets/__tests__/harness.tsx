@@ -4,7 +4,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { cloneElement, isValidElement, type ReactNode } from 'react';
 import { STRIPE, home, org, series, type Shape } from './fixtures';
-import { stripeStateOf } from '../../../tickets/ticketModel';
+import { stripeStateOf, type Order, type TypeSales } from '../../../tickets/ticketModel';
+import { parseOrderRow } from '../../../tickets/ticketsApi';
+
+/**
+ * Fix round 1 (review 1520-r1 F1): the read a non-owner really makes. ORDER_SELECT_COUNTS carries no
+ * pence column, so the row the screen gets is parseOrderRow of a count-shaped row: every pence field 0.
+ */
+export const countsOnlyOrder = (o: Order): Order =>
+  parseOrderRow({ id: o.id, ticket_type_id: o.typeId, buyer_name: o.buyerName, quantity: o.quantity, status: o.status, paid_at: o.paidAt });
+/** The summary a non-owner's parse keeps (F3): every `*Pence` field 0, counts untouched. */
+export const countsOnlySales = (t: TypeSales): TypeSales =>
+  Object.fromEntries(Object.entries(t).map(([k, v]) => [k, /Pence$/.test(k) ? 0 : v])) as unknown as TypeSales;
 
 /** Query results as the screens read them. */
 export const ok = <T,>(data: T) => ({ isPending: false, isError: false, isSuccess: true, data, error: null, fetchStatus: 'idle', refetch: vi.fn() });
@@ -23,9 +34,11 @@ export interface Q {
   ticketLink: string | null;
   /** The money flag the screen passed to useSeriesOrders on its last render. */
   ordersMoney: boolean | null;
+  /** The money flag the screen passed to useSummary on its last render (undefined = not passed). */
+  summaryMoney: boolean | null | undefined;
 }
 
-export const q: Q = { home: null, types: null, orders: null, summary: null, stripe: null, onboard: { go: async () => {}, busy: false, note: null, switchedOff: false }, going: null, ticketLink: null, ordersMoney: null };
+export const q: Q = { home: null, types: null, orders: null, summary: null, stripe: null, onboard: { go: async () => {}, busy: false, note: null, switchedOff: false }, going: null, ticketLink: null, ordersMoney: null, summaryMoney: null };
 
 export function load(s: Shape) {
   const o = org({ role: s.role as 'owner' }, series({ lifecycle_status: s.lifecycle }));
@@ -38,7 +51,10 @@ export function load(s: Shape) {
   q.going = null;
   q.ticketLink = null;
   q.ordersMoney = null;
+  q.summaryMoney = null;
 }
+
+type Res<T> = { isSuccess?: boolean; data?: T };
 
 export const dataMock = async (orig: () => Promise<typeof import('../data')>) => ({
   ...(await orig()),
@@ -46,11 +62,20 @@ export const dataMock = async (orig: () => Promise<typeof import('../data')>) =>
   useSeriesTypes: () => q.types,
   useSeriesOrders: (_o: unknown, _s: unknown, _ids: unknown, _on: unknown, money?: boolean) => {
     q.ordersMoney = money ?? true;
+    // Review 1520-r1 F1: a counts read returns what the server would, never the owner's payload.
+    const r = q.orders as Res<Order[]>;
+    if (money === false && r?.isSuccess && Array.isArray(r.data)) return { ...r, data: r.data.map(countsOnlyOrder) };
     return q.orders;
   },
   useSeriesGoing: () => q.going,
   useSeriesTicketLink: () => q.ticketLink,
-  useSummary: () => q.summary,
+  useSummary: (_o: unknown, ...rest: unknown[]) => {
+    const money = rest[0] as boolean | undefined;
+    q.summaryMoney = money;
+    const r = q.summary as Res<{ ok: boolean; types: TypeSales[] }>;
+    if (money === false && r?.isSuccess && r.data?.ok) return { ...r, data: { ...r.data, types: r.data.types.map(countsOnlySales) } };
+    return q.summary;
+  },
   useStripe: () => q.stripe,
   useStartOnboarding: () => q.onboard,
 });

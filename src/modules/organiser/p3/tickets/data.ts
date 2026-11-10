@@ -50,10 +50,11 @@ export function useStripe(organiserId: string | undefined) {
   return { query: q, state };
 }
 
-export function useSummary(organiserId: string | undefined) {
+/** `money` is required (review 1520-r1 F3): only the owner's summary keeps pence, under its own key. */
+export function useSummary(organiserId: string | undefined, money: boolean) {
   return useQuery({
-    queryKey: ticketKeys.summary(organiserId),
-    queryFn: () => fetchSalesSummary(organiserId as string),
+    queryKey: [...ticketKeys.summary(organiserId), money ? 'money' : 'counts'],
+    queryFn: () => fetchSalesSummary(organiserId as string, { money }),
     enabled: !!organiserId,
     staleTime: 30_000,
   });

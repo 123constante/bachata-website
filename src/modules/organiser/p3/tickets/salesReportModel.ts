@@ -1,4 +1,4 @@
-import { SHOWN_ORDER, orderTag, type Order, type TicketType } from '../../tickets/ticketModel';
+import { SHOWN_ORDER, orderTag, shortRef, type Order, type TicketType } from '../../tickets/ticketModel';
 
 /*
  * The sales report's pure model: totals per ticket type and the guest-list CSV. No email and no
@@ -115,8 +115,8 @@ export const csvCell = (v: string | number): string => {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-/** The short reference an organiser can say aloud: the first 8 characters of the order id. */
-export const shortRef = (id: string): string => id.replace(/-/g, '').slice(0, 8).toUpperCase();
+/** The short reference an organiser can say aloud: the ONE order code (ticketModel, review 1520-r1 F4). */
+export { shortRef };
 
 export function guestListCsv(types: readonly Pick<TicketType, 'id' | 'name'>[], orders: readonly Order[]): { csv: string; rows: number } {
   const typeName = new Map(types.map((t) => [t.id, t.name]));

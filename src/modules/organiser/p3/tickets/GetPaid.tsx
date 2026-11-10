@@ -123,7 +123,8 @@ export function GetPaidScreen() {
 
 function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refresh' | null }) {
   const { query, state } = useStripe(org.id);
-  const summary = useSummary(org.id);
+  // Review 1520-r1 F3: only the owner's summary keeps pence once parsed.
+  const summary = useSummary(org.id, isOwner(org.role));
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
   const manager = canManage(org.role);
   useConnectReturn(back === 'return' && manager, state === 'connected', () => query.refetch());
@@ -270,7 +271,9 @@ function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: PromptState }) {
 export function TicketsSoldTile() {
   const home = useP3Home();
   const org = payingOrganiser(home.data, null);
-  const summary = useSummary(org?.id);
+  // Slice 2 (PQ1): the amount is the owner's. A manager's tile is the count alone (its summary keeps no pence).
+  const money = isOwner(org?.role);
+  const summary = useSummary(org?.id, money);
   const types = summary.data?.ok ? summary.data.types : null;
   if (!org || !types) return null;
   const t = totalsOf(types);
@@ -278,7 +281,7 @@ export function TicketsSoldTile() {
   return (
     <Link to={P3_TICKET_PATHS.getPaid(org.id)} className="p3-card p3-stat p3-tap" data-testid="tix-sold-tile">
       <span className="p3-stat-n">{formatCount(t.ticketsSold)}</span>
-      <span className="p3-stat-l">Tickets sold &middot; {formatPence(t.grossPence)}</span>
+      <span className="p3-stat-l">Tickets sold{money && <> &middot; {formatPence(t.grossPence)}</>}</span>
     </Link>
   );
 }

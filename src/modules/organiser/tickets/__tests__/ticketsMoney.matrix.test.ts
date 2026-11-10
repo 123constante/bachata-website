@@ -69,7 +69,8 @@ describe('buyer label (r06, Q14): first name plus short code, one mapping', () =
     ['', 'Buyer'],
   ])('%j shows as first name %s and the code', (name, first) => {
     const label = buyerFirstAndCode(order({ buyerName: name }));
-    expect(label).toBe(`${first} · 3F2A`);
+    // One order code, 8 characters (review 1520-r1 F4).
+    expect(label).toBe(`${first} \u00B7 3F2A9C10`);
     expect(label).not.toMatch(/@/);
     expect(label).not.toMatch(/Lopez|Maria/);
   });
