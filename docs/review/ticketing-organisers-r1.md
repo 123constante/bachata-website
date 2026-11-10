@@ -108,4 +108,4 @@ Findings: 3 HIGH, 5 MEDIUM, 3 LOW.
 - No mutant was actually run: the tests above are specified, not written (docs-only review).
 
 ## Handover
-Done: inventory + review, verdict HOLD. Left: the design author revises s.2/s.3/s.3b/s.5 for F1-F3 (must), F5 goes to the owner as a product question, F6-F8 go into the T1 brief. Next: r2 review of the revised design, with the admin repo attached so G-1/G-3 can be closed.
+Done: inventory + review, verdict HOLD (PR #1528, branch `claude/review-ticketing-organisers`). tsc run on the review commit: 0 errors (no TS files touched). Left: the design author revises s.2/s.3/s.3b/s.5 for F1-F3 (must), F5 goes to the owner as a product question, F6-F8 go into the T1 brief. Next: r2 review of the revised design, with the admin repo attached so G-1/G-3 can be closed.
