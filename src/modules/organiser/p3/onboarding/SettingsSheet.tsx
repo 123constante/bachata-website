@@ -1,10 +1,16 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { SIGN_OUT_FAILED, useSignOutToHome } from '@/components/account/profiles/signOutToHome';
+import { ACCOUNT_SETTINGS_LABEL, ACCOUNT_SETTINGS_PATH } from '@/lib/accountRouting';
+import { accountContactHref } from '@/lib/accountDeletionCopy';
 import { selfServeErrorCopy } from '../../shared/selfServeErrors';
 import { ObSheet } from './ObShell';
 import { REAL_PAGE_WRITES } from './pageApi';
 import { NAME_MAX } from './pageModel';
 import './page.css';
+
+/** X1: the area's one Account / Help / Sign out block. Help is the support mailbox (the one contact address). */
+export const X1_COPY = { heading: 'Account', help: 'Help', helpSubject: 'Help with my organiser page' } as const;
 
 export interface SettingsBodyProps {
   theme: 'light' | 'dark';
@@ -62,7 +68,15 @@ export function SettingsBody({ theme, setTheme, organiserId, pageName, rename, o
           </button>
         </div>
       )}
-      <div className="p3-ob-set-block">
+      {/* X1 (slice 1b): Account, Help and Sign out in ONE place for the area. */}
+      <div className="p3-ob-set-block" data-testid="p3-ob-account-block">
+        <p className="p3-ob-sect">{X1_COPY.heading}</p>
+        <Link to={ACCOUNT_SETTINGS_PATH} className="p3-ob-btn p3-ob-btn-line p3-ob-btn-sm" style={{ minHeight: 44 }} data-testid="p3-ob-account">
+          {ACCOUNT_SETTINGS_LABEL}
+        </Link>
+        <a href={accountContactHref(X1_COPY.helpSubject)} className="p3-ob-btn p3-ob-btn-line p3-ob-btn-sm" style={{ minHeight: 44 }} data-testid="p3-ob-help">
+          {X1_COPY.help}
+        </a>
         {outErr && <p className="p3-ob-err" role="alert">{outErr}</p>}
         <button type="button" className="p3-ob-btn p3-ob-btn-line p3-ob-btn-sm" aria-disabled={leaving ? 'true' : undefined}
           onClick={async () => { setOutErr(null); if ((await signOutToHome()) === 'failed') setOutErr(SIGN_OUT_FAILED); }} data-testid="p3-ob-signout">

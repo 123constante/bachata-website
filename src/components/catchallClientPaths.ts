@@ -58,6 +58,7 @@ export const CATCHALL_CLIENT_PATHS: readonly string[] = [
   '/admin/organisers/front-door',
   '/invite',
   '/invite/:token',
+  '/join/a/:code',
   '/auth',
   '/auth/callback',
   '/finish-profile',

@@ -5,8 +5,13 @@ import {
   refundAmountError,
   refundPartQuestion,
   MOVE_LABEL,
+  PAUSED_NOTE,
+  PRICE_LOCKED_TEXT,
+  switchMove,
+  SWITCH_LABEL,
   NEXT_STATUS,
   NOT_MANAGER,
+  PAYMENTS_WHERE,
   NOT_SWITCHED_ON,
   STATUS_LABEL,
   STATUS_TONE,
@@ -77,7 +82,7 @@ describe('status machine mirrors the server', () => {
 });
 
 const ROLES = ['owner', 'manager', 'contributor'] as const;
-const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'connected', 'unknown'];
+const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'waiting', 'connected', 'unknown'];
 
 describe('moveBlock: every status x role x Stripe x free/paid x room left x series live', () => {
   for (const from of TICKET_STATUSES)
@@ -95,7 +100,7 @@ describe('moveBlock: every status x role x Stripe x free/paid x room left x seri
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
                 if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
-                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(/Connect payments/);
+                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : /Connect payments/);
                 expect(got).toBeNull();
               });
             }
@@ -120,10 +125,10 @@ describe('roles (Q15)', () => {
 });
 
 describe('Get paid', () => {
-  it('reads organiser_stripe_accounts as none / started / connected', () => {
+  it('reads organiser_stripe_accounts as none / started / waiting / connected', () => {
     expect(stripeStateOf(null)).toBe('none');
     expect(stripeStateOf({ charges_enabled: false, details_submitted: false })).toBe('started');
-    expect(stripeStateOf({ charges_enabled: false, details_submitted: true })).toBe('started');
+    expect(stripeStateOf({ charges_enabled: false, details_submitted: true })).toBe('waiting');
     expect(stripeStateOf({ charges_enabled: true })).toBe('connected');
   });
   it.each([
@@ -340,5 +345,66 @@ describe('refund refusal words (the server reasons of ticket-refund)', () => {
   });
   it('refund_exceeds_balance says an earlier refund may still be settling', () => {
     expect(reasonMessage('refund_exceeds_balance')).toMatch(/earlier refund.*settling.*wait a minute/i);
+  });
+});
+
+// ---- S1: "pause this price, add a new one" -- every status x every journey -----------------
+
+type Journey = 'pause with sales' | 'pause without sales' | 'resume' | 'edit price after a sale' | 'add replacement' | 'owner not connected to payments';
+const JOURNEYS: Journey[] = ['pause with sales', 'pause without sales', 'resume', 'edit price after a sale', 'add replacement', 'owner not connected to payments'];
+const CTX = { role: 'owner', seriesLive: true, stripe: 'connected' } as const;
+
+/** What the organiser sees for one journey on one status: the switch move, whether it is enabled, and the words. */
+const SEES = (status: TicketStatus, journey: Journey) => {
+  const sold = journey === 'pause with sales' || journey === 'edit price after a sale' ? 3 : 0;
+  const t = type({ status, reserved: sold, pricePence: 1250 });
+  const to = switchMove(status);
+  const ctx = journey === 'owner not connected to payments' ? { ...CTX, stripe: 'none' as const } : CTX;
+  return {
+    to,
+    block: to ? moveBlock(t, to, ctx) : null,
+    priceHelp: priceLock(sold > 0),
+    pausedNote: status === 'paused' ? PAUSED_NOTE : null,
+    label: SWITCH_LABEL[status],
+  };
+};
+
+describe('S1 status x journey', () => {
+  for (const status of TICKET_STATUSES) {
+    for (const journey of JOURNEYS) {
+      it(`${status} / ${journey}`, () => {
+        const s = SEES(status, journey);
+        // Pause and resume are one tap wherever the server allows the move; closed has no switch.
+        if (status === 'closed') expect(s.to).toBeNull();
+        else expect(s.to === null ? [] : NEXT_STATUS[status]).toContain(s.to === 'on_sale' ? 'on_sale' : s.to);
+        if (status === 'on_sale') expect(s.to).toBe('paused');
+        // Pausing is never blocked (even with sales, even without payments).
+        if (status === 'on_sale') expect(s.block).toBeNull();
+        // Resuming a free-of-payments-problem ticket is enabled; an unconnected paid owner is told why.
+        if (status === 'paused' && journey === 'owner not connected to payments') expect(s.block).toBe(PAYMENTS_WHERE);
+        if (status === 'paused' && journey !== 'owner not connected to payments') expect(s.block).toBeNull();
+        // A disabled switch always states why.
+        if (s.to && s.block) expect(s.block.length).toBeGreaterThan(10);
+        // The locked-price text appears exactly when tickets were sold, and says what to do instead.
+        if (journey === 'pause with sales' || journey === 'edit price after a sale') {
+          expect(s.priceHelp).toBe(PRICE_LOCKED_TEXT);
+          expect(s.priceHelp).toMatch(/pause this ticket and add a new one/);
+        } else expect(s.priceHelp).toBeNull();
+        // Paused tickets say what it means for buyers and for people who already bought.
+        expect(s.pausedNote).toBe(status === 'paused' ? 'Not on sale. People who already bought keep their tickets.' : null);
+      });
+    }
+  }
+  it('the server refusal for a locked price reads the same words as the sheet', () => {
+    expect(reasonMessage('has_orders')).toBe(PRICE_LOCKED_TEXT);
+    expect(priceLock(true)).toBe(reasonMessage('has_orders'));
+  });
+  it('no text points at a control that is not there (only Add a ticket and pause are named)', () => {
+    expect(PRICE_LOCKED_TEXT).not.toMatch(/Selling switch|Edit|Refund|Orders/);
+    expect(PAUSED_NOTE).not.toMatch(/Add a ticket|switch|tap/i);
+  });
+  it('an untouched save sends nothing', () => {
+    const t = type({ status: 'paused', reserved: 3 });
+    expect(buildUpsert(formOf(t), t, { organiserId: 'o1', seriesId: 's1' })).toBeNull();
   });
 });

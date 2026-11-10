@@ -121,6 +121,7 @@
   font: inherit; font-size: var(--fs-body); font-weight: 600; cursor: pointer;
 }
 .p3-theme .p3-btn-line { background: transparent; color: var(--fg); border: 1px solid var(--line-strong); }
+.p3-theme .p3-btn-line:disabled { background: transparent; color: var(--mut); border: 1px dashed var(--line-strong); cursor: default; opacity: 0.8; }
 .p3-theme .p3-link:focus-visible, .p3-theme .p3-btn:focus-visible, .p3-theme .p3-tap:focus-visible, .p3-theme .p3-seg button:focus-visible {
   outline: 2px solid var(--gold-fg); outline-offset: 2px;
 }
@@ -372,3 +373,7 @@
 /* the missing items are words, not taps: compact rows, so ten (the prod maximum) fit above the sticky buttons */
 .p3-theme .p3-gate-row { padding: 6px 0; font-size: var(--fs-small); font-weight: 600; color: var(--fg); overflow-wrap: anywhere; }
 .p3-theme .p3-gate-row + .p3-gate-row { border-top: 1px solid var(--line); }
+.p3-theme .p3-image-broken { box-sizing: border-box; min-height: 44px; max-width: 100%; display: flex; align-items: center; justify-content: center; padding: 8px; text-align: center; font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; color: var(--fg); background: var(--card2); border-radius: var(--r-date); }
+.p3-theme .p3-photo:has(> .p3-image-broken) { aspect-ratio: auto; }
+.p3-theme .p3-photo .p3-image-broken { width: 100%; height: auto; min-height: 96px; padding: 40px 8px 8px; }
+.p3-theme .p3-cover.p3-image-broken { aspect-ratio: auto; min-height: 64px; }

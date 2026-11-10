@@ -9,10 +9,10 @@ import { uploadToR2 } from '@/lib/uploadToR2';
 import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { supportLinks } from '../../shared/support';
 import { selfServeErrorCode, selfServeErrorCopy } from '../../shared/selfServeErrors';
-import { declinedRequests } from '../../shared/accessRequestModel';
-import { myAccessRequestsQueryKey, type ClaimableOrganiser } from '../../shared/selfServeApi';
+import { askAgainFrom, declinedRequests } from '../../shared/accessRequestModel';
+import { myAccessRequestsQueryKey, FIND_LIMIT, type ClaimableOrganiser } from '../../shared/selfServeApi';
 import { claimScreen, hintRowText } from '../../home/onboarding/claimStates';
-import { askedLine, DECLINED_NEXT, declinedLine, waitingRowText } from '../../home/onboarding/onboardingModel';
+import { askedLine, declinedLine, declinedNextLine, waitingRowText } from '../../home/onboarding/onboardingModel';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS, p3StartReview } from '../shell/paths';
 import { ObSheet, ObShell, ObToast } from './ObShell';
@@ -32,6 +32,8 @@ import {
   FIND_INVITE_NOTE,
   afterContact,
   contactEntry,
+  pageRowPath,
+  pageRowExit,
   draftFrom,
   e164Of,
   flowPercent,
@@ -77,7 +79,8 @@ const isPageStep = (s: string): s is PageStep => PAGE_STEPS.includes(s);
 const DETAIL_STEPS: readonly PageStep[] = ['contact', 'contact-phone', 'whatsapp', 'cat', 'link', 'logo'];
 
 type Stage =
-  | { kind: 'page'; step: PageStep }
+  /** `review`: the step was opened from a Review row; it exits back to Review after its save (`entry` = the row's first step, `percent` = the bar Review showed). */
+  | { kind: 'page'; step: PageStep; review?: { percent: number; entry: PageStep } }
   | { kind: 'person'; step: PersonStep; review?: { percent: number } }
   | { kind: 'review' }
   | { kind: 'live'; outcome: GoLiveOutcome }
@@ -307,8 +310,12 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
           go({ kind: 'person', step: last[last.length - 1] }, 'back');
         }}
         onRow={(r) => {
-          if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step, review: { percent: reviewPercent(groups(personPath(teach, true)).length, rs.missing.length) } });
-          else if (r.step && isPageStep(r.step)) go({ kind: 'page', step: r.step === 'contact' && held ? contactEntry(held) : r.step });
+          const percent = reviewPercent(groups(personPath(teach, true)).length, rs.missing.length);
+          if (r.step && isPersonStep(r.step)) go({ kind: 'person', step: r.step, review: { percent } });
+          else if (r.step && isPageStep(r.step)) {
+            const entry = r.step === 'contact' && held ? contactEntry(held) : r.step;
+            go({ kind: 'page', step: entry, review: pageRowPath(entry).length ? { percent, entry } : undefined });
+          }
           else if (r.elsewhere === 'page') navigate(P3_PATHS.youPage);
           else if (r.elsewhere === 'app') navigate(appEditHref('instagram', p3StartReview(orgId)));
           else if (r.elsewhere === 'dancer') navigate(finishProfileHref(p3StartReview(orgId)));
@@ -377,12 +384,18 @@ export default function OnboardingFlow({ reads = REAL_PAGE_READS, writes = REAL_
       setDraft={(f) => setD((p) => f(p ?? draftFrom(EMPTY_PAGE)))}
       setHeld={(h) => setHeld(h)}
       arrival={arrival}
-      percent={percentAt(step)}
+      percent={stage.kind === 'page' && stage.review ? stage.review.percent : percentAt(step)}
       reads={reads}
       writes={writes}
       upload={upload}
       userId={user.id}
-      onStep={(s, how) => go({ kind: 'page', step: s }, how)}
+      onStep={(s, how) => go({ kind: 'page', step: s, review: stage.kind === 'page' ? stage.review : undefined }, how)}
+      review={stage.kind === 'page' ? stage.review : undefined}
+      onReview={() => {
+        void qc.invalidateQueries({ queryKey: ['p3-ob'] });
+        void qc.invalidateQueries({ queryKey: ['p3-ob-status'] });
+        go({ kind: 'review' }, 'back');
+      }}
       onPerson={() => go({ kind: 'person', step: 'name' })}
       onExit={exit}
       onHome={exit}
@@ -433,6 +446,9 @@ interface PageScreensProps {
   upload?: (file: File) => Promise<string>;
   userId: string;
   onStep: (s: PageStep, how: 'fwd' | 'back') => void;
+  /** Set when this step came from a Review row (see Stage). */
+  review?: { percent: number; entry: PageStep };
+  onReview?: () => void;
   onPerson: () => void;
   onExit: () => void;
   onHome: () => void;
@@ -447,7 +463,7 @@ type PageSheet = { kind: 'claim'; page: ClaimableOrganiser } | { kind: 'settings
 
 /** Screens 1-9: one question each, one primary button, Back on every one. */
 export function PageScreens(props: PageScreensProps) {
-  const { step, dir, theme, setTheme, email, orgId, held, draft: d, setDraft, setHeld, arrival, percent, reads, writes, upload, userId, onStep, onPerson, onExit, onOrg, onAsked, onFinishProfile, onFullClaim, invalidate } = props;
+  const { step, dir, theme, setTheme, email, orgId, held, draft: d, setDraft, setHeld, arrival, percent, reads, writes, upload, userId, onStep, review, onReview, onPerson, onExit, onOrg, onAsked, onFinishProfile, onFullClaim, invalidate } = props;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ text: string; next?: 'finish_profile' | 'reauth' | 'find' } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -475,6 +491,7 @@ export function PageScreens(props: PageScreensProps) {
   const move = (to: PageStep | 'person' | 'exit', how: 'fwd' | 'back') => {
     setError(null);
     setSheet(null);
+    if (review && onReview && how === 'fwd' && to !== 'exit' && pageRowExit(review.entry, to) === 'review') return onReview();
     if (to === 'exit') return onExit();
     if (to === 'person') return onPerson();
     onStep(to, how);
@@ -493,7 +510,8 @@ export function PageScreens(props: PageScreensProps) {
       case 'logo': return 'link';
     }
   };
-  const back = () => move(prev(), 'back');
+  // From Review the row's first step goes straight back to Review; later steps of the same row (phone, WhatsApp) go back within it.
+  const back = () => (review && onReview && step === review.entry ? onReview() : move(prev(), 'back'));
   const escape = () => (sheet ? setSheet(null) : back());
   const celebrate = () => {
     if (prefersReducedMotion()) return;
@@ -616,7 +634,7 @@ export function PageScreens(props: PageScreensProps) {
         aria-describedby={reason ? 'p3-ob-why' : undefined}
         data-bounce={bounce ? 'true' : undefined}
         onClick={() => (step === 'find' ? move('create-name', 'fwd') : void continueStep())}
-        data-testid="p3-ob-continue"
+        data-testid={review ? 'p3-ob-page-row-return' : 'p3-ob-continue'}
       >
         {label}
       </button>
@@ -660,7 +678,7 @@ export function PageScreens(props: PageScreensProps) {
                   {r.decisionNote ? <> Their note: &ldquo;{r.decisionNote}&rdquo;</> : null}
                 </p>
               ))}
-              <p className="p3-ob-m" data-testid="p3-ob-declined-next">{DECLINED_NEXT}</p>
+              <p className="p3-ob-m" data-testid="p3-ob-declined-next">{declinedNextLine(askAgainFrom(declined[0].resolvedAt, declined[0].createdAt))}</p>
             </div>
           )}
         </>
@@ -789,13 +807,16 @@ function FindStep({ q, setQ, reads, askedAt, onPick }: { q: string; setQ: (v: st
           <p className="p3-ob-m" role="status">No page called &ldquo;{term}&rdquo;. Create one below.</p>
         ) : (
           <div role="list">
-            {res.data.map((p) => (
+            {res.data.slice(0, FIND_LIMIT).map((p) => (
               <button key={p.id} type="button" role="listitem" className="p3-ob-row" onClick={() => onPick(p)} data-testid={`p3-ob-find-${p.id}`}>
                 <span className="p3-ob-row-txt"><strong>{p.name}</strong><span>{askedAt.has(p.id) ? waitingRowText(askedAt.get(p.id) as string) : hintRowText(p.hint)}</span></span>
                 {CHEV}
               </button>
             ))}
           </div>
+        )}
+        {res.data && res.data.length > FIND_LIMIT && (
+          <p className="p3-ob-m text-sm" role="status" data-testid="p3-ob-find-more">Showing the first {FIND_LIMIT}. Type more of the name to narrow it.</p>
         )}
       </div>
     </>

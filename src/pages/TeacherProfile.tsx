@@ -24,7 +24,9 @@ import { flags } from '@/lib/featureFlags';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { resolvePublicName } from '@/lib/publicName';
+import { AmbassadorBadge } from '@/modules/ambassador/link/AmbassadorBadge';
 import { TeacherWorldLoading, TeacherWorldMissing, TeacherWorldPage } from '@/modules/person-page/worlds/teacher';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 type TeacherRow = {
   id: string;
@@ -326,6 +328,7 @@ const TeacherProfile = () => {
     >
       <div className="max-w-5xl mx-auto px-4 pb-24">
         <AlsoRoles current="teacher" id={id} slug={resolved.slug} className="pb-3" />
+        {embedded ? null : <AmbassadorBadge profileId={id} />}
         {/* ═══ Bento Grid ═══ */}
         <motion.div
           variants={containerVariants}
@@ -367,17 +370,17 @@ const TeacherProfile = () => {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {instagramUrl && (
-                  <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="bg-gradient-to-tr from-purple-600 to-pink-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+                  <a href={instagramUrl} target="_blank" rel={PUBLIC_LINK_REL} className="bg-gradient-to-tr from-purple-600 to-pink-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                     <Instagram className="w-5 h-5" />
                   </a>
                 )}
                 {teacher.facebook && normalizeUrl(teacher.facebook) && (
-                  <a href={normalizeUrl(teacher.facebook)!} target="_blank" rel="noopener noreferrer" className="bg-blue-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+                  <a href={normalizeUrl(teacher.facebook)!} target="_blank" rel={PUBLIC_LINK_REL} className="bg-blue-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                     <Facebook className="w-5 h-5" />
                   </a>
                 )}
                 {websiteUrl && (
-                  <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="bg-zinc-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+                  <a href={websiteUrl} target="_blank" rel={PUBLIC_LINK_REL} className="bg-zinc-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                     <Globe className="w-5 h-5" />
                   </a>
                 )}
@@ -518,7 +521,7 @@ const TeacherProfile = () => {
                 <a
                   href={instagramUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={PUBLIC_LINK_REL}
                   className="text-lg font-semibold text-foreground hover:text-primary transition-colors break-all"
                 >
                   {instagramHandle}
@@ -538,7 +541,7 @@ const TeacherProfile = () => {
                 <a
                   href={websiteUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={PUBLIC_LINK_REL}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary transition-colors break-all"
                 >
                   <ExternalLink className="w-4 h-4 shrink-0" />

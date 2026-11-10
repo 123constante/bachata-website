@@ -1,0 +1,6 @@
+# HANDOVER 4: event-tickets-page (continuation 3)
+DONE: bundle-budget fixed. Cause: EventTicketsPage (lazy) imported useOccurrenceProgram/useProgramItems from sections/EventScheduleGrid, which the event route also uses; a lazy-to-route-chunk edge made rollup split the event route into a 1.2 KB facade plus the real chunk (+1 first-load chunk). Fix: BentoPage passes the two hooks to EventTicketsPage as the `programHooks` prop; the lazy file only imports their types. Allowance NOT raised. Before: `chunk ratchet: event (/event/:id) -- 40, allowance 39` [OVER]. After: 39, allowance 39 [ok]. Main also 39.
+LEFT: walk evidence. tests/e2e/walk-event-tickets-page.spec.ts is written (3 shapes, 44px taps, no sideways scroll, screenshots) but NOT green: /event/:id is SSR and 404s under placeholder keys, and page.route cannot mock the server loader.
+NEXT: run it against a local mock Supabase server (point VITE_SUPABASE_URL at it) serving event_view_p5 (shape from OrganiserFake.dateDetail) and ticket_types_public_v1, or with real keys; attach screenshots to PR #1502. Update PR body (see Not verified below). No gh in this sandbox.
+tsc run on HEAD: 0 errors (npx tsc --noEmit -p .).
+Not verified: phone walk/screenshots, unit suite and other CI steps not run here.

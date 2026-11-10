@@ -7,6 +7,7 @@ import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
 import { FONT, WORLD } from '../tokens';
 import type { DjWorldView } from './model';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 const T = WORLD.dj;
 const VINYL = 196;
@@ -155,7 +156,7 @@ export function DjWorld({ view, photo, bio, dates, onRetry }: {
         <a
           href={view.book.href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={PUBLIC_LINK_REL}
           data-testid="dj-book"
           className={`flex items-center gap-3 rounded-[14px] px-3 py-2 ${FOCUS_RING}`}
           style={{ minHeight: TAP, ...SECTION }}

@@ -13,11 +13,16 @@ import type { ClaimHint } from './claimHint';
 
 export type OrganiserRole = 'owner' | 'manager' | 'contributor';
 
+/** The seat the caller holds (organiser_ownership_v1.seat_kind). 'interim' = helping run an ownerless page. */
+export type SeatKind = 'owner' | 'manager' | 'interim' | 'contributor';
+
 /** organiser_ownership_v1's result. No user id and no email ever comes back. */
 export interface OrganiserOwnership {
   is_managed: boolean;
   i_own_it: boolean;
   my_role: OrganiserRole | null;
+  /** null: signed out, no role, an older RPC without the key, or a value this build does not know. */
+  seat_kind: SeatKind | null;
 }
 
 /**
@@ -94,5 +99,10 @@ export function parseOwnership(raw: unknown): OrganiserOwnership | null {
   const o = raw as Record<string, unknown>;
   if (typeof o.is_managed !== 'boolean' || typeof o.i_own_it !== 'boolean') return null;
   const role = o.my_role === 'owner' || o.my_role === 'manager' || o.my_role === 'contributor' ? o.my_role : null;
-  return { is_managed: o.is_managed, i_own_it: o.i_own_it, my_role: role };
+  return { is_managed: o.is_managed, i_own_it: o.i_own_it, my_role: role, seat_kind: parseSeatKind(o.seat_kind) };
+}
+
+/** Unknown, missing or non-string -> null. Never throws. */
+export function parseSeatKind(raw: unknown): SeatKind | null {
+  return raw === 'owner' || raw === 'manager' || raw === 'interim' || raw === 'contributor' ? raw : null;
 }

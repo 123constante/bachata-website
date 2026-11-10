@@ -41,7 +41,8 @@ function Page() {
     <div data-testid="route" style={{ filter: 'blur(0px)', transform: 'none' }}>
       <article data-testid="article">
         {eip?.slot('card')}
-        <p>About{eip?.slot('about')}</p>
+        {/* As src/pages/OrganiserProfile.tsx: no bio, so the empty About line (it carries the bio pencil). */}
+        <div>About{eip?.slot('about-empty')}</div>
         <EditInPlaceLayer organiserId={ID} entity={ENTITY} onBridge={setEip} client={{ rpc: vi.fn() } as never} />
       </article>
     </div>

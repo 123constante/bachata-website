@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { MAX_ROWS_PER_CITY, PAGE_SIZE, parseQueueRows, softRefusal, type QueueItem, type TargetType } from './ambassadorModel';
+import { parseTracker, type TrackerLink } from './link/trackerModel';
 
 export interface CityScope { id: string; name: string; slug: string }
 
@@ -66,4 +67,24 @@ export async function rejectEntity(type: TargetType, id: string, reason: string)
   if (error) throw error;
   const refused = softRefusal(data);
   if (refused) throw new Error(refused);
+}
+
+// The two link RPCs are not in the generated types yet (admin #1277 landed after the last regen).
+type RpcResult = Promise<{ data: unknown; error: { message?: string } | null }>;
+const untypedRpc = (fn: string, args?: Record<string, unknown>): RpcResult =>
+  (supabase as unknown as { rpc: (f: string, a?: Record<string, unknown>) => RpcResult }).rpc(fn, args);
+
+export const trackerKey = (userId: string) => ['ambassador', 'link-tracker', userId] as const;
+
+/** The signed-in ambassador's own link(s); an admin sees every link. Counts only. */
+export async function fetchLinkTracker(): Promise<TrackerLink[]> {
+  const { data, error } = await untypedRpc('get_ambassador_link_tracker_v1');
+  if (error) throw error;
+  return parseTracker(data);
+}
+
+/** Throws the RPC's error (e.g. admin_locked) so `switchError` can read it. */
+export async function setLinkActive(linkId: string, active: boolean): Promise<void> {
+  const { error } = await untypedRpc('set_ambassador_link_active_v1', { p_link_id: linkId, p_active: active });
+  if (error) throw error;
 }

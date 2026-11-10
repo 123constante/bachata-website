@@ -93,8 +93,23 @@ export const claimMyDancerProfile = async (timeoutMs = CLAIM_TIMEOUT_MS): Promis
  * in-page sign-in). On "linked" the persona-derived caches are dropped, so every
  * screen re-reads the linked profile. Never rejects.
  */
+/** The sign-in email copy (save_my_signin_email_v1). Never rejects; never blocks a sign-in. */
+export const SAVE_SIGNIN_EMAIL_RPC = "save_my_signin_email_v1";
+
+const saveSignInEmail = async (): Promise<void> => {
+  try {
+    const result = await rpcLoose(SAVE_SIGNIN_EMAIL_RPC);
+    if (result.error) debug("sign-in email not copied", result.error.message);
+  } catch (err) {
+    debug("sign-in email copy failed", err);
+  }
+};
+
 export const claimAtSignIn = async (queryClient: QueryClient): Promise<ClaimOutcome> => {
   const outcome = await claimMyDancerProfile();
+  // After the claim, so a freshly linked profile is the one that gets the email.
+  // Not awaited: the copy must never hold the sign-in.
+  void saveSignInEmail();
   if (outcome.status === "linked") {
     // Not awaited: an invalidation refetches active queries, and a slow refetch
     // must not hold the sign-in. The persona read that follows is a fresh call.

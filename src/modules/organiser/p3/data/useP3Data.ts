@@ -2,7 +2,8 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { londonTodayKey } from '@/lib/londonDate';
 import { fetchOrganiserHome, organiserHomeQueryKey } from '../../shared/selfServeApi';
-import { RANGE_DAYS, fetchViewsStats, rangeFrom, viewsStatsKey } from './stats';
+import { analyticsKey, fetchPageAnalytics, fetchShareCode, shareCodeKey } from './analyticsV2';
+import { RANGE_DAYS, fetchViewsStats, rangeFrom, viewsStatsKey, type StatsRange } from './stats';
 
 /** organiser_home_v1, the SAME cache entry the R1 area fills (one read, one key). */
 export function useP3Home() {
@@ -31,5 +32,30 @@ export function useP3Views() {
     enabled: !!user?.id,
     staleTime: 5 * 60_000,
     placeholderData: keepPreviousData,
+  });
+}
+
+/** organiser_analytics_v2 for every series in the page scope, summed, for the chosen range. */
+export function useP3Analytics(range: StatsRange, seriesIds: readonly string[]) {
+  const { user } = useAuth();
+  const to = londonTodayKey();
+  const from = rangeFrom(to, RANGE_DAYS[range]);
+  return useQuery({
+    queryKey: analyticsKey(user?.id, seriesIds, from, to),
+    queryFn: () => fetchPageAnalytics(seriesIds, from, to),
+    enabled: !!user?.id && seriesIds.length > 0,
+    staleTime: 5 * 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The page's share code (organiser_share_code_v1), owners and managers only. */
+export function useP3ShareCode(pageId: string | undefined) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: shareCodeKey(user?.id, pageId),
+    queryFn: () => fetchShareCode(pageId as string),
+    enabled: !!user?.id && !!pageId,
+    staleTime: 5 * 60_000,
   });
 }

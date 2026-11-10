@@ -20,6 +20,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | Details and Prices on every event shape (tests only; closes Walk B's 10 untested cells) | web | PR OPEN, tests only | checks, review | claude/details-prices-shape-matrix |
 | Page row returns to Review after save | web | PR OPEN, `phone-qa-section` red (PR body) | body fill, checks | W#1433 |
 | Plain note when an editor picture does not load | web | PR OPEN | checks, review | W#1442 |
+| Line-up no match offers Ask the team | web | PR OPEN (this PR) | checks, review, merge | claude/lineup-nomatch-ask-team; brief/lineup-nomatch-ask-team |
 | Door no-access card gets Check again + Back | web | PR OPEN, green at last read | review, merge | W#1439 |
 | Claimed, status not re-read: `claim-copy-team-not-person`, `event-page-how-to-pay`, `team-add-confirm` (starts after W#1412), `onboarding-find-invite-copy` | web | UNKNOWN, claimed in PROGRAM.md | lead to confirm | PROGRAM.md "Claimed branches" |
 | Interim seats I1 (seat table, gates, cooldown, invite manager branch) | admin | PR OPEN, red: unit-build, placeholder-merge-gate | fix round, independent review, replay proof, owner Approve | A#1284 claude/onboarding-interim-seats-db (cbab02b9); brief/onboarding-interim-seats-db |
@@ -34,12 +35,15 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | I2 guard arms for seats (`interim_seat_without_manager_row` and four more) + db-contract step | admin + web | I1 and I7 applied | PLAN-interim-manager-seats.md "Pieces" |
 | I3 admin Seats panel + likely-match row on Access requests | admin | I1 + I7 applied | same |
 | I4 notification queue + `send-access-request-email` edge function | admin | I1 applied | same |
-| I5 Website: ownerless claim copy, `/account` request status, interim label in P3, ticket tools hidden | web | I1 + I7 applied; Design Gate by hand | same |
-| I6 G1 write-door doc gains the new doors | web docs | I1 | same |
+| Declined request says when you can ask again (P3 Welcome + /account) | web | PR OPEN (no 390x844 walk) | review; owner Approve | claude/declined-ask-again-date |
+| I5 Website: ownerless claim copy, `/account` request status, interim label in P3, ticket tools hidden | web | PARTIAL: refusal copy for `declined_recently` and `interim_cannot_add` done (PR: claude/declined-recently-copy); interim label + ticket tools hidden in PR (claude/interim-seat-p3-labels, #1487); claim copy (ownerless request heading, required note) in PR claude/ownerless-request-copy; `/account` status not started. I7 and Design Gate by hand | brief/interim-seat-p3-labels; same |
+| I6 G1 write-door doc gains the new doors | web docs | I1 | I6 write-door doc done: `docs/scoping/g1-write-door-check.md` "Interim-seat doors (added with I1)"; PR: claude/seat-doors-doc |
+| S3 connect-sheet-default: Stripe named at price entry, small "Selling elsewhere?" text link under Connect, start error in sheet and banner, Get paid link, refresh note | web | done on branch claude/connect-sheet-default (not signed-in walked) | docs/design/connect-sheet-default.INVENTORY.md |
+| I8 Public event page: in-site buy leads, external link steps back to a text link (`sellsInSite`, TICKET_LEAD_IN_SITE) | web | PARTIAL: matrix green; no 390x844 walk, no real Stripe checkout. PR: claude/public-ticket-lead; design record docs/design/public-ticket-lead.INVENTORY.md | brief/public-ticket-lead |
 | E7 cancelled nights shown marked "Cancelled" on the page | web | owner yes/no (below) | GAPS file, ranked gap 4 |
 | Remaining P3 slices W3 later (Name/details save model, Prices, History, create flows), W4c invites/claims + organiser-side Going | web | needs re-survey against main; ARC-p3.md is stale | plans/ARC-p3.md section 2 |
 | Organiser analytics S1/S2 | admin | parked until the organiser dashboard exists | READY-QUEUE row 13 |
-| Walk-report dead ends A to D (claim, edit-event shapes, team/switch, dancer view) | web | each needs a fresh check on main first (12 stale "does not exist" claims before) | docs/handover on W#1407 to W#1410 |
+| Walk-report dead ends A to D (claim, edit-event shapes, team/switch, dancer view) | web | PARTIAL: Details hints honest for festivals and videos on claude/details-honest-hints (matrix green; no 390x844 walk; PR link added when opened). Find now says when the list is cut short on claude/find-search-more-note (matrix green; no 390x844 walk; PR link added when opened). Others each need a fresh check on main first | docs/handover on W#1407 to W#1410; docs/briefs/details-honest-hints.md |
 
 ## Owner decisions pending
 - E7: show upcoming cancelled nights marked "Cancelled" and never count them in stats? (23 organisers have one.)

@@ -98,7 +98,7 @@ const STEP_CONTROL: Record<string, string> = {
   name: 'p3-ob-name', photo: 'p3-ob-photo-file', role: 'p3-ob-role-Leader', nat: 'p3-ob-nat-chips', langs: 'p3-ob-langs',
   teach: 'p3-ob-teach-yes', styles: 'p3-ob-styles', years: 'p3-ob-years', levels: 'p3-ob-level-Beginner',
   dj: 'p3-ob-dj-yes', djgenres: 'p3-ob-djgenres',
-  contact: 'p3-ob-continue', cat: 'p3-ob-continue', link: 'p3-ob-continue', logo: 'p3-ob-continue',
+  contact: 'p3-ob-page-row-return', cat: 'p3-ob-page-row-return', link: 'p3-ob-page-row-return', logo: 'p3-ob-page-row-return',
 };
 const STEP_OF: Record<string, string> = {
   first_name: 'name', dance_role: 'role', photo: 'photo', nationality: 'nat', languages: 'langs', teach_answer: 'teach',

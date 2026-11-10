@@ -10,6 +10,13 @@
 import { londonDateKey } from '@/lib/londonDate';
 import { fullDate } from './dateWords';
 
+/**
+ * Slice 1b fix: the P3 Team roles (the ONE list lives in edit-in-place/teamRoles.ts), re-exported here so the
+ * Team screens read them through this module. Rollup then keeps teamRoles in this module's shared chunk: imported
+ * straight from team/ it became its own chunk, +1 first-load request on /auth/callback and /app/* (chunk ratchet).
+ */
+export { P3_ROLE_HELP, TEAM_ROLES } from '@/modules/organiser/edit-in-place/teamRoles';
+
 export type TeamRole = 'owner' | 'manager' | 'contributor';
 
 export interface TeamMember {

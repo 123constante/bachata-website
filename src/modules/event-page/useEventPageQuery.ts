@@ -346,6 +346,10 @@ export const parseEventPageSnapshot = (value: unknown): EventPageSnapshot | null
           facilities_new: asArray(v.facilities_new)
             .map((s) => asString(s))
             .filter((s): s is string => s !== null),
+          parking: asString(v.parking),
+          id_required: typeof v.id_required === 'boolean' ? v.id_required : null,
+          cloakroom_available: typeof v.cloakroom_available === 'boolean' ? v.cloakroom_available : null,
+          bar_available: typeof v.bar_available === 'boolean' ? v.bar_available : null,
           timezone: asEventTimeZone(v.timezone),
         };
       })(),
