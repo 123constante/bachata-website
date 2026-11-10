@@ -64,18 +64,23 @@ describe.each(['scan', 'list'] as const)('refused card on the %s tab', (tab) => 
       expect(screen.getByTestId('door-detail').textContent).toMatch(/tap Check again/);
       const checkIns = api.checkIn.mock.calls.length;
 
-      if (shape === 'then_ok') api.list.mockResolvedValue(OK); // typed: the list is already ok, so recheck clears the card
+      if (shape === 'then_ok') api.list.mockResolvedValue(OK); // typed: the list is ok, but a check-in refusal stays
       else if (shape === 'then_network') api.list.mockRejectedValue(new Error('offline'));
       api.list.mockClear();
       fireEvent.click(recheck);
       await waitFor(() => expect(api.list).toHaveBeenCalledTimes(1));
       expect(api.checkIn.mock.calls.length).toBe(checkIns);
-      if (shape === 'then_ok' || shape === 'typed') {
+      if (shape === 'then_ok') {
         await waitFor(() => expect(screen.queryByTestId('door-act-recheck')).toBeNull());
+      } else if (shape === 'typed') {
+        // refusal came from a check-in: a good list read must not clear it, and the card says so
+        await waitFor(() => expect(screen.getByTestId('door-recheck-note').textContent).toMatch(/refused when it was checked/));
+        expect(screen.getByTestId('door-act-recheck')).toBeTruthy();
       } else {
         await waitFor(() => expect((screen.getByTestId('door-act-recheck') as HTMLButtonElement).disabled).toBe(false));
         expect(screen.getByTestId('door-notallowed-back')).toBeTruthy();
-        expect(screen.queryByRole('alert')).toBeNull();
+        if (shape === 'then_network') expect(screen.getByRole('alert').textContent).toMatch(/No signal, try again/);
+        else expect(screen.queryByRole('alert')).toBeNull();
       }
     });
   });
