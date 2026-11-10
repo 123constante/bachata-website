@@ -9,6 +9,10 @@ export function quietBar(list: readonly PublicTicketType[], now: Date): QuietBar
   if (kinds.length === 0) {
     return { title: 'Tickets unavailable', sub: 'Check back later or contact the organiser.', button: 'Unavailable' };
   }
+  // A per-night type with no night on screen: the next step is a night, not a wait.
+  if (kinds.includes('needs_night')) {
+    return { title: 'Choose a night', sub: 'Pick a date to buy tickets for that night.', button: 'Choose a night' };
+  }
   if (kinds.includes('not_yet')) {
     return { title: 'Tickets not on sale yet', sub: 'Check the ticket rows for the opening time.', button: 'Not yet' };
   }

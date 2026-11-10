@@ -14,6 +14,7 @@ import {
   buyLabel,
   cancelReturnPath,
   clampQuantity,
+  courseLine,
   disabledReason,
   formatPence,
   maxQuantity,
@@ -36,12 +37,15 @@ import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_
  * renders nothing until the series has a type on sale or sold out.
  */
 export interface TicketsBlockProps {
-  /** The page's PUBLIC event id. ticket_types_public_v1 is keyed on event_series_p5.id, so
+  /** The page's PUBLIC event id. ticket_types_public_v2 is keyed on event_series_p5.id, so
    *  where the two differ it answers no rows and the block stays hidden until the DB side
    *  accepts the public id (docs/ticketing-buyer-journey.md, "DB note"). */
   seriesId: string;
-  /** The night on screen; per-occurrence types show only on their own night. */
+  /** The night on screen; per-occurrence types show only on their own night, and the
+   *  types read, the promo preview and checkout all carry it (S1a). */
   occurrenceId: string | null;
+  /** Takes the buyer to the dates list to choose a night. Defaults to scrolling to it. */
+  onChooseNight?: () => void;
   organiserId: string | null;
   /** Injected for tests; defaults to the real clock / window origin. */
   now?: Date;
@@ -56,15 +60,21 @@ const card = {
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
 const accentBg = { background: '#FF9900', color: '#1A1208' } as const;
 
-export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp, origin: originProp }: TicketsBlockProps) {
+/** The default way to the dates: the page's Dates tile. */
+function scrollToDates() {
+  const el = document.querySelector('[data-block-id="dates"]');
+  if (el && typeof (el as HTMLElement).scrollIntoView === 'function') (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+export function TicketsBlock({ seriesId, occurrenceId, organiserId, onChooseNight, now: nowProp, origin: originProp }: TicketsBlockProps) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, authStatus } = useAuth();
   const guest = !user && authStatus !== 'resolving';
   const { data: types } = useQuery({
-    queryKey: publicTicketKeys.types(seriesId),
-    queryFn: () => fetchPublicTicketTypes(seriesId),
+    queryKey: publicTicketKeys.types(seriesId, occurrenceId),
+    queryFn: () => fetchPublicTicketTypes(seriesId, occurrenceId),
     staleTime: 30_000,
   });
   const now = nowProp ?? new Date();
@@ -92,6 +102,9 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const list = typesForNight(types ?? [], occurrenceId);
   const quiet = quietBar(list, now);
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
+  // A per-night type with no night on screen: no Buy, the way forward is the dates (S1a).
+  const needsNight = buyable.length === 0 && list.some((t) => availability(t, now).kind === 'needs_night');
+  const chooseNight = onChooseNight ?? scrollToDates;
   // One buyable type is picked for the buyer; otherwise they choose.
   // A pick that has since sold out or closed (the list re-reads after a refusal) is no pick.
   const picked = buyable.find((t) => t.id === typeId) ?? null;
@@ -118,7 +131,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     const seq = ++promoSeq.current;
     const forKey = promoKey(typeIdFor, quantityFor);
     setPromo({ status: 'checking', code });
-    const r = await previewPromo(seriesId, typeIdFor, quantityFor, code);
+    const r = await previewPromo(seriesId, typeIdFor, quantityFor, code, occurrenceId);
     if (seq !== promoSeq.current) return;
     setPromo(r.ok ? { status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence } : { status: 'refused', code, key: forKey, reason: r.reason });
   }
@@ -179,7 +192,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     setSubmitting(true);
     setError(null);
     const result = await postTicketCheckout(
-      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode }, origin, cancelReturnPath(location.pathname, location.search)),
+      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode, occurrenceId }, origin, cancelReturnPath(location.pathname, location.search)),
     );
     if (result.kind === 'redirect') {
       saveOrderId(result.orderId);
@@ -200,14 +213,20 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     }
     setError({ reason: result.reason, message: result.message });
     // A refusal about stock or status means the list on screen is stale: re-read it.
-    if (reasonCopy(result.reason).way === 'pick_another') {
-      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId) });
+    const way = reasonCopy(result.reason).way;
+    if (way === 'pick_another' || way === 'pick_night') {
+      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) });
     }
   }
 
   function onWayForward() {
     if (!err) return;
     if (err.way === 'pick_another') setTypeId(null);
+    if (err.way === 'pick_night') {
+      setError(null);
+      chooseNight();
+      return;
+    }
     if (err.way === 'retry' || err.way === 'pick_another' || err.way === 'fix_form') setError(null);
   }
 
@@ -256,6 +275,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>
+                  {courseLine(t) && <span className="block text-[12px]" style={muted} data-testid="ticket-course-line">{courseLine(t)}</span>}
                 </span>
                 <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>
               </button>
@@ -264,10 +284,19 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
         })}
       </ul>
 
-      {buyable.length === 0 && (
-        <p className="mt-2 text-[13px]" style={muted}>
-          No tickets can be bought right now. Check back later or contact the organiser.
-        </p>
+      {needsNight ? (
+        <div className="mt-2 text-[13px]" data-testid="tickets-choose-night">
+          <p>Choose a night to buy tickets.</p>
+          <button type="button" onClick={chooseNight} className="mt-1 inline-flex min-h-[44px] items-center font-semibold underline">
+            See the dates
+          </button>
+        </div>
+      ) : (
+        buyable.length === 0 && (
+          <p className="mt-2 text-[13px]" style={muted}>
+            No tickets can be bought right now. Check back later or contact the organiser.
+          </p>
+        )
       )}
 
       {quiet && (

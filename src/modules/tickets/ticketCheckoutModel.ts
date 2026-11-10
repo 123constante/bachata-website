@@ -37,12 +37,24 @@ export interface PublicTicketType {
   remaining: number;
   salesOpenAt: string | null;
   salesCloseAt: string | null;
+  /* v2 (night-aware) columns. Optional so hand-built rows stay valid; parsePublicTypes always sets them. */
+  /** The server's word for THIS night (v2 `sold_out`). */
+  soldOut?: boolean;
+  /** When sales close for this night (v2 `effective_close_at`); wins over salesCloseAt. */
+  effectiveCloseAt?: string | null;
+  /** 'night', 'course', ... as the server sends it. */
+  kind?: string | null;
+  /** Course validity (date-only, YYYY-MM-DD). */
+  validFrom?: string | null;
+  validTo?: string | null;
+  /** A per-night type read with NO night (v2 remaining NULL): not buyable until a night is chosen. */
+  needsNight?: boolean;
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
 const int = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.trunc(v)) : 0);
 
-/** ticket_types_public_v1 rows -> types. Unknown statuses and non-GBP rows are dropped (Q10). */
+/** ticket_types_public_v2 rows -> types (v1 rows parse too). Unknown statuses and non-GBP rows are dropped (Q10). */
 export function parsePublicTypes(data: unknown): PublicTicketType[] {
   if (!Array.isArray(data)) return [];
   const out: PublicTicketType[] = [];
@@ -60,6 +72,13 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
       remaining: int(r.remaining),
       salesOpenAt: str(r.sales_open_at),
       salesCloseAt: str(r.sales_close_at),
+      soldOut: r.sold_out === true,
+      effectiveCloseAt: str(r.effective_close_at),
+      kind: str(r.kind),
+      validFrom: str(r.valid_from),
+      validTo: str(r.valid_to),
+      // v2 answers remaining NULL for a per-night type when no night was asked for.
+      needsNight: 'remaining' in r && r.remaining === null && status === 'on_sale',
     });
   }
   return out;
@@ -79,7 +98,8 @@ export type Availability =
   | { kind: 'buyable'; label: string }
   | { kind: 'sold_out'; label: string }
   | { kind: 'not_yet'; label: string }
-  | { kind: 'closed'; label: string };
+  | { kind: 'closed'; label: string }
+  | { kind: 'needs_night'; label: string };
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', {
@@ -91,13 +111,41 @@ const shortDate = (iso: string) =>
     minute: '2-digit',
   });
 
+/** When sales close for the night on screen: v2 `effective_close_at`, else the type's own close. */
+export const closesAt = (t: PublicTicketType): string | null => t.effectiveCloseAt ?? t.salesCloseAt;
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
+
+/** A date-only value as "Tuesday 3 November 2026" (house rule: full weekday), the same on every ICU. */
+const longDate = (ymd: string): { weekday: string; text: string } | null => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const d = new Date(`${ymd}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const weekday = WEEKDAYS[d.getUTCDay()];
+  return { weekday, text: `${weekday} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}` };
+};
+
+/** A course ticket's one line, from the data: "Valid every Tuesday from ... to ..., once each night." */
+export function courseLine(t: PublicTicketType): string | null {
+  if (t.kind !== 'course' || !t.validFrom || !t.validTo) return null;
+  const from = longDate(t.validFrom);
+  const to = longDate(t.validTo);
+  if (!from || !to) return null;
+  return `Valid every ${from.weekday} from ${from.text} to ${to.text}, once each night.`;
+}
+
 /** What one row says and whether it can be picked. `now` is injected for tests. */
 export function availability(t: PublicTicketType, now: Date): Availability {
-  if (t.status === 'sold_out' || t.remaining <= 0) return { kind: 'sold_out', label: 'Sold out' };
+  if (t.soldOut || t.status === 'sold_out') return { kind: 'sold_out', label: 'Sold out' };
+  // No night on screen for a per-night type: nothing to count against, so never buyable here.
+  if (t.needsNight) return { kind: 'needs_night', label: 'Choose a night' };
+  if (t.remaining <= 0) return { kind: 'sold_out', label: 'Sold out' };
   if (t.salesOpenAt && new Date(t.salesOpenAt) > now) {
     return { kind: 'not_yet', label: `On sale ${shortDate(t.salesOpenAt)}` };
   }
-  if (t.salesCloseAt && new Date(t.salesCloseAt) <= now) return { kind: 'closed', label: 'Sales closed' };
+  const closeAt = closesAt(t);
+  if (closeAt && new Date(closeAt) <= now) return { kind: 'closed', label: 'Sales closed' };
   return { kind: 'buyable', label: t.remaining <= 20 ? `${t.remaining} left` : 'On sale' };
 }
 
@@ -193,6 +241,8 @@ export interface CheckoutBody {
   cancel_url: string;
   /** Only when a code was applied; the edge re-validates it (refusal = HTTP 409 + reason). */
   promo_code?: string;
+  /** The night on screen (S1a). Sent whenever the page has one; the edge decides. */
+  occurrence_id?: string;
 }
 
 /** The event page to come back to on cancel: same path and night (?occurrenceId), plus tickets=cancelled. */
@@ -203,7 +253,7 @@ export function cancelReturnPath(pathname: string, search: string): string {
 }
 
 export function buildCheckoutBody(
-  f: { typeId: string; quantity: number; email: string; name: string; promoCode?: string | null },
+  f: { typeId: string; quantity: number; email: string; name: string; promoCode?: string | null; occurrenceId?: string | null },
   origin: string,
   cancelPath: string,
 ): CheckoutBody {
@@ -217,6 +267,8 @@ export function buildCheckoutBody(
     cancel_url: `${origin}${cancelPath}`,
     // Already normalised by promo.ts (the code the preview priced); passed through as is.
     ...(f.promoCode ? { promo_code: f.promoCode } : {}),
+    // Omitted only when the page truly has no night (the block never offers Buy then for a night type).
+    ...(f.occurrenceId ? { occurrence_id: f.occurrenceId } : {}),
   };
 }
 
@@ -237,7 +289,7 @@ export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutR
   return { kind: 'error', reason, message: str(b.message) };
 }
 
-export type WayForward = 'retry' | 'pick_another' | 'contact_organiser' | 'fix_form';
+export type WayForward = 'retry' | 'pick_another' | 'pick_night' | 'contact_organiser' | 'fix_form';
 
 export interface ReasonCopy {
   text: string;
@@ -273,6 +325,12 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   network: { text: 'Could not reach the ticket service. Check your connection and try again.', way: 'retry' },
   // The POST gave up after CHECKOUT_TIMEOUT_MS: the buyer never reached Stripe.
   timeout: { text: 'The ticket service took too long to answer. You have not been charged. Try again.', way: 'retry' },
+  // S1a night refusals (HTTP 409). Nothing is charged; each names the next step: another night.
+  wrong_night: { text: 'This ticket is not for the night you picked. You have not been charged. Choose the night on the dates list and buy from that night’s page.', way: 'pick_night' },
+  night_required: { text: 'This ticket is sold night by night. You have not been charged. Choose a night on the dates list and buy from that night’s page.', way: 'pick_night' },
+  night_cancelled: { text: 'This night has been cancelled, so no tickets are sold for it. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
+  night_ended: { text: 'Ticket sales for this night have ended. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
+  not_course_night: { text: 'This course ticket does not cover the night you picked. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
 };
 
 /** The one lookup: an own key only, so "toString" or "__proto__" from a reply is unmapped. */
@@ -285,6 +343,7 @@ export function reasonCopy(reason: string, message: string | null = null): Reaso
 export const WAY_LABEL: Readonly<Record<WayForward, string>> = {
   retry: 'Try again',
   pick_another: 'Pick another ticket',
+  pick_night: 'Choose another night',
   contact_organiser: 'Contact the organiser',
   fix_form: 'Check the form',
 };

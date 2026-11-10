@@ -3,7 +3,7 @@ import { feeLabel } from './ticketCheckoutModel';
 /**
  * Ticket promo codes, buyer half (docs/briefs/ticket-promo-codes-web.md). The ONE shared
  * mapping from a promo state or refusal reason to what the buyer sees and can do next.
- * The server is the authority: ticket_promo_preview_v1 prices the order (whole-order pence,
+ * The server is the authority: ticket_promo_preview_v2 prices the order for the night (whole-order pence,
  * percent rounded down per ticket, fixed never below 0) and ticket-checkout re-validates.
  */
 

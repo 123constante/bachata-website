@@ -153,12 +153,12 @@ describe('wire shapes', () => {
   ])('%s', (_l, data, want) => expect(parsePromoPreview(data)).toMatchObject(want));
   it('previewPromo sends the documented args; an rpc error or a throw reads as offline', async () => {
     rpc.mockResolvedValueOnce(OK(125, 1125));
-    expect(await previewPromo('e1', 'a', 2, 'SAVE10')).toMatchObject({ ok: true });
-    expect(rpc).toHaveBeenCalledWith('ticket_promo_preview_v1', { p_series: 'e1', p_ticket_type: 'a', p_quantity: 2, p_code: 'SAVE10' });
+    expect(await previewPromo('e1', 'a', 2, 'SAVE10', 'n1')).toMatchObject({ ok: true });
+    expect(rpc).toHaveBeenCalledWith('ticket_promo_preview_v2', { p_series: 'e1', p_ticket_type: 'a', p_quantity: 2, p_code: 'SAVE10', p_occurrence_id: 'n1' });
     rpc.mockResolvedValueOnce({ data: null, error: { message: 'Failed to fetch' } });
-    expect(await previewPromo('e1', 'a', 1, 'X')).toMatchObject({ ok: false, reason: 'network' });
+    expect(await previewPromo('e1', 'a', 1, 'X', null)).toMatchObject({ ok: false, reason: 'network' });
     rpc.mockRejectedValueOnce(new TypeError('offline'));
-    expect(await previewPromo('e1', 'a', 1, 'X')).toMatchObject({ ok: false, reason: 'network' });
+    expect(await previewPromo('e1', 'a', 1, 'X', null)).toMatchObject({ ok: false, reason: 'network' });
   });
   it('checkout body: promo_code only when a code is sent (untouched sends nothing)', () => {
     const f = { typeId: 'a', quantity: 1, email: 'a@b.co', name: '' };

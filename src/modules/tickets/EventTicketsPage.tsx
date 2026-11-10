@@ -7,6 +7,7 @@ import { buildChips, type Chip, type GoodToKnowInput } from './goodToKnow';
 import type { useOccurrenceProgram as UseOccurrenceProgram, useProgramItems as UseProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
 import { buildProgramme, type ProgrammeView } from './programmeModel';
 import { fetchPublicTicketTypes, publicTicketKeys } from './ticketCheckoutApi';
+import { closesAt } from './ticketCheckoutModel';
 
 /**
  * The one Tickets page behind the sticky bar's "Buy tickets" (mockups-7). A full-screen
@@ -105,8 +106,8 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
     if (b > 0) setTopPx(Math.round(b));
   }, []);
   const { data: types } = useQuery({
-    queryKey: publicTicketKeys.types(seriesId),
-    queryFn: () => fetchPublicTicketTypes(seriesId),
+    queryKey: publicTicketKeys.types(seriesId, occurrenceId),
+    queryFn: () => fetchPublicTicketTypes(seriesId, occurrenceId),
     staleTime: 30_000,
   });
   // Same query keys as the Schedule tile, so the programme is shared from cache.
@@ -118,8 +119,13 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
     ...chipInput,
     programmeStartIso: chipInput.programmeStartIso ?? programme?.startIso ?? null,
     programmeEndIso: chipInput.programmeEndIso ?? programme?.endIso ?? null,
-    latestCloseIso: latestCloseIso((types ?? []).map((t) => t.salesCloseAt)),
+    latestCloseIso: latestCloseIso((types ?? []).map(closesAt)),
   });
+  // "Choose a night": close this page and land on the event's Dates tile.
+  const seeDates = () => {
+    onClose();
+    setTimeout(() => document.querySelector('[data-block-id="dates"]')?.scrollIntoView({ block: 'start' }), 50);
+  };
   const seeFull = () => {
     onClose();
     setTimeout(() => document.querySelector('[data-block-id="schedule"]')?.scrollIntoView({ block: 'start' }), 50);
@@ -166,7 +172,7 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
         </header>
         <ProgrammeBlock view={programme} onSeeFull={seeFull} />
         <ChipRow chips={chips} />
-        <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} />
+        <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} onChooseNight={seeDates} />
       </div>
     </div>,
     document.body,

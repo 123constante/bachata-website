@@ -2,7 +2,7 @@
 /**
  * Tickets block and thank-you page x every type status x free/paid x remaining x error
  * reason. Prod has 0 ticket_types today (shape survey in docs/ticketing-buyer-journey.md),
- * so rows are built from the live ticket_types_public_v1 body.
+ * so rows are built from the live ticket_types_public_v1 body (v2 since S1a: same columns plus night ones).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -55,7 +55,7 @@ afterEach(() => {
 describe('empty: no types = no block at all', () => {
   it('renders nothing', async () => {
     const { container } = renderBlock([]);
-    await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1'));
+    await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', 'n1'));
     expect(container.querySelector('[data-testid="tickets-block"]')).toBeNull();
   });
 });
