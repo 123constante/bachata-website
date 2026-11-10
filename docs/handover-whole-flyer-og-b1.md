@@ -52,7 +52,8 @@ no Vercel setting, no workflow change, no SQL.
   `ogImageSize` key is added to the loader data only when the size is not
   1200x630, so the legacy page data is unchanged. A measure miss makes the page
   response `Cache-Control: no-store` with `X-OG-Layout: legacy-fallback`.
-  `?ogtest=whole-flyer` forces the whole-flyer layout when the mode is not off.
+  `?ogtest=whole-flyer` forces the whole-flyer layout in mode `test` only
+  (fix round, finding 5).
   It is never baked. `?ogtest=tall` behaves exactly as before.
 - `scripts/backfill-og-images.mjs`: adds `--layout wf1|legacy` (required with
   any batch flag), `--ids`, `--limit` (counts bakes) and `--dry-run`. It reads
@@ -71,6 +72,31 @@ no Vercel setting, no workflow change, no SQL.
   mode is `process.env.OG_WHOLE_FLYER_MODE`, default off. Pages that answer
   `X-OG-Layout: legacy-fallback` are counted and reported. The self-test has
   the 8 mutants and 4 healthy fixtures.
+
+## Fix round (brief `docs/briefs/whole-flyer-og-b1-fix.md`, review findings 1, 2, 3, 5, 6)
+
+- Finding 1 (red `unit (Europe/London, full)`): `tests/ogWholeFlyerGolden.test.ts`
+  no longer pins a sha256 for the four TEXT-drawing cases (text rasterisation is
+  host-dependent; the hashes were pinned on Windows). Those cases now compare
+  the route's bytes with main's builder call (`buildFallbackCard` /
+  `buildCoverCard`, bodies unchanged by this PR) run in the same test on the
+  same host, and still assert status, content-type, Cache-Control, the edge
+  header, ETag, markers and the decoded size. The four text-free cases keep
+  their pinned hashes. Mutant (one byte of scan data flipped in the route's
+  l-less output): 7 of 7 l-less cases red; reverted.
+- Findings 2 and 3 (guard holes, `scripts/check-og-images.mjs`): an `l=wf1`
+  URL must decode to exactly its `s=` ("decoded size differs from s="), and a
+  JPEG/PNG whose size cannot be read is a failure ("cannot read decoded size")
+  for live, baked and legacy URLs; the baked-key size check no longer skips on
+  a null size. Both mutants had zero failures before and fail now; they are in
+  `--self-test` and `tests/ogWholeFlyerGuard.test.ts` (asserting the named rule).
+- Finding 5: `?ogtest=whole-flyer` applies in mode `test` only; table test of
+  mode x query in `tests/ogWholeFlyerEventPage.test.ts`, which also asserts no
+  request to `/api/og/bake`.
+- Finding 6: `missingConfig(opts)` in the backfill script; a dry run without
+  the secret exits 0 and prints the counts (end-to-end against a local
+  PostgREST stand-in); a real run without it still exits 2 before any request.
+- Finding 4 left as is (contract D4 c; no prod effect), per the brief.
 
 ## Left (not in B1, per brief)
 
@@ -102,8 +128,9 @@ It prints each sample's byte size and decoded size, and writes
 
 ## Backfill, dry run (a later step; never run by the worker)
 
-Needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OG_BAKE_SECRET` (the dry run
-reads only, but the script checks all three before it starts).
+Needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. `OG_BAKE_SECRET` is
+required only when a bake will be sent: `--dry-run` runs without it (fix round,
+finding 6).
 
 ```bash
 # What a wf1 batch WOULD bake, read-only, nothing POSTed:
