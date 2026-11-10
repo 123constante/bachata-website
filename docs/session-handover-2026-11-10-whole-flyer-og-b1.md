@@ -22,3 +22,14 @@ rewrote its body and subscribed to it). The full slice handover is in
 2. Walk the preview at 390x844: `/event/musketeers` with and without
    `?ogtest=whole-flyer`. Use VERCEL_TOKEN for the preview URL.
 3. ONE independent review is dispatched by the lead, then ONE fix round.
+
+## RED at stop (first thing next session)
+- `unit (Europe/London, full)` FAILED on head 0ca784c: 2 test files, 5 tests
+  (job 129793879601, run 42805589145). The same suite on 9e882c3, which differs
+  from 0ca784c only by a docs file, completed with no failed suite.
+- This session hit its context gate before it could read which tests failed.
+- Next: fetch that job's failed-test names. Compare them with the 15 failures
+  that also fail on main in this sandbox (eventViewCompat, integrityCouldNotRun,
+  occurrenceProgram, publicEventPageLineup contract tests). If they are
+  live-DB/network tests that fail on main too, say so once on the PR; otherwise
+  root-cause and fix them.
