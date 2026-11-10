@@ -35,3 +35,11 @@ Design record + prod shape survey: `docs/design/ticket-night-aware-website.md`.
 - A different worker's UI critique (impeccable-finish-reviewer) before hand-off.
 - Release order: this PR merged and live -> owner runs the edge deploy. Until then the old edge ignores
   `occurrence_id`, so buying behaves as today.
+
+## Status (worker dt_ddd3b3689f7f)
+
+- PR: #1523 (opened automatically from the first push; title and body updated by this worker).
+- tsc run on c624118: 0 errors in branch files (`tsc -p tsconfig.app.json`; same error set as main, all in untouched files).
+- Independent review (subagent): no correctness bugs. Its two UX notes are fixed in c624118.
+- Verified: tickets + bento vitest 986/986, `npm run lint` exit 0, check:mojibake clean, both PR-body checks exit 0.
+- Not verified: browser walk and screenshots on the preview; real Stripe; edge deploy; UI critique by a different worker; GitHub PR checks per job (not read: no gh api); main-branch baseline for 15 failing `tests/` files (live-DB / env tests, none import tickets).
