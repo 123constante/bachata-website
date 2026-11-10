@@ -497,7 +497,15 @@ export function wholeFlyerFailures({ ogImage, declared, img, expectedMode = 'off
 
   const w = info?.width ?? null;
   const h = info?.height ?? null;
-  if (w && h) {
+  // A JPEG (or PNG) whose size cannot be read is a FAILURE, never a skip:
+  // every size rule below needs the decoded size, and a guard that goes quiet
+  // when it cannot measure passes exactly the card it cannot vouch for. WebP
+  // is already a failure above and carries no size by design.
+  const sizeKnown = Boolean(w && h);
+  if (info && info.format !== 'webp' && !sizeKnown) {
+    failures.push(`og:image ${info.format} body: cannot read decoded size (no frame header) -- no size, ratio or declared-size check can vouch for it`);
+  }
+  if (sizeKnown) {
     if (!declared || declared.width !== w || declared.height !== h) {
       failures.push(`declared og:image size ${declared?.width ?? '?'}x${declared?.height ?? '?'} != decoded ${w}x${h}`);
     }
@@ -515,6 +523,18 @@ export function wholeFlyerFailures({ ogImage, declared, img, expectedMode = 'off
     if (lParam === 'wf1' && img?.ogLayout !== 'wf1') {
       failures.push(`l=wf1 card answered with X-OG-Layout: ${img?.ogLayout ?? '(none)'} -- not the whole-flyer layout its URL names`);
     }
+    // The URL names its canvas (D4 b2): the bytes must BE that canvas. The
+    // header and the page's declared size can both agree with a wrong body
+    // (a 1200x630 card under X-OG-Layout: wf1 and a matching declared size),
+    // so the s= in the URL is the one fact the response cannot rewrite.
+    if (lParam === 'wf1') {
+      let sParam = '';
+      try { sParam = new URL(url).searchParams.get('s') ?? ''; } catch { sParam = ''; }
+      const sm = /^([0-9]{3,4})x([0-9]{3,4})$/.exec(sParam);
+      if (!sm || Number(sm[1]) !== w || Number(sm[2]) !== h) {
+        failures.push(`l=wf1 card decoded size differs from s=: s=${sParam || '(none)'}, decoded ${w ?? '?'}x${h ?? '?'}`);
+      }
+    }
   }
 
   if (isBakedObject(url)) {
@@ -523,7 +543,7 @@ export function wholeFlyerFailures({ ogImage, declared, img, expectedMode = 'off
     if (m) {
       const [kv, kw, kh] = [Number(m[1]), Number(m[2]), Number(m[3])];
       if (kv !== WF_CURRENT_VERSION) failures.push(`baked whole-flyer key is wf${kv}, the current renderer is wf${WF_CURRENT_VERSION}: ${key}`);
-      if (w && h && (kw !== w || kh !== h)) failures.push(`baked key size ${kw}x${kh} != decoded ${w}x${h}: ${key}`);
+      if (kw !== w || kh !== h) failures.push(`baked key size ${kw}x${kh} != decoded ${w}x${h}: ${key}`);
       if (expectedMode === 'off' || expectedMode === 'test') failures.push(`whole-flyer baked key served while the expected mode is ${expectedMode}: ${key}`);
     } else if (expectedMode === 'on' && HEALTHY_BAKED_KEY_RE.test(key)) {
       failures.push(`legacy baked key served while the expected mode is on: ${key}`);
@@ -823,6 +843,8 @@ function selfTest() {
   const jpegOf = (w, h) => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00,
     0xff, 0xc0, 0x00, 0x11, 0x08, h >> 8, h & 255, w >> 8, w & 255, 0x03, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xd9]);
   const WEBP = Buffer.from('RIFF\0\0\0\0WEBPVP8 ', 'binary');
+  // SOI + APP0 (JFIF) + EOI: a JPEG by its magic bytes, with no frame header.
+  const JPEG_NO_SOF = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9]);
   const ID = '01173937-0000-4000-8000-46b1f42d630c';
   const WF_LIVE = `${PROD}/api/og/card?kind=event&id=${ID}&v=x.jpg&l=wf1&s=960x1200`;
   const LEGACY_LIVE = `${PROD}/api/og/card?kind=event&id=${ID}&v=x.jpg`;
@@ -845,6 +867,14 @@ function selfTest() {
       wfFails({ ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: { ...wfOk, ogLayout: 'legacy' } })],
     ['wf mutant: a baked key whose size differs from the decoded size FAILS',
       wfFails({ ogImage: KEY('-wf1-960x1200'), declared: { width: 960, height: 1000 }, img: { body: jpegOf(960, 1000) }, expectedMode: 'on' })],
+    ['wf mutant: an l=wf1&s=960x1200 URL answered with a 1200x630 JPEG (X-OG-Layout wf1, 1h cache, page declaring 1200x630) FAILS on "decoded size differs from s="',
+      wholeFlyerFailures({ ogImage: WF_LIVE, declared: { width: 1200, height: 630 }, img: { ...wfOk, body: jpegOf(1200, 630) } }).some((f) => f.includes('decoded size differs from s='))],
+    ['wf mutant: a JPEG header plus EOI with no SOF FAILS on "cannot read decoded size" (live legacy, live wf1, baked legacy, baked wf1)',
+      [{ ogImage: LEGACY_LIVE, declared: { width: 1200, height: 630 }, img: { body: JPEG_NO_SOF } },
+        { ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, img: { ...wfOk, body: JPEG_NO_SOF } },
+        { ogImage: KEY(''), declared: { width: 1200, height: 630 }, img: { body: JPEG_NO_SOF } },
+        { ogImage: KEY('-wf1-960x1200'), declared: { width: 960, height: 1200 }, img: { body: JPEG_NO_SOF }, expectedMode: 'on' },
+      ].every((args) => wholeFlyerFailures(args).some((f) => f.includes('cannot read decoded size')))],
     ['wf healthy: legacy plain key PASSES (mode off)',
       wfPasses({ ogImage: KEY(''), declared: { width: 1200, height: 630 }, img: { body: jpegOf(1200, 630) } }) && bakedDegradedFailure(KEY('')) === null],
     ['wf healthy: legacy facts key PASSES (mode off)',

@@ -26,7 +26,9 @@ type Fixture = {
   expect: "fail" | "pass";
   ogImage: string;
   declared: { width: number; height: number };
-  body: "jpeg-960x1200" | "jpeg-1200x630" | "jpeg-1500x500" | "jpeg-960x1000" | "webp-960x1200";
+  body: "jpeg-960x1200" | "jpeg-1200x630" | "jpeg-1500x500" | "jpeg-960x1000" | "webp-960x1200" | "jpeg-no-sof";
+  /** For the round-2 mutants: the failure must be the NAMED rule, not any rule. */
+  failureIncludes?: string;
   cacheControl?: string | null;
   ogLayout?: string | null;
   expectedMode?: string;
@@ -41,6 +43,12 @@ const FIXTURES: Fixture[] = [
   { name: "l=wf1 URL with Cache-Control 14400", expect: "fail", ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, body: "jpeg-960x1200", cacheControl: "public, max-age=14400", ogLayout: "wf1", expectedMode: "allowlist" },
   { name: "l=wf1 URL answered with X-OG-Layout: legacy", expect: "fail", ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, body: "jpeg-960x1200", cacheControl: "public, max-age=3600", ogLayout: "legacy" },
   { name: "baked key size differs from the decoded size", expect: "fail", ogImage: KEY("-wf1-960x1200"), declared: { width: 960, height: 1000 }, body: "jpeg-960x1000", expectedMode: "on" },
+  // Review-fix round (findings 2 and 3): both survived with ZERO failures before the fix.
+  { name: "l=wf1&s=960x1200 answered with a 1200x630 JPEG, X-OG-Layout wf1, 1h cache, page declaring 1200x630", expect: "fail", ogImage: WF_LIVE, declared: { width: 1200, height: 630 }, body: "jpeg-1200x630", cacheControl: "public, max-age=3600", ogLayout: "wf1", failureIncludes: "decoded size differs from s=" },
+  { name: "JPEG header plus EOI, no SOF (live legacy URL)", expect: "fail", ogImage: LEGACY_LIVE, declared: { width: 1200, height: 630 }, body: "jpeg-no-sof", failureIncludes: "cannot read decoded size" },
+  { name: "JPEG header plus EOI, no SOF (live l=wf1 URL)", expect: "fail", ogImage: WF_LIVE, declared: { width: 960, height: 1200 }, body: "jpeg-no-sof", cacheControl: "public, max-age=3600", ogLayout: "wf1", failureIncludes: "cannot read decoded size" },
+  { name: "JPEG header plus EOI, no SOF (baked legacy key)", expect: "fail", ogImage: KEY(""), declared: { width: 1200, height: 630 }, body: "jpeg-no-sof", failureIncludes: "cannot read decoded size" },
+  { name: "JPEG header plus EOI, no SOF (baked wf1 key, mode on)", expect: "fail", ogImage: KEY("-wf1-960x1200"), declared: { width: 960, height: 1200 }, body: "jpeg-no-sof", expectedMode: "on", failureIncludes: "cannot read decoded size" },
   { name: "healthy: legacy plain key", expect: "pass", ogImage: KEY(""), declared: { width: 1200, height: 630 }, body: "jpeg-1200x630" },
   { name: "healthy: legacy facts key", expect: "pass", ogImage: KEY("-0123456789ab"), declared: { width: 1200, height: 630 }, body: "jpeg-1200x630" },
   { name: "healthy: wf1 key with the right size (mode on)", expect: "pass", ogImage: KEY("-wf1-960x1200"), declared: { width: 960, height: 1200 }, body: "jpeg-960x1200", expectedMode: "on" },
@@ -59,6 +67,8 @@ beforeAll(async () => {
     "jpeg-1500x500": (await solid(1500, 500).jpeg().toBuffer()).toString("base64"),
     "jpeg-960x1000": (await solid(960, 1000).jpeg().toBuffer()).toString("base64"),
     "webp-960x1200": (await solid(960, 1200).webp().toBuffer()).toString("base64"),
+    // SOI + APP0 (JFIF) + EOI: JPEG magic bytes, no frame header to read a size from.
+    "jpeg-no-sof": Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9]).toString("base64"),
   };
   const dir = mkdtempSync(join(tmpdir(), "og-wf-guard-"));
   const input = join(dir, "fixtures.json");
@@ -83,15 +93,20 @@ describe("check-og-images.mjs whole-flyer rules: every mutant fails, every healt
   it.each(FIXTURES)("$expect: $name", (f) => {
     const failures = results[f.name];
     expect(Array.isArray(failures)).toBe(true);
-    if (f.expect === "fail") expect(failures.length, "mutant survived").toBeGreaterThan(0);
+    if (f.expect === "fail") {
+      expect(failures.length, "mutant survived").toBeGreaterThan(0);
+      if (f.failureIncludes) expect(failures.some((x) => x.includes(f.failureIncludes!)), `no "${f.failureIncludes}" failure in ${JSON.stringify(failures)}`).toBe(true);
+    }
     else expect(failures, "healthy fixture flagged").toEqual([]);
   });
 
   it("the guard's own --self-test is green and carries the whole-flyer cases", () => {
     const out = execFileSync(process.execPath, [GUARD, "--self-test"], { encoding: "utf8" });
     expect(out).toMatch(/PASS self-test/);
-    // 8 mutants + 4 healthy fixtures, named "wf mutant: ..." / "wf healthy: ...".
-    expect((out.match(/^ok\s+wf (mutant|healthy):/gm) ?? []).length).toBe(12);
+    // 10 mutants + 4 healthy fixtures, named "wf mutant: ..." / "wf healthy: ...".
+    expect((out.match(/^ok\s+wf (mutant|healthy):/gm) ?? []).length).toBe(14);
+    expect(out).toMatch(/^ok\s+wf mutant: .*decoded size differs from s=/m);
+    expect(out).toMatch(/^ok\s+wf mutant: .*cannot read decoded size/m);
     expect(out).not.toMatch(/^FAIL/m);
   });
 });
