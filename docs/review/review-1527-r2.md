@@ -21,7 +21,7 @@ What still blocks "ready" is process, not code (finding 2 and 3): the 390x844 wa
 
 1. **LOW (test gap, carried from F4): the guard inside `request()` is still not exercised.** `OrganiserSheet.tsx:125-128`. Removing the guard line leaves all 50 tests green (M3). The guard is defence in depth behind `disabled={noteTooShort}` (M4 and M10 show the disabled attribute alone is pinned by 8 tests), and React does not deliver a click to a disabled button, so there is no UI path to test it from. Acceptable as is; the source comment ("Guarded here too, so no path ... reaches the server with a short note") describes the code truthfully. If anyone wants it pinned, the cheap way is to lift `noteTooShort` + the early return into a tiny exported helper and unit-test the helper; not required for this PR.
 2. **MEDIUM (process, blocks "ready" under CLAUDE.md step 4): no 390x844 browser walk and no screenshots.** Nobody has walked the sheet on a phone-sized viewport: not the builder (two rounds), not r1, not this review. The PR body says so under NOT verified and Phone QA. The builder's stated reason (no preview-deploy script in the checkout, no signed-in session with a claimable organiser) also held in this run: the sheet needs an authenticated onboarding session, and there is no preview credential here. Fix: the owner, or a worker with a preview credential, walks empty / 2 chars / 3 chars / server error at 390x844 and attaches the four screenshots to the PR. This is the only remaining item that needs a person.
-3. **LOW (process): PR body has no per-job CI table.** "Checks run" ends with "CI at the previous head: 36 checks, 25 success, 11 skipped, 0 failure (re-run on this push)". That is the r1 summary of 260c2df, not the current head. Fix: paste the per-job table below into the body once `e2e-smoke` completes (it was the last job in progress when this review was written; see CI table).
+3. **LOW (process): PR body has no per-job CI table.** "Checks run" ends with "CI at the previous head: 36 checks, 25 success, 11 skipped, 0 failure (re-run on this push)". That is the r1 summary of 260c2df, not the current head. Fix: paste the per-job table below into the body (all 36 jobs are complete at the final read).
 4. **INFO: prod counts re-checked and match.** Read-only on prod project `stsdtacfauprzrdebmzg`, table `entity_decision_audit`, `action = 'access_requested'`: 8 rows; 6 with an empty `reason`; 0 with a trimmed `reason` of 1-2 characters. `after_state` has only `requested_role`, so the note lives in `reason`. Same numbers as the handover and the body. No personal data read, no write.
 5. **INFO: no new risk in the source delta.** The only source change is the one attribute (F5). It renders `undefined` (attribute absent) once the note is long enough, and the id it points at is the same literal the reason `<p>` and the button already use. tsc at the head: 0 errors.
 6. **INFO: body claims cross-checked.** "new note test 10/10": the file has 10 tests (1 constant, 1 maxlength, 8 table cases), all pass. "removing .trim() now fails 2 tests": matches M2. "removing it [aria-describedby] fails 5 tests": matches M11. "pre-ship exited 0": not re-run here (see Not verified).
@@ -57,7 +57,7 @@ Result: 12 killed, 1 survived out of 13 (r1: 7 of 11 killed).
 
 ## CI table (head c1c4307cb)
 
-36 check runs. First read (about 18:21 UTC, four minutes after the push): 6 in progress -- `unit (Europe/London, full)`, `e2e-smoke`, `build-smoke`, `phone-qa (1)`, `phone-qa (2)`, `phone-qa (3)`. Final read (about 18:43 UTC): 35 completed (24 success, 11 skipped, 0 failure), 1 still in progress (`e2e-smoke`, running since 18:17:30; re-read again at 18:35 UTC, still in progress after 30 minutes, so the job itself may be stuck or queued on a runner rather than failing). On the previous head r1 recorded `e2e-smoke` as success. Whoever merges should read this one job again first.
+36 check runs. First read (about 18:19 UTC, two minutes after the push): 6 in progress -- `unit (Europe/London, full)`, `e2e-smoke`, `build-smoke`, `phone-qa (1)`, `phone-qa (2)`, `phone-qa (3)`. Re-read at about 18:27 and 18:35 UTC: only `e2e-smoke` still in progress. Final read at 18:36 UTC: all 36 completed (25 success, 11 skipped, 0 failure); `e2e-smoke` completed success at 18:36:12 UTC.
 
 | Job | Result (final read) |
 |---|---|
@@ -65,7 +65,7 @@ Result: 12 killed, 1 survived out of 13 (r1: 7 of 11 killed).
 | unit (Europe/London, full) | success |
 | unit (Australia/Sydney, tz-sensitive) | success |
 | unit (America/New_York, tz-sensitive) | success |
-| e2e-smoke | **in progress** at the final read |
+| e2e-smoke | success (completed 18:36:12 UTC, the last job to finish) |
 | build-smoke | success |
 | phone-qa (1) / (2) / (3) | success |
 | phone-qa-section | success (body filled; exit 0 locally) |
@@ -83,11 +83,10 @@ Result: 12 killed, 1 survived out of 13 (r1: 7 of 11 killed).
 - F4 was proven still unpinned by removing the guard and watching all 50 tests pass (M3).
 - The PR body was read through the GitHub API and run through both body scripts.
 - Prod counts re-queried read-only (finding 4).
-- CI check runs read twice through the GitHub API (first read about 18:21 UTC with 6 jobs in progress; final read about 18:43 UTC, table above).
+- CI check runs read twice through the GitHub API (first read about 18:19 UTC with 6 jobs in progress; final read 18:36 UTC with all 36 completed, table above).
 - No PR comments or reviews exist (so no screenshots anywhere on the PR).
 
 ## Not verified
 - Browser walk at 390x844 and the visual layout of the reason line / disabled button / server-error state (finding 2). Needs an authenticated onboarding session with a claimable organiser and a preview deploy; neither is available in this run.
 - `npm run pre-ship` was not re-run here; the body says it exited 0 for the builder.
 - Server behaviour (`request_organiser_access_v1` accepting an empty note, parked W2): not re-checked, out of scope for this PR.
-- e2e-smoke on the head: see the CI table for its state at the final read.
