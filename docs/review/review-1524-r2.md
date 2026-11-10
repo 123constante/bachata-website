@@ -22,7 +22,7 @@ nits below, none blocking, none needing another round.
 | Item | r1 asked | At `cf9d24d55` | Status |
 |---|---|---|---|
 | F1 | `DjRolePage.tsx:76` no-dates anchor takes `PUBLIC_LINK_REL`; test row `userLinks: 3, exceptions: []`; prove red first | Line 76 is `rel={PUBLIC_LINK_REL}` on the only branch that renders an `<a>` (`e.action.external`, which `noDates()` in `djRoleModel.ts:99-103` sets only when the href is the DJ's Instagram; the `/` branch is still a `<Link>`). Test row is `{ file: 'src/components/dj/DjRolePage.tsx', userLinks: 3, exceptions: [] }`; the old exception row is gone. Reverting line 76 alone to `rel="noopener noreferrer"` makes the DjRolePage row fail (M1, 1 failed / 9 passed) | fixed |
-| F2 | PR body: no `TO FILL`, changed/left table, per-job CI table, Verified on real data with read-only counts, Not verified | Body read via the GitHub API at this head: zero `TO FILL`; changed/left table covers all 27 anchors in the brief list (main line numbers) plus the F1 line; CI per-job table present (for head `47bc178`, see N5); "Verified on real data" has counts that match this review's recount exactly (table below); "NOT verified" names the preview DOM check, `pre-ship` end to end and the parked dancer-app page | fixed |
+| F2 | PR body: no bot stub lines left, changed/left table, per-job CI table, Verified on real data with read-only counts, Not verified | Body read via the GitHub API at this head: zero stub lines left; changed/left table covers all 27 anchors in the brief list (main line numbers) plus the F1 line; CI per-job table present (for head `47bc178`, see N5); "Verified on real data" has counts that match this review's recount exactly (table below); "NOT verified" names the preview DOM check, `pre-ship` end to end and the parked dancer-app page | fixed |
 | F3 | Fill or drop the 3-line placeholder handover | `docs/handover-welcome-w1-link-rel.md` is now 36 lines: Done / Not verified / Left / fix-round gates. No placeholder text remains (N4 is a stale figure inside it) | fixed |
 | N1 | One-line comment at both WhatsApp sites saying why they differ | `DjTiles.tsx:275` ("App-built wa.me link ... keeps noreferrer, unlike the typed links below") and `DancerWorld.tsx:62` ("whatsapp is an app-built wa.me link ... takes the ugc rel too ... DjTiles leaves its standalone wa.me on the plain rel"). Both sites, both say why | done (see N3 on placement) |
 | N2 | (no change proposed) exception rows trusted by inclusion | Unchanged by design; M2 below shows the class is still open, as r1 said | as recorded |
@@ -153,3 +153,10 @@ is `blocked` (review required), no reviews or review comments on the PR.
   as r1 and the PR); the PR's `npm run lint` / `npm run pre-ship` (builder's gate; the PR body says
   pre-ship did not complete in the builder's sandbox); the rendered `rel` on a live preview (no
   preview exists for this head); the parked dancer-app page.
+
+## Handover (review worker)
+
+- Done: this review file; verdict PASS; no change to the PR branch. Review PR: #1526 (`claude/review-1524-r2` to `main`, docs only).
+- Left: nothing on this brief. N3 to N5 are nits for a later touch of PR #1524 or its follow-up, not a new round.
+- Next steps: owner reads the verdict; PR #1524 waits on the owner (mergeable_state `blocked`, review required). A follow-up brief for the out-of-scope `noopener noreferrer` user links (`PublicDancerPageV2`, `AllProfiles`, `FestivalDetail` ticketUrl, `PromoCodes`, `VendorDetail`) remains the open item from r1.
+- tsc run on `cf9d24d55` (the reviewed head): 0 errors, exit 0. This branch adds no TypeScript, so no tsc run on its own head.
