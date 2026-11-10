@@ -19,3 +19,5 @@ line by line. Website lines were read on this branch.
 | 11 | Public page shows the handle (no change) | src/pages/AllProfiles.tsx:180 | n/a, unchanged |
 
 Coverage: 9 covered / 11 total (item 9 uncovered; item 11 unchanged by design; item 1 admin side unread).
+
+Note: the claim helper is imported lazily in api/rpc.ts so the /app first-load chunk count stays at its allowance (47).
