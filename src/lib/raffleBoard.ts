@@ -5,6 +5,18 @@
 // wall clock with NO zone ('YYYY-MM-DDTHH24:MI:SS' of materialised_start_utc AT TIME ZONE 'UTC').
 import { addDaysToKey, londonDateKey, weekdayOfKey } from '@/lib/londonDate';
 
+/** The jsonb keys each night carries in raffle_public_board_v1 (prod definition, read-only,
+ *  2026-11-10). One shared list: the parser reads ONLY these and the fixtures are checked
+ *  against it, so a fixture with made-up keys (start / venue) goes red. */
+export const RAFFLE_BOARD_NIGHT_KEYS = [
+  'occurrence_id',
+  'public_event_id',
+  'title',
+  'start_local',
+  'venue_name',
+  'winner_first_name',
+] as const;
+
 export type RaffleNight = {
   occurrenceId: string;
   publicEventId: string;
@@ -47,7 +59,7 @@ function parseNight(raw: unknown): RaffleNight | null {
   if (!isObj(raw)) return null;
   const occurrenceId = str(raw.occurrence_id);
   const publicEventId = str(raw.public_event_id);
-  const rawStart = str(raw.start_local) ?? str(raw.start);
+  const rawStart = str(raw.start_local);
   const start = rawStart ? asUtcInstant(rawStart) : null;
   if (!occurrenceId || !publicEventId || !start || Number.isNaN(Date.parse(start))) return null;
   return {
@@ -55,7 +67,7 @@ function parseNight(raw: unknown): RaffleNight | null {
     publicEventId,
     title: str(raw.title) ?? '',
     start,
-    venue: str(raw.venue_name) ?? str(raw.venue),
+    venue: str(raw.venue_name),
     winnerFirstName: str(raw.winner_first_name),
   };
 }

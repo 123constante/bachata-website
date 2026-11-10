@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseRaffleBoard, boardForEvent, thisWeeksWinners } from '../raffleBoard';
+import { parseRaffleBoard, boardForEvent, thisWeeksWinners, RAFFLE_BOARD_NIGHT_KEYS } from '../raffleBoard';
+import { BOARD_SHAPES } from './raffleBoardFixtures';
 
 const night = (o: Record<string, unknown> = {}) => ({
   occurrence_id: 'o1', public_event_id: 'e1', title: 'T', start_local: '2026-11-12T20:00:00',
@@ -15,7 +16,7 @@ const shapes: Array<[string, unknown, number, string | null, boolean]> = [
   ['pool only', { pool_count: 5 }, 0, null, false],
   ['night open no winner', board([night()]), 1, null, true],
   ['locked winner', board([night({ winner_first_name: 'Ana' })]), 1, 'Ana', true],
-  ['attended winner', board([night({ winner_first_name: 'Ben', start_local: '2026-11-10T20:00:00' })]), 1, 'Ben', true],
+  ['attended winner', board([night({ winner_first_name: 'Ben', start_local: '2026-11-11T20:00:00' })]), 1, 'Ben', true],
   ['released (winner cleared)', board([night({ winner_first_name: null })]), 1, null, true],
   ['event not in raffle', board([night({ public_event_id: 'other' })]), 1, null, false],
   ['null', null, 0, null, false],
@@ -28,7 +29,7 @@ describe('raffleBoard shapes', () => {
   it.each(shapes)('%s', (_n, json, nights, winner, inRaffle) => {
     const b = parseRaffleBoard(json);
     expect(b.nights).toHaveLength(nights);
-    const e = boardForEvent(b, 'e1');
+    const e = boardForEvent(b, 'e1', NOW);
     expect(e.inRaffle).toBe(inRaffle);
     expect(e.winnerFirstName).toBe(winner);
     expect(Array.isArray(thisWeeksWinners(b, NOW))).toBe(true);
@@ -51,7 +52,7 @@ describe('raffleBoard shapes', () => {
       night({ occurrence_id: 'late', start_local: '2026-12-01T20:00:00', winner_first_name: 'Z' }),
       night({ occurrence_id: 'early', start_local: '2026-11-12T20:00:00', winner_first_name: 'A' }),
     ]));
-    expect(boardForEvent(b, 'e1').night?.occurrenceId).toBe('early');
+    expect(boardForEvent(b, 'e1', NOW).night?.occurrenceId).toBe('early');
   });
   it('25 nights across two London weeks around the DST change (2026-10-25)', () => {
     const nights = Array.from({ length: 25 }, (_, i) => {
@@ -109,5 +110,25 @@ describe('real RPC keys (start_local UTC wall clock, venue_name)', () => {
   it('a night starting 00:30 London today counts as today', () => {
     const b = parseRaffleBoard(board([{ ...REAL, start_local: '2026-07-13T23:30:00' }])); // 00:30 BST 14 Jul
     expect(boardForEvent(b, 'e1', new Date('2026-07-14T10:00:00Z')).inRaffle).toBe(true);
+  });
+});
+
+describe('fixture keys = real RPC keys (one shared mapping)', () => {
+  const nightsOf = (j: unknown): Record<string, unknown>[] =>
+    j && typeof j === 'object' && Array.isArray((j as { nights?: unknown }).nights)
+      ? ((j as { nights: Record<string, unknown>[] }).nights)
+      : [];
+  const all = [...BOARD_SHAPES.flatMap((s) => nightsOf(s.json)), night()];
+  it('every fixture night uses exactly the raffle_public_board_v1 night keys', () => {
+    expect(all.length).toBeGreaterThan(0);
+    for (const n of all) expect(Object.keys(n).sort()).toEqual([...RAFFLE_BOARD_NIGHT_KEYS].sort());
+  });
+  it('a night with made-up keys (start / venue) is dropped, not silently accepted', () => {
+    const wrong = { occurrence_id: 'o1', public_event_id: 'e1', title: 'T', start: '2026-11-12T20:00:00', venue: 'V', winner_first_name: null };
+    expect(parseRaffleBoard(board([wrong])).nights).toHaveLength(0);
+  });
+  it('venue is read from venue_name only', () => {
+    const n = { ...night(), venue_name: undefined, venue: 'V' };
+    expect(parseRaffleBoard(board([n])).nights[0].venue).toBeNull();
   });
 });
