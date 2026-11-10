@@ -38,3 +38,16 @@ Written 2026-11-10 by the revise worker (dt_dabfdde5fdc6). Docs only: no code, n
 | F7 (PARTLY) | MED | CLOSED | as N3; s.5 T1 assertions add `ticket_types_manage_v1` and the outage guard | M-17 |
 | F9 (PARTLY) | LOW | CLOSED | design OPEN-D5 BOUNDED: price exposure <= ~32 min after the reserve (Stripe session, J-32); 15-min hold bounds capacity only; contract 0c R-8 | M-16 |
 | F10 (PARTLY) | LOW | CLOSED (decision: PATCH) | design s.3c "Sales summaries": v1 has a live caller (`ticketsApi.ts:93`), so v1 and v2 are patched to the seam in T1 by `CREATE OR REPLACE`, ACL kept; s.5 T1 | M-18; mutant: leave `t.price_pence` in summary v1 -> M-18 and the N4 guard red |
+
+## r3 finding -> section -> mutant/test (review `ticketing-organisers-r3.md`, worker dt_a60d3a61bb20; fixes by dt_2a87d030f79b)
+| r3 finding | Sev | Status | Section (design = `design-ticketing-organisers.md`, contract = `contract-ticket-tiers.md`) | Mutant / test |
+|---|---|---|---|---|
+| R3-1 total check after the supersede UPDATE | BLOCKING | CLOSED (text) | design s.3b checkpoint (b) moved to after v4 l.193 / 195-198, before 200, 213-225, 228, fee computed at 193; contract 0c R-3 | M-8 reworded; NEW M-8c: capped code + pending order same person + stale total -> earlier order `promo_use_released` still false; mutant check after supersede -> red |
+| R3-2 checkpoint (a) position | NOTE | CLOSED | design s.3b (a): once after the loop (l.119), before 121; contract R-3 | M-7 unchanged |
+| R3-3 edge path precedence | NOTE | CLOSED | design s.3a T2 row: `expected_total_pence` test before `lines`; v5 parser carries `expected_unit_price_pence` (`Number.isInteger`) | edge unit test: T4 body -> v5 RPC args carry both expected values |
+| R3-4 marker / window | NOTE | CLOSED | design s.3a G-1 step 1 (`SET lock_timeout = '3s'` + retry, no backfill, optional CHECK) and step 2 (window = 24 h ending at the check, start no earlier than T4 deploy, same literal in the `DO`) | T2b `DO` block |
+| R3-5 callers outside repo | NOTE | CLOSED | design s.3a G-1 step 4: grep all admin `supabase/functions/` and app source for `ticket_checkout_reserve_v[34]`, `ticket_types_public_v2`; stale-tab error state | pasted grep in T2b PR |
+| R3-6 step table grant line | NOTE | CLOSED | design s.5 T1: `REVOKE ALL ... FROM PUBLIC, anon, authenticated, service_role` then `GRANT SELECT TO service_role`; writers keep default service_role EXECUTE (stated) | T1 INSERT assertion |
+| R3-7 summary price after steps | NOTE | CLOSED | design s.3c sales summaries: T3 brief must seed the editor draft from the base read | T3 test: untouched save after a step leaves base unchanged |
+
+Verified: text edits only, against the r3 review. Not verified: prod line numbers (taken from the review's read of v4, not re-read); `ticket_order_mark_paid_v1` cap behaviour (review's own Not verified); admin repo greps; no tsc/tests (docs only).
