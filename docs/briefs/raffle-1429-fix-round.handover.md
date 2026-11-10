@@ -11,3 +11,4 @@ with a winner, not total_winners (766 on prod), real-shape test; 5 first night n
 Not done / needs owner: item 7 cannot be derived from the server: there is no anon RPC that says "this person is in
 the pool" (raffle_my_wins_v1 is authenticated, about wins). Needs an admin-repo RPC. Flag stays off; no flag/env touched.
 Not verified: no 390x844 browser walk (sizes asserted from CSS: 44px); no CI run; no pre-ship.
+tsc run on a9438d6: 0 errors in branch files
