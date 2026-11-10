@@ -1,5 +1,4 @@
 import { rpcLoose } from '@/integrations/supabase/rpcLoose';
-import { claimMyDancerProfile } from '@/lib/claimMyDancerProfile';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import type { GoingNextNight } from '@/modules/going/goingRpc';
 import { DancerApiError, codeFromMessage, toDancerError } from './errors';
@@ -242,6 +241,8 @@ export const linkBeforeInstagramSave = async (
 ): Promise<'skipped' | 'proceed' | 'linked'> => {
   const handle = changedInstagram(delta, current);
   if (handle === null) return 'skipped';
+  // Lazy: only a changed handle needs the claim helper, so it stays out of the /app first-load chunk count.
+  const { claimMyDancerProfile } = await import('@/lib/claimMyDancerProfile');
   const outcome = await claimMyDancerProfile(undefined, handle);
   if (outcome.status === 'ambiguous') throw new DancerApiError('instagram_review', 'instagram_review', null);
   if (outcome.status === 'linked' || outcome.status === 'already_linked') {
