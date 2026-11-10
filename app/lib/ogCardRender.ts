@@ -38,6 +38,7 @@ import { fetchFestivalDetail } from "@/modules/event-page/useFestivalDetailQuery
 import interSemiBoldB64 from "./ogCardFonts/Inter-SemiBold.ttf?bytes";
 import interRegularB64 from "./ogCardFonts/Inter-Regular.ttf?bytes";
 import { truncate } from "../truncate";
+import { wholeFlyerCanvas, type CanvasSize } from "./ogLayout";
 
 const CARD_W = 1200;
 const CARD_H = 630;
@@ -606,8 +607,74 @@ export async function buildTallCard(coverBuf: Buffer, data: OgCardData): Promise
   const dims = await flyerDisplaySize(coverBuf);
   const size = dims ? tallCardSize(dims.width, dims.height) : null;
   if (!size) return buildCoverCard(coverBuf, data);
-  const { width: W, height: H } = size;
+  const composed = await composeWholeFlyer(coverBuf, size.width, size.height);
 
+  // Step quality down until the JPEG fits; never WebP (WhatsApp refuses it).
+  // Worst case measured: a pure-noise 4:5 flyer (it fills the whole 960x1200
+  // card) is ~374 KB at q82 and ~287 KB at q74, so the step-down is needed and
+  // pinned by tests/ogTallCard.test.ts. layout=tall keeps its own three-rung
+  // ladder unchanged (it is removed in a later named slice); the whole-flyer
+  // card below adds the q58 rung and REPORTS an over-budget result instead.
+  return (await encodeJpegLadder(composed, TALL_QUALITIES)).buf;
+}
+
+// ---------------------------------------------------------------------------
+// WHOLE-FLYER card (docs/design/whatsapp-whole-flyer.CONTRACT.md, slice B1).
+// The #1517 tall builder above EXTENDED to every ratio, wide included: the
+// same composeWholeFlyer treatment, but the canvas is chosen by the pure D1
+// rule in ./ogLayout (960 wide, ratio clamped to [0.8, 1.91]) and is passed IN
+// -- the card route renders exactly the s= canvas its URL names, the bake
+// route the canvas it will write into the R2 key, so pixels equal the declared
+// size by construction (D4 b2). No 1200x630 branch: a wide flyer gets a wide
+// whole-flyer card, an ultra-wide one blurred bars above and below.
+//
+// Size ceiling (D6): q82, q74, q66, q58, JPEG only. If even q58 is over 300 KB
+// the SAME-SIZE card comes back with overBudget=true -- the card route marks it
+// X-OG-Fallback: over-budget and the bake route refuses it. Never a silent
+// over-budget return, never a 1200x630 swap under a whole-flyer size.
+// ---------------------------------------------------------------------------
+export const WF_QUALITIES = [82, 74, 66, 58] as const;
+
+export interface WholeFlyerCard {
+  buf: Buffer;
+  width: number;
+  height: number;
+  /** True when even the last rung is over TALL_CARD_MAX_BYTES (300 KB). */
+  overBudget: boolean;
+}
+
+/** The D1 canvas for these flyer bytes as they DISPLAY (EXIF rotation and the
+ *  first frame of an animation, same reading as the render), or null when the
+ *  bytes cannot be sized. Shared by the page measure and the bake. */
+export async function wholeFlyerCanvasFor(buf: Buffer): Promise<CanvasSize | null> {
+  const dims = await flyerDisplaySize(buf);
+  return dims ? wholeFlyerCanvas(dims.width, dims.height) : null;
+}
+
+export async function buildWholeFlyerCard(coverBuf: Buffer, canvas: CanvasSize): Promise<WholeFlyerCard> {
+  const composed = await composeWholeFlyer(coverBuf, canvas.width, canvas.height);
+  const { buf, overBudget } = await encodeJpegLadder(composed, WF_QUALITIES);
+  return { buf, width: canvas.width, height: canvas.height, overBudget };
+}
+
+/** Every degraded 200 under an l=wf1 URL is drawn at that URL's canvas (r3 R4):
+ *  the text fallback card placed fit:inside on a brand-dark canvas of exactly
+ *  the declared size. The caller keeps its X-OG-Fallback marker. */
+export async function buildWholeFlyerFallbackCard(
+  title: string | null, dateLine: string | null, venueLine: string | null, canvas: CanvasSize,
+): Promise<WholeFlyerCard> {
+  const text = await buildFallbackCard(title, dateLine, venueLine);
+  const fitted = await sharp(text).resize(canvas.width, canvas.height, { fit: "inside" }).png().toBuffer();
+  const composed = await sharp({ create: { width: canvas.width, height: canvas.height, channels: 4, background: BRAND_DARK } })
+    .composite([{ input: fitted, gravity: "centre" }])
+    .png().toBuffer();
+  const { buf, overBudget } = await encodeJpegLadder(composed, WF_QUALITIES);
+  return { buf, width: canvas.width, height: canvas.height, overBudget };
+}
+
+/** The #1517 treatment, shared by layout=tall and the whole-flyer card: the
+ *  whole flyer fit:inside, centred, on a cover-scaled, blurred, darkened copy. */
+async function composeWholeFlyer(coverBuf: Buffer, W: number, H: number): Promise<Buffer> {
   // Flattened BEFORE the darken so a transparent flyer's alpha is not scaled too.
   const backdrop = await sharp(coverBuf)
     .rotate()
@@ -620,21 +687,18 @@ export async function buildTallCard(coverBuf: Buffer, data: OgCardData): Promise
     .rotate()
     .resize(W, H, { fit: "inside", withoutEnlargement: false })
     .png().toBuffer();
-  const composed = await sharp(backdrop)
+  return sharp(backdrop)
     .composite([{ input: flyer, gravity: "centre" }])
     .png().toBuffer();
+}
 
-  // Step quality down until the JPEG fits; never WebP (WhatsApp refuses it).
-  // Worst case measured: a pure-noise 4:5 flyer (it fills the whole 960x1200
-  // card) is ~374 KB at q82 and ~287 KB at q74, so the step-down is needed and
-  // pinned by tests/ogTallCard.test.ts. The last step returning over budget is
-  // not expected, so it gets no branch nothing can reach.
+async function encodeJpegLadder(composed: Buffer, qualities: readonly number[]): Promise<{ buf: Buffer; overBudget: boolean }> {
   let out = Buffer.alloc(0);
-  for (const quality of TALL_QUALITIES) {
+  for (const quality of qualities) {
     out = await sharp(composed).flatten({ background: BRAND_DARK }).jpeg({ quality, mozjpeg: true }).toBuffer();
-    if (out.length <= TALL_CARD_MAX_BYTES) return out;
+    if (out.length <= TALL_CARD_MAX_BYTES) return { buf: out, overBudget: false };
   }
-  return out;
+  return { buf: out, overBudget: true };
 }
 
 /** The one hash of the FACTS a branded card draws beyond its cover --

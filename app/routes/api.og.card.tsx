@@ -14,13 +14,21 @@
 // shell instead of an image).
 //
 // Query params: kind=event|festival|image, id, occ, v (cache-buster), src (kind=image),
-// layout=tall (kind=event ONLY; test-only, see buildTallCard; never baked)
+// layout=tall (kind=event ONLY; test-only, see buildTallCard; never baked),
+// l=wf1&s=<W>x<H> (kind=event ONLY; the whole-flyer card at exactly that canvas,
+// docs/design/whatsapp-whole-flyer.CONTRACT.md D4 b/b2). The layout comes from
+// the URL, NEVER from OG_WHOLE_FLYER_MODE: every layout has its own URL, so no
+// cache anywhere can hold one layout under the other's URL. l-less URLs are the
+// legacy card, byte-identical to before (no new header, same Cache-Control).
 import { createHash } from "node:crypto";
 import {
   buildCoverCard,
   buildFallbackCard,
   buildImageCard,
   buildTallCard,
+  buildWholeFlyerCard,
+  buildWholeFlyerFallbackCard,
+  type WholeFlyerCard,
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
@@ -30,6 +38,7 @@ import {
   type OgCardData,
 } from "../lib/ogCardRender";
 import { isAllowedOgImageSource } from "../lib/ogImageSourceAllowlist";
+import { formatCanvas, parseLiveLayout, WF_LAYOUT, type CanvasSize } from "../lib/ogLayout";
 import type { Route } from "./+types/api.og.card";
 
 const SITE_URL = "https://www.bachatacalendar.co.uk";
@@ -84,7 +93,9 @@ type FallbackReason =
   | "card-data-unavailable" //    RPC failed or returned nothing -- GENERIC card
   | "cover-unfetchable" //        had a cover URL, could not fetch it
   | "cover-absent" //             no cover URL to fetch at render time
-  | "render-error"; //            anything thrown in the loader
+  | "render-error" //             anything thrown in the loader
+  | "over-budget" //              l=wf1: even q58 is over 300 KB; same-size card (D6)
+  | "wf-size-invalid"; //         l=wf1 with an s outside the D1 range: legacy card served
 
 // A degraded artefact must never be cached for a year, but "degraded" is not
 // one speed. Two tiers, chosen by whether the condition can clear on its own:
@@ -174,6 +185,88 @@ function redirectToStatic(reason: FallbackReason): Response {
   });
 }
 
+// ── Whole-flyer (l=wf1) responses ──────────────────────────────────────────
+// Every response under an l=wf1 URL names its layout (X-OG-Layout: wf1, the
+// header the guard reads; l-less responses never carry it). Cache-Control is at
+// most one hour while the mode is not on everywhere (contract D5); the long
+// cache returns only in a later named slice, so there is no CDN directive here.
+// Every 200 is drawn at the URL's s= canvas, degraded ones included (r3 R4),
+// and keeps its X-OG-Fallback marker; a render error stays a no-store 302.
+const LAYOUT_HEADER = "X-OG-Layout";
+const CACHE_WF_OK = "public, max-age=3600";
+
+function wholeFlyerImageResponse(card: WholeFlyerCard, etag: string, fallback: FallbackReason | null): Response {
+  return new Response(new Uint8Array(card.buf), {
+    status: 200,
+    headers: {
+      "Content-Type": "image/jpeg",
+      "Content-Length": String(card.buf.length),
+      "X-Content-Type-Options": "nosniff",
+      [LAYOUT_HEADER]: WF_LAYOUT,
+      "Cache-Control": !fallback
+        ? CACHE_WF_OK
+        : SLOW_HEALING.has(fallback) || fallback === "over-budget" ? CACHE_DEGRADED_SLOW : CACHE_DEGRADED_FAST,
+      // Same "NO ETag on a degraded response" rule as imageResponse.
+      ...(fallback ? { [FALLBACK_HEADER]: fallback } : { ETag: etag }),
+    },
+  });
+}
+
+function wholeFlyerRedirect(reason: FallbackReason): Response {
+  const res = redirectToStatic(reason);
+  res.headers.set(LAYOUT_HEADER, WF_LAYOUT);
+  return res;
+}
+
+async function wholeFlyerLoader(
+  idParam: string, occ: string, v: string, canvas: CanvasSize, ifNoneMatch: string | null,
+): Promise<Response> {
+  // Params-only etag: the whole-flyer card draws no facts (D8), so the free 304
+  // holds whatever OG_BRANDED_CARD_ENABLED says. l and s are both in it.
+  const etag = makeEtag("event", idParam, "", occ, v, "", `${WF_LAYOUT}:s=${formatCanvas(canvas)}`);
+  try {
+    if (ifNoneMatch === etag) {
+      return new Response(null, { status: 304, headers: { [LAYOUT_HEADER]: WF_LAYOUT } });
+    }
+    if (!idParam) return wholeFlyerRedirect("missing-id");
+    const id = await resolveOgEventId(idParam);
+    if (!id) return wholeFlyerRedirect("unresolvable-id");
+    const cardData = await fetchEventCardData(id, occ || null);
+    if (!cardData) {
+      return wholeFlyerImageResponse(await buildWholeFlyerFallbackCard(null, null, null, canvas), "", "card-data-unavailable");
+    }
+    const hasCoverUrl = Boolean(cardData.coverUrl);
+    const coverBytes = hasCoverUrl ? await fetchImageBytes(cardData.coverUrl as string) : null;
+    if (!coverBytes) {
+      return wholeFlyerImageResponse(
+        await buildWholeFlyerFallbackCard(cardData.title, cardData.dateLine, cardData.venueLine, canvas),
+        etag,
+        hasCoverUrl ? "cover-unfetchable" : "cover-absent",
+      );
+    }
+    // Exactly the URL's canvas, whatever the CURRENT cover's ratio: an old URL
+    // can only show newer content, never a different size (D4 b2).
+    const card = await buildWholeFlyerCard(coverBytes, canvas);
+    return wholeFlyerImageResponse(card, etag, card.overBudget ? "over-budget" : null);
+  } catch (err) {
+    console.error("[og/card] render_failed", err);
+    return wholeFlyerRedirect("render-error");
+  }
+}
+
+/** l=wf1 with an s outside the D1 range: answered through the legacy-fallback
+ *  path -- the l-less card, never a guessed whole-flyer size -- and marked so
+ *  it can never pass the guard or sit in a cache as healthy. */
+function markInvalidWholeFlyerSize(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.set(LAYOUT_HEADER, "legacy-fallback");
+  headers.set(FALLBACK_HEADER, "wf-size-invalid");
+  headers.delete("ETag");
+  headers.delete("Vercel-CDN-Cache-Control");
+  if (headers.get("Cache-Control") !== CACHE_RENDER_ERROR) headers.set("Cache-Control", CACHE_DEGRADED_FAST);
+  return new Response(res.body, { status: res.status, headers });
+}
+
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const url = new URL(request.url);
   const q = url.searchParams;
@@ -182,6 +275,16 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const src = q.get("src") ?? "";
   const occ = q.get("occ") ?? "";
   const v = q.get("v") ?? "";
+  const wf = parseLiveLayout(kind, q);
+  if (wf.layout === "wf1") return wholeFlyerLoader(idParam, occ, v, wf.size, request.headers.get("if-none-match"));
+  if (wf.layout === "wf1-invalid") {
+    const legacyUrl = new URL(url);
+    legacyUrl.searchParams.delete("l");
+    legacyUrl.searchParams.delete("s");
+    // No conditional headers: a 304 would answer for a different URL's bytes.
+    const legacy = await loader({ request: new Request(legacyUrl) } as Route.LoaderArgs);
+    return markInvalidWholeFlyerSize(legacy);
+  }
   // Test-only switch (docs/briefs/og-tall-card-test.md): honoured for events
   // only, ignored for any other value or kind, and part of the etag.
   const layout = kind === "event" && q.get("layout") === "tall" ? "tall" : "";

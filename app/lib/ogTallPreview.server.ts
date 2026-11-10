@@ -1,26 +1,45 @@
-// TEST-ONLY og:image for /event/<id>?ogtest=tall (docs/briefs/og-tall-card-test.md).
+// Server-only flyer measures for the /event page's og:image
+// (docs/design/whatsapp-whole-flyer.CONTRACT.md D2, D4 b2).
 //
-// Answers one question: does WhatsApp draw a TALLER link card when og:image is
-// not 1200x630? The page points og:image at the live /api/og/card?...&layout=tall
-// and must declare the size the card will actually be, which depends on the
-// flyer's own ratio -- so this reads the flyer the card endpoint will read
-// (fetchEventCardData's coverUrl, same resolver) and sizes it with the SAME
-// function the renderer uses (tallCardSizeFor).
+// Two callers, both reading the flyer the CARD ROUTE will read
+// (fetchEventCardData's coverUrl, the same resolver) and sizing it with the SAME
+// function the renderer uses, so og:image:width/height can never disagree with
+// the bytes:
+//   - measureWholeFlyerCanvas: the live, not-yet-baked whole-flyer path, called
+//     by resolveOgCardImageSized under its 2500 ms budget;
+//   - resolveOgTallPreview: the TEST-ONLY ?ogtest=tall card (#1517), kept
+//     answered exactly as before until its named removal slice.
 //
 // `.server.ts` on purpose: it pulls in sharp, and React Router refuses to put a
 // .server module in the client bundle, so a leaked import fails the build
 // loudly rather than shipping sharp to phones.
 //
-// Any failure returns null and the page keeps its normal og:image. Never baked.
-import { fetchEventCardData, fetchImageBytes, tallCardSizeFor } from "./ogCardRender";
+// Any failure returns null. Never baked.
+import { fetchEventCardData, fetchImageBytes, tallCardSizeFor, wholeFlyerCanvasFor } from "./ogCardRender";
 import { coverVersionToken } from "../detailLoader";
 import { sameHostImage } from "../sameHostImage";
 import { SITE_ORIGIN } from "@/lib/seo";
+import type { CanvasSize } from "./ogLayout";
 
 export interface OgTallPreview {
   url: string;
   width: number;
   height: number;
+}
+
+/** The D1 canvas of the flyer /api/og/card would render for this event (or
+ *  occurrence), or null on any miss. Never snap.event.imageUrl. */
+export async function measureWholeFlyerCanvas(eventId: string, occId: string | null): Promise<CanvasSize | null> {
+  try {
+    const card = await fetchEventCardData(eventId, occId);
+    if (!card?.coverUrl) return null;
+    const bytes = await fetchImageBytes(card.coverUrl);
+    if (!bytes) return null;
+    return await wholeFlyerCanvasFor(bytes);
+  } catch (err) {
+    console.error("[og/wf] measure_failed", err);
+    return null;
+  }
 }
 
 export async function resolveOgTallPreview(opts: {
