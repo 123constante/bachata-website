@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { OrganiserFake, PHONE, ORG, ORG_NAME, json } from './helpers/organiserFake';
+import { findGarbled } from './helpers/garbled';
 
 // WALK (report only), PR #1315 p3-event-status-1, 390x844, every answer route-mocked. Run on the PR branch:
 //   WALK_OUT=<dir> VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/walk-p3-batch-1-status.spec.ts --project=chromium --workers=1
@@ -30,7 +31,7 @@ async function snap(page: Page, row: string, name: string) {
     }
     return { small, wide: document.documentElement.scrollWidth - document.documentElement.clientWidth };
   });
-  const garbled = (text.match(/\u00c3.|\u00e2\u20ac.|&(mdash|hellip|rsquo|amp|nbsp|lsquo|ldquo|rdquo);|\ufffd/g) ?? []);
+  const garbled = findGarbled(text);
   await page.screenshot({ path: `${PICS}/${name}.png`, fullPage: false });
   appendFileSync(`${OUT}/observations.jsonl`, JSON.stringify({ row, pic: `${name}.png`, w19: { small: facts.small, sidewaysPx: facts.wide, garbled, errorCard: bad } }) + '\n');
   expect(bad, `${name}: the picture shows an error card`).toBe(false);

@@ -496,9 +496,15 @@ export const buildUpsert = (
 const sameInstant = (a: string | null, b: string | null): boolean =>
   a === b || (!!a && !!b && new Date(a).getTime() === new Date(b).getTime());
 
+/** ONE wording for a locked price: the sheet's help line and the server's has_orders refusal both read it. */
+export const PRICE_LOCKED_TEXT =
+  'Tickets have been sold at this price, so it cannot change. To use a different price, pause this ticket and add a new one.';
+
+/** What a paused ticket means, shown on its row. */
+export const PAUSED_NOTE = 'Not on sale. People who already bought keep their tickets.';
+
 /** Why the price field is locked, or null. */
-export const priceLock = (hasOrders: boolean): string | null =>
-  hasOrders ? 'The price cannot change once someone has bought a ticket.' : null;
+export const priceLock = (hasOrders: boolean): string | null => (hasOrders ? PRICE_LOCKED_TEXT : null);
 
 /** Why the whole editor is read-only, or null. */
 export const editLock = (t: TicketType | null, role: MemberRole | null | undefined): string | null => {
@@ -633,7 +639,7 @@ const REASON: Record<string, string> = {
   occurrence_not_in_series: 'That date is not part of this event.',
   immutable_field: 'This ticket belongs to another event.',
   closed: 'Sales are closed for this ticket, so it cannot be changed.',
-  has_orders: 'The price cannot change once someone has bought a ticket.',
+  has_orders: PRICE_LOCKED_TEXT,
   capacity_below_reserved: 'More tickets are already taken than that number.',
   bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
