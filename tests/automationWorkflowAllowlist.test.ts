@@ -13,7 +13,7 @@ import {
 } from '../scripts/check-automation-workflow-allowlist.mjs';
 import { BOT_LOGIN } from '../scripts/lib/autopilot.mjs';
 
-const quiet = { log() {}, error() {} };
+const quiet = { log() {}, error() {} } as unknown as Console;
 const dir = mkdtempSync(path.join(tmpdir(), 'wf-allow-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 const list = (name: string, body: string) => {
@@ -171,5 +171,26 @@ describe('violations', () => {
 describe('the committed list', () => {
   it('lists exactly the names the owner has approved (2026-11-06: workflow-lint.yml, so the guard can wire itself)', () => {
     expect(loadAllowlist(ALLOWLIST_PATH)).toEqual({ ok: true, names: ['workflow-lint.yml'] });
+  });
+
+  // workflow-allowlist-3 (fix round for PR #1394): the PR that wires the guard
+  // edits workflow-lint.yml from a loop branch. It passes only because the owner
+  // listed that one name (#1404), never via an exemption -- every other
+  // workflow edit by a loop PR still fails against the REAL committed list.
+  const SELF = 'claude/automation-loop-editable-workflows';
+  const PR_1394 = [
+    '.github/workflows/workflow-lint.yml',
+    'docs/handovers/workflow-allowlist-2.md',
+    'scripts/check-automation-workflow-allowlist.mjs',
+    'tests/automationWorkflowAllowlist.test.ts',
+  ].join('\n');
+  it.each([
+    ['PR #1394 own diff (workflow-lint.yml) passes', SELF, BOT_LOGIN, PR_1394, 0],
+    ['the same branch editing a NON-listed workflow fails', SELF, BOT_LOGIN, PR_1394 + '\n' + OTHER, 1],
+    ['a non-listed workflow edit alone fails', SELF, BOT_LOGIN, OTHER, 1],
+    ['a loop PR adding a name to the committed list fails', SELF, BOT_LOGIN, LIST_REL, 1],
+    ['a workflow-lint.yml look-alike in a subfolder fails', SELF, BOT_LOGIN, '.github/workflows/x/workflow-lint.yml', 1],
+  ])('committed list: %s', (_n, branch, author, files, want) => {
+    expect(run({ HEAD_REF: branch, PR_AUTHOR: author, PR_FILES: files })).toBe(want);
   });
 });
