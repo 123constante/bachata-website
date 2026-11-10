@@ -63,6 +63,8 @@ const INTERFACE_CODES = [
   'invalid_instagram',
   // instagram-refusal r2 (C): a 23505 on dancer_profiles_instagram_normalized_uidx (matched on the index name).
   'instagram_taken',
+  // profile-save-instagram-link: the claim answered `ambiguous` on a changed handle (client-side, never a DB code).
+  'instagram_review',
 ];
 
 /** Codes the DB raises with a DETAIL naming the field, and the DETAIL values it can send. */
