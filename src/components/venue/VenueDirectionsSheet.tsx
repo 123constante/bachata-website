@@ -10,12 +10,15 @@ import {
   Car as CarIcon,
 } from 'lucide-react';
 import { venueGoldInvertTheme } from './venuePageTheme';
+import { buildDirectionLinks } from './venueDirectionsLinks';
 
 interface VenueDirectionsSheetProps {
   open: boolean;
   venueName: string;
   shortAddress: string;
   fullAddress: string;
+  /** Saved Google Maps link for the venue; opens on the Google row when set. */
+  googleMapsHref?: string | null;
   onClose: () => void;
   onCopy: () => void;
 }
@@ -28,39 +31,39 @@ interface DirAppRow {
   icon: React.ReactNode;
 }
 
-function buildApps(address: string, name: string): DirAppRow[] {
-  const enc = encodeURIComponent(address);
-  const encName = encodeURIComponent(name);
-  return [
-    {
-      key: 'google',
-      name: 'Google Maps',
-      sub: 'Fastest driving & walking',
-      url: `https://www.google.com/maps/dir/?api=1&destination=${enc}`,
-      icon: <NavIcon className="h-5 w-5" />,
-    },
-    {
-      key: 'apple',
-      name: 'Apple Maps',
-      sub: 'iPhone default',
-      url: `https://maps.apple.com/?daddr=${enc}`,
-      icon: <PinIcon className="h-5 w-5" />,
-    },
-    {
-      key: 'citymapper',
-      name: 'Citymapper',
-      sub: 'Best by tube, bus & overground',
-      url: `https://citymapper.com/directions?endname=${encName}&endaddress=${enc}`,
-      icon: <TrainIcon className="h-5 w-5" />,
-    },
-    {
-      key: 'uber',
-      name: 'Uber',
-      sub: 'Door to door',
-      url: `https://m.uber.com/ul/?action=setPickup&dropoff[nickname]=${encName}&dropoff[formatted_address]=${enc}`,
-      icon: <CarIcon className="h-5 w-5" />,
-    },
-  ];
+const APP_META: Record<string, Omit<DirAppRow, 'key' | 'url'>> = {
+  google: {
+    name: 'Google Maps',
+    sub: 'Fastest driving & walking',
+    icon: <NavIcon className="h-5 w-5" />,
+  },
+  apple: {
+    name: 'Apple Maps',
+    sub: 'iPhone default',
+    icon: <PinIcon className="h-5 w-5" />,
+  },
+  citymapper: {
+    name: 'Citymapper',
+    sub: 'Best by tube, bus & overground',
+    icon: <TrainIcon className="h-5 w-5" />,
+  },
+  uber: {
+    name: 'Uber',
+    sub: 'Door to door',
+    icon: <CarIcon className="h-5 w-5" />,
+  },
+};
+
+function buildApps(
+  address: string,
+  name: string,
+  googleMapsHref?: string | null,
+): DirAppRow[] {
+  return buildDirectionLinks({ name, address, googleMapsHref }).map((l) => ({
+    key: l.key,
+    url: l.url,
+    ...APP_META[l.key],
+  }));
 }
 
 export default function VenueDirectionsSheet({
@@ -68,6 +71,7 @@ export default function VenueDirectionsSheet({
   venueName,
   shortAddress,
   fullAddress,
+  googleMapsHref,
   onClose,
   onCopy,
 }: VenueDirectionsSheetProps) {
@@ -83,7 +87,7 @@ export default function VenueDirectionsSheet({
     if (sheetRef.current) sheetRef.current.inert = !open;
   }, [open, mounted]);
   if (!mounted || typeof document === 'undefined') return null;
-  const apps = buildApps(fullAddress, venueName);
+  const apps = buildApps(fullAddress, venueName, googleMapsHref);
 
   const node = (
     <div style={venueGoldInvertTheme as React.CSSProperties}>

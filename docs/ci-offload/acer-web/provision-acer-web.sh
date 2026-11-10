@@ -77,7 +77,7 @@ cat > "$W/sums" <<'EOF'
 6d1e630de58e619b25ca1286399cff448a440caf8f6d23d4c4178eaeec58b7e6  gate-job-started.sh
 f34e835c0d8b1a4a817591eb3679c7f51ae86d97f2f8d29617cfe187c9db5cab  gate-job-completed.sh
 1d2f453f68ae2a3f6de8aad67e74604e9d2058fca2c0ee8b01a48a5b609e60c4  workflows.allow
-76e258f73f8c6e9ea31420ca42d524a3484db081a78dfbab2fa3ecc7edc7a5a6  actions.runner.bachata-website.acer-web.service
+e383f73831473b0ad9c7efbd9ef303aa87c638198b7d373ddc679bf00f231af4  actions.runner.bachata-website.acer-web.service
 9f08c9a61a16bd7b0d1bbc31b48bd7a98f43719aff62e03033af0f65d981d155  test-gate-hooks.sh
 EOF
 ( cd "$C" && sha256sum -c "$W/sums" ) || die "a file differs from the approved PR #1470 content"

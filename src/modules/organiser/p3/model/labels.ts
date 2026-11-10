@@ -16,6 +16,24 @@ const RESET_DATE = 'Put this date back to normal';
 export const L = {
   tabs: { home: 'Home', events: 'Events', stats: 'Stats', you: 'You' },
 
+  /** Slice 1a: the role strip at the top of every P3 screen, and the Switch page list. */
+  /** Slice 1c: the Switch page's Add a profile card toast (P3-only copy; the R1 switch/ dir names no Undo). */
+  addProfile: {
+    hidden: 'Hidden. We will remember this.',
+    /** Storage threw: hidden for this visit only, so it does not promise to remember. */
+    hiddenSession: 'Hidden for now.',
+    undo: 'Undo',
+  },
+  strip: {
+    /** Owner or Manager only: the contributor role is gone and never named. */
+    role: { owner: 'Owner', manager: 'Manager' } as Record<'owner' | 'manager', string>,
+    switchWord: 'Switch',
+    switchName: 'Switch page',
+    todos: (n: number) => `${n} ${n === 1 ? 'to-do' : 'to-dos'} on your other pages`,
+    pageTodos: (n: number) => `${n} ${n === 1 ? 'to-do' : 'to-dos'} on this page`,
+    otherPages: 'Your other pages',
+  },
+
   sessions: 'Sessions',
   everyDate: 'Every date',
   noName: 'No name yet',
@@ -264,6 +282,8 @@ export const L = {
   detailsChatBad: 'Enter the whole group chat link, like https://chat.whatsapp.com/ and the code after it, or leave it empty.',
   detailsKind: 'What it is',
   detailsKindHint: 'Worked out from your sessions. Change a session to change it.',
+  detailsKindHintFestival: 'Festival sessions are set with the Bachata Calendar team. Ask us to change the programme.',
+  detailsVideosNote: 'Dancers see the first link that can play (YouTube, Vimeo or an uploaded video). The others are kept.',
   detailsMore: 'More details',
   prices: 'Prices',
   pricesRowSub: 'What dancers pay and how',

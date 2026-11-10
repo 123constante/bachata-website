@@ -12,7 +12,9 @@ import {
   buyerRulesLine,
   canManage,
   connectBlock,
+  OPEN_STRIPE_LABEL,
   connectReturnBanner,
+  CONNECT_START_ERROR_SHOWN,
   countsLine,
   eventStartOf,
   leftOf,
@@ -25,6 +27,7 @@ import {
   withPendingRefund,
   type PendingRefund,
   switchMove,
+  PAUSED_NOTE,
   type MoveContext,
   type Order,
   type TicketStatus,
@@ -34,6 +37,7 @@ import {
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import type { HomeSeriesFull } from '../../shared/homeModel';
 import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, useConnectReturn } from './connectReturn';
 import { P3_TICKET_PATHS } from './paths';
 import {
   PREVIEW_ORDERS,
@@ -50,7 +54,7 @@ import {
 } from './model';
 import { RefundSheet } from './RefundSheet';
 import { StackSheet, refocusTop } from './StackSheet';
-import { TypeSheet } from './TypeSheet';
+import { ReasonText, SellingElsewhere, TypeSheet } from './TypeSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
@@ -83,8 +87,7 @@ export function TicketsEntry({ seriesId }: { seriesId: string }) {
 type View = 'list' | 'orders';
 
 /** After Stripe sends the person back: refetch every 3 s, for at most 30 s. */
-export const CONNECT_RETURN_EVERY_MS = 3000;
-export const CONNECT_RETURN_FOR_MS = 30_000;
+export { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS };
 
 function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) {
   const queryClient = useQueryClient();
@@ -156,27 +159,12 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const arrived = useRef(false);
   // Remembered before the effect below drops the URL params: the banner and its poll hang off this.
   const [arrivedFromStripe, setArrivedFromStripe] = useState(() => params.get('stripe') === 'return');
-  const [connectReturnPoll, setConnectReturnPoll] = useState(() => params.get('stripe') === 'return');
+  const [connectReturnOn, setConnectReturnOn] = useState(() => params.get('stripe') === 'return');
+  const [arrivedRefresh, setArrivedRefresh] = useState(() => params.get('stripe') === 'refresh');
   const stripeConnected = stripe === 'connected';
-  // connectReturnPoll: refetch the Stripe state every 3 s for at most 30 s, or until connected; unmount stops it.
-  const refetchStripe = useRef(stripeQuery.refetch);
-  refetchStripe.current = stripeQuery.refetch;
-  useEffect(() => {
-    if (!connectReturnPoll) return;
-    if (stripeConnected) {
-      setConnectReturnPoll(false);
-      return;
-    }
-    const tick = window.setInterval(() => void refetchStripe.current(), CONNECT_RETURN_EVERY_MS);
-    const stop = window.setTimeout(() => {
-      window.clearInterval(tick);
-      setConnectReturnPoll(false);
-    }, CONNECT_RETURN_FOR_MS);
-    return () => {
-      window.clearInterval(tick);
-      window.clearTimeout(stop);
-    };
-  }, [connectReturnPoll, stripeConnected]);
+  // The shared return handler (connectReturn.ts): refetch, then every 3 s for 30 s, or until connected.
+  const { phase: returnPhase } = useConnectReturn(connectReturnOn, stripeConnected, () => stripeQuery.refetch());
+  const connectReturnPoll = returnPhase === 'checking';
   useEffect(() => {
     if (arrived.current) return;
     const asked = params.get('tickets') === '1';
@@ -187,10 +175,10 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       setView('list');
       setOpen(true);
     }
+    if (back === 'refresh') setArrivedRefresh(true);
     if (back === 'return') {
       setArrivedFromStripe(true);
-      setConnectReturnPoll(true);
-      void stripeQuery.refetch();
+      setConnectReturnOn(true);
     }
     const next = new URLSearchParams(params);
     next.delete('tickets');
@@ -270,7 +258,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   };
 
   const banner = types.isSuccess
-    ? connectReturnBanner({ arrivedFromStripe, stripe: stripe ?? 'unknown', role: org.role, drafts: list, polling: connectReturnPoll })
+    ? connectReturnBanner({ arrivedFromStripe, stripe: stripe ?? 'unknown', role: org.role, drafts: list, polling: connectReturnPoll, refresh: arrivedRefresh })
     : null;
   const bannerBusy = list.some((t) => moving.has(t.id));
   const putOnSale = (typeId?: string) => {
@@ -366,6 +354,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 sales={sales.get(t.id) ?? null}
                 ctx={ctx}
                 onboard={onboard}
+                onCheck={() => void stripeQuery.refetch()}
                 busy={moving.has(t.id)}
                 error={moveError.get(t.id) ?? null}
                 onMove={(to) => void move(t, to)}
@@ -427,14 +416,17 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                       type="button"
                       className="p3-btn"
                       style={{ minHeight: 44 }}
-                      disabled={a.kind === 'carry_on' ? onboard.busy : bannerBusy}
+                      disabled={a.kind === 'carry_on' ? onboard.busy : a.kind === 'check' ? false : bannerBusy}
                       aria-busy={(a.kind === 'carry_on' ? onboard.busy : bannerBusy) || undefined}
-                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : putOnSale(a.typeId))}
+                      onClick={() => (a.kind === 'carry_on' ? void onboard.go() : a.kind === 'check' ? void stripeQuery.refetch() : putOnSale(a.typeId))}
                       data-testid={`tix-return-${a.kind}`}
                     >
                       {a.label}
                     </button>
                   ))}
+                  {banner.actions.some((a) => a.kind === 'carry_on') && onboard.note && (
+                    <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{onboard.note}</p>
+                  )}
                 </div>
               )}
               {body}
@@ -467,6 +459,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           eventStart={eventStart}
           series={series}
           onboard={onboard}
+          onCheck={() => void stripeQuery.refetch()}
           hasOrders={hasOrdersOf(editing.type, sales, orders.data ?? [])}
           checking={!!editing.type && (summary.isPending || orders.isPending)}
           onClose={(saving) => {
@@ -549,6 +542,7 @@ function TypeRow({
   sales,
   ctx,
   onboard,
+  onCheck,
   busy,
   error,
   onMove,
@@ -558,6 +552,7 @@ function TypeRow({
   sales: TypeSales | null;
   ctx: MoveContext;
   onboard: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
+  onCheck: () => void;
   busy: boolean;
   error: string | null;
   onMove: (to: TicketStatus) => void;
@@ -569,7 +564,7 @@ function TypeRow({
   // The role reason is said once at the top of the sheet, not under every row.
   // A paid draft with payments not connected: the Connect payments block replaces the "go to Get paid" reason.
   const connect = to === 'on_sale' && t.status === 'draft' ? connectBlock(t.pricePence, ctx, onboard) : null;
-  const shownReason = blocked && blocked !== NOT_MANAGER && !(connect && blocked === PAYMENTS_WHERE) ? blocked : null;
+  const shownReason = blocked && blocked !== NOT_MANAGER && !(connect && blocked === connect.replaces) ? blocked : null;
   return (
     <li className="p3-row p3-row-col" data-testid={`tix-type-${t.id}`} data-status={t.status}>
       <div className="p3-type">
@@ -603,14 +598,20 @@ function TypeRow({
           <span className={TONE_CLASS.neutral} data-testid="tix-type-closed">{SWITCH_LABEL.closed}</span>
         )}
       </div>
-      {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason">{shownReason}</p>}
-      {connect && blocked === PAYMENTS_WHERE && (
+      {t.status === 'paused' && <p className="p3-note" data-testid="tix-paused-note">{PAUSED_NOTE}</p>}
+      {shownReason && <p id={`${id}-why`} className="p3-note" data-testid="tix-switch-reason"><ReasonText text={shownReason} /></p>}
+      {connect && blocked === connect.replaces && (
         <div className="p3-stack-s" data-testid="tix-connect">
           <p className="p3-note" data-testid="tix-connect-line">{connect.line}</p>
-          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => void onboard.go()} disabled={onboard.busy} aria-busy={onboard.busy || undefined} data-testid="tix-connect-btn">
+          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={() => (connect.kind === 'check' ? onCheck() : void onboard.go())} disabled={connect.kind === 'check' ? false : onboard.busy} aria-busy={(connect.kind !== 'check' && onboard.busy) || undefined} data-testid="tix-connect-btn">
             {connect.button}
           </button>
-          {connect.error && <p role="alert" className="p3-error" data-testid="tix-connect-error">{connect.error}</p>}
+          {connect.kind === 'check' ? (
+            <button type="button" className="p3-link" style={{ minHeight: 44, textAlign: 'left' }} onClick={() => void onboard.go()} disabled={onboard.busy} data-testid="tix-connect-open">{OPEN_STRIPE_LABEL}</button>
+          ) : (
+            <SellingElsewhere seriesId={t.seriesId} />
+          )}
+          {connect.error && <p role="alert" className="p3-error" data-testid={CONNECT_START_ERROR_SHOWN}>{connect.error}</p>}
         </div>
       )}
       {error && <p role="alert" className="p3-error" data-testid="tix-move-error">{error}</p>}

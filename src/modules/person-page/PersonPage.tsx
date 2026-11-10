@@ -8,6 +8,7 @@ import { optimizedImageUrl } from '@/lib/imageCdn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { flags } from '@/lib/featureFlags';
 import PersonHub from './hub/PersonHub';
+import { AmbassadorBadge } from '@/modules/ambassador/link/AmbassadorBadge';
 import {
   ROLE_LABEL,
   TAB_HASH,
@@ -19,6 +20,7 @@ import {
 // Through the seam src/pages/DancerProfile.tsx, never from dancer-app (isolation rule c).
 import type { PublicPageV2Data } from '@/pages/DancerProfile';
 import type { PersonSnapshot } from './reads';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 // Each tab body IS the existing role page (same reads, same components); only the
 // active one is mounted, so a visitor pays for the tab they open.
@@ -125,6 +127,7 @@ function TabbedPersonPage({ person, slugOrId, publicPage = null }: Props) {
               </span>
             ))}
           </p>
+          <AmbassadorBadge profileId={person.id} />
           {person.city || handle ? (
             <div className="flex flex-wrap items-center justify-center gap-x-3 text-sm text-foreground/80">
               {person.city ? (
@@ -137,7 +140,7 @@ function TabbedPersonPage({ person, slugOrId, publicPage = null }: Props) {
                 <a
                   href={person.instagramUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={PUBLIC_LINK_REL}
                   className="inline-flex min-h-[44px] items-center gap-1 underline-offset-2 hover:underline"
                 >
                   <Instagram className="h-4 w-4" aria-hidden="true" />

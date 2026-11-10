@@ -37,6 +37,7 @@ import { PersonFrame, WorldPage } from '@/modules/person-page/frame';
 import { DjWorld, djWorldView } from '@/modules/person-page/worlds/dj';
 import { WORLD } from '@/modules/person-page/worlds/tokens';
 import { usePersonSnapshot } from '@/modules/person-page/usePersonRoles';
+import { AmbassadorBadge } from '@/modules/ambassador/link/AmbassadorBadge';
 
 type DJRow = {
   id: string;
@@ -399,6 +400,7 @@ const DJProfile = () => {
             <DjShare title={`${displayName} on Bachata Calendar`} path={sharePath} />
           </div>
           <AlsoRoles current="dj" id={id} slug={resolved.slug} className="pt-1" />
+          {embedded ? null : <AmbassadorBadge profileId={id} />}
         </div>
         <div className="dj-bento mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 md:px-8 md:pt-6">
           <section className="dj-hero">

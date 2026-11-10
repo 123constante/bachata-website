@@ -1,15 +1,26 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigation, Ticket, CalendarPlus, Share2 } from 'lucide-react';
 import { recordEventLinkClick } from '@/lib/eventLinkClicks';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { shareEvent } from '@/modules/event-page/bento/utils/eventActions';
+
+// Lazy so the tickets module stays out of the event page's first load.
+const InSiteTicketProbe = lazyWithRetry(() => import('./InSiteTicketProbe'));
 
 type EventStickyActionBarProps = {
   eventId: string | null;
+  /** The night on screen; the in-site probe reads that night's ticket types (S1a). */
+  occurrenceId?: string | null;
   /** Maps target for "Get directions". When null, the button is hidden. */
   directionsUrl: string | null;
   /** External ticket page. When null, the Tickets button is hidden. */
   ticketUrl: string | null;
+  /** True when the page may offer in-site tickets (flag on, bookable night). The bar then
+   *  reads the series' ticket types itself; false never fetches. */
+  inSiteTicketing?: boolean;
+  /** Opens the Tickets page (replaces scrolling to the inline block). */
+  onOpenTickets?: () => void;
   /** Title used for the native share sheet / fallback text. */
   shareTitle: string;
   /** Secondary line for the share sheet (date + venue). */
@@ -54,9 +65,9 @@ const GOLD_PRIMARY: React.CSSProperties = {
 };
 
 const PRIMARY_CLASS =
-  'flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
+  'flex h-[48px] flex-1 items-center justify-center gap-2 rounded-full text-[14px] font-bold tracking-[0.01em]';
 const SECONDARY_CLASS =
-  'flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
+  'flex h-[48px] shrink-0 items-center justify-center gap-1.5 rounded-full px-4 text-[13px] font-semibold';
 const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full';
 
 /**
@@ -76,8 +87,11 @@ const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center 
  */
 export const EventStickyActionBar = ({
   eventId,
+  occurrenceId = null,
   directionsUrl,
   ticketUrl,
+  inSiteTicketing = false,
+  onOpenTickets,
   shareTitle,
   shareSubtitle,
   canAddToCalendar,
@@ -91,11 +105,22 @@ export const EventStickyActionBar = ({
   // the portal only after hydration.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
+  const [barState, setBarState] = useState<'buy' | 'quiet' | 'none'>('none');
+  const [quietLabel, setQuietLabel] = useState('Sold out');
+  const onProbe = useCallback((st: 'buy' | 'quiet' | 'none', label: string) => {
+    setBarState(st);
+    if (label) setQuietLabel(label);
+  }, []);
+  const inSite = inSiteTicketing && !!eventId && barState === 'buy';
+  const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
-  const directionsIsPrimary = !ticketUrl;
+  // When the event sells in-site, the in-site buy action leads and the external link
+  // steps back to a small text link, so exactly one primary buy action shows.
+  const directionsIsPrimary = !ticketUrl && !inSite && !quiet;
 
   const ticketPrimaryStyle: React.CSSProperties = accentColor
     ? {
@@ -125,11 +150,26 @@ export const EventStickyActionBar = ({
     });
   };
 
+  const handleBuyInSite = () => {
+    if (onOpenTickets) {
+      onOpenTickets();
+      return;
+    }
+    const el = document.getElementById('tickets');
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const handleShare = () => {
     void shareEvent({ eventId, title: shareTitle, subtitle: shareSubtitle, source: SOURCE });
   };
 
   return createPortal(
+    <>
+    {inSiteTicketing && eventId && (
+      <Suspense fallback={null}>
+        <InSiteTicketProbe seriesId={eventId} occurrenceId={occurrenceId} onResult={onProbe} />
+      </Suspense>
+    )}
     <div
       className="pointer-events-none fixed inset-x-0 z-40"
       // GlobalFooter clearance: index.css adds bottom padding to .site-footer
@@ -144,14 +184,73 @@ export const EventStickyActionBar = ({
             'linear-gradient(180deg, hsl(var(--bento-surface) / 0) 0%, hsl(var(--bento-surface) / 0.94) 30%)',
         }}
       >
+        {(inSite || quiet) && ticketUrl && (
+          <div className="pointer-events-auto mb-1 text-center">
+            <a
+              href={ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={handleTicket}
+              data-testid="tickets-elsewhere"
+              className="inline-block px-2 py-1 text-[12px] underline"
+              style={{ color: 'hsl(var(--bento-fg-muted))' }}
+            >
+              Tickets elsewhere
+            </a>
+          </div>
+        )}
         <div className="pointer-events-auto flex items-center gap-2">
-          {ticketUrl && (
+          {inSite && (
+            <button
+              type="button"
+              onClick={handleBuyInSite}
+              data-testid="buy-in-site"
+              className={PRIMARY_CLASS}
+              data-primary="true"
+              style={ticketPrimaryStyle}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              Buy tickets
+            </button>
+          )}
+
+          {quiet && quietLabel === 'Choose a night' ? (
+            // A per-night ticket and no night on screen: open the Tickets page, which lists the
+            // nights (the Dates tile only exists for courses, so it is never the target).
+            <button
+              type="button"
+              onClick={() => onOpenTickets?.()}
+              // Without a Tickets page to open there is nowhere to choose a night: say so, do not pretend.
+              disabled={!onOpenTickets}
+              title={onOpenTickets ? undefined : 'Tickets cannot be bought on this page'}
+              data-testid="buy-choose-night"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', color: '#FFFFFF', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none' }}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              {quietLabel}
+            </button>
+          ) : quiet && (
+            <button
+              type="button"
+              disabled
+              data-testid="buy-quiet"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', color: '#D8CCB0', border: '1.5px solid var(--bento-hairline)', opacity: 0.85, boxShadow: 'none' }}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              {quietLabel}
+            </button>
+          )}
+
+          {!inSite && !quiet && ticketUrl && (
             <a
               href={ticketUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleTicket}
               className={PRIMARY_CLASS}
+              data-primary="true"
               style={ticketPrimaryStyle}
             >
               <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
@@ -166,6 +265,7 @@ export const EventStickyActionBar = ({
               rel="noopener noreferrer"
               onClick={handleDirections}
               className={directionsIsPrimary ? PRIMARY_CLASS : SECONDARY_CLASS}
+              data-primary={directionsIsPrimary ? 'true' : undefined}
               style={directionsIsPrimary ? GOLD_PRIMARY : GHOST_STYLE}
             >
               <Navigation className="h-[17px] w-[17px]" strokeWidth={2.2} />
@@ -196,7 +296,8 @@ export const EventStickyActionBar = ({
           </button>
         </div>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body,
   );
 };
