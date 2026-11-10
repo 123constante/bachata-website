@@ -310,6 +310,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
         </p>
       )}
 
+      {/* Night list: under the rows, before the quiet bar (whose 84px spacer must come last or it
+          opens a gap above the list). After a refusal it renders under the refusal, which says "below". */}
+      {showNights && !err && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
+
       {quiet && (
         <>
           <div
@@ -352,8 +356,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
           )}
         </div>
       )}
+      {showNights && err && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
 
-      {showNights && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
 
       {selected && max > 0 && sum && (
         <form
