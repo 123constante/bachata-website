@@ -310,8 +310,9 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
         </p>
       )}
 
-      {/* Night list: under the rows, before the quiet bar (whose 84px spacer must come last or it
-          opens a gap above the list). After a refusal it renders under the refusal, which says "below". */}
+      {/* Night list: under the rows. After a refusal it renders under the refusal, which says "below".
+          The quiet bar's 84px spacer is the LAST child of the block (see the end of the section), so
+          the last night row scrolls clear of the fixed bar. */}
       {showNights && !err && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
 
       {quiet && (
@@ -336,7 +337,6 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
               </button>
             )}
           </div>
-          <div aria-hidden="true" className="h-[84px]" />
         </>
       )}
 
@@ -589,6 +589,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
       {!selected && buyable.length > 1 && (
         <p className="mt-2 text-[13px]" style={muted}>Pick a ticket to choose how many.</p>
       )}
+
+      {/* Clears the fixed quiet bar: it must stay the last child, below the night list and any
+          refusal, or the last rows end under the bar (FIX-4). */}
+      {quiet && <div aria-hidden="true" data-testid="ticket-bar-quiet-spacer" className="h-[84px]" />}
     </section>
   );
 }

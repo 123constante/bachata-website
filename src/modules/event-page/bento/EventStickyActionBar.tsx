@@ -222,7 +222,7 @@ export const EventStickyActionBar = ({
               onClick={() => onOpenTickets?.()}
               // Without a Tickets page to open there is nowhere to choose a night: say so, do not pretend.
               disabled={!onOpenTickets}
-              title={onOpenTickets ? undefined : 'Choose a night from the event dates'}
+              title={onOpenTickets ? undefined : 'Tickets cannot be bought on this page'}
               data-testid="buy-choose-night"
               className={PRIMARY_CLASS}
               style={{ background: '#243B36', color: '#FFFFFF', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none' }}

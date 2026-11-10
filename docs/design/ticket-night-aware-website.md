@@ -37,6 +37,15 @@ night: `capacity - _ticket_held_v1(t, night)`). Past and cancelled nights could 
 with live rows (no series with live types has one); per the function body they answer zero rows.
 The test matrix carries these shapes (`src/modules/tickets/__tests__/nightAware.matrix.test.tsx`).
 
+**Festival: NOT covered by this UI (review r2 N6).** A `format='festival'` series is routed by
+`EventPage.tsx` to `FestivalDetail`, not `BentoPage`. `FestivalDetail` mounts `EventStickyActionBar`
+with no `inSiteTicketing`, no `occurrenceId` and no `onOpenTickets`, and never mounts
+`EventTicketsPage` or `TicketsBlock`. So the festival page has NO in-site ticketing surface, before
+and after this change: no probe, no "Choose a night", no Tickets page, no night list. The festival
+rows above are read from the RPC only; the festival shapes in the tests are fixture-only shapes for
+the components, not a test of any festival page. In-site ticketing on the festival page is a
+separate ticket.
+
 ## Design (ONE chosen)
 
 Same Tickets block and sticky bar; the night is carried, not chosen, on this page. The page's
@@ -64,7 +73,7 @@ refusal has a control; the no-night state has a control.
 The review found the "Dates tile" target above never renders on a page that sells tickets: BentoPage
 only shows `dates` for `format='course'` with more than one night, and prod sellers (2026-11-10,
 read-only) are two weekly parties (53 future nights each, snapshot window 52) and one festival (one
-night). The "alternative not chosen (1)" above is therefore the design now.
+night; its page is `FestivalDetail`, which has no in-site ticketing surface, see above). The "alternative not chosen (1)" above is therefore the design now.
 
 **Chosen: a night list inside the Tickets block** (`src/modules/tickets/NightPicker.tsx`).
 
@@ -85,7 +94,7 @@ night). The "alternative not chosen (1)" above is therefore the design now.
   the refusal stays on screen above it.
 - Copy: the five refusals now end "See the other nights below." (`night_required`: "See the nights
   below."), never "the dates list"; what is below is either the list or the empty state.
-- Empty state (festival after a refusal; or every night past/cancelled): no heading, "No other nights
+- Empty state (a one-night series after a refusal -- festival shape, fixture only; or every night past/cancelled): no heading, "No other nights
   are listed for this event." + a 44px "Contact the organiser" link (or "Check back later.").
 - Mixed list (a buyable row plus a `needs_night` row; v2 cannot produce it with a night, review N4):
   no list, Buy for this night stays the one action.
@@ -99,3 +108,14 @@ Alternatives noted, not chosen: (a) navigate straight to the next future night -
 (b) render the Dates tile for every format -- a page-wide layout change outside this money-path fix;
 (c) the list on the event page rather than in the Tickets page -- the sticky bar would then need its
 own list and the two could disagree.
+
+## Fix round 2 (review r2 FIX-4, N6, N7, N8)
+
+- FIX-4: the quiet bar's 84px spacer is now the LAST child of the Tickets block (rendered after the
+  night list, any refusal and its list), so at scroll end the last night row sits above the fixed
+  bar. Structural tests in `nightControls.matrix.test.tsx`; the real layout is a browser-walk item.
+- N6: festival coverage corrected above.
+- N7: a test that an applied promo preview is not shown after a prop-only night change (fails when
+  the `promoKey` call in the block drops the night).
+- N8: the sticky bar's disabled fallback (a caller with no Tickets page) no longer says "from the
+  event dates"; its title is "Tickets cannot be bought on this page".

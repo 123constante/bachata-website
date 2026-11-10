@@ -5,6 +5,8 @@
  * Shapes from prod (read-only, 2026-11-10): the series that sell tickets are weekly parties
  * (53 future nights, the snapshot window capped at 52, next night today) and a festival with
  * ONE night. No cancelled nights exist in prod; covered here by fixture only.
+ * The festival shape is a FIXTURE-ONLY shape for these components: the festival page
+ * (FestivalDetail) mounts none of them and has no in-site ticketing surface (review r2 N6).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -284,5 +286,70 @@ describe('N2: the promo preview key carries the night', () => {
   it('a preview for night A is not the preview for night B', () => {
     expect(promoKey('a', 1, 'n1')).not.toBe(promoKey('a', 1, 'n2'));
     expect(promoKey('a', 1)).toBe('a:1');
+  });
+});
+
+describe('N7: an applied promo preview does not follow a night change', () => {
+  it('applied on night w0; the block moves to w2 by prop only; the old preview is not shown', async () => {
+    api.fetchPublicTicketTypes.mockResolvedValue(NIGHT);
+    rpc.mockResolvedValue({ data: { ok: true, unit_price: 1000, discount: 100, total: 900 }, error: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (occurrenceId: string) => (
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={['/event/e1']}>
+          <Routes><Route path="/event/:id" element={<TicketsBlock seriesId="e1" occurrenceId={occurrenceId} organiserId="org1" now={NOW} origin={PROD} nights={nightOptions(WEEKLY, occurrenceId, NOW)} />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree('w0'));
+    await screen.findByText('5 left');
+    fireEvent.change(screen.getByLabelText('Promo code (optional)'), { target: { value: 'SAVE10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(screen.getByTestId('promo-note').textContent).toMatch(/Code SAVE10 applied/));
+    expect(screen.getByTestId('ticket-bar-total').textContent).toBe('\u00a39');
+    await act(async () => rerender(tree('w2')));
+    await screen.findByText('5 left');
+    expect(screen.queryByTestId('promo-note')?.textContent ?? '').not.toMatch(/applied\. You save/);
+    expect(screen.getByTestId('ticket-bar-total').textContent).toBe('\u00a310');
+  });
+});
+
+describe('FIX-4: the quiet bar spacer is the last child of the block', () => {
+  const last = () => screen.getByTestId('tickets-block').lastElementChild;
+  it('weekly, no night on screen: list first, spacer last (the last row scrolls clear of the bar)', async () => {
+    api.fetchPublicTicketTypes.mockResolvedValue(NO_NIGHT);
+    renderWith(<TicketsBlock seriesId="e1" occurrenceId={null} organiserId="org1" now={NOW} origin={PROD} nights={nightOptions(WEEKLY, null, NOW)} />);
+    await screen.findByTestId('ticket-bar-quiet');
+    const spacer = screen.getByTestId('ticket-bar-quiet-spacer');
+    expect(last()).toBe(spacer);
+    // The list comes before the spacer in document order.
+    expect(screen.getByTestId('tickets-nights').compareDocumentPosition(spacer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  it('other quiet states: the spacer is still last', async () => {
+    api.fetchPublicTicketTypes.mockResolvedValue(parsePublicTypes([row({ remaining: 0, sold_out: true })]));
+    renderWith(<TicketsBlock seriesId="e1" occurrenceId="w0" organiserId="org1" now={NOW} origin={PROD} nights={[]} />);
+    await screen.findByTestId('ticket-bar-quiet');
+    expect(last()).toBe(screen.getByTestId('ticket-bar-quiet-spacer'));
+  });
+  it('a refusal, then the re-read list is sold out: refusal and night list both sit above the spacer', async () => {
+    api.fetchPublicTicketTypes.mockResolvedValue(NIGHT);
+    api.postTicketCheckout.mockResolvedValue({ kind: 'error', reason: 'night_ended', message: null });
+    renderWith(<TicketsBlock seriesId="e1" occurrenceId="w0" organiserId="org1" now={NOW} origin={PROD} nights={nightOptions(WEEKLY, 'w0', NOW)} />);
+    await screen.findByText('5 left');
+    api.fetchPublicTicketTypes.mockResolvedValue(parsePublicTypes([row({ remaining: 0, sold_out: true })]));
+    fireEvent.change(screen.getByLabelText(/Email/), { target: { value: 'a@b.co' } });
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Buy tickets' }));
+    await screen.findByRole('alert');
+    await screen.findByTestId('ticket-bar-quiet');
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByTestId('tickets-nights')).toBeTruthy();
+    expect(last()).toBe(screen.getByTestId('ticket-bar-quiet-spacer'));
+  });
+  it('no quiet bar: no quiet spacer', async () => {
+    api.fetchPublicTicketTypes.mockResolvedValue(NIGHT);
+    renderWith(<TicketsBlock seriesId="e1" occurrenceId="w0" organiserId="org1" now={NOW} origin={PROD} nights={[]} />);
+    await screen.findByText('5 left');
+    expect(screen.queryByTestId('ticket-bar-quiet-spacer')).toBeNull();
   });
 });
