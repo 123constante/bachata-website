@@ -6,6 +6,7 @@ import { NO_PROFILE_CONTACT_LABEL, NO_PROFILE_CONTACT_URL, NO_PROFILE_TEXT, fini
 import { claimOrganiser, requestOrganiserAccess, type ClaimCandidate } from '@/modules/organiser/shared/selfServeApi';
 import { selfServeErrorCopy, type SelfServeErrorCopy } from '@/modules/organiser/shared/selfServeErrors';
 import { EmailCodeProof } from '../../shared/components/EmailCodeProof';
+import { REQUEST_NOTE_MIN } from '../../shared/components/PublicClaimCard';
 import { Field, FIELD_CLASS, GhostButton, PrimaryButton, SheetView, useOpenerRef, useShake } from '../../ui';
 import { NewPageFlow, type NewPageStep } from '../../flows/newpage';
 import { newPageSheetTitle, type NewPageRefusalKind } from '../../flows/newpage/model';
@@ -118,7 +119,13 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
   };
 
   const claim = (org: ClaimCandidate) => run(() => claimOrganiser(org.id), () => onClaimed(`${org.name} is yours. You can now manage it.`));
-  const request = (org: ClaimCandidate) => run(() => requestOrganiserAccess(org.id, note), () => onRequested(org));
+  // One rule with the public claim card: a note of REQUEST_NOTE_MIN characters is required. Guarded here too,
+  // so no path (Enter, double tap, a re-render race) reaches the server with a short note.
+  const noteTooShort = note.trim().length < REQUEST_NOTE_MIN;
+  const request = (org: ClaimCandidate) => {
+    if (noteTooShort) return Promise.resolve();
+    return run(() => requestOrganiserAccess(org.id, note), () => onRequested(org));
+  };
 
   const error = failure && (
     <p role="alert" className="text-[14px] text-[var(--danger)]" data-testid="onboarding-sheet-error">
@@ -230,7 +237,7 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
       <div {...shakeProps} className={cn('space-y-[12px]', shakeProps.className)}>
         {sub}
         {error}
-        <Field label="Who are you? (optional)" htmlFor={`${ids}-note`}>
+        <Field label="Who are you?" htmlFor={`${ids}-note`}>
           <textarea
             id={`${ids}-note`}
             data-sheet-autofocus
@@ -238,15 +245,28 @@ export function OrganiserSheet({ task, onTaskChange, email, mailboxProven, onCla
             maxLength={500}
             rows={3}
             onChange={(e) => setNote(e.target.value)}
+            aria-describedby={noteTooShort ? `${ids}-note-required` : undefined}
             placeholder="I run the Tuesday classes with Ana"
             className={`${FIELD_CLASS} min-h-[88px] py-[12px]`}
             data-testid="onboarding-request-note"
           />
         </Field>
+        {noteTooShort && (
+          <p id={`${ids}-note-required`} className="text-[14px] text-[var(--mut)]" data-testid="onboarding-request-note-required">
+            Add a few words about who you are (at least {REQUEST_NOTE_MIN} characters) to send your request.
+          </p>
+        )}
       </div>
     );
     footer = twoButtons(
-      <PrimaryButton onClick={() => void request(task.org)} loading={busy} loadingLabel="Sending" testId="onboarding-request-send">
+      <PrimaryButton
+        onClick={() => void request(task.org)}
+        disabled={noteTooShort}
+        aria-describedby={noteTooShort ? `${ids}-note-required` : undefined}
+        loading={busy}
+        loadingLabel="Sending"
+        testId="onboarding-request-send"
+      >
         {screen.primaryLabel}
       </PrimaryButton>,
     );
