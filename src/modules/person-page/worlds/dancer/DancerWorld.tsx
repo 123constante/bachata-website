@@ -9,6 +9,7 @@ import { FOCUS_RING } from '../../wall/tokens';
 import { FONT, ROLE_COLOUR, WORLD } from '../tokens';
 import { FACE_PX, INVITE, type DancerCard, type Preview } from './model';
 import type { DancerLower } from './useDancerLower';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 const T = WORLD.dancer;
 /** Explicit px throughout: html is ~13.5px on phones, so rem sizes render small. */
@@ -58,7 +59,7 @@ function Contacts({ card }: { card: DancerCard }) {
         <li key={c.href}>
           <a
             href={c.href}
-            {...(c.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            {...(c.external ? { target: '_blank', rel: PUBLIC_LINK_REL } : {})}
             className={`flex items-center gap-2 rounded-[14px] ${FOCUS_RING}`}
             style={{ minHeight: 52, padding: '8px 12px', background: T.section.background, border: `1px solid ${T.section.border}` }}
           >

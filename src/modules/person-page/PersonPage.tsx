@@ -20,6 +20,7 @@ import {
 // Through the seam src/pages/DancerProfile.tsx, never from dancer-app (isolation rule c).
 import type { PublicPageV2Data } from '@/pages/DancerProfile';
 import type { PersonSnapshot } from './reads';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 // Each tab body IS the existing role page (same reads, same components); only the
 // active one is mounted, so a visitor pays for the tab they open.
@@ -139,7 +140,7 @@ function TabbedPersonPage({ person, slugOrId, publicPage = null }: Props) {
                 <a
                   href={person.instagramUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={PUBLIC_LINK_REL}
                   className="inline-flex min-h-[44px] items-center gap-1 underline-offset-2 hover:underline"
                 >
                   <Instagram className="h-4 w-4" aria-hidden="true" />

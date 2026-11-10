@@ -7,6 +7,7 @@ import { CHIP, FOCUS_RING, HUB, TILE, WALL, WALL_FADE } from '@/modules/person-p
 import { djInkTheme } from './djPageTheme';
 import { DjTurntable, type DjGig } from './DjTiles';
 import { datesView, gigRows, kicker, listenLinks, nameSize, noDates, seeMoreLabel, TURNTABLE } from './djRoleModel';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 // W2-C DJ page, owner pick D-C "Vinyl kept, centred", on the hub's warm ground (flags.personHub ON).
 // Order (owner): hero, upcoming dates (max 3 + "See N more dates"), About, Photos, Listen & book.
@@ -193,7 +194,7 @@ export function DjRolePage(p: DjRolePageProps) {
             <Label>Photos</Label>
             <div className="grid grid-cols-3 gap-2" data-testid="dj-photos">
               {p.gallery.map((u, i) => (
-                <a key={`${i}:${u}`} href={u} target="_blank" rel="noopener noreferrer" className={`block overflow-hidden ${FOCUS_RING}`} style={{ ...CARD, aspectRatio: '4 / 3' }}>
+                <a key={`${i}:${u}`} href={u} target="_blank" rel={PUBLIC_LINK_REL} className={`block overflow-hidden ${FOCUS_RING}`} style={{ ...CARD, aspectRatio: '4 / 3' }}>
                   <img src={optimizedImageUrl(u, 320)} alt={`${p.name}, photo ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
                 </a>
               ))}
@@ -210,7 +211,7 @@ export function DjRolePage(p: DjRolePageProps) {
                   key={l.key}
                   href={l.href}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={PUBLIC_LINK_REL}
                   className={`flex items-center justify-center px-3 font-bold ${FOCUS_RING}`}
                   style={{ ...CARD, minHeight: 48, fontSize: 15, color: WALL.text }}
                 >
