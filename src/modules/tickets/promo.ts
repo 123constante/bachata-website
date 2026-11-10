@@ -3,7 +3,7 @@ import { feeLabel } from './ticketCheckoutModel';
 /**
  * Ticket promo codes, buyer half (docs/briefs/ticket-promo-codes-web.md). The ONE shared
  * mapping from a promo state or refusal reason to what the buyer sees and can do next.
- * The server is the authority: ticket_promo_preview_v1 prices the order (whole-order pence,
+ * The server is the authority: ticket_promo_preview_v2 prices the order for the night (whole-order pence,
  * percent rounded down per ticket, fixed never below 0) and ticket-checkout re-validates.
  */
 
@@ -101,7 +101,8 @@ export type PromoState =
   | { status: 'applied'; code: string; key: string; discountPence: number; totalPence: number }
   | { status: 'refused'; code: string; key: string | null; reason: string };
 
-export const promoKey = (typeId: string, quantity: number) => `${typeId}:${quantity}`;
+/** The preview is for this type, count and night; a change of any of them re-prices (S1a N2). */
+export const promoKey = (typeId: string, quantity: number, night: string | null = null) => `${typeId}:${quantity}${night ? `@${night}` : ''}`;
 
 export interface PromoView {
   /** Line under the field (null = nothing to say). */

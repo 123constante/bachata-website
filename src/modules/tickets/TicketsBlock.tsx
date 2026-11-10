@@ -14,6 +14,7 @@ import {
   buyLabel,
   cancelReturnPath,
   clampQuantity,
+  courseLine,
   disabledReason,
   formatPence,
   maxQuantity,
@@ -23,6 +24,7 @@ import {
   type PublicTicketType,
 } from './ticketCheckoutModel';
 import { TicketGlyph } from './TicketGlyph';
+import { NightPicker, scrollToNights, type NightOption } from './NightPicker';
 import { SYMBOL_GRADIENT, ticketSymbol } from './ticketSymbol';
 import { useAuth } from '@/hooks/useAuth';
 import { buildSignInHref } from '@/lib/authRouting';
@@ -36,12 +38,19 @@ import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_
  * renders nothing until the series has a type on sale or sold out.
  */
 export interface TicketsBlockProps {
-  /** The page's PUBLIC event id. ticket_types_public_v1 is keyed on event_series_p5.id, so
+  /** The page's PUBLIC event id. ticket_types_public_v2 is keyed on event_series_p5.id, so
    *  where the two differ it answers no rows and the block stays hidden until the DB side
    *  accepts the public id (docs/ticketing-buyer-journey.md, "DB note"). */
   seriesId: string;
-  /** The night on screen; per-occurrence types show only on their own night. */
+  /** The night on screen; per-occurrence types show only on their own night, and the
+   *  types read, the promo preview and checkout all carry it (S1a). */
   occurrenceId: string | null;
+  /** The series' future nights other than the one on screen (EventTicketsPage maps the snapshot
+   *  with nightOptions). Listed whenever the buyer has to choose a night: nothing buyable
+   *  without one, or a night refusal (fix round 1). */
+  nights?: readonly NightOption[];
+  /** Opens a night. Defaults to `?occurrenceId=<id>` on this page (replacing the entry). */
+  onPickNight?: (occurrenceId: string) => void;
   organiserId: string | null;
   /** Injected for tests; defaults to the real clock / window origin. */
   now?: Date;
@@ -56,15 +65,23 @@ const card = {
 const muted = { color: 'hsl(var(--bento-fg-muted))' } as const;
 const accentBg = { background: '#FF9900', color: '#1A1208' } as const;
 
-export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp, origin: originProp }: TicketsBlockProps) {
+/** This page's search with the night set (and a stale cancel marker dropped). */
+export function searchWithNight(search: string, occurrenceId: string): string {
+  const q = new URLSearchParams(search);
+  q.delete(CANCELLED_PARAM);
+  q.set('occurrenceId', occurrenceId);
+  return `?${q.toString()}`;
+}
+
+export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp }: TicketsBlockProps) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, authStatus } = useAuth();
   const guest = !user && authStatus !== 'resolving';
   const { data: types } = useQuery({
-    queryKey: publicTicketKeys.types(seriesId),
-    queryFn: () => fetchPublicTicketTypes(seriesId),
+    queryKey: publicTicketKeys.types(seriesId, occurrenceId),
+    queryFn: () => fetchPublicTicketTypes(seriesId, occurrenceId),
     staleTime: 30_000,
   });
   const now = nowProp ?? new Date();
@@ -92,6 +109,11 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const list = typesForNight(types ?? [], occurrenceId);
   const quiet = quietBar(list, now);
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
+  // A per-night type with no night on screen: not buyable here, the way forward is the dates (S1a).
+  const needsNight = list.some((t) => availability(t, now).kind === 'needs_night');
+  // Every night control lands on the night list rendered below (never on a tile that may not exist).
+  const chooseNight = scrollToNights;
+  const pickNight = onPickNight ?? ((id: string) => navigate({ pathname: location.pathname, search: searchWithNight(location.search, id) }, { replace: true }));
   // One buyable type is picked for the buyer; otherwise they choose.
   // A pick that has since sold out or closed (the list re-reads after a refusal) is no pick.
   const picked = buyable.find((t) => t.id === typeId) ?? null;
@@ -99,7 +121,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
   const max = selected ? maxQuantity(selected, now) : 0;
   // The stepper only ever moves from qty, so the stored count never needs syncing.
   const qty = clampQuantity(quantity, max);
-  const key = selected ? promoKey(selected.id, qty) : null;
+  const key = selected ? promoKey(selected.id, qty, occurrenceId) : null;
   // A free ticket has nothing to take off: no field, and a pre-filled code never holds Buy back.
   const promoOn = selected !== null && selected.pricePence > 0;
   const pv = promoView(promoOn ? promo : { status: 'idle' }, promoOn ? promoInput : '', key);
@@ -116,9 +138,9 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
 
   async function pricePromo(code: string, typeIdFor: string, quantityFor: number) {
     const seq = ++promoSeq.current;
-    const forKey = promoKey(typeIdFor, quantityFor);
+    const forKey = promoKey(typeIdFor, quantityFor, occurrenceId);
     setPromo({ status: 'checking', code });
-    const r = await previewPromo(seriesId, typeIdFor, quantityFor, code);
+    const r = await previewPromo(seriesId, typeIdFor, quantityFor, code, occurrenceId);
     if (seq !== promoSeq.current) return;
     setPromo(r.ok ? { status: 'applied', code, key: forKey, discountPence: r.discountPence, totalPence: r.totalPence } : { status: 'refused', code, key: forKey, reason: r.reason });
   }
@@ -129,7 +151,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
    */
   function choose(nextTypeId: string, nextQty: number) {
     const live = promo.status !== 'idle' && promo.code !== '' && promo.code === normaliseCode(promoInput) ? promo.code : null;
-    if (live && promoKey(nextTypeId, nextQty) !== key) void pricePromo(live, nextTypeId, nextQty);
+    if (live && promoKey(nextTypeId, nextQty, occurrenceId) !== key) void pricePromo(live, nextTypeId, nextQty);
   }
 
   function removePromo() {
@@ -160,9 +182,20 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     navigate(`${location.pathname}${rest ? `?${rest}` : ''}`, { replace: true });
   }, [location.pathname, location.search, navigate]);
 
+  // A new night is a new list: a refusal or a pick from the old night no longer applies.
+  const [nightSeen, setNightSeen] = useState(occurrenceId);
+  if (nightSeen !== occurrenceId) {
+    setNightSeen(occurrenceId);
+    setError(null);
+    setTypeId(null);
+  }
+
   if (list.length === 0) return null;
 
   const err = error ? reasonCopy(error.reason, error.message) : null;
+  // The night list: whenever a night is the only way forward (nothing buyable here) or a night
+  // was refused. `nights` already leaves out the night on screen (EventTicketsPage).
+  const showNights = (needsNight && buyable.length === 0) || err?.way === 'pick_night';
 
   // An organiser-side refusal cannot be fixed by trying again: Buy stays off with the reason.
   const reason =
@@ -179,7 +212,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     setSubmitting(true);
     setError(null);
     const result = await postTicketCheckout(
-      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode }, origin, cancelReturnPath(location.pathname, location.search)),
+      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode, occurrenceId }, origin, cancelReturnPath(location.pathname, occurrenceId ? searchWithNight(location.search, occurrenceId) : location.search)),
     );
     if (result.kind === 'redirect') {
       saveOrderId(result.orderId);
@@ -200,14 +233,20 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
     }
     setError({ reason: result.reason, message: result.message });
     // A refusal about stock or status means the list on screen is stale: re-read it.
-    if (reasonCopy(result.reason).way === 'pick_another') {
-      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId) });
+    const way = reasonCopy(result.reason).way;
+    if (way === 'pick_another' || way === 'pick_night') {
+      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) });
     }
   }
 
   function onWayForward() {
     if (!err) return;
     if (err.way === 'pick_another') setTypeId(null);
+    // The refusal stays on screen with the night list under it; the control brings the list into view.
+    if (err.way === 'pick_night') {
+      chooseNight();
+      return;
+    }
     if (err.way === 'retry' || err.way === 'pick_another' || err.way === 'fix_form') setError(null);
   }
 
@@ -256,6 +295,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>
+                  {courseLine(t) && <span className="block text-[12px]" style={muted} data-testid="ticket-course-line">{courseLine(t)}</span>}
                 </span>
                 <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>
               </button>
@@ -264,11 +304,16 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
         })}
       </ul>
 
-      {buyable.length === 0 && (
+      {!needsNight && buyable.length === 0 && !showNights && (
         <p className="mt-2 text-[13px]" style={muted}>
           No tickets can be bought right now. Check back later or contact the organiser.
         </p>
       )}
+
+      {/* Night list: under the rows. After a refusal it renders under the refusal, which says "below".
+          The quiet bar's 84px spacer is the LAST child of the block (see the end of the section), so
+          the last night row scrolls clear of the fixed bar. */}
+      {showNights && !err && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
 
       {quiet && (
         <>
@@ -281,11 +326,17 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
               <div className="text-[18px] font-bold leading-tight">{quiet.title}</div>
               <div className="text-[12px]" style={{ color: '#A59474' }}>{quiet.sub}</div>
             </div>
-            <button type="button" disabled className="h-[48px] shrink-0 rounded-md px-4 text-[14px] opacity-60" style={{ border: '1.5px solid var(--bento-hairline)', color: '#D8CCB0' }}>
-              {quiet.button}
-            </button>
+            {needsNight ? (
+              // Same action as the sticky bar's "Choose a night": the night list in this block.
+              <button type="button" onClick={chooseNight} data-testid="ticket-bar-quiet-choose" className="h-[48px] shrink-0 rounded-md px-4 text-[14px] font-semibold" style={{ border: '1.5px solid var(--bento-hairline)', color: '#FFFFFF' }}>
+                {quiet.button}
+              </button>
+            ) : (
+              <button type="button" disabled className="h-[48px] shrink-0 rounded-md px-4 text-[14px] opacity-60" style={{ border: '1.5px solid var(--bento-hairline)', color: '#D8CCB0' }}>
+                {quiet.button}
+              </button>
+            )}
           </div>
-          <div aria-hidden="true" className="h-[84px]" />
         </>
       )}
 
@@ -305,6 +356,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
           )}
         </div>
       )}
+      {showNights && err && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
+
 
       {selected && max > 0 && sum && (
         <form
@@ -536,6 +589,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, now: nowProp
       {!selected && buyable.length > 1 && (
         <p className="mt-2 text-[13px]" style={muted}>Pick a ticket to choose how many.</p>
       )}
+
+      {/* Clears the fixed quiet bar: it must stay the last child, below the night list and any
+          refusal, or the last rows end under the bar (FIX-4). */}
+      {quiet && <div aria-hidden="true" data-testid="ticket-bar-quiet-spacer" className="h-[84px]" />}
     </section>
   );
 }

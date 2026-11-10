@@ -786,6 +786,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
               seriesId={eventId}
               occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
               organiserId={snapshot?.organisers[0]?.id ?? null}
+              nights={snapshot?.occurrences ?? []}
               title={pageModel.identity.title}
               dateLine={ticketsDateLine}
               venueLine={[pageModel.location.venueName, pageModel.location.address].filter(Boolean).join(', ') || null}
@@ -874,6 +875,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           framer-motion transform ancestors. */}
       <EventStickyActionBar
         eventId={eventId}
+        occurrenceId={occurrenceId ?? snapshot?.occurrenceId ?? null}
         directionsUrl={buildDirectionsUrl(pageModel.location)}
         // isEnded is listed even though `past` is true for every ended series
         // today: they are different facts, and relying on the coincidence would
