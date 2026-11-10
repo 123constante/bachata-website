@@ -551,6 +551,92 @@ export function buildCoverCard(coverBuf: Buffer, data: OgCardData): Promise<Buff
     : buildImageCard(coverBuf);
 }
 
+// ---------------------------------------------------------------------------
+// "Tall" layout -- TEST-ONLY (docs/briefs/og-tall-card-test.md). Reached only
+// through /api/og/card?...&layout=tall, which only /event/<id>?ogtest=tall
+// emits as og:image. It exists to find out whether WhatsApp draws a taller
+// link card when og:image is not 1200x630. Nothing else calls it, it is never
+// baked, and the default card above is untouched.
+//
+// Shape from the flyer's ratio r = width / height:
+//   r >= 1.3   -> the normal 1200x630 card (buildCoverCard, flag and all)
+//   otherwise  -> a 960-wide canvas at ratio max(r, 0.8): 4:5 at the tallest,
+//                 a square flyer gives 1:1, anything between follows the flyer.
+// The WHOLE flyer is drawn fit:inside and centred -- never cropped, no text, no
+// logo -- on a backdrop of the same flyer scaled to cover, blurred, darkened.
+// ---------------------------------------------------------------------------
+export const TALL_CARD_W = 960;
+/** WhatsApp silently drops large preview images; 300 KB is the ceiling. */
+export const TALL_CARD_MAX_BYTES = 300 * 1024;
+const TALL_WIDE_RATIO = 1.3;
+const TALL_MIN_RATIO = 0.8;
+const TALL_QUALITIES = [82, 74, 66] as const;
+const TALL_BLUR_SIGMA = 22;
+const TALL_DARKEN = 0.6;
+
+/** Card size for a flyer of the given (display-oriented) size, or null when the
+ *  flyer is wide enough (or unreadable) that the normal 1200x630 card applies. */
+export function tallCardSize(flyerW: number, flyerH: number): { width: number; height: number } | null {
+  if (!(flyerW > 0) || !(flyerH > 0)) return null;
+  const r = flyerW / flyerH;
+  if (r >= TALL_WIDE_RATIO) return null;
+  const cardRatio = Math.max(r, TALL_MIN_RATIO);
+  return { width: TALL_CARD_W, height: Math.round(TALL_CARD_W / cardRatio) };
+}
+
+/** The flyer's size as it DISPLAYS: EXIF orientations 5-8 swap the axes, and
+ *  the render below applies .rotate(), so the two must agree. */
+export async function flyerDisplaySize(buf: Buffer): Promise<{ width: number; height: number } | null> {
+  const m = await sharp(buf).metadata();
+  // An animated flyer: the render reads only page 1, so size page 1.
+  const h = m.pageHeight ?? m.height;
+  if (!m.width || !h) return null;
+  return (m.orientation ?? 1) >= 5 ? { width: h, height: m.width } : { width: m.width, height: h };
+}
+
+/** The og:image size the tall layout produces for these flyer bytes: the tall
+ *  canvas, or 1200x630 when the flyer is wide. Shared with the /event meta so
+ *  og:image:width/height can never disagree with the bytes. */
+export async function tallCardSizeFor(buf: Buffer): Promise<{ width: number; height: number }> {
+  const dims = await flyerDisplaySize(buf);
+  return (dims && tallCardSize(dims.width, dims.height)) ?? { width: CARD_W, height: CARD_H };
+}
+
+export async function buildTallCard(coverBuf: Buffer, data: OgCardData): Promise<Buffer> {
+  const dims = await flyerDisplaySize(coverBuf);
+  const size = dims ? tallCardSize(dims.width, dims.height) : null;
+  if (!size) return buildCoverCard(coverBuf, data);
+  const { width: W, height: H } = size;
+
+  // Flattened BEFORE the darken so a transparent flyer's alpha is not scaled too.
+  const backdrop = await sharp(coverBuf)
+    .rotate()
+    .resize(W, H, { fit: "cover", position: "centre" })
+    .flatten({ background: BRAND_DARK })
+    .blur(TALL_BLUR_SIGMA)
+    .linear(TALL_DARKEN, 0)
+    .png().toBuffer();
+  const flyer = await sharp(coverBuf)
+    .rotate()
+    .resize(W, H, { fit: "inside", withoutEnlargement: false })
+    .png().toBuffer();
+  const composed = await sharp(backdrop)
+    .composite([{ input: flyer, gravity: "centre" }])
+    .png().toBuffer();
+
+  // Step quality down until the JPEG fits; never WebP (WhatsApp refuses it).
+  // Worst case measured: a pure-noise 4:5 flyer (it fills the whole 960x1200
+  // card) is ~374 KB at q82 and ~287 KB at q74, so the step-down is needed and
+  // pinned by tests/ogTallCard.test.ts. The last step returning over budget is
+  // not expected, so it gets no branch nothing can reach.
+  let out = Buffer.alloc(0);
+  for (const quality of TALL_QUALITIES) {
+    out = await sharp(composed).flatten({ background: BRAND_DARK }).jpeg({ quality, mozjpeg: true }).toBuffer();
+    if (out.length <= TALL_CARD_MAX_BYTES) return out;
+  }
+  return out;
+}
+
 /** The one hash of the FACTS a branded card draws beyond its cover --
  *  title/date/venue/type. `/api/og/card`'s ETag and `/api/og/bake`'s R2 key
  *  both fold this in (see queued_og_branded_card_etag_cache_key_work.md):

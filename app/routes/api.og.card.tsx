@@ -13,12 +13,14 @@
 // api/og/card.ts, silently broken in prod (confirmed returning the SPA's HTML
 // shell instead of an image).
 //
-// Query params: kind=event|festival|image, id, occ, v (cache-buster), src (kind=image)
+// Query params: kind=event|festival|image, id, occ, v (cache-buster), src (kind=image),
+// layout=tall (kind=event ONLY; test-only, see buildTallCard; never baked)
 import { createHash } from "node:crypto";
 import {
   buildCoverCard,
   buildFallbackCard,
   buildImageCard,
+  buildTallCard,
   fetchEventCardData,
   fetchFestivalCardData,
   fetchImageBytes,
@@ -39,9 +41,12 @@ const SITE_URL = "https://www.bachatacalendar.co.uk";
 // even when facts is "", which would change every ETag on this route the
 // moment this ships regardless of the flag -- exactly the invariant this
 // comment claims. Mirrors the same guard in api.og.bake.tsx's R2 key.
-function makeEtag(kind: string, idParam: string, src: string, occ = "", v = "", facts = ""): string {
+//
+// `layout` follows the same rule: "" (every normal URL) leaves the hashed string
+// byte-identical; only the test-only layout=tall appends a segment.
+function makeEtag(kind: string, idParam: string, src: string, occ = "", v = "", facts = "", layout = ""): string {
   const h = createHash("sha1")
-    .update(`${kind}:${idParam}:${src}:${occ}:${v}${facts ? `:${facts}` : ""}`)
+    .update(`${kind}:${idParam}:${src}:${occ}:${v}${facts ? `:${facts}` : ""}${layout ? `:layout=${layout}` : ""}`)
     .digest("base64url")
     .slice(0, 24);
   return `"${h}"`;
@@ -112,7 +117,24 @@ const CACHE_DEGRADED_FAST = "public, max-age=300";
 const CACHE_DEGRADED_SLOW = "public, max-age=3600";
 const SLOW_HEALING: ReadonlySet<string> = new Set<FallbackReason>(["cover-unfetchable", "cover-absent"]);
 
-function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | null = null): Response {
+// layout=tall is a TEST-ONLY card whose renderer may still be tuned, and its
+// URL carries no renderer version: a year-long edge entry would pin the first
+// render for every retest. One hour, browser and edge alike, no CDN directive.
+const CACHE_TALL_TEST = "public, max-age=3600";
+
+function imageResponse(buf: Buffer, etag: string, fallback: FallbackReason | null = null, tallTest = false): Response {
+  if (tallTest && !fallback) {
+    return new Response(buf, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/jpeg",
+        "Content-Length": String(buf.length),
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": CACHE_TALL_TEST,
+        ETag: etag,
+      },
+    });
+  }
   return new Response(buf, {
     status: 200,
     headers: {
@@ -160,6 +182,9 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   const src = q.get("src") ?? "";
   const occ = q.get("occ") ?? "";
   const v = q.get("v") ?? "";
+  // Test-only switch (docs/briefs/og-tall-card-test.md): honoured for events
+  // only, ignored for any other value or kind, and part of the etag.
+  const layout = kind === "event" && q.get("layout") === "tall" ? "tall" : "";
   const ifNoneMatch = request.headers.get("if-none-match");
 
   try {
@@ -192,7 +217,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     // this check can no longer run early). `etag` is declared here, not
     // recomputed below, so the flag-off state never hashes the same string
     // twice for one request.
-    let etag = makeEtag(kind, idParam, src, occ, v);
+    let etag = makeEtag(kind, idParam, src, occ, v, "", layout);
     if (!OG_BRANDED_CARD_ENABLED && ifNoneMatch === etag) return new Response(null, { status: 304 });
 
     const id = await resolveOgEventId(idParam);
@@ -220,7 +245,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     // the same string, which the branch above already returned on.
     if (OG_BRANDED_CARD_ENABLED) {
       const facts = ogFactsTag(cardData);
-      etag = makeEtag(kind, idParam, src, occ, v, facts);
+      etag = makeEtag(kind, idParam, src, occ, v, facts, layout);
       if (ifNoneMatch === etag) return new Response(null, { status: 304 });
     }
     // Hybrid: a flyer becomes the preview itself (no text/fonts); the branded
@@ -252,6 +277,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
     // Branded card or raw letterbox -- buildCoverCard owns that choice for both
     // this route and the bake. kind=image above keeps buildImageCard: it has a
     // source URL and no entity, so there are no facts to draw on the card.
+    if (layout === "tall") return imageResponse(await buildTallCard(coverBytes, cardData), etag, null, true);
     return imageResponse(await buildCoverCard(coverBytes, cardData), etag);
   } catch (err) {
     console.error("[og/card] render_failed", err);
