@@ -57,7 +57,7 @@ Result: 12 killed, 1 survived out of 13 (r1: 7 of 11 killed).
 
 ## CI table (head c1c4307cb)
 
-36 check runs. First read (about 18:21 UTC, four minutes after the push): 6 in progress -- `unit (Europe/London, full)`, `e2e-smoke`, `build-smoke`, `phone-qa (1)`, `phone-qa (2)`, `phone-qa (3)`. Final read (about 18:43 UTC): 35 completed (24 success, 11 skipped, 0 failure), 1 still in progress (`e2e-smoke`, running since 18:17:30). On the previous head r1 recorded `e2e-smoke` as success.
+36 check runs. First read (about 18:21 UTC, four minutes after the push): 6 in progress -- `unit (Europe/London, full)`, `e2e-smoke`, `build-smoke`, `phone-qa (1)`, `phone-qa (2)`, `phone-qa (3)`. Final read (about 18:43 UTC): 35 completed (24 success, 11 skipped, 0 failure), 1 still in progress (`e2e-smoke`, running since 18:17:30; re-read again at 18:35 UTC, still in progress after 30 minutes, so the job itself may be stuck or queued on a runner rather than failing). On the previous head r1 recorded `e2e-smoke` as success. Whoever merges should read this one job again first.
 
 | Job | Result (final read) |
 |---|---|
