@@ -42,15 +42,22 @@ export const raffleEnteredKey = (eventId: string | null | undefined): string | n
   eventId ? `bcal_raffle_entered_${eventId}` : null;
 
 /** sessionStorage key recording that THIS browser joined the ONE general raffle
- *  pool (never expires). Shared by the tile and /raffles -- do NOT inline. */
+ *  pool (per device). Shared by the tile and /raffles -- do NOT inline. */
 export const rafflePoolJoinedKey = 'bcal_raffle_pool_joined';
 
+// No anon read of "am I in the pool" exists on the server (raffle_my_wins_v1 is
+// authenticated and about wins), so the durable mark is localStorage (per device);
+// sessionStorage is the fallback where localStorage is blocked.
 export function isRafflePoolJoined(): boolean {
-  try { return typeof window !== 'undefined' && window.sessionStorage.getItem(rafflePoolJoinedKey) === '1'; } catch { return false; }
+  if (typeof window === 'undefined') return false;
+  try { if (window.localStorage.getItem(rafflePoolJoinedKey) === '1') return true; } catch { /* fall through */ }
+  try { return window.sessionStorage.getItem(rafflePoolJoinedKey) === '1'; } catch { return false; }
 }
 
 export function markRafflePoolJoined(): void {
-  try { if (typeof window !== 'undefined') window.sessionStorage.setItem(rafflePoolJoinedKey, '1'); } catch { /* no-op */ }
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(rafflePoolJoinedKey, '1'); } catch { /* no-op */ }
+  try { window.sessionStorage.setItem(rafflePoolJoinedKey, '1'); } catch { /* no-op */ }
 }
 
 /** Best-effort haptic feedback. No-ops where unsupported and never throws
