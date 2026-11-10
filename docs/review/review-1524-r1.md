@@ -115,7 +115,7 @@ line lower where an import was added. No app-generated anchor was wrongly change
 
 - `npx vitest run tests/publicLinkRel.test.ts` at the PR head: 10 passed, exit 0.
 - The file sits under `tests/`, which `vitest.config.ts` includes, so the `unit` CI jobs run it.
-- `npm run test:unit` at the PR head: see "Checks run" below.
+- `npm run test:unit` and `npx tsc --noEmit -p .` at the PR head: see "Checks run" below.
 
 ### Mutants (each applied alone, test run, tree restored to the PR head between them)
 
@@ -194,7 +194,16 @@ runs; tsc was therefore run locally (below). No reviews or review comments on th
   "Verified on real data" block does not exist yet (F2), so there were no builder counts to check
   for read-only-ness; the counts above are this review's.
 - Checks run: `tests/publicLinkRel.test.ts` exit 0 (10 passed); 10 mutants, 10 killed;
-  `npm run test:unit` and `npx tsc --noEmit -p .` at the PR head: RESULT_PLACEHOLDER
+  `npm run test:unit` at the PR head: exit 1, 902 of 906 files passed, 29345 tests passed, 15 failed, 31 skipped.
+  All 15 failures are in four files the PR does not touch and that need this sandbox's missing
+  environment: `tests/integrityCouldNotRun.test.ts` (5, its temp-repo precondition `typescript
+  resolved in the temp repo -- precondition gone`) and the three live-DB contract specs
+  `tests/occurrenceProgram.contract.test.ts` (2), `tests/eventViewCompat.contract.test.ts` (5),
+  `tests/publicEventPageLineup.contract.test.ts` (3), which build a Supabase client from
+  `VITE_SUPABASE_URL` / anon key that this worker does not have. The three CI `unit` jobs,
+  `contract-check` and `live-db-gate` are green on the same head, so these are sandbox failures,
+  not PR failures. `npx tsc --noEmit -p .` at the PR head: 0 errors, exit 0 (no typecheck run is
+  among the PR's check runs, see CI table).
 - NOT verified: a browser walk of the changed pages (rel attributes only, no visual change, so none
   was done); the PR's `npm run lint` / `npm run pre-ship` (the builder's gate, not re-run here);
   the dancer-app public page (parked by the brief).
