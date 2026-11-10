@@ -144,7 +144,7 @@ describe("backfill script: OG_BAKE_SECRET only when a bake will be sent (review 
     ["--dry-run batch", ["--layout", "wf1", "--dry-run"], []],
     ["real batch", ["--layout", "wf1", "--limit", "1"], ["OG_BAKE_SECRET"]],
     ["no-flag full run", [], ["OG_BAKE_SECRET"]],
-  ])("%s without the secret -> missing %j", (_n, argv, want) => {
+  ])("%s (argv %j) without the secret -> missing %j", (_n, argv, want) => {
     expect(missingConfig(parseBackfillArgs(argv), env)).toEqual(want);
   });
   it("Supabase config is still required for a dry run", () => {
