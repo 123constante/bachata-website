@@ -112,7 +112,7 @@ and `ticket_price_steps` does not exist (J-3).
   - The N4 static guard with its canary RED on today's prod.
   - N1 deploy-order check.
 - **F2**
-  - M-2 parity at T-1s / T / T+1s × {no code, 10%, fixed}: `public_v3.price = public_v2.price = preview_v2.unit = v5 line unit`, and `preview_v2.total + fee(net) = v5.total_pence`.
+  - M-2 parity at T-1s / T / T+1s x {no code, 10%, fixed}: `public_v3.price = public_v2.price = preview_v2.unit = v5 line unit`, and `preview_v2.total + fee(net) = v5.total_pence`.
   - Mutants: preview keeps `v_type.price_pence`, public v2 sorts by `t.price_pence`. Each goes red (M-4 catches the sort).
 - **F3**
   - M-5: omit the key on stepped and unstepped types; null; `"1500"`; `1500.5`; omit `p_expected_total_pence` (call error) and pass null. Each gives no order and no change to `ticket_night_counts`, `reserved_count`, or `ticket_promo_checkout_refusals`.
