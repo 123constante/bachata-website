@@ -4,10 +4,11 @@
  * prod ticket_types_public_v2 body read back on 2026-11-10: with a night, per-night types carry
  * that night's `remaining` and `sold_out`; with NO night they carry remaining NULL.
  */
+import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) }, rpc } }));
@@ -45,19 +46,33 @@ const SHAPES = {
 
 const NIGHT_REASONS = ['wrong_night', 'night_required', 'night_cancelled', 'night_ended', 'not_course_night'] as const;
 
-function renderBlock(types: unknown, occurrenceId: string | null, onChooseNight = vi.fn()) {
+/** Two future nights, as NightPicker lists them. */
+const NIGHTS = [
+  { id: 'n1', label: 'Wednesday 11 November 2026', time: '20:00' },
+  { id: 'n2', label: 'Wednesday 18 November 2026', time: '20:00' },
+];
+let at = '';
+const setAt = (v: string) => {
+  at = v;
+};
+function Where() {
+  const l = useLocation();
+  useEffect(() => setAt(`${l.pathname}${l.search}`), [l]);
+  return null;
+}
+
+function renderBlock(types: unknown, occurrenceId: string | null) {
   api.fetchPublicTicketTypes.mockResolvedValue(types);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={['/event/e1']}>
         <Routes>
-          <Route path="/event/:id" element={<TicketsBlock seriesId="e1" occurrenceId={occurrenceId} organiserId="org1" now={NOW} origin={PROD} onChooseNight={onChooseNight} />} />
+          <Route path="/event/:id" element={<><TicketsBlock seriesId="e1" occurrenceId={occurrenceId} organiserId="org1" now={NOW} origin={PROD} nights={NIGHTS.filter((n) => n.id !== occurrenceId)} /><Where /></>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { onChooseNight };
 }
 
 afterEach(() => {
@@ -136,7 +151,8 @@ describe('refusals: each night reason has its own copy and a way to another nigh
     expect(Object.prototype.hasOwnProperty.call(REASON_COPY, reason)).toBe(true);
     expect(c.way).toBe('pick_night');
     expect(c.text).toMatch(/night/i);
-    expect(c.text).toMatch(/choose|pick/i);
+    // The next step is the night list rendered under the refusal.
+    expect(c.text).toMatch(/nights below\.$/);
   });
 });
 
@@ -151,7 +167,7 @@ describe('course line', () => {
 describe('screen x shape: the Tickets block', () => {
   it('night A (5 left): Buy is offered and the checkout body sends the night', async () => {
     api.postTicketCheckout.mockResolvedValue({ kind: 'error', reason: 'wrong_night', message: null });
-    const { onChooseNight } = renderBlock(SHAPES.nightA, 'n1');
+    renderBlock(SHAPES.nightA, 'n1');
     expect(await screen.findByText('5 left')).toBeTruthy();
     fireEvent.change(screen.getByLabelText(/Email/), { target: { value: 'a@b.co' } });
     fireEvent.click(screen.getByRole('checkbox'));
@@ -159,29 +175,32 @@ describe('screen x shape: the Tickets block', () => {
     await waitFor(() => expect(api.postTicketCheckout).toHaveBeenCalled());
     expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({ occurrence_id: 'n1', ticket_type_id: 'a' });
     expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', 'n1');
-    // wrong_night refusal: its own copy and a control to the dates.
+    // wrong_night refusal: its own copy, and the night list under it (the refused night left out).
     expect(await screen.findByText(REASON_COPY.wrong_night.text)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: WAY_LABEL.pick_night }));
-    expect(onChooseNight).toHaveBeenCalled();
+    const rows = screen.getByTestId('tickets-nights').querySelectorAll('[data-night-id]');
+    expect([...rows].map((r) => r.getAttribute('data-night-id'))).toEqual(['n2']);
+    fireEvent.click(rows[0]);
+    expect(at).toBe('/event/e1?occurrenceId=n2');
   });
   it('night B (sold out): this night says Sold out, no Buy', async () => {
     renderBlock(SHAPES.nightB, 'n2');
     expect(await screen.findAllByText('Sold out')).not.toHaveLength(0);
     expect(screen.queryByRole('button', { name: 'Buy tickets' })).toBeNull();
   });
-  it('no night on screen: no Buy, "Choose a night to buy tickets" and a control to the dates', async () => {
-    const { onChooseNight } = renderBlock(SHAPES.noNight, null);
-    expect(await screen.findByText('Choose a night to buy tickets.')).toBeTruthy();
+  it('no night on screen: no Buy, the night list, and a row opens that night', async () => {
+    renderBlock(SHAPES.noNight, null);
+    expect(await screen.findByText('Choose a night to buy tickets')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Buy tickets' })).toBeNull();
     expect(screen.queryByLabelText(/Email/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'See the dates' }));
-    expect(onChooseNight).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /Wednesday 11 November 2026/ }));
+    expect(at).toBe('/event/e1?occurrenceId=n1');
     expect(api.postTicketCheckout).not.toHaveBeenCalled();
   });
-  it('mixed (one buyable, one needs a night): the dates control still shows', async () => {
+  it('mixed (one buyable, one needs a night): Buy here, no "choose a night" list over it', async () => {
     renderBlock([...parsePublicTypes([row({ id: 'p', occurrence_id: 'n0', name: 'Own night' })]), ...SHAPES.noNight], 'n0');
-    expect(await screen.findByText('Choose a night to buy tickets.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'See the dates' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Buy tickets' })).toBeTruthy();
+    expect(screen.queryByTestId('tickets-nights')).toBeNull();
   });
   it.each(['past', 'cancelled'] as const)('%s night (no rows): no block', async (shape) => {
     renderBlock(SHAPES[shape], 'nx');

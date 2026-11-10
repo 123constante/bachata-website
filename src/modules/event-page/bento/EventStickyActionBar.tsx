@@ -215,10 +215,14 @@ export const EventStickyActionBar = ({
           )}
 
           {quiet && quietLabel === 'Choose a night' ? (
-            // A per-night ticket and no night on screen: the bar's control goes to the dates (S1a).
+            // A per-night ticket and no night on screen: open the Tickets page, which lists the
+            // nights (the Dates tile only exists for courses, so it is never the target).
             <button
               type="button"
-              onClick={() => document.querySelector('[data-block-id="dates"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              onClick={() => onOpenTickets?.()}
+              // Without a Tickets page to open there is nowhere to choose a night: say so, do not pretend.
+              disabled={!onOpenTickets}
+              title={onOpenTickets ? undefined : 'Choose a night from the event dates'}
               data-testid="buy-choose-night"
               className={PRIMARY_CLASS}
               style={{ background: '#243B36', color: '#FFFFFF', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none' }}

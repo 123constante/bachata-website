@@ -101,7 +101,8 @@ export type PromoState =
   | { status: 'applied'; code: string; key: string; discountPence: number; totalPence: number }
   | { status: 'refused'; code: string; key: string | null; reason: string };
 
-export const promoKey = (typeId: string, quantity: number) => `${typeId}:${quantity}`;
+/** The preview is for this type, count and night; a change of any of them re-prices (S1a N2). */
+export const promoKey = (typeId: string, quantity: number, night: string | null = null) => `${typeId}:${quantity}${night ? `@${night}` : ''}`;
 
 export interface PromoView {
   /** Line under the field (null = nothing to say). */

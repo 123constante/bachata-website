@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { TicketsBlock } from './TicketsBlock';
+import { nightOptions, type NightSource } from './NightPicker';
 import { buildChips, type Chip, type GoodToKnowInput } from './goodToKnow';
 import type { useOccurrenceProgram as UseOccurrenceProgram, useProgramItems as UseProgramItems } from '@/modules/event-page/sections/EventScheduleGrid';
 import { buildProgramme, type ProgrammeView } from './programmeModel';
@@ -24,6 +25,9 @@ export interface EventTicketsPageProps {
   /** Venue name and address, e.g. "The Studio, 14 Dean St, London". */
   venueLine?: string | null;
   chipInput: Omit<GoodToKnowInput, 'latestCloseIso'>;
+  /** The series' nights from the page snapshot; the block lists the future ones when a night
+   *  has to be chosen (the event page's Dates tile only exists for courses). */
+  nights?: readonly NightSource[];
   onClose: () => void;
 }
 
@@ -93,7 +97,7 @@ export function ProgrammeBlock({ view, onSeeFull }: { view: ProgrammeView | null
   );
 }
 
-export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, onClose, programHooks }: EventTicketsPageProps) {
+export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, dateLine, venueLine, chipInput, nights, onClose, programHooks }: EventTicketsPageProps) {
   const { useOccurrenceProgram, useProgramItems } = programHooks;
   // Sit below the site header (fixed bar plus the sticky tabs row): measured, 106px on a phone.
   const [topPx, setTopPx] = useState(106);
@@ -121,11 +125,9 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
     programmeEndIso: chipInput.programmeEndIso ?? programme?.endIso ?? null,
     latestCloseIso: latestCloseIso((types ?? []).map(closesAt)),
   });
-  // "Choose a night": close this page and land on the event's Dates tile.
-  const seeDates = () => {
-    onClose();
-    setTimeout(() => document.querySelector('[data-block-id="dates"]')?.scrollIntoView({ block: 'start' }), 50);
-  };
+  // "Choose a night" is answered on this page: the block lists these and a tap opens that night
+  // (a new ?occurrenceId reloads the event page, so this page closes and reopens on that night).
+  const nightList = useMemo(() => nightOptions(nights, occurrenceId, new Date()), [nights, occurrenceId]);
   const seeFull = () => {
     onClose();
     setTimeout(() => document.querySelector('[data-block-id="schedule"]')?.scrollIntoView({ block: 'start' }), 50);
@@ -172,7 +174,7 @@ export function EventTicketsPage({ seriesId, occurrenceId, organiserId, title, d
         </header>
         <ProgrammeBlock view={programme} onSeeFull={seeFull} />
         <ChipRow chips={chips} />
-        <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} onChooseNight={seeDates} />
+        <TicketsBlock seriesId={seriesId} occurrenceId={occurrenceId} organiserId={organiserId} nights={nightList} />
       </div>
     </div>,
     document.body,

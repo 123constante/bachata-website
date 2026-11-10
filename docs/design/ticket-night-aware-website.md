@@ -58,3 +58,44 @@ Accessibility: the new control is a 44px-min underline button in body text colou
 existing way-forward buttons, contrast >= 4.5 on `--bento-surface-raised`); no new fixed widths, so no
 sideways scroll at 390px. Empty/loading/error: loading and no-rows render nothing (unchanged); every
 refusal has a control; the no-night state has a control.
+
+## Fix round 1 (review FIX-1..3): the night list moves INTO the Tickets page
+
+The review found the "Dates tile" target above never renders on a page that sells tickets: BentoPage
+only shows `dates` for `format='course'` with more than one night, and prod sellers (2026-11-10,
+read-only) are two weekly parties (53 future nights each, snapshot window 52) and one festival (one
+night). The "alternative not chosen (1)" above is therefore the design now.
+
+**Chosen: a night list inside the Tickets block** (`src/modules/tickets/NightPicker.tsx`).
+
+- Source: `snapshot.occurrences` (BentoPage passes it to `EventTicketsPage` as `nights`; the page maps
+  it with the one pure function `nightOptions`): future (London date >= today), not cancelled, not
+  `isPast`, soonest first, at most 8, label "Tuesday 10 November 2026" (full weekday, ICU-free) plus
+  the wall-clock start time (none when `hasTimedSession === false` or the start is a bare date).
+  The night on screen (the one just refused) is left out.
+- Shown when a night is the only way forward (a `needs_night` row and nothing buyable here) or after
+  any of the five night refusals. Each row is a 48px button that navigates to `?occurrenceId=<id>`
+  on the same page (replacing the history entry, other params kept, a stale `tickets=cancelled`
+  dropped). The event page reloads for the new night, so the Tickets overlay unmounts during the
+  load and remounts on that night (BentoPage keeps `ticketsOpen`); anything typed into the form is
+  lost (follow-up). A prop-only night change also clears the old refusal and pick.
+- Every control lands on it: the sticky bar's "Choose a night" now OPENS the Tickets page (which shows
+  the list); the block's quiet-bar "Choose a night" is a working button that scrolls the list into
+  view (FIX-2: it was disabled); the refusal's "Choose another night" scrolls the list into view and
+  the refusal stays on screen above it.
+- Copy: the five refusals now end "See the other nights below." (`night_required`: "See the nights
+  below."), never "the dates list"; what is below is either the list or the empty state.
+- Empty state (festival after a refusal; or every night past/cancelled): no heading, "No other nights
+  are listed for this event." + a 44px "Contact the organiser" link (or "Check back later.").
+- Mixed list (a buyable row plus a `needs_night` row; v2 cannot produce it with a night, review N4):
+  no list, Buy for this night stays the one action.
+- The rows are snapshot nights, not a per-night stock read: a listed night can still turn out sold
+  out or not yet on sale; that night's page then says so (quiet bar). Follow-up in the handover.
+- N1: the Stripe cancel URL carries the resolved night (`?occurrenceId=`) even when the page URL did
+  not. N2: `promoKey` includes the night, so a preview for night A is never shown for night B.
+
+Alternatives noted, not chosen: (a) navigate straight to the next future night -- wrong for a
+`night_ended`/`wrong_night` buyer who wants a specific night, and silent about which night was picked;
+(b) render the Dates tile for every format -- a page-wide layout change outside this money-path fix;
+(c) the list on the event page rather than in the Tickets page -- the sticky bar would then need its
+own list and the two could disagree.

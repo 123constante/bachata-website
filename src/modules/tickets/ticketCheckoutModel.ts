@@ -118,7 +118,7 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
 
 /** A date-only value as "Tuesday 3 November 2026" (house rule: full weekday), the same on every ICU. */
-const longDate = (ymd: string): { weekday: string; text: string } | null => {
+export const longDate = (ymd: string): { weekday: string; text: string } | null => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
   const d = new Date(`${ymd}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return null;
@@ -325,12 +325,13 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   network: { text: 'Could not reach the ticket service. Check your connection and try again.', way: 'retry' },
   // The POST gave up after CHECKOUT_TIMEOUT_MS: the buyer never reached Stripe.
   timeout: { text: 'The ticket service took too long to answer. You have not been charged. Try again.', way: 'retry' },
-  // S1a night refusals (HTTP 409). Nothing is charged; each names the next step: another night.
-  wrong_night: { text: 'This ticket is not for the night you picked. You have not been charged. Choose the night on the dates list and buy from the page for that night.', way: 'pick_night' },
-  night_required: { text: 'This ticket is sold night by night. You have not been charged. Choose a night on the dates list and buy from the page for that night.', way: 'pick_night' },
-  night_cancelled: { text: 'This night has been cancelled, so no tickets are sold for it. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
-  night_ended: { text: 'Ticket sales for this night have ended. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
-  not_course_night: { text: 'This course ticket does not cover the night you picked. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
+  // S1a night refusals (HTTP 409). Nothing is charged; each names the next step: the night list the
+  // Tickets block renders under the refusal (NightPicker).
+  wrong_night: { text: 'This ticket is not for the night you picked. You have not been charged. See the other nights below.', way: 'pick_night' },
+  night_required: { text: 'This ticket is sold night by night. You have not been charged. See the nights below.', way: 'pick_night' },
+  night_cancelled: { text: 'This night has been cancelled, so no tickets are sold for it. You have not been charged. See the other nights below.', way: 'pick_night' },
+  night_ended: { text: 'Ticket sales for this night have ended. You have not been charged. See the other nights below.', way: 'pick_night' },
+  not_course_night: { text: 'This course ticket does not cover the night you picked. You have not been charged. See the other nights below.', way: 'pick_night' },
 };
 
 /** The one lookup: an own key only, so "toString" or "__proto__" from a reply is unmapped. */
