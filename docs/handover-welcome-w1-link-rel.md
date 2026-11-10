@@ -26,3 +26,11 @@ Branch `claude/welcome-w1-link-rel`, PR #1524. Brief: `brief/welcome-w1-link-rel
 - Parked: `PublicDancerPageV2.tsx:273` (dancer-app) renders owner-typed links with `noopener noreferrer`;
   its snapshot would change. Out of scope per brief -- a follow-up brief should cover it.
 - Owner: re-baseline the typecheck ratchet (106 -> 129) separately if intended.
+
+## Fix round 1 gates (head after this commit)
+- `npm run test:unit`: 902/906 files, 29345 passed, 15 failed -- same 4 sandbox-env files as the review
+  (3 live-DB contract specs + `integrityCouldNotRun`); not touched by this diff. CI unit jobs green.
+- `npm run pre-ship`: NOT completed -- exceeded the sandbox 10-minute foreground limit inside its unit step;
+  lint, tsc, test:unit and check:mojibake were run individually instead.
+- PR body rewritten: corrected counts, changed/left table, CI per-job table, Verified / Not verified.
+- Next: owner / orchestrator re-review; no code work left on this brief.
