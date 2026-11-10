@@ -91,7 +91,6 @@ describe("golden: l-less /api/og/card responses are byte-identical to main", () 
   it.each(CASES)("$name", async (c) => {
     const got = await snapshot(c);
     if (process.env.GOLDEN_PRINT === "1") {
-      // eslint-disable-next-line no-console
       console.log(`GOLDEN ${JSON.stringify(c.name)}: ${JSON.stringify(got)},`);
       return;
     }

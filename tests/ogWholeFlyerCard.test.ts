@@ -306,7 +306,6 @@ describe('five preview samples for the lead (written to a temp dir)', () => {
       lines.push(`${name}: ${card.buf.length} bytes, decoded ${meta.width}x${meta.height}`);
       expect(card.overBudget).toBe(false);
     }
-    // eslint-disable-next-line no-console
     console.log(`[og-wf-samples] ${dir}\n${lines.join('\n')}`);
   });
 });
