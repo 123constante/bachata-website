@@ -34,11 +34,7 @@ const ROWS: Row[] = [
     userLinks: 8,
     exceptions: [{ snippet: 'href={`https://wa.me/${phoneDigits(p.phone)}`}', why: 'app-built wa.me URL (digits only), not a typed destination' }],
   },
-  {
-    file: 'src/components/dj/DjRolePage.tsx',
-    userLinks: 2,
-    exceptions: [{ snippet: 'href={e.action.href}', why: 'in-app no-dates action href, app-generated' }],
-  },
+  { file: 'src/components/dj/DjRolePage.tsx', userLinks: 3, exceptions: [] },
   { file: 'src/components/profile/DancerProfileGrid.tsx', userLinks: 5, exceptions: [] },
 ];
 

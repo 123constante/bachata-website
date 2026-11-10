@@ -272,6 +272,7 @@ export function DjContactPanel(p: DjContactProps) {
       {p.phone ? (
         <a
           href={`https://wa.me/${phoneDigits(p.phone)}`}
+          // App-built wa.me link (phone digits only, no user text), so not ugc: keeps noreferrer, unlike the typed links below.
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 py-3.5 text-[14.5px] font-bold text-white"

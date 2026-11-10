@@ -59,6 +59,7 @@ function Contacts({ card }: { card: DancerCard }) {
         <li key={c.href}>
           <a
             href={c.href}
+            // whatsapp is an app-built wa.me link (no user text) but shares the contact list, so it takes the ugc rel too; harmless here (DjTiles leaves its standalone wa.me on the plain rel).
             {...(c.external ? { target: '_blank', rel: PUBLIC_LINK_REL } : {})}
             className={`flex items-center gap-2 rounded-[14px] ${FOCUS_RING}`}
             style={{ minHeight: 52, padding: '8px 12px', background: T.section.background, border: `1px solid ${T.section.border}` }}

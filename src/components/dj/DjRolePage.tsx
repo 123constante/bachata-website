@@ -73,7 +73,7 @@ function Dates({ upcoming, loading, failed, instagram }: { upcoming: DjGig[]; lo
         <p className="m-0" style={{ fontSize: 15, color: WALL.text }}>{e.line}</p>
         <p className="m-0 mt-1" style={{ fontSize: 14, color: WALL.muted }}>{e.hint}</p>
         {e.action.external ? (
-          <a href={e.action.href} target="_blank" rel="noopener noreferrer" data-testid="dj-no-dates-action" className={ACTION_CLASS} style={ACTION_STYLE}>
+          <a href={e.action.href} target="_blank" rel={PUBLIC_LINK_REL} data-testid="dj-no-dates-action" className={ACTION_CLASS} style={ACTION_STYLE}>
             {e.action.label}
           </a>
         ) : (
