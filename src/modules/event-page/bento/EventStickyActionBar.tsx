@@ -214,7 +214,19 @@ export const EventStickyActionBar = ({
             </button>
           )}
 
-          {quiet && (
+          {quiet && quietLabel === 'Choose a night' ? (
+            // A per-night ticket and no night on screen: the bar's control goes to the dates (S1a).
+            <button
+              type="button"
+              onClick={() => document.querySelector('[data-block-id="dates"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              data-testid="buy-choose-night"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', color: '#FFFFFF', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none' }}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              {quietLabel}
+            </button>
+          ) : quiet && (
             <button
               type="button"
               disabled

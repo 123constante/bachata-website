@@ -102,8 +102,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, onChooseNigh
   const list = typesForNight(types ?? [], occurrenceId);
   const quiet = quietBar(list, now);
   const buyable = list.filter((t) => maxQuantity(t, now) > 0);
-  // A per-night type with no night on screen: no Buy, the way forward is the dates (S1a).
-  const needsNight = buyable.length === 0 && list.some((t) => availability(t, now).kind === 'needs_night');
+  // A per-night type with no night on screen: not buyable here, the way forward is the dates (S1a).
+  const needsNight = list.some((t) => availability(t, now).kind === 'needs_night');
   const chooseNight = onChooseNight ?? scrollToDates;
   // One buyable type is picked for the buyer; otherwise they choose.
   // A pick that has since sold out or closed (the list re-reads after a refusal) is no pick.
@@ -284,19 +284,18 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, onChooseNigh
         })}
       </ul>
 
-      {needsNight ? (
+      {needsNight && (
         <div className="mt-2 text-[13px]" data-testid="tickets-choose-night">
           <p>Choose a night to buy tickets.</p>
           <button type="button" onClick={chooseNight} className="mt-1 inline-flex min-h-[44px] items-center font-semibold underline">
             See the dates
           </button>
         </div>
-      ) : (
-        buyable.length === 0 && (
-          <p className="mt-2 text-[13px]" style={muted}>
-            No tickets can be bought right now. Check back later or contact the organiser.
-          </p>
-        )
+      )}
+      {!needsNight && buyable.length === 0 && (
+        <p className="mt-2 text-[13px]" style={muted}>
+          No tickets can be bought right now. Check back later or contact the organiser.
+        </p>
       )}
 
       {quiet && (

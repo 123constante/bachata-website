@@ -326,8 +326,8 @@ export const REASON_COPY: Readonly<Record<string, ReasonCopy>> = {
   // The POST gave up after CHECKOUT_TIMEOUT_MS: the buyer never reached Stripe.
   timeout: { text: 'The ticket service took too long to answer. You have not been charged. Try again.', way: 'retry' },
   // S1a night refusals (HTTP 409). Nothing is charged; each names the next step: another night.
-  wrong_night: { text: 'This ticket is not for the night you picked. You have not been charged. Choose the night on the dates list and buy from that night’s page.', way: 'pick_night' },
-  night_required: { text: 'This ticket is sold night by night. You have not been charged. Choose a night on the dates list and buy from that night’s page.', way: 'pick_night' },
+  wrong_night: { text: 'This ticket is not for the night you picked. You have not been charged. Choose the night on the dates list and buy from the page for that night.', way: 'pick_night' },
+  night_required: { text: 'This ticket is sold night by night. You have not been charged. Choose a night on the dates list and buy from the page for that night.', way: 'pick_night' },
   night_cancelled: { text: 'This night has been cancelled, so no tickets are sold for it. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
   night_ended: { text: 'Ticket sales for this night have ended. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },
   not_course_night: { text: 'This course ticket does not cover the night you picked. You have not been charged. Choose another night on the dates list.', way: 'pick_night' },

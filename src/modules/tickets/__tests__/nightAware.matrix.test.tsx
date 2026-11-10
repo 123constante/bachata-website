@@ -178,6 +178,11 @@ describe('screen x shape: the Tickets block', () => {
     expect(onChooseNight).toHaveBeenCalled();
     expect(api.postTicketCheckout).not.toHaveBeenCalled();
   });
+  it('mixed (one buyable, one needs a night): the dates control still shows', async () => {
+    renderBlock([...parsePublicTypes([row({ id: 'p', occurrence_id: 'n0', name: 'Own night' })]), ...SHAPES.noNight], 'n0');
+    expect(await screen.findByText('Choose a night to buy tickets.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'See the dates' })).toBeTruthy();
+  });
   it.each(['past', 'cancelled'] as const)('%s night (no rows): no block', async (shape) => {
     renderBlock(SHAPES[shape], 'nx');
     await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', 'nx'));
