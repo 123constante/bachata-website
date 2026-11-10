@@ -22,9 +22,10 @@ const OK: DoorList = {
 };
 const REFUSED: DoorList = { ...OK, result: 'not_allowed', rows: [], inCount: null, totalCount: null };
 const REFUSED_ZERO: DoorList = { ...REFUSED, totalCount: 0 };
+const cam = vi.hoisted(() => ({ code: null as string | null }));
 const deps: ScannerDeps = {
   getStream: async () => ({ getTracks: () => [{ stop: vi.fn() }] }) as unknown as MediaStream,
-  makeDetector: async () => async () => null,
+  makeDetector: async () => async () => cam.code,
   every: 5,
 };
 const NOT_ALLOWED = { result: 'not_allowed', ticket_type_name: null, first_name: null, quantity: null, checked_in_at: null, checked_in_by_first_name: null, in_count: null, total_count: null };
@@ -41,7 +42,15 @@ function show() {
 type Shape = 'list' | 'typed' | 'then_ok' | 'then_network' | 'zero_sold';
 const SHAPES: Shape[] = ['list', 'typed', 'then_ok', 'then_network', 'zero_sold'];
 
-beforeEach(() => { api.checkIn.mockReset(); api.list.mockReset(); });
+beforeEach(() => { api.checkIn.mockReset(); api.list.mockReset(); cam.code = null; });
+
+/** Every control a note may name, and whether it is on screen now. */
+function noteNamesOnlyControlsOnScreen(note: string) {
+  const buttons = screen.queryAllByRole('button').map((b) => (b.textContent ?? '').toLowerCase());
+  if (/check again/i.test(note)) expect(buttons.some((b) => b.includes('check again'))).toBe(true);
+  if (/\btype\b/i.test(note)) expect(screen.queryByTestId('door-code-input')).not.toBeNull();
+  if (/\bscan\b/i.test(note)) expect(screen.queryByTestId('door-code-input') ?? screen.queryByTestId('door-camera')).not.toBeNull();
+}
 afterEach(cleanup);
 
 describe.each(['scan', 'list'] as const)('refused card on the %s tab', (tab) => {
@@ -73,9 +82,14 @@ describe.each(['scan', 'list'] as const)('refused card on the %s tab', (tab) => 
       if (shape === 'then_ok') {
         await waitFor(() => expect(screen.queryByTestId('door-act-recheck')).toBeNull());
       } else if (shape === 'typed') {
-        // refusal came from a check-in: a good list read must not clear it, and the card says so
-        await waitFor(() => expect(screen.getByTestId('door-recheck-note').textContent).toMatch(/refused when it was checked/));
-        expect(screen.getByTestId('door-act-recheck')).toBeTruthy();
+        // refusal came from a check-in: a good list read clears it, the code box comes back,
+        // and the note names only controls that are on screen (review 1439 r2 A)
+        await waitFor(() => expect(screen.queryByTestId('door-act-recheck')).toBeNull());
+        expect(screen.getByTestId('door-code-input')).toBeTruthy();
+        const note = screen.getByTestId('door-recheck-note').textContent ?? '';
+        expect(note).toMatch(/You can check tickets now/);
+        expect(note).not.toMatch(/refused when it was checked/);
+        noteNamesOnlyControlsOnScreen(note);
       } else {
         await waitFor(() => expect((screen.getByTestId('door-act-recheck') as HTMLButtonElement).disabled).toBe(false));
         expect(screen.getByTestId('door-notallowed-back')).toBeTruthy();
@@ -84,4 +98,21 @@ describe.each(['scan', 'list'] as const)('refused card on the %s tab', (tab) => 
       }
     });
   });
+});
+
+// review 1439 r2 C: the code that was refused stays on screen; once access is back the same code,
+// still held in front of the camera, must check in again (not be swallowed as "already shown").
+it('a scanned code refused at check-in scans again after Check again finds access', async () => {
+  api.list.mockResolvedValue(OK);
+  api.checkIn.mockResolvedValue(NOT_ALLOWED);
+  const code = 'cd'.repeat(32);
+  cam.code = code;
+  show();
+  await screen.findByTestId('door-act-recheck');
+  expect(api.checkIn).toHaveBeenCalledTimes(1);
+  expect(api.checkIn.mock.calls[0][0]).toBe(code);
+  api.checkIn.mockResolvedValue({ ...NOT_ALLOWED, result: 'ok', first_name: 'Aisha', quantity: 1, in_count: 2, total_count: 3 });
+  fireEvent.click(screen.getByTestId('door-act-recheck'));
+  await waitFor(() => expect(api.checkIn).toHaveBeenCalledTimes(2));
+  expect(api.checkIn.mock.calls[1][0]).toBe(code);
 });

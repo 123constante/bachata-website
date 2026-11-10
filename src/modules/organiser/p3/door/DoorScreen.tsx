@@ -46,6 +46,9 @@ type Tab = 'scan' | 'list';
 /** from = where the check was started: a list check-in shows its answer on the list. */
 interface Shown { kind: DoorResult; c: CheckIn | null; from?: Tab }
 
+/** Shown after Check again clears a check-in refusal: names only controls that are then on screen. */
+const RECHECK_OK_NOTE = 'You can check tickets now. Scan or type the code again.';
+
 export function DoorScreen() {
   const { seriesId = '' } = useParams();
   return <Door seriesId={seriesId} />;
@@ -72,6 +75,8 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [signedOut, setSignedOut] = useState(false);
   const [counts, setCounts] = useState<{ in: number; total: number } | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckNote, setRecheckNote] = useState<string | null>(null);
   const gate = useRef(createScanGate());
   const busyRef = useRef(false);
   // the code whose answer is on screen: held in front of the camera it never re-fires (an ok
@@ -92,6 +97,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
     setBusy(true);
     try {
       const c = await call();
+      setRecheckNote(null);
       onScreen.current = code;
       setShown({ kind: c.result, c, from });
       buzz(RESULT_TABLE[c.result].vibrate);
@@ -129,10 +135,8 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
 
   // "Check again" on the refused card: one list read, no check-in write. Ok replaces the card;
   // refused or a network error leaves it as it was (no toast).
-  // A refusal that came from a check-in (typed or scanned code) is NOT cleared by a good list read:
-  // only a refusal from the list read itself is. Offline shows a one-line message under the button.
-  const [rechecking, setRechecking] = useState(false);
-  const [recheckNote, setRecheckNote] = useState<string | null>(null);
+  // A refusal from a check-in (typed or scanned code) is cleared too, so the scanner and code box
+  // come back with a note saying so. Offline shows a one-line message under the button.
   const recheck = useCallback(async () => {
     setRechecking(true);
     setRecheckNote(null);
@@ -140,8 +144,14 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
       const r = await list.refetch();
       if (r.isError) setRecheckNote('No signal, try again');
       else if (r.data?.result === 'ok') {
-        if (shown?.kind === 'not_allowed') setRecheckNote('That code was refused when it was checked. Scan or type it again.');
-        else onScreen.current = null;
+        if (shown?.kind === 'not_allowed') {
+          // access is back: drop the check-in refusal so the scanner and code box return
+          setShown(null);
+          gate.current.reset();
+          setTab('scan'); // the list tab has no code box: go where the note points
+          setRecheckNote(RECHECK_OK_NOTE);
+        }
+        onScreen.current = null;
       }
     } catch { setRecheckNote('No signal, try again'); } finally { setRechecking(false); }
   }, [list, shown]);
@@ -181,6 +191,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
         </button>
       </nav>
       <main className="p3-door-main">
+        {!out && !notAllowed && recheckNote && <p className="p3-note p3-door-pad p3-door-recheck-note" role="status" data-testid="door-recheck-note">{recheckNote}</p>}
         {out ? (
           <div className="p3-card p3-door-pad" data-testid="door-signed-out">
             <strong>You were signed out</strong>
@@ -192,12 +203,12 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
             video={video} cam={cam} counts={shownCounts} shown={shown} busy={busy} notAllowed={notAllowed}
             noneSold={noneSold} seriesId={seriesId} act={act} codeInput={codeInput} onCode={submitCode} shortCodes={shortCodes}
             startCamera={startCamera} tries={denials} openList={() => setTab('list')}
- recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
+            recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
           />
         ) : (
           <ListTab
             retryCamera={() => { setTab('scan'); startCamera(); }}
- recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
+            recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
             list={list} shown={shown} cam={cam} busy={busy} codeInput={codeInput} onCode={submitCode} act={act} seriesId={seriesId}
             shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow} notAllowed={notAllowed}
           />
@@ -319,7 +330,7 @@ function ResultCard({ shown, act, recheck, rechecking, recheckNote }: { shown: S
           </div>
         )}
         {shown.kind === 'not_allowed' && recheck && recheckNote && (
-          <p className="p3-note" role="alert" data-testid="door-recheck-note">{recheckNote}</p>
+          <p className="p3-note p3-door-recheck-note" role="alert" data-testid="door-recheck-note">{recheckNote}</p>
         )}
         {acts.length > 0 && (
           <div className="p3-door-acts">
