@@ -18,9 +18,14 @@ export interface Q {
   summary: unknown;
   stripe: unknown;
   onboard: { go: () => Promise<void>; busy: boolean; note: string | null; switchedOff: boolean };
+  /** Slice 2: get_my_series_going_v1 nights (null = not read yet) and the event's own ticket link. */
+  going: { is_cancelled: boolean; going_count: number }[] | null;
+  ticketLink: string | null;
+  /** The money flag the screen passed to useSeriesOrders on its last render. */
+  ordersMoney: boolean | null;
 }
 
-export const q: Q = { home: null, types: null, orders: null, summary: null, stripe: null, onboard: { go: async () => {}, busy: false, note: null, switchedOff: false } };
+export const q: Q = { home: null, types: null, orders: null, summary: null, stripe: null, onboard: { go: async () => {}, busy: false, note: null, switchedOff: false }, going: null, ticketLink: null, ordersMoney: null };
 
 export function load(s: Shape) {
   const o = org({ role: s.role as 'owner' }, series({ lifecycle_status: s.lifecycle }));
@@ -30,13 +35,21 @@ export function load(s: Shape) {
   q.summary = ok(s.sales === 'refused' ? { ok: false, reason: 'not_authorised', types: [] } : { ok: true, reason: null, types: s.sales });
   q.stripe = { query: ok(STRIPE[s.stripe]), state: stripeStateOf(STRIPE[s.stripe]) };
   q.onboard = { go: vi.fn(async () => {}), busy: false, note: null, switchedOff: false };
+  q.going = null;
+  q.ticketLink = null;
+  q.ordersMoney = null;
 }
 
 export const dataMock = async (orig: () => Promise<typeof import('../data')>) => ({
   ...(await orig()),
   useP3Home: () => q.home,
   useSeriesTypes: () => q.types,
-  useSeriesOrders: () => q.orders,
+  useSeriesOrders: (_o: unknown, _s: unknown, _ids: unknown, _on: unknown, money?: boolean) => {
+    q.ordersMoney = money ?? true;
+    return q.orders;
+  },
+  useSeriesGoing: () => q.going,
+  useSeriesTicketLink: () => q.ticketLink,
   useSummary: () => q.summary,
   useStripe: () => q.stripe,
   useStartOnboarding: () => q.onboard,

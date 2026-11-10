@@ -74,6 +74,54 @@ export const NOT_OWNER_REFUND = 'Ask the owner to refund this order.';
 /** The counts-only note on a manager's orders view (testid tix-counts-only). */
 export const COUNTS_ONLY_NOTE = 'Ticket counts only. The owner sees sales and refunds.';
 
+// ---- Going count and external ticket link (slice 2: T4 / Q16, X5) ------------------
+// Counts and words only: neither line ever carries an amount, so both read the same for
+// owner, manager and a legacy contributor row (A1).
+
+/** One upcoming night as get_my_series_going_v1 gives it (only what the count needs). */
+export interface GoingNightCount {
+  is_cancelled: boolean;
+  going_count: number;
+}
+
+/** Going taps over the upcoming nights that still happen; a cancelled night counts for nothing. */
+export function goingTotal(nights: readonly GoingNightCount[]): { going: number; nights: number } {
+  const on = nights.filter((n) => !n.is_cancelled);
+  return { going: on.reduce((sum, n) => sum + Math.max(0, Math.floor(n.going_count || 0)), 0), nights: on.length };
+}
+
+/**
+ * The free event's "Going" line (testid tix-going-count): only when nothing on it is paid
+ * (a paid ticket's sales say the same thing better), and only when someone has tapped Going.
+ * null = no line.
+ */
+export function goingCountLine(nights: readonly GoingNightCount[] | null, types: readonly Pick<TicketType, 'pricePence'>[]): string | null {
+  if (!nights || types.some((t) => t.pricePence > 0)) return null;
+  const { going, nights: n } = goingTotal(nights);
+  if (going === 0) return null;
+  const who = going === 1 ? '1 person is' : `${going} people are`;
+  const when = n === 1 ? 'the next date' : `the next ${n} dates`;
+  return `Going: ${who} going to ${when}. Free event: no money is taken here.`;
+}
+
+/** The host of a ticket link, for the line (never the whole URL with its tracking). */
+function linkHost(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, '');
+  } catch {
+    return 'your own ticket link';
+  }
+}
+
+/**
+ * The external-link line (testid tix-external-link): the event sells on its own ticket link and
+ * has no ticket types here, so the Tickets view offers no payment controls. null = no line.
+ */
+export function externalTicketLine(ticketUrl: string | null, types: readonly unknown[]): string | null {
+  if (!ticketUrl || types.length > 0) return null;
+  return `This event sells tickets on its own link (${linkHost(ticketUrl)}), not here.`;
+}
+
 // ---- Get paid (organiser_stripe_accounts) -----------------------------------------
 
 /**

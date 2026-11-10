@@ -8,6 +8,8 @@ import {
   NOT_MANAGER_REFUND,
   NOT_OWNER_REFUND,
   COUNTS_ONLY_NOTE,
+  externalTicketLine,
+  goingCountLine,
   buyerFirstAndCode,
   canRefund,
   orderLineFor,
@@ -39,7 +41,7 @@ import {
 } from '../../tickets/ticketModel';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import type { HomeSeriesFull } from '../../shared/homeModel';
-import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { organiserOfSeries, useP3Home, useSeriesGoing, useSeriesOrders, useSeriesTicketLink, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, useConnectReturn } from './connectReturn';
 import { P3_TICKET_PATHS } from './paths';
 import {
@@ -151,7 +153,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
 
   const types = useSeriesTypes(org.id, series.id);
   const list = types.data ?? [];
-  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess);
+  // Slice 2 (PQ1): only the owner's orders read asks for pence columns.
+  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess, canRefund(org.role));
+  // Slice 2 (T4 / Q16, X5): Going taps of a free event, and the event's own ticket link. Counts and words only.
+  const goingNights = useSeriesGoing(series.id, open);
+  const ticketLink = useSeriesTicketLink(series.id);
   const summary = useSummary(org.id);
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
@@ -210,6 +216,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const many = list.length > 1;
 
   const row = types.isSuccess ? ticketsRowOf(list, sold, why) : null;
+  const goingLine = types.isSuccess ? goingCountLine(goingNights, list) : null;
+  const externalLine = types.isSuccess ? externalTicketLine(ticketLink, list) : null;
   const detail = types.isError ? 'Could not load' : row ? row.detail : 'Loading\u2026';
 
   /**
@@ -348,7 +356,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       <div className="p3-card p3-state" data-testid="tix-types-empty">
         <strong>No tickets yet</strong>
         {/* The reason sits once, by Add a ticket (or in the role note at the top): review r1 D7, D8. */}
-        <p>{why ? 'No tickets on this event yet.' : 'Tap Add a ticket below. Free tickets work straight away; paid ones need payments connected.'}</p>
+        <p>
+          {why || externalLine
+            ? 'No tickets on this event yet.'
+            : 'Tap Add a ticket below. Free tickets work straight away; paid ones need payments connected.'}
+        </p>
       </div>
     );
   } else {
@@ -416,7 +428,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 {eventDateLine(series)}. {buyerRulesLine()}
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
-              {banner && (
+              {externalLine && <p className="p3-note" data-testid="tix-external-link">{externalLine}</p>}
+              {goingLine && <p className="p3-note" data-testid="tix-going-count">{goingLine}</p>}
+              {banner && !externalLine && (
                 <div className="p3-card p3-stack-s" role="status" data-testid="tix-return-banner" data-kind={banner.kind}>
                   <p className="p3-note" data-testid="tix-return-line">{banner.line}</p>
                   {banner.actions.map((a) => (
