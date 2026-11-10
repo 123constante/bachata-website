@@ -17,6 +17,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } f
 import { X } from 'lucide-react';
 import { useKeyboardInset } from '@/modules/organiser/ui/useKeyboardInset';
 import { ADD_ROLES, ROLE_LABEL } from '@/modules/organiser/shared/teamModel';
+import { P3_ADD_ROLES, P3_ROLE_HELP, teamRoleDoor } from './teamRoles';
 import { inBody } from './layers';
 import { CREAM, GOLD, INK } from './parts';
 import { btn, inputStyle, sheetFrame, trapTab } from './sheetStyles';
@@ -49,6 +50,8 @@ export interface TeamSheetProps {
   onClose: () => void;
   /** Injected by tests; navigator.share / clipboard otherwise. */
   shareInvite?: (share: { title: string; text: string; url: string }) => Promise<'shared' | 'copied'>;
+  /** Slice 1b (P3 live): Manager plus a disabled Door that says why; no contributor option. */
+  p3Roles?: boolean;
 }
 
 const MUTED = 'rgba(246,241,234,0.7)';
@@ -79,7 +82,8 @@ function Avatar({ person }: { person: PersonResult }) {
   );
 }
 
-export default function TeamSheet({ access, organiserName, search, add, onAdded, onClose, shareInvite = defaultShare }: TeamSheetProps) {
+export default function TeamSheet({ access, organiserName, search, add, onAdded, onClose, shareInvite = defaultShare, p3Roles = false }: TeamSheetProps) {
+  const addRoles = p3Roles ? P3_ADD_ROLES : ADD_ROLES;
   const titleId = useId();
   const listId = useId();
   const msgId = useId();
@@ -253,14 +257,21 @@ export default function TeamSheet({ access, organiserName, search, add, onAdded,
         <fieldset style={{ border: 'none', margin: '8px 0 0', padding: 0 }}>
           <legend style={{ padding: 0, fontSize: 13, fontWeight: 700, color: CREAM }}>{PICKER_COPY.roleLegend}</legend>
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-            {ADD_ROLES.map((r) => (
+            {addRoles.map((r) => (
               <label key={r} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: 999, border: `1px solid ${role === r ? GOLD : 'rgba(246,241,234,0.25)'}`, color: role === r ? GOLD : CREAM, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                 <input type="radio" name={`${titleId}-role`} value={r} checked={role === r} onChange={() => setRole(r)} disabled={busy} style={{ width: 18, height: 18, accentColor: GOLD }} />
                 {ROLE_LABEL[r]}
               </label>
             ))}
+            {p3Roles && (
+              <label data-testid="eip-team-role-door" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: 999, border: '1px dashed rgba(246,241,234,0.25)', color: MUTED, fontSize: 14, fontWeight: 700, cursor: 'not-allowed' }}>
+                <input type="radio" name={`${titleId}-role`} value="door" disabled aria-describedby={`${titleId}-door-why`} style={{ width: 18, height: 18 }} />
+                {teamRoleDoor.label}
+              </label>
+            )}
           </div>
-          <p style={{ margin: '4px 0 0', fontSize: 12.5, color: MUTED }}>{PICKER_COPY.roleHelp}</p>
+          {p3Roles && <p id={`${titleId}-door-why`} data-testid="eip-team-door-why" style={{ margin: '4px 0 0', fontSize: 12.5, color: MUTED }}>{teamRoleDoor.notAddable}</p>}
+          <p style={{ margin: '4px 0 0', fontSize: 12.5, color: MUTED }}>{p3Roles ? P3_ROLE_HELP : PICKER_COPY.roleHelp}</p>
         </fieldset>
 
         {access === 'admin' && (
