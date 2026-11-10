@@ -28,6 +28,7 @@ Last verified: 2026-11-06 against Website origin/main a8c7b7d00 and admin origin
 | Make a copy of an event (`organiser_copy_event_v1`) | admin | BRIEFED | one migration at a time through the queue; I1 first | brief/organiser-copy-event-db (5b4f4db1) |
 | Live-now compat version | admin | PR OPEN `run-ci,migration-queued` | queue run, review, apply | A#1280 claude/live-now-compat-version |
 | Live-now Website half | web | PARTIAL, handover PR open | A#1280 applied (payload has no version on prod) | W#1275 claude/live-now-s2web; brief/live-now-s2web (7056f89d) |
+| Course weekly night + number of classes, owner-editable (Repeat sheet) | web | BLOCKED: step 1 failed on prod 2026-11-10, the server refuses a non-admin series.set_recurrence on a course (dry run too); no code written | admin migration (careful lane, permission aspect, owner approval) to let an owner send set_recurrence on a course; then this brief is replaced | branch claude/organiser-course-schedule-edit (handover docs/handovers/organiser-course-schedule-edit.md); brief/organiser-course-schedule-edit (ac9f468c) |
 
 ## Slices not yet briefed (drafters: verify each on origin/main first)
 | Item | Repo | Blocked by | Source |
