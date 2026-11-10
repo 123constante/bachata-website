@@ -1,7 +1,7 @@
 ﻿import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { redirect } from "react-router";
 import { stampEvent } from "../cacheTags";
-import { cacheHeaders, resolveOgCardImage, taggedData } from "../detailLoader";
+import { cacheHeaders, resolveOgCardImageSized, taggedData } from "../detailLoader";
 import { createServerQueryClient } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { eventPageQueryKey, parseEventPageSnapshot } from "@/modules/event-page/useEventPageQuery";
@@ -14,7 +14,8 @@ import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { hiddenEventResponse } from "../lib/hiddenEventResponse";
-import { resolveOgTallPreview } from "../lib/ogTallPreview.server";
+import { measureWholeFlyerCanvas, resolveOgTallPreview } from "../lib/ogTallPreview.server";
+import { LEGACY_CARD_H, LEGACY_CARD_W, OG_LAYOUT_POLICY, WF_LAYOUT } from "../lib/ogLayout";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
 import { prefetchEndedDoor } from "@/modules/event-page/sections/MoreEventsSection";
 import EventPage from "@/pages/EventPage";
@@ -32,6 +33,7 @@ const ENDED_DOOR_BUDGET_MS = 1500;
 // means "no tall card", never a page timeout.
 const OG_TALL_BUDGET_MS = 2500;
 const OG_TALL_HEADER = "X-OG-Tall";
+const OG_LAYOUT_HEADER = "X-OG-Layout";
 
 // SPIKE — the /event/:id server loader. Folds the client-side slug→uuid resolve
 // (useEntitySlugOrId) + snapshot fetch (useEventPageQuery) onto the server, then
@@ -195,14 +197,23 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
         ]).finally(() => clearTimeout(ogTallTimer))
       : Promise.resolve(null);
 
-  const [ogImage, , , ogTall] = await Promise.all([
-    resolveOgCardImage({
+  // Whole-flyer card (docs/design/whatsapp-whole-flyer.CONTRACT.md D2-D4):
+  // ogLayoutFor (inside resolveOgCardImageSized) picks the layout; a live
+  // whole-flyer URL is sized by measuring the flyer the CARD ROUTE renders,
+  // never snap.event.imageUrl. ?ogtest=whole-flyer forces it in TEST mode only
+  // (contract D3); off, allowlist and on ignore it. It is never baked. Mode off
+  // with no param: the loader data and headers are exactly what they were.
+  const ogTestWholeFlyer = url.searchParams.get("ogtest") === "whole-flyer" && OG_LAYOUT_POLICY.mode === "test";
+  const [ogCard, , , ogTall] = await Promise.all([
+    resolveOgCardImageSized({
       entityType: "event",
       entityId: eventId,
       occId: occurrenceId,
       coverUrl: snap?.event?.imageUrl,
       request,
       fallbackImage: OG_FALLBACK,
+      measureWholeFlyer: () => measureWholeFlyerCanvas(eventId, occurrenceId),
+      ...(ogTestWholeFlyer ? { forceLayout: WF_LAYOUT } : {}),
     }),
     festivalPrefetch,
     endedDoorPrefetch,
@@ -227,9 +238,14 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       // the generic sentence. The ended-run sentence is unaffected either way
       // -- measured at 142 characters worst-case, see HEAD_DESCRIPTION_MAX.
       description: truncate(buildEventShareDescription(snap), HEAD_DESCRIPTION_MAX) || null,
-      ogImage,
+      ogImage: ogCard.url,
       slug,
       ...(ogTall ? { ogTall } : {}),
+      // Present ONLY when the card is not 1200x630 (a whole-flyer card), so a
+      // legacy page's serialized loader data is byte-identical to before.
+      ...(ogCard.width !== LEGACY_CARD_W || ogCard.height !== LEGACY_CARD_H
+        ? { ogImageSize: { width: ogCard.width, height: ogCard.height } }
+        : {}),
     },
     // The tag id is the public URL id — events.id for bridged events, the series
     // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
@@ -240,6 +256,14 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   if (ogTest) {
     const h = new Headers(out.init?.headers);
     h.set(OG_TALL_HEADER, ogTall ? "ok" : "miss");
+    out.init = { ...out.init, headers: h };
+  }
+  // Whole-flyer measure miss (D2, r3 R3): the page declares the legacy l-less
+  // card and says so; headers() makes that response no-store so one slow
+  // measure cannot pin the legacy card to the edge for this page.
+  if (ogCard.legacyFallback) {
+    const h = new Headers(out.init?.headers);
+    h.set(OG_LAYOUT_HEADER, "legacy-fallback");
     out.init = { ...out.init, headers: h };
   }
   return out;
@@ -253,6 +277,9 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
 // in X-OG-Tall so `curl -sI` can check before a WhatsApp paste.
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
   const tall = loaderHeaders.get(OG_TALL_HEADER);
+  if (loaderHeaders.get(OG_LAYOUT_HEADER) === "legacy-fallback") {
+    return { "Cache-Control": "no-store", [OG_LAYOUT_HEADER]: "legacy-fallback", ...(tall ? { [OG_TALL_HEADER]: tall } : {}) };
+  }
   if (tall === "miss") return { "Cache-Control": "no-store", [OG_TALL_HEADER]: "miss" };
   if (tall === "ok") return { ...cacheHeaders(loaderHeaders), [OG_TALL_HEADER]: "ok" };
   return cacheHeaders(loaderHeaders);
@@ -286,8 +313,10 @@ export const meta: Route.MetaFunction = ({ data }) => {
   // three values are exactly what they always were.
   const ogTall = data?.ogTall;
   const ogImage = ogTall?.url ?? data?.ogImage ?? OG_FALLBACK;
-  const ogImageWidth = ogTall ? String(ogTall.width) : "1200";
-  const ogImageHeight = ogTall ? String(ogTall.height) : "630";
+  // ogImageSize is present only for a whole-flyer card (its real pixel size,
+  // contract D2); a legacy card keeps the constant 1200x630.
+  const ogImageWidth = ogTall ? String(ogTall.width) : String(data?.ogImageSize?.width ?? 1200);
+  const ogImageHeight = ogTall ? String(ogTall.height) : String(data?.ogImageSize?.height ?? 630);
   return [
     { title: `${name} — Bachata Calendar` },
     { name: "description", content: description },

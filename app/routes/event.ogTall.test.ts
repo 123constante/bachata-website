@@ -24,8 +24,17 @@ vi.mock("@/modules/event-page/useFestivalDetailQuery", () => ({
 vi.mock("../detailLoader", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../detailLoader")>()),
   resolveOgCardImage,
+  // event.tsx now calls the sized resolver; with the mode off (these tests) it
+  // is the same URL at the legacy 1200x630, so route it through the URL stub.
+  resolveOgCardImageSized: async (o: unknown) => ({
+    url: await resolveOgCardImage(o),
+    width: 1200,
+    height: 630,
+    layout: "legacy",
+    legacyFallback: false,
+  }),
 }));
-vi.mock("../lib/ogTallPreview.server", () => ({ resolveOgTallPreview }));
+vi.mock("../lib/ogTallPreview.server", () => ({ resolveOgTallPreview, measureWholeFlyerCanvas: vi.fn(async () => null) }));
 
 const ORIGIN = "https://www.bachatacalendar.co.uk";
 const SLUG = "sensual-wednesday";
