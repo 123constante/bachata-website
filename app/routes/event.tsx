@@ -14,6 +14,7 @@ import { HEAD_DESCRIPTION_MAX, truncate } from "../truncate";
 import { SITE_ORIGIN } from "@/lib/seo";
 import { resolvePublicEventRef } from "@/lib/seo/resolvePublicEventRef";
 import { hiddenEventResponse } from "../lib/hiddenEventResponse";
+import { resolveOgTallPreview } from "../lib/ogTallPreview.server";
 import { buildEventShareDescription } from "@/modules/event-page/endedShareDescription";
 import { prefetchEndedDoor } from "@/modules/event-page/sections/MoreEventsSection";
 import EventPage from "@/pages/EventPage";
@@ -27,6 +28,9 @@ const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
 const OG_FALLBACK = `${SITE_ORIGIN}/og-image.jpg`;
 // Ceiling on the ended page's door prefetch (see endedDoorPrefetch below).
 const ENDED_DOOR_BUDGET_MS = 1500;
+// Ceiling on the TEST-ONLY ?ogtest=tall lookup (an RPC + a flyer fetch): slow
+// means "no tall card", never a page timeout.
+const OG_TALL_BUDGET_MS = 2500;
 
 // SPIKE — the /event/:id server loader. Folds the client-side slug→uuid resolve
 // (useEntitySlugOrId) + snapshot fetch (useEventPageQuery) onto the server, then
@@ -174,7 +178,22 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
   // get a renderable JPEG instead of a raw (often WebP) cover URL. The
   // schema.org JSON-LD `image` field (buildEventJsonLd, rendered by BentoPage)
   // is unaffected — Google's structured-data parser handles WebP fine.
-  const [ogImage] = await Promise.all([
+  // TEST-ONLY (docs/briefs/og-tall-card-test.md): ?ogtest=tall swaps og:image
+  // for the flyer-shaped layout=tall card and declares its real size. Without
+  // the param nothing below runs and the loader data has no `ogTall` key at all,
+  // so the document is byte-identical to before. Canonical/og:url ignore it.
+  let ogTallTimer: ReturnType<typeof setTimeout> | undefined;
+  const ogTallPrefetch =
+    url.searchParams.get("ogtest") === "tall"
+      ? Promise.race([
+          resolveOgTallPreview({ eventId, occId: occurrenceId, coverUrl: snap?.event?.imageUrl, request }),
+          new Promise<null>((resolve) => {
+            ogTallTimer = setTimeout(() => resolve(null), OG_TALL_BUDGET_MS);
+          }),
+        ]).finally(() => clearTimeout(ogTallTimer))
+      : Promise.resolve(null);
+
+  const [ogImage, , , ogTall] = await Promise.all([
     resolveOgCardImage({
       entityType: "event",
       entityId: eventId,
@@ -185,6 +204,7 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
     }),
     festivalPrefetch,
     endedDoorPrefetch,
+    ogTallPrefetch,
   ]);
 
   return taggedData(
@@ -207,6 +227,7 @@ export const loader = withSsrLoaderTimeout("event-loader", async function loader
       description: truncate(buildEventShareDescription(snap), HEAD_DESCRIPTION_MAX) || null,
       ogImage,
       slug,
+      ...(ogTall ? { ogTall } : {}),
     },
     // The tag id is the public URL id — events.id for bridged events, the series
     // id for P5-native events — matching the DB emit's COALESCE(legacy_event_id, id).
@@ -244,7 +265,12 @@ export const meta: Route.MetaFunction = ({ data }) => {
   }
   const description =
     data?.description ?? "Bachata event details, line-up and tickets on Bachata Calendar.";
-  const ogImage = data?.ogImage ?? OG_FALLBACK;
+  // ogTall is present only on ?ogtest=tall (see the loader); otherwise these
+  // three values are exactly what they always were.
+  const ogTall = data?.ogTall;
+  const ogImage = ogTall?.url ?? data?.ogImage ?? OG_FALLBACK;
+  const ogImageWidth = ogTall ? String(ogTall.width) : "1200";
+  const ogImageHeight = ogTall ? String(ogTall.height) : "630";
   return [
     { title: `${name} — Bachata Calendar` },
     { name: "description", content: description },
@@ -258,8 +284,8 @@ export const meta: Route.MetaFunction = ({ data }) => {
     // see app/lib/ogCardRender). Declare its dimensions + type so WhatsApp and
     // other crawlers render the link preview at the right size — omitting these
     // on the dynamic-card path degraded event previews (the most-shared surface).
-    { property: "og:image:width", content: "1200" },
-    { property: "og:image:height", content: "630" },
+    { property: "og:image:width", content: ogImageWidth },
+    { property: "og:image:height", content: ogImageHeight },
     { property: "og:image:type", content: "image/jpeg" },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:image", content: ogImage },
