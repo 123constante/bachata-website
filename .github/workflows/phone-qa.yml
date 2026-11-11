@@ -74,6 +74,12 @@ jobs:
     # for that version only. Node still comes from setup-node (22), not the image.
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      # The container's HOME is /github/home, a runner mount whose parent is writable by
+      # another user; @swc/core 1.16 refuses a native-addon cache under it ("cache root has
+      # a parent writable by another user") and vite.config.ts fails to load. /root is
+      # root-owned 0700, so the cache is accepted there.
+      XDG_CACHE_HOME: /root/.cache
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -152,6 +158,12 @@ jobs:
     # for that version only. Node still comes from setup-node (22), not the image.
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      # The container's HOME is /github/home, a runner mount whose parent is writable by
+      # another user; @swc/core 1.16 refuses a native-addon cache under it ("cache root has
+      # a parent writable by another user") and vite.config.ts fails to load. /root is
+      # root-owned 0700, so the cache is accepted there.
+      XDG_CACHE_HOME: /root/.cache
     timeout-minutes: 20
 
     steps:

@@ -13,6 +13,9 @@ Branch `claude/ci-playwright-container`, PR #1544 (bot-opened, body filled by th
 - Added `git config --global --add safe.directory "$GITHUB_WORKSPACE"` after checkout
   (root in the container vs runner-owned workspace: "dubious ownership" otherwise).
   The image ships git (Dockerfile.noble installs git + openssh-client), so no apt.
+- Job-level `XDG_CACHE_HOME: /root/.cache`: the first run (head 2ad5ded) failed in all
+  five jobs because @swc/core 1.16 refuses its native-addon cache under the container's
+  HOME (/github/home, parent writable by another user). Reproduced locally; the env fixes it.
 - Job names, matrix, check names, setup-node 22 + npm 11, test steps, env, uploads unchanged.
 
 ## Left / for the owner
