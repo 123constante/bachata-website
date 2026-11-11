@@ -365,7 +365,7 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
     // "hiatus banner present AND no Event node"; requiring an Event node here
     // reds the gate on correct pages. A page with the node AND the banner
     // contradicts the policy and fails.
-    const onHiatus = /On hiatus/i.test(html);
+    const onHiatus = /data-testid="event-paused-banner"/.test(html);
     if (!ev && onHiatus) {
       // asserted: the hiatus contract held. Falls through to the other checks.
     } else if (ev && onHiatus) {
@@ -750,9 +750,9 @@ async function selfTest() {
     ['silent: a non-event page needs no Event node',
       clean(page(), {})],
     ['survives: a paused/hiatus page with NO Event node passes (policy: paused emits none)',
-      auditHtml('/x', page({ body: '<p>On hiatus &mdash; no upcoming dates</p>' }), { isEvent: true }).failures.length === 0],
+      auditHtml('/x', page({ body: '<p data-testid="event-paused-banner">On hiatus</p>' }), { isEvent: true }).failures.length === 0],
     ['fires: a hiatus page that DOES carry an Event node contradicts the policy',
-      fails(page({ jsonLd: eventLd(), body: '<p>On hiatus</p>' }), { isEvent: true }, 'hiatus page carries an Event JSON-LD node')],
+      fails(page({ jsonLd: eventLd(), body: '<p data-testid="event-paused-banner">On hiatus</p>' }), { isEvent: true }, 'hiatus page carries an Event JSON-LD node')],
     ['fires: no hiatus banner and no Event node still fails (guard not weakened)',
       fails(page({ body: '<p>hello</p>' }), { isEvent: true }, 'no Event JSON-LD node')],
     ['fires: Event JSON-LD missing name',
