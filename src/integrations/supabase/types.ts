@@ -29,6 +29,36 @@ export type Database = {
         }
         Relationships: []
       }
+      _ticket_mixed_basket_undo_v1: {
+        Row: {
+          def: string
+          fn: string
+        }
+        Insert: {
+          def: string
+          fn: string
+        }
+        Update: {
+          def?: string
+          fn?: string
+        }
+        Relationships: []
+      }
+      _ticket_price_steps_undo_v1: {
+        Row: {
+          def: string
+          fn: string
+        }
+        Insert: {
+          def: string
+          fn: string
+        }
+        Update: {
+          def?: string
+          fn?: string
+        }
+        Relationships: []
+      }
       account_erase_requests: {
         Row: {
           admin_hold_at: string | null
@@ -5655,6 +5685,139 @@ export type Database = {
           },
         ]
       }
+      organiser_door_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          event_series_id: string
+          occurrence_id: string
+          organiser_id: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by: string
+          event_series_id: string
+          occurrence_id: string
+          organiser_id: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          event_series_id?: string
+          occurrence_id?: string
+          organiser_id?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_door_invites_event_series_id_fkey"
+            columns: ["event_series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_door_invites_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_door_invites_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_door_invites_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organiser_door_seats: {
+        Row: {
+          created_at: string
+          event_series_id: string
+          granted_at: string
+          granted_by: string
+          id: string
+          occurrence_id: string
+          organiser_id: string
+          person_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_series_id: string
+          granted_at?: string
+          granted_by: string
+          id?: string
+          occurrence_id: string
+          organiser_id: string
+          person_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_series_id?: string
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          occurrence_id?: string
+          organiser_id?: string
+          person_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_door_seats_event_series_id_fkey"
+            columns: ["event_series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_door_seats_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_door_seats_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_door_seats_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organiser_edit_digest_sent_v1: {
         Row: {
           edit_count: number
@@ -6426,6 +6589,106 @@ export type Database = {
             columns: ["organiser_profile_id"]
             isOneToOne: false
             referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organiser_todo_notices: {
+        Row: {
+          attempts: number
+          created_at: string
+          dedupe_key: string
+          due_on: string
+          occurrence_id: string
+          organiser_id: string
+          person_id: string
+          sent_at: string | null
+          series_id: string
+          status: string
+          todo_kind: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          dedupe_key: string
+          due_on: string
+          occurrence_id: string
+          organiser_id: string
+          person_id: string
+          sent_at?: string | null
+          series_id: string
+          status?: string
+          todo_kind: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          dedupe_key?: string
+          due_on?: string
+          occurrence_id?: string
+          organiser_id?: string
+          person_id?: string
+          sent_at?: string | null
+          series_id?: string
+          status?: string
+          todo_kind?: string
+        }
+        Relationships: []
+      }
+      organiser_todo_state: {
+        Row: {
+          created_at: string
+          done_at: string | null
+          id: string
+          organiser_id: string
+          person_id: string
+          series_id: string | null
+          snooze_until: string | null
+          todo_kind: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          organiser_id: string
+          person_id: string
+          series_id?: string | null
+          snooze_until?: string | null
+          todo_kind: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          organiser_id?: string
+          person_id?: string
+          series_id?: string | null
+          snooze_until?: string | null
+          todo_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organiser_todo_state_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_admin_dashboard_v2"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_todo_state_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organiser_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organiser_todo_state_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series_p5"
             referencedColumns: ["id"]
           },
         ]
@@ -7757,6 +8020,11 @@ export type Database = {
           removed_at: string | null
           removed_reason: string | null
           user_id: string | null
+          wa_message_id: string | null
+          wa_send_attempted_at: string | null
+          wa_session_id: string | null
+          wa_verified_at: string | null
+          wa_verify_error: string | null
           wa_verify_status: string
         }
         Insert: {
@@ -7769,6 +8037,11 @@ export type Database = {
           removed_at?: string | null
           removed_reason?: string | null
           user_id?: string | null
+          wa_message_id?: string | null
+          wa_send_attempted_at?: string | null
+          wa_session_id?: string | null
+          wa_verified_at?: string | null
+          wa_verify_error?: string | null
           wa_verify_status?: string
         }
         Update: {
@@ -7781,6 +8054,11 @@ export type Database = {
           removed_at?: string | null
           removed_reason?: string | null
           user_id?: string | null
+          wa_message_id?: string | null
+          wa_send_attempted_at?: string | null
+          wa_session_id?: string | null
+          wa_verified_at?: string | null
+          wa_verify_error?: string | null
           wa_verify_status?: string
         }
         Relationships: []
@@ -7965,6 +8243,10 @@ export type Database = {
           note: string | null
           occurrence_id: string | null
           pool_id: string
+          qr_msg_attempted_at: string | null
+          qr_msg_error: string | null
+          qr_msg_id: string | null
+          qr_msg_status: string | null
           qr_token: string | null
           qr_void_at: string | null
           released_at: string | null
@@ -7981,6 +8263,10 @@ export type Database = {
           note?: string | null
           occurrence_id?: string | null
           pool_id: string
+          qr_msg_attempted_at?: string | null
+          qr_msg_error?: string | null
+          qr_msg_id?: string | null
+          qr_msg_status?: string | null
           qr_token?: string | null
           qr_void_at?: string | null
           released_at?: string | null
@@ -7997,6 +8283,10 @@ export type Database = {
           note?: string | null
           occurrence_id?: string | null
           pool_id?: string
+          qr_msg_attempted_at?: string | null
+          qr_msg_error?: string | null
+          qr_msg_id?: string | null
+          qr_msg_status?: string | null
           qr_token?: string | null
           qr_void_at?: string | null
           released_at?: string | null
@@ -8394,6 +8684,24 @@ export type Database = {
         }
         Relationships: []
       }
+      smart_import_usage: {
+        Row: {
+          day: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          day: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          day?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       songs: {
         Row: {
           artist: string
@@ -8557,6 +8865,133 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_night_check_ins: {
+        Row: {
+          checked_in_at: string
+          checked_in_by: string | null
+          occurrence_id: string
+          ticket_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          occurrence_id: string
+          ticket_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          checked_in_by?: string | null
+          occurrence_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_night_check_ins_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_night_check_ins_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_night_counts: {
+        Row: {
+          occurrence_id: string
+          reserved_count: number
+          ticket_type_id: string
+        }
+        Insert: {
+          occurrence_id: string
+          reserved_count?: number
+          ticket_type_id: string
+        }
+        Update: {
+          occurrence_id?: string
+          reserved_count?: number
+          ticket_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_night_counts_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_night_counts_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_order_lines: {
+        Row: {
+          created_at: string
+          discount_pence: number
+          id: string
+          line_no: number
+          occurrence_id: string | null
+          order_id: string
+          quantity: number
+          ticket_type_id: string
+          unit_price_pence: number
+        }
+        Insert: {
+          created_at?: string
+          discount_pence?: number
+          id?: string
+          line_no: number
+          occurrence_id?: string | null
+          order_id: string
+          quantity: number
+          ticket_type_id: string
+          unit_price_pence: number
+        }
+        Update: {
+          created_at?: string
+          discount_pence?: number
+          id?: string
+          line_no?: number
+          occurrence_id?: string | null
+          order_id?: string
+          quantity?: number
+          ticket_type_id?: string
+          unit_price_pence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_order_lines_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_order_lines_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_orders: {
         Row: {
           booking_fee_pence: number
@@ -8570,7 +9005,10 @@ export type Database = {
           disputed_at: string | null
           email_attempts: number
           email_status: string
+          hold_expires_at: string | null
           id: string
+          line_count: number
+          occurrence_id: string | null
           organiser_id: string
           paid_at: string | null
           promo_code_id: string | null
@@ -8578,6 +9016,7 @@ export type Database = {
           quantity: number
           refunded_at: string | null
           refunded_pence: number
+          reserve_version: number | null
           status: string
           stripe_account_id: string | null
           stripe_checkout_session_id: string | null
@@ -8599,7 +9038,10 @@ export type Database = {
           disputed_at?: string | null
           email_attempts?: number
           email_status?: string
+          hold_expires_at?: string | null
           id?: string
+          line_count?: number
+          occurrence_id?: string | null
           organiser_id: string
           paid_at?: string | null
           promo_code_id?: string | null
@@ -8607,6 +9049,7 @@ export type Database = {
           quantity: number
           refunded_at?: string | null
           refunded_pence?: number
+          reserve_version?: number | null
           status?: string
           stripe_account_id?: string | null
           stripe_checkout_session_id?: string | null
@@ -8628,7 +9071,10 @@ export type Database = {
           disputed_at?: string | null
           email_attempts?: number
           email_status?: string
+          hold_expires_at?: string | null
           id?: string
+          line_count?: number
+          occurrence_id?: string | null
           organiser_id?: string
           paid_at?: string | null
           promo_code_id?: string | null
@@ -8636,6 +9082,7 @@ export type Database = {
           quantity?: number
           refunded_at?: string | null
           refunded_pence?: number
+          reserve_version?: number | null
           status?: string
           stripe_account_id?: string | null
           stripe_checkout_session_id?: string | null
@@ -8646,6 +9093,13 @@ export type Database = {
           unit_price_pence?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_orders_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_orders_organiser_id_fkey"
             columns: ["organiser_id"]
@@ -8669,6 +9123,44 @@ export type Database = {
           },
           {
             foreignKeyName: "ticket_orders_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_price_steps: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          price_pence: number
+          ticket_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          id?: string
+          price_pence: number
+          ticket_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          price_pence?: number
+          ticket_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_price_steps_ticket_type_id_fkey"
             columns: ["ticket_type_id"]
             isOneToOne: false
             referencedRelation: "ticket_types"
@@ -8808,6 +9300,7 @@ export type Database = {
           currency: string
           event_series_id: string
           id: string
+          kind: string
           manual_sold_out: boolean
           name: string
           occurrence_id: string | null
@@ -8817,6 +9310,8 @@ export type Database = {
           sales_close_at: string | null
           sales_open_at: string | null
           status: string
+          valid_from: string | null
+          valid_to: string | null
         }
         Insert: {
           capacity: number
@@ -8825,6 +9320,7 @@ export type Database = {
           currency?: string
           event_series_id: string
           id?: string
+          kind?: string
           manual_sold_out?: boolean
           name: string
           occurrence_id?: string | null
@@ -8834,6 +9330,8 @@ export type Database = {
           sales_close_at?: string | null
           sales_open_at?: string | null
           status?: string
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Update: {
           capacity?: number
@@ -8842,6 +9340,7 @@ export type Database = {
           currency?: string
           event_series_id?: string
           id?: string
+          kind?: string
           manual_sold_out?: boolean
           name?: string
           occurrence_id?: string | null
@@ -8851,6 +9350,8 @@ export type Database = {
           sales_close_at?: string | null
           sales_open_at?: string | null
           status?: string
+          valid_from?: string | null
+          valid_to?: string | null
         }
         Relationships: [
           {
@@ -8910,6 +9411,7 @@ export type Database = {
           checked_in_by: string | null
           created_at: string
           id: string
+          occurrence_id: string | null
           order_id: string
           qr_token: string
           short_code: string
@@ -8921,6 +9423,7 @@ export type Database = {
           checked_in_by?: string | null
           created_at?: string
           id?: string
+          occurrence_id?: string | null
           order_id: string
           qr_token?: string
           short_code?: string
@@ -8932,6 +9435,7 @@ export type Database = {
           checked_in_by?: string | null
           created_at?: string
           id?: string
+          occurrence_id?: string | null
           order_id?: string
           qr_token?: string
           short_code?: string
@@ -8939,6 +9443,13 @@ export type Database = {
           ticket_type_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tickets_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrence_p5"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tickets_order_id_fkey"
             columns: ["order_id"]
@@ -10368,6 +10879,19 @@ export type Database = {
       _dj_next_gig_date_v1: { Args: { p_person_id: string }; Returns: string }
       _door_city_id_v1: { Args: { p_city: string }; Returns: string }
       _door_name_key_v1: { Args: { p_name: string }; Returns: string }
+      _door_scan_ticket_v1: { Args: { p_token: string }; Returns: Json }
+      _door_seat_covers_v1: {
+        Args: {
+          p_event_series_id: string
+          p_organiser_id: string
+          p_type_occurrence_id: string
+        }
+        Returns: boolean
+      }
+      _door_seat_window_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: Record<string, unknown>
+      }
       _effective_occurrence_boolean_p5: {
         Args: {
           ov: Database["public"]["Tables"]["event_occurrence_override_p5"]["Row"]
@@ -11055,6 +11579,16 @@ export type Database = {
           via: string
         }[]
       }
+      _organiser_todo_day8_v1: { Args: { p_at: string }; Returns: string }
+      _organiser_todo_write_v1: {
+        Args: {
+          p_action: string
+          p_organiser_id: string
+          p_series_id: string
+          p_todo_kind: string
+        }
+        Returns: Json
+      }
       _owner_cancellation_reason_ok_p5: {
         Args: { p_label: string }
         Returns: boolean
@@ -11477,6 +12011,20 @@ export type Database = {
           start_local: string
         }[]
       }
+      _raffle_v2_draw: { Args: { p_exclude: string }; Returns: Json }
+      _raffle_v2_night_json: {
+        Args: { p_occurrence_id: string }
+        Returns: Json
+      }
+      _raffle_v2_open_nights: { Args: { p_pool_id: string }; Returns: Json }
+      _raffle_v2_require_admin: { Args: never; Returns: string }
+      _raffle_v2_require_user: { Args: never; Returns: string }
+      _raffle_v2_win_json: { Args: { p_win_id: string }; Returns: Json }
+      _raffle_v2_win_link: { Args: { p_link_token: string }; Returns: string }
+      _raffle_v2_winner_message: {
+        Args: { p_first_name: string; p_link: string }
+        Returns: string
+      }
       _recompute_occurrence_headline_time_from_sessions_v1: {
         Args: { p_occurrence_id: string }
         Returns: undefined
@@ -11632,8 +12180,25 @@ export type Database = {
         }
         Returns: Json
       }
+      _ticket_check_in_core_v2: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_orgs: string[]
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       _ticket_checkout_sale_refusal_v1: {
         Args: {
+          p_quantity: number
+          p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
+        }
+        Returns: Json
+      }
+      _ticket_checkout_sale_refusal_v2: {
+        Args: {
+          p_occurrence_id: string
           p_quantity: number
           p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
         }
@@ -11643,12 +12208,116 @@ export type Database = {
         Args: { p_event_series_id: string; p_orgs: string[] }
         Returns: Json
       }
+      _ticket_door_counts_v2: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_orgs: string[]
+        }
+        Returns: Json
+      }
+      _ticket_door_night_ok_v1: {
+        Args: {
+          p_door_night: string
+          p_kind: string
+          p_ticket_night: string
+          p_valid_from: string
+          p_valid_to: string
+        }
+        Returns: boolean
+      }
+      _ticket_door_night_orgs_v1: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: string[]
+      }
       _ticket_door_orgs_v1: {
         Args: { p_event_series_id: string }
         Returns: string[]
       }
+      _ticket_door_seat_manager_orgs_v1: {
+        Args: { p_event_series_id: string }
+        Returns: string[]
+      }
+      _ticket_door_seat_orgs_v1: {
+        Args: { p_event_series_id: string }
+        Returns: string[]
+      }
       _ticket_door_shape_v1: { Args: { p_result: string }; Returns: Json }
+      _ticket_effective_close_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
+        }
+        Returns: string
+      }
+      _ticket_effective_unit_price_at_v1: {
+        Args: {
+          p_at: string
+          p_occurrence_id: string
+          p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
+        }
+        Returns: number
+      }
+      _ticket_effective_unit_price_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
+        }
+        Returns: number
+      }
       _ticket_email_rate_key_v1: { Args: { p_email: string }; Returns: string }
+      _ticket_held_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
+        }
+        Returns: number
+      }
+      _ticket_next_price_step_v1: {
+        Args: { p_type: Database["public"]["Tables"]["ticket_types"]["Row"] }
+        Returns: {
+          next_at: string
+          next_price: number
+        }[]
+      }
+      _ticket_night_end_v1: {
+        Args: { p_occurrence_id: string }
+        Returns: string
+      }
+      _ticket_night_refusal_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_type: Database["public"]["Tables"]["ticket_types"]["Row"]
+        }
+        Returns: Json
+      }
+      _ticket_order_issue_tickets_v1: {
+        Args: { p_order_id: string }
+        Returns: number
+      }
+      _ticket_order_lines_v1: {
+        Args: { p_order_id: string }
+        Returns: {
+          discount_pence: number
+          line_no: number
+          occurrence_id: string
+          quantity: number
+          ticket_type_id: string
+          unit_price_pence: number
+        }[]
+      }
+      _ticket_order_lock_types_v1: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
+      _ticket_order_release_lines_v1: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
+      _ticket_order_retake_lines_v1: {
+        Args: { p_order_id: string }
+        Returns: boolean
+      }
       _ticket_organiser_charge_account_v1: {
         Args: { p_organiser_id: string }
         Returns: string
@@ -11669,12 +12338,41 @@ export type Database = {
         Args: { p_quantity: number; p_ticket_type_id: string }
         Returns: undefined
       }
+      _ticket_release_order_capacity_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_quantity: number
+          p_ticket_type_id: string
+        }
+        Returns: undefined
+      }
       _ticket_retake_capacity_v1: {
         Args: { p_quantity: number; p_ticket_type_id: string }
         Returns: boolean
       }
+      _ticket_retake_order_capacity_v1: {
+        Args: {
+          p_occurrence_id: string
+          p_quantity: number
+          p_ticket_type_id: string
+        }
+        Returns: boolean
+      }
       _ticket_short_code_new_v1: { Args: never; Returns: string }
       _ticket_stripe_min_charge_pence_v1: { Args: never; Returns: number }
+      _ticket_type_kind_ok_v1: {
+        Args: {
+          p_from: string
+          p_kind: string
+          p_occurrence_id: string
+          p_to: string
+        }
+        Returns: boolean
+      }
+      _ticket_type_per_night_v1: {
+        Args: { p_type: Database["public"]["Tables"]["ticket_types"]["Row"] }
+        Returns: boolean
+      }
       _unconfirmed_account_eligible_v1: {
         Args: { p_user: string }
         Returns: boolean
@@ -13214,6 +13912,30 @@ export type Database = {
         }[]
       }
       admin_queue_invite_reminders_v1: { Args: never; Returns: Json }
+      admin_raffle_attendance_mark_v1: {
+        Args: { p_occurrence_id: string; p_pool_id: string }
+        Returns: Json
+      }
+      admin_raffle_draw_v1: { Args: never; Returns: Json }
+      admin_raffle_night_set_v1: {
+        Args: { p_enabled: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
+      admin_raffle_page_v1: { Args: { p_days_ahead?: number }; Returns: Json }
+      admin_raffle_pool_remove_v1: {
+        Args: { p_pool_id: string; p_reason: string }
+        Returns: Json
+      }
+      admin_raffle_redraw_v1: { Args: { p_win_id: string }; Returns: Json }
+      admin_raffle_series_set_v1: {
+        Args: { p_enabled: boolean; p_series_id: string }
+        Returns: Json
+      }
+      admin_raffle_win_cancel_v1: {
+        Args: { p_note?: string; p_win_id: string }
+        Returns: Json
+      }
+      admin_raffle_win_relink_v1: { Args: { p_win_id: string }; Returns: Json }
       admin_recent_program_people_v1: {
         Args: { p_limit?: number; p_profile_type: string }
         Returns: Json
@@ -14176,6 +14898,8 @@ export type Database = {
         Args: { actor_user_id: string; p_entity_id: string }
         Returns: Json
       }
+      door_list_v1: { Args: { p_occurrence_id: string }; Returns: Json }
+      door_scan_v1: { Args: { p_payload: string }; Returns: Json }
       enforce_manager_city_scope_for_user: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -15005,6 +15729,10 @@ export type Database = {
         Args: { p_entry_id: string; p_session_id: string }
         Returns: Json
       }
+      get_raffle_pool_wa_status_v1: {
+        Args: { p_pool_id: string; p_session_id: string }
+        Returns: Json
+      }
       get_user_identity_prefill: {
         Args: never
         Returns: {
@@ -15182,6 +15910,7 @@ export type Database = {
       my_dancer_edit_v1: { Args: never; Returns: Json }
       my_dancer_meta_v1: { Args: never; Returns: Json }
       my_dancer_stats_v1: { Args: never; Returns: Json }
+      my_door_seats_v1: { Args: never; Returns: Json }
       my_feature_interest_v1: { Args: never; Returns: Json }
       my_lineup_appearances_v1: { Args: { p_role: string }; Returns: Json }
       my_nights_lineup_people_v1: { Args: never; Returns: Json }
@@ -15417,6 +16146,42 @@ export type Database = {
         }[]
       }
       organiser_team_v1: { Args: { p_organiser_id: string }; Returns: Json }
+      organiser_todo_deadline_queue_v1: { Args: never; Returns: number }
+      organiser_todo_done_v1: {
+        Args: {
+          p_organiser_id: string
+          p_series_id: string
+          p_todo_kind: string
+        }
+        Returns: Json
+      }
+      organiser_todo_money_v1: { Args: never; Returns: Json }
+      organiser_todo_notice_set_status_v1: {
+        Args: { p_key: string; p_status: string }
+        Returns: string
+      }
+      organiser_todo_notices_claim_v1: {
+        Args: { p_limit: number }
+        Returns: {
+          attempts: number
+          dedupe_key: string
+          due_on: string
+          event_title: string
+          occurrence_id: string
+          organiser_id: string
+          person_id: string
+          series_id: string
+        }[]
+      }
+      organiser_todo_snooze_v1: {
+        Args: {
+          p_organiser_id: string
+          p_series_id: string
+          p_todo_kind: string
+        }
+        Returns: Json
+      }
+      organiser_todo_state_v1: { Args: never; Returns: Json }
       organiser_transfer_ownership_v1: {
         Args: {
           p_organiser_id: string
@@ -15680,6 +16445,10 @@ export type Database = {
         }[]
       }
       purge_old_guest_entries_v1: { Args: never; Returns: Json }
+      raffle_door_caller_allowed: {
+        Args: { p_occurrence_id: string }
+        Returns: boolean
+      }
       raffle_effective_occurrence_v1: {
         Args: { p_event_id: string }
         Returns: {
@@ -15702,6 +16471,7 @@ export type Database = {
         }
         Returns: Json
       }
+      raffle_my_wins_v1: { Args: never; Returns: Json }
       raffle_night_is_open: {
         Args: { p_occurrence_id: string }
         Returns: boolean
@@ -15713,8 +16483,31 @@ export type Database = {
       raffle_pool_is_eligible: { Args: { p_pool_id: string }; Returns: boolean }
       raffle_public_board_v1: { Args: never; Returns: Json }
       raffle_sweep_no_shows_v1: { Args: never; Returns: number }
+      raffle_wa_claim_send_pool_v1: {
+        Args: { p_pool_id: string; p_session_id: string }
+        Returns: Json
+      }
+      raffle_wa_claim_send_qr_v1: { Args: { p_win_id: string }; Returns: Json }
       raffle_wa_claim_send_v1: {
         Args: { p_entry_id: string; p_session_id: string }
+        Returns: Json
+      }
+      raffle_wa_record_send_result_pool_v1: {
+        Args: {
+          p_error: string
+          p_pool_id: string
+          p_result: string
+          p_wa_message_id: string
+        }
+        Returns: Json
+      }
+      raffle_wa_record_send_result_qr_v1: {
+        Args: {
+          p_error: string
+          p_result: string
+          p_wa_message_id: string
+          p_win_id: string
+        }
         Returns: Json
       }
       raffle_wa_record_send_result_v1: {
@@ -15723,6 +16516,15 @@ export type Database = {
           p_error?: string
           p_result: string
           p_wa_message_id?: string
+        }
+        Returns: Json
+      }
+      raffle_wa_webhook_update_pool_v1: {
+        Args: {
+          p_error_code: number
+          p_error_detail: string
+          p_status: string
+          p_wa_message_id: string
         }
         Returns: Json
       }
@@ -15735,6 +16537,16 @@ export type Database = {
         }
         Returns: Json
       }
+      raffle_win_claim_link_v1: {
+        Args: { p_link_token: string }
+        Returns: Json
+      }
+      raffle_win_lock_v1: {
+        Args: { p_occurrence_id: string; p_win_id: string }
+        Returns: Json
+      }
+      raffle_win_open_nights_v1: { Args: { p_win_id: string }; Returns: Json }
+      raffle_win_release_v1: { Args: { p_win_id: string }; Returns: Json }
       rate_series_level_p5_v1: {
         Args: { p_level: string; p_series_id: string }
         Returns: Json
@@ -16191,6 +17003,7 @@ export type Database = {
         Args: { p_id: string; p_name: string }
         Returns: string
       }
+      smart_import_take_v1: { Args: { p_user: string }; Returns: Json }
       stamp_occurrence_occurred_evidence_v1: { Args: never; Returns: Json }
       stash_local_as_utc: {
         Args: { p_date: string; p_time: string }
@@ -16233,12 +17046,36 @@ export type Database = {
         Args: { p_code: string; p_event_series_id: string }
         Returns: Json
       }
+      ticket_check_in_by_code_v2: {
+        Args: {
+          p_code: string
+          p_event_series_id: string
+          p_occurrence_id: string
+        }
+        Returns: Json
+      }
       ticket_check_in_by_id_v1: {
         Args: { p_event_series_id: string; p_ticket_id: string }
         Returns: Json
       }
+      ticket_check_in_by_id_v2: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
       ticket_check_in_v1: {
         Args: { p_event_series_id: string; p_qr_token: string }
+        Returns: Json
+      }
+      ticket_check_in_v2: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_qr_token: string
+        }
         Returns: Json
       }
       ticket_checkout_attach_session_v1: {
@@ -16279,10 +17116,80 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_checkout_reserve_v3: {
+        Args: {
+          p_booking_fee_per_ticket_pence: number
+          p_buyer_email: string
+          p_buyer_name: string
+          p_buyer_user_id: string
+          p_email_hash: string
+          p_ip_hash: string
+          p_occurrence_id: string
+          p_promo_code: string
+          p_quantity: number
+          p_ticket_type_id: string
+        }
+        Returns: Json
+      }
+      ticket_checkout_reserve_v4: {
+        Args: {
+          p_booking_fee_per_ticket_pence: number
+          p_buyer_email: string
+          p_buyer_name: string
+          p_buyer_user_id: string
+          p_email_hash: string
+          p_ip_hash: string
+          p_lines: Json
+          p_occurrence_id: string
+          p_promo_code: string
+        }
+        Returns: Json
+      }
+      ticket_checkout_reserve_v5: {
+        Args: {
+          p_booking_fee_per_ticket_pence: number
+          p_buyer_email: string
+          p_buyer_name: string
+          p_buyer_user_id: string
+          p_email_hash: string
+          p_expected_total_pence: number
+          p_ip_hash: string
+          p_lines: Json
+          p_occurrence_id: string
+          p_promo_code: string
+        }
+        Returns: Json
+      }
       ticket_door_list_v1: {
         Args: { p_event_series_id: string }
         Returns: Json
       }
+      ticket_door_list_v2: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
+      ticket_door_seat_accept_v1: { Args: { p_token: string }; Returns: Json }
+      ticket_door_seat_grant_v1: {
+        Args: {
+          p_event_series_id: string
+          p_occurrence_id: string
+          p_person_id: string
+        }
+        Returns: Json
+      }
+      ticket_door_seat_invite_revoke_v1: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      ticket_door_seat_invite_v1: {
+        Args: { p_event_series_id: string; p_occurrence_id: string }
+        Returns: Json
+      }
+      ticket_door_seat_list_v1: {
+        Args: { p_event_series_id: string }
+        Returns: Json
+      }
+      ticket_door_seat_revoke_v1: { Args: { p_seat_id: string }; Returns: Json }
       ticket_email_retry_take_v1: {
         Args: { p_limit: number }
         Returns: string[]
@@ -16307,6 +17214,10 @@ export type Database = {
           p_payment_intent_id: string
           p_won: boolean
         }
+        Returns: Json
+      }
+      ticket_order_hold_release_v1: {
+        Args: { p_order_id: string }
         Returns: Json
       }
       ticket_order_issue_free_v1: {
@@ -16337,7 +17248,21 @@ export type Database = {
         Args: { p_email_status: string; p_order_id: string }
         Returns: undefined
       }
+      ticket_orders_hold_due_v1: { Args: { p_limit?: number }; Returns: Json }
       ticket_orders_sweep_v1: { Args: never; Returns: Json }
+      ticket_price_step_remove_v1: {
+        Args: { p_step_id: string }
+        Returns: Json
+      }
+      ticket_price_step_set_v1: {
+        Args: {
+          p_effective_from: string
+          p_price_pence: number
+          p_step_id: string
+          p_ticket_type_id: string
+        }
+        Returns: Json
+      }
       ticket_promo_create_v1: {
         Args: {
           p_code: string
@@ -16363,11 +17288,25 @@ export type Database = {
         }
         Returns: Json
       }
+      ticket_promo_preview_v2: {
+        Args: {
+          p_code: string
+          p_occurrence_id: string
+          p_quantity: number
+          p_series: string
+          p_ticket_type: string
+        }
+        Returns: Json
+      }
       ticket_promo_update_v1: {
         Args: { p_id: string; p_patch: Json }
         Returns: Json
       }
       ticket_sales_summary_v1: {
+        Args: { p_organiser_id: string }
+        Returns: Json
+      }
+      ticket_sales_summary_v2: {
         Args: { p_organiser_id: string }
         Returns: Json
       }
@@ -16386,6 +17325,10 @@ export type Database = {
         Returns: Json
       }
       ticket_type_upsert_v1: { Args: { p_payload: Json }; Returns: Json }
+      ticket_types_manage_v1: {
+        Args: { p_event_series_id: string }
+        Returns: Json
+      }
       ticket_types_public_v1: {
         Args: { p_event_series_id: string }
         Returns: {
@@ -16398,6 +17341,46 @@ export type Database = {
           sales_close_at: string
           sales_open_at: string
           status: string
+        }[]
+      }
+      ticket_types_public_v2: {
+        Args: { p_event_series_id: string; p_occurrence_id?: string }
+        Returns: {
+          currency: string
+          effective_close_at: string
+          id: string
+          kind: string
+          name: string
+          occurrence_id: string
+          price_pence: number
+          remaining: number
+          sales_close_at: string
+          sales_open_at: string
+          sold_out: boolean
+          status: string
+          valid_from: string
+          valid_to: string
+        }[]
+      }
+      ticket_types_public_v3: {
+        Args: { p_event_series_id: string; p_occurrence_id?: string }
+        Returns: {
+          currency: string
+          effective_close_at: string
+          id: string
+          kind: string
+          name: string
+          next_price_at: string
+          next_price_pence: number
+          occurrence_id: string
+          price_pence: number
+          remaining: number
+          sales_close_at: string
+          sales_open_at: string
+          sold_out: boolean
+          status: string
+          valid_from: string
+          valid_to: string
         }[]
       }
       ticket_webhook_begin_v1: {
