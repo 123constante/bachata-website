@@ -151,7 +151,8 @@ describe('Get paid states', () => {
 describe('Home: the ONE Get paid prompt', () => {
   it.each([
     ['owner, none, live', shape({ stripe: 'none' }), 'Get paid for tickets'],
-    ['manager, started, live', shape({ stripe: 'started', role: 'manager' }), 'Finish connecting payments'],
+    ['manager, started, live', shape({ stripe: 'started' }), 'Finish connecting payments'],
+    ['manager, started, live: payouts are the owner\'s, no prompt', shape({ stripe: 'started', role: 'manager' }), null],
     ['owner, connected', shape({ stripe: 'connected' }), null],
     ['contributor, none', shape({ stripe: 'none', role: 'contributor' }), null],
     ['owner, none, nothing live', shape({ stripe: 'none', lifecycle: 'draft' }), null],

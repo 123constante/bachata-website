@@ -17,6 +17,7 @@ import {
   SWITCH_LABEL,
   buyerRulesLine,
   canManage,
+  canSetUpPayouts,
   connectBlock,
   OPEN_STRIPE_LABEL,
   connectReturnBanner,
@@ -163,7 +164,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const summary = useSummary(org.id, canRefund(org.role));
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
-  const onboard = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
+  const onboardRaw = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
+  // Payout set-up is the owner's: for anyone else `go` does nothing (no control is drawn for them either).
+  const onboard = canSetUpPayouts(org.role) ? onboardRaw : { ...onboardRaw, go: async () => {} };
   // On arrival (`tickets=1`, and `stripe=return|refresh` from Stripe): open the sheet, refetch the Stripe
   // state after a return, and drop the params so a reload or a Back does not do it again.
   const [params, setParams] = useSearchParams();

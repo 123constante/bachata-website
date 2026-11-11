@@ -101,7 +101,7 @@ describe('moveBlock: every status x role x Stripe x free/paid x room left x seri
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
                 if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
-                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : /Connect payments/);
+                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : role === 'owner' ? /Connect payments/ : /Ask the owner to set up payouts/);
                 expect(got).toBeNull();
               });
             }

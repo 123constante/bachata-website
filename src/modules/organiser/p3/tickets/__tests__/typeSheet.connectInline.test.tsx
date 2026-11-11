@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useLocation } from 'react-router-dom';
-import { CONNECT_LABEL, CONNECT_LINE, CONNECT_RESUME_LABEL, NOT_MANAGER, PAYMENTS_WHERE, stripeStateOf } from '../../../tickets/ticketModel';
+import { CONNECT_LABEL, CONNECT_LINE, CONNECT_RESUME_LABEL, NOT_MANAGER, PAYMENTS_WHERE, PAYOUTS_ASK_OWNER, stripeStateOf } from '../../../tickets/ticketModel';
 import { P3_TICKET_PATHS } from '../paths';
 import { SHAPES, STRIPE, home, org, series, type } from './fixtures';
 import { dataMock, load, ok, pending, q, show } from './harness';
@@ -41,14 +41,15 @@ const PRICES = [['paid', 1200], ['free', 0]] as const;
 /** The ONE mapping for every fact under test. */
 const EXPECT = (pence: number, stripe: StripeKey, role: Role) => {
   const manager = role !== 'contributor';
-  const block = pence > 0 && manager && (stripe === 'none' || stripe === 'started');
+  const owner = role === 'owner';
+  const block = pence > 0 && owner && (stripe === 'none' || stripe === 'started');
   return {
     block,
     label: stripe === 'started' ? CONNECT_RESUME_LABEL : CONNECT_LABEL,
     /** Put on sale / the Selling switch enabled: free works straight away, paid needs connected. */
     canSell: manager && (pence === 0 || stripe === 'connected'),
     /** The reason copy that must survive when there is no block. */
-    reason: !manager ? NOT_MANAGER : pence > 0 && stripe === 'loading' ? 'Checking your payment set-up. Try again in a moment.' : pence > 0 && stripe === 'not_configured' ? PAYMENTS_WHERE : null,
+    reason: !manager ? NOT_MANAGER : pence > 0 && stripe === 'loading' ? 'Checking your payment set-up. Try again in a moment.' : pence > 0 && stripe === 'not_configured' ? (owner ? PAYMENTS_WHERE : PAYOUTS_ASK_OWNER) : pence > 0 && !owner && stripe !== 'connected' ? PAYOUTS_ASK_OWNER : null,
   };
 };
 

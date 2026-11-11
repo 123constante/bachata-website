@@ -4,6 +4,7 @@ import {
   SHOWN_ORDER,
   STRIPE_COPY,
   canManage,
+  canSetUpPayouts,
   eventLeftLine,
   eventSaleOf,
   formOf,
@@ -112,7 +113,7 @@ export const noOrdersText = (types: readonly Pick<TicketType, 'status'>[], manag
  * and payments are not connected (and never while the account read is unknown).
  */
 export const showPrompt = (role: MemberRole | null | undefined, hasLive: boolean, stripe: StripeState | null): stripe is PromptState =>
-  canManage(role) && hasLive && (stripe === 'none' || stripe === 'started' || stripe === 'waiting');
+  canSetUpPayouts(role) && hasLive && (stripe === 'none' || stripe === 'started' || stripe === 'waiting');
 
 /** The right side of You's Get paid row: the Stripe state's own tag. */
 export const getPaidRowTag = (stripe: StripeState | null): { label: string; tone: StatusTone } | null =>

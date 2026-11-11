@@ -66,6 +66,8 @@ export const PAYOUTS_ASK_OWNER = 'Ask the owner to set up payouts.';
 export const isOwner = (role: MemberRole | null | undefined): boolean => role === 'owner';
 /** Refund is the one money write on Tickets (Q15): owner only (PQ1). */
 export const canRefund = isOwner;
+/** Stripe onboarding / payout set-up: owner only (PQ1). Every entry point reads this one rule. */
+export const canSetUpPayouts = isOwner;
 /** Sales, refunds and payout amounts: owner only. */
 export const seesMoney = isOwner;
 /** Shown on a refundable order row for anyone but the owner (testid tix-refund-ask-owner). */
@@ -318,7 +320,7 @@ export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'ca
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Try again in a moment.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'waiting') return STRIPE_WAITING_REASON;
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return canSetUpPayouts(ctx.role) ? PAYMENTS_WHERE : PAYOUTS_ASK_OWNER;
   return null;
 };
 
@@ -351,7 +353,7 @@ export const connectBlock = (
   ctx: Pick<MoveContext, 'role' | 'stripe'>,
   onboarding: { switchedOff: boolean; note: string | null },
 ): ConnectBlock | null => {
-  if (!(pricePence > 0) || !canManage(ctx.role)) return null;
+  if (!(pricePence > 0) || !canSetUpPayouts(ctx.role)) return null;
   if (ctx.stripe === 'unknown' || ctx.stripe === 'connected' || onboarding.switchedOff) return null;
   if (ctx.stripe === 'waiting') {
     return { kind: 'check', replaces: STRIPE_WAITING_REASON, line: STRIPE_WAITING_REASON, button: CHECK_AGAIN_LABEL, error: onboarding.note };
@@ -389,9 +391,9 @@ export const connectReturnBanner = (i: {
   const waitingBanner = (): ConnectReturnBanner => ({
     kind: 'waiting',
     line: CONNECT_RETURN_WAITING,
-    actions: [{ kind: 'check', label: CHECK_AGAIN_LABEL }, { kind: 'carry_on', label: OPEN_STRIPE_LABEL }],
+    actions: canSetUpPayouts(i.role) ? [{ kind: 'check', label: CHECK_AGAIN_LABEL }, { kind: 'carry_on', label: OPEN_STRIPE_LABEL }] : [{ kind: 'check', label: CHECK_AGAIN_LABEL }],
   });
-  if (i.refresh && !i.arrivedFromStripe && canManage(i.role) && i.stripe !== 'connected') {
+  if (i.refresh && !i.arrivedFromStripe && canSetUpPayouts(i.role) && i.stripe !== 'connected') {
     if (i.stripe === 'waiting') return waitingBanner();
     return { kind: 'refresh', line: STRIPE_REFRESH_NOTE, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
   }
@@ -415,6 +417,7 @@ export const connectReturnBanner = (i: {
   }
   if (i.polling || i.stripe === null || i.stripe === 'unknown') return { kind: 'checking', line: CONNECT_RETURN_CHECKING, actions: [] };
   if (i.stripe === 'waiting') return waitingBanner();
+  if (!canSetUpPayouts(i.role)) return { kind: 'needs_more', line: PAYOUTS_ASK_OWNER, actions: [] };
   return { kind: 'needs_more', line: CONNECT_RETURN_NEEDS, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
 };
 

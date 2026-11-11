@@ -7,6 +7,7 @@ import {
   STRIPE_COPY,
   OPEN_STRIPE_LABEL,
   canManage,
+  canSetUpPayouts,
   formatCount,
   formatPence,
   reasonMessage,
@@ -127,7 +128,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const summary = useSummary(org.id, isOwner(org.role));
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
   const manager = canManage(org.role);
-  useConnectReturn(back === 'return' && manager, state === 'connected', () => query.refetch());
+  useConnectReturn(back === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
   if (query.isPending) return <StateCard title="Loading your payment set-up&hellip;" testId="tix-getpaid-stripe-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
@@ -315,13 +316,13 @@ export interface StartView {
 /** The ask-the-owner line: the owner's name when the home payload carries it, else "the page owner". */
 export const askOwner = (org: HomeOrganiser): string => `Ask ${teamOf(org).find((m) => m.role === 'owner')?.displayName ?? 'the page owner'} to connect payments`;
 
-export function startView(i: { manager: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
+export function startView(i: { manager: boolean; owner: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
   const ready = i.state === 'connected';
   if (ready) {
     return { heading: 'You\u2019re ready to sell tickets', asks: false, status: null, note: null, primary: i.manager ? { kind: 'add', label: 'Add a ticket' } : null, secondary: null };
   }
   const base = { heading: 'Get paid for your tickets', asks: true };
-  if (!i.manager) return { ...base, status: null, note: askOwner(i.org), primary: null, secondary: null };
+  if (!i.owner) return { ...base, status: null, note: askOwner(i.org), primary: null, secondary: null };
   if (i.switchedOff) return { ...base, asks: false, status: null, note: NOT_SWITCHED_ON, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'checking') return { ...base, asks: false, status: 'Checking with Stripe\u2026', note: null, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'timeout') {
@@ -351,7 +352,7 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
   const { query, state } = useStripe(org.id);
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id, 'start');
   const manager = canManage(org.role);
-  const { phase, again } = useConnectReturn(arrival === 'return' && manager, state === 'connected', () => query.refetch());
+  const { phase, again } = useConnectReturn(arrival === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
   if (query.isPending) return <StateCard title="Loading&hellip;" testId="getpaid-start-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
@@ -361,7 +362,7 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
       </StateCard>
     );
   }
-  const v = startView({ manager, state, arrival, phase, switchedOff, org });
+  const v = startView({ manager, owner: canSetUpPayouts(org.role), state, arrival, phase, switchedOff, org });
   return (
     <section className="p3-card p3-stack-s" data-testid="getpaid-start-card" data-state={state}>
       <h1 data-testid="getpaid-start-title" style={{ margin: 0, fontSize: 'var(--fs-title)' }}>{v.heading}</h1>
