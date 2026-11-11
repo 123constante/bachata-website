@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test the organiser app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Test layer around mockup C3 (embedded unchanged below, run in an iframe so every task starts from a fresh app).
+   Colours are C3's own tokens. Every size is px. */
+:root {
+  --bg: #f7f3ef; --card: #ffffff; --card2: #f1ebe5; --tab: #ffffff; --line: #e4dbd2; --line-strong: #8a7d71;
+  --fg: #1d0a03; --mut: #5f5248; --btn: #f0703a; --btnfg: #1d0a03; --gold-fg: #a8461a; --ok-fg: #17663f;
+  --font-ui: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #202226; --card: #2a2d32; --card2: #33373d; --tab: #17181b; --line: #3d4148; --line-strong: #7b828d;
+    --fg: #f1f2f4; --mut: #a3a9b3; --gold-fg: #f5865a; --ok-fg: #7be6b4; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #202226; --card: #2a2d32; --card2: #33373d; --tab: #17181b; --line: #3d4148; --line-strong: #7b828d;
+  --fg: #f1f2f4; --mut: #a3a9b3; --gold-fg: #f5865a; --ok-fg: #7be6b4; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow-x: hidden; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 16px; line-height: 1.4; display: flex; flex-direction: column; height: 100dvh; }
+button, input, textarea, a.btn { font: inherit; color: inherit; }
+.btn { min-height: 48px; min-width: 48px; padding: 0 18px; border-radius: 15px; border: 1.5px solid var(--line-strong); background: var(--card); color: var(--fg); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; }
+.btn.pri { background: var(--btn); border-color: var(--btn); color: var(--btnfg); }
+.btn.big { min-height: 56px; font-size: 18px; width: 100%; }
+.btn[disabled] { opacity: 0.55; cursor: default; }
+input[type=text] { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--line-strong); background: var(--card); color: var(--fg); }
+:focus-visible { outline: 3px solid var(--gold-fg); outline-offset: 2px; }
+
+/* the test bar: in the page flow ABOVE the app, so it can never cover an app control */
+#tb { flex: none; background: var(--tab); border-bottom: 1px solid var(--line); padding: 6px 12px 8px; display: none; }
+#tb.on { display: block; }
+#tb .r1 { display: flex; align-items: center; gap: 8px; }
+#tb .lab { flex: 1; min-width: 0; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 2px; }
+#tb .tog { min-height: 44px; min-width: 44px; padding: 0 6px; border: 0; background: none; color: var(--gold-fg); font-weight: 700; font-size: 14px; cursor: pointer; }
+#tb .btn { min-height: 44px; padding: 0 12px; font-size: 15px; }
+#tb .txt { margin: 2px 0 6px; font-size: 15px; overflow-wrap: anywhere; }
+#tb.col .txt, #tb.col .ans { display: none; }
+#tb .ans { margin-bottom: 4px; }
+#tb .ans input { min-height: 44px; }
+#stage { flex: 1; min-height: 0; position: relative; }
+#c3 { border: 0; width: 100%; height: 100%; display: block; background: var(--bg); }
+#stage.off { display: none; }
+
+#ov { position: fixed; inset: 0; z-index: 10; background: var(--bg); overflow-y: auto; padding: 24px 16px 40px; display: none; }
+#ov.on { display: block; }
+#ov .in { max-width: 520px; margin: 0 auto; }
+#ov h1 { font-size: 26px; line-height: 1.2; margin: 8px 0 12px; }
+#ov p { margin: 0 0 14px; color: var(--fg); }
+#ov label.f { display: block; font-weight: 600; margin: 18px 0 6px; }
+#ov .hint { color: var(--mut); font-size: 14px; margin: 6px 0 18px; }
+.rate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+.rate .btn { min-height: 64px; font-size: 18px; }
+.rate .btn[aria-pressed=true] { background: var(--btn); border-color: var(--btn); color: var(--btnfg); }
+.sum { list-style: none; margin: 14px 0; padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.sum li { padding: 10px 12px; border-top: 1px solid var(--line); font-size: 15px; }
+.sum li:first-child { border-top: 0; }
+.sum b { font-weight: 700; }
+.acts { display: grid; gap: 10px; margin: 16px 0; }
+#copybox { width: 100%; min-height: 120px; border-radius: 12px; border: 1.5px solid var(--line-strong); background: var(--card); color: var(--fg); padding: 10px; font: 14px/1.4 var(--font-ui); display: none; }
+.status { color: var(--mut); font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="tb" role="region" aria-label="Test task">
+  <div class="r1">
+    <div class="lab"><span id="tbn">Task 1 of 9</span><button class="tog" id="tbtog" aria-expanded="true" aria-controls="tbtxt">Hide</button></div>
+    <button class="btn" id="tbskip">I&rsquo;m stuck, skip</button>
+    <button class="btn pri" id="tbdone">Done</button>
+  </div>
+  <div class="txt" id="tbtxt"></div>
+  <div class="ans" id="tbans"><input type="text" id="tbin" aria-label="Your answer" placeholder="Type what you found" maxlength="120" autocomplete="off"></div>
+</div>
+<div id="stage" class="off"><iframe id="c3" title="The organiser app being tested"></iframe></div>
+<div id="ov" class="on"><div class="in" id="ovin"></div></div>
+
+<script type="text/plain" id="c3src">/*C3_SOURCE*/</script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
+  var iso = function (d) { return new Date(d).toISOString().slice(0, 10); };
+
+  /* C3 as embedded: the build escapes script/comment openers so the host page can hold it as text */
+  var C3 = $('#c3src').textContent.replace(/<@@(\/?)script/g, '<$1script').replace(/<@@!--/g, '<!--');
+
+  /* ---- the 9 tasks. kind: state = read from the mockup's own data; answer = typed answer checked; self = self-reported ---- */
+  var TASKS = [
+    { short: 'Tonight: teacher + going', kind: 'answer', ans: true,
+      text: 'Tonight’s Sensual Fridays: who is teaching, and how many people are going? Type what you find, then tap Done.',
+      check: function (E, a) { return /marco/i.test(a) && /\b14\b/.test(a); } },
+    { short: 'Friday class 8:30pm', kind: 'state',
+      text: 'From now on, the Friday class (Sensual Fridays) starts at 8:30pm instead of 8pm. Every Friday from the next one.',
+      check: function (E) { var s = E.fri.sess[0]; return s.s === '20:30' || (s.from || []).some(function (g) { return g.p.s === '20:30' && iso(g.d) <= '2026-10-23'; }); } },
+    { short: 'Cancel Sat 31 Oct', kind: 'state',
+      text: 'Sensual Saturdays is not happening on Sat 31 Oct: the venue is closed. Cancel that night and tell dancers why.',
+      check: function (E) { var c = E.sat.dates.filter(function (d) { return d.st === 'cancelled'; }); return c.length === 1 && iso(c[0].d) === '2026-10-31' && !!c[0].reason; } },
+    { short: 'Sofia Ramos, Fri 30 Oct', kind: 'state',
+      text: 'Sofia Ramos will teach the Friday class on Fri 30 Oct only. Add her for that night.',
+      check: function (E) {
+        var f = E.fri, id = f.sess[0].id, has = function (o) { return !!o && (o.ppl || []).some(function (p) { return /Sofia Ramos/.test(p[0]); }); };
+        var d30 = f.dates.filter(function (d) { return iso(d.d) === '2026-10-30'; })[0];
+        var others = f.dates.some(function (d) { return iso(d.d) !== '2026-10-30' && d.so && Object.keys(d.so).some(function (k) { return has(d.so[k]); }); });
+        return !!d30 && !!d30.so && has(d30.so[id]) && !others && !has(f.sess[0]) && !(f.sess[0].from || []).some(function (g) { return has(g.p); });
+      } },
+    { short: 'Saturdays ticket link', kind: 'state',
+      text: 'The ticket link for Sensual Saturdays has changed to https://tickets.example/sat-new. Change it.',
+      check: function (E) { return E.sat.ticket === 'https://tickets.example/sat-new'; } },
+    { short: 'Hide Mambo City', kind: 'state',
+      text: 'Mambo City x LLB is taking a break for a few months. Hide it from the calendar, but do not delete it.',
+      check: function (E) { return !!E.mambo && E.mambo.status === 'paused' && E.mambo.dates.length > 0; } },
+    { short: 'New monthly social', kind: 'state',
+      text: 'Make a new monthly social: first Saturday of every month, 9pm, at Studio 68, with a class before the party.',
+      check: function (E, a, keys0) {
+        return Object.keys(E).some(function (k) {
+          if (keys0.indexOf(k) >= 0) return false; var e = E[k], p = e.sess.filter(function (s) { return s.k === 'social'; })[0], c = e.sess.filter(function (s) { return s.k === 'class'; })[0];
+          return e.kind === 'monthly' && e.wd === 6 && /Studio 68/.test(e.place) && !!p && p.s === '21:00' && !!c && c.e <= p.s && c.s < c.e;
+        });
+      } },
+    { short: 'Views of Fridays, 30 days', kind: 'answer', ans: true,
+      text: 'How many people looked at Sensual Fridays in the last 30 days? Type the number, then tap Done.',
+      check: function (E, a) { return /\b300\b/.test(a); } },
+    { short: 'Where is this weekend?', kind: 'self',
+      text: 'Where would you look to see what’s on this weekend? Tap it, then tap Done.', check: null }
+  ];
+  var N = TASKS.length;
+
+  /* ---- run state ---- */
+  var S = { id: '', name: '', startedAt: '', i: 0, tasks: [], t0: 0, taps: [], keys0: [], pend: null, created: false, saved: null, finishedAt: null };
+  var collapsed = false, theme = '', frame = null, lastLabelAt = 0;
+
+  /* ---- saving: the page database when there is one; never needed ---- */
+  var dbP = null, chain = Promise.resolve();
+  function getDb() {
+    if (!dbP) dbP = Promise.resolve().then(function () { return window.claude && window.claude.use ? window.claude.use('db') : null; }).catch(function () { return null; });
+    return dbP;
+  }
+  function payload() { return { name: S.name, startedAt: S.startedAt, device: window.innerWidth, tasks: S.tasks.slice(), finishedAt: S.finishedAt }; }
+  function save() {
+    chain = chain.then(function () {
+      return getDb().then(function (db) {
+        if (!db) { S.saved = false; return; }
+        var ref = db.doc('runs/' + S.id), p = payload();
+        var op = S.created ? ref.update({ tasks: p.tasks, finishedAt: p.finishedAt }) : ref.set(p);
+        return op.then(function () { S.created = true; S.saved = true; });
+      }).catch(function () { S.saved = false; });
+    });
+    return chain;
+  }
+
+  /* ---- screens ---- */
+  function ov(html) { $('#ovin').innerHTML = html; $('#ov').className = 'on'; $('#ov').scrollTop = 0; $('#tb').classList.remove('on'); $('#stage').classList.add('off'); }
+  function showStart() {
+    ov('<h1>Help us test the new organiser app</h1><p>' + N + ' short tasks, about 10 minutes. There are no wrong answers: if something is hard, that is our fault.</p>' +
+      '<label class="f" for="nm">First name (optional)</label><input type="text" id="nm" maxlength="40" autocomplete="off" placeholder="Just a first name">' +
+      '<p class="hint">Please do not type an email or phone number.</p><button class="btn pri big" id="go">Start</button>');
+    $('#go').onclick = startRun;
+  }
+  function startRun() {
+    S.name = ($('#nm').value || '').trim().slice(0, 40); S.startedAt = new Date().toISOString();
+    S.id = 'r' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); S.i = 0; S.tasks = []; S.created = false; S.finishedAt = null;
+    beginTask();
+  }
+
+  function beginTask() {
+    var T = TASKS[S.i];
+    $('#ov').className = '';
+    $('#tbn').textContent = 'Task ' + (S.i + 1) + ' of ' + N;
+    $('#tbtxt').textContent = T.text; $('#tbin').value = '';
+    $('#tbans').style.display = T.ans ? '' : 'none';
+    applyCol(); $('#tb').classList.add('on'); $('#stage').classList.remove('off');
+    $('#tbdone').disabled = true; $('#tbskip').disabled = true;
+    var f = document.createElement('iframe'); f.id = 'c3'; f.title = 'The organiser app being tested';
+    f.onload = function () { try { ready(f); } catch (e) { /* app unreachable: leave the bar usable */ $('#tbdone').disabled = false; $('#tbskip').disabled = false; S.t0 = Date.now(); } };
+    $('#c3').replaceWith(f); frame = f; f.srcdoc = C3;
+  }
+  function ready(f) {
+    var w = f.contentWindow, d = f.contentDocument;
+    if (theme) d.documentElement.dataset.theme = theme;
+    new MutationObserver(function () { theme = d.documentElement.dataset.theme || ''; if (theme) document.documentElement.dataset.theme = theme; }).observe(d.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    var b = d.querySelector('#bb [data-tab-go="home"]'); if (b) b.click();   /* "Show me my week", as a real invitee does; not counted */
+    S.keys0 = Object.keys(w.__c2.EV); S.taps = []; S.t0 = Date.now();
+    d.addEventListener('click', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('button,a,input,select,textarea,label,summary,[role=button]') : null; if (!el) return;
+      var tag = el.tagName, now = Date.now();
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) && now - lastLabelAt < 40) return;   /* the click a label forwards to its control */
+      if (tag === 'LABEL') lastLabelAt = now;
+      var lab = (el.getAttribute('aria-label') || el.innerText || el.value || el.placeholder || el.id || tag).replace(/\s+/g, ' ').trim().slice(0, 40);
+      S.taps.push(lab || tag);
+    }, true);
+    $('#tbdone').disabled = false; $('#tbskip').disabled = false;
+  }
+  function runCheck(i, ans) {
+    var T = TASKS[i]; if (!T.check) return 'self-reported';
+    try { var E = frame.contentWindow.__c2.EV; return T.check(E, ans || '', S.keys0) ? 'pass' : 'fail'; } catch (e) { return 'unknown'; }
+  }
+  function finishTask(outcome) {
+    var T = TASKS[S.i], ans = $('#tbin').value.trim().slice(0, 120), chk = runCheck(S.i, ans);
+    if (T.ans && ans) chk += ' (answer: ' + ans + ')';
+    S.pend = { n: S.i + 1, secs: Math.round((Date.now() - S.t0) / 1000), taps: S.taps.length, path: S.taps.slice(), outcome: outcome, check: chk, easy: '', note: '' };
+    showRate();
+  }
+  function showRate() {
+    var last = S.i === N - 1;
+    ov('<h1>Was that easy?</h1><p class="status">Task ' + (S.i + 1) + ' of ' + N + ': ' + esc(TASKS[S.i].short) + '</p>' +
+      '<div class="rate" id="rate"><button class="btn" data-r="Easy" aria-pressed="false">Easy</button><button class="btn" data-r="OK" aria-pressed="false">OK</button><button class="btn" data-r="Hard" aria-pressed="false">Hard</button></div>' +
+      '<label class="f" for="why">What got in the way? (optional)</label><input type="text" id="why" maxlength="160" autocomplete="off" placeholder="One line is plenty">' +
+      '<div style="height:18px"></div><button class="btn pri big" id="nx" disabled>' + (last ? 'Finish' : 'Next task') + '</button>');
+    var pick = '';
+    Array.prototype.forEach.call(document.querySelectorAll('#rate .btn'), function (b) {
+      b.onclick = function () { pick = b.dataset.r; Array.prototype.forEach.call(document.querySelectorAll('#rate .btn'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); $('#nx').disabled = false; };
+    });
+    $('#nx').onclick = function () {
+      S.pend.easy = pick; S.pend.note = ($('#why').value || '').trim().slice(0, 160);
+      S.tasks.push(S.pend); S.pend = null;
+      if (S.i === N - 1) { S.finishedAt = new Date().toISOString(); }
+      var p = save();
+      if (S.i < N - 1) { S.i++; beginTask(); } else { showEnd(); p.then(savedNote); }
+    };
+  }
+
+  /* ---- end screen ---- */
+  function rows() {
+    return S.tasks.map(function (t) {
+      return t.n + '. ' + TASKS[t.n - 1].short + ': ' + t.outcome + ', ' + t.secs + 's, ' + t.taps + ' taps, check ' + t.check + ', ' + (t.easy || '-') + (t.note ? ', "' + t.note + '"' : '');
+    });
+  }
+  function summaryText() { return 'Organiser app test' + (S.name ? ' - ' + S.name : '') + ' (screen ' + window.innerWidth + 'px)\n' + rows().join('\n'); }
+  function showEnd() {
+    var done = S.tasks.filter(function (t) { return t.outcome === 'done'; }).length;
+    var st = 'Saving\u2026';
+    ov('<h1>Thank you!</h1><p>You finished ' + done + ' of ' + N + ' tasks. Every note helps us make this easier.</p><ul class="sum" id="sum">' +
+      S.tasks.map(function (t) { return '<li><b>' + t.n + '.</b> ' + esc(TASKS[t.n - 1].short) + ': ' + esc(t.outcome) + ', ' + t.secs + 's, ' + esc(t.easy || '-') + '</li>'; }).join('') +
+      '</ul><p class="status" id="savest">' + st + '</p><div class="acts"><a class="btn pri big" id="wa" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(summaryText()) + '">Send by WhatsApp</a>' +
+      '<button class="btn big" id="cp">Copy results</button></div><textarea id="copybox" readonly aria-label="Results text"></textarea>');
+    $('#cp').onclick = function () {
+      var t = summaryText(), box = $('#copybox'), ok = function () { $('#cp').textContent = 'Copied'; };
+      function fallback() { box.value = t; box.style.display = 'block'; box.focus(); box.select(); try { if (document.execCommand('copy')) ok(); else $('#cp').textContent = 'Select the text and copy it'; } catch (e) { $('#cp').textContent = 'Select the text and copy it'; } }
+      try { navigator.clipboard.writeText(t).then(ok, fallback); } catch (e) { fallback(); }
+    };
+  }
+  function savedNote() { var s = $('#savest'); if (s) s.textContent = S.saved === true ? 'Your results were saved automatically. You can still send them below.' : 'Please send your results so we can use them: tap the green button below.'; }
+
+  /* ---- bar wiring ---- */
+  function applyCol() { $('#tb').classList.toggle('col', collapsed); $('#tbtog').textContent = collapsed ? 'Show task' : 'Hide'; $('#tbtog').setAttribute('aria-expanded', String(!collapsed)); }
+  $('#tbtog').onclick = function () { collapsed = !collapsed; applyCol(); };
+  $('#tbdone').onclick = function () { finishTask('done'); };
+  $('#tbskip').onclick = function () { finishTask('skipped'); };
+
+  window.__c3t = { S: S, TASKS: TASKS, runCheck: runCheck, C3: C3 };   /* for the scripted self-check */
+  showStart();
+})();
+</script>
+</body>
+</html>
