@@ -1,16 +1,16 @@
-# Handover: website money_visible / not_allowed (dt_58d19716243c)
+# Handover: website money_visible / not_allowed (dt_4d3d118cffa1, round 2 on PR #1541)
 
-## Done
-- `parseSummary` reads `money_visible`; false forces counts-only whatever `money` says; `SummaryResult.moneyVisible` (null = old server or refusal).
-- `useSeriesOrders` money flag is now required (no fail-open default).
-- GetPaid money block, Home tickets tile and Sales report hide pence when `moneyVisible === false`.
-- Refund 403 `not_allowed`: new `moneyVisible.matrix.test.ts` (classifyEdge, refundOrder, NOT_OWNER_REFUND copy; 404 not_found); `not_allowed` added to the DEFINITE list in refund.partial.test.tsx (code already classified it).
-- Manager order read: test that `fetchOrders({money:false})` selects ORDER_SELECT_COUNTS only (no pence).
+## Done (review BLOCK at b8f369f fixed)
+1. `ORDER_SELECT_COUNTS` no longer selects `buyer_name`; a counts-only reader's order title is `Order CODE` (`orderTitleFor`), line is quantity/day, tag is status. Test: counts select has no pence and no buyer_name (exact column list).
+2. `moneyVisible.screens.test.tsx`: owner + money_visible false vs true control for GetPaid MoneySoFar, TicketsSoldTile, SalesReport + orders view. Mutation-proved: removing each of the three gates turns exactly the matching test red.
+3. Orders `money` flag and `orderLineFor` role gate on `showMoney = canRefund(role) && summary.moneyVisible !== false` (fail closed).
+4. `moneyVisible.matrix.test.ts` oracle is the explicit last column, not derived from the row name.
+- Harness `countsOnlyOrder` mirrors the real select (no buyer_name); roles/managerReal tests updated to `Order CODE` for non-owners.
 
-## Left / next
-- Open the PR (body labels per task prompt), per-job CI table, `npm run pre-ship`, `/code-review` by a different model.
-- Browser walk 390x844 owner vs manager; read-only prod shape survey.
+## Verified
+- vitest src/modules/organiser: all pass after fixes (3 earlier failures were the buyer-name tests, fixed). check:mojibake clean.
+- tsc -p tsconfig.app.json: 0 errors in files touched this round (4 pre-existing errors in untouched/pre-existing lines of p3/tickets).
 
-## Verified / Not verified
-- Verified: vitest on src/modules/organiser/{tickets,p3/tickets}: 2356 pass; check:mojibake clean; tsc (tsconfig.app.json) shows no errors on lines I changed (148 total, pre-existing; baseline in pre-ship.mjs).
-- Not verified: pre-ship, CI, phone walk, prod shape survey, code review.
+## Not verified
+- `npm run pre-ship` exits 1 in the sandbox: live-DB contract tests (eventViewCompat, occurrenceProgram, publicEventPageLineup: no network) and tests/integrityCouldNotRun.test.ts (environment). None touch this diff.
+- Browser walk 390x844, read-only prod shape survey (no Supabase read run by this worker), CI per job.

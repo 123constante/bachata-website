@@ -612,6 +612,13 @@ export const buyerFirstAndCode = (o: Pick<Order, 'buyerName' | 'id'>): string =>
   return code ? `${first} \u00B7 ${code}` : first;
 };
 
+/**
+ * The orders-list title. The owner sees first name plus code; a counts-only reader never fetched a name, so
+ * they get "Order CODE" (no empty-looking gap, nothing pointing at a name that is not there).
+ */
+export const orderTitleFor = (showMoney: boolean, o: Pick<Order, 'buyerName' | 'id'>): string =>
+  showMoney ? buyerFirstAndCode(o) : `Order ${shortRef(o.id) || ''}`.trim();
+
 export const refundQuestion = (o: Order): { title: string; body: string; confirm: string } => {
   const amount = formatPence(refundAmount(o));
   const one = o.quantity === 1;

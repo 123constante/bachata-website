@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
-import { COUNTS_ONLY_NOTE, NOT_MANAGER_REFUND, NOT_OWNER_REFUND, buyerFirstAndCode } from '../../../tickets/ticketModel';
+import { COUNTS_ONLY_NOTE, NOT_MANAGER_REFUND, NOT_OWNER_REFUND, buyerFirstAndCode, shortRef } from '../../../tickets/ticketModel';
 import { SHAPES, order, type Shape } from './fixtures';
 import { dataMock, load, q, show } from './harness';
 
@@ -58,8 +58,10 @@ describe.each([
     if (owner) expect(screen.queryByTestId('tix-counts-only')).toBeNull();
     else expect(screen.getByTestId('tix-counts-only').textContent).toBe(COUNTS_ONLY_NOTE);
   });
-  it('buyer is first name plus short code, from the one mapping (r06)', () => {
-    expect(within(row('opaid')).getByTestId('tix-order-buyer').textContent).toBe(buyerFirstAndCode(ORDERS[0]));
+  it('buyer is first name plus short code for the owner; "Order CODE" for counts-only readers (r06)', () => {
+    const label = within(row('opaid')).getByTestId('tix-order-buyer').textContent;
+    if (owner) expect(label).toBe(buyerFirstAndCode(ORDERS[0]));
+    else expect(label).toBe(`Order ${shortRef(ORDERS[0].id)}`);
     expect(row('opaid').textContent).not.toMatch(/Maria/);
   });
   it(`Refund ${owner ? 'shows on refundable rows only' : 'never shows'} (r07)`, () => {

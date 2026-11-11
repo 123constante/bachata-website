@@ -160,7 +160,7 @@ export const parseOrderRow = (r: Record<string, unknown>): Order => ({
 
 /** The orders select. Without money (anyone but the owner, slice 2 PQ1) no pence column is asked for. */
 export const ORDER_SELECT_MONEY = 'id, ticket_type_id, buyer_name, quantity, subtotal_pence, booking_fee_pence, total_pence, refunded_pence, status, paid_at';
-export const ORDER_SELECT_COUNTS = 'id, ticket_type_id, buyer_name, quantity, status, paid_at';
+export const ORDER_SELECT_COUNTS = 'id, ticket_type_id, quantity, status, paid_at';
 
 /**
  * Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids.

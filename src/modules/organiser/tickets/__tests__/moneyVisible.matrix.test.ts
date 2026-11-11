@@ -17,7 +17,7 @@ const ROW = { id: 't1', event_series_id: 's1', name: 'Early', status: 'on_sale',
 const ZERO = { ...ROW, id: 't2', tickets_sold: 0, orders_paid: 0, orders_refunded: 0, gross_pence: 0, refunded_pence: 0 };
 const pence = (v: unknown): number[] => JSON.stringify(v).match(/"\w*[Pp]ence\w*":-?\d+/g)?.map((m) => Number(m.split(':')[1])) ?? [];
 
-// shape x caller option -> moneyVisible, whether any pence survives
+// shape x caller option -> expected moneyVisible, expected: some pence field is non-zero after parse
 const SHAPES: Array<[string, Record<string, unknown>, { money?: boolean }, boolean | null, boolean]> = [
   ['owner, money_visible true', { ok: true, money_visible: true, ticket_types: [ROW] }, { money: true }, true, true],
   ['admin, money_visible true', { ok: true, money_visible: true, ticket_types: [ROW] }, {}, true, true],
@@ -33,11 +33,10 @@ const SHAPES: Array<[string, Record<string, unknown>, { money?: boolean }, boole
 ];
 
 describe('parseSummary x money_visible', () => {
-  it.each(SHAPES)('%s', (_n, body, opts, visible, keepsPence) => {
+  it.each(SHAPES)('%s', (_n, body, opts, visible, expectNonZeroPence) => {
     const s = parseSummary(body, opts);
     expect(s.moneyVisible).toBe(visible);
-    const nonZero = pence(s).some((n) => n > 0);
-    expect(nonZero).toBe(keepsPence && body.ticket_types !== undefined && (body.ticket_types as unknown[]).length > 0 && !(_n.includes('zero')));
+    expect(pence(s).some((n) => n > 0)).toBe(expectNonZeroPence);
     if (visible === false) expect(pence(s).every((n) => n === 0)).toBe(true);
   });
   it('counts survive when money is hidden', () => {
@@ -53,7 +52,11 @@ describe('manager order reads never ask for pence (brief 4)', () => {
   it('money:false selects the counts columns only', async () => {
     await fetchOrders(['t1'], { money: false });
     expect(selects).toEqual([ORDER_SELECT_COUNTS]);
-    expect(selects[0]).not.toMatch(/pence/);
+  });
+  it('the counts select has neither a pence column nor buyer_name (managers read no name, no money)', () => {
+    expect(ORDER_SELECT_COUNTS).not.toMatch(/pence/);
+    expect(ORDER_SELECT_COUNTS).not.toMatch(/buyer_name/);
+    expect(ORDER_SELECT_COUNTS.split(', ')).toEqual(['id', 'ticket_type_id', 'quantity', 'status', 'paid_at']);
   });
 });
 

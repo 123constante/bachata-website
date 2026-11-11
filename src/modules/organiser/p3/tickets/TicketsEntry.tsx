@@ -10,7 +10,7 @@ import {
   COUNTS_ONLY_NOTE,
   externalTicketLine,
   goingCountLine,
-  buyerFirstAndCode,
+  orderTitleFor,
   canRefund,
   orderLineFor,
   PAYMENTS_WHERE,
@@ -156,12 +156,14 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const types = useSeriesTypes(org.id, series.id);
   const list = types.data ?? [];
   // Slice 2 (PQ1): only the owner's orders read asks for pence columns.
-  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess, canRefund(org.role));
   // Slice 2 (T4 / Q16, X5): Going taps of a free event, and the event's own ticket link. Counts and words only.
   const goingNights = useSeriesGoing(series.id, open);
   const ticketLink = useSeriesTicketLink(series.id);
   // Review 1520-r1 F3: a non-owner's summary parse keeps no pence (only ticketsSold is read for them).
   const summary = useSummary(org.id, canRefund(org.role));
+  // Fail closed: money reads need the owner role AND no server money_visible=false.
+  const showMoney = canRefund(org.role) && summary.data?.moneyVisible !== false;
+  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess, showMoney);
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
   const onboardRaw = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
@@ -291,9 +293,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         return (
           <li key={o.id} className="p3-row p3-order" data-testid={`tix-order-${o.id}`}>
             <div className="p3-grow">
-              <div className="p3-row-t" data-testid="tix-order-buyer">{buyerFirstAndCode(o)}</div>
+              <div className="p3-row-t" data-testid="tix-order-buyer">{orderTitleFor(showMoney, o)}</div>
               <div className="p3-row-s" data-testid="tix-order-line">
-                {orderLineFor(org.role, o, today)}
+                {orderLineFor(showMoney ? org.role : null, o, today)}
                 {many ? ` \u00B7 ${typeName.get(o.typeId) ?? ''}` : ''}
               </div>
               <div className="p3-row-tags">
@@ -471,7 +473,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
             {orders.isSuccess && (
               <Suspense fallback={null}>
-                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={owner && summary.data?.moneyVisible !== false} />
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={showMoney} />
               </Suspense>
             )}
             </>

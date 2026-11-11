@@ -9,10 +9,10 @@ import { parseOrderRow } from '../../../tickets/ticketsApi';
 
 /**
  * Fix round 1 (review 1520-r1 F1): the read a non-owner really makes. ORDER_SELECT_COUNTS carries no
- * pence column, so the row the screen gets is parseOrderRow of a count-shaped row: every pence field 0.
+ * pence column and no buyer_name, so the row the screen gets is parseOrderRow of a count-shaped row: every pence field 0.
  */
 export const countsOnlyOrder = (o: Order): Order =>
-  parseOrderRow({ id: o.id, ticket_type_id: o.typeId, buyer_name: o.buyerName, quantity: o.quantity, status: o.status, paid_at: o.paidAt });
+  parseOrderRow({ id: o.id, ticket_type_id: o.typeId, quantity: o.quantity, status: o.status, paid_at: o.paidAt });
 /** The summary a non-owner's parse keeps (F3): every `*Pence` field 0, counts untouched. */
 export const countsOnlySales = (t: TypeSales): TypeSales =>
   Object.fromEntries(Object.entries(t).map(([k, v]) => [k, /Pence$/.test(k) ? 0 : v])) as unknown as TypeSales;
