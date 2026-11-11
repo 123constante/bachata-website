@@ -197,14 +197,20 @@ describe('committedNames: a clear failure on an empty or malformed list', () => 
 });
 
 describe('the committed list', () => {
-  const names = committedNames(ALLOWLIST_PATH);
-  const first = names[0];
+  // The committed list may legitimately be empty (F1: the guard host is no longer
+  // listed), so this block reads it without the non-empty requirement.
+  const loaded = loadAllowlist(ALLOWLIST_PATH) as { ok: boolean; names?: string[]; reason?: string };
+  if (!loaded.ok || !Array.isArray(loaded.names)) {
+    throw new Error(`committed allow-list ${ALLOWLIST_PATH} is malformed: ${loaded.reason ?? JSON.stringify(loaded)}`);
+  }
+  const names: string[] = loaded.names;
+  const first = names[0] ?? 'a-listed-name.yml';
   // A workflow name guaranteed not on the list.
   const unlisted = ['e2e-smoke.yml', 'unit-tests.yml', 'architecture-guard.yml', 'not-a-real-workflow.yml']
     .find((n) => !names.includes(n)) as string;
   const unlistedPath = `.github/workflows/${unlisted}`;
 
-  it('is a non-empty list of bare names', () => {
+  it('is a list of bare names (empty is allowed)', () => {
     for (const n of names) expect(n).toMatch(/^[^/\\]+\.ya?ml$/);
   });
 
