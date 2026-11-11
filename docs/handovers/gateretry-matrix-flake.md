@@ -32,3 +32,8 @@ can act in between. Gate behaviour was not changed.
 ## Left / next steps
 - Other files may use the same "read an effect's write right after findBy" pattern; not swept here.
 - Money, prices, refunds: untouched.
+
+## Status
+- PR: #1543 (label automerge-ok; not merged by the worker).
+- tsc run on bbd1331: 0 errors in branch files (0 errors repo-wide).
+- Not verified: `npm run pre-ship` (full suite, more than 10 min in the sandbox); local git hooks did not run (not executable in this clone); CI per job is in the PR checks.
