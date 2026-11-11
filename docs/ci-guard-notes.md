@@ -511,10 +511,10 @@ Before it, the rule was implied by hand review.
   `npm run check:automation-workflow-allowlist`). Canary:
   `npm run check:automation-workflow-allowlist:self-test`; tests:
   `tests/automationWorkflowAllowlist.test.ts`.
-- **Not wired into CI yet** (2026-11-04). Wiring it into the `integrity` job is
-  a step block, not one line, and with an empty list it would turn red every
-  `claude/` PR that edits a workflow -- including the PR that wires it. That
-  is an owner decision; see `docs/handovers/workflow-allowlist-1.md`.
+- **Wired into CI.** The `workflow-lint.yml` job runs the self-test and
+  `--merge` on every non-docs-only PR. With the list empty, every `claude/` or
+  `ccr-` PR that edits a workflow goes red by design; the owner pushes such
+  edits from a non-loop branch. History: `docs/handovers/workflow-allowlist-1.md`.
 
 ---
 
