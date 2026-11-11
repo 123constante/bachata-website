@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Link, Outlet, RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -20,6 +20,20 @@ import { thingsLeft } from '../../onboarding/graceModel';
  * Red first: the P1/P3a/P4/P8 "open" rows fail on main 8c60541 (the up-front "answers left" lock).
  */
 
+/*
+ * fix/gateretry-matrix-flake: this file runs as on a LOADED runner, every time. React (scheduler, Node build) runs
+ * passive effects on a setImmediate tick after the commit that changed the DOM; RTL's findBy* settles with a
+ * setTimeout(0). On a busy CI box the timer can win, so a row that read an effect's write (dropKept in
+ * EditTray useKeptEdit) right after findBy* passed on an idle laptop and failed in `unit (Europe/London, full)`.
+ * Pushing the tick 8ms late makes that order the ONLY order here, so such a read fails on every run, not one in N.
+ * `slowTicks` proves the patch is the one React uses (a React that stops using setImmediate makes this inert).
+ */
+const slowTicks = vi.hoisted(() => {
+  const n = { calls: 0 };
+  const g = globalThis as unknown as { setImmediate: (fn: (...a: unknown[]) => void, ...a: unknown[]) => unknown };
+  g.setImmediate = (fn, ...a) => { n.calls += 1; return setTimeout(fn, 8, ...a); };
+  return n;
+});
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc, auth: {}, from: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }));
@@ -105,7 +119,16 @@ beforeEach(() => {
   // stands in for the P3 frame's GateHost: the store opens the sheet only while a host listens
   unsub = subscribeGate(() => {});
 });
-afterEach(() => { cleanup(); closeGate(); unsub(); who.admin = false; who.progressFailed = false; who.progress = { publishReady: true, requiredLeft: 0 }; });
+afterEach(async () => {
+  cleanup(); closeGate(); unsub(); who.admin = false; who.progressFailed = false; who.progress = { publishReady: true, requiredLeft: 0 };
+  // Leaked state between rows: once a row is torn down, nothing it started may still write. Clear what rows may
+  // legitimately leave (a kept draft), let late ticks run, then the next row must find storage and the gate empty.
+  window.sessionStorage.clear();
+  await new Promise((r) => setTimeout(r, 30));
+  expect(Object.keys(window.sessionStorage), 'a finished row wrote to sessionStorage after its teardown').toEqual([]);
+  expect(getGate(), 'a finished row opened the gate after its teardown').toBeNull();
+});
+afterAll(() => { expect(slowTicks.calls, 'the slowed scheduler tick was never used: the loaded-runner mode is inert').toBeGreaterThan(0); });
 
 function as(p: Person) {
   who.admin = p.admin;
@@ -185,7 +208,9 @@ describe('F-13 matrix: person x gate x screen', () => {
     expect(screen.getByTestId(sc.kept).textContent).toBe(KEPT_COPY.line);
     expect(sc.typed()).toBe(true);
     expect(sends).toHaveLength(0); // nothing replayed
-    expect(keptDraft('ser-1')).toBeNull(); // shown once
+    // shown once: the screen lets the kept copy go in a passive effect (EditTray useKeptEdit), which React runs on a
+    // tick AFTER the commit that put the kept line on screen -- wait for it, never read it in the same tick
+    await waitFor(() => expect(keptDraft('ser-1')).toBeNull());
     await press(saveBtn());
     await waitFor(() => expect(router.state.location.pathname).toBe('/account/p3/events/ser-1'));
     expect(sends.length).toBeGreaterThan(0);
