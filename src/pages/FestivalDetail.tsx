@@ -90,8 +90,7 @@ import type {
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
 import { flags } from "@/lib/featureFlags";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
-import { ticketOfferUrl } from "@/modules/event-page/bento/utils/ticketOfferUrl";
-import { festivalInSiteTicketing, festivalNightId, festivalTicketCta } from "@/modules/event-page/utils/festivalTicketing";
+import { festivalInSiteTicketing, festivalJsonLdOffers, festivalNightId, festivalTicketCta } from "@/modules/event-page/utils/festivalTicketing";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 import { formatPassAmount } from "@/modules/event-page/formatPassAmount";
@@ -2568,14 +2567,22 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
     lifecycleStatus: festivalLifecycleStatus,
   });
   const [ticketsOpen, setTicketsOpen] = useState(false);
-  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean }>({ night: null, live: false });
-  const onTicketingLive = useCallback((live: boolean, night: string | null) => {
-    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night ? prev : { night, live }));
+  // The live answer carries the buyable types (name + price) for the JSON-LD offers.
+  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean; offers: Array<{ name: string; price: string }> }>({ night: null, live: false, offers: [] });
+  const onTicketingLive = useCallback((live: boolean, night: string | null, offers: Array<{ name: string; price: string }>) => {
+    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night && prev.offers === offers ? prev : { night, live, offers }));
+  }, []);
+  // Fix round 3: until the bar's probe has answered for the night, the hero, pass cards and end
+  // CTA show no organiser link (as the bar does); starts pending whenever in-site is possible.
+  const [probePendingFor, setProbePendingFor] = useState<{ night: string | null; pending: boolean } | null>(null);
+  const onTicketingPending = useCallback((pending: boolean, night: string | null) => {
+    setProbePendingFor((prev) => (prev && prev.pending === pending && prev.night === night ? prev : { night, pending }));
   }, []);
   const openTickets = useCallback(() => setTicketsOpen(true), []);
   const closeTickets = useCallback(() => setTicketsOpen(false), []);
   const ticketingLive = inSiteTicketing && ticketingLiveFor.live && ticketingLiveFor.night === festivalNight;
-  const ticketCta = festivalTicketCta(isEnded, ticketingLive, ticketUrl);
+  const probePending = inSiteTicketing && !(probePendingFor && probePendingFor.night === festivalNight && !probePendingFor.pending);
+  const ticketCta = festivalTicketCta(isEnded, ticketingLive, ticketUrl, probePending);
 
   const directionsUrl = useMemo(() => {
     const v = festivalDetail?.location.primaryVenue;
@@ -2891,14 +2898,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
             type: "Person" as const,
           })),
         ],
-        offers: passes.map((p) => ({
-          // Ours while our Buy is live for the festival's night; the organiser's link otherwise
-          // (the event page's one rule, ticketOfferUrl -- not a second copy).
-          url: ticketOfferUrl(ticketingLive, festivalPageUrl, ticketUrl),
-          name: p.name,
-          price: p.price,
-          currency: p.currency ?? "GBP",
-        })),
+        // Live: our page's live ticket types at their own prices (what our checkout sells),
+        // also when the festival has no passes. Not live: her passes with her link.
+        offers: festivalJsonLdOffers(ticketingLive, festivalPageUrl, ticketUrl, passes, ticketingLiveFor.offers),
       });
 
   return (
@@ -3037,6 +3039,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
               Buy tickets
 
             </button>
+
+          ) : ticketCta === "pending" ? (
+
+            // Probe in flight: same-size, invisible, not a link (no flash of her link).
+            <span className="btn btn-primary" aria-hidden="true" data-testid="festival-tickets-pending" style={{ visibility: "hidden" }}>
+
+              Get Tickets
+
+            </span>
 
           ) : ticketUrl ? (
 
@@ -3819,6 +3830,14 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                     </button>
                   );
                 }
+                // Probe in flight: the card shows its price but links nowhere yet.
+                if (ticketCta === "pending") {
+                  return (
+                    <div key={pass.id} className="tix" data-testid="festival-pass-pending">
+                      {body}
+                    </div>
+                  );
+                }
                 return (
                   <a
                     key={pass.id}
@@ -3838,6 +3857,12 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
               <button type="button" onClick={openTickets} className="btn btn-primary" data-testid="festival-buy-end">
                 Buy tickets
               </button>
+            </div>
+          ) : ticketCta === "pending" ? (
+            <div className="end-cta">
+              <span className="btn btn-primary" aria-hidden="true" style={{ visibility: "hidden" }}>
+                Get Tickets
+              </span>
             </div>
           ) : ticketUrl && (
             <div className="end-cta">
@@ -4092,6 +4117,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         inSiteTicketing={inSiteTicketing}
         onOpenTickets={openTickets}
         onTicketingLive={onTicketingLive}
+        onTicketingPending={onTicketingPending}
         shareTitle={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
         shareSubtitle={shareSubtitle}
         canAddToCalendar={!isEnded && !!calUrls}

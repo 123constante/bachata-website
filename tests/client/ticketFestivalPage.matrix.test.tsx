@@ -127,13 +127,17 @@ function barPrimary(): Primary {
 const herLinks = () => document.querySelectorAll(`a[href="${LINK}"]`).length;
 const heroText = () => document.querySelector('.hero-cta')?.textContent?.trim() ?? null;
 const quietReason = () => document.querySelector('[data-sticky-action-bar] [data-testid="buy-quiet"]')?.textContent?.trim() ?? null;
-function offerUrls(): (string | null)[] | null {
+type LdOffer = { url?: string; name?: string; price?: string; priceCurrency?: string };
+function ldOffers(): LdOffer[] | null {
   const node = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
-    .map((s) => JSON.parse(s.textContent ?? '{}') as { '@type'?: string; offers?: Array<{ url?: string }> | { url?: string } })
+    .map((s) => JSON.parse(s.textContent ?? '{}') as { '@type'?: string; offers?: LdOffer[] | LdOffer })
     .find((n) => n['@type'] !== 'BreadcrumbList');
   if (!node) return null;
-  const offers = node.offers == null ? [] : Array.isArray(node.offers) ? node.offers : [node.offers];
-  return offers.map((o) => o.url ?? null);
+  return node.offers == null ? [] : Array.isArray(node.offers) ? node.offers : [node.offers];
+}
+function offerUrls(): (string | null)[] | null {
+  const offers = ldOffers();
+  return offers ? offers.map((o) => o.url ?? null) : null;
 }
 
 beforeEach(() => {
@@ -202,12 +206,64 @@ describe('festival page x ticket shape (TICKET_FESTIVAL_IN_SITE)', () => {
   });
 
   it('live: a pass card opens the in-site tickets page (one checkout, no second system)', async () => {
-    h.state.types = ok([row({})]);
-    await mount(LINK, 'live', [PASS]);
+    // Fix round 1: the pass and the ticket type have DIFFERENT names, and the assertion reads the
+    // tickets page's own root, so a broken openTickets or lazy import cannot pass this.
+    h.state.types = ok([row({ name: 'In-site weekender' })]);
+    await mount(LINK, 'live', [{ ...PASS, name: 'Organiser weekend pass' }]);
     await waitFor(() => expect(barPrimary()).toBe('ours'), { timeout: 3000 });
+    expect(document.querySelector('[data-testid="event-tickets-page"]')).toBeNull();
     fireEvent.click(document.querySelector('[data-testid="festival-pass-ours"]') as HTMLElement);
-    await waitFor(() => expect(document.body.textContent).toMatch(/Full pass/), { timeout: 3000 });
+    await waitFor(() => expect(document.querySelector('[data-testid="event-tickets-page"]')).not.toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(document.querySelector('[data-testid="event-tickets-page"]')?.textContent).toMatch(/In-site weekender/), { timeout: 3000 });
     // Same ticket query key as the probe: one fetch for the night, not two.
     expect(h.state.asked.filter((n) => n === NIGHT).length).toBe(1);
+  });
+
+  it('live: JSON-LD offers are the live ticket types at THEIR price, not the passes (passes 90, type 85 -> 85)', async () => {
+    h.state.types = ok([row({ name: 'In-site weekender', price_pence: 8500 }), row({ id: 't2', name: 'Later', sales_open_at: FUTURE })]);
+    await mount(LINK, 'live', [PASS]);
+    await waitFor(() => expect(barPrimary()).toBe('ours'), { timeout: 3000 });
+    await waitFor(() => expect(ldOffers()).toEqual([{ '@type': 'Offer', url: OURS, name: 'In-site weekender', price: '85.00', priceCurrency: 'GBP' }]));
+  });
+
+  it('live, festival has NO passes: JSON-LD still carries offers from the live types', async () => {
+    h.state.types = ok([row({ name: 'In-site weekender', price_pence: 8500 })]);
+    await mount(LINK, 'live', []);
+    await waitFor(() => expect(barPrimary()).toBe('ours'), { timeout: 3000 });
+    await waitFor(() => expect(ldOffers()).toEqual([{ '@type': 'Offer', url: OURS, name: 'In-site weekender', price: '85.00', priceCurrency: 'GBP' }]));
+  });
+
+  it('probe pending: hero, pass cards and end CTA show no organiser link; it returns after a quiet answer', async () => {
+    let answer: (rows: unknown[]) => void = () => {};
+    h.state.types = () => new Promise((r) => { answer = r; });
+    await mount(LINK, 'live', [PASS]);
+    await waitFor(() => expect(barPrimary()).toBe('placeholder'), { timeout: 3000 });
+    expect(herLinks()).toBe(0);
+    expect(document.querySelector('[data-testid="festival-tickets-pending"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="festival-pass-pending"]')).not.toBeNull();
+    expect(offerUrls()).toEqual([LINK]); // JSON-LD keeps her link until our Buy is live (unchanged rule)
+    await act(async () => { answer([row({ status: 'sold_out', remaining: 0, sold_out: true })]); });
+    await waitFor(() => expect(barPrimary()).toBe('quiet'), { timeout: 3000 });
+    expect(heroText()).toBe('Get Tickets');
+    // hero + pass card + end CTA (the bar's "Tickets elsewhere" may add one more)
+    expect(herLinks()).toBeGreaterThanOrEqual(3);
+    expect(document.querySelector('[data-testid="festival-pass-pending"]')).toBeNull();
+  });
+
+  it('flag off: no probe, no pending window, her link everywhere at once (unchanged page)', async () => {
+    const { flags } = await import('@/lib/featureFlags');
+    (flags as { publicTicketing: boolean }).publicTicketing = false;
+    try {
+      h.state.types = ok([row({})]);
+      await mount(LINK, 'live', [PASS]);
+      await waitFor(() => expect(barPrimary()).toBe('hers'), { timeout: 3000 });
+      expect(heroText()).toBe('Get Tickets');
+      expect(document.querySelector('[data-testid="festival-tickets-pending"]')).toBeNull();
+      expect(herLinks()).toBeGreaterThanOrEqual(3);
+      expect(offerUrls()).toEqual([LINK]);
+      expect(h.state.asked).toEqual([]);
+    } finally {
+      (flags as { publicTicketing: boolean }).publicTicketing = true;
+    }
   });
 });
