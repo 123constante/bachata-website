@@ -269,7 +269,7 @@ describe('FIX-3: the sticky bar reads the night on screen', () => {
     api.fetchPublicTicketTypes.mockResolvedValue(NIGHT);
     const onResult = vi.fn();
     renderWith(<InSiteTicketProbe seriesId="e1" occurrenceId="n1" onResult={onResult} />);
-    await waitFor(() => expect(onResult).toHaveBeenCalledWith('e1', 'n1', 'buy', ''));
+    await waitFor(() => expect(onResult).toHaveBeenCalledWith('e1', 'n1', 'buy', '', expect.any(Array)));
     expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', 'n1');
     expect(api.fetchPublicTicketTypes).not.toHaveBeenCalledWith('e1', null);
   });

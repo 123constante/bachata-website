@@ -6,6 +6,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { shareEvent } from '@/modules/event-page/bento/utils/eventActions';
 
 // Lazy so the tickets module stays out of the event page's first load.
+import type { LiveOffer } from '@/modules/tickets/ticketCheckoutApi';
 const InSiteTicketProbe = lazyWithRetry(() => import('./InSiteTicketProbe'));
 
 type EventStickyActionBarProps = {
@@ -20,7 +21,7 @@ type EventStickyActionBarProps = {
    *  reads the series' ticket types itself; false never fetches. */
   inSiteTicketing?: boolean;
   /** Tells the page whether our Buy is live for this night (JSON-LD offer URL follows it). */
-  onTicketingLive?: (live: boolean, occurrenceId: string | null) => void;
+  onTicketingLive?: (live: boolean, occurrenceId: string | null, offers: LiveOffer[]) => void;
   /** Opens the Tickets page (replaces scrolling to the inline block). */
   onOpenTickets?: () => void;
   /** Title used for the native share sheet / fallback text. */
@@ -88,9 +89,10 @@ const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center 
  * transform ancestors (same reason as the old StickyTicketButton).
  */
 const PROBE_TIMEOUT_MS = 4000;
+const NO_OFFERS: LiveOffer[] = [];
 
 type SiteBarStateLite = 'buy' | 'quiet' | 'none';
-type ProbeAnswer = { key: string; state: SiteBarStateLite; label: string; timedOut: boolean };
+type ProbeAnswer = { key: string; state: SiteBarStateLite; label: string; timedOut: boolean; offers: LiveOffer[] };
 /** The night a probe answer is about (series + night). */
 function probeNightKey(seriesId: string | null, occurrenceId: string | null): string {
   return `${seriesId ?? ''}|${occurrenceId ?? ''}`;
@@ -124,17 +126,17 @@ export const EventStickyActionBar = ({
   const nightKey = probeNightKey(eventId, occurrenceId);
   // One answer per night, so an answer about another night can never overwrite this one's.
   const [answers, setAnswers] = useState<Record<string, ProbeAnswer>>({});
-  const onProbe = useCallback((seriesId: string, night: string | null, st: SiteBarStateLite, label: string) => {
+  const onProbe = useCallback((seriesId: string, night: string | null, st: SiteBarStateLite, label: string, offers: LiveOffer[]) => {
     const key = probeNightKey(seriesId, night);
     // After the timeout her link stays for this night: a late answer never swaps it (fix2 1b).
-    setAnswers((prev) => (prev[key]?.timedOut ? prev : { ...prev, [key]: { key, state: st, label, timedOut: false } }));
+    setAnswers((prev) => (prev[key]?.timedOut ? prev : { ...prev, [key]: { key, state: st, label, timedOut: false, offers } }));
   }, []);
   const current = answers[nightKey] ?? null;
   // If the probe never answers (chunk or network failure) her link must not stay hidden forever.
   useEffect(() => {
     if (!inSiteTicketing || !eventId || current) return;
     const t = setTimeout(() => {
-      setAnswers((prev) => (prev[nightKey] ? prev : { ...prev, [nightKey]: { key: nightKey, state: 'none', label: '', timedOut: true } }));
+      setAnswers((prev) => (prev[nightKey] ? prev : { ...prev, [nightKey]: { key: nightKey, state: 'none', label: '', timedOut: true, offers: [] } }));
     }, PROBE_TIMEOUT_MS);
     return () => clearTimeout(t);
   }, [inSiteTicketing, eventId, nightKey, current]);
@@ -142,8 +144,8 @@ export const EventStickyActionBar = ({
   const quietLabel = current?.label || 'Sold out';
   const live = inSiteTicketing && !!eventId && barState === 'buy';
   useEffect(() => {
-    onTicketingLive?.(live, occurrenceId);
-  }, [onTicketingLive, live, occurrenceId]);
+    onTicketingLive?.(live, occurrenceId, live ? (current?.offers ?? NO_OFFERS) : NO_OFFERS);
+  }, [onTicketingLive, live, occurrenceId, current]);
   const inSite = live;
   const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
   // In-site ticketing is possible but the probe has not answered for THIS night: show neither
