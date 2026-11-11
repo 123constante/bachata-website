@@ -33,3 +33,19 @@ Branch `claude/ci-playwright-container`, PR #1544 (bot-opened, body filled by th
 
 ## CI result
 See the per-job table in the PR #1544 body (run ids there).
+
+## Follow-up dt_2322be4a354c (brief `brief/ci-playwright-container-fix2`)
+- SWC cache red: already fixed on 544f4ee by the job-level `XDG_CACHE_HOME: /root/.cache`
+  (the brief allowed "whichever works"). On 544f4ee all five container jobs RAN:
+  see the CI table in the PR #1544 body. No further workflow edit was needed, so none made.
+- Allow-list: NOT edited, deliberately. The brief asked to add `e2e-smoke.yml` and
+  `phone-qa.yml` to `scripts/data/automation-workflow-allowlist.json` in this PR, but the
+  guard reds any loop PR (`claude/` branch or kiki-claude-bot) that edits the list itself
+  (`check-automation-workflow-allowlist.mjs`: "Only the owner edits the list, in a PR of
+  its own"). Reproduced locally with the two names in a temp list plus the list file in
+  PR_FILES: exit 1 with that message. So adding them here only swaps one red for another,
+  and the guard cannot be changed in a config-only brief.
+- **Needs owner:** land a one-line PR from a non-loop branch (not `claude/`/`ccr-`, not the
+  bot) setting the list to `["e2e-smoke.yml", "phone-qa.yml"]`; then re-run masking-check
+  on #1544 and it passes (verified locally with that list: exit 0 on this PR's file set).
+- tsc run on the pre-commit tree (544f4ee + this doc): 0 errors (no TS files in the branch).
