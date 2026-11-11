@@ -19,11 +19,11 @@ The festival page reuses the event page's whole in-site path, no second ticket s
 - `ticketingLive` = probe said `buy` for that night. Live: our "Buy tickets" in the bar, the hero CTA, the pass cards and the end CTA; the organiser's link is nowhere on the page. Not live (sold out, closed, not yet, no types, fetch failed, 4s timeout): the page is exactly as before (bar quiet with its reason and "Tickets elsewhere"; hero/pass/end keep her link, else "Tickets TBA").
 - Buy opens the event pages' `EventTicketsPage`, through a tiny lazy wrapper (`src/modules/tickets/FestivalTicketsPage.tsx`) that supplies the programme hooks, so the tickets module stays out of the festival page's first-load graph.
 - Suppressed for ended, cancelled and paused festivals (`festivalInSiteTicketing`); an ended festival still has no ticket CTA at all.
-- JSON-LD offers: `ticketOfferUrl(live, pageUrl, link)` -- the event page's one rule, not a copy. Ended: no offers (builder policy, unchanged).
+- JSON-LD offers (`festivalJsonLdOffers`, fix round finding 2/4): live -> one offer per LIVE buyable ticket type (name, price from the wire, GBP, our url), never the organiser's passes (different list, different prices); this also covers a live festival with no passes. Not live -> her passes with her link (unchanged). The live types come from the probe via #1556's `liveOffers` path (ported verbatim: identical hunks in EventStickyActionBar, InSiteTicketProbe, ticketCheckoutApi, ticketOfferUrl). Ended: no offers (builder policy, unchanged).
 
 ## Alternatives recorded
 - Replace the passes grid with the inline `TicketsBlock`: rejected, festivals' organiser `passes` JSON and our ticket types are different lists; swapping the grid would hide her passes when quiet. Live cards just open our page.
-- Hide her link on the hero/pass/end while the probe is pending: rejected, those are in server HTML; flashing a placeholder there shifts layout. Only the bar has a pending placeholder (as on event pages).
+- ~~Hide her link on the hero/pass/end while the probe is pending: rejected~~ REVERSED in the fix round (review finding 3): while the probe is pending (flag on, bookable festival) the hero and end CTA render a same-size INVISIBLE placeholder (no layout shift) and pass cards render without a link. Her link returns once the probe answers (quiet, no types, fetch failed, 4s timeout). Consequence: with `publicTicketing` on, server HTML of a bookable festival no longer contains her link in those three places.
 - Probe with no night (`occurrenceId` null): rejected, a per-night type would read `needs_night` on a one-night festival.
 
 ## Open (owner)
