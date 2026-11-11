@@ -66,6 +66,14 @@ jobs:
   # phone-qa-rerun.yml; a real test failure is never re-run and stays red.
   phone-qa:
     runs-on: ubuntu-latest
+    # Browsers and their system libraries come baked into the Playwright image, so no
+    # step here runs apt: `playwright install --with-deps` did, and runner apt DNS
+    # failures ("Temporary failure resolving azure.archive.ubuntu.com") redded this
+    # job with no code change (PR #1542, 2026-11-11). The tag MUST equal the
+    # @playwright/test version in package-lock.json: the image's browsers are built
+    # for that version only. Node still comes from setup-node (22), not the image.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -78,6 +86,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The workspace is owned by the runner user and the container runs as root, so
+      # without this every later git command fails with "dubious ownership".
+      - name: Trust the workspace for git (container job)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
@@ -89,9 +102,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
 
       # A failure prints each assertion with its measured px; reproduce locally for
       # screenshots and traces (test-results/phone-qa/). The auto-walk pictures below
@@ -134,11 +144,24 @@ jobs:
   # perf-budget.yml's on every PR and Vercel's deploy included.
   build-smoke:
     runs-on: ubuntu-latest
+    # Browsers and their system libraries come baked into the Playwright image, so no
+    # step here runs apt: `playwright install --with-deps` did, and runner apt DNS
+    # failures ("Temporary failure resolving azure.archive.ubuntu.com") redded this
+    # job with no code change (PR #1542, 2026-11-11). The tag MUST equal the
+    # @playwright/test version in package-lock.json: the image's browsers are built
+    # for that version only. Node still comes from setup-node (22), not the image.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
     timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # The workspace is owned by the runner user and the container runs as root, so
+      # without this every later git command fails with "dubious ownership".
+      - name: Trust the workspace for git (container job)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -151,9 +174,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
 
       - name: Production build against the fake Supabase
         env:
