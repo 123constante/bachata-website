@@ -184,15 +184,24 @@ const MIN_EVENT_PAGES = 3;     // of the 4 event pages a healthy run asserts. >1
                                // BELOW PREFIX_SAMPLE['/event/'] so a full run is not on its
                                // floor; the canary asserts that pairing, so change either
                                // constant and the self-test says so at author time.
+                               // A PAUSED page counts here: its lifecycle contract (hiatus
+                               // banner, NO Event node) is asserted, not skipped.
+const MIN_EVENT_NODES = 1;     // of those, pages that carried and passed a real Event node.
+                               // Without it a sample of only paused series would green the
+                               // event floor with no Event node checked at all. 1, not 3:
+                               // the sample is the most recently EDITED events, and on
+                               // 2026-11-11 two of the four were paused (rogue-bachata,
+                               // rogue-bachata-wednesday), which is real data, not a defect.
 
-// The floors as DATA, so the canary can prove all four exist and fire. A
+// The floors as DATA, so the canary can prove all five exist and fire. A
 // missing counter key reads as 0 -- a typo in main() fails CLOSED (red), never
 // silently unguarded.
 const FLOORS = [
   { key: 'fromSitemap', min: MIN_SITEMAP_PAGES, label: 'sitemap-derived sample pages' },
   { key: 'measured', min: MIN_PAGES_MEASURED, label: 'pages fetched and measured' },
   { key: 'linkPagesChecked', min: MIN_LINK_PAGES, label: 'link-bearing pages measured' },
-  { key: 'eventsAsserted', min: MIN_EVENT_PAGES, label: 'event pages with Event JSON-LD asserted' },
+  { key: 'eventsAsserted', min: MIN_EVENT_PAGES, label: 'event pages with their JSON-LD lifecycle contract asserted' },
+  { key: 'eventNodesAsserted', min: MIN_EVENT_NODES, label: 'event pages with an Event JSON-LD node asserted' },
 ];
 
 function floorShortfalls(counts) {
@@ -291,6 +300,11 @@ function extractJsonLd(html) {
   return blocks;
 }
 
+// EventPausedBanner's server-rendered marker (src/modules/event-page/bento/
+// EventPausedBanner.tsx). Attribute-anchored, so the prose "On hiatus" in an
+// organiser's own description cannot take the paused arm.
+const PAUSED_MARKER = /\bdata-testid=["']event-paused-banner["']/;
+
 function findEventNode(blocks) {
   const flat = [];
   const walk = (n) => {
@@ -357,7 +371,23 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
   // neither the page nor SEO.
   const blocks = extractJsonLd(html);
   if (blocks.some((b) => b && b.__parseError)) failures.push('unparseable JSON-LD block');
-  if (isEvent) {
+  // A PAUSED series is the one live-page state that carries NO Event node, by
+  // owner decision 2026-10-08 (eventPageSeoPolicy (a), src/lib/seo/
+  // eventPageSeoPolicy.ts): its only date already ran, and EventPostponed +
+  // that startDate would be a false statement. It is still 200, indexable and
+  // in the sitemap, so this rotating sample meets it (2026-11-11: /event/
+  // rogue-bachata and rogue-bachata-wednesday, paused since 2026-11-10, red
+  // seo-preview on code nobody changed). The page says so in its server HTML
+  // with the hiatus banner, and that marker -- not a missing node -- is what
+  // takes this arm, so a LIVE page that loses its node still fails below.
+  // The inverse is enforced too: a paused page that DOES carry an Event node
+  // contradicts the policy and fails.
+  const paused = isEvent && PAUSED_MARKER.test(html);
+  if (paused) {
+    if (findEventNode(blocks)) {
+      failures.push('paused event page carries an Event JSON-LD node (policy: none for a paused series)');
+    }
+  } else if (isEvent) {
     const ev = findEventNode(blocks);
     if (!ev) {
       failures.push('no Event JSON-LD node');
@@ -432,7 +462,7 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
     if (n < minEventLinks) failures.push(`only ${n} /event/ links in server HTML (expected >= ${minEventLinks})`);
   }
 
-  return { failures, warns };
+  return { failures, warns, paused };
 }
 
 function hasNoindexRobotsHeader(headers) {
@@ -473,7 +503,7 @@ function hasNoindexRobotsHeader(headers) {
 // app-emitted noindex header -- a preview cannot tell it from Vercel's.
 async function checkPage(path, { isEvent = false, minEventLinks = 0, strict = STRICT, preview = isPreviewHost(BASE) } = {}, fetcher = fetchText) {
   const url = `${BASE}${path}`;
-  const unmeasured = { path, measured: false, eventAsserted: false, linkPageChecked: false };
+  const unmeasured = { path, measured: false, eventAsserted: false, eventNodeAsserted: false, linkPageChecked: false };
 
   let res;
   try {
@@ -489,12 +519,12 @@ async function checkPage(path, { isEvent = false, minEventLinks = 0, strict = ST
     return { ...unmeasured, failures: [`HTTP ${res.status}`], warns: [] };
   }
 
-  const { failures, warns } = auditHtml(path, res.text, { isEvent, minEventLinks });
+  const { failures, warns, paused } = auditHtml(path, res.text, { isEvent, minEventLinks });
   if (hasNoindexRobotsHeader(res.headers)) {
     if (preview) warns.push('X-Robots-Tag noindex not asserted on a preview host (Vercel sets it on every preview; the production run asserts it)');
     else failures.push('unexpected X-Robots-Tag noindex');
   }
-  return { path, measured: true, eventAsserted: isEvent, linkPageChecked: minEventLinks > 0, failures, warns };
+  return { path, measured: true, eventAsserted: isEvent, eventNodeAsserted: isEvent && !paused, linkPageChecked: minEventLinks > 0, failures, warns };
 }
 
 // Pure counters over the per-page results, so the canary can prove what the
@@ -504,6 +534,7 @@ function tally(results) {
     measured: results.filter((r) => r.measured).length,
     linkPagesChecked: results.filter((r) => r.linkPageChecked).length,
     eventsAsserted: results.filter((r) => r.eventAsserted).length,
+    eventNodesAsserted: results.filter((r) => r.eventNodeAsserted).length,
   };
 }
 
@@ -546,6 +577,7 @@ async function main() {
   console.log(
     `\nMeasured ${counts.measured}/${urls.length} pages`
       + ` (${counts.linkPagesChecked} link-bearing, ${counts.eventsAsserted} event page(s) asserted,`
+      + ` ${counts.eventNodesAsserted} with an Event node,`
       + ` ${counts.fromSitemap} sampled from the sitemap).`,
   );
 
@@ -582,7 +614,7 @@ async function main() {
 //   - checkPage: the outcome -> measured/eventAsserted/linkPageChecked
 //     mapping every floor rests on, driven through 200 / hard non-200 / throw
 //     via an injected fetcher
-//   - tally + floorShortfalls: all four floors present and firing, so DELETING
+//   - tally + floorShortfalls: all five floors present and firing, so DELETING
 //     one is a canary failure rather than a silent loss of the guard
 // HONEST SCOPE: main() owns the network, so the canary cannot prove main
 // CALLS these. That last link is covered by the live run, which prints
@@ -636,9 +668,12 @@ async function selfTest() {
   const throws = (fn) => { try { fn(); return false; } catch { return true; } };
   const res = (measured, eventAsserted, linkPageChecked = false) => ({ measured, eventAsserted, linkPageChecked });
   const serve = (r) => async () => r;
+  // The banner exactly as React's server render emits it (attributes in source order).
+  const PAUSED_BANNER = '<div class="w-full" data-testid="event-paused-banner" role="status" aria-live="polite">On hiatus</div>';
 
   // checkPage's three outcomes, driven through the injected fetcher.
   const okEvent = await checkPage('/event/x', { isEvent: true }, serve({ ok: true, status: 200, text: page({ jsonLd: eventLd() }) }));
+  const okPaused = await checkPage('/event/p', { isEvent: true }, serve({ ok: true, status: 200, text: page({ h1: `<h1>P</h1>${PAUSED_BANNER}` }) }));
   const okStatic = await checkPage('/parties', { minEventLinks: 3 }, serve({ ok: true, status: 200, text: page({ links: 3 }) }));
   const hard404 = await checkPage('/event/q', { isEvent: true }, serve({ ok: false, status: 404, text: '' }));
   const threw = await checkPage('/faq', { strict: false }, async () => { throw new Error('socket hang up'); });
@@ -735,6 +770,19 @@ async function selfTest() {
       clean(page() + '<meta name="robots" content="index, follow">', {})],
     ['fires: event page with no Event JSON-LD node',
       fails(page(), { isEvent: true }, 'no Event JSON-LD node')],
+    // --- paused: the owner's "no Event node" decision, both directions ---
+    ['silent: a PAUSED event page (hiatus banner) with no Event node passes (2026-11-11 seo-preview red)',
+      (() => {
+        const r = auditHtml('/event/x', page({ h1: `<h1>Rogue</h1>${PAUSED_BANNER}` }), { isEvent: true });
+        return r.failures.length === 0 && r.paused === true;
+      })()],
+    ['fires: a PAUSED event page that carries an Event node contradicts the policy',
+      fails(page({ h1: `<h1>Rogue</h1>${PAUSED_BANNER}`, jsonLd: eventLd() }), { isEvent: true }, 'paused event page carries an Event JSON-LD node')],
+    ['fires: the words "On hiatus" in prose do NOT take the paused arm (no marker, no node: still fails)',
+      fails(page({ desc: 'On hiatus PAUSED event-paused-banner', h1: '<h1>On hiatus</h1>' }), { isEvent: true }, 'no Event JSON-LD node')],
+    ['silent: the marker on a NON-event page changes nothing',
+      clean(page({ h1: `<h1>x</h1>${PAUSED_BANNER}` }), {})
+        && auditHtml('/x', page({ h1: `<h1>x</h1>${PAUSED_BANNER}` }), {}).paused === false],
     ['silent: a non-event page needs no Event node',
       clean(page(), {})],
     ['fires: Event JSON-LD missing name',
@@ -924,8 +972,11 @@ async function selfTest() {
 
     // --- checkPage: the outcome -> counter mapping every floor rests on ---
     ['checkPage: a 200 event page counts as measured AND as an event assertion, but not as link-bearing',
-      okEvent.measured === true && okEvent.eventAsserted === true
+      okEvent.measured === true && okEvent.eventAsserted === true && okEvent.eventNodeAsserted === true
         && okEvent.linkPageChecked === false && okEvent.failures.length === 0],
+    ['checkPage: a 200 PAUSED event page is measured and an event assertion, with no Event node counted',
+      okPaused.measured === true && okPaused.eventAsserted === true
+        && okPaused.eventNodeAsserted === false && okPaused.failures.length === 0],
     ['checkPage: a 200 link-bearing static page counts as measured and link-bearing, not as an event',
       okStatic.measured === true && okStatic.linkPageChecked === true && okStatic.eventAsserted === false],
     ['checkPage: a hard 404 is NOT measured and fails loud',
@@ -968,31 +1019,41 @@ async function selfTest() {
       tally([res(true, false), res(false, false), res(true, true)]).measured === 2],
     ['tally: only pages whose Event assertions RAN count as event pages',
       tally([res(true, true), res(false, false), res(true, false)]).eventsAsserted === 1],
+    ['tally: a paused page counts as an event assertion but NOT as an Event node',
+      (() => {
+        const t = tally([okEvent, okPaused]);
+        return t.eventsAsserted === 2 && t.eventNodesAsserted === 1;
+      })()],
     ['tally: only measured link-bearing pages count toward the link floor',
       tally([res(true, false, true), res(false, false, false), res(true, false, true)]).linkPagesChecked === 2],
 
-    // --- floorShortfalls: all four floors present, firing, and on-boundary ---
+    // --- floorShortfalls: all five floors present, firing, and on-boundary ---
     ['floors: a clean run exactly at every boundary reports no shortfall',
-      floorShortfalls({ fromSitemap: MIN_SITEMAP_PAGES, measured: MIN_PAGES_MEASURED, linkPagesChecked: MIN_LINK_PAGES, eventsAsserted: MIN_EVENT_PAGES }).length === 0],
-    ['floors: all four fire on a run that measured nothing',
-      floorShortfalls({ fromSitemap: 0, measured: 0, linkPagesChecked: 0, eventsAsserted: 0 }).length === 4],
+      floorShortfalls({ fromSitemap: MIN_SITEMAP_PAGES, measured: MIN_PAGES_MEASURED, linkPagesChecked: MIN_LINK_PAGES, eventsAsserted: MIN_EVENT_PAGES, eventNodesAsserted: MIN_EVENT_NODES }).length === 0],
+    ['floors: all five fire on a run that measured nothing',
+      floorShortfalls({ fromSitemap: 0, measured: 0, linkPagesChecked: 0, eventsAsserted: 0, eventNodesAsserted: 0 }).length === 5],
     ['floors: a dead sitemap fires the sitemap floor ALONE (static pages still measured)',
       (() => {
-        const s = floorShortfalls({ fromSitemap: 0, measured: 16, linkPagesChecked: 10, eventsAsserted: 3 });
+        const s = floorShortfalls({ fromSitemap: 0, measured: 16, linkPagesChecked: 10, eventsAsserted: 3, eventNodesAsserted: 3 });
         return s.length === 1 && s[0].key === 'fromSitemap';
       })()],
     ['floors: one page short of the measured floor fires it',
-      floorShortfalls({ fromSitemap: 5, measured: MIN_PAGES_MEASURED - 1, linkPagesChecked: 10, eventsAsserted: 3 }).some((f) => f.key === 'measured')],
+      floorShortfalls({ fromSitemap: 5, measured: MIN_PAGES_MEASURED - 1, linkPagesChecked: 10, eventsAsserted: 3, eventNodesAsserted: 3 }).some((f) => f.key === 'measured')],
     ['floors: losing the link-bearing CLASS fires, even with the blanket floor satisfied',
       (() => {
         // 11 of 21 pages gone, all of them link-bearing: measured clears 10.
-        const s = floorShortfalls({ fromSitemap: 5, measured: 10, linkPagesChecked: 0, eventsAsserted: 3 });
+        const s = floorShortfalls({ fromSitemap: 5, measured: 10, linkPagesChecked: 0, eventsAsserted: 3, eventNodesAsserted: 3 });
         return s.length === 1 && s[0].key === 'linkPagesChecked';
       })()],
     ['floors: greening on a single hand-picked event page fires the event floor',
-      floorShortfalls({ fromSitemap: 5, measured: 20, linkPagesChecked: 10, eventsAsserted: 1 }).some((f) => f.key === 'eventsAsserted')],
+      floorShortfalls({ fromSitemap: 5, measured: 20, linkPagesChecked: 10, eventsAsserted: 1, eventNodesAsserted: 1 }).some((f) => f.key === 'eventsAsserted')],
+    ['floors: a sample of ONLY paused events fires the Event-node floor alone',
+      (() => {
+        const s = floorShortfalls({ fromSitemap: 5, measured: 20, linkPagesChecked: 10, eventsAsserted: 4, eventNodesAsserted: 0 });
+        return s.length === 1 && s[0].key === 'eventNodesAsserted';
+      })()],
     ['floors: a missing counter key reads as 0 and fires (a typo fails CLOSED)',
-      floorShortfalls({ measured: 20, linkPagesChecked: 10, eventsAsserted: 3 }).some((f) => f.key === 'fromSitemap')],
+      floorShortfalls({ measured: 20, linkPagesChecked: 10, eventsAsserted: 3, eventNodesAsserted: 3 }).some((f) => f.key === 'fromSitemap')],
     ['floor helper: assertMeasured throws below the floor, is silent at it',
       throws(() => assertMeasured(MIN_PAGES_MEASURED - 1, MIN_PAGES_MEASURED, 'pages fetched and measured'))
         && !throws(() => assertMeasured(MIN_PAGES_MEASURED, MIN_PAGES_MEASURED, 'pages fetched and measured'))],
@@ -1026,7 +1087,7 @@ async function selfTest() {
     console.error(`\nFAIL self-test -- ${failed} of ${cases.length} case(s).`);
     return 1;
   }
-  console.log(`\nPASS self-test -- ${cases.length} cases: auditHtml, checkPage's counter mapping, the sitemap sample and all four floors, proven in both directions.`);
+  console.log(`\nPASS self-test -- ${cases.length} cases: auditHtml, checkPage's counter mapping, the sitemap sample and all five floors, proven in both directions.`);
   return 0;
 }
 
