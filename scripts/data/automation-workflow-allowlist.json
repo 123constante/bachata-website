@@ -1,1 +1,4 @@
-[]
+[
+  "e2e-smoke.yml",
+  "phone-qa.yml"
+]
