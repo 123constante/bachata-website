@@ -87,6 +87,8 @@ const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center 
  * dissolves beneath it. Rendered via a body portal to escape framer-motion
  * transform ancestors (same reason as the old StickyTicketButton).
  */
+const PROBE_TIMEOUT_MS = 4000;
+
 export const EventStickyActionBar = ({
   eventId,
   occurrenceId = null,
@@ -111,15 +113,26 @@ export const EventStickyActionBar = ({
   // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
   const [barState, setBarState] = useState<'buy' | 'quiet' | 'none'>('none');
   const [quietLabel, setQuietLabel] = useState('Sold out');
+  const [probed, setProbed] = useState(false);
   const onProbe = useCallback((st: 'buy' | 'quiet' | 'none', label: string) => {
     setBarState(st);
+    setProbed(true);
     if (label) setQuietLabel(label);
   }, []);
+  // If the probe never answers (chunk or network failure) her link must not stay hidden forever.
+  useEffect(() => {
+    if (!inSiteTicketing || probed) return;
+    const t = setTimeout(() => setProbed(true), PROBE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [inSiteTicketing, probed]);
   useEffect(() => {
     onTicketingLive?.(inSiteTicketing && !!eventId && barState === 'buy');
   }, [onTicketingLive, inSiteTicketing, eventId, barState]);
   const inSite = inSiteTicketing && !!eventId && barState === 'buy';
   const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
+  // In-site ticketing is possible but the probe has not answered: show neither her link nor a
+  // primary action (a same-height placeholder), so her link never flashes and then vanishes.
+  const pending = inSiteTicketing && !!eventId && !probed;
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
@@ -127,7 +140,7 @@ export const EventStickyActionBar = ({
   // When the event sells in-site, the in-site buy action leads and the external link
   // is hidden (TICKET_LEAD_IN_SITE): ours is the only way in. It returns when the night is
   // sold out, closed or not yet open (quiet).
-  const directionsIsPrimary = !ticketUrl && !inSite && !quiet;
+  const directionsIsPrimary = !ticketUrl && !inSite && !quiet && !pending;
 
   const ticketPrimaryStyle: React.CSSProperties = accentColor
     ? {
@@ -250,7 +263,16 @@ export const EventStickyActionBar = ({
             </button>
           )}
 
-          {!inSite && !quiet && ticketUrl && (
+          {pending && (
+            <div
+              aria-hidden="true"
+              data-testid="buy-pending"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none', opacity: 0.6 }}
+            />
+          )}
+
+          {!inSite && !quiet && !pending && ticketUrl && (
             <a
               href={ticketUrl}
               target="_blank"

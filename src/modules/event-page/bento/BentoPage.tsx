@@ -56,6 +56,7 @@ import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
+import { ticketOfferUrl } from './utils/ticketOfferUrl';
 import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 import { flags } from '@/lib/featureFlags';
@@ -206,6 +207,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [ticketsOpen, setTicketsOpen] = useState(false);
   // TICKET_LEAD_IN_SITE: false on server + first render (hydration-safe); the sticky bar's probe flips it.
+  // The series' ticket types are not in the page snapshot (only the organiser's own offers are), so
+  // server HTML keeps her URL: open owner decision, see the design record.
   const [ticketingLive, setTicketingLive] = useState(false);
   const closeTickets = useCallback(() => setTicketsOpen(false), []);
 
@@ -658,7 +661,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         ],
         offers: (snapshot.event.tickets ?? []).map((t) => ({
           // Ours when our Buy is live for this night; the organiser's link only when it is not.
-          url: ticketingLive ? `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}` : pageModel.actions.ticketUrl,
+          url: ticketOfferUrl(ticketingLive, `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`, pageModel.actions.ticketUrl),
           name: t.name,
           price: t.price,
           // Never a currency without a price (Google flags the pair);

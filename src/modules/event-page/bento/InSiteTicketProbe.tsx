@@ -9,13 +9,16 @@ import { fetchPublicTicketTypes, publicTicketKeys, quietBarButton, siteBarState,
  * buy block: one fetch, and the bar and the block read the same v2 rows (S1a).
  */
 export default function InSiteTicketProbe({ seriesId, occurrenceId, onResult }: { seriesId: string; occurrenceId: string | null; onResult: (state: SiteBarState, quietLabel: string) => void }) {
-  const { data: types } = useQuery({
+  const { data: types, isPending } = useQuery({
     queryKey: publicTicketKeys.types(seriesId, occurrenceId),
     queryFn: () => fetchPublicTicketTypes(seriesId, occurrenceId),
     staleTime: 30_000,
   });
   const state = siteBarState(types);
   const label = state === 'quiet' && types ? quietBarButton(types) : '';
-  useEffect(() => onResult(state, label), [state, label, onResult]);
+  // Silent while the fetch is in flight: the bar shows a neutral placeholder, not her link, until this resolves.
+  useEffect(() => {
+    if (!isPending) onResult(state, label);
+  }, [isPending, state, label, onResult]);
   return null;
 }
