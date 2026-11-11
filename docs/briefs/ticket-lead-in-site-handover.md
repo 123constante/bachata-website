@@ -11,3 +11,7 @@ Left: 390x844 walk on Ritmo's page (no prod browser here), PR body update (no gh
 ## Fix round 2 (brief ticket-lead-in-site-fix2)
 Done: 1a placeholder only while this night's probe is in flight; 1b timeout locks her link for the night (no late swap); 1c probe answer + live flag keyed by night in the bar and in BentoPage (JSON-LD); page-level table test rendering BentoPage + JSON-LD; nightControls test updated for the new onResult(series, night, state, label) signature; design record section.
 Red-first: on 0f754c18a the timeout and the night-switch tests fail (2 of 13); the other 11 shape rows pass on both (they guard against regression; 1a's resolved-none path did not reproduce as broken).
+Walk: 390x844 local dev against prod data (flag on): Ritmo is a festival page (her link, unchanged); sabor-sundays real (no types: her link); fixture live/sold-out/hang on sabor-sundays. Screenshots in docs/briefs/ticket-lead-in-site-fix2-shots/. Bar buttons >= 44px and contrast >= 4.5; "Tickets elsewhere" 116x25 is pre-existing on main.
+PR body updated (per-job CI on b0560a5; 3 jobs were still running when written).
+tsc run on b0560a5 code (unchanged since): 0 errors in branch files.
+Left / next: owner decision on JSON-LD server-side vs client flip; confirm unit (Europe/London), e2e-smoke, phone-qa (1) on the final head.
