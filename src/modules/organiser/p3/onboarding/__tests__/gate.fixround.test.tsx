@@ -37,7 +37,8 @@ const REFUSAL = { code: 'P0001', message: 'onboarding_incomplete', details: JSON
 const page = (id: string, missing: string[]) => ({ id, name: id, role: 'owner', lifecycle: 'live', complete: missing.length === 0, missing, about: { done: false, skipped: false } });
 const status = (person: string[], orgs: unknown[]) => ({ v: 1, gate_on: true, is_admin: false, complete: false, person: { complete: person.length === 0, missing: person }, organisers: orgs });
 
-beforeEach(() => rpc.mockReset());
+// a refused Save keeps its edit for the event (keptDraft.ts, sessionStorage): every test starts with none kept
+beforeEach(() => { rpc.mockReset(); window.sessionStorage.clear(); });
 afterEach(() => { cleanup(); act(() => closeGate()); });
 
 describe('1. a refused write never reads "finished"', () => {

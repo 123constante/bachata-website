@@ -1,12 +1,13 @@
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ClaimNotice } from '../../home/ClaimNotice';
 import { needsOf, nextUpView, rowsOf, type P3Row } from '../data/home';
-import { viewsTotal } from '../data/stats';
+import { scopeStats, viewsTotal } from '../data/stats';
 import { useP3Home, useP3Views } from '../data/useP3Data';
 import { L, nextUpAdviceOf } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { flags } from '@/lib/featureFlags';
 import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
+import { PageHeader, usePageScope } from './PageScope';
 import { GraceBanner } from './GraceBanner';
 import { P3NightGoing } from './P3Going';
 import { AddEventLink, EventList, P3Link, GoingTile, KindChip, RetryButton, StateCard, StatusTag, Thumb } from './parts';
@@ -32,9 +33,10 @@ function confirmationOf(state: unknown): string | null {
 export function HomeScreen() {
   const home = useP3Home();
   const views = useP3Views();
+  const scope = usePageScope();
   const confirmation = confirmationOf(useLocation().state);
 
-  if (home.isPending) {
+  if (home.isPending || scope.loading) {
     return (
       <StateCard title="Loading your events&hellip;" testId="p3-home-loading">
         This takes a second. Your tabs below work while it loads.
@@ -66,27 +68,28 @@ export function HomeScreen() {
       {confirmation && <p className="p3-ok" role="status" data-testid="p3-home-confirmation">{confirmation}</p>}
       <ClaimNotice />
       <GraceBanner />
+      <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />
     </>
   );
 
-  const rows = rowsOf(home.data);
+  const rows = rowsOf(home.data, scope.pageId);
   if (!rows.length) {
     return (
       <div className="p3-stack">
         {said}
         <StateCard title="No events here yet" testId="p3-home-empty">
-          <p>When you run an event on Bachata Calendar it shows here. You can add one now.</p>
+          <p>When this page runs an event on Bachata Calendar it shows here. You can add one now{scope.organisers.length > 1 ? ', or switch to another page' : ''}.</p>
           <AddEventLink />
         </StateCard>
       </div>
     );
   }
 
-  const next = nextUpView(rows, home.data);
+  const next = nextUpView(rows, home.data, scope.pageId);
   const needs = needsOf(rows);
   // the same current / past split as Events (seriesLife via statusOf)
   const listed = rows.filter((r) => !r.status.past);
-  const total = views.data ? viewsTotal(views.data) : null;
+  const total = views.data ? viewsTotal(scopeStats(views.data, scope.seriesIds)) : null;
 
   return (
     <div className="p3-stack" data-testid="p3-home">
@@ -145,7 +148,7 @@ export function HomeScreen() {
           ) : total > 0 ? (
             <Link to={P3_PATHS.stats} className="p3-card p3-stat p3-tap" data-testid="p3-views">
               <span className="p3-stat-n">{total}</span>
-              <span className="p3-stat-l">{L.views} of your events &middot; see Stats</span>
+              <span className="p3-stat-l">{L.views} of this page&rsquo;s events &middot; see Stats</span>
             </Link>
           ) : (
             <StateCard title="No views yet" testId="p3-views-none">

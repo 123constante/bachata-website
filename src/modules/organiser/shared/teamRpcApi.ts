@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { parseTeamRead, type TeamMember, type TeamRole } from './teamModel';
+import { parseSharedTeam, type SharedTeamRow } from '@/modules/organiser/team/teamShared';
 
 // The owner-only team RPCs (admin arc PR 2/4b) are not in the generated Database type yet
 // (a bot regenerates it; never hand-edited), so they go through a string-named boundary
@@ -11,11 +12,23 @@ const rpc = (fn: string, args: Record<string, unknown>) => (supabase as unknown 
 
 export const organiserTeamQueryKey = (organiserId: string | undefined) => ['organiser-team', organiserId] as const;
 
-/** Any member reads the team; only an owner (or admin) receives the emails. */
-export async function fetchOrganiserTeam(organiserId: string): Promise<{ myRole: TeamRole | 'admin' | null; members: TeamMember[] }> {
-  const { data, error } = await rpc('organiser_team_v1', { p_organiser_id: organiserId });
-  if (error) throw error;
-  return parseTeamRead(data);
+/**
+ * Any member reads the team; only an owner (or admin) receives the emails. `members` are the seats
+ * (organiser_team_v1: the only read with role, email and is_self, so More, handover, You and Page keep
+ * working). `listed` is everyone on the team from organiser_team_shared_v1 (seats AND the public roster,
+ * with who shows on the public page); null when that read failed, so a failure is never an empty list.
+ */
+export async function fetchOrganiserTeam(organiserId: string): Promise<{ myRole: TeamRole | 'admin' | null; members: TeamMember[]; listed: SharedTeamRow[] | null }> {
+  const [seats, shared] = await Promise.all([
+    rpc('organiser_team_v1', { p_organiser_id: organiserId }),
+    rpc('organiser_team_shared_v1', { p_organiser_id: organiserId }).then((r) => r, () => ({ data: null, error: { message: 'shared_read_failed' } })),
+  ]);
+  if (seats.error) throw seats.error;
+  let listed: SharedTeamRow[] | null = null;
+  if (!shared.error) {
+    try { listed = parseSharedTeam(shared.data); } catch { listed = null; }
+  }
+  return { ...parseTeamRead(seats.data), listed };
 }
 
 /** Owner only: add a person by email as manager or contributor, or change an existing member's role. */

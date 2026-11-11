@@ -71,6 +71,7 @@ test('(c) team screen after team_full: the message, no Add', async ({ page }) =>
   await expect(page.getByTestId('org-page-team-add')).toBeVisible();
   const target = page.getByTestId('add-face').first().or(page.getByTestId('add-result').first());
   await target.click();
+  await page.getByTestId('add-confirm-yes').click();
   // A server team_full on a page that read as under the cap: the mapped message shows (add-error); the faces stay tappable (walk finding).
   await expect(page.getByTestId('add-error')).toContainText('This team already has 20 people');
   await shot(page, 'c-team-full');

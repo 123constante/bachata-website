@@ -19,6 +19,9 @@ export const flags = {
   // ComingSoonGate. Default true in dev, false in prod until the public
   // list_open_raffles_v1 RPC is live.
   rafflesPage:         import.meta.env.VITE_ENABLE_RAFFLES_PAGE === 'true',
+  // Raffle v2 (win a free night; raffle_public_board_v1 board on event pages and /raffles).
+  // Arc: raffle-r3a/r3b. Default OFF; nothing reads it yet (R3a is foundations only).
+  raffleV2:            import.meta.env.VITE_ENABLE_RAFFLE_V2 === 'true',
   // Federated search v5 (Cmd+K / mobile full-screen overlay + search_public_v5).
   // When false the existing HeaderSearch omnibox (search_public_v4) renders
   // unchanged, so prod is untouched until this flips per-environment.
@@ -65,6 +68,10 @@ export const flags = {
   // exactly as before. Separate from parityGate's AW1_APPLIED (a code constant).
   // Turn on with VITE_ENABLE_ORGANISER_P3=true (Vercel env) -- no code change.
   organiserP3:         import.meta.env.VITE_ENABLE_ORGANISER_P3 === 'true',
+  // Start a P3 New event from a flyer photo (docs/design/flyer-read-screen.md). Needs organiserP3
+  // and organiserSelfServe too. OFF = the New event kind step is exactly as before.
+  // Turn on with VITE_ENABLE_ORGANISER_FLYER_READER=true (Vercel env) -- no code change.
+  organiserFlyerReader: import.meta.env.VITE_ENABLE_ORGANISER_FLYER_READER === 'true',
   // Organiser ticketing (S3, docs/organiser-ticketing-journey.md): P3's Get paid, ticket
   // types, sales, refunds and door. OFF = none of them shows. Turn on with
   // VITE_ENABLE_ORGANISER_TICKETING=true (Vercel env) -- no code change.

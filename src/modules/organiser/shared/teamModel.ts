@@ -10,12 +10,21 @@
 import { londonDateKey } from '@/lib/londonDate';
 import { fullDate } from './dateWords';
 
+/**
+ * Slice 1b fix: the P3 Team roles (the ONE list lives in edit-in-place/teamRoles.ts), re-exported here so the
+ * Team screens read them through this module. Rollup then keeps teamRoles in this module's shared chunk: imported
+ * straight from team/ it became its own chunk, +1 first-load request on /auth/callback and /app/* (chunk ratchet).
+ */
+export { P3_ROLE_HELP, TEAM_ROLES } from '@/modules/organiser/edit-in-place/teamRoles';
+
 export type TeamRole = 'owner' | 'manager' | 'contributor';
 
 export interface TeamMember {
   userId: string;
   /** The member's dancer profile id when organiser_team_v1 sends one; else it is taken to be userId. */
   profileId?: string | null;
+  /** organiser_team_v1 `person_id`: the seat's dancer persona (matches organiser_public_team_v1.person_id); null = none. */
+  personId?: string | null;
   role: TeamRole;
   isPrimary: boolean;
   /** When the person joined (a real instant, not local-as-Z). */
@@ -42,6 +51,7 @@ export function parseTeam(raw: unknown): TeamMember[] {
     members.push({
       userId: row.user_id,
       profileId: str(row.profile_id),
+      personId: str(row.person_id),
       role,
       isPrimary: row.is_primary === true,
       joinedAt: str(row.joined_at),

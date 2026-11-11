@@ -19,6 +19,11 @@ vi.mock('../../../shared/runCommands', () => ({
   useSendOnce: () => async () => 9,
 }));
 vi.mock('../../data/useP3Data', () => ({ useP3Home: () => ({ isPending: true, data: undefined }) }));
+// The Status sheet asks series_go_live_check_v1 on a draft; here it has not answered (the page's own facts give the reason).
+vi.mock('../../../shared/goLiveCheck', async (orig) => ({
+  ...(await orig<typeof import('../../../shared/goLiveCheck')>()),
+  useGoLiveCheck: () => ({ data: undefined, refetch: () => Promise.resolve() }),
+}));
 
 import { EventPage } from '../EventPage';
 import { PricesScreen } from '../PricesScreen';

@@ -380,18 +380,15 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: node scripts/check-fk-indexes.mjs
 
-      # Gates on a hand-maintained ceiling (baseline 33 teachers / 7 DJs
-      # unassigned, the P5 reading since admin M5 C7b) -- a real but known-imperfect proxy for "nobody lost an
-      # assignment": it reds on ordinary roster growth too, fixed by a
-      # re-baseline commit. The correct replacement (a lost-assignment
-      # predicate, not a ceiling) is queued, not yet built. See
-      # docs/ci-guard-notes.md #17.
+      # Gates on an ASSIGNMENT DEFICIT (roles created on/before 2026-07-24 minus
+      # assigned), not the unassigned total: roster growth after the cutoff WARNs
+      # (exit 0), a lost line-up credit FAILs (exit 1). See docs/ci-guard-notes.md #17.
       - name: Run teacher/DJ assignment integrity check
         if: always()
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        run: node scripts/check-teacher-dj-assignment-integrity.mjs
+        run: node scripts/check-teacher-dj-assignment-integrity.mjs --self-test && node scripts/check-teacher-dj-assignment-integrity.mjs
 
       # ADR-007 checks run even if earlier (pre-existing) gates failed -
       # they monitor an independent invariant and we need their signal
@@ -1271,6 +1268,44 @@ jobs:
         run: |
           node scripts/check-onboarding-write-doors.mjs --self-test
           node scripts/check-onboarding-write-doors.mjs --live
+
+      # 73. P3 REFUSAL CODES vs LIVE (2026-11-05, docs/briefs/p3-real-rules-check.md).
+      #     Static half runs in architecture-guard.yml. Here --live reads the
+      #     RAISE codes of the live P3 command doors through psql (read-only
+      #     P3_RULES_DB_URL) and diffs them against scripts/p3-refusal-codes.json:
+      #     red on a new or removed live code. Until the owner adds the secret
+      #     the step SKIPS with one line (exit 0), never fails. Secret set but no
+      #     psql on the runner: the script says so and exits 2 (a fault, not a
+      #     skip; psqlFailureLine, canary case 23). Canary first.
+      - name: Run P3 refusal codes live drift check
+        if: always()
+        timeout-minutes: 2
+        env:
+          P3_RULES_DB_URL: ${{ secrets.P3_RULES_DB_URL }}
+        run: |
+          node scripts/check-p3-refusal-reasons.mjs --self-test
+          if [ -z "$P3_RULES_DB_URL" ]; then
+            echo "SKIP p3-refusal-reasons --live: secret P3_RULES_DB_URL is not set (static half still runs in architecture-guard.yml)"
+            exit 0
+          fi
+          node scripts/check-p3-refusal-reasons.mjs --live
+
+      # 74. LIVE-NOW SNAPSHOT VERSION (2026-11-06, docs/handovers/live-now-s2web.md).
+      #     event_view_p5(snapshot_compat) must carry a top-level `version`
+      #     (non-negative safe integer; admin 20270312410000 + #1280). The site's
+      #     parser maps a missing one to null on purpose, so a regression would be
+      #     silent on /event/<slug>.data; this is where it goes red. Samples live
+      #     events from calendar_events_dto, landing + pinned. Exit 2 below a
+      #     3-payload floor. Canary first.
+      - name: Run event snapshot version contract check
+        if: always()
+        timeout-minutes: 3
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          node scripts/check-event-snapshot-version.mjs --self-test
+          node scripts/check-event-snapshot-version.mjs
 
       # ── Failure notification ────────────────────────────────────────────────────
       #

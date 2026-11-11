@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { YouTicketsRow } from '../shell/youTickets';
 import { useQuery } from '@tanstack/react-query';
 import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, type HomeOrganiser } from '@/modules/organiser/shared/selfServeApi';
+import { useSeatKind } from '@/modules/organiser/shared/useSeatKind';
 import { NO_PAGE_ADD } from '@/modules/organiser/shared/teamRules';
 import { useAuth } from '@/hooks/useAuth';
 import { graceStatusFrom, onboardingLeft } from '../onboarding/graceModel';
@@ -12,6 +13,7 @@ import { P3_PATHS } from '../shell/paths';
 import { Avatar } from '../../team/Avatar';
 import { useTeamContext } from '../../team/useTeamContext';
 import { RetryButton, StateCard } from '../screens/parts';
+import { RequestsError, requestsErrorShown } from '../../team/p3TeamBits';
 import { P3_SURFACE } from './surface';
 import { YOU, youRows, type YouRow } from './youRows';
 import { londonTodayKey } from '@/lib/londonDate';
@@ -77,6 +79,7 @@ function AccountCard() {
 export function YouScreen() {
   const ctx = useTeamContext();
   const { organiser, organisers } = ctx;
+  const seat = useSeatKind(organiser?.id);
   const requests = useQuery({
     queryKey: incomingAccessRequestsQueryKey(organiser?.id),
     queryFn: () => fetchIncomingAccessRequests(organiser!.id),
@@ -114,7 +117,8 @@ export function YouScreen() {
           <Link to={P3_SURFACE.addPage} className="p3-btn p3-btn-link" data-testid="p3-you-add-page-link">{NO_PAGE_ADD.action}</Link>
         </StateCard>
       )}
-      <YouTicketsRow />
+      {requestsErrorShown(requests) && <RequestsError onRetry={() => void requests.refetch()} />}
+      <YouTicketsRow seatKind={seat} />
       <section className="p3-card p3-list" data-testid="p3-you-rows">
         {rows.map((r) => <NavRow key={r.id} r={r} />)}
       </section>

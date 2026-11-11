@@ -20,8 +20,8 @@ import { ownershipFacts, type OrganiserOwnership } from '../ownership';
 import type { ClaimHint } from '../claimHint';
 
 const ORG = { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ritmo Bachata London' };
-const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null };
-const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null };
+const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null, seat_kind: null };
+const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null, seat_kind: null };
 const ME = { id: 'me', email: 'diego@ritmo.example' };
 const refusal = (code: string) => ({ data: null, error: { message: code, code: 'P0001' } });
 
@@ -183,6 +183,7 @@ describe('PublicClaimCard', () => {
     rpc.mockResolvedValue(refusal('request_already_open'));
     mount({ hintIs: 'no_email' });
     fireEvent.click(screen.getByTestId('public-claim-open'));
+    fireEvent.change(screen.getByTestId('public-request-note'), { target: { value: 'I help with the classes' } });
     fireEvent.click(screen.getByTestId('public-request-send'));
     await waitFor(() => expect(screen.getByTestId('public-claim-error')).toBeTruthy());
     expect(screen.getByTestId('public-claim-error').textContent).toContain('already asked for access');

@@ -77,6 +77,7 @@ export const sales = (t: TicketType, over: Partial<TypeSales> = {}): TypeSales =
   ordersRefunded: 0,
   ordersDisputed: 0,
   grossPence: t.reserved * t.pricePence,
+  discountsPence: 0,
   bookingFeesPence: 0,
   refundedPence: 0,
   ...over,
@@ -96,9 +97,12 @@ export const order = (id: string, typeId: string, over: Partial<Order> = {}): Or
   ...over,
 });
 
-export const STRIPE: Record<'none' | 'started' | 'connected', StripeRow | null> = {
+export const STRIPE: Record<'none' | 'started' | 'waiting' | 'connected', StripeRow | null> = {
   none: null,
-  started: { charges_enabled: false, payouts_enabled: false, details_submitted: true },
+  /** A row, forms not finished: Stripe still needs details from the person. */
+  started: { charges_enabled: false, payouts_enabled: false, details_submitted: false },
+  /** Every form sent, charges not on yet: Stripe is checking. */
+  waiting: { charges_enabled: false, payouts_enabled: false, details_submitted: true },
   connected: { charges_enabled: true, payouts_enabled: true, details_submitted: true },
 };
 
@@ -107,7 +111,7 @@ export interface Shape {
   orders: Order[];
   /** Sales summary rows, or 'refused' (not_authorised). */
   sales: TypeSales[] | 'refused';
-  stripe: 'none' | 'started' | 'connected';
+  stripe: 'none' | 'started' | 'waiting' | 'connected';
   role: string;
   lifecycle: string;
 }

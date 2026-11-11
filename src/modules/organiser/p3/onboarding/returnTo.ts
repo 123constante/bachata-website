@@ -19,8 +19,31 @@ export function withBack(href: string, at: string | null | undefined): string {
   return `${href}${href.includes('?') ? '&' : '?'}back=${encodeURIComponent(back)}`;
 }
 
+/**
+ * Brief p3-gate-guard-1: the navigation state the gate sheet's Continue carries, naming the refused screen's path.
+ * The edit screen's leave guard reads it (keptDraft.ts leavesForGate): that one exit skips "Leave without saving?"
+ * when the typing is already kept. Nothing is sent or replayed by it.
+ */
+export const gateGoState = (at: string | null | undefined): { p3GateGo: string } | undefined =>
+  (typeof at === 'string' && at ? { p3GateGo: at } : undefined);
+export const gateGoFrom = (state: unknown): string | null => {
+  const at = state && typeof state === 'object' ? (state as { p3GateGo?: unknown }).p3GateGo : null;
+  return typeof at === 'string' && at ? at : null;
+};
+
 export const BACK_TO_EVENT = 'Back to your event';
 export const GO_TO_HOME = 'Go to Home';
 
-/** The checklist's final words: back to the event only when nothing is left AND there is a valid event. */
-export const finishLabel = (back: string | null, left: number): string => (back && left === 0 ? BACK_TO_EVENT : GO_TO_HOME);
+/**
+ * The checklist's exit words (brief fix-gate-lost-edit): with a valid event to go back to, the exit is always
+ * "Back to your event" (left or not: the refused edit is waiting there, kept by keptDraft.ts); "Go to Home" only
+ * when there is no valid event. `left` is kept for the call sites; the rule no longer depends on it.
+ */
+export const finishLabel = (back: string | null, _left?: number): string => (back ? BACK_TO_EVENT : GO_TO_HOME);
+
+/**
+ * Whether the checklist shows "Back to your event" as a SECOND button: things are still left, there is a valid
+ * event, and the primary is not already that (it is Go live / Try again / Sign in again).
+ */
+export const backAsSecondary = (back: string | null, left: number, primaryLabel: string): boolean =>
+  !!back && left > 0 && primaryLabel !== BACK_TO_EVENT;

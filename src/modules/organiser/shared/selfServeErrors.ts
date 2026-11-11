@@ -11,6 +11,7 @@
  */
 import { DANCER_GATE_REASON, PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import { VERSION_CONFLICT } from './copy';
+import { GO_LIVE_NOT_READY } from './goLiveKeys';
 
 import { LAST_OWNER_NOTE, TEAM_CAP } from './teamModel';
 
@@ -24,6 +25,11 @@ export const TEAM_FULL_COPY = `This team already has ${TEAM_CAP} people. Remove 
 export const PROFILE_REQUIRED_NOTE = 'Finish your dancer profile first, then you can show on the public team.';
 /** Creating a NEW organiser page is invite-only (owner decision 2026-10-20); the admin trigger raises `organiser_invite_required`. */
 export const INVITE_REQUIRED_COPY = 'Creating a new organiser page needs an invite from the Bachata Calendar team. Message us and we\u2019ll set you up.';
+
+/** `declined_recently`: a request to this page was declined less than 30 days ago (admin I1 #1284). */
+export const DECLINED_RECENTLY_COPY = 'The page said no to your last request. You can ask again after 30 days, or message us.';
+/** `interim_cannot_add`: an interim manager cannot add people while the page has no owner (admin I1 #1284). */
+export const INTERIM_CANNOT_ADD_COPY = 'While this page has no owner, only the Bachata Calendar team can add people. Share the page link and ask them to tap Ask to join.';
 
 export interface SelfServeErrorCopy {
   message: string;
@@ -103,6 +109,10 @@ const COPY: Record<string, SelfServeErrorCopy> = {
   },
   organiser_invite_required: { message: INVITE_REQUIRED_COPY, next: 'contact_support' },
   team_full: { message: TEAM_FULL_COPY, next: null },
+  // Admin I1 #1284: a declined request locks the same page for 30 days.
+  declined_recently: { message: DECLINED_RECENTLY_COPY, next: 'contact_support' },
+  // Admin I1 #1284: a page with an interim manager only takes new people through the team.
+  interim_cannot_add: { message: INTERIM_CANNOT_ADD_COPY, next: null },
 };
 
 const GENERIC: SelfServeErrorCopy = {
@@ -183,6 +193,8 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /^permission_denied: series\.set_organisers can only add an organiser page you own or manage/, message: 'You can only add organiser pages you run. To add another page, ask the Bachata Calendar team.' },
   { match: /^permission_denied: series\.set_organisers can only add a live organiser page/, message: "That page isn't live, so it can't be added." },
   { match: /^version_conflict/, message: VERSION_CONFLICT },
+  // Q10: the move guard. The date sheet handles it before it gets here; this is the net for any other caller.
+  { match: /^date_has_people:/, message: 'Some people are on this date. Open the date and confirm the move to go ahead.' },
   // P3 W2b, the date sheet (handlers read on prod 2026-10-27). Anchored: the reason refusal lists every label.
   { match: /^invalid_payload: cancellation reason must be one of/, message: 'That reason is no longer on the list. Reload the page, then pick a reason again.' },
   { match: /^invalid_payload: per-date time is not supported for festivals/, message: 'Festival times are set for the whole festival, not one date. Ask the Bachata Calendar team.' },
@@ -240,7 +252,9 @@ export const COMMAND_COPY: Array<{ match: RegExp; message: string | ((hit: RegEx
   { match: /is not an owner transition|^lifecycle_transition_denied/, message: 'That status change is not available for this event right now.' },
   // P3 W2a, the Status sheet: series.end_run and series.stop_repeating refusals (_cmd_series_end_run_p5,
   // _cmd_series_stop_repeating_p5 as read on prod 2026-10-26). Anchored: the server text names ids and formats.
-  { match: /^permission_denied: series\.set_lifecycle \S+ -> live needs a ready series/, message: 'It is not ready to go live yet: it needs a cover photo, a date coming up and its details. Add them in the current organiser area, then put it live.' },
+  // The refusal names its items in JSON (goLiveRefusal -> goLiveReasonText on the Status sheet); this is
+  // the sentence when only the code is known. It names no item: the old one blamed the cover for a profile gap.
+  { match: /^permission_denied: series\.set_lifecycle \S+ -> live needs a ready series/, message: GO_LIVE_NOT_READY },
   { match: /^invalid_payload: today_session_required/, message: 'This event has a date today. Say whether tonight happened, then end it.' },
   { match: /^invalid_transition: series \S+ has no night this platform can evidence/, message: 'We have no record of a night this event ran, so it cannot be ended. Remove it instead, or ask the Bachata Calendar team.' },
   { match: /^invalid_transition: course \S+ is (live|paused)\. A course must keep a schedule/, message: 'A course keeps its dates while it runs. End it when the last class is done.' },

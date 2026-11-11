@@ -6,7 +6,8 @@ import { OnBody } from '../screens/OnBody';
 import { Sheet } from '../screens/Sheet';
 import { fetchOnboardingStatus, onboardingStatusKey } from './statusQuery';
 import { GATE_COPY, gateView } from './gateModel';
-import { withBack } from './returnTo';
+import { gateBody } from './graceModel';
+import { gateGoState, withBack } from './returnTo';
 import { P3_PATHS } from '../shell/paths';
 
 /**
@@ -46,7 +47,7 @@ export default function GateSheet({ organiserId, refused = [], at = null, onClos
     <OnBody>
     <Sheet title={GATE_COPY.title} onClose={onClose}>
       <div data-testid="p3-gate">
-        <p className="p3-plain" data-testid="p3-gate-body">{GATE_COPY.body}</p>
+        <p className="p3-plain" data-testid="p3-gate-body">{gateBody(view.kind === 'left' ? view.rows.length : null)}</p>
         {view.kind === 'unknown' && (q.isError || !user?.id || q.isSuccess) && (
           <div className="p3-stack-s p3-gap-t">
             <p className="p3-error" role="alert" data-testid="p3-gate-read-failed">{GATE_COPY.readFailed}</p>
@@ -70,7 +71,7 @@ export default function GateSheet({ organiserId, refused = [], at = null, onClos
       {/* sticky, so Continue and Not now stay in view however many rows are listed (prod max 10) */}
       <div className="p3-sheet-foot"><div className="p3-stack-s">
         {to ? (
-          <Link className="p3-btn p3-gate-go" to={to} onClick={onClose} data-testid="p3-gate-go">{GATE_COPY.go}</Link>
+          <Link className="p3-btn p3-gate-go" to={to} state={gateGoState(at)} onClick={onClose} data-testid="p3-gate-go">{GATE_COPY.go}</Link>
         ) : (
           <>
             <button type="button" className="p3-btn" disabled data-testid="p3-gate-go">{GATE_COPY.go}</button>

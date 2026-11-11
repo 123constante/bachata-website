@@ -95,6 +95,7 @@ let bind: unknown;
 let newLink: unknown;
 /** When set, redeem_organiser_invite_v1 answers with this error (e.g. the profile gate's RAISE). */
 let redeemError: { message: string } | null;
+let onboarding: unknown = null;
 
 function Where() { const l = useLocation(); return <p data-testid="where">{l.pathname}{l.search}</p>; }
 function mount(url = `/invite/${TOKEN}`, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
@@ -147,6 +148,7 @@ beforeEach(() => {
     if (fn === 'redeem_organiser_invite_v1') return redeemError ? Promise.resolve({ data: null, error: redeemError }) : ok(redeem);
     if (fn === 'bind_organiser_invite_email_v1') return ok(bind);
     if (fn === 'request_new_invite_v1') return ok(newLink);
+    if (fn === 'organiser_onboarding_status_v1') return ok(onboarding);
     if (fn === 'set_my_role_intent_v1') return ok({ ok: true, roles: [...JOIN_ROLES] });
     return Promise.reject(new Error(`unexpected rpc ${fn}`));
   });
@@ -190,7 +192,9 @@ describe('signed out: the email step', () => {
     expect(screen.getByTestId('join-person-hi').textContent).toBe('Hi Papacito');
     expect(screen.getByTestId('join-person-card').textContent).toContain('London');
     expect(screen.getByTestId('join-person-card').textContent).toContain(JOIN_COPY.person.tag);
-    expect(document.body.textContent).not.toMatch(/@/);
+    // join-gaps-1: the only address shown is the masked hint's own line (the card itself shows no email)
+    expect(screen.getByTestId('join-person-card').textContent).not.toMatch(/@/);
+    expect(document.body.textContent?.replace(JOIN_COPY.inviteSentTo('p***@sensualvibes.example'), '')).not.toMatch(/@/);
   });
 
   it('a page invite shows no person card', async () => {
@@ -256,6 +260,8 @@ describe('signed out: the email step', () => {
 describe('refusals when the code is sent: each its own screen, each says what to do next', () => {
   it('blocked email domain (403): WhatsApp help and "Use another email" back to the box', async () => {
     h.otp.mockResolvedValue({ data: null, error: { status: 403, message: 'Sign-up with this email provider is not accepted' } });
+    // A link already bound (hint shown): no bind runs, so another email can still work (the bind-tied case: joinGaps.matrix).
+    preview = open({ email_hint: 'a***@blocked.example' });
     mount();
     await sendEmail('ana@blocked.example');
     await stopIs('blocked_domain');
@@ -688,12 +694,12 @@ describe('wrong account', () => {
 });
 
 describe('dead and broken links', () => {
-  it.each(['used', 'expired', 'revoked'])('%s, signed out: why, and "Ask Ricky for a new one" that really asks', async (status) => {
+  it.each(['used', 'expired', 'revoked'])('%s, signed out: why, and "Ask the team for a new one" that really asks', async (status) => {
     preview = { ...open(), status };
     mount();
     await stepIs('dead');
     const ask = screen.getByTestId('invite-new-link');
-    expect(ask.textContent).toContain('Ricky');
+    expect(ask.textContent).toContain('Ask the team for a new one');
     expect(window.location.pathname).toBe('/invite');
     fireEvent.click(ask);
     expect(await screen.findByTestId('invite-new-link-done')).toBeTruthy();
@@ -747,6 +753,24 @@ describe('dead and broken links', () => {
     expect(document.head.querySelector('meta[name="referrer"][content="no-referrer"]')).toBeTruthy();
     view.unmount();
     expect(document.head.querySelector('meta[name="referrer"]')).toBeNull();
+  });
+});
+
+describe('Done sentence uses the real rows left (join-gaps-2 item 7)', () => {
+  const codes = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
+  it.each([[0, /yours to use/, /minute|stop and come back|Add your details/], [1, /Add your details first|Add your details/, /Everything/], [3, /minute or two/, /Everything/], [6, /three minutes/, /Everything/], [10, /five minutes/, /Everything/]])('%s rows left', async (n, want, notWant) => {
+    signedIn();
+    onboarding = { complete: n === 0, is_admin: false, person: { missing: [] }, organisers: [{ id: 'o1', name: ORG, complete: n === 0, missing: codes(n) }] };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['organiser-home', ME.id], { organisers: [] });
+    mount(undefined, client);
+    await stepIs('join');
+    fireEvent.click(screen.getByTestId('invite-join'));
+    await stepIs('done');
+    await waitFor(() => expect(h.rpc.mock.calls.some((c) => c[0] === 'organiser_onboarding_status_v1')).toBe(true));
+    const text = () => document.body.textContent ?? '';
+    await waitFor(() => expect(text()).toMatch(want));
+    expect(text()).not.toMatch(notWant);
   });
 });
 
@@ -920,5 +944,162 @@ describe('slice U review r1: a first-time joiner keeps Done when the preview lat
     await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
     expect(screen.getByTestId('join-step').getAttribute('data-step')).toBe('done');
     expect(screen.getByTestId('where').textContent).toMatch(/^\/invite/);
+  });
+});
+
+// people-find-before-create (model 2): every claim answer x invite kind x signed-in shape, after the code is verified.
+// Find before create uses ONLY the invite's own proof (its person or its bound email), never a search by name.
+describe('find before create: claim answer x invite kind x signed-in shape', () => {
+  type Kind = 'person' | 'email' | 'none';
+  type Next = 'continue' | 'safety_redeem' | 'unmatched';
+  const PREVIEWS: Record<Kind, () => Record<string, unknown>> = {
+    person: () => open(PERSON),
+    email: () => open({ email_hint: 'a***@example.com' }),
+    none: () => open(),
+  };
+  /** The expected next step, written out by hand (not read from the mapping under test). */
+  const EXPECTED: Record<string, Record<Kind, Next>> = {
+    linked: { person: 'continue', email: 'continue', none: 'continue' },
+    already_linked: { person: 'continue', email: 'continue', none: 'continue' },
+    no_match: { person: 'safety_redeem', email: 'continue', none: 'continue' },
+    ambiguous: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
+    email_unproven: { person: 'safety_redeem', email: 'unmatched', none: 'unmatched' },
+    not_applicable: { person: 'continue', email: 'continue', none: 'continue' },
+    unavailable: { person: 'continue', email: 'continue', none: 'continue' },
+  };
+  const SHAPES: Record<string, ProfileCompletion> = {
+    new_login: { status: 'incomplete', missing: ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], profileId: null },
+    empty_stub: { status: 'incomplete', missing: ['first_name', 'based_city_id', 'dance_role', 'avatar_url'], profileId: ME.id },
+    already_claimed: { status: 'complete', missing: [], profileId: 'p-linked' },
+  };
+  beforeEach(() => sessionStorage.clear());
+  const ROWS = Object.entries(EXPECTED).flatMap(([claim, byKind]) =>
+    (Object.keys(byKind) as Kind[]).flatMap((kind) => Object.keys(SHAPES).map((shape) => ({ claim, kind, shape, next: byKind[kind] }))));
+
+  it('covers every claim status the client knows, plus unavailable', async () => {
+    const { CLAIM_STATUSES } = await vi.importActual<typeof import('@/lib/claimMyDancerProfile')>('@/lib/claimMyDancerProfile');
+    expect(Object.keys(EXPECTED).sort()).toEqual([...CLAIM_STATUSES, 'unavailable'].sort());
+  });
+
+  it.each(ROWS)('claim $claim, $kind invite, $shape -> $next', async ({ claim, kind, shape, next }) => {
+    preview = PREVIEWS[kind]();
+    redeem = next === 'safety_redeem' ? { ok: false, reason: 'not_linked' } : { ok: true, status: 'redeemed', organiser_id: 'o1' };
+    h.claim.mockResolvedValue({ status: claim, profileId: claim === 'linked' || claim === 'already_linked' ? 'p-linked' : null });
+    h.verify.mockImplementation(async () => {
+      h.auth.user = ME;
+      h.completion = SHAPES[shape];
+      return { data: { user: FIRST_SIGN_IN }, error: null };
+    });
+    mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await waitFor(() => expect(h.claim).toHaveBeenCalledTimes(1));
+    if (next === 'continue') {
+      await stepIs(SHAPES[shape].status === 'complete' ? 'join' : 'about');
+      expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
+      // Nothing is redeemed before the Join tap.
+      expect(redeems()).toHaveLength(0);
+    } else if (next === 'safety_redeem') {
+      await stopIs('not_linked');
+      expect(redeems()).toHaveLength(1);
+      expect(screen.queryByTestId('join-about-form')).toBeNull();
+    } else {
+      await stopIs('unmatched');
+      // Nothing created or chosen: no redeem, no About form on the sign-up stub, no Join button.
+      expect(redeems()).toHaveLength(0);
+      expect(h.save).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('join-about-form')).toBeNull();
+      expect(screen.queryByTestId('invite-join')).toBeNull();
+      expect(screen.getByTestId('join-unmatched-body').textContent).toBe(JOIN_COPY.unmatched.body);
+      // The copy names the one control that is on screen, and that control goes to the organiser home.
+      const home = screen.getByTestId('join-unmatched-home');
+      expect(home.textContent).toBe(JOIN_COPY.done.button);
+      expect(screen.getByTestId('join-unmatched-next').textContent).toContain(JOIN_COPY.done.button);
+      expect(home.getAttribute('href')).not.toContain('/invite');
+      expect(screen.queryByText(/told/i)).toBeNull();
+      // Two causes, two fixes: the failure tag names which claim answer it was.
+      expect(h.report).toHaveBeenCalledWith(expect.objectContaining({ message: `invite_join:claim:unmatched_${claim}` }), 'error');
+    }
+    // The claim never blocks the sign-in: the code step is gone whatever it answered.
+    expect(screen.getByTestId('join-step').getAttribute('data-step')).not.toBe('code');
+  });
+
+  it('a reload after the unmatched stop re-asks the claim once and, still unmatched, keeps it: nothing created, chosen or redeemed', async () => {
+    h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
+    h.verify.mockImplementation(async () => {
+      h.auth.user = ME;
+      h.completion = SHAPES.empty_stub;
+      return { data: { user: FIRST_SIGN_IN }, error: null };
+    });
+    const first = mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('unmatched');
+    first.unmount();
+    h.report.mockClear();
+    h.save.mockClear();
+    const callsBefore = h.rpc.mock.calls.length;
+    mount();
+    await stopIs('unmatched');
+    // The reload re-asks the claim once (it may have been fixed meanwhile); it still cannot tell, so the stop stays.
+    await waitFor(() => expect(h.claim).toHaveBeenCalledTimes(2));
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    await stopIs('unmatched');
+    // Nothing created, chosen or redeemed on reload: no redeem, no role write, no profile save, no About, no Join.
+    expect(redeems()).toHaveLength(0);
+    // Only reads after the reload: no write command (redeem, bind, role intent, new link) of any kind.
+    const READS = ['organiser_invite_preview_v1', 'organiser_onboarding_status_v1'];
+    expect(h.rpc.mock.calls.slice(callsBefore).map((c) => c[0]).filter((fn) => !READS.includes(fn as string))).toEqual([]);
+    expect(h.save).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('join-about-form')).toBeNull();
+    expect(screen.queryByTestId('invite-join')).toBeNull();
+    // The stop is not reported twice for the same visit.
+    expect(h.report).not.toHaveBeenCalled();
+  });
+
+  it.each(['linked', 'already_linked'] as const)('a reload after a fix (claim now %s) drops the stop and the normal flow continues', async (now) => {
+    h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
+    h.verify.mockImplementation(async () => {
+      h.auth.user = ME;
+      h.completion = SHAPES.empty_stub;
+      return { data: { user: FIRST_SIGN_IN }, error: null };
+    });
+    const first = mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('unmatched');
+    first.unmount();
+    // The organiser's admin joined them to their existing profile: the claim now lands.
+    h.claim.mockResolvedValue({ status: now, profileId: 'p-linked' });
+    h.completion = SHAPES.already_claimed;
+    mount();
+    await stepIs('join');
+    expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
+    expect(h.claim).toHaveBeenCalledTimes(2);
+    // Continuing is not joining: nothing is redeemed before the Join tap.
+    expect(redeems()).toHaveLength(0);
+    // Forgotten for good: a further reload neither shows the stop nor re-asks the claim.
+    cleanup();
+    mount();
+    await stepIs('join');
+    expect(h.claim).toHaveBeenCalledTimes(2);
+  });
+
+  it('another account in the same tab does not inherit the unmatched stop', async () => {
+    h.claim.mockResolvedValue({ status: 'ambiguous', profileId: null });
+    const first = mount(`/invite/${TOKEN}?step=code&email=${encodeURIComponent(ME.email)}`);
+    await typeCode();
+    await stopIs('unmatched');
+    first.unmount();
+    h.auth.user = { id: 'u2', email: 'ana@example.com' };
+    h.completion = { status: 'complete', missing: [], profileId: 'p2' };
+    mount();
+    await stepIs('join');
+    expect(screen.getByTestId('join-step').getAttribute('data-stop')).toBeNull();
+  });
+
+  it('an untouched page (already signed in, no code typed) sends no claim and no redeem', async () => {
+    signedIn();
+    mount();
+    await stepIs('join');
+    expect(h.claim).not.toHaveBeenCalled();
+    expect(redeems()).toHaveLength(0);
   });
 });

@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { flags } from '@/lib/featureFlags';
 import { CATCHALL_CLIENT_PATHS } from '@/components/catchallClientPaths';
 import { THANKS_PATH } from '../ticketCheckoutModel';
+import { MY_TICKETS_PATH } from '../myTicketsModel';
 
 /* Flag OFF = no visible change: publicTicketing defaults off and gates the only block and the only route. */
 const routes = readFileSync('src/components/AnimatedRoutes.tsx', 'utf8').replace(/\r\n/g, '\n');
@@ -24,14 +26,36 @@ describe('publicTicketing flag', () => {
     expect(routes.includes(`path="${THANKS_PATH}"`)).toBe(true);
     expect(CATCHALL_CLIENT_PATHS).toContain(THANKS_PATH);
   });
-  it('the event page mounts the block only behind the flag, from a lazy chunk', () => {
+  it('my tickets: flag-gated route that sends home while off, lazy, and the QR generator only in its chunk', () => {
+    expect([...routes.matchAll(/"\/account\/my-tickets"/g)]).toHaveLength(1);
+    expect(routes).toMatch(/<Route path="\/account\/my-tickets" element=\{\n\s+flags\.publicTicketing\n\s+\? <PageTransition><MyTicketsPage \/><\/PageTransition>\n\s+: <Navigate to="\/" replace \/>\n\s+\} \/>/);
+    expect(routes).toMatch(/const MyTicketsPage = lazyWithRetry\(\(\) => import\("@\/modules\/tickets\/MyTicketsPage"\)\);/);
+    expect(CATCHALL_CLIENT_PATHS).toContain(MY_TICKETS_PATH);
+    const importers = execSync('git grep -l "qrcode-generator" -- src', { encoding: 'utf8' }).trim().split('\n').filter((f) => !f.includes('__tests__'));
+    expect(importers).toEqual(['src/modules/tickets/qr.ts']);
+    const qrImporters = execSync('git grep -lE "from .(\\./|@/modules/tickets/)qr." -- src', { encoding: 'utf8' }).trim().split('\n').filter((f) => !f.includes('__tests__'));
+    expect(qrImporters).toEqual(['src/modules/tickets/TicketQrCode.tsx']);
+    for (const f of ['MyTicketsPage.tsx', 'OrderQrBlock.tsx']) expect(readFileSync(`src/modules/tickets/${f}`, 'utf8')).toMatch(/from '\.\/TicketQrCode'/);
+  });
+  it('DancerHome never imports the tickets module; the thank-you page imports the model only (not qr)', () => {
+    const dh = readFileSync('src/components/account/DancerHome.tsx', 'utf8');
+    expect(dh).not.toMatch(/modules\/tickets/);
+    const thanks = readFileSync('src/modules/tickets/TicketThanksPage.tsx', 'utf8');
+    expect(thanks).toMatch(/from '\.\/myTicketsModel'/);
+    expect(thanks).not.toMatch(/from '\.\/qr'/);
+    expect(thanks).not.toMatch(/^import .*OrderQrBlock/m);
+    expect(thanks).toMatch(/const OrderQrBlock = lazyWithRetry\(\(\) => import\('\.\/OrderQrBlock'\)\);/);
+    const importers = execSync('git grep -l "modules/tickets" -- src/components/account || true', { encoding: 'utf8' }).trim().split('\n').filter((f) => f && !f.includes('__tests__'));
+    expect(importers).toEqual([]);
+  });
+  it('the event page mounts the Tickets page only behind the flag, from a lazy chunk', () => {
     expect(bento).not.toMatch(/^import .*modules\/tickets/m);
     expect(bento.match(/import\('@\/modules\/tickets\//g)).toHaveLength(1);
-    expect(bento.match(/<TicketsBlock\s/g)).toHaveLength(1);
-    expect(bento).toMatch(/\{flags\.publicTicketing && state === 'ready' && eventId && !over && !occurrence\?\.isCancelled && !pageModel\.page\.isPaused && \(/);
+    expect(bento.match(/<EventTicketsPage\s/g)).toHaveLength(1);
+    expect(bento).toMatch(/\{ticketsOpen && flags\.publicTicketing && state === 'ready' && eventId && !over && !occurrence\?\.isCancelled && !pageModel\.page\.isPaused && \(/);
   });
   it('no Stripe secret anywhere in the module', () => {
-    const src = ['ticketCheckoutApi.ts', 'ticketCheckoutModel.ts', 'TicketsBlock.tsx', 'TicketThanksPage.tsx', 'legalCopy.ts']
+    const src = ['ticketCheckoutApi.ts', 'ticketCheckoutModel.ts', 'TicketsBlock.tsx', 'TicketThanksPage.tsx', 'legalCopy.ts', 'MyTicketsPage.tsx', 'myTicketsApi.ts', 'myTicketsModel.ts', 'qr.ts', 'TicketQrCode.tsx', 'OrderQrBlock.tsx']
       .map((f) => readFileSync(`src/modules/tickets/${f}`, 'utf8')).join('\n');
     expect(src).not.toMatch(/sk_(test|live)_|rk_(test|live)_|STRIPE_SECRET/);
   });

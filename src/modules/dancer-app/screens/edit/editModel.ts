@@ -1,3 +1,4 @@
+import { sanitizeReturnTo } from '@/lib/authRouting';
 import { getLoadedCountries, type Country } from '@/constants/countries';
 
 /**
@@ -40,3 +41,16 @@ export const styleChipOptions = (presets: readonly string[], ...lists: ReadonlyA
 /** The chip that stands for a stored value: its own spelling, or the preset it matches case-insensitively. */
 export const chipFor = (options: readonly string[], value: string): string =>
   options.find((o) => o.trim().toLowerCase() === value.trim().toLowerCase()) ?? value;
+
+export const EDIT_PATH = '/app/me/edit';
+export const ME_PATH = '/app/me';
+const RETURN_NOTE = 'Save your changes and you come straight back to where you were.';
+
+/** Where the editor was opened from (same rule as the save redirect), or null. The editor itself never counts. */
+export const editReturnTarget = (raw: string | null): string | null => sanitizeReturnTo(raw, { exclude: EDIT_PATH });
+
+/** The one line under the title when opened from somewhere (a checklist row); null with no valid returnTo. */
+export const editReturnNote = (returnTo: string | null, focus: string | null): string | null => {
+  if (!returnTo) return null;
+  return focus === 'instagram' ? `Add your Instagram, then save. ${RETURN_NOTE}` : RETURN_NOTE;
+};

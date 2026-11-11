@@ -6,6 +6,8 @@ import { parseTree } from '../../events/programmeSeriesModel';
 import { NO_SESSION_REASON } from '../../events/lifecycleModel';
 import { ARCHIVED_WHY, L, canCancelOneOff, classCount, daySessions, dayWord, kindOf, kindWordStored, liveDates, startPhrase, statusOf, upcoming } from '../model';
 import { dateFactsOf, marksOf } from './dateFacts';
+import { goLiveReasonText } from '../../shared/goLiveKeys';
+import type { GoLiveCheck } from '../../shared/goLiveCheck';
 import type { CancelInput, DaySession, IsoDate, P3Date, P3Event, P3Kind, P3Person, P3Session, P3Status, RoleKey, SessionKind } from '../model';
 
 /**
@@ -213,6 +215,8 @@ export const STATUS_COPY = {
   removeSub: 'It leaves your events and the calendar. Only the Bachata Calendar team can bring it back.',
   noComingDate: 'Add a date coming up first.',
   noCover: 'Add a cover photo first. Dancers see it before anything else.',
+  /** The alert over the sheet when Put it live was refused; the row under it names what is left. */
+  goLiveRefused: 'It did not go live. What is left is listed under Put it live.',
   backDraftWhy: 'A live event can\u2019t go back to draft. Hide it instead: dancers stop seeing it and every date is kept.',
   neverRan: 'It hasn\u2019t run yet, so it can\u2019t end. Hide it or remove it instead.',
   /** A one-off that can still be cancelled: End it points at the row that works (C3 `endit`). */
@@ -242,7 +246,12 @@ export const cancelInputOf = (ws: EventWorkspace): CancelInput => ({
   dates: ws.dates.map((d) => ({ date: d.occurrence_date, cancelled: d.lifecycle_status === 'cancelled', startUtc: d.materialised_start_utc })),
 });
 
-export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new Date()): StatusRow[] {
+/**
+ * `goLive`: the server's go-live answer (series_go_live_check_v1, or the JSON a refusal
+ * carries) once it is in hand. It then owns Put it live's reason, in the one mapping's
+ * words (goLiveReasonText); until then the page's own facts give a first reason.
+ */
+export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new Date(), goLive?: GoLiveCheck | null): StatusRow[] {
   const s = ws.series;
   const lc = s.lifecycle_status;
   const kind = kindOfWorkspace(ws);
@@ -251,7 +260,11 @@ export function statusRows(ws: EventWorkspace, today: IsoDate, now: Date = new D
   if (lc === 'draft' || lc === 'rejected') {
     const coming = ws.dates.some((d) => d.lifecycle_status !== 'cancelled' && d.occurrence_date >= today);
     // the server's go-live gate also wants a cover (apply_aggregate_write_p5); the rest it names in its refusal
-    const why = !coming ? STATUS_COPY.noComingDate : !s.default_cover_image_url ? STATUS_COPY.noCover : !ws.hasSessions ? NO_SESSION_REASON : null;
+    // A not-ready answer names its items. A ready one (or none yet) leaves the page's own facts:
+    // a ready answer may be older than the page, and the write's gate also wants the cover.
+    const why = goLive && !goLive.ready ? goLiveReasonText(goLive)
+      : !coming ? STATUS_COPY.noComingDate
+      : !s.default_cover_image_url ? STATUS_COPY.noCover : !ws.hasSessions ? NO_SESSION_REASON : null;
     const out = [row('live', L.putLive, STATUS_COPY.liveSub, why)];
     if (lc === 'draft') out.push(row('remove', L.remove, STATUS_COPY.removeSub));
     return out;
@@ -397,4 +410,13 @@ export function publicPageOf(ws: EventWorkspace): { href: string | null; why: st
   const slug = ws.series.slug;
   if (!slug) return { href: null, why: PUBLIC_PAGE_NO_ADDRESS };
   return { href: eventHref({ slug, event_id: ws.series.id }), why: lc === 'paused' ? PUBLIC_PAGE_SUB_PAUSED : PUBLIC_PAGE_SUB };
+}
+
+/** p3-share-event-link: what the "Share this event" row sends. Reuses publicPageOf, so the rule and the path live in one place. */
+export const SHARE_SUB = 'Send dancers the link';
+export type ShareOf = { url: string; title: string; off?: undefined } | { off: true; why: string };
+export function shareOf(ws: EventWorkspace, origin: string): ShareOf {
+  const pub = publicPageOf(ws);
+  if (!pub.href) return { off: true, why: pub.why };
+  return { url: `${origin}${pub.href}`, title: ws.series.name };
 }

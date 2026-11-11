@@ -1,3 +1,4 @@
+import { MIN_TAP_PX } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { build } from 'esbuild';
 import path from 'node:path';
@@ -46,8 +47,8 @@ test('banner ON: 44px+ controls, no sideways scroll, dismiss sticks', async ({ p
   await expect(banner).toBeVisible();
   const cta = page.getByRole('link', { name: 'Create your profile' });
   const close = page.getByRole('button', { name: 'Dismiss' });
-  expect((await cta.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect((await cta.boundingBox())!.height).toBeGreaterThanOrEqual(MIN_TAP_PX);
+  expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect((await banner.boundingBox())!.height).toBeLessThan(120);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   await close.click();

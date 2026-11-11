@@ -60,13 +60,20 @@ import { addTeamMemberByProfile, fetchOrganiserTeam, organiserTeamQueryKey, sear
 import { teamPickerAccess, type TeamMember, type TeamRole } from '@/modules/organiser/shared/teamModel';
 import TeamSheet from './TeamSheet';
 import { TeamCard } from './TeamCard';
+import TeamVisibilitySheet, { type TeamVisibilitySheetProps } from './TeamVisibilitySheet';
+import { callerPersonIdOf, visibilityAccess } from './teamVisibilityModel';
+import { fetchOrganiserPublicTeam, organiserPublicTeamKey } from '@/modules/organiser/team/publicTeamApi';
 import { SEARCH_LIMIT, addedMessage, teamCountLine, type AddOutcome, type AddRole } from './teamPickerModel';
+import { p3RolesLive, p3TeamCountLine } from './teamRoles';
+import { flags } from '@/lib/featureFlags';
 import { AboutEmpty, AboutSlot, CompleteCard, CreateEventLink, CREAM, GOLD, INK, LAYER_CSS, LinkRows, MetaSlot, NameSlot, PhotoSlot, type OpenSheet } from './parts';
 
 type Notice = { tone: 'gold' | 'ok' | 'error'; text: string };
 type SaveClient = Parameters<typeof saveDrafts>[0];
 
 export interface EditInPlaceLayerInternals {
+  /** Slice 1b: the P3 Team roles (Owner, Manager, Door; no contributor). Defaults to p3RolesLive(flags) (organiserP3 AND organiserSelfServe); tests inject. */
+  p3Roles?: boolean;
   /** Injected by tests; the real client otherwise. */
   client?: SaveClient;
   uploadPhoto?: (organiserId: string, file: File) => Promise<string>;
@@ -76,14 +83,16 @@ export interface EditInPlaceLayerInternals {
   fetchTeam?: (organiserId: string) => Promise<{ myRole: TeamRole | 'admin' | null; members: TeamMember[] }>;
   searchPeople?: (organiserId: string, term: string) => Promise<unknown>;
   addPerson?: (organiserId: string, profileId: string, role: AddRole, reason: string | null) => Promise<unknown>;
+  /** Team sheet "Who shows on your page" reads and the hide call (TeamVisibilitySheet). */
+  visibility?: Pick<TeamVisibilitySheetProps, 'fetchPublic' | 'fetchHidden' | 'fetchNames' | 'setHidden'>;
 }
 
 const btn = { minHeight: 44, padding: '0 16px', borderRadius: 999, fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 
-export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, dockZ = BAR_Z, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
+export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId, dockZ = BAR_Z, client, uploadPhoto, searchCities, resolveCity, fetchContact, fetchTeam, searchPeople, addPerson, visibility, p3Roles = p3RolesLive(flags) }: EditInPlaceLayerProps & EditInPlaceLayerInternals) {
   const queryClient = useQueryClient();
-  // Who may add people (owner or admin), from the server's own answer; a manager or
-  // contributor gets no Team card and no picker. A failed read shows nothing.
+  // Who may add people (owner or admin), from the server's own answer; any other seat
+  // gets no Team card and no picker. A failed read shows nothing.
   const teamQuery = useQuery({
     queryKey: organiserTeamQueryKey(organiserId),
     queryFn: () => (fetchTeam ?? fetchOrganiserTeam)(organiserId),
@@ -91,11 +100,28 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
     retry: false,
   });
   const teamAccess = teamPickerAccess(teamQuery.data?.myRole);
+  // "Who shows on your page": owner, admin, manager, and the self arm (the caller's own
+  // person is on the public Team). Only the self arm needs the public list to decide,
+  // so only it reads it here (same key as the page's Team, so usually cached).
+  const myRole = teamQuery.data?.myRole;
+  const callerPersonId = useMemo(() => callerPersonIdOf(teamQuery.data?.members ?? []), [teamQuery.data]);
+  const seatSees = myRole === 'owner' || myRole === 'admin' || myRole === 'manager';
+  const selfPublic = useQuery({
+    queryKey: organiserPublicTeamKey(organiserId),
+    queryFn: () => (visibility?.fetchPublic ?? fetchOrganiserPublicTeam)(organiserId),
+    enabled: !!teamQuery.data && !seatSees && callerPersonId !== null,
+  });
+  const visAccess = useMemo(
+    () => !!teamQuery.data && visibilityAccess({ myRole, callerPersonId, onTeamIds: new Set((selfPublic.data ?? []).map((r) => r.person_id)) }),
+    [teamQuery.data, myRole, callerPersonId, selfPublic.data],
+  );
   const teamLine = useMemo(() => {
     const members = teamQuery.data?.members ?? [];
     const n = (r: TeamRole) => members.filter((m) => m.role === r).length;
+    // P3 (slice 1b): owners and managers only -- no contributor word or count (R1, R2).
+    if (p3Roles) return p3TeamCountLine({ owner: n('owner'), manager: n('manager') });
     return teamCountLine({ owner: n('owner'), manager: n('manager'), contributor: n('contributor') });
-  }, [teamQuery.data]);
+  }, [teamQuery.data, p3Roles]);
   const searchTeam = useCallback(
     (term: string) => (searchPeople ? searchPeople(organiserId, term) : searchTeamPeople(organiserId, term, SEARCH_LIMIT)),
     [searchPeople, organiserId],
@@ -133,7 +159,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
   );
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const [sheet, setSheet] = useState<FieldKey | 'contact' | 'team' | null>(null);
+  const [sheet, setSheet] = useState<FieldKey | 'contact' | 'team' | 'team-visibility' | null>(null);
   // City id -> name, for the drafted city shown in place (the stored one to start).
   const [cityNames, setCityNames] = useState<Record<string, string>>(() =>
     entity.city_id && entity.cities?.name ? { [entity.city_id]: entity.cities.name } : {},
@@ -212,6 +238,10 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
   const openTeam = useCallback((opener: HTMLElement) => {
     openerRef.current = opener;
     setSheet('team');
+  }, []);
+  const openVisibility = useCallback((opener: HTMLElement) => {
+    openerRef.current = opener;
+    setSheet('team-visibility');
   }, []);
 
   // Done in the team picker has asked the server: say who was added, then re-read the team.
@@ -348,6 +378,13 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
   const refetchContact = contactQuery.refetch;
   const card = useMemo(() => cardModel(entity, drafts), [entity, drafts]);
 
+  // How many 'about' slot pencils are mounted right now (see the 'about' / 'about-empty' cases).
+  const [aboutPencils, setAboutPencils] = useState(0);
+  const registerAboutPencil = useCallback(() => {
+    setAboutPencils((n) => n + 1);
+    return () => setAboutPencils((n) => n - 1);
+  }, []);
+
   const bridge = useMemo<EipBridge>(() => {
     const has = (f: FieldKey) => drafts[f] !== undefined;
     const shown = { ...formFromEntity(entity), ...buildShown(entity, drafts) };
@@ -365,8 +402,11 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
             onOpen={openSheet}
           />
         );
-        case 'about': return <AboutSlot drafted={has('bio')} onOpen={openSheet} />;
-        case 'about-empty': return <AboutEmpty />;
+        // 'about' always renders the bio pencil (the blank-page "Add a bio" pill and /page's About row
+        // use it with no bio) and registers while mounted; the empty About line drops its own pencil
+        // when one is, so every screen gets exactly ONE About pencil (docs/design/1473.md).
+        case 'about': return <AboutSlot drafted={has('bio')} onOpen={openSheet} register={registerAboutPencil} />;
+        case 'about-empty': return <AboutEmpty drafted={has('bio')} onOpen={openSheet} withPencil={aboutPencils === 0} />;
         case 'links': return (
           <LinkRows
             values={{ instagram: shown.instagram, facebook: shown.facebook, website: shown.website }}
@@ -375,14 +415,14 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
           />
         );
         case 'contact': return <ContactCard load={contactLoad} items={contact} onEdit={openContact} onRetry={() => void refetchContact()} />;
-        case 'team': return teamAccess ? <TeamCard countLine={teamLine} onAdd={openTeam} /> : null;
+        case 'team': return teamAccess || visAccess ? <TeamCard countLine={teamLine} onAdd={teamAccess ? openTeam : undefined} onVisibility={visAccess ? openVisibility : undefined} /> : null;
         case 'create-event': return <CreateEventLink organiserId={organiserId} label="Create event" />;
         case 'create-first-event': return <CreateEventLink organiserId={organiserId} label="Create your first event" />;
         case 'create-another-event': return <CreateEventLink organiserId={organiserId} label="Create an event" />;
       }
     };
     return { overlay, slot, mark: (f) => (has(f) ? 'eip-drafted' : undefined) };
-  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact, teamAccess, teamLine, openTeam]);
+  }, [entity, drafts, overlay, card, openSheet, organiserId, contact, contactLoad, openContact, refetchContact, teamAccess, teamLine, openTeam, visAccess, openVisibility, aboutPencils, registerAboutPencil]);
 
   useEffect(() => {
     onBridge(bridge);
@@ -391,7 +431,7 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
 
   const dataRouter = useContext(UNSAFE_DataRouterContext);
   const stored = (f: FieldKey): string => (f === 'city' ? entity.city_id ?? '' : (formFromEntity(entity)[f] as string) ?? '');
-  const fieldSheet = sheet === 'contact' || sheet === 'team' ? null : sheet;
+  const fieldSheet = sheet === 'contact' || sheet === 'team' || sheet === 'team-visibility' ? null : sheet;
   const sheetInitial = fieldSheet ? (drafts[fieldSheet] ?? stored(fieldSheet)) : '';
 
   return (
@@ -401,7 +441,10 @@ export default function EditInPlaceLayer({ organiserId, entity, onBridge, userId
         <ContactSheet stored={storedContact} drafts={drafts} onDone={onContactDone} onClose={closeSheet} />
       )}
       {sheet === 'team' && teamAccess && (
-        <TeamSheet access={teamAccess} organiserName={entity.name ?? ''} search={searchTeam} add={addToTeam} onAdded={onTeamAdded} onClose={closeSheet} />
+        <TeamSheet access={teamAccess} organiserName={entity.name ?? ''} search={searchTeam} add={addToTeam} onAdded={onTeamAdded} onClose={closeSheet} p3Roles={p3Roles} />
+      )}
+      {sheet === 'team-visibility' && visAccess && teamQuery.data && (
+        <TeamVisibilitySheet organiserId={organiserId} myRole={teamQuery.data.myRole} members={teamQuery.data.members} onClose={closeSheet} {...visibility} />
       )}
       {fieldSheet && (
         <FieldSheet

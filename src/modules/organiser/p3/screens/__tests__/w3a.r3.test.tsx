@@ -140,35 +140,21 @@ describe('r3 #3: the "someone else saved" banner says the save will be refused',
   });
 });
 
-describe('r3 #5: Prices has the profile lock, as Details and the old area do', () => {
+describe('r3 #5, superseded by F-13 b: unfinished details never lock Details or Prices up front', () => {
   it.each([[DETAILS, 'p3-details-lock', 'p3-d-name'], [PRICES, 'p3-prices-lock', 'p3-free-switch']] as const)(
-    'an unfinished profile on %s: the lock shows with what to do, controls off, Save names why, nothing sent',
+    'an unfinished profile on %s: no lock, no "answers left", controls on, an untouched Save sends nothing',
     async (path, lockId, controlId) => {
       progress.current = { publishReady: false, requiredLeft: 2 };
       const envs = server(() => ({ data: { ok: true, new_version: 8 }, error: null }));
       show(path);
-      await waitFor(() => screen.getByTestId(lockId));
-      expect(screen.getByTestId(lockId).textContent).toContain('Finish your profiles first, 2 answers left');
-      expect(within(screen.getByTestId(lockId)).getByText('Complete your profile')).toBeTruthy();
-      expect((screen.getByTestId(controlId) as HTMLInputElement).disabled).toBe(true);
+      await waitFor(() => screen.getByTestId(controlId));
+      expect(screen.queryByTestId(lockId)).toBeNull();
+      expect(document.body.textContent).not.toMatch(/answers? left/);
+      expect(screen.queryByText('Complete your profile')).toBeNull();
+      expect((screen.getByTestId(controlId) as HTMLInputElement).disabled).toBe(false);
       expect(saveBtn().disabled).toBe(true);
       await press(saveBtn());
       expect(envs).toHaveLength(0);
-    },
-  );
-  // F-06 (review r1 #2): asserted unconditionally on a profile that IS unfinished, so the lock
-  // always renders. A plain <a href> does not move the in-app router (and reloads the app on a
-  // phone), so this goes red if the link stops being a client link.
-  it.each([[DETAILS, 'p3-details-lock'], [PRICES, 'p3-prices-lock']] as const)(
-    'F-06 %s: Complete your profile navigates inside the app', async (path, lockId) => {
-      progress.current = { publishReady: false, requiredLeft: 2 };
-      server(() => ({ data: { ok: true, new_version: 8 }, error: null }));
-      show(path);
-      const link = within(await waitFor(() => screen.getByTestId(lockId))).getByText('Complete your profile');
-      expect(link.getAttribute('href')).toBe(PROFILE_WIZARD_PATH);
-      await press(link);
-      await waitFor(() => expect(router.state.location.pathname).toBe(PROFILE_WIZARD_PATH));
-      expect(screen.getByTestId('profile-wizard')).toBeTruthy();
     },
   );
   it('a finished profile: Prices is live', async () => {

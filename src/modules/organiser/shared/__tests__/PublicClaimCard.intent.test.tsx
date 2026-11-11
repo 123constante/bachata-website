@@ -23,9 +23,9 @@ import { ownershipFacts, type OrganiserOwnership } from '../ownership';
 import type { ClaimHint } from '../claimHint';
 
 const ORG = { id: 'aaaaaaaa-0000-0000-0000-000000000001', name: 'Ritmo Bachata London' };
-const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null };
-const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null };
-const OWNER: OrganiserOwnership = { is_managed: true, i_own_it: true, my_role: 'owner' };
+const UNMANAGED: OrganiserOwnership = { is_managed: false, i_own_it: false, my_role: null, seat_kind: null };
+const MANAGED: OrganiserOwnership = { is_managed: true, i_own_it: false, my_role: null, seat_kind: null };
+const OWNER: OrganiserOwnership = { is_managed: true, i_own_it: true, my_role: 'owner', seat_kind: 'owner' };
 const ME = { id: 'me', email: 'diego@ritmo.example' };
 const PAGE = '/organisers/ritmo';
 const MARKED = `${PAGE}?claim=1`;

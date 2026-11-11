@@ -59,13 +59,24 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Three parallel shards (owner 2026-11-06): one job hit the 25-minute limit on
+  # busy runs. Shards split by file, not duration: on #1461 shard 3 took 14m00s,
+  # shard 1 9m17s, shard 2 7m43s, so a 15-minute cap left no headroom and the one
+  # auto-rerun has the same cap. A shard cancelled at its 20-minute limit is re-run once by
+  # phone-qa-rerun.yml; a real test failure is never re-run and stays red.
   phone-qa:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -82,13 +93,32 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      # No artifact upload, deliberately: check-workflow-artifact-policy.mjs
-      # records the repo's upload-step count as a measurement, and adding one is
-      # a guard-maintenance change of its own. A failure prints each assertion
-      # with its measured px; reproduce locally for screenshots and traces
-      # (test-results/phone-qa/).
+      # A failure prints each assertion with its measured px; reproduce locally for
+      # screenshots and traces (test-results/phone-qa/). The auto-walk pictures below
+      # are the one upload here; check-workflow-artifact-policy.mjs records the count.
       - name: Run the phone suite (390x844 and 360x640)
-        run: npx playwright test --config playwright.phone.config.ts
+        run: npx playwright test --config playwright.phone.config.ts --shard=${{ matrix.shard }}/3
+
+      # Auto-walk pictures for the review pack (scripts/auto-walk-manifest.mjs).
+      # Runs even when the suite is red, so a failing PR still gets its pictures.
+      # Reports only: NOT covered lines never fail the job. Shard 1 only: the pictures
+      # do not depend on the shard, and three uploads named auto-walk would collide.
+      - name: Auto-walk pictures (390x844)
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          PR_FILES="$(git diff --name-only "$BASE_SHA"...HEAD)" node scripts/auto-walk-manifest.mjs --run
+          node scripts/auto-walk-manifest.mjs --summary >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload auto-walk pictures
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-walk
+          path: test-results/auto-walk
+          if-no-files-found: error
+          retention-days: 14
 
   # The PRODUCTION build, which the job above never sees: it drives the dev
   # server, which serves every module unbundled, so a bug that exists only in the

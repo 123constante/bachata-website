@@ -164,6 +164,8 @@ describe('item 7: every server reason has its own copy; anything else is the saf
     ['stale', 'retry'], ['method_not_allowed', 'retry'],
     // Client-side reasons.
     ['not_configured', 'contact_organiser'], ['unauthorised', 'retry'], ['network', 'retry'], ['timeout', 'retry'],
+    // S1a night refusals.
+    ['wrong_night', 'pick_night'], ['night_required', 'pick_night'], ['night_cancelled', 'pick_night'], ['night_ended', 'pick_night'], ['not_course_night', 'pick_night'],
   ];
   it.each(server)('%s -> own entry, way %s', (reason, way) => {
     expect(Object.prototype.hasOwnProperty.call(REASON_COPY, reason)).toBe(true);

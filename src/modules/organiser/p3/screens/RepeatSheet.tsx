@@ -6,14 +6,22 @@ import { saveButton } from '../model';
 import {
   NTH_CHOICES, PREVIEW_EMPTY, REPEAT_COPY, REPEAT_MAX, WEEK_ORDER, addMonthsKey, blankDraft, courseFacts, courseLine, defaultWeekday,
   draftOfRule, draftSig, parsePreview, previewCommand, previewFailure, previewLines, repeatAccess, repeatFailure, repeatPlan, repeatProblem,
-  noRuleNote, repeatSentence, repeatStart, repeatWords, type RepeatDraft, type RepeatEnd, type RepeatPreview,
+  noRuleNote, repeatSentence, repeatStart, repeatWords, REPEAT_WHY, type RepeatDraft, type RepeatEnd, type RepeatPreview,
 } from '../model/repeat';
+import { dancerMessageUsUrl } from '@/lib/contactLinks';
+
+/** The WhatsApp message the locked Repeat sheet's "Ask the team" opens; the event and the reason shown follow it. */
+export const REPEAT_ASK_MESSAGE = 'Hi! I need help with how my event repeats on Bachata Calendar. Event: ';
+
+/** The reasons whose words send the person to the team: each gets the Ask link (course, custom and one-off point at controls on the page). */
+const ASK_WHY: ReadonlySet<string> = new Set([REPEAT_WHY.ended, REPEAT_WHY.archived, REPEAT_WHY.review, REPEAT_WHY.adminOnly, REPEAT_WHY.festival]);
 import type { PreviewRepeat } from '../data/repeat';
 import { repeatShapeOf } from '../data/dateFacts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
 import { useGatedCopy } from '../onboarding/gate';
 import { heldRefusal, useGateAnswer } from '../onboarding/gateRule';
 import { isOnboardingRefusal } from '../../shared/selfServeErrors';
+import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { Sheet } from './Sheet';
 import type { SendOnce } from './CancelEventSheet';
 import type { Done } from './StatusSheet';
@@ -129,7 +137,9 @@ export function Editor({ d, set, today, off }: { d: RepeatDraft; set: (p: Partia
  * editor greyed with what to do instead; a pattern only the team sets, and a closed event, show
  * the pattern with why; a one-off and a festival say they do not repeat.
  */
-export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
+export function RepeatSheet({ ws, today, send, preview, onDone, onClose, kept = null }: {
+  /** The draft the gate refused, kept (keptDraft.ts) and brought back: the sheet opens with it, Save ready, nothing sent. */
+  kept?: RepeatDraft | null;
   ws: EventWorkspace;
   today: string;
   /** The one-command save goes under a key held per draft (as the Status sheet's cancel): a retry after a dropped connection is the same write. */
@@ -144,7 +154,7 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
   const note = noRuleNote(shape);
   const next = ws.dates.filter((x) => x.lifecycle_status !== 'cancelled' && x.occurrence_date >= today).map((x) => x.occurrence_date).sort()[0] ?? null;
   const [base] = useState<RepeatDraft>(() => draftOfRule(s.recurrence_rule, defaultWeekday(next)) ?? blankDraft(defaultWeekday(next)));
-  const [draft, setDraft] = useState<RepeatDraft>(base);
+  const [draft, setDraft] = useState<RepeatDraft>(() => kept ?? base);
   const [pv, setPv] = useState<PreviewState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -203,6 +213,8 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
 
   const save = async () => {
     if (gateHeld) {
+      // the gate opens over this sheet: keep the edit for this event, so "Back to your event" brings it back
+      keepDraft(s.id, { screen: 'repeat', draft });
       setError(gated(gateHeld, repeatFailure));
       // a held refusal lets go once the re-read says pass (details finished elsewhere, flag off): the next
       // dry run and Save then send (review r1 F2)
@@ -216,8 +228,10 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
     try {
       const res = await send(plan[0], held.current.key);
       held.current = null;
+      dropKept(s.id);
       onDone({ text: REPEAT_COPY.saved, undo: null, version: typeof res?.new_version === 'number' ? res.new_version : null });
     } catch (e) {
+      if (isOnboardingRefusal(e)) keepDraft(s.id, { screen: 'repeat', draft });
       setError(gated(e, repeatFailure));
     } finally {
       setBusy(false);
@@ -233,16 +247,23 @@ export function RepeatSheet({ ws, today, send, preview, onDone, onClose }: {
           <div className="p3-card p3-inset" data-testid="p3-repeat-current">{repeatWords(shape, today)}</div>
           {course && <p className="p3-note" data-testid="p3-repeat-course">{courseLine(course, today)}</p>}
           <p className="p3-note" data-testid="p3-repeat-why">{access.why}</p>
+          {ASK_WHY.has(access.why) && (
+            <a className="p3-link" data-testid="p3-repeat-ask-team" target="_blank" rel="noopener noreferrer"
+              href={dancerMessageUsUrl(`${REPEAT_ASK_MESSAGE}${s.name.trim() || 'not named yet'}. The page says: ${access.why}`)}>Ask the team</a>
+          )}
           <button type="button" className="p3-btn p3-btn-line" onClick={onClose}>OK</button>
         </Sheet>
       </OnBody>
     );
   }
 
+  // closing the sheet by hand lets the kept edit go (Continue to the checklist does not close it)
+  const close = () => { dropKept(s.id); onClose(); };
   return (
     <OnBody>
-      <Sheet title={REPEAT_COPY.title} onClose={onClose}>
+      <Sheet title={REPEAT_COPY.title} onClose={close}>
         <div className="p3-sheet-body p3-stack-s">
+          {kept && changed && sig === draftSig(kept) && <p className="p3-note p3-kept" role="status" data-testid="p3-repeat-kept">{KEPT_COPY.line}</p>}
           {course && <p className="p3-row-t" data-testid="p3-repeat-course">{courseLine(course, today)}</p>}
           {access.mode === 'disabled' && <p className="p3-warn" id="p3-repeat-why" data-testid="p3-repeat-why">{access.why}</p>}
           {access.mode === 'edit' && note && !changed && <p className="p3-note" data-testid="p3-repeat-norule">{note}</p>}

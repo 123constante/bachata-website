@@ -46,7 +46,7 @@ function OrganisersBody({ ws }: { ws: EventWorkspace }) {
   const { kind } = useOrgSurface();
   const { sendThenDone, busy, conflict, error } = useEventSend(seriesId, kind === 'p3' ? gated : undefined);
   const { role, myPages } = useSeriesRole(seriesId);
-  const off = organisersOff({ lifecycle: ws.series.lifecycle_status, isOwner: role === 'owner' });
+  const off = organisersOff({ lifecycle: ws.series.lifecycle_status, canEdit: role === 'owner' || role === 'manager' });
   const pages = useQuery({ queryKey: ['org-organiser-pages', ...ids], queryFn: () => fetchOrganiserPages(ids), enabled: ids.length > 0 });
   const command = organisersCommand(stored, ids);
   const lastOff = removeOff(ids);

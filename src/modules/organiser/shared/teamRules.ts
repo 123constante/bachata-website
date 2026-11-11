@@ -1,3 +1,4 @@
+import type { SeatKind } from './ownership';
 import { INVITE_REQUIRED_COPY } from './selfServeErrors';
 import { ADD_ROLE_REASON, TEAM_CAP, TEAM_FULL_REASON, type TeamMember, type TeamRole } from './teamModel';
 
@@ -85,3 +86,27 @@ export function canLeave(team: readonly TeamMember[]): Gate | null {
 export const DECLINE_WHEN_FULL = 'Only the owner can decline a request.';
 /** More's Leave for a non-owner when the team read failed: the RPC would not stop an orphaned page. */
 export const LEAVE_UNCHECKED = 'We could not check who else runs this page, so Leave is off for now. Try again later.';
+
+/*
+ * Interim seat (admin I1, organiser_ownership_v1.seat_kind = 'interim'): someone helping run an ownerless
+ * page. The database refuses them interim_cannot_add and ticket tools, so the Website offers neither.
+ */
+export const INTERIM_LABEL = 'Interim manager';
+export const SHARE_JOIN_LINK = 'Share a join link';
+export const SHARE_JOIN_LINE = 'To join the team, the person opens the page and taps \u201cAsk to join\u201d themselves.';
+export const LINK_COPIED = 'Link copied';
+export const TICKETS_INTERIM_LINE = 'Ticket tools are for the page owner. Message us if you need them.';
+
+export const isInterim = (seat: SeatKind | null | undefined) => seat === 'interim';
+
+/** What the Team screen offers under the list. 'share' replaces Add someone for an interim manager. */
+export function teamAddOffer(seat: SeatKind | null | undefined, viewerRole: TeamRole | null, team: readonly TeamMember[]): { kind: 'add' | 'share'; gate: Gate } {
+  if (isInterim(seat)) return { kind: 'share', gate: OK };
+  return { kind: 'add', gate: canAdd(viewerRole, team) };
+}
+
+/** The caller's own row label: "Interim manager" for an interim seat, else null (the normal role label stays). */
+export const ownRowLabel = (seat: SeatKind | null | undefined, isSelf: boolean): string | null => (isSelf && isInterim(seat) ? INTERIM_LABEL : null);
+
+/** The You tab's Get paid row: hidden for an interim manager, who gets one line instead. */
+export const ticketsRow = (seat: SeatKind | null | undefined): 'row' | 'line' => (isInterim(seat) ? 'line' : 'row');

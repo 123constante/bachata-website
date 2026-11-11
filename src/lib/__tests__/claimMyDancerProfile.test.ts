@@ -86,3 +86,31 @@ it('parseClaimResult keeps a profile id only when it is a non-empty string', () 
   expect(parseClaimResult({ ok: true, status: 'linked', profile_id: '' })).toEqual({ status: 'linked', profileId: null });
   expect(parseClaimResult({ ok: true, status: 'no_match', profile_id: 7 })).toEqual({ status: 'no_match', profileId: null });
 });
+
+describe('sign-in email copy (save_my_signin_email_v1)', () => {
+  it('runs after the claim on every sign-in, so the claim links the profile first', async () => {
+    rpcLoose.mockResolvedValue({ data: { ok: true, status: 'already_linked', profile_id: 'admin-1' }, error: null });
+    await claimAtSignIn(new QueryClient());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(rpcLoose.mock.calls.map((c) => c[0])).toEqual(['claim_my_dancer_profile_v1', 'save_my_signin_email_v1']);
+  });
+
+  it('a failing copy never blocks or rejects the sign-in', async () => {
+    rpcLoose.mockImplementation(async (name: string) =>
+      name === 'save_my_signin_email_v1'
+        ? { data: null, error: { message: 'permission denied' } }
+        : { data: { ok: true, status: 'no_match', profile_id: null }, error: null },
+    );
+    await expect(claimAtSignIn(new QueryClient())).resolves.toEqual({ status: 'no_match', profileId: null });
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('a copy that throws is swallowed', async () => {
+    rpcLoose.mockImplementation(async (name: string) => {
+      if (name === 'save_my_signin_email_v1') throw new Error('network');
+      return { data: { ok: true, status: 'no_match', profile_id: null }, error: null };
+    });
+    await expect(claimAtSignIn(new QueryClient())).resolves.toEqual({ status: 'no_match', profileId: null });
+    await new Promise((r) => setTimeout(r, 0));
+  });
+});

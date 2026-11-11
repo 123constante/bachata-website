@@ -41,6 +41,29 @@ export interface P3Row {
   upcoming: number;
   /** The row's second line: when, and where. */
   sub: string;
+  /** Other pages of this person that also run this event (page scope: shown under each page, once per page). */
+  alsoRunBy: string[];
+  /**
+   * What goes after /event/ for the PUBLIC page (publicEventRefOf), or '' when there is no
+   * safe one. Never the series id of a bridged series: the resolver matches a uuid only on
+   * legacy_event_id, or on id when legacy_event_id is null.
+   */
+  publicEventRef: string;
+}
+
+/**
+ * The one place the public event reference is built. organiser_home_v1 sends the series slug
+ * (organisers[].series[].slug; prod 2026-11-07: every live series has one and it resolves for
+ * 70 of 70) and no legacy_event_id. Slug when non-blank; else legacy_event_id ?? id only when
+ * the payload carries the legacy_event_id key; else '' (bridging unknown, so no link at all).
+ */
+export function publicEventRefOf(s: { id: string; slug?: string | null; legacy_event_id?: string | null }): string {
+  if (typeof s.slug === 'string' && s.slug.trim()) return s.slug;
+  if ('legacy_event_id' in s) {
+    const legacy = s.legacy_event_id;
+    return typeof legacy === 'string' && legacy ? legacy : s.id;
+  }
+  return '';
 }
 
 const STORED_SESSION = 'stored-start';
@@ -69,7 +92,7 @@ function countWord(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-function whenLine(r: Omit<P3Row, 'sub'>, today: IsoDate): string {
+function whenLine(r: Omit<P3Row, 'sub' | 'alsoRunBy'>, today: IsoDate): string {
   if (r.status.key === 'finished') return r.status.label;
   if (!r.next) return r.lifecycle === 'draft' ? L.noDatesYet : r.status.label;
   const day = dayWord(r.next.date, today, r.nextStart);
@@ -103,7 +126,7 @@ export function rowOf(s: HomeSeriesRow, today: IsoDate): P3Row {
     upcoming,
   };
   const when = whenLine(r, today);
-  return { ...r, sub: r.place ? `${when} \u00b7 ${r.place}` : when };
+  return { ...r, sub: r.place ? `${when} \u00b7 ${r.place}` : when, alsoRunBy: [], publicEventRef: publicEventRefOf(s) };
 }
 
 /** Sort key: next date then its start; nothing coming up goes last. */
@@ -118,15 +141,30 @@ export function byNext(a: P3Row, b: P3Row): number {
   return ka < kb ? -1 : ka > kb ? 1 : a.name.localeCompare(b.name);
 }
 
-/** Every listed series across the organisers the person runs, once each, soonest first. */
-export function rowsOf(home: OrganiserHome): P3Row[] {
+/** The pages by name, then id: the deterministic order every page-scope default uses. */
+export function byPageName<T extends { id: string; name: string }>(a: T, b: T): number {
+  return a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1);
+}
+
+/**
+ * Every listed series of ONE page (page scope, F-26), once each, soonest first. An event run
+ * by 2+ of the person's pages appears under each of them and names the others (alsoRunBy).
+ * `undefined` (a caller with no page concept) reads every page; `null` (no page chosen or none
+ * exist) reads NONE, so an unresolved choice never shows every page's events.
+ */
+export function rowsOf(home: OrganiserHome, organiserId?: string | null): P3Row[] {
+  if (organiserId === null) return [];
+  const scoped = organiserId ? home.organisers.filter((o) => o.id === organiserId) : home.organisers;
   const seen = new Set<string>();
   const out: P3Row[] = [];
-  for (const o of home.organisers) {
+  for (const o of scoped) {
     for (const s of o.series as HomeSeriesRow[]) {
       if (!isListedSeries(s) || seen.has(s.id)) continue;
       seen.add(s.id);
-      out.push(rowOf(s, home.today));
+      const others = organiserId
+        ? home.organisers.filter((x) => x.id !== o.id && x.series.some((t) => t.id === s.id)).sort(byPageName).map((x) => x.name)
+        : [];
+      out.push({ ...rowOf(s, home.today), alsoRunBy: others });
     }
   }
   return out.sort(byNext);
@@ -145,10 +183,10 @@ export interface NextUp {
   different: boolean;
 }
 
-export function nextUpView(rows: readonly P3Row[], home: OrganiserHome): NextUp | null {
+export function nextUpView(rows: readonly P3Row[], home: OrganiserHome, organiserId?: string | null): NextUp | null {
   const row = nextUpOf(rows);
   if (!row || !row.next) return null;
-  const src = home.organisers.flatMap((o) => o.series).find((s) => s.id === row.id);
+  const src = home.organisers.filter((o) => !organiserId || o.id === organiserId).flatMap((o) => o.series).find((s) => s.id === row.id);
   const d = src?.next_dates.find((x) => x.occurrence_date === row.next!.date);
   return { row, when: `Next up \u00b7 ${dayWord(row.next.date, home.today, row.nextStart)}, ${row.nextTime}`, different: !!d?.has_own_changes };
 }

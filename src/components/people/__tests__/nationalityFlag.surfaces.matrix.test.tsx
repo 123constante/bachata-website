@@ -11,7 +11,7 @@
  * nationality_code = null for an unmappable stored value (Kosovo, one ambiguous
  * value) while `nationality` still holds the typed text, so RPC rows here carry a
  * misleading `nationality: 'ES'` that must never produce a flag on its own.
- * Lowercase, an unknown code, a valid code with no bespoke artwork (NZ), a very long
+ * Lowercase, an unknown code, a valid code with no bespoke artwork (AC), a very long
  * name and no photo are covered before production meets them.
  *
  * Nothing reaches any database: the supabase client is a fake answering from fixtures.
@@ -102,7 +102,7 @@ const SHAPES: Shape[] = [
   { key: 'lowercase (co)', code: 'co', name: 'Camila Ruiz', photo: PHOTO, want: { code: 'CO', country: 'Colombia' } },
   { key: 'unknown code (ZZ)', code: 'ZZ', name: 'Jan Kowal', photo: PHOTO, want: null },
   { key: 'not a code (Kosovar)', code: 'Kosovar', name: 'Arben Krasniqi', photo: PHOTO, want: null },
-  { key: 'valid, generic artwork (NZ)', code: 'NZ', name: 'Aroha Ngata', photo: PHOTO, want: { code: 'NZ', country: 'New Zealand' } },
+  { key: 'valid, generic artwork (AC)', code: 'AC', name: 'Aroha Ngata', photo: PHOTO, want: { code: 'AC', country: 'Ascension Island' } },
   {
     key: 'long name',
     code: 'VE',

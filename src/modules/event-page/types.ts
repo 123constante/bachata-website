@@ -80,6 +80,13 @@ export type EventPageDerivedLevel = 'mostly_beginners' | 'mixed' | 'strong';
 export type EventPageSnapshot = {
   eventId: string;
   occurrenceId: string | null;
+  /**
+   * Public state-change version from event_view_p5 (top-level `version`,
+   * admin 20270312410000; on prod a microsecond epoch integer). Null when the
+   * RPC predates it or the value is malformed. Live-now slice 3 reads it off
+   * the dehydrated /event/<slug>.data twin.
+   */
+  version: number | null;
   event: {
     name: string | null;
     description: string | null;
@@ -192,6 +199,10 @@ export type EventPageSnapshot = {
       capacity: number | null;
       floor_type: string | null;
       facilities_new: string[];
+      parking: string | null;
+      id_required: boolean | null;
+      cloakroom_available: boolean | null;
+      bar_available: boolean | null;
       timezone: string | null;
     } | null;
     timezone: string | null;
@@ -297,6 +308,10 @@ export type EventPageModel = {
     capacity: number | null;
     floorType: string | null;
     facilitiesNew: string[];
+    parking: string | null;
+    idRequired: boolean | null;
+    cloakroomAvailable: boolean | null;
+    barAvailable: boolean | null;
     venueTimezone: string | null;
     cityId: string | null;
     cityName: string | null;

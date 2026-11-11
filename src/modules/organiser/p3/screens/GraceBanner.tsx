@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { londonTodayKey } from '@/lib/londonDate';
 import { OB_THEME_KEY, readObTheme } from '../onboarding/obEnv';
-import { GRACE_BODY, GRACE_HIDE_KEY, graceShown, graceStatusFrom, onboardingLeft, thingsLeft } from '../onboarding/graceModel';
+import { graceBody, GRACE_HIDE_KEY, graceShown, graceStatusFrom, onboardingLeft, thingsLeft } from '../onboarding/graceModel';
 import { fetchOnboardingStatus, onboardingStatusKey } from '../onboarding/statusQuery';
 import { p3StartReview } from '../shell/paths';
 import { useOrganiserChoice } from '../../switch/useOrganiserChoice';
@@ -63,7 +63,7 @@ export function GraceBanner({ fetcher = fetchOnboardingStatus }: { fetcher?: () 
       {shown && s && (
         <section className="p3-card p3-grace" role="status" data-testid="p3-grace">
           <div className="p3-grace-txt">
-            <strong data-testid="p3-grace-body">{GRACE_BODY}</strong>
+            <strong data-testid="p3-grace-body">{graceBody(onboardingLeft(s))}</strong>
             <span data-testid="p3-grace-count">{thingsLeft(onboardingLeft(s))}</span>
           </div>
           <div className="p3-grace-acts">

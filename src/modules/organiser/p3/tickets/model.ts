@@ -17,6 +17,7 @@ import {
   type TicketType,
   type TypeForm,
   type TypeSales,
+  type SeriesDates,
 } from '../../tickets/ticketModel';
 import type { StatusTone } from '../../ui/StatusTag';
 import { fullDate } from '../../shared/dateWords';
@@ -30,13 +31,16 @@ import { fullDate } from '../../shared/dateWords';
 // ---- Copy the owner approved for P3 (2026-10-27) -----------------------------------
 
 /** The Home prompt's title: Home has no one event to name (the shipped title names one). */
-export const PROMPT_TITLE: Record<'none' | 'started', string> = {
+export type PromptState = 'none' | 'started' | 'waiting';
+export const PROMPT_TITLE: Record<PromptState, string> = {
   none: 'Get paid for tickets',
   started: STRIPE_COPY.started.title(''),
+  waiting: STRIPE_COPY.waiting.title(''),
 };
-export const PROMPT_BODY: Record<'none' | 'started', string> = {
+export const PROMPT_BODY: Record<PromptState, string> = {
   none: `Connect Stripe so you can sell paid tickets. ${STRIPE_COPY.none.body} Free tickets work without it.`,
   started: STRIPE_COPY.started.body,
+  waiting: STRIPE_COPY.waiting.body,
 };
 
 // ---- Tones: the ONE map from ticketModel's tones to P3 tag classes -----------------
@@ -107,8 +111,8 @@ export const noOrdersText = (types: readonly Pick<TicketType, 'status'>[], manag
  * The prompt shows only to an owner / manager, only while the page has a live event
  * and payments are not connected (and never while the account read is unknown).
  */
-export const showPrompt = (role: MemberRole | null | undefined, hasLive: boolean, stripe: StripeState | null): stripe is 'none' | 'started' =>
-  canManage(role) && hasLive && (stripe === 'none' || stripe === 'started');
+export const showPrompt = (role: MemberRole | null | undefined, hasLive: boolean, stripe: StripeState | null): stripe is PromptState =>
+  canManage(role) && hasLive && (stripe === 'none' || stripe === 'started' || stripe === 'waiting');
 
 /** The right side of You's Get paid row: the Stripe state's own tag. */
 export const getPaidRowTag = (stripe: StripeState | null): { label: string; tone: StatusTone } | null =>
@@ -131,8 +135,8 @@ export interface TypeDraft {
 
 export const draftKey = (type: Pick<TicketType, 'id'> | null): string => (type ? type.id : 'new');
 
-export const newDraft = (type: TicketType | null, eventStart: string | null): TypeDraft => {
-  const f = formOf(type);
+export const newDraft = (type: TicketType | null, eventStart: string | null, series?: SeriesDates | null): TypeDraft => {
+  const f = formOf(type, series);
   const form = type || !eventStart ? f : { ...f, closesAt: isoToLondonInput(eventStart) };
   return {
     key: draftKey(type),
@@ -144,8 +148,8 @@ export const newDraft = (type: TicketType | null, eventStart: string | null): Ty
 };
 
 /** Keep the held draft when it is for the same sheet; start a fresh one otherwise. */
-export const draftFor = (held: TypeDraft | null, type: TicketType | null, eventStart: string | null): TypeDraft =>
-  held && held.key === draftKey(type) ? held : newDraft(type, eventStart);
+export const draftFor = (held: TypeDraft | null, type: TicketType | null, eventStart: string | null, series?: SeriesDates | null): TypeDraft =>
+  held && held.key === draftKey(type) ? held : newDraft(type, eventStart, series);
 
 // ---- Facts the shipped event screen computes inline (SeriesTickets.tsx, to be deleted) --
 

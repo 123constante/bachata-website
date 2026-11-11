@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { checkOverflow, fakeSupabase, settled } from './helpers';
+import { checkOverflow, fakeSupabase, settled, MIN_TAP_PX } from './helpers';
 import { FAKE_ORIGIN, FAKE_REF } from './fakeSupabase.mjs';
 
 /**
@@ -84,7 +84,7 @@ async function primaryHittable(page: Page, testId: string) {
   const el = page.getByTestId(testId).first();
   await expect(el).toBeVisible();
   const b = (await el.boundingBox())!;
-  expect(b.height, `${testId} height`).toBeGreaterThanOrEqual(44);
+  expect(b.height, `${testId} height`).toBeGreaterThanOrEqual(MIN_TAP_PX);
   expect(b.y, `${testId} top`).toBeGreaterThanOrEqual(0);
   expect(b.y + b.height, `${testId} bottom`).toBeLessThanOrEqual(844 + 0.5);
   const hit = await el.evaluate((node) => {
@@ -213,7 +213,7 @@ test.describe('the step table', () => {
 
 test.describe('error screens (no prototype: the owner reviews these shots)', () => {
   test('E1 blocked email domain (403): WhatsApp help + use another email', async ({ page }) => {
-    await openInvite(page, { otp: { body: { code: 403, msg: 'Sign-up with this email provider is not accepted', message: 'Sign-up with this email provider is not accepted' }, status: 403 } });
+    await openInvite(page, { preview: previewOf('open', { email_hint: 'a***@blocked.example' }), otp: { body: { code: 403, msg: 'Sign-up with this email provider is not accepted', message: 'Sign-up with this email provider is not accepted' }, status: 403 } });
     await page.getByTestId('join-email-input').fill('ana@blocked.example');
     await page.getByTestId('join-send').click();
     await expectStep(page, 'email', 'blocked_domain');

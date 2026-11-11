@@ -59,14 +59,19 @@ export const NOT_MANAGER_STRIPE = 'Only an owner or manager of this page can set
 
 // ---- Get paid (organiser_stripe_accounts) -----------------------------------------
 
-export type StripeState = 'none' | 'started' | 'connected';
+/**
+ * none: no account row. started: a row, the forms are not all sent (Stripe still needs details from the person).
+ * waiting: every form sent (details_submitted), charges not on yet (Stripe is checking; nothing is left to do but wait).
+ * connected: charges on.
+ */
+export type StripeState = 'none' | 'started' | 'waiting' | 'connected';
 export interface StripeRow {
   charges_enabled?: unknown;
   payouts_enabled?: unknown;
   details_submitted?: unknown;
 }
 export const stripeStateOf = (row: StripeRow | null | undefined): StripeState =>
-  !row ? 'none' : row.charges_enabled === true ? 'connected' : 'started';
+  !row ? 'none' : row.charges_enabled === true ? 'connected' : row.details_submitted === true ? 'waiting' : 'started';
 
 export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; title: (eventName: string) => string; body: string; action: string | null }> = {
   none: {
@@ -83,6 +88,13 @@ export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; t
     body: 'Stripe still needs a few details before you can sell paid tickets. Free tickets work meanwhile.',
     action: 'Finish connecting',
   },
+  waiting: {
+    tag: 'Stripe is checking',
+    tone: 'draft',
+    title: () => 'Stripe is checking your details',
+    body: 'Stripe is checking the details you sent. This is usually quick. You can sell paid tickets as soon as it is done. Free tickets work meanwhile.',
+    action: 'Check again',
+  },
   connected: {
     tag: 'Paid out via Stripe',
     tone: 'live',
@@ -92,7 +104,15 @@ export const STRIPE_COPY: Record<StripeState, { tag: string; tone: StatusTone; t
   },
 };
 
-/** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this. */
+/** The edge functions (S2) are not deployed yet: 404 / 503 / not_configured all read as this (refunds are stricter: only a body saying not_configured does). */
+/** The waiting state's two real actions: refetch the status, and carry on at Stripe if the person wants to. */
+export const CHECK_AGAIN_LABEL = 'Check again';
+export const OPEN_STRIPE_LABEL = 'Open Stripe';
+/** Why a paid ticket cannot go on sale while Stripe is checking; also the line of the waiting Connect block. */
+export const STRIPE_WAITING_REASON = 'Stripe is still checking your details. Paid tickets can go on sale as soon as it is done.';
+/** The return banner while waiting, once the poll is over. */
+export const CONNECT_RETURN_WAITING = 'Stripe is checking your details. This is usually quick, and you can sell as soon as it is done.';
+
 export const NOT_SWITCHED_ON = 'Payments are not switched on yet. Free tickets work now; paid tickets and refunds come soon.';
 
 // ---- Rows ------------------------------------------------------------------------
@@ -125,6 +145,8 @@ export interface TypeSales {
   ordersRefunded: number;
   ordersDisputed: number;
   grossPence: number;
+  /** Sum of promo-code discounts on paid orders; grossPence is already net of it. */
+  discountsPence: number;
   bookingFeesPence: number;
   refundedPence: number;
 }
@@ -181,6 +203,7 @@ export interface SalesTotals {
   ordersRefunded: number;
   ordersDisputed: number;
   grossPence: number;
+  discountsPence: number;
   bookingFeesPence: number;
   refundedPence: number;
 }
@@ -193,10 +216,11 @@ export const totalsOf = (rows: readonly TypeSales[]): SalesTotals =>
       ordersRefunded: t.ordersRefunded + r.ordersRefunded,
       ordersDisputed: t.ordersDisputed + r.ordersDisputed,
       grossPence: t.grossPence + r.grossPence,
+      discountsPence: t.discountsPence + r.discountsPence,
       bookingFeesPence: t.bookingFeesPence + r.bookingFeesPence,
       refundedPence: t.refundedPence + r.refundedPence,
     }),
-    { ticketsSold: 0, ordersPaid: 0, ordersPending: 0, ordersRefunded: 0, ordersDisputed: 0, grossPence: 0, bookingFeesPence: 0, refundedPence: 0 },
+    { ticketsSold: 0, ordersPaid: 0, ordersPending: 0, ordersRefunded: 0, ordersDisputed: 0, grossPence: 0, discountsPence: 0, bookingFeesPence: 0, refundedPence: 0 },
   );
 
 
@@ -211,16 +235,123 @@ export interface MoveContext {
 }
 
 /** Where a paid ticket's seller connects payments (the one Get paid screen). */
-export const PAYMENTS_WHERE = 'Connect payments in You \u203A Get paid before selling paid tickets.';
+export const PAYMENTS_WHERE_LINK = 'Connect payments in You \u203A Get paid'; // PAYMENTS_WHERE_LINK: the tap target inside PAYMENTS_WHERE
+export const PAYMENTS_WHERE = `${PAYMENTS_WHERE_LINK} before selling paid tickets.`;
+
+/** STRIPE_AT_PRICE_HINT: shown at price entry (step 1) once the price is above zero, so the next step is no surprise. */
+export const STRIPE_AT_PRICE_HINT = 'Paid tickets are paid out through Stripe. About 10 minutes: you leave the app for Stripe and come back.';
+/** SELLING_ELSEWHERE_LINK: the small plain text link under Connect payments; it opens the event Details ticket link field. Never primary. */
+export const SELLING_ELSEWHERE_LINK = 'Selling elsewhere? Add a ticket link';
+/** STRIPE_REFRESH_NOTE: why the person is back after `stripe=refresh`. */
+export const STRIPE_REFRESH_NOTE = 'The Stripe link ran out. Carry on with Stripe to get a fresh one.';
+/** CONNECT_START_ERROR_SHOWN: the start error has this test id wherever it is drawn (sheet, banner, draft row). */
+export const CONNECT_START_ERROR_SHOWN = 'tix-connect-error';
 
 /** Why a move button is disabled, or null when it can be pressed. One rule for every screen. */
 export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'capacity'>, to: TicketStatus, ctx: MoveContext): string | null => {
   if (!canManage(ctx.role)) return NOT_MANAGER;
   if (to === 'on_sale' && !ctx.seriesLive) return 'Put this event live before selling tickets.';
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Reload the page if this stays.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Try again in a moment.';
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'waiting') return STRIPE_WAITING_REASON;
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
   return null;
+};
+
+// ---- Connect payments inline (the Add a ticket flow and a draft's row) ----------------
+
+export const CONNECT_LINE = 'Connect payments to put this on sale';
+export const CONNECT_LABEL = 'Connect payments';
+export const CONNECT_RESUME_LABEL = 'Carry on with Stripe';
+
+export interface ConnectBlock {
+  /** 'connect': the button goes to Stripe. 'check': waiting, the button refetches and `openStripe` is the way on to Stripe. */
+  kind: 'connect' | 'check';
+  /** The moveBlock reason this block stands in for (it replaces that line on the screen). */
+  replaces: string;
+  line: string;
+  /** The one button's words. */
+  button: string;
+  /** The start-onboarding error, when the last press failed. */
+  error: string | null;
+}
+
+/**
+ * The ONE decision for the Connect payments block, used by the sheet and by a draft's list row (they only
+ * draw it). Null = no block: free ticket, not a manager (NOT_MANAGER stays), Stripe still loading (the
+ * "Checking your payment set-up" reason stays), already connected, or onboarding cannot start
+ * (not_configured: the existing disabled reason is the fallback).
+ */
+export const connectBlock = (
+  pricePence: number,
+  ctx: Pick<MoveContext, 'role' | 'stripe'>,
+  onboarding: { switchedOff: boolean; note: string | null },
+): ConnectBlock | null => {
+  if (!(pricePence > 0) || !canManage(ctx.role)) return null;
+  if (ctx.stripe === 'unknown' || ctx.stripe === 'connected' || onboarding.switchedOff) return null;
+  if (ctx.stripe === 'waiting') {
+    return { kind: 'check', replaces: STRIPE_WAITING_REASON, line: STRIPE_WAITING_REASON, button: CHECK_AGAIN_LABEL, error: onboarding.note };
+  }
+  return { kind: 'connect', replaces: PAYMENTS_WHERE, line: CONNECT_LINE, button: ctx.stripe === 'started' ? CONNECT_RESUME_LABEL : CONNECT_LABEL, error: onboarding.note };
+};
+
+// ---- After Stripe: the status banner on the Tickets sheet -------------------------------
+export type ConnectReturnKind = 'refresh' | 'checking' | 'ready_drafts' | 'ready_none' | 'needs_more' | 'waiting';
+export interface ConnectReturnBanner {
+  kind: ConnectReturnKind;
+  line: string;
+  /** Buttons, in order: put each paid draft on sale, put them all on sale, or carry on with Stripe. */
+  actions: ReadonlyArray<{ kind: 'put_on_sale' | 'put_all_on_sale' | 'carry_on' | 'check'; label: string; typeId?: string }>;
+}
+export const CONNECT_RETURN_CHECKING = 'Checking your payment set-up\u2026';
+export const CONNECT_RETURN_NONE = 'Payments connected. Add a ticket to start selling.';
+export const CONNECT_RETURN_NEEDS = 'A few details are still needed.';
+
+/**
+ * ONE mapping (Stripe state x paid drafts) for the banner shown when the person comes back from Stripe.
+ * `drafts` is this event's ticket types. `polling` is true while the return poll is still running.
+ * No banner: not from Stripe, not an owner or manager, or tickets exist but none is a paid draft
+ * (a free-only list, or everything already moved on).
+ */
+export const connectReturnBanner = (i: {
+  arrivedFromStripe: boolean;
+  stripe: StripeState | 'unknown' | null;
+  role: MemberRole | null | undefined;
+  drafts: readonly Pick<TicketType, 'id' | 'name' | 'pricePence' | 'status'>[];
+  polling?: boolean;
+  /** Arrived with `stripe=refresh`: the Stripe link ran out. */
+  refresh?: boolean;
+}): ConnectReturnBanner | null => {
+  const waitingBanner = (): ConnectReturnBanner => ({
+    kind: 'waiting',
+    line: CONNECT_RETURN_WAITING,
+    actions: [{ kind: 'check', label: CHECK_AGAIN_LABEL }, { kind: 'carry_on', label: OPEN_STRIPE_LABEL }],
+  });
+  if (i.refresh && !i.arrivedFromStripe && canManage(i.role) && i.stripe !== 'connected') {
+    if (i.stripe === 'waiting') return waitingBanner();
+    return { kind: 'refresh', line: STRIPE_REFRESH_NOTE, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
+  }
+  if (!i.arrivedFromStripe || !canManage(i.role)) return null;
+  const paid = i.drafts.filter((t) => t.status === 'draft' && t.pricePence > 0);
+  if (i.drafts.length > 0 && paid.length === 0) return null;
+  if (i.stripe === 'connected') {
+    if (paid.length === 0) return { kind: 'ready_none', line: CONNECT_RETURN_NONE, actions: [] };
+    if (paid.length === 1) {
+      return {
+        kind: 'ready_drafts',
+        line: `Payments connected. Put ${paid[0].name} on sale.`,
+        actions: [{ kind: 'put_on_sale', label: 'Put on sale', typeId: paid[0].id }],
+      };
+    }
+    return {
+      kind: 'ready_drafts',
+      line: `Payments connected. Put ${paid.map((t) => t.name).join(', ')} on sale.`,
+      actions: [{ kind: 'put_all_on_sale', label: 'Put all on sale' }],
+    };
+  }
+  if (i.polling || i.stripe === null || i.stripe === 'unknown') return { kind: 'checking', line: CONNECT_RETURN_CHECKING, actions: [] };
+  if (i.stripe === 'waiting') return waitingBanner();
+  return { kind: 'needs_more', line: CONNECT_RETURN_NEEDS, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
 };
 
 // ---- Sales window (London wall clock in the form, true instants on the wire) ---------
@@ -255,7 +386,30 @@ export interface TypeForm {
   closesAt: string;
 }
 
-export const formOf = (t: TicketType | null): TypeForm =>
+/** A series as the Tickets sheet knows it: how many upcoming dates, and the next one's start. */
+export interface SeriesDates {
+  upcoming_count?: number;
+  next_dates?: readonly { materialised_start_utc: string | null }[];
+}
+
+/** A ticket type carries no date today, so on a series with 2+ upcoming dates it covers every one of them. */
+export const coversEveryDate = (s: SeriesDates | null | undefined): boolean => (s?.upcoming_count ?? 0) > 1;
+
+export const EVERY_DATE_NOTE =
+  'This ticket is for every date of this event, and its numbers are shared across them. To stop selling after one night, set Sales close.';
+
+/**
+ * The default "Sales close" for a NEW ticket on a series with several dates: the next date's start,
+ * as the London wall-clock text the form holds (same reading as eventStartOf). Null when the series
+ * has fewer than two upcoming dates or the next start is missing.
+ */
+export const defaultCloseFor = (s: SeriesDates | null | undefined): string | null => {
+  if (!coversEveryDate(s)) return null;
+  const start = s?.next_dates?.[0]?.materialised_start_utc;
+  return start ? isoToLondonInput(start) || null : null;
+};
+
+export const formOf = (t: TicketType | null, series?: SeriesDates | null): TypeForm =>
   t
     ? {
         name: t.name,
@@ -265,7 +419,7 @@ export const formOf = (t: TicketType | null): TypeForm =>
         opensAt: isoToLondonInput(t.salesOpenAt),
         closesAt: isoToLondonInput(t.salesCloseAt),
       }
-    : { name: '', paid: false, price: '', capacity: '', opensAt: '', closesAt: '' };
+    : { name: '', paid: false, price: '', capacity: '', opensAt: '', closesAt: defaultCloseFor(series) ?? '' };
 
 export type FormErrors = Partial<Record<keyof TypeForm, string>>;
 
@@ -342,9 +496,15 @@ export const buildUpsert = (
 const sameInstant = (a: string | null, b: string | null): boolean =>
   a === b || (!!a && !!b && new Date(a).getTime() === new Date(b).getTime());
 
+/** ONE wording for a locked price: the sheet's help line and the server's has_orders refusal both read it. */
+export const PRICE_LOCKED_TEXT =
+  'Tickets have been sold at this price, so it cannot change. To use a different price, pause this ticket and add a new one.';
+
+/** What a paused ticket means, shown on its row. */
+export const PAUSED_NOTE = 'Not on sale. People who already bought keep their tickets.';
+
 /** Why the price field is locked, or null. */
-export const priceLock = (hasOrders: boolean): string | null =>
-  hasOrders ? 'The price cannot change once someone has bought a ticket.' : null;
+export const priceLock = (hasOrders: boolean): string | null => (hasOrders ? PRICE_LOCKED_TEXT : null);
 
 /** Why the whole editor is read-only, or null. */
 export const editLock = (t: TicketType | null, role: MemberRole | null | undefined): string | null => {
@@ -353,7 +513,7 @@ export const editLock = (t: TicketType | null, role: MemberRole | null | undefin
   return null;
 };
 
-// ---- Refunds (Q5: a partial refund keeps tickets valid; the UI refunds whole orders) --
+// ---- Refunds (Q5: a partial refund keeps tickets valid and the order stays paid; a whole refund voids tickets) --
 
 /** Why the Refund button is disabled, or null. Only a paid order shows the button at all (refundable). */
 export const refundBlock = (role: MemberRole | null | undefined): string | null => (canManage(role) ? null : NOT_MANAGER_REFUND);
@@ -375,6 +535,87 @@ export const refundQuestion = (o: Order): { title: string; body: string; confirm
     confirm: `Refund ${amount}`,
   };
 };
+
+/**
+ * The money check for "Refund part of it": null when the amount can be sent, else one plain
+ * sentence naming the maximum (what is left = total - refunded). Typing exactly what is left is
+ * fine: it goes as a partial with that amount and the server decides clears_balance.
+ */
+export const refundAmountError = (text: string, o: Pick<Order, 'totalPence' | 'refundedPence'>): string | null => {
+  const max = formatPence(refundAmount(o));
+  if (text.trim() === '') return `Enter how much to refund, up to ${max}.`;
+  const pence = penceOf(text);
+  if (pence === null) return `Enter an amount in pounds, like 3.50, up to ${max}.`;
+  if (pence === 0) return `Enter more than ${formatPence(0)}, up to ${max}.`;
+  if (pence > refundAmount(o)) return `That is more than is left. Enter up to ${max}.`;
+  return null;
+};
+
+/** The "Refund part of it" words: the maximum line, the body, and the confirm button (amount only once it is valid). */
+export const refundPartQuestion = (o: Pick<Order, 'totalPence' | 'refundedPence'>, validPence: number | null): { max: string; body: string; confirm: string } => ({
+  max: `Up to ${formatPence(refundAmount(o))} left to refund`,
+  // The whole remainder typed as a part: the server decides what happens to the order (clears_balance), so promise nothing.
+  body:
+    validPence !== null && validPence >= refundAmount(o)
+      ? 'This gives back everything that is left on the order. Cannot be undone.'
+      : 'The amount you enter goes back. Their tickets stay valid and the order stays paid. Cannot be undone.',
+  confirm: validPence === null ? 'Refund' : `Refund ${formatPence(validPence)}`,
+});
+
+/**
+ * The toast after a partial refund (the order row updates a moment later, once the webhook lands).
+ * Only what the server said: no remainder when it did not send one, and no promise about the
+ * tickets once the server says the balance is cleared (it settles that order, not this screen).
+ */
+export const partialRefundDone = (amountPence: number, remainingPence: number | null, clearsBalance = false): string => {
+  const sent = `Refunded ${formatPence(amountPence)}.`;
+  if (clearsBalance || remainingPence === 0) return `${sent} Nothing is left to refund.`;
+  if (remainingPence === null) return `${sent} Tickets stay valid.`;
+  return `${sent} ${formatPence(remainingPence)} is left to refund. Tickets stay valid.`;
+};
+
+/**
+ * One idempotency key per press of Refund (ticket-refund request_id: 8-64 chars of [A-Za-z0-9_-]).
+ * A UUID (36 chars of hex and dashes); the fallback mirrors shared/seriesCommands.ts newIdempotencyKey.
+ */
+export const newRefundRequestId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16));
+
+/**
+ * Server answers that END a partial-refund press: the server has said no (or yes) for certain, so the
+ * held key is dropped and the next press is a new refund. `stripe_error` and `internal_error` can happen
+ * AFTER Stripe created the refund, and an unknown reason or gateway code says nothing, so those keep the
+ * key and a retry sends the same one (the server answers the same press, never a second refund).
+ */
+export const DEFINITE_REFUND_REASONS: ReadonlySet<string> = new Set([
+  'invalid_request',
+  'invalid_amount',
+  'request_id_required',
+  'request_id_reused',
+  'not_signed_in',
+  'not_authorised',
+  'not_found',
+  'not_refundable',
+  'refund_exceeds_balance',
+  'method_not_allowed',
+]);
+/** True when this outcome ends the press (drop the key); false keeps it for the retry. */
+export const endsRefundPress = (kind: 'ok' | 'not_configured' | 'failed', reason: string | null): boolean =>
+  kind !== 'failed' || (reason !== null && DEFINITE_REFUND_REASONS.has(reason));
+
+/** Shown under the note while a key is held: the last press may have reached Stripe. */
+export const refundMaybeSent = (pence: number): string =>
+  `The last refund may have gone through. Tap Refund ${formatPence(pence)} again to check, or reload the page before changing the amount.`;
+
+/**
+ * `refunded_pence` is advisory and lags the webhook. Pence this page has sent that the order row does
+ * not show yet: counted only while the row still shows the figure it had when the refund was sent.
+ */
+export type PendingRefund = { base: number; pence: number };
+export const withPendingRefund = <T extends { refundedPence: number }>(o: T, p: PendingRefund | undefined): T =>
+  p && p.base === o.refundedPence ? { ...o, refundedPence: o.refundedPence + p.pence } : o;
 
 export const ORDER_TAG: Record<string, { label: string; tone: StatusTone }> = {
   paid: { label: 'Paid', tone: 'live' },
@@ -398,12 +639,19 @@ const REASON: Record<string, string> = {
   occurrence_not_in_series: 'That date is not part of this event.',
   immutable_field: 'This ticket belongs to another event.',
   closed: 'Sales are closed for this ticket, so it cannot be changed.',
-  has_orders: 'The price cannot change once someone has bought a ticket.',
+  has_orders: PRICE_LOCKED_TEXT,
   capacity_below_reserved: 'More tickets are already taken than that number.',
   bad_transition: 'That change is not possible from the ticket\u2019s current state. Reload the page.',
   at_capacity: 'Every ticket is taken. Raise the number of tickets first.',
   organiser_not_onboarded: PAYMENTS_WHERE,
+  // ticket-refund (partial refunds). Each says what the person can do on the Refund sheet or the page.
+  invalid_amount: 'That amount cannot be refunded. Enter an amount up to what is left on the order.',
+  request_id_required: 'That refund did not start. Tap Refund again.',
+  request_id_reused: 'That refund was already sent with a different amount. Reload the page to see the order before refunding again.',
+  not_refundable: 'This order cannot be refunded any more. Reload the page to see its latest state.',
+  refund_exceeds_balance: 'An earlier refund on this order may still be settling. Wait a minute, then try again.',
 };
+
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';
 
@@ -512,7 +760,7 @@ export const setupSteps = (stripe: StripeState, types: readonly Pick<TypeSales, 
 export const setupLine = (steps: readonly SetupStep[]): string => `Setup ${steps.filter((s) => s.done).length} of ${steps.length} done`;
 
 export type NextStep =
-  | { kind: 'connect'; stripe: 'none' | 'started'; seriesId: string; seriesName: string }
+  | { kind: 'connect'; stripe: 'none' | 'started' | 'waiting'; seriesId: string; seriesName: string }
   | { kind: 'add'; seriesId: string; seriesName: string }
   | { kind: 'sell'; seriesId: string; seriesName: string };
 
@@ -549,7 +797,8 @@ export const paymentsLink = (
   step: NextStep | null,
 ): { lead: string | null; action: string } | null => {
   if (!canManage(role) || stripe === 'connected' || step?.kind === 'connect') return null;
-  return stripe === 'none' ? { lead: 'Payments not connected.', action: 'Connect' } : { lead: null, action: 'Finish connecting' };
+  if (stripe === 'none') return { lead: 'Payments not connected.', action: 'Connect' };
+  return stripe === 'waiting' ? { lead: STRIPE_COPY.waiting.title(''), action: CHECK_AGAIN_LABEL } : { lead: null, action: 'Finish connecting' };
 };
 
 // ---- Orders ----------------------------------------------------------------------

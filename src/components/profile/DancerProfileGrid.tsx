@@ -12,6 +12,7 @@ import { calculateDuration } from "@/components/profile/ExperiencePicker";
 import { optimizedImageUrl } from '@/lib/imageCdn';
 import { NationalityFlag, TILE_FLAG_SIZE } from '@/components/people/NationalityFlag';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 interface DancerProfileGridProps {
   dancer: DancerPublicViewModel;
@@ -201,17 +202,17 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
           </div>
           <div className="grid grid-cols-2 gap-2">
             {dancer.connectLinks.instagram && (
-              <a href={dancer.connectLinks.instagram} target="_blank" rel="noopener noreferrer" className="bg-gradient-to-tr from-purple-600 to-pink-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+              <a href={dancer.connectLinks.instagram} target="_blank" rel={PUBLIC_LINK_REL} className="bg-gradient-to-tr from-purple-600 to-pink-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                 <Instagram className="w-5 h-5" />
               </a>
             )}
             {dancer.connectLinks.facebook && (
-              <a href={dancer.connectLinks.facebook} target="_blank" rel="noopener noreferrer" className="bg-blue-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+              <a href={dancer.connectLinks.facebook} target="_blank" rel={PUBLIC_LINK_REL} className="bg-blue-600 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                 <Facebook className="w-5 h-5" />
               </a>
             )}
              {dancer.connectLinks.website && (
-              <a href={dancer.connectLinks.website} target="_blank" rel="noopener noreferrer" className="bg-zinc-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
+              <a href={dancer.connectLinks.website} target="_blank" rel={PUBLIC_LINK_REL} className="bg-zinc-700 p-2 rounded-lg flex items-center justify-center text-white hover:opacity-90 transition-opacity">
                 <Globe className="w-5 h-5" />
               </a>
             )}
@@ -344,7 +345,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
             <a
               href={dancer.connectLinks.instagram}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={PUBLIC_LINK_REL}
               className="text-lg font-semibold text-foreground hover:text-primary transition-colors break-all"
             >
               {instagramHandle}
@@ -364,7 +365,7 @@ export const DancerProfileGrid = ({ dancer }: DancerProfileGridProps) => {
             <a
               href={dancer.connectLinks.facebook}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={PUBLIC_LINK_REL}
               className="inline-flex items-center rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-300 hover:bg-blue-500/20 hover:text-blue-200 transition-colors"
             >
               {facebookProfileLabel}

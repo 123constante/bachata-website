@@ -79,6 +79,8 @@ export const SITE_IA = {
   notFound:         { label: 'Page not found' },
   // Buyer checkout return page (flags.publicTicketing), noindex.
   ticketsThanks:    { label: 'Your tickets' },
+  // A signed-in buyer's tickets (flags.publicTicketing), noindex.
+  myTickets:        { label: 'My tickets', parent: 'dancerHome' },
   // Admin-only, noindex; the page passes these crumbs only to a confirmed admin.
   'admin.organisers': { label: 'Organiser access', path: '/admin/organisers' },
   'admin.organisers.frontDoor': { label: 'Add and manage', parent: 'admin.organisers' },
@@ -86,6 +88,8 @@ export const SITE_IA = {
   ambassador:       { label: 'Pending review', path: '/ambassador' },
   'ambassador.review': { label: 'Review', parent: 'ambassador' },
   'invite.redeem':    { label: 'Join organiser team' },
+  // Ambassador shared link landing (/join/a/:code), noindex.
+  'ambassador.link':  { label: 'Your invite' },
   londonBachataGuide:{ label: 'London Guide',     path: '/london-bachata-guide' },
   learnBachataLondon:{ label: 'Learn Bachata',    path: '/learn-bachata-london' },
   bachataWeekday:   { label: 'Weekday',           path: '/bachata-london', entity: true,

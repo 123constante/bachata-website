@@ -25,7 +25,7 @@ import { GO_LIVE_NOT_DEPLOYED, type GoLiveApi, type PageReads, type PageWrites }
 import type { PersonReads, PersonWrites } from '../personApi';
 import type { PageCommand } from '../pageModel';
 import { OB_THEME_KEY } from '../obEnv';
-import { GRACE_HIDE_KEY } from '../graceModel';
+import { GRACE_HIDE_KEY, graceBody } from '../graceModel';
 import { eventReturnFrom, withBack } from '../returnTo';
 import { londonTodayKey } from '@/lib/londonDate';
 
@@ -468,7 +468,7 @@ describe('Home grace banner', () => {
 
 // ---- fix-join-first-batch slices B + R (red-first matrix) ---------------------------------------------------
 describe('slice B: the banner words, every left count x role x hidden', () => {
-  const NEW = 'Finish your details first to create or edit events. It takes about five minutes.';
+  const NEW = (left: number) => graceBody(left);
   const CODES = ['photo', 'dance_role', 'nationality', 'languages', 'org_logo', 'org_link', 'org_category', 'contact_confirm', 'org_city', 'org_name'];
   const raw = (left: number, admin: boolean) => ({ v: 1, is_admin: admin, complete: left === 0, person: { missing: [] }, organisers: [{ id: 'o1', name: 'L', complete: left === 0, missing: CODES.slice(0, left) }] });
   const mountBanner = (r: unknown) => {
@@ -488,7 +488,7 @@ describe('slice B: the banner words, every left count x role x hidden', () => {
       return;
     }
     const b = await screen.findByTestId('p3-grace');
-    expect(b.textContent?.split(NEW)).toHaveLength(2);
+    expect(b.textContent?.split(NEW(left))).toHaveLength(2);
     expect(screen.getByTestId('p3-grace-count').textContent).toBe(left === 1 ? '1 thing left' : `${left} things left`);
     expect(screen.getByTestId('p3-grace-go').textContent).toBe('Continue');
     expect(screen.getByTestId('p3-grace-hide')).toBeTruthy();
@@ -525,10 +525,55 @@ describe('slice R: back to the event the refused write came from', () => {
     const k = CHECK[c as keyof typeof CHECK];
     mount({ shape: k.shape, person: k.person, url: `/account/p3/start?o=o1&at=review${BACKS[b]}` });
     await onStep('review');
-    const toEvent = c === 'finished' && b === 'valid';
+    // fix-gate-lost-edit: with a valid event the exit is "Back to your event" whatever is left (was: only when finished)
+    const toEvent = b === 'valid';
     await waitFor(() => expect(cont().textContent).toBe(toEvent ? 'Back to your event' : 'Go to Home'));
     if (c === 'finished') expect(title()).toBe('All done');
     fireEvent.click(cont());
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(toEvent ? EV : '/account/p3'));
+  });
+});
+
+// ---- fix-gate-lost-edit (red first on main): refused write -> gate Continue -> checklist -> back to the event ----
+describe('fix-gate-lost-edit: every gate left-count x refused screen x back, the checklist has a way back', () => {
+  const EV = '/account/p3/events/ser-1';
+  const NINE = ['photo', 'dance_role', 'nationality', 'languages', 'org_logo', 'org_link', 'org_category', 'org_city', 'org_name'];
+  const SCREENS: Record<string, string> = {
+    'event page': EV, 'Repeat sheet': EV, Details: `${EV}/details`, Prices: `${EV}/prices`, Dates: `${EV}/dates`,
+  };
+  // invalid = a refused screen that is not an in-app event page (the gate then carries no back)
+  const BACK = { valid: (at: string) => at, invalid: () => 'https://evil.example/account/p3/events/ser-1' } as const;
+  // live page (Review's primary was "Go to Home") and a draft page (primary "Go live", disabled with its reason)
+  const PAGE = { live: 'legacyPhone', draft: 'legacyDraft' } as const;
+  SHAPES.legacyDraft = { ...SHAPES.legacyPhone, lifecycle: 'draft' };
+  const cells = [10, 6, 3, 2, 1].flatMap((left) => Object.keys(SCREENS).flatMap((s) => (['valid', 'invalid'] as const).flatMap((b) => (['live', 'draft'] as const).map((p) => [left, s, b, p] as const))));
+  it.each(cells)('%i left x refused on %s x back %s x page %s', async (left, s, b, p) => {
+    // the gate's Continue is withBack(Review start link, refused screen) (GateSheet)
+    const href = withBack('/account/p3/start?o=o1&at=review', BACK[b](SCREENS[s]));
+    mount({ shape: PAGE[p], person: NINE.slice(0, left - 1), url: href });
+    await onStep('review');
+    await waitFor(() => expect(title()).toBe(left === 1 ? '1 thing left' : `${left} things left`));
+    const text = () => screen.getByTestId('p3-ob-shell').textContent ?? '';
+    if (b === 'invalid') {
+      expect(text()).not.toContain('Back to your event');
+      expect(screen.queryByTestId('p3-ob-back-event')).toBeNull();
+      if (p === 'live') expect(cont().textContent).toBe('Go to Home');
+      return;
+    }
+    // a valid event: "Go to Home" is gone, exactly ONE "Back to your event" (the primary on a live page, the
+    // secondary under Go live on a draft one), and it lands on the event
+    expect(text()).not.toContain('Go to Home');
+    expect(text().split('Back to your event')).toHaveLength(2);
+    const backBtn = p === 'live' ? cont() : screen.getByTestId('p3-ob-back-event');
+    expect(backBtn.textContent).toBe('Back to your event');
+    if (p === 'draft') expect(cont().textContent).toBe('Go live');
+    fireEvent.click(backBtn);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe(EV));
+  });
+  it('the secondary is a 44px+ tap target in explicit px (site html is ~13.5px on phones)', async () => {
+    const css = (await import('node:fs')).readFileSync(`${process.cwd()}/src/modules/organiser/p3/onboarding/onboarding.css`, 'utf8');
+    const px = (sel: string) => Number(new RegExp(`\\${sel} \\{[^}]*min-height: (\\d+)px`).exec(css)?.[1] ?? 0);
+    expect(px('.p3-ob-btn')).toBeGreaterThanOrEqual(44);
+    for (const m of css.matchAll(/\.p3-ob-btn \{[^}]*min-height: (\d+)px/g)) expect(Number(m[1])).toBeGreaterThanOrEqual(44);
   });
 });

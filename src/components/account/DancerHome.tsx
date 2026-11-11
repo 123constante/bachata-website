@@ -1,7 +1,8 @@
 import { Suspense, useId, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, ChevronDown, Music } from "lucide-react";
+import { CalendarDays, ChevronDown, Music, Ticket } from "lucide-react";
+import { flags } from "@/lib/featureFlags";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useSignOutToHome } from "@/components/account/profiles/signOutToHome";
@@ -19,6 +20,7 @@ import {
   ACCOUNT_SETTINGS_PATH,
   HIDDEN_STATE_LINE,
   MY_ATTENDANCE_PATH,
+  MY_TICKETS_ACCOUNT_PATH,
   SHOW_AGAIN_LABEL,
 } from "@/lib/accountRouting";
 // F-01: every organiser link here opens the organiser area's Home (P3 while live).
@@ -289,6 +291,13 @@ export function DancerHome({ organiserSection, organiserCheckFailed, nowOrganise
           <span className="text-[15px] font-semibold text-[var(--fg)]">Browse parties</span>
           <span className="text-[13px] text-[var(--mut)]">Find your next night out</span>
         </Link>
+        {flags.publicTicketing && !loading && completion.status !== "signed_out" && (
+          <Link to={MY_TICKETS_ACCOUNT_PATH} className={`${CARD} col-span-2 flex min-h-[44px] flex-col gap-[4px] hover:border-[var(--gold)]`} data-testid="dancer-home-tickets">
+            <Ticket className="h-[20px] w-[20px] text-[var(--gold)]" aria-hidden="true" />
+            <span className="text-[15px] font-semibold text-[var(--fg)]">My tickets</span>
+            <span className="text-[13px] text-[var(--mut)]">Your tickets and door codes</span>
+          </Link>
+        )}
       </nav>
 
       {!loading && completion.status !== "signed_out" && fact.kind !== "no_profile" && <AccountAreasRow />}

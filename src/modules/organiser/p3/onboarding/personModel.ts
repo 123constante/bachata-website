@@ -39,6 +39,13 @@ export const personPath = (teach: TeachAnswer, hasOrganiser: boolean): PersonSte
   PERSON_ORDER.filter((s) => !(teach === 'no' && TEACH_ONLY.includes(s)) && !(s === 'about' && !hasOrganiser));
 
 /**
+ * One missing teaching item (Levels, Styles or Years) tapped from Review: the path is that step alone, so
+ * saving returns to Review at once. null for every other entry (the answer step, the first-time path).
+ */
+export const teachRowPath = (entry: PersonStep): PersonStep[] | null =>
+  TEACH_ONLY.includes(entry) ? [entry] : null;
+
+/**
  * Owner change 2: the bar shows a percentage. Step n of a path of N is round(n / N * 100). The path is
  * the person steps only in slice 1; slice 3 must pass the FULL onboarding path (contact ... person ...
  * Review) or the bar reads 100% with Review still ahead.
@@ -245,6 +252,7 @@ export function blockedReason(step: PersonStep, d: PersonDraft): string | null {
     case 'levels': return d.levels.length > 0 ? null : r;
     case 'styles': return d.styles.length > 0 ? null : r;
     case 'years': return parseYears(d.years) === null ? r : null;
+    case 'about': return Array.from(d.about.trim()).length > 150 ? 'Shorten to 150 characters to save' : null;
     case 'dj': return d.dj ? null : r;
     case 'djgenres': return genresReason(d.genres);
     default: return null;

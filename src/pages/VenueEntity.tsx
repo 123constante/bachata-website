@@ -743,6 +743,7 @@ const VenueEntity = () => {
         venueName={venue.name}
         shortAddress={shortAddress || venue.name}
         fullAddress={fullAddress || venue.name}
+        googleMapsHref={venue.google_maps_href}
         onClose={() => setSheetOpen(false)}
         onCopy={copyAddress}
       />

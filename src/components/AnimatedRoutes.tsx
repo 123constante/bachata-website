@@ -62,6 +62,7 @@ const AdminOrganisers = lazyWithRetry(() => import("@/modules/admin-organisers/A
 const AdminFrontDoor = lazyWithRetry(() => import("@/modules/admin-organisers/FrontDoorPage"));
 const AmbassadorQueue = lazyWithRetry(() => import("@/modules/ambassador/AmbassadorQueuePage"));
 const InviteRedeem = lazyWithRetry(() => import("@/modules/admin-organisers/InviteRedeemPage"));
+const AmbassadorLink = lazyWithRetry(() => import("@/modules/ambassador/link/AmbassadorLinkPage"));
 const AuthCallback = lazyWithRetry(() => import("../pages/AuthCallback"));
 const FinishProfile = lazyWithRetry(() => import("../pages/FinishProfile"));
 // /account: the dancer home, or on to the organiser home (lib/accountRouting).
@@ -75,6 +76,8 @@ const AccountDeleted = lazyWithRetry(() => import("../pages/AccountDeleted"));
 const Privacy = lazyWithRetry(() => import("../pages/Privacy"));
 // Buyer checkout return page (S4): its own lazy chunk, mounted only while flags.publicTicketing is on.
 const TicketThanksPage = lazyWithRetry(() => import("@/modules/tickets/TicketThanksPage"));
+// A signed-in buyer's tickets + door QR (queue B): its own lazy chunk (carries the QR generator), mounted only while flags.publicTicketing is on.
+const MyTicketsPage = lazyWithRetry(() => import("@/modules/tickets/MyTicketsPage"));
 const Terms = lazyWithRetry(() => import("../pages/Terms"));
 const AccountRestore = lazyWithRetry(() => import("../pages/AccountRestore"));
 const NotFound = lazyWithRetry(() => import("../pages/NotFound"));
@@ -227,6 +230,12 @@ export const AnimatedRoutes = () => {
                 ? <PageTransition><MyAttendance /></PageTransition>
                 : <Navigate to="/" replace />
             } />
+            {/* My tickets: no route while flags.publicTicketing is off (sends home); signed-out state lives in the chunk. */}
+            <Route path="/account/my-tickets" element={
+              flags.publicTicketing
+                ? <PageTransition><MyTicketsPage /></PageTransition>
+                : <Navigate to="/" replace />
+            } />
             <Route path="/account/settings" element={<PageTransition><AccountSettings view="home" /></PageTransition>} />
             <Route path="/account/settings/ownership" element={<PageTransition><AccountSettings view="ownership" /></PageTransition>} />
             <Route path="/account/settings/delete" element={<PageTransition><AccountSettings view="delete" /></PageTransition>} />
@@ -282,6 +291,8 @@ export const AnimatedRoutes = () => {
             <Route path="/admin/organisers/front-door" element={<PageTransition><AdminFrontDoor /></PageTransition>} />
             <Route path="/invite" element={<PageTransition><InviteRedeem /></PageTransition>} />
             <Route path="/invite/:token" element={<PageTransition><InviteRedeem /></PageTransition>} />
+            {/* Ambassador shared link (one permanent link per ambassador): works for an inactive city. */}
+            <Route path="/join/a/:code" element={<PageTransition><AmbassadorLink /></PageTransition>} />
 
             <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
             <Route path="/auth/callback" element={<PageTransition><AuthCallback /></PageTransition>} />

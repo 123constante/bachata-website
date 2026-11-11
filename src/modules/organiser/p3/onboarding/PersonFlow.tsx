@@ -8,11 +8,11 @@ import { uploadErrorMessage, validateImageFile } from '@/lib/upload-validation';
 import { wizardCountries, type WizardCountry as Country } from '../../wizard/wizardCountries';
 import { useP3Home } from '../data/useP3Data';
 import { P3_PATHS } from '../shell/paths';
+import { BIO_LIMIT, BIO_SHORTEN_REASON, bioLength, limitBioInput } from '@/modules/profile/organiserHeroBio';
 import { Flag, ObSheet, ObShell, ObToast } from './ObShell';
 import { prefersReducedMotion, readObTheme } from './obEnv';
 import { PERSON_STALE_KEYS, REAL_READS, REAL_WRITES, type OrganiserBrief, type PersonReads, type PersonWrites } from './personApi';
 import {
-  ABOUT_MAX,
   EMPTY_DRAFT,
   LANG_ALL,
   LANG_FEW,
@@ -32,6 +32,7 @@ import {
   isDjStep,
   nextStep,
   personPath,
+  teachRowPath,
   personReadFail,
   prevStep,
   progressPercent,
@@ -151,11 +152,13 @@ export interface PersonScreensProps {
   percentOf?: (step: PersonStep, path: readonly PersonStep[]) => number;
   /** The last person step's button: 'Done' here alone; 'Continue' when Review follows. */
   lastLabel?: string;
+  /** Entered from a Review row: a lone teaching step (teachRowPath) saves and calls onDone, Back calls onExit. */
+  fromReview?: boolean;
 }
 
 type Sheet = 'nat' | 'langs' | 'styles' | null;
 
-export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done' }: PersonScreensProps) {
+export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, onExit, onDone, initialStep, upload, percentOf = progressPercent, lastLabel = 'Done', fromReview = false }: PersonScreensProps) {
   const qc = useQueryClient();
   const [held, setHeld] = useState<PersonDraft>(heldIn);
   const [d, setD] = useState<PersonDraft>({ ...EMPTY_DRAFT, ...heldIn });
@@ -167,9 +170,9 @@ export function PersonScreens({ held: heldIn, organiser, userId, writes, theme, 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bounce, setBounce] = useState(false);
   const clearToast = useCallback(() => setToast(null), []);
-  // The DJ steps are their own short path from Review (personModel DJ_ORDER); every other step walks the person path.
+  // The DJ steps are their own short path from Review (personModel DJ_ORDER); a teaching row from Review is a lone step (teachRowPath).
   const entry = initialStep ?? 'name';
-  const path = isDjStep(entry) ? djPath(d.dj, entry) : personPath(d.teach, !!organiser);
+  const path = isDjStep(entry) ? djPath(d.dj, entry) : (fromReview ? teachRowPath(entry) : null) ?? personPath(d.teach, !!organiser);
   const set = <K extends keyof PersonDraft>(k: K, v: PersonDraft[K]) => setD((p) => ({ ...p, [k]: v }));
 
   const move = (to: PersonStep | null, how: 'fwd' | 'back') => {
@@ -544,10 +547,14 @@ function PickRows({ all, chosen, onToggle }: { all: readonly string[]; chosen: r
 }
 
 function AboutStep({ value, onChange, starter }: { value: string; onChange: (v: string) => void; starter: string }): ReactNode {
+  // The value the step opened with: an older longer bio loads unchanged.
+  const [loaded] = useState(value);
+  const n = bioLength(value);
   return (
     <>
-      <textarea className="p3-ob-inp" maxLength={ABOUT_MAX} placeholder="Who you are and what you run" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(e.target.value)} data-testid="p3-ob-about" />
-      <p className="p3-ob-m p3-ob-kbhide" aria-live="polite">{value.length} / {ABOUT_MAX}</p>
+      <textarea className="p3-ob-inp" placeholder="Who you are and what you run" aria-labelledby="p3-ob-title" value={value} onChange={(e) => onChange(limitBioInput(e.target.value, loaded))} data-testid="p3-ob-about" />
+      <p className="p3-ob-m p3-ob-kbhide" aria-live="polite" style={n > BIO_LIMIT ? { color: '#FF8A70' } : undefined} data-testid="p3-ob-about-counter">{n} / {BIO_LIMIT}</p>
+      {n > BIO_LIMIT && <p className="p3-ob-m" role="alert" data-testid="p3-ob-about-reason">{BIO_SHORTEN_REASON}</p>}
       {starter && !value.trim() && (
         <button type="button" className="p3-ob-lnk p3-ob-kbhide" onClick={() => onChange(starter)} data-testid="p3-ob-starter">Use the starter sentence</button>
       )}

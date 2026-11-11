@@ -18,41 +18,6 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  bom-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # Docs-only PRs skip the heavy steps below; the job still runs, so the
-      # required check keeps its name and reports success. Fail-safe: any error
-      # means docs_only=false (scripts/ci/docs-only.mjs).
-      - name: Detect docs-only PR
-        id: changes
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          MERGE_SHA: ${{ github.sha }}
-        run: node scripts/ci/docs-only.mjs --merge "$MERGE_SHA"
-
-      - name: Check workflow files for BOM
-        if: steps.changes.outputs.docs_only != 'true'
-        run: |
-          FAILED=0
-          for f in .github/workflows/*.yml .github/workflows/*.yaml; do
-            [ -f "$f" ] || continue
-            # Detect standard BOM (ef bb bf) or double-encoded BOM (c3 af ...)
-            FIRST=$(head -c 3 "$f" | xxd -p)
-            if [ "$FIRST" = "efbbbf" ] || echo "$FIRST" | grep -q "^c3af"; then
-              echo "BOM detected in $f (first bytes: $FIRST)"
-              FAILED=1
-            fi
-          done
-          if [ "$FAILED" = "1" ]; then
-            echo ""
-            echo "Fix: strip the BOM and re-write via safe-write.py --lf"
-            exit 1
-          fi
-          echo "No BOMs found in .github/workflows/"
-
   masking-check:
     # Guards against the dead-Lighthouse failure mode: a check masked green by an
     # unjustified continue-on-error. Every continue-on-error must carry a
@@ -82,6 +47,22 @@ jobs:
       - name: Lint workflows for unjustified continue-on-error
         if: steps.changes.outputs.docs_only != 'true'
         run: node scripts/lint-workflow-masking.mjs
+
+      # Which workflow files an automation-loop PR may change (claude/ or ccr-
+      # branch, or authored by kiki-claude-bot): only names on
+      # scripts/data/automation-workflow-allowlist.json (owner-curated; currently
+      # empty, so no workflow file), and never the list itself. Owner PRs are not affected. Needs no npm ci (node
+      # built-ins only). The git fetch is the same depth-2 merge-sha fetch the
+      # docs-only step does. docs/handovers/workflow-allowlist-2.md.
+      - name: Automation workflow allow-list
+        if: github.event_name == 'pull_request' && steps.changes.outputs.docs_only != 'true'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          node scripts/check-automation-workflow-allowlist.mjs --self-test
+          node scripts/check-automation-workflow-allowlist.mjs --merge "$MERGE_SHA"
 
   notification-check:
     # Guards against the RC4 failure mode (edge-config-governance arc, P2):

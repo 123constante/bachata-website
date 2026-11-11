@@ -5,7 +5,9 @@
 import { isOtpRateLimitedError, isSignupAllowlistRefusal, type SignupRole } from '@/lib/auth-otp-routing';
 import { PROFILE_INCOMPLETE_CODE } from '@/lib/accountRouting';
 import type { ProfileCompletionStatus } from '@/lib/profileCompletion';
-import { hintMatchesEmail, parsePreview, type InvitePreview } from '../inviteModel';
+// Type only: a value import would put the claim RPC module into this pure model (and break test mocks of it).
+import type { ClaimStatus } from '@/lib/claimMyDancerProfile';
+import { MEMBER_ROLES, hintMatchesEmail, parsePreview, type InvitePreview, type MemberRole } from '../inviteModel';
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? v : null);
 
@@ -49,6 +51,91 @@ export function parseJoinPreview(raw: unknown): JoinPreview | null {
 
 /** A person-bound invite: the server named the profile this link is for. */
 export const isPersonBound = (p: JoinPreview | null | undefined): boolean => p?.person != null;
+
+// ---- find before create: the sign-in claim x the invite's own proof ----------------------------
+
+/**
+ * What the invite itself proves about who is joining -- the ONLY evidence find-before-create uses on this route
+ * (never a search over other people's data by name): `person` = the server named the profile (person_profile_id);
+ * `email` = the link is bound to an address (email_hint); `none` = a plain page link.
+ */
+export type InviteKind = 'person' | 'email' | 'none';
+
+export const inviteKind = (p: JoinPreview | null | undefined): InviteKind =>
+  isPersonBound(p) ? 'person' : p?.emailHint ? 'email' : 'none';
+
+/** Every answer the sign-in claim can give (CLAIM_STATUSES plus the never-blocking "unavailable"). */
+export type ClaimAnswer = ClaimStatus | 'unavailable';
+
+/**
+ * What the page does right after the code is verified and the claim has answered. ONE mapping, read by the page
+ * and the tests (people-find-before-create brief, model 2):
+ * - `continue`: the derived step follows (About for an unfinished profile, then the Join tap).
+ * - `safety_redeem`: a person-bound invite whose claim did not land on its person. One redeem call, which (A2)
+ *   seats nobody, keeps the invite open and records not_linked so the inviter is really told; its answer picks the
+ *   stop. Never About on the sign-up stub: that would make a second record of the invited person.
+ * - `unmatched`: the claim could not tell which existing profile is theirs (ambiguous: two admin-made profiles
+ *   share the email; email_unproven: this session cannot prove the mailbox). Nothing is created or chosen: no
+ *   About, no Join tap, no redeem. The one control is the organiser home link.
+ * A failed or missing claim (unavailable) never blocks the sign-in: the page continues as before, and the Join
+ * tap's redeem (which runs the claim itself on a bound invite) still guards a person-bound link.
+ */
+export type ClaimNext = 'continue' | 'safety_redeem' | 'unmatched';
+
+export function claimNextStep(claim: ClaimAnswer, kind: InviteKind): ClaimNext {
+  switch (claim) {
+    case 'linked':
+    case 'already_linked':
+    case 'not_applicable':
+    case 'unavailable':
+      return 'continue';
+    case 'no_match':
+      return kind === 'person' ? 'safety_redeem' : 'continue';
+    case 'ambiguous':
+      return kind === 'person' ? 'safety_redeem' : 'unmatched';
+    case 'email_unproven':
+      // Person-bound: the same safety redeem as ambiguous, so the server records not_linked and the inviter is told.
+      return kind === 'person' ? 'safety_redeem' : 'unmatched';
+  }
+}
+
+/** The claim answers that end in `unmatched` (kept on the stop for the failure tag: two causes, two fixes). */
+export type UnmatchedClaim = 'ambiguous' | 'email_unproven';
+
+/**
+ * The `unmatched` stop survives a reload of this tab (review r1 F1): the claim runs only at the code step, so
+ * without this a pull-to-refresh would fall back to About on the sign-up stub -- the second record this stop
+ * exists to prevent. Per tab (sessionStorage), per account, per link; the key holds only the link's last 12
+ * characters. Storage that throws or is empty simply forgets (the server still guards a person-bound link).
+ */
+const UNMATCHED_KEY = 'bc.join.unmatched';
+const linkTail = (token: string) => token.slice(-12);
+
+export function rememberUnmatched(token: string, userId: string, claim: UnmatchedClaim): void {
+  try {
+    sessionStorage.setItem(UNMATCHED_KEY, JSON.stringify({ t: linkTail(token), u: userId, c: claim }));
+  } catch {
+    /* storage blocked: the stop still shows for this render tree */
+  }
+}
+
+export function recallUnmatched(token: string, userId: string): UnmatchedClaim | null {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(UNMATCHED_KEY) ?? 'null') as { t?: unknown; u?: unknown; c?: unknown } | null;
+    if (!raw || raw.t !== linkTail(token) || raw.u !== userId) return null;
+    return raw.c === 'ambiguous' || raw.c === 'email_unproven' ? raw.c : null;
+  } catch {
+    return null;
+  }
+}
+
+export function forgetUnmatched(): void {
+  try {
+    sessionStorage.removeItem(UNMATCHED_KEY);
+  } catch {
+    /* nothing to forget */
+  }
+}
 
 // ---- the step table -------------------------------------------------------------------------
 
@@ -137,7 +224,33 @@ export function codeStepFromSearch(search: string): string | null {
   return EMAIL_SHAPE.test(email) ? email : null;
 }
 
-export const codeStepSearch = (email: string): string => `?step=code&email=${encodeURIComponent(email.trim().toLowerCase())}`;
+/** The search with the code step's own params (step, email) removed; every other param (`next`) is kept. */
+export function withoutCodeStep(search = ''): URLSearchParams {
+  const q = new URLSearchParams(search);
+  q.delete('step');
+  q.delete('email');
+  return q;
+}
+
+/** The code step's search. `keep` is the current search: its other params (`next=get-paid`) survive the step. */
+export const codeStepSearch = (email: string, keep = ''): string => {
+  const rest = withoutCodeStep(keep).toString();
+  return `?step=code&email=${encodeURIComponent(email.trim().toLowerCase())}${rest ? `&${rest}` : ''}`;
+};
+
+/** Leaving the code step: the search that is left (other params kept), with its `?`, or ''. */
+export const searchAfterCodeStep = (search: string): string => {
+  const rest = withoutCodeStep(search).toString();
+  return rest ? `?${rest}` : '';
+};
+
+// ---- next=get-paid ------------------------------------------------------------------------------
+
+/** The ONE `next` value the join link honours: Done goes to the Get paid start path. Anything else is ignored. */
+export const NEXT_GET_PAID = 'get-paid';
+export const wantsGetPaid = (search: string): boolean => new URLSearchParams(search).get('next') === NEXT_GET_PAID;
+/** Only an owner or a manager seat sets up payments; a contributor (or an unknown role) gets today's Done. */
+export const seatCanSetUpPayments = (role: MemberRole | null | undefined): boolean => role === 'owner' || role === 'manager';
 
 // ---- typed email --------------------------------------------------------------------------------
 
@@ -159,11 +272,18 @@ export function checkTypedEmail(raw: string): EmailCheck {
 
 /** What stopped the journey. Shown over the derived step until the person acts; never persisted. */
 export type JoinStop =
-  | { kind: 'blocked_domain' }
+  /** `locked`: the bind just tied this link to the refused email (bind is permanent), so another email cannot work. */
+  | { kind: 'blocked_domain'; locked?: boolean }
+  /** hook v1's "Sign-up is limited to approved organisers." (or a bare 403 with no text: the words blame no provider). */
+  | { kind: 'invite_only'; locked?: boolean; typedInvited?: boolean }
+  /** redeem said profile_incomplete but the re-read still says complete (a stale read): a plain retry, never silence. */
+  | { kind: 'profile_stale' }
   | { kind: 'rate_limited'; from: 'code' | 'join' }
   | { kind: 'network'; from: 'send' | 'verify' | 'join' | 'bind' }
   | { kind: 'email_unproven' }
   | { kind: 'not_linked' }
+  /** claimNextStep said `unmatched`: the claim could not tell which existing profile is theirs; nothing was created or redeemed. */
+  | { kind: 'unmatched'; claim: UnmatchedClaim }
   /** email_mismatch answered AFTER the Join tap (the preview carried no hint): the same wrong-account screen. */
   | { kind: 'wrong_account'; emailHint: string | null }
   | { kind: 'already_bound' }
@@ -180,8 +300,14 @@ const text = (e: unknown): string => String((e as { message?: unknown } | null)?
 
 /** signInWithOtp({ shouldCreateUser: true }) failed: which screen? */
 export function classifySendError(error: unknown): JoinStop {
-  // hook_before_user_created_v2: HTTP 403 "Sign-up with this email provider is not accepted" (12 blocked domains).
-  if (isSignupAllowlistRefusal(error, true) || text(error).includes('not accepted') || text(error).includes('email provider')) return { kind: 'blocked_domain' };
+  // hook_before_user_created_v2 (prod body read 2026-11-04): BOTH refusals are HTTP 403, told apart by the text.
+  // v1 (dancer_area_open off): "Sign-up is limited to approved organisers." -> invite_only.
+  // the domain blocklist: "Sign-up with this email provider is not accepted. ..." -> blocked_domain.
+  const t = text(error);
+  if (t.includes('limited to approved organisers')) return { kind: 'invite_only' };
+  if (t.includes('not accepted') || t.includes('email provider')) return { kind: 'blocked_domain' };
+  // A 403 with no text to tell them apart: the invite-only words, which name the invited email and blame no provider.
+  if (isSignupAllowlistRefusal(error, true)) return { kind: 'invite_only' };
   if (isOtpRateLimitedError(error) || status(error) === 429 || text(error).includes('rate limit')) return { kind: 'rate_limited', from: 'code' };
   return { kind: 'network', from: 'send' };
 }
@@ -209,7 +335,7 @@ export function interpretBind(data: unknown, error: { message?: string; code?: s
 }
 
 export type JoinRedeemOutcome =
-  | { kind: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { kind: 'done'; organiserId: string | null; alreadyMember: boolean; memberRole?: MemberRole }
   /** A2: the login did not land on the invited profile; the seat is NOT granted and the invite stays open. */
   | { kind: 'not_linked' }
   | { kind: 'dead'; reason: DeadReason }
@@ -233,7 +359,9 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === true && (row.status === 'redeemed' || row.status === 'already_member')) {
-    return { kind: 'done', organiserId: str(row.organiser_id), alreadyMember: row.status === 'already_member' };
+    // member_role: the seat redeemed (or already held); absent or unknown = left out, never guessed.
+    const role = (MEMBER_ROLES as readonly unknown[]).includes(row.member_role) ? (row.member_role as MemberRole) : null;
+    return { kind: 'done', organiserId: str(row.organiser_id), alreadyMember: row.status === 'already_member', ...(role ? { memberRole: role } : {}) };
   }
   const reason = typeof row.reason === 'string' ? row.reason : '';
   const hint = str(row.invite_email_hint);
@@ -250,12 +378,23 @@ export function interpretJoinRedeem(data: unknown, error: { message?: string } |
   return { kind: 'failed' };
 }
 
+/**
+ * After a profile_incomplete refusal the completeness is re-read. Incomplete / no profile: null, the derived step
+ * (About, or the no-profile screen) follows, with About saying why. Still complete: the stale-read stop. Unread: network.
+ */
+export function afterProfileRefusal(status: ProfileCompletionStatus): JoinStop | null {
+  if (status === 'incomplete' || status === 'no_profile') return null;
+  if (status === 'complete') return { kind: 'profile_stale' };
+  // error, and the never-expected loading / signed_out: a retry stop, never the same silent card (review r1 F3).
+  return { kind: 'network', from: 'join' };
+}
+
 /** Sentry / client-error tag: the step and the outcome code, never an email or the token. */
 export const failureTag = (step: string, code: string): string => `invite_join:${step}:${code}`;
 
 /** What the page does with a redeem answer. ONE mapping for the Join tap AND the post-sign-in safety stop. */
 export type RedeemAction =
-  | { act: 'done'; organiserId: string | null; alreadyMember: boolean }
+  | { act: 'done'; organiserId: string | null; alreadyMember: boolean; memberRole?: MemberRole }
   | { act: 'stop'; stop: JoinStop }
   | { act: 'refetch_preview' }
   | { act: 'refetch_completion' }
@@ -263,7 +402,7 @@ export type RedeemAction =
 
 export function redeemAction(outcome: JoinRedeemOutcome): RedeemAction {
   switch (outcome.kind) {
-    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember };
+    case 'done': return { act: 'done', organiserId: outcome.organiserId, alreadyMember: outcome.alreadyMember, ...(outcome.memberRole ? { memberRole: outcome.memberRole } : {}) };
     case 'not_linked': return { act: 'stop', stop: { kind: 'not_linked' } };
     case 'dead': return { act: 'refetch_preview' };
     case 'wrong_account': return { act: 'stop', stop: { kind: 'wrong_account', emailHint: outcome.emailHint } };

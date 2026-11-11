@@ -1,7 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { PROFILE_WIZARD_PATH } from '../../shared/profileProgress';
-import { Link as RouterLink } from 'react-router-dom';
-import { eventLock } from '../../shared/eventState';
 import { VenueList } from './VenueList';
 import { useVenueOptions, venueName, type VenueOption } from '../../shared/publicVenues';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
@@ -9,17 +6,28 @@ import { FLYER_ACCEPT, FLYER_PROBLEM_COPY, FlyerError, checkFlyerBytes, checkFly
 import { uploadEventPicture } from '../../events/media';
 import { uploadFlyer } from '../../shared/flyerUploadApi';
 import { MAX_GALLERY, MUSIC_STYLES, type EventWorkspace } from '../../events/eventModel';
+import { londonTodayKey } from '@/lib/londonDate';
 import { L, hasOneDate, kindWordStored, saveWordsFor } from '../model';
+import { differentDatesCount, datesAreCapped, differentLine, type DifferentField } from '../model/differentDates';
 import {
-  DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, type DetailsField,
+  DETAILS_SPECS, cityForVenue, detailsBlocker, detailsDraftOf, detailsLandedKeys, detailsPlan, detailsProblems, toggleMusic, videoList, type DetailsField,
 } from '../data/details';
 import { trayLines } from '../model/saveModel';
 import { P3_PATHS } from '../shell/paths';
-import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useSaveRun } from './EditTray';
+import { EditTray, GuardedBack, useBackToEvent, useEditForm, useEditLock, useKeptEdit, useSaveRun } from './EditTray';
+import { KEPT_COPY, dropKept, keepDraft } from '../onboarding/keptDraft';
 import { WorkspaceGate } from './EventPage';
 import { Sheet } from './Sheet';
+import { BrokenImage } from './BrokenImage';
 import { OnBody } from './RepeatSheet';
+import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
+import { changedWord, scopedChangesOf } from '../model/scopeAsk';
 
+
+/** The quiet "Different on N dates" line (null when no coming date owns the field). */
+function Different({ id, line }: { id: DifferentField; line: string | null }) {
+  return line ? <p className="p3-note" data-testid={`p3-different-on-${id}`}>{line}</p> : null;
+}
 
 function Field({ id, label, hint, problem, children }: { id: string; label: string; hint?: string; problem?: string | null; children: ReactNode }) {
   return (
@@ -32,7 +40,8 @@ function Field({ id, label, hint, problem, children }: { id: string; label: stri
 }
 
 function Details({ ws }: { ws: EventWorkspace }) {
-  const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS);
+  const kept = useKeptEdit(ws, 'details', detailsDraftOf);
+  const form = useEditForm(ws, detailsDraftOf, DETAILS_SPECS, kept);
   const save = useSaveRun(ws.series.id);
   const words = saveWordsFor(hasOneDate(ws.dates.length, ws.total), ws.series.lifecycle_status);
   const back = useBackToEvent(ws.series.id, form.dirty);
@@ -54,9 +63,27 @@ function Details({ ws }: { ws: EventWorkspace }) {
   const off = !!lock || save.busy;
   const uploading = photo.busy;
 
-  const onSave = async () => {
+  const scoped = scopedChangesOf(plan, form.changed.includes('name'));
+  const scopedRun = useScopedRun(ws.series.id);
+  const [asking, setAsking] = useState(false);
+  const askable = scoped.fields.length > 0 && !hasOneDate(ws.dates.length, ws.total);
+
+  const runPlain = async () => {
     const res = await save.run(plan, form.version, (v, command) => form.landed(v, detailsLandedKeys(command)));
-    if (res.ok) { form.saved(res.version); back(words.detailsSaved); }
+    // a gate refusal keeps the typing for this event, so the checklist's "Back to your event" brings it back
+    if (res.gated) keepDraft(ws.series.id, { screen: 'details', draft, base: form.base });
+    if (res.ok) { dropKept(ws.series.id); form.saved(res.version); back(words.detailsSaved); }
+  };
+  // a scoped field changed on an event with several dates: ask which dates first (the sheet sends nothing until a choice)
+  const onSave = async () => {
+    if (askable) { setAsking(true); return; }
+    await runPlain();
+  };
+  const scopedDone = (d: ScopedDone) => {
+    setAsking(false);
+    dropKept(ws.series.id);
+    form.saved(d.scope === 'all_dates' ? d.reply.newVersion : null);
+    back(d.scope === 'this_date' && d.day ? words.savedDate(d.day) : [words.detailsSavedScoped(changedWord(scoped.fields)), d.keptLine].filter(Boolean).join(' '));
   };
 
   const upload = async (file: File | undefined) => {
@@ -77,6 +104,9 @@ function Details({ ws }: { ws: EventWorkspace }) {
 
   const festival = ws.series.format === 'festival';
   const place = venueName(venues.data, draft.venueId);
+  const counts = differentDatesCount(ws, londonTodayKey());
+  const capped = datesAreCapped(ws);
+  const diff = (f: DifferentField) => <Different id={f} line={differentLine(counts[f], capped)} />;
   return (
     <div className="p3-stack p3-edit" data-testid="p3-details">
       <GuardedBack to={P3_PATHS.event(ws.series.id)}>{L.back}</GuardedBack>
@@ -85,20 +115,23 @@ function Details({ ws }: { ws: EventWorkspace }) {
       {lock && (
         <div className="p3-warn" data-testid="p3-details-lock">
           <p className="p3-plain">{lock}</p>
-          {!eventLock(ws.series.lifecycle_status) && <RouterLink className="p3-link" to={PROFILE_WIZARD_PATH} data-testid="p3-profile-lock-link">Complete your profile</RouterLink>}
         </div>
       )}
+      {kept && form.dirty && <p className="p3-note p3-kept" role="status" data-testid="p3-details-kept">{KEPT_COPY.line}</p>}
       <Field id="name" label={L.detailsName} problem={touched.name || form.changed.includes('name') ? problems.name : null}>
         <input id="p3-d-name" className="p3-in" value={draft.name} disabled={off} autoComplete="off"
           onChange={(e) => set({ name: e.target.value })} onBlur={() => touch('name')} data-testid="p3-d-name" />
+        {diff('name')}
       </Field>
       <Field id="description" label={L.detailsAbout} hint={L.detailsAboutHint} problem={problems.description}>
         <textarea id="p3-d-description" className="p3-in" rows={6} value={draft.description} disabled={off}
           onChange={(e) => set({ description: e.target.value })} data-testid="p3-d-description" />
+        {diff('about')}
       </Field>
       <div className="p3-stack-s" data-testid="p3-field-cover">
         <span className="p3-field">{L.detailsCover}</span>
-        {draft.cover ? <img className="p3-cover" src={draft.cover} alt="" loading="lazy" decoding="async" /> : <p className="p3-note">{L.detailsCoverNone}</p>}
+        {draft.cover ? <BrokenImage className="p3-cover" src={draft.cover} /> : <p className="p3-note">{L.detailsCoverNone}</p>}
+        {diff('cover')}
         <label className="p3-btn p3-btn-line p3-file" htmlFor="p3-d-cover" data-testid="p3-d-cover-btn">
           {draft.cover ? L.detailsCoverChange : L.detailsCoverAdd}
           <input id="p3-d-cover" type="file" accept={FLYER_ACCEPT} disabled={off || photo.busy}
@@ -122,6 +155,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       <Field id="ticket" label={L.ticket} problem={shown('ticket')}>
         <input id="p3-d-ticket" className="p3-in" inputMode="url" value={draft.ticket} disabled={off} placeholder="https://"
           onChange={(e) => set({ ticket: e.target.value })} onBlur={() => touch('ticket')} data-testid="p3-d-ticket" />
+        {diff('ticket')}
       </Field>
       <h3 className="p3-h2" data-testid="p3-d-more">{L.detailsMore}</h3>
       <span className="p3-field">{L.music}</span>
@@ -131,12 +165,14 @@ function Details({ ws }: { ws: EventWorkspace }) {
             onClick={() => set({ music: toggleMusic(draft.music, m) })}>{m}</button>
         ))}
       </div>
+      {diff('music')}
       <div className="p3-stack-s" data-testid="p3-field-venueId">
         <span className="p3-field">{L.detailsWhere}</span>
         <div className="p3-card p3-tight">
           <p className="p3-row-t" data-testid="p3-d-place">{place ?? (draft.venueId ? L.detailsPlaceLoading : L.notSet)}</p>
           <p className="p3-note">{L.detailsCityNote}</p>
         </div>
+        {diff('where')}
         <button type="button" className="p3-btn p3-btn-line" disabled={off} onClick={() => setPicking(true)} data-testid="p3-d-pick-place">{L.detailsPickPlace}</button>
         {problems.venueId && <p className="p3-error" role="alert">{problems.venueId}</p>}
         {city.failed && (
@@ -153,6 +189,7 @@ function Details({ ws }: { ws: EventWorkspace }) {
       <Field id="videos" label={L.detailsVideos} hint={L.detailsVideosHint} problem={shown('videos')}>
         <textarea id="p3-d-videos" className="p3-in p3-in-short" rows={3} value={draft.videos} disabled={off}
           onChange={(e) => set({ videos: e.target.value })} onBlur={() => touch('videos')} data-testid="p3-d-videos" />
+        {videoList(draft.videos).length >= 2 && <p className="p3-note" data-testid="p3-d-videos-note">{L.detailsVideosNote}</p>}
       </Field>
       <Field id="chat" label={L.detailsChat} hint={L.detailsChatHint} problem={shown('chat')}>
         <input id="p3-d-chat" className="p3-in" inputMode="url" value={draft.chat} disabled={off} placeholder="https://chat.whatsapp.com/&hellip;"
@@ -161,10 +198,16 @@ function Details({ ws }: { ws: EventWorkspace }) {
       <div className="p3-card p3-tight" data-testid="p3-d-kind">
         <p className="p3-row-s">{L.detailsKind}</p>
         <p className="p3-row-t">{kindWordStored(ws.series.format, ws.series.category)}</p>
-        <p className="p3-note">{L.detailsKindHint}</p>
+        <p className="p3-note" data-testid="p3-d-kind-hint">{festival ? L.detailsKindHintFestival : L.detailsKindHint}</p>
       </div>
       <EditTray lines={lines} elsewhere={form.elsewhere} problem={blocker} lock={lock} busy={save.busy} uploading={uploading} error={save.error}
-        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); }} />
+        onSave={() => void onSave()} labels={words} onUndo={() => { form.undo(); save.clearError(); setPhoto({ busy: false, error: null }); }} onRestart={() => { form.restart(); save.forget(); scopedRun.forget(); }} />
+      {asking && (
+        <ScopeSheet seriesId={ws.series.id} fields={scoped.fields} changes={scoped.changes} unscopedChanged={scoped.unscopedChanged}
+          seriesVersion={form.version} dateVersion={(id) => ws.dates.find((x) => x.id === id)?.version ?? null} run={scopedRun.send}
+          onPlain={() => { setAsking(false); void runPlain(); }} onDone={scopedDone}
+          onGated={() => { setAsking(false); keepDraft(ws.series.id, { screen: 'details', draft, base: form.base }); }} onClose={() => setAsking(false)} />
+      )}
       {pictures && (
         <OnBody>
           <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)} />

@@ -41,6 +41,25 @@ export function getRaffleSessionId(): string {
 export const raffleEnteredKey = (eventId: string | null | undefined): string | null =>
   eventId ? `bcal_raffle_entered_${eventId}` : null;
 
+/** sessionStorage key recording that THIS browser joined the ONE general raffle
+ *  pool (per device). Shared by the tile and /raffles -- do NOT inline. */
+export const rafflePoolJoinedKey = 'bcal_raffle_pool_joined';
+
+// No anon read of "am I in the pool" exists on the server (raffle_my_wins_v1 is
+// authenticated and about wins), so the durable mark is localStorage (per device);
+// sessionStorage is the fallback where localStorage is blocked.
+export function isRafflePoolJoined(): boolean {
+  if (typeof window === 'undefined') return false;
+  try { if (window.localStorage.getItem(rafflePoolJoinedKey) === '1') return true; } catch { /* fall through */ }
+  try { return window.sessionStorage.getItem(rafflePoolJoinedKey) === '1'; } catch { return false; }
+}
+
+export function markRafflePoolJoined(): void {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(rafflePoolJoinedKey, '1'); } catch { /* no-op */ }
+  try { window.sessionStorage.setItem(rafflePoolJoinedKey, '1'); } catch { /* no-op */ }
+}
+
 /** Best-effort haptic feedback. No-ops where unsupported and never throws
  *  (some browsers throw on vibrate() inside cross-origin iframes). */
 export const tryVibrate = (pattern: number | number[]): void => {

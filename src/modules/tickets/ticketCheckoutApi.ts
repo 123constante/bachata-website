@@ -5,13 +5,16 @@ import {
   UNKNOWN_READING,
   type OrderStatusReading,
   parsePublicTypes,
+  availability,
+  typesForNight,
   type CheckoutBody,
   type CheckoutResult,
   type PublicTicketType,
 } from './ticketCheckoutModel';
+import { parsePromoPreview, refusePreview, type PromoPreview } from './promo';
 
 /**
- * The buyer wire (S4). ticket_types_public_v1 is not in the generated types.ts yet,
+ * The buyer wire (S4; night-aware since S1a). ticket_types_public_v2 is not in the generated types.ts yet,
  * so it goes through an untyped rpc boundary. ticket-checkout is called with fetch
  * (not functions.invoke) so a refusal's JSON body -- its `reason` -- is always read.
  * No Stripe key lives here or anywhere in the Website: the edge function holds it.
@@ -19,7 +22,8 @@ import {
 type Untyped = { rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }> };
 
 export const publicTicketKeys = {
-  types: (seriesId: string | null) => ['public-ticket-types', seriesId] as const,
+  /** Keyed on the night too: a series-wide type's stock and close differ per night. */
+  types: (seriesId: string | null, occurrenceId: string | null) => ['public-ticket-types', seriesId, occurrenceId] as const,
 };
 
 /**
@@ -37,12 +41,40 @@ export async function readOrderStatus(orderId: string): Promise<OrderStatusReadi
   }
 }
 
-export async function fetchPublicTicketTypes(seriesId: string): Promise<PublicTicketType[]> {
-  const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_types_public_v1', {
+/**
+ * Types for the night on screen (S1a). With a night, per-night types carry that night's
+ * remaining / sold_out / effective close, and nights the server refuses (past, cancelled)
+ * answer no rows. With NO night, per-night types answer remaining NULL (parsed needsNight).
+ * ticket_types_public_v1 stays callable server-side; the buyer pages no longer call it.
+ */
+export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null): Promise<PublicTicketType[]> {
+  const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_types_public_v2', {
     p_event_series_id: seriesId,
+    p_occurrence_id: occurrenceId,
   });
   if (error) throw new Error(error.message);
   return parsePublicTypes(data);
+}
+
+/**
+ * Price an order with a promo code (anon, uses nothing up; checkout re-validates).
+ * p_series takes the series id or the public event id. The wire failing reads as
+ * `network`, so the field says to check the connection; it never throws.
+ */
+export async function previewPromo(seriesId: string, typeId: string, quantity: number, code: string, occurrenceId: string | null): Promise<PromoPreview> {
+  try {
+    const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_promo_preview_v2', {
+      p_series: seriesId,
+      p_ticket_type: typeId,
+      p_quantity: quantity,
+      p_code: code,
+      p_occurrence_id: occurrenceId,
+    });
+    if (error) return refusePreview('network');
+    return parsePromoPreview(data);
+  } catch {
+    return refusePreview('network');
+  }
 }
 
 /** A stalled phone connection must not hold "Working on it" forever. */
@@ -90,4 +122,33 @@ export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutRe
   }
   const json = await resp.json().catch(() => null);
   return parseCheckoutReply(json, resp.status);
+}
+
+/**
+ * TICKET_LEAD_IN_SITE: the one answer to "does this event sell tickets in-site right now?".
+ * True when at least one type for the night is buyable (on sale, in its window, stock left).
+ * The sticky bar and the buy block both read this, so they cannot disagree. Sold out,
+ * not-yet and closed types do not count: nothing could be bought, so the external link
+ * stays the way in.
+ */
+export type SiteBarState = 'buy' | 'quiet' | 'none';
+
+/** Sticky bar state: Buy tickets, a quiet disabled bar (types exist, none buyable), or nothing. */
+export function siteBarState(types: PublicTicketType[] | undefined | null, now: Date = new Date()): SiteBarState {
+  if (!types || types.length === 0) return 'none';
+  return sellsInSite(types, now) ? 'buy' : 'quiet';
+}
+
+/** Button word for the quiet bar: "Sold out" when every type is gone, else the quiet-bar word. */
+export function quietBarButton(types: PublicTicketType[], now: Date = new Date()): string {
+  const kinds = types.map((t) => availability(t, now).kind);
+  if (kinds.every((k) => k === 'sold_out')) return 'Sold out';
+  if (kinds.includes('needs_night')) return 'Choose a night';
+  if (kinds.includes('not_yet')) return 'Not yet';
+  return 'Closed';
+}
+
+export function sellsInSite(types: PublicTicketType[] | undefined | null, now: Date = new Date(), occurrenceId?: string | null): boolean {
+  const list = occurrenceId === undefined ? (types ?? []) : typesForNight(types ?? [], occurrenceId);
+  return list.some((t) => availability(t, now).kind === 'buyable');
 }

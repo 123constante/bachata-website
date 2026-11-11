@@ -74,6 +74,8 @@ const RULES = [
       'src/modules/organiser/shared/__tests__/goLiveCheck.roles.test.ts',
       // Invite W2 walk: the Go live x every screen matrix feeds the same server answer.
       'src/modules/organiser/shared/__tests__/goLiveWalk.matrix.test.tsx',
+      // p3-status-real-reasons: the Status sheet spec feeds a go-live refusal carrying the same answer.
+      'src/modules/organiser/p3/screens/__tests__/goLiveReasons.matrix.test.tsx',
       'src/modules/admin-organisers/inviteModel.ts',
       // S4 front door RPCs (admin PR #1007) answer organiser_id; the typed boundary parser and its specs read it.
       'src/modules/admin-organisers/frontDoorApi.ts',
@@ -89,6 +91,8 @@ const RULES = [
       'src/modules/admin-organisers/join/__tests__/joinModel.test.ts',
       'src/modules/admin-organisers/join/__tests__/joinJourney.test.tsx',
       'src/modules/admin-organisers/join/__tests__/joinMachine.table.test.tsx',
+      // Get paid link part B: the next=get-paid Done matrix feeds the redeem answer (organiser_id + member_role).
+      'src/modules/admin-organisers/join/__tests__/JoinGetPaidNext.test.tsx',
       // P3-GATE: _require_onboarding_complete_v1's refusal DETAIL names the page as organiser_id (an
       // organiser_profiles id); gate.ts is its one parser, and the gate matrix feeds it that refusal.
       'src/modules/organiser/p3/onboarding/gate.ts',

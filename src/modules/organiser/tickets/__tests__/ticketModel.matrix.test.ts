@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  newRefundRequestId,
+  partialRefundDone,
+  refundAmountError,
+  refundPartQuestion,
   MOVE_LABEL,
+  PAUSED_NOTE,
+  PRICE_LOCKED_TEXT,
+  switchMove,
+  SWITCH_LABEL,
   NEXT_STATUS,
   NOT_MANAGER,
+  PAYMENTS_WHERE,
   NOT_SWITCHED_ON,
   STATUS_LABEL,
   STATUS_TONE,
@@ -73,7 +82,7 @@ describe('status machine mirrors the server', () => {
 });
 
 const ROLES = ['owner', 'manager', 'contributor'] as const;
-const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'connected', 'unknown'];
+const STRIPES: (StripeState | 'unknown')[] = ['none', 'started', 'waiting', 'connected', 'unknown'];
 
 describe('moveBlock: every status x role x Stripe x free/paid x room left x series live', () => {
   for (const from of TICKET_STATUSES)
@@ -91,7 +100,7 @@ describe('moveBlock: every status x role x Stripe x free/paid x room left x seri
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
                 if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
-                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(/Connect payments/);
+                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : /Connect payments/);
                 expect(got).toBeNull();
               });
             }
@@ -116,10 +125,10 @@ describe('roles (Q15)', () => {
 });
 
 describe('Get paid', () => {
-  it('reads organiser_stripe_accounts as none / started / connected', () => {
+  it('reads organiser_stripe_accounts as none / started / waiting / connected', () => {
     expect(stripeStateOf(null)).toBe('none');
     expect(stripeStateOf({ charges_enabled: false, details_submitted: false })).toBe('started');
-    expect(stripeStateOf({ charges_enabled: false, details_submitted: true })).toBe('started');
+    expect(stripeStateOf({ charges_enabled: false, details_submitted: true })).toBe('waiting');
     expect(stripeStateOf({ charges_enabled: true })).toBe('connected');
   });
   it.each([
@@ -161,10 +170,10 @@ describe('money', () => {
   it('totals add every type', () => {
     const row = { id: 'a', seriesId: 's', name: 'n', status: 'on_sale' as const, pricePence: 1000, capacity: 10, reserved: 2 };
     const t = totalsOf([
-      { ...row, ticketsSold: 2, ordersPaid: 1, ordersPending: 1, ordersRefunded: 0, ordersDisputed: 0, grossPence: 2000, bookingFeesPence: 100, refundedPence: 0 },
-      { ...row, ticketsSold: 3, ordersPaid: 2, ordersPending: 0, ordersRefunded: 1, ordersDisputed: 1, grossPence: 3000, bookingFeesPence: 150, refundedPence: 1050 },
+      { ...row, ticketsSold: 2, ordersPaid: 1, ordersPending: 1, ordersRefunded: 0, ordersDisputed: 0, grossPence: 2000, discountsPence: 0, bookingFeesPence: 100, refundedPence: 0 },
+      { ...row, ticketsSold: 3, ordersPaid: 2, ordersPending: 0, ordersRefunded: 1, ordersDisputed: 1, grossPence: 3000, discountsPence: 200, bookingFeesPence: 150, refundedPence: 1050 },
     ]);
-    expect(t).toEqual({ ticketsSold: 5, ordersPaid: 3, ordersPending: 1, ordersRefunded: 1, ordersDisputed: 1, grossPence: 5000, bookingFeesPence: 250, refundedPence: 1050 });
+    expect(t).toEqual({ ticketsSold: 5, ordersPaid: 3, ordersPending: 1, ordersRefunded: 1, ordersDisputed: 1, grossPence: 5000, discountsPence: 200, bookingFeesPence: 250, refundedPence: 1050 });
   });
 });
 
@@ -245,4 +254,157 @@ describe('server refusals all have words', () => {
     'immutable_field', 'closed', 'has_orders', 'capacity_below_reserved', 'bad_transition', 'at_capacity',
     'organiser_not_onboarded',
   ])('%s', (r) => expect(reasonMessage(r)).not.toBe(reasonMessage('???')));
+});
+
+// ---- Partial refunds (brief ticket-partial-refund-ui; owner Q5) ------------------------
+
+describe('partial refund amount (refundAmountError)', () => {
+  // 25.00 paid, 17.00 already refunded: 8.00 left.
+  const left = { totalPence: 2500, refundedPence: 1700 };
+  const ROWS: Array<[string, 'ok' | 'empty' | 'price' | 'zero' | 'over']> = [
+    ['', 'empty'],
+    ['   ', 'empty'],
+    ['abc', 'price'],
+    ['0', 'zero'],
+    ['0.00', 'zero'],
+    ['-1', 'price'],
+    ['0.001', 'price'],
+    ['3', 'ok'],
+    ['3.5', 'ok'],
+    ['3.50', 'ok'],
+    ['\u00A33.50', 'ok'],
+    ['GBP3', 'price'],
+    ['8', 'ok'], // exactly what is left: sent as a partial, the server decides clears_balance
+    ['8.01', 'over'], // remaining + 1p
+    ['10000.01', 'price'], // over the 1,000,000p cap
+  ];
+  it.each(ROWS)('%j -> %s', (text, want) => {
+    const e = refundAmountError(text, left);
+    if (want === 'ok') return expect(e).toBeNull();
+    expect(e).toBeTruthy();
+    // Every refusal names the maximum, so the person knows what to type.
+    expect(e).toContain('\u00A38.00');
+    if (want === 'empty') expect(e).toMatch(/^Enter how much/);
+    if (want === 'over') expect(e).toMatch(/more than is left/);
+    if (want === 'zero') expect(e).toMatch(/more than \u00A30/);
+    if (want === 'price') expect(e).toMatch(/in pounds/);
+  });
+  it('the maximum is the remainder on a part-refunded order, the total on an untouched one', () => {
+    expect(refundAmountError('25', { totalPence: 2500, refundedPence: 0 })).toBeNull();
+    expect(refundAmountError('25.01', { totalPence: 2500, refundedPence: 0 })).toContain('\u00A325.00');
+    expect(refundAmountError('8.01', left)).toContain('\u00A38.00');
+  });
+});
+
+describe('partial refund words', () => {
+  it('done: the amount, what is left, tickets stay valid', () => {
+    expect(partialRefundDone(300, 500)).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
+    expect(partialRefundDone(800, 0)).toBe('Refunded \u00A38.00. Nothing is left to refund.');
+    // The server cleared the balance: no promise about the tickets (the server settles the order).
+    expect(partialRefundDone(800, 0, true)).toBe('Refunded \u00A38.00. Nothing is left to refund.');
+    // No remainder in the reply: none is guessed from a row the webhook has not updated yet.
+    expect(partialRefundDone(300, null)).toBe('Refunded \u00A33.00. Tickets stay valid.');
+
+  });
+  it('the partial question says tickets stay valid and names the maximum', () => {
+    const q = refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 300);
+    expect(q.max).toBe('Up to \u00A38.00 left to refund');
+    expect(q.body).toMatch(/stay valid/);
+    expect(q.confirm).toBe('Refund \u00A33.00');
+    expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, null).confirm).toBe('Refund');
+    // Exactly what is left: the server decides what happens to the order, so no promise about tickets.
+    expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 800).body).not.toMatch(/stay valid|stays paid/);
+
+  });
+  it('a request id is 8-64 chars of [A-Za-z0-9_-], fresh each call, also without crypto.randomUUID', () => {
+    const a = newRefundRequestId();
+    expect(a).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+    expect(newRefundRequestId()).not.toBe(a);
+    const real = globalThis.crypto.randomUUID;
+    try {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', { value: undefined, configurable: true });
+      expect(newRefundRequestId()).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
+    } finally {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', { value: real, configurable: true });
+    }
+  });
+});
+
+describe('refund refusal words (the server reasons of ticket-refund)', () => {
+  const GENERIC = 'That did not work. Try again in a moment.';
+  // Controls the Refund sheet shows: the two choices, the amount field, Refund, Keep the order.
+  const NOT_ON_SCREEN = /\b(Retry|Cancel|Settings|Dashboard|Stripe|Contact support|Undo)\b/i;
+  it.each(['invalid_amount', 'request_id_required', 'request_id_reused', 'not_refundable', 'refund_exceeds_balance'])('%s has its own words', (r) => {
+    const t = reasonMessage(r);
+    expect(t).not.toBe(GENERIC);
+    expect(t).not.toMatch(NOT_ON_SCREEN);
+    expect(t).toMatch(/\.$/);
+    expect(t).not.toMatch(/\bPress\b/); // house rule: Tap, never Press
+
+    expect(t).not.toMatch(/[\u2018\u201C\u00E2]/); // no curly-quote or mojibake bytes in the copy
+  });
+  it('refund_exceeds_balance says an earlier refund may still be settling', () => {
+    expect(reasonMessage('refund_exceeds_balance')).toMatch(/earlier refund.*settling.*wait a minute/i);
+  });
+});
+
+// ---- S1: "pause this price, add a new one" -- every status x every journey -----------------
+
+type Journey = 'pause with sales' | 'pause without sales' | 'resume' | 'edit price after a sale' | 'add replacement' | 'owner not connected to payments';
+const JOURNEYS: Journey[] = ['pause with sales', 'pause without sales', 'resume', 'edit price after a sale', 'add replacement', 'owner not connected to payments'];
+const CTX = { role: 'owner', seriesLive: true, stripe: 'connected' } as const;
+
+/** What the organiser sees for one journey on one status: the switch move, whether it is enabled, and the words. */
+const SEES = (status: TicketStatus, journey: Journey) => {
+  const sold = journey === 'pause with sales' || journey === 'edit price after a sale' ? 3 : 0;
+  const t = type({ status, reserved: sold, pricePence: 1250 });
+  const to = switchMove(status);
+  const ctx = journey === 'owner not connected to payments' ? { ...CTX, stripe: 'none' as const } : CTX;
+  return {
+    to,
+    block: to ? moveBlock(t, to, ctx) : null,
+    priceHelp: priceLock(sold > 0),
+    pausedNote: status === 'paused' ? PAUSED_NOTE : null,
+    label: SWITCH_LABEL[status],
+  };
+};
+
+describe('S1 status x journey', () => {
+  for (const status of TICKET_STATUSES) {
+    for (const journey of JOURNEYS) {
+      it(`${status} / ${journey}`, () => {
+        const s = SEES(status, journey);
+        // Pause and resume are one tap wherever the server allows the move; closed has no switch.
+        if (status === 'closed') expect(s.to).toBeNull();
+        else expect(s.to === null ? [] : NEXT_STATUS[status]).toContain(s.to === 'on_sale' ? 'on_sale' : s.to);
+        if (status === 'on_sale') expect(s.to).toBe('paused');
+        // Pausing is never blocked (even with sales, even without payments).
+        if (status === 'on_sale') expect(s.block).toBeNull();
+        // Resuming a free-of-payments-problem ticket is enabled; an unconnected paid owner is told why.
+        if (status === 'paused' && journey === 'owner not connected to payments') expect(s.block).toBe(PAYMENTS_WHERE);
+        if (status === 'paused' && journey !== 'owner not connected to payments') expect(s.block).toBeNull();
+        // A disabled switch always states why.
+        if (s.to && s.block) expect(s.block.length).toBeGreaterThan(10);
+        // The locked-price text appears exactly when tickets were sold, and says what to do instead.
+        if (journey === 'pause with sales' || journey === 'edit price after a sale') {
+          expect(s.priceHelp).toBe(PRICE_LOCKED_TEXT);
+          expect(s.priceHelp).toMatch(/pause this ticket and add a new one/);
+        } else expect(s.priceHelp).toBeNull();
+        // Paused tickets say what it means for buyers and for people who already bought.
+        expect(s.pausedNote).toBe(status === 'paused' ? 'Not on sale. People who already bought keep their tickets.' : null);
+      });
+    }
+  }
+  it('the server refusal for a locked price reads the same words as the sheet', () => {
+    expect(reasonMessage('has_orders')).toBe(PRICE_LOCKED_TEXT);
+    expect(priceLock(true)).toBe(reasonMessage('has_orders'));
+  });
+  it('no text points at a control that is not there (only Add a ticket and pause are named)', () => {
+    expect(PRICE_LOCKED_TEXT).not.toMatch(/Selling switch|Edit|Refund|Orders/);
+    expect(PAUSED_NOTE).not.toMatch(/Add a ticket|switch|tap/i);
+  });
+  it('an untouched save sends nothing', () => {
+    const t = type({ status: 'paused', reserved: 3 });
+    expect(buildUpsert(formOf(t), t, { organiserId: 'o1', seriesId: 's1' })).toBeNull();
+  });
 });

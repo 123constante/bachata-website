@@ -1,0 +1,63 @@
+name: Phone QA rerun
+
+# Re-runs a Phone QA run ONCE when it was cancelled -- the shape a shard hitting
+# its timeout-minutes limit leaves (phone-qa.yml, 3 shards x 20 min; owner
+# 2026-11-06). Only the cancelled/failed jobs re-run (`gh run rerun --failed`),
+# so green shards are not repeated.
+#
+# What it never re-runs:
+#   - a run whose conclusion is `failure`: a real test failure must stop the PR;
+#   - a second attempt (run_attempt != 1): one automatic retry, then a human;
+#   - a run superseded by a newer push. phone-qa.yml's concurrency
+#     (cancel-in-progress) cancels the older run on every push, and that also
+#     concludes `cancelled`; it is told apart by its head sha no longer being
+#     the PR's head. Checked twice: in the job `if` from the event payload, and
+#     again in the step against the live PR, since the payload can lag a push;
+#   - a run superseded at the SAME sha (a `reopened` event, or a re-trigger):
+#     the newer run cancels this one through the same concurrency group, so
+#     re-running the older one would cancel the newer in turn. Skipped when any
+#     newer Phone QA run exists for this sha.
+#
+# NO checkout, no secrets: the built-in token with actions: write is all a
+# re-run needs.
+
+on:
+  workflow_run:
+    workflows: ["Phone QA"]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  rerun-cancelled:
+    if: >-
+      github.event.workflow_run.conclusion == 'cancelled' &&
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0] != null &&
+      github.event.workflow_run.pull_requests[0].head.sha == github.event.workflow_run.head_sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Re-run the cancelled Phone QA jobs once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          head="$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)"
+          if [ "$head" != "$RUN_SHA" ]; then
+            echo "::notice title=phone-qa-rerun skipped::run $RUN_ID is for $RUN_SHA, PR #$PR_NUMBER head is now $head (superseded by a push)."
+            exit 0
+          fi
+          newer="$(gh run list --workflow phone-qa.yml --commit "$RUN_SHA" --limit 20 --json databaseId --jq "[.[] | select(.databaseId > $RUN_ID)] | length")"
+          if [ "$newer" != "0" ]; then
+            echo "::notice title=phone-qa-rerun skipped::a newer Phone QA run exists for $RUN_SHA; run $RUN_ID was superseded, not timed out."
+            exit 0
+          fi
+          gh run rerun "$RUN_ID" --failed

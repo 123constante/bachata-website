@@ -5,11 +5,11 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { OTP_CODE_LENGTH } from '@/lib/auth-otp-routing';
+import { OTP_CODE_LENGTH, getPaidStartPath } from '@/lib/auth-otp-routing';
 import { acceptedInviteLanding } from '@/modules/organiser/p3/shell/paths';
 import { organiserAreaHome, p3AreaLive } from '@/lib/organiserAreaHome';
 import { USED_COPY, reasonScreen, type ReasonScreen, type UsedViewer } from '../inviteModel';
-import { JOIN_COPY, askForNewLinkLine } from './joinCopy';
+import { JOIN_COPY, askForNewLinkLine, doneBody } from './joinCopy';
 import type { DeadReason, JoinPreview, JoinStep, JoinStop } from './joinModel';
 
 export const BTN = 'inline-flex w-full min-h-[48px] items-center justify-center rounded-xl bg-primary px-4 text-[15px] font-semibold text-primary-foreground disabled:opacity-50';
@@ -165,22 +165,25 @@ export function JoinStepScreen({ preview, busy, signOutError, onJoin, onNotYou }
  * Where Done goes, and the state it carries: the ONE landing helper; without an id (or with the area off) the plain
  * home links stay. F-05 (review r1 F1): P3 Home reads `confirmation` and WAITS for its home refetch instead of
  * reading a pre-join "no page" cache and bouncing to Start. Slice U's returning redirect uses the same answer.
+ * `getPaid` (the link's `next=get-paid` AND an owner or manager seat, decided by the page): with an organiser id and
+ * the area on, Done goes to the Get paid start path instead; with no id it is the plain home, as today.
  */
-export function doneTarget(org: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }, organiserId: string | null): { to: string; state: { confirmation: string } | undefined } {
+export function doneTarget(org: string, flags: { organiserP3: boolean; organiserSelfServe: boolean }, organiserId: string | null, getPaid = false): { to: string; state: { confirmation: string } | undefined; getPaid: boolean } {
   const selfServe = flags.organiserSelfServe;
-  const to = selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
+  const toGetPaid = getPaid && selfServe && organiserId != null;
+  const to = toGetPaid ? getPaidStartPath(organiserId) : selfServe ? (organiserId ? acceptedInviteLanding(organiserId, flags) : organiserAreaHome(flags)) : '/';
   const state = p3AreaLive(flags) && organiserId ? { confirmation: JOIN_COPY.done.heading(org) } : undefined;
-  return { to, state };
+  return { to, state, getPaid: toGetPaid };
 }
 
-export function DoneScreen({ org, flags, organiserId }: { org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null }) {
+export function DoneScreen({ org, flags, organiserId, rowsLeft = null, getPaid = false }: { rowsLeft?: number | null; org: string; flags: { organiserP3: boolean; organiserSelfServe: boolean }; organiserId: string | null; getPaid?: boolean }) {
   const selfServe = flags.organiserSelfServe;
-  const button = selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
-  const { to, state } = doneTarget(org, flags, organiserId);
+  const { to, state, getPaid: toGetPaid } = doneTarget(org, flags, organiserId, getPaid);
+  const button = toGetPaid ? JOIN_COPY.done.buttonGetPaid : selfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[14px]" role="status" data-testid="join-done">{JOIN_COPY.done.heading(org)}</div>
-      <Lead>{selfServe ? JOIN_COPY.done.body : JOIN_COPY.done.bodyOff}</Lead>
+      <Lead>{selfServe ? doneBody(rowsLeft) : JOIN_COPY.done.bodyOff}</Lead>
       <Link to={to} state={state} className={BTN} data-testid="join-done-home">{button}</Link>
     </div>
   );
@@ -225,6 +228,7 @@ export function DeadScreen({ reason, preview, newLink, usedViewer = null, signIn
       {viewer === 'other_account' && onSwitch && <button type="button" className={BTN} disabled={busy} onClick={onSwitch} data-testid="invite-used-switch">{USED_COPY.other_account.button}</button>}
       {!screen.offerNewLink && <NextLine reason={reason} />}
       {screen.offerNewLink && newLink}
+      {reason === 'revoked' && <a href={JOIN_COPY.help.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-revoked-help">{JOIN_COPY.help.label}</a>}
       {reason === 'invalid' && <a href={JOIN_COPY.unknownLink.url} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="invite-new-link-help">{JOIN_COPY.unknownLink.button}</a>}
       <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>
     </div>
@@ -264,9 +268,11 @@ function ReasonActions({ reason, busy, onRetry, home }: { reason: ReasonScreen; 
 }
 
 /** Refusals and failures, each with what to do next. `onRetry` re-runs the action that failed; `onSwitch` signs out and continues. */
-export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss }: {
+export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, onSwitch, onDismiss, homeFlags = { organiserP3: false, organiserSelfServe: false } }: {
   stop: JoinStop; preview: JoinPreview | null; signedInAs: string; busy: boolean; error: string | null;
   onRetry: () => void; onSwitch: () => void; onDismiss: () => void;
+  /** Where the `unmatched` stop's one link goes (doneTarget's rule). Absent: the public site. */
+  homeFlags?: { organiserP3: boolean; organiserSelfServe: boolean };
 }) {
   const inviter = preview?.inviterFirstName ?? null;
   const home = <Link to="/" className={GHOST} data-testid="invite-home">{JOIN_COPY.home}</Link>;
@@ -276,8 +282,38 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
         <div className="flex flex-col gap-2">
           <Heading>{JOIN_COPY.blockedDomain.heading}</Heading>
           <Lead>{JOIN_COPY.blockedDomain.body}</Lead>
+          {stop.locked && <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>}
           <a href={JOIN_COPY.blockedDomain.helpUrl} target="_blank" rel="noopener noreferrer" className={BTN} data-testid="join-help">{JOIN_COPY.blockedDomain.help}</a>
-          <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>
+          {stop.locked ? home : <button type="button" className={GHOST} onClick={onDismiss} data-testid="join-dismiss">{JOIN_COPY.blockedDomain.button}</button>}
+        </div>
+      );
+    case 'invite_only': {
+      // The invited email's mask (a bound link); after a bind that just tied the link, only help can work.
+      const hint = stop.locked ? null : preview?.emailHint ?? null;
+      // Only help can work: the link is tied to the refused email, or the refused email IS the invited one.
+      const onlyHelp = stop.locked || stop.typedInvited === true;
+      const help = <a href={JOIN_COPY.inviteOnly.helpUrl} target="_blank" rel="noopener noreferrer" className={onlyHelp ? BTN : GHOST} data-testid="join-help">{JOIN_COPY.inviteOnly.help}</a>;
+      return (
+        <div className="flex flex-col gap-2">
+          <Heading>{JOIN_COPY.inviteOnly.heading}</Heading>
+          <Lead testId="join-invite-only-body">{JOIN_COPY.inviteOnly.body}</Lead>
+          {stop.locked ? <Lead testId="join-locked">{JOIN_COPY.locked(inviter)}</Lead>
+            : hint ? <Lead testId="join-invite-hint">{JOIN_COPY.inviteSentTo(hint)}</Lead>
+            : <Lead>{JOIN_COPY.inviteOnly.noHint}</Lead>}
+          {stop.typedInvited && <Lead testId="join-invited-refused">{JOIN_COPY.inviteOnly.invitedRefused}</Lead>}
+          {!onlyHelp && <button type="button" className={BTN} onClick={onDismiss} data-testid="join-dismiss">{hint ? JOIN_COPY.inviteOnly.useInvited : JOIN_COPY.inviteOnly.useAnother}</button>}
+          {help}
+          {onlyHelp && home}
+        </div>
+      );
+    }
+    case 'profile_stale':
+      return (
+        <div className="flex flex-col gap-2">
+          <Heading>{JOIN_COPY.profileStale.heading}</Heading>
+          <Lead testId="join-stale-body">{JOIN_COPY.profileStale.body}</Lead>
+          <button type="button" className={BTN} disabled={busy} onClick={onRetry} data-testid="join-retry">{JOIN_COPY.profileStale.button}</button>
+          {home}
         </div>
       );
     case 'rate_limited': {
@@ -332,6 +368,23 @@ export function StopScreen({ stop, preview, signedInAs, busy, error, onRetry, on
           <ErrorLine id="join-signout-error">{error}</ErrorLine>
         </div>
       );
+    case 'unmatched': {
+      // Find before create: nothing was created, chosen or redeemed. The one control is the organiser home (the
+      // public site while the organiser area is off), named in the copy by its own label.
+      const label = homeFlags.organiserSelfServe ? JOIN_COPY.done.button : JOIN_COPY.done.buttonOff;
+      const { to } = doneTarget(preview?.organiserName ?? 'the team', homeFlags, null);
+      return (
+        <div className="flex flex-col gap-2">
+          <span className="self-start rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-300" data-testid="join-unmatched-tag">{JOIN_COPY.unmatched.tag}</span>
+          <Heading>{JOIN_COPY.unmatched.heading}</Heading>
+          <Lead testId="join-unmatched-body">{JOIN_COPY.unmatched.body}</Lead>
+          <Lead testId="join-unmatched-tell">{JOIN_COPY.unmatched.tell(inviter)}</Lead>
+          <p className="rounded-xl border border-border p-3 text-[13px] text-muted-foreground">{JOIN_COPY.unmatched.note}</p>
+          <Lead testId="join-unmatched-next">{JOIN_COPY.unmatched.next(label)}</Lead>
+          <Link to={to} className={BTN} data-testid="join-unmatched-home">{label}</Link>
+        </div>
+      );
+    }
     case 'wrong_account':
       return <WrongAccountScreen signedInAs={signedInAs} hint={stop.emailHint ?? preview?.emailHint ?? 'another email'} busy={busy} error={error} onSwitch={onSwitch} />;
     case 'already_bound':
