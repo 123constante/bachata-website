@@ -209,7 +209,12 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // TICKET_LEAD_IN_SITE: false on server + first render (hydration-safe); the sticky bar's probe flips it.
   // The series' ticket types are not in the page snapshot (only the organiser's own offers are), so
   // server HTML keeps her URL: open owner decision, see the design record.
-  const [ticketingLive, setTicketingLive] = useState(false);
+  // Stored with the night it is about (fix2 1c): after a night switch the old night's answer
+  // no longer counts, so the JSON-LD cannot keep our URL for a night that is not live.
+  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean }>({ night: null, live: false });
+  const onTicketingLive = useCallback((live: boolean, night: string | null) => {
+    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night ? prev : { night, live }));
+  }, []);
   const closeTickets = useCallback(() => setTicketsOpen(false), []);
 
   const occurrence = snapshot?.occurrenceEffective ?? null;
@@ -661,7 +666,9 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         ],
         offers: (snapshot.event.tickets ?? []).map((t) => ({
           // Ours when our Buy is live for this night; the organiser's link only when it is not.
-          url: ticketOfferUrl(ticketingLive, `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`, pageModel.actions.ticketUrl),
+          url: ticketOfferUrl(
+            ticketingLiveFor.live && ticketingLiveFor.night === (occurrenceId ?? snapshot.occurrenceId ?? null),
+            `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`, pageModel.actions.ticketUrl),
           name: t.name,
           price: t.price,
           // Never a currency without a price (Google flags the pair);
@@ -895,7 +902,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         }
         inSiteTicketing={flags.publicTicketing && !over && !occurrence?.isCancelled && !pageModel.page.isPaused}
         onOpenTickets={() => setTicketsOpen(true)}
-        onTicketingLive={setTicketingLive}
+        onTicketingLive={onTicketingLive}
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]

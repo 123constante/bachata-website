@@ -24,3 +24,9 @@ While in-site ticketing is possible and the probe has not answered, the bar rend
 
 ## OPEN OWNER DECISION: JSON-LD in server HTML
 The series' ticket types are not in the page snapshot (only the organiser's own offers are), so `ticketingLive` cannot be computed at first render. Server HTML and non-JS crawlers keep her URL in JSON-LD; the client flips to ours once the probe resolves. Making the server HTML say ours needs a server-side ticket-types fetch (not done: out of scope, no supabase/** change). Owner to decide whether that is worth building.
+
+## Fix round 2 (brief ticket-lead-in-site-fix2)
+- Probe answers are stored WITH their night (`series|night` key) in the bar, and the live flag reaches the page as `(live, night)`. A night switch makes the old answer stale at once: the new night starts pending (placeholder), never inherits the previous night's live flag, quiet label or timeout, and the JSON-LD only trusts a live answer about the night on screen. The probe reports its night as a dependency, so a switch to a cached night with an identical answer still settles.
+- Timeout: after 4s with no answer the night is settled as not-live (her link) and LOCKED for that night: a late answer never swaps to ours or to a placeholder (the simpler option of the two the brief allowed). A fresh night starts its own probe and timeout.
+- Placeholder only while this night's probe is in flight; any answer (`none` included) or the timeout ends it.
+- Tests: `tests/client/ticketLeadPage.matrix.test.tsx` renders the real BentoPage and reads the bar and the emitted JSON-LD `<script>`.

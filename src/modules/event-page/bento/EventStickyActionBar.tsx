@@ -20,7 +20,7 @@ type EventStickyActionBarProps = {
    *  reads the series' ticket types itself; false never fetches. */
   inSiteTicketing?: boolean;
   /** Tells the page whether our Buy is live for this night (JSON-LD offer URL follows it). */
-  onTicketingLive?: (live: boolean) => void;
+  onTicketingLive?: (live: boolean, occurrenceId: string | null) => void;
   /** Opens the Tickets page (replaces scrolling to the inline block). */
   onOpenTickets?: () => void;
   /** Title used for the native share sheet / fallback text. */
@@ -89,6 +89,13 @@ const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center 
  */
 const PROBE_TIMEOUT_MS = 4000;
 
+type SiteBarStateLite = 'buy' | 'quiet' | 'none';
+type ProbeAnswer = { key: string; state: SiteBarStateLite; label: string; timedOut: boolean };
+/** The night a probe answer is about (series + night). */
+function probeNightKey(seriesId: string | null, occurrenceId: string | null): string {
+  return `${seriesId ?? ''}|${occurrenceId ?? ''}`;
+}
+
 export const EventStickyActionBar = ({
   eventId,
   occurrenceId = null,
@@ -111,28 +118,38 @@ export const EventStickyActionBar = ({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
-  const [barState, setBarState] = useState<'buy' | 'quiet' | 'none'>('none');
-  const [quietLabel, setQuietLabel] = useState('Sold out');
-  const [probed, setProbed] = useState(false);
-  const onProbe = useCallback((st: 'buy' | 'quiet' | 'none', label: string) => {
-    setBarState(st);
-    setProbed(true);
-    if (label) setQuietLabel(label);
+  // Every probe fact is stored WITH the night it is about (fix2 1c): a night switch makes the
+  // stored answer stale at once, so the new night starts pending and never inherits the
+  // previous night's live flag, quiet label or timeout. Nothing else in this bar is per night.
+  const nightKey = probeNightKey(eventId, occurrenceId);
+  // One answer per night, so an answer about another night can never overwrite this one's.
+  const [answers, setAnswers] = useState<Record<string, ProbeAnswer>>({});
+  const onProbe = useCallback((seriesId: string, night: string | null, st: SiteBarStateLite, label: string) => {
+    const key = probeNightKey(seriesId, night);
+    // After the timeout her link stays for this night: a late answer never swaps it (fix2 1b).
+    setAnswers((prev) => (prev[key]?.timedOut ? prev : { ...prev, [key]: { key, state: st, label, timedOut: false } }));
   }, []);
+  const current = answers[nightKey] ?? null;
   // If the probe never answers (chunk or network failure) her link must not stay hidden forever.
   useEffect(() => {
-    if (!inSiteTicketing || probed) return;
-    const t = setTimeout(() => setProbed(true), PROBE_TIMEOUT_MS);
+    if (!inSiteTicketing || !eventId || current) return;
+    const t = setTimeout(() => {
+      setAnswers((prev) => (prev[nightKey] ? prev : { ...prev, [nightKey]: { key: nightKey, state: 'none', label: '', timedOut: true } }));
+    }, PROBE_TIMEOUT_MS);
     return () => clearTimeout(t);
-  }, [inSiteTicketing, probed]);
+  }, [inSiteTicketing, eventId, nightKey, current]);
+  const barState: SiteBarStateLite = current?.state ?? 'none';
+  const quietLabel = current?.label || 'Sold out';
+  const live = inSiteTicketing && !!eventId && barState === 'buy';
   useEffect(() => {
-    onTicketingLive?.(inSiteTicketing && !!eventId && barState === 'buy');
-  }, [onTicketingLive, inSiteTicketing, eventId, barState]);
-  const inSite = inSiteTicketing && !!eventId && barState === 'buy';
+    onTicketingLive?.(live, occurrenceId);
+  }, [onTicketingLive, live, occurrenceId]);
+  const inSite = live;
   const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
-  // In-site ticketing is possible but the probe has not answered: show neither her link nor a
-  // primary action (a same-height placeholder), so her link never flashes and then vanishes.
-  const pending = inSiteTicketing && !!eventId && !probed;
+  // In-site ticketing is possible but the probe has not answered for THIS night: show neither
+  // her link nor a primary action (a same-height placeholder), so her link never flashes and
+  // then vanishes. Once the night resolved (any state, or timed out) this is false (fix2 1a).
+  const pending = inSiteTicketing && !!eventId && !current;
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
