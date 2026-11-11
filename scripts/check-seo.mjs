@@ -389,7 +389,18 @@ function auditHtml(path, html, { isEvent = false, minEventLinks = 0 } = {}) {
     }
   } else if (isEvent) {
     const ev = findEventNode(blocks);
-    if (!ev) {
+    // Paused series (owner SEO decision (a), src/lib/seo/eventPageSeoPolicy.ts):
+    // 200, indexable, in the sitemap, and deliberately NO Event node -- the only
+    // date such a page carries already ran. The honest assertion is the pair
+    // "hiatus banner present AND no Event node"; requiring an Event node here
+    // reds the gate on correct pages. A page with the node AND the banner
+    // contradicts the policy and fails.
+    const onHiatus = /On hiatus/i.test(html);
+    if (!ev && onHiatus) {
+      // asserted: the hiatus contract held. Falls through to the other checks.
+    } else if (ev && onHiatus) {
+      failures.push('hiatus page carries an Event JSON-LD node (paused series must emit none)');
+    } else if (!ev) {
       failures.push('no Event JSON-LD node');
     } else {
       // HARD-REQUIRED here. eventStatus is Recommended and is kept hard
@@ -626,12 +637,13 @@ async function main() {
 // ---------------------------------------------------------------------------
 async function selfTest() {
   const HOST = 'https://www.bachatacalendar.co.uk';
-  const page = ({ canonical = `${HOST}/x`, title = 'Salsa Night at Pulse', desc = 'A page about bachata.', descTag = null, h1 = '<h1>Heading</h1>', jsonLd = '', links = 0 } = {}) => [
+  const page = ({ canonical = `${HOST}/x`, title = 'Salsa Night at Pulse', desc = 'A page about bachata.', descTag = null, h1 = '<h1>Heading</h1>', jsonLd = '', links = 0, body = '' } = {}) => [
     canonical === null ? '' : `<link rel="canonical" href="${canonical}">`,
     title === null ? '' : `<title>${title}</title>`,
     descTag ?? (desc === null ? '' : `<meta name="description" content="${desc}">`),
     h1,
     jsonLd,
+    body,
     Array.from({ length: links }, (_, i) => `<a href="/event/e${i}">event</a>`).join('\n'),
   ].join('\n');
   const eventLd = (overrides = {}) => {
@@ -785,6 +797,12 @@ async function selfTest() {
         && auditHtml('/x', page({ h1: `<h1>x</h1>${PAUSED_BANNER}` }), {}).paused === false],
     ['silent: a non-event page needs no Event node',
       clean(page(), {})],
+    ['survives: a paused/hiatus page with NO Event node passes (policy: paused emits none)',
+      auditHtml('/x', page({ body: '<p>On hiatus &mdash; no upcoming dates</p>' }), { isEvent: true }).failures.length === 0],
+    ['fires: a hiatus page that DOES carry an Event node contradicts the policy',
+      fails(page({ jsonLd: eventLd(), body: '<p>On hiatus</p>' }), { isEvent: true }, 'hiatus page carries an Event JSON-LD node')],
+    ['fires: no hiatus banner and no Event node still fails (guard not weakened)',
+      fails(page({ body: '<p>hello</p>' }), { isEvent: true }, 'no Event JSON-LD node')],
     ['fires: Event JSON-LD missing name',
       fails(page({ jsonLd: eventLd({ name: undefined }) }), { isEvent: true }, 'Event JSON-LD missing name')],
     ['fires: Event JSON-LD missing startDate',
