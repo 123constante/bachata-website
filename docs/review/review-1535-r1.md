@@ -26,3 +26,5 @@ Diff reviewed: 3 files (allow-list `[]`, one header comment in the guard, the co
 - CI on GitHub (not run here); the actual workflow-lint job on the PR.
 - `docs/ci-guard-notes.md` wording not read line by line.
 - Whether a branch-protection rule lets the owner still edit workflow-lint.yml; assumed yes.
+
+_tsc not run: docs-only change, no TS touched._
