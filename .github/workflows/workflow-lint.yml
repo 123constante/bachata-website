@@ -51,7 +51,7 @@ jobs:
       # Which workflow files an automation-loop PR may change (claude/ or ccr-
       # branch, or authored by kiki-claude-bot): only names on
       # scripts/data/automation-workflow-allowlist.json (owner-curated; currently
-      # `workflow-lint.yml`), and never the list itself. Owner PRs are not affected. Needs no npm ci (node
+      # empty, so no workflow file), and never the list itself. Owner PRs are not affected. Needs no npm ci (node
       # built-ins only). The git fetch is the same depth-2 merge-sha fetch the
       # docs-only step does. docs/handovers/workflow-allowlist-2.md.
       - name: Automation workflow allow-list
