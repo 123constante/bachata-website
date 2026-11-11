@@ -205,6 +205,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [ticketsOpen, setTicketsOpen] = useState(false);
+  // TICKET_LEAD_IN_SITE: false on server + first render (hydration-safe); the sticky bar's probe flips it.
+  const [ticketingLive, setTicketingLive] = useState(false);
   const closeTickets = useCallback(() => setTicketsOpen(false), []);
 
   const occurrence = snapshot?.occurrenceEffective ?? null;
@@ -655,7 +657,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
           })),
         ],
         offers: (snapshot.event.tickets ?? []).map((t) => ({
-          url: pageModel.actions.ticketUrl,
+          // Ours when our Buy is live for this night; the organiser's link only when it is not.
+          url: ticketingLive ? `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}` : pageModel.actions.ticketUrl,
           name: t.name,
           price: t.price,
           // Never a currency without a price (Google flags the pair);
@@ -889,6 +892,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         }
         inSiteTicketing={flags.publicTicketing && !over && !occurrence?.isCancelled && !pageModel.page.isPaused}
         onOpenTickets={() => setTicketsOpen(true)}
+        onTicketingLive={setTicketingLive}
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]

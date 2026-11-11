@@ -19,6 +19,8 @@ type EventStickyActionBarProps = {
   /** True when the page may offer in-site tickets (flag on, bookable night). The bar then
    *  reads the series' ticket types itself; false never fetches. */
   inSiteTicketing?: boolean;
+  /** Tells the page whether our Buy is live for this night (JSON-LD offer URL follows it). */
+  onTicketingLive?: (live: boolean) => void;
   /** Opens the Tickets page (replaces scrolling to the inline block). */
   onOpenTickets?: () => void;
   /** Title used for the native share sheet / fallback text. */
@@ -92,6 +94,7 @@ export const EventStickyActionBar = ({
   ticketUrl,
   inSiteTicketing = false,
   onOpenTickets,
+  onTicketingLive,
   shareTitle,
   shareSubtitle,
   canAddToCalendar,
@@ -112,6 +115,9 @@ export const EventStickyActionBar = ({
     setBarState(st);
     if (label) setQuietLabel(label);
   }, []);
+  useEffect(() => {
+    onTicketingLive?.(inSiteTicketing && !!eventId && barState === 'buy');
+  }, [onTicketingLive, inSiteTicketing, eventId, barState]);
   const inSite = inSiteTicketing && !!eventId && barState === 'buy';
   const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
   if (!mounted || typeof document === 'undefined') return null;
@@ -119,7 +125,8 @@ export const EventStickyActionBar = ({
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
   // When the event sells in-site, the in-site buy action leads and the external link
-  // steps back to a small text link, so exactly one primary buy action shows.
+  // is hidden (TICKET_LEAD_IN_SITE): ours is the only way in. It returns when the night is
+  // sold out, closed or not yet open (quiet).
   const directionsIsPrimary = !ticketUrl && !inSite && !quiet;
 
   const ticketPrimaryStyle: React.CSSProperties = accentColor
@@ -184,7 +191,7 @@ export const EventStickyActionBar = ({
             'linear-gradient(180deg, hsl(var(--bento-surface) / 0) 0%, hsl(var(--bento-surface) / 0.94) 30%)',
         }}
       >
-        {(inSite || quiet) && ticketUrl && (
+        {quiet && ticketUrl && (
           <div className="pointer-events-auto mb-1 text-center">
             <a
               href={ticketUrl}

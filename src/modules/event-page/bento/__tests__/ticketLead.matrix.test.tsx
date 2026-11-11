@@ -19,7 +19,7 @@ vi.mock('@/modules/tickets/ticketCheckoutApi', async (orig) => ({
 }));
 
 import { EventStickyActionBar } from '../EventStickyActionBar';
-import { sellsInSite } from '@/modules/tickets/ticketCheckoutApi';
+import { sellsInSite, ticketingLive } from '@/modules/tickets/ticketCheckoutApi';
 import type { PublicTicketType } from '@/modules/tickets/ticketCheckoutModel';
 
 const mk = (id: string, p: Partial<PublicTicketType> = {}): PublicTicketType => ({
@@ -27,13 +27,19 @@ const mk = (id: string, p: Partial<PublicTicketType> = {}): PublicTicketType => 
 });
 const LINK = 'https://tickets.example.test/e';
 
-type Row = { name: string; types: PublicTicketType[]; link: string | null; ticketingOn: boolean; inSite: boolean; primary: 'buy' | 'link' | 'directions' };
+type Row = { name: string; types: PublicTicketType[]; link: string | null; ticketingOn: boolean; inSite: boolean; primary: 'buy' | 'link' | 'directions' | 'quiet'; elsewhere?: boolean };
+const past = '2020-01-01T00:00:00Z';
+const future = '2099-01-01T00:00:00Z';
 const rows: Row[] = [
   { name: 'link only', types: [], link: LINK, ticketingOn: true, inSite: false, primary: 'link' },
   { name: 'types on sale only', types: [mk('a')], link: null, ticketingOn: true, inSite: true, primary: 'buy' },
   { name: 'both', types: [mk('a')], link: LINK, ticketingOn: true, inSite: true, primary: 'buy' },
   { name: 'neither', types: [], link: null, ticketingOn: true, inSite: false, primary: 'directions' },
-  { name: 'sold out + link', types: [mk('a', { status: 'sold_out', remaining: 0 })], link: LINK, ticketingOn: true, inSite: false, primary: 'link' },
+    { name: 'sold out, link shown', types: [mk('a', { status: 'sold_out', remaining: 0 })], link: LINK, ticketingOn: true, inSite: false, primary: 'quiet', elsewhere: true },
+  { name: 'closed, link shown', types: [mk('a', { salesCloseAt: past })], link: LINK, ticketingOn: true, inSite: false, primary: 'quiet', elsewhere: true },
+  { name: 'not yet open, link shown', types: [mk('a', { salesOpenAt: future })], link: LINK, ticketingOn: true, inSite: false, primary: 'quiet', elsewhere: true },
+  { name: 'mixed nights: this night open hides link', types: [mk('a', { occurrenceId: 'o1' }), mk('b', { occurrenceId: 'o2', salesOpenAt: future })], link: LINK, ticketingOn: true, inSite: true, primary: 'buy' },
+  { name: 'types but Stripe not ready (no buyable types fetched)', types: [], link: LINK, ticketingOn: true, inSite: false, primary: 'link' },
   { name: 'ended event (page suppresses both)', types: [mk('a')], link: null, ticketingOn: false, inSite: false, primary: 'directions' },
   { name: 'free ticket + link', types: [mk('f', { pricePence: 0 })], link: LINK, ticketingOn: true, inSite: true, primary: 'buy' },
 ];
@@ -68,23 +74,38 @@ describe('sticky bar x ticket state: exactly one primary, link never primary whe
       renderBar(r);
       if (r.inSite) await screen.findByTestId('buy-in-site');
       else await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledTimes(r.ticketingOn ? 1 : 0));
+      if (r.primary === 'quiet') await screen.findByTestId('buy-quiet');
       const primaries = Array.from(document.querySelectorAll('[data-primary="true"]'));
-      expect(primaries).toHaveLength(1);
+      expect(primaries).toHaveLength(r.primary === 'quiet' ? 0 : 1);
       const p = primaries[0];
       if (r.primary === 'buy') expect(p.getAttribute('data-testid')).toBe('buy-in-site');
       if (r.primary === 'link') expect(p.getAttribute('href')).toBe(LINK);
       if (r.primary === 'directions') expect(p.textContent).toMatch(/directions/i);
       const elsewhere = screen.queryByTestId('tickets-elsewhere');
-      if (r.inSite && r.link) {
+      if (r.elsewhere) {
         expect(elsewhere).not.toBeNull();
         expect(elsewhere!.getAttribute('href')).toBe(LINK);
         expect(elsewhere!.hasAttribute('data-primary')).toBe(false);
-        expect(elsewhere!.className).not.toMatch(/rounded-full/);
+      } else if (r.inSite) {
+        // ticketing live: ours is the only buy action, no external link at all
+        expect(document.querySelector(`a[href="${LINK}"]`)).toBeNull();
+        expect(elsewhere).toBeNull();
       } else {
         expect(elsewhere).toBeNull();
       }
     });
   }
+});
+
+describe('ticketingLive', () => {
+  const now = new Date('2026-10-27T12:00:00Z');
+  it('is true only when a type is buyable now', () => {
+    expect(ticketingLive(undefined, now)).toBe(false);
+    expect(ticketingLive([], now)).toBe(false);
+    expect(ticketingLive([mk('a', { status: 'sold_out', remaining: 0 })], now)).toBe(false);
+    expect(ticketingLive([mk('a', { salesOpenAt: '2026-11-01T00:00:00Z' })], now)).toBe(false);
+    expect(ticketingLive([mk('a')], now)).toBe(true);
+  });
 });
 
 describe('sellsInSite', () => {
