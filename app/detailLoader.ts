@@ -14,6 +14,17 @@ import { edgeCacheControl, EDGE_STORE_MARGIN_SECONDS } from "./edgeCacheControl"
 export { edgeCacheControl, EDGE_STORE_MARGIN_SECONDS };
 // Shared with middleware.ts (Edge) -- one definition, see that file's header.
 import { sameHostImage } from "./sameHostImage";
+import {
+  acceptBakedKey,
+  isWholeFlyerCanvas,
+  LEGACY_CARD_H,
+  LEGACY_CARD_W,
+  ogLayoutFor,
+  setWholeFlyerParams,
+  WF_LAYOUT,
+  type CanvasSize,
+  type OgLayout,
+} from "./lib/ogLayout";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-/i;
@@ -315,26 +326,96 @@ async function fetchBakedOgImage(
  *  host. Call from the route loader (not the component) — needs the raw cover
  *  URL and the request for its origin. Falls back to `fallbackImage` (the
  *  static branded og-image.jpg) when there's no cover at all. */
-export async function resolveOgCardImage(opts: {
+export async function resolveOgCardImage(opts: ResolveOgCardImageOpts): Promise<string> {
+  return (await resolveOgCardImageSized(opts)).url;
+}
+
+export interface ResolveOgCardImageOpts {
   entityType: "event" | "festival";
   entityId: string;
   occId?: string | null;
   coverUrl: string | null | undefined;
   request: Request;
   fallbackImage: string;
-}): Promise<string> {
+  /** Measures the flyer the CARD ROUTE will render (fetchEventCardData's
+   *  coverUrl -- never snap.event.imageUrl) and returns its D1 canvas, or null.
+   *  Injected by the page route from a .server module so this file never
+   *  imports sharp. Only called on the live, not-yet-baked whole-flyer path. */
+  measureWholeFlyer?: () => Promise<CanvasSize | null>;
+  /** event.tsx's ?ogtest=whole-flyer (test mode only). Never baked. */
+  forceLayout?: OgLayout;
+  /** Test seam for the D2 budget. */
+  measureBudgetMs?: number;
+}
+
+export interface OgCardImage {
+  url: string;
+  width: number;
+  height: number;
+  /** The layout the URL above actually carries. */
+  layout: OgLayout;
+  /** Whole-flyer was wanted but the measure missed (D2): the l-less legacy URL
+   *  at 1200x630. The page response then says X-OG-Layout: legacy-fallback and
+   *  is never edge-cached. */
+  legacyFallback: boolean;
+}
+
+/** The page's live-measure ceiling (D2; the #1517 page budget). */
+export const OG_WF_MEASURE_BUDGET_MS = 2500;
+
+async function measureWithin(measure: (() => Promise<CanvasSize | null>) | undefined, budgetMs: number): Promise<CanvasSize | null> {
+  if (!measure) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const size = await Promise.race([
+      measure().catch(() => null),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), budgetMs);
+      }),
+    ]);
+    return size && isWholeFlyerCanvas(size.width, size.height) ? size : null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** og:image URL AND its declared size (contract D2, D4 c). The read rule, on
+ *  the baked image_url's last path segment (query stripped, any host):
+ *    legacy key (-<16hex>.jpg / -<16hex>-<12hex>.jpg): accepted only when
+ *      ogLayoutFor is NOT whole-flyer; declares 1200x630.
+ *    -wf<n>-<W>x<H>.jpg: accepted only when ogLayoutFor IS whole-flyer and n is
+ *      the current version; declares the size IN THE KEY, no fetch.
+ *    anything else, or no row: the live URL -- l-less at 1200x630 for legacy;
+ *      l=wf1&s=<measured> for whole-flyer, or on a measure miss the l-less URL
+ *      at 1200x630 with legacyFallback set. */
+export async function resolveOgCardImageSized(opts: ResolveOgCardImageOpts): Promise<OgCardImage> {
   const { entityType, entityId, occId = null, coverUrl, request, fallbackImage } = opts;
+  const legacySize = { width: LEGACY_CARD_W, height: LEGACY_CARD_H };
   const requestOrigin = new URL(request.url).origin;
   const coverToken = coverVersionToken(coverUrl);
-  if (!coverToken) return fallbackImage;
+  if (!coverToken) return { url: fallbackImage, ...legacySize, layout: "legacy", legacyFallback: false };
 
+  const layout: OgLayout = opts.forceLayout ?? ogLayoutFor(entityType, entityId);
   const baked = await fetchBakedOgImage(entityType, entityId, occId, coverToken);
+  const bakedSize = baked ? acceptBakedKey(baked, layout) : null;
+  if (baked && bakedSize) return { url: sameHostImage(baked, requestOrigin), ...bakedSize, layout, legacyFallback: false };
+
   const params = new URLSearchParams({ kind: entityType, id: entityId });
   if (occId) params.set("occ", occId);
   params.set("v", coverToken);
-  const live = `${SITE_ORIGIN.replace(/\/$/, "")}/api/og/card?${params.toString()}`;
+  const liveFor = (p: URLSearchParams) =>
+    sameHostImage(`${SITE_ORIGIN.replace(/\/$/, "")}/api/og/card?${p.toString()}`, requestOrigin);
 
-  return sameHostImage(baked ?? live, requestOrigin);
+  if (layout === WF_LAYOUT) {
+    const canvas = await measureWithin(opts.measureWholeFlyer, opts.measureBudgetMs ?? OG_WF_MEASURE_BUDGET_MS);
+    if (canvas) {
+      const wfParams = new URLSearchParams(params);
+      setWholeFlyerParams(wfParams, canvas);
+      return { url: liveFor(wfParams), ...canvas, layout: WF_LAYOUT, legacyFallback: false };
+    }
+    return { url: liveFor(params), ...legacySize, layout: "legacy", legacyFallback: true };
+  }
+  return { url: liveFor(params), ...legacySize, layout: "legacy", legacyFallback: false };
 }
 
 /** Absolute-ise a possibly-relative image URL against SITE_ORIGIN (mirrors

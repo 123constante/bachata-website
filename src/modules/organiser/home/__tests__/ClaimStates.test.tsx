@@ -172,8 +172,11 @@ describe('the sheet each row opens (390x844 copy, real component)', () => {
     api.request.mockResolvedValue({ request_id: 'r', status: 'open' });
     mount(hint);
     await openRow();
-    fireEvent.click(await screen.findByTestId('onboarding-request-send'));
-    await waitFor(() => expect(api.request).toHaveBeenCalledWith('o1', ''));
+    // Ask to join needs a note of 3+ characters; the send stays disabled until it has one.
+    expect((await screen.findByTestId('onboarding-request-send') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('onboarding-request-note'), { target: { value: 'I run it' } });
+    fireEvent.click(screen.getByTestId('onboarding-request-send'));
+    await waitFor(() => expect(api.request).toHaveBeenCalledWith('o1', 'I run it'));
   });
 
   it('6c: Claim it claims that page', async () => {

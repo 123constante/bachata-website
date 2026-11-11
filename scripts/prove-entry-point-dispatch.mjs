@@ -170,6 +170,7 @@ const TARGETS = [
   { rel: 'scripts/automation-arming.mjs' },
   { rel: 'scripts/automation-money-check.mjs' },
   { rel: 'scripts/automation-pause.mjs' },
+  { rel: 'scripts/backfill-og-images.mjs' },
   { rel: 'scripts/autopilot-step.mjs' },
   { rel: 'scripts/check-automation-workflow-allowlist.mjs' },
   { rel: 'scripts/check-bundle-budget.mjs' },

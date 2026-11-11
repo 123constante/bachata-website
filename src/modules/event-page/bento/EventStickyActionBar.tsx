@@ -10,6 +10,8 @@ const InSiteTicketProbe = lazyWithRetry(() => import('./InSiteTicketProbe'));
 
 type EventStickyActionBarProps = {
   eventId: string | null;
+  /** The night on screen; the in-site probe reads that night's ticket types (S1a). */
+  occurrenceId?: string | null;
   /** Maps target for "Get directions". When null, the button is hidden. */
   directionsUrl: string | null;
   /** External ticket page. When null, the Tickets button is hidden. */
@@ -85,6 +87,7 @@ const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center 
  */
 export const EventStickyActionBar = ({
   eventId,
+  occurrenceId = null,
   directionsUrl,
   ticketUrl,
   inSiteTicketing = false,
@@ -164,7 +167,7 @@ export const EventStickyActionBar = ({
     <>
     {inSiteTicketing && eventId && (
       <Suspense fallback={null}>
-        <InSiteTicketProbe seriesId={eventId} onResult={onProbe} />
+        <InSiteTicketProbe seriesId={eventId} occurrenceId={occurrenceId} onResult={onProbe} />
       </Suspense>
     )}
     <div
@@ -211,7 +214,23 @@ export const EventStickyActionBar = ({
             </button>
           )}
 
-          {quiet && (
+          {quiet && quietLabel === 'Choose a night' ? (
+            // A per-night ticket and no night on screen: open the Tickets page, which lists the
+            // nights (the Dates tile only exists for courses, so it is never the target).
+            <button
+              type="button"
+              onClick={() => onOpenTickets?.()}
+              // Without a Tickets page to open there is nowhere to choose a night: say so, do not pretend.
+              disabled={!onOpenTickets}
+              title={onOpenTickets ? undefined : 'Tickets cannot be bought on this page'}
+              data-testid="buy-choose-night"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', color: '#FFFFFF', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none' }}
+            >
+              <Ticket className="h-[17px] w-[17px]" strokeWidth={2.2} />
+              {quietLabel}
+            </button>
+          ) : quiet && (
             <button
               type="button"
               disabled

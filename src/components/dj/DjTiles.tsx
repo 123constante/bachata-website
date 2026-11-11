@@ -5,6 +5,7 @@ import { useListImpressions } from '@/lib/listImpressions';
 import { normalizeUrl, parseDateParts } from './djFormat';
 import { NationalityFlag } from '@/components/people/NationalityFlag';
 import { useEmbeddedProfile } from '@/lib/embeddedProfile';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 // ============================================================
 // DJ profile bento tiles
@@ -271,6 +272,7 @@ export function DjContactPanel(p: DjContactProps) {
       {p.phone ? (
         <a
           href={`https://wa.me/${phoneDigits(p.phone)}`}
+          // App-built wa.me link (phone digits only, no user text), so not ugc: keeps noreferrer, unlike the typed links below.
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 py-3.5 text-[14.5px] font-bold text-white"
@@ -288,21 +290,21 @@ export function DjContactPanel(p: DjContactProps) {
       {(sc || mc) ? (
         <div className="flex gap-2.5">
           {sc ? (
-            <a href={sc} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-1.5 py-3 text-[13px] font-bold text-white" style={{ borderRadius: 14, background: '#FF5500' }}>
+            <a href={sc} target="_blank" rel={PUBLIC_LINK_REL} className="flex flex-1 items-center justify-center gap-1.5 py-3 text-[13px] font-bold text-white" style={{ borderRadius: 14, background: '#FF5500' }}>
               SoundCloud
             </a>
           ) : null}
           {mc ? (
-            <a href={mc} target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center gap-1.5 py-3 text-[13px] font-bold text-white" style={{ borderRadius: 14, background: '#5000FF' }}>
+            <a href={mc} target="_blank" rel={PUBLIC_LINK_REL} className="flex flex-1 items-center justify-center gap-1.5 py-3 text-[13px] font-bold text-white" style={{ borderRadius: 14, background: '#5000FF' }}>
               Mixcloud
             </a>
           ) : null}
         </div>
       ) : null}
 
-      {ig ? <a href={ig} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 px-4 py-3" style={ROW}>Instagram</a> : null}
-      {web ? <a href={web} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 px-4 py-3" style={ROW}>{web.replace(/^https?:\/\//, '').split('/')[0]}</a> : null}
-      {fb ? <a href={fb} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 px-4 py-3" style={ROW}>Facebook</a> : null}
+      {ig ? <a href={ig} target="_blank" rel={PUBLIC_LINK_REL} className="flex items-center gap-2.5 px-4 py-3" style={ROW}>Instagram</a> : null}
+      {web ? <a href={web} target="_blank" rel={PUBLIC_LINK_REL} className="flex items-center gap-2.5 px-4 py-3" style={ROW}>{web.replace(/^https?:\/\//, '').split('/')[0]}</a> : null}
+      {fb ? <a href={fb} target="_blank" rel={PUBLIC_LINK_REL} className="flex items-center gap-2.5 px-4 py-3" style={ROW}>Facebook</a> : null}
     </div>
   );
 }
@@ -326,7 +328,7 @@ export function DjListen({ soundcloud, mixcloud }: { soundcloud: string | null; 
       <TileHeader title="Latest mixes" right="SoundCloud &amp; Mixcloud" />
       <div className="flex flex-col gap-3">
         {sc ? (
-          <a href={sc} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 px-4 py-4" style={{ borderRadius: 16, border: '1px solid rgba(255,85,0,0.35)', background: 'linear-gradient(120deg,rgba(255,85,0,0.12),rgba(10,8,11,0))' }}>
+          <a href={sc} target="_blank" rel={PUBLIC_LINK_REL} className="flex items-center gap-4 px-4 py-4" style={{ borderRadius: 16, border: '1px solid rgba(255,85,0,0.35)', background: 'linear-gradient(120deg,rgba(255,85,0,0.12),rgba(10,8,11,0))' }}>
             <span className="flex shrink-0 items-center justify-center" style={{ width: 42, height: 42, borderRadius: '50%', background: '#FF5500', boxShadow: '0 8px 18px -6px rgba(255,85,0,0.7)' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="#FFF"><path d="M8 5v14l11-7z" /></svg>
             </span>
@@ -338,7 +340,7 @@ export function DjListen({ soundcloud, mixcloud }: { soundcloud: string | null; 
           </a>
         ) : null}
         {mc ? (
-          <a href={mc} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 px-4 py-4" style={{ borderRadius: 16, border: '1px solid rgba(120,80,255,0.35)', background: 'linear-gradient(120deg,rgba(80,0,255,0.14),rgba(10,8,11,0))' }}>
+          <a href={mc} target="_blank" rel={PUBLIC_LINK_REL} className="flex items-center gap-4 px-4 py-4" style={{ borderRadius: 16, border: '1px solid rgba(120,80,255,0.35)', background: 'linear-gradient(120deg,rgba(80,0,255,0.14),rgba(10,8,11,0))' }}>
             <span className="flex shrink-0 items-center justify-center" style={{ width: 42, height: 42, borderRadius: '50%', background: '#5000FF', boxShadow: '0 8px 18px -6px rgba(80,0,255,0.7)' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="#FFF"><path d="M8 5v14l11-7z" /></svg>
             </span>
@@ -513,7 +515,7 @@ export function DjGallery({ urls, name }: { urls: string[]; name: string }) {
       <TileHeader title="Gallery" />
       <div className="grid grid-cols-3 gap-2">
         {urls.slice(0, 9).map((url, i) => (
-          <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+          <a key={i} href={url} target="_blank" rel={PUBLIC_LINK_REL}>
             <img src={optimizedImageUrl(url, 320)} alt={`${name} photo ${i + 1}`} loading="lazy" className="aspect-square w-full rounded-[10px] object-cover transition-opacity hover:opacity-80" />
           </a>
         ))}

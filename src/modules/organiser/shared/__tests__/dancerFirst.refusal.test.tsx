@@ -123,6 +123,9 @@ describe('the organiser onboarding sheet (claim / request / create)', () => {
       '/account/o?add=1',
       <OrganiserSheet task={task} onTaskChange={vi.fn()} email={ME.email} mailboxProven onClaimed={vi.fn()} onRequested={vi.fn()} onCreated={vi.fn()} onFindPage={vi.fn()} onHome={vi.fn()} />,
     );
+    // Ask to join now needs a note (3+ characters) before it can send.
+    const noteField = screen.queryByTestId('onboarding-request-note');
+    if (noteField) fireEvent.change(noteField, { target: { value: 'I run it' } });
     const send = screen.queryByTestId(button) ?? screen.getByRole('button', { name: /Send|Ask/ });
     fireEvent.click(send);
     await screen.findByTestId('finish');

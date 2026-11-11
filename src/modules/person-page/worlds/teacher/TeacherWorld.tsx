@@ -7,6 +7,7 @@ import { TAP } from '../../roleSwitch';
 import { FOCUS_RING } from '../../wall/tokens';
 import { FONT, ROLE_COLOUR, TEACHER_PAPER as P, WORLD } from '../tokens';
 import type { TeacherWorldView } from './model';
+import { PUBLIC_LINK_REL } from '@/lib/organiserLinkLabels';
 
 const T = WORLD.teacher;
 const FACE = 100;
@@ -146,7 +147,7 @@ export function TeacherWorld({ view, photo, classes, onRetry }: {
         <a
           href={view.contact.href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={PUBLIC_LINK_REL}
           data-testid="teacher-contact"
           className={`flex items-center gap-3 rounded-[14px] px-3 py-2 ${FOCUS_RING}`}
           style={{ minHeight: TEACHER_ROOM.contact, ...SECTION }}

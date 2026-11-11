@@ -28,6 +28,9 @@ vi.mock("@/modules/event-page/useFestivalDetailQuery", () => ({
 vi.mock("../detailLoader", () => ({
   cacheHeaders: () => ({}),
   resolveOgCardImage: async () => "og",
+  // event.tsx calls the sized resolver (whole-flyer B1); mode off = the same
+  // URL at the legacy 1200x630.
+  resolveOgCardImageSized: async () => ({ url: "og", width: 1200, height: 630, layout: "legacy", legacyFallback: false }),
   taggedData: (d: unknown) => d,
 }));
 

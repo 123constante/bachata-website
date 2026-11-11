@@ -46,6 +46,9 @@ type Tab = 'scan' | 'list';
 /** from = where the check was started: a list check-in shows its answer on the list. */
 interface Shown { kind: DoorResult; c: CheckIn | null; from?: Tab }
 
+/** Shown after Check again clears a check-in refusal: names only controls that are then on screen. */
+const RECHECK_OK_NOTE = 'You can check tickets now. Scan or type the code again.';
+
 export function DoorScreen() {
   const { seriesId = '' } = useParams();
   return <Door seriesId={seriesId} />;
@@ -72,6 +75,8 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [signedOut, setSignedOut] = useState(false);
   const [counts, setCounts] = useState<{ in: number; total: number } | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckNote, setRecheckNote] = useState<string | null>(null);
   const gate = useRef(createScanGate());
   const busyRef = useRef(false);
   // the code whose answer is on screen: held in front of the camera it never re-fires (an ok
@@ -92,6 +97,7 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
     setBusy(true);
     try {
       const c = await call();
+      setRecheckNote(null);
       onScreen.current = code;
       setShown({ kind: c.result, c, from });
       buzz(RESULT_TABLE[c.result].vibrate);
@@ -126,6 +132,29 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
   useEffect(() => {
     if ((cam === 'none' || cam === 'failed') && !opened.current) { opened.current = true; setTab('list'); }
   }, [cam]);
+
+  // "Check again" on the refused card: one list read, no check-in write. Ok replaces the card;
+  // refused or a network error leaves it as it was (no toast).
+  // A refusal from a check-in (typed or scanned code) is cleared too, so the scanner and code box
+  // come back with a note saying so. Offline shows a one-line message under the button.
+  const recheck = useCallback(async () => {
+    setRechecking(true);
+    setRecheckNote(null);
+    try {
+      const r = await list.refetch();
+      if (r.isError) setRecheckNote('No signal, try again');
+      else if (r.data?.result === 'ok') {
+        if (shown?.kind === 'not_allowed') {
+          // access is back: drop the check-in refusal so the scanner and code box return
+          setShown(null);
+          gate.current.reset();
+          setTab('scan'); // the list tab has no code box: go where the note points
+          setRecheckNote(RECHECK_OK_NOTE);
+        }
+        onScreen.current = null;
+      }
+    } catch { setRecheckNote('No signal, try again'); } finally { setRechecking(false); }
+  }, [list, shown]);
 
   const act = (a: NextAction) => {
     if (a === 'scan') { setShown(null); onScreen.current = null; gate.current.reset(); setTab('scan'); }
@@ -162,6 +191,8 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
         </button>
       </nav>
       <main className="p3-door-main">
+        {/* only on Scan with a code box: the note says "Scan or type the code again" (review 1439 r3 F1, F2) */}
+        {!out && !notAllowed && !noneSold && tab === 'scan' && recheckNote && <p className="p3-note p3-door-pad p3-door-recheck-note" role="status" data-testid="door-recheck-note">{recheckNote}</p>}
         {out ? (
           <div className="p3-card p3-door-pad" data-testid="door-signed-out">
             <strong>You were signed out</strong>
@@ -173,10 +204,12 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
             video={video} cam={cam} counts={shownCounts} shown={shown} busy={busy} notAllowed={notAllowed}
             noneSold={noneSold} seriesId={seriesId} act={act} codeInput={codeInput} onCode={submitCode} shortCodes={shortCodes}
             startCamera={startCamera} tries={denials} openList={() => setTab('list')}
+            recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
           />
         ) : (
           <ListTab
             retryCamera={() => { setTab('scan'); startCamera(); }}
+            recheck={recheck} rechecking={rechecking} recheckNote={recheckNote}
             list={list} shown={shown} cam={cam} busy={busy} codeInput={codeInput} onCode={submitCode} act={act} seriesId={seriesId}
             shortCodes={shortCodes} pendingId={pendingId} onCheckIn={checkInRow} notAllowed={notAllowed}
           />
@@ -202,10 +235,11 @@ interface ScanProps {
   shown: Shown | null; busy: boolean; notAllowed: boolean; noneSold: boolean; seriesId: string;
   act: (a: NextAction) => void; codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; shortCodes: boolean;
   startCamera: () => void; tries: number; openList: () => void;
+  recheck: () => void; rechecking: boolean; recheckNote: string | null;
 }
 
-function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes }: ScanProps) {
-  if (notAllowed) return <div className="p3-door-pad"><ResultCard shown={shown?.kind === 'not_allowed' ? shown : { kind: 'not_allowed', c: null }} act={act} /></div>;
+function ScanTab({ video, cam, startCamera, tries, openList, counts, shown, busy, notAllowed, noneSold, seriesId, act, codeInput, onCode, shortCodes, recheck, rechecking, recheckNote }: ScanProps) {
+  if (notAllowed) return <div className="p3-door-pad"><ResultCard shown={shown?.kind === 'not_allowed' ? shown : { kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} /></div>;
   if (noneSold) return <EmptySold seriesId={seriesId} />;
   const helpShown = (cam === 'ask' || cam === 'denied') && !shown;
   return (
@@ -268,7 +302,7 @@ function CameraHelp({ cam, tries, startCamera, openList, counts }: { cam: 'ask' 
   );
 }
 
-function ResultCard({ shown, act }: { shown: Shown; act: (a: NextAction) => void }) {
+function ResultCard({ shown, act, recheck, rechecking, recheckNote }: { shown: Shown; act: (a: NextAction) => void; recheck?: () => void; rechecking?: boolean; recheckNote?: string | null }) {
   const row = RESULT_TABLE[shown.kind];
   const who = personOf(shown.c);
   const head = useRef<HTMLElement>(null);
@@ -288,6 +322,17 @@ function ResultCard({ shown, act }: { shown: Shown; act: (a: NextAction) => void
           </>
         )}
         <p className="p3-door-do" data-testid="door-detail">{row.detail(shown.c)}</p>
+        {shown.kind === 'not_allowed' && recheck && (
+          <div className="p3-door-acts">
+            <button type="button" className="p3-btn p3-door-big" onClick={recheck} disabled={rechecking} data-testid="door-act-recheck">
+              {rechecking ? 'Checking\u2026' : 'Check again'}
+            </button>
+            <Link className="p3-btn p3-btn-line p3-door-big" to={P3_PATHS.events} data-testid="door-notallowed-back">Back to events</Link>
+          </div>
+        )}
+        {shown.kind === 'not_allowed' && recheck && recheckNote && (
+          <p className="p3-note p3-door-recheck-note" role="alert" data-testid="door-recheck-note">{recheckNote}</p>
+        )}
         {acts.length > 0 && (
           <div className="p3-door-acts">
             {acts.map((a, i) => (
@@ -358,10 +403,10 @@ interface ListProps {
   shown: Shown | null; cam: CameraState; busy: boolean;
   codeInput: React.RefObject<HTMLInputElement>; onCode: (code: TypedCode) => void; act: (a: NextAction) => void; seriesId: string;
   shortCodes: boolean; pendingId: string | null; onCheckIn: (ticketId: string) => void; notAllowed: boolean;
-  retryCamera: () => void;
+  retryCamera: () => void; recheck: () => void; rechecking: boolean; recheckNote: string | null;
 }
 
-function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed, retryCamera }: ListProps) {
+function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, shortCodes, pendingId, onCheckIn, notAllowed, retryCamera, recheck, rechecking, recheckNote }: ListProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
   const rows = list.data?.rows;
@@ -408,7 +453,7 @@ function ListTab({ list, shown, cam, busy, codeInput, onCode, act, seriesId, sho
   }
   const d = list.data!;
   if (d.result === 'not_allowed' || notAllowed) {
-    return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} /></div>;
+    return <div className="p3-door-pad"><ResultCard shown={{ kind: 'not_allowed', c: null }} act={act} recheck={recheck} rechecking={rechecking} recheckNote={recheckNote} /></div>;
   }
   if (!rows?.length) return <>{top}<EmptySold seriesId={seriesId} /></>;
   return (

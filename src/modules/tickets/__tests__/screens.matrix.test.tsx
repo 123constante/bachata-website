@@ -2,7 +2,7 @@
 /**
  * Tickets block and thank-you page x every type status x free/paid x remaining x error
  * reason. Prod has 0 ticket_types today (shape survey in docs/ticketing-buyer-journey.md),
- * so rows are built from the live ticket_types_public_v1 body.
+ * so rows are built from the live ticket_types_public_v1 body (v2 since S1a: same columns plus night ones).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -55,7 +55,7 @@ afterEach(() => {
 describe('empty: no types = no block at all', () => {
   it('renders nothing', async () => {
     const { container } = renderBlock([]);
-    await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1'));
+    await waitFor(() => expect(api.fetchPublicTicketTypes).toHaveBeenCalledWith('e1', 'n1'));
     expect(container.querySelector('[data-testid="tickets-block"]')).toBeNull();
   });
 });
@@ -176,7 +176,8 @@ describe('server replies', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Buy tickets' }));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/x'));
     expect(api.postTicketCheckout.mock.calls[0][0]).toMatchObject({
-      quantity: 1, buyer_email: 'a@b.co', success_url: `${PROD}/tickets/thanks`, cancel_url: `${PROD}/event/e1?tickets=cancelled`,
+      quantity: 1, buyer_email: 'a@b.co', success_url: `${PROD}/tickets/thanks`, // The night on screen rides the cancel URL even when the page URL had none (N1).
+      cancel_url: `${PROD}/event/e1?occurrenceId=n1&tickets=cancelled`,
     });
     expect(window.sessionStorage.getItem('bc.ticketOrderId')).toBe('ord-1');
   });
@@ -207,6 +208,11 @@ describe('server replies', () => {
           // Trying again cannot work: Buy stays disabled with the reason.
           expect((screen.getByRole('button', { name: 'Buy tickets' }) as HTMLButtonElement).disabled).toBe(true);
           expect(screen.getByText(/not available for this event right now/)).toBeTruthy();
+        } else if (copy.way === 'pick_night') {
+          // The refusal stays and the night list it points at is on screen under it.
+          fireEvent.click(within(alert).getByRole('button', { name: WAY_LABEL[copy.way] }));
+          expect(screen.getByRole('alert')).toBeTruthy();
+          expect(screen.getByTestId('tickets-nights')).toBeTruthy();
         } else {
           fireEvent.click(within(alert).getByRole('button', { name: WAY_LABEL[copy.way] }));
           expect(screen.queryByRole('alert')).toBeNull();
