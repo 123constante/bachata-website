@@ -139,6 +139,16 @@ export function siteBarState(types: PublicTicketType[] | undefined | null, now: 
   return sellsInSite(types, now) ? 'buy' : 'quiet';
 }
 
+/**
+ * TICKET_LEAD_IN_SITE: "ticketing is live for this night" = our Buy is buyable right now.
+ * While true, surfaces hide the organiser's external link (ours leads). `quiet` (sold out,
+ * closed, not yet open) and `none` are NOT live, so the external link shows. Decided per
+ * night: pass that night's types (the probe already does).
+ */
+export function ticketingLive(types: PublicTicketType[] | undefined | null, now: Date = new Date()): boolean {
+  return siteBarState(types, now) === 'buy';
+}
+
 /** Button word for the quiet bar: "Sold out" when every type is gone, else the quiet-bar word. */
 export function quietBarButton(types: PublicTicketType[], now: Date = new Date()): string {
   const kinds = types.map((t) => availability(t, now).kind);
