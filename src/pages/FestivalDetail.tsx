@@ -3,6 +3,8 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useCallback,
+  Suspense,
   // ALIASED, because line ~2300 of this file uses the DOM's global
   // KeyboardEvent on a document listener. An unaliased import would shadow it
   // there with React's synthetic one, and the two are not the same type.
@@ -86,6 +88,10 @@ import type {
 } from "@/modules/event-page/types";
 
 import { buildEventJsonLd } from "@/lib/buildEventJsonLd";
+import { flags } from "@/lib/featureFlags";
+import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { ticketOfferUrl } from "@/modules/event-page/bento/utils/ticketOfferUrl";
+import { festivalInSiteTicketing, festivalNightId, festivalTicketCta } from "@/modules/event-page/utils/festivalTicketing";
 import { optimizedImageUrl, cssUrl } from '@/lib/imageCdn';
 import { serialiseJsonLd } from "@/lib/serialiseJsonLd";
 import { formatPassAmount } from "@/modules/event-page/formatPassAmount";
@@ -178,6 +184,10 @@ type FestivalDetailInnerProps = {
 // markup carries the open day's sessions and no others.
 //
 // ---------------------------------------------------------------------------
+
+// TICKET_FESTIVAL_IN_SITE: the same buyer checkout page event pages open (its own lazy chunk,
+// requested only when the reader taps our Buy). No second ticket system.
+const FestivalTicketsPage = lazyWithRetry(() => import("@/modules/tickets/FestivalTicketsPage"));
 
 const CINEMATIC_CSS = `
 
@@ -641,6 +651,7 @@ const CINEMATIC_CSS = `
 
 .cinematic-festival .tix{background:#0a0a0a;padding:24px 14px;text-align:center;transition:all .2s;cursor:pointer}
 
+.cinematic-festival button.tix{display:block;width:100%;border:0;color:inherit;font:inherit}
 .cinematic-festival .tix:hover{background:#000;transform:translateY(-2px)}
 
 .cinematic-festival .tix .n{font-family:'Bebas Neue',sans-serif;letter-spacing:4px;color:rgba(255,255,255,0.6);font-size:12px;text-transform:uppercase}
@@ -2541,6 +2552,31 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const ticketUrl = festivalDetail?.links.ticketUrl ?? festival?.ticket_url ?? null;
 
+  // TICKET_FESTIVAL_IN_SITE (docs/design/ticket-festival-in-site.md). Same rule as event pages:
+  // the sticky bar's probe reads the festival night's ticket types (same query key as the buy
+  // block) and reports whether our Buy is buyable now. Live: our Buy leads and the organiser's
+  // link is hidden everywhere on the page. Not live (sold out, closed, not yet, no types, probe
+  // timed out): the page is exactly as before. Starts false, so server HTML is unchanged.
+  const festivalNight = festivalNightId(
+    propSnapshot?.occurrenceId,
+    (snapshotPayload as { occurrence_id?: unknown } | null | undefined)?.occurrence_id,
+  );
+  const inSiteTicketing = festivalInSiteTicketing({
+    publicTicketing: flags.publicTicketing,
+    isEnded,
+    isCancelled,
+    lifecycleStatus: festivalLifecycleStatus,
+  });
+  const [ticketsOpen, setTicketsOpen] = useState(false);
+  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean }>({ night: null, live: false });
+  const onTicketingLive = useCallback((live: boolean, night: string | null) => {
+    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night ? prev : { night, live }));
+  }, []);
+  const openTickets = useCallback(() => setTicketsOpen(true), []);
+  const closeTickets = useCallback(() => setTicketsOpen(false), []);
+  const ticketingLive = inSiteTicketing && ticketingLiveFor.live && ticketingLiveFor.night === festivalNight;
+  const ticketCta = festivalTicketCta(isEnded, ticketingLive, ticketUrl);
+
   const directionsUrl = useMemo(() => {
     const v = festivalDetail?.location.primaryVenue;
     if (!v) return null;
@@ -2783,6 +2819,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
   const organiserEventCount = organiserStats?.eventCount ?? 0;
 
+  // The page's own URL (same expression as the node's `url` below): where a live offer points.
+  const festivalPageUrl = `${SITE_ORIGIN}${pathname.startsWith("/event/") ? "/event" : "/festival"}/${resolvedSlug ?? festival?.id ?? festivalId}`;
+
   // Schema.org Event node, or null when the page must carry none (a paused
   // series: see src/lib/seo/eventPageSeoPolicy).
   const eventJsonLd = buildEventJsonLd({
@@ -2853,7 +2892,9 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
           })),
         ],
         offers: passes.map((p) => ({
-          url: ticketUrl,
+          // Ours while our Buy is live for the festival's night; the organiser's link otherwise
+          // (the event page's one rule, ticketOfferUrl -- not a second copy).
+          url: ticketOfferUrl(ticketingLive, festivalPageUrl, ticketUrl),
           name: p.name,
           price: p.price,
           currency: p.currency ?? "GBP",
@@ -2989,7 +3030,15 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
 
         <div className="hero-cta">
 
-          {ticketUrl ? (
+          {ticketCta === "ours" ? (
+
+            <button type="button" className="btn btn-primary" onClick={openTickets} data-testid="festival-buy-hero">
+
+              Buy tickets
+
+            </button>
+
+          ) : ticketUrl ? (
 
             <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
 
@@ -3737,7 +3786,7 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
           finished" in the record card above and then rendering a priced pass
           grid with a Get Tickets button below is worse than a stale invitation,
           which is why the ended share copy was gated shut until this landed. */}
-      {!isEnded && (ticketUrl || passes.length > 0) && (
+      {!isEnded && (ticketUrl || passes.length > 0 || ticketCta === "ours") && (
         <section className="tickets">
           <div className="lab">Now Booking</div>
           <h2>Reserve Your Pass.</h2>
@@ -3751,6 +3800,25 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                     ? formatPassAmount(pass.price, pass.currency)
                     : null;
                 const sub = pass.description ?? pass.tier;
+                const body = (
+                  <>
+                    <div className="n">{pass.name}</div>
+                    <div className="p">
+                      {shown.symbol && <span className="cur">{shown.symbol}</span>}
+                      {shown.value}
+                    </div>
+                    {was && <div className="was">{was.symbol}{was.value}</div>}
+                    {sub && <div className="d">{sub}</div>}
+                  </>
+                );
+                // Live: a pass card opens our tickets page, never her link.
+                if (ticketCta === "ours") {
+                  return (
+                    <button key={pass.id} type="button" onClick={openTickets} className="tix" data-testid="festival-pass-ours">
+                      {body}
+                    </button>
+                  );
+                }
                 return (
                   <a
                     key={pass.id}
@@ -3759,19 +3827,19 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
                     rel="noopener noreferrer"
                     className="tix"
                   >
-                    <div className="n">{pass.name}</div>
-                    <div className="p">
-                      {shown.symbol && <span className="cur">{shown.symbol}</span>}
-                      {shown.value}
-                    </div>
-                    {was && <div className="was">{was.symbol}{was.value}</div>}
-                    {sub && <div className="d">{sub}</div>}
+                    {body}
                   </a>
                 );
               })}
             </div>
           )}
-          {ticketUrl && (
+          {ticketCta === "ours" ? (
+            <div className="end-cta">
+              <button type="button" onClick={openTickets} className="btn btn-primary" data-testid="festival-buy-end">
+                Buy tickets
+              </button>
+            </div>
+          ) : ticketUrl && (
             <div className="end-cta">
               <a href={ticketUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
                 Get Tickets
@@ -4020,12 +4088,48 @@ const FestivalDetailInner = ({ snapshot: propSnapshot, serverTodayKey }: Festiva
         // but the ticket pill and add-to-calendar are actions on a date that
         // will not happen. Same split BentoPage makes on `over`.
         ticketUrl={isEnded ? null : ticketUrl}
+        occurrenceId={festivalNight}
+        inSiteTicketing={inSiteTicketing}
+        onOpenTickets={openTickets}
+        onTicketingLive={onTicketingLive}
         shareTitle={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
         shareSubtitle={shareSubtitle}
         canAddToCalendar={!isEnded && !!calUrls}
         onAddToCalendar={() => setIsCalSheetOpen(true)}
         accentColor="#fb923c"
       />
+
+      {/* TICKET_FESTIVAL_IN_SITE: the event pages' tickets page, opened by our Buy (bar, hero,
+          pass cards, end CTA). Same suppression as the bar: never for an ended, cancelled or
+          paused festival. Per-night types with no night pick theirs on that page. */}
+      {ticketsOpen && inSiteTicketing && festivalId && (
+        <Suspense fallback={null}>
+          <FestivalTicketsPage
+            seriesId={festivalId}
+            occurrenceId={festivalNight}
+            organiserId={organiserId}
+            nights={propSnapshot?.occurrences ?? []}
+            title={festivalDetail?.identity.name ?? festival?.name ?? "Festival"}
+            dateLine={shareSubtitle || null}
+            venueLine={[venue?.name, venue?.address].filter(Boolean).join(", ") || null}
+            chipInput={{
+              startIso,
+              endIso,
+              programmeStartIso: null,
+              programmeEndIso: null,
+              idRequired: null,
+              bar: null,
+              cloakroom: null,
+              facilities: [],
+              floorType: venue?.floorType ?? null,
+              musicStyles,
+              parking: null,
+              timeZone: "Europe/London",
+            }}
+            onClose={closeTickets}
+          />
+        </Suspense>
+      )}
 
     </div>
 
