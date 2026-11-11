@@ -20,7 +20,7 @@ describe('ticketing wire', () => {
     });
     expect(s.ok).toBe(true);
     expect(s.types[0]).toMatchObject({ id: 't1', seriesId: 's1', status: 'on_sale', ticketsSold: 3, grossPence: 3000, bookingFeesPence: 150, reserved: 4 });
-    expect(parseSummary({ ok: false, reason: 'not_authorised' })).toEqual({ ok: false, reason: 'not_authorised', types: [] });
+    expect(parseSummary({ ok: false, reason: 'not_authorised' })).toEqual({ ok: false, reason: 'not_authorised', types: [], moneyVisible: null });
     expect(parseSummary(null).ok).toBe(false);
   });
   it('an unknown status reads as closed (no write offered)', () => {

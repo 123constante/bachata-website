@@ -471,7 +471,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
             {orders.isSuccess && (
               <Suspense fallback={null}>
-                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={owner} />
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={owner && summary.data?.moneyVisible !== false} />
               </Suspense>
             )}
             </>

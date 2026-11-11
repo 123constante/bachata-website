@@ -68,7 +68,7 @@ export function useSeriesTypes(organiserId: string | undefined, seriesId: string
   });
 }
 
-export function useSeriesOrders(organiserId: string | undefined, seriesId: string, typeIds: readonly string[], enabled: boolean, money = true) {
+export function useSeriesOrders(organiserId: string | undefined, seriesId: string, typeIds: readonly string[], enabled: boolean, money: boolean) {
   return useQuery({
     // A manager's read asks for no pence columns (slice 2, PQ1): its own key, never the owner's answer.
     queryKey: [...ticketKeys.orders(organiserId, seriesId), typeIds.join(','), money ? 'money' : 'counts'],

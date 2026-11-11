@@ -59,21 +59,30 @@ export interface SummaryResult {
   ok: boolean;
   reason: string | null;
   types: TypeSales[];
+  /**
+   * The server's top-level `money_visible` (Part B): true for an owner seat or platform admin, false for a
+   * manager. null = the server did not say (old server) and on every refusal. false always means counts only.
+   */
+  moneyVisible: boolean | null;
 }
 
 /**
- * `money: false` (anyone but the owner, review 1520-r1 F3): ticket_sales_summary_v1 still answers pence to a
- * manager until Part B, so the parse keeps counts only and every pence field is 0 before the result is
- * cached. Defence in depth: the response body still carries them (Part B closes that server-side).
+ * `money: false` (anyone but the owner, review 1520-r1 F3) or a server `money_visible: false` (Part B): the
+ * parse keeps counts only and every pence field is 0 before the result is cached. Defence in depth: an old
+ * server may still send the pence.
  */
 export const parseSummary = (data: unknown, opts: { money?: boolean } = {}): SummaryResult => {
-  const d = (data ?? {}) as { ok?: unknown; reason?: unknown; ticket_types?: unknown };
-  if (d.ok !== true) return { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown', types: [] };
+  const d = (data ?? {}) as { ok?: unknown; reason?: unknown; ticket_types?: unknown; money_visible?: unknown };
+  if (d.ok !== true) return { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown', types: [], moneyVisible: null };
+  const moneyVisible = typeof d.money_visible === 'boolean' ? d.money_visible : null;
   const raw = Array.isArray(d.ticket_types) ? (d.ticket_types as Record<string, unknown>[]) : [];
-  const rows = opts.money === false ? raw.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !/_pence$/.test(k)))) : raw;
+  // Counts only when the caller says so OR the server says money is not visible: the server's word wins over `money`.
+  const countsOnly = opts.money === false || moneyVisible === false;
+  const rows = countsOnly ? raw.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !/_pence$/.test(k)))) : raw;
   return {
     ok: true,
     reason: null,
+    moneyVisible,
     types: rows.map((r) => ({
       id: String(r.id),
       seriesId: String(r.event_series_id),

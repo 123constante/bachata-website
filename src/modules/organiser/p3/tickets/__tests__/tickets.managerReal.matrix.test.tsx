@@ -173,7 +173,7 @@ describe('a non-owner summary keeps no pence (F3)', () => {
     expect(parseSummary(SUMMARY_RAW).types[0].grossPence).toBe(16800);
   });
   it('a refusal parses the same for every role', () => {
-    expect(parseSummary({ ok: false, reason: 'not_authorised' }, { money: false })).toEqual({ ok: false, reason: 'not_authorised', types: [] });
+    expect(parseSummary({ ok: false, reason: 'not_authorised' }, { money: false })).toEqual({ ok: false, reason: 'not_authorised', types: [], moneyVisible: null });
   });
   it.each([
     [false, 'counts'],
