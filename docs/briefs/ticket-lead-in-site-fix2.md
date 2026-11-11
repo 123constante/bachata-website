@@ -1,0 +1,17 @@
+# Brief: fix round 2 on PR #1542 (Website, normal lane, no DB change)
+
+Repo 123constante/bachata-website. Continue ON the existing branch `claude/ticket-lead-in-site` (PR #1542, head 0f754c18a; push to it, no new PR). Read docs/briefs/ticket-lead-in-site.md, docs/briefs/ticket-lead-in-site-fix1.md and the PR first. One push at the end.
+
+An independent re-review of 0f754c18a found four defects and weak tests. Contract rows referenced: A buyable with her link set; C sold out/not yet open/closed; D no in-site tickets (UNCHANGED: her external "Get Tickets" shows, or nothing); G JSON-LD offer URL.
+
+Deliverables (4):
+
+1. Sticky bar behaviour (EventStickyActionBar.tsx, InSiteTicketProbe.tsx).
+   a. Row D regression: when the event has NO in-site ticket types (probe resolved, state `none`), her external link shows as the primary action exactly as on main. The blank `buy-pending` placeholder must appear ONLY while the probe is genuinely in flight, never after it resolved `none`.
+   b. Late flash: the probe has a 4-second timeout fallback. If it times out, show her link (the pre-change behaviour) and do NOT later swap to ours or to a placeholder when a slow answer arrives; or, if you keep the swap, prove with a test that no frame shows two primary actions and no layout jump. Pick the simpler one and say which in the PR.
+   c. `ticketingLive` (and the probed/pending state) must reset when `occurrenceId` changes (night switch): a new night starts pending again, never inherits the previous night's live flag. Fix the class: sweep the file for any other state keyed on the night that is not reset.
+2. JSON-LD (BentoPage.tsx ~660, ticketOfferUrl.ts). Server HTML still gives her URL because ticket types are not in the page snapshot; the client flips to ours after the probe. Do NOT invent a server fetch or touch supabase/**. Keep the client flip, but make the flip correct (reset per defect 1c) and state the trade-off in the PR body under "OPEN OWNER DECISION: JSON-LD server-side vs client flip".
+3. Tests (red first, table-driven screen x shape). The JSON-LD test must RENDER BentoPage (or the real component that emits the JSON-LD) and read the emitted script, not re-implement the helper (no circular checks). Rows: buyable now, sold out, closed, not yet open, mixed nights (this night not open, another open), no types + link, link only, no link, past event, night switch (live -> not-live resets). For each: sticky bar shows exactly one primary (ours / hers / placeholder-while-pending / none), her link present or absent, JSON-LD URL ours or hers. Include the timeout path. Show each new test failing on the 0f754c18a code before the fix.
+4. PR body and evidence. Update the PR body (keep the bot as author): per-job CI table from the real run, Verified / Not verified block, defects 1-4 each mapped to the test that now catches it, the open owner decision above. Do a 390x844 walk (laptop-walk or local build; Vercel previews are behind a login wall, do not sign in) of the Ritmo page (series c530d694-6e43-40aa-b4c4-d9b7462b2ce1) AND a live-night shape (mock/fixture route if no live prod night exists; say which). Attach screenshots; measured contrast >= 4.5 and taps >= 44px for the bar and its buttons (compare any other under-44px elements against main: pre-existing ones are listed, not fixed).
+
+Boundaries: no organiser/tickets files (#1541), no migration, no supabase/**, no workflow edits, no fee/discount or any money change, no prod write, never merge or approve, no secrets in the PR.
