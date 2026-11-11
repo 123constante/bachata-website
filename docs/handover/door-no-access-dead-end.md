@@ -16,3 +16,17 @@ pre-ship: every check PASS except test:unit (failures only in live-DB contract t
 Left / next:
 - Finding B parked: a guard failing on bare CR `/\r(?!\n)/` in src/**/*.{ts,tsx,css}.
 - Not verified: browser walk at 390x844 and a real phone; production door data.
+
+## Fix round r3 (brief docs/briefs/fix-1439-r3.md, review 1439 r3), 2026-11-11
+
+Done:
+- F1 + F2: the top `door-recheck-note` renders only on the Scan tab and only when tickets are sold (`tab === 'scan' && !noneSold`), so it never says "Scan or type the code again" where there is no code box.
+- Tests: recheck then "Tonight's list" -> no note; typed refusal -> recheck ok with totalCount 0 -> no note; note gone after the next check-in.
+- F3: `then_ok` cell (both tabs) asserts no note and the tab is unchanged.
+- F5: stale comment at the `then_ok` mock line fixed.
+
+Checks: door vitest + tests/doorRefusedCardCentring.test.ts 409/409. Mutants: MR red (2 fail), MRN red (1 fail). New tests against the unfixed DoorScreen.tsx: 2 red. tsc -p tsconfig.app.json: 0 errors in p3/door (147 total, all outside this PR's files); check:mojibake clean.
+
+Left / next:
+- F4 (nit, out of scope): mutant MN2 ("Tap Retry" note copy) still survives `noteNamesOnlyControlsOnScreen`.
+- Finding B still parked. Not verified: 390x844 browser walk, real phone, prod door data.

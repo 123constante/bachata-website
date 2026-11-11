@@ -73,7 +73,7 @@ describe.each(['scan', 'list'] as const)('refused card on the %s tab', (tab) => 
       expect(screen.getByTestId('door-detail').textContent).toMatch(/tap Check again/);
       const checkIns = api.checkIn.mock.calls.length;
 
-      if (shape === 'then_ok') api.list.mockResolvedValue(OK); // typed: the list is ok, but a check-in refusal stays
+      if (shape === 'then_ok') api.list.mockResolvedValue(OK); // typed: the list stays ok, so Check again clears the check-in refusal
       else if (shape === 'then_network') api.list.mockRejectedValue(new Error('offline'));
       api.list.mockClear();
       fireEvent.click(recheck);
@@ -81,6 +81,9 @@ describe.each(['scan', 'list'] as const)('refused card on the %s tab', (tab) => 
       expect(api.checkIn.mock.calls.length).toBe(checkIns);
       if (shape === 'then_ok') {
         await waitFor(() => expect(screen.queryByTestId('door-act-recheck')).toBeNull());
+        // a list refusal that clears: no check-in note, and the worker stays on the tab they were on (review 1439 r3 F3)
+        expect(screen.queryByTestId('door-recheck-note')).toBeNull();
+        expect(screen.getByTestId(`door-tab-${tab}`).getAttribute('aria-current')).toBe('page');
       } else if (shape === 'typed') {
         // refusal came from a check-in: a good list read clears it, the code box comes back,
         // and the note names only controls that are on screen (review 1439 r2 A)
@@ -115,4 +118,43 @@ it('a scanned code refused at check-in scans again after Check again finds acces
   fireEvent.click(screen.getByTestId('door-act-recheck'));
   await waitFor(() => expect(api.checkIn).toHaveBeenCalledTimes(2));
   expect(api.checkIn.mock.calls[1][0]).toBe(code);
+});
+
+// review 1439 r3 F1, F2, F3: the "Scan or type the code again" note shows only where there is a code box,
+// and goes away with the next check-in.
+async function typedRefusalThenRecheck(after: DoorList) {
+  api.list.mockResolvedValue(OK);
+  show();
+  await screen.findByTestId('door-code-input');
+  fireEvent.change(screen.getByTestId('door-code-input'), { target: { value: 'ab'.repeat(32) } });
+  api.checkIn.mockResolvedValue(NOT_ALLOWED);
+  fireEvent.click(screen.getByTestId('door-code-check'));
+  const recheck = await screen.findByTestId('door-act-recheck');
+  api.list.mockResolvedValue(after);
+  fireEvent.click(recheck);
+  await waitFor(() => expect(screen.queryByTestId('door-act-recheck')).toBeNull());
+}
+
+it('the recheck note does not follow the worker to Tonight\'s list', async () => {
+  await typedRefusalThenRecheck(OK);
+  expect(screen.getByTestId('door-recheck-note').textContent).toMatch(/You can check tickets now/);
+  fireEvent.click(screen.getByTestId('door-tab-list'));
+  expect(screen.queryByTestId('door-code-input')).toBeNull();
+  expect(screen.queryByTestId('door-recheck-note')).toBeNull();
+});
+
+it('no recheck note when Check again finds zero sold (no code box to point at)', async () => {
+  await typedRefusalThenRecheck({ ...OK, rows: [], inCount: 0, totalCount: 0 });
+  await waitFor(() => expect(screen.queryByTestId('door-code-input')).toBeNull());
+  expect(screen.queryByTestId('door-recheck-note')).toBeNull();
+});
+
+it('the recheck note goes away with the next check-in', async () => {
+  await typedRefusalThenRecheck(OK);
+  expect(screen.getByTestId('door-recheck-note')).toBeTruthy();
+  api.checkIn.mockResolvedValue({ ...NOT_ALLOWED, result: 'ok', first_name: 'Aisha', quantity: 1, in_count: 2, total_count: 3 });
+  fireEvent.change(screen.getByTestId('door-code-input'), { target: { value: 'ef'.repeat(32) } });
+  fireEvent.click(screen.getByTestId('door-code-check'));
+  await waitFor(() => expect(api.checkIn).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByTestId('door-recheck-note')).toBeNull());
 });

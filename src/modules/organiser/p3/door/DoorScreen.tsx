@@ -191,7 +191,8 @@ export function Door({ seriesId, deps = browserDeps, shortCodes = ticketDoorCode
         </button>
       </nav>
       <main className="p3-door-main">
-        {!out && !notAllowed && recheckNote && <p className="p3-note p3-door-pad p3-door-recheck-note" role="status" data-testid="door-recheck-note">{recheckNote}</p>}
+        {/* only on Scan with a code box: the note says "Scan or type the code again" (review 1439 r3 F1, F2) */}
+        {!out && !notAllowed && !noneSold && tab === 'scan' && recheckNote && <p className="p3-note p3-door-pad p3-door-recheck-note" role="status" data-testid="door-recheck-note">{recheckNote}</p>}
         {out ? (
           <div className="p3-card p3-door-pad" data-testid="door-signed-out">
             <strong>You were signed out</strong>
