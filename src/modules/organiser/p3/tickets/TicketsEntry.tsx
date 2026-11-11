@@ -6,11 +6,18 @@ import { setTicketStatus, ticketKeys } from '../../tickets/ticketsApi';
 import {
   NOT_MANAGER,
   NOT_MANAGER_REFUND,
+  NOT_OWNER_REFUND,
+  COUNTS_ONLY_NOTE,
+  externalTicketLine,
+  goingCountLine,
+  buyerFirstAndCode,
+  canRefund,
+  orderLineFor,
   PAYMENTS_WHERE,
   SWITCH_LABEL,
-  buyerNameOf,
   buyerRulesLine,
   canManage,
+  canSetUpPayouts,
   connectBlock,
   OPEN_STRIPE_LABEL,
   connectReturnBanner,
@@ -19,11 +26,11 @@ import {
   eventStartOf,
   leftOf,
   moveBlock,
-  orderLine,
   orderTag,
   priceLabel,
   reasonMessage,
   refundable,
+  refundableByStatus,
   withPendingRefund,
   type PendingRefund,
   switchMove,
@@ -36,7 +43,7 @@ import {
 } from '../../tickets/ticketModel';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import type { HomeSeriesFull } from '../../shared/homeModel';
-import { organiserOfSeries, useP3Home, useSeriesOrders, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
+import { organiserOfSeries, useP3Home, useSeriesGoing, useSeriesOrders, useSeriesTicketLink, useSeriesTypes, useStartOnboarding, useStripe, useSummary } from './data';
 import { CONNECT_RETURN_EVERY_MS, CONNECT_RETURN_FOR_MS, useConnectReturn } from './connectReturn';
 import { P3_TICKET_PATHS } from './paths';
 import {
@@ -148,11 +155,18 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
 
   const types = useSeriesTypes(org.id, series.id);
   const list = types.data ?? [];
-  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess);
-  const summary = useSummary(org.id);
+  // Slice 2 (PQ1): only the owner's orders read asks for pence columns.
+  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess, canRefund(org.role));
+  // Slice 2 (T4 / Q16, X5): Going taps of a free event, and the event's own ticket link. Counts and words only.
+  const goingNights = useSeriesGoing(series.id, open);
+  const ticketLink = useSeriesTicketLink(series.id);
+  // Review 1520-r1 F3: a non-owner's summary parse keeps no pence (only ticketsSold is read for them).
+  const summary = useSummary(org.id, canRefund(org.role));
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
-  const onboard = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
+  const onboardRaw = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
+  // Payout set-up is the owner's: for anyone else `go` does nothing (no control is drawn for them either).
+  const onboard = canSetUpPayouts(org.role) ? onboardRaw : { ...onboardRaw, go: async () => {} };
   // On arrival (`tickets=1`, and `stripe=return|refresh` from Stripe): open the sheet, refetch the Stripe
   // state after a return, and drop the params so a reload or a Back does not do it again.
   const [params, setParams] = useSearchParams();
@@ -187,6 +201,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   }, [params, setParams, stripeQuery]);
 
   const manager = canManage(org.role);
+  // Slice 2 (PQ1, Q15): money and Refund are the owner's; a manager sees counts only.
+  const owner = canRefund(org.role);
   const seriesLive = series.lifecycle_status === 'live';
   const ctx: MoveContext = { role: org.role, stripe: stripe ?? 'unknown', seriesLive };
   const sales = new Map<string, TypeSales>((summary.data?.ok ? summary.data.types : []).map((t) => [t.id, t]));
@@ -205,6 +221,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const many = list.length > 1;
 
   const row = types.isSuccess ? ticketsRowOf(list, sold, why) : null;
+  const goingLine = types.isSuccess ? goingCountLine(goingNights, list) : null;
+  const externalLine = types.isSuccess ? externalTicketLine(ticketLink, list) : null;
   const detail = types.isError ? 'Could not load' : row ? row.detail : 'Loading\u2026';
 
   /**
@@ -273,16 +291,21 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
         return (
           <li key={o.id} className="p3-row p3-order" data-testid={`tix-order-${o.id}`}>
             <div className="p3-grow">
-              <div className="p3-row-t" data-testid="tix-order-buyer">{buyerNameOf(o)}</div>
+              <div className="p3-row-t" data-testid="tix-order-buyer">{buyerFirstAndCode(o)}</div>
               <div className="p3-row-s" data-testid="tix-order-line">
-                {orderLine(o, today)}
+                {orderLineFor(org.role, o, today)}
                 {many ? ` \u00B7 ${typeName.get(o.typeId) ?? ''}` : ''}
               </div>
               <div className="p3-row-tags">
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
               </div>
+              {/* Review 1520-r1 F1: a manager's read has no pence, so status alone gates the note; F5: under
+                  the tags, inside the buyer column, never a second column beside it at 390. */}
+              {manager && !owner && refundableByStatus(o) && (
+                <p className="p3-note" data-testid="tix-refund-ask-owner">{NOT_OWNER_REFUND}</p>
+              )}
             </div>
-            {manager && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
+            {owner && refundable(withPendingRefund(o, pendingRefund.get(o.id))) && (
               <button
                 type="button"
                 className="p3-btn p3-btn-line p3-btn-sm"
@@ -315,7 +338,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
     const more = seeAllLabel(shown.length);
     return (
       <>
-        {!manager && shown.some(refundable) && <p className="p3-note p3-pad-y" data-testid="tix-refund-reason">{NOT_MANAGER_REFUND}</p>}
+        {!manager && shown.some(refundableByStatus) && <p className="p3-note p3-pad-y" data-testid="tix-refund-reason">{NOT_MANAGER_REFUND}</p>}
+        {!owner && <p className="p3-note p3-pad-y" data-testid="tix-counts-only">{COUNTS_ONLY_NOTE}</p>}
         {orderRows(all ? shown : shown.slice(0, PREVIEW_ORDERS))}
         {!all && more && (
           <button type="button" className="p3-link" onClick={() => setView('orders')} data-testid="tix-see-all">{more}</button>
@@ -339,7 +363,11 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
       <div className="p3-card p3-state" data-testid="tix-types-empty">
         <strong>No tickets yet</strong>
         {/* The reason sits once, by Add a ticket (or in the role note at the top): review r1 D7, D8. */}
-        <p>{why ? 'No tickets on this event yet.' : 'Tap Add a ticket below. Free tickets work straight away; paid ones need payments connected.'}</p>
+        <p>
+          {why || externalLine
+            ? 'No tickets on this event yet.'
+            : 'Tap Add a ticket below. Free tickets work straight away; paid ones need payments connected.'}
+        </p>
       </div>
     );
   } else {
@@ -407,7 +435,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
                 {eventDateLine(series)}. {buyerRulesLine()}
               </p>
               {!manager && <p id={roleId} className="p3-note" data-testid="tix-readonly">{NOT_MANAGER}</p>}
-              {banner && (
+              {externalLine && <p className="p3-note" data-testid="tix-external-link">{externalLine}</p>}
+              {goingLine && <p className="p3-note" data-testid="tix-going-count">{goingLine}</p>}
+              {banner && !externalLine && (
                 <div className="p3-card p3-stack-s" role="status" data-testid="tix-return-banner" data-kind={banner.kind}>
                   <p className="p3-note" data-testid="tix-return-line">{banner.line}</p>
                   {banner.actions.map((a) => (
@@ -441,7 +471,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
             <div className="p3-card p3-tight" data-testid="tix-orders-view">{ordersCard(true)}</div>
             {orders.isSuccess && (
               <Suspense fallback={null}>
-                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} />
+                <SalesReport seriesId={series.id} eventName={series.name} types={list} orders={orders.data ?? []} today={today} money={owner} />
               </Suspense>
             )}
             </>
@@ -481,7 +511,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
           }}
         />
       )}
-      {open && refunding && (
+      {open && owner && refunding && (
         <RefundSheet
           order={withPendingRefund(refunding, pendingRefund.get(refunding.id))}
           typeName={many ? typeName.get(refunding.typeId) ?? null : null}

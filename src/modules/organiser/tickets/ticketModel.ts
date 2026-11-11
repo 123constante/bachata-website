@@ -54,8 +54,74 @@ export const asStatus = (v: unknown): TicketStatus => (TICKET_STATUSES.includes(
 export type MemberRole = 'owner' | 'manager' | 'contributor' | string;
 export const canManage = (role: MemberRole | null | undefined): boolean => role === 'owner' || role === 'manager';
 export const NOT_MANAGER = 'Only an owner or manager of this page can change tickets.';
-export const NOT_MANAGER_REFUND = 'Only an owner or manager of this page can refund.';
-export const NOT_MANAGER_STRIPE = 'Only an owner or manager of this page can set up payments.';
+// Slice 2 (PQ1): refunds and payouts are the owner's alone, so the role notes say to ask the owner.
+/** The once-per-list note for a legacy contributor row (A1); a manager gets NOT_OWNER_REFUND per row. */
+export const NOT_MANAGER_REFUND = 'Ask the owner to refund an order.';
+/** GetPaid for anyone but the owner: no Connect action, no amounts. */
+export const PAYOUTS_ASK_OWNER = 'Ask the owner to set up payouts.';
+
+// ---- Owner-only money (organiser area v2 slice 2: PQ1, Q15) -------------------------
+// A manager (and a legacy contributor row, A1) sees ticket COUNTS: no amount on any line,
+// no Refund, no payout action. The owner alone sees money and refunds.
+export const isOwner = (role: MemberRole | null | undefined): boolean => role === 'owner';
+/** Refund is the one money write on Tickets (Q15): owner only (PQ1). */
+export const canRefund = isOwner;
+/** Stripe onboarding / payout set-up: owner only (PQ1). Every entry point reads this one rule. */
+export const canSetUpPayouts = isOwner;
+/** Sales, refunds and payout amounts: owner only. */
+export const seesMoney = isOwner;
+/** Shown on a refundable order row for anyone but the owner (testid tix-refund-ask-owner). */
+export const NOT_OWNER_REFUND = 'Ask the owner to refund this order.';
+/** The counts-only note on a manager's orders view (testid tix-counts-only). */
+export const COUNTS_ONLY_NOTE = 'Ticket counts only. The owner sees sales and refunds.';
+
+// ---- Going count and external ticket link (slice 2: T4 / Q16, X5) ------------------
+// Counts and words only: neither line ever carries an amount, so both read the same for
+// owner, manager and a legacy contributor row (A1).
+
+/** One upcoming night as get_my_series_going_v1 gives it (only what the count needs). */
+export interface GoingNightCount {
+  is_cancelled: boolean;
+  going_count: number;
+}
+
+/** Going taps over the upcoming nights that still happen; a cancelled night counts for nothing. */
+export function goingTotal(nights: readonly GoingNightCount[]): { going: number; nights: number } {
+  const on = nights.filter((n) => !n.is_cancelled);
+  return { going: on.reduce((sum, n) => sum + Math.max(0, Math.floor(n.going_count || 0)), 0), nights: on.length };
+}
+
+/**
+ * The free event's "Going" line (testid tix-going-count): only when nothing on it is paid
+ * (a paid ticket's sales say the same thing better), and only when someone has tapped Going.
+ * null = no line.
+ */
+export function goingCountLine(nights: readonly GoingNightCount[] | null, types: readonly Pick<TicketType, 'pricePence'>[]): string | null {
+  if (!nights || types.some((t) => t.pricePence > 0)) return null;
+  const { going, nights: n } = goingTotal(nights);
+  if (going === 0) return null;
+  const who = going === 1 ? '1 person is' : `${going} people are`;
+  const when = n === 1 ? 'the next date' : `the next ${n} dates`;
+  return `Going: ${who} going to ${when}. Free event: no money is taken here.`;
+}
+
+/** The host of a ticket link, for the line (never the whole URL with its tracking). */
+function linkHost(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, '');
+  } catch {
+    return 'your own ticket link';
+  }
+}
+
+/**
+ * The external-link line (testid tix-external-link): the event sells on its own ticket link and
+ * has no ticket types here, so the Tickets view offers no payment controls. null = no line.
+ */
+export function externalTicketLine(ticketUrl: string | null, types: readonly unknown[]): string | null {
+  if (!ticketUrl || types.length > 0) return null;
+  return `This event sells tickets on its own link (${linkHost(ticketUrl)}), not here.`;
+}
 
 // ---- Get paid (organiser_stripe_accounts) -----------------------------------------
 
@@ -254,7 +320,7 @@ export const moveBlock = (type: Pick<TicketType, 'pricePence' | 'reserved' | 'ca
   if (to === 'on_sale' && type.reserved >= type.capacity) return 'Every ticket is taken. Raise the number of tickets first.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'unknown') return 'Checking your payment set-up. Try again in a moment.';
   if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe === 'waiting') return STRIPE_WAITING_REASON;
-  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return PAYMENTS_WHERE;
+  if (to === 'on_sale' && type.pricePence > 0 && ctx.stripe !== 'connected') return canSetUpPayouts(ctx.role) ? PAYMENTS_WHERE : PAYOUTS_ASK_OWNER;
   return null;
 };
 
@@ -287,7 +353,7 @@ export const connectBlock = (
   ctx: Pick<MoveContext, 'role' | 'stripe'>,
   onboarding: { switchedOff: boolean; note: string | null },
 ): ConnectBlock | null => {
-  if (!(pricePence > 0) || !canManage(ctx.role)) return null;
+  if (!(pricePence > 0) || !canSetUpPayouts(ctx.role)) return null;
   if (ctx.stripe === 'unknown' || ctx.stripe === 'connected' || onboarding.switchedOff) return null;
   if (ctx.stripe === 'waiting') {
     return { kind: 'check', replaces: STRIPE_WAITING_REASON, line: STRIPE_WAITING_REASON, button: CHECK_AGAIN_LABEL, error: onboarding.note };
@@ -325,9 +391,9 @@ export const connectReturnBanner = (i: {
   const waitingBanner = (): ConnectReturnBanner => ({
     kind: 'waiting',
     line: CONNECT_RETURN_WAITING,
-    actions: [{ kind: 'check', label: CHECK_AGAIN_LABEL }, { kind: 'carry_on', label: OPEN_STRIPE_LABEL }],
+    actions: canSetUpPayouts(i.role) ? [{ kind: 'check', label: CHECK_AGAIN_LABEL }, { kind: 'carry_on', label: OPEN_STRIPE_LABEL }] : [{ kind: 'check', label: CHECK_AGAIN_LABEL }],
   });
-  if (i.refresh && !i.arrivedFromStripe && canManage(i.role) && i.stripe !== 'connected') {
+  if (i.refresh && !i.arrivedFromStripe && canSetUpPayouts(i.role) && i.stripe !== 'connected') {
     if (i.stripe === 'waiting') return waitingBanner();
     return { kind: 'refresh', line: STRIPE_REFRESH_NOTE, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
   }
@@ -351,6 +417,7 @@ export const connectReturnBanner = (i: {
   }
   if (i.polling || i.stripe === null || i.stripe === 'unknown') return { kind: 'checking', line: CONNECT_RETURN_CHECKING, actions: [] };
   if (i.stripe === 'waiting') return waitingBanner();
+  if (!canSetUpPayouts(i.role)) return { kind: 'needs_more', line: PAYOUTS_ASK_OWNER, actions: [] };
   return { kind: 'needs_more', line: CONNECT_RETURN_NEEDS, actions: [{ kind: 'carry_on', label: CONNECT_RESUME_LABEL }] };
 };
 
@@ -516,19 +583,40 @@ export const editLock = (t: TicketType | null, role: MemberRole | null | undefin
 // ---- Refunds (Q5: a partial refund keeps tickets valid and the order stays paid; a whole refund voids tickets) --
 
 /** Why the Refund button is disabled, or null. Only a paid order shows the button at all (refundable). */
-export const refundBlock = (role: MemberRole | null | undefined): string | null => (canManage(role) ? null : NOT_MANAGER_REFUND);
+/** Slice 2 (PQ1): refund is the owner's alone; anyone else is told to ask the owner. */
+export const refundBlock = (role: MemberRole | null | undefined): string | null => (canRefund(role) ? null : NOT_MANAGER_REFUND);
 export const refundAmount = (o: Pick<Order, 'totalPence' | 'refundedPence'>): number => Math.max(0, o.totalPence - o.refundedPence);
 /** A paid order with money left to give back (a free order, or one already refunded in full, has none). */
 export const refundable = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean => o.status === 'paid' && refundAmount(o) > 0;
+/**
+ * The ask-the-owner gate (review 1520-r1 F1): a non-owner's orders read carries no pence, so every amount
+ * parses to 0 and `refundable` is always false there. The status is the one fact that read has.
+ */
+export const refundableByStatus = (o: Pick<Order, 'status'>): boolean => o.status === 'paid';
 
 /** The buyer's name as every screen shows it; the order row may not carry one. */
 export const buyerNameOf = (o: Pick<Order, 'buyerName'>): string => o.buyerName?.trim() || 'Buyer';
+
+/**
+ * The ONE order code (review 1520-r1 F4): the first 8 letters or digits of the order id, upper case, never
+ * an email or a Stripe id. The orders list, the Refund sheet, its toast and the guest-list CSV all read it.
+ */
+export const shortRef = (id: string): string => id.replace(/[^0-9a-z]/gi, '').slice(0, 8).toUpperCase();
+/**
+ * The ONE buyer label (Q14, A2): first name plus the order's code, e.g. "Ana \u00B7 3F2A9C1E".
+ * The orders list and the Refund sheet both read it; a full name is never shown to organisers.
+ */
+export const buyerFirstAndCode = (o: Pick<Order, 'buyerName' | 'id'>): string => {
+  const first = o.buyerName?.trim().split(/\s+/)[0] || 'Buyer';
+  const code = shortRef(o.id);
+  return code ? `${first} \u00B7 ${code}` : first;
+};
 
 export const refundQuestion = (o: Order): { title: string; body: string; confirm: string } => {
   const amount = formatPence(refundAmount(o));
   const one = o.quantity === 1;
   return {
-    title: `Refund ${buyerNameOf(o)}?`,
+    title: `Refund ${buyerFirstAndCode(o)}?`,
     body:
       `${amount} goes back${o.bookingFeePence > 0 ? ', booking fee included' : ''}. ` +
       `${one ? 'Their ticket stops' : `Their ${o.quantity} tickets stop`} working and the ${one ? 'place reopens' : 'places reopen'}. Cannot be undone.`,
@@ -600,6 +688,7 @@ export const DEFINITE_REFUND_REASONS: ReadonlySet<string> = new Set([
   'not_refundable',
   'refund_exceeds_balance',
   'method_not_allowed',
+  'not_allowed',
 ]);
 /** True when this outcome ends the press (drop the key); false keeps it for the retry. */
 export const endsRefundPress = (kind: 'ok' | 'not_configured' | 'failed', reason: string | null): boolean =>
@@ -628,6 +717,8 @@ export const orderTag = (status: string) => ORDER_TAG[status] ?? { label: status
 
 const REASON: Record<string, string> = {
   not_authorised: NOT_MANAGER,
+  // ticket-refund for anyone but the owner (Part B, PQ1): the refund is the owner's.
+  not_allowed: NOT_OWNER_REFUND,
   not_found: 'This ticket is not there any more. Reload the page.',
   invalid_payload: 'Something in the form is not right. Check it and try again.',
   invalid_name: 'Give the ticket a name under 200 characters.',
@@ -654,6 +745,12 @@ const REASON: Record<string, string> = {
 
 export const reasonMessage = (reason: string | null | undefined): string =>
   (reason && REASON[reason]) || 'That did not work. Try again in a moment.';
+/**
+ * A ticket-refund reply (review 1520-r1 F7). Refunds are the owner's alone (PQ1), so a `not_authorised`
+ * here (e.g. an owner whose seat went mid-session) says to ask the owner, never "owner or manager".
+ */
+export const refundReasonMessage = (reason: string | null | undefined): string =>
+  reason === 'not_authorised' ? NOT_OWNER_REFUND : reasonMessage(reason);
 
 // ---- Compact screens (S3b, owner picked mockup B; docs/design/1060.md) ---------------
 
@@ -824,6 +921,18 @@ export const orderLine = (o: Pick<Order, 'quantity' | 'totalPence' | 'paidAt'>, 
   const day = dayWord(o.paidAt, todayKey);
   return `${o.quantity} ${TIMES} ${price}${day ? ` ${DOT} ${day}` : ''}`;
 };
+
+/** A manager's order line (counts only, no money): "2 tickets \u00B7 today". */
+export const orderCountLine = (o: Pick<Order, 'quantity' | 'paidAt'>, todayKey: string): string => {
+  const day = dayWord(o.paidAt, todayKey);
+  return `${o.quantity} ${o.quantity === 1 ? 'ticket' : 'tickets'}${day ? ` ${DOT} ${day}` : ''}`;
+};
+/** The one order-line mapping for every role: money for the owner, counts for anyone else. */
+export const orderLineFor = (
+  role: MemberRole | null | undefined,
+  o: Pick<Order, 'quantity' | 'totalPence' | 'paidAt'>,
+  todayKey: string,
+): string => (seesMoney(role) ? orderLine(o, todayKey) : orderCountLine(o, todayKey));
 
 // ---- Editor steps and review -------------------------------------------------------
 

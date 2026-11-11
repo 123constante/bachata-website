@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import {
   CONNECT_RETURN_CHECKING,
   CONNECT_RETURN_NEEDS,
+  PAYOUTS_ASK_OWNER,
   CONNECT_RETURN_NONE,
   connectReturnBanner,
   stripeStateOf,
@@ -45,6 +46,7 @@ const WANT = (stripe: StripeKey, d: Drafts, role: Role, arrived: boolean, pollin
     return { kind: 'ready_drafts', line: 'Payments connected. Put Door, Early on sale.', buttons: ['Put all on sale'] };
   }
   if (polling) return { kind: 'checking', line: CONNECT_RETURN_CHECKING, buttons: [] };
+  if (role === 'manager') return { kind: 'needs_more', line: PAYOUTS_ASK_OWNER, buttons: [] };
   return { kind: 'needs_more', line: CONNECT_RETURN_NEEDS, buttons: ['Carry on with Stripe'] };
 };
 

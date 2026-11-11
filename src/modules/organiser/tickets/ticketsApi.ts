@@ -61,10 +61,16 @@ export interface SummaryResult {
   types: TypeSales[];
 }
 
-export const parseSummary = (data: unknown): SummaryResult => {
+/**
+ * `money: false` (anyone but the owner, review 1520-r1 F3): ticket_sales_summary_v1 still answers pence to a
+ * manager until Part B, so the parse keeps counts only and every pence field is 0 before the result is
+ * cached. Defence in depth: the response body still carries them (Part B closes that server-side).
+ */
+export const parseSummary = (data: unknown, opts: { money?: boolean } = {}): SummaryResult => {
   const d = (data ?? {}) as { ok?: unknown; reason?: unknown; ticket_types?: unknown };
   if (d.ok !== true) return { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown', types: [] };
-  const rows = Array.isArray(d.ticket_types) ? (d.ticket_types as Record<string, unknown>[]) : [];
+  const raw = Array.isArray(d.ticket_types) ? (d.ticket_types as Record<string, unknown>[]) : [];
+  const rows = opts.money === false ? raw.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !/_pence$/.test(k)))) : raw;
   return {
     ok: true,
     reason: null,
@@ -89,10 +95,10 @@ export const parseSummary = (data: unknown): SummaryResult => {
   };
 };
 
-export async function fetchSalesSummary(organiserId: string): Promise<SummaryResult> {
+export async function fetchSalesSummary(organiserId: string, opts: { money: boolean }): Promise<SummaryResult> {
   const { data, error } = await db().rpc('ticket_sales_summary_v1', { p_organiser_id: organiserId });
   if (error) throw error;
-  return parseSummary(data);
+  return parseSummary(data, opts);
 }
 
 export const parseTypeRow = (r: Record<string, unknown>): TicketType => ({
@@ -143,14 +149,21 @@ export const parseOrderRow = (r: Record<string, unknown>): Order => ({
   paidAt: strOrNull(r.paid_at),
 });
 
-/** Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids. */
-export async function fetchOrders(typeIds: readonly string[]): Promise<Order[]> {
+/** The orders select. Without money (anyone but the owner, slice 2 PQ1) no pence column is asked for. */
+export const ORDER_SELECT_MONEY = 'id, ticket_type_id, buyer_name, quantity, subtotal_pence, booking_fee_pence, total_pence, refunded_pence, status, paid_at';
+export const ORDER_SELECT_COUNTS = 'id, ticket_type_id, buyer_name, quantity, status, paid_at';
+
+/**
+ * Every order of these ticket types, any status (pending / expired ones freeze the price too). No email, no Stripe ids.
+ * `money: false` reads counts only: the pence fields parse to 0 and are never shown.
+ */
+export async function fetchOrders(typeIds: readonly string[], opts: { money?: boolean } = {}): Promise<Order[]> {
   if (typeIds.length === 0) return [];
   const out: Order[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await db()
       .from('ticket_orders')
-      .select('id, ticket_type_id, buyer_name, quantity, subtotal_pence, booking_fee_pence, total_pence, refunded_pence, status, paid_at')
+      .select(opts.money === false ? ORDER_SELECT_COUNTS : ORDER_SELECT_MONEY)
       .in('ticket_type_id', typeIds)
       .order('created_at', { ascending: false })
       .order('id', { ascending: true })

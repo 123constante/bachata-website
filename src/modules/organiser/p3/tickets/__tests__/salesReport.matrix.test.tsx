@@ -73,7 +73,7 @@ describe('door list loads', () => {
 describe('SalesReport rendered directly (shapes the list view cannot reach)', () => {
   const T = type('t1', { name: 'General', capacity: 50, reserved: 1 });
   const renderReport = (orders: ReturnType<typeof order>[]) =>
-    show(<SalesReport seriesId="ser-1" eventName="Sunday Social" types={[T]} orders={orders} today="2026-10-27" />);
+    show(<SalesReport seriesId="ser-1" eventName="Sunday Social" types={[T]} orders={orders} today="2026-10-27" money />);
 
   it('0 counted orders: empty words, no source label, Download greyed with why', () => {
     renderReport([]);
