@@ -100,7 +100,19 @@ describe('Switch profile sheet', () => {
     const sheet = screen.getByTestId('profile-switcher-sheet');
     expect(sheet.querySelector('h2')?.textContent).toBe(several ? 'Switch profile' : 'Your account');
     const items = [...screen.getByTestId('profile-switcher-sides').querySelectorAll('a')];
-    expect(items.map((a) => a.querySelector('.font-semibold')?.textContent)).toEqual(names);
+    // Grouped Dancer first, then Organiser; each group has its own heading.
+    const expected = [...names.filter((n) => n === 'Ana'), ...names.filter((n) => n !== 'Ana')];
+    expect(items.map((a) => a.querySelector('.font-semibold')?.textContent)).toEqual(expected);
+    const heads = [...screen.getByTestId('profile-switcher-sides').querySelectorAll('h3')].map((h) => h.textContent);
+    expect(heads).toEqual([...(expected.includes('Ana') ? ['Dancer'] : []), ...(expected.some((n) => n !== 'Ana') ? ['Organiser'] : [])]);
+    if (expected.includes('Ana') && expected.some((n) => n !== 'Ana')) {
+      const g = screen.getByTestId('profile-switcher-sides').querySelectorAll('section');
+      expect(g[0].getAttribute('data-testid')).toBe('profile-switcher-group-dancer');
+      expect(g[1].getAttribute('data-testid')).toBe('profile-switcher-group-organiser');
+    }
+    // "Showing" tag on exactly the current row (words, not only a tick).
+    const showing = items.filter((a) => a.querySelector('[data-testid="profile-switcher-showing"]'));
+    expect(showing.map((a) => a.getAttribute('aria-current'))).toEqual(facts.dancer === 'complete' ? ['true'] : []);
     const ticked = items.filter((a) => a.getAttribute('aria-current') === 'true').map((a) => a.querySelector('.font-semibold')?.textContent);
     expect(ticked).toEqual(facts.dancer === 'complete' ? ['Ana'] : []);
     expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app') // S1: keeps Back to Options;

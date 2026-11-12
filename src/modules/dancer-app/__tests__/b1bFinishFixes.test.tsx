@@ -58,42 +58,18 @@ describe('F7: Home shows ONE "going" number (get_my_going_v1) on the tile and th
     { name: 'normal (3 going)', stats: 'normal', reply: () => ({ upcoming: [night('a', 'A', 1), night('b', 'B', 2), night('c', 'C', 3)], past: [] }), want: '3' },
   ];
 
-  it.each(shapes)('$name: tile === strip', async (s) => {
+  it.each(shapes)('$name: Home shows no going tile and no strip', async (s) => {
     h.reply = s.reply();
     renderInShell({ path: '/app/home', backend: { statsShape: s.stats } });
-    await screen.findByTestId('stats-strip');
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(s.want));
-    const stripCell = screen.queryByTestId('stat-going-value');
-    if (stripCell) expect(stripCell.textContent).toBe(s.want);
-    else expect(screen.getByTestId('stats-strip-empty')).toBeTruthy();
+    await screen.findByTestId('home-main');
+    for (const id of ['tile-going-count', 'stats-strip', 'stat-going-value', 'stat-went-value']) expect(screen.queryByTestId(id)).toBeNull();
   });
 
-  it('while the nights load, the tile says Loading, not a number', async () => {
-    h.going = 'never';
+  it.each(['never', 'error'] as const)('going read %s: Home still shows its main card and no tile', async (mode) => {
+    h.going = mode;
     renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await screen.findByTestId('stats-strip');
-    expect(screen.getByTestId('tile-going-count').textContent).toBe('Loading\u2026');
-  });
-
-  it('when the nights read fails, the tile says so in words, not a number from another source', async () => {
-    h.going = 'error';
-    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('Could not load'));
-  });
-});
-
-// Review: the strip's Went came from my_dancer_stats_v1.nights_went, which disagrees with
-// get_my_going_v1.past. Once the going list has loaded, Went is mapMyGoing's past list
-// (cancelled past nights left out), the same list the Nights screen shows.
-describe('Went reads the same going list as the Going cell', () => {
-  it.each([
-    { name: 'two past, one cancelled', past: () => [night('c', 'C', -3), night('d', 'D', -20), cancelled('y', 'Y', -4)], want: '2' },
-    { name: 'no past nights (stats say 12)', past: () => [], want: '0' },
-  ])('$name: Went = $want', async (s) => {
-    h.reply = { upcoming: [night('a', 'A', 1)], past: s.past() };
-    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe('1'));
-    expect(screen.getByTestId('stat-went-value').textContent).toBe(s.want);
+    await screen.findByTestId('home-main');
+    expect(screen.queryByTestId('tile-going-count')).toBeNull();
   });
 });
 
@@ -116,9 +92,11 @@ describe('F12: a numbers failure says WHICH failure, and /app/page offers Try ag
   it.each([
     ['noProfile', 'no_profile'],
     ['areaClosed', 'area_closed'],
-  ] as const)('Home, %s: the error box shows the plain copy for %s', async (shape, code) => {
+  ] as const)('Home, %s: no numbers box (%s is shown on /app/page)', async (shape, code) => {
     renderInShell({ path: '/app/home', backend: { statsShape: shape } });
-    expect((await screen.findByTestId('numbers-error')).textContent).toContain(copyFor(code));
+    await screen.findByTestId('home-main');
+    expect(screen.queryByTestId('numbers-error')).toBeNull();
+    expect(code).toBeTruthy();
   });
 
   it.each([
@@ -178,39 +156,5 @@ describe('F13/F14: feedback sheet', () => {
     const btn = screen.getByTestId('feedback-send');
     expect(btn.getAttribute('aria-describedby')).toBe('feedback-why');
     expect(document.getElementById('feedback-why')).toBeTruthy();
-  });
-});
-
-/* ------------------------------------------------------------------ F15 */
-describe('F15: partner tile', () => {
-  it('rate_limited says the real limit (once every 30 days), not "a few minutes"', async () => {
-    const { backend } = renderInShell({ path: '/app/home' });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    backend.failNextWith('rate_limited');
-    fireEvent.click(btn);
-    const err = (await screen.findByTestId('partner-error')).textContent ?? '';
-    expect(err).toMatch(/once every 30 days/);
-    expect(err).not.toMatch(/few minutes/);
-  });
-
-  it('invalid_feature does not ask the person to try again', async () => {
-    const { backend } = renderInShell({ path: '/app/home' });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    backend.failNextWith('invalid_feature');
-    fireEvent.click(btn);
-    const err = (await screen.findByTestId('partner-error')).textContent ?? '';
-    expect(err).not.toMatch(/try again/i);
-    expect(err).toMatch(/nothing you need to do/);
-  });
-
-  it('while its status loads, the button is disabled and says Loading', async () => {
-    const backend = createFakeBackend();
-    backend.fetchMyFeatureInterest = never;
-    renderInShell({ path: '/app/home', backend });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-    expect(btn.textContent).toBe('Loading\u2026');
   });
 });

@@ -47,49 +47,24 @@ const settle = async (testId: string) => {
   await new Promise((r) => setTimeout(r, 30));
 };
 
-describe('numbers: one mapping, every screen x every stats shape', () => {
-  it.each(STATS_SHAPE_NAMES)('%s: Home and My page show the same weekly count, never NaN', async (name) => {
+const REMOVED_ON_HOME = ['tile-views-count', 'tile-views-detail', 'numbers-error', 'stats-strip', 'stats-strip-empty', 'tile-partner', 'partner-notify', 'home-hero', 'tile-going-count'];
+
+describe('numbers: calm Home shows no stats tiles; My page keeps the weekly count', () => {
+  it.each(STATS_SHAPE_NAMES)('%s: Home has none of the removed tiles; My page never shows NaN', async (name) => {
     const fixture = STATS_SHAPES[name];
-    const read: Record<string, string> = {};
-    for (const [screenName, path, id] of [['home', '/app/home', 'tile-views-count'], ['page', '/app/page', 'page-views-count']] as const) {
-      renderInShell({ path, backend: { shape: 'fourFieldComplete', statsShape: name } });
-      if ('error' in fixture) {
-        await waitFor(() => expect(screen.getByTestId(screenName === 'home' ? 'numbers-error' : 'page-views-error')).toBeTruthy());
-      } else {
-        read[screenName] = (await screen.findByTestId(id)).textContent ?? '';
-        expect(read[screenName]).toBe(fmt(fixture.views.last_7_days));
-      }
-      const text = document.body.textContent ?? '';
-      expect(text).not.toMatch(/NaN|undefined|null/);
-      cleanup();
-      resetShell();
-    }
-    if (!('error' in fixture)) expect(read.home).toBe(read.page);
-  });
-
-  it('error shape: Home says what happened and offers Try again', async () => {
-    renderInShell({ path: '/app/home', backend: { statsShape: 'error' } });
-    const box = await screen.findByTestId('numbers-error');
-    expect(box.textContent).toMatch(/could not load your numbers/);
-    expect(box.textContent).toMatch(/Try again/);
-  });
-
-  it('zero shape says what the dancer CAN do (photo first when there is none)', async () => {
-    renderInShell({ path: '/app/home', backend: { shape: 'noPhoto', statsShape: 'zero' } });
-    expect((await screen.findByTestId('tile-views-detail')).textContent).toBe('Add a photo and share your page.');
-    expect(screen.getByTestId('stats-strip-empty').textContent).toMatch(/going to a night/);
+    renderInShell({ path: '/app/home', backend: { shape: 'fourFieldComplete', statsShape: name } });
+    await screen.findByTestId('home-main');
+    for (const id of REMOVED_ON_HOME) expect(screen.queryByTestId(id)).toBeNull();
+    expect(document.body.textContent ?? '').not.toMatch(/NaN|undefined|null/);
     cleanup();
-    renderInShell({ path: '/app/home', backend: { shape: 'fourFieldComplete', statsShape: 'zero' } });
-    expect((await screen.findByTestId('tile-views-detail')).textContent).toBe('Share your page to get your first visitor.');
-  });
-
-  it('huge counts are grouped, normal strip shows four cells', async () => {
-    renderInShell({ path: '/app/home', backend: { statsShape: 'huge' } });
-    expect((await screen.findByTestId('tile-views-count')).textContent).toBe('54,321');
-    expect(screen.getByTestId('stat-votes-value').textContent).toBe('321');
-    // Switch on here: Went is the going list's past count (this backend's get_my_going_v1 has none),
-    // never stats.nights_went (2,400) -- the same list the Nights screen shows.
-    await waitFor(() => expect(screen.getByTestId('stat-went-value').textContent).toBe('0'));
+    resetShell();
+    renderInShell({ path: '/app/page', backend: { shape: 'fourFieldComplete', statsShape: name } });
+    if ('error' in fixture) {
+      await waitFor(() => expect(screen.getByTestId('page-views-error')).toBeTruthy());
+    } else {
+      expect((await screen.findByTestId('page-views-count')).textContent).toBe(fmt(fixture.views.last_7_days));
+    }
+    expect(document.body.textContent ?? '').not.toMatch(/NaN|undefined|null/);
   });
 
   it('the parsers turn null, NaN, text and negatives into 0', () => {
@@ -214,39 +189,6 @@ describe('in-app feedback', () => {
     fireEvent.click(screen.getByTestId('feedback-send'));
     await screen.findByTestId('feedback-error');
     expect(JSON.stringify(dl)).not.toMatch(/feedback_sent/);
-  });
-});
-
-describe('partner tile', () => {
-  it('asks once, then says "We\u2019ll tell you" with the button disabled', async () => {
-    const { backend } = renderInShell({ path: '/app/home' });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    expect(screen.getByTestId('tile-partner').textContent).toMatch(/Partner search: coming soon/);
-    fireEvent.click(btn);
-    await waitFor(() => expect(btn.textContent).toBe('We\u2019ll tell you'));
-    expect(btn.disabled).toBe(true);
-    expect(backend.interest).toEqual(['partner_search']);
-    fireEvent.click(btn);
-    expect(backend.calls.filter((c) => c.fn === 'registerFeatureInterest')).toHaveLength(1);
-  });
-
-  it('already registered (my_feature_interest_v1) shows "We\u2019ll tell you" straight away', async () => {
-    const { backend } = renderInShell({ path: '/app/home', backend: { interest: ['partner_search'] } });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.textContent).toBe('We\u2019ll tell you'));
-    expect(btn.disabled).toBe(true);
-    expect(backend.calls.some((c) => c.fn === 'registerFeatureInterest')).toBe(false);
-  });
-
-  it('a failed ask says why and the button stays usable', async () => {
-    const { backend } = renderInShell({ path: '/app/home' });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    backend.failNextWith('unknown');
-    fireEvent.click(btn);
-    expect((await screen.findByTestId('partner-error')).textContent).toMatch(/Something went wrong/);
-    expect(btn.disabled).toBe(false);
   });
 });
 

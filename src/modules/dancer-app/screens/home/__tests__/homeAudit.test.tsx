@@ -59,7 +59,6 @@ import { renderInShell, resetShell } from '@/modules/dancer-app/shell/renderInSh
 import { CITY_LONDON, makeProfile } from '@/modules/dancer-app/api/fixtures';
 import { DANCER_TOKENS, contrastRatio, type DancerToken } from '@/modules/dancer-app/theme/tokens';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '@/modules/dancer-app/copy/sharedCopy';
-import { GOING_COPY } from '@/modules/going';
 import { shortDate } from '../../nights/nightsModel';
 import { GOING_SHAPES, day, night } from '../../nights/__tests__/goingShapes';
 
@@ -77,16 +76,16 @@ afterEach(() => { cleanup(); resetShell(); });
 const home = (profile = londoner()) => renderInShell({ path: '/app/home', backend: { profile } });
 
 describe('M14: hero text contrast', () => {
-  // The hero is painted by the stylesheet now (.da-hero = scrimmed sunset gradient); the ratios of its stops are
-  // computed in tests/client/dancerAppColor.test.ts. Here: the night hero carries the class, the plain card does not.
+  // Calm first screen (admin #1534): the night hero is gone from Home; no gradient card renders for any shape.
   it.each([
-    ['0 nights (empty hero)', GOING_SHAPES.empty(), false],
-    ['an upcoming night', up(night('s1', 'Soho Sensual', 3)), true],
-  ])('%s: gradient only where white text sits on it', async (_n, reply, gradient) => {
+    ['0 nights', GOING_SHAPES.empty()],
+    ['an upcoming night', up(night('s1', 'Soho Sensual', 3))],
+  ])('%s: no hero, no gradient card', async (_n, reply) => {
     h.reply = reply;
     home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.classList.contains('da-hero')).toBe(gradient));
+    await screen.findByTestId('home-main');
+    expect(screen.queryByTestId('home-hero')).toBeNull();
+    expect(document.querySelector('.da-hero')).toBeNull();
   });
   it('the gradient token pair keeps white text at 4.5:1', () => {
     for (const t of ['--da-gradient-from', '--da-gradient-mid', '--da-gradient-to'] as DancerToken[]) {
@@ -96,16 +95,11 @@ describe('M14: hero text contrast', () => {
 });
 
 describe('M19: no dead tiles', () => {
-  it('B1b: the only "coming soon" tile is partner search, and it has a working button', async () => {
+  it('calm Home: no tiles and no "coming soon" under the main card', async () => {
     home();
-    await screen.findByTestId('home-hero');
-    // The numbers tiles are real (they link to My page); the one coming-soon tile can be asked about.
-    expect(await screen.findByTestId('tile-views')).toBeTruthy();
-    expect(screen.queryByTestId('tile-partners')).toBeNull();
-    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
-    expect(text.match(/coming soon/gi)).toHaveLength(1);
-    expect(screen.getByTestId('tile-partner').textContent).toMatch(/Partner search: coming soon/);
-    expect((screen.getByTestId('partner-notify') as HTMLButtonElement).disabled).toBe(false);
+    await screen.findByTestId('home-main');
+    for (const id of ['tile-views', 'tile-partner', 'tile-going', 'partner-notify']) expect(screen.queryByTestId(id)).toBeNull();
+    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/coming soon/i);
   });
 });
 
@@ -137,20 +131,20 @@ describe('D130: no Browse events on Home', () => {
   it.each([['a night', up(night('s1', 'Soho Sensual', 3))], ['no nights', GOING_SHAPES.empty()]])('%s', async (_n, reply) => {
     h.reply = reply;
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/Browse/i);
     expect(screen.queryAllByRole('link', { name: /browse/i })).toHaveLength(0);
   });
 });
 
 describe('seeds', () => {
-  // F7 (owner decision) + Going P2: the tile and the strip's Going cell read ONE number, the
-  // count over get_my_going_v1's upcoming list -- never the stats' nights_going_upcoming (3 here).
-  it('15 upcoming nights: the tile and the strip both say 15', async () => {
+  // Calm Home: the tile and the strip are gone; 15 upcoming nights add no Going number to Home.
+  it('15 upcoming nights: no Going tile or strip cell on Home', async () => {
     h.reply = { upcoming: Array.from({ length: 15 }, (_, i) => night(`s${i}`, `Night ${i}`, i + 1)), past: [] };
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('15'));
-    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe('15'));
+    await screen.findByTestId('home-main');
+    expect(screen.queryByTestId('tile-going-count')).toBeNull();
+    expect(screen.queryByTestId('stat-going-value')).toBeNull();
   });
 
   it('long name + no city: renders the name in full', async () => {
@@ -159,52 +153,23 @@ describe('seeds', () => {
   });
 });
 
-/** shape -> [tile number, hero is a night]. Cancelled nights are not counted; a paused event's night is, but is never the hero. */
-const HOME_EXPECT: Record<string, { count: string; hero: boolean }> = {
-  empty: { count: '0', hero: false },
-  upcomingOnly: { count: '2', hero: true },
-  pastOnly: { count: '0', hero: false },
-  cancelledNight: { count: '1', hero: true },
-  endedNight: { count: '0', hero: false },
-  eventNotLive: { count: '1', hero: false },
-  many: { count: '40', hero: true },
-};
+const REMOVED = ['home-hero', 'tile-going', 'tile-going-count', 'tile-views', 'tile-partner', 'stats-strip', 'stat-going', 'lineup-people'];
 
-describe('Home tiles x every get_my_going_v1 shape', () => {
-  it.each(Object.keys(GOING_SHAPES))('%s: tile === strip === the list count; hero only for a night going ahead', async (shape) => {
+describe('Home x every get_my_going_v1 shape (calm first screen)', () => {
+  it.each(Object.keys(GOING_SHAPES))('%s: main card only, removed blocks absent', async (shape) => {
     h.reply = GOING_SHAPES[shape]();
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
-    const e = HOME_EXPECT[shape];
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(e.count));
-    expect(screen.getByTestId('tile-going').textContent).toContain(GOING_COPY.myUpcomingTitle);
-    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe(e.count));
-    const hero = screen.getByTestId('home-hero');
-    expect(hero.classList.contains('da-hero')).toBe(e.hero);
-    if (!e.hero) {
-      // The empty hero says what to do, with controls that exist (the event page button, the home link).
-      expect(hero.textContent).toContain(GOING_COPY.myUpcomingEmptyHow);
-      expect(hero.textContent).toMatch(/Bachata Calendar link at the top left/);
-    }
-    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
-    expect(text).not.toMatch(/interested/i);
+    await screen.findByTestId('home-main');
+    for (const id of REMOVED) expect(screen.queryByTestId(id), id).toBeNull();
+    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/interested/i);
   });
 
-  it('the hero shows starts_at_local as stored and the module tag', async () => {
-    h.reply = up(night('s1', 'Soho Sensual', 3, { starts_at_local: `${day(3)}T20:30:00` }));
-    home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.textContent).toContain('8:30 PM'));
-    expect(hero.textContent).toContain(GOING_COPY.tagGoing);
-  });
-
-  it('switch off: no going tile, no Going cell, no get_my_going_v1 call', async () => {
+  it('switch off: no get_my_going_v1 call and the main card still renders', async () => {
     h.on = false;
     h.reply = GOING_SHAPES.many();
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
-    await screen.findByTestId('stats-strip');
-    expect(screen.queryByTestId('tile-going')).toBeNull();
-    expect(screen.queryByTestId('stat-going')).toBeNull();
-    expect(screen.queryByTestId('stat-interested')).toBeNull();
+    await screen.findByTestId('home-main');
+    for (const id of REMOVED) expect(screen.queryByTestId(id), id).toBeNull();
     expect(h.calls).not.toContain('get_my_going_v1');
   });
 });

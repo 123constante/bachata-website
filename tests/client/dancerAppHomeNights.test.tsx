@@ -7,6 +7,7 @@
  * get_my_going_v1's (going only; the fake splits upcoming / past by date the way
  * the RPC does, past most recent first).
  */
+import { GOING_COPY } from '@/modules/going';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -75,7 +76,6 @@ import { DANCER_SHAPES, DANCER_SHAPE_NAMES, FAKE_PROFILE_ID, makeProfile, CITY_L
 import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { PENDING_LEVEL_RATING_KEY } from '@/lib/pendingLevelRating';
 import { HIDDEN_STATE_LINE } from '@/modules/dancer-app/copy/sharedCopy';
-import { GOING_COPY } from '@/modules/going';
 
 const today = londonTodayKey();
 const day = (n: number) => addDaysToKey(today, n);
@@ -109,44 +109,15 @@ describe('Home x attendance shapes', () => {
     { name: 'past rated (no nudge)', rows: () => { h.votes.s3 = 'mixed'; return [row('s3', 'Last Thursday', -2)]; }, hero: null, count: '0', nudge: false },
     { name: 'past, event since ended (no nudge)', rows: () => [row('s3', 'Old Series', -2, { event_lifecycle: 'ended' })], hero: null, count: '0', nudge: false },
   ];
+  const REMOVED = ['home-hero', 'tile-going', 'tile-going-count', 'tile-views', 'tile-partners', 'stats-strip'];
   it.each(cases)('$name', async (c) => {
     h.rows = c.rows();
     home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(c.count));
-    if (c.hero) expect(hero.textContent).toMatch(c.hero);
-    else {
-      expect(hero.textContent).toMatch(/No upcoming night yet/);
-      // D130: no Browse events control; the words point at the home link top left.
-      expect(within(hero).queryAllByRole('link')).toHaveLength(0);
-      expect(hero.textContent).toMatch(/Bachata Calendar link at the top left/);
-    }
+    await screen.findByTestId('home-main');
+    // Calm first screen (admin 1534): nothing of the old hero / tiles under the main card.
+    for (const id of REMOVED) expect(screen.queryByTestId(id)).toBeNull();
     if (c.nudge) expect(await screen.findByTestId('rate-nudge')).toBeTruthy();
-    else {
-      await waitFor(() => expect(h.rows.length === 0 || screen.queryByTestId('tile-going')).toBeTruthy());
-      expect(screen.queryByTestId('rate-nudge')).toBeNull();
-    }
-  });
-
-  it('shows no fake numbers and no dead "Coming soon" tiles (audit M19)', async () => {
-    home();
-    await screen.findByTestId('home-hero');
-    // The W2b "Coming soon" views / partners placeholders are gone. tile-views is the REAL views
-    // tile since B1b S3 (homeAudit.test.tsx M19 asserts it), so it is awaited, never asserted
-    // absent: that old assertion only held while the numbers were still loading (a race).
-    expect(await screen.findByTestId('tile-views')).toBeTruthy();
-    expect(screen.queryByTestId('tile-partners')).toBeNull();
-    expect(screen.queryByText(/12 views/)).toBeNull();
-  });
-
-  it('hero card opens the normal event page and is the NEXT night', async () => {
-    h.rows = [row('later', 'Later', 9), row('soon', 'Sooner', 2)];
-    home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.textContent).toMatch(/Sooner/));
-    expect(within(hero).getByRole('link', { name: 'See event' }).getAttribute('href')).toBe('/event/soon');
-    // F7: the tile no longer repeats the list's next date (the hero above shows it); it says what it counts.
-    expect(screen.getByTestId('tile-going').textContent).toContain(GOING_COPY.myUpcomingTitle);
+    else expect(screen.queryByTestId('rate-nudge')).toBeNull();
   });
 });
 
@@ -183,7 +154,7 @@ describe('Home x profile shapes', () => {
 
   it('active profile: no hidden banner', async () => {
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     expect(screen.queryByTestId('paused-banner')).toBeNull();
   });
 
@@ -194,13 +165,13 @@ describe('Home x profile shapes', () => {
     expect(screen.queryByTestId('linked-notice')).toBeNull();
     first.unmount(); resetShell();
     home({ backend: { profile } });
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
   });
 
   it('not linked: no notice', async () => {
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
   });
 });
@@ -208,10 +179,10 @@ describe('Home x profile shapes', () => {
 describe('analytics', () => {
   it('dancer_app_entered fires once per session for a signed-in person', async () => {
     const r = home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     r.unmount(); resetShell();
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     expect(h.events.filter((e) => e === 'dancer_app_entered')).toHaveLength(1);
   });
   it('never for a signed-out visitor', async () => {
@@ -239,21 +210,6 @@ describe('Nights', () => {
       expect.stringMatching(/Alpha.*Going/), expect.stringMatching(/Beta.*Cancelled/),
     ]);
     expect(within(screen.getByTestId('nights-past')).getAllByTestId('night-row')).toHaveLength(1);
-  });
-
-  it('the same night reads the same on Home and Nights (one mapper)', async () => {
-    h.rows = [row('a', 'Alpha Social', 3)];
-    const n = nights();
-    const nightRow = (await screen.findAllByTestId('night-row'))[0].textContent ?? '';
-    n.unmount(); resetShell();
-    home();
-    const heroEl = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(heroEl.textContent).toContain('Alpha Social'));
-    const hero = heroEl.textContent ?? '';
-    for (const bit of ['Alpha Social', GOING_COPY.tagGoing, '9 PM', 'Camden Club']) {
-      expect(nightRow).toContain(bit);
-      expect(hero).toContain(bit);
-    }
   });
 
   it('attendance failure: error with retry, no fake empty state', async () => {
@@ -297,7 +253,7 @@ describe('Nights', () => {
     fireEvent.click(within(vote).getByRole('radio', { name: 'Strong' }));
     await screen.findByText('You said: Strong');
     fireEvent.click(screen.getByTestId('dancer-app-tab-home'));
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-main');
     await waitFor(() => expect(screen.queryByTestId('rate-nudge')).toBeNull());
   });
 

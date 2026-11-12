@@ -81,46 +81,16 @@ describe('D120 home link on every /app/* route', () => {
   });
 });
 
-describe('D123/D124 Home', () => {
-  it('has no "What\'s on this week"', async () => {
+describe('D123/D124 Home (calm first screen: no lineup, no what\'s on)', () => {
+  it('shows the main card and none of the removed sections; no lineup call', async () => {
     renderInShell({ path: '/app/home' });
-    await screen.findByTestId('dancer-screen-home');
-    await screen.findByTestId('lineup-people');
+    await screen.findByTestId('home-main');
     expect(screen.queryByTestId('whats-on')).toBeNull();
     expect(screen.queryByText(/What.s on this week/)).toBeNull();
-  });
-  it('filled: one row per person linking to public_path, with the full-weekday last night', async () => {
-    renderInShell({ path: '/app/home' });
-    const rows = await screen.findAllByTestId('lineup-person');
-    expect(rows).toHaveLength(2);
-    expect(h.calls.filter((c) => c === 'my_nights_lineup_people_v1')).toHaveLength(1);
-    expect(rows[0].getAttribute('href')).toBe('/teachers/lena-ortiz');
-    expect(rows[0].textContent).toContain('Lena Ortiz');
-    expect(rows[0].textContent).toContain('Teacher');
-    expect(rows[0].textContent).toContain('DJ');
-    expect(rows[0].textContent).toContain('Last seen at Sensual Sundays, Sunday 18 Oct');
-    expect(rows[0].textContent).toContain('L'); // initial, no avatar_url
-    expect(rows[1].getAttribute('href')).toBe('/djs/marco-vidal');
-    expect(rows[1].querySelector('img')).not.toBeNull();
-  });
-  it('empty: says what happens, no button', async () => {
-    h.lineup = async () => ({ data: { total: 0, people: [] }, error: null });
-    renderInShell({ path: '/app/home' });
-    const empty = await screen.findByTestId('lineup-people-empty');
-    expect(empty.textContent).toMatch(/after nights you went to/i);
-    expect(within(empty).queryAllByRole('button')).toHaveLength(0);
-    expect(within(empty).queryAllByRole('link')).toHaveLength(0);
-  });
-  it.each([
-    ['rpc error', { data: null, error: { message: 'function public.my_nights_lineup_people_v1() does not exist' } }],
-    ['malformed', { data: { total: 'x' }, error: null }],
-  ])('load error (%s): error state with a retry, never a crash', async (_n, result) => {
-    h.lineup = async () => result;
-    renderInShell({ path: '/app/home' });
-    const err = await screen.findByTestId('lineup-people-error');
-    h.lineup = async () => ({ data: PEOPLE, error: null });
-    fireEvent.click(within(err).getByRole('button', { name: /try again/i }));
-    await waitFor(() => expect(screen.getAllByTestId('lineup-person')).toHaveLength(2));
+    for (const id of ['lineup-people', 'lineup-person', 'lineup-people-empty', 'lineup-people-error']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    expect(h.calls.filter((c) => c === 'my_nights_lineup_people_v1')).toHaveLength(0);
   });
 });
 
