@@ -13,9 +13,11 @@ import { findSpecs, listedSpecs, main, runCheck } from '../scripts/check-e2e-spe
 const SCRIPTS = {
   'test:e2e': 'playwright test tests/e2e/a.spec.ts tests/e2e/sub/b.spec.ts --project=chromium',
   'test:e2e:p3': 'playwright test tests/e2e/c.spec.ts --project=chromium',
+  'test:e2e:prod-ssr': 'playwright test tests/e2e/d.spec.ts --project=chromium',
 };
 const WORKFLOWS = {
   '.github/workflows/e2e-smoke.yml': '      - name: smoke\n        run: npm run test:e2e\n      - name: p3\n        run: npm run test:e2e:p3\n',
+  '.github/workflows/live-qa.yml': '      - name: prod ssr\n        run: npm run test:e2e:prod-ssr\n',
 };
 const MANUAL = { 'tests/e2e/m.spec.ts': { reason: 'walk', run: 'npx playwright test tests/e2e/m.spec.ts' } };
 const SPECS = ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/d.spec.ts', 'tests/e2e/m.spec.ts', 'tests/e2e/sub/b.spec.ts'];

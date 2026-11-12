@@ -218,10 +218,11 @@ function readInputs(root, deps) {
 const OK_SCRIPTS = {
   'test:e2e': 'playwright test tests/e2e/a.spec.ts tests/e2e/sub/b.spec.ts --project=chromium',
   'test:e2e:p3': 'playwright test tests/e2e/c.spec.ts --project=chromium',
+  'test:e2e:prod-ssr': 'playwright test tests/e2e/d.spec.ts --project=chromium',
 };
-const OK_WF = { '.github/workflows/e2e-smoke.yml': '      - name: smoke\n        run: npm run test:e2e\n      - name: p3\n        run: npm run test:e2e:p3\n' };
+const OK_WF = { '.github/workflows/e2e-smoke.yml': '      - name: smoke\n        run: npm run test:e2e\n      - name: p3\n        run: npm run test:e2e:p3\n', '.github/workflows/live-qa.yml': '      - name: prod ssr\n        run: npm run test:e2e:prod-ssr\n' };
 const OK_MANUAL = { 'tests/e2e/m.spec.ts': { reason: 'walk', run: 'npx playwright test tests/e2e/m.spec.ts' } };
-const OK_SPECS = ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/m.spec.ts', 'tests/e2e/sub/b.spec.ts'];
+const OK_SPECS = ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/d.spec.ts', 'tests/e2e/m.spec.ts', 'tests/e2e/sub/b.spec.ts'];
 
 /** Fake directory tree for findSpecs: { 'tests/e2e': ['a.spec.ts', 'helpers/'] , ... }. */
 function fakeReaddir(tree) {
@@ -261,7 +262,7 @@ async function selfTest() {
     ['test:e2e:p3 line does not satisfy test:e2e -> 1', { workflows: { '.github/workflows/e2e-smoke.yml': '        run: npm run test:e2e:p3\n' } }, 1, 'no longer runs `npm run test:e2e`:'],
     ['CI list script missing -> 2', { scripts: { 'test:e2e': OK_SCRIPTS['test:e2e'] } }, 2, 'no "test:e2e:p3" script'],
     ['zero specs -> 2, never green', { specs: [] }, 2, 'ZERO *.spec.ts'],
-    ['lists name zero specs -> 2', { scripts: { 'test:e2e': 'playwright test', 'test:e2e:p3': 'playwright test' } }, 2, 'name ZERO specs'],
+    ['lists name zero specs -> 2', { scripts: { 'test:e2e': 'playwright test', 'test:e2e:p3': 'playwright test', 'test:e2e:prod-ssr': 'playwright test' } }, 2, 'name ZERO specs'],
     [
       'findSpecs: subfolder spec counted, live/ ignored at any depth',
       {
