@@ -1,1 +1,5 @@
-["workflow-lint.yml"]
+[
+  "e2e-public-on-preview.yml",
+  "e2e-smoke.yml",
+  "phone-qa.yml"
+]

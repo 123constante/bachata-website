@@ -1,0 +1,44 @@
+/* Team tab additions (same tokens as organiser-option-a.html). */
+.av{width:40px;height:40px;border-radius:50%;background:var(--ink-soft);color:var(--fg);display:inline-grid;place-items:center;font:700 14px var(--f-display);flex:none;border:1px solid var(--line)}
+.av.stub{background:var(--card);border:1px dashed var(--muted);color:var(--muted)}
+.chip{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;flex:none;border:1px solid currentColor}
+.chip.owner{color:var(--c-org)}.chip.manager{color:var(--c-dj)}.chip.contributor{color:var(--c-teacher)}
+.chip.hid{color:var(--danger);border-style:dashed}
+.card:has(>.row.picked){overflow:hidden;flex:none}
+.row.picked{background:var(--ink-soft)}
+.tick{font-weight:700;min-width:20px;text-align:center}
+.chip.wait{color:var(--muted);border-style:dashed}.chip.bad{color:var(--danger)}
+.meta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.pub{font-size:12px;color:var(--muted)}
+.pub.off{color:var(--danger)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600}
+.field input{font:inherit;font-size:16px;min-height:48px;border:1px solid var(--line);border-radius:12px;padding:0 14px;background:var(--card);color:var(--fg);width:100%}
+.field input:focus-visible{outline:3px solid var(--fg);outline-offset:1px}
+.radio{display:flex;flex-direction:column}
+.radio button{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;min-height:56px;width:100%}
+.radio button+button{border-top:1px solid var(--line)}
+.dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);flex:none;margin-top:1px;display:grid;place-items:center}
+.radio button[aria-checked=true] .dot{border-color:var(--fg)}
+.radio button[aria-checked=true] .dot::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--fg)}
+.radio button[disabled] b{color:var(--muted)}
+.toggle{position:relative;width:64px;height:44px;border-radius:999px;border:1px solid var(--line);background:var(--ink-soft);flex:none}
+.toggle::after{content:'';position:absolute;top:5px;left:5px;width:32px;height:32px;border-radius:50%;background:var(--card);border:1px solid var(--muted)}
+.toggle[aria-checked=true]{background:var(--ok);border-color:var(--ok)}
+.toggle[aria-checked=true]::after{left:25px;border-color:var(--ok)}
+.banner.ok{background:#e6f2ea;border-color:#b5d6c1}
+.btn.danger{background:var(--danger);color:var(--on-danger)}
+.link-danger{color:var(--danger);font-weight:600;min-height:44px;padding:0 4px}
+.lose{margin:0;padding-left:18px;font-size:14px;line-height:1.55}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.pchip{display:inline-flex;align-items:center;gap:6px;background:var(--ink-soft);border-radius:999px;padding:0 4px 0 12px;font-size:14px;min-height:44px}
+.pchip button{min-width:44px;min-height:44px;text-align:center;font-weight:700}
+.seg2{display:flex;gap:4px;background:var(--ink-soft);padding:3px;border-radius:12px}
+.seg2 button{flex:1;text-align:center;min-height:48px;border-radius:9px;font-weight:600;font-size:14px}
+.seg2 button[aria-pressed=true]{background:var(--card);border:1px solid var(--line)}
+.inv{padding:16px;display:flex;flex-direction:column;gap:12px}
+.ghead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:8px}
+.ghead h3{margin:0}
+.ghead span{font-size:13px;color:var(--muted)}
+.gline{margin:-4px 0 0;font-size:13px;color:var(--muted)}
+.roleline{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:start;padding:12px 14px;font-size:14px;line-height:1.45}

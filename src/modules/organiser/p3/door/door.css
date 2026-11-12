@@ -53,7 +53,7 @@
 .p3-theme .p3-door-do { margin: 10px 0 0; font-size: 16px; color: var(--fg); background: var(--card2); border-radius: 12px; padding: 10px 12px; }
 .p3-theme .p3-door-acts { display: flex; gap: 8px; margin-top: 12px; }
 .p3-theme .p3-door-acts .p3-btn { flex: 1; }
-.p3-theme .p3-door-big { min-height: 56px; font-size: 18px; font-weight: 700; }
+.p3-theme .p3-door-big { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 56px; font-size: 18px; font-weight: 700; text-decoration: none; }
 .p3-theme .p3-door-wide { width: 100%; margin-top: 8px; }
 .p3-theme .p3-door-btnlink { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 
@@ -85,6 +85,8 @@
 .p3-theme .p3-door-cam-gone { display: none; }
 .p3-theme .p3-door-help { display: flex; flex-direction: column; gap: 10px; }
 .p3-theme .p3-door-help .p3-note { margin: 0; }
+/* the Check again note: off the buttons above it (review 1439 r2 E) */
+.p3-theme .p3-note.p3-door-recheck-note { margin-top: 6px; }
 .p3-theme .p3-door-steps { margin: 0; padding-left: 28px; list-style: decimal outside; font-size: 16px; display: flex; flex-direction: column; gap: 6px; }
 .p3-theme .p3-door-tap { min-height: 48px; }
 .p3-theme .p3-door-linkbtn { background: none; border: 0; padding: 0; min-height: 44px; font: inherit; font-weight: 600; text-decoration: underline; color: inherit; cursor: pointer; }

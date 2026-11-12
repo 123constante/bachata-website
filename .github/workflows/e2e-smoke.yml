@@ -17,11 +17,30 @@ concurrency:
 jobs:
   e2e-smoke:
     runs-on: ubuntu-latest
+    # Browsers and their system libraries come baked into the Playwright image, so no
+    # step here runs apt: `playwright install --with-deps` did, and runner apt DNS
+    # failures ("Temporary failure resolving azure.archive.ubuntu.com") redded this
+    # job with no code change (PR #1542, 2026-11-11). The tag MUST equal the
+    # @playwright/test version in package-lock.json: the image's browsers are built
+    # for that version only. Node still comes from setup-node (22), not the image.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      # The container's HOME is /github/home, a runner mount whose parent is writable by
+      # another user; @swc/core 1.16 refuses a native-addon cache under it ("cache root has
+      # a parent writable by another user") and vite.config.ts fails to load. /root is
+      # root-owned 0700, so the cache is accepted there.
+      XDG_CACHE_HOME: /root/.cache
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # The workspace is owned by the runner user and the container runs as root, so
+      # without this every later git command fails with "dubious ownership".
+      - name: Trust the workspace for git (container job)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # Docs-only PRs skip the heavy steps below; the job still runs, so the
       # required check keeps its name and reports success. Fail-safe: any error
@@ -47,10 +66,6 @@ jobs:
       - name: Install dependencies
         if: steps.changes.outputs.docs_only != 'true'
         run: npm ci
-
-      - name: Install Playwright browsers
-        if: steps.changes.outputs.docs_only != 'true'
-        run: npx playwright install --with-deps chromium
 
       - name: Run E2E smoke suite
         if: steps.changes.outputs.docs_only != 'true'
@@ -101,6 +116,8 @@ jobs:
           VITE_ENABLE_ORGANISER_SELF_SERVE: 'true'
           VITE_ENABLE_ORGANISER_P3: 'true'
           VITE_ENABLE_ORGANISER_TICKETING: 'true'
+          # walk-p3-series-pictures: the Pictures sheet with order and cover (flags.organiserPhotoOrder).
+          VITE_ENABLE_ORGANISER_PHOTO_ORDER: 'true'
           # walk-p3-create-kinds (fix-1208 r4): turns its missing-mount skip into a failure.
           P3_GEOMETRY_REQUIRED: '1'
         run: npm run test:e2e:p3

@@ -91,7 +91,7 @@ describe('orders preview', () => {
 describe('Home Get paid prompt', () => {
   it.each([
     ['owner', true, 'none', true],
-    ['manager', true, 'started', true],
+    ['manager', true, 'started', false],
     ['owner', true, 'connected', false],
     ['owner', true, null, false],
     ['owner', false, 'none', false],

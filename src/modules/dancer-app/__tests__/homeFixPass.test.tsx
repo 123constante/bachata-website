@@ -31,7 +31,6 @@ import { renderInShell, resetShell } from '../shell/renderInShell';
 import { setTestUser } from '../shell/testAuth';
 import { FIND_A_NIGHT } from '../copy/sharedCopy';
 import { NO_NIGHTS_FIND } from '../screens/nights/NightsScreen';
-import { LineupPeople } from '../screens/home/LineupPeople';
 import { parseLineupPeople } from '../api/lineupPeople';
 import { night as goingNight } from '../screens/nights/__tests__/goingShapes';
 
@@ -55,73 +54,6 @@ afterEach(() => {
   resetShell();
 });
 
-describe('S2: the next-night card has an action when loading fails', () => {
-  it('shows Try again, which refetches the nights', async () => {
-    h.attendance = async () => ({ data: null, error: { message: 'boom' } });
-    renderInShell({ path: '/app/home' });
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.textContent).toMatch(/couldn.t load your nights/));
-    h.attendance = async () => ({ data: mine(2), error: null });
-    fireEvent.click(within(hero).getByRole('button', { name: /try again/i }));
-    await waitFor(() => expect(screen.getByTestId('home-hero').textContent).toContain('Brixton Bachata'));
-  });
-});
-
-describe('S4: hero "See event" is full width, 52px+, token colours', () => {
-  it('is a full-width class link with no inline hex', async () => {
-    h.attendance = async () => ({ data: mine(2), error: null });
-    renderInShell({ path: '/app/home' });
-    const link = await screen.findByRole('link', { name: 'See event' });
-    expect(link.className).toContain('da-hero-cta');
-    expect(link.getAttribute('style') ?? '').not.toMatch(/#/);
-  });
-  it('strength tile spans the whole row and ends in a chevron', async () => {
-    renderInShell({ path: '/app/home' });
-    const tile = await screen.findByTestId('tile-strength');
-    expect(tile.className).toContain('da-strength-row');
-    expect(tile.querySelector('svg')).not.toBeNull();
-    expect(tile.textContent).toContain('Profile strength');
-  });
-});
-
-describe('S3 + S8: lineup rows', () => {
-  it('a tap emits ONE profile view with the id and type, and navigates in the app (router link)', async () => {
-    const r = renderInShell({ path: '/app/home' });
-    const rows = await screen.findAllByTestId('lineup-person');
-    expect(rows[0].querySelector('svg')).not.toBeNull(); // chevron
-    fireEvent.click(rows[0]);
-    await waitFor(() => expect(r.location()).toBe('/teachers/lena-ortiz'));
-    // The emitter is loaded on the tap (kept off the /app/* first load), so the call lands a tick later.
-    await waitFor(() => expect(h.emits).toHaveLength(1));
-    await new Promise((res) => setTimeout(res, 20));
-    expect(h.emits).toEqual([{ personId: 'p1', profileType: 'teacher', context: 'dancer-app:home-lineup' }]);
-  });
-  it('a DJ-only row emits type dj', async () => {
-    renderInShell({ path: '/app/home' });
-    const rows = await screen.findAllByTestId('lineup-person');
-    fireEvent.click(rows[1]);
-    await waitFor(() => expect(h.emits).toEqual([{ personId: 'p2', profileType: 'dj', context: 'dancer-app:home-lineup' }]));
-  });
-  it('the section label is sentence case 15px/700 in the text colour', async () => {
-    renderInShell({ path: '/app/home' });
-    const section = await screen.findByTestId('lineup-people');
-    const label = within(section).getByRole('heading', { name: 'Teachers and DJs from your nights' });
-    expect(label.hasAttribute('data-section-title')).toBe(true); // the shared SectionTitle from ../blocks
-    expect(label.className).toContain('text-[15px]');
-    expect(label.className).toContain('text-[var(--fg)]');
-    expect(label.className).not.toMatch(/(^|\s)uppercase(\s|$)/);
-  });
-});
-
-describe('S5: the partner button is a ghost, not a second primary', () => {
-  it('uses the card2 surface', async () => {
-    renderInShell({ path: '/app/home' });
-    const btn = await screen.findByTestId('partner-notify');
-    expect(btn.className).toContain('bg-[var(--card2)]');
-    expect(btn.getAttribute('style') ?? '').not.toContain('--da-accent');
-  });
-});
-
 describe('S4a: rate nudge layout', () => {
   it('icon tile, stacked title and body, chevron -- source pin (the nudge needs a rateable series, see dancerAppHomeNights)', async () => {
     const src = (await import('node:fs')).readFileSync('src/modules/dancer-app/screens/home/RateNudge.tsx', 'utf8');
@@ -133,31 +65,10 @@ describe('S4a: rate nudge layout', () => {
 
 describe('S9: one "find a night" sentence on all three surfaces', () => {
   it('Nights uses the shared constant', () => expect(NO_NIGHTS_FIND).toBe(FIND_A_NIGHT));
-  it('the Home empty hero says it', async () => {
-    renderInShell({ path: '/app/home' });
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.textContent).toContain(FIND_A_NIGHT));
-  });
-  it('the lineup empty state says it', async () => {
-    h.lineup = async () => ({ data: { total: 0, people: [] }, error: null });
-    renderInShell({ path: '/app/home' });
-    const empty = await screen.findByTestId('lineup-people-empty');
-    expect(empty.textContent).toContain(FIND_A_NIGHT);
-  });
   it('the Nights empty state says it', async () => {
     renderInShell({ path: '/app/nights' });
     const empty = await screen.findByTestId('nights-empty');
     expect(empty.textContent).toContain(FIND_A_NIGHT);
-  });
-});
-
-describe('N2: no user means no error state', () => {
-  it('renders no error and calls nothing while signed out', async () => {
-    setTestUser(null);
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={qc}><MemoryRouter><LineupPeople /></MemoryRouter></QueryClientProvider>);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByTestId('lineup-people-error')).toBeNull();
   });
 });
 
@@ -167,28 +78,10 @@ describe('N3: de-duplication and "and N more"', () => {
     expect(p.people.map((x) => x.display_name)).toEqual(['Lena Ortiz', 'Marco Vidal']);
     expect(p.total).toBe(2); // the dropped duplicate is not "1 more"
   });
-  it('shows "and N more" only when total is above the rows shown', async () => {
-    h.lineup = async () => ({ data: { ...PEOPLE, total: 5 }, error: null });
-    renderInShell({ path: '/app/home' });
-    expect((await screen.findByTestId('lineup-people-more')).textContent).toBe('and 3 more');
-  });
-  it('no "and N more" when every row is shown', async () => {
-    renderInShell({ path: '/app/home' });
-    await screen.findAllByTestId('lineup-person');
-    expect(screen.queryByTestId('lineup-people-more')).toBeNull();
-  });
-});
-
-describe('S3: the emitter stays off the /app/* first load', () => {
-  it('LineupPeople has no static import of profileViewEmit (it imports the eager supabase client)', async () => {
-    const src = (await import('node:fs')).readFileSync('src/modules/dancer-app/screens/home/LineupPeople.tsx', 'utf8');
-    expect(src).not.toMatch(/^import .*profileViewEmit/m);
-    expect(src).toContain("import('@/lib/profileViewEmit')");
-  });
 });
 
 describe('N5: no raw hex in the Home screen files', () => {
-  it.each(['HomeScreen.tsx', 'LineupPeople.tsx', 'RateNudge.tsx', 'PartnerTile.tsx', 'NumbersTiles.tsx', 'homeCopy.ts'])('%s', async (f) => {
+  it.each(['HomeScreen.tsx', 'RateNudge.tsx', 'claimCard.tsx', 'homeOptionA.tsx', 'homeCopy.ts'])('%s', async (f) => {
     const src = (await import('node:fs')).readFileSync(`src/modules/dancer-app/screens/home/${f}`, 'utf8');
     expect(src.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
   });

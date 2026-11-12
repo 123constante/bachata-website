@@ -111,7 +111,7 @@ export const RESULT_TABLE: Record<DoorResult, ResultRow> = {
   not_allowed: {
     band: 'grey', headline: 'CANNOT CHECK TICKETS',
     sub: () => `You${RSQ}re not on this event${RSQ}s team`,
-    detail: () => `Ask the event${RSQ}s organiser to add you to their team, then open this screen again.`,
+    detail: () => `Ask the event${RSQ}s organiser to add you to their team, then tap Check again.`,
     vibrate: [], actions: ['none'], keepScanning: false,
   },
   too_many_attempts: {

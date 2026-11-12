@@ -49,7 +49,7 @@ describe('publicTicketing flag', () => {
     expect(importers).toEqual([]);
   });
   it('the event page mounts the Tickets page only behind the flag, from a lazy chunk', () => {
-    expect(bento).not.toMatch(/^import .*modules\/tickets/m);
+    expect(bento).not.toMatch(/^import (?!type ).*modules\/tickets/m); // a type-only import is erased at build, so it adds nothing to the main chunk
     expect(bento.match(/import\('@\/modules\/tickets\//g)).toHaveLength(1);
     expect(bento.match(/<EventTicketsPage\s/g)).toHaveLength(1);
     expect(bento).toMatch(/\{ticketsOpen && flags\.publicTicketing && state === 'ready' && eventId && !over && !occurrence\?\.isCancelled && !pageModel\.page\.isPaused && \(/);

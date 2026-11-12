@@ -51,6 +51,10 @@ type Row = {
   remoteTest?: string;
   refs: 1 | 2;
   local: 'green' | 'red' | null;
+  /** what a RED local stub writes to the --outputFile.json path: a report naming a failing file, a report with none, or nothing */
+  report?: 'failing' | 'empty' | 'none';
+  /** extra text the hook output must contain */
+  expectOut?: RegExp;
   expectExit: 0 | 1;
   expectHelper: boolean;
   expectLocal: boolean;
@@ -68,6 +72,9 @@ const ROWS: Row[] = [
   { name: 'helper absent -> local ran, allowed', helper: 'absent', refs: 1, local: 'green', expectExit: 0, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(helper not installed\)/ },
   { name: 'REMOTE_TEST=off -> helper not called, local ran', helper: 0, remoteTest: 'off', refs: 1, local: 'green', expectExit: 0, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(REMOTE_TEST=off\)/ },
   { name: 'two different shas -> helper not called, local ran', helper: 0, refs: 2, local: 'green', expectExit: 0, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(several refs\)/ },
+  { name: 'local red + report naming a failing file -> refused, file named', helper: 'absent', refs: 1, local: 'red', report: 'failing', expectExit: 1, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(helper not installed\)/, expectOut: /Failing files:\n\s+- \S*fakeFailing\.test\.ts/ },
+  { name: 'local red + no report written -> refused, "(no report written" fallback', helper: 'absent', refs: 1, local: 'red', report: 'none', expectExit: 1, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(helper not installed\)/, expectOut: /\(no report written/ },
+  { name: 'local red + report with no failed files -> refused, "(none recorded" fallback', helper: 'absent', refs: 1, local: 'red', report: 'empty', expectExit: 1, expectHelper: false, expectLocal: true, expectLine: /unit gate here \(helper not installed\)/, expectOut: /\(none recorded/ },
 ];
 
 function runRow(row: Row) {
@@ -107,7 +114,16 @@ function runRow(row: Row) {
   const npmShim = join(shims, 'npm');
   writeFileSync(
     npmShim,
-    `#!/bin/sh\necho "$*" >> '${localLog.replace(/\\/g, '/')}'\nexit ${row.local === 'red' ? 1 : 0}\n`,
+    `#!/bin/sh\necho "$*" >> '${localLog.replace(/\\/g, '/')}'\n` +
+      (row.report
+        ? `for a in "$@"; do case "$a" in --outputFile.json=*) out="\${a#--outputFile.json=}";; esac; done\n` +
+          (row.report === 'failing'
+            ? `printf '%s' '{"testResults":[{"name":"/x/fakeFailing.test.ts","status":"failed"},{"name":"/x/ok.test.ts","status":"passed"}]}' > "$out"\n`
+            : row.report === 'empty'
+              ? `printf '%s' '{"testResults":[{"name":"/x/ok.test.ts","status":"passed"}]}' > "$out"\n`
+              : '')
+        : '') +
+      `exit ${row.local === 'red' ? 1 : 0}\n`,
   );
   chmodSync(npmShim, 0o755);
 
@@ -145,6 +161,7 @@ describe('pre-push step 1: unit gate on the side laptop', () => {
       const out = result.stdout + result.stderr;
       expect(result.status, out).toBe(row.expectExit);
       expect(out).toMatch(row.expectLine);
+      if (row.expectOut) expect(out).toMatch(row.expectOut);
       // a helper that keeps answering 3 is asked 3 times before the local run; a sequence stops at its first non-3
       if (row.helperSeq) expect(helperCalls).toBe(Math.min(row.helperSeq.findIndex((c) => c !== 3) + 1, 3));
       else if (row.helper === 3) expect(helperCalls).toBe(3);
@@ -154,7 +171,8 @@ describe('pre-push step 1: unit gate on the side laptop', () => {
         expect(helperArgv).toBeNull();
       }
       if (row.expectLocal) {
-        expect(localRan?.trim()).toBe(UNIT_CMD.slice(1).join(' '));
+        // The local run also writes a json report so a red run can name its failing files.
+        expect(localRan?.trim()).toMatch(/^run test:unit:offline -- --reporter=dot --reporter=json --outputFile\.json=\S+$/);
       } else {
         expect(localRan).toBeNull();
       }

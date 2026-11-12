@@ -367,11 +367,21 @@ export const LIB_EVENT_RULES_MODULES = [
   // the public event page. Alone it was its own chunk: +1 first-load request on /event
   // (chunk ratchet 40 vs 39). Pinned here it rides a chunk /event already loads.
   "/src/lib/paymentMethods.ts",
+  // JSON-LD offer URL rule (ticket-festival-in-site, 2026-11-11): a pure leaf shared by
+  // BentoPage and FestivalDetail. Alone it was its own chunk: +1 first-load request on
+  // /event (chunk ratchet 40 vs 39). Pinned here it rides a chunk /event already loads.
+  "/src/modules/event-page/bento/utils/ticketOfferUrl.ts",
   // Organiser URL table (slice 1b bundle round): a pure leaf read by catchall (auth +
   // dancer-app first load) and the organiser screens. Alone it was its own chunk:
   // +1 first-load request on auth (26 vs 25) and dancer-app (48 vs 47). Pinned here it
   // rides a chunk those routes already load.
   "/src/modules/organiser/shell/paths.ts",
+  // Dancer Home claim card (profile-dash review fix 1): claimMyDancerProfile + myPersona are
+  // static imports of the dancer-app claim card. Unpinned they were their own first-load
+  // chunks on /app/* (chunk ratchet dancer-app 48 vs allowance 47). Pinned here they ride
+  // a chunk the route already loads.
+  "/src/lib/claimMyDancerProfile.ts",
+  "/src/lib/myPersona.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

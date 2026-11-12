@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buyerFirstAndCode } from '../ticketModel';
 import {
   newRefundRequestId,
   partialRefundDone,
@@ -100,7 +101,7 @@ describe('moveBlock: every status x role x Stripe x free/paid x room left x seri
                 if (to === 'on_sale' && full) return expect(got).toMatch(/Every ticket is taken/);
                 if (to === 'on_sale' && paid && stripe === 'unknown') return expect(got).toMatch(/Checking your payment set-up/);
                 // Q1: a free ticket type never needs Stripe.
-                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : /Connect payments/);
+                if (to === 'on_sale' && paid && stripe !== 'connected') return expect(got).toMatch(stripe === 'waiting' ? /still checking your details/ : role === 'owner' ? /Connect payments/ : /Ask the owner to set up payouts/);
                 expect(got).toBeNull();
               });
             }
@@ -113,7 +114,9 @@ describe('roles (Q15)', () => {
     expect(canManage('contributor')).toBe(false);
     expect(canManage(undefined)).toBe(false);
     expect(refundBlock('owner')).toBeNull();
-    expect(refundBlock('contributor')).toMatch(/owner or manager/);
+    // Slice 2 (PQ1): a manager may no longer refund; both are told to ask the owner.
+    expect(refundBlock('manager')).toMatch(/Ask the owner/);
+    expect(refundBlock('contributor')).toMatch(/Ask the owner/);
   });
   it('edit lock: contributor always, anyone on a closed type', () => {
     for (const s of TICKET_STATUSES) {
@@ -238,12 +241,12 @@ describe('refunds (Q5, Q9)', () => {
   });
   it('the question names the buyer and the amount, and says the booking fee goes back too', () => {
     const q = refundQuestion(order);
-    expect(q.title).toBe('Refund Ana?');
+    expect(q.title).toBe(`Refund ${buyerFirstAndCode(order)}?`);
     expect(q.body).toBe('\u00A321.00 goes back, booking fee included. Their 2 tickets stop working and the places reopen. Cannot be undone.');
     expect(q.confirm).toBe('Refund \u00A321.00');
     expect(refundQuestion({ ...order, refundedPence: 500 }).confirm).toBe('Refund \u00A316.00');
     expect(refundQuestion({ ...order, quantity: 1 }).body).toMatch(/Their ticket stops working and the place reopens/);
-    expect(refundQuestion({ ...order, buyerName: null }).title).toBe('Refund Buyer?');
+    expect(refundQuestion({ ...order, buyerName: null }).title).toBe(`Refund ${buyerFirstAndCode({ ...order, buyerName: null })}?`);
   });
 });
 

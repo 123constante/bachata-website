@@ -75,7 +75,13 @@ export const flags = {
   // Organiser ticketing (S3, docs/organiser-ticketing-journey.md): P3's Get paid, ticket
   // types, sales, refunds and door. OFF = none of them shows. Turn on with
   // VITE_ENABLE_ORGANISER_TICKETING=true (Vercel env) -- no code change.
+  // Organiser dashboard slice 1 (admin #1535): hero + date rail Home. OFF = the current Home.
+  // Turn on with VITE_ENABLE_ORGANISER_DASH=true (Vercel env) -- no code change.
+  organiserDash:       import.meta.env.VITE_ENABLE_ORGANISER_DASH === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
+  // Gallery sheet: choose photo order and the cover (tap a photo, then Move left/right, Make cover).
+  // OFF = the sheet is exactly as before. Turn on with VITE_ENABLE_ORGANISER_PHOTO_ORDER=true (Vercel env).
+  organiserPhotoOrder: import.meta.env.VITE_ENABLE_ORGANISER_PHOTO_ORDER === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.

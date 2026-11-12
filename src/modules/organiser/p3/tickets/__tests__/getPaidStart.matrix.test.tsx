@@ -45,7 +45,7 @@ describe('link builders', () => {
 
 describe('startView: the one mapping', () => {
   const o = org();
-  const base = { manager: true, arrival: 'fresh', phase: null, switchedOff: false, org: o } as const;
+  const base = { manager: true, owner: true, arrival: 'fresh', phase: null, switchedOff: false, org: o } as const;
   it.each([
     ['none', 'fresh', 'Connect Stripe'],
     ['started', 'fresh', 'Carry on with Stripe'],
@@ -72,7 +72,7 @@ describe('startView: the one mapping', () => {
 });
 
 describe.each([
-  ['owner', true], ['manager', true], ['contributor', false],
+  ['owner', true], ['manager', false], ['contributor', false],
 ] as const)('screen: %s', (role, manager) => {
   describe.each([['none', 'Connect Stripe'], ['started', 'Carry on with Stripe']] as const)('stripe %s', (stripe, label) => {
     it('fresh: heading, what Stripe asks, ONE button (or none, with the reason)', () => {
@@ -109,7 +109,7 @@ describe.each([
     expect(screen.getByTestId('getpaid-start-title').textContent).toBe('You’re ready to sell tickets');
     expect(screen.queryByTestId('getpaid-start-asks')).toBeNull();
     expect(screen.queryByTestId('getpaid-start-go')).toBeNull();
-    if (manager) {
+    if (role !== 'contributor') {
       expect(primaries()).toHaveLength(1);
       expect(screen.getByTestId('getpaid-start-add').getAttribute('href')).toBe('/account/p3/events/ser-1?tickets=1');
     } else expect(primaries()).toHaveLength(0);

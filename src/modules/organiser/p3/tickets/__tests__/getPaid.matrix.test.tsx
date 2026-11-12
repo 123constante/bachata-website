@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen } from '@testing-library/react';
-import { NOT_MANAGER_STRIPE, NOT_SWITCHED_ON, STRIPE_COPY } from '../../../tickets/ticketModel';
+import { PAYOUTS_ASK_OWNER, NOT_SWITCHED_ON, STRIPE_COPY } from '../../../tickets/ticketModel';
 import { P3_TICKET_PATHS } from '../paths';
 import { SHAPES, type Shape, home, org, series } from './fixtures';
 import { dataMock, failed, load, ok, pending, q, show } from './harness';
@@ -26,6 +26,9 @@ describe.each([
   ['started', 'owner', 'Not finished', 'Finish connecting payments', true],
   ['connected', 'owner', 'Paid out via Stripe', 'Payments connected', false],
   ['none', 'contributor', 'Not connected', 'Connect payments', false],
+  // Slice 2 (ORG-6.4-r03-P4, PQ1): PAY none and PAY half-set for a manager: ask the owner, no button.
+  ['none', 'manager', 'Not connected', 'Connect payments', false],
+  ['started', 'manager', 'Not finished', 'Finish connecting payments', false],
 ] as const)('Get paid: stripe %s, %s', (stripe, role, tag, title, canGo) => {
   it('tag, title, the button and why it is greyed', () => {
     load(shape({ stripe, role }));
@@ -34,11 +37,53 @@ describe.each([
     expect(screen.getByTestId('tix-getpaid-title').textContent).toBe(title);
     const go = screen.queryByTestId('tix-getpaid-go') as HTMLButtonElement | null;
     if (stripe === 'connected') expect(go).toBeNull();
-    else {
+    // Slice 2 (PQ1): anyone but the owner gets no payouts button, only the ask-the-owner line.
+    else if (role !== 'owner') {
+      expect(go).toBeNull();
+      expect(screen.getByTestId('tix-getpaid-why').textContent).toBe(PAYOUTS_ASK_OWNER);
+    } else {
       expect(go?.textContent).toBe(STRIPE_COPY[stripe].action);
       expect(go?.disabled).toBe(!canGo);
-      if (!canGo) expect(screen.getByTestId('tix-getpaid-why').textContent).toBe(NOT_MANAGER_STRIPE);
+      if (!canGo) expect(screen.getByTestId('tix-getpaid-why').textContent).toBe(PAYOUTS_ASK_OWNER);
     }
+  });
+});
+
+// Review 1520-r1 F2: a summary that carries sales, so each block WOULD render for the owner.
+describe('Get paid: money blocks are the owner\u2019s alone (PQ1, review 1520-r1 F2)', () => {
+  const POUND = /\u00A3/;
+  const selling = (role: string, stripe: Shape['stripe']) => shape({ role, stripe, sales: SHAPES.selling.sales });
+  it('owner control: the same summary draws Money so far and the setup steps', () => {
+    load(selling('owner', 'none'));
+    show(<GetPaidScreen />, GP());
+    expect(screen.getByTestId('tix-money')).toBeTruthy();
+    expect(screen.getByTestId('tix-setup')).toBeTruthy();
+  });
+  describe.each(['manager', 'contributor'])('%s', (role) => {
+    it.each(['none', 'started', 'connected'] as const)('stripe %s: no Money so far, no setup steps, no amount', (stripe) => {
+      load(selling(role, stripe));
+      const { container } = show(<GetPaidScreen />, GP());
+      expect(screen.queryByTestId('tix-money')).toBeNull();
+      expect(screen.queryByTestId('tix-setup')).toBeNull();
+      expect(screen.queryByTestId('tix-money-error')).toBeNull();
+      expect(screen.queryByTestId('tix-money-refused')).toBeNull();
+      expect(container.textContent).not.toMatch(POUND);
+    });
+    it('a failed or refused summary says nothing about money', () => {
+      load(selling(role, 'none'));
+      q.summary = failed();
+      show(<GetPaidScreen />, GP());
+      expect(screen.queryByTestId('tix-money-error')).toBeNull();
+      cleanup();
+      q.summary = ok({ ok: false, reason: 'not_authorised', types: [] });
+      show(<GetPaidScreen />, GP());
+      expect(screen.queryByTestId('tix-money-refused')).toBeNull();
+    });
+    it('asks the summary read for no money (F3)', () => {
+      load(selling(role, 'none'));
+      show(<GetPaidScreen />, GP());
+      expect(q.summaryMoney).toBe(false);
+    });
   });
 });
 
@@ -95,10 +140,10 @@ describe('Get paid states', () => {
     expect(screen.getByTestId('tix-setup-line').textContent).toBe('Setup 0 of 3 done');
     expect(screen.queryByTestId('tix-money')).toBeNull();
   });
-  it('a contributor reading a refused summary sees the refusal, not a 0', () => {
+  it('a contributor (legacy row, A1) sees no money line at all: no refusal, no 0 (slice 2, PQ1)', () => {
     load(SHAPES.contributor);
     show(<GetPaidScreen />, GP());
-    expect(screen.getByTestId('tix-money-refused').textContent).toBe('Only an owner or manager of this page can change tickets.');
+    expect(screen.queryByTestId('tix-money-refused')).toBeNull();
     expect(screen.queryByTestId('tix-money')).toBeNull();
   });
 });
@@ -106,7 +151,8 @@ describe('Get paid states', () => {
 describe('Home: the ONE Get paid prompt', () => {
   it.each([
     ['owner, none, live', shape({ stripe: 'none' }), 'Get paid for tickets'],
-    ['manager, started, live', shape({ stripe: 'started', role: 'manager' }), 'Finish connecting payments'],
+    ['manager, started, live', shape({ stripe: 'started' }), 'Finish connecting payments'],
+    ['manager, started, live: payouts are the owner\'s, no prompt', shape({ stripe: 'started', role: 'manager' }), null],
     ['owner, connected', shape({ stripe: 'connected' }), null],
     ['contributor, none', shape({ stripe: 'none', role: 'contributor' }), null],
     ['owner, none, nothing live', shape({ stripe: 'none', lifecycle: 'draft' }), null],
@@ -126,6 +172,11 @@ describe('Home: the ONE Get paid prompt', () => {
     load(SHAPES.selling);
     show(<TicketsSoldTile />, '/account/p3');
     expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold \u00B7 \u00A3328.00');
+    cleanup();
+    // A manager's tile: the count, never an amount (and never a \u00A30.00 from a counts-only summary).
+    load({ ...SHAPES.selling, role: 'manager' });
+    show(<TicketsSoldTile />, '/account/p3');
+    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold');
     cleanup();
     load(SHAPES.bare);
     show(<TicketsSoldTile />, '/account/p3');

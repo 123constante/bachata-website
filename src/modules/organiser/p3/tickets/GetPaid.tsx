@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  NOT_MANAGER_STRIPE,
+  PAYOUTS_ASK_OWNER,
+  isOwner,
   NOT_SWITCHED_ON,
   STRIPE_COPY,
   OPEN_STRIPE_LABEL,
   canManage,
+  canSetUpPayouts,
   formatCount,
   formatPence,
   reasonMessage,
@@ -122,10 +124,11 @@ export function GetPaidScreen() {
 
 function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refresh' | null }) {
   const { query, state } = useStripe(org.id);
-  const summary = useSummary(org.id);
+  // Review 1520-r1 F3: only the owner's summary keeps pence once parsed.
+  const summary = useSummary(org.id, isOwner(org.role));
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id);
   const manager = canManage(org.role);
-  useConnectReturn(back === 'return' && manager, state === 'connected', () => query.refetch());
+  useConnectReturn(back === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
   if (query.isPending) return <StateCard title="Loading your payment set-up&hellip;" testId="tix-getpaid-stripe-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
@@ -139,7 +142,9 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
   const tag = STRIPE_COPY[state];
   const types = summary.data?.ok ? summary.data.types : null;
   const steps = types ? setupSteps(state, types) : null;
-  const canGo = manager && state !== 'connected' && !switchedOff;
+  // Slice 2 (PQ1): payouts are the owner's. Anyone else is told to ask the owner, with no button and no amounts.
+  const owner = isOwner(org.role);
+  const canGo = owner && state !== 'connected' && !switchedOff;
   return (
     <>
       {back && state !== 'connected' && <p className="p3-warn" data-testid="tix-getpaid-back">{state === 'waiting' ? BACK_NOTE_WAITING : BACK_NOTE[back]}</p>}
@@ -148,8 +153,8 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
         <strong data-testid="tix-getpaid-title">{copy.title}</strong>
         <p className="p3-note">{copy.body}</p>
         {switchedOff && <p className="p3-warn" role="status" data-testid="tix-getpaid-off">{NOT_SWITCHED_ON}</p>}
-        {state !== 'connected' && !manager && <p className="p3-note" id="tix-getpaid-why" data-testid="tix-getpaid-why">{NOT_MANAGER_STRIPE}</p>}
-        {state !== 'connected' && !switchedOff && (
+        {state !== 'connected' && !owner && <p className="p3-note" id="tix-getpaid-why" data-testid="tix-getpaid-why">{PAYOUTS_ASK_OWNER}</p>}
+        {owner && state !== 'connected' && !switchedOff && (
           <button
             type="button"
             className="p3-btn"
@@ -162,14 +167,14 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
             {busy && state !== 'waiting' ? 'Opening Stripe\u2026' : STRIPE_COPY[state].action}
           </button>
         )}
-        {state === 'waiting' && !switchedOff && (
+        {owner && state === 'waiting' && !switchedOff && (
           <OpenStripeLink onClick={() => void go()} disabled={!canGo || busy} busy={busy} testId="tix-getpaid-open" />
         )}
         {note && <p role="alert" className="p3-error" data-testid="tix-getpaid-note">{note}</p>}
         {state === 'connected' && manager && <AddTicketNext org={org} idPrefix="tix-getpaid-add" />}
         {canGo && <p className="p3-note">You leave Bachata Calendar for Stripe and come back here when you finish.</p>}
       </section>
-      {manager && hasLiveEvent(org) && steps && steps.some((s) => !s.done) && (
+      {owner && hasLiveEvent(org) && steps && steps.some((s) => !s.done) && (
         <section className="p3-card" aria-label={setupLine(steps)} data-testid="tix-setup">
           <strong data-testid="tix-setup-line">{setupLine(steps)}</strong>
           <ul className="p3-list p3-flush">
@@ -182,13 +187,13 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
           </ul>
         </section>
       )}
-      {summary.isError && (
+      {owner && summary.isError && (
         <StateCard title="We could not load your sales." testId="tix-money-error">
           <RetryButton onClick={() => void summary.refetch()} />
         </StateCard>
       )}
-      {summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{reasonMessage(summary.data.reason)}</p>}
-      {types && types.length > 0 && <MoneySoFar types={types} />}
+      {owner && summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{reasonMessage(summary.data.reason)}</p>}
+      {owner && summary.data?.moneyVisible === true && types && types.length > 0 && <MoneySoFar types={types} />}
     </>
   );
 }
@@ -267,7 +272,10 @@ function Prompt({ org, stripe }: { org: HomeOrganiser; stripe: PromptState }) {
 export function TicketsSoldTile() {
   const home = useP3Home();
   const org = payingOrganiser(home.data, null);
-  const summary = useSummary(org?.id);
+  // Slice 2 (PQ1): the amount is the owner's. A manager's tile is the count alone (its summary keeps no pence).
+  const summary = useSummary(org?.id, isOwner(org?.role));
+  // Fail closed: the server's money_visible=false hides the amount even for a role we believed was the owner; a missing flag or loading summary is counts only.
+  const money = isOwner(org?.role) && summary.data?.moneyVisible === true;
   const types = summary.data?.ok ? summary.data.types : null;
   if (!org || !types) return null;
   const t = totalsOf(types);
@@ -275,7 +283,7 @@ export function TicketsSoldTile() {
   return (
     <Link to={P3_TICKET_PATHS.getPaid(org.id)} className="p3-card p3-stat p3-tap" data-testid="tix-sold-tile">
       <span className="p3-stat-n">{formatCount(t.ticketsSold)}</span>
-      <span className="p3-stat-l">Tickets sold &middot; {formatPence(t.grossPence)}</span>
+      <span className="p3-stat-l">Tickets sold{money && <> &middot; {formatPence(t.grossPence)}</>}</span>
     </Link>
   );
 }
@@ -309,13 +317,13 @@ export interface StartView {
 /** The ask-the-owner line: the owner's name when the home payload carries it, else "the page owner". */
 export const askOwner = (org: HomeOrganiser): string => `Ask ${teamOf(org).find((m) => m.role === 'owner')?.displayName ?? 'the page owner'} to connect payments`;
 
-export function startView(i: { manager: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
+export function startView(i: { manager: boolean; owner: boolean; state: StripeState; arrival: StartArrival; phase: StartPhase; switchedOff: boolean; org: HomeOrganiser }): StartView {
   const ready = i.state === 'connected';
   if (ready) {
     return { heading: 'You\u2019re ready to sell tickets', asks: false, status: null, note: null, primary: i.manager ? { kind: 'add', label: 'Add a ticket' } : null, secondary: null };
   }
   const base = { heading: 'Get paid for your tickets', asks: true };
-  if (!i.manager) return { ...base, status: null, note: askOwner(i.org), primary: null, secondary: null };
+  if (!i.owner) return { ...base, status: null, note: askOwner(i.org), primary: null, secondary: null };
   if (i.switchedOff) return { ...base, asks: false, status: null, note: NOT_SWITCHED_ON, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'checking') return { ...base, asks: false, status: 'Checking with Stripe\u2026', note: null, primary: null, secondary: null };
   if (i.arrival === 'return' && i.phase === 'timeout') {
@@ -345,7 +353,7 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
   const { query, state } = useStripe(org.id);
   const { go, busy, note, switchedOff } = useStartOnboarding(org.id, 'start');
   const manager = canManage(org.role);
-  const { phase, again } = useConnectReturn(arrival === 'return' && manager, state === 'connected', () => query.refetch());
+  const { phase, again } = useConnectReturn(arrival === 'return' && canSetUpPayouts(org.role), state === 'connected', () => query.refetch());
   if (query.isPending) return <StateCard title="Loading&hellip;" testId="getpaid-start-loading">This takes a second.</StateCard>;
   if (query.isError || !state) {
     return (
@@ -355,7 +363,7 @@ function StartBody({ org, arrival }: { org: HomeOrganiser; arrival: StartArrival
       </StateCard>
     );
   }
-  const v = startView({ manager, state, arrival, phase, switchedOff, org });
+  const v = startView({ manager, owner: canSetUpPayouts(org.role), state, arrival, phase, switchedOff, org });
   return (
     <section className="p3-card p3-stack-s" data-testid="getpaid-start-card" data-state={state}>
       <h1 data-testid="getpaid-start-title" style={{ margin: 0, fontSize: 'var(--fs-title)' }}>{v.heading}</h1>

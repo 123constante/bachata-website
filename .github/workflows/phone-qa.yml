@@ -21,34 +21,15 @@ name: Phone QA
 # server's Node-side fetches and page.route() the browser's, both from
 # tests/e2e-phone/fakeSupabase.mjs. Nothing reaches any Supabase project.
 #
-# The paths below are the UI paths scripts/check-pr-phone-qa.mjs (UI_PATH_RE)
-# requires a "## Phone QA" PR section for, plus the dependency manifests (a
-# Dependabot bump of framer-motion, tailwind or react-router moves pixels too,
-# and those PRs touch nothing else) and this suite's own files, so a change to
-# the check runs the check. NOT a required status check (path-filtered
-# workflows never report on PRs outside their paths); that is the owner's call.
+# Runs on EVERY pull request (owner 2026-11-12, e2e audit item 4). It used to be
+# path-filtered to UI files, so a PR outside those paths got no phone check and,
+# because a path-filtered workflow never reports, the check could not be made
+# required. Now it always reports. Docs-only PRs pay the shard time; that is the
+# price of a check that means "the phone suite ran". Whether to make it a
+# REQUIRED status check is still the owner's call.
 
 on:
   pull_request:
-    paths:
-      - 'src/**/*.tsx'
-      - 'src/**/*.css'
-      - 'app/**/*.tsx'
-      - 'app/**/*.css'
-      - 'tailwind.config.*'
-      - 'index.html'
-      - 'public/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'playwright.phone.config.ts'
-      - 'tests/e2e-phone/**'
-      - 'vite.config.ts'
-      - 'vite.chunks.ts'
-      - 'react-router.config.ts'
-      - 'scripts/_serve-build.mjs'
-      - 'playwright.build.config.ts'
-      - 'tests/e2e-build/**'
-      - '.github/workflows/phone-qa.yml'
   workflow_dispatch:
 
 permissions:
@@ -66,6 +47,20 @@ jobs:
   # phone-qa-rerun.yml; a real test failure is never re-run and stays red.
   phone-qa:
     runs-on: ubuntu-latest
+    # Browsers and their system libraries come baked into the Playwright image, so no
+    # step here runs apt: `playwright install --with-deps` did, and runner apt DNS
+    # failures ("Temporary failure resolving azure.archive.ubuntu.com") redded this
+    # job with no code change (PR #1542, 2026-11-11). The tag MUST equal the
+    # @playwright/test version in package-lock.json: the image's browsers are built
+    # for that version only. Node still comes from setup-node (22), not the image.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      # The container's HOME is /github/home, a runner mount whose parent is writable by
+      # another user; @swc/core 1.16 refuses a native-addon cache under it ("cache root has
+      # a parent writable by another user") and vite.config.ts fails to load. /root is
+      # root-owned 0700, so the cache is accepted there.
+      XDG_CACHE_HOME: /root/.cache
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -78,6 +73,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The workspace is owned by the runner user and the container runs as root, so
+      # without this every later git command fails with "dubious ownership".
+      - name: Trust the workspace for git (container job)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
@@ -89,9 +89,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
 
       # A failure prints each assertion with its measured px; reproduce locally for
       # screenshots and traces (test-results/phone-qa/). The auto-walk pictures below
@@ -113,7 +110,7 @@ jobs:
 
       - name: Upload auto-walk pictures
         if: ${{ !cancelled() && github.event_name == 'pull_request' && matrix.shard == 1 }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: auto-walk
           path: test-results/auto-walk
@@ -134,11 +131,30 @@ jobs:
   # perf-budget.yml's on every PR and Vercel's deploy included.
   build-smoke:
     runs-on: ubuntu-latest
+    # Browsers and their system libraries come baked into the Playwright image, so no
+    # step here runs apt: `playwright install --with-deps` did, and runner apt DNS
+    # failures ("Temporary failure resolving azure.archive.ubuntu.com") redded this
+    # job with no code change (PR #1542, 2026-11-11). The tag MUST equal the
+    # @playwright/test version in package-lock.json: the image's browsers are built
+    # for that version only. Node still comes from setup-node (22), not the image.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      # The container's HOME is /github/home, a runner mount whose parent is writable by
+      # another user; @swc/core 1.16 refuses a native-addon cache under it ("cache root has
+      # a parent writable by another user") and vite.config.ts fails to load. /root is
+      # root-owned 0700, so the cache is accepted there.
+      XDG_CACHE_HOME: /root/.cache
     timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # The workspace is owned by the runner user and the container runs as root, so
+      # without this every later git command fails with "dubious ownership".
+      - name: Trust the workspace for git (container job)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -151,9 +167,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
 
       - name: Production build against the fake Supabase
         env:

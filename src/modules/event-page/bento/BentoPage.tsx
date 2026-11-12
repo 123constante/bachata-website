@@ -56,6 +56,8 @@ import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
+import { buildJsonLdOffers } from './utils/ticketOfferUrl';
+import type { LiveOffer } from '@/modules/tickets/ticketCheckoutApi';
 import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 import { flags } from '@/lib/featureFlags';
@@ -190,7 +192,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // also fetches this internally, but keeping it here is the single source of
   // truth for grid layout.
   const raffleSessionId = typeof window !== 'undefined' ? getRaffleSessionId() : null;
-  const { config: raffleConfig } = useEventRaffleConfig(eventId ?? null, raffleSessionId);
+  const { config: raffleConfig } = useEventRaffleConfig(flags.raffleV2 ? null : (eventId ?? null), raffleSessionId);
 
   // Mount-time 3s-delay view recording. Arc 15: forward occurrenceId so analytics
   // can bucket views by occurrence, not just by event.
@@ -205,6 +207,15 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [ticketsOpen, setTicketsOpen] = useState(false);
+  // TICKET_LEAD_IN_SITE: false on server + first render (hydration-safe); the sticky bar's probe flips it.
+  // The series' ticket types are not in the page snapshot (only the organiser's own offers are), so
+  // server HTML keeps her URL: open owner decision, see the design record.
+  // Stored with the night it is about (fix2 1c): after a night switch the old night's answer
+  // no longer counts, so the JSON-LD cannot keep our URL for a night that is not live.
+  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean; offers: LiveOffer[] }>({ night: null, live: false, offers: [] });
+  const onTicketingLive = useCallback((live: boolean, night: string | null, offers: LiveOffer[]) => {
+    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night && prev.offers === offers ? prev : { night, live, offers }));
+  }, []);
   const closeTickets = useCallback(() => setTicketsOpen(false), []);
 
   const occurrence = snapshot?.occurrenceEffective ?? null;
@@ -385,7 +396,8 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
     // shimmer); once the answer arrives, an absent or disabled raffle hides
     // the tile so no empty cell or "Prize pool unlocking soon" placeholder
     // appears in the grid.
-    if (raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
+    // Raffle v2: the tile never hides on a missing config (the board decides its copy).
+    if (!flags.raffleV2 && raffleConfig && !raffleConfig.enabled) hidden.add('raffle');
 
     // Raffle also hides on a cancelled occurrence — a cancelled date must not
     // advertise a prize draw or show a past winner (raffle audit #1).
@@ -579,6 +591,17 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
   // Schema.org Event node, or null when the page must carry none (a paused
   // series: see src/lib/seo/eventPageSeoPolicy).
+  // Only a live answer about the night on screen counts (night switch: the old night's answer is stale).
+  const offersLive = ticketingLiveFor.live && ticketingLiveFor.night === (occurrenceId ?? snapshot?.occurrenceId ?? null);
+  const jsonLdOffers = snapshot
+    ? buildJsonLdOffers(
+        offersLive,
+        `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
+        pageModel.actions.ticketUrl,
+        snapshot.event.tickets ?? [],
+        ticketingLiveFor.offers,
+      )
+    : [];
   const eventJsonLd =
     state === 'ready' && snapshot
       ? buildEventJsonLd({
@@ -653,14 +676,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             type: 'Person' as const,
           })),
         ],
-        offers: (snapshot.event.tickets ?? []).map((t) => ({
-          url: pageModel.actions.ticketUrl,
-          name: t.name,
-          price: t.price,
-          // Never a currency without a price (Google flags the pair);
-          // default GBP when a price exists but the row has none.
-          currency: t.price ? (t.currency ?? 'GBP') : null,
-        })),
+        offers: jsonLdOffers,
       })
       : null;
 
@@ -888,6 +904,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
         }
         inSiteTicketing={flags.publicTicketing && !over && !occurrence?.isCancelled && !pageModel.page.isPaused}
         onOpenTickets={() => setTicketsOpen(true)}
+        onTicketingLive={onTicketingLive}
         shareTitle={pageModel.identity.title}
         shareSubtitle={
           [pageModel.schedule.dateLabel, pageModel.location.venueName]

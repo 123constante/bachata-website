@@ -221,7 +221,7 @@ describe('one key per press (request_id idempotency)', () => {
     await pressAndWait(2);
     expect(key(1)).not.toBe(key(0)); // "wait a minute, then try again" is a new press the server can say yes to
   });
-  const DEFINITE = ['invalid_request', 'invalid_amount', 'request_id_required', 'request_id_reused', 'not_signed_in', 'not_authorised', 'not_found', 'not_refundable', 'refund_exceeds_balance', 'method_not_allowed'];
+  const DEFINITE = ['invalid_request', 'invalid_amount', 'request_id_required', 'request_id_reused', 'not_signed_in', 'not_authorised', 'not_found', 'not_refundable', 'refund_exceeds_balance', 'method_not_allowed', 'not_allowed'];
   const UNCLEAR = ['stripe_error', 'internal_error', 'something_new', 'FunctionsHttpError'];
   it.each(DEFINITE)('definite reason %s: the next press makes a new key', async (reason) => {
     api.refundOrder.mockResolvedValue({ kind: 'failed', reason });

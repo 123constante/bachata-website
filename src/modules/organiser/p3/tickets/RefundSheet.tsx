@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { refundOrder } from '../../tickets/ticketsApi';
 import {
   NOT_SWITCHED_ON,
-  buyerNameOf,
+  buyerFirstAndCode,
   dayWord,
   endsRefundPress,
   newRefundRequestId,
@@ -11,7 +11,7 @@ import {
   partialRefundDone,
   refundAmount,
   penceOf,
-  reasonMessage,
+  refundReasonMessage,
   refundAmountError,
   refundMaybeSent,
   refundPartQuestion,
@@ -104,7 +104,7 @@ export function RefundSheet({
     if (opts && endsRefundPress(out.kind, out.kind === 'failed' ? out.reason : null)) setKey(opts.amountPence, null);
     // Closed before the answer: another order's sheet may be open now, so never close it (review r1 F2),
     // and the late words name this order, so they never read as the open one's (review r2 R2).
-    const whose = `${buyerNameOf(order)}'s order`;
+    const whose = `${buyerFirstAndCode(order)}'s order`;
     if (out.kind === 'ok') {
       if (!opts) {
         onSent(refundAmount(order));
@@ -118,7 +118,7 @@ export function RefundSheet({
       const done = partialRefundDone(sent, left, out.value?.clearsBalance ?? false);
       return alive.current ? onDone(done) : onLate(`${whose}: ${done}`, true);
     }
-    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : reasonMessage(out.reason);
+    const text = out.kind === 'not_configured' ? NOT_SWITCHED_ON : refundReasonMessage(out.reason);
     if (!alive.current) return onLate(`Refund for ${whose} did not start. ${text}`, false);
     setBusy(false);
     setNote(text);

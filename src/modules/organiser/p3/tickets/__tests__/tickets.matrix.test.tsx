@@ -111,7 +111,7 @@ describe.each(SHAPE_KEYS)('shape %s', (k) => {
 
 describe('the add sheet, paid, payments not connected', () => {
   it('no greyed Put on sale: the sentence and ONE Connect payments button, with Save as draft still there', () => {
-    load(SHAPES.started);
+    load({ ...SHAPES.started, role: 'owner' });
     show(<TicketsEntry seriesId="ser-1" />);
     open();
     fireEvent.click(screen.getByTestId('tix-add'));

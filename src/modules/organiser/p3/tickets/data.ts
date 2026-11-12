@@ -5,6 +5,8 @@ import type { HomeOrganiser, OrganiserHome } from '../../shared/selfServeApi';
 import { fetchOrders, fetchSalesSummary, fetchSeriesTypes, fetchStripeAccount, startOnboarding, ticketKeys } from '../../tickets/ticketsApi';
 import { reasonMessage, stripeStateOf, type StripeState } from '../../tickets/ticketModel';
 import { useP3Home } from '../data/useP3Data';
+import { useEventWorkspace } from '../../shared/runCommands';
+import { useMyEventGoing } from '../../../going/useMyEventGoing';
 import { P3_TICKET_PATHS } from './paths';
 
 /**
@@ -48,10 +50,11 @@ export function useStripe(organiserId: string | undefined) {
   return { query: q, state };
 }
 
-export function useSummary(organiserId: string | undefined) {
+/** `money` is required (review 1520-r1 F3): only the owner's summary keeps pence, under its own key. */
+export function useSummary(organiserId: string | undefined, money: boolean) {
   return useQuery({
-    queryKey: ticketKeys.summary(organiserId),
-    queryFn: () => fetchSalesSummary(organiserId as string),
+    queryKey: [...ticketKeys.summary(organiserId), money ? 'money' : 'counts'],
+    queryFn: () => fetchSalesSummary(organiserId as string, { money }),
     enabled: !!organiserId,
     staleTime: 30_000,
   });
@@ -65,10 +68,11 @@ export function useSeriesTypes(organiserId: string | undefined, seriesId: string
   });
 }
 
-export function useSeriesOrders(organiserId: string | undefined, seriesId: string, typeIds: readonly string[], enabled: boolean) {
+export function useSeriesOrders(organiserId: string | undefined, seriesId: string, typeIds: readonly string[], enabled: boolean, money: boolean) {
   return useQuery({
-    queryKey: [...ticketKeys.orders(organiserId, seriesId), typeIds.join(',')],
-    queryFn: () => fetchOrders(typeIds),
+    // A manager's read asks for no pence columns (slice 2, PQ1): its own key, never the owner's answer.
+    queryKey: [...ticketKeys.orders(organiserId, seriesId), typeIds.join(','), money ? 'money' : 'counts'],
+    queryFn: () => fetchOrders(typeIds, { money }),
     enabled: enabled && typeIds.length > 0,
   });
 }
@@ -96,6 +100,27 @@ export function useStartOnboarding(organiserId: string, from?: 'start', returnTo
     else setNote(reasonMessage(out.reason));
   };
   return { go, busy, note, switchedOff };
+}
+
+/**
+ * Slice 2 (T4, Q16): the event's Going taps on its upcoming nights, for its owner / managers
+ * (get_my_series_going_v1; event_attendance itself is self-only under RLS). null until it has read.
+ */
+export function useSeriesGoing(seriesId: string, enabled: boolean) {
+  const g = useMyEventGoing(seriesId, { bySeries: true, enabled });
+  return g.view.state === 'ready' ? g.nights : null;
+}
+
+/**
+ * Slice 2 (X5): the event's own ticket link (the series' default, else a date's), from the
+ * workspace read the event page already holds (same query key: no second request). null = none.
+ */
+export function useSeriesTicketLink(seriesId: string) {
+  const ws = useEventWorkspace(seriesId);
+  if (!ws.data) return null;
+  // A blank series link falls through to a date's own link (review r1).
+  const own = ws.data.series.default_ticket_url?.trim() || ws.data.dates.map((d) => d.ticketUrl?.trim()).find(Boolean) || null;
+  return own ?? null;
 }
 
 export { useP3Home };

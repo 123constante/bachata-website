@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Organiser home B</title>
+<style>
+:root{--bg:#0B0B0C;--s1:#151517;--s2:#1D1D20;--line:#2A2A2E;--text:#F4F1EA;--mute:#A7A29A;
+--gold:#E0B252;--ink:#14110A;--ok:#7DDBB4;--okbg:#0F2A20;--warn:#F0A35E;--warnbg:#2A1D10;--bad:#F08A8A;--badbg:#2A1414}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:14px/1.4 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-variant-numeric:tabular-nums;overflow-x:hidden}
+h1,h2,h3,p{margin:0}
+a{color:var(--gold);text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer}
+section.state{display:none;min-height:844px;padding:12px 16px 24px;flex-direction:column;gap:12px}
+section.state.on{display:flex}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:12px;min-width:0}
+.pad{padding:12px}
+.mute{color:var(--mute)}
+.small{font-size:12px}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.grow{flex:1;min-width:0}
+.wrapt{overflow-wrap:anywhere}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.btn{min-height:44px;min-width:44px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--s2);
+ color:var(--text);font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:700}
+.btn.full{width:100%}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700}
+.chip.ok{background:var(--okbg);color:var(--ok)}
+.chip.warn{background:var(--warnbg);color:var(--warn)}
+.chip.bad{background:var(--badbg);color:var(--bad)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.top{display:flex;align-items:center;gap:10px;min-height:44px}
+.logo{width:36px;height:36px;flex:none;border-radius:10px;background:var(--gold);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800}
+.oname{font-size:16px;font-weight:700}
+.sech{display:flex;align-items:center;justify-content:space-between;min-height:24px}
+.sech h2{font-size:15px;font-weight:700}
+.datebox{width:48px;flex:none;border-radius:8px;background:var(--s2);text-align:center;padding:5px 0}
+.datebox i{display:block;font-style:normal;font-size:11px;font-weight:700;color:var(--mute)}
+.datebox b{font-size:18px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold)}
+.item{display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:56px;color:var(--text)}
+.list>*+*{border-top:1px solid var(--line)}
+.cta{font-size:14px;font-weight:700;color:var(--gold)}
+.v{font-size:22px;font-weight:800;line-height:1.1}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tile{padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.hint{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--s2);font-size:13px}
+.hint .grow{color:var(--mute)}
+.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.tabs{position:sticky;bottom:0;margin:auto -16px -24px;border-top:1px solid var(--line);background:#101012;display:grid;grid-template-columns:repeat(4,1fr)}
+.tabs a{min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:700;color:var(--mute)}
+.tabs a.on{color:var(--gold)}
+.statebar{font-size:12px;color:var(--mute);display:flex;justify-content:space-between}
+
+.hero{padding:14px;display:flex;flex-direction:column;gap:12px;background:linear-gradient(180deg,#1E1A12,#151517 60%);border-color:#4A3D20}
+.big{font-size:40px;font-weight:800;line-height:1}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:baseline;gap:6px;padding:6px 10px;border-radius:999px;background:var(--s2);font-size:13px}
+.pill b{font-size:14px}
+</style></head>
+<body>
+<section class="state" id="no-events" aria-label="No events, no team">
+<div class="statebar"><span>Option B mock</span><span>State: No events, no team</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
+<div class="small mute">Organiser &middot; 1 person in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px;border-color:#4A3D20">
+<span class="chip warn" style="align-self:flex-start"><span class="dot"></span>Next step</span>
+<h2 style="font-size:20px">Add your first night</h2>
+<p class="mute">Your page is live but has no nights yet. Add one and dancers in Leeds can find it on the calendar.</p>
+<a class="btn gold full" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add a night</a>
+<a class="btn full" href="#">Invite someone to help</a></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><span class="small mute">Nothing yet &mdash; add a night above</span></span><span class="cta">Nights</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Share my page</b><span class="small mute">Copy, WhatsApp or an Instagram caption</span></span><span class="cta">Share</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Profile 2 of 6 done</b><span class="small mute">No ratings yet</span></span><span class="cta">Open</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Profile and ratings</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 2 of 6 done</span><div class="bar" role="img" aria-label="33 percent"><i style="width:33%"></i></div></div>
+<a class="btn" href="#">Add your city and a photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><span class="small mute">No ratings yet &mdash; dancers can rate you after a night</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><span class="small mute">No level votes yet &mdash; dancers vote on your event page</span></div></div></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+<section class="state" id="upcoming" aria-label="Upcoming nights">
+<div class="statebar"><span>Option B mock</span><span>State: Upcoming nights</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
+<div class="small mute">Organiser &middot; 3 people in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card hero">
+<span class="small mute">Your next night</span>
+<div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
+<div class="grow"><div style="font-weight:700;font-size:16px" class="wrapt clamp2">Friday Bachata Social</div>
+<div class="small mute wrapt">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
+<div><div class="big">412</div><div class="mute">opens so far</div></div><div class="pills"><span class="pill"><b>3</b><span class="mute">Going</span></span><span class="pill"><b>38</b><span class="mute">Ticket link taps</span></span><span class="pill"><b>12</b><span class="mute">Share taps</span></span><span class="pill"><b>9</b><span class="mute">WhatsApp taps</span></span><span class="pill"><b>21</b><span class="mute">Directions taps</span></span></div>
+<div class="row"><a class="btn gold grow" href="#">Share this night</a><a class="btn" href="#">Edit</a></div></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>2 more nights</b><span class="small mute wrapt">Next: Sun 16 Nov</span></span><span class="cta">Nights</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Share my page</b><span class="small mute">Copy, WhatsApp or an Instagram caption</span></span><span class="cta">Share</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Profile 4 of 6 done</b><span class="small mute">4.6 rating &middot; Mixed levels</span></span><span class="cta">Open</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="sech"><h2>Later nights</h2></div><div class="card list"><div class="item"><div class="datebox"><i>NOV</i><b>16</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Sensual Sunday Class + Party</b><span class="small mute">96 opens &middot; 4 share taps &middot; 7 directions taps</span></span></div><div class="item"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute">31 opens</span></span></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Profile and ratings</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
+<a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><b class="v" style="font-size:18px">4.6</b> <span class="small mute">from 23 ratings</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><b style="font-size:16px">Mixed levels</b> <span class="small mute">from 18 dancer votes</span></div></div><div class="small mute">London average 4.3 &middot; 41 organisers</div></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+<section class="state" id="selling" aria-label="Selling via us">
+<div class="statebar"><span>Option B mock</span><span>State: Selling via us</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
+<div class="small mute">Organiser &middot; 3 people in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card hero">
+<span class="small mute">Your next night</span>
+<div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
+<div class="grow"><div style="font-weight:700;font-size:16px" class="wrapt clamp2">Friday Bachata Social</div>
+<div class="small mute wrapt">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
+<div><div class="big">47</div><div class="mute">tickets sold so far</div></div><div class="pills"><span class="pill"><b>3</b><span class="mute">Going</span></span><span class="pill"><b>412</b><span class="mute">Opens</span></span><span class="pill"><b>38</b><span class="mute">Ticket link taps</span></span><span class="pill"><b>12</b><span class="mute">Share taps</span></span><span class="pill"><b>9</b><span class="mute">WhatsApp taps</span></span><span class="pill"><b>21</b><span class="mute">Directions taps</span></span></div>
+<div class="row"><a class="btn gold grow" href="#">Share this night</a><a class="btn" href="#">Edit</a></div></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>2 more nights</b><span class="small mute wrapt">Next: Sun 16 Nov</span></span><span class="cta">Nights</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Share my page</b><span class="small mute">Copy, WhatsApp or an Instagram caption</span></span><span class="cta">Share</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Profile 4 of 6 done</b><span class="small mute">4.6 rating &middot; Mixed levels</span></span><span class="cta">Open</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="sech"><h2>Later nights</h2></div><div class="card list"><div class="item"><div class="datebox"><i>NOV</i><b>16</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Sensual Sunday Class + Party</b><span class="small mute">96 opens &middot; 5 ticket link taps &middot; 7 directions taps</span></span></div><div class="item"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute">2 tickets sold &middot; 31 opens</span></span></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Profile and ratings</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
+<a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><b class="v" style="font-size:18px">4.6</b> <span class="small mute">from 23 ratings</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><b style="font-size:16px">Mixed levels</b> <span class="small mute">from 18 dancer votes</span></div></div><div class="small mute">London average 4.3 &middot; 41 organisers</div></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+<section class="state" id="huge" aria-label="Huge counts">
+<div class="statebar"><span>Option B mock</span><span>State: Huge counts</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">London Bachata Weekender &amp; Friday Socials Collective</div>
+<div class="small mute">Organiser &middot; 14 people in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card hero">
+<span class="small mute">Your next night</span>
+<div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
+<div class="grow"><div style="font-weight:700;font-size:16px" class="wrapt clamp2">London Bachata Weekender 2026 &mdash; Opening Night Mega Social</div>
+<div class="small mute wrapt">Fri 21:00 &middot; Grand Ballroom, Royal Exhibition Centre</div></div></div>
+<div><div class="big">6,013</div><div class="mute">tickets sold so far</div></div><div class="pills"><span class="pill"><b>2</b><span class="mute">Going</span></span><span class="pill"><b>63,576</b><span class="mute">Opens</span></span><span class="pill"><b>6,013</b><span class="mute">Ticket link taps</span></span><span class="pill"><b>812</b><span class="mute">Share taps</span></span><span class="pill"><b>346</b><span class="mute">WhatsApp taps</span></span><span class="pill"><b>221</b><span class="mute">Directions taps</span></span></div>
+<div class="row"><a class="btn gold grow" href="#">Share this night</a><a class="btn" href="#">Edit</a></div></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>2 more nights</b><span class="small mute wrapt">Next: Sat 15 Nov</span></span><span class="cta">Nights</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Share my page</b><span class="small mute">Copy, WhatsApp or an Instagram caption</span></span><span class="cta">Share</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Profile 4 of 6 done</b><span class="small mute">4.8 rating &middot; Mostly strong dancers</span></span><span class="cta">Open</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="sech"><h2>Later nights</h2></div><div class="card list"><div class="item"><div class="datebox"><i>NOV</i><b>15</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Weekender Day 2 &mdash; Workshops + All-Nighter</b><span class="small mute">1,874 tickets sold &middot; 18,904 opens &middot; 1,990 ticket link taps</span></span></div><div class="item"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute">1,203 opens &middot; 88 directions taps</span></span></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Profile and ratings</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
+<a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><b class="v" style="font-size:18px">4.8</b> <span class="small mute">from 1,288 ratings</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><b style="font-size:16px">Mostly strong dancers</b> <span class="small mute">from 2,604 dancer votes</span></div></div><div class="small mute">London average 4.3 &middot; 41 organisers</div></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+<section class="state" id="all-zero" aria-label="All zero">
+<div class="statebar"><span>Option B mock</span><span>State: All zero</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
+<div class="small mute">Organiser &middot; 2 people in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card hero">
+<span class="small mute">Your next night</span>
+<div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
+<div class="grow"><div style="font-weight:700;font-size:16px" class="wrapt clamp2">Friday Bachata Social</div>
+<div class="small mute wrapt">Fri 21:00 &middot; The Old Fire Station</div></div></div>
+<div class="hint"><span class="grow">Nobody has opened this night yet</span><a class="btn" href="#">Share it</a></div>
+<div class="row"><a class="btn gold grow" href="#">Share this night</a><a class="btn" href="#">Edit</a></div></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>1 more night</b><span class="small mute wrapt">Next: Fri 21 Nov</span></span><span class="cta">Nights</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Share my page</b><span class="small mute">Copy, WhatsApp or an Instagram caption</span></span><span class="cta">Share</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Profile 5 of 6 done</b><span class="small mute">No ratings yet</span></span><span class="cta">Open</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="sech"><h2>Later nights</h2></div><div class="card list"><div class="item"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute">Nobody has opened it yet &mdash; share it</span></span></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Profile and ratings</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 5 of 6 done</span><div class="bar" role="img" aria-label="83 percent"><i style="width:83%"></i></div></div>
+<a class="btn" href="#">Add a WhatsApp link</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><span class="small mute">No ratings yet &mdash; dancers can rate you after a night</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><span class="small mute">No level votes yet &mdash; dancers vote on your event page</span></div></div></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+<section class="state" id="cancelled" aria-label="Cancelled night">
+<div class="statebar"><span>Option B mock</span><span>State: Cancelled night</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
+<div class="small mute">Organiser &middot; 3 people in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:8px;border-color:#5A2A2A">
+<div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
+<div class="grow"><span class="chip bad"><span class="dot"></span>Cancelled</span>
+<div style="font-weight:700;margin-top:4px" class="wrapt clamp2">Friday Bachata Social</div>
+<div class="small mute">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
+<p class="small mute">Dancers see &ldquo;Cancelled&rdquo; on this night. 140 opens before you cancelled.</p>
+<div class="row"><a class="btn grow" href="#">Tell your dancers</a><a class="btn" href="#">Undo</a></div></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>1 more night</b><span class="small mute wrapt">Next: Fri 21 Nov</span></span><span class="cta">Nights</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Share my page</b><span class="small mute">Copy, WhatsApp or an Instagram caption</span></span><span class="cta">Share</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><span class="grow" style="display:flex;flex-direction:column"><b>Profile 4 of 6 done</b><span class="small mute">4.6 rating &middot; Mixed levels</span></span><span class="cta">Open</span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="sech"><h2>Later nights</h2></div><div class="card list"><div class="item"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute">1 going &middot; 58 opens &middot; 4 directions taps</span></span></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Profile and ratings</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
+<a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><b class="v" style="font-size:18px">4.6</b> <span class="small mute">from 23 ratings</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><b style="font-size:16px">Mixed levels</b> <span class="small mute">from 18 dancer votes</span></div></div><div class="small mute">London average 4.3 &middot; 41 organisers</div></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+
+<script>
+(function(){
+  function show(){
+    var s=(location.hash||'#upcoming').slice(1);
+    var all=document.querySelectorAll('section.state');var hit=false;
+    for(var i=0;i<all.length;i++){var on=all[i].id===s;all[i].classList.toggle('on',on);if(on)hit=true;}
+    if(!hit)document.getElementById('upcoming').classList.add('on');
+  }
+  window.addEventListener('hashchange',show);show();
+})();
+</script>
+</body></html>
