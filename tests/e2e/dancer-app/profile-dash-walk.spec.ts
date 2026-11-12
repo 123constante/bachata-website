@@ -81,6 +81,9 @@ test.describe('profile dash walk 390x844', () => {
     await expect(page.getByTestId('first_name')).toHaveCount(0);
     await expectNoHorizontalScroll(page);
     await snap(page, 'edit-untouched');
+    await page.getByTestId('edit-save').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('edit-save-reason')).toBeInViewport();
+    await snap(page, 'edit-untouched-save');
     expect(saves).toHaveLength(0);
   });
 
@@ -98,19 +101,62 @@ test.describe('profile dash walk 390x844', () => {
     await snap(page, 'd3-complete-12');
   });
 
-  test('D4 unclaimed match: Claim your page shows the returned status', async ({ page }) => {
-    await open(page, '/app/home', { profile: 'none', organisers: 0, claim: 'ambiguous' });
+  test('D4 initial Claim your page renders (not blank), with Not me before any result', async ({ page }) => {
+    await open(page, '/app/home', { profile: 'none', organisers: 0 });
+    await expect(page.getByTestId('claim-button')).toBeVisible();
+    await expect(page.getByTestId('claim-dismiss')).toBeVisible();
+    await expect(page.getByText('We may have a page made for you')).toBeVisible();
     await snap(page, 'd4-claim');
-    await page.getByTestId('claim-button').click();
-    await expect(page.getByTestId('claim-status')).toContainText('could not tell which is yours');
-    await snap(page, 'd4-claim-ambiguous');
     await expectNoHorizontalScroll(page);
+  });
+
+  for (const [status, text, retry] of [
+    ['no_match', 'No page found for your email', false],
+    ['ambiguous', 'could not tell which is yours', false],
+    ['email_unproven', 'Confirm your email first', true],
+    ['unavailable', 'We could not check just now', true],
+  ] as const) {
+    test(`D4 ${status}: explanation stays, no Not me${retry ? ', Try again' : ''}`, async ({ page }) => {
+      await open(page, '/app/home', { profile: 'none', organisers: 0, claim: status });
+      await page.getByTestId('claim-button').click();
+      await expect(page.getByTestId('claim-your-page')).toContainText(text);
+      await expect(page.getByTestId('claim-dismiss')).toHaveCount(0);
+      await expect(page.getByTestId('claim-button')).toHaveCount(retry ? 1 : 0);
+      await expect(page.getByTestId('message-us')).toBeVisible();
+      await expectNoHorizontalScroll(page);
+      await snap(page, status === 'ambiguous' ? 'd4-claim-ambiguous' : `d4-claim-${status}`);
+    });
+  }
+
+  test('D4 linked but the profile has not loaded: Reload and Message us, not the success copy', async ({ page }) => {
+    await open(page, '/app/home', { profile: 'none', organisers: 0, claim: 'linked' });
+    await page.getByTestId('claim-button').click();
+    await expect(page.getByTestId('claim-reload')).toBeVisible();
+    await expect(page.getByTestId('claim-your-page')).not.toContainText('Your page is yours');
+    await expect(page.getByTestId('message-us')).toBeVisible();
+    await snap(page, 'd4-claim-linked');
+  });
+
+  test('new account with no name: h1 Welcome, no greeting line', async ({ page }) => {
+    await open(page, '/app/home', { profile: { ...STUB, display_name: null }, organisers: 0 });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Welcome');
+    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toHaveCount(0);
+    await snap(page, 'welcome-no-name');
+  });
+
+  test('claimed dancer: the linked line lives inside the one main card, no extra buttons', async ({ page }) => {
+    await open(page, '/app/home', { profile: { ...UNFINISHED, linked_from_admin: true }, organisers: 0 });
+    const note = page.getByTestId('linked-notice');
+    await expect(note).toBeVisible();
+    await expect(page.getByTestId('home-main-card').getByTestId('linked-notice')).toHaveCount(1);
+    await expect(note.locator('a, button')).toHaveCount(0);
+    await snap(page, 'home-linked-line');
   });
 
   test('one profile: button reads Account, no Switch; sheet has Add a profile and sign out', async ({ page }) => {
     await open(page, '/app/home', { profile: BASE, organisers: 0 });
     await expect(page.getByTestId('profile-switcher-label')).toHaveText('Account');
-    await page.getByTestId('profile-switcher-button').click();
+    await page.getByTestId('profile-account-button').click();
     await expect(page.getByTestId('profile-switcher-sheet').getByText('Your account')).toBeVisible();
     await expect(page.getByText('Switch profile')).toHaveCount(0);
     await snap(page, 'account-one-profile');
@@ -129,4 +175,16 @@ test.describe('profile dash walk 390x844', () => {
       await snap(page, `switch-${n}-sides`);
     });
   }
+
+  test('many profiles + sign-out confirm: the sheet scrolls and Close stays inside the viewport', async ({ page }) => {
+    await open(page, '/app/home', { profile: BASE, organisers: 2 });
+    await page.getByTestId('profile-switcher-button').click();
+    await page.getByTestId('profile-switcher-sign-out').click();
+    const close = page.getByTestId('profile-switcher-close');
+    await expect(close).toBeInViewport();
+    const box = await page.getByTestId('profile-switcher-sheet').boundingBox();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(844);
+    await snap(page, 'switch-many-confirm');
+  });
 });

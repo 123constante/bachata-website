@@ -158,15 +158,29 @@ describe('Home x profile shapes', () => {
     expect(screen.queryByTestId('paused-banner')).toBeNull();
   });
 
-  it('linked-from-admin: notice on first visit, gone once dismissed, stays gone', async () => {
+  it('linked-from-admin: one plain line inside the main card on first visit, no buttons, gone next visit', async () => {
     const profile = makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id, linked_from_admin: true });
     const first = home({ backend: { profile } });
-    fireEvent.click(await screen.findByRole('button', { name: 'Got it' }));
-    expect(screen.queryByTestId('linked-notice')).toBeNull();
+    const note = await screen.findByTestId('linked-notice');
+    expect(screen.getByTestId('home-main-card').contains(note)).toBe(true);
+    expect(note.querySelectorAll('a, button')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Got it' })).toBeNull();
     first.unmount(); resetShell();
     home({ backend: { profile } });
     await screen.findByTestId('home-main');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
+  });
+
+  it.each([
+    ['first name', { first_name: 'Ana' }, 'Ana', true],
+    ['display name only', { first_name: null, display_name: 'Ana B' }, 'Ana B', true],
+    ['neither', { first_name: null, display_name: null }, 'Welcome', false],
+  ])('heading with %s', async (_n, over, h1, greets) => {
+    home({ backend: { profile: makeProfile({ based_city_id: CITY_LONDON.id, ...over } as never) } });
+    await screen.findByTestId('home-main');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(h1);
+    expect(/Good (morning|afternoon|evening)/.test(document.body.textContent ?? '')).toBe(greets);
+    expect(document.body.textContent).not.toMatch(/\bthere\b/);
   });
 
   it('not linked: no notice', async () => {

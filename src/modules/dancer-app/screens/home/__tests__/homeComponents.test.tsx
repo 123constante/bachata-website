@@ -63,7 +63,7 @@ describe('ClaimYourPage per claim status', () => {
     ['linked', 'linked'],
   ])('%s shows its own copy', async (status, view) => {
     h.outcome = { status, profileId: status === 'linked' ? 'p9' : null };
-    const onLinked = vi.fn();
+    const onLinked = vi.fn(async () => true);
     render(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter><ClaimYourPage onLinked={onLinked} onDismiss={() => undefined} /></MemoryRouter>
@@ -75,12 +75,37 @@ describe('ClaimYourPage per claim status', () => {
     await waitFor(() => expect(screen.getByTestId('claim-status').textContent).toBe(copy.body));
     expect(view).toBe(claimView(status as never));
     expect(onLinked).toHaveBeenCalledTimes(status === 'linked' ? 1 : 0);
-    expect(screen.queryByTestId('claim-dismiss') === null).toBe(status === 'linked');
+    // "Not me" is only offered BEFORE the first result: after it, the page's explanation and retry stay.
+    expect(screen.queryByTestId('claim-dismiss')).toBeNull();
+    expect(screen.queryByTestId('claim-button') === null).toBe(!copy.retry);
+    expect(screen.getByTestId('claim-your-page').textContent === '' || copy.ok || screen.queryByTestId('message-us') !== null).toBe(true);
   });
   it('the one dismissal calls onDismiss', () => {
     const onDismiss = vi.fn();
     render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><ClaimYourPage onLinked={() => undefined} onDismiss={onDismiss} /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByTestId('claim-dismiss'));
     expect(onDismiss).toHaveBeenCalled();
+  });
+});
+
+describe('HomeMainCard linked note', () => {
+  it('is one plain line inside the card: no buttons of its own, absent by default', () => {
+    const { rerender } = render(<MemoryRouter><HomeMainCard profile={withMissing([])} nightsWent={3} /></MemoryRouter>);
+    expect(screen.queryByTestId('linked-notice')).toBeNull();
+    rerender(<MemoryRouter><HomeMainCard profile={withMissing([])} nightsWent={3} linkedNote /></MemoryRouter>);
+    const note = screen.getByTestId('linked-notice');
+    expect(screen.getByTestId('home-main-card').contains(note)).toBe(true);
+    expect(note.querySelectorAll('a, button')).toHaveLength(0);
+  });
+});
+
+describe('ClaimYourPage linked but profile not loaded yet', () => {
+  it('keeps Reload and Message us instead of the success copy', async () => {
+    h.outcome = { status: 'linked', profileId: 'p9' };
+    render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><ClaimYourPage onLinked={async () => false} onDismiss={() => undefined} /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(screen.getByTestId('claim-button'));
+    await waitFor(() => expect(screen.getByTestId('claim-reload')).toBeTruthy());
+    expect(screen.getByTestId('claim-status').textContent).not.toBe(CLAIM_COPY.linked.body);
+    expect(screen.getByTestId('claim-your-page').textContent).toContain('Message us');
   });
 });

@@ -119,6 +119,16 @@ describe('Switch profile sheet', () => {
     expect(screen.getByTestId('profile-switcher-sign-out')).toBeTruthy();
   });
 
+  it('the sheet is height-capped and scrolls, so Close stays reachable with many profiles', () => {
+    sides.facts = SHAPES[3][1];
+    mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
+    const cls = screen.getByTestId('profile-switcher-sheet').className;
+    expect(cls).toContain('max-h-[calc(100dvh-16px)]');
+    expect(cls).toContain('overflow-y-auto');
+    expect(screen.getByTestId('profile-switcher-close')).toBeTruthy();
+  });
+
   it('in the organiser area the tick follows ?o=', () => {
     sides.facts = SHAPES[3][1];
     mountAt('/account/o?o=org-b', <ProfileSwitcher where={{ area: 'organiser', organiserId: 'org-b' }} />);

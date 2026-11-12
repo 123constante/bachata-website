@@ -16,15 +16,23 @@ const NIGHTS_PATH = DANCER_TABS.find((t) => t.id === 'nights')?.path ?? '/app/ni
 export const HomeMainCard = ({
   profile,
   nightsWent,
+  linkedNote = false,
 }: {
   profile: HomeProfile & { first_name: string | null; avatar_url: string | null; profile_id: string };
   nightsWent: number | null;
+  /** A profile the team made was just linked: one plain line, no buttons (admin #1534 critique). */
+  linkedNote?: boolean;
 }) => {
   const main = homeMain(profile, nightsWent);
   return (
     <div style={{ display: 'grid', gap: 10 }} data-testid="home-main" data-shape={main.shape}>
       <Card variant="padded" testId="home-main-card">
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{main.title}</h2>
+        {linkedNote && (
+          <p data-testid="linked-notice" style={{ margin: '6px 0 0', fontSize: 14 }}>
+            We&rsquo;ve linked the profile the Bachata Calendar team made for you. Have a look and make it right.
+          </p>
+        )}
         {main.shape === 'unfinished' && (
           <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: 8 }} data-testid="home-checklist">
             {main.rows.map((r) => (

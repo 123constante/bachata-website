@@ -22,10 +22,10 @@ export const ADD_PROFILE_LABEL = 'Add a profile';
 export const ADD_ORGANISER_LABEL = 'Run events? Become an organiser';
 export const ADD_OTHER_LABEL = 'DJ or teach? Message us';
 export const ADD_OTHER_MESSAGE = 'Hi, I would like to add a DJ or teacher profile to my account.';
-/** The strip button's word: Switch with 2+ profiles, Account with one (D129: nothing to switch to). */
 /** The tag on the profile the screen is showing (words, not only a tick). */
 export const SHOWING_LABEL = 'Showing';
 const SIDE_GROUP_LABEL = { dancer: 'Dancer', organiser: 'Organiser' } as const;
+/** The strip button's word: Switch with 2+ profiles, Account with one (D129: nothing to switch to). */
 export const stripLabel = (several: boolean): string => (several ? 'Switch' : 'Account');
 
 /** The confirm step's words: the same promise Options makes before it signs out. */
@@ -114,7 +114,7 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
             data-profile={dancer ? 'dancer' : undefined}
             onClick={(e) => e.stopPropagation()}
             style={sheetSurface}
-            className={`w-full max-w-[480px] rounded-t-[16px] pb-[calc(12px+env(safe-area-inset-bottom))] pt-[8px] shadow-xl ${dancer ? '' : 'bg-background text-foreground'}`}
+            className={`max-h-[calc(100dvh-16px)] w-full max-w-[480px] overflow-y-auto rounded-t-[16px] pb-[calc(12px+env(safe-area-inset-bottom))] pt-[8px] shadow-xl ${dancer ? '' : 'bg-background text-foreground'}`}
           >
             <div className="flex items-center justify-between px-[16px]">
               <h2 id={titleId} className="text-[16px] font-bold">
