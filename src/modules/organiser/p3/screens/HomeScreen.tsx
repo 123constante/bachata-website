@@ -7,6 +7,7 @@ import { L, nextUpAdviceOf } from '../model';
 import { P3_PATHS } from '../shell/paths';
 import { flags } from '@/lib/featureFlags';
 import { GetPaidPrompt, TicketsSoldTile } from '../tickets/GetPaid';
+import { DashHome } from '../dash/DashHome';
 import { PageHeader, usePageScope } from './PageScope';
 import { GraceBanner } from './GraceBanner';
 import { P3NightGoing } from './P3Going';
@@ -73,6 +74,15 @@ export function HomeScreen() {
   );
 
   const rows = rowsOf(home.data, scope.pageId);
+  if (flags.organiserDash && scope.selected) {
+    return (
+      <div className="p3-stack" data-testid="p3-home">
+        {said}
+        <DashHome rows={rows} today={home.data.today} page={scope.selected} seriesIds={scope.seriesIds} />
+      </div>
+    );
+  }
+
   if (!rows.length) {
     return (
       <div className="p3-stack">
