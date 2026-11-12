@@ -10,3 +10,8 @@ Switch on: `VITE_ENABLE_ORGANISER_DASH=true` (Vercel env / .env.local); default 
 Omitted tiles (no read, no DB change): organiser rating, city average value, opens by source, per-night opens (series-level only), per-night going, per-type clicks, Tickets tile (sellingViaUs false in adapter), caption-sheet Instagram variant.
 Survey (prod, read-only, counts): organisers by live upcoming dates: 0 -> 17, 1-3 -> 7, 4-20 -> 7, 21-100 -> 11, 100+ -> 7 (max 222); 4 organisers have cancelled upcoming dates; upcoming occurrences 1813 scheduled / 45 cancelled.
 Not verified: pre-ship (run hit my 540s limit, result not seen), e2e, other CI jobs, real-app browser walk (loading/error shapes are drawn from the view only; adapter never emits 'loading'), contributor seat unreachable live. tsc (tsconfig.app.json): 0 errors in branch files.
+
+## Review fixes round (dt_48982a71b7f3)
+Done: (1) profile/team buttons are links to youPage/youTeamAdd, table test that every enabled control navigates or fires; (2) opens is number|null, unknown never claims zero, hero reworded "Get people looking at this night", adapter holds 'loading' while analytics loads (isLoading, so a disabled query cannot hang); (3) opens labelled "this month"; (4) analytics error degrades to hero + rail + inline retry; (5) design doc updated, 5 shapes re-shot at 390x844 from a fixture harness (removed after).
+Verified: vitest dash/ 34 passed; screenshots viewed (zero, error).
+Not verified: PR 1578 body edit (no gh/API access in this session, see below); pre-ship, e2e, other CI jobs; live-app walk; contributor seat unreachable live.

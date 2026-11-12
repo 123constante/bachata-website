@@ -15,7 +15,7 @@ const STEP_WORDS: Record<string, Omit<ProfileStep, 'key' | 'done'>> = {
   logo: { label: 'Logo', sentence: 'A logo helps people spot your page.', button: 'Add a logo' },
 };
 
-/** Night facts: opens are per SERIES (analytics v2 has no per-night read), so they sit on that series' next night only. */
+/** Night facts: opens are per SERIES over the month window (no per-night read), so they sit on that series' next night only, and only when known (else null, never 0). */
 function nightsOf(rows: readonly P3Row[], today: string, opensBySeries: ReadonlyMap<string, number>, origin: string): DashNight[] {
   const out: DashNight[] = [];
   for (const r of rows) {
@@ -26,7 +26,7 @@ function nightsOf(rows: readonly P3Row[], today: string, opensBySeries: Readonly
         key: `${r.id}:${d.date}`, date: d.date, name: r.name,
         when: `${dayWord(d.date, today, r.nextStart)}${first ? `, ${r.nextTime}` : ''}`,
         cancelled: d.status === 'cancelled', going: null, link: nightLinkOf(origin, r.publicEventRef),
-        opens: first ? opensBySeries.get(r.id) ?? 0 : 0, taps: {}, ticketsSold: 0,
+        opens: first ? opensBySeries.get(r.id) ?? null : null, taps: {}, ticketsSold: 0,
       });
     }
   }
@@ -50,7 +50,7 @@ export function DashHome({ rows, today, page, seriesIds }: { rows: readonly P3Ro
     .filter((s) => s.area === 'organiser' && STEP_WORDS[s.field])
     .map((s) => ({ key: s.field as ProfileStep['key'], done: s.done, ...STEP_WORDS[s.field] }));
   const model = buildDash({
-    load: analytics.isError ? 'error' : 'ready', seat: page.role, nights,
+    load: analytics.isLoading ? 'loading' : 'ready', seat: page.role, nights,
     upcomingDates: rows.reduce((n, r) => n + r.upcoming, 0), pageLink,
     profileSteps: steps, cityOrganisers: null, cityAverage: null, sellingViaUs: false, teamCount: Array.isArray(page.team) ? page.team.length : 1,
   });
@@ -59,7 +59,7 @@ export function DashHome({ rows, today, page, seriesIds }: { rows: readonly P3Ro
     if (n?.link) void run(n.name, captionOf(n.name, n.when, n.link), n.link);
   };
   return (
-    <DashView model={model} pageName={page.name} pageLink={pageLink} notice={notice} onRetry={() => void analytics.refetch()}
+    <DashView model={model} pageName={page.name} pageLink={pageLink} notice={notice} onRetry={() => void analytics.refetch()} analyticsFailed={analytics.isError}
       onShareNight={onShareNight} onSharePage={() => void run(page.name, `${page.name} on Bachata Calendar`, pageLink)} />
   );
 }

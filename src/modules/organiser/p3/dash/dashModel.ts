@@ -15,7 +15,8 @@ export interface DashNight {
   cancelled: boolean;
   /** null = not readable for this seat or not loaded: never drawn. */
   going: number | null;
-  opens: number;
+  /** Opens over the month window; null = no honest read for this night (never drawn, never a zero claim). */
+  opens: number | null;
   taps: Partial<Record<'ticket' | 'directions' | 'share' | 'whatsapp' | 'other', number>>;
   ticketsSold: number;
   /** Real public night link, or null/absent when none is safe (Share is then disabled with a reason). */
@@ -86,7 +87,7 @@ const OWNER_ONLY = 'Only the owner or a manager can do this.';
 export function headlineOf(n: DashNight): string | null {
   const parts: string[] = [];
   if (n.going && n.going > 0) parts.push(`${n.going.toLocaleString('en-GB')} going`);
-  if (n.opens > 0) parts.push(plural(n.opens, 'open', 'opens'));
+  if (n.opens !== null && n.opens > 0) parts.push(`${plural(n.opens, 'open', 'opens')} this month`);
   return parts.length ? parts.join(', ') : null;
 }
 
@@ -114,8 +115,8 @@ function heroOf(live: readonly DashNight[], hasCancelled: boolean): Hero {
   }
   const h = headlineOf(night);
   if (h) return { kind: 'headline', title: night.name, headline: h, night, action: 'share-night', actionLabel: 'Share this night', why: night.when };
-  return { kind: 'share', title: 'No one has found this night yet', headline: null, night, action: 'share-night', actionLabel: 'Share this night',
-    why: `${night.name}, ${night.when}. Sharing the link is the quickest way to get people looking.` };
+  return { kind: 'share', title: 'Get people looking at this night', headline: null, night, action: 'share-night', actionLabel: 'Share this night',
+    why: `${night.name}, ${night.when}. Sharing the link is the quickest way to get it seen.` };
 }
 
 export function buildDash(i: DashInput): DashModel {

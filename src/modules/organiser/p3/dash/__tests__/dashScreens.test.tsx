@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildDash, type DashInput, type DashNight, type ProfileStep } from '../dashModel';
 import { DashView } from '../DashView';
+import { P3_PATHS } from '../../shell/paths';
 
 const night = (n: number, o: Partial<DashNight> = {}): DashNight => ({
   key: `n${n}`, date: `2026-12-${String(10 + n).padStart(2, '0')}`, when: `Friday ${10 + n} December, 8pm`, name: `Night ${n}`,
@@ -60,7 +61,7 @@ describe('organiser dash model x shape', () => {
 
   it('2b: owner controls are enabled, no reason', () => {
     view(SHAPES.upcoming);
-    expect((screen.getByTestId('dash-team-action') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('dash-team-action').getAttribute('href')).toBe(P3_PATHS.youTeamAdd);
     expect(screen.queryByTestId('dash-team-action-why')).toBeNull();
   });
 
@@ -96,7 +97,7 @@ describe('organiser dash model x shape', () => {
 
   it('6: healthy night hero carries its headline and a share button', () => {
     view(SHAPES.upcoming);
-    expect(screen.getByTestId('dash-headline').textContent).toBe('12 going, 248 opens');
+    expect(screen.getByTestId('dash-headline').textContent).toBe('12 going, 248 opens this month');
     expect(screen.getByTestId('dash-hero-action').textContent).toBe('Share this night');
   });
 
@@ -105,7 +106,7 @@ describe('organiser dash model x shape', () => {
     expect(m.hero?.kind).toBe('share');
     expect(m.rail.every((r) => r.stats === null)).toBe(true);
     const { container } = view(SHAPES.zero);
-    expect((container.textContent ?? '').match(/No one has found/g)?.length).toBe(1);
+    expect((container.textContent ?? '').match(/Get people looking/g)?.length).toBe(1);
   });
 
   it('8: Tickets only when selling, inside the nights row', () => {
@@ -145,5 +146,50 @@ describe('organiser dash model x shape', () => {
     view(SHAPES.error);
     expect((screen.getByTestId('dash-retry') as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByTestId('dash-error').textContent).toMatch(/still live/);
+  });
+});
+
+describe('review fixes round', () => {
+  it('1: every enabled control in every shape navigates or fires a handler', () => {
+    for (const k of Object.keys(SHAPES)) {
+      cleanup();
+      const h = { onShareNight: vi.fn(), onSharePage: vi.fn(), onRetry: vi.fn() };
+      const { container } = render(<MemoryRouter><DashView model={buildDash(SHAPES[k])} pageName="Page" pageLink="https://x.test/p" {...h} /></MemoryRouter>);
+      const controls = [...container.querySelectorAll('button, a[href]')].filter((el) => el.tagName === 'A' || !(el as HTMLButtonElement).disabled);
+      for (const el of controls) {
+        if (el.tagName === 'A') { expect(el.getAttribute('href'), `${k}: link`).toBeTruthy(); continue; }
+        if (el.closest('summary')) continue;
+        fireEvent.click(el);
+        const fired = h.onShareNight.mock.calls.length + h.onSharePage.mock.calls.length + h.onRetry.mock.calls.length;
+        expect(fired, `${k}: ${el.textContent}`).toBeGreaterThan(0);
+        h.onShareNight.mockClear(); h.onSharePage.mockClear(); h.onRetry.mockClear();
+      }
+    }
+  });
+
+  it('1b: profile step buttons go to the page editor', () => {
+    view(SHAPES.upcoming);
+    expect(screen.getByTestId('dash-profile-action').getAttribute('href')).toBe(P3_PATHS.youPage);
+  });
+
+  it('2: unknown opens (null) never claim nobody found the night', () => {
+    const m = buildDash({ ...base, nights: [night(1, { opens: null })], upcomingDates: 1 });
+    expect(m.hero?.kind).toBe('share');
+    expect(m.hero?.title).not.toMatch(/No one/i);
+    expect(m.hero?.actionLabel).toBe('Share this night');
+    expect(buildDash({ ...base, nights: [night(1, { going: 3, opens: null })], upcomingDates: 1 }).hero?.headline).toBe('3 going');
+  });
+
+  it('3: opens are labelled as a month figure', () => {
+    expect(buildDash({ ...base, nights: [night(1, { opens: 9 })], upcomingDates: 1 }).hero?.headline).toBe('9 opens this month');
+  });
+
+  it('4: analytics failure keeps hero and rail, adds an inline retry', () => {
+    const onRetry = vi.fn();
+    render(<MemoryRouter><DashView model={buildDash(SHAPES.upcoming)} pageName="Page" analyticsFailed onRetry={onRetry} /></MemoryRouter>);
+    expect(screen.getByTestId('dash-hero')).toBeTruthy();
+    expect(screen.getByTestId('dash-rail')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('dash-analytics-retry'));
+    expect(onRetry).toHaveBeenCalled();
   });
 });

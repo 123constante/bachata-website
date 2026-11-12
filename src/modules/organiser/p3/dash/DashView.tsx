@@ -4,12 +4,14 @@ import { captionOf, whatsappHref } from './shareLinks';
 import type { Control, DashModel } from './dashModel';
 
 /** Presentational Home for the organiser dashboard (slice 1). Every fact comes from buildDash. */
-function Btn({ c, onClick, testId, primary }: { c: Control; onClick?: () => void; testId: string; primary?: boolean }) {
+function Btn({ c, onClick, to, testId, primary }: { c: Control; onClick?: () => void; to?: string; testId: string; primary?: boolean }) {
+  const cls = primary ? 'p3-btn' : 'p3-btn p3-btn-line';
   return (
     <span>
-      <button type="button" className={primary ? 'p3-btn' : 'p3-btn p3-btn-line'} style={{ minHeight: 44 }} disabled={c.disabled} aria-describedby={c.reason ? `${testId}-why` : undefined} onClick={onClick} data-testid={testId}>
+      {to && !c.disabled ? <Link className={cls} style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center' }} to={to} aria-describedby={c.reason ? `${testId}-why` : undefined} data-testid={testId}>{c.label}</Link> :
+      <button type="button" className={cls} style={{ minHeight: 44 }} disabled={c.disabled} aria-describedby={c.reason ? `${testId}-why` : undefined} onClick={onClick} data-testid={testId}>
         {c.label}
-      </button>
+      </button>}
       {c.reason && <span className="p3-note" id={`${testId}-why`} data-testid={`${testId}-why`}> {c.reason}</span>}
     </span>
   );
@@ -25,9 +27,11 @@ export interface DashViewProps {
   pageLink?: string | null;
   /** Said after a share lands, e.g. "Link copied". */
   notice?: string | null;
+  /** Analytics read failed: the page still draws, without opens, plus an inline retry. */
+  analyticsFailed?: boolean;
 }
 
-export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null }: DashViewProps) {
+export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null, analyticsFailed = false }: DashViewProps) {
   if (m.load === 'loading') {
     return (
       <div className="p3-card p3-state" data-testid="dash-loading" aria-busy="true">
@@ -71,6 +75,9 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
             <a className="p3-btn p3-btn-line" style={{ minHeight: 44 }} href={whatsappHref(`${captionOf(hero.night.name, hero.night.when, nightLink)}`)} target="_blank" rel="noopener noreferrer" data-testid="dash-whatsapp">Send on WhatsApp</a>
           </details>
         )}
+        {analyticsFailed && (
+          <p className="p3-note" role="status" data-testid="dash-analytics-failed">Opens aren&rsquo;t showing right now. <button type="button" className="p3-link" style={{ minHeight: 44 }} onClick={onRetry} data-testid="dash-analytics-retry">Try again</button></p>
+        )}
         {notice && <p className="p3-ok" role="status" data-testid="dash-share-notice">{notice}</p>}
       </section>
 
@@ -109,12 +116,12 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
           <div data-testid="dash-profile">
             <div className="p3-row-t">{m.profile.complete ? 'Profile complete' : `Profile ${m.profile.percent}% done`}</div>
             {m.profile.next && <div className="p3-row-s" data-testid="dash-profile-sentence">{m.profile.next.sentence}</div>}
-            {m.profile.control && <Btn c={m.profile.control} testId="dash-profile-action" />}
+            {m.profile.control && <Btn c={m.profile.control} to={P3_PATHS.youPage} testId="dash-profile-action" />}
           </div>
         )}
         <Btn c={m.sharePage} onClick={onSharePage} testId="dash-share-page" />
         <p className="p3-row-s" data-testid="dash-team-line">{m.team.line}</p>
-        <Btn c={m.team.control} testId="dash-team-action" />
+        <Btn c={m.team.control} to={P3_PATHS.youTeamAdd} testId="dash-team-action" />
         {m.cityAverage && <p className="p3-note" data-testid="dash-city-average">{m.cityAverage.text}</p>}
       </section>
     </div>
