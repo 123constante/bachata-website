@@ -93,21 +93,40 @@ describe('D123/D124 Home', () => {
 });
 
 describe('D129 switcher and Your areas', () => {
-  it('1 profile: no switcher; Options lists Your areas', async () => {
+  it('1 profile: the strip button reads Account (no Switch); Options lists Your areas', async () => {
     renderInShell({ path: '/app/options' });
     await screen.findByTestId('opt-areas');
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
     expect(screen.queryByTestId('profile-switcher-button')).toBeNull();
-    // Fix 7: the header spot reads "Account" (not Switch) and opens account settings.
-    const acct = await screen.findByTestId('header-account');
-    expect(acct.textContent).toBe('Account');
-    expect(acct.getAttribute('href')).toBe('/account/settings?from=app');
+    expect(screen.queryByText('Switch')).toBeNull();
+    // The Account sheet keeps account settings one tap away (admin 1534 fix 7).
+    fireEvent.click(screen.getByTestId('profile-account-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app');
     expect(optionsRows({ other_roles: [], is_active: true }).map((r) => r.id)).toContain('areas');
   });
   it('2 profiles: the switcher shows', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     renderInShell({ path: '/app/home' });
     expect(await screen.findByTestId('profile-switcher-button')).toBeTruthy();
-    expect(screen.queryByTestId('header-account')).toBeNull();
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Switch');
+    expect(screen.queryByTestId('profile-account-button')).toBeNull();
+  });
+  it('no dancer side yet (unclaimed): the Account button still shows, so account settings stay reachable', async () => {
+    h.sides = [];
+    renderInShell({ path: '/app/home' });
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
+    fireEvent.click(screen.getByTestId('profile-account-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app');
+  });
+  it('Add a profile sheet: organiser way in + message us; Back returns', async () => {
+    renderInShell({ path: '/app/home' });
+    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
+    fireEvent.click(await screen.findByTestId('profile-switcher-add'));
+    expect(screen.getByTestId('profile-switcher-add-organiser').textContent).toBe('Run events? Become an organiser');
+    expect(screen.getByTestId('profile-switcher-add-other').textContent).toBe('DJ or teach? Message us');
+    expect(screen.queryByTestId('profile-switcher-sign-out')).toBeNull();
+    fireEvent.click(screen.getByTestId('profile-switcher-add-back'));
+    expect(screen.getByTestId('profile-switcher-settings')).toBeTruthy();
   });
 });
 
