@@ -134,7 +134,8 @@ describe('seeds', () => {
     h.reply = { upcoming: Array.from({ length: 15 }, (_, i) => night(`s${i}`, `Night ${i}`, i + 1)), past: [] };
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
     const row = await screen.findByTestId('home-row-going');
-    expect(row.textContent).toContain('Night 0');
+    // the row mounts before the going data lands; wait for the content, then assert the same facts
+    await waitFor(() => expect(row.textContent).toContain('Night 0'));
     expect(screen.queryByTestId('tile-going-count')).toBeNull();
   });
 
