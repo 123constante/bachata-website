@@ -156,11 +156,14 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
    * checked (the newer price wins, the older reply is dropped) or refused for the old choice.
    */
   function choose(nextTypeId: string, nextQty: number) {
+    // A confirm is for the basket it was priced for; any change spends it (never revived by changing back).
+    setConfirm(null);
     const live = promo.status !== 'idle' && promo.code !== '' && promo.code === normaliseCode(promoInput) ? promo.code : null;
     if (live && promoKey(nextTypeId, nextQty, occurrenceId) !== key) void pricePromo(live, nextTypeId, nextQty);
   }
 
   function removePromo() {
+    setConfirm(null);
     promoSeq.current += 1;
     setPromoInput('');
     setPromo({ status: 'idle' });
@@ -232,7 +235,16 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
     setError(null);
     const oldBody = buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode, occurrenceId }, origin, cancelReturnPath(location.pathname, occurrenceId ? searchWithNight(location.search, occurrenceId) : location.search));
     // T4: the unit and total the buyer sees (after a price_changed, the NEW ones).
-    const result = await postTicketCheckout(priceSteps ? toBasketBody(oldBody, unitPence, payPence) : oldBody);
+    let body;
+    try {
+      body = priceSteps ? toBasketBody(oldBody, unitPence, payPence) : oldBody;
+    } catch {
+      inFlight.current = false;
+      setSubmitting(false);
+      setError({ reason: 'invalid_fee', message: null });
+      return;
+    }
+    const result = await postTicketCheckout(body);
     if (priceSteps) setConfirm(null);
     if (result.kind === 'redirect') {
       saveOrderId(result.orderId);
@@ -251,6 +263,12 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
     if (pc) {
       setConfirm(confirmFrom(pc, selected.id, qty, pv.sendCode, unitPence));
       setError({ reason: 'price_changed', message: null });
+      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) });
+      return;
+    }
+    // A price_changed we cannot read: never silent. Generic retry copy, and re-read the prices.
+    if (priceSteps && result.reason === 'price_changed') {
+      setError({ reason: 'price_changed_unreadable', message: null });
       void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) });
       return;
     }

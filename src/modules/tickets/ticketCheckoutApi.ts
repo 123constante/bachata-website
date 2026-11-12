@@ -13,6 +13,7 @@ import {
 } from './ticketCheckoutModel';
 import { parsePromoPreview, refusePreview, type PromoPreview } from './promo';
 import type { BasketCheckoutBody } from './priceSteps';
+import { flags } from '@/lib/featureFlags';
 
 /**
  * The buyer wire (S4; night-aware since S1a). ticket_types_public_v2 is not in the generated types.ts yet,
@@ -48,7 +49,8 @@ export async function readOrderStatus(orderId: string): Promise<OrderStatusReadi
  * answer no rows. With NO night, per-night types answer remaining NULL (parsed needsNight).
  * ticket_types_public_v1 stays callable server-side; the buyer pages no longer call it.
  */
-export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null, priceSteps = false): Promise<PublicTicketType[]> {
+// Defaults to the build flag so every reader of the shared types cache (probe, block, tickets page) reads the same RPC.
+export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null, priceSteps: boolean = flags.ticketPriceSteps): Promise<PublicTicketType[]> {
   // T4 (flag ticketPriceSteps): v3 = v2 + next_price_pence / next_price_at, ordered by the effective price.
   const { data, error } = await (supabase as unknown as Untyped).rpc(priceSteps ? 'ticket_types_public_v3' : 'ticket_types_public_v2', {
     p_event_series_id: seriesId,

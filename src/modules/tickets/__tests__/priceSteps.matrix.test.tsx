@@ -269,3 +269,26 @@ describe('old tab after T2b', () => {
     expect(screen.getByRole('button', { name: 'Reload page' })).toBeTruthy();
   });
 });
+
+describe('review fixes', () => {
+  it('an unreadable price_changed is never silent: generic retry copy, list re-read', async () => {
+    api.postTicketCheckout.mockResolvedValue({ kind: 'error', reason: 'price_changed', message: null, raw: { ok: false, reason: 'price_changed' } });
+    mount([T()]);
+    await fill(1);
+    submit();
+    await screen.findByText(/could not be booked/);
+    expect(screen.queryByTestId('price-confirm')).toBeNull();
+    await waitFor(() => expect(api.fetchPublicTicketTypes.mock.calls.length).toBeGreaterThan(1));
+  });
+  it('changing the count and back does not revive the old confirm', async () => {
+    api.postTicketCheckout.mockResolvedValueOnce({ kind: 'error', reason: 'price_changed', message: null, raw: { ok: false, reason: 'price_changed', lines: [], new_total_pence: 2600 } });
+    mount([T()]);
+    await fill(2);
+    submit();
+    await screen.findByTestId('price-confirm');
+    fireEvent.click(screen.getByRole('button', { name: 'One more ticket' }));
+    fireEvent.click(screen.getByRole('button', { name: 'One fewer ticket' }));
+    expect(screen.queryByTestId('price-confirm')).toBeNull();
+    expect(barTotal()).toBe(formatPence(2500));
+  });
+});
