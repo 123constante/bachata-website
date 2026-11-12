@@ -12,6 +12,7 @@ import {
   type PublicTicketType,
 } from './ticketCheckoutModel';
 import { parsePromoPreview, refusePreview, type PromoPreview } from './promo';
+import type { BasketCheckoutBody } from './priceSteps';
 
 /**
  * The buyer wire (S4; night-aware since S1a). ticket_types_public_v2 is not in the generated types.ts yet,
@@ -47,8 +48,9 @@ export async function readOrderStatus(orderId: string): Promise<OrderStatusReadi
  * answer no rows. With NO night, per-night types answer remaining NULL (parsed needsNight).
  * ticket_types_public_v1 stays callable server-side; the buyer pages no longer call it.
  */
-export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null): Promise<PublicTicketType[]> {
-  const { data, error } = await (supabase as unknown as Untyped).rpc('ticket_types_public_v2', {
+export async function fetchPublicTicketTypes(seriesId: string, occurrenceId: string | null, priceSteps = false): Promise<PublicTicketType[]> {
+  // T4 (flag ticketPriceSteps): v3 = v2 + next_price_pence / next_price_at, ordered by the effective price.
+  const { data, error } = await (supabase as unknown as Untyped).rpc(priceSteps ? 'ticket_types_public_v3' : 'ticket_types_public_v2', {
     p_event_series_id: seriesId,
     p_occurrence_id: occurrenceId,
   });
@@ -88,7 +90,7 @@ function timeoutSignal(ms: number): AbortSignal {
   return c.signal;
 }
 
-export async function postTicketCheckout(body: CheckoutBody): Promise<CheckoutResult> {
+export async function postTicketCheckout(body: CheckoutBody | BasketCheckoutBody): Promise<CheckoutResult> {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
   if (!url || !key) return { kind: 'error', reason: 'not_configured', message: null };

@@ -31,6 +31,8 @@ import { buildSignInHref } from '@/lib/authRouting';
 import { TICKET_WHERE } from './myTicketsModel';
 import { clearOrderId, saveOrderId } from './orderStorage';
 import { PRIVACY_PARAGRAPH, PRIVACY_POLICY_LINE, TERMS_CHECKBOX_LABEL, TERMS_OF_SALE } from './legalCopy';
+import { flags } from '@/lib/featureFlags';
+import { PRICE_CONFIRM_LABEL, checkoutFee, confirmFrom, expectedTotal, parsePriceChanged, stepLine, stepReasonCopy, toBasketBody, type PriceConfirm } from './priceSteps';
 
 /**
  * The Tickets block on /event/:id (S4, docs/ticketing-buyer-journey.md). Mounted by
@@ -55,6 +57,8 @@ export interface TicketsBlockProps {
   /** Injected for tests; defaults to the real clock / window origin. */
   now?: Date;
   origin?: string;
+  /** T4 price steps (basket wire with expected prices). Defaults to flags.ticketPriceSteps; tests pass it. */
+  priceSteps?: boolean;
 }
 
 const card = {
@@ -73,7 +77,7 @@ export function searchWithNight(search: string, occurrenceId: string): string {
   return `?${q.toString()}`;
 }
 
-export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp }: TicketsBlockProps) {
+export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [], onPickNight, now: nowProp, origin: originProp, priceSteps = flags.ticketPriceSteps }: TicketsBlockProps) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,7 +85,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
   const guest = !user && authStatus !== 'resolving';
   const { data: types } = useQuery({
     queryKey: publicTicketKeys.types(seriesId, occurrenceId),
-    queryFn: () => fetchPublicTicketTypes(seriesId, occurrenceId),
+    queryFn: () => (priceSteps ? fetchPublicTicketTypes(seriesId, occurrenceId, true) : fetchPublicTicketTypes(seriesId, occurrenceId)),
     staleTime: 30_000,
   });
   const now = nowProp ?? new Date();
@@ -100,6 +104,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
   // Holds a second tap or Return even before React re-renders Buy as disabled.
   const inFlight = useRef(false);
   const [error, setError] = useState<{ reason: string; message: string | null } | null>(null);
+  // T4: the new prices from a price_changed reply; the next tap sends exactly these.
+  const [confirm, setConfirm] = useState<PriceConfirm | null>(null);
   // Promo code: a `?code=` link pre-fills the field; it is only ever applied by a tap.
   const [promoInput, setPromoInput] = useState(() => codeFromSearch(location.search));
   const [promo, setPromo] = useState<PromoState>({ status: 'idle' });
@@ -192,7 +198,12 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
 
   if (list.length === 0) return null;
 
-  const err = error ? reasonCopy(error.reason, error.message) : null;
+  // T4: the confirm state holds only for the same ticket, count and code it was priced for.
+  const held = priceSteps && confirm && selected && confirm.typeId === selected.id && confirm.quantity === qty && confirm.code === pv.sendCode ? confirm : null;
+  // A price_changed whose basket has since changed is spent: the re-read list prices the new choice.
+  const errShown = error && !(error.reason === 'price_changed' && !held) ? error : null;
+  const err = errShown ? ((priceSteps ? stepReasonCopy(errShown.reason, held) : null) ?? reasonCopy(errShown.reason, errShown.message)) : null;
+  const priceChangedOn = held !== null && errShown?.reason === 'price_changed';
   // The night list: whenever a night is the only way forward (nothing buyable here) or a night
   // was refused. `nights` already leaves out the night on screen (EventTicketsPage).
   const showNights = (needsNight && buyable.length === 0) || err?.way === 'pick_night';
@@ -202,18 +213,27 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
     err?.way === 'contact_organiser'
       ? 'Online tickets are not available for this event right now.'
       : (disabledReason({ type: selected, quantity: qty, email, termsAccepted, origin, submitting }, now) ?? pv.buyBlocked);
-  const sum = selected ? totals(selected, qty) : null;
-  // The preview prices tickets only; any booking fee is added on top, as checkout does.
-  const payPence = sum ? (pv.appliedTotalPence !== null ? pv.appliedTotalPence + sum.feePence : sum.totalPence) : 0;
+  const baseSum = selected ? totals(held ? { ...selected, pricePence: held.unitPence } : selected, qty) : null;
+  // T4: one fee rule with the server (none on a zero net), on the post-discount amount; a held
+  // price_changed total wins. OFF: the preview prices tickets only and the fee is added on top.
+  const unitPence = held ? held.unitPence : (selected?.pricePence ?? 0);
+  const stepTotal = held ? held.totalPence : expectedTotal(unitPence, qty, pv.appliedDiscountPence);
+  const sum =
+    baseSum && priceSteps
+      ? { ...baseSum, feePence: checkoutFee(stepTotal > 0 ? Math.max(0, baseSum.subtotalPence - (pv.appliedDiscountPence ?? 0)) : 0, qty) }
+      : baseSum;
+  const shownDiscount = held && pv.appliedDiscountPence !== null && sum ? Math.max(0, sum.subtotalPence + sum.feePence - held.totalPence) : pv.appliedDiscountPence;
+  const payPence = sum ? (priceSteps ? stepTotal : pv.appliedTotalPence !== null ? pv.appliedTotalPence + sum.feePence : sum.totalPence) : 0;
 
   async function onBuy() {
     if (!selected || reason || inFlight.current) return;
     inFlight.current = true;
     setSubmitting(true);
     setError(null);
-    const result = await postTicketCheckout(
-      buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode, occurrenceId }, origin, cancelReturnPath(location.pathname, occurrenceId ? searchWithNight(location.search, occurrenceId) : location.search)),
-    );
+    const oldBody = buildCheckoutBody({ typeId: selected.id, quantity: qty, email, name, promoCode: pv.sendCode, occurrenceId }, origin, cancelReturnPath(location.pathname, occurrenceId ? searchWithNight(location.search, occurrenceId) : location.search));
+    // T4: the unit and total the buyer sees (after a price_changed, the NEW ones).
+    const result = await postTicketCheckout(priceSteps ? toBasketBody(oldBody, unitPence, payPence) : oldBody);
+    if (priceSteps) setConfirm(null);
     if (result.kind === 'redirect') {
       saveOrderId(result.orderId);
       window.location.assign(result.url);
@@ -224,6 +244,14 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
     if (result.kind === 'free') {
       saveOrderId(result.orderId);
       navigate(`${THANKS_PATH}?o=${encodeURIComponent(result.orderId)}&free=1`);
+      return;
+    }
+    // T4: nothing was charged; re-price the basket and wait for the buyer's confirm tap.
+    const pc = priceSteps && result.reason === 'price_changed' ? parsePriceChanged(result.raw) : null;
+    if (pc) {
+      setConfirm(confirmFrom(pc, selected.id, qty, pv.sendCode, unitPence));
+      setError({ reason: 'price_changed', message: null });
+      void queryClient.invalidateQueries({ queryKey: publicTicketKeys.types(seriesId, occurrenceId) });
       return;
     }
     // A code refusal at checkout (HTTP 409) belongs to the code field, with its own way forward.
@@ -296,6 +324,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
                   <span className="block break-words font-medium">{t.name}</span>
                   <span className="block text-[12px]" style={muted}>{a.label}</span>
                   {courseLine(t) && <span className="block text-[12px]" style={muted} data-testid="ticket-course-line">{courseLine(t)}</span>}
+                  {priceSteps && stepLine(t, now) && <span className="block text-[12px] font-medium" data-testid="ticket-step-line">{stepLine(t, now)}</span>}
                 </span>
                 <span className="shrink-0 font-semibold">{formatPence(t.pricePence)}</span>
               </button>
@@ -349,11 +378,20 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
                 {WAY_LABEL.contact_organiser}
               </Link>
             ) : null
+          ) : priceChangedOn ? (
+            <button type="button" onClick={() => void onBuy()} disabled={reason !== null} className="mt-1 min-h-[44px] font-semibold underline disabled:opacity-50" data-testid="price-confirm">
+              {PRICE_CONFIRM_LABEL}
+            </button>
+          ) : priceSteps && errShown?.reason === 'expected_price_required' ? (
+            <button type="button" onClick={() => window.location.reload()} className="mt-1 min-h-[44px] underline">
+              Reload page
+            </button>
           ) : (
             <button type="button" onClick={onWayForward} className="mt-1 min-h-[44px] underline">
               {WAY_LABEL[err.way]}
             </button>
           )}
+          {priceChangedOn && reason && <p className="text-[12px]">{reason}</p>}
         </div>
       )}
       {showNights && err && <NightPicker nights={nights} onPick={pickNight} organiserId={organiserId} />}
@@ -417,10 +455,10 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
                 <dd>{formatPence(sum.feePence)}</dd>
               </div>
             )}
-            {pv.appliedDiscountPence !== null && (
+            {shownDiscount !== null && (
               <div className="flex justify-between" data-testid="promo-saving">
                 <dt>Promo code {pv.sendCode}</dt>
-                <dd>&minus;{formatPence(pv.appliedDiscountPence)}</dd>
+                <dd>&minus;{formatPence(shownDiscount)}</dd>
               </div>
             )}
             <div className="flex justify-between font-semibold">
@@ -579,7 +617,7 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
               className="h-[48px] shrink-0 rounded-md px-4 text-[15px] font-semibold disabled:opacity-50"
               style={{ background: '#1A0A04', color: '#FFFFFF' }}
             >
-              {submitting ? <>Working on it&hellip;</> : pv.appliedTotalPence !== null && payPence === 0 ? 'Get free tickets' : buyLabel(selected)}
+              {submitting ? <>Working on it&hellip;</> : priceChangedOn ? PRICE_CONFIRM_LABEL : pv.appliedTotalPence !== null && payPence === 0 ? 'Get free tickets' : buyLabel(selected)}
             </button>
           </div>
           <div aria-hidden="true" className="h-[84px]" />
