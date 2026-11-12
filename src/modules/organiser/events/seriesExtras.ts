@@ -17,6 +17,16 @@ export function mediaCommand(ws: EventWorkspace, key: 'default_gallery' | 'defau
   return same(before, clean) ? null : upsertCommand({ name: ws.series.name, [key]: clean });
 }
 
+/** Photo order and cover: ONE upsert carrying whichever of cover and gallery changed; null when neither did. */
+export function photosCommand(ws: EventWorkspace, cover: string, next: string[]): OwnerCommand | null {
+  const clean = next.map((v) => v.trim()).filter(Boolean);
+  const nextCover = cover.trim();
+  const payload: Record<string, unknown> = { name: ws.series.name };
+  if (nextCover !== (ws.series.default_cover_image_url ?? '')) payload.default_cover_image_url = nextCover;
+  if (!same(ws.gallery, clean)) payload.default_gallery = clean;
+  return Object.keys(payload).length === 1 ? null : upsertCommand(payload);
+}
+
 export const countLabel = (n: number, one: string, many: string) => (n ? `${n} ${n === 1 ? one : many}` : 'Add');
 
 // ---- C14 the usual end --------------------------------------------------------------
