@@ -41,6 +41,26 @@
   },
   "not_event_writes": [
     {
+      "name": "organiser_guest_list_set_night_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_guest_list_add_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_guest_list_remove_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_guest_list_restore_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_undo_check_in_guest_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
       "name": "set_ambassador_link_active_v1",
       "reason": "Ambassador shared join link on/off switch; not an event write."
     },
