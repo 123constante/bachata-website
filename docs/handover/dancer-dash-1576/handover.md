@@ -46,3 +46,29 @@ Done
 
 Verified: `npm run build`; `check:bundle-budget` exit 0 (all ok); `check:first-load-requests` 0; `check:chunk-cycles` 0; all three self-tests 0; `npm run lint` 34/34 links green (whole-tree eslint informational only); `npm run typecheck` 130 errors repo-wide, 0 in files this branch changes.
 Not verified: Lighthouse / doc-weight jobs (need a preview deploy); contract-check (red on main from prod data drift, left alone as the brief says); no UI change this round, so no new phone walk.
+
+## Unit red fix (dt_9ead4bae4fee, 2026-11-12)
+
+CI job 131092739727 (head 7125522) had 2 failed test files:
+
+1. `tests/chunkClassifier.test.ts`: this branch caused it. c7cfeb1 added `claimMyDancerProfile.ts` and `myPersona.ts` to
+   `LIB_EVENT_RULES_MODULES` and did not update the test's pinned list. I added both, in the same order as
+   `vite.chunks.ts`. The comment in `vite.chunks.ts` was already accurate, so I left it alone.
+2. `src/modules/admin-organisers/join/__tests__/JoinGetPaidNext.test.tsx:174`: this branch did not cause it. The branch
+   diff touches nothing under `src/modules/admin-organisers/` and nothing that file imports; it only changes dancer-app
+   files, tests, `vite.chunks.ts`, `perf-budgets.json` and `package.json`. The test passed locally both on its own and
+   in the full `test:unit:offline` run (Europe/London). The CI value was the URL from the step before
+   (`?step=code&email=...`), so the test read the address before the effect that rewrites it had run: a timing race
+   under CI load. Fix: the assertion now uses `waitFor` (timeout 4000), the same pattern this file already uses at
+   line 150.
+
+Verified: both files pass under TZ=Europe/London, Australia/Sydney and America/New_York (106 tests). The full
+`TZ=Europe/London npm run test:unit:offline` gave 913/914 files passing; the one failure, `tests/integrityCouldNotRun.test.ts`,
+is a sandbox problem (TypeScript resolves inside the temp repo under /tmp, which breaks the test's precondition) and does
+not happen in CI. Typecheck (`tsc -p tsconfig.app.json`): 0 errors in the touched files. The total is 148 against the
+pre-ship baseline of 106, because the branch is behind a force-updated main. That gap is not from this change. `check:mojibake`
+is clean.
+
+Not verified: the full suite under Sydney or New_York (I only ran the two touched files there); a fresh CI run.
+contract-check red is prod-data drift on main and I did not touch it, as the brief says.
+Next: if JoinGetPaidNext still flakes on CI, look at the other bare `where()` reads in that file.
