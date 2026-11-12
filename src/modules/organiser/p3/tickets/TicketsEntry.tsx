@@ -164,7 +164,8 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   // Fail closed: money needs the owner role AND the server's money_visible === true. Missing flag or a summary
   // still loading is counts-only, and the orders read below waits (no pence query fires, none is cached).
   const showMoney = canRefund(org.role) && summary.data?.moneyVisible === true;
-  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess && summary.isSuccess, showMoney);
+  // A failed summary must not hold the orders read forever: showMoney is false then, so it reads counts only.
+  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess && (summary.isSuccess || summary.isError), showMoney);
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
   const onboardRaw = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));

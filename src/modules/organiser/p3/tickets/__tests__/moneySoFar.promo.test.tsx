@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 const wire = (extra: Record<string, unknown>) =>
   parseSummary({
-    ok: true,
+    ok: true, money_visible: true,
     ticket_types: [{
       id: 't1', name: 'Early', status: 'on_sale', event_series_id: 's1', price_pence: 1000, capacity: 50, reserved_count: 4,
       tickets_sold: 3, orders_paid: 2, orders_pending: 0, orders_refunded: 0, orders_disputed: 0,

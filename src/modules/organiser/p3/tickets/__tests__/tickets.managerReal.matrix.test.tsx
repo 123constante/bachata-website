@@ -151,7 +151,7 @@ describe('one order code (F4)', () => {
 
 // F3: ticket_sales_summary_v1 still answers pence to a manager until Part B. The client drops them in the parse.
 const SUMMARY_RAW = {
-  ok: true,
+  ok: true, money_visible: true,
   ticket_types: [
     {
       id: 't-sell', event_series_id: 'ser-1', name: 'Standard', status: 'on_sale', price_pence: 1200, capacity: 40, reserved_count: 14,

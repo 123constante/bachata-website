@@ -76,8 +76,8 @@ export const parseSummary = (data: unknown, opts: { money?: boolean } = {}): Sum
   if (d.ok !== true) return { ok: false, reason: typeof d.reason === 'string' ? d.reason : 'unknown', types: [], moneyVisible: null };
   const moneyVisible = typeof d.money_visible === 'boolean' ? d.money_visible : null;
   const raw = Array.isArray(d.ticket_types) ? (d.ticket_types as Record<string, unknown>[]) : [];
-  // Counts only when the caller says so OR the server says money is not visible: the server's word wins over `money`.
-  const countsOnly = opts.money === false || moneyVisible === false;
+  // Fail closed: counts only unless the server says money_visible === true (a missing flag, an old server, is counts only); `money: false` also forces counts.
+  const countsOnly = opts.money === false || moneyVisible !== true;
   const rows = countsOnly ? raw.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !/_pence$/.test(k)))) : raw;
   return {
     ok: true,

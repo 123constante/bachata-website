@@ -9,7 +9,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { functions: { invo
 describe('ticketing wire', () => {
   it('parses the sales summary, and a refusal', () => {
     const s = parseSummary({
-      ok: true,
+      ok: true, money_visible: true,
       ticket_types: [
         {
           id: 't1', name: 'Early', status: 'on_sale', manual_sold_out: false, event_series_id: 's1', occurrence_id: null,

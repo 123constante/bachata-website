@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { SHAPES } from './fixtures';
-import { dataMock, load, ok, pending, q, show } from './harness';
+import { dataMock, failed, load, ok, pending, q, show } from './harness';
 
 /*
  * Part B: an owner seat whose summary says money_visible=false (server wins over the role we believed).
@@ -66,10 +66,11 @@ describe.each([[true], [false]] as const)('owner, money_visible %s', (visible) =
  * Review 1541: every cell where the flag is not exactly true shows no pound amount and no Refund.
  * summary: true (control), false, missing (old server), loading; role: owner, manager, contributor.
  */
-type Summary = 'true' | 'false' | 'missing' | 'loading';
+type Summary = 'true' | 'false' | 'missing' | 'loading' | 'failed';
 const setSummary = (kind: Summary) => {
   const base = { ok: true, reason: null, types: SHAPES.selling.sales };
   if (kind === 'loading') q.summary = pending();
+  else if (kind === 'failed') q.summary = failed();
   else if (kind === 'true') q.summary = ok({ ...base, moneyVisible: true });
   else if (kind === 'false') q.summary = ok({ ...base, moneyVisible: false });
   else q.summary = ok({ ...base, moneyVisible: null });
@@ -79,6 +80,7 @@ const CELLS: Array<[string, 'owner' | 'manager' | 'contributor', Summary, boolea
   ['owner, false', 'owner', 'false', false],
   ['owner, flag missing', 'owner', 'missing', false],
   ['owner, summary loading', 'owner', 'loading', false],
+  ['owner, summary failed', 'owner', 'failed', false],
   ['manager, true', 'manager', 'true', false],
   ['manager, false', 'manager', 'false', false],
   ['manager, flag missing', 'manager', 'missing', false],
