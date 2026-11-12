@@ -97,12 +97,17 @@ describe('D129 switcher and Your areas', () => {
     renderInShell({ path: '/app/options' });
     await screen.findByTestId('opt-areas');
     expect(screen.queryByTestId('profile-switcher-button')).toBeNull();
+    // Fix 7: the header spot reads "Account" (not Switch) and opens account settings.
+    const acct = await screen.findByTestId('header-account');
+    expect(acct.textContent).toBe('Account');
+    expect(acct.getAttribute('href')).toBe('/account/settings?from=app');
     expect(optionsRows({ other_roles: [], is_active: true }).map((r) => r.id)).toContain('areas');
   });
   it('2 profiles: the switcher shows', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     renderInShell({ path: '/app/home' });
     expect(await screen.findByTestId('profile-switcher-button')).toBeTruthy();
+    expect(screen.queryByTestId('header-account')).toBeNull();
   });
 });
 
