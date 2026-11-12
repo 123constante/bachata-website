@@ -11,18 +11,14 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { goingTileValue } from '../../api/numbersModel';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
 import { greeting } from './homeCopy';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import { HomeMainCard } from './HomeMainCard';
 import { ClaimYourPage } from './ClaimYourPage';
 import { RateNudge } from './RateNudge';
-import { GoingTileView, HomeHero, type HomeGoing } from './homeParts';
+import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
-import { LineupPeople } from './LineupPeople';
-import { NumbersTiles } from './NumbersTiles';
-import { PartnerTile } from './PartnerTile';
 import NoProfileWayOut from '../options/NoProfileWayOut';
 import { CoupleArt } from '../art';
 import { Avatar, MessageUsLink } from '../me/ui';
@@ -84,7 +80,6 @@ const Message = ({ children }: { children: ReactNode }) => (
 /** `going` null = the going switch is off: nothing going renders and no going RPC runs. */
 const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGoing | null }) => {
   const { user } = useAuth();
-  const goingCount = going?.goingCount ?? null;
   const numbers = useMyNumbers();
   const name = profile.first_name || profile.display_name || 'there';
   const [noticeGone, setNoticeGone] = useState(() => (user?.id ? readFlag('local', noticeKey(user.id)) : true));
@@ -129,37 +124,10 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
         </Card>
       )}
 
-      <HomeHero
-        night={going?.hero ?? null}
-        isLoading={going?.isLoading ?? false}
-        isError={going?.isError ?? false}
-        retry={going?.retry}
-        how={going?.how ?? null}
-      />
-
       <RateNudge candidates={going?.nudge ?? []} todayKey={going?.todayKey || londonTodayKey()} />
 
-      {/* Option A (admin one-five-three-four): ONE main card; the going tile and numbers follow. */}
+      {/* Calm first screen (admin #1534): ONE main card, nothing under it. Nights attended lives in the card. */}
       <HomeMainCard profile={profile} nightsWent={numbers.data?.went ?? null} />
-      <div style={{ display: 'grid', gap: 10 }}>
-        {going && (
-          <GoingTileView
-            value={goingTileValue({ isLoading: going.isLoading, goingCount })}
-            isNumber={goingCount !== null}
-            help={going.tileHelp}
-          />
-        )}
-      </div>
-
-      <NumbersTiles
-        hasPhoto={Boolean(profile.avatar_url)}
-        going={goingCount !== null && going?.tagGoing ? { label: going.tagGoing, value: goingCount, went: going.wentCount ?? 0 } : null}
-        goingOn={going !== null}
-      />
-
-      <PartnerTile />
-
-      <LineupPeople />
     </div>
   );
 };

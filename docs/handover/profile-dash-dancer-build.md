@@ -13,7 +13,7 @@ Branch `claude/profile-dash-dancer-build`. Website only, no DB change. Design: `
 ## Tests
 - `screens/home/__tests__/homeComponents.test.tsx`: HomeMainCard per shape; ClaimYourPage per status (linked, no_match, ambiguous, email_unproven, unavailable) + the one dismissal.
 - `__tests__/emberRestyle.test.tsx`: Account vs Switch label, Add a profile sheet.
-- `tests/e2e/dancer-app/profile-dash-walk.spec.ts` (in `test:e2e`): 8 walks at 390x844; screenshots in `docs/design/profile-dash/walk/` (run with `WALK_SHOTS=1`).
+- `tests/e2e/dancer-app/profile-dash-walk.spec.ts` (in `test:e2e`): 8 walks at 390x844; screenshots in `docs/handover/profile-dash/walk/` (run with `WALK_SHOTS=1`).
 
 ## Not done / owner calls
 - Home still shows the hero, Going tile, numbers tiles, partner tile and line-up below the main card (first worker kept them); the brief's "calm first screen: 1 main card + 3 items" is NOT met. Needs a pass that removes them with their tests.

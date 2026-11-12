@@ -6,7 +6,7 @@ Branch `claude/profile-dash-dancer-build`, PR #1577. No DB change.
 1. Strip button (Switch / Account), Switch sheet, Add a profile sheet, Account sheet (`ProfileSwitcher.tsx`, `SwitcherGate.tsx`). One profile = "Account", no Switch.
 2. Edit journey checked: no hardcoded name/city, untouched Save disabled with reason, sends nothing (walk test). Fixed duplicate import in `EditScreen.tsx`.
 3. `homeComponents.test.tsx`: HomeMainCard per shape, ClaimYourPage per claim status.
-4. Walk spec `tests/e2e/dancer-app/profile-dash-walk.spec.ts` (8 walks, in `test:e2e`), screenshots `docs/design/profile-dash/walk/`, `docs/design/profile-dash-dancer-build.md`, PR body filled.
+4. Walk spec `tests/e2e/dancer-app/profile-dash-walk.spec.ts` (8 walks, in `test:e2e`), screenshots `docs/handover/profile-dash/walk/`, `docs/handover/profile-dash-dancer-build.md`, PR body filled.
 5. `npm run lint` 34/34; vitest affected dirs 2725 pass; Playwright dancer specs pass.
 
 ## Left

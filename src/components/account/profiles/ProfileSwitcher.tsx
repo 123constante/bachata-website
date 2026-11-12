@@ -23,6 +23,9 @@ export const ADD_ORGANISER_LABEL = 'Run events? Become an organiser';
 export const ADD_OTHER_LABEL = 'DJ or teach? Message us';
 export const ADD_OTHER_MESSAGE = 'Hi, I would like to add a DJ or teacher profile to my account.';
 /** The strip button's word: Switch with 2+ profiles, Account with one (D129: nothing to switch to). */
+/** The tag on the profile the screen is showing (words, not only a tick). */
+export const SHOWING_LABEL = 'Showing';
+const SIDE_GROUP_LABEL = { dancer: 'Dancer', organiser: 'Organiser' } as const;
 export const stripLabel = (several: boolean): string => (several ? 'Switch' : 'Account');
 
 /** The confirm step's words: the same promise Options makes before it signs out. */
@@ -151,26 +154,43 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
               </div>
             )}
             {!adding && (
-            <ul className="border-b border-border" style={dancer ? { borderColor: 'var(--da-border)' } : undefined} data-testid="profile-switcher-sides">
-              {items.map((item) => (
-                <li key={item.key}>
-                  <Link
-                    to={item.to}
-                    aria-current={item.current ? 'true' : undefined}
-                    data-testid={`profile-switcher-side-${item.key}`}
-                    onClick={close}
-                    className={row}
-                  >
-                    <SideAvatar side={item} size={36} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{sideTitle(item)}</span>
-                      <span className={`block text-[13px] ${muted}`}>{sideKind(item)}</span>
-                    </span>
-                    {item.current && <Check aria-label="Current profile" className="shrink-0" style={{ width: 20, height: 20 }} />}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="border-b border-border" style={dancer ? { borderColor: 'var(--da-border)' } : undefined} data-testid="profile-switcher-sides">
+              {/* Grouped Dancer / Organiser (the DJ and teacher areas follow below, from SwitcherAreas). */}
+              {(['dancer', 'organiser'] as const).map((kind) => {
+                const group = items.filter((i) => i.kind === kind);
+                if (group.length === 0) return null;
+                return (
+                  <section key={kind} aria-label={SIDE_GROUP_LABEL[kind]} data-testid={`profile-switcher-group-${kind}`}>
+                    <h3 className={`px-[16px] pt-[8px] text-[12px] font-bold uppercase tracking-wide ${muted}`}>{SIDE_GROUP_LABEL[kind]}</h3>
+                    <ul>
+                      {group.map((item) => (
+                        <li key={item.key}>
+                          <Link
+                            to={item.to}
+                            aria-current={item.current ? 'true' : undefined}
+                            data-testid={`profile-switcher-side-${item.key}`}
+                            onClick={close}
+                            className={row}
+                          >
+                            <SideAvatar side={item} size={36} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-semibold">{sideTitle(item)}</span>
+                              <span className={`block text-[13px] ${muted}`}>{sideKind(item)}</span>
+                            </span>
+                            {item.current && (
+                              <span className="flex shrink-0 items-center gap-[4px] text-[13px] font-bold" data-testid="profile-switcher-showing">
+                                <Check aria-hidden="true" style={{ width: 18, height: 18 }} />
+                                {SHOWING_LABEL}
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
             )}
             {!adding && dancer && state.status === 'ready' && (
               <button type="button" onClick={() => setAdding(true)} className={`${row} border-b font-semibold`} style={{ borderColor: 'var(--da-border)' }} data-testid="profile-switcher-add">

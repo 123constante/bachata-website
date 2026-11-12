@@ -5,7 +5,7 @@ import { PHONE, OrganiserFake, expectNoHorizontalScroll, json } from '../helpers
 // three profiles, the sheets, and an untouched Save. Shapes follow the prod survey in docs/design/profile-dash/dancer.md.
 // Screenshots go to SHOTS only when WALK_SHOTS=1 (a plain CI run writes nothing into the repo).
 
-const SHOTS = process.env.WALK_SHOTS ? 'docs/design/profile-dash/walk' : 'test-results/profile-dash-walk';
+const SHOTS = process.env.WALK_SHOTS ? 'docs/handover/profile-dash/walk' : 'test-results/profile-dash-walk';
 const rpc = (name: string) => `**/rest/v1/rpc/${name}`;
 const ID = 'b1000000-0000-4000-8000-000000000001';
 const BASE = {
