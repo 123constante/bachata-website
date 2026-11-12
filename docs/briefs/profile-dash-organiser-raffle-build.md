@@ -11,3 +11,8 @@ Owner pick 2026-11-12: Option B. Design: docs/design/profile-dash/organiser-raff
 3. Website write: one button that says what it does; confirmation sheets; failed state ("Nothing changed") + Try again.
 ## Checks
 Table-driven screen x shape; 390x844 walk; CI table in PR; Verified/Not verified; independent review (ACL, hard-stop, privacy) on phases 1 and 3.
+
+## OWNER OVERRIDES 2026-11-12 (build this)
+- Admin #1576 is NOT applied to prod yet. Build against the signatures in admin PR #1576 migration (supabase/migrations/20270321210000_organiser_raffle_nights_v1.sql on head b4740246; read via git show, never apply). Until applied, the per-night Raffle row shows a Coming soon card with a way to tell us; real RPC calls sit behind a second flag `organiserRaffleLive` (default off). Tests mock the RPCs. Cast locally, no hand-edit of generated types.
+- Open/close stays a hard stop: the Website only toggles the per-night on/off switch; the draw is done in admin. Locked once anyone enters (message us). No notice wording.
+- One branch, one PR, one push, 390x844 walk, Verified/Not verified block.
