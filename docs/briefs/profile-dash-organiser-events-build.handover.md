@@ -23,3 +23,12 @@ CI items: consistency.matrix B-N8 and JoinGetPaidNext pass after merging origin/
 Evidence: 390x844 walk (route-mocked organiser fake, flags on) in docs/design/profile-dash/shots/organiser-events-walk-*.png: normal, empty, huge (45 series), error, every-night-confirm, conflict, conflict-after-reload. Spec: tests/e2e/walk-p3-organiser-events.spec.ts (throwaway, not in the gate).
 tsc run on HEAD: 0 errors in branch files (other errors in app/ are pre-existing). vitest src/modules/organiser: 327 files green. check:mojibake clean.
 Not verified: real prod-shaped data walk (fake only; no Supabase prod read in this run); full pre-ship and per-job CI table (no gh/CI access here); the older-pages path against the real RPC (mocked in unit tests, shape matches AllDates).
+
+
+Fix round 3 (brief events-1584-fix3, ticket dt_f261a00ffd77): F1-F4 done, nothing else touched.
+- F1: reload() in CancelEveryNight now calls setKey(newIdempotencyKey()) on success and in the non-network catch. Test: conflict -> Reload -> Confirm sends a different key and the refetched version (9, not 4). Red first: fails on the unfixed DashEvents.
+- F2: walk fake now bumps every series version and cancels one coming night before Reload; conflict-after-reload.png re-shot (now "Cancel all 11 nights?", differs from every-night-confirm; md5 differs).
+- F3: removed the duplicate "Close" in the conflict Sheet (the Sheet's own stays).
+- F4: unknown role defaults to view-only (contributor). Test rows: owner, manager, contributor, viewer, "", undefined (viewer/""/undefined red on the unfixed code).
+Verified: vitest src/modules/organiser/p3/events 55/55 green; check:mojibake clean; tsc: zero errors in touched files; walk conflict spec passed locally.
+Not verified: full pre-ship; per-job CI table (no gh/CI access here, the PR body needs it added by the owner); prod-shaped data walk; PR body label checks (no PR body file in this run).

@@ -28,7 +28,7 @@ vi.mock('../../screens/DateSheet', () => ({
   DateSheets: ({ open }: { open: unknown }) => <div data-testid="date-sheets">{JSON.stringify(open)}</div>,
 }));
 
-import { CancelEveryNight, CancelNight, DeleteDraft } from '../DashEvents';
+import { CancelEveryNight, CancelNight, DashEvents, DeleteDraft } from '../DashEvents';
 
 afterEach(cleanup);
 beforeEach(() => { h.bulk.mockReset(); h.bulk.mockResolvedValue({ ok: true, affectedIds: [] }); h.once.mockReset(); h.once.mockResolvedValue({ ok: true }); h.refetch.mockReset(); h.older = { isPending: false, isError: false, data: undefined, refetch: vi.fn() }; });
@@ -147,6 +147,28 @@ describe('CancelNight', () => {
     expect(h.refetch).toHaveBeenCalledTimes(1);
   });
 
+  it('every night, after conflict -> Reload -> Confirm: the second send has a NEW key and the refetched version', async () => {
+    h.bulk.mockRejectedValueOnce(new Error('version_conflict'));
+    const client = new QueryClient();
+    const ui = (version: number, onReload?: () => Promise<void>) => (
+      <QueryClientProvider client={client}><MemoryRouter><CancelEveryNight seriesId="s1" version={version} ids={['a']} onDone={vi.fn()} onClose={vi.fn()} onReload={onReload} /></MemoryRouter></QueryClientProvider>
+    );
+    let rerenderTo: (n: number) => void = () => {};
+    const onReload = async () => { rerenderTo(9); };
+    const view = render(ui(4, onReload));
+    rerenderTo = (n) => view.rerender(ui(n, onReload));
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(screen.getByTestId('ev-every-conflict')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('ev-every-conflict-reload'));
+    await waitFor(() => expect(screen.getByTestId('ev-every-confirm')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(h.bulk).toHaveBeenCalledTimes(2));
+    const [first, second] = h.bulk.mock.calls;
+    expect(first[1]).toBe(4);
+    expect(second[1]).toBe(9);
+    expect(second[3]).not.toBe(first[3]);
+  });
+
   it('every night: after the send the same lists the Change dates screen refreshes are invalidated', async () => {
     const client = new QueryClient();
     const spy = vi.spyOn(client, 'invalidateQueries');
@@ -205,5 +227,13 @@ describe('DeleteDraft', () => {
     fireEvent.click(screen.getByTestId('ev-delete-confirm'));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(onDone.mock.calls[0][0].text).toBe('Draft archived. Your team can restore it.');
+  });
+});
+
+describe('DashEvents seat', () => {
+  it.each([['owner', false], ['manager', false], ['contributor', true], ['viewer', true], ['', true], [undefined, true]])('role %s: view-only is %s', (role, viewOnly) => {
+    const page = { id: 'org', role } as never;
+    render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><DashEvents rows={rowsOf(homeOf([SHAPES.tonight] as never))} today={TODAY} page={page} /></MemoryRouter></QueryClientProvider>);
+    expect(/page owner or a manager/i.test(document.body.textContent ?? '')).toBe(viewOnly);
   });
 });

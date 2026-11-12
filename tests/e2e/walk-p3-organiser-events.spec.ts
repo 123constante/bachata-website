@@ -47,7 +47,7 @@ test('error', async ({ page }) => {
 });
 
 test('conflict', async ({ page }) => {
-  await openOrganiser(page, PATH);
+  const fake = await openOrganiser(page, PATH);
   await page.route('**/rest/v1/rpc/admin_bulk_occurrence_command_p5', (route) => json(route, { code: 'P0001', message: 'version_conflict: expected 3, found 4', details: null, hint: null }, 400));
   await page.getByTestId('ev-night').first().click();
   await page.getByTestId('ev-cancel').click();
@@ -57,6 +57,13 @@ test('conflict', async ({ page }) => {
   await page.getByTestId('ev-every-confirm').click();
   await expect(page.getByTestId('ev-every-conflict')).toBeVisible();
   await shot(page, 'conflict');
+  // Someone else changed the event meanwhile: the version moves on and one coming night is cancelled,
+  // so the refetched confirm names a different count than the one shown before the conflict.
+  for (const s of fake.series.values()) {
+    s.version += 1;
+    const d = fake.upcoming(s)[1] ?? fake.upcoming(s)[0];
+    if (d) s.cancelled[d] = 'Rain';
+  }
   await page.getByTestId('ev-every-conflict-reload').click();
   await expect(page.getByTestId('ev-every-confirm')).toBeVisible();
   await shot(page, 'conflict-after-reload');

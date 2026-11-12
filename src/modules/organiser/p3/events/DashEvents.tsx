@@ -66,9 +66,11 @@ export function CancelEveryNight({ seriesId, version, ids, onDone, onClose, onRe
     setBusy(true);
     try {
       await (onReload ? onReload() : queryClient.refetchQueries({ queryKey: eventWorkspaceQueryKey(seriesId) }));
+      setKey(newIdempotencyKey());
       setConflict(false);
       setError(null);
     } catch {
+      setKey(newIdempotencyKey());
       setError('We could not reload this event. Nothing has changed. Try again.');
     } finally {
       setBusy(false);
@@ -79,7 +81,6 @@ export function CancelEveryNight({ seriesId, version, ids, onDone, onClose, onRe
       <Sheet title="This event changed" onClose={onClose}>
         <EventConflict seriesId={seriesId} testId="ev-every-conflict" onReload={() => void reload()} reloading={busy} />
         {error && <p className="p3-error" role="alert" data-testid="ev-every-error">{error}</p>}
-        <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={onClose}>Close</button>
       </Sheet>
     );
   }
@@ -198,7 +199,7 @@ export function DashEvents({ rows, today, page }: { rows: readonly P3Row[]; toda
   const [showPast, setShowPast] = useState(false);
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState<Done | null>(null);
-  const seat: Seat = page.role as Seat;
+  const seat: Seat = (page.role === 'owner' || page.role === 'manager' ? page.role : 'contributor') as Seat;
   const model = useMemo(() => buildEvents({ rows, today, seat, query, filter, shown, showPast }), [rows, today, seat, query, filter, shown, showPast]);
   const close = useCallback(() => setOpen(null), []);
   const clearNote = useCallback(() => setNote(null), []);
