@@ -1,0 +1,9 @@
+# Brief: Dancer dashboard slice 1, CONTINUATION (admin 1534), Website, normal lane, Sonnet
+Branch: claude/profile-dash-dancer-build1 (already has commit 565089f: Option A Home + ClaimCard + 77 tests). Continue ON this branch; do not recreate it. PR 1576 is already open for it: edit its body, no second PR.
+Read first: docs/briefs/profile-dash-dancer-build1.handover.md on the branch (what is done and left), and the original brief: git fetch origin brief/profile-dash-dancer-build1 then git show FETCH_HEAD:docs/briefs/profile-dash-dancer-build1.md. Cloud session cannot read bachata-admin issues; everything needed is in those two files and Website PR 1569 design.
+Owner decisions (lead, from the picked design Option A = PR 1569, which retires these tiles):
+1. Retire the old Home tiles (hero night tile, strength ring, going tile, NumbersTiles strip). Update or delete the assertions in the 10 failing test files so they assert the NEW Home. Keep still-rendered pieces (RateNudge). PartnerTile and LineupPeople: keep tests only if still rendered; otherwise delete the tests AND the unused components. Never weaken a test to pass; each deleted assertion must be for a control that no longer exists, listed in the PR body.
+2. Edit screen (fix 5): follow the journey, only real controls, untouched Save sends nothing; add a red-first test.
+3. Role strip: one-profile accounts read "Account" not Switch; test it.
+4. Then: real-data shape survey (read-only SELECT, counts only), 390x844 screenshots of 3 roles, 1 role, new, unfinished, claimed, unclaimed, docs/design/1576.md, PR body with Verified on real data and Phone QA labels exactly (see ticket text), npm run pre-ship, check:mojibake, tsc, per-job CI table.
+No DB change. Do not touch organiser files (branch claude/profile-dash-organiser-build2).
