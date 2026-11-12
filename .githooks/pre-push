@@ -169,6 +169,16 @@ else
 fi
 if [ "$unit_where" = "here" ]; then
     echo "> pre-push: unit gate here ($unit_reason)"
+    # The json reporter writes a side file so a red run can always NAME its failing files
+    # (a crashed worker or a suite that fails to load shows no test names in the dot output).
+    unit_json="${TMPDIR:-/tmp}/prepush-unit-$$.json"
+    unit_fail() {
+        echo "x $1 Failing files:"
+        node -e 'try{const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const f=r.testResults.filter(t=>t.status!=="passed").map(t=>t.name);console.log(f.length?f.map(n=>"  - "+n).join("\n"):"  (none recorded: the run crashed before any file reported; re-run once)")}catch{console.log("  (no report written: vitest did not start; see the output above)")}' "$unit_json"
+        rm -f "$unit_json"
+        echo "x Not pushing. Fix the tests (or push --no-verify to bypass)."
+        exit 1
+    }
     # FALLBACK = fast: the full suite never runs on this PC (admin #1586 / #1590). Only tests that import a
     # file changed since origin/main run (`vitest related`). The FULL suite is the required CI check
     # "unit (Europe/London, full)" in the `main checks` ruleset, so nothing red can merge. Fail CLOSED:
@@ -194,9 +204,8 @@ if [ "$unit_where" = "here" ]; then
     fi
     if [ "$fb_full" -eq 1 ]; then
         echo "> pre-push: unit gate (full offline suite: no base ref, or runner config changed)..."
-        if ! npm run test:unit:offline -- --reporter=dot; then
-            echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
-            exit 1
+        if ! npm run test:unit:offline -- --reporter=dot --reporter=json --outputFile.json="$unit_json"; then
+            unit_fail "Unit gate failed."
         fi
     else
         fb_src=$(printf '%s\n' "$fb_changed" | grep -E '\.(ts|tsx|js|jsx|mjs)$' || true)
@@ -205,12 +214,12 @@ if [ "$unit_where" = "here" ]; then
         else
             echo "> pre-push: fast unit gate (tests related to changed files; CI runs the full suite)..."
             # shellcheck disable=SC2086
-            if ! npx vitest related --run --passWithNoTests --reporter=dot --exclude "**/*{EdgeTtl.test.ts,.contract.test.ts,.contract.test.tsx}" $(printf '%s' "$fb_src" | tr '\n' ' '); then
-                echo "x Related unit tests failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
-                exit 1
+            if ! npx vitest related --run --passWithNoTests --reporter=dot --reporter=json --outputFile.json="$unit_json" --exclude "**/*{EdgeTtl.test.ts,.contract.test.ts,.contract.test.tsx}" $(printf '%s' "$fb_src" | tr '\n' ' '); then
+                unit_fail "Related unit tests failed."
             fi
         fi
     fi
+    rm -f "$unit_json"
 fi
 
 # -- 2. Review-receipt gate ----------------------------------------------------
