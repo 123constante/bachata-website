@@ -29,3 +29,9 @@ on `brief/profile-dash-organiser-a-fixes` (blob df84676). Docs/design only: no a
 ## Next steps (owner)
 - Confirm Option A v2; the GAPs in `options.md` (per-night opens/clicks, cancelled nights in RPCs, share-my-page link)
   still have to close before a build.
+
+## Ship status
+- PR #1565 (opened by the bot, description filled in by this session). Neither merged nor approved.
+- tsc run on 91b80bd: 0 errors in branch files (no TS files touched; whole project clean).
+- No `automerge-ok` label: the diff is over 400 lines because it carries #1538's files.
+- Vercel: not checked (no VERCEL_TOKEN in this session; needs owner: Vercel token).
