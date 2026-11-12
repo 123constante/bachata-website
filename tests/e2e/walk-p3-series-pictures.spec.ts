@@ -7,6 +7,12 @@ import { ORG, ORG_NAME, OrganiserFake, PHONE, json } from './helpers/organiserFa
 //   VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true npx playwright test tests/e2e/walk-p3-series-pictures.spec.ts --project=chromium
 // No test.skip: with the flags off the page does not mount and every test FAILS (scripts/check-p3-specs-not-skipped.mjs).
 
+// With VITE_ENABLE_ORGANISER_PHOTO_ORDER on (it is on in the P3 gate step), the sheet's tiles are
+// tap-to-select with Move earlier / Move later / Make cover / Remove instead of the X; the shape
+// walks below remove through whichever sheet the build has, and the order tests walk the new one.
+const ORDER = process.env.VITE_ENABLE_ORGANISER_PHOTO_ORDER === 'true';
+const SHOTS = process.env.P3_PHOTO_SHOTS; // a folder: the order walk saves its screenshots there
+
 const SID = (n: number) => `b0000000-0000-4000-8000-0000000009${String(n).padStart(2, '0')}`;
 const pics = (n: number) => Array.from({ length: n }, (_, i) => `https://img.example/p${i}.svg`);
 const SHAPES = [
@@ -138,6 +144,10 @@ for (const scheme of ['light', 'dark'] as const) {
         }
 
         if (shape.n > 0) {
+          if (ORDER) {
+            await expect(page.getByTestId('p3-picture-remove'), 'no Remove before a tap').toHaveCount(0);
+            await page.getByTestId('p3-picture-pick').first().click();
+          }
           await page.getByTestId('p3-picture-remove').first().click();
           await expect(page.getByTestId('p3-picture')).toHaveCount(shape.n - 1);
           if (shape.n === 30) await expect(page.getByTestId('p3-pictures-add')).toBeEnabled();
@@ -149,6 +159,63 @@ for (const scheme of ['light', 'dark'] as const) {
           await expect(count).toHaveText(left ? `${left} ${left === 1 ? 'picture' : 'pictures'}` : 'None yet');
         }
         expect(fake.envelopes(), 'nothing is sent before Save').toEqual([]);
+      });
+    }
+
+    for (const n of [0, 1, 2, 30]) {
+      test(`order and cover, ${n} pictures: tap, the bar fits, disabled controls say why, Save sends cover + gallery`, async ({ page }) => {
+        test.skip(process.env.VITE_ENABLE_ORGANISER_PHOTO_ORDER !== 'true', 'organiserPhotoOrder is off');
+        // a one-off: one date, so Save sends at once (a series asks which dates for the cover first)
+        const shape = { id: SID(60 + n), gallery: pics(n), format: 'one_off' };
+        const fake = await open(page, shape);
+        await page.getByTestId('p3-d-pictures-open').click();
+        const sheet = page.getByTestId('p3-sheet');
+        await expect(sheet).toBeVisible();
+        await settled(page);
+        await expect(page.getByTestId('p3-picture-pick')).toHaveCount(n);
+        await expect(sheet.locator('.p3-photo-x'), 'no X tiles with the flag on').toHaveCount(0);
+        if (SHOTS) await page.screenshot({ path: `${SHOTS}/order-${n}-${scheme}-open.png` });
+        if (n === 0) {
+          await expect(page.getByTestId('p3-pictures-empty')).toContainText(/add/i);
+          await expect(page.getByTestId('p3-picture-bar')).toHaveCount(0);
+          return;
+        }
+        await expect(page.getByTestId('p3-pictures-order-hint')).toContainText('Tap');
+        const last = page.getByTestId('p3-picture-pick').nth(n - 1);
+        await last.scrollIntoViewIfNeeded();
+        await last.click();
+        const bar = page.getByTestId('p3-picture-bar');
+        await expect(bar).toBeVisible();
+        await expect(page.getByTestId('p3-picture-later')).toBeDisabled();
+        await expect(page.getByTestId('p3-picture-why-later')).toContainText(n === 1 ? 'only picture' : 'already last');
+        await page.getByTestId('p3-picture-remove').scrollIntoViewIfNeeded();
+        await inViewport(page, page.getByTestId('p3-picture-remove'), 'Remove');
+        const a = await audit(page);
+        expect(a.minContrast, `lowest contrast "${a.worst}"`).toBeGreaterThanOrEqual(4.5);
+        expect(a.small, 'controls under 44px').toEqual([]);
+        if (SHOTS) await sheet.screenshot({ path: `${SHOTS}/order-${n}-${scheme}-bar.png` });
+
+        // the last picture becomes the cover: badge on tile 1, Remove on it is disabled with a reason
+        await page.getByTestId('p3-picture-cover').click();
+        await expect(page.getByTestId('p3-picture-cover-badge')).toHaveCount(1);
+        await expect(page.getByTestId('p3-picture-remove')).toBeDisabled();
+        await expect(page.getByTestId('p3-picture-why-remove')).toContainText('cannot be removed');
+        await expect(page.getByTestId('p3-picture-earlier')).toBeDisabled();
+        if (n > 1) {
+          await page.getByTestId('p3-picture-later').click();
+          await expect(page.getByTestId('p3-picture-earlier')).toBeEnabled();
+        }
+        if (SHOTS) await sheet.screenshot({ path: `${SHOTS}/order-${n}-${scheme}-cover.png` });
+        await page.getByTestId('p3-pictures-done').click();
+        await expect(sheet).toHaveCount(0);
+        expect(fake.envelopes(), 'nothing is sent before Save').toEqual([]);
+        // the Cover photo field follows the sheet: it now has a cover to change
+        await expect(page.getByTestId('p3-d-cover-btn')).toContainText('Choose a new cover photo');
+        await page.getByTestId('p3-save').click();
+        await expect.poll(() => fake.envelopes().length, { timeout: 10_000 }).toBeGreaterThan(0);
+        const sent = JSON.stringify(fake.envelopes());
+        expect(sent).toContain('default_cover_image_url');
+        expect(sent).toContain('default_gallery');
       });
     }
 

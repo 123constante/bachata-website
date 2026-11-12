@@ -29,6 +29,8 @@ export interface EventTicketsPageProps {
    *  has to be chosen (the event page's Dates tile only exists for courses). */
   nights?: readonly NightSource[];
   onClose: () => void;
+  /** The programme hooks, injected so this module never imports EventScheduleGrid (chunk ratchet). */
+  programHooks: { useOccurrenceProgram: typeof UseOccurrenceProgram; useProgramItems: typeof UseProgramItems };
 }
 
 /** Latest ticket close among the types on sale, else null (chips then use the event start). */

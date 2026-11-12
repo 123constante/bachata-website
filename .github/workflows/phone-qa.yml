@@ -21,34 +21,15 @@ name: Phone QA
 # server's Node-side fetches and page.route() the browser's, both from
 # tests/e2e-phone/fakeSupabase.mjs. Nothing reaches any Supabase project.
 #
-# The paths below are the UI paths scripts/check-pr-phone-qa.mjs (UI_PATH_RE)
-# requires a "## Phone QA" PR section for, plus the dependency manifests (a
-# Dependabot bump of framer-motion, tailwind or react-router moves pixels too,
-# and those PRs touch nothing else) and this suite's own files, so a change to
-# the check runs the check. NOT a required status check (path-filtered
-# workflows never report on PRs outside their paths); that is the owner's call.
+# Runs on EVERY pull request (owner 2026-11-12, e2e audit item 4). It used to be
+# path-filtered to UI files, so a PR outside those paths got no phone check and,
+# because a path-filtered workflow never reports, the check could not be made
+# required. Now it always reports. Docs-only PRs pay the shard time; that is the
+# price of a check that means "the phone suite ran". Whether to make it a
+# REQUIRED status check is still the owner's call.
 
 on:
   pull_request:
-    paths:
-      - 'src/**/*.tsx'
-      - 'src/**/*.css'
-      - 'app/**/*.tsx'
-      - 'app/**/*.css'
-      - 'tailwind.config.*'
-      - 'index.html'
-      - 'public/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'playwright.phone.config.ts'
-      - 'tests/e2e-phone/**'
-      - 'vite.config.ts'
-      - 'vite.chunks.ts'
-      - 'react-router.config.ts'
-      - 'scripts/_serve-build.mjs'
-      - 'playwright.build.config.ts'
-      - 'tests/e2e-build/**'
-      - '.github/workflows/phone-qa.yml'
   workflow_dispatch:
 
 permissions:
