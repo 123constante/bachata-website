@@ -34,6 +34,9 @@ type EventStickyActionBarProps = {
   onAddToCalendar: () => void;
   /** Override the primary CTA colour (hex). Defaults to yellow when omitted. */
   accentColor?: string;
+  /** TICKET_FESTIVAL_IN_SITE: true while the probe has not answered for this night (the page
+   *  hides the organiser's link in its own CTAs in that window, as this bar does). */
+  onTicketingPending?: (pending: boolean, occurrenceId: string | null) => void;
 };
 
 const SOURCE = 'bento_action_bar';
@@ -111,6 +114,7 @@ export const EventStickyActionBar = ({
   canAddToCalendar,
   onAddToCalendar,
   accentColor,
+  onTicketingPending,
 }: EventStickyActionBarProps) => {
   // This bar renders via a body portal (client-only) and, unlike the modals, is
   // shown unconditionally — so under SSR it must render nothing until mounted, or
@@ -152,6 +156,9 @@ export const EventStickyActionBar = ({
   // her link nor a primary action (a same-height placeholder), so her link never flashes and
   // then vanishes. Once the night resolved (any state, or timed out) this is false (fix2 1a).
   const pending = inSiteTicketing && !!eventId && !current;
+  useEffect(() => {
+    onTicketingPending?.(pending, occurrenceId);
+  }, [onTicketingPending, pending, occurrenceId]);
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions

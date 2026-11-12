@@ -367,6 +367,10 @@ export const LIB_EVENT_RULES_MODULES = [
   // the public event page. Alone it was its own chunk: +1 first-load request on /event
   // (chunk ratchet 40 vs 39). Pinned here it rides a chunk /event already loads.
   "/src/lib/paymentMethods.ts",
+  // JSON-LD offer URL rule (ticket-festival-in-site, 2026-11-11): a pure leaf shared by
+  // BentoPage and FestivalDetail. Alone it was its own chunk: +1 first-load request on
+  // /event (chunk ratchet 40 vs 39). Pinned here it rides a chunk /event already loads.
+  "/src/modules/event-page/bento/utils/ticketOfferUrl.ts",
   // Organiser URL table (slice 1b bundle round): a pure leaf read by catchall (auth +
   // dancer-app first load) and the organiser screens. Alone it was its own chunk:
   // +1 first-load request on auth (26 vs 25) and dancer-app (48 vs 47). Pinned here it

@@ -14,7 +14,7 @@ Per night, hide the organiser's external ticket link while our Buy is buyable no
 - `EventStickyActionBar`: link only when quiet. Live: single primary (ours).
 - `BentoPage` JSON-LD: state starts false (hydration-safe, so server HTML and non-JS crawlers still see the external link) and flips when the probe resolves.
 - `EventHeroMetaBlock`, `StickyTicketButton`: no live importers (grep), not edited.
-- `FestivalDetail`: no in-site ticket sales (no `modules/tickets` import), unchanged.
+- `FestivalDetail`: in-site since ticket-festival-in-site, same rule (docs/design/ticket-festival-in-site.md).
 
 ## HANDOVER-6 note
 This reverses HANDOVER-6 "Tickets elsewhere kept when quiet" only for the live case: while our Buy is live the link is gone. When quiet (sold out, closed, not yet open) the "Tickets elsewhere" link is kept exactly as HANDOVER-6 said.
