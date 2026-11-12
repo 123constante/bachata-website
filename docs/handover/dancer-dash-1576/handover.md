@@ -72,3 +72,17 @@ is clean.
 Not verified: the full suite under Sydney or New_York (I only ran the two touched files there); a fresh CI run.
 contract-check red is prod-data drift on main and I did not touch it, as the brief says.
 Next: if JoinGetPaidNext still flakes on CI, look at the other bare `where()` reads in that file.
+
+## dancer-area-isolation red at ce98460 (ticket dt_0c20212efd23)
+
+Reverted: `src/modules/admin-organisers/join/__tests__/JoinGetPaidNext.test.tsx` is back to `origin/main` (I ran
+`git checkout origin/main -- <file>`). Why: `dancer-area-isolation` rule (a) fails any changed file outside
+`src/modules/dancer-app/` that is not a seam. The `waitFor` edit from the previous unit fix was that kind of change.
+Adding a seam is the lead's call, so I did not touch the allowlist.
+
+After the revert, the main version of the file passed 5/5 on this branch (`npx vitest run <file>`, 45/45 tests each run),
+so in this sandbox there is nothing branch-specific to fix inside `src/modules/dancer-app/`. The earlier CI failure at
+line 174 (a bare `where()` read racing the effect that rewrites the address) looks like a pre-existing CI-load flake in a
+main-owned file. If it comes back on CI, the lead should file the `waitFor` fix against main on its own.
+`node scripts/check-dancer-area-isolation.mjs` after the commit: `dancer-area isolation: OK`.
+tsc run on d67fc34 (pre-amend content): 0 errors in branch files touched by this unit (JoinGetPaidNext.test.tsx). check:mojibake clean.
