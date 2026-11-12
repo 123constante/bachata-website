@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rowsOf } from '../../data/home';
 import { SHAPES, TODAY, homeOf } from '../../screens/__tests__/fixtures';
@@ -10,21 +11,25 @@ const h = vi.hoisted(() => ({
   ws: {} as Record<string, unknown>,
   once: vi.fn(async () => ({ ok: true })),
   refetch: vi.fn(),
+  bulk: vi.fn(),
 }));
+vi.mock('../../../flows/change/bulkApi', () => ({ runBulkCommand: (...a: unknown[]) => h.bulk(...a) }));
+vi.mock('../../../shared/selfServeApi', async (orig) => ({ ...(await orig<object>()), fetchCancellationReasons: async () => [{ key: 'rain', label: 'Rain' }] }));
 vi.mock('../../../shared/runCommands', () => ({
   useEventWorkspace: () => h.ws,
   useSendOnce: () => h.once,
   useRunCommands: () => async () => 1,
+  eventWorkspaceQueryKey: (id: string) => ['event-workspace', id],
 }));
 // The existing date sheets are tested on their own; here only what Events hands them.
 vi.mock('../../screens/DateSheet', () => ({
   DateSheets: ({ open }: { open: unknown }) => <div data-testid="date-sheets">{JSON.stringify(open)}</div>,
 }));
 
-import { CancelNight, DeleteDraft } from '../DashEvents';
+import { CancelEveryNight, CancelNight, DeleteDraft } from '../DashEvents';
 
 afterEach(cleanup);
-beforeEach(() => { h.once.mockReset(); h.once.mockResolvedValue({ ok: true }); h.refetch.mockReset(); });
+beforeEach(() => { h.bulk.mockReset(); h.bulk.mockResolvedValue({ ok: true, affectedIds: [] }); h.once.mockReset(); h.once.mockResolvedValue({ ok: true }); h.refetch.mockReset(); });
 
 const nightOf = (shape: keyof typeof SHAPES, i = 0) =>
   buildEvents({ rows: rowsOf(homeOf([SHAPES[shape]] as never)), today: TODAY, seat: 'owner', query: '', filter: 'all', shown: 15, showPast: false }).nights[i];
@@ -33,7 +38,10 @@ const wsOf = (dates: Array<{ id: string; occurrence_date: string; lifecycle_stat
 });
 
 describe('CancelNight', () => {
-  const draw = (night = nightOf('tonight')) => render(<MemoryRouter><CancelNight night={night} today={TODAY} onDone={vi.fn()} onClose={vi.fn()} /></MemoryRouter>);
+  const draw = (night = nightOf('tonight'), onDone = vi.fn()) => {
+    render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><CancelNight night={night} today={TODAY} onDone={onDone} onClose={vi.fn()} /></MemoryRouter></QueryClientProvider>);
+    return onDone;
+  };
 
   it('loading: says so, sends nothing', () => {
     h.ws = { isPending: true, isError: false };
@@ -57,17 +65,49 @@ describe('CancelNight', () => {
     expect(screen.queryByTestId('date-sheets')).toBeNull();
   });
 
-  it('several coming nights: scope ask first; "Every night" is off with its reason; "This night only" opens the reason picker', () => {
+  it('several coming nights: scope ask first; "This night only" opens the reason picker', () => {
     const n = nightOf('tonight');
     h.ws = wsOf([{ id: 'a', occurrence_date: n.date as string }, { id: 'b', occurrence_date: '2099-01-01' }]);
     draw(n);
-    const all = screen.getByTestId('ev-scope-all') as HTMLButtonElement;
-    expect(all.disabled).toBe(true);
-    expect(all.getAttribute('aria-describedby')).toBe(screen.getByTestId('ev-scope-all-why').id);
-    expect(screen.getByTestId('ev-scope-all-why').textContent).toMatch(/not available yet/);
+    expect((screen.getByTestId('ev-scope-all') as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByTestId('date-sheets')).toBeNull();
     fireEvent.click(screen.getByTestId('ev-scope-one'));
     expect(JSON.parse(screen.getByTestId('date-sheets').textContent as string)).toEqual({ kind: 'date', id: 'a', start: 'cancel' });
+  });
+
+  const everyNight = () => {
+    const n = nightOf('tonight');
+    h.ws = wsOf([{ id: 'a', occurrence_date: n.date as string }, { id: 'b', occurrence_date: '2099-01-01' }, { id: 'c', occurrence_date: '2000-01-01' }, { id: 'd', occurrence_date: '2099-02-01', lifecycle_status: 'cancelled' }]);
+    const onDone = draw(n);
+    fireEvent.click(screen.getByTestId('ev-scope-all'));
+    return onDone;
+  };
+
+  it('every night: names the count of coming nights (not past or cancelled), sends bulk_cancel with the picked reason', async () => {
+    h.bulk.mockResolvedValueOnce({ ok: true, affectedIds: ['a', 'b'] });
+    const onDone = everyNight();
+    expect(screen.getByTestId('ev-every-body').textContent).toMatch(/cancels 2 nights/);
+    expect(h.bulk).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Rain' }));
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(h.bulk.mock.calls[0].slice(0, 3)).toEqual(['tonight', 4, { kind: 'occurrence.bulk_cancel', payload: { occurrence_ids: ['a', 'b'], reason: 'Rain' } }]);
+    expect(onDone.mock.calls[0][0].text).toBe('2 nights cancelled.');
+  });
+
+  it('every night, error: shown, sheet stays, button back', async () => {
+    h.bulk.mockRejectedValueOnce(new Error('boom'));
+    const onDone = everyNight();
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(screen.getByTestId('ev-every-error')).toBeTruthy());
+    expect(onDone).not.toHaveBeenCalled();
+    expect((screen.getByTestId('ev-every-confirm') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('every night, zero coming nights: says so and offers no send', () => {
+    render(<QueryClientProvider client={new QueryClient()}><CancelEveryNight seriesId="s" version={1} ids={[]} onDone={vi.fn()} onClose={vi.fn()} /></QueryClientProvider>);
+    expect(screen.getByTestId('ev-every-none')).toBeTruthy();
+    expect(screen.queryByTestId('ev-every-confirm')).toBeNull();
   });
 
   it('one coming night: straight to the cancel step, no list, no scope ask', () => {
@@ -97,7 +137,9 @@ describe('DeleteDraft', () => {
     h.ws = { isPending: false, isError: true, data: undefined };
     draw();
     expect(document.body.textContent).toMatch(/couldn.t load the draft/);
-    expect((screen.getByTestId('ev-delete-confirm') as HTMLButtonElement).disabled).toBe(true);
+    const b = screen.getByTestId('ev-delete-confirm') as HTMLButtonElement;
+    expect(b.disabled).toBe(true);
+    expect(b.getAttribute('aria-describedby')).toBe(screen.getByTestId('ev-delete-load-error').id);
   });
 
   it('send error: the error is shown, the sheet stays, Done is not called, and the button is back', async () => {

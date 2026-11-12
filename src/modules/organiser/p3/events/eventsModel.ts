@@ -34,13 +34,11 @@ export const WHY = {
   editPast: 'This event has finished, so it can\u2019t be changed. Add a new event to run it again.',
 } as const;
 
-/** A story told once: a cancelled night stays on the calendar marked Cancelled. */
-/** The cancel scope ask: one night is the only command that exists for a night; every date waits on the team. */
+/** The cancel scope ask: one night (the date sheet) or every coming night (occurrence.bulk_cancel). */
 export const SCOPE = {
   title: 'Cancel which nights?',
   one: 'This night only',
   all: 'Every night',
-  allWhy: 'Cancelling every night in one go is not available yet. It needs work from the Bachata Calendar team. Cancel them one at a time for now.',
   /** Only asked when the event has this many coming nights that could be cancelled. */
   askFrom: 2,
 } as const;
@@ -118,7 +116,6 @@ export interface EventsModel {
   /** Every night has passed and none are shown: what to do next. */
   allPast: string | null;
   noMatch: string | null;
-  note: string | null;
 }
 
 function nightsOfRow(r: P3Row, today: IsoDate, seat: Seat): Night[] {
@@ -219,6 +216,5 @@ export function buildEvents(i: EventsInput): EventsModel {
     empty: state === 'empty' ? (viewOnly ? 'This page has no events yet. The page owner or a manager can add one.' : 'No events yet. Tap New event to add your first night.') : null,
     allPast: state === 'allpast' ? (viewOnly ? 'Every event on this page has finished. Tap Show past events to look back. The page owner or a manager can add a new event.' : 'Every event on this page has finished. Tap Show past events to look back, or New event to add a night.') : null,
     noMatch: state === 'nomatch' ? `Nothing matches${q ? ` \u201c${i.query.trim()}\u201d` : ' these filters'}. Tap Clear search and filters to see every night.` : null,
-    note: null,
   };
 }

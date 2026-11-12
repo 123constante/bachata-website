@@ -12,3 +12,6 @@ Next: owner flips the flag; browser walk at 390x844 with a signed-in organiser (
 
 
 Fix round 1 (brief profile-dash-organiser-events-build-fix1): items 1-8 done in code and tests (see the Handover in docs/design/profile-dash/organiser-events.md). Item 9 NOT done: no 390x844 walk or screenshots (needs the side laptop). pre-ship failed locally only on sandbox causes (DB contract tests, tooling tests, typecheck ratchet with no errors in touched files).
+
+
+Fix round 2 (brief ...-fix2): items 2-5 done. "Every night" now sends the existing `occurrence.bulk_cancel` (bulkCancelCommand via runBulkCommand, reason chips from cancellation_reasons, confirm names the night count, zero-coming-nights state). Added tests: success, error, zero nights, draft load-error aria-describedby; matrix "100+" row is now 100 nights with the "Show 30 more" assertion. Removed the orphan doc comment and the unused `note` field. tsc: zero errors in p3/events. vitest p3 green. Item 1 NOT done: no 390x844 walk/screenshots or CI table from this cloud worker (no preview laptop, no gh); pre-ship not run here. eslint: 1 pre-existing no-control-regex in eventsModel.test.ts:139 (file untouched by this round).

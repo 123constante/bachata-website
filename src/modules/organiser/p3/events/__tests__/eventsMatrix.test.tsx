@@ -14,7 +14,7 @@ import { EventsView, NightSheet } from '../EventsView';
  */
 const dated = (d: string) => ({ occurrence_id: `o-${d}`, occurrence_date: d, lifecycle_status: 'scheduled', materialised_start_utc: `${d}T20:00:00+00:00`, has_own_changes: false, venue_name: null });
 const cancelledDate = { ...dated('2026-11-06'), lifecycle_status: 'cancelled' };
-const many = Array.from({ length: 30 }, (_, i) => ({ ...SHAPES.tonight, id: `m${i}`, name: `Night ${i}`, upcoming_count: 40, next_dates: [dated('2026-11-06'), dated('2026-11-13')] }));
+const many = Array.from({ length: 50 }, (_, i) => ({ ...SHAPES.tonight, id: `m${i}`, name: `Night ${i}`, upcoming_count: 40, next_dates: [dated('2026-11-06'), dated('2026-11-13')] }));
 const allCx = [{ ...SHAPES.tonight, id: 'cx', name: 'Gone Night', upcoming_count: 1, next_dates: [cancelledDate, dated('2026-11-13')] }];
 
 interface Row {
@@ -75,6 +75,11 @@ describe('Events screen x shape (one table)', () => {
       }
     }
     expect(model.viewOnly).toBe(r.seat === 'contributor');
+    // paged: 100 nights in 50 series, the first 15 drawn and the button names the next page
+    if (r.shape.startsWith('100+')) {
+      expect(model.total).toBe(100);
+      expect(screen.getByTestId('ev-more').textContent).toBe('Show 30 more');
+    }
     cleanup();
 
     // the first night's sheet
