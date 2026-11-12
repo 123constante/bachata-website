@@ -28,3 +28,16 @@ Branch `claude/profile-dash-organiser-team-build`. Website only, no migration, n
 
 ## Next
 Run the 390x844 walk with the flag on, `npm run pre-ship` in CI, `/code-review`, then open the PR (body above, then both check-pr scripts).
+
+## Fix round 1 (dt_533412569899)
+Fixed on the same branch:
+1. Interim manager: Add is "Share a join link" and calls the share directly (`addVia: 'share'`); no Add sheet, no Find link, no empty-Managers Add link. Own row shows "Interim manager".
+2. No page: new `nopage` load state shows the old NO_PAGE empty state with Message us (paths.help).
+3. teamRules: person sheet roles/remove/leave now come from `canManagePeople` / `canRemove` / `canLeave`; ownerless pages say NO_OWNER_REASON plus Message us; "Owners cannot remove another owner" only for an owner viewer; contributor view-only note on an ownerless page names no owner.
+4. Carried over: PublicToggle (own row, "Public team" card), RequestsError, PageNameCaption (2+ pages), ownRowLabel.
+5. Tests: SHAPES gained manager viewer, interim, no owner, no owner + contributor viewer, no page; disabled-reason sweep also runs with each person sheet open; the public switch has aria-describedby to its reason (id on the `<p>`).
+6. Middle dot is now a `·` escape; check:mojibake clean.
+7. Pre-existing calls listed in the PR body. PR body updated (both check-pr scripts exit 0).
+
+Verified: teamDash matrix 54/54; tsc 0 errors in touched files (unrelated errors in app/); eslint clean on the team folder.
+Not verified: `npm run pre-ship`, per-job CI, /code-review, the 390x844 walk with screenshots (no preview host here), live RPCs. Tests were not run red-first.
