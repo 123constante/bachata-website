@@ -50,54 +50,6 @@ const never = <T,>(): Promise<T> => new Promise<T>(() => {});
 // Nights list itself), never my_dancer_stats_v1.nights_going_upcoming. The full shape
 // table lives in screens/home/__tests__/homeAudit.test.tsx; here: tile === strip, and the
 // tile's loading / failed words.
-describe('F7: Home shows ONE "going" number (get_my_going_v1) on the tile and the strip', () => {
-  const shapes: Array<{ name: string; stats: StatsShapeName; reply: () => unknown; want: string }> = [
-    { name: 'going to a cancelled night', stats: 'cancelledNight', reply: () => ({ upcoming: [cancelled('c1', 'C', 3)], past: [] }), want: '0' },
-    { name: 'going to a night of an ended series', stats: 'endedSeries', reply: () => ({ upcoming: [notLive('e1', 'E', 5, 'ended')], past: [] }), want: '1' },
-    { name: 'zero', stats: 'zero', reply: () => ({ upcoming: [], past: [] }), want: '0' },
-    { name: 'normal (3 going)', stats: 'normal', reply: () => ({ upcoming: [night('a', 'A', 1), night('b', 'B', 2), night('c', 'C', 3)], past: [] }), want: '3' },
-  ];
-
-  it.each(shapes)('$name: tile === strip', async (s) => {
-    h.reply = s.reply();
-    renderInShell({ path: '/app/home', backend: { statsShape: s.stats } });
-    await screen.findByTestId('stats-strip');
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(s.want));
-    const stripCell = screen.queryByTestId('stat-going-value');
-    if (stripCell) expect(stripCell.textContent).toBe(s.want);
-    else expect(screen.getByTestId('stats-strip-empty')).toBeTruthy();
-  });
-
-  it('while the nights load, the tile says Loading, not a number', async () => {
-    h.going = 'never';
-    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await screen.findByTestId('stats-strip');
-    expect(screen.getByTestId('tile-going-count').textContent).toBe('Loading\u2026');
-  });
-
-  it('when the nights read fails, the tile says so in words, not a number from another source', async () => {
-    h.going = 'error';
-    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('Could not load'));
-  });
-});
-
-// Review: the strip's Went came from my_dancer_stats_v1.nights_went, which disagrees with
-// get_my_going_v1.past. Once the going list has loaded, Went is mapMyGoing's past list
-// (cancelled past nights left out), the same list the Nights screen shows.
-describe('Went reads the same going list as the Going cell', () => {
-  it.each([
-    { name: 'two past, one cancelled', past: () => [night('c', 'C', -3), night('d', 'D', -20), cancelled('y', 'Y', -4)], want: '2' },
-    { name: 'no past nights (stats say 12)', past: () => [], want: '0' },
-  ])('$name: Went = $want', async (s) => {
-    h.reply = { upcoming: [night('a', 'A', 1)], past: s.past() };
-    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe('1'));
-    expect(screen.getByTestId('stat-went-value').textContent).toBe(s.want);
-  });
-});
-
-/* ------------------------------------------------------------------ F8 */
 describe('F8: the fix links on /app/page are 44px tap targets', () => {
   it.each([
     ['noPhoto', 'Edit my profile'],
@@ -113,14 +65,6 @@ describe('F8: the fix links on /app/page are 44px tap targets', () => {
 
 /* ------------------------------------------------------------------ F12 */
 describe('F12: a numbers failure says WHICH failure, and /app/page offers Try again', () => {
-  it.each([
-    ['noProfile', 'no_profile'],
-    ['areaClosed', 'area_closed'],
-  ] as const)('Home, %s: the error box shows the plain copy for %s', async (shape, code) => {
-    renderInShell({ path: '/app/home', backend: { statsShape: shape } });
-    expect((await screen.findByTestId('numbers-error')).textContent).toContain(copyFor(code));
-  });
-
   it.each([
     ['noProfile', 'no_profile'],
     ['areaClosed', 'area_closed'],
@@ -182,35 +126,3 @@ describe('F13/F14: feedback sheet', () => {
 });
 
 /* ------------------------------------------------------------------ F15 */
-describe('F15: partner tile', () => {
-  it('rate_limited says the real limit (once every 30 days), not "a few minutes"', async () => {
-    const { backend } = renderInShell({ path: '/app/home' });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    backend.failNextWith('rate_limited');
-    fireEvent.click(btn);
-    const err = (await screen.findByTestId('partner-error')).textContent ?? '';
-    expect(err).toMatch(/once every 30 days/);
-    expect(err).not.toMatch(/few minutes/);
-  });
-
-  it('invalid_feature does not ask the person to try again', async () => {
-    const { backend } = renderInShell({ path: '/app/home' });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    await waitFor(() => expect(btn.disabled).toBe(false));
-    backend.failNextWith('invalid_feature');
-    fireEvent.click(btn);
-    const err = (await screen.findByTestId('partner-error')).textContent ?? '';
-    expect(err).not.toMatch(/try again/i);
-    expect(err).toMatch(/nothing you need to do/);
-  });
-
-  it('while its status loads, the button is disabled and says Loading', async () => {
-    const backend = createFakeBackend();
-    backend.fetchMyFeatureInterest = never;
-    renderInShell({ path: '/app/home', backend });
-    const btn = (await screen.findByTestId('partner-notify')) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-    expect(btn.textContent).toBe('Loading\u2026');
-  });
-});

@@ -92,7 +92,8 @@ describe('ClaimCard (D4): every status is drawn', () => {
       fireEvent.click(screen.getByTestId('claim-button'));
       await waitFor(() => expect(screen.getByTestId('claim-title').textContent).toBe(CLAIM_COPY[status].title));
       expect(run).toHaveBeenCalledTimes(1);
-      expect(screen.queryAllByTestId('message-us').length).toBe(CLAIM_COPY[status].message ? 1 : 0);
+      // Walk bug 1 (owner decision): the Message us control is on the card for every answer, so copy that says "Message us" always has it.
+      expect(screen.queryAllByTestId('message-us').length).toBe(1);
       // never points at a control that is not there
       expect(document.body.textContent).not.toMatch(/start a new profile|this is not me/i);
     });

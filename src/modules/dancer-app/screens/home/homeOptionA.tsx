@@ -55,8 +55,8 @@ export const HomeAView = ({ profile, went, night, goingKnown }: { profile: MyDan
               <ul data-testid="home-checklist" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 2 }}>
                 {v.checklist.map((c) => (
                   <li key={c.step} data-done={c.done} data-next={c.next} style={{ display: 'flex', gap: 10, minHeight: 32, alignItems: 'center', fontSize: 15, fontWeight: c.next ? 700 : 400 }}>
-                    <span aria-hidden="true">{c.done ? '✓' : '○'}</span>
-                    <span>{c.noun}{c.done ? <span className="da-sr-only" style={{ position: 'absolute', left: -9999 }}> done</span> : null}{c.next ? ' · next' : ''}</span>
+                    <span aria-hidden="true">{c.done ? '\u2713' : '\u25CB'}</span>
+                    <span>{c.noun}{c.done ? <span className="da-sr-only" style={{ position: 'absolute', left: -9999 }}> done</span> : null}{c.next ? ' \u00B7 next' : ''}</span>
                   </li>
                 ))}
               </ul>
@@ -151,13 +151,14 @@ export const ClaimCard = ({ run = claimMyDancerProfile }: { run?: () => Promise<
           )}
           {(!outcome || outcome.status === 'unavailable') && (
             <button type="button" className="da-tap" disabled={busy} data-testid="claim-button" style={{ ...buttonStyle, border: 0 }} onClick={() => void onClaim()}>
-              {busy ? 'Checking…' : outcome ? 'Try again' : 'Claim your page'}
+              {busy ? 'Checking\u2026' : outcome ? 'Try again' : 'Claim your page'}
             </button>
           )}
           {outcome && outcome.status !== 'unavailable' && outcome.status !== 'linked' && outcome.status !== 'already_linked' && (
             <button type="button" className="da-tap" data-testid="claim-recheck" style={{ background: 'none', border: '1px solid var(--da-border)', borderRadius: 12, color: 'var(--da-text)', fontWeight: 700 }} onClick={() => void onClaim()}>Check again</button>
           )}
-          {copy?.message && <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />}
+          {/* walk bug 1: the Message us control is always on the claim card (owner decision), not only after an answer */}
+          <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />
         </div>
       </Card>
     </div>
