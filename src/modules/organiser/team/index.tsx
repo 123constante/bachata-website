@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, UserPlus } from 'lucide-react';
@@ -13,6 +13,7 @@ import { AnnounceRegion, Card, EmptyState, ErrorState, GhostButton, SkeletonRows
 import { OrganiserSwitcher } from '../profile/OrganiserSwitcher';
 import { organiserTeamQueryKey } from '@/modules/organiser/shared/teamRpcApi';
 import { callerSeatOf } from '@/modules/organiser/edit-in-place/teamVisibilityModel';
+import { flags } from '@/lib/featureFlags';
 import { Avatar } from './Avatar';
 import { hideErrorMessage, organiserPublicTeamKey, setTeamMemberHidden } from './publicTeamApi';
 import { NOBODY_LISTED, SHARED_READ_FAILED, SHARED_ROLE_LABEL, rowSwitch, type SharedTeamRow } from './teamShared';
@@ -125,7 +126,7 @@ function MemberRow({ m, seatLabel }: { m: TeamMember; seatLabel: string | null }
   );
 }
 
-export default function TeamPage() {
+function TeamPageClassic() {
   const ctx = useTeamContext();
   const { organiser, members, viewerRole, listed } = ctx;
   const { kind, Shell, paths, hub } = useOrgSurface();
@@ -213,6 +214,23 @@ export default function TeamPage() {
             )}
           </>
         )}
+      </div>
+    </Shell>
+  );
+}
+
+// Organiser dashboard flag (admin #1535, Team tab Option B): P3 only; OFF = the page above, unchanged.
+const TeamDashRoute = lazy(() => import('../p3/dash/team/TeamDashRoute').then((m) => ({ default: m.TeamDashRoute })));
+
+export default function TeamPage() {
+  const { kind, Shell, hub } = useOrgSurface();
+  if (!(flags.organiserDash && kind === 'p3')) return <TeamPageClassic />;
+  return (
+    <Shell title="Team" back={hub} testId="org-page-team">
+      <div className="flex flex-col gap-3 p-3">
+        <Suspense fallback={<SkeletonRows count={3} label="Loading your team" testId="team-loading" />}>
+          <TeamDashRoute />
+        </Suspense>
       </div>
     </Shell>
   );
