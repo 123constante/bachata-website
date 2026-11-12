@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dancer dashboard B polished</title>
-<!-- Design only (admin #1537). Tokens = src/modules/dancer-app/theme/dancer.css. Open with #new #partial #saveOff #complete #completeEmpty #unclaimed #switch #addProfile for one 390x844 frame. ASCII + entities only. -->
+<!-- Design only (admin #1537, critique fixes admin #1545). Tokens = src/modules/dancer-app/theme/dancer.css. Open with #new #partial #saveOff #complete #completeEmpty #unclaimed #switch #addProfile #account for one 390x844 frame. ASCII + entities only. No text characters as icons: every icon is an inline SVG on the 2px stroke set. Dashed border = disabled or placeholder ONLY. -->
 <style>
-:root{--bg:#202226;--sf:#2A2D32;--sf2:#33373D;--tx:#FFFFFF;--mu:#A3A9B3;--ac:#F5865A;--onac:#1D0A03;--bd:#3D4148;--pl:#C9ADFF;--ok:#7BE0A0;--onok:#06210F;--warn:#FFCF66;
+:root{--bg:#202226;--sf:#2A2D32;--sf2:#33373D;--tx:#FFFFFF;--mu:#A3A9B3;--ac:#F5865A;--onac:#1D0A03;--bd:#3D4148;--pl:#C9ADFF;--ok:#7BE0A0;--warn:#FFCF66;--teal:#4FE0CF;
 --r:14px;--tap:44px;--hd:52px;--tabs:60px;--gap:12px;--pad:16px}
 *{box-sizing:border-box}html,body{margin:0;background:#111;color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{display:flex;flex-wrap:wrap;gap:24px;padding:24px;justify-content:center}
@@ -10,33 +10,43 @@ body.one{padding:0;gap:0;display:block;background:var(--bg)}
 .cap{width:390px;text-align:center;color:#C8CCD2;font-size:13px;margin-bottom:6px}body.one .cap{display:none}
 .phone{width:390px;height:844px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
 a,button{font:inherit;color:inherit}
+svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* header */
-.hd{height:var(--hd);flex:none;display:flex;align-items:center;gap:8px;padding:0 8px 0 var(--pad);border-bottom:1px solid var(--bd)}
+.hd{height:var(--hd);flex:none;display:flex;align-items:center;gap:4px;padding:0 8px 0 var(--pad);border-bottom:1px solid var(--bd)}
+.hd.bk{padding-left:4px}
 .hd h1{margin:0;font-size:18px;font-weight:800;flex:1}
+.ib{display:flex;align-items:center;justify-content:center;width:var(--tap);height:var(--tap);flex:none;background:none;border:0;border-radius:22px;text-decoration:none;cursor:pointer;padding:0}
+.ib svg{width:24px;height:24px}
 .me{display:flex;align-items:center;gap:8px;min-height:var(--tap);min-width:var(--tap);padding:0 10px 0 4px;border-radius:22px;border:1px solid var(--bd);background:var(--sf);text-decoration:none;font-size:14px;font-weight:700;cursor:pointer}
 .me.solo{padding:0 4px;border-color:transparent;background:transparent;justify-content:center}
-.me .pic{width:32px;height:32px;border-radius:50%;background:var(--sf2);border:2px solid var(--pl);color:var(--pl);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex:none}
-.me svg{width:14px;height:14px;flex:none}
+.pic{width:32px;height:32px;border-radius:50%;background:var(--sf2);border:2px solid var(--pl);color:var(--pl);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex:none}
+.pic svg{width:60%;height:60%}
+.me>svg{width:14px;height:14px;flex:none;stroke-width:2.5}
 /* body */
 .sc{flex:1;overflow:hidden;padding:var(--pad);display:grid;gap:var(--gap);align-content:start}
-.hi p{margin:0}.hi .k{font-size:14px;color:var(--mu)}.hi .n{font-size:26px;font-weight:800;line-height:1.15;overflow-wrap:anywhere}
-.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:var(--pad)}
-.card .k{margin:0;font-size:13px;font-weight:700;color:var(--mu);letter-spacing:.02em}
-.card h2{margin:4px 0 0;font-size:20px;font-weight:800;line-height:1.2}
+.hi{margin:0;font-size:26px;font-weight:800;line-height:1.15;overflow-wrap:anywhere}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:var(--pad);display:block;text-decoration:none}
+.card h2{margin:0;font-size:20px;font-weight:800;line-height:1.2}
 .why{margin:8px 0 0;font-size:14px;color:var(--mu)}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:12px 0 0}
 .seg i{height:6px;border-radius:3px;background:var(--sf2)}.seg i.d{background:var(--ok)}.seg i.n{background:var(--ac)}
+.stepcap{margin:6px 0 0;font-size:13px;color:var(--mu)}
 .btn{display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:12px;border-radius:12px;font-weight:800;font-size:16px;background:var(--ac);color:var(--onac);border:0;width:100%;text-decoration:none;cursor:pointer}
 .btn.g{background:transparent;color:var(--tx);border:1px solid var(--bd);margin-top:8px}
+.btn.sm{width:auto;min-height:44px;margin:0;padding:0 14px;font-size:15px}
 .btn[disabled]{background:var(--sf2);color:var(--mu);border:1px dashed var(--bd);cursor:not-allowed}
 .reason{margin:6px 0 0;font-size:13px;color:var(--mu)}
+.tl{display:flex;align-items:center;justify-content:center;min-height:var(--tap);margin-top:4px;font-size:15px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .state{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:4px 10px;border-radius:99px;background:#3A3220;color:var(--warn)}
-.count{display:flex;align-items:baseline;gap:10px;margin:6px 0 0}.count b{font-size:32px;line-height:1}.count span{font-size:14px;color:var(--mu)}
+/* next-night link card */
+.card.go{display:flex;align-items:center;gap:8px;min-height:var(--tap)}
+.card.go .t{flex:1;min-width:0}.card.go h2{font-size:17px}.card.go .why{margin-top:2px}
+.card.go>svg{width:20px;height:20px;flex:none;color:var(--mu)}
 /* three tiles (density rule: 3 columns) */
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tile{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:12px 6px;min-height:92px;text-align:center;display:grid;gap:4px;justify-items:center;align-content:center;font-size:14px;font-weight:700;text-decoration:none}
 .tile svg{width:22px;height:22px;color:var(--pl)}.tile small{font-size:12px;color:var(--mu);font-weight:400;line-height:1.25}
-.note{font-size:13px;color:var(--mu);padding:10px 12px;border:1px dashed var(--bd);border-radius:12px;margin:0}
+.note{font-size:13px;color:var(--mu);margin:0}
 .who{display:flex;gap:12px;align-items:center;margin-top:12px}
 .av{width:52px;height:52px;border-radius:50%;background:var(--sf2);border:2px dashed var(--mu);color:var(--mu);flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
 .who p{margin:0}.who .b{font-weight:800}.who .s{font-size:14px;color:var(--mu)}
@@ -44,50 +54,57 @@ a,button{font:inherit;color:inherit}
 .tabs{height:var(--tabs);flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--bd);background:var(--bg)}
 .tabs a{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--mu);min-height:var(--tap);text-decoration:none}
 .tabs a[aria-current]{color:var(--tx);box-shadow:inset 0 3px 0 var(--ac)}
-/* sheet */
-.scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;flex-direction:column;justify-content:flex-end}
-.sheet{background:var(--bg);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:8px 0 20px}
+/* sheet: the shipped ProfileSwitcher dancer surface (--da-surface, border-top --da-border) */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;flex-direction:column;justify-content:flex-end}
+.sheet{background:var(--sf);border-top:1px solid var(--bd);border-radius:16px 16px 0 0;padding:8px 0 12px}
 .sh{display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 var(--pad)}
+.sh.bk{justify-content:flex-start;gap:4px;padding:0 var(--pad) 0 4px}
 .sh h2{margin:0;font-size:16px;font-weight:800}
 .x{min-height:var(--tap);min-width:var(--tap);background:none;border:0;font-weight:700;font-size:15px;cursor:pointer;padding:0 8px}
 .grp{list-style:none;margin:0;padding:0;border-bottom:1px solid var(--bd)}
-.side{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px var(--pad);text-decoration:none;font-size:16px}
-.side .pic{width:36px;height:36px;border-radius:50%;background:var(--sf2);border:2px solid var(--pl);color:var(--pl);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none}
-.side .pic.sq{border-radius:10px;border-color:#4FE0CF;color:#4FE0CF}
+.side{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px var(--pad);text-decoration:none;font-size:15px}
+.side .pic{width:36px;height:36px;font-size:14px}
+.side .pic.sq{border-radius:10px;border-color:var(--teal);color:var(--teal)}
 .side .pic.dj{border-color:var(--warn);color:var(--warn)}
 .side .t{flex:1;min-width:0}.side .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
-.side .t small{display:block;font-size:13px;color:var(--mu)}
-.side[aria-current]{background:var(--sf)}
-.side svg{width:20px;height:20px;flex:none}
-.side.add{color:var(--tx);font-weight:700}.side.add .pic{border-style:dashed;border-color:var(--mu);color:var(--tx);background:transparent}
+.side .t small{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mu)}
+.side>svg{width:20px;height:20px;flex:none}
+.side .ico{width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--mu)}
+.side .ico svg{width:22px;height:22px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid currentColor;background:linear-gradient(90deg,currentColor 50%,transparent 50%);flex:none}
 .side.plain{font-weight:700}
 /* edit detail */
-.fld{display:grid;gap:6px;margin-top:12px}.fld label{font-size:14px;font-weight:700}.fld span{display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:10px;background:var(--sf2);border:1px solid var(--bd);font-size:16px}
+.fld{display:grid;gap:6px;margin-top:12px}.fld label{font-size:14px;font-weight:700}.fld>span{display:flex;align-items:center;min-height:48px;padding:0 12px;border-radius:10px;background:var(--sf2);border:1px solid var(--bd);font-size:16px}
+.photo{display:flex;align-items:center;gap:12px;margin-top:6px}.photo .av{width:48px;height:48px}.photo .av svg{width:26px;height:26px}.photo p{flex:1;margin:0;font-size:15px;color:var(--mu)}
 </style></head><body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-<symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
-<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
-<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
-<symbol id="i-msg" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4V5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
-<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+<symbol id="i-fwd" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+<symbol id="i-phones" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 </svg>
 
-<!-- D1 new account: one side only, so the picture button opens "Your account" (no switch pill) -->
+<!-- D1 new account: one side only, so the picture opens "Your account" (#account). No name yet: person icon in the plum ring. -->
 <section class="shape" id="new"><div class="cap">D1 New account &middot; strength 0 &middot; next_step first_name</div><div class="phone">
-<header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">?</span></a></header>
+<header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic"><svg><use href="#i-person"/></svg></span></a></header>
 <main class="sc">
-<div class="hi"><p class="k">Welcome</p><p class="n">Let&rsquo;s set up your profile</p></div>
-<div class="card"><p class="k">STEP 1 OF 4</p><h2>What should we call you?</h2>
-<div class="seg" aria-label="0 of 4 steps done"><i class="n"></i><i></i><i></i><i></i></div>
+<p class="hi">Let&rsquo;s set up your profile</p>
+<div class="card"><h2>What should we call you?</h2>
+<div class="seg" aria-hidden="true"><i class="n"></i><i></i><i></i><i></i></div>
+<p class="stepcap">Step 1 of 4</p>
 <p class="why">Four quick steps: your name, your city, how you dance, a photo.</p>
 <a class="btn" href="#edit-first_name">Add your first name</a></div>
 <p class="note">Your numbers appear here once your profile is set up and you have been to a night.</p>
 <nav class="tiles" aria-label="Shortcuts">
 <a class="tile" href="#nights"><svg><use href="#i-moon"/></svg>Nights<small>find one near you</small></a>
 <a class="tile" href="#page"><svg><use href="#i-eye"/></svg>My page<small>see how it looks</small></a>
-<a class="tile" href="#options"><svg><use href="#i-gear"/></svg>Options<small>account, help</small></a></nav>
+<a class="tile" href="#saveOff"><svg><use href="#i-edit"/></svg>Edit<small>0 of 4 done</small></a></nav>
 </main>
 <nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
 </div></section>
@@ -96,9 +113,10 @@ a,button{font:inherit;color:inherit}
 <section class="shape" id="partial"><div class="cap">D2 Unfinished &middot; next_step photo &middot; 3 of 4 done</div><div class="phone">
 <header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">A</span></a></header>
 <main class="sc">
-<div class="hi"><p class="k">Welcome back</p><p class="n">Hi Ana</p></div>
-<div class="card"><p class="k">STEP 4 OF 4</p><h2>Add your photo</h2>
-<div class="seg" aria-label="3 of 4 steps done"><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i></div>
+<p class="hi">Hi Ana</p>
+<div class="card"><h2>Add your photo</h2>
+<div class="seg" aria-hidden="true"><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i></div>
+<p class="stepcap">Step 4 of 4</p>
 <p class="why">Name, city and how you dance are done. A photo helps people recognise you at a night.</p>
 <a class="btn" href="#photo">Add your photo</a></div>
 <p class="note">Going to a night? Say so on Nights and it shows here.</p>
@@ -110,14 +128,15 @@ a,button{font:inherit;color:inherit}
 <nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
 </div></section>
 
-<!-- D2 detail: Edit opened, nothing changed: Save is off with its reason and sends nothing -->
+<!-- D2 detail: Edit opened from the "3 of 4 done" tile. All four steps live here (photo included). Nothing changed: Save is off with its reason and sends nothing. -->
 <section class="shape" id="saveOff"><div class="cap">D2 detail &middot; Edit untouched: Save off, sends nothing</div><div class="phone">
-<header class="hd"><h1>Edit profile</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">A</span></a></header>
+<header class="hd bk"><a class="ib" href="#partial" aria-label="Back"><svg><use href="#i-back"/></svg></a><h1>Edit profile</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">A</span></a></header>
 <main class="sc">
-<div class="card"><p class="k">ABOUT YOU</p>
-<div class="fld"><label>First name</label><span>Ana</span></div>
+<div class="card">
+<div class="fld" style="margin-top:0"><label>First name</label><span>Ana</span></div>
 <div class="fld"><label>City</label><span>London</span></div>
 <div class="fld"><label>How you dance</label><span>Follower</span></div>
+<div class="fld"><label>Photo</label><div class="photo"><span class="av"><svg><use href="#i-person"/></svg></span><p>No photo yet</p><a class="btn g sm" href="#photo">Add photo</a></div></div>
 <button class="btn" disabled aria-describedby="save-reason">Save changes</button>
 <p class="reason" id="save-reason">Change something to save. Nothing is sent until you do.</p></div>
 </main>
@@ -128,10 +147,10 @@ a,button{font:inherit;color:inherit}
 <section class="shape" id="complete"><div class="cap">D3 Complete &middot; 12 nights &middot; 21-char first name (prod max)</div><div class="phone">
 <header class="hd"><h1>Home</h1><a class="me" href="#switch" aria-label="Switch profile, now Dancer"><span class="pic">C</span>Dancer<svg><use href="#i-down"/></svg></a></header>
 <main class="sc">
-<div class="hi"><p class="k">Welcome back</p><p class="n">Hi Christina-Alexandrina</p></div>
-<div class="card"><p class="k">NIGHTS ATTENDED</p><div class="count"><b>12</b><span>nights so far</span></div>
+<p class="hi">Hi Christina-Alexandrina</p>
+<div class="card"><h2>12 nights attended</h2>
 <p class="why">A night counts once it has happened, if you said you were going.</p></div>
-<div class="card"><p class="k">NEXT NIGHT</p><h2 style="font-size:17px">Friday Bachata Social</h2><p class="why" style="margin-top:2px">Fri 14 Nov &middot; Shoreditch &middot; you&rsquo;re going</p></div>
+<a class="card go" href="#event"><span class="t"><h2>Friday Bachata Social</h2><p class="why">You&rsquo;re going &middot; Fri 14 Nov &middot; Shoreditch</p></span><svg><use href="#i-fwd"/></svg></a>
 <nav class="tiles" aria-label="Shortcuts">
 <a class="tile" href="#edit"><svg><use href="#i-edit"/></svg>Edit<small>profile</small></a>
 <a class="tile" href="#nights"><svg><use href="#i-moon"/></svg>Nights<small>1 coming up</small></a>
@@ -144,9 +163,9 @@ a,button{font:inherit;color:inherit}
 <section class="shape" id="completeEmpty"><div class="cap">D3 Complete &middot; 0 nights &middot; nothing going</div><div class="phone">
 <header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">L</span></a></header>
 <main class="sc">
-<div class="hi"><p class="k">Welcome back</p><p class="n">Hi Laura</p></div>
-<div class="card"><p class="k">YOUR PROFILE IS COMPLETE</p><h2>Find your first night</h2>
-<p class="why">Say you&rsquo;re going to a night. After it happens it counts as a night attended here.</p>
+<p class="hi">Hi Laura</p>
+<div class="card"><h2>Your profile is complete.</h2>
+<p class="why">Next, find your first night. Say you&rsquo;re going; after it happens it counts as a night attended here.</p>
 <a class="btn" href="#nights">Find a night</a></div>
 <nav class="tiles" aria-label="Shortcuts">
 <a class="tile" href="#edit"><svg><use href="#i-edit"/></svg>Edit<small>profile</small></a>
@@ -156,59 +175,78 @@ a,button{font:inherit;color:inherit}
 <nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
 </div></section>
 
-<!-- D4 unclaimed match: claim is automatic today (G-2). No live Claim button: a labelled state + the action that exists. -->
+<!-- D4 unclaimed match: claim is automatic today (G-2, open owner question). One live action; "Not me" is a text link. -->
 <section class="shape" id="unclaimed"><div class="cap">D4 Unclaimed match &middot; auto-claim did not fire (G-2)</div><div class="phone">
-<header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">?</span></a></header>
+<header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic"><svg><use href="#i-person"/></svg></span></a></header>
 <main class="sc">
-<div class="hi"><p class="k">Welcome</p><p class="n">This page may be yours</p></div>
+<p class="hi">This page may be yours</p>
 <div class="card"><span class="state">Needs a check from us</span>
 <div class="who"><span class="av">M</span><div><p class="b">Marco Rossi</p><p class="s">Leader &middot; London &middot; made by our team</p></div></div>
 <p class="why">We could not link it to your sign-in on our own. Message us and we will link it for you.</p>
 <a class="btn" href="#help">Message us to claim it</a>
-<button class="btn g" disabled aria-describedby="claim-reason">Claim this page</button>
-<p class="reason" id="claim-reason">Claiming with one tap is not ready yet. Use the message button above.</p>
-<a class="btn g" href="#edit-first_name">Not me, start my own</a></div>
+<a class="tl" href="#edit-first_name">Not me, start my own</a></div>
 <nav class="tiles" aria-label="Shortcuts">
 <a class="tile" href="#look"><svg><use href="#i-eye"/></svg>Look<small>at that page</small></a>
 <a class="tile" href="#nights"><svg><use href="#i-moon"/></svg>Nights<small>find one</small></a>
-<a class="tile" href="#help"><svg><use href="#i-msg"/></svg>Message<small>us</small></a></nav>
+<a class="tile" href="#page"><svg><use href="#i-person"/></svg>My page<small>see how it looks</small></a></nav>
 </main>
 <nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
 </div></section>
 
-<!-- Switch sheet open (over D3) -->
-<section class="shape" id="switch"><div class="cap">Switch open &middot; Dancer / DJ area / Organiser &middot; + Add a profile</div><div class="phone">
+<!-- Switch sheet open (over D3): shipped ProfileSwitcher order. Sides (organisers first, tick on current), then the areas group
+     (teacher / DJ rows with status dot + words, then "Your areas"), then + Add a profile, Account settings, Sign out. -->
+<section class="shape" id="switch"><div class="cap">Switch open &middot; Organiser, Dancer &middot; Your areas: DJ &middot; + Add a profile</div><div class="phone">
 <header class="hd"><h1>Home</h1><a class="me" href="#switch" aria-label="Switch profile, now Dancer"><span class="pic">L</span>Dancer<svg><use href="#i-down"/></svg></a></header>
 <main class="sc">
-<div class="hi"><p class="k">Welcome back</p><p class="n">Hi Laura</p></div>
-<div class="card"><p class="k">NIGHTS ATTENDED</p><div class="count"><b>12</b><span>nights so far</span></div></div>
+<p class="hi">Hi Laura</p>
+<div class="card"><h2>12 nights attended</h2></div>
 </main>
 <nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
 <div class="scrim"><div class="sheet" role="dialog" aria-labelledby="sw-t">
 <div class="sh"><h2 id="sw-t">Switch profile</h2><button class="x">Close</button></div>
 <ul class="grp">
-<li><a class="side" href="#complete" aria-current="true"><span class="pic">L</span><span class="t"><b>Laura</b><small>Dancer &middot; you are here</small></span><svg aria-label="Current profile" style="color:var(--ok)"><use href="#i-check"/></svg></a></li>
-<li><a class="side" href="#org"><span class="pic sq">E</span><span class="t"><b>East London Bachata Social Club Nights</b><small>Organiser &middot; owner</small></span></a></li>
-<li><a class="side" href="#dj"><span class="pic dj">DJ</span><span class="t"><b>DJ Laura</b><small>DJ area &middot; finish your DJ page</small></span></a></li>
-<li><a class="side add" href="#addProfile"><span class="pic">+</span><span class="t"><b>Add a profile</b><small>Run events, teach or DJ</small></span></a></li>
+<li><a class="side" href="#org"><span class="pic sq">E</span><span class="t"><b>East London Bachata Social Club Nights</b><small>Organiser</small></span></a></li>
+<li><a class="side" href="#complete" aria-current="true"><span class="pic">L</span><span class="t"><b>Laura</b><small>Dancer</small></span><svg aria-label="Current profile" style="color:var(--ok)"><use href="#i-check"/></svg></a></li>
 </ul>
+<div class="grp">
+<ul style="list-style:none;margin:0;padding:0" aria-label="Your areas"><li><a class="side" href="#dj"><span class="ico"><svg><use href="#i-phones"/></svg></span><span class="t"><b>DJ</b><small><span class="dot" aria-hidden="true"></span>Not finished</small></span></a></li></ul>
+<a class="side plain" href="#areas">Your areas</a>
+</div>
+<a class="side plain" href="#addProfile"><span class="ico"><svg><use href="#i-plus"/></svg></span>Add a profile</a>
 <a class="side plain" href="#settings">Account settings</a>
 <a class="side plain" href="#signout">Sign out</a>
 </div></div>
 </div></section>
 
-<!-- + Add a profile: only paths that exist today (G-8) -->
+<!-- + Add a profile: only paths that exist today (G-8). Back = 44px chevron at left. -->
 <section class="shape" id="addProfile"><div class="cap">+ Add a profile &middot; only live paths (G-8)</div><div class="phone">
 <header class="hd"><h1>Home</h1><a class="me" href="#switch" aria-label="Switch profile, now Dancer"><span class="pic">L</span>Dancer<svg><use href="#i-down"/></svg></a></header>
-<main class="sc"><div class="hi"><p class="k">Welcome back</p><p class="n">Hi Laura</p></div></main>
+<main class="sc"><p class="hi">Hi Laura</p></main>
 <nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
 <div class="scrim"><div class="sheet" role="dialog" aria-labelledby="add-t">
-<div class="sh"><h2 id="add-t">Add a profile</h2><button class="x">Back</button></div>
+<div class="sh bk"><a class="ib" href="#switch" aria-label="Back"><svg><use href="#i-back"/></svg></a><h2 id="add-t">Add a profile</h2></div>
 <ul class="grp">
-<li><a class="side" href="#organiser-new"><span class="pic sq">+</span><span class="t"><b>Run events? Become an organiser</b><small>During the beta, new organiser pages are approved by hand.</small></span></a></li>
-<li><a class="side" href="#help"><span class="pic dj">+</span><span class="t"><b>Teach or DJ? Message us</b><small>We set up teacher and DJ pages with you for now.</small></span></a></li>
+<li><a class="side" href="#organiser-new"><span class="pic sq"><svg><use href="#i-plus"/></svg></span><span class="t"><b>Run events? Become an organiser</b><small>During the beta, new organiser pages are approved by hand.</small></span></a></li>
+<li><a class="side" href="#help"><span class="pic dj"><svg><use href="#i-plus"/></svg></span><span class="t"><b>Teach or DJ? Message us</b><small>We set up teacher and DJ pages with you for now.</small></span></a></li>
 </ul>
 <p class="note" style="margin:12px 16px 0">You keep one sign-in. Switch any time by tapping your picture, top right.</p>
+</div></div>
+</div></section>
+
+<!-- One-profile account sheet (over D2): the shipped single-side sheet. Title "Your account", no switching words. -->
+<section class="shape" id="account"><div class="cap">Your account &middot; one side &middot; no switch words</div><div class="phone">
+<header class="hd"><h1>Home</h1><a class="me solo" href="#account" aria-label="Your account"><span class="pic">A</span></a></header>
+<main class="sc"><p class="hi">Hi Ana</p>
+<div class="card"><h2>Add your photo</h2></div></main>
+<nav class="tabs"><a href="#home" aria-current="page">Home</a><a href="#nights">Nights</a><a href="#me">Me</a><a href="#options">Options</a></nav>
+<div class="scrim"><div class="sheet" role="dialog" aria-labelledby="ac-t">
+<div class="sh"><h2 id="ac-t">Your account</h2><button class="x">Close</button></div>
+<ul class="grp">
+<li><a class="side" href="#partial" aria-current="true"><span class="pic">A</span><span class="t"><b>Ana</b><small>Dancer</small></span><svg aria-label="Current profile" style="color:var(--ok)"><use href="#i-check"/></svg></a></li>
+</ul>
+<a class="side plain" href="#addProfile"><span class="ico"><svg><use href="#i-plus"/></svg></span>Add a profile</a>
+<a class="side plain" href="#settings">Account settings</a>
+<a class="side plain" href="#signout">Sign out</a>
 </div></div>
 </div></section>
 

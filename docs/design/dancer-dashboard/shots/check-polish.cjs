@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const path=require('path');
 const file='file://'+path.resolve('docs/design/dancer-dashboard/option-b-polished.html');
-const shapes=['new','partial','saveOff','complete','completeEmpty','unclaimed','switch','addProfile'];
+const shapes=['new','partial','saveOff','complete','completeEmpty','unclaimed','switch','addProfile','account'];
 (async()=>{
  const b=await chromium.launch(); const out={};
  for(const s of shapes){
@@ -14,7 +14,7 @@ const shapes=['new','partial','saveOff','complete','completeEmpty','unclaimed','
    const L=o=>{const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)};return .2126*f(o.r)+.7152*f(o.g)+.0722*f(o.b)};
    const bgOf=el=>{const chain=[];for(let e=el;e;e=e.parentElement){chain.push(parse(getComputedStyle(e).backgroundColor))}let acc={r:17,g:17,b:17,a:1};for(let i=chain.length-1;i>=0;i--){acc=over(chain[i],acc)}return acc};
    // scrim: elements under the scrim are covered; skip text not top-most
-   const res={scrollW:document.documentElement.scrollWidth,small:[],lowC:[],clip:[],overTabs:[],reasonless:[],minC:99,taps:0};
+   const res={scrollW:document.documentElement.scrollWidth,dashedLive:[],glyphIcons:[],kickers:[],small:[],lowC:[],clip:[],overTabs:[],reasonless:[],minC:99,taps:0};
    const ph=document.querySelector('.shape.on .phone');
    const taps=ph.querySelectorAll('a,button');
    for(const t of taps){const q=t.getBoundingClientRect();if(!q.width)continue;res.taps++;if(q.width<44||q.height<44)res.small.push(t.textContent.trim().slice(0,30)+' '+Math.round(q.width)+'x'+Math.round(q.height))}
@@ -28,6 +28,13 @@ const shapes=['new','partial','saveOff','complete','completeEmpty','unclaimed','
    const tabs=ph.querySelector('.tabs').getBoundingClientRect().top;
    for(const c of ph.querySelectorAll('.sc > *')){if(c.getBoundingClientRect().bottom>tabs)res.overTabs.push(c.className)}
    for(const d of ph.querySelectorAll('[disabled]')){const id=d.getAttribute('aria-describedby');const e=id&&document.getElementById(id);if(!e||!e.textContent.trim())res.reasonless.push(d.textContent)}
+   // Fix 8: dashed border only on [disabled] or a placeholder (.av)
+   for(const e of ph.querySelectorAll('*')){const cs=getComputedStyle(e);if(cs.borderTopStyle==='dashed'&&!e.matches('[disabled],.av'))res.dashedLive.push(e.className||e.tagName)}
+   // Fix 7: no text characters as icons (pic/ico holding "+", "?", or 2+ letters such as DJ)
+   for(const e of ph.querySelectorAll('.pic,.ico,.av')){const t=e.textContent.trim();if(t&&!/^[A-Z]$/.test(t))res.glyphIcons.push(t)}
+   // Fix 4: no kicker labels (an all-caps line, or a small muted line, directly above a heading)
+   for(const h of ph.querySelectorAll('h1,h2,.hi')){const pr=h.previousElementSibling;if(pr&&/^(P|SPAN)$/.test(pr.tagName)&&!pr.matches('.state'))res.kickers.push(pr.textContent.trim().slice(0,30))}
+   for(const e of ph.querySelectorAll('p,span,b')){const t=e.textContent.trim();if(t.length>3&&t===t.toUpperCase()&&/[A-Z]{4}/.test(t))res.kickers.push(t.slice(0,30))}
    return res});
   out[s]=r;
   await p.screenshot({path:`docs/design/dancer-dashboard/shots/b-polished-${s}.png`});

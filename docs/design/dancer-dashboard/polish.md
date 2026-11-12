@@ -1,8 +1,8 @@
 # Dancer dashboard: option B polish (design record)
 
 Admin #1537, parent #1531. Docs / design only, no app code, no DB writes.
-Screens: `option-b-polished.html` (open with `#new`, `#partial`, `#saveOff`, `#complete`, `#completeEmpty`, `#unclaimed`, `#switch`, `#addProfile`
-for one 390x844 frame; no hash shows all eight). Shots: `shots/b-polished-<shape>.png` (390x844 at 2x).
+Screens: `option-b-polished.html` (open with `#new`, `#partial`, `#saveOff`, `#complete`, `#completeEmpty`, `#unclaimed`, `#switch`, `#addProfile`, `#account`
+for one 390x844 frame; no hash shows all nine). Critique fixes (admin #1545): see "Critique round" at the end; where it conflicts with the decisions below, the critique round wins. Shots: `shots/b-polished-<shape>.png` (390x844 at 2x).
 Base: `option-b.html` on `claude/profile-dash-dancer-designs` (PR #1561, not on main yet, so this branch does not depend on it) + the owner-picked switch mock
 (`docs/briefs/dash-switch-mock.md` on the brief branch). Inventory first: `INVENTORY-polish.md` (separate name: PR #1561 adds its own INVENTORY.md) (72 items, 69 covered).
 
@@ -70,3 +70,42 @@ Type: greeting 26/800, card title 20/800, label 13/700 caps, body 16, secondary 
 
 Inventory items covered 69 / 72 (D 39, R 30). Uncovered: #27 erase_requested_at (always null), #35 views tile (removed by contract), #55 legacy EditProfile (superseded).
 Owner calls: G-2 (claim click), G-7 (DJ side), G-8 (add-a-profile destinations and the "Teach or DJ? Message us" copy).
+
+## Critique round (admin #1545, all 8 fixes applied, 2026-11-12)
+
+| # | Fix | What changed in `option-b-polished.html` |
+|---|---|---|
+| 1 | One-profile account sheet; no "?" | New `#account` frame: title "Your account" + Close, one Dancer row with tick, Add a profile, Account settings, Sign out; no switching words. Header picture with no name (`#new`, `#unclaimed`) is an SVG person in the plum ring. |
+| 2 | Switch sheet = shipped `ProfileSwitcher.tsx` | Order: sides (organisers first, `switcherItems`), tick on current; then the areas group (DJ row: plain SVG icon, "DJ", status dot + "Not finished", as `SwitcherAreas` + `StatusDot`) and the "Your areas" link; then Add a profile, Account settings, Sign out. Sheet surface `--da-surface` + `--da-border` top (the shipped dancer sheet). Add-a-profile Back = 44px chevron at LEFT. |
+| 3 | Edit "3 of 4 done" with no photo field | `#saveOff` gains a Photo row: placeholder + "No photo yet" + ghost "Add photo" (all four `REQUIRED_STEPS` now live on Edit). 44px back chevron at left of the Edit header. Save stays off with its reason. |
+| 4 | No kicker labels | Welcome lines gone; "STEP N OF 4" is now the caption "Step N of 4" under the segment bar; `#complete` card heading "12 nights attended"; next-night heading = event name, "You're going &middot; Fri 14 Nov &middot; Shoreditch" under it; ABOUT YOU gone; `#completeEmpty` heading "Your profile is complete." |
+| 5 | `#unclaimed` too busy | Disabled Claim + reason removed (G-2 stays an open owner question); "Message us to claim it" is the one action; "Not me, start my own" is a 44px text link; Message tile replaced by My page. |
+| 6 | Next night is a link | Whole card is an `<a>` to the event, right chevron, 74px tall. |
+| 7 | No text characters as icons | Authored SVG `i-plus`, `i-person`, `i-back`, `i-fwd`, `i-phones` on the same 2px stroke set; "+" / "?" / "DJ" glyphs gone. Ring letters are single initials, as `SideAvatar` -> `PersonAvatar` draws them. |
+| 8 | Dashed = disabled / placeholder only | `.note` is plain muted text, no border; Add a profile icon is solid; dashed survives only on disabled Save and the placeholder avatars (Marco, no-photo). `#new` Options tile (duplicated the tab) replaced by Edit "0 of 4 done". |
+
+Kept: step-of-4 segment bar; numbers never headline when empty; Save-off on Edit; pill only with 2+ profiles.
+
+### Deliberate deviations from shipped code (owner calls)
+
+- **OC-1 Pill with 2+ profiles.** Shipped `ProfileSwitcher` button is a bare 44x44 picture for everyone. The design keeps "picture + Dancer + chevron" when there are 2+ sides (brief: keep). Needs a code change if adopted.
+- **OC-2 "Add a profile" row in the sheet.** Not in shipped `ProfileSwitcher` (shipped has "Your areas" for adding teacher / DJ). Drawn between the areas group and Account settings, in both the switch and the one-profile sheet, per brief fix 1-2.
+- **OC-3 Plum ring on the no-photo picture.** Shipped `PersonAvatar` draws a filled `--da-avatar` disc (initial or `UserRound` glyph), no ring. The design keeps the plum ring (brief fix 1) and an SVG person in it.
+- **OC-4 No-name sheet row label.** Not drawn: shipped `sideTitle` falls back to `DANCER_NAME_PLACEHOLDER`; the one-profile frame shows a named dancer (Ana).
+- **OC-5 Sign-out confirm step.** Shipped Sign out asks first ("Sign out?" + Cancel / Yes, sign out); not drawn as its own frame (unchanged behaviour).
+- G-2 (click-claim) remains open; no Claim control is drawn at all now.
+
+### Checks re-run (2026-11-12, Playwright Chromium, 390x844, `shots/check-polish.cjs`, 9 frames)
+
+| Check | Result |
+|---|---|
+| Tap targets >= 44x44 | 0 under, 85 targets |
+| Text contrast >= 4.5:1 | 0 under; min 5.06:1 |
+| Sideways scroll | scrollWidth 390 in all 9 |
+| Clipping / past x=390 / cut by tab bar | 0 / 0 / 0 |
+| Disabled has a reason | 1 disabled (Save), with reason |
+| NEW dashed border only on `[disabled]` or `.av` placeholder | 0 violations |
+| NEW no text glyph in `.pic` / `.ico` / `.av` except one initial | 0 violations |
+| NEW no kicker (caps line or label element directly above a heading) | 0 violations |
+| Canary: the three NEW checks against the pre-fix HTML | caught: dashed notes + dashed add-pic, "?" / "+" / "DJ" glyphs, STEP N OF 4 / ABOUT YOU / NIGHTS ATTENDED / NEXT NIGHT / YOUR PROFILE IS COMPLETE |
+| Empty states (by hand) | D1 note, D2 note, `#completeEmpty` card + Find a night, Nights tiles "find one / none coming up", D4 Message us |
