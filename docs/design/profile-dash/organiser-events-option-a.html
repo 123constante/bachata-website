@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Organiser Events A</title>
-<!-- Organiser EVENTS tab design option (admin #1535 follow-up). Base: organiser-option-a.html (owner pick):
-     same tokens, fonts, role strip, Switch button, tab bar Home / Events / Tickets / Team. Light theme. Self-contained.
-     Open #<shape>: empty, three, huge, allcx, mixed, recurring, bulk, cancel, contributor, loading, error.
-     Add &shot for a bare 390x844 frame. Option B is built from this file: everything outside the LAYOUT markers is shared. -->
+<!-- Organiser EVENTS tab, Option A: THE PICKED DESIGN (owner, 2026-11-12), fix round 1 applied.
+     Base: organiser-option-a.html (owner pick): same tokens, fonts, role strip, Switch button, tab bar
+     Home / Events / Tickets / Team. Light theme. Self-contained. Open #<shape> (list in SHAPES below), add &shot for
+     a bare 390x844 frame. Option B (not picked) is frozen at its first-round state and is no longer rebuilt from this file. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap">
 <style>
 :root{
@@ -50,6 +50,8 @@ h1{font:700 20px var(--f-display);margin:0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px}
 .row{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;min-height:56px}
 .row+.row{border-top:1px solid var(--line)}
+.row[disabled] .t b{color:var(--muted)}
+.row[disabled]>span[aria-hidden]{display:none}
 .t{display:flex;flex-direction:column;flex:1;min-width:0}
 .t b{font-size:15px;overflow-wrap:anywhere}.t span{font-size:13px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}
 .tag{font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--muted);white-space:nowrap;flex:none}
@@ -109,13 +111,35 @@ body.full .scroll{overflow:visible}
 .more{font-size:13px;color:var(--muted);text-align:center}
 .reasons{display:flex;flex-wrap:wrap;gap:6px}
 /* ==LAYOUT CSS== */
-.needs{position:sticky;top:0;z-index:2;background:var(--bg);padding-top:12px;margin-top:0 !important}
-.needs .card{border:2px solid var(--fg)}
-.needs .row{min-height:52px}
+/* the ONE pinned line: 44px button inside a 48px sticky strip, never more */
+.needs{position:sticky;top:0;z-index:2;background:var(--bg);height:48px;padding:2px 0;margin:0 -16px !important;padding-left:16px;padding-right:16px;flex:none}
+.needline{display:flex;align-items:center;gap:10px;width:100%;height:44px;border:2px solid var(--fg);border-radius:12px;background:var(--card);padding:0 12px;font-weight:600;font-size:14px}
+.needline .dot{width:22px;height:22px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-size:12px;flex:none}
+.needline .nl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grp{display:flex;align-items:baseline;gap:8px}
 .grp h3{flex:1}
 .grp span{font-size:13px;color:var(--muted)}
+.ser .dt b{font-size:17px}
+.ser .chev{font-size:13px;font-weight:600;color:var(--muted);flex:none}
+.serin{border-top:1px solid var(--line);background:var(--bg);padding-left:12px}
+.toggle{flex:none;display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.toggle .switch[aria-hidden]{pointer-events:none}
+.toggle[aria-checked=true] .switch{background:var(--fg);border-color:var(--fg)}
+.toggle[aria-checked=true] .switch::after{left:23px;border-color:var(--fg)}
 /* ==/LAYOUT CSS== */
+/* shared additions (fix round 1) */
+.choice{flex-direction:row;align-items:flex-start;gap:12px}
+.choice .ct{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.rd{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);background:var(--card);flex:none;margin-top:1px;display:grid;place-items:center}
+.choice[aria-checked=true]{border:2px solid var(--fg)}
+.choice[aria-checked=true] .rd{border-color:var(--fg)}
+.choice[aria-checked=true] .rd::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--fg)}
+.sent{font-size:13px;font-weight:600;color:var(--ok);white-space:nowrap;flex:none;padding:0 4px}
+.row.del b{color:var(--danger)}
+.btn.dangeralt{background:var(--card);color:var(--danger);border:1px solid var(--danger)}
+.banner.ok{background:#e8f2ec;border-color:#a9cdb7}
+.skip .t span{color:var(--muted)}
+.viewnote{font-size:13px;color:var(--muted);font-weight:600;flex:none;max-width:120px;text-align:right}
 </style>
 </head>
 <body>
@@ -143,86 +167,108 @@ const dw=iso=>DOW[dOf(iso).getUTCDay()],dd=iso=>dOf(iso).getUTCDate(),dm=iso=>MO
 const longD=iso=>`${dw(iso)} ${dd(iso)} ${dm(iso)}`;
 const fmt=n=>n.toLocaleString('en-GB');
 const plural=(n,a,b)=>fmt(n)+' '+(n===1?a:(b||a+'s'));
+const andList=a=>a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
 let NID=0;
 // st: live | draft | cx | past. rec: series key (a repeating series) or null (one-off).
-const N=(s,d,t,st,o={})=>({id:'n'+(++NID),s,d,t,st:st==='live'&&d<TODAY?'past':st,go:0,photo:true,...o});
+// A draft carries miss: what it still needs before it can go live. A cancelled night carries why + on (when people were told).
+const CXW={why:'Venue problem',on:'2026-11-09'};
+const N=(s,d,t,st,o={})=>({id:'n'+(++NID),s,d,t,st:st==='live'&&d<TODAY?'past':st,go:0,photo:true,...(st==='cx'?CXW:{}),...o});
 function weekly(key,s,start,count,t,o={},skip={}){
   const out=[];for(let i=0;i<count;i++){const d=addD(start,7*i);out.push(N(s,d,t,skip[i]||'live',{rec:key,idx:i+1,of:count,...(o[i]||{})}))}return out;
 }
 const SERIES={fri:{n:'Friday Social',rule:'every Friday'},sun:{n:'Sunday Sensual Social',rule:'every Sunday'},wed:{n:'Wednesday Class and Social',rule:'every Wednesday'},thu:{n:'Thursday Bachata Lab',rule:'every Thursday'}};
+// Fresh copies every time a shape opens, so a prototype cancel or delete never leaks into another shape.
 function shapeData(){
   NID=0;
   const three=[N('Friday Social','2026-11-13','8pm','live',{go:12}),N('Sunday Workshop','2026-11-15','3pm','live',{go:3}),N('Winter Gala','2026-12-05','9pm','live',{photo:false})];
   const mixed=[N('Friday Social','2026-10-30','8pm','live',{go:9}),N('Friday Social','2026-11-06','8pm','live',{go:14}),N('Sunday Workshop','2026-11-08','3pm','live',{go:4}),
-    N('Friday Social','2026-11-13','8pm','live',{go:12}),N('Sunday Workshop','2026-11-15','3pm','live',{go:3}),N('Saturday Social','2026-11-21','9pm','cx',{go:5}),
-    N('New Year’s Eve Social','2026-12-31','9pm','draft',{photo:false})];
-  const rec=[...weekly('fri','Friday Social','2026-11-13',13,'8pm',{0:{go:12},1:{go:5},2:{t:'9pm',changed:'Starts 9pm this week'}},{5:'cx'}),N('Sunday Workshop','2026-11-15','3pm','live',{go:3})];
+    N('Friday Social','2026-11-13','8pm','live',{go:12}),N('Sunday Workshop','2026-11-15','3pm','live',{go:3,photo:false}),N('Saturday Social','2026-11-21','9pm','cx',{go:5}),
+    N('New Year&rsquo;s Eve Social','2026-12-31','9pm','draft',{photo:false,miss:['a place']})];
+  const rec=[...weekly('fri','Friday Social','2026-11-13',13,'8pm',{0:{go:12},1:{go:5},2:{t:'9pm',changed:'Starts 9pm this week'},6:{go:2}},{5:'cx'}),N('Sunday Workshop','2026-11-15','3pm','live',{go:3})];
   const allcx=[N('Friday Social','2026-11-06','8pm','live',{go:6}),N('Friday Social','2026-11-13','8pm','cx',{go:12}),N('Friday Social','2026-11-20','8pm','cx',{go:4}),N('Winter Gala','2026-12-05','9pm','cx')];
   const huge=[...weekly('sun','Sunday Sensual Social','2026-11-15',56,'7pm',{0:{go:1204},1:{go:880}},{9:'cx'}),...weekly('fri','Friday Social','2026-11-13',52,'8pm',{0:{go:415}},{20:'cx'}),
     ...weekly('wed','Wednesday Class and Social','2026-11-18',52,'7pm',{0:{go:61}},{30:'cx',31:'cx'}),...weekly('thu','Thursday Bachata Lab','2026-11-12',52,'7:30pm'),
-    N('London Bachata Weekender, three rooms and a live band on the Saturday','2027-03-12','6pm','live',{go:310}),N('Summer Boat Party','2027-07-04','6pm','draft',{photo:false}),N('Halloween Social','2027-10-31','9pm','draft',{photo:false})];
+    N('London Bachata Weekender, three rooms and a live band on the Saturday','2027-03-12','6pm','live',{go:310}),N('Summer Boat Party','2027-07-04','6pm','draft',{photo:false,miss:['a place']}),N('Halloween Social','2027-10-31','9pm','draft',{photo:false,miss:['a place','a photo']})];
   for(let i=1;i<=93;i++)huge.push(N('Sunday Sensual Social',addD('2026-11-08',-7*(i-1)),'7pm','past',{rec:'sun'}));
   // ids restart per shape: n1 is each shape's first night
   for(const L of [three,mixed,rec,allcx,huge])L.forEach((x,i)=>{x.id='n'+(i+1)});
   return {three,mixed,rec,allcx,huge};
 }
-const D=shapeData();
+const BIG='The Sunday Sensual Bachata Social and Workshop Weekender Collective';
 const SHAPES={
- empty:{lab:'No events',page:'Ritmo Bristol',nights:[]},
- three:{lab:'3 upcoming',page:'Ritmo London',nights:D.three},
- huge:{lab:'100+',page:'The Sunday Sensual Bachata Social and Workshop Weekender Collective',nights:D.huge},
- allcx:{lab:'All cancelled',page:'Ritmo London',nights:D.allcx},
- mixed:{lab:'Mixed',page:'Ritmo London',nights:D.mixed},
- recurring:{lab:'Recurring',page:'Ritmo London',nights:D.rec,sheet:'scope',of:'n2'},
- bulk:{lab:'Bulk select',page:'Ritmo London',nights:D.rec,sel:['n1','n2','n4']},
- cancel:{lab:'Cancel',page:'Ritmo London',nights:D.three,sheet:'cancel',of:'n1'},
- contributor:{lab:'Contributor',page:'Ritmo London',nights:D.mixed,seat:'contributor'},
- loading:{lab:'Loading',page:'Ritmo London'},
- error:{lab:'Error',page:'Ritmo London'}
+ empty:{lab:'No events',page:'Ritmo Bristol'},
+ three:{lab:'3 upcoming',data:'three'},
+ huge:{lab:'100+ grouped',page:BIG,data:'huge'},
+ series:{lab:'Series open',page:BIG,data:'huge',st:{open:['fri|2026-11']}},
+ hugeflat:{lab:'100+ ungrouped',page:BIG,data:'huge',st:{group:false}},
+ allcx:{lab:'All cancelled',data:'allcx'},
+ mixed:{lab:'Mixed',data:'mixed'},
+ needs:{lab:'Needs you list',data:'mixed',sheet:'needs'},
+ draft:{lab:'Draft night',data:'mixed',sheet:'night',of:'n7'},
+ told:{lab:'Tell us sent',data:'mixed',sheet:'night',of:'n4',st:{told:['Guest list']}},
+ deldraft:{lab:'Delete draft',data:'mixed',sheet:'del',of:'n7'},
+ cxnight:{lab:'Cancelled night',data:'mixed',sheet:'night',of:'n6'},
+ pastnight:{lab:'Past night',data:'mixed',sheet:'night',of:'n2'},
+ recurring:{lab:'Edit scope',data:'rec',sheet:'scope',of:'n2',st:{scope:'all'}},
+ cancelrec:{lab:'Cancel repeating',data:'rec',sheet:'cancel',of:'n2',st:{cscope:'after'}},
+ bulk:{lab:'Bulk select',data:'rec',sel:['n1','n2','n4']},
+ bulkcancel:{lab:'Bulk cancel',data:'mixed',sel:['n3','n4','n5','n6','n7'],sheet:'cancel',of:'bulk',st:{pastOpen:true}},
+ cancel:{lab:'Cancel',data:'three',sheet:'cancel',of:'n1'},
+ aftercancel:{lab:'After cancel',data:'three',pre:()=>doCancel(['n1'],'Venue problem')},
+ contributor:{lab:'Contributor',data:'mixed',seat:'contributor'},
+ contribneeds:{lab:'Contributor list',data:'mixed',seat:'contributor',sheet:'needs'},
+ loading:{lab:'Loading'},
+ error:{lab:'Error'}
 };
 const SEATS={owner:'Owner',manager:'Manager',contributor:'Contributor'};
 const OWNER='Maria';
-const S={shape:'three',seat:'owner',sheet:null,of:null,sel:null,q:'',f:'all',limit:15,pastOpen:false,scope:null,reason:null,tab:'events',needsOpen:false,b:null};
+const S={shape:'three',seat:'owner',ns:[],sheet:null,of:null,sel:null,q:'',f:'all',limit:15,pastOpen:false,scope:null,cscope:null,reason:null,tab:'events',group:null,open:[],told:[],done:null};
 const $=q=>document.querySelector(q);
 const cur=()=>SHAPES[S.shape];
 const viewOnly=()=>S.seat==='contributor';
 const VIEW_WHY=`You are a contributor, so you can see every event but not change them. Ask ${OWNER} (owner) or a manager.`;
-const byId=id=>(cur().nights||[]).find(x=>x.id===id);
+// THE one story for a cancelled night. Cancel sheet, row, night sheet, Needs you and the after-cancel banner all use it.
+const CX_STORY=n=>`${n===1?'It stays':'Each night stays'} on the calendar marked <b>Cancelled</b>, so nobody turns up.`;
+const byId=id=>S.ns.find(x=>x.id===id);
 const upcoming=ns=>ns.filter(x=>x.st!=='past').sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
 const pastOf=ns=>ns.filter(x=>x.st==='past').sort((a,b)=>a.d<b.d?1:-1);
 const STATUS={live:['live','Live'],draft:['draft','Draft'],cx:['cx','Cancelled'],past:['','Past']};
 const tag=x=>`<span class="tag ${STATUS[x.st][0]}">${STATUS[x.st][1]}</span>`;
 const away=x=>{const n=dayDiff(TODAY,x.d);return n===0?'Today':n===1?'Tomorrow':n>0&&n<14?`In ${n} days`:''};
+const missOf=x=>andList(x.miss||[]);
 function subLine(x){
   const p=[x.t];
   if(x.rec)p.push(`${SERIES[x.rec].rule}, ${x.idx} of ${x.of}`);
   if(x.changed)p.push(x.changed);
-  if(x.st==='cx')p.push(x.go?`${plural(x.go,'person','people')} told`:'not on the calendar');
+  if(x.st==='cx')p.push(x.go?`${plural(x.go,'person','people')} told`:'no one to tell');
+  else if(x.st==='draft'&&x.miss)p.push(`needs ${missOf(x)}`);
   else if(x.go)p.push(`${fmt(x.go)} going`);
   return p.join(' &middot; ');
 }
-// THE one row (both options): date block or checkbox, name, sub line, status tag.
+// THE one row: date block or checkbox, name, sub line, status tag.
 function evRow(x){
   const sel=S.sel;
   const lead=sel?`<span class="chk" role="checkbox" aria-checked="${sel.includes(x.id)}" aria-label="Select ${x.s}, ${longD(x.d)}"><i>${sel.includes(x.id)?'&check;':''}</i></span>`:`<span class="dt" aria-hidden="true"><small>${dw(x.d)}</small><b>${dd(x.d)}</b></span>`;
   return `<button class="ev ${x.st==='cx'?'cxr':''}" data-act="${sel?'pick':'night'}" data-k="${x.id}" aria-label="${x.s}, ${longD(x.d)}, ${STATUS[x.st][1]}">${lead}<span class="t"><b>${x.s}</b><span>${sel?longD(x.d)+' &middot; ':''}${subLine(x)}</span></span>${tag(x)}</button>`;
 }
-// THE "Needs you" list (both options). Only real, actionable things; each has one button that exists.
+// THE "Needs you" list. Only real, actionable things; each has one button that exists. Draft copy names what is missing.
 function needsOf(ns){
   const out=[],up=upcoming(ns);
   const drafts=up.filter(x=>x.st==='draft');
-  if(drafts.length)out.push({k:'draft',t:drafts.length===1?`${drafts[0].s} is still a draft`:`${drafts.length} events are still drafts`,d:'Only your team sees a draft. Add a date and a place, then put it live.',b:'Finish',of:drafts[0].id});
+  if(drafts.length===1)out.push({k:'draft',t:`${drafts[0].s} is still a draft`,d:`It needs ${missOf(drafts[0])} before it can go live. Only your team sees it.`,b:'Finish',of:drafts[0].id});
+  else if(drafts.length)out.push({k:'draft',t:`${drafts.length} events are still drafts`,d:drafts.map(x=>`${x.s} needs ${missOf(x)}.`).join(' ')+' Only your team sees drafts.',b:'Finish',of:drafts[0].id});
   const live=up.filter(x=>x.st==='live'),cx=up.filter(x=>x.st==='cx');
-  if(!live.length&&cx.length)out.push({k:'allcx',t:`All ${plural(cx.length,'upcoming night')} ${cx.length===1?'is':'are'} cancelled`,d:'Dancers see nothing coming up from you. Put a new night on when you are ready.',b:'New event',act:'new'});
+  if(!live.length&&cx.length)out.push({k:'allcx',t:`All ${plural(cx.length,'upcoming night')} ${cx.length===1?'is':'are'} cancelled`,d:'Dancers see them on the calendar marked Cancelled, and nothing else coming up from you. Put a new night on when you are ready.',b:'New event',act:'new'});
   const noPhoto=up.filter(x=>x.st==='live'&&!x.photo);
   if(noPhoto.length)out.push({k:'photo',t:`${noPhoto[0].s} has no photo`,d:'It is the first thing dancers see on the calendar.',b:'Add photo',of:noPhoto[0].id});
   const recs=[...new Set(up.filter(x=>x.rec).map(x=>x.rec))];
   for(const r of recs){const left=up.filter(x=>x.rec===r&&x.st==='live');if(left.length&&left.length<=2)out.push({k:'dates',t:`${SERIES[r].n} has ${plural(left.length,'date')} left`,d:'Add more dates so it stays on the calendar.',b:'Add dates',of:left[0].id})}
   return out;
 }
-function needBtn(n){
-  if(viewOnly())return `<button class="act alt" disabled aria-describedby="vw">${n.b}</button>`;
-  return `<button class="act" data-act="${n.act||'need'}" data-k="${n.of||''}" data-b="${n.b}">${n.b}</button>`;
+// Contributor: no disabled button; the item says who finishes it (view only).
+function needAct(n){
+  if(viewOnly())return `<span class="viewnote">${OWNER} needs to finish this</span>`;
+  return `<button class="act" data-act="${n.act||'need'}" data-k="${n.of||''}">${n.b}</button>`;
 }
 function newBtn(cls='act'){
   return viewOnly()?`<button class="${cls}" disabled aria-describedby="vw">New event</button>`:`<button class="${cls}" data-act="new">New event</button>`;
@@ -256,81 +302,145 @@ function searchBox(ns){
 function noMatch(){
   return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px"><b>Nothing matches${S.q?` &ldquo;${S.q}&rdquo;`:''}</b><p class="why">Check the spelling, or show every status.</p><button class="btn alt" data-act="clearq">Clear search and filters</button></div>`;
 }
-function moreBtn(shown,total){
-  return total>shown?`<p class="more">Showing ${fmt(shown)} of ${fmt(total)}</p><button class="btn alt" data-act="more">Show ${fmt(Math.min(30,total-shown))} more</button>`:'';
+function moreBtn(shown,total,step){
+  return total>shown?`<p class="more">Showing ${fmt(shown)} of ${plural(total,'night')}</p><button class="btn alt" data-act="more">Show ${step} more</button>`:'';
 }
-// ---- sheets (both options) ----
+// ---- sheets ----
+const radio=(act,k,on,title,sub)=>`<button class="choice" role="radio" data-act="${act}" data-k="${k}" aria-checked="${on===k}"><i class="rd" aria-hidden="true"></i><span class="ct"><b>${title}</b><span>${sub}</span></span></button>`;
+function needsSheet(){
+  const list=needsOf(S.ns),v=viewOnly();
+  return `<button class="x" data-act="close">Close</button><h2>${v?`${plural(list.length,'thing')} ${OWNER} needs to finish`:`${plural(list.length,'thing')} ${list.length===1?'needs':'need'} you`}</h2>
+  ${v?`<p class="cap">View only. ${OWNER} (owner) or a manager finishes these. You can still open any night to see it.</p>`:'<p class="cap">Each one has the button that fixes it. This list empties as you go.</p>'}
+  <div class="card">${list.map(n=>`<div class="row"><span class="t"><b>${n.t}</b><span>${n.d}</span></span>${needAct(n)}</div>`).join('')}</div>`;
+}
 function nightSheet(){
-  const x=byId(S.of),v=viewOnly();
+  const x=byId(S.of),v=viewOnly(),st=x.st;
   const series=x.rec?`<p class="cap">Part of <b>${SERIES[x.rec].n}</b>, ${SERIES[x.rec].rule}. This is date ${x.idx} of ${x.of}.</p>`:'';
-  const editWhy=x.st==='past'?'This night has passed, so it cannot be changed. Duplicate it to run it again.':x.st==='cx'?'A cancelled night cannot be changed. Duplicate it to put it on again.':v?VIEW_WHY:'';
-  const canCancel=x.st==='live'&&!v;
-  const cancelWhy=x.st==='draft'?'A draft is not on the calendar yet, so there is nothing to cancel.':x.st!=='live'?'':v?VIEW_WHY:'';
+  const editWhy=st==='past'?'This night has passed, so it cannot be changed. Duplicate it to run it again.':st==='cx'?'A cancelled night cannot be changed. Duplicate it to put it on again.':v?VIEW_WHY:'';
   const dis=w=>w?` disabled`:'';
+  const chev='<span aria-hidden="true">&rsaquo;</span>';
+  let facts=`<b>${longD(x.d)}, ${x.t}</b>${away(x)?' &middot; '+away(x):''}`;
+  if(st==='live'&&x.go)facts+=` &middot; ${fmt(x.go)} going`;
+  if(st==='past')facts+=` &middot; ${x.go?plural(x.go,'person','people')+' said they were going':'Finished'}`;
+  let state='';
+  if(st==='cx')state=`<div class="banner"><b>Cancelled on ${longD(x.on)}.</b> ${x.go?`The ${plural(x.go,'person','people')} going were told`:'No one was going, so no one was told'}. Reason dancers see: &ldquo;${x.why}&rdquo;.<br>${CX_STORY(1)}</div>`;
+  if(st==='past')state=`<div class="banner">This night has passed. It stays in your past nights and on your public page history.</div>`;
+  if(st==='draft')state=`<div class="banner">Draft: only your team sees it. It needs <b>${missOf(x)}</b> before it can go live.</div>`;
+  const editSub=st==='draft'?`Add ${missOf(x)} here, plus name, time and details`:x.rec?'Change this night only, or every date from here on':'Name, time, place, photo and details';
+  let rows=`<button class="row" data-act="${editWhy?'':'edit'}" data-k="${x.id}"${dis(editWhy)}><span class="t"><b>${st==='draft'?'Edit the draft':'Edit'+(x.rec?'':' this event')}</b><span>${editWhy||editSub}</span></span>${chev}</button>
+  <button class="row" data-act="${v?'':'dup'}" data-k="${x.id}"${dis(v)}><span class="t"><b>Duplicate</b><span>${v?'Owners and managers can duplicate.':'Copies everything into a new draft. You pick the date.'}</span></span>${chev}</button>`;
+  if(st==='draft'){
+    const liveWhy=v?'Owners and managers can put it live.':x.miss?`Add ${missOf(x)} first (Edit the draft). Then it can go live.`:'';
+    rows+=`<button class="row" data-act="${liveWhy?'':'live1'}"${dis(liveWhy)}><span class="t"><b>Put it live</b><span>${liveWhy||'We check it, then it goes on the calendar.'}</span></span>${chev}</button>
+    <button class="row del" data-act="${v?'':'del'}" data-k="${x.id}"${dis(v)}><span class="t"><b>Delete draft</b><span>${v?'Owners and managers can delete a draft.':'Only your team ever saw it. You confirm first.'}</span></span>${chev}</button>`;
+  }
+  const onNight=st==='live'||st==='draft'?`<h3>On the night</h3><div class="card">
+  ${['Guest list','Raffle'].map(n=>{const sent=S.told.includes(n);return `<div class="optrow"><span class="t"><b>${n}</b><span>${sent?'Thanks, noted. We will tell you when it is ready.':'Coming soon. It will switch on per night, here.'}</span></span>${sent?'<span class="sent" role="status">Sent &check;</span>':`<button class="act alt" data-act="tell" data-k="${n}">Tell us</button>`}</div>`}).join('')}
+  </div><p class="why">&ldquo;Tell us&rdquo; only sends us a note that you would use it. Nothing else happens yet.</p>`:'';
+  const tickets=`<div class="card"><button class="row" data-act="tab" data-k="tickets"><span class="t"><b>Tickets and money</b><span>${st==='cx'?'Refunds for this night are on the Tickets tab':'On the Tickets tab'}</span></span>${chev}</button></div>`;
+  let foot='';
+  if(st==='live'){const ok=!v;foot=`<button class="btn ${ok?'danger':''}" data-act="${ok?'cancel':''}" data-k="${x.id}"${dis(!ok)}>Cancel ${x.rec?'this night or more':'this night'}</button>${v?`<p class="why">${VIEW_WHY}</p>`:x.rec?'<p class="why">Next you choose: this night, this and every one after it, or the whole series.</p>':''}`}
+  if(st==='draft')foot=`<p class="why">A draft is not on the calendar yet, so there is nothing to cancel. Delete it if you do not need it.</p>`;
   return `<button class="x" data-act="close">Close</button><div class="head"><h2>${x.s}</h2>${tag(x)}</div>
-  <p class="cap"><b>${longD(x.d)}, ${x.t}</b>${away(x)?' &middot; '+away(x):''}${x.go&&x.st!=='cx'?' &middot; '+fmt(x.go)+' going':''}</p>${series}
-  <div class="card"><button class="row" data-act="${editWhy?'':'edit'}" data-k="${x.id}"${dis(editWhy)}><span class="t"><b>Edit${x.rec?'':' this event'}</b><span>${editWhy||(x.rec?'Change this night only, or every date from here on':'Name, time, place, photo and details')}</span></span><span aria-hidden="true">&rsaquo;</span></button>
-  <button class="row" data-act="${v?'':'dup'}" data-k="${x.id}"${dis(v)}><span class="t"><b>Duplicate</b><span>${v?'Owners and managers can duplicate.':'Copies everything into a new draft. You pick the date.'}</span></span><span aria-hidden="true">&rsaquo;</span></button>
-  ${x.st==='draft'?`<button class="row" data-act="${v?'':'live1'}"${dis(v)}><span class="t"><b>Put it live</b><span>${v?'Owners and managers can put it live.':'Needs a date and a place first. We check before it goes live.'}</span></span><span aria-hidden="true">&rsaquo;</span></button>`:''}</div>
-  <h3>On the night</h3><div class="card">
-  ${['Guest list','Raffle'].map(n=>`<div class="optrow"><span class="t"><b>${n}</b><span>Coming soon. It will switch on per night, here.</span></span><button class="act alt" data-act="tell" data-k="${n}">Tell us</button></div>`).join('')}
-  </div><p class="why">Want ${'guest lists or raffles'} sooner? &ldquo;Tell us&rdquo; sends us a note that you would use it. Nothing else happens yet.</p>
-  <div class="card"><button class="row" data-act="tab" data-k="tickets"><span class="t"><b>Tickets and money</b><span>On the Tickets tab</span></span><span aria-hidden="true">&rsaquo;</span></button></div>
-  ${x.st==='live'||x.st==='draft'?`<button class="btn ${canCancel?'danger':''}" data-act="${canCancel?'cancel':''}" data-k="${x.id}"${dis(!canCancel)}>Cancel this night</button>${cancelWhy?`<p class="why">${cancelWhy}</p>`:''}`:''}`;
+  <p class="cap">${facts}</p>${series}${state}<div class="card">${rows}</div>${onNight}${tickets}${foot}`;
 }
 function scopeSheet(){
-  const x=byId(S.of),later=cur().nights.filter(y=>y.rec===x.rec&&y.d>=x.d&&y.st==='live').length,changed=cur().nights.filter(y=>y.rec===x.rec&&y.d>x.d&&y.changed).length;
+  const x=byId(S.of),later=S.ns.filter(y=>y.rec===x.rec&&y.d>=x.d&&y.st==='live').length,changed=S.ns.filter(y=>y.rec===x.rec&&y.d>x.d&&y.changed).length;
   return `<button class="x" data-act="close">Close</button><h2>Edit ${x.s}</h2><p class="cap">${longD(x.d)}. It repeats ${SERIES[x.rec].rule}. What should your change apply to?</p>
-  <button class="choice" data-act="scope" data-k="one" aria-pressed="${S.scope==='one'}"><b>This night only, ${longD(x.d)}</b><span>The other dates stay as they are. This night shows &ldquo;changed for this night&rdquo;.</span></button>
-  <button class="choice" data-act="scope" data-k="all" aria-pressed="${S.scope==='all'}"><b>This night and every one after it</b><span>${plural(later,'date')}, from ${longD(x.d)}.${changed?` ${plural(changed,'date')} you changed one by one ${changed===1?'keeps its':'keep their'} own change.`:''}</span></button>
+  <div role="radiogroup" aria-label="Apply the change to" style="display:flex;flex-direction:column;gap:8px">
+  ${radio('scope','one',S.scope,`This night only, ${longD(x.d)}`,'The other dates stay as they are. This night shows &ldquo;changed for this night&rdquo;.')}
+  ${radio('scope','all',S.scope,'This night and every one after it',`${plural(later,'date')}, from ${longD(x.d)}.${changed?` ${plural(changed,'date')} you changed one by one ${changed===1?'keeps its':'keep their'} own change.`:''}`)}</div>
   <p class="why">Cancelled and past dates are never touched.</p>
   <button class="btn" data-act="${S.scope?'scopego':''}"${S.scope?'':' disabled aria-describedby="sw"'}>Continue to edit</button>${S.scope?'':'<p class="why" id="sw">Pick one of the two first.</p>'}`;
 }
-const REASONS=['Venue problem','Not enough people','Illness','Weather','Other'];
-function cancelSheet(){
-  const ids=S.of==='bulk'?S.sel:[S.of],ns=ids.map(byId).filter(x=>x&&x.st==='live'),go=ns.reduce((a,x)=>a+x.go,0),one=ns.length===1;
-  const what=one?`${ns[0].s}, ${longD(ns[0].d)}`:plural(ns.length,'night');
-  const list=one?'':`<div class="card">${ns.map(x=>`<div class="row"><span class="t"><b>${x.s}</b><span>${longD(x.d)}${x.go?' &middot; '+fmt(x.go)+' going':''}</span></span></div>`).join('')}</div>`;
-  return `<button class="x" data-act="close">Keep</button><h2>Cancel ${what}?</h2>${list}
-  <div class="banner"><b>What happens</b><br>${go?`The ${plural(go,'person','people')} who said they are going get a message right away that it is cancelled.`:'No one has said they are going yet, so no one needs a message.'} ${one?'The night stays':'Each night stays'} on the calendar marked <b>Cancelled</b>, so nobody turns up. You cannot undo this here.</div>
-  <h3>Why? Dancers see this</h3><div class="reasons">${REASONS.map(r=>`<button class="chip" data-act="reason" data-k="${r}" aria-pressed="${S.reason===r}">${r}</button>`).join('')}</div>
-  <button class="btn ${S.reason?'danger':''}" data-act="${S.reason?'docancel':''}"${S.reason?'':' disabled aria-describedby="rw"'}>Cancel ${one?'the night':plural(ns.length,'night')}</button>${S.reason?'':'<p class="why" id="rw">Pick a reason first.</p>'}
-  <button class="btn alt" data-act="close">Keep ${one?'the night':'them'}</button>`;
+function delSheet(){
+  const x=byId(S.of);
+  return `<button class="x" data-act="close">Keep</button><h2>Delete the draft ${x.s}?</h2>
+  <div class="banner"><b>What happens</b><br>The draft and everything in it go away. It was never on the calendar, so no dancer sees a change and nobody gets a message. You cannot undo this.</div>
+  <p class="why">Want it later? Keep it: a draft costs nothing and only your team sees it.</p>
+  <button class="btn danger" data-act="dodel" data-k="${x.id}">Delete draft</button><button class="btn alt" data-act="close">Keep the draft</button>`;
 }
-// The bulk bar (both options): what is selected, what each action does, disabled actions say why.
+const REASONS=['Venue problem','Not enough people','Illness','Weather','Other'];
+const SKIP_WHY={draft:'A draft is not on the calendar. Open it and choose Delete draft.',cx:'Already cancelled.',past:'Already happened.'};
+// What a cancel would touch. Bulk = exactly the selected live nights. One repeating night = the scope picked.
+function cancelTargets(){
+  if(S.of==='bulk'){const ns=S.sel.map(byId).filter(Boolean);return {go:ns.filter(x=>x.st==='live'),skip:ns.filter(x=>x.st!=='live')}}
+  const x=byId(S.of);
+  if(!x.rec||S.cscope==='one'||!S.cscope)return {go:[x],skip:[]};
+  return {go:S.ns.filter(y=>y.rec===x.rec&&y.st==='live'&&(S.cscope==='series'||y.d>=x.d)).sort((a,b)=>a.d<b.d?-1:1),skip:[]};
+}
+const goOf=ns=>ns.reduce((a,x)=>a+x.go,0);
+function cancelSheet(){
+  const bulk=S.of==='bulk',x=bulk?null:byId(S.of),rec=!!(x&&x.rec);
+  const {go:ns,skip}=cancelTargets(),people=goOf(ns),n=ns.length;
+  const needScope=rec&&!S.cscope;
+  let title=bulk?`Cancel ${plural(n,'night')}?`:rec?`Cancel ${x.s}?`:`Cancel ${x.s}, ${longD(x.d)}?`;
+  let scope='';
+  if(rec){
+    const all=S.ns.filter(y=>y.rec===x.rec&&y.st==='live'),after=all.filter(y=>y.d>=x.d),last=after[after.length-1],cxn=S.ns.filter(y=>y.rec===x.rec&&y.st==='cx').length;
+    scope=`<h3>Which dates?</h3><div role="radiogroup" aria-label="Which dates" style="display:flex;flex-direction:column;gap:8px">
+    ${radio('cscope','one',S.cscope,`This night only, ${longD(x.d)}`,`${x.go?plural(x.go,'person','people')+' going':'No one going yet'}. The other dates stay live.`)}
+    ${radio('cscope','after',S.cscope,'This night and every one after it',`${plural(after.length,'date')}, ${longD(x.d)} to ${longD(last.d)}. ${fmt(goOf(after))} going. Earlier dates stay live.`)}
+    ${radio('cscope','series',S.cscope,'The whole series',`Every upcoming date: ${plural(all.length,'date')}, ${fmt(goOf(all))} going. Past nights stay as they were.`)}</div>
+    ${cxn?`<p class="why">${plural(cxn,'date')} already cancelled ${cxn===1?'is':'are'} not counted.</p>`:''}`;
+  }
+  const row=(y,why)=>`<div class="row"><span class="t"><b>${y.s}</b><span>${longD(y.d)}${why?' &middot; '+why:y.go?' &middot; '+fmt(y.go)+' going':''}</span></span>${why?tag(y):''}</div>`;
+  const list=bulk?`<h3>Going to be cancelled (${fmt(n)})</h3><div class="card">${ns.map(y=>row(y)).join('')}</div>`:'';
+  const skipped=bulk&&skip.length?`<h3>Skipped, nothing changes (${fmt(skip.length)})</h3><div class="card skip">${skip.map(y=>row(y,SKIP_WHY[y.st])).join('')}</div>`:'';
+  const what=needScope?'':`<div class="banner"><b>What happens</b><br>${people?`The ${plural(people,'person','people')} who said they are going get a message right away that it is cancelled.`:'No one has said they are going yet, so no one needs a message.'} ${CX_STORY(n)} You cannot undo this here.${n>1?`<br><br><b>If some fail</b><br>We cancel the nights one at a time. Any that fail stay live, and we list them on this screen so you can try just those again. The rest stay cancelled.`:''}</div>`;
+  const ready=!needScope&&S.reason;
+  const why=needScope&&!S.reason?'Pick which dates and a reason first.':needScope?'Pick which dates first.':!S.reason?'Pick a reason first.':'';
+  return `<button class="x" data-act="close">Keep</button><h2>${title}</h2>${scope}${list}${skipped}${what}
+  <h3>Why? Dancers see this${n>1?' on each night':''}</h3><div class="reasons">${REASONS.map(r=>`<button class="chip" data-act="reason" data-k="${r}" aria-pressed="${S.reason===r}">${r}</button>`).join('')}</div>
+  <button class="btn ${ready?'danger':''}" data-act="${ready?'docancel':''}"${ready?'':' disabled aria-describedby="rw"'}>${needScope?'Cancel':`Cancel ${n===1?'the night':plural(n,'night')}`}</button>${why?`<p class="why" id="rw">${why}</p>`:''}
+  <button class="btn alt" data-act="close">Keep ${n===1&&!needScope?'the night':'them'}</button>`;
+}
+function doCancel(ids,why){
+  const ns=ids.map(byId).filter(x=>x&&x.st==='live');
+  ns.forEach(x=>Object.assign(x,{st:'cx',why,on:TODAY}));
+  const people=goOf(ns),first=ns[0];
+  S.done=`<b>Cancelled: ${ns.length===1?`${first.s}, ${longD(first.d)}`:plural(ns.length,'night')}.</b> ${people?`${plural(people,'person has','people have')} been told.`:'No one was going, so no one needed a message.'} ${CX_STORY(ns.length)}`;
+}
+// The bulk bar: what is selected, what each action does, disabled actions say why, Cancel says what it skips.
 function bulkBar(){
-  const ns=S.sel.map(byId).filter(Boolean),live=ns.filter(x=>x.st==='live'),dr=ns.filter(x=>x.st==='draft'),go=live.reduce((a,x)=>a+x.go,0);
-  const reason=!ns.length?'Tap nights above to select them.':!dr.length?'Put live only works on drafts. None of these is a draft.':'';
-  return `<div class="bulkbar" role="region" aria-label="Selected nights"><div class="head"><span class="t"><b>${plural(ns.length,'night')} selected</b><span>${go?fmt(go)+' going across them':'No one going yet'}</span></span><button class="act alt" data-act="selclear">Done</button></div>
-  <div class="qa"><button class="act alt" data-act="${ns.length?'dupn':''}"${ns.length?'':' disabled'}>Duplicate</button><button class="act alt" data-act="${dr.length?'liven':''}"${dr.length?'':' disabled aria-describedby="bw"'}>Put live</button><button class="act ${live.length?'':'alt'}" data-act="${live.length?'cancel':''}" data-k="bulk"${live.length?'':' disabled'}>Cancel</button></div>${reason?`<p class="why" id="bw">${reason}</p>`:''}</div>`;
+  const ns=S.sel.map(byId).filter(Boolean),live=ns.filter(x=>x.st==='live'),dr=ns.filter(x=>x.st==='draft'),go=goOf(live),off=ns.length-live.length;
+  const lines=[];
+  if(!ns.length)lines.push('Tap nights above to select them.');
+  else{
+    if(!dr.length)lines.push('Put live only works on drafts. None of these is a draft.');
+    if(!live.length)lines.push('Cancel only works on live nights. None of these is live.');
+    else if(off)lines.push(`Cancel skips ${plural(off,'night')} that ${off===1?'is':'are'} not live. You see which before anything happens.`);
+  }
+  return `<div class="bulkbar" role="region" aria-label="Selected nights"><div class="head"><span class="t"><b>${plural(ns.length,'night')} selected</b><span>${go?fmt(go)+' going across the live ones':'No one going on these'}</span></span><button class="act alt" data-act="selclear">Done</button></div>
+  <div class="qa"><button class="act alt" data-act="${ns.length?'dupn':''}"${ns.length?'':' disabled'}>Duplicate</button><button class="act alt" data-act="${dr.length?'liven':''}"${dr.length?'':' disabled aria-describedby="bw"'}>Put live</button><button class="act ${live.length?'':'alt'}" data-act="${live.length?'cancel':''}" data-k="bulk"${live.length?'':' disabled aria-describedby="bw"'}>Cancel${live.length&&off?` ${fmt(live.length)}`:''}</button></div>${lines.length?`<p class="why" id="bw">${lines.join(' ')}</p>`:''}</div>`;
 }
 function idbar(){
-  const name=cur().page;
+  const name=cur().page||'Ritmo London';
   return `<div class="idbar r-org"><button class="idmain" data-act="stub" data-k="Switch page" aria-label="Organiser, ${SEATS[S.seat]}, ${name}. Switch page"><span class="badge r-org" style="--s:40px">ORG</span><span class="idtxt"><small>Organiser &middot; ${SEATS[S.seat]}</small><b>${name}</b></span></button><button class="sw" data-act="stub" data-k="Switch page" aria-label="Switch page">Switch &#9662;</button></div>`;
 }
 function tabs(){
   return `<nav class="tabs" aria-label="Organiser area">${[['home','Home'],['events','Events'],['tickets','Tickets'],['team','Team']].map(t=>`<button data-act="tab" data-k="${t[0]}" aria-current="${S.tab===t[0]}">${t[1]}</button>`).join('')}</nav>`;
 }
 var tt;
-function toast(m){clearTimeout(tt);let el=$('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');$('#frame').appendChild(el)}el.textContent=m;tt=setTimeout(()=>el.remove(),2000)}
+function toast(m){clearTimeout(tt);let el=$('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');$('#frame').appendChild(el)}el.innerHTML=m;tt=setTimeout(()=>el.remove(),2000)}
 function controls(){
   $('#ttl').textContent=LAYOUT.title;$('#foot').innerHTML=LAYOUT.foot;
   $('#shseg').innerHTML=Object.keys(SHAPES).map(k=>`<button data-act="shape" data-k="${k}" aria-pressed="${S.shape===k}">${SHAPES[k].lab}</button>`).join('');
   $('#seseg').innerHTML=Object.keys(SEATS).map(k=>`<button data-act="seat" data-k="${k}" aria-pressed="${S.seat===k}">${SEATS[k]}</button>`).join('');
 }
+const SHEETS={night:[nightSheet,'Night'],scope:[scopeSheet,'Edit which dates'],cancel:[cancelSheet,'Cancel'],needs:[needsSheet,'Needs you'],del:[delSheet,'Delete draft']};
 function render(){
   controls();
-  const s=cur();
-  const body=S.shape==='loading'?loadingBody():S.shape==='error'?errorBody():!s.nights.length?`<div class="head"><h2>Events</h2></div>${viewLine()}${emptyState()}`:eventsBody(s);
+  const body=S.shape==='loading'?loadingBody():S.shape==='error'?errorBody():!S.ns.length?`<div class="head"><h2>Events</h2></div>${viewLine()}${emptyState()}`:eventsBody(S.ns);
   let h=idbar()+`<main class="scroll" id="scroll">${body}</main>`+(S.sel?bulkBar():'')+tabs();
-  const SH={night:nightSheet,scope:scopeSheet,cancel:cancelSheet};
-  if(S.sheet)h+=`<div class="sheetbg" data-act="bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${S.sheet}">${SH[S.sheet]()}</div></div>`;
+  if(S.sheet)h+=`<div class="sheetbg" data-act="bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${SHEETS[S.sheet][1]}">${SHEETS[S.sheet][0]()}</div></div>`;
   $('#frame').innerHTML=h;
 }
 function setShape(k){
-  const s=SHAPES[k];
-  Object.assign(S,{shape:k,sheet:s.sheet||null,of:s.of||null,sel:s.sel?[...s.sel]:null,q:'',f:'all',limit:15,pastOpen:false,scope:null,reason:null,needsOpen:false,b:null});
+  const s=SHAPES[k],all=shapeData();
+  Object.assign(S,{shape:k,ns:s.data?all[s.data]:[],sheet:s.sheet||null,of:s.of||null,sel:s.sel?[...s.sel]:null,q:'',f:'all',limit:15,pastOpen:false,scope:null,cscope:null,reason:null,group:null,open:[],told:[],done:null},s.st||{});
   S.seat=s.seat||(S.seat==='contributor'?'owner':S.seat);
+  if(s.pre)s.pre();
 }
 document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;S.limit=15;render();const q=$('#q');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}});
 document.addEventListener('click',e=>{
@@ -340,78 +450,110 @@ document.addEventListener('click',e=>{
   if(a==='bg'){if(e.target===t){S.sheet=null;render()}return}
   if(a==='shape')setShape(k);
   else if(a==='seat')S.seat=k;
-  else if(a==='close'){S.sheet=null;S.scope=null;S.reason=null}
+  else if(a==='close'){S.sheet=null;S.scope=null;S.cscope=null;S.reason=null}
   else if(a==='night'){S.sheet='night';S.of=k}
   else if(a==='edit'){const x=byId(k);if(x.rec){S.sheet='scope';S.of=k;S.scope=null}else{toast('Opens the event editor (existing screen)');return}}
   else if(a==='scope')S.scope=k;
+  else if(a==='cscope')S.cscope=k;
   else if(a==='scopego'){toast(S.scope==='one'?'Opens the editor for this night only':'Opens the editor for this and later dates');return}
-  else if(a==='cancel'){S.sheet='cancel';S.of=k;S.reason=null}
+  else if(a==='cancel'){S.sheet='cancel';S.of=k;S.reason=null;S.cscope=null}
   else if(a==='reason')S.reason=k;
-  else if(a==='docancel'){toast('Prototype: the night would be cancelled and people told');S.sheet=null;S.sel=null;S.reason=null}
+  else if(a==='docancel'){doCancel(cancelTargets().go.map(x=>x.id),S.reason);S.sheet=null;S.sel=null;S.reason=null;S.cscope=null}
+  else if(a==='del'){S.sheet='del';S.of=k}
+  else if(a==='dodel'){const x=byId(k);S.ns=S.ns.filter(y=>y.id!==k);S.done=`<b>Draft deleted: ${x.s}.</b> Nobody was told, because it was never on the calendar.`;S.sheet=null}
   else if(a==='dup'||a==='dupn'){toast('Opens a new draft copy. You pick the date.');return}
   else if(a==='live1'||a==='liven'){toast('Checks each draft, then puts the ready ones live');return}
   else if(a==='pick'){S.sel=S.sel.includes(k)?S.sel.filter(i=>i!==k):[...S.sel,k]}
+  else if(a==='selser'){const ids=upcoming(S.ns).filter(x=>x.rec===k&&x.st==='live').map(x=>x.id),all=ids.every(i=>S.sel.includes(i));S.sel=all?S.sel.filter(i=>!ids.includes(i)):[...new Set([...S.sel,...ids])]}
   else if(a==='select'){S.sel=[]}
   else if(a==='selclear'){S.sel=null}
   else if(a==='filter'){S.f=k;S.limit=15}
   else if(a==='clearq'){S.q='';S.f='all'}
   else if(a==='more')S.limit+=30;
   else if(a==='past')S.pastOpen=!S.pastOpen;
-  else if(a==='needs')S.needsOpen=!S.needsOpen;
-  else if(a==='b')S.b=k;
+  else if(a==='needs'){S.sheet='needs'}
+  else if(a==='group'){S.group=!groupOn();S.limit=15}
+  else if(a==='ser'){S.open=S.open.includes(k)?S.open.filter(i=>i!==k):[...S.open,k]}
+  else if(a==='done'){S.done=null}
   else if(a==='need'){if(k){S.sheet='night';S.of=k}}
   else if(a==='new'){toast('Opens New event (the existing create flow)');return}
-  else if(a==='tell'){toast(`Thanks. We noted you want ${k.toLowerCase()}s. Nothing else changes.`);return}
+  else if(a==='tell'){S.told=[...S.told,k]}
   else if(a==='retry')setShape('three');
   else if(a==='tab'){if(k!=='events'){toast(k==='tickets'?'Opens the Tickets tab (separate design)':'Prototype: only Events is drawn');return}}
   else if(a==='stub'){toast(k+': not drawn in this prototype');return}
   render();
 });
 // ==LAYOUT==
-// OPTION A: date-grouped list with a sticky "Needs you" strip.
-const LAYOUT={title:'Option A: date-grouped list + sticky Needs you',
- foot:'<b>Option A, one list by date.</b> Every night of every event sits in one list, grouped by when it happens (this week, next week, then month by month). A &ldquo;Needs you&rdquo; strip stays pinned on top while you scroll. Search and status filters appear once there are 8+ nights. Past nights fold away at the bottom. Every name and number is an example.'};
-function groupOf(x){
+// OPTION A (picked): date-grouped list, ONE pinned "N things need you" line, repeating events folded when big.
+const LAYOUT={title:'Option A (picked): one list by date',
+ foot:'<b>Option A, one list by date.</b> Every night of every event sits in one list, grouped by when it happens. One pinned line says how many things need you and opens the full list. From about 30 upcoming nights, repeating events fold into one row per month (&ldquo;Nov: 3 of 52&rdquo;); a switch turns that off. Past nights fold away at the bottom. Every name and number is an example.'};
+const GROUP_FROM=30;
+const groupOn=()=>S.group!==null?S.group:upcoming(S.ns).length>=GROUP_FROM;
+function groupOf(x,months){
+  const y=dOf(x.d).getUTCFullYear(),mon=MONL[dOf(x.d).getUTCMonth()]+(y!==2026?' '+y:'');
+  if(months)return mon;
   const n=dayDiff(TODAY,x.d),wd=(dOf(TODAY).getUTCDay()+6)%7,toSun=6-wd;
   if(n<=toSun)return 'This week';
   if(n<=toSun+7)return 'Next week';
-  const y=dOf(x.d).getUTCFullYear();return MONL[dOf(x.d).getUTCMonth()]+(y!==2026?' '+y:'');
+  return mon;
 }
-function needsStrip(ns){
-  const list=needsOf(ns);
-  if(!list.length)return '';
-  const shown=S.needsOpen?list:list.slice(0,1);
-  return `<section class="needs" aria-label="Needs you"><div class="card"><div class="row" style="min-height:44px;padding-bottom:4px"><span class="lbl" style="flex:1">Needs you &middot; ${list.length}</span></div>
-  ${shown.map(n=>`<div class="row"><span class="t"><b>${n.t}</b><span>${n.d}</span></span>${needBtn(n)}</div>`).join('')}
-  ${list.length>1?`<button class="row" data-act="needs" style="min-height:44px;justify-content:center;font-weight:600;font-size:13px">${S.needsOpen?'Show less':`See ${list.length-1} more`}</button>`:''}</div></section>`;
+// The ONE pinned line: 48px at most. Tap opens the full list in a sheet.
+function needsLine(ns){
+  const n=needsOf(ns).length;
+  if(!n)return '';
+  const txt=viewOnly()?`${plural(n,'thing')} ${OWNER} needs to finish`:`${plural(n,'thing')} ${n===1?'needs':'need'} you`;
+  return `<section class="needs" aria-label="Needs you"><button class="needline" data-act="needs" aria-haspopup="dialog"><span class="dot" aria-hidden="true">${n}</span><span class="nl">${txt}</span><span aria-hidden="true">See &rsaquo;</span></button></section>`;
 }
-function eventsBody(s){
-  const ns=s.nights,inSel=!!S.sel;
+// One row per repeating event per month: "Friday Social, every Friday, Nov: 3 of 52". Opens to show those dates.
+function serRow(it){
+  const x0=it.ns[0],se=SERIES[it.rec],cx=it.ns.filter(y=>y.st==='cx').length,open=S.open.includes(it.k),nx=it.ns.find(y=>y.st==='live');
+  return `<button class="ev ser" data-act="ser" data-k="${it.k}" aria-expanded="${open}" aria-label="${se.n}, ${plural(it.ns.length,'date')} in ${MONL[dOf(x0.d).getUTCMonth()]}"><span class="dt" aria-hidden="true"><small>${dw(x0.d)}</small><b>${dd(x0.d)}</b></span><span class="t"><b>${se.n}</b><span>${se.rule} &middot; ${dm(x0.d)}: ${it.ns.length} of ${x0.of}${cx?` &middot; ${cx} cancelled`:''}${nx&&nx.go?` &middot; <span style="white-space:nowrap">${fmt(nx.go)} going ${dw(nx.d)} ${dd(nx.d)}</span>`:''}</span></span><span class="chev">${open?'Hide &#9652;':'Dates &#9662;'}</span></button>${open?`<div class="serin">${it.ns.map(evRow).join('')}</div>`:''}`;
+}
+function eventsBody(ns){
+  const inSel=!!S.sel,v=viewOnly();
   const counts=Object.fromEntries(FILTERS.map(f=>[f[0],f[0]==='all'?ns.length:ns.filter(x=>x.st===f[0]).length]));
   const big=ns.length>=8;
-  const r=filtered(ns),up=upcoming(r),past=pastOf(r);
-  const head=`<div class="head"><h2>Events</h2>${inSel?'':`${!viewOnly()&&ns.length>1?'<button class="act alt" data-act="select">Select</button>':''}${newBtn()}`}</div>`;
+  const r=filtered(ns),up=upcoming(r),past=pastOf(r),allUp=upcoming(ns);
+  const hasRec=allUp.some(x=>x.rec)&&allUp.length>=8;
+  const plain=S.f==='all'&&!S.q.trim()&&!inSel;
+  const fold=hasRec&&groupOn()&&plain;
+  const head=`<div class="head"><h2>Events</h2>${inSel?'':`${!v&&ns.length>1?'<button class="act alt" data-act="select">Select</button>':''}${newBtn()}`}</div>`;
   let list='';
   if(!up.length&&!past.length)list=noMatch();
   else{
-    const showUp=S.f==='past'?[]:up.slice(0,S.limit);
-    let g='',open=false;
-    for(const x of showUp){const gn=groupOf(x);if(gn!==g){if(open)list+='</div>';const c=up.filter(y=>groupOf(y)===gn).length;list+=`<div class="grp"><h3>${gn}</h3><span>${plural(c,'night')}</span></div><div class="card">`;g=gn;open=true}list+=evRow(x)}
+    // items: a night, or (folded) one repeating event in one month
+    const items=[],seen={};
+    for(const x of (S.f==='past'?[]:up)){
+      if(fold&&x.rec){const k=x.rec+'|'+x.d.slice(0,7);if(seen[k]){seen[k].ns.push(x);continue}seen[k]={k,rec:x.rec,ns:[x],d:x.d};items.push(seen[k])}
+      else items.push({x,d:x.d});
+    }
+    const shown=items.slice(0,S.limit);
+    let g='',open=false,nShown=0;
+    for(const it of shown){
+      const x=it.x||it.ns[0],gn=groupOf(x,fold);
+      if(gn!==g){if(open)list+='</div>';const c=up.filter(y=>groupOf(y,fold)===gn).length;list+=`<div class="grp"><h3>${gn}</h3><span>${plural(c,'night')}</span></div><div class="card">`;g=gn;open=true}
+      list+=it.x?evRow(it.x):serRow(it);nShown+=it.x?1:it.ns.length;
+    }
     if(open)list+='</div>';
-    if(S.f!=='past')list+=moreBtn(showUp.length,up.length);
+    if(S.f!=='past')list+=moreBtn(nShown,up.length,`${Math.min(30,items.length-shown.length)} more ${fold?'rows':'nights'}`);
     if(past.length){
       const po=S.pastOpen||S.f==='past';
       list+=`<button class="btn alt" data-act="past" aria-expanded="${po}">${po?'Hide':'Show'} past nights (${fmt(past.length)})</button>`;
-      if(po)list+=`<div class="card">${past.slice(0,S.f==='past'?S.limit:10).map(evRow).join('')}</div>${S.f==='past'?moreBtn(Math.min(S.limit,past.length),past.length):past.length>10?'<p class="more">Filter by Past to see all of them.</p>':''}`;
+      if(po)list+=`<div class="card">${past.slice(0,S.f==='past'?S.limit:10).map(evRow).join('')}</div>${S.f==='past'?moreBtn(Math.min(S.limit,past.length),past.length,'30'):past.length>10?'<p class="more">Filter by Past to see all of them.</p>':''}`;
     }
   }
   const tools=big?`${searchBox(ns)}<div class="chips" role="group" aria-label="Show">${FILTERS.filter(f=>f[0]==='all'||counts[f[0]]).map(f=>`<button class="chip" data-act="filter" data-k="${f[0]}" aria-pressed="${S.f===f[0]}">${f[1]} ${fmt(counts[f[0]])}</button>`).join('')}</div>`:'';
-  const hint=inSel?`<p class="why">Tap nights to select them. The bar at the bottom shows what you can do with them.</p>`:'';
-  return `${needsStrip(ns)}${head}${viewLine()}${hint}${tools}${list}`;
+  const toggle=hasRec&&!inSel?`<button class="toggle" role="switch" data-act="group" aria-checked="${groupOn()}"><span class="t"><b>Group repeating events</b><span>${!plain&&groupOn()?'Off while you search or filter, so every night shows.':groupOn()?'One row per event per month. Tap a row for its dates.':'Every date shows on its own row.'}</span></span><span class="switch" aria-hidden="true"></span></button>`:'';
+  const recs=[...new Set(allUp.filter(x=>x.rec&&x.st==='live').map(x=>x.rec))];
+  const serPick=inSel&&recs.length?`<div class="chips" role="group" aria-label="Select a whole series">${recs.map(rk=>{const ids=allUp.filter(x=>x.rec===rk&&x.st==='live').map(x=>x.id),on=ids.every(i=>S.sel.includes(i));return `<button class="chip" data-act="selser" data-k="${rk}" aria-pressed="${on}">${on?'&check; ':''}All of ${SERIES[rk].n} (${fmt(ids.length)})</button>`}).join('')}</div>`:'';
+  const hint=inSel?`<p class="why">Tap nights to select them, or pick a whole series. The bar at the bottom shows what you can do with them.</p>`:'';
+  const done=S.done?`<div class="banner ok" role="status" style="display:flex;gap:10px;align-items:flex-start"><span style="flex:1">${S.done}</span><button class="act alt" data-act="done">OK</button></div>`:'';
+  return `${needsLine(ns)}${head}${done}${viewLine()}${hint}${serPick}${tools}${toggle}${list}`;
 }
 // ==/LAYOUT==
 (function init(){
   const h=new URLSearchParams(location.hash.slice(1));
+  setShape('three');
   for(const k of h.keys())if(SHAPES[k])setShape(k);
   if(h.get('seat')&&SEATS[h.get('seat')])S.seat=h.get('seat');
   if(h.has('shot'))document.body.classList.add('shot');

@@ -3,22 +3,39 @@
 Brief: `docs/briefs/profile-dash-organiser-events-opts.md` (branch `brief/profile-dash-organiser-events-opts`).
 Docs/design only. No `src/` change, no DB write. The owner picks 1 of 2. An independent critique runs first.
 
+> **Status (2026-11-12): the owner picked Option A.** Fix round 1 (brief `docs/briefs/profile-dash-organiser-events-fix.md`,
+> branch `brief/profile-dash-organiser-events-opts`) is applied to A. **Option B: not picked.** `organiser-events-option-b.html`
+> and its `shots/organiser-events-option-b-*.png` stay for the record, frozen at round 1; they are no longer rebuilt from A,
+> so B does not show any of the fixes below. A is the single design from here on.
+
 - **Base:** `organiser-option-a.html` (the owner's pick for Home), with tokens and fonts from `prototype.html.md`.
   Kept: light theme, `--bg #f3f1ee`, `--fg #1d1f24`, `--c-org #1f5c7a`, Bricolage Grotesque + DM Sans, the
   organiser strip with **Switch**, and the tab bar **Home / Events / Tickets / Team**. Stats is gone (owner, 2026-11-12).
-- **Files:** `organiser-events-option-a.html`, `organiser-events-option-b.html`. Both are self-contained, and the
-  shape and seat switches sit above the 390x844 frame. Deep link: `#<shape>`; add `&shot` for a bare frame.
-  Shapes: `empty, three, huge, allcx, mixed, recurring, bulk, cancel, contributor, loading, error`.
-- **One implementation of each fact.** B is **built** from A: `tools/organiser-events-shots.mjs` copies A and
-  swaps only the text between the `LAYOUT` markers for `tools/organiser-events-b-layout.html`. The night row
-  (`evRow`), status tag, the "Needs you" rules (`needsOf`), the night sheet, the recurring scope sheet, the cancel
-  confirmation, the bulk bar and the loading, error and empty states are therefore the same code in both files.
-  To change B, edit the fragment and re-run the tool. Do not edit `organiser-events-option-b.html` by hand.
-- **Screenshots:** `shots/organiser-events-option-{a,b}-<shape>.png` (390x844, DPR 2), plus `-mixed-night` (the
-  night sheet, opened by a real tap). **Checks:** `node docs/design/profile-dash/tools/organiser-events-shots.mjs`
-  writes `organiser-events-checks.json`. Result: **24/24 option x state pass**. Every visible tap target is
-  44x44 CSS px or larger, every text node has contrast of 4.5:1 or more (lowest is 5.15), nothing scrolls sideways
-  at 390px, no text is clipped, and every frame actually drew (more than 8 text nodes, so a blank render fails).
+- **File:** `organiser-events-option-a.html`, self-contained. The shape and seat switches sit above the 390x844 frame.
+  Deep link: `#<shape>`; add `&shot` for a bare frame. Shapes: `empty, three, huge, series, hugeflat, allcx, mixed, needs,
+  draft, told, deldraft, cxnight, pastnight, recurring, cancelrec, bulk, bulkcancel, cancel, aftercancel, contributor,
+  contribneeds, loading, error`. Each shape starts from fresh example data, so a prototype cancel or delete in one shape
+  never leaks into another.
+- **Screenshots:** `shots/organiser-events-option-a-<shape>.png` (390x844, DPR 2), one per shape.
+  **Checks:** `node docs/design/profile-dash/tools/organiser-events-shots.mjs` writes `organiser-events-checks.json`
+  (Option A only now). Result: **23/23 states pass**. Every visible tap target is 44x44 CSS px or larger, every text node
+  has contrast of 4.5:1 or more (lowest is 5.15), nothing scrolls sideways at 390px, no text is clipped, every frame drew
+  (more than 8 text nodes), and the pinned "needs you" strip is **48px** tall (new check: it fails above 48).
+
+## Fix round 1 (independent critique), all 8 done
+
+| # | Critique | What A does now | Why (plain English) | Shot |
+|---|---|---|---|---|
+| 1 | Pinned "Needs you" card took too much room | ONE pinned line, "2 things need you &middot; See", 44px button in a 48px strip. Tap opens the full list in a sheet; each item keeps its one fixing button | The list of nights is the job of this tab. A card that grew with every problem pushed the first night below the fold | `mixed`, `needs` |
+| 2 | 100+ nights: 4 weekly series x 52 dates is a wall | **Group repeating events** switch, on by default from 30 upcoming nights (off below). Grouped, the list goes by month and each series is one row per month: "Friday Social, every Friday &middot; Nov: 3 of 52 &middot; 415 going Fri 13", with **Dates** to open that month's nights. Search or a status filter shows every night again, and the switch says so | 215 upcoming nights became 15 rows that reach February, and an organiser with 3 nights never sees the switch | `huge`, `series`, `hugeflat` |
+| 3 | Bulk cancel silently dropped drafts / cancelled / past | The bar's Cancel reads "Cancel 2" and says "Cancel skips 3 nights that are not live. You see which before anything happens"; with nothing live it is disabled: "Cancel only works on live nights. None of these is live." The confirmation lists **Going to be cancelled (2)** with who is going, **Skipped, nothing changes (3)** with the reason on each (Already happened / Already cancelled / A draft is not on the calendar, delete it instead), the total told, and **If some fail**: nights are cancelled one at a time, any that fail stay live and are listed so you can retry just those | Nothing happens to a night the organiser did not see named on the screen | `bulkcancel`, `bulk` |
+| 4 | Cancel had no scope for repeating nights | Cancelling a repeating night asks **Which dates?** with radio marks: This night only (5 going) / This night and every one after it (11 dates, Fri 20 Nov to Fri 5 Feb, 7 going) / The whole series (12 dates, 19 going, past nights untouched). Already-cancelled dates are not counted. In Select mode, chips **All of Friday Social (12)** select a whole series | One night off and "we are stopping the Friday" are different decisions with different numbers of people told | `cancelrec`, `bulk` |
+| 5 | Drafts could not be deleted | Draft night sheet: **Delete draft** opens a confirm sheet: the draft goes away, it was never on the calendar so nobody is told, cannot be undone, **Keep the draft** | A draft nobody wants should not sit in "needs you" forever | `draft`, `deldraft` |
+| 6 | Contradictory cancelled story | ONE story (`CX_STORY`): a cancelled night **stays on the calendar marked Cancelled, so nobody turns up**. Cancel sheet, cancelled-night sheet, after-cancel banner and the all-cancelled Needs-you item use it; the row shows Cancelled + "12 people told" (the old "not on the calendar" line is gone) | Two screens saying opposite things about what dancers see is how an organiser gets angry messages | `cancel`, `cxnight`, `aftercancel`, `allcx` |
+| 7 | Fixed draft copy; no Tell us sent state; contributor saw "Needs you" + a disabled Finish | Draft copy names what is missing from the data ("It needs **a place** before it can go live"; two drafts: "Summer Boat Party needs a place. Halloween Social needs a place and a photo."), and **Put it live** is disabled with "Add a place first". **Tell us** turns into "Sent &check;" with "Thanks, noted. We will tell you when it is ready." A contributor's pinned line reads "2 things Maria needs to finish", and each item says "Maria needs to finish this" (view only, no disabled button) | Say exactly what to do; show that a tap did something; do not show someone a button they can never press | `draft`, `told`, `contributor`, `contribneeds` |
+| 8 | Missing shots, scope sheet had no visible radio marks | New shots: bulk-cancel confirmation, cancelled-night sheet, past-night sheet, the screen after a cancel (green "Cancelled: Friday Social, Fri 13 Nov. 12 people have been told..." banner, row struck through). Both scope sheets (edit and cancel) draw radio circles (`role=radio`, filled dot when picked) | | `bulkcancel`, `cxnight`, `pastnight`, `aftercancel`, `recurring`, `cancelrec` |
+
+## Round 1 record (before the pick)
 
 ## The two layout ideas
 
@@ -144,11 +161,21 @@ nights** (alternative 1).
 
 ## Handover
 
-- **Done:** both options (11 shapes each plus the night sheet), 24 screenshots, checks 24/24, prod shape survey,
-  inventory, careful-lane list, recommendation.
-- **Left / next:** independent critique, then the owner picks A or B (or the hybrid). Then admin-repo checks for
-  the careful lane, then an implementation brief.
-- **Not verified:** not opened on a real phone. Names, dates and counts are examples shaped by the survey, not live
-  reads. No app code changed, so there was no browser walk of a running route. The attendee message on cancel
-  is not confirmed against the server (careful lane 2).
-- **Ship status:** PR #1580. tsc run on 342bacc: 0 errors in branch files (the branch has no TS). These local CI steps that apply all passed: docs-only = true, integrity, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`, `check:mojibake`, and both PR-body label checks. No automerge label: the diff is over 400 lines, and the owner picks an option anyway.
+- **Round 1 (PR #1580, merged):** both options, 24 screenshots, checks 24/24, prod shape survey, inventory, careful lane, recommendation A.
+- **Fix round 1 (this branch, `claude/profile-dash-organiser-events-opts`):** owner picked A; all 8 critique fixes in A, B marked not
+  picked and frozen, 23 A states drawn and shot, checks 23/23 (new pinned-height check), A shots renamed per shape (the old
+  `-mixed-night` shot is now `-draft`, opened from the shape instead of by a tap).
+- **Left / next:** the owner looks at the fix-round shots. Then the careful-lane checks in the admin repo, which round 1 left open and
+  this round makes sharper: (1) bulk cancel across series now promises per-night partial-failure reporting; (3) cancel now offers
+  "this and every one after it" and "the whole series", which need ranged / series cancel commands; a draft delete command needs
+  confirming (no organiser delete-draft RPC was checked). Open questions 1 (paused) and 2 (bulk Put live) still stand. Then an
+  implementation brief.
+- **Not verified:** not opened on a real phone. Names, dates and counts are examples shaped by the round 1 survey (no new prod
+  read this round: the fixes change layout and copy, not the data shapes). The 30-night grouping threshold is a design guess
+  from that survey (8 organisers have 1 to 5 dates, 7 have 100+), not tested with organisers. Whether a failed bulk cancel can be
+  reported per night, whether "this and after" and "whole series" cancel exist server-side, and what the cancel message really
+  sends are unconfirmed (careful lane 1-3). Also unconfirmed: that a cancelled night "stays ... on your public page history" (option A, past-night banner) and that "Dancers see them on the calendar marked Cancelled" (all-cancelled line) match what the public site really shows. No app code changed, so there was no browser walk of a running route.
+- **Ship status (fix round 1):** PR #1582. tsc run on 971d4b9: 0 errors in branch files (the branch has no TS). Local CI steps that apply all
+  passed: docs-only = true, `check:integrity`, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`,
+  `check:mojibake`, and both PR-body label checks (no Phone QA section: docs-only). No automerge label: the diff is over 400 lines.
+- **Fix round 2 (review fixes):** bulk-cancel skipped-draft row now says "Open it and choose Delete draft." (the bulk bar has no Delete); disabled sheet rows (`.row[disabled]`) have muted title, no chevron, reason text kept (min contrast 5.15); group-switch card no longer flex-shrunk (padding 12/16, was clipped in `huge`); series going-date kept together on its own line (`415 going Fri 13`, not split). Shots re-taken, 23/23 states pass (shot script wait raised 150 to 400 ms: the 0.18s sheet animation made tap-size checks flaky). Not verified: still no real phone.

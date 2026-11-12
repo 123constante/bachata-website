@@ -1,36 +1,22 @@
-// Builds organiser-events-option-b.html, then screenshots + mechanical checks for the organiser EVENTS tab options A/B.
-// Adapted from organiser-shots.mjs. Usage: node docs/design/profile-dash/tools/organiser-events-shots.mjs
-// Option B = option A with the text between the LAYOUT markers swapped for tools/organiser-events-b-layout.html,
-// so every shared fact (row, needs list, sheets, bulk bar) is ONE implementation in both files.
-// Each option HTML shows ONE state when opened with #<state>. For every
-// option x state it takes a 390x844 first-screen shot and a full-page shot,
-// and checks: tap targets >= 44x44 CSS px, text contrast >= 4.5:1,
-// no sideways scroll at 390px, no clipped text.
+// Screenshots + mechanical checks for the organiser EVENTS tab, Option A (the owner's pick, 2026-11-12).
+// Usage: node docs/design/profile-dash/tools/organiser-events-shots.mjs
+// Option B was not picked: organiser-events-option-b.html is frozen at its first-round state and is no longer
+// rebuilt (its fragment tools/organiser-events-b-layout.html stays for the record). Its first-round checks are in git history.
+// The HTML shows ONE state when opened with #<state>. For every state it takes a 390x844 first-screen shot
+// and checks: tap targets >= 44x44 CSS px, text contrast >= 4.5:1, no sideways scroll at 390px, no clipped text,
+// and the pinned "needs you" strip is 48px tall or less.
 import { chromium } from 'playwright';
-import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const OPTIONS = ['organiser-events-option-a', 'organiser-events-option-b'];
-const STATES = ['empty', 'three', 'huge', 'allcx', 'mixed', 'recurring', 'bulk', 'cancel', 'contributor', 'loading', 'error', 'mixed&sheet=night'];
-const splice = (src, open, close, repl) => {
-  const i = src.indexOf(open), j = src.indexOf(close);
-  if (i < 0 || j < i) throw new Error(`marker ${open} missing`);
-  return src.slice(0, i) + repl + src.slice(j + close.length);
-};
-{
-  const a = readFileSync(resolve(root, 'organiser-events-option-a.html'), 'utf8');
-  const frag = readFileSync(resolve(here, 'organiser-events-b-layout.html'), 'utf8');
-  const part = (o, c) => frag.slice(frag.indexOf(o), frag.indexOf(c) + c.length);
-  let b = splice(a, '/* ==LAYOUT CSS== */', '/* ==/LAYOUT CSS== */', part('/* ==LAYOUT CSS== */', '/* ==/LAYOUT CSS== */'));
-  b = splice(b, '// ==LAYOUT==', '// ==/LAYOUT==', part('// ==LAYOUT==', '// ==/LAYOUT=='));
-  b = b.replace('<title>Organiser Events A</title>', '<title>Organiser Events B</title>');
-  writeFileSync(resolve(root, 'organiser-events-option-b.html'), b);
-}
+const OPTIONS = ['organiser-events-option-a'];
+const STATES = ['empty', 'three', 'huge', 'series', 'hugeflat', 'allcx', 'mixed', 'needs', 'draft', 'told', 'deldraft', 'cxnight', 'pastnight',
+  'recurring', 'cancelrec', 'bulk', 'bulkcancel', 'cancel', 'aftercancel', 'contributor', 'contribneeds', 'loading', 'error'];
 const shotDir = resolve(root, 'shots');
-const slug = (s) => s.replace(/&sheet=/, '-');
+const slug = (s) => s;
 mkdirSync(shotDir, { recursive: true });
 
 const browser = await chromium.launch();
@@ -40,12 +26,10 @@ const results = [];
 
 for (const opt of OPTIONS) {
   for (const st of STATES) {
-    const url = pathToFileURL(resolve(root, `${opt}.html`)).href + '#' + st.replace('&sheet=night', '') + '&shot';
+    const url = pathToFileURL(resolve(root, `${opt}.html`)).href + '#' + st + '&shot';
     await page.goto('about:blank');
     await page.goto(url);
-    await page.waitForTimeout(150);
-    // the night sheet is opened by a tap, as a person would
-    if (st.endsWith('&sheet=night')) { const ev = (await page.$('.ev:has(.tag.draft)')) || (await page.$('.ev')); await ev.click(); await page.waitForTimeout(250); }
+    await page.waitForTimeout(400);
     const r = await page.evaluate(() => {
       const parse = (c) => {
         const m = c.match(/rgba?\(([^)]+)\)/);
@@ -105,18 +89,19 @@ for (const opt of OPTIONS) {
         sideways: document.documentElement.scrollWidth > 390,
         scrollWidth: document.documentElement.scrollWidth,
         height: document.documentElement.scrollHeight,
+        pinnedH: document.querySelector('.needs') ? Math.round(document.querySelector('.needs').getBoundingClientRect().height) : 0,
         taps, contrast, minContrast: +minC.toFixed(2), textNodes, clipped: clipped.slice(0, 10),
       };
     });
     await page.screenshot({ path: resolve(shotDir, `${opt}-${slug(st)}.png`) });
     results.push({ option: opt, state: st, ...r });
-    const ok = r.textNodes > 8 && !r.sideways && !r.taps.length && !r.contrast.length && !r.clipped.length;
-    console.log(`${ok ? 'PASS' : 'FAIL'} ${opt} ${st} h=${r.height} minContrast=${r.minContrast} taps<44=${r.taps.length} lowContrast=${r.contrast.length} clipped=${r.clipped.length} sideways=${r.sideways}`);
+    const ok = r.textNodes > 8 && r.pinnedH <= 48 && !r.sideways && !r.taps.length && !r.contrast.length && !r.clipped.length;
+    console.log(`${ok ? 'PASS' : 'FAIL'} ${opt} ${st} pinned=${r.pinnedH} h=${r.height} minContrast=${r.minContrast} taps<44=${r.taps.length} lowContrast=${r.contrast.length} clipped=${r.clipped.length} sideways=${r.sideways}`);
     if (!ok) console.log('  ', JSON.stringify({ taps: r.taps.slice(0, 5), contrast: r.contrast.slice(0, 5), clipped: r.clipped.slice(0, 5) }));
   }
 }
 writeFileSync(resolve(root, 'organiser-events-checks.json'), JSON.stringify(results, null, 2) + '\n');
 await browser.close();
-const fails = results.filter((r) => r.textNodes <= 8 || r.sideways || r.taps.length || r.contrast.length || r.clipped.length);
-console.log(`${results.length - fails.length}/${results.length} option-states pass`);
+const fails = results.filter((r) => r.textNodes <= 8 || r.pinnedH > 48 || r.sideways || r.taps.length || r.contrast.length || r.clipped.length);
+console.log(`${results.length - fails.length}/${results.length} states pass`);
 process.exit(fails.length ? 1 : 0);
