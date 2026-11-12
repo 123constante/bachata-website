@@ -149,3 +149,9 @@ with PR #1541 Part B (`not_allowed`).
   screens not read (repo not reachable from this session: the admin side is the DB schema + RPC source);
   PR #1541 is not merged, so its lines are cited from 59e0809; disputed / not-connected / Stripe-waiting are
   design shapes with 0 prod rows today.
+- **Ship status:** PR #1587 on `claude/profile-dash-organiser-tickets-opts` (docs only; the owner picks, no
+  automerge). On 0d8d7d6 every GitHub check finished success or skipped (integrity, unit x3, e2e-smoke,
+  real-data-verified, phone-qa-section, bom-check, bundle-budget, masking, live-db-gate, ...), with
+  notification-check still running when this was written. Local: check:mojibake, check:integrity,
+  `AUDIT_STRICT=1 check:images`, lint:architecture, check-script-conventions, PR-body real-data check all exit 0.
+  tsc not run (the branch has no TS).
