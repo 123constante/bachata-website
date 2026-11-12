@@ -265,6 +265,14 @@ describe('refusal x shape: "Choose another night" has a real target', () => {
 });
 
 describe('FIX-3: the sticky bar reads the night on screen', () => {
+  // Pin the clock like FIX-1 does: the fixture night closes 2026-11-11T19:15Z, so on a real clock these go red after that.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it('InSiteTicketProbe with occurrenceId n1 fetches (e1, n1)', async () => {
     api.fetchPublicTicketTypes.mockResolvedValue(NIGHT);
     const onResult = vi.fn();
