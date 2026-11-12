@@ -22,6 +22,8 @@ import { BrokenImage } from './BrokenImage';
 import { OnBody } from './RepeatSheet';
 import { ScopeSheet, useScopedRun, type ScopedDone } from './ScopeSheet';
 import { changedWord, scopedChangesOf } from '../model/scopeAsk';
+import { flags } from '@/lib/featureFlags';
+import { PhotoOrderGrid } from './PhotoOrderGrid';
 
 
 /** The quiet "Different on N dates" line (null when no coming date owns the field). */
@@ -210,7 +212,8 @@ function Details({ ws }: { ws: EventWorkspace }) {
       )}
       {pictures && (
         <OnBody>
-          <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)} />
+          <PicturesSheet seriesId={ws.series.id} gallery={draft.gallery} busy={off} onChange={(gallery) => set({ gallery })} onClose={() => setPictures(false)}
+            cover={draft.cover} onPhotos={(p) => set({ cover: p.cover, gallery: p.gallery })} />
         </OnBody>
       )}
       {picking && (
@@ -231,7 +234,10 @@ function Details({ ws }: { ws: EventWorkspace }) {
 }
 
 /** The series pictures: the date sheet's picker and the same upload path; edits the draft, the ONE save sends them. */
-function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesId: string; gallery: string[]; busy: boolean; onChange: (g: string[]) => void; onClose: () => void }) {
+function PicturesSheet({ seriesId, gallery, busy, onChange, onClose, cover, onPhotos }: {
+  seriesId: string; gallery: string[]; busy: boolean; onChange: (g: string[]) => void; onClose: () => void;
+  cover: string; onPhotos: (p: { cover: string; gallery: string[] }) => void;
+}) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
@@ -255,18 +261,23 @@ function PicturesSheet({ seriesId, gallery, busy, onChange, onClose }: { seriesI
   return (
     <Sheet title={L.detailsPictures} onClose={onClose} locked={uploading}>
       <p className="p3-note">{L.detailsPicturesHint}</p>
-      {gallery.length === 0 && <p className="p3-note" data-testid="p3-pictures-empty">{L.detailsPicturesEmpty}</p>}
-      <div role="list" className="p3-photos" data-testid="p3-pictures">
-        {gallery.map((url, i) => (
-          <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-picture">
-            <img src={url} alt="" loading="lazy" />
-            <button type="button" className="p3-photo-x" aria-label={`${L.detailsPicturesRemove} ${i + 1}`} disabled={busy || uploading}
-              onClick={() => { latest.current = gallery.filter((_, j) => j !== i); onChange(latest.current); }} data-testid="p3-picture-remove">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-        ))}
-      </div>
+      {gallery.length === 0 && !(flags.organiserPhotoOrder && cover.trim()) && <p className="p3-note" data-testid="p3-pictures-empty">{L.detailsPicturesEmpty}</p>}
+      {flags.organiserPhotoOrder ? (
+        <PhotoOrderGrid photos={{ cover, gallery }} off={busy || uploading}
+          onPhotos={(p) => { latest.current = p.gallery; onPhotos(p); }} />
+      ) : (
+        <div role="list" className="p3-photos" data-testid="p3-pictures">
+          {gallery.map((url, i) => (
+            <div role="listitem" key={`${url}-${i}`} className="p3-photo" data-testid="p3-picture">
+              <img src={url} alt="" loading="lazy" />
+              <button type="button" className="p3-photo-x" aria-label={`${L.detailsPicturesRemove} ${i + 1}`} disabled={busy || uploading}
+                onClick={() => { latest.current = gallery.filter((_, j) => j !== i); onChange(latest.current); }} data-testid="p3-picture-remove">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <input ref={file} type="file" accept={FLYER_ACCEPT} multiple className="p3-sr" tabIndex={-1} aria-hidden="true"
         onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ''; if (f.length) void add(f); }} data-testid="p3-pictures-file" />
       {gallery.length < MAX_GALLERY
