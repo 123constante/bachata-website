@@ -222,4 +222,9 @@ without changing anything else.
   - the admin screens themselves, because the admin repo could not be opened here (G0: RPCs only);
   - close-notify behaviour and the retention window;
   - the people and numbers are examples shaped by the survey, not live reads.
-- **Ship status:** see the PR body.
+- **Ship status:** PR #1585 on `claude/profile-dash-organiser-guest-list-opts` (bot-opened, body filled; Phone QA section
+  deleted as docs-only; `check-pr-real-data-verified.mjs` exit 0). On 9dfc842, every PR check that ran was success
+  (integrity, unit x3 TZ, e2e-smoke, bundle-budget, live-db-gate, masking, notification, dancer-area-isolation,
+  phone-qa-section, real-data-verified, bom-check, route, wallclock-brand, no-preview-reason); the rest were skipped by
+  path filters. Local: `check:mojibake`, `check:integrity`, `lint:architecture`, `AUDIT_STRICT=1 check:images`,
+  `check-script-conventions` pass. Not merged, not approved. tsc not run (no TS in the diff).
