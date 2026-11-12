@@ -1,0 +1,91 @@
+name: Live QA on PR preview
+
+# Runs the READ-ONLY tests/e2e/live suite (pages.spec.ts + detectors.spec.ts)
+# against the PR's Vercel preview at 390px, so a public-page regression
+# (hydration errors, axe serious/critical, overflow, 44px taps) is caught before
+# merge, not by the daily live-qa.yml run the next morning.
+#
+# NO SECRETS beyond the preview bypass: SUPABASE_ACCESS_TOKEN is deliberately
+# not passed. Without it the shape matrix (shape-matrix.spec.ts) SKIPS with a
+# stated reason (tests/e2e/live/lib/shapes.ts); the page checks still run.
+# Shape coverage stays with the daily live-qa.yml run against production.
+#
+# The preview talks to the production database read-only: the suite answers
+# every view/click recorder in the browser and aborts any other write-shaped
+# request (see live-qa.yml). Findings use the same baseline.json ratchet.
+#
+# Not for bot/* and dependabot/* branches: vercel.json ignoreCommand publishes
+# no preview for them, so resolve-preview-url would poll 600s then fail. Keep
+# this condition in sync with that ignoreCommand (same as og-image-check.yml).
+
+on:
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: e2e-public-on-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  live-preview:
+    if: ${{ !startsWith(github.head_ref, 'bot/') && !startsWith(github.head_ref, 'dependabot/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade npm to 11 (Node 22 ships with npm 10)
+        run: npm install -g npm@11
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve preview URL
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="$(node scripts/resolve-preview-url.mjs)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run live QA suite on the preview (read-only, 390px)
+        env:
+          CI: 'true'
+          LIVE_QA_BASE_URL: ${{ steps.preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npm run test:e2e:live
+
+      - name: Summarise findings
+        if: always()
+        run: |
+          f=test-results/live-qa/findings.ndjson
+          if [ ! -f "$f" ]; then echo "No findings file (the suite did not reach a page)." >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          node -e '
+            const rows = require("fs").readFileSync(process.argv[1], "utf8").split("\n").filter(Boolean).map(JSON.parse);
+            const fresh = rows.filter((r) => !r.baselined);
+            const lines = ["## Live QA on preview", "", `${rows.length} page-check findings, ${fresh.length} NEW (not in tests/e2e/live/baseline.json). Shape matrix skipped by design (no token).`, ""];
+            for (const r of fresh.slice(0, 40)) lines.push(`- ${r.rule} on \`${r.path}\`: ${r.detail}`);
+            console.log(lines.join("\n"));
+          ' "$f" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-qa-preview-report
+          path: |
+            test-results/
+            playwright-report-live/
+          retention-days: 7
