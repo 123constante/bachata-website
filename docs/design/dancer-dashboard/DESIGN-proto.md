@@ -60,7 +60,7 @@ A scripted pass over each state measured:
 | Option 1 | 6.05 | 0 | 0 | 0 | 0 |
 | Option 2 | 6.05 | 0 | 0 | 0 | 0 |
 
-The contrast pass skips disabled controls, which WCAG exempts. Both disabled buttons still use the muted token, at about 5.5:1.
+The contrast pass skips disabled controls, which WCAG exempts. Both disabled buttons still use the muted token on the soft fill, at 6.05:1.
 
 ## Real-data shapes (read-only survey, prod, 2026-11-12, counts only)
 - 14 claimed, active dancer profiles. All 14 have a photo and a home city, so "unfinished" is rare today. It matters for new sign-ups.
