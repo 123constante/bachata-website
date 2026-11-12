@@ -19,6 +19,8 @@ type EventStickyActionBarProps = {
   /** True when the page may offer in-site tickets (flag on, bookable night). The bar then
    *  reads the series' ticket types itself; false never fetches. */
   inSiteTicketing?: boolean;
+  /** Tells the page whether our Buy is live for this night (JSON-LD offer URL follows it). */
+  onTicketingLive?: (live: boolean, occurrenceId: string | null) => void;
   /** Opens the Tickets page (replaces scrolling to the inline block). */
   onOpenTickets?: () => void;
   /** Title used for the native share sheet / fallback text. */
@@ -85,6 +87,15 @@ const ICON_CLASS = 'flex h-[44px] w-[44px] shrink-0 items-center justify-center 
  * dissolves beneath it. Rendered via a body portal to escape framer-motion
  * transform ancestors (same reason as the old StickyTicketButton).
  */
+const PROBE_TIMEOUT_MS = 4000;
+
+type SiteBarStateLite = 'buy' | 'quiet' | 'none';
+type ProbeAnswer = { key: string; state: SiteBarStateLite; label: string; timedOut: boolean };
+/** The night a probe answer is about (series + night). */
+function probeNightKey(seriesId: string | null, occurrenceId: string | null): string {
+  return `${seriesId ?? ''}|${occurrenceId ?? ''}`;
+}
+
 export const EventStickyActionBar = ({
   eventId,
   occurrenceId = null,
@@ -92,6 +103,7 @@ export const EventStickyActionBar = ({
   ticketUrl,
   inSiteTicketing = false,
   onOpenTickets,
+  onTicketingLive,
   shareTitle,
   shareSubtitle,
   canAddToCalendar,
@@ -106,21 +118,46 @@ export const EventStickyActionBar = ({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // TICKET_LEAD_IN_SITE: same query key as the buy block, so one fetch serves both.
-  const [barState, setBarState] = useState<'buy' | 'quiet' | 'none'>('none');
-  const [quietLabel, setQuietLabel] = useState('Sold out');
-  const onProbe = useCallback((st: 'buy' | 'quiet' | 'none', label: string) => {
-    setBarState(st);
-    if (label) setQuietLabel(label);
+  // Every probe fact is stored WITH the night it is about (fix2 1c): a night switch makes the
+  // stored answer stale at once, so the new night starts pending and never inherits the
+  // previous night's live flag, quiet label or timeout. Nothing else in this bar is per night.
+  const nightKey = probeNightKey(eventId, occurrenceId);
+  // One answer per night, so an answer about another night can never overwrite this one's.
+  const [answers, setAnswers] = useState<Record<string, ProbeAnswer>>({});
+  const onProbe = useCallback((seriesId: string, night: string | null, st: SiteBarStateLite, label: string) => {
+    const key = probeNightKey(seriesId, night);
+    // After the timeout her link stays for this night: a late answer never swaps it (fix2 1b).
+    setAnswers((prev) => (prev[key]?.timedOut ? prev : { ...prev, [key]: { key, state: st, label, timedOut: false } }));
   }, []);
-  const inSite = inSiteTicketing && !!eventId && barState === 'buy';
+  const current = answers[nightKey] ?? null;
+  // If the probe never answers (chunk or network failure) her link must not stay hidden forever.
+  useEffect(() => {
+    if (!inSiteTicketing || !eventId || current) return;
+    const t = setTimeout(() => {
+      setAnswers((prev) => (prev[nightKey] ? prev : { ...prev, [nightKey]: { key: nightKey, state: 'none', label: '', timedOut: true } }));
+    }, PROBE_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [inSiteTicketing, eventId, nightKey, current]);
+  const barState: SiteBarStateLite = current?.state ?? 'none';
+  const quietLabel = current?.label || 'Sold out';
+  const live = inSiteTicketing && !!eventId && barState === 'buy';
+  useEffect(() => {
+    onTicketingLive?.(live, occurrenceId);
+  }, [onTicketingLive, live, occurrenceId]);
+  const inSite = live;
   const quiet = inSiteTicketing && !!eventId && barState === 'quiet';
+  // In-site ticketing is possible but the probe has not answered for THIS night: show neither
+  // her link nor a primary action (a same-height placeholder), so her link never flashes and
+  // then vanishes. Once the night resolved (any state, or timed out) this is false (fix2 1a).
+  const pending = inSiteTicketing && !!eventId && !current;
   if (!mounted || typeof document === 'undefined') return null;
 
   // Tickets owns the primary slot whenever a link exists; otherwise Directions
   // is promoted so the bar never leads with a mere icon.
   // When the event sells in-site, the in-site buy action leads and the external link
-  // steps back to a small text link, so exactly one primary buy action shows.
-  const directionsIsPrimary = !ticketUrl && !inSite && !quiet;
+  // is hidden (TICKET_LEAD_IN_SITE): ours is the only way in. It returns when the night is
+  // sold out, closed or not yet open (quiet).
+  const directionsIsPrimary = !ticketUrl && !inSite && !quiet && !pending;
 
   const ticketPrimaryStyle: React.CSSProperties = accentColor
     ? {
@@ -184,7 +221,7 @@ export const EventStickyActionBar = ({
             'linear-gradient(180deg, hsl(var(--bento-surface) / 0) 0%, hsl(var(--bento-surface) / 0.94) 30%)',
         }}
       >
-        {(inSite || quiet) && ticketUrl && (
+        {quiet && ticketUrl && (
           <div className="pointer-events-auto mb-1 text-center">
             <a
               href={ticketUrl}
@@ -243,7 +280,16 @@ export const EventStickyActionBar = ({
             </button>
           )}
 
-          {!inSite && !quiet && ticketUrl && (
+          {pending && (
+            <div
+              aria-hidden="true"
+              data-testid="buy-pending"
+              className={PRIMARY_CLASS}
+              style={{ background: '#243B36', border: '1.5px solid var(--bento-hairline)', boxShadow: 'none', opacity: 0.6 }}
+            />
+          )}
+
+          {!inSite && !quiet && !pending && ticketUrl && (
             <a
               href={ticketUrl}
               target="_blank"

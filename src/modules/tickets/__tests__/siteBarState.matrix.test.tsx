@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { quietBarButton, siteBarState } from '../ticketCheckoutApi';
+import { quietBarButton, siteBarState, ticketingLive } from '../ticketCheckoutApi';
 import type { PublicTicketType } from '../ticketCheckoutModel';
 import { TicketGlyph } from '../TicketGlyph';
 import type { TicketSymbol } from '../ticketSymbol';
@@ -30,6 +30,8 @@ describe('sticky bar state x ticket shapes', () => {
   ];
   it.each(rows)('%s', (_n, types, state, label) => {
     expect(siteBarState(types, now)).toBe(state);
+    // TICKET_LEAD_IN_SITE: the external link hides only while state is 'buy'
+    expect(ticketingLive(types, now)).toBe(state === 'buy');
     if (label) expect(quietBarButton(types!, now)).toBe(label);
   });
 });

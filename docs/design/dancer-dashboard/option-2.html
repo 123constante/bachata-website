@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dancer Dashboard Agenda</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+/* Option 2: AGENDA. "You" card on top (profile and counts), then a day-by-day timeline.
+   Built on the owner-confirmed Organiser Area Prototype: same tokens, role strip, Switch sheet, bottom tabs. Dark theme. */
+:root{
+  --bg:#14161a; --fg:#eceae6; --muted:#a5a8b0; --card:#1e2127; --line:#32363e; --ink-soft:#262a31;
+  --danger:#ff8a80; --on-danger:#14161a; --ok:#7fd6a0; --accent:#f2a7c3;
+  --c-org:#1f5c7a; --c-teacher:#8a5a00; --c-dj:#5b3fa0; --c-dancer:#b02a5b;
+  --f-display:'Bricolage Grotesque','Segoe UI',sans-serif; --f-body:'DM Sans','Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--f-body)}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+button:focus-visible,a:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:16px}
+.frame{width:390px;max-width:100%;height:844px;flex:none;background:var(--bg);border:1px solid var(--line);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+#screen{flex:1;min-height:0;display:flex;flex-direction:column}
+.ctl{width:390px;max-width:100%;display:flex;flex-direction:column;gap:8px}
+.ctl h1{font:700 20px var(--f-display);margin:0}
+.ctl p{margin:0;color:var(--muted);font-size:14px}
+.ctl .lbl{font-size:14px;color:var(--muted);font-weight:600}
+@media (max-width:520px){.wrap{padding:0;gap:0}.frame{width:100%;height:100vh;height:100dvh;border:0;border-radius:0}.ctl{padding:24px 16px}}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--ink-soft);padding:3px;border-radius:12px}
+.seg button{flex:1 1 30%;text-align:center;padding:0 6px;border-radius:9px;font-size:14px;font-weight:600;min-height:44px;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+/* role strip (from the base) */
+.r-org{--rc:var(--c-org)}.r-teacher{--rc:var(--c-teacher)}.r-dj{--rc:var(--c-dj)}.r-dancer{--rc:var(--c-dancer)}
+.badge{width:var(--s,40px);height:var(--s,40px);border-radius:10px;background:var(--rc);color:#fff;display:inline-grid;place-items:center;flex:none}
+.idbar{display:flex;align-items:center;gap:8px;background:var(--rc);color:#fff;padding:10px 12px 10px 16px;min-height:64px}
+.idbar .badge{background:rgba(0,0,0,.24)}
+.idmain{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:44px;color:#fff}
+.idtxt{display:flex;flex-direction:column;min-width:0}
+.idtxt b{font:700 17px/1.2 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idtxt span{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:600;color:#fff;background:rgba(0,0,0,.28);padding:0 12px 0 14px;min-height:44px;border-radius:999px;white-space:nowrap;flex:none}
+.sw .ic{width:18px;height:18px}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px 24px;display:flex;flex-direction:column;gap:16px}
+.tabs{display:flex;border-top:1px solid var(--line);background:var(--card)}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 10px;font-size:13px;font-weight:600;color:var(--muted);border-top:3px solid transparent;margin-top:-1px;min-height:56px}
+.tabs button[aria-current=true]{color:var(--fg);border-top-color:var(--accent)}
+h2{font:700 24px/1.2 var(--f-display);margin:0}
+h3{font:700 17px/1.3 var(--f-display);margin:8px 0 0}
+.cap{font-size:14px;color:var(--muted);margin:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;min-height:60px}
+.row+.row{border-top:1px solid var(--line)}
+.row .t{display:flex;flex-direction:column;flex:1;min-width:0}
+.row .t b{font-size:15px;font-weight:600}.row .t span{font-size:14px;color:var(--muted)}
+.row .chev{color:var(--muted)}
+.tag{font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--fg);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.tag.tk{border-color:var(--accent);color:var(--accent)}
+.tag .ic{width:14px;height:14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--fg);color:var(--bg);font-weight:600;border-radius:12px;padding:0 16px;min-height:48px;width:100%}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn[disabled]{background:var(--ink-soft);color:var(--muted);border:1px dashed var(--line);cursor:not-allowed}
+.why{display:flex;gap:8px;font-size:14px;color:var(--muted);margin:-8px 0 0}
+.why .ic{width:16px;height:16px;margin-top:2px}
+.banner{display:flex;gap:10px;border-radius:14px;padding:14px;font-size:14px;line-height:1.5;background:var(--ink-soft);border:1px solid var(--line)}
+.banner .ic{margin-top:1px}
+.banner.err{border-color:var(--danger)}
+.banner.err .ic{color:var(--danger)}
+/* date tile */
+.dt{width:48px;height:52px;border-radius:12px;background:var(--ink-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;line-height:1}
+.dt small{font-size:12px;font-weight:600;color:var(--muted)}
+.dt b{font:700 20px var(--f-display);margin-top:3px}
+/* focus card */
+.focus{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:14px;border-color:#6b3a4f;box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.focus .top{display:flex;gap:14px;align-items:flex-start}
+.focus .dt{width:64px;height:70px}.focus .dt b{font-size:28px}
+.focus h3{margin:0;font-size:20px}
+.meta{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--muted);min-width:0}
+.meta h3{color:var(--fg)}
+.meta span{display:flex;gap:8px;align-items:center}
+.meta .ic{width:16px;height:16px}
+.prog{height:8px;border-radius:4px;background:var(--ink-soft);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent)}
+.steps{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;font-size:14px}
+.steps li{display:flex;gap:10px;align-items:center}
+.steps .done{color:var(--muted)}
+.steps .done .ic{color:var(--ok)}
+.dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted);flex:none}
+.link{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;font-weight:600;padding:0 4px}
+.av{width:64px;height:64px;border-radius:50%;background:var(--c-dancer);color:#fff;display:grid;place-items:center;font:700 22px var(--f-display);flex:none}
+.av.none{background:var(--ink-soft);color:var(--muted);border:2px dashed var(--line)}
+.skel{background:var(--ink-soft);border-radius:12px}
+.me{padding:16px;display:flex;flex-direction:column;gap:14px}
+.me .who{display:flex;gap:14px;align-items:center}
+.me .who .av{width:56px;height:56px;font-size:20px}
+.me h2{font-size:22px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px}
+.tile{background:var(--ink-soft);border-radius:12px;padding:10px 12px;min-height:64px;display:flex;flex-direction:column;justify-content:center}
+.tile b{font:700 22px/1.1 var(--f-display);font-variant-numeric:tabular-nums}
+.tile span{font-size:13px;color:var(--muted)}
+.ag{display:flex;flex-direction:column}
+.day{display:grid;grid-template-columns:52px 1fr;gap:12px;position:relative;padding-bottom:14px}
+.day::before{content:'';position:absolute;left:25px;top:72px;bottom:0;width:2px;background:var(--line)}
+.day:last-child{padding-bottom:0}.day:last-child::before{display:none}
+.when{display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:6px}
+.when small{font-size:12px;font-weight:600;color:var(--muted)}
+.when b{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--ink-soft);font:700 17px var(--f-display)}
+.day.now .when b{background:var(--accent);color:#14161a}
+.day.now .when small{color:var(--accent)}
+.item{background:var(--card);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;min-width:0}
+.day.now .item{border-color:#6b3a4f}
+.item .hd{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;min-height:60px;width:100%}
+.item .hd .t{display:flex;flex-direction:column;flex:1;min-width:0}
+.item .hd b{font-size:15px;font-weight:600}.item .hd span.s{font-size:14px;color:var(--muted)}
+.item .ft{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+.item .ft .cap{font-size:13px}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;z-index:5}
+.sheet{background:var(--bg);width:100%;max-height:86%;overflow-y:auto;border-radius:20px 20px 0 0;padding:12px 16px 20px;display:flex;flex-direction:column;gap:12px}
+.sheet .x{align-self:flex-end;display:flex;align-items:center;gap:4px;font-weight:600;min-height:44px;padding:0 8px}
+.tag.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.back{display:flex;align-items:center;gap:4px;font-weight:600;min-height:44px;padding:0 8px 0 0;align-self:flex-start}
+.scanbox{border:2px dashed var(--line);border-radius:16px;height:200px;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;text-align:center;padding:16px;color:var(--muted)}
+.scanbox .ic{width:32px;height:32px}
+.res{border-radius:16px;padding:18px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;border:2px solid var(--fg);text-align:center}
+.res b{display:flex;align-items:center;gap:8px;font:700 24px var(--f-display)}
+.res b .ic{width:28px;height:28px}
+.res.ok b{color:var(--ok)}.res.bad b{color:var(--danger)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;border:1px solid var(--line);border-radius:999px;padding:0 16px;font-weight:600;font-size:14px;background:var(--card)}
+.chip[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+.toast{position:absolute;left:16px;right:16px;bottom:76px;background:var(--fg);color:var(--bg);padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;text-align:center;z-index:9}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-org" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+ <symbol id="i-teacher" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 21l4-5 4 5"/></symbol>
+ <symbol id="i-dj" viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/></symbol>
+ <symbol id="i-dancer" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+ <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+ <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+ <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+ <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+ <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></symbol>
+ <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+ <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/><path d="M14 7v10"/></symbol>
+ <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+ <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+ <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7l2-3h4l2 3"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+ <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+ <symbol id="i-door" viewBox="0 0 24 24"><path d="M5 21V4h11v17M3 21h18"/><circle cx="13" cy="12.5" r="1"/></symbol>
+ <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></symbol>
+ <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+ <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+ <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+ <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+</svg>
+<div class="wrap">
+  <div class="frame" id="frame"><div id="screen"></div></div>
+  <div class="ctl">
+    <h1>Option 2: Agenda</h1>
+    <p>A card about you on top, then your plans laid out day by day on a timeline.</p>
+    <span class="lbl">Shape</span><div class="seg" id="shseg"></div>
+    <span class="lbl">Data</span><div class="seg" id="dseg"></div>
+    <p>Names, events and numbers are examples. Shapes are also reachable by link: #three, #one, #clear, #unfinished, #door (add /going, /saved, /profile, /switch, /scan, /loading, /error).</p>
+  </div>
+</div>
+<script>
+const ROLES={org:'Organiser',teacher:'Teacher',dj:'DJ',dancer:'Dancer'};
+const ORDER=['org','teacher','dj','dancer'];
+const EV={
+ fri:{n:'Friday Social',org:'Ritmo London',day:'Fri',d:'13',when:'Fri 13 Nov',time:'8pm to 1am',venue:'The Rhythm Room, Hackney',wk:'week'},
+ thu:{n:'Thursday Social',org:'Ritmo London',day:'Thu',d:'12',when:'Tonight',time:'Doors 8pm',venue:'The Rhythm Room, Hackney',wk:'week'},
+ sat:{n:'Bristol Salsa Night',org:'Bristol Socials',day:'Sat',d:'14',when:'Sat 14 Nov',time:'9pm to 2am',venue:'The Old Fire Station, Bristol',wk:'week'},
+ sun:{n:'Sunday Workshop',org:'Ritmo London',day:'Sun',d:'22',when:'Sun 22 Nov',time:'3pm to 6pm',venue:'Studio 4, Camden',wk:'later'},
+ wkd:{n:'Summer Weekender',org:'Ritmo London',day:'Sat',d:'6',mon:'Feb',when:'Sat 6 Feb',time:'All weekend',venue:'Brighton Centre',wk:'later'},
+ brn:{n:'Bachata Brunch',org:'Bristol Socials',day:'Sun',d:'29',when:'Sun 29 Nov',time:'11am to 3pm',venue:'Harbourside, Bristol',wk:'later'},
+ ldn:{n:'Sensual Sundays',org:'Casa Bachata',day:'Sun',d:'15',when:'Sun 15 Nov',time:'7pm to 11pm',venue:'Casa Studio, Islington',wk:'week'}
+};
+const FIELDS=[['photo','Photo'],['name','Name'],['city','Home city'],['since','Dancing since'],['styles','Styles you dance']];
+const SHAPES={
+ three:{n:'3 roles',me:{first:'Ricky',name:'Ricky Constante',init:'RC',photo:1,city:'London',since:'2016',styles:'Sensual, Dominican'},
+   pages:[{role:'org',name:'Ritmo London',sub:'Owner'},{role:'teacher',name:'Ricky Constante',sub:'Teacher'},{role:'dancer',name:'Ricky Constante',sub:'Dancer',me:1}],
+   going:[{e:'fri',s:'ticket'},{e:'sun',s:'going'},{e:'wkd',s:'interested'}],saved:['brn','ldn','sat','sun']},
+ one:{n:'1 role',me:{first:'Ana',name:'Ana Lopez',init:'AL',photo:1,city:'Bristol',since:'2021',styles:'Dominican'},
+   pages:[{role:'dancer',name:'Ana Lopez',sub:'Dancer',me:1}],
+   going:[{e:'sat',s:'going'}],saved:['brn','wkd']},
+ clear:{n:'Caught up',me:{first:'Tom',name:'Tom Reed',init:'TR',photo:1,city:'London',since:'2019',styles:'Sensual'},
+   pages:[{role:'dancer',name:'Tom Reed',sub:'Dancer',me:1}],going:[],saved:[]},
+ unfinished:{n:'Unfinished',me:{first:'Priya',name:'Priya Nair',init:'PN',photo:0,city:'',since:'2023',styles:''},
+   pages:[{role:'dancer',name:'Priya Nair',sub:'Dancer',me:1}],going:[{e:'fri',s:'going'}],saved:['sun']},
+ door:{n:'Door',me:{first:'Sam',name:'Sam Okoye',init:'SO',photo:1,city:'London',since:'2018',styles:'Sensual, Urban'},
+   pages:[{role:'dancer',name:'Sam Okoye',sub:'Dancer',me:1}],
+   door:{e:'thu',ends:'8am Fri'},going:[{e:'thu',s:'door'},{e:'sun',s:'going'}],saved:['wkd']}
+};
+const TABS=[['home','Home','home'],['going','Going','ticket'],['profile','Profile','user']];
+const DATA={ok:'Loaded',loading:'Loading',error:'Error'};
+const S={shape:'three',tab:'home',sheet:false,scan:false,scanRes:null,data:'ok',scanned:37};
+const $=s=>document.querySelector(s);
+const ic=(n,c)=>`<svg class="ic${c?' '+c:''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const badge=(r,s)=>`<span class="badge r-${r}" style="--s:${s||40}px">${ic(r)}</span>`;
+const sh=()=>SHAPES[S.shape];
+const missing=m=>FIELDS.filter(f=>!m[f[0]]);
+const STATUS={ticket:['Ticket','ticket','tk'],going:['Going','check',''],interested:['Interested','bookmark',''],door:['On the door','door','tk']};
+const tagOf=s=>`<span class="tag ${STATUS[s][2]}">${ic(STATUS[s][1])}${STATUS[s][0]}</span>`;
+const dt=e=>`<span class="dt" aria-hidden="true"><small>${e.mon||e.day}</small><b>${e.d}</b></span>`;
+function plural(n,w){return n+' '+w+(n===1?'':'s')}
+/* numbers only when positive: each part is dropped when its count is 0 */
+function countLine(x){
+  const g=x.going.filter(i=>i.s!=='door').length,t=x.going.filter(i=>i.s==='ticket').length,v=x.saved.length;
+  const parts=[g?plural(g,'plan')+' coming up':'',t?plural(t,'ticket'):'',v?v+' saved':''].filter(Boolean);
+  return parts.length?parts.join(', ')+'.':'';
+}
+function idbar(){
+  const x=sh(),p=x.pages.find(p=>p.me),many=x.pages.length>1;
+  return `<div class="idbar r-dancer"><button class="idmain" data-act="sheet" aria-label="Dancer, ${p.name}. ${many?'Switch page':'Account'}">${badge('dancer')}<span class="idtxt"><b>${p.name}</b><span>Dancer</span></span></button><button class="sw" data-act="sheet" aria-haspopup="dialog">${many?'Switch':'Account'}${ic('chev-d')}</button></div>`;
+}
+function tabs(){
+  return `<nav class="tabs" aria-label="Dancer">${TABS.map(t=>`<button data-act="tab" data-k="${t[0]}" ${S.tab===t[0]?'aria-current="true"':''}>${ic(t[2])}${t[1]}</button>`).join('')}</nav>`;
+}
+function loading(what){
+  return `<h2>${what}</h2><div class="skel" style="height:150px"></div><div class="skel" style="height:60px"></div><div class="skel" style="height:60px"></div><p class="cap" role="status">Loading your plans. If this takes more than a few seconds, check your connection.</p>`;
+}
+function errorState(what){
+  return `<h2>${what}</h2><div class="banner err" role="alert">${ic('alert')}<span>We could not load your plans. Check you are online, then try again. Nothing you saved is lost.</span></div><button class="btn" data-act="retry">${ic('refresh')}Try again</button>`;
+}
+function tiles(x){
+  /* numbers only when positive: a tile with 0 is not drawn */
+  const T=[[x.going.filter(i=>i.s!=='door').length,'Plans'],[x.going.filter(i=>i.s==='ticket').length,'Tickets'],[x.saved.length,'Saved']].filter(t=>t[0]>0);
+  return T.length?`<div class="tiles">${T.map(t=>`<div class="tile"><b>${t[0]}</b><span>${t[1]}</span></div>`).join('')}</div>`:'';
+}
+function avatar(m){return m.photo?`<span class="av" aria-hidden="true">${m.init}</span>`:`<span class="av none" aria-hidden="true">${ic('user')}</span>`}
+function meCard(x){
+  const m=x.me,miss=missing(m),done=FIELDS.length-miss.length;
+  let h=`<section class="card me" aria-label="You"><div class="who">${avatar(m)}<div style="min-width:0"><h2>${m.name}</h2><p class="cap">${[m.city,m.since?'Dancing since '+m.since:''].filter(Boolean).join('. ')}</p></div></div>`;
+  if(miss.length)h+=`<div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="${FIELDS.length}" aria-valuenow="${done}" aria-label="Profile ${done} of ${FIELDS.length} done"><i style="width:${done/FIELDS.length*100}%"></i></div><p class="cap">${done} of ${FIELDS.length} done. Add ${miss.map(f=>f[1].toLowerCase()).join(', ')} so organisers and teachers can find you.</p><button class="btn" data-act="stub" data-i="Finish your profile">Finish profile</button>`;
+  return h+tiles(x)+`</section>`;
+}
+function dayBlock(lbl,num,now,items){return `<div class="day${now?' now':''}"><div class="when" aria-hidden="true"><small>${lbl}</small><b>${num}</b></div><div style="display:flex;flex-direction:column;gap:8px;min-width:0">${items}</div></div>`}
+function agItem(i,x){
+  const e=EV[i.e];
+  if(i.s==='door')return `<div class="item"><div class="hd"><span class="t"><b>You are on the door</b><span class="s">${e.n}, ${e.org}</span><span class="s">${e.time}. Access ends ${x.door.ends}.</span></span></div><div class="ft"><button class="btn" data-act="scan">${ic('camera')}Open scanner</button><p class="cap">You can scan tickets and see guest names. You cannot see sales or money.</p></div></div>`;
+  return `<div class="item"><button class="hd" data-act="stub" data-i="${e.n}"><span class="t"><b>${e.n}</b><span class="s">${e.time}</span><span class="s">${e.venue}</span></span>${tagOf(i.s)}</button>${i.s==='ticket'?`<div class="ft"><button class="btn alt" data-act="stub" data-i="Your ticket">${ic('ticket')}Show my ticket</button></div>`:''}</div>`;
+}
+function agenda(list,x){
+  return `<div class="ag">${list.map(i=>{const e=EV[i.e],now=e.when==='Tonight';return dayBlock(now?'Tonight':(e.mon||e.day),e.d,now,agItem(i,x))}).join('')}</div>`;
+}
+function savedItem(k){const e=EV[k];return dayBlock(e.mon||e.day,e.d,0,`<div class="item"><button class="hd" data-act="stub" data-i="${e.n}"><span class="t"><b>${e.n}</b><span class="s">${e.org}</span></span>${ic('chev-r','chev')}</button></div>`)}
+function emptyPlans(){return `<div class="banner">${ic('info')}<span>Your week is clear. Open any event and tap Going or Interested, and it appears here on the timeline.</span></div><button class="btn" data-act="stub" data-i="Events this week">${ic('search')}Find events this week</button>`}
+function home(){
+  const x=sh(),m=x.me;
+  if(S.data==='loading')return loading('Coming up');
+  if(S.data==='error')return errorState('Coming up');
+  let h=meCard(x)+`<h3>Coming up</h3>`;
+  h+=x.going.length?agenda(x.going.slice(0,3),x):emptyPlans();
+  if(x.going.length>3)h+=`<button class="link card" data-act="tab" data-k="going" style="padding:0 14px"><span>${x.going.length-3} more on Going</span>${ic('chev-r','chev')}</button>`;
+  if(!x.going.length&&!x.saved.length&&!missing(m).length&&!x.door)h+=`<p class="cap">Your profile is complete and nothing needs you. You are all caught up.</p>`;
+  return h;
+}
+function going(){
+  const x=sh();
+  if(S.data==='loading')return loading('Going');
+  if(S.data==='error')return errorState('Going');
+  const f=S.gf||'plans';
+  const opts=[['plans','Plans',x.going.length],['saved','Saved',x.saved.length]];
+  let h=`<h2>Going</h2><div class="seg" role="group" aria-label="Show">${opts.map(o=>`<button data-act="gf" data-k="${o[0]}" aria-pressed="${f===o[0]}">${o[1]}${o[2]>0?' ('+o[2]+')':''}</button>`).join('')}</div>`;
+  if(f==='plans')h+=x.going.length?agenda(x.going,x):emptyPlans();
+  else h+=x.saved.length?`<div class="ag">${x.saved.map(savedItem).join('')}</div>`:`<div class="banner">${ic('info')}<span>Nothing saved. Tap the bookmark on an event to keep it here without saying Going.</span></div><button class="btn" data-act="stub" data-i="Events this week">${ic('search')}Find events this week</button>`;
+  return h;
+}
+function profile(){
+  const x=sh(),m=x.me,miss=missing(m);
+  if(S.data==='loading')return loading('Profile');
+  if(S.data==='error')return errorState('Profile');
+  let h=`<h2>Profile</h2><p class="cap">This is how dancers, organisers and teachers see you.</p>
+  <section class="card me" aria-label="Public preview" style="align-items:center;text-align:center;padding:24px 16px">${m.photo?`<span class="av" aria-hidden="true" style="width:88px;height:88px;font-size:30px">${m.init}</span>`:`<span class="av none" aria-hidden="true" style="width:88px;height:88px">${ic('user')}</span>`}
+  <div><h2>${m.name}</h2><p class="cap">${m.city||'Home city not added'}${m.since?'. Dancing since '+m.since:''}</p></div>
+  ${m.styles?`<div class="chips" style="justify-content:center">${m.styles.split(', ').map(t=>`<span class="tag">${t}</span>`).join('')}</div>`:`<p class="cap">No styles added yet.</p>`}</section>`;
+  if(miss.length)h+=`<h3>Still to add</h3><div class="card">${miss.map(f=>`<button class="row" data-act="stub" data-i="${f[1]}"><span class="t"><b>${f[1]}</b><span>Not added yet</span></span><span class="tag">Add</span></button>`).join('')}</div>`;
+  h+=`<button class="btn" data-act="stub" data-i="Edit profile">Edit profile</button>`;
+  if(miss.length)h+=`<button class="btn alt" disabled aria-describedby="why1">Share my profile</button><p class="why" id="why1">${ic('lock')}<span>Add ${miss.map(f=>f[1].toLowerCase()).join(' and ')} first, so people know it is you.</span></p>`;
+  else h+=`<button class="btn alt" data-act="stub" data-i="Share my profile">Share my profile</button>`;
+  return h;
+}
+function scanner(){
+  const x=sh(),e=EV[x.door.e],R=S.scanRes;
+  const RES={valid:['ok','check','Valid','Ana Lopez, General entry'],used:['bad','x','Already used','Tom Reed. Scanned at 8:12pm. Do not let them in again.'],wrong:['bad','alert','Wrong event','Priya Nair. This ticket is for a different event.']};
+  return `<button class="back" data-act="back">${ic('chev-l')}Home</button><h2>Scan tickets</h2><p class="cap">${e.n}, ${e.org}. ${S.scanned} checked in.</p>
+  ${R?`<div class="res ${RES[R][0]}" role="status"><b>${ic(RES[R][1])}${RES[R][2]}</b><span>${RES[R][3]}</span></div><button class="btn" data-act="next">Next guest</button>`:`<div class="scanbox" data-placeholder>${ic('camera')}<span>Point the camera at the QR code on the ticket.</span><span>If the camera does not open, allow camera access in your browser settings.</span></div>`}
+  <h3>Try a result</h3><div class="chips">${Object.keys(RES).map(k=>`<button class="chip" aria-pressed="${R===k}" data-act="res" data-k="${k}">${RES[k][2]}</button>`).join('')}</div>`;
+}
+function sheet(){
+  const x=sh(),P=x.pages,many=P.length>1,ttl=many?'Switch page':'Account';
+  const groups=ORDER.map(r=>[r,P.filter(p=>p.role===r)]).filter(g=>g[1].length);
+  return `<div class="sheetbg" data-act="close"><div class="sheet" role="dialog" aria-modal="true" aria-label="${ttl}"><button class="x" data-act="close">${ic('x')}Close</button><h2>${ttl}</h2>
+  ${many?groups.map(g=>`<h3>${ROLES[g[0]]}${g[1].length>1?' pages':''}</h3><div class="card">${g[1].map(p=>`<button class="row" data-act="${p.me?'close':'switch'}" data-r="${p.role}" data-n="${p.name}">${badge(p.role)}<span class="t"><b>${p.name}</b><span>${p.sub}</span></span>${p.me?'<span class="tag on">Showing</span>':ic('chev-r','chev')}</button>`).join('')}</div>`).join(''):`<div class="card">${P.map(p=>`<div class="row">${badge(p.role)}<span class="t"><b>${p.name}</b><span>Dancer. This is your only page.</span></span><span class="tag on">Showing</span></div>`).join('')}</div>`}
+  ${many?'<button class="btn alt" data-act="stub" data-i="All my pages">All my pages</button>':''}
+  <button class="btn alt" data-act="stub" data-i="Add another page">Add another page</button><button class="btn alt" data-act="stub" data-i="Account and help">Account and help</button></div></div>`;
+}
+function render(){
+  $('#shseg').innerHTML=Object.keys(SHAPES).map(k=>`<button data-act="shape" data-k="${k}" aria-pressed="${S.shape===k}">${SHAPES[k].n}</button>`).join('');
+  $('#dseg').innerHTML=Object.keys(DATA).map(k=>`<button data-act="data" data-k="${k}" aria-pressed="${S.data===k}">${DATA[k]}</button>`).join('');
+  if(S.scan&&!sh().door)S.scan=false;
+  const body=S.scan?scanner():S.tab==='going'?going():S.tab==='profile'?profile():home();
+  $('#screen').innerHTML=idbar()+`<main class="scroll">${body}</main>`+(S.scan?'':tabs())+(S.sheet?sheet():'');
+  const hs='#'+S.shape+(S.scan?'/scan':S.tab==='going'&&S.gf==='saved'?'/saved':S.tab!=='home'?'/'+S.tab:'')+(S.sheet?'/switch':'')+(S.data!=='ok'?'/'+S.data:'');
+  if(location.hash!==hs)history.replaceState(null,'',hs);
+}
+var tt;
+function toast(m){clearTimeout(tt);let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');$('#frame').appendChild(el)}el.textContent=m;tt=setTimeout(()=>el.remove(),1800)}
+function fromHash(){
+  const h=location.hash.slice(1).split('/');
+  if(SHAPES[h[0]])S.shape=h[0];
+  S.gf=h.includes('saved')?'saved':'plans';S.tab=h.includes('going')||h.includes('saved')?'going':h.includes('profile')?'profile':'home';
+  S.sheet=h.includes('switch');S.scan=h.includes('scan');S.scanRes=null;
+  S.data=h.includes('loading')?'loading':h.includes('error')?'error':'ok';
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-act]');if(!t)return;
+  if(t.classList.contains('sheetbg')&&ev.target!==t)return;
+  const a=t.dataset.act;
+  if(a==='shape'){S.shape=t.dataset.k;S.tab='home';S.sheet=false;S.scan=false;S.scanRes=null}
+  else if(a==='data')S.data=t.dataset.k;
+  else if(a==='gf')S.gf=t.dataset.k;
+  else if(a==='retry'){S.data='ok';render();toast('Loaded');return}
+  else if(a==='tab'){S.tab=t.dataset.k;S.scan=false}
+  else if(a==='sheet')S.sheet=true;
+  else if(a==='close')S.sheet=false;
+  else if(a==='switch'){S.sheet=false;render();toast('Prototype: would open the '+ROLES[t.dataset.r]+' area for '+t.dataset.n);return}
+  else if(a==='scan'){S.scan=true;S.scanRes=null}
+  else if(a==='back'){S.scan=false}
+  else if(a==='res'){if(t.dataset.k==='valid'&&S.scanRes!=='valid')S.scanned++;S.scanRes=t.dataset.k}
+  else if(a==='next')S.scanRes=null;
+  else if(a==='stub'){S.sheet=false;render();toast('Prototype: would open '+t.dataset.i);return}
+  render();
+});
+addEventListener('hashchange',()=>{fromHash();render()});
+fromHash();render();
+</script>
+</body>
+</html>

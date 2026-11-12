@@ -1,0 +1,16 @@
+/* Raffle additions (same tokens as organiser-events-option-a.html). */
+.pub.hot{color:var(--fg);font-weight:600}
+.sub{padding:0 14px 12px;display:flex;flex-direction:column;gap:8px}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 12px}
+.facts.card{grid-template-columns:1fr 1fr;padding:12px 14px}
+.facts div{display:flex;flex-direction:column;min-width:0}
+.facts span{font-size:12px;color:var(--muted)}.facts b{font-size:14px;overflow-wrap:anywhere}
+.chip.open{color:var(--ok)}.chip.locked,.chip.closed{color:var(--c-dj)}.chip.drawn{color:var(--c-org)}.chip.nodraw,.chip.off{color:var(--muted)}
+.toggle[disabled]{opacity:1;background:var(--ink-soft);border-style:dashed;border-color:var(--muted)}
+.toggle[disabled][aria-checked=true]{background:#cfe3d6;border-color:var(--ok)}
+.btn.red{color:var(--danger);border-color:var(--danger)}
+.inl{color:var(--fg);font-weight:600;text-decoration:underline;min-height:44px;min-width:44px;padding:0 2px}
+.track{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.track li{font-size:12px;font-weight:600;color:var(--muted);text-align:center;padding:6px 0 0;border-top:4px solid var(--line)}
+.track li.done{color:var(--fg);border-top-color:var(--ok)}
+.track li.now{color:var(--fg);border-top-color:var(--fg)}

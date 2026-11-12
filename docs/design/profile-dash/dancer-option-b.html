@@ -1,0 +1,245 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dancer Dashboard Option B</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+/* Dancer dashboard, option B: your page first, then 3 tiles.
+   Base: docs/design/profile-dash/prototype.html.md (role strip + top-right Switch sheet, fonts, structure).
+   Dancer theme = DARK, calm. Tokens from src/modules/dancer-app/theme/dancer.css. ASCII + entities only. */
+:root{
+  --bg:#202226; --card:#2A2D32; --card2:#33373D; --fg:#FFFFFF; --muted:#A3A9B3; --line:#3D4148;
+  --acc:#F5865A; --on-acc:#1D0A03; --ok:#7BE0A0; --plum:#C9ADFF;
+  --c-dancer:#b02a5b; --c-dj:#5b3fa0; --c-org:#1f5c7a;
+  --f-display:'Bricolage Grotesque','Segoe UI',sans-serif; --f-body:'DM Sans','Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#16171a;color:var(--fg);font:16px/1.4 var(--f-body);padding:16px}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+.wrap{max-width:430px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.ttl{font:700 20px var(--f-display);margin:0}
+.ctl{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--card);padding:3px;border-radius:10px}
+.seg button{flex:1 1 30%;text-align:center;padding:9px 4px;border-radius:8px;font-size:13px;font-weight:600;min-height:44px}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+.frame{width:min(390px,100%);height:844px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+body.shot{padding:0;background:var(--bg)}body.shot .ctl,body.shot .ttl,body.shot .cap0{display:none}
+body.shot .wrap{max-width:none;gap:0}body.shot .frame{width:390px;border:0;border-radius:0}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px;display:flex;flex-direction:column;gap:16px}
+.cap0{font-size:13px;color:var(--muted);line-height:1.5;margin:0}
+/* role strip (prototype idbar) */
+.idbar{display:flex;align-items:center;gap:8px;background:var(--c-dancer);color:#fff;padding:12px 16px;min-height:64px}
+.idmain{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:44px;color:#fff}
+.badge{width:40px;height:40px;border-radius:10px;background:rgba(0,0,0,.22);color:#fff;display:inline-grid;place-items:center;font:700 14px var(--f-display);flex:none}
+.rb{width:36px;height:36px;border-radius:10px;color:#fff;display:inline-grid;place-items:center;font:700 13px var(--f-display);flex:none}
+.idtxt{display:flex;flex-direction:column;min-width:0}
+.idtxt small{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.idtxt b{font:700 17px var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw{font-size:14px;font-weight:600;color:#fff;background:rgba(0,0,0,.28);padding:0 14px;min-height:44px;border-radius:999px;white-space:nowrap;flex:none}
+.tabs{display:flex;border-top:1px solid var(--line);background:var(--bg)}
+.tabs button{flex:1;text-align:center;padding:14px 2px 18px;font-size:14px;font-weight:600;color:var(--muted);border-top:3px solid transparent;margin-top:-1px;min-height:56px}
+.tabs button[aria-current=true]{color:var(--fg);border-top-color:var(--acc)}
+h2{font:700 26px/1.15 var(--f-display);margin:0}
+h3{font:700 13px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.sub{color:var(--muted);font-size:15px;margin:4px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+.main{padding:20px;display:flex;flex-direction:column;gap:14px}
+.main .k{font:700 13px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.main .h{font:700 21px/1.2 var(--f-display)}
+.main p{margin:0;color:var(--muted);font-size:15px}
+.big{font:700 40px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.btn{display:block;background:var(--acc);color:var(--on-acc);font-weight:700;border-radius:12px;padding:14px 16px;text-align:center;min-height:50px;width:100%;font-size:16px}
+.btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:600}
+.btn[disabled]{background:var(--card2);color:var(--muted);border:1px dashed var(--line);cursor:not-allowed}
+.row{display:flex;align-items:center;gap:14px;padding:14px 16px;width:100%;min-height:64px}
+.row+.row{border-top:1px solid var(--line)}
+.row .t{display:flex;flex-direction:column;flex:1;min-width:0}
+.row .t b{font-size:16px;font-weight:600}.row .t span{font-size:14px;color:var(--muted)}
+.ic{width:36px;height:36px;border-radius:10px;background:var(--card2);display:grid;place-items:center;flex:none;color:var(--plum)}
+.chev{color:var(--muted);font-size:22px}
+.segbar{display:flex;gap:6px}.segbar i{flex:1;height:6px;border-radius:3px;background:var(--card2)}
+.segbar i.d{background:var(--ok)}.segbar i.n{background:var(--acc)}
+.cl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.cl li{display:flex;align-items:center;gap:10px;font-size:15px;min-height:32px;color:var(--muted)}
+.cl li .m{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-size:13px}
+.cl li.d .m{background:var(--ok);border-color:var(--ok);color:#0b2414}
+.cl li.n{color:var(--fg);font-weight:600}.cl li.n .m{border-color:var(--acc)}
+.note{font-size:14px;color:var(--muted);margin:0}
+.empty{padding:16px;display:flex;flex-direction:column;gap:10px}
+.empty b{font-size:16px}.empty span{font-size:14px;color:var(--muted)}
+.lnk{font-weight:700;color:var(--acc);min-height:44px;display:inline-flex;align-items:center;align-self:flex-start}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 10px;min-height:96px;display:flex;flex-direction:column;gap:8px;justify-content:space-between}
+.tile b{font-size:14px;font-weight:600;line-height:1.25}
+.pv{display:flex;gap:14px;align-items:center;padding:20px 20px 0}
+.av{width:64px;height:64px;border-radius:50%;background:var(--card2);border:2px solid var(--plum);display:grid;place-items:center;font:700 20px var(--f-display);flex:none;color:var(--plum)}
+.av.no{border-style:dashed;border-color:var(--line);color:var(--muted);font-size:13px;font-family:var(--f-body)}
+.pv .t{display:flex;flex-direction:column;min-width:0}.pv .t b{font:700 20px var(--f-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv .t span{font-size:14px;color:var(--muted)}
+.pv .miss{font-style:italic}
+.band{margin:16px 0 0;border-top:1px solid var(--line);padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:4px 10px;background:#3A3220;color:#FFCF66;align-self:flex-start}
+.fld{display:flex;flex-direction:column;gap:6px}.fld label{font-size:14px;color:var(--muted);font-weight:600}
+.inp{min-height:48px;border:1px solid var(--line);border-radius:12px;padding:0 14px;background:var(--card2);color:var(--fg);font:inherit;display:flex;align-items:center}
+.back{font-weight:600;min-height:44px;display:flex;align-items:center;gap:6px;align-self:flex-start}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end}
+.sheet{background:var(--bg);width:100%;max-height:86%;overflow-y:auto;border-radius:20px 20px 0 0;padding:16px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line)}
+.sheet .x{align-self:flex-end;font-weight:600;padding:0 6px;min-height:44px;min-width:44px;text-align:center}
+.tag{font-size:12px;font-weight:700;border:1px solid var(--ok);color:var(--ok);border-radius:999px;padding:3px 9px;white-space:nowrap}
+.toast{position:absolute;left:16px;right:16px;bottom:84px;background:var(--fg);color:var(--bg);padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;text-align:center}
+</style></head><body>
+<div class="wrap">
+  <h1 class="ttl">Dancer dashboard: option B</h1>
+  <div class="ctl">
+    <span class="lbl">Shape</span><div class="seg" id="sh"></div>
+    <span class="lbl">Profiles on this account</span><div class="seg" id="ac"></div>
+  </div>
+  <div class="frame" id="frame"></div>
+  <p class="cap0"><b>Option B: your page first, then 3 tiles.</b> The first screen is a preview of your page as other dancers see it, with the one thing to do attached underneath, then 3 action tiles in a row. Gaps in the page show as placeholders, so the reason for each step is visible. Names and numbers are examples. Hash links (#new, #unfinished, #saveOff, #complete, #completeEmpty, #unclaimed, #switch, #add, #account) open one frame.</p>
+</div>
+<script>
+const OPT='b';
+const SHAPES={new:'D1 New',unfinished:'D2 Unfinished',saveOff:'D2 Save off',complete:'D3 Complete',completeEmpty:'D3 0 nights',unclaimed:'D4 Unclaimed'};
+const ACC={multi:'Dancer + DJ + Organiser',one:'Dancer only'};
+const STEPS=[['first_name','Add your first name','Your first name'],['city','Add your city','Your city'],['role','Choose how you dance','How you dance'],['photo','Add your photo','A photo']];
+const S={shape:'unfinished',acc:'multi',tab:'home',sheet:null,toast:''};
+const IC={
+ nights:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+ page:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
+ edit:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+ share:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v6h14v-6"/></svg>',
+ search:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>'};
+// one mapping per shape: done steps, name shown, nights, going list
+const DATA={
+ new:{done:0,name:'',city:'',nights:null,going:[]},
+ unfinished:{done:2,name:'Ricky',city:'London',nights:null,going:[]},
+ saveOff:{done:2,name:'Ricky',city:'London',nights:null,going:[]},
+ complete:{done:4,name:'Ricky Constante',city:'London &middot; Leader',nights:12,going:[['Friday Social','Fri 14 Nov, 8pm, Ritmo London']]},
+ completeEmpty:{done:4,name:'Ricky Constante',city:'London &middot; Leader',nights:0,going:[]},
+ unclaimed:{done:0,name:'',city:'',nights:null,going:[],match:{n:'Ricky C.',w:'London &middot; made by Ritmo London'}}};
+const $=s=>document.querySelector(s);
+const D=()=>DATA[S.shape];
+const nextStep=d=>STEPS[d.done];
+function strip(){
+  const multi=S.acc==='multi',d=D();
+  const nm=d.name||'Your dancer profile';
+  return `<div class="idbar"><button class="idmain" data-a="sheet" data-k="switch" aria-label="Dancer, ${nm}. ${multi?'Switch profile':'Account'}"><span class="badge">DNC</span><span class="idtxt"><small>Dancer</small><b>${nm}</b></span></button><button class="sw" data-a="sheet" data-k="switch">${multi?'Switch':'Account'} &#9662;</button></div>`;
+}
+function segbar(d){return `<div class="segbar" aria-hidden="true">${STEPS.map((s,i)=>`<i class="${i<d.done?'d':i===d.done?'n':''}"></i>`).join('')}</div>`}
+function checklist(d){return `<ul class="cl">${STEPS.map((s,i)=>`<li class="${i<d.done?'d':i===d.done?'n':''}"><span class="m">${i<d.done?'&#10003;':''}</span>${s[2]}${i===d.done?' &middot; next':''}</li>`).join('')}</ul>`}
+const NUM_NOTE='Your numbers start after your first night out. Nothing to count yet.';
+const goingEmpty=()=>`<div class="empty"><b>Nothing booked yet</b><span>Say you are going to a night and it shows here, with the date.</span><button class="lnk" data-a="tab" data-k="nights">Find a night &rsaquo;</button></div>`;
+function rowsA(items){return `<div class="card">${items.map(r=>`<button class="row" data-a="${r[3]||'stub'}" data-k="${r[4]||r[0]}"><span class="ic">${IC[r[2]]}</span><span class="t"><b>${r[0]}</b><span>${r[1]}</span></span><span class="chev" aria-hidden="true">&rsaquo;</span></button>`).join('')}</div>`}
+function tilesB(items){return `<div class="grid3">${items.map(r=>`<button class="tile" data-a="${r[3]||'stub'}" data-k="${r[4]||r[0]}"><span class="ic">${IC[r[2]]}</span><b>${r[0]}</b></button>`).join('')}</div>`}
+/* ---------- OPTION A: one action card + a short list ---------- */
+function homeA(){
+  const d=D();let h='';
+  if(S.shape==='new'){
+    h+=`<div><h2>Welcome</h2><p class="sub">Your dancer profile is ready to fill in.</p></div>`;
+    h+=`<div class="card main"><span class="k">Finish your profile &middot; step 1 of 4</span>${segbar(d)}<span class="h">${nextStep(d)[1]}</span><p>Four quick steps: your name, your city, how you dance, a photo.</p><button class="btn" data-a="edit">${nextStep(d)[1]}</button></div>`;
+    h+=rowsA([['Preview your page','See what other dancers see now','page'],['Find a night','Socials and classes this week','search','tab','nights'],['Your numbers','Start after your first night out','nights','stub','Your numbers']]);
+  }else if(S.shape==='unfinished'){
+    h+=`<div><h2>Hi Ricky</h2><p class="sub">2 of 4 done. One step at a time.</p></div>`;
+    h+=`<div class="card main"><span class="k">Finish your profile &middot; step 3 of 4</span>${checklist(d)}<button class="btn" data-a="edit">${nextStep(d)[1]}</button></div>`;
+    h+=rowsA([['Preview your page','Name and city show. No photo yet.','page'],['Going','Nothing booked yet. Find a night.','nights','tab','nights'],['Edit profile','Everything else, any time','edit','edit']]);
+    h+=`<p class="note">${NUM_NOTE}</p>`;
+  }else if(S.shape==='unclaimed'){
+    h+=`<div><h2>Welcome</h2><p class="sub">We may already have a page for you.</p></div>`;
+    h+=`<div class="card main"><span class="pill">Found a match</span><span class="h">Is this you? ${d.match.n}</span><p>${d.match.w}. It has 9 nights on it already. Claim it to keep them and edit it yourself.</p><button class="btn" data-a="claim">Claim your page</button><button class="btn alt" data-a="stub" data-k="Not me">This is not me</button></div>`;
+    h+=rowsA([['Preview that page','What dancers see on it now','page'],['Start a new profile instead','Four quick steps','edit','edit'],['Find a night','Socials and classes this week','search','tab','nights']]);
+  }else{
+    h+=`<div><h2>Hi Ricky</h2><p class="sub">Your profile is complete.</p></div>`;
+    if(d.nights>0)h+=`<div class="card main"><span class="k">Nights attended</span><span class="big">${d.nights}</span><p>Since you joined. The latest was Sat 8 Nov.</p></div>`;
+    else h+=`<div class="card main"><span class="k">Nights attended</span><span class="h">Find your first night</span><p>Say you are going to a night, then go. It counts here the day after.</p><button class="btn" data-a="tab" data-k="nights">Browse this week</button></div>`;
+    h+=`<h3>Going</h3>`+(d.going.length?rowsA(d.going.map(g=>[g[0],g[1],'nights','stub'])):`<div class="card">${goingEmpty()}</div>`);
+    h+=rowsA([['My page','See what other dancers see','page'],['Edit profile','Photo, styles, bio, links','edit','edit']]);
+  }
+  return h;
+}
+/* ---------- OPTION B: your page first (preview card) + 3 action tiles ---------- */
+function homeB(){
+  const d=D();let h='';
+  const av=d.done>=4?'<span class="av">RC</span>':'<span class="av no">No photo</span>';
+  const nm=d.name?`<b>${d.name}</b>`:'<b class="miss">Your name here</b>';
+  const ct=d.city?`<span>${d.city}</span>`:'<span class="miss">Your city here</span>';
+  const pv=`<div class="pv">${av}<span class="t"><span class="lbl">How dancers see you</span>${nm}${ct}</span></div>`;
+  if(S.shape==='new'||S.shape==='unfinished'){
+    h+=`<div><h2>${d.name?'Hi '+d.name:'Welcome'}</h2><p class="sub">${d.done?d.done+' of 4 done.':'Fill in your page, one step at a time.'}</p></div>`;
+    h+=`<div class="card">${pv}<div class="band"><span class="lbl">Next step &middot; ${d.done+1} of 4</span>${segbar(d)}<button class="btn" data-a="edit">${nextStep(d)[1]}</button><p class="note">${d.done?'Then: '+STEPS.slice(d.done+1).map(s=>s[2].toLowerCase()).join(', ')+'.':'Four quick steps: your name, your city, how you dance, a photo.'}</p></div></div>`;
+    h+=tilesB([['Find a night','','search','tab','nights'],['Full preview','','page'],['Edit all','','edit','edit']]);
+    h+=`<p class="note">${NUM_NOTE}</p>`;
+  }else if(S.shape==='unclaimed'){
+    h+=`<div><h2>Welcome</h2><p class="sub">We may already have a page for you.</p></div>`;
+    h+=`<div class="card"><div class="pv"><span class="av">RC</span><span class="t"><span class="pill">Found a match</span><b>${d.match.n}</b><span>${d.match.w}</span></span></div><div class="band"><p class="note">It has 9 nights on it already. Claim it to keep them and edit it yourself.</p><button class="btn" data-a="claim">Claim your page</button><button class="btn alt" data-a="stub" data-k="Not me">This is not me</button></div></div>`;
+    h+=tilesB([['Find a night','','search','tab','nights'],['Preview it','','page'],['Start fresh','','edit','edit']]);
+  }else{
+    h+=`<div><h2>Hi Ricky</h2><p class="sub">Your page is live.</p></div>`;
+    const band=d.nights>0
+      ?`<div class="band"><span class="lbl">Nights attended</span><span class="big">${d.nights}</span>${d.going.length?`<p class="note">Next: <b style="color:var(--fg)">${d.going[0][0]}</b>, ${d.going[0][1]}</p>`:''}</div>`
+      :`<div class="band"><span class="lbl">Nights attended</span><b style="font-size:18px">Find your first night</b><p class="note">Say you are going to a night, then go. It counts here the day after.</p><button class="btn" data-a="tab" data-k="nights">Browse this week</button></div>`;
+    h+=`<div class="card">${pv}${band}</div>`;
+    if(!d.going.length&&d.nights>0)h+=`<div class="card">${goingEmpty()}</div>`;
+    h+=tilesB([['Find a night','','search','tab','nights'],['Share my page','','share','stub','Share my page'],['Edit profile','','edit','edit']]);
+  }
+  return h;
+}
+function editScreen(){
+  const d=D();
+  return `<button class="back" data-a="home">&lsaquo; Home</button><h2>Edit profile</h2>
+  <div class="fld"><label>First name</label><div class="inp">Ricky</div></div>
+  <div class="fld"><label>City</label><div class="inp">London</div></div>
+  <div class="fld"><label>How you dance</label><div class="inp" style="color:var(--muted)">Not chosen yet</div></div>
+  <button class="btn" disabled aria-describedby="why">Save</button><p class="note" id="why">Change something to save. Nothing is sent until you do.</p>`;
+}
+function nightsScreen(){return `<h2>Nights</h2><div class="card">${goingEmpty().replace('Find a night &rsaquo;','Browse this week &rsaquo;')}</div><p class="note">Prototype: the real Nights tab lists socials and classes near you.</p>`}
+function meScreen(){return `<h2>Me</h2>${rowsA([['Edit profile','Name, city, photo, styles','edit','edit'],['My page','See what other dancers see','page'],['Account and help','Email, sign out','page','sheet','account']])}`}
+function body(){
+  if(S.shape==='saveOff')return editScreen();
+  if(S.tab==='edit')return editScreen();
+  if(S.tab==='nights')return nightsScreen();
+  if(S.tab==='me')return meScreen();
+  return OPT==='a'?homeA():homeB();
+}
+function sheet(){
+  const multi=S.acc==='multi';
+  if(S.sheet==='add')return `<div class="sheetbg" data-a="close"><div class="sheet" role="dialog" aria-label="Add a profile"><button class="x" data-a="close">Close</button><h2>Add a profile</h2><p class="note">Keep one sign-in. Switch from the top right any time.</p><div class="card">
+   <button class="row" data-a="toast" data-k="Would start the organiser setup"><span class="rb" style="background:var(--c-org)">ORG</span><span class="t"><b>Run events? Become an organiser</b><span>List nights, sell tickets. In beta.</span></span></button>
+   <button class="row" data-a="toast" data-k="Would open a message to us"><span class="rb" style="background:var(--c-dj)">DJ</span><span class="t"><b>DJ or teach? Message us</b><span>We set these up with you for now.</span></span></button></div></div></div>`;
+  if(S.sheet==='account'||(!multi&&S.sheet==='switch'))return `<div class="sheetbg" data-a="close"><div class="sheet" role="dialog" aria-label="Account"><button class="x" data-a="close">Close</button><h2>Account</h2><div class="card">
+   <div class="row"><span class="t"><b>Signed in</b><span>r&hellip;@example.com</span></span></div>
+   <button class="row" data-a="toast" data-k="Would open account settings"><span class="t"><b>Account settings</b><span>Email, notifications</span></span><span class="chev">&rsaquo;</span></button>
+   <button class="row" data-a="toast" data-k="Would open help"><span class="t"><b>Help</b><span>Questions and how to reach us</span></span><span class="chev">&rsaquo;</span></button></div>
+   <button class="btn alt" data-a="sheet" data-k="add">+ Add a profile</button><button class="btn alt" data-a="toast" data-k="Would sign you out">Sign out</button></div></div>`;
+  const P=[['Dancer','DNC','var(--c-dancer)',[['Ricky Constante','Dancer',1]]],['DJ','DJ','var(--c-dj)',[['DJ Ricky','DJ area']]],['Organiser','ORG','var(--c-org)',[['Ritmo London','Owner'],['Bristol Socials','Manager']]]];
+  return `<div class="sheetbg" data-a="close"><div class="sheet" role="dialog" aria-label="Switch profile"><button class="x" data-a="close">Close</button><h2>Switch profile</h2>
+  ${P.map(g=>`<h3>${g[0]}</h3><div class="card">${g[3].map(p=>`<button class="row" data-a="${p[2]?'close':'toast'}" data-k="Would open ${p[0]}"><span class="rb" style="background:${g[2]}">${g[1]}</span><span class="t"><b>${p[0]}</b><span>${p[1]}</span></span>${p[2]?'<span class="tag">Showing</span>':''}</button>`).join('')}</div>`).join('')}
+  <button class="btn alt" data-a="sheet" data-k="add">+ Add a profile</button><button class="btn alt" data-a="sheet" data-k="account">Account and help</button></div></div>`;
+}
+function render(){
+  $('#sh').innerHTML=Object.keys(SHAPES).map(k=>`<button data-a="shape" data-k="${k}" aria-pressed="${S.shape===k}">${SHAPES[k]}</button>`).join('');
+  $('#ac').innerHTML=Object.keys(ACC).map(k=>`<button data-a="acc" data-k="${k}" aria-pressed="${S.acc===k}">${ACC[k]}</button>`).join('');
+  const cur=S.shape==='saveOff'?'edit':S.tab;
+  $('#frame').innerHTML=`${strip()}<div class="scroll">${body()}</div><nav class="tabs" aria-label="Dancer">${[['home','Home'],['nights','Nights'],['me','Me']].map(t=>`<button data-a="tab" data-k="${t[0]}" ${cur===t[0]||(cur==='edit'&&t[0]==='me')?'aria-current="true"':''}>${t[1]}</button>`).join('')}</nav>${S.sheet?sheet():''}${S.toast?`<div class="toast" role="status">${S.toast}</div>`:''}`;
+}
+let tt;
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-a]');if(!t)return;
+  if(t.classList.contains('sheetbg')&&e.target!==t)return;
+  const a=t.dataset.a,k=t.dataset.k;S.toast='';
+  if(a==='shape'){S.shape=k;S.tab='home';S.sheet=null}
+  else if(a==='acc'){S.acc=k;S.sheet=null}
+  else if(a==='tab'){S.tab=k;S.sheet=null;if(S.shape==='saveOff')S.shape='unfinished'}
+  else if(a==='home'){S.tab='home';if(S.shape==='saveOff')S.shape='unfinished'}
+  else if(a==='edit'){S.tab='edit'}
+  else if(a==='sheet')S.sheet=k;
+  else if(a==='close')S.sheet=null;
+  else if(a==='claim')S.toast='Prototype: runs the same email check as sign-in. If it matches, the page becomes yours.';
+  else if(a==='toast'){S.sheet=null;S.toast='Prototype: '+k}
+  else S.toast='Prototype: would open '+(k||'this');
+  render();clearTimeout(tt);if(S.toast)tt=setTimeout(()=>{S.toast='';render()},2600);
+});
+(function(){const q=new URLSearchParams(location.search),h=q.get("s")||location.hash.slice(1);if(SHAPES[h])S.shape=h;else if(h==='switch')S.sheet='switch';else if(h==='add')S.sheet='add';else if(h==='account'){S.sheet='account';S.acc='one'}
+ if(new URLSearchParams(location.search).has('shot'))document.body.classList.add('shot');render()})();
+</script></body></html>

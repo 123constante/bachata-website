@@ -41,12 +41,12 @@ const SURFACES: Array<[string, (s: Shape) => HTMLElement]> = [
   ['header picture', (s) => {
     sides.facts = facts(s);
     render(<MemoryRouter initialEntries={['/app/home']}><ProfileSwitcher where={{ area: 'dancer' }} /></MemoryRouter>);
-    return screen.getByTestId('profile-switcher-button').firstElementChild as HTMLElement;
+    return screen.getByTestId(/^profile-(switcher|account)-button$/).firstElementChild as HTMLElement;
   }],
   ['switcher sheet row', (s) => {
     sides.facts = facts(s);
     render(<MemoryRouter initialEntries={['/app/home']}><ProfileSwitcher where={{ area: 'dancer' }} /></MemoryRouter>);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     return screen.getByTestId('profile-switcher-side-dancer').firstElementChild as HTMLElement;
   }],
   ['Me / Home avatar', (s) => {

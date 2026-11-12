@@ -1,8 +1,6 @@
-import { Suspense, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/modules/organiser/ui';
-import { ChevronRight } from 'lucide-react';
-import { LINK_GHOST_SM, TILE_CLASS } from '../blocks';
 import { useAuth } from '@/hooks/useAuth';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -12,20 +10,14 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { goingTileValue } from '../../api/numbersModel';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
-import { greeting } from './homeCopy';
-import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
-import { GoingTileView, HomeHero, type HomeGoing } from './homeParts';
+import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
-import { LineupPeople } from './LineupPeople';
-import { NumbersTiles } from './NumbersTiles';
-import { PartnerTile } from './PartnerTile';
+import { HomeAView } from './homeOptionA';
+import { ClaimCard } from './claimCard';
+import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
-import { CoupleArt } from '../art';
-import { Avatar, MessageUsLink } from '../me/ui';
-import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
@@ -76,17 +68,6 @@ const HOME_GOING_LOADING: HomeGoing = {
  */
 export const HERO_BACKGROUND = gradientBg;
 
-const Ring = ({ pct }: { pct: number }) => (
-  <div
-    role="img"
-    aria-label={`Profile strength ${pct}%`}
-    className="da-strength-ring"
-    style={{ width: 56, height: 56, flex: '0 0 auto', '--da-pct': `${pct}%` } as CSSProperties}
-  >
-    <span style={{ width: 46, height: 46, fontSize: 14 }}>{pct}%</span>
-  </div>
-);
-
 const Message = ({ children }: { children: ReactNode }) => (
   <Card variant="padded" role="status" testId="home-message">{children}</Card>
 );
@@ -94,20 +75,11 @@ const Message = ({ children }: { children: ReactNode }) => (
 /** `going` null = the going switch is off: nothing going renders and no going RPC runs. */
 const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGoing | null }) => {
   const { user } = useAuth();
-  const goingCount = going?.goingCount ?? null;
-  const name = profile.first_name || profile.display_name || 'there';
+  const numbers = useMyNumbers();
   const [noticeGone, setNoticeGone] = useState(() => (user?.id ? readFlag('local', noticeKey(user.id)) : true));
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span className="da-ring-avatar"><Avatar profile={profile} size={52} /></span>
-        <div style={{ minWidth: 0 }}>
-          <div className="da-muted" style={{ fontSize: 14 }}>{greeting(new Date().getHours())}</div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>{name}</h1>
-        </div>
-      </div>
-
       {!profile.is_active && (
         <Card variant="padded" role="status" data-testid="paused-banner" className="border-[var(--danger)]">
           <b>{HIDDEN_STATE_LINE}</b>
@@ -138,46 +110,14 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
         </Card>
       )}
 
-      <HomeHero
+      <HomeAView
+        profile={profile}
+        went={numbers.data ? numbers.data.went : null}
         night={going?.hero ?? null}
-        isLoading={going?.isLoading ?? false}
-        isError={going?.isError ?? false}
-        retry={going?.retry}
-        how={going?.how ?? null}
+        goingKnown={going !== null && !going.isLoading && !going.isError}
       />
 
       <RateNudge candidates={going?.nudge ?? []} todayKey={going?.todayKey || londonTodayKey()} />
-
-      {/* Review S4: one column; strength is the prototype's full-width row (ring, title, next step, chevron). */}
-      <div style={{ display: 'grid', gap: 10 }}>
-        <Link to={path('me')} data-testid="tile-strength" className={`${TILE_CLASS} da-tile-rose da-strength-row`}>
-          <Ring pct={profile.strength.pct} />
-          <span style={{ minWidth: 0, flex: 1 }}>
-            <b style={{ display: 'block', fontSize: 15 }}>Profile strength</b>
-            <span style={{ display: 'block', fontSize: 13 }} data-testid="tile-strength-next">
-              {nextStepLine(profile)}
-            </span>
-          </span>
-          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-        </Link>
-        {going && (
-          <GoingTileView
-            value={goingTileValue({ isLoading: going.isLoading, goingCount })}
-            isNumber={goingCount !== null}
-            help={going.tileHelp}
-          />
-        )}
-      </div>
-
-      <NumbersTiles
-        hasPhoto={Boolean(profile.avatar_url)}
-        going={goingCount !== null && going?.tagGoing ? { label: going.tagGoing, value: goingCount, went: going.wentCount ?? 0 } : null}
-        goingOn={going !== null}
-      />
-
-      <PartnerTile />
-
-      <LineupPeople />
     </div>
   );
 };
@@ -211,16 +151,13 @@ const HomeScreen = () => {
   if (profile.isLoading) {
     body = <Message>Loading your home&hellip;</Message>;
   } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
+    // D4 (unclaimed): the claim button re-runs the existing no-arg claim; its answer is drawn in the card.
+    // Walk bug 1: never trapped here -- NoProfileWayOut gives Account settings, Sign out, the organiser area.
     body = (
-      <Message>
-        <CoupleArt />
-        <b>We can&rsquo;t find a dancer profile for you yet.</b>
-        <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
-        {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}
-        <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />
-        {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
+      <div style={{ display: 'grid', gap: 12 }}>
+        <ClaimCard />
         <NoProfileWayOut />
-      </Message>
+      </div>
     );
   } else if (profile.error || !profile.data) {
     body = (

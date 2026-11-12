@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>People page directions</title>
+<style>
+:root{--bg:#141010;--fg:#F3E8DF;--mut:#C7B3A5;--line:#3A2C25;--link:#9CC8FF}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 Inter,system-ui,sans-serif}
+main{padding:16px;max-width:1500px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:24px 0 8px}h3{font-size:15px;margin:16px 0 6px}
+a{color:var(--link)}p{margin:6px 0;max-width:900px}
+.dirs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.dir{border:1px solid var(--line);border-radius:12px;padding:12px}
+.dir ul{margin:6px 0;padding-left:18px}
+table{border-collapse:collapse;width:100%;margin:6px 0;font-size:13px}
+th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cell{border:1px solid var(--line);border-radius:10px;padding:8px}
+.pair{display:flex;gap:6px;align-items:flex-start}
+.pair img{width:calc(50% - 3px);height:auto;border:1px solid var(--line)}
+.extra img{width:100%;max-width:390px;border:1px solid var(--line)}
+code{color:var(--mut)}
+@media (max-width:800px){.row{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>People page &mdash; three directions</h1>
+<p>P2 mockups for the people arc. Real prod people (public names only), rendered at 390x844 and 360x800 (left / right in each cell).
+Owner decisions D1&ndash;D4 are built into all three: one page per person, roles as tabs that change the URL, thin-first, ground tinted by the active tab.
+Photos are drawn as a striped &ldquo;photo&rdquo; stand-in: the image hosts are unreachable from the build sandbox. Data: <a href="data.md">data.md</a>, brief: <a href="BRIEF.md">BRIEF.md</a>.
+Open each direction live: <a href="a.html">A</a> &middot; <a href="b.html">B</a> &middot; <a href="c.html">C</a>.</p>
+
+<h2>The directions</h2>
+<div class="dirs" id="dirs"></div>
+
+<h2>Side by side, per shape</h2>
+<div id="shapes"></div>
+
+<h2>Wall tiles and link previews</h2>
+<div id="extras"></div>
+
+<h2>Facts each direction shows, and where they come from</h2>
+<p>All three directions read the same mapping (<code>src/facts.js</code>); none computes a fact itself. A fact appears only when it is filled.</p>
+<div id="facts"></div>
+
+<h2>Self-checks (Design Gate stage 4, run on the rendered screenshots)</h2>
+<p>Measured by <code>src/capture.mjs</code> on all 14 page renders per direction (7 shape/tab pages x 2 widths). Contrast is every text run against its solid ground; text on the photo stand-in is excluded (only its own text on the photo stand-in is excluded (there is none on the pages)ldquo;phototext on the photo stand-in is excluded (there is none on the pages)rdquo; label). Taps are every link and button on the page and in the site header.</p>
+<div id="checks"></div>
+</main>
+<script>
+/*FACTS*/
+const SUMMARY = /*SUMMARY*/;
+const D = {
+  a: { name: 'Name card', pitch: 'A business card first: photo or initials beside the name in one compact card, a full-width segmented tab bar, then plain lists of what the calendar knows. Thin people get a small finished card and two clear actions.',
+    good: ['Densest: the most rows on the first screen (3 gigs + Share above the fold).', 'Same card for thin and rich people, so it never looks half-built.', 'Closest to today&rsquo;s hub, cheapest to build.'],
+    cost: ['Looks like a utility, not a showcase; the photo is small (72px).', 'A thin page ends high on the screen, leaving the tinted ground below (it is the page ground, not an empty card).'] },
+  b: { name: 'Role poster', pitch: 'Each tab is a poster in its role colour: a full-width hero with a big photo or initials, the name and the city, underline tabs at the foot of the hero, and dates as a 3-column tile grid.',
+    good: ['Most &ldquo;professional page&rdquo; feel; the role colour is unmistakable.', 'A thin person still gets a designed first screen (the hero carries it).', 'Three gigs fit in one row; the date grid follows the 3-column density rule.'],
+    cost: ['The hero takes about 250px, so dates start lower.', 'Full dates wrap to two lines inside a 3-column tile at 360.', 'The poster wall tile shrinks the photo when a long name wraps to three lines.'] },
+  c: { name: 'Next date first', pitch: 'Answers &ldquo;where can I see them next?&rdquo; first: a slim name strip, pill tabs, the next gig or class as the big block with one button, later dates as a short list. With no dates it becomes a fact sheet and a list of things to do.',
+    good: ['The most useful page for the 48 teachers and 17 DJs who have dates.', 'One obvious button (Open event) on the first screen.', 'The link preview leads with the date too.'],
+    cost: ['Identity is small; a person with no dates gets the least visual page of the three.', 'Two layouts in one design (dates vs no dates) to build and test.', 'Round wall tiles drop the role label when there is no date.'] },
+};
+const SH = [
+  ['thin-dancer', ['dancer'], 'Thin dancer-only, no photo &mdash; Magda', '/dancers/unclaimed-440f99dd'],
+  ['thin-teacher', ['teacher'], 'Teacher-only, no photo, no city &mdash; Pierre Henry (the most common person)', '/teachers/pierre-henry'],
+  ['dj-2gigs', ['dj'], 'DJ with 2 upcoming gigs &mdash; Papacito (no DJ-only person has 2+; this one is DJ + dancer)', '/djs/papacito'],
+  ['rich', ['teacher', 'dj', 'dancer'], 'All three roles, rich &mdash; Ramiro Zapata', '/{role}/ramiro-zapata'],
+  ['long-name', ['dancer'], 'Long name (21 characters) &mdash; Sabrina Guzman Pastor', '/dancers/unclaimed-6f05d2f6'],
+];
+const L = ['a', 'b', 'c'];
+document.getElementById('dirs').innerHTML = L.map((k) => `<div class="dir"><h3>${k.toUpperCase()} &middot; ${D[k].name}</h3><p>${D[k].pitch}</p>
+  <b>Good</b><ul>${D[k].good.map((x) => `<li>${x}</li>`).join('')}</ul><b>Costs</b><ul>${D[k].cost.map((x) => `<li>${x}</li>`).join('')}</ul></div>`).join('');
+document.getElementById('shapes').innerHTML = SH.map(([key, tabs, label, url]) => tabs.map((t) => `<h3>${label} &middot; ${ROLE_LABEL[t]} tab <code>${url.replace('{role}', ROLE_PATH[t])}</code></h3>
+  <div class="row">${L.map((k) => `<div class="cell"><b>${k.toUpperCase()} &middot; ${D[k].name}</b><div class="pair"><img loading="lazy" src="shots/${k}-${key}-${t}-390.png" alt="${k} ${key} ${t} 390"><img loading="lazy" src="shots/${k}-${key}-${t}-360.png" alt="${k} ${key} ${t} 360"></div></div>`).join('')}</div>`).join('')).join('');
+document.getElementById('extras').innerHTML = ['tile', 'og'].map((v) => `<h3>${v === 'tile' ? 'Wall tiles (4 columns at 390)' : 'Link previews in a WhatsApp chat (title follows the role link)'}</h3>
+  <div class="row extra">${L.map((k) => `<div class="cell"><b>${k.toUpperCase()}</b><br><img loading="lazy" src="shots/${k}-${v}-390.png" alt="${k} ${v}"></div>`).join('')}</div>`).join('');
+document.getElementById('facts').innerHTML = `<table><tr><th>Fact</th><th>Shared function</th><th>Source</th><th>A</th><th>B</th><th>C</th></tr>${FACT_SOURCES.map(([f, fn, src]) => {
+  const where = { 'Photo or initials': ['card, 72px', 'hero, 112px circle', 'strip, 48px'], 'Roles / tabs': ['segmented bar', 'underline tabs in hero', 'pills'], 'Next gigs / Teaching next': ['list rows', '3-col tiles', 'next block + Later list'], 'Dances / Speaks / From': ['3-col fact tiles', 'chips', 'fact sheet rows'], 'Calendar action': ['button, only with no dates', 'pill, only with no dates', 'row, only with no dates'] }[f] || ['yes', 'yes', 'yes'];
+  return `<tr><td>${f}</td><td>${fn}</td><td>${src}</td>${where.map((w) => `<td>${w}</td>`).join('')}</tr>`; }).join('')}</table>`;
+const row = (k) => { const s = SUMMARY[k]; return `<tr><td>${k.toUpperCase()} ${D[k].name}</td><td>${s.pages}</td><td>${s.minContrast} ${s.lowContrast.length ? '&#10007;' : 'pass'}</td><td>${s.smallTaps.length ? s.smallTaps.length + ' under 44' : 'pass'}</td><td>${s.clipped ? s.clipped : 'pass'}</td><td>${s.sideways || s.offscreen ? 'FAIL' : 'pass'}</td><td>${s.noAction ? 'FAIL' : 'pass'}</td><td>${s.tabRowWrong ? 'FAIL' : 'pass'}</td></tr>`; };
+document.getElementById('checks').innerHTML = `<table><tr><th>Direction</th><th>Pages</th><th>Lowest contrast (&ge; 4.5)</th><th>Taps &ge; 44px</th><th>Clipping</th><th>No sideways scroll at 360 / 390</th><th>Every page has an action</th><th>Tab row only when 2+ roles</th></tr>${L.map(row).join('')}</table>
+<p>Not machine-checked: the wall tile and link preview views (inspected by eye in the screenshots); real photos; real phones.</p>`;
+</script></body></html>

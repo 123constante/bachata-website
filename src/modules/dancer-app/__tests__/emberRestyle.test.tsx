@@ -82,59 +82,51 @@ describe('D120 home link on every /app/* route', () => {
 });
 
 describe('D123/D124 Home', () => {
-  it('has no "What\'s on this week"', async () => {
+  // The line-up people list was retired from Home by Option A (admin #1534).
+  it('has no "What\'s on this week" and no line-up list', async () => {
     renderInShell({ path: '/app/home' });
     await screen.findByTestId('dancer-screen-home');
-    await screen.findByTestId('lineup-people');
     expect(screen.queryByTestId('whats-on')).toBeNull();
     expect(screen.queryByText(/What.s on this week/)).toBeNull();
-  });
-  it('filled: one row per person linking to public_path, with the full-weekday last night', async () => {
-    renderInShell({ path: '/app/home' });
-    const rows = await screen.findAllByTestId('lineup-person');
-    expect(rows).toHaveLength(2);
-    expect(h.calls.filter((c) => c === 'my_nights_lineup_people_v1')).toHaveLength(1);
-    expect(rows[0].getAttribute('href')).toBe('/teachers/lena-ortiz');
-    expect(rows[0].textContent).toContain('Lena Ortiz');
-    expect(rows[0].textContent).toContain('Teacher');
-    expect(rows[0].textContent).toContain('DJ');
-    expect(rows[0].textContent).toContain('Last seen at Sensual Sundays, Sunday 18 Oct');
-    expect(rows[0].textContent).toContain('L'); // initial, no avatar_url
-    expect(rows[1].getAttribute('href')).toBe('/djs/marco-vidal');
-    expect(rows[1].querySelector('img')).not.toBeNull();
-  });
-  it('empty: says what happens, no button', async () => {
-    h.lineup = async () => ({ data: { total: 0, people: [] }, error: null });
-    renderInShell({ path: '/app/home' });
-    const empty = await screen.findByTestId('lineup-people-empty');
-    expect(empty.textContent).toMatch(/after nights you went to/i);
-    expect(within(empty).queryAllByRole('button')).toHaveLength(0);
-    expect(within(empty).queryAllByRole('link')).toHaveLength(0);
-  });
-  it.each([
-    ['rpc error', { data: null, error: { message: 'function public.my_nights_lineup_people_v1() does not exist' } }],
-    ['malformed', { data: { total: 'x' }, error: null }],
-  ])('load error (%s): error state with a retry, never a crash', async (_n, result) => {
-    h.lineup = async () => result;
-    renderInShell({ path: '/app/home' });
-    const err = await screen.findByTestId('lineup-people-error');
-    h.lineup = async () => ({ data: PEOPLE, error: null });
-    fireEvent.click(within(err).getByRole('button', { name: /try again/i }));
-    await waitFor(() => expect(screen.getAllByTestId('lineup-person')).toHaveLength(2));
+    expect(screen.queryByTestId('lineup-people')).toBeNull();
   });
 });
 
 describe('D129 switcher and Your areas', () => {
-  it('1 profile: no switcher; Options lists Your areas', async () => {
+  it('1 profile: the strip button reads Account (no Switch); Options lists Your areas', async () => {
     renderInShell({ path: '/app/options' });
     await screen.findByTestId('opt-areas');
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
     expect(screen.queryByTestId('profile-switcher-button')).toBeNull();
+    expect(screen.queryByText('Switch')).toBeNull();
+    // The Account sheet keeps account settings one tap away (admin 1534 fix 7).
+    fireEvent.click(screen.getByTestId('profile-account-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app');
     expect(optionsRows({ other_roles: [], is_active: true }).map((r) => r.id)).toContain('areas');
   });
   it('2 profiles: the switcher shows', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     renderInShell({ path: '/app/home' });
     expect(await screen.findByTestId('profile-switcher-button')).toBeTruthy();
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Switch');
+    expect(screen.queryByTestId('profile-account-button')).toBeNull();
+  });
+  it('no dancer side yet (unclaimed): the Account button still shows, so account settings stay reachable', async () => {
+    h.sides = [];
+    renderInShell({ path: '/app/home' });
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
+    fireEvent.click(screen.getByTestId('profile-account-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app');
+  });
+  it('Add a profile sheet: organiser way in + message us; Back returns', async () => {
+    renderInShell({ path: '/app/home' });
+    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
+    fireEvent.click(await screen.findByTestId('profile-switcher-add'));
+    expect(screen.getByTestId('profile-switcher-add-organiser').textContent).toBe('Run events? Become an organiser');
+    expect(screen.getByTestId('profile-switcher-add-other').textContent).toBe('DJ or teach? Message us');
+    expect(screen.queryByTestId('profile-switcher-sign-out')).toBeNull();
+    fireEvent.click(screen.getByTestId('profile-switcher-add-back'));
+    expect(screen.getByTestId('profile-switcher-settings')).toBeTruthy();
   });
 });
 
