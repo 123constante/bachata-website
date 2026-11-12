@@ -9,6 +9,8 @@ import { Card, Collapse, ErrorState, FIELD_CLASS, GhostButton, PrimaryButton, Se
 import { CAP_NOTE, allowedEndChoices, type CapInput } from './dateCap';
 import { MAX_GALLERY, MAX_VIDEOS, SHAPE_LABEL, shortDate, weekdayName, type EventDraft, type Shape } from './eventModel';
 import { dancerMessageUsUrl } from '@/lib/contactLinks';
+import { flags } from '@/lib/featureFlags';
+import { PhotoOrderBody } from './PhotoOrderBody';
 
 /** The WhatsApp message "Ask the team to add this venue" opens; the searched text and the event follow it. */
 export const VENUE_ADD_MESSAGE = 'Hi! Please add a venue to Bachata Calendar. I searched for: ';
@@ -107,6 +109,10 @@ export function EditorSheet({ sheet, onSheet, draft, patch, today, cap, venues, 
   let body = null;
   switch (sheet) {
     case 'gallery':
+      if (flags.organiserPhotoOrder) {
+        body = <PhotoOrderBody draft={draft} patch={patch} fileRef={fileRef} onPick={pick} uploading={uploading} uploadError={uploadError} />;
+        break;
+      }
       body = (
         <div className="space-y-[12px]" data-testid="org-sheet-gallery">
           {photos.length === 0 && <p className="text-[14px] text-[var(--mut)]">No photos yet. Add a few from past nights.</p>}

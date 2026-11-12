@@ -25,7 +25,8 @@ import { isAccessRefusal } from '@/modules/organiser/shared/selfServeErrors';
 import { NoAccess } from '@/modules/organiser/shared/components/NoAccess';
 import { ClosedLines } from './ClosedLines';
 import { uploadEventPicture } from './media';
-import { countLabel, mediaCommand } from './seriesExtras';
+import { countLabel, mediaCommand, photosCommand } from './seriesExtras';
+import { flags } from '@/lib/featureFlags';
 import { FLYER_LABEL } from '../shared/flyerLabel';
 import { MusicEdit } from './MusicEdit';
 import { PaymentEdit } from './PaymentEdit';
@@ -131,7 +132,8 @@ function DetailRows({ ws, today }: { ws: EventWorkspace; today: string }) {
     if (next !== null || busy) return;
     if (closing === 'gallery' || closing === 'video') {
       const now = latest.current;
-      const command = closing === 'gallery' ? mediaCommand(ws, 'default_gallery', now.gallery) : mediaCommand(ws, 'default_video_urls', now.videos);
+      const galleryCommand = flags.organiserPhotoOrder ? photosCommand(ws, now.coverUrl, now.gallery) : mediaCommand(ws, 'default_gallery', now.gallery);
+      const command = closing === 'gallery' ? galleryCommand : mediaCommand(ws, 'default_video_urls', now.videos);
       if (command) void sendThenDone(ws.series.version, command, { title: 'Saved', message: 'Saved' });
       return;
     }
