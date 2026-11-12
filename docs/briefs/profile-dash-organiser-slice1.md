@@ -1,0 +1,9 @@
+# Brief: Organiser dashboard slice 1 (admin issue #1535), Website, normal lane, Sonnet
+Branch: claude/profile-dash-organiser-slice1. One slice = one branch = one push. No DB change, no migration.
+Contract: comments on 123constante/bachata-admin#1535 and #1531 (gh issue view 1535 --comments). Quote, do not guess.
+Design: Option A + B's date rail for the night list, Website PR #1570 (branch claude/profile-dash-organiser-opts): docs/design/profile-dash/organiser-option-a.html, organiser-option-b.html, organiser.md (inventory + GAPs), shot-*.png. Base: prototype.html.md on brief/profile-dash-opts. Light theme, 390x844, core only.
+Apply the 9 listed fixes on the issue (DESIGN PICKED comment).
+Data (survey #1532, report on Website branch claude/profile-dash-survey docs/briefs/dash-survey.report.md): Going from event_attendance (near-empty: explicit empty state, not headline); opens from event_views (every open, per session-day; NO source split in this slice); link clicks by link_type from event_link_clicks; organiser-page opens from profile_view_events (organiser card on event page); city average only when 5+ organisers in city (1 of 319 cities qualifies); Tickets tile only when selling via us (1 organiser). Positive-only: zero = suggested action. Where a GAP has no data source, omit the tile, do not fake it.
+Shapes to draw and test: new, upcoming, zero, huge (up to 222 upcoming dates; cap the list), cancelled (live nights only), selling, loading, error, contributor seat (view-only Team/Add disabled with reason).
+Done = docs/design/<pr>.md, table-driven tests screen x shape, all CI steps run, 390x844 screenshots on the PR of every shape above. PR body: Verified / Not verified; per-job CI table.
+Do not touch dancer files (parallel worker on claude/profile-dash-dancer-slice1). If a shared file must change, stop and say so in the handover.
