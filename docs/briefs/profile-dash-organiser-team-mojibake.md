@@ -1,0 +1,4 @@
+# Brief: fix red `integrity` check on PR #1581 (Team fix round). Normal lane, Sonnet, tiny.
+Branch claude/profile-dash-organiser-team-opts (already has the 12 fixes; touch nothing else).
+Failure (run 43208878674, Mojibake guard): `git grep -nE 'â€|â˜…|â†|Â·|Ã—|â‰|â”€|â„™'` reports "Binary file docs/design/profile-dash/shots/organiser-team-option-b-two-invite-find-picked.png matches" -- a PNG byte coincidence, not text.
+Fix: re-take that one screenshot (or re-encode it, e.g. different compression / one-pixel-neutral change) with the existing tools in docs/design/profile-dash/tools/ so the bytes no longer match; then run the exact git grep from the workflow over the whole tree and confirm it prints nothing. Also grep every other shot. Push once, update the PR body "CI" line, handover one line. Commit marker [worker-done dt_*] as usual.
