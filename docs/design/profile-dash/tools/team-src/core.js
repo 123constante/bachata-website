@@ -3,7 +3,7 @@
 const ROLE={
  owner:{n:'Owner',can:'Everything, plus removing people, changing roles and handing the page over.'},
  manager:{n:'Manager',can:'Runs events, tickets and the page, and can add people.'},
- contributor:{n:'Contributor',can:'Can see the page and this team. Cannot change either.'}
+ contributor:{n:'Contributor',can:'Can look at events, tickets and the team, but cannot change anything.'}
 };
 const ORDER=['owner','manager','contributor'];
 const P=(n,role,o={})=>Object.assign({n,role},o);
@@ -38,12 +38,14 @@ const sh=()=>SHAPES[S.shape];
 const canEdit=()=>sh().seat!=='contributor';
 const owners=s=>s.people.filter(p=>p.role==='owner'&&!p.stub).length;
 const ini=n=>n.replace(/^You \(|\)$/g,'').split(/[ -]/).map(w=>w[0]).slice(0,2).join('');
+// Contributors see "the public page"; only editors are told it is "your" page.
+const pg=()=>canEdit()?'your public page':'the public page';
 const chip=r=>`<span class="chip ${r}">${ROLE[r].n}</span>`;
 // The public rule (owner 2026-11-07): owners and managers always show; others have a hide switch; unclaimed stubs stay hidden until claimed.
 function pubLine(p){
- if(p.stub)return `<span class="pub">Not claimed yet &middot; hidden from your public page until they claim it</span>`;
- if(p.role!=='contributor')return `<span class="pub">Shown on your public page</span>`;
- return p.hidden?`<span class="pub off">Hidden from your public page</span>`:`<span class="pub">Shown on your public page</span>`;
+ if(p.stub)return `<span class="pub">Not claimed yet &middot; hidden from ${pg()} until they claim it</span>`;
+ if(p.role!=='contributor')return `<span class="pub">Shown on ${pg()}</span>`;
+ return p.hidden?`<span class="pub off">Hidden from ${pg()}</span>`:`<span class="pub">Shown on ${pg()}</span>`;
 }
 function avatar(p){return `<span class="av ${p.stub?'stub':''}" aria-hidden="true">${ini(p.n)}</span>`}
 function personRow(p,i,showChip){
@@ -51,8 +53,10 @@ function personRow(p,i,showChip){
  const inner=`${avatar(p)}<span class="t"><b>${p.n}</b><span class="meta">${showChip?chip(p.role):''}${pubLine(p)}</span></span>`;
  return canEdit()?`<button class="row" data-act="person" data-k="${i}" aria-label="${lbl}. Open">${inner}<span aria-hidden="true">&rsaquo;</span></button>`:`<div class="row">${inner}</div>`;
 }
+// Contributors never see a full invitee email: d***@example.com.
+const mask=e=>e.replace(/^(.)[^@]*/,'$1***');
 function invRow(v,i){
- const what=v.kind==='email'?v.to:'Invite link';
+ const what=v.kind==='email'?(canEdit()?v.to:mask(v.to)):'Invite link';
  const act=!canEdit()?'':v.bad?`<button class="act alt" data-act="sheet" data-k="invite" data-m="link">New link</button>`:`<button class="act alt" data-act="invmenu" data-k="${i}" aria-label="Options for invite to ${what}">Options</button>`;
  return `<div class="row"><span class="av stub" aria-hidden="true">${v.kind==='email'?'@':'&#128279;'}</span><span class="t"><b>${what}</b><span class="meta">${chip(v.role)}<span class="chip ${v.bad?'bad':'wait'}">${v.bad?'Expired':'Waiting'}</span></span><span>${v.when}</span></span>${act}</div>`;
 }
@@ -72,13 +76,14 @@ function roleKey(){
  return `<div class="card">${ORDER.map(r=>`<div class="roleline">${chip(r)}<span>${ROLE[r].can}</span></div>`).join('')}</div>`;
 }
 function publicNote(){
+ if(!canEdit())return `<p class="why">The public page lists owners and managers. Contributors show unless an owner hides them. Someone who has not claimed their profile stays hidden until they do.</p>`;
  return `<p class="why">Your public page lists owners and managers. Contributors show too unless you hide them. Someone who has not claimed their profile stays hidden until they do.</p>`;
 }
 function loadingBody(){
  return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px" aria-busy="true"><span class="lbl">Loading your team&hellip;</span><div class="skel" style="width:60%;height:18px"></div><div class="skel" style="width:85%"></div><div class="skel" style="width:45%"></div></div><button class="btn" disabled>Add a teammate</button><p class="why">Adding wakes up as soon as your team loads. This usually takes a second.</p>`;
 }
 function errorBody(){
- return `<div class="banner err" role="alert"><b>We could not load your team.</b><br>Nobody has been added or removed. Your public page still shows the same people. Check your signal, then try again.</div><button class="btn" data-act="retry">Try again</button>`;
+ return `<div class="banner err" role="alert"><b>We could not load your team.</b><br>Nothing was changed. Check your signal, then try again.</div><button class="btn" data-act="retry">Try again</button>`;
 }
 // ---- sheets (shared) ----
 function personSheet(){
@@ -110,7 +115,7 @@ function invMenu(){
 function picker(){
  const res=[['Dee Dummy','Dancer &middot; London'],['Dee Example-Two','Teacher &middot; Bristol']];
  const chips=S.picked.map((n,i)=>`<span class="pchip">${n}<button data-act="unpick" data-k="${i}" aria-label="Remove ${n}">&times;</button></span>`).join('');
- return `<div class="field"><label for="q">Search people on Bachata Calendar</label><input id="q" value="Dee" autocomplete="off"></div><div class="card">${res.map(r=>`<button class="row" data-act="pick" data-k="${r[0]}"><span class="av" aria-hidden="true">${ini(r[0])}</span><span class="t"><b>${r[0]}</b><span>${r[1]}</span></span><span aria-hidden="true">+</span></button>`).join('')}</div>${chips?`<div class="chips" aria-label="Picked">${chips}</div>`:''}<p class="why">Not on Bachata Calendar yet? Use Link or Email instead.</p>`;
+ return `<div class="field"><label for="q">Search people on Bachata Calendar</label><input id="q" value="Dee" autocomplete="off"></div><div class="card">${res.map(r=>{const on=S.picked.includes(r[0]);return `<button class="row${on?' picked':''}" data-act="${on?'unpick':'pick'}" data-k="${on?S.picked.indexOf(r[0]):r[0]}" aria-pressed="${on}" aria-label="${r[0]}${on?', picked. Tap to unpick':'. Pick'}"><span class="av" aria-hidden="true">${ini(r[0])}</span><span class="t"><b>${r[0]}</b><span>${on?'Picked':r[1]}</span></span><span class="tick" aria-hidden="true">${on?'&#10003;':'+'}</span></button>`}).join('')}</div>${chips?`<div class="chips" aria-label="Picked">${chips}</div>`:''}<p class="why">Not on Bachata Calendar yet? Use Link or Email instead.</p>`;
 }
 function roleRadios(){
  return `<h3>Their role</h3><div class="card radio" role="radiogroup" aria-label="Role">${['manager','contributor'].map(r=>`<button role="radio" aria-checked="${S.role===r}" data-act="irole" data-k="${r}"><span class="dot" aria-hidden="true"></span><span class="t"><b>${ROLE[r].n}</b><span>${ROLE[r].can}</span></span></button>`).join('')}</div><p class="why">To add another owner, add them as a manager, then change their role.</p>`;
@@ -126,7 +131,7 @@ function inviteSheet(){return `<button class="x" data-act="close">Close</button>
 // ---- frame ----
 function idbar(){
  const seat=canEdit()?'Owner':'Contributor';
- return `<div class="idbar r-org"><button class="idmain" data-act="toast" data-k="Switch: drawn on Home" aria-label="Organiser, ${seat}, Ritmo London. Switch page"><span class="badge r-org" style="--s:40px">ORG</span><span class="idtxt"><small>Organiser &middot; ${seat}</small><b>Ritmo London</b></span></button><button class="sw" data-act="toast" data-k="Switch: drawn on Home" aria-label="Switch page">Switch &#9662;</button></div>`;
+ return `<div class="idbar r-org"><button class="idmain" data-act="toast" data-k="Switch: drawn on Home" aria-label="Organiser, ${seat}, Sample Socials London. Switch page"><span class="badge r-org" style="--s:40px">ORG</span><span class="idtxt"><small>Organiser &middot; ${seat}</small><b>Sample Socials London</b></span></button><button class="sw" data-act="toast" data-k="Switch: drawn on Home" aria-label="Switch page">Switch &#9662;</button></div>`;
 }
 function tabs(){return `<nav class="tabs" aria-label="Organiser area">${[['home','Home'],['events','Events'],['tickets','Tickets'],['team','Team']].map(t=>`<button data-act="tab" data-k="${t[0]}" aria-current="${S.tab===t[0]}">${t[1]}</button>`).join('')}</nav>`}
 var tt;
@@ -136,7 +141,7 @@ function render(){
  $('#shseg').innerHTML=Object.keys(SHAPES).map(k=>`<button data-act="shape" data-k="${k}" aria-pressed="${S.shape===k}">${SHAPES[k].lab}</button>`).join('');
  const s=sh();
  const body=S.shape==='loading'?loadingBody():S.shape==='error'?errorBody():teamBody(s);
- let h=idbar()+`<main class="scroll ${typeof FAB!=='undefined'&&FAB&&canEdit()&&s.people?'pad-fab':''}" id="scroll">${body}</main>`+(typeof fab==='function'?fab(s):'')+tabs();
+ let h=idbar()+`<main class="scroll" id="scroll">${body}</main>`+tabs();
  if(S.sheet)h+=`<div class="sheetbg" data-act="bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${S.sheet}">${SHEETS[S.sheet]()}</div></div>`;
  $('#frame').innerHTML=h;
 }
@@ -148,7 +153,7 @@ document.addEventListener('click',e=>{
  if(a==='shape')setShape(k);
  else if(a==='person'){S.sheet='person';S.of=+k}
  else if(a==='invmenu'){S.sheet='invmenu';S.of=+k}
- else if(a==='sheet'){S.sheet=k;if(t.dataset.of)S.of=+t.dataset.of;if(t.dataset.m)S.mode=t.dataset.m}
+ else if(a==='sheet'){S.sheet=k;if(t.dataset.of)S.of=+t.dataset.of;if(t.dataset.m)S.mode=t.dataset.m;if(t.dataset.r)S.role=t.dataset.r}
  else if(a==='close')S.sheet=null;
  else if(a==='mode')S.mode=k;
  else if(a==='irole')S.role=k;
@@ -164,7 +169,7 @@ document.addEventListener('click',e=>{
 (function init(){
  const h=new URLSearchParams(location.hash.slice(1));
  for(const k of h.keys())if(SHAPES[k])setShape(k);
- if(h.get('sheet')){S.sheet=h.get('sheet');if(h.get('of'))S.of=+h.get('of');if(h.get('m'))S.mode=h.get('m')}
+ if(h.get('sheet')){S.sheet=h.get('sheet');if(h.get('of'))S.of=+h.get('of');if(h.get('m'))S.mode=h.get('m');if(h.get('r'))S.role=h.get('r')}
  if(h.get('pick'))S.picked=[h.get('pick')];
  if(h.has('shot'))document.body.classList.add('shot');
  render();

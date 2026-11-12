@@ -3,7 +3,8 @@
 // Each option HTML shows ONE state when opened with #<state>. For every
 // option x state it takes a 390x844 first-screen shot and a full-page shot,
 // and checks: tap targets >= 44x44 CSS px, text contrast >= 4.5:1,
-// no sideways scroll at 390px, no clipped text.
+// no sideways scroll at 390px, no clipped text, and (list states) the last
+// item fully clears the tab bar when scrolled to the end.
 import { chromium } from 'playwright';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -11,10 +12,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const OPTIONS = ['organiser-team-option-a', 'organiser-team-option-b'];
-const STATES = ['solo', 'two', 'huge', 'pending', 'stub', 'lastowner', 'remove', 'contributor', 'sent', 'failed', 'loading', 'error', 'two&sheet=invite&m=find&pick=Dee Dummy', 'two&sheet=invite&m=link', 'two&sheet=invite&m=email', 'stub&sheet=person&of=3', 'huge&sheet=person&of=1'];
+// Option B was picked (owner 2026-11-12); A is kept for reference and no longer shot.
+const OPTIONS = ['organiser-team-option-b'];
+const STATES = ['solo', 'two', 'huge', 'pending', 'stub', 'lastowner', 'remove', 'contributor', 'sent', 'failed', 'loading', 'error', 'two&sheet=invite&m=find&pick=Dee Dummy', 'two&sheet=invite&m=link', 'two&sheet=invite&m=email', 'stub&sheet=person&of=3', 'huge&sheet=person&of=1', 'two&sheet=person&of=2', 'huge&sheet=person&of=8', 'pending&more=wait', 'two&sheet=invite&m=find&r=manager'];
 const shotDir = resolve(root, 'shots');
-const slug = (s) => s.replace(/&pick=.*/, '').replace(/&of=(\d+)/, '$1').replace(/&sheet=/, '-').replace(/&m=/, '-');
+const slug = (s) => s.replace(/&pick=.*/, '-picked').replace(/&more=(\w+)/, '-more-$1').replace(/&r=(\w+)/, '-$1').replace(/&of=(\d+)/, '$1').replace(/&sheet=/, '-').replace(/&m=/, '-');
 mkdirSync(shotDir, { recursive: true });
 
 const browser = await chromium.launch();
@@ -91,6 +93,21 @@ for (const opt of OPTIONS) {
       };
     });
     await page.screenshot({ path: resolve(shotDir, `${opt}-${slug(st)}.png`) });
+    // Scroll the list to its end: the last item must sit fully above the tab bar
+    // (nothing floats over rows, and the padding lets the last row clear the tabs).
+    if (!st.includes('sheet=')) {
+      r.endCovered = await page.evaluate(() => {
+        const sc = document.getElementById('scroll'); if (!sc) return [];
+        sc.scrollTop = sc.scrollHeight;
+        const box = sc.getBoundingClientRect(), nav = document.querySelector('.tabs').getBoundingClientRect();
+        const last = sc.lastElementChild.getBoundingClientRect(), out = [];
+        if (box.bottom > nav.top + 0.5) out.push(`list runs under tabs by ${Math.round(box.bottom - nav.top)}px`);
+        if (last.bottom > Math.min(box.bottom, nav.top) + 0.5) out.push(`last item cut by ${Math.round(last.bottom - Math.min(box.bottom, nav.top))}px`);
+        return out;
+      });
+      if (['huge', 'pending&more=wait', 'two', 'contributor', 'solo', 'stub', 'lastowner'].includes(st)) await page.screenshot({ path: resolve(shotDir, `${opt}-${slug(st)}-end.png`) });
+      r.clipped.push(...r.endCovered);
+    }
     results.push({ option: opt, state: st, ...r });
     const ok = !r.sideways && !r.taps.length && !r.contrast.length && !r.clipped.length;
     console.log(`${ok ? 'PASS' : 'FAIL'} ${opt} ${st} h=${r.height} minContrast=${r.minContrast} taps<44=${r.taps.length} lowContrast=${r.contrast.length} clipped=${r.clipped.length} sideways=${r.sideways}`);
