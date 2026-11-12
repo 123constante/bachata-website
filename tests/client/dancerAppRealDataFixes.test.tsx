@@ -72,12 +72,15 @@ describe('F1: the bio/link step names what is actually missing', () => {
     expect(mainAction(p)).toMatchObject({ label, href: `/app/me/edit?focus=${focus}` });
   });
 
-  it('Home, Me and the onboarding meter all read "Add a short bio" for linkNoBio', async () => {
-    const home = await textOf('/app/home', linkNoBio, 'tile-strength-next');
+  it('Me and the onboarding meter read "Add a short bio" for linkNoBio; Home (required steps done) has no next-step button', async () => {
+    renderInShell({ path: '/app/home', backend: { profile: linkNoBio } });
+    await screen.findByTestId('home-a-complete');
+    expect(screen.queryByTestId('home-next-step')).toBeNull();
+    cleanup(); resetShell();
+    const home = 'Add a short bio towards 100%.';
     const me = await textOf('/app/me', linkNoBio, 'me-next-step');
     render(<Meter profile={linkNoBio} />);
     const onboarding = screen.getByTestId('onboarding-next-step').textContent;
-    expect(home).toBe('Add a short bio towards 100%.');
     expect(me).toBe(home);
     expect(onboarding).toBe(home);
     for (const t of [home, me, onboarding]) expect(t).not.toMatch(OLD_LABEL);

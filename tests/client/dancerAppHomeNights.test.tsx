@@ -112,41 +112,34 @@ describe('Home x attendance shapes', () => {
   it.each(cases)('$name', async (c) => {
     h.rows = c.rows();
     home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(c.count));
-    if (c.hero) expect(hero.textContent).toMatch(c.hero);
-    else {
-      expect(hero.textContent).toMatch(/No upcoming night yet/);
-      // D130: no Browse events control; the words point at the home link top left.
-      expect(within(hero).queryAllByRole('link')).toHaveLength(0);
-      expect(hero.textContent).toMatch(/Bachata Calendar link at the top left/);
+    // Option A Home: the next night going ahead is ONE list row (home-row-going); no hero, no count tile.
+    await screen.findByTestId('home-list');
+    if (c.hero) {
+      await waitFor(() => expect(screen.getByTestId('home-row-going').textContent).toMatch(c.hero!));
+    } else {
+      await waitFor(() => expect(screen.queryByTestId('home-row-going')?.textContent ?? '').not.toMatch(/Soho Sensual|Camden Social|Last Thursday|Old Series/));
+      await waitFor(() => expect(screen.queryByText(/Your booked nights\./)).toBeNull());
     }
+    // D130: no Browse events control anywhere on Home.
+    expect(screen.queryAllByRole('link', { name: /browse events/i })).toHaveLength(0);
     if (c.nudge) expect(await screen.findByTestId('rate-nudge')).toBeTruthy();
-    else {
-      await waitFor(() => expect(h.rows.length === 0 || screen.queryByTestId('tile-going')).toBeTruthy());
-      expect(screen.queryByTestId('rate-nudge')).toBeNull();
-    }
+    else expect(screen.queryByTestId('rate-nudge')).toBeNull();
   });
 
   it('shows no fake numbers and no dead "Coming soon" tiles (audit M19)', async () => {
     home();
-    await screen.findByTestId('home-hero');
-    // The W2b "Coming soon" views / partners placeholders are gone. tile-views is the REAL views
-    // tile since B1b S3 (homeAudit.test.tsx M19 asserts it), so it is awaited, never asserted
-    // absent: that old assertion only held while the numbers were still loading (a race).
-    expect(await screen.findByTestId('tile-views')).toBeTruthy();
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('tile-partners')).toBeNull();
-    expect(screen.queryByText(/12 views/)).toBeNull();
+    expect(screen.queryByTestId('tile-views')).toBeNull();
+    expect(screen.queryByText(/12 views|coming soon/i)).toBeNull();
   });
 
-  it('hero card opens the normal event page and is the NEXT night', async () => {
+  it('the Going row names the NEXT night, not a later one', async () => {
     h.rows = [row('later', 'Later', 9), row('soon', 'Sooner', 2)];
     home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.textContent).toMatch(/Sooner/));
-    expect(within(hero).getByRole('link', { name: 'See event' }).getAttribute('href')).toBe('/event/soon');
-    // F7: the tile no longer repeats the list's next date (the hero above shows it); it says what it counts.
-    expect(screen.getByTestId('tile-going').textContent).toContain(GOING_COPY.myUpcomingTitle);
+    await screen.findByTestId('home-list');
+    await waitFor(() => expect(screen.getByTestId('home-row-going').textContent).toMatch(/Sooner/));
+    expect(screen.getByTestId('home-row-going').textContent).not.toMatch(/Later/);
   });
 });
 
@@ -157,18 +150,18 @@ describe('Home x profile shapes', () => {
     await waitFor(() => expect(screen.queryByText(/Loading your home/)).toBeNull());
   });
 
-  it('strength tile shows the server pct and says what to add', async () => {
+  it('unfinished profile: the checklist shows the server-side steps and one next step', async () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id }) } });
-    const tile = await screen.findByTestId('tile-strength');
-    expect(tile.textContent).toMatch(/40%/);
-    expect(tile.textContent).toMatch(/Choose how you dance towards 70%/);
+    const list = await screen.findByTestId('home-checklist');
+    expect(list.textContent).toMatch(/How you dance \u00B7 next/);
+    expect(screen.getByTestId('home-next-step').textContent).toBe('Choose how you dance');
   });
 
   it('no profile: the Message us control itself (Options cannot load without a profile)', async () => {
     home({ backend: { profile: null } });
-    const m = await screen.findByTestId('home-message');
-    await waitFor(() => expect(m.textContent).toMatch(/Message us/));
+    const m = await screen.findByTestId('home-claim-card');
     expect(within(m).getByRole('link', { name: 'Message us on WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect(within(m).getByTestId('claim-button')).toBeTruthy();
     expect(within(m).queryByRole('link', { name: 'Options' })).toBeNull();
   });
 
@@ -181,7 +174,7 @@ describe('Home x profile shapes', () => {
 
   it('active profile: no hidden banner', async () => {
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('paused-banner')).toBeNull();
   });
 
@@ -192,13 +185,13 @@ describe('Home x profile shapes', () => {
     expect(screen.queryByTestId('linked-notice')).toBeNull();
     first.unmount(); resetShell();
     home({ backend: { profile } });
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
   });
 
   it('not linked: no notice', async () => {
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
   });
 });
@@ -206,10 +199,10 @@ describe('Home x profile shapes', () => {
 describe('analytics', () => {
   it('dancer_app_entered fires once per session for a signed-in person', async () => {
     const r = home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-list');
     r.unmount(); resetShell();
     home();
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-list');
     expect(h.events.filter((e) => e === 'dancer_app_entered')).toHaveLength(1);
   });
   it('never for a signed-out visitor', async () => {
@@ -245,13 +238,11 @@ describe('Nights', () => {
     const nightRow = (await screen.findAllByTestId('night-row'))[0].textContent ?? '';
     n.unmount(); resetShell();
     home();
-    const heroEl = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(heroEl.textContent).toContain('Alpha Social'));
-    const hero = heroEl.textContent ?? '';
-    for (const bit of ['Alpha Social', GOING_COPY.tagGoing, '9 PM', 'Camden Club']) {
-      expect(nightRow).toContain(bit);
-      expect(hero).toContain(bit);
-    }
+    await screen.findByTestId('home-list');
+    const going = await screen.findByTestId('home-row-going');
+    await waitFor(() => expect(going.textContent).toContain('Alpha Social'));
+    // Home keeps the name only (the time and venue live on Nights): the name is the shared bit.
+    expect(nightRow).toContain('Alpha Social');
   });
 
   it('attendance failure: error with retry, no fake empty state', async () => {
@@ -295,7 +286,7 @@ describe('Nights', () => {
     fireEvent.click(within(vote).getByRole('radio', { name: 'Strong' }));
     await screen.findByText('You said: Strong');
     fireEvent.click(screen.getByTestId('dancer-app-tab-home'));
-    await screen.findByTestId('home-hero');
+    await screen.findByTestId('home-list');
     await waitFor(() => expect(screen.queryByTestId('rate-nudge')).toBeNull());
   });
 

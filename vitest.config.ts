@@ -19,6 +19,11 @@ export default defineConfig({
     jsxImportSource: "react",
   },
   test: {
+    // 20s per test / hook, up from the 5s default. Issue #1572: JoinGetPaidNext, reviewScope and
+    // ogWholeFlyerCard pass alone but time out in the pre-push gate when the machine is loaded
+    // (slow imports plus git spawns land on the 5s budget). Same fix and reasoning as the admin repo.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.test.{ts,tsx}", "tests/**/*.test.{ts,tsx}", "app/**/*.test.{ts,tsx}"],

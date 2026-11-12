@@ -5,6 +5,8 @@ import type { Done } from './StatusSheet';
 import { groupsOf, rowsOf } from '../data/home';
 import { useP3Home } from '../data/useP3Data';
 import { L } from '../model';
+import { flags } from '@/lib/featureFlags';
+import { DashEvents } from '../events/DashEvents';
 import { NoPageCard, PageHeader, usePageScope } from './PageScope';
 import { AddEventLink, EventList, RetryButton, StateCard } from './parts';
 
@@ -39,6 +41,14 @@ function EventsBody() {
   }
   if (scope.noPage) return <NoPageCard testId="p3-events-nopage" what="Your events" />;
   const rows = rowsOf(home.data, scope.pageId);
+  if (flags.organiserDash && scope.selected) {
+    return (
+      <div className="p3-stack" data-testid="p3-events">
+        <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />
+        <DashEvents rows={rows} today={home.data.today} page={scope.selected} />
+      </div>
+    );
+  }
   const head = <PageHeader selected={scope.selected} organisers={scope.organisers} onChoose={scope.choose} />;
   if (!rows.length) {
     return (

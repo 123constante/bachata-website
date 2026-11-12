@@ -77,17 +77,7 @@ afterEach(() => { cleanup(); resetShell(); });
 const home = (profile = londoner()) => renderInShell({ path: '/app/home', backend: { profile } });
 
 describe('M14: hero text contrast', () => {
-  // The hero is painted by the stylesheet now (.da-hero = scrimmed sunset gradient); the ratios of its stops are
-  // computed in tests/client/dancerAppColor.test.ts. Here: the night hero carries the class, the plain card does not.
-  it.each([
-    ['0 nights (empty hero)', GOING_SHAPES.empty(), false],
-    ['an upcoming night', up(night('s1', 'Soho Sensual', 3)), true],
-  ])('%s: gradient only where white text sits on it', async (_n, reply, gradient) => {
-    h.reply = reply;
-    home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.classList.contains('da-hero')).toBe(gradient));
-  });
+  // Option A Home (admin #1534) has no hero: the night is one list row, so the old hero-class assertions are retired.
   it('the gradient token pair keeps white text at 4.5:1', () => {
     for (const t of ['--da-gradient-from', '--da-gradient-mid', '--da-gradient-to'] as DancerToken[]) {
       expect(contrastRatio(DANCER_TOKENS['--da-on-gradient'], DANCER_TOKENS[t]), t).toBeGreaterThanOrEqual(4.5);
@@ -96,16 +86,11 @@ describe('M14: hero text contrast', () => {
 });
 
 describe('M19: no dead tiles', () => {
-  it('B1b: the only "coming soon" tile is partner search, and it has a working button', async () => {
+  it('Option A Home has no "coming soon" tile and no partner / numbers tiles', async () => {
     home();
-    await screen.findByTestId('home-hero');
-    // The numbers tiles are real (they link to My page); the one coming-soon tile can be asked about.
-    expect(await screen.findByTestId('tile-views')).toBeTruthy();
-    expect(screen.queryByTestId('tile-partners')).toBeNull();
-    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
-    expect(text.match(/coming soon/gi)).toHaveLength(1);
-    expect(screen.getByTestId('tile-partner').textContent).toMatch(/Partner search: coming soon/);
-    expect((screen.getByTestId('partner-notify') as HTMLButtonElement).disabled).toBe(false);
+    await screen.findByTestId('home-list');
+    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/coming soon/i);
+    for (const id of ['tile-partner', 'partner-notify', 'tile-views', 'tile-strength', 'tile-going', 'stats-strip']) expect(screen.queryByTestId(id)).toBeNull();
   });
 });
 
@@ -137,25 +122,25 @@ describe('D130: no Browse events on Home', () => {
   it.each([['a night', up(night('s1', 'Soho Sensual', 3))], ['no nights', GOING_SHAPES.empty()]])('%s', async (_n, reply) => {
     h.reply = reply;
     home();
-    await screen.findByTestId('home-hero');
-    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/Browse/i);
-    expect(screen.queryAllByRole('link', { name: /browse/i })).toHaveLength(0);
+    await screen.findByTestId('home-list');
+    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/Browse events/i);
+    expect(screen.queryAllByRole('link', { name: /browse events/i })).toHaveLength(0);
   });
 });
 
 describe('seeds', () => {
-  // F7 (owner decision) + Going P2: the tile and the strip's Going cell read ONE number, the
-  // count over get_my_going_v1's upcoming list -- never the stats' nights_going_upcoming (3 here).
-  it('15 upcoming nights: the tile and the strip both say 15', async () => {
+  // Option A: the going list is ONE row naming the next night going ahead, never a count.
+  it('15 upcoming nights: one going row naming the next night, no count tile', async () => {
     h.reply = { upcoming: Array.from({ length: 15 }, (_, i) => night(`s${i}`, `Night ${i}`, i + 1)), past: [] };
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe('15'));
-    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe('15'));
+    const row = await screen.findByTestId('home-row-going');
+    expect(row.textContent).toContain('Night 0');
+    expect(screen.queryByTestId('tile-going-count')).toBeNull();
   });
 
   it('long name + no city: renders the name in full', async () => {
     home(makeProfile({ first_name: LONG_FIRST, surname: 'Rodriguez-Villanueva' }));
-    expect((await screen.findByRole('heading', { level: 1 })).textContent).toBe(LONG_FIRST);
+    expect((await screen.findByRole('heading', { level: 1 })).textContent).toBe(`Hi ${LONG_FIRST}`);
   });
 });
 
@@ -170,41 +155,23 @@ const HOME_EXPECT: Record<string, { count: string; hero: boolean }> = {
   many: { count: '40', hero: true },
 };
 
-describe('Home tiles x every get_my_going_v1 shape', () => {
-  it.each(Object.keys(GOING_SHAPES))('%s: tile === strip === the list count; hero only for a night going ahead', async (shape) => {
+describe('Home going row x every get_my_going_v1 shape', () => {
+  it.each(Object.keys(GOING_SHAPES))('%s: the Going row names a night only when one is going ahead', async (shape) => {
     h.reply = GOING_SHAPES[shape]();
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
+    await screen.findByTestId('home-list');
     const e = HOME_EXPECT[shape];
-    await waitFor(() => expect(screen.getByTestId('tile-going-count').textContent).toBe(e.count));
-    expect(screen.getByTestId('tile-going').textContent).toContain(GOING_COPY.myUpcomingTitle);
-    await waitFor(() => expect(screen.getByTestId('stat-going-value').textContent).toBe(e.count));
-    const hero = screen.getByTestId('home-hero');
-    expect(hero.classList.contains('da-hero')).toBe(e.hero);
-    if (!e.hero) {
-      // The empty hero says what to do, with controls that exist (the event page button, the home link).
-      expect(hero.textContent).toContain(GOING_COPY.myUpcomingEmptyHow);
-      expect(hero.textContent).toMatch(/Bachata Calendar link at the top left/);
-    }
-    const text = screen.getByTestId('dancer-screen-home').textContent ?? '';
-    expect(text).not.toMatch(/interested/i);
+    // londoner() is unfinished: the Going row is always there; its line is a night or "Nothing booked yet.".
+    await waitFor(() => expect(screen.getByTestId('home-row-going').textContent).toContain(e.hero ? ', ' : 'Nothing booked yet.'));
+    expect(screen.getByTestId('dancer-screen-home').textContent ?? '').not.toMatch(/interested/i);
   });
 
-  it('the hero shows starts_at_local as stored and the module tag', async () => {
-    h.reply = up(night('s1', 'Soho Sensual', 3, { starts_at_local: `${day(3)}T20:30:00` }));
-    home();
-    const hero = await screen.findByTestId('home-hero');
-    await waitFor(() => expect(hero.textContent).toContain('8:30 PM'));
-    expect(hero.textContent).toContain(GOING_COPY.tagGoing);
-  });
-
-  it('switch off: no going tile, no Going cell, no get_my_going_v1 call', async () => {
+  it('switch off: no night named, no get_my_going_v1 call, Home still renders', async () => {
     h.on = false;
     h.reply = GOING_SHAPES.many();
     renderInShell({ path: '/app/home', backend: { profile: londoner(), statsShape: 'normal' } });
-    await screen.findByTestId('stats-strip');
-    expect(screen.queryByTestId('tile-going')).toBeNull();
-    expect(screen.queryByTestId('stat-going')).toBeNull();
-    expect(screen.queryByTestId('stat-interested')).toBeNull();
+    await screen.findByTestId('home-list');
+    expect(screen.getByTestId('home-row-going').textContent).not.toMatch(/Nothing booked yet/);
     expect(h.calls).not.toContain('get_my_going_v1');
   });
 });
