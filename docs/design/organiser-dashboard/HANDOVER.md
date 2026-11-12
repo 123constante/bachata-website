@@ -34,3 +34,7 @@ Branch `claude/profile-dash-organiser-designs`. Brief: `docs/briefs/dash-organis
 2. Decide the gaps before any build: rating source and city average (GAP-1), a share-my-page link (GAP-2), cancelled
    nights in the RPCs (GAP-3 / E7), per-night opens and clicks with the click-type mapping (GAP-4), organiser
    profile views (GAP-5), and whole-team visibility in the admin RPCs (GAP-6).
+
+## Ship status
+- Pushed to `claude/profile-dash-organiser-designs`. No PR has been opened because the brief did not ask for one; the orchestrator or owner opens it.
+- Neither merged nor approved, as the worker rules require.
