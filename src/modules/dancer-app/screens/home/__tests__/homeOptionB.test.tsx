@@ -119,7 +119,7 @@ describe('source hygiene', () => {
   it('no raw unicode punctuation in the new files', () => {
     for (const f of ['homeFocus.ts', 'homeOptionB.tsx']) {
       const src = readFileSync(`src/modules/dancer-app/screens/home/${f}`, 'utf8');
-      expect(src).not.toMatch(/[–—‘’“”…·]/);
+      expect(src).not.toMatch(new RegExp('[\\u2013\\u2014\\u2018\\u2019\\u201C\\u201D\\u2026\\u00B7]'));
     }
   });
 });
