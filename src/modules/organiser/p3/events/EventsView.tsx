@@ -97,6 +97,13 @@ export function EventsView({ model, pageId, query, filter, onQuery, onFilter, on
           {model.newEvent.ok && <Link className="p3-btn p3-btn-link" style={TAP} to={P3_PATHS.createFor(pageId)} data-testid="ev-empty-new">New event</Link>}
         </div>
       )}
+      {model.state === 'allpast' && (
+        <div className="p3-card p3-state" data-testid="ev-allpast">
+          <strong>Nothing coming up</strong>
+          <p>{model.allPast}</p>
+          {model.newEvent.ok && <Link className="p3-btn p3-btn-link" style={TAP} to={P3_PATHS.createFor(pageId)} data-testid="ev-allpast-new">New event</Link>}
+        </div>
+      )}
       {model.state === 'nomatch' && (
         <div className="p3-card p3-state" data-testid="ev-nomatch">
           <strong>No match</strong>
@@ -120,16 +127,18 @@ export function EventsView({ model, pageId, query, filter, onQuery, onFilter, on
 export function NightSheet({ night, onClose, onCancel, onDelete, openTo }: {
   night: Night; onClose: () => void; onCancel: () => void; onDelete: () => void; openTo: string;
 }) {
+  const cancelWhy = useId();
+  const dupWhy = useId();
   return (
     <Sheet title={`${night.name}, ${night.dayLabel}`} onClose={onClose}>
       <p className="p3-note" data-testid="ev-sheet-status"><StatusTag status={night.status} /> {night.sub}</p>
       <div className="p3-stack-s">
         <Link className="p3-btn p3-btn-link" style={TAP} to={openTo} data-testid="ev-open">{night.canEdit ? 'Open and edit' : 'Open'}</Link>
-        <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled={!night.cancel.ok} onClick={onCancel} data-testid="ev-cancel">Cancel this night</button>
-        {night.cancel.why && <p className="p3-note" data-testid="ev-cancel-why">{night.cancel.why}</p>}
+        <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled={!night.cancel.ok} aria-describedby={night.cancel.ok ? undefined : cancelWhy} onClick={onCancel} data-testid="ev-cancel">Cancel this night</button>
+        {night.cancel.why && <p className="p3-note" id={cancelWhy} data-testid="ev-cancel-why">{night.cancel.why}</p>}
         {night.canDelete && <button type="button" className="p3-btn p3-btn-line" style={TAP} onClick={onDelete} data-testid="ev-delete">Delete draft</button>}
-        <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled data-testid="ev-duplicate">Duplicate</button>
-        <p className="p3-note" data-testid="ev-duplicate-why">Duplicate is not available yet. It needs work from the Bachata Calendar team.</p>
+        <button type="button" className="p3-btn p3-btn-line" style={TAP} disabled aria-describedby={dupWhy} data-testid="ev-duplicate">Duplicate</button>
+        <p className="p3-note" id={dupWhy} data-testid="ev-duplicate-why">Duplicate is not available yet. It needs work from the Bachata Calendar team.</p>
       </div>
     </Sheet>
   );

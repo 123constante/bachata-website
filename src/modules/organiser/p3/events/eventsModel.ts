@@ -26,26 +26,26 @@ export const SEARCH_FROM = 8;
 
 export const VIEW_ONLY = 'You are a contributor, so you can see every event but not change them. Ask the page owner or a manager.';
 export const WHY = {
-  contributor: 'Contributors can’t change events. Ask the page owner or a manager.',
+  contributor: 'Contributors can\u2019t change events. Ask the page owner or a manager.',
   draft: 'A draft is not on the calendar yet, so there is nothing to cancel.',
   hidden: 'This event is hidden. Show it again first, then cancel a night.',
   cancelled: 'This night is already cancelled.',
-  past: 'This night has passed, so it can’t be cancelled.',
-  editPast: 'This event has finished, so it can’t be changed. Add a new event to run it again.',
+  past: 'This night has passed, so it can\u2019t be cancelled.',
+  editPast: 'This event has finished, so it can\u2019t be changed. Add a new event to run it again.',
 } as const;
 
 /** A story told once: a cancelled night stays on the calendar marked Cancelled. */
-export const CX_STORY = 'A cancelled night stays on the calendar marked Cancelled, so nobody turns up.';
+/** The cancel scope ask: one night is the only command that exists for a night; every date waits on the team. */
+export const SCOPE = {
+  title: 'Cancel which nights?',
+  one: 'This night only',
+  all: 'Every night',
+  allWhy: 'Cancelling every night in one go is not available yet. It needs work from the Bachata Calendar team. Cancel them one at a time for now.',
+  /** Only asked when the event has this many coming nights that could be cancelled. */
+  askFrom: 2,
+} as const;
 
-/** Needs to be said where the list cannot go further than the server's answer. */
-export const NEEDS_ADMIN: readonly string[] = [
-  'Select several nights and cancel, duplicate or put live together',
-  'Duplicate a night into a new draft',
-  'Start a repeating event from here',
-  'Cancel “this night and every one after it” or the whole series in one go',
-  'Switch a guest list or raffle on for one night',
-  'Delete a draft for good (today it leaves your events; only the team can bring it back)',
-];
+export const CX_STORY = 'A cancelled night stays on the calendar marked Cancelled, so nobody turns up.';
 
 export interface Reason { ok: boolean; why: string | null }
 const OK: Reason = { ok: true, why: null };
@@ -94,7 +94,7 @@ export interface EventsInput {
   showPast: boolean;
 }
 
-export type EventsState = 'empty' | 'nomatch' | 'list';
+export type EventsState = 'empty' | 'allpast' | 'nomatch' | 'list';
 
 export interface EventsModel {
   state: EventsState;
@@ -115,11 +115,11 @@ export interface EventsModel {
   /** Past nights folded away: "Show past nights (N)". */
   pastHidden: number;
   empty: string | null;
+  /** Every night has passed and none are shown: what to do next. */
+  allPast: string | null;
   noMatch: string | null;
   note: string | null;
 }
-
-const timeKey = (r: P3Row) => r.nextStart ?? '99:99';
 
 function nightsOfRow(r: P3Row, today: IsoDate, seat: Seat): Night[] {
   const write = seat !== 'contributor';
@@ -149,7 +149,7 @@ function nightsOfRow(r: P3Row, today: IsoDate, seat: Seat): Night[] {
     const when = dayWord(d.date, today, first ? r.nextStart : null);
     return {
       ...base, key: `${r.id}:${d.date}`, date: d.date, dayLabel: fullDate(d.date, today),
-      sub: cancelled ? 'Cancelled. Dancers see it marked Cancelled.' : `${when}${first ? `, ${r.nextTime}` : ''}${r.place && first ? ` · ${r.place}` : ''}`,
+      sub: cancelled ? 'Cancelled. Dancers see it marked Cancelled.' : `${when}${first ? `, ${r.nextTime}` : ''}${r.place && first ? ` \u00b7 ${r.place}` : ''}`,
       status: cancelled ? 'cancelled' : 'live', cancel: gate(cancelled ? no(WHY.cancelled) : OK),
       canEdit: write, canDelete: false, moreDates: i === dates.length - 1 ? unseen : 0,
     } satisfies Night;
@@ -208,18 +208,17 @@ export function buildEvents(i: EventsInput): EventsModel {
   const pastHidden = matched.length - visible.length;
   const needs = needsEntries(i.rows, i.seat);
   const nights = visible.slice(0, Math.max(PAGE_FIRST, i.shown));
-  const state: EventsState = all.length === 0 ? 'empty' : visible.length === 0 && searching ? 'nomatch' : 'list';
+  const state: EventsState = all.length === 0 ? 'empty' : visible.length === 0 && searching ? 'nomatch' : visible.length === 0 && pastHidden > 0 ? 'allpast' : 'list';
   return {
     state, viewOnly, banner: viewOnly ? VIEW_ONLY : null,
     newEvent: viewOnly ? no(WHY.contributor) : OK,
-    needsLine: needs.length ? `${needs.length} ${needs.length === 1 ? 'thing needs' : 'things need'} you`.replace('things need you', 'things need you') : null,
+    needsLine: needs.length ? `${needs.length} ${needs.length === 1 ? 'thing needs' : 'things need'} you` : null,
     needs, searchable, counts,
     filters: FILTER_ORDER.filter((f) => f === 'all' || counts[f] > 0),
     nights, total: visible.length, more: Math.min(PAGE_MORE, Math.max(0, visible.length - nights.length)), pastHidden,
-    empty: state === 'empty' ? (viewOnly ? 'This page has no events yet. The page owner or a manager can add one.' : 'No events yet. Tap New event to add your first night, or start from a photo of your flyer.') : null,
-    noMatch: state === 'nomatch' ? `Nothing matches${q ? ` “${i.query.trim()}”` : ' these filters'}. Tap Clear search and filters to see every night.` : null,
+    empty: state === 'empty' ? (viewOnly ? 'This page has no events yet. The page owner or a manager can add one.' : 'No events yet. Tap New event to add your first night.') : null,
+    allPast: state === 'allpast' ? (viewOnly ? 'Every event on this page has finished. Tap Show past events to look back. The page owner or a manager can add a new event.' : 'Every event on this page has finished. Tap Show past events to look back, or New event to add a night.') : null,
+    noMatch: state === 'nomatch' ? `Nothing matches${q ? ` \u201c${i.query.trim()}\u201d` : ' these filters'}. Tap Clear search and filters to see every night.` : null,
     note: null,
   };
 }
-
-void timeKey;

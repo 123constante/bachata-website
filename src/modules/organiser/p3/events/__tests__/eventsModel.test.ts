@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { rowsOf } from '../../data/home';
 import { SHAPES, TODAY, homeOf } from '../../screens/__tests__/fixtures';
@@ -7,7 +9,6 @@ const cancelledDate = { occurrence_id: 'o-c', occurrence_date: '2026-11-06', lif
 const mk = (id: string, over: Record<string, unknown> = {}) => ({ ...SHAPES.tonight, id, name: `Night ${id}`, ...over }) as never;
 const dated = (d: string) => ({ occurrence_id: `o-${d}`, occurrence_date: d, lifecycle_status: 'scheduled', materialised_start_utc: `${d}T20:00:00+00:00`, has_own_changes: false, venue_name: null });
 
-const rowsFor = (series: unknown[]) => rowsOf(homeOf(series as never), null as never).length ? [] : rowsOf(homeOf(series as never));
 const input = (series: unknown[], over: Partial<EventsInput> = {}): EventsInput => ({
   rows: rowsOf(homeOf(series as never)), today: TODAY, seat: 'owner', query: '', filter: 'all', shown: PAGE_FIRST, showPast: false, ...over,
 });
@@ -114,7 +115,30 @@ describe('events model x shape', () => {
   it('needs strip is one line: count and wording', () => {
     const m = buildEvents(input([SHAPES.draft, mk('np', { default_cover_image_url: null })]));
     expect(m.needsLine).toMatch(/^\d+ things? need you$/);
-    expect(buildEvents(input([SHAPES.tonight], { seat: 'contributor' })).needsLine === null || true).toBe(true);
+    // a live event with a cover and dates needs nothing: no strip at all
+    expect(buildEvents(input([SHAPES.tonight])).needsLine).toBeNull();
+    // a contributor still SEES the strip, but every item is read-only
+    const ro = buildEvents(input([SHAPES.draft], { seat: 'contributor' }));
+    expect(ro.needsLine).toMatch(/^\d+ things? need you$/);
+    expect(ro.needs.every((x) => x.action === null && x.note)).toBe(true);
+  });
+
+  it('every night past and none shown: an explicit empty state that says what to do', () => {
+    const m = buildEvents(input([SHAPES.ended]));
+    expect(m.state).toBe('allpast');
+    expect(m.nights).toEqual([]);
+    expect(m.pastHidden).toBe(1);
+    expect(m.allPast).toMatch(/Show past events/);
+    expect(m.allPast).toMatch(/New event/);
+    expect(buildEvents(input([SHAPES.ended], { seat: 'contributor' })).allPast).toMatch(/owner or a manager/);
+    expect(buildEvents(input([SHAPES.ended], { showPast: true })).state).toBe('list');
+  });
+
+  it('keeps raw non-ASCII punctuation out of the source and the copy', () => {
+    const src = readFileSync(fileURLToPath(new URL('../eventsModel.ts', import.meta.url)), 'utf8');
+    expect(src).not.toMatch(/[^\x00-\x7f]/);
+    const m = buildEvents(input([SHAPES.draft, SHAPES.tonight], { seat: 'contributor' }));
+    expect(JSON.stringify(m)).not.toMatch(/\u00e2\u20ac|\u00c3/);
   });
 
   it('never prints raw non-ASCII punctuation or a bare TODO', () => {
@@ -123,6 +147,5 @@ describe('events model x shape', () => {
       const text = JSON.stringify(m);
       expect(text).not.toMatch(/undefined|NaN|\u00e2\u20ac|\u00c3/);
     }
-    void rowsFor;
   });
 });

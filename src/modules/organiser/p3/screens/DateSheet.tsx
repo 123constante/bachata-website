@@ -33,7 +33,7 @@ import { DateSessions } from './SessionSheet';
 import type { Done } from './StatusSheet';
 
 /** Which date sheet is open: a stored date, a break, or "Add a date". */
-export type DateOpen = { kind: 'date'; id: string } | { kind: 'break'; date: string } | { kind: 'add' } | null;
+export type DateOpen = { kind: 'date'; id: string; /** Open straight on the cancel step (reason picker) instead of the action list. */ start?: 'cancel' } | { kind: 'break'; date: string } | { kind: 'add' } | null;
 
 type Step = 'list' | 'cancel' | 'move' | 'time' | 'details' | 'skip' | 'resetNormal'
   | 'edit-where' | 'edit-about' | 'edit-ticket' | 'edit-photo' | FieldStep;
@@ -163,15 +163,15 @@ function OwnRow({ label, own, usual, testId, busy, why = null, onEdit, onUsual }
 }
 
 /** The C3 date sheet (`date`, `dtime`, `skip`, `resetdate`, `dayown`, `cancelnext` recurring wording) for one stored date. */
-function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, refresh, gen }: {
-  ws: EventWorkspace; d: WorkspaceDate; detail: DateDetail | null; today: string;
+function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, refresh, gen, start: startStep }: {
+  start?: 'cancel'; ws: EventWorkspace; d: WorkspaceDate; detail: DateDetail | null; today: string;
   onDone: (x: Done) => void; onClose: () => void; onCancelEvent: () => void;
   /** W-35: re-read this date and the event (fresh versions); resolves to the date as it is now. */
   refresh: () => Promise<DateDetail>;
   /** Bumped by each re-read: a field sheet remounts on it, from the fresh value. */
   gen: number;
 }) {
-  const [step, setStep] = useState<Step>('list');
+  const [step, setStep] = useState<Step>(startStep ?? 'list');
   const [reason, setReason] = useState<string | null>(null);
   const [text, setText] = useState('');
   /** Q10: set when the server refused a move because people are on the date; the counts, or null when none parsed. */
@@ -469,8 +469,8 @@ function OneDateSheet({ ws, d, detail, today, onDone, onClose, onCancelEvent, re
 /** A cancelled date still holding its own name, photos or price: the owner arm refuses those keys until it is back. */
 const fieldsOwned = (d: DateDetail) => d.titleOverride !== null || d.galleryOverride !== null || d.passesOverride !== null;
 
-function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent }: {
-  ws: EventWorkspace; id: string; today: string; onDone: (d: Done) => void; onClose: () => void; onCancelEvent: () => void;
+function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent, start }: {
+  start?: 'cancel'; ws: EventWorkspace; id: string; today: string; onDone: (d: Done) => void; onClose: () => void; onCancelEvent: () => void;
 }) {
   // A write that committed but lost its response (a skip removes the date) reloads the page
   // under the error: keep the date the sheet opened on, so the error and its retry (the same
@@ -505,7 +505,7 @@ function StoredDate({ ws, id, today, onDone, onClose, onCancelEvent }: {
       </Sheet>
     );
   }
-  return <OneDateSheet ws={ws} d={d} detail={detail.data} today={today} onDone={onDone} onClose={onClose} onCancelEvent={onCancelEvent} refresh={refresh} gen={gen} />;
+  return <OneDateSheet ws={ws} d={d} detail={detail.data} today={today} onDone={onDone} onClose={onClose} onCancelEvent={onCancelEvent} refresh={refresh} gen={gen} start={start} />;
 }
 
 /**
@@ -525,5 +525,5 @@ export function DateSheets({ ws, today, open, onClose, onDone }: {
   if (oneOff && plan) return <CancelEventSheet name={ws.series.name.trim() || L.noName} plan={plan} send={sendOnce} onDone={done} onClose={close} />;
   if (open.kind === 'add') return <AddDateSheet ws={ws} today={today} onDone={done} onClose={close} />;
   if (open.kind === 'break') return <BreakSheet ws={ws} date={open.date} today={today} onDone={done} onClose={close} />;
-  return <StoredDate ws={ws} id={open.id} today={today} onDone={done} onClose={close} onCancelEvent={() => setOneOff(true)} />;
+  return <StoredDate ws={ws} id={open.id} start={open.start} today={today} onDone={done} onClose={close} onCancelEvent={() => setOneOff(true)} />;
 }

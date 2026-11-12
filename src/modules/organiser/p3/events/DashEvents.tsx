@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { useSendOnce, useEventWorkspace } from '../../shared/runCommands';
 import { commandErrorMessage } from '../../shared/selfServeErrors';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
@@ -12,12 +12,14 @@ import { Toast } from '../screens/Toast';
 import type { Done } from '../screens/StatusSheet';
 import { RetryButton } from '../screens/parts';
 import { P3_PATHS } from '../shell/paths';
-import { PAGE_FIRST, PAGE_MORE, buildEvents, type Filter, type Night, type Seat } from './eventsModel';
+import { PAGE_FIRST, PAGE_MORE, SCOPE, buildEvents, type Filter, type Night, type Seat } from './eventsModel';
 import { EventsView, NightSheet } from './EventsView';
 
 /** Cancel one night through the existing date sheet (the event's own read, then DateSheets). Nothing is sent until the reason is picked and confirmed there. */
-function CancelNight({ night, today, onDone, onClose }: { night: Night; today: string; onDone: (d: Done) => void; onClose: () => void }) {
+export function CancelNight({ night, today, onDone, onClose }: { night: Night; today: string; onDone: (d: Done) => void; onClose: () => void }) {
   const ws = useEventWorkspace(night.seriesId);
+  const [scoped, setScoped] = useState(false);
+  const whyAll = useId();
   if (ws.isPending) return <Sheet title="Loading the night&hellip;" onClose={onClose}><p className="p3-note">This takes a second.</p></Sheet>;
   if (ws.isError) {
     return (
@@ -31,11 +33,25 @@ function CancelNight({ night, today, onDone, onClose }: { night: Night; today: s
   if (!id) {
     return <Sheet title="This night is not on the list" onClose={onClose}><p className="p3-note">Open the event to see its dates. Nothing has changed.</p></Sheet>;
   }
-  return <DateSheets ws={ws.data} today={today} open={{ kind: 'date', id }} onClose={onClose} onDone={onDone} />;
+  // Only an event with several coming nights is asked "which nights?". "Every night" has no command behind it here, so it is off with its reason on screen.
+  const coming = ws.data.dates.filter((d) => d.occurrence_date >= today && d.lifecycle_status !== 'cancelled').length;
+  if (!scoped && coming >= SCOPE.askFrom) {
+    return (
+      <Sheet title={SCOPE.title} onClose={onClose}>
+        <div className="p3-stack-s" data-testid="ev-scope">
+          <button type="button" className="p3-btn" style={{ minHeight: 44 }} onClick={() => setScoped(true)} data-testid="ev-scope-one">{SCOPE.one}</button>
+          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} disabled aria-describedby={whyAll} data-testid="ev-scope-all">{SCOPE.all}</button>
+          <p className="p3-note" id={whyAll} data-testid="ev-scope-all-why">{SCOPE.allWhy}</p>
+        </div>
+      </Sheet>
+    );
+  }
+  // The reason picker opens straight away: the date action list is not in the way.
+  return <DateSheets ws={ws.data} today={today} open={{ kind: 'date', id, start: 'cancel' }} onClose={onClose} onDone={onDone} />;
 }
 
 /** Delete draft: the existing Remove command (series.set_lifecycle archived). Nobody is told: a draft was never on the calendar. */
-function DeleteDraft({ night, onDone, onClose }: { night: Night; onDone: (d: Done) => void; onClose: () => void }) {
+export function DeleteDraft({ night, onDone, onClose }: { night: Night; onDone: (d: Done) => void; onClose: () => void }) {
   const ws = useEventWorkspace(night.seriesId);
   const once = useSendOnce(night.seriesId);
   const gated = useGatedCopy();
@@ -48,7 +64,7 @@ function DeleteDraft({ night, onDone, onClose }: { night: Night; onDone: (d: Don
     setError(null);
     try {
       await once(removeCommand(), ws.data.series.version, key);
-      onDone({ text: 'Draft deleted. Nobody was told, it was never on the calendar.', undo: null, removed: true });
+      onDone({ text: 'Draft archived. Your team can restore it.', undo: null, removed: true });
     } catch (e) {
       setError(gated(e, commandErrorMessage));
     } finally {
@@ -61,7 +77,7 @@ function DeleteDraft({ night, onDone, onClose }: { night: Night; onDone: (d: Don
       {ws.isError && <p className="p3-error" role="alert">We couldn&rsquo;t load the draft. Nothing has changed.</p>}
       {error && <p className="p3-error" role="alert" data-testid="ev-delete-error">{error}</p>}
       <div className="p3-stack-s">
-        <button type="button" className="p3-btn p3-btn-danger" style={{ minHeight: 44 }} disabled={busy || !ws.data} onClick={() => void go()} data-testid="ev-delete-confirm">Yes, delete the draft</button>
+        <button type="button" className="p3-btn p3-btn-danger" style={{ minHeight: 44 }} disabled={busy || !ws.data} onClick={() => void go()} data-testid="ev-delete-confirm">{busy || ws.isPending ? <>Working&hellip;</> : 'Yes, delete the draft'}</button>
         <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={onClose}>Keep the draft</button>
       </div>
     </Sheet>

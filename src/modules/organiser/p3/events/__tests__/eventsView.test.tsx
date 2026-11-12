@@ -11,10 +11,6 @@ afterEach(cleanup);
 const dated = (d: string) => ({ occurrence_id: `o-${d}`, occurrence_date: d, lifecycle_status: 'scheduled', materialised_start_utc: `${d}T20:00:00+00:00`, has_own_changes: false, venue_name: null });
 const many = Array.from({ length: 30 }, (_, i) => ({ ...SHAPES.tonight, id: `m${i}`, name: `Night ${i}`, upcoming_count: 40, next_dates: [dated('2026-11-06'), dated('2026-11-13')] }));
 
-const SETS: Record<string, unknown[]> = {
-  empty: [], three: [SHAPES.tonight, SHAPES.draft, SHAPES.ended], huge: many, drafts: [SHAPES.draft], hidden: [SHAPES.paused],
-};
-
 function draw(set: unknown[], seat: Seat = 'owner', over: { query?: string; filter?: Filter; shown?: number } = {}) {
   const rows = rowsOf(homeOf(set as never));
   const model = buildEvents({ rows, today: TODAY, seat, query: over.query ?? '', filter: over.filter ?? 'all', shown: over.shown ?? PAGE_FIRST, showPast: false });
@@ -23,14 +19,7 @@ function draw(set: unknown[], seat: Seat = 'owner', over: { query?: string; filt
 }
 
 describe('Events view x shape', () => {
-  it.each(Object.keys(SETS))('%s draws without a dead control or a bare placeholder', (k) => {
-    draw(SETS[k]);
-    expect(document.body.textContent).not.toMatch(/undefined|NaN|TO FILL/);
-    for (const b of screen.queryAllByRole('button')) {
-      if ((b as HTMLButtonElement).disabled) expect(b.getAttribute('aria-describedby') ?? '').not.toBe('');
-    }
-  });
-
+  // The screen x shape table lives in eventsMatrix.test.tsx.
   it('empty says what to do and offers New event twice (header and card)', () => {
     draw([]);
     expect(screen.getByTestId('ev-empty').textContent).toMatch(/New event/);
