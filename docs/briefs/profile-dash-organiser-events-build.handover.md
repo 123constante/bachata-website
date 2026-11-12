@@ -32,3 +32,6 @@ Fix round 3 (brief events-1584-fix3, ticket dt_f261a00ffd77): F1-F4 done, nothin
 - F4: unknown role defaults to view-only (contributor). Test rows: owner, manager, contributor, viewer, "", undefined (viewer/""/undefined red on the unfixed code).
 Verified: vitest src/modules/organiser/p3/events 55/55 green; check:mojibake clean; tsc: zero errors in touched files; walk conflict spec passed locally.
 Not verified: full pre-ship; per-job CI table (no gh/CI access here, the PR body needs it added by the owner); prod-shaped data walk; PR body label checks (no PR body file in this run).
+
+Fix round 4 (arc-owner, fast worktree, review r2 D1): re-took the conflict shot at 390x844 (flags on, route-mocked fake): one Close only. Added test "conflict view shows exactly one Close control" (red on a mutant with the duplicate button restored, green on the branch). vitest src/modules/organiser/p3/events 56/56 green. every-night-confirm and conflict-after-reload shots re-taken in the same run (date-driven text).
+Not verified: prod-shaped data walk (fake only, owner chose); full pre-ship; CI at this head.

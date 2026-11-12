@@ -147,6 +147,14 @@ describe('CancelNight', () => {
     expect(h.refetch).toHaveBeenCalledTimes(1);
   });
 
+  it('every night, version conflict: the conflict view shows exactly one Close control', async () => {
+    h.bulk.mockRejectedValueOnce(new Error('version_conflict'));
+    everyNight();
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(screen.getByTestId('ev-every-conflict')).toBeTruthy());
+    expect(screen.getAllByRole('button', { name: 'Close' }).length).toBe(1);
+  });
+
   it('every night, after conflict -> Reload -> Confirm: the second send has a NEW key and the refetched version', async () => {
     h.bulk.mockRejectedValueOnce(new Error('version_conflict'));
     const client = new QueryClient();
