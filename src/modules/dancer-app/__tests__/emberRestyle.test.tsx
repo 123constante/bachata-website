@@ -111,6 +111,13 @@ describe('D129 switcher and Your areas', () => {
     expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Switch');
     expect(screen.queryByTestId('profile-account-button')).toBeNull();
   });
+  it('no dancer side yet (unclaimed): the Account button still shows, so account settings stay reachable', async () => {
+    h.sides = [];
+    renderInShell({ path: '/app/home' });
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
+    fireEvent.click(screen.getByTestId('profile-account-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app');
+  });
   it('Add a profile sheet: organiser way in + message us; Back returns', async () => {
     renderInShell({ path: '/app/home' });
     fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
