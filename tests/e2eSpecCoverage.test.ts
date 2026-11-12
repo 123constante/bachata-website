@@ -55,10 +55,10 @@ describe('findSpecs on a real directory', () => {
     mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     writeFileSync(path.join(root, rel), '// x\n');
   };
-  ['tests/e2e/a.spec.ts', 'tests/e2e/sub/b.spec.ts', 'tests/e2e/helpers/h.spec.ts', 'tests/e2e/harness/g.spec.ts', 'tests/e2e/live/pages.spec.ts', 'tests/e2e/util.ts'].forEach(put);
+  ['tests/e2e/a.spec.ts', 'tests/e2e/sub/b.spec.ts', 'tests/e2e/helpers/h.spec.ts', 'tests/e2e/helpers/mock.ts', 'tests/e2e/live/pages.spec.ts', 'tests/e2e/sub/live/x.spec.ts', 'tests/e2e/util.ts'].forEach(put);
 
-  it('recurses into subfolders and ignores helpers/, harness/, live/ and non-specs', () => {
-    expect(findSpecs(root)).toEqual(['tests/e2e/a.spec.ts', 'tests/e2e/sub/b.spec.ts']);
+  it('recurses into subfolders (helpers/ included: playwright would collect a spec there), ignores live/ at any depth and non-specs', () => {
+    expect(findSpecs(root)).toEqual(['tests/e2e/a.spec.ts', 'tests/e2e/helpers/h.spec.ts', 'tests/e2e/sub/b.spec.ts']);
   });
 });
 

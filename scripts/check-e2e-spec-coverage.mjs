@@ -6,11 +6,12 @@
  * (e2e-smoke.yml runs them by name), not globs. A spec added to tests/e2e/
  * without being added to one of them is collected by nothing in CI, and the
  * e2e tick stays green over a test that never ran. Measured on main 8e0b932
- * (2026-11-12): 42 of 87 specs under tests/e2e/ were in neither list, with no
+ * (2026-11-12): 42 of 87 specs under tests/e2e/ were in neither list (3 of
+ * them under live/, which has its own config and workflow), with no
  * record of which absences were deliberate. The count is not pinned here --
  * re-measure with `node scripts/check-e2e-spec-coverage.mjs`.
  *
- * THE RULE. Every `*.spec.ts` under tests/e2e/ (recursive, minus IGNORED_DIRS)
+ * THE RULE. Every `*.spec.ts` under tests/e2e/ (recursive, minus any live/ dir)
  * must be EXACTLY ONE of:
  *   - named in a CI list (CI_LISTS: an npm script a workflow runs), or
  *   - in MANUAL below, with a one-line reason and the command that runs it.
@@ -20,6 +21,10 @@
  * reason or command, a CI list naming a file that does not exist, and a CI
  * list that the named workflow no longer runs (the list would then be
  * decoration and every "listed" spec as unrun as an unlisted one).
+ *
+ * KNOWN LIMIT: "runs it" means a single-line `run: npm run <list>` exists in
+ * the workflow text. A step gated off by `if:` still satisfies it, and a
+ * multi-line `run: |` block reads as absent (red, the safe direction).
  *
  * WHERE IT RUNS IN CI. tests/e2eSpecCoverage.test.ts drives main() against
  * the live tree, so the `unit` job (unit-tests.yml, every pull_request) goes
@@ -51,14 +56,18 @@ export const CI_LISTS = {
 
 /** Directories under tests/e2e/ whose specs are not this guard's business. */
 export const IGNORED_DIRS = {
-  live: 'own config (playwright.live.config.ts) hitting prod; run by live-qa.yml via npm run test:e2e:live',
-  helpers: 'support modules, not specs',
-  harness: 'support modules, not specs',
+  live: 'own config (playwright.live.config.ts) hitting prod; run by live-qa.yml via npm run test:e2e:live. Ignored at ANY depth, mirroring the chromium project testIgnore **/live/**',
 };
+// helpers/ and harness/ are NOT ignored: they hold no specs today, and a
+// *.spec.ts dropped there would still be collected by playwright, so it must
+// be accounted for like any other.
 
-const PW = (rel, env = '') => `${env ? env + ' ' : ''}npx playwright test ${rel} --project=chromium`;
+const PW = (rel, env = '', extra = '') => `${env ? env + ' ' : ''}npx playwright test ${rel} --project=chromium${extra ? ' ' + extra : ''}`;
+/** Walks against a served PRODUCTION build: the build + serve step comes first (the spec header has the full recipe). */
+const BUILT = (rel, env = '') => `VITE_ENABLE_ORGANISER_SELF_SERVE=true npm run build && (node scripts/_serve-build.mjs --port 4173 &) && ${PW(rel, env)}`;
 const P3 = 'VITE_ENABLE_ORGANISER_SELF_SERVE=true VITE_ENABLE_ORGANISER_P3=true';
 const P3T = `${P3} VITE_ENABLE_ORGANISER_TICKETING=true`;
+const DETAIL = 'VITE_ENABLE_ORGANISER_DETAIL=true VITE_ENABLE_ORGANISER_SELF_SERVE=true';
 const WALK = 'screenshot walk for a person to judge (report only); not a pass/fail gate';
 const PROD_BUILD = 'screenshot walk run against a local PRODUCTION build with a flag flipped locally; never a gate';
 
@@ -73,38 +82,38 @@ export const MANUAL = {
   'tests/e2e/console-clean-smoke.spec.ts': { reason: 'console-error smoke never wired into a CI list; audit item 2 decides', run: PW('tests/e2e/console-clean-smoke.spec.ts') },
   'tests/e2e/dancer-app/ember-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/dancer-app/ember-walk.spec.ts') },
   'tests/e2e/dancer-app/review-pack.spec.ts': { reason: 'review pack; skips itself unless REVIEW_PACK_DIR is set', run: PW('tests/e2e/dancer-app/review-pack.spec.ts', 'REVIEW_PACK_DIR=<dir>') },
-  'tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader); skips without it', run: PW('tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts') },
+  'tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts', DETAIL) },
   'tests/e2e/organiser-launch-walk.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-launch-walk' },
-  'tests/e2e/organiser-public-claim.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader); skips without it', run: PW('tests/e2e/organiser-public-claim.real-supabase.spec.ts') },
+  'tests/e2e/organiser-public-claim.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-public-claim.real-supabase.spec.ts', DETAIL) },
   'tests/e2e/organiser-real-rpc.spec.ts': { reason: 'needs E2E credentials and writes to the E2E database', run: 'npm run test:e2e:organiser-real-rpc' },
   'tests/e2e/restyle-a-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/restyle-a-walk.spec.ts') },
-  'tests/e2e/ticket-door-code.spec.ts': { reason: 'mounts only with P3 + ticketing + door-code flags on; skips otherwise', run: PW('tests/e2e/ticket-door-code.spec.ts', P3T) },
+  'tests/e2e/ticket-door-code.spec.ts': { reason: 'mounts only with P3 + ticketing + door-code flags on; skips otherwise', run: PW('tests/e2e/ticket-door-code.spec.ts', `${P3T} VITE_ENABLE_TICKET_DOOR_CODE=true`) },
   'tests/e2e/ticket-thanks.spec.ts': { reason: 'needs VITE_ENABLE_PUBLIC_TICKETING at dev-server start; 404 by design in the gate', run: PW('tests/e2e/ticket-thanks.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true') },
   'tests/e2e/vendor-city-real-supabase.spec.ts': { reason: 'real Supabase; skips without its env vars', run: 'npm run test:e2e:vendor:real' },
-  'tests/e2e/walk-event-tickets-page.spec.ts': { reason: `${WALK}; needs the local mock Supabase and a flag`, run: PW('tests/e2e/walk-event-tickets-page.spec.ts') },
+  'tests/e2e/walk-event-tickets-page.spec.ts': { reason: `${WALK}; needs the local mock Supabase and a flag`, run: `(MOCK_PORT=54321 npx tsx tests/e2e/helpers/mockSupabaseServer.ts &) && ${PW('tests/e2e/walk-event-tickets-page.spec.ts', 'VITE_ENABLE_PUBLIC_TICKETING=true')}` },
   'tests/e2e/walk-fix-gate-lost-edit.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-fix-gate-lost-edit.spec.ts', P3) },
-  'tests/e2e/walk-fix-sw1.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-fix-sw1.spec.ts') },
-  'tests/e2e/walk-flip.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-flip.spec.ts') },
+  'tests/e2e/walk-fix-sw1.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-fix-sw1.spec.ts') },
+  'tests/e2e/walk-flip.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-flip.spec.ts') },
   'tests/e2e/walk-getpaid-start.spec.ts': { reason: `${WALK}; mounts only with P3 + ticketing flags`, run: PW('tests/e2e/walk-getpaid-start.spec.ts', P3T) },
-  'tests/e2e/walk-int3.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-int3.spec.ts') },
-  'tests/e2e/walk-int4.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-int4.spec.ts') },
+  'tests/e2e/walk-int3.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-int3.spec.ts') },
+  'tests/e2e/walk-int4.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-int4.spec.ts') },
   'tests/e2e/walk-join-gaps-2.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-join-gaps-2.spec.ts', P3) },
-  'tests/e2e/walk-p-series.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-p-series.spec.ts') },
-  'tests/e2e/walk-p3-batch-1-dates.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-batch-1-dates.spec.ts', `WALK_OUT=<dir> ${P3}`) },
-  'tests/e2e/walk-p3-batch-1-door.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-batch-1-door.spec.ts', `WALK_OUT=<dir> ${P3T}`) },
-  'tests/e2e/walk-p3-batch-1-status.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-batch-1-status.spec.ts', `WALK_OUT=<dir> ${P3}`) },
+  'tests/e2e/walk-p-series.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-p-series.spec.ts') },
+  'tests/e2e/walk-p3-batch-1-dates.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-batch-1-dates.spec.ts', `WALK_OUT=<dir> ${P3}`, '--workers=1') },
+  'tests/e2e/walk-p3-batch-1-door.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-batch-1-door.spec.ts', `WALK_OUT=<dir> ${P3T}`, '--workers=1') },
+  'tests/e2e/walk-p3-batch-1-status.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-batch-1-status.spec.ts', `WALK_OUT=<dir> ${P3}`, '--workers=1') },
   'tests/e2e/walk-p3-gate-guard-1.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-gate-guard-1.spec.ts', P3) },
   'tests/e2e/walk-p3-promo-codes.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-promo-codes.spec.ts', P3T) },
   'tests/e2e/walk-p3-w0.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-w0.spec.ts', P3) },
   'tests/e2e/walk-p3-w3b1.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-w3b1.spec.ts', P3) },
   'tests/e2e/walk-p3-w4a-fix3-r2.spec.ts': { reason: WALK, run: PW('tests/e2e/walk-p3-w4a-fix3-r2.spec.ts', P3) },
-  'tests/e2e/walk-p3-walklist.spec.ts': { reason: 'local-walk-only by its own header: minutes of fixed waits, writes docs/walk/', run: PW('tests/e2e/walk-p3-walklist.spec.ts', P3T) },
-  'tests/e2e/walk-sfeedback.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-sfeedback.spec.ts') },
-  'tests/e2e/walk-smerge.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-smerge.spec.ts') },
-  'tests/e2e/walk-sperf.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-sperf.spec.ts') },
-  'tests/e2e/walk-spolish.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-spolish.spec.ts') },
-  'tests/e2e/walk-ssort.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-ssort.spec.ts') },
-  'tests/e2e/walk-sw1.spec.ts': { reason: PROD_BUILD, run: PW('tests/e2e/walk-sw1.spec.ts') },
+  'tests/e2e/walk-p3-walklist.spec.ts': { reason: 'local-walk-only by its own header: minutes of fixed waits, writes docs/walk/', run: PW('tests/e2e/walk-p3-walklist.spec.ts', P3, '--workers=1') },
+  'tests/e2e/walk-sfeedback.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-sfeedback.spec.ts') },
+  'tests/e2e/walk-smerge.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-smerge.spec.ts', 'SMERGE_SUPPORT=on') },
+  'tests/e2e/walk-sperf.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-sperf.spec.ts') },
+  'tests/e2e/walk-spolish.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-spolish.spec.ts', 'SPOLISH_SUPPORT=on') },
+  'tests/e2e/walk-ssort.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-ssort.spec.ts') },
+  'tests/e2e/walk-sw1.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-sw1.spec.ts') },
   'tests/e2e/walk-ticket-s1-pause-add.spec.ts': { reason: `${WALK}; mounts only with P3 + ticketing flags`, run: PW('tests/e2e/walk-ticket-s1-pause-add.spec.ts', P3T) },
   'tests/e2e/walk-ticket-sales-report.spec.ts': { reason: `${WALK}; mounts only with P3 + ticketing flags`, run: PW('tests/e2e/walk-ticket-sales-report.spec.ts', P3T) },
 };
@@ -120,18 +129,18 @@ export function listedSpecs(command) {
 export function findSpecs(root, deps = {}) {
   const readdir = deps.readdir ?? ((p) => readdirSync(p, { withFileTypes: true }));
   const out = [];
-  const walk = (rel, depth) => {
+  const walk = (rel) => {
     for (const e of readdir(join(root, rel))) {
       const childRel = `${rel}/${e.name}`;
       if (e.isDirectory()) {
-        if (depth === 0 && Object.hasOwn(IGNORED_DIRS, e.name)) continue;
-        walk(childRel, depth + 1);
+        if (Object.hasOwn(IGNORED_DIRS, e.name)) continue;
+        walk(childRel);
       } else if (e.name.endsWith('.spec.ts')) {
         out.push(childRel);
       }
     }
   };
-  walk(SPEC_ROOT, 0);
+  walk(SPEC_ROOT);
   return out.sort();
 }
 
@@ -251,13 +260,13 @@ async function selfTest() {
     ['zero specs -> 2, never green', { specs: [] }, 2, 'ZERO *.spec.ts'],
     ['lists name zero specs -> 2', { scripts: { 'test:e2e': 'playwright test', 'test:e2e:p3': 'playwright test' } }, 2, 'name ZERO specs'],
     [
-      'findSpecs: subfolder spec counted, helpers/live ignored',
+      'findSpecs: subfolder spec counted, live/ ignored at any depth',
       {
         specs: null,
         readdir: fakeReaddir({
-          'tests/e2e': ['a.spec.ts', 'c.spec.ts', 'm.spec.ts', 'sub/', 'helpers/', 'live/', 'util.ts'],
-          'tests/e2e/sub': ['b.spec.ts'],
-          'tests/e2e/helpers': ['h.spec.ts'],
+          'tests/e2e': ['a.spec.ts', 'c.spec.ts', 'm.spec.ts', 'sub/', 'live/', 'util.ts'],
+          'tests/e2e/sub': ['b.spec.ts', 'live/'],
+          'tests/e2e/sub/live': ['x.spec.ts'],
           'tests/e2e/live': ['pages.spec.ts'],
         }),
       },
@@ -275,6 +284,19 @@ async function selfTest() {
       },
       1,
       'tests/e2e/sub/new.spec.ts runs in NO CI e2e list',
+    ],
+    [
+      'findSpecs: a spec dropped in helpers/ is NOT ignored -> 1',
+      {
+        specs: null,
+        readdir: fakeReaddir({
+          'tests/e2e': ['a.spec.ts', 'c.spec.ts', 'm.spec.ts', 'sub/', 'helpers/'],
+          'tests/e2e/sub': ['b.spec.ts'],
+          'tests/e2e/helpers': ['h.spec.ts', 'mock.ts'],
+        }),
+      },
+      1,
+      'tests/e2e/helpers/h.spec.ts runs in NO CI e2e list',
     ],
   ];
   let failed = 0;
