@@ -1,0 +1,55 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dancer dashboard B: one step at a time</title><style>
+:root{--bg:#202226;--sf:#2A2D32;--sf2:#33373D;--tx:#fff;--mu:#A3A9B3;--ac:#F5865A;--onac:#1D0A03;--bd:#3D4148;--pl:#C9ADFF;--teal:#4FE0CF;--gold:#FFCF66;--ok:#7BE0A0}
+*{box-sizing:border-box}html,body{margin:0;background:#111;color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-wrap:wrap;gap:24px;padding:24px;justify-content:center}
+body.one{padding:0;gap:0;display:block;background:var(--bg)}
+.shape{display:none}body:not(.one) .shape,body.one .shape.on{display:block}
+.phone{width:390px;height:844px;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column}
+.cap{width:390px;text-align:center;color:#aaa;font-size:13px;margin-bottom:6px}body.one .cap{display:none}
+.hd{height:52px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--bd);font-weight:800;font-size:18px;flex:none}
+.sc{flex:1;overflow:hidden;padding:16px;display:grid;gap:12px;align-content:start}
+.tabs{height:60px;flex:none;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--bd);background:var(--bg)}
+.tabs span{display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--mu);min-height:44px}.tabs .a{color:var(--tx);box-shadow:inset 0 3px 0 var(--ac)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:16px}
+.h{margin:0;font-size:20px;font-weight:800}.s{margin:4px 0 0;font-size:14px;color:var(--mu)}.b{font-size:15px;font-weight:700}
+.btn{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:12px;font-weight:800;font-size:16px;background:var(--ac);color:var(--onac);border:0;width:100%;text-decoration:none}
+.btn.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.btn[disabled]{opacity:.55}
+.why{margin:6px 0 0;font-size:13px;color:var(--mu)}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;border-top:1px solid var(--bd);font-size:16px;font-weight:600}
+.row:first-child{border-top:0}.row .t{flex:1;min-width:0}.row small{display:block;font-size:13px;color:var(--mu);font-weight:400}
+.row .c{color:var(--mu);font-size:20px}.row.dis{color:var(--mu)}
+.av{width:56px;height:56px;border-radius:50%;background:var(--sf2);border:2px solid var(--pl);flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:var(--pl)}
+.av.e{border-style:dashed;border-color:var(--mu);color:var(--mu)}
+.bar{height:8px;border-radius:4px;background:var(--sf2);overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+.steps{display:grid;gap:0;margin:12px 0 0;padding:0;list-style:none}
+.steps li{display:flex;gap:12px;align-items:center;min-height:44px;font-size:15px}
+.dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--mu);flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.done .dot{background:var(--ok);border-color:var(--ok);color:#06210f}.done{color:var(--mu)}.now{font-weight:800}.now .dot{border-color:var(--ac);color:var(--ac)}
+.note{font-size:13px;color:var(--mu);padding:8px 12px;border:1px dashed var(--bd);border-radius:12px}
+.big{font-size:40px;font-weight:800;line-height:1}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:12px 8px;min-height:96px;text-align:center;display:grid;gap:4px;align-content:center;font-size:13px;font-weight:700}
+.tile em{font-style:normal;font-size:22px}.tile small{font-size:12px;color:var(--mu);font-weight:400}
+.prev{border-radius:20px;background:linear-gradient(160deg,#0E4C5C,#06303B);border:1px solid #2A7C90;padding:18px 16px;text-align:center}
+.prev .av{margin:0 auto 8px;width:64px;height:64px;border-color:var(--teal);color:var(--teal)}
+.prev h3{margin:0;font-size:22px;font-weight:800}.prev p{margin:2px 0 0;font-size:14px;color:#DDF6F8}
+.tag{display:inline-block;font-size:12px;font-weight:800;padding:4px 10px;border-radius:99px;background:var(--sf2);color:var(--pl)}
+.lk{color:var(--pl);font-weight:700;text-decoration:underline}
+</style></head><body>
+<div class="shape" id="new"><div class="cap">D1 New account</div><div class="phone"><div class="hd">Home</div><div class="sc"><div><p class="s" style="margin:0">Welcome</p><p class="h" style="font-size:26px">Let&rsquo;s set you up</p></div>
+  <div class="card"><p class="s" style="margin:0">Step 1 of 4</p><p class="h" style="margin:4px 0 12px">What should we call you?</p><div class="bar"><i style="width:6%"></i></div><p class="why" style="margin:8px 0 12px">Then city, how you dance and a photo. Skip nothing, it is quick.</p><a class="btn">Add your first name</a></div>
+  <div class="tiles"><div class="tile"><em>&#128065;</em>Preview<small>your page</small></div><div class="tile"><em>&#127769;</em>Nights<small>find one</small></div><div class="tile"><em>&#9881;</em>Account<small>settings</small></div></div></div><nav class="tabs"><span class="a">Home</span><span class="">Nights</span><span class="">Me</span><span class="">Options</span></nav></div></div>
+<div class="shape" id="partial"><div class="cap">D2 Unfinished</div><div class="phone"><div class="hd">Home</div><div class="sc"><div><p class="s" style="margin:0">Welcome back</p><p class="h" style="font-size:26px">Hi Ana</p></div>
+  <div class="card"><p class="s" style="margin:0">Step 4 of 4</p><p class="h" style="margin:4px 0 12px">Add your photo</p><div class="bar"><i style="width:75%"></i></div><p class="why" style="margin:8px 0 12px">First name, city and role are done. People recognise a face.</p><a class="btn">Add your photo</a></div>
+  <div class="tiles"><div class="tile"><em>&#9998;</em>Edit<small>save is off until a change</small></div><div class="tile"><em>&#127769;</em>Nights<small>2 coming up</small></div><div class="tile"><em>&#128065;</em>My page<small>no photo yet</small></div></div></div><nav class="tabs"><span class="a">Home</span><span class="">Nights</span><span class="">Me</span><span class="">Options</span></nav></div></div>
+<div class="shape" id="complete"><div class="cap">D3 Complete</div><div class="phone"><div class="hd">Home</div><div class="sc"><div><p class="s" style="margin:0">Welcome back</p><p class="h" style="font-size:26px">Hi Laura</p></div>
+  <div class="card"><p class="s" style="margin:0">Nights attended</p><p class="big" style="margin:6px 0">12</p><p class="why" style="margin:0">Counted after each night you said you were going to.</p></div>
+  <div class="tiles"><div class="tile"><em>&#9998;</em>Edit<small>profile</small></div><div class="tile"><em>&#127769;</em>Nights<small>2 coming up</small></div><div class="tile"><em>&#128065;</em>My page<small>see it</small></div></div></div><nav class="tabs"><span class="a">Home</span><span class="">Nights</span><span class="">Me</span><span class="">Options</span></nav></div></div>
+<div class="shape" id="completeEmpty"><div class="cap">D3 Complete, no nights yet</div><div class="phone"><div class="hd">Home</div><div class="sc"><div><p class="s" style="margin:0">Welcome back</p><p class="h" style="font-size:26px">Hi Laura</p></div>
+  <div class="card"><p class="s" style="margin:0">Nights attended</p><p class="big" style="margin:6px 0">0</p><p class="why" style="margin:0 0 12px">Say you are going to a night and it counts once it has happened.</p><a class="btn">Find a night</a></div>
+  <div class="tiles"><div class="tile"><em>&#9998;</em>Edit<small>profile</small></div><div class="tile"><em>&#127769;</em>Nights<small>none yet</small></div><div class="tile"><em>&#128065;</em>My page<small>see it</small></div></div></div><nav class="tabs"><span class="a">Home</span><span class="">Nights</span><span class="">Me</span><span class="">Options</span></nav></div></div>
+<div class="shape" id="unclaimed"><div class="cap">D4 Unclaimed match</div><div class="phone"><div class="hd">Home</div><div class="sc"><div><p class="s" style="margin:0">Welcome</p><p class="h" style="font-size:26px">We found a page</p></div>
+  <div class="card"><div style="display:flex;gap:12px;align-items:center"><span class="av e">M</span><div><p class="b" style="margin:0">Marco Rossi</p><p class="s" style="margin:0">Leader &middot; London</p></div></div><p class="why" style="margin:12px 0">Made by our team and matched to your confirmed email.</p><a class="btn">Claim your page</a><a class="btn g" style="margin-top:8px">Not me, start fresh</a></div>
+  <div class="tiles"><div class="tile"><em>&#128065;</em>Look<small>at that page</small></div><div class="tile"><em>&#127769;</em>Nights<small>find one</small></div><div class="tile"><em>&#9993;</em>Message<small>us</small></div></div></div><nav class="tabs"><span class="a">Home</span><span class="">Nights</span><span class="">Me</span><span class="">Options</span></nav></div></div>
+<script>var h=location.hash.slice(1);if(h&&document.getElementById(h)){document.body.className='one';document.getElementById(h).className='shape on'}</script></body></html>
