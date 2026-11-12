@@ -4,9 +4,11 @@ import { bulkCancelCommand } from '../../shared/seriesCommands';
 import { runBulkCommand } from '../../flows/change/bulkApi';
 import { bulkResult } from '../../flows/change/changeModel';
 import { DEFAULT_REASON } from '../../flows/add/addModel';
-import { fetchCancellationReasons, ORGANISER_HOME_KEY } from '../../shared/selfServeApi';
+import { dateDetailQueryKey, fetchCancellationReasons, occurrenceProgrammeQueryKey, ORGANISER_HOME_KEY, seriesWorkspaceQueryKey } from '../../shared/selfServeApi';
+import { invalidatePublicEventCaches } from '../../shared/publicCache';
 import { useSendOnce, useEventWorkspace, eventWorkspaceQueryKey } from '../../shared/runCommands';
-import { commandErrorMessage } from '../../shared/selfServeErrors';
+import { commandErrorMessage, isVersionConflict } from '../../shared/selfServeErrors';
+import { EventConflict } from '../../flows/event/parts';
 import { newIdempotencyKey } from '../../shared/seriesCommands';
 import type { HomeOrganiser } from '../../shared/selfServeApi';
 import { removeCommand, STATUS_COPY } from '../data/eventPage';
@@ -17,19 +19,22 @@ import { Sheet } from '../screens/Sheet';
 import { Toast } from '../screens/Toast';
 import type { Done } from '../screens/StatusSheet';
 import { RetryButton } from '../screens/parts';
+import { useOlderDates, withOlder } from '../data/olderDates';
+import type { EventWorkspace } from '../../events/eventModel';
 import { P3_PATHS } from '../shell/paths';
 import { PAGE_FIRST, PAGE_MORE, SCOPE, buildEvents, type Filter, type Night, type Seat } from './eventsModel';
 import { EventsView, NightSheet } from './EventsView';
 
 /** "Every night": the existing occurrence.bulk_cancel (same command and reason list as the Change dates screen) for every coming night. The count is named before anything is sent. */
-export function CancelEveryNight({ seriesId, version, ids, onDone, onClose }: { seriesId: string; version: number; ids: string[]; onDone: (d: Done) => void; onClose: () => void }) {
+export function CancelEveryNight({ seriesId, version, ids, onDone, onClose, onReload }: { seriesId: string; version: number; ids: string[]; onDone: (d: Done) => void; onClose: () => void; onReload?: () => Promise<unknown> | void }) {
   const queryClient = useQueryClient();
   const reasons = useQuery({ queryKey: ['cancellation-reasons'], queryFn: fetchCancellationReasons, staleTime: Infinity });
   const gated = useGatedCopy();
-  const [key] = useState(newIdempotencyKey);
+  const [key, setKey] = useState(newIdempotencyKey);
   const [reason, setReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
   const errId = useId();
   const n = ids.length;
   if (n === 0) {
@@ -44,13 +49,40 @@ export function CancelEveryNight({ seriesId, version, ids, onDone, onClose }: { 
       const r = bulkResult(ids, res.affectedIds);
       onDone({ text: r.refused.length ? `${r.done} night${r.done === 1 ? '' : 's'} cancelled, ${r.refused.length} not changed.` : `${word} cancelled.`, undo: null });
     } catch (e) {
-      setError(gated(e, commandErrorMessage));
+      if (isVersionConflict(e)) setConflict(true);
+      else setError(gated(e, commandErrorMessage));
     } finally {
       setBusy(false);
+      // The same set the Change dates screen refreshes after a bulk command (flows/change/Pick.tsx).
+      void queryClient.invalidateQueries({ queryKey: seriesWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: eventWorkspaceQueryKey(seriesId) });
       void queryClient.invalidateQueries({ queryKey: ORGANISER_HOME_KEY });
+      void queryClient.invalidateQueries({ queryKey: dateDetailQueryKey(undefined).slice(0, 1) });
+      void queryClient.invalidateQueries({ queryKey: occurrenceProgrammeQueryKey(undefined).slice(0, 1) });
+      invalidatePublicEventCaches(queryClient);
     }
   };
+  const reload = async () => {
+    setBusy(true);
+    try {
+      await (onReload ? onReload() : queryClient.refetchQueries({ queryKey: eventWorkspaceQueryKey(seriesId) }));
+      setConflict(false);
+      setError(null);
+    } catch {
+      setError('We could not reload this event. Nothing has changed. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (conflict) {
+    return (
+      <Sheet title="This event changed" onClose={onClose}>
+        <EventConflict seriesId={seriesId} testId="ev-every-conflict" onReload={() => void reload()} reloading={busy} />
+        {error && <p className="p3-error" role="alert" data-testid="ev-every-error">{error}</p>}
+        <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={onClose}>Close</button>
+      </Sheet>
+    );
+  }
   const list = (reasons.data ?? []).filter((r) => r.label !== DEFAULT_REASON);
   return (
     <Sheet title={`Cancel all ${word}?`} onClose={onClose}>
@@ -74,7 +106,6 @@ export function CancelEveryNight({ seriesId, version, ids, onDone, onClose }: { 
 /** Cancel one night through the existing date sheet (the event's own read, then DateSheets). Nothing is sent until the reason is picked and confirmed there. */
 export function CancelNight({ night, today, onDone, onClose }: { night: Night; today: string; onDone: (d: Done) => void; onClose: () => void }) {
   const ws = useEventWorkspace(night.seriesId);
-  const [scoped, setScoped] = useState<'one' | 'all' | null>(null);
   if (ws.isPending) return <Sheet title="Loading the night&hellip;" onClose={onClose}><p className="p3-note">This takes a second.</p></Sheet>;
   if (ws.isError) {
     return (
@@ -84,13 +115,30 @@ export function CancelNight({ night, today, onDone, onClose }: { night: Night; t
       </Sheet>
     );
   }
-  const id = ws.data.dates.find((d) => d.occurrence_date === night.date)?.id;
+  return <CancelNightLoaded ws={ws.data} night={night} today={today} onDone={onDone} onClose={onClose} onReload={() => ws.refetch({ throwOnError: true })} />;
+}
+
+/** The workspace read holds the newest 100 dates; every older page is read too, so the list is every date of the event. */
+function CancelNightLoaded({ ws: first, night, today, onDone, onClose, onReload }: { ws: EventWorkspace; night: Night; today: string; onDone: (d: Done) => void; onClose: () => void; onReload: () => Promise<unknown> }) {
+  const [scoped, setScoped] = useState<'one' | 'all' | null>(null);
+  const older = useOlderDates(first, true);
+  if (first.hasMore && (older.isPending || older.isError || older.data?.complete === false)) {
+    if (older.isPending) return <Sheet title="Loading the dates&hellip;" onClose={onClose}><p className="p3-note">This event has a lot of dates. This takes a second.</p></Sheet>;
+    return (
+      <Sheet title="We couldn&rsquo;t load every date" onClose={onClose}>
+        <p className="p3-note" data-testid="ev-older-error">Nothing has changed. Check your connection, then try again.</p>
+        <RetryButton onClick={() => void older.refetch()} />
+      </Sheet>
+    );
+  }
+  const ws = older.data ? withOlder(first, older.data) : first;
+  const id = ws.dates.find((d) => d.occurrence_date === night.date)?.id;
   if (!id) {
     return <Sheet title="This night is not on the list" onClose={onClose}><p className="p3-note">Open the event to see its dates. Nothing has changed.</p></Sheet>;
   }
   // Only an event with several coming nights is asked "which nights?".
-  const comingDates = ws.data.dates.filter((d) => d.occurrence_date >= today && d.lifecycle_status !== 'cancelled');
-  if (scoped === 'all') return <CancelEveryNight seriesId={night.seriesId} version={ws.data.series.version} ids={comingDates.map((d) => d.id)} onDone={onDone} onClose={onClose} />;
+  const comingDates = ws.dates.filter((d) => d.occurrence_date >= today && d.lifecycle_status !== 'cancelled');
+  if (scoped === 'all') return <CancelEveryNight seriesId={night.seriesId} version={ws.series.version} ids={comingDates.map((d) => d.id)} onDone={onDone} onClose={onClose} onReload={onReload} />;
   if (!scoped && comingDates.length >= SCOPE.askFrom) {
     return (
       <Sheet title={SCOPE.title} onClose={onClose}>
@@ -102,7 +150,7 @@ export function CancelNight({ night, today, onDone, onClose }: { night: Night; t
     );
   }
   // The reason picker opens straight away: the date action list is not in the way.
-  return <DateSheets ws={ws.data} today={today} open={{ kind: 'date', id, start: 'cancel' }} onClose={onClose} onDone={onDone} />;
+  return <DateSheets ws={ws} today={today} open={{ kind: 'date', id, start: 'cancel' }} onClose={onClose} onDone={onDone} />;
 }
 
 /** Delete draft: the existing Remove command (series.set_lifecycle archived). Nobody is told: a draft was never on the calendar. */

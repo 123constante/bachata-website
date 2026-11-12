@@ -30,15 +30,19 @@ export function EventStepShell({ seriesId, title, name, back, children }: {
  * ONE conflict view of the module (A-S2): every write screen renders this,
  * `testId` keeps each flow's screens tellable apart (`<testId>-event` on the button).
  */
-export function EventConflict({ seriesId, testId = 'event-conflict' }: { seriesId: string; testId?: string }) {
+export function EventConflict({ seriesId, testId = 'event-conflict', onReload, reloading }: { seriesId: string; testId?: string; onReload?: () => void; reloading?: boolean }) {
   const navigate = useNavigate();
   const { paths } = useOrgSurface();
   return (
     <div className="flex flex-col gap-3" data-testid={testId} role="alert">
       <p className="text-[16px] font-bold text-[var(--fg)]">{VERSION_CONFLICT}</p>
-      <PrimaryButton testId={`${testId}-event`} onClick={() => navigate(paths.event(seriesId), { replace: true })}>
-        Open the event
-      </PrimaryButton>
+      {onReload ? (
+        <PrimaryButton testId={`${testId}-reload`} loading={reloading} onClick={onReload}>Reload the event</PrimaryButton>
+      ) : (
+        <PrimaryButton testId={`${testId}-event`} onClick={() => navigate(paths.event(seriesId), { replace: true })}>
+          Open the event
+        </PrimaryButton>
+      )}
     </div>
   );
 }

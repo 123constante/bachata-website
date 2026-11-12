@@ -12,7 +12,9 @@ const h = vi.hoisted(() => ({
   once: vi.fn(async () => ({ ok: true })),
   refetch: vi.fn(),
   bulk: vi.fn(),
+  older: { isPending: false, isError: false, data: undefined, refetch: vi.fn() } as Record<string, unknown>,
 }));
+vi.mock('../../data/olderDates', async (orig) => ({ ...(await orig<object>()), useOlderDates: () => h.older }));
 vi.mock('../../../flows/change/bulkApi', () => ({ runBulkCommand: (...a: unknown[]) => h.bulk(...a) }));
 vi.mock('../../../shared/selfServeApi', async (orig) => ({ ...(await orig<object>()), fetchCancellationReasons: async () => [{ key: 'rain', label: 'Rain' }] }));
 vi.mock('../../../shared/runCommands', () => ({
@@ -29,7 +31,7 @@ vi.mock('../../screens/DateSheet', () => ({
 import { CancelEveryNight, CancelNight, DeleteDraft } from '../DashEvents';
 
 afterEach(cleanup);
-beforeEach(() => { h.bulk.mockReset(); h.bulk.mockResolvedValue({ ok: true, affectedIds: [] }); h.once.mockReset(); h.once.mockResolvedValue({ ok: true }); h.refetch.mockReset(); });
+beforeEach(() => { h.bulk.mockReset(); h.bulk.mockResolvedValue({ ok: true, affectedIds: [] }); h.once.mockReset(); h.once.mockResolvedValue({ ok: true }); h.refetch.mockReset(); h.older = { isPending: false, isError: false, data: undefined, refetch: vi.fn() }; });
 
 const nightOf = (shape: keyof typeof SHAPES, i = 0) =>
   buildEvents({ rows: rowsOf(homeOf([SHAPES[shape]] as never)), today: TODAY, seat: 'owner', query: '', filter: 'all', shown: 15, showPast: false }).nights[i];
@@ -108,6 +110,51 @@ describe('CancelNight', () => {
     render(<QueryClientProvider client={new QueryClient()}><CancelEveryNight seriesId="s" version={1} ids={[]} onDone={vi.fn()} onClose={vi.fn()} /></QueryClientProvider>);
     expect(screen.getByTestId('ev-every-none')).toBeTruthy();
     expect(screen.queryByTestId('ev-every-confirm')).toBeNull();
+  });
+
+  it('over 100 dates: every older page is read, so "every night" counts all coming nights, not the first 100', () => {
+    const n = nightOf('tonight');
+    const ws = wsOf([{ id: 'a', occurrence_date: n.date as string }]);
+    (ws.data as Record<string, unknown>).hasMore = true;
+    h.ws = ws;
+    h.older = { isPending: false, isError: false, refetch: vi.fn(), data: { complete: true, dates: [{ id: 'o1', occurrence_date: '2099-03-01', lifecycle_status: 'scheduled' }, { id: 'o2', occurrence_date: '2099-04-01', lifecycle_status: 'scheduled' }] } };
+    draw(n);
+    fireEvent.click(screen.getByTestId('ev-scope-all'));
+    expect(screen.getByTestId('ev-every-body').textContent).toMatch(/cancels 3 nights/);
+  });
+
+  it('over 100 dates, older read fails: says nothing changed, offers Try again, cancels nothing', () => {
+    const ws = wsOf([{ id: 'a', occurrence_date: '2099-01-01' }]);
+    (ws.data as Record<string, unknown>).hasMore = true;
+    h.ws = ws;
+    const refetch = vi.fn();
+    h.older = { isPending: false, isError: true, refetch, data: undefined };
+    draw();
+    expect(screen.getByTestId('ev-older-error')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('ev-scope')).toBeNull();
+  });
+
+  it('every night, version conflict: Reload refetches the event and returns to the confirm with the new version', async () => {
+    h.bulk.mockRejectedValueOnce(new Error('version_conflict'));
+    everyNight();
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(screen.getByTestId('ev-every-conflict')).toBeTruthy());
+    expect(screen.queryByTestId('ev-every-confirm')).toBeNull();
+    fireEvent.click(screen.getByTestId('ev-every-conflict-reload'));
+    await waitFor(() => expect(screen.getByTestId('ev-every-confirm')).toBeTruthy());
+    expect(h.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('every night: after the send the same lists the Change dates screen refreshes are invalidated', async () => {
+    const client = new QueryClient();
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    render(<QueryClientProvider client={client}><CancelEveryNight seriesId="s1" version={2} ids={['a']} onDone={vi.fn()} onClose={vi.fn()} /></QueryClientProvider>);
+    fireEvent.click(screen.getByTestId('ev-every-confirm'));
+    await waitFor(() => expect(spy.mock.calls.length).toBeGreaterThanOrEqual(5));
+    const keys = spy.mock.calls.map((c) => String((c[0] as { queryKey: unknown[] }).queryKey[0]));
+    expect(keys).toEqual(expect.arrayContaining(['series-workspace', 'event-workspace', 'date-detail', 'occurrence-programme']));
   });
 
   it('one coming night: straight to the cancel step, no list, no scope ask', () => {
