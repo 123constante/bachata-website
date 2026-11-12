@@ -144,3 +144,9 @@ action and too small to carry the lock reason.
   #1414 plan files were not reachable from this session, so admin behaviour is read from generated types and
   live function definitions, not the admin UI; "locked once anyone entered" and per-night entry counts are
   drawn from the brief, not from today's server (G1, G2).
+- **Ship status:** PR #1586 on `claude/profile-dash-organiser-raffle-opts` (docs only; not merged or approved
+  by the worker). On aa8693e the PR checks that had finished were green (integrity, unit x3, e2e-smoke,
+  real-data-verified, phone-qa-section, masking-check, live-db-gate, bundle-budget, route, wallclock-brand,
+  dancer-area-isolation); deploy-only jobs skipped; bom-check and notification-check were still running.
+  Local: integrity, lint:architecture, `AUDIT_STRICT=1 check:images`, check:mojibake (+ self-test),
+  check-script-conventions, PR-body real-data check: all pass. tsc not run (no TS in the diff).
