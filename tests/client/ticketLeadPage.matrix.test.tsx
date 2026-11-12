@@ -20,6 +20,8 @@ const LINK = 'https://tickets.example.test/ritmo';
 const h = vi.hoisted(() => {
   const state = {
     link: null as string | null,
+    // The organiser's own external ticket rows (meta_data_public.tickets); a pure in-site event has none.
+    rows: true,
     past: false,
     occurrence: 'o1' as string,
     // ticket_types_public_v2 rows by night; a function returning a promise lets a row hang.
@@ -55,7 +57,7 @@ const h = vi.hoisted(() => {
       is_published: true,
       date: '2099-01-01T20:00:00+00:00',
       actions: { ticket_url: state.link },
-      meta_data_public: { tickets: [{ id: 'm1', name: 'Entry', price: '10' }] },
+      meta_data_public: { tickets: state.rows ? [{ id: 'm1', name: 'Entry', price: '10' }] : [] },
       photo_urls: [],
       video_urls: [],
       music_styles: [],
@@ -122,6 +124,13 @@ function barKinds(): Kind[] {
   return k;
 }
 const herLinkOnScreen = () => !!document.querySelector(`[data-sticky-action-bar] a[href="${LINK}"]`);
+function offerNodes(): Array<Record<string, unknown>> | null {
+  const node = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+    .map((s) => JSON.parse(s.textContent ?? '{}') as { '@type'?: string; offers?: unknown })
+    .find((n) => n['@type'] !== 'BreadcrumbList');
+  if (!node) return null;
+  return node.offers == null ? [] : (Array.isArray(node.offers) ? node.offers : [node.offers]) as Array<Record<string, unknown>>;
+}
 function offerUrls(): (string | null)[] | null {
   const node = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
     .map((s) => JSON.parse(s.textContent ?? '{}') as { '@type'?: string; offers?: Array<{ url?: string }> | { url?: string } })
@@ -160,6 +169,7 @@ let qc: QueryClient;
 beforeEach(() => {
   qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   h.state.link = LINK;
+  h.state.rows = true;
   h.state.past = false;
   h.state.occurrence = 'o1';
   h.rpc.mockClear();
@@ -279,5 +289,70 @@ describe('night switch resets the live flag', () => {
     const after = history.slice(mark);
     const firstPlaceholder = after.findIndex((k) => k.includes('placeholder'));
     expect(after.slice(Math.max(firstPlaceholder, 0)).some((k) => k.includes('ours'))).toBe(false);
+  });
+});
+
+describe('JSON-LD offers for a pure in-site event (no organiser rows) -- queue #1516', () => {
+  const settle = async () => {
+    await waitFor(() => expect(barKinds()).not.toContain('placeholder'), { timeout: 3000 });
+  };
+  it('A. live types, Stripe ready, no external link: one offer per buyable type, our url, wire price, GBP', async () => {
+    h.state.rows = false; h.state.link = null;
+    h.state.types = ok([row({ id: 't1', name: 'Early', price_pence: 1000 }), row({ id: 't2', name: 'Door', price_pence: 1250 }), row({ id: 't3', name: 'Gone', status: 'sold_out', remaining: 0, sold_out: true })]);
+    render(page('o1'));
+    await waitFor(() => expect(offerNodes()).toEqual([
+      { '@type': 'Offer', url: OURS, name: 'Early', price: '10.00', priceCurrency: 'GBP' },
+      { '@type': 'Offer', url: OURS, name: 'Door', price: '12.50', priceCurrency: 'GBP' },
+    ]), { timeout: 3000 });
+  });
+  it('B. live AND organiser rows: our url wins, exactly one offer per organiser row (no duplicates from types)', async () => {
+    h.state.rows = true; h.state.link = LINK;
+    h.state.types = ok([row({ id: 't1' }), row({ id: 't2', name: 'Other' })]);
+    render(page('o1'));
+    await waitFor(() => expect(offerNodes()).toEqual([{ '@type': 'Offer', url: OURS, name: 'Entry', price: '10', priceCurrency: 'GBP' }]), { timeout: 3000 });
+  });
+  it('C. sale window closed, no rows: NO offers from us', async () => {
+    h.state.rows = false; h.state.link = null;
+    h.state.types = ok([row({ sales_close_at: PAST })]);
+    render(page('o1'));
+    await settle();
+    expect(offerNodes()).toEqual([]);
+  });
+  it('C2. sale window closed WITH organiser rows: her link only', async () => {
+    h.state.types = ok([row({ sales_close_at: PAST })]);
+    render(page('o1'));
+    await settle();
+    await waitFor(() => expect(offerUrls()).toEqual([LINK]));
+  });
+  for (const [name, rows] of [['sold out', [row({ status: 'sold_out', remaining: 0, sold_out: true })]], ['not yet open', [row({ sales_open_at: FUTURE })]], ['no types', []]] as const) {
+    it(`D. not live (${name}), no rows: no offers`, async () => {
+      h.state.rows = false; h.state.link = null;
+      h.state.types = ok([...rows]);
+      render(page('o1'));
+      await settle();
+      expect(offerNodes()).toEqual([]);
+    });
+  }
+  it('E. past night (ended): policy still suppresses offers from us', async () => {
+    h.state.rows = false; h.state.link = null; h.state.past = true;
+    h.state.types = ok([row({})]);
+    render(page('o1'));
+    await waitFor(() => expect(document.querySelector('script[type="application/ld+json"]')).not.toBeNull(), { timeout: 3000 });
+    expect(JSON.stringify(offerNodes())).not.toContain(OURS);
+  });
+  it('night switch: o1 live -> o2 pending: o1\'s offers are gone until o2 answers for itself', async () => {
+    h.state.rows = false; h.state.link = null;
+    let resolveO2: (v: unknown[]) => void = () => {};
+    h.state.types = (occ) => occ === 'o1'
+      ? Promise.resolve([row({ occurrence_id: 'o1', name: 'N1' })])
+      : new Promise<unknown[]>((r) => { resolveO2 = r; });
+    const { rerender } = render(page('o1'));
+    await waitFor(() => expect(offerNodes()?.map((o) => o.name)).toEqual(['N1']), { timeout: 3000 });
+    h.state.occurrence = 'o2';
+    rerender(page('o2'));
+    await waitFor(() => expect(h.rpc.mock.calls.some(([n, a]) => n === 'ticket_types_public_v2' && (a as { p_occurrence_id?: string }).p_occurrence_id === 'o2')).toBe(true));
+    await waitFor(() => expect(offerNodes()).toEqual([]));
+    await act(async () => { resolveO2([row({ occurrence_id: 'o2', name: 'N2', price_pence: 2000 })]); });
+    await waitFor(() => expect(offerNodes()).toEqual([{ '@type': 'Offer', url: OURS, name: 'N2', price: '20.00', priceCurrency: 'GBP' }]));
   });
 });

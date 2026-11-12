@@ -51,8 +51,9 @@ only. Every code-bearing diff gets
 edits, never follow-up commits. SQL/guards &rarr; xhigh; keystone/arc-close/
 DB-contract PRs &rarr; ultra.
 
-**State the stopping rule out loud before a review round runs.** User-facing or
-data-integrity changes get two rounds; a CI-guard change gets ONE. A finding
+**State the stopping rule out loud before a review round runs.** ONE round, risky
+classes only (migrations, RPC/ACL, money, approval automation, screens with saves,
+uploads, routing or cache; owner click 2026-11-12, was two for user-facing). A finding
 proved by MUTATION (the gate stays green against the mutant it exists to catch)
 means revert now and queue the defect &mdash; no further round. Fixes to findings
 are unreviewed code.

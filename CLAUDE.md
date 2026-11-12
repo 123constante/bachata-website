@@ -184,7 +184,7 @@ Use HTML entities (`&mdash;`, `&hellip;`, `&rsquo;`) in JSX, never raw Unicode p
 
 ## Operating model
 
-Classify every request (TRIVIAL / BUILD-visual / BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC). Every code-bearing diff gets `/code-review` BEFORE commit; state the stopping rule before a review round (user-facing: two rounds; CI-guard: one). Ship gate: `npm run pre-ship`. One PR per unit of work ([`docs/pr-batching-policy.md`](docs/pr-batching-policy.md)). Full doctrine: [`docs/claude-md-reference.md`](docs/claude-md-reference.md#operating-model-pointer----doctrine-lives-in-the-project-memory-dir).
+Classify every request (TRIVIAL / BUILD-visual / BUILD-non-visual / MIGRATE / GUARD-CI / PERF / AUDIT / ARC). Every code-bearing diff gets `/code-review` BEFORE commit; state the stopping rule before a review round (ONE round, risky classes only: migrations, RPC/ACL, money, approval automation, screens with saves, uploads, routing or cache; owner click 2026-11-12, was two for user-facing). Ship gate: `npm run pre-ship`. One PR per unit of work ([`docs/pr-batching-policy.md`](docs/pr-batching-policy.md)). Full doctrine: [`docs/claude-md-reference.md`](docs/claude-md-reference.md#operating-model-pointer----doctrine-lives-in-the-project-memory-dir).
 
 ## Recent changes
 

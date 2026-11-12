@@ -158,6 +158,16 @@ export function quietBarButton(types: PublicTicketType[], now: Date = new Date()
   return 'Closed';
 }
 
+/** One in-site type that is buyable right now, as the JSON-LD offer needs it. Price in pounds (types are GBP-only). */
+export interface LiveOffer { name: string; price: string }
+
+/** The buyable types for this night. Prices are the wire's own (pence / 100), never a guess. */
+export function liveOffers(types: PublicTicketType[] | undefined | null, occurrenceId: string | null, now: Date = new Date()): LiveOffer[] {
+  return typesForNight(types ?? [], occurrenceId)
+    .filter((t) => availability(t, now).kind === 'buyable')
+    .map((t) => ({ name: t.name, price: (t.pricePence / 100).toFixed(2) }));
+}
+
 export function sellsInSite(types: PublicTicketType[] | undefined | null, now: Date = new Date(), occurrenceId?: string | null): boolean {
   const list = occurrenceId === undefined ? (types ?? []) : typesForNight(types ?? [], occurrenceId);
   return list.some((t) => availability(t, now).kind === 'buyable');

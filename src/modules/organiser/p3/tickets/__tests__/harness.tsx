@@ -9,10 +9,10 @@ import { parseOrderRow } from '../../../tickets/ticketsApi';
 
 /**
  * Fix round 1 (review 1520-r1 F1): the read a non-owner really makes. ORDER_SELECT_COUNTS carries no
- * pence column, so the row the screen gets is parseOrderRow of a count-shaped row: every pence field 0.
+ * pence column and no buyer_name, so the row the screen gets is parseOrderRow of a count-shaped row: every pence field 0.
  */
 export const countsOnlyOrder = (o: Order): Order =>
-  parseOrderRow({ id: o.id, ticket_type_id: o.typeId, buyer_name: o.buyerName, quantity: o.quantity, status: o.status, paid_at: o.paidAt });
+  parseOrderRow({ id: o.id, ticket_type_id: o.typeId, quantity: o.quantity, status: o.status, paid_at: o.paidAt });
 /** The summary a non-owner's parse keeps (F3): every `*Pence` field 0, counts untouched. */
 export const countsOnlySales = (t: TypeSales): TypeSales =>
   Object.fromEntries(Object.entries(t).map(([k, v]) => [k, /Pence$/.test(k) ? 0 : v])) as unknown as TypeSales;
@@ -34,23 +34,25 @@ export interface Q {
   ticketLink: string | null;
   /** The money flag the screen passed to useSeriesOrders on its last render. */
   ordersMoney: boolean | null;
+  moneyOrdersFired: boolean;
   /** The money flag the screen passed to useSummary on its last render (undefined = not passed). */
   summaryMoney: boolean | null | undefined;
 }
 
-export const q: Q = { home: null, types: null, orders: null, summary: null, stripe: null, onboard: { go: async () => {}, busy: false, note: null, switchedOff: false }, going: null, ticketLink: null, ordersMoney: null, summaryMoney: null };
+export const q: Q = { home: null, types: null, orders: null, summary: null, stripe: null, onboard: { go: async () => {}, busy: false, note: null, switchedOff: false }, going: null, ticketLink: null, ordersMoney: null, moneyOrdersFired: false, summaryMoney: null };
 
 export function load(s: Shape) {
   const o = org({ role: s.role as 'owner' }, series({ lifecycle_status: s.lifecycle }));
   q.home = ok(home(o));
   q.types = ok(s.types);
   q.orders = ok(s.orders);
-  q.summary = ok(s.sales === 'refused' ? { ok: false, reason: 'not_authorised', types: [] } : { ok: true, reason: null, types: s.sales });
+  q.summary = ok(s.sales === 'refused' ? { ok: false, reason: 'not_authorised', types: [], moneyVisible: null } : { ok: true, reason: null, moneyVisible: true, types: s.sales });
   q.stripe = { query: ok(STRIPE[s.stripe]), state: stripeStateOf(STRIPE[s.stripe]) };
   q.onboard = { go: vi.fn(async () => {}), busy: false, note: null, switchedOff: false };
   q.going = null;
   q.ticketLink = null;
   q.ordersMoney = null;
+  q.moneyOrdersFired = false;
   q.summaryMoney = null;
 }
 
@@ -60,8 +62,9 @@ export const dataMock = async (orig: () => Promise<typeof import('../data')>) =>
   ...(await orig()),
   useP3Home: () => q.home,
   useSeriesTypes: () => q.types,
-  useSeriesOrders: (_o: unknown, _s: unknown, _ids: unknown, _on: unknown, money?: boolean) => {
+  useSeriesOrders: (_o: unknown, _s: unknown, _ids: unknown, on: unknown, money?: boolean) => {
     q.ordersMoney = money ?? true;
+    if (money === true && on) q.moneyOrdersFired = true;
     // Review 1520-r1 F1: a counts read returns what the server would, never the owner's payload.
     const r = q.orders as Res<Order[]>;
     if (money === false && r?.isSuccess && Array.isArray(r.data)) return { ...r, data: r.data.map(countsOnlyOrder) };

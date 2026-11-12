@@ -56,7 +56,8 @@ import { isPast } from '@/modules/event-page/bento/utils/pastEvent';
 import { useEventRaffleConfig } from '@/hooks/useEventRaffleConfig';
 import { getRaffleSessionId } from '@/lib/raffleSession';
 import { buildEventJsonLd } from '@/lib/buildEventJsonLd';
-import { ticketOfferUrl } from './utils/ticketOfferUrl';
+import { buildJsonLdOffers } from './utils/ticketOfferUrl';
+import type { LiveOffer } from '@/modules/tickets/ticketCheckoutApi';
 import { ENDED_DOOR_LABEL } from '@/lib/seo/eventPageSeoPolicy';
 import { serialiseJsonLd } from '@/lib/serialiseJsonLd';
 import { flags } from '@/lib/featureFlags';
@@ -211,9 +212,9 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
   // server HTML keeps her URL: open owner decision, see the design record.
   // Stored with the night it is about (fix2 1c): after a night switch the old night's answer
   // no longer counts, so the JSON-LD cannot keep our URL for a night that is not live.
-  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean }>({ night: null, live: false });
-  const onTicketingLive = useCallback((live: boolean, night: string | null) => {
-    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night ? prev : { night, live }));
+  const [ticketingLiveFor, setTicketingLiveFor] = useState<{ night: string | null; live: boolean; offers: LiveOffer[] }>({ night: null, live: false, offers: [] });
+  const onTicketingLive = useCallback((live: boolean, night: string | null, offers: LiveOffer[]) => {
+    setTicketingLiveFor((prev) => (prev.live === live && prev.night === night && prev.offers === offers ? prev : { night, live, offers }));
   }, []);
   const closeTickets = useCallback(() => setTicketsOpen(false), []);
 
@@ -590,6 +591,17 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
 
   // Schema.org Event node, or null when the page must carry none (a paused
   // series: see src/lib/seo/eventPageSeoPolicy).
+  // Only a live answer about the night on screen counts (night switch: the old night's answer is stale).
+  const offersLive = ticketingLiveFor.live && ticketingLiveFor.night === (occurrenceId ?? snapshot?.occurrenceId ?? null);
+  const jsonLdOffers = snapshot
+    ? buildJsonLdOffers(
+        offersLive,
+        `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`,
+        pageModel.actions.ticketUrl,
+        snapshot.event.tickets ?? [],
+        ticketingLiveFor.offers,
+      )
+    : [];
   const eventJsonLd =
     state === 'ready' && snapshot
       ? buildEventJsonLd({
@@ -664,17 +676,7 @@ export const BentoPage = ({ eventId, occurrenceId, eventSlug: resolvedEventSlug 
             type: 'Person' as const,
           })),
         ],
-        offers: (snapshot.event.tickets ?? []).map((t) => ({
-          // Ours when our Buy is live for this night; the organiser's link only when it is not.
-          url: ticketOfferUrl(
-            ticketingLiveFor.live && ticketingLiveFor.night === (occurrenceId ?? snapshot.occurrenceId ?? null),
-            `${SITE_ORIGIN}/event/${resolvedEventSlug ?? eventId}`, pageModel.actions.ticketUrl),
-          name: t.name,
-          price: t.price,
-          // Never a currency without a price (Google flags the pair);
-          // default GBP when a price exists but the row has none.
-          currency: t.price ? (t.currency ?? 'GBP') : null,
-        })),
+        offers: jsonLdOffers,
       })
       : null;
 

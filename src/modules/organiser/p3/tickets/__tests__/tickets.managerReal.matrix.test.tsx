@@ -115,10 +115,10 @@ describe.each([
     expect(q.ordersMoney).toBe(false);
     expect(q.summaryMoney).toBe(false);
   });
-  it('the buyer label is first name plus the 8-character order code (F4)', () => {
+  it('a counts-only reader gets "Order" plus the 8-character order code, never a name (F4)', () => {
     const first = REAL[0];
-    expect(within(row(first.id) as HTMLElement).getByTestId('tix-order-buyer').textContent).toBe('Ana \u00B7 3F2A9C1E');
-    expect(within(row(REAL[2].id) as HTMLElement).getByTestId('tix-order-buyer').textContent).toBe(`Buyer \u00B7 ${shortRef(REAL[2].id)}`);
+    expect(within(row(first.id) as HTMLElement).getByTestId('tix-order-buyer').textContent).toBe('Order 3F2A9C1E');
+    expect(within(row(REAL[2].id) as HTMLElement).getByTestId('tix-order-buyer').textContent).toBe(`Order ${shortRef(REAL[2].id)}`);
   });
 });
 
@@ -142,7 +142,7 @@ describe('one order code (F4)', () => {
     expect(shortRef(id)).toBe(code);
   });
   it('the list label, the Refund sheet title and the guest list read the same mapping', () => {
-    const o: Order = { ...PAID[0], totalPence: 2500 };
+    const o: Order = { ...PAID[0], buyerName: 'Ana Maria', totalPence: 2500 };
     expect(reportShortRef).toBe(shortRef);
     expect(buyerFirstAndCode(o)).toBe(`Ana \u00B7 ${shortRef(o.id)}`);
     expect(refundQuestion(o).title).toBe(`Refund Ana \u00B7 ${shortRef(o.id)}?`);
@@ -151,7 +151,7 @@ describe('one order code (F4)', () => {
 
 // F3: ticket_sales_summary_v1 still answers pence to a manager until Part B. The client drops them in the parse.
 const SUMMARY_RAW = {
-  ok: true,
+  ok: true, money_visible: true,
   ticket_types: [
     {
       id: 't-sell', event_series_id: 'ser-1', name: 'Standard', status: 'on_sale', price_pence: 1200, capacity: 40, reserved_count: 14,
@@ -173,7 +173,7 @@ describe('a non-owner summary keeps no pence (F3)', () => {
     expect(parseSummary(SUMMARY_RAW).types[0].grossPence).toBe(16800);
   });
   it('a refusal parses the same for every role', () => {
-    expect(parseSummary({ ok: false, reason: 'not_authorised' }, { money: false })).toEqual({ ok: false, reason: 'not_authorised', types: [] });
+    expect(parseSummary({ ok: false, reason: 'not_authorised' }, { money: false })).toEqual({ ok: false, reason: 'not_authorised', types: [], moneyVisible: null });
   });
   it.each([
     [false, 'counts'],

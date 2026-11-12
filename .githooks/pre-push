@@ -169,10 +169,47 @@ else
 fi
 if [ "$unit_where" = "here" ]; then
     echo "> pre-push: unit gate here ($unit_reason)"
-    echo "> pre-push: unit gate (npm run test:unit:offline)..."
-    if ! npm run test:unit:offline -- --reporter=dot; then
-        echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
-        exit 1
+    # FALLBACK = fast: the full suite never runs on this PC (admin #1586 / #1590). Only tests that import a
+    # file changed since origin/main run (`vitest related`). The FULL suite is the required CI check
+    # "unit (Europe/London, full)" in the `main checks` ruleset, so nothing red can merge. Fail CLOSED:
+    # no base ref, an unreadable diff, a changed runner config, a deleted/renamed/oddly named file or a non-code non-doc file runs the full offline suite as before.
+    fb_full=0
+    fb_base=$(git rev-parse --verify -q origin/main 2>/dev/null || true)
+    fb_changed=""
+    if [ -z "$fb_base" ]; then
+        fb_full=1
+    elif ! fb_changed=$(git diff --name-only --diff-filter=ACMR "$fb_base"...HEAD 2>/dev/null); then
+        fb_full=1
+    fi
+    if printf '%s\n' "$fb_changed" | grep -q -E '(^|/)(vite(st)?\.(config|setup)[^/]*|package(-lock)?\.json|tsconfig[^/]*\.json|\.env[^/]*)$'; then
+        fb_full=1
+    fi
+    # Also full: a deleted or renamed file (its old importers are never selected), an odd file name
+    # (space / non-ASCII breaks the argument list), or any changed file that is neither code nor docs
+    # (a test may read a json/sql/css fixture).
+    if [ -n "$(git diff --name-only --diff-filter=DR "$fb_base"...HEAD 2>/dev/null)" ] \
+        || printf '%s\n' "$fb_changed" | grep -q '[^A-Za-z0-9_./@()+-]' \
+        || printf '%s\n' "$fb_changed" | grep -v -E '\.(ts|tsx|js|jsx|mjs|md|txt)$' | grep -q .; then
+        fb_full=1
+    fi
+    if [ "$fb_full" -eq 1 ]; then
+        echo "> pre-push: unit gate (full offline suite: no base ref, or runner config changed)..."
+        if ! npm run test:unit:offline -- --reporter=dot; then
+            echo "x Unit gate failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
+            exit 1
+        fi
+    else
+        fb_src=$(printf '%s\n' "$fb_changed" | grep -E '\.(ts|tsx|js|jsx|mjs)$' || true)
+        if [ -z "$fb_src" ]; then
+            echo "> pre-push: no code files changed -- unit gate skipped (CI runs the full suite)."
+        else
+            echo "> pre-push: fast unit gate (tests related to changed files; CI runs the full suite)..."
+            # shellcheck disable=SC2086
+            if ! npx vitest related --run --passWithNoTests --reporter=dot --exclude "**/*{EdgeTtl.test.ts,.contract.test.ts,.contract.test.tsx}" $(printf '%s' "$fb_src" | tr '\n' ' '); then
+                echo "x Related unit tests failed -- not pushing. Fix the tests (or push --no-verify to bypass)."
+                exit 1
+            fi
+        fi
     fi
 fi
 
