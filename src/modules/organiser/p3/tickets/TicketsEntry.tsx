@@ -161,9 +161,10 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const ticketLink = useSeriesTicketLink(series.id);
   // Review 1520-r1 F3: a non-owner's summary parse keeps no pence (only ticketsSold is read for them).
   const summary = useSummary(org.id, canRefund(org.role));
-  // Fail closed: money reads need the owner role AND no server money_visible=false.
-  const showMoney = canRefund(org.role) && summary.data?.moneyVisible !== false;
-  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess, showMoney);
+  // Fail closed: money needs the owner role AND the server's money_visible === true. Missing flag or a summary
+  // still loading is counts-only, and the orders read below waits (no pence query fires, none is cached).
+  const showMoney = canRefund(org.role) && summary.data?.moneyVisible === true;
+  const orders = useSeriesOrders(org.id, series.id, list.map((t) => t.id), types.isSuccess && summary.isSuccess, showMoney);
   const { state: stripe, query: stripeQuery } = useStripe(org.id);
   // The one Connect payments press: Stripe sends the person back to THIS event's Tickets sheet.
   const onboardRaw = useStartOnboarding(org.id, undefined, P3_TICKET_PATHS.eventTickets(series.id));
@@ -204,7 +205,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
 
   const manager = canManage(org.role);
   // Slice 2 (PQ1, Q15): money and Refund are the owner's; a manager sees counts only.
-  const owner = canRefund(org.role);
+  const owner = showMoney;
   const seriesLive = series.lifecycle_status === 'live';
   const ctx: MoveContext = { role: org.role, stripe: stripe ?? 'unknown', seriesLive };
   const sales = new Map<string, TypeSales>((summary.data?.ok ? summary.data.types : []).map((t) => [t.id, t]));
@@ -303,7 +304,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               </div>
               {/* Review 1520-r1 F1: a manager's read has no pence, so status alone gates the note; F5: under
                   the tags, inside the buyer column, never a second column beside it at 390. */}
-              {manager && !owner && refundableByStatus(o) && (
+              {manager && !canRefund(org.role) && refundableByStatus(o) && (
                 <p className="p3-note" data-testid="tix-refund-ask-owner">{NOT_OWNER_REFUND}</p>
               )}
             </div>

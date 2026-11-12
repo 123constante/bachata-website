@@ -23,7 +23,7 @@ const SHAPES: Array<[string, Record<string, unknown>, { money?: boolean }, boole
   ['admin, money_visible true', { ok: true, money_visible: true, ticket_types: [ROW] }, {}, true, true],
   ['manager, money_visible false', { ok: true, money_visible: false, ticket_types: [ROW] }, { money: true }, false, false],
   ['manager, false, pence absent', { ok: true, money_visible: false, ticket_types: [{ ...ROW, gross_pence: undefined }] }, { money: true }, false, false],
-  ['old server, field missing, owner', { ok: true, ticket_types: [ROW] }, { money: true }, null, true],
+  ['old server, field missing, owner (pence parse; screens gate on === true)', { ok: true, ticket_types: [ROW] }, { money: true }, null, true],
   ['old server, field missing, manager', { ok: true, ticket_types: [ROW] }, { money: false }, null, false],
   ['server true but caller says counts', { ok: true, money_visible: true, ticket_types: [ROW] }, { money: false }, true, false],
   ['empty types, owner', { ok: true, money_visible: true, ticket_types: [] }, { money: true }, true, false],

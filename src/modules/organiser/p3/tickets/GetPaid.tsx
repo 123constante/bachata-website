@@ -193,7 +193,7 @@ function GetPaidBody({ org, back }: { org: HomeOrganiser; back: 'return' | 'refr
         </StateCard>
       )}
       {owner && summary.data && !summary.data.ok && <p className="p3-note" data-testid="tix-money-refused">{reasonMessage(summary.data.reason)}</p>}
-      {owner && summary.data?.moneyVisible !== false && types && types.length > 0 && <MoneySoFar types={types} />}
+      {owner && summary.data?.moneyVisible === true && types && types.length > 0 && <MoneySoFar types={types} />}
     </>
   );
 }
@@ -274,8 +274,8 @@ export function TicketsSoldTile() {
   const org = payingOrganiser(home.data, null);
   // Slice 2 (PQ1): the amount is the owner's. A manager's tile is the count alone (its summary keeps no pence).
   const summary = useSummary(org?.id, isOwner(org?.role));
-  // Fail closed: the server's money_visible=false hides the amount even for a role we believed was the owner.
-  const money = isOwner(org?.role) && summary.data?.moneyVisible !== false;
+  // Fail closed: the server's money_visible=false hides the amount even for a role we believed was the owner; a missing flag or loading summary is counts only.
+  const money = isOwner(org?.role) && summary.data?.moneyVisible === true;
   const types = summary.data?.ok ? summary.data.types : null;
   if (!org || !types) return null;
   const t = totalsOf(types);
