@@ -4,6 +4,7 @@
 .chip{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;flex:none;border:1px solid currentColor}
 .chip.owner{color:var(--c-org)}.chip.manager{color:var(--c-dj)}.chip.contributor{color:var(--c-teacher)}
 .chip.hid{color:var(--danger);border-style:dashed}
+.card:has(>.row.picked){overflow:hidden;flex:none}
 .row.picked{background:var(--ink-soft)}
 .tick{font-weight:700;min-width:20px;text-align:center}
 .chip.wait{color:var(--muted);border-style:dashed}.chip.bad{color:var(--danger)}

@@ -50,7 +50,7 @@ function pubLine(p){
 function avatar(p){return `<span class="av ${p.stub?'stub':''}" aria-hidden="true">${ini(p.n)}</span>`}
 function personRow(p,i,showChip){
  const lbl=`${p.n}, ${ROLE[p.role].n}${p.stub?', not claimed yet':''}`;
- const inner=`${avatar(p)}<span class="t"><b>${p.n}</b><span class="meta">${showChip?chip(p.role):''}${p.hidden||p.stub?'<span class="chip hid">Hidden</span>':''}${pubLine(p)}</span></span>`;
+ const inner=`${avatar(p)}<span class="t"><b>${p.n}</b><span class="meta">${showChip?chip(p.role):''}${pubLine(p)}</span></span>`;
  return canEdit()?`<button class="row" data-act="person" data-k="${i}" aria-label="${lbl}. Open">${inner}<span aria-hidden="true">&rsaquo;</span></button>`:`<div class="row">${inner}</div>`;
 }
 // Contributors never see a full invitee email: d***@example.com.
@@ -76,6 +76,7 @@ function roleKey(){
  return `<div class="card">${ORDER.map(r=>`<div class="roleline">${chip(r)}<span>${ROLE[r].can}</span></div>`).join('')}</div>`;
 }
 function publicNote(){
+ if(!canEdit())return `<p class="why">The public page lists owners and managers. Contributors show unless an owner hides them. Someone who has not claimed their profile stays hidden until they do.</p>`;
  return `<p class="why">Your public page lists owners and managers. Contributors show too unless you hide them. Someone who has not claimed their profile stays hidden until they do.</p>`;
 }
 function loadingBody(){

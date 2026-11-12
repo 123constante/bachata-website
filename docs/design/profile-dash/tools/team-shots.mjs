@@ -105,7 +105,7 @@ for (const opt of OPTIONS) {
         if (last.bottom > Math.min(box.bottom, nav.top) + 0.5) out.push(`last item cut by ${Math.round(last.bottom - Math.min(box.bottom, nav.top))}px`);
         return out;
       });
-      if (['huge', 'pending&more=wait', 'two'].includes(st)) await page.screenshot({ path: resolve(shotDir, `${opt}-${slug(st)}-end.png`) });
+      if (['huge', 'pending&more=wait', 'two', 'contributor', 'solo', 'stub', 'lastowner'].includes(st)) await page.screenshot({ path: resolve(shotDir, `${opt}-${slug(st)}-end.png`) });
       r.clipped.push(...r.endCovered);
     }
     results.push({ option: opt, state: st, ...r });

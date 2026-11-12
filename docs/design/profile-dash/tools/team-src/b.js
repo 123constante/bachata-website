@@ -18,7 +18,7 @@ function group(s,r){
 }
 // Waiting to join: after Contributors, first 2 live invites, expired ones folded until "Show all".
 function waitGroup(s){
- if(!s.inv.length)return '';
+ if(!s.inv.length||!canEdit())return ''; // contributors cannot act on invites, so they do not see the group
  const rows=s.inv.map((v,i)=>[v,i]),live=rows.filter(x=>!x[0].bad),dead=rows.filter(x=>x[0].bad);
  const shown=OPEN.wait?live.concat(dead):live.slice(0,2);
  const rest=s.inv.length-shown.length;
