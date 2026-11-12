@@ -154,7 +154,8 @@ describe('pre-push step 1: unit gate on the side laptop', () => {
         expect(helperArgv).toBeNull();
       }
       if (row.expectLocal) {
-        expect(localRan?.trim()).toBe(UNIT_CMD.slice(1).join(' '));
+        // The local run also writes a json report so a red run can name its failing files.
+        expect(localRan?.trim()).toMatch(/^run test:unit:offline -- --reporter=dot --reporter=json --outputFile\.json=\S+$/);
       } else {
         expect(localRan).toBeNull();
       }
