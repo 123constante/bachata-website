@@ -86,3 +86,5 @@ So D4 (unclaimed admin-made) is the dominant real shape, D2 exists among claimed
 ## Handover
 
 Done: both options, 18 screenshots, this record. Left: owner picks A or B; owner call on gap 1. Next: build slice on the pick.
+
+tsc run on 9195773: 0 errors in branch files (no .ts/.tsx touched). check:mojibake clean, AUDIT_STRICT=1 check:images clean.
