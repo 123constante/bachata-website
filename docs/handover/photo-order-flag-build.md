@@ -52,3 +52,6 @@ with a flag-on case. That is a new build brief.
 ## Not verified
 - The deployed preview `om32c27ae` itself. Its build env and commit were not inspected (no Vercel
   call made). The conclusion rests on the local build and walk above.
+
+## PR
+#1604 (new PR; #1599 was already merged when this ran). Docs only, labelled automerge-ok.
