@@ -11,3 +11,5 @@ Branch `claude/profile-dash-organiser-team-build`. Website only; no migration, n
 ## Verified / Not verified
 - Verified: `vitest run src/modules/organiser/p3/dash/team` 68 passed; focusReturn test passed; `npm run check:mojibake` clean; tsc (`-p tsconfig.app.json`, 130 repo-wide errors, all pre-existing files) 0 errors in the files this branch touches.
 - Not verified: `npm run pre-ship` and the full CI job table (not run here; read the PR checks); shots are fixtures not prod shapes; group-level Add a manager has no Try again button (the main Add carries it); `scripts/prepush-check.mjs` does not exist here.
+
+PR body refreshed (head described, per-job CI table, both label checks exit 0). Head before this commit: 89faea1.
