@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { P3_PATHS } from '../shell/paths';
+import { captionOf, whatsappHref } from './shareLinks';
 import type { Control, DashModel } from './dashModel';
 
 /** Presentational Home for the organiser dashboard (slice 1). Every fact comes from buildDash. */
@@ -20,9 +21,13 @@ export interface DashViewProps {
   onShareNight?: (key: string) => void;
   onSharePage?: () => void;
   onRetry?: () => void;
+  /** Real page link; the caption sheet and "Tell your group" use it. */
+  pageLink?: string | null;
+  /** Said after a share lands, e.g. "Link copied". */
+  notice?: string | null;
 }
 
-export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry }: DashViewProps) {
+export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetry, pageLink = null, notice = null }: DashViewProps) {
   if (m.load === 'loading') {
     return (
       <div className="p3-card p3-state" data-testid="dash-loading" aria-busy="true">
@@ -43,6 +48,8 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
     );
   }
   const hero = m.hero!;
+  const nightLink = hero.night?.link ?? null;
+  const noLink = hero.action === 'share-night' && !nightLink;
   return (
     <div className="p3-stack" data-testid="dash">
       <section className="p3-card p3-hero" aria-label={hero.title} data-testid="dash-hero" data-kind={hero.kind}>
@@ -52,8 +59,19 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
         {hero.action === 'new-event' ? (
           <Link className="p3-btn" style={{ minHeight: 44 }} to={P3_PATHS.create} data-testid="dash-hero-action">{hero.actionLabel}</Link>
         ) : (
-          <button type="button" className="p3-btn" style={{ minHeight: 44 }} onClick={() => hero.night && onShareNight?.(hero.night.key)} data-testid="dash-hero-action">{hero.actionLabel}</button>
+          <span>
+            <button type="button" className="p3-btn" style={{ minHeight: 44 }} disabled={noLink} aria-describedby={noLink ? 'dash-hero-action-why' : undefined} onClick={() => hero.night && onShareNight?.(hero.night.key)} data-testid="dash-hero-action">{hero.actionLabel}</button>
+            {noLink && <span className="p3-note" id="dash-hero-action-why" data-testid="dash-hero-action-why"> This night has no public link yet.</span>}
+          </span>
         )}
+        {nightLink && hero.night && (
+          <details data-testid="dash-caption">
+            <summary style={{ minHeight: 44 }}>Caption for your group</summary>
+            <p className="p3-row-s" style={{ whiteSpace: 'pre-line' }} data-testid="dash-caption-text">{captionOf(hero.night.name, hero.night.when, nightLink)}</p>
+            <a className="p3-btn p3-btn-line" style={{ minHeight: 44 }} href={whatsappHref(`${captionOf(hero.night.name, hero.night.when, nightLink)}`)} target="_blank" rel="noopener noreferrer" data-testid="dash-whatsapp">Send on WhatsApp</a>
+          </details>
+        )}
+        {notice && <p className="p3-ok" role="status" data-testid="dash-share-notice">{notice}</p>}
       </section>
 
       {m.nightsRow && (
@@ -81,7 +99,8 @@ export function DashView({ model: m, pageName, onShareNight, onSharePage, onRetr
         <details className="p3-card" data-testid="dash-cancelled-note">
           <summary style={{ minHeight: 44 }}>{m.cancelledNote.summary}</summary>
           <p>{m.cancelledNote.body}</p>
-          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={onSharePage} data-testid="dash-tell-group">{m.cancelledNote.action}</button>
+          <button type="button" className="p3-btn p3-btn-line" style={{ minHeight: 44 }} onClick={onSharePage} disabled={!pageLink} data-testid="dash-tell-group">{m.cancelledNote.action}</button>
+          {pageLink && <a className="p3-link" href={whatsappHref(`${pageName}: ${pageLink}`)} target="_blank" rel="noopener noreferrer" data-testid="dash-tell-group-wa"> or on WhatsApp</a>}
         </details>
       )}
 

@@ -18,6 +18,8 @@ export interface DashNight {
   opens: number;
   taps: Partial<Record<'ticket' | 'directions' | 'share' | 'whatsapp' | 'other', number>>;
   ticketsSold: number;
+  /** Real public night link, or null/absent when none is safe (Share is then disabled with a reason). */
+  link?: string | null;
 }
 
 export interface ProfileStep { key: 'bio' | 'logo' | 'socials' | 'city'; label: string; sentence: string; button: string; done: boolean }
