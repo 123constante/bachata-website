@@ -1,8 +1,9 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, GhostButton, PrimaryButton, SheetView, SkeletonRows } from '../../../ui';
+import { Card, EmptyState, GhostButton, PrimaryButton, SheetView, SkeletonRows } from '../../../ui';
 import { Avatar } from '../../../team/Avatar';
 import { ROLE_LABEL, type TeamRole } from '@/modules/organiser/shared/teamModel';
+import { NO_PAGE, MESSAGE_US } from '@/modules/organiser/shared/teamRules';
 import { NEEDS_ADMIN_WORK, removalLoses, type Control, type GroupView, type PersonSheetModel, type PersonView, type TeamDashModel } from './teamDashModel';
 
 /** Everything the view can ask for; the container wires these to the real RPCs. */
@@ -19,18 +20,23 @@ export type SheetState = { kind: 'person'; key: string } | { kind: 'remove'; key
 
 const btnLine = 'inline-flex min-h-[44px] w-full items-center justify-center rounded-[12px] border border-[var(--line-strong)] px-[16px] text-[15px] font-semibold text-[var(--fg)] disabled:opacity-60';
 
-function Why({ id, children }: { id: string; children: ReactNode }) {
-  return <p id={id} className="text-[13px] text-[var(--mut)]" data-testid={id}>{children}</p>;
+function Why({ id, children, helpTo }: { id: string; children: ReactNode; helpTo?: string }) {
+  return (
+    <p id={id} className="text-[13px] text-[var(--mut)]" data-testid={id}>
+      {children}
+      {helpTo && <> <Link to={helpTo} className="font-semibold underline" data-testid={`${id}-message-us`}>{MESSAGE_US}</Link></>}
+    </p>
+  );
 }
 
-function Ctl({ c, id, onClick, to }: { c: Control; id: string; onClick?: () => void; to?: string }) {
+function Ctl({ c, id, onClick, to, helpTo }: { c: Control; id: string; onClick?: () => void; to?: string; helpTo?: string }) {
   const why = c.reason ? `${id}-why` : undefined;
   return (
     <div className="flex flex-col gap-[4px]">
       {to && !c.disabled
         ? <Link to={to} data-testid={id} className="inline-flex h-[52px] w-full items-center justify-center rounded-[12px] bg-[var(--btn)] text-[16px] font-bold text-[var(--btnfg)]">{c.label}</Link>
         : <PrimaryButton testId={id} disabled={c.disabled} aria-describedby={why} onClick={onClick}>{c.label}</PrimaryButton>}
-      {c.reason && <Why id={`${id}-why`}>{c.reason}</Why>}
+      {c.reason && <Why id={`${id}-why`} helpTo={c.messageUs ? helpTo : undefined}>{c.reason}</Why>}
     </div>
   );
 }
@@ -41,7 +47,7 @@ function PersonRowView({ p, onOpen }: { p: PersonView; onOpen: (p: PersonView) =
     <>
       <Avatar name={p.name} photoUrl={p.photoUrl} size={40} className={p.isStub ? 'opacity-60' : undefined} />
       <span className="min-w-0 flex-1 text-left">
-        <span className="block text-[15px] font-semibold text-[var(--fg)] [overflow-wrap:anywhere]">{p.name}{p.isSelf ? ' (you)' : ''}</span>
+        <span className="block text-[15px] font-semibold text-[var(--fg)] [overflow-wrap:anywhere]">{p.name}{p.isSelf ? ' (you)' : ''}{p.seatLabel && <span className="ml-[8px] rounded-[8px] bg-[var(--card2)] px-[8px] py-[2px] text-[12px] font-normal" data-testid="team-dash-seat-label">{p.seatLabel}</span>}</span>
         {p.line && <span className="block text-[13px] text-[var(--mut)]" data-testid="team-dash-line">{p.line}</span>}
       </span>
       {p.tappable && <span aria-hidden="true" className="text-[var(--mut)]">&rsaquo;</span>}
@@ -49,11 +55,11 @@ function PersonRowView({ p, onOpen }: { p: PersonView; onOpen: (p: PersonView) =
   );
   const common = { 'data-testid': 'team-dash-row', 'data-role': p.role, 'data-hidden': p.hidden ? 'true' : 'false', 'data-stub': p.isStub ? 'true' : 'false' };
   return p.tappable
-    ? <button type="button" {...common} aria-label={`${p.name}, ${role}${p.isStub ? ', not claimed yet' : ''}. Open`} onClick={() => onOpen(p)} className="flex min-h-[56px] w-full items-center gap-[12px] px-[16px] py-[8px]">{body}</button>
+    ? <button type="button" {...common} aria-label={`${p.name}, ${p.seatLabel ?? role}${p.isStub ? ', not claimed yet' : ''}. Open`} onClick={() => onOpen(p)} className="flex min-h-[56px] w-full items-center gap-[12px] px-[16px] py-[8px]">{body}</button>
     : <div {...common} className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]">{body}</div>;
 }
 
-function Group({ g, onOpen, actions, addTo }: { g: GroupView; onOpen: (p: PersonView) => void; actions: TeamDashActions; addTo: string }) {
+function Group({ g, onOpen, actions, addTo, helpTo }: { helpTo: string; g: GroupView; onOpen: (p: PersonView) => void; actions: TeamDashActions; addTo: string }) {
   return (
     <section data-testid={`team-dash-group-${g.role}`} aria-labelledby={`tdg-${g.role}`} className="flex flex-col gap-[4px]">
       <div className="flex items-baseline justify-between px-[4px]">
@@ -89,6 +95,10 @@ export interface TeamDashViewProps {
   /** The existing find-a-dancer route (it adds managers). */
   addTo: string;
   moreTo: string;
+  /** Message us (the help route), for reasons only the Bachata Calendar team can act on. */
+  helpTo: string;
+  /** The caller's own Public team switch, under the groups. */
+  below?: ReactNode;
   /** Mounted above the groups (the open "Wants to join" cards). */
   above?: ReactNode;
   /** Said after a change landed, or why it did not. */
@@ -96,7 +106,7 @@ export interface TeamDashViewProps {
   linkNotice?: string | null;
 }
 
-export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreTo, above, notice = null, linkNotice = null }: TeamDashViewProps) {
+export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreTo, helpTo, below, above, notice = null, linkNotice = null }: TeamDashViewProps) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [busy, setBusy] = useState(false);
   const opener = useRef<HTMLElement>(null);
@@ -118,6 +128,9 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
       </div>
     );
   }
+  if (m.load === 'nopage') {
+    return <EmptyState title={NO_PAGE.title} body={NO_PAGE.body} action={<Link to={helpTo} className="font-semibold underline" data-testid="team-message-us">{MESSAGE_US}</Link>} testId="team-no-organiser" />;
+  }
   if (m.load === 'error') {
     return (
       <div role="alert" className="flex flex-col gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--card)] p-[16px]" data-testid="team-dash-error">
@@ -127,11 +140,14 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
       </div>
     );
   }
+  // Interim managers cannot add (interim_cannot_add): their button shares the join link and never opens the Add sheet.
+  const addClick = () => { if (m.addVia === 'share') { void actions.onShareLink(); return; } remember(); setSheet({ kind: 'add' }); };
+  const linkNoticeP = linkNotice ? <p role="status" className="text-[13px] text-[var(--fg)]" data-testid="team-dash-link-notice-top">{linkNotice}</p> : null;
   const sm = person && sheet?.kind === 'person' ? sheetFor(person) : null;
   const rm = person && sheet?.kind === 'remove' ? sheetFor(person) : null;
   return (
     <div className="flex flex-col gap-3" data-testid="team-dash">
-      {m.viewOnlyNote && <div role="note" className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] p-[12px] text-[14px] text-[var(--fg)]" data-testid="team-dash-viewonly">{m.viewOnlyNote}</div>}
+      {m.viewOnlyNote && <div role="note" className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] p-[12px] text-[14px] text-[var(--fg)]" data-testid="team-dash-viewonly">{m.viewOnlyNote}{m.viewOnlyMessageUs && <> <Link to={helpTo} className="font-semibold underline" data-testid="team-dash-viewonly-message-us">{MESSAGE_US}</Link></>}</div>}
       {notice && <p role={notice.tone === 'error' ? 'alert' : 'status'} className={`text-[14px] ${notice.tone === 'error' ? 'text-[var(--danger)]' : 'text-[var(--fg)]'}`} data-testid="team-dash-notice">{notice.text}</p>}
       {m.readNote && <p className="text-[13px] text-[var(--mut)]" data-testid="team-dash-readnote">{m.readNote}</p>}
       {above}
@@ -141,8 +157,9 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
           <p className="text-[14px] text-[var(--mut)]">Add a teammate to share the work. They see the same pages you do, with the role they hold.</p>
         </Card>
       )}
-      {m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={() => { remember(); setSheet({ kind: 'add' }); }} />}
-      {m.groups.map((g) => <Group key={g.role} g={g} onOpen={(p) => { remember(); open(p); }} actions={actions} addTo={addTo} />)}
+      {m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={addClick} />}
+      {m.solo && m.addVia === 'share' && linkNoticeP}
+      {m.groups.map((g) => <Group key={g.role} g={g} helpTo={helpTo} onOpen={(p) => { remember(); open(p); }} actions={actions} addTo={addTo} />)}
       {m.listedOnly.length > 0 && (
         <section data-testid="team-dash-listed" className="flex flex-col gap-[4px]">
           <h2 className="px-[4px] text-[15px] font-bold text-[var(--fg)]">Listed on the public page</h2>
@@ -150,7 +167,9 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
           <Card>{m.listedOnly.map((p) => <PersonRowView key={p.key} p={p} onOpen={open} />)}</Card>
         </section>
       )}
-      {!m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={() => { remember(); setSheet({ kind: 'add' }); }} />}
+      {!m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={addClick} />}
+      {!m.solo && m.addVia === 'share' && linkNoticeP}
+      {below}
       <p className="text-[13px] text-[var(--mut)]" data-testid="team-dash-publicnote">{m.publicNote}</p>
 
       <SheetView open={!!sm} onOpenChange={(o) => { if (!o) close(); }} title={person?.name ?? 'Person'} returnFocusRef={opener} testId="team-dash-person-sheet">
@@ -169,24 +188,25 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
                 </button>
               ))}
             </div>
+            {sm.roles.some((r) => r.messageUs) && <p className="text-[13px] text-[var(--mut)]"><Link to={helpTo} className="font-semibold underline" data-testid="team-dash-roles-message-us">{MESSAGE_US}</Link></p>}
             {sm.lastOwnerNote && <p className="text-[13px] text-[var(--mut)]">{sm.lastOwnerNote}</p>}
             <h3 className="text-[15px] font-bold text-[var(--fg)]">Public page</h3>
             <p className="text-[14px] text-[var(--fg)]" data-testid="team-dash-public-text">{sm.publicText}</p>
             {sm.publicSwitch && (
               <>
-                <button type="button" role="switch" aria-checked={person.shared?.isPublic ?? false} disabled={busy || !sm.publicSwitch.press} aria-label={`Show ${person.name} on the public page`}
+                <button type="button" role="switch" aria-checked={person.shared?.isPublic ?? false} disabled={busy || !sm.publicSwitch.press} aria-describedby={sm.publicSwitch.reason ? 'team-dash-switch-why' : undefined} aria-label={`Show ${person.name} on the public page`}
                   data-testid="team-dash-switch" onClick={() => sm.publicSwitch?.press && void run(() => actions.onSetHidden(person, sm.publicSwitch!.press === 'hide'), 'stay')}
                   className="min-h-[44px] w-full rounded-[12px] border border-[var(--line-strong)] px-[16px] text-[15px] font-semibold text-[var(--fg)] disabled:opacity-60">
                   {person.shared?.isPublic ? 'Shown. Tap to hide' : 'Hidden. Tap to show'}
                 </button>
-                {sm.publicSwitch.reason && <p className="text-[13px] text-[var(--mut)]" data-testid="team-dash-switch-why">{sm.publicSwitch.reason}</p>}
+                {sm.publicSwitch.reason && <Why id="team-dash-switch-why">{sm.publicSwitch.reason}</Why>}
               </>
             )}
             {sm.leaveVia === 'more'
               ? <Link to={moreTo} data-testid="team-dash-remove" className={btnLine}>{sm.remove.label}</Link>
               : <button type="button" data-testid="team-dash-remove" disabled={sm.remove.disabled} aria-describedby={sm.remove.reason ? 'team-dash-remove-why' : undefined}
                   onClick={() => setSheet({ kind: 'remove', key: person.key })} className={`${btnLine} text-[var(--danger)]`}>{sm.remove.label}</button>}
-            {sm.remove.reason && <Why id="team-dash-remove-why">{sm.remove.reason}</Why>}
+            {sm.remove.reason && <Why id="team-dash-remove-why" helpTo={sm.remove.messageUs ? helpTo : undefined}>{sm.remove.reason}</Why>}
           </div>
         )}
       </SheetView>

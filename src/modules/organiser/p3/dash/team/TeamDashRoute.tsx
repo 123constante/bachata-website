@@ -10,6 +10,8 @@ import { inviteShare } from '@/modules/organiser/edit-in-place/teamPickerModel';
 import { hideErrorMessage, organiserPublicTeamKey, setTeamMemberHidden } from '../../../team/publicTeamApi';
 import { teamErrorMessage } from '@/modules/organiser/shared/selfServeErrors';
 import { useTeamContext } from '../../../team/useTeamContext';
+import { PublicToggle } from '../../../team/PublicToggle';
+import { PageNameCaption, RequestsError, requestsErrorShown } from '../../../team/p3TeamBits';
 import { JoinRequestCard } from '../../../flows/fix/JoinRequest';
 import { useOrgSurface } from '../../../shell/surface';
 import { Card } from '../../../ui';
@@ -33,7 +35,7 @@ export function TeamDashRoute() {
     queryFn: () => fetchIncomingAccessRequests(organiser!.id),
     enabled: !!organiser && (viewerRole === 'owner' || viewerRole === 'manager'),
   });
-  const load = ctx.failed ? 'error' : ctx.loading || !organiser ? 'loading' : 'ready';
+  const load = ctx.failed ? 'error' : ctx.loading ? 'loading' : !organiser ? 'nopage' : 'ready';
   const model = useMemo(
     () => buildTeamDash({ load, viewerRole, members, listed, interim: isInterim(seat), openGroups: open }),
     [load, viewerRole, members, listed, seat, open],
@@ -81,17 +83,33 @@ export function TeamDashRoute() {
     },
   };
   const declineGate = canDecline(viewerRole, members, full);
-  const above = organiser && (requests.data ?? []).length > 0 && (viewerRole === 'owner' || viewerRole === 'manager') ? (
+  const editor = viewerRole === 'owner' || viewerRole === 'manager';
+  const requestsCard = organiser && (requests.data ?? []).length > 0 && editor ? (
     <Card label="Wants to join" testId="requests-card">
       {(requests.data ?? []).map((r) => (
         <JoinRequestCard key={r.requestId} organiserId={organiser.id} request={r} blockedReason={full ? TEAM_FULL_REASON : null} declineGate={declineGate} onAnswered={(m) => setNotice({ tone: 'ok', text: m })} />
       ))}
     </Card>
   ) : null;
+  // A failed requests read says so (a contributor's not_authorised stays silent).
+  const above = (
+    <>
+      {organiser && editor && requestsErrorShown(requests) && <RequestsError onRetry={() => void requests.refetch()} />}
+      {requestsCard}
+    </>
+  );
+  const below = organiser && me ? (
+    <Card label="Public team" testId="team-public-card">
+      <PublicToggle organiserId={organiser.id} profileId={me.profileId ?? null} onChanged={(text) => setNotice({ tone: 'ok', text })} />
+    </Card>
+  ) : null;
   return (
-    <TeamDashView
-      model={model} people={model.people} sheetFor={(p) => buildPersonSheet(p, viewerRole, members, caller)}
-      actions={actions} addTo={paths.teamAdd} moreTo={paths.more} above={above} notice={notice} linkNotice={linkNotice}
-    />
+    <>
+      <PageNameCaption name={organiser?.name} show={ctx.organisers.length >= 2} />
+      <TeamDashView
+        model={model} people={model.people} sheetFor={(p) => buildPersonSheet(p, viewerRole, members, caller)}
+        actions={actions} addTo={paths.teamAdd} moreTo={paths.more} helpTo={paths.help} above={above} below={below} notice={notice} linkNotice={linkNotice}
+      />
+    </>
   );
 }

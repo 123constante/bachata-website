@@ -22,7 +22,7 @@ const eli = mem('Eli', 'contributor');
 const fay = mem('Fay', 'contributor');
 const many = Array.from({ length: 7 }, (_, i) => mem(`C${i}`, 'contributor'));
 
-interface Shape { name: string; input: TeamDashInput; groups: Record<TeamRole, number> | null; solo?: boolean; viewOnly?: boolean; addDisabled?: boolean }
+interface Shape { name: string; input: TeamDashInput; groups: Record<TeamRole, number> | null; solo?: boolean; viewOnly?: boolean; addDisabled?: boolean; addVia?: 'sheet' | 'share' | null }
 const rd = (viewerRole: TeamRole, members: TeamMember[], extra: Partial<SharedTeamRow>[] = [], load: TeamLoad = 'ready'): TeamDashInput => ({
   load, viewerRole, members, listed: members.map((m, i) => sh(m, extra[i] ?? {})),
 });
@@ -34,6 +34,11 @@ const SHAPES: Shape[] = [
   { name: 'hidden contributor', input: rd('owner', [me, fay], [{}, { isPublic: false, publicReason: 'hidden' }]), groups: { owner: 1, manager: 0, contributor: 1 } },
   { name: 'contributor viewer', input: rd('contributor', [mem('Sam', 'owner'), ben, { ...cara, isSelf: true }]), groups: { owner: 1, manager: 1, contributor: 1 }, viewOnly: true },
   { name: 'full team', input: rd('owner', [me, ...Array.from({ length: 19 }, (_, i) => mem(`F${i}`, 'manager'))]), groups: { owner: 1, manager: 19, contributor: 0 }, addDisabled: true },
+  { name: 'manager viewer', input: rd('manager', [mem('Sam', 'owner'), { ...ben, isSelf: true }, cara]), groups: { owner: 1, manager: 1, contributor: 1 }, addVia: 'sheet' },
+  { name: 'interim', input: { ...rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager')]), interim: true }, groups: { owner: 0, manager: 2, contributor: 0 }, addVia: 'share' },
+  { name: 'no owner', input: rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager'), cara]), groups: { owner: 0, manager: 2, contributor: 1 } },
+  { name: 'no owner, contributor viewer', input: rd('contributor', [mem('Dan', 'manager'), { ...cara, isSelf: true }]), groups: { owner: 0, manager: 1, contributor: 1 }, viewOnly: true },
+  { name: 'no page', input: { load: 'nopage', viewerRole: 'owner', members: [], listed: null }, groups: null },
   { name: 'loading', input: { load: 'loading', viewerRole: 'owner', members: [], listed: null }, groups: null },
   { name: 'error', input: { load: 'error', viewerRole: 'owner', members: [], listed: null }, groups: null },
 ];
@@ -42,10 +47,92 @@ const actions = { onRetry: vi.fn(), onOpenMore: vi.fn(), onChangeRole: vi.fn().m
 const mount = (input: TeamDashInput) => {
   const model = buildTeamDash(input);
   const me0 = input.members.find((m) => m.isSelf);
-  render(<MemoryRouter><TeamDashView model={model} people={model.people} sheetFor={(p) => buildPersonSheet(p, input.viewerRole, input.members, { seat: input.viewerRole, personId: me0?.personId ?? null })} actions={actions} addTo="/add" moreTo="/more" /></MemoryRouter>);
+  render(<MemoryRouter><TeamDashView model={model} people={model.people} sheetFor={(p) => buildPersonSheet(p, input.viewerRole, input.members, { seat: input.viewerRole, personId: me0?.personId ?? null })} actions={actions} addTo="/add" moreTo="/more" helpTo="/help" /></MemoryRouter>);
   return model;
 };
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+/** Every disabled control (buttons, radios, switch) points at a reason that exists on screen. */
+const expectReasons = (label: string) => {
+  for (const b of document.body.querySelectorAll('button[disabled]')) {
+    const d = b.getAttribute('aria-describedby');
+    expect(d && document.getElementById(d), `${label}: disabled "${b.textContent}" has a reason`).toBeTruthy();
+  }
+};
+
+describe('Team dash: every disabled button has a reason, with each person sheet open', () => {
+  for (const s of SHAPES.filter((x) => x.input.load === 'ready' && !x.viewOnly)) {
+    it(s.name, async () => {
+      const model = mount(s.input);
+      expectReasons(`${s.name} page`);
+      for (const p of model.people.filter((x) => x.tappable).slice(0, 6)) {
+        const btn = screen.queryByRole('button', { name: new RegExp(`^${p.name}`) });
+        if (!btn) continue; // folded behind Show all
+        fireEvent.click(btn);
+        await screen.findByTestId('team-dash-remove');
+        expectReasons(`${s.name} / ${p.name}`);
+        fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+        cleanup();
+        mount(s.input);
+      }
+    });
+  }
+  it('the disabled public switch points at its reason', async () => {
+    const input = rd('manager', [mem('Sam', 'owner'), { ...ben, isSelf: true }, cara], [{}, {}, { isPublic: false, publicReason: 'hidden' }]);
+    mount(input);
+    fireEvent.click(screen.getByRole('button', { name: /Cara Sample/ }));
+    const sw = await screen.findByTestId('team-dash-switch');
+    const d = sw.getAttribute('aria-describedby');
+    if ((sw as HTMLButtonElement).disabled) expect(d && document.getElementById(d)).toBeTruthy();
+  });
+});
+
+describe('Team dash: interim, no owner, no page', () => {
+  it('interim: Add shares the link directly, never the Add sheet or Find a dancer; own row says Interim manager', () => {
+    const s = SHAPES.find((x) => x.name === 'interim')!;
+    mount(s.input);
+    const add = screen.getByTestId('team-dash-add');
+    expect(add.textContent).toBe('Share a join link');
+    fireEvent.click(add);
+    expect(actions.onShareLink).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('team-dash-add-sheet')).toBeNull();
+    expect(screen.queryByTestId('team-dash-tab-find')).toBeNull();
+    expect(screen.queryByTestId('team-dash-add-manager')).toBeNull();
+    expect(screen.getByTestId('team-dash-seat-label').textContent).toBe('Interim manager');
+  });
+  it('interim with no managers left offers no Add a manager link', () => {
+    const m = buildTeamDash({ ...rd('manager', [{ ...ben, isSelf: true }, cara]), interim: true });
+    expect(m.groups.find((g) => g.role === 'manager')!.add).toBeNull();
+  });
+  it('no owner: reasons say the page has no owner and offer Message us, never "Only the owner"', async () => {
+    const s = SHAPES.find((x) => x.name === 'no owner')!;
+    const m = buildTeamDash(s.input);
+    const dan = m.people.find((p) => p.name.startsWith('Dan'))!;
+    const sheet = buildPersonSheet(dan, 'manager', s.input.members, { seat: 'manager', personId: 'p-Ben' });
+    expect(sheet.remove.reason).toMatch(/no owner yet/);
+    expect(sheet.remove.reason).not.toMatch(/Only the owner/);
+    expect(sheet.messageUs).toBe(true);
+    for (const r of sheet.roles.filter((x) => !x.selected)) expect(r.reason).toMatch(/no owner yet/);
+    mount(s.input);
+    fireEvent.click(screen.getByRole('button', { name: /Dan Sample/ }));
+    await screen.findByTestId('team-dash-remove');
+    expect(screen.getByTestId('team-dash-remove-why-message-us').getAttribute('href')).toBe('/help');
+  });
+  it('no owner, contributor viewer: view-only note names no owner and offers Message us', () => {
+    const s = SHAPES.find((x) => x.name === 'no owner, contributor viewer')!;
+    mount(s.input);
+    expect(screen.getByTestId('team-dash-viewonly').textContent).not.toMatch(/ask an owner/);
+    expect(screen.getByTestId('team-dash-viewonly').textContent).toMatch(/no owner yet/);
+    expect(screen.getByTestId('team-dash-viewonly-message-us')).toBeTruthy();
+  });
+  it('with an owner, the reason still says only the owner and the owner-only "another owner" line stays for owners', () => {
+    const two = [me, mem('Olu', 'owner'), ben];
+    const m = buildTeamDash(rd('manager', two));
+    const asMgr = buildPersonSheet(m.people.find((p) => p.name.startsWith('Olu'))!, 'manager', two, { seat: 'manager', personId: 'p-Ben' });
+    expect(asMgr.remove.reason).toMatch(/Only the owner/);
+    expect(asMgr.remove.reason).not.toMatch(/Owners cannot remove/);
+  });
+});
 
 describe('Team dash: shape x screen', () => {
   for (const s of SHAPES) {
@@ -75,6 +162,13 @@ describe('Team dash: shape x screen', () => {
           expect(screen.queryByTestId('team-dash-publicnote')!.textContent).toMatch(/Contributors show unless an owner hides them/);
         } else if (s.input.load === 'ready') {
           expect(screen.getByTestId('team-dash-add')).toBeTruthy();
+        }
+        if (s.addVia) expect(buildTeamDash(s.input).addVia).toBe(s.addVia);
+        if (s.input.load === 'nopage') {
+          expect(screen.getByTestId('team-no-organiser').textContent).toMatch(/run a page/);
+          expect(screen.getByTestId('team-message-us').getAttribute('href')).toBe('/help');
+          expect(screen.queryByTestId('team-dash-loading')).toBeNull();
+          expect(root.querySelectorAll('button[disabled]')).toHaveLength(0);
         }
         if (s.input.load === 'loading') expect(screen.getByTestId('team-dash-loading')).toBeTruthy();
         if (s.input.load === 'error') { fireEvent.click(screen.getByTestId('team-dash-retry')); expect(actions.onRetry).toHaveBeenCalled(); }
