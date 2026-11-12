@@ -150,3 +150,8 @@ confirm and explain anyway; (3) a separate Invites tab: splits one small job acr
 - **Not verified:** not on a real phone; people and numbers are examples shaped by the survey, not live
   reads; no app code exists, so no browser walk of a running route; role "can" lines for Manager and
   Contributor are draft until the ACL decision.
+- **Ship status:** PR #1579 (docs only, 45 files, +1.7k lines, so no automerge label; the owner picks an
+  option anyway). tsc run on e61f8bd: 0 errors in branch files (the branch has no TS). These local CI steps
+  all passed: integrity, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`,
+  `check:mojibake`, and both PR-body label checks. `scripts/prepush-check.mjs` does not exist here, so the
+  PR body labels were checked by hand.
