@@ -9,3 +9,6 @@ Limits (honest): organiser_home_v1 sends only the next 3 scheduled dates per ser
 Needs admin work (not built): bulk select + cancel/duplicate/put live; duplicate; recurring-night creation; "this and every one after" / whole-series cancel; per-night guest list/raffle switch; true delete of a draft (today it is Remove: leaves events, team can restore).
 
 Next: owner flips the flag; browser walk at 390x844 with a signed-in organiser (not possible from this sandbox).
+
+
+Fix round 1 (brief profile-dash-organiser-events-build-fix1): items 1-8 done in code and tests (see the Handover in docs/design/profile-dash/organiser-events.md). Item 9 NOT done: no 390x844 walk or screenshots (needs the side laptop). pre-ship failed locally only on sandbox causes (DB contract tests, tooling tests, typecheck ratchet with no errors in touched files).
