@@ -1,0 +1,4 @@
+# Independent re-review 3: website PR #1541 at head c70db16 (money class)
+Rounds 1-2 FAILED; fix 2 pushed (parseSummary fails closed when money_visible missing; summary error no longer blocks orders read). Read-only: push nothing but the done signal.
+Verify: (1) ticketsApi.ts parseSummary: countsOnly = opts.money === false || moneyVisible !== true; missing flag = zeroed pence; matrix row "old server, field missing, owner" expects NO pence. (2) Prior findings still hold: all gates `moneyVisible === true`; orders read waits for summary true; Refund/RefundSheet/note gate on showMoney; table rows for missing, loading, manager/contributor x flag. (3) New summary-error fallback cannot leak pence or fail open. Check git diff cbf89da..c70db16.
+Output: ONE PR comment starting "REVIEW PASS" or "REVIEW FAIL" at head c70db16, <=10 lines. No new PR.
