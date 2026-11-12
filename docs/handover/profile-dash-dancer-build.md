@@ -15,7 +15,12 @@ Branch `claude/profile-dash-dancer-build`. Website only, no DB change. Design: `
 - `__tests__/emberRestyle.test.tsx`: Account vs Switch label, Add a profile sheet.
 - `tests/e2e/dancer-app/profile-dash-walk.spec.ts` (in `test:e2e`): 8 walks at 390x844; screenshots in `docs/handover/profile-dash/walk/` (run with `WALK_SHOTS=1`).
 
+## Continuation 3
+- Calm first screen: Home now renders greeting, optional notices, rate nudge (only when a night needs rating), the one main card and the Preview row. HomeHero, Going tile, NumbersTiles, PartnerTile and LineupPeople no longer render (files left in place, no importer on Home). Nights attended lives in the main card.
+- Switch sheet grouped Dancer then Organiser, a "Showing" tag with the tick on the current row, "+ Add a profile" below. There is no DJ side in `profileSides`; DJ/teacher areas still come from the "Your areas" row, so no DJ group heading is drawn.
+- Isolation check fixed: docs and walk screenshots moved under `docs/handover/` (an allowed doc prefix); screenshots now in `docs/handover/profile-dash/walk/`.
+- Tests that pinned the removed blocks were rewritten as absence checks over the same shapes.
+
 ## Not done / owner calls
-- Home still shows the hero, Going tile, numbers tiles, partner tile and line-up below the main card (first worker kept them); the brief's "calm first screen: 1 main card + 3 items" is NOT met. Needs a pass that removes them with their tests.
-- The strip is a button with avatar + label, not a separate role strip with a Dancer/DJ/Organiser grouped list; groups are not drawn.
 - Real-device and real Google Fonts not checked.
+- Walk shapes: stub, unfinished, complete (12 / none), unclaimed match (single + ambiguous), one profile (Account), two and three sides.
