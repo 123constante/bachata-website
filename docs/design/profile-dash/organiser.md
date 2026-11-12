@@ -124,3 +124,4 @@ the 3 rows.
   before any build slice, then an implementation brief.
 - **Not verified:** the designs are not on a real phone; the numbers are examples shaped by the survey,
   not live reads; no app code exists, so no browser walk of a running route.
+- **Ship status:** PR #1570. tsc run on e5313e6: 0 errors in branch files (the branch has no TS). These local CI steps that apply all passed: docs-only = true, integrity, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`, `check:mojibake`, and both PR-body label checks. No automerge label: the diff is over 400 lines, and the owner picks an option anyway.
