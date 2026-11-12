@@ -174,7 +174,8 @@ nights** (alternative 1).
   read this round: the fixes change layout and copy, not the data shapes). The 30-night grouping threshold is a design guess
   from that survey (8 organisers have 1 to 5 dates, 7 have 100+), not tested with organisers. Whether a failed bulk cancel can be
   reported per night, whether "this and after" and "whole series" cancel exist server-side, and what the cancel message really
-  sends are unconfirmed (careful lane 1-3). No app code changed, so there was no browser walk of a running route.
+  sends are unconfirmed (careful lane 1-3). Also unconfirmed: that a cancelled night "stays ... on your public page history" (option A, past-night banner) and that "Dancers see them on the calendar marked Cancelled" (all-cancelled line) match what the public site really shows. No app code changed, so there was no browser walk of a running route.
 - **Ship status (fix round 1):** PR #1582. tsc run on 971d4b9: 0 errors in branch files (the branch has no TS). Local CI steps that apply all
   passed: docs-only = true, `check:integrity`, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`,
   `check:mojibake`, and both PR-body label checks (no Phone QA section: docs-only). No automerge label: the diff is over 400 lines.
+- **Fix round 2 (review fixes):** bulk-cancel skipped-draft row now says "Open it and choose Delete draft." (the bulk bar has no Delete); disabled sheet rows (`.row[disabled]`) have muted title, no chevron, reason text kept (min contrast 5.15); group-switch card no longer flex-shrunk (padding 12/16, was clipped in `huge`); series going-date kept together on its own line (`415 going Fri 13`, not split). Shots re-taken, 23/23 states pass (shot script wait raised 150 to 400 ms: the 0.18s sheet animation made tap-size checks flaky). Not verified: still no real phone.

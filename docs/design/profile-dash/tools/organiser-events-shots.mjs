@@ -29,7 +29,7 @@ for (const opt of OPTIONS) {
     const url = pathToFileURL(resolve(root, `${opt}.html`)).href + '#' + st + '&shot';
     await page.goto('about:blank');
     await page.goto(url);
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(400);
     const r = await page.evaluate(() => {
       const parse = (c) => {
         const m = c.match(/rgba?\(([^)]+)\)/);

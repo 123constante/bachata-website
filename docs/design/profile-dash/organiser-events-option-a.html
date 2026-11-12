@@ -50,6 +50,8 @@ h1{font:700 20px var(--f-display);margin:0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px}
 .row{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;min-height:56px}
 .row+.row{border-top:1px solid var(--line)}
+.row[disabled] .t b{color:var(--muted)}
+.row[disabled]>span[aria-hidden]{display:none}
 .t{display:flex;flex-direction:column;flex:1;min-width:0}
 .t b{font-size:15px;overflow-wrap:anywhere}.t span{font-size:13px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}
 .tag{font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--muted);white-space:nowrap;flex:none}
@@ -120,7 +122,7 @@ body.full .scroll{overflow:visible}
 .ser .dt b{font-size:17px}
 .ser .chev{font-size:13px;font-weight:600;color:var(--muted);flex:none}
 .serin{border-top:1px solid var(--line);background:var(--bg);padding-left:12px}
-.toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:6px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.toggle{flex:none;display:flex;align-items:center;gap:10px;width:100%;min-height:56px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 .toggle .switch[aria-hidden]{pointer-events:none}
 .toggle[aria-checked=true] .switch{background:var(--fg);border-color:var(--fg)}
 .toggle[aria-checked=true] .switch::after{left:23px;border-color:var(--fg)}
@@ -359,7 +361,7 @@ function delSheet(){
   <button class="btn danger" data-act="dodel" data-k="${x.id}">Delete draft</button><button class="btn alt" data-act="close">Keep the draft</button>`;
 }
 const REASONS=['Venue problem','Not enough people','Illness','Weather','Other'];
-const SKIP_WHY={draft:'A draft is not on the calendar. Delete it instead if you do not need it.',cx:'Already cancelled.',past:'Already happened.'};
+const SKIP_WHY={draft:'A draft is not on the calendar. Open it and choose Delete draft.',cx:'Already cancelled.',past:'Already happened.'};
 // What a cancel would touch. Bulk = exactly the selected live nights. One repeating night = the scope picked.
 function cancelTargets(){
   if(S.of==='bulk'){const ns=S.sel.map(byId).filter(Boolean);return {go:ns.filter(x=>x.st==='live'),skip:ns.filter(x=>x.st!=='live')}}
@@ -505,7 +507,7 @@ function needsLine(ns){
 // One row per repeating event per month: "Friday Social, every Friday, Nov: 3 of 52". Opens to show those dates.
 function serRow(it){
   const x0=it.ns[0],se=SERIES[it.rec],cx=it.ns.filter(y=>y.st==='cx').length,open=S.open.includes(it.k),nx=it.ns.find(y=>y.st==='live');
-  return `<button class="ev ser" data-act="ser" data-k="${it.k}" aria-expanded="${open}" aria-label="${se.n}, ${plural(it.ns.length,'date')} in ${MONL[dOf(x0.d).getUTCMonth()]}"><span class="dt" aria-hidden="true"><small>${dw(x0.d)}</small><b>${dd(x0.d)}</b></span><span class="t"><b>${se.n}</b><span>${se.rule} &middot; ${dm(x0.d)}: ${it.ns.length} of ${x0.of}${cx?` &middot; ${cx} cancelled`:''}${nx&&nx.go?` &middot; ${fmt(nx.go)} going ${dw(nx.d)} ${dd(nx.d)}`:''}</span></span><span class="chev">${open?'Hide &#9652;':'Dates &#9662;'}</span></button>${open?`<div class="serin">${it.ns.map(evRow).join('')}</div>`:''}`;
+  return `<button class="ev ser" data-act="ser" data-k="${it.k}" aria-expanded="${open}" aria-label="${se.n}, ${plural(it.ns.length,'date')} in ${MONL[dOf(x0.d).getUTCMonth()]}"><span class="dt" aria-hidden="true"><small>${dw(x0.d)}</small><b>${dd(x0.d)}</b></span><span class="t"><b>${se.n}</b><span>${se.rule} &middot; ${dm(x0.d)}: ${it.ns.length} of ${x0.of}${cx?` &middot; ${cx} cancelled`:''}${nx&&nx.go?` &middot; <span style="white-space:nowrap">${fmt(nx.go)} going ${dw(nx.d)} ${dd(nx.d)}</span>`:''}</span></span><span class="chev">${open?'Hide &#9652;':'Dates &#9662;'}</span></button>${open?`<div class="serin">${it.ns.map(evRow).join('')}</div>`:''}`;
 }
 function eventsBody(ns){
   const inSel=!!S.sel,v=viewOnly();
