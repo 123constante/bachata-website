@@ -32,3 +32,17 @@ Not for this branch: `puller ratchet: event 2, allowance 3` UNDER still prints a
 
 Verified: vitest src/modules/dancer-app + tests/client (all green); playwright profile-dash-home + home-nights (13 pass; one flaky first run of `home: new`/`unfinished` passed on rerun); `npm run build` + `check:bundle-budget` (only the event UNDER above) + `check:first-load-requests`; `check:mojibake`; eslint on touched files (0 errors); tsc 0 errors.
 Not verified: 3-role switch sheet and going-switch-on Home walk (no harness fixture for 3 roles); ember-walk and review-pack e2e still use retired Home test ids (not in the gate); pre-ship not run; real-prod data shape survey not repeated this round (no data-shape change).
+
+## Continuation (bundle-budget fix, brief docs/briefs/dancer-bundle-budget-fix.md)
+
+Diagnosis (measured, bare `npm run build` + `npm run check:bundle-budget`, three builds):
+- vendor-supabase is 57.3 KB gz on **main, the branch head and the branch with the pin removed** alike. The "+14.3 KB vs baseline 43 KB" line is informational: main prints it and still exits 0. The pin did not pull the supabase client anywhere (`rpcLoose` reaches it only through the lazy `getSupabase`).
+- What actually made `check:bundle-budget` exit 1 was `PULLER RATCHET NOT TIGHTENED: event 2, allowance 3`. Main measures **3**, so this is branch-caused, not on main as the round above said. The pin reshapes Rollup's graph: on main `profileViewEmit` is its own entry importing `vendor-supabase` directly; on the branch its chunk imports only the client.ts chunk + lib-event-rules. Event chunk count stays 39.
+- Removing the pin is worse: dancer-app goes back to 48 chunks (allowance 46, main 47).
+
+Done
+1. perf-budgets.json: event `pullerRatchet` 3 -> 2 (the win the guard asks to record), with a dated `//` note. Pin kept.
+2. Cost noted: lib-event-rules +0.7 KB gz on every route; all routes stay under their KB budgets.
+
+Verified: `npm run build`; `check:bundle-budget` exit 0 (all ok); `check:first-load-requests` 0; `check:chunk-cycles` 0; all three self-tests 0; `npm run lint` 34/34 links green (whole-tree eslint informational only); `npm run typecheck` 130 errors repo-wide, 0 in files this branch changes.
+Not verified: Lighthouse / doc-weight jobs (need a preview deploy); contract-check (red on main from prod data drift, left alone as the brief says); no UI change this round, so no new phone walk.
