@@ -376,6 +376,12 @@ export const LIB_EVENT_RULES_MODULES = [
   // +1 first-load request on auth (26 vs 25) and dancer-app (48 vs 47). Pinned here it
   // rides a chunk those routes already load.
   "/src/modules/organiser/shell/paths.ts",
+  // Dancer Home claim card (profile-dash review fix 1): claimMyDancerProfile + myPersona are
+  // static imports of the dancer-app claim card. Unpinned they were their own first-load
+  // chunks on /app/* (chunk ratchet dancer-app 48 vs allowance 47). Pinned here they ride
+  // a chunk the route already loads.
+  "/src/lib/claimMyDancerProfile.ts",
+  "/src/lib/myPersona.ts",
 ];
 
 // The SECOND first-party group (2026-10-16, dancer journey fixes): the ONE avatar

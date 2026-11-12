@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Organiser Home B</title>
+<!-- Organiser dashboard design option (admin #1544). Based on docs/design/profile-dash/prototype.html.md:
+     same tokens, fonts, role strip and top-right Switch sheet. Light theme. Self-contained; open #<shape> (new, upcoming,
+     selling, huge, zero, cancelled, loading, error); add &shot for a bare 390x844 frame, &sheet=switch or &sheet=share. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f3f1ee; --fg:#1d1f24; --muted:#5d6068; --card:#ffffff; --line:#dedad4; --ink-soft:#ebe8e3; --bar:#1f5c7a;
+  --danger:#b3261e; --on-danger:#ffffff; --ok:#1b6b3a;
+  --c-org:#1f5c7a; --c-teacher:#8a5a00; --c-dj:#5b3fa0; --c-dancer:#b02a5b;
+  --f-display:'Bricolage Grotesque','Segoe UI',sans-serif; --f-body:'DM Sans','Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 var(--f-body);padding:16px}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+button[disabled]{cursor:not-allowed}
+.wrap{max-width:430px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+h1{font:700 20px var(--f-display);margin:0}
+.ctl{display:flex;flex-direction:column;gap:8px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--ink-soft);padding:3px;border-radius:10px}
+.seg button{flex:1 1 30%;text-align:center;padding:9px 4px;border-radius:8px;font-size:13px;font-weight:600;min-height:44px}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.frame{width:min(390px,100%);height:844px;flex:none;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:12px}
+.cap{font-size:13px;color:var(--muted);line-height:1.5;margin:0}
+.cap b{color:var(--fg)}
+.r-org{--rc:var(--c-org)}.r-teacher{--rc:var(--c-teacher)}.r-dj{--rc:var(--c-dj)}.r-dancer{--rc:var(--c-dancer)}
+.badge{width:var(--s,36px);height:var(--s,36px);border-radius:10px;background:var(--rc);color:#fff;display:inline-grid;place-items:center;font:700 13px var(--f-display);flex:none}
+.idbar{display:flex;align-items:center;gap:8px;width:100%;background:var(--rc);color:#fff;padding:12px 16px;min-height:64px;flex:none}
+.idbar .badge{background:rgba(0,0,0,.22)}
+.idmain{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:44px;color:#fff}
+.idtxt{display:flex;flex-direction:column;min-width:0;flex:1}
+.idtxt small{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idtxt b{font:700 17px/1.25 var(--f-display);overflow-wrap:anywhere}
+.sw{font-size:13px;font-weight:600;color:#fff;background:rgba(0,0,0,.2);padding:0 12px;min-height:44px;min-width:44px;border-radius:999px;white-space:nowrap;flex:none}
+.tabs{display:flex;border-top:1px solid var(--line);background:var(--card);flex:none}
+.tabs button{flex:1;text-align:center;padding:12px 2px 14px;font-size:13px;font-weight:600;color:var(--muted);border-top:3px solid transparent;margin-top:-1px;min-height:48px}
+.tabs button[aria-current=true]{color:var(--fg);border-top-color:var(--fg)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;min-height:56px}
+.row+.row{border-top:1px solid var(--line)}
+.t{display:flex;flex-direction:column;flex:1;min-width:0}
+.t b{font-size:15px;overflow-wrap:anywhere}.t span{font-size:13px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}
+.tag{font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--muted);white-space:nowrap;flex:none}
+.tag.cx{color:var(--danger);border-color:var(--danger)}
+h2{font:700 22px var(--f-display);margin:0;overflow-wrap:anywhere}
+h3{font:600 12px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:8px 0 0}
+.btn{display:block;background:var(--fg);color:var(--bg);font-weight:600;border-radius:12px;padding:14px 16px;text-align:center;min-height:48px;width:100%}
+.btn.alt{background:var(--card);color:var(--fg);border:1px solid var(--line)}
+.act{background:var(--fg);color:var(--bg);font-weight:600;font-size:13px;border-radius:999px;padding:0 14px;min-height:44px;white-space:nowrap;flex:none}
+.act.alt{background:var(--card);color:var(--fg);border:1px solid var(--line)}
+.btn[disabled],.act[disabled],.qa button[disabled]{background:var(--ink-soft);color:var(--muted);border:1px solid var(--line)}
+.why{font-size:13px;color:var(--muted);margin:0}
+.banner{border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45;background:var(--ink-soft);border:1px solid var(--line)}
+.banner.err{background:#fbeceb;border-color:#e7b9b5}
+.qa{display:flex;gap:8px}
+.qa button{flex:1;min-height:44px;border:1px solid var(--line);background:var(--card);border-radius:12px;font-weight:600;font-size:13px;text-align:center;padding:0 6px}
+.pbar{height:8px;background:var(--ink-soft);border-radius:4px;overflow:hidden;margin-top:6px}
+.pbar i{display:block;height:100%;background:var(--bar);border-radius:4px}
+.nums{display:flex;gap:20px;flex-wrap:wrap}
+.num{display:flex;flex-direction:column}
+.num b{font:700 28px/1.05 var(--f-display);font-variant-numeric:tabular-nums}
+.num span{font-size:13px;color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:13px;background:var(--ink-soft);border-radius:999px;padding:4px 10px;color:var(--fg)}
+.pill b{font-variant-numeric:tabular-nums}
+.suggest{display:flex;flex-direction:column;gap:8px;background:var(--ink-soft);border-radius:12px;padding:12px}
+.suggest p{margin:0;font-size:14px}
+.rate{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.rate .cell{padding:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.rate .cell+.cell{border-left:1px solid var(--line)}
+.rate .cell b{font:700 22px var(--f-display);overflow-wrap:anywhere}
+.rate .cell span{font-size:13px;color:var(--muted)}
+.rate .foot{grid-column:1/-1;border-top:1px solid var(--line);padding:12px 14px;font-size:13px;color:var(--muted)}
+.rate .foot b{color:var(--fg)}
+.skel{background:var(--ink-soft);border-radius:8px;height:14px}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:5}
+.sheet{background:var(--bg);width:100%;max-height:86%;overflow-y:auto;border-radius:20px 20px 0 0;padding:16px;display:flex;flex-direction:column;gap:10px}
+.sheet .x{align-self:flex-end;font-weight:600;font-size:14px;padding:8px 4px;min-height:44px;min-width:44px;text-align:center}
+.capbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
+.toast{position:absolute;left:16px;right:16px;bottom:76px;background:var(--fg);color:var(--bg);padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;text-align:center;z-index:9}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+body.shot{padding:0}
+body.shot .wrap{max-width:none;gap:0}
+body.shot .ctl,body.shot h1,body.shot .cap.foot{display:none}
+body.shot .frame{width:390px;height:844px;border:0;border-radius:0}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+body.full .frame{height:auto}
+body.full .scroll{overflow:visible}
+.rate .cell b.tx{font:700 16px/1.3 var(--f-body)}
+.why.hd{font-size:14px;color:var(--muted)}
+.tl{display:flex;flex-direction:column;gap:10px;position:relative}
+.tl::before{content:'';position:absolute;left:21px;top:12px;bottom:12px;width:2px;background:var(--line)}
+.tli{display:flex;gap:10px;align-items:flex-start;position:relative}
+.tli>.card{flex:1;min-width:0}
+.rail{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;padding:6px 0;background:var(--bg);border-radius:10px}
+.rail small{font-size:12px;color:var(--muted);font-weight:600;line-height:1.2}
+.rail b{font:700 20px/1.1 var(--f-display)}
+.rail.cx b{text-decoration:line-through;color:var(--danger)}
+.nm{padding:14px;display:flex;flex-direction:column;gap:12px;border:2px solid var(--fg)}
+.nm.slot{border-style:dashed}
+.nhead{display:flex;gap:10px;align-items:flex-start}
+.nc{display:flex;align-items:center;gap:10px;padding:12px 14px;min-height:56px;width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Option B: night-first timeline</h1>
+  <div class="ctl">
+    <span class="lbl">Shape</span>
+    <div class="seg" id="shseg"></div>
+    <span class="lbl">Seat (whole team sees the same page)</span>
+    <div class="seg" id="seseg"></div>
+  </div>
+  <div class="frame" id="frame"></div>
+  <p class="cap foot"><b>Option B, night-first.</b> Home IS your nights, on a date rail. The next night is the main card with its numbers; the next two are one-line items (tap one to open it). Profile and share sit right under the line. Switch the shape above; the seat buttons only change the strip label, because the whole team sees the same page. Every number and name is an example.</p>
+</div>
+<script>
+// Every number, name and link here is an example. Shapes mirror the prod survey in organiser.md.
+const SHAPES={
+ new:{lab:'O1 New',page:'Ritmo Bristol',city:'Bristol',cityN:3,link:'bc.link/ritmo-bristol',team:1,
+  prof:{pct:40,next:'Add a logo',why:'A logo shows on every event page you are on.'},
+  rating:null,ratingN:0,level:null,levelN:0,levelT:5,tix:null,total:0,nights:[]},
+ upcoming:{lab:'O2 Nights',page:'Ritmo London',city:'London',cityN:47,cityAvg:4.3,link:'bc.link/ritmo',team:3,
+  prof:{pct:80,next:'Add a bio',why:'Two lines on what your nights are like.'},
+  rating:4.6,ratingN:23,level:'Mixed',levelN:12,levelT:5,tix:null,total:3,
+  nights:[{n:'Friday Social',dw:'Fri',dd:14,dm:'Nov',w:'Fri 14 Nov, 8pm',away:'In 3 days',go:12,op:248,c:{ticket:31,directions:14,share:9,whatsapp:6}},
+   {n:'Sunday Workshop',dw:'Sun',dd:16,dm:'Nov',w:'Sun 16 Nov, 3pm',away:'In 5 days',go:3,op:40,c:{directions:2}},
+   {n:'Friday Social',dw:'Fri',dd:21,dm:'Nov',w:'Fri 21 Nov, 8pm',away:'In 10 days',go:0,op:0,c:{}}]},
+ selling:{lab:'O3 Selling',page:'Ritmo London',city:'London',cityN:47,cityAvg:4.3,link:'bc.link/ritmo',team:3,
+  prof:{pct:100,next:'',why:''},
+  rating:4.6,ratingN:23,level:'Mixed',levelN:12,levelT:5,tix:{sold:41,on:2},total:3,
+  nights:[{n:'Friday Social',dw:'Fri',dd:14,dm:'Nov',w:'Fri 14 Nov, 8pm',away:'In 3 days',go:12,op:248,sold:29,c:{ticket:52,directions:14,share:9,whatsapp:6}},
+   {n:'Sunday Workshop',dw:'Sun',dd:16,dm:'Nov',w:'Sun 16 Nov, 3pm',away:'In 5 days',go:3,op:40,sold:12,c:{ticket:8,directions:2}},
+   {n:'Friday Social',dw:'Fri',dd:21,dm:'Nov',w:'Fri 21 Nov, 8pm',away:'In 10 days',go:0,op:0,c:{}}]},
+ huge:{lab:'Huge',page:'The Sunday Sensual Bachata Social and Workshop Weekender Collective',city:'London',cityN:47,cityAvg:4.3,link:'bc.link/sunday-sensual-bachata-collective',team:3,
+  prof:{pct:90,next:'Add your website',why:'Dancers use it to check your full timetable.'},
+  rating:4.8,ratingN:1036,level:'Strong',levelN:412,levelT:5,tix:{sold:12318,on:41},total:222,
+  nights:[{n:'Sunday Sensual Bachata Social with three rooms and a live band',dw:'Sun',dd:16,dm:'Nov',w:'Sun 16 Nov, 7pm',away:'In 4 days',go:1204,op:12480,sold:968,c:{ticket:3912,directions:1875,share:944,whatsapp:612}},
+   {n:'Sunday Sensual Bachata Social',dw:'Sun',dd:23,dm:'Nov',w:'Sun 23 Nov, 7pm',away:'In 11 days',go:880,op:9310,sold:702,c:{ticket:2770,directions:1204,share:611,whatsapp:450}},
+   {n:'Sunday Sensual Bachata Social',dw:'Sun',dd:30,dm:'Nov',w:'Sun 30 Nov, 7pm',away:'In 18 days',go:415,op:5102,sold:310,c:{ticket:1388,directions:640,share:302,whatsapp:220}}]},
+ zero:{lab:'All zero',page:'Casa Bachata',city:'Manchester',cityN:2,link:'bc.link/casa',team:2,
+  prof:{pct:60,next:'Add your Instagram',why:'Dancers check it before they come.'},
+  rating:null,ratingN:0,level:null,levelN:2,levelT:5,tix:null,total:2,
+  nights:[{n:'Saturday Social',dw:'Sat',dd:15,dm:'Nov',w:'Sat 15 Nov, 9pm',away:'In 3 days',go:0,op:0,c:{}},
+   {n:'Saturday Social',dw:'Sat',dd:22,dm:'Nov',w:'Sat 22 Nov, 9pm',away:'In 10 days',go:0,op:0,c:{}}]},
+ cancelled:{lab:'Cancelled',page:'Ritmo London',city:'London',cityN:47,cityAvg:4.3,link:'bc.link/ritmo',team:3,
+  prof:{pct:80,next:'Add a bio',why:'Two lines on what your nights are like.'},
+  rating:4.6,ratingN:23,level:'Mixed',levelN:12,levelT:5,tix:null,total:3,
+  nights:[{n:'Friday Social',dw:'Fri',dd:14,dm:'Nov',w:'Fri 14 Nov, 8pm',away:'In 3 days',cx:true,go:0,op:0,c:{}},
+   {n:'Sunday Workshop',dw:'Sun',dd:16,dm:'Nov',w:'Sun 16 Nov, 3pm',away:'In 5 days',go:3,op:40,c:{directions:2}},
+   {n:'Friday Social',dw:'Fri',dd:21,dm:'Nov',w:'Fri 21 Nov, 8pm',away:'In 10 days',go:5,op:61,c:{share:3,directions:1}}]},
+ loading:{lab:'Loading'},
+ error:{lab:'Error'}
+};
+const SEATS={owner:'Owner',manager:'Manager',contributor:'Contributor'};
+const ROLES={org:{n:'Organiser',ic:'ORG'},teacher:{n:'Teacher',ic:'TCH'},dj:{n:'DJ',ic:'DJ'},dancer:{n:'Dancer',ic:'DNC'}};
+const CLICK=[['ticket','ticket taps'],['directions','directions'],['share','shares'],['whatsapp','WhatsApp taps']];
+const S={shape:'upcoming',seat:'owner',sheet:null,shareOf:null,open:0,tab:'home'};
+const $=q=>document.querySelector(q);
+const fmt=n=>n.toLocaleString('en-GB');
+const plural=(n,a,b)=>fmt(n)+' '+(n===1?a:(b||a+'s'));
+const allZero=x=>!x.go&&!x.op&&!Object.values(x.c).some(v=>v>0);
+const nextLive=s=>s.nights.find(x=>!x.cx);
+const loadingOrError=()=>S.shape==='loading'||S.shape==='error';
+
+function idbar(){
+  const s=SHAPES[S.shape],name=s.page||'Ritmo London';
+  return `<div class="idbar r-org"><button class="idmain" data-act="sheet" data-k="switch" aria-label="Organiser, ${SEATS[S.seat]}, ${name}. Switch page"><span class="badge r-org" style="--s:40px">ORG</span><span class="idtxt"><small>Organiser &middot; ${SEATS[S.seat]}</small><b>${name}</b></span></button><button class="sw" data-act="sheet" data-k="switch" aria-label="Switch page">Switch &#9662;</button></div>`;
+}
+function tabs(){
+  return `<nav class="tabs" aria-label="Organiser area">${[['home','Home'],['events','Events'],['tickets','Tickets'],['team','Team']].map(t=>`<button data-act="tab" data-k="${t[0]}" aria-current="${S.tab===t[0]}">${t[1]}</button>`).join('')}</nav>`;
+}
+// The one shared night body: Going, opens, clicks by type. Positive numbers only; all zero = a suggested action.
+function nightBody(x,i){
+  if(x.cx)return `<div class="suggest"><p>Cancelled. It is not counted in any number here. People who said they were going have been told.</p><button class="act" data-act="wa" data-k="update">Tell your group on WhatsApp</button></div>`;
+  if(allZero(x))return `<div class="suggest"><p>No one has found this night yet. Send it to your group so people can say they are going.</p><button class="act" data-act="share" data-k="${i}">Share this night</button></div>`;
+  const nums=[];
+  if(x.go)nums.push(`<div class="num"><b>${fmt(x.go)}</b><span>going</span></div>`);
+  if(x.op)nums.push(`<div class="num"><b>${fmt(x.op)}</b><span>${x.op===1?'open':'opens'}</span></div>`);
+  if(x.sold)nums.push(`<div class="num"><b>${fmt(x.sold)}</b><span>tickets sold</span></div>`);
+  const pills=CLICK.filter(c=>x.c[c[0]]>0).map(c=>`<span class="pill"><b>${fmt(x.c[c[0]])}</b> ${c[1]}</span>`).join('');
+  const nogo=!x.go?`<p class="why">No one has said they are going yet. Sharing the night is the quickest fix.</p>`:'';
+  return `<div class="nums">${nums.join('')}</div>${pills?`<div class="pills" aria-label="Link taps by type">${pills}</div>`:''}${nogo}`;
+}
+function profileRow(s){
+  if(s.prof.pct>=100)return `<div class="row"><span class="t"><b>Profile complete</b><span>Every detail dancers look for is filled in.</span><span class="pbar" aria-hidden="true"><i style="width:100%"></i></span></span><span class="tag">100%</span></div>`;
+  return `<div class="row"><span class="t"><b>Profile ${s.prof.pct}% done</b><span>Next: ${s.prof.next.toLowerCase()}. ${s.prof.why}</span><span class="pbar" role="progressbar" aria-valuenow="${s.prof.pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Profile complete"><i style="width:${s.prof.pct}%"></i></span></span><button class="act alt" data-act="stub" data-k="${s.prof.next}">${s.prof.next.split(' ')[0]}</button></div>`;
+}
+function shareRow(s){
+  return `<div class="row" style="flex-direction:column;align-items:stretch;gap:8px"><span class="t"><b>Share my page</b><span>${s.link}</span></span><div class="qa"><button data-act="copy">Copy link</button><button data-act="wa" data-k="page">WhatsApp</button><button data-act="share" data-k="page">Instagram</button></div></div>`;
+}
+function ratingsCard(s){
+  const r=s.rating?`<b>${s.rating.toFixed(1)}</b><span>from ${plural(s.ratingN,'rating')}</span>`:`<b class="tx">No ratings yet</b><span>Dancers can rate a night after it happens.</span>`;
+  const l=s.level?`<b>${s.level}</b><span>from ${plural(s.levelN,'vote')}</span>`:`<b class="tx">Not enough votes yet</b><span>${fmt(s.levelN)} of ${s.levelT} votes needed to show a level.</span>`;
+  const foot=s.cityN>=5?`<div class="foot">${s.city} average: <b>${s.cityAvg.toFixed(1)}</b> across ${s.cityN} organisers.</div>`:`<div class="foot">A ${s.city} average appears once 5 organisers in ${s.city} are on Bachata Calendar. There ${s.cityN===1?'is':'are'} ${s.cityN} now.</div>`;
+  return `<div class="card rate"><div class="cell"><span>Rating</span>${r}</div><div class="cell"><span>Level rating</span>${l}</div>${foot}</div>`;
+}
+function teamLine(s){
+  if(s.team>1)return `<p class="cap">Everyone on your team (${s.team} people) sees this same page.</p>`;
+  return `<div class="card"><div class="row"><span class="t"><b>Only you so far</b><span>Add a teammate to share the work. They see this same page.</span></span><button class="act alt" data-act="stub" data-k="Add a teammate">Add</button></div></div>`;
+}
+function ticketsTile(s){
+  if(!s.tix)return '';
+  return `<div class="card" style="padding:14px 16px"><div class="num"><b>${fmt(s.tix.sold)}</b><span>tickets sold through Bachata Calendar, across ${plural(s.tix.on,'night')}</span></div></div>`;
+}
+function moreDates(s,shown){
+  return s.total>shown?`<button class="btn alt" data-act="stub" data-k="All ${s.total} dates">See all ${fmt(s.total)} dates</button>`:'';
+}
+function loadingBody(){
+  return `<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px" aria-busy="true"><span class="lbl">Loading your home&hellip;</span><div class="skel" style="width:70%;height:20px"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:50%"></div>
+  <button class="btn" disabled>Share this night</button><p class="why">Buttons wake up as soon as your nights load. This usually takes a second.</p></div>
+  <div class="card"><div class="row"><span class="t"><b>Share my page</b><span>Your link is loading.</span></span><button class="act" disabled>Copy link</button></div></div>`;
+}
+function errorBody(){
+  return `<div class="banner err" role="alert"><b>We could not load your nights.</b><br>Your page and events are still live for dancers. Check your signal, then try again.</div><button class="btn" data-act="retry">Try again</button>
+  <div class="card"><div class="row"><span class="t"><b>Share my page</b><span>Copy works without loading: bc.link/ritmo</span></span><button class="act" data-act="copy">Copy link</button></div></div>`;
+}
+function switchSheet(){
+  const s=SHAPES[S.shape],name=s.page||'Ritmo London';
+  const P=[['org','Organiser',[[name,SEATS[S.seat],1],['Bristol Socials','Manager']]],['teacher','Teacher',[['Alex Rivera','Classes and bookings']]],['dj','DJ',[['DJ Alex','Sets and mixes']]],['dancer','Dancer',[['Alex Rivera','Going and profile']]]];
+  return `<button class="x" data-act="close">Close</button><h2>Switch page</h2><p class="cap">All your pages in one place. Each opens its own home.</p>${P.map(g=>`<h3>${g[1]}</h3><div class="card">${g[2].map(p=>`<button class="row" data-act="${p[2]?'close':'stub'}" data-k="${p[0]}"><span class="badge r-${g[0]}">${ROLES[g[0]].ic}</span><span class="t"><b>${p[0]}</b><span>${p[1]}</span></span>${p[2]?'<span class="tag">Open now</span>':'<span aria-hidden="true">&rsaquo;</span>'}</button>`).join('')}</div>`).join('')}<button class="btn alt" data-act="stub" data-k="Add another page">Add another page</button>`;
+}
+function shareSheet(){
+  const s=SHAPES[S.shape],k=S.shareOf,x=k==='page'?null:s.nights[+k];
+  const link=x?s.link+'/'+x.dd+x.dm.toLowerCase():s.link;
+  const cap=x?`${x.n}, ${x.w}. Say you are going and find everything you need here: ${link}`:`All our bachata nights in one place. Follow us on Bachata Calendar: ${link}`;
+  return `<button class="x" data-act="close">Close</button><h2>${x?'Share this night':'Share my page'}</h2><p class="cap">${x?x.n+', '+x.w:'Your organiser page: every night you run, always up to date.'}</p>
+  <div class="card"><button class="row" data-act="copy"><span class="t"><b>Copy link</b><span>${link}</span></span><span aria-hidden="true">&rsaquo;</span></button><button class="row" data-act="wa" data-k="link"><span class="t"><b>Send on WhatsApp</b><span>Opens WhatsApp with the link ready to send.</span></span><span aria-hidden="true">&rsaquo;</span></button></div>
+  <h3>Instagram caption</h3><div class="capbox">${cap}</div><button class="btn" data-act="copycap">Copy caption</button><p class="why">Paste it under your post or story. Instagram does not let us post for you.</p>`;
+}
+var tt;
+function toast(m){clearTimeout(tt);let el=$('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');$('#frame').appendChild(el)}el.textContent=m;tt=setTimeout(()=>el.remove(),1800)}
+function controls(){
+  $('#shseg').innerHTML=Object.keys(SHAPES).map(k=>`<button data-act="shape" data-k="${k}" aria-pressed="${S.shape===k}">${SHAPES[k].lab}</button>`).join('');
+  $('#seseg').innerHTML=Object.keys(SEATS).map(k=>`<button data-act="seat" data-k="${k}" aria-pressed="${S.seat===k}">${SEATS[k]}</button>`).join('');
+}
+function render(){
+  controls();
+  const s=SHAPES[S.shape];
+  const body=S.shape==='loading'?loadingBody():S.shape==='error'?errorBody():home(s);
+  let h=idbar()+`<main class="scroll" id="scroll">${body}</main>`+tabs();
+  if(S.sheet)h+=`<div class="sheetbg" data-act="bg"><div class="sheet" role="dialog" aria-modal="true" aria-label="${S.sheet==='switch'?'Switch page':'Share'}">${S.sheet==='switch'?switchSheet():shareSheet()}</div></div>`;
+  $('#frame').innerHTML=h;
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act]');if(!t||t.disabled)return;
+  const a=t.dataset.act,k=t.dataset.k;
+  if(a==='bg'){if(e.target===t){S.sheet=null;render()}return}
+  if(a==='shape'){S.shape=k;S.sheet=null;S.open=0}
+  else if(a==='seat')S.seat=k;
+  else if(a==='sheet')S.sheet=k;
+  else if(a==='close')S.sheet=null;
+  else if(a==='share'){S.sheet='share';S.shareOf=k}
+  else if(a==='jump'){const el=document.getElementById(k);if(el)el.scrollIntoView({behavior:'smooth'});return}
+  else if(a==='open')S.open=+k;
+  else if(a==='retry'){S.shape='upcoming'}
+  else if(a==='tab'){if(k!=='home'){toast('Prototype: only Home is drawn');return}S.tab=k}
+  else if(a==='copy'){toast('Link copied');return}
+  else if(a==='copycap'){toast('Caption copied. Paste it in Instagram.');return}
+  else if(a==='wa'){toast('Opens WhatsApp with the message ready (prototype)');return}
+  else if(a==='stub'){toast(k+': not drawn in this prototype');return}
+  render();
+});
+(function init(){
+  const h=new URLSearchParams(location.hash.slice(1));
+  for(const k of h.keys())if(SHAPES[k])S.shape=k;
+  if(h.get('seat')&&SEATS[h.get('seat')])S.seat=h.get('seat');
+  if(h.get('sheet')==='switch')S.sheet='switch';
+  if(h.get('sheet')==='share'){S.sheet='share';S.shareOf=h.get('of')||'page'}
+  if(h.has('shot'))document.body.classList.add('shot');
+  if(h.has('full'))document.body.classList.add('full');
+  render();
+})();
+// OPTION B: night-first timeline. The next night IS the main card; the next two are one-line items on a date rail.
+function rail(x){return x?`<div class="rail${x.cx?' cx':''}" aria-hidden="true"><small>${x.dw}</small><b>${x.dd}</b><small>${x.dm}</small></div>`:`<div class="rail" aria-hidden="true"><small>Next</small><b>&middot;</b></div>`}
+function summary(x){
+  if(x.cx)return 'Cancelled, not counted';
+  if(allZero(x))return 'No one yet. Tap to share';
+  return [x.go&&plural(x.go,'going','going'),x.op&&plural(x.op,'open'),x.sold&&fmt(x.sold)+' sold'].filter(Boolean).join(' &middot; ');
+}
+function home(s){
+  const N=s.nights.slice(0,3);
+  let tl;
+  if(!N.length)tl=`<div class="tli">${rail(null)}<section class="card nm slot" aria-label="Your first night"><span class="lbl">Your next step</span><h2>Your first night goes here</h2><p class="why hd">Put a night on and it lands on this line with who is going and how people found it. About 3 minutes; it can stay a draft.</p><button class="btn" data-act="stub" data-k="New event">New event</button></section></div>`;
+  else tl=N.map((x,i)=>i===S.open
+    ?`<div class="tli">${rail(x)}<section class="card nm" aria-label="${x.n}, ${x.w}"><div class="nhead"><span class="t"><b>${x.n}</b><span>${x.w}</span></span><span class="tag ${x.cx?'cx':''}">${x.cx?'Cancelled':x.away}</span></div>${nightBody(x,i)}${!x.cx&&!allZero(x)?`<button class="btn alt" data-act="share" data-k="${i}">Share this night</button>`:''}</section></div>`
+    :`<div class="tli">${rail(x)}<button class="card nc" data-act="open" data-k="${i}" aria-label="${x.n}, ${x.w}. Show numbers"><span class="t"><b>${x.n}</b><span>${x.w} &middot; ${summary(x)}</span></span><span aria-hidden="true">&rsaquo;</span></button></div>`).join('');
+  return `<div><h2>Your nights</h2><p class="cap">${s.total?plural(s.total,'night')+' coming up. Tap a night to see its numbers.':'Nothing on yet.'}</p></div>
+  <div class="tl">${tl}</div>${moreDates(s,3)}
+  <div class="card">${s.nights.length?profileRow(s)+shareRow(s):shareRow(s)+profileRow(s)}</div>
+  ${!s.nights.length?teamLine(s):''}
+  ${ticketsTile(s)}
+  <h3>How dancers rate you</h3>${ratingsCard(s)}
+  ${s.nights.length?teamLine(s):''}`;
+}
+</script>
+</body>
+</html>

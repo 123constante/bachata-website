@@ -123,7 +123,8 @@ describe('c: Terms and Privacy on Options are live, enabled links for every shap
 });
 
 describe('d: the dancer avatar is drawn on the screens that show it, for every shape with a profile', () => {
-  const AVATAR_SCREENS = [['home', '/app/home', 'me-photo'], ['me', '/app/me', 'me-photo'], ['edit', '/app/me/edit', 'me-photo']] as const;
+  // Home (Option A) draws no avatar: the control is retired, so Home is not in this list.
+  const AVATAR_SCREENS = [['me', '/app/me', 'me-photo'], ['edit', '/app/me/edit', 'me-photo']] as const;
   describe.each(AVATAR_SCREENS)('%s', (_n, path, testId) => {
     it.each(SHAPES.filter((s) => s.profile))('$label', async (shape) => {
       await land(path, shape);

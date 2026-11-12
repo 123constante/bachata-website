@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Organiser Dashboard Option 1</title>
+<!-- Option 1: "Next night first". Built on the owner-confirmed Organiser Area Prototype
+     (prototype-base.html): same role strip, top-right Switch sheet, tabs Home / Events / Tickets / Stats / Team.
+     Hierarchy: one large next-night card with the gold action, then a short "Needs you" list. Tabs at the bottom.
+     Shapes by hash: #three #one #clear #setup #door, optional /tab and /state, e.g. #door/home, #one/stats/error.
+     Add ?shot to hide the controls (390x844 screenshots). Self-contained, no external files. -->
+<style>
+:root{color-scheme:light;
+  --bg:#f6f4f0;--card:#ffffff;--fg:#1d1f24;--muted:#565961;--line:#e1ddd6;--soft:#eeebe5;
+  --gold:#e8b53e;--gold-ink:#1d1f24;--org:#1f5c7a;--teacher:#8a5a00;--dj:#5b3fa0;--dancer:#b02a5b;
+  --ok:#1b6b3a;--ok-soft:#e3f1e8;--danger:#b3261e;--danger-soft:#fbe9e7;--bar:#1f5c7a;
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#e9e6e0;color:var(--fg);font:15px/1.45 var(--f);padding:16px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wrap{max-width:430px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.wrap>h1{font-size:20px;margin:0}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl p{margin:4px 0 0;font-size:13px;font-weight:600;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--soft);padding:3px;border-radius:12px}
+.seg button{flex:1 1 18%;text-align:center;min-height:44px;border-radius:10px;font-size:13px;font-weight:600;padding:0 4px}
+.seg button[aria-pressed=true]{background:var(--fg);color:#fff}
+.cap{font-size:13px;color:var(--muted);margin:0}
+.frame{width:min(390px,100%);height:844px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:28px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+body.shot{padding:0;background:var(--bg)}
+body.shot .ctl,body.shot .wrap>h1,body.shot .wrap>.cap{display:none}
+body.shot .wrap{max-width:none;gap:0}
+body.shot .frame{width:100%;height:100vh;border:0;border-radius:0}
+#screen{flex:1;min-height:0;display:flex;flex-direction:column}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px 24px;display:flex;flex-direction:column;gap:16px}
+/* role strip */
+.strip{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 16px;background:var(--rc);color:#fff;min-height:68px}
+.r-org{--rc:var(--org)}.r-teacher{--rc:var(--teacher)}.r-dj{--rc:var(--dj)}.r-dancer{--rc:var(--dancer)}
+.badge{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--rc);color:#fff}
+.strip .badge{background:rgba(0,0,0,.22)}
+.who{display:flex;align-items:center;gap:12px;flex:1;min-width:0;min-height:44px;color:#fff}
+.who span{display:flex;flex-direction:column;min-width:0}
+.who b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who small{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.switch{display:flex;align-items:center;gap:4px;min-height:44px;padding:0 12px 0 14px;border-radius:999px;background:rgba(0,0,0,.22);color:#fff;font-size:14px;font-weight:600;flex:none}
+.switch svg.i{width:16px;height:16px}
+/* bottom tabs */
+.tabs{display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:4px}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:56px;padding:8px 0 4px;font-size:12px;font-weight:600;color:var(--muted)}
+.tabs button[aria-current=page]{color:var(--fg)}
+.tabs button[aria-current=page] svg.i{stroke:var(--org);stroke-width:2.4}
+h2{font-size:22px;line-height:1.2;margin:0}
+h3{font-size:16px;margin:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+.pad{padding:18px}
+.row{display:flex;align-items:center;gap:12px;padding:14px 16px;min-height:60px;width:100%}
+.row+.row{border-top:1px solid var(--line)}
+.row .t{flex:1;min-width:0;display:flex;flex-direction:column}
+.row .t b{font-size:15px}
+.row .t span{font-size:13px;color:var(--muted)}
+.row>svg.i{color:var(--muted)}
+.tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.live{color:var(--ok);border-color:#b9dcc6;background:var(--ok-soft)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;border-radius:14px;font-weight:700;font-size:15px;padding:0 16px;text-align:center}
+.btn.gold{background:var(--gold);color:var(--gold-ink)}
+.btn.line{border:1px solid var(--line);background:var(--card)}
+.btn[disabled]{border:1px dashed #b9b4ab;background:transparent;color:var(--muted);cursor:not-allowed}
+.why{font-size:13px;color:var(--muted);margin:-8px 0 0;display:flex;gap:6px;align-items:flex-start}
+.why svg.i{width:16px;height:16px;margin-top:1px}
+.act{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);font-size:14px;font-weight:600;white-space:nowrap;flex:none;background:var(--card)}
+.muted{color:var(--muted)}
+.hero{display:flex;flex-direction:column;gap:14px}
+.hero .when{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.hero .when svg.i{width:18px;height:18px}
+.meter{display:flex;flex-direction:column;gap:6px}
+.meter .l{display:flex;justify-content:space-between;font-size:14px}
+.track{height:10px;border-radius:5px;background:var(--soft);overflow:hidden}
+.track i{display:block;height:100%;background:var(--bar);border-radius:5px}
+.track.ok i{background:var(--ok)}
+.note{display:flex;gap:10px;align-items:flex-start;padding:14px 16px;border-radius:14px;background:var(--soft);font-size:14px}
+.note svg.i{margin-top:1px}
+.note.err{background:var(--danger-soft);color:#7d1a14}
+.note.good{background:var(--ok-soft);color:#14512c}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{padding:16px;display:flex;flex-direction:column;gap:4px}
+.tile b{font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile span{font-size:13px;color:var(--muted)}
+.steps .row svg.i{color:var(--muted)}
+.steps .row.done svg.i{color:var(--ok)}
+.steps .row.done .t b{color:var(--muted);font-weight:600}
+.sk{background:var(--soft);border-radius:10px;height:16px}
+.sk.tall{height:150px;border-radius:16px}
+.scanbox{border:2px dashed #b9b4ab;border-radius:18px;height:200px;display:grid;place-items:center;text-align:center;padding:20px;color:var(--muted);font-size:14px}
+.res{border-radius:16px;padding:18px;text-align:center;display:flex;flex-direction:column;gap:4px;align-items:center}
+.res b{font-size:24px;display:flex;align-items:center;gap:8px}
+.res b svg.i{width:26px;height:26px}
+.res.ok{background:var(--ok-soft);color:#14512c}.res.bad{background:var(--danger-soft);color:#7d1a14}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:14px}
+.chip[aria-pressed=true]{background:var(--fg);color:#fff;border-color:var(--fg)}
+.back{display:flex;align-items:center;gap:6px;min-height:44px;font-weight:600;font-size:15px;align-self:flex-start}
+.back svg.i{transform:rotate(180deg)}
+.sheetbg{position:absolute;inset:0;background:rgba(20,22,26,.45);display:flex;align-items:flex-end;z-index:5}
+.sheet{background:var(--bg);width:100%;max-height:84%;overflow-y:auto;border-radius:22px 22px 0 0;padding:16px 16px 24px;display:flex;flex-direction:column;gap:12px}
+.sheet .top{display:flex;align-items:center;justify-content:space-between}
+.x{min-width:44px;min-height:44px;display:grid;place-items:center;border-radius:999px}
+.toast{position:absolute;left:16px;right:16px;bottom:84px;background:var(--fg);color:#fff;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;text-align:center;z-index:9}
+.per{display:flex;gap:4px;background:var(--soft);padding:3px;border-radius:12px}
+.per button{flex:1;min-height:44px;border-radius:10px;text-align:center;font-weight:600;font-size:14px}
+.per button[aria-pressed=true]{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"/><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-6h4v6"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+<symbol id="i-ticket" viewBox="0 0 24 24"><path d="M4 8a2 2 0 002-2h12a2 2 0 002 2v2a2 2 0 000 4v2a2 2 0 00-2 2H6a2 2 0 00-2-2v-2a2 2 0 000-4z"/><path d="M14 6v12"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></symbol>
+<symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14c3 0 5 2 5 5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></symbol>
+<symbol id="i-todo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+<symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M7 12h10"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-ok" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></symbol>
+</defs></svg>
+<div class="wrap">
+  <h1>Organiser dashboard, option 1: Next night first</h1>
+  <div class="ctl">
+    <p>Shape</p><div class="seg" id="c-shape"></div>
+    <p>Tab</p><div class="seg" id="c-tab"></div>
+    <p>Data state</p><div class="seg" id="c-state"></div>
+  </div>
+  <div class="frame" id="frame"><div id="screen"></div></div>
+  <p class="cap">Option 1. The next night is the biggest thing on Home, with the one gold action inside it. What needs you sits under it, at most three. Tabs at the bottom, in thumb reach. Names, numbers and links are examples.</p>
+</div>
+<script>
+const ic=(n,c)=>`<svg class="i${c?' '+c:''}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const ROLE={org:['Organiser','cal'],teacher:['Teacher','team'],dj:['DJ','chart'],dancer:['Dancer','home']};
+const RITMO={id:'ritmo',name:'Ritmo London',role:'org',seat:'Owner',link:'bc.link/ritmo',
+  next:{n:'Friday Social',w:'Fri 14 Nov, 8pm',away:'In 3 days',sold:41,cap:80,going:62,link:'bc.link/ritmo/friday'},
+  events:[['Friday Social','Fri 14 Nov, 8pm','Published','41 of 80 sold'],['Sunday Workshop','Sun 16 Nov, 3pm','Published','12 of 30 sold'],['Summer Weekender','No date yet','Draft','Needs a date and a venue']],
+  todos:[['Finish Summer Weekender','It is a draft. It still needs a date and a venue.','Finish'],['DJ Marco has not said yes','Asked 4 days ago for Friday Social.','Remind'],['Jan asked to join your team','Say yes or no on the Team tab.','Review']],
+  tix:{on:true,sold:53,sales:590,payout:'Tue 18 Nov',payAmt:519,refunds:1,byEv:[['Friday Social',41,80,410],['Sunday Workshop',12,30,180]]},
+  stats:{7:{sold:29,sales:320,shares:27,saves:44,follows:0},30:{sold:53,sales:590,shares:81,saves:132,follows:6}},
+  team:[['You','Owner',''],['Maya Ruiz','Manager',''],['Jan Novak','Asked to join','Review']]};
+const SHAPES={
+ three:{n:'3 roles',pages:[RITMO,{id:'t',name:'Ricky Constante',role:'teacher',seat:'Teacher'},{id:'d',name:'DJ Ricky',role:'dj',seat:'DJ'}]},
+ one:{n:'1 role',pages:[RITMO]},
+ clear:{n:'Caught up',pages:[{id:'casa',name:'Casa Bachata',role:'org',seat:'Owner',link:'bc.link/casa',
+  next:{n:'Casa Thursday Social',w:'Thu 20 Nov, 9pm',away:'In 8 days',sold:0,cap:0,going:23,link:'bc.link/casa/thursday',free:1},
+  events:[['Casa Thursday Social','Thu 20 Nov, 9pm','Published','Free entry']],todos:[],
+  tix:{on:false},stats:{7:{sold:0,sales:0,shares:12,saves:19,follows:0},30:{sold:0,sales:0,shares:40,saves:61,follows:3}},
+  team:[['You','Owner','']]}]},
+ setup:{n:'Unfinished',pages:[{id:'salsa',name:'Salsa Nights',role:'org',seat:'Owner',link:'bc.link/salsanights',setup:1,next:null,events:[],todos:[],
+  steps:[['Add a logo',1],['Write a short description',1],['Add your first night',0],['Connect payouts to sell tickets',0,'Optional. Free nights do not need it.']],
+  tix:{on:false},stats:null,team:[['You','Owner','']]}]},
+ door:{n:'Door',tonight:1,pages:[RITMO,{id:'doorhelp',name:'Door: Friday Social',role:'dancer',seat:'You are on the door tonight',door:1}]}
+};
+const TABS=[['home','Home','home'],['events','Events','cal'],['tickets','Tickets','ticket'],['stats','Stats','chart'],['team','Team','team']];
+const STATES=[['ok','Normal'],['loading','Loading'],['error','Error']];
+const S={shape:'three',tab:'home',state:'ok',page:0,sheet:false,scan:false,res:null,per:'7',inN:37};
+const $=s=>document.querySelector(s);
+function readHash(){const h=location.hash.slice(1).split('/');if(SHAPES[h[0]])S.shape=h[0];if(h[1]&&TABS.some(t=>t[0]===h[1]))S.tab=h[1];if(h[2]&&STATES.some(t=>t[0]===h[2]))S.state=h[2];if(h[3]==='switch')S.sheet=true;if(h[3]==='scan')S.scan=true}
+function setHash(){history.replaceState(null,'','#'+S.shape+'/'+S.tab+(S.state!=='ok'?'/'+S.state:''))}
+const P=()=>SHAPES[S.shape].pages[S.page]||SHAPES[S.shape].pages[0];
+const money=n=>'&pound;'+n;
+function toast(m){let el=$('.toast');if(!el){el=document.createElement('div');el.className='toast';el.setAttribute('role','status');$('#frame').appendChild(el)}el.textContent=m;clearTimeout(toast.t);toast.t=setTimeout(()=>el.remove(),1800)}
+
+function strip(p){const many=SHAPES[S.shape].pages.length>1;
+  return `<div class="strip r-${p.role}"><button class="who" data-act="sheet" aria-label="${p.name}, ${ROLE[p.role][0]}. Switch page"><span class="badge">${ic(ROLE[p.role][1])}</span><span><b>${p.name}</b><small>${ROLE[p.role][0]}${p.role==='org'?' &middot; '+p.seat:''}</small></span></button><button class="switch" data-act="sheet">${many?'Switch':'Account'}${ic('down')}</button></div>`}
+function tabs(){return `<nav class="tabs" aria-label="Organiser">${TABS.map(t=>`<button data-act="tab" data-k="${t[0]}" ${S.tab===t[0]?'aria-current="page"':''}>${ic(t[2])}${t[1]}</button>`).join('')}</nav>`}
+function loading(what){return `<h2>${what}</h2><div class="sk tall"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:50%"></div><p class="cap" role="status">Loading. If this takes more than a few seconds, check your signal; it keeps trying on its own.</p>`}
+function error(what){return `<h2>${what}</h2><div class="note err">${ic('alert')}<span>We could not load this just now. Your events are safe. Check your signal, then try again.</span></div><button class="btn line" data-act="retry">Try again</button>`}
+function heroCard(p){const n=p.next,tonight=SHAPES[S.shape].tonight;
+  if(tonight)return `<section class="card pad hero"><h2>${n.n} is tonight</h2><div class="when">${ic('cal')}Doors 8pm &middot; ${p.name}</div>
+   <div class="meter"><div class="l"><span>Checked in</span><b>${S.inN} of ${n.sold}</b></div><div class="track ok"><i style="width:${Math.round(S.inN/n.sold*100)}%"></i></div></div>
+   <button class="btn gold" data-act="scan">${ic('scan')}Open scanner</button>
+   <button class="btn line" data-act="share">${ic('share')}Share this night</button></section>`;
+  const meter=n.cap?`<div class="meter"><div class="l"><span>Tickets sold</span><b>${n.sold} of ${n.cap}</b></div><div class="track"><i style="width:${Math.round(n.sold/n.cap*100)}%"></i></div></div>`:`<p class="muted" style="margin:0;font-size:14px">Free entry, no tickets to sell.</p>`;
+  return `<section class="card pad hero"><h2>${n.n}</h2><div class="when">${ic('cal')}${n.w} &middot; ${n.away}</div>${meter}
+   ${n.going>0?`<p class="muted" style="margin:-6px 0 0;font-size:13px">${n.going} dancers said they are going.</p>`:''}
+   <button class="btn gold" data-act="share">${ic('share')}Share this night</button></section>`}
+function home(p){
+  if(p.setup){const done=p.steps.filter(s=>s[1]).length;
+    return `<h2>Finish setting up ${p.name}</h2><div class="meter"><div class="l"><span>${done} of ${p.steps.length} done</span><span class="muted">About 3 minutes left</span></div><div class="track ok"><i style="width:${done/p.steps.length*100}%"></i></div></div>
+    <div class="card steps">${p.steps.map(s=>`<button class="row${s[1]?' done':''}" data-act="stub" data-m="${s[0]}">${ic(s[1]?'check':'todo')}<span class="t"><b>${s[0]}</b>${s[2]?`<span>${s[2]}</span>`:s[1]?'<span>Done</span>':''}</span>${s[1]?'':ic('chev')}</button>`).join('')}</div>
+    <button class="btn gold" data-act="stub" data-m="Add your first night">${ic('plus')}Add your first night</button>
+    <button class="btn" disabled>${ic('lock')}Share this night</button><p class="why">${ic('info')}Sharing opens once you have a published night.</p>`}
+  let h=heroCard(p);
+  if(p.todos.length)h+=`<h3>Needs you</h3><div class="card">${p.todos.slice(0,3).map(t=>`<div class="row"><span class="t"><b>${t[0]}</b><span>${t[1]}</span></span><button class="act" data-act="stub" data-m="${t[0]}">${t[2]}</button></div>`).join('')}</div>`;
+  else h+=`<div class="note good">${ic('check')}<span>You are all caught up. Nothing needs you right now. Sharing your next night is the best use of a spare minute.</span></div>`;
+  const more=p.events.filter(e=>e[0]!==p.next.n);
+  if(more.length)h+=`<h3>Also coming up</h3><div class="card">${more.map(e=>`<button class="row" data-act="stub" data-m="${e[0]}"><span class="t"><b>${e[0]}</b><span>${e[1]}</span></span><span class="tag${e[2]==='Published'?' live':''}">${e[2]}</span>${ic('chev')}</button>`).join('')}</div>`;
+  return h}
+function events(p){
+  let h=`<h2>Events</h2><button class="btn gold" data-act="stub" data-m="New event">${ic('plus')}New event</button>`;
+  if(!p.events.length)return h+`<div class="note">${ic('info')}<span>No events yet. Tap New event to add your first night; it shows here as a draft until you publish it.</span></div>`;
+  return h+`<div class="card">${p.events.map(e=>`<button class="row" data-act="stub" data-m="${e[0]}"><span class="t"><b>${e[0]}</b><span>${e[1]} &middot; ${e[3]}</span></span><span class="tag${e[2]==='Published'?' live':''}">${e[2]}</span>${ic('chev')}</button>`).join('')}</div>`}
+function tickets(p){const T=p.tix;
+  if(!T.on)return `<h2>Tickets</h2><div class="note">${ic('info')}<span>${p.setup?'No ticket sales yet. ':''}Connect payouts once, about 5 minutes, to sell tickets here. Free nights do not need it.</span></div><button class="btn gold" data-act="stub" data-m="Connect payouts">Connect payouts</button>`;
+  return `<h2>Tickets</h2><div class="tiles"><div class="card tile"><b>${T.sold}</b><span>Tickets sold</span></div><div class="card tile"><b>${money(T.sales)}</b><span>In sales</span></div></div>
+  <div class="card"><div class="row"><span class="t"><b>Next payout</b><span>${T.payout}: ${money(T.payAmt)} after fees</span></span></div><div class="row"><span class="t"><b>Refunds</b><span>${T.refunds} refund this month</span></span>${ic('chev')}</div></div>
+  <h3>By night</h3><div class="card">${T.byEv.map(e=>`<button class="row" data-act="stub" data-m="${e[0]}"><span class="t"><b>${e[0]}</b><span>${e[1]} of ${e[2]} sold &middot; ${money(e[3])}</span></span>${ic('chev')}</button>`).join('')}</div>
+  <button class="btn gold" data-act="stub" data-m="Add a ticket type">${ic('plus')}Add a ticket type</button>`}
+function stats(p){
+  if(!p.stats)return `<h2>Stats</h2><div class="note">${ic('info')}<span>Your numbers start once your first night is live. Add a night, share it, and the first sales and saves show here.</span></div><button class="btn gold" data-act="stub" data-m="Add your first night">${ic('plus')}Add your first night</button>`;
+  const d=p.stats[S.per],L=[['sold','Tickets sold',v=>v],['sales','In ticket sales',money],['shares','Times your nights were shared',v=>v],['saves','Dancers saved a night',v=>v],['follows','New followers',v=>v]].filter(x=>d[x[0]]>0);
+  return `<h2>Stats</h2><div class="per" role="group" aria-label="Period">${[['7','Last 7 days'],['30','Last 30 days']].map(x=>`<button data-act="per" data-k="${x[0]}" aria-pressed="${S.per===x[0]}">${x[1]}</button>`).join('')}</div>
+  <div class="tiles">${L.map(x=>`<div class="card tile"><b>${x[2](d[x[0]])}</b><span>${x[1]}</span></div>`).join('')}</div>
+  <p class="cap">Only numbers that have started show here. A new one appears the first time it is above zero.</p>
+  <button class="btn gold" data-act="share">${ic('share')}Share this night</button>`}
+function team(p){
+  return `<h2>Team</h2><div class="card">${p.team.map(m=>`<div class="row"><span class="badge r-org" style="width:36px;height:36px;border-radius:10px">${ic('team')}</span><span class="t"><b>${m[0]}</b><span>${m[1]}</span></span>${m[2]?`<button class="act" data-act="stub" data-m="${m[0]}">${m[2]}</button>`:''}</div>`).join('')}</div>
+  ${p.team.length===1?`<div class="note">${ic('info')}<span>Just you so far. Invite a manager to share the work, or add door helpers to scan tickets on the night.</span></div>`:''}
+  <button class="btn gold" data-act="stub" data-m="Invite someone">${ic('plus')}Invite someone</button>
+  <button class="btn line" data-act="stub" data-m="Door team">${ic('scan')}Door team for a night</button>`}
+function scanner(helper){const R=S.res,RES={valid:['ok','ok','Valid','Ana Lopez &middot; General entry'],used:['bad','x','Already used','Tom Reed. Scanned at 8:12pm. Do not let them in again.'],wrong:['bad','alert','Wrong night','Priya Nair. This ticket is for Sunday Workshop.']};
+  return `${helper?'':`<button class="back" data-act="unscan">${ic('chev')}Home</button>`}<h2>Scan tickets</h2><p class="cap">Friday Social &middot; ${S.inN} of 41 checked in</p>
+  ${helper?`<div class="note">${ic('lock')}<span>You can scan tickets and see guest names for Friday Social. You cannot see sales or money. This ends 12 hours after the night.</span></div>`:''}
+  ${R?`<div class="res ${RES[R][0]}" role="status"><b>${ic(RES[R][1])}${RES[R][2]}</b><span>${RES[R][3]}</span></div><button class="btn gold" data-act="next">Next guest</button>`:`<div class="scanbox">Point the camera at the QR code on the ticket.<br>(Prototype: pick a result below.)</div><button class="btn gold" data-act="stub" data-m="Camera">${ic('scan')}Start camera</button>`}
+  <h3>Try a result</h3><div class="chips">${[['valid','Valid'],['used','Already used'],['wrong','Wrong night']].map(x=>`<button class="chip" aria-pressed="${R===x[0]}" data-act="res" data-k="${x[0]}">${x[1]}</button>`).join('')}</div>`}
+function otherRole(p){return `<h2>${p.name}</h2><div class="note">${ic('info')}<span>This is your ${ROLE[p.role][0]} page. The organiser dashboard options do not change it. Switch back with the button at the top right.</span></div>`}
+function sheet(){const L=SHAPES[S.shape].pages,many=L.length>1;
+  return `<div class="sheetbg" data-act="close"><div class="sheet" role="dialog" aria-label="${many?'Switch page':'Account'}"><div class="top"><h2>${many?'Switch page':'Account'}</h2><button class="x" data-act="close" aria-label="Close">${ic('x')}</button></div>
+  <div class="card">${L.map((p,i)=>`<button class="row" data-act="pick" data-i="${i}"><span class="badge r-${p.role}">${ic(ROLE[p.role][1])}</span><span class="t"><b>${p.name}</b><span>${p.door?p.seat:ROLE[p.role][0]+(p.role==='org'?' &middot; '+p.seat:'')}</span></span>${i===S.page?'<span class="tag live">Showing</span>':ic('chev')}</button>`).join('')}</div>
+  <button class="btn line" data-act="stub" data-m="Add another page">${ic('plus')}Add another page</button><button class="btn line" data-act="stub" data-m="Account and help">Account and help</button></div></div>`}
+function render(){
+  $('#c-shape').innerHTML=Object.keys(SHAPES).map(k=>`<button data-act="shape" data-k="${k}" aria-pressed="${S.shape===k}">${SHAPES[k].n}</button>`).join('');
+  $('#c-tab').innerHTML=TABS.map(t=>`<button data-act="tab" data-k="${t[0]}" aria-pressed="${S.tab===t[0]}">${t[1]}</button>`).join('');
+  $('#c-state').innerHTML=STATES.map(t=>`<button data-act="state" data-k="${t[0]}" aria-pressed="${S.state===t[0]}">${t[1]}</button>`).join('');
+  const p=P();let body,nav=true;
+  if(p.door){body=scanner(true);nav=false}
+  else if(p.role!=='org'){body=otherRole(p);nav=false}
+  else if(S.scan){body=scanner(false);nav=false}
+  else{const nm=TABS.find(t=>t[0]===S.tab)[1];
+    body=S.state==='loading'?loading(S.tab==='home'?'Home':nm):S.state==='error'?error(S.tab==='home'?'Home':nm):({home,events,tickets,stats,team})[S.tab](p)}
+  $('#screen').innerHTML=strip(p)+`<main class="scroll">${body}</main>`+(nav?tabs():'')+(S.sheet?sheet():'');
+}
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act,k=t.dataset.k;
+  if(t.classList.contains('sheetbg')&&e.target!==t)return;
+  if(a==='shape'){S.shape=k;S.page=0;S.scan=false;S.res=null;S.sheet=false;S.tab='home'}
+  else if(a==='tab'){S.tab=k;S.scan=false;S.sheet=false;if(P().role!=='org')S.page=0}
+  else if(a==='state')S.state=k;
+  else if(a==='sheet')S.sheet=true;
+  else if(a==='close')S.sheet=false;
+  else if(a==='pick'){S.page=+t.dataset.i;S.sheet=false;S.scan=false;S.res=null}
+  else if(a==='scan'){S.scan=true;S.res=null}
+  else if(a==='unscan')S.scan=false;
+  else if(a==='res'){S.res=k;if(k==='valid')S.inN++}
+  else if(a==='next')S.res=null;
+  else if(a==='per')S.per=k;
+  else if(a==='retry'){S.state='ok'}
+  else if(a==='share'){const n=P().next;render();setHash();toast('Share sheet opens with '+(n?n.link:'your link'));return}
+  else if(a==='stub'){toast('Prototype: opens '+t.dataset.m);return}
+  render();setHash()});
+window.addEventListener('hashchange',()=>{readHash();render()});
+if(/[?&]shot/.test(location.search))document.body.classList.add('shot');
+readHash();render();
+</script>
+</body></html>

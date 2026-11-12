@@ -161,6 +161,8 @@ export const LINKS = [
   "check:workflow-log-secrets",
   "check:drill-records:self-test",
   "check:drill-records",
+  "check:e2e-spec-coverage:self-test",
+  "check:e2e-spec-coverage",
 ];
 
 /**
