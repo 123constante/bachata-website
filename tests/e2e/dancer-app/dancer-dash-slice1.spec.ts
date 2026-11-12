@@ -75,6 +75,8 @@ async function open(page: Page, shape: Shape, path = '/app/home') {
 
 test.describe('dancer Home (Option B) 390x844', () => {
   test.use({ viewport: PHONE });
+  // The flag is a build-time switch (default off): this walk only means something with it on.
+  test.skip(process.env.VITE_ENABLE_DANCER_DASH_B !== 'true', 'Option B is behind VITE_ENABLE_DANCER_DASH_B; run with it set to true');
   for (const shape of SHAPES) {
     test(`home-b: ${shape.name}`, async ({ page }) => {
       await open(page, shape);

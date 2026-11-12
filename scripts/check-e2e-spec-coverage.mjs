@@ -80,7 +80,6 @@ export const MANUAL = {
   'tests/e2e/arc1-claim-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/arc1-claim-walk.spec.ts') },
   'tests/e2e/arc1-invite-redeem-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/arc1-invite-redeem-walk.spec.ts') },
   'tests/e2e/console-clean-smoke.spec.ts': { reason: 'console-error smoke never wired into a CI list; audit item 2 decides', run: PW('tests/e2e/console-clean-smoke.spec.ts') },
-  'tests/e2e/dancer-app/dancer-dash-slice1.spec.ts': { reason: 'Option B Home walk; mounts only with the default-off VITE_ENABLE_DANCER_DASH_B flag on', run: PW('tests/e2e/dancer-app/dancer-dash-slice1.spec.ts', 'VITE_ENABLE_DANCER_DASH_B=true') },
   'tests/e2e/dancer-app/ember-walk.spec.ts': { reason: WALK, run: PW('tests/e2e/dancer-app/ember-walk.spec.ts') },
   'tests/e2e/dancer-app/review-pack.spec.ts': { reason: 'review pack; skips itself unless REVIEW_PACK_DIR is set', run: PW('tests/e2e/dancer-app/review-pack.spec.ts', 'REVIEW_PACK_DIR=<dir>') },
   'tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts': { reason: 'needs a real Supabase anon key (SSR loader) and the organiser detail flags; skips without the key', run: PW('tests/e2e/organiser-edit-save-bar.real-supabase.spec.ts', DETAIL) },

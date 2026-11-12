@@ -79,9 +79,6 @@ export const flags = {
   // Turn on with VITE_ENABLE_ORGANISER_DASH=true (Vercel env) -- no code change.
   organiserDash:       import.meta.env.VITE_ENABLE_ORGANISER_DASH === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
-  // Dancer dashboard slice 1, Option B "one thing in focus" (queue-website#1534): the /app Home body.
-  // OFF = the current Option A Home. Turn on with VITE_ENABLE_DANCER_DASH_B=true (Vercel env) -- no code change.
-  dancerDashB:         import.meta.env.VITE_ENABLE_DANCER_DASH_B === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.

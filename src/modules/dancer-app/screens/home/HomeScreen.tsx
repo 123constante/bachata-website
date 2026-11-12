@@ -16,7 +16,7 @@ import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { HomeAView } from './homeOptionA';
 import { HomeBError, HomeBLoading, HomeBView } from './homeOptionB';
-import { flags } from '@/lib/featureFlags';
+import { DANCER_DASH_B_ENABLED } from './dashBFlag';
 import { ClaimCard } from './claimCard';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
@@ -112,7 +112,7 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
         </Card>
       )}
 
-      {flags.dancerDashB ? (
+      {DANCER_DASH_B_ENABLED ? (
         <HomeBView
           profile={profile}
           went={numbers.data ? numbers.data.went : null}
@@ -161,7 +161,7 @@ const HomeScreen = () => {
 
   let body: ReactNode;
   if (profile.isLoading) {
-    body = flags.dancerDashB ? <HomeBLoading /> : <Message>Loading your home&hellip;</Message>;
+    body = DANCER_DASH_B_ENABLED ? <HomeBLoading /> : <Message>Loading your home&hellip;</Message>;
   } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
     // D4 (unclaimed): the claim button re-runs the existing no-arg claim; its answer is drawn in the card.
     // Walk bug 1: never trapped here -- NoProfileWayOut gives Account settings, Sign out, the organiser area.
@@ -173,7 +173,7 @@ const HomeScreen = () => {
     );
   } else if (profile.error || !profile.data) {
     const message = profile.error instanceof Error ? profile.error.message : 'We couldn\u2019t load your home.';
-    body = flags.dancerDashB ? (
+    body = DANCER_DASH_B_ENABLED ? (
       <HomeBError message={message} onRetry={() => void profile.refetch()} />
     ) : (
       <Message>
