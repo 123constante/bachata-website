@@ -45,12 +45,15 @@ export function DashHome({ rows, today, page, seriesIds }: { rows: readonly P3Ro
   }, [rows, today, analytics.data, ids]);
   const pageLink = pageLinkOf(window.location.origin, page.id);
   const [notice, setNotice] = useState<string | null>(null);
-  const run = useCallback(async (title: string, text: string, url: string) => setNotice(SAID[await shareText(title, text, url)]), []);
+  const run = useCallback(async (title: string, text: string, url: string) => {
+    setNotice(null);
+    setNotice(SAID[await shareText(title, text, url)]);
+  }, []);
   const steps: ProfileStep[] = (progress.data?.steps ?? [])
     .filter((s) => s.area === 'organiser' && STEP_WORDS[s.field])
     .map((s) => ({ key: s.field as ProfileStep['key'], done: s.done, ...STEP_WORDS[s.field] }));
   const model = buildDash({
-    load: analytics.isLoading ? 'loading' : 'ready', seat: page.role, nights,
+    load: 'ready', seat: page.role, nights,
     upcomingDates: rows.reduce((n, r) => n + r.upcoming, 0), pageLink,
     profileSteps: steps, cityOrganisers: null, cityAverage: null, sellingViaUs: false, teamCount: Array.isArray(page.team) ? page.team.length : 1,
   });

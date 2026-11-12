@@ -169,8 +169,9 @@ export function buildDash(i: DashInput): DashModel {
 
   const done = i.profileSteps.filter((s) => s.done).length;
   const next = i.profileSteps.find((s) => !s.done) ?? null;
-  const profile = {
-    percent: i.profileSteps.length ? Math.round((done / i.profileSteps.length) * 100) : 0,
+  // no steps = progress loading, failed, or steps absent: say nothing rather than claim complete
+  const profile = i.profileSteps.length === 0 ? null : {
+    percent: Math.round((done / i.profileSteps.length) * 100),
     complete: !next,
     next,
     control: next ? (canEdit ? { label: next.button, disabled: false, reason: null } : { label: next.button, disabled: true, reason: OWNER_ONLY }) : null,

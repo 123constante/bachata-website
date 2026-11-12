@@ -15,3 +15,9 @@ Not verified: pre-ship (run hit my 540s limit, result not seen), e2e, other CI j
 Done: (1) profile/team buttons are links to youPage/youTeamAdd, table test that every enabled control navigates or fires; (2) opens is number|null, unknown never claims zero, hero reworded "Get people looking at this night", adapter holds 'loading' while analytics loads (isLoading, so a disabled query cannot hang); (3) opens labelled "this month"; (4) analytics error degrades to hero + rail + inline retry; (5) design doc updated, 5 shapes re-shot at 390x844 from a fixture harness (removed after).
 Verified: vitest dash/ 34 passed; screenshots viewed (zero, error).
 Not verified: PR 1578 body edit (no gh/API access in this session, see below); pre-ship, e2e, other CI jobs; live-app walk; contributor seat unreachable live.
+
+## Continuation: review fixes round 2 (dt_9d66bdcbc09e)
+Done: (1) profile null when no steps, no false "Profile complete"; (2) Home ready regardless of analytics; (3) docs/design/pr-organiser-dash.md rewritten to match code; (4) share notice cleared at start of `run`. New test file `dash/__tests__/dashHome.test.tsx`.
+Verified: vitest on dash/ green (40 tests); the new empty-profile and slow-analytics tests fail on the unfixed code (the notice test passes either way, since a native share already set null; it now pins the behaviour).
+tsc: 0 errors in dash/ files; check:mojibake clean.
+Not verified: profile-card shots at 390x844 (no browser walk this round); real-device share outcomes; live-data walk.
