@@ -96,7 +96,7 @@ test.describe('dancer Home (Option A) 390x844', () => {
         if (kind === 'complete') await expect(page.getByTestId('home-attended-n')).toHaveText('12');
       }
       // Role strip: one profile reads Account, two read the Switch button.
-      await expect(page.getByTestId(shape.organiser ? 'profile-switcher-button' : 'header-account')).toBeVisible();
+      await expect(page.getByTestId(shape.organiser ? 'profile-switcher-button' : 'profile-account-button')).toBeVisible();
       await expectNoHorizontalScroll(page);
       await page.screenshot({ path: `${SHOTS}/home-${shape.name}.png`, fullPage: true });
     });

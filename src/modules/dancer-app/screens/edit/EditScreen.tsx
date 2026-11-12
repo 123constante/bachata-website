@@ -16,7 +16,6 @@ import { HideSurnameSwitch, hideSurnameDisabledReason } from '@/components/profi
 import { FAVORITE_STYLE_OPTIONS } from '@/components/profile/dancerConstants';
 import { toast } from '@/hooks/use-toast';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { saveMyDancerProfile } from '../../api/rpc';
 import { toDancerError } from '../../api/errors';
 import { ADD_CITY_MESSAGE, dancerMessageUsUrl } from '../../api/messageUs';

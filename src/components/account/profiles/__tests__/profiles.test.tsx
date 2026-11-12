@@ -95,22 +95,44 @@ describe('Switch profile sheet', () => {
     sides.facts = facts;
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
     const several = names.length > 1;
-    expect(screen.getByTestId('profile-switcher-button').getAttribute('aria-label')).toBe(several ? 'Switch profile' : 'Your account');
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    expect(screen.getByTestId(/^profile-(switcher|account)-button$/).getAttribute('aria-label')).toBe(several ? 'Switch profile' : 'Your account');
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     const sheet = screen.getByTestId('profile-switcher-sheet');
     expect(sheet.querySelector('h2')?.textContent).toBe(several ? 'Switch profile' : 'Your account');
     const items = [...screen.getByTestId('profile-switcher-sides').querySelectorAll('a')];
-    expect(items.map((a) => a.querySelector('.font-semibold')?.textContent)).toEqual(names);
+    // Grouped Dancer first, then Organiser; each group has its own heading.
+    const expected = [...names.filter((n) => n === 'Ana'), ...names.filter((n) => n !== 'Ana')];
+    expect(items.map((a) => a.querySelector('.font-semibold')?.textContent)).toEqual(expected);
+    const heads = [...screen.getByTestId('profile-switcher-sides').querySelectorAll('h3')].map((h) => h.textContent);
+    expect(heads).toEqual([...(expected.includes('Ana') ? ['Dancer'] : []), ...(expected.some((n) => n !== 'Ana') ? ['Organiser'] : [])]);
+    if (expected.includes('Ana') && expected.some((n) => n !== 'Ana')) {
+      const g = screen.getByTestId('profile-switcher-sides').querySelectorAll('section');
+      expect(g[0].getAttribute('data-testid')).toBe('profile-switcher-group-dancer');
+      expect(g[1].getAttribute('data-testid')).toBe('profile-switcher-group-organiser');
+    }
+    // "Showing" tag on exactly the current row (words, not only a tick).
+    const showing = items.filter((a) => a.querySelector('[data-testid="profile-switcher-showing"]'));
+    expect(showing.map((a) => a.getAttribute('aria-current'))).toEqual(facts.dancer === 'complete' ? ['true'] : []);
     const ticked = items.filter((a) => a.getAttribute('aria-current') === 'true').map((a) => a.querySelector('.font-semibold')?.textContent);
     expect(ticked).toEqual(facts.dancer === 'complete' ? ['Ana'] : []);
     expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app') // S1: keeps Back to Options;
     expect(screen.getByTestId('profile-switcher-sign-out')).toBeTruthy();
   });
 
+  it('the sheet is height-capped and scrolls, so Close stays reachable with many profiles', () => {
+    sides.facts = SHAPES[3][1];
+    mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
+    const cls = screen.getByTestId('profile-switcher-sheet').className;
+    expect(cls).toContain('max-h-[calc(100dvh-16px)]');
+    expect(cls).toContain('overflow-y-auto');
+    expect(screen.getByTestId('profile-switcher-close')).toBeTruthy();
+  });
+
   it('in the organiser area the tick follows ?o=', () => {
     sides.facts = SHAPES[3][1];
     mountAt('/account/o?o=org-b', <ProfileSwitcher where={{ area: 'organiser', organiserId: 'org-b' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     expect(screen.getByTestId('profile-switcher-side-organiser:org-b').getAttribute('aria-current')).toBe('true');
     expect(screen.getByTestId('profile-switcher-side-dancer').getAttribute('aria-current')).toBeNull();
   });
@@ -118,7 +140,7 @@ describe('Switch profile sheet', () => {
   it('one tap switches, and the sheet closes', async () => {
     sides.facts = SHAPES[2][1];
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(screen.getByTestId('profile-switcher-side-organiser:org-a'));
     await waitFor(() => expect(here).toBe('/account/o'));
     expect(screen.queryByTestId('profile-switcher-sheet')).toBeNull();
@@ -127,7 +149,7 @@ describe('Switch profile sheet', () => {
   it('sign out asks, then signs out and goes home', async () => {
     sides.facts = SHAPES[0][1];
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(screen.getByTestId('profile-switcher-sign-out'));
     // L23: it asks first, like Options and Account settings.
     expect(auth.signOut).not.toHaveBeenCalled();
