@@ -15,6 +15,8 @@ import { RateNudge } from './RateNudge';
 import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
 import { HomeAView } from './homeOptionA';
+import { HomeBError, HomeBLoading, HomeBView } from './homeOptionB';
+import { flags } from '@/lib/featureFlags';
 import { ClaimCard } from './claimCard';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
@@ -110,12 +112,22 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
         </Card>
       )}
 
-      <HomeAView
-        profile={profile}
-        went={numbers.data ? numbers.data.went : null}
-        night={going?.hero ?? null}
-        goingKnown={going !== null && !going.isLoading && !going.isError}
-      />
+      {flags.dancerDashB ? (
+        <HomeBView
+          profile={profile}
+          went={numbers.data ? numbers.data.went : null}
+          night={going?.hero ?? null}
+          goingCount={going?.goingCount ?? null}
+          focusLoading={going !== null && going.isLoading}
+        />
+      ) : (
+        <HomeAView
+          profile={profile}
+          went={numbers.data ? numbers.data.went : null}
+          night={going?.hero ?? null}
+          goingKnown={going !== null && !going.isLoading && !going.isError}
+        />
+      )}
 
       <RateNudge candidates={going?.nudge ?? []} todayKey={going?.todayKey || londonTodayKey()} />
     </div>
@@ -149,7 +161,7 @@ const HomeScreen = () => {
 
   let body: ReactNode;
   if (profile.isLoading) {
-    body = <Message>Loading your home&hellip;</Message>;
+    body = flags.dancerDashB ? <HomeBLoading /> : <Message>Loading your home&hellip;</Message>;
   } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
     // D4 (unclaimed): the claim button re-runs the existing no-arg claim; its answer is drawn in the card.
     // Walk bug 1: never trapped here -- NoProfileWayOut gives Account settings, Sign out, the organiser area.
@@ -160,9 +172,12 @@ const HomeScreen = () => {
       </div>
     );
   } else if (profile.error || !profile.data) {
-    body = (
+    const message = profile.error instanceof Error ? profile.error.message : 'We couldn\u2019t load your home.';
+    body = flags.dancerDashB ? (
+      <HomeBError message={message} onRetry={() => void profile.refetch()} />
+    ) : (
       <Message>
-        <b>{profile.error instanceof Error ? profile.error.message : 'We couldn\u2019t load your home.'}</b>
+        <b>{message}</b>
         <div>
           <button type="button" className="da-tap" style={{ ...linkStyle, background: 'none', border: 0 }} onClick={() => void profile.refetch()}>Try again</button>
         </div>
