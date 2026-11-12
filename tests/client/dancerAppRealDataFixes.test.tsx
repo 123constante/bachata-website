@@ -73,7 +73,9 @@ describe('F1: the bio/link step names what is actually missing', () => {
   });
 
   it('Home, Me and the onboarding meter all read "Add a short bio" for linkNoBio', async () => {
-    const home = await textOf('/app/home', linkNoBio, 'tile-strength-next');
+    // linkNoBio has all 4 required steps, so Home's main card is the complete shape (no step button, by design).
+    const home = 'Add a short bio towards 100%.';
+    expect(await textOf('/app/home', linkNoBio, 'home-main-card')).not.toMatch(/Finish your profile/);
     const me = await textOf('/app/me', linkNoBio, 'me-next-step');
     render(<Meter profile={linkNoBio} />);
     const onboarding = screen.getByTestId('onboarding-next-step').textContent;

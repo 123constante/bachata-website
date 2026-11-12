@@ -157,17 +157,19 @@ describe('Home x profile shapes', () => {
     await waitFor(() => expect(screen.queryByText(/Loading your home/)).toBeNull());
   });
 
-  it('strength tile shows the server pct and says what to add', async () => {
+  it('main card (D2): the 4 steps once, the next one on the button, no percent', async () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id }) } });
-    const tile = await screen.findByTestId('tile-strength');
-    expect(tile.textContent).toMatch(/40%/);
-    expect(tile.textContent).toMatch(/Choose how you dance towards 70%/);
+    const card = await screen.findByTestId('home-main-card');
+    expect(within(card).getByTestId('home-next-step').textContent).toBe('Choose how you dance');
+    expect(within(card).getAllByRole('listitem')).toHaveLength(4);
+    expect(card.textContent).not.toMatch(/%|of 4/);
   });
 
   it('no profile: the Message us control itself (Options cannot load without a profile)', async () => {
     home({ backend: { profile: null } });
     const m = await screen.findByTestId('home-message');
-    await waitFor(() => expect(m.textContent).toMatch(/Message us/));
+    await waitFor(() => expect(m.textContent).toMatch(/Claim your page/));
+    expect(within(m).getByTestId('claim-button')).toBeTruthy();
     expect(within(m).getByRole('link', { name: 'Message us on WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
     expect(within(m).queryByRole('link', { name: 'Options' })).toBeNull();
   });

@@ -72,14 +72,20 @@ describe('S2 + B1: the next step reads the same words on Home, Me and Onboarding
   });
 
   it.each(cases)('%s', async (_name, profile) => {
-    const home = await textOf('/app/home', profile, 'tile-strength-next');
+    // Admin 1534: Home's main card names the step on its ONE button (the label only); Me and Onboarding keep the full line.
     const me = await textOf('/app/me', profile, 'me-next-step');
-    expect(home).toBe(me);
+    const requiredLeft = profile.strength.missing.some((m) => ['first_name', 'city', 'role', 'photo'].includes(m));
+    if (requiredLeft) {
+      const home = await textOf('/app/home', profile, 'home-next-step');
+      expect(me).toContain(home);
+      if (profile.strength.next_step === 'photo') expect(home).toMatch(/photo/);
+    } else {
+      expect(await textOf('/app/home', profile, 'home-main-card')).not.toMatch(/Finish your profile/);
+    }
     if (!profile.complete) {
       const onboarding = await textOf('/app/welcome', profile, 'onboarding-next-step');
-      expect(onboarding).toBe(home);
+      expect(onboarding).toBe(me);
     }
-    if (profile.strength.next_step === 'photo') expect(home).toMatch(/photo/);
   });
 });
 

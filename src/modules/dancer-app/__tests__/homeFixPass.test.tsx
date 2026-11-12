@@ -75,12 +75,11 @@ describe('S4: hero "See event" is full width, 52px+, token colours', () => {
     expect(link.className).toContain('da-hero-cta');
     expect(link.getAttribute('style') ?? '').not.toMatch(/#/);
   });
-  it('strength tile spans the whole row and ends in a chevron', async () => {
-    renderInShell({ path: '/app/home' });
-    const tile = await screen.findByTestId('tile-strength');
-    expect(tile.className).toContain('da-strength-row');
-    expect(tile.querySelector('svg')).not.toBeNull();
-    expect(tile.textContent).toContain('Profile strength');
+  it('the main card is the ONE next step: a full-width primary link, no strength ring', async () => {
+    renderInShell({ path: '/app/home', backend: { shape: 'emptyStub' } });
+    const btn = await screen.findByTestId('home-next-step');
+    expect(btn.className).toContain('w-full');
+    expect(screen.queryByTestId('tile-strength')).toBeNull();
   });
 });
 

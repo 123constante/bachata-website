@@ -1,8 +1,7 @@
-import { Suspense, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/modules/organiser/ui';
-import { ChevronRight } from 'lucide-react';
-import { LINK_GHOST_SM, TILE_CLASS } from '../blocks';
+import { LINK_GHOST_SM } from '../blocks';
 import { useAuth } from '@/hooks/useAuth';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -15,7 +14,9 @@ import { DANCER_TABS } from '../../shell/routes';
 import { goingTileValue } from '../../api/numbersModel';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
 import { greeting } from './homeCopy';
-import { nextStepLine } from '../../api/nextStep';
+import { useMyNumbers } from '../../api/useMyNumbers';
+import { HomeMainCard } from './HomeMainCard';
+import { ClaimYourPage } from './ClaimYourPage';
 import { RateNudge } from './RateNudge';
 import { GoingTileView, HomeHero, type HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
@@ -76,17 +77,6 @@ const HOME_GOING_LOADING: HomeGoing = {
  */
 export const HERO_BACKGROUND = gradientBg;
 
-const Ring = ({ pct }: { pct: number }) => (
-  <div
-    role="img"
-    aria-label={`Profile strength ${pct}%`}
-    className="da-strength-ring"
-    style={{ width: 56, height: 56, flex: '0 0 auto', '--da-pct': `${pct}%` } as CSSProperties}
-  >
-    <span style={{ width: 46, height: 46, fontSize: 14 }}>{pct}%</span>
-  </div>
-);
-
 const Message = ({ children }: { children: ReactNode }) => (
   <Card variant="padded" role="status" testId="home-message">{children}</Card>
 );
@@ -95,6 +85,7 @@ const Message = ({ children }: { children: ReactNode }) => (
 const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGoing | null }) => {
   const { user } = useAuth();
   const goingCount = going?.goingCount ?? null;
+  const numbers = useMyNumbers();
   const name = profile.first_name || profile.display_name || 'there';
   const [noticeGone, setNoticeGone] = useState(() => (user?.id ? readFlag('local', noticeKey(user.id)) : true));
 
@@ -148,18 +139,9 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
 
       <RateNudge candidates={going?.nudge ?? []} todayKey={going?.todayKey || londonTodayKey()} />
 
-      {/* Review S4: one column; strength is the prototype's full-width row (ring, title, next step, chevron). */}
+      {/* Option A (admin one-five-three-four): ONE main card; the going tile and numbers follow. */}
+      <HomeMainCard profile={profile} nightsWent={numbers.data?.went ?? null} />
       <div style={{ display: 'grid', gap: 10 }}>
-        <Link to={path('me')} data-testid="tile-strength" className={`${TILE_CLASS} da-tile-rose da-strength-row`}>
-          <Ring pct={profile.strength.pct} />
-          <span style={{ minWidth: 0, flex: 1 }}>
-            <b style={{ display: 'block', fontSize: 15 }}>Profile strength</b>
-            <span style={{ display: 'block', fontSize: 13 }} data-testid="tile-strength-next">
-              {nextStepLine(profile)}
-            </span>
-          </span>
-          <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />
-        </Link>
         {going && (
           <GoingTileView
             value={goingTileValue({ isLoading: going.isLoading, goingCount })}
@@ -200,6 +182,7 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
 const HomeScreen = () => {
   const profile = useMyDancerEdit({ staleTime: 60_000 });
+  const [claimDismissed, setClaimDismissed] = useState(false);
 
   // Once per session, signed-in only (trackDancerEvent is a no-op signed out).
   useEffect(() => {
@@ -214,10 +197,7 @@ const HomeScreen = () => {
     body = (
       <Message>
         <CoupleArt />
-        <b>We can&rsquo;t find a dancer profile for you yet.</b>
-        <p style={{ margin: '4px 0 8px', fontSize: 14 }}>Message us and we&rsquo;ll sort it out.</p>
-        {/* The control itself, not a pointer to Options: Options cannot load without a profile either. */}
-        <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />
+        <ClaimYourPage onLinked={() => void profile.refetch()} onDismiss={() => setClaimDismissed(true)} dismissed={claimDismissed} />
         {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
         <NoProfileWayOut />
       </Message>
