@@ -209,7 +209,8 @@ for (const scheme of ['light', 'dark'] as const) {
         await page.getByTestId('p3-pictures-done').click();
         await expect(sheet).toHaveCount(0);
         expect(fake.envelopes(), 'nothing is sent before Save').toEqual([]);
-        await expect(page.getByTestId('p3-field-cover').locator('img')).toHaveCount(1);
+        // the Cover photo field follows the sheet: it now has a cover to change
+        await expect(page.getByTestId('p3-d-cover-btn')).toContainText('Choose a new cover photo');
         await page.getByTestId('p3-save').click();
         await expect.poll(() => fake.envelopes().length, { timeout: 10_000 }).toBeGreaterThan(0);
         const sent = JSON.stringify(fake.envelopes());

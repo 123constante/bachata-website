@@ -143,6 +143,7 @@ const tiles = () => screen.getAllByTestId('p3-picture-pick');
 describe('P3 Pictures sheet, flag on', () => {
   it.each([
     { n: 0, cover: null },
+    { n: 0, cover: C }, // prod: the commonest shape with a picture (a cover and no gallery, 105 series on 2026-11-12)
     { n: 1, cover: null },
     { n: 2, cover: C },
     { n: 30, cover: C },
