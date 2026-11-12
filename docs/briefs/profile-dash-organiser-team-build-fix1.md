@@ -1,0 +1,14 @@
+# Team build fix round 1 (PR #1583, branch claude/profile-dash-organiser-team-build)
+Normal lane, Sonnet, no migration, no new RPC. Continue on the existing branch (git fetch, check it out, do not recreate). Independent review of head c4e19acb = FIX. Fix ALL, push once, end the last commit subject with the worker-done signal from your ticket. Read docs/briefs/profile-dash-organiser-team-build.handover.md first.
+
+## Fix list
+1. HIGH, interim manager reaches a refused add: teamDashModel.ts:138 turns Add into "Share a join link" but TeamDashView.tsx:144/153 still opens the Add sheet, whose "Find a dancer" link (:210) hits interim_cannot_add. Also the empty-Managers "Add a manager" link (model:134, View:71). Fix: when interim, the button calls actions.onShareLink directly; groupAdd null; no Find link in the sheet. Add an interim shape to SHAPES.
+2. HIGH, no-page dead end: TeamDashRoute.tsx:36 treats `!organiser` as loading (skeleton forever, disabled "Wakes up when your team loads"). Add a 'nopage' state showing the old page's NO_PAGE empty state, MESSAGE_US and paths.help.
+3. MEDIUM, pages with no owner: model duplicates teamRules instead of using canManagePeople / canRemove / canLeave. Build `roles` and `remove` from the teamRules gates so one mapping rules; at model:171, :195 show NO_OWNER_REASON plus Message us, never "Only the owner..." on an ownerless page; model:140 "ask an owner" same; model:193 "Owners cannot remove another owner" only to those it applies to.
+4. MEDIUM, features dropped under the flag: PublicToggle (organiser_team_set_public_v1, "show me on the public team"), RequestsError (failed requests read must show an error), PageNameCaption (2+ pages), ownRowLabel ("Interim manager"). Carry all four over.
+5. MEDIUM, tests: add shapes manager-viewer, interim, no-owner, no-page to the SHAPES table; run the "every disabled button has a reason" sweep with the person sheet open too; the disabled public switch (View:177) needs aria-describedby pointing at its reason (give the `<p>` at :182 an id).
+6. LOW, raw middle dot at teamDashModel.ts:85: use · escape; run `npm run check:mojibake` and grep the PR diff for non-ASCII punctuation.
+7. Calls to list_organiser_access_requests_v1, resolve_organiser_access_request_v1, organiser_team_add_member_by_profile_v1 via JoinRequestCard are the old page's existing calls: keep, list them in the PR body as pre-existing.
+8. Process: run `npm run pre-ship` (if it exceeds the sandbox, say so and rely on CI), the 390x844 walk with preview-deploy.mjs on the side laptop (screenshots on the PR: solo, full team, person sheet, add sheet, interim, no-page, contributor view-only), the per-job CI table, and the `## Verified on real data` PR block (Shapes surveyed / Checks run / NOT verified). Update the handover.
+
+## Done = all fixed, CI green, walk shots on the PR.
