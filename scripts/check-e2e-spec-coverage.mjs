@@ -268,14 +268,14 @@ async function selfTest() {
       {
         specs: null,
         readdir: fakeReaddir({
-          'tests/e2e': ['a.spec.ts', 'c.spec.ts', 'm.spec.ts', 'sub/', 'live/', 'util.ts'],
+          'tests/e2e': ['a.spec.ts', 'c.spec.ts', 'd.spec.ts', 'm.spec.ts', 'sub/', 'live/', 'util.ts'],
           'tests/e2e/sub': ['b.spec.ts', 'live/'],
           'tests/e2e/sub/live': ['x.spec.ts'],
           'tests/e2e/live': ['pages.spec.ts'],
         }),
       },
       0,
-      '4 specs: 3 in a CI list, 1 allow-listed',
+      '5 specs: 4 in a CI list, 1 allow-listed',
     ],
     [
       'findSpecs: unlisted subfolder spec -> 1',
