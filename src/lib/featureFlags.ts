@@ -82,6 +82,10 @@ export const flags = {
   // Gallery sheet: choose photo order and the cover (tap a photo, then Move left/right, Make cover).
   // OFF = the sheet is exactly as before. Turn on with VITE_ENABLE_ORGANISER_PHOTO_ORDER=true (Vercel env).
   organiserPhotoOrder: import.meta.env.VITE_ENABLE_ORGANISER_PHOTO_ORDER === 'true',
+  // Organiser Raffle inside each night (Option B). Admin PR #1576 (organiser_raffle_nights_v1 and
+  // organiser_raffle_night_set_v1) is NOT applied to prod yet: OFF = the night sheet's Raffle row is a Coming soon
+  // card and no raffle RPC is called. Turn on with VITE_ENABLE_ORGANISER_RAFFLE_LIVE=true only after #1576 is applied.
+  organiserRaffleLive: import.meta.env.VITE_ENABLE_ORGANISER_RAFFLE_LIVE === 'true',
   // Buyer ticket checkout (S4, docs/ticketing-buyer-journey.md): the Tickets block on
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.
