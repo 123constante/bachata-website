@@ -181,8 +181,12 @@ confirm and explain anyway; (3) a separate Invites tab: splits one small job acr
 - **Not verified:** not on a real phone; people are examples; no running route to walk; Manager and
   Contributor "can" lines stay draft until the ACL decision; the email mask is a UI rule only (the real
   read must not send the full address to a contributor's browser: careful lane).
-- **Ship status:** see the PR on branch `claude/profile-dash-organiser-team-opts` (the PR #1579 branch was merged
-  and deleted, so this round restarted the branch from `main`).
+- **Ship status:** PR #1581 on `claude/profile-dash-organiser-team-opts` (the PR #1579 branch was merged and
+  deleted, so this round restarted it from `main`). Docs only, 50 files, +231/-277 lines, so no automerge label.
+  These local CI steps passed: integrity, `AUDIT_STRICT=1 check:images`, `check:mojibake`, `lint:architecture`,
+  `check-script-conventions`, and both PR-body label checks. tsc run on 2e42348: 0 errors in branch files (the
+  branch touches no TS; the whole app has 148 errors under `tsc -p tsconfig.app.json`, none in this diff).
+  `scripts/prepush-check.mjs` does not exist here, so the PR body labels were checked by hand.
 
 ## Handover (original 2-option round)
 
