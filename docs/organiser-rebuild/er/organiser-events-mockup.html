@@ -1,0 +1,143 @@
+<title>Organiser Event Page Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: control rail (option + shape) above a 390x844 phone; phone swaps Home / Event page / sheets. */
+:root{--bg:#f1f1ef;--panel:#fff;--ink:#1d1f23;--mute:#6a6f78;--line:#dcdde0;--accent:#d8452f;--ok:#1f8a5b;--warn:#b7791f;--ground:#f7f7f5;--chip:#ebecee;
+--display:'Bricolage Grotesque','DM Sans',system-ui,sans-serif;--body:'DM Sans',system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121316;--panel:#1c1e23;--ink:#eceef1;--mute:#9aa0aa;--line:#2e3139;--accent:#ff7a5f;--ok:#4cc38a;--warn:#e3b25b;--ground:#17181c;--chip:#2a2d34;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121316;--panel:#1c1e23;--ink:#eceef1;--mute:#9aa0aa;--line:#2e3139;--accent:#ff7a5f;--ok:#4cc38a;--warn:#e3b25b;--ground:#17181c;--chip:#2a2d34;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:900px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+@media(min-width:820px){.wrap{grid-template-columns:300px 410px;justify-content:center}}
+h1{font-family:var(--display);font-size:22px;margin:0 0 4px}
+.rail{display:flex;flex-direction:column;gap:14px}
+.rail p{margin:0;color:var(--mute);font-size:13px;line-height:1.45}
+.lab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 10px;border-radius:8px;cursor:pointer;min-height:36px}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.45}
+.phone{width:100%;max-width:390px;height:780px;margin:0 auto;border:1px solid var(--line);border-radius:26px;background:var(--ground);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.bar{display:flex;align-items:center;gap:8px;padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--line);min-height:52px}
+.bar b{font-family:var(--display);font-size:17px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib{border:0;background:var(--chip);color:var(--ink);border-radius:8px;min-width:36px;height:36px;font:inherit;cursor:pointer}
+.scroll{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;min-height:44px;width:100%;background:none;border-left:0;border-right:0;border-bottom:0;color:var(--ink);font-family:inherit;text-align:left;cursor:pointer}
+.row:first-child{border-top:0}
+.row span.g{flex:1;min-width:0}
+.row small{display:block;color:var(--mute);font-size:12px}
+.tag{font-size:11px;padding:3px 8px;border-radius:99px;background:var(--chip);color:var(--mute)}
+.tag.live{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.draft{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex:none;display:grid;place-items:center;font-size:12px;color:#fff}
+.dot.done{background:var(--ok);border-color:var(--ok)}
+.h{font-family:var(--display);font-size:15px;margin:0 0 4px;display:flex;justify-content:space-between}
+.go{font:inherit;font-weight:700;width:100%;min-height:48px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer;margin-top:8px}
+.go[disabled]{background:var(--chip);color:var(--mute);cursor:not-allowed}
+.why{font-size:12px;color:var(--mute);margin-top:6px;line-height:1.4}
+.err{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4}
+.sheet{position:absolute;inset:auto 0 0 0;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:14px;box-shadow:0 -10px 30px rgba(0,0,0,.18)}
+.sheet h3{font-family:var(--display);margin:0 0 8px;font-size:16px}
+.opt{display:block;width:100%;text-align:left;font:inherit;border:1px solid var(--line);background:var(--ground);color:var(--ink);border-radius:10px;padding:12px;margin-top:8px;min-height:44px;cursor:pointer}
+.mini{font-size:12px;color:var(--mute)}
+.badge{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:6px}
+</style>
+
+<div class="wrap">
+ <div class="rail">
+  <div><h1>Event page mockups</h1><p>Tap through the phone. Pick a depth, then a starting shape, and try Go live.</p></div>
+  <div><div class="lab">Rebuild depth</div><div class="seg" id="optSeg"></div></div>
+  <div><div class="lab">Start from this event</div><div class="seg" id="shapeSeg"></div></div>
+  <div class="note" id="optNote"></div>
+  <div class="seg"><button id="reset">Reset event</button><button id="bypass" hidden>Simulate an old app build</button></div>
+  <p>All events here are examples. Weekly recurring is the first-release shape.</p>
+ </div>
+ <div class="phone" id="phone"></div>
+</div>
+
+<script>
+var OPTS={A:{n:'A: Screens only',t:'One event page with a checklist. The rule lives in the Website only, so an old app build or another client can still go live without a session (today\'s zz test).'},
+B:{n:'B: Screens + one model',t:'Same page, but Home, the event page and Go live all read ONE readiness function, with a table-driven test over real data shapes. Fixes the "Not found" class. No migration.'},
+C:{n:'C: B + server gate',t:'B, plus the server refuses Go live without flyer, date and session, so nothing can bypass it. Needs an admin migration and the merge train.'}};
+var SHAPES={
+ empty:{label:'New draft',name:'Sensual Fridays',status:'draft',flyer:0,venue:1,date:0,session:0},
+ dated:{label:'Draft + date',name:'Sensual Fridays',status:'draft',flyer:1,venue:1,date:1,session:0},
+ ready:{label:'Ready to go live',name:'Sensual Fridays',status:'draft',flyer:1,venue:1,date:1,session:1},
+ live:{label:'Live',name:'Sensual Fridays',status:'live',flyer:1,venue:1,date:1,session:1},
+ paused:{label:'Paused',name:'Sensual Fridays',status:'paused',flyer:1,venue:1,date:1,session:0},
+ ended:{label:'Ended',name:'Sensual Fridays',status:'ended',flyer:1,venue:1,date:0,session:1}};
+var opt='B',shape='empty',ev,screen='event',sheet=null,msg=null;
+function load(){ev=JSON.parse(JSON.stringify(SHAPES[shape]));screen='event';sheet=null;msg=null;draw()}
+function $(i){return document.getElementById(i)}
+function seg(el,items,cur,fn){el.innerHTML='';items.forEach(function(k){var b=document.createElement('button');b.textContent=k[1];b.setAttribute('aria-pressed',k[0]===cur);b.onclick=function(){fn(k[0])};el.appendChild(b)})}
+function missing(){var m=[];if(!ev.flyer)m.push('a flyer');if(!ev.date)m.push('a date');if(!ev.session)m.push('a session');return m}
+function ready(){return !missing().length}
+function tag(s){return '<span class="tag '+s+'">'+s[0].toUpperCase()+s.slice(1)+'</span>'}
+function item(k,label,sub,act){var d=ev[k];return '<button class="row" data-act="'+(d?'':act)+'"><span class="dot '+(d?'done':'')+'">'+(d?'&#10003;':'')+'</span><span class="g">'+label+'<small>'+(d?sub[1]:sub[0])+'</small></span>'+(d?'':'<span class="mini">Add &rsaquo;</span>')+'</button>'}
+function home(){
+ var st=ev.status,hint='';
+ if(opt!=='A'&&st==='draft'&&!ready())hint='<small style="color:var(--warn)">Needs '+missing().join(', ')+'</small>';
+ else if(st==='draft')hint='<small>'+(ready()?'Ready to go live':'Draft')+'</small>';
+ return '<div class="bar"><b>Home</b><button class="ib" data-act="new">+</button></div><div class="scroll">'+
+ (opt!=='A'&&st==='draft'?'<div class="card"><div class="h">Needs attention</div><button class="row" data-act="open"><span class="g">'+ev.name+hint+'</span>'+tag(st)+'</button></div>':'')+
+ '<div class="card"><div class="h">Your events</div><button class="row" data-act="open"><span class="g">'+ev.name+hint+'</span>'+tag(st)+'</button><button class="row"><span class="g">Musketeers<small>Next: 1 Nov</small></span>'+tag('live')+'</button></div></div>'}
+function page(){
+ var st=ev.status,c='';
+ if(st==='draft'){
+  c+='<div class="card"><div class="h">To go live<span class="mini">'+(4-missing().length-0+0 - (0))+' of 4</span></div>';
+  c=c.replace(/<span class="mini">.*?<\/span>/,'<span class="mini">'+(1+ev.flyer+ev.date+ev.session)+' of 4</span>');
+  c+=item('flyer','Flyer',['Add a picture people will see','Uploaded'],'flyer');
+  c+='<button class="row"><span class="dot done">&#10003;</span><span class="g">Venue<small>Andrea Bar</small></span></button>';
+  c+=item('date','Date',['Add the first date','Fridays, from 17 Nov 20:00'],'date');
+  c+=item('session','Session',[ev.date?'Add a class or party':'Add a date first','Party 20:00-02:00'],ev.date?'session':'');
+  c+='<button class="go" id="golive" '+(ready()?'':'disabled')+'>Go live</button>';
+  if(!ready())c+='<div class="why">Add '+missing().join(' and ')+' to go live.</div>';
+  c+='</div>';
+ }else if(st==='live'){c+='<div class="card"><div class="h">Live now</div><div class="mini">Visible on the calendar and search. Next date 17 Nov 20:00.</div><button class="opt" data-act="pause">Pause this event</button></div>'}
+ else if(st==='paused'){c+='<div class="card"><div class="h">Paused</div><div class="mini">Hidden from the calendar. Dates are kept.</div><button class="opt" data-act="resume" '+(ev.session?'':'disabled')+'>Resume</button>'+(ev.session?'':'<div class="why">Add a session before resuming.</div>')+'</div>'}
+ else{c+='<div class="card"><div class="h">Ended</div><div class="mini">No coming dates. To run it again, add a new date.</div><button class="opt" data-act="date">Add a date</button></div>'}
+ c+='<div class="card"><div class="h">Details</div><button class="row"><span class="g">Name<small>'+ev.name+'</small></span></button><button class="row"><span class="g">Time<small>Fridays 20:00</small></span></button><button class="row"><span class="g">Tickets &amp; team</span></button></div>';
+ c+='<div class="card"><div class="h">Dates</div><div class="mini">'+(ev.date?'17 Nov, 24 Nov, 1 Dec &hellip; weekly':'No dates yet')+'</div><button class="opt" data-act="date">Add a date</button></div>';
+ if(msg)c='<div class="err">'+msg+'</div>'+c;
+ return '<div class="bar"><button class="ib" data-act="home">&lsaquo;</button><b>'+ev.name+'</b>'+tag(st)+'</div><div class="scroll">'+c+'</div>'+(sheet?sheetHtml():'')}
+function sheetHtml(){
+ if(sheet==='date')return '<div class="sheet"><h3>Add a date</h3><div class="mini">Pick the first Friday. Same screen from the event page and from Home.</div><button class="opt" data-act="setdate">Fri 17 Nov, 20:00 (weekly)</button><button class="opt" data-act="close">Cancel</button></div>';
+ if(sheet==='session')return '<div class="sheet"><h3>Add a session</h3><button class="opt" data-act="setsession">Party, 20:00-02:00</button><button class="opt" data-act="setsession">Class, 19:00-20:00</button><button class="opt" data-act="close">Cancel</button></div>';
+ if(sheet==='flyer')return '<div class="sheet"><h3>Add a flyer</h3><div class="mini">Name is sent with every save, so no "Enter the event name" error.</div><button class="opt" data-act="setflyer">Choose a photo</button><button class="opt" data-act="close">Cancel</button></div>';
+ return ''}
+function draw(){
+ seg($('optSeg'),[['A','A: Screens only'],['B','B: + one model'],['C','C: + server gate']],opt,function(k){opt=k;msg=null;draw()});
+ seg($('shapeSeg'),Object.keys(SHAPES).map(function(k){return [k,SHAPES[k].label]}),shape,function(k){shape=k;load()});
+ $('optNote').textContent=OPTS[opt].t;
+ $('bypass').hidden=!(ev.status==='draft'&&!ev.session);
+ $('phone').innerHTML=screen==='home'?home():page();
+}
+document.addEventListener('click',function(e){
+ var t=e.target.closest('[data-act],#golive');if(!t)return;
+ var a=t.id==='golive'?'golive':t.getAttribute('data-act');if(!a)return;
+ msg=null;
+ if(a==='home')screen='home';else if(a==='open')screen='event';
+ else if(a==='new'){shape='empty';ev=JSON.parse(JSON.stringify(SHAPES.empty));screen='event'}
+ else if(a==='close')sheet=null;
+ else if(a==='flyer'||a==='date'||a==='session')sheet=a;
+ else if(a==='setflyer'){ev.flyer=1;sheet=null}
+ else if(a==='setdate'){ev.date=1;if(ev.status==='ended')ev.status='live';sheet=null}
+ else if(a==='setsession'){ev.session=1;sheet=null}
+ else if(a==='golive'&&ready())ev.status='live';
+ else if(a==='pause')ev.status='paused';
+ else if(a==='resume')ev.status='live';
+ draw();
+});
+$('reset').onclick=load;
+$('bypass').onclick=function(){
+ if(opt==='C'){msg='Server refused: not_ready. This event needs a session before it can go live. Nothing changed.';}
+ else{ev.status='live';msg=null;screen='event'}
+ draw();
+ if(opt!=='C'){var p=document.createElement('div');p.className='err';p.textContent='Went live with no session. The public page says "Time to be confirmed". This is the zz test bug; only option C stops it.';$('phone').querySelector('.scroll').prepend(p)}
+};
+load();
+</script>

@@ -305,6 +305,8 @@ export const CHECKS = [
   ["check:workflow-log-secrets", "no secret-shaped literal in any workflow file"],
   ["check:drill-records:self-test", "the drill-record checker still refuses a forged and a stale record"],
   ["check:drill-records", "components.json is valid (literal paths, built components have paths)"],
+  ["check:e2e-spec-coverage:self-test", "the e2e spec-coverage guard still fails an unlisted spec"],
+  ["check:e2e-spec-coverage", "every tests/e2e spec is in a CI e2e list or allow-listed with a reason"],
   // Not a lint-chain link: the plan layer lives outside the repo (the home
   // plans dir), so it has no place in "npm run lint" and SKIPs in CI. It sits
   // here because the ship gate is the one place a local tree is guaranteed to
