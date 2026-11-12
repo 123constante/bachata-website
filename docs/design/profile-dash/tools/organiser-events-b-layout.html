@@ -1,0 +1,62 @@
+<!-- Option B layout fragment. organiser-events-shots.mjs splices these two marked parts into a copy of
+     organiser-events-option-a.html to make organiser-events-option-b.html. Edit here, then re-run the tool. -->
+<style>
+/* ==LAYOUT CSS== */
+.stabs{display:flex;flex-wrap:wrap;gap:4px;background:var(--ink-soft);padding:3px;border-radius:12px}
+.stabs button{flex:1 1 30%;min-height:44px;border-radius:9px;font-size:13px;font-weight:600;text-align:center;padding:4px}
+.stabs button[aria-selected=true]{background:var(--card);box-shadow:0 0 0 1px var(--fg)}
+.stabs .nd{color:var(--danger)}
+.tl{position:relative;padding-left:24px;display:flex;flex-direction:column;gap:10px}
+.tl::before{content:'';position:absolute;left:7px;top:8px;bottom:8px;width:2px;background:var(--line)}
+.mo{position:relative;font:700 16px var(--f-display);margin:4px 0 0}
+.mo::before{content:'';position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--c-org)}
+.mo span{font:500 13px var(--f-body);color:var(--muted);margin-left:6px}
+.sh{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.sh .rep{font-size:12px;font-weight:600;color:var(--c-org);border:1px solid var(--c-org);border-radius:999px;padding:3px 9px;white-space:nowrap}
+/* ==/LAYOUT CSS== */
+</style>
+<script>
+// ==LAYOUT==
+// OPTION B: status tabs on top, a month timeline below; a repeating series is ONE block per month.
+const LAYOUT={title:'Option B: status tabs + timeline',
+ foot:'<b>Option B, tabs by status.</b> Tabs on top split your nights by status: Needs you, Upcoming, Drafts, Cancelled, Past. Under each tab, a timeline runs month by month. A repeating event is one block per month (&ldquo;Friday Social, every Friday, 3 dates&rdquo;) that opens to its dates, so 200 weekly dates read as a few blocks. Every name and number is an example.'};
+const TABS=[['needs','Needs you'],['live','Upcoming'],['draft','Drafts'],['cx','Cancelled'],['past','Past']];
+function monthOf(x){const d=dOf(x.d),y=d.getUTCFullYear();return MONL[d.getUTCMonth()]+(y!==2026?' '+y:'')}
+function blocks(ns){
+  // one-offs stay single rows; a repeating series' nights in the same month become one block
+  const out=[];let m='';
+  for(const x of ns){
+    const mo=monthOf(x);
+    if(mo!==m){out.push({mo,items:[]});m=mo}
+    const items=out[out.length-1].items,last=items.find(i=>i.rec&&i.rec===x.rec);
+    if(x.rec&&last)last.ns.push(x);else items.push(x.rec?{rec:x.rec,ns:[x]}:{one:x});
+  }
+  return out;
+}
+function seriesBlock(b,mo){
+  const key=b.rec+mo,open=S.sel||S.b===key||S.q,show=open?b.ns:b.ns.slice(0,1),r=SERIES[b.rec];
+  return `<div class="card"><div class="sh"><span class="t"><b>${r.n}</b><span>${r.rule[0].toUpperCase()+r.rule.slice(1)} &middot; ${plural(b.ns.length,'date')} in ${mo.split(' ')[0]}</span></span><span class="rep">Repeats</span></div>
+  ${show.map(evRow).join('')}${b.ns.length>1&&!open?`<button class="row" data-act="b" data-k="${key}" style="min-height:44px;justify-content:center;font-weight:600;font-size:13px">Show ${plural(b.ns.length-1,'more date')}</button>`:''}</div>`;
+}
+function timeline(ns){
+  const show=ns.slice(0,S.limit);
+  return `<div class="tl">${blocks(show).map(g=>`<p class="mo">${g.mo}<span>${plural(ns.filter(x=>monthOf(x)===g.mo).length,'night')}</span></p>${g.items.map(i=>i.one?`<div class="card">${evRow(i.one)}</div>`:seriesBlock(i,g.mo)).join('')}`).join('')}</div>${moreBtn(show.length,ns.length)}`;
+}
+function eventsBody(s){
+  const ns=s.nights,need=needsOf(ns),up=upcoming(ns);
+  const count={needs:need.length,live:up.filter(x=>x.st==='live').length,draft:up.filter(x=>x.st==='draft').length,cx:up.filter(x=>x.st==='cx').length,past:pastOf(ns).length};
+  if(S.f==='all')S.f=count.live?'live':need.length?'needs':(TABS.find(t=>count[t[0]])||TABS[1])[0];
+  const head=`<div class="head"><h2>Events</h2>${S.sel?'':`${!viewOnly()&&ns.length>1?'<button class="act alt" data-act="select">Select</button>':''}${newBtn()}`}</div>`;
+  const tabsH=`<div class="stabs" role="tablist" aria-label="Show">${TABS.filter(t=>t[0]!=='needs'||count.needs).map(t=>`<button role="tab" aria-selected="${S.f===t[0]}" data-act="filter" data-k="${t[0]}">${t[1]} <span class="${t[0]==='needs'?'nd':''}">${fmt(count[t[0]])}</span></button>`).join('')}</div>`;
+  let body;
+  if(S.f==='needs')body=`<div class="card">${need.map(n=>`<div class="row"><span class="t"><b>${n.t}</b><span>${n.d}</span></span>${needBtn(n)}</div>`).join('')}</div>`;
+  else{
+    const r=S.f==='past'?pastOf(filtered(ns)):upcoming(filtered(ns));
+    const empty={live:'No nights coming up. Put one on, or check Drafts.',draft:'No drafts. A new event starts as a draft until you put it live.',cx:'Nothing cancelled. Good news.',past:'No past nights yet. They show here after they happen.'}[S.f];
+    body=r.length?timeline(r):S.q?noMatch():`<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px"><p class="why">${empty}</p>${S.f==='live'||S.f==='draft'?newBtn('btn'):''}</div>`;
+  }
+  const hint=S.sel?`<p class="why">Tap nights to select them. The bar at the bottom shows what you can do with them.</p>`:'';
+  return `${head}${viewLine()}${tabsH}${hint}${searchBox(ns)}${body}`;
+}
+// ==/LAYOUT==
+</script>
