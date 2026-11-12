@@ -115,7 +115,7 @@ body.full .scroll{overflow:visible}
 <script>
 // OPTION B: three parts per event behind a switch: Sell (tickets), Orders (orders + guest list), Money (owner).
 const TITLE='Option B: Sell / Orders / Money';
-const FOOT='<b>Option B, three parts.</b> Pick the event, then switch between Sell (the tickets and their sold bars), Orders (orders, refunds and the guest list) and Money (takings and payouts). Money is the owner’s part: for anyone else it is switched off and the line under the switch says why. Price changes and refunds always end in an owner approval sheet. Every person, order and event is a made-up example.';
+const FOOT='<b>Option B, three parts.</b> Pick the event, then switch between Sell (the tickets and their sold bars), Orders (orders, refunds and the guest list) and Money (takings and payouts). Money is the owner&rsquo;s part: for anyone else it is switched off and the line under the switch says why. Price changes and refunds always end in an owner approval sheet. Every person, order and event is a made-up example.';
 function segs(){
  const m=showMoney();
  const b=(k,l,dis)=>`<button aria-pressed="${S.seg===k}" data-act="seg" data-k="${k}"${dis?' disabled':''}>${l}</button>`;
