@@ -1,209 +1,5 @@
 [
   {
-    "option": "organiser-team-option-a",
-    "state": "solo",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 30,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "two",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 38,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "huge",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 90,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "pending",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 51,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "stub",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 43,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "lastowner",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.15,
-    "textNodes": 55,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "remove",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 46,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "contributor",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 37,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "sent",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 41,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "failed",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 37,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "loading",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.15,
-    "textNodes": 11,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "error",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 6.29,
-    "textNodes": 11,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "two&sheet=invite&m=find&pick=Dee Dummy",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 62,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "two&sheet=invite&m=link",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 52,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "two&sheet=invite&m=email",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 52,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "stub&sheet=person&of=3",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.58,
-    "textNodes": 60,
-    "clipped": []
-  },
-  {
-    "option": "organiser-team-option-a",
-    "state": "huge&sheet=person&of=1",
-    "sideways": false,
-    "scrollWidth": 390,
-    "height": 844,
-    "taps": [],
-    "contrast": [],
-    "minContrast": 5.15,
-    "textNodes": 107,
-    "clipped": []
-  },
-  {
     "option": "organiser-team-option-b",
     "state": "solo",
     "sideways": false,
@@ -212,8 +8,9 @@
     "taps": [],
     "contrast": [],
     "minContrast": 5.58,
-    "textNodes": 20,
-    "clipped": []
+    "textNodes": 19,
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -225,7 +22,8 @@
     "contrast": [],
     "minContrast": 5.58,
     "textNodes": 31,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -236,8 +34,9 @@
     "taps": [],
     "contrast": [],
     "minContrast": 5.58,
-    "textNodes": 65,
-    "clipped": []
+    "textNodes": 67,
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -248,8 +47,9 @@
     "taps": [],
     "contrast": [],
     "minContrast": 5.58,
-    "textNodes": 50,
-    "clipped": []
+    "textNodes": 45,
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -260,8 +60,9 @@
     "taps": [],
     "contrast": [],
     "minContrast": 5.58,
-    "textNodes": 35,
-    "clipped": []
+    "textNodes": 36,
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -273,7 +74,8 @@
     "contrast": [],
     "minContrast": 5.15,
     "textNodes": 48,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -285,7 +87,8 @@
     "contrast": [],
     "minContrast": 5.58,
     "textNodes": 39,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -297,7 +100,8 @@
     "contrast": [],
     "minContrast": 5.58,
     "textNodes": 37,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -309,7 +113,8 @@
     "contrast": [],
     "minContrast": 5.58,
     "textNodes": 40,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -321,7 +126,8 @@
     "contrast": [],
     "minContrast": 5.58,
     "textNodes": 33,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -333,7 +139,8 @@
     "contrast": [],
     "minContrast": 5.15,
     "textNodes": 11,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -345,7 +152,8 @@
     "contrast": [],
     "minContrast": 6.29,
     "textNodes": 11,
-    "clipped": []
+    "clipped": [],
+    "endCovered": []
   },
   {
     "option": "organiser-team-option-b",
@@ -355,7 +163,7 @@
     "height": 844,
     "taps": [],
     "contrast": [],
-    "minContrast": 5.58,
+    "minContrast": 5.15,
     "textNodes": 55,
     "clipped": []
   },
@@ -392,7 +200,7 @@
     "taps": [],
     "contrast": [],
     "minContrast": 5.58,
-    "textNodes": 52,
+    "textNodes": 53,
     "clipped": []
   },
   {
@@ -404,7 +212,56 @@
     "taps": [],
     "contrast": [],
     "minContrast": 5.15,
-    "textNodes": 82,
+    "textNodes": 84,
+    "clipped": []
+  },
+  {
+    "option": "organiser-team-option-b",
+    "state": "two&sheet=person&of=2",
+    "sideways": false,
+    "scrollWidth": 390,
+    "height": 844,
+    "taps": [],
+    "contrast": [],
+    "minContrast": 5.58,
+    "textNodes": 45,
+    "clipped": []
+  },
+  {
+    "option": "organiser-team-option-b",
+    "state": "huge&sheet=person&of=8",
+    "sideways": false,
+    "scrollWidth": 390,
+    "height": 844,
+    "taps": [],
+    "contrast": [],
+    "minContrast": 5.58,
+    "textNodes": 81,
+    "clipped": []
+  },
+  {
+    "option": "organiser-team-option-b",
+    "state": "pending&more=wait",
+    "sideways": false,
+    "scrollWidth": 390,
+    "height": 844,
+    "taps": [],
+    "contrast": [],
+    "minContrast": 5.58,
+    "textNodes": 50,
+    "clipped": [],
+    "endCovered": []
+  },
+  {
+    "option": "organiser-team-option-b",
+    "state": "two&sheet=invite&m=find&r=manager",
+    "sideways": false,
+    "scrollWidth": 390,
+    "height": 844,
+    "taps": [],
+    "contrast": [],
+    "minContrast": 5.15,
+    "textNodes": 54,
     "clipped": []
   }
 ]
