@@ -31,7 +31,6 @@ import { renderInShell, resetShell } from '../shell/renderInShell';
 import { setTestUser } from '../shell/testAuth';
 import { FIND_A_NIGHT } from '../copy/sharedCopy';
 import { NO_NIGHTS_FIND } from '../screens/nights/NightsScreen';
-import { LineupPeople } from '../screens/home/LineupPeople';
 import { parseLineupPeople } from '../api/lineupPeople';
 import { night as goingNight } from '../screens/nights/__tests__/goingShapes';
 
@@ -73,16 +72,6 @@ describe('S9: one "find a night" sentence on all three surfaces', () => {
   });
 });
 
-describe('N2: no user means no error state', () => {
-  it('renders no error and calls nothing while signed out', async () => {
-    setTestUser(null);
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={qc}><MemoryRouter><LineupPeople /></MemoryRouter></QueryClientProvider>);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByTestId('lineup-people-error')).toBeNull();
-  });
-});
-
 describe('N3: de-duplication and "and N more"', () => {
   it('the parser keeps the first row per profile_id', () => {
     const p = parseLineupPeople({ total: 3, people: [PEOPLE.people[0], { ...PEOPLE.people[0], display_name: 'Dup' }, PEOPLE.people[1]] });
@@ -91,16 +80,8 @@ describe('N3: de-duplication and "and N more"', () => {
   });
 });
 
-describe('S3: the emitter stays off the /app/* first load', () => {
-  it('LineupPeople has no static import of profileViewEmit (it imports the eager supabase client)', async () => {
-    const src = (await import('node:fs')).readFileSync('src/modules/dancer-app/screens/home/LineupPeople.tsx', 'utf8');
-    expect(src).not.toMatch(/^import .*profileViewEmit/m);
-    expect(src).toContain("import('@/lib/profileViewEmit')");
-  });
-});
-
 describe('N5: no raw hex in the Home screen files', () => {
-  it.each(['HomeScreen.tsx', 'LineupPeople.tsx', 'RateNudge.tsx', 'PartnerTile.tsx', 'NumbersTiles.tsx', 'homeCopy.ts'])('%s', async (f) => {
+  it.each(['HomeScreen.tsx', 'RateNudge.tsx', 'claimCard.tsx', 'homeOptionA.tsx', 'homeCopy.ts'])('%s', async (f) => {
     const src = (await import('node:fs')).readFileSync(`src/modules/dancer-app/screens/home/${f}`, 'utf8');
     expect(src.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
   });

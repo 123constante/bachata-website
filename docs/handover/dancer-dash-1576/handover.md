@@ -17,3 +17,18 @@ Branch `claude/profile-dash-dancer-build1`. No DB change. No organiser files tou
 5. 3-role switch sheet and going-switch-on Home not walked.
 
 tsc run on the pre-docs-move commit: 0 errors in branch files.
+
+## Continuation (review-fix round, brief docs/briefs/profile-dash-dancer-fixes.md)
+
+Done
+1. bundle-budget: `claimMyDancerProfile.ts` and `myPersona.ts` pinned into `lib-event-rules` (vite.chunks.ts), ClaimCard moved to `claimCard.tsx`. Measured with the perf-budget.yml env: dancer-app 48 -> 46 first-load chunks, 374.3 KB (budget 376), 4 pullers (allowance 4). Chunk allowance tightened 47 -> 46 in perf-budgets.json (the ratchet blocks on UNDER). Tried lazy ClaimCard first: it made rollup drop the dancer-app entry from the manifest, so the pin route was used instead.
+2. Claim copy: already_linked now has a "Show my page" button (reload); email_unproven reworded to point at the sign-up confirmation email plus the existing "Check again" button. Table test asserts a control for every status.
+3. "Going" heading only renders when a going row exists.
+4. Deleted PartnerTile, LineupPeople, NumbersTiles, HomeHero, GoingTileView, Ring and unused imports; tests that only covered them removed (homeFixPass, goingHidden, optionsAudit list).
+5. Kickers are sentence case (no uppercase/tracking); checklist uses lucide Check/Circle icons.
+6. Screenshots at 390x844 in this folder: home-unclaimed-initial, home-unclaimed (no_match), home-unclaimed-already-linked, home-unclaimed-ambiguous (plus refreshed others). e2e spec extended for both new claim shapes.
+
+Not for this branch: `puller ratchet: event 2, allowance 3` UNDER still prints and makes `check:bundle-budget` exit 1. It is on main, in event files; left alone.
+
+Verified: vitest src/modules/dancer-app + tests/client (all green); playwright profile-dash-home + home-nights (13 pass; one flaky first run of `home: new`/`unfinished` passed on rerun); `npm run build` + `check:bundle-budget` (only the event UNDER above) + `check:first-load-requests`; `check:mojibake`; eslint on touched files (0 errors); tsc 0 errors.
+Not verified: 3-role switch sheet and going-switch-on Home walk (no harness fixture for 3 roles); ember-walk and review-pack e2e still use retired Home test ids (not in the gate); pre-ship not run; real-prod data shape survey not repeated this round (no data-shape change).

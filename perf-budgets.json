@@ -123,7 +123,7 @@
     "home (/city/:slug)": 35,
     "event (/event/:id)": 39,
     "auth (/auth/callback, via catchall)": 25,
-    "dancer-app (/app/*, lazy chunk via catchall)": 47,
+    "dancer-app (/app/*, lazy chunk via catchall)": 46,
     "parties (/parties)": 40,
     "classes (/classes)": 40,
     "faq (/faq)": 22,

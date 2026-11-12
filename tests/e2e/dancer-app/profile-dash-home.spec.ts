@@ -49,7 +49,7 @@ const FULL = { ...PROFILE, avatar_url: 'https://img.example/a.jpg', complete: tr
 const NEW = { ...PROFILE, first_name: null, based_city_id: null, city_name: null, dance_role: null, strength: { pct: 0, next_step: 'first_name', missing: ['first_name', 'city', 'role', 'photo', 'started_year', 'styles', 'bio_social'] } };
 const UNFINISHED = { ...PROFILE, dance_role: null, strength: { pct: 40, next_step: 'role', missing: ['role', 'photo', 'started_year', 'styles', 'bio_social'] } };
 
-type Shape = { name: string; profile: Record<string, unknown> | null; rows: GoingNight[]; went: number; organiser: boolean; claim?: boolean };
+type Shape = { name: string; profile: Record<string, unknown> | null; rows: GoingNight[]; went: number; organiser: boolean; claim?: boolean; claimStatus?: string; claimTitle?: string };
 const SHAPES: Shape[] = [
   { name: 'new', profile: NEW, rows: [], went: 0, organiser: false },
   { name: 'unfinished', profile: UNFINISHED, rows: [], went: 0, organiser: false },
@@ -57,6 +57,8 @@ const SHAPES: Shape[] = [
   { name: 'complete-one-role', profile: FULL, rows: [night('s1', 'Soho Sensual Thursdays', 4)], went: 12, organiser: false },
   { name: 'complete-two-roles', profile: FULL, rows: [night('s1', 'Soho Sensual Thursdays', 4)], went: 12, organiser: true },
   { name: 'unclaimed', profile: null, rows: [], went: 0, organiser: false },
+  { name: 'unclaimed-already-linked', profile: null, rows: [], went: 0, organiser: false, claimStatus: 'already_linked', claimTitle: 'Your page is already yours' },
+  { name: 'unclaimed-ambiguous', profile: null, rows: [], went: 0, organiser: false, claimStatus: 'ambiguous', claimTitle: 'We found more than one page' },
 ];
 
 async function open(page: Page, shape: Shape, path = '/app/home') {
@@ -68,7 +70,7 @@ async function open(page: Page, shape: Shape, path = '/app/home') {
   await page.route(rpc('get_calendar_events_v2'), (r) => json(r, []));
   await page.route(rpc('my_dancer_stats_v1'), (r) => json(r, stats(shape.went)));
   await page.route(rpc('my_profile_views_v1'), (r) => json(r, { profile_id: PROFILE.profile_id, total: 0, last_7_days: 0, last_30_days: 0, previous_30_days: 0, last_viewed_at: null }));
-  await page.route(rpc('claim_my_dancer_profile_v1'), (r) => json(r, { ok: true, status: 'no_match', profile_id: null }));
+  await page.route(rpc('claim_my_dancer_profile_v1'), (r) => json(r, { ok: true, status: shape.claimStatus ?? 'no_match', profile_id: null }));
   await page.goto(path);
 }
 
@@ -81,8 +83,11 @@ test.describe('dancer Home (Option A) 390x844', () => {
       if (!shape.profile) {
         await expect(page.getByTestId('home-claim-card')).toBeVisible();
         await expect(page.getByTestId('message-us')).toBeVisible();
+        if (shape.name === 'unclaimed') await page.screenshot({ path: `${SHOTS}/home-unclaimed-initial.png`, fullPage: true });
         await page.getByTestId('claim-button').click();
-        await expect(page.getByTestId('claim-title')).toHaveText('No page found for this email');
+        await expect(page.getByTestId('claim-title')).toHaveText(shape.claimTitle ?? 'No page found for this email');
+        // Copy never points at a missing control.
+        await expect(page.getByTestId(shape.claimStatus === 'already_linked' ? 'claim-reload' : 'claim-recheck')).toBeVisible();
       } else {
         await expect(page.getByTestId('home-list')).toBeVisible();
         for (const gone of ['home-hero', 'tile-strength', 'tile-going', 'stats-strip', 'tile-partner', 'lineup-people']) await expect(page.getByTestId(gone)).toHaveCount(0);

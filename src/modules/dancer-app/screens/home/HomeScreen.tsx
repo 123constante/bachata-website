@@ -1,8 +1,6 @@
-import { Suspense, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/modules/organiser/ui';
-import { ChevronRight } from 'lucide-react';
-import { LINK_GHOST_SM, TILE_CLASS } from '../blocks';
 import { useAuth } from '@/hooks/useAuth';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -12,19 +10,14 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { goingTileValue } from '../../api/numbersModel';
 import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
-import { greeting } from './homeCopy';
-import { nextStepLine } from '../../api/nextStep';
 import { RateNudge } from './RateNudge';
-import { GoingTileView, HomeHero, type HomeGoing } from './homeParts';
+import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
-import { HomeAView, ClaimCard } from './homeOptionA';
+import { HomeAView } from './homeOptionA';
+import { ClaimCard } from './claimCard';
 import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
-import { CoupleArt } from '../art';
-import { Avatar, MessageUsLink } from '../me/ui';
-import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 
 const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
@@ -74,17 +67,6 @@ const HOME_GOING_LOADING: HomeGoing = {
  * the old coral start (--da-accent) was 2.55:1 under 13-14px text.
  */
 export const HERO_BACKGROUND = gradientBg;
-
-const Ring = ({ pct }: { pct: number }) => (
-  <div
-    role="img"
-    aria-label={`Profile strength ${pct}%`}
-    className="da-strength-ring"
-    style={{ width: 56, height: 56, flex: '0 0 auto', '--da-pct': `${pct}%` } as CSSProperties}
-  >
-    <span style={{ width: 46, height: 46, fontSize: 14 }}>{pct}%</span>
-  </div>
-);
 
 const Message = ({ children }: { children: ReactNode }) => (
   <Card variant="padded" role="status" testId="home-message">{children}</Card>

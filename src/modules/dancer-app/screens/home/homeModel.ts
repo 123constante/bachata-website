@@ -77,10 +77,10 @@ export type ClaimStatusLike =
 
 export const CLAIM_COPY: Record<ClaimStatusLike, { title: string; body: string; message: boolean }> = {
   linked: { title: 'Your page is yours now', body: 'We linked the page made for you. Have a look and make it right.', message: false },
-  already_linked: { title: 'Your page is already yours', body: 'Reload this screen to see it.', message: false },
+  already_linked: { title: 'Your page is already yours', body: 'Tap Show my page to open it.', message: false },
   no_match: { title: 'No page found for this email', body: 'Nothing on our side matches the email you signed in with. Message us if you expected one.', message: true },
   ambiguous: { title: 'We found more than one page', body: 'We will not guess which is yours. Message us and we will link the right one.', message: true },
-  email_unproven: { title: 'Your email is not confirmed yet', body: 'Confirm the email you signed in with, then check again. Message us if that does not work.', message: true },
+  email_unproven: { title: 'Your email is not confirmed yet', body: 'Open the confirmation email we sent when you signed up and tap its link, then tap Check again. Message us if it never arrived.', message: true },
   not_applicable: { title: 'Nothing to claim here', body: 'This account does not need a claim.', message: false },
   unavailable: { title: 'We could not check just now', body: 'Check your connection and try again, or message us.', message: true },
 };

@@ -10,7 +10,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DANCER_SHAPES, DANCER_SHAPE_NAMES } from '../../../api/fixtures';
 import { CLAIM_COPY, attendedView, homeView } from '../homeModel';
-import { ClaimCard, HomeAView } from '../homeOptionA';
+import { HomeAView } from '../homeOptionA';
+import { ClaimCard } from '../claimCard';
 import { NEXT_STEP } from '../../../api/nextStep';
 
 vi.mock('@/hooks/useAuth', async (importOriginal) =>
@@ -92,6 +93,11 @@ describe('ClaimCard (D4): every status is drawn', () => {
       fireEvent.click(screen.getByTestId('claim-button'));
       await waitFor(() => expect(screen.getByTestId('claim-title').textContent).toBe(CLAIM_COPY[status].title));
       expect(run).toHaveBeenCalledTimes(1);
+      // Copy never names a control that is not on screen: every answer leaves a button the person can tap.
+      const control = status === 'unavailable' ? 'claim-button' : status === 'linked' || status === 'already_linked' ? 'claim-reload' : 'claim-recheck';
+      expect(screen.getByTestId(control)).toBeTruthy();
+      if (status === 'already_linked') expect(CLAIM_COPY[status].body).toMatch(/Show my page/);
+      if (status === 'email_unproven') expect(CLAIM_COPY[status].body).toMatch(/Check again/);
       // Walk bug 1 (owner decision): the Message us control is on the card for every answer, so copy that says "Message us" always has it.
       expect(screen.queryAllByTestId('message-us').length).toBe(1);
       // never points at a control that is not there

@@ -1,25 +1,19 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Circle } from 'lucide-react';
 import { Card } from '@/modules/organiser/ui';
-import { claimMyDancerProfile, type ClaimOutcome } from '@/lib/claimMyDancerProfile';
-import { invalidateMyPersonaCaches } from '@/lib/myPersona';
 import { DANCER_TABS } from '../../shell/routes';
-import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
-import { MessageUsLink } from '../me/ui';
-import { LINK_GHOST_SM } from '../blocks';
 import { buttonStyle } from '../nights/nightsStyles';
 import type { MyDancerEdit } from '../../api/types';
 import { EDIT_PATH } from '../../api/nextStep';
-import { CLAIM_COPY, PREVIEW_ROW_LINE, attendedView, homeView } from './homeModel';
+import { PREVIEW_ROW_LINE, attendedView, homeView } from './homeModel';
 import type { HeroNight } from './homeParts';
 
 const tab = (id: 'nights' | 'me') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 const PAGE_PATH = '/app/page';
 
 const Kicker = ({ children }: { children: ReactNode }) => (
-  <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }} className="da-muted">{children}</span>
+  <span style={{ fontSize: 14, fontWeight: 700 }} className="da-muted">{children}</span>
 );
 
 const Row = ({ to, title, line, testId }: { to: string; title: string; line: string; testId: string }) => (
@@ -55,7 +49,7 @@ export const HomeAView = ({ profile, went, night, goingKnown }: { profile: MyDan
               <ul data-testid="home-checklist" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 2 }}>
                 {v.checklist.map((c) => (
                   <li key={c.step} data-done={c.done} data-next={c.next} style={{ display: 'flex', gap: 10, minHeight: 32, alignItems: 'center', fontSize: 15, fontWeight: c.next ? 700 : 400 }}>
-                    <span aria-hidden="true">{c.done ? '\u2713' : '\u25CB'}</span>
+                    {c.done ? <Check aria-hidden="true" className="h-[18px] w-[18px] shrink-0" /> : <Circle aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-[var(--mut)]" />}
                     <span>{c.noun}{c.done ? <span className="da-sr-only" style={{ position: 'absolute', left: -9999 }}> done</span> : null}{c.next ? ' \u00B7 next' : ''}</span>
                   </li>
                 ))}
@@ -89,7 +83,7 @@ export const HomeAView = ({ profile, went, night, goingKnown }: { profile: MyDan
       )}
 
       <div style={{ display: 'grid', gap: 10 }}>
-        {v.kind === 'complete' && <h3 style={{ margin: 0 }}><Kicker>Going</Kicker></h3>}
+        {v.kind === 'complete' && night && <h3 style={{ margin: 0 }}><Kicker>Going</Kicker></h3>}
         <List testId="home-list">
           <Row to={PAGE_PATH} title="Preview your page" line={v.kind === 'complete' ? 'See what other dancers see' : PREVIEW_ROW_LINE(v)} testId="home-row-preview" />
           {v.kind !== 'complete' && (
@@ -110,57 +104,6 @@ export const HomeAView = ({ profile, went, night, goingKnown }: { profile: MyDan
 
       {v.kind === 'new' && <p className="da-muted" style={{ margin: 0, fontSize: 14 }} data-testid="home-numbers-note">Your numbers start after your first night out.</p>}
       {/* no PREVIEW/numbers tap row: D1 "Your numbers" is plain text (fix 1) */}
-    </div>
-  );
-};
-
-/** D4: no dancer profile on this account. The button re-runs the existing no-arg claim and shows the answer. */
-export const ClaimCard = ({ run = claimMyDancerProfile }: { run?: () => Promise<ClaimOutcome> }) => {
-  const qc = useQueryClient();
-  const [outcome, setOutcome] = useState<ClaimOutcome | null>(null);
-  const [busy, setBusy] = useState(false);
-  const copy = outcome ? CLAIM_COPY[outcome.status] : null;
-  const onClaim = async () => {
-    setBusy(true);
-    try {
-      const o = await run();
-      setOutcome(o);
-      if (o.status === 'linked' || o.status === 'already_linked') void invalidateMyPersonaCaches(qc);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div style={{ display: 'grid', gap: 16 }} data-testid="home-a-unclaimed">
-      <div>
-        <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>Welcome</h1>
-        <p className="da-muted" style={{ margin: '4px 0 0', fontSize: 15 }}>We may already have a page for you.</p>
-      </div>
-      <Card variant="padded" role="status" testId="home-claim-card">
-        <div style={{ display: 'grid', gap: 12 }}>
-          {copy ? (
-            <>
-              <b style={{ fontSize: 18 }} data-testid="claim-title">{copy.title}</b>
-              <p className="da-muted" style={{ margin: 0, fontSize: 15 }} data-testid="claim-body">{copy.body}</p>
-            </>
-          ) : (
-            <>
-              <b style={{ fontSize: 18 }}>Claim your page</b>
-              <p className="da-muted" style={{ margin: 0, fontSize: 15 }}>If the Bachata Calendar team made a page for the email you signed in with, this links it to you.</p>
-            </>
-          )}
-          {(!outcome || outcome.status === 'unavailable') && (
-            <button type="button" className="da-tap" disabled={busy} data-testid="claim-button" style={{ ...buttonStyle, border: 0 }} onClick={() => void onClaim()}>
-              {busy ? 'Checking\u2026' : outcome ? 'Try again' : 'Claim your page'}
-            </button>
-          )}
-          {outcome && outcome.status !== 'unavailable' && outcome.status !== 'linked' && outcome.status !== 'already_linked' && (
-            <button type="button" className="da-tap" data-testid="claim-recheck" style={{ background: 'none', border: '1px solid var(--da-border)', borderRadius: 12, color: 'var(--da-text)', fontWeight: 700 }} onClick={() => void onClaim()}>Check again</button>
-          )}
-          {/* walk bug 1: the Message us control is always on the claim card (owner decision), not only after an answer */}
-          <MessageUsLink message={NO_PROFILE_MESSAGE} className={LINK_GHOST_SM} />
-        </div>
-      </Card>
     </div>
   );
 };
