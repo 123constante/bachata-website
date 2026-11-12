@@ -7,7 +7,7 @@
     "height": 844,
     "taps": [],
     "contrast": [],
-    "minContrast": 7.19,
+    "minContrast": 5.37,
     "textNodes": 27,
     "clipped": []
   },
@@ -16,11 +16,11 @@
     "state": "upcoming",
     "sideways": false,
     "scrollWidth": 390,
-    "height": 1056,
+    "height": 1264,
     "taps": [],
     "contrast": [],
-    "minContrast": 6.63,
-    "textNodes": 48,
+    "minContrast": 4.97,
+    "textNodes": 52,
     "clipped": []
   },
   {
@@ -28,11 +28,11 @@
     "state": "selling",
     "sideways": false,
     "scrollWidth": 390,
-    "height": 1058,
+    "height": 1264,
     "taps": [],
     "contrast": [],
-    "minContrast": 6.63,
-    "textNodes": 48,
+    "minContrast": 4.97,
+    "textNodes": 54,
     "clipped": []
   },
   {
@@ -40,11 +40,11 @@
     "state": "huge",
     "sideways": false,
     "scrollWidth": 390,
-    "height": 1118,
+    "height": 1326,
     "taps": [],
     "contrast": [],
-    "minContrast": 6.63,
-    "textNodes": 48,
+    "minContrast": 4.97,
+    "textNodes": 54,
     "clipped": []
   },
   {
@@ -52,11 +52,11 @@
     "state": "all-zero",
     "sideways": false,
     "scrollWidth": 390,
-    "height": 844,
+    "height": 944,
     "taps": [],
     "contrast": [],
-    "minContrast": 6.63,
-    "textNodes": 34,
+    "minContrast": 4.97,
+    "textNodes": 36,
     "clipped": []
   },
   {
@@ -64,11 +64,23 @@
     "state": "cancelled",
     "sideways": false,
     "scrollWidth": 390,
-    "height": 888,
+    "height": 1514,
     "taps": [],
     "contrast": [],
-    "minContrast": 6.63,
-    "textNodes": 39,
+    "minContrast": 4.97,
+    "textNodes": 53,
+    "clipped": []
+  },
+  {
+    "option": "option-a",
+    "state": "no-events-no-city",
+    "sideways": false,
+    "scrollWidth": 390,
+    "height": 844,
+    "taps": [],
+    "contrast": [],
+    "minContrast": 5.37,
+    "textNodes": 27,
     "clipped": []
   },
   {

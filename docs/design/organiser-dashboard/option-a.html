@@ -53,6 +53,18 @@ section.state.on{display:flex}
 .tabs a{min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:700;color:var(--mute)}
 .tabs a.on{color:var(--gold)}
 .statebar{font-size:12px;color:var(--mute);display:flex;justify-content:space-between}
+
+:root{--bg:#F7F6F3;--s1:#FFFFFF;--s2:#F2F0EB;--line:#E4E1DA;--text:#1A1916;--mute:#5F5B54;
+--gold:#E0B252;--goldtx:#8A6414;--ink:#1A1916;--ok:#1E6B4A;--okbg:#E4F3EC;--warn:#8A4A10;--warnbg:#FBEEDD;--bad:#A3292B;--badbg:#FBE7E6}
+a,.cta{color:var(--goldtx)}
+.tabs{background:#FFFFFF}
+.tabs a.on{color:var(--goldtx)}
+.quiet{min-height:44px;display:inline-flex;align-items:center;color:var(--mute);font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.going{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.going .dot{color:var(--ok)}
+.sbtn{flex-direction:column;gap:2px;min-height:56px;padding:6px 4px;font-size:13px}
+.note{font-size:12px;color:var(--mute)}
+.waq{border-left:3px solid var(--line);padding:2px 0 2px 8px;font-size:12px;color:var(--mute)}
 </style></head>
 <body>
 <section class="state" id="no-events" aria-label="No events, no team">
@@ -61,7 +73,7 @@ section.state.on{display:flex}
 <div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
 <div class="small mute">Organiser &middot; 1 person in your team</div></div>
 <a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
-<div class="card pad" style="display:flex;flex-direction:column;gap:10px;border-color:#4A3D20">
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px;border-color:#E6D3A8">
 <span class="chip warn" style="align-self:flex-start"><span class="dot"></span>Next step</span>
 <h2 style="font-size:20px">Add your first night</h2>
 <p class="mute">Your page is live but has no nights yet. Add one and dancers in Leeds can find it on the calendar.</p>
@@ -71,10 +83,10 @@ section.state.on{display:flex}
 <div class="sech"><h2>Share my page</h2></div>
 <p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
 <span class="small mute">Profile 2 of 6 done</span><div class="bar" role="img" aria-label="33 percent"><i style="width:33%"></i></div></div>
-<a class="btn" href="#">Add your city and a photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<a class="btn" href="#">Add a photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
 <div><div class="small mute">Rating</div><div class="wrapt"><span class="small mute">No ratings yet &mdash; dancers can rate you after a night</span></div></div>
 <div><div class="small mute">Level rating</div><div class="wrapt"><span class="small mute">No level votes yet &mdash; dancers vote on your event page</span></div></div></div></div>
 <nav class="tabs" aria-label="Organiser">
@@ -91,13 +103,15 @@ section.state.on{display:flex}
 <div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
 <div class="grow"><div style="font-weight:700" class="wrapt clamp2">Friday Bachata Social</div>
 <div class="small mute wrapt">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
-<div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">Going</span><span class="v">3</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Opens</span><span class="v">412</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Ticket link taps</span><span class="v">38</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Share taps</span><span class="v">12</span></div></div><a class="cta" href="#" style="min-height:44px;display:flex;align-items:center">2 more</a></div>
-<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>16</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Sensual Sunday Class + Party</b><span class="small mute wrapt">96 opens &middot; 4 share taps &middot; 7 directions taps</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">31 opens</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="going"><span class="dot"></span>3 going</div><div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">People who opened</span><span class="v">412</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Ticket link taps</span><span class="v">38</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Share taps</span><span class="v">12</span></div></div><p class="note">People who opened: counted once per person per day</p><p class="small mute wrapt">9 WhatsApp taps &middot; 21 directions taps</p>
+<a class="btn full gold" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>Share this night</a><p class="note">Opens WhatsApp with this night&rsquo;s link.</p>
+<a class="quiet" href="#" style="align-self:flex-end">Night details</a></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>16</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Sensual Sunday Class + Party</b><span class="small mute wrapt">96 people who opened</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">31 people who opened</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><div class="note" style="padding:8px 12px">People who opened: counted once per person per day</div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:10px">
 <div class="sech"><h2>Share my page</h2></div>
 <p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
 <span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
 <a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
@@ -117,13 +131,15 @@ section.state.on{display:flex}
 <div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
 <div class="grow"><div style="font-weight:700" class="wrapt clamp2">Friday Bachata Social</div>
 <div class="small mute wrapt">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
-<div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">Tickets sold</span><span class="v">47</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Going</span><span class="v">3</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Opens</span><span class="v">412</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Ticket link taps</span><span class="v">38</span></div></div><a class="cta" href="#" style="min-height:44px;display:flex;align-items:center">3 more</a></div>
-<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>16</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Sensual Sunday Class + Party</b><span class="small mute wrapt">96 opens &middot; 5 ticket link taps &middot; 7 directions taps</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">2 tickets sold &middot; 31 opens</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="going"><span class="dot"></span>3 going</div><div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">Tickets sold</span><span class="v">47</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">People who opened</span><span class="v">412</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Ticket link taps</span><span class="v">38</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Share taps</span><span class="v">12</span></div></div><p class="note">People who opened: counted once per person per day</p><p class="small mute wrapt">9 WhatsApp taps &middot; 21 directions taps</p>
+<a class="btn full gold" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>Share this night</a><p class="note">Opens WhatsApp with this night&rsquo;s link.</p>
+<a class="quiet" href="#" style="align-self:flex-end">Night details</a></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>16</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Sensual Sunday Class + Party</b><span class="small mute wrapt">96 people who opened</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">2 tickets sold &middot; 31 people who opened</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><div class="note" style="padding:8px 12px">People who opened: counted once per person per day</div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:10px">
 <div class="sech"><h2>Share my page</h2></div>
 <p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
 <span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
 <a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
@@ -143,13 +159,15 @@ section.state.on{display:flex}
 <div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
 <div class="grow"><div style="font-weight:700" class="wrapt clamp2">London Bachata Weekender 2026 &mdash; Opening Night Mega Social</div>
 <div class="small mute wrapt">Fri 21:00 &middot; Grand Ballroom, Royal Exhibition Centre</div></div></div>
-<div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">Tickets sold</span><span class="v">6,013</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Going</span><span class="v">2</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Opens</span><span class="v">63,576</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Ticket link taps</span><span class="v">6,013</span></div></div><a class="cta" href="#" style="min-height:44px;display:flex;align-items:center">3 more</a></div>
-<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>15</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Weekender Day 2 &mdash; Workshops + All-Nighter</b><span class="small mute wrapt">1,874 tickets sold &middot; 18,904 opens &middot; 1,990 ticket link taps</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">1,203 opens &middot; 88 directions taps</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="going"><span class="dot"></span>2 going</div><div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">Tickets sold</span><span class="v">4,127</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">People who opened</span><span class="v">63,576</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Ticket link taps</span><span class="v">6,013</span></div><div class="card tile" style="background:var(--s2)"><span class="small mute">Share taps</span><span class="v">812</span></div></div><p class="note">People who opened: counted once per person per day</p><p class="small mute wrapt">346 WhatsApp taps &middot; 221 directions taps</p>
+<a class="btn full gold" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>Share this night</a><p class="note">Opens WhatsApp with this night&rsquo;s link.</p>
+<a class="quiet" href="#" style="align-self:flex-end">Night details</a></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>15</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Weekender Day 2 &mdash; Workshops + All-Nighter</b><span class="small mute wrapt">1,874 tickets sold &middot; 18,904 people who opened</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">1,203 people who opened</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a><div class="note" style="padding:8px 12px">People who opened: counted once per person per day</div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:10px">
 <div class="sech"><h2>Share my page</h2></div>
 <p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
 <span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
 <a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
@@ -169,13 +187,15 @@ section.state.on{display:flex}
 <div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
 <div class="grow"><div style="font-weight:700" class="wrapt clamp2">Friday Bachata Social</div>
 <div class="small mute wrapt">Fri 21:00 &middot; The Old Fire Station</div></div></div>
-<div class="hint"><span class="grow">Nobody has opened this night yet</span><a class="btn" href="#">Share it</a></div></div>
-<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">Nobody has opened this night yet</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<p class="small mute">Nobody has opened this night yet. Share it in your group chats.</p>
+<a class="btn full gold" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>Share this night</a><p class="note">Opens WhatsApp with this night&rsquo;s link.</p>
+<a class="quiet" href="#" style="align-self:flex-end">Night details</a></div>
+<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">Nobody has opened it yet &mdash; share it</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:10px">
 <div class="sech"><h2>Share my page</h2></div>
 <p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
 <span class="small mute">Profile 5 of 6 done</span><div class="bar" role="img" aria-label="83 percent"><i style="width:83%"></i></div></div>
 <a class="btn" href="#">Add a WhatsApp link</a></div><div style="display:flex;flex-direction:column;gap:8px">
@@ -191,24 +211,60 @@ section.state.on{display:flex}
 <div class="small mute">Organiser &middot; 3 people in your team</div></div>
 <a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
 <div class="sech"><h2>Next nights</h2><a class="cta" href="#" style="min-height:44px;min-width:44px;display:flex;align-items:center;justify-content:flex-end">All nights</a></div>
-<div class="card pad" style="display:flex;flex-direction:column;gap:8px;border-color:#5A2A2A">
-<div class="row"><div class="datebox"><i>NOV</i><b>14</b></div>
-<div class="grow"><span class="chip bad"><span class="dot"></span>Cancelled</span>
-<div style="font-weight:700;margin-top:4px" class="wrapt clamp2">Friday Bachata Social</div>
-<div class="small mute">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
-<p class="small mute">Dancers see &ldquo;Cancelled&rdquo; on this night. 140 opens before you cancelled.</p>
-<div class="row"><a class="btn grow" href="#">Tell your dancers</a><a class="btn" href="#">Undo</a></div></div>
-<div class="card list" style="overflow:hidden"><a class="item" href="#"><div class="datebox"><i>NOV</i><b>21</b></div><span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">Friday Bachata Social</b><span class="small mute wrapt">1 going &middot; 58 opens &middot; 4 directions taps</span></span><svg class="ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:8px;border-color:#E8BDBD">
+<div class="row"><span class="chip bad"><span class="dot"></span>Cancelled</span>
+<span class="small grow wrapt clamp2"><b>Fri 14 Nov</b> &middot; Friday Bachata Social</span></div>
+<p class="small mute">Dancers see &ldquo;Cancelled&rdquo; on this night. 140 people opened it before you cancelled.</p>
+<a class="btn gold full" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>Share the cancellation</a>
+<p class="waq">WhatsApp message, ready to send: &ldquo;Sorry, Friday Bachata Social on Fri 14 Nov is cancelled. Next night: Fri 21 Nov. [link]&rdquo;</p>
+<a class="quiet" href="#" style="align-self:flex-start">Undo cancellation</a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="row"><div class="datebox"><i>NOV</i><b>21</b></div>
+<div class="grow"><div style="font-weight:700" class="wrapt clamp2">Friday Bachata Social</div>
+<div class="small mute wrapt">Fri 21:00 &middot; Bar Salsa Temple</div></div></div>
+<div class="going"><span class="dot"></span>1 going</div><div class="tiles"><div class="card tile" style="background:var(--s2)"><span class="small mute">People who opened</span><span class="v">58</span></div></div><p class="note">People who opened: counted once per person per day</p><p class="small mute wrapt">4 directions taps</p><div class="hint"><span class="grow">No ticket taps yet</span><a class="btn" href="#">Add a ticket link</a></div>
+<a class="btn full" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>Share this night</a><p class="note">Opens WhatsApp with this night&rsquo;s link.</p>
+<a class="quiet" href="#" style="align-self:flex-end">Night details</a></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:10px">
 <div class="sech"><h2>Share my page</h2></div>
 <p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
-<button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
 <div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
 <span class="small mute">Profile 4 of 6 done</span><div class="bar" role="img" aria-label="67 percent"><i style="width:67%"></i></div></div>
 <a class="btn" href="#">Add a cover photo</a></div><div style="display:flex;flex-direction:column;gap:8px">
 <div><div class="small mute">Rating</div><div class="wrapt"><b class="v" style="font-size:18px">4.6</b> <span class="small mute">from 23 ratings</span></div></div>
 <div><div class="small mute">Level rating</div><div class="wrapt"><b style="font-size:16px">Mixed levels</b> <span class="small mute">from 18 dancer votes</span></div></div><div class="small mute">London average 4.3 &middot; 41 organisers</div></div></div>
+<div class="sech"><h2>When Undo is tapped</h2></div>
+<div class="card pad" role="dialog" aria-label="Undo cancellation" style="display:flex;flex-direction:column;gap:10px">
+<p style="font-weight:700">Put this night back on the calendar?</p>
+<p class="small mute">Dancers will see it as on again.</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn">Keep cancelled</button><button class="btn">Put it back</button></div></div>
+<nav class="tabs" aria-label="Organiser">
+<a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
+</section>
+<section class="state" id="no-events-no-city" aria-label="No events, city unknown">
+<div class="statebar"><span>Option A mock</span><span>State: No events, city unknown</span></div>
+<div class="top"><div class="logo" aria-hidden="true">S</div>
+<div class="grow"><div class="oname wrapt clamp2">Salsa &amp; Bachata Nights</div>
+<div class="small mute">Organiser &middot; 1 person in your team</div></div>
+<a class="btn" href="#" aria-label="Open your public page">Page <svg class="ic" viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px;border-color:#E6D3A8">
+<span class="chip warn" style="align-self:flex-start"><span class="dot"></span>Next step</span>
+<h2 style="font-size:20px">Add your first night</h2>
+<p class="mute">Your page is live but has no nights yet. Add one and dancers near you can find it on the calendar.</p>
+<a class="btn gold full" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add a night</a>
+<a class="btn full" href="#">Invite someone to help</a></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-13.5 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>WhatsApp</button><button class="btn sbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg>Caption</button></div></div>
+<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div><div class="row"><div class="grow" style="display:flex;flex-direction:column;gap:6px">
+<span class="small mute">Profile 1 of 6 done</span><div class="bar" role="img" aria-label="17 percent"><i style="width:17%"></i></div></div>
+<a class="btn" href="#">Add your city</a></div><div style="display:flex;flex-direction:column;gap:8px">
+<div><div class="small mute">Rating</div><div class="wrapt"><span class="small mute">No ratings yet &mdash; dancers can rate you after a night</span></div></div>
+<div><div class="small mute">Level rating</div><div class="wrapt"><span class="small mute">No level votes yet &mdash; dancers vote on your event page</span></div></div></div></div>
 <nav class="tabs" aria-label="Organiser">
 <a class="on" href="#">Home</a><a href="#">Events</a><a href="#">Team</a><a href="#">Profile</a></nav>
 </section>

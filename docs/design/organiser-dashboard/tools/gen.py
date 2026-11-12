@@ -20,7 +20,10 @@ STATE_LABEL = {
     "huge": "Huge counts",
     "all-zero": "All zero",
     "cancelled": "Cancelled night",
+    "no-events-no-city": "No events, city unknown",
 }
+# Option A also draws the city-unknown variant of no-events (brief fix 8).
+STATES_A = STATES + ["no-events-no-city"]
 CLICK_LABEL = {"ticket": "Ticket link", "share": "Share", "whatsapp": "WhatsApp", "directions": "Directions"}
 CLICK_ACTION = {
     "ticket": "Add a ticket link",
@@ -45,8 +48,11 @@ def data(state):
                 rating=(4.6, 23), level=("Mixed levels", 18), city=("London", 4.3, 41),
                 tickets_on=False)
     if state == "no-events":
-        base.update(team=1, profile=(2, 6, "Add your city and a photo"), rating=None, level=None,
+        base.update(team=1, profile=(2, 6, "Add a photo"), rating=None, level=None,
                     city=("Leeds", None, 3), nights=[])
+    elif state == "no-events-no-city":
+        base.update(team=1, profile=(1, 6, "Add your city"), rating=None, level=None,
+                    city=(None, None, 0), nights=[])
     elif state == "upcoming":
         base["nights"] = [
             night(14, "Fri", "NOV", "Friday Bachata Social", "21:00", "Bar Salsa Temple", going=3, opens=412,
@@ -71,7 +77,7 @@ def data(state):
         base["nights"] = [
             night(14, "Fri", "NOV", "London Bachata Weekender 2026 &mdash; Opening Night Mega Social",
                   "21:00", "Grand Ballroom, Royal Exhibition Centre", going=2, opens=63576,
-                  clicks=dict(ticket=6013, share=812, whatsapp=346, directions=221), sold=6013),
+                  clicks=dict(ticket=6013, share=812, whatsapp=346, directions=221), sold=4127),
             night(15, "Sat", "NOV", "Weekender Day 2 &mdash; Workshops + All-Nighter", "12:00",
                   "Grand Ballroom, Royal Exhibition Centre", opens=18904,
                   clicks=dict(ticket=1990, share=102), sold=1874),
@@ -272,7 +278,7 @@ def empty_next_action(d):
 
 def page(title, body_by_state, extra_css=""):
     secs = "\n".join(f'<section class="state" id="{s}" aria-label="{STATE_LABEL[s]}">\n{body_by_state[s]}\n</section>'
-                     for s in STATES)
+                     for s in body_by_state)
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -289,39 +295,155 @@ def statebar(opt, s):
 
 
 # ---------------------------------------------------------------- Option A: Feed (adapted from org-proto-dashboard)
-def a_night(nt, first):
-    if nt["cancelled"]:
-        return cancelled_card(nt)
-    stats, hints = stat_parts(nt)
-    if not first:
-        line = " &middot; ".join(f"{n(v)} {k.lower()}" for k, v in stats[:3]) or hints[0][0]
-        return (f'<a class="item" href="#"><div class="datebox"><i>{nt["mon"]}</i><b>{nt["day"]}</b></div>'
-                f'<span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">{nt["name"]}</b>'
-                f'<span class="small mute wrapt">{line}</span></span>{ICON["chev"]}</a>')
-    tiles = "".join(f'<div class="card tile" style="background:var(--s2)"><span class="small mute">{k}</span><span class="v">{n(v)}</span></div>'
-                    for k, v in stats[: (4 if first else 2)])
-    more = len(stats) - (4 if first else 2)
-    morel = f'<a class="cta" href="#" style="min-height:44px;display:flex;align-items:center">{more} more</a>' if more > 0 else ""
-    hs = "".join(hint_html(*h) for h in hints[:1])
+# Option A v2 (admin #1544, Opus critique fixes): light theme, one gold primary per
+# screen, Going as a line not a tile, max 4 tiles + one muted line, "People who
+# opened" + its counting note, compact cancelled notice, city-aware empty copy.
+A_CSS = """
+:root{--bg:#F7F6F3;--s1:#FFFFFF;--s2:#F2F0EB;--line:#E4E1DA;--text:#1A1916;--mute:#5F5B54;
+--gold:#E0B252;--goldtx:#8A6414;--ink:#1A1916;--ok:#1E6B4A;--okbg:#E4F3EC;--warn:#8A4A10;--warnbg:#FBEEDD;--bad:#A3292B;--badbg:#FBE7E6}
+a,.cta{color:var(--goldtx)}
+.tabs{background:#FFFFFF}
+.tabs a.on{color:var(--goldtx)}
+.quiet{min-height:44px;display:inline-flex;align-items:center;color:var(--mute);font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.going{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700}
+.going .dot{color:var(--ok)}
+.sbtn{flex-direction:column;gap:2px;min-height:56px;padding:6px 4px;font-size:13px}
+.note{font-size:12px;color:var(--mute)}
+.waq{border-left:3px solid var(--line);padding:2px 0 2px 8px;font-size:12px;color:var(--mute)}
+"""
+
+# One mapping per tile: label, value, and the data source it is read from.
+# Tickets sold and Ticket link taps MUST come from different sources (fix 7):
+# a tap on the ticket link is not a sale.
+A_TILES = [
+    ("Tickets sold", lambda nt: nt["sold"], "ticket_orders (paid, via us)"),
+    ("People who opened", lambda nt: nt["opens"], "event views, once per person per day"),
+    ("Ticket link taps", lambda nt: nt["clicks"].get("ticket", 0), "link clicks, type=ticket"),
+    ("Share taps", lambda nt: nt["clicks"].get("share", 0), "link clicks, type=share"),
+]
+# Positive types that do not get a tile: one muted line.
+A_LINE = [("WhatsApp taps", "whatsapp"), ("directions taps", "directions")]
+OPENS_NOTE = "People who opened: counted once per person per day"
+
+
+def a_metrics(nt):
+    """Tiles (positive only, max 4), the muted extra line, and the zero hints."""
+    tiles = [(lab, f(nt), src) for lab, f, src in A_TILES if f(nt) > 0][:4]
+    extra = [f"{n(nt['clicks'][k])} {lab}" for lab, k in A_LINE if nt["clicks"].get(k, 0) > 0]
+    if nt["opens"] == 0:
+        lead_hint = "Nobody has opened this night yet. Share it in your group chats."
+    elif nt["going"] == 0:
+        lead_hint = "Nobody has said they are going yet. Share it so your group can tap Going."
+    else:
+        lead_hint = None
+    ticket_hint = ("No ticket taps yet", "Add a ticket link") if nt["opens"] > 0 and not nt["clicks"].get("ticket") and nt["sold"] == 0 else None
+    return tiles, extra, lead_hint, ticket_hint
+
+
+def a_row_line(nt):
+    parts = []
+    if nt["sold"] > 0:
+        parts.append(f"{n(nt['sold'])} tickets sold")
+    if nt["opens"] > 0:
+        parts.append(f"{n(nt['opens'])} people who opened")
+    if nt["going"] > 0:
+        parts.append(f"{n(nt['going'])} going")
+    return " &middot; ".join(parts[:3]) or "Nobody has opened it yet &mdash; share it"
+
+
+def a_share_night_btn(gold):
+    return (f'<a class="btn full{" gold" if gold else ""}" href="#">{ICON["wa"]}Share this night</a>'
+            '<p class="note">Opens WhatsApp with this night&rsquo;s link.</p>')
+
+
+def a_main_night(nt, gold=True):
+    tiles, extra, lead_hint, ticket_hint = a_metrics(nt)
+    going = (f'<div class="going"><span class="dot"></span>{n(nt["going"])} going</div>' if nt["going"] > 0 else "")
+    th = "".join(f'<div class="card tile" style="background:var(--s2)"><span class="small mute">{k}</span><span class="v">{n(v)}</span></div>'
+                 for k, v, _ in tiles)
+    note = f'<p class="note">{OPENS_NOTE}</p>' if any(k == "People who opened" for k, _, _ in tiles) else ""
+    ex = f'<p class="small mute wrapt">{" &middot; ".join(extra)}</p>' if extra else ""
+    hs = hint_html(*ticket_hint) if ticket_hint else ""
+    lh = f'<p class="small mute">{lead_hint}</p>' if lead_hint else ""
     return f"""<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
 <div class="row"><div class="datebox"><i>{nt['mon']}</i><b>{nt['day']}</b></div>
 <div class="grow"><div style="font-weight:700" class="wrapt clamp2">{nt['name']}</div>
 <div class="small mute wrapt">{nt['dow']} {nt['time']} &middot; {nt['venue']}</div></div></div>
-{('<div class="tiles">' + tiles + '</div>') if tiles else ''}{hs}{morel}</div>"""
+{going}{('<div class="tiles">' + th + '</div>') if th else ''}{note}{ex}{hs}{lh}
+{a_share_night_btn(gold)}
+<a class="quiet" href="#" style="align-self:flex-end">Night details</a></div>"""
+
+
+def a_later_rows(nights):
+    rows = "".join(
+        f'<a class="item" href="#"><div class="datebox"><i>{nt["mon"]}</i><b>{nt["day"]}</b></div>'
+        f'<span class="grow" style="display:flex;flex-direction:column"><b class="wrapt clamp2">{nt["name"]}</b>'
+        f'<span class="small mute wrapt">{a_row_line(nt)}</span></span>{ICON["chev"]}</a>' for nt in nights)
+    foot = f'<div class="note" style="padding:8px 12px">{OPENS_NOTE}</div>' if any(nt["opens"] > 0 for nt in nights) else ""
+    return f'<div class="card list" style="overflow:hidden">{rows}{foot}</div>'
+
+
+def a_cancel_text(nt, nxt):
+    after = f" Next night: {nxt['dow']} {nxt['day']} {nxt['mon'].title()}." if nxt else ""
+    return f"Sorry, {nt['name']} on {nt['dow']} {nt['day']} {nt['mon'].title()} is cancelled.{after} [link]"
+
+
+def a_cancelled_notice(nt, nxt):
+    return f"""<div class="card pad" style="display:flex;flex-direction:column;gap:8px;border-color:#E8BDBD">
+<div class="row"><span class="chip bad"><span class="dot"></span>Cancelled</span>
+<span class="small grow wrapt clamp2"><b>{nt['dow']} {nt['day']} {nt['mon'].title()}</b> &middot; {nt['name']}</span></div>
+<p class="small mute">Dancers see &ldquo;Cancelled&rdquo; on this night. {n(nt['opens'])} people opened it before you cancelled.</p>
+<a class="btn gold full" href="#">{ICON['wa']}Share the cancellation</a>
+<p class="waq">WhatsApp message, ready to send: &ldquo;{a_cancel_text(nt, nxt)}&rdquo;</p>
+<a class="quiet" href="#" style="align-self:flex-start">Undo cancellation</a></div>"""
+
+
+A_UNDO_CONFIRM = """<div class="sech"><h2>When Undo is tapped</h2></div>
+<div class="card pad" role="dialog" aria-label="Undo cancellation" style="display:flex;flex-direction:column;gap:10px">
+<p style="font-weight:700">Put this night back on the calendar?</p>
+<p class="small mute">Dancers will see it as on again.</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn">Keep cancelled</button><button class="btn">Put it back</button></div></div>"""
+
+
+def a_share_block():
+    return f"""<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+<div class="sech"><h2>Share my page</h2></div>
+<p class="small mute">Dancers find your nights from your page. Send it to your group chats.</p>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+<button class="btn sbtn">{ICON['copy']}Copy</button><button class="btn sbtn">{ICON['wa']}WhatsApp</button><button class="btn sbtn">{ICON['ig']}Caption</button></div></div>"""
+
+
+def a_empty_next_action(d):
+    city = d["city"][0]
+    who = f"dancers in {city}" if city else "dancers near you"
+    return f"""<div class="card pad" style="display:flex;flex-direction:column;gap:10px;border-color:#E6D3A8">
+<span class="chip warn" style="align-self:flex-start"><span class="dot"></span>Next step</span>
+<h2 style="font-size:20px">Add your first night</h2>
+<p class="mute">Your page is live but has no nights yet. Add one and {who} can find it on the calendar.</p>
+<a class="btn gold full" href="#">{ICON['plus']}Add a night</a>
+<a class="btn full" href="#">Invite someone to help</a></div>"""
 
 
 def option_a(s):
     d = data(s)
     out = [statebar("A", s), header(d)]
     if not d["nights"]:
-        out += [empty_next_action(d), share_block(d)]
+        out += [a_empty_next_action(d), a_share_block()]
     else:
+        cancelled = [nt for nt in d["nights"] if nt["cancelled"]]
+        live = [nt for nt in d["nights"] if not nt["cancelled"]]
         out.append('<div class="sech"><h2>Next nights</h2><a class="cta" href="#" style="min-height:44px;min-width:44px;display:flex;align-items:center;justify-content:flex-end">All nights</a></div>')
-        out.append(a_night(d["nights"][0], True))
-        if d["nights"][1:]:
-            out.append('<div class="card list" style="overflow:hidden">' + "".join(a_night(nt, False) for nt in d["nights"][1:]) + "</div>")
-        out.append(share_block(d))
+        for nt in cancelled:
+            out.append(a_cancelled_notice(nt, live[0] if live else None))
+        if live:
+            # one gold primary per screen: the cancellation share wins when there is one
+            out.append(a_main_night(live[0], gold=not cancelled))
+        if live[1:]:
+            out.append(a_later_rows(live[1:]))
+        out.append(a_share_block())
     out.append(f'<div class="card pad" style="display:flex;flex-direction:column;gap:12px"><div class="sech"><h2>Your profile</h2></div>{profile_line(d)}{rating_lines(d)}</div>')
+    if any(nt["cancelled"] for nt in d["nights"]):
+        out.append(A_UNDO_CONFIRM)
     out.append(TABS)
     return "\n".join(out)
 
@@ -459,10 +581,10 @@ def option_c(s):
 
 
 def main():
-    for key, fn, css, title in (("a", option_a, "", "Organiser home A"),
-                                ("b", option_b, B_CSS, "Organiser home B"),
-                                ("c", option_c, C_CSS, "Organiser home C")):
-        html = page(title, {s: fn(s) for s in STATES}, css)
+    for key, fn, css, title, states in (("a", option_a, A_CSS, "Organiser home A", STATES_A),
+                                        ("b", option_b, B_CSS, "Organiser home B", STATES),
+                                        ("c", option_c, C_CSS, "Organiser home C", STATES)):
+        html = page(title, {s: fn(s) for s in states}, css)
         assert all(ord(ch) < 128 for ch in html), "non-ASCII in output"
         (OUT / f"option-{key}.html").write_text(html, encoding="utf-8", newline="\n")
         print(f"wrote option-{key}.html ({len(html)} bytes)")

@@ -111,6 +111,28 @@ an odd last cell spans both columns). The 3 items are a Next steps checklist: Sh
 If the owner wants the least change from the reviewed prototype, pick **A**. If the main user is a team
 that runs many nights, pick **C**.
 
+## Option A v2: Opus critique fixes (admin #1544)
+
+`option-a.html` and `shots/option-a--*.png` are now **v2**. B and C are unchanged apart from the shared data fixes
+(huge-state Tickets sold, no-events profile step). Run `python3 -I docs/design/organiser-dashboard/tools/test_mapping.py`
+for the Option A consistency matrix (every state x every night).
+
+| # | Fix | Where in `tools/gen.py` |
+|---|---|---|
+| 1 | Light theme: bg `#F7F6F3`, card `#FFFFFF`, line `#E4E1DA`, text `#1A1916`, mute `#5F5B54`; gold text and links `#8A6414` (5.4:1 on white); bright gold `#E0B252` only as a button fill with ink text; light chip backgrounds | `A_CSS` |
+| 2 | One gold primary per screen once a night exists: **Share this night** (WhatsApp with the night link). Share my page (Copy / WhatsApp / Caption) is secondary | `a_share_night_btn`, `a_share_block` |
+| 3 | Going is a line in the card ("3 going"), never a tile. Zero = a hint sitting right above the Share this night button | `a_main_night`, `a_metrics` |
+| 4 | Max 4 tiles: Tickets sold (if > 0), People who opened, Ticket link taps, Share taps. Other positive types in one muted line ("9 WhatsApp taps &middot; 21 directions taps"). No "N more" link; the detail link is labelled **Night details** | `A_TILES`, `A_LINE` |
+| 5 | Label **People who opened** + note "counted once per person per day", in the main card and under the later-night rows | `OPENS_NOTE`, `a_later_rows` |
+| 6 | Cancelled: a compact notice with the gold **Share the cancellation** (prefilled WhatsApp text shown); Undo is a quiet text link with the confirm "Put this night back on the calendar?" (drawn at the bottom of the page). The main card goes to the next live night, whose share button turns secondary | `a_cancelled_notice`, `A_UNDO_CONFIRM` |
+| 7 | Huge: Tickets sold 4,127 vs Ticket link taps 6,013. Each tile names its source in `A_TILES`; a test asserts the two sources differ | `A_TILES`, `test_mapping.py` |
+| 8 | No events: city unknown = "dancers near you" (new state `no-events-no-city`, profile step "Add your city"); city known = "dancers in Leeds", profile step "Add a photo" | `a_empty_next_action`, `data()` |
+| minor | Share my page buttons are icon over label (no more ~6px padding on WhatsApp at 390) | `.sbtn` |
+
+Still holding: 6,013 / 63,576 fit, long names clamp to 2 lines, no zero printed, Rating and Level rating always shown,
+city average only in London, every tap target 44px or more. Checks: **19/19 pass** (A now has 7 states); A's lowest
+contrast is 4.97:1 (gold text `#8A6414` on the `#F2F0EB` hint fill).
+
 ## Checks (all 18 option x state screens)
 
 Run with `node docs/design/organiser-dashboard/tools/check-shots.mjs` at a 390x844 viewport. The raw results are in `checks.json`.

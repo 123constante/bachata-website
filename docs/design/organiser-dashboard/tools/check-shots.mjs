@@ -13,6 +13,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const OPTIONS = ['option-a', 'option-b', 'option-c'];
 const STATES = ['no-events', 'upcoming', 'selling', 'huge', 'all-zero', 'cancelled'];
+// Option A also has the city-unknown no-events variant (admin #1544 fix 8).
+const STATES_BY = { 'option-a': [...STATES, 'no-events-no-city'] };
 const shotDir = resolve(root, 'shots');
 mkdirSync(shotDir, { recursive: true });
 
@@ -22,7 +24,7 @@ const page = await ctx.newPage();
 const results = [];
 
 for (const opt of OPTIONS) {
-  for (const st of STATES) {
+  for (const st of STATES_BY[opt] || STATES) {
     const url = pathToFileURL(resolve(root, `${opt}.html`)).href + '#' + st;
     await page.goto('about:blank');
     await page.goto(url);
