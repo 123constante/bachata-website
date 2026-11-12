@@ -125,16 +125,28 @@ describe('D123/D124 Home', () => {
 });
 
 describe('D129 switcher and Your areas', () => {
-  it('1 profile: no switcher; Options lists Your areas', async () => {
+  it('1 profile: the strip button reads Account (no Switch); Options lists Your areas', async () => {
     renderInShell({ path: '/app/options' });
     await screen.findByTestId('opt-areas');
-    expect(screen.queryByTestId('profile-switcher-button')).toBeNull();
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
+    expect(screen.queryByText('Switch')).toBeNull();
     expect(optionsRows({ other_roles: [], is_active: true }).map((r) => r.id)).toContain('areas');
   });
   it('2 profiles: the switcher shows', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     renderInShell({ path: '/app/home' });
     expect(await screen.findByTestId('profile-switcher-button')).toBeTruthy();
+    expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Switch');
+  });
+  it('Add a profile sheet: organiser way in + message us; Back returns', async () => {
+    renderInShell({ path: '/app/home' });
+    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
+    fireEvent.click(await screen.findByTestId('profile-switcher-add'));
+    expect(screen.getByTestId('profile-switcher-add-organiser').textContent).toBe('Run events? Become an organiser');
+    expect(screen.getByTestId('profile-switcher-add-other').textContent).toBe('DJ or teach? Message us');
+    expect(screen.queryByTestId('profile-switcher-sign-out')).toBeNull();
+    fireEvent.click(screen.getByTestId('profile-switcher-add-back'));
+    expect(screen.getByTestId('profile-switcher-settings')).toBeTruthy();
   });
 });
 

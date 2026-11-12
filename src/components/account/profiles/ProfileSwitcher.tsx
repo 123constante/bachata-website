@@ -1,9 +1,10 @@
 import { Suspense, useEffect, useId, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Check } from 'lucide-react';
-import { ACCOUNT_SETTINGS_PATH, APP_ACCOUNT_SETTINGS_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
+import { Check, Plus } from 'lucide-react';
+import { ACCOUNT_SETTINGS_PATH, APP_ACCOUNT_SETTINGS_PATH, ORGANISER_HOME_PATH, switcherItems, type SwitcherWhere } from '@/lib/accountRouting';
 import { ACCOUNT_SETTINGS_LABEL } from '@/modules/dancer-app/copy/sharedCopy';
+import { dancerMessageUsUrl } from '@/lib/contactLinks';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { SideAvatar, sideKind, sideTitle } from './SideAvatar';
 import { PersonAvatar } from './PersonAvatar';
@@ -15,6 +16,14 @@ export { SIGN_OUT_FAILED };
 
 // The area entries load with the open sheet, never on the page's first load.
 const SwitcherAreas = lazyWithRetry(() => import('@/modules/areas/home/SwitcherAreas'));
+
+/** Add a profile (dancer app only): the two real ways on. Words match Options' own rows. */
+export const ADD_PROFILE_LABEL = 'Add a profile';
+export const ADD_ORGANISER_LABEL = 'Run events? Become an organiser';
+export const ADD_OTHER_LABEL = 'DJ or teach? Message us';
+export const ADD_OTHER_MESSAGE = 'Hi, I would like to add a DJ or teacher profile to my account.';
+/** The strip button's word: Switch with 2+ profiles, Account with one (D129: nothing to switch to). */
+export const stripLabel = (several: boolean): string => (several ? 'Switch' : 'Account');
 
 /** The confirm step's words: the same promise Options makes before it signs out. */
 export const SIGN_OUT_CONFIRM_LINE = 'You can sign back in any time with your email.';
@@ -42,12 +51,14 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
   const { state } = useProfileSides();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [adding, setAdding] = useState(false);
   const titleId = useId();
   const dancer = where.area === 'dancer';
 
   const close = () => {
     setOpen(false);
     setConfirming(false);
+    setAdding(false);
   };
 
   useEffect(() => {
@@ -77,10 +88,16 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
         aria-expanded={open}
         data-testid="profile-switcher-button"
         onClick={() => setOpen(true)}
-        className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full"
+        className={
+          dancer
+            ? 'flex h-[44px] shrink-0 items-center gap-[8px] rounded-full pl-[6px] pr-[12px] text-[14px] font-semibold'
+            : 'flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full'
+        }
+        style={dancer ? { border: '1px solid var(--da-border)', background: 'var(--da-surface)', color: 'var(--da-text)' } : undefined}
       >
         {/* No side known yet: the same PersonAvatar glyph disc, not a second, bare picture of a person. */}
         {current ? <SideAvatar side={current} size={32} /> : <PersonAvatar photoUrl={null} name={null} size={32} />}
+        {dancer && <span data-testid="profile-switcher-label">{stripLabel(several)}</span>}
       </button>
       {/* Portalled to <body>: a shell header is its own stacking context, and the dancer app's
           bottom tabs covered the sheet's last row (Sign out) at 390x844. */}
@@ -98,7 +115,7 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
           >
             <div className="flex items-center justify-between px-[16px]">
               <h2 id={titleId} className="text-[16px] font-bold">
-                {several ? 'Switch profile' : 'Your account'}
+                {adding ? ADD_PROFILE_LABEL : several ? 'Switch profile' : 'Your account'}
               </h2>
               <button type="button" onClick={close} className="min-h-[44px] min-w-[44px] text-[15px] font-semibold" data-testid="profile-switcher-close">
                 Close
@@ -114,6 +131,26 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
                 We could not load your profiles. Close this and try again in a moment.
               </p>
             )}
+            {adding && (
+              <div data-testid="profile-switcher-add-sheet">
+                <Link to={ORGANISER_HOME_PATH} onClick={close} className={`${row} font-semibold`} data-testid="profile-switcher-add-organiser">
+                  {ADD_ORGANISER_LABEL}
+                </Link>
+                <a
+                  href={dancerMessageUsUrl(ADD_OTHER_MESSAGE)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${row} font-semibold`}
+                  data-testid="profile-switcher-add-other"
+                >
+                  {ADD_OTHER_LABEL}
+                </a>
+                <button type="button" onClick={() => setAdding(false)} className={`${row} font-semibold`} data-testid="profile-switcher-add-back">
+                  Back
+                </button>
+              </div>
+            )}
+            {!adding && (
             <ul className="border-b border-border" style={dancer ? { borderColor: 'var(--da-border)' } : undefined} data-testid="profile-switcher-sides">
               {items.map((item) => (
                 <li key={item.key}>
@@ -134,11 +171,19 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
                 </li>
               ))}
             </ul>
-            {state.status === 'ready' && (
+            )}
+            {!adding && dancer && state.status === 'ready' && (
+              <button type="button" onClick={() => setAdding(true)} className={`${row} border-b font-semibold`} style={{ borderColor: 'var(--da-border)' }} data-testid="profile-switcher-add">
+                <Plus aria-hidden="true" style={{ width: 20, height: 20 }} />
+                {ADD_PROFILE_LABEL}
+              </button>
+            )}
+            {!adding && state.status === 'ready' && (
               <div className="border-b border-border" style={dancer ? { borderColor: 'var(--da-border)' } : undefined}>
                 <Suspense fallback={null}><SwitcherAreas rowClass={row} mutedClass={muted} onPick={close} /></Suspense>
               </div>
             )}
+            {!adding && (<>
             {/* Inside the dancer app, settings keeps "Back to Options" (review #789 S1). */}
             <Link to={where.area === 'dancer' ? APP_ACCOUNT_SETTINGS_PATH : ACCOUNT_SETTINGS_PATH} onClick={close} className={`${row} font-semibold`} data-testid="profile-switcher-settings">
               {ACCOUNT_SETTINGS_LABEL}
@@ -175,6 +220,7 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
                 </div>
               </div>
             )}
+            </>)}
           </div>
         </div>,
         document.body,
