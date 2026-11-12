@@ -39,7 +39,6 @@ vi.mock('@/lib/festivalsList', async (orig) => ({
 import { RsvpBlock } from '@/modules/event-page/bento/blocks/RsvpBlock';
 import { RsvpBlockPlaceholder } from '@/modules/event-page/bento/blocks/RsvpBlockPlaceholder';
 
-import { NumbersView } from '@/modules/dancer-app/screens/home/NumbersTiles';
 import { asWallClock } from '@/lib/time/wallClock';
 import FestivalHub from '@/pages/FestivalHub';
 import MyAttendance from '@/pages/MyAttendance';
@@ -47,8 +46,6 @@ import { GOING_COPY } from '@/modules/going';
 
 const OCC = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 // Going P2: the Going cell is the module's tag + get_my_going_v1's count (homeGoing.tsx builds it from useMyNights().goingCount); no Interested.
-const NUMBERS = { viewsWeek: 1, viewsMonth: 2, viewsTotal: 3, noViews: false, went: 6, votes: 7, allZero: false };
-const ZERO = { ...NUMBERS, went: 0, votes: 0, allZero: true };
 
 const occurrence = {
   occurrenceId: OCC,
@@ -80,16 +77,6 @@ const SURFACES: Surface[] = [
     onMarker: () => screen.getByTestId('rsvp-placeholder'),
   },
   { name: 'festival hub', ui: () => <FestivalHub />, settle: 150, onMarker: () => screen.findByTestId('festival-going-button', {}, { timeout: 4000 }) },
-  {
-    name: 'dancer app numbers strip',
-    ui: () => <NumbersView n={NUMBERS} hasPhoto going={{ label: GOING_COPY.tagGoing, value: 4, went: 6 }} />,
-    onMarker: () => screen.getByTestId('stat-going'),
-  },
-  {
-    name: 'dancer app numbers strip, all zero',
-    ui: () => <NumbersView n={ZERO} hasPhoto going={{ label: GOING_COPY.tagGoing, value: 0, went: 0 }} />,
-    onMarker: () => screen.getByTestId('stats-strip-empty'),
-  },
   { name: 'my attendance, empty', ui: () => <MyAttendance />, settle: 100, onMarker: () => screen.getByText(GOING_COPY.myUpcomingEmptyHow) },
 ];
 
@@ -129,10 +116,6 @@ describe('GOING_CHECKIN_ENABLED', () => {
       expect(screen.getByText('Costa Bachata Congress')).toBeTruthy();
       expect(text).not.toMatch(/I'm Going|Going:|Interested:|attending|WhatsApp/);
       expect(screen.queryByTestId('festival-going-lock')).toBeNull();
-    } else if (s.name === 'dancer app numbers strip') {
-      expect(screen.queryByTestId('stat-going')).toBeNull();
-      expect(screen.queryByTestId('stat-interested')).toBeNull();
-      expect(screen.getByTestId('stat-went')).toBeTruthy();
     } else if (s.name === 'my attendance, empty') {
       expect(text).not.toContain(GOING_COPY.myUpcomingEmptyHow);
       expect(h.rpc.mock.calls.filter(([n]) => n === 'get_my_going_v1')).toEqual([]);
@@ -141,12 +124,6 @@ describe('GOING_CHECKIN_ENABLED', () => {
       expect(container.querySelector('section, button')).toBeNull();
     }
     expect(h.rpc.mock.calls.filter(([n]) => /attendance/.test(n as string))).toEqual([]);
-  });
-
-  it('off: the all-zero strip leaves no empty card behind', async () => {
-    h.on = false;
-    await mount(SURFACES[4]);
-    expect(screen.queryByTestId('stats-strip')).toBeNull();
   });
 
   it.each(SURFACES)('on: $name renders as before', async (s) => {

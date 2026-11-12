@@ -7,7 +7,6 @@
  * get_my_going_v1's (going only; the fake splits upcoming / past by date the way
  * the RPC does, past most recent first).
  */
-import { GOING_COPY } from '@/modules/going';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -76,6 +75,7 @@ import { DANCER_SHAPES, DANCER_SHAPE_NAMES, FAKE_PROFILE_ID, makeProfile, CITY_L
 import { addDaysToKey, londonTodayKey } from '@/lib/londonDate';
 import { PENDING_LEVEL_RATING_KEY } from '@/lib/pendingLevelRating';
 import { HIDDEN_STATE_LINE } from '@/modules/dancer-app/copy/sharedCopy';
+import { GOING_COPY } from '@/modules/going';
 
 const today = londonTodayKey();
 const day = (n: number) => addDaysToKey(today, n);
@@ -109,15 +109,37 @@ describe('Home x attendance shapes', () => {
     { name: 'past rated (no nudge)', rows: () => { h.votes.s3 = 'mixed'; return [row('s3', 'Last Thursday', -2)]; }, hero: null, count: '0', nudge: false },
     { name: 'past, event since ended (no nudge)', rows: () => [row('s3', 'Old Series', -2, { event_lifecycle: 'ended' })], hero: null, count: '0', nudge: false },
   ];
-  const REMOVED = ['home-hero', 'tile-going', 'tile-going-count', 'tile-views', 'tile-partners', 'stats-strip'];
   it.each(cases)('$name', async (c) => {
     h.rows = c.rows();
     home();
-    await screen.findByTestId('home-main');
-    // Calm first screen (admin 1534): nothing of the old hero / tiles under the main card.
-    for (const id of REMOVED) expect(screen.queryByTestId(id)).toBeNull();
+    // Option A Home: the next night going ahead is ONE list row (home-row-going); no hero, no count tile.
+    await screen.findByTestId('home-list');
+    if (c.hero) {
+      await waitFor(() => expect(screen.getByTestId('home-row-going').textContent).toMatch(c.hero!));
+    } else {
+      await waitFor(() => expect(screen.queryByTestId('home-row-going')?.textContent ?? '').not.toMatch(/Soho Sensual|Camden Social|Last Thursday|Old Series/));
+      await waitFor(() => expect(screen.queryByText(/Your booked nights\./)).toBeNull());
+    }
+    // D130: no Browse events control anywhere on Home.
+    expect(screen.queryAllByRole('link', { name: /browse events/i })).toHaveLength(0);
     if (c.nudge) expect(await screen.findByTestId('rate-nudge')).toBeTruthy();
     else expect(screen.queryByTestId('rate-nudge')).toBeNull();
+  });
+
+  it('shows no fake numbers and no dead "Coming soon" tiles (audit M19)', async () => {
+    home();
+    await screen.findByTestId('home-list');
+    expect(screen.queryByTestId('tile-partners')).toBeNull();
+    expect(screen.queryByTestId('tile-views')).toBeNull();
+    expect(screen.queryByText(/12 views|coming soon/i)).toBeNull();
+  });
+
+  it('the Going row names the NEXT night, not a later one', async () => {
+    h.rows = [row('later', 'Later', 9), row('soon', 'Sooner', 2)];
+    home();
+    await screen.findByTestId('home-list');
+    await waitFor(() => expect(screen.getByTestId('home-row-going').textContent).toMatch(/Sooner/));
+    expect(screen.getByTestId('home-row-going').textContent).not.toMatch(/Later/);
   });
 });
 
@@ -128,20 +150,18 @@ describe('Home x profile shapes', () => {
     await waitFor(() => expect(screen.queryByText(/Loading your home/)).toBeNull());
   });
 
-  it('main card (D2): the 4 steps once, the next one on the button, no percent', async () => {
+  it('unfinished profile: the checklist shows the server-side steps and one next step', async () => {
     home({ backend: { profile: makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id }) } });
-    const card = await screen.findByTestId('home-main-card');
-    expect(within(card).getByTestId('home-next-step').textContent).toBe('Choose how you dance');
-    expect(within(card).getAllByRole('listitem')).toHaveLength(4);
-    expect(card.textContent).not.toMatch(/%|of 4/);
+    const list = await screen.findByTestId('home-checklist');
+    expect(list.textContent).toMatch(/How you dance \u00B7 next/);
+    expect(screen.getByTestId('home-next-step').textContent).toBe('Choose how you dance');
   });
 
   it('no profile: the Message us control itself (Options cannot load without a profile)', async () => {
     home({ backend: { profile: null } });
-    const m = await screen.findByTestId('home-message');
-    await waitFor(() => expect(m.textContent).toMatch(/Claim your page/));
-    expect(within(m).getByTestId('claim-button')).toBeTruthy();
+    const m = await screen.findByTestId('home-claim-card');
     expect(within(m).getByRole('link', { name: 'Message us on WhatsApp' }).getAttribute('href')).toMatch(/^https:\/\/wa\.me\//);
+    expect(within(m).getByTestId('claim-button')).toBeTruthy();
     expect(within(m).queryByRole('link', { name: 'Options' })).toBeNull();
   });
 
@@ -154,38 +174,24 @@ describe('Home x profile shapes', () => {
 
   it('active profile: no hidden banner', async () => {
     home();
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('paused-banner')).toBeNull();
   });
 
-  it('linked-from-admin: one plain line inside the main card on first visit, no buttons, gone next visit', async () => {
+  it('linked-from-admin: notice on first visit, gone once dismissed, stays gone', async () => {
     const profile = makeProfile({ first_name: 'Ana', based_city_id: CITY_LONDON.id, linked_from_admin: true });
     const first = home({ backend: { profile } });
-    const note = await screen.findByTestId('linked-notice');
-    expect(screen.getByTestId('home-main-card').contains(note)).toBe(true);
-    expect(note.querySelectorAll('a, button')).toHaveLength(0);
-    expect(screen.queryByRole('button', { name: 'Got it' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'Got it' }));
+    expect(screen.queryByTestId('linked-notice')).toBeNull();
     first.unmount(); resetShell();
     home({ backend: { profile } });
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
-  });
-
-  it.each([
-    ['first name', { first_name: 'Ana' }, 'Ana', true],
-    ['display name only', { first_name: null, display_name: 'Ana B' }, 'Ana B', true],
-    ['neither', { first_name: null, display_name: null }, 'Welcome', false],
-  ])('heading with %s', async (_n, over, h1, greets) => {
-    home({ backend: { profile: makeProfile({ based_city_id: CITY_LONDON.id, ...over } as never) } });
-    await screen.findByTestId('home-main');
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(h1);
-    expect(/Good (morning|afternoon|evening)/.test(document.body.textContent ?? '')).toBe(greets);
-    expect(document.body.textContent).not.toMatch(/\bthere\b/);
   });
 
   it('not linked: no notice', async () => {
     home();
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('home-list');
     expect(screen.queryByTestId('linked-notice')).toBeNull();
   });
 });
@@ -193,10 +199,10 @@ describe('Home x profile shapes', () => {
 describe('analytics', () => {
   it('dancer_app_entered fires once per session for a signed-in person', async () => {
     const r = home();
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('home-list');
     r.unmount(); resetShell();
     home();
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('home-list');
     expect(h.events.filter((e) => e === 'dancer_app_entered')).toHaveLength(1);
   });
   it('never for a signed-out visitor', async () => {
@@ -224,6 +230,19 @@ describe('Nights', () => {
       expect.stringMatching(/Alpha.*Going/), expect.stringMatching(/Beta.*Cancelled/),
     ]);
     expect(within(screen.getByTestId('nights-past')).getAllByTestId('night-row')).toHaveLength(1);
+  });
+
+  it('the same night reads the same on Home and Nights (one mapper)', async () => {
+    h.rows = [row('a', 'Alpha Social', 3)];
+    const n = nights();
+    const nightRow = (await screen.findAllByTestId('night-row'))[0].textContent ?? '';
+    n.unmount(); resetShell();
+    home();
+    await screen.findByTestId('home-list');
+    const going = await screen.findByTestId('home-row-going');
+    await waitFor(() => expect(going.textContent).toContain('Alpha Social'));
+    // Home keeps the name only (the time and venue live on Nights): the name is the shared bit.
+    expect(nightRow).toContain('Alpha Social');
   });
 
   it('attendance failure: error with retry, no fake empty state', async () => {
@@ -267,7 +286,7 @@ describe('Nights', () => {
     fireEvent.click(within(vote).getByRole('radio', { name: 'Strong' }));
     await screen.findByText('You said: Strong');
     fireEvent.click(screen.getByTestId('dancer-app-tab-home'));
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('home-list');
     await waitFor(() => expect(screen.queryByTestId('rate-nudge')).toBeNull());
   });
 

@@ -31,7 +31,6 @@ import { renderInShell, resetShell } from '../shell/renderInShell';
 import { setTestUser } from '../shell/testAuth';
 import { FIND_A_NIGHT } from '../copy/sharedCopy';
 import { NO_NIGHTS_FIND } from '../screens/nights/NightsScreen';
-import { LineupPeople } from '../screens/home/LineupPeople';
 import { parseLineupPeople } from '../api/lineupPeople';
 import { night as goingNight } from '../screens/nights/__tests__/goingShapes';
 
@@ -55,26 +54,6 @@ afterEach(() => {
   resetShell();
 });
 
-describe('S4: hero "See event" is full width, 52px+, token colours', () => {
-  it('the main card is the ONE next step: a full-width primary link, no strength ring', async () => {
-    renderInShell({ path: '/app/home', backend: { shape: 'emptyStub' } });
-    const btn = await screen.findByTestId('home-next-step');
-    expect(btn.className).toContain('w-full');
-    expect(screen.queryByTestId('tile-strength')).toBeNull();
-  });
-});
-
-describe('Calm Home: sections under the main card are gone', () => {
-  it('no hero, going tile, numbers, partner tile or lineup renders', async () => {
-    renderInShell({ path: '/app/home' });
-    await screen.findByTestId('home-main');
-    for (const id of ['home-hero', 'tile-going-count', 'stats-strip', 'partner-notify', 'lineup-people', 'lineup-person']) {
-      expect(screen.queryByTestId(id)).toBeNull();
-    }
-    expect(h.emits).toEqual([]);
-  });
-});
-
 describe('S4a: rate nudge layout', () => {
   it('icon tile, stacked title and body, chevron -- source pin (the nudge needs a rateable series, see dancerAppHomeNights)', async () => {
     const src = (await import('node:fs')).readFileSync('src/modules/dancer-app/screens/home/RateNudge.tsx', 'utf8');
@@ -93,16 +72,6 @@ describe('S9: one "find a night" sentence on all three surfaces', () => {
   });
 });
 
-describe('N2: no user means no error state', () => {
-  it('renders no error and calls nothing while signed out', async () => {
-    setTestUser(null);
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={qc}><MemoryRouter><LineupPeople /></MemoryRouter></QueryClientProvider>);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(screen.queryByTestId('lineup-people-error')).toBeNull();
-  });
-});
-
 describe('N3: de-duplication and "and N more"', () => {
   it('the parser keeps the first row per profile_id', () => {
     const p = parseLineupPeople({ total: 3, people: [PEOPLE.people[0], { ...PEOPLE.people[0], display_name: 'Dup' }, PEOPLE.people[1]] });
@@ -111,18 +80,9 @@ describe('N3: de-duplication and "and N more"', () => {
   });
 });
 
-describe('S3: the emitter stays off the /app/* first load', () => {
-  it('LineupPeople has no static import of profileViewEmit (it imports the eager supabase client)', async () => {
-    const src = (await import('node:fs')).readFileSync('src/modules/dancer-app/screens/home/LineupPeople.tsx', 'utf8');
-    expect(src).not.toMatch(/^import .*profileViewEmit/m);
-    expect(src).toContain("import('@/lib/profileViewEmit')");
-  });
-});
-
 describe('N5: no raw hex in the Home screen files', () => {
-  it.each(['HomeScreen.tsx', 'LineupPeople.tsx', 'RateNudge.tsx', 'PartnerTile.tsx', 'NumbersTiles.tsx', 'homeCopy.ts'])('%s', async (f) => {
+  it.each(['HomeScreen.tsx', 'RateNudge.tsx', 'claimCard.tsx', 'homeOptionA.tsx', 'homeCopy.ts'])('%s', async (f) => {
     const src = (await import('node:fs')).readFileSync(`src/modules/dancer-app/screens/home/${f}`, 'utf8');
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, ''); // comments may cite issue numbers
-    expect(code.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
+    expect(src.match(/#[0-9a-fA-F]{3,8}\b/g) ?? []).toEqual([]);
   });
 });

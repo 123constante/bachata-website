@@ -1,126 +1,86 @@
-import { EDIT_PATH, NEXT_STEP, REQUIRED_STEPS, nextStepFor, type NextStepProfile } from '../../api/nextStep';
-import type { StrengthStep } from '../../api/types';
-import type { ClaimStatus } from '@/lib/claimMyDancerProfile';
-
 /**
- * The ONE mapping from a dancer's profile shape (plus nights attended) to what Home's
- * main card says (admin #1534, owner pick: Option A). Home renders this and nothing
- * else decides the words; the table test in __tests__/homeModel.test.ts walks every shape.
- *
- *   stub       D1: none of the 4 required steps done -> "Finish your profile", ONE button.
- *   unfinished D2: some done -> the list of 4 once (done ticked, next marked), ONE button.
- *   complete   D3: all 4 done -> checklist hidden; Nights attended, or one empty-state CTA.
+ * Dancer Home (profile-dash slice 1, admin #1534, design Option A): the ONE mapping
+ * from a profile + its numbers to what Home shows. Pure, so the table-driven test
+ * walks every shape. Step words come from api/nextStep.ts (never copied here).
+ * Strength is read from the server (`profile.strength`), never computed.
  */
-export const REQUIRED_ORDER: readonly StrengthStep[] = ['first_name', 'city', 'role', 'photo'];
+import { NEXT_STEP, REQUIRED_STEPS, nextStepFor, type NextStepTarget } from '../../api/nextStep';
+import type { MyDancerEdit, StrengthStep } from '../../api/types';
 
-export type HomeProfile = NextStepProfile;
+/** The four steps in the order the checklist draws them, with the noun the list shows. */
+export const CHECKLIST: ReadonlyArray<{ step: StrengthStep; noun: string }> = [
+  { step: 'first_name', noun: 'Your first name' },
+  { step: 'city', noun: 'Your city' },
+  { step: 'role', noun: 'How you dance' },
+  { step: 'photo', noun: 'A photo' },
+];
 
-export type HomeShape = 'stub' | 'unfinished' | 'complete';
+export type ChecklistRow = { step: StrengthStep; noun: string; done: boolean; next: boolean };
 
-export type ChecklistRow = { step: StrengthStep; label: string; done: boolean; next: boolean };
+export type HomeKind = 'new' | 'unfinished' | 'complete';
 
-export type HomeMain =
-  | {
-      shape: 'stub';
-      title: string;
-      button: { label: string; focus: string | null; path: string };
-      numbersLine: string;
-    }
-  | {
-      shape: 'unfinished';
-      title: string;
-      rows: ChecklistRow[];
-      button: { label: string; focus: string | null; path: string };
-      numbersLine: string;
-    }
-  | {
-      shape: 'complete';
-      title: string;
-      /** null = nothing attended yet: the empty state shows, never a headline "0". */
-      attended: number | null;
-      empty: { title: string; body: string; cta: string } | null;
-    };
-
-export const FINISH_TITLE = 'Finish your profile';
-export const NUMBERS_LINE = 'Your numbers start after your first night out.';
-export const ATTENDED_TITLE = 'Nights attended';
-export const EMPTY_ATTENDED = {
-  title: 'Find your first night',
-  body: 'Nights you go to are counted here.',
-  cta: 'Browse this week',
+export type HomeView = {
+  kind: HomeKind;
+  /** "Welcome" with no name, else "Hi <first name>". */
+  title: string;
+  /** D1 only: one plain line under the title. D2 shows progress once, in the list. */
+  subtitle: string | null;
+  /** D1/D2: the one next step (label + route); null once the four steps are done. */
+  next: NextStepTarget | null;
+  /** D1: the single step line; D2: the four-row list. */
+  checklist: ChecklistRow[];
+  doneCount: number;
+  /** Placeholders for the preview row (design option B, fix 4). */
+  preview: { name: string; nameMissing: boolean; photoMissing: boolean; line: string };
 };
 
-const requiredLeft = (p: HomeProfile): StrengthStep[] => REQUIRED_ORDER.filter((s) => p.strength.missing.includes(s));
+const filled = (v: string | null | undefined) => (v ?? '').trim() !== '';
 
-export const homeShapeOf = (p: HomeProfile): HomeShape => {
-  const left = requiredLeft(p).length;
-  if (left === 0) return 'complete';
-  return left === REQUIRED_STEPS.size ? 'stub' : 'unfinished';
+export const requiredMissing = (p: Pick<MyDancerEdit, 'strength'>): StrengthStep[] =>
+  p.strength.missing.filter((m) => REQUIRED_STEPS.has(m));
+
+export const homeView = (p: MyDancerEdit): HomeView => {
+  const missing = new Set(requiredMissing(p));
+  const doneCount = CHECKLIST.length - missing.size;
+  const firstMissing = CHECKLIST.find((c) => missing.has(c.step))?.step ?? null;
+  const kind: HomeKind = missing.size === 0 ? 'complete' : doneCount === 0 ? 'new' : 'unfinished';
+  const nameText = [p.first_name, p.surname && !p.hide_surname_publicly ? p.surname : null].filter(filled).join(' ');
+  const name = filled(p.first_name) ? p.first_name!.trim() : '';
+  const photoMissing = !filled(p.avatar_url);
+  const nameMissing = !filled(nameText);
+  const line = filled(p.city_name) ? p.city_name!.trim() : 'Your city here';
+  return {
+    kind,
+    title: name ? `Hi ${name}` : 'Welcome',
+    subtitle: kind === 'new' ? 'Your dancer profile is ready to fill in.' : kind === 'complete' ? 'Your profile is complete.' : null,
+    next: firstMissing ? NEXT_STEP[firstMissing] : kind === 'complete' ? null : nextStepFor(p),
+    checklist: CHECKLIST.map((c) => ({ ...c, done: !missing.has(c.step), next: c.step === firstMissing })),
+    doneCount,
+    preview: { name: nameMissing ? 'Your name here' : nameText, nameMissing, photoMissing, line },
+  };
 };
 
-export const homeMain = (p: HomeProfile, nightsWent: number | null): HomeMain => {
-  const shape = homeShapeOf(p);
-  if (shape === 'complete') {
-    const n = nightsWent !== null && nightsWent > 0 ? nightsWent : null;
-    return { shape, title: ATTENDED_TITLE, attended: n, empty: n === null ? EMPTY_ATTENDED : null };
-  }
-  const target = nextStepFor(p) ?? NEXT_STEP[requiredLeft(p)[0]];
-  const button = { label: target.label, focus: target.focus, path: target.path ?? EDIT_PATH };
-  if (shape === 'stub') return { shape, title: FINISH_TITLE, button, numbersLine: NUMBERS_LINE };
-  const nextRequired = requiredLeft(p)[0];
-  const rows = REQUIRED_ORDER.map((step) => ({
-    step,
-    label: NEXT_STEP[step].label,
-    done: !p.strength.missing.includes(step),
-    next: step === nextRequired,
-  }));
-  return { shape, title: FINISH_TITLE, rows, button, numbersLine: NUMBERS_LINE };
+/** D3: Nights attended = my_dancer_stats_v1.nights_went. null = not loaded / failed: show nothing, never a "0". */
+export const attendedView = (went: number | null): { kind: 'count'; n: number } | { kind: 'empty' } | { kind: 'hidden' } =>
+  went === null ? { kind: 'hidden' } : went > 0 ? { kind: 'count', n: went } : { kind: 'empty' };
+
+export const PREVIEW_ROW_LINE = (v: HomeView): string => {
+  const bits: string[] = [];
+  if (v.preview.nameMissing) bits.push('No name yet');
+  if (v.preview.photoMissing) bits.push('No photo');
+  return bits.length ? bits.join('. ') + '.' : 'Name, city and photo show.';
 };
 
-/** The "Preview your page" row's one-line status: placeholders for the gaps, never a blank. */
-export const previewLine = (p: { first_name: string | null; avatar_url: string | null }): string => {
-  const name = (p.first_name ?? '').trim() || 'Your name here';
-  return `${name} \u00B7 ${p.avatar_url ? 'Photo added' : 'No photo'}`;
-};
+/** D4 (unclaimed): what each answer of claim_my_dancer_profile_v1 says, and what the person can do next. */
+export type ClaimStatusLike =
+  | 'linked' | 'already_linked' | 'no_match' | 'ambiguous' | 'email_unproven' | 'not_applicable' | 'unavailable';
 
-/* ---------- D4: claim your page (re-runs claim_my_dancer_profile_v1, no args) ---------- */
-
-export const CLAIM_BUTTON = 'Claim your page';
-export const CLAIM_DISMISS = 'Not me';
-
-export type ClaimView = 'linked' | 'no_match' | 'ambiguous' | 'email_unproven' | 'unavailable';
-
-/** One mapping from the RPC status to words; `already_linked` and `not_applicable` read as "no match here". */
-export const claimView = (status: ClaimStatus | 'unavailable'): ClaimView => {
-  if (status === 'linked' || status === 'already_linked') return 'linked';
-  if (status === 'ambiguous' || status === 'email_unproven' || status === 'unavailable') return status;
-  return 'no_match';
-};
-
-export const CLAIM_COPY: Record<ClaimView, { title: string; body: string; ok: boolean; retry: boolean }> = {
-  linked: { title: 'Your page is yours', body: 'We linked it to your account. Have a look and make it right.', ok: true, retry: false },
-  no_match: {
-    title: 'No page found for your email',
-    body: 'We could not find a page made for this email. Message us and we will check.',
-    ok: false,
-    retry: false,
-  },
-  ambiguous: {
-    title: 'We found more than one page',
-    body: 'We could not tell which is yours. Message us and we will sort it out.',
-    ok: false,
-    retry: false,
-  },
-  email_unproven: {
-    title: 'Confirm your email first',
-    body: 'Open the confirmation email we sent, then try again.',
-    ok: false,
-    retry: true,
-  },
-  unavailable: {
-    title: 'We could not check just now',
-    body: 'Check your connection and try again.',
-    ok: false,
-    retry: true,
-  },
+export const CLAIM_COPY: Record<ClaimStatusLike, { title: string; body: string; message: boolean }> = {
+  linked: { title: 'Your page is yours now', body: 'We linked the page made for you. Have a look and make it right.', message: false },
+  already_linked: { title: 'Your page is already yours', body: 'Tap Show my page to open it.', message: false },
+  no_match: { title: 'No page found for this email', body: 'Nothing on our side matches the email you signed in with. Message us if you expected one.', message: true },
+  ambiguous: { title: 'We found more than one page', body: 'We will not guess which is yours. Message us and we will link the right one.', message: true },
+  email_unproven: { title: 'Your email is not confirmed yet', body: 'Open the confirmation email we sent when you signed up and tap its link, then tap Check again. Message us if it never arrived.', message: true },
+  not_applicable: { title: 'Nothing to claim here', body: 'This account does not need a claim.', message: false },
+  unavailable: { title: 'We could not check just now', body: 'Check your connection and try again, or message us.', message: true },
 };

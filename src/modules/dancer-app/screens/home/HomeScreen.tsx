@@ -1,7 +1,6 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/modules/organiser/ui';
-import { LINK_GHOST_SM } from '../blocks';
 import { useAuth } from '@/hooks/useAuth';
 import { GOING_CHECKIN_ENABLED } from '@/lib/goingCheckin';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -11,20 +10,17 @@ import { DancerApiError } from '../../api/errors';
 import type { MyDancerEdit } from '../../api/types';
 import { trackDancerEvent } from '../../analytics/events';
 import { DANCER_TABS } from '../../shell/routes';
-import { gradientBg, linkStyle } from '../nights/nightsStyles';
-import { greeting } from './homeCopy';
-import { useMyNumbers } from '../../api/useMyNumbers';
-import { HomeMainCard } from './HomeMainCard';
-import { ClaimYourPage } from './ClaimYourPage';
+import { buttonStyle, gradientBg, linkStyle } from '../nights/nightsStyles';
 import { RateNudge } from './RateNudge';
 import type { HomeGoing } from './homeParts';
 import { useMyDancerEdit } from '../../api/useMyDancerEdit';
+import { HomeAView } from './homeOptionA';
+import { ClaimCard } from './claimCard';
+import { useMyNumbers } from '../../api/useMyNumbers';
 import NoProfileWayOut from '../options/NoProfileWayOut';
-import { CoupleArt } from '../art';
-import { Avatar, MessageUsLink } from '../me/ui';
-import { NO_PROFILE_MESSAGE } from '../../api/messageUs';
 import { HIDDEN_STATE_LINE, SHOW_AGAIN_LABEL } from '../../copy/sharedCopy';
 
+const path = (id: 'nights' | 'me' | 'options') => DANCER_TABS.find((t) => t.id === id)?.path ?? '/app';
 
 const ENTERED_KEY = 'dancer_app_entered';
 const noticeKey = (userId: string) => `dancer_app_linked_notice_dismissed:${userId}`;
@@ -80,23 +76,10 @@ const Message = ({ children }: { children: ReactNode }) => (
 const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGoing | null }) => {
   const { user } = useAuth();
   const numbers = useMyNumbers();
-  const name = profile.first_name || profile.display_name || '';
-  // The "we linked your profile" line shows ONCE (inside the main card, no buttons), then the flag hides it.
-  const [showLinkedNote] = useState(() => !!profile.linked_from_admin && !!user?.id && !readFlag('local', noticeKey(user.id)));
-  useEffect(() => {
-    if (showLinkedNote && user?.id) writeFlag('local', noticeKey(user.id));
-  }, [showLinkedNote, user?.id]);
+  const [noticeGone, setNoticeGone] = useState(() => (user?.id ? readFlag('local', noticeKey(user.id)) : true));
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span className="da-ring-avatar"><Avatar profile={profile} size={52} /></span>
-        <div style={{ minWidth: 0 }}>
-          {name && <div className="da-muted" style={{ fontSize: 14 }}>{greeting(new Date().getHours())}</div>}
-          <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, overflowWrap: 'anywhere' }}>{name || 'Welcome'}</h1>
-        </div>
-      </div>
-
       {!profile.is_active && (
         <Card variant="padded" role="status" data-testid="paused-banner" className="border-[var(--danger)]">
           <b>{HIDDEN_STATE_LINE}</b>
@@ -106,10 +89,35 @@ const HomeBodyView = ({ profile, going }: { profile: MyDancerEdit; going: HomeGo
         </Card>
       )}
 
-      <RateNudge candidates={going?.nudge ?? []} todayKey={going?.todayKey || londonTodayKey()} />
+      {profile.linked_from_admin && !noticeGone && user?.id && (
+        <Card variant="padded" testId="linked-notice">
+          <b>We&rsquo;ve linked your profile</b>
+          <p style={{ margin: '4px 0 8px', fontSize: 14 }}>A profile made for you by the Bachata Calendar team is now yours. Have a look and make it right.</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Link to={path('me')} style={buttonStyle}>Check my profile</Link>
+            <button
+              type="button"
+              className="da-tap"
+              style={{ background: 'none', border: '1px solid var(--da-border)', borderRadius: 12, color: 'var(--da-text)', padding: '0 16px', fontWeight: 700 }}
+              onClick={() => {
+                writeFlag('local', noticeKey(user.id));
+                setNoticeGone(true);
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        </Card>
+      )}
 
-      {/* Calm first screen (admin #1534): ONE main card, nothing under it. Nights attended lives in the card. */}
-      <HomeMainCard profile={profile} nightsWent={numbers.data?.went ?? null} linkedNote={showLinkedNote} />
+      <HomeAView
+        profile={profile}
+        went={numbers.data ? numbers.data.went : null}
+        night={going?.hero ?? null}
+        goingKnown={going !== null && !going.isLoading && !going.isError}
+      />
+
+      <RateNudge candidates={going?.nudge ?? []} todayKey={going?.todayKey || londonTodayKey()} />
     </div>
   );
 };
@@ -132,11 +140,6 @@ const HomeBody = ({ profile }: { profile: MyDancerEdit }) => {
 
 const HomeScreen = () => {
   const profile = useMyDancerEdit({ staleTime: 60_000 });
-  const [claimDismissed, setClaimDismissed] = useState(false);
-  const noProfile = profile.error instanceof DancerApiError && profile.error.code === 'no_profile';
-  // A claim refetch flips the query back to loading; keep the claim card mounted through it so its result copy survives.
-  const [wasNoProfile, setWasNoProfile] = useState(false);
-  if (noProfile && !wasNoProfile) setWasNoProfile(true);
 
   // Once per session, signed-in only (trackDancerEvent is a no-op signed out).
   useEffect(() => {
@@ -145,16 +148,16 @@ const HomeScreen = () => {
   }, []);
 
   let body: ReactNode;
-  if (profile.isLoading && !wasNoProfile) {
+  if (profile.isLoading) {
     body = <Message>Loading your home&hellip;</Message>;
-  } else if (noProfile || (profile.isLoading && wasNoProfile)) {
+  } else if (profile.error instanceof DancerApiError && profile.error.code === 'no_profile') {
+    // D4 (unclaimed): the claim button re-runs the existing no-arg claim; its answer is drawn in the card.
+    // Walk bug 1: never trapped here -- NoProfileWayOut gives Account settings, Sign out, the organiser area.
     body = (
-      <Message>
-        <CoupleArt />
-        <ClaimYourPage onLinked={async () => !!(await profile.refetch()).data} onDismiss={() => setClaimDismissed(true)} dismissed={claimDismissed} />
-        {/* Walk bug 1: never trapped here -- Account settings, Sign out, and the organiser area for an organiser. */}
+      <div style={{ display: 'grid', gap: 12 }}>
+        <ClaimCard />
         <NoProfileWayOut />
-      </Message>
+      </div>
     );
   } else if (profile.error || !profile.data) {
     body = (

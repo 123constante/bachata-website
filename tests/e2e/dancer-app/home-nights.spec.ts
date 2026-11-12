@@ -83,13 +83,11 @@ test.describe('dancer app home + nights 390x844', () => {
   for (const shape of SHAPES) {
     test(`home and nights: ${shape.name}`, async ({ page }) => {
       await open(page, '/app/home', shape);
-      // Calm Home (continuation 3): ONE main card. The hero, views tile, numbers strip, partner tile
-      // and going tile are gone; assert the card is there and the old tiles stay away.
-      await expect(page.getByTestId('home-main')).toBeVisible();
-      for (const gone of ['home-hero', 'tile-views', 'stats-strip', 'tile-partner', 'tile-going']) {
-        await expect(page.getByTestId(gone)).toHaveCount(0);
-      }
-      await expect(page.getByText(/^Coming soon\.?$/)).toHaveCount(0);
+      // Option A Home (admin #1534): one action card + a short list. The old hero, strength tile,
+      // views / going tiles, numbers strip and partner tile are retired.
+      await expect(page.getByTestId('home-list')).toBeVisible();
+      for (const gone of ['home-hero', 'tile-strength', 'tile-views', 'tile-going', 'stats-strip', 'tile-partner']) await expect(page.getByTestId(gone)).toHaveCount(0);
+      await expect(page.getByText(/coming soon/i)).toHaveCount(0);
       await expectNoHorizontalScroll(page);
       await page.screenshot({ path: `${SHOTS}/home-${shape.name}.png`, fullPage: true });
       await page.getByTestId('dancer-app-tab-nights').click();
@@ -110,7 +108,7 @@ test.describe('dancer app home + nights 390x844', () => {
     await page.getByRole('radio', { name: 'Mixed' }).click();
     await expect(page.getByText('You said: Mixed')).toBeVisible();
     await page.getByTestId('dancer-app-tab-home').click();
-    await expect(page.getByTestId('home-hero')).toBeVisible();
+    await expect(page.getByTestId('home-list')).toBeVisible();
     await expect(page.getByTestId('rate-nudge')).toHaveCount(0);
   });
 });

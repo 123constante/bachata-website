@@ -1,8 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PHONE, OrganiserFake, expectNoHorizontalScroll, json } from '../helpers/organiserFake';
 
-// Admin 1534 dancer dashboard walk at 390x844: stub, unfinished, complete, unclaimed match, one profile,
-// three profiles, the sheets, and an untouched Save. Shapes follow the prod survey in docs/design/profile-dash/dancer.md.
+// Admin 1534 dancer dashboard walk at 390x844: one profile, two/three profiles, the sheets, and an untouched Save. Shapes follow the prod survey in docs/design/profile-dash/dancer.md.
 // Screenshots go to SHOTS only when WALK_SHOTS=1 (a plain CI run writes nothing into the repo).
 
 const SHOTS = process.env.WALK_SHOTS ? 'docs/handover/profile-dash/walk' : 'test-results/profile-dash-walk';
@@ -15,10 +14,6 @@ const BASE = {
   show_whatsapp_publicly: true, avatar_url: 'https://img.example/a.jpg', dance_started_year: null, favorite_styles: [], favorite_songs: [],
   achievements: [], other_roles: [], is_active: true, erase_requested_at: null, linked_from_admin: false, complete: true,
   strength: { pct: 100, next_step: null, missing: [] },
-};
-const STUB = {
-  ...BASE, first_name: null, based_city_id: null, city_name: null, dance_role: null, avatar_url: null, complete: false,
-  strength: { pct: 0, next_step: 'first_name', missing: ['first_name', 'city', 'role', 'photo', 'started_year', 'styles', 'bio_social'] },
 };
 const UNFINISHED = {
   ...BASE, avatar_url: null, complete: false,
@@ -63,19 +58,10 @@ const smallTaps = (page: Page) =>
 test.describe('profile dash walk 390x844', () => {
   test.use({ viewport: PHONE });
 
-  test('D1 stub: Finish your profile, one next step, no stats', async ({ page }) => {
-    await open(page, '/app/home', { profile: STUB, organisers: 0 });
-    await expect(page.getByTestId('home-main')).toHaveAttribute('data-shape', 'stub');
-    await expect(page.getByTestId('home-next-step')).toHaveText('Add your first name');
-    await expectNoHorizontalScroll(page);
-    await snap(page, 'd1-stub');
-  });
-
-  test('D2 unfinished: next step shown; untouched Save sends nothing and says why', async ({ page }) => {
-    const { saves } = await open(page, '/app/home', { profile: UNFINISHED, organisers: 0 });
-    await expect(page.getByTestId('home-main')).toHaveAttribute('data-shape', 'unfinished');
-    await snap(page, 'd2-unfinished');
-    await page.goto('/app/me/edit');
+  // Home shapes (stub / unfinished / complete / claim) are walked by profile-dash-home.spec.ts (#1576's Option A Home);
+  // this spec keeps the strip, the sheets and the untouched Save.
+  test('unfinished: untouched Save sends nothing and says why', async ({ page }) => {
+    const { saves } = await open(page, '/app/me/edit', { profile: UNFINISHED, organisers: 0 });
     await expect(page.getByTestId('edit-save')).toBeDisabled();
     await expect(page.getByTestId('edit-save-reason')).toContainText('Nothing has changed yet');
     await expect(page.getByTestId('first_name')).toHaveCount(0);
@@ -85,72 +71,6 @@ test.describe('profile dash walk 390x844', () => {
     await expect(page.getByTestId('edit-save-reason')).toBeInViewport();
     await snap(page, 'edit-untouched-save');
     expect(saves).toHaveLength(0);
-  });
-
-  test('D3 complete, no nights: checklist hidden, one empty-state action', async ({ page }) => {
-    await open(page, '/app/home', { profile: BASE, organisers: 0, went: 0 });
-    await expect(page.getByTestId('home-main')).toHaveAttribute('data-shape', 'complete');
-    await expect(page.getByTestId('home-checklist')).toHaveCount(0);
-    await expect(page.getByTestId('home-attended-empty')).toBeVisible();
-    await snap(page, 'd3-complete-empty');
-  });
-
-  test('D3 complete with nights: Nights attended number', async ({ page }) => {
-    await open(page, '/app/home', { profile: BASE, organisers: 0, went: 12 });
-    await expect(page.getByTestId('home-attended')).toContainText('12');
-    await snap(page, 'd3-complete-12');
-  });
-
-  test('D4 initial Claim your page renders (not blank), with Not me before any result', async ({ page }) => {
-    await open(page, '/app/home', { profile: 'none', organisers: 0 });
-    await expect(page.getByTestId('claim-button')).toBeVisible();
-    await expect(page.getByTestId('claim-dismiss')).toBeVisible();
-    await expect(page.getByText('We may have a page made for you')).toBeVisible();
-    await snap(page, 'd4-claim');
-    await expectNoHorizontalScroll(page);
-  });
-
-  for (const [status, text, retry] of [
-    ['no_match', 'No page found for your email', false],
-    ['ambiguous', 'could not tell which is yours', false],
-    ['email_unproven', 'Confirm your email first', true],
-    ['unavailable', 'We could not check just now', true],
-  ] as const) {
-    test(`D4 ${status}: explanation stays, no Not me${retry ? ', Try again' : ''}`, async ({ page }) => {
-      await open(page, '/app/home', { profile: 'none', organisers: 0, claim: status });
-      await page.getByTestId('claim-button').click();
-      await expect(page.getByTestId('claim-your-page')).toContainText(text);
-      await expect(page.getByTestId('claim-dismiss')).toHaveCount(0);
-      await expect(page.getByTestId('claim-button')).toHaveCount(retry ? 1 : 0);
-      await expect(page.getByTestId('message-us')).toBeVisible();
-      await expectNoHorizontalScroll(page);
-      await snap(page, status === 'ambiguous' ? 'd4-claim-ambiguous' : `d4-claim-${status}`);
-    });
-  }
-
-  test('D4 linked but the profile has not loaded: Reload and Message us, not the success copy', async ({ page }) => {
-    await open(page, '/app/home', { profile: 'none', organisers: 0, claim: 'linked' });
-    await page.getByTestId('claim-button').click();
-    await expect(page.getByTestId('claim-reload')).toBeVisible();
-    await expect(page.getByTestId('claim-your-page')).not.toContainText('Your page is yours');
-    await expect(page.getByTestId('message-us')).toBeVisible();
-    await snap(page, 'd4-claim-linked');
-  });
-
-  test('new account with no name: h1 Welcome, no greeting line', async ({ page }) => {
-    await open(page, '/app/home', { profile: { ...STUB, display_name: null }, organisers: 0 });
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Welcome');
-    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toHaveCount(0);
-    await snap(page, 'welcome-no-name');
-  });
-
-  test('claimed dancer: the linked line lives inside the one main card, no extra buttons', async ({ page }) => {
-    await open(page, '/app/home', { profile: { ...UNFINISHED, linked_from_admin: true }, organisers: 0 });
-    const note = page.getByTestId('linked-notice');
-    await expect(note).toBeVisible();
-    await expect(page.getByTestId('home-main-card').getByTestId('linked-notice')).toHaveCount(1);
-    await expect(note.locator('a, button')).toHaveCount(0);
-    await snap(page, 'home-linked-line');
   });
 
   test('one profile: button reads Account, no Switch; sheet has Add a profile and sign out', async ({ page }) => {

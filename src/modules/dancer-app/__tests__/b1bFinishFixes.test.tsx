@@ -50,30 +50,6 @@ const never = <T,>(): Promise<T> => new Promise<T>(() => {});
 // Nights list itself), never my_dancer_stats_v1.nights_going_upcoming. The full shape
 // table lives in screens/home/__tests__/homeAudit.test.tsx; here: tile === strip, and the
 // tile's loading / failed words.
-describe('F7: Home shows ONE "going" number (get_my_going_v1) on the tile and the strip', () => {
-  const shapes: Array<{ name: string; stats: StatsShapeName; reply: () => unknown; want: string }> = [
-    { name: 'going to a cancelled night', stats: 'cancelledNight', reply: () => ({ upcoming: [cancelled('c1', 'C', 3)], past: [] }), want: '0' },
-    { name: 'going to a night of an ended series', stats: 'endedSeries', reply: () => ({ upcoming: [notLive('e1', 'E', 5, 'ended')], past: [] }), want: '1' },
-    { name: 'zero', stats: 'zero', reply: () => ({ upcoming: [], past: [] }), want: '0' },
-    { name: 'normal (3 going)', stats: 'normal', reply: () => ({ upcoming: [night('a', 'A', 1), night('b', 'B', 2), night('c', 'C', 3)], past: [] }), want: '3' },
-  ];
-
-  it.each(shapes)('$name: Home shows no going tile and no strip', async (s) => {
-    h.reply = s.reply();
-    renderInShell({ path: '/app/home', backend: { statsShape: s.stats } });
-    await screen.findByTestId('home-main');
-    for (const id of ['tile-going-count', 'stats-strip', 'stat-going-value', 'stat-went-value']) expect(screen.queryByTestId(id)).toBeNull();
-  });
-
-  it.each(['never', 'error'] as const)('going read %s: Home still shows its main card and no tile', async (mode) => {
-    h.going = mode;
-    renderInShell({ path: '/app/home', backend: { statsShape: 'normal' } });
-    await screen.findByTestId('home-main');
-    expect(screen.queryByTestId('tile-going-count')).toBeNull();
-  });
-});
-
-/* ------------------------------------------------------------------ F8 */
 describe('F8: the fix links on /app/page are 44px tap targets', () => {
   it.each([
     ['noPhoto', 'Edit my profile'],
@@ -89,16 +65,6 @@ describe('F8: the fix links on /app/page are 44px tap targets', () => {
 
 /* ------------------------------------------------------------------ F12 */
 describe('F12: a numbers failure says WHICH failure, and /app/page offers Try again', () => {
-  it.each([
-    ['noProfile', 'no_profile'],
-    ['areaClosed', 'area_closed'],
-  ] as const)('Home, %s: no numbers box (%s is shown on /app/page)', async (shape, code) => {
-    renderInShell({ path: '/app/home', backend: { statsShape: shape } });
-    await screen.findByTestId('home-main');
-    expect(screen.queryByTestId('numbers-error')).toBeNull();
-    expect(code).toBeTruthy();
-  });
-
   it.each([
     ['noProfile', 'no_profile'],
     ['areaClosed', 'area_closed'],
@@ -158,3 +124,5 @@ describe('F13/F14: feedback sheet', () => {
     expect(document.getElementById('feedback-why')).toBeTruthy();
   });
 });
+
+/* ------------------------------------------------------------------ F15 */

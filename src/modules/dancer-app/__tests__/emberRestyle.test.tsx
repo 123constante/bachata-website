@@ -81,16 +81,14 @@ describe('D120 home link on every /app/* route', () => {
   });
 });
 
-describe('D123/D124 Home (calm first screen: no lineup, no what\'s on)', () => {
-  it('shows the main card and none of the removed sections; no lineup call', async () => {
+describe('D123/D124 Home', () => {
+  // The line-up people list was retired from Home by Option A (admin #1534).
+  it('has no "What\'s on this week" and no line-up list', async () => {
     renderInShell({ path: '/app/home' });
-    await screen.findByTestId('home-main');
+    await screen.findByTestId('dancer-screen-home');
     expect(screen.queryByTestId('whats-on')).toBeNull();
     expect(screen.queryByText(/What.s on this week/)).toBeNull();
-    for (const id of ['lineup-people', 'lineup-person', 'lineup-people-empty', 'lineup-people-error']) {
-      expect(screen.queryByTestId(id)).toBeNull();
-    }
-    expect(h.calls.filter((c) => c === 'my_nights_lineup_people_v1')).toHaveLength(0);
+    expect(screen.queryByTestId('lineup-people')).toBeNull();
   });
 });
 
@@ -99,14 +97,19 @@ describe('D129 switcher and Your areas', () => {
     renderInShell({ path: '/app/options' });
     await screen.findByTestId('opt-areas');
     expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Account');
+    expect(screen.queryByTestId('profile-switcher-button')).toBeNull();
     expect(screen.queryByText('Switch')).toBeNull();
+    // The Account sheet keeps account settings one tap away (admin 1534 fix 7).
+    fireEvent.click(screen.getByTestId('profile-account-button'));
+    expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe('/account/settings?from=app');
     expect(optionsRows({ other_roles: [], is_active: true }).map((r) => r.id)).toContain('areas');
   });
   it('2 profiles: the switcher shows', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     renderInShell({ path: '/app/home' });
-    expect(await screen.findByTestId(/^profile-(switcher|account)-button$/)).toBeTruthy();
+    expect(await screen.findByTestId('profile-switcher-button')).toBeTruthy();
     expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Switch');
+    expect(screen.queryByTestId('profile-account-button')).toBeNull();
   });
   it('Add a profile sheet: organiser way in + message us; Back returns', async () => {
     renderInShell({ path: '/app/home' });
@@ -195,7 +198,7 @@ describe('D119 Edit: back button and "Discard changes?"', () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     const r = await edit();
     type('Changed Name');
-    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
+    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
     fireEvent.click(await screen.findByTestId('profile-switcher-side-o1'));
     expect(await screen.findByText('Discard changes?')).toBeTruthy();
     expect(r.location()).toBe('/app/me/edit');
@@ -207,7 +210,7 @@ describe('D119 Edit: back button and "Discard changes?"', () => {
   it('S1: a profile-switcher row switches straight away when nothing changed', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     const r = await edit();
-    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
+    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
     fireEvent.click(await screen.findByTestId('profile-switcher-side-o1'));
     await waitFor(() => expect(r.location()).toBe('/account/o?o=o1'));
     expect(screen.queryByText('Discard changes?')).toBeNull();

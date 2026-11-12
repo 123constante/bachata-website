@@ -42,6 +42,7 @@ import { usePutMyDancerEdit } from '@/modules/dancer-app/api/useMyDancerEdit';
 import { setDancerAnalyticsUser } from '@/modules/dancer-app/analytics/events';
 import { FAKE_USER_ID } from '@/modules/dancer-app/api/fixtures';
 import type { MyDancerEdit } from '@/modules/dancer-app/api/types';
+import { homeView } from '@/modules/dancer-app/screens/home/homeModel';
 
 class ResizeObserverStub { observe() {} unobserve() {} disconnect() {} }
 (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= ResizeObserverStub;
@@ -72,19 +73,24 @@ describe('S2 + B1: the next step reads the same words on Home, Me and Onboarding
   });
 
   it.each(cases)('%s', async (_name, profile) => {
-    // Admin 1534: Home's main card names the step on its ONE button (the label only); Me and Onboarding keep the full line.
+    // Option A Home: the ONE next step is the button (home-next-step), only while a REQUIRED step is
+    // missing. Past that Home is "complete" and shows no next-step control (the Me line still names
+    // the optional ones). The words are the same label either way (api/nextStep.ts).
     const me = await textOf('/app/me', profile, 'me-next-step');
-    const requiredLeft = profile.strength.missing.some((m) => ['first_name', 'city', 'role', 'photo'].includes(m));
-    if (requiredLeft) {
+    const next = homeView(profile).next;
+    if (next) {
       const home = await textOf('/app/home', profile, 'home-next-step');
-      expect(me).toContain(home);
+      expect(home).toBe(next.label);
+      expect(me.startsWith(home)).toBe(true);
+      if (!profile.complete) {
+        const onboarding = await textOf('/app/welcome', profile, 'onboarding-next-step');
+        expect(onboarding.startsWith(home)).toBe(true);
+      }
       if (profile.strength.next_step === 'photo') expect(home).toMatch(/photo/);
     } else {
-      expect(await textOf('/app/home', profile, 'home-main-card')).not.toMatch(/Finish your profile/);
-    }
-    if (!profile.complete) {
-      const onboarding = await textOf('/app/welcome', profile, 'onboarding-next-step');
-      expect(onboarding).toBe(me);
+      renderInShell({ path: '/app/home', backend: { profile } });
+      await screen.findByTestId('home-a-complete');
+      expect(screen.queryByTestId('home-next-step')).toBeNull();
     }
   });
 });

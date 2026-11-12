@@ -47,17 +47,11 @@ const settle = async (testId: string) => {
   await new Promise((r) => setTimeout(r, 30));
 };
 
-const REMOVED_ON_HOME = ['tile-views-count', 'tile-views-detail', 'numbers-error', 'stats-strip', 'stats-strip-empty', 'tile-partner', 'partner-notify', 'home-hero', 'tile-going-count'];
-
-describe('numbers: calm Home shows no stats tiles; My page keeps the weekly count', () => {
-  it.each(STATS_SHAPE_NAMES)('%s: Home has none of the removed tiles; My page never shows NaN', async (name) => {
+describe('numbers: one mapping, every stats shape', () => {
+  // Option A Home (admin #1534) retired the views tile, the stats strip and the numbers-error box;
+  // the weekly views count now lives on My page only, so there is no Home column to compare.
+  it.each(STATS_SHAPE_NAMES)('%s: My page shows the weekly count, never NaN', async (name) => {
     const fixture = STATS_SHAPES[name];
-    renderInShell({ path: '/app/home', backend: { shape: 'fourFieldComplete', statsShape: name } });
-    await screen.findByTestId('home-main');
-    for (const id of REMOVED_ON_HOME) expect(screen.queryByTestId(id)).toBeNull();
-    expect(document.body.textContent ?? '').not.toMatch(/NaN|undefined|null/);
-    cleanup();
-    resetShell();
     renderInShell({ path: '/app/page', backend: { shape: 'fourFieldComplete', statsShape: name } });
     if ('error' in fixture) {
       await waitFor(() => expect(screen.getByTestId('page-views-error')).toBeTruthy());
