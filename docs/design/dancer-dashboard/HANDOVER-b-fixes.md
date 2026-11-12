@@ -15,7 +15,10 @@ Branch `claude/profile-dash-dancer-b-fixes`, built on `claude/profile-dash-desig
 ## Verified
 - Playwright 390x844, 9 frames: 0 taps under 44, min contrast 5.06:1, scrollWidth 390, 0 clipped, 0 under tab bar, 0 dashed-live, 0 glyph icons, 0 kickers.
 - Shipped code re-read for fix 2/7: ProfileSwitcher.tsx, SwitcherAreas.tsx, StatusDot.tsx, SideAvatar.tsx, PersonAvatar.tsx, accountRouting.ts switcherItems, areaStatus.ts.
-- `npm run check:mojibake`: see PR.
+- `npm run check:mojibake`: clean (2675 files).
+- tsc run on 14336da: 0 errors in branch files (whole project 0 errors; branch touches no .ts/.tsx).
+- PR #1566 body passes `check-pr-real-data-verified.mjs` and `check-pr-phone-qa.mjs` (exit 0; Phone QA section deleted, no UI path). No automerge label: diff is 605 lines, over the 400-line rule.
+- `scripts/prepush-check.mjs` does not exist here; checked by hand: PR label lines exact, no SQL / Undo, no new entry-point script under scripts/.
 
 ## Not verified
 - No new prod survey this round (no data-shape change; prior round's counts stand: 183 profiles, 14 claimed, longest first name 21).
