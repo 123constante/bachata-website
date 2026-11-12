@@ -4,7 +4,7 @@ import { NOW, PHONE, OrganiserFake, expectNoHorizontalScroll, json, refuse } fro
 // Dancer dashboard slice 1 (admin #1534): Option A Home at 390x844 against the organiser fake (session + REST) with the dancer RPCs
 // answered at the network layer. Screenshots of four shapes go to docs/handover/dancer-rebuild-w2b/.
 
-const SHOTS = 'docs/design/1576';
+const SHOTS = 'docs/handover/dancer-dash-1576';
 const rpc = (name: string) => `**/rest/v1/rpc/${name}`;
 const pad = (n: number) => String(n).padStart(2, '0');
 const dayKey = (offset: number) => {
