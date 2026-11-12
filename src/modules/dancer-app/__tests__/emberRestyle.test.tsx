@@ -105,12 +105,12 @@ describe('D129 switcher and Your areas', () => {
   it('2 profiles: the switcher shows', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     renderInShell({ path: '/app/home' });
-    expect(await screen.findByTestId('profile-switcher-button')).toBeTruthy();
+    expect(await screen.findByTestId(/^profile-(switcher|account)-button$/)).toBeTruthy();
     expect((await screen.findByTestId('profile-switcher-label')).textContent).toBe('Switch');
   });
   it('Add a profile sheet: organiser way in + message us; Back returns', async () => {
     renderInShell({ path: '/app/home' });
-    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
+    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(await screen.findByTestId('profile-switcher-add'));
     expect(screen.getByTestId('profile-switcher-add-organiser').textContent).toBe('Run events? Become an organiser');
     expect(screen.getByTestId('profile-switcher-add-other').textContent).toBe('DJ or teach? Message us');
@@ -195,7 +195,7 @@ describe('D119 Edit: back button and "Discard changes?"', () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     const r = await edit();
     type('Changed Name');
-    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
+    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(await screen.findByTestId('profile-switcher-side-o1'));
     expect(await screen.findByText('Discard changes?')).toBeTruthy();
     expect(r.location()).toBe('/app/me/edit');
@@ -207,7 +207,7 @@ describe('D119 Edit: back button and "Discard changes?"', () => {
   it('S1: a profile-switcher row switches straight away when nothing changed', async () => {
     h.sides = [{ kind: 'dancer', key: 'dancer', firstName: 'Ana', avatarUrl: null, to: '/app/home' }, { kind: 'organiser', key: 'o1', organiserId: 'o1', name: 'Soho Nights', avatarUrl: null, to: '/account/o?o=o1' }];
     const r = await edit();
-    fireEvent.click(await screen.findByTestId('profile-switcher-button'));
+    fireEvent.click(await screen.findByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(await screen.findByTestId('profile-switcher-side-o1'));
     await waitFor(() => expect(r.location()).toBe('/account/o?o=o1'));
     expect(screen.queryByText('Discard changes?')).toBeNull();

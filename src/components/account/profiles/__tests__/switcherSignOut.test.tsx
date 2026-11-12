@@ -100,7 +100,7 @@ describe('useSignOutToHome', () => {
 describe('switcher sign-out asks first (L23)', () => {
   const open = () => {
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
   };
 
   it('the first tap only asks; Cancel signs nothing out', () => {
@@ -126,7 +126,7 @@ describe('switcher sign-out asks first (L23)', () => {
 describe('sheet surface and naming', () => {
   it('L10: inside the dancer app the sheet is the plum dancer surface', () => {
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     const sheet = screen.getByTestId('profile-switcher-sheet');
     expect(sheet.closest('[data-profile="dancer"]')).not.toBeNull();
     expect(sheet.style.background).toBe('var(--da-surface)');
@@ -134,7 +134,7 @@ describe('sheet surface and naming', () => {
 
   it('the organiser area keeps the site surface', () => {
     mountAt('/account/o', <ProfileSwitcher where={{ area: 'organiser', organiserId: null }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     expect(screen.getByTestId('profile-switcher-sheet').closest('[data-profile="dancer"]')).toBeNull();
   });
 
@@ -144,7 +144,7 @@ describe('sheet surface and naming', () => {
     [{ area: 'organiser' as const, organiserId: null }, '/account/settings'],
   ])('S1: settings row from %o goes to %s', (where, href) => {
     mountAt('/app/home', <ProfileSwitcher where={where} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     expect(screen.getByTestId('profile-switcher-settings').getAttribute('href')).toBe(href);
   });
 
@@ -158,7 +158,7 @@ describe('sheet surface and naming', () => {
 
   it('L13: the settings row is called ACCOUNT_SETTINGS_LABEL', () => {
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     expect(screen.getByTestId('profile-switcher-settings').textContent).toBe(ACCOUNT_SETTINGS_LABEL);
   });
 });

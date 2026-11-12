@@ -95,8 +95,8 @@ describe('Switch profile sheet', () => {
     sides.facts = facts;
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
     const several = names.length > 1;
-    expect(screen.getByTestId('profile-switcher-button').getAttribute('aria-label')).toBe(several ? 'Switch profile' : 'Your account');
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    expect(screen.getByTestId(/^profile-(switcher|account)-button$/).getAttribute('aria-label')).toBe(several ? 'Switch profile' : 'Your account');
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     const sheet = screen.getByTestId('profile-switcher-sheet');
     expect(sheet.querySelector('h2')?.textContent).toBe(several ? 'Switch profile' : 'Your account');
     const items = [...screen.getByTestId('profile-switcher-sides').querySelectorAll('a')];
@@ -122,7 +122,7 @@ describe('Switch profile sheet', () => {
   it('in the organiser area the tick follows ?o=', () => {
     sides.facts = SHAPES[3][1];
     mountAt('/account/o?o=org-b', <ProfileSwitcher where={{ area: 'organiser', organiserId: 'org-b' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     expect(screen.getByTestId('profile-switcher-side-organiser:org-b').getAttribute('aria-current')).toBe('true');
     expect(screen.getByTestId('profile-switcher-side-dancer').getAttribute('aria-current')).toBeNull();
   });
@@ -130,7 +130,7 @@ describe('Switch profile sheet', () => {
   it('one tap switches, and the sheet closes', async () => {
     sides.facts = SHAPES[2][1];
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(screen.getByTestId('profile-switcher-side-organiser:org-a'));
     await waitFor(() => expect(here).toBe('/account/o'));
     expect(screen.queryByTestId('profile-switcher-sheet')).toBeNull();
@@ -139,7 +139,7 @@ describe('Switch profile sheet', () => {
   it('sign out asks, then signs out and goes home', async () => {
     sides.facts = SHAPES[0][1];
     mountAt('/app/home', <ProfileSwitcher where={{ area: 'dancer' }} />);
-    fireEvent.click(screen.getByTestId('profile-switcher-button'));
+    fireEvent.click(screen.getByTestId(/^profile-(switcher|account)-button$/));
     fireEvent.click(screen.getByTestId('profile-switcher-sign-out'));
     // L23: it asks first, like Options and Account settings.
     expect(auth.signOut).not.toHaveBeenCalled();

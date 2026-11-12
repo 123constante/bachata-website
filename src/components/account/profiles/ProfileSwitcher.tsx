@@ -89,7 +89,7 @@ export function ProfileSwitcher({ where }: { where: SwitcherWhere }) {
         aria-label={several ? 'Switch profile' : 'Your account'}
         aria-haspopup="dialog"
         aria-expanded={open}
-        data-testid="profile-switcher-button"
+        data-testid={several ? 'profile-switcher-button' : 'profile-account-button'}
         onClick={() => setOpen(true)}
         className={
           dancer
