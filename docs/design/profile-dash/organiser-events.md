@@ -151,3 +151,4 @@ nights** (alternative 1).
 - **Not verified:** not opened on a real phone. Names, dates and counts are examples shaped by the survey, not live
   reads. No app code changed, so there was no browser walk of a running route. The attendee message on cancel
   is not confirmed against the server (careful lane 2).
+- **Ship status:** PR #1580. tsc run on 342bacc: 0 errors in branch files (the branch has no TS). These local CI steps that apply all passed: docs-only = true, integrity, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`, `check:mojibake`, and both PR-body label checks. No automerge label: the diff is over 400 lines, and the owner picks an option anyway.
