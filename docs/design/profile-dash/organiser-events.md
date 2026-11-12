@@ -175,3 +175,6 @@ nights** (alternative 1).
   from that survey (8 organisers have 1 to 5 dates, 7 have 100+), not tested with organisers. Whether a failed bulk cancel can be
   reported per night, whether "this and after" and "whole series" cancel exist server-side, and what the cancel message really
   sends are unconfirmed (careful lane 1-3). No app code changed, so there was no browser walk of a running route.
+- **Ship status (fix round 1):** PR #1582. tsc run on 971d4b9: 0 errors in branch files (the branch has no TS). Local CI steps that apply all
+  passed: docs-only = true, `check:integrity`, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`,
+  `check:mojibake`, and both PR-body label checks (no Phone QA section: docs-only). No automerge label: the diff is over 400 lines.
