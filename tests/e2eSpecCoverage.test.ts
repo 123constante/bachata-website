@@ -18,7 +18,7 @@ const WORKFLOWS = {
   '.github/workflows/e2e-smoke.yml': '      - name: smoke\n        run: npm run test:e2e\n      - name: p3\n        run: npm run test:e2e:p3\n',
 };
 const MANUAL = { 'tests/e2e/m.spec.ts': { reason: 'walk', run: 'npx playwright test tests/e2e/m.spec.ts' } };
-const SPECS = ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/m.spec.ts', 'tests/e2e/sub/b.spec.ts'];
+const SPECS = ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/d.spec.ts', 'tests/e2e/m.spec.ts', 'tests/e2e/sub/b.spec.ts'];
 
 type Over = Partial<{ scripts: Record<string, string>; workflows: Record<string, string>; specs: string[]; manual: Record<string, { reason: string; run: string }> }>;
 const check = (o: Over = {}) =>
@@ -27,7 +27,7 @@ const check = (o: Over = {}) =>
 describe('runCheck', () => {
   it.each([
     ['listed specs + allow-listed spec pass', {}, 0, 'OK'],
-    ['listed spec in a subfolder passes', { specs: ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/sub/b.spec.ts'], manual: {} }, 0, 'OK'],
+    ['listed spec in a subfolder passes', { specs: ['tests/e2e/a.spec.ts', 'tests/e2e/c.spec.ts', 'tests/e2e/d.spec.ts', 'tests/e2e/sub/b.spec.ts'], manual: {} }, 0, 'OK'],
     ['unlisted spec fails, named', { specs: [...SPECS, 'tests/e2e/foo.spec.ts'] }, 1, 'tests/e2e/foo.spec.ts runs in NO CI e2e list'],
     ['the failure says how to fix it', { specs: [...SPECS, 'tests/e2e/foo.spec.ts'] }, 1, 'allow-list it in MANUAL'],
     ['stale allow-list entry fails', { specs: SPECS.filter((s) => !s.endsWith('/m.spec.ts')) }, 1, 'tests/e2e/m.spec.ts names a file that does not exist'],

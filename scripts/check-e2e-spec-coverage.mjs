@@ -52,6 +52,8 @@ export const SPEC_ROOT = 'tests/e2e';
 export const CI_LISTS = {
   'test:e2e': '.github/workflows/e2e-smoke.yml',
   'test:e2e:p3': '.github/workflows/e2e-smoke.yml',
+  // Read-only SSR page loads against PRODUCTION (need a real-data build): live-qa.yml, daily.
+  'test:e2e:prod-ssr': '.github/workflows/live-qa.yml',
 };
 
 /** Directories under tests/e2e/ whose specs are not this guard's business. */
