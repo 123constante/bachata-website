@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TeamMember, TeamRole } from '@/modules/organiser/shared/teamModel';
 import type { SharedTeamRow } from '@/modules/organiser/team/teamShared';
-import { buildPersonSheet, buildTeamDash, removalLoses, SEAT_UNKNOWN_REASON, type TeamDashInput, type TeamLoad } from '../teamDashModel';
+import { buildPersonSheet, buildTeamDash, removalLoses, SEAT_FAILED_REASON, SEAT_UNKNOWN_REASON, type TeamDashInput, type TeamLoad } from '../teamDashModel';
 import { TeamDashView } from '../TeamDashView';
 
 const mem = (n: string, role: TeamRole, o: Partial<TeamMember> = {}): TeamMember => ({
@@ -22,30 +22,31 @@ const eli = mem('Eli', 'contributor');
 const fay = mem('Fay', 'contributor');
 const many = Array.from({ length: 7 }, (_, i) => mem(`C${i}`, 'contributor'));
 
-interface Shape { name: string; input: TeamDashInput; groups: Record<TeamRole, number> | null; solo?: boolean; viewOnly?: boolean; addDisabled?: boolean; addVia?: 'sheet' | 'share' | null }
+interface Shape { name: string; input: TeamDashInput; groups: Record<TeamRole, number> | null; solo?: boolean; viewOnly?: boolean; addDisabled?: boolean; /** Required on every row, so none is skipped: null = no Add control (view-only / not loaded) or Add disabled (seat unknown). */ addVia: 'sheet' | 'share' | null }
 const rd = (viewerRole: TeamRole, members: TeamMember[], extra: Partial<SharedTeamRow>[] = [], load: TeamLoad = 'ready'): TeamDashInput => ({
   load, viewerRole, members, listed: members.map((m, i) => sh(m, extra[i] ?? {})),
 });
 const SHAPES: Shape[] = [
-  { name: 'solo', input: rd('owner', [me]), groups: { owner: 1, manager: 0, contributor: 0 }, solo: true },
-  { name: 'two', input: rd('owner', [me, ben, cara]), groups: { owner: 1, manager: 1, contributor: 1 } },
-  { name: 'huge', input: rd('owner', [me, mem('Olu', 'owner'), ben, mem('Mia', 'manager'), ...many]), groups: { owner: 2, manager: 2, contributor: 7 } },
-  { name: 'stub', input: rd('owner', [me, ben, eli], [{}, {}, { isStub: true, isPublic: false, publicReason: 'stub' }]), groups: { owner: 1, manager: 1, contributor: 1 } },
-  { name: 'hidden contributor', input: rd('owner', [me, fay], [{}, { isPublic: false, publicReason: 'hidden' }]), groups: { owner: 1, manager: 0, contributor: 1 } },
-  { name: 'contributor viewer', input: rd('contributor', [mem('Sam', 'owner'), ben, { ...cara, isSelf: true }]), groups: { owner: 1, manager: 1, contributor: 1 }, viewOnly: true },
-  { name: 'full team', input: rd('owner', [me, ...Array.from({ length: 19 }, (_, i) => mem(`F${i}`, 'manager'))]), groups: { owner: 1, manager: 19, contributor: 0 }, addDisabled: true },
+  { name: 'solo', input: rd('owner', [me]), groups: { owner: 1, manager: 0, contributor: 0 }, solo: true, addVia: 'sheet' },
+  { name: 'two', input: rd('owner', [me, ben, cara]), groups: { owner: 1, manager: 1, contributor: 1 }, addVia: 'sheet' },
+  { name: 'huge', input: rd('owner', [me, mem('Olu', 'owner'), ben, mem('Mia', 'manager'), ...many]), groups: { owner: 2, manager: 2, contributor: 7 }, addVia: 'sheet' },
+  { name: 'stub', input: rd('owner', [me, ben, eli], [{}, {}, { isStub: true, isPublic: false, publicReason: 'stub' }]), groups: { owner: 1, manager: 1, contributor: 1 }, addVia: 'sheet' },
+  { name: 'hidden contributor', input: rd('owner', [me, fay], [{}, { isPublic: false, publicReason: 'hidden' }]), groups: { owner: 1, manager: 0, contributor: 1 }, addVia: 'sheet' },
+  { name: 'contributor viewer', input: rd('contributor', [mem('Sam', 'owner'), ben, { ...cara, isSelf: true }]), groups: { owner: 1, manager: 1, contributor: 1 }, viewOnly: true, addVia: null },
+  { name: 'full team', input: rd('owner', [me, ...Array.from({ length: 19 }, (_, i) => mem(`F${i}`, 'manager'))]), groups: { owner: 1, manager: 19, contributor: 0 }, addDisabled: true, addVia: 'sheet' },
   { name: 'manager viewer', input: rd('manager', [mem('Sam', 'owner'), { ...ben, isSelf: true }, cara]), groups: { owner: 1, manager: 1, contributor: 1 }, addVia: 'sheet' },
   { name: 'seat pending', input: { ...rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager')]), seatKnown: false }, groups: { owner: 0, manager: 2, contributor: 0 }, addDisabled: true, addVia: null },
-  { name: 'seat read failed (owner)', input: { ...rd('owner', [me, ben]), seatKnown: false }, groups: { owner: 1, manager: 1, contributor: 0 }, addDisabled: true, addVia: null },
+  { name: 'seat read failed (owner)', input: { ...rd('owner', [me, ben]), seatKnown: false, seatFailed: true }, groups: { owner: 1, manager: 1, contributor: 0 }, addDisabled: true, addVia: null },
   { name: 'interim', input: { ...rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager')]), interim: true }, groups: { owner: 0, manager: 2, contributor: 0 }, addVia: 'share' },
-  { name: 'no owner', input: rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager'), cara]), groups: { owner: 0, manager: 2, contributor: 1 } },
-  { name: 'no owner, contributor viewer', input: rd('contributor', [mem('Dan', 'manager'), { ...cara, isSelf: true }]), groups: { owner: 0, manager: 1, contributor: 1 }, viewOnly: true },
-  { name: 'no page', input: { load: 'nopage', viewerRole: 'owner', members: [], listed: null }, groups: null },
-  { name: 'loading', input: { load: 'loading', viewerRole: 'owner', members: [], listed: null }, groups: null },
-  { name: 'error', input: { load: 'error', viewerRole: 'owner', members: [], listed: null }, groups: null },
+  { name: 'no owner', input: rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager'), cara]), groups: { owner: 0, manager: 2, contributor: 1 }, addVia: 'sheet' },
+  { name: 'no owner, contributor viewer', input: rd('contributor', [mem('Dan', 'manager'), { ...cara, isSelf: true }]), groups: { owner: 0, manager: 1, contributor: 1 }, viewOnly: true, addVia: null },
+  { name: 'seat unknown, no managers', input: { ...rd('owner', [me, cara]), seatKnown: false }, groups: { owner: 1, manager: 0, contributor: 1 }, addDisabled: true, addVia: null },
+  { name: 'no page', input: { load: 'nopage', viewerRole: 'owner', members: [], listed: null }, groups: null, addVia: null },
+  { name: 'loading', input: { load: 'loading', viewerRole: 'owner', members: [], listed: null }, groups: null, addVia: null },
+  { name: 'error', input: { load: 'error', viewerRole: 'owner', members: [], listed: null }, groups: null, addVia: null },
 ];
 
-const actions = { onRetry: vi.fn(), onOpenMore: vi.fn(), onChangeRole: vi.fn().mockResolvedValue(undefined), onSetHidden: vi.fn().mockResolvedValue(undefined), onRemove: vi.fn().mockResolvedValue(undefined), onShareLink: vi.fn().mockResolvedValue(undefined) };
+const actions = { onRetry: vi.fn(), onRetrySeat: vi.fn(), onOpenMore: vi.fn(), onChangeRole: vi.fn().mockResolvedValue(undefined), onSetHidden: vi.fn().mockResolvedValue(undefined), onRemove: vi.fn().mockResolvedValue(undefined), onShareLink: vi.fn().mockResolvedValue(undefined) };
 const mount = (input: TeamDashInput) => {
   const model = buildTeamDash(input);
   const me0 = input.members.find((m) => m.isSelf);
@@ -104,22 +105,46 @@ describe('Team dash: interim, no owner, no page', () => {
   });
   it('seat unknown: Add is disabled with a stated reason and no sheet opens', () => {
     for (const n of ['seat pending', 'seat read failed (owner)']) {
-      mount(SHAPES.find((x) => x.name === n)!.input);
+      const shape = SHAPES.find((x) => x.name === n)!;
+      mount(shape.input);
       const add = screen.getByTestId('team-dash-add') as HTMLButtonElement;
       expect(add.disabled).toBe(true);
       expect(add.getAttribute('aria-describedby')).toBe('team-dash-add-why');
-      expect(screen.getByTestId('team-dash-add-why').textContent).toBe(SEAT_UNKNOWN_REASON);
+      expect(screen.getByTestId('team-dash-add-why').textContent).toBe(shape.input.seatFailed ? SEAT_FAILED_REASON : SEAT_UNKNOWN_REASON);
       fireEvent.click(add);
       expect(screen.queryByTestId('team-dash-add-sheet')).toBeNull();
       expect(screen.queryByTestId('team-dash-tab-find')).toBeNull();
       cleanup();
     }
   });
-  it('seat unknown: the empty-group Add a manager is disabled too, by testid', () => {
-    mount({ ...rd('owner', [me]), seatKnown: false });
+  it('seat unknown: the empty Managers group shows its Add disabled, with the reason on screen, and no link', () => {
+    mount(SHAPES.find((x) => x.name === 'seat unknown, no managers')!.input);
+    const g = screen.getByTestId('team-dash-add-manager-disabled') as HTMLButtonElement;
+    expect(g.disabled).toBe(true);
+    expect(g.getAttribute('aria-describedby')).toBe('tdg-add-manager-why');
+    expect(screen.getByTestId('tdg-add-manager-why').textContent).toBe(SEAT_UNKNOWN_REASON);
     expect(screen.queryByTestId('team-dash-add-manager')).toBeNull();
-    const m = buildTeamDash({ ...rd('owner', [me, cara]), seatKnown: false });
-    expect(m.groups.find((g) => g.role === 'manager')!.add!.disabled).toBe(true);
+    fireEvent.click(g);
+    expect(screen.queryByTestId('team-dash-add-sheet')).toBeNull();
+  });
+  it('solo owner with the seat unknown: only the main Add shows, disabled; no manager group exists to carry one', () => {
+    mount({ ...rd('owner', [me]), seatKnown: false });
+    expect((screen.getByTestId('team-dash-add') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId('team-dash-add-manager-disabled')).toBeNull();
+    expect(screen.queryByTestId('team-dash-add-manager')).toBeNull();
+  });
+  it('seat read failed: a final error with what happened, and Try again re-runs the seat read', () => {
+    mount(SHAPES.find((x) => x.name === 'seat read failed (owner)')!.input);
+    const why = screen.getByTestId('team-dash-add-why').textContent!;
+    expect(why).toBe(SEAT_FAILED_REASON);
+    expect(why).not.toMatch(/^Checking/);
+    fireEvent.click(screen.getByTestId('team-dash-add-retry'));
+    expect(actions.onRetrySeat).toHaveBeenCalledTimes(1);
+  });
+  it('seat pending shows no Try again (it is still loading)', () => {
+    mount(SHAPES.find((x) => x.name === 'seat pending')!.input);
+    expect(screen.getByTestId('team-dash-add-why').textContent).toBe(SEAT_UNKNOWN_REASON);
+    expect(screen.queryByTestId('team-dash-add-retry')).toBeNull();
   });
   it('interim with no managers left offers no Add a manager link', () => {
     const m = buildTeamDash({ ...rd('manager', [{ ...ben, isSelf: true }, cara]), interim: true });
@@ -184,7 +209,20 @@ describe('Team dash: shape x screen', () => {
         } else if (s.input.load === 'ready') {
           expect(screen.getByTestId('team-dash-add')).toBeTruthy();
         }
-        if (s.addVia) expect(buildTeamDash(s.input).addVia).toBe(s.addVia);
+        // Explicit for every row (no skipped null): addVia matches, and a null row says which control is absent or disabled.
+        expect(buildTeamDash(s.input).addVia).toBe(s.addVia);
+        if (s.addVia === null) {
+          if (s.viewOnly) expect(screen.queryByTestId('team-dash-add')).toBeNull();
+          else if (s.input.load === 'ready') {
+            const a = screen.getByTestId('team-dash-add') as HTMLButtonElement;
+            expect(a.disabled).toBe(true);
+            expect(document.getElementById(a.getAttribute('aria-describedby')!)!.textContent).toBe(s.input.seatFailed ? SEAT_FAILED_REASON : SEAT_UNKNOWN_REASON);
+            expect(!!screen.queryByTestId('team-dash-add-retry')).toBe(!!s.input.seatFailed);
+          } else if (s.input.load === 'loading') {
+            expect((screen.getByTestId('team-dash-add') as HTMLButtonElement).disabled).toBe(true);
+            expect(screen.getByTestId('team-dash-add-why').textContent).toBe('Wakes up when your team loads.');
+          } else expect(screen.queryByTestId('team-dash-add')).toBeNull();
+        }
         if (s.input.load === 'nopage') {
           expect(screen.getByTestId('team-no-organiser').textContent).toMatch(/run a page/);
           expect(screen.getByTestId('team-message-us').getAttribute('href')).toBe('/help');

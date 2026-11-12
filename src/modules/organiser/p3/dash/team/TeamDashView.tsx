@@ -9,6 +9,8 @@ import { NEEDS_ADMIN_WORK, removalLoses, type Control, type GroupView, type Pers
 /** Everything the view can ask for; the container wires these to the real RPCs. */
 export interface TeamDashActions {
   onRetry: () => void;
+  /** Re-run the seat read (Add is off because it failed). */
+  onRetrySeat?: () => void;
   onOpenMore: (role: TeamRole) => void;
   onChangeRole: (p: PersonView, role: TeamRole) => Promise<void>;
   onSetHidden: (p: PersonView, hide: boolean) => Promise<void>;
@@ -29,7 +31,7 @@ function Why({ id, children, helpTo }: { id: string; children: ReactNode; helpTo
   );
 }
 
-function Ctl({ c, id, onClick, to, helpTo }: { c: Control; id: string; onClick?: () => void; to?: string; helpTo?: string }) {
+function Ctl({ c, id, onClick, to, helpTo, onRetry }: { c: Control; id: string; onClick?: () => void; to?: string; helpTo?: string; onRetry?: () => void }) {
   const why = c.reason ? `${id}-why` : undefined;
   return (
     <div className="flex flex-col gap-[4px]">
@@ -37,6 +39,7 @@ function Ctl({ c, id, onClick, to, helpTo }: { c: Control; id: string; onClick?:
         ? <Link to={to} data-testid={id} className="inline-flex h-[52px] w-full items-center justify-center rounded-[12px] bg-[var(--btn)] text-[16px] font-bold text-[var(--btnfg)]">{c.label}</Link>
         : <PrimaryButton testId={id} disabled={c.disabled} aria-describedby={why} onClick={onClick}>{c.label}</PrimaryButton>}
       {c.reason && <Why id={`${id}-why`} helpTo={c.messageUs ? helpTo : undefined}>{c.reason}</Why>}
+      {c.retry && onRetry && <button type="button" className={btnLine} onClick={onRetry} data-testid={`${id}-retry`}>Try again</button>}
     </div>
   );
 }
@@ -157,7 +160,7 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
           <p className="text-[14px] text-[var(--mut)]">Add a teammate to share the work. They see the same pages you do, with the role they hold.</p>
         </Card>
       )}
-      {m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={addClick} />}
+      {m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={addClick} onRetry={actions.onRetrySeat} />}
       {m.solo && m.addVia === 'share' && linkNoticeP}
       {m.groups.map((g) => <Group key={g.role} g={g} helpTo={helpTo} onOpen={(p) => { remember(); open(p); }} actions={actions} addTo={addTo} />)}
       {m.listedOnly.length > 0 && (
@@ -167,7 +170,7 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
           <Card>{m.listedOnly.map((p) => <PersonRowView key={p.key} p={p} onOpen={open} />)}</Card>
         </section>
       )}
-      {!m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={addClick} />}
+      {!m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={addClick} onRetry={actions.onRetrySeat} />}
       {!m.solo && m.addVia === 'share' && linkNoticeP}
       {below}
       <p className="text-[13px] text-[var(--mut)]" data-testid="team-dash-publicnote">{m.publicNote}</p>

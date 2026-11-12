@@ -28,7 +28,7 @@ export const NEEDS_ADMIN_WORK = {
   rolePick: 'Choosing a role while adding needs an admin change. People are added as managers for now.',
 } as const;
 
-export interface Control { label: string; disabled: boolean; reason: string | null; /** Show the Message us link after the reason. */ messageUs?: boolean }
+export interface Control { label: string; disabled: boolean; reason: string | null; /** Show the Message us link after the reason. */ messageUs?: boolean; /** Offer a Try again button under the reason (the seat read failed). */ retry?: boolean }
 
 export interface PersonView {
   key: string;
@@ -71,7 +71,9 @@ export interface TeamDashModel {
   viewOnlyMessageUs: boolean;
 }
 
-export const SEAT_UNKNOWN_REASON = 'Checking your seat on this page. Adding wakes up once that is done; if it stays off, reload.';
+export const SEAT_UNKNOWN_REASON = 'Checking your seat on this page. Adding wakes up once that is done.';
+/** Final state when the seat read errored: what happened and what to do. */
+export const SEAT_FAILED_REASON = 'We could not check your seat on this page, so adding is off. Nothing was changed. Check your signal, then try again.';
 
 export interface TeamDashInput {
   load: TeamLoad;
@@ -82,6 +84,8 @@ export interface TeamDashInput {
   interim?: boolean;
   /** False while the seat read is pending or failed: Add stays disabled (never guess sheet vs share). Default true. */
   seatKnown?: boolean;
+  /** The seat read errored (not just pending): Add says so and offers Try again instead of waiting forever. */
+  seatFailed?: boolean;
   openGroups?: ReadonlySet<TeamRole>;
 }
 
@@ -131,7 +135,7 @@ export function buildTeamDash(i: TeamDashInput): TeamDashModel {
   }));
   const full = i.members.length >= TEAM_CAP;
   const seatKnown = i.seatKnown ?? true;
-  const add: Control | null = !editor ? null : !seatKnown ? { label: 'Add a teammate', disabled: true, reason: SEAT_UNKNOWN_REASON } : full ? { label: 'Add a teammate', disabled: true, reason: TEAM_FULL_REASON } : { label: 'Add a teammate', disabled: false, reason: null };
+  const add: Control | null = !editor ? null : !seatKnown ? { label: 'Add a teammate', disabled: true, ...(i.seatFailed ? { reason: SEAT_FAILED_REASON, retry: true } : { reason: SEAT_UNKNOWN_REASON }) } : full ? { label: 'Add a teammate', disabled: true, reason: TEAM_FULL_REASON } : { label: 'Add a teammate', disabled: false, reason: null };
   const solo = i.members.length === 1 && editor;
   const groups: GroupView[] = ROLES.filter((r) => !(solo && r !== 'owner')).map((role) => {
     const rows = people.filter((p) => p.role === role).sort(roleOrder);

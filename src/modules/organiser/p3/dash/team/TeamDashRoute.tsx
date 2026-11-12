@@ -26,7 +26,7 @@ export function TeamDashRoute() {
   const { organiser, members, listed, viewerRole } = ctx;
   const { paths } = useOrgSurface();
   const qc = useQueryClient();
-  const { seat, known: seatKnown } = useSeatState(organiser?.id);
+  const { seat, known: seatKnown, failed: seatFailed, retry: retrySeat } = useSeatState(organiser?.id);
   const [open, setOpen] = useState<ReadonlySet<TeamRole>>(new Set());
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [linkNotice, setLinkNotice] = useState<string | null>(null);
@@ -37,8 +37,8 @@ export function TeamDashRoute() {
   });
   const load = ctx.failed ? 'error' : ctx.loading ? 'loading' : !organiser ? 'nopage' : 'ready';
   const model = useMemo(
-    () => buildTeamDash({ load, viewerRole, members, listed, interim: isInterim(seat), seatKnown, openGroups: open }),
-    [load, viewerRole, members, listed, seat, seatKnown, open],
+    () => buildTeamDash({ load, viewerRole, members, listed, interim: isInterim(seat), seatKnown, seatFailed, openGroups: open }),
+    [load, viewerRole, members, listed, seat, seatKnown, seatFailed, open],
   );
   const me = members.find((m) => m.isSelf);
   const caller = { seat: callerSeatOf(viewerRole), personId: me?.personId ?? null };
@@ -53,6 +53,7 @@ export function TeamDashRoute() {
   };
   const actions = {
     onRetry: ctx.retry,
+    onRetrySeat: retrySeat,
     onOpenMore: (r: TeamRole) => setOpen((s) => new Set(s).add(r)),
     onChangeRole: (p: PersonView, role: TeamRole) => guard(async () => {
       if (!organiser || !p.email || role === 'owner') throw new Error('no_email');
