@@ -17,7 +17,7 @@ Re-measure on current main before building; do not trust this list.
 ## Build
 - New `scripts/check-e2e-spec-coverage.mjs`. Read `scripts/check-script-conventions.mjs` (six rules) FIRST.
 - Every `tests/e2e/*.spec.ts` must be either in the `test:e2e` list, or in an explicit manual allow-list inside the script with a one-line reason and the command that runs it (e.g. `test:e2e:organiser-real-rpc`). An allow-list entry for a file that no longer exists also fails.
-- Wire it as an npm script and into the right existing workflow (check `.github/workflows/architecture-guard.yml`; it does NOT run eslint). Never pin a check count in prose.
+- Wire it as an npm script and into an aggregate script/job that CI ALREADY runs (find which `check:*` aggregate or step runs the other `scripts/check-*.mjs` guards; `architecture-guard.yml` does NOT run eslint). Do NOT edit `.github/workflows/**` (the worker sandbox blocks it); if no existing CI path can run it without a workflow edit, STOP and report that as the finding. Never pin a check count in prose.
 - Unit test (table-driven): listed spec passes; allow-listed passes; unlisted fails; stale allow-list entry fails; spec in a subfolder/helpers ignored.
 - Red first: show the guard failing on a throwaway unlisted spec, then passing.
 
