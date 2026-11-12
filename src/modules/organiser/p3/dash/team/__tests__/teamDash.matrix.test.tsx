@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TeamMember, TeamRole } from '@/modules/organiser/shared/teamModel';
 import type { SharedTeamRow } from '@/modules/organiser/team/teamShared';
-import { buildPersonSheet, buildTeamDash, removalLoses, type TeamDashInput, type TeamLoad } from '../teamDashModel';
+import { buildPersonSheet, buildTeamDash, removalLoses, SEAT_UNKNOWN_REASON, type TeamDashInput, type TeamLoad } from '../teamDashModel';
 import { TeamDashView } from '../TeamDashView';
 
 const mem = (n: string, role: TeamRole, o: Partial<TeamMember> = {}): TeamMember => ({
@@ -35,6 +35,8 @@ const SHAPES: Shape[] = [
   { name: 'contributor viewer', input: rd('contributor', [mem('Sam', 'owner'), ben, { ...cara, isSelf: true }]), groups: { owner: 1, manager: 1, contributor: 1 }, viewOnly: true },
   { name: 'full team', input: rd('owner', [me, ...Array.from({ length: 19 }, (_, i) => mem(`F${i}`, 'manager'))]), groups: { owner: 1, manager: 19, contributor: 0 }, addDisabled: true },
   { name: 'manager viewer', input: rd('manager', [mem('Sam', 'owner'), { ...ben, isSelf: true }, cara]), groups: { owner: 1, manager: 1, contributor: 1 }, addVia: 'sheet' },
+  { name: 'seat pending', input: { ...rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager')]), seatKnown: false }, groups: { owner: 0, manager: 2, contributor: 0 }, addDisabled: true, addVia: null },
+  { name: 'seat read failed (owner)', input: { ...rd('owner', [me, ben]), seatKnown: false }, groups: { owner: 1, manager: 1, contributor: 0 }, addDisabled: true, addVia: null },
   { name: 'interim', input: { ...rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager')]), interim: true }, groups: { owner: 0, manager: 2, contributor: 0 }, addVia: 'share' },
   { name: 'no owner', input: rd('manager', [{ ...ben, isSelf: true }, mem('Dan', 'manager'), cara]), groups: { owner: 0, manager: 2, contributor: 1 } },
   { name: 'no owner, contributor viewer', input: rd('contributor', [mem('Dan', 'manager'), { ...cara, isSelf: true }]), groups: { owner: 0, manager: 1, contributor: 1 }, viewOnly: true },
@@ -99,6 +101,25 @@ describe('Team dash: interim, no owner, no page', () => {
     expect(screen.queryByTestId('team-dash-tab-find')).toBeNull();
     expect(screen.queryByTestId('team-dash-add-manager')).toBeNull();
     expect(screen.getByTestId('team-dash-seat-label').textContent).toBe('Interim manager');
+  });
+  it('seat unknown: Add is disabled with a stated reason and no sheet opens', () => {
+    for (const n of ['seat pending', 'seat read failed (owner)']) {
+      mount(SHAPES.find((x) => x.name === n)!.input);
+      const add = screen.getByTestId('team-dash-add') as HTMLButtonElement;
+      expect(add.disabled).toBe(true);
+      expect(add.getAttribute('aria-describedby')).toBe('team-dash-add-why');
+      expect(screen.getByTestId('team-dash-add-why').textContent).toBe(SEAT_UNKNOWN_REASON);
+      fireEvent.click(add);
+      expect(screen.queryByTestId('team-dash-add-sheet')).toBeNull();
+      expect(screen.queryByTestId('team-dash-tab-find')).toBeNull();
+      cleanup();
+    }
+  });
+  it('seat unknown: the empty-group Add a manager is disabled too, by testid', () => {
+    mount({ ...rd('owner', [me]), seatKnown: false });
+    expect(screen.queryByTestId('team-dash-add-manager')).toBeNull();
+    const m = buildTeamDash({ ...rd('owner', [me, cara]), seatKnown: false });
+    expect(m.groups.find((g) => g.role === 'manager')!.add!.disabled).toBe(true);
   });
   it('interim with no managers left offers no Add a manager link', () => {
     const m = buildTeamDash({ ...rd('manager', [{ ...ben, isSelf: true }, cara]), interim: true });

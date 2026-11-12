@@ -71,6 +71,8 @@ export interface TeamDashModel {
   viewOnlyMessageUs: boolean;
 }
 
+export const SEAT_UNKNOWN_REASON = 'Checking your seat on this page. Adding wakes up once that is done; if it stays off, reload.';
+
 export interface TeamDashInput {
   load: TeamLoad;
   viewerRole: TeamRole;
@@ -78,6 +80,8 @@ export interface TeamDashInput {
   listed: readonly SharedTeamRow[] | null;
   /** Interim managers cannot add; they get the link only. */
   interim?: boolean;
+  /** False while the seat read is pending or failed: Add stays disabled (never guess sheet vs share). Default true. */
+  seatKnown?: boolean;
   openGroups?: ReadonlySet<TeamRole>;
 }
 
@@ -126,7 +130,8 @@ export function buildTeamDash(i: TeamDashInput): TeamDashModel {
     photoUrl: r.avatarUrl, isSelf: false, seatLabel: null, isStub: r.isStub, hidden: !r.isPublic && r.publicReason === 'hidden', line: publicLine(r, editor), tappable: false, shared: r,
   }));
   const full = i.members.length >= TEAM_CAP;
-  const add: Control | null = !editor ? null : full ? { label: 'Add a teammate', disabled: true, reason: TEAM_FULL_REASON } : { label: 'Add a teammate', disabled: false, reason: null };
+  const seatKnown = i.seatKnown ?? true;
+  const add: Control | null = !editor ? null : !seatKnown ? { label: 'Add a teammate', disabled: true, reason: SEAT_UNKNOWN_REASON } : full ? { label: 'Add a teammate', disabled: true, reason: TEAM_FULL_REASON } : { label: 'Add a teammate', disabled: false, reason: null };
   const solo = i.members.length === 1 && editor;
   const groups: GroupView[] = ROLES.filter((r) => !(solo && r !== 'owner')).map((role) => {
     const rows = people.filter((p) => p.role === role).sort(roleOrder);
@@ -140,8 +145,8 @@ export function buildTeamDash(i: TeamDashInput): TeamDashModel {
     return { role, title: GROUP_TITLE[role], can: ROLE_LINE[role], count: rows.length, rows: folded ? rows.slice(0, FOLD_SHOWN) : rows, folded, empty, add: groupAdd };
   });
   return {
-    ...base, load: 'ready', solo, groups, people, listedOnly, add: editor && i.interim ? { label: 'Share a join link', disabled: false, reason: null } : add,
-    addVia: editor ? (i.interim ? 'share' : 'sheet') : null, publicNote,
+    ...base, load: 'ready', solo, groups, people, listedOnly, add: editor && seatKnown && i.interim ? { label: 'Share a join link', disabled: false, reason: null } : add,
+    addVia: editor && seatKnown ? (i.interim ? 'share' : 'sheet') : null, publicNote,
     readNote: listed ? null : SHARED_READ_FAILED,
     viewOnlyNote: editor ? null : hasOwner(i.members) ? 'You can see the team, but not change it. To add or remove someone, ask an owner.' : `You can see the team, but not change it. ${NO_OWNER_REASON('add or remove people')}`,
     viewOnlyMessageUs: !editor && !hasOwner(i.members),

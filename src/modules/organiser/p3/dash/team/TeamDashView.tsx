@@ -73,7 +73,7 @@ function Group({ g, onOpen, actions, addTo, helpTo }: { helpTo: string; g: Group
           <div className="flex min-h-[56px] items-center gap-[12px] px-[16px] py-[8px]" data-testid={`team-dash-empty-${g.role}`}>
             <span className="min-w-0 flex-1 text-[14px] text-[var(--mut)]">{g.empty}</span>
             {g.add && (g.add.disabled
-              ? <button type="button" disabled aria-describedby={`tdg-add-${g.role}-why`} className="min-h-[44px] rounded-[12px] border border-[var(--line-strong)] px-[12px] text-[14px] font-semibold opacity-60">{g.add.label}</button>
+              ? <button type="button" disabled data-testid={`team-dash-add-${g.role}-disabled`} aria-describedby={`tdg-add-${g.role}-why`} className="min-h-[44px] rounded-[12px] border border-[var(--line-strong)] px-[12px] text-[14px] font-semibold opacity-60">{g.add.label}</button>
               : <Link to={addTo} data-testid={`team-dash-add-${g.role}`} className="inline-flex min-h-[44px] items-center rounded-[12px] border border-[var(--line-strong)] px-[12px] text-[14px] font-semibold text-[var(--fg)]">{g.add.label}</Link>)}
           </div>
         )}

@@ -4,7 +4,7 @@ import { fetchIncomingAccessRequests, incomingAccessRequestsQueryKey, removeOrga
 import { organiserTeamQueryKey, setTeamMember } from '@/modules/organiser/shared/teamRpcApi';
 import { TEAM_CAP, TEAM_FULL_REASON, type TeamRole } from '@/modules/organiser/shared/teamModel';
 import { canDecline, isInterim } from '@/modules/organiser/shared/teamRules';
-import { useSeatKind } from '@/modules/organiser/shared/useSeatKind';
+import { useSeatState } from '@/modules/organiser/shared/useSeatKind';
 import { callerSeatOf } from '@/modules/organiser/edit-in-place/teamVisibilityModel';
 import { inviteShare } from '@/modules/organiser/edit-in-place/teamPickerModel';
 import { hideErrorMessage, organiserPublicTeamKey, setTeamMemberHidden } from '../../../team/publicTeamApi';
@@ -26,7 +26,7 @@ export function TeamDashRoute() {
   const { organiser, members, listed, viewerRole } = ctx;
   const { paths } = useOrgSurface();
   const qc = useQueryClient();
-  const seat = useSeatKind(organiser?.id);
+  const { seat, known: seatKnown } = useSeatState(organiser?.id);
   const [open, setOpen] = useState<ReadonlySet<TeamRole>>(new Set());
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [linkNotice, setLinkNotice] = useState<string | null>(null);
@@ -37,8 +37,8 @@ export function TeamDashRoute() {
   });
   const load = ctx.failed ? 'error' : ctx.loading ? 'loading' : !organiser ? 'nopage' : 'ready';
   const model = useMemo(
-    () => buildTeamDash({ load, viewerRole, members, listed, interim: isInterim(seat), openGroups: open }),
-    [load, viewerRole, members, listed, seat, open],
+    () => buildTeamDash({ load, viewerRole, members, listed, interim: isInterim(seat), seatKnown, openGroups: open }),
+    [load, viewerRole, members, listed, seat, seatKnown, open],
   );
   const me = members.find((m) => m.isSelf);
   const caller = { seat: callerSeatOf(viewerRole), personId: me?.personId ?? null };

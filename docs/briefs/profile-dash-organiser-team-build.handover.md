@@ -41,3 +41,9 @@ Fixed on the same branch:
 
 Verified: teamDash matrix 54/54; tsc 0 errors in touched files (unrelated errors in app/); eslint clean on the team folder.
 Not verified: `npm run pre-ship`, per-job CI, /code-review, the 390x844 walk with screenshots (no preview host here), live RPCs. Tests were not run red-first.
+
+## Fix round 2 (this is the last round)
+- HIGH fixed: `useSeatState` (new, in `useSeatKind.ts`) returns `{seat, known}`; `known` = ownership read succeeded. `TeamDashRoute` passes `seatKnown` to `buildTeamDash`; while unknown (pending or failed) Add is disabled with `SEAT_UNKNOWN_REASON` (aria-describedby `team-dash-add-why`), `addVia` is null, so no Add sheet and no Find a dancer. Group "Add a manager" is disabled too.
+- LOW fixed: disabled group Add button has `data-testid="team-dash-add-<role>-disabled"`.
+- Tests: SHAPES rows `seat pending` and `seat read failed (owner)`, plus a test that no sheet opens. `vitest run src/modules/organiser` passes (324 files); `tsc --noEmit` and `check:mojibake` clean.
+- NOT done in this cloud sandbox: `npm run pre-ship`, the 390x844 preview-deploy walk (needs the side laptop), screenshots on the PR, per-job CI table. /code-review not run. These need a human or laptop worker.
