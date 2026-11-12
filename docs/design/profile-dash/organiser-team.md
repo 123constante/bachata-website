@@ -202,3 +202,5 @@ confirm and explain anyway; (3) a separate Invites tab: splits one small job acr
   all passed: integrity, `AUDIT_STRICT=1 check:images`, `lint:architecture`, `check-script-conventions`,
   `check:mojibake`, and both PR-body label checks. `scripts/prepush-check.mjs` does not exist here, so the
   PR body labels were checked by hand.
+
+- Mojibake guard fix (bdcfe5b): find-picked PNG re-encoded; workflow git grep over whole tree prints nothing, `npm run check:mojibake` clean on this head. tsc not run (docs/PNG only).
