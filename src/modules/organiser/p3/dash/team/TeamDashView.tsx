@@ -99,9 +99,11 @@ export interface TeamDashViewProps {
 export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreTo, above, notice = null, linkNotice = null }: TeamDashViewProps) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [busy, setBusy] = useState(false);
-  const opener = useRef<HTMLElement | null>(null);
+  const opener = useRef<HTMLElement>(null);
   const person = sheet && 'key' in sheet ? people.find((p) => p.key === sheet.key) ?? null : null;
   const close = () => setSheet(null);
+  // iOS taps do not focus buttons, so remember the opener ourselves (B-S8).
+  const remember = () => { (opener as { current: HTMLElement | null }).current = document.activeElement as HTMLElement | null; };
   const open = (p: PersonView) => setSheet({ kind: 'person', key: p.key });
   const run = async (f: () => Promise<void>, after: 'close' | 'stay') => {
     setBusy(true);
@@ -139,8 +141,8 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
           <p className="text-[14px] text-[var(--mut)]">Add a teammate to share the work. They see the same pages you do, with the role they hold.</p>
         </Card>
       )}
-      {m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={() => setSheet({ kind: 'add' })} />}
-      {m.groups.map((g) => <Group key={g.role} g={g} onOpen={(p) => { opener.current = document.activeElement as HTMLElement | null; open(p); }} actions={actions} addTo={addTo} />)}
+      {m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={() => { remember(); setSheet({ kind: 'add' }); }} />}
+      {m.groups.map((g) => <Group key={g.role} g={g} onOpen={(p) => { remember(); open(p); }} actions={actions} addTo={addTo} />)}
       {m.listedOnly.length > 0 && (
         <section data-testid="team-dash-listed" className="flex flex-col gap-[4px]">
           <h2 className="px-[4px] text-[15px] font-bold text-[var(--fg)]">Listed on the public page</h2>
@@ -148,10 +150,10 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
           <Card>{m.listedOnly.map((p) => <PersonRowView key={p.key} p={p} onOpen={open} />)}</Card>
         </section>
       )}
-      {!m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={() => setSheet({ kind: 'add' })} />}
+      {!m.solo && m.add && <Ctl c={m.add} id="team-dash-add" onClick={() => { remember(); setSheet({ kind: 'add' }); }} />}
       <p className="text-[13px] text-[var(--mut)]" data-testid="team-dash-publicnote">{m.publicNote}</p>
 
-      <SheetView open={!!sm} onOpenChange={(o) => { if (!o) close(); }} title={person?.name ?? 'Person'} testId="team-dash-person-sheet">
+      <SheetView open={!!sm} onOpenChange={(o) => { if (!o) close(); }} title={person?.name ?? 'Person'} returnFocusRef={opener} testId="team-dash-person-sheet">
         {person && sm && (
           <div className="flex flex-col gap-3 p-[16px]">
             {sm.stubNote && <p className="text-[14px] text-[var(--fg)]" data-testid="team-dash-stub">{sm.stubNote}</p>}
@@ -189,7 +191,7 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
         )}
       </SheetView>
 
-      <SheetView open={!!rm} onOpenChange={(o) => { if (!o) close(); }} title={person ? `${person.isSelf ? 'Leave' : 'Remove'} ${person.name}?` : 'Remove'} onBack={() => person && setSheet({ kind: 'person', key: person.key })} testId="team-dash-remove-sheet">
+      <SheetView open={!!rm} onOpenChange={(o) => { if (!o) close(); }} title={person ? `${person.isSelf ? 'Leave' : 'Remove'} ${person.name}?` : 'Remove'} onBack={() => person && setSheet({ kind: 'person', key: person.key })} returnFocusRef={opener} testId="team-dash-remove-sheet">
         {person && rm && (
           <div className="flex flex-col gap-3 p-[16px]">
             <p className="text-[14px] font-bold text-[var(--fg)]">{person.name.split(' ')[0]} will lose:</p>
@@ -203,7 +205,7 @@ export function TeamDashView({ model: m, people, sheetFor, actions, addTo, moreT
         )}
       </SheetView>
 
-      <SheetView open={sheet?.kind === 'add'} onOpenChange={(o) => { if (!o) close(); }} title="Add a teammate" testId="team-dash-add-sheet">
+      <SheetView open={sheet?.kind === 'add'} onOpenChange={(o) => { if (!o) close(); }} title="Add a teammate" returnFocusRef={opener} testId="team-dash-add-sheet">
         <div className="flex flex-col gap-3 p-[16px]">
           <Link to={addTo} data-testid="team-dash-tab-find" className="flex min-h-[52px] items-center rounded-[12px] border border-[var(--line)] px-[16px] text-[15px] font-semibold text-[var(--fg)]">Find a dancer on Bachata Calendar</Link>
           <button type="button" data-testid="team-dash-tab-link" className="flex min-h-[52px] w-full items-center rounded-[12px] border border-[var(--line)] px-[16px] text-left text-[15px] font-semibold text-[var(--fg)]" onClick={() => void actions.onShareLink()}>Send a sign-up link</button>

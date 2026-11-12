@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState } from 'react';
+import { Suspense, useState } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, UserPlus } from 'lucide-react';
@@ -220,7 +221,7 @@ function TeamPageClassic() {
 }
 
 // Organiser dashboard flag (admin #1535, Team tab Option B): P3 only; OFF = the page above, unchanged.
-const TeamDashRoute = lazy(() => import('../p3/dash/team/TeamDashRoute').then((m) => ({ default: m.TeamDashRoute })));
+const TeamDashRoute = lazyWithRetry(() => import('../p3/dash/team/TeamDashRoute').then((m) => ({ default: m.TeamDashRoute })));
 
 export default function TeamPage() {
   const { kind, Shell, hub } = useOrgSurface();
