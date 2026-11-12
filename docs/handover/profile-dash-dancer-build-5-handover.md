@@ -15,7 +15,7 @@ Nit: stray doc comment above `SHOWING_LABEL` moved onto `stripLabel`.
 - Vitest: `src/modules/dancer-app`, `src/components/account`, `tests/client/dancerAppHomeNights.test.tsx`: 61 files, 1218 tests pass (re-ran home dirs + HomeNights after the last HomeScreen edit: 93 pass).
 - Playwright `profile-dash-walk.spec.ts` (chromium, 390x844): 16 passed (D4 group re-run after the last edit: 6 passed). PNGs viewed: d4-claim, d4-claim-linked, home-linked-line, switch-many-confirm.
 - eslint on touched dirs: 0 errors. `check:mojibake`: clean.
-- tsc run on the final tree (tsconfig.app.json): 0 errors in branch files. The errors that remain are in files this branch does not touch (`signOutStorageRace.test.tsx`, `Venues.tsx`, `venuePublicService.ts`).
+- tsc run on 3576185: 0 errors in branch files. Remaining errors are in files this branch does not touch (signOutStorageRace.test.tsx, Venues.tsx, venuePublicService.ts).
 
 ## Not verified
 - Red-first runs against the unfixed code were not done.
