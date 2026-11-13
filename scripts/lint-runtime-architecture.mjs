@@ -93,6 +93,8 @@ const RULES = [
       'src/modules/admin-organisers/join/__tests__/joinMachine.table.test.tsx',
       // Get paid link part B: the next=get-paid Done matrix feeds the redeem answer (organiser_id + member_role).
       'src/modules/admin-organisers/join/__tests__/JoinGetPaidNext.test.tsx',
+      // Claim-first invite: the shape x invitee matrix feeds the used link's already_member redeem answer.
+      'src/modules/admin-organisers/join/__tests__/claimFirst.matrix.test.tsx',
       // P3-GATE: _require_onboarding_complete_v1's refusal DETAIL names the page as organiser_id (an
       // organiser_profiles id); gate.ts is its one parser, and the gate matrix feeds it that refusal.
       'src/modules/organiser/p3/onboarding/gate.ts',
