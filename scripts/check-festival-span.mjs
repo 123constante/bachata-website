@@ -22,6 +22,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { resolveRpcNotFound } from './lib/rpc-not-found.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -56,7 +57,18 @@ const sb = createClient(url, key, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const { data, error } = await sb.rpc('check_festival_occurrence_span_v1');
+let { data, error } = await sb.rpc('check_festival_occurrence_span_v1');
+
+if (error) {
+  const nf = await resolveRpcNotFound('check_festival_occurrence_span_v1', error, {
+    retryCall: () => sb.rpc('check_festival_occurrence_span_v1'),
+  });
+  if (nf.handled && nf.exitCode) {
+    console.error(`FAIL: ${nf.message}`);
+    process.exit(nf.exitCode);
+  }
+  if (nf.handled) { data = nf.data; error = null; } else if (nf.error) { error = nf.error; }
+}
 
 if (error) {
   if (/PGRST202|could not find the function|schema cache|does not exist/i.test(error.message)) {

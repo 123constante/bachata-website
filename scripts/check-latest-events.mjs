@@ -25,6 +25,7 @@
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { rpcWithRetry, exitTransient } from './lib/rpc-retry.mjs';
+import { resolveRpcNotFound } from './lib/rpc-not-found.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -60,12 +61,22 @@ const sb = createClient(url, key, {
 });
 
 const LIMIT = 6;
+const latestArgs = { p_city_slug: null, p_limit: LIMIT };
 let data;
 try {
-  data = await rpcWithRetry(sb, 'get_latest_events_v2', { p_city_slug: null, p_limit: LIMIT });
+  data = await rpcWithRetry(sb, 'get_latest_events_v2', latestArgs);
 } catch (e) {
   exitTransient(e, 'get_latest_events_v2 fetch');
   const error = e.cause ?? e;
+  const nf = await resolveRpcNotFound('get_latest_events_v2', error, {
+    retryCall: () => sb.rpc('get_latest_events_v2', latestArgs),
+  });
+  if (nf.handled && nf.exitCode) {
+    console.error(`FAIL: ${nf.message}`);
+    process.exit(nf.exitCode);
+  }
+  if (nf.handled) data = nf.data;
+  else {
   const msg = `${error.code || ''} ${error.message || ''}`.trim();
   if (/PGRST202|Could not find the function|schema cache|does not exist/i.test(msg)) {
     console.error(
@@ -75,6 +86,7 @@ try {
   }
   console.error('RPC failed:', error.message);
   process.exit(2);
+  }
 }
 
 if (!Array.isArray(data)) {

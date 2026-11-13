@@ -27,6 +27,7 @@
  */
 import fs from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { resolveRpcNotFound } from './lib/rpc-not-found.mjs';
 
 function loadEnv() {
   const env = { ...process.env };
@@ -70,11 +71,18 @@ const end = new Date(today);
 end.setDate(end.getDate() + 90);
 const rangeEnd = dateStr(end);
 
-const { data, error } = await sb.rpc('get_map_events_v1', {
-  city_slug_param: CITY,
-  range_start: rangeStart,
-  range_end: rangeEnd,
-});
+const mapArgs = { city_slug_param: CITY, range_start: rangeStart, range_end: rangeEnd };
+let { data, error } = await sb.rpc('get_map_events_v1', mapArgs);
+if (error) {
+  const nf = await resolveRpcNotFound('get_map_events_v1', error, {
+    retryCall: () => sb.rpc('get_map_events_v1', mapArgs),
+  });
+  if (nf.handled && nf.exitCode) {
+    console.error(`FAIL: ${nf.message}`);
+    process.exit(nf.exitCode);
+  }
+  if (nf.handled) { data = nf.data; error = null; } else if (nf.error) { error = nf.error; }
+}
 
 const NOT_FOUND = /PGRST202|could not find the function|schema cache|does not exist/i;
 
