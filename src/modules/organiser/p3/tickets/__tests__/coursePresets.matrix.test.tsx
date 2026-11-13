@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { SHAPES, type as typeOf } from './fixtures';
 import { dataMock, load, show } from './harness';
-import { PRESETS_FREE, PRESETS_FULL, PRESETS_UNSAVED, PRESET_PAST, PRESET_TAKEN } from '../../../tickets/coursePresets';
+import { PRESETS_UNAVAILABLE, PRESETS_FREE, PRESETS_FULL, PRESETS_UNSAVED, PRESET_PAST, PRESET_TAKEN } from '../../../tickets/coursePresets';
 import type { ManagedType, PriceStep } from '../../../tickets/priceSteps';
 
 /*
@@ -101,6 +101,27 @@ describe('saved type: presets per shape', () => {
     fireEvent.click(screen.getByTestId('tix-step-save'));
     await waitFor(() => expect(api.setPriceStep).toHaveBeenCalledTimes(1));
     expect(api.setPriceStep).toHaveBeenCalledWith({ p_ticket_type_id: 't-sell', p_step_id: null, p_effective_from: '2027-02-01T00:00:00.000Z', p_price_pence: 7000 });
+  });
+
+  it('a failed course read says presets are unavailable; no row (not readable) says the same', async () => {
+    for (const read of [() => Promise.reject(new Error('x')), () => Promise.resolve(null)]) {
+      cleanup();
+      load(SHAPES.selling);
+      api.fetchManagedTypes.mockResolvedValue({ ok: true, reason: null, types: [managedRow(6000, [])] });
+      api.fetchCourseDates.mockImplementation(read);
+      show(<TicketsEntry seriesId="ser-1" />);
+      fireEvent.click(screen.getByTestId('tix-row'));
+      fireEvent.click(within(screen.getByTestId('tix-type-t-sell')).getByTestId('tix-edit'));
+      expect((await screen.findByTestId('tix-presets-blocked')).textContent).toBe(PRESETS_UNAVAILABLE);
+    }
+  });
+
+  it('presets are disabled while a remove is in flight', async () => {
+    await editor(6000, [S('a', '2027-01-01T00:00:00.000Z')], { kind: 'course', from: '2027-03-01' });
+    api.removePriceStep.mockReturnValue(new Promise(() => {}));
+    fireEvent.click(screen.getByTestId('tix-step-remove'));
+    fireEvent.click(screen.getByTestId('tix-step-remove-yes'));
+    await waitFor(() => expect((screen.getByTestId('tix-preset-weeks-4') as HTMLButtonElement).disabled).toBe(true));
   });
 
   it('flag off: no presets, and the course reads never fire', async () => {

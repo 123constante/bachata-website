@@ -48,6 +48,7 @@ import {
   COURSE_KIND_LABEL,
   COURSE_START_LABEL,
   NIGHT_KIND_LABEL,
+  PRESETS_UNAVAILABLE,
   PRESETS_UNSAVED,
   courseErrors,
   coursePresets,
@@ -148,9 +149,12 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const coursesOn = flags.ticketCoursePresets && flags.ticketPriceStepsEditor;
   const newCourse = coursesOn && !type && form.kind === 'course';
   const courseRead = useCourseDates(type?.id, coursesOn && stepsOn);
-  const presets = coursesOn && managedRow && courseRead.data
-    ? coursePresets({ kind: courseRead.data.kind, validFrom: courseRead.data.validFrom, basePricePence: managedRow.basePricePence, steps: managedRow.steps })
-    : null;
+  // A failed read, or a row this person cannot read, says so (never a silent missing block).
+  const presets = !coursesOn || !stepsOn || !managedRow ? null
+    : courseRead.isError || (courseRead.isSuccess && !courseRead.data) ? { blocked: PRESETS_UNAVAILABLE, offered: [], skipped: [] }
+    : courseRead.data
+      ? coursePresets({ kind: courseRead.data.kind, validFrom: courseRead.data.validFrom, basePricePence: managedRow.basePricePence, steps: managedRow.steps, salesOpenAt: type?.salesOpenAt, salesCloseAt: type?.salesCloseAt })
+      : null;
 
   const allErrors = (): FormErrors => {
     const e = validateForm(form, { hasOrders, reserved: type?.reserved ?? 0 });

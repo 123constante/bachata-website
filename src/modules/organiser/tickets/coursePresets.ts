@@ -17,7 +17,12 @@ export const COURSE_START_REQUIRED = 'Pick the day the course starts.';
 export const COURSE_END_REQUIRED = 'Pick the day the course ends.';
 export const COURSE_END_BEFORE_START = 'The course cannot end before it starts.';
 export const PRESETS_TITLE = 'Early-bird presets';
-export const PRESETS_HELP = 'Tap one to fill in the date. Then enter the price from that date and save it.';
+export const PRESETS_HELP =
+  'The ticket\u2019s price is the early-bird price. Tap one to fill in the date, then enter the higher price that takes over from then and save it.';
+export const PRESETS_UNAVAILABLE = 'Early-bird presets could not be loaded for this ticket. Reload the page, or add a price change yourself.';
+export const PRESET_BEFORE_SALES = 'Sales are not open yet on that date, so nobody would see it.';
+export const PRESET_AFTER_SALES = 'Sales will have closed by that date, so nobody would see it.';
+export const PRESET_NO_TIME = 'That time does not exist in the UK.';
 export const PRESETS_FREE = `No presets: ${STEPS_FREE}`;
 export const PRESETS_FULL = `No presets: ${STEPS_FULL}`;
 export const PRESETS_UNSAVED = 'Save this course first, then you can pick an early-bird preset.';
@@ -33,7 +38,9 @@ export interface CourseDates {
   validTo: string | null;
 }
 
-export const parseCourseDates = (r: unknown): CourseDates => {
+/** null = no row came back (the person cannot read it, or it is gone): the screen says presets are unavailable. */
+export const parseCourseDates = (r: unknown): CourseDates | null => {
+  if (r === null || r === undefined) return null;
   const d = (r ?? {}) as Record<string, unknown>;
   const s = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : null);
   return { kind: typeof d.kind === 'string' ? d.kind : null, validFrom: s(d.valid_from), validTo: s(d.valid_to) };
@@ -79,13 +86,19 @@ export const coursePresets = (c: {
   validFrom: string | null;
   basePricePence: number;
   steps: readonly Pick<PriceStep, 'effectiveFrom'>[];
+  /** The type's sales window (ISO): a step outside it is never seen by a buyer. */
+  salesOpenAt?: string | null;
+  salesCloseAt?: string | null;
   now?: Date;
 }): PresetsView | null => {
   if (c.kind !== 'course' || !c.validFrom) return null;
   if (c.basePricePence <= 0) return { blocked: PRESETS_FREE, offered: [], skipped: [] };
   if (c.steps.length >= MAX_STEPS) return { blocked: PRESETS_FULL, offered: [], skipped: [] };
   const now = (c.now ?? new Date()).getTime();
-  const taken = new Set(c.steps.map((s) => new Date(s.effectiveFrom).getTime()));
+  // Same London DAY as an existing step (the form's day is what the organiser sees), not the same instant.
+  const takenDays = new Set(c.steps.map((s) => isoToLondonInput(s.effectiveFrom).slice(0, 10)));
+  const opens = c.salesOpenAt ? new Date(c.salesOpenAt).getTime() : null;
+  const closes = c.salesCloseAt ? new Date(c.salesCloseAt).getTime() : null;
   const offered: Preset[] = [];
   const skipped: PresetsView['skipped'] = [];
   for (const w of PRESET_WEEKS) {
@@ -93,9 +106,12 @@ export const coursePresets = (c: {
     const id = `weeks-${w}`;
     const label = labelOf(w);
     const iso = londonInputToIso(at);
-    if (!iso || timeDoesNotExist(at) || isoToLondonInput(iso) === '') skipped.push({ id, label, why: PRESET_PAST });
-    else if (new Date(iso).getTime() <= now) skipped.push({ id, label, why: PRESET_PAST });
-    else if (taken.has(new Date(iso).getTime())) skipped.push({ id, label, why: PRESET_TAKEN });
+    const t = iso ? new Date(iso).getTime() : NaN;
+    if (!iso || timeDoesNotExist(at)) skipped.push({ id, label, why: PRESET_NO_TIME });
+    else if (t <= now) skipped.push({ id, label, why: PRESET_PAST });
+    else if (takenDays.has(at.slice(0, 10))) skipped.push({ id, label, why: PRESET_TAKEN });
+    else if (opens !== null && t < opens) skipped.push({ id, label, why: PRESET_BEFORE_SALES });
+    else if (closes !== null && t > closes) skipped.push({ id, label, why: PRESET_AFTER_SALES });
     else offered.push({ id, weeks: w, label, at });
   }
   return { blocked: null, offered, skipped };

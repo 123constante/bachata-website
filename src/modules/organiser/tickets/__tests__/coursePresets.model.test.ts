@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildUpsert, formOf, type TypeForm } from '../ticketModel';
+import { londonInputToIso, buildUpsert, formOf, type TypeForm } from '../ticketModel';
 import { upsertPayload } from '../ticketsApi';
-import { PRESETS_FREE, PRESETS_FULL, PRESET_PAST, PRESET_TAKEN, courseErrors, coursePresets, parseCourseDates, presetForm, shiftDay } from '../coursePresets';
+import { PRESET_AFTER_SALES, PRESET_BEFORE_SALES, PRESETS_FREE, PRESETS_FULL, PRESET_PAST, PRESET_TAKEN, courseErrors, coursePresets, parseCourseDates, presetForm, shiftDay } from '../coursePresets';
 
 const NOW = new Date('2026-11-13T12:00:00Z');
 const step = (effectiveFrom: string) => ({ effectiveFrom });
@@ -40,6 +40,28 @@ describe('presets, per shape', () => {
   });
   it('a preset fills the time only and never a price', () => {
     expect(presetForm(view()!.offered[0])).toEqual({ at: '2027-02-01T00:00', price: '' });
+  });
+});
+
+describe('review fixes (R1)', () => {
+  it('summer: 00:00 BST is 23:00Z the day before (not a UTC reading of the wall time)', () => {
+    const v = view({ validFrom: '2027-07-12', now: new Date('2027-01-01T00:00:00Z') })!;
+    const iso = (at: string) => londonInputToIso(at);
+    expect(v.offered.map((p) => p.at)).toEqual(['2027-06-14T00:00', '2027-06-28T00:00', '2027-07-05T00:00']);
+    expect(iso(v.offered[0].at)).toBe('2027-06-13T23:00:00.000Z');
+  });
+  it('a preset exactly at now is past (<=), one a minute later is offered', () => {
+    const at = new Date('2027-02-01T00:00:00Z');
+    expect(view({ now: at })!.skipped.map((s) => s.id)).toContain('weeks-4');
+    expect(view({ now: new Date(at.getTime() - 60_000) })!.offered.map((p) => p.id)).toContain('weeks-4');
+  });
+  it('sales window: before open and after close are skipped with a reason', () => {
+    const v = view({ salesOpenAt: '2027-02-10T00:00:00Z', salesCloseAt: '2027-02-20T00:00:00Z' })!;
+    expect(v.skipped.map((s) => [s.id, s.why])).toEqual([['weeks-4', PRESET_BEFORE_SALES], ['weeks-1', PRESET_AFTER_SALES]]);
+    expect(v.offered.map((p) => p.id)).toEqual(['weeks-2']);
+  });
+  it('taken compares the London day: a step at 19:00 that day blocks the 00:00 preset', () => {
+    expect(view({ steps: [step('2027-02-15T19:00:00Z')] })!.skipped.map((s) => s.id)).toEqual(['weeks-2']);
   });
 });
 

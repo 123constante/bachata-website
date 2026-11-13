@@ -12,6 +12,10 @@ Branch `claude/ticket-t5-course-presets`. Brief: `docs/briefs/ticket-t5-course-p
 - No new RPC, so `onboarding-write-doors.json` is untouched.
 - Tests: `tickets/__tests__/coursePresets.model.test.ts` (17), `p3/tickets/__tests__/coursePresets.matrix.test.tsx` (12), walk `tests/e2e/walk-ticket-t5-course-presets.spec.ts` (390x844 and 360x640, 6 pass), registered in `check-e2e-spec-coverage.mjs`. The new modules did not exist before, so the tests were red by construction.
 
+## Review fixes (independent review at 1f8c9c2a)
+- Presets say so when the course read fails or returns no row; presets outside the sales window are skipped with a reason; `invalid_course_dates` and `invalid_kind` have plain wording; the taken check compares London days; the unreachable branch has its own reason; the help line says the base price is the early-bird price.
+- Mutant tests added: summer instant, `<= now` boundary, preset buttons disabled while busy.
+
 ## Left / next steps
 - Owner Approve; turn the flag on a preview and walk it on a phone with a real course. Prod has no course type to survey beyond the schema.
 - Decide whether presets should also suggest a price (today the organiser enters it).

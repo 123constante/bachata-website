@@ -232,7 +232,7 @@ export async function fetchManagedTypes(seriesId: string): Promise<ManageResult>
 }
 
 /** T5: a saved type's kind and course dates (a plain read; ticket_types_manage_v1 carries neither). */
-export async function fetchCourseDates(typeId: string): Promise<CourseDates> {
+export async function fetchCourseDates(typeId: string): Promise<CourseDates | null> {
   const { data, error } = await db().from('ticket_types').select('kind, valid_from, valid_to').eq('id', typeId).maybeSingle();
   if (error) throw error;
   return parseCourseDates(data);

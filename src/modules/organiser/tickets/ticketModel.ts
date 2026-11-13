@@ -741,6 +741,8 @@ const REASON: Record<string, string> = {
   not_found: 'This ticket is not there any more. Reload the page.',
   invalid_payload: 'Something in the form is not right. Check it and try again.',
   invalid_name: 'Give the ticket a name under 200 characters.',
+  invalid_course_dates: 'Check the course dates: it needs a start day, and it cannot end before it starts.',
+  invalid_kind: 'This kind of ticket is not available. Pick Each night or A course.',
   invalid_price: 'Enter a price from 0 to 10,000 pounds.',
   invalid_capacity: 'Enter how many tickets, from 1 to 100,000.',
   invalid_sales_window: 'Sales must close after they open.',
