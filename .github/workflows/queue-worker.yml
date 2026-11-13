@@ -137,7 +137,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -uo pipefail
-          capped=false
+          capped=false; api_err=""
           [ "$OUTCOME" = "success" ] || capped=true
           if [ -n "$(git status --porcelain)" ]; then
             git add -A && git commit -m "WIP: checkpoint (cap hit)" && capped=true
@@ -150,13 +150,18 @@ jobs:
             marker="<!-- queue-run cost_usd=${usd:-0} in=${tin:-0} out=${tout:-0} turns=${turns:-0} -->"
             cost="Tokens in ${tin:-0} / out ${tout:-0}, ${turns:-0} turns, cost \$${usd:-0}."
             [ "${turns:-0}" -ge "$TURNS" ] && capped=true
+            api_err="$(jq -r '[.[]|select(.type=="result")]|last|if (.is_error == true or (.api_error_status // null) != null) then "\(.api_error_status // "error") \(.terminal_reason // "")" else empty end' "$EXEC_FILE" 2>/dev/null || true)"
           else
             cost="Tokens and cost: not available from the action for this run."
           fi
           pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)"
           body="$(printf '%s\nQueue run: %s\n\n%s\n\nFiles (git diff --stat vs main):\n```\n%s\n```\n' "$marker" "$RUN_URL" "$cost" "$stat")"
           if [ -n "$pr" ]; then gh pr comment "$pr" --body "$body" || true; fi
-          if [ "$capped" = "true" ]; then
+          if [ -n "$api_err" ]; then
+            gh issue comment "$ISSUE" --body "API error (not a cap hit): ${api_err}. Run: $RUN_URL
+          Check the key and credit balance, then relabel \`queue\` to retry." || true
+            gh issue edit "$ISSUE" --add-label owner-turn --remove-label in-progress || true
+          elif [ "$capped" = "true" ]; then
             gh issue comment "$ISSUE" --body "Queue checkpoint (cap hit or run failed). Branch \`$BRANCH\`. Run: $RUN_URL
           Done / Next / Open questions: see the worker's own \"Queue checkpoint\" comment if it posted one; otherwise continue from the branch.
           \`\`\`
