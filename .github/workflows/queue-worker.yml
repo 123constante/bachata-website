@@ -109,6 +109,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.BOT_PR_TOKEN }}
+          show_full_output: true
           claude_args: >-
             --model claude-sonnet-5-5
             --max-turns ${{ steps.branch.outputs.turns }}
