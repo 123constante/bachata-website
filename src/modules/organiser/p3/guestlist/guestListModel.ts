@@ -83,7 +83,7 @@ export function parseRead(raw: unknown): GuestRead {
 const REASON_WORDS: Record<string, string> = {
   not_signed_in: 'Sign in again, then try. Nothing was changed.',
   night_not_found: 'This night is not on the list any more. Nothing was changed.',
-  not_on_team: 'You are not on this page’s team. Nothing was changed.',
+  not_on_team: 'You are not on this page\u2019s team. Nothing was changed.',
   view_only: 'Contributors can look at the list but cannot change it. Ask an owner to make you a manager.',
   cancelled: 'This night is cancelled. The names are kept, and nothing can be changed.',
   past: 'This night is over. The list is kept as it was, and nothing can be changed.',
@@ -91,10 +91,10 @@ const REASON_WORDS: Record<string, string> = {
   bad_cutoff_time: 'Closing time must look like 22:00. Nothing was changed.',
   name_required: 'Type a first name. Nobody was added.',
   name_too_long: 'That name is too long (80 letters at most). Nobody was added.',
-  duplicate_name: 'That name is already on this night’s list. Nobody was added.',
+  duplicate_name: 'That name is already on this night\u2019s list. Nobody was added.',
   not_restorable: 'That name cannot be put back. Nothing was changed.',
   not_on_list: 'That person is not on the list. Nothing was changed.',
-  not_found: 'No one on this night’s list has that code. Nobody was checked in.',
+  not_found: 'No one on this night\u2019s list has that code. Nobody was checked in.',
   other_night: 'That code is for a different night. Nobody was checked in.',
   night_required: 'This night could not be found. Nothing was changed.',
   entry_not_found: 'That name is not on the list any more. Nothing was changed.',
@@ -172,5 +172,5 @@ export function scanWords(r: { ok: boolean; reason?: string; firstName?: string;
 
 /** Names first, then Door, on the night; the Door view opens by itself only for a night that is on today. */
 export type GuestTab = 'names' | 'door' | 'settings';
-export const TABS: readonly GuestTab[] = ['names', 'door', 'settings'];
+export const GUEST_VIEWS: readonly GuestTab[] = ['names', 'door', 'settings'];
 export const TAB_WORD: Record<GuestTab, string> = { names: 'Names', door: 'Door', settings: 'Settings' };

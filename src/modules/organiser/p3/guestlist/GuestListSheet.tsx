@@ -13,7 +13,7 @@ import '../door/door.css';
 import type { Night } from '../events/eventsModel';
 import { addName, checkIn, readNight, removeName, restoreName, scan, setNight, tokenOf, undoCheckIn, type Outcome } from './guestListApi';
 import {
-  PAGE, TABS, TAB_WORD, doorLine, draftOf, editBlock, emptyWords, namesWord, reasonWords, scanWords, settingsArgs, settingsError,
+  PAGE, GUEST_VIEWS, TAB_WORD, doorLine, draftOf, editBlock, emptyWords, namesWord, reasonWords, scanWords, settingsArgs, settingsError,
   stateBanner, statusLine, type GuestEntry, type GuestListView, type GuestTab, type SettingsDraft,
 } from './guestListModel';
 
@@ -119,7 +119,7 @@ export function GuestListLive({ occurrenceId, title, onClose }: { occurrenceId: 
       {banner && <p className="p3-note" role="status" data-testid="gl-banner">{banner}</p>}
       {block && <p className="p3-note" id={WHY_ID} data-testid="gl-why">{block}</p>}
       <div className="p3-seg" role="group" aria-label="Guest list view">
-        {TABS.map((t) => (
+        {GUEST_VIEWS.map((t) => (
           <button key={t} type="button" style={TAP} aria-pressed={tab === t} onClick={() => { setTab(t); setNote(null); setScanning(false); }} data-testid={`gl-tab-${t}`}>
             {TAB_WORD[t]}{t === 'names' ? ` ${v.counts.names}` : t === 'door' ? ` ${v.counts.inCount}/${v.counts.names}` : ''}
           </button>
