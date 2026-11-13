@@ -237,6 +237,7 @@ const TARGETS = [
   { rel: 'scripts/queue-claim.mjs' },
   { rel: 'scripts/queue-daily-report.mjs' },
   { rel: 'scripts/queue-merge-decide.mjs' },
+  { rel: 'scripts/queue-sdk-worker.mjs' },
   { rel: 'scripts/queue-watchdog.mjs' },
   { rel: 'scripts/prove-entry-point-dispatch.mjs' },
   { rel: 'scripts/rework-share.mjs' },

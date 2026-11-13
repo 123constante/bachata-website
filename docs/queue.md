@@ -10,7 +10,7 @@ Daily budget (USD): 20
 
 | File | Job |
 |---|---|
-| `.github/workflows/queue-worker.yml` | on label `queue` (or dispatch): `scripts/queue-claim.mjs` swaps `queue` to `in-progress` (the lock), then `anthropics/claude-code-action` runs on branch `claude/queue-<issue>`. `bot-pr.yml` opens the PR. |
+| `.github/workflows/queue-worker.yml` | on label `queue` (or dispatch): `scripts/queue-claim.mjs` swaps `queue` to `in-progress` (the lock), then `scripts/queue-sdk-worker.mjs` runs Sonnet through the Agent SDK (`@anthropic-ai/claude-agent-sdk`, pinned) on branch `claude/queue-<issue>`. Not `anthropics/claude-code-action`: that bills as the Claude Code product, which the account's API credit does not cover (run 43518771917 failed `billing_error`); the Agent SDK bills as plain API usage. `bot-pr.yml` opens the PR. |
 | `.github/workflows/queue-merge.yml` | `pull_request_target` for `claude/queue-*` PRs: `scripts/queue-merge-decide.mjs` says reserved or not; not reserved gets `gh pr merge --auto --squash --match-head-commit`. |
 | `.github/workflows/queue-watchdog.yml` | every 15 min, no LLM: `scripts/queue-watchdog.mjs`. |
 | `.github/workflows/queue-daily-report.yml` | daily, no LLM: `scripts/queue-daily-report.mjs` comments on the issue "Queue daily report" (pin it). Warn-only over the budget above. |
