@@ -1,0 +1,36 @@
+name: Queue watchdog
+
+# No LLM. Every 15 minutes: stalled queue work goes back to the queue once, then to the owner
+# (scripts/queue-watchdog.mjs). INERT unless QUEUE_ENABLED == 'true'. docs/queue.md.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+  pull-requests: read
+  checks: read
+
+jobs:
+  watch:
+    if: vars.QUEUE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Self-test
+        run: node scripts/queue-watchdog.mjs --self-test
+      - name: Requeue or hand over stalled items
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/queue-watchdog.mjs

@@ -1,0 +1,95 @@
+name: Queue auto-merge
+
+# Auto-merge for queue PRs (branch claude/queue-*). INERT unless QUEUE_ENABLED == 'true'.
+# Same safety pattern as bot-automerge.yml (which this file does not touch): pull_request_target,
+# so this definition and the verdict script always come from main; it NEVER checks out or runs PR
+# code; files and labels are read through the REST API; no PR text reaches a shell; enabling is
+# pinned to the head sha (--match-head-commit); the token is BOT_PR_TOKEN.
+# A PR touching supabase/migrations/**, RLS/policy SQL, price/payout/payment files
+# (scripts/queue-reserved-paths.json) or ANY HARD-tier path (scripts/lib/review-scope.mjs riskTier;
+# owner-approval.yml still needs the owner there) gets `owner-reserved` and auto-merge is
+# switched off. Removing `owner-reserved` is the owner's job alone. See docs/queue.md.
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: queue-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    if: >-
+      vars.QUEUE_ENABLED == 'true' &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'claude/queue-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The BASE branch, never the PR head.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Verdict (REST only, no PR code)
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/queue-merge-decide.mjs
+
+      # PAUSE SWITCH (docs/automation-pause.md): exit 3 = paused; fail closed on anything but 'false'.
+      - name: Read the automation pause switch
+        id: pause
+        # soft-signal: exit 3 = PAUSED is the measured outcome, written to outputs; only paused == 'false' enables (fail closed)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/automation-pause.mjs
+
+      - name: Mark owner-reserved
+        if: steps.v.outputs.reserved == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          [ -n "${GH_TOKEN:-}" ] || { echo "::error::secret BOT_PR_TOKEN is not set"; exit 1; }
+          gh pr edit "$PR_URL" --add-label owner-reserved
+          if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+          fi
+          echo "owner-reserved: ${{ steps.v.outputs.reasons }}"
+
+      - name: Enable auto-merge (GitHub merges when required checks pass)
+        if: steps.v.outputs.reserved == 'false' && steps.pause.outputs.paused == 'false' && github.event.pull_request.draft == false
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [ -n "${GH_TOKEN:-}" ] || { echo "::error::secret BOT_PR_TOKEN is not set; auto-merge NOT enabled"; exit 1; }
+          gh pr merge --auto --squash --match-head-commit "$HEAD_SHA" "$PR_URL"
+
+      - name: Disable auto-merge when the verdict could not be read or automation is paused
+        if: always() && steps.v.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+          fi

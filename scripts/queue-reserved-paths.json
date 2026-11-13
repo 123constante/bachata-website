@@ -1,0 +1,13 @@
+{
+  "doc": "docs/queue.md. A queue PR touching any of these globs (case-insensitive, ** crosses folders) is labelled owner-reserved and never auto-merged. HARD-tier paths (scripts/lib/review-scope.mjs riskTier) are reserved too, without being listed here.",
+  "globs": [
+    "supabase/migrations/**",
+    "**/*.sql",
+    "**/*rls*",
+    "**/*polic*",
+    "**/*price*",
+    "**/*pricing*",
+    "**/*payout*",
+    "**/*payment*"
+  ]
+}
