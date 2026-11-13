@@ -243,7 +243,7 @@ export { BOOKING_FEE_PENCE };
 export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
 
-/** "\u00A3240,170.00": the ONE money format on every screen (thousands separators, two decimals). */
+/** "\u00A3240,170" or "\u00A312.50": the ONE money format on every screen (thousands separators; whole pounds drop the .00). */
 export const formatPence = (pence: number): string => {
   // Whole pounds read as whole pounds (12 pounds, never 12.00); only a real part-pound keeps its two digits.
   const whole = pence % 100 === 0;
