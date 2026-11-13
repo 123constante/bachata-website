@@ -1,6 +1,6 @@
 # T3 price-steps editor: handover
 
-Branch `claude/ticket-t3-steps-editor`. Brief: `docs/briefs/ticket-t3-price-steps-editor.md` on `brief/ticket-t3-steps-editor`. Flag: `ticketPriceStepsEditor` (`VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true`, needs `organiserTicketing`). Do not merge: money lane.
+Branch `claude/ticket-t3-steps-editor`. Brief: `docs/briefs/ticket-t3-price-steps-editor.md` on `brief/ticket-t3-steps-editor`. Flag: `ticketPriceStepsEditor` (`VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true`, needs `organiserTicketing`). Do not merge: money lane. PR: #1625 (independent review posted as a PR comment).
 
 ## Done
 - `src/modules/organiser/tickets/priceSteps.ts`: the pure model. It holds the copy, `parseManage`, the London-time rules (spring time refused, autumn time resolves to the later GMT instant) and `buildStepCommand`. An untouched move returns null and keeps the stored instant.
