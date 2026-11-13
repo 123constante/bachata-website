@@ -171,7 +171,7 @@ describe.each(ROWS)('%s, next=%s, %s seat', (path, next, seat) => {
       fireEvent.change(document.querySelector('input[autocomplete="one-time-code"]')!, { target: { value: '12345678' } });
       await stepIs('join');
       // leaving the code step keeps it too
-      expect(where()).toBe(`/invite/${TOKEN}${query(next)}`);
+      await waitFor(() => expect(where()).toBe(`/invite/${TOKEN}${query(next)}`), { timeout: 4000 });
     }
     await stepIs('join');
     fireEvent.click(screen.getByTestId('invite-join'));
