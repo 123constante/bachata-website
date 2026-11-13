@@ -20,7 +20,7 @@ export function ClaimScreen({ preview, onConfirm }: { preview: JoinPreview; onCo
         )}
         <p className="min-w-0 break-words text-[20px] font-bold leading-tight" data-testid="join-claim-name">{name}</p>
       </div>
-      <h1 className="text-[20px] font-bold leading-tight" data-testid="join-claim-heading">{JOIN_COPY.claim.heading}</h1>
+      <h1 className="text-[20px] font-bold leading-tight outline-none" data-testid="join-claim-heading">{JOIN_COPY.claim.heading}</h1>
       <Lead testId="join-claim-by">{JOIN_COPY.claim.invitedBy(preview.inviterFirstName)}</Lead>
       <Lead testId="join-claim-next">{JOIN_COPY.claim.body}</Lead>
       <button type="button" className={BTN} onClick={onConfirm} data-testid="join-claim-confirm">{JOIN_COPY.claim.button}</button>

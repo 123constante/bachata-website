@@ -80,15 +80,15 @@ export function AboutStep({ completion, preview, linked, claimFirst = false, onS
   return (
     <form className="flex flex-col gap-3" noValidate onSubmit={(e) => void save(e)} data-testid="join-about-form">
       {linked && <p className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-[13px]" role="status" data-testid="join-about-linked">{JOIN_COPY.about.linked}</p>}
-      <Lead testId="join-about-lead">{linked && fields.length < PROFILE_FIELDS.length ? JOIN_COPY.about.missing(fields.length) : JOIN_COPY.about.lead}</Lead>
-      {claimFirst && <Lead testId="join-about-person">{JOIN_COPY.aboutYou.lead(org)}</Lead>}
+      {/* Claim-first: one plain line about the PERSON (the "Four things" count is wrong when only some are asked). */}
+      <Lead testId="join-about-lead">{linked && fields.length < PROFILE_FIELDS.length ? JOIN_COPY.about.missing(fields.length) : claimFirst ? JOIN_COPY.aboutYou.lead(org) : JOIN_COPY.about.lead}</Lead>
 
       {fields.includes('first_name') && (
         <div className="flex flex-col gap-1">
           <label htmlFor="join-first-name" className="text-[14px] font-semibold">{claimFirst ? JOIN_COPY.aboutYou.firstName : JOIN_COPY.about.firstName}</label>
           <input id="join-first-name" autoComplete="given-name" className={FIELD} aria-describedby="join-first-name-help" aria-invalid={nameIsOrg || undefined} value={draft.first_name} onChange={(e) => set('first_name', e.target.value)} data-testid="join-about-first-name" />
           <p id="join-first-name-help" className="text-[13px] text-muted-foreground">{claimFirst ? JOIN_COPY.aboutYou.firstNameHelp(org) : JOIN_COPY.about.firstNameHelp}</p>
-          {nameIsOrg && <p className="text-[13px] font-medium text-destructive" role="alert" data-testid="join-about-name-is-org">{JOIN_COPY.aboutYou.sameAsOrg(org)}</p>}
+          {nameIsOrg && <p className="text-[13px] font-medium text-destructive" role="alert" id="join-about-name-is-org" data-testid="join-about-name-is-org">{JOIN_COPY.aboutYou.sameAsOrg(org)}</p>}
         </div>
       )}
       {fields.includes('based_city_id') && (
@@ -111,8 +111,8 @@ export function AboutStep({ completion, preview, linked, claimFirst = false, onS
       )}
 
       <ErrorLine id="join-about-error">{failed ? JOIN_COPY.about.saveFailed : null}</ErrorLine>
-      <button type="submit" className={BTN} disabled={!pending || saving} aria-describedby={!pending ? 'join-about-why' : undefined} data-testid="join-about-save">{saving ? JOIN_COPY.about.saving : JOIN_COPY.about.button}</button>
-      <p id="join-about-why" className={WHY} data-testid="join-about-why">{missing.length > 0 ? JOIN_COPY.about.stillToAdd(listFieldLabels(missing)) : nameIsOrg ? JOIN_COPY.aboutYou.sameAsOrg(org) : ''}</p>
+      <button type="submit" className={BTN} disabled={!pending || saving} aria-describedby={nameIsOrg ? 'join-about-name-is-org' : !pending ? 'join-about-why' : undefined} data-testid="join-about-save">{saving ? JOIN_COPY.about.saving : JOIN_COPY.about.button}</button>
+      <p id="join-about-why" className={WHY} data-testid="join-about-why">{missing.length > 0 ? JOIN_COPY.about.stillToAdd(listFieldLabels(missing)) : ''}</p>
     </form>
   );
 }

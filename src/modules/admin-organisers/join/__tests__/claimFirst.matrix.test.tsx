@@ -187,7 +187,7 @@ describe('claim screen (flag on)', () => {
     expect(await shown()).toBe('about');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Now about you');
     expect(screen.getByText('Your own first name')).toBeTruthy();
-    expect(screen.getByTestId('join-about-person').textContent).toContain(ORG);
+    expect(screen.getByTestId('join-about-lead').textContent).toContain(ORG);
     const input = screen.getByTestId('join-about-first-name');
     const save = screen.getByTestId('join-about-save') as HTMLButtonElement;
     // Untouched: Continue is off with a reason, and nothing is saved.
@@ -196,7 +196,7 @@ describe('claim screen (flag on)', () => {
       fireEvent.change(input, { target: { value: typed } });
       expect(save.disabled).toBe(true);
       expect(screen.getByTestId('join-about-name-is-org').textContent).toContain('your own first name');
-      expect(screen.getByTestId('join-about-why').textContent).toContain('your own first name');
+      expect(save.getAttribute('aria-describedby')).toBe('join-about-name-is-org');
     }
     fireEvent.change(input, { target: { value: 'Maria' } });
     expect(save.disabled).toBe(false);
