@@ -26,8 +26,12 @@ name: Live QA (daily)
 # not get, and it measures production, not the PR.
 
 on:
-  schedule:
-    - cron: '17 5 * * *'
+  # Daily schedule switched off 2026-11-13 (owner click): red 34 days running,
+  # issue #704 had 33 identical comments and nobody acting on them. Run it by
+  # hand (Actions > Live QA (daily) > Run workflow) or restore the cron below
+  # once the baseline is clean enough that red means something new.
+  #schedule:
+  #  - cron: '17 5 * * *'
   workflow_dispatch:
     inputs:
       base_url:
@@ -82,6 +86,15 @@ jobs:
           LIVE_QA_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: npm run test:e2e:live
+
+      # event-hydration-421 + event-ended-cls skip in e2e-smoke (no real-data build there);
+      # here they hit production read-only. A skip prints its reason; real 404s stay visible.
+      - name: Run prod SSR specs (read-only page loads)
+        env:
+          CI: 'true'
+          HYDRATION_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+          ENDED_CLS_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+        run: npm run test:e2e:prod-ssr
 
       - name: Summarise findings
         if: always()

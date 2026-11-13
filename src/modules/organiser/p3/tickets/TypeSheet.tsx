@@ -39,6 +39,10 @@ import { P3_TICKET_PATHS } from './paths';
 import { StackSheet } from './StackSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { GATE_LATE, SELL_HELD } from './gateCopy';
+import { flags } from '@/lib/featureFlags';
+import { FREE_WITH_STEPS, STEPS_UNSAVED } from '../../tickets/priceSteps';
+import { useManagedTypes } from './data';
+import { PriceSteps } from './PriceSteps';
 
 /** The switched-off / not-connected reason, with its "where" words as a real tap target to Get paid. */
 export function ReasonText({ text }: { text: string }) {
@@ -125,8 +129,16 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const patch = (p: Partial<TypeDraft>) => onDraft({ ...draft, ...p });
   const set = <K extends keyof TypeForm>(k: K, v: TypeForm[K]) => patch({ form: { ...form, [k]: v } });
 
+  // T3: the price steps of this type (flag ticketPriceStepsEditor), read only for an existing type someone can change.
+  const stepsOn = flags.ticketPriceStepsEditor && !!type && !locked;
+  const managed = useManagedTypes(seriesId, stepsOn);
+  const managedRow = type ? managed.data?.types.find((r) => r.id === type.id) : undefined;
+  const hasSteps = !!managedRow?.hasPriceSteps;
+
   const allErrors = (): FormErrors => {
     const e = validateForm(form, { hasOrders, reserved: type?.reserved ?? 0 });
+    // s.2b: a ticket with price changes cannot be made free (the server refuses has_price_steps too).
+    if (stepsOn && hasSteps && formPence(form) === 0 && !e.price) e.price = FREE_WITH_STEPS;
     if (openMode === 'pick' && !form.opensAt && !e.opensAt) e.opensAt = 'Pick a date and time, or choose Now.';
     if (closeMode === 'pick' && !form.closesAt && !e.closesAt) e.closesAt = 'Pick a date and time, or choose another option.';
     return e;
@@ -164,7 +176,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     try {
       const out = await upsertTicketType(upsert);
       if (!out.ok) {
-        refuse(reasonMessage(out.reason));
+        refuse(out.reason === 'has_price_steps' ? FREE_WITH_STEPS : reasonMessage(out.reason));
         return;
       }
       if (type) return landed('Ticket saved.');
@@ -346,6 +358,17 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
                 </>
               )}
             </div>
+            {stepsOn && (
+              <PriceSteps
+                seriesId={seriesId}
+                row={managedRow}
+                loading={managed.isPending}
+                failed={managed.isError || (managed.isSuccess && !managed.data.ok)}
+                onRetry={() => void managed.refetch()}
+                hasOrders={hasOrders}
+              />
+            )}
+            {flags.ticketPriceStepsEditor && !type && pence !== null && pence > 0 && <p className="p3-note" data-testid="tix-steps-unsaved">{STEPS_UNSAVED}</p>}
           </>
         )}
 

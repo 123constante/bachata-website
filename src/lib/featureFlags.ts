@@ -83,6 +83,10 @@ export const flags = {
   // only after #1577 is applied.
   organiserGuestListLive: import.meta.env.VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
+  // T3 price steps (docs/briefs/ticket-t3-price-steps-editor.md): the "Price changes" block in the
+  // ticket editor. Needs organiserTicketing. OFF = the editor is exactly as before.
+  // Turn on with VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true (Vercel env) -- no code change.
+  ticketPriceStepsEditor: import.meta.env.VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR === 'true',
   // Gallery sheet: choose photo order and the cover (tap a photo, then Move left/right, Make cover).
   // OFF = the sheet is exactly as before. Turn on with VITE_ENABLE_ORGANISER_PHOTO_ORDER=true (Vercel env).
   organiserPhotoOrder: import.meta.env.VITE_ENABLE_ORGANISER_PHOTO_ORDER === 'true',
@@ -90,6 +94,10 @@ export const flags = {
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.
   publicTicketing:     import.meta.env.VITE_ENABLE_PUBLIC_TICKETING === 'true',
+  // T4 buyer price steps: read ticket_types_public_v3, post the basket body with expected prices
+  // (edge v5 path), "Price rises on <date>" on the card, price_changed confirm. OFF = the old body
+  // and the v2 read, exactly as before. Turn on with VITE_ENABLE_TICKET_PRICE_STEPS=true.
+  ticketPriceSteps:    import.meta.env.VITE_ENABLE_TICKET_PRICE_STEPS === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
