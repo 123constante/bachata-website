@@ -83,6 +83,15 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: npm run test:e2e:live
 
+      # event-hydration-421 + event-ended-cls skip in e2e-smoke (no real-data build there);
+      # here they hit production read-only. A skip prints its reason; real 404s stay visible.
+      - name: Run prod SSR specs (read-only page loads)
+        env:
+          CI: 'true'
+          HYDRATION_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+          ENDED_CLS_BASE_URL: ${{ github.event.inputs.base_url || 'https://www.bachatacalendar.co.uk' }}
+        run: npm run test:e2e:prod-ssr
+
       - name: Summarise findings
         if: always()
         run: |
