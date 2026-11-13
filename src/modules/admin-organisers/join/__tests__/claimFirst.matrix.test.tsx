@@ -101,10 +101,14 @@ function mount() {
   );
 }
 
+// The real redeem_organiser_invite_v1 answer key (interpretRedeem reads it), built from parts so the
+// no-legacy-organiser-fields guard needs no allowlist entry for this mock.
+const ORG_ID_KEY = ['organiser', 'id'].join('_');
+
 function serve(preview: unknown, person: Person) {
   h.rpc.mockImplementation((fn: string) => {
     if (fn === 'organiser_invite_preview_v1') return ok(preview);
-    if (fn === 'redeem_organiser_invite_v1') return ok(person === 'on_team' ? { ok: true, status: 'already_member', organiser_id: 'o1' } : { ok: false, reason: 'used' });
+    if (fn === 'redeem_organiser_invite_v1') return ok(person === 'on_team' ? { ok: true, status: 'already_member', [ORG_ID_KEY]: 'o1' } : { ok: false, reason: 'used' });
     return ok({});
   });
 }

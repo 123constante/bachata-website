@@ -25,3 +25,16 @@ Branch: `claude/claim-first-organiser-invite`. Flag: `VITE_ENABLE_CLAIM_FIRST_IN
 - The original inbox message was truncated after point 3; copy is kept plain. Owner may want wording changes.
 - Turn the flag on in Vercel when happy; then Ricky's phone test.
 - No RLS/ACL change, no new write path, no prod writes.
+
+## fix1 (2026-11-13, ticket dt_5bb93d30f06c)
+
+Brief: `docs/briefs/claim-first-organiser-invite-fix1.md` on `brief/claim-first-organiser-invite-fix1`.
+
+- Done: `ClaimFirst.tsx` logo `<img>` now has `loading="lazy"` (`AUDIT_STRICT=1 npm run check:images`: 0 missing).
+- Done: `claimFirst.matrix.test.tsx` builds the real redeem key (`organiser_id`, which `interpretRedeem` reads) from parts,
+  so the `lint:architecture` allowlist entry for this test was removed again; `scripts/lint-runtime-architecture.mjs` now equals main.
+- Found, not changed (out of scope): the `on_team` case still passes when the redeem key is wrong (a mutation to `'nope'` stays 80/80),
+  so that mock's key is not what the test proves. A follow-up could assert the Done target for an already-member.
+- contract-check at 0c8f5bd was red on live-DB checks that do not name this PR's files:
+  `purge_stale_dates_v1` unruled delete path / `check_occurrence_delete_booking_safety_v1` missing (admin migration 20260810220000),
+  and the event-write door guard live report (`healthy=false`, 5 violations). Needs the admin repo, not this branch.

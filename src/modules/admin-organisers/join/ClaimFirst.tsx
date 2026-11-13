@@ -14,7 +14,7 @@ export function ClaimScreen({ preview, onConfirm }: { preview: JoinPreview; onCo
       <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{JOIN_COPY.claim.tag}</p>
       <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3" data-testid="join-claim-card">
         {logo ? (
-          <img src={logo} alt="" width={64} height={64} className="h-16 w-16 flex-none rounded-xl object-cover" data-testid="join-claim-logo" />
+          <img src={logo} alt="" loading="lazy" width={64} height={64} className="h-16 w-16 flex-none rounded-xl object-cover" data-testid="join-claim-logo" />
         ) : (
           <span aria-hidden="true" className="grid h-16 w-16 flex-none place-items-center rounded-xl bg-primary/20 text-[26px] font-bold" data-testid="join-claim-initial">{name.slice(0, 1).toUpperCase()}</span>
         )}
