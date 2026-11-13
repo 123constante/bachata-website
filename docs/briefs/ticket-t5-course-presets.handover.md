@@ -16,6 +16,13 @@ Branch `claude/ticket-t5-course-presets`. Brief: `docs/briefs/ticket-t5-course-p
 - Presets say so when the course read fails or returns no row; presets outside the sales window are skipped with a reason; `invalid_course_dates` and `invalid_kind` have plain wording; the taken check compares London days; the unreachable branch has its own reason; the help line says the base price is the early-bird price.
 - Mutant tests added: summer instant, `<= now` boundary, preset buttons disabled while busy.
 
+## Second pass (dt_89b247fc7a6e)
+- A parallel worker had already pushed the review fixes (cdbdb47); this pass dropped its duplicate source edits and checked the result instead.
+- Mutants run by hand on cdbdb47: `<= now` -> `< now` and removing `disabled={busy}` on preset buttons were killed; `londonInputToIso(at)` -> `at+":00Z"` SURVIVED. Added BST-summer tests (preset at 23:00Z the day before, `now` boundary, sales-window boundary instants, same-London-day taken, reasons) to the model test; the mutant now fails 3 tests.
+- Walk spec re-run at 390x844 and 360x640 (four flags on, serial): 6 pass.
+- tsc run on this commit's parent plus the test change: 0 errors. `npm run check:mojibake` clean.
+- Not verified: no real write against prod; the base-price line is merged into PRESETS_HELP by the other worker.
+
 ## Left / next steps
 - Owner Approve; turn the flag on a preview and walk it on a phone with a real course. Prod has no course type to survey beyond the schema.
 - Decide whether presets should also suggest a price (today the organiser enters it).

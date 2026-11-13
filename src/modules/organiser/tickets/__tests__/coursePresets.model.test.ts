@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { londonInputToIso, buildUpsert, formOf, type TypeForm } from '../ticketModel';
+import { londonInputToIso, reasonMessage, buildUpsert, formOf, type TypeForm } from '../ticketModel';
 import { upsertPayload } from '../ticketsApi';
 import { PRESET_AFTER_SALES, PRESET_BEFORE_SALES, PRESETS_FREE, PRESETS_FULL, PRESET_PAST, PRESET_TAKEN, courseErrors, coursePresets, parseCourseDates, presetForm, shiftDay } from '../coursePresets';
 
@@ -85,5 +85,38 @@ describe('course create', () => {
   it('shiftDay and parse', () => {
     expect(shiftDay('2027-03-01', -28)).toBe('2027-02-01');
     expect(parseCourseDates({ kind: 'course', valid_from: '2027-03-01', valid_to: null })).toEqual({ kind: 'course', validFrom: '2027-03-01', validTo: null });
+  });
+});
+
+describe('T5 follow-up: BST instants, window boundaries, London day', () => {
+  // 2027-07-12 start: 4 weeks before is 14 Jun 00:00 BST = 13 Jun 23:00Z (a +":00Z" read would be an hour late).
+  const summer = (o: Partial<Parameters<typeof coursePresets>[0]> = {}) =>
+    coursePresets({ kind: 'course', validFrom: '2027-07-12', basePricePence: 6000, steps: [], now: new Date('2027-01-01T00:00:00Z'), ...o })!;
+  it('a preset exactly at now is past (<= now), one second later is not', () => {
+    expect(summer({ now: new Date('2027-06-13T23:00:00Z') }).offered.map((p) => p.id)).toEqual(['weeks-2', 'weeks-1']);
+    expect(summer({ now: new Date('2027-06-13T22:59:59Z') }).offered.map((p) => p.id)).toEqual(['weeks-4', 'weeks-2', 'weeks-1']);
+  });
+  it('BST midnight is 23:00Z the day before: 30 minutes into that London day it has passed', () => {
+    const v = summer({ now: new Date('2027-06-13T23:30:00Z') });
+    expect(v.offered.map((p) => p.id)).toEqual(['weeks-2', 'weeks-1']);
+    expect(v.skipped[0].id).toBe('weeks-4');
+  });
+  it('sales window: before open and after close are skipped with a reason; the boundary instant is kept', () => {
+    const open = summer({ salesOpenAt: '2027-06-13T23:00:00Z' });
+    expect(open.offered).toHaveLength(3);
+    const late = summer({ salesOpenAt: '2027-06-13T23:00:01Z' });
+    expect(late.skipped.map((s) => [s.id, s.why])).toEqual([['weeks-4', PRESET_BEFORE_SALES]]);
+    const closed = summer({ salesCloseAt: '2027-06-27T22:59:59Z' });
+    expect(closed.skipped.map((s) => [s.id, s.why])).toEqual([['weeks-2', PRESET_AFTER_SALES], ['weeks-1', PRESET_AFTER_SALES]]);
+    expect(summer({ salesCloseAt: '2027-06-27T23:00:00Z' }).skipped.map((s) => s.id)).toEqual(['weeks-1']);
+  });
+  it('a step on the same London day at another hour still counts as taken', () => {
+    const v = summer({ steps: [{ effectiveFrom: '2027-06-14T10:00:00Z' }] });
+    expect(v.skipped.map((s) => [s.id, s.why])).toEqual([['weeks-4', PRESET_TAKEN]]);
+  });
+  it('server reasons for course dates and kind have plain words', () => {
+    for (const r of ['invalid_course_dates', 'invalid_kind']) {
+      expect(reasonMessage(r)).not.toBe(reasonMessage('nope'));
+    }
   });
 });
