@@ -86,6 +86,10 @@ export const flags = {
   // /event/:id and the /tickets/thanks return page. OFF = no block, no route. Turn on with
   // VITE_ENABLE_PUBLIC_TICKETING=true (Vercel env) -- no code change.
   publicTicketing:     import.meta.env.VITE_ENABLE_PUBLIC_TICKETING === 'true',
+  // T4 buyer price steps: read ticket_types_public_v3, post the basket body with expected prices
+  // (edge v5 path), "Price rises on <date>" on the card, price_changed confirm. OFF = the old body
+  // and the v2 read, exactly as before. Turn on with VITE_ENABLE_TICKET_PRICE_STEPS=true.
+  ticketPriceSteps:    import.meta.env.VITE_ENABLE_TICKET_PRICE_STEPS === 'true',
 } as const;
 
 // Section value submitted to submit_listing_request_v1 — must match the
