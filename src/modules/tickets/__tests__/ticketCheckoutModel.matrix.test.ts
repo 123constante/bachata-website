@@ -113,7 +113,7 @@ describe('preview checkout origin (walk alias, preview builds only)', () => {
 });
 
 describe('money (GBP only, Q10)', () => {
-  it.each([[0, 'Free'], [50, '\u00a30.50'], [1200, '\u00a312'], [1250, '\u00a312.50']])('%s -> %s', (p, s) => expect(formatPence(p)).toBe(s));
+  it.each([[0, 'Free'], [50, '\u00a30.50'], [1200, '\u00a312'], [1250, '\u00a312.50'], [-1200, '-\u00a312'], [-1250, '-\u00a312.50'], [-50, '-\u00a30.50']])('%s -> %s', (p, s) => expect(formatPence(p)).toBe(s));
   it('drops non-GBP rows and unknown statuses', () => {
     const rows = parsePublicTypes([
       { id: 'a', name: 'A', price_pence: 100, currency: 'gbp', status: 'on_sale', remaining: 3 },

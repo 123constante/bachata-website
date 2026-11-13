@@ -97,7 +97,8 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
 export function formatPence(pence: number): string {
   if (pence === 0) return 'Free';
   const digits = pence % 100 === 0 ? 0 : 2;
-  return `\u00a3${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+  const sign = pence < 0 ? '-' : '';
+  return `${sign}\u00a3${(Math.abs(pence) / 100).toLocaleString('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 }
 
 /** "50p" under a pound, else as formatPence: how the fee line and the terms name the fee. */
