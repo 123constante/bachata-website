@@ -21,3 +21,6 @@ Going: one string only on this screen, `goingCountLine` (ticketModel.ts:99) rend
 - 390x844 browser walk and screenshots (not done).
 - Pre-existing red: `check:no-social-word` on src/modules/tickets/__tests__/priceSteps.matrix.test.tsx:32 (not touched here).
 - tsc: 145 errors repo-wide, none in the files changed here.
+
+- tsc run on 75763a8: 0 errors in branch files.
+- PR: #1632
