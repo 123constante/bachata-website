@@ -49,6 +49,9 @@ export interface PublicTicketType {
   validTo?: string | null;
   /** A per-night type read with NO night (v2 remaining NULL): not buyable until a night is chosen. */
   needsNight?: boolean;
+  /* v3 (T4) columns: the first future price step, both null when none. Only set when the row carries them. */
+  nextPricePence?: number | null;
+  nextPriceAt?: string | null;
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
@@ -79,6 +82,13 @@ export function parsePublicTypes(data: unknown): PublicTicketType[] {
       validTo: str(r.valid_to),
       // v2 answers remaining NULL for a per-night type when no night was asked for.
       needsNight: 'remaining' in r && r.remaining === null && status === 'on_sale',
+      // v3 only: v2 rows carry neither key, so their parsed shape is unchanged.
+      ...('next_price_pence' in r || 'next_price_at' in r
+        ? {
+            nextPricePence: typeof r.next_price_pence === 'number' && Number.isInteger(r.next_price_pence) && r.next_price_pence >= 0 ? r.next_price_pence : null,
+            nextPriceAt: str(r.next_price_at),
+          }
+        : {}),
     });
   }
   return out;
@@ -275,7 +285,7 @@ export function buildCheckoutBody(
 export type CheckoutResult =
   | { kind: 'redirect'; orderId: string; url: string }
   | { kind: 'free'; orderId: string }
-  | { kind: 'error'; reason: string; message: string | null };
+  | { kind: 'error'; reason: string; message: string | null; raw?: unknown };
 
 export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutResult {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
@@ -286,7 +296,8 @@ export function parseCheckoutReply(body: unknown, httpStatus: number): CheckoutR
   const reason =
     str(b.reason) ??
     (httpStatus === 404 || httpStatus === 503 ? 'not_configured' : httpStatus === 401 ? 'unauthorised' : 'internal_error');
-  return { kind: 'error', reason, message: str(b.message) };
+  // price_changed (T4) carries new prices; the reply rides along for priceSteps.parsePriceChanged.
+  return reason === 'price_changed' ? { kind: 'error', reason, message: str(b.message), raw: body } : { kind: 'error', reason, message: str(b.message) };
 }
 
 export type WayForward = 'retry' | 'pick_another' | 'pick_night' | 'contact_organiser' | 'fix_form';

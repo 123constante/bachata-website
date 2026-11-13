@@ -51,7 +51,7 @@ describe.each([
         expect(note.includes('refunded')).toBe(refunded > 0);
         expect(note.includes('disputed')).toBe(disputed > 0);
         // Sales tile is still gross (charged before fee), not gross + discounts.
-        expect(screen.getByTestId('tix-money-gross').textContent).toBe('Sales£30.00');
+        expect(screen.getByTestId('tix-money-gross').textContent).toBe('Sales£30');
         // the note points at no control
         expect(screen.queryAllByRole('button')).toHaveLength(0);
         expect(screen.queryAllByRole('link')).toHaveLength(0);

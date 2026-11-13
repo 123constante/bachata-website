@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { P3_PATHS } from '../shell/paths';
 import { Sheet } from '../screens/Sheet';
+import { GuestListRow } from '../guestlist/GuestListSheet';
 import { STATUS_WORD, type EventsModel, type Filter, type Night, type NeedsEntry } from './eventsModel';
 import { RaffleRow } from './raffle/RaffleParts';
 
@@ -125,14 +126,15 @@ export function EventsView({ model, pageId, query, filter, onQuery, onFilter, on
 }
 
 /** The sheet for one night: Open, Cancel (reason when off), Delete draft (drafts only), and the one honest "not built" row. */
-export function NightSheet({ night, onClose, onCancel, onDelete, onRaffle, openTo }: {
-  night: Night; onClose: () => void; onCancel: () => void; onDelete: () => void; onRaffle?: () => void; openTo: string;
+export function NightSheet({ night, onClose, onCancel, onDelete, onGuestList, onRaffle, openTo }: {
+  night: Night; onClose: () => void; onCancel: () => void; onDelete: () => void; onGuestList?: () => void; onRaffle?: () => void; openTo: string;
 }) {
   const cancelWhy = useId();
   const dupWhy = useId();
   return (
     <Sheet title={`${night.name}, ${night.dayLabel}`} onClose={onClose}>
       <p className="p3-note" data-testid="ev-sheet-status"><StatusTag status={night.status} /> {night.sub}</p>
+      {onGuestList && <GuestListRow night={night} onOpen={onGuestList} />}
       <div className="p3-stack-s">
         {onRaffle && <RaffleRow night={night} onOpen={onRaffle} />}
         <Link className="p3-btn p3-btn-link" style={TAP} to={openTo} data-testid="ev-open">{night.canEdit ? 'Open and edit' : 'Open'}</Link>

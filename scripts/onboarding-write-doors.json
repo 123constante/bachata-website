@@ -41,6 +41,34 @@
   },
   "not_event_writes": [
     {
+      "name": "organiser_guest_list_set_night_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_guest_list_add_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_guest_list_remove_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_guest_list_restore_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "organiser_undo_check_in_guest_v1",
+      "reason": "Guest list on one night (admin #1577); names and door check-in, not an event edit. Gated by team role inside the RPC."
+    },
+    {
+      "name": "ticket_price_step_set_v1",
+      "reason": "T3 ticket price step add/move (admin #1436). A ticket write, not an event edit; it calls _require_onboarding_complete_v1 itself, but the live guard does not count it (gated=10 on 2026-11-12), so it is not listed in gated."
+    },
+    {
+      "name": "ticket_price_step_remove_v1",
+      "reason": "T3 ticket price step remove (admin #1436). Same as ticket_price_step_set_v1."
+    },
+    {
       "name": "set_ambassador_link_active_v1",
       "reason": "Ambassador shared join link on/off switch; not an event write."
     },

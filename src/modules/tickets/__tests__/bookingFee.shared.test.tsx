@@ -37,7 +37,7 @@ describe('one booking-fee constant', () => {
     expect(TERMS_OF_SALE.join(' ')).not.toMatch(/50p/);
   });
   it('organiser preview uses the same fee', () => {
-    expect(buyerTotal(1000)).toMatchObject({ feePence: 75, totalPence: 1075, line: '£10.00 ticket + 75p booking fee' });
+    expect(buyerTotal(1000)).toMatchObject({ feePence: 75, totalPence: 1075, line: '£10 ticket + 75p booking fee' });
   });
   it('organiser rules line names the same fee', () => {
     expect(buyerRulesLine()).toBe('Buyers pay a 75p booking fee per paid ticket, up to 20 tickets an order.');

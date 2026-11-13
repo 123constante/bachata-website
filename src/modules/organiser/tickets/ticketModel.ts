@@ -1,5 +1,6 @@
 import { instantToLondonWallClockStamp, londonWallClockToInstant } from '@/lib/londonDate';
 import { BOOKING_FEE_PENCE } from '@/lib/ticketBookingFee';
+import { organiserTotalText } from '../../going/goingCopy';
 import { MONTH_NAMES } from '../shared/dateWords';
 import type { StatusTone } from '../ui/StatusTag';
 
@@ -100,9 +101,8 @@ export function goingCountLine(nights: readonly GoingNightCount[] | null, types:
   if (!nights || types.some((t) => t.pricePence > 0)) return null;
   const { going, nights: n } = goingTotal(nights);
   if (going === 0) return null;
-  const who = going === 1 ? '1 person is' : `${going} people are`;
-  const when = n === 1 ? 'the next date' : `the next ${n} dates`;
-  return `Going: ${who} going to ${when}. Free event: no money is taken here.`;
+  // The ONE Going wording (goingCopy): taps across nights, never "people".
+  return `${organiserTotalText({ going_total: going, nights: n }).text}. Free event: no money is taken here.`;
 }
 
 /** The host of a ticket link, for the line (never the whole URL with its tracking). */
@@ -243,9 +243,12 @@ export { BOOKING_FEE_PENCE };
 export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
 
-/** "\u00A3240,170.00": the ONE money format on every screen (thousands separators, two decimals). */
-export const formatPence = (pence: number): string =>
-  `${POUND}${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** "\u00A3240,170" or "\u00A312.50": the ONE money format on every screen (thousands separators; whole pounds drop the .00). */
+export const formatPence = (pence: number): string => {
+  // Whole pounds read as whole pounds (12 pounds, never 12.00); only a real part-pound keeps its two digits.
+  const whole = pence % 100 === 0;
+  return `${POUND}${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+};
 /** "2,022": the ONE format for a count shown on a card. */
 export const formatCount = (n: number): string => n.toLocaleString('en-GB');
 export const priceLabel = (pence: number): string => (pence === 0 ? 'Free' : formatPence(pence));
@@ -451,6 +454,11 @@ export interface TypeForm {
   capacity: string;
   opensAt: string;
   closesAt: string;
+  /** T5 (flag ticketCoursePresets): a NEW ticket may be a course; absent = a per-night ticket, exactly as before. */
+  kind?: 'night' | 'course';
+  /** 'YYYY-MM-DD' (valid_from / valid_to are dates). */
+  validFrom?: string;
+  validTo?: string;
 }
 
 /** A series as the Tickets sheet knows it: how many upcoming dates, and the next one's start. */
@@ -527,6 +535,10 @@ export interface UpsertDraft {
   capacity: number;
   salesOpenAt: string | null;
   salesCloseAt: string | null;
+  /** Only a NEW course carries these (an edit sends no kind keys: the server keeps the type's kind and dates). */
+  kind?: 'course';
+  validFrom?: string;
+  validTo?: string;
 }
 
 /**
@@ -550,7 +562,10 @@ export const buildUpsert = (
     salesOpenAt: londonInputToIso(f.opensAt),
     salesCloseAt: londonInputToIso(f.closesAt),
   };
-  if (!original) return draft;
+  if (!original) {
+    if (f.kind === 'course') return { ...draft, kind: 'course', validFrom: f.validFrom, validTo: f.validTo };
+    return draft;
+  }
   const same =
     draft.name === original.name &&
     draft.pricePence === original.pricePence &&
@@ -720,6 +735,16 @@ export const ORDER_TAG: Record<string, { label: string; tone: StatusTone }> = {
 };
 export const orderTag = (status: string) => ORDER_TAG[status] ?? { label: status, tone: 'neutral' as StatusTone };
 
+/** A paid order with some, not all, of its money given back. */
+export const isPartRefunded = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean =>
+  o.status === 'paid' && o.refundedPence > 0 && o.refundedPence < o.totalPence;
+/** The ONE tag mapping for an order row: a part-refunded paid order says so instead of plain "Paid". */
+export const orderTagFor = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>) =>
+  isPartRefunded(o) ? { label: 'Part refunded', tone: 'neutral' as StatusTone } : orderTag(o.status);
+/** The note under a part-refunded row (owner only: a counts-only read carries no amounts). null = none. */
+export const partRefundedNote = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): string | null =>
+  isPartRefunded(o) ? `${formatPence(o.refundedPence)} of ${formatPence(o.totalPence)} has been refunded. The tickets still work.` : null;
+
 // ---- Server refusals -----------------------------------------------------------------
 
 const REASON: Record<string, string> = {
@@ -729,6 +754,8 @@ const REASON: Record<string, string> = {
   not_found: 'This ticket is not there any more. Reload the page.',
   invalid_payload: 'Something in the form is not right. Check it and try again.',
   invalid_name: 'Give the ticket a name under 200 characters.',
+  invalid_course_dates: 'Check the course dates: it needs a start day, and it cannot end before it starts.',
+  invalid_kind: 'This kind of ticket is not available. Pick Each night or A course.',
   invalid_price: 'Enter a price from 0 to 10,000 pounds.',
   invalid_capacity: 'Enter how many tickets, from 1 to 100,000.',
   invalid_sales_window: 'Sales must close after they open.',
@@ -946,7 +973,7 @@ export const orderLineFor = (
 export const EDITOR_STEPS = 3;
 /** The fields each step owns; Continue checks only these. */
 export const STEP_FIELDS: Record<1 | 2, readonly (keyof TypeForm)[]> = {
-  1: ['name', 'price'],
+  1: ['name', 'price', 'validFrom', 'validTo'],
   2: ['capacity', 'opensAt', 'closesAt'],
 };
 export const stepErrors = (errors: FormErrors, step: 1 | 2): FormErrors =>
