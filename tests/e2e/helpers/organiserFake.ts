@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, type Page, type Route } from '@playwright/test';
 import { deriveCategories, storedCategory } from '../../../src/lib/eventCategory';
 
@@ -22,6 +23,23 @@ export const projectRefFromUrl = (url: string | undefined): string | null => {
   }
 };
 export const projectRef = projectRefFromUrl(process.env.VITE_SUPABASE_URL) ?? 'stsdtacfauprzrdebmzg';
+
+// Tripwire: the dev server ALSO reads VITE_SUPABASE_URL from .env, which this process does not. If the env is
+// unset here but .env names another project (a placeholder like https://your-project.supabase.co on a test host),
+// the server keys the session differently and every signed-in spec dies on the sign-in wall after a 45 s timeout.
+// Fail at import with the cause instead.
+if (!process.env.VITE_SUPABASE_URL) {
+  let envUrl: string | undefined;
+  try {
+    envUrl = /^VITE_SUPABASE_URL=["']?([^"'\s#]+)/m.exec(readFileSync('.env', 'utf8'))?.[1];
+  } catch {
+    envUrl = undefined;
+  }
+  const envRef = projectRefFromUrl(envUrl);
+  if (envRef && envRef !== projectRef) {
+    throw new Error(`Session key mismatch: .env VITE_SUPABASE_URL ref "${envRef}" differs from the fake's "${projectRef}". Set VITE_SUPABASE_URL=https://${projectRef}.supabase.co in the env of this run (or fix .env on this host).`);
+  }
+}
 export const ME = '11111111-1111-4111-8111-111111111111';
 export const EMAIL = 'diego@ritmo.example';
 /** Thursday 8 Oct 2026, noon in London. */
