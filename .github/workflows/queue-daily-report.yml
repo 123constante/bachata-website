@@ -1,0 +1,34 @@
+name: Queue daily report
+
+# No LLM. Daily comment on the "Queue daily report" issue (scripts/queue-daily-report.mjs).
+# Warn-only over budget (docs/queue.md); never stops the queue. INERT unless QUEUE_ENABLED == 'true'.
+
+on:
+  schedule:
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  report:
+    if: vars.QUEUE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Self-test
+        run: node scripts/queue-daily-report.mjs --self-test
+      - name: Post the report
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PR_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/queue-daily-report.mjs

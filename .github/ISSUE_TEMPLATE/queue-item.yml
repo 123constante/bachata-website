@@ -1,0 +1,32 @@
+name: Queue item
+description: Work for the cloud queue worker (docs/queue.md)
+labels: ["queue"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One paragraph. What should be true when this is done? Add a line `Related: #n` (max 3) to batch related issues.
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: Paths the worker should touch or start from.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance check
+      description: A command or observable result that proves it is done.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What the worker must not touch.
+    validations:
+      required: true
