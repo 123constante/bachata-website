@@ -8,6 +8,7 @@ import {
   STEPS_ORDERS_NOTE,
   STEPS_TITLE,
   STEP_LIVE_NOTE,
+  STEP_REMOVE_LIVE,
   addBlock,
   ambiguousNote,
   appliesLine,
@@ -57,6 +58,8 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const alive = useRef(true);
+  // In-flight guard read synchronously: two taps before a re-render must not send two commands (review r1).
+  const inFlight = useRef(false);
   useEffect(() => () => { alive.current = false; }, []);
 
   const head = <h4 className="p3-field" style={{ marginTop: 12 }}>{STEPS_TITLE}</h4>;
@@ -87,7 +90,7 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
   const setForm = (p: Partial<StepForm>) => editing && setEditing({ ...editing, form: { ...editing.form, ...p } });
 
   const save = async () => {
-    if (!editing || busy) return;
+    if (!editing || inFlight.current) return;
     const errs = validateStep(editing.form);
     setErrors(errs);
     setServerError(null);
@@ -98,13 +101,16 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
       setNote('Nothing changed, so nothing was saved.');
       return;
     }
+    inFlight.current = true;
     setBusy(true);
     try {
       const out = await setPriceStep(cmd);
       if (!alive.current) return;
       if (!out.ok) {
-        // The draft stays open (reserve_not_ready included): nothing typed is lost.
+        // The draft stays open (reserve_not_ready included): nothing typed is lost. The list is re-read
+        // (a step may have gone live, or another manager added one).
         setServerError(stepReasonMessage(out.reason));
+        void refetch();
         return;
       }
       setEditing(null);
@@ -113,19 +119,23 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
     } catch (e) {
       fail(e);
     } finally {
+      inFlight.current = false;
       if (alive.current) setBusy(false);
     }
   };
 
   const remove = async (step: PriceStep) => {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setServerError(null);
     try {
       const out = await removePriceStep(step.id);
       if (!alive.current) return;
       if (!out.ok) {
-        setServerError(stepReasonMessage(out.reason));
+        setServerError(out.reason === 'step_in_past' ? STEP_REMOVE_LIVE : stepReasonMessage(out.reason));
+        setRemoving(null);
+        void refetch();
         return;
       }
       setRemoving(null);
@@ -134,6 +144,7 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
     } catch (e) {
       fail(e);
     } finally {
+      inFlight.current = false;
       if (alive.current) setBusy(false);
     }
   };
@@ -157,7 +168,7 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
       />
       {errors.at && <p className="p3-note p3-danger-t" data-testid="tix-step-at-err">{errors.at}</p>}
       <p id={`${id}-at-help`} className="p3-note" data-testid="tix-step-at-help">
-        {!errors.at && isAmbiguousTime(f.at) ? ambiguousNote(f.at) : 'The new price starts at this date and time.'}
+        {!errors.at && isAmbiguousTime(f.at) && f.at !== (editing?.step ? stepFormOf(editing.step).at : '') ? ambiguousNote(f.at) : 'The new price starts at this date and time.'}
       </p>
       <label className="p3-field" htmlFor={`${id}-price`}>New price (&pound;)</label>
       <input

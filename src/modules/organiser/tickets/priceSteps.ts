@@ -70,6 +70,7 @@ export const RESERVE_NOT_READY_TEXT = 'Price changes open once the new checkout 
 export const FREE_WITH_STEPS = 'Remove the price changes first; a ticket with price changes cannot be free.';
 export const TIME_DOES_NOT_EXIST = 'This time does not exist in the UK, the clocks go forward. Pick another time.';
 export const STEP_LIVE_NOTE = 'This price is in use now, so it cannot be moved or removed.';
+export const STEP_REMOVE_LIVE = 'This price change has already started, so it cannot be removed.';
 export const STEPS_UNSAVED = 'Save this ticket first, then add price changes.';
 
 const STEP_REASON: Record<string, string> = {
@@ -80,7 +81,7 @@ const STEP_REASON: Record<string, string> = {
   step_in_past: 'That time has passed, or this price change has already started. Pick a later time.',
   out_of_order: 'Another price change starts at that exact time. Pick a different time.',
   same_price: 'The price is already that at that time. Pick a different price.',
-  invalid_price: 'Enter a price from £0.01 to £10,000.',
+  invalid_price: 'Enter a price from \u00a30.01 to \u00a310,000.',
   invalid_payload: 'Pick a date and time and enter a price.',
   not_found: 'This ticket or price change is no longer there. Reload the page.',
   has_price_steps: FREE_WITH_STEPS,
@@ -162,7 +163,9 @@ export interface StepCommand {
  * A form with errors is the caller's to stop (validateStep) before this is asked.
  */
 export const buildStepCommand = (typeId: string, f: StepForm, original: PriceStep | null): StepCommand | null => {
-  const iso = londonInputToIso(f.at);
+  // An untouched time keeps the stored instant: an autumn 01:30 stored at the BST copy must not move to GMT (review r1).
+  const sameAt = !!original && f.at === isoToLondonInput(original.effectiveFrom);
+  const iso = sameAt && original ? new Date(original.effectiveFrom).toISOString() : londonInputToIso(f.at);
   const pence = penceOf(f.price);
   if (!iso || pence === null) return null;
   if (original && new Date(original.effectiveFrom).getTime() === new Date(iso).getTime() && original.pricePence === pence) return null;

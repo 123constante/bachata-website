@@ -11,6 +11,7 @@ import {
   STEPS_FULL,
   STEPS_ORDERS_NOTE,
   STEP_LIVE_NOTE,
+  STEP_REMOVE_LIVE,
   TIME_DOES_NOT_EXIST,
   appliesLine,
   type ManagedType,
@@ -90,15 +91,15 @@ describe('what the block shows, per shape', () => {
     ['1 step (rise): the exact applies line', [row('t-sell', 1200, [S1])], (s) => {
       const r = within(s).getAllByTestId('tix-step-row');
       expect(r).toHaveLength(1);
-      expect(r[0].textContent).toContain('Rises to £15.00');
+      expect(r[0].textContent).toContain('Rises to \u00a315.00');
       expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe(appliesLine(S1.effectiveFrom));
       expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe('This new price applies to every night of this ticket from Sunday, 10 January 2027, 19:00 GMT.');
     }],
     ['3 steps: rise, drop, rise; Add disabled with its reason', [row('t-sell', 1200, [S1, S2, S3])], (s) => {
       const r = within(s).getAllByTestId('tix-step-row').map((x) => x.textContent ?? '');
-      expect(r[0]).toContain('Rises to £15.00');
-      expect(r[1]).toContain('Drops to £10.00');
-      expect(r[2]).toContain('Rises to £18.00');
+      expect(r[0]).toContain('Rises to \u00a315.00');
+      expect(r[1]).toContain('Drops to \u00a310.00');
+      expect(r[2]).toContain('Rises to \u00a318.00');
       expect(r[2]).toContain('Tuesday, 1 June 2027, 19:00 BST');
       const add = within(s).getByTestId('tix-step-add') as HTMLButtonElement;
       expect(add.disabled).toBe(true);
@@ -203,6 +204,38 @@ describe('writes: exact arguments', () => {
     fireEvent.click(screen.getByTestId('tix-step-save'));
     expect(screen.getByTestId('tix-step-note').textContent).toBe('Nothing changed, so nothing was saved.');
     expect(api.setPriceStep).not.toHaveBeenCalled();
+  });
+
+  it('untouched move of a step stored at the BST copy of an autumn 01:30 sends nothing (review r1)', async () => {
+    managed = [row('t-sell', 1200, [step('sa', '2027-10-31T00:30:00.000Z', 1500)])];
+    await editor('t-sell');
+    fireEvent.click(within(await steps()).getByTestId('tix-step-move'));
+    expect(screen.getByTestId('tix-step-at-help').textContent).not.toContain('GMT');
+    fireEvent.click(screen.getByTestId('tix-step-save'));
+    expect(screen.getByTestId('tix-step-note').textContent).toBe('Nothing changed, so nothing was saved.');
+    expect(api.setPriceStep).not.toHaveBeenCalled();
+  });
+
+  it('a double tap on Add sends one command (review r1)', async () => {
+    managed = [row('t-sell', 1200, [])];
+    api.setPriceStep.mockReturnValue(new Promise(() => {}));
+    await editor('t-sell');
+    fireEvent.click(within(await steps()).getByTestId('tix-step-add'));
+    fill('2027-01-10T19:00', '15');
+    const save = screen.getByTestId('tix-step-save');
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(api.setPriceStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('remove refused step_in_past (went live meanwhile): says so and re-reads', async () => {
+    managed = [row('t-sell', 1200, [S1])];
+    api.removePriceStep.mockResolvedValue({ ok: false, reason: 'step_in_past' });
+    await editor('t-sell');
+    fireEvent.click(within(await steps()).getByTestId('tix-step-remove'));
+    fireEvent.click(screen.getByTestId('tix-step-remove-yes'));
+    expect((await screen.findByTestId('tix-step-error')).textContent).toBe(STEP_REMOVE_LIVE);
+    await waitFor(() => expect(api.fetchManagedTypes).toHaveBeenCalledTimes(2));
   });
 
   it('remove asks first, then sends the step id', async () => {
