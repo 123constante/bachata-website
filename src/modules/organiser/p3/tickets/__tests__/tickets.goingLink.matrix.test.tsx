@@ -85,8 +85,8 @@ describe.each(ROLES)('Tickets Going and external link, %s', (role) => {
 
 describe('Going and link lines (model)', () => {
   it('counts only nights that still happen', () => {
-    expect(goingCountLine(NIGHTS_7, [])).toBe('Going: 7 people are going to the next 2 dates. Free event: no money is taken here.');
-    expect(goingCountLine([{ is_cancelled: false, going_count: 1 }], [])).toBe('Going: 1 person is going to the next date. Free event: no money is taken here.');
+    expect(goingCountLine(NIGHTS_7, [])).toBe('7 going across 2 nights. Free event: no money is taken here.');
+    expect(goingCountLine([{ is_cancelled: false, going_count: 1 }], [])).toBe('1 going across 1 night. Free event: no money is taken here.');
     expect(goingCountLine([{ is_cancelled: true, going_count: 5 }], [])).toBeNull();
   });
   it('names the link host, never the whole URL', () => {

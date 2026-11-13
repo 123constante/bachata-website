@@ -1,5 +1,6 @@
 import { instantToLondonWallClockStamp, londonWallClockToInstant } from '@/lib/londonDate';
 import { BOOKING_FEE_PENCE } from '@/lib/ticketBookingFee';
+import { organiserTotalText } from '../../going/goingCopy';
 import { MONTH_NAMES } from '../shared/dateWords';
 import type { StatusTone } from '../ui/StatusTag';
 
@@ -100,9 +101,8 @@ export function goingCountLine(nights: readonly GoingNightCount[] | null, types:
   if (!nights || types.some((t) => t.pricePence > 0)) return null;
   const { going, nights: n } = goingTotal(nights);
   if (going === 0) return null;
-  const who = going === 1 ? '1 person is' : `${going} people are`;
-  const when = n === 1 ? 'the next date' : `the next ${n} dates`;
-  return `Going: ${who} going to ${when}. Free event: no money is taken here.`;
+  // The ONE Going wording (goingCopy): taps across nights, never "people".
+  return `${organiserTotalText({ going_total: going, nights: n }).text}. Free event: no money is taken here.`;
 }
 
 /** The host of a ticket link, for the line (never the whole URL with its tracking). */
@@ -244,8 +244,11 @@ export const MAX_PER_ORDER = 20;
 const POUND = '\u00A3';
 
 /** "\u00A3240,170.00": the ONE money format on every screen (thousands separators, two decimals). */
-export const formatPence = (pence: number): string =>
-  `${POUND}${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const formatPence = (pence: number): string => {
+  // Whole pounds read as whole pounds (12 pounds, never 12.00); only a real part-pound keeps its two digits.
+  const whole = pence % 100 === 0;
+  return `${POUND}${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+};
 /** "2,022": the ONE format for a count shown on a card. */
 export const formatCount = (n: number): string => n.toLocaleString('en-GB');
 export const priceLabel = (pence: number): string => (pence === 0 ? 'Free' : formatPence(pence));
@@ -719,6 +722,16 @@ export const ORDER_TAG: Record<string, { label: string; tone: StatusTone }> = {
   disputed: { label: 'Disputed', tone: 'party' },
 };
 export const orderTag = (status: string) => ORDER_TAG[status] ?? { label: status, tone: 'neutral' as StatusTone };
+
+/** A paid order with some, not all, of its money given back. */
+export const isPartRefunded = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): boolean =>
+  o.status === 'paid' && o.refundedPence > 0 && o.refundedPence < o.totalPence;
+/** The ONE tag mapping for an order row: a part-refunded paid order says so instead of plain "Paid". */
+export const orderTagFor = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>) =>
+  isPartRefunded(o) ? { label: 'Part refunded', tone: 'neutral' as StatusTone } : orderTag(o.status);
+/** The note under a part-refunded row (owner only: a counts-only read carries no amounts). null = none. */
+export const partRefundedNote = (o: Pick<Order, 'status' | 'totalPence' | 'refundedPence'>): string | null =>
+  isPartRefunded(o) ? `${formatPence(o.refundedPence)} of ${formatPence(o.totalPence)} has been refunded. The tickets still work.` : null;
 
 // ---- Server refusals -----------------------------------------------------------------
 

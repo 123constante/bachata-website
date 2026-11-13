@@ -91,15 +91,15 @@ describe('what the block shows, per shape', () => {
     ['1 step (rise): the exact applies line', [row('t-sell', 1200, [S1])], (s) => {
       const r = within(s).getAllByTestId('tix-step-row');
       expect(r).toHaveLength(1);
-      expect(r[0].textContent).toContain('Rises to \u00a315.00');
+      expect(r[0].textContent).toContain('Rises to \u00a315');
       expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe(appliesLine(S1.effectiveFrom));
       expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe('This new price applies to every night of this ticket from Sunday, 10 January 2027, 19:00 GMT.');
     }],
     ['3 steps: rise, drop, rise; Add disabled with its reason', [row('t-sell', 1200, [S1, S2, S3])], (s) => {
       const r = within(s).getAllByTestId('tix-step-row').map((x) => x.textContent ?? '');
-      expect(r[0]).toContain('Rises to \u00a315.00');
-      expect(r[1]).toContain('Drops to \u00a310.00');
-      expect(r[2]).toContain('Rises to \u00a318.00');
+      expect(r[0]).toContain('Rises to \u00a315');
+      expect(r[1]).toContain('Drops to \u00a310');
+      expect(r[2]).toContain('Rises to \u00a318');
       expect(r[2]).toContain('Tuesday, 1 June 2027, 19:00 BST');
       const add = within(s).getByTestId('tix-step-add') as HTMLButtonElement;
       expect(add.disabled).toBe(true);
