@@ -390,7 +390,8 @@ describe('approve confirm and reject sheet', () => {
     expect(toast.textContent).toBe('Approved: Bachata Fundamentals Workshop. 1 left.');
     expect(decisions()).toEqual([['admin_approve_entity_v1', { p_target_type: 'series', p_target_id: 's9' }]]);
     await waitFor(() => expect(rows()).toHaveLength(1));
-    expect(screen.getByTestId('queue-count').textContent).toBe('1');
+    // the count tile repaints a tick after the row list under load
+    await waitFor(() => expect(screen.getByTestId('queue-count').textContent).toBe('1'));
   });
 
   it('approving the last item lands on All caught up with "None left."', async () => {

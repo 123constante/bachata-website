@@ -39,6 +39,21 @@ import { P3_TICKET_PATHS } from './paths';
 import { StackSheet } from './StackSheet';
 import { useGatedCopy } from '../onboarding/gate';
 import { GATE_LATE, SELL_HELD } from './gateCopy';
+import { flags } from '@/lib/featureFlags';
+import { FREE_WITH_STEPS, STEPS_UNSAVED } from '../../tickets/priceSteps';
+import { useCourseDates, useManagedTypes } from './data';
+import {
+  COURSE_END_LABEL,
+  COURSE_HELP,
+  COURSE_KIND_LABEL,
+  COURSE_START_LABEL,
+  NIGHT_KIND_LABEL,
+  PRESETS_UNAVAILABLE,
+  PRESETS_UNSAVED,
+  courseErrors,
+  coursePresets,
+} from '../../tickets/coursePresets';
+import { PriceSteps } from './PriceSteps';
 
 /** The switched-off / not-connected reason, with its "where" words as a real tap target to Get paid. */
 export function ReasonText({ text }: { text: string }) {
@@ -125,8 +140,27 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
   const patch = (p: Partial<TypeDraft>) => onDraft({ ...draft, ...p });
   const set = <K extends keyof TypeForm>(k: K, v: TypeForm[K]) => patch({ form: { ...form, [k]: v } });
 
+  // T3: the price steps of this type (flag ticketPriceStepsEditor), read only for an existing type someone can change.
+  const stepsOn = flags.ticketPriceStepsEditor && !!type && !locked;
+  const managed = useManagedTypes(seriesId, stepsOn);
+  const managedRow = type ? managed.data?.types.find((r) => r.id === type.id) : undefined;
+  const hasSteps = !!managedRow?.hasPriceSteps;
+  // T5 (flag ticketCoursePresets): a new ticket may be a course; a saved course offers early-bird presets.
+  const coursesOn = flags.ticketCoursePresets && flags.ticketPriceStepsEditor;
+  const newCourse = coursesOn && !type && form.kind === 'course';
+  const courseRead = useCourseDates(type?.id, coursesOn && stepsOn);
+  // A failed read, or a row this person cannot read, says so (never a silent missing block).
+  const presets = !coursesOn || !stepsOn || !managedRow ? null
+    : courseRead.isError || (courseRead.isSuccess && !courseRead.data) ? { blocked: PRESETS_UNAVAILABLE, offered: [], skipped: [] }
+    : courseRead.data
+      ? coursePresets({ kind: courseRead.data.kind, validFrom: courseRead.data.validFrom, basePricePence: managedRow.basePricePence, steps: managedRow.steps, salesOpenAt: type?.salesOpenAt, salesCloseAt: type?.salesCloseAt })
+      : null;
+
   const allErrors = (): FormErrors => {
     const e = validateForm(form, { hasOrders, reserved: type?.reserved ?? 0 });
+    // s.2b: a ticket with price changes cannot be made free (the server refuses has_price_steps too).
+    if (stepsOn && hasSteps && formPence(form) === 0 && !e.price) e.price = FREE_WITH_STEPS;
+    if (newCourse) Object.assign(e, courseErrors(form));
     if (openMode === 'pick' && !form.opensAt && !e.opensAt) e.opensAt = 'Pick a date and time, or choose Now.';
     if (closeMode === 'pick' && !form.closesAt && !e.closesAt) e.closesAt = 'Pick a date and time, or choose another option.';
     return e;
@@ -164,7 +198,7 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
     try {
       const out = await upsertTicketType(upsert);
       if (!out.ok) {
-        refuse(reasonMessage(out.reason));
+        refuse(out.reason === 'has_price_steps' ? FREE_WITH_STEPS : reasonMessage(out.reason));
         return;
       }
       if (type) return landed('Ticket saved.');
@@ -319,6 +353,26 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
 
         {step === 1 && (
           <>
+            {coursesOn && !type && (
+              <>
+                <p className="p3-field">This ticket is for</p>
+                <div className="p3-chips" role="group" aria-label="This ticket is for">
+                  <button type="button" aria-pressed={!newCourse} data-testid="tix-kind-night" onClick={() => patch({ form: { ...form, kind: 'night', validFrom: '', validTo: '' } })}>{NIGHT_KIND_LABEL}</button>
+                  <button type="button" aria-pressed={newCourse} data-testid="tix-kind-course" onClick={() => patch({ form: { ...form, kind: 'course' } })}>{COURSE_KIND_LABEL}</button>
+                </div>
+                {newCourse && (
+                  <>
+                    <p className="p3-note">{COURSE_HELP}</p>
+                    <label className="p3-field" htmlFor={`${id}-validFrom`}>{COURSE_START_LABEL}</label>
+                    <input id={`${id}-validFrom`} type="date" className="p3-in" value={form.validFrom ?? ''} onChange={(e) => set('validFrom', e.target.value)} aria-invalid={errors.validFrom ? true : undefined} data-testid="tix-form-validFrom" />
+                    {err('validFrom')}
+                    <label className="p3-field" htmlFor={`${id}-validTo`}>{COURSE_END_LABEL}</label>
+                    <input id={`${id}-validTo`} type="date" className="p3-in" value={form.validTo ?? ''} onChange={(e) => set('validTo', e.target.value)} aria-invalid={errors.validTo ? true : undefined} data-testid="tix-form-validTo" />
+                    {err('validTo')}
+                  </>
+                )}
+              </>
+            )}
             <label className="p3-field" htmlFor={`${id}-name`}>Name</label>
             <input {...input('name', { maxLength: 200, autoComplete: 'off', 'data-sheet-autofocus': true })} />
             {err('name')}
@@ -346,6 +400,19 @@ export function TypeSheet({ type, draft, onDraft, organiserId, seriesId, ctx, ha
                 </>
               )}
             </div>
+            {stepsOn && (
+              <PriceSteps
+                seriesId={seriesId}
+                row={managedRow}
+                loading={managed.isPending}
+                failed={managed.isError || (managed.isSuccess && !managed.data.ok)}
+                onRetry={() => void managed.refetch()}
+                hasOrders={hasOrders}
+                presets={presets}
+              />
+            )}
+            {flags.ticketPriceStepsEditor && !type && pence !== null && pence > 0 && <p className="p3-note" data-testid="tix-steps-unsaved">{STEPS_UNSAVED}</p>}
+            {newCourse && pence !== null && pence > 0 && <p className="p3-note" data-testid="tix-presets-unsaved">{PRESETS_UNSAVED}</p>}
           </>
         )}
 

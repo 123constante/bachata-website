@@ -242,9 +242,9 @@ describe('refunds (Q5, Q9)', () => {
   it('the question names the buyer and the amount, and says the booking fee goes back too', () => {
     const q = refundQuestion(order);
     expect(q.title).toBe(`Refund ${buyerFirstAndCode(order)}?`);
-    expect(q.body).toBe('\u00A321.00 goes back, booking fee included. Their 2 tickets stop working and the places reopen. Cannot be undone.');
-    expect(q.confirm).toBe('Refund \u00A321.00');
-    expect(refundQuestion({ ...order, refundedPence: 500 }).confirm).toBe('Refund \u00A316.00');
+    expect(q.body).toBe('\u00A321 goes back, booking fee included. Their 2 tickets stop working and the places reopen. Cannot be undone.');
+    expect(q.confirm).toBe('Refund \u00A321');
+    expect(refundQuestion({ ...order, refundedPence: 500 }).confirm).toBe('Refund \u00A316');
     expect(refundQuestion({ ...order, quantity: 1 }).body).toMatch(/Their ticket stops working and the place reopens/);
     expect(refundQuestion({ ...order, buyerName: null }).title).toBe(`Refund ${buyerFirstAndCode({ ...order, buyerName: null })}?`);
   });
@@ -286,7 +286,7 @@ describe('partial refund amount (refundAmountError)', () => {
     if (want === 'ok') return expect(e).toBeNull();
     expect(e).toBeTruthy();
     // Every refusal names the maximum, so the person knows what to type.
-    expect(e).toContain('\u00A38.00');
+    expect(e).toContain('\u00A38');
     if (want === 'empty') expect(e).toMatch(/^Enter how much/);
     if (want === 'over') expect(e).toMatch(/more than is left/);
     if (want === 'zero') expect(e).toMatch(/more than \u00A30/);
@@ -294,26 +294,26 @@ describe('partial refund amount (refundAmountError)', () => {
   });
   it('the maximum is the remainder on a part-refunded order, the total on an untouched one', () => {
     expect(refundAmountError('25', { totalPence: 2500, refundedPence: 0 })).toBeNull();
-    expect(refundAmountError('25.01', { totalPence: 2500, refundedPence: 0 })).toContain('\u00A325.00');
-    expect(refundAmountError('8.01', left)).toContain('\u00A38.00');
+    expect(refundAmountError('25.01', { totalPence: 2500, refundedPence: 0 })).toContain('\u00A325');
+    expect(refundAmountError('8.01', left)).toContain('\u00A38');
   });
 });
 
 describe('partial refund words', () => {
   it('done: the amount, what is left, tickets stay valid', () => {
-    expect(partialRefundDone(300, 500)).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
-    expect(partialRefundDone(800, 0)).toBe('Refunded \u00A38.00. Nothing is left to refund.');
+    expect(partialRefundDone(300, 500)).toBe('Refunded \u00A33. \u00A35 is left to refund. Tickets stay valid.');
+    expect(partialRefundDone(800, 0)).toBe('Refunded \u00A38. Nothing is left to refund.');
     // The server cleared the balance: no promise about the tickets (the server settles the order).
-    expect(partialRefundDone(800, 0, true)).toBe('Refunded \u00A38.00. Nothing is left to refund.');
+    expect(partialRefundDone(800, 0, true)).toBe('Refunded \u00A38. Nothing is left to refund.');
     // No remainder in the reply: none is guessed from a row the webhook has not updated yet.
-    expect(partialRefundDone(300, null)).toBe('Refunded \u00A33.00. Tickets stay valid.');
+    expect(partialRefundDone(300, null)).toBe('Refunded \u00A33. Tickets stay valid.');
 
   });
   it('the partial question says tickets stay valid and names the maximum', () => {
     const q = refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 300);
-    expect(q.max).toBe('Up to \u00A38.00 left to refund');
+    expect(q.max).toBe('Up to \u00A38 left to refund');
     expect(q.body).toMatch(/stay valid/);
-    expect(q.confirm).toBe('Refund \u00A33.00');
+    expect(q.confirm).toBe('Refund \u00A33');
     expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, null).confirm).toBe('Refund');
     // Exactly what is left: the server decides what happens to the order, so no promise about tickets.
     expect(refundPartQuestion({ totalPence: 2500, refundedPence: 1700 }, 800).body).not.toMatch(/stay valid|stays paid/);

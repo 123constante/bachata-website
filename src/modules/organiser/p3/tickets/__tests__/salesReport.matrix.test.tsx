@@ -93,13 +93,14 @@ describe('SalesReport rendered directly (shapes the list view cannot reach)', ()
     renderReport([order('p1', 't1', { status: 'pending', paidAt: null }), order('p2', 't1', { status: 'expired', paidAt: null })]);
     expect(screen.getByTestId('tix-report-notpaid').textContent).toBe('2 orders not paid, left out.');
   });
-  it('lost dispute: its own Disputed line, not sold, Net 0.00', () => {
+  it('lost dispute: its own Disputed line, not sold, Net £0', () => {
     renderReport([order('d1', 't1', { status: 'disputed', quantity: 1, totalPence: 1200, refundedPence: 0 })]);
     const row = screen.getByTestId('tix-report-row-t1');
     expect(row.querySelector('[data-testid="tix-report-counts"]')?.textContent).toMatch(/^0 sold/);
-    expect(row.querySelector('[data-testid="tix-report-disputed"]')?.textContent).toMatch(/Disputed 1 .*12\.00/);
-    expect(row.querySelector('[data-testid="tix-report-money"]')?.textContent).toMatch(/Net \S*0\.00/);
-    expect(screen.getByTestId('tix-report-total-money').textContent).toMatch(/Net \S*0\.00/);
+    expect(row.querySelector('[data-testid="tix-report-disputed"]')?.textContent).toBe('Disputed 1 ticket \u00B7 \u00A312 not counted in Net');
+    // A lost dispute still shows in Taken (the money came in); Net is what the organiser keeps.
+    expect(row.querySelector('[data-testid="tix-report-money"]')?.textContent).toBe('Taken \u00A312 \u00B7 Refunded \u00A30 \u00B7 Net \u00A30');
+    expect(screen.getByTestId('tix-report-total-money').textContent).toBe('Taken \u00A312 \u00B7 Refunded \u00A30 \u00B7 Net \u00A30');
     expect(screen.queryByTestId('tix-report-notpaid')).toBeNull();
   });
 });

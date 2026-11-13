@@ -39,7 +39,10 @@ const BACKSPACE = String.fromCharCode(0x08);
 const VTAB = String.fromCharCode(0x0b);
 const DEL = String.fromCharCode(0x7f);
 
-const CANARY_DIR = '.integrity-canary';
+// Per-process subdirectory: two vitest processes on one checkout (a gate beside
+// a second run) shared one fixed dir, and one's afterAll rm -rf deleted the
+// other's fixture mid-test (ENOENT). The parent stays gitignored as before.
+const CANARY_DIR = `.integrity-canary/p${process.pid}`;
 mkdirSync(join(REPO_ROOT, CANARY_DIR), { recursive: true });
 afterAll(() => rmSync(join(REPO_ROOT, CANARY_DIR), { recursive: true, force: true }));
 

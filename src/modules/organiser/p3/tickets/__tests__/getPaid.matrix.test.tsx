@@ -171,9 +171,9 @@ describe('Home: the ONE Get paid prompt', () => {
   it('tickets-sold tile only once anything has sold', () => {
     load(SHAPES.selling);
     show(<TicketsSoldTile />, '/account/p3');
-    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold \u00B7 \u00A3328.00');
+    expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold \u00B7 \u00A3328');
     cleanup();
-    // A manager's tile: the count, never an amount (and never a \u00A30.00 from a counts-only summary).
+    // A manager's tile: the count, never an amount (and never a \u00A30 from a counts-only summary).
     load({ ...SHAPES.selling, role: 'manager' });
     show(<TicketsSoldTile />, '/account/p3');
     expect(screen.getByTestId('tix-sold-tile').textContent).toBe('34Tickets sold');

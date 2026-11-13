@@ -1,3 +1,4 @@
+import { parseCourseDates, type CourseDates } from './coursePresets';
 import { supabase } from '@/integrations/supabase/client';
 import {
   asStatus,
@@ -9,6 +10,7 @@ import {
   type TypeSales,
   type UpsertDraft,
 } from './ticketModel';
+import { parseManage, type ManageResult, type StepCommand } from './priceSteps';
 
 /**
  * The ticketing wire (S3). Reads: ticket_sales_summary_v1, and the member-readable
@@ -207,10 +209,44 @@ export const upsertPayload = (d: UpsertDraft): Record<string, unknown> => ({
   capacity: d.capacity,
   sales_open_at: d.salesOpenAt,
   sales_close_at: d.salesCloseAt,
+  ...(d.kind === 'course' ? { kind: 'course', valid_from: d.validFrom, valid_to: d.validTo } : {}),
 });
 
 export async function upsertTicketType(d: UpsertDraft): Promise<WriteResult> {
   const { data, error } = await db().rpc('ticket_type_upsert_v1', { p_payload: upsertPayload(d) });
+  if (error) throw error;
+  return writeResult(data);
+}
+
+// ---- Price steps (T3, flag ticketPriceStepsEditor; admin #1436) --------------------------
+
+/**
+ * ticket_types_manage_v1: base, current price, steps and has_orders for every type of the event the
+ * caller can manage. The editor's form is still seeded from fetchSeriesTypes' base price (R3-7), never
+ * from a sales-summary row.
+ */
+export async function fetchManagedTypes(seriesId: string): Promise<ManageResult> {
+  const { data, error } = await db().rpc('ticket_types_manage_v1', { p_event_series_id: seriesId });
+  if (error) throw error;
+  return parseManage(data);
+}
+
+/** T5: a saved type's kind and course dates (a plain read; ticket_types_manage_v1 carries neither). */
+export async function fetchCourseDates(typeId: string): Promise<CourseDates | null> {
+  const { data, error } = await db().from('ticket_types').select('kind, valid_from, valid_to').eq('id', typeId).maybeSingle();
+  if (error) throw error;
+  return parseCourseDates(data);
+}
+
+/** Add (p_step_id null) or move one step. Refusals come back as { ok: false, reason }. */
+export async function setPriceStep(cmd: StepCommand): Promise<WriteResult> {
+  const { data, error } = await db().rpc('ticket_price_step_set_v1', { ...cmd });
+  if (error) throw error;
+  return writeResult(data);
+}
+
+export async function removePriceStep(stepId: string): Promise<WriteResult> {
+  const { data, error } = await db().rpc('ticket_price_step_remove_v1', { p_step_id: stepId });
   if (error) throw error;
   return writeResult(data);
 }
