@@ -82,6 +82,10 @@ export const flags = {
   // organisation to take over FIRST, then a separate "Now about you" step. OFF = /invite exactly as before.
   // Turn on with VITE_ENABLE_CLAIM_FIRST_INVITE=true (Vercel env) -- no code change.
   claimFirstInvite:    import.meta.env.VITE_ENABLE_CLAIM_FIRST_INVITE === 'true',
+  // Organiser guest list inside each night (admin #1577, NOT applied to prod yet). Needs organiserDash. OFF = the night
+  // sheet shows a Coming soon card and no guest-list RPC is called. Turn on with VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE=true
+  // only after #1577 is applied.
+  organiserGuestListLive: import.meta.env.VITE_ENABLE_ORGANISER_GUEST_LIST_LIVE === 'true',
   organiserTicketing:  import.meta.env.VITE_ENABLE_ORGANISER_TICKETING === 'true',
   // T3 price steps (docs/briefs/ticket-t3-price-steps-editor.md): the "Price changes" block in the
   // ticket editor. Needs organiserTicketing. OFF = the editor is exactly as before.
