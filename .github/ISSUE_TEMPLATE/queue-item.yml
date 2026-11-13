@@ -6,7 +6,7 @@ body:
     id: goal
     attributes:
       label: Goal
-      description: One paragraph. What should be true when this is done? Add a line `Related: #n` (max 3) to batch related issues.
+      description: "One paragraph. What should be true when this is done? Add a line `Related: #n` (max 3) to batch related issues."
     validations:
       required: true
   - type: textarea
