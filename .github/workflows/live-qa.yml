@@ -26,8 +26,12 @@ name: Live QA (daily)
 # not get, and it measures production, not the PR.
 
 on:
-  schedule:
-    - cron: '17 5 * * *'
+  # Daily schedule switched off 2026-11-13 (owner click): red 34 days running,
+  # issue #704 had 33 identical comments and nobody acting on them. Run it by
+  # hand (Actions > Live QA (daily) > Run workflow) or restore the cron below
+  # once the baseline is clean enough that red means something new.
+  #schedule:
+  #  - cron: '17 5 * * *'
   workflow_dispatch:
     inputs:
       base_url:
