@@ -2,5 +2,9 @@
   "e2e-public-on-preview.yml",
   "e2e-smoke.yml",
   "live-qa.yml",
-  "phone-qa.yml"
+  "phone-qa.yml",
+  "queue-daily-report.yml",
+  "queue-merge.yml",
+  "queue-watchdog.yml",
+  "queue-worker.yml"
 ]
