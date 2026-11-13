@@ -117,6 +117,7 @@ export const MANUAL = {
   'tests/e2e/walk-sw1.spec.ts': { reason: PROD_BUILD, run: BUILT('tests/e2e/walk-sw1.spec.ts') },
   'tests/e2e/walk-ticket-s1-pause-add.spec.ts': { reason: `${WALK}; mounts only with P3 + ticketing flags`, run: PW('tests/e2e/walk-ticket-s1-pause-add.spec.ts', P3T) },
   'tests/e2e/walk-ticket-sales-report.spec.ts': { reason: `${WALK}; mounts only with P3 + ticketing flags`, run: PW('tests/e2e/walk-ticket-sales-report.spec.ts', P3T) },
+  'tests/e2e/walk-ticket-t3-price-steps.spec.ts': { reason: `${WALK}; mounts only with P3 + ticketing + price-steps flags`, run: PW('tests/e2e/walk-ticket-t3-price-steps.spec.ts', `WALK_OUT=<dir> ${P3T} VITE_ENABLE_TICKET_PRICE_STEPS_EDITOR=true`) },
 };
 
 /** The `tests/e2e/...spec.ts` tokens a playwright command line names. */

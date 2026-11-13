@@ -173,7 +173,7 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
       {errors.price && <p className="p3-note p3-danger-t" data-testid="tix-step-price-err">{errors.price}</p>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" className="p3-btn p3-btn-sm" style={TAP} disabled={busy} onClick={() => void save()} data-testid="tix-step-save">
-          {busy ? 'Saving…' : editing?.step ? 'Save change' : 'Add price change'}
+          {busy ? 'Saving\u2026' : editing?.step ? 'Save change' : 'Add price change'}
         </button>
         <button type="button" className="p3-btn p3-btn-line p3-btn-sm" style={TAP} disabled={busy} onClick={() => { setEditing(null); setServerError(null); }} data-testid="tix-step-cancel">
           Cancel
@@ -207,7 +207,7 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                           <span className="p3-row-s">Remove this price change?</span>
                           <button type="button" className="p3-btn p3-btn-danger p3-btn-sm" style={TAP} disabled={busy} onClick={() => void remove(s)} data-testid="tix-step-remove-yes">
-                            {busy ? 'Removing…' : 'Remove'}
+                            {busy ? 'Removing\u2026' : 'Remove'}
                           </button>
                           <button type="button" className="p3-btn p3-btn-line p3-btn-sm" style={TAP} disabled={busy} onClick={() => setRemoving(null)}>Keep</button>
                         </div>

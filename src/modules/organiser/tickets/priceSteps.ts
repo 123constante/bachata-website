@@ -94,9 +94,9 @@ export const stepReasonMessage = (reason: string | null | undefined): string =>
 
 const LONDON_LABEL = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/London',
-  weekday: 'short',
+  weekday: 'long',
   day: 'numeric',
-  month: 'short',
+  month: 'long',
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
@@ -104,7 +104,7 @@ const LONDON_LABEL = new Intl.DateTimeFormat('en-GB', {
   timeZoneName: 'short',
 });
 
-/** "Sat 28 Mar 2027, 02:30 BST", always in Europe/London whatever the phone's zone. */
+/** "Sunday, 28 March 2027, 02:30 BST", always in Europe/London whatever the phone's zone. */
 export const londonLabel = (iso: string): string => LONDON_LABEL.format(new Date(iso)).replace(/ at /, ', ');
 
 /** The copy under each step (brief, exact). */

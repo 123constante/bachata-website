@@ -92,14 +92,14 @@ describe('what the block shows, per shape', () => {
       expect(r).toHaveLength(1);
       expect(r[0].textContent).toContain('Rises to £15.00');
       expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe(appliesLine(S1.effectiveFrom));
-      expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe('This new price applies to every night of this ticket from Sun, 10 Jan 2027, 19:00 GMT.');
+      expect(within(r[0]).getByTestId('tix-step-applies').textContent).toBe('This new price applies to every night of this ticket from Sunday, 10 January 2027, 19:00 GMT.');
     }],
     ['3 steps: rise, drop, rise; Add disabled with its reason', [row('t-sell', 1200, [S1, S2, S3])], (s) => {
       const r = within(s).getAllByTestId('tix-step-row').map((x) => x.textContent ?? '');
       expect(r[0]).toContain('Rises to £15.00');
       expect(r[1]).toContain('Drops to £10.00');
       expect(r[2]).toContain('Rises to £18.00');
-      expect(r[2]).toContain('Tue, 1 Jun 2027, 19:00 BST');
+      expect(r[2]).toContain('Tuesday, 1 June 2027, 19:00 BST');
       const add = within(s).getByTestId('tix-step-add') as HTMLButtonElement;
       expect(add.disabled).toBe(true);
       expect(within(s).getByTestId('tix-step-add-why').textContent).toBe(STEPS_FULL);
