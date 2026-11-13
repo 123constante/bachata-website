@@ -18,7 +18,7 @@ export function RaffleSheet({ night, onClose }: { night: Night; onClose: () => v
   if (q.isError || q.data.kind === 'refused') {
     return (
       <Sheet title={title} onClose={onClose}>
-        <p className="p3-note" role="alert" data-testid="raffle-sheet-error">{q.isError ? 'We couldn’t load the raffle. Nothing was changed, and every raffle stays as it was.' : 'Raffles are managed by this page’s team. Ask an owner.'}</p>
+        <p className="p3-note" role="alert" data-testid="raffle-sheet-error">{q.isError ? 'We couldn\u2019t load the raffle. Nothing was changed, and every raffle stays as it was.' : 'Raffles are managed by this page\u2019s team. Ask an owner.'}</p>
         {q.isError && <button type="button" className="p3-btn p3-btn-line" style={TAP} onClick={() => void q.refetch()} data-testid="raffle-sheet-retry">Try again</button>}
       </Sheet>
     );

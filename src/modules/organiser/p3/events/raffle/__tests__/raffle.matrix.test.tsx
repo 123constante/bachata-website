@@ -69,7 +69,7 @@ describe('screen x shape', () => {
     await screen.findByTestId('raffle-facts');
     expect(screen.getByTestId('raffle-fact-winner').textContent).toBe('Ana');
     expect(screen.getByTestId('raffle-fact-entered').textContent).toBe('41 entered');
-    expect(screen.getByTestId('raffle-fact-drawn').textContent).toBe('Sat 14 Nov, 10:30am');
+    expect(screen.getByTestId('raffle-fact-drawn').textContent).toBe('Saturday 14 November, 10:30am');
   });
 
   it('drawn on a pre-snapshot win (entries_at_draw null, wins with no occurrence id) still reads', async () => {
@@ -194,7 +194,7 @@ describe('model', () => {
     expect(closesAt(null)).toBeNull();
   });
   it('drawnLine is London time and null on junk', () => {
-    expect(drawnLine('2026-07-14T10:30:00Z')).toBe('Tue 14 Jul, 11:30am');
+    expect(drawnLine('2026-07-14T10:30:00Z')).toBe('Tuesday 14 July, 11:30am');
     expect(drawnLine('nope')).toBeNull();
   });
   it('unknown chip rows are dropped, not guessed', () => {

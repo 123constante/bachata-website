@@ -28,7 +28,7 @@ export function Track({ step }: { step: number }) {
       {TRACK.map((w, i) => (
         <li key={w} aria-current={i === step ? 'step' : undefined} data-testid="raffle-step" data-state={i < step ? 'done' : i === step ? 'now' : 'next'}
           style={{ flex: 1, textAlign: 'center', padding: '6px 2px', borderRadius: 8, fontWeight: i === step ? 700 : 400, border: '1px solid var(--line)', opacity: i > step ? 0.6 : 1 }}>
-          {i < step ? '✓ ' : ''}{w}
+          {i < step ? '\u2713 ' : ''}{w}
         </li>
       ))}
     </ol>

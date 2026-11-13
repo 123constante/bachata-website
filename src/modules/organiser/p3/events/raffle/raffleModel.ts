@@ -109,10 +109,10 @@ export function stepOf(n: RaffleNight): number {
 export function chipWord(n: RaffleNight): string {
   switch (n.chip) {
     case 'open': return 'Raffle open';
-    case 'locked': return `Raffle locked · ${n.entries}`;
+    case 'locked': return `Raffle locked \u00b7 ${n.entries}`;
     case 'drawn': return 'Winner drawn';
     case 'closed': return 'Raffle off';
-    case 'past': return n.entries > 0 ? `Entries closed · ${n.entries}` : 'No raffle';
+    case 'past': return n.entries > 0 ? `Entries closed \u00b7 ${n.entries}` : 'No raffle';
     case 'cancelled': return 'No raffle';
     default: return 'No raffle';
   }
@@ -128,11 +128,11 @@ export function closesAt(startLocal: string | null): string | null {
   return pm(Math.floor(mins / 60), mins % 60);
 }
 
-/** "Fri 13 Nov, 7pm" in London time; null when the instant is unreadable. */
+/** "Friday 13 November, 7pm" in London time; null when the instant is unreadable. */
 export function drawnLine(iso: string | null): string | null {
   const t = iso ? new Date(iso) : null;
   if (!t || Number.isNaN(t.getTime())) return null;
-  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(t);
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(t);
   const g = (k: string) => p.find((x) => x.type === k)?.value ?? '';
   return `${g('weekday')} ${g('day')} ${g('month')}, ${g('hour')}${g('minute') === '00' ? '' : `:${g('minute')}`}${g('dayPeriod').toLowerCase()}`;
 }
@@ -148,12 +148,12 @@ export function story(n: RaffleNight): Story {
   switch (n.chip) {
     case 'draft': return { title: 'No raffle yet', body: 'Put the night live first. A raffle lives inside a live night.' };
     case 'cancelled': return { title: 'No raffle', body: 'This night is cancelled, so it has no raffle.' };
-    case 'closed': return { title: 'Raffle off', body: 'Dancers see no raffle on this night. Open one and it shows on the night’s event page straight away.' };
+    case 'closed': return { title: 'Raffle off', body: 'Dancers see no raffle on this night. Open one and it shows on the night\u2019s event page straight away.' };
     case 'open': return { title: 'Raffle open', body: `Nobody has entered yet. You can still close it${close ? ` until ${close}` : ''}.` };
     case 'locked': return { title: `${entriesWord(n.entries)}, locked`, body: `Once anyone enters, you cannot close it here. Entries close${close ? ` at ${close}` : ' 2 hours before the start'}. To cancel, message us.` };
     case 'past':
       return n.entries > 0
-        ? { title: `Entries closed · ${n.entries}`, body: 'We draw the winner from our side and tell them. You will see the winner here once they have picked this night.' }
+        ? { title: `Entries closed \u00b7 ${n.entries}`, body: 'We draw the winner from our side and tell them. You will see the winner here once they have picked this night.' }
         : { title: 'No raffle ran', body: 'Nobody entered before it closed, so there is no draw. Nothing to do.' };
     case 'drawn': return { title: 'Winner drawn', body: 'Let them in free on the door.' };
   }
@@ -191,7 +191,7 @@ export function confirmOf(action: 'open' | 'close', n: RaffleNight): Confirm {
     return {
       title: 'Open a raffle for this night?',
       body: [
-        'It shows on this night’s event page straight away.',
+        'It shows on this night\u2019s event page straight away.',
         `Dancers can enter${close ? ` until ${close}, 2 hours before the start` : ' until 2 hours before the start'}.`,
         'Once anyone enters, you cannot close it here. To cancel after that, you message us.',
         'We draw one winner and tell them. You let them in free on the door.',
@@ -201,7 +201,7 @@ export function confirmOf(action: 'open' | 'close', n: RaffleNight): Confirm {
   }
   return {
     title: 'Close the raffle?',
-    body: ['It comes off this night’s event page now.', `Nobody has entered, so nobody is told. You can open it again${close ? ` until ${close}` : ' until entries close'}.`],
+    body: ['It comes off this night\u2019s event page now.', `Nobody has entered, so nobody is told. You can open it again${close ? ` until ${close}` : ' until entries close'}.`],
     go: 'Close the raffle', keep: 'Keep it open', danger: true,
   };
 }
