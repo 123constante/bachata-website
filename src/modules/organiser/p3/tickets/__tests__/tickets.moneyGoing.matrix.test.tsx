@@ -88,6 +88,20 @@ describe('formatPence: one formatter, whole pounds as whole pounds', () => {
   ])('%i -> %s', (p, s) => expect(formatPence(p)).toBe(s));
 });
 
+describe('literal money in the orders card (not just "no .00")', () => {
+  it.each([
+    ['paid', '2 \u00D7 \u00A312.50'],
+    ['huge', '12000 \u00D7 \u00A325'],
+  ] as const)('owner, %s order: the card shows %s', (shape, money) => {
+    open('owner', shape);
+    expect(screen.getByTestId('tix-orders').textContent).toContain(money);
+  });
+  it('owner, part-refunded order: the note carries the literal figures', () => {
+    open('owner', 'partRefunded');
+    expect(screen.getByTestId('tix-order-part-refunded').textContent).toBe('\u00A310.50 of \u00A325 has been refunded. The tickets still work.');
+  });
+});
+
 describe('Going wording comes from goingCopy', () => {
   it.each(ROLES)('%s: free event line is the shared organiser total, never "people"', (role) => {
     load({ ...SHAPES.bare, role } as Shape);
