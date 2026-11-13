@@ -204,7 +204,8 @@ export function TicketsBlock({ seriesId, occurrenceId, organiserId, nights = [],
   // T4: the confirm state holds only for the same ticket, count and code it was priced for.
   const held = priceSteps && confirm && selected && confirm.typeId === selected.id && confirm.quantity === qty && confirm.code === pv.sendCode ? confirm : null;
   // A price_changed whose basket has since changed is spent: the re-read list prices the new choice.
-  const errShown = error && !(error.reason === 'price_changed' && !held) ? error : null;
+  // Flag off (no priceSteps) keeps the old behaviour: the refusal always shows.
+  const errShown = error && !(priceSteps && error.reason === 'price_changed' && !held) ? error : null;
   const err = errShown ? ((priceSteps ? stepReasonCopy(errShown.reason, held) : null) ?? reasonCopy(errShown.reason, errShown.message)) : null;
   const priceChangedOn = held !== null && errShown?.reason === 'price_changed';
   // The night list: whenever a night is the only way forward (nothing buyable here) or a night
