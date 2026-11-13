@@ -105,7 +105,7 @@ jobs:
         id: claude
         if: steps.claim.outputs.found == 'true'
         timeout-minutes: ${{ fromJSON(steps.branch.outputs.minutes) }}
-        uses: anthropics/claude-code-action@v1.0.60
+        uses: anthropics/claude-code-action@v1.0.275
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.BOT_PR_TOKEN }}
