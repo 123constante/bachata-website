@@ -32,6 +32,8 @@ export interface JoinPrefill {
 export interface JoinPreview extends InvitePreview {
   person: JoinPerson | null;
   prefill: JoinPrefill | null;
+  /** The organisation's logo for the claim screen (https only); absent/null = the first letter instead. */
+  organiserLogoUrl?: string | null;
 }
 
 const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -46,6 +48,7 @@ export function parseJoinPreview(raw: unknown): JoinPreview | null {
     ...base,
     person: person ? { firstName: str(person.first_name), avatarUrl: str(person.avatar_url), city: str(person.city) } : null,
     prefill: prefill ? { firstName: str(prefill.first_name), cityId: str(prefill.city_id) } : null,
+    organiserLogoUrl: organiserLogoUrl(raw),
   };
 }
 
@@ -135,6 +138,56 @@ export function forgetUnmatched(): void {
   } catch {
     /* nothing to forget */
   }
+}
+
+// ---- claim-first (flags.claimFirstInvite) ----------------------------------------------------
+
+/**
+ * The organisation's logo, when the preview carries one (`organiser_logo_url`). The preview RPC does not send it
+ * yet (admin repo owns organiser_invite_preview_v1); until it does the claim screen shows the name's first letter.
+ */
+export const organiserLogoUrl = (raw: unknown): string | null => {
+  const v = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).organiser_logo_url : null;
+  return typeof v === 'string' && /^https:\/\//.test(v.trim()) ? v.trim() : null;
+};
+
+/**
+ * Show the claim screen INSTEAD of the derived step? Only on an open link, only before the person said "yes,
+ * that's mine", and only where the next thing would be about the person or their email (email, about). The
+ * code step is mid-sign-in (they confirmed before sending it); join already names the organisation and asks.
+ */
+export function showClaimFirst(i: { enabled: boolean; step: JoinStep; confirmed: boolean }): boolean {
+  return i.enabled && !i.confirmed && (i.step === 'email' || i.step === 'about');
+}
+
+/** "Yes, that's mine", kept per tab per link (last 12 characters only), so a reload does not ask again. */
+const CLAIMED_KEY = 'bc.join.claimed';
+
+export function rememberClaimConfirmed(token: string): void {
+  try {
+    sessionStorage.setItem(CLAIMED_KEY, linkTail(token));
+  } catch {
+    /* storage blocked: the confirmation lasts for this render tree */
+  }
+}
+
+export function recallClaimConfirmed(token: string): boolean {
+  try {
+    return sessionStorage.getItem(CLAIMED_KEY) === linkTail(token);
+  } catch {
+    return false;
+  }
+}
+
+const nameKey = (s: string): string => s.normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * The first name typed is the organisation's own name (case, accents, spaces and punctuation ignored). Exact only:
+ * a person really called Maria may run "Maria Bachata", so a name INSIDE the organisation's is allowed.
+ */
+export function nameIsOrganisation(firstName: string, organiserName: string): boolean {
+  const a = nameKey(firstName);
+  return a !== '' && a === nameKey(organiserName);
 }
 
 // ---- the step table -------------------------------------------------------------------------

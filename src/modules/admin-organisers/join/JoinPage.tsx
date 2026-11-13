@@ -17,9 +17,10 @@ import { graceStatusFrom, onboardingLeft } from '@/modules/organiser/p3/onboardi
 import { hintMatchesEmail, newLinkLabel, newLinkResultCopy, ownPageForName } from '../inviteModel';
 import { requestNewInvite } from '../inviteRedeemApi';
 import { AboutStep } from './AboutStep';
+import { ClaimScreen } from './ClaimFirst';
 import { JOIN_COPY } from './joinCopy';
 import { attemptRedeem, bindInviteEmail, joinPreviewQueryKey, recordJoinRoles, reportJoinFailure, sendJoinCode, stripToken, verifyJoinCode } from './joinApi';
-import { afterProfileRefusal, checkTypedEmail, claimNextStep, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, forgetUnmatched, inviteKind, recallUnmatched, rememberUnmatched, isPersonBound, joinProgress, redeemAction, searchAfterCodeStep, seatCanSetUpPayments, wantsGetPaid, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
+import { afterProfileRefusal, checkTypedEmail, claimNextStep, classifySendError, classifyVerifyError, codeStepFromSearch, codeStepSearch, deriveJoinStep, forgetUnmatched, inviteKind, recallUnmatched, rememberUnmatched, isPersonBound, joinProgress, recallClaimConfirmed, redeemAction, rememberClaimConfirmed, searchAfterCodeStep, seatCanSetUpPayments, showClaimFirst, wantsGetPaid, type JoinRedeemOutcome, type JoinPreview, type JoinStop } from './joinModel';
 import type { MemberRole } from '../inviteModel';
 import { buildSignInHref } from '@/lib/authRouting';
 import { BTN, Checking, CodeStep, DeadScreen, DoneScreen, GHOST, doneTarget, EmailStep, ErrorLine, Heading, JoinStepScreen, Lead, NoProfileScreen, PersonCard, Progress, StepFrame, StopScreen, Strip, WrongAccountScreen } from './JoinScreens';
@@ -107,6 +108,9 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       .catch(() => { /* never rejects; a failure keeps the stop */ })
       .finally(() => setLinking(false));
   }, [rememberedStop, user, queryClient]);
+  // Claim-first: "Yes, that's mine" for this link (per tab, so a reload does not ask again). Writes nothing.
+  const [claimConfirmed, setClaimConfirmed] = useState(() => recallClaimConfirmed(token));
+  const claimFirst = flags.claimFirstInvite;
   // The server refused the Join tap with profile_incomplete and the re-read sent the person to About: About says why.
   const [aboutRefused, setAboutRefused] = useState(false);
 
@@ -388,6 +392,15 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
     );
   }
 
+  // Claim-first: the organisation BEFORE the email or the About questions (never over a stop, a dead link or Join).
+  if (info && open && showClaimFirst({ enabled: claimFirst, step, confirmed: claimConfirmed })) {
+    return (
+      <StepFrame step={step}>
+        <ClaimScreen preview={info} onConfirm={() => { rememberClaimConfirmed(token); setClaimConfirmed(true); }} />
+      </StepFrame>
+    );
+  }
+
   let body: React.ReactNode;
   switch (step) {
     case 'checking':
@@ -441,9 +454,9 @@ export default function JoinPage({ token, preview, refetchPreview }: { token: st
       body = (
         <>
           {progress && <Progress {...progress} />}
-          <Heading>{JOIN_COPY.about.heading}</Heading>
+          <Heading>{claimFirst ? JOIN_COPY.aboutYou.heading : JOIN_COPY.about.heading}</Heading>
           {aboutRefused && <Lead testId="join-about-refused">{JOIN_COPY.about.refusedNotice}</Lead>}
-          {info && <AboutStep completion={completion} preview={info} linked={linkedHere} onSaved={() => completion.refetch()} />}
+          {info && <AboutStep completion={completion} preview={info} linked={linkedHere} claimFirst={claimFirst} onSaved={() => completion.refetch()} />}
         </>
       );
       break;
