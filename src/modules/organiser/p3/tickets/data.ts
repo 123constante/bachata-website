@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { isListedSeries, type HomeSeriesFull } from '../../shared/homeModel';
 import type { HomeOrganiser, OrganiserHome } from '../../shared/selfServeApi';
-import { fetchOrders, fetchSalesSummary, fetchSeriesTypes, fetchStripeAccount, startOnboarding, ticketKeys } from '../../tickets/ticketsApi';
+import { fetchManagedTypes, fetchOrders, fetchSalesSummary, fetchSeriesTypes, fetchStripeAccount, startOnboarding, ticketKeys } from '../../tickets/ticketsApi';
 import { reasonMessage, stripeStateOf, type StripeState } from '../../tickets/ticketModel';
 import { useP3Home } from '../data/useP3Data';
 import { useEventWorkspace } from '../../shared/runCommands';
@@ -66,6 +66,12 @@ export function useSeriesTypes(organiserId: string | undefined, seriesId: string
     queryFn: () => fetchSeriesTypes(organiserId as string, seriesId),
     enabled: enabled && !!organiserId,
   });
+}
+
+/** T3: ticket_types_manage_v1 (steps, base, has_orders). Its own key under ticketKeys.all, so a refresh of the area refetches it. */
+export const managedKey = (seriesId: string) => [...ticketKeys.all, 'manage', seriesId] as const;
+export function useManagedTypes(seriesId: string, enabled: boolean) {
+  return useQuery({ queryKey: managedKey(seriesId), queryFn: () => fetchManagedTypes(seriesId), enabled });
 }
 
 export function useSeriesOrders(organiserId: string | undefined, seriesId: string, typeIds: readonly string[], enabled: boolean, money: boolean) {
