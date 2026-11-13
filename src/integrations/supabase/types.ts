@@ -44,6 +44,21 @@ export type Database = {
         }
         Relationships: []
       }
+      _ticket_money_owner_only_undo_v1: {
+        Row: {
+          def: string
+          fn: string
+        }
+        Insert: {
+          def: string
+          fn: string
+        }
+        Update: {
+          def?: string
+          fn?: string
+        }
+        Relationships: []
+      }
       _ticket_price_steps_undo_v1: {
         Row: {
           def: string
@@ -8236,6 +8251,7 @@ export type Database = {
         Row: {
           contacted_at: string
           drawn_by: string | null
+          entries_at_draw: number | null
           id: string
           link_expires_at: string
           link_token: string
@@ -8256,6 +8272,7 @@ export type Database = {
         Insert: {
           contacted_at?: string
           drawn_by?: string | null
+          entries_at_draw?: number | null
           id?: string
           link_expires_at: string
           link_token?: string
@@ -8276,6 +8293,7 @@ export type Database = {
         Update: {
           contacted_at?: string
           drawn_by?: string | null
+          entries_at_draw?: number | null
           id?: string
           link_expires_at?: string
           link_token?: string
@@ -10338,6 +10356,21 @@ export type Database = {
           },
         ]
       }
+      walk_readonly_users: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       admin_contract_checks_registry_v1: {
@@ -11136,6 +11169,7 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: Json
       }
+      _install_walk_readonly_triggers_v1: { Args: never; Returns: Json }
       _invite_inviter_first_name_v1: {
         Args: { p_user: string }
         Returns: string
@@ -11500,6 +11534,11 @@ export type Database = {
         Args: { p_member_role: string; p_organiser_id: string; p_user: string }
         Returns: boolean
       }
+      _organiser_raffle_night_row: {
+        Args: { p_can_edit: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
+      _organiser_raffle_role: { Args: { p_series_id: string }; Returns: string }
       _organiser_ref_for_series_v1: {
         Args: { p_ref_code: string; p_series_id: string }
         Returns: string
@@ -11928,6 +11967,14 @@ export type Database = {
       }
       _raffle_event_venue_v1: { Args: { p_event_id: string }; Returns: string }
       _raffle_night_date_v1: { Args: { p_local: string }; Returns: string }
+      _raffle_night_entries_count: {
+        Args: { p_occurrence_id: string }
+        Returns: number
+      }
+      _raffle_night_is_locked: {
+        Args: { p_occurrence_id: string }
+        Returns: boolean
+      }
       _raffle_night_v1: {
         Args: { p_event_id: string }
         Returns: {
@@ -12168,6 +12215,10 @@ export type Database = {
       }
       _target_series_id_p5: { Args: { p_target: Json }; Returns: string }
       _target_series_lifecycle_p5: { Args: { p_target: Json }; Returns: string }
+      _ticket_can_handle_money_v1: {
+        Args: { p_organiser_id: string; p_user_id: string }
+        Returns: boolean
+      }
       _ticket_can_manage_organiser_v1: {
         Args: { p_organiser_id: string }
         Returns: boolean
@@ -14826,6 +14877,7 @@ export type Database = {
       check_vendor_team_contract_v1: { Args: never; Returns: Json }
       check_venue_coords_contract_v1: { Args: never; Returns: Json }
       check_venue_publish_gate_contract_v1: { Args: never; Returns: Json }
+      check_walk_readonly_coverage_v1: { Args: never; Returns: Json }
       claim_dancer_profile: { Args: { p_dancer_id: string }; Returns: string }
       claim_my_dancer_profile_v1: {
         Args: { p_instagram?: string }
@@ -15319,6 +15371,7 @@ export type Database = {
       get_organiser_nights_v2: {
         Args: {
           p_from?: string
+          p_include_cancelled?: boolean
           p_include_past?: boolean
           p_organiser_id: string
           p_past_limit?: number
@@ -16031,6 +16084,14 @@ export type Database = {
       }
       organiser_publish_gate_v1: {
         Args: { p_actor: string; p_series_id: string }
+        Returns: Json
+      }
+      organiser_raffle_night_set_v1: {
+        Args: { p_enabled: boolean; p_occurrence_id: string }
+        Returns: Json
+      }
+      organiser_raffle_nights_v1: {
+        Args: { p_series_id: string }
         Returns: Json
       }
       organiser_room_drop_preview_v1: {
@@ -17302,6 +17363,10 @@ export type Database = {
         Args: { p_id: string; p_patch: Json }
         Returns: Json
       }
+      ticket_refund_authorise_v1: {
+        Args: { p_order_id: string; p_user_id: string }
+        Returns: Json
+      }
       ticket_sales_summary_v1: {
         Args: { p_organiser_id: string }
         Returns: Json
@@ -17396,6 +17461,7 @@ export type Database = {
       uuid_to_bigint: { Args: { p_uuid: string }; Returns: number }
       validate_override_payload_v1: { Args: { p_payload: Json }; Returns: Json }
       venue_is_public: { Args: { p_publish_state: string }; Returns: boolean }
+      walk_readonly_check_v1: { Args: never; Returns: boolean }
       would_violate_events_time_constraints: {
         Args: { p_end: string; p_start: string }
         Returns: boolean
