@@ -137,11 +137,11 @@ describe('editor steps', () => {
 
 describe('thousands separators: the one money helper and the one count helper', () => {
   it.each([
-    [0, '\u00A30.00'],
+    [0, '\u00A30'],
     [1, '\u00A30.01'],
     [123506, '\u00A31,235.06'],
-    [24017000, '\u00A3240,170.00'],
-    [100_000_000, '\u00A31,000,000.00'],
+    [24017000, '\u00A3240,170'],
+    [100_000_000, '\u00A31,000,000'],
   ])('formatPence(%i)', (pence, text) => expect(formatPence(pence)).toBe(text));
   it.each([
     [0, '0'],

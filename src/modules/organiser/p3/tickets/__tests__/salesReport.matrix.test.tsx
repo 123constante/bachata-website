@@ -93,13 +93,13 @@ describe('SalesReport rendered directly (shapes the list view cannot reach)', ()
     renderReport([order('p1', 't1', { status: 'pending', paidAt: null }), order('p2', 't1', { status: 'expired', paidAt: null })]);
     expect(screen.getByTestId('tix-report-notpaid').textContent).toBe('2 orders not paid, left out.');
   });
-  it('lost dispute: its own Disputed line, not sold, Net 0.00', () => {
+  it('lost dispute: its own Disputed line, not sold, Net £0', () => {
     renderReport([order('d1', 't1', { status: 'disputed', quantity: 1, totalPence: 1200, refundedPence: 0 })]);
     const row = screen.getByTestId('tix-report-row-t1');
     expect(row.querySelector('[data-testid="tix-report-counts"]')?.textContent).toMatch(/^0 sold/);
-    expect(row.querySelector('[data-testid="tix-report-disputed"]')?.textContent).toMatch(/Disputed 1 .*12\.00/);
-    expect(row.querySelector('[data-testid="tix-report-money"]')?.textContent).toMatch(/Net \S*0\.00/);
-    expect(screen.getByTestId('tix-report-total-money').textContent).toMatch(/Net \S*0\.00/);
+    expect(row.querySelector('[data-testid="tix-report-disputed"]')?.textContent).toMatch(/Disputed 1 .*12/);
+    expect(row.querySelector('[data-testid="tix-report-money"]')?.textContent).toMatch(/Net \S*0\b/);
+    expect(screen.getByTestId('tix-report-total-money').textContent).toMatch(/Net \S*0\b/);
     expect(screen.queryByTestId('tix-report-notpaid')).toBeNull();
   });
 });

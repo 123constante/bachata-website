@@ -80,7 +80,7 @@ describe('the Refund sheet', () => {
     sheetFor('paid');
     expect(screen.getByTestId('tix-refund-all').getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByTestId('tix-refund-amount')).toBeNull();
-    expect(confirm().textContent).toBe('Refund \u00A325.00');
+    expect(confirm().textContent).toBe('Refund \u00A325');
     fireEvent.click(confirm());
     await waitFor(() => expect(api.refundOrder).toHaveBeenCalledTimes(1));
     expect(api.refundOrder.mock.calls[0]).toEqual(['op', undefined]);
@@ -90,15 +90,15 @@ describe('the Refund sheet', () => {
   it('part: the field shows the maximum, confirm is disabled with the reason under the field until the amount is right', () => {
     sheetFor('paid');
     part();
-    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A325.00 left to refund');
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A325 left to refund');
     expect(screen.getByTestId('tix-refund-body').textContent).toMatch(/stay valid/);
     const field = screen.getByTestId('tix-refund-amount') as HTMLInputElement;
     expect([field.value, field.inputMode]).toEqual(['', 'decimal']);
     expect(confirm().disabled).toBe(true);
-    expect(screen.getByTestId('tix-refund-amount-err').textContent).toBe('Enter how much to refund, up to \u00A325.00.');
+    expect(screen.getByTestId('tix-refund-amount-err').textContent).toBe('Enter how much to refund, up to \u00A325.');
     expect(confirm().getAttribute('aria-describedby')).toBe(screen.getByTestId('tix-refund-amount-err').id);
     typeAmount('abc');
-    expect([confirm().disabled, screen.getByTestId('tix-refund-amount-err').textContent]).toEqual([true, 'Enter an amount in pounds, like 3.50, up to \u00A325.00.']);
+    expect([confirm().disabled, screen.getByTestId('tix-refund-amount-err').textContent]).toEqual([true, 'Enter an amount in pounds, like 3.50, up to \u00A325.']);
     typeAmount('3.5');
     expect([confirm().disabled, confirm().textContent]).toEqual([false, 'Refund \u00A33.50']);
     expect(screen.queryByTestId('tix-refund-amount-err')).toBeNull();
@@ -107,9 +107,9 @@ describe('the Refund sheet', () => {
   it('an already part-refunded order: the maximum is what is left; more is blocked with the maximum named', () => {
     sheetFor('part');
     part();
-    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A38.00 left to refund');
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A38 left to refund');
     typeAmount('8.01');
-    expect([confirm().disabled, screen.getByTestId('tix-refund-amount-err').textContent]).toEqual([true, 'That is more than is left. Enter up to \u00A38.00.']);
+    expect([confirm().disabled, screen.getByTestId('tix-refund-amount-err').textContent]).toEqual([true, 'That is more than is left. Enter up to \u00A38.']);
     typeAmount('8');
     expect(confirm().disabled).toBe(false); // exactly what is left goes as a partial with the amount
   });
@@ -125,7 +125,7 @@ describe('the Refund sheet', () => {
     expect(oid).toBe('opart');
     expect(opts.amountPence).toBe(300);
     expect(opts.requestId).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
-    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
+    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe('Refunded \u00A33. \u00A35 is left to refund. Tickets stay valid.');
     expect(screen.queryByTestId('tix-refund-sheet')).toBeNull();
   });
 
@@ -204,7 +204,7 @@ describe('one key per press (request_id idempotency)', () => {
     r.again();
     openSheet('op');
     part();
-    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A322.00 left to refund');
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A322 left to refund');
     typeAmount('3');
     await pressAndWait(2);
     expect(key(1)).not.toBe(key(0)); // a second, deliberate 3.00 refund
@@ -246,7 +246,7 @@ describe('one key per press (request_id idempotency)', () => {
     typeAmount('3');
     await pressAndWait(1);
     expect(screen.getByTestId('tix-refund-maybe-sent').textContent).toBe(
-      'The last refund may have gone through. Tap Refund \u00A33.00 again to check, or reload the page before changing the amount.',
+      'The last refund may have gone through. Tap Refund \u00A33 again to check, or reload the page before changing the amount.',
     );
     await pressAndWait(2);
     expect(key(1)).toBe(key(0));
@@ -260,8 +260,8 @@ describe('one key per press (request_id idempotency)', () => {
     typeAmount('3');
     expect(screen.queryByTestId('tix-refund-maybe-sent')).toBeNull();
   });
-  it('a \u00A33 partial of \u00A38 left: reopening shows up to \u00A35.00 and the whole refund says \u00A35.00 until refunded_pence moves', async () => {
-    // order 'op' is \u00A325.00 total; make it \u00A38.00 so the brief\u2019s figures hold.
+  it('a \u00A33 partial of \u00A38 left: reopening shows up to \u00A35 and the whole refund says \u00A35 until refunded_pence moves', async () => {
+    // order 'op' is \u00A325 total; make it \u00A38 so the brief\u2019s figures hold.
     load({ ...withOrders(), orders: [order('o8', 't-sell', { subtotalPence: 800, bookingFeePence: 0, totalPence: 800 })] });
     api.refundOrder.mockResolvedValueOnce({ kind: 'ok', value: { amountPence: 300, remainingPence: 500, clearsBalance: false } });
     const r = show(<TicketsEntry seriesId="ser-1" />);
@@ -271,19 +271,19 @@ describe('one key per press (request_id idempotency)', () => {
     part();
     typeAmount('3');
     fireEvent.click(confirm());
-    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe('Refunded \u00A33.00. \u00A35.00 is left to refund. Tickets stay valid.');
+    expect((await screen.findByTestId('tix-toast')).querySelector('span')?.textContent).toBe('Refunded \u00A33. \u00A35 is left to refund. Tickets stay valid.');
     openSheet('o8');
-    expect(screen.getByTestId('tix-refund-body').textContent).toMatch(/\u00A35\.00/);
-    expect(confirm().textContent).toBe('Refund \u00A35.00');
+    expect(screen.getByTestId('tix-refund-body').textContent).toMatch(/\u00A35/);
+    expect(confirm().textContent).toBe('Refund \u00A35');
     part();
-    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A35.00 left to refund');
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A35 left to refund');
     fireEvent.click(screen.getByTestId('tix-refund-cancel'));
     // The webhook lands: the row says 3.00 refunded, and the pending figure is not counted twice.
     load({ ...withOrders(), orders: [order('o8', 't-sell', { subtotalPence: 800, bookingFeePence: 0, totalPence: 800, refundedPence: 300 })] });
     r.again();
     openSheet('o8');
     part();
-    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A35.00 left to refund');
+    expect(screen.getByTestId('tix-refund-max').textContent).toBe('Up to \u00A35 left to refund');
   });
   it('a done partial ends the press: the next refund of the same amount on that order is a new key', async () => {
     api.refundOrder.mockResolvedValueOnce({ kind: 'ok', value: { amountPence: 300, remainingPence: 2200, clearsBalance: false } });

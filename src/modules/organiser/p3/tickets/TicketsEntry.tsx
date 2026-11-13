@@ -11,6 +11,8 @@ import {
   externalTicketLine,
   goingCountLine,
   orderTitleFor,
+  orderTagFor,
+  partRefundedNote,
   canRefund,
   orderLineFor,
   PAYMENTS_WHERE,
@@ -291,7 +293,9 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
   const orderRows = (rows: readonly Order[]) => (
     <ul className="p3-list p3-flush">
       {rows.map((o) => {
-        const tag = orderTag(o.status);
+        const shownOrder = withPendingRefund(o, pendingRefund.get(o.id));
+        const tag = orderTagFor(shownOrder);
+        const partNote = showMoney ? partRefundedNote(shownOrder) : null;
         return (
           <li key={o.id} className="p3-row p3-order" data-testid={`tix-order-${o.id}`}>
             <div className="p3-grow">
@@ -303,6 +307,7 @@ function Entry({ org, series }: { org: HomeOrganiser; series: HomeSeriesFull }) 
               <div className="p3-row-tags">
                 <span className={TONE_CLASS[tag.tone]} data-testid="tix-order-tag">{tag.label}</span>
               </div>
+              {partNote && <p className="p3-note" data-testid="tix-order-part-refunded">{partNote}</p>}
               {/* Review 1520-r1 F1: a manager's read has no pence, so status alone gates the note; F5: under
                   the tags, inside the buyer column, never a second column beside it at 390. */}
               {manager && !canRefund(org.role) && refundableByStatus(o) && (
