@@ -451,6 +451,11 @@ export interface TypeForm {
   capacity: string;
   opensAt: string;
   closesAt: string;
+  /** T5 (flag ticketCoursePresets): a NEW ticket may be a course; absent = a per-night ticket, exactly as before. */
+  kind?: 'night' | 'course';
+  /** 'YYYY-MM-DD' (valid_from / valid_to are dates). */
+  validFrom?: string;
+  validTo?: string;
 }
 
 /** A series as the Tickets sheet knows it: how many upcoming dates, and the next one's start. */
@@ -527,6 +532,10 @@ export interface UpsertDraft {
   capacity: number;
   salesOpenAt: string | null;
   salesCloseAt: string | null;
+  /** Only a NEW course carries these (an edit sends no kind keys: the server keeps the type's kind and dates). */
+  kind?: 'course';
+  validFrom?: string;
+  validTo?: string;
 }
 
 /**
@@ -550,7 +559,10 @@ export const buildUpsert = (
     salesOpenAt: londonInputToIso(f.opensAt),
     salesCloseAt: londonInputToIso(f.closesAt),
   };
-  if (!original) return draft;
+  if (!original) {
+    if (f.kind === 'course') return { ...draft, kind: 'course', validFrom: f.validFrom, validTo: f.validTo };
+    return draft;
+  }
   const same =
     draft.name === original.name &&
     draft.pricePence === original.pricePence &&
@@ -946,7 +958,7 @@ export const orderLineFor = (
 export const EDITOR_STEPS = 3;
 /** The fields each step owns; Continue checks only these. */
 export const STEP_FIELDS: Record<1 | 2, readonly (keyof TypeForm)[]> = {
-  1: ['name', 'price'],
+  1: ['name', 'price', 'validFrom', 'validTo'],
   2: ['capacity', 'opensAt', 'closesAt'],
 };
 export const stepErrors = (errors: FormErrors, step: 1 | 2): FormErrors =>

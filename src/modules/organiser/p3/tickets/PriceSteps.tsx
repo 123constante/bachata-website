@@ -23,6 +23,7 @@ import {
   type StepErrors,
   type StepForm,
 } from '../../tickets/priceSteps';
+import { PRESETS_HELP, PRESETS_TITLE, presetForm, type PresetsView } from '../../tickets/coursePresets';
 import { useGatedCopy } from '../onboarding/gate';
 import { managedKey } from './data';
 
@@ -38,6 +39,8 @@ export interface PriceStepsProps {
   onRetry: () => void;
   /** The sheet's has_orders (sales / orders reads); the manage row's own has_orders also counts. */
   hasOrders: boolean;
+  /** T5 (flag ticketCoursePresets): the course's early-bird presets; null/absent = none shown. */
+  presets?: PresetsView | null;
 }
 
 type Editing = { step: PriceStep | null; form: StepForm };
@@ -47,7 +50,7 @@ type Editing = { step: PriceStep | null; form: StepForm };
  * and remove is its own command (ticket_price_step_set_v1 / _remove_v1), apart from the ticket's
  * Save. A refusal keeps the draft open with the server's reason; an untouched move sends nothing.
  */
-export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders }: PriceStepsProps) {
+export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders, presets }: PriceStepsProps) {
   const queryClient = useQueryClient();
   const gated = useGatedCopy();
   const id = useId();
@@ -80,8 +83,8 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
     if (words !== null && alive.current) setServerError(words);
   };
 
-  const open = (step: PriceStep | null) => {
-    setEditing({ step, form: stepFormOf(step) });
+  const open = (step: PriceStep | null, draft?: StepForm) => {
+    setEditing({ step, form: draft ?? stepFormOf(step) });
     setErrors({});
     setServerError(null);
     setNote(null);
@@ -252,6 +255,26 @@ export function PriceSteps({ seriesId, row, loading, failed, onRetry, hasOrders 
             </>
           )}
         </>
+      )}
+      {presets && !editing && (
+        <div className="p3-stack-s" data-testid="tix-presets">
+          <h5 className="p3-field">{PRESETS_TITLE}</h5>
+          {presets.blocked ? (
+            <p className="p3-note" data-testid="tix-presets-blocked">{presets.blocked}</p>
+          ) : (
+            <>
+              {presets.offered.length > 0 && <p className="p3-note">{PRESETS_HELP}</p>}
+              {presets.offered.map((pr) => (
+                <button key={pr.id} type="button" className="p3-btn p3-btn-line" style={TAP} disabled={busy} onClick={() => open(null, presetForm(pr))} data-testid={`tix-preset-${pr.id}`}>
+                  {pr.label}
+                </button>
+              ))}
+              {presets.skipped.map((s) => (
+                <p key={s.id} className="p3-note" data-testid={`tix-preset-skipped-${s.id}`}>{s.label}: {s.why}</p>
+              ))}
+            </>
+          )}
+        </div>
       )}
       {serverError && (
         <p role="alert" className="p3-error" data-testid="tix-step-error" data-reserve={serverError === RESERVE_NOT_READY_TEXT ? 'not-ready' : undefined}>{serverError}</p>
