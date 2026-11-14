@@ -11,7 +11,7 @@
 
 export const DANCER_APP_BASE = '/app';
 
-export type DancerRouteId = 'welcome' | 'home' | 'nights' | 'me' | 'edit' | 'photo' | 'page' | 'options';
+export type DancerRouteId = 'welcome' | 'home' | 'nights' | 'me' | 'edit' | 'photo' | 'page' | 'options' | 'tickets';
 
 export type DancerRoute = {
   id: DancerRouteId;
@@ -30,15 +30,19 @@ export const DANCER_ROUTES: readonly DancerRoute[] = [
   { id: 'photo', path: '/app/me/photo', title: 'Photo' },
   { id: 'page', path: '/app/page', title: 'My page' },
   { id: 'options', path: '/app/options', title: 'Options' },
+  // Option A (brief option-a-tickets-tab): the buyer's door QRs. Shown as a tab only while
+  // flags.publicTicketing is on; the screen itself sends a flag-off visit to Home.
+  { id: 'tickets', path: '/app/tickets', title: 'Tickets' },
 ];
 
 export const DANCER_HOME = '/app/home';
 export const DANCER_WELCOME = '/app/welcome';
+export const DANCER_TICKETS = '/app/tickets';
 
 /** Every URL the dancer app answers: the bare base (a redirect to Home) plus each route. */
 export const DANCER_APP_PATHS: readonly string[] = [DANCER_APP_BASE, ...DANCER_ROUTES.map((r) => r.path)];
 
-export type DancerTab = { id: 'home' | 'nights' | 'me' | 'options'; label: string; path: string };
+export type DancerTab = { id: 'tickets' | 'home' | 'nights' | 'me' | 'options'; label: string; path: string };
 
 /** The bottom tabs, left to right (mockups v8). */
 export const DANCER_TABS: readonly DancerTab[] = [
@@ -47,6 +51,12 @@ export const DANCER_TABS: readonly DancerTab[] = [
   { id: 'me', label: 'Me', path: '/app/me' },
   { id: 'options', label: 'Options', path: '/app/options' },
 ];
+
+/** The Tickets tab: FIRST, and only while flags.publicTicketing is on (the shell passes the flag in). */
+export const TICKETS_TAB: DancerTab = { id: 'tickets', label: 'Tickets', path: DANCER_TICKETS };
+
+/** The tabs the shell draws: the four, with Tickets in front while ticketing is on. */
+export const shellTabs = (ticketsOn: boolean): readonly DancerTab[] => (ticketsOn ? [TICKETS_TAB, ...DANCER_TABS] : DANCER_TABS);
 
 /** True on /app and everything under it. Case-folded, as the router matches. */
 export const isDancerAppPath = (pathname: string): boolean => {
@@ -57,7 +67,7 @@ export const isDancerAppPath = (pathname: string): boolean => {
 /** The tab a path belongs to: /app/me/edit and /app/me/photo are under Me; /app/welcome is under none. */
 export const activeTabFor = (pathname: string): DancerTab['id'] | null => {
   const p = pathname.toLowerCase().replace(/\/+$/, '');
-  for (const tab of DANCER_TABS) {
+  for (const tab of [TICKETS_TAB, ...DANCER_TABS]) {
     if (p === tab.path || p.startsWith(`${tab.path}/`)) return tab.id;
   }
   return null;

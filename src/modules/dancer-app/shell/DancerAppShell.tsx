@@ -1,23 +1,30 @@
 import { Suspense, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { House, Moon, SlidersHorizontal, UserRound } from 'lucide-react';
+import { House, Lock, Moon, SlidersHorizontal, Ticket, UserRound } from 'lucide-react';
 import { EmberWorld } from '@/modules/organiser/ui';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
+import { flags } from '@/lib/featureFlags';
 import { FOCUS_NOT_NOW_LABEL } from '@/lib/focusMode';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import '../theme/dancer.css';
 import '../theme/dancer-color.css';
 import { fetchMyDancerEdit } from '../api/rpc';
 import { myDancerEditKey } from '../api/useMyDancerEdit';
-import { mayBeFocus, shellChrome } from './focusChrome';
-import { DANCER_TABS, activeTabFor, type DancerTab } from './routes';
+import { DancerApiError } from '../api/errors';
+import { useViewOnly } from '../gate/viewOnly';
+import { profileIncomplete } from '../screens/tickets/model';
+import '../screens/tickets/tickets.css';
+import { mayBeFocus, requiredDone, shellChrome } from './focusChrome';
+import { ProfileSheetProvider, useProfileSheet } from './profileSheet';
+import { activeTabFor, shellTabs, type DancerTab } from './routes';
 import { SiteHomeLink } from './SiteHomeLink';
 import { ShellToast } from './shellToast';
 import { LeaveGuardProvider, type LeaveGuard } from './leaveGuard';
 
 const TAB_ICON: Record<DancerTab['id'], typeof House> = {
+  tickets: Ticket,
   home: House,
   nights: Moon,
   me: UserRound,
@@ -54,17 +61,32 @@ export const DancerAppShell = () => {
   // The same cache entry every dancer screen reads (api/useMyDancerEdit), and only on
   // a path that can be focus: the other screens never wait on it.
   const candidate = mayBeFocus(pathname, search);
+  // Option A: with ticketing on, the same read also says whether the profile is unfinished
+  // (the amber bar and the tab locks). Never for a view-only visitor: the member RPC refuses them.
+  const viewOnly = useViewOnly();
+  const ticketsOn = flags.publicTicketing;
   const profile = useQuery({
     queryKey: myDancerEditKey(user?.id),
     queryFn: fetchMyDancerEdit,
-    enabled: Boolean(user?.id) && candidate,
+    enabled: Boolean(user?.id) && (candidate || (ticketsOn && !viewOnly)),
   });
+  const noProfile = profile.error instanceof DancerApiError && profile.error.code === 'no_profile';
+  const incomplete =
+    ticketsOn &&
+    profileIncomplete(viewOnly, {
+      status: profile.data ? 'success' : noProfile ? 'no_profile' : profile.isError ? 'error' : 'pending',
+      requiredDone: requiredDone(profile.data),
+    });
+  // Locked tabs: only for a person with no dancer profile to show (view-only, or no_profile).
+  // A dancer mid-setup keeps their tabs and sees only the bar.
+  const tabsLocked = ticketsOn && (viewOnly || noProfile);
   const { focus, notNowTo } = shellChrome(pathname, search, candidate ? profile.data : null);
   const active = activeTabFor(pathname);
   const guardRef = useRef<LeaveGuard | null>(null);
   return (
     <EmberWorld data-profile="dancer" className="dancer-app" data-testid="dancer-app-shell" data-chrome={focus ? 'focus' : 'full'}>
       <LeaveGuardProvider guardRef={guardRef}>
+      <ProfileSheetProvider incomplete={incomplete} viewOnly={viewOnly}>
       <header className="da-header" data-testid="dancer-app-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
           <SiteHomeLink onBeforeLeave={() => (guardRef.current ? guardRef.current('/') : true)} />
@@ -106,31 +128,57 @@ export const DancerAppShell = () => {
         <Outlet />
       </div>
       {!focus && (
-        <nav className="da-tabs" aria-label="Dancer app" data-testid="dancer-app-tabs">
-          {DANCER_TABS.map((tab) => {
-            const Icon = TAB_ICON[tab.id];
-            const isActive = active === tab.id;
-            return (
-              <Link
-                key={tab.id}
-                to={tab.path}
-                className="da-tap da-tab"
-                onClick={(e) => {
-                  if (guardRef.current && !guardRef.current(tab.path)) e.preventDefault();
-                }}
-                aria-current={isActive ? 'page' : undefined}
-                data-testid={`dancer-app-tab-${tab.id}`}
-              >
-                <Icon aria-hidden="true" style={{ width: 20, height: 20 }} />
-                <span>{tab.label}</span>
-              </Link>
-            );
-          })}
+        <nav className={ticketsOn ? 'da-tabs dt-tabs-5' : 'da-tabs'} aria-label="Dancer app" data-testid="dancer-app-tabs">
+          {shellTabs(ticketsOn).map((tab) => (
+            <ShellTab key={tab.id} tab={tab} isActive={active === tab.id} locked={tabsLocked && tab.id !== 'tickets'} guardRef={guardRef} />
+          ))}
         </nav>
       )}
       <ShellToast />
+      </ProfileSheetProvider>
       </LeaveGuardProvider>
     </EmberWorld>
+  );
+};
+
+/**
+ * One bottom tab. Locked (Option A: unfinished profile, ticketing on) = the lock mark, and the
+ * tap opens the "What are you?" sheet instead of the screen, so it is never a dead control.
+ */
+const ShellTab = ({ tab, isActive, locked, guardRef }: { tab: DancerTab; isActive: boolean; locked: boolean; guardRef: { current: LeaveGuard | null } }) => {
+  const sheet = useProfileSheet();
+  const Icon = TAB_ICON[tab.id];
+  if (locked) {
+    return (
+      <button
+        type="button"
+        className="da-tap da-tab dt-tab-locked"
+        onClick={sheet.open}
+        aria-label={`${tab.label}, locked: finish your profile to unlock`}
+        data-testid={`dancer-app-tab-${tab.id}`}
+        data-locked="true"
+      >
+        <span className="dt-tab-icon">
+          <Icon aria-hidden="true" style={{ width: 20, height: 20 }} />
+          <Lock aria-hidden="true" className="dt-tab-lock" style={{ width: 11, height: 11 }} />
+        </span>
+        <span>{tab.label}</span>
+      </button>
+    );
+  }
+  return (
+    <Link
+      to={tab.path}
+      className="da-tap da-tab"
+      onClick={(e) => {
+        if (guardRef.current && !guardRef.current(tab.path)) e.preventDefault();
+      }}
+      aria-current={isActive ? 'page' : undefined}
+      data-testid={`dancer-app-tab-${tab.id}`}
+    >
+      <Icon aria-hidden="true" style={{ width: 20, height: 20 }} />
+      <span>{tab.label}</span>
+    </Link>
   );
 };
 

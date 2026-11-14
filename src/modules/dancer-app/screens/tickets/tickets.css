@@ -1,0 +1,48 @@
+/* Option A Tickets tab + the shell's profile sheet and locked tabs. Real dancer tokens only
+   (theme/dancer.css), scoped under [data-profile="dancer"]. px, not rem (phone html is ~13.5px). */
+[data-profile="dancer"] .dt-screen { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; height: 100%; min-height: 0; overflow: hidden; }
+[data-profile="dancer"] .dt-card { background: var(--da-surface); border: 1px solid var(--da-border); border-radius: var(--da-radius); padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+[data-profile="dancer"] .dt-card-state { align-items: stretch; gap: 8px; }
+[data-profile="dancer"] .dt-state-line { font-size: 14px; line-height: 1.4; margin: 0; }
+[data-profile="dancer"] .dt-card-top { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+[data-profile="dancer"] .dt-type { font-size: 14px; font-weight: 600; }
+[data-profile="dancer"] .dt-checked { font-size: 12px; padding: 2px 6px; border-radius: 6px; background: var(--da-surface-2); color: var(--da-text-muted); }
+[data-profile="dancer"] .dt-qr { display: block; width: 196px; padding: 6px; border-radius: 10px; background: #fff; border: 0; cursor: zoom-in; }
+[data-profile="dancer"] .dt-card [data-testid="tickets-card-code"] { margin-top: 2px; color: var(--da-text) !important; font-size: 12px; }
+[data-profile="dancer"] .dt-card [data-testid="tickets-card-code"] [data-testid="door-code-value"] { font-size: 16px; }
+[data-profile="dancer"] .dt-steps { display: flex; align-items: center; justify-content: center; gap: 8px; }
+[data-profile="dancer"] .dt-count { font-size: 13px; color: var(--da-text-muted); min-width: 96px; text-align: center; }
+[data-profile="dancer"] .dt-icon-btn { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--da-border); background: transparent; color: var(--da-text); }
+[data-profile="dancer"] .dt-btn { min-height: 44px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 0; background: var(--da-accent); color: var(--da-on-accent); font-size: 14px; font-weight: 600; text-decoration: none; }
+[data-profile="dancer"] .dt-btn-small { padding: 0 14px; font-size: 13px; }
+[data-profile="dancer"] .dt-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 4px 4px 12px; border-radius: 999px; background: color-mix(in srgb, var(--da-pop-gold) 16%, var(--da-surface)); border: 1px solid color-mix(in srgb, var(--da-pop-gold) 55%, transparent); flex-shrink: 0; }
+[data-profile="dancer"] .dt-bar-text { font-size: 13px; font-weight: 600; color: var(--da-pop-gold); }
+[data-profile="dancer"] .dt-peek { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: var(--da-radius); border: 1px solid var(--da-border); background: var(--da-surface); padding: 0; text-align: left; color: var(--da-text); }
+[data-profile="dancer"] .dt-blur { display: flex; flex-direction: column; gap: 10px; padding: 12px; filter: blur(5px); opacity: 0.7; pointer-events: none; }
+[data-profile="dancer"] .dt-peek-line { display: block; height: 12px; border-radius: 6px; background: var(--da-surface-2); }
+[data-profile="dancer"] .dt-w40 { width: 40%; } [data-profile="dancer"] .dt-w60 { width: 60%; } [data-profile="dancer"] .dt-w80 { width: 80%; }
+[data-profile="dancer"] .dt-peek-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+[data-profile="dancer"] .dt-peek-grid > span { display: block; height: 64px; border-radius: 10px; background: linear-gradient(135deg, var(--da-gradient-from), var(--da-gradient-to)); }
+[data-profile="dancer"] .dt-peek-lock { position: absolute; top: 10px; right: 10px; display: inline-flex; gap: 4px; align-items: center; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: var(--da-bg); border: 1px solid var(--da-border); }
+[data-profile="dancer"] .dt-tab-icon { position: relative; display: inline-flex; }
+[data-profile="dancer"] .dt-tab-lock { position: absolute; right: -7px; bottom: -3px; color: var(--da-pop-gold); }
+[data-profile="dancer"] .dt-tab-locked { background: transparent; border: 0; color: var(--da-text-muted); font: inherit; }
+[data-profile="dancer"] .dt-door { position: fixed; inset: 0; z-index: 60; background: var(--da-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; text-align: center; }
+[data-profile="dancer"] .dt-door-close { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border-radius: 999px; border: 1px solid var(--da-border); background: var(--da-surface); color: var(--da-text); display: inline-flex; align-items: center; justify-content: center; }
+[data-profile="dancer"] .dt-door-title { font-size: 18px; font-weight: 700; margin: 0; }
+[data-profile="dancer"] .dt-door-date { font-size: 14px; color: var(--da-text-muted); margin: 0; }
+[data-profile="dancer"] .dt-door-type { font-size: 14px; font-weight: 600; margin: 4px 0 0; }
+[data-profile="dancer"] .dt-door-qr { width: min(88vw, 340px); padding: 10px; border-radius: 12px; background: #fff; }
+[data-profile="dancer"] .dt-door-qr svg { max-width: none; }
+[data-profile="dancer"] .dt-door [data-testid="tickets-door-code"] { color: var(--da-text) !important; justify-content: center; }
+[data-profile="dancer"] .dt-sheet-scrim { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.55); display: flex; align-items: flex-end; justify-content: center; }
+[data-profile="dancer"] .dt-sheet { width: 100%; max-width: 480px; background: var(--da-surface); color: var(--da-text); border-radius: 18px 18px 0 0; border-top: 1px solid var(--da-border); padding: 12px 12px calc(env(safe-area-inset-bottom) + 16px); }
+[data-profile="dancer"] .dt-sheet-head { display: flex; align-items: center; justify-content: space-between; }
+[data-profile="dancer"] .dt-sheet-title { font-size: 17px; font-weight: 700; margin: 0; }
+[data-profile="dancer"] .dt-sheet-sub { font-size: 13px; color: var(--da-text-muted); margin: 2px 0 10px; }
+[data-profile="dancer"] .dt-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+[data-profile="dancer"] .dt-chip { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid var(--da-border); background: var(--da-surface-2); color: var(--da-text); font-size: 14px; font-weight: 600; text-decoration: none; }
+[data-profile="dancer"] .dt-chip[aria-pressed="true"] { border-color: var(--da-accent); }
+[data-profile="dancer"] .dt-sheet-soon { font-size: 13px; margin: 10px 0 0; color: var(--da-text-muted); }
+/* Five tabs while ticketing is on (Tickets first): one row, never a wrap. */
+[data-profile="dancer"] .da-tabs.dt-tabs-5 { grid-template-columns: repeat(5, 1fr); }
